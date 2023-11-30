@@ -9,6 +9,42 @@ Looking for changes that affect our C API? See the [C API Changelog](lib/c-api/C
 
 ## **Unreleased**
 
+## 4.2.4 - 30/11/2023
+
+## Added
+
+  - [#4334](https://github.com/wasmerio/wasmer/pull/4334) Add `application/wasm` to list of accepted content-types for webcs
+  - [#4328](https://github.com/wasmerio/wasmer/pull/4328) Add `--wait` and `--timeout` flags to `wamer publish`
+  - [#4315](https://github.com/wasmerio/wasmer/pull/4315) Add TTY aware output to the wasmer package and wasmer container commands
+  - [#4287](https://github.com/wasmerio/wasmer/pull/4287) feat(cli): Add package commands
+  - [#4247](https://github.com/wasmerio/wasmer/pull/4247) Add support for publishing private packages
+  - [#4291](https://github.com/wasmerio/wasmer/pull/4291) feat(cli): add pnpm support
+
+## Changed
+
+  - [#4333](https://github.com/wasmerio/wasmer/pull/4333) deps: Bump edge-cli
+  - [#4332](https://github.com/wasmerio/wasmer/pull/4332) use rusty_pool instead of rayon
+  - [#4321](https://github.com/wasmerio/wasmer/pull/4321) deps(cli): Upgrade Edge CLI
+  - [#4326](https://github.com/wasmerio/wasmer/pull/4326) Always re-execute a registry query when cache lookups fail
+  - [#4317](https://github.com/wasmerio/wasmer/pull/4317) Bump min enumset version to 1.1.0
+  - [#4300](https://github.com/wasmerio/wasmer/pull/4300) Use authentication when running a package
+  - [#4304](https://github.com/wasmerio/wasmer/pull/4304) Revert "When the main thread was exiting it was not flushing and properly closing file descriptors"
+  - [#4293](https://github.com/wasmerio/wasmer/pull/4293) When the main thread was exiting it was not flushing and properly closing file descriptors
+  - [#4301](https://github.com/wasmerio/wasmer/pull/4301) refactor(cli): run: Unify wasi env setup
+  - [#4294](https://github.com/wasmerio/wasmer/pull/4294) Terminate after flushing file descriptors
+  - [#4273](https://github.com/wasmerio/wasmer/pull/4273) Update memoffset to 0.9.0
+  - [#4286](https://github.com/wasmerio/wasmer/pull/4286) Ignore all create_exe tests as part of #4285
+
+## Fixed
+
+  - [#4307](https://github.com/wasmerio/wasmer/pull/4307) Fix for the non-flushing of file descriptors and a nasty deadlock
+  - [#4331](https://github.com/wasmerio/wasmer/pull/4331) Fix visibility validation to work when publishing a new package
+  - [#4314](https://github.com/wasmerio/wasmer/pull/4314) fix(cli): Prevent temporary file issues in "package download"
+  - [#4296](https://github.com/wasmerio/wasmer/pull/4296) fix: prevent potential UB by deriving repr C for union
+  - [#4192](https://github.com/wasmerio/wasmer/pull/4192) More fixes to support Wasmer JS
+
+
+
 ## 4.2.3 - 26/10/2023
 
 This new version fixes a bug in module bindings path.
