@@ -30,12 +30,8 @@ This release allows publishing private packages and fixes the issue of the file 
   - [#4326](https://github.com/wasmerio/wasmer/pull/4326) Always re-execute a registry query when cache lookups fail
   - [#4317](https://github.com/wasmerio/wasmer/pull/4317) Bump min enumset version to 1.1.0
   - [#4300](https://github.com/wasmerio/wasmer/pull/4300) Use authentication when running a package
-  - [#4304](https://github.com/wasmerio/wasmer/pull/4304) Revert "When the main thread was exiting it was not flushing and properly closing file descriptors"
-  - [#4293](https://github.com/wasmerio/wasmer/pull/4293) When the main thread was exiting it was not flushing and properly closing file descriptors
-  - [#4301](https://github.com/wasmerio/wasmer/pull/4301) refactor(cli): run: Unify wasi env setup
   - [#4294](https://github.com/wasmerio/wasmer/pull/4294) Terminate after flushing file descriptors
   - [#4273](https://github.com/wasmerio/wasmer/pull/4273) Update memoffset to 0.9.0
-  - [#4286](https://github.com/wasmerio/wasmer/pull/4286) Ignore all create_exe tests as part of #4285
 
 ## Fixed
 
