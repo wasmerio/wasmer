@@ -5799,7 +5799,7 @@ dependencies = [
  "wasmer-emscripten",
  "wasmer-object",
  "wasmer-registry 5.10.0",
- "wasmer-toml 0.9.2",
+ "wasmer-toml",
  "wasmer-types",
  "wasmer-vm",
  "wasmer-wasix",
@@ -5932,9 +5932,9 @@ dependencies = [
 
 [[package]]
 name = "wasmer-edge-cli"
-version = "0.1.1"
+version = "0.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2d6efa3ced01dd6f1f7b2cab243e323136412bb186fea31c3b751081cc883403"
+checksum = "ce09190ea5ebf04ff8d51328f77599dd71b151179c75d4768cbd86b9905f933a"
 dependencies = [
  "anyhow",
  "clap",
@@ -5965,8 +5965,8 @@ dependencies = [
  "virtual-mio 0.3.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "virtual-net 0.6.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "wasmer-api",
- "wasmer-registry 5.9.0",
- "wasmer-toml 0.9.2",
+ "wasmer-registry 5.10.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "wasmer-toml",
  "webc",
 ]
 
@@ -6065,47 +6065,6 @@ dependencies = [
 
 [[package]]
 name = "wasmer-registry"
-version = "5.9.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0bb2ecfb16d793bfe1e2b98af07e6f344bd00ba0efea8e1b24737701d823a3ee"
-dependencies = [
- "anyhow",
- "console",
- "dirs",
- "filetime",
- "flate2",
- "futures-util",
- "graphql_client",
- "hex",
- "indexmap 1.9.3",
- "indicatif",
- "lazy_static",
- "log",
- "lzma-rs",
- "minisign",
- "regex",
- "reqwest",
- "rpassword",
- "rusqlite",
- "semver 1.0.20",
- "serde",
- "serde_json",
- "tar",
- "tempfile",
- "thiserror",
- "time",
- "tldextract",
- "tokio",
- "toml 0.5.11",
- "url",
- "wasmer-toml 0.8.1",
- "wasmer-wasm-interface 4.2.3",
- "wasmparser 0.51.4",
- "whoami",
-]
-
-[[package]]
-name = "wasmer-registry"
 version = "5.10.0"
 dependencies = [
  "anyhow",
@@ -6141,8 +6100,51 @@ dependencies = [
  "toml 0.5.11",
  "tracing",
  "url",
- "wasmer-toml 0.9.2",
+ "wasmer-toml",
  "wasmer-wasm-interface 4.2.4",
+ "wasmparser 0.51.4",
+ "whoami",
+]
+
+[[package]]
+name = "wasmer-registry"
+version = "5.10.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3c06bbf7ad273a7c367b2e8ac7446ed830cf97c22db4bb6cc6ae39e188b6d1ce"
+dependencies = [
+ "anyhow",
+ "console",
+ "dialoguer 0.11.0",
+ "dirs",
+ "filetime",
+ "flate2",
+ "futures-util",
+ "graphql_client",
+ "hex",
+ "indexmap 1.9.3",
+ "indicatif",
+ "lazy_static",
+ "log",
+ "lzma-rs",
+ "minisign",
+ "regex",
+ "reqwest",
+ "rpassword",
+ "rusqlite",
+ "semver 1.0.20",
+ "serde",
+ "serde_json",
+ "tar",
+ "tempfile",
+ "thiserror",
+ "time",
+ "tldextract",
+ "tokio",
+ "toml 0.5.11",
+ "tracing",
+ "url",
+ "wasmer-toml",
+ "wasmer-wasm-interface 4.2.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "wasmparser 0.51.4",
  "whoami",
 ]
@@ -6159,24 +6161,6 @@ dependencies = [
  "wasmer-types",
  "wasmer-vm",
  "wasmer-wasix",
-]
-
-[[package]]
-name = "wasmer-toml"
-version = "0.8.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "80dd00e4ae6e2f13c1fba9c8fd49d2567985c8099f9c9920aa4bb922c59e4f54"
-dependencies = [
- "anyhow",
- "derive_builder",
- "indexmap 1.9.3",
- "semver 1.0.20",
- "serde",
- "serde_cbor",
- "serde_json",
- "serde_yaml 0.9.27",
- "thiserror",
- "toml 0.5.11",
 ]
 
 [[package]]
@@ -6352,18 +6336,6 @@ dependencies = [
 
 [[package]]
 name = "wasmer-wasm-interface"
-version = "4.2.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "70759b128088ce07ab6f31b97d83ceb8642285c650677fc84f554d68dc534ac4"
-dependencies = [
- "either",
- "nom 5.1.3",
- "serde",
- "wasmparser 0.51.4",
-]
-
-[[package]]
-name = "wasmer-wasm-interface"
 version = "4.2.4"
 dependencies = [
  "bincode",
@@ -6372,6 +6344,18 @@ dependencies = [
  "serde",
  "wasmparser 0.51.4",
  "wat",
+]
+
+[[package]]
+name = "wasmer-wasm-interface"
+version = "4.2.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6a53f9caef66f4deaa939d91cc8fe6cbe19411e6ffdff871639e29ddde97e3a6"
+dependencies = [
+ "either",
+ "nom 5.1.3",
+ "serde",
+ "wasmparser 0.51.4",
 ]
 
 [[package]]
@@ -6644,7 +6628,7 @@ dependencies = [
  "toml 0.7.8",
  "url",
  "walkdir",
- "wasmer-toml 0.9.2",
+ "wasmer-toml",
 ]
 
 [[package]]
