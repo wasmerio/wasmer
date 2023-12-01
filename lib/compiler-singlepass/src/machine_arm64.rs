@@ -1,5 +1,16 @@
-use crate::arm64_decl::new_machine_state;
+use dynasmrt::{aarch64::Aarch64Relocation, VecAssembler};
+#[cfg(feature = "unwind")]
+use gimli::{AArch64, write::CallFrameInstruction};
+
+use wasmer_compiler::wasmparser::ValType as WpType;
+use wasmer_types::{
+    CallingConvention, CompileError, CustomSection, FunctionBody, FunctionIndex, FunctionType,
+    InstructionAddressMap, Relocation, RelocationKind, RelocationTarget, SourceLoc, TrapCode,
+    TrapInformation, VMOffsets,
+};
+
 use crate::arm64_decl::{GPR, NEON};
+use crate::arm64_decl::new_machine_state;
 use crate::codegen_error;
 use crate::common_decl::*;
 use crate::emitter_arm64::*;
@@ -7,15 +18,6 @@ use crate::location::Location as AbstractLocation;
 use crate::location::Reg;
 use crate::machine::*;
 use crate::unwind::{UnwindInstructions, UnwindOps};
-use dynasmrt::{aarch64::Aarch64Relocation, VecAssembler};
-#[cfg(feature = "unwind")]
-use gimli::{write::CallFrameInstruction, AArch64};
-use wasmer_compiler::wasmparser::ValType as WpType;
-use wasmer_types::{
-    CallingConvention, CompileError, CustomSection, FunctionBody, FunctionIndex, FunctionType,
-    InstructionAddressMap, Relocation, RelocationKind, RelocationTarget, SourceLoc, TrapCode,
-    TrapInformation, VMOffsets,
-};
 
 type Assembler = VecAssembler<Aarch64Relocation>;
 type Location = AbstractLocation<GPR, NEON>;
@@ -1821,11 +1823,11 @@ impl Machine for MachineARM64 {
                 _ => {
                     let sz = 1
                         << match sz {
-                            Size::S8 => 0,
-                            Size::S16 => 1,
-                            Size::S32 => 2,
-                            Size::S64 => 3,
-                        };
+                        Size::S8 => 0,
+                        Size::S16 => 1,
+                        Size::S32 => 2,
+                        Size::S64 => 3,
+                    };
                     // align first
                     if sz > 1 && *stack_args & (sz - 1) != 0 {
                         *stack_args = (*stack_args + (sz - 1)) & !(sz - 1);
@@ -1873,11 +1875,11 @@ impl Machine for MachineARM64 {
                 _ => {
                     let sz = 1
                         << match sz {
-                            Size::S8 => 0,
-                            Size::S16 => 1,
-                            Size::S32 => 2,
-                            Size::S64 => 3,
-                        };
+                        Size::S8 => 0,
+                        Size::S16 => 1,
+                        Size::S32 => 2,
+                        Size::S64 => 3,
+                    };
                     // align first
                     if sz > 1 && *stack_args & (sz - 1) != 0 {
                         *stack_args = (*stack_args + (sz - 1)) & !(sz - 1);
@@ -3606,6 +3608,8 @@ impl Machine for MachineARM64 {
                 for r in temps {
                     this.release_gpr(r);
                 }
+                this.release_gpr(tmp1);
+                this.release_gpr(tmp2);
                 Ok(())
             },
         )
@@ -3665,6 +3669,8 @@ impl Machine for MachineARM64 {
                 for r in temps {
                     this.release_gpr(r);
                 }
+                this.release_gpr(tmp1);
+                this.release_gpr(tmp2);
                 Ok(())
             },
         )
@@ -3724,6 +3730,8 @@ impl Machine for MachineARM64 {
                 for r in temps {
                     this.release_gpr(r);
                 }
+                this.release_gpr(tmp1);
+                this.release_gpr(tmp2);
                 Ok(())
             },
         )
@@ -3783,6 +3791,8 @@ impl Machine for MachineARM64 {
                 for r in temps {
                     this.release_gpr(r);
                 }
+                this.release_gpr(tmp1);
+                this.release_gpr(tmp2);
                 Ok(())
             },
         )
@@ -3842,6 +3852,8 @@ impl Machine for MachineARM64 {
                 for r in temps {
                     this.release_gpr(r);
                 }
+                this.release_gpr(tmp1);
+                this.release_gpr(tmp2);
                 Ok(())
             },
         )
@@ -3901,6 +3913,8 @@ impl Machine for MachineARM64 {
                 for r in temps {
                     this.release_gpr(r);
                 }
+                this.release_gpr(tmp1);
+                this.release_gpr(tmp2);
                 Ok(())
             },
         )
@@ -3960,6 +3974,8 @@ impl Machine for MachineARM64 {
                 for r in temps {
                     this.release_gpr(r);
                 }
+                this.release_gpr(tmp1);
+                this.release_gpr(tmp2);
                 Ok(())
             },
         )
@@ -4019,6 +4035,8 @@ impl Machine for MachineARM64 {
                 for r in temps {
                     this.release_gpr(r);
                 }
+                this.release_gpr(tmp1);
+                this.release_gpr(tmp2);
                 Ok(())
             },
         )
@@ -4078,6 +4096,8 @@ impl Machine for MachineARM64 {
                 for r in temps {
                     this.release_gpr(r);
                 }
+                this.release_gpr(tmp1);
+                this.release_gpr(tmp2);
                 Ok(())
             },
         )
@@ -4137,6 +4157,8 @@ impl Machine for MachineARM64 {
                 for r in temps {
                     this.release_gpr(r);
                 }
+                this.release_gpr(tmp1);
+                this.release_gpr(tmp2);
                 Ok(())
             },
         )
@@ -4196,6 +4218,8 @@ impl Machine for MachineARM64 {
                 for r in temps {
                     this.release_gpr(r);
                 }
+                this.release_gpr(tmp1);
+                this.release_gpr(tmp2);
                 Ok(())
             },
         )
@@ -4255,6 +4279,8 @@ impl Machine for MachineARM64 {
                 for r in temps {
                     this.release_gpr(r);
                 }
+                this.release_gpr(tmp1);
+                this.release_gpr(tmp2);
                 Ok(())
             },
         )
@@ -4314,6 +4340,8 @@ impl Machine for MachineARM64 {
                 for r in temps {
                     this.release_gpr(r);
                 }
+                this.release_gpr(tmp1);
+                this.release_gpr(tmp2);
                 Ok(())
             },
         )
@@ -4373,6 +4401,8 @@ impl Machine for MachineARM64 {
                 for r in temps {
                     this.release_gpr(r);
                 }
+                this.release_gpr(tmp1);
+                this.release_gpr(tmp2);
                 Ok(())
             },
         )
@@ -4432,6 +4462,8 @@ impl Machine for MachineARM64 {
                 for r in temps {
                     this.release_gpr(r);
                 }
+                this.release_gpr(tmp1);
+                this.release_gpr(tmp2);
                 Ok(())
             },
         )
@@ -4489,6 +4521,7 @@ impl Machine for MachineARM64 {
                 for r in temps {
                     this.release_gpr(r);
                 }
+                this.release_gpr(tmp);
                 Ok(())
             },
         )
@@ -4546,6 +4579,7 @@ impl Machine for MachineARM64 {
                 for r in temps {
                     this.release_gpr(r);
                 }
+                this.release_gpr(tmp);
                 Ok(())
             },
         )
@@ -4603,6 +4637,7 @@ impl Machine for MachineARM64 {
                 for r in temps {
                     this.release_gpr(r);
                 }
+                this.release_gpr(tmp);
                 Ok(())
             },
         )
@@ -4665,6 +4700,7 @@ impl Machine for MachineARM64 {
                 for r in temps {
                     this.release_gpr(r);
                 }
+                this.release_gpr(tmp);
                 Ok(())
             },
         )
@@ -4727,6 +4763,7 @@ impl Machine for MachineARM64 {
                 for r in temps {
                     this.release_gpr(r);
                 }
+                this.release_gpr(tmp);
                 Ok(())
             },
         )
@@ -4789,6 +4826,7 @@ impl Machine for MachineARM64 {
                 for r in temps {
                     this.release_gpr(r);
                 }
+                this.release_gpr(tmp);
                 Ok(())
             },
         )
@@ -5802,6 +5840,8 @@ impl Machine for MachineARM64 {
                 for r in temps {
                     this.release_gpr(r);
                 }
+                this.release_gpr(tmp1);
+                this.release_gpr(tmp2);
                 Ok(())
             },
         )
@@ -5861,6 +5901,8 @@ impl Machine for MachineARM64 {
                 for r in temps {
                     this.release_gpr(r);
                 }
+                this.release_gpr(tmp1);
+                this.release_gpr(tmp2);
                 Ok(())
             },
         )
@@ -5920,6 +5962,8 @@ impl Machine for MachineARM64 {
                 for r in temps {
                     this.release_gpr(r);
                 }
+                this.release_gpr(tmp1);
+                this.release_gpr(tmp2);
                 Ok(())
             },
         )
@@ -5979,6 +6023,8 @@ impl Machine for MachineARM64 {
                 for r in temps {
                     this.release_gpr(r);
                 }
+                this.release_gpr(tmp1);
+                this.release_gpr(tmp2);
                 Ok(())
             },
         )
@@ -6038,6 +6084,8 @@ impl Machine for MachineARM64 {
                 for r in temps {
                     this.release_gpr(r);
                 }
+                this.release_gpr(tmp1);
+                this.release_gpr(tmp2);
                 Ok(())
             },
         )
@@ -6097,6 +6145,8 @@ impl Machine for MachineARM64 {
                 for r in temps {
                     this.release_gpr(r);
                 }
+                this.release_gpr(tmp1);
+                this.release_gpr(tmp2);
                 Ok(())
             },
         )
@@ -6156,6 +6206,8 @@ impl Machine for MachineARM64 {
                 for r in temps {
                     this.release_gpr(r);
                 }
+                this.release_gpr(tmp1);
+                this.release_gpr(tmp2);
                 Ok(())
             },
         )
@@ -6215,6 +6267,8 @@ impl Machine for MachineARM64 {
                 for r in temps {
                     this.release_gpr(r);
                 }
+                this.release_gpr(tmp1);
+                this.release_gpr(tmp2);
                 Ok(())
             },
         )
@@ -6274,6 +6328,8 @@ impl Machine for MachineARM64 {
                 for r in temps {
                     this.release_gpr(r);
                 }
+                this.release_gpr(tmp1);
+                this.release_gpr(tmp2);
                 Ok(())
             },
         )
@@ -6333,6 +6389,8 @@ impl Machine for MachineARM64 {
                 for r in temps {
                     this.release_gpr(r);
                 }
+                this.release_gpr(tmp1);
+                this.release_gpr(tmp2);
                 Ok(())
             },
         )
@@ -6392,6 +6450,8 @@ impl Machine for MachineARM64 {
                 for r in temps {
                     this.release_gpr(r);
                 }
+                this.release_gpr(tmp1);
+                this.release_gpr(tmp2);
                 Ok(())
             },
         )
@@ -6451,6 +6511,8 @@ impl Machine for MachineARM64 {
                 for r in temps {
                     this.release_gpr(r);
                 }
+                this.release_gpr(tmp1);
+                this.release_gpr(tmp2);
                 Ok(())
             },
         )
@@ -6510,6 +6572,8 @@ impl Machine for MachineARM64 {
                 for r in temps {
                     this.release_gpr(r);
                 }
+                this.release_gpr(tmp1);
+                this.release_gpr(tmp2);
                 Ok(())
             },
         )
@@ -6569,6 +6633,8 @@ impl Machine for MachineARM64 {
                 for r in temps {
                     this.release_gpr(r);
                 }
+                this.release_gpr(tmp1);
+                this.release_gpr(tmp2);
                 Ok(())
             },
         )
@@ -6628,6 +6694,8 @@ impl Machine for MachineARM64 {
                 for r in temps {
                     this.release_gpr(r);
                 }
+                this.release_gpr(tmp1);
+                this.release_gpr(tmp2);
                 Ok(())
             },
         )
@@ -6687,6 +6755,8 @@ impl Machine for MachineARM64 {
                 for r in temps {
                     this.release_gpr(r);
                 }
+                this.release_gpr(tmp1);
+                this.release_gpr(tmp2);
                 Ok(())
             },
         )
@@ -6746,6 +6816,8 @@ impl Machine for MachineARM64 {
                 for r in temps {
                     this.release_gpr(r);
                 }
+                this.release_gpr(tmp1);
+                this.release_gpr(tmp2);
                 Ok(())
             },
         )
@@ -6805,6 +6877,8 @@ impl Machine for MachineARM64 {
                 for r in temps {
                     this.release_gpr(r);
                 }
+                this.release_gpr(tmp1);
+                this.release_gpr(tmp2);
                 Ok(())
             },
         )
@@ -6864,6 +6938,8 @@ impl Machine for MachineARM64 {
                 for r in temps {
                     this.release_gpr(r);
                 }
+                this.release_gpr(tmp1);
+                this.release_gpr(tmp2);
                 Ok(())
             },
         )
@@ -6923,6 +6999,8 @@ impl Machine for MachineARM64 {
                 for r in temps {
                     this.release_gpr(r);
                 }
+                this.release_gpr(tmp1);
+                this.release_gpr(tmp2);
                 Ok(())
             },
         )
@@ -6980,6 +7058,7 @@ impl Machine for MachineARM64 {
                 for r in temps {
                     this.release_gpr(r);
                 }
+                this.release_gpr(tmp);
                 Ok(())
             },
         )
@@ -7037,6 +7116,7 @@ impl Machine for MachineARM64 {
                 for r in temps {
                     this.release_gpr(r);
                 }
+                this.release_gpr(tmp);
                 Ok(())
             },
         )
@@ -7094,6 +7174,7 @@ impl Machine for MachineARM64 {
                 for r in temps {
                     this.release_gpr(r);
                 }
+                this.release_gpr(tmp);
                 Ok(())
             },
         )
@@ -7151,6 +7232,7 @@ impl Machine for MachineARM64 {
                 for r in temps {
                     this.release_gpr(r);
                 }
+                this.release_gpr(tmp);
                 Ok(())
             },
         )
@@ -7213,6 +7295,7 @@ impl Machine for MachineARM64 {
                 for r in temps {
                     this.release_gpr(r);
                 }
+                this.release_gpr(tmp);
                 Ok(())
             },
         )
@@ -7275,6 +7358,7 @@ impl Machine for MachineARM64 {
                 for r in temps {
                     this.release_gpr(r);
                 }
+                this.release_gpr(tmp);
                 Ok(())
             },
         )
@@ -7337,6 +7421,7 @@ impl Machine for MachineARM64 {
                 for r in temps {
                     this.release_gpr(r);
                 }
+                this.release_gpr(tmp);
                 Ok(())
             },
         )
@@ -7399,6 +7484,7 @@ impl Machine for MachineARM64 {
                 for r in temps {
                     this.release_gpr(r);
                 }
+                this.release_gpr(tmp);
                 Ok(())
             },
         )
