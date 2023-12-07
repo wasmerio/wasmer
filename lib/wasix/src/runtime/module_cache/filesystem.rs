@@ -1,9 +1,7 @@
-use std::{
-    io::{BufWriter, Write},
-    path::{Path, PathBuf},
-};
+use std::path::{Path, PathBuf};
 
 use tempfile::NamedTempFile;
+use tokio::io::AsyncWriteExt;
 use wasmer::{Engine, Module};
 
 use crate::runtime::module_cache::{CacheError, ModuleCache, ModuleHash};
@@ -41,16 +39,12 @@ impl ModuleCache for FileSystemCache {
     async fn load(&self, key: ModuleHash, engine: &Engine) -> Result<Module, CacheError> {
         let path = self.path(key, engine.deterministic_id());
 
-        // FIXME: This will all block the thread at the moment. Ideally,
-        // deserializing and uncompressing would happen on a thread pool in the
-        // background.
-        // https://github.com/wasmerio/wasmer/issues/3851
-
         let bytes = read_file(&path).await?;
-        let engine = engine.clone();
 
-        tokio::task::spawn_blocking(move || {
-            match deserialize(&bytes, &engine) {
+        tokio::task::spawn_blocking({
+            let engine = engine.clone();
+
+            move || match deserialize(&bytes, &engine) {
                 Ok(m) => {
                     tracing::debug!("Cache hit!");
                     Ok(m)
@@ -89,16 +83,11 @@ impl ModuleCache for FileSystemCache {
     ) -> Result<(), CacheError> {
         let path = self.path(key, engine.deterministic_id());
 
-        // FIXME: This will all block the thread at the moment. Ideally,
-        // serializing and compressing would happen on a thread pool in the
-        // background.
-        // https://github.com/wasmerio/wasmer/issues/3851
-
         let parent = path
             .parent()
             .expect("Unreachable - always created by joining onto cache_dir");
 
-        if let Err(e) = std::fs::create_dir_all(parent) {
+        if let Err(e) = tokio::fs::create_dir_all(parent).await {
             tracing::warn!(
                 dir=%parent.display(),
                 error=&e as &dyn std::error::Error,
@@ -108,10 +97,24 @@ impl ModuleCache for FileSystemCache {
 
         // Note: We save to a temporary file and persist() it at the end so
         // concurrent readers won't see a partially written module.
-        let mut temp = NamedTempFile::new_in(parent).map_err(CacheError::other)?;
-        let serialized = module.serialize()?;
+        let (file, temp) = NamedTempFile::new_in(parent)
+            .map_err(CacheError::other)?
+            .into_parts();
 
-        if let Err(error) = BufWriter::new(&mut temp).write_all(&serialized) {
+        let mut file = tokio::fs::File::from_std(file);
+
+        let serialized = tokio::task::spawn_blocking({
+            let module = module.clone();
+
+            move || module.serialize()
+        })
+        .await
+        .unwrap()?;
+
+        if let Err(error) = tokio::io::BufWriter::new(&mut file)
+            .write_all(&serialized)
+            .await
+        {
             return Err(CacheError::FileWrite { path, error });
         }
 
