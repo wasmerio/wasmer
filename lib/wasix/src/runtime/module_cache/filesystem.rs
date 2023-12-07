@@ -37,7 +37,7 @@ impl FileSystemCache {
 
 #[async_trait::async_trait]
 impl ModuleCache for FileSystemCache {
-    #[tracing::instrument(level = "debug", skip_all, fields(%key))]
+    #[tracing::instrument(level = "debug", skip_all, fields(% key))]
     async fn load(&self, key: ModuleHash, engine: &Engine) -> Result<Module, CacheError> {
         let path = self.path(key, engine.deterministic_id());
 
@@ -46,36 +46,41 @@ impl ModuleCache for FileSystemCache {
         // background.
         // https://github.com/wasmerio/wasmer/issues/3851
 
-        let bytes = read_file(&path)?;
+        let bytes = read_file(&path).await?;
+        let engine = engine.clone();
 
-        match deserialize(&bytes, engine) {
-            Ok(m) => {
-                tracing::debug!("Cache hit!");
-                Ok(m)
-            }
-            Err(e) => {
-                tracing::debug!(
-                    %key,
-                    path=%path.display(),
-                    error=&e as &dyn std::error::Error,
-                    "Deleting the cache file because the artifact couldn't be deserialized",
-                );
-
-                if let Err(e) = std::fs::remove_file(&path) {
-                    tracing::warn!(
+        tokio::task::spawn_blocking(move || {
+            match deserialize(&bytes, &engine) {
+                Ok(m) => {
+                    tracing::debug!("Cache hit!");
+                    Ok(m)
+                }
+                Err(e) => {
+                    tracing::debug!(
                         %key,
                         path=%path.display(),
                         error=&e as &dyn std::error::Error,
-                        "Unable to remove the corrupted cache file",
+                        "Deleting the cache file because the artifact couldn't be deserialized",
                     );
-                }
 
-                Err(e)
+                    if let Err(e) = std::fs::remove_file(&path) {
+                        tracing::warn!(
+                            %key,
+                            path=%path.display(),
+                            error=&e as &dyn std::error::Error,
+                            "Unable to remove the corrupted cache file",
+                        );
+                    }
+
+                    Err(e)
+                }
             }
-        }
+        })
+        .await
+        .unwrap()
     }
 
-    #[tracing::instrument(level = "debug", skip_all, fields(%key))]
+    #[tracing::instrument(level = "debug", skip_all, fields(% key))]
     async fn save(
         &self,
         key: ModuleHash,
@@ -117,8 +122,8 @@ impl ModuleCache for FileSystemCache {
     }
 }
 
-fn read_file(path: &Path) -> Result<Vec<u8>, CacheError> {
-    match std::fs::read(path) {
+async fn read_file(path: &Path) -> Result<Vec<u8>, CacheError> {
+    match tokio::fs::read(path).await {
         Ok(bytes) => Ok(bytes),
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => Err(CacheError::NotFound),
         Err(error) => Err(CacheError::FileRead {
