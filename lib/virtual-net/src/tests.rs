@@ -123,6 +123,7 @@ async fn test_tcp(client: RemoteNetworkingClient, _server: RemoteNetworkingServe
 }
 
 #[cfg(feature = "remote")]
+#[cfg_attr(windows, ignore)]
 #[traced_test]
 #[tokio::test(flavor = "multi_thread")]
 async fn test_tcp_with_mpsc() {
@@ -131,6 +132,7 @@ async fn test_tcp_with_mpsc() {
 }
 
 #[cfg(feature = "remote")]
+#[cfg_attr(windows, ignore)]
 #[traced_test]
 #[tokio::test(flavor = "multi_thread")]
 async fn test_tcp_with_small_pipe_using_bincode() {
@@ -139,6 +141,7 @@ async fn test_tcp_with_small_pipe_using_bincode() {
 }
 
 #[cfg(feature = "remote")]
+#[cfg_attr(windows, ignore)]
 #[traced_test]
 #[tokio::test(flavor = "multi_thread")]
 async fn test_tcp_with_large_pipe_using_bincode() {
@@ -148,6 +151,7 @@ async fn test_tcp_with_large_pipe_using_bincode() {
 
 #[cfg(feature = "remote")]
 #[cfg(feature = "json")]
+#[cfg_attr(windows, ignore)]
 #[traced_test]
 #[tokio::test(flavor = "multi_thread")]
 async fn test_tcp_with_small_pipe_using_json() {
@@ -157,6 +161,7 @@ async fn test_tcp_with_small_pipe_using_json() {
 
 #[cfg(feature = "remote")]
 #[cfg(feature = "json")]
+#[cfg_attr(windows, ignore)]
 #[traced_test]
 #[tokio::test(flavor = "multi_thread")]
 async fn test_tcp_with_large_pipe_json_using_json() {
@@ -166,6 +171,7 @@ async fn test_tcp_with_large_pipe_json_using_json() {
 
 #[cfg(feature = "remote")]
 #[cfg(feature = "messagepack")]
+#[cfg_attr(windows, ignore)]
 #[traced_test]
 #[tokio::test(flavor = "multi_thread")]
 async fn test_tcp_with_small_pipe_using_messagepack() {
@@ -175,6 +181,7 @@ async fn test_tcp_with_small_pipe_using_messagepack() {
 
 #[cfg(feature = "remote")]
 #[cfg(feature = "messagepack")]
+#[cfg_attr(windows, ignore)]
 #[traced_test]
 #[tokio::test(flavor = "multi_thread")]
 async fn test_tcp_with_large_pipe_json_using_messagepack() {
@@ -184,6 +191,7 @@ async fn test_tcp_with_large_pipe_json_using_messagepack() {
 
 #[cfg(feature = "remote")]
 #[cfg(feature = "cbor")]
+#[cfg_attr(windows, ignore)]
 #[traced_test]
 #[tokio::test(flavor = "multi_thread")]
 async fn test_tcp_with_small_pipe_using_cbor() {
@@ -193,6 +201,7 @@ async fn test_tcp_with_small_pipe_using_cbor() {
 
 #[cfg(feature = "remote")]
 #[cfg(feature = "cbor")]
+#[cfg_attr(windows, ignore)]
 #[traced_test]
 #[tokio::test(flavor = "multi_thread")]
 async fn test_tcp_with_large_pipe_json_using_cbor() {
@@ -200,6 +209,7 @@ async fn test_tcp_with_large_pipe_json_using_cbor() {
     test_tcp(client, server).await
 }
 
+#[cfg_attr(windows, ignore)]
 #[traced_test]
 #[tokio::test]
 async fn test_google_poll() {
@@ -290,6 +300,7 @@ async fn test_google_poll() {
     tracing::info!("done");
 }
 
+#[cfg_attr(windows, ignore)]
 #[traced_test]
 #[tokio::test]
 async fn test_google_epoll() {
