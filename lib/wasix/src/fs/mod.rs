@@ -1557,7 +1557,7 @@ impl WasiFs {
             }
             _ => {
                 let fd = self.get_fd(fd)?;
-                if fd.rights.contains(Rights::FD_DATASYNC) {
+                if !fd.rights.contains(Rights::FD_DATASYNC) {
                     return Err(Errno::Access);
                 }
 
