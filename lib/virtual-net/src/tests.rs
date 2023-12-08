@@ -123,27 +123,24 @@ async fn test_tcp(client: RemoteNetworkingClient, _server: RemoteNetworkingServe
 }
 
 #[cfg(feature = "remote")]
-#[cfg(target_os = "linux")]
 #[traced_test]
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread")]
 async fn test_tcp_with_mpsc() {
     let (client, server) = setup_mpsc().await;
     test_tcp(client, server).await
 }
 
 #[cfg(feature = "remote")]
-#[cfg(target_os = "linux")]
 #[traced_test]
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread")]
 async fn test_tcp_with_small_pipe_using_bincode() {
     let (client, server) = setup_pipe(10, FrameSerializationFormat::Bincode).await;
     test_tcp(client, server).await
 }
 
 #[cfg(feature = "remote")]
-#[cfg(target_os = "linux")]
 #[traced_test]
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread")]
 async fn test_tcp_with_large_pipe_using_bincode() {
     let (client, server) = setup_pipe(1024000, FrameSerializationFormat::Bincode).await;
     test_tcp(client, server).await
@@ -151,9 +148,8 @@ async fn test_tcp_with_large_pipe_using_bincode() {
 
 #[cfg(feature = "remote")]
 #[cfg(feature = "json")]
-#[cfg(target_os = "linux")]
 #[traced_test]
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread")]
 async fn test_tcp_with_small_pipe_using_json() {
     let (client, server) = setup_pipe(10, FrameSerializationFormat::Json).await;
     test_tcp(client, server).await
@@ -161,9 +157,8 @@ async fn test_tcp_with_small_pipe_using_json() {
 
 #[cfg(feature = "remote")]
 #[cfg(feature = "json")]
-#[cfg(target_os = "linux")]
 #[traced_test]
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread")]
 async fn test_tcp_with_large_pipe_json_using_json() {
     let (client, server) = setup_pipe(1024000, FrameSerializationFormat::Json).await;
     test_tcp(client, server).await
@@ -171,9 +166,8 @@ async fn test_tcp_with_large_pipe_json_using_json() {
 
 #[cfg(feature = "remote")]
 #[cfg(feature = "messagepack")]
-#[cfg(target_os = "linux")]
 #[traced_test]
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread")]
 async fn test_tcp_with_small_pipe_using_messagepack() {
     let (client, server) = setup_pipe(10, FrameSerializationFormat::MessagePack).await;
     test_tcp(client, server).await
@@ -181,9 +175,8 @@ async fn test_tcp_with_small_pipe_using_messagepack() {
 
 #[cfg(feature = "remote")]
 #[cfg(feature = "messagepack")]
-#[cfg(target_os = "linux")]
 #[traced_test]
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread")]
 async fn test_tcp_with_large_pipe_json_using_messagepack() {
     let (client, server) = setup_pipe(1024000, FrameSerializationFormat::MessagePack).await;
     test_tcp(client, server).await
@@ -191,9 +184,8 @@ async fn test_tcp_with_large_pipe_json_using_messagepack() {
 
 #[cfg(feature = "remote")]
 #[cfg(feature = "cbor")]
-#[cfg(target_os = "linux")]
 #[traced_test]
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread")]
 async fn test_tcp_with_small_pipe_using_cbor() {
     let (client, server) = setup_pipe(10, FrameSerializationFormat::Cbor).await;
     test_tcp(client, server).await
@@ -201,15 +193,13 @@ async fn test_tcp_with_small_pipe_using_cbor() {
 
 #[cfg(feature = "remote")]
 #[cfg(feature = "cbor")]
-#[cfg(target_os = "linux")]
 #[traced_test]
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread")]
 async fn test_tcp_with_large_pipe_json_using_cbor() {
     let (client, server) = setup_pipe(1024000, FrameSerializationFormat::Cbor).await;
     test_tcp(client, server).await
 }
 
-#[cfg(target_os = "linux")]
 #[traced_test]
 #[tokio::test]
 async fn test_google_poll() {
@@ -300,7 +290,6 @@ async fn test_google_poll() {
     tracing::info!("done");
 }
 
-#[cfg(target_os = "linux")]
 #[traced_test]
 #[tokio::test]
 async fn test_google_epoll() {

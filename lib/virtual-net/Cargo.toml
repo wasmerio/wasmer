@@ -33,7 +33,7 @@ hyper = { version = "0.14", optional = true }
 tokio-tungstenite = { version = "0.20", optional = true }
 
 [dev-dependencies]
-tokio = { version = "1", default_features = false, features = [ "macros" ] }
+tokio = { version = "1", default_features = false, features = [ "macros", "rt-multi-thread" ] }
 tracing-test = { version = "0.2" }
 
 [features]
