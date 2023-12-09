@@ -123,7 +123,7 @@ impl VirtualTaskManager for TokioTaskManager {
                 .enter(handle, time)
                 .await
                 .ok()
-                .unwrap_or_else(|| ())
+                .unwrap_or(())
         })
     }
 
@@ -208,6 +208,7 @@ impl VirtualTaskManager for TokioTaskManager {
 }
 
 // Used by [`VirtualTaskManager::sleep_now`] to abort a sleep task when drop.
+#[derive(Default)]
 struct SleepNow {
     abort_handle: Option<tokio::task::AbortHandle>,
 }
@@ -230,14 +231,10 @@ impl SleepNow {
     }
 }
 
-impl Default for SleepNow {
-    fn default() -> Self {
-        Self { abort_handle: None }
-    }
-}
-
 impl Drop for SleepNow {
     fn drop(&mut self) {
-        self.abort_handle.as_ref().map(|h| h.abort());
+        if let Some(h) = self.abort_handle.as_ref() {
+            h.abort()
+        }
     }
 }
