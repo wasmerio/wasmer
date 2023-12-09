@@ -209,20 +209,20 @@ impl VirtualTaskManager for TokioTaskManager {
 
 // Used by [`VirtualTaskManager::sleep_now`] to abort a sleep task when drop.
 struct SleepNow {
-    abort_handle: Option<::tokio::task::AbortHandle>,
+    abort_handle: Option<tokio::task::AbortHandle>,
 }
 
 impl SleepNow {
     async fn enter(
         &mut self,
-        handle: ::tokio::runtime::Handle,
+        handle: tokio::runtime::Handle,
         time: Duration,
-    ) -> Result<(), ::tokio::task::JoinError> {
+    ) -> Result<(), tokio::task::JoinError> {
         let handle = handle.spawn(async move {
             if time == Duration::ZERO {
-                ::tokio::task::yield_now().await;
+                tokio::task::yield_now().await;
             } else {
-                ::tokio::time::sleep(time).await;
+                tokio::time::sleep(time).await;
             }
         });
         self.abort_handle = Some(handle.abort_handle());
