@@ -34,7 +34,7 @@ pub struct Publish {
     ///
     /// Note that this is not the timeout for the entire publish process, but
     /// for each individual query to the registry during the publish flow.
-    #[clap(long, default_value = "30s")]
+    #[clap(long, default_value = "2m")]
     pub timeout: humantime::Duration,
 }
 
