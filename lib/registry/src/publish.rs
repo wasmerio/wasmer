@@ -1,21 +1,27 @@
-use anyhow::Context;
-use console::{style, Emoji};
-use graphql_client::GraphQLQuery;
-use indicatif::{ProgressBar, ProgressState, ProgressStyle};
-use std::fmt::Write;
-use std::io::BufRead;
-use std::path::PathBuf;
-use std::{collections::BTreeMap, time::Duration};
-
 use crate::graphql::queries::get_signed_url::GetSignedUrlUrl;
+
+use crate::graphql::subscriptions::package_version_ready::PackageVersionState;
 use crate::graphql::{
     mutations::{publish_package_mutation_chunked, PublishPackageMutationChunked},
     queries::{get_signed_url, GetSignedUrl},
 };
+use crate::subscriptions::subscribe_package_version_ready;
 use crate::{format_graphql, WasmerConfig};
+use anyhow::{Context, Result};
+use console::{style, Emoji};
+use futures_util::StreamExt;
+use graphql_client::GraphQLQuery;
+use indicatif::{MultiProgress, ProgressBar, ProgressState, ProgressStyle};
+use std::collections::BTreeMap;
+use std::fmt::Write;
+use std::io::BufRead;
+use std::path::PathBuf;
+use std::sync::{Arc, Mutex};
+use std::thread;
+use std::time::Duration;
 
-static UPLOAD: Emoji<'_, '_> = Emoji("⬆️  ", "");
-static PACKAGE: Emoji<'_, '_> = Emoji("📦  ", "");
+static UPLOAD: Emoji<'_, '_> = Emoji("⬆️ ", "");
+static PACKAGE: Emoji<'_, '_> = Emoji("📦", "");
 
 #[derive(Debug, Clone)]
 pub enum SignArchiveResult {
@@ -54,11 +60,10 @@ pub async fn try_chunked_uploading(
     if !quiet {
         println!("{} {} Uploading...", style("[1/2]").bold().dim(), UPLOAD);
     }
-
     upload_package(&signed_url.url, archive_path, archived_data_size, timeout)?;
 
     if !quiet {
-        println!("{} {}Publishing...", style("[2/2]").bold().dim(), PACKAGE);
+        println!("{} {} Publishing...", style("[2/2]").bold().dim(), PACKAGE);
     }
 
     let q =
@@ -79,12 +84,27 @@ pub async fn try_chunked_uploading(
             wait: Some(wait),
         });
 
-    let _response: publish_package_mutation_chunked::ResponseData =
+    let response: publish_package_mutation_chunked::ResponseData =
         crate::graphql::execute_query_with_timeout(&registry, &token, timeout, &q)?;
 
+    if let Some(pkg) = response.publish_package {
+        if !pkg.success {
+            return Err(anyhow::anyhow!("Could not publish package"));
+        }
+        if wait {
+            wait_for_package_version_to_become_ready(
+                &registry,
+                &token,
+                pkg.package_version.id,
+                quiet,
+            )
+            .await?;
+        }
+    }
+
     println!(
-        "Successfully published package `{}@{}`",
-        package.name, package.version
+        "🚀 Successfully published package `{}@{}`",
+        package.name, package.version,
     );
 
     Ok(())
@@ -287,5 +307,109 @@ fn upload_package(
     }
 
     pb.finish_and_clear();
+    Ok(())
+}
+
+struct PackageVersionReadySharedState {
+    webc_generated: Arc<Mutex<Option<bool>>>,
+    bindings_generated: Arc<Mutex<Option<bool>>>,
+    native_exes_generated: Arc<Mutex<Option<bool>>>,
+}
+
+impl PackageVersionReadySharedState {
+    fn new() -> Self {
+        Self {
+            webc_generated: Arc::new(Mutex::new(Option::None)),
+            bindings_generated: Arc::new(Mutex::new(Option::None)),
+            native_exes_generated: Arc::new(Mutex::new(Option::None)),
+        }
+    }
+}
+
+fn create_spinner(m: &MultiProgress, message: String) -> ProgressBar {
+    let spinner = m.add(ProgressBar::new_spinner());
+    spinner.set_message(message);
+    spinner.set_style(ProgressStyle::default_spinner());
+    spinner.enable_steady_tick(Duration::from_millis(100));
+    spinner
+}
+
+fn show_spinners_while_waiting(state: &PackageVersionReadySharedState) {
+    // Clone shared state for threads
+    let (state_webc, state_bindings, state_native) = (
+        Arc::clone(&state.webc_generated),
+        Arc::clone(&state.bindings_generated),
+        Arc::clone(&state.native_exes_generated),
+    );
+    let m = MultiProgress::new();
+
+    let webc_spinner = create_spinner(&m, String::from("Generating WEBC..."));
+    let bindings_spinner = create_spinner(&m, String::from("Generating language bindings..."));
+    let exe_spinner = create_spinner(&m, String::from("Generating native executables..."));
+
+    let check_and_finish = |spinner: ProgressBar, state: Arc<Mutex<Option<bool>>>, name: String| {
+        thread::spawn(move || loop {
+            match state.lock() {
+                Ok(lock) => {
+                    if lock.is_some() {
+                        spinner.finish_with_message(format!("✅ {} generation complete", name));
+                        break;
+                    }
+                }
+                Err(_) => {
+                    break;
+                }
+            }
+            thread::sleep(Duration::from_millis(100));
+        });
+    };
+    check_and_finish(webc_spinner, state_webc, String::from("WEBC"));
+    check_and_finish(
+        bindings_spinner,
+        state_bindings,
+        String::from("Language bindings"),
+    );
+    check_and_finish(
+        exe_spinner,
+        state_native,
+        String::from("Native executables"),
+    );
+}
+
+async fn wait_for_package_version_to_become_ready(
+    registry: &str,
+    token: &str,
+    package_version_id: impl AsRef<str>,
+    quiet: bool,
+) -> Result<()> {
+    let (mut stream, _client) =
+        subscribe_package_version_ready(registry, token, package_version_id.as_ref()).await?;
+
+    let state = PackageVersionReadySharedState::new();
+
+    if !quiet {
+        show_spinners_while_waiting(&state);
+    }
+
+    while let Some(data) = stream.next().await {
+        if let Some(res_data) = data.unwrap().data {
+            match res_data.package_version_ready.state {
+                PackageVersionState::BINDINGS_GENERATED => {
+                    let mut st = state.bindings_generated.lock().unwrap();
+                    *st = Some(res_data.package_version_ready.success);
+                }
+                PackageVersionState::NATIVE_EXES_GENERATED => {
+                    let mut st = state.native_exes_generated.lock().unwrap();
+                    *st = Some(res_data.package_version_ready.success);
+                }
+                PackageVersionState::WEBC_GENERATED => {
+                    let mut st = state.webc_generated.lock().unwrap();
+                    *st = Some(res_data.package_version_ready.success);
+                }
+                PackageVersionState::Other(_) => {}
+            }
+        }
+    }
+
     Ok(())
 }
