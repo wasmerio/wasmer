@@ -20,8 +20,10 @@ dialoguer = "0.11.0"
 dirs = "4.0.0"
 filetime = "0.2.19"
 flate2 = "1.0.24"
+futures = "0.3.29"
 futures-util = "0.3.25"
-graphql_client = "0.11.0"
+graphql-ws-client = {version = "0.6.0", features = ["client-graphql-client"]}
+graphql_client = "0.13.0"
 hex = "0.4.3"
 indexmap = { version = "1.9.3", optional = true }
 indicatif = "0.17.2"
@@ -41,7 +43,8 @@ tempfile = "3.6.0"
 thiserror = "1.0.37"
 time = { version = "0.3.17", default-features = false, features = ["parsing", "std", "formatting"], optional = true }
 tldextract = "0.6.0"
-tokio = "1.24.0"
+tokio = "1"
+tokio-tungstenite = {version = "0.20", features = ["native-tls"]}
 toml = "0.5.9"
 tracing = "0.1.40"
 url = "2.3.1"
