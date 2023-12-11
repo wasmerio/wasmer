@@ -40,7 +40,8 @@ pub struct Publish {
 
 impl Publish {
     /// Executes `wasmer publish`
-    pub fn execute(&self) -> Result<(), anyhow::Error> {
+    #[tokio::main]
+    pub async fn execute(&self) -> Result<(), anyhow::Error> {
         let token = self
             .env
             .token()
@@ -58,7 +59,7 @@ impl Publish {
             wait: self.wait,
             timeout: self.timeout.into(),
         };
-        publish.execute().map_err(on_error)?;
+        publish.execute().await.map_err(on_error)?;
 
         if let Err(e) = invalidate_graphql_query_cache(&self.env) {
             tracing::warn!(

@@ -63,7 +63,7 @@ enum PackageBuildError {
 
 impl Publish {
     /// Executes `wasmer publish`
-    pub fn execute(&self) -> Result<(), anyhow::Error> {
+    pub async fn execute(&self) -> Result<(), anyhow::Error> {
         let input_path = match self.package_path.as_ref() {
             Some(s) => std::env::current_dir()?.join(s),
             None => std::env::current_dir()?,
@@ -194,6 +194,7 @@ impl Publish {
             self.wait,
             self.timeout,
         )
+        .await
     }
 
     fn validation_policy(&self) -> Box<dyn ValidationPolicy> {

@@ -27,7 +27,7 @@ pub enum SignArchiveResult {
 }
 
 #[allow(clippy::too_many_arguments)]
-pub fn try_chunked_uploading(
+pub async fn try_chunked_uploading(
     registry: Option<String>,
     token: Option<String>,
     package: &wasmer_toml::Package,
