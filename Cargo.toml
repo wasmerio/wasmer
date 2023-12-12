@@ -71,7 +71,6 @@ members = [
     "tests/lib/wast",
     "tests/wasi-wast",
 ]
-exclude = ["lib/wasi-web"]
 resolver = "2"
 
 [workspace.package]
