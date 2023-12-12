@@ -1,22 +1,27 @@
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
 
 use tempfile::NamedTempFile;
 use tokio::io::AsyncWriteExt;
 use wasmer::{Engine, Module};
 
 use crate::runtime::module_cache::{CacheError, ModuleCache, ModuleHash};
+use crate::runtime::task_manager::VirtualTaskManagerExt;
+use crate::VirtualTaskManager;
 
 /// A cache that saves modules to a folder on the host filesystem using
 /// [`Module::serialize()`].
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone)]
 pub struct FileSystemCache {
     cache_dir: PathBuf,
+    task_manager: Arc<dyn VirtualTaskManager>,
 }
 
 impl FileSystemCache {
-    pub fn new(cache_dir: impl Into<PathBuf>) -> Self {
+    pub fn new(cache_dir: impl Into<PathBuf>, task_manager: Arc<dyn VirtualTaskManager>) -> Self {
         FileSystemCache {
             cache_dir: cache_dir.into(),
+            task_manager,
         }
     }
 
@@ -41,37 +46,38 @@ impl ModuleCache for FileSystemCache {
 
         let bytes = read_file(&path).await?;
 
-        tokio::task::spawn_blocking({
-            let engine = engine.clone();
+        self.task_manager
+            .spawn_await({
+                let engine = engine.clone();
 
-            move || match deserialize(&bytes, &engine) {
-                Ok(m) => {
-                    tracing::debug!("Cache hit!");
-                    Ok(m)
-                }
-                Err(e) => {
-                    tracing::debug!(
-                        %key,
-                        path=%path.display(),
-                        error=&e as &dyn std::error::Error,
-                        "Deleting the cache file because the artifact couldn't be deserialized",
-                    );
-
-                    if let Err(e) = std::fs::remove_file(&path) {
-                        tracing::warn!(
+                move || match deserialize(&bytes, &engine) {
+                    Ok(m) => {
+                        tracing::debug!("Cache hit!");
+                        Ok(m)
+                    }
+                    Err(e) => {
+                        tracing::debug!(
                             %key,
                             path=%path.display(),
                             error=&e as &dyn std::error::Error,
-                            "Unable to remove the corrupted cache file",
+                            "Deleting the cache file because the artifact couldn't be deserialized",
                         );
-                    }
 
-                    Err(e)
+                        if let Err(e) = std::fs::remove_file(&path) {
+                            tracing::warn!(
+                                %key,
+                                path=%path.display(),
+                                error=&e as &dyn std::error::Error,
+                                "Unable to remove the corrupted cache file",
+                            );
+                        }
+
+                        Err(e)
+                    }
                 }
-            }
-        })
-        .await
-        .unwrap()
+            })
+            .await
+            .unwrap()
     }
 
     #[tracing::instrument(level = "debug", skip_all, fields(% key))]
@@ -103,13 +109,15 @@ impl ModuleCache for FileSystemCache {
 
         let mut file = tokio::fs::File::from_std(file);
 
-        let serialized = tokio::task::spawn_blocking({
-            let module = module.clone();
+        let serialized = self
+            .task_manager
+            .spawn_await({
+                let module = module.clone();
 
-            move || module.serialize()
-        })
-        .await
-        .unwrap()?;
+                move || module.serialize()
+            })
+            .await
+            .unwrap()?;
 
         if let Err(error) = tokio::io::BufWriter::new(&mut file)
             .write_all(&serialized)
@@ -170,6 +178,7 @@ fn deserialize(bytes: &[u8], engine: &Engine) -> Result<Module, CacheError> {
 
 #[cfg(test)]
 mod tests {
+    use crate::runtime::task_manager::tokio::TokioTaskManager;
     use tempfile::TempDir;
 
     use super::*;
@@ -184,13 +193,17 @@ mod tests {
                 (i64.add (local.get $x) (local.get $y)))
         )"#;
 
+    fn create_tokio_task_manager() -> Arc<TokioTaskManager> {
+        Arc::new(TokioTaskManager::new(tokio::runtime::Handle::current()))
+    }
+
     #[tokio::test]
     async fn save_to_disk() {
         let temp = TempDir::new().unwrap();
         let engine = Engine::default();
         let module = Module::new(&engine, ADD_WAT).unwrap();
-        let cache = FileSystemCache::new(temp.path());
-        let key = ModuleHash::from_bytes([0; 8]);
+        let cache = FileSystemCache::new(temp.path(), create_tokio_task_manager());
+        let key = ModuleHash::from_bytes([0; 32]);
         let expected_path = cache.path(key, engine.deterministic_id());
 
         cache.save(key, &engine, &module).await.unwrap();
@@ -205,8 +218,8 @@ mod tests {
         let module = Module::new(&engine, ADD_WAT).unwrap();
         let cache_dir = temp.path().join("this").join("doesn't").join("exist");
         assert!(!cache_dir.exists());
-        let cache = FileSystemCache::new(&cache_dir);
-        let key = ModuleHash::from_bytes([0; 8]);
+        let cache = FileSystemCache::new(&cache_dir, create_tokio_task_manager());
+        let key = ModuleHash::from_bytes([0; 32]);
 
         cache.save(key, &engine, &module).await.unwrap();
 
@@ -217,8 +230,8 @@ mod tests {
     async fn missing_file() {
         let temp = TempDir::new().unwrap();
         let engine = Engine::default();
-        let key = ModuleHash::from_bytes([0; 8]);
-        let cache = FileSystemCache::new(temp.path());
+        let key = ModuleHash::from_bytes([0; 32]);
+        let cache = FileSystemCache::new(temp.path(), create_tokio_task_manager());
 
         let err = cache.load(key, &engine).await.unwrap_err();
 
@@ -230,8 +243,8 @@ mod tests {
         let temp = TempDir::new().unwrap();
         let engine = Engine::default();
         let module = Module::new(&engine, ADD_WAT).unwrap();
-        let key = ModuleHash::from_bytes([0; 8]);
-        let cache = FileSystemCache::new(temp.path());
+        let key = ModuleHash::from_bytes([0; 32]);
+        let cache = FileSystemCache::new(temp.path(), create_tokio_task_manager());
         let expected_path = cache.path(key, engine.deterministic_id());
         std::fs::create_dir_all(expected_path.parent().unwrap()).unwrap();
         let serialized = module.serialize().unwrap();
@@ -253,8 +266,8 @@ mod tests {
         let temp = TempDir::new().unwrap();
         let engine = Engine::default();
         let module = Module::new(&engine, ADD_WAT).unwrap();
-        let key = ModuleHash::from_bytes([0; 8]);
-        let cache = FileSystemCache::new(temp.path());
+        let key = ModuleHash::from_bytes([0; 32]);
+        let cache = FileSystemCache::new(temp.path(), create_tokio_task_manager());
         let expected_path = cache.path(key, engine.deterministic_id());
         std::fs::create_dir_all(expected_path.parent().unwrap()).unwrap();
         let serialized = module.serialize().unwrap();

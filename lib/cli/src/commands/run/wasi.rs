@@ -477,7 +477,7 @@ impl Wasi {
 
         let cache_dir = env.cache_dir().join("compiled");
         let module_cache = wasmer_wasix::runtime::module_cache::in_memory()
-            .with_fallback(FileSystemCache::new(cache_dir));
+            .with_fallback(FileSystemCache::new(cache_dir, rt.task_manager().clone()));
 
         rt.set_package_loader(package_loader)
             .set_module_cache(module_cache)
