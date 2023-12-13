@@ -3569,7 +3569,7 @@
             </span>}
             <span class="kw">_ </span>=&gt; {
                 <span class="kw">let </span>fd = <span class="self">self</span>.get_fd(fd)<span class="question-mark">?</span>;
-                <span class="kw">if </span>fd.rights.contains(Rights::FD_DATASYNC) {
+                <span class="kw">if </span>!fd.rights.contains(Rights::FD_DATASYNC) {
                     <span class="kw">return </span><span class="prelude-val">Err</span>(Errno::Access);
                 }
 
