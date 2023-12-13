@@ -246,8 +246,10 @@ fn runtime() -> (impl Runtime + Send + Sync, Arc<TokioTaskManager>) {
     let tasks = Arc::new(tasks);
     let mut rt = PluggableRuntime::new(Arc::clone(&tasks) as Arc<_>);
 
-    let cache =
-        SharedCache::default().with_fallback(FileSystemCache::new(tmp_dir().join("compiled")));
+    let cache = SharedCache::default().with_fallback(FileSystemCache::new(
+        tmp_dir().join("compiled"),
+        tasks.clone(),
+    ));
 
     let cache_dir = Path::new(env!("CARGO_TARGET_TMPDIR"))
         .join(env!("CARGO_PKG_NAME"))
