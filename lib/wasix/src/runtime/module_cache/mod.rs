@@ -32,6 +32,7 @@
 //! chain a fast in-memory cache with a slower file-based cache as a fallback.
 
 mod fallback;
+#[cfg(feature = "sys-thread")]
 mod filesystem;
 mod shared;
 mod thread_local;
@@ -39,11 +40,13 @@ mod types;
 
 pub use self::{
     fallback::FallbackCache,
-    filesystem::FileSystemCache,
     shared::SharedCache,
     thread_local::ThreadLocalCache,
     types::{CacheError, ModuleCache, ModuleHash},
 };
+
+#[cfg(feature = "sys-thread")]
+pub use self::filesystem::FileSystemCache;
 
 /// Get a [`ModuleCache`] which should be good enough for most in-memory use
 /// cases.
