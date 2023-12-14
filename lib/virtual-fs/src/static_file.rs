@@ -53,7 +53,7 @@ impl VirtualFile for StaticFile {
     }
 
     fn poll_read_ready(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<io::Result<usize>> {
-        let remaining = self.0.position() - self.size();
+        let remaining = self.size() - self.0.position();
         Poll::Ready(Ok(remaining.try_into().unwrap()))
     }
 
