@@ -187,7 +187,7 @@
     }
 
     <span class="kw">fn </span>poll_read_ready(<span class="self">self</span>: Pin&lt;<span class="kw-2">&amp;mut </span><span class="self">Self</span>&gt;, _cx: <span class="kw-2">&amp;mut </span>Context&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; Poll&lt;io::Result&lt;usize&gt;&gt; {
-        <span class="kw">let </span>remaining = <span class="self">self</span>.<span class="number">0</span>.position() - <span class="self">self</span>.size();
+        <span class="kw">let </span>remaining = <span class="self">self</span>.size() - <span class="self">self</span>.<span class="number">0</span>.position();
         Poll::Ready(<span class="prelude-val">Ok</span>(remaining.try_into().unwrap()))
     }
 
