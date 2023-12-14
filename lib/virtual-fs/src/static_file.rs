@@ -19,6 +19,11 @@ impl StaticFile {
     pub fn new(bytes: impl Into<OwnedBuffer>) -> Self {
         StaticFile(Cursor::new(bytes.into()))
     }
+
+    /// Access the underlying buffer.
+    pub fn contents(&self) -> &OwnedBuffer {
+        self.0.get_ref()
+    }
 }
 
 #[async_trait::async_trait]
