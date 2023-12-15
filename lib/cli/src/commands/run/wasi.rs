@@ -451,7 +451,8 @@ impl Wasi {
     where
         I: Into<RuntimeOrHandle>,
     {
-        let mut rt = PluggableRuntime::new(Arc::new(TokioTaskManager::new(rt_or_handle.into())));
+        let tokio_task_manager = Arc::new(TokioTaskManager::new(rt_or_handle.into()));
+        let mut rt = PluggableRuntime::new(tokio_task_manager.clone());
 
         if self.networking {
             rt.set_networking_implementation(virtual_net::host::LocalNetworking::default());
@@ -477,7 +478,7 @@ impl Wasi {
 
         let cache_dir = env.cache_dir().join("compiled");
         let module_cache = wasmer_wasix::runtime::module_cache::in_memory()
-            .with_fallback(FileSystemCache::new(cache_dir, rt.task_manager().clone()));
+            .with_fallback(FileSystemCache::new(cache_dir, tokio_task_manager));
 
         rt.set_package_loader(package_loader)
             .set_module_cache(module_cache)

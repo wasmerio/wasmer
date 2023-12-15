@@ -6,19 +6,19 @@ use tokio::io::AsyncWriteExt;
 use wasmer::{Engine, Module};
 
 use crate::runtime::module_cache::{CacheError, ModuleCache, ModuleHash};
+use crate::runtime::task_manager::tokio::TokioTaskManager;
 use crate::runtime::task_manager::VirtualTaskManagerExt;
-use crate::VirtualTaskManager;
 
 /// A cache that saves modules to a folder on the host filesystem using
 /// [`Module::serialize()`].
 #[derive(Debug, Clone)]
 pub struct FileSystemCache {
     cache_dir: PathBuf,
-    task_manager: Arc<dyn VirtualTaskManager>,
+    task_manager: Arc<TokioTaskManager>,
 }
 
 impl FileSystemCache {
-    pub fn new(cache_dir: impl Into<PathBuf>, task_manager: Arc<dyn VirtualTaskManager>) -> Self {
+    pub fn new(cache_dir: impl Into<PathBuf>, task_manager: Arc<TokioTaskManager>) -> Self {
         FileSystemCache {
             cache_dir: cache_dir.into(),
             task_manager,
@@ -44,36 +44,46 @@ impl ModuleCache for FileSystemCache {
     async fn load(&self, key: ModuleHash, engine: &Engine) -> Result<Module, CacheError> {
         let path = self.path(key, engine.deterministic_id());
 
-        let bytes = read_file(&path).await?;
-
         self.task_manager
-            .spawn_await({
+            .runtime_handle()
+            .spawn({
+                let task_manager = self.task_manager.clone();
                 let engine = engine.clone();
 
-                move || match deserialize(&bytes, &engine) {
-                    Ok(m) => {
-                        tracing::debug!("Cache hit!");
-                        Ok(m)
-                    }
-                    Err(e) => {
-                        tracing::debug!(
+                async move {
+                    let bytes = read_file(&path).await?;
+
+                    task_manager
+                    .spawn_await({
+
+                        move || match deserialize(&bytes, &engine) {
+                            Ok(m) => {
+                                tracing::debug!("Cache hit!");
+                                Ok(m)
+                            }
+                            Err(e) => {
+                                tracing::debug!(
                             %key,
                             path=%path.display(),
                             error=&e as &dyn std::error::Error,
                             "Deleting the cache file because the artifact couldn't be deserialized",
                         );
 
-                        if let Err(e) = std::fs::remove_file(&path) {
-                            tracing::warn!(
+                                if let Err(e) = std::fs::remove_file(&path) {
+                                    tracing::warn!(
                                 %key,
                                 path=%path.display(),
                                 error=&e as &dyn std::error::Error,
                                 "Unable to remove the corrupted cache file",
                             );
-                        }
+                                }
 
-                        Err(e)
-                    }
+                                Err(e)
+                            }
+                        }
+                    })
+                    .await
+                    .unwrap()
                 }
             })
             .await
@@ -89,47 +99,53 @@ impl ModuleCache for FileSystemCache {
     ) -> Result<(), CacheError> {
         let path = self.path(key, engine.deterministic_id());
 
-        let parent = path
-            .parent()
-            .expect("Unreachable - always created by joining onto cache_dir");
-
-        if let Err(e) = tokio::fs::create_dir_all(parent).await {
-            tracing::warn!(
-                dir=%parent.display(),
-                error=&e as &dyn std::error::Error,
-                "Unable to create the cache directory",
-            );
-        }
-
-        // Note: We save to a temporary file and persist() it at the end so
-        // concurrent readers won't see a partially written module.
-        let (file, temp) = NamedTempFile::new_in(parent)
-            .map_err(CacheError::other)?
-            .into_parts();
-
-        let mut file = tokio::fs::File::from_std(file);
-
-        let serialized = self
-            .task_manager
-            .spawn_await({
+        self.task_manager
+            .runtime_handle()
+            .spawn({
+                let task_manager = self.task_manager.clone();
                 let module = module.clone();
 
-                move || module.serialize()
+                async move {
+                    let parent = path
+                        .parent()
+                        .expect("Unreachable - always created by joining onto cache_dir");
+
+                    if let Err(e) = tokio::fs::create_dir_all(parent).await {
+                        tracing::warn!(
+                            dir=%parent.display(),
+                            error=&e as &dyn std::error::Error,
+                            "Unable to create the cache directory",
+                        );
+                    }
+
+                    // Note: We save to a temporary file and persist() it at the end so
+                    // concurrent readers won't see a partially written module.
+                    let (file, temp) = NamedTempFile::new_in(parent)
+                        .map_err(CacheError::other)?
+                        .into_parts();
+
+                    let mut file = tokio::fs::File::from_std(file);
+
+                    let serialized = task_manager
+                        .spawn_await({ move || module.serialize() })
+                        .await
+                        .unwrap()?;
+
+                    if let Err(error) = tokio::io::BufWriter::new(&mut file)
+                        .write_all(&serialized)
+                        .await
+                    {
+                        return Err(CacheError::FileWrite { path, error });
+                    }
+
+                    temp.persist(&path).map_err(CacheError::other)?;
+                    tracing::debug!(path=%path.display(), "Saved to disk");
+
+                    Ok(())
+                }
             })
             .await
-            .unwrap()?;
-
-        if let Err(error) = tokio::io::BufWriter::new(&mut file)
-            .write_all(&serialized)
-            .await
-        {
-            return Err(CacheError::FileWrite { path, error });
-        }
-
-        temp.persist(&path).map_err(CacheError::other)?;
-        tracing::debug!(path=%path.display(), "Saved to disk");
-
-        Ok(())
+            .unwrap()
     }
 }
 
