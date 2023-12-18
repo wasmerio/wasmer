@@ -44,7 +44,7 @@ thiserror = "1.0.37"
 time = { version = "0.3.17", default-features = false, features = ["parsing", "std", "formatting"], optional = true }
 tldextract = "0.6.0"
 tokio = "1"
-tokio-tungstenite = {version = "0.20", features = ["native-tls"]}
+tokio-tungstenite = {version = "0.20", features = ["rustls-tls-native-roots"]}
 toml = "0.5.9"
 tracing = "0.1.40"
 url = "2.3.1"
