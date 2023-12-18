@@ -70,7 +70,7 @@ pub fn path_open<M: MemorySize>(
     Span::current().record("path", path_string.as_str());
 
     // Convert relative paths into absolute paths
-    if path_string.starts_with("./") {
+    if !path_string.starts_with("/") {
         path_string = ctx.data().state.fs.relative_path_to_absolute(path_string);
         trace!(
             %path_string

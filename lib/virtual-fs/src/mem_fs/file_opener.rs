@@ -187,7 +187,7 @@ impl FileSystem {
                             let time = time();
                             Metadata {
                                 ft: FileType {
-                                    file: true,
+                                    dir: true,
                                     ..Default::default()
                                 },
                                 accessed: time,
