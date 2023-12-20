@@ -1,14 +1,14 @@
-use std::collections::BTreeMap;
-use std::fmt::Write;
-use std::io::BufRead;
-use std::path::PathBuf;
-
+use anyhow::Context;
 use console::{style, Emoji};
 use graphql_client::GraphQLQuery;
 use indicatif::{ProgressBar, ProgressState, ProgressStyle};
+use std::fmt::Write;
+use std::io::BufRead;
+use std::path::PathBuf;
+use std::{collections::BTreeMap, time::Duration};
 
+use crate::graphql::queries::get_signed_url::GetSignedUrlUrl;
 use crate::graphql::{
-    execute_query_modifier_inner,
     mutations::{publish_package_mutation_chunked, PublishPackageMutationChunked},
     queries::{get_signed_url, GetSignedUrl},
 };
@@ -39,7 +39,61 @@ pub fn try_chunked_uploading(
     maybe_signature_data: &SignArchiveResult,
     archived_data_size: u64,
     quiet: bool,
+    wait: bool,
+    timeout: Duration,
 ) -> Result<(), anyhow::Error> {
+    let (registry, token) = initialize_registry_and_token(registry, token)?;
+
+    let maybe_signature_data = sign_package(maybe_signature_data);
+
+    // fetch this before showing the `Uploading...` message
+    // because there is a chance that the registry may not return a signed url.
+    // This usually happens if the package version already exists in the registry.
+    let signed_url = google_signed_url(&registry, &token, package, timeout)?;
+
+    if !quiet {
+        println!("{} {} Uploading...", style("[1/2]").bold().dim(), UPLOAD);
+    }
+
+    upload_package(&signed_url.url, archive_path, archived_data_size, timeout)?;
+
+    if !quiet {
+        println!("{} {}Publishing...", style("[2/2]").bold().dim(), PACKAGE);
+    }
+
+    let q =
+        PublishPackageMutationChunked::build_query(publish_package_mutation_chunked::Variables {
+            name: package.name.to_string(),
+            version: package.version.to_string(),
+            description: package.description.clone(),
+            manifest: manifest_string.to_string(),
+            license: package.license.clone(),
+            license_file: license_file.to_owned(),
+            readme: readme.to_owned(),
+            repository: package.repository.clone(),
+            homepage: package.homepage.clone(),
+            file_name: Some(archive_name.to_string()),
+            signature: maybe_signature_data,
+            signed_url: Some(signed_url.url),
+            private: Some(package.private),
+            wait: Some(wait),
+        });
+
+    let _response: publish_package_mutation_chunked::ResponseData =
+        crate::graphql::execute_query_with_timeout(&registry, &token, timeout, &q)?;
+
+    println!(
+        "Successfully published package `{}@{}`",
+        package.name, package.version
+    );
+
+    Ok(())
+}
+
+fn initialize_registry_and_token(
+    registry: Option<String>,
+    token: Option<String>,
+) -> Result<(String, String), anyhow::Error> {
     let registry = match registry.as_ref() {
         Some(s) => format_graphql(s),
         None => {
@@ -71,7 +125,13 @@ pub fn try_chunked_uploading(
         }
     };
 
-    let maybe_signature_data = match maybe_signature_data {
+    Ok((registry, token))
+}
+
+fn sign_package(
+    maybe_signature_data: &SignArchiveResult,
+) -> Option<publish_package_mutation_chunked::InputSignature> {
+    match maybe_signature_data {
         SignArchiveResult::Ok {
             public_key_id,
             signature,
@@ -90,20 +150,27 @@ pub fn try_chunked_uploading(
             //warn!("Publishing package without a verifying signature. Consider registering a key pair with wasmer");
             None
         }
-    };
-
-    if !quiet {
-        println!("{} {} Uploading...", style("[1/2]").bold().dim(), UPLOAD);
     }
+}
 
+fn google_signed_url(
+    registry: &str,
+    token: &str,
+    package: &wasmer_toml::Package,
+    timeout: Duration,
+) -> Result<GetSignedUrlUrl, anyhow::Error> {
     let get_google_signed_url = GetSignedUrl::build_query(get_signed_url::Variables {
         name: package.name.to_string(),
         version: package.version.to_string(),
         expires_after_seconds: Some(60 * 30),
     });
 
-    let _response: get_signed_url::ResponseData =
-        execute_query_modifier_inner(&registry, &token, &get_google_signed_url, None, |f| f)?;
+    let _response: get_signed_url::ResponseData = crate::graphql::execute_query_with_timeout(
+        registry,
+        token,
+        timeout,
+        &get_google_signed_url,
+    )?;
 
     let url = _response.url.ok_or_else(|| {
         anyhow::anyhow!(
@@ -112,11 +179,19 @@ pub fn try_chunked_uploading(
             package.version
         )
     })?;
+    Ok(url)
+}
 
-    let signed_url = url.url;
-    let url = url::Url::parse(&signed_url).unwrap();
+fn upload_package(
+    signed_url: &str,
+    archive_path: &PathBuf,
+    archived_data_size: u64,
+    timeout: Duration,
+) -> Result<(), anyhow::Error> {
+    let url = url::Url::parse(signed_url).context("cannot parse signed url")?;
     let client = reqwest::blocking::Client::builder()
         .default_headers(reqwest::header::HeaderMap::default())
+        .timeout(timeout)
         .build()
         .unwrap();
 
@@ -212,35 +287,5 @@ pub fn try_chunked_uploading(
     }
 
     pb.finish_and_clear();
-
-    if !quiet {
-        println!("{} {}Publishing...", style("[2/2]").bold().dim(), PACKAGE);
-    }
-
-    let q =
-        PublishPackageMutationChunked::build_query(publish_package_mutation_chunked::Variables {
-            name: package.name.to_string(),
-            version: package.version.to_string(),
-            description: package.description.clone(),
-            manifest: manifest_string.to_string(),
-            license: package.license.clone(),
-            license_file: license_file.to_owned(),
-            readme: readme.to_owned(),
-            repository: package.repository.clone(),
-            homepage: package.homepage.clone(),
-            file_name: Some(archive_name.to_string()),
-            signature: maybe_signature_data,
-            signed_url: Some(signed_url),
-            private: Some(package.private),
-        });
-
-    let _response: publish_package_mutation_chunked::ResponseData =
-        crate::graphql::execute_query(&registry, &token, &q)?;
-
-    println!(
-        "Successfully published package `{}@{}`",
-        package.name, package.version
-    );
-
     Ok(())
 }

@@ -1,0 +1,10 @@
+[profile.ci]
+# Print out output for failing tests as soon as they fail, and also at the end
+# of the run (for easy scrollability).
+failure-output = "immediate-final"
+# Do not cancel the test run on the first failure.
+fail-fast = false
+# Automatically mark a test as "slow" after 60 seconds, then kill it after 180s
+slow-timeout = { period = "60s", terminate-after = 3 }
+# Retry a couple times in case there are flaky tests
+retries = 3

@@ -35,7 +35,7 @@ rkyv = { version = "0.7.40", features = ["indexmap", "validation", "strict"], op
 bytecheck = { version = "0.6.8", optional = true }
 
 [dev-dependencies]
-tokio = { version = "1", default_features = false, features = [ "macros" ] }
+tokio = { version = "1", default_features = false, features = [ "macros", "rt-multi-thread" ] }
 tracing-test = { version = "0.2" }
 
 [features]

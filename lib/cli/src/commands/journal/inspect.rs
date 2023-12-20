@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 
 use clap::Parser;
-use wasmer_deploy_cli::cmd::AsyncCliCommand;
+use wasmer_edge_cli::cmd::AsyncCliCommand;
 use wasmer_wasix::journal::{copy_journal, LogFileJournal, PrintingJournal};
 
 /// Prints a summarized version of contents of a journal to stdout

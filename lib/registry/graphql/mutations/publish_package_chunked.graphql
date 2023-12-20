@@ -12,6 +12,7 @@ mutation PublishPackageMutationChunked(
   $signature: InputSignature
   $signedUrl: String
   $private: Boolean
+  $wait: Boolean
 ) {
   publishPackage(
     input: {
@@ -29,6 +30,7 @@ mutation PublishPackageMutationChunked(
       signature: $signature
       clientMutationId: ""
       private: $private
+      wait: $wait
     }
   ) {
     success
