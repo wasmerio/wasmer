@@ -48,6 +48,7 @@ pub enum QueryError {
     NoMatches {
         archived_versions: Vec<semver::Version>,
     },
+    Timeout,
     Other(anyhow::Error),
 }
 
@@ -64,6 +65,7 @@ impl Display for QueryError {
                 f.write_str("This type of package specifier isn't supported")
             }
             QueryError::NotFound => f.write_str("Not found"),
+            QueryError::Timeout => f.write_str("Timed out"),
             QueryError::NoMatches { archived_versions } => match archived_versions.as_slice() {
                 [] => f.write_str(
                     "The package was found, but no published versions matched the constraint",
@@ -89,7 +91,10 @@ impl std::error::Error for QueryError {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
         match self {
             QueryError::Other(e) => Some(&**e),
-            QueryError::Unsupported | QueryError::NotFound | QueryError::NoMatches { .. } => None,
+            QueryError::Unsupported
+            | QueryError::NotFound
+            | QueryError::NoMatches
+            | QueryError::Timeout { .. } => None,
         }
     }
 }
