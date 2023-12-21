@@ -4,7 +4,7 @@ use anyhow::{Context, Error};
 use futures::future::AbortHandle;
 use http::{Request, Response};
 use hyper::Body;
-use tower::{make::Shared, ServiceBuilder};
+use tower::{make::Shared, Service, ServiceBuilder};
 use tower_http::{catch_panic::CatchPanicLayer, cors::CorsLayer, trace::TraceLayer};
 use tracing::Span;
 use wcgi_host::CgiDialect;
@@ -40,10 +40,12 @@ impl WcgiRunner {
     }
 
     #[tracing::instrument(skip_all)]
-    fn prepare_handler(
+    pub(crate) fn prepare_handler(
         &mut self,
         command_name: &str,
         pkg: &BinaryPackage,
+        propagate_stderr: bool,
+        default_dialect: CgiDialect,
         runtime: Arc<dyn Runtime + Send + Sync>,
     ) -> Result<Handler, Error> {
         let cmd = pkg
@@ -59,7 +61,7 @@ impl WcgiRunner {
         let Wcgi { dialect, .. } = metadata.annotation("wcgi")?.unwrap_or_default();
         let dialect = match dialect {
             Some(d) => d.parse().context("Unable to parse the CGI dialect")?,
-            None => CgiDialect::Wcgi,
+            None => default_dialect,
         };
 
         let container_fs = Arc::clone(&pkg.webc_fs);
@@ -77,32 +79,32 @@ impl WcgiRunner {
             module,
             module_hash: pkg.hash(),
             dialect,
+            propagate_stderr,
             program_name: command_name.to_string(),
             setup_builder: Box::new(setup_builder),
             callbacks: Arc::clone(&self.config.callbacks),
             runtime,
         };
 
-        Ok(Handler::new(shared))
-    }
-}
-
-impl crate::runners::Runner for WcgiRunner {
-    fn can_run_command(command: &Command) -> Result<bool, Error> {
-        Ok(command
-            .runner
-            .starts_with(webc::metadata::annotations::WCGI_RUNNER_URI))
+        Ok(Handler::new(Arc::new(shared)))
     }
 
-    fn run_command(
+    pub(crate) fn run_command_with_handler<S>(
         &mut self,
-        command_name: &str,
-        pkg: &BinaryPackage,
+        handler: S,
         runtime: Arc<dyn Runtime + Send + Sync>,
-    ) -> Result<(), Error> {
-        let handler = self.prepare_handler(command_name, pkg, Arc::clone(&runtime))?;
-        let callbacks = Arc::clone(&self.config.callbacks);
-
+    ) -> Result<(), Error>
+    where
+        S: Service<
+            Request<Body>,
+            Response = http::Response<Body>,
+            Error = anyhow::Error,
+            Future = std::pin::Pin<
+                Box<dyn futures::Future<Output = Result<Response<Body>, Error>> + Send>,
+            >,
+        >,
+        S: Clone + Send + Sync + 'static,
+    {
         let service = ServiceBuilder::new()
             .layer(
                 TraceLayer::new_for_http()
@@ -126,6 +128,7 @@ impl crate::runners::Runner for WcgiRunner {
         let address = self.config.addr;
         tracing::info!(%address, "Starting the server");
 
+        let callbacks = Arc::clone(&self.config.callbacks);
         runtime
             .task_manager()
             .spawn_and_block_on(async move {
@@ -148,13 +151,37 @@ impl crate::runners::Runner for WcgiRunner {
     }
 }
 
+impl crate::runners::Runner for WcgiRunner {
+    fn can_run_command(command: &Command) -> Result<bool, Error> {
+        Ok(command
+            .runner
+            .starts_with(webc::metadata::annotations::WCGI_RUNNER_URI))
+    }
+
+    fn run_command(
+        &mut self,
+        command_name: &str,
+        pkg: &BinaryPackage,
+        runtime: Arc<dyn Runtime + Send + Sync>,
+    ) -> Result<(), Error> {
+        let handler = self.prepare_handler(
+            command_name,
+            pkg,
+            false,
+            CgiDialect::Wcgi,
+            Arc::clone(&runtime),
+        )?;
+        self.run_command_with_handler(handler, runtime)
+    }
+}
+
 #[derive(derivative::Derivative)]
 #[derivative(Debug)]
 pub struct Config {
-    wasi: CommonWasiOptions,
-    addr: SocketAddr,
+    pub(crate) wasi: CommonWasiOptions,
+    pub(crate) addr: SocketAddr,
     #[derivative(Debug = "ignore")]
-    callbacks: Arc<dyn Callbacks>,
+    pub(crate) callbacks: Arc<dyn Callbacks>,
 }
 
 impl Config {

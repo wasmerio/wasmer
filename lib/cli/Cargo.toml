@@ -39,6 +39,7 @@ wasmer-vm = { version = "=4.2.4", path = "../vm", optional = true }
 wasmer-wasix = { version = "0.17.0", path = "../wasix", features = [
   "logging",
   "webc_runner_rt_wcgi",
+  "webc_runner_rt_dcgi",
   "webc_runner_rt_emscripten",
   "host-fs",
 ] }

@@ -2,7 +2,7 @@ use std::{collections::HashMap, ops::Deref, pin::Pin, sync::Arc, task::Poll};
 
 use anyhow::Error;
 use futures::{Future, FutureExt, StreamExt};
-use http::{Request, Response};
+use http::{Request, Response, StatusCode};
 use hyper::{service::Service, Body};
 use tokio::io::{AsyncBufReadExt, AsyncRead, AsyncWrite, AsyncWriteExt};
 use tracing::Instrument;
@@ -20,8 +20,8 @@ use crate::{
 pub(crate) struct Handler(Arc<SharedState>);
 
 impl Handler {
-    pub(crate) fn new(state: SharedState) -> Self {
-        Handler(Arc::new(state))
+    pub(crate) fn new(state: Arc<SharedState>) -> Self {
+        Handler(state)
     }
 
     #[tracing::instrument(level = "debug", skip_all, err)]
@@ -44,8 +44,14 @@ impl Handler {
         // anything specified by WASI annotations so users get a chance to
         // override things like $DOCUMENT_ROOT and $SCRIPT_FILENAME.
         let mut request_specific_env = HashMap::new();
+        request_specific_env.insert("REQUEST_METHOD".to_string(), parts.method.to_string());
+        request_specific_env.insert("SCRIPT_NAME".to_string(), parts.uri.path().to_string());
+        if let Some(query) = parts.uri.query() {
+            request_specific_env.insert("QUERY_STRING".to_string(), query.to_string());
+        }
         self.dialect
             .prepare_environment_variables(parts, &mut request_specific_env);
+
         builder.add_envs(request_specific_env);
 
         let builder = builder
@@ -80,13 +86,15 @@ impl Handler {
         let mut res_body_receiver = tokio::io::BufReader::new(res_body_receiver);
 
         let callbacks = Arc::clone(&self.callbacks);
-        let work_consume_stderr = async move {
-            consume_stderr(stderr_receiver, callbacks).await;
-        }
-        .in_current_span();
-        task_manager
-            .task_shared(Box::new(move || Box::pin(work_consume_stderr)))
-            .ok();
+        let propagate_stderr = self.propagate_stderr;
+        let work_consume_stderr =
+            async move { consume_stderr(stderr_receiver, callbacks, propagate_stderr).await }
+                .in_current_span();
+
+        tracing::trace!(
+            dialect=%self.dialect,
+            "spawning request forwarder",
+        );
 
         let work_drive_io = async move {
             if let Err(e) = drive_request_to_completion(done, body, req_body_sender).await {
@@ -101,10 +109,44 @@ impl Handler {
             .task_shared(Box::new(move || Box::pin(work_drive_io)))
             .ok();
 
+        tracing::trace!(
+            dialect=%self.dialect,
+            "extracting response parts",
+        );
+
         let parts = self
             .dialect
             .extract_response_header(&mut res_body_receiver)
-            .await?;
+            .await;
+
+        // When set this will cause any stderr responses to
+        // take precedence over nominal responses but it
+        // will cause the stderr pipe to be read to the end
+        // before transmitting the body
+        if propagate_stderr {
+            if let Some(stderr) = work_consume_stderr.await {
+                if !stderr.is_empty() {
+                    return Ok(Response::builder()
+                        .status(StatusCode::INTERNAL_SERVER_ERROR)
+                        .body(Body::from(stderr))?);
+                }
+            }
+        } else {
+            task_manager
+                .task_shared(Box::new(move || {
+                    Box::pin(async move {
+                        work_consume_stderr.await;
+                    })
+                }))
+                .ok();
+        }
+        let parts = parts?;
+
+        tracing::trace!(
+            dialect=%self.dialect,
+            status=%parts.status,
+            "received response parts",
+        );
 
         let chunks = futures::stream::try_unfold(res_body_receiver, |mut r| async move {
             match r.fill_buf().await {
@@ -118,6 +160,11 @@ impl Handler {
             }
         });
         let body = hyper::Body::wrap_stream(chunks);
+
+        tracing::trace!(
+            dialect=%self.dialect,
+            "returning response with body stream",
+        );
 
         let response = hyper::Response::from_parts(parts, body);
         Ok(response)
@@ -173,8 +220,14 @@ async fn drive_request_to_completion(
 async fn consume_stderr(
     stderr: impl AsyncRead + Send + Unpin + 'static,
     callbacks: Arc<dyn Callbacks>,
-) {
+    propagate_stderr: bool,
+) -> Option<Vec<u8>> {
     let mut stderr = tokio::io::BufReader::new(stderr);
+
+    let mut propagate = match propagate_stderr {
+        true => Some(Vec::new()),
+        false => None,
+    };
 
     // Note: we don't want to just read_to_end() because a reading error
     // would cause us to lose all of stderr. At least this way we'll be
@@ -186,16 +239,23 @@ async fn consume_stderr(
                 break;
             }
             Ok(chunk) => {
+                tracing::trace!("received stderr (len={})", chunk.len());
+                if let Some(propogate) = propagate.as_mut() {
+                    propogate.write_all(chunk).await.ok();
+                }
                 callbacks.on_stderr(chunk);
                 let bytes_read = chunk.len();
                 stderr.consume(bytes_read);
             }
             Err(e) => {
+                tracing::trace!("received stderr (err={})", e);
                 callbacks.on_stderr_error(e);
                 break;
             }
         }
     }
+
+    propagate
 }
 
 type SetupBuilder = Box<dyn Fn(&mut WasiEnvBuilder) -> Result<(), anyhow::Error> + Send + Sync>;
@@ -207,6 +267,7 @@ pub(crate) struct SharedState {
     pub(crate) module_hash: ModuleHash,
     pub(crate) dialect: CgiDialect,
     pub(crate) program_name: String,
+    pub(crate) propagate_stderr: bool,
     #[derivative(Debug = "ignore")]
     pub(crate) setup_builder: SetupBuilder,
     #[derivative(Debug = "ignore")]

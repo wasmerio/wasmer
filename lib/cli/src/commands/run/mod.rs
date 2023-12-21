@@ -32,7 +32,7 @@ use wasmer_registry::{wasmer_env::WasmerEnv, Package};
 use wasmer_wasix::journal::{LogFileJournal, SnapshotTrigger};
 use wasmer_wasix::{
     bin_factory::BinaryPackage,
-    runners::{MappedCommand, MappedDirectory, Runner},
+    runners::{wcgi, MappedCommand, MappedDirectory, Runner},
     runtime::{
         module_cache::{CacheError, ModuleHash},
         package_loader::PackageLoader,
@@ -43,6 +43,7 @@ use wasmer_wasix::{
 };
 use wasmer_wasix::{
     runners::{
+        dcgi::DcgiRunner,
         emscripten::EmscriptenRunner,
         wasi::WasiRunner,
         wcgi::{AbortHandle, WcgiRunner},
@@ -181,7 +182,9 @@ impl Run {
 
         let uses = self.load_injected_packages(&runtime)?;
 
-        if WcgiRunner::can_run_command(cmd.metadata())? {
+        if DcgiRunner::can_run_command(cmd.metadata())? {
+            self.run_dcgi(id, pkg, uses, runtime)
+        } else if WcgiRunner::can_run_command(cmd.metadata())? {
             self.run_wcgi(id, pkg, uses, runtime)
         } else if WasiRunner::can_run_command(cmd.metadata())? {
             self.run_wasi(id, pkg, uses, runtime)
@@ -240,27 +243,34 @@ impl Run {
         runtime: Arc<dyn Runtime + Send + Sync>,
     ) -> Result<(), Error> {
         let mut runner = wasmer_wasix::runners::wcgi::WcgiRunner::new();
+        self.config_wcgi(runner.config(), uses)?;
+        runner.run_command(command_name, pkg, runtime)
+    }
 
-        runner
-            .config()
+    fn config_wcgi(
+        &self,
+        config: &mut wcgi::Config,
+        uses: Vec<BinaryPackage>,
+    ) -> Result<(), Error> {
+        config
             .args(self.args.clone())
             .addr(self.wcgi.addr)
             .envs(self.wasi.env_vars.clone())
             .map_directories(self.wasi.mapped_dirs.clone())
             .callbacks(Callbacks::new(self.wcgi.addr))
             .inject_packages(uses);
-        *runner.config().capabilities() = self.wasi.capabilities();
+        *config.capabilities() = self.wasi.capabilities();
         if self.wasi.forward_host_env {
-            runner.config().forward_host_env();
+            config.forward_host_env();
         }
 
         #[cfg(feature = "journal")]
         {
             for trigger in self.wasi.snapshot_on.iter().cloned() {
-                runner.config().add_snapshot_trigger(trigger);
+                config.add_snapshot_trigger(trigger);
             }
             if self.wasi.snapshot_on.is_empty() && !self.wasi.journals.is_empty() {
-                runner.config().add_default_snapshot_triggers();
+                config.add_default_snapshot_triggers();
             }
             if let Some(period) = self.wasi.snapshot_interval {
                 if self.wasi.journals.is_empty() {
@@ -268,17 +278,25 @@ impl Run {
                         "If you specify a snapshot interval then you must also specify a journal file"
                     ));
                 }
-                runner
-                    .config()
-                    .with_snapshot_interval(Duration::from_millis(period));
+                config.with_snapshot_interval(Duration::from_millis(period));
             }
             for journal in self.wasi.journals.clone() {
-                runner
-                    .config()
-                    .add_journal(Arc::new(LogFileJournal::new(journal)?));
+                config.add_journal(Arc::new(LogFileJournal::new(journal)?));
             }
         }
 
+        Ok(())
+    }
+
+    fn run_dcgi(
+        &self,
+        command_name: &str,
+        pkg: &BinaryPackage,
+        uses: Vec<BinaryPackage>,
+        runtime: Arc<dyn Runtime + Send + Sync>,
+    ) -> Result<(), Error> {
+        let mut runner = wasmer_wasix::runners::dcgi::DcgiRunner::new();
+        self.config_wcgi(runner.config().inner(), uses);
         runner.run_command(command_name, pkg, runtime)
     }
 
