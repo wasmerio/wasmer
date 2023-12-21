@@ -143,23 +143,23 @@
     NoMatches {
         archived_versions: Vec&lt;semver::Version&gt;,
     },
+    Timeout,
     Other(anyhow::Error),
 }
 
 <span class="kw">impl </span>From&lt;anyhow::Error&gt; <span class="kw">for </span>QueryError {
     <span class="kw">fn </span>from(value: anyhow::Error) -&gt; <span class="self">Self </span>{
-        QueryError::Other(value)
+        <span class="self">Self</span>::Other(value)
     }
 }
 
 <span class="kw">impl </span>Display <span class="kw">for </span>QueryError {
     <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>std::fmt::Formatter&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; std::fmt::Result {
         <span class="kw">match </span><span class="self">self </span>{
-            QueryError::Unsupported =&gt; {
-                f.write_str(<span class="string">&quot;This type of package specifier isn&#39;t supported&quot;</span>)
-            }
-            QueryError::NotFound =&gt; f.write_str(<span class="string">&quot;Not found&quot;</span>),
-            QueryError::NoMatches { archived_versions } =&gt; <span class="kw">match </span>archived_versions.as_slice() {
+            <span class="self">Self</span>::Unsupported =&gt; f.write_str(<span class="string">&quot;This type of package specifier isn&#39;t supported&quot;</span>),
+            <span class="self">Self</span>::NotFound =&gt; f.write_str(<span class="string">&quot;Not found&quot;</span>),
+            <span class="self">Self</span>::Timeout =&gt; f.write_str(<span class="string">&quot;Timed out&quot;</span>),
+            <span class="self">Self</span>::NoMatches { archived_versions } =&gt; <span class="kw">match </span>archived_versions.as_slice() {
                 [] =&gt; f.write_str(
                     <span class="string">&quot;The package was found, but no published versions matched the constraint&quot;</span>,
                 ),
@@ -175,7 +175,7 @@
                     </span>)
                 }
             },
-            QueryError::Other(e) =&gt; Display::fmt(e, f),
+            <span class="self">Self</span>::Other(e) =&gt; Display::fmt(e, f),
         }
     }
 }
@@ -183,8 +183,8 @@
 <span class="kw">impl </span>std::error::Error <span class="kw">for </span>QueryError {
     <span class="kw">fn </span>source(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>(<span class="kw">dyn </span>std::error::Error + <span class="lifetime">&#39;static</span>)&gt; {
         <span class="kw">match </span><span class="self">self </span>{
-            QueryError::Other(e) =&gt; <span class="prelude-val">Some</span>(<span class="kw-2">&amp;**</span>e),
-            QueryError::Unsupported | QueryError::NotFound | QueryError::NoMatches { .. } =&gt; <span class="prelude-val">None</span>,
+            <span class="self">Self</span>::Other(e) =&gt; <span class="prelude-val">Some</span>(<span class="kw-2">&amp;**</span>e),
+            <span class="self">Self</span>::Unsupported | <span class="self">Self</span>::NotFound | <span class="self">Self</span>::NoMatches { .. } | <span class="self">Self</span>::Timeout =&gt; <span class="prelude-val">None</span>,
         }
     }
 }
