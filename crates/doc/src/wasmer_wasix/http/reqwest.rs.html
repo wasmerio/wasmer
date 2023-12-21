@@ -65,7 +65,22 @@
 <a href="#65" id="65">65</a>
 <a href="#66" id="66">66</a>
 <a href="#67" id="67">67</a>
-</pre></div><pre class="rust"><code><span class="kw">use </span>anyhow::Context;
+<a href="#68" id="68">68</a>
+<a href="#69" id="69">69</a>
+<a href="#70" id="70">70</a>
+<a href="#71" id="71">71</a>
+<a href="#72" id="72">72</a>
+<a href="#73" id="73">73</a>
+<a href="#74" id="74">74</a>
+<a href="#75" id="75">75</a>
+<a href="#76" id="76">76</a>
+<a href="#77" id="77">77</a>
+<a href="#78" id="78">78</a>
+<a href="#79" id="79">79</a>
+<a href="#80" id="80">80</a>
+</pre></div><pre class="rust"><code><span class="kw">use </span>std::time::Duration;
+
+<span class="kw">use </span>anyhow::Context;
 <span class="kw">use </span>futures::future::BoxFuture;
 <span class="kw">use </span>std::convert::TryFrom;
 <span class="kw">use </span>tokio::runtime::Handle;
@@ -75,16 +90,26 @@
 <span class="attr">#[derive(Clone, Debug)]
 </span><span class="kw">pub struct </span>ReqwestHttpClient {
     handle: Handle,
+    connect_timeout: Duration,
 }
+
 <span class="kw">impl </span>Default <span class="kw">for </span>ReqwestHttpClient {
     <span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
         <span class="self">Self </span>{
             handle: Handle::current(),
+            connect_timeout: <span class="self">Self</span>::DEFAULT_CONNECT_TIMEOUT,
         }
     }
 }
 
 <span class="kw">impl </span>ReqwestHttpClient {
+    <span class="kw">const </span>DEFAULT_CONNECT_TIMEOUT: Duration = Duration::from_secs(<span class="number">10</span>);
+
+    <span class="kw">pub fn </span>with_connect_timeout(<span class="kw-2">mut </span><span class="self">self</span>, timeout: Duration) -&gt; <span class="self">Self </span>{
+        <span class="self">self</span>.connect_timeout = timeout;
+        <span class="self">self
+    </span>}
+
     <span class="kw">async fn </span>request(<span class="kw-2">&amp;</span><span class="self">self</span>, request: HttpRequest) -&gt; <span class="prelude-ty">Result</span>&lt;HttpResponse, anyhow::Error&gt; {
         <span class="kw">let </span>method = reqwest::Method::try_from(request.method.as_str())
             .with_context(|| <span class="macro">format!</span>(<span class="string">&quot;Invalid http method {}&quot;</span>, request.method))<span class="question-mark">?</span>;
@@ -92,7 +117,8 @@
         <span class="comment">// TODO: use persistent client?
         </span><span class="kw">let </span>client = {
             <span class="kw">let </span>_guard = Handle::try_current().map_err(|<span class="kw">_</span>| <span class="self">self</span>.handle.enter());
-            reqwest::ClientBuilder::default()
+            reqwest::Client::builder()
+                .connect_timeout(<span class="self">self</span>.connect_timeout)
                 .build()
                 .context(<span class="string">&quot;Could not create reqwest client&quot;</span>)<span class="question-mark">?
         </span>};
