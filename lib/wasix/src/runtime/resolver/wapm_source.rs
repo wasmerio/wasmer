@@ -548,7 +548,7 @@ mod tests {
                     }],
                 },
                 dist: DistributionInfo {
-                    webc: "https://wasmer.io/wasmer/wasmer-pack-cli@0.6.0"
+                    webc: "https://storage.googleapis.com/wapm-registry-prod/webc/wasmer/wasmer-pack-cli/0.6.0/wasmer-pack-cli-0.6.0.webc"
                         .parse()
                         .unwrap(),
                     webc_sha256: WebcHash::from_bytes([
