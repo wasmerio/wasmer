@@ -429,6 +429,11 @@ pub struct WasiFs {
     // but it shouldn't be necessary
     // It should not be necessary at all.
     is_wasix: AtomicBool,
+
+    // The preopens when this was initialized
+    pub(crate) init_preopens: Vec<PreopenedDir>,
+    // The virtual file system preopens when this was initialized
+    pub(crate) init_vfs_preopens: Vec<String>,
 }
 
 impl WasiFs {
@@ -454,6 +459,8 @@ impl WasiFs {
             root_fs: self.root_fs.clone(),
             root_inode: self.root_inode.clone(),
             has_unioned: Arc::new(Mutex::new(HashSet::new())),
+            init_preopens: self.init_preopens.clone(),
+            init_vfs_preopens: self.init_vfs_preopens.clone(),
         }
     }
 
@@ -515,8 +522,10 @@ impl WasiFs {
         vfs_preopens: &[String],
         fs_backing: WasiFsRoot,
     ) -> Result<Self, String> {
-        let wasi_fs = Self::new_init(fs_backing, inodes)?;
-        wasi_fs.create_preopens(inodes, preopens, vfs_preopens)?;
+        let mut wasi_fs = Self::new_init(fs_backing, inodes)?;
+        wasi_fs.init_preopens = preopens.iter().cloned().collect();
+        wasi_fs.init_vfs_preopens = vfs_preopens.iter().cloned().collect();
+        wasi_fs.create_preopens(inodes)?;
         Ok(wasi_fs)
     }
 
@@ -560,6 +569,8 @@ impl WasiFs {
             root_fs: fs_backing,
             root_inode: root_inode.clone(),
             has_unioned: Arc::new(Mutex::new(HashSet::new())),
+            init_preopens: Default::default(),
+            init_vfs_preopens: Default::default(),
         };
         wasi_fs.create_stdin(inodes);
         wasi_fs.create_stdout(inodes);
@@ -1608,13 +1619,8 @@ impl WasiFs {
         Ok(())
     }
 
-    pub(crate) fn create_preopens(
-        &self,
-        inodes: &WasiInodes,
-        preopens: &[PreopenedDir],
-        vfs_preopens: &[String],
-    ) -> Result<(), String> {
-        for preopen_name in vfs_preopens {
+    pub(crate) fn create_preopens(&self, inodes: &WasiInodes) -> Result<(), String> {
+        for preopen_name in self.init_vfs_preopens.iter() {
             let kind = Kind::Dir {
                 parent: self.root_inode.downgrade(),
                 path: PathBuf::from(preopen_name),
@@ -1667,7 +1673,7 @@ impl WasiFs {
             read,
             write,
             create,
-        } in preopens
+        } in self.init_preopens.iter()
         {
             debug!(
                 "Attempting to preopen {} with alias {:?}",

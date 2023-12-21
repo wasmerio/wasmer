@@ -422,14 +422,16 @@ impl WasiEnv {
         *self.state.fs.current_dir.lock().unwrap() = "/".to_string();
 
         // We need to rebuild the basic file descriptors
-        // (note: this does not include pre-opened files which are not
-        //        supported yet with reinit calls)
         self.state.fs.create_stdin(&self.state.inodes);
         self.state.fs.create_stdout(&self.state.inodes);
         self.state.fs.create_stderr(&self.state.inodes);
         self.state
             .fs
             .create_rootfd()
+            .map_err(WasiStateCreationError::WasiFsSetupError)?;
+        self.state
+            .fs
+            .create_preopens(&self.state.inodes)
             .map_err(WasiStateCreationError::WasiFsSetupError)?;
 
         // The process and thread state need to be reset
