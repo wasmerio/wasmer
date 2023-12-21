@@ -794,18 +794,6 @@
 <a href="#794" id="794">794</a>
 <a href="#795" id="795">795</a>
 <a href="#796" id="796">796</a>
-<a href="#797" id="797">797</a>
-<a href="#798" id="798">798</a>
-<a href="#799" id="799">799</a>
-<a href="#800" id="800">800</a>
-<a href="#801" id="801">801</a>
-<a href="#802" id="802">802</a>
-<a href="#803" id="803">803</a>
-<a href="#804" id="804">804</a>
-<a href="#805" id="805">805</a>
-<a href="#806" id="806">806</a>
-<a href="#807" id="807">807</a>
-<a href="#808" id="808">808</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{
     path::PathBuf,
     sync::Arc,
@@ -987,11 +975,8 @@
 ) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;PackageSummary&gt;, QueryError&gt; {
     <span class="kw">let </span><span class="kw-2">mut </span>summaries = Vec::new();
 
-    <span class="kw">let </span>WapmWebQueryGetPackage {
-        package_name,
-        namespace,
-        versions,
-    } = response.data.get_package.ok_or(QueryError::NotFound)<span class="question-mark">?</span>;
+    <span class="kw">let </span>WapmWebQueryGetPackage { versions, .. } =
+        response.data.get_package.ok_or(QueryError::NotFound)<span class="question-mark">?</span>;
     <span class="kw">let </span><span class="kw-2">mut </span>archived_versions = Vec::new();
 
     <span class="kw">for </span>pkg_version <span class="kw">in </span>versions {
@@ -1017,12 +1002,7 @@
         }
 
         <span class="kw">if </span>version_constraint.matches(<span class="kw-2">&amp;</span>version) {
-            <span class="kw">match </span>decode_summary(
-                pkg_version,
-                <span class="kw-2">&amp;</span>response.data.info.default_frontend,
-                <span class="kw-2">&amp;</span>namespace,
-                <span class="kw-2">&amp;</span>package_name,
-            ) {
+            <span class="kw">match </span>decode_summary(pkg_version) {
                 <span class="prelude-val">Ok</span>(summary) =&gt; summaries.push(summary),
                 <span class="prelude-val">Err</span>(e) =&gt; {
                     <span class="macro">tracing::debug!</span>(
@@ -1042,29 +1022,23 @@
     }
 }
 
-<span class="kw">fn </span>decode_summary(
-    pkg_version: WapmWebQueryGetPackageVersion,
-    frontend_url: <span class="kw-2">&amp;</span>Url,
-    namespace: <span class="kw-2">&amp;</span>str,
-    package_name: <span class="kw-2">&amp;</span>str,
-) -&gt; <span class="prelude-ty">Result</span>&lt;PackageSummary, Error&gt; {
+<span class="kw">fn </span>decode_summary(pkg_version: WapmWebQueryGetPackageVersion) -&gt; <span class="prelude-ty">Result</span>&lt;PackageSummary, Error&gt; {
     <span class="kw">let </span>WapmWebQueryGetPackageVersion {
         manifest,
-        version,
-        distribution: WapmWebQueryGetPackageVersionDistribution { pirita_sha256_hash },
+        distribution:
+            WapmWebQueryGetPackageVersionDistribution {
+                pirita_sha256_hash,
+                pirita_download_url,
+            },
         ..
     } = pkg_version;
 
     <span class="kw">let </span>manifest = manifest.context(<span class="string">&quot;missing Manifest&quot;</span>)<span class="question-mark">?</span>;
     <span class="kw">let </span>hash = pirita_sha256_hash.context(<span class="string">&quot;missing sha256&quot;</span>)<span class="question-mark">?</span>;
+    <span class="kw">let </span>webc = pirita_download_url.context(<span class="string">&quot;missing download URL&quot;</span>)<span class="question-mark">?</span>;
 
     <span class="kw">let </span>manifest: Manifest = serde_json::from_slice(manifest.as_bytes())
         .context(<span class="string">&quot;Unable to deserialize the manifest&quot;</span>)<span class="question-mark">?</span>;
-
-    <span class="comment">// Note: The backend gives us signed URLs, which aren&#39;t cacheable, so we&#39;ll
-    // download the *.webc file using the more human-friendly URL
-    // (https://wasmer.io/wasmer/python@0.1.0) and rely on redirects.
-    </span><span class="kw">let </span>webc = frontend_url.join(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;{namespace}/{package_name}@{version}&quot;</span>))<span class="question-mark">?</span>;
 
     <span class="kw">let </span>webc_sha256 = WebcHash::parse_hex(<span class="kw-2">&amp;</span>hash).context(<span class="string">&quot;invalid webc sha256 hash in manifest&quot;</span>)<span class="question-mark">?</span>;
 
@@ -1276,6 +1250,8 @@
 
 <span class="attr">#[derive(Debug, serde::Serialize, serde::Deserialize, Clone)]
 </span><span class="kw">pub struct </span>WapmWebQueryGetPackageVersionDistribution {
+    <span class="attr">#[serde(rename = <span class="string">&quot;piritaDownloadUrl&quot;</span>)]
+    </span><span class="kw">pub </span>pirita_download_url: <span class="prelude-ty">Option</span>&lt;Url&gt;,
     <span class="attr">#[serde(rename = <span class="string">&quot;piritaSha256Hash&quot;</span>)]
     </span><span class="kw">pub </span>pirita_sha256_hash: <span class="prelude-ty">Option</span>&lt;String&gt;,
 }
@@ -1368,7 +1344,7 @@
                     }],
                 },
                 dist: DistributionInfo {
-                    webc: <span class="string">&quot;https://wasmer.io/wasmer/wasmer-pack-cli@0.6.0&quot;
+                    webc: <span class="string">&quot;https://storage.googleapis.com/wapm-registry-prod/webc/wasmer/wasmer-pack-cli/0.6.0/wasmer-pack-cli-0.6.0.webc&quot;
                         </span>.parse()
                         .unwrap(),
                     webc_sha256: WebcHash::from_bytes([
