@@ -99,28 +99,21 @@ where
 
         let req_body_sender = create.body_sender;
         let callbacks = Arc::clone(&self.callbacks);
-        let work_drive_io = {
-            async move {
-                let ret = drive_request_to_completion(done, body, req_body_sender).await;
-                match ret {
-                    Ok((env, store)) => {
-                        callbacks
-                            .recycle_env(RecycleEnvConfig { meta, env, store })
-                            .await;
-                    }
-                    Err(e) => {
-                        tracing::error!(
-                            error = &*e as &dyn std::error::Error,
-                            "Unable to drive the request to completion"
-                        );
-                    }
-                }
+        let ret = drive_request_to_completion(done, body, req_body_sender).await;
+        match ret {
+            Ok((env, store)) => {
+                callbacks
+                    .recycle_env(RecycleEnvConfig { meta, env, store })
+                    .await;
             }
-            .in_current_span()
-        };
-        task_manager
-            .task_shared(Box::new(move || Box::pin(work_drive_io)))
-            .ok();
+            Err(e) => {
+                let e = e.to_string();
+                tracing::error!(error = e, "Unable to drive the request to completion");
+                return Ok(Response::builder()
+                    .status(StatusCode::INTERNAL_SERVER_ERROR)
+                    .body(Body::from(e.as_bytes().to_vec()))?);
+            }
+        }
 
         tracing::trace!(
             dialect=%self.dialect,

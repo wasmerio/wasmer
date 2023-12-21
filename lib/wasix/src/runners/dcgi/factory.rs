@@ -98,9 +98,17 @@ impl DcgiInstanceFactory {
             let mut state = self.state.lock().unwrap();
             let shard = state.shards.entry(shard).or_default();
             shard.last_acquire = Instant::now();
+
             if let Some(inst) = shard.instances.pop_front() {
-                if let Ok(converted) = convert_instance(inst, conf) {
-                    return Some(converted);
+                tracing::debug!(
+                    shard = conf.meta.shard,
+                    "attempting to reinitialize DCGI instance"
+                );
+                match convert_instance(inst, conf) {
+                    Ok(converted) => return Some(converted),
+                    Err(err) => {
+                        tracing::warn!("failed to reinitialize DCGI instance - {}", err);
+                    }
                 }
             }
         }
@@ -121,9 +129,7 @@ fn convert_instance(
     let (stderr_sender, stderr_receiver) = Pipe::channel();
 
     {
-        // Reinitialize the environment
         let env = env.data_mut(&mut store);
-        env.reinit()?;
 
         // Replace the environment variables as these will change
         // depending on the WCGI call

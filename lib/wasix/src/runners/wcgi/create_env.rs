@@ -7,11 +7,20 @@ use crate::{
 
 use super::{callbacks::CreateEnvConfig, RecycleEnvConfig};
 
-pub(crate) async fn default_recycle_env<M>(_conf: RecycleEnvConfig<M>)
+pub(crate) async fn default_recycle_env<M>(conf: RecycleEnvConfig<M>)
 where
     M: Send + Sync + 'static,
 {
     tracing::debug!("Destroying the WebAssembly instance");
+
+    let env = conf.env;
+    let mut store = conf.store;
+    {
+        // We enable the cleanup again and trigger the exit function
+        let env = env.data_mut(&mut store);
+        env.disable_cleanup = false;
+        env.on_exit(None).await;
+    }
 }
 
 pub(crate) async fn default_create_env<M>(

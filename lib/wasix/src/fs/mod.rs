@@ -525,7 +525,7 @@ impl WasiFs {
         let mut wasi_fs = Self::new_init(fs_backing, inodes)?;
         wasi_fs.init_preopens = preopens.iter().cloned().collect();
         wasi_fs.init_vfs_preopens = vfs_preopens.iter().cloned().collect();
-        wasi_fs.create_preopens(inodes)?;
+        wasi_fs.create_preopens(inodes, false)?;
         Ok(wasi_fs)
     }
 
@@ -1619,7 +1619,11 @@ impl WasiFs {
         Ok(())
     }
 
-    pub(crate) fn create_preopens(&self, inodes: &WasiInodes) -> Result<(), String> {
+    pub(crate) fn create_preopens(
+        &self,
+        inodes: &WasiInodes,
+        ignore_duplicates: bool,
+    ) -> Result<(), String> {
         for preopen_name in self.init_vfs_preopens.iter() {
             let kind = Kind::Dir {
                 parent: self.root_inode.downgrade(),
@@ -1655,13 +1659,12 @@ impl WasiFs {
                 let mut guard = self.root_inode.write();
                 if let Kind::Root { entries } = guard.deref_mut() {
                     let existing_entry = entries.insert(preopen_name.clone(), inode);
-                    if existing_entry.is_some() {
+                    if existing_entry.is_some() && !ignore_duplicates {
                         return Err(format!(
                             "Found duplicate entry for alias `{}`",
                             preopen_name
                         ));
                     }
-                    assert!(existing_entry.is_none())
                 }
             }
             self.preopen_fds.write().unwrap().push(fd);
@@ -1778,10 +1781,9 @@ impl WasiFs {
                         path.to_string_lossy().into_owned()
                     };
                     let existing_entry = entries.insert(key.clone(), inode);
-                    if existing_entry.is_some() {
+                    if existing_entry.is_some() && !ignore_duplicates {
                         return Err(format!("Found duplicate entry for alias `{}`", key));
                     }
-                    assert!(existing_entry.is_none())
                 }
             }
             self.preopen_fds.write().unwrap().push(fd);

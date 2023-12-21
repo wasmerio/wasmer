@@ -318,6 +318,10 @@ pub struct WasiEnv {
     /// (and hence it should not record new events)
     pub replaying_journal: bool,
 
+    /// Flag that indicates the cleanup of the environment is to be disabled
+    /// (this is normally used so that the instance can be reused later on)
+    pub(crate) disable_cleanup: bool,
+
     /// List of situations that the process will checkpoint on
     #[cfg(feature = "journal")]
     snapshot_on: HashSet<SnapshotTrigger>,
@@ -355,6 +359,7 @@ impl Clone for WasiEnv {
             replaying_journal: self.replaying_journal,
             #[cfg(feature = "journal")]
             snapshot_on: self.snapshot_on.clone(),
+            disable_cleanup: self.disable_cleanup,
         }
     }
 }
@@ -395,6 +400,7 @@ impl WasiEnv {
             replaying_journal: false,
             #[cfg(feature = "journal")]
             snapshot_on: self.snapshot_on.clone(),
+            disable_cleanup: self.disable_cleanup,
         };
         Ok((new_env, handle))
     }
@@ -431,7 +437,7 @@ impl WasiEnv {
             .map_err(WasiStateCreationError::WasiFsSetupError)?;
         self.state
             .fs
-            .create_preopens(&self.state.inodes)
+            .create_preopens(&self.state.inodes, true)
             .map_err(WasiStateCreationError::WasiFsSetupError)?;
 
         // The process and thread state need to be reset
@@ -513,6 +519,7 @@ impl WasiEnv {
             capabilities: init.capabilities,
             #[cfg(feature = "journal")]
             snapshot_on: init.snapshot_on.into_iter().collect(),
+            disable_cleanup: false,
         };
         env.owned_handles.push(thread);
 
@@ -1183,7 +1190,7 @@ impl WasiEnv {
         }
 
         // If this is the main thread then also close all the files
-        if self.thread.is_main() {
+        if self.thread.is_main() && !self.disable_cleanup {
             tracing::trace!(pid=%self.pid(), "cleaning up open file handles");
 
             let process = self.process.clone();
