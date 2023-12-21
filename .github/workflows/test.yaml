@@ -98,6 +98,8 @@ jobs:
     steps:
       - uses: actions/checkout@v3
       - uses: EmbarkStudios/cargo-deny-action@v1
+        with:
+          log-level: error
 
   test_nodejs:
     name: Test on NodeJS
