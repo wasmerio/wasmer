@@ -75,13 +75,13 @@ web-sys = { version = "0.3.64", features = ["Request", "RequestInit", "Window", 
 [target.'cfg(not(target_arch = "riscv64"))'.dependencies.reqwest]
 version = "0.11"
 default-features = false
-features = ["rustls-tls", "json"]
+features = ["rustls-tls", "json", "stream"]
 optional = true
 
 [target.'cfg(target_arch = "riscv64")'.dependencies.reqwest]
 version = "0.11"
 default-features = false
-features = ["native-tls", "json"]
+features = ["native-tls", "json", "stream"]
 optional = true
 
 [target.'cfg(unix)'.dependencies]
