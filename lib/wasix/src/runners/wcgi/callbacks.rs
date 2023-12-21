@@ -64,6 +64,6 @@ where
     }
 }
 
-pub(crate) struct NoopCallbacks;
+pub struct NoOpWcgiCallbacks;
 
-impl<M> Callbacks<M> for NoopCallbacks where M: Send + Sync + 'static {}
+impl<M> Callbacks<M> for NoOpWcgiCallbacks where M: Send + Sync + 'static {}

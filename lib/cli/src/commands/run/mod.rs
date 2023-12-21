@@ -32,7 +32,11 @@ use wasmer_registry::{wasmer_env::WasmerEnv, Package};
 use wasmer_wasix::journal::{LogFileJournal, SnapshotTrigger};
 use wasmer_wasix::{
     bin_factory::BinaryPackage,
-    runners::{dcgi::DcgiInstanceFactory, wcgi, MappedCommand, MappedDirectory, Runner},
+    runners::{
+        dcgi::DcgiInstanceFactory,
+        wcgi::{self, NoOpWcgiCallbacks},
+        MappedCommand, MappedDirectory, Runner,
+    },
     runtime::{
         module_cache::{CacheError, ModuleHash},
         package_loader::PackageLoader,
@@ -242,7 +246,7 @@ impl Run {
         uses: Vec<BinaryPackage>,
         runtime: Arc<dyn Runtime + Send + Sync>,
     ) -> Result<(), Error> {
-        let mut runner = wasmer_wasix::runners::wcgi::WcgiRunner::new();
+        let mut runner = wasmer_wasix::runners::wcgi::WcgiRunner::new(NoOpWcgiCallbacks);
         self.config_wcgi(runner.config(), uses)?;
         runner.run_command(command_name, pkg, runtime)
     }

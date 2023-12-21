@@ -9,7 +9,7 @@ use crate::{
     capabilities::Capabilities,
     runners::{
         dcgi::handler::Handler,
-        wcgi::{self, NoopCallbacks},
+        wcgi::{self, NoOpWcgiCallbacks, WcgiRunner},
         MappedDirectory,
     },
     Runtime,
@@ -25,12 +25,12 @@ pub struct DcgiRunner {
 
 impl DcgiRunner {
     pub fn new(factory: DcgiInstanceFactory) -> Self {
-        let callbacks = DcgiCallbacks::new(factory, NoopCallbacks);
+        let callbacks = DcgiCallbacks::new(factory, NoOpWcgiCallbacks);
         DcgiRunner {
             config: Config {
-                inner: wcgi::Config::new(callbacks),
+                inner: wcgi::Config::new(callbacks.clone()),
             },
-            inner: Default::default(),
+            inner: WcgiRunner::new(callbacks),
         }
     }
 

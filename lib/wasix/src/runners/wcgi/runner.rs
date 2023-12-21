@@ -24,9 +24,9 @@ use crate::{
     Runtime, WasiEnvBuilder,
 };
 
-use super::{Callbacks, NoopCallbacks};
+use super::Callbacks;
 
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct WcgiRunner<M = ()>
 where
     M: Send + Sync + 'static,
@@ -38,11 +38,13 @@ impl<M> WcgiRunner<M>
 where
     M: Send + Sync + 'static,
 {
-    pub fn new() -> Self
+    pub fn new<C>(callbacks: C) -> Self
     where
-        M: Default,
+        C: Callbacks<M>,
     {
-        WcgiRunner::default()
+        Self {
+            config: Config::new(callbacks),
+        }
     }
 
     pub fn config(&mut self) -> &mut Config<M> {
@@ -316,15 +318,6 @@ where
     pub fn add_journal(&mut self, journal: Arc<crate::journal::DynJournal>) -> &mut Self {
         self.wasi.journals.push(journal);
         self
-    }
-}
-
-impl<M> Default for Config<M>
-where
-    M: Send + Sync + 'static,
-{
-    fn default() -> Self {
-        Self::new(NoopCallbacks)
     }
 }
 
