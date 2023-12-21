@@ -109,7 +109,7 @@ impl WasiControlPlane {
     /// Register a new task.
     ///
     // Currently just increments the task counter.
-    pub(super) fn register_task(&self) -> Result<TaskCountGuard, ControlPlaneError> {
+    pub(crate) fn register_task(&self) -> Result<TaskCountGuard, ControlPlaneError> {
         let count = self.state.task_count.fetch_add(1, Ordering::SeqCst);
         if let Some(max) = self.state.config.max_task_count {
             if count > max {

@@ -261,7 +261,7 @@ impl WasiEnvInit {
                     self.state.clock_offset.lock().unwrap().clone(),
                 ),
                 args: self.state.args.clone(),
-                envs: self.state.envs.clone(),
+                envs: std::sync::Mutex::new(self.state.envs.lock().unwrap().deref().clone()),
                 preopen: self.state.preopen.clone(),
             },
             runtime: self.runtime.clone(),
@@ -405,6 +405,49 @@ impl WasiEnv {
 
     pub fn tid(&self) -> WasiThreadId {
         self.thread.tid()
+    }
+
+    /// Re-initializes this environment so that it can be executed again
+    pub fn reinit(&mut self) -> Result<(), WasiStateCreationError> {
+        // First we clear any open files as the descriptors would
+        // otherwise clash
+        if let Ok(mut map) = self.state.fs.fd_map.write() {
+            map.clear();
+        }
+        self.state.fs.preopen_fds.write().unwrap().clear();
+        self.state
+            .fs
+            .next_fd
+            .store(3, std::sync::atomic::Ordering::SeqCst);
+        *self.state.fs.current_dir.lock().unwrap() = "/".to_string();
+
+        // We need to rebuild the basic file descriptors
+        // (note: this does not include pre-opened files which are not
+        //        supported yet with reinit calls)
+        self.state.fs.create_stdin(&self.state.inodes);
+        self.state.fs.create_stdout(&self.state.inodes);
+        self.state.fs.create_stderr(&self.state.inodes);
+        self.state
+            .fs
+            .create_rootfd()
+            .map_err(WasiStateCreationError::WasiFsSetupError)?;
+
+        // The process and thread state need to be reset
+        self.process = WasiProcess::new(
+            self.process.pid,
+            self.process.module_hash,
+            self.process.compute.clone(),
+        );
+        self.thread = WasiThread::new(
+            self.thread.pid(),
+            self.thread.tid(),
+            self.thread.is_main(),
+            self.process.finished.clone(),
+            self.process.compute.must_upgrade().register_task()?,
+            self.thread.memory_layout().clone(),
+        );
+
+        Ok(())
     }
 
     /// Returns true if this module is capable of deep sleep

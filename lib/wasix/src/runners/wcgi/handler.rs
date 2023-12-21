@@ -10,35 +10,37 @@ use wasmer::Module;
 use wcgi_host::CgiDialect;
 
 use crate::{
-    capabilities::Capabilities, http::HttpClientCapabilityV1, runners::wcgi::Callbacks,
-    runtime::module_cache::ModuleHash, Pipe, Runtime, VirtualTaskManager, WasiEnvBuilder,
+    runners::wcgi::{
+        callbacks::{CreateEnvConfig, RecycleEnvConfig},
+        Callbacks,
+    },
+    runtime::module_cache::ModuleHash,
+    Runtime, VirtualTaskManager, WasiEnvBuilder,
 };
 
 /// The shared object that manages the instantiaion of WASI executables and
 /// communicating with them via the CGI protocol.
 #[derive(Clone, Debug)]
-pub(crate) struct Handler(Arc<SharedState>);
+pub(crate) struct Handler<M>(Arc<SharedState<M>>)
+where
+    M: Send + Sync + 'static;
 
-impl Handler {
-    pub(crate) fn new(state: Arc<SharedState>) -> Self {
+impl<M> Handler<M>
+where
+    M: Send + Sync + 'static,
+{
+    pub(crate) fn new(state: Arc<SharedState<M>>) -> Self {
         Handler(state)
     }
 
     #[tracing::instrument(level = "debug", skip_all, err)]
-    pub(crate) async fn handle(&self, req: Request<Body>) -> Result<Response<Body>, Error> {
+    pub(crate) async fn handle(&self, req: Request<Body>, meta: M) -> Result<Response<Body>, Error>
+    where
+        M: Clone,
+    {
         tracing::debug!(headers=?req.headers());
 
         let (parts, body) = req.into_parts();
-
-        let (req_body_sender, req_body_receiver) = Pipe::channel();
-        let (res_body_sender, res_body_receiver) = Pipe::channel();
-        let (stderr_sender, stderr_receiver) = Pipe::channel();
-
-        tracing::debug!("Creating the WebAssembly instance");
-
-        let mut builder = WasiEnvBuilder::new(&self.program_name);
-
-        (self.setup_builder)(&mut builder)?;
 
         // Note: We want to apply the CGI environment variables *after*
         // anything specified by WASI annotations so users get a chance to
@@ -52,20 +54,18 @@ impl Handler {
         self.dialect
             .prepare_environment_variables(parts, &mut request_specific_env);
 
-        builder.add_envs(request_specific_env);
-
-        let builder = builder
-            .stdin(Box::new(req_body_receiver))
-            .stdout(Box::new(res_body_sender))
-            .stderr(Box::new(stderr_sender))
-            .capabilities(Capabilities {
-                insecure_allow_all: true,
-                http_client: HttpClientCapabilityV1::new_allow_all(),
-                threading: Default::default(),
-            });
-
-        let module = self.module.clone();
-        let module_hash = self.module_hash;
+        let create = self
+            .callbacks
+            .create_env(CreateEnvConfig {
+                meta: meta.clone(),
+                env: request_specific_env,
+                program_name: self.program_name.clone(),
+                module: self.module.clone(),
+                module_hash: self.module_hash,
+                runtime: self.runtime.clone(),
+                setup_builder: self.setup_builder.clone(),
+            })
+            .await?;
 
         tracing::debug!(
             dialect=%self.dialect,
@@ -73,38 +73,51 @@ impl Handler {
         );
 
         let task_manager = self.runtime.task_manager();
-        let store = self.runtime.new_store();
-
+        let env = create.env;
+        let store = create.store;
         let (run_tx, mut run_rx) = tokio::sync::mpsc::unbounded_channel();
         task_manager.task_dedicated(Box::new(move || {
-            run_tx
-                .send(builder.run_with_store_async(module, module_hash, store))
-                .ok();
+            run_tx.send(env.run_async(store)).ok();
         }))?;
         let done = async move { run_rx.recv().await.unwrap().map_err(Error::from) };
 
-        let mut res_body_receiver = tokio::io::BufReader::new(res_body_receiver);
+        let mut res_body_receiver = tokio::io::BufReader::new(create.body_receiver);
 
+        let stderr_receiver = create.stderr_receiver;
         let callbacks = Arc::clone(&self.callbacks);
         let propagate_stderr = self.propagate_stderr;
-        let work_consume_stderr =
+        let work_consume_stderr = {
+            let callbacks = callbacks.clone();
             async move { consume_stderr(stderr_receiver, callbacks, propagate_stderr).await }
-                .in_current_span();
+                .in_current_span()
+        };
 
         tracing::trace!(
             dialect=%self.dialect,
             "spawning request forwarder",
         );
 
-        let work_drive_io = async move {
-            if let Err(e) = drive_request_to_completion(done, body, req_body_sender).await {
-                tracing::error!(
-                    error = &*e as &dyn std::error::Error,
-                    "Unable to drive the request to completion"
-                );
+        let req_body_sender = create.body_sender;
+        let callbacks = Arc::clone(&self.callbacks);
+        let work_drive_io = {
+            async move {
+                let ret = drive_request_to_completion(done, body, req_body_sender).await;
+                match ret {
+                    Ok((env, store)) => {
+                        callbacks
+                            .recycle_env(RecycleEnvConfig { meta, env, store })
+                            .await;
+                    }
+                    Err(e) => {
+                        tracing::error!(
+                            error = &*e as &dyn std::error::Error,
+                            "Unable to drive the request to completion"
+                        );
+                    }
+                }
             }
-        }
-        .in_current_span();
+            .in_current_span()
+        };
         task_manager
             .task_shared(Box::new(move || Box::pin(work_drive_io)))
             .ok();
@@ -171,8 +184,11 @@ impl Handler {
     }
 }
 
-impl Deref for Handler {
-    type Target = Arc<SharedState>;
+impl<M> Deref for Handler<M>
+where
+    M: Send + Sync + 'static,
+{
+    type Target = Arc<SharedState<M>>;
 
     fn deref(&self) -> &Self::Target {
         &self.0
@@ -181,11 +197,11 @@ impl Deref for Handler {
 
 /// Drive the request to completion by streaming the request body to the
 /// instance and waiting for it to exit.
-async fn drive_request_to_completion(
-    done: impl Future<Output = Result<(), Error>>,
+async fn drive_request_to_completion<R>(
+    done: impl Future<Output = Result<R, Error>>,
     mut request_body: hyper::Body,
     mut instance_stdin: impl AsyncWrite + Send + Unpin + 'static,
-) -> Result<(), Error> {
+) -> Result<R, Error> {
     let request_body_send = async move {
         // Copy the request into our instance, chunk-by-chunk. If the instance
         // dies before we finish writing the body, the instance's side of the
@@ -209,19 +225,21 @@ async fn drive_request_to_completion(
     }
     .in_current_span();
 
-    futures::try_join!(done, request_body_send)?;
-
-    Ok(())
+    let (ret, _) = futures::try_join!(done, request_body_send)?;
+    Ok(ret)
 }
 
 /// Read the instance's stderr, taking care to preserve output even when WASI
 /// pipe errors occur so users still have *something* they use for
 /// troubleshooting.
-async fn consume_stderr(
+async fn consume_stderr<M>(
     stderr: impl AsyncRead + Send + Unpin + 'static,
-    callbacks: Arc<dyn Callbacks>,
+    callbacks: Arc<dyn Callbacks<M>>,
     propagate_stderr: bool,
-) -> Option<Vec<u8>> {
+) -> Option<Vec<u8>>
+where
+    M: Send + Sync + 'static,
+{
     let mut stderr = tokio::io::BufReader::new(stderr);
 
     let mut propagate = match propagate_stderr {
@@ -258,11 +276,14 @@ async fn consume_stderr(
     propagate
 }
 
-type SetupBuilder = Box<dyn Fn(&mut WasiEnvBuilder) -> Result<(), anyhow::Error> + Send + Sync>;
+pub type SetupBuilder = Arc<dyn Fn(&mut WasiEnvBuilder) -> Result<(), anyhow::Error> + Send + Sync>;
 
 #[derive(derivative::Derivative)]
 #[derivative(Debug)]
-pub(crate) struct SharedState {
+pub(crate) struct SharedState<M>
+where
+    M: Send + Sync + 'static,
+{
     pub(crate) module: Module,
     pub(crate) module_hash: ModuleHash,
     pub(crate) dialect: CgiDialect,
@@ -271,12 +292,12 @@ pub(crate) struct SharedState {
     #[derivative(Debug = "ignore")]
     pub(crate) setup_builder: SetupBuilder,
     #[derivative(Debug = "ignore")]
-    pub(crate) callbacks: Arc<dyn Callbacks>,
+    pub(crate) callbacks: Arc<dyn Callbacks<M>>,
     #[derivative(Debug = "ignore")]
     pub(crate) runtime: Arc<dyn Runtime + Send + Sync>,
 }
 
-impl Service<Request<Body>> for Handler {
+impl Service<Request<Body>> for Handler<()> {
     type Response = Response<Body>;
     type Error = Error;
     type Future = Pin<Box<dyn Future<Output = Result<Response<Body>, Error>> + Send>>;
@@ -289,7 +310,7 @@ impl Service<Request<Body>> for Handler {
     fn call(&mut self, request: Request<Body>) -> Self::Future {
         // Note: all fields are reference-counted so cloning is pretty cheap
         let handler = self.clone();
-        let fut = async move { handler.handle(request).await };
+        let fut = async move { handler.handle(request, ()).await };
         fut.boxed()
     }
 }

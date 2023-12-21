@@ -32,7 +32,7 @@ use wasmer_registry::{wasmer_env::WasmerEnv, Package};
 use wasmer_wasix::journal::{LogFileJournal, SnapshotTrigger};
 use wasmer_wasix::{
     bin_factory::BinaryPackage,
-    runners::{wcgi, MappedCommand, MappedDirectory, Runner},
+    runners::{dcgi::DcgiInstanceFactory, wcgi, MappedCommand, MappedDirectory, Runner},
     runtime::{
         module_cache::{CacheError, ModuleHash},
         package_loader::PackageLoader,
@@ -247,11 +247,14 @@ impl Run {
         runner.run_command(command_name, pkg, runtime)
     }
 
-    fn config_wcgi(
+    fn config_wcgi<M>(
         &self,
-        config: &mut wcgi::Config,
+        config: &mut wcgi::Config<M>,
         uses: Vec<BinaryPackage>,
-    ) -> Result<(), Error> {
+    ) -> Result<(), Error>
+    where
+        M: Send + Sync + 'static,
+    {
         config
             .args(self.args.clone())
             .addr(self.wcgi.addr)
@@ -295,7 +298,8 @@ impl Run {
         uses: Vec<BinaryPackage>,
         runtime: Arc<dyn Runtime + Send + Sync>,
     ) -> Result<(), Error> {
-        let mut runner = wasmer_wasix::runners::dcgi::DcgiRunner::new();
+        let factory = DcgiInstanceFactory::new();
+        let mut runner = wasmer_wasix::runners::dcgi::DcgiRunner::new(factory);
         self.config_wcgi(runner.config().inner(), uses);
         runner.run_command(command_name, pkg, runtime)
     }
@@ -790,7 +794,10 @@ impl Callbacks {
     }
 }
 
-impl wasmer_wasix::runners::wcgi::Callbacks for Callbacks {
+impl<M> wasmer_wasix::runners::wcgi::Callbacks<M> for Callbacks
+where
+    M: Send + Sync + 'static,
+{
     fn started(&self, _abort: AbortHandle) {
         println!("WCGI Server running at http://{}/", self.addr);
     }

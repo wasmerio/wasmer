@@ -52,6 +52,7 @@ impl CommonWasiOptions {
         root_fs: Option<TmpFileSystem>,
     ) -> Result<(), anyhow::Error> {
         let root_fs = root_fs.unwrap_or_else(|| RootFileSystemBuilder::default().build());
+
         let fs = prepare_filesystem(root_fs, &self.mapped_dirs, container_fs, builder)?;
 
         builder.add_preopen_dir("/")?;

@@ -1,7 +1,6 @@
 use std::{net::SocketAddr, sync::Arc, time::Duration};
 
 use anyhow::{Context, Error};
-use futures::future::AbortHandle;
 use http::{Request, Response};
 use hyper::Body;
 use tower::{make::Shared, Service, ServiceBuilder};
@@ -25,17 +24,28 @@ use crate::{
     Runtime, WasiEnvBuilder,
 };
 
+use super::{Callbacks, NoopCallbacks};
+
 #[derive(Debug, Default)]
-pub struct WcgiRunner {
-    config: Config,
+pub struct WcgiRunner<M = ()>
+where
+    M: Send + Sync + 'static,
+{
+    config: Config<M>,
 }
 
-impl WcgiRunner {
-    pub fn new() -> Self {
+impl<M> WcgiRunner<M>
+where
+    M: Send + Sync + 'static,
+{
+    pub fn new() -> Self
+    where
+        M: Default,
+    {
         WcgiRunner::default()
     }
 
-    pub fn config(&mut self) -> &mut Config {
+    pub fn config(&mut self) -> &mut Config<M> {
         &mut self.config
     }
 
@@ -47,7 +57,7 @@ impl WcgiRunner {
         propagate_stderr: bool,
         default_dialect: CgiDialect,
         runtime: Arc<dyn Runtime + Send + Sync>,
-    ) -> Result<Handler, Error> {
+    ) -> Result<Handler<M>, Error> {
         let cmd = pkg
             .get_command(command_name)
             .with_context(|| format!("The package doesn't contain a \"{command_name}\" command"))?;
@@ -81,7 +91,7 @@ impl WcgiRunner {
             dialect,
             propagate_stderr,
             program_name: command_name.to_string(),
-            setup_builder: Box::new(setup_builder),
+            setup_builder: Arc::new(setup_builder),
             callbacks: Arc::clone(&self.config.callbacks),
             runtime,
         };
@@ -177,14 +187,17 @@ impl crate::runners::Runner for WcgiRunner {
 
 #[derive(derivative::Derivative)]
 #[derivative(Debug)]
-pub struct Config {
+pub struct Config<M> {
     pub(crate) wasi: CommonWasiOptions,
     pub(crate) addr: SocketAddr,
     #[derivative(Debug = "ignore")]
-    pub(crate) callbacks: Arc<dyn Callbacks>,
+    pub(crate) callbacks: Arc<dyn Callbacks<M>>,
 }
 
-impl Config {
+impl<M> Config<M>
+where
+    M: Send + Sync + 'static,
+{
     pub fn addr(&mut self, addr: SocketAddr) -> &mut Self {
         self.addr = addr;
         self
@@ -246,7 +259,7 @@ impl Config {
 
     /// Set callbacks that will be triggered at various points in the runner's
     /// lifecycle.
-    pub fn callbacks(&mut self, callbacks: impl Callbacks + Send + Sync + 'static) -> &mut Self {
+    pub fn callbacks(&mut self, callbacks: impl Callbacks<M> + Send + Sync + 'static) -> &mut Self {
         self.callbacks = Arc::new(callbacks);
         self
     }
@@ -306,32 +319,30 @@ impl Config {
     }
 }
 
-impl Default for Config {
+impl<M> Default for Config<M>
+where
+    M: Send + Sync + 'static,
+{
     fn default() -> Self {
-        Self {
-            addr: ([127, 0, 0, 1], 8000).into(),
-            wasi: CommonWasiOptions::default(),
-            callbacks: Arc::new(NoopCallbacks),
-        }
+        Self::new(NoopCallbacks)
     }
 }
 
-/// Callbacks that are triggered at various points in the lifecycle of a runner
-/// and any WebAssembly instances it may start.
-pub trait Callbacks: Send + Sync + 'static {
-    /// A callback that is called whenever the server starts.
-    fn started(&self, _abort: AbortHandle) {}
-
-    /// Data was written to stderr by an instance.
-    fn on_stderr(&self, _stderr: &[u8]) {}
-
-    /// Reading from stderr failed.
-    fn on_stderr_error(&self, _error: std::io::Error) {}
+impl<M> Config<M>
+where
+    M: Send + Sync + 'static,
+{
+    pub fn new<C>(callbacks: C) -> Self
+    where
+        C: Callbacks<M>,
+    {
+        Self {
+            addr: ([127, 0, 0, 1], 8000).into(),
+            wasi: CommonWasiOptions::default(),
+            callbacks: Arc::new(callbacks),
+        }
+    }
 }
-
-struct NoopCallbacks;
-
-impl Callbacks for NoopCallbacks {}
 
 #[cfg(test)]
 mod tests {

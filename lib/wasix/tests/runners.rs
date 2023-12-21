@@ -175,7 +175,7 @@ mod wcgi {
         handle: Handle,
     }
 
-    impl wasmer_wasix::runners::wcgi::Callbacks for Callbacks {
+    impl wasmer_wasix::runners::wcgi::Callbacks<()> for Callbacks {
         fn started(&self, abort: futures::stream::AbortHandle) {
             let mut sender = self.sender.clone();
             self.handle.spawn(async move {

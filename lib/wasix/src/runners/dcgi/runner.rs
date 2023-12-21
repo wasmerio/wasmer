@@ -7,19 +7,31 @@ use webc::metadata::Command;
 use crate::{
     bin_factory::BinaryPackage,
     capabilities::Capabilities,
-    runners::{dcgi::handler::Handler, wcgi, MappedDirectory},
+    runners::{
+        dcgi::handler::Handler,
+        wcgi::{self, NoopCallbacks},
+        MappedDirectory,
+    },
     Runtime,
 };
 
-#[derive(Debug, Default)]
+use super::{DcgiCallbacks, DcgiInstanceFactory, DcgiMetadata};
+
+#[derive(Debug)]
 pub struct DcgiRunner {
     config: Config,
-    inner: wcgi::WcgiRunner,
+    inner: wcgi::WcgiRunner<DcgiMetadata>,
 }
 
 impl DcgiRunner {
-    pub fn new() -> Self {
-        DcgiRunner::default()
+    pub fn new(factory: DcgiInstanceFactory) -> Self {
+        let callbacks = DcgiCallbacks::new(factory, NoopCallbacks);
+        DcgiRunner {
+            config: Config {
+                inner: wcgi::Config::new(callbacks),
+            },
+            inner: Default::default(),
+        }
     }
 
     pub fn config(&mut self) -> &mut Config {
@@ -33,7 +45,7 @@ impl DcgiRunner {
         pkg: &BinaryPackage,
         runtime: Arc<dyn Runtime + Send + Sync>,
     ) -> Result<Handler, Error> {
-        let inner: wcgi::Handler =
+        let inner: wcgi::Handler<DcgiMetadata> =
             self.inner
                 .prepare_handler(command_name, pkg, true, CgiDialect::Rfc3875, runtime)?;
         Ok(Handler::from_wcgi_handler(inner))
@@ -61,11 +73,11 @@ impl crate::runners::Runner for DcgiRunner {
 
 #[derive(Debug)]
 pub struct Config {
-    inner: wcgi::Config,
+    inner: wcgi::Config<DcgiMetadata>,
 }
 
 impl Config {
-    pub fn inner(&mut self) -> &mut wcgi::Config {
+    pub fn inner(&mut self) -> &mut wcgi::Config<DcgiMetadata> {
         &mut self.inner
     }
 
@@ -130,7 +142,7 @@ impl Config {
     /// lifecycle.
     pub fn callbacks(
         &mut self,
-        callbacks: impl wcgi::Callbacks + Send + Sync + 'static,
+        callbacks: impl wcgi::Callbacks<DcgiMetadata> + Send + Sync + 'static,
     ) -> &mut Self {
         self.inner.callbacks(callbacks);
         self
@@ -176,14 +188,6 @@ impl Config {
     pub fn add_journal(&mut self, journal: Arc<crate::journal::DynJournal>) -> &mut Self {
         self.inner.add_journal(journal);
         self
-    }
-}
-
-impl Default for Config {
-    fn default() -> Self {
-        Self {
-            inner: Default::default(),
-        }
     }
 }
 
