@@ -1,3 +1,5 @@
+use std::time::Duration;
+
 use anyhow::Context;
 use futures::future::BoxFuture;
 use std::convert::TryFrom;
@@ -8,16 +10,26 @@ use super::{HttpRequest, HttpResponse};
 #[derive(Clone, Debug)]
 pub struct ReqwestHttpClient {
     handle: Handle,
+    connect_timeout: Duration,
 }
+
 impl Default for ReqwestHttpClient {
     fn default() -> Self {
         Self {
             handle: Handle::current(),
+            connect_timeout: Self::DEFAULT_CONNECT_TIMEOUT,
         }
     }
 }
 
 impl ReqwestHttpClient {
+    const DEFAULT_CONNECT_TIMEOUT: Duration = Duration::from_secs(10);
+
+    pub fn with_connect_timeout(mut self, timeout: Duration) -> Self {
+        self.connect_timeout = timeout;
+        self
+    }
+
     async fn request(&self, request: HttpRequest) -> Result<HttpResponse, anyhow::Error> {
         let method = reqwest::Method::try_from(request.method.as_str())
             .with_context(|| format!("Invalid http method {}", request.method))?;
@@ -25,7 +37,8 @@ impl ReqwestHttpClient {
         // TODO: use persistent client?
         let client = {
             let _guard = Handle::try_current().map_err(|_| self.handle.enter());
-            reqwest::ClientBuilder::default()
+            reqwest::Client::builder()
+                .connect_timeout(self.connect_timeout)
                 .build()
                 .context("Could not create reqwest client")?
         };
