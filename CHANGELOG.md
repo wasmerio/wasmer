@@ -9,6 +9,40 @@ Looking for changes that affect our C API? See the [C API Changelog](lib/c-api/C
 
 ## **Unreleased**
 
+## 4.2.4 - 30/11/2023
+
+This release allows publishing private packages and fixes the issue of the file system being accessible by WASI modules in the abscence of directory mapping. Also improves startup speed, and fixes multiple issues around the WASI filesystem, packages and apps.
+
+## Added
+
+  - [#4334](https://github.com/wasmerio/wasmer/pull/4334) Add `application/wasm` to list of accepted content-types for webcs
+  - [#4328](https://github.com/wasmerio/wasmer/pull/4328) Add `--wait` and `--timeout` flags to `wamer publish`
+  - [#4315](https://github.com/wasmerio/wasmer/pull/4315) Add TTY aware output to the wasmer package and wasmer container commands
+  - [#4287](https://github.com/wasmerio/wasmer/pull/4287) feat(cli): Add package commands
+  - [#4247](https://github.com/wasmerio/wasmer/pull/4247) Add support for publishing private packages
+  - [#4291](https://github.com/wasmerio/wasmer/pull/4291) feat(cli): add pnpm support
+
+## Changed
+
+  - [#4333](https://github.com/wasmerio/wasmer/pull/4333) deps: Bump edge-cli
+  - [#4332](https://github.com/wasmerio/wasmer/pull/4332) use rusty_pool instead of rayon
+  - [#4321](https://github.com/wasmerio/wasmer/pull/4321) deps(cli): Upgrade Edge CLI
+  - [#4326](https://github.com/wasmerio/wasmer/pull/4326) Always re-execute a registry query when cache lookups fail
+  - [#4317](https://github.com/wasmerio/wasmer/pull/4317) Bump min enumset version to 1.1.0
+  - [#4300](https://github.com/wasmerio/wasmer/pull/4300) Use authentication when running a package
+  - [#4294](https://github.com/wasmerio/wasmer/pull/4294) Terminate after flushing file descriptors
+  - [#4273](https://github.com/wasmerio/wasmer/pull/4273) Update memoffset to 0.9.0
+
+## Fixed
+
+  - [#4307](https://github.com/wasmerio/wasmer/pull/4307) Fix for the non-flushing of file descriptors and a nasty deadlock
+  - [#4331](https://github.com/wasmerio/wasmer/pull/4331) Fix visibility validation to work when publishing a new package
+  - [#4314](https://github.com/wasmerio/wasmer/pull/4314) fix(cli): Prevent temporary file issues in "package download"
+  - [#4296](https://github.com/wasmerio/wasmer/pull/4296) fix: prevent potential UB by deriving repr C for union
+  - [#4192](https://github.com/wasmerio/wasmer/pull/4192) More fixes to support Wasmer JS
+
+
+
 ## 4.2.3 - 26/10/2023
 
 This new version fixes a bug in module bindings path.

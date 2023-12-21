@@ -393,13 +393,6 @@ build-wasmer:
 build-wasmer-jsc:
 	$(CARGO_BINARY) build $(CARGO_TARGET_FLAG) --release --manifest-path lib/cli/Cargo.toml --no-default-features --features="jsc,wat" --bin wasmer --locked
 
-install-wasi-web:
-	cd lib/wasi-web && npm install || true
-	cd lib/wasi-web && npm run build
-
-build-wasi-web:
-	cd lib/wasi-web && npm run build
-
 build-wasmer-debug:
 	$(CARGO_BINARY) build $(CARGO_TARGET_FLAG) --manifest-path lib/cli/Cargo.toml $(compiler_features) --bin wasmer --locked
 
@@ -438,40 +431,36 @@ build-docs:
 test-build-docs-rs:
 	@manifest_docs_rs_features_path="package.metadata.docs.rs.features"; \
 	for manifest_path in lib/*/Cargo.toml; do \
-		if [ "$$manifest_path" !=  "lib/wasi-web/Cargo.toml" ]; then \
-			toml get "$$manifest_path" "$$manifest_docs_rs_features_path" >/dev/null 2>&1; \
-			if [ $$? -ne 0 ]; then \
-				features=""; \
-			else \
-				features=$$(toml get "$$manifest_path" "$$manifest_docs_rs_features_path" | sed 's/\[//; s/\]//; s/"\([^"]*\)"/\1/g'); \
-			fi; \
-			printf "*** Building doc for package with manifest $$manifest_path ***\n\n"; \
-			if [ -z "$$features" ]; then \
-				RUSTDOCFLAGS="--cfg=docsrs" $(CARGO_BINARY) +nightly doc $(CARGO_TARGET_FLAG) --manifest-path "$$manifest_path" --locked || exit 1; \
-			else \
-				printf "Following features are inferred from Cargo.toml: $$features\n\n\n"; \
-				RUSTDOCFLAGS="--cfg=docsrs" $(CARGO_BINARY) +nightly doc $(CARGO_TARGET_FLAG) --manifest-path "$$manifest_path" --features "$$features" --locked || exit 1; \
-			fi; \
+		toml get "$$manifest_path" "$$manifest_docs_rs_features_path" >/dev/null 2>&1; \
+		if [ $$? -ne 0 ]; then \
+			features=""; \
+		else \
+			features=$$(toml get "$$manifest_path" "$$manifest_docs_rs_features_path" | sed 's/\[//; s/\]//; s/"\([^"]*\)"/\1/g'); \
+		fi; \
+		printf "*** Building doc for package with manifest $$manifest_path ***\n\n"; \
+		if [ -z "$$features" ]; then \
+			RUSTDOCFLAGS="--cfg=docsrs" $(CARGO_BINARY) +nightly doc $(CARGO_TARGET_FLAG) --manifest-path "$$manifest_path" --locked || exit 1; \
+		else \
+			printf "Following features are inferred from Cargo.toml: $$features\n\n\n"; \
+			RUSTDOCFLAGS="--cfg=docsrs" $(CARGO_BINARY) +nightly doc $(CARGO_TARGET_FLAG) --manifest-path "$$manifest_path" --features "$$features" --locked || exit 1; \
 		fi; \
 	done
 
 test-build-docs-rs-ci:
 	@manifest_docs_rs_features_path="package.metadata.docs.rs.features"; \
 	for manifest_path in lib/*/Cargo.toml; do \
-		if [ "$$manifest_path" !=  "lib/wasi-web/Cargo.toml" ]; then \
-			toml get "$$manifest_path" "$$manifest_docs_rs_features_path" >/dev/null 2>&1; \
-			if [ $$? -ne 0 ]; then \
-				features=""; \
-			else \
-				features=$$(toml get "$$manifest_path" "$$manifest_docs_rs_features_path" | sed 's/\[//; s/\]//; s/"\([^"]*\)"/\1/g'); \
-			fi; \
-			printf "*** Building doc for package with manifest $$manifest_path ***\n\n"; \
-			if [ -z "$$features" ]; then \
-				RUSTDOCFLAGS="--cfg=docsrs" $(CARGO_BINARY) +nightly-2023-05-25 doc $(CARGO_TARGET_FLAG) --manifest-path "$$manifest_path" --locked || exit 1; \
-			else \
-				printf "Following features are inferred from Cargo.toml: $$features\n\n\n"; \
-				RUSTDOCFLAGS="--cfg=docsrs" $(CARGO_BINARY) +nightly-2023-05-25 doc $(CARGO_TARGET_FLAG) --manifest-path "$$manifest_path" --features "$$features" --locked || exit 1; \
-			fi; \
+		toml get "$$manifest_path" "$$manifest_docs_rs_features_path" >/dev/null 2>&1; \
+		if [ $$? -ne 0 ]; then \
+			features=""; \
+		else \
+			features=$$(toml get "$$manifest_path" "$$manifest_docs_rs_features_path" | sed 's/\[//; s/\]//; s/"\([^"]*\)"/\1/g'); \
+		fi; \
+		printf "*** Building doc for package with manifest $$manifest_path ***\n\n"; \
+		if [ -z "$$features" ]; then \
+			RUSTDOCFLAGS="--cfg=docsrs" $(CARGO_BINARY) +nightly-2023-05-25 doc $(CARGO_TARGET_FLAG) --manifest-path "$$manifest_path" --locked || exit 1; \
+		else \
+			printf "Following features are inferred from Cargo.toml: $$features\n\n\n"; \
+			RUSTDOCFLAGS="--cfg=docsrs" $(CARGO_BINARY) +nightly-2023-05-25 doc $(CARGO_TARGET_FLAG) --manifest-path "$$manifest_path" --features "$$features" --locked || exit 1; \
 		fi; \
 	done
 
@@ -538,11 +527,12 @@ build-capi-headless-ios:
 
 # test compilers
 test-stage-0-wast:
-	$(CARGO_BINARY) test $(CARGO_TARGET_FLAG) --release --tests $(compiler_features) --locked
+	$(CARGO_BINARY) nextest run $(CARGO_TARGET_FLAG) --release $(compiler_features) --locked
 
 # test packages
 test-stage-1-test-all:
-	$(CARGO_BINARY) test $(CARGO_TARGET_FLAG) --all --release $(exclude_tests) --exclude wasmer-c-api-test-runner --exclude wasmer-capi-examples-runner $(compiler_features) --locked
+	$(CARGO_BINARY) nextest run $(CARGO_TARGET_FLAG) --workspace --release $(exclude_tests) --exclude wasmer-c-api-test-runner --exclude wasmer-capi-examples-runner $(compiler_features) --locked
+	$(CARGO_BINARY) test --doc $(CARGO_TARGET_FLAG) --workspace --release $(exclude_tests) --exclude wasmer-c-api-test-runner --exclude wasmer-capi-examples-runner $(compiler_features) --locked
 test-stage-2-test-compiler-cranelift-nostd:
 	$(CARGO_BINARY) test $(CARGO_TARGET_FLAG) --manifest-path lib/compiler-cranelift/Cargo.toml --release --no-default-features --features=std --locked
 test-stage-3-test-compiler-singlepass-nostd:
@@ -637,9 +627,9 @@ test-integration-cli: build-wasmer build-capi package-capi-headless package dist
 	WASMER_DIR=`pwd`/package $(CARGO_BINARY) test $(CARGO_TARGET_FLAG) --features webc_runner --no-fail-fast -p wasmer-integration-tests-cli --locked
 
 # Before running this in the CI, we need to set up link.tar.gz and /cache/wasmer-[target].tar.gz
-test-integration-cli-ci:
+test-integration-cli-ci: require-nextest
 	rustup target add wasm32-wasi
-	$(CARGO_BINARY) test $(CARGO_TARGET_FLAG) --features webc_runner -p wasmer-integration-tests-cli --locked
+	$(CARGO_BINARY) nextest run $(CARGO_TARGET_FLAG) --features webc_runner -p wasmer-integration-tests-cli --locked
 
 test-integration-ios:
 	$(CARGO_BINARY) test $(CARGO_TARGET_FLAG) --features webc_runner -p wasmer-integration-tests-ios --locked
@@ -940,3 +930,6 @@ test-minimal-versions:
 
 update-graphql-schema:
 	curl -sSfL https://registry.wapm.io/graphql/schema.graphql > lib/registry/graphql/schema.graphql
+
+require-nextest:
+	cargo nextest --version > /dev/null || cargo binstall cargo-nextest --secure || cargo install cargo-nextest

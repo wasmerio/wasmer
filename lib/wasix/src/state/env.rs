@@ -937,7 +937,7 @@ impl WasiEnv {
                     }
                     WasiFsRoot::Backing(fs) => {
                         let mut f = fs.new_open_options().create(true).write(true).open(path)?;
-                        f.copy_reference(Box::new(StaticFile::new(atom.into())));
+                        f.copy_reference(Box::new(StaticFile::new(atom)));
                     }
                 }
 
