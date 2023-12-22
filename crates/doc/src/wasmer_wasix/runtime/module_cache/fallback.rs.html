@@ -422,7 +422,7 @@
     </span><span class="kw">async fn </span>load_from_primary() {
         <span class="kw">let </span>engine = Engine::default();
         <span class="kw">let </span>module = Module::new(<span class="kw-2">&amp;</span>engine, ADD_WAT).unwrap();
-        <span class="kw">let </span>key = ModuleHash::from_bytes([<span class="number">0</span>; <span class="number">32</span>]);
+        <span class="kw">let </span>key = ModuleHash::from_bytes([<span class="number">0</span>; <span class="number">8</span>]);
         <span class="kw">let </span>primary = SharedCache::default();
         <span class="kw">let </span>fallback = SharedCache::default();
         primary.save(key, <span class="kw-2">&amp;</span>engine, <span class="kw-2">&amp;</span>module).<span class="kw">await</span>.unwrap();
@@ -447,7 +447,7 @@
     </span><span class="kw">async fn </span>loading_from_fallback_also_populates_primary() {
         <span class="kw">let </span>engine = Engine::default();
         <span class="kw">let </span>module = Module::new(<span class="kw-2">&amp;</span>engine, ADD_WAT).unwrap();
-        <span class="kw">let </span>key = ModuleHash::from_bytes([<span class="number">0</span>; <span class="number">32</span>]);
+        <span class="kw">let </span>key = ModuleHash::from_bytes([<span class="number">0</span>; <span class="number">8</span>]);
         <span class="kw">let </span>primary = SharedCache::default();
         <span class="kw">let </span>fallback = SharedCache::default();
         fallback.save(key, <span class="kw-2">&amp;</span>engine, <span class="kw-2">&amp;</span>module).<span class="kw">await</span>.unwrap();
@@ -473,7 +473,7 @@
     </span><span class="kw">async fn </span>saving_will_update_both() {
         <span class="kw">let </span>engine = Engine::default();
         <span class="kw">let </span>module = Module::new(<span class="kw-2">&amp;</span>engine, ADD_WAT).unwrap();
-        <span class="kw">let </span>key = ModuleHash::from_bytes([<span class="number">0</span>; <span class="number">32</span>]);
+        <span class="kw">let </span>key = ModuleHash::from_bytes([<span class="number">0</span>; <span class="number">8</span>]);
         <span class="kw">let </span>primary = SharedCache::default();
         <span class="kw">let </span>fallback = SharedCache::default();
         <span class="kw">let </span>cache = FallbackCache::new(<span class="kw-2">&amp;</span>primary, <span class="kw-2">&amp;</span>fallback);

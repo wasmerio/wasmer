@@ -275,7 +275,7 @@
     }
 
     <span class="kw">pub fn </span>hash(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>ModuleHash {
-        <span class="self">self</span>.hash.get_or_init(|| ModuleHash::sha256(<span class="self">self</span>.atom()))
+        <span class="self">self</span>.hash.get_or_init(|| ModuleHash::hash(<span class="self">self</span>.atom()))
     }
 }
 
@@ -367,9 +367,9 @@
     <span class="kw">pub fn </span>hash(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; ModuleHash {
         <span class="kw-2">*</span><span class="self">self</span>.hash.get_or_init(|| {
             <span class="kw">if let </span><span class="prelude-val">Some</span>(entry) = <span class="self">self</span>.entrypoint_bytes() {
-                ModuleHash::sha256(entry)
+                ModuleHash::hash(entry)
             } <span class="kw">else </span>{
-                ModuleHash::sha256(<span class="self">self</span>.package_name.as_bytes())
+                ModuleHash::hash(<span class="self">self</span>.package_name.as_bytes())
             }
         })
     }

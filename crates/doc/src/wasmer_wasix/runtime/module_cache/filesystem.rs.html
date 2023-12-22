@@ -446,7 +446,7 @@
         <span class="kw">let </span>engine = Engine::default();
         <span class="kw">let </span>module = Module::new(<span class="kw-2">&amp;</span>engine, ADD_WAT).unwrap();
         <span class="kw">let </span>cache = FileSystemCache::new(temp.path());
-        <span class="kw">let </span>key = ModuleHash::from_bytes([<span class="number">0</span>; <span class="number">32</span>]);
+        <span class="kw">let </span>key = ModuleHash::from_bytes([<span class="number">0</span>; <span class="number">8</span>]);
         <span class="kw">let </span>expected_path = cache.path(key, engine.deterministic_id());
 
         cache.save(key, <span class="kw-2">&amp;</span>engine, <span class="kw-2">&amp;</span>module).<span class="kw">await</span>.unwrap();
@@ -462,7 +462,7 @@
         <span class="kw">let </span>cache_dir = temp.path().join(<span class="string">&quot;this&quot;</span>).join(<span class="string">&quot;doesn&#39;t&quot;</span>).join(<span class="string">&quot;exist&quot;</span>);
         <span class="macro">assert!</span>(!cache_dir.exists());
         <span class="kw">let </span>cache = FileSystemCache::new(<span class="kw-2">&amp;</span>cache_dir);
-        <span class="kw">let </span>key = ModuleHash::from_bytes([<span class="number">0</span>; <span class="number">32</span>]);
+        <span class="kw">let </span>key = ModuleHash::from_bytes([<span class="number">0</span>; <span class="number">8</span>]);
 
         cache.save(key, <span class="kw-2">&amp;</span>engine, <span class="kw-2">&amp;</span>module).<span class="kw">await</span>.unwrap();
 
@@ -473,7 +473,7 @@
     </span><span class="kw">async fn </span>missing_file() {
         <span class="kw">let </span>temp = TempDir::new().unwrap();
         <span class="kw">let </span>engine = Engine::default();
-        <span class="kw">let </span>key = ModuleHash::from_bytes([<span class="number">0</span>; <span class="number">32</span>]);
+        <span class="kw">let </span>key = ModuleHash::from_bytes([<span class="number">0</span>; <span class="number">8</span>]);
         <span class="kw">let </span>cache = FileSystemCache::new(temp.path());
 
         <span class="kw">let </span>err = cache.load(key, <span class="kw-2">&amp;</span>engine).<span class="kw">await</span>.unwrap_err();
@@ -486,7 +486,7 @@
         <span class="kw">let </span>temp = TempDir::new().unwrap();
         <span class="kw">let </span>engine = Engine::default();
         <span class="kw">let </span>module = Module::new(<span class="kw-2">&amp;</span>engine, ADD_WAT).unwrap();
-        <span class="kw">let </span>key = ModuleHash::from_bytes([<span class="number">0</span>; <span class="number">32</span>]);
+        <span class="kw">let </span>key = ModuleHash::from_bytes([<span class="number">0</span>; <span class="number">8</span>]);
         <span class="kw">let </span>cache = FileSystemCache::new(temp.path());
         <span class="kw">let </span>expected_path = cache.path(key, engine.deterministic_id());
         std::fs::create_dir_all(expected_path.parent().unwrap()).unwrap();
@@ -509,7 +509,7 @@
         <span class="kw">let </span>temp = TempDir::new().unwrap();
         <span class="kw">let </span>engine = Engine::default();
         <span class="kw">let </span>module = Module::new(<span class="kw-2">&amp;</span>engine, ADD_WAT).unwrap();
-        <span class="kw">let </span>key = ModuleHash::from_bytes([<span class="number">0</span>; <span class="number">32</span>]);
+        <span class="kw">let </span>key = ModuleHash::from_bytes([<span class="number">0</span>; <span class="number">8</span>]);
         <span class="kw">let </span>cache = FileSystemCache::new(temp.path());
         <span class="kw">let </span>expected_path = cache.path(key, engine.deterministic_id());
         std::fs::create_dir_all(expected_path.parent().unwrap()).unwrap();

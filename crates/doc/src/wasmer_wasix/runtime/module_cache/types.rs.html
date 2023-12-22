@@ -191,24 +191,13 @@
 <a href="#191" id="191">191</a>
 <a href="#192" id="192">192</a>
 <a href="#193" id="193">193</a>
-<a href="#194" id="194">194</a>
-<a href="#195" id="195">195</a>
-<a href="#196" id="196">196</a>
-<a href="#197" id="197">197</a>
-<a href="#198" id="198">198</a>
-<a href="#199" id="199">199</a>
-<a href="#200" id="200">200</a>
-<a href="#201" id="201">201</a>
-<a href="#202" id="202">202</a>
-<a href="#203" id="203">203</a>
-<a href="#204" id="204">204</a>
-</pre></div><pre class="rust"><code><span class="kw">use </span>std::{
+</pre></div><pre class="rust"><code><span class="kw">use </span>std::hash::Hash;
+<span class="kw">use </span>std::{
     fmt::{<span class="self">self</span>, Debug, Display, Formatter},
     ops::Deref,
     path::PathBuf,
 };
 
-<span class="kw">use </span>sha2::{Digest, Sha256};
 <span class="kw">use </span>wasmer::{Engine, Module};
 
 <span class="kw">use </span><span class="kw">crate</span>::runtime::module_cache::FallbackCache;
@@ -325,34 +314,34 @@
     }
 }
 
-<span class="doccomment">/// The SHA-256 hash of a WebAssembly module.
+<span class="doccomment">/// The XXHash hash of a WebAssembly module.
 </span><span class="attr">#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
-</span><span class="kw">pub struct </span>ModuleHash([u8; <span class="number">32</span>]);
+</span><span class="kw">pub struct </span>ModuleHash([u8; <span class="number">8</span>]);
 
 <span class="kw">impl </span>ModuleHash {
-    <span class="doccomment">/// Create a new [`ModuleHash`] from the raw SHA-256 hash.
-    </span><span class="kw">pub fn </span>from_bytes(key: [u8; <span class="number">32</span>]) -&gt; <span class="self">Self </span>{
+    <span class="doccomment">/// Create a new [`ModuleHash`] from the raw XXHash hash.
+    </span><span class="kw">pub fn </span>from_bytes(key: [u8; <span class="number">8</span>]) -&gt; <span class="self">Self </span>{
         ModuleHash(key)
     }
 
-    <span class="doccomment">/// Parse a sha256 hash from a hex-encoded string.
+    <span class="doccomment">/// Parse a XXHash hash from a hex-encoded string.
     </span><span class="kw">pub fn </span>parse_hex(hex_str: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, hex::FromHexError&gt; {
-        <span class="kw">let </span><span class="kw-2">mut </span>hash = [<span class="number">0_u8</span>; <span class="number">32</span>];
+        <span class="kw">let </span><span class="kw-2">mut </span>hash = [<span class="number">0_u8</span>; <span class="number">8</span>];
         hex::decode_to_slice(hex_str, <span class="kw-2">&amp;mut </span>hash)<span class="question-mark">?</span>;
         <span class="prelude-val">Ok</span>(<span class="self">Self</span>(hash))
     }
 
-    <span class="doccomment">/// Generate a new [`ModuleCache`] based on the SHA-256 hash of some bytes.
-    </span><span class="kw">pub fn </span>sha256(wasm: <span class="kw">impl </span>AsRef&lt;[u8]&gt;) -&gt; <span class="self">Self </span>{
+    <span class="doccomment">/// Generate a new [`ModuleCache`] based on the XXHash hash of some bytes.
+    </span><span class="kw">pub fn </span>hash(wasm: <span class="kw">impl </span>AsRef&lt;[u8]&gt;) -&gt; <span class="self">Self </span>{
         <span class="kw">let </span>wasm = wasm.as_ref();
 
-        <span class="kw">let </span><span class="kw-2">mut </span>hasher = Sha256::default();
-        hasher.update(wasm);
-        ModuleHash::from_bytes(hasher.finalize().into())
+        <span class="kw">let </span>hash = xxhash_rust::xxh64::xxh64(wasm, <span class="number">0</span>);
+
+        <span class="self">Self</span>(hash.to_ne_bytes())
     }
 
-    <span class="doccomment">/// Get the raw SHA-256 hash.
-    </span><span class="kw">pub fn </span>as_bytes(<span class="self">self</span>) -&gt; [u8; <span class="number">32</span>] {
+    <span class="doccomment">/// Get the raw XXHash hash.
+    </span><span class="kw">pub fn </span>as_bytes(<span class="self">self</span>) -&gt; [u8; <span class="number">8</span>] {
         <span class="self">self</span>.<span class="number">0
     </span>}
 }
@@ -378,30 +367,19 @@
 
     <span class="attr">#[test]
     </span><span class="kw">fn </span>key_is_displayed_as_hex() {
-        <span class="kw">let </span>key = ModuleHash::from_bytes([
-            <span class="number">0x00</span>, <span class="number">0x01</span>, <span class="number">0x02</span>, <span class="number">0x03</span>, <span class="number">0x04</span>, <span class="number">0x05</span>, <span class="number">0x06</span>, <span class="number">0x07</span>, <span class="number">0x08</span>, <span class="number">0x09</span>, <span class="number">0x0a</span>, <span class="number">0x0b</span>, <span class="number">0x0c</span>, <span class="number">0x0d</span>,
-            <span class="number">0x0e</span>, <span class="number">0x0f</span>, <span class="number">0x10</span>, <span class="number">0x11</span>, <span class="number">0x12</span>, <span class="number">0x13</span>, <span class="number">0x14</span>, <span class="number">0x15</span>, <span class="number">0x16</span>, <span class="number">0x17</span>, <span class="number">0x18</span>, <span class="number">0x19</span>, <span class="number">0x1a</span>, <span class="number">0x1b</span>,
-            <span class="number">0x1c</span>, <span class="number">0x1d</span>, <span class="number">0x1e</span>, <span class="number">0x1f</span>,
-        ]);
+        <span class="kw">let </span>key = ModuleHash::from_bytes([<span class="number">0x00</span>, <span class="number">0x01</span>, <span class="number">0x02</span>, <span class="number">0x03</span>, <span class="number">0x04</span>, <span class="number">0x05</span>, <span class="number">0x06</span>, <span class="number">0x07</span>]);
 
         <span class="kw">let </span>repr = key.to_string();
 
-        <span class="macro">assert_eq!</span>(
-            repr,
-            <span class="string">&quot;000102030405060708090A0B0C0D0E0F101112131415161718191A1B1C1D1E1F&quot;
-        </span>);
+        <span class="macro">assert_eq!</span>(repr, <span class="string">&quot;0001020304050607&quot;</span>);
     }
 
     <span class="attr">#[test]
     </span><span class="kw">fn </span>module_hash_is_just_sha_256() {
         <span class="kw">let </span>wasm = <span class="string">b&quot;\0asm...&quot;</span>;
-        <span class="kw">let </span>raw = [
-            <span class="number">0x5a</span>, <span class="number">0x39</span>, <span class="number">0xfe</span>, <span class="number">0xef</span>, <span class="number">0x52</span>, <span class="number">0xe5</span>, <span class="number">0x3b</span>, <span class="number">0x8f</span>, <span class="number">0xfe</span>, <span class="number">0xdf</span>, <span class="number">0xd7</span>, <span class="number">0x05</span>, <span class="number">0x15</span>, <span class="number">0x56</span>,
-            <span class="number">0xec</span>, <span class="number">0x10</span>, <span class="number">0x5e</span>, <span class="number">0xd8</span>, <span class="number">0x69</span>, <span class="number">0x82</span>, <span class="number">0xf1</span>, <span class="number">0x22</span>, <span class="number">0xa0</span>, <span class="number">0x5d</span>, <span class="number">0x27</span>, <span class="number">0x28</span>, <span class="number">0xd9</span>, <span class="number">0x67</span>,
-            <span class="number">0x78</span>, <span class="number">0xe4</span>, <span class="number">0xeb</span>, <span class="number">0x96</span>,
-        ];
+        <span class="kw">let </span>raw = [<span class="number">0x0c</span>, <span class="number">0xc7</span>, <span class="number">0x88</span>, <span class="number">0x60</span>, <span class="number">0xd4</span>, <span class="number">0x14</span>, <span class="number">0x71</span>, <span class="number">0x4c</span>];
 
-        <span class="kw">let </span>hash = ModuleHash::sha256(wasm);
+        <span class="kw">let </span>hash = ModuleHash::hash(wasm);
 
         <span class="macro">assert_eq!</span>(hash.as_bytes(), raw);
     }

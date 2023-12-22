@@ -142,7 +142,7 @@
         <span class="kw">let </span>engine = Engine::default();
         <span class="kw">let </span>module = Module::new(<span class="kw-2">&amp;</span>engine, ADD_WAT).unwrap();
         <span class="kw">let </span>cache = SharedCache::default();
-        <span class="kw">let </span>key = ModuleHash::from_bytes([<span class="number">0</span>; <span class="number">32</span>]);
+        <span class="kw">let </span>key = ModuleHash::from_bytes([<span class="number">0</span>; <span class="number">8</span>]);
 
         cache.save(key, <span class="kw-2">&amp;</span>engine, <span class="kw-2">&amp;</span>module).<span class="kw">await</span>.unwrap();
         <span class="kw">let </span>round_tripped = cache.load(key, <span class="kw-2">&amp;</span>engine).<span class="kw">await</span>.unwrap();
