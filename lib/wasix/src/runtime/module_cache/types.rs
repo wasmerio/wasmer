@@ -5,7 +5,6 @@ use std::{
     path::PathBuf,
 };
 
-use sha2::{Digest, Sha256};
 use wasmer::{Engine, Module};
 
 use crate::runtime::module_cache::FallbackCache;
@@ -167,43 +166,32 @@ impl Display for ModuleHash {
         Ok(())
     }
 }
-//
-// #[cfg(test)]
-// mod tests {
-//     use super::*;
-//
-//     #[test]
-//     fn is_object_safe() {
-//         let _: Option<Box<dyn ModuleCache>> = None;
-//     }
-//
-//     #[test]
-//     fn key_is_displayed_as_hex() {
-//         let key = ModuleHash::from_bytes([
-//             0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d,
-//             0x0e, 0x0f, 0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18, 0x19, 0x1a, 0x1b,
-//             0x1c, 0x1d, 0x1e, 0x1f,
-//         ]);
-//
-//         let repr = key.to_string();
-//
-//         assert_eq!(
-//             repr,
-//             "000102030405060708090A0B0C0D0E0F101112131415161718191A1B1C1D1E1F"
-//         );
-//     }
-//
-//     #[test]
-//     fn module_hash_is_just_sha_256() {
-//         let wasm = b"\0asm...";
-//         let raw = [
-//             0x5a, 0x39, 0xfe, 0xef, 0x52, 0xe5, 0x3b, 0x8f, 0xfe, 0xdf, 0xd7, 0x05, 0x15, 0x56,
-//             0xec, 0x10, 0x5e, 0xd8, 0x69, 0x82, 0xf1, 0x22, 0xa0, 0x5d, 0x27, 0x28, 0xd9, 0x67,
-//             0x78, 0xe4, 0xeb, 0x96,
-//         ];
-//
-//         let hash = ModuleHash::sha256(wasm);
-//
-//         assert_eq!(hash.as_bytes(), raw);
-//     }
-// }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn is_object_safe() {
+        let _: Option<Box<dyn ModuleCache>> = None;
+    }
+
+    #[test]
+    fn key_is_displayed_as_hex() {
+        let key = ModuleHash::from_bytes([0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07]);
+
+        let repr = key.to_string();
+
+        assert_eq!(repr, "0001020304050607");
+    }
+
+    #[test]
+    fn module_hash_is_just_sha_256() {
+        let wasm = b"\0asm...";
+        let raw = [0x0c, 0xc7, 0x88, 0x60, 0xd4, 0x14, 0x71, 0x4c];
+
+        let hash = ModuleHash::sha256(wasm);
+
+        assert_eq!(hash.as_bytes(), raw);
+    }
+}
