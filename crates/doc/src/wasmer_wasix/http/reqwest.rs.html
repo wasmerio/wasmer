@@ -78,10 +78,26 @@
 <a href="#78" id="78">78</a>
 <a href="#79" id="79">79</a>
 <a href="#80" id="80">80</a>
+<a href="#81" id="81">81</a>
+<a href="#82" id="82">82</a>
+<a href="#83" id="83">83</a>
+<a href="#84" id="84">84</a>
+<a href="#85" id="85">85</a>
+<a href="#86" id="86">86</a>
+<a href="#87" id="87">87</a>
+<a href="#88" id="88">88</a>
+<a href="#89" id="89">89</a>
+<a href="#90" id="90">90</a>
+<a href="#91" id="91">91</a>
+<a href="#92" id="92">92</a>
+<a href="#93" id="93">93</a>
+<a href="#94" id="94">94</a>
+<a href="#95" id="95">95</a>
+<a href="#96" id="96">96</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::time::Duration;
 
 <span class="kw">use </span>anyhow::Context;
-<span class="kw">use </span>futures::future::BoxFuture;
+<span class="kw">use </span>futures::{future::BoxFuture, TryStreamExt};
 <span class="kw">use </span>std::convert::TryFrom;
 <span class="kw">use </span>tokio::runtime::Handle;
 
@@ -91,6 +107,7 @@
 </span><span class="kw">pub struct </span>ReqwestHttpClient {
     handle: Handle,
     connect_timeout: Duration,
+    response_body_chunk_timeout: <span class="prelude-ty">Option</span>&lt;std::time::Duration&gt;,
 }
 
 <span class="kw">impl </span>Default <span class="kw">for </span>ReqwestHttpClient {
@@ -98,6 +115,7 @@
         <span class="self">Self </span>{
             handle: Handle::current(),
             connect_timeout: <span class="self">Self</span>::DEFAULT_CONNECT_TIMEOUT,
+            response_body_chunk_timeout: <span class="prelude-val">None</span>,
         }
     }
 }
@@ -107,6 +125,11 @@
 
     <span class="kw">pub fn </span>with_connect_timeout(<span class="kw-2">mut </span><span class="self">self</span>, timeout: Duration) -&gt; <span class="self">Self </span>{
         <span class="self">self</span>.connect_timeout = timeout;
+        <span class="self">self
+    </span>}
+
+    <span class="kw">pub fn </span>with_response_body_chunk_timeout(<span class="kw-2">mut </span><span class="self">self</span>, timeout: std::time::Duration) -&gt; <span class="self">Self </span>{
+        <span class="self">self</span>.response_body_chunk_timeout = <span class="prelude-val">Some</span>(timeout);
         <span class="self">self
     </span>}
 
@@ -140,7 +163,16 @@
         <span class="kw">let </span>headers = std::mem::take(response.headers_mut());
 
         <span class="kw">let </span>status = response.status();
-        <span class="kw">let </span>data = response.bytes().<span class="kw">await</span><span class="question-mark">?</span>.to_vec();
+        <span class="kw">let </span>data = <span class="kw">if let </span><span class="prelude-val">Some</span>(timeout) = <span class="self">self</span>.response_body_chunk_timeout {
+            <span class="kw">let </span><span class="kw-2">mut </span>stream = response.bytes_stream();
+            <span class="kw">let </span><span class="kw-2">mut </span>buf = Vec::new();
+            <span class="kw">while let </span><span class="prelude-val">Some</span>(chunk) = tokio::time::timeout(timeout, stream.try_next()).<span class="kw">await</span><span class="question-mark">?? </span>{
+                buf.extend_from_slice(<span class="kw-2">&amp;</span>chunk);
+            }
+            buf
+        } <span class="kw">else </span>{
+            response.bytes().<span class="kw">await</span><span class="question-mark">?</span>.to_vec()
+        };
 
         <span class="prelude-val">Ok</span>(HttpResponse {
             status,
