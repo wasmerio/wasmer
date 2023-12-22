@@ -49,7 +49,6 @@ where
     Ok(CreateEnvResult {
         env,
         memory: None,
-        store: conf.runtime.new_store(),
         body_sender: req_body_sender,
         body_receiver: res_body_receiver,
         stderr_receiver,

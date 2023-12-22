@@ -104,6 +104,13 @@ impl<'a, 'b> TaskWasm<'a, 'b> {
         self
     }
 
+    pub fn with_optional_memory(mut self, spawn_type: Option<SpawnMemoryType<'a>>) -> Self {
+        if let Some(spawn_type) = spawn_type {
+            self.spawn_type = spawn_type;
+        }
+        self
+    }
+
     pub fn with_snapshot(mut self, snapshot: &'b InstanceSnapshot) -> Self {
         self.snapshot.replace(snapshot);
         self

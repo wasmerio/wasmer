@@ -24,8 +24,7 @@ where
 /// Result of a create operation on a new environment
 pub struct CreateEnvResult {
     pub env: WasiEnv,
-    pub memory: Option<Memory>,
-    pub store: Store,
+    pub memory: Option<(Memory, Store)>,
     pub body_sender: Pipe,
     pub body_receiver: Pipe,
     pub stderr_receiver: Pipe,

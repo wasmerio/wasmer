@@ -7,7 +7,7 @@ use hyper::{service::Service, Body};
 use tokio::io::{AsyncBufReadExt, AsyncRead, AsyncWrite, AsyncWriteExt};
 use tracing::Instrument;
 use virtual_mio::InlineWaker;
-use wasmer::{AsStoreRef, Module};
+use wasmer::Module;
 use wasmer_wasix_types::wasi::ExitCode;
 use wcgi_host::CgiDialect;
 
@@ -21,7 +21,6 @@ use crate::{
     runtime::{
         module_cache::ModuleHash,
         task_manager::{TaskWasm, TaskWasmRecycleProperties},
-        SpawnMemoryType,
     },
     Runtime, VirtualTaskManager, WasiEnvBuilder,
 };
@@ -82,7 +81,6 @@ where
 
         let task_manager = self.runtime.task_manager();
         let env = create.env;
-        let store = create.store;
         let module = self.module.clone();
 
         // The recycle function will attempt to reuse the instance
@@ -101,17 +99,19 @@ where
         let finished = env.process.finished.clone();
 
         /*
+         * TODO: Reusing memory for DCGI calls and not just the file system
+         *
+         * DCGI does not support reusing the memory for the following reasons
+         * 1. The environment variables can not be overridden after libc does its lazy loading
+         * 2. The HTTP request variables are passed as environment variables and hence can not be changed
+         *    after the first call is made on the memory
+         * 3. The `SpawnMemoryType` is not send however this handler is running as a Send async. In order
+         *    to fix this the entire handler would need to run in its own non-Send thread.
+
         // Determine if we are going to create memory and import it or just rely on self creation of memory
-        let spawn_type = match create.memory {
-            Some(memory) => SpawnMemoryType::ShareMemory(memory, store.as_store_ref()),
-            None => {
-                let shared_memory = module.imports().memories().next().map(|a| *a.ty());
-                match shared_memory {
-                    Some(ty) => SpawnMemoryType::CreateMemoryOfType(ty),
-                    None => SpawnMemoryType::CreateMemory,
-                }
-            }
-        };
+        let spawn_type = create
+            .memory
+            .map(|memory| SpawnMemoryType::ShareMemory(memory, store.as_store_ref()));
         */
 
         // We run the WCGI thread on the dedicated WASM
@@ -120,7 +120,7 @@ where
         task_manager
             .task_wasm(
                 TaskWasm::new(Box::new(run_exec), env, module, false)
-                    //.with_memory(spawn_type)
+                    //.with_optional_memory(spawn_type)
                     .with_recycle(Box::new(recycle)),
             )
             .map_err(|err| {

@@ -64,8 +64,8 @@ impl DcgiInstanceFactory {
             .instances
             .push_front(DcgiInstance {
                 env: conf.env,
-                memory: conf.memory,
-                store: conf.store,
+                //memory: conf.memory,
+                //store: conf.store,
             });
 
         drop(state);
@@ -123,8 +123,6 @@ fn convert_instance(
     conf: &mut CreateEnvConfig<DcgiMetadata>,
 ) -> anyhow::Result<CreateEnvResult> {
     let mut env = inst.env;
-    let mut store = inst.store;
-    let memory = inst.memory;
 
     let (req_body_sender, req_body_receiver) = Pipe::channel();
     let (res_body_sender, res_body_receiver) = Pipe::channel();
@@ -160,8 +158,8 @@ fn convert_instance(
 
     Ok(CreateEnvResult {
         env,
-        store,
-        memory: Some(memory),
+        //memory: Some((inst.memory, inst.store)),
+        memory: None,
         body_sender: req_body_sender,
         body_receiver: res_body_receiver,
         stderr_receiver,

@@ -15,7 +15,7 @@ use wasmer::{Function, FunctionEnvMut, Memory32, Memory64, Module, Store};
 use wasmer_wasix_types::wasi::Errno;
 
 use super::{BinFactory, BinaryPackage};
-use crate::{runtime::SpawnMemoryType, Runtime, WasiEnv, WasiFunctionEnv};
+use crate::{Runtime, WasiEnv, WasiFunctionEnv};
 
 #[tracing::instrument(level = "trace", skip_all, fields(%name, %binary.package_name))]
 pub async fn spawn_exec(
@@ -81,22 +81,11 @@ pub fn spawn_exec_module(
 
     let join_handle = env.thread.join_handle();
     {
-        // Determine if shared memory needs to be created and imported
-        let shared_memory = module.imports().memories().next().map(|a| *a.ty());
-
-        // Determine if we are going to create memory and import it or just rely on self creation of memory
-        let memory_spawn = match shared_memory {
-            Some(ty) => SpawnMemoryType::CreateMemoryOfType(ty),
-            None => SpawnMemoryType::CreateMemory,
-        };
-
         // Create a thread that will run this process
         let tasks_outer = tasks.clone();
 
         tasks_outer
-            .task_wasm(
-                TaskWasm::new(Box::new(run_exec), env, module, true).with_memory(memory_spawn),
-            )
+            .task_wasm(TaskWasm::new(Box::new(run_exec), env, module, true))
             .map_err(|err| {
                 error!("wasi[{}]::failed to launch module - {}", pid, err);
                 SpawnError::UnknownError

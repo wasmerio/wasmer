@@ -41,7 +41,7 @@ impl wcgi::Callbacks<DcgiMetadata> for DcgiCallbacks {
         self.inner.on_stderr_error(error)
     }
 
-    async fn recycle_env(&self, mut conf: RecycleEnvConfig<DcgiMetadata>) {
+    async fn recycle_env(&self, conf: RecycleEnvConfig<DcgiMetadata>) {
         tracing::debug!(shard = conf.meta.shard, "recycling DCGI instance");
 
         // The stdio have to be reattached on each call as they are
