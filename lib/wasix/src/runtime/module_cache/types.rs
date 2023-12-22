@@ -121,29 +121,25 @@ impl CacheError {
     }
 }
 
-/// The SHA-256 hash of a WebAssembly module.
+/// The XXHash hash of a WebAssembly module.
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct ModuleHash([u8; 8]);
 
 impl ModuleHash {
-    /// Create a new [`ModuleHash`] from the raw SHA-256 hash.
+    /// Create a new [`ModuleHash`] from the raw XXHash hash.
     pub fn from_bytes(key: [u8; 8]) -> Self {
         ModuleHash(key)
     }
 
-    /// Parse a sha256 hash from a hex-encoded string.
+    /// Parse a XXHash hash from a hex-encoded string.
     pub fn parse_hex(hex_str: &str) -> Result<Self, hex::FromHexError> {
         let mut hash = [0_u8; 8];
         hex::decode_to_slice(hex_str, &mut hash)?;
         Ok(Self(hash))
     }
 
-    /// Generate a new [`ModuleCache`] based on the SHA-256 hash of some bytes.
-    pub fn sha256(wasm: impl AsRef<[u8]>) -> Self {
-        Self::xxhash(wasm)
-    }
-
-    pub fn xxhash(wasm: impl AsRef<[u8]>) -> Self {
+    /// Generate a new [`ModuleCache`] based on the XXHash hash of some bytes.
+    pub fn hash(wasm: impl AsRef<[u8]>) -> Self {
         let wasm = wasm.as_ref();
 
         let hash = xxhash_rust::xxh64::xxh64(wasm, 0);
@@ -151,7 +147,7 @@ impl ModuleHash {
         Self(hash.to_ne_bytes())
     }
 
-    /// Get the raw SHA-256 hash.
+    /// Get the raw XXHash hash.
     pub fn as_bytes(self) -> [u8; 8] {
         self.0
     }
@@ -190,7 +186,7 @@ mod tests {
         let wasm = b"\0asm...";
         let raw = [0x0c, 0xc7, 0x88, 0x60, 0xd4, 0x14, 0x71, 0x4c];
 
-        let hash = ModuleHash::sha256(wasm);
+        let hash = ModuleHash::hash(wasm);
 
         assert_eq!(hash.as_bytes(), raw);
     }
