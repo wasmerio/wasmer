@@ -1,3 +1,4 @@
+use std::hash::Hash;
 use std::{
     fmt::{self, Debug, Display, Formatter},
     ops::Deref,
@@ -123,19 +124,22 @@ impl CacheError {
 
 /// The SHA-256 hash of a WebAssembly module.
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
-pub struct ModuleHash([u8; 32]);
+pub enum ModuleHash {
+    Sha256([u8; 32]),
+    Xxhash([u8; 8]),
+}
 
 impl ModuleHash {
     /// Create a new [`ModuleHash`] from the raw SHA-256 hash.
     pub fn from_bytes(key: [u8; 32]) -> Self {
-        ModuleHash(key)
+        ModuleHash::Sha256(key)
     }
 
     /// Parse a sha256 hash from a hex-encoded string.
     pub fn parse_hex(hex_str: &str) -> Result<Self, hex::FromHexError> {
         let mut hash = [0_u8; 32];
         hex::decode_to_slice(hex_str, &mut hash)?;
-        Ok(Self(hash))
+        Ok(Self::Sha256(hash))
     }
 
     /// Generate a new [`ModuleCache`] based on the SHA-256 hash of some bytes.
@@ -147,15 +151,32 @@ impl ModuleHash {
         ModuleHash::from_bytes(hasher.finalize().into())
     }
 
+    pub fn xxhash(wasm: impl AsRef<[u8]>) -> Self {
+        let wasm = wasm.as_ref();
+
+        let hash = xxhash_rust::xxh64::xxh64(wasm, 0);
+
+        Self::Xxhash(hash.to_ne_bytes())
+    }
+
     /// Get the raw SHA-256 hash.
     pub fn as_bytes(self) -> [u8; 32] {
-        self.0
+        if let ModuleHash::Sha256(inner) = self {
+            inner
+        } else {
+            unreachable!("this should be unreachable")
+        }
     }
 }
 
 impl Display for ModuleHash {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        for byte in self.0 {
+        let bytes = match self {
+            ModuleHash::Sha256(bytes) => bytes.as_slice(),
+            ModuleHash::Xxhash(bytes) => bytes.as_slice(),
+        };
+
+        for byte in bytes {
             write!(f, "{byte:02X}")?;
         }
 
