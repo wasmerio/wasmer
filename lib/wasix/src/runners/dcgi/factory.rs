@@ -64,6 +64,7 @@ impl DcgiInstanceFactory {
             .instances
             .push_front(DcgiInstance {
                 env: conf.env,
+                memory: conf.memory,
                 store: conf.store,
             });
 
@@ -121,46 +122,46 @@ fn convert_instance(
     inst: DcgiInstance,
     conf: &mut CreateEnvConfig<DcgiMetadata>,
 ) -> anyhow::Result<CreateEnvResult> {
-    let env = inst.env;
+    let mut env = inst.env;
     let mut store = inst.store;
+    let memory = inst.memory;
 
     let (req_body_sender, req_body_receiver) = Pipe::channel();
     let (res_body_sender, res_body_receiver) = Pipe::channel();
     let (stderr_sender, stderr_receiver) = Pipe::channel();
 
-    {
-        let env = env.data_mut(&mut store);
+    env.reinit()?;
 
-        // Replace the environment variables as these will change
-        // depending on the WCGI call
-        *env.state.envs.lock().unwrap() = conv_env_vars(
-            conf.env
-                .iter()
-                .map(|(k, v)| (k.clone(), v.as_bytes().to_vec()))
-                .collect(),
-        );
+    // Replace the environment variables as these will change
+    // depending on the WCGI call
+    *env.state.envs.lock().unwrap() = conv_env_vars(
+        conf.env
+            .iter()
+            .map(|(k, v)| (k.clone(), v.as_bytes().to_vec()))
+            .collect(),
+    );
 
-        // The stdio have to be reattached on each call as they are
-        // read to completion (EOF) during nominal flows
-        env.state
-            .fs
-            .swap_file(__WASI_STDIN_FILENO, Box::new(req_body_receiver))
-            .map_err(WasiStateCreationError::FileSystemError)?;
+    // The stdio have to be reattached on each call as they are
+    // read to completion (EOF) during nominal flows
+    env.state
+        .fs
+        .swap_file(__WASI_STDIN_FILENO, Box::new(req_body_receiver))
+        .map_err(WasiStateCreationError::FileSystemError)?;
 
-        env.state
-            .fs
-            .swap_file(__WASI_STDOUT_FILENO, Box::new(res_body_sender))
-            .map_err(WasiStateCreationError::FileSystemError)?;
+    env.state
+        .fs
+        .swap_file(__WASI_STDOUT_FILENO, Box::new(res_body_sender))
+        .map_err(WasiStateCreationError::FileSystemError)?;
 
-        env.state
-            .fs
-            .swap_file(__WASI_STDERR_FILENO, Box::new(stderr_sender))
-            .map_err(WasiStateCreationError::FileSystemError)?;
-    }
+    env.state
+        .fs
+        .swap_file(__WASI_STDERR_FILENO, Box::new(stderr_sender))
+        .map_err(WasiStateCreationError::FileSystemError)?;
 
     Ok(CreateEnvResult {
         env,
         store,
+        memory: Some(memory),
         body_sender: req_body_sender,
         body_receiver: res_body_receiver,
         stderr_receiver,

@@ -138,6 +138,10 @@ impl OwnedTaskStatus {
         }
     }
 
+    pub(crate) async fn await_termination_anyhow(&self) -> anyhow::Result<ExitCode> {
+        Ok(self.await_termination().await?)
+    }
+
     pub fn handle(&self) -> TaskJoinHandle {
         TaskJoinHandle {
             watch: self.watch_tx.subscribe(),

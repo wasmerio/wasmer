@@ -320,7 +320,7 @@ pub struct WasiEnv {
 
     /// Flag that indicates the cleanup of the environment is to be disabled
     /// (this is normally used so that the instance can be reused later on)
-    pub(crate) disable_cleanup: bool,
+    pub(crate) disable_fs_cleanup: bool,
 
     /// List of situations that the process will checkpoint on
     #[cfg(feature = "journal")]
@@ -359,7 +359,7 @@ impl Clone for WasiEnv {
             replaying_journal: self.replaying_journal,
             #[cfg(feature = "journal")]
             snapshot_on: self.snapshot_on.clone(),
-            disable_cleanup: self.disable_cleanup,
+            disable_fs_cleanup: self.disable_fs_cleanup,
         }
     }
 }
@@ -400,7 +400,7 @@ impl WasiEnv {
             replaying_journal: false,
             #[cfg(feature = "journal")]
             snapshot_on: self.snapshot_on.clone(),
-            disable_cleanup: self.disable_cleanup,
+            disable_fs_cleanup: self.disable_fs_cleanup,
         };
         Ok((new_env, handle))
     }
@@ -415,30 +415,35 @@ impl WasiEnv {
 
     /// Re-initializes this environment so that it can be executed again
     pub fn reinit(&mut self) -> Result<(), WasiStateCreationError> {
-        // First we clear any open files as the descriptors would
-        // otherwise clash
-        if let Ok(mut map) = self.state.fs.fd_map.write() {
-            map.clear();
-        }
-        self.state.fs.preopen_fds.write().unwrap().clear();
-        self.state
-            .fs
-            .next_fd
-            .store(3, std::sync::atomic::Ordering::SeqCst);
-        *self.state.fs.current_dir.lock().unwrap() = "/".to_string();
+        // If the cleanup logic is enabled then we need to rebuild the
+        // file descriptors which would have been destroyed when the
+        // main thread exited
+        if !self.disable_fs_cleanup {
+            // First we clear any open files as the descriptors would
+            // otherwise clash
+            if let Ok(mut map) = self.state.fs.fd_map.write() {
+                map.clear();
+            }
+            self.state.fs.preopen_fds.write().unwrap().clear();
+            self.state
+                .fs
+                .next_fd
+                .store(3, std::sync::atomic::Ordering::SeqCst);
+            *self.state.fs.current_dir.lock().unwrap() = "/".to_string();
 
-        // We need to rebuild the basic file descriptors
-        self.state.fs.create_stdin(&self.state.inodes);
-        self.state.fs.create_stdout(&self.state.inodes);
-        self.state.fs.create_stderr(&self.state.inodes);
-        self.state
-            .fs
-            .create_rootfd()
-            .map_err(WasiStateCreationError::WasiFsSetupError)?;
-        self.state
-            .fs
-            .create_preopens(&self.state.inodes, true)
-            .map_err(WasiStateCreationError::WasiFsSetupError)?;
+            // We need to rebuild the basic file descriptors
+            self.state.fs.create_stdin(&self.state.inodes);
+            self.state.fs.create_stdout(&self.state.inodes);
+            self.state.fs.create_stderr(&self.state.inodes);
+            self.state
+                .fs
+                .create_rootfd()
+                .map_err(WasiStateCreationError::WasiFsSetupError)?;
+            self.state
+                .fs
+                .create_preopens(&self.state.inodes, true)
+                .map_err(WasiStateCreationError::WasiFsSetupError)?;
+        }
 
         // The process and thread state need to be reset
         self.process = WasiProcess::new(
@@ -519,7 +524,7 @@ impl WasiEnv {
             capabilities: init.capabilities,
             #[cfg(feature = "journal")]
             snapshot_on: init.snapshot_on.into_iter().collect(),
-            disable_cleanup: false,
+            disable_fs_cleanup: false,
         };
         env.owned_handles.push(thread);
 
@@ -1190,26 +1195,30 @@ impl WasiEnv {
         }
 
         // If this is the main thread then also close all the files
-        if self.thread.is_main() && !self.disable_cleanup {
-            tracing::trace!(pid=%self.pid(), "cleaning up open file handles");
-
+        if self.thread.is_main() {
             let process = self.process.clone();
+            let disable_fs_cleanup = self.disable_fs_cleanup;
+            let pid = self.pid();
 
             let timeout = self.tasks().sleep_now(CLEANUP_TIMEOUT);
             let state = self.state.clone();
             Box::pin(async move {
-                // Perform the clean operation using the asynchronous runtime
-                tokio::select! {
-                    _ = timeout => {
-                        tracing::debug!(
-                            "WasiEnv::cleanup has timed out after {CLEANUP_TIMEOUT:?}"
-                        );
-                    },
-                    _ = state.fs.close_all() => { }
-                }
+                if !disable_fs_cleanup {
+                    tracing::trace!(pid = %pid, "cleaning up open file handles");
 
-                // Now send a signal that the thread is terminated
-                process.signal_process(Signal::Sigquit);
+                    // Perform the clean operation using the asynchronous runtime
+                    tokio::select! {
+                        _ = timeout => {
+                            tracing::debug!(
+                                "WasiEnv::cleanup has timed out after {CLEANUP_TIMEOUT:?}"
+                            );
+                        },
+                        _ = state.fs.close_all() => { }
+                    }
+
+                    // Now send a signal that the thread is terminated
+                    process.signal_process(Signal::Sigquit);
+                }
 
                 // Terminate the process
                 let exit_code = exit_code.unwrap_or_else(|| Errno::Canceled.into());

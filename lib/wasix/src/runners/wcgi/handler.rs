@@ -6,15 +6,23 @@ use http::{Request, Response, StatusCode};
 use hyper::{service::Service, Body};
 use tokio::io::{AsyncBufReadExt, AsyncRead, AsyncWrite, AsyncWriteExt};
 use tracing::Instrument;
-use wasmer::Module;
+use virtual_mio::InlineWaker;
+use wasmer::{AsStoreRef, Module};
+use wasmer_wasix_types::wasi::ExitCode;
 use wcgi_host::CgiDialect;
 
 use crate::{
+    bin_factory::run_exec,
+    os::task::OwnedTaskStatus,
     runners::wcgi::{
         callbacks::{CreateEnvConfig, RecycleEnvConfig},
         Callbacks,
     },
-    runtime::module_cache::ModuleHash,
+    runtime::{
+        module_cache::ModuleHash,
+        task_manager::{TaskWasm, TaskWasmRecycleProperties},
+        SpawnMemoryType,
+    },
     Runtime, VirtualTaskManager, WasiEnvBuilder,
 };
 
@@ -75,16 +83,54 @@ where
         let task_manager = self.runtime.task_manager();
         let env = create.env;
         let store = create.store;
-        let (run_tx, mut run_rx) = tokio::sync::mpsc::unbounded_channel();
-        task_manager.task_dedicated(Box::new(move || {
-            run_tx.send(env.run_async(store)).ok();
-        }))?;
-        let done = async move { run_rx.recv().await.unwrap().map_err(Error::from) };
+        let module = self.module.clone();
+
+        // The recycle function will attempt to reuse the instance
+        let callbacks = Arc::clone(&self.callbacks);
+        let recycle = {
+            let callbacks = callbacks.clone();
+            move |props: TaskWasmRecycleProperties| {
+                InlineWaker::block_on(callbacks.recycle_env(RecycleEnvConfig {
+                    meta,
+                    env: props.env,
+                    store: props.store,
+                    memory: props.memory,
+                }));
+            }
+        };
+        let finished = env.process.finished.clone();
+
+        /*
+        // Determine if we are going to create memory and import it or just rely on self creation of memory
+        let spawn_type = match create.memory {
+            Some(memory) => SpawnMemoryType::ShareMemory(memory, store.as_store_ref()),
+            None => {
+                let shared_memory = module.imports().memories().next().map(|a| *a.ty());
+                match shared_memory {
+                    Some(ty) => SpawnMemoryType::CreateMemoryOfType(ty),
+                    None => SpawnMemoryType::CreateMemory,
+                }
+            }
+        };
+        */
+
+        // We run the WCGI thread on the dedicated WASM
+        // thread pool that has support for asynchronous
+        // threading, etc...
+        task_manager
+            .task_wasm(
+                TaskWasm::new(Box::new(run_exec), env, module, false)
+                    //.with_memory(spawn_type)
+                    .with_recycle(Box::new(recycle)),
+            )
+            .map_err(|err| {
+                tracing::warn!("failed to execute WCGI thread - {}", err);
+                err
+            })?;
 
         let mut res_body_receiver = tokio::io::BufReader::new(create.body_receiver);
 
         let stderr_receiver = create.stderr_receiver;
-        let callbacks = Arc::clone(&self.callbacks);
         let propagate_stderr = self.propagate_stderr;
         let work_consume_stderr = {
             let callbacks = callbacks.clone();
@@ -98,14 +144,9 @@ where
         );
 
         let req_body_sender = create.body_sender;
-        let callbacks = Arc::clone(&self.callbacks);
-        let ret = drive_request_to_completion(done, body, req_body_sender).await;
+        let ret = drive_request_to_completion(finished, body, req_body_sender).await;
         match ret {
-            Ok((env, store)) => {
-                callbacks
-                    .recycle_env(RecycleEnvConfig { meta, env, store })
-                    .await;
-            }
+            Ok(_) => {}
             Err(e) => {
                 let e = e.to_string();
                 tracing::error!(error = e, "Unable to drive the request to completion");
@@ -190,11 +231,11 @@ where
 
 /// Drive the request to completion by streaming the request body to the
 /// instance and waiting for it to exit.
-async fn drive_request_to_completion<R>(
-    done: impl Future<Output = Result<R, Error>>,
+async fn drive_request_to_completion(
+    finished: Arc<OwnedTaskStatus>,
     mut request_body: hyper::Body,
-    mut instance_stdin: impl AsyncWrite + Send + Unpin + 'static,
-) -> Result<R, Error> {
+    mut instance_stdin: impl AsyncWrite + Send + Sync + Unpin + 'static,
+) -> Result<ExitCode, Error> {
     let request_body_send = async move {
         // Copy the request into our instance, chunk-by-chunk. If the instance
         // dies before we finish writing the body, the instance's side of the
@@ -218,7 +259,7 @@ async fn drive_request_to_completion<R>(
     }
     .in_current_span();
 
-    let (ret, _) = futures::try_join!(done, request_body_send)?;
+    let (ret, _) = futures::try_join!(finished.await_termination_anyhow(), request_body_send)?;
     Ok(ret)
 }
 

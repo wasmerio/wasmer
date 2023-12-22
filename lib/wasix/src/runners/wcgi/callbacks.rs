@@ -1,9 +1,9 @@
 use std::{collections::HashMap, sync::Arc};
 
 use virtual_fs::Pipe;
-use wasmer::{Module, Store};
+use wasmer::{Memory, Module, Store};
 
-use crate::{runtime::module_cache::ModuleHash, WasiFunctionEnv};
+use crate::{runtime::module_cache::ModuleHash, WasiEnv};
 
 use super::{create_env::default_recycle_env, handler::SetupBuilder, *};
 
@@ -23,7 +23,8 @@ where
 
 /// Result of a create operation on a new environment
 pub struct CreateEnvResult {
-    pub env: WasiFunctionEnv,
+    pub env: WasiEnv,
+    pub memory: Option<Memory>,
     pub store: Store,
     pub body_sender: Pipe,
     pub body_receiver: Pipe,
@@ -33,7 +34,8 @@ pub struct CreateEnvResult {
 /// Configuration used for reusing an new environment
 pub struct RecycleEnvConfig<M> {
     pub meta: M,
-    pub env: WasiFunctionEnv,
+    pub env: WasiEnv,
+    pub memory: Memory,
     pub store: Store,
 }
 

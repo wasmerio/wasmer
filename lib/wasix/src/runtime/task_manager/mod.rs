@@ -7,6 +7,7 @@ use std::task::{Context, Poll};
 use std::{pin::Pin, time::Duration};
 
 use bytes::Bytes;
+use derivative::Derivative;
 use futures::future::BoxFuture;
 use futures::Future;
 use wasmer::{AsStoreMut, AsStoreRef, Memory, MemoryType, Module, Store, StoreMut, StoreRef};
@@ -38,7 +39,8 @@ pub type WasmResumeTrigger = dyn FnOnce() -> Pin<Box<dyn Future<Output = Result<
     + Sync;
 
 /// The properties passed to the task
-#[derive(Debug)]
+#[derive(Derivative)]
+#[derivative(Debug)]
 pub struct TaskWasmRunProperties {
     pub ctx: WasiFunctionEnv,
     pub store: Store,
@@ -46,6 +48,9 @@ pub struct TaskWasmRunProperties {
     /// When no trigger is associated with the run operation (i.e. spawning threads) then this will be None.
     /// (if the trigger returns an ExitCode then the WASM process will be terminated without resuming)
     pub trigger_result: Option<Result<Bytes, ExitCode>>,
+    /// The instance will be recycled back to this function when the WASM run has finished
+    #[derivative(Debug = "ignore")]
+    pub recycle: Option<Box<TaskWasmRecycle>>,
 }
 
 /// Callback that will be invoked
@@ -54,9 +59,21 @@ pub type TaskWasmRun = dyn FnOnce(TaskWasmRunProperties) + Send + 'static;
 /// Callback that will be invoked
 pub type TaskExecModule = dyn FnOnce(Module) + Send + 'static;
 
+/// The properties passed to the task
+#[derive(Debug)]
+pub struct TaskWasmRecycleProperties {
+    pub env: WasiEnv,
+    pub memory: Memory,
+    pub store: Store,
+}
+
+/// Callback that will be invoked
+pub type TaskWasmRecycle = dyn FnOnce(TaskWasmRecycleProperties) + Send + 'static;
+
 /// Represents a WASM task that will be executed on a dedicated thread
 pub struct TaskWasm<'a, 'b> {
     pub run: Box<TaskWasmRun>,
+    pub recycle: Option<Box<TaskWasmRecycle>>,
     pub env: WasiEnv,
     pub module: Module,
     pub snapshot: Option<&'b InstanceSnapshot>,
@@ -66,14 +83,19 @@ pub struct TaskWasm<'a, 'b> {
 }
 impl<'a, 'b> TaskWasm<'a, 'b> {
     pub fn new(run: Box<TaskWasmRun>, env: WasiEnv, module: Module, update_layout: bool) -> Self {
+        let shared_memory = module.imports().memories().next().map(|a| *a.ty());
         Self {
             run,
             env,
             module,
             snapshot: None,
-            spawn_type: SpawnMemoryType::CreateMemory,
+            spawn_type: match shared_memory {
+                Some(ty) => SpawnMemoryType::CreateMemoryOfType(ty),
+                None => SpawnMemoryType::CreateMemory,
+            },
             trigger: None,
             update_layout,
+            recycle: None,
         }
     }
 
@@ -89,6 +111,11 @@ impl<'a, 'b> TaskWasm<'a, 'b> {
 
     pub fn with_trigger(mut self, trigger: Box<WasmResumeTrigger>) -> Self {
         self.trigger.replace(trigger);
+        self
+    }
+
+    pub fn with_recycle(mut self, trigger: Box<TaskWasmRecycle>) -> Self {
+        self.recycle.replace(trigger);
         self
     }
 }

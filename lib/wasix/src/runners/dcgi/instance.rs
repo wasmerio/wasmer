@@ -1,9 +1,10 @@
-use wasmer::Store;
+use wasmer::{Memory, Store};
 
-use crate::WasiFunctionEnv;
+use crate::WasiEnv;
 
 #[derive(Debug)]
 pub(crate) struct DcgiInstance {
-    pub env: WasiFunctionEnv,
+    pub env: WasiEnv,
+    pub memory: Memory,
     pub store: Store,
 }

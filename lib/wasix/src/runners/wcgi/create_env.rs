@@ -7,20 +7,14 @@ use crate::{
 
 use super::{callbacks::CreateEnvConfig, RecycleEnvConfig};
 
-pub(crate) async fn default_recycle_env<M>(conf: RecycleEnvConfig<M>)
+pub(crate) async fn default_recycle_env<M>(mut conf: RecycleEnvConfig<M>)
 where
     M: Send + Sync + 'static,
 {
     tracing::debug!("Destroying the WebAssembly instance");
 
-    let env = conf.env;
-    let mut store = conf.store;
-    {
-        // We enable the cleanup again and trigger the exit function
-        let env = env.data_mut(&mut store);
-        env.disable_cleanup = false;
-        env.on_exit(None).await;
-    }
+    conf.env.disable_fs_cleanup = false;
+    conf.env.on_exit(None).await;
 }
 
 pub(crate) async fn default_create_env<M>(
@@ -50,12 +44,12 @@ where
             http_client: HttpClientCapabilityV1::new_allow_all(),
             threading: Default::default(),
         });
+    let env = builder.build()?;
 
-    let mut store = conf.runtime.new_store();
-    let (_, env) = builder.instantiate_ext(conf.module, conf.module_hash, &mut store)?;
     Ok(CreateEnvResult {
         env,
-        store,
+        memory: None,
+        store: conf.runtime.new_store(),
         body_sender: req_body_sender,
         body_receiver: res_body_receiver,
         stderr_receiver,
