@@ -145,26 +145,6 @@ where
 
         let req_body_sender = create.body_sender;
         let ret = drive_request_to_completion(finished, body, req_body_sender).await;
-        match ret {
-            Ok(_) => {}
-            Err(e) => {
-                let e = e.to_string();
-                tracing::error!(error = e, "Unable to drive the request to completion");
-                return Ok(Response::builder()
-                    .status(StatusCode::INTERNAL_SERVER_ERROR)
-                    .body(Body::from(e.as_bytes().to_vec()))?);
-            }
-        }
-
-        tracing::trace!(
-            dialect=%self.dialect,
-            "extracting response parts",
-        );
-
-        let parts = self
-            .dialect
-            .extract_response_header(&mut res_body_receiver)
-            .await;
 
         // When set this will cause any stderr responses to
         // take precedence over nominal responses but it
@@ -187,6 +167,27 @@ where
                 }))
                 .ok();
         }
+
+        match ret {
+            Ok(_) => {}
+            Err(e) => {
+                let e = e.to_string();
+                tracing::error!(error = e, "Unable to drive the request to completion");
+                return Ok(Response::builder()
+                    .status(StatusCode::INTERNAL_SERVER_ERROR)
+                    .body(Body::from(e.as_bytes().to_vec()))?);
+            }
+        }
+
+        tracing::trace!(
+            dialect=%self.dialect,
+            "extracting response parts",
+        );
+
+        let parts = self
+            .dialect
+            .extract_response_header(&mut res_body_receiver)
+            .await;
         let parts = parts?;
 
         tracing::trace!(
