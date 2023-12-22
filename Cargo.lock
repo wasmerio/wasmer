@@ -1400,12 +1400,36 @@ dependencies = [
 ]
 
 [[package]]
+name = "edge-schema"
+version = "0.0.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f9be9b51f4fab3714afc1957b7b609211e428c897fb06df0f6aadb3405a424f3"
+dependencies = [
+ "anyhow",
+ "bytesize",
+ "once_cell",
+ "parking_lot 0.12.1",
+ "rand_chacha",
+ "rand_core",
+ "schemars",
+ "serde",
+ "serde_json",
+ "serde_path_to_error",
+ "serde_yaml 0.8.26",
+ "sparx",
+ "time",
+ "url",
+ "uuid",
+ "wcgi-host",
+]
+
+[[package]]
 name = "edge-util"
 version = "0.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5d665cdd8fd34e6faf57815d007ec4d5853f2c79d8cb37b9293225f3555ed239"
 dependencies = [
- "edge-schema",
+ "edge-schema 0.0.1",
  "http",
  "serde",
  "wasmparser 0.95.0",
@@ -5634,13 +5658,13 @@ dependencies = [
 
 [[package]]
 name = "wasmer-api"
-version = "0.0.22"
+version = "0.0.23"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "256a9856e530f01598bce05d1c09ee3c72165f7fdaaf33b9ce4f5921d9439df4"
+checksum = "aa0e68c76f730824b100d77c85a6a57432f15f1388a14eb3b406780f8dbbd751"
 dependencies = [
  "anyhow",
  "cynic",
- "edge-schema",
+ "edge-schema 0.0.1",
  "futures",
  "harsh",
  "pin-project-lite",
@@ -5649,6 +5673,7 @@ dependencies = [
  "serde_json",
  "serde_path_to_error",
  "time",
+ "tokio",
  "tracing",
  "url",
  "webc",
@@ -5933,9 +5958,9 @@ dependencies = [
 
 [[package]]
 name = "wasmer-edge-cli"
-version = "0.1.2"
+version = "0.1.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ce09190ea5ebf04ff8d51328f77599dd71b151179c75d4768cbd86b9905f933a"
+checksum = "4dcf5035bf220503493631e3681feeebef45a2b9bbf327e5092f3b0c1be7ab41"
 dependencies = [
  "anyhow",
  "clap",
@@ -5943,7 +5968,7 @@ dependencies = [
  "colored 2.0.4",
  "comfy-table",
  "dialoguer 0.11.0",
- "edge-schema",
+ "edge-schema 0.0.2",
  "edge-util",
  "futures",
  "is-terminal",
