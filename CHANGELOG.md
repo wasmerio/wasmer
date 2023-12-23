@@ -11,6 +11,8 @@ Looking for changes that affect our C API? See the [C API Changelog](lib/c-api/C
 
 ## 4.2.5 - 23/12/2023
 
+This release includes substantial improvements to Wasmer's startup time when loading cached modules. Also includes a couple of filesystem-related fixes and updates the Edge application templates.
+
 ## Added
 
   - [#4370](https://github.com/wasmerio/wasmer/pull/4370) feat(wasix): Add optional chunk timeout to ReqwestHttpClient

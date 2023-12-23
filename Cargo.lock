@@ -5167,7 +5167,7 @@ checksum = "49874b5167b65d7193b8aba1567f5c7d93d001cafc34600cee003eda787e483f"
 
 [[package]]
 name = "virtual-fs"
-version = "0.10.0"
+version = "0.11.0"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -5228,34 +5228,6 @@ dependencies = [
 [[package]]
 name = "virtual-net"
 version = "0.6.1"
-dependencies = [
- "anyhow",
- "async-trait",
- "base64",
- "bincode",
- "bytes",
- "derivative",
- "futures-util",
- "hyper",
- "hyper-tungstenite",
- "libc",
- "mio",
- "pin-project-lite",
- "serde",
- "socket2 0.4.10",
- "thiserror",
- "tokio",
- "tokio-serde",
- "tokio-tungstenite",
- "tokio-util 0.6.10",
- "tracing",
- "tracing-test",
- "virtual-mio 0.3.0",
-]
-
-[[package]]
-name = "virtual-net"
-version = "0.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "762dac9d5da7f609894b31f7fd03b19ee8959510847c98c1973acce32270b132"
 dependencies = [
@@ -5280,6 +5252,34 @@ dependencies = [
  "tokio-util 0.6.10",
  "tracing",
  "virtual-mio 0.3.0 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[[package]]
+name = "virtual-net"
+version = "0.6.2"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "base64",
+ "bincode",
+ "bytes",
+ "derivative",
+ "futures-util",
+ "hyper",
+ "hyper-tungstenite",
+ "libc",
+ "mio",
+ "pin-project-lite",
+ "serde",
+ "socket2 0.4.10",
+ "thiserror",
+ "tokio",
+ "tokio-serde",
+ "tokio-tungstenite",
+ "tokio-util 0.6.10",
+ "tracing",
+ "tracing-test",
+ "virtual-mio 0.3.0",
 ]
 
 [[package]]
@@ -5355,7 +5355,7 @@ dependencies = [
 
 [[package]]
 name = "wai-bindgen-wasmer"
-version = "0.17.0"
+version = "0.18.0"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -5816,7 +5816,7 @@ dependencies = [
  "unix_mode",
  "url",
  "virtual-fs",
- "virtual-net 0.6.1",
+ "virtual-net 0.6.2",
  "walkdir",
  "wasm-coredump-builder",
  "wasmer",
@@ -5828,7 +5828,7 @@ dependencies = [
  "wasmer-edge-cli",
  "wasmer-emscripten",
  "wasmer-object",
- "wasmer-registry 5.10.0",
+ "wasmer-registry 5.10.1",
  "wasmer-toml",
  "wasmer-types",
  "wasmer-vm",
@@ -5993,9 +5993,9 @@ dependencies = [
  "url",
  "uuid",
  "virtual-mio 0.3.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "virtual-net 0.6.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "virtual-net 0.6.1",
  "wasmer-api",
- "wasmer-registry 5.10.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "wasmer-registry 5.10.0",
  "wasmer-toml",
  "webc",
 ]
@@ -6068,7 +6068,7 @@ dependencies = [
  "target-lexicon 0.12.12",
  "tempfile",
  "tokio",
- "wasmer-registry 5.10.0",
+ "wasmer-registry 5.10.1",
 ]
 
 [[package]]
@@ -6091,49 +6091,6 @@ dependencies = [
  "object 0.28.4",
  "thiserror",
  "wasmer-types",
-]
-
-[[package]]
-name = "wasmer-registry"
-version = "5.10.0"
-dependencies = [
- "anyhow",
- "clap",
- "console",
- "dialoguer 0.11.0",
- "dirs",
- "filetime",
- "flate2",
- "futures-util",
- "graphql_client",
- "hex",
- "indexmap 1.9.3",
- "indicatif",
- "lazy_static",
- "log",
- "lzma-rs",
- "minisign",
- "pretty_assertions",
- "regex",
- "reqwest",
- "rpassword",
- "rusqlite",
- "semver 1.0.20",
- "serde",
- "serde_json",
- "tar",
- "tempfile",
- "thiserror",
- "time",
- "tldextract",
- "tokio",
- "toml 0.5.11",
- "tracing",
- "url",
- "wasmer-toml",
- "wasmer-wasm-interface 4.2.5",
- "wasmparser 0.51.4",
- "whoami",
 ]
 
 [[package]]
@@ -6180,8 +6137,51 @@ dependencies = [
 ]
 
 [[package]]
+name = "wasmer-registry"
+version = "5.10.1"
+dependencies = [
+ "anyhow",
+ "clap",
+ "console",
+ "dialoguer 0.11.0",
+ "dirs",
+ "filetime",
+ "flate2",
+ "futures-util",
+ "graphql_client",
+ "hex",
+ "indexmap 1.9.3",
+ "indicatif",
+ "lazy_static",
+ "log",
+ "lzma-rs",
+ "minisign",
+ "pretty_assertions",
+ "regex",
+ "reqwest",
+ "rpassword",
+ "rusqlite",
+ "semver 1.0.20",
+ "serde",
+ "serde_json",
+ "tar",
+ "tempfile",
+ "thiserror",
+ "time",
+ "tldextract",
+ "tokio",
+ "toml 0.5.11",
+ "tracing",
+ "url",
+ "wasmer-toml",
+ "wasmer-wasm-interface 4.2.5",
+ "wasmparser 0.51.4",
+ "whoami",
+]
+
+[[package]]
 name = "wasmer-sys-utils"
-version = "0.17.0"
+version = "0.18.0"
 dependencies = [
  "libc",
  "region",
@@ -6258,7 +6258,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-wasix"
-version = "0.17.0"
+version = "0.18.0"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -6308,7 +6308,7 @@ dependencies = [
  "urlencoding",
  "virtual-fs",
  "virtual-mio 0.3.0",
- "virtual-net 0.6.1",
+ "virtual-net 0.6.2",
  "wai-bindgen-wasmer",
  "waker-fn",
  "wasm-bindgen",
@@ -6329,7 +6329,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-wasix-experimental-io-devices"
-version = "0.17.0"
+version = "0.18.0"
 dependencies = [
  "minifb",
  "nix 0.25.1",
@@ -6344,7 +6344,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-wasix-types"
-version = "0.17.0"
+version = "0.18.0"
 dependencies = [
  "anyhow",
  "bitflags 1.3.2",
