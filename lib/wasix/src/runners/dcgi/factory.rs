@@ -20,7 +20,7 @@ struct State {
 
 /// This factory will store and reuse instances between invocations thus
 /// allowing for the instances to be stateful.
-#[derive(Derivative, Clone)]
+#[derive(Derivative, Clone, Default)]
 #[derivative(Debug)]
 pub struct DcgiInstanceFactory {
     state: Arc<Mutex<State>>,
@@ -28,9 +28,7 @@ pub struct DcgiInstanceFactory {
 
 impl DcgiInstanceFactory {
     pub fn new() -> Self {
-        Self {
-            state: Default::default(),
-        }
+        Default::default()
     }
 
     pub async fn release(&self, conf: RecycleEnvConfig) {
