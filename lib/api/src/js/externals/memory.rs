@@ -152,9 +152,9 @@ impl Memory {
         let cur_size = self.view(store).data_size();
         if min_size > cur_size {
             let delta = min_size - cur_size;
-            let pages = ((delta - 1) / wasmer_types::WASM_PAGE_SIZE) + 1;
+            let pages = ((delta - 1) / wasmer_types::WASM_PAGE_SIZE as u64) + 1;
 
-            self.grow(store, Pages(pages))?;
+            self.grow(store, Pages(pages as u32))?;
         }
         Ok(())
     }

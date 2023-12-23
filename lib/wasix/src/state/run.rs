@@ -7,6 +7,7 @@ use crate::{RewindStateOption, WasiError, WasiRuntimeError};
 use super::*;
 
 impl WasiFunctionEnv {
+    #[allow(clippy::result_large_err)]
     pub fn run_async(self, mut store: Store) -> Result<(Self, Store), WasiRuntimeError> {
         // If no handle or runtime exists then create one
         #[cfg(feature = "sys-thread")]

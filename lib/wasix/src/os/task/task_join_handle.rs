@@ -138,7 +138,7 @@ impl OwnedTaskStatus {
         }
     }
 
-    pub(crate) async fn await_termination_anyhow(&self) -> anyhow::Result<ExitCode> {
+    pub async fn await_termination_anyhow(&self) -> anyhow::Result<ExitCode> {
         Ok(self.await_termination().await?)
     }
 

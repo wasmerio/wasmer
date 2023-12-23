@@ -523,8 +523,8 @@ impl WasiFs {
         fs_backing: WasiFsRoot,
     ) -> Result<Self, String> {
         let mut wasi_fs = Self::new_init(fs_backing, inodes)?;
-        wasi_fs.init_preopens = preopens.iter().cloned().collect();
-        wasi_fs.init_vfs_preopens = vfs_preopens.iter().cloned().collect();
+        wasi_fs.init_preopens = preopens.to_vec();
+        wasi_fs.init_vfs_preopens = vfs_preopens.to_vec();
         wasi_fs.create_preopens(inodes, false)?;
         Ok(wasi_fs)
     }
@@ -567,7 +567,7 @@ impl WasiFs {
             current_dir: Mutex::new("/".to_string()),
             is_wasix: AtomicBool::new(false),
             root_fs: fs_backing,
-            root_inode: root_inode.clone(),
+            root_inode,
             has_unioned: Arc::new(Mutex::new(HashSet::new())),
             init_preopens: Default::default(),
             init_vfs_preopens: Default::default(),

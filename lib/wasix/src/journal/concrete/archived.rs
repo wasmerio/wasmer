@@ -94,7 +94,7 @@ impl JournalEntryRecordType {
     /// however this does mean care must be taken that the data itself
     /// can not be manipulated or corrupted.
     pub unsafe fn deserialize_archive(self, data: &[u8]) -> anyhow::Result<JournalEntry<'_>> {
-        Ok(match self {
+        match self {
             JournalEntryRecordType::InitModuleV1 => ArchivedJournalEntry::InitModuleV1(
                 rkyv::archived_root::<JournalEntryInitModuleV1>(data),
             ),
@@ -336,7 +336,7 @@ impl JournalEntryRecordType {
                 rkyv::archived_root::<JournalEntrySnapshotV1>(data),
             ),
         }
-        .try_into()?)
+        .try_into()
     }
 }
 
