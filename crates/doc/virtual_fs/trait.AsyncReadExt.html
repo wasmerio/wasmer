@@ -6,8 +6,8 @@
 <span class="item-spacer"></span>    fn <a href="#method.read" class="fn">read</a>&lt;'a&gt;(&amp;'a mut self, buf: &amp;'a mut [<a class="primitive" href="https://doc.rust-lang.org/1.70.0/std/primitive.u8.html">u8</a>]) -&gt; Read&lt;'a, Self&gt;
        <span class="where">where Self: <a class="trait" href="https://doc.rust-lang.org/1.70.0/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a></span> { ... }
 <span class="item-spacer"></span>    fn <a href="#method.read_buf" class="fn">read_buf</a>&lt;B, 'a&gt;(&amp;'a mut self, buf: <a class="primitive" href="https://doc.rust-lang.org/1.70.0/std/primitive.reference.html">&amp;'a mut B</a>) -&gt; ReadBuf&lt;'a, Self, B&gt;
-       <span class="where">where Self: <a class="trait" href="https://doc.rust-lang.org/1.70.0/core/marker/trait.Sized.html" title="trait core::marker::Sized">Sized</a> + <a class="trait" href="https://doc.rust-lang.org/1.70.0/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a>,
-             B: BufMut</span> { ... }
+       <span class="where">where Self: <a class="trait" href="https://doc.rust-lang.org/1.70.0/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a>,
+             B: BufMut + ?<a class="trait" href="https://doc.rust-lang.org/1.70.0/core/marker/trait.Sized.html" title="trait core::marker::Sized">Sized</a></span> { ... }
 <span class="item-spacer"></span>    fn <a href="#method.read_exact" class="fn">read_exact</a>&lt;'a&gt;(&amp;'a mut self, buf: &amp;'a mut [<a class="primitive" href="https://doc.rust-lang.org/1.70.0/std/primitive.u8.html">u8</a>]) -&gt; ReadExact&lt;'a, Self&gt;
        <span class="where">where Self: <a class="trait" href="https://doc.rust-lang.org/1.70.0/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a></span> { ... }
 <span class="item-spacer"></span>    fn <a href="#method.read_u8" class="fn">read_u8</a>(&amp;mut self) -&gt; ReadU8&lt;<a class="primitive" href="https://doc.rust-lang.org/1.70.0/std/primitive.reference.html">&amp;mut Self</a>&gt;
@@ -166,8 +166,8 @@ completes first, then it is guaranteed that no data was read.</p>
     <span class="prelude-val">Ok</span>(())
 }</code></pre></div>
 </div></details><details class="toggle method-toggle" open><summary><section id="method.read_buf" class="method"><h4 class="code-header">fn <a href="#method.read_buf" class="fn">read_buf</a>&lt;B, 'a&gt;(&amp;'a mut self, buf: <a class="primitive" href="https://doc.rust-lang.org/1.70.0/std/primitive.reference.html">&amp;'a mut B</a>) -&gt; ReadBuf&lt;'a, Self, B&gt;<span class="where fmt-newline">where
-    Self: <a class="trait" href="https://doc.rust-lang.org/1.70.0/core/marker/trait.Sized.html" title="trait core::marker::Sized">Sized</a> + <a class="trait" href="https://doc.rust-lang.org/1.70.0/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a>,
-    B: BufMut,</span></h4></section></summary><div class="docblock"><p>Pulls some bytes from this source into the specified buffer,
+    Self: <a class="trait" href="https://doc.rust-lang.org/1.70.0/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a>,
+    B: BufMut + ?<a class="trait" href="https://doc.rust-lang.org/1.70.0/core/marker/trait.Sized.html" title="trait core::marker::Sized">Sized</a>,</span></h4></section></summary><div class="docblock"><p>Pulls some bytes from this source into the specified buffer,
 advancing the buffer’s internal cursor.</p>
 <p>Equivalent to:</p>
 

@@ -125,6 +125,7 @@ written to this <code>AsyncWrite</code>.</p>
 
     <span class="comment">// Writes some prefix of the byte string, not necessarily all of it.
     </span>file.write(<span class="string">b&quot;some bytes&quot;</span>).<span class="kw">await</span><span class="question-mark">?</span>;
+    file.flush().<span class="kw">await</span><span class="question-mark">?</span>;
     <span class="prelude-val">Ok</span>(())
 }</code></pre></div>
 </div></details><details class="toggle method-toggle" open><summary><section id="method.write_vectored" class="method"><h4 class="code-header">fn <a href="#method.write_vectored" class="fn">write_vectored</a>&lt;'a, 'b&gt;(
@@ -157,6 +158,7 @@ written to this <code>AsyncWrite</code>.</p>
     ];
 
     file.write_vectored(<span class="kw-2">&amp;</span>bufs).<span class="kw">await</span><span class="question-mark">?</span>;
+    file.flush().<span class="kw">await</span><span class="question-mark">?</span>;
 
     <span class="prelude-val">Ok</span>(())
 }</code></pre></div>
@@ -212,6 +214,7 @@ written to this <code>AsyncWrite</code>.</p>
         // all of it.
         </span>file.write_buf(<span class="kw-2">&amp;mut </span>buffer).<span class="kw">await</span><span class="question-mark">?</span>;
     }
+    file.flush().<span class="kw">await</span><span class="question-mark">?</span>;
 
     <span class="prelude-val">Ok</span>(())
 }</code></pre></div>
@@ -256,6 +259,7 @@ partially written.</p>
     <span class="kw">let </span><span class="kw-2">mut </span>buffer = Cursor::new(<span class="string">b&quot;data to write&quot;</span>);
 
     file.write_all_buf(<span class="kw-2">&amp;mut </span>buffer).<span class="kw">await</span><span class="question-mark">?</span>;
+    file.flush().<span class="kw">await</span><span class="question-mark">?</span>;
     <span class="prelude-val">Ok</span>(())
 }</code></pre></div>
 </div></details><details class="toggle method-toggle" open><summary><section id="method.write_all" class="method"><h4 class="code-header">fn <a href="#method.write_all" class="fn">write_all</a>&lt;'a&gt;(&amp;'a mut self, src: &amp;'a [<a class="primitive" href="https://doc.rust-lang.org/1.70.0/std/primitive.u8.html">u8</a>]) -&gt; WriteAll&lt;'a, Self&gt;<span class="where fmt-newline">where
@@ -284,6 +288,7 @@ from the beginning of the buffer.</p>
     <span class="kw">let </span><span class="kw-2">mut </span>file = File::create(<span class="string">&quot;foo.txt&quot;</span>).<span class="kw">await</span><span class="question-mark">?</span>;
 
     file.write_all(<span class="string">b&quot;some bytes&quot;</span>).<span class="kw">await</span><span class="question-mark">?</span>;
+    file.flush().<span class="kw">await</span><span class="question-mark">?</span>;
     <span class="prelude-val">Ok</span>(())
 }</code></pre></div>
 </div></details><details class="toggle method-toggle" open><summary><section id="method.write_u8" class="method"><h4 class="code-header">fn <a href="#method.write_u8" class="fn">write_u8</a>(&amp;mut self, n: <a class="primitive" href="https://doc.rust-lang.org/1.70.0/std/primitive.u8.html">u8</a>) -&gt; WriteU8&lt;<a class="primitive" href="https://doc.rust-lang.org/1.70.0/std/primitive.reference.html">&amp;mut Self</a>&gt;<span class="where fmt-newline">where

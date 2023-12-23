@@ -4,7 +4,7 @@
     query: &amp;QueryBody&lt;V&gt;,
     timeout: <a class="enum" href="https://doc.rust-lang.org/1.70.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.70.0/core/time/struct.Duration.html" title="struct core::time::Duration">Duration</a>&gt;,
     form_modifier: F
-) -&gt; <a class="type" href="https://docs.rs/anyhow/1.0.75/anyhow/type.Result.html" title="type anyhow::Result">Result</a>&lt;R&gt;<span class="where fmt-newline">where
-    for&lt;'de&gt; R: <a class="trait" href="https://docs.rs/serde/1.0.190/serde/de/trait.Deserialize.html" title="trait serde::de::Deserialize">Deserialize</a>&lt;'de&gt;,
-    V: <a class="trait" href="https://docs.rs/serde/1.0.190/serde/ser/trait.Serialize.html" title="trait serde::ser::Serialize">Serialize</a>,
-    F: <a class="trait" href="https://doc.rust-lang.org/1.70.0/core/ops/function/trait.FnOnce.html" title="trait core::ops::function::FnOnce">FnOnce</a>(<a class="struct" href="https://docs.rs/reqwest/0.11.22/reqwest/blocking/multipart/struct.Form.html" title="struct reqwest::blocking::multipart::Form">Form</a>) -&gt; <a class="struct" href="https://docs.rs/reqwest/0.11.22/reqwest/blocking/multipart/struct.Form.html" title="struct reqwest::blocking::multipart::Form">Form</a>,</span></code></pre></section></div></main></body></html>
+) -&gt; <a class="type" href="https://docs.rs/anyhow/1.0.76/anyhow/type.Result.html" title="type anyhow::Result">Result</a>&lt;R&gt;<span class="where fmt-newline">where
+    for&lt;'de&gt; R: <a class="trait" href="https://docs.rs/serde/1.0.193/serde/de/trait.Deserialize.html" title="trait serde::de::Deserialize">Deserialize</a>&lt;'de&gt;,
+    V: <a class="trait" href="https://docs.rs/serde/1.0.193/serde/ser/trait.Serialize.html" title="trait serde::ser::Serialize">Serialize</a>,
+    F: <a class="trait" href="https://doc.rust-lang.org/1.70.0/core/ops/function/trait.FnOnce.html" title="trait core::ops::function::FnOnce">FnOnce</a>(Form) -&gt; Form,</span></code></pre></section></div></main></body></html>
