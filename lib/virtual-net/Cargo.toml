@@ -37,6 +37,7 @@ bytecheck = { version = "0.6.8", optional = true }
 [dev-dependencies]
 tokio = { version = "1", default_features = false, features = [ "macros", "rt-multi-thread" ] }
 tracing-test = { version = "0.2" }
+serial_test = "2.0.0"
 
 [features]
 default = [ "host-net", "remote", "json", "messagepack", "cbor", "hyper", "tokio-tungstenite" ]

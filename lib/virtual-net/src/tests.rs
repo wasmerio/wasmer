@@ -80,7 +80,7 @@ async fn test_tcp(client: RemoteNetworkingClient, _server: RemoteNetworkingServe
         )
         .await
         .unwrap();
-    let addr = listener.addr_local().unwrap();
+    let addr: SocketAddr = listener.addr_local().unwrap();
     tracing::info!("listening on {addr}");
 
     const TEST1: &str = "the cat ran up the wall!";
@@ -126,6 +126,7 @@ async fn test_tcp(client: RemoteNetworkingClient, _server: RemoteNetworkingServe
 #[cfg_attr(windows, ignore)]
 #[traced_test]
 #[tokio::test(flavor = "multi_thread")]
+#[serial_test::serial]
 async fn test_tcp_with_mpsc() {
     let (client, server) = setup_mpsc().await;
     test_tcp(client, server).await
@@ -135,6 +136,7 @@ async fn test_tcp_with_mpsc() {
 #[cfg_attr(windows, ignore)]
 #[traced_test]
 #[tokio::test(flavor = "multi_thread")]
+#[serial_test::serial]
 async fn test_tcp_with_small_pipe_using_bincode() {
     let (client, server) = setup_pipe(10, FrameSerializationFormat::Bincode).await;
     test_tcp(client, server).await
@@ -144,6 +146,7 @@ async fn test_tcp_with_small_pipe_using_bincode() {
 #[cfg_attr(windows, ignore)]
 #[traced_test]
 #[tokio::test(flavor = "multi_thread")]
+#[serial_test::serial]
 async fn test_tcp_with_large_pipe_using_bincode() {
     let (client, server) = setup_pipe(1024000, FrameSerializationFormat::Bincode).await;
     test_tcp(client, server).await
@@ -154,6 +157,7 @@ async fn test_tcp_with_large_pipe_using_bincode() {
 #[cfg_attr(windows, ignore)]
 #[traced_test]
 #[tokio::test(flavor = "multi_thread")]
+#[serial_test::serial]
 async fn test_tcp_with_small_pipe_using_json() {
     let (client, server) = setup_pipe(10, FrameSerializationFormat::Json).await;
     test_tcp(client, server).await
@@ -164,6 +168,7 @@ async fn test_tcp_with_small_pipe_using_json() {
 #[cfg_attr(windows, ignore)]
 #[traced_test]
 #[tokio::test(flavor = "multi_thread")]
+#[serial_test::serial]
 async fn test_tcp_with_large_pipe_json_using_json() {
     let (client, server) = setup_pipe(1024000, FrameSerializationFormat::Json).await;
     test_tcp(client, server).await
@@ -174,6 +179,7 @@ async fn test_tcp_with_large_pipe_json_using_json() {
 #[cfg_attr(windows, ignore)]
 #[traced_test]
 #[tokio::test(flavor = "multi_thread")]
+#[serial_test::serial]
 async fn test_tcp_with_small_pipe_using_messagepack() {
     let (client, server) = setup_pipe(10, FrameSerializationFormat::MessagePack).await;
     test_tcp(client, server).await
@@ -184,6 +190,7 @@ async fn test_tcp_with_small_pipe_using_messagepack() {
 #[cfg_attr(windows, ignore)]
 #[traced_test]
 #[tokio::test(flavor = "multi_thread")]
+#[serial_test::serial]
 async fn test_tcp_with_large_pipe_json_using_messagepack() {
     let (client, server) = setup_pipe(1024000, FrameSerializationFormat::MessagePack).await;
     test_tcp(client, server).await
@@ -194,6 +201,7 @@ async fn test_tcp_with_large_pipe_json_using_messagepack() {
 #[cfg_attr(windows, ignore)]
 #[traced_test]
 #[tokio::test(flavor = "multi_thread")]
+#[serial_test::serial]
 async fn test_tcp_with_small_pipe_using_cbor() {
     let (client, server) = setup_pipe(10, FrameSerializationFormat::Cbor).await;
     test_tcp(client, server).await
@@ -204,6 +212,7 @@ async fn test_tcp_with_small_pipe_using_cbor() {
 #[cfg_attr(windows, ignore)]
 #[traced_test]
 #[tokio::test(flavor = "multi_thread")]
+#[serial_test::serial]
 async fn test_tcp_with_large_pipe_json_using_cbor() {
     let (client, server) = setup_pipe(1024000, FrameSerializationFormat::Cbor).await;
     test_tcp(client, server).await
@@ -212,6 +221,7 @@ async fn test_tcp_with_large_pipe_json_using_cbor() {
 #[cfg_attr(windows, ignore)]
 #[traced_test]
 #[tokio::test]
+#[serial_test::serial]
 async fn test_google_poll() {
     use futures_util::Future;
 
@@ -303,6 +313,7 @@ async fn test_google_poll() {
 #[cfg_attr(windows, ignore)]
 #[traced_test]
 #[tokio::test]
+#[serial_test::serial]
 async fn test_google_epoll() {
     use futures_util::Future;
     use virtual_mio::SharedWakerInterestHandler;
