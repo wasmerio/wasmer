@@ -69,7 +69,7 @@ impl Service<Request<Body>> for Handler {
         let shard = request
             .headers()
             .get("X-Shard")
-            .map(|s| s.to_str().unwrap_or_else(|_| "").to_string())
+            .map(|s| s.to_str().unwrap_or("").to_string())
             .unwrap_or_else(|| "".to_string());
 
         // Grab the metadata from the request

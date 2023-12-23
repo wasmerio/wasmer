@@ -2,8 +2,7 @@ use std::sync::Arc;
 
 use tracing::trace;
 use wasmer::{
-    AsStoreMut, AsStoreRef, ExportError, FunctionEnv, Imports, Instance, Memory, Module,
-    RuntimeError, Store,
+    AsStoreMut, AsStoreRef, ExportError, FunctionEnv, Imports, Instance, Memory, Module, Store,
 };
 use wasmer_wasix_types::wasi::ExitCode;
 
@@ -245,10 +244,12 @@ impl WasiFunctionEnv {
     /// by the WASM process thread itself.
     ///
     #[allow(clippy::result_large_err)]
+    #[allow(unused_variables, unused_mut)]
     pub unsafe fn bootstrap(
         &self,
         mut store: &'_ mut impl AsStoreMut,
     ) -> Result<RewindStateOption, WasiRuntimeError> {
+        #[allow(unused_mut)]
         let mut rewind_state = None;
 
         #[cfg(feature = "journal")]
@@ -284,7 +285,7 @@ impl WasiFunctionEnv {
                 crate::journal::JournalEntry::InitModuleV1 { wasm_hash },
             )
             .map_err(|err| {
-                WasiRuntimeError::Runtime(RuntimeError::new(format!(
+                WasiRuntimeError::Runtime(wasmer::RuntimeError::new(format!(
                     "journal failied to save the module initialization event - {}",
                     err
                 )))

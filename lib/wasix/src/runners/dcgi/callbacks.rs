@@ -49,17 +49,17 @@ impl wcgi::Callbacks<DcgiMetadata> for DcgiCallbacks {
         conf.env
             .state
             .fs
-            .swap_file(__WASI_STDIN_FILENO, Box::new(NullFile::default()))
+            .swap_file(__WASI_STDIN_FILENO, Box::<NullFile>::default())
             .ok();
         conf.env
             .state
             .fs
-            .swap_file(__WASI_STDOUT_FILENO, Box::new(NullFile::default()))
+            .swap_file(__WASI_STDOUT_FILENO, Box::<NullFile>::default())
             .ok();
         conf.env
             .state
             .fs
-            .swap_file(__WASI_STDERR_FILENO, Box::new(NullFile::default()))
+            .swap_file(__WASI_STDERR_FILENO, Box::<NullFile>::default())
             .ok();
 
         // Now we make the instance available for reuse

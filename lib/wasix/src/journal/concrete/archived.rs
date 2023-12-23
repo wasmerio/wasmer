@@ -2893,7 +2893,7 @@ mod tests {
     #[test]
     pub fn test_record_init_module() {
         run_test(JournalEntry::InitModuleV1 {
-            wasm_hash: [13u8; 32],
+            wasm_hash: [13u8; 8],
         });
     }
 
