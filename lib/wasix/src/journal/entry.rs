@@ -108,7 +108,7 @@ impl From<SocketOptTimeType> for TimeType {
 #[serde(rename_all = "snake_case")]
 pub enum JournalEntry<'a> {
     InitModuleV1 {
-        wasm_hash: [u8; 32],
+        wasm_hash: [u8; 8],
     },
     UpdateMemoryRegionV1 {
         region: Range<u64>,

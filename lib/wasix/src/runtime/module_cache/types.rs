@@ -5,6 +5,7 @@ use std::{
     path::PathBuf,
 };
 
+use rand::RngCore;
 use wasmer::{Engine, Module};
 
 use crate::runtime::module_cache::FallbackCache;

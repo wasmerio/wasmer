@@ -954,7 +954,7 @@ pub enum ArchivedJournalEntry<'a> {
 #[derive(Debug, Clone, RkyvSerialize, RkyvDeserialize, Archive)]
 #[archive_attr(derive(CheckBytes))]
 pub struct JournalEntryInitModuleV1 {
-    pub wasm_hash: [u8; 32],
+    pub wasm_hash: [u8; 8],
 }
 
 #[repr(C)]

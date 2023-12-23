@@ -122,7 +122,7 @@ impl<'a> WasiTest<'a> {
             wasm_module.read_to_end(&mut out)?;
             out
         };
-        let module_hash = ModuleHash::sha256(&wasm_bytes);
+        let module_hash = ModuleHash::hash(&wasm_bytes);
 
         let module = Module::new(store, wasm_bytes)?;
         let (builder, _tempdirs, mut stdin_tx, stdout_rx, stderr_rx) =

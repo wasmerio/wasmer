@@ -695,7 +695,7 @@ impl ExecutableTarget {
 
                 Ok(ExecutableTarget::WebAssembly {
                     module,
-                    module_hash: ModuleHash::sha256(&wasm),
+                    module_hash: ModuleHash::hash(&wasm),
                     path: path.to_path_buf(),
                 })
             }
@@ -705,7 +705,7 @@ impl ExecutableTarget {
                 let module = unsafe { Module::deserialize_from_file(&engine, path)? };
                 let module_hash = {
                     let wasm = std::fs::read(path)?;
-                    ModuleHash::sha256(wasm)
+                    ModuleHash::hash(wasm)
                 };
 
                 Ok(ExecutableTarget::WebAssembly {
