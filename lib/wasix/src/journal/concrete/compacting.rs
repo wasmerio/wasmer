@@ -42,6 +42,13 @@ struct State {
     snapshots: Vec<usize>,
     // Last tty event thats been set
     tty: Option<usize>,
+    // Events that create a particular directory
+    create_directory: HashMap<String, usize>,
+    // Events that remove a particular directory
+    remove_directory: HashMap<String, usize>,
+    // When creating and truncating a file we have a special
+    // lookup so that duplicates can be erased
+    create_trunc_file: HashMap<String, Fd>,
     // Thread events are only maintained while the thread and the
     // process are still running
     thread_map: HashMap<crate::WasiThreadId, usize>,
@@ -78,6 +85,8 @@ impl State {
     where
         J: Journal,
     {
+        let has_threads = !self.thread_map.is_empty();
+
         let mut filter = FilteredJournal::new(inner)
             .with_filter_events(self.whitelist.clone().into_iter().collect());
         if let Some(tty) = self.tty.as_ref() {
@@ -92,11 +101,16 @@ impl State {
         for t in self.thread_map.iter() {
             filter.add_event_to_whitelist(*t.1);
         }
+        for (_, e) in self.create_directory.iter() {
+            filter.add_event_to_whitelist(*e);
+        }
+        for (_, e) in self.remove_directory.iter() {
+            filter.add_event_to_whitelist(*e);
+        }
         for (_, l) in self
             .suspect_descriptors
             .iter()
             .chain(self.keep_descriptors.iter())
-            .chain(self.stdio_descriptors.iter())
         {
             if let Some(d) = self.descriptors.get(l) {
                 for e in d.events.iter() {
@@ -104,6 +118,18 @@ impl State {
                 }
                 for e in d.write_map.values() {
                     filter.add_event_to_whitelist(*e);
+                }
+            }
+        }
+        if has_threads {
+            for (_, l) in self.stdio_descriptors.iter() {
+                if let Some(d) = self.descriptors.get(l) {
+                    for e in d.events.iter() {
+                        filter.add_event_to_whitelist(*e);
+                    }
+                    for e in d.write_map.values() {
+                        filter.add_event_to_whitelist(*e);
+                    }
                 }
             }
         }
@@ -146,6 +172,9 @@ impl CompactingJournal {
             snapshots: Default::default(),
             memory_map: Default::default(),
             thread_map: Default::default(),
+            create_directory: Default::default(),
+            remove_directory: Default::default(),
+            create_trunc_file: Default::default(),
             suspect_descriptors: Default::default(),
             keep_descriptors: Default::default(),
             stdio_descriptors: Default::default(),
@@ -274,24 +303,56 @@ impl WritableJournal for CompactingJournalTx {
             JournalEntry::TtySetV1 { .. } => {
                 state.tty.replace(event_index);
             }
-            JournalEntry::OpenFileDescriptorV1 { fd, .. } => {
+            JournalEntry::OpenFileDescriptorV1 {
+                fd, o_flags, path, ..
+            } => {
                 // All file descriptors are opened in a suspect state which
                 // means if they are closed without modifying the file system
                 // then the events will be ignored.
-                let lookup = state.descriptor_seed;
+                let lookup = DescriptorLookup(state.descriptor_seed);
                 state.descriptor_seed += 1;
+                state.suspect_descriptors.insert(*fd, lookup);
+
+                // There is an exception to the rule which is if the create
+                // flag is specified its always recorded as a mutating operation
+                // because it may create a file that does not exist on the file system
+                if o_flags.contains(Oflags::CREATE) {
+                    if let Some(lookup) = state.suspect_descriptors.remove(fd) {
+                        state.keep_descriptors.insert(*fd, lookup);
+                    }
+                }
+
+                // The event itself must be recorded in a staging area
                 state
-                    .suspect_descriptors
-                    .insert(*fd, DescriptorLookup(lookup));
+                    .descriptors
+                    .entry(lookup)
+                    .or_insert_with(Default::default)
+                    .events
+                    .push(event_index);
+
+                // Creating a file and erasing anything that was there before means
+                // the entire create branch that exists before this one can be ignored
+                if o_flags.contains(Oflags::CREATE) && o_flags.contains(Oflags::TRUNC) {
+                    let path = path.to_string();
+                    if let Some(existing) = state.create_trunc_file.remove(&path) {
+                        state.suspect_descriptors.remove(&existing);
+                        state.keep_descriptors.remove(&existing);
+                    }
+                    state.create_trunc_file.insert(path, *fd);
+                }
             }
             // We keep non-mutable events for file descriptors that are suspect
             JournalEntry::FileDescriptorSeekV1 { fd, .. }
             | JournalEntry::CloseFileDescriptorV1 { fd } => {
                 // Get the lookup
-                let lookup = state
-                    .suspect_descriptors
-                    .get(fd)
-                    .cloned()
+                // (if its suspect then it will remove the entry and
+                //  thus the entire branch of events it represents is discarded)
+                let lookup = if matches!(&entry, JournalEntry::CloseFileDescriptorV1 { .. }) {
+                    state.suspect_descriptors.remove(fd)
+                } else {
+                    state.suspect_descriptors.get(fd).cloned()
+                };
+                let lookup = lookup
                     .or_else(|| state.keep_descriptors.get(fd).cloned())
                     .or_else(|| state.stdio_descriptors.get(fd).cloned());
 
@@ -371,6 +432,22 @@ impl WritableJournal for CompactingJournalTx {
                     state.stdio_descriptors.insert(*new_fd, lookup);
                 } else {
                     state.whitelist.insert(event_index);
+                }
+            }
+            // Creating a new directory only needs to be done once
+            JournalEntry::CreateDirectoryV1 { path, .. } => {
+                let path = path.to_string();
+                state.remove_directory.remove(&path);
+                if state.create_directory.contains_key(&path) == false {
+                    state.create_directory.insert(path, event_index);
+                }
+            }
+            // Deleting a directory only needs to be done once
+            JournalEntry::RemoveDirectoryV1 { path, .. } => {
+                let path = path.to_string();
+                state.create_directory.remove(&path);
+                if state.remove_directory.contains_key(&path) == false {
+                    state.remove_directory.insert(path, event_index);
                 }
             }
             _ => {
