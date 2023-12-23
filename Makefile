@@ -393,13 +393,6 @@ build-wasmer:
 build-wasmer-jsc:
 	$(CARGO_BINARY) build $(CARGO_TARGET_FLAG) --release --manifest-path lib/cli/Cargo.toml --no-default-features --features="jsc,wat" --bin wasmer --locked
 
-install-wasi-web:
-	cd lib/wasi-web && npm install || true
-	cd lib/wasi-web && npm run build
-
-build-wasi-web:
-	cd lib/wasi-web && npm run build
-
 build-wasmer-debug:
 	$(CARGO_BINARY) build $(CARGO_TARGET_FLAG) --manifest-path lib/cli/Cargo.toml $(compiler_features) --bin wasmer --locked
 
@@ -438,40 +431,36 @@ build-docs:
 test-build-docs-rs:
 	@manifest_docs_rs_features_path="package.metadata.docs.rs.features"; \
 	for manifest_path in lib/*/Cargo.toml; do \
-		if [ "$$manifest_path" !=  "lib/wasi-web/Cargo.toml" ]; then \
-			toml get "$$manifest_path" "$$manifest_docs_rs_features_path" >/dev/null 2>&1; \
-			if [ $$? -ne 0 ]; then \
-				features=""; \
-			else \
-				features=$$(toml get "$$manifest_path" "$$manifest_docs_rs_features_path" | sed 's/\[//; s/\]//; s/"\([^"]*\)"/\1/g'); \
-			fi; \
-			printf "*** Building doc for package with manifest $$manifest_path ***\n\n"; \
-			if [ -z "$$features" ]; then \
-				RUSTDOCFLAGS="--cfg=docsrs" $(CARGO_BINARY) +nightly doc $(CARGO_TARGET_FLAG) --manifest-path "$$manifest_path" --locked || exit 1; \
-			else \
-				printf "Following features are inferred from Cargo.toml: $$features\n\n\n"; \
-				RUSTDOCFLAGS="--cfg=docsrs" $(CARGO_BINARY) +nightly doc $(CARGO_TARGET_FLAG) --manifest-path "$$manifest_path" --features "$$features" --locked || exit 1; \
-			fi; \
+		toml get "$$manifest_path" "$$manifest_docs_rs_features_path" >/dev/null 2>&1; \
+		if [ $$? -ne 0 ]; then \
+			features=""; \
+		else \
+			features=$$(toml get "$$manifest_path" "$$manifest_docs_rs_features_path" | sed 's/\[//; s/\]//; s/"\([^"]*\)"/\1/g'); \
+		fi; \
+		printf "*** Building doc for package with manifest $$manifest_path ***\n\n"; \
+		if [ -z "$$features" ]; then \
+			RUSTDOCFLAGS="--cfg=docsrs" $(CARGO_BINARY) +nightly doc $(CARGO_TARGET_FLAG) --manifest-path "$$manifest_path" --locked || exit 1; \
+		else \
+			printf "Following features are inferred from Cargo.toml: $$features\n\n\n"; \
+			RUSTDOCFLAGS="--cfg=docsrs" $(CARGO_BINARY) +nightly doc $(CARGO_TARGET_FLAG) --manifest-path "$$manifest_path" --features "$$features" --locked || exit 1; \
 		fi; \
 	done
 
 test-build-docs-rs-ci:
 	@manifest_docs_rs_features_path="package.metadata.docs.rs.features"; \
 	for manifest_path in lib/*/Cargo.toml; do \
-		if [ "$$manifest_path" !=  "lib/wasi-web/Cargo.toml" ]; then \
-			toml get "$$manifest_path" "$$manifest_docs_rs_features_path" >/dev/null 2>&1; \
-			if [ $$? -ne 0 ]; then \
-				features=""; \
-			else \
-				features=$$(toml get "$$manifest_path" "$$manifest_docs_rs_features_path" | sed 's/\[//; s/\]//; s/"\([^"]*\)"/\1/g'); \
-			fi; \
-			printf "*** Building doc for package with manifest $$manifest_path ***\n\n"; \
-			if [ -z "$$features" ]; then \
-				RUSTDOCFLAGS="--cfg=docsrs" $(CARGO_BINARY) +nightly-2023-05-25 doc $(CARGO_TARGET_FLAG) --manifest-path "$$manifest_path" --locked || exit 1; \
-			else \
-				printf "Following features are inferred from Cargo.toml: $$features\n\n\n"; \
-				RUSTDOCFLAGS="--cfg=docsrs" $(CARGO_BINARY) +nightly-2023-05-25 doc $(CARGO_TARGET_FLAG) --manifest-path "$$manifest_path" --features "$$features" --locked || exit 1; \
-			fi; \
+		toml get "$$manifest_path" "$$manifest_docs_rs_features_path" >/dev/null 2>&1; \
+		if [ $$? -ne 0 ]; then \
+			features=""; \
+		else \
+			features=$$(toml get "$$manifest_path" "$$manifest_docs_rs_features_path" | sed 's/\[//; s/\]//; s/"\([^"]*\)"/\1/g'); \
+		fi; \
+		printf "*** Building doc for package with manifest $$manifest_path ***\n\n"; \
+		if [ -z "$$features" ]; then \
+			RUSTDOCFLAGS="--cfg=docsrs" $(CARGO_BINARY) +nightly-2023-05-25 doc $(CARGO_TARGET_FLAG) --manifest-path "$$manifest_path" --locked || exit 1; \
+		else \
+			printf "Following features are inferred from Cargo.toml: $$features\n\n\n"; \
+			RUSTDOCFLAGS="--cfg=docsrs" $(CARGO_BINARY) +nightly-2023-05-25 doc $(CARGO_TARGET_FLAG) --manifest-path "$$manifest_path" --features "$$features" --locked || exit 1; \
 		fi; \
 	done
 

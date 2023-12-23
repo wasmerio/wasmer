@@ -135,7 +135,7 @@ pub async fn load_module(
     module_cache: &(dyn ModuleCache + Send + Sync),
     wasm: &[u8],
 ) -> Result<Module, anyhow::Error> {
-    let hash = ModuleHash::sha256(wasm);
+    let hash = ModuleHash::hash(wasm);
     let result = module_cache.load(hash, engine).await;
 
     match result {

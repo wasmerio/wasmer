@@ -1400,12 +1400,36 @@ dependencies = [
 ]
 
 [[package]]
+name = "edge-schema"
+version = "0.0.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f9be9b51f4fab3714afc1957b7b609211e428c897fb06df0f6aadb3405a424f3"
+dependencies = [
+ "anyhow",
+ "bytesize",
+ "once_cell",
+ "parking_lot 0.12.1",
+ "rand_chacha",
+ "rand_core",
+ "schemars",
+ "serde",
+ "serde_json",
+ "serde_path_to_error",
+ "serde_yaml 0.8.26",
+ "sparx",
+ "time",
+ "url",
+ "uuid",
+ "wcgi-host",
+]
+
+[[package]]
 name = "edge-util"
 version = "0.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5d665cdd8fd34e6faf57815d007ec4d5853f2c79d8cb37b9293225f3555ed239"
 dependencies = [
- "edge-schema",
+ "edge-schema 0.0.1",
  "http",
  "serde",
  "wasmparser 0.95.0",
@@ -4191,9 +4215,9 @@ dependencies = [
 
 [[package]]
 name = "shared-buffer"
-version = "0.1.3"
+version = "0.1.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2cf61602ee61e2f83dd016b3e6387245291cf728ea071c378b35088125b4d995"
+checksum = "f6c99835bad52957e7aa241d3975ed17c1e5f8c92026377d117a606f36b84b16"
 dependencies = [
  "bytes",
  "memmap2 0.6.2",
@@ -5175,6 +5199,7 @@ dependencies = [
  "pretty_assertions",
  "replace_with",
  "serde",
+ "shared-buffer",
  "slab",
  "tempfile",
  "thiserror",
@@ -5655,13 +5680,13 @@ dependencies = [
 
 [[package]]
 name = "wasmer-api"
-version = "0.0.22"
+version = "0.0.23"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "256a9856e530f01598bce05d1c09ee3c72165f7fdaaf33b9ce4f5921d9439df4"
+checksum = "aa0e68c76f730824b100d77c85a6a57432f15f1388a14eb3b406780f8dbbd751"
 dependencies = [
  "anyhow",
  "cynic",
- "edge-schema",
+ "edge-schema 0.0.1",
  "futures",
  "harsh",
  "pin-project-lite",
@@ -5670,6 +5695,7 @@ dependencies = [
  "serde_json",
  "serde_path_to_error",
  "time",
+ "tokio",
  "tracing",
  "url",
  "webc",
@@ -5954,9 +5980,9 @@ dependencies = [
 
 [[package]]
 name = "wasmer-edge-cli"
-version = "0.1.2"
+version = "0.1.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ce09190ea5ebf04ff8d51328f77599dd71b151179c75d4768cbd86b9905f933a"
+checksum = "4dcf5035bf220503493631e3681feeebef45a2b9bbf327e5092f3b0c1be7ab41"
 dependencies = [
  "anyhow",
  "clap",
@@ -5964,7 +5990,7 @@ dependencies = [
  "colored 2.0.4",
  "comfy-table",
  "dialoguer 0.11.0",
- "edge-schema",
+ "edge-schema 0.0.2",
  "edge-util",
  "futures",
  "is-terminal",
@@ -6324,6 +6350,7 @@ dependencies = [
  "webc",
  "weezl",
  "winapi",
+ "xxhash-rust",
 ]
 
 [[package]]
@@ -6962,6 +6989,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0fcb9cbac069e033553e8bb871be2fbdffcab578eb25bd0f7c508cedc6dcd75a"
 
 [[package]]
+name = "xxhash-rust"
+version = "0.8.8"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "53be06678ed9e83edb1745eb72efc0bbcd7b5c3c35711a860906aed827a13d61"
+
+[[package]]
 name = "yaml-rust"
 version = "0.4.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6978,18 +7011,18 @@ checksum = "09041cd90cf85f7f8b2df60c646f853b7f535ce68f85244eb6731cf89fa498ec"
 
 [[package]]
 name = "zerocopy"
-version = "0.7.23"
+version = "0.7.31"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e50cbb27c30666a6108abd6bc7577556265b44f243e2be89a8bc4e07a528c107"
+checksum = "1c4061bedbb353041c12f413700357bec76df2c7e2ca8e4df8bac24c6bf68e3d"
 dependencies = [
  "zerocopy-derive",
 ]
 
 [[package]]
 name = "zerocopy-derive"
-version = "0.7.23"
+version = "0.7.31"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a25f293fe55f0a48e7010d65552bb63704f6ceb55a1a385da10d41d8f78e4a3d"
+checksum = "b3c129550b3e6de3fd0ba67ba5c81818f9805e58b8d7fee80a3a59d2c9fc601a"
 dependencies = [
  "proc-macro2",
  "quote",
