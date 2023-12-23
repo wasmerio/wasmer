@@ -1,6 +1,7 @@
 use std::fmt;
 
 use super::*;
+use wasmer_wasix_types::wasi;
 
 /// Type of printing mode to use
 #[derive(Debug)]
@@ -112,18 +113,16 @@ impl<'a> fmt::Display for JournalEntry<'a> {
             JournalEntry::OpenFileDescriptorV1 {
                 fd, path, o_flags, ..
             } => {
-                if o_flags.contains(Oflags::CREATE) {
-                    if o_flags.contains(Oflags::TRUNC) {
-                        write!(f, "fd-create-new (path={}, fd={})", fd, path)
+                if o_flags.contains(wasi::Oflags::CREATE) {
+                    if o_flags.contains(wasi::Oflags::TRUNC) {
+                        write!(f, "fd-create-new (fd={}, path={})", fd, path)
                     } else {
-                        write!(f, "fd-create (path={}, fd={})", fd, path)
+                        write!(f, "fd-create (fd={}, path={})", fd, path)
                     }
+                } else if o_flags.contains(wasi::Oflags::TRUNC) {
+                    write!(f, "fd-open-new (fd={}, path={})", fd, path)
                 } else {
-                    if o_flags.contains(Oflags::TRUNC) {
-                        write!(f, "fd-open-new (path={}, fd={})", fd, path)
-                    } else {
-                        write!(f, "fd-open (path={}, fd={})", fd, path)
-                    }
+                    write!(f, "fd-open (fd={}, path={})", fd, path)
                 }
             }
             JournalEntry::RenumberFileDescriptorV1 { old_fd, new_fd } => {

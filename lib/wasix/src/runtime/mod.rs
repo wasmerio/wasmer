@@ -385,6 +385,7 @@ impl OverriddenRuntime {
             engine: None,
             module_cache: None,
             tty: None,
+            #[cfg(feature = "journal")]
             journals: None,
         }
     }

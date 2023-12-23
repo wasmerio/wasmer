@@ -5,6 +5,7 @@ use std::{
     sync::{Arc, Mutex},
 };
 use virtual_fs::Fd;
+use wasmer_wasix_types::wasi;
 
 use super::*;
 
@@ -349,7 +350,7 @@ impl WritableJournal for CompactingJournalTx {
                 // There is an exception to the rule which is if the create
                 // flag is specified its always recorded as a mutating operation
                 // because it may create a file that does not exist on the file system
-                if o_flags.contains(Oflags::CREATE) {
+                if o_flags.contains(wasi::Oflags::CREATE) {
                     if let Some(lookup) = state.suspect_descriptors.remove(fd) {
                         state.keep_descriptors.insert(*fd, lookup);
                     }
@@ -365,7 +366,7 @@ impl WritableJournal for CompactingJournalTx {
 
                 // Creating a file and erasing anything that was there before means
                 // the entire create branch that exists before this one can be ignored
-                if o_flags.contains(Oflags::CREATE) && o_flags.contains(Oflags::TRUNC) {
+                if o_flags.contains(wasi::Oflags::CREATE) && o_flags.contains(wasi::Oflags::TRUNC) {
                     let path = path.to_string();
                     if let Some(existing) = state.create_trunc_file.remove(&path) {
                         state.suspect_descriptors.remove(&existing);
@@ -471,7 +472,7 @@ impl WritableJournal for CompactingJournalTx {
             JournalEntry::CreateDirectoryV1 { path, .. } => {
                 let path = path.to_string();
                 state.remove_directory.remove(&path);
-                if state.create_directory.contains_key(&path) == false {
+                if !state.create_directory.contains_key(&path) {
                     state.create_directory.insert(path, event_index);
                 }
             }
@@ -479,7 +480,7 @@ impl WritableJournal for CompactingJournalTx {
             JournalEntry::RemoveDirectoryV1 { path, .. } => {
                 let path = path.to_string();
                 state.create_directory.remove(&path);
-                if state.remove_directory.contains_key(&path) == false {
+                if !state.remove_directory.contains_key(&path) {
                     state.remove_directory.insert(path, event_index);
                 }
             }
@@ -554,7 +555,7 @@ impl Journal for CompactingJournal {
 mod tests {
     use super::*;
 
-    use wasmer_wasix_types::wasi::{self, Tty};
+    use wasmer_wasix_types::wasi::Tty;
 
     pub fn run_test<'a>(
         in_records: Vec<JournalEntry<'a>>,

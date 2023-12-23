@@ -152,7 +152,7 @@ impl CompactingLogFileJournalTx {
         // We prepare a compacting journal which does nothing
         // with the events other than learn from them
         let counting = CountingJournal::default();
-        let mut compacting = CompactingJournal::new(counting.clone())?;
+        let mut compacting = CompactingJournal::new(counting)?;
         copy_journal(&target, &compacting)?;
 
         // Now everything is learned its time to attach the log file to the compacting journal
