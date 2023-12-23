@@ -11,14 +11,14 @@ use wasmer_wasix_types::types::{__WASI_STDERR_FILENO, __WASI_STDIN_FILENO, __WAS
 #[derivative(Debug)]
 pub struct DcgiCallbacks {
     #[derivative(Debug = "ignore")]
-    inner: Arc<dyn wcgi::Callbacks<DcgiMetadata>>,
+    inner: Arc<dyn wcgi::Callbacks>,
     factory: DcgiInstanceFactory,
 }
 
 impl DcgiCallbacks {
     pub fn new<C>(factory: DcgiInstanceFactory, inner: C) -> Self
     where
-        C: wcgi::Callbacks<DcgiMetadata>,
+        C: wcgi::Callbacks,
     {
         Self {
             inner: Arc::new(inner),
@@ -28,7 +28,7 @@ impl DcgiCallbacks {
 }
 
 #[async_trait::async_trait]
-impl wcgi::Callbacks<DcgiMetadata> for DcgiCallbacks {
+impl wcgi::Callbacks for DcgiCallbacks {
     fn started(&self, abort: AbortHandle) {
         self.inner.started(abort)
     }
@@ -41,8 +41,8 @@ impl wcgi::Callbacks<DcgiMetadata> for DcgiCallbacks {
         self.inner.on_stderr_error(error)
     }
 
-    async fn recycle_env(&self, conf: RecycleEnvConfig<DcgiMetadata>) {
-        tracing::debug!(shard = conf.meta.shard, "recycling DCGI instance");
+    async fn recycle_env(&self, conf: RecycleEnvConfig) {
+        tracing::debug!("recycling DCGI instance");
 
         // The stdio have to be reattached on each call as they are
         // read to completion (EOF) during nominal flows
@@ -66,17 +66,11 @@ impl wcgi::Callbacks<DcgiMetadata> for DcgiCallbacks {
         self.factory.release(conf).await;
     }
 
-    async fn create_env(
-        &self,
-        mut conf: CreateEnvConfig<DcgiMetadata>,
-    ) -> anyhow::Result<CreateEnvResult> {
-        tracing::debug!(
-            shard = conf.meta.shard,
-            "attempting to acquire existing DCGI instance"
-        );
+    async fn create_env(&self, mut conf: CreateEnvConfig) -> anyhow::Result<CreateEnvResult> {
+        tracing::debug!("attempting to acquire existing DCGI instance");
 
         if let Some(res) = self.factory.acquire(&mut conf).await {
-            tracing::debug!(shard = conf.meta.shard, "found existing DCGI instance");
+            tracing::debug!("found existing DCGI instance");
             return Ok(res);
         }
 

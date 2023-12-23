@@ -6,12 +6,16 @@ mod effector;
 #[path = "effector/unimplemented.rs"]
 mod effector;
 mod entry;
+mod factories;
+mod factory;
 mod snapshot;
 mod util;
 
 pub use concrete::*;
 pub use effector::*;
 pub use entry::*;
+pub use factories::*;
+pub use factory::*;
 pub use snapshot::*;
 pub use util::*;
 

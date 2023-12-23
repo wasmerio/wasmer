@@ -140,9 +140,11 @@ impl Run {
             }
         };
 
-        // restore the TTY state as teh execution may have changed it
+        // restore the TTY state as the execution may have changed it
         if let Some(state) = tty {
-            runtime.tty().map(|tty| tty.tty_set(state));
+            if let Some(tty) = runtime.tty() {
+                tty.tty_set(state);
+            }
         }
 
         if let Err(e) = &result {
@@ -251,14 +253,11 @@ impl Run {
         runner.run_command(command_name, pkg, runtime)
     }
 
-    fn config_wcgi<M>(
+    fn config_wcgi(
         &self,
-        config: &mut wcgi::Config<M>,
+        config: &mut wcgi::Config,
         uses: Vec<BinaryPackage>,
-    ) -> Result<(), Error>
-    where
-        M: Send + Sync + 'static,
-    {
+    ) -> Result<(), Error> {
         config
             .args(self.args.clone())
             .addr(self.wcgi.addr)
@@ -798,10 +797,7 @@ impl Callbacks {
     }
 }
 
-impl<M> wasmer_wasix::runners::wcgi::Callbacks<M> for Callbacks
-where
-    M: Send + Sync + 'static,
-{
+impl wasmer_wasix::runners::wcgi::Callbacks for Callbacks {
     fn started(&self, _abort: AbortHandle) {
         println!("WCGI Server running at http://{}/", self.addr);
     }

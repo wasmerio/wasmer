@@ -7,6 +7,7 @@ use webc::metadata::Command;
 use crate::{
     bin_factory::BinaryPackage,
     capabilities::Capabilities,
+    journal::PassthruJournalFactory,
     runners::{
         dcgi::handler::Handler,
         wcgi::{self, NoOpWcgiCallbacks, WcgiRunner},
@@ -15,12 +16,12 @@ use crate::{
     Runtime,
 };
 
-use super::{DcgiCallbacks, DcgiInstanceFactory, DcgiMetadata};
+use super::{DcgiCallbacks, DcgiInstanceFactory};
 
 #[derive(Debug)]
 pub struct DcgiRunner {
     config: Config,
-    inner: wcgi::WcgiRunner<DcgiMetadata>,
+    inner: wcgi::WcgiRunner,
 }
 
 impl DcgiRunner {
@@ -45,10 +46,17 @@ impl DcgiRunner {
         pkg: &BinaryPackage,
         runtime: Arc<dyn Runtime + Send + Sync>,
     ) -> Result<Handler, Error> {
-        let inner: wcgi::Handler<DcgiMetadata> =
-            self.inner
-                .prepare_handler(command_name, pkg, true, CgiDialect::Rfc3875, runtime)?;
-        Ok(Handler::from_wcgi_handler(inner))
+        let inner: wcgi::Handler = self.inner.prepare_handler(
+            command_name,
+            pkg,
+            true,
+            CgiDialect::Rfc3875,
+            runtime,
+            Arc::new(PassthruJournalFactory::new(
+                self.config.inner.wasi.journals.clone(),
+            )),
+        )?;
+        Ok(Handler::new(inner))
     }
 }
 
@@ -73,11 +81,11 @@ impl crate::runners::Runner for DcgiRunner {
 
 #[derive(Debug)]
 pub struct Config {
-    inner: wcgi::Config<DcgiMetadata>,
+    inner: wcgi::Config,
 }
 
 impl Config {
-    pub fn inner(&mut self) -> &mut wcgi::Config<DcgiMetadata> {
+    pub fn inner(&mut self) -> &mut wcgi::Config {
         &mut self.inner
     }
 
@@ -142,7 +150,7 @@ impl Config {
     /// lifecycle.
     pub fn callbacks(
         &mut self,
-        callbacks: impl wcgi::Callbacks<DcgiMetadata> + Send + Sync + 'static,
+        callbacks: impl wcgi::Callbacks + Send + Sync + 'static,
     ) -> &mut Self {
         self.inner.callbacks(callbacks);
         self

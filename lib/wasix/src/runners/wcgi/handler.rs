@@ -28,22 +28,21 @@ use crate::{
 /// The shared object that manages the instantiaion of WASI executables and
 /// communicating with them via the CGI protocol.
 #[derive(Clone, Debug)]
-pub(crate) struct Handler<M>(Arc<SharedState<M>>)
-where
-    M: Send + Sync + 'static;
+pub(crate) struct Handler(Arc<SharedState>);
 
-impl<M> Handler<M>
-where
-    M: Send + Sync + 'static,
-{
-    pub(crate) fn new(state: Arc<SharedState<M>>) -> Self {
+impl Handler {
+    pub(crate) fn new(state: Arc<SharedState>) -> Self {
         Handler(state)
     }
 
     #[tracing::instrument(level = "debug", skip_all, err)]
-    pub(crate) async fn handle(&self, req: Request<Body>, meta: M) -> Result<Response<Body>, Error>
+    pub(crate) async fn handle<T>(
+        &self,
+        req: Request<Body>,
+        token: T,
+    ) -> Result<Response<Body>, Error>
     where
-        M: Clone,
+        T: Send + 'static,
     {
         tracing::debug!(headers=?req.headers());
 
@@ -64,7 +63,6 @@ where
         let create = self
             .callbacks
             .create_env(CreateEnvConfig {
-                meta: meta.clone(),
                 env: request_specific_env,
                 program_name: self.program_name.clone(),
                 module: self.module.clone(),
@@ -89,11 +87,15 @@ where
             let callbacks = callbacks.clone();
             move |props: TaskWasmRecycleProperties| {
                 InlineWaker::block_on(callbacks.recycle_env(RecycleEnvConfig {
-                    meta,
                     env: props.env,
                     store: props.store,
                     memory: props.memory,
                 }));
+
+                // We release the token after we recycle the environment
+                // so that race conditions (such as reusing instances) are
+                // avoided
+                drop(token);
             }
         };
         let finished = env.process.finished.clone();
@@ -219,11 +221,8 @@ where
     }
 }
 
-impl<M> Deref for Handler<M>
-where
-    M: Send + Sync + 'static,
-{
-    type Target = Arc<SharedState<M>>;
+impl Deref for Handler {
+    type Target = Arc<SharedState>;
 
     fn deref(&self) -> &Self::Target {
         &self.0
@@ -267,14 +266,11 @@ async fn drive_request_to_completion(
 /// Read the instance's stderr, taking care to preserve output even when WASI
 /// pipe errors occur so users still have *something* they use for
 /// troubleshooting.
-async fn consume_stderr<M>(
+async fn consume_stderr(
     stderr: impl AsyncRead + Send + Unpin + 'static,
-    callbacks: Arc<dyn Callbacks<M>>,
+    callbacks: Arc<dyn Callbacks>,
     propagate_stderr: bool,
-) -> Option<Vec<u8>>
-where
-    M: Send + Sync + 'static,
-{
+) -> Option<Vec<u8>> {
     let mut stderr = tokio::io::BufReader::new(stderr);
 
     let mut propagate = match propagate_stderr {
@@ -315,10 +311,7 @@ pub type SetupBuilder = Arc<dyn Fn(&mut WasiEnvBuilder) -> Result<(), anyhow::Er
 
 #[derive(derivative::Derivative)]
 #[derivative(Debug)]
-pub(crate) struct SharedState<M>
-where
-    M: Send + Sync + 'static,
-{
+pub(crate) struct SharedState {
     pub(crate) module: Module,
     pub(crate) module_hash: ModuleHash,
     pub(crate) dialect: CgiDialect,
@@ -327,12 +320,12 @@ where
     #[derivative(Debug = "ignore")]
     pub(crate) setup_builder: SetupBuilder,
     #[derivative(Debug = "ignore")]
-    pub(crate) callbacks: Arc<dyn Callbacks<M>>,
+    pub(crate) callbacks: Arc<dyn Callbacks>,
     #[derivative(Debug = "ignore")]
     pub(crate) runtime: Arc<dyn Runtime + Send + Sync>,
 }
 
-impl Service<Request<Body>> for Handler<()> {
+impl Service<Request<Body>> for Handler {
     type Response = Response<Body>;
     type Error = Error;
     type Future = Pin<Box<dyn Future<Output = Result<Response<Body>, Error>> + Send>>;

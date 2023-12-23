@@ -15,6 +15,7 @@ use webc::metadata::{
 use crate::{
     bin_factory::BinaryPackage,
     capabilities::Capabilities,
+    journal::{DynJournalFactory, JournalDescriptor, PassthruJournalFactory},
     runners::{
         wasi_common::CommonWasiOptions,
         wcgi::handler::{Handler, SharedState},
@@ -27,27 +28,21 @@ use crate::{
 use super::Callbacks;
 
 #[derive(Debug)]
-pub struct WcgiRunner<M = ()>
-where
-    M: Send + Sync + 'static,
-{
-    config: Config<M>,
+pub struct WcgiRunner {
+    config: Config,
 }
 
-impl<M> WcgiRunner<M>
-where
-    M: Send + Sync + 'static,
-{
+impl WcgiRunner {
     pub fn new<C>(callbacks: C) -> Self
     where
-        C: Callbacks<M>,
+        C: Callbacks,
     {
         Self {
             config: Config::new(callbacks),
         }
     }
 
-    pub fn config(&mut self) -> &mut Config<M> {
+    pub fn config(&mut self) -> &mut Config {
         &mut self.config
     }
 
@@ -59,7 +54,8 @@ where
         propagate_stderr: bool,
         default_dialect: CgiDialect,
         runtime: Arc<dyn Runtime + Send + Sync>,
-    ) -> Result<Handler<M>, Error> {
+        journal_factory: Arc<DynJournalFactory>,
+    ) -> Result<Handler, Error> {
         let cmd = pkg
             .get_command(command_name)
             .with_context(|| format!("The package doesn't contain a \"{command_name}\" command"))?;
@@ -78,11 +74,22 @@ where
 
         let container_fs = Arc::clone(&pkg.webc_fs);
 
+        let journal_desc = JournalDescriptor {
+            package_name: pkg.package_name.clone(),
+            version: pkg.version.clone(),
+            module_hash: pkg.hash(),
+        };
+
         let wasi_common = self.config.wasi.clone();
         let rt = Arc::clone(&runtime);
         let setup_builder = move |builder: &mut WasiEnvBuilder| {
             wasi_common.prepare_webc_env(builder, Some(Arc::clone(&container_fs)), &wasi, None)?;
             builder.set_runtime(Arc::clone(&rt));
+
+            let journals = journal_factory.load_or_create(journal_desc.clone())?;
+            for journal in journals {
+                builder.add_journal(journal);
+            }
 
             Ok(())
         };
@@ -182,6 +189,9 @@ impl crate::runners::Runner for WcgiRunner {
             false,
             CgiDialect::Wcgi,
             Arc::clone(&runtime),
+            Arc::new(PassthruJournalFactory::new(
+                self.config.wasi.journals.clone(),
+            )),
         )?;
         self.run_command_with_handler(handler, runtime)
     }
@@ -189,17 +199,14 @@ impl crate::runners::Runner for WcgiRunner {
 
 #[derive(derivative::Derivative)]
 #[derivative(Debug)]
-pub struct Config<M> {
+pub struct Config {
     pub(crate) wasi: CommonWasiOptions,
     pub(crate) addr: SocketAddr,
     #[derivative(Debug = "ignore")]
-    pub(crate) callbacks: Arc<dyn Callbacks<M>>,
+    pub(crate) callbacks: Arc<dyn Callbacks>,
 }
 
-impl<M> Config<M>
-where
-    M: Send + Sync + 'static,
-{
+impl Config {
     pub fn addr(&mut self, addr: SocketAddr) -> &mut Self {
         self.addr = addr;
         self
@@ -261,7 +268,7 @@ where
 
     /// Set callbacks that will be triggered at various points in the runner's
     /// lifecycle.
-    pub fn callbacks(&mut self, callbacks: impl Callbacks<M> + Send + Sync + 'static) -> &mut Self {
+    pub fn callbacks(&mut self, callbacks: impl Callbacks + Send + Sync + 'static) -> &mut Self {
         self.callbacks = Arc::new(callbacks);
         self
     }
@@ -321,13 +328,10 @@ where
     }
 }
 
-impl<M> Config<M>
-where
-    M: Send + Sync + 'static,
-{
+impl Config {
     pub fn new<C>(callbacks: C) -> Self
     where
-        C: Callbacks<M>,
+        C: Callbacks,
     {
         Self {
             addr: ([127, 0, 0, 1], 8000).into(),

@@ -1,9 +1,6 @@
-use std::{
-    collections::{HashMap, VecDeque},
-    sync::{Arc, Mutex},
-    time::Instant,
-};
+use std::sync::{Arc, Mutex};
 
+use derivative::Derivative;
 use virtual_fs::Pipe;
 use wasmer_wasix_types::types::{__WASI_STDERR_FILENO, __WASI_STDIN_FILENO, __WASI_STDOUT_FILENO};
 
@@ -15,33 +12,16 @@ use crate::{
 
 use super::*;
 
-#[derive(Debug)]
-struct StateShard {
-    instances: VecDeque<DcgiInstance>,
-    last_acquire: Instant,
-    master_lock: Arc<tokio::sync::Mutex<()>>,
-}
-
-impl Default for StateShard {
-    fn default() -> Self {
-        Self {
-            instances: Default::default(),
-            last_acquire: Instant::now(),
-            master_lock: Arc::new(Default::default()),
-        }
-    }
-}
-
 #[derive(Debug, Default)]
 struct State {
-    // List of the shards and a queue of DCGI instances that
-    // are running for these shards
-    shards: HashMap<String, StateShard>,
+    /// Once the instance is running it will
+    instance: Option<DcgiInstance>,
 }
 
 /// This factory will store and reuse instances between invocations thus
 /// allowing for the instances to be stateful.
-#[derive(Debug, Clone, Default)]
+#[derive(Derivative, Clone)]
+#[derivative(Debug)]
 pub struct DcgiInstanceFactory {
     state: Arc<Mutex<State>>,
 }
@@ -53,63 +33,23 @@ impl DcgiInstanceFactory {
         }
     }
 
-    pub async fn release(&self, mut conf: RecycleEnvConfig<DcgiMetadata>) {
-        let shard = conf.meta.shard;
-
+    pub async fn release(&self, conf: RecycleEnvConfig) {
         let mut state = self.state.lock().unwrap();
-        state
-            .shards
-            .entry(shard)
-            .or_default()
-            .instances
-            .push_front(DcgiInstance {
-                env: conf.env,
-                //memory: conf.memory,
-                //store: conf.store,
-            });
-
-        drop(state);
-        conf.meta.master_lock.take();
+        state.instance.replace(DcgiInstance {
+            env: conf.env,
+            //memory: conf.memory,
+            //store: conf.store,
+        });
     }
 
-    pub async fn acquire(
-        &self,
-        conf: &mut CreateEnvConfig<DcgiMetadata>,
-    ) -> Option<CreateEnvResult> {
-        let shard = conf.meta.shard.clone();
-
-        // We take a short lock that looks for existing instances
-        // that have been recycled, otherwise we will use the
-        // master lock to prevent concurrent creations
-        let master_lock = {
-            let mut state = self.state.lock().unwrap();
-            let shard = state.shards.entry(shard.clone()).or_default();
-            shard.last_acquire = Instant::now();
-            shard.master_lock.clone()
-        };
-
-        // We acquire a master lock whenever creating a new instance and hold it
-        // until the instance dies or the instance is returned to the factory. This
-        // is done using the `DcgiMetadata`
-        let master_lock = master_lock.clone().lock_owned().await;
-        conf.meta.master_lock.replace(Arc::new(master_lock));
-
-        // We check the shard again under a short lock as maybe one was returned
-        {
-            let mut state = self.state.lock().unwrap();
-            let shard = state.shards.entry(shard).or_default();
-            shard.last_acquire = Instant::now();
-
-            if let Some(inst) = shard.instances.pop_front() {
-                tracing::debug!(
-                    shard = conf.meta.shard,
-                    "attempting to reinitialize DCGI instance"
-                );
-                match convert_instance(inst, conf) {
-                    Ok(converted) => return Some(converted),
-                    Err(err) => {
-                        tracing::warn!("failed to reinitialize DCGI instance - {}", err);
-                    }
+    pub async fn acquire(&self, conf: &mut CreateEnvConfig) -> Option<CreateEnvResult> {
+        let mut state = self.state.lock().unwrap();
+        if let Some(inst) = state.instance.take() {
+            tracing::debug!("attempting to reinitialize DCGI instance");
+            match convert_instance(inst, conf) {
+                Ok(converted) => return Some(converted),
+                Err(err) => {
+                    tracing::warn!("failed to reinitialize DCGI instance - {}", err);
                 }
             }
         }
@@ -120,7 +60,7 @@ impl DcgiInstanceFactory {
 
 fn convert_instance(
     inst: DcgiInstance,
-    conf: &mut CreateEnvConfig<DcgiMetadata>,
+    conf: &mut CreateEnvConfig,
 ) -> anyhow::Result<CreateEnvResult> {
     let mut env = inst.env;
 

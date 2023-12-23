@@ -7,22 +7,14 @@ use crate::{
 
 use super::{callbacks::CreateEnvConfig, RecycleEnvConfig};
 
-pub(crate) async fn default_recycle_env<M>(mut conf: RecycleEnvConfig<M>)
-where
-    M: Send + Sync + 'static,
-{
+pub(crate) async fn default_recycle_env(mut conf: RecycleEnvConfig) {
     tracing::debug!("Destroying the WebAssembly instance");
 
     conf.env.disable_fs_cleanup = false;
     conf.env.on_exit(None).await;
 }
 
-pub(crate) async fn default_create_env<M>(
-    conf: CreateEnvConfig<M>,
-) -> anyhow::Result<CreateEnvResult>
-where
-    M: Send + Sync + 'static,
-{
+pub(crate) async fn default_create_env(conf: CreateEnvConfig) -> anyhow::Result<CreateEnvResult> {
     tracing::debug!("Creating the WebAssembly instance");
 
     let (req_body_sender, req_body_receiver) = Pipe::channel();
