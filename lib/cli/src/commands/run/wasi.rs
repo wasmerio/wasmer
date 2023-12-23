@@ -387,6 +387,7 @@ impl Wasi {
         Ok(builder)
     }
 
+    #[cfg(feature = "journal")]
     pub fn build_journals(&self) -> anyhow::Result<Vec<Arc<DynJournal>>> {
         let mut ret = Vec::new();
         for journal in self.journals.clone() {
@@ -404,6 +405,11 @@ impl Wasi {
             }
         }
         Ok(ret)
+    }
+
+    #[cfg(not(feature = "journal"))]
+    pub fn build_journals(&self) -> anyhow::Result<Vec<Arc<DynJournal>>> {
+        Ok(Vec::new())
     }
 
     pub fn build_mapped_directories(&self) -> Result<Vec<MappedDirectory>, anyhow::Error> {

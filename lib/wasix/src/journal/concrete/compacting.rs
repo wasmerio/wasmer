@@ -472,17 +472,13 @@ impl WritableJournal for CompactingJournalTx {
             JournalEntry::CreateDirectoryV1 { path, .. } => {
                 let path = path.to_string();
                 state.remove_directory.remove(&path);
-                if !state.create_directory.contains_key(&path) {
-                    state.create_directory.insert(path, event_index);
-                }
+                state.create_directory.entry(path).or_insert(event_index);
             }
             // Deleting a directory only needs to be done once
             JournalEntry::RemoveDirectoryV1 { path, .. } => {
                 let path = path.to_string();
                 state.create_directory.remove(&path);
-                if !state.remove_directory.contains_key(&path) {
-                    state.remove_directory.insert(path, event_index);
-                }
+                state.remove_directory.entry(path).or_insert(event_index);
             }
             _ => {
                 // The fallthrough is to whitelist the event so that it will
@@ -758,7 +754,7 @@ mod tests {
                     dirfd: 3452345,
                     dirflags: 0,
                     path: "/blah".into(),
-                    o_flags: wasi::Oflags::all(),
+                    o_flags: wasi::Oflags::empty(),
                     fs_rights_base: wasi::Rights::all(),
                     fs_rights_inheriting: wasi::Rights::all(),
                     fs_flags: wasi::Fdflags::all(),
@@ -780,7 +776,7 @@ mod tests {
                     dirfd: 3452345,
                     dirflags: 0,
                     path: "/blah".into(),
-                    o_flags: wasi::Oflags::all(),
+                    o_flags: wasi::Oflags::empty(),
                     fs_rights_base: wasi::Rights::all(),
                     fs_rights_inheriting: wasi::Rights::all(),
                     fs_flags: wasi::Fdflags::all(),
@@ -798,7 +794,7 @@ mod tests {
                     dirfd: 3452345,
                     dirflags: 0,
                     path: "/blah".into(),
-                    o_flags: wasi::Oflags::all(),
+                    o_flags: wasi::Oflags::empty(),
                     fs_rights_base: wasi::Rights::all(),
                     fs_rights_inheriting: wasi::Rights::all(),
                     fs_flags: wasi::Fdflags::all(),
@@ -824,7 +820,7 @@ mod tests {
                     dirfd: 3452345,
                     dirflags: 0,
                     path: "/blah".into(),
-                    o_flags: wasi::Oflags::all(),
+                    o_flags: wasi::Oflags::empty(),
                     fs_rights_base: wasi::Rights::all(),
                     fs_rights_inheriting: wasi::Rights::all(),
                     fs_flags: wasi::Fdflags::all(),
@@ -843,7 +839,7 @@ mod tests {
                     dirfd: 3452345,
                     dirflags: 0,
                     path: "/blah".into(),
-                    o_flags: wasi::Oflags::all(),
+                    o_flags: wasi::Oflags::empty(),
                     fs_rights_base: wasi::Rights::all(),
                     fs_rights_inheriting: wasi::Rights::all(),
                     fs_flags: wasi::Fdflags::all(),
@@ -870,7 +866,7 @@ mod tests {
                     dirfd: 3452345,
                     dirflags: 0,
                     path: "/blah".into(),
-                    o_flags: wasi::Oflags::all(),
+                    o_flags: wasi::Oflags::empty(),
                     fs_rights_base: wasi::Rights::all(),
                     fs_rights_inheriting: wasi::Rights::all(),
                     fs_flags: wasi::Fdflags::all(),
@@ -889,7 +885,7 @@ mod tests {
                     dirfd: 3452345,
                     dirflags: 0,
                     path: "/blah".into(),
-                    o_flags: wasi::Oflags::all(),
+                    o_flags: wasi::Oflags::empty(),
                     fs_rights_base: wasi::Rights::all(),
                     fs_rights_inheriting: wasi::Rights::all(),
                     fs_flags: wasi::Fdflags::all(),
@@ -916,7 +912,7 @@ mod tests {
                     dirfd: 3452345,
                     dirflags: 0,
                     path: "/blah".into(),
-                    o_flags: wasi::Oflags::all(),
+                    o_flags: wasi::Oflags::empty(),
                     fs_rights_base: wasi::Rights::all(),
                     fs_rights_inheriting: wasi::Rights::all(),
                     fs_flags: wasi::Fdflags::all(),
@@ -935,6 +931,105 @@ mod tests {
 
     #[tracing_test::traced_test]
     #[test]
+    pub fn test_compact_file_system_touch() {
+        run_test(
+            vec![
+                JournalEntry::OpenFileDescriptorV1 {
+                    fd: 1234,
+                    dirfd: 3452345,
+                    dirflags: 0,
+                    path: "/blah".into(),
+                    o_flags: wasi::Oflags::CREATE | wasi::Oflags::TRUNC,
+                    fs_rights_base: wasi::Rights::all(),
+                    fs_rights_inheriting: wasi::Rights::all(),
+                    fs_flags: wasi::Fdflags::all(),
+                },
+                JournalEntry::CloseFileDescriptorV1 { fd: 1234 },
+                JournalEntry::ProcessExitV1 { exit_code: None },
+            ],
+            vec![
+                JournalEntry::OpenFileDescriptorV1 {
+                    fd: 1234,
+                    dirfd: 3452345,
+                    dirflags: 0,
+                    path: "/blah".into(),
+                    o_flags: wasi::Oflags::CREATE | wasi::Oflags::TRUNC,
+                    fs_rights_base: wasi::Rights::all(),
+                    fs_rights_inheriting: wasi::Rights::all(),
+                    fs_flags: wasi::Fdflags::all(),
+                },
+                JournalEntry::CloseFileDescriptorV1 { fd: 1234 },
+                JournalEntry::ProcessExitV1 { exit_code: None },
+            ],
+        )
+        .unwrap()
+    }
+
+    #[tracing_test::traced_test]
+    #[test]
+    pub fn test_compact_file_system_redundant_file() {
+        run_test(
+            vec![
+                JournalEntry::OpenFileDescriptorV1 {
+                    fd: 1234,
+                    dirfd: 3452345,
+                    dirflags: 0,
+                    path: "/blah".into(),
+                    o_flags: wasi::Oflags::CREATE | wasi::Oflags::TRUNC,
+                    fs_rights_base: wasi::Rights::all(),
+                    fs_rights_inheriting: wasi::Rights::all(),
+                    fs_flags: wasi::Fdflags::all(),
+                },
+                JournalEntry::FileDescriptorWriteV1 {
+                    fd: 1234,
+                    offset: 1234,
+                    data: [5u8; 16].to_vec().into(),
+                    is_64bit: true,
+                },
+                JournalEntry::CloseFileDescriptorV1 { fd: 1234 },
+                JournalEntry::OpenFileDescriptorV1 {
+                    fd: 1235,
+                    dirfd: 3452345,
+                    dirflags: 0,
+                    path: "/blah".into(),
+                    o_flags: wasi::Oflags::CREATE | wasi::Oflags::TRUNC,
+                    fs_rights_base: wasi::Rights::all(),
+                    fs_rights_inheriting: wasi::Rights::all(),
+                    fs_flags: wasi::Fdflags::all(),
+                },
+                JournalEntry::FileDescriptorWriteV1 {
+                    fd: 1235,
+                    offset: 1234,
+                    data: [6u8; 16].to_vec().into(),
+                    is_64bit: true,
+                },
+                JournalEntry::CloseFileDescriptorV1 { fd: 1235 },
+            ],
+            vec![
+                JournalEntry::OpenFileDescriptorV1 {
+                    fd: 1235,
+                    dirfd: 3452345,
+                    dirflags: 0,
+                    path: "/blah".into(),
+                    o_flags: wasi::Oflags::CREATE | wasi::Oflags::TRUNC,
+                    fs_rights_base: wasi::Rights::all(),
+                    fs_rights_inheriting: wasi::Rights::all(),
+                    fs_flags: wasi::Fdflags::all(),
+                },
+                JournalEntry::FileDescriptorWriteV1 {
+                    fd: 1235,
+                    offset: 1234,
+                    data: [6u8; 16].to_vec().into(),
+                    is_64bit: true,
+                },
+                JournalEntry::CloseFileDescriptorV1 { fd: 1235 },
+            ],
+        )
+        .unwrap()
+    }
+
+    #[tracing_test::traced_test]
+    #[test]
     pub fn test_compact_file_system_ignore_double_writes() {
         run_test(
             vec![
@@ -943,7 +1038,7 @@ mod tests {
                     dirfd: 3452345,
                     dirflags: 0,
                     path: "/blah".into(),
-                    o_flags: wasi::Oflags::all(),
+                    o_flags: wasi::Oflags::empty(),
                     fs_rights_base: wasi::Rights::all(),
                     fs_rights_inheriting: wasi::Rights::all(),
                     fs_flags: wasi::Fdflags::all(),
@@ -968,7 +1063,7 @@ mod tests {
                     dirfd: 3452345,
                     dirflags: 0,
                     path: "/blah".into(),
-                    o_flags: wasi::Oflags::all(),
+                    o_flags: wasi::Oflags::empty(),
                     fs_rights_base: wasi::Rights::all(),
                     fs_rights_inheriting: wasi::Rights::all(),
                     fs_flags: wasi::Fdflags::all(),
@@ -993,6 +1088,28 @@ mod tests {
                 fd: 1234,
                 path: "/blah".into(),
             }],
+            vec![JournalEntry::CreateDirectoryV1 {
+                fd: 1234,
+                path: "/blah".into(),
+            }],
+        )
+        .unwrap()
+    }
+
+    #[tracing_test::traced_test]
+    #[test]
+    pub fn test_compact_file_system_redundant_create_directory() {
+        run_test(
+            vec![
+                JournalEntry::CreateDirectoryV1 {
+                    fd: 1234,
+                    path: "/blah".into(),
+                },
+                JournalEntry::CreateDirectoryV1 {
+                    fd: 1235,
+                    path: "/blah".into(),
+                },
+            ],
             vec![JournalEntry::CreateDirectoryV1 {
                 fd: 1234,
                 path: "/blah".into(),
