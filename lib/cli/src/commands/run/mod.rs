@@ -287,14 +287,8 @@ impl Run {
                 }
                 config.with_snapshot_interval(Duration::from_millis(period));
             }
-            for journal in self.wasi.journals.clone() {
-                if self.wasi.enable_compaction {
-                    config.add_journal(Arc::new(
-                        CompactingLogFileJournal::new(journal)?.with_compact_on_drop(),
-                    ));
-                } else {
-                    config.add_journal(Arc::new(LogFileJournal::new(journal)?));
-                }
+            for journal in self.wasi.build_journals()? {
+                config.add_journal(journal);
             }
         }
 
@@ -389,8 +383,8 @@ impl Run {
                 }
                 runner.with_snapshot_interval(Duration::from_millis(period));
             }
-            for journal in self.wasi.journals.clone() {
-                runner.add_journal(Arc::new(LogFileJournal::new(journal)?));
+            for journal in self.wasi.build_journals()? {
+                runner.add_journal(journal);
             }
         }
 

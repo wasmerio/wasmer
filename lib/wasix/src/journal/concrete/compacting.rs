@@ -1,7 +1,7 @@
 use derivative::Derivative;
 use std::{
     collections::{HashMap, HashSet},
-    ops::Range,
+    ops::{DerefMut, Range},
     sync::{Arc, Mutex},
 };
 use virtual_fs::Fd;
@@ -153,6 +153,13 @@ pub struct CompactingJournalRx {
     inner: Box<DynReadableJournal>,
 }
 
+impl CompactingJournalRx {
+    pub fn swap_inner(&mut self, mut with: Box<DynReadableJournal>) -> Box<DynReadableJournal> {
+        std::mem::swap(&mut self.inner, &mut with);
+        with
+    }
+}
+
 #[derive(Debug)]
 pub struct CompactingJournal {
     tx: CompactingJournalTx,
@@ -194,6 +201,13 @@ impl CompactingJournal {
     }
 }
 
+/// Represents the results of a compaction operation
+#[derive(Debug, Default)]
+pub struct CompactResult {
+    pub total_size: u64,
+    pub total_events: usize,
+}
+
 impl CompactingJournalTx {
     pub fn create_filter<J>(&self, inner: J) -> FilteredJournal
     where
@@ -203,8 +217,17 @@ impl CompactingJournalTx {
         state.create_filter(inner)
     }
 
+    pub fn swap(&self, other: Self) -> Self {
+        let mut state1 = self.state.lock().unwrap();
+        let mut state2 = other.state.lock().unwrap();
+        std::mem::swap(state1.deref_mut(), state2.deref_mut());
+        drop(state1);
+        drop(state2);
+        other
+    }
+
     /// Compacts the inner journal into a new journal
-    pub fn compact_to<J>(&self, new_journal: J) -> anyhow::Result<()>
+    pub fn compact_to<J>(&self, new_journal: J) -> anyhow::Result<CompactResult>
     where
         J: Journal,
     {
@@ -222,17 +245,25 @@ impl CompactingJournalTx {
             )
         };
 
-        // Read all the events and feed them into the filtered journal
+        let mut result = CompactResult::default();
+
+        // Read all the events and feed them into the filtered journal and then
+        // strip off the filter so that its a normal journal again
         while let Some(entry) = replay_rx.read()? {
-            new_journal.write(entry)?;
+            let amt = new_journal.write(entry)?;
+            if amt > 0 {
+                result.total_size += amt;
+                result.total_events += 1;
+            }
         }
+        let new_journal = new_journal.into_inner();
 
         // We now go into a blocking situation which will freeze the journals
         let mut state = self.state.lock().unwrap();
 
         // Now we build a filtered journal which will pick up any events that were
-        // added which we did the compacting
-        let new_journal = FilteredJournal::new(new_journal.into_inner()).with_filter_events(
+        // added which we did the compacting.
+        let new_journal = FilteredJournal::new(new_journal).with_filter_events(
             state
                 .delta_list
                 .take()
@@ -241,18 +272,20 @@ impl CompactingJournalTx {
                 .collect(),
         );
 
-        // Now we feed all the events into the new journal using the delta filter
+        // Now we feed all the events into the new journal using the delta filter. After the
+        // extra events are added we strip off the filter again
         let replay_rx = state.inner_rx.as_restarted()?;
         while let Some(entry) = replay_rx.read()? {
             new_journal.write(entry)?;
         }
+        let new_journal = new_journal.into_inner();
 
         // Now we install the new journal
-        let (mut tx, mut rx) = new_journal.into_inner().split();
+        let (mut tx, mut rx) = new_journal.split();
         std::mem::swap(&mut state.inner_tx, &mut tx);
         std::mem::swap(&mut state.inner_rx, &mut rx);
 
-        Ok(())
+        Ok(result)
     }
 
     pub fn replace_inner<J: Journal>(&self, inner: J) {
@@ -462,7 +495,7 @@ impl WritableJournal for CompactingJournalTx {
 
 impl CompactingJournal {
     /// Compacts the inner journal into a new journal
-    pub fn compact_to<J>(&mut self, new_journal: J) -> anyhow::Result<()>
+    pub fn compact_to<J>(&mut self, new_journal: J) -> anyhow::Result<CompactResult>
     where
         J: Journal,
     {

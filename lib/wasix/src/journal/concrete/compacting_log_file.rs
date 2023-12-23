@@ -9,9 +9,11 @@ use super::*;
 struct State {
     on_n_records: Option<u64>,
     on_n_size: Option<u64>,
+    on_factor_size: Option<f32>,
     on_drop: bool,
     cnt_records: u64,
     cnt_size: u64,
+    ref_size: u64,
 }
 
 #[derive(Debug)]
@@ -35,11 +37,18 @@ pub struct CompactingLogFileJournalRx {
     inner: CompactingJournalRx,
 }
 
+impl CompactingLogFileJournalRx {
+    pub fn swap_inner(&mut self, with: Box<DynReadableJournal>) -> Box<DynReadableJournal> {
+        self.inner.swap_inner(with)
+    }
+}
+
 impl CompactingLogFileJournal {
     pub fn new(path: impl AsRef<Path>) -> anyhow::Result<Self> {
         // We prepare a compacting journal which does nothing
         // with the events other than learn from them
-        let mut compacting = CompactingJournal::new(NullJournal::default())?;
+        let counting = CountingJournal::default();
+        let mut compacting = CompactingJournal::new(counting.clone())?;
 
         // We first feed all the entries into the compactor so that
         // it learns all the records
@@ -69,8 +78,10 @@ impl CompactingLogFileJournal {
             on_drop: false,
             on_n_records: None,
             on_n_size: None,
+            on_factor_size: None,
             cnt_records: 0,
             cnt_size: 0,
+            ref_size: counting.size(),
         }));
         let tx = CompactingLogFileJournalTx {
             state: state.clone(),
@@ -83,8 +94,10 @@ impl CompactingLogFileJournal {
         Ok(Self { tx, rx })
     }
 
-    pub fn compact_now(&mut self) -> anyhow::Result<()> {
-        self.tx.compact_now()
+    pub fn compact_now(&mut self) -> anyhow::Result<CompactResult> {
+        let (result, new_rx) = self.tx.compact_now()?;
+        self.rx.inner = new_rx;
+        Ok(result)
     }
 
     pub fn with_compact_on_drop(self) -> Self {
@@ -106,10 +119,20 @@ impl CompactingLogFileJournal {
         self.tx.state.lock().unwrap().on_n_size.replace(n_size);
         self
     }
+
+    pub fn with_compact_on_factor_size(self, factor_size: f32) -> Self {
+        self.tx
+            .state
+            .lock()
+            .unwrap()
+            .on_factor_size
+            .replace(factor_size);
+        self
+    }
 }
 
 impl CompactingLogFileJournalTx {
-    pub fn compact_now(&self) -> anyhow::Result<()> {
+    pub fn compact_now(&self) -> anyhow::Result<(CompactResult, CompactingJournalRx)> {
         // Reset the counters
         self.reset_counters();
 
@@ -118,9 +141,33 @@ impl CompactingLogFileJournalTx {
         let target = LogFileJournal::new(self.temp_path.clone())?;
 
         // Compact the data into the new target and rename it over the last one
-        self.inner.compact_to(target)?;
+        let result = self.inner.compact_to(target)?;
         std::fs::rename(&self.temp_path, &self.main_path)?;
-        Ok(())
+
+        // Renaming the file has quite a detrimental effect on the file as
+        // it means any new mmap operations will fail, hence we need to
+        // reopen the log file, seek to the end and reattach it
+        let target = LogFileJournal::new(self.main_path.clone())?;
+
+        // We prepare a compacting journal which does nothing
+        // with the events other than learn from them
+        let counting = CountingJournal::default();
+        let mut compacting = CompactingJournal::new(counting.clone())?;
+        copy_journal(&target, &compacting)?;
+
+        // Now everything is learned its time to attach the log file to the compacting journal
+        // and replace the current one
+        compacting.replace_inner(target);
+        let (tx, rx) = compacting.into_split();
+        self.inner.swap(tx);
+
+        // We take a new reference point for the size of the journal
+        {
+            let mut state = self.state.lock().unwrap();
+            state.ref_size = result.total_size;
+        }
+
+        Ok((result, rx))
     }
 
     pub fn reset_counters(&self) {
@@ -173,6 +220,14 @@ impl WritableJournal for CompactingLogFileJournalTx {
                     triggered = true;
                 }
             }
+
+            if let Some(factor) = state.on_factor_size.as_ref() {
+                let next_ref = (*factor * state.ref_size as f32) as u64;
+                if state.cnt_size > next_ref {
+                    triggered = true;
+                }
+            }
+
             triggered
         };
 

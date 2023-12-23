@@ -21,7 +21,7 @@ use wasmer_wasix::{
     capabilities::Capabilities,
     default_fs_backing, get_wasi_versions,
     http::HttpClient,
-    journal::CompactingLogFileJournal,
+    journal::{CompactingLogFileJournal, DynJournal},
     os::{tty_sys::SysTty, TtyBridge},
     rewind_ext,
     runners::{MappedCommand, MappedDirectory},
@@ -127,6 +127,20 @@ pub struct Wasi {
     #[cfg(feature = "journal")]
     #[clap(long = "enable-compaction")]
     pub enable_compaction: bool,
+
+    /// Tells the compactor not to compact when the journal log file is closed
+    #[cfg(feature = "journal")]
+    #[clap(long = "without-compact-on-drop")]
+    pub without_compact_on_drop: bool,
+
+    /// Tells the compactor to compact when it grows by a certain factor of
+    /// its original size. (i.e. '0.2' would be it compacts after the journal
+    /// has grown by 20 percent)
+    ///
+    /// Default is to compact on growth that exceeds 15%
+    #[cfg(feature = "journal")]
+    #[clap(long = "with-compact-on-growth", default_value = "0.15")]
+    pub with_compact_on_growth: f32,
 
     /// Indicates what events will cause a snapshot to be taken
     /// and written to the journal file.
@@ -357,14 +371,8 @@ impl Wasi {
             if let Some(interval) = self.snapshot_interval {
                 builder.with_snapshot_interval(std::time::Duration::from_millis(interval));
             }
-            for journal in self.journals.iter() {
-                if self.enable_compaction {
-                    builder.add_journal(Arc::new(
-                        CompactingLogFileJournal::new(journal)?.with_compact_on_drop(),
-                    ));
-                } else {
-                    builder.add_journal(Arc::new(LogFileJournal::new(journal)?));
-                }
+            for journal in self.build_journals()? {
+                builder.add_journal(journal);
             }
         }
 
@@ -377,6 +385,25 @@ impl Wasi {
         }
 
         Ok(builder)
+    }
+
+    pub fn build_journals(&self) -> anyhow::Result<Vec<Arc<DynJournal>>> {
+        let mut ret = Vec::new();
+        for journal in self.journals.clone() {
+            if self.enable_compaction {
+                let mut journal = CompactingLogFileJournal::new(journal)?;
+                if !self.without_compact_on_drop {
+                    journal = journal.with_compact_on_drop()
+                }
+                if self.with_compact_on_growth.is_normal() && self.with_compact_on_growth != 0f32 {
+                    journal = journal.with_compact_on_factor_size(self.with_compact_on_growth);
+                }
+                ret.push(Arc::new(journal) as Arc<DynJournal>);
+            } else {
+                ret.push(Arc::new(LogFileJournal::new(journal)?));
+            }
+        }
+        Ok(ret)
     }
 
     pub fn build_mapped_directories(&self) -> Result<Vec<MappedDirectory>, anyhow::Error> {
@@ -522,14 +549,8 @@ impl Wasi {
         }
 
         #[cfg(feature = "journal")]
-        for journal in self.journals.clone() {
-            if self.enable_compaction {
-                rt.add_journal(Arc::new(
-                    CompactingLogFileJournal::new(journal)?.with_compact_on_drop(),
-                ));
-            } else {
-                rt.add_journal(Arc::new(LogFileJournal::new(journal)?));
-            }
+        for journal in self.build_journals()? {
+            rt.add_journal(journal);
         }
 
         if !self.no_tty {

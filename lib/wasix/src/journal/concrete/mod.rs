@@ -5,6 +5,7 @@ mod buffered;
 mod compacting;
 #[cfg(feature = "journal")]
 mod compacting_log_file;
+mod counting;
 mod filter;
 #[cfg(feature = "journal")]
 mod log_file;
@@ -23,6 +24,7 @@ pub use buffered::*;
 pub use compacting::*;
 #[cfg(feature = "journal")]
 pub use compacting_log_file::*;
+pub use counting::*;
 pub use filter::*;
 #[cfg(feature = "journal")]
 pub use log_file::*;
