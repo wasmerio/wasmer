@@ -11,6 +11,7 @@ use self::{
 
 use std::{
     fmt,
+    ops::Deref,
     sync::{Arc, Mutex},
 };
 
@@ -122,6 +123,8 @@ where
         None
     }
 }
+
+pub type DynRuntime = dyn Runtime + Send + Sync;
 
 #[cfg(feature = "journal")]
 static EMPTY_JOURNAL_LIST: Vec<Arc<DynJournal>> = Vec::new();
@@ -347,5 +350,203 @@ impl Runtime for PluggableRuntime {
     #[cfg(feature = "journal")]
     fn active_journal(&self) -> Option<&DynJournal> {
         self.journals.iter().last().map(|a| a.as_ref())
+    }
+}
+
+/// Runtime that allows for certain things to be overridden
+/// such as the active journals
+#[derive(Clone, Derivative)]
+#[derivative(Debug)]
+pub struct OverriddenRuntime {
+    inner: Arc<DynRuntime>,
+    task_manager: Option<Arc<dyn VirtualTaskManager>>,
+    networking: Option<DynVirtualNetworking>,
+    http_client: Option<DynHttpClient>,
+    package_loader: Option<Arc<dyn PackageLoader + Send + Sync>>,
+    source: Option<Arc<dyn Source + Send + Sync>>,
+    engine: Option<wasmer::Engine>,
+    module_cache: Option<Arc<dyn ModuleCache + Send + Sync>>,
+    #[derivative(Debug = "ignore")]
+    tty: Option<Arc<dyn TtyBridge + Send + Sync>>,
+    #[cfg(feature = "journal")]
+    #[derivative(Debug = "ignore")]
+    journals: Option<Vec<Arc<DynJournal>>>,
+}
+
+impl OverriddenRuntime {
+    pub fn new(inner: Arc<DynRuntime>) -> Self {
+        Self {
+            inner,
+            task_manager: None,
+            networking: None,
+            http_client: None,
+            package_loader: None,
+            source: None,
+            engine: None,
+            module_cache: None,
+            tty: None,
+            journals: None,
+        }
+    }
+
+    pub fn with_task_manager(mut self, task_manager: Arc<dyn VirtualTaskManager>) -> Self {
+        self.task_manager.replace(task_manager);
+        self
+    }
+
+    pub fn with_networking(mut self, networking: DynVirtualNetworking) -> Self {
+        self.networking.replace(networking);
+        self
+    }
+
+    pub fn with_http_client(mut self, http_client: DynHttpClient) -> Self {
+        self.http_client.replace(http_client);
+        self
+    }
+
+    pub fn with_package_loader(
+        mut self,
+        package_loader: Arc<dyn PackageLoader + Send + Sync>,
+    ) -> Self {
+        self.package_loader.replace(package_loader);
+        self
+    }
+
+    pub fn with_source(mut self, source: Arc<dyn Source + Send + Sync>) -> Self {
+        self.source.replace(source);
+        self
+    }
+
+    pub fn with_engine(mut self, engine: wasmer::Engine) -> Self {
+        self.engine.replace(engine);
+        self
+    }
+
+    pub fn with_module_cache(mut self, module_cache: Arc<dyn ModuleCache + Send + Sync>) -> Self {
+        self.module_cache.replace(module_cache);
+        self
+    }
+
+    #[cfg(feature = "journal")]
+    pub fn with_tty(mut self, tty: Arc<dyn TtyBridge + Send + Sync>) -> Self {
+        self.tty.replace(tty);
+        self
+    }
+
+    #[cfg(feature = "journal")]
+    pub fn with_journals(mut self, journals: Vec<Arc<DynJournal>>) -> Self {
+        self.journals.replace(journals);
+        self
+    }
+}
+
+impl Runtime for OverriddenRuntime {
+    fn networking(&self) -> &DynVirtualNetworking {
+        if let Some(net) = self.networking.as_ref() {
+            net
+        } else {
+            self.inner.networking()
+        }
+    }
+
+    fn task_manager(&self) -> &Arc<dyn VirtualTaskManager> {
+        if let Some(rt) = self.task_manager.as_ref() {
+            rt
+        } else {
+            self.inner.task_manager()
+        }
+    }
+
+    fn source(&self) -> Arc<dyn Source + Send + Sync> {
+        if let Some(source) = self.source.clone() {
+            source
+        } else {
+            self.inner.source()
+        }
+    }
+
+    fn package_loader(&self) -> Arc<dyn PackageLoader + Send + Sync> {
+        if let Some(loader) = self.package_loader.clone() {
+            loader
+        } else {
+            self.inner.package_loader()
+        }
+    }
+
+    fn module_cache(&self) -> Arc<dyn ModuleCache + Send + Sync> {
+        if let Some(cache) = self.module_cache.clone() {
+            cache
+        } else {
+            self.inner.module_cache()
+        }
+    }
+
+    fn engine(&self) -> wasmer::Engine {
+        if let Some(engine) = self.engine.clone() {
+            engine
+        } else {
+            self.inner.engine()
+        }
+    }
+
+    fn new_store(&self) -> wasmer::Store {
+        if let Some(engine) = self.engine.clone() {
+            wasmer::Store::new(engine)
+        } else {
+            self.inner.new_store()
+        }
+    }
+
+    fn http_client(&self) -> Option<&DynHttpClient> {
+        if let Some(client) = self.http_client.as_ref() {
+            Some(client)
+        } else {
+            self.inner.http_client()
+        }
+    }
+
+    fn tty(&self) -> Option<&(dyn TtyBridge + Send + Sync)> {
+        if let Some(tty) = self.tty.as_ref() {
+            Some(tty.deref())
+        } else {
+            self.inner.tty()
+        }
+    }
+
+    #[cfg(feature = "journal")]
+    fn journals(&self) -> &'_ Vec<Arc<DynJournal>> {
+        if let Some(journals) = self.journals.as_ref() {
+            journals
+        } else {
+            self.inner.journals()
+        }
+    }
+
+    #[cfg(feature = "journal")]
+    fn active_journal(&self) -> Option<&'_ DynJournal> {
+        if let Some(journals) = self.journals.as_ref() {
+            journals.iter().last().map(|a| a.as_ref())
+        } else {
+            self.inner.active_journal()
+        }
+    }
+
+    fn load_module<'a>(&'a self, wasm: &'a [u8]) -> BoxFuture<'a, anyhow::Result<Module>> {
+        if self.engine.is_some() || self.module_cache.is_some() {
+            let engine = self.engine();
+            let module_cache = self.module_cache();
+            let task = async move { load_module(&engine, &module_cache, wasm).await };
+            Box::pin(task)
+        } else {
+            self.inner.load_module(wasm)
+        }
+    }
+
+    fn load_module_sync(&self, wasm: &[u8]) -> Result<Module, anyhow::Error> {
+        if self.engine.is_some() || self.module_cache.is_some() {
+            InlineWaker::block_on(self.load_module(wasm))
+        } else {
+            self.inner.load_module_sync(wasm)
+        }
     }
 }

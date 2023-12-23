@@ -1,3 +1,4 @@
+mod arc;
 mod archived;
 mod boxed;
 mod buffered;
@@ -15,6 +16,7 @@ mod unsupported;
 
 pub(super) use super::*;
 
+pub use arc::*;
 pub use archived::*;
 pub use boxed::*;
 pub use buffered::*;

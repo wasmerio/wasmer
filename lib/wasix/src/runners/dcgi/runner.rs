@@ -7,12 +7,13 @@ use webc::metadata::Command;
 use crate::{
     bin_factory::BinaryPackage,
     capabilities::Capabilities,
-    journal::PassthruJournalFactory,
+    journal::{DynJournal, FilteredJournal},
     runners::{
         dcgi::handler::Handler,
         wcgi::{self, NoOpWcgiCallbacks, WcgiRunner},
         MappedDirectory,
     },
+    runtime::{DynRuntime, OverriddenRuntime},
     Runtime,
 };
 
@@ -46,16 +47,9 @@ impl DcgiRunner {
         pkg: &BinaryPackage,
         runtime: Arc<dyn Runtime + Send + Sync>,
     ) -> Result<Handler, Error> {
-        let inner: wcgi::Handler = self.inner.prepare_handler(
-            command_name,
-            pkg,
-            true,
-            CgiDialect::Rfc3875,
-            runtime,
-            Arc::new(PassthruJournalFactory::new(
-                self.config.inner.wasi.journals.clone(),
-            )),
-        )?;
+        let inner: wcgi::Handler =
+            self.inner
+                .prepare_handler(command_name, pkg, true, CgiDialect::Rfc3875, runtime)?;
         Ok(Handler::new(inner))
     }
 }
@@ -72,8 +66,31 @@ impl crate::runners::Runner for DcgiRunner {
         &mut self,
         command_name: &str,
         pkg: &BinaryPackage,
-        runtime: Arc<dyn Runtime + Send + Sync>,
+        runtime: Arc<DynRuntime>,
     ) -> Result<(), Error> {
+        // We use a filter in front of the journals supplied to the runtime.
+        // The reason for this is that DCGI currently only supports persisting the
+        // file system changes as it is unable to run the main function more than
+        // once due to limitations in the runtime
+        let journals = runtime
+            .journals()
+            .clone()
+            .into_iter()
+            .map(|journal| {
+                let journal = FilteredJournal::new(journal)
+                    .with_ignore_memory(true)
+                    .with_ignore_threads(true)
+                    .with_ignore_core(true)
+                    .with_ignore_snapshots(true)
+                    .with_ignore_networking(true)
+                    .with_ignore_stdio(true);
+                Arc::new(journal) as Arc<DynJournal>
+            })
+            .collect::<Vec<_>>();
+        let runtime = OverriddenRuntime::new(runtime).with_journals(journals);
+        let runtime = Arc::new(runtime) as Arc<DynRuntime>;
+
+        //We now pass the runtime to the the handlers
         let handler = self.prepare_handler(command_name, pkg, Arc::clone(&runtime))?;
         self.inner.run_command_with_handler(handler, runtime)
     }

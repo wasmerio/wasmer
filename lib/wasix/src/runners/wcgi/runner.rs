@@ -15,7 +15,6 @@ use webc::metadata::{
 use crate::{
     bin_factory::BinaryPackage,
     capabilities::Capabilities,
-    journal::{DynJournalFactory, JournalDescriptor, PassthruJournalFactory},
     runners::{
         wasi_common::CommonWasiOptions,
         wcgi::handler::{Handler, SharedState},
@@ -54,7 +53,6 @@ impl WcgiRunner {
         propagate_stderr: bool,
         default_dialect: CgiDialect,
         runtime: Arc<dyn Runtime + Send + Sync>,
-        journal_factory: Arc<DynJournalFactory>,
     ) -> Result<Handler, Error> {
         let cmd = pkg
             .get_command(command_name)
@@ -74,23 +72,11 @@ impl WcgiRunner {
 
         let container_fs = Arc::clone(&pkg.webc_fs);
 
-        let journal_desc = JournalDescriptor {
-            package_name: pkg.package_name.clone(),
-            version: pkg.version.clone(),
-            module_hash: pkg.hash(),
-        };
-
         let wasi_common = self.config.wasi.clone();
         let rt = Arc::clone(&runtime);
         let setup_builder = move |builder: &mut WasiEnvBuilder| {
             wasi_common.prepare_webc_env(builder, Some(Arc::clone(&container_fs)), &wasi, None)?;
             builder.set_runtime(Arc::clone(&rt));
-
-            let journals = journal_factory.load_or_create(journal_desc.clone())?;
-            for journal in journals {
-                builder.add_journal(journal);
-            }
-
             Ok(())
         };
 
@@ -189,9 +175,6 @@ impl crate::runners::Runner for WcgiRunner {
             false,
             CgiDialect::Wcgi,
             Arc::clone(&runtime),
-            Arc::new(PassthruJournalFactory::new(
-                self.config.wasi.journals.clone(),
-            )),
         )?;
         self.run_command_with_handler(handler, runtime)
     }

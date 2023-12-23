@@ -1,10 +1,12 @@
 use super::*;
 
-pub static NULL_JOURNAL: NullJournal = NullJournal {};
+pub static NULL_JOURNAL: NullJournal = NullJournal { debug_print: false };
 
 /// The null journal sends all the records into the abyss
 #[derive(Debug, Default)]
-pub struct NullJournal {}
+pub struct NullJournal {
+    debug_print: bool,
+}
 
 impl ReadableJournal for NullJournal {
     fn read(&self) -> anyhow::Result<Option<JournalEntry<'_>>> {
@@ -18,7 +20,9 @@ impl ReadableJournal for NullJournal {
 
 impl WritableJournal for NullJournal {
     fn write<'a>(&'a self, entry: JournalEntry<'a>) -> anyhow::Result<u64> {
-        tracing::debug!("journal event: {:?}", entry);
+        if self.debug_print {
+            tracing::debug!("journal event: {:?}", entry);
+        }
         Ok(entry.estimate_size() as u64)
     }
 }

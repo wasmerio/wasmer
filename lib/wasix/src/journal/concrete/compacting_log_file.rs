@@ -39,7 +39,7 @@ impl CompactingLogFileJournal {
     pub fn new(path: impl AsRef<Path>) -> anyhow::Result<Self> {
         // We prepare a compacting journal which does nothing
         // with the events other than learn from them
-        let compacting = CompactingJournal::new(NullJournal::default())?;
+        let mut compacting = CompactingJournal::new(NullJournal::default())?;
 
         // We first feed all the entries into the compactor so that
         // it learns all the records
@@ -197,5 +197,11 @@ impl ReadableJournal for CompactingLogFileJournal {
 impl WritableJournal for CompactingLogFileJournal {
     fn write<'a>(&'a self, entry: JournalEntry<'a>) -> anyhow::Result<u64> {
         self.tx.write(entry)
+    }
+}
+
+impl Journal for CompactingLogFileJournal {
+    fn split(self) -> (Box<DynWritableJournal>, Box<DynReadableJournal>) {
+        (Box::new(self.tx), Box::new(self.rx))
     }
 }

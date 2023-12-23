@@ -396,8 +396,13 @@ impl CompactingJournal {
         (self.tx, self.rx)
     }
 
-    pub fn replace_inner<J: Journal>(&self, inner: J) {
-        self.tx.replace_inner(inner)
+    pub fn replace_inner<J: Journal>(&mut self, inner: J) {
+        let (inner_tx, inner_rx) = inner.split();
+        let inner_rx_restarted = inner_rx.as_restarted().unwrap();
+
+        self.tx
+            .replace_inner(RecombinedJournal::new(inner_tx, inner_rx));
+        self.rx.inner = inner_rx_restarted;
     }
 }
 

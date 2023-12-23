@@ -24,6 +24,7 @@ pub struct FilteredJournalTx {
     filter_memory: bool,
     filter_threads: bool,
     filter_fs: bool,
+    filter_stdio: bool,
     filter_core: bool,
     filter_snapshots: bool,
     filter_net: bool,
@@ -50,11 +51,34 @@ impl FilteredJournal {
                 filter_memory: false,
                 filter_threads: false,
                 filter_fs: false,
+                filter_stdio: false,
                 filter_core: false,
                 filter_snapshots: false,
                 filter_net: false,
                 filter_events: None,
                 event_index: AtomicUsize::new(0),
+            },
+            rx: FilteredJournalRx { inner: rx },
+        }
+    }
+
+    pub fn clone_with_inner<J>(&self, inner: J) -> Self
+    where
+        J: Journal,
+    {
+        let (tx, rx) = inner.split();
+        Self {
+            tx: FilteredJournalTx {
+                inner: tx,
+                filter_memory: self.tx.filter_memory,
+                filter_threads: self.tx.filter_threads,
+                filter_fs: self.tx.filter_fs,
+                filter_stdio: self.tx.filter_stdio,
+                filter_core: self.tx.filter_core,
+                filter_snapshots: self.tx.filter_snapshots,
+                filter_net: self.tx.filter_net,
+                filter_events: self.tx.filter_events.clone(),
+                event_index: AtomicUsize::new(self.tx.event_index.load(Ordering::SeqCst)),
             },
             rx: FilteredJournalRx { inner: rx },
         }
@@ -72,6 +96,11 @@ impl FilteredJournal {
 
     pub fn with_ignore_fs(mut self, val: bool) -> Self {
         self.tx.filter_fs = val;
+        self
+    }
+
+    pub fn with_ignore_stdio(mut self, val: bool) -> Self {
+        self.tx.filter_stdio = val;
         self
     }
 
@@ -99,6 +128,41 @@ impl FilteredJournal {
         if let Some(filter) = self.tx.filter_events.as_mut() {
             filter.insert(event_index);
         }
+    }
+
+    pub fn set_ignore_memory(&mut self, val: bool) -> &mut Self {
+        self.tx.filter_memory = val;
+        self
+    }
+
+    pub fn set_ignore_threads(&mut self, val: bool) -> &mut Self {
+        self.tx.filter_threads = val;
+        self
+    }
+
+    pub fn set_ignore_fs(&mut self, val: bool) -> &mut Self {
+        self.tx.filter_fs = val;
+        self
+    }
+
+    pub fn set_ignore_stdio(&mut self, val: bool) -> &mut Self {
+        self.tx.filter_stdio = val;
+        self
+    }
+
+    pub fn set_ignore_core(&mut self, val: bool) -> &mut Self {
+        self.tx.filter_core = val;
+        self
+    }
+
+    pub fn set_ignore_snapshots(&mut self, val: bool) -> &mut Self {
+        self.tx.filter_snapshots = val;
+        self
+    }
+
+    pub fn set_ignore_networking(&mut self, val: bool) -> &mut Self {
+        self.tx.filter_net = val;
+        self
     }
 
     pub fn into_inner(self) -> RecombinedJournal {
@@ -139,23 +203,33 @@ impl WritableJournal for FilteredJournalTx {
                 }
                 entry
             }
-            JournalEntry::FileDescriptorSeekV1 { .. }
-            | JournalEntry::FileDescriptorWriteV1 { .. }
-            | JournalEntry::OpenFileDescriptorV1 { .. }
-            | JournalEntry::CloseFileDescriptorV1 { .. }
-            | JournalEntry::RemoveDirectoryV1 { .. }
+            JournalEntry::FileDescriptorSeekV1 { fd, .. }
+            | JournalEntry::FileDescriptorWriteV1 { fd, .. }
+            | JournalEntry::OpenFileDescriptorV1 { fd, .. }
+            | JournalEntry::CloseFileDescriptorV1 { fd, .. }
+            | JournalEntry::RenumberFileDescriptorV1 { old_fd: fd, .. }
+            | JournalEntry::DuplicateFileDescriptorV1 {
+                original_fd: fd, ..
+            }
+            | JournalEntry::FileDescriptorSetFlagsV1 { fd, .. }
+            | JournalEntry::FileDescriptorAdviseV1 { fd, .. }
+            | JournalEntry::FileDescriptorAllocateV1 { fd, .. }
+            | JournalEntry::FileDescriptorSetRightsV1 { fd, .. }
+            | JournalEntry::FileDescriptorSetTimesV1 { fd, .. }
+            | JournalEntry::FileDescriptorSetSizeV1 { fd, .. } => {
+                if self.filter_stdio && fd <= 2 {
+                    return Ok(0);
+                }
+                if self.filter_fs {
+                    return Ok(0);
+                }
+                entry
+            }
+            JournalEntry::RemoveDirectoryV1 { .. }
             | JournalEntry::UnlinkFileV1 { .. }
             | JournalEntry::PathRenameV1 { .. }
-            | JournalEntry::RenumberFileDescriptorV1 { .. }
-            | JournalEntry::DuplicateFileDescriptorV1 { .. }
             | JournalEntry::CreateDirectoryV1 { .. }
             | JournalEntry::PathSetTimesV1 { .. }
-            | JournalEntry::FileDescriptorSetFlagsV1 { .. }
-            | JournalEntry::FileDescriptorAdviseV1 { .. }
-            | JournalEntry::FileDescriptorAllocateV1 { .. }
-            | JournalEntry::FileDescriptorSetRightsV1 { .. }
-            | JournalEntry::FileDescriptorSetTimesV1 { .. }
-            | JournalEntry::FileDescriptorSetSizeV1 { .. }
             | JournalEntry::CreateHardLinkV1 { .. }
             | JournalEntry::CreateSymbolicLinkV1 { .. }
             | JournalEntry::ChangeDirectoryV1 { .. }

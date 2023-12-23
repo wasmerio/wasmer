@@ -21,6 +21,7 @@ use wasmer_wasix::{
     capabilities::Capabilities,
     default_fs_backing, get_wasi_versions,
     http::HttpClient,
+    journal::CompactingLogFileJournal,
     os::{tty_sys::SysTty, TtyBridge},
     rewind_ext,
     runners::{MappedCommand, MappedDirectory},
@@ -120,6 +121,12 @@ pub struct Wasi {
     #[cfg(feature = "journal")]
     #[clap(long = "journal")]
     pub journals: Vec<PathBuf>,
+
+    /// Flag that indicates if the journal will be automatically compacted
+    /// as it fills up and when the process exits
+    #[cfg(feature = "journal")]
+    #[clap(long = "enable-compaction")]
+    pub enable_compaction: bool,
 
     /// Indicates what events will cause a snapshot to be taken
     /// and written to the journal file.
@@ -351,7 +358,13 @@ impl Wasi {
                 builder.with_snapshot_interval(std::time::Duration::from_millis(interval));
             }
             for journal in self.journals.iter() {
-                builder.add_journal(Arc::new(LogFileJournal::new(journal)?));
+                if self.enable_compaction {
+                    builder.add_journal(Arc::new(
+                        CompactingLogFileJournal::new(journal)?.with_compact_on_drop(),
+                    ));
+                } else {
+                    builder.add_journal(Arc::new(LogFileJournal::new(journal)?));
+                }
             }
         }
 
@@ -510,7 +523,13 @@ impl Wasi {
 
         #[cfg(feature = "journal")]
         for journal in self.journals.clone() {
-            rt.add_journal(Arc::new(LogFileJournal::new(journal)?));
+            if self.enable_compaction {
+                rt.add_journal(Arc::new(
+                    CompactingLogFileJournal::new(journal)?.with_compact_on_drop(),
+                ));
+            } else {
+                rt.add_journal(Arc::new(LogFileJournal::new(journal)?));
+            }
         }
 
         if !self.no_tty {

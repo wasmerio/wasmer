@@ -109,8 +109,14 @@ impl<'a> fmt::Display for JournalEntry<'a> {
                 write!(f, "set-clock-time (id={:?}, time={})", clock_id, time)
             }
             JournalEntry::CloseFileDescriptorV1 { fd } => write!(f, "fd-close (fd={})", fd),
-            JournalEntry::OpenFileDescriptorV1 { fd, path, .. } => {
-                write!(f, "fd-open (path={}, fd={})", fd, path)
+            JournalEntry::OpenFileDescriptorV1 {
+                fd, path, o_flags, ..
+            } => {
+                if o_flags.contains(Oflags::TRUNC) {
+                    write!(f, "fd-open-new (path={}, fd={})", fd, path)
+                } else {
+                    write!(f, "fd-open (path={}, fd={})", fd, path)
+                }
             }
             JournalEntry::RenumberFileDescriptorV1 { old_fd, new_fd } => {
                 write!(f, "fd-renumber (old={}, new={})", old_fd, new_fd)

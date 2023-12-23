@@ -32,6 +32,7 @@ use wasmer_registry::{wasmer_env::WasmerEnv, Package};
 use wasmer_wasix::journal::{LogFileJournal, SnapshotTrigger};
 use wasmer_wasix::{
     bin_factory::BinaryPackage,
+    journal::CompactingLogFileJournal,
     runners::{
         dcgi::DcgiInstanceFactory,
         wcgi::{self, NoOpWcgiCallbacks},
@@ -287,7 +288,13 @@ impl Run {
                 config.with_snapshot_interval(Duration::from_millis(period));
             }
             for journal in self.wasi.journals.clone() {
-                config.add_journal(Arc::new(LogFileJournal::new(journal)?));
+                if self.wasi.enable_compaction {
+                    config.add_journal(Arc::new(
+                        CompactingLogFileJournal::new(journal)?.with_compact_on_drop(),
+                    ));
+                } else {
+                    config.add_journal(Arc::new(LogFileJournal::new(journal)?));
+                }
             }
         }
 
