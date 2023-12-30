@@ -6181,52 +6181,6 @@ dependencies = [
 [[package]]
 name = "wasmer-registry"
 version = "5.10.0"
-dependencies = [
- "anyhow",
- "clap",
- "console",
- "dialoguer 0.11.0",
- "dirs",
- "filetime",
- "flate2",
- "futures",
- "futures-util",
- "graphql-ws-client",
- "graphql_client 0.13.0",
- "hex",
- "indexmap 1.9.3",
- "indicatif",
- "lazy_static",
- "log",
- "lzma-rs",
- "minisign",
- "pretty_assertions",
- "regex",
- "reqwest",
- "rpassword",
- "rusqlite",
- "semver 1.0.20",
- "serde",
- "serde_json",
- "tar",
- "tempfile",
- "thiserror",
- "time",
- "tldextract",
- "tokio",
- "tokio-tungstenite",
- "toml 0.5.11",
- "tracing",
- "url",
- "wasmer-toml",
- "wasmer-wasm-interface 4.2.4",
- "wasmparser 0.51.4",
- "whoami",
-]
-
-[[package]]
-name = "wasmer-registry"
-version = "5.10.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3c06bbf7ad273a7c367b2e8ac7446ed830cf97c22db4bb6cc6ae39e188b6d1ce"
 dependencies = [
@@ -6278,8 +6232,10 @@ dependencies = [
  "dirs",
  "filetime",
  "flate2",
+ "futures",
  "futures-util",
- "graphql_client",
+ "graphql-ws-client",
+ "graphql_client 0.13.0",
  "hex",
  "indexmap 1.9.3",
  "indicatif",
@@ -6301,6 +6257,7 @@ dependencies = [
  "time",
  "tldextract",
  "tokio",
+ "tokio-tungstenite",
  "toml 0.5.11",
  "tracing",
  "url",
