@@ -159,7 +159,7 @@ impl Publish {
             // dry run: publish is done here
 
             println!(
-                "Successfully published package `{}@{}`",
+                "🚀 Successfully published package `{}@{}`",
                 manifest.package.name, manifest.package.version
             );
 

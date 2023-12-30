@@ -44,7 +44,7 @@ fn wasmer_publish() {
     }
 
     cmd.assert().success().stdout(format!(
-        "Successfully published package `{username}/largewasmfile@{random1}.{random2}.{random3}`\n"
+        "🚀 Successfully published package `{username}/largewasmfile@{random1}.{random2}.{random3}`\n"
     ));
 }
 
@@ -116,7 +116,7 @@ fn wasmer_init_publish() {
     let assert = cmd.assert();
 
     assert.success().stdout(format!(
-        "Successfully published package `{username}/randomversion@{random1}.{random2}.{random3}`\n"
+        "🚀 Successfully published package `{username}/randomversion@{random1}.{random2}.{random3}`\n"
     ));
 }
 
@@ -166,9 +166,9 @@ fn wasmer_publish_and_run() {
         cmd.arg("--token").arg(token);
     }
 
-    cmd.assert()
-        .success()
-        .stdout(format!("Successfully published package `{package_name}`\n"));
+    cmd.assert().success().stdout(format!(
+        "🚀 Successfully published package `{package_name}`\n"
+    ));
 
     let assert = std::process::Command::new(get_wasmer_path())
         .arg("run")
