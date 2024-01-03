@@ -6,7 +6,7 @@ mod table;
 
 pub use self::function::{Function, HostFunction};
 pub use self::global::Global;
-pub use self::memory::Memory;
+pub use self::memory::{Memory, SharedMemoryHandle};
 pub use self::memory_view::MemoryView;
 pub use self::table::Table;
 
