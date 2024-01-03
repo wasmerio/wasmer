@@ -88,7 +88,7 @@ impl State {
     {
         let has_threads = !self.thread_map.is_empty();
 
-        let mut filter = FilteredJournal::new(inner)
+        let mut filter = FilteredJournalBuilder::new()
             .with_filter_events(self.whitelist.clone().into_iter().collect());
         if let Some(tty) = self.tty.as_ref() {
             filter.add_event_to_whitelist(*tty);
@@ -134,7 +134,7 @@ impl State {
                 }
             }
         }
-        filter
+        filter.build(inner)
     }
 }
 
@@ -264,14 +264,16 @@ impl CompactingJournalTx {
 
         // Now we build a filtered journal which will pick up any events that were
         // added which we did the compacting.
-        let new_journal = FilteredJournal::new(new_journal).with_filter_events(
-            state
-                .delta_list
-                .take()
-                .unwrap_or_default()
-                .into_iter()
-                .collect(),
-        );
+        let new_journal = FilteredJournalBuilder::new()
+            .with_filter_events(
+                state
+                    .delta_list
+                    .take()
+                    .unwrap_or_default()
+                    .into_iter()
+                    .collect(),
+            )
+            .build(new_journal);
 
         // Now we feed all the events into the new journal using the delta filter. After the
         // extra events are added we strip off the filter again
