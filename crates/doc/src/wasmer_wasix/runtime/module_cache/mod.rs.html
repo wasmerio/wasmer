@@ -66,6 +66,9 @@
 <a href="#66" id="66">66</a>
 <a href="#67" id="67">67</a>
 <a href="#68" id="68">68</a>
+<a href="#69" id="69">69</a>
+<a href="#70" id="70">70</a>
+<a href="#71" id="71">71</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Cache pre-compiled [`wasmer::Module`]s.
 //!
 //! The core of this module is the [`ModuleCache`] trait, which is designed to
@@ -100,18 +103,21 @@
 //! chain a fast in-memory cache with a slower file-based cache as a fallback.
 
 </span><span class="kw">mod </span>fallback;
-<span class="kw">mod </span>filesystem;
+<span class="attr">#[cfg(feature = <span class="string">&quot;sys-thread&quot;</span>)]
+</span><span class="kw">mod </span>filesystem;
 <span class="kw">mod </span>shared;
 <span class="kw">mod </span>thread_local;
 <span class="kw">mod </span>types;
 
 <span class="kw">pub use </span><span class="self">self</span>::{
     fallback::FallbackCache,
-    filesystem::FileSystemCache,
     shared::SharedCache,
     thread_local::ThreadLocalCache,
     types::{CacheError, ModuleCache, ModuleHash},
 };
+
+<span class="attr">#[cfg(feature = <span class="string">&quot;sys-thread&quot;</span>)]
+</span><span class="kw">pub use </span><span class="self">self</span>::filesystem::FileSystemCache;
 
 <span class="doccomment">/// Get a [`ModuleCache`] which should be good enough for most in-memory use
 /// cases.

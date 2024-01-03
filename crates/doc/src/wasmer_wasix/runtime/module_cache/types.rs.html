@@ -191,6 +191,11 @@
 <a href="#191" id="191">191</a>
 <a href="#192" id="192">192</a>
 <a href="#193" id="193">193</a>
+<a href="#194" id="194">194</a>
+<a href="#195" id="195">195</a>
+<a href="#196" id="196">196</a>
+<a href="#197" id="197">197</a>
+<a href="#198" id="198">198</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::hash::Hash;
 <span class="kw">use </span>std::{
     fmt::{<span class="self">self</span>, Debug, Display, Formatter},
@@ -248,9 +253,14 @@
     /// use wasmer_wasix::runtime::module_cache::{
     ///     ModuleCache, ThreadLocalCache, FileSystemCache, SharedCache,
     /// };
+    /// use wasmer_wasix::runtime::task_manager::tokio::{RuntimeOrHandle, TokioTaskManager};
+    ///
+    /// let runtime = tokio::runtime::Runtime::new().unwrap();
+    /// let rt_handle = RuntimeOrHandle::from(runtime);
+    /// let task_manager = std::sync::Arc::new(TokioTaskManager::new(rt_handle));
     ///
     /// let cache = SharedCache::default()
-    ///     .with_fallback(FileSystemCache::new(&quot;~/.local/cache&quot;));
+    ///     .with_fallback(FileSystemCache::new(&quot;~/.local/cache&quot;, task_manager));
     /// ```
     </span><span class="kw">fn </span>with_fallback&lt;C&gt;(<span class="self">self</span>, other: C) -&gt; FallbackCache&lt;<span class="self">Self</span>, C&gt;
     <span class="kw">where

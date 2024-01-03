@@ -262,27 +262,67 @@
 <a href="#262" id="262">262</a>
 <a href="#263" id="263">263</a>
 <a href="#264" id="264">264</a>
-</pre></div><pre class="rust"><code><span class="kw">use </span>std::{
-    io::{BufWriter, Write},
-    path::{Path, PathBuf},
-};
+<a href="#265" id="265">265</a>
+<a href="#266" id="266">266</a>
+<a href="#267" id="267">267</a>
+<a href="#268" id="268">268</a>
+<a href="#269" id="269">269</a>
+<a href="#270" id="270">270</a>
+<a href="#271" id="271">271</a>
+<a href="#272" id="272">272</a>
+<a href="#273" id="273">273</a>
+<a href="#274" id="274">274</a>
+<a href="#275" id="275">275</a>
+<a href="#276" id="276">276</a>
+<a href="#277" id="277">277</a>
+<a href="#278" id="278">278</a>
+<a href="#279" id="279">279</a>
+<a href="#280" id="280">280</a>
+<a href="#281" id="281">281</a>
+<a href="#282" id="282">282</a>
+<a href="#283" id="283">283</a>
+<a href="#284" id="284">284</a>
+<a href="#285" id="285">285</a>
+<a href="#286" id="286">286</a>
+<a href="#287" id="287">287</a>
+<a href="#288" id="288">288</a>
+<a href="#289" id="289">289</a>
+<a href="#290" id="290">290</a>
+<a href="#291" id="291">291</a>
+<a href="#292" id="292">292</a>
+<a href="#293" id="293">293</a>
+<a href="#294" id="294">294</a>
+<a href="#295" id="295">295</a>
+<a href="#296" id="296">296</a>
+<a href="#297" id="297">297</a>
+<a href="#298" id="298">298</a>
+<a href="#299" id="299">299</a>
+<a href="#300" id="300">300</a>
+<a href="#301" id="301">301</a>
+</pre></div><pre class="rust"><code><span class="kw">use </span>std::path::{Path, PathBuf};
+<span class="kw">use </span>std::sync::Arc;
 
 <span class="kw">use </span>tempfile::NamedTempFile;
+<span class="kw">use </span>tokio::io::AsyncWriteExt;
 <span class="kw">use </span>wasmer::{Engine, Module};
 
 <span class="kw">use </span><span class="kw">crate</span>::runtime::module_cache::{CacheError, ModuleCache, ModuleHash};
+<span class="kw">use </span><span class="kw">crate</span>::runtime::task_manager::tokio::TokioTaskManager;
+<span class="kw">use </span><span class="kw">crate</span>::runtime::task_manager::VirtualTaskManagerExt;
 
 <span class="doccomment">/// A cache that saves modules to a folder on the host filesystem using
 /// [`Module::serialize()`].
-</span><span class="attr">#[derive(Debug, Clone, PartialEq, Eq)]
+</span><span class="attr">#[derive(Debug, Clone)]
 </span><span class="kw">pub struct </span>FileSystemCache {
     cache_dir: PathBuf,
+    task_manager: Arc&lt;TokioTaskManager&gt;,
 }
 
 <span class="kw">impl </span>FileSystemCache {
-    <span class="kw">pub fn </span>new(cache_dir: <span class="kw">impl </span>Into&lt;PathBuf&gt;) -&gt; <span class="self">Self </span>{
+    <span class="kw">pub fn </span>new(cache_dir: <span class="kw">impl </span>Into&lt;PathBuf&gt;, task_manager: Arc&lt;TokioTaskManager&gt;) -&gt; <span class="self">Self </span>{
         FileSystemCache {
             cache_dir: cache_dir.into(),
+            task_manager,
         }
     }
 
@@ -301,45 +341,57 @@
 
 <span class="attr">#[async_trait::async_trait]
 </span><span class="kw">impl </span>ModuleCache <span class="kw">for </span>FileSystemCache {
-    <span class="attr">#[tracing::instrument(level = <span class="string">&quot;debug&quot;</span>, skip_all, fields(%key))]
+    <span class="attr">#[tracing::instrument(level = <span class="string">&quot;debug&quot;</span>, skip_all, fields(% key))]
     </span><span class="kw">async fn </span>load(<span class="kw-2">&amp;</span><span class="self">self</span>, key: ModuleHash, engine: <span class="kw-2">&amp;</span>Engine) -&gt; <span class="prelude-ty">Result</span>&lt;Module, CacheError&gt; {
         <span class="kw">let </span>path = <span class="self">self</span>.path(key, engine.deterministic_id());
 
-        <span class="comment">// FIXME: This will all block the thread at the moment. Ideally,
-        // deserializing and uncompressing would happen on a thread pool in the
-        // background.
-        // https://github.com/wasmerio/wasmer/issues/3851
+        <span class="self">self</span>.task_manager
+            .runtime_handle()
+            .spawn({
+                <span class="kw">let </span>task_manager = <span class="self">self</span>.task_manager.clone();
+                <span class="kw">let </span>engine = engine.clone();
 
-        </span><span class="kw">let </span>bytes = read_file(<span class="kw-2">&amp;</span>path)<span class="question-mark">?</span>;
+                <span class="kw">async move </span>{
+                    <span class="kw">let </span>bytes = read_file(<span class="kw-2">&amp;</span>path).<span class="kw">await</span><span class="question-mark">?</span>;
 
-        <span class="kw">match </span>deserialize(<span class="kw-2">&amp;</span>bytes, engine) {
-            <span class="prelude-val">Ok</span>(m) =&gt; {
-                <span class="macro">tracing::debug!</span>(<span class="string">&quot;Cache hit!&quot;</span>);
-                <span class="prelude-val">Ok</span>(m)
-            }
-            <span class="prelude-val">Err</span>(e) =&gt; {
-                <span class="macro">tracing::debug!</span>(
-                    %key,
-                    path=%path.display(),
-                    error=<span class="kw-2">&amp;</span>e <span class="kw">as </span><span class="kw-2">&amp;</span><span class="kw">dyn </span>std::error::Error,
-                    <span class="string">&quot;Deleting the cache file because the artifact couldn&#39;t be deserialized&quot;</span>,
-                );
+                    task_manager
+                    .spawn_await({
 
-                <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = std::fs::remove_file(<span class="kw-2">&amp;</span>path) {
-                    <span class="macro">tracing::warn!</span>(
-                        %key,
-                        path=%path.display(),
-                        error=<span class="kw-2">&amp;</span>e <span class="kw">as </span><span class="kw-2">&amp;</span><span class="kw">dyn </span>std::error::Error,
-                        <span class="string">&quot;Unable to remove the corrupted cache file&quot;</span>,
-                    );
+                        <span class="kw">move </span>|| <span class="kw">match </span>deserialize(<span class="kw-2">&amp;</span>bytes, <span class="kw-2">&amp;</span>engine) {
+                            <span class="prelude-val">Ok</span>(m) =&gt; {
+                                <span class="macro">tracing::debug!</span>(<span class="string">&quot;Cache hit!&quot;</span>);
+                                <span class="prelude-val">Ok</span>(m)
+                            }
+                            <span class="prelude-val">Err</span>(e) =&gt; {
+                                <span class="macro">tracing::debug!</span>(
+                            %key,
+                            path=%path.display(),
+                            error=<span class="kw-2">&amp;</span>e <span class="kw">as </span><span class="kw-2">&amp;</span><span class="kw">dyn </span>std::error::Error,
+                            <span class="string">&quot;Deleting the cache file because the artifact couldn&#39;t be deserialized&quot;</span>,
+                        );
+
+                                <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = std::fs::remove_file(<span class="kw-2">&amp;</span>path) {
+                                    <span class="macro">tracing::warn!</span>(
+                                %key,
+                                path=%path.display(),
+                                error=<span class="kw-2">&amp;</span>e <span class="kw">as </span><span class="kw-2">&amp;</span><span class="kw">dyn </span>std::error::Error,
+                                <span class="string">&quot;Unable to remove the corrupted cache file&quot;</span>,
+                            );
+                                }
+
+                                <span class="prelude-val">Err</span>(e)
+                            }
+                        }
+                    })
+                    .<span class="kw">await
+                    </span>.unwrap()
                 }
-
-                <span class="prelude-val">Err</span>(e)
-            }
-        }
+            })
+            .<span class="kw">await
+            </span>.unwrap()
     }
 
-    <span class="attr">#[tracing::instrument(level = <span class="string">&quot;debug&quot;</span>, skip_all, fields(%key))]
+    <span class="attr">#[tracing::instrument(level = <span class="string">&quot;debug&quot;</span>, skip_all, fields(% key))]
     </span><span class="kw">async fn </span>save(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         key: ModuleHash,
@@ -348,41 +400,58 @@
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), CacheError&gt; {
         <span class="kw">let </span>path = <span class="self">self</span>.path(key, engine.deterministic_id());
 
-        <span class="comment">// FIXME: This will all block the thread at the moment. Ideally,
-        // serializing and compressing would happen on a thread pool in the
-        // background.
-        // https://github.com/wasmerio/wasmer/issues/3851
+        <span class="self">self</span>.task_manager
+            .runtime_handle()
+            .spawn({
+                <span class="kw">let </span>task_manager = <span class="self">self</span>.task_manager.clone();
+                <span class="kw">let </span>module = module.clone();
 
-        </span><span class="kw">let </span>parent = path
-            .parent()
-            .expect(<span class="string">&quot;Unreachable - always created by joining onto cache_dir&quot;</span>);
+                <span class="kw">async move </span>{
+                    <span class="kw">let </span>parent = path
+                        .parent()
+                        .expect(<span class="string">&quot;Unreachable - always created by joining onto cache_dir&quot;</span>);
 
-        <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = std::fs::create_dir_all(parent) {
-            <span class="macro">tracing::warn!</span>(
-                dir=%parent.display(),
-                error=<span class="kw-2">&amp;</span>e <span class="kw">as </span><span class="kw-2">&amp;</span><span class="kw">dyn </span>std::error::Error,
-                <span class="string">&quot;Unable to create the cache directory&quot;</span>,
-            );
-        }
+                    <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = tokio::fs::create_dir_all(parent).<span class="kw">await </span>{
+                        <span class="macro">tracing::warn!</span>(
+                            dir=%parent.display(),
+                            error=<span class="kw-2">&amp;</span>e <span class="kw">as </span><span class="kw-2">&amp;</span><span class="kw">dyn </span>std::error::Error,
+                            <span class="string">&quot;Unable to create the cache directory&quot;</span>,
+                        );
+                    }
 
-        <span class="comment">// Note: We save to a temporary file and persist() it at the end so
-        // concurrent readers won&#39;t see a partially written module.
-        </span><span class="kw">let </span><span class="kw-2">mut </span>temp = NamedTempFile::new_in(parent).map_err(CacheError::other)<span class="question-mark">?</span>;
-        <span class="kw">let </span>serialized = module.serialize()<span class="question-mark">?</span>;
+                    <span class="comment">// Note: We save to a temporary file and persist() it at the end so
+                    // concurrent readers won&#39;t see a partially written module.
+                    </span><span class="kw">let </span>(file, temp) = NamedTempFile::new_in(parent)
+                        .map_err(CacheError::other)<span class="question-mark">?
+                        </span>.into_parts();
 
-        <span class="kw">if let </span><span class="prelude-val">Err</span>(error) = BufWriter::new(<span class="kw-2">&amp;mut </span>temp).write_all(<span class="kw-2">&amp;</span>serialized) {
-            <span class="kw">return </span><span class="prelude-val">Err</span>(CacheError::FileWrite { path, error });
-        }
+                    <span class="kw">let </span><span class="kw-2">mut </span>file = tokio::fs::File::from_std(file);
 
-        temp.persist(<span class="kw-2">&amp;</span>path).map_err(CacheError::other)<span class="question-mark">?</span>;
-        <span class="macro">tracing::debug!</span>(path=%path.display(), <span class="string">&quot;Saved to disk&quot;</span>);
+                    <span class="kw">let </span>serialized = task_manager
+                        .spawn_await(<span class="kw">move </span>|| module.serialize())
+                        .<span class="kw">await
+                        </span>.unwrap()<span class="question-mark">?</span>;
 
-        <span class="prelude-val">Ok</span>(())
+                    <span class="kw">if let </span><span class="prelude-val">Err</span>(error) = tokio::io::BufWriter::new(<span class="kw-2">&amp;mut </span>file)
+                        .write_all(<span class="kw-2">&amp;</span>serialized)
+                        .<span class="kw">await
+                    </span>{
+                        <span class="kw">return </span><span class="prelude-val">Err</span>(CacheError::FileWrite { path, error });
+                    }
+
+                    temp.persist(<span class="kw-2">&amp;</span>path).map_err(CacheError::other)<span class="question-mark">?</span>;
+                    <span class="macro">tracing::debug!</span>(path=%path.display(), <span class="string">&quot;Saved to disk&quot;</span>);
+
+                    <span class="prelude-val">Ok</span>(())
+                }
+            })
+            .<span class="kw">await
+            </span>.unwrap()
     }
 }
 
-<span class="kw">fn </span>read_file(path: <span class="kw-2">&amp;</span>Path) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;u8&gt;, CacheError&gt; {
-    <span class="kw">match </span>std::fs::read(path) {
+<span class="kw">async fn </span>read_file(path: <span class="kw-2">&amp;</span>Path) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;u8&gt;, CacheError&gt; {
+    <span class="kw">match </span>tokio::fs::read(path).<span class="kw">await </span>{
         <span class="prelude-val">Ok</span>(bytes) =&gt; <span class="prelude-val">Ok</span>(bytes),
         <span class="prelude-val">Err</span>(e) <span class="kw">if </span>e.kind() == std::io::ErrorKind::NotFound =&gt; <span class="prelude-val">Err</span>(CacheError::NotFound),
         <span class="prelude-val">Err</span>(error) =&gt; <span class="prelude-val">Err</span>(CacheError::FileRead {
@@ -426,6 +495,7 @@
 
 <span class="attr">#[cfg(test)]
 </span><span class="kw">mod </span>tests {
+    <span class="kw">use </span><span class="kw">crate</span>::runtime::task_manager::tokio::TokioTaskManager;
     <span class="kw">use </span>tempfile::TempDir;
 
     <span class="kw">use super</span>::<span class="kw-2">*</span>;
@@ -440,12 +510,16 @@
                 (i64.add (local.get $x) (local.get $y)))
         )&quot;#</span>;
 
+    <span class="kw">fn </span>create_tokio_task_manager() -&gt; Arc&lt;TokioTaskManager&gt; {
+        Arc::new(TokioTaskManager::new(tokio::runtime::Handle::current()))
+    }
+
     <span class="attr">#[tokio::test]
     </span><span class="kw">async fn </span>save_to_disk() {
         <span class="kw">let </span>temp = TempDir::new().unwrap();
         <span class="kw">let </span>engine = Engine::default();
         <span class="kw">let </span>module = Module::new(<span class="kw-2">&amp;</span>engine, ADD_WAT).unwrap();
-        <span class="kw">let </span>cache = FileSystemCache::new(temp.path());
+        <span class="kw">let </span>cache = FileSystemCache::new(temp.path(), create_tokio_task_manager());
         <span class="kw">let </span>key = ModuleHash::from_bytes([<span class="number">0</span>; <span class="number">8</span>]);
         <span class="kw">let </span>expected_path = cache.path(key, engine.deterministic_id());
 
@@ -461,7 +535,7 @@
         <span class="kw">let </span>module = Module::new(<span class="kw-2">&amp;</span>engine, ADD_WAT).unwrap();
         <span class="kw">let </span>cache_dir = temp.path().join(<span class="string">&quot;this&quot;</span>).join(<span class="string">&quot;doesn&#39;t&quot;</span>).join(<span class="string">&quot;exist&quot;</span>);
         <span class="macro">assert!</span>(!cache_dir.exists());
-        <span class="kw">let </span>cache = FileSystemCache::new(<span class="kw-2">&amp;</span>cache_dir);
+        <span class="kw">let </span>cache = FileSystemCache::new(<span class="kw-2">&amp;</span>cache_dir, create_tokio_task_manager());
         <span class="kw">let </span>key = ModuleHash::from_bytes([<span class="number">0</span>; <span class="number">8</span>]);
 
         cache.save(key, <span class="kw-2">&amp;</span>engine, <span class="kw-2">&amp;</span>module).<span class="kw">await</span>.unwrap();
@@ -474,7 +548,7 @@
         <span class="kw">let </span>temp = TempDir::new().unwrap();
         <span class="kw">let </span>engine = Engine::default();
         <span class="kw">let </span>key = ModuleHash::from_bytes([<span class="number">0</span>; <span class="number">8</span>]);
-        <span class="kw">let </span>cache = FileSystemCache::new(temp.path());
+        <span class="kw">let </span>cache = FileSystemCache::new(temp.path(), create_tokio_task_manager());
 
         <span class="kw">let </span>err = cache.load(key, <span class="kw-2">&amp;</span>engine).<span class="kw">await</span>.unwrap_err();
 
@@ -487,7 +561,7 @@
         <span class="kw">let </span>engine = Engine::default();
         <span class="kw">let </span>module = Module::new(<span class="kw-2">&amp;</span>engine, ADD_WAT).unwrap();
         <span class="kw">let </span>key = ModuleHash::from_bytes([<span class="number">0</span>; <span class="number">8</span>]);
-        <span class="kw">let </span>cache = FileSystemCache::new(temp.path());
+        <span class="kw">let </span>cache = FileSystemCache::new(temp.path(), create_tokio_task_manager());
         <span class="kw">let </span>expected_path = cache.path(key, engine.deterministic_id());
         std::fs::create_dir_all(expected_path.parent().unwrap()).unwrap();
         <span class="kw">let </span>serialized = module.serialize().unwrap();
@@ -510,7 +584,7 @@
         <span class="kw">let </span>engine = Engine::default();
         <span class="kw">let </span>module = Module::new(<span class="kw-2">&amp;</span>engine, ADD_WAT).unwrap();
         <span class="kw">let </span>key = ModuleHash::from_bytes([<span class="number">0</span>; <span class="number">8</span>]);
-        <span class="kw">let </span>cache = FileSystemCache::new(temp.path());
+        <span class="kw">let </span>cache = FileSystemCache::new(temp.path(), create_tokio_task_manager());
         <span class="kw">let </span>expected_path = cache.path(key, engine.deterministic_id());
         std::fs::create_dir_all(expected_path.parent().unwrap()).unwrap();
         <span class="kw">let </span>serialized = module.serialize().unwrap();
