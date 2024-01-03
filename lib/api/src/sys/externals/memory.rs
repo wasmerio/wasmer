@@ -7,7 +7,9 @@ use std::{
 
 use tracing::warn;
 use wasmer_types::Pages;
-use wasmer_vm::{LinearMemory, MemoryError, StoreHandle, VMExtern, VMMemory};
+use wasmer_vm::{
+    LinearMemory, MemoryError, StoreHandle, ThreadConditionsHandle, VMExtern, VMMemory,
+};
 
 use crate::{
     store::{AsStoreMut, AsStoreRef},
@@ -101,7 +103,7 @@ impl Memory {
 
     pub fn shared_handle(&self, store: &impl AsStoreRef) -> Option<crate::SharedMemoryHandle> {
         let mem = self.handle.get(store.as_store_ref().objects());
-        let conds = mem.thread_conditions()?.clone();
+        let conds = mem.thread_conditions()?.downgrade();
 
         Some(crate::SharedMemoryHandle::new(conds))
     }
@@ -112,14 +114,18 @@ impl Memory {
     }
 }
 
-impl crate::externals::memory::SharedMemoryOps for wasmer_vm::ThreadConditions {
+impl crate::externals::memory::SharedMemoryOps for ThreadConditionsHandle {
     fn disable_atomics(&self) -> Result<(), MemoryError> {
-        self.disable_atomics();
+        self.upgrade()
+            .ok_or_else(|| MemoryError::Generic("memory was dropped".to_string()))?
+            .disable_atomics();
         Ok(())
     }
 
     fn wake_all_atomic_waiters(&self) -> Result<(), MemoryError> {
-        self.wake_all_atomic_waiters();
+        self.upgrade()
+            .ok_or_else(|| MemoryError::Generic("memory was dropped".to_string()))?
+            .wake_all_atomic_waiters();
         Ok(())
     }
 }
