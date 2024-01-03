@@ -98,6 +98,10 @@ impl TokioTaskManager {
     pub fn runtime_handle(&self) -> tokio::runtime::Handle {
         self.rt.handle().clone()
     }
+
+    pub fn pool_handle(&self) -> Arc<ThreadPool> {
+        self.pool.clone()
+    }
 }
 
 impl Default for TokioTaskManager {
