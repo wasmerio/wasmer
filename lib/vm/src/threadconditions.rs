@@ -159,6 +159,32 @@ impl ThreadConditions {
             .store(true, std::sync::atomic::Ordering::Release);
         self.wake_all_atomic_waiters();
     }
+
+    /// Get a weak handle to this `ThreadConditions` instance.
+    ///
+    /// See [`ThreadConditionsHandle`] for more information.
+    pub fn downgrade(&self) -> ThreadConditionsHandle {
+        ThreadConditionsHandle {
+            inner: Arc::downgrade(&self.inner),
+        }
+    }
+}
+
+/// A weak handle to a `ThreadConditions` instance, which does not prolong its
+/// lifetime.
+///
+/// Internally holds a [`std::sync::Weak`] pointer.
+pub struct ThreadConditionsHandle {
+    inner: std::sync::Weak<NotifyMap>,
+}
+
+impl ThreadConditionsHandle {
+    /// Attempt to upgrade this handle to a strong reference.
+    ///
+    /// Returns `None` if the original `ThreadConditions` instance has been dropped.
+    pub fn upgrade(&self) -> Option<ThreadConditions> {
+        self.inner.upgrade().map(|inner| ThreadConditions { inner })
+    }
 }
 
 #[cfg(test)]
