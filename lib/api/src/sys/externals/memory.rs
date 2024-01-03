@@ -99,9 +99,28 @@ impl Memory {
         mem.copy()
     }
 
+    pub fn shared_handle(&self, store: &impl AsStoreRef) -> Option<crate::SharedMemoryHandle> {
+        let mem = self.handle.get(store.as_store_ref().objects());
+        let conds = mem.thread_conditions()?.clone();
+
+        Some(crate::SharedMemoryHandle::new(conds))
+    }
+
     /// To `VMExtern`.
     pub(crate) fn to_vm_extern(&self) -> VMExtern {
         VMExtern::Memory(self.handle.internal_handle())
+    }
+}
+
+impl crate::externals::memory::SharedMemoryOps for wasmer_vm::ThreadConditions {
+    fn disable_atomics(&self) -> Result<(), MemoryError> {
+        self.disable_atomics();
+        Ok(())
+    }
+
+    fn wake_all_atomic_waiters(&self) -> Result<(), MemoryError> {
+        self.wake_all_atomic_waiters();
+        Ok(())
     }
 }
 

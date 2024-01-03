@@ -463,7 +463,9 @@ mod jsc;
 #[cfg(feature = "jsc")]
 pub use jsc::*;
 
-pub use crate::externals::{Extern, Function, Global, HostFunction, Memory, MemoryView, Table};
+pub use crate::externals::{
+    Extern, Function, Global, HostFunction, Memory, MemoryView, SharedMemoryHandle, Table,
+};
 pub use access::WasmSliceAccess;
 pub use engine::{AsEngineRef, Engine, EngineRef};
 pub use errors::{InstantiationError, LinkError, RuntimeError};

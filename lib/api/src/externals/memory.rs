@@ -187,6 +187,13 @@ impl Memory {
             .map(|new_memory| Self::new_from_existing(new_store, new_memory))
     }
 
+    /// Acquire a shared memory handle.
+    ///
+    /// See [`SharedMemoryHandle`] and its methods for more information.
+    pub fn shared_handle(&self, store: &impl AsStoreRef) -> Option<SharedMemoryHandle> {
+        self.0.shared_handle(store)
+    }
+
     /// To `VMExtern`.
     pub(crate) fn to_vm_extern(&self) -> VMExtern {
         self.0.to_vm_extern()
@@ -201,6 +208,67 @@ impl<'a> Exportable<'a> for Memory {
             Extern::Memory(memory) => Ok(memory),
             _ => Err(ExportError::IncompatibleType),
         }
+    }
+}
+
+/// See [`SharedMemoryHandle`].
+pub(crate) trait SharedMemoryOps {
+    /// See [`SharedMemoryHandle::disable_atomics`].
+    fn disable_atomics(&self) -> Result<(), MemoryError> {
+        Err(MemoryError::AtomicsNotSupported)
+    }
+
+    /// See [`SharedMemoryHandle::wake_all_atomic_waiters`].
+    fn wake_all_atomic_waiters(&self) -> Result<(), MemoryError> {
+        Err(MemoryError::AtomicsNotSupported)
+    }
+}
+
+/// A handle that exposes operations only relevant for shared memories.
+///
+/// This handle can be cloned and shared independent of a a store, and hence
+/// enables interaction outside of the regular instance lifecycle.
+///
+/// One such usecase is disabling atomics during forceful termination.
+///
+/// **NOTE**: This handle is generally only useful on native engine implementations
+/// that have direct control over atomics, but NOT in environments like Javascript
+/// engines.
+#[derive(Clone)]
+pub struct SharedMemoryHandle(std::sync::Arc<dyn SharedMemoryOps + Send + Sync>);
+
+impl std::fmt::Debug for SharedMemoryHandle {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("SharedMemoryHandle").finish()
+    }
+}
+
+impl SharedMemoryHandle {
+    pub(crate) fn new(memory: impl SharedMemoryOps + Send + Sync + 'static) -> Self {
+        Self(std::sync::Arc::new(memory))
+    }
+
+    /// Disable atomics for this memory.
+    ///
+    /// All subsequent atomic wait calls will produce a trap.
+    ///
+    /// This can be used or forced shutdown of instances that continuously try
+    /// to wait on atomics.
+    ///
+    /// NOTE: this operation might not be supported by all memory implementations.
+    /// In that case, this function will return an error.
+    pub fn disable_atomics(&self) -> Result<(), MemoryError> {
+        self.0.disable_atomics()
+    }
+
+    /// Wake up all atomic waiters.
+    ///
+    /// This can be used to force-resume waiting execution.
+    ///
+    /// NOTE: this operation might not be supported by all memory implementations.
+    /// In that case, this function will return an error.
+    pub fn wake_all_atomic_waiters(&self) -> Result<(), MemoryError> {
+        self.0.wake_all_atomic_waiters()
     }
 }
 

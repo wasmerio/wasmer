@@ -210,6 +210,11 @@ impl Memory {
     pub fn duplicate(&mut self, store: &impl AsStoreRef) -> Result<VMMemory, MemoryError> {
         self.handle.duplicate(store)
     }
+
+    pub fn shared_handle(&self, _store: &impl AsStoreRef) -> Option<crate::SharedMemoryHandle> {
+        // Not supported.
+        None
+    }
 }
 
 impl std::cmp::PartialEq for Memory {
