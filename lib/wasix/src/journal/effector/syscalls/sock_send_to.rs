@@ -1,4 +1,4 @@
-use virtual_net::SocketAddr;
+use std::net::SocketAddr;
 use wasmer_wasix_types::wasi::SiFlags;
 
 use crate::syscalls::sock_send_to_internal;

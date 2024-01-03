@@ -1,0 +1,102 @@
+use std::{
+    collections::HashMap,
+    sync::{Arc, Mutex},
+    time::Instant,
+};
+
+use derivative::Derivative;
+
+use crate::{
+    runners::Runner,
+    runtime::{DynRuntime, OverriddenRuntime},
+};
+
+use super::{
+    handler::Handler, hyper_proxy::HyperProxyConnectorBuilder, instance::DProxyInstance,
+    networking::LocalWithLoopbackNetworking, shard::Shard, socket_manager::SocketManager,
+};
+
+#[derive(Debug, Default)]
+struct State {
+    instance: HashMap<Shard, DProxyInstance>,
+}
+
+/// This factory will store and reuse instances between invocations thus
+/// allowing for the instances to be stateful.
+#[derive(Derivative, Clone, Default)]
+#[derivative(Debug)]
+pub struct DProxyInstanceFactory {
+    state: Arc<Mutex<State>>,
+}
+
+impl DProxyInstanceFactory {
+    pub fn new() -> Self {
+        Default::default()
+    }
+
+    pub async fn acquire(&self, handler: &Handler, shard: Shard) -> anyhow::Result<DProxyInstance> {
+        loop {
+            {
+                let state = self.state.lock().unwrap();
+                if let Some(instance) = state.instance.get(&shard).cloned() {
+                    return Ok(instance);
+                }
+            }
+
+            let instance = self.spin_up(handler, shard.clone()).await?;
+
+            let mut state = self.state.lock().unwrap();
+            state.instance.insert(shard.clone(), instance);
+        }
+    }
+
+    pub async fn spin_up(
+        &self,
+        handler: &Handler,
+        _shard: Shard,
+    ) -> anyhow::Result<DProxyInstance> {
+        // Get the runtime with its already wired local networking
+        let runtime = handler.runtime.clone();
+
+        // DProxy is able to resume execution of the stateful workload using memory
+        // snapshots hence the journals it stores are complete journals
+        let journals = runtime.journals().clone().into_iter().collect::<Vec<_>>();
+        let mut runtime = OverriddenRuntime::new(runtime).with_journals(journals);
+
+        // We attach a composite networking to the runtime which includes a loopback
+        // networking implementation connected to a socket manager
+        let composite_networking = LocalWithLoopbackNetworking::new();
+        let socket_manager = Arc::new(SocketManager::new(
+            composite_networking.loopback_networking(),
+            handler.config.proxy_connect_init_timeout,
+            handler.config.proxy_connect_nominal_timeout,
+            handler.config.max_socket_pool_size,
+        ));
+        runtime = runtime.with_networking(Arc::new(composite_networking));
+
+        // The connector uses the socket manager to open sockets to the instance
+        let connector = HyperProxyConnectorBuilder::new(socket_manager.clone())
+            .with_reuse(true)
+            .build()
+            .await;
+
+        // Now we run the actual instance under a WasiRunner
+        let pkg = handler.config.pkg.clone();
+        let command_name = handler.command_name.clone();
+        let runtime = Arc::new(runtime) as Arc<DynRuntime>;
+        let mut runner = handler.config.inner.clone();
+        runtime
+            .task_manager()
+            .clone()
+            .task_dedicated(Box::new(move || {
+                runner.run_command(&command_name, &pkg, runtime);
+            }));
+
+        // Return an instance
+        Ok(DProxyInstance {
+            last_used: Arc::new(Mutex::new(Instant::now())),
+            socket_manager,
+            client: hyper::Client::builder().build(connector),
+        })
+    }
+}

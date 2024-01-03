@@ -34,6 +34,11 @@ tokio-tungstenite = { version = "0.20", optional = true }
 rkyv = { version = "0.7.40", features = ["indexmap", "validation", "strict"], optional = true }
 bytecheck = { version = "0.6.8", optional = true }
 
+[dependencies.smoltcp]
+version = "0.8"
+default-features = false
+features = ["proto-ipv4", "std", "alloc"]
+
 [dev-dependencies]
 tokio = { version = "1", default_features = false, features = [ "macros", "rt-multi-thread" ] }
 tracing-test = { version = "0.2" }

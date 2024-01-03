@@ -141,6 +141,7 @@ time = ["tokio/time"]
 
 webc_runner_rt_wcgi = ["hyper", "wcgi", "wcgi-host", "tower", "tower-http"]
 webc_runner_rt_dcgi = ["webc_runner_rt_wcgi", "journal"]
+webc_runner_rt_dproxy = ["hyper", "tower", "tower-http", "journal"]
 webc_runner_rt_emscripten = ["wasmer-emscripten"]
 
 sys = ["webc/mmap", "time", "virtual-mio/sys"]
@@ -193,6 +194,7 @@ features = [
     "wasmer/sys",
     "webc_runner_rt_wcgi",
     "webc_runner_rt_dcgi",
+    "webc_runner_rt_dproxy",
     "webc_runner_rt_emscripten",
     "sys-default",
 ]

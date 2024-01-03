@@ -1,3 +1,4 @@
+mod arc;
 #[cfg(feature = "sys")]
 mod guard;
 mod interest;
@@ -5,6 +6,7 @@ mod interest;
 mod selector;
 pub mod waker;
 
+pub use arc::*;
 #[cfg(feature = "sys")]
 pub use guard::*;
 pub use interest::*;

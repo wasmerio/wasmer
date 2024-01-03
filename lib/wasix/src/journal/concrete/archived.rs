@@ -3,8 +3,9 @@ use num_enum::{IntoPrimitive, TryFromPrimitive};
 use rkyv::ser::{ScratchSpace, Serializer};
 use rkyv::{Archive, CheckBytes, Deserialize as RkyvDeserialize, Serialize as RkyvSerialize};
 use std::borrow::Cow;
-use std::time::SystemTime;
-use virtual_net::{Duration, IpAddr, IpCidr, Ipv4Addr, Ipv6Addr, SocketAddr, StreamSecurity};
+use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
+use std::time::{Duration, SystemTime};
+use virtual_net::{IpCidr, StreamSecurity};
 use wasmer_wasix_types::wasi::{self, EpollEventCtl, EpollType, Fdflags, Rights, Sockoption};
 
 use super::*;

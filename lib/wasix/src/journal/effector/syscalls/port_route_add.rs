@@ -1,4 +1,6 @@
-use virtual_net::{Duration, IpAddr, IpCidr};
+use std::{net::IpAddr, time::Duration};
+
+use virtual_net::IpCidr;
 
 use super::*;
 

@@ -1,4 +1,4 @@
-use virtual_net::SocketAddr;
+use std::net::SocketAddr;
 
 use crate::{
     fs::Kind,

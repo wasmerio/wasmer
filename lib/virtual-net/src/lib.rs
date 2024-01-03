@@ -2,19 +2,24 @@
 
 #[cfg(any(feature = "remote"))]
 pub mod client;
+pub mod composite;
 #[cfg(feature = "host-net")]
 pub mod host;
+pub mod loopback;
 pub mod meta;
 #[cfg(any(feature = "remote"))]
 pub mod rx_tx;
 #[cfg(any(feature = "remote"))]
 pub mod server;
+pub mod tcp_pair;
 #[cfg(feature = "tokio")]
 #[cfg(test)]
 mod tests;
 
 #[cfg(any(feature = "remote"))]
 pub use client::{RemoteNetworkingClient, RemoteNetworkingClientDriver};
+pub use composite::CompositeTcpListener;
+pub use loopback::LoopbackNetworking;
 use pin_project_lite::pin_project;
 #[cfg(feature = "rkyv")]
 use rkyv::{Archive, CheckBytes, Deserialize as RkyvDeserialize, Serialize as RkyvSerialize};
@@ -22,16 +27,17 @@ use rkyv::{Archive, CheckBytes, Deserialize as RkyvDeserialize, Serialize as Rky
 pub use server::{RemoteNetworkingServer, RemoteNetworkingServerDriver};
 use std::fmt;
 use std::mem::MaybeUninit;
-pub use std::net::IpAddr;
-pub use std::net::Ipv4Addr;
-pub use std::net::Ipv6Addr;
+pub(crate) use std::net::IpAddr;
+pub(crate) use std::net::Ipv4Addr;
+pub(crate) use std::net::Ipv6Addr;
 use std::net::Shutdown;
-pub use std::net::SocketAddr;
+pub(crate) use std::net::SocketAddr;
 use std::pin::Pin;
 use std::sync::Arc;
 use std::task::Context;
 use std::task::Poll;
-pub use std::time::Duration;
+pub(crate) use std::time::Duration;
+pub use tcp_pair::{TcpSocketHalf, TcpSocketHalfRx, TcpSocketHalfTx};
 use thiserror::Error;
 #[cfg(feature = "tokio")]
 use tokio::io::AsyncRead;

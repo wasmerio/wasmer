@@ -1,4 +1,4 @@
-use virtual_net::IpAddr;
+use std::net::IpAddr;
 
 use super::*;
 

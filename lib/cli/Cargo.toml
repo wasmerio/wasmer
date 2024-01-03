@@ -40,6 +40,7 @@ wasmer-wasix = { version = "0.18.0", path = "../wasix", features = [
   "logging",
   "webc_runner_rt_wcgi",
   "webc_runner_rt_dcgi",
+  "webc_runner_rt_dproxy",
   "webc_runner_rt_emscripten",
   "host-fs",
 ] }

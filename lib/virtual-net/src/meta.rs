@@ -1,15 +1,15 @@
 use serde::{Deserialize, Serialize};
 
-pub use super::Duration;
-pub use super::IpAddr;
-pub use super::IpCidr;
-pub use super::IpRoute;
-pub use super::Ipv4Addr;
-pub use super::Ipv6Addr;
-pub use super::NetworkError;
-pub use super::SocketAddr;
-pub use super::SocketStatus;
-pub use super::StreamSecurity;
+pub(crate) use super::Duration;
+pub(crate) use super::IpAddr;
+pub(crate) use super::IpCidr;
+pub(crate) use super::IpRoute;
+pub(crate) use super::Ipv4Addr;
+pub(crate) use super::Ipv6Addr;
+pub(crate) use super::NetworkError;
+pub(crate) use super::SocketAddr;
+pub(crate) use super::SocketStatus;
+pub(crate) use super::StreamSecurity;
 
 /// Represents a socket ID
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord, Hash)]
