@@ -56,7 +56,7 @@ impl Clone for FilteredJournalConfig {
             filter_core: self.filter_core,
             filter_snapshots: self.filter_snapshots,
             filter_net: self.filter_net,
-            filter_events: self.filter_events,
+            filter_events: self.filter_events.clone(),
             event_index: AtomicUsize::new(self.event_index.load(Ordering::SeqCst)),
         }
     }

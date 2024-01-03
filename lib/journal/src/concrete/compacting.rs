@@ -4,10 +4,11 @@ use std::{
     ops::{DerefMut, Range},
     sync::{Arc, Mutex},
 };
-use virtual_fs::Fd;
 use wasmer_wasix_types::wasi;
 
 use super::*;
+
+pub type Fd = u32;
 
 #[derive(Debug, Default)]
 struct StateDescriptor {
@@ -52,7 +53,7 @@ struct State {
     create_trunc_file: HashMap<String, Fd>,
     // Thread events are only maintained while the thread and the
     // process are still running
-    thread_map: HashMap<crate::WasiThreadId, usize>,
+    thread_map: HashMap<u32, usize>,
     // Any descriptors are assumed to be read only operations until
     // they actually do something that changes the system
     suspect_descriptors: HashMap<Fd, DescriptorLookup>,

@@ -25,6 +25,7 @@ wasmer = { path = "../api", version = "=4.2.5", default-features = false, featur
 virtual-mio  = { path = "../virtual-io", version = "0.3.0", default-features = false }
 virtual-fs = { path = "../virtual-fs", version = "0.11.0", default-features = false, features = ["webc-fs"] }
 virtual-net = { path = "../virtual-net", version = "0.6.2", default-features = false, features = ["rkyv"] }
+wasmer-journal = { path = "../journal", version = "0.1.0" }
 wasmer-emscripten = { path = "../emscripten", version = "=4.2.5", optional = true }
 typetag = { version = "0.1", optional = true }
 serde = { version = "1.0", default-features = false, features = ["derive"] }

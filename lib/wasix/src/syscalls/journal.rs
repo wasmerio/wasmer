@@ -167,7 +167,7 @@ pub unsafe fn restore_snapshot(
                 }
             }
             crate::journal::JournalEntry::CloseThreadV1 { id, exit_code } => {
-                if id == ctx.data().tid() {
+                if id == ctx.data().tid().raw() {
                     if bootstrapping {
                         rewind = None;
                         spawn_threads.clear();
@@ -184,10 +184,14 @@ pub unsafe fn restore_snapshot(
                             .map_err(anyhow_err_to_runtime_err)?;
                     }
                 } else if bootstrapping {
-                    spawn_threads.remove(&id);
+                    spawn_threads.remove(&Into::<WasiThreadId>::into(id));
                 } else {
-                    JournalEffector::apply_thread_exit(&mut ctx, id, exit_code)
-                        .map_err(anyhow_err_to_runtime_err)?;
+                    JournalEffector::apply_thread_exit(
+                        &mut ctx,
+                        Into::<WasiThreadId>::into(id),
+                        exit_code,
+                    )
+                    .map_err(anyhow_err_to_runtime_err)?;
                 }
             }
             crate::journal::JournalEntry::SetThreadV1 {
@@ -208,6 +212,7 @@ pub unsafe fn restore_snapshot(
                     is_64bit,
                 };
 
+                let id = Into::<WasiThreadId>::into(id);
                 if id == ctx.data().tid() {
                     rewind.replace(state);
                 } else if bootstrapping {

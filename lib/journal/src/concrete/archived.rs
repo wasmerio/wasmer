@@ -2345,7 +2345,7 @@ impl<'a> TryFrom<ArchivedJournalEntry<'a>> for JournalEntry<'a> {
                 _padding: _,
                 is_64bit,
             }) => Self::SetThreadV1 {
-                id: (*id).into(),
+                id: *id,
                 call_stack: call_stack.as_ref().into(),
                 memory_stack: memory_stack.as_ref().into(),
                 store_data: store_data.as_ref().into(),
@@ -2355,7 +2355,7 @@ impl<'a> TryFrom<ArchivedJournalEntry<'a>> for JournalEntry<'a> {
                 id,
                 exit_code,
             }) => Self::CloseThreadV1 {
-                id: (*id).into(),
+                id: *id,
                 exit_code: exit_code.as_ref().map(|code| code.into()),
             },
             ArchivedJournalEntry::FileDescriptorWriteV1(
@@ -2909,7 +2909,7 @@ mod tests {
     #[test]
     pub fn test_record_set_thread() {
         run_test(JournalEntry::SetThreadV1 {
-            id: 1234u32.into(),
+            id: 1234u32,
             call_stack: vec![1, 2, 3].into(),
             memory_stack: vec![4, 5, 6, 7].into(),
             store_data: vec![10, 11].into(),
@@ -2921,7 +2921,7 @@ mod tests {
     #[test]
     pub fn test_record_close_thread() {
         run_test(JournalEntry::CloseThreadV1 {
-            id: 987u32.into(),
+            id: 987u32,
             exit_code: Some(wasi::ExitCode::Errno(wasi::Errno::Fault)),
         });
     }

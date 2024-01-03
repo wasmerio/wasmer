@@ -11,7 +11,7 @@ impl JournalEffector {
         Self::save_event(
             ctx,
             JournalEntry::SetThreadV1 {
-                id,
+                id: id.raw(),
                 call_stack: Cow::Owned(rewind_stack.into()),
                 memory_stack: Cow::Owned(memory_stack.into()),
                 store_data: Cow::Owned(store_data.into()),

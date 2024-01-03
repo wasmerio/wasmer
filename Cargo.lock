@@ -6124,6 +6124,29 @@ name = "wasmer-integration-tests-ios"
 version = "4.2.5"
 
 [[package]]
+name = "wasmer-journal"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "base64",
+ "bincode",
+ "bytecheck",
+ "bytes",
+ "derivative",
+ "lz4_flex",
+ "num_enum",
+ "rkyv",
+ "serde",
+ "serde_json",
+ "thiserror",
+ "tracing",
+ "tracing-test",
+ "virtual-net 0.6.2",
+ "wasmer-wasix-types",
+]
+
+[[package]]
 name = "wasmer-middlewares"
 version = "4.2.5"
 dependencies = [
@@ -6372,6 +6395,7 @@ dependencies = [
  "wasm-bindgen-test",
  "wasmer",
  "wasmer-emscripten",
+ "wasmer-journal",
  "wasmer-types",
  "wasmer-wasix-types",
  "wcgi",
