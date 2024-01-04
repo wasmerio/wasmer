@@ -6145,6 +6145,7 @@ dependencies = [
  "tracing",
  "tracing-test",
  "virtual-net 0.6.2",
+ "wasmer",
  "wasmer-wasix-types",
 ]
 

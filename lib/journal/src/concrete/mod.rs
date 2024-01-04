@@ -1,5 +1,6 @@
 mod arc;
 mod archived;
+mod archived_from;
 mod boxed;
 mod buffered;
 mod compacting;
@@ -13,6 +14,8 @@ mod null;
 mod pipe;
 mod printing;
 mod recombined;
+#[cfg(test)]
+mod tests;
 mod unsupported;
 
 pub(super) use super::*;
