@@ -9,10 +9,15 @@ license.workspace = true
 repository.workspace = true
 rust-version.workspace = true
 
+[features]
+default = [ "log-file" ]
+log-file = [ "shared-buffer" ]
+
 [dependencies]
 wasmer-wasix-types = { path = "../wasi-types", version = "0.18.0", features = [ "enable-serde" ] }
 virtual-net = { path = "../virtual-net", version = "0.6.2", default-features = false, features = ["rkyv"] }
 
+shared-buffer = { workspace = true, optional = true }
 thiserror = "1"
 bytes = "1.1"
 async-trait = { version = "^0.1" }
@@ -30,3 +35,4 @@ serde_json = { version = "^1" }
 
 [dev-dependencies]
 tracing-test = "0.2.4"
+tempfile = "3.6.0"

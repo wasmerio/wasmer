@@ -464,7 +464,7 @@ impl<'a> JournalEntry<'a> {
                 store_data,
                 is_64bit,
             } => serializer.serialize_value(&JournalEntrySetThreadV1 {
-                id: id.into(),
+                id,
                 _padding: padding(call_stack.len() + memory_stack.len() + store_data.len()),
                 call_stack: call_stack.into_owned(),
                 memory_stack: memory_stack.into_owned(),
@@ -473,7 +473,7 @@ impl<'a> JournalEntry<'a> {
             }),
             JournalEntry::CloseThreadV1 { id, exit_code } => {
                 serializer.serialize_value(&JournalEntryCloseThreadV1 {
-                    id: id.into(),
+                    id,
                     exit_code: exit_code.map(|e| e.into()),
                 })
             }

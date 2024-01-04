@@ -6139,6 +6139,8 @@ dependencies = [
  "rkyv",
  "serde",
  "serde_json",
+ "shared-buffer",
+ "tempfile",
  "thiserror",
  "tracing",
  "tracing-test",
