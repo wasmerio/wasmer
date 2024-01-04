@@ -428,6 +428,16 @@ endif
 build-docs:
 	$(CARGO_BINARY) doc $(CARGO_TARGET_FLAG) --release $(compiler_features) --document-private-items --no-deps --workspace --exclude wasmer-c-api --locked
 
+# The tokio crate was excluded from the docs build because the code (which is not under our control)
+# does not currently compile its docs successfully
+#
+# ```
+# error[E0432]: unresolved import `self::doc::os`
+#    --> /home/runner/.cargo/registry/src/github.com-1ecc6299db9ec823/tokio-1.35.1/src/lib.rs:636:16
+#     |
+# 636 | pub(crate) use self::doc::os;
+#     |                ^^^^^^^^^^^^^ no `os` in `doc`
+# ```
 test-build-docs-rs:
 	@manifest_docs_rs_features_path="package.metadata.docs.rs.features"; \
 	for manifest_path in lib/*/Cargo.toml; do \
@@ -438,11 +448,12 @@ test-build-docs-rs:
 			features=$$(toml get "$$manifest_path" "$$manifest_docs_rs_features_path" | sed 's/\[//; s/\]//; s/"\([^"]*\)"/\1/g'); \
 		fi; \
 		printf "*** Building doc for package with manifest $$manifest_path ***\n\n"; \
+
 		if [ -z "$$features" ]; then \
-			RUSTDOCFLAGS="--cfg=docsrs" $(CARGO_BINARY) +nightly doc $(CARGO_TARGET_FLAG) --manifest-path "$$manifest_path" --locked || exit 1; \
+			RUSTDOCFLAGS="--cfg=docsrs" $(CARGO_BINARY) +nightly doc $(CARGO_TARGET_FLAG) --manifest-path "$$manifest_path" --exclude tokio --locked || exit 1; \
 		else \
 			printf "Following features are inferred from Cargo.toml: $$features\n\n\n"; \
-			RUSTDOCFLAGS="--cfg=docsrs" $(CARGO_BINARY) +nightly doc $(CARGO_TARGET_FLAG) --manifest-path "$$manifest_path" --features "$$features" --locked || exit 1; \
+			RUSTDOCFLAGS="--cfg=docsrs" $(CARGO_BINARY) +nightly doc $(CARGO_TARGET_FLAG) --manifest-path "$$manifest_path" --exclude tokio --features "$$features" --locked || exit 1; \
 		fi; \
 	done
 
@@ -457,10 +468,10 @@ test-build-docs-rs-ci:
 		fi; \
 		printf "*** Building doc for package with manifest $$manifest_path ***\n\n"; \
 		if [ -z "$$features" ]; then \
-			RUSTDOCFLAGS="--cfg=docsrs" $(CARGO_BINARY) +nightly-2023-05-25 doc $(CARGO_TARGET_FLAG) --manifest-path "$$manifest_path" --locked || exit 1; \
+			RUSTDOCFLAGS="--cfg=docsrs" $(CARGO_BINARY) +nightly-2023-05-25 doc $(CARGO_TARGET_FLAG) --manifest-path "$$manifest_path" --no-deps --locked || exit 1; \
 		else \
 			printf "Following features are inferred from Cargo.toml: $$features\n\n\n"; \
-			RUSTDOCFLAGS="--cfg=docsrs" $(CARGO_BINARY) +nightly-2023-05-25 doc $(CARGO_TARGET_FLAG) --manifest-path "$$manifest_path" --features "$$features" --locked || exit 1; \
+			RUSTDOCFLAGS="--cfg=docsrs" $(CARGO_BINARY) +nightly-2023-05-25 doc $(CARGO_TARGET_FLAG) --manifest-path "$$manifest_path" --no-deps --features "$$features" --locked || exit 1; \
 		fi; \
 	done
 
