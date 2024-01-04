@@ -8,13 +8,6 @@ use super::*;
 #[derive(Debug, Clone)]
 pub struct HyperProxyConnector {
     pub(super) socket_manager: Arc<SocketManager>,
-    pub(super) reuse: bool,
-}
-
-impl HyperProxyConnector {
-    pub fn socket_manager(&self) -> &Arc<SocketManager> {
-        &self.socket_manager
-    }
 }
 
 impl Service<Uri> for HyperProxyConnector {
@@ -31,7 +24,7 @@ impl Service<Uri> for HyperProxyConnector {
     fn call(&mut self, _dst: Uri) -> Self::Future {
         let this = self.clone();
         Box::pin(async move {
-            let socket = this.socket_manager.acquire_http_socket(this.reuse).await?;
+            let socket = this.socket_manager.acquire_http_socket().await?;
             let (tx, rx) = socket.split();
             Ok(HyperProxyStream { tx, rx })
         })

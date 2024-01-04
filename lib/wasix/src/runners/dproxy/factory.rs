@@ -50,11 +50,7 @@ impl DProxyInstanceFactory {
         }
     }
 
-    pub async fn spin_up(
-        &self,
-        handler: &Handler,
-        _shard: Shard,
-    ) -> anyhow::Result<DProxyInstance> {
+    pub async fn spin_up(&self, handler: &Handler, shard: Shard) -> anyhow::Result<DProxyInstance> {
         // Get the runtime with its already wired local networking
         let runtime = handler.runtime.clone();
 
@@ -70,17 +66,16 @@ impl DProxyInstanceFactory {
             composite_networking.loopback_networking(),
             handler.config.proxy_connect_init_timeout,
             handler.config.proxy_connect_nominal_timeout,
-            handler.config.max_socket_pool_size,
         ));
         runtime = runtime.with_networking(Arc::new(composite_networking));
 
         // The connector uses the socket manager to open sockets to the instance
         let connector = HyperProxyConnectorBuilder::new(socket_manager.clone())
-            .with_reuse(true)
             .build()
             .await;
 
         // Now we run the actual instance under a WasiRunner
+        let this = self.clone();
         let pkg = handler.config.pkg.clone();
         let command_name = handler.command_name.clone();
         let runtime = Arc::new(runtime) as Arc<DynRuntime>;
@@ -89,8 +84,14 @@ impl DProxyInstanceFactory {
             .task_manager()
             .clone()
             .task_dedicated(Box::new(move || {
-                runner.run_command(&command_name, &pkg, runtime);
-            }));
+                if let Err(err) = runner.run_command(&command_name, &pkg, runtime) {
+                    tracing::error!("Instance Exited: {}", err);
+                } else {
+                    tracing::info!("Instance Exited: Nominal");
+                }
+                let mut state = this.state.lock().unwrap();
+                state.instance.remove(&shard);
+            }))?;
 
         // Return an instance
         Ok(DProxyInstance {

@@ -23,9 +23,9 @@ pub struct DProxyRunner {
 }
 
 impl DProxyRunner {
-    pub fn new(inner: WasiRunner, pkg: &BinaryPackage, uses: Vec<BinaryPackage>) -> Self {
+    pub fn new(inner: WasiRunner, pkg: &BinaryPackage) -> Self {
         Self {
-            config: Config::new(inner, pkg, uses),
+            config: Config::new(inner, pkg),
             factory: DProxyInstanceFactory::new(),
         }
     }
@@ -107,22 +107,18 @@ pub struct Config {
     pub(crate) inner: WasiRunner,
     pub(crate) addr: SocketAddr,
     pub(crate) pkg: BinaryPackage,
-    pub(crate) uses: Vec<BinaryPackage>,
     pub(crate) proxy_connect_init_timeout: Duration,
     pub(crate) proxy_connect_nominal_timeout: Duration,
-    pub(crate) max_socket_pool_size: usize,
 }
 
 impl Config {
-    pub fn new(inner: WasiRunner, pkg: &BinaryPackage, uses: Vec<BinaryPackage>) -> Self {
+    pub fn new(inner: WasiRunner, pkg: &BinaryPackage) -> Self {
         Self {
             inner,
             pkg: pkg.clone(),
-            uses,
             addr: ([127, 0, 0, 1], 8000).into(),
             proxy_connect_init_timeout: Duration::from_secs(30),
             proxy_connect_nominal_timeout: Duration::from_secs(30),
-            max_socket_pool_size: 50,
         }
     }
 
