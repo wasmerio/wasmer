@@ -35,6 +35,7 @@ mutation PublishPackageMutationChunked(
   ) {
     success
     packageVersion {
+      id
       version
     }
   }
