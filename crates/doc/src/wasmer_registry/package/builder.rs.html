@@ -1071,6 +1071,7 @@
 <a href="#1071" id="1071">1071</a>
 <a href="#1072" id="1072">1072</a>
 <a href="#1073" id="1073">1073</a>
+<a href="#1074" id="1074">1074</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::io::{<span class="self">self</span>, Write};
 <span class="kw">use </span>std::path::{Path, PathBuf};
 <span class="kw">use </span>std::time::Duration;
@@ -1136,7 +1137,7 @@
 
 <span class="kw">impl </span>Publish {
     <span class="doccomment">/// Executes `wasmer publish`
-    </span><span class="kw">pub fn </span>execute(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;(), anyhow::Error&gt; {
+    </span><span class="kw">pub async fn </span>execute(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;(), anyhow::Error&gt; {
         <span class="kw">let </span>input_path = <span class="kw">match </span><span class="self">self</span>.package_path.as_ref() {
             <span class="prelude-val">Some</span>(s) =&gt; std::env::current_dir()<span class="question-mark">?</span>.join(s),
             <span class="prelude-val">None </span>=&gt; std::env::current_dir()<span class="question-mark">?</span>,
@@ -1232,7 +1233,7 @@
             <span class="comment">// dry run: publish is done here
 
             </span><span class="macro">println!</span>(
-                <span class="string">&quot;Successfully published package `{}@{}`&quot;</span>,
+                <span class="string">&quot;🚀 Successfully published package `{}@{}`&quot;</span>,
                 manifest.package.name, manifest.package.version
             );
 
@@ -1267,7 +1268,8 @@
             <span class="self">self</span>.wait,
             <span class="self">self</span>.timeout,
         )
-    }
+        .<span class="kw">await
+    </span>}
 
     <span class="kw">fn </span>validation_policy(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Box&lt;<span class="kw">dyn </span>ValidationPolicy&gt; {
         <span class="kw">if </span><span class="self">self</span>.no_validate {

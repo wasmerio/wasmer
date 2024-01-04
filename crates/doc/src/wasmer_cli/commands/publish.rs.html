@@ -89,6 +89,7 @@
 <a href="#89" id="89">89</a>
 <a href="#90" id="90">90</a>
 <a href="#91" id="91">91</a>
+<a href="#92" id="92">92</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>anyhow::Context <span class="kw">as _</span>;
 <span class="kw">use </span>clap::Parser;
 <span class="kw">use </span>wasmer_registry::wasmer_env::WasmerEnv;
@@ -125,13 +126,14 @@
     ///
     /// Note that this is not the timeout for the entire publish process, but
     /// for each individual query to the registry during the publish flow.
-    </span><span class="attr">#[clap(long, default_value = <span class="string">&quot;30s&quot;</span>)]
+    </span><span class="attr">#[clap(long, default_value = <span class="string">&quot;2m&quot;</span>)]
     </span><span class="kw">pub </span>timeout: humantime::Duration,
 }
 
 <span class="kw">impl </span>Publish {
     <span class="doccomment">/// Executes `wasmer publish`
-    </span><span class="kw">pub fn </span>execute(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;(), anyhow::Error&gt; {
+    </span><span class="attr">#[tokio::main]
+    </span><span class="kw">pub async fn </span>execute(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;(), anyhow::Error&gt; {
         <span class="kw">let </span>token = <span class="self">self
             </span>.env
             .token()
@@ -149,7 +151,7 @@
             wait: <span class="self">self</span>.wait,
             timeout: <span class="self">self</span>.timeout.into(),
         };
-        publish.execute().map_err(on_error)<span class="question-mark">?</span>;
+        publish.execute().<span class="kw">await</span>.map_err(on_error)<span class="question-mark">?</span>;
 
         <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = invalidate_graphql_query_cache(<span class="kw-2">&amp;</span><span class="self">self</span>.env) {
             <span class="macro">tracing::warn!</span>(

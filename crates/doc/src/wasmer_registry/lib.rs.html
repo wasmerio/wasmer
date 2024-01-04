@@ -520,6 +520,8 @@
 <a href="#520" id="520">520</a>
 <a href="#521" id="521">521</a>
 <a href="#522" id="522">522</a>
+<a href="#523" id="523">523</a>
+<a href="#524" id="524">524</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! High-level interactions with the Wasmer backend.
 //!
 //! The GraphQL schema can be updated by running `make` in the Wasmer repo&#39;s
@@ -539,6 +541,8 @@
 <span class="kw">pub mod </span>login;
 <span class="kw">pub mod </span>package;
 <span class="kw">pub mod </span>publish;
+<span class="kw">pub mod </span>subscriptions;
+<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">mod </span>tokio_spawner;
 <span class="kw">pub mod </span>types;
 <span class="kw">pub mod </span>utils;
 <span class="kw">pub mod </span>wasmer_env;

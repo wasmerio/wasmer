@@ -289,24 +289,154 @@
 <a href="#289" id="289">289</a>
 <a href="#290" id="290">290</a>
 <a href="#291" id="291">291</a>
-</pre></div><pre class="rust"><code><span class="kw">use </span>anyhow::Context;
-<span class="kw">use </span>console::{style, Emoji};
-<span class="kw">use </span>graphql_client::GraphQLQuery;
-<span class="kw">use </span>indicatif::{ProgressBar, ProgressState, ProgressStyle};
-<span class="kw">use </span>std::fmt::Write;
-<span class="kw">use </span>std::io::BufRead;
-<span class="kw">use </span>std::path::PathBuf;
-<span class="kw">use </span>std::{collections::BTreeMap, time::Duration};
+<a href="#292" id="292">292</a>
+<a href="#293" id="293">293</a>
+<a href="#294" id="294">294</a>
+<a href="#295" id="295">295</a>
+<a href="#296" id="296">296</a>
+<a href="#297" id="297">297</a>
+<a href="#298" id="298">298</a>
+<a href="#299" id="299">299</a>
+<a href="#300" id="300">300</a>
+<a href="#301" id="301">301</a>
+<a href="#302" id="302">302</a>
+<a href="#303" id="303">303</a>
+<a href="#304" id="304">304</a>
+<a href="#305" id="305">305</a>
+<a href="#306" id="306">306</a>
+<a href="#307" id="307">307</a>
+<a href="#308" id="308">308</a>
+<a href="#309" id="309">309</a>
+<a href="#310" id="310">310</a>
+<a href="#311" id="311">311</a>
+<a href="#312" id="312">312</a>
+<a href="#313" id="313">313</a>
+<a href="#314" id="314">314</a>
+<a href="#315" id="315">315</a>
+<a href="#316" id="316">316</a>
+<a href="#317" id="317">317</a>
+<a href="#318" id="318">318</a>
+<a href="#319" id="319">319</a>
+<a href="#320" id="320">320</a>
+<a href="#321" id="321">321</a>
+<a href="#322" id="322">322</a>
+<a href="#323" id="323">323</a>
+<a href="#324" id="324">324</a>
+<a href="#325" id="325">325</a>
+<a href="#326" id="326">326</a>
+<a href="#327" id="327">327</a>
+<a href="#328" id="328">328</a>
+<a href="#329" id="329">329</a>
+<a href="#330" id="330">330</a>
+<a href="#331" id="331">331</a>
+<a href="#332" id="332">332</a>
+<a href="#333" id="333">333</a>
+<a href="#334" id="334">334</a>
+<a href="#335" id="335">335</a>
+<a href="#336" id="336">336</a>
+<a href="#337" id="337">337</a>
+<a href="#338" id="338">338</a>
+<a href="#339" id="339">339</a>
+<a href="#340" id="340">340</a>
+<a href="#341" id="341">341</a>
+<a href="#342" id="342">342</a>
+<a href="#343" id="343">343</a>
+<a href="#344" id="344">344</a>
+<a href="#345" id="345">345</a>
+<a href="#346" id="346">346</a>
+<a href="#347" id="347">347</a>
+<a href="#348" id="348">348</a>
+<a href="#349" id="349">349</a>
+<a href="#350" id="350">350</a>
+<a href="#351" id="351">351</a>
+<a href="#352" id="352">352</a>
+<a href="#353" id="353">353</a>
+<a href="#354" id="354">354</a>
+<a href="#355" id="355">355</a>
+<a href="#356" id="356">356</a>
+<a href="#357" id="357">357</a>
+<a href="#358" id="358">358</a>
+<a href="#359" id="359">359</a>
+<a href="#360" id="360">360</a>
+<a href="#361" id="361">361</a>
+<a href="#362" id="362">362</a>
+<a href="#363" id="363">363</a>
+<a href="#364" id="364">364</a>
+<a href="#365" id="365">365</a>
+<a href="#366" id="366">366</a>
+<a href="#367" id="367">367</a>
+<a href="#368" id="368">368</a>
+<a href="#369" id="369">369</a>
+<a href="#370" id="370">370</a>
+<a href="#371" id="371">371</a>
+<a href="#372" id="372">372</a>
+<a href="#373" id="373">373</a>
+<a href="#374" id="374">374</a>
+<a href="#375" id="375">375</a>
+<a href="#376" id="376">376</a>
+<a href="#377" id="377">377</a>
+<a href="#378" id="378">378</a>
+<a href="#379" id="379">379</a>
+<a href="#380" id="380">380</a>
+<a href="#381" id="381">381</a>
+<a href="#382" id="382">382</a>
+<a href="#383" id="383">383</a>
+<a href="#384" id="384">384</a>
+<a href="#385" id="385">385</a>
+<a href="#386" id="386">386</a>
+<a href="#387" id="387">387</a>
+<a href="#388" id="388">388</a>
+<a href="#389" id="389">389</a>
+<a href="#390" id="390">390</a>
+<a href="#391" id="391">391</a>
+<a href="#392" id="392">392</a>
+<a href="#393" id="393">393</a>
+<a href="#394" id="394">394</a>
+<a href="#395" id="395">395</a>
+<a href="#396" id="396">396</a>
+<a href="#397" id="397">397</a>
+<a href="#398" id="398">398</a>
+<a href="#399" id="399">399</a>
+<a href="#400" id="400">400</a>
+<a href="#401" id="401">401</a>
+<a href="#402" id="402">402</a>
+<a href="#403" id="403">403</a>
+<a href="#404" id="404">404</a>
+<a href="#405" id="405">405</a>
+<a href="#406" id="406">406</a>
+<a href="#407" id="407">407</a>
+<a href="#408" id="408">408</a>
+<a href="#409" id="409">409</a>
+<a href="#410" id="410">410</a>
+<a href="#411" id="411">411</a>
+<a href="#412" id="412">412</a>
+<a href="#413" id="413">413</a>
+<a href="#414" id="414">414</a>
+<a href="#415" id="415">415</a>
+</pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::graphql::queries::get_signed_url::GetSignedUrlUrl;
 
-<span class="kw">use </span><span class="kw">crate</span>::graphql::queries::get_signed_url::GetSignedUrlUrl;
+<span class="kw">use </span><span class="kw">crate</span>::graphql::subscriptions::package_version_ready::PackageVersionState;
 <span class="kw">use </span><span class="kw">crate</span>::graphql::{
     mutations::{publish_package_mutation_chunked, PublishPackageMutationChunked},
     queries::{get_signed_url, GetSignedUrl},
 };
+<span class="kw">use </span><span class="kw">crate</span>::subscriptions::subscribe_package_version_ready;
 <span class="kw">use crate</span>::{format_graphql, WasmerConfig};
+<span class="kw">use </span>anyhow::{Context, <span class="prelude-ty">Result</span>};
+<span class="kw">use </span>console::{style, Emoji};
+<span class="kw">use </span>futures_util::StreamExt;
+<span class="kw">use </span>graphql_client::GraphQLQuery;
+<span class="kw">use </span>indicatif::{MultiProgress, ProgressBar, ProgressState, ProgressStyle};
+<span class="kw">use </span>std::collections::BTreeMap;
+<span class="kw">use </span>std::fmt::Write;
+<span class="kw">use </span>std::io::BufRead;
+<span class="kw">use </span>std::path::PathBuf;
+<span class="kw">use </span>std::sync::{Arc, Mutex};
+<span class="kw">use </span>std::thread;
+<span class="kw">use </span>std::time::Duration;
 
-<span class="kw">static </span>UPLOAD: Emoji&lt;<span class="lifetime">&#39;_</span>, <span class="lifetime">&#39;_</span>&gt; = Emoji(<span class="string">&quot;⬆️  &quot;</span>, <span class="string">&quot;&quot;</span>);
-<span class="kw">static </span>PACKAGE: Emoji&lt;<span class="lifetime">&#39;_</span>, <span class="lifetime">&#39;_</span>&gt; = Emoji(<span class="string">&quot;📦  &quot;</span>, <span class="string">&quot;&quot;</span>);
+<span class="kw">static </span>UPLOAD: Emoji&lt;<span class="lifetime">&#39;_</span>, <span class="lifetime">&#39;_</span>&gt; = Emoji(<span class="string">&quot;⬆️ &quot;</span>, <span class="string">&quot;&quot;</span>);
+<span class="kw">static </span>PACKAGE: Emoji&lt;<span class="lifetime">&#39;_</span>, <span class="lifetime">&#39;_</span>&gt; = Emoji(<span class="string">&quot;📦&quot;</span>, <span class="string">&quot;&quot;</span>);
 
 <span class="attr">#[derive(Debug, Clone)]
 </span><span class="kw">pub enum </span>SignArchiveResult {
@@ -318,7 +448,7 @@
 }
 
 <span class="attr">#[allow(clippy::too_many_arguments)]
-</span><span class="kw">pub fn </span>try_chunked_uploading(
+</span><span class="kw">pub async fn </span>try_chunked_uploading(
     registry: <span class="prelude-ty">Option</span>&lt;String&gt;,
     token: <span class="prelude-ty">Option</span>&lt;String&gt;,
     package: <span class="kw-2">&amp;</span>wasmer_toml::Package,
@@ -345,11 +475,10 @@
     <span class="kw">if </span>!quiet {
         <span class="macro">println!</span>(<span class="string">&quot;{} {} Uploading...&quot;</span>, style(<span class="string">&quot;[1/2]&quot;</span>).bold().dim(), UPLOAD);
     }
-
     upload_package(<span class="kw-2">&amp;</span>signed_url.url, archive_path, archived_data_size, timeout)<span class="question-mark">?</span>;
 
     <span class="kw">if </span>!quiet {
-        <span class="macro">println!</span>(<span class="string">&quot;{} {}Publishing...&quot;</span>, style(<span class="string">&quot;[2/2]&quot;</span>).bold().dim(), PACKAGE);
+        <span class="macro">println!</span>(<span class="string">&quot;{} {} Publishing...&quot;</span>, style(<span class="string">&quot;[2/2]&quot;</span>).bold().dim(), PACKAGE);
     }
 
     <span class="kw">let </span>q =
@@ -370,12 +499,27 @@
             wait: <span class="prelude-val">Some</span>(wait),
         });
 
-    <span class="kw">let </span>_response: publish_package_mutation_chunked::ResponseData =
+    <span class="kw">let </span>response: publish_package_mutation_chunked::ResponseData =
         <span class="kw">crate</span>::graphql::execute_query_with_timeout(<span class="kw-2">&amp;</span>registry, <span class="kw-2">&amp;</span>token, timeout, <span class="kw-2">&amp;</span>q)<span class="question-mark">?</span>;
 
+    <span class="kw">if let </span><span class="prelude-val">Some</span>(pkg) = response.publish_package {
+        <span class="kw">if </span>!pkg.success {
+            <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;Could not publish package&quot;</span>));
+        }
+        <span class="kw">if </span>wait {
+            wait_for_package_version_to_become_ready(
+                <span class="kw-2">&amp;</span>registry,
+                <span class="kw-2">&amp;</span>token,
+                pkg.package_version.id,
+                quiet,
+            )
+            .<span class="kw">await</span><span class="question-mark">?</span>;
+        }
+    }
+
     <span class="macro">println!</span>(
-        <span class="string">&quot;Successfully published package `{}@{}`&quot;</span>,
-        package.name, package.version
+        <span class="string">&quot;🚀 Successfully published package `{}@{}`&quot;</span>,
+        package.name, package.version,
     );
 
     <span class="prelude-val">Ok</span>(())
@@ -578,6 +722,110 @@
     }
 
     pb.finish_and_clear();
+    <span class="prelude-val">Ok</span>(())
+}
+
+<span class="kw">struct </span>PackageVersionReadySharedState {
+    webc_generated: Arc&lt;Mutex&lt;<span class="prelude-ty">Option</span>&lt;bool&gt;&gt;&gt;,
+    bindings_generated: Arc&lt;Mutex&lt;<span class="prelude-ty">Option</span>&lt;bool&gt;&gt;&gt;,
+    native_exes_generated: Arc&lt;Mutex&lt;<span class="prelude-ty">Option</span>&lt;bool&gt;&gt;&gt;,
+}
+
+<span class="kw">impl </span>PackageVersionReadySharedState {
+    <span class="kw">fn </span>new() -&gt; <span class="self">Self </span>{
+        <span class="self">Self </span>{
+            webc_generated: Arc::new(Mutex::new(Option::None)),
+            bindings_generated: Arc::new(Mutex::new(Option::None)),
+            native_exes_generated: Arc::new(Mutex::new(Option::None)),
+        }
+    }
+}
+
+<span class="kw">fn </span>create_spinner(m: <span class="kw-2">&amp;</span>MultiProgress, message: String) -&gt; ProgressBar {
+    <span class="kw">let </span>spinner = m.add(ProgressBar::new_spinner());
+    spinner.set_message(message);
+    spinner.set_style(ProgressStyle::default_spinner());
+    spinner.enable_steady_tick(Duration::from_millis(<span class="number">100</span>));
+    spinner
+}
+
+<span class="kw">fn </span>show_spinners_while_waiting(state: <span class="kw-2">&amp;</span>PackageVersionReadySharedState) {
+    <span class="comment">// Clone shared state for threads
+    </span><span class="kw">let </span>(state_webc, state_bindings, state_native) = (
+        Arc::clone(<span class="kw-2">&amp;</span>state.webc_generated),
+        Arc::clone(<span class="kw-2">&amp;</span>state.bindings_generated),
+        Arc::clone(<span class="kw-2">&amp;</span>state.native_exes_generated),
+    );
+    <span class="kw">let </span>m = MultiProgress::new();
+
+    <span class="kw">let </span>webc_spinner = create_spinner(<span class="kw-2">&amp;</span>m, String::from(<span class="string">&quot;Generating WEBC...&quot;</span>));
+    <span class="kw">let </span>bindings_spinner = create_spinner(<span class="kw-2">&amp;</span>m, String::from(<span class="string">&quot;Generating language bindings...&quot;</span>));
+    <span class="kw">let </span>exe_spinner = create_spinner(<span class="kw-2">&amp;</span>m, String::from(<span class="string">&quot;Generating native executables...&quot;</span>));
+
+    <span class="kw">let </span>check_and_finish = |spinner: ProgressBar, state: Arc&lt;Mutex&lt;<span class="prelude-ty">Option</span>&lt;bool&gt;&gt;&gt;, name: String| {
+        thread::spawn(<span class="kw">move </span>|| <span class="kw">loop </span>{
+            <span class="kw">match </span>state.lock() {
+                <span class="prelude-val">Ok</span>(lock) =&gt; {
+                    <span class="kw">if </span>lock.is_some() {
+                        spinner.finish_with_message(<span class="macro">format!</span>(<span class="string">&quot;✅ {} generation complete&quot;</span>, name));
+                        <span class="kw">break</span>;
+                    }
+                }
+                <span class="prelude-val">Err</span>(<span class="kw">_</span>) =&gt; {
+                    <span class="kw">break</span>;
+                }
+            }
+            thread::sleep(Duration::from_millis(<span class="number">100</span>));
+        });
+    };
+    check_and_finish(webc_spinner, state_webc, String::from(<span class="string">&quot;WEBC&quot;</span>));
+    check_and_finish(
+        bindings_spinner,
+        state_bindings,
+        String::from(<span class="string">&quot;Language bindings&quot;</span>),
+    );
+    check_and_finish(
+        exe_spinner,
+        state_native,
+        String::from(<span class="string">&quot;Native executables&quot;</span>),
+    );
+}
+
+<span class="kw">async fn </span>wait_for_package_version_to_become_ready(
+    registry: <span class="kw-2">&amp;</span>str,
+    token: <span class="kw-2">&amp;</span>str,
+    package_version_id: <span class="kw">impl </span>AsRef&lt;str&gt;,
+    quiet: bool,
+) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
+    <span class="kw">let </span>(<span class="kw-2">mut </span>stream, _client) =
+        subscribe_package_version_ready(registry, token, package_version_id.as_ref()).<span class="kw">await</span><span class="question-mark">?</span>;
+
+    <span class="kw">let </span>state = PackageVersionReadySharedState::new();
+
+    <span class="kw">if </span>!quiet {
+        show_spinners_while_waiting(<span class="kw-2">&amp;</span>state);
+    }
+
+    <span class="kw">while let </span><span class="prelude-val">Some</span>(data) = stream.next().<span class="kw">await </span>{
+        <span class="kw">if let </span><span class="prelude-val">Some</span>(res_data) = data.unwrap().data {
+            <span class="kw">match </span>res_data.package_version_ready.state {
+                PackageVersionState::BINDINGS_GENERATED =&gt; {
+                    <span class="kw">let </span><span class="kw-2">mut </span>st = state.bindings_generated.lock().unwrap();
+                    <span class="kw-2">*</span>st = <span class="prelude-val">Some</span>(res_data.package_version_ready.success);
+                }
+                PackageVersionState::NATIVE_EXES_GENERATED =&gt; {
+                    <span class="kw">let </span><span class="kw-2">mut </span>st = state.native_exes_generated.lock().unwrap();
+                    <span class="kw-2">*</span>st = <span class="prelude-val">Some</span>(res_data.package_version_ready.success);
+                }
+                PackageVersionState::WEBC_GENERATED =&gt; {
+                    <span class="kw">let </span><span class="kw-2">mut </span>st = state.webc_generated.lock().unwrap();
+                    <span class="kw-2">*</span>st = <span class="prelude-val">Some</span>(res_data.package_version_ready.success);
+                }
+                PackageVersionState::Other(<span class="kw">_</span>) =&gt; {}
+            }
+        }
+    }
+
     <span class="prelude-val">Ok</span>(())
 }
 </code></pre></div></section></main></body></html>
