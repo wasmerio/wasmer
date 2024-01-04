@@ -2,7 +2,9 @@ use std::{path::PathBuf, str::FromStr};
 
 use clap::Parser;
 use wasmer_edge_cli::cmd::AsyncCliCommand;
-use wasmer_wasix::journal::{copy_journal, FilteredJournal, LogFileJournal, PrintingJournal};
+use wasmer_wasix::journal::{
+    copy_journal, FilteredJournalBuilder, LogFileJournal, PrintingJournal,
+};
 
 /// Flags that specify what should be filtered out
 #[derive(Debug, Clone, Copy, PartialOrd, Ord, PartialEq, Eq, Hash)]
@@ -88,17 +90,18 @@ impl CmdJournalFilter {
         let target = LogFileJournal::new(temp_path.clone())?;
 
         // Put a filter on the farget
-        let mut target = FilteredJournal::new(target);
+        let mut builder = FilteredJournalBuilder::new();
         for filter in self.filters {
-            target = match filter {
-                FilterOut::Memory => target.with_ignore_memory(true),
-                FilterOut::Threads => target.with_ignore_threads(true),
-                FilterOut::FileSystem => target.with_ignore_fs(true),
-                FilterOut::Core => target.with_ignore_core(true),
-                FilterOut::Snapshots => target.with_ignore_snapshots(true),
-                FilterOut::Networking => target.with_ignore_networking(true),
+            builder = match filter {
+                FilterOut::Memory => builder.with_ignore_memory(true),
+                FilterOut::Threads => builder.with_ignore_threads(true),
+                FilterOut::FileSystem => builder.with_ignore_fs(true),
+                FilterOut::Core => builder.with_ignore_core(true),
+                FilterOut::Snapshots => builder.with_ignore_snapshots(true),
+                FilterOut::Networking => builder.with_ignore_networking(true),
             }
         }
+        let target = builder.build(target);
 
         // Copy the journal over and rename the temp file to the target file
         copy_journal(&source, &target)?;

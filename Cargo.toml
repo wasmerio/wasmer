@@ -65,6 +65,7 @@ members = [
     "lib/wasix",
     "lib/wasix-http-client",
     "lib/wasm-interface",
+    "lib/journal",
     "tests/integration/cli",
     "tests/integration/ios",
     "tests/lib/compiler-test-derive",

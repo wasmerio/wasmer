@@ -9,7 +9,10 @@ impl JournalEffector {
         exit_code: Option<ExitCode>,
     ) -> anyhow::Result<()> {
         env.active_journal()?
-            .write(JournalEntry::CloseThreadV1 { id, exit_code })
+            .write(JournalEntry::CloseThreadV1 {
+                id: id.raw(),
+                exit_code,
+            })
             .map_err(map_snapshot_err)?;
         Ok(())
     }

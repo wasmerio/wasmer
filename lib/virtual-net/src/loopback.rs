@@ -4,13 +4,12 @@ use std::sync::Mutex;
 use std::task::{Context, Poll, Waker};
 use std::{collections::HashMap, sync::Arc};
 
+use crate::tcp_pair::TcpSocketHalf;
 use crate::{
     InterestHandler, InterestType, IpAddr, IpCidr, Ipv4Addr, Ipv6Addr, NetworkError,
     VirtualIoSource, VirtualNetworking, VirtualTcpListener, VirtualTcpSocket,
 };
 use derivative::Derivative;
-
-use super::TcpSocketHalf;
 
 const DEFAULT_MAX_BUFFER_SIZE: usize = 1_048_576;
 

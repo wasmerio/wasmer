@@ -1,7 +1,7 @@
 use std::io;
 
 use hyper::client::connect::Connected;
-use virtual_net::{TcpSocketHalfRx, TcpSocketHalfTx};
+use virtual_net::tcp_pair::{TcpSocketHalfRx, TcpSocketHalfTx};
 
 use super::*;
 

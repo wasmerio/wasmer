@@ -11,7 +11,7 @@ use tokio::sync::mpsc::{
     self,
     error::{TryRecvError, TrySendError},
 };
-use virtual_net::{LoopbackNetworking, TcpSocketHalf};
+use virtual_net::{tcp_pair::TcpSocketHalf, LoopbackNetworking};
 
 #[derive(Debug)]
 pub struct SocketManager {

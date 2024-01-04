@@ -9,7 +9,7 @@ use std::{pin::Pin, time::Duration};
 use bytes::Bytes;
 use derivative::Derivative;
 use futures::future::BoxFuture;
-use futures::Future;
+use futures::{Future, TryFutureExt};
 use wasmer::{AsStoreMut, AsStoreRef, Memory, MemoryType, Module, Store, StoreMut, StoreRef};
 use wasmer_wasix_types::wasi::{Errno, ExitCode};
 
@@ -81,6 +81,7 @@ pub struct TaskWasm<'a, 'b> {
     pub trigger: Option<Box<WasmResumeTrigger>>,
     pub update_layout: bool,
 }
+
 impl<'a, 'b> TaskWasm<'a, 'b> {
     pub fn new(run: Box<TaskWasmRun>, env: WasiEnv, module: Module, update_layout: bool) -> Self {
         let shared_memory = module.imports().memories().next().map(|a| *a.ty());
@@ -404,6 +405,14 @@ pub trait VirtualTaskManagerExt {
     fn spawn_and_block_on<A>(&self, task: impl Future<Output = A> + Send + 'static) -> A
     where
         A: Send + 'static;
+
+    fn spawn_await<O, F>(
+        &self,
+        f: F,
+    ) -> Box<dyn Future<Output = Result<O, Box<dyn std::error::Error>>> + Unpin + Send + 'static>
+    where
+        O: Send + 'static,
+        F: FnOnce() -> O + Send + 'static;
 }
 
 impl<D, T> VirtualTaskManagerExt for D
@@ -424,5 +433,24 @@ where
         });
         self.task_shared(Box::new(move || work)).unwrap();
         InlineWaker::block_on(work_rx.recv()).unwrap()
+    }
+
+    fn spawn_await<O, F>(
+        &self,
+        f: F,
+    ) -> Box<dyn Future<Output = Result<O, Box<dyn std::error::Error>>> + Unpin + Send + 'static>
+    where
+        O: Send + 'static,
+        F: FnOnce() -> O + Send + 'static,
+    {
+        let (sender, receiver) = ::tokio::sync::oneshot::channel();
+
+        self.task_dedicated(Box::new(move || {
+            let result = f();
+            let _ = sender.send(result);
+        }))
+        .unwrap();
+
+        Box::new(receiver.map_err(|e| Box::new(e).into()))
     }
 }

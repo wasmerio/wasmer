@@ -16,11 +16,9 @@ pub struct FilteredJournal {
     rx: FilteredJournalRx,
 }
 
-#[derive(Derivative)]
-#[derivative(Debug)]
-pub struct FilteredJournalTx {
-    #[derivative(Debug = "ignore")]
-    inner: Box<DynWritableJournal>,
+/// Represents what will be filtered by the filtering process
+#[derive(Debug)]
+struct FilteredJournalConfig {
     filter_memory: bool,
     filter_threads: bool,
     filter_fs: bool,
@@ -32,6 +30,46 @@ pub struct FilteredJournalTx {
     event_index: AtomicUsize,
 }
 
+impl Default for FilteredJournalConfig {
+    fn default() -> Self {
+        Self {
+            filter_memory: false,
+            filter_threads: false,
+            filter_fs: false,
+            filter_stdio: false,
+            filter_core: false,
+            filter_snapshots: false,
+            filter_net: false,
+            filter_events: None,
+            event_index: AtomicUsize::new(0),
+        }
+    }
+}
+
+impl Clone for FilteredJournalConfig {
+    fn clone(&self) -> Self {
+        Self {
+            filter_memory: self.filter_memory,
+            filter_threads: self.filter_threads,
+            filter_fs: self.filter_fs,
+            filter_stdio: self.filter_stdio,
+            filter_core: self.filter_core,
+            filter_snapshots: self.filter_snapshots,
+            filter_net: self.filter_net,
+            filter_events: self.filter_events.clone(),
+            event_index: AtomicUsize::new(self.event_index.load(Ordering::SeqCst)),
+        }
+    }
+}
+
+#[derive(Derivative)]
+#[derivative(Debug)]
+pub struct FilteredJournalTx {
+    #[derivative(Debug = "ignore")]
+    inner: Box<DynWritableJournal>,
+    config: FilteredJournalConfig,
+}
+
 #[derive(Derivative)]
 #[derivative(Debug)]
 pub struct FilteredJournalRx {
@@ -39,25 +77,114 @@ pub struct FilteredJournalRx {
     inner: Box<DynReadableJournal>,
 }
 
+/// Constructs a filter with a set of parameters that will be filtered on
+#[derive(Debug, Default)]
+pub struct FilteredJournalBuilder {
+    config: FilteredJournalConfig,
+}
+
+impl FilteredJournalBuilder {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn build<J>(self, inner: J) -> FilteredJournal
+    where
+        J: Journal,
+    {
+        FilteredJournal::new(inner, self.config)
+    }
+
+    pub fn with_ignore_memory(mut self, val: bool) -> Self {
+        self.config.filter_memory = val;
+        self
+    }
+
+    pub fn with_ignore_threads(mut self, val: bool) -> Self {
+        self.config.filter_threads = val;
+        self
+    }
+
+    pub fn with_ignore_fs(mut self, val: bool) -> Self {
+        self.config.filter_fs = val;
+        self
+    }
+
+    pub fn with_ignore_stdio(mut self, val: bool) -> Self {
+        self.config.filter_stdio = val;
+        self
+    }
+
+    pub fn with_ignore_core(mut self, val: bool) -> Self {
+        self.config.filter_core = val;
+        self
+    }
+
+    pub fn with_ignore_snapshots(mut self, val: bool) -> Self {
+        self.config.filter_snapshots = val;
+        self
+    }
+
+    pub fn with_ignore_networking(mut self, val: bool) -> Self {
+        self.config.filter_net = val;
+        self
+    }
+
+    pub fn with_filter_events(mut self, events: HashSet<usize>) -> Self {
+        self.config.filter_events = Some(events);
+        self
+    }
+
+    pub fn add_event_to_whitelist(&mut self, event_index: usize) {
+        if let Some(filter) = self.config.filter_events.as_mut() {
+            filter.insert(event_index);
+        }
+    }
+
+    pub fn set_ignore_memory(&mut self, val: bool) -> &mut Self {
+        self.config.filter_memory = val;
+        self
+    }
+
+    pub fn set_ignore_threads(&mut self, val: bool) -> &mut Self {
+        self.config.filter_threads = val;
+        self
+    }
+
+    pub fn set_ignore_fs(&mut self, val: bool) -> &mut Self {
+        self.config.filter_fs = val;
+        self
+    }
+
+    pub fn set_ignore_stdio(&mut self, val: bool) -> &mut Self {
+        self.config.filter_stdio = val;
+        self
+    }
+
+    pub fn set_ignore_core(&mut self, val: bool) -> &mut Self {
+        self.config.filter_core = val;
+        self
+    }
+
+    pub fn set_ignore_snapshots(&mut self, val: bool) -> &mut Self {
+        self.config.filter_snapshots = val;
+        self
+    }
+
+    pub fn set_ignore_networking(&mut self, val: bool) -> &mut Self {
+        self.config.filter_net = val;
+        self
+    }
+}
+
 impl FilteredJournal {
-    pub fn new<J>(inner: J) -> Self
+    fn new<J>(inner: J, config: FilteredJournalConfig) -> Self
     where
         J: Journal,
     {
         let (tx, rx) = inner.split();
         Self {
-            tx: FilteredJournalTx {
-                inner: tx,
-                filter_memory: false,
-                filter_threads: false,
-                filter_fs: false,
-                filter_stdio: false,
-                filter_core: false,
-                filter_snapshots: false,
-                filter_net: false,
-                filter_events: None,
-                event_index: AtomicUsize::new(0),
-            },
+            tx: FilteredJournalTx { inner: tx, config },
             rx: FilteredJournalRx { inner: rx },
         }
     }
@@ -66,103 +193,12 @@ impl FilteredJournal {
     where
         J: Journal,
     {
+        let config = self.tx.config.clone();
         let (tx, rx) = inner.split();
         Self {
-            tx: FilteredJournalTx {
-                inner: tx,
-                filter_memory: self.tx.filter_memory,
-                filter_threads: self.tx.filter_threads,
-                filter_fs: self.tx.filter_fs,
-                filter_stdio: self.tx.filter_stdio,
-                filter_core: self.tx.filter_core,
-                filter_snapshots: self.tx.filter_snapshots,
-                filter_net: self.tx.filter_net,
-                filter_events: self.tx.filter_events.clone(),
-                event_index: AtomicUsize::new(self.tx.event_index.load(Ordering::SeqCst)),
-            },
+            tx: FilteredJournalTx { config, inner: tx },
             rx: FilteredJournalRx { inner: rx },
         }
-    }
-
-    pub fn with_ignore_memory(mut self, val: bool) -> Self {
-        self.tx.filter_memory = val;
-        self
-    }
-
-    pub fn with_ignore_threads(mut self, val: bool) -> Self {
-        self.tx.filter_threads = val;
-        self
-    }
-
-    pub fn with_ignore_fs(mut self, val: bool) -> Self {
-        self.tx.filter_fs = val;
-        self
-    }
-
-    pub fn with_ignore_stdio(mut self, val: bool) -> Self {
-        self.tx.filter_stdio = val;
-        self
-    }
-
-    pub fn with_ignore_core(mut self, val: bool) -> Self {
-        self.tx.filter_core = val;
-        self
-    }
-
-    pub fn with_ignore_snapshots(mut self, val: bool) -> Self {
-        self.tx.filter_snapshots = val;
-        self
-    }
-
-    pub fn with_ignore_networking(mut self, val: bool) -> Self {
-        self.tx.filter_net = val;
-        self
-    }
-
-    pub fn with_filter_events(mut self, events: HashSet<usize>) -> Self {
-        self.tx.filter_events = Some(events);
-        self
-    }
-
-    pub fn add_event_to_whitelist(&mut self, event_index: usize) {
-        if let Some(filter) = self.tx.filter_events.as_mut() {
-            filter.insert(event_index);
-        }
-    }
-
-    pub fn set_ignore_memory(&mut self, val: bool) -> &mut Self {
-        self.tx.filter_memory = val;
-        self
-    }
-
-    pub fn set_ignore_threads(&mut self, val: bool) -> &mut Self {
-        self.tx.filter_threads = val;
-        self
-    }
-
-    pub fn set_ignore_fs(&mut self, val: bool) -> &mut Self {
-        self.tx.filter_fs = val;
-        self
-    }
-
-    pub fn set_ignore_stdio(&mut self, val: bool) -> &mut Self {
-        self.tx.filter_stdio = val;
-        self
-    }
-
-    pub fn set_ignore_core(&mut self, val: bool) -> &mut Self {
-        self.tx.filter_core = val;
-        self
-    }
-
-    pub fn set_ignore_snapshots(&mut self, val: bool) -> &mut Self {
-        self.tx.filter_snapshots = val;
-        self
-    }
-
-    pub fn set_ignore_networking(&mut self, val: bool) -> &mut Self {
-        self.tx.filter_net = val;
-        self
     }
 
     pub fn into_inner(self) -> RecombinedJournal {
@@ -172,8 +208,8 @@ impl FilteredJournal {
 
 impl WritableJournal for FilteredJournalTx {
     fn write<'a>(&'a self, entry: JournalEntry<'a>) -> anyhow::Result<u64> {
-        let event_index = self.event_index.fetch_add(1, Ordering::SeqCst);
-        if let Some(events) = self.filter_events.as_ref() {
+        let event_index = self.config.event_index.fetch_add(1, Ordering::SeqCst);
+        if let Some(events) = self.config.filter_events.as_ref() {
             if !events.contains(&event_index) {
                 return Ok(0);
             }
@@ -186,19 +222,19 @@ impl WritableJournal for FilteredJournalTx {
             | JournalEntry::EpollCreateV1 { .. }
             | JournalEntry::EpollCtlV1 { .. }
             | JournalEntry::TtySetV1 { .. } => {
-                if self.filter_core {
+                if self.config.filter_core {
                     return Ok(0);
                 }
                 entry
             }
             JournalEntry::SetThreadV1 { .. } | JournalEntry::CloseThreadV1 { .. } => {
-                if self.filter_threads {
+                if self.config.filter_threads {
                     return Ok(0);
                 }
                 entry
             }
             JournalEntry::UpdateMemoryRegionV1 { .. } => {
-                if self.filter_memory {
+                if self.config.filter_memory {
                     return Ok(0);
                 }
                 entry
@@ -217,10 +253,10 @@ impl WritableJournal for FilteredJournalTx {
             | JournalEntry::FileDescriptorSetRightsV1 { fd, .. }
             | JournalEntry::FileDescriptorSetTimesV1 { fd, .. }
             | JournalEntry::FileDescriptorSetSizeV1 { fd, .. } => {
-                if self.filter_stdio && fd <= 2 {
+                if self.config.filter_stdio && fd <= 2 {
                     return Ok(0);
                 }
-                if self.filter_fs {
+                if self.config.filter_fs {
                     return Ok(0);
                 }
                 entry
@@ -235,13 +271,13 @@ impl WritableJournal for FilteredJournalTx {
             | JournalEntry::ChangeDirectoryV1 { .. }
             | JournalEntry::CreatePipeV1 { .. }
             | JournalEntry::CreateEventV1 { .. } => {
-                if self.filter_fs {
+                if self.config.filter_fs {
                     return Ok(0);
                 }
                 entry
             }
             JournalEntry::SnapshotV1 { .. } => {
-                if self.filter_snapshots {
+                if self.config.filter_snapshots {
                     return Ok(0);
                 }
                 entry
@@ -272,7 +308,7 @@ impl WritableJournal for FilteredJournalTx {
             | JournalEntry::SocketSetOptSizeV1 { .. }
             | JournalEntry::SocketSetOptTimeV1 { .. }
             | JournalEntry::SocketShutdownV1 { .. } => {
-                if self.filter_net {
+                if self.config.filter_net {
                     return Ok(0);
                 }
                 entry

@@ -70,7 +70,6 @@ pub struct BinaryPackage {
     pub commands: Vec<BinaryPackageCommand>,
     pub uses: Vec<String>,
     pub version: Version,
-    pub module_memory_footprint: u64,
     pub file_system_memory_footprint: u64,
 }
 

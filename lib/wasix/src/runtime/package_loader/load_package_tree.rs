@@ -45,10 +45,6 @@ pub async fn load_package_tree(
         commands(&resolution.package.commands, &containers, resolution)?;
 
     let file_system_memory_footprint = count_file_system(&fs, Path::new("/"));
-    let atoms_in_use: HashSet<_> = commands.iter().map(|cmd| cmd.atom()).collect();
-    let module_memory_footprint = atoms_in_use
-        .iter()
-        .fold(0, |footprint, atom| footprint + atom.len() as u64);
 
     let loaded = BinaryPackage {
         package_name: root.package_name.clone(),
@@ -64,7 +60,6 @@ pub async fn load_package_tree(
         webc_fs: Arc::new(fs),
         commands,
         uses: Vec::new(),
-        module_memory_footprint,
         file_system_memory_footprint,
     };
 

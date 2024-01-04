@@ -319,8 +319,8 @@ impl Run {
         runtime: Arc<dyn Runtime + Send + Sync>,
     ) -> Result<(), Error> {
         let mut inner = self.build_wasi_runner(&runtime)?;
-        let mut runner = wasmer_wasix::runners::dproxy::DProxyRunner::new(inner, uses);
-        runner.run(command_name, pkg, runtime)
+        let mut runner = wasmer_wasix::runners::dproxy::DProxyRunner::new(inner, pkg, uses);
+        runner.run_command(command_name, pkg, runtime)
     }
 
     fn run_emscripten(

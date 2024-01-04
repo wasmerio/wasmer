@@ -271,7 +271,7 @@ mod tests {
             .unwrap();
         journal
             .write(JournalEntry::SetThreadV1 {
-                id: 1.into(),
+                id: 1,
                 call_stack: vec![11; 116].into(),
                 memory_stack: vec![22; 16].into(),
                 store_data: vec![33; 136].into(),
@@ -293,7 +293,7 @@ mod tests {
         assert_eq!(
             event2,
             Some(JournalEntry::SetThreadV1 {
-                id: 1.into(),
+                id: 1,
                 call_stack: vec![11; 116].into(),
                 memory_stack: vec![22; 16].into(),
                 store_data: vec![33; 136].into(),
@@ -336,7 +336,7 @@ mod tests {
         assert_eq!(
             event2,
             Some(JournalEntry::SetThreadV1 {
-                id: 1.into(),
+                id: 1,
                 call_stack: vec![11; 116].into(),
                 memory_stack: vec![22; 16].into(),
                 store_data: vec![33; 136].into(),
@@ -376,7 +376,7 @@ mod tests {
         assert_eq!(
             event2,
             Some(JournalEntry::SetThreadV1 {
-                id: 1.into(),
+                id: 1,
                 call_stack: vec![11; 116].into(),
                 memory_stack: vec![22; 16].into(),
                 store_data: vec![33; 136].into(),

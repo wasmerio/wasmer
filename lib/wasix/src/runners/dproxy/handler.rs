@@ -25,7 +25,7 @@ pub struct SharedState {
 
 /// Handler which will process DProxy requests
 #[derive(Clone, Debug)]
-pub(crate) struct Handler(Arc<SharedState>);
+pub struct Handler(Arc<SharedState>);
 
 impl Handler {
     pub(crate) fn new(

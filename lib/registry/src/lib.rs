@@ -17,6 +17,8 @@ pub mod interface;
 pub mod login;
 pub mod package;
 pub mod publish;
+pub mod subscriptions;
+pub(crate) mod tokio_spawner;
 pub mod types;
 pub mod utils;
 pub mod wasmer_env;

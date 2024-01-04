@@ -161,6 +161,33 @@ pub enum TimeType {
     Linger,
 }
 
+impl From<TimeType> for wasmer_journal::SocketOptTimeType {
+    fn from(value: TimeType) -> Self {
+        match value {
+            TimeType::ReadTimeout => Self::ReadTimeout,
+            TimeType::WriteTimeout => Self::WriteTimeout,
+            TimeType::AcceptTimeout => Self::AcceptTimeout,
+            TimeType::ConnectTimeout => Self::ConnectTimeout,
+            TimeType::BindTimeout => Self::BindTimeout,
+            TimeType::Linger => Self::Linger,
+        }
+    }
+}
+
+impl From<wasmer_journal::SocketOptTimeType> for TimeType {
+    fn from(value: wasmer_journal::SocketOptTimeType) -> Self {
+        use wasmer_journal::SocketOptTimeType;
+        match value {
+            SocketOptTimeType::ReadTimeout => TimeType::ReadTimeout,
+            SocketOptTimeType::WriteTimeout => TimeType::WriteTimeout,
+            SocketOptTimeType::AcceptTimeout => TimeType::AcceptTimeout,
+            SocketOptTimeType::ConnectTimeout => TimeType::ConnectTimeout,
+            SocketOptTimeType::BindTimeout => TimeType::BindTimeout,
+            SocketOptTimeType::Linger => TimeType::Linger,
+        }
+    }
+}
+
 #[derive(Debug)]
 //#[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 pub(crate) struct InodeSocketProtected {

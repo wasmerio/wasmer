@@ -27,17 +27,16 @@ use rkyv::{Archive, CheckBytes, Deserialize as RkyvDeserialize, Serialize as Rky
 pub use server::{RemoteNetworkingServer, RemoteNetworkingServerDriver};
 use std::fmt;
 use std::mem::MaybeUninit;
-pub(crate) use std::net::IpAddr;
-pub(crate) use std::net::Ipv4Addr;
-pub(crate) use std::net::Ipv6Addr;
+use std::net::IpAddr;
+use std::net::Ipv4Addr;
+use std::net::Ipv6Addr;
 use std::net::Shutdown;
-pub(crate) use std::net::SocketAddr;
+use std::net::SocketAddr;
 use std::pin::Pin;
 use std::sync::Arc;
 use std::task::Context;
 use std::task::Poll;
-pub(crate) use std::time::Duration;
-pub use tcp_pair::{TcpSocketHalf, TcpSocketHalfRx, TcpSocketHalfTx};
+use std::time::Duration;
 use thiserror::Error;
 #[cfg(feature = "tokio")]
 use tokio::io::AsyncRead;

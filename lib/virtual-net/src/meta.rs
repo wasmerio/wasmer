@@ -1,15 +1,16 @@
+use std::net::IpAddr;
+use std::net::Ipv4Addr;
+use std::net::Ipv6Addr;
+use std::net::SocketAddr;
+use std::time::Duration;
+
 use serde::{Deserialize, Serialize};
 
-pub(crate) use super::Duration;
-pub(crate) use super::IpAddr;
-pub(crate) use super::IpCidr;
-pub(crate) use super::IpRoute;
-pub(crate) use super::Ipv4Addr;
-pub(crate) use super::Ipv6Addr;
-pub(crate) use super::NetworkError;
-pub(crate) use super::SocketAddr;
-pub(crate) use super::SocketStatus;
-pub(crate) use super::StreamSecurity;
+pub use super::IpCidr;
+pub use super::IpRoute;
+pub use super::NetworkError;
+pub use super::SocketStatus;
+pub use super::StreamSecurity;
 
 /// Represents a socket ID
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord, Hash)]

@@ -31,7 +31,7 @@ impl Output {
     pub fn initialize_logging(&self) {
         let fmt_layer = fmt::layer()
             .with_target(true)
-            .with_span_events(fmt::format::FmtSpan::CLOSE | fmt::format::FmtSpan::ENTER)
+            .with_span_events(fmt::format::FmtSpan::CLOSE)
             .with_ansi(self.should_emit_colors())
             .with_thread_ids(true)
             .with_writer(std::io::stderr)

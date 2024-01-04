@@ -91,5 +91,15 @@ mod thread_exit;
 #[cfg(feature = "journal")]
 mod thread_state;
 
+/// The journal effector is an adapter that will be removed in a future refactor.
+/// Its purpose is to put the code that does mappings from WASM memory through its
+/// abstractions into concrete journal objects that can be stored. Instead of this
+/// what should be done is that the syscalls themselves can be represented as a
+/// strongly typed object that can be passed directly to the journal but in order
+/// to do this we require an extensive refactoring of the WASIX syscalls which
+/// is not in scope at this time.
+///
+/// Separating this out now makes it easier to eliminate later without hurting the
+/// journal event abstraction through leaking abstraction layers.
 #[derive(Debug, Clone)]
 pub struct JournalEffector {}

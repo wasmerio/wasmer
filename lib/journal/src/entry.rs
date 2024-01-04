@@ -1,4 +1,3 @@
-use super::base64;
 use derivative::Derivative;
 use serde::{Deserialize, Serialize};
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
@@ -12,12 +11,9 @@ use wasmer_wasix_types::wasi::{
     Sockoption, Socktype, Timestamp, Tty, Whence,
 };
 
-use virtual_fs::Fd;
+use crate::{base64, SnapshotTrigger};
 
-use crate::net::socket::TimeType;
-use crate::WasiThreadId;
-
-use super::SnapshotTrigger;
+type Fd = u32;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -78,30 +74,6 @@ pub enum SocketOptTimeType {
     BindTimeout,
     Linger,
 }
-impl From<TimeType> for SocketOptTimeType {
-    fn from(value: TimeType) -> Self {
-        match value {
-            TimeType::ReadTimeout => Self::ReadTimeout,
-            TimeType::WriteTimeout => Self::WriteTimeout,
-            TimeType::AcceptTimeout => Self::AcceptTimeout,
-            TimeType::ConnectTimeout => Self::ConnectTimeout,
-            TimeType::BindTimeout => Self::BindTimeout,
-            TimeType::Linger => Self::Linger,
-        }
-    }
-}
-impl From<SocketOptTimeType> for TimeType {
-    fn from(value: SocketOptTimeType) -> Self {
-        match value {
-            SocketOptTimeType::ReadTimeout => Self::ReadTimeout,
-            SocketOptTimeType::WriteTimeout => Self::WriteTimeout,
-            SocketOptTimeType::AcceptTimeout => Self::AcceptTimeout,
-            SocketOptTimeType::ConnectTimeout => Self::ConnectTimeout,
-            SocketOptTimeType::BindTimeout => Self::BindTimeout,
-            SocketOptTimeType::Linger => Self::Linger,
-        }
-    }
-}
 
 /// Represents a log entry in a snapshot log stream that represents the total
 /// state of a WASM process at a point in time.
@@ -123,7 +95,7 @@ pub enum JournalEntry<'a> {
         exit_code: Option<ExitCode>,
     },
     SetThreadV1 {
-        id: WasiThreadId,
+        id: u32,
         #[derivative(Debug = "ignore")]
         #[serde(with = "base64")]
         call_stack: Cow<'a, [u8]>,
@@ -136,7 +108,7 @@ pub enum JournalEntry<'a> {
         is_64bit: bool,
     },
     CloseThreadV1 {
-        id: WasiThreadId,
+        id: u32,
         exit_code: Option<ExitCode>,
     },
     FileDescriptorSeekV1 {

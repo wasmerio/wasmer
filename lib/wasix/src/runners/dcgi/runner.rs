@@ -1,13 +1,14 @@
 use std::{net::SocketAddr, sync::Arc};
 
 use anyhow::Error;
+use wasmer_journal::FilteredJournalBuilder;
 use wcgi_host::CgiDialect;
 use webc::metadata::Command;
 
 use crate::{
     bin_factory::BinaryPackage,
     capabilities::Capabilities,
-    journal::{DynJournal, FilteredJournal},
+    journal::DynJournal,
     runners::{
         dcgi::handler::Handler,
         wcgi::{self, NoOpWcgiCallbacks, WcgiRunner},
@@ -77,13 +78,14 @@ impl crate::runners::Runner for DcgiRunner {
             .clone()
             .into_iter()
             .map(|journal| {
-                let journal = FilteredJournal::new(journal)
+                let journal = FilteredJournalBuilder::new()
                     .with_ignore_memory(true)
                     .with_ignore_threads(true)
                     .with_ignore_core(true)
                     .with_ignore_snapshots(true)
                     .with_ignore_networking(true)
-                    .with_ignore_stdio(true);
+                    .with_ignore_stdio(true)
+                    .build(journal);
                 Arc::new(journal) as Arc<DynJournal>
             })
             .collect::<Vec<_>>();
