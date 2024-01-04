@@ -1,4 +1,4 @@
-use virtual_net::Ipv6Addr;
+use std::net::Ipv6Addr;
 
 use super::*;
 

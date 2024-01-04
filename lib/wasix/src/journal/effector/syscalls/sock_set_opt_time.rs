@@ -1,4 +1,4 @@
-use virtual_net::Duration;
+use std::time::Duration;
 
 use crate::net::socket::TimeType;
 

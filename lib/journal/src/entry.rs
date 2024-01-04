@@ -1,9 +1,10 @@
 use derivative::Derivative;
 use serde::{Deserialize, Serialize};
+use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 use std::net::{Shutdown, SocketAddr};
-use std::time::SystemTime;
+use std::time::{Duration, SystemTime};
 use std::{borrow::Cow, ops::Range};
-use virtual_net::{Duration, IpAddr, IpCidr, Ipv4Addr, Ipv6Addr, StreamSecurity};
+use virtual_net::{IpCidr, StreamSecurity};
 use wasmer_wasix_types::wasi::{
     Addressfamily, Advice, EpollCtl, EpollEventCtl, EventFdFlags, ExitCode, Fdflags, FileDelta,
     Filesize, Fstflags, LookupFlags, Oflags, Rights, SiFlags, Snapshot0Clockid, SockProto,
