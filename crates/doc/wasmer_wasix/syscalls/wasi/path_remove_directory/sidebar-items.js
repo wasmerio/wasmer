@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["path_remove_directory"],"static":["META","__CALLSITE"]};
+window.SIDEBAR_ITEMS = {"fn":["path_remove_directory","path_remove_directory_internal"],"static":["META","__CALLSITE"]};

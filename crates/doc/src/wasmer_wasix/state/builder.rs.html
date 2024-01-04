@@ -1183,77 +1183,6 @@
 <a href="#1183" id="1183">1183</a>
 <a href="#1184" id="1184">1184</a>
 <a href="#1185" id="1185">1185</a>
-<a href="#1186" id="1186">1186</a>
-<a href="#1187" id="1187">1187</a>
-<a href="#1188" id="1188">1188</a>
-<a href="#1189" id="1189">1189</a>
-<a href="#1190" id="1190">1190</a>
-<a href="#1191" id="1191">1191</a>
-<a href="#1192" id="1192">1192</a>
-<a href="#1193" id="1193">1193</a>
-<a href="#1194" id="1194">1194</a>
-<a href="#1195" id="1195">1195</a>
-<a href="#1196" id="1196">1196</a>
-<a href="#1197" id="1197">1197</a>
-<a href="#1198" id="1198">1198</a>
-<a href="#1199" id="1199">1199</a>
-<a href="#1200" id="1200">1200</a>
-<a href="#1201" id="1201">1201</a>
-<a href="#1202" id="1202">1202</a>
-<a href="#1203" id="1203">1203</a>
-<a href="#1204" id="1204">1204</a>
-<a href="#1205" id="1205">1205</a>
-<a href="#1206" id="1206">1206</a>
-<a href="#1207" id="1207">1207</a>
-<a href="#1208" id="1208">1208</a>
-<a href="#1209" id="1209">1209</a>
-<a href="#1210" id="1210">1210</a>
-<a href="#1211" id="1211">1211</a>
-<a href="#1212" id="1212">1212</a>
-<a href="#1213" id="1213">1213</a>
-<a href="#1214" id="1214">1214</a>
-<a href="#1215" id="1215">1215</a>
-<a href="#1216" id="1216">1216</a>
-<a href="#1217" id="1217">1217</a>
-<a href="#1218" id="1218">1218</a>
-<a href="#1219" id="1219">1219</a>
-<a href="#1220" id="1220">1220</a>
-<a href="#1221" id="1221">1221</a>
-<a href="#1222" id="1222">1222</a>
-<a href="#1223" id="1223">1223</a>
-<a href="#1224" id="1224">1224</a>
-<a href="#1225" id="1225">1225</a>
-<a href="#1226" id="1226">1226</a>
-<a href="#1227" id="1227">1227</a>
-<a href="#1228" id="1228">1228</a>
-<a href="#1229" id="1229">1229</a>
-<a href="#1230" id="1230">1230</a>
-<a href="#1231" id="1231">1231</a>
-<a href="#1232" id="1232">1232</a>
-<a href="#1233" id="1233">1233</a>
-<a href="#1234" id="1234">1234</a>
-<a href="#1235" id="1235">1235</a>
-<a href="#1236" id="1236">1236</a>
-<a href="#1237" id="1237">1237</a>
-<a href="#1238" id="1238">1238</a>
-<a href="#1239" id="1239">1239</a>
-<a href="#1240" id="1240">1240</a>
-<a href="#1241" id="1241">1241</a>
-<a href="#1242" id="1242">1242</a>
-<a href="#1243" id="1243">1243</a>
-<a href="#1244" id="1244">1244</a>
-<a href="#1245" id="1245">1245</a>
-<a href="#1246" id="1246">1246</a>
-<a href="#1247" id="1247">1247</a>
-<a href="#1248" id="1248">1248</a>
-<a href="#1249" id="1249">1249</a>
-<a href="#1250" id="1250">1250</a>
-<a href="#1251" id="1251">1251</a>
-<a href="#1252" id="1252">1252</a>
-<a href="#1253" id="1253">1253</a>
-<a href="#1254" id="1254">1254</a>
-<a href="#1255" id="1255">1255</a>
-<a href="#1256" id="1256">1256</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Builder system for configuring a [`WasiState`] and creating it.
 
 </span><span class="kw">use </span>std::{
@@ -1262,13 +1191,13 @@
     sync::Arc,
 };
 
-<span class="kw">use </span>bytes::Bytes;
 <span class="kw">use </span>rand::Rng;
 <span class="kw">use </span>thiserror::Error;
 <span class="kw">use </span>virtual_fs::{ArcFile, FileSystem, FsError, TmpFileSystem, VirtualFile};
-<span class="kw">use </span>wasmer::{AsStoreMut, Instance, Module, RuntimeError, Store};
-<span class="kw">use </span>wasmer_wasix_types::wasi::{Errno, ExitCode};
+<span class="kw">use </span>wasmer::{AsStoreMut, Instance, Module, Store};
 
+<span class="attr">#[cfg(feature = <span class="string">&quot;journal&quot;</span>)]
+</span><span class="kw">use </span><span class="kw">crate</span>::journal::{DynJournal, SnapshotTrigger};
 <span class="attr">#[cfg(feature = <span class="string">&quot;sys&quot;</span>)]
 </span><span class="kw">use </span><span class="kw">crate</span>::PluggableRuntime;
 <span class="kw">use crate</span>::{
@@ -1276,10 +1205,13 @@
     capabilities::Capabilities,
     fs::{WasiFs, WasiFsRoot, WasiInodes},
     os::task::control_plane::{ControlPlaneConfig, ControlPlaneError, WasiControlPlane},
-    runtime::task_manager::InlineWaker,
+    runtime::module_cache::ModuleHash,
     state::WasiState,
-    syscalls::types::{__WASI_STDERR_FILENO, __WASI_STDIN_FILENO, __WASI_STDOUT_FILENO},
-    RewindState, Runtime, WasiEnv, WasiError, WasiFunctionEnv, WasiRuntimeError,
+    syscalls::{
+        rewind_ext2,
+        types::{__WASI_STDERR_FILENO, __WASI_STDIN_FILENO, __WASI_STDOUT_FILENO},
+    },
+    Runtime, WasiEnv, WasiError, WasiFunctionEnv, WasiRuntimeError,
 };
 
 <span class="kw">use </span><span class="kw">super</span>::env::WasiEnvInit;
@@ -1323,10 +1255,21 @@
     <span class="doccomment">/// List of webc dependencies to be injected.
     </span><span class="kw">pub</span>(<span class="kw">super</span>) uses: Vec&lt;BinaryPackage&gt;,
 
+    <span class="kw">pub</span>(<span class="kw">super</span>) module_hash: <span class="prelude-ty">Option</span>&lt;ModuleHash&gt;,
+
     <span class="doccomment">/// List of host commands to map into the WASI instance.
     </span><span class="kw">pub</span>(<span class="kw">super</span>) map_commands: HashMap&lt;String, PathBuf&gt;,
 
     <span class="kw">pub</span>(<span class="kw">super</span>) capabilites: Capabilities,
+
+    <span class="attr">#[cfg(feature = <span class="string">&quot;journal&quot;</span>)]
+    </span><span class="kw">pub</span>(<span class="kw">super</span>) snapshot_on: Vec&lt;SnapshotTrigger&gt;,
+
+    <span class="attr">#[cfg(feature = <span class="string">&quot;journal&quot;</span>)]
+    </span><span class="kw">pub</span>(<span class="kw">super</span>) snapshot_interval: <span class="prelude-ty">Option</span>&lt;std::time::Duration&gt;,
+
+    <span class="attr">#[cfg(feature = <span class="string">&quot;journal&quot;</span>)]
+    </span><span class="kw">pub</span>(<span class="kw">super</span>) journals: Vec&lt;Arc&lt;DynJournal&gt;&gt;,
 }
 
 <span class="kw">impl </span>std::fmt::Debug <span class="kw">for </span>WasiEnvBuilder {
@@ -1347,7 +1290,7 @@
 }
 
 <span class="doccomment">/// Error type returned when bad data is given to [`WasiEnvBuilder`].
-</span><span class="attr">#[derive(Error, Debug, PartialEq, Eq)]
+</span><span class="attr">#[derive(Error, Debug, Clone, PartialEq, Eq)]
 </span><span class="kw">pub enum </span>WasiStateCreationError {
     <span class="attr">#[error(<span class="string">&quot;bad environment variable format: `{0}`&quot;</span>)]
     </span>EnvironmentVariableFormatError(String),
@@ -1534,6 +1477,14 @@
     /// resulting WASI instance.
     </span><span class="kw">pub fn </span>use_webc(<span class="kw-2">mut </span><span class="self">self</span>, pkg: BinaryPackage) -&gt; <span class="self">Self </span>{
         <span class="self">self</span>.add_webc(pkg);
+        <span class="self">self
+    </span>}
+
+    <span class="doccomment">/// Sets the module hash for the running process. This ensures that the journal
+    /// can restore the records for the right module. If no module hash is supplied
+    /// then the process will start with a random module hash.
+    </span><span class="kw">pub fn </span>set_module_hash(<span class="kw-2">&amp;mut </span><span class="self">self</span>, hash: ModuleHash) -&gt; <span class="kw-2">&amp;mut </span><span class="self">Self </span>{
+        <span class="self">self</span>.module_hash.replace(hash);
         <span class="self">self
     </span>}
 
@@ -1752,6 +1703,20 @@
         <span class="prelude-val">Ok</span>(<span class="self">self</span>)
     }
 
+    <span class="doccomment">/// Specifies one or more journal files that Wasmer will use to restore
+    /// the state of the WASM process.
+    ///
+    /// The state of the WASM process and its sandbox will be reapplied use
+    /// the journals in the order that you specify here.
+    ///
+    /// The last journal file specified will be created if it does not exist
+    /// and opened for read and write. New journal events will be written to this
+    /// file
+    </span><span class="attr">#[cfg(feature = <span class="string">&quot;journal&quot;</span>)]
+    </span><span class="kw">pub fn </span>add_journal(<span class="kw-2">&amp;mut </span><span class="self">self</span>, journal: Arc&lt;DynJournal&gt;) {
+        <span class="self">self</span>.journals.push(journal);
+    }
+
     <span class="kw">pub fn </span>set_current_dir(<span class="kw-2">&amp;mut </span><span class="self">self</span>, dir: <span class="kw">impl </span>Into&lt;PathBuf&gt;) {
         <span class="self">self</span>.current_dir = <span class="prelude-val">Some</span>(dir.into());
     }
@@ -1852,6 +1817,16 @@
 
     <span class="kw">pub fn </span>set_capabilities(<span class="kw-2">&amp;mut </span><span class="self">self</span>, capabilities: Capabilities) {
         <span class="self">self</span>.capabilites = capabilities;
+    }
+
+    <span class="attr">#[cfg(feature = <span class="string">&quot;journal&quot;</span>)]
+    </span><span class="kw">pub fn </span>add_snapshot_trigger(<span class="kw-2">&amp;mut </span><span class="self">self</span>, on: SnapshotTrigger) {
+        <span class="self">self</span>.snapshot_on.push(on);
+    }
+
+    <span class="attr">#[cfg(feature = <span class="string">&quot;journal&quot;</span>)]
+    </span><span class="kw">pub fn </span>with_snapshot_interval(<span class="kw-2">&amp;mut </span><span class="self">self</span>, interval: std::time::Duration) {
+        <span class="self">self</span>.snapshot_interval.replace(interval);
     }
 
     <span class="doccomment">/// Consumes the [`WasiEnvBuilder`] and produces a [`WasiEnvInit`], which
@@ -1995,19 +1970,6 @@
             wasi_fs.set_current_dir(s);
         }
 
-        <span class="kw">let </span>envs = <span class="self">self
-            </span>.envs
-            .into_iter()
-            .map(|(key, value)| {
-                <span class="kw">let </span><span class="kw-2">mut </span>env = Vec::with_capacity(key.len() + value.len() + <span class="number">1</span>);
-                env.extend_from_slice(key.as_bytes());
-                env.push(<span class="string">b&#39;=&#39;</span>);
-                env.extend_from_slice(<span class="kw-2">&amp;</span>value);
-
-                env
-            })
-            .collect();
-
         <span class="kw">let </span>state = WasiState {
             fs: wasi_fs,
             secret: rand::thread_rng().gen::&lt;[u8; <span class="number">32</span>]&gt;(),
@@ -2016,13 +1978,19 @@
             preopen: <span class="self">self</span>.vfs_preopens.clone(),
             futexs: Default::default(),
             clock_offset: Default::default(),
-            envs,
+            envs: std::sync::Mutex::new(conv_env_vars(<span class="self">self</span>.envs)),
         };
 
         <span class="kw">let </span>runtime = <span class="self">self</span>.runtime.unwrap_or_else(|| {
             <span class="attr">#[cfg(feature = <span class="string">&quot;sys-thread&quot;</span>)]
             </span>{
-                Arc::new(PluggableRuntime::new(Arc::new(<span class="kw">crate</span>::runtime::task_manager::tokio::TokioTaskManager::default())))
+                <span class="attr">#[allow(unused_mut)]
+                </span><span class="kw">let </span><span class="kw-2">mut </span>runtime = PluggableRuntime::new(Arc::new(<span class="kw">crate</span>::runtime::task_manager::tokio::TokioTaskManager::default()));
+                <span class="attr">#[cfg(feature = <span class="string">&quot;journal&quot;</span>)]
+                </span><span class="kw">for </span>journal <span class="kw">in </span><span class="self">self</span>.journals.clone() {
+                    runtime.add_journal(journal);
+                }
+                Arc::new(runtime)
             }
 
             <span class="attr">#[cfg(not(feature = <span class="string">&quot;sys-thread&quot;</span>))]
@@ -2055,9 +2023,14 @@
             memory_ty: <span class="prelude-val">None</span>,
             process: <span class="prelude-val">None</span>,
             thread: <span class="prelude-val">None</span>,
-            call_initialize: <span class="bool-val">true</span>,
+            <span class="attr">#[cfg(feature = <span class="string">&quot;journal&quot;</span>)]
+            </span>call_initialize: <span class="self">self</span>.journals.is_empty(),
+            <span class="attr">#[cfg(not(feature = <span class="string">&quot;journal&quot;</span>))]
+            </span>call_initialize: <span class="bool-val">true</span>,
             can_deep_sleep: <span class="bool-val">false</span>,
             extra_tracing: <span class="bool-val">true</span>,
+            <span class="attr">#[cfg(feature = <span class="string">&quot;journal&quot;</span>)]
+            </span>snapshot_on: <span class="self">self</span>.snapshot_on,
         };
 
         <span class="prelude-val">Ok</span>(init)
@@ -2065,8 +2038,9 @@
 
     <span class="attr">#[allow(clippy::result_large_err)]
     </span><span class="kw">pub fn </span>build(<span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;WasiEnv, WasiRuntimeError&gt; {
+        <span class="kw">let </span>module_hash = <span class="self">self</span>.module_hash.unwrap_or_else(ModuleHash::random);
         <span class="kw">let </span>init = <span class="self">self</span>.build_init()<span class="question-mark">?</span>;
-        WasiEnv::from_init(init)
+        WasiEnv::from_init(init, module_hash)
     }
 
     <span class="doccomment">/// Construct a [`WasiFunctionEnv`].
@@ -2079,8 +2053,9 @@
         <span class="self">self</span>,
         store: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>AsStoreMut,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;WasiFunctionEnv, WasiRuntimeError&gt; {
+        <span class="kw">let </span>module_hash = <span class="self">self</span>.module_hash.unwrap_or_else(ModuleHash::random);
         <span class="kw">let </span>init = <span class="self">self</span>.build_init()<span class="question-mark">?</span>;
-        <span class="kw">let </span>env = WasiEnv::from_init(init)<span class="question-mark">?</span>;
+        <span class="kw">let </span>env = WasiEnv::from_init(init, module_hash)<span class="question-mark">?</span>;
         <span class="kw">let </span>func_env = WasiFunctionEnv::new(store, env);
         <span class="prelude-val">Ok</span>(func_env)
     }
@@ -2096,18 +2071,43 @@
         module: Module,
         store: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>AsStoreMut,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(Instance, WasiFunctionEnv), WasiRuntimeError&gt; {
+        <span class="self">self</span>.instantiate_ext(module, ModuleHash::random(), store)
+    }
+
+    <span class="attr">#[allow(clippy::result_large_err)]
+    </span><span class="kw">pub fn </span>instantiate_ext(
+        <span class="self">self</span>,
+        module: Module,
+        module_hash: ModuleHash,
+        store: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>AsStoreMut,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;(Instance, WasiFunctionEnv), WasiRuntimeError&gt; {
         <span class="kw">let </span>init = <span class="self">self</span>.build_init()<span class="question-mark">?</span>;
-        WasiEnv::instantiate(init, module, store)
+        WasiEnv::instantiate(init, module, module_hash, store)
     }
 
     <span class="attr">#[allow(clippy::result_large_err)]
     </span><span class="kw">pub fn </span>run(<span class="self">self</span>, module: Module) -&gt; <span class="prelude-ty">Result</span>&lt;(), WasiRuntimeError&gt; {
+        <span class="self">self</span>.run_ext(module, ModuleHash::random())
+    }
+
+    <span class="attr">#[allow(clippy::result_large_err)]
+    </span><span class="kw">pub fn </span>run_ext(<span class="self">self</span>, module: Module, module_hash: ModuleHash) -&gt; <span class="prelude-ty">Result</span>&lt;(), WasiRuntimeError&gt; {
         <span class="kw">let </span><span class="kw-2">mut </span>store = wasmer::Store::default();
-        <span class="self">self</span>.run_with_store(module, <span class="kw-2">&amp;mut </span>store)
+        <span class="self">self</span>.run_with_store_ext(module, module_hash, <span class="kw-2">&amp;mut </span>store)
     }
 
     <span class="attr">#[allow(clippy::result_large_err)]
     </span><span class="kw">pub fn </span>run_with_store(<span class="self">self</span>, module: Module, store: <span class="kw-2">&amp;mut </span>Store) -&gt; <span class="prelude-ty">Result</span>&lt;(), WasiRuntimeError&gt; {
+        <span class="self">self</span>.run_with_store_ext(module, ModuleHash::random(), store)
+    }
+
+    <span class="attr">#[allow(clippy::result_large_err)]
+    </span><span class="kw">pub fn </span>run_with_store_ext(
+        <span class="self">self</span>,
+        module: Module,
+        module_hash: ModuleHash,
+        store: <span class="kw-2">&amp;mut </span>Store,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;(), WasiRuntimeError&gt; {
         <span class="comment">// If no handle or runtime exists then create one
         </span><span class="attr">#[cfg(feature = <span class="string">&quot;sys-thread&quot;</span>)]
         </span><span class="kw">let </span>_guard = <span class="kw">if </span>tokio::runtime::Handle::try_current().is_err() {
@@ -2128,13 +2128,23 @@
             );
         }
 
-        <span class="kw">let </span>(instance, env) = <span class="self">self</span>.instantiate(module, store)<span class="question-mark">?</span>;
+        <span class="kw">let </span>(instance, env) = <span class="self">self</span>.instantiate_ext(module, module_hash, store)<span class="question-mark">?</span>;
+
+        <span class="comment">// Bootstrap the process
+        // Unsafe: The bootstrap must be executed in the same thread that runs the
+        //         actual WASM code
+        </span><span class="kw">let </span>rewind_state = <span class="kw">unsafe </span>{ env.bootstrap(store)<span class="question-mark">? </span>};
+        <span class="kw">if </span>rewind_state.is_some() {
+            <span class="kw">let </span><span class="kw-2">mut </span>ctx = env.env.clone().into_mut(store);
+            rewind_ext2(<span class="kw-2">&amp;mut </span>ctx, rewind_state)
+                .map_err(|exit| WasiRuntimeError::Wasi(WasiError::Exit(exit)))<span class="question-mark">?</span>;
+        }
 
         <span class="kw">let </span>start = instance.exports.get_function(<span class="string">&quot;_start&quot;</span>)<span class="question-mark">?</span>;
         env.data(<span class="kw-2">&amp;</span>store).thread.set_status_running();
 
         <span class="kw">let </span>result = <span class="kw">crate</span>::run_wasi_func_start(start, store);
-        <span class="kw">let </span>(result, exit_code) = wasi_exit_code(result);
+        <span class="kw">let </span>(result, exit_code) = <span class="kw">super</span>::wasi_exit_code(result);
 
         <span class="kw">let </span>pid = env.data(<span class="kw-2">&amp;</span>store).pid();
         <span class="kw">let </span>tid = env.data(<span class="kw-2">&amp;</span>store).tid();
@@ -2146,7 +2156,7 @@
             <span class="string">&quot;main exit&quot;</span>,
         );
 
-        env.cleanup(store, <span class="prelude-val">Some</span>(exit_code));
+        env.on_exit(store, <span class="prelude-val">Some</span>(exit_code));
 
         result
     }
@@ -2156,178 +2166,26 @@
     </span><span class="kw">pub fn </span>run_with_store_async(
         <span class="self">self</span>,
         module: Module,
+        module_hash: ModuleHash,
         <span class="kw-2">mut </span>store: Store,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), WasiRuntimeError&gt; {
-        <span class="comment">// If no handle or runtime exists then create one
-        </span><span class="attr">#[cfg(feature = <span class="string">&quot;sys-thread&quot;</span>)]
-        </span><span class="kw">let </span>_guard = <span class="kw">if </span>tokio::runtime::Handle::try_current().is_err() {
-            <span class="kw">let </span>runtime = tokio::runtime::Builder::new_multi_thread()
-                .enable_all()
-                .build()
-                .unwrap();
-            <span class="prelude-val">Some</span>(runtime)
-        } <span class="kw">else </span>{
-            <span class="prelude-val">None
-        </span>};
-        <span class="attr">#[cfg(feature = <span class="string">&quot;sys-thread&quot;</span>)]
-        </span><span class="kw">let </span>_guard = _guard.as_ref().map(|r| r.enter());
-
-        <span class="kw">let </span>(<span class="kw">_</span>, env) = <span class="self">self</span>.instantiate(module, <span class="kw-2">&amp;mut </span>store)<span class="question-mark">?</span>;
-
-        env.data(<span class="kw-2">&amp;</span>store).thread.set_status_running();
-
-        <span class="kw">let </span>tasks = env.data(<span class="kw-2">&amp;</span>store).tasks().clone();
-        <span class="kw">let </span>pid = env.data(<span class="kw-2">&amp;</span>store).pid();
-        <span class="kw">let </span>tid = env.data(<span class="kw-2">&amp;</span>store).tid();
-
-        <span class="comment">// The return value is passed synchronously and will block until the result
-        // is returned this is because the main thread can go into a deep sleep and
-        // exit the dedicated thread
-        </span><span class="kw">let </span>(tx, <span class="kw-2">mut </span>rx) = tokio::sync::mpsc::unbounded_channel();
-
-        tasks.task_dedicated(Box::new(<span class="kw">move </span>|| {
-            run_with_deep_sleep(store, <span class="prelude-val">None</span>, env, tx);
-        }))<span class="question-mark">?</span>;
-
-        <span class="kw">let </span>result = InlineWaker::block_on(rx.recv());
-        <span class="kw">let </span>result = result.unwrap_or_else(|| {
-            <span class="prelude-val">Err</span>(WasiRuntimeError::Runtime(RuntimeError::new(
-                <span class="string">&quot;main thread terminated without a result, this normally means a panic occurred&quot;</span>,
-            )))
-        });
-        <span class="kw">let </span>(result, exit_code) = wasi_exit_code(result);
-
-        <span class="macro">tracing::trace!</span>(
-            %pid,
-            %tid,
-            %exit_code,
-            error=result.as_ref().err().map(|e| e <span class="kw">as </span><span class="kw-2">&amp;</span><span class="kw">dyn </span>std::error::Error),
-            <span class="string">&quot;main exit&quot;</span>,
-        );
-
-        result
+        <span class="kw">let </span>(<span class="kw">_</span>, env) = <span class="self">self</span>.instantiate_ext(module, module_hash, <span class="kw-2">&amp;mut </span>store)<span class="question-mark">?</span>;
+        env.run_async(store)<span class="question-mark">?</span>;
+        <span class="prelude-val">Ok</span>(())
     }
 }
 
-<span class="doccomment">/// Extract the exit code from a `Result&lt;(), WasiRuntimeError&gt;`.
-///
-/// We need this because calling `exit(0)` inside a WASI program technically
-/// triggers [`WasiError`] with an exit code of `0`, but the end user won&#39;t want
-/// that treated as an error.
-</span><span class="kw">fn </span>wasi_exit_code(
-    <span class="kw-2">mut </span>result: <span class="prelude-ty">Result</span>&lt;(), WasiRuntimeError&gt;,
-) -&gt; (<span class="prelude-ty">Result</span>&lt;(), WasiRuntimeError&gt;, ExitCode) {
-    <span class="kw">let </span>exit_code = <span class="kw">match </span><span class="kw-2">&amp;</span>result {
-        <span class="prelude-val">Ok</span>(<span class="kw">_</span>) =&gt; Errno::Success.into(),
-        <span class="prelude-val">Err</span>(err) =&gt; <span class="kw">match </span>err.as_exit_code() {
-            <span class="prelude-val">Some</span>(code) <span class="kw">if </span>code.is_success() =&gt; {
-                <span class="comment">// This is actually not an error, so we need to fix up the
-                // result
-                </span>result = <span class="prelude-val">Ok</span>(());
-                Errno::Success.into()
-            }
-            <span class="prelude-val">Some</span>(other) =&gt; other,
-            <span class="prelude-val">None </span>=&gt; Errno::Noexec.into(),
-        },
-    };
+<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>conv_env_vars(envs: Vec&lt;(String, Vec&lt;u8&gt;)&gt;) -&gt; Vec&lt;Vec&lt;u8&gt;&gt; {
+    envs.into_iter()
+        .map(|(key, value)| {
+            <span class="kw">let </span><span class="kw-2">mut </span>env = Vec::with_capacity(key.len() + value.len() + <span class="number">1</span>);
+            env.extend_from_slice(key.as_bytes());
+            env.push(<span class="string">b&#39;=&#39;</span>);
+            env.extend_from_slice(<span class="kw-2">&amp;</span>value);
 
-    (result, exit_code)
-}
-
-<span class="kw">fn </span>run_with_deep_sleep(
-    <span class="kw-2">mut </span>store: Store,
-    rewind_state: <span class="prelude-ty">Option</span>&lt;(RewindState, Bytes)&gt;,
-    env: WasiFunctionEnv,
-    sender: tokio::sync::mpsc::UnboundedSender&lt;<span class="prelude-ty">Result</span>&lt;(), WasiRuntimeError&gt;&gt;,
-) {
-    <span class="kw">if let </span><span class="prelude-val">Some</span>((rewind_state, rewind_result)) = rewind_state {
-        <span class="macro">tracing::trace!</span>(<span class="string">&quot;Rewinding&quot;</span>);
-        <span class="kw">let </span>errno = <span class="kw">if </span>rewind_state.is_64bit {
-            <span class="kw">crate</span>::rewind_ext::&lt;wasmer_types::Memory64&gt;(
-                env.env.clone().into_mut(<span class="kw-2">&amp;mut </span>store),
-                rewind_state.memory_stack,
-                rewind_state.rewind_stack,
-                rewind_state.store_data,
-                rewind_result,
-            )
-        } <span class="kw">else </span>{
-            <span class="kw">crate</span>::rewind_ext::&lt;wasmer_types::Memory32&gt;(
-                env.env.clone().into_mut(<span class="kw-2">&amp;mut </span>store),
-                rewind_state.memory_stack,
-                rewind_state.rewind_stack,
-                rewind_state.store_data,
-                rewind_result,
-            )
-        };
-
-        <span class="kw">if </span>errno != Errno::Success {
-            <span class="kw">let </span>exit_code = ExitCode::from(errno);
-            env.cleanup(<span class="kw-2">&amp;mut </span>store, <span class="prelude-val">Some</span>(exit_code));
-            <span class="kw">let _ </span>= sender.send(<span class="prelude-val">Err</span>(WasiRuntimeError::Wasi(WasiError::Exit(exit_code))));
-            <span class="kw">return</span>;
-        }
-    }
-
-    <span class="kw">let </span>instance = <span class="kw">match </span>env.data(<span class="kw-2">&amp;</span>store).try_clone_instance() {
-        <span class="prelude-val">Some</span>(instance) =&gt; instance,
-        <span class="prelude-val">None </span>=&gt; {
-            <span class="macro">tracing::debug!</span>(<span class="string">&quot;Unable to clone the instance&quot;</span>);
-            env.cleanup(<span class="kw-2">&amp;mut </span>store, <span class="prelude-val">None</span>);
-            <span class="kw">let _ </span>= sender.send(<span class="prelude-val">Err</span>(WasiRuntimeError::Wasi(WasiError::Exit(
-                Errno::Noexec.into(),
-            ))));
-            <span class="kw">return</span>;
-        }
-    };
-
-    <span class="kw">let </span>start = <span class="kw">match </span>instance.exports.get_function(<span class="string">&quot;_start&quot;</span>) {
-        <span class="prelude-val">Ok</span>(start) =&gt; start,
-        <span class="prelude-val">Err</span>(e) =&gt; {
-            <span class="macro">tracing::debug!</span>(<span class="string">&quot;Unable to get the _start function&quot;</span>);
-            env.cleanup(<span class="kw-2">&amp;mut </span>store, <span class="prelude-val">None</span>);
-            <span class="kw">let _ </span>= sender.send(<span class="prelude-val">Err</span>(e.into()));
-            <span class="kw">return</span>;
-        }
-    };
-
-    <span class="kw">let </span>result = start.call(<span class="kw-2">&amp;mut </span>store, <span class="kw-2">&amp;</span>[]);
-    handle_result(store, env, result, sender);
-}
-
-<span class="kw">fn </span>handle_result(
-    <span class="kw-2">mut </span>store: Store,
-    env: WasiFunctionEnv,
-    result: <span class="prelude-ty">Result</span>&lt;Box&lt;[wasmer::Value]&gt;, RuntimeError&gt;,
-    sender: tokio::sync::mpsc::UnboundedSender&lt;<span class="prelude-ty">Result</span>&lt;(), WasiRuntimeError&gt;&gt;,
-) {
-    <span class="kw">let </span>result = <span class="kw">match </span>result.map_err(|e| e.downcast::&lt;WasiError&gt;()) {
-        <span class="prelude-val">Err</span>(<span class="prelude-val">Ok</span>(WasiError::DeepSleep(work))) =&gt; {
-            <span class="kw">let </span>pid = env.data(<span class="kw-2">&amp;</span>store).pid();
-            <span class="kw">let </span>tid = env.data(<span class="kw-2">&amp;</span>store).tid();
-            <span class="macro">tracing::trace!</span>(%pid, %tid, <span class="string">&quot;entered a deep sleep&quot;</span>);
-
-            <span class="kw">let </span>tasks = env.data(<span class="kw-2">&amp;</span>store).tasks().clone();
-            <span class="kw">let </span>rewind = work.rewind;
-            <span class="kw">let </span>respawn =
-                <span class="kw">move </span>|ctx, store, res| run_with_deep_sleep(store, <span class="prelude-val">Some</span>((rewind, res)), ctx, sender);
-
-            <span class="comment">// Spawns the WASM process after a trigger
-            </span><span class="kw">unsafe </span>{
-                tasks
-                    .resume_wasm_after_poller(Box::new(respawn), env, store, work.trigger)
-                    .unwrap();
-            }
-
-            <span class="kw">return</span>;
-        }
-        <span class="prelude-val">Ok</span>(<span class="kw">_</span>) =&gt; <span class="prelude-val">Ok</span>(()),
-        <span class="prelude-val">Err</span>(<span class="prelude-val">Ok</span>(other)) =&gt; <span class="prelude-val">Err</span>(other.into()),
-        <span class="prelude-val">Err</span>(<span class="prelude-val">Err</span>(e)) =&gt; <span class="prelude-val">Err</span>(e.into()),
-    };
-
-    <span class="kw">let </span>(result, exit_code) = wasi_exit_code(result);
-    env.cleanup(<span class="kw-2">&amp;mut </span>store, <span class="prelude-val">Some</span>(exit_code));
-    sender.send(result).ok();
+            env
+        })
+        .collect()
 }
 
 <span class="doccomment">/// Builder for preopened directories.

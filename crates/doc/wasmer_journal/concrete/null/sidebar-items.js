@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"static":["META","NULL_JOURNAL","__CALLSITE"],"struct":["NullJournal"]};

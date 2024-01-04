@@ -330,6 +330,57 @@
 <a href="#330" id="330">330</a>
 <a href="#331" id="331">331</a>
 <a href="#332" id="332">332</a>
+<a href="#333" id="333">333</a>
+<a href="#334" id="334">334</a>
+<a href="#335" id="335">335</a>
+<a href="#336" id="336">336</a>
+<a href="#337" id="337">337</a>
+<a href="#338" id="338">338</a>
+<a href="#339" id="339">339</a>
+<a href="#340" id="340">340</a>
+<a href="#341" id="341">341</a>
+<a href="#342" id="342">342</a>
+<a href="#343" id="343">343</a>
+<a href="#344" id="344">344</a>
+<a href="#345" id="345">345</a>
+<a href="#346" id="346">346</a>
+<a href="#347" id="347">347</a>
+<a href="#348" id="348">348</a>
+<a href="#349" id="349">349</a>
+<a href="#350" id="350">350</a>
+<a href="#351" id="351">351</a>
+<a href="#352" id="352">352</a>
+<a href="#353" id="353">353</a>
+<a href="#354" id="354">354</a>
+<a href="#355" id="355">355</a>
+<a href="#356" id="356">356</a>
+<a href="#357" id="357">357</a>
+<a href="#358" id="358">358</a>
+<a href="#359" id="359">359</a>
+<a href="#360" id="360">360</a>
+<a href="#361" id="361">361</a>
+<a href="#362" id="362">362</a>
+<a href="#363" id="363">363</a>
+<a href="#364" id="364">364</a>
+<a href="#365" id="365">365</a>
+<a href="#366" id="366">366</a>
+<a href="#367" id="367">367</a>
+<a href="#368" id="368">368</a>
+<a href="#369" id="369">369</a>
+<a href="#370" id="370">370</a>
+<a href="#371" id="371">371</a>
+<a href="#372" id="372">372</a>
+<a href="#373" id="373">373</a>
+<a href="#374" id="374">374</a>
+<a href="#375" id="375">375</a>
+<a href="#376" id="376">376</a>
+<a href="#377" id="377">377</a>
+<a href="#378" id="378">378</a>
+<a href="#379" id="379">379</a>
+<a href="#380" id="380">380</a>
+<a href="#381" id="381">381</a>
+<a href="#382" id="382">382</a>
+<a href="#383" id="383">383</a>
 </pre></div><pre class="rust"><code><span class="kw">use super</span>::<span class="kw-2">*</span>;
 <span class="kw">use </span><span class="kw">crate</span>::syscalls::<span class="kw-2">*</span>;
 
@@ -359,7 +410,7 @@
 /// - `Errno::Access`, `Errno::Badf`, `Errno::Fault`, `Errno::Fbig?`, `Errno::Inval`, `Errno::Io`, `Errno::Loop`, `Errno::Mfile`, `Errno::Nametoolong?`, `Errno::Nfile`, `Errno::Noent`, `Errno::Notdir`, `Errno::Rofs`, and `Errno::Notcapable`
 </span><span class="attr">#[instrument(level = <span class="string">&quot;debug&quot;</span>, skip_all, fields(%dirfd, path = field::Empty, follow_symlinks = field::Empty, ret_fd = field::Empty), ret)]
 </span><span class="kw">pub fn </span>path_open&lt;M: MemorySize&gt;(
-    ctx: FunctionEnvMut&lt;<span class="lifetime">&#39;_</span>, WasiEnv&gt;,
+    <span class="kw-2">mut </span>ctx: FunctionEnvMut&lt;<span class="lifetime">&#39;_</span>, WasiEnv&gt;,
     dirfd: WasiFd,
     dirflags: LookupFlags,
     path: WasmPtr&lt;u8, M&gt;,
@@ -369,7 +420,7 @@
     fs_rights_inheriting: Rights,
     fs_flags: Fdflags,
     fd: WasmPtr&lt;WasiFd, M&gt;,
-) -&gt; Errno {
+) -&gt; <span class="prelude-ty">Result</span>&lt;Errno, WasiError&gt; {
     <span class="kw">if </span>dirflags &amp; __WASI_LOOKUP_SYMLINK_FOLLOW != <span class="number">0 </span>{
         Span::current().record(<span class="string">&quot;follow_symlinks&quot;</span>, <span class="bool-val">true</span>);
     }
@@ -379,10 +430,8 @@
     <span class="comment">/* TODO: find actual upper bound on name size (also this is a path, not a name :think-fish:) */
     </span><span class="kw">let </span>path_len64: u64 = path_len.into();
     <span class="kw">if </span>path_len64 &gt; <span class="number">1024u64 </span>* <span class="number">1024u64 </span>{
-        <span class="kw">return </span>Errno::Nametoolong;
+        <span class="kw">return </span><span class="prelude-val">Ok</span>(Errno::Nametoolong);
     }
-
-    <span class="kw">let </span>fd_ref = fd.deref(<span class="kw-2">&amp;</span>memory);
 
     <span class="comment">// o_flags:
     // - __WASI_O_CREAT (create if it does not exist)
@@ -390,15 +439,7 @@
     // - __WASI_O_EXCL (fail if file exists)
     // - __WASI_O_TRUNC (truncate size to 0)
 
-    </span><span class="kw">let </span>working_dir = <span class="macro">wasi_try!</span>(state.fs.get_fd(dirfd));
-    <span class="kw">let </span>working_dir_rights_inheriting = working_dir.rights_inheriting;
-
-    <span class="comment">// ASSUMPTION: open rights apply recursively
-    </span><span class="kw">if </span>!working_dir.rights.contains(Rights::PATH_OPEN) {
-        <span class="kw">return </span>Errno::Access;
-    }
-
-    <span class="kw">let </span><span class="kw-2">mut </span>path_string = <span class="kw">unsafe </span>{ <span class="macro">get_input_str!</span>(<span class="kw-2">&amp;</span>memory, path, path_len) };
+    </span><span class="kw">let </span><span class="kw-2">mut </span>path_string = <span class="kw">unsafe </span>{ <span class="macro">get_input_str_ok!</span>(<span class="kw-2">&amp;</span>memory, path, path_len) };
     Span::current().record(<span class="string">&quot;path&quot;</span>, path_string.as_str());
 
     <span class="comment">// Convert relative paths into absolute paths
@@ -409,13 +450,78 @@
         );
     }
 
-    <span class="kw">let </span>path_arg = std::path::PathBuf::from(<span class="kw-2">&amp;</span>path_string);
+    <span class="kw">let </span>out_fd = <span class="macro">wasi_try_ok!</span>(path_open_internal(
+        <span class="kw-2">&amp;mut </span>ctx,
+        dirfd,
+        dirflags,
+        <span class="kw-2">&amp;</span>path_string,
+        o_flags,
+        fs_rights_base,
+        fs_rights_inheriting,
+        fs_flags,
+    )<span class="question-mark">?</span>);
+    <span class="kw">let </span>env = ctx.data();
+
+    <span class="attr">#[cfg(feature = <span class="string">&quot;journal&quot;</span>)]
+    </span><span class="kw">if </span>env.enable_journal {
+        JournalEffector::save_path_open(
+            <span class="kw-2">&amp;mut </span>ctx,
+            out_fd,
+            dirfd,
+            dirflags,
+            path_string,
+            o_flags,
+            fs_rights_base,
+            fs_rights_inheriting,
+            fs_flags,
+        )
+        .map_err(|err| {
+            <span class="macro">tracing::error!</span>(<span class="string">&quot;failed to save unlink event - {}&quot;</span>, err);
+            WasiError::Exit(ExitCode::Errno(Errno::Fault))
+        })<span class="question-mark">?</span>;
+    }
+
+    <span class="kw">let </span>env = ctx.data();
+    <span class="kw">let </span>(memory, <span class="kw-2">mut </span>state, <span class="kw-2">mut </span>inodes) =
+        <span class="kw">unsafe </span>{ env.get_memory_and_wasi_state_and_inodes(<span class="kw-2">&amp;</span>ctx, <span class="number">0</span>) };
+
+    Span::current().record(<span class="string">&quot;ret_fd&quot;</span>, out_fd);
+
+    <span class="kw">let </span>fd_ref = fd.deref(<span class="kw-2">&amp;</span>memory);
+    <span class="macro">wasi_try_mem_ok!</span>(fd_ref.write(out_fd));
+
+    <span class="prelude-val">Ok</span>(Errno::Success)
+}
+
+<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>path_open_internal(
+    ctx: <span class="kw-2">&amp;mut </span>FunctionEnvMut&lt;<span class="lifetime">&#39;_</span>, WasiEnv&gt;,
+    dirfd: WasiFd,
+    dirflags: LookupFlags,
+    path: <span class="kw-2">&amp;</span>str,
+    o_flags: Oflags,
+    fs_rights_base: Rights,
+    fs_rights_inheriting: Rights,
+    fs_flags: Fdflags,
+) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Result</span>&lt;WasiFd, Errno&gt;, WasiError&gt; {
+    <span class="kw">let </span>env = ctx.data();
+    <span class="kw">let </span>(memory, <span class="kw-2">mut </span>state, <span class="kw-2">mut </span>inodes) =
+        <span class="kw">unsafe </span>{ env.get_memory_and_wasi_state_and_inodes(<span class="kw-2">&amp;</span>ctx, <span class="number">0</span>) };
+
+    <span class="kw">let </span>path_arg = std::path::PathBuf::from(<span class="kw-2">&amp;</span>path);
     <span class="kw">let </span>maybe_inode = state.fs.get_inode_at_path(
         inodes,
         dirfd,
-        <span class="kw-2">&amp;</span>path_string,
+        path,
         dirflags &amp; __WASI_LOOKUP_SYMLINK_FOLLOW != <span class="number">0</span>,
     );
+
+    <span class="kw">let </span>working_dir = <span class="macro">wasi_try_ok_ok!</span>(state.fs.get_fd(dirfd));
+    <span class="kw">let </span>working_dir_rights_inheriting = working_dir.rights_inheriting;
+
+    <span class="comment">// ASSUMPTION: open rights apply recursively
+    </span><span class="kw">if </span>!working_dir.rights.contains(Rights::PATH_OPEN) {
+        <span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="prelude-val">Err</span>(Errno::Access));
+    }
 
     <span class="kw">let </span><span class="kw-2">mut </span>open_flags = <span class="number">0</span>;
     <span class="comment">// TODO: traverse rights of dirs properly
@@ -492,14 +598,13 @@
                 <span class="kw">if let </span><span class="prelude-val">Some</span>(special_fd) = fd {
                     <span class="comment">// short circuit if we&#39;re dealing with a special file
                     </span><span class="macro">assert!</span>(handle.is_some());
-                    <span class="macro">wasi_try_mem!</span>(fd_ref.write(<span class="kw-2">*</span>special_fd));
-                    <span class="kw">return </span>Errno::Success;
+                    <span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="prelude-val">Ok</span>(<span class="kw-2">*</span>special_fd));
                 }
                 <span class="kw">if </span>o_flags.contains(Oflags::DIRECTORY) {
-                    <span class="kw">return </span>Errno::Notdir;
+                    <span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="prelude-val">Err</span>(Errno::Notdir));
                 }
                 <span class="kw">if </span>o_flags.contains(Oflags::EXCL) {
-                    <span class="kw">return </span>Errno::Exist;
+                    <span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="prelude-val">Err</span>(Errno::Exist));
                 }
 
                 <span class="kw">let </span>open_options = open_options
@@ -520,31 +625,30 @@
                 <span class="kw">if </span>minimum_rights.truncate {
                     open_flags |= Fd::TRUNCATE;
                 }
-                <span class="kw-2">*</span>handle = <span class="prelude-val">Some</span>(Arc::new(std::sync::RwLock::new(<span class="macro">wasi_try!</span>(open_options
-                    .open(<span class="kw-2">&amp;</span>path)
-                    .map_err(fs_error_into_wasi_err)))));
+                <span class="kw-2">*</span>handle = <span class="prelude-val">Some</span>(Arc::new(std::sync::RwLock::new(<span class="macro">wasi_try_ok_ok!</span>(
+                    open_options.open(<span class="kw-2">&amp;</span>path).map_err(fs_error_into_wasi_err)
+                ))));
 
                 <span class="kw">if let </span><span class="prelude-val">Some</span>(handle) = handle {
                     <span class="kw">let </span>handle = handle.read().unwrap();
                     <span class="kw">if let </span><span class="prelude-val">Some</span>(fd) = handle.get_special_fd() {
                         <span class="comment">// We clone the file descriptor so that when its closed
                         // nothing bad happens
-                        </span><span class="kw">let </span>dup_fd = <span class="macro">wasi_try!</span>(state.fs.clone_fd(fd));
+                        </span><span class="kw">let </span>dup_fd = <span class="macro">wasi_try_ok_ok!</span>(state.fs.clone_fd(fd));
                         <span class="macro">trace!</span>(
                             %dup_fd
                         );
 
                         <span class="comment">// some special files will return a constant FD rather than
                         // actually open the file (/dev/stdin, /dev/stdout, /dev/stderr)
-                        </span><span class="macro">wasi_try_mem!</span>(fd_ref.write(dup_fd));
-                        <span class="kw">return </span>Errno::Success;
+                        </span><span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="prelude-val">Ok</span>(dup_fd));
                     }
                 }
             }
             Kind::Buffer { .. } =&gt; <span class="macro">unimplemented!</span>(<span class="string">&quot;wasi::path_open for Buffer type files&quot;</span>),
             Kind::Root { .. } =&gt; {
                 <span class="kw">if </span>!o_flags.contains(Oflags::DIRECTORY) {
-                    <span class="kw">return </span>Errno::Notcapable;
+                    <span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="prelude-val">Err</span>(Errno::Notcapable));
                 }
             }
             Kind::Dir { .. }
@@ -567,16 +671,17 @@
         <span class="comment">// less-happy path, we have to try to create the file
         </span><span class="kw">if </span>o_flags.contains(Oflags::CREATE) {
             <span class="kw">if </span>o_flags.contains(Oflags::DIRECTORY) {
-                <span class="kw">return </span>Errno::Notdir;
+                <span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="prelude-val">Err</span>(Errno::Notdir));
             }
             <span class="comment">// strip end file name
 
-            </span><span class="kw">let </span>(parent_inode, new_entity_name) = <span class="macro">wasi_try!</span>(state.fs.get_parent_inode_at_path(
-                inodes,
-                dirfd,
-                <span class="kw-2">&amp;</span>path_arg,
-                dirflags &amp; __WASI_LOOKUP_SYMLINK_FOLLOW != <span class="number">0
-            </span>));
+            </span><span class="kw">let </span>(parent_inode, new_entity_name) =
+                <span class="macro">wasi_try_ok_ok!</span>(state.fs.get_parent_inode_at_path(
+                    inodes,
+                    dirfd,
+                    <span class="kw-2">&amp;</span>path_arg,
+                    dirflags &amp; __WASI_LOOKUP_SYMLINK_FOLLOW != <span class="number">0
+                </span>));
             <span class="kw">let </span>new_file_host_path = {
                 <span class="kw">let </span>guard = parent_inode.read();
                 <span class="kw">match </span>guard.deref() {
@@ -590,7 +695,7 @@
                         new_path.push(<span class="kw-2">&amp;</span>new_entity_name);
                         new_path
                     }
-                    <span class="kw">_ </span>=&gt; <span class="kw">return </span>Errno::Inval,
+                    <span class="kw">_ </span>=&gt; <span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="prelude-val">Err</span>(Errno::Inval)),
                 }
             };
             <span class="comment">// once we got the data we need from the parent, we lookup the host file
@@ -615,7 +720,7 @@
                     open_flags |= Fd::TRUNCATE;
                 }
 
-                <span class="prelude-val">Some</span>(<span class="macro">wasi_try!</span>(open_options
+                <span class="prelude-val">Some</span>(<span class="macro">wasi_try_ok_ok!</span>(open_options
                     .open(<span class="kw-2">&amp;</span>new_file_host_path)
                     .map_err(|e| { fs_error_into_wasi_err(e) })))
             };
@@ -626,7 +731,7 @@
                     path: new_file_host_path,
                     fd: <span class="prelude-val">None</span>,
                 };
-                <span class="macro">wasi_try!</span>(state
+                <span class="macro">wasi_try_ok_ok!</span>(state
                     .fs
                     .create_inode(inodes, kind, <span class="bool-val">false</span>, new_entity_name.clone()))
             };
@@ -643,13 +748,13 @@
 
             new_inode
         } <span class="kw">else </span>{
-            <span class="kw">return </span>maybe_inode.unwrap_err();
+            <span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="prelude-val">Err</span>(maybe_inode.unwrap_err()));
         }
     };
 
     <span class="comment">// TODO: check and reduce these
     // TODO: ensure a mutable fd to root can never be opened
-    </span><span class="kw">let </span>out_fd = <span class="macro">wasi_try!</span>(state.fs.create_fd(
+    </span><span class="kw">let </span>out_fd = <span class="macro">wasi_try_ok_ok!</span>(state.fs.create_fd(
         adjusted_rights,
         fs_rights_inheriting,
         fs_flags,
@@ -657,9 +762,6 @@
         inode
     ));
 
-    Span::current().record(<span class="string">&quot;ret_fd&quot;</span>, out_fd);
-
-    <span class="macro">wasi_try_mem!</span>(fd_ref.write(out_fd));
-    Errno::Success
+    <span class="prelude-val">Ok</span>(<span class="prelude-val">Ok</span>(out_fd))
 }
 </code></pre></div></section></main></body></html>

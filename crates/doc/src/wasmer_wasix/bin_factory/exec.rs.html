@@ -290,11 +290,53 @@
 <a href="#290" id="290">290</a>
 <a href="#291" id="291">291</a>
 <a href="#292" id="292">292</a>
+<a href="#293" id="293">293</a>
+<a href="#294" id="294">294</a>
+<a href="#295" id="295">295</a>
+<a href="#296" id="296">296</a>
+<a href="#297" id="297">297</a>
+<a href="#298" id="298">298</a>
+<a href="#299" id="299">299</a>
+<a href="#300" id="300">300</a>
+<a href="#301" id="301">301</a>
+<a href="#302" id="302">302</a>
+<a href="#303" id="303">303</a>
+<a href="#304" id="304">304</a>
+<a href="#305" id="305">305</a>
+<a href="#306" id="306">306</a>
+<a href="#307" id="307">307</a>
+<a href="#308" id="308">308</a>
+<a href="#309" id="309">309</a>
+<a href="#310" id="310">310</a>
+<a href="#311" id="311">311</a>
+<a href="#312" id="312">312</a>
+<a href="#313" id="313">313</a>
+<a href="#314" id="314">314</a>
+<a href="#315" id="315">315</a>
+<a href="#316" id="316">316</a>
+<a href="#317" id="317">317</a>
+<a href="#318" id="318">318</a>
+<a href="#319" id="319">319</a>
+<a href="#320" id="320">320</a>
+<a href="#321" id="321">321</a>
+<a href="#322" id="322">322</a>
+<a href="#323" id="323">323</a>
+<a href="#324" id="324">324</a>
+<a href="#325" id="325">325</a>
+<a href="#326" id="326">326</a>
+<a href="#327" id="327">327</a>
+<a href="#328" id="328">328</a>
+<a href="#329" id="329">329</a>
+<a href="#330" id="330">330</a>
+<a href="#331" id="331">331</a>
+<a href="#332" id="332">332</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{pin::Pin, sync::Arc};
 
 <span class="kw">use crate</span>::{
     os::task::{thread::WasiThreadRunGuard, TaskJoinHandle},
-    runtime::task_manager::{TaskWasm, TaskWasmRunProperties},
+    runtime::task_manager::{
+        TaskWasm, TaskWasmRecycle, TaskWasmRecycleProperties, TaskWasmRunProperties,
+    },
     syscalls::rewind_ext,
     RewindState, SpawnError, WasiError, WasiRuntimeError,
 };
@@ -305,7 +347,7 @@
 <span class="kw">use </span>wasmer_wasix_types::wasi::Errno;
 
 <span class="kw">use super</span>::{BinFactory, BinaryPackage};
-<span class="kw">use crate</span>::{runtime::SpawnMemoryType, Runtime, WasiEnv, WasiFunctionEnv};
+<span class="kw">use crate</span>::{Runtime, WasiEnv, WasiFunctionEnv};
 
 <span class="attr">#[tracing::instrument(level = <span class="string">&quot;trace&quot;</span>, skip_all, fields(%name, %binary.package_name))]
 </span><span class="kw">pub async fn </span>spawn_exec(
@@ -326,7 +368,7 @@
           pkg.version=%binary.version,
           <span class="string">&quot;Unable to spawn a command because its package has no entrypoint&quot;</span>,
         );
-        env.cleanup(<span class="prelude-val">Some</span>(Errno::Noexec.into())).<span class="kw">await</span>;
+        env.on_exit(<span class="prelude-val">Some</span>(Errno::Noexec.into())).<span class="kw">await</span>;
         <span class="kw">return </span><span class="prelude-val">Err</span>(SpawnError::CompileError);
     };
 
@@ -338,7 +380,7 @@
                 error = <span class="kw-2">&amp;*</span>err,
                 <span class="string">&quot;Failed to compile the module&quot;</span>,
             );
-            env.cleanup(<span class="prelude-val">Some</span>(Errno::Noexec.into())).<span class="kw">await</span>;
+            env.on_exit(<span class="prelude-val">Some</span>(Errno::Noexec.into())).<span class="kw">await</span>;
             <span class="kw">return </span><span class="prelude-val">Err</span>(SpawnError::CompileError);
         }
     };
@@ -371,57 +413,11 @@
 
     <span class="kw">let </span>join_handle = env.thread.join_handle();
     {
-        <span class="comment">// Determine if shared memory needs to be created and imported
-        </span><span class="kw">let </span>shared_memory = module.imports().memories().next().map(|a| <span class="kw-2">*</span>a.ty());
-
-        <span class="comment">// Determine if we are going to create memory and import it or just rely on self creation of memory
-        </span><span class="kw">let </span>memory_spawn = <span class="kw">match </span>shared_memory {
-            <span class="prelude-val">Some</span>(ty) =&gt; SpawnMemoryType::CreateMemoryOfType(ty),
-            <span class="prelude-val">None </span>=&gt; SpawnMemoryType::CreateMemory,
-        };
-
         <span class="comment">// Create a thread that will run this process
         </span><span class="kw">let </span>tasks_outer = tasks.clone();
 
-        <span class="kw">let </span>run = {
-            <span class="kw">move </span>|props: TaskWasmRunProperties| {
-                <span class="kw">let </span>ctx = props.ctx;
-                <span class="kw">let </span><span class="kw-2">mut </span>store = props.store;
-
-                <span class="comment">// Create the WasiFunctionEnv
-                </span><span class="kw">let </span>thread = WasiThreadRunGuard::new(ctx.data(<span class="kw-2">&amp;</span>store).thread.clone());
-
-                <span class="comment">// Perform the initialization
-                </span><span class="kw">let </span>ctx = {
-                    <span class="comment">// If this module exports an _initialize function, run that first.
-                    </span><span class="kw">if let </span><span class="prelude-val">Ok</span>(initialize) = <span class="kw">unsafe </span>{ ctx.data(<span class="kw-2">&amp;</span>store).inner() }
-                        .instance
-                        .exports
-                        .get_function(<span class="string">&quot;_initialize&quot;</span>)
-                    {
-                        <span class="kw">let </span>initialize = initialize.clone();
-                        <span class="kw">if let </span><span class="prelude-val">Err</span>(err) = initialize.call(<span class="kw-2">&amp;mut </span>store, <span class="kw-2">&amp;</span>[]) {
-                            thread.thread.set_status_finished(<span class="prelude-val">Err</span>(err.into()));
-                            ctx.data(<span class="kw-2">&amp;</span>store)
-                                .blocking_cleanup(<span class="prelude-val">Some</span>(Errno::Noexec.into()));
-                            <span class="kw">return</span>;
-                        }
-                    }
-
-                    WasiFunctionEnv { env: ctx.env }
-                };
-
-                <span class="comment">// If there is a start function
-                </span><span class="macro">debug!</span>(<span class="string">&quot;wasi[{}]::called main()&quot;</span>, pid);
-                <span class="comment">// TODO: rewrite to use crate::run_wasi_func
-
-                // Call the module
-                </span>call_module(ctx, store, thread, <span class="prelude-val">None</span>);
-            }
-        };
-
         tasks_outer
-            .task_wasm(TaskWasm::new(Box::new(run), env, module, <span class="bool-val">true</span>).with_memory(memory_spawn))
+            .task_wasm(TaskWasm::new(Box::new(run_exec), env, module, <span class="bool-val">true</span>))
             .map_err(|err| {
                 <span class="macro">error!</span>(<span class="string">&quot;wasi[{}]::failed to launch module - {}&quot;</span>, pid, err);
                 SpawnError::UnknownError
@@ -429,6 +425,78 @@
     </span>};
 
     <span class="prelude-val">Ok</span>(join_handle)
+}
+
+<span class="doccomment">/// # SAFETY
+/// This must be executed from the same thread that owns the instance as
+/// otherwise it will cause a panic
+</span><span class="kw">unsafe fn </span>run_recycle(
+    callback: <span class="prelude-ty">Option</span>&lt;Box&lt;TaskWasmRecycle&gt;&gt;,
+    ctx: WasiFunctionEnv,
+    <span class="kw-2">mut </span>store: Store,
+) {
+    <span class="kw">if let </span><span class="prelude-val">Some</span>(callback) = callback {
+        <span class="kw">let </span>env = ctx.data_mut(<span class="kw-2">&amp;mut </span>store);
+        <span class="kw">let </span>memory = env.memory().clone();
+
+        <span class="kw">let </span>props = TaskWasmRecycleProperties {
+            env: env.clone(),
+            memory,
+            store,
+        };
+        callback(props);
+    }
+}
+
+<span class="kw">pub fn </span>run_exec(props: TaskWasmRunProperties) {
+    <span class="kw">let </span>ctx = props.ctx;
+    <span class="kw">let </span><span class="kw-2">mut </span>store = props.store;
+
+    <span class="comment">// Create the WasiFunctionEnv
+    </span><span class="kw">let </span>thread = WasiThreadRunGuard::new(ctx.data(<span class="kw-2">&amp;</span>store).thread.clone());
+    <span class="kw">let </span>recycle = props.recycle;
+
+    <span class="comment">// Perform the initialization
+    </span><span class="kw">let </span>ctx = {
+        <span class="comment">// If this module exports an _initialize function, run that first.
+        </span><span class="kw">if let </span><span class="prelude-val">Ok</span>(initialize) = <span class="kw">unsafe </span>{ ctx.data(<span class="kw-2">&amp;</span>store).inner() }
+            .instance
+            .exports
+            .get_function(<span class="string">&quot;_initialize&quot;</span>)
+        {
+            <span class="kw">let </span>initialize = initialize.clone();
+            <span class="kw">if let </span><span class="prelude-val">Err</span>(err) = initialize.call(<span class="kw-2">&amp;mut </span>store, <span class="kw-2">&amp;</span>[]) {
+                thread.thread.set_status_finished(<span class="prelude-val">Err</span>(err.into()));
+                ctx.data(<span class="kw-2">&amp;</span>store)
+                    .blocking_on_exit(<span class="prelude-val">Some</span>(Errno::Noexec.into()));
+                <span class="kw">unsafe </span>{ run_recycle(recycle, ctx, store) };
+                <span class="kw">return</span>;
+            }
+        }
+
+        WasiFunctionEnv { env: ctx.env }
+    };
+
+    <span class="comment">// Bootstrap the process
+    // Unsafe: The bootstrap must be executed in the same thread that runs the
+    //         actual WASM code
+    </span><span class="kw">let </span>rewind_state = <span class="kw">match unsafe </span>{ ctx.bootstrap(<span class="kw-2">&amp;mut </span>store) } {
+        <span class="prelude-val">Ok</span>(r) =&gt; r,
+        <span class="prelude-val">Err</span>(err) =&gt; {
+            thread.thread.set_status_finished(<span class="prelude-val">Err</span>(err));
+            ctx.data(<span class="kw-2">&amp;</span>store)
+                .blocking_on_exit(<span class="prelude-val">Some</span>(Errno::Noexec.into()));
+            <span class="kw">unsafe </span>{ run_recycle(recycle, ctx, store) };
+            <span class="kw">return</span>;
+        }
+    };
+
+    <span class="comment">// If there is a start function
+    </span><span class="macro">debug!</span>(<span class="string">&quot;wasi[{}]::called main()&quot;</span>, ctx.data(<span class="kw-2">&amp;</span>store).pid());
+    <span class="comment">// TODO: rewrite to use crate::run_wasi_func
+
+    // Call the module
+    </span>call_module(ctx, store, thread, rewind_state, recycle);
 }
 
 <span class="kw">fn </span>get_start(ctx: <span class="kw-2">&amp;</span>WasiFunctionEnv, store: <span class="kw-2">&amp;</span>Store) -&gt; <span class="prelude-ty">Option</span>&lt;Function&gt; {
@@ -445,7 +513,8 @@
     ctx: WasiFunctionEnv,
     <span class="kw-2">mut </span>store: Store,
     handle: WasiThreadRunGuard,
-    rewind_state: <span class="prelude-ty">Option</span>&lt;(RewindState, Bytes)&gt;,
+    rewind_state: <span class="prelude-ty">Option</span>&lt;(RewindState, <span class="prelude-ty">Option</span>&lt;Bytes&gt;)&gt;,
+    recycle: <span class="prelude-ty">Option</span>&lt;Box&lt;TaskWasmRecycle&gt;&gt;,
 ) {
     <span class="kw">let </span>env = ctx.data(<span class="kw-2">&amp;</span>store);
     <span class="kw">let </span>pid = env.pid();
@@ -454,28 +523,31 @@
 
     <span class="comment">// If we need to rewind then do so
     </span><span class="kw">if let </span><span class="prelude-val">Some</span>((rewind_state, rewind_result)) = rewind_state {
+        <span class="kw">let </span><span class="kw-2">mut </span>ctx = ctx.env.clone().into_mut(<span class="kw-2">&amp;mut </span>store);
         <span class="kw">if </span>rewind_state.is_64bit {
             <span class="kw">let </span>res = rewind_ext::&lt;Memory64&gt;(
-                ctx.env.clone().into_mut(<span class="kw-2">&amp;mut </span>store),
+                <span class="kw-2">&amp;mut </span>ctx,
                 rewind_state.memory_stack,
                 rewind_state.rewind_stack,
                 rewind_state.store_data,
                 rewind_result,
             );
             <span class="kw">if </span>res != Errno::Success {
-                ctx.data(<span class="kw-2">&amp;</span>store).blocking_cleanup(<span class="prelude-val">Some</span>(res.into()));
+                ctx.data().blocking_on_exit(<span class="prelude-val">Some</span>(res.into()));
+                <span class="kw">unsafe </span>{ run_recycle(recycle, WasiFunctionEnv { env: ctx.as_ref() }, store) };
                 <span class="kw">return</span>;
             }
         } <span class="kw">else </span>{
             <span class="kw">let </span>res = rewind_ext::&lt;Memory32&gt;(
-                ctx.env.clone().into_mut(<span class="kw-2">&amp;mut </span>store),
+                <span class="kw-2">&amp;mut </span>ctx,
                 rewind_state.memory_stack,
                 rewind_state.rewind_stack,
                 rewind_state.store_data,
                 rewind_result,
             );
             <span class="kw">if </span>res != Errno::Success {
-                ctx.data(<span class="kw-2">&amp;</span>store).blocking_cleanup(<span class="prelude-val">Some</span>(res.into()));
+                ctx.data().blocking_on_exit(<span class="prelude-val">Some</span>(res.into()));
+                <span class="kw">unsafe </span>{ run_recycle(recycle, WasiFunctionEnv { env: ctx.as_ref() }, store) };
                 <span class="kw">return</span>;
             }
         };
@@ -489,7 +561,8 @@
         } <span class="kw">else </span>{
             <span class="macro">debug!</span>(<span class="string">&quot;wasi[{}]::exec-failed: missing _start function&quot;</span>, pid);
             ctx.data(<span class="kw-2">&amp;</span>store)
-                .blocking_cleanup(<span class="prelude-val">Some</span>(Errno::Noexec.into()));
+                .blocking_on_exit(<span class="prelude-val">Some</span>(Errno::Noexec.into()));
+            <span class="kw">unsafe </span>{ run_recycle(recycle, ctx, store) };
             <span class="kw">return</span>;
         };
 
@@ -503,7 +576,13 @@
                     <span class="kw">let </span>respawn = {
                         <span class="kw">move </span>|ctx, store, rewind_result| {
                             <span class="comment">// Call the thread
-                            </span>call_module(ctx, store, handle, <span class="prelude-val">Some</span>((rewind, rewind_result)));
+                            </span>call_module(
+                                ctx,
+                                store,
+                                handle,
+                                <span class="prelude-val">Some</span>((rewind, <span class="prelude-val">Some</span>(rewind_result))),
+                                recycle,
+                            );
                         }
                     };
 
@@ -533,7 +612,8 @@
     };
 
     <span class="comment">// Cleanup the environment
-    </span>ctx.data(<span class="kw-2">&amp;</span>store).blocking_cleanup(<span class="prelude-val">Some</span>(code));
+    </span>ctx.data(<span class="kw-2">&amp;</span>store).blocking_on_exit(<span class="prelude-val">Some</span>(code));
+    <span class="kw">unsafe </span>{ run_recycle(recycle, ctx, store) };
 
     <span class="macro">debug!</span>(<span class="string">&quot;wasi[{pid}]::main() has exited with {code}&quot;</span>);
     handle.thread.set_status_finished(ret.map(|a| a.into()));
@@ -553,7 +633,7 @@
                 .<span class="kw">await
                 </span>.ok_or(SpawnError::NotFound);
             <span class="kw">if </span>binary.is_err() {
-                env.cleanup(<span class="prelude-val">Some</span>(Errno::Noent.into())).<span class="kw">await</span>;
+                env.on_exit(<span class="prelude-val">Some</span>(Errno::Noent.into())).<span class="kw">await</span>;
             }
             <span class="kw">let </span>binary = binary<span class="question-mark">?</span>;
 

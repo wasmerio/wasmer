@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":["InvalidCharacter","WasiStateCreationError"],"fn":["handle_result","run_with_deep_sleep","validate_mapped_dir_alias","wasi_exit_code"],"static":["META","__CALLSITE"],"struct":["PreopenDirBuilder","PreopenedDir","WasiEnvBuilder"],"type":["SetupFsFn"]};
+window.SIDEBAR_ITEMS = {"enum":["InvalidCharacter","WasiStateCreationError"],"fn":["conv_env_vars","validate_mapped_dir_alias"],"static":["META","__CALLSITE"],"struct":["PreopenDirBuilder","PreopenedDir","WasiEnvBuilder"],"type":["SetupFsFn"]};

@@ -21,6 +21,24 @@
 <a href="#21" id="21">21</a>
 <a href="#22" id="22">22</a>
 <a href="#23" id="23">23</a>
+<a href="#24" id="24">24</a>
+<a href="#25" id="25">25</a>
+<a href="#26" id="26">26</a>
+<a href="#27" id="27">27</a>
+<a href="#28" id="28">28</a>
+<a href="#29" id="29">29</a>
+<a href="#30" id="30">30</a>
+<a href="#31" id="31">31</a>
+<a href="#32" id="32">32</a>
+<a href="#33" id="33">33</a>
+<a href="#34" id="34">34</a>
+<a href="#35" id="35">35</a>
+<a href="#36" id="36">36</a>
+<a href="#37" id="37">37</a>
+<a href="#38" id="38">38</a>
+<a href="#39" id="39">39</a>
+<a href="#40" id="40">40</a>
+<a href="#41" id="41">41</a>
 </pre></div><pre class="rust"><code><span class="kw">use super</span>::<span class="kw-2">*</span>;
 <span class="kw">use </span><span class="kw">crate</span>::syscalls::<span class="kw-2">*</span>;
 
@@ -37,11 +55,29 @@
     <span class="kw">let </span>ip = <span class="macro">wasi_try_ok!</span>(<span class="kw">crate</span>::net::read_ip(<span class="kw-2">&amp;</span>memory, ip));
     Span::current().record(<span class="string">&quot;ip&quot;</span>, <span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;{:?}&quot;</span>, ip));
 
+    <span class="macro">wasi_try_ok!</span>(port_route_remove_internal(<span class="kw-2">&amp;mut </span>ctx, ip)<span class="question-mark">?</span>);
+
+    <span class="attr">#[cfg(feature = <span class="string">&quot;journal&quot;</span>)]
+    </span><span class="kw">if </span>ctx.data().enable_journal {
+        JournalEffector::save_port_route_remove(<span class="kw-2">&amp;mut </span>ctx, ip).map_err(|err| {
+            <span class="macro">tracing::error!</span>(<span class="string">&quot;failed to save port_route_remove event - {}&quot;</span>, err);
+            WasiError::Exit(ExitCode::Errno(Errno::Fault))
+        })<span class="question-mark">?</span>;
+    }
+
+    <span class="prelude-val">Ok</span>(Errno::Success)
+}
+
+<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>port_route_remove_internal(
+    ctx: <span class="kw-2">&amp;mut </span>FunctionEnvMut&lt;<span class="lifetime">&#39;_</span>, WasiEnv&gt;,
+    ip: IpAddr,
+) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Result</span>&lt;(), Errno&gt;, WasiError&gt; {
+    <span class="kw">let </span>env = ctx.data();
     <span class="kw">let </span>net = env.net().clone();
-    <span class="macro">wasi_try_ok!</span>(__asyncify(<span class="kw-2">&amp;mut </span>ctx, <span class="prelude-val">None</span>, <span class="kw">async </span>{
+    <span class="macro">wasi_try_ok_ok!</span>(__asyncify(ctx, <span class="prelude-val">None</span>, <span class="kw">async </span>{
         net.route_remove(ip).<span class="kw">await</span>.map_err(net_error_into_wasi_err)
     })<span class="question-mark">?</span>);
 
-    <span class="prelude-val">Ok</span>(Errno::Success)
+    <span class="prelude-val">Ok</span>(<span class="prelude-val">Ok</span>(()))
 }
 </code></pre></div></section></main></body></html>

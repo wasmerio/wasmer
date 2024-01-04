@@ -375,7 +375,7 @@
 ///
 /// Note: this error is not standard to WebAssembly, but it&#39;s
 /// useful to determine the import issue on the API side.
-</span><span class="attr">#[derive(Error, Debug)]
+</span><span class="attr">#[derive(Error, Debug, Clone)]
 </span><span class="kw">pub enum </span>ImportError {
     <span class="doccomment">/// Incompatible Import Type.
     /// This error occurs when the import types mismatch.

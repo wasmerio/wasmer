@@ -420,6 +420,40 @@
 <a href="#420" id="420">420</a>
 <a href="#421" id="421">421</a>
 <a href="#422" id="422">422</a>
+<a href="#423" id="423">423</a>
+<a href="#424" id="424">424</a>
+<a href="#425" id="425">425</a>
+<a href="#426" id="426">426</a>
+<a href="#427" id="427">427</a>
+<a href="#428" id="428">428</a>
+<a href="#429" id="429">429</a>
+<a href="#430" id="430">430</a>
+<a href="#431" id="431">431</a>
+<a href="#432" id="432">432</a>
+<a href="#433" id="433">433</a>
+<a href="#434" id="434">434</a>
+<a href="#435" id="435">435</a>
+<a href="#436" id="436">436</a>
+<a href="#437" id="437">437</a>
+<a href="#438" id="438">438</a>
+<a href="#439" id="439">439</a>
+<a href="#440" id="440">440</a>
+<a href="#441" id="441">441</a>
+<a href="#442" id="442">442</a>
+<a href="#443" id="443">443</a>
+<a href="#444" id="444">444</a>
+<a href="#445" id="445">445</a>
+<a href="#446" id="446">446</a>
+<a href="#447" id="447">447</a>
+<a href="#448" id="448">448</a>
+<a href="#449" id="449">449</a>
+<a href="#450" id="450">450</a>
+<a href="#451" id="451">451</a>
+<a href="#452" id="452">452</a>
+<a href="#453" id="453">453</a>
+<a href="#454" id="454">454</a>
+<a href="#455" id="455">455</a>
+<a href="#456" id="456">456</a>
 </pre></div><pre class="rust"><code><span class="comment">// TODO: should be behind a different , tokio specific feature flag.
 </span><span class="attr">#[cfg(feature = <span class="string">&quot;sys-thread&quot;</span>)]
 </span><span class="kw">pub mod </span>tokio;
@@ -429,6 +463,7 @@
 <span class="kw">use </span>std::{pin::Pin, time::Duration};
 
 <span class="kw">use </span>bytes::Bytes;
+<span class="kw">use </span>derivative::Derivative;
 <span class="kw">use </span>futures::future::BoxFuture;
 <span class="kw">use </span>futures::{Future, TryFutureExt};
 <span class="kw">use </span>wasmer::{AsStoreMut, AsStoreRef, Memory, MemoryType, Module, Store, StoreMut, StoreRef};
@@ -436,7 +471,7 @@
 
 <span class="kw">use </span><span class="kw">crate</span>::os::task::thread::WasiThreadError;
 <span class="kw">use </span><span class="kw">crate</span>::syscalls::AsyncifyFuture;
-<span class="kw">use crate</span>::{capture_snapshot, InstanceSnapshot, WasiEnv, WasiFunctionEnv, WasiThread};
+<span class="kw">use crate</span>::{capture_instance_snapshot, InstanceSnapshot, WasiEnv, WasiFunctionEnv, WasiThread};
 
 <span class="kw">pub use </span>virtual_mio::waker::<span class="kw-2">*</span>;
 
@@ -460,7 +495,8 @@
     + Sync;
 
 <span class="doccomment">/// The properties passed to the task
-</span><span class="attr">#[derive(Debug)]
+</span><span class="attr">#[derive(Derivative)]
+#[derivative(Debug)]
 </span><span class="kw">pub struct </span>TaskWasmRunProperties {
     <span class="kw">pub </span>ctx: WasiFunctionEnv,
     <span class="kw">pub </span>store: Store,
@@ -468,6 +504,9 @@
     /// When no trigger is associated with the run operation (i.e. spawning threads) then this will be None.
     /// (if the trigger returns an ExitCode then the WASM process will be terminated without resuming)
     </span><span class="kw">pub </span>trigger_result: <span class="prelude-ty">Option</span>&lt;<span class="prelude-ty">Result</span>&lt;Bytes, ExitCode&gt;&gt;,
+    <span class="doccomment">/// The instance will be recycled back to this function when the WASM run has finished
+    </span><span class="attr">#[derivative(Debug = <span class="string">&quot;ignore&quot;</span>)]
+    </span><span class="kw">pub </span>recycle: <span class="prelude-ty">Option</span>&lt;Box&lt;TaskWasmRecycle&gt;&gt;,
 }
 
 <span class="doccomment">/// Callback that will be invoked
@@ -476,9 +515,21 @@
 <span class="doccomment">/// Callback that will be invoked
 </span><span class="kw">pub type </span>TaskExecModule = <span class="kw">dyn </span>FnOnce(Module) + Send + <span class="lifetime">&#39;static</span>;
 
+<span class="doccomment">/// The properties passed to the task
+</span><span class="attr">#[derive(Debug)]
+</span><span class="kw">pub struct </span>TaskWasmRecycleProperties {
+    <span class="kw">pub </span>env: WasiEnv,
+    <span class="kw">pub </span>memory: Memory,
+    <span class="kw">pub </span>store: Store,
+}
+
+<span class="doccomment">/// Callback that will be invoked
+</span><span class="kw">pub type </span>TaskWasmRecycle = <span class="kw">dyn </span>FnOnce(TaskWasmRecycleProperties) + Send + <span class="lifetime">&#39;static</span>;
+
 <span class="doccomment">/// Represents a WASM task that will be executed on a dedicated thread
 </span><span class="kw">pub struct </span>TaskWasm&lt;<span class="lifetime">&#39;a</span>, <span class="lifetime">&#39;b</span>&gt; {
     <span class="kw">pub </span>run: Box&lt;TaskWasmRun&gt;,
+    <span class="kw">pub </span>recycle: <span class="prelude-ty">Option</span>&lt;Box&lt;TaskWasmRecycle&gt;&gt;,
     <span class="kw">pub </span>env: WasiEnv,
     <span class="kw">pub </span>module: Module,
     <span class="kw">pub </span>snapshot: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span><span class="lifetime">&#39;b </span>InstanceSnapshot&gt;,
@@ -489,19 +540,31 @@
 
 <span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>, <span class="lifetime">&#39;b</span>&gt; TaskWasm&lt;<span class="lifetime">&#39;a</span>, <span class="lifetime">&#39;b</span>&gt; {
     <span class="kw">pub fn </span>new(run: Box&lt;TaskWasmRun&gt;, env: WasiEnv, module: Module, update_layout: bool) -&gt; <span class="self">Self </span>{
+        <span class="kw">let </span>shared_memory = module.imports().memories().next().map(|a| <span class="kw-2">*</span>a.ty());
         <span class="self">Self </span>{
             run,
             env,
             module,
             snapshot: <span class="prelude-val">None</span>,
-            spawn_type: SpawnMemoryType::CreateMemory,
+            spawn_type: <span class="kw">match </span>shared_memory {
+                <span class="prelude-val">Some</span>(ty) =&gt; SpawnMemoryType::CreateMemoryOfType(ty),
+                <span class="prelude-val">None </span>=&gt; SpawnMemoryType::CreateMemory,
+            },
             trigger: <span class="prelude-val">None</span>,
             update_layout,
+            recycle: <span class="prelude-val">None</span>,
         }
     }
 
     <span class="kw">pub fn </span>with_memory(<span class="kw-2">mut </span><span class="self">self</span>, spawn_type: SpawnMemoryType&lt;<span class="lifetime">&#39;a</span>&gt;) -&gt; <span class="self">Self </span>{
         <span class="self">self</span>.spawn_type = spawn_type;
+        <span class="self">self
+    </span>}
+
+    <span class="kw">pub fn </span>with_optional_memory(<span class="kw-2">mut </span><span class="self">self</span>, spawn_type: <span class="prelude-ty">Option</span>&lt;SpawnMemoryType&lt;<span class="lifetime">&#39;a</span>&gt;&gt;) -&gt; <span class="self">Self </span>{
+        <span class="kw">if let </span><span class="prelude-val">Some</span>(spawn_type) = spawn_type {
+            <span class="self">self</span>.spawn_type = spawn_type;
+        }
         <span class="self">self
     </span>}
 
@@ -512,6 +575,11 @@
 
     <span class="kw">pub fn </span>with_trigger(<span class="kw-2">mut </span><span class="self">self</span>, trigger: Box&lt;WasmResumeTrigger&gt;) -&gt; <span class="self">Self </span>{
         <span class="self">self</span>.trigger.replace(trigger);
+        <span class="self">self
+    </span>}
+
+    <span class="kw">pub fn </span>with_recycle(<span class="kw-2">mut </span><span class="self">self</span>, trigger: Box&lt;TaskWasmRecycle&gt;) -&gt; <span class="self">Self </span>{
+        <span class="self">self</span>.recycle.replace(trigger);
         <span class="self">self
     </span>}
 }
@@ -734,7 +802,7 @@
             }
         }
 
-        <span class="kw">let </span>snapshot = capture_snapshot(<span class="kw-2">&amp;mut </span>store.as_store_mut());
+        <span class="kw">let </span>snapshot = capture_instance_snapshot(<span class="kw-2">&amp;mut </span>store.as_store_mut());
         <span class="kw">let </span>env = ctx.data(<span class="kw-2">&amp;</span>store);
         <span class="kw">let </span>module = env.inner().module_clone();
         <span class="kw">let </span>memory = env.inner().memory_clone();

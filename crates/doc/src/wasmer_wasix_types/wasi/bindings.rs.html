@@ -3704,7 +3704,21 @@
 <a href="#3704" id="3704">3704</a>
 <a href="#3705" id="3705">3705</a>
 <a href="#3706" id="3706">3706</a>
-</pre></div><pre class="rust"><code><span class="attr">#[cfg(feature = <span class="string">&quot;enable-serde&quot;</span>)]
+<a href="#3707" id="3707">3707</a>
+<a href="#3708" id="3708">3708</a>
+<a href="#3709" id="3709">3709</a>
+<a href="#3710" id="3710">3710</a>
+<a href="#3711" id="3711">3711</a>
+<a href="#3712" id="3712">3712</a>
+<a href="#3713" id="3713">3713</a>
+<a href="#3714" id="3714">3714</a>
+<a href="#3715" id="3715">3715</a>
+<a href="#3716" id="3716">3716</a>
+<a href="#3717" id="3717">3717</a>
+<a href="#3718" id="3718">3718</a>
+<a href="#3719" id="3719">3719</a>
+</pre></div><pre class="rust"><code><span class="kw">use </span>num_enum::{IntoPrimitive, TryFromPrimitive};
+<span class="attr">#[cfg(feature = <span class="string">&quot;enable-serde&quot;</span>)]
 </span><span class="kw">use </span>serde::{Deserialize, Serialize};
 <span class="kw">use </span>std::mem::MaybeUninit;
 <span class="kw">use </span>wasmer::{MemorySize, ValueType};
@@ -3740,6 +3754,7 @@
 <span class="attr">#[doc = <span class="string">&quot; Identifiers for clocks, snapshot0 version.&quot;</span>]
 #[repr(u32)]
 #[derive(Clone, Copy, PartialEq, Eq, num_enum :: TryFromPrimitive, Hash)]
+#[cfg_attr(feature = <span class="string">&quot;enable-serde&quot;</span>, derive(Serialize, Deserialize))]
 </span><span class="kw">pub enum </span>Snapshot0Clockid {
     <span class="attr">#[doc = <span class="string">&quot; The clock measuring real time. Time value zero corresponds with&quot;</span>]
     #[doc = <span class="string">&quot; 1970-01-01T00:00:00Z.&quot;</span>]
@@ -3806,7 +3821,7 @@
 #[doc = <span class="string">&quot; API; some are used in higher-level library layers, and others are provided&quot;</span>]
 #[doc = <span class="string">&quot; merely for alignment with POSIX.&quot;</span>]
 #[repr(u16)]
-#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, IntoPrimitive, TryFromPrimitive)]
 #[cfg_attr(feature = <span class="string">&quot;enable-serde&quot;</span>, derive(Serialize, Deserialize))]
 </span><span class="kw">pub enum </span>Errno {
     <span class="attr">#[doc = <span class="string">&quot; No error occurred. System call completed successfully.&quot;</span>]
@@ -4153,6 +4168,7 @@
 <span class="kw">impl </span>std::error::Error <span class="kw">for </span>Errno {}
 <span class="macro">wai_bindgen_rust::bitflags::bitflags! </span>{
     <span class="attr">#[doc = <span class="string">&quot; File descriptor rights, determining which actions may be performed.&quot;</span>]
+    #[cfg_attr(feature = <span class="string">&quot;enable-serde&quot;</span>, derive(Serialize, Deserialize))]
     </span><span class="kw">pub struct </span>Rights : u64 {
         <span class="attr">#[doc = <span class="string">&quot; The right to invoke `fd_datasync`.&quot;</span>]
         #[doc = <span class="string">&quot; &quot;</span>]
@@ -4346,6 +4362,7 @@
 <span class="attr">#[doc = <span class="string">&quot; File or memory access pattern advisory information.&quot;</span>]
 #[repr(u8)]
 #[derive(Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(feature = <span class="string">&quot;enable-serde&quot;</span>, derive(Serialize, Deserialize))]
 </span><span class="kw">pub enum </span>Advice {
     <span class="attr">#[doc = <span class="string">&quot; The application has no advice to give on its behavior with respect to the specified data.&quot;</span>]
     </span>Normal,
@@ -4377,6 +4394,7 @@
 }
 <span class="macro">wai_bindgen_rust::bitflags::bitflags! </span>{
     <span class="attr">#[doc = <span class="string">&quot; File descriptor flags.&quot;</span>]
+    #[cfg_attr(feature = <span class="string">&quot;enable-serde&quot;</span>, derive(Serialize, Deserialize))]
     </span><span class="kw">pub struct </span>Fdflags : u16 {
         <span class="attr">#[doc = <span class="string">&quot; Append mode: Data written to the file is always appended to the file&#39;s end.&quot;</span>]
         </span><span class="kw">const </span>APPEND = <span class="number">1 </span>&lt;&lt; <span class="number">0</span>;
@@ -4427,6 +4445,7 @@
     <span class="attr">#[doc = <span class="string">&quot; Which file time attributes to adjust.&quot;</span>]
     #[doc = <span class="string">&quot; TODO: wit appears to not have support for flags repr&quot;</span>]
     #[doc = <span class="string">&quot; (@witx repr u16)&quot;</span>]
+    #[cfg_attr(feature = <span class="string">&quot;enable-serde&quot;</span>, derive(Serialize, Deserialize))]
     </span><span class="kw">pub struct </span>Fstflags : u16 {
         <span class="attr">#[doc = <span class="string">&quot; Adjust the last data access timestamp to the value stored in `filestat::atim`.&quot;</span>]
         </span><span class="kw">const </span>SET_ATIM = <span class="number">1 </span>&lt;&lt; <span class="number">0</span>;
@@ -4465,6 +4484,7 @@
     <span class="attr">#[doc = <span class="string">&quot; Open flags used by `path_open`.&quot;</span>]
     #[doc = <span class="string">&quot; TODO: wit appears to not have support for flags repr&quot;</span>]
     #[doc = <span class="string">&quot; (@witx repr u16)&quot;</span>]
+    #[cfg_attr(feature = <span class="string">&quot;enable-serde&quot;</span>, derive(Serialize, Deserialize))]
     </span><span class="kw">pub struct </span>Oflags : u16 {
         <span class="attr">#[doc = <span class="string">&quot; Create file if it does not exist.&quot;</span>]
         </span><span class="kw">const </span>CREATE = <span class="number">1 </span>&lt;&lt; <span class="number">0</span>;
@@ -4657,6 +4677,7 @@
 }
 <span class="attr">#[repr(u8)]
 #[derive(Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(feature = <span class="string">&quot;enable-serde&quot;</span>, derive(Serialize, Deserialize))]
 </span><span class="kw">pub enum </span>Socktype {
     Unknown,
     Stream,
@@ -4697,6 +4718,7 @@
 }
 <span class="attr">#[repr(u8)]
 #[derive(Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(feature = <span class="string">&quot;enable-serde&quot;</span>, derive(Serialize, Deserialize))]
 </span><span class="kw">pub enum </span>Sockoption {
     Noop,
     ReusePort,
@@ -4787,6 +4809,7 @@
 }
 <span class="attr">#[repr(u8)]
 #[derive(Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(feature = <span class="string">&quot;enable-serde&quot;</span>, derive(Serialize, Deserialize))]
 </span><span class="kw">pub enum </span>Addressfamily {
     Unspec,
     Inet4,
@@ -4875,6 +4898,7 @@
 }
 <span class="attr">#[repr(u8)]
 #[derive(Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(feature = <span class="string">&quot;enable-serde&quot;</span>, derive(Serialize, Deserialize))]
 </span><span class="kw">pub enum </span>Whence {
     Set,
     Cur,
@@ -4892,7 +4916,8 @@
     }
 }
 <span class="attr">#[repr(C)]
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, PartialEq)]
+#[cfg_attr(feature = <span class="string">&quot;enable-serde&quot;</span>, derive(Serialize, Deserialize))]
 </span><span class="kw">pub struct </span>Tty {
     <span class="kw">pub </span>cols: u32,
     <span class="kw">pub </span>rows: u32,
@@ -5054,7 +5079,8 @@
     }
 }
 <span class="attr">#[repr(u16)]
-#[derive(Clone, Copy, PartialEq, Eq)]
+#[derive(Clone, Copy, PartialEq, Eq, IntoPrimitive, TryFromPrimitive)]
+#[cfg_attr(feature = <span class="string">&quot;enable-serde&quot;</span>, derive(Serialize, Deserialize))]
 </span><span class="kw">pub enum </span>SockProto {
     Ip,
     Icmp,

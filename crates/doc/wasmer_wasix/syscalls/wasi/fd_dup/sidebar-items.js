@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["fd_dup"],"static":["META","__CALLSITE"]};
+window.SIDEBAR_ITEMS = {"fn":["fd_dup","fd_dup_internal"],"static":["META","__CALLSITE"]};

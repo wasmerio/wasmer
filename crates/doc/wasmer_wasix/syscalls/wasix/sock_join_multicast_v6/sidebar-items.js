@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["sock_join_multicast_v6"],"static":["META","__CALLSITE"]};
+window.SIDEBAR_ITEMS = {"fn":["sock_join_multicast_v6","sock_join_multicast_v6_internal"],"static":["META","__CALLSITE"]};

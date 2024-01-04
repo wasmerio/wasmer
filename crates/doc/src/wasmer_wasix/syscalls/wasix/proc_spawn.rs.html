@@ -361,7 +361,7 @@
     stdin: WasiStdioMode,
     stdout: WasiStdioMode,
     stderr: WasiStdioMode,
-) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Result</span>&lt;(ProcessHandles, FunctionEnvMut&lt;<span class="lifetime">&#39;_</span>, WasiEnv&gt;), Errno&gt;, WasiError&gt; {
+) -&gt; WasiResult&lt;(ProcessHandles, FunctionEnvMut&lt;<span class="lifetime">&#39;_</span>, WasiEnv&gt;)&gt; {
     <span class="kw">let </span>env = ctx.data();
 
     <span class="comment">// Build a new store that will be passed to the thread
@@ -506,7 +506,7 @@
 
     <span class="comment">// Add the process to the environment state
     </span>{
-        <span class="kw">let </span><span class="kw-2">mut </span>inner = ctx.data().process.inner.write().unwrap();
+        <span class="kw">let </span><span class="kw-2">mut </span>inner = ctx.data().process.lock();
         inner.children.push(child_process);
     }
     <span class="kw">let </span>env = ctx.data();

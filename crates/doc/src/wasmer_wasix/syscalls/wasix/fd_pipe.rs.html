@@ -54,6 +54,24 @@
 <a href="#54" id="54">54</a>
 <a href="#55" id="55">55</a>
 <a href="#56" id="56">56</a>
+<a href="#57" id="57">57</a>
+<a href="#58" id="58">58</a>
+<a href="#59" id="59">59</a>
+<a href="#60" id="60">60</a>
+<a href="#61" id="61">61</a>
+<a href="#62" id="62">62</a>
+<a href="#63" id="63">63</a>
+<a href="#64" id="64">64</a>
+<a href="#65" id="65">65</a>
+<a href="#66" id="66">66</a>
+<a href="#67" id="67">67</a>
+<a href="#68" id="68">68</a>
+<a href="#69" id="69">69</a>
+<a href="#70" id="70">70</a>
+<a href="#71" id="71">71</a>
+<a href="#72" id="72">72</a>
+<a href="#73" id="73">73</a>
+<a href="#74" id="74">74</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>virtual_fs::Pipe;
 
 <span class="kw">use super</span>::<span class="kw-2">*</span>;
@@ -68,13 +86,35 @@
 ///     Second file handle that represents the other end of the pipe
 </span><span class="attr">#[instrument(level = <span class="string">&quot;trace&quot;</span>, skip_all, fields(fd1 = field::Empty, fd2 = field::Empty), ret)]
 </span><span class="kw">pub fn </span>fd_pipe&lt;M: MemorySize&gt;(
-    ctx: FunctionEnvMut&lt;<span class="lifetime">&#39;_</span>, WasiEnv&gt;,
+    <span class="kw-2">mut </span>ctx: FunctionEnvMut&lt;<span class="lifetime">&#39;_</span>, WasiEnv&gt;,
     ro_fd1: WasmPtr&lt;WasiFd, M&gt;,
     ro_fd2: WasmPtr&lt;WasiFd, M&gt;,
-) -&gt; Errno {
+) -&gt; <span class="prelude-ty">Result</span>&lt;Errno, WasiError&gt; {
+    <span class="kw">let </span>(fd1, fd2) = <span class="macro">wasi_try_ok!</span>(fd_pipe_internal(<span class="kw-2">&amp;mut </span>ctx));
+    <span class="kw">let </span>env = ctx.data();
+
+    <span class="attr">#[cfg(feature = <span class="string">&quot;journal&quot;</span>)]
+    </span><span class="kw">if </span>env.enable_journal {
+        JournalEffector::save_fd_pipe(<span class="kw-2">&amp;mut </span>ctx, fd1, fd2).map_err(|err| {
+            <span class="macro">tracing::error!</span>(<span class="string">&quot;failed to save create pipe event - {}&quot;</span>, err);
+            WasiError::Exit(ExitCode::Errno(Errno::Fault))
+        })<span class="question-mark">?</span>;
+    }
+
     <span class="kw">let </span>env = ctx.data();
     <span class="kw">let </span>(memory, state, inodes) = <span class="kw">unsafe </span>{ env.get_memory_and_wasi_state_and_inodes(<span class="kw-2">&amp;</span>ctx, <span class="number">0</span>) };
 
+    Span::current().record(<span class="string">&quot;fd1&quot;</span>, fd1).record(<span class="string">&quot;fd2&quot;</span>, fd2);
+
+    <span class="macro">wasi_try_mem_ok!</span>(ro_fd1.write(<span class="kw-2">&amp;</span>memory, fd1));
+    <span class="macro">wasi_try_mem_ok!</span>(ro_fd2.write(<span class="kw-2">&amp;</span>memory, fd2));
+
+    <span class="prelude-val">Ok</span>(Errno::Success)
+}
+
+<span class="kw">pub fn </span>fd_pipe_internal(ctx: <span class="kw-2">&amp;mut </span>FunctionEnvMut&lt;<span class="lifetime">&#39;_</span>, WasiEnv&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(WasiFd, WasiFd), Errno&gt; {
+    <span class="kw">let </span>env = ctx.data();
+    <span class="kw">let </span>(memory, state, inodes) = <span class="kw">unsafe </span>{ env.get_memory_and_wasi_state_and_inodes(<span class="kw-2">&amp;</span>ctx, <span class="number">0</span>) };
     <span class="kw">let </span>(pipe1, pipe2) = Pipe::channel();
 
     <span class="kw">let </span>inode1 = state.fs.create_inode_with_default_stat(
@@ -97,17 +137,13 @@
         | Rights::POLL_FD_READWRITE
         | Rights::SOCK_SEND
         | Rights::FD_FDSTAT_SET_FLAGS;
-    <span class="kw">let </span>fd1 = <span class="macro">wasi_try!</span>(state
+    <span class="kw">let </span>fd1 = state
         .fs
-        .create_fd(rights, rights, Fdflags::empty(), <span class="number">0</span>, inode1));
-    <span class="kw">let </span>fd2 = <span class="macro">wasi_try!</span>(state
+        .create_fd(rights, rights, Fdflags::empty(), <span class="number">0</span>, inode1)<span class="question-mark">?</span>;
+    <span class="kw">let </span>fd2 = state
         .fs
-        .create_fd(rights, rights, Fdflags::empty(), <span class="number">0</span>, inode2));
-    Span::current().record(<span class="string">&quot;fd1&quot;</span>, fd1).record(<span class="string">&quot;fd2&quot;</span>, fd2);
+        .create_fd(rights, rights, Fdflags::empty(), <span class="number">0</span>, inode2)<span class="question-mark">?</span>;
 
-    <span class="macro">wasi_try_mem!</span>(ro_fd1.write(<span class="kw-2">&amp;</span>memory, fd1));
-    <span class="macro">wasi_try_mem!</span>(ro_fd2.write(<span class="kw-2">&amp;</span>memory, fd2));
-
-    Errno::Success
+    <span class="prelude-val">Ok</span>((fd1, fd2))
 }
 </code></pre></div></section></main></body></html>

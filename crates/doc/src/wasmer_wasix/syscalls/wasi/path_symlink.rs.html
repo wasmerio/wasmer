@@ -105,6 +105,36 @@
 <a href="#105" id="105">105</a>
 <a href="#106" id="106">106</a>
 <a href="#107" id="107">107</a>
+<a href="#108" id="108">108</a>
+<a href="#109" id="109">109</a>
+<a href="#110" id="110">110</a>
+<a href="#111" id="111">111</a>
+<a href="#112" id="112">112</a>
+<a href="#113" id="113">113</a>
+<a href="#114" id="114">114</a>
+<a href="#115" id="115">115</a>
+<a href="#116" id="116">116</a>
+<a href="#117" id="117">117</a>
+<a href="#118" id="118">118</a>
+<a href="#119" id="119">119</a>
+<a href="#120" id="120">120</a>
+<a href="#121" id="121">121</a>
+<a href="#122" id="122">122</a>
+<a href="#123" id="123">123</a>
+<a href="#124" id="124">124</a>
+<a href="#125" id="125">125</a>
+<a href="#126" id="126">126</a>
+<a href="#127" id="127">127</a>
+<a href="#128" id="128">128</a>
+<a href="#129" id="129">129</a>
+<a href="#130" id="130">130</a>
+<a href="#131" id="131">131</a>
+<a href="#132" id="132">132</a>
+<a href="#133" id="133">133</a>
+<a href="#134" id="134">134</a>
+<a href="#135" id="135">135</a>
+<a href="#136" id="136">136</a>
+<a href="#137" id="137">137</a>
 </pre></div><pre class="rust"><code><span class="kw">use super</span>::<span class="kw-2">*</span>;
 <span class="kw">use </span><span class="kw">crate</span>::syscalls::<span class="kw-2">*</span>;
 
@@ -123,32 +153,62 @@
 ///     The number of bytes to read from `new_path`
 </span><span class="attr">#[instrument(level = <span class="string">&quot;debug&quot;</span>, skip_all, fields(%fd, old_path = field::Empty, new_path = field::Empty), ret)]
 </span><span class="kw">pub fn </span>path_symlink&lt;M: MemorySize&gt;(
-    ctx: FunctionEnvMut&lt;<span class="lifetime">&#39;_</span>, WasiEnv&gt;,
+    <span class="kw-2">mut </span>ctx: FunctionEnvMut&lt;<span class="lifetime">&#39;_</span>, WasiEnv&gt;,
     old_path: WasmPtr&lt;u8, M&gt;,
     old_path_len: M::Offset,
     fd: WasiFd,
     new_path: WasmPtr&lt;u8, M&gt;,
     new_path_len: M::Offset,
-) -&gt; Errno {
+) -&gt; <span class="prelude-ty">Result</span>&lt;Errno, WasiError&gt; {
     <span class="kw">let </span>env = ctx.data();
     <span class="kw">let </span>(memory, <span class="kw-2">mut </span>state, inodes) = <span class="kw">unsafe </span>{ env.get_memory_and_wasi_state_and_inodes(<span class="kw-2">&amp;</span>ctx, <span class="number">0</span>) };
-    <span class="kw">let </span><span class="kw-2">mut </span>old_path_str = <span class="kw">unsafe </span>{ <span class="macro">get_input_str!</span>(<span class="kw-2">&amp;</span>memory, old_path, old_path_len) };
+    <span class="kw">let </span><span class="kw-2">mut </span>old_path_str = <span class="kw">unsafe </span>{ <span class="macro">get_input_str_ok!</span>(<span class="kw-2">&amp;</span>memory, old_path, old_path_len) };
     Span::current().record(<span class="string">&quot;old_path&quot;</span>, old_path_str.as_str());
-    <span class="kw">let </span><span class="kw-2">mut </span>new_path_str = <span class="kw">unsafe </span>{ <span class="macro">get_input_str!</span>(<span class="kw-2">&amp;</span>memory, new_path, new_path_len) };
+    <span class="kw">let </span><span class="kw-2">mut </span>new_path_str = <span class="kw">unsafe </span>{ <span class="macro">get_input_str_ok!</span>(<span class="kw-2">&amp;</span>memory, new_path, new_path_len) };
     Span::current().record(<span class="string">&quot;new_path&quot;</span>, new_path_str.as_str());
     old_path_str = ctx.data().state.fs.relative_path_to_absolute(old_path_str);
     new_path_str = ctx.data().state.fs.relative_path_to_absolute(new_path_str);
-    <span class="kw">let </span>base_fd = <span class="macro">wasi_try!</span>(state.fs.get_fd(fd));
+
+    <span class="macro">wasi_try_ok!</span>(path_symlink_internal(
+        <span class="kw-2">&amp;mut </span>ctx,
+        <span class="kw-2">&amp;</span>old_path_str,
+        fd,
+        <span class="kw-2">&amp;</span>new_path_str
+    ));
+    <span class="kw">let </span>env = ctx.data();
+
+    <span class="attr">#[cfg(feature = <span class="string">&quot;journal&quot;</span>)]
+    </span><span class="kw">if </span>env.enable_journal {
+        JournalEffector::save_path_symlink(<span class="kw-2">&amp;mut </span>ctx, old_path_str, fd, new_path_str).map_err(
+            |err| {
+                <span class="macro">tracing::error!</span>(<span class="string">&quot;failed to save path symbolic link event - {}&quot;</span>, err);
+                WasiError::Exit(ExitCode::Errno(Errno::Fault))
+            },
+        )<span class="question-mark">?</span>;
+    }
+
+    <span class="prelude-val">Ok</span>(Errno::Success)
+}
+
+<span class="kw">pub fn </span>path_symlink_internal(
+    ctx: <span class="kw-2">&amp;mut </span>FunctionEnvMut&lt;<span class="lifetime">&#39;_</span>, WasiEnv&gt;,
+    old_path: <span class="kw-2">&amp;</span>str,
+    fd: WasiFd,
+    new_path: <span class="kw-2">&amp;</span>str,
+) -&gt; <span class="prelude-ty">Result</span>&lt;(), Errno&gt; {
+    <span class="kw">let </span>env = ctx.data();
+    <span class="kw">let </span>(memory, <span class="kw-2">mut </span>state, inodes) = <span class="kw">unsafe </span>{ env.get_memory_and_wasi_state_and_inodes(<span class="kw-2">&amp;</span>ctx, <span class="number">0</span>) };
+
+    <span class="kw">let </span>base_fd = state.fs.get_fd(fd)<span class="question-mark">?</span>;
     <span class="kw">if </span>!base_fd.rights.contains(Rights::PATH_SYMLINK) {
-        <span class="kw">return </span>Errno::Access;
+        <span class="kw">return </span><span class="prelude-val">Err</span>(Errno::Access);
     }
 
     <span class="comment">// get the depth of the parent + 1 (UNDER INVESTIGATION HMMMMMMMM THINK FISH ^ THINK FISH)
-    </span><span class="kw">let </span>old_path_path = std::path::Path::new(<span class="kw-2">&amp;</span>old_path_str);
-    <span class="kw">let </span>(source_inode, <span class="kw">_</span>) =
-        <span class="macro">wasi_try!</span>(state
-            .fs
-            .get_parent_inode_at_path(inodes, fd, old_path_path, <span class="bool-val">true</span>));
+    </span><span class="kw">let </span>old_path_path = std::path::Path::new(old_path);
+    <span class="kw">let </span>(source_inode, <span class="kw">_</span>) = state
+        .fs
+        .get_parent_inode_at_path(inodes, fd, old_path_path, <span class="bool-val">true</span>)<span class="question-mark">?</span>;
     <span class="kw">let </span>depth = state.fs.path_depth_from_fd(fd, source_inode);
 
     <span class="comment">// depth == -1 means folder is not relative. See issue #3233.
@@ -157,11 +217,11 @@
         <span class="prelude-val">Err</span>(<span class="kw">_</span>) =&gt; -<span class="number">1</span>,
     };
 
-    <span class="kw">let </span>new_path_path = std::path::Path::new(<span class="kw-2">&amp;</span>new_path_str);
+    <span class="kw">let </span>new_path_path = std::path::Path::new(new_path);
     <span class="kw">let </span>(target_parent_inode, entry_name) =
-        <span class="macro">wasi_try!</span>(state
+        state
             .fs
-            .get_parent_inode_at_path(inodes, fd, new_path_path, <span class="bool-val">true</span>));
+            .get_parent_inode_at_path(inodes, fd, new_path_path, <span class="bool-val">true</span>)<span class="question-mark">?</span>;
 
     <span class="comment">// short circuit if anything is wrong, before we create an inode
     </span>{
@@ -169,21 +229,21 @@
         <span class="kw">match </span>guard.deref() {
             Kind::Dir { entries, .. } =&gt; {
                 <span class="kw">if </span>entries.contains_key(<span class="kw-2">&amp;</span>entry_name) {
-                    <span class="kw">return </span>Errno::Exist;
+                    <span class="kw">return </span><span class="prelude-val">Err</span>(Errno::Exist);
                 }
             }
-            Kind::Root { .. } =&gt; <span class="kw">return </span>Errno::Notcapable,
+            Kind::Root { .. } =&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(Errno::Notcapable),
             Kind::Socket { .. }
             | Kind::Pipe { .. }
             | Kind::EventNotifications { .. }
-            | Kind::Epoll { .. } =&gt; <span class="kw">return </span>Errno::Inval,
+            | Kind::Epoll { .. } =&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(Errno::Inval),
             Kind::File { .. } | Kind::Symlink { .. } | Kind::Buffer { .. } =&gt; {
                 <span class="macro">unreachable!</span>(<span class="string">&quot;get_parent_inode_at_path returned something other than a Dir or Root&quot;</span>)
             }
         }
     }
 
-    <span class="kw">let </span><span class="kw-2">mut </span>source_path = std::path::Path::new(<span class="kw-2">&amp;</span>old_path_str);
+    <span class="kw">let </span><span class="kw-2">mut </span>source_path = std::path::Path::new(old_path);
     <span class="kw">let </span><span class="kw-2">mut </span>relative_path = std::path::PathBuf::new();
     <span class="kw">for _ in </span><span class="number">0</span>..depth {
         relative_path.push(<span class="string">&quot;..&quot;</span>);
@@ -192,7 +252,7 @@
 
     <span class="kw">let </span>kind = Kind::Symlink {
         base_po_dir: fd,
-        path_to_symlink: std::path::PathBuf::from(new_path_str),
+        path_to_symlink: std::path::PathBuf::from(new_path),
         relative_path,
     };
     <span class="kw">let </span>new_inode =
@@ -210,6 +270,6 @@
         }
     }
 
-    Errno::Success
+    <span class="prelude-val">Ok</span>(())
 }
 </code></pre></div></section></main></body></html>

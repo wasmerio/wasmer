@@ -83,6 +83,47 @@
 <a href="#83" id="83">83</a>
 <a href="#84" id="84">84</a>
 <a href="#85" id="85">85</a>
+<a href="#86" id="86">86</a>
+<a href="#87" id="87">87</a>
+<a href="#88" id="88">88</a>
+<a href="#89" id="89">89</a>
+<a href="#90" id="90">90</a>
+<a href="#91" id="91">91</a>
+<a href="#92" id="92">92</a>
+<a href="#93" id="93">93</a>
+<a href="#94" id="94">94</a>
+<a href="#95" id="95">95</a>
+<a href="#96" id="96">96</a>
+<a href="#97" id="97">97</a>
+<a href="#98" id="98">98</a>
+<a href="#99" id="99">99</a>
+<a href="#100" id="100">100</a>
+<a href="#101" id="101">101</a>
+<a href="#102" id="102">102</a>
+<a href="#103" id="103">103</a>
+<a href="#104" id="104">104</a>
+<a href="#105" id="105">105</a>
+<a href="#106" id="106">106</a>
+<a href="#107" id="107">107</a>
+<a href="#108" id="108">108</a>
+<a href="#109" id="109">109</a>
+<a href="#110" id="110">110</a>
+<a href="#111" id="111">111</a>
+<a href="#112" id="112">112</a>
+<a href="#113" id="113">113</a>
+<a href="#114" id="114">114</a>
+<a href="#115" id="115">115</a>
+<a href="#116" id="116">116</a>
+<a href="#117" id="117">117</a>
+<a href="#118" id="118">118</a>
+<a href="#119" id="119">119</a>
+<a href="#120" id="120">120</a>
+<a href="#121" id="121">121</a>
+<a href="#122" id="122">122</a>
+<a href="#123" id="123">123</a>
+<a href="#124" id="124">124</a>
+<a href="#125" id="125">125</a>
+<a href="#126" id="126">126</a>
 </pre></div><pre class="rust"><code><span class="kw">use super</span>::<span class="kw-2">*</span>;
 <span class="kw">use </span><span class="kw">crate</span>::syscalls::<span class="kw-2">*</span>;
 
@@ -105,7 +146,7 @@
 ///     A bitmask controlling which attributes are set
 </span><span class="attr">#[instrument(level = <span class="string">&quot;debug&quot;</span>, skip_all, fields(%fd, path = field::Empty, %st_atim, %st_mtim), ret)]
 </span><span class="kw">pub fn </span>path_filestat_set_times&lt;M: MemorySize&gt;(
-    ctx: FunctionEnvMut&lt;<span class="lifetime">&#39;_</span>, WasiEnv&gt;,
+    <span class="kw-2">mut </span>ctx: FunctionEnvMut&lt;<span class="lifetime">&#39;_</span>, WasiEnv&gt;,
     fd: WasiFd,
     flags: LookupFlags,
     path: WasmPtr&lt;u8, M&gt;,
@@ -113,21 +154,11 @@
     st_atim: Timestamp,
     st_mtim: Timestamp,
     fst_flags: Fstflags,
-) -&gt; Errno {
+) -&gt; <span class="prelude-ty">Result</span>&lt;Errno, WasiError&gt; {
     <span class="kw">let </span>env = ctx.data();
     <span class="kw">let </span>(memory, <span class="kw-2">mut </span>state, inodes) = <span class="kw">unsafe </span>{ env.get_memory_and_wasi_state_and_inodes(<span class="kw-2">&amp;</span>ctx, <span class="number">0</span>) };
-    <span class="kw">let </span>fd_entry = <span class="macro">wasi_try!</span>(state.fs.get_fd(fd));
-    <span class="kw">let </span>fd_inode = fd_entry.inode;
-    <span class="kw">if </span>!fd_entry.rights.contains(Rights::PATH_FILESTAT_SET_TIMES) {
-        <span class="kw">return </span>Errno::Access;
-    }
-    <span class="kw">if </span>(fst_flags.contains(Fstflags::SET_ATIM) &amp;&amp; fst_flags.contains(Fstflags::SET_ATIM_NOW))
-        || (fst_flags.contains(Fstflags::SET_MTIM) &amp;&amp; fst_flags.contains(Fstflags::SET_MTIM_NOW))
-    {
-        <span class="kw">return </span>Errno::Inval;
-    }
 
-    <span class="kw">let </span><span class="kw-2">mut </span>path_string = <span class="kw">unsafe </span>{ <span class="macro">get_input_str!</span>(<span class="kw-2">&amp;</span>memory, path, path_len) };
+    <span class="kw">let </span><span class="kw-2">mut </span>path_string = <span class="kw">unsafe </span>{ <span class="macro">get_input_str_ok!</span>(<span class="kw-2">&amp;</span>memory, path, path_len) };
     Span::current().record(<span class="string">&quot;path&quot;</span>, path_string.as_str());
 
     <span class="comment">// Convert relative paths into absolute paths
@@ -138,34 +169,85 @@
         );
     }
 
-    <span class="kw">let </span>file_inode = <span class="macro">wasi_try!</span>(state.fs.get_inode_at_path(
-        inodes,
+    <span class="macro">wasi_try_ok!</span>(path_filestat_set_times_internal(
+        <span class="kw-2">&amp;mut </span>ctx,
         fd,
+        flags,
         <span class="kw-2">&amp;</span>path_string,
-        flags &amp; __WASI_LOOKUP_SYMLINK_FOLLOW != <span class="number">0</span>,
+        st_atim,
+        st_mtim,
+        fst_flags
     ));
+    <span class="kw">let </span>env = ctx.data();
+
+    <span class="attr">#[cfg(feature = <span class="string">&quot;journal&quot;</span>)]
+    </span><span class="kw">if </span>env.enable_journal {
+        JournalEffector::save_path_set_times(
+            <span class="kw-2">&amp;mut </span>ctx,
+            fd,
+            flags,
+            path_string,
+            st_atim,
+            st_mtim,
+            fst_flags,
+        )
+        .map_err(|err| {
+            <span class="macro">tracing::error!</span>(<span class="string">&quot;failed to save file set times event - {}&quot;</span>, err);
+            WasiError::Exit(ExitCode::Errno(Errno::Fault))
+        })<span class="question-mark">?</span>;
+    }
+
+    <span class="prelude-val">Ok</span>(Errno::Success)
+}
+
+<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>path_filestat_set_times_internal(
+    ctx: <span class="kw-2">&amp;mut </span>FunctionEnvMut&lt;<span class="lifetime">&#39;_</span>, WasiEnv&gt;,
+    fd: WasiFd,
+    flags: LookupFlags,
+    path: <span class="kw-2">&amp;</span>str,
+    st_atim: Timestamp,
+    st_mtim: Timestamp,
+    fst_flags: Fstflags,
+) -&gt; <span class="prelude-ty">Result</span>&lt;(), Errno&gt; {
+    <span class="kw">let </span>env = ctx.data();
+    <span class="kw">let </span>(memory, <span class="kw-2">mut </span>state, inodes) = <span class="kw">unsafe </span>{ env.get_memory_and_wasi_state_and_inodes(<span class="kw-2">&amp;</span>ctx, <span class="number">0</span>) };
+    <span class="kw">let </span>fd_entry = state.fs.get_fd(fd)<span class="question-mark">?</span>;
+    <span class="kw">let </span>fd_inode = fd_entry.inode;
+    <span class="kw">if </span>!fd_entry.rights.contains(Rights::PATH_FILESTAT_SET_TIMES) {
+        <span class="kw">return </span><span class="prelude-val">Err</span>(Errno::Access);
+    }
+    <span class="kw">if </span>(fst_flags.contains(Fstflags::SET_ATIM) &amp;&amp; fst_flags.contains(Fstflags::SET_ATIM_NOW))
+        || (fst_flags.contains(Fstflags::SET_MTIM) &amp;&amp; fst_flags.contains(Fstflags::SET_MTIM_NOW))
+    {
+        <span class="kw">return </span><span class="prelude-val">Err</span>(Errno::Inval);
+    }
+
+    <span class="kw">let </span>file_inode =
+        state
+            .fs
+            .get_inode_at_path(inodes, fd, path, flags &amp; __WASI_LOOKUP_SYMLINK_FOLLOW != <span class="number">0</span>)<span class="question-mark">?</span>;
     <span class="kw">let </span>stat = {
         <span class="kw">let </span>guard = file_inode.read();
-        <span class="macro">wasi_try!</span>(state.fs.get_stat_for_kind(guard.deref()))
-    };
+        state.fs.get_stat_for_kind(guard.deref())<span class="question-mark">?
+    </span>};
 
     <span class="kw">if </span>fst_flags.contains(Fstflags::SET_ATIM) || fst_flags.contains(Fstflags::SET_ATIM_NOW) {
         <span class="kw">let </span>time_to_set = <span class="kw">if </span>fst_flags.contains(Fstflags::SET_ATIM) {
             st_atim
         } <span class="kw">else </span>{
-            <span class="macro">wasi_try!</span>(get_current_time_in_nanos())
-        };
+            get_current_time_in_nanos()<span class="question-mark">?
+        </span>};
         fd_inode.stat.write().unwrap().st_atim = time_to_set;
     }
     <span class="kw">if </span>fst_flags.contains(Fstflags::SET_MTIM) || fst_flags.contains(Fstflags::SET_MTIM_NOW) {
         <span class="kw">let </span>time_to_set = <span class="kw">if </span>fst_flags.contains(Fstflags::SET_MTIM) {
             st_mtim
         } <span class="kw">else </span>{
-            <span class="macro">wasi_try!</span>(get_current_time_in_nanos())
-        };
+            get_current_time_in_nanos()<span class="question-mark">?
+        </span>};
         fd_inode.stat.write().unwrap().st_mtim = time_to_set;
     }
 
-    Errno::Success
+    <span class="prelude-val">Ok</span>(())
 }
 </code></pre></div></section></main></body></html>

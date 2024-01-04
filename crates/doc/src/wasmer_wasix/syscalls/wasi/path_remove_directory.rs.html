@@ -78,13 +78,38 @@
 <a href="#78" id="78">78</a>
 <a href="#79" id="79">79</a>
 <a href="#80" id="80">80</a>
+<a href="#81" id="81">81</a>
+<a href="#82" id="82">82</a>
+<a href="#83" id="83">83</a>
+<a href="#84" id="84">84</a>
+<a href="#85" id="85">85</a>
+<a href="#86" id="86">86</a>
+<a href="#87" id="87">87</a>
+<a href="#88" id="88">88</a>
+<a href="#89" id="89">89</a>
+<a href="#90" id="90">90</a>
+<a href="#91" id="91">91</a>
+<a href="#92" id="92">92</a>
+<a href="#93" id="93">93</a>
+<a href="#94" id="94">94</a>
+<a href="#95" id="95">95</a>
+<a href="#96" id="96">96</a>
+<a href="#97" id="97">97</a>
+<a href="#98" id="98">98</a>
+<a href="#99" id="99">99</a>
+<a href="#100" id="100">100</a>
+<a href="#101" id="101">101</a>
+<a href="#102" id="102">102</a>
+<a href="#103" id="103">103</a>
+<a href="#104" id="104">104</a>
+<a href="#105" id="105">105</a>
 </pre></div><pre class="rust"><code><span class="kw">use super</span>::<span class="kw-2">*</span>;
 <span class="kw">use </span><span class="kw">crate</span>::syscalls::<span class="kw-2">*</span>;
 
 <span class="doccomment">/// Returns Errno::Notemtpy if directory is not empty
 </span><span class="attr">#[instrument(level = <span class="string">&quot;debug&quot;</span>, skip_all, fields(%fd, path = field::Empty), ret)]
 </span><span class="kw">pub fn </span>path_remove_directory&lt;M: MemorySize&gt;(
-    ctx: FunctionEnvMut&lt;<span class="lifetime">&#39;_</span>, WasiEnv&gt;,
+    <span class="kw-2">mut </span>ctx: FunctionEnvMut&lt;<span class="lifetime">&#39;_</span>, WasiEnv&gt;,
     fd: WasiFd,
     path: WasmPtr&lt;u8, M&gt;,
     path_len: M::Offset,
@@ -105,25 +130,47 @@
         );
     }
 
-    <span class="kw">let </span>inode = <span class="macro">wasi_try!</span>(state.fs.get_inode_at_path(inodes, fd, <span class="kw-2">&amp;</span>path_str, <span class="bool-val">false</span>));
-    <span class="kw">let </span>(parent_inode, childs_name) = <span class="macro">wasi_try!</span>(state.fs.get_parent_inode_at_path(
-        inodes,
-        fd,
-        std::path::Path::new(<span class="kw-2">&amp;</span>path_str),
-        <span class="bool-val">false
-    </span>));
+    <span class="macro">wasi_try!</span>(path_remove_directory_internal(<span class="kw-2">&amp;mut </span>ctx, fd, <span class="kw-2">&amp;</span>path_str));
+    <span class="kw">let </span>env = ctx.data();
+
+    <span class="attr">#[cfg(feature = <span class="string">&quot;journal&quot;</span>)]
+    </span><span class="kw">if </span>env.enable_journal {
+        <span class="macro">wasi_try!</span>(
+            JournalEffector::save_path_remove_directory(<span class="kw-2">&amp;mut </span>ctx, fd, path_str).map_err(|err| {
+                <span class="macro">tracing::error!</span>(<span class="string">&quot;failed to save remove directory event - {}&quot;</span>, err);
+                Errno::Fault
+            })
+        )
+    }
+
+    Errno::Success
+}
+
+<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>path_remove_directory_internal(
+    ctx: <span class="kw-2">&amp;mut </span>FunctionEnvMut&lt;<span class="lifetime">&#39;_</span>, WasiEnv&gt;,
+    fd: WasiFd,
+    path: <span class="kw-2">&amp;</span>str,
+) -&gt; <span class="prelude-ty">Result</span>&lt;(), Errno&gt; {
+    <span class="kw">let </span>env = ctx.data();
+    <span class="kw">let </span>(memory, <span class="kw-2">mut </span>state, inodes) = <span class="kw">unsafe </span>{ env.get_memory_and_wasi_state_and_inodes(<span class="kw-2">&amp;</span>ctx, <span class="number">0</span>) };
+
+    <span class="kw">let </span>inode = state.fs.get_inode_at_path(inodes, fd, path, <span class="bool-val">false</span>)<span class="question-mark">?</span>;
+    <span class="kw">let </span>(parent_inode, childs_name) =
+        state
+            .fs
+            .get_parent_inode_at_path(inodes, fd, std::path::Path::new(<span class="kw-2">&amp;</span>path), <span class="bool-val">false</span>)<span class="question-mark">?</span>;
 
     <span class="kw">let </span>host_path_to_remove = {
         <span class="kw">let </span>guard = inode.read();
         <span class="kw">match </span>guard.deref() {
             Kind::Dir { entries, path, .. } =&gt; {
-                <span class="kw">if </span>!entries.is_empty() || <span class="macro">wasi_try!</span>(state.fs_read_dir(path)).count() != <span class="number">0 </span>{
-                    <span class="kw">return </span>Errno::Notempty;
+                <span class="kw">if </span>!entries.is_empty() || state.fs_read_dir(path)<span class="question-mark">?</span>.count() != <span class="number">0 </span>{
+                    <span class="kw">return </span><span class="prelude-val">Err</span>(Errno::Notempty);
                 }
                 path.clone()
             }
-            Kind::Root { .. } =&gt; <span class="kw">return </span>Errno::Access,
-            <span class="kw">_ </span>=&gt; <span class="kw">return </span>Errno::Notdir,
+            Kind::Root { .. } =&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(Errno::Access),
+            <span class="kw">_ </span>=&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(Errno::Notdir),
         }
     };
 
@@ -133,17 +180,20 @@
             Kind::Dir {
                 <span class="kw-2">ref mut </span>entries, ..
             } =&gt; {
-                <span class="kw">let </span>removed_inode = <span class="macro">wasi_try!</span>(entries.remove(<span class="kw-2">&amp;</span>childs_name).ok_or(Errno::Inval));
+                <span class="kw">let </span>removed_inode = entries.remove(<span class="kw-2">&amp;</span>childs_name).ok_or(Errno::Inval)<span class="question-mark">?</span>;
+
                 <span class="comment">// TODO: make this a debug assert in the future
                 </span><span class="macro">assert!</span>(inode.ino() == removed_inode.ino());
             }
-            Kind::Root { .. } =&gt; <span class="kw">return </span>Errno::Access,
+            Kind::Root { .. } =&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(Errno::Access),
             <span class="kw">_ </span>=&gt; <span class="macro">unreachable!</span>(
                 <span class="string">&quot;Internal logic error in wasi::path_remove_directory, parent is not a directory&quot;
             </span>),
         }
     }
 
+    <span class="kw">let </span>env = ctx.data();
+    <span class="kw">let </span>(memory, <span class="kw-2">mut </span>state, inodes) = <span class="kw">unsafe </span>{ env.get_memory_and_wasi_state_and_inodes(<span class="kw-2">&amp;</span>ctx, <span class="number">0</span>) };
     <span class="kw">if let </span><span class="prelude-val">Err</span>(err) = state.fs_remove_dir(host_path_to_remove) {
         <span class="comment">// reinsert to prevent FS from being in bad state
         </span><span class="kw">let </span><span class="kw-2">mut </span>guard = parent_inode.write();
@@ -153,9 +203,9 @@
         {
             entries.insert(childs_name, inode);
         }
-        <span class="kw">return </span>err;
+        <span class="kw">return </span><span class="prelude-val">Err</span>(err);
     }
 
-    Errno::Success
+    <span class="prelude-val">Ok</span>(())
 }
 </code></pre></div></section></main></body></html>

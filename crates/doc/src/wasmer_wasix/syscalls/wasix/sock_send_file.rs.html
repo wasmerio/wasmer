@@ -219,6 +219,20 @@
 <a href="#219" id="219">219</a>
 <a href="#220" id="220">220</a>
 <a href="#221" id="221">221</a>
+<a href="#222" id="222">222</a>
+<a href="#223" id="223">223</a>
+<a href="#224" id="224">224</a>
+<a href="#225" id="225">225</a>
+<a href="#226" id="226">226</a>
+<a href="#227" id="227">227</a>
+<a href="#228" id="228">228</a>
+<a href="#229" id="229">229</a>
+<a href="#230" id="230">230</a>
+<a href="#231" id="231">231</a>
+<a href="#232" id="232">232</a>
+<a href="#233" id="233">233</a>
+<a href="#234" id="234">234</a>
+<a href="#235" id="235">235</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>virtual_fs::AsyncReadExt;
 
 <span class="kw">use super</span>::<span class="kw-2">*</span>;
@@ -242,202 +256,216 @@
     sock: WasiFd,
     in_fd: WasiFd,
     offset: Filesize,
-    <span class="kw-2">mut </span>count: Filesize,
+    count: Filesize,
     ret_sent: WasmPtr&lt;Filesize, M&gt;,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;Errno, WasiError&gt; {
     <span class="macro">wasi_try_ok!</span>(WasiEnv::process_signals_and_exit(<span class="kw-2">&amp;mut </span>ctx)<span class="question-mark">?</span>);
 
+    <span class="kw">let </span>total_written = <span class="macro">wasi_try_ok!</span>(sock_send_file_internal(
+        <span class="kw-2">&amp;mut </span>ctx, sock, in_fd, offset, count
+    )<span class="question-mark">?</span>);
+
+    <span class="attr">#[cfg(feature = <span class="string">&quot;journal&quot;</span>)]
+    </span><span class="kw">if </span>ctx.data().enable_journal {
+        JournalEffector::save_sock_send_file::&lt;M&gt;(<span class="kw-2">&amp;mut </span>ctx, sock, in_fd, offset, total_written)
+            .map_err(|err| {
+                <span class="macro">tracing::error!</span>(<span class="string">&quot;failed to save sock_send_file event - {}&quot;</span>, err);
+                WasiError::Exit(ExitCode::Errno(Errno::Fault))
+            })<span class="question-mark">?</span>;
+    }
+
+    Span::current().record(<span class="string">&quot;nsent&quot;</span>, total_written);
+
+    <span class="kw">let </span>env = ctx.data();
+    <span class="kw">let </span>memory = <span class="kw">unsafe </span>{ env.memory_view(<span class="kw-2">&amp;</span>ctx) };
+    <span class="macro">wasi_try_mem_ok!</span>(ret_sent.write(<span class="kw-2">&amp;</span>memory, total_written <span class="kw">as </span>Filesize));
+
+    <span class="prelude-val">Ok</span>(Errno::Success)
+}
+
+<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>sock_send_file_internal(
+    ctx: <span class="kw-2">&amp;mut </span>FunctionEnvMut&lt;<span class="lifetime">&#39;_</span>, WasiEnv&gt;,
+    sock: WasiFd,
+    in_fd: WasiFd,
+    offset: Filesize,
+    <span class="kw-2">mut </span>count: Filesize,
+) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Result</span>&lt;Filesize, Errno&gt;, WasiError&gt; {
     <span class="kw">let </span><span class="kw-2">mut </span>env = ctx.data();
     <span class="kw">let </span>net = env.net();
     <span class="kw">let </span>tasks = env.tasks().clone();
     <span class="kw">let </span>state = env.state.clone();
 
-    <span class="kw">let </span>ret = <span class="macro">wasi_try_ok!</span>({
-        <span class="comment">// Set the offset of the file
-        </span>{
-            <span class="kw">let </span><span class="kw-2">mut </span>fd_map = state.fs.fd_map.write().unwrap();
-            <span class="kw">let </span>fd_entry = <span class="macro">wasi_try_ok!</span>(fd_map.get_mut(<span class="kw-2">&amp;</span>in_fd).ok_or(Errno::Badf));
-            fd_entry.offset.store(offset, Ordering::Release);
-        }
+    <span class="comment">// Set the offset of the file
+    </span>{
+        <span class="kw">let </span><span class="kw-2">mut </span>fd_map = state.fs.fd_map.write().unwrap();
+        <span class="kw">let </span>fd_entry = <span class="macro">wasi_try_ok_ok!</span>(fd_map.get_mut(<span class="kw-2">&amp;</span>in_fd).ok_or(Errno::Badf));
+        fd_entry.offset.store(offset, Ordering::Release);
+    }
 
-        <span class="comment">// Enter a loop that will process all the data
-        </span><span class="kw">let </span><span class="kw-2">mut </span>total_written: Filesize = <span class="number">0</span>;
-        <span class="kw">while </span>(count &gt; <span class="number">0</span>) {
-            <span class="kw">let </span>sub_count = count.min(<span class="number">4096</span>);
-            count -= sub_count;
+    <span class="comment">// Enter a loop that will process all the data
+    </span><span class="kw">let </span><span class="kw-2">mut </span>total_written: Filesize = <span class="number">0</span>;
+    <span class="kw">while </span>(count &gt; <span class="number">0</span>) {
+        <span class="kw">let </span>sub_count = count.min(<span class="number">4096</span>);
+        count -= sub_count;
 
-            <span class="kw">let </span>fd_entry = <span class="macro">wasi_try_ok!</span>(state.fs.get_fd(in_fd));
-            <span class="kw">let </span>fd_flags = fd_entry.flags;
+        <span class="kw">let </span>fd_entry = <span class="macro">wasi_try_ok_ok!</span>(state.fs.get_fd(in_fd));
+        <span class="kw">let </span>fd_flags = fd_entry.flags;
 
-            <span class="kw">let </span>data = {
-                <span class="kw">match </span>in_fd {
-                    __WASI_STDIN_FILENO =&gt; {
-                        <span class="kw">let </span><span class="kw-2">mut </span>stdin =
-                            <span class="macro">wasi_try_ok!</span>(WasiInodes::stdin_mut(<span class="kw-2">&amp;</span>state.fs.fd_map)
-                                .map_err(fs_error_into_wasi_err));
-                        <span class="kw">let </span>data = <span class="macro">wasi_try_ok!</span>(__asyncify(<span class="kw-2">&amp;mut </span>ctx, <span class="prelude-val">None</span>, <span class="kw">async move </span>{
-                            <span class="comment">// TODO: optimize with MaybeUninit
-                            </span><span class="kw">let </span><span class="kw-2">mut </span>buf = <span class="macro">vec!</span>[<span class="number">0u8</span>; sub_count <span class="kw">as </span>usize];
-                            <span class="kw">let </span>amt = stdin.read(<span class="kw-2">&amp;mut </span>buf[..]).<span class="kw">await</span>.map_err(map_io_err)<span class="question-mark">?</span>;
-                            buf.truncate(amt);
-                            <span class="prelude-val">Ok</span>(buf)
-                        })<span class="question-mark">?</span>);
-                        env = ctx.data();
-                        data
+        <span class="kw">let </span>data = {
+            <span class="kw">match </span>in_fd {
+                __WASI_STDIN_FILENO =&gt; {
+                    <span class="kw">let </span><span class="kw-2">mut </span>stdin = <span class="macro">wasi_try_ok_ok!</span>(
+                        WasiInodes::stdin_mut(<span class="kw-2">&amp;</span>state.fs.fd_map).map_err(fs_error_into_wasi_err)
+                    );
+                    <span class="kw">let </span>data = <span class="macro">wasi_try_ok_ok!</span>(__asyncify(ctx, <span class="prelude-val">None</span>, <span class="kw">async move </span>{
+                        <span class="comment">// TODO: optimize with MaybeUninit
+                        </span><span class="kw">let </span><span class="kw-2">mut </span>buf = <span class="macro">vec!</span>[<span class="number">0u8</span>; sub_count <span class="kw">as </span>usize];
+                        <span class="kw">let </span>amt = stdin.read(<span class="kw-2">&amp;mut </span>buf[..]).<span class="kw">await</span>.map_err(map_io_err)<span class="question-mark">?</span>;
+                        buf.truncate(amt);
+                        <span class="prelude-val">Ok</span>(buf)
+                    })<span class="question-mark">?</span>);
+                    env = ctx.data();
+                    data
+                }
+                __WASI_STDOUT_FILENO | __WASI_STDERR_FILENO =&gt; <span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="prelude-val">Err</span>(Errno::Inval)),
+                <span class="kw">_ </span>=&gt; {
+                    <span class="kw">if </span>!fd_entry.rights.contains(Rights::FD_READ) {
+                        <span class="comment">// TODO: figure out the error to return when lacking rights
+                        </span><span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="prelude-val">Err</span>(Errno::Access));
                     }
-                    __WASI_STDOUT_FILENO | __WASI_STDERR_FILENO =&gt; <span class="kw">return </span><span class="prelude-val">Ok</span>(Errno::Inval),
-                    <span class="kw">_ </span>=&gt; {
-                        <span class="kw">if </span>!fd_entry.rights.contains(Rights::FD_READ) {
-                            <span class="comment">// TODO: figure out the error to return when lacking rights
-                            </span><span class="kw">return </span><span class="prelude-val">Ok</span>(Errno::Access);
-                        }
 
-                        <span class="kw">let </span>offset = fd_entry.offset.load(Ordering::Acquire) <span class="kw">as </span>usize;
-                        <span class="kw">let </span>inode = fd_entry.inode;
-                        <span class="kw">let </span>data = {
-                            <span class="kw">let </span><span class="kw-2">mut </span>guard = inode.write();
-                            <span class="kw">match </span>guard.deref_mut() {
-                                Kind::File { handle, .. } =&gt; {
-                                    <span class="kw">if let </span><span class="prelude-val">Some</span>(handle) = handle {
-                                        <span class="kw">let </span>data =
-                                            <span class="macro">wasi_try_ok!</span>(__asyncify(<span class="kw-2">&amp;mut </span>ctx, <span class="prelude-val">None</span>, <span class="kw">async move </span>{
-                                                <span class="kw">let </span><span class="kw-2">mut </span>buf = <span class="macro">vec!</span>[<span class="number">0u8</span>; sub_count <span class="kw">as </span>usize];
-
-                                                <span class="kw">let </span><span class="kw-2">mut </span>handle = handle.write().unwrap();
-                                                handle
-                                                    .seek(std::io::SeekFrom::Start(offset <span class="kw">as </span>u64))
-                                                    .<span class="kw">await
-                                                    </span>.map_err(map_io_err)<span class="question-mark">?</span>;
-                                                <span class="kw">let </span>amt = handle
-                                                    .read(<span class="kw-2">&amp;mut </span>buf[..])
-                                                    .<span class="kw">await
-                                                    </span>.map_err(map_io_err)<span class="question-mark">?</span>;
-                                                buf.truncate(amt);
-                                                <span class="prelude-val">Ok</span>(buf)
-                                            })<span class="question-mark">?</span>);
-                                        env = ctx.data();
-                                        data
-                                    } <span class="kw">else </span>{
-                                        <span class="kw">return </span><span class="prelude-val">Ok</span>(Errno::Inval);
-                                    }
-                                }
-                                Kind::Socket { socket, .. } =&gt; {
-                                    <span class="kw">let </span>socket = socket.clone();
-                                    <span class="kw">let </span>tasks = tasks.clone();
-                                    drop(guard);
-
-                                    <span class="kw">let </span>read_timeout = socket
-                                        .opt_time(TimeType::WriteTimeout)
-                                        .ok()
-                                        .flatten()
-                                        .unwrap_or(Duration::from_secs(<span class="number">30</span>));
-
-                                    <span class="kw">let </span>data = <span class="macro">wasi_try_ok!</span>(__asyncify(<span class="kw-2">&amp;mut </span>ctx, <span class="prelude-val">None</span>, <span class="kw">async </span>{
-                                        <span class="kw">let </span><span class="kw-2">mut </span>buf = Vec::with_capacity(sub_count <span class="kw">as </span>usize);
-                                        <span class="kw">unsafe </span>{
-                                            buf.set_len(sub_count <span class="kw">as </span>usize);
-                                        }
-                                        socket
-                                            .recv(
-                                                tasks.deref(),
-                                                <span class="kw-2">&amp;mut </span>buf,
-                                                <span class="prelude-val">Some</span>(read_timeout),
-                                                <span class="bool-val">false</span>,
-                                            )
-                                            .<span class="kw">await
-                                            </span>.map(|amt| {
-                                                <span class="kw">unsafe </span>{
-                                                    buf.set_len(amt);
-                                                }
-                                                <span class="kw">let </span>buf: Vec&lt;u8&gt; =
-                                                    <span class="kw">unsafe </span>{ std::mem::transmute(buf) };
-                                                buf
-                                            })
-                                    })<span class="question-mark">?</span>);
-                                    env = ctx.data();
-                                    data
-                                }
-                                Kind::Pipe { <span class="kw-2">ref mut </span>pipe, .. } =&gt; {
+                    <span class="kw">let </span>offset = fd_entry.offset.load(Ordering::Acquire) <span class="kw">as </span>usize;
+                    <span class="kw">let </span>inode = fd_entry.inode;
+                    <span class="kw">let </span>data = {
+                        <span class="kw">let </span><span class="kw-2">mut </span>guard = inode.write();
+                        <span class="kw">match </span>guard.deref_mut() {
+                            Kind::File { handle, .. } =&gt; {
+                                <span class="kw">if let </span><span class="prelude-val">Some</span>(handle) = handle {
                                     <span class="kw">let </span>data =
-                                        <span class="macro">wasi_try_ok!</span>(__asyncify(<span class="kw-2">&amp;mut </span>ctx, <span class="prelude-val">None</span>, <span class="kw">async move </span>{
-                                            <span class="comment">// TODO: optimize with MaybeUninit
-                                            </span><span class="kw">let </span><span class="kw-2">mut </span>buf = <span class="macro">vec!</span>[<span class="number">0u8</span>; sub_count <span class="kw">as </span>usize];
-                                            <span class="kw">let </span>amt =
-                                                virtual_fs::AsyncReadExt::read(pipe, <span class="kw-2">&amp;mut </span>buf[..])
-                                                    .<span class="kw">await
-                                                    </span>.map_err(map_io_err)<span class="question-mark">?</span>;
+                                        <span class="macro">wasi_try_ok_ok!</span>(__asyncify(ctx, <span class="prelude-val">None</span>, <span class="kw">async move </span>{
+                                            <span class="kw">let </span><span class="kw-2">mut </span>buf = <span class="macro">vec!</span>[<span class="number">0u8</span>; sub_count <span class="kw">as </span>usize];
+
+                                            <span class="kw">let </span><span class="kw-2">mut </span>handle = handle.write().unwrap();
+                                            handle
+                                                .seek(std::io::SeekFrom::Start(offset <span class="kw">as </span>u64))
+                                                .<span class="kw">await
+                                                </span>.map_err(map_io_err)<span class="question-mark">?</span>;
+                                            <span class="kw">let </span>amt = handle
+                                                .read(<span class="kw-2">&amp;mut </span>buf[..])
+                                                .<span class="kw">await
+                                                </span>.map_err(map_io_err)<span class="question-mark">?</span>;
                                             buf.truncate(amt);
                                             <span class="prelude-val">Ok</span>(buf)
                                         })<span class="question-mark">?</span>);
                                     env = ctx.data();
                                     data
-                                }
-                                Kind::Epoll { .. } =&gt; {
-                                    <span class="kw">return </span><span class="prelude-val">Ok</span>(Errno::Inval);
-                                }
-                                Kind::Dir { .. } | Kind::Root { .. } =&gt; {
-                                    <span class="kw">return </span><span class="prelude-val">Ok</span>(Errno::Isdir);
-                                }
-                                Kind::EventNotifications { .. } =&gt; {
-                                    <span class="kw">return </span><span class="prelude-val">Ok</span>(Errno::Inval);
-                                }
-                                Kind::Symlink { .. } =&gt; <span class="macro">unimplemented!</span>(<span class="string">&quot;Symlinks in wasi::fd_read&quot;</span>),
-                                Kind::Buffer { buffer } =&gt; {
-                                    <span class="comment">// TODO: optimize with MaybeUninit
-                                    </span><span class="kw">let </span><span class="kw-2">mut </span>buf = <span class="macro">vec!</span>[<span class="number">0u8</span>; sub_count <span class="kw">as </span>usize];
-
-                                    <span class="kw">let </span><span class="kw-2">mut </span>buf_read = <span class="kw-2">&amp;</span>buffer[offset..];
-                                    <span class="kw">let </span>amt = <span class="macro">wasi_try_ok!</span>(std::io::Read::read(
-                                        <span class="kw-2">&amp;mut </span>buf_read,
-                                        <span class="kw-2">&amp;mut </span>buf[..]
-                                    )
-                                    .map_err(map_io_err));
-                                    buf.truncate(amt);
-                                    buf
+                                } <span class="kw">else </span>{
+                                    <span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="prelude-val">Err</span>(Errno::Inval));
                                 }
                             }
-                        };
+                            Kind::Socket { socket, .. } =&gt; {
+                                <span class="kw">let </span>socket = socket.clone();
+                                <span class="kw">let </span>tasks = tasks.clone();
+                                drop(guard);
 
-                        <span class="comment">// reborrow
-                        </span><span class="kw">let </span><span class="kw-2">mut </span>fd_map = state.fs.fd_map.write().unwrap();
-                        <span class="kw">let </span>fd_entry = <span class="macro">wasi_try_ok!</span>(fd_map.get_mut(<span class="kw-2">&amp;</span>in_fd).ok_or(Errno::Badf));
-                        fd_entry
-                            .offset
-                            .fetch_add(data.len() <span class="kw">as </span>u64, Ordering::AcqRel);
+                                <span class="kw">let </span>read_timeout = socket
+                                    .opt_time(TimeType::WriteTimeout)
+                                    .ok()
+                                    .flatten()
+                                    .unwrap_or(Duration::from_secs(<span class="number">30</span>));
 
-                        data
-                    }
+                                <span class="kw">let </span>data = <span class="macro">wasi_try_ok_ok!</span>(__asyncify(ctx, <span class="prelude-val">None</span>, <span class="kw">async </span>{
+                                    <span class="kw">let </span><span class="kw-2">mut </span>buf = Vec::with_capacity(sub_count <span class="kw">as </span>usize);
+                                    <span class="kw">unsafe </span>{
+                                        buf.set_len(sub_count <span class="kw">as </span>usize);
+                                    }
+                                    socket
+                                        .recv(tasks.deref(), <span class="kw-2">&amp;mut </span>buf, <span class="prelude-val">Some</span>(read_timeout), <span class="bool-val">false</span>)
+                                        .<span class="kw">await
+                                        </span>.map(|amt| {
+                                            <span class="kw">unsafe </span>{
+                                                buf.set_len(amt);
+                                            }
+                                            <span class="kw">let </span>buf: Vec&lt;u8&gt; = <span class="kw">unsafe </span>{ std::mem::transmute(buf) };
+                                            buf
+                                        })
+                                })<span class="question-mark">?</span>);
+                                env = ctx.data();
+                                data
+                            }
+                            Kind::Pipe { <span class="kw-2">ref mut </span>pipe, .. } =&gt; {
+                                <span class="kw">let </span>data = <span class="macro">wasi_try_ok_ok!</span>(__asyncify(ctx, <span class="prelude-val">None</span>, <span class="kw">async move </span>{
+                                    <span class="comment">// TODO: optimize with MaybeUninit
+                                    </span><span class="kw">let </span><span class="kw-2">mut </span>buf = <span class="macro">vec!</span>[<span class="number">0u8</span>; sub_count <span class="kw">as </span>usize];
+                                    <span class="kw">let </span>amt = virtual_fs::AsyncReadExt::read(pipe, <span class="kw-2">&amp;mut </span>buf[..])
+                                        .<span class="kw">await
+                                        </span>.map_err(map_io_err)<span class="question-mark">?</span>;
+                                    buf.truncate(amt);
+                                    <span class="prelude-val">Ok</span>(buf)
+                                })<span class="question-mark">?</span>);
+                                env = ctx.data();
+                                data
+                            }
+                            Kind::Epoll { .. } =&gt; {
+                                <span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="prelude-val">Err</span>(Errno::Inval));
+                            }
+                            Kind::Dir { .. } | Kind::Root { .. } =&gt; {
+                                <span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="prelude-val">Err</span>(Errno::Isdir));
+                            }
+                            Kind::EventNotifications { .. } =&gt; {
+                                <span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="prelude-val">Err</span>(Errno::Inval));
+                            }
+                            Kind::Symlink { .. } =&gt; <span class="macro">unimplemented!</span>(<span class="string">&quot;Symlinks in wasi::fd_read&quot;</span>),
+                            Kind::Buffer { buffer } =&gt; {
+                                <span class="comment">// TODO: optimize with MaybeUninit
+                                </span><span class="kw">let </span><span class="kw-2">mut </span>buf = <span class="macro">vec!</span>[<span class="number">0u8</span>; sub_count <span class="kw">as </span>usize];
+
+                                <span class="kw">let </span><span class="kw-2">mut </span>buf_read = <span class="kw-2">&amp;</span>buffer[offset..];
+                                <span class="kw">let </span>amt = <span class="macro">wasi_try_ok_ok!</span>(std::io::Read::read(
+                                    <span class="kw-2">&amp;mut </span>buf_read,
+                                    <span class="kw-2">&amp;mut </span>buf[..]
+                                )
+                                .map_err(map_io_err));
+                                buf.truncate(amt);
+                                buf
+                            }
+                        }
+                    };
+
+                    <span class="comment">// reborrow
+                    </span><span class="kw">let </span><span class="kw-2">mut </span>fd_map = state.fs.fd_map.write().unwrap();
+                    <span class="kw">let </span>fd_entry = <span class="macro">wasi_try_ok_ok!</span>(fd_map.get_mut(<span class="kw-2">&amp;</span>in_fd).ok_or(Errno::Badf));
+                    fd_entry
+                        .offset
+                        .fetch_add(data.len() <span class="kw">as </span>u64, Ordering::AcqRel);
+
+                    data
                 }
-            };
+            }
+        };
 
-            <span class="comment">// Write it down to the socket
-            </span><span class="kw">let </span>tasks = ctx.data().tasks().clone();
-            <span class="kw">let </span>bytes_written = <span class="macro">wasi_try_ok!</span>(__sock_asyncify_mut(
-                <span class="kw-2">&amp;mut </span>ctx,
-                sock,
-                Rights::SOCK_SEND,
-                |socket, fd| <span class="kw">async move </span>{
-                    <span class="kw">let </span>write_timeout = socket
-                        .opt_time(TimeType::ReadTimeout)
-                        .ok()
-                        .flatten()
-                        .unwrap_or(Duration::from_secs(<span class="number">30</span>));
-                    socket
-                        .send(tasks.deref(), <span class="kw-2">&amp;</span>data, <span class="prelude-val">Some</span>(write_timeout), <span class="bool-val">true</span>)
-                        .<span class="kw">await
-                </span>},
-            ));
-            env = ctx.data();
+        <span class="comment">// Write it down to the socket
+        </span><span class="kw">let </span>tasks = ctx.data().tasks().clone();
+        <span class="kw">let </span>bytes_written = <span class="macro">wasi_try_ok_ok!</span>(__sock_asyncify_mut(
+            ctx,
+            sock,
+            Rights::SOCK_SEND,
+            |socket, fd| <span class="kw">async move </span>{
+                <span class="kw">let </span>write_timeout = socket
+                    .opt_time(TimeType::ReadTimeout)
+                    .ok()
+                    .flatten()
+                    .unwrap_or(Duration::from_secs(<span class="number">30</span>));
+                socket
+                    .send(tasks.deref(), <span class="kw-2">&amp;</span>data, <span class="prelude-val">Some</span>(write_timeout), <span class="bool-val">true</span>)
+                    .<span class="kw">await
+            </span>},
+        ));
+        env = ctx.data();
 
-            total_written += bytes_written <span class="kw">as </span>u64;
-        }
-        Span::current().record(<span class="string">&quot;nsent&quot;</span>, total_written);
+        total_written += bytes_written <span class="kw">as </span>u64;
+    }
 
-        <span class="kw">let </span>memory = <span class="kw">unsafe </span>{ env.memory_view(<span class="kw-2">&amp;</span>ctx) };
-        <span class="macro">wasi_try_mem_ok!</span>(ret_sent.write(<span class="kw-2">&amp;</span>memory, total_written <span class="kw">as </span>Filesize));
-
-        <span class="prelude-val">Ok</span>(Errno::Success)
-    });
-    <span class="prelude-val">Ok</span>(ret)
+    <span class="prelude-val">Ok</span>(<span class="prelude-val">Ok</span>(total_written))
 }
 </code></pre></div></section></main></body></html>

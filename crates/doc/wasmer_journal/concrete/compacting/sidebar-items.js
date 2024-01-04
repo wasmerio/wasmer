@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":["CompactResult","CompactingJournal","CompactingJournalRx","CompactingJournalTx","DescriptorLookup","MemoryRange","State","StateDescriptor"],"type":["Fd"]};

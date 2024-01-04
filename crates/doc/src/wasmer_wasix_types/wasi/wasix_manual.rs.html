@@ -482,6 +482,17 @@
 <a href="#482" id="482">482</a>
 <a href="#483" id="483">483</a>
 <a href="#484" id="484">484</a>
+<a href="#485" id="485">485</a>
+<a href="#486" id="486">486</a>
+<a href="#487" id="487">487</a>
+<a href="#488" id="488">488</a>
+<a href="#489" id="489">489</a>
+<a href="#490" id="490">490</a>
+<a href="#491" id="491">491</a>
+<a href="#492" id="492">492</a>
+<a href="#493" id="493">493</a>
+<a href="#494" id="494">494</a>
+<a href="#495" id="495">495</a>
 </pre></div><pre class="rust"><code><span class="attr">#[cfg(feature = <span class="string">&quot;enable-serde&quot;</span>)]
 </span><span class="kw">use </span>serde::{Deserialize, Serialize};
 <span class="kw">use </span>std::mem::MaybeUninit;
@@ -861,6 +872,7 @@
 <span class="attr">#[doc = <span class="string">&quot; Epoll operation.&quot;</span>]
 #[repr(u32)]
 #[derive(Clone, Copy, PartialEq, Eq, num_enum :: TryFromPrimitive, Hash)]
+#[cfg_attr(feature = <span class="string">&quot;enable-serde&quot;</span>, derive(Serialize, Deserialize))]
 </span><span class="kw">pub enum </span>EpollCtl {
     <span class="attr">#[doc = <span class="string">&quot; Add an entry to the interest list of the epoll file descriptor, epfd.&quot;</span>]
     </span>Add,
@@ -912,6 +924,16 @@
     </span>}
 }
 
+<span class="attr">#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[cfg_attr(feature = <span class="string">&quot;enable-serde&quot;</span>, derive(Serialize, Deserialize))]
+</span><span class="kw">pub struct </span>EpollEventCtl {
+    <span class="kw">pub </span>events: EpollType,
+    <span class="kw">pub </span>ptr: u64,
+    <span class="kw">pub </span>fd: Fd,
+    <span class="kw">pub </span>data1: u32,
+    <span class="kw">pub </span>data2: u64,
+}
+
 <span class="doccomment">/// An event that can be triggered
 </span><span class="attr">#[repr(C)]
 #[derive(Copy, Clone)]
@@ -943,7 +965,7 @@
 </span><span class="attr">#[repr(C)]
 #[derive(Copy, Clone)]
 </span><span class="kw">pub struct </span>EpollEvent&lt;M: MemorySize&gt; {
-    <span class="doccomment">/// Pointer to the dataa
+    <span class="doccomment">/// Pointer to the data
     </span><span class="kw">pub </span>events: EpollType,
     <span class="doccomment">/// File descriptor
     </span><span class="kw">pub </span>data: EpollData&lt;M&gt;,

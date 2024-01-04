@@ -529,10 +529,62 @@
 <a href="#529" id="529">529</a>
 <a href="#530" id="530">530</a>
 <a href="#531" id="531">531</a>
-</pre></div><pre class="rust"><code><span class="kw">use </span>std::{
+<a href="#532" id="532">532</a>
+<a href="#533" id="533">533</a>
+<a href="#534" id="534">534</a>
+<a href="#535" id="535">535</a>
+<a href="#536" id="536">536</a>
+<a href="#537" id="537">537</a>
+<a href="#538" id="538">538</a>
+<a href="#539" id="539">539</a>
+<a href="#540" id="540">540</a>
+<a href="#541" id="541">541</a>
+<a href="#542" id="542">542</a>
+<a href="#543" id="543">543</a>
+<a href="#544" id="544">544</a>
+<a href="#545" id="545">545</a>
+<a href="#546" id="546">546</a>
+<a href="#547" id="547">547</a>
+<a href="#548" id="548">548</a>
+<a href="#549" id="549">549</a>
+<a href="#550" id="550">550</a>
+<a href="#551" id="551">551</a>
+<a href="#552" id="552">552</a>
+<a href="#553" id="553">553</a>
+<a href="#554" id="554">554</a>
+<a href="#555" id="555">555</a>
+<a href="#556" id="556">556</a>
+<a href="#557" id="557">557</a>
+<a href="#558" id="558">558</a>
+<a href="#559" id="559">559</a>
+<a href="#560" id="560">560</a>
+<a href="#561" id="561">561</a>
+<a href="#562" id="562">562</a>
+<a href="#563" id="563">563</a>
+<a href="#564" id="564">564</a>
+<a href="#565" id="565">565</a>
+<a href="#566" id="566">566</a>
+<a href="#567" id="567">567</a>
+<a href="#568" id="568">568</a>
+<a href="#569" id="569">569</a>
+<a href="#570" id="570">570</a>
+<a href="#571" id="571">571</a>
+<a href="#572" id="572">572</a>
+<a href="#573" id="573">573</a>
+<a href="#574" id="574">574</a>
+<a href="#575" id="575">575</a>
+<a href="#576" id="576">576</a>
+<a href="#577" id="577">577</a>
+<a href="#578" id="578">578</a>
+<a href="#579" id="579">579</a>
+<a href="#580" id="580">580</a>
+</pre></div><pre class="rust"><code><span class="kw">use </span>serde::{Deserialize, Serialize};
+<span class="attr">#[cfg(feature = <span class="string">&quot;journal&quot;</span>)]
+</span><span class="kw">use </span>std::sync::atomic::{AtomicBool, Ordering};
+<span class="kw">use </span>std::{
     collections::HashMap,
     ops::{Deref, DerefMut},
-    sync::{Arc, Mutex, RwLock, Weak},
+    sync::{Arc, Condvar, Mutex, Weak},
     task::Waker,
 };
 
@@ -545,6 +597,7 @@
 
 <span class="kw">use crate</span>::{
     os::task::process::{WasiProcessId, WasiProcessInner},
+    syscalls::HandleRewindType,
     WasiRuntimeError,
 };
 
@@ -554,7 +607,7 @@
 };
 
 <span class="doccomment">/// Represents the ID of a WASI thread
-</span><span class="attr">#[derive(Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+</span><span class="attr">#[derive(Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 </span><span class="kw">pub struct </span>WasiThreadId(u32);
 
 <span class="kw">impl </span>WasiThreadId {
@@ -626,6 +679,7 @@
 </span><span class="attr">#[derive(Clone, Debug)]
 </span><span class="kw">pub struct </span>WasiThread {
     state: Arc&lt;WasiThreadState&gt;,
+    layout: WasiMemoryLayout,
 
     <span class="comment">// This is used for stack rewinds
     </span>rewind: <span class="prelude-ty">Option</span>&lt;RewindResult&gt;,
@@ -640,6 +694,44 @@
     <span class="doccomment">/// Pops any rewinds that need to take place
     </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>take_rewind(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;RewindResult&gt; {
         <span class="self">self</span>.rewind.take()
+    }
+
+    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>has_rewind_of_type(<span class="kw-2">&amp;</span><span class="self">self</span>, _type: HandleRewindType) -&gt; bool {
+        <span class="kw">match </span>_type {
+            HandleRewindType::ResultDriven =&gt; <span class="kw">match </span><span class="kw-2">&amp;</span><span class="self">self</span>.rewind {
+                <span class="prelude-val">Some</span>(rewind) =&gt; rewind.rewind_result.is_some(),
+                <span class="prelude-val">None </span>=&gt; <span class="bool-val">false</span>,
+            },
+            HandleRewindType::Resultless =&gt; <span class="kw">match </span><span class="kw-2">&amp;</span><span class="self">self</span>.rewind {
+                <span class="prelude-val">Some</span>(rewind) =&gt; rewind.rewind_result.is_none(),
+                <span class="prelude-val">None </span>=&gt; <span class="bool-val">false</span>,
+            },
+        }
+    }
+
+    <span class="doccomment">/// Sets a flag that tells others that this thread is currently
+    /// check pointing itself
+    </span><span class="attr">#[cfg(feature = <span class="string">&quot;journal&quot;</span>)]
+    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>set_check_pointing(<span class="kw-2">&amp;</span><span class="self">self</span>, val: bool) {
+        <span class="self">self</span>.state.check_pointing.store(val, Ordering::SeqCst);
+    }
+
+    <span class="doccomment">/// Reads a flag that determines if this thread is currently
+    /// check pointing itself or not
+    </span><span class="attr">#[cfg(feature = <span class="string">&quot;journal&quot;</span>)]
+    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>is_check_pointing(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
+        <span class="self">self</span>.state.check_pointing.load(Ordering::SeqCst)
+    }
+
+    <span class="doccomment">/// Gets the memory layout for this thread
+    </span><span class="attr">#[allow(dead_code)]
+    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>memory_layout(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>WasiMemoryLayout {
+        <span class="kw-2">&amp;</span><span class="self">self</span>.layout
+    }
+
+    <span class="doccomment">/// Gets the memory layout for this thread
+    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>set_memory_layout(<span class="kw-2">&amp;mut </span><span class="self">self</span>, layout: WasiMemoryLayout) {
+        <span class="self">self</span>.layout = layout;
     }
 }
 
@@ -690,7 +782,7 @@
     </span><span class="kw">pub </span>memory_stack: Bytes,
     <span class="doccomment">/// Generic serialized object passed back to the rewind resumption code
     /// (uses the bincode serializer)
-    </span><span class="kw">pub </span>rewind_result: Bytes,
+    </span><span class="kw">pub </span>rewind_result: <span class="prelude-ty">Option</span>&lt;Bytes&gt;,
 }
 
 <span class="attr">#[derive(Debug)]
@@ -701,6 +793,8 @@
     signals: Mutex&lt;(Vec&lt;Signal&gt;, Vec&lt;Waker&gt;)&gt;,
     stack: Mutex&lt;ThreadStack&gt;,
     status: Arc&lt;OwnedTaskStatus&gt;,
+    <span class="attr">#[cfg(feature = <span class="string">&quot;journal&quot;</span>)]
+    </span>check_pointing: AtomicBool,
 
     <span class="comment">// Registers the task termination with the ControlPlane on drop.
     // Never accessed, since it&#39;s a drop guard.
@@ -716,6 +810,7 @@
         is_main: bool,
         status: Arc&lt;OwnedTaskStatus&gt;,
         guard: TaskCountGuard,
+        layout: WasiMemoryLayout,
     ) -&gt; <span class="self">Self </span>{
         <span class="self">Self </span>{
             state: Arc::new(WasiThreadState {
@@ -725,8 +820,11 @@
                 status,
                 signals: Mutex::new((Vec::new(), Vec::new())),
                 stack: Mutex::new(ThreadStack::default()),
+                <span class="attr">#[cfg(feature = <span class="string">&quot;journal&quot;</span>)]
+                </span>check_pointing: AtomicBool::new(<span class="bool-val">false</span>),
                 _task_count_guard: guard,
             }),
+            layout,
             rewind: <span class="prelude-val">None</span>,
         }
     }
@@ -976,7 +1074,7 @@
 <span class="attr">#[derive(Debug)]
 </span><span class="kw">pub struct </span>WasiThreadHandleProtected {
     thread: WasiThread,
-    inner: Weak&lt;RwLock&lt;WasiProcessInner&gt;&gt;,
+    inner: Weak&lt;(Mutex&lt;WasiProcessInner&gt;, Condvar)&gt;,
 }
 
 <span class="attr">#[derive(Debug, Clone)]
@@ -987,7 +1085,7 @@
 <span class="kw">impl </span>WasiThreadHandle {
     <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>new(
         thread: WasiThread,
-        inner: <span class="kw-2">&amp;</span>Arc&lt;RwLock&lt;WasiProcessInner&gt;&gt;,
+        inner: <span class="kw-2">&amp;</span>Arc&lt;(Mutex&lt;WasiProcessInner&gt;, Condvar)&gt;,
     ) -&gt; WasiThreadHandle {
         <span class="self">Self </span>{
             protected: Arc::new(WasiThreadHandleProtected {
@@ -1010,7 +1108,7 @@
     <span class="kw">fn </span>drop(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
         <span class="kw">let </span>id = <span class="self">self</span>.thread.tid();
         <span class="kw">if let </span><span class="prelude-val">Some</span>(inner) = Weak::upgrade(<span class="kw-2">&amp;</span><span class="self">self</span>.inner) {
-            <span class="kw">let </span><span class="kw-2">mut </span>inner = inner.write().unwrap();
+            <span class="kw">let </span><span class="kw-2">mut </span>inner = inner.<span class="number">0</span>.lock().unwrap();
             <span class="kw">if let </span><span class="prelude-val">Some</span>(ctrl) = inner.threads.remove(<span class="kw-2">&amp;</span>id) {
                 ctrl.set_status_finished(<span class="prelude-val">Ok</span>(Errno::Success.into()));
             }
@@ -1027,7 +1125,7 @@
     }
 }
 
-<span class="attr">#[derive(thiserror::Error, Debug)]
+<span class="attr">#[derive(thiserror::Error, Debug, Clone)]
 </span><span class="kw">pub enum </span>WasiThreadError {
     <span class="attr">#[error(<span class="string">&quot;Multithreading is not supported&quot;</span>)]
     </span>Unsupported,
@@ -1041,7 +1139,7 @@
     </span><span class="comment">// Note: Boxed so we can keep the error size down
     </span>InstanceCreateFailed(Box&lt;InstantiationError&gt;),
     <span class="attr">#[error(<span class="string">&quot;Initialization function failed - {0}&quot;</span>)]
-    </span>InitFailed(anyhow::Error),
+    </span>InitFailed(Arc&lt;anyhow::Error&gt;),
     <span class="doccomment">/// This will happen if WASM is running in a thread has not been created by the spawn_wasm call
     </span><span class="attr">#[error(<span class="string">&quot;WASM context is invalid&quot;</span>)]
     </span>InvalidWasmContext,

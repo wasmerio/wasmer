@@ -908,6 +908,12 @@
 <a href="#908" id="908">908</a>
 <a href="#909" id="909">909</a>
 <a href="#910" id="910">910</a>
+<a href="#911" id="911">911</a>
+<a href="#912" id="912">912</a>
+<a href="#913" id="913">913</a>
+<a href="#914" id="914">914</a>
+<a href="#915" id="915">915</a>
+<a href="#916" id="916">916</a>
 </pre></div><pre class="rust"><code><span class="attr">#![cfg_attr(docsrs, feature(doc_cfg, doc_auto_cfg))]
 
 #[cfg(any(feature = <span class="string">&quot;remote&quot;</span>))]
@@ -926,20 +932,22 @@
 <span class="attr">#[cfg(any(feature = <span class="string">&quot;remote&quot;</span>))]
 </span><span class="kw">pub use </span>client::{RemoteNetworkingClient, RemoteNetworkingClientDriver};
 <span class="kw">use </span>pin_project_lite::pin_project;
+<span class="attr">#[cfg(feature = <span class="string">&quot;rkyv&quot;</span>)]
+</span><span class="kw">use </span>rkyv::{Archive, CheckBytes, Deserialize <span class="kw">as </span>RkyvDeserialize, Serialize <span class="kw">as </span>RkyvSerialize};
 <span class="attr">#[cfg(any(feature = <span class="string">&quot;remote&quot;</span>))]
 </span><span class="kw">pub use </span>server::{RemoteNetworkingServer, RemoteNetworkingServerDriver};
 <span class="kw">use </span>std::fmt;
 <span class="kw">use </span>std::mem::MaybeUninit;
-<span class="kw">pub use </span>std::net::IpAddr;
-<span class="kw">pub use </span>std::net::Ipv4Addr;
-<span class="kw">pub use </span>std::net::Ipv6Addr;
+<span class="kw">use </span>std::net::IpAddr;
+<span class="kw">use </span>std::net::Ipv4Addr;
+<span class="kw">use </span>std::net::Ipv6Addr;
 <span class="kw">use </span>std::net::Shutdown;
-<span class="kw">pub use </span>std::net::SocketAddr;
+<span class="kw">use </span>std::net::SocketAddr;
 <span class="kw">use </span>std::pin::Pin;
 <span class="kw">use </span>std::sync::Arc;
 <span class="kw">use </span>std::task::Context;
 <span class="kw">use </span>std::task::Poll;
-<span class="kw">pub use </span>std::time::Duration;
+<span class="kw">use </span>std::time::Duration;
 <span class="kw">use </span>thiserror::Error;
 <span class="attr">#[cfg(feature = <span class="string">&quot;tokio&quot;</span>)]
 </span><span class="kw">use </span>tokio::io::AsyncRead;
@@ -957,6 +965,8 @@
 
 <span class="doccomment">/// Represents an IP address and its netmask
 </span><span class="attr">#[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd, Serialize, Deserialize)]
+#[cfg_attr(feature = <span class="string">&quot;rkyv&quot;</span>, derive(RkyvSerialize, RkyvDeserialize, Archive))]
+#[cfg_attr(feature = <span class="string">&quot;rkyv&quot;</span>, archive_attr(derive(CheckBytes)))]
 </span><span class="kw">pub struct </span>IpCidr {
     <span class="kw">pub </span>ip: IpAddr,
     <span class="kw">pub </span>prefix: u8,
@@ -964,6 +974,8 @@
 
 <span class="doccomment">/// Represents a routing entry in the routing table of the interface
 </span><span class="attr">#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = <span class="string">&quot;rkyv&quot;</span>, derive(RkyvSerialize, RkyvDeserialize, Archive))]
+#[cfg_attr(feature = <span class="string">&quot;rkyv&quot;</span>, archive_attr(derive(CheckBytes)))]
 </span><span class="kw">pub struct </span>IpRoute {
     <span class="kw">pub </span>cidr: IpCidr,
     <span class="kw">pub </span>via_router: IpAddr,

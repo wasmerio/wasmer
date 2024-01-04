@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["capture_snapshot","restore_snapshot"],"struct":["InstanceSnapshot"]};
+window.SIDEBAR_ITEMS = {"fn":["capture_instance_snapshot","restore_instance_snapshot"],"struct":["InstanceSnapshot"]};

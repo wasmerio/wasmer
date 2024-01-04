@@ -194,7 +194,7 @@
     <span class="comment">// Perform the unwind action
     </span>unwind::&lt;M, <span class="kw">_</span>&gt;(ctx, <span class="kw">move </span>|<span class="kw-2">mut </span>ctx, <span class="kw-2">mut </span>memory_stack, rewind_stack| {
         <span class="comment">// Grab all the globals and serialize them
-        </span><span class="kw">let </span>store_data = <span class="kw">crate</span>::utils::store::capture_snapshot(<span class="kw-2">&amp;mut </span>ctx.as_store_mut())
+        </span><span class="kw">let </span>store_data = <span class="kw">crate</span>::utils::store::capture_instance_snapshot(<span class="kw-2">&amp;mut </span>ctx.as_store_mut())
             .serialize()
             .unwrap();
         <span class="kw">let </span>env = ctx.data();

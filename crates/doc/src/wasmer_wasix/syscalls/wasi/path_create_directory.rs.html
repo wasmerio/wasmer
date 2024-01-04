@@ -129,6 +129,29 @@
 <a href="#129" id="129">129</a>
 <a href="#130" id="130">130</a>
 <a href="#131" id="131">131</a>
+<a href="#132" id="132">132</a>
+<a href="#133" id="133">133</a>
+<a href="#134" id="134">134</a>
+<a href="#135" id="135">135</a>
+<a href="#136" id="136">136</a>
+<a href="#137" id="137">137</a>
+<a href="#138" id="138">138</a>
+<a href="#139" id="139">139</a>
+<a href="#140" id="140">140</a>
+<a href="#141" id="141">141</a>
+<a href="#142" id="142">142</a>
+<a href="#143" id="143">143</a>
+<a href="#144" id="144">144</a>
+<a href="#145" id="145">145</a>
+<a href="#146" id="146">146</a>
+<a href="#147" id="147">147</a>
+<a href="#148" id="148">148</a>
+<a href="#149" id="149">149</a>
+<a href="#150" id="150">150</a>
+<a href="#151" id="151">151</a>
+<a href="#152" id="152">152</a>
+<a href="#153" id="153">153</a>
+<a href="#154" id="154">154</a>
 </pre></div><pre class="rust"><code><span class="kw">use super</span>::<span class="kw-2">*</span>;
 <span class="kw">use </span><span class="kw">crate</span>::syscalls::<span class="kw-2">*</span>;
 
@@ -147,25 +170,15 @@
 ///     This right must be set on the directory that the file is created in (TODO: verify that this is true)
 </span><span class="attr">#[instrument(level = <span class="string">&quot;trace&quot;</span>, skip_all, fields(%fd, path = field::Empty), ret)]
 </span><span class="kw">pub fn </span>path_create_directory&lt;M: MemorySize&gt;(
-    ctx: FunctionEnvMut&lt;<span class="lifetime">&#39;_</span>, WasiEnv&gt;,
+    <span class="kw-2">mut </span>ctx: FunctionEnvMut&lt;<span class="lifetime">&#39;_</span>, WasiEnv&gt;,
     fd: WasiFd,
     path: WasmPtr&lt;u8, M&gt;,
     path_len: M::Offset,
-) -&gt; Errno {
+) -&gt; <span class="prelude-ty">Result</span>&lt;Errno, WasiError&gt; {
     <span class="kw">let </span>env = ctx.data();
     <span class="kw">let </span>(memory, state, inodes) = <span class="kw">unsafe </span>{ env.get_memory_and_wasi_state_and_inodes(<span class="kw-2">&amp;</span>ctx, <span class="number">0</span>) };
 
-    <span class="kw">let </span>working_dir = <span class="macro">wasi_try!</span>(state.fs.get_fd(fd));
-    {
-        <span class="kw">let </span>guard = working_dir.inode.read();
-        <span class="kw">if let </span>Kind::Root { .. } = guard.deref() {
-            <span class="kw">return </span>Errno::Access;
-        }
-    }
-    <span class="kw">if </span>!working_dir.rights.contains(Rights::PATH_CREATE_DIRECTORY) {
-        <span class="kw">return </span>Errno::Access;
-    }
-    <span class="kw">let </span><span class="kw-2">mut </span>path_string = <span class="kw">unsafe </span>{ <span class="macro">get_input_str!</span>(<span class="kw-2">&amp;</span>memory, path, path_len) };
+    <span class="kw">let </span><span class="kw-2">mut </span>path_string = <span class="kw">unsafe </span>{ <span class="macro">get_input_str_ok!</span>(<span class="kw-2">&amp;</span>memory, path, path_len) };
     Span::current().record(<span class="string">&quot;path&quot;</span>, path_string.as_str());
 
     <span class="comment">// Convert relative paths into absolute paths
@@ -176,8 +189,40 @@
         );
     }
 
-    <span class="kw">let </span>path = std::path::PathBuf::from(<span class="kw-2">&amp;</span>path_string);
-    <span class="kw">let </span>path_vec = <span class="macro">wasi_try!</span>(path
+    <span class="macro">wasi_try_ok!</span>(path_create_directory_internal(<span class="kw-2">&amp;mut </span>ctx, fd, <span class="kw-2">&amp;</span>path_string));
+    <span class="kw">let </span>env = ctx.data();
+
+    <span class="attr">#[cfg(feature = <span class="string">&quot;journal&quot;</span>)]
+    </span><span class="kw">if </span>env.enable_journal {
+        JournalEffector::save_path_create_directory(<span class="kw-2">&amp;mut </span>ctx, fd, path_string).map_err(|err| {
+            <span class="macro">tracing::error!</span>(<span class="string">&quot;failed to save create directory event - {}&quot;</span>, err);
+            WasiError::Exit(ExitCode::Errno(Errno::Fault))
+        })<span class="question-mark">?</span>;
+    }
+
+    <span class="prelude-val">Ok</span>(Errno::Success)
+}
+
+<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>path_create_directory_internal(
+    ctx: <span class="kw-2">&amp;mut </span>FunctionEnvMut&lt;<span class="lifetime">&#39;_</span>, WasiEnv&gt;,
+    fd: WasiFd,
+    path: <span class="kw-2">&amp;</span>str,
+) -&gt; <span class="prelude-ty">Result</span>&lt;(), Errno&gt; {
+    <span class="kw">let </span>env = ctx.data();
+    <span class="kw">let </span>(memory, state, inodes) = <span class="kw">unsafe </span>{ env.get_memory_and_wasi_state_and_inodes(<span class="kw-2">&amp;</span>ctx, <span class="number">0</span>) };
+    <span class="kw">let </span>working_dir = state.fs.get_fd(fd)<span class="question-mark">?</span>;
+    {
+        <span class="kw">let </span>guard = working_dir.inode.read();
+        <span class="kw">if let </span>Kind::Root { .. } = guard.deref() {
+            <span class="kw">return </span><span class="prelude-val">Err</span>(Errno::Access);
+        }
+    }
+    <span class="kw">if </span>!working_dir.rights.contains(Rights::PATH_CREATE_DIRECTORY) {
+        <span class="kw">return </span><span class="prelude-val">Err</span>(Errno::Access);
+    }
+
+    <span class="kw">let </span>path = std::path::PathBuf::from(path);
+    <span class="kw">let </span>path_vec = path
         .components()
         .map(|comp| {
             comp.as_os_str()
@@ -185,9 +230,9 @@
                 .map(|inner_str| inner_str.to_string())
                 .ok_or(Errno::Inval)
         })
-        .collect::&lt;<span class="prelude-ty">Result</span>&lt;Vec&lt;String&gt;, Errno&gt;&gt;());
+        .collect::&lt;<span class="prelude-ty">Result</span>&lt;Vec&lt;String&gt;, Errno&gt;&gt;()<span class="question-mark">?</span>;
     <span class="kw">if </span>path_vec.is_empty() {
-        <span class="kw">return </span>Errno::Inval;
+        <span class="kw">return </span><span class="prelude-val">Err</span>(Errno::Inval);
     }
 
     <span class="kw">let </span><span class="kw-2">mut </span>cur_dir_inode = working_dir.inode;
@@ -227,18 +272,19 @@
                         <span class="kw-2">&amp;</span>adjusted_path.to_string_lossy(),
                     ) {
                         <span class="kw">if </span>adjusted_path_stat.st_filetype != Filetype::Directory {
-                            <span class="kw">return </span>Errno::Notdir;
+                            <span class="kw">return </span><span class="prelude-val">Err</span>(Errno::Notdir);
                         }
                     } <span class="kw">else </span>{
-                        <span class="macro">wasi_try!</span>(state.fs_create_dir(<span class="kw-2">&amp;</span>adjusted_path));
+                        state.fs_create_dir(<span class="kw-2">&amp;</span>adjusted_path)<span class="question-mark">?</span>;
                     }
                     <span class="kw">let </span>kind = Kind::Dir {
                         parent: cur_dir_inode.downgrade(),
                         path: adjusted_path,
                         entries: Default::default(),
                     };
-                    <span class="kw">let </span>new_inode =
-                        <span class="macro">wasi_try!</span>(state.fs.create_inode(inodes, kind, <span class="bool-val">false</span>, comp.to_string()));
+                    <span class="kw">let </span>new_inode = state
+                        .fs
+                        .create_inode(inodes, kind, <span class="bool-val">false</span>, comp.to_string())<span class="question-mark">?</span>;
 
                     <span class="comment">// reborrow to insert
                     </span>{
@@ -253,11 +299,11 @@
                     cur_dir_inode = new_inode;
                 }
             }
-            Kind::Root { .. } =&gt; <span class="kw">return </span>Errno::Access,
-            <span class="kw">_ </span>=&gt; <span class="kw">return </span>Errno::Notdir,
+            Kind::Root { .. } =&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(Errno::Access),
+            <span class="kw">_ </span>=&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(Errno::Notdir),
         }
     }
 
-    Errno::Success
+    <span class="prelude-val">Ok</span>(())
 }
 </code></pre></div></section></main></body></html>

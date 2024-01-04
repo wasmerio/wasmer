@@ -246,6 +246,8 @@
 <a href="#246" id="246">246</a>
 <a href="#247" id="247">247</a>
 <a href="#248" id="248">248</a>
+<a href="#249" id="249">249</a>
+<a href="#250" id="250">250</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{
     collections::HashMap,
     sync::{
@@ -254,7 +256,7 @@
     },
 };
 
-<span class="kw">use crate</span>::{WasiProcess, WasiProcessId};
+<span class="kw">use crate</span>::{runtime::module_cache::ModuleHash, WasiProcess, WasiProcessId};
 
 <span class="attr">#[derive(Debug, Clone)]
 </span><span class="kw">pub struct </span>WasiControlPlane {
@@ -357,7 +359,7 @@
     <span class="doccomment">/// Register a new task.
     ///
     </span><span class="comment">// Currently just increments the task counter.
-    </span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">fn </span>register_task(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;TaskCountGuard, ControlPlaneError&gt; {
+    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>register_task(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;TaskCountGuard, ControlPlaneError&gt; {
         <span class="kw">let </span>count = <span class="self">self</span>.state.task_count.fetch_add(<span class="number">1</span>, Ordering::SeqCst);
         <span class="kw">if let </span><span class="prelude-val">Some</span>(max) = <span class="self">self</span>.state.config.max_task_count {
             <span class="kw">if </span>count &gt; max {
@@ -371,7 +373,7 @@
     <span class="doccomment">/// Creates a new process
     </span><span class="comment">// FIXME: De-register terminated processes!
     // Currently they just accumulate.
-    </span><span class="kw">pub fn </span>new_process(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;WasiProcess, ControlPlaneError&gt; {
+    </span><span class="kw">pub fn </span>new_process(<span class="kw-2">&amp;</span><span class="self">self</span>, module_hash: ModuleHash) -&gt; <span class="prelude-ty">Result</span>&lt;WasiProcess, ControlPlaneError&gt; {
         <span class="kw">if let </span><span class="prelude-val">Some</span>(max) = <span class="self">self</span>.state.config.max_task_count {
             <span class="kw">if </span><span class="self">self</span>.active_task_count() &gt;= max {
                 <span class="comment">// NOTE: task count is not incremented here, only when new threads are spawned.
@@ -381,7 +383,7 @@
         }
 
         <span class="comment">// Create the process first to do all the allocations before locking.
-        </span><span class="kw">let </span><span class="kw-2">mut </span>proc = WasiProcess::new(WasiProcessId::from(<span class="number">0</span>), <span class="self">self</span>.handle());
+        </span><span class="kw">let </span><span class="kw-2">mut </span>proc = WasiProcess::new(WasiProcessId::from(<span class="number">0</span>), module_hash, <span class="self">self</span>.handle());
 
         <span class="kw">let </span><span class="kw-2">mut </span>mutable = <span class="self">self</span>.state.mutable.write().unwrap();
 
@@ -451,6 +453,8 @@
 
 <span class="attr">#[cfg(test)]
 </span><span class="kw">mod </span>tests {
+    <span class="kw">use </span><span class="kw">crate</span>::os::task::thread::WasiMemoryLayout;
+
     <span class="kw">use super</span>::<span class="kw-2">*</span>;
 
     <span class="doccomment">/// Simple test to ensure task limits are respected.
@@ -461,12 +465,12 @@
             enable_asynchronous_threading: <span class="bool-val">false</span>,
         });
 
-        <span class="kw">let </span>p1 = p.new_process().unwrap();
-        <span class="kw">let </span>_t1 = p1.new_thread().unwrap();
-        <span class="kw">let </span>_t2 = p1.new_thread().unwrap();
+        <span class="kw">let </span>p1 = p.new_process(ModuleHash::random()).unwrap();
+        <span class="kw">let </span>_t1 = p1.new_thread(WasiMemoryLayout::default()).unwrap();
+        <span class="kw">let </span>_t2 = p1.new_thread(WasiMemoryLayout::default()).unwrap();
 
         <span class="macro">assert_eq!</span>(
-            p.new_process().unwrap_err(),
+            p.new_process(ModuleHash::random()).unwrap_err(),
             ControlPlaneError::TaskLimitReached { max: <span class="number">2 </span>}
         );
     }
@@ -479,17 +483,17 @@
             enable_asynchronous_threading: <span class="bool-val">false</span>,
         });
 
-        <span class="kw">let </span>p1 = p.new_process().unwrap();
+        <span class="kw">let </span>p1 = p.new_process(ModuleHash::random()).unwrap();
 
         <span class="kw">for _ in </span><span class="number">0</span>..<span class="number">10 </span>{
-            <span class="kw">let </span>_thread = p1.new_thread().unwrap();
+            <span class="kw">let </span>_thread = p1.new_thread(WasiMemoryLayout::default()).unwrap();
         }
 
-        <span class="kw">let </span>_t1 = p1.new_thread().unwrap();
-        <span class="kw">let </span>_t2 = p1.new_thread().unwrap();
+        <span class="kw">let </span>_t1 = p1.new_thread(WasiMemoryLayout::default()).unwrap();
+        <span class="kw">let </span>_t2 = p1.new_thread(WasiMemoryLayout::default()).unwrap();
 
         <span class="macro">assert_eq!</span>(
-            p.new_process().unwrap_err(),
+            p.new_process(ModuleHash::random()).unwrap_err(),
             ControlPlaneError::TaskLimitReached { max: <span class="number">2 </span>}
         );
     }

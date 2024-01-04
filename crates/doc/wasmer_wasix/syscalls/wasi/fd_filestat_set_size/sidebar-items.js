@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["fd_filestat_set_size"],"static":["META","__CALLSITE"]};
+window.SIDEBAR_ITEMS = {"fn":["fd_filestat_set_size","fd_filestat_set_size_internal"],"static":["META","__CALLSITE"]};

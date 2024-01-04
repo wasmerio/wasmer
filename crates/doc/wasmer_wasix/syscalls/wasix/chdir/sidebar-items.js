@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["chdir"],"static":["META","__CALLSITE"]};
+window.SIDEBAR_ITEMS = {"fn":["chdir","chdir_internal"],"static":["META","__CALLSITE"]};

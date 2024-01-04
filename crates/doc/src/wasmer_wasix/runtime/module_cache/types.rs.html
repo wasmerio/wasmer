@@ -196,6 +196,15 @@
 <a href="#196" id="196">196</a>
 <a href="#197" id="197">197</a>
 <a href="#198" id="198">198</a>
+<a href="#199" id="199">199</a>
+<a href="#200" id="200">200</a>
+<a href="#201" id="201">201</a>
+<a href="#202" id="202">202</a>
+<a href="#203" id="203">203</a>
+<a href="#204" id="204">204</a>
+<a href="#205" id="205">205</a>
+<a href="#206" id="206">206</a>
+<a href="#207" id="207">207</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::hash::Hash;
 <span class="kw">use </span>std::{
     fmt::{<span class="self">self</span>, Debug, Display, Formatter},
@@ -203,6 +212,7 @@
     path::PathBuf,
 };
 
+<span class="kw">use </span>rand::RngCore;
 <span class="kw">use </span>wasmer::{Engine, Module};
 
 <span class="kw">use </span><span class="kw">crate</span>::runtime::module_cache::FallbackCache;
@@ -332,6 +342,14 @@
     <span class="doccomment">/// Create a new [`ModuleHash`] from the raw XXHash hash.
     </span><span class="kw">pub fn </span>from_bytes(key: [u8; <span class="number">8</span>]) -&gt; <span class="self">Self </span>{
         ModuleHash(key)
+    }
+
+    <span class="comment">// Creates a random hash for the module
+    </span><span class="kw">pub fn </span>random() -&gt; <span class="self">Self </span>{
+        <span class="kw">let </span><span class="kw-2">mut </span>rand = rand::thread_rng();
+        <span class="kw">let </span><span class="kw-2">mut </span>key = [<span class="number">0u8</span>; <span class="number">8</span>];
+        rand.fill_bytes(<span class="kw-2">&amp;mut </span>key);
+        <span class="self">Self</span>(key)
     }
 
     <span class="doccomment">/// Parse a XXHash hash from a hex-encoded string.

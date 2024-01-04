@@ -348,7 +348,7 @@
 /// // This results with an error: `ExportError::Missing`.
 /// let export = instance.exports.get_function(&quot;unknown&quot;).unwrap();
 /// ```
-</span><span class="attr">#[derive(Error, Debug)]
+</span><span class="attr">#[derive(Error, Debug, Clone)]
 </span><span class="kw">pub enum </span>ExportError {
     <span class="doccomment">/// An error than occurs when the exported type and the expected type
     /// are incompatible.

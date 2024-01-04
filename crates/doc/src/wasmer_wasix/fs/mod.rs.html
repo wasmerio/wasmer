@@ -2010,6 +2010,43 @@
 <a href="#2010" id="2010">2010</a>
 <a href="#2011" id="2011">2011</a>
 <a href="#2012" id="2012">2012</a>
+<a href="#2013" id="2013">2013</a>
+<a href="#2014" id="2014">2014</a>
+<a href="#2015" id="2015">2015</a>
+<a href="#2016" id="2016">2016</a>
+<a href="#2017" id="2017">2017</a>
+<a href="#2018" id="2018">2018</a>
+<a href="#2019" id="2019">2019</a>
+<a href="#2020" id="2020">2020</a>
+<a href="#2021" id="2021">2021</a>
+<a href="#2022" id="2022">2022</a>
+<a href="#2023" id="2023">2023</a>
+<a href="#2024" id="2024">2024</a>
+<a href="#2025" id="2025">2025</a>
+<a href="#2026" id="2026">2026</a>
+<a href="#2027" id="2027">2027</a>
+<a href="#2028" id="2028">2028</a>
+<a href="#2029" id="2029">2029</a>
+<a href="#2030" id="2030">2030</a>
+<a href="#2031" id="2031">2031</a>
+<a href="#2032" id="2032">2032</a>
+<a href="#2033" id="2033">2033</a>
+<a href="#2034" id="2034">2034</a>
+<a href="#2035" id="2035">2035</a>
+<a href="#2036" id="2036">2036</a>
+<a href="#2037" id="2037">2037</a>
+<a href="#2038" id="2038">2038</a>
+<a href="#2039" id="2039">2039</a>
+<a href="#2040" id="2040">2040</a>
+<a href="#2041" id="2041">2041</a>
+<a href="#2042" id="2042">2042</a>
+<a href="#2043" id="2043">2043</a>
+<a href="#2044" id="2044">2044</a>
+<a href="#2045" id="2045">2045</a>
+<a href="#2046" id="2046">2046</a>
+<a href="#2047" id="2047">2047</a>
+<a href="#2048" id="2048">2048</a>
+<a href="#2049" id="2049">2049</a>
 </pre></div><pre class="rust"><code><span class="kw">mod </span>fd;
 <span class="kw">mod </span>inode_guard;
 <span class="kw">mod </span>notification;
@@ -2441,6 +2478,11 @@
     // but it shouldn&#39;t be necessary
     // It should not be necessary at all.
     </span>is_wasix: AtomicBool,
+
+    <span class="comment">// The preopens when this was initialized
+    </span><span class="kw">pub</span>(<span class="kw">crate</span>) init_preopens: Vec&lt;PreopenedDir&gt;,
+    <span class="comment">// The virtual file system preopens when this was initialized
+    </span><span class="kw">pub</span>(<span class="kw">crate</span>) init_vfs_preopens: Vec&lt;String&gt;,
 }
 
 <span class="kw">impl </span>WasiFs {
@@ -2466,6 +2508,8 @@
             root_fs: <span class="self">self</span>.root_fs.clone(),
             root_inode: <span class="self">self</span>.root_inode.clone(),
             has_unioned: Arc::new(Mutex::new(HashSet::new())),
+            init_preopens: <span class="self">self</span>.init_preopens.clone(),
+            init_vfs_preopens: <span class="self">self</span>.init_vfs_preopens.clone(),
         }
     }
 
@@ -2527,175 +2571,10 @@
         vfs_preopens: <span class="kw-2">&amp;</span>[String],
         fs_backing: WasiFsRoot,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, String&gt; {
-        <span class="kw">let </span>(wasi_fs, root_inode) = <span class="self">Self</span>::new_init(fs_backing, inodes)<span class="question-mark">?</span>;
-
-        <span class="kw">for </span>preopen_name <span class="kw">in </span>vfs_preopens {
-            <span class="kw">let </span>kind = Kind::Dir {
-                parent: root_inode.downgrade(),
-                path: PathBuf::from(preopen_name),
-                entries: Default::default(),
-            };
-            <span class="kw">let </span>rights = Rights::FD_ADVISE
-                | Rights::FD_TELL
-                | Rights::FD_SEEK
-                | Rights::FD_READ
-                | Rights::PATH_OPEN
-                | Rights::FD_READDIR
-                | Rights::PATH_READLINK
-                | Rights::PATH_FILESTAT_GET
-                | Rights::FD_FILESTAT_GET
-                | Rights::PATH_LINK_SOURCE
-                | Rights::PATH_RENAME_SOURCE
-                | Rights::POLL_FD_READWRITE
-                | Rights::SOCK_SHUTDOWN;
-            <span class="kw">let </span>inode = wasi_fs
-                .create_inode(inodes, kind, <span class="bool-val">true</span>, preopen_name.clone())
-                .map_err(|e| {
-                    <span class="macro">format!</span>(
-                        <span class="string">&quot;Failed to create inode for preopened dir (name `{}`): WASI error code: {}&quot;</span>,
-                        preopen_name, e
-                    )
-                })<span class="question-mark">?</span>;
-            <span class="kw">let </span>fd_flags = Fd::READ;
-            <span class="kw">let </span>fd = wasi_fs
-                .create_fd(rights, rights, Fdflags::empty(), fd_flags, inode.clone())
-                .map_err(|e| <span class="macro">format!</span>(<span class="string">&quot;Could not open fd for file {:?}: {}&quot;</span>, preopen_name, e))<span class="question-mark">?</span>;
-            {
-                <span class="kw">let </span><span class="kw-2">mut </span>guard = root_inode.write();
-                <span class="kw">if let </span>Kind::Root { entries } = guard.deref_mut() {
-                    <span class="kw">let </span>existing_entry = entries.insert(preopen_name.clone(), inode);
-                    <span class="kw">if </span>existing_entry.is_some() {
-                        <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">format!</span>(
-                            <span class="string">&quot;Found duplicate entry for alias `{}`&quot;</span>,
-                            preopen_name
-                        ));
-                    }
-                    <span class="macro">assert!</span>(existing_entry.is_none())
-                }
-            }
-            wasi_fs.preopen_fds.write().unwrap().push(fd);
-        }
-
-        <span class="kw">for </span>PreopenedDir {
-            path,
-            alias,
-            read,
-            write,
-            create,
-        } <span class="kw">in </span>preopens
-        {
-            <span class="macro">debug!</span>(
-                <span class="string">&quot;Attempting to preopen {} with alias {:?}&quot;</span>,
-                <span class="kw-2">&amp;</span>path.to_string_lossy(),
-                <span class="kw-2">&amp;</span>alias
-            );
-            <span class="kw">let </span>cur_dir_metadata = wasi_fs
-                .root_fs
-                .metadata(path)
-                .map_err(|e| <span class="macro">format!</span>(<span class="string">&quot;Could not get metadata for file {:?}: {}&quot;</span>, path, e))<span class="question-mark">?</span>;
-
-            <span class="kw">let </span>kind = <span class="kw">if </span>cur_dir_metadata.is_dir() {
-                Kind::Dir {
-                    parent: root_inode.downgrade(),
-                    path: path.clone(),
-                    entries: Default::default(),
-                }
-            } <span class="kw">else </span>{
-                <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">format!</span>(
-                    <span class="string">&quot;WASI only supports pre-opened directories right now; found \&quot;{}\&quot;&quot;</span>,
-                    <span class="kw-2">&amp;</span>path.to_string_lossy()
-                ));
-            };
-
-            <span class="kw">let </span>rights = {
-                <span class="comment">// TODO: review tell&#39; and fd_readwrite
-                </span><span class="kw">let </span><span class="kw-2">mut </span>rights = Rights::FD_ADVISE | Rights::FD_TELL | Rights::FD_SEEK;
-                <span class="kw">if </span><span class="kw-2">*</span>read {
-                    rights |= Rights::FD_READ
-                        | Rights::PATH_OPEN
-                        | Rights::FD_READDIR
-                        | Rights::PATH_READLINK
-                        | Rights::PATH_FILESTAT_GET
-                        | Rights::FD_FILESTAT_GET
-                        | Rights::PATH_LINK_SOURCE
-                        | Rights::PATH_RENAME_SOURCE
-                        | Rights::POLL_FD_READWRITE
-                        | Rights::SOCK_SHUTDOWN;
-                }
-                <span class="kw">if </span><span class="kw-2">*</span>write {
-                    rights |= Rights::FD_DATASYNC
-                        | Rights::FD_FDSTAT_SET_FLAGS
-                        | Rights::FD_WRITE
-                        | Rights::FD_SYNC
-                        | Rights::FD_ALLOCATE
-                        | Rights::PATH_OPEN
-                        | Rights::PATH_RENAME_TARGET
-                        | Rights::PATH_FILESTAT_SET_SIZE
-                        | Rights::PATH_FILESTAT_SET_TIMES
-                        | Rights::FD_FILESTAT_SET_SIZE
-                        | Rights::FD_FILESTAT_SET_TIMES
-                        | Rights::PATH_REMOVE_DIRECTORY
-                        | Rights::PATH_UNLINK_FILE
-                        | Rights::POLL_FD_READWRITE
-                        | Rights::SOCK_SHUTDOWN;
-                }
-                <span class="kw">if </span><span class="kw-2">*</span>create {
-                    rights |= Rights::PATH_CREATE_DIRECTORY
-                        | Rights::PATH_CREATE_FILE
-                        | Rights::PATH_LINK_TARGET
-                        | Rights::PATH_OPEN
-                        | Rights::PATH_RENAME_TARGET
-                        | Rights::PATH_SYMLINK;
-                }
-
-                rights
-            };
-            <span class="kw">let </span>inode = <span class="kw">if let </span><span class="prelude-val">Some</span>(alias) = <span class="kw-2">&amp;</span>alias {
-                wasi_fs.create_inode(inodes, kind, <span class="bool-val">true</span>, alias.clone())
-            } <span class="kw">else </span>{
-                wasi_fs.create_inode(inodes, kind, <span class="bool-val">true</span>, path.to_string_lossy().into_owned())
-            }
-            .map_err(|e| {
-                <span class="macro">format!</span>(
-                    <span class="string">&quot;Failed to create inode for preopened dir: WASI error code: {}&quot;</span>,
-                    e
-                )
-            })<span class="question-mark">?</span>;
-            <span class="kw">let </span>fd_flags = {
-                <span class="kw">let </span><span class="kw-2">mut </span>fd_flags = <span class="number">0</span>;
-                <span class="kw">if </span><span class="kw-2">*</span>read {
-                    fd_flags |= Fd::READ;
-                }
-                <span class="kw">if </span><span class="kw-2">*</span>write {
-                    <span class="comment">// TODO: introduce API for finer grained control
-                    </span>fd_flags |= Fd::WRITE | Fd::APPEND | Fd::TRUNCATE;
-                }
-                <span class="kw">if </span><span class="kw-2">*</span>create {
-                    fd_flags |= Fd::CREATE;
-                }
-                fd_flags
-            };
-            <span class="kw">let </span>fd = wasi_fs
-                .create_fd(rights, rights, Fdflags::empty(), fd_flags, inode.clone())
-                .map_err(|e| <span class="macro">format!</span>(<span class="string">&quot;Could not open fd for file {:?}: {}&quot;</span>, path, e))<span class="question-mark">?</span>;
-            {
-                <span class="kw">let </span><span class="kw-2">mut </span>guard = root_inode.write();
-                <span class="kw">if let </span>Kind::Root { entries } = guard.deref_mut() {
-                    <span class="kw">let </span>key = <span class="kw">if let </span><span class="prelude-val">Some</span>(alias) = <span class="kw-2">&amp;</span>alias {
-                        alias.clone()
-                    } <span class="kw">else </span>{
-                        path.to_string_lossy().into_owned()
-                    };
-                    <span class="kw">let </span>existing_entry = entries.insert(key.clone(), inode);
-                    <span class="kw">if </span>existing_entry.is_some() {
-                        <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">format!</span>(<span class="string">&quot;Found duplicate entry for alias `{}`&quot;</span>, key));
-                    }
-                    <span class="macro">assert!</span>(existing_entry.is_none())
-                }
-            }
-            wasi_fs.preopen_fds.write().unwrap().push(fd);
-        }
-
+        <span class="kw">let </span><span class="kw-2">mut </span>wasi_fs = <span class="self">Self</span>::new_init(fs_backing, inodes)<span class="question-mark">?</span>;
+        wasi_fs.init_preopens = preopens.to_vec();
+        wasi_fs.init_vfs_preopens = vfs_preopens.to_vec();
+        wasi_fs.create_preopens(inodes, <span class="bool-val">false</span>)<span class="question-mark">?</span>;
         <span class="prelude-val">Ok</span>(wasi_fs)
     }
 
@@ -2713,7 +2592,7 @@
 
     <span class="doccomment">/// Private helper function to init the filesystem, called in `new` and
     /// `new_with_preopen`
-    </span><span class="kw">fn </span>new_init(fs_backing: WasiFsRoot, inodes: <span class="kw-2">&amp;</span>WasiInodes) -&gt; <span class="prelude-ty">Result</span>&lt;(<span class="self">Self</span>, InodeGuard), String&gt; {
+    </span><span class="kw">fn </span>new_init(fs_backing: WasiFsRoot, inodes: <span class="kw-2">&amp;</span>WasiInodes) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, String&gt; {
         <span class="macro">debug!</span>(<span class="string">&quot;Initializing WASI filesystem&quot;</span>);
 
         <span class="kw">let </span>stat = Filestat {
@@ -2737,46 +2616,17 @@
             current_dir: Mutex::new(<span class="string">&quot;/&quot;</span>.to_string()),
             is_wasix: AtomicBool::new(<span class="bool-val">false</span>),
             root_fs: fs_backing,
-            root_inode: root_inode.clone(),
+            root_inode,
             has_unioned: Arc::new(Mutex::new(HashSet::new())),
+            init_preopens: Default::default(),
+            init_vfs_preopens: Default::default(),
         };
         wasi_fs.create_stdin(inodes);
         wasi_fs.create_stdout(inodes);
         wasi_fs.create_stderr(inodes);
+        wasi_fs.create_rootfd()<span class="question-mark">?</span>;
 
-        <span class="comment">// create virtual root
-        </span><span class="kw">let </span>all_rights = ALL_RIGHTS;
-        <span class="comment">// TODO: make this a list of positive rigths instead of negative ones
-        // root gets all right for now
-        </span><span class="kw">let </span>root_rights = all_rights
-            <span class="comment">/*
-            &amp; (!Rights::FD_WRITE)
-            &amp; (!Rights::FD_ALLOCATE)
-            &amp; (!Rights::PATH_CREATE_DIRECTORY)
-            &amp; (!Rights::PATH_CREATE_FILE)
-            &amp; (!Rights::PATH_LINK_SOURCE)
-            &amp; (!Rights::PATH_RENAME_SOURCE)
-            &amp; (!Rights::PATH_RENAME_TARGET)
-            &amp; (!Rights::PATH_FILESTAT_SET_SIZE)
-            &amp; (!Rights::PATH_FILESTAT_SET_TIMES)
-            &amp; (!Rights::FD_FILESTAT_SET_SIZE)
-            &amp; (!Rights::FD_FILESTAT_SET_TIMES)
-            &amp; (!Rights::PATH_SYMLINK)
-            &amp; (!Rights::PATH_UNLINK_FILE)
-            &amp; (!Rights::PATH_REMOVE_DIRECTORY)
-            */</span>;
-        <span class="kw">let </span>fd = wasi_fs
-            .create_fd(
-                root_rights,
-                root_rights,
-                Fdflags::empty(),
-                Fd::READ,
-                root_inode.clone(),
-            )
-            .map_err(|e| <span class="macro">format!</span>(<span class="string">&quot;Could not create root fd: {}&quot;</span>, e))<span class="question-mark">?</span>;
-        wasi_fs.preopen_fds.write().unwrap().push(fd);
-
-        <span class="prelude-val">Ok</span>((wasi_fs, root_inode))
+        <span class="prelude-val">Ok</span>(wasi_fs)
     }
 
     <span class="doccomment">/// This function is like create dir all, but it also opens it.
@@ -3675,6 +3525,22 @@
         <span class="prelude-val">Ok</span>(idx)
     }
 
+    <span class="kw">pub fn </span>make_max_fd(<span class="kw-2">&amp;</span><span class="self">self</span>, fd: u32) {
+        <span class="kw">loop </span>{
+            <span class="kw">let </span>existing = <span class="self">self</span>.next_fd.load(Ordering::SeqCst);
+            <span class="kw">if </span>existing &gt;= fd {
+                <span class="kw">return</span>;
+            }
+            <span class="kw">if </span><span class="self">self
+                </span>.next_fd
+                .compare_exchange(existing, fd, Ordering::SeqCst, Ordering::Relaxed)
+                .is_ok()
+            {
+                <span class="kw">break</span>;
+            }
+        }
+    }
+
     <span class="kw">pub fn </span>create_fd_ext(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         rights: Rights,
@@ -3734,7 +3600,7 @@
         guard.lookup.remove(<span class="kw-2">&amp;</span>ino).and_then(|a| Weak::upgrade(<span class="kw-2">&amp;</span>a))
     }
 
-    <span class="kw">fn </span>create_stdout(<span class="kw-2">&amp;</span><span class="self">self</span>, inodes: <span class="kw-2">&amp;</span>WasiInodes) {
+    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>create_stdout(<span class="kw-2">&amp;</span><span class="self">self</span>, inodes: <span class="kw-2">&amp;</span>WasiInodes) {
         <span class="self">self</span>.create_std_dev_inner(
             inodes,
             Box::&lt;Stdout&gt;::default(),
@@ -3745,7 +3611,7 @@
         );
     }
 
-    <span class="kw">fn </span>create_stdin(<span class="kw-2">&amp;</span><span class="self">self</span>, inodes: <span class="kw-2">&amp;</span>WasiInodes) {
+    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>create_stdin(<span class="kw-2">&amp;</span><span class="self">self</span>, inodes: <span class="kw-2">&amp;</span>WasiInodes) {
         <span class="self">self</span>.create_std_dev_inner(
             inodes,
             Box::&lt;Stdin&gt;::default(),
@@ -3756,7 +3622,7 @@
         );
     }
 
-    <span class="kw">fn </span>create_stderr(<span class="kw-2">&amp;</span><span class="self">self</span>, inodes: <span class="kw-2">&amp;</span>WasiInodes) {
+    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>create_stderr(<span class="kw-2">&amp;</span><span class="self">self</span>, inodes: <span class="kw-2">&amp;</span>WasiInodes) {
         <span class="self">self</span>.create_std_dev_inner(
             inodes,
             Box::&lt;Stderr&gt;::default(),
@@ -3767,7 +3633,215 @@
         );
     }
 
-    <span class="kw">fn </span>create_std_dev_inner(
+    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>create_rootfd(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;(), String&gt; {
+        <span class="comment">// create virtual root
+        </span><span class="kw">let </span>all_rights = ALL_RIGHTS;
+        <span class="comment">// TODO: make this a list of positive rigths instead of negative ones
+        // root gets all right for now
+        </span><span class="kw">let </span>root_rights = all_rights
+            <span class="comment">/*
+            &amp; (!Rights::FD_WRITE)
+            &amp; (!Rights::FD_ALLOCATE)
+            &amp; (!Rights::PATH_CREATE_DIRECTORY)
+            &amp; (!Rights::PATH_CREATE_FILE)
+            &amp; (!Rights::PATH_LINK_SOURCE)
+            &amp; (!Rights::PATH_RENAME_SOURCE)
+            &amp; (!Rights::PATH_RENAME_TARGET)
+            &amp; (!Rights::PATH_FILESTAT_SET_SIZE)
+            &amp; (!Rights::PATH_FILESTAT_SET_TIMES)
+            &amp; (!Rights::FD_FILESTAT_SET_SIZE)
+            &amp; (!Rights::FD_FILESTAT_SET_TIMES)
+            &amp; (!Rights::PATH_SYMLINK)
+            &amp; (!Rights::PATH_UNLINK_FILE)
+            &amp; (!Rights::PATH_REMOVE_DIRECTORY)
+            */</span>;
+        <span class="kw">let </span>fd = <span class="self">self
+            </span>.create_fd(
+                root_rights,
+                root_rights,
+                Fdflags::empty(),
+                Fd::READ,
+                <span class="self">self</span>.root_inode.clone(),
+            )
+            .map_err(|e| <span class="macro">format!</span>(<span class="string">&quot;Could not create root fd: {}&quot;</span>, e))<span class="question-mark">?</span>;
+        <span class="self">self</span>.preopen_fds.write().unwrap().push(fd);
+        <span class="prelude-val">Ok</span>(())
+    }
+
+    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>create_preopens(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        inodes: <span class="kw-2">&amp;</span>WasiInodes,
+        ignore_duplicates: bool,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;(), String&gt; {
+        <span class="kw">for </span>preopen_name <span class="kw">in </span><span class="self">self</span>.init_vfs_preopens.iter() {
+            <span class="kw">let </span>kind = Kind::Dir {
+                parent: <span class="self">self</span>.root_inode.downgrade(),
+                path: PathBuf::from(preopen_name),
+                entries: Default::default(),
+            };
+            <span class="kw">let </span>rights = Rights::FD_ADVISE
+                | Rights::FD_TELL
+                | Rights::FD_SEEK
+                | Rights::FD_READ
+                | Rights::PATH_OPEN
+                | Rights::FD_READDIR
+                | Rights::PATH_READLINK
+                | Rights::PATH_FILESTAT_GET
+                | Rights::FD_FILESTAT_GET
+                | Rights::PATH_LINK_SOURCE
+                | Rights::PATH_RENAME_SOURCE
+                | Rights::POLL_FD_READWRITE
+                | Rights::SOCK_SHUTDOWN;
+            <span class="kw">let </span>inode = <span class="self">self
+                </span>.create_inode(inodes, kind, <span class="bool-val">true</span>, preopen_name.clone())
+                .map_err(|e| {
+                    <span class="macro">format!</span>(
+                        <span class="string">&quot;Failed to create inode for preopened dir (name `{}`): WASI error code: {}&quot;</span>,
+                        preopen_name, e
+                    )
+                })<span class="question-mark">?</span>;
+            <span class="kw">let </span>fd_flags = Fd::READ;
+            <span class="kw">let </span>fd = <span class="self">self
+                </span>.create_fd(rights, rights, Fdflags::empty(), fd_flags, inode.clone())
+                .map_err(|e| <span class="macro">format!</span>(<span class="string">&quot;Could not open fd for file {:?}: {}&quot;</span>, preopen_name, e))<span class="question-mark">?</span>;
+            {
+                <span class="kw">let </span><span class="kw-2">mut </span>guard = <span class="self">self</span>.root_inode.write();
+                <span class="kw">if let </span>Kind::Root { entries } = guard.deref_mut() {
+                    <span class="kw">let </span>existing_entry = entries.insert(preopen_name.clone(), inode);
+                    <span class="kw">if </span>existing_entry.is_some() &amp;&amp; !ignore_duplicates {
+                        <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">format!</span>(
+                            <span class="string">&quot;Found duplicate entry for alias `{}`&quot;</span>,
+                            preopen_name
+                        ));
+                    }
+                }
+            }
+            <span class="self">self</span>.preopen_fds.write().unwrap().push(fd);
+        }
+
+        <span class="kw">for </span>PreopenedDir {
+            path,
+            alias,
+            read,
+            write,
+            create,
+        } <span class="kw">in </span><span class="self">self</span>.init_preopens.iter()
+        {
+            <span class="macro">debug!</span>(
+                <span class="string">&quot;Attempting to preopen {} with alias {:?}&quot;</span>,
+                <span class="kw-2">&amp;</span>path.to_string_lossy(),
+                <span class="kw-2">&amp;</span>alias
+            );
+            <span class="kw">let </span>cur_dir_metadata = <span class="self">self
+                </span>.root_fs
+                .metadata(path)
+                .map_err(|e| <span class="macro">format!</span>(<span class="string">&quot;Could not get metadata for file {:?}: {}&quot;</span>, path, e))<span class="question-mark">?</span>;
+
+            <span class="kw">let </span>kind = <span class="kw">if </span>cur_dir_metadata.is_dir() {
+                Kind::Dir {
+                    parent: <span class="self">self</span>.root_inode.downgrade(),
+                    path: path.clone(),
+                    entries: Default::default(),
+                }
+            } <span class="kw">else </span>{
+                <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">format!</span>(
+                    <span class="string">&quot;WASI only supports pre-opened directories right now; found \&quot;{}\&quot;&quot;</span>,
+                    <span class="kw-2">&amp;</span>path.to_string_lossy()
+                ));
+            };
+
+            <span class="kw">let </span>rights = {
+                <span class="comment">// TODO: review tell&#39; and fd_readwrite
+                </span><span class="kw">let </span><span class="kw-2">mut </span>rights = Rights::FD_ADVISE | Rights::FD_TELL | Rights::FD_SEEK;
+                <span class="kw">if </span><span class="kw-2">*</span>read {
+                    rights |= Rights::FD_READ
+                        | Rights::PATH_OPEN
+                        | Rights::FD_READDIR
+                        | Rights::PATH_READLINK
+                        | Rights::PATH_FILESTAT_GET
+                        | Rights::FD_FILESTAT_GET
+                        | Rights::PATH_LINK_SOURCE
+                        | Rights::PATH_RENAME_SOURCE
+                        | Rights::POLL_FD_READWRITE
+                        | Rights::SOCK_SHUTDOWN;
+                }
+                <span class="kw">if </span><span class="kw-2">*</span>write {
+                    rights |= Rights::FD_DATASYNC
+                        | Rights::FD_FDSTAT_SET_FLAGS
+                        | Rights::FD_WRITE
+                        | Rights::FD_SYNC
+                        | Rights::FD_ALLOCATE
+                        | Rights::PATH_OPEN
+                        | Rights::PATH_RENAME_TARGET
+                        | Rights::PATH_FILESTAT_SET_SIZE
+                        | Rights::PATH_FILESTAT_SET_TIMES
+                        | Rights::FD_FILESTAT_SET_SIZE
+                        | Rights::FD_FILESTAT_SET_TIMES
+                        | Rights::PATH_REMOVE_DIRECTORY
+                        | Rights::PATH_UNLINK_FILE
+                        | Rights::POLL_FD_READWRITE
+                        | Rights::SOCK_SHUTDOWN;
+                }
+                <span class="kw">if </span><span class="kw-2">*</span>create {
+                    rights |= Rights::PATH_CREATE_DIRECTORY
+                        | Rights::PATH_CREATE_FILE
+                        | Rights::PATH_LINK_TARGET
+                        | Rights::PATH_OPEN
+                        | Rights::PATH_RENAME_TARGET
+                        | Rights::PATH_SYMLINK;
+                }
+
+                rights
+            };
+            <span class="kw">let </span>inode = <span class="kw">if let </span><span class="prelude-val">Some</span>(alias) = <span class="kw-2">&amp;</span>alias {
+                <span class="self">self</span>.create_inode(inodes, kind, <span class="bool-val">true</span>, alias.clone())
+            } <span class="kw">else </span>{
+                <span class="self">self</span>.create_inode(inodes, kind, <span class="bool-val">true</span>, path.to_string_lossy().into_owned())
+            }
+            .map_err(|e| {
+                <span class="macro">format!</span>(
+                    <span class="string">&quot;Failed to create inode for preopened dir: WASI error code: {}&quot;</span>,
+                    e
+                )
+            })<span class="question-mark">?</span>;
+            <span class="kw">let </span>fd_flags = {
+                <span class="kw">let </span><span class="kw-2">mut </span>fd_flags = <span class="number">0</span>;
+                <span class="kw">if </span><span class="kw-2">*</span>read {
+                    fd_flags |= Fd::READ;
+                }
+                <span class="kw">if </span><span class="kw-2">*</span>write {
+                    <span class="comment">// TODO: introduce API for finer grained control
+                    </span>fd_flags |= Fd::WRITE | Fd::APPEND | Fd::TRUNCATE;
+                }
+                <span class="kw">if </span><span class="kw-2">*</span>create {
+                    fd_flags |= Fd::CREATE;
+                }
+                fd_flags
+            };
+            <span class="kw">let </span>fd = <span class="self">self
+                </span>.create_fd(rights, rights, Fdflags::empty(), fd_flags, inode.clone())
+                .map_err(|e| <span class="macro">format!</span>(<span class="string">&quot;Could not open fd for file {:?}: {}&quot;</span>, path, e))<span class="question-mark">?</span>;
+            {
+                <span class="kw">let </span><span class="kw-2">mut </span>guard = <span class="self">self</span>.root_inode.write();
+                <span class="kw">if let </span>Kind::Root { entries } = guard.deref_mut() {
+                    <span class="kw">let </span>key = <span class="kw">if let </span><span class="prelude-val">Some</span>(alias) = <span class="kw-2">&amp;</span>alias {
+                        alias.clone()
+                    } <span class="kw">else </span>{
+                        path.to_string_lossy().into_owned()
+                    };
+                    <span class="kw">let </span>existing_entry = entries.insert(key.clone(), inode);
+                    <span class="kw">if </span>existing_entry.is_some() &amp;&amp; !ignore_duplicates {
+                        <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">format!</span>(<span class="string">&quot;Found duplicate entry for alias `{}`&quot;</span>, key));
+                    }
+                }
+            }
+            <span class="self">self</span>.preopen_fds.write().unwrap().push(fd);
+        }
+
+        <span class="prelude-val">Ok</span>(())
+    }
+
+    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>create_std_dev_inner(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         inodes: <span class="kw-2">&amp;</span>WasiInodes,
         handle: Box&lt;<span class="kw">dyn </span>VirtualFile + Send + Sync + <span class="lifetime">&#39;static</span>&gt;,

@@ -190,6 +190,30 @@
 <a href="#190" id="190">190</a>
 <a href="#191" id="191">191</a>
 <a href="#192" id="192">192</a>
+<a href="#193" id="193">193</a>
+<a href="#194" id="194">194</a>
+<a href="#195" id="195">195</a>
+<a href="#196" id="196">196</a>
+<a href="#197" id="197">197</a>
+<a href="#198" id="198">198</a>
+<a href="#199" id="199">199</a>
+<a href="#200" id="200">200</a>
+<a href="#201" id="201">201</a>
+<a href="#202" id="202">202</a>
+<a href="#203" id="203">203</a>
+<a href="#204" id="204">204</a>
+<a href="#205" id="205">205</a>
+<a href="#206" id="206">206</a>
+<a href="#207" id="207">207</a>
+<a href="#208" id="208">208</a>
+<a href="#209" id="209">209</a>
+<a href="#210" id="210">210</a>
+<a href="#211" id="211">211</a>
+<a href="#212" id="212">212</a>
+<a href="#213" id="213">213</a>
+<a href="#214" id="214">214</a>
+<a href="#215" id="215">215</a>
+<a href="#216" id="216">216</a>
 </pre></div><pre class="rust"><code><span class="kw">use super</span>::<span class="kw-2">*</span>;
 <span class="kw">use </span><span class="kw">crate</span>::syscalls::<span class="kw-2">*</span>;
 
@@ -210,7 +234,7 @@
 ///     The number of bytes to read from `new_path`
 </span><span class="attr">#[instrument(level = <span class="string">&quot;debug&quot;</span>, skip_all, fields(%old_fd, %new_fd, old_path = field::Empty, new_path = field::Empty), ret)]
 </span><span class="kw">pub fn </span>path_rename&lt;M: MemorySize&gt;(
-    ctx: FunctionEnvMut&lt;<span class="lifetime">&#39;_</span>, WasiEnv&gt;,
+    <span class="kw-2">mut </span>ctx: FunctionEnvMut&lt;<span class="lifetime">&#39;_</span>, WasiEnv&gt;,
     old_fd: WasiFd,
     old_path: WasmPtr&lt;u8, M&gt;,
     old_path_len: M::Offset,
@@ -223,43 +247,67 @@
     <span class="kw">let </span><span class="kw-2">mut </span>source_str = <span class="kw">unsafe </span>{ <span class="macro">get_input_str_ok!</span>(<span class="kw-2">&amp;</span>memory, old_path, old_path_len) };
     Span::current().record(<span class="string">&quot;old_path&quot;</span>, source_str.as_str());
     source_str = ctx.data().state.fs.relative_path_to_absolute(source_str);
-    <span class="kw">let </span>source_path = std::path::Path::new(<span class="kw-2">&amp;</span>source_str);
     <span class="kw">let </span><span class="kw-2">mut </span>target_str = <span class="kw">unsafe </span>{ <span class="macro">get_input_str_ok!</span>(<span class="kw-2">&amp;</span>memory, new_path, new_path_len) };
     Span::current().record(<span class="string">&quot;new_path&quot;</span>, target_str.as_str());
     target_str = ctx.data().state.fs.relative_path_to_absolute(target_str);
-    <span class="kw">let </span>target_path = std::path::Path::new(<span class="kw-2">&amp;</span>target_str);
+
+    <span class="kw">let </span>ret = path_rename_internal(<span class="kw-2">&amp;mut </span>ctx, old_fd, <span class="kw-2">&amp;</span>source_str, new_fd, <span class="kw-2">&amp;</span>target_str)<span class="question-mark">?</span>;
+    <span class="kw">let </span>env = ctx.data();
+
+    <span class="kw">if </span>ret == Errno::Success {
+        <span class="attr">#[cfg(feature = <span class="string">&quot;journal&quot;</span>)]
+        </span><span class="kw">if </span>env.enable_journal {
+            JournalEffector::save_path_rename(<span class="kw-2">&amp;mut </span>ctx, old_fd, source_str, new_fd, target_str)
+                .map_err(|err| {
+                    <span class="macro">tracing::error!</span>(<span class="string">&quot;failed to save path rename event - {}&quot;</span>, err);
+                    WasiError::Exit(ExitCode::Errno(Errno::Fault))
+                })<span class="question-mark">?</span>;
+        }
+    }
+    <span class="prelude-val">Ok</span>(ret)
+}
+
+<span class="kw">pub fn </span>path_rename_internal(
+    ctx: <span class="kw-2">&amp;mut </span>FunctionEnvMut&lt;<span class="lifetime">&#39;_</span>, WasiEnv&gt;,
+    source_fd: WasiFd,
+    source_path: <span class="kw-2">&amp;</span>str,
+    target_fd: WasiFd,
+    target_path: <span class="kw-2">&amp;</span>str,
+) -&gt; <span class="prelude-ty">Result</span>&lt;Errno, WasiError&gt; {
+    <span class="kw">let </span>env = ctx.data();
+    <span class="kw">let </span>(memory, <span class="kw-2">mut </span>state, inodes) = <span class="kw">unsafe </span>{ env.get_memory_and_wasi_state_and_inodes(<span class="kw-2">&amp;</span>ctx, <span class="number">0</span>) };
 
     {
-        <span class="kw">let </span>source_fd = <span class="macro">wasi_try_ok!</span>(state.fs.get_fd(old_fd));
+        <span class="kw">let </span>source_fd = <span class="macro">wasi_try_ok!</span>(state.fs.get_fd(source_fd));
         <span class="kw">if </span>!source_fd.rights.contains(Rights::PATH_RENAME_SOURCE) {
             <span class="kw">return </span><span class="prelude-val">Ok</span>(Errno::Access);
         }
-        <span class="kw">let </span>target_fd = <span class="macro">wasi_try_ok!</span>(state.fs.get_fd(new_fd));
+        <span class="kw">let </span>target_fd = <span class="macro">wasi_try_ok!</span>(state.fs.get_fd(target_fd));
         <span class="kw">if </span>!target_fd.rights.contains(Rights::PATH_RENAME_TARGET) {
             <span class="kw">return </span><span class="prelude-val">Ok</span>(Errno::Access);
         }
     }
 
     <span class="comment">// this is to be sure the source file is fetch from filesystem if needed
-    </span><span class="macro">wasi_try_ok!</span>(state.fs.get_inode_at_path(
+    </span><span class="macro">wasi_try_ok!</span>(state
+        .fs
+        .get_inode_at_path(inodes, source_fd, source_path, <span class="bool-val">true</span>));
+    <span class="comment">// Create the destination inode if the file exists.
+    </span><span class="kw">let _ </span>= state
+        .fs
+        .get_inode_at_path(inodes, target_fd, target_path, <span class="bool-val">true</span>);
+    <span class="kw">let </span>(source_parent_inode, source_entry_name) = <span class="macro">wasi_try_ok!</span>(state.fs.get_parent_inode_at_path(
         inodes,
-        old_fd,
-        source_path.to_str().as_ref().unwrap(),
+        source_fd,
+        Path::new(source_path),
         <span class="bool-val">true
     </span>));
-    <span class="comment">// Create the destination inode if the file exists.
-    </span><span class="kw">let _ </span>=
-        state
-            .fs
-            .get_inode_at_path(inodes, new_fd, target_path.to_str().as_ref().unwrap(), <span class="bool-val">true</span>);
-    <span class="kw">let </span>(source_parent_inode, source_entry_name) =
-        <span class="macro">wasi_try_ok!</span>(state
-            .fs
-            .get_parent_inode_at_path(inodes, old_fd, source_path, <span class="bool-val">true</span>));
-    <span class="kw">let </span>(target_parent_inode, target_entry_name) =
-        <span class="macro">wasi_try_ok!</span>(state
-            .fs
-            .get_parent_inode_at_path(inodes, new_fd, target_path, <span class="bool-val">true</span>));
+    <span class="kw">let </span>(target_parent_inode, target_entry_name) = <span class="macro">wasi_try_ok!</span>(state.fs.get_parent_inode_at_path(
+        inodes,
+        target_fd,
+        Path::new(target_path),
+        <span class="bool-val">true
+    </span>));
     <span class="kw">let </span><span class="kw-2">mut </span>need_create = <span class="bool-val">true</span>;
     <span class="kw">let </span>host_adjusted_target_path = {
         <span class="kw">let </span>guard = target_parent_inode.read();

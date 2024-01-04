@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["port_addr_clear"],"static":["META","__CALLSITE"]};
+window.SIDEBAR_ITEMS = {"fn":["port_addr_clear","port_addr_clear_internal"],"static":["META","__CALLSITE"]};

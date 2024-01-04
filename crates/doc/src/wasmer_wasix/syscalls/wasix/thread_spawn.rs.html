@@ -250,11 +250,16 @@
 <a href="#250" id="250">250</a>
 <a href="#251" id="251">251</a>
 <a href="#252" id="252">252</a>
+<a href="#253" id="253">253</a>
+<a href="#254" id="254">254</a>
+<a href="#255" id="255">255</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::f32::consts::E;
 
 <span class="kw">use super</span>::<span class="kw-2">*</span>;
+<span class="attr">#[cfg(feature = <span class="string">&quot;journal&quot;</span>)]
+</span><span class="kw">use </span><span class="kw">crate</span>::journal::JournalEffector;
 <span class="kw">use crate</span>::{
-    capture_snapshot,
+    capture_instance_snapshot,
     os::task::thread::WasiMemoryLayout,
     runtime::task_manager::{TaskWasm, TaskWasmRunProperties},
     syscalls::<span class="kw-2">*</span>,
@@ -325,7 +330,7 @@
     <span class="macro">tracing::trace!</span>(<span class="string">&quot;spawn with layout {:?}&quot;</span>, layout);
 
     <span class="comment">// Create the handle that represents this thread
-    </span><span class="kw">let </span><span class="kw-2">mut </span>thread_handle = <span class="kw">match </span>env.process.new_thread() {
+    </span><span class="kw">let </span><span class="kw-2">mut </span>thread_handle = <span class="kw">match </span>env.process.new_thread(layout.clone()) {
         <span class="prelude-val">Ok</span>(h) =&gt; Arc::new(h),
         <span class="prelude-val">Err</span>(err) =&gt; {
             <span class="macro">error!</span>(
@@ -371,7 +376,7 @@
         <span class="kw">return </span><span class="prelude-val">Err</span>(Errno::Notcapable);
     }
     <span class="kw">let </span>thread_module = <span class="kw">unsafe </span>{ env.inner() }.module_clone();
-    <span class="kw">let </span>snapshot = capture_snapshot(<span class="kw-2">&amp;mut </span>ctx.as_store_mut());
+    <span class="kw">let </span>snapshot = capture_instance_snapshot(<span class="kw-2">&amp;mut </span>ctx.as_store_mut());
     <span class="kw">let </span>spawn_type =
         <span class="kw">crate</span>::runtime::SpawnMemoryType::ShareMemory(thread_memory, ctx.as_store_ref());
 
@@ -447,7 +452,7 @@
         <span class="macro">trace!</span>(<span class="string">&quot;callback finished (ret={})&quot;</span>, ret);
 
         <span class="comment">// Clean up the environment
-        </span>env.cleanup(store, <span class="prelude-val">Some</span>(ret.into()));
+        </span>env.on_exit(store, <span class="prelude-val">Some</span>(ret.into()));
 
         <span class="comment">// Return the result
         </span><span class="prelude-val">Ok</span>(ret <span class="kw">as </span>u32)
@@ -455,12 +460,13 @@
 
     <span class="comment">// If we need to rewind then do so
     </span><span class="kw">if let </span><span class="prelude-val">Some</span>((rewind_state, rewind_result)) = rewind_state {
+        <span class="kw">let </span><span class="kw-2">mut </span>ctx = ctx.env.clone().into_mut(<span class="kw-2">&amp;mut </span>store);
         <span class="kw">let </span>res = rewind_ext::&lt;M&gt;(
-            ctx.env.clone().into_mut(<span class="kw-2">&amp;mut </span>store),
+            <span class="kw-2">&amp;mut </span>ctx,
             rewind_state.memory_stack,
             rewind_state.rewind_stack,
             rewind_state.store_data,
-            rewind_result,
+            <span class="prelude-val">Some</span>(rewind_result),
         );
         <span class="kw">if </span>res != Errno::Success {
             <span class="kw">return </span><span class="prelude-val">Err</span>(res);

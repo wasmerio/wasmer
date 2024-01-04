@@ -4,7 +4,7 @@
     ty: <a class="enum" href="../../../types/wasi/enum.Socktype.html" title="enum wasmer_wasix::types::wasi::Socktype">Socktype</a>,
     pt: <a class="enum" href="../../../types/enum.SockProto.html" title="enum wasmer_wasix::types::SockProto">SockProto</a>,
     ro_sock: <a class="struct" href="../../struct.WasmPtr.html" title="struct wasmer_wasix::syscalls::WasmPtr">WasmPtr</a>&lt;<a class="type" href="../../../types/wasi/type.Fd.html" title="type wasmer_wasix::types::wasi::Fd">WasiFd</a>, M&gt;
-) -&gt; <a class="enum" href="../../../types/wasi/enum.Errno.html" title="enum wasmer_wasix::types::wasi::Errno">Errno</a></code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><h4 id="sock_open"><a href="#sock_open"><code>sock_open()</code></a></h4>
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.70.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="enum" href="../../../types/wasi/enum.Errno.html" title="enum wasmer_wasix::types::wasi::Errno">Errno</a>, <a class="enum" href="../../../enum.WasiError.html" title="enum wasmer_wasix::WasiError">WasiError</a>&gt;</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><h4 id="sock_open"><a href="#sock_open"><code>sock_open()</code></a></h4>
 <p>Create an endpoint for communication.</p>
 <p>creates an endpoint for communication and returns a file descriptor
 tor that refers to that endpoint. The file descriptor returned by a successful

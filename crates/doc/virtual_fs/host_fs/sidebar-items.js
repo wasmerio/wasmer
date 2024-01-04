@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"constant":["DEFAULT_BUF_SIZE_HINT"],"struct":["File","FileSystem","Stderr","Stdin","Stdout"]};
+window.SIDEBAR_ITEMS = {"constant":["DEFAULT_BUF_SIZE_HINT"],"fn":["default_handle","default_stderr","default_stdin","default_stdout"],"struct":["File","FileSystem","Stderr","Stdin","Stdout"]};

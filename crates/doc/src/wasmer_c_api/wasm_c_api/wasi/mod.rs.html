@@ -1091,7 +1091,7 @@
 </span><span class="kw">pub extern </span><span class="string">&quot;C&quot; </span><span class="kw">fn </span>wasi_env_delete(state: <span class="prelude-ty">Option</span>&lt;Box&lt;wasi_env_t&gt;&gt;) {
     <span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">mut </span>env) = state {
         env.inner
-            .cleanup(<span class="kw">unsafe </span>{ <span class="kw-2">&amp;mut </span>env.store.store_mut() }, <span class="prelude-val">None</span>);
+            .on_exit(<span class="kw">unsafe </span>{ <span class="kw-2">&amp;mut </span>env.store.store_mut() }, <span class="prelude-val">None</span>);
     }
 }
 

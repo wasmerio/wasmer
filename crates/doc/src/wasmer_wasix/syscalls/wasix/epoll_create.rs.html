@@ -46,6 +46,26 @@
 <a href="#46" id="46">46</a>
 <a href="#47" id="47">47</a>
 <a href="#48" id="48">48</a>
+<a href="#49" id="49">49</a>
+<a href="#50" id="50">50</a>
+<a href="#51" id="51">51</a>
+<a href="#52" id="52">52</a>
+<a href="#53" id="53">53</a>
+<a href="#54" id="54">54</a>
+<a href="#55" id="55">55</a>
+<a href="#56" id="56">56</a>
+<a href="#57" id="57">57</a>
+<a href="#58" id="58">58</a>
+<a href="#59" id="59">59</a>
+<a href="#60" id="60">60</a>
+<a href="#61" id="61">61</a>
+<a href="#62" id="62">62</a>
+<a href="#63" id="63">63</a>
+<a href="#64" id="64">64</a>
+<a href="#65" id="65">65</a>
+<a href="#66" id="66">66</a>
+<a href="#67" id="67">67</a>
+<a href="#68" id="68">68</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>serde::{Deserialize, Serialize};
 <span class="kw">use </span>wasmer_wasix_types::wasi::{SubscriptionClock, Userdata};
 
@@ -66,7 +86,30 @@
     <span class="kw-2">mut </span>ctx: FunctionEnvMut&lt;<span class="lifetime">&#39;_</span>, WasiEnv&gt;,
     ret_fd: WasmPtr&lt;WasiFd, M&gt;,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;Errno, WasiError&gt; {
-    <span class="macro">wasi_try_ok!</span>(WasiEnv::process_signals_and_exit(<span class="kw-2">&amp;mut </span>ctx)<span class="question-mark">?</span>);
+    <span class="kw">let </span>fd = <span class="macro">wasi_try_ok!</span>(epoll_create_internal(<span class="kw-2">&amp;mut </span>ctx)<span class="question-mark">?</span>);
+    <span class="kw">let </span>env = ctx.data();
+
+    <span class="attr">#[cfg(feature = <span class="string">&quot;journal&quot;</span>)]
+    </span><span class="kw">if </span>env.enable_journal {
+        JournalEffector::save_epoll_create(<span class="kw-2">&amp;mut </span>ctx, fd).map_err(|err| {
+            <span class="macro">tracing::error!</span>(<span class="string">&quot;failed to save epoll_create event - {}&quot;</span>, err);
+            WasiError::Exit(ExitCode::Errno(Errno::Fault))
+        })<span class="question-mark">?</span>;
+    }
+
+    Span::current().record(<span class="string">&quot;fd&quot;</span>, fd);
+
+    <span class="kw">let </span>env = ctx.data();
+    <span class="kw">let </span>(memory, state, inodes) = <span class="kw">unsafe </span>{ env.get_memory_and_wasi_state_and_inodes(<span class="kw-2">&amp;</span>ctx, <span class="number">0</span>) };
+    <span class="macro">wasi_try_mem_ok!</span>(ret_fd.write(<span class="kw-2">&amp;</span>memory, fd));
+
+    <span class="prelude-val">Ok</span>(Errno::Success)
+}
+
+<span class="kw">pub fn </span>epoll_create_internal(
+    ctx: <span class="kw-2">&amp;mut </span>FunctionEnvMut&lt;<span class="lifetime">&#39;_</span>, WasiEnv&gt;,
+) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Result</span>&lt;WasiFd, Errno&gt;, WasiError&gt; {
+    <span class="macro">wasi_try_ok_ok!</span>(WasiEnv::process_signals_and_exit(ctx)<span class="question-mark">?</span>);
 
     <span class="kw">let </span>env = ctx.data();
     <span class="kw">let </span>(memory, state, inodes) = <span class="kw">unsafe </span>{ env.get_memory_and_wasi_state_and_inodes(<span class="kw-2">&amp;</span>ctx, <span class="number">0</span>) };
@@ -85,13 +128,10 @@
     );
 
     <span class="kw">let </span>rights = Rights::POLL_FD_READWRITE | Rights::FD_FDSTAT_SET_FLAGS;
-    <span class="kw">let </span>fd = <span class="macro">wasi_try_ok!</span>(state
+    <span class="kw">let </span>fd = <span class="macro">wasi_try_ok_ok!</span>(state
         .fs
         .create_fd(rights, rights, Fdflags::empty(), <span class="number">0</span>, inode));
-    Span::current().record(<span class="string">&quot;fd&quot;</span>, fd);
 
-    <span class="macro">wasi_try_mem_ok!</span>(ret_fd.write(<span class="kw-2">&amp;</span>memory, fd));
-
-    <span class="prelude-val">Ok</span>(Errno::Success)
+    <span class="prelude-val">Ok</span>(<span class="prelude-val">Ok</span>(fd))
 }
 </code></pre></div></section></main></body></html>

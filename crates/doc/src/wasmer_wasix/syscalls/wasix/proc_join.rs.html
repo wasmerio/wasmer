@@ -211,6 +211,8 @@
 <a href="#211" id="211">211</a>
 <a href="#212" id="212">212</a>
 <a href="#213" id="213">213</a>
+<a href="#214" id="214">214</a>
+<a href="#215" id="215">215</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::task::Waker;
 
 <span class="kw">use </span>serde::{Deserialize, Serialize};
@@ -250,6 +252,8 @@
     status_ptr: WasmPtr&lt;JoinStatus, M&gt;,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;Errno, WasiError&gt; {
     <span class="macro">wasi_try_ok!</span>(WasiEnv::process_signals_and_exit(<span class="kw-2">&amp;mut </span>ctx)<span class="question-mark">?</span>);
+
+    ctx = <span class="macro">wasi_try_ok!</span>(maybe_snapshot::&lt;M&gt;(ctx)<span class="question-mark">?</span>);
 
     <span class="comment">// This lambda will look at what we wrote in the status variable
     // and use this to determine the return code sent back to the caller
@@ -368,7 +372,7 @@
     <span class="comment">// Waiting for a process that is an explicit child will join it
     // meaning it will no longer be a sub-process of the main process
     </span><span class="kw">let </span><span class="kw-2">mut </span>process = {
-        <span class="kw">let </span><span class="kw-2">mut </span>inner = ctx.data().process.inner.write().unwrap();
+        <span class="kw">let </span><span class="kw-2">mut </span>inner = ctx.data().process.lock();
         <span class="kw">let </span>process = inner
             .children
             .iter()

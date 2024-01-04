@@ -258,6 +258,8 @@
 <a href="#258" id="258">258</a>
 <a href="#259" id="259">259</a>
 <a href="#260" id="260">260</a>
+<a href="#261" id="261">261</a>
+<a href="#262" id="262">262</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! WARNING: the API exposed here is unstable and very experimental.  Certain things are not ready
 //! yet and may be broken in patch releases.  If you&#39;re using this and have any specific needs,
 //! please [let us know here](https://github.com/wasmerio/wasmer/issues/583) or by filing an issue.
@@ -279,6 +281,7 @@
 <span class="kw">mod </span>env;
 <span class="kw">mod </span>func_env;
 <span class="kw">mod </span>handles;
+<span class="kw">mod </span>run;
 <span class="kw">mod </span>types;
 
 <span class="kw">use </span>std::{
@@ -289,6 +292,7 @@
     time::Duration,
 };
 
+<span class="kw">use </span>run::<span class="kw-2">*</span>;
 <span class="attr">#[cfg(feature = <span class="string">&quot;enable-serde&quot;</span>)]
 </span><span class="kw">use </span>serde::{Deserialize, Serialize};
 <span class="kw">use </span>virtual_fs::{FileOpener, FileSystem, FsError, OpenOptions, VirtualFile};
@@ -391,7 +395,7 @@
     <span class="kw">pub </span>futexs: Mutex&lt;WasiFutexState&gt;,
     <span class="kw">pub </span>clock_offset: Mutex&lt;HashMap&lt;Snapshot0Clockid, i64&gt;&gt;,
     <span class="kw">pub </span>args: Vec&lt;String&gt;,
-    <span class="kw">pub </span>envs: Vec&lt;Vec&lt;u8&gt;&gt;,
+    <span class="kw">pub </span>envs: Mutex&lt;Vec&lt;Vec&lt;u8&gt;&gt;&gt;,
 
     <span class="comment">// TODO: should not be here, since this requires active work to resolve.
     // State should only hold active runtime state that can be reproducibly re-created.
@@ -513,7 +517,7 @@
             futexs: Default::default(),
             clock_offset: Mutex::new(<span class="self">self</span>.clock_offset.lock().unwrap().clone()),
             args: <span class="self">self</span>.args.clone(),
-            envs: <span class="self">self</span>.envs.clone(),
+            envs: Mutex::new(<span class="self">self</span>.envs.lock().unwrap().clone()),
             preopen: <span class="self">self</span>.preopen.clone(),
         }
     }

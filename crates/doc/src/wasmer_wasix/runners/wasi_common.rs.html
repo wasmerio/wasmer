@@ -414,6 +414,16 @@
 <a href="#414" id="414">414</a>
 <a href="#415" id="415">415</a>
 <a href="#416" id="416">416</a>
+<a href="#417" id="417">417</a>
+<a href="#418" id="418">418</a>
+<a href="#419" id="419">419</a>
+<a href="#420" id="420">420</a>
+<a href="#421" id="421">421</a>
+<a href="#422" id="422">422</a>
+<a href="#423" id="423">423</a>
+<a href="#424" id="424">424</a>
+<a href="#425" id="425">425</a>
+<a href="#426" id="426">426</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{
     collections::HashMap,
     path::{Path, PathBuf},
@@ -421,12 +431,16 @@
 };
 
 <span class="kw">use </span>anyhow::{Context, Error};
+<span class="kw">use </span>derivative::Derivative;
 <span class="kw">use </span>futures::future::BoxFuture;
 <span class="kw">use </span>virtual_fs::{FileSystem, FsError, OverlayFileSystem, RootFileSystemBuilder, TmpFileSystem};
 <span class="kw">use </span>webc::metadata::annotations::Wasi <span class="kw">as </span>WasiAnnotation;
 
 <span class="kw">use crate</span>::{
-    bin_factory::BinaryPackage, capabilities::Capabilities, runners::MappedDirectory,
+    bin_factory::BinaryPackage,
+    capabilities::Capabilities,
+    journal::{DynJournal, SnapshotTrigger},
+    runners::MappedDirectory,
     WasiEnvBuilder,
 };
 
@@ -438,7 +452,8 @@
     </span><span class="kw">pub </span>target: String,
 }
 
-<span class="attr">#[derive(Debug, Default, Clone)]
+<span class="attr">#[derive(Derivative, Default, Clone)]
+#[derivative(Debug)]
 </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct </span>CommonWasiOptions {
     <span class="kw">pub</span>(<span class="kw">crate</span>) args: Vec&lt;String&gt;,
     <span class="kw">pub</span>(<span class="kw">crate</span>) env: HashMap&lt;String, String&gt;,
@@ -447,6 +462,10 @@
     <span class="kw">pub</span>(<span class="kw">crate</span>) mapped_host_commands: Vec&lt;MappedCommand&gt;,
     <span class="kw">pub</span>(<span class="kw">crate</span>) injected_packages: Vec&lt;BinaryPackage&gt;,
     <span class="kw">pub</span>(<span class="kw">crate</span>) capabilities: Capabilities,
+    <span class="attr">#[derivative(Debug = <span class="string">&quot;ignore&quot;</span>)]
+    </span><span class="kw">pub</span>(<span class="kw">crate</span>) journals: Vec&lt;Arc&lt;DynJournal&gt;&gt;,
+    <span class="kw">pub</span>(<span class="kw">crate</span>) snapshot_on: Vec&lt;SnapshotTrigger&gt;,
+    <span class="kw">pub</span>(<span class="kw">crate</span>) snapshot_interval: <span class="prelude-ty">Option</span>&lt;std::time::Duration&gt;,
     <span class="kw">pub</span>(<span class="kw">crate</span>) current_dir: <span class="prelude-ty">Option</span>&lt;PathBuf&gt;,
 }
 
@@ -459,6 +478,7 @@
         root_fs: <span class="prelude-ty">Option</span>&lt;TmpFileSystem&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), anyhow::Error&gt; {
         <span class="kw">let </span>root_fs = root_fs.unwrap_or_else(|| RootFileSystemBuilder::default().build());
+
         <span class="kw">let </span>fs = prepare_filesystem(root_fs, <span class="kw-2">&amp;</span><span class="self">self</span>.mapped_dirs, container_fs, builder)<span class="question-mark">?</span>;
 
         builder.add_preopen_dir(<span class="string">&quot;/&quot;</span>)<span class="question-mark">?</span>;

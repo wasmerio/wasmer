@@ -281,7 +281,7 @@
 /// This is based on the [link error][link-error] API.
 ///
 /// [link-error]: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/WebAssembly/LinkError
-</span><span class="attr">#[derive(Debug)]
+</span><span class="attr">#[derive(Debug, Clone)]
 #[cfg_attr(feature = <span class="string">&quot;std&quot;</span>, derive(Error))]
 #[cfg_attr(feature = <span class="string">&quot;std&quot;</span>, error(<span class="string">&quot;Link error: {0}&quot;</span>))]
 </span><span class="kw">pub enum </span>LinkError {
@@ -305,7 +305,7 @@
 /// Trap that occurs when calling the WebAssembly module
 /// start function, and an error when initializing the user&#39;s
 /// host environments.
-</span><span class="attr">#[derive(Debug)]
+</span><span class="attr">#[derive(Debug, Clone)]
 #[cfg_attr(feature = <span class="string">&quot;std&quot;</span>, derive(Error))]
 </span><span class="kw">pub enum </span>InstantiationError {
     <span class="doccomment">/// A linking ocurred during instantiation.

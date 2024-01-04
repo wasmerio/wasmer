@@ -136,6 +136,18 @@
 <a href="#136" id="136">136</a>
 <a href="#137" id="137">137</a>
 <a href="#138" id="138">138</a>
+<a href="#139" id="139">139</a>
+<a href="#140" id="140">140</a>
+<a href="#141" id="141">141</a>
+<a href="#142" id="142">142</a>
+<a href="#143" id="143">143</a>
+<a href="#144" id="144">144</a>
+<a href="#145" id="145">145</a>
+<a href="#146" id="146">146</a>
+<a href="#147" id="147">147</a>
+<a href="#148" id="148">148</a>
+<a href="#149" id="149">149</a>
+<a href="#150" id="150">150</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::task::Waker;
 
 <span class="kw">use super</span>::<span class="kw-2">*</span>;
@@ -162,12 +174,14 @@
 ) -&gt; <span class="prelude-ty">Result</span>&lt;Errno, WasiError&gt; {
     <span class="macro">wasi_try_ok!</span>(WasiEnv::process_signals_and_exit(<span class="kw-2">&amp;mut </span>ctx)<span class="question-mark">?</span>);
 
+    ctx = <span class="macro">wasi_try_ok!</span>(maybe_snapshot::&lt;M&gt;(ctx)<span class="question-mark">?</span>);
+
     <span class="kw">let </span>env = ctx.data();
     <span class="kw">let </span>(memory, state, <span class="kw">_</span>) = <span class="kw">unsafe </span>{ env.get_memory_and_wasi_state_and_inodes(<span class="kw-2">&amp;</span>ctx, <span class="number">0</span>) };
 
     <span class="kw">let </span>nonblocking = fd_flags.contains(Fdflags::NONBLOCK);
 
-    <span class="kw">let </span>(fd, addr) = <span class="macro">wasi_try_ok!</span>(sock_accept_internal(env, sock, fd_flags, nonblocking));
+    <span class="kw">let </span>(fd, addr) = <span class="macro">wasi_try_ok!</span>(sock_accept_internal(env, sock, fd_flags, nonblocking)<span class="question-mark">?</span>);
 
     <span class="macro">wasi_try_mem_ok!</span>(ro_fd.write(<span class="kw-2">&amp;</span>memory, fd));
 
@@ -202,8 +216,19 @@
 
     <span class="kw">let </span>nonblocking = fd_flags.contains(Fdflags::NONBLOCK);
 
-    <span class="kw">let </span>(fd, addr) = <span class="macro">wasi_try_ok!</span>(sock_accept_internal(env, sock, fd_flags, nonblocking));
+    <span class="kw">let </span>(fd, addr) = <span class="macro">wasi_try_ok!</span>(sock_accept_internal(env, sock, fd_flags, nonblocking)<span class="question-mark">?</span>);
 
+    <span class="attr">#[cfg(feature = <span class="string">&quot;journal&quot;</span>)]
+    </span><span class="kw">if </span>ctx.data().enable_journal {
+        JournalEffector::save_sock_accepted(<span class="kw-2">&amp;mut </span>ctx, sock, fd, addr, fd_flags, nonblocking)
+            .map_err(|err| {
+                <span class="macro">tracing::error!</span>(<span class="string">&quot;failed to save sock_accepted event - {}&quot;</span>, err);
+                WasiError::Exit(ExitCode::Errno(Errno::Fault))
+            })<span class="question-mark">?</span>;
+    }
+
+    <span class="kw">let </span>env = ctx.data();
+    <span class="kw">let </span>(memory, state, <span class="kw">_</span>) = <span class="kw">unsafe </span>{ env.get_memory_and_wasi_state_and_inodes(<span class="kw-2">&amp;</span>ctx, <span class="number">0</span>) };
     <span class="macro">wasi_try_mem_ok!</span>(ro_fd.write(<span class="kw-2">&amp;</span>memory, fd));
     <span class="macro">wasi_try_ok!</span>(<span class="kw">crate</span>::net::write_ip_port(
         <span class="kw-2">&amp;</span>memory,
@@ -215,17 +240,17 @@
     <span class="prelude-val">Ok</span>(Errno::Success)
 }
 
-<span class="kw">pub fn </span>sock_accept_internal(
+<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>sock_accept_internal(
     env: <span class="kw-2">&amp;</span>WasiEnv,
     sock: WasiFd,
     <span class="kw-2">mut </span>fd_flags: Fdflags,
     <span class="kw-2">mut </span>nonblocking: bool,
-) -&gt; <span class="prelude-ty">Result</span>&lt;(WasiFd, SocketAddr), Errno&gt; {
+) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Result</span>&lt;(WasiFd, SocketAddr), Errno&gt;, WasiError&gt; {
     <span class="kw">let </span>state = env.state();
     <span class="kw">let </span>inodes = <span class="kw-2">&amp;</span>state.inodes;
 
     <span class="kw">let </span>tasks = env.tasks().clone();
-    <span class="kw">let </span>(child, addr, fd_flags) = __sock_asyncify(
+    <span class="kw">let </span>(child, addr, fd_flags) = <span class="macro">wasi_try_ok_ok!</span>(__sock_asyncify(
         env,
         sock,
         Rights::SOCK_ACCEPT,
@@ -244,15 +269,14 @@
                 .<span class="kw">await
                 </span>.map(|a| (a.<span class="number">0</span>, a.<span class="number">1</span>, fd_flags))
         },
-    )<span class="question-mark">?</span>;
+    ));
 
     <span class="kw">let </span>kind = Kind::Socket {
         socket: InodeSocket::new(InodeSocketKind::TcpStream {
             socket: child,
             write_timeout: <span class="prelude-val">None</span>,
             read_timeout: <span class="prelude-val">None</span>,
-        })
-        .map_err(net_error_into_wasi_err)<span class="question-mark">?</span>,
+        }),
     };
     <span class="kw">let </span>inode = state
         .fs
@@ -269,9 +293,9 @@
     }
 
     <span class="kw">let </span>rights = Rights::all_socket();
-    <span class="kw">let </span>fd = state.fs.create_fd(rights, rights, new_flags, <span class="number">0</span>, inode)<span class="question-mark">?</span>;
+    <span class="kw">let </span>fd = <span class="macro">wasi_try_ok_ok!</span>(state.fs.create_fd(rights, rights, new_flags, <span class="number">0</span>, inode));
     Span::current().record(<span class="string">&quot;fd&quot;</span>, fd);
 
-    <span class="prelude-val">Ok</span>((fd, addr))
+    <span class="prelude-val">Ok</span>(<span class="prelude-val">Ok</span>((fd, addr)))
 }
 </code></pre></div></section></main></body></html>

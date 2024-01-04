@@ -1287,6 +1287,79 @@
 <a href="#1287" id="1287">1287</a>
 <a href="#1288" id="1288">1288</a>
 <a href="#1289" id="1289">1289</a>
+<a href="#1290" id="1290">1290</a>
+<a href="#1291" id="1291">1291</a>
+<a href="#1292" id="1292">1292</a>
+<a href="#1293" id="1293">1293</a>
+<a href="#1294" id="1294">1294</a>
+<a href="#1295" id="1295">1295</a>
+<a href="#1296" id="1296">1296</a>
+<a href="#1297" id="1297">1297</a>
+<a href="#1298" id="1298">1298</a>
+<a href="#1299" id="1299">1299</a>
+<a href="#1300" id="1300">1300</a>
+<a href="#1301" id="1301">1301</a>
+<a href="#1302" id="1302">1302</a>
+<a href="#1303" id="1303">1303</a>
+<a href="#1304" id="1304">1304</a>
+<a href="#1305" id="1305">1305</a>
+<a href="#1306" id="1306">1306</a>
+<a href="#1307" id="1307">1307</a>
+<a href="#1308" id="1308">1308</a>
+<a href="#1309" id="1309">1309</a>
+<a href="#1310" id="1310">1310</a>
+<a href="#1311" id="1311">1311</a>
+<a href="#1312" id="1312">1312</a>
+<a href="#1313" id="1313">1313</a>
+<a href="#1314" id="1314">1314</a>
+<a href="#1315" id="1315">1315</a>
+<a href="#1316" id="1316">1316</a>
+<a href="#1317" id="1317">1317</a>
+<a href="#1318" id="1318">1318</a>
+<a href="#1319" id="1319">1319</a>
+<a href="#1320" id="1320">1320</a>
+<a href="#1321" id="1321">1321</a>
+<a href="#1322" id="1322">1322</a>
+<a href="#1323" id="1323">1323</a>
+<a href="#1324" id="1324">1324</a>
+<a href="#1325" id="1325">1325</a>
+<a href="#1326" id="1326">1326</a>
+<a href="#1327" id="1327">1327</a>
+<a href="#1328" id="1328">1328</a>
+<a href="#1329" id="1329">1329</a>
+<a href="#1330" id="1330">1330</a>
+<a href="#1331" id="1331">1331</a>
+<a href="#1332" id="1332">1332</a>
+<a href="#1333" id="1333">1333</a>
+<a href="#1334" id="1334">1334</a>
+<a href="#1335" id="1335">1335</a>
+<a href="#1336" id="1336">1336</a>
+<a href="#1337" id="1337">1337</a>
+<a href="#1338" id="1338">1338</a>
+<a href="#1339" id="1339">1339</a>
+<a href="#1340" id="1340">1340</a>
+<a href="#1341" id="1341">1341</a>
+<a href="#1342" id="1342">1342</a>
+<a href="#1343" id="1343">1343</a>
+<a href="#1344" id="1344">1344</a>
+<a href="#1345" id="1345">1345</a>
+<a href="#1346" id="1346">1346</a>
+<a href="#1347" id="1347">1347</a>
+<a href="#1348" id="1348">1348</a>
+<a href="#1349" id="1349">1349</a>
+<a href="#1350" id="1350">1350</a>
+<a href="#1351" id="1351">1351</a>
+<a href="#1352" id="1352">1352</a>
+<a href="#1353" id="1353">1353</a>
+<a href="#1354" id="1354">1354</a>
+<a href="#1355" id="1355">1355</a>
+<a href="#1356" id="1356">1356</a>
+<a href="#1357" id="1357">1357</a>
+<a href="#1358" id="1358">1358</a>
+<a href="#1359" id="1359">1359</a>
+<a href="#1360" id="1360">1360</a>
+<a href="#1361" id="1361">1361</a>
+<a href="#1362" id="1362">1362</a>
 </pre></div><pre class="rust"><code><span class="attr">#![allow(unused, clippy::too_many_arguments, clippy::cognitive_complexity)]
 
 </span><span class="kw">pub mod </span>types {
@@ -1305,6 +1378,7 @@
 <span class="attr">#[cfg(any(target_os = <span class="string">&quot;windows&quot;</span>))]
 </span><span class="kw">pub mod </span>windows;
 
+<span class="kw">pub mod </span>journal;
 <span class="kw">pub mod </span>wasi;
 <span class="kw">pub mod </span>wasix;
 
@@ -1343,6 +1417,7 @@
 
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">use </span>bytes::{Bytes, BytesMut};
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">use </span>cooked_waker::IntoWaker;
+<span class="kw">pub use </span>journal::<span class="kw-2">*</span>;
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">use </span>sha2::Sha256;
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">use </span>tracing::{debug, error, trace, warn};
 <span class="attr">#[cfg(any(
@@ -1406,10 +1481,12 @@
         fs_error_into_wasi_err, virtual_file_type_to_wasi_file_type, Fd, InodeVal, Kind,
         MAX_SYMLINKS,
     },
-    os::task::thread::RewindResult,
+    journal::{DynJournal, JournalEffector},
+    os::task::{process::MaybeCheckpointResult, thread::RewindResult},
     runtime::task_manager::InlineWaker,
     utils::store::InstanceSnapshot,
-    DeepSleepWork, RewindPostProcess, RewindState, SpawnError, WasiInodes,
+    DeepSleepWork, RewindPostProcess, RewindState, RewindStateOption, SpawnError, WasiInodes,
+    WasiResult, WasiRuntimeError,
 };
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">use crate</span>::{net::net_error_into_wasi_err, utils::WasiParkingLot};
 
@@ -1530,9 +1607,9 @@
     tasks: <span class="kw-2">&amp;</span>Arc&lt;<span class="kw">dyn </span>VirtualTaskManager&gt;,
     timeout: <span class="prelude-ty">Option</span>&lt;Duration&gt;,
     work: Fut,
-) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Result</span>&lt;T, Errno&gt;, WasiError&gt;
+) -&gt; WasiResult&lt;T&gt;
 <span class="kw">where
-    </span>Fut: Future&lt;Output = <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Result</span>&lt;T, Errno&gt;, WasiError&gt;&gt;,
+    </span>Fut: Future&lt;Output = WasiResult&lt;T&gt;&gt;,
 {
     <span class="kw">let </span><span class="kw-2">mut </span>nonblocking = <span class="bool-val">false</span>;
     <span class="kw">if </span>timeout == <span class="prelude-val">Some</span>(Duration::ZERO) {
@@ -1582,7 +1659,7 @@
     ctx: <span class="kw-2">&amp;mut </span>FunctionEnvMut&lt;<span class="lifetime">&#39;_</span>, WasiEnv&gt;,
     timeout: <span class="prelude-ty">Option</span>&lt;Duration&gt;,
     work: Fut,
-) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Result</span>&lt;T, Errno&gt;, WasiError&gt;
+) -&gt; WasiResult&lt;T&gt;
 <span class="kw">where
     </span>T: <span class="lifetime">&#39;static</span>,
     Fut: std::future::Future&lt;Output = <span class="prelude-ty">Result</span>&lt;T, Errno&gt;&gt;,
@@ -1770,7 +1847,7 @@
     env: <span class="kw-2">&amp;</span>WasiEnv,
     timeout: <span class="prelude-ty">Option</span>&lt;Duration&gt;,
     work: Fut,
-) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Result</span>&lt;T, Errno&gt;, WasiError&gt;
+) -&gt; WasiResult&lt;T&gt;
 <span class="kw">where
     </span>T: <span class="lifetime">&#39;static</span>,
     Fut: Future&lt;Output = <span class="prelude-ty">Result</span>&lt;T, Errno&gt;&gt;,
@@ -2238,7 +2315,7 @@
     trigger: Pin&lt;Box&lt;AsyncifyFuture&gt;&gt;,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;(), WasiError&gt; {
     <span class="comment">// Grab all the globals and serialize them
-    </span><span class="kw">let </span>store_data = <span class="kw">crate</span>::utils::store::capture_snapshot(<span class="kw-2">&amp;mut </span>ctx.as_store_mut())
+    </span><span class="kw">let </span>store_data = <span class="kw">crate</span>::utils::store::capture_instance_snapshot(<span class="kw-2">&amp;mut </span>ctx.as_store_mut())
         .serialize()
         .unwrap();
     <span class="kw">let </span>store_data = Bytes::from(store_data);
@@ -2247,17 +2324,15 @@
     </span><span class="kw">let </span>tasks = ctx.data().tasks().clone();
     <span class="kw">let </span>res = unwind::&lt;M, <span class="kw">_</span>&gt;(ctx, <span class="kw">move </span>|_ctx, memory_stack, rewind_stack| {
         <span class="comment">// Schedule the process on the stack so that it can be resumed
-        </span>OnCalledAction::Trap(Box::new(RuntimeError::user(Box::new(
-            WasiError::DeepSleep(DeepSleepWork {
-                trigger,
-                rewind: RewindState {
-                    memory_stack: memory_stack.freeze(),
-                    rewind_stack: rewind_stack.freeze(),
-                    store_data,
-                    is_64bit: M::is_64bit(),
-                },
-            }),
-        ))))
+        </span>OnCalledAction::Trap(Box::new(WasiError::DeepSleep(DeepSleepWork {
+            trigger,
+            rewind: RewindState {
+                memory_stack: memory_stack.freeze(),
+                rewind_stack: rewind_stack.freeze(),
+                store_data,
+                is_64bit: M::is_64bit(),
+            },
+        })))
     })<span class="question-mark">?</span>;
 
     <span class="comment">// If there is an error then exit the process, otherwise we are done
@@ -2401,7 +2476,7 @@
 <span class="attr">#[instrument(level = <span class="string">&quot;debug&quot;</span>, skip_all, fields(memory_stack_len = memory_stack.len(), rewind_stack_len = rewind_stack.len(), store_data_len = store_data.len()))]
 #[must_use = <span class="string">&quot;the action must be passed to the call loop&quot;</span>]
 </span><span class="kw">pub fn </span>rewind&lt;M: MemorySize, T&gt;(
-    ctx: FunctionEnvMut&lt;WasiEnv&gt;,
+    <span class="kw-2">mut </span>ctx: FunctionEnvMut&lt;WasiEnv&gt;,
     memory_stack: Bytes,
     rewind_stack: Bytes,
     store_data: Bytes,
@@ -2411,17 +2486,23 @@
     </span>T: serde::Serialize,
 {
     <span class="kw">let </span>rewind_result = bincode::serialize(<span class="kw-2">&amp;</span>result).unwrap().into();
-    rewind_ext::&lt;M&gt;(ctx, memory_stack, rewind_stack, store_data, rewind_result)
+    rewind_ext::&lt;M&gt;(
+        <span class="kw-2">&amp;mut </span>ctx,
+        memory_stack,
+        rewind_stack,
+        store_data,
+        <span class="prelude-val">Some</span>(rewind_result),
+    )
 }
 
 <span class="attr">#[instrument(level = <span class="string">&quot;debug&quot;</span>, skip_all, fields(memory_stack_len = memory_stack.len(), rewind_stack_len = rewind_stack.len(), store_data_len = store_data.len()))]
 #[must_use = <span class="string">&quot;the action must be passed to the call loop&quot;</span>]
 </span><span class="kw">pub fn </span>rewind_ext&lt;M: MemorySize&gt;(
-    <span class="kw-2">mut </span>ctx: FunctionEnvMut&lt;WasiEnv&gt;,
+    ctx: <span class="kw-2">&amp;mut </span>FunctionEnvMut&lt;WasiEnv&gt;,
     memory_stack: Bytes,
     rewind_stack: Bytes,
     store_data: Bytes,
-    rewind_result: Bytes,
+    rewind_result: <span class="prelude-ty">Option</span>&lt;Bytes&gt;,
 ) -&gt; Errno {
     <span class="comment">// Store the memory stack so that it can be restored later
     </span>ctx.data_mut().thread.set_rewind(RewindResult {
@@ -2437,7 +2518,7 @@
             <span class="kw">return </span>Errno::Unknown;
         }
     };
-    <span class="kw">crate</span>::utils::store::restore_snapshot(<span class="kw-2">&amp;mut </span>ctx, <span class="kw-2">&amp;</span>store_snapshot);
+    <span class="kw">crate</span>::utils::store::restore_instance_snapshot(ctx, <span class="kw-2">&amp;</span>store_snapshot);
     <span class="kw">let </span>env = ctx.data();
     <span class="kw">let </span>memory = <span class="kw">match </span>env.try_memory_view(<span class="kw-2">&amp;</span>ctx) {
         <span class="prelude-val">Some</span>(v) =&gt; v,
@@ -2492,7 +2573,7 @@
         .filter_map(|a| a.asyncify_start_rewind.clone())
         .next()
     {
-        asyncify_start_rewind.call(<span class="kw-2">&amp;mut </span>ctx, asyncify_data);
+        asyncify_start_rewind.call(ctx, asyncify_data);
     } <span class="kw">else </span>{
         <span class="macro">warn!</span>(<span class="string">&quot;failed to rewind the stack because the asyncify_start_rewind export is missing or inaccessible&quot;</span>);
         <span class="kw">return </span>Errno::Noexec;
@@ -2501,18 +2582,76 @@
     Errno::Success
 }
 
+<span class="kw">pub fn </span>rewind_ext2(
+    ctx: <span class="kw-2">&amp;mut </span>FunctionEnvMut&lt;WasiEnv&gt;,
+    rewind_state: RewindStateOption,
+) -&gt; <span class="prelude-ty">Result</span>&lt;(), ExitCode&gt; {
+    <span class="kw">if let </span><span class="prelude-val">Some</span>((rewind_state, rewind_result)) = rewind_state {
+        <span class="macro">tracing::trace!</span>(<span class="string">&quot;Rewinding&quot;</span>);
+        <span class="kw">let </span>errno = <span class="kw">if </span>rewind_state.is_64bit {
+            <span class="kw">crate</span>::rewind_ext::&lt;wasmer_types::Memory64&gt;(
+                ctx,
+                rewind_state.memory_stack,
+                rewind_state.rewind_stack,
+                rewind_state.store_data,
+                rewind_result,
+            )
+        } <span class="kw">else </span>{
+            <span class="kw">crate</span>::rewind_ext::&lt;wasmer_types::Memory32&gt;(
+                ctx,
+                rewind_state.memory_stack,
+                rewind_state.rewind_stack,
+                rewind_state.store_data,
+                rewind_result,
+            )
+        };
+
+        <span class="kw">if </span>errno != Errno::Success {
+            <span class="kw">let </span>exit_code = ExitCode::from(errno);
+            ctx.data().on_exit(<span class="prelude-val">Some</span>(exit_code));
+            <span class="kw">return </span><span class="prelude-val">Err</span>(exit_code);
+        }
+    }
+
+    <span class="prelude-val">Ok</span>(())
+}
+
+<span class="kw">pub fn </span>anyhow_err_to_runtime_err(err: anyhow::Error) -&gt; WasiRuntimeError {
+    WasiRuntimeError::Runtime(RuntimeError::user(err.into()))
+}
+
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">unsafe fn </span>handle_rewind&lt;M: MemorySize, T&gt;(
     ctx: <span class="kw-2">&amp;mut </span>FunctionEnvMut&lt;<span class="lifetime">&#39;_</span>, WasiEnv&gt;,
 ) -&gt; <span class="prelude-ty">Option</span>&lt;T&gt;
 <span class="kw">where
     </span>T: serde::de::DeserializeOwned,
 {
+    handle_rewind_ext::&lt;M, T&gt;(ctx, HandleRewindType::ResultDriven)
+}
+
+<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">enum </span>HandleRewindType {
+    <span class="doccomment">/// Handle rewind types that have a result to be processed
+    </span>ResultDriven,
+    <span class="doccomment">/// Handle rewind types that are resultless (generally these
+    /// are caused by snapshot events)
+    </span>Resultless,
+}
+
+<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">unsafe fn </span>handle_rewind_ext&lt;M: MemorySize, T&gt;(
+    ctx: <span class="kw-2">&amp;mut </span>FunctionEnvMut&lt;<span class="lifetime">&#39;_</span>, WasiEnv&gt;,
+    _type: HandleRewindType,
+) -&gt; <span class="prelude-ty">Option</span>&lt;T&gt;
+<span class="kw">where
+    </span>T: serde::de::DeserializeOwned,
+{
+    <span class="kw">if </span>!ctx.data().thread.has_rewind_of_type(_type) {
+        <span class="kw">return </span><span class="prelude-val">None</span>;
+    };
+
     <span class="comment">// If the stack has been restored
     </span><span class="kw">if let </span><span class="prelude-val">Some</span>(result) = ctx.data_mut().thread.take_rewind() {
         <span class="comment">// Deserialize the result
         </span><span class="kw">let </span>memory_stack = result.memory_stack;
-        <span class="kw">let </span>ret = bincode::deserialize(<span class="kw-2">&amp;</span>result.rewind_result)
-            .expect(<span class="string">&quot;failed to deserialize the rewind result&quot;</span>);
 
         <span class="comment">// Notify asyncify that we are no longer rewinding
         </span><span class="kw">let </span>env = ctx.data();
@@ -2526,7 +2665,14 @@
         <span class="comment">// Restore the memory stack
         </span><span class="kw">let </span>(env, <span class="kw-2">mut </span>store) = ctx.data_and_store_mut();
         set_memory_stack::&lt;M&gt;(env, <span class="kw-2">&amp;mut </span>store, memory_stack);
-        <span class="prelude-val">Some</span>(ret)
+
+        <span class="kw">if let </span><span class="prelude-val">Some</span>(rewind_result) = result.rewind_result {
+            <span class="kw">let </span>ret = bincode::deserialize(<span class="kw-2">&amp;</span>rewind_result)
+                .expect(<span class="string">&quot;failed to deserialize the rewind result&quot;</span>);
+            <span class="prelude-val">Some</span>(ret)
+        } <span class="kw">else </span>{
+            <span class="prelude-val">None
+        </span>}
     } <span class="kw">else </span>{
         <span class="prelude-val">None
     </span>}

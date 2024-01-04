@@ -45,13 +45,13 @@
     }
 }
 
-<span class="kw">pub fn </span>capture_snapshot(store: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>wasmer::AsStoreMut) -&gt; InstanceSnapshot {
+<span class="kw">pub fn </span>capture_instance_snapshot(store: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>wasmer::AsStoreMut) -&gt; InstanceSnapshot {
     <span class="kw">let </span>objs = store.objects_mut();
     <span class="kw">let </span>globals = objs.as_u128_globals();
     InstanceSnapshot { globals }
 }
 
-<span class="kw">pub fn </span>restore_snapshot(store: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>wasmer::AsStoreMut, snapshot: <span class="kw-2">&amp;</span>InstanceSnapshot) {
+<span class="kw">pub fn </span>restore_instance_snapshot(store: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>wasmer::AsStoreMut, snapshot: <span class="kw-2">&amp;</span>InstanceSnapshot) {
     <span class="kw">let </span>objs = store.objects_mut();
 
     <span class="kw">for </span>(index, value) <span class="kw">in </span>snapshot.globals.iter().enumerate() {

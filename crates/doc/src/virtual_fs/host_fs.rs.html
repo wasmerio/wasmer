@@ -1421,6 +1421,38 @@
 <a href="#1421" id="1421">1421</a>
 <a href="#1422" id="1422">1422</a>
 <a href="#1423" id="1423">1423</a>
+<a href="#1424" id="1424">1424</a>
+<a href="#1425" id="1425">1425</a>
+<a href="#1426" id="1426">1426</a>
+<a href="#1427" id="1427">1427</a>
+<a href="#1428" id="1428">1428</a>
+<a href="#1429" id="1429">1429</a>
+<a href="#1430" id="1430">1430</a>
+<a href="#1431" id="1431">1431</a>
+<a href="#1432" id="1432">1432</a>
+<a href="#1433" id="1433">1433</a>
+<a href="#1434" id="1434">1434</a>
+<a href="#1435" id="1435">1435</a>
+<a href="#1436" id="1436">1436</a>
+<a href="#1437" id="1437">1437</a>
+<a href="#1438" id="1438">1438</a>
+<a href="#1439" id="1439">1439</a>
+<a href="#1440" id="1440">1440</a>
+<a href="#1441" id="1441">1441</a>
+<a href="#1442" id="1442">1442</a>
+<a href="#1443" id="1443">1443</a>
+<a href="#1444" id="1444">1444</a>
+<a href="#1445" id="1445">1445</a>
+<a href="#1446" id="1446">1446</a>
+<a href="#1447" id="1447">1447</a>
+<a href="#1448" id="1448">1448</a>
+<a href="#1449" id="1449">1449</a>
+<a href="#1450" id="1450">1450</a>
+<a href="#1451" id="1451">1451</a>
+<a href="#1452" id="1452">1452</a>
+<a href="#1453" id="1453">1453</a>
+<a href="#1454" id="1454">1454</a>
+<a href="#1455" id="1455">1455</a>
 </pre></div><pre class="rust"><code><span class="kw">use crate</span>::{
     DirEntry, FileType, FsError, Metadata, OpenOptions, OpenOptionsConfig, ReadDir, <span class="prelude-ty">Result</span>,
     VirtualFile,
@@ -1443,16 +1475,25 @@
 
 <span class="attr">#[derive(Debug, Clone)]
 #[cfg_attr(feature = <span class="string">&quot;enable-serde&quot;</span>, derive(Serialize, Deserialize))]
-</span><span class="kw">pub struct </span>FileSystem(Handle);
+</span><span class="kw">pub struct </span>FileSystem {
+    <span class="attr">#[cfg_attr(feature = <span class="string">&quot;enable-serde&quot;</span>, serde(skip, default = <span class="string">&quot;default_handle&quot;</span>))]
+    </span>handle: Handle,
+}
+<span class="attr">#[allow(dead_code)]
+</span><span class="kw">fn </span>default_handle() -&gt; Handle {
+    Handle::current()
+}
 
 <span class="kw">impl </span>Default <span class="kw">for </span>FileSystem {
     <span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
-        <span class="self">Self</span>(Handle::current())
+        <span class="self">Self </span>{
+            handle: Handle::current(),
+        }
     }
 }
 <span class="kw">impl </span>FileSystem {
     <span class="kw">pub fn </span>new(handle: Handle) -&gt; <span class="self">Self </span>{
-        FileSystem(handle)
+        FileSystem { handle }
     }
 }
 
@@ -1648,7 +1689,7 @@
             .map_err(Into::into)
             .map(|file| {
                 Box::new(File::new(
-                    <span class="self">self</span>.<span class="number">0</span>.clone(),
+                    <span class="self">self</span>.handle.clone(),
                     file,
                     path.to_owned(),
                     read,
@@ -1663,10 +1704,12 @@
 </span><span class="attr">#[derive(Debug)]
 #[cfg_attr(feature = <span class="string">&quot;enable-serde&quot;</span>, derive(Serialize))]
 </span><span class="kw">pub struct </span>File {
-    handle: Handle,
+    <span class="attr">#[cfg_attr(feature = <span class="string">&quot;enable-serde&quot;</span>, serde(skip, default = <span class="string">&quot;default_handle&quot;</span>))]
+    </span>handle: Handle,
     <span class="attr">#[cfg_attr(feature = <span class="string">&quot;enable-serde&quot;</span>, serde(skip_serializing))]
     </span>inner_std: fs::File,
-    inner: tfs::File,
+    <span class="attr">#[cfg_attr(feature = <span class="string">&quot;enable-serde&quot;</span>, serde(skip))]
+    </span>inner: tfs::File,
     <span class="kw">pub </span>host_path: PathBuf,
     <span class="attr">#[cfg(feature = <span class="string">&quot;enable-serde&quot;</span>)]
     </span>flags: u16,
@@ -1711,7 +1754,9 @@
                     .open(<span class="kw-2">&amp;</span>host_path)
                     .map_err(|<span class="kw">_</span>| de::Error::custom(<span class="string">&quot;Could not open file on this system&quot;</span>))<span class="question-mark">?</span>;
                 <span class="prelude-val">Ok</span>(File {
-                    inner,
+                    handle: Handle::current(),
+                    inner: tokio::fs::File::from_std(inner.try_clone().unwrap()),
+                    inner_std: inner,
                     host_path,
                     flags,
                 })
@@ -1748,7 +1793,9 @@
                     .open(<span class="kw-2">&amp;</span>host_path)
                     .map_err(|<span class="kw">_</span>| de::Error::custom(<span class="string">&quot;Could not open file on this system&quot;</span>))<span class="question-mark">?</span>;
                 <span class="prelude-val">Ok</span>(File {
-                    inner,
+                    handle: Handle::current(),
+                    inner: tokio::fs::File::from_std(inner.try_clone().unwrap()),
+                    inner_std: inner,
                     host_path,
                     flags,
                 })
@@ -1940,10 +1987,15 @@
 </span><span class="attr">#[derive(Debug)]
 #[cfg_attr(feature = <span class="string">&quot;enable-serde&quot;</span>, derive(Serialize, Deserialize))]
 </span><span class="kw">pub struct </span>Stdout {
-    handle: Handle,
-    inner: tokio::io::Stdout,
+    <span class="attr">#[cfg_attr(feature = <span class="string">&quot;enable-serde&quot;</span>, serde(skip, default = <span class="string">&quot;default_handle&quot;</span>))]
+    </span>handle: Handle,
+    <span class="attr">#[cfg_attr(feature = <span class="string">&quot;enable-serde&quot;</span>, serde(skip, default = <span class="string">&quot;default_stdout&quot;</span>))]
+    </span>inner: tokio::io::Stdout,
 }
-
+<span class="attr">#[allow(dead_code)]
+</span><span class="kw">fn </span>default_stdout() -&gt; tokio::io::Stdout {
+    tokio::io::stdout()
+}
 <span class="kw">impl </span>Default <span class="kw">for </span>Stdout {
     <span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
         <span class="self">Self </span>{
@@ -2070,8 +2122,14 @@
 </span><span class="attr">#[derive(Debug)]
 #[cfg_attr(feature = <span class="string">&quot;enable-serde&quot;</span>, derive(Serialize, Deserialize))]
 </span><span class="kw">pub struct </span>Stderr {
-    handle: Handle,
-    inner: tokio::io::Stderr,
+    <span class="attr">#[cfg_attr(feature = <span class="string">&quot;enable-serde&quot;</span>, serde(skip, default = <span class="string">&quot;default_handle&quot;</span>))]
+    </span>handle: Handle,
+    <span class="attr">#[cfg_attr(feature = <span class="string">&quot;enable-serde&quot;</span>, serde(skip, default = <span class="string">&quot;default_stderr&quot;</span>))]
+    </span>inner: tokio::io::Stderr,
+}
+<span class="attr">#[allow(dead_code)]
+</span><span class="kw">fn </span>default_stderr() -&gt; tokio::io::Stderr {
+    tokio::io::stderr()
 }
 <span class="kw">impl </span>Default <span class="kw">for </span>Stderr {
     <span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
@@ -2191,8 +2249,14 @@
 #[cfg_attr(feature = <span class="string">&quot;enable-serde&quot;</span>, derive(Serialize, Deserialize))]
 </span><span class="kw">pub struct </span>Stdin {
     read_buffer: Arc&lt;std::sync::Mutex&lt;<span class="prelude-ty">Option</span>&lt;Bytes&gt;&gt;&gt;,
-    handle: Handle,
-    inner: tokio::io::Stdin,
+    <span class="attr">#[cfg_attr(feature = <span class="string">&quot;enable-serde&quot;</span>, serde(skip, default = <span class="string">&quot;default_handle&quot;</span>))]
+    </span>handle: Handle,
+    <span class="attr">#[cfg_attr(feature = <span class="string">&quot;enable-serde&quot;</span>, serde(skip, default = <span class="string">&quot;default_stdin&quot;</span>))]
+    </span>inner: tokio::io::Stdin,
+}
+<span class="attr">#[allow(dead_code)]
+</span><span class="kw">fn </span>default_stdin() -&gt; tokio::io::Stdin {
+    tokio::io::stdin()
 }
 <span class="kw">impl </span>Default <span class="kw">for </span>Stdin {
     <span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{

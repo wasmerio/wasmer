@@ -97,6 +97,32 @@
 <a href="#97" id="97">97</a>
 <a href="#98" id="98">98</a>
 <a href="#99" id="99">99</a>
+<a href="#100" id="100">100</a>
+<a href="#101" id="101">101</a>
+<a href="#102" id="102">102</a>
+<a href="#103" id="103">103</a>
+<a href="#104" id="104">104</a>
+<a href="#105" id="105">105</a>
+<a href="#106" id="106">106</a>
+<a href="#107" id="107">107</a>
+<a href="#108" id="108">108</a>
+<a href="#109" id="109">109</a>
+<a href="#110" id="110">110</a>
+<a href="#111" id="111">111</a>
+<a href="#112" id="112">112</a>
+<a href="#113" id="113">113</a>
+<a href="#114" id="114">114</a>
+<a href="#115" id="115">115</a>
+<a href="#116" id="116">116</a>
+<a href="#117" id="117">117</a>
+<a href="#118" id="118">118</a>
+<a href="#119" id="119">119</a>
+<a href="#120" id="120">120</a>
+<a href="#121" id="121">121</a>
+<a href="#122" id="122">122</a>
+<a href="#123" id="123">123</a>
+<a href="#124" id="124">124</a>
+<a href="#125" id="125">125</a>
 </pre></div><pre class="rust"><code><span class="kw">use super</span>::<span class="kw-2">*</span>;
 <span class="kw">use </span><span class="kw">crate</span>::syscalls::<span class="kw-2">*</span>;
 
@@ -111,7 +137,7 @@
 ///     The number of bytes in the `path` array
 </span><span class="attr">#[instrument(level = <span class="string">&quot;debug&quot;</span>, skip_all, fields(%fd, path = field::Empty), ret)]
 </span><span class="kw">pub fn </span>path_unlink_file&lt;M: MemorySize&gt;(
-    ctx: FunctionEnvMut&lt;<span class="lifetime">&#39;_</span>, WasiEnv&gt;,
+    <span class="kw-2">mut </span>ctx: FunctionEnvMut&lt;<span class="lifetime">&#39;_</span>, WasiEnv&gt;,
     fd: WasiFd,
     path: WasmPtr&lt;u8, M&gt;,
     path_len: M::Offset,
@@ -131,11 +157,37 @@
         path_str = ctx.data().state.fs.relative_path_to_absolute(path_str);
     }
 
-    <span class="kw">let </span>inode = <span class="macro">wasi_try_ok!</span>(state.fs.get_inode_at_path(inodes, fd, <span class="kw-2">&amp;</span>path_str, <span class="bool-val">false</span>));
+    <span class="kw">let </span>ret = path_unlink_file_internal(<span class="kw-2">&amp;mut </span>ctx, fd, <span class="kw-2">&amp;</span>path_str)<span class="question-mark">?</span>;
+    <span class="kw">let </span>env = ctx.data();
+
+    <span class="kw">if </span>ret == Errno::Success {
+        <span class="attr">#[cfg(feature = <span class="string">&quot;journal&quot;</span>)]
+        </span><span class="kw">if </span>env.enable_journal {
+            <span class="macro">wasi_try_ok!</span>(
+                JournalEffector::save_path_unlink(<span class="kw-2">&amp;mut </span>ctx, fd, path_str).map_err(|err| {
+                    <span class="macro">tracing::error!</span>(<span class="string">&quot;failed to save unlink event - {}&quot;</span>, err);
+                    Errno::Fault
+                })
+            )
+        }
+    }
+
+    <span class="prelude-val">Ok</span>(ret)
+}
+
+<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>path_unlink_file_internal(
+    ctx: <span class="kw-2">&amp;mut </span>FunctionEnvMut&lt;<span class="lifetime">&#39;_</span>, WasiEnv&gt;,
+    fd: WasiFd,
+    path: <span class="kw-2">&amp;</span>str,
+) -&gt; <span class="prelude-ty">Result</span>&lt;Errno, WasiError&gt; {
+    <span class="kw">let </span>env = ctx.data();
+    <span class="kw">let </span>(memory, <span class="kw-2">mut </span>state, inodes) = <span class="kw">unsafe </span>{ env.get_memory_and_wasi_state_and_inodes(<span class="kw-2">&amp;</span>ctx, <span class="number">0</span>) };
+
+    <span class="kw">let </span>inode = <span class="macro">wasi_try_ok!</span>(state.fs.get_inode_at_path(inodes, fd, path, <span class="bool-val">false</span>));
     <span class="kw">let </span>(parent_inode, childs_name) = <span class="macro">wasi_try_ok!</span>(state.fs.get_parent_inode_at_path(
         inodes,
         fd,
-        std::path::Path::new(<span class="kw-2">&amp;</span>path_str),
+        std::path::Path::new(path),
         <span class="bool-val">false
     </span>));
 

@@ -779,6 +779,13 @@
 <a href="#779" id="779">779</a>
 <a href="#780" id="780">780</a>
 <a href="#781" id="781">781</a>
+<a href="#782" id="782">782</a>
+<a href="#783" id="783">783</a>
+<a href="#784" id="784">784</a>
+<a href="#785" id="785">785</a>
+<a href="#786" id="786">786</a>
+<a href="#787" id="787">787</a>
+<a href="#788" id="788">788</a>
 </pre></div><pre class="rust"><code><span class="comment">// FIXME: merge with ./lib.rs_upstream
 
 </span><span class="attr">#![doc(html_favicon_url = <span class="string">&quot;https://wasmer.io/images/icons/favicon-32x32.png&quot;</span>)]
@@ -828,6 +835,7 @@
 </span><span class="kw">pub mod </span>capabilities;
 <span class="kw">pub mod </span>fs;
 <span class="kw">pub mod </span>http;
+<span class="kw">pub mod </span>journal;
 <span class="kw">mod </span>rewind;
 <span class="kw">pub mod </span>runners;
 <span class="kw">pub mod </span>runtime;
@@ -837,6 +845,8 @@
 
 <span class="doccomment">/// WAI based bindings.
 </span><span class="kw">mod </span>bindings;
+
+<span class="kw">use </span>std::sync::Arc;
 
 <span class="attr">#[allow(unused_imports)]
 </span><span class="kw">use </span>bytes::{Bytes, BytesMut};
@@ -884,7 +894,7 @@
     utils::is_wasix_module,
     utils::{
         get_wasi_version, get_wasi_versions, is_wasi_module,
-        store::{capture_snapshot, restore_snapshot, InstanceSnapshot},
+        store::{capture_instance_snapshot, restore_instance_snapshot, InstanceSnapshot},
         WasiVersion,
     },
 };
@@ -900,6 +910,8 @@
     <span class="attr">#[error(<span class="string">&quot;The WASI version could not be determined&quot;</span>)]
     </span>UnknownWasiVersion,
 }
+
+<span class="kw">pub type </span>WasiResult&lt;T&gt; = <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Result</span>&lt;T, Errno&gt;, WasiError&gt;;
 
 <span class="attr">#[deny(unused, dead_code)]
 #[derive(Error, Debug)]
@@ -984,6 +996,8 @@
     </span>Runtime(<span class="attr">#[from] </span>RuntimeError),
     <span class="attr">#[error(<span class="string">&quot;Memory access error&quot;</span>)]
     </span>Thread(<span class="attr">#[from] </span>WasiThreadError),
+    <span class="attr">#[error(<span class="string">&quot;{0}&quot;</span>)]
+    </span>Anyhow(<span class="attr">#[from] </span>Arc&lt;anyhow::Error&gt;),
 }
 
 <span class="kw">impl </span>WasiRuntimeError {

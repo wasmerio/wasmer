@@ -193,12 +193,19 @@
 <a href="#193" id="193">193</a>
 <a href="#194" id="194">194</a>
 <a href="#195" id="195">195</a>
+<a href="#196" id="196">196</a>
+<a href="#197" id="197">197</a>
+<a href="#198" id="198">198</a>
+<a href="#199" id="199">199</a>
+<a href="#200" id="200">200</a>
+<a href="#201" id="201">201</a>
+<a href="#202" id="202">202</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::store::AsStoreRef;
 <span class="kw">use </span><span class="kw">crate</span>::MemoryAccessError;
-<span class="kw">use </span>std::convert::TryInto;
 <span class="kw">use </span>std::marker::PhantomData;
 <span class="kw">use </span>std::mem::MaybeUninit;
 <span class="kw">use </span>std::slice;
+<span class="kw">use </span>std::{convert::TryInto, ops::Range};
 <span class="kw">use </span>wasmer_types::Pages;
 <span class="kw">use </span>wasmer_vm::LinearMemory;
 
@@ -358,11 +365,18 @@
     <span class="attr">#[allow(unused)]
     </span><span class="doccomment">/// Copies the memory and returns it as a vector of bytes
     </span><span class="kw">pub fn </span>copy_to_vec(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;u8&gt;, MemoryAccessError&gt; {
+        <span class="self">self</span>.copy_range_to_vec(<span class="number">0</span>..<span class="self">self</span>.data_size())
+    }
+
+    <span class="attr">#[allow(unused)]
+    </span><span class="doccomment">/// Copies a range of the memory and returns it as a vector of bytes
+    </span><span class="kw">pub fn </span>copy_range_to_vec(<span class="kw-2">&amp;</span><span class="self">self</span>, range: Range&lt;u64&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;u8&gt;, MemoryAccessError&gt; {
         <span class="kw">let </span><span class="kw-2">mut </span>new_memory = Vec::new();
-        <span class="kw">let </span><span class="kw-2">mut </span>offset = <span class="number">0</span>;
+        <span class="kw">let </span><span class="kw-2">mut </span>offset = range.start;
+        <span class="kw">let </span>end = range.end.min(<span class="self">self</span>.data_size());
         <span class="kw">let </span><span class="kw-2">mut </span>chunk = [<span class="number">0u8</span>; <span class="number">40960</span>];
-        <span class="kw">while </span>offset &lt; <span class="self">self</span>.data_size() {
-            <span class="kw">let </span>remaining = <span class="self">self</span>.data_size() - offset;
+        <span class="kw">while </span>offset &lt; end {
+            <span class="kw">let </span>remaining = end - offset;
             <span class="kw">let </span>sublen = remaining.min(chunk.len() <span class="kw">as </span>u64) <span class="kw">as </span>usize;
             <span class="self">self</span>.read(offset, <span class="kw-2">&amp;mut </span>chunk[..sublen])<span class="question-mark">?</span>;
             new_memory.extend_from_slice(<span class="kw-2">&amp;</span>chunk[..sublen]);

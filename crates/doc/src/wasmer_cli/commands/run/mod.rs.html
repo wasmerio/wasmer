@@ -861,6 +861,103 @@
 <a href="#861" id="861">861</a>
 <a href="#862" id="862">862</a>
 <a href="#863" id="863">863</a>
+<a href="#864" id="864">864</a>
+<a href="#865" id="865">865</a>
+<a href="#866" id="866">866</a>
+<a href="#867" id="867">867</a>
+<a href="#868" id="868">868</a>
+<a href="#869" id="869">869</a>
+<a href="#870" id="870">870</a>
+<a href="#871" id="871">871</a>
+<a href="#872" id="872">872</a>
+<a href="#873" id="873">873</a>
+<a href="#874" id="874">874</a>
+<a href="#875" id="875">875</a>
+<a href="#876" id="876">876</a>
+<a href="#877" id="877">877</a>
+<a href="#878" id="878">878</a>
+<a href="#879" id="879">879</a>
+<a href="#880" id="880">880</a>
+<a href="#881" id="881">881</a>
+<a href="#882" id="882">882</a>
+<a href="#883" id="883">883</a>
+<a href="#884" id="884">884</a>
+<a href="#885" id="885">885</a>
+<a href="#886" id="886">886</a>
+<a href="#887" id="887">887</a>
+<a href="#888" id="888">888</a>
+<a href="#889" id="889">889</a>
+<a href="#890" id="890">890</a>
+<a href="#891" id="891">891</a>
+<a href="#892" id="892">892</a>
+<a href="#893" id="893">893</a>
+<a href="#894" id="894">894</a>
+<a href="#895" id="895">895</a>
+<a href="#896" id="896">896</a>
+<a href="#897" id="897">897</a>
+<a href="#898" id="898">898</a>
+<a href="#899" id="899">899</a>
+<a href="#900" id="900">900</a>
+<a href="#901" id="901">901</a>
+<a href="#902" id="902">902</a>
+<a href="#903" id="903">903</a>
+<a href="#904" id="904">904</a>
+<a href="#905" id="905">905</a>
+<a href="#906" id="906">906</a>
+<a href="#907" id="907">907</a>
+<a href="#908" id="908">908</a>
+<a href="#909" id="909">909</a>
+<a href="#910" id="910">910</a>
+<a href="#911" id="911">911</a>
+<a href="#912" id="912">912</a>
+<a href="#913" id="913">913</a>
+<a href="#914" id="914">914</a>
+<a href="#915" id="915">915</a>
+<a href="#916" id="916">916</a>
+<a href="#917" id="917">917</a>
+<a href="#918" id="918">918</a>
+<a href="#919" id="919">919</a>
+<a href="#920" id="920">920</a>
+<a href="#921" id="921">921</a>
+<a href="#922" id="922">922</a>
+<a href="#923" id="923">923</a>
+<a href="#924" id="924">924</a>
+<a href="#925" id="925">925</a>
+<a href="#926" id="926">926</a>
+<a href="#927" id="927">927</a>
+<a href="#928" id="928">928</a>
+<a href="#929" id="929">929</a>
+<a href="#930" id="930">930</a>
+<a href="#931" id="931">931</a>
+<a href="#932" id="932">932</a>
+<a href="#933" id="933">933</a>
+<a href="#934" id="934">934</a>
+<a href="#935" id="935">935</a>
+<a href="#936" id="936">936</a>
+<a href="#937" id="937">937</a>
+<a href="#938" id="938">938</a>
+<a href="#939" id="939">939</a>
+<a href="#940" id="940">940</a>
+<a href="#941" id="941">941</a>
+<a href="#942" id="942">942</a>
+<a href="#943" id="943">943</a>
+<a href="#944" id="944">944</a>
+<a href="#945" id="945">945</a>
+<a href="#946" id="946">946</a>
+<a href="#947" id="947">947</a>
+<a href="#948" id="948">948</a>
+<a href="#949" id="949">949</a>
+<a href="#950" id="950">950</a>
+<a href="#951" id="951">951</a>
+<a href="#952" id="952">952</a>
+<a href="#953" id="953">953</a>
+<a href="#954" id="954">954</a>
+<a href="#955" id="955">955</a>
+<a href="#956" id="956">956</a>
+<a href="#957" id="957">957</a>
+<a href="#958" id="958">958</a>
+<a href="#959" id="959">959</a>
+<a href="#960" id="960">960</a>
 </pre></div><pre class="rust"><code><span class="attr">#![allow(missing_docs, unused)]
 
 </span><span class="kw">mod </span>wasi;
@@ -891,9 +988,16 @@
 <span class="attr">#[cfg(feature = <span class="string">&quot;compiler&quot;</span>)]
 </span><span class="kw">use </span>wasmer_compiler::ArtifactBuild;
 <span class="kw">use </span>wasmer_registry::{wasmer_env::WasmerEnv, Package};
+<span class="attr">#[cfg(feature = <span class="string">&quot;journal&quot;</span>)]
+</span><span class="kw">use </span>wasmer_wasix::journal::{LogFileJournal, SnapshotTrigger};
 <span class="kw">use </span>wasmer_wasix::{
     bin_factory::BinaryPackage,
-    runners::{MappedCommand, MappedDirectory, Runner},
+    journal::CompactingLogFileJournal,
+    runners::{
+        dcgi::DcgiInstanceFactory,
+        wcgi::{<span class="self">self</span>, NoOpWcgiCallbacks},
+        MappedCommand, MappedDirectory, Runner,
+    },
     runtime::{
         module_cache::{CacheError, ModuleHash},
         package_loader::PackageLoader,
@@ -904,6 +1008,7 @@
 };
 <span class="kw">use </span>wasmer_wasix::{
     runners::{
+        dcgi::DcgiRunner,
         emscripten::EmscriptenRunner,
         wasi::WasiRunner,
         wcgi::{AbortHandle, WcgiRunner},
@@ -982,14 +1087,26 @@
 
         pb.finish_and_clear();
 
+        <span class="comment">// push the TTY state so we can restore it after the program finishes
+        </span><span class="kw">let </span>tty = runtime.tty().map(|tty| tty.tty_get());
+
         <span class="kw">let </span>result = {
             <span class="kw">match </span>target {
-                ExecutableTarget::WebAssembly { module, path } =&gt; {
-                    <span class="self">self</span>.execute_wasm(<span class="kw-2">&amp;</span>path, <span class="kw-2">&amp;</span>module, store, runtime)
-                }
-                ExecutableTarget::Package(pkg) =&gt; <span class="self">self</span>.execute_webc(<span class="kw-2">&amp;</span>pkg, runtime),
+                ExecutableTarget::WebAssembly {
+                    module,
+                    module_hash,
+                    path,
+                } =&gt; <span class="self">self</span>.execute_wasm(<span class="kw-2">&amp;</span>path, <span class="kw-2">&amp;</span>module, module_hash, store, runtime.clone()),
+                ExecutableTarget::Package(pkg) =&gt; <span class="self">self</span>.execute_webc(<span class="kw-2">&amp;</span>pkg, runtime.clone()),
             }
         };
+
+        <span class="comment">// restore the TTY state as the execution may have changed it
+        </span><span class="kw">if let </span><span class="prelude-val">Some</span>(state) = tty {
+            <span class="kw">if let </span><span class="prelude-val">Some</span>(tty) = runtime.tty() {
+                tty.tty_set(state);
+            }
+        }
 
         <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = <span class="kw-2">&amp;</span>result {
             <span class="self">self</span>.maybe_save_coredump(e);
@@ -1003,13 +1120,14 @@
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         path: <span class="kw-2">&amp;</span>Path,
         module: <span class="kw-2">&amp;</span>Module,
+        module_hash: ModuleHash,
         <span class="kw-2">mut </span>store: Store,
         runtime: Arc&lt;<span class="kw">dyn </span>Runtime + Send + Sync&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt; {
         <span class="kw">if </span>wasmer_emscripten::is_emscripten_module(module) {
             <span class="self">self</span>.execute_emscripten_module()
         } <span class="kw">else if </span>wasmer_wasix::is_wasi_module(module) || wasmer_wasix::is_wasix_module(module) {
-            <span class="self">self</span>.execute_wasi_module(path, module, runtime, store)
+            <span class="self">self</span>.execute_wasi_module(path, module, module_hash, runtime, store)
         } <span class="kw">else </span>{
             <span class="self">self</span>.execute_pure_wasm_module(module, <span class="kw-2">&amp;mut </span>store)
         }
@@ -1031,7 +1149,9 @@
 
         <span class="kw">let </span>uses = <span class="self">self</span>.load_injected_packages(<span class="kw-2">&amp;</span>runtime)<span class="question-mark">?</span>;
 
-        <span class="kw">if </span>WcgiRunner::can_run_command(cmd.metadata())<span class="question-mark">? </span>{
+        <span class="kw">if </span>DcgiRunner::can_run_command(cmd.metadata())<span class="question-mark">? </span>{
+            <span class="self">self</span>.run_dcgi(id, pkg, uses, runtime)
+        } <span class="kw">else if </span>WcgiRunner::can_run_command(cmd.metadata())<span class="question-mark">? </span>{
             <span class="self">self</span>.run_wcgi(id, pkg, uses, runtime)
         } <span class="kw">else if </span>WasiRunner::can_run_command(cmd.metadata())<span class="question-mark">? </span>{
             <span class="self">self</span>.run_wasi(id, pkg, uses, runtime)
@@ -1089,21 +1209,62 @@
         uses: Vec&lt;BinaryPackage&gt;,
         runtime: Arc&lt;<span class="kw">dyn </span>Runtime + Send + Sync&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt; {
-        <span class="kw">let </span><span class="kw-2">mut </span>runner = wasmer_wasix::runners::wcgi::WcgiRunner::new();
+        <span class="kw">let </span><span class="kw-2">mut </span>runner = wasmer_wasix::runners::wcgi::WcgiRunner::new(NoOpWcgiCallbacks);
+        <span class="self">self</span>.config_wcgi(runner.config(), uses)<span class="question-mark">?</span>;
+        runner.run_command(command_name, pkg, runtime)
+    }
 
-        runner
-            .config()
+    <span class="kw">fn </span>config_wcgi(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        config: <span class="kw-2">&amp;mut </span>wcgi::Config,
+        uses: Vec&lt;BinaryPackage&gt;,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt; {
+        config
             .args(<span class="self">self</span>.args.clone())
             .addr(<span class="self">self</span>.wcgi.addr)
             .envs(<span class="self">self</span>.wasi.env_vars.clone())
             .map_directories(<span class="self">self</span>.wasi.mapped_dirs.clone())
             .callbacks(Callbacks::new(<span class="self">self</span>.wcgi.addr))
             .inject_packages(uses);
-        <span class="kw-2">*</span>runner.config().capabilities() = <span class="self">self</span>.wasi.capabilities();
+        <span class="kw-2">*</span>config.capabilities() = <span class="self">self</span>.wasi.capabilities();
         <span class="kw">if </span><span class="self">self</span>.wasi.forward_host_env {
-            runner.config().forward_host_env();
+            config.forward_host_env();
         }
 
+        <span class="attr">#[cfg(feature = <span class="string">&quot;journal&quot;</span>)]
+        </span>{
+            <span class="kw">for </span>trigger <span class="kw">in </span><span class="self">self</span>.wasi.snapshot_on.iter().cloned() {
+                config.add_snapshot_trigger(trigger);
+            }
+            <span class="kw">if </span><span class="self">self</span>.wasi.snapshot_on.is_empty() &amp;&amp; !<span class="self">self</span>.wasi.journals.is_empty() {
+                config.add_default_snapshot_triggers();
+            }
+            <span class="kw">if let </span><span class="prelude-val">Some</span>(period) = <span class="self">self</span>.wasi.snapshot_interval {
+                <span class="kw">if </span><span class="self">self</span>.wasi.journals.is_empty() {
+                    <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">anyhow::format_err!</span>(
+                        <span class="string">&quot;If you specify a snapshot interval then you must also specify a journal file&quot;
+                    </span>));
+                }
+                config.with_snapshot_interval(Duration::from_millis(period));
+            }
+            <span class="kw">for </span>journal <span class="kw">in </span><span class="self">self</span>.wasi.build_journals()<span class="question-mark">? </span>{
+                config.add_journal(journal);
+            }
+        }
+
+        <span class="prelude-val">Ok</span>(())
+    }
+
+    <span class="kw">fn </span>run_dcgi(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        command_name: <span class="kw-2">&amp;</span>str,
+        pkg: <span class="kw-2">&amp;</span>BinaryPackage,
+        uses: Vec&lt;BinaryPackage&gt;,
+        runtime: Arc&lt;<span class="kw">dyn </span>Runtime + Send + Sync&gt;,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt; {
+        <span class="kw">let </span>factory = DcgiInstanceFactory::new();
+        <span class="kw">let </span><span class="kw-2">mut </span>runner = wasmer_wasix::runners::dcgi::DcgiRunner::new(factory);
+        <span class="self">self</span>.config_wcgi(runner.config().inner(), uses);
         runner.run_command(command_name, pkg, runtime)
     }
 
@@ -1157,7 +1318,7 @@
     ) -&gt; <span class="prelude-ty">Result</span>&lt;WasiRunner, anyhow::Error&gt; {
         <span class="kw">let </span>packages = <span class="self">self</span>.load_injected_packages(runtime)<span class="question-mark">?</span>;
 
-        <span class="kw">let </span>runner = WasiRunner::new()
+        <span class="kw">let </span><span class="kw-2">mut </span>runner = WasiRunner::new()
             .with_args(<span class="kw-2">&amp;</span><span class="self">self</span>.args)
             .with_injected_packages(packages)
             .with_envs(<span class="self">self</span>.wasi.env_vars.clone())
@@ -1165,6 +1326,27 @@
             .with_mapped_directories(<span class="self">self</span>.wasi.build_mapped_directories()<span class="question-mark">?</span>)
             .with_forward_host_env(<span class="self">self</span>.wasi.forward_host_env)
             .with_capabilities(<span class="self">self</span>.wasi.capabilities());
+
+        <span class="attr">#[cfg(feature = <span class="string">&quot;journal&quot;</span>)]
+        </span>{
+            <span class="kw">for </span>trigger <span class="kw">in </span><span class="self">self</span>.wasi.snapshot_on.iter().cloned() {
+                runner.add_snapshot_trigger(trigger);
+            }
+            <span class="kw">if </span><span class="self">self</span>.wasi.snapshot_on.is_empty() &amp;&amp; !<span class="self">self</span>.wasi.journals.is_empty() {
+                runner.add_default_snapshot_triggers();
+            }
+            <span class="kw">if let </span><span class="prelude-val">Some</span>(period) = <span class="self">self</span>.wasi.snapshot_interval {
+                <span class="kw">if </span><span class="self">self</span>.wasi.journals.is_empty() {
+                    <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">anyhow::format_err!</span>(
+                        <span class="string">&quot;If you specify a snapshot interval then you must also specify a journal file&quot;
+                    </span>));
+                }
+                runner.with_snapshot_interval(Duration::from_millis(period));
+            }
+            <span class="kw">for </span>journal <span class="kw">in </span><span class="self">self</span>.wasi.build_journals()<span class="question-mark">? </span>{
+                runner.add_journal(journal);
+            }
+        }
 
         <span class="prelude-val">Ok</span>(runner)
     }
@@ -1174,6 +1356,7 @@
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         wasm_path: <span class="kw-2">&amp;</span>Path,
         module: <span class="kw-2">&amp;</span>Module,
+        module_hash: ModuleHash,
         runtime: Arc&lt;<span class="kw">dyn </span>Runtime + Send + Sync&gt;,
         <span class="kw-2">mut </span>store: Store,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt; {
@@ -1184,6 +1367,7 @@
             runtime,
             <span class="kw-2">&amp;</span>program_name,
             module,
+            module_hash,
             <span class="self">self</span>.wasi.enable_async_threads,
         )
     }
@@ -1419,7 +1603,11 @@
 
 <span class="attr">#[derive(Debug, Clone)]
 </span><span class="kw">enum </span>ExecutableTarget {
-    WebAssembly { module: Module, path: PathBuf },
+    WebAssembly {
+        module: Module,
+        module_hash: ModuleHash,
+        path: PathBuf,
+    },
     Package(BinaryPackage),
 }
 
@@ -1467,6 +1655,7 @@
 
                 <span class="prelude-val">Ok</span>(ExecutableTarget::WebAssembly {
                     module,
+                    module_hash: ModuleHash::hash(<span class="kw-2">&amp;</span>wasm),
                     path: path.to_path_buf(),
                 })
             }
@@ -1474,9 +1663,14 @@
                 <span class="kw">let </span>engine = runtime.engine();
                 pb.set_message(<span class="string">&quot;Deserializing pre-compiled WebAssembly module&quot;</span>);
                 <span class="kw">let </span>module = <span class="kw">unsafe </span>{ Module::deserialize_from_file(<span class="kw-2">&amp;</span>engine, path)<span class="question-mark">? </span>};
+                <span class="kw">let </span>module_hash = {
+                    <span class="kw">let </span>wasm = std::fs::read(path)<span class="question-mark">?</span>;
+                    ModuleHash::hash(wasm)
+                };
 
                 <span class="prelude-val">Ok</span>(ExecutableTarget::WebAssembly {
                     module,
+                    module_hash,
                     path: path.to_path_buf(),
                 })
             }

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["maybe_snapshot","maybe_snapshot_once","restore_snapshot"],"static":["META","__CALLSITE"]};

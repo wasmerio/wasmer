@@ -242,6 +242,9 @@
 <a href="#242" id="242">242</a>
 <a href="#243" id="243">243</a>
 <a href="#244" id="244">244</a>
+<a href="#245" id="245">245</a>
+<a href="#246" id="246">246</a>
+<a href="#247" id="247">247</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::sync::Mutex;
 <span class="kw">use </span>std::{num::NonZeroUsize, pin::Pin, sync::Arc, time::Duration};
 
@@ -391,6 +394,7 @@
     </span><span class="kw">fn </span>task_wasm(<span class="kw-2">&amp;</span><span class="self">self</span>, task: TaskWasm) -&gt; <span class="prelude-ty">Result</span>&lt;(), WasiThreadError&gt; {
         <span class="comment">// Create the context on a new store
         </span><span class="kw">let </span>run = task.run;
+        <span class="kw">let </span>recycle = task.recycle;
         <span class="kw">let </span>(ctx, store) = WasiFunctionEnv::new_with_store(
             task.module,
             task.env,
@@ -415,6 +419,7 @@
                         ctx,
                         store,
                         trigger_result: <span class="prelude-val">Some</span>(result),
+                        recycle,
                     });
                 });
             });
@@ -430,6 +435,7 @@
                     ctx,
                     store,
                     trigger_result: <span class="prelude-val">None</span>,
+                    recycle,
                 });
             });
         }

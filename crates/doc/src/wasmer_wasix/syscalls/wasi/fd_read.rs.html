@@ -389,12 +389,32 @@
 <a href="#389" id="389">389</a>
 <a href="#390" id="390">390</a>
 <a href="#391" id="391">391</a>
+<a href="#392" id="392">392</a>
+<a href="#393" id="393">393</a>
+<a href="#394" id="394">394</a>
+<a href="#395" id="395">395</a>
+<a href="#396" id="396">396</a>
+<a href="#397" id="397">397</a>
+<a href="#398" id="398">398</a>
+<a href="#399" id="399">399</a>
+<a href="#400" id="400">400</a>
+<a href="#401" id="401">401</a>
+<a href="#402" id="402">402</a>
+<a href="#403" id="403">403</a>
+<a href="#404" id="404">404</a>
+<a href="#405" id="405">405</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{collections::VecDeque, task::Waker};
 
-<span class="kw">use </span>virtual_fs::{AsyncReadExt, ReadBuf};
+<span class="kw">use </span>virtual_fs::{AsyncReadExt, DeviceFile, ReadBuf};
 
 <span class="kw">use super</span>::<span class="kw-2">*</span>;
-<span class="kw">use crate</span>::{fs::NotificationInner, net::socket::TimeType, syscalls::<span class="kw-2">*</span>};
+<span class="kw">use crate</span>::{
+    fs::NotificationInner,
+    journal::SnapshotTrigger,
+    net::socket::TimeType,
+    os::task::process::{MaybeCheckpointResult, WasiProcessCheckpoint, WasiProcessInner},
+    syscalls::<span class="kw-2">*</span>,
+};
 
 <span class="doccomment">/// ### `fd_read()`
 /// Read data from file descriptor
@@ -429,6 +449,10 @@
         fd_entry.offset.load(Ordering::Acquire) <span class="kw">as </span>usize
     };
 
+    <span class="kw">if </span>fd == DeviceFile::STDIN {
+        ctx = <span class="macro">wasi_try_ok!</span>(maybe_snapshot_once::&lt;M&gt;(ctx, SnapshotTrigger::FirstStdin)<span class="question-mark">?</span>);
+    }
+
     <span class="kw">let </span>res = fd_read_internal::&lt;M&gt;(<span class="kw-2">&amp;mut </span>ctx, fd, iovs, iovs_len, offset, nread, <span class="bool-val">true</span>)<span class="question-mark">?</span>;
     fd_read_internal_handler(ctx, res, nread)
 }
@@ -459,6 +483,10 @@
 ) -&gt; <span class="prelude-ty">Result</span>&lt;Errno, WasiError&gt; {
     <span class="kw">let </span>pid = ctx.data().pid();
     <span class="kw">let </span>tid = ctx.data().tid();
+
+    <span class="kw">if </span>fd == DeviceFile::STDIN {
+        ctx = <span class="macro">wasi_try_ok!</span>(maybe_snapshot_once::&lt;M&gt;(ctx, SnapshotTrigger::FirstStdin)<span class="question-mark">?</span>);
+    }
 
     <span class="kw">let </span>res = fd_read_internal::&lt;M&gt;(<span class="kw-2">&amp;mut </span>ctx, fd, iovs, iovs_len, offset <span class="kw">as </span>usize, nread, <span class="bool-val">false</span>)<span class="question-mark">?</span>;
     fd_read_internal_handler::&lt;M&gt;(ctx, res, nread)
@@ -500,7 +528,7 @@
     offset: usize,
     nread: WasmPtr&lt;M::Offset, M&gt;,
     should_update_cursor: bool,
-) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Result</span>&lt;usize, Errno&gt;, WasiError&gt; {
+) -&gt; WasiResult&lt;usize&gt; {
     <span class="macro">wasi_try_ok_ok!</span>(WasiEnv::process_signals_and_exit(ctx)<span class="question-mark">?</span>);
 
     <span class="kw">let </span>env = ctx.data();

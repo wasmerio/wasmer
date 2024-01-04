@@ -210,6 +210,8 @@
 <a href="#210" id="210">210</a>
 <a href="#211" id="211">211</a>
 <a href="#212" id="212">212</a>
+<a href="#213" id="213">213</a>
+<a href="#214" id="214">214</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>serde::{Deserialize, Serialize};
 <span class="kw">use </span>wasmer_wasix_types::wasi::{
     EpollCtl, EpollData, EpollEvent, EpollType, SubscriptionClock, Userdata,
@@ -237,6 +239,8 @@
     ret_nevents: WasmPtr&lt;M::Offset, M&gt;,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;Errno, WasiError&gt; {
     <span class="macro">wasi_try_ok!</span>(WasiEnv::process_signals_and_exit(<span class="kw-2">&amp;mut </span>ctx)<span class="question-mark">?</span>);
+
+    ctx = <span class="macro">wasi_try_ok!</span>(maybe_snapshot::&lt;M&gt;(ctx)<span class="question-mark">?</span>);
 
     <span class="kw">if </span>timeout == TIMEOUT_FOREVER {
         <span class="macro">tracing::trace!</span>(maxevents, epfd, <span class="string">&quot;waiting forever on wakers&quot;</span>);

@@ -333,10 +333,22 @@
 <a href="#333" id="333">333</a>
 <a href="#334" id="334">334</a>
 <a href="#335" id="335">335</a>
+<a href="#336" id="336">336</a>
+<a href="#337" id="337">337</a>
+<a href="#338" id="338">338</a>
+<a href="#339" id="339">339</a>
+<a href="#340" id="340">340</a>
+<a href="#341" id="341">341</a>
+<a href="#342" id="342">342</a>
+<a href="#343" id="343">343</a>
+<a href="#344" id="344">344</a>
+<a href="#345" id="345">345</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! The logic for the Wasmer CLI tool.
 
 </span><span class="attr">#[cfg(target_os = <span class="string">&quot;linux&quot;</span>)]
 </span><span class="kw">use </span><span class="kw">crate</span>::commands::Binfmt;
+<span class="attr">#[cfg(feature = <span class="string">&quot;journal&quot;</span>)]
+</span><span class="kw">use </span><span class="kw">crate</span>::commands::CmdJournal;
 <span class="attr">#[cfg(feature = <span class="string">&quot;compiler&quot;</span>)]
 </span><span class="kw">use </span><span class="kw">crate</span>::commands::Compile;
 <span class="attr">#[cfg(any(feature = <span class="string">&quot;static-artifact-create&quot;</span>, feature = <span class="string">&quot;wasmer-artifact-create&quot;</span>))]
@@ -465,6 +477,8 @@
             <span class="comment">// Deploy commands.
             </span><span class="prelude-val">Some</span>(Cmd::Deploy(c)) =&gt; c.run(),
             <span class="prelude-val">Some</span>(Cmd::App(apps)) =&gt; apps.run(),
+            <span class="attr">#[cfg(feature = <span class="string">&quot;journal&quot;</span>)]
+            </span><span class="prelude-val">Some</span>(Cmd::Journal(journal)) =&gt; journal.run(),
             <span class="prelude-val">Some</span>(Cmd::Ssh(ssh)) =&gt; ssh.run(),
             <span class="prelude-val">Some</span>(Cmd::Namespace(namespace)) =&gt; namespace.run(),
             <span class="prelude-val">None </span>=&gt; {
@@ -477,6 +491,7 @@
 }
 
 <span class="attr">#[derive(Parser, Debug)]
+#[allow(clippy::large_enum_variant)]
 </span><span class="doccomment">/// The options for the wasmer Command Line Interface
 </span><span class="kw">enum </span>Cmd {
     <span class="doccomment">/// Login into a wasmer.io-like registry
@@ -599,6 +614,11 @@
     <span class="doccomment">/// Run a WebAssembly file or Wasmer container.
     </span><span class="attr">#[clap(alias = <span class="string">&quot;run-unstable&quot;</span>)]
     </span>Run(Run),
+
+    <span class="doccomment">/// Manage journals (compacting, inspecting, filtering, ...)
+    </span><span class="attr">#[cfg(feature = <span class="string">&quot;journal&quot;</span>)]
+    #[clap(subcommand)]
+    </span>Journal(CmdJournal),
 
     <span class="attr">#[clap(subcommand)]
     </span>Package(<span class="kw">crate</span>::commands::Package),

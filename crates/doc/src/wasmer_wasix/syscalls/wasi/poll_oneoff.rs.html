@@ -448,6 +448,8 @@
 <a href="#448" id="448">448</a>
 <a href="#449" id="449">449</a>
 <a href="#450" id="450">450</a>
+<a href="#451" id="451">451</a>
+<a href="#452" id="452">452</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>serde::{Deserialize, Serialize};
 <span class="kw">use </span>wasmer_wasix_types::wasi::{SubscriptionClock, Userdata};
 
@@ -513,6 +515,8 @@
     nevents: WasmPtr&lt;M::Offset, M&gt;,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;Errno, WasiError&gt; {
     <span class="macro">wasi_try_ok!</span>(WasiEnv::process_signals_and_exit(<span class="kw-2">&amp;mut </span>ctx)<span class="question-mark">?</span>);
+
+    ctx = <span class="macro">wasi_try_ok!</span>(maybe_snapshot::&lt;M&gt;(ctx)<span class="question-mark">?</span>);
 
     ctx.data_mut().poll_seed += <span class="number">1</span>;
     <span class="kw">let </span><span class="kw-2">mut </span>env = ctx.data();

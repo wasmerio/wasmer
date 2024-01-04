@@ -179,6 +179,10 @@
 <a href="#179" id="179">179</a>
 <a href="#180" id="180">180</a>
 <a href="#181" id="181">181</a>
+<a href="#182" id="182">182</a>
+<a href="#183" id="183">183</a>
+<a href="#184" id="184">184</a>
+<a href="#185" id="185">185</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{
     pin::Pin,
     sync::Arc,
@@ -317,6 +321,10 @@
             <span class="comment">// NOTE: unwrap() is fine, because &amp;self always holds on to the sender.
             </span>receiver.changed().<span class="kw">await</span>.unwrap();
         }
+    }
+
+    <span class="kw">pub async fn </span>await_termination_anyhow(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; anyhow::Result&lt;ExitCode&gt; {
+        <span class="prelude-val">Ok</span>(<span class="self">self</span>.await_termination().<span class="kw">await</span><span class="question-mark">?</span>)
     }
 
     <span class="kw">pub fn </span>handle(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; TaskJoinHandle {

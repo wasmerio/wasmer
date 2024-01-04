@@ -956,7 +956,7 @@
                             <span class="kw">break</span>;
                         }
                         <span class="prelude-val">Ok</span>(wasmer_types::OnCalledAction::Trap(trap)) =&gt; {
-                            <span class="kw">return </span><span class="prelude-val">Err</span>(RuntimeError::user(trap))
+                            <span class="kw">return </span><span class="prelude-val">Err</span>(RuntimeError::user(trap));
                         }
                         <span class="prelude-val">Err</span>(trap) =&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(RuntimeError::user(trap)),
                     }

@@ -52,6 +52,26 @@
 <a href="#52" id="52">52</a>
 <a href="#53" id="53">53</a>
 <a href="#54" id="54">54</a>
+<a href="#55" id="55">55</a>
+<a href="#56" id="56">56</a>
+<a href="#57" id="57">57</a>
+<a href="#58" id="58">58</a>
+<a href="#59" id="59">59</a>
+<a href="#60" id="60">60</a>
+<a href="#61" id="61">61</a>
+<a href="#62" id="62">62</a>
+<a href="#63" id="63">63</a>
+<a href="#64" id="64">64</a>
+<a href="#65" id="65">65</a>
+<a href="#66" id="66">66</a>
+<a href="#67" id="67">67</a>
+<a href="#68" id="68">68</a>
+<a href="#69" id="69">69</a>
+<a href="#70" id="70">70</a>
+<a href="#71" id="71">71</a>
+<a href="#72" id="72">72</a>
+<a href="#73" id="73">73</a>
+<a href="#74" id="74">74</a>
 </pre></div><pre class="rust"><code><span class="kw">use super</span>::<span class="kw-2">*</span>;
 <span class="kw">use </span><span class="kw">crate</span>::syscalls::<span class="kw-2">*</span>;
 
@@ -66,44 +86,64 @@
 ///     The length from the offset marking the end of the allocation
 </span><span class="attr">#[instrument(level = <span class="string">&quot;debug&quot;</span>, skip_all, fields(%fd, %offset, %len), ret)]
 </span><span class="kw">pub fn </span>fd_allocate(
-    ctx: FunctionEnvMut&lt;<span class="lifetime">&#39;_</span>, WasiEnv&gt;,
+    <span class="kw-2">mut </span>ctx: FunctionEnvMut&lt;<span class="lifetime">&#39;_</span>, WasiEnv&gt;,
     fd: WasiFd,
     offset: Filesize,
     len: Filesize,
-) -&gt; Errno {
+) -&gt; <span class="prelude-ty">Result</span>&lt;Errno, WasiError&gt; {
+    <span class="macro">wasi_try_ok!</span>(fd_allocate_internal(<span class="kw-2">&amp;mut </span>ctx, fd, offset, len));
+    <span class="kw">let </span>env = ctx.data();
+
+    <span class="attr">#[cfg(feature = <span class="string">&quot;journal&quot;</span>)]
+    </span><span class="kw">if </span>env.enable_journal {
+        JournalEffector::save_fd_allocate(<span class="kw-2">&amp;mut </span>ctx, fd, offset, len).map_err(|err| {
+            <span class="macro">tracing::error!</span>(<span class="string">&quot;failed to save file descriptor allocate event - {}&quot;</span>, err);
+            WasiError::Exit(ExitCode::Errno(Errno::Fault))
+        })<span class="question-mark">?</span>;
+    }
+
+    <span class="prelude-val">Ok</span>(Errno::Success)
+}
+
+<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>fd_allocate_internal(
+    ctx: <span class="kw-2">&amp;mut </span>FunctionEnvMut&lt;<span class="lifetime">&#39;_</span>, WasiEnv&gt;,
+    fd: WasiFd,
+    offset: Filesize,
+    len: Filesize,
+) -&gt; <span class="prelude-ty">Result</span>&lt;(), Errno&gt; {
     <span class="kw">let </span>env = ctx.data();
     <span class="kw">let </span>(<span class="kw">_</span>, <span class="kw-2">mut </span>state) = <span class="kw">unsafe </span>{ env.get_memory_and_wasi_state(<span class="kw-2">&amp;</span>ctx, <span class="number">0</span>) };
-    <span class="kw">let </span>fd_entry = <span class="macro">wasi_try!</span>(state.fs.get_fd(fd));
+    <span class="kw">let </span>fd_entry = state.fs.get_fd(fd)<span class="question-mark">?</span>;
     <span class="kw">let </span>inode = fd_entry.inode;
 
     <span class="kw">if </span>!fd_entry.rights.contains(Rights::FD_ALLOCATE) {
-        <span class="kw">return </span>Errno::Access;
+        <span class="kw">return </span><span class="prelude-val">Err</span>(Errno::Access);
     }
-    <span class="kw">let </span>new_size = <span class="macro">wasi_try!</span>(offset.checked_add(len).ok_or(Errno::Inval));
+    <span class="kw">let </span>new_size = offset.checked_add(len).ok_or(Errno::Inval)<span class="question-mark">?</span>;
     {
         <span class="kw">let </span><span class="kw-2">mut </span>guard = inode.write();
         <span class="kw">match </span>guard.deref_mut() {
             Kind::File { handle, .. } =&gt; {
                 <span class="kw">if let </span><span class="prelude-val">Some</span>(handle) = handle {
                     <span class="kw">let </span><span class="kw-2">mut </span>handle = handle.write().unwrap();
-                    <span class="macro">wasi_try!</span>(handle.set_len(new_size).map_err(fs_error_into_wasi_err));
+                    handle.set_len(new_size).map_err(fs_error_into_wasi_err)<span class="question-mark">?</span>;
                 } <span class="kw">else </span>{
-                    <span class="kw">return </span>Errno::Badf;
+                    <span class="kw">return </span><span class="prelude-val">Err</span>(Errno::Badf);
                 }
             }
-            Kind::Socket { .. } =&gt; <span class="kw">return </span>Errno::Badf,
-            Kind::Pipe { .. } =&gt; <span class="kw">return </span>Errno::Badf,
+            Kind::Socket { .. } =&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(Errno::Badf),
+            Kind::Pipe { .. } =&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(Errno::Badf),
             Kind::Buffer { buffer } =&gt; {
                 buffer.resize(new_size <span class="kw">as </span>usize, <span class="number">0</span>);
             }
-            Kind::Symlink { .. } =&gt; <span class="kw">return </span>Errno::Badf,
-            Kind::EventNotifications { .. } | Kind::Epoll { .. } =&gt; <span class="kw">return </span>Errno::Badf,
-            Kind::Dir { .. } | Kind::Root { .. } =&gt; <span class="kw">return </span>Errno::Isdir,
+            Kind::Symlink { .. } =&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(Errno::Badf),
+            Kind::EventNotifications { .. } | Kind::Epoll { .. } =&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(Errno::Badf),
+            Kind::Dir { .. } | Kind::Root { .. } =&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(Errno::Isdir),
         }
     }
     inode.stat.write().unwrap().st_size = new_size;
     <span class="macro">debug!</span>(%new_size);
 
-    Errno::Success
+    <span class="prelude-val">Ok</span>(())
 }
 </code></pre></div></section></main></body></html>

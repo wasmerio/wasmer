@@ -282,6 +282,12 @@
 <a href="#282" id="282">282</a>
 <a href="#283" id="283">283</a>
 <a href="#284" id="284">284</a>
+<a href="#285" id="285">285</a>
+<a href="#286" id="286">286</a>
+<a href="#287" id="287">287</a>
+<a href="#288" id="288">288</a>
+<a href="#289" id="289">289</a>
+<a href="#290" id="290">290</a>
 </pre></div><pre class="rust"><code><span class="kw">mod </span>dummy_waker;
 <span class="kw">mod </span>owned_mutex_guard;
 <span class="kw">pub mod </span>store;
@@ -320,6 +326,12 @@
 
 <span class="kw">pub fn </span>map_io_err(err: std::io::Error) -&gt; Errno {
     From::&lt;std::io::Error&gt;::from(err)
+}
+
+<span class="attr">#[cfg(feature = <span class="string">&quot;journal&quot;</span>)]
+</span><span class="kw">pub fn </span>map_snapshot_err(err: anyhow::Error) -&gt; Errno {
+    <span class="macro">tracing::warn!</span>(<span class="string">&quot;unknown snapshot error: {}&quot;</span>, err);
+    Errno::Unknown
 }
 
 <span class="doccomment">/// The version of WASI. This is determined by the imports namespace

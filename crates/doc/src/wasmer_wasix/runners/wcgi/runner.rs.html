@@ -283,13 +283,66 @@
 <a href="#283" id="283">283</a>
 <a href="#284" id="284">284</a>
 <a href="#285" id="285">285</a>
+<a href="#286" id="286">286</a>
+<a href="#287" id="287">287</a>
+<a href="#288" id="288">288</a>
+<a href="#289" id="289">289</a>
+<a href="#290" id="290">290</a>
+<a href="#291" id="291">291</a>
+<a href="#292" id="292">292</a>
+<a href="#293" id="293">293</a>
+<a href="#294" id="294">294</a>
+<a href="#295" id="295">295</a>
+<a href="#296" id="296">296</a>
+<a href="#297" id="297">297</a>
+<a href="#298" id="298">298</a>
+<a href="#299" id="299">299</a>
+<a href="#300" id="300">300</a>
+<a href="#301" id="301">301</a>
+<a href="#302" id="302">302</a>
+<a href="#303" id="303">303</a>
+<a href="#304" id="304">304</a>
+<a href="#305" id="305">305</a>
+<a href="#306" id="306">306</a>
+<a href="#307" id="307">307</a>
+<a href="#308" id="308">308</a>
+<a href="#309" id="309">309</a>
+<a href="#310" id="310">310</a>
+<a href="#311" id="311">311</a>
+<a href="#312" id="312">312</a>
+<a href="#313" id="313">313</a>
+<a href="#314" id="314">314</a>
+<a href="#315" id="315">315</a>
+<a href="#316" id="316">316</a>
+<a href="#317" id="317">317</a>
+<a href="#318" id="318">318</a>
+<a href="#319" id="319">319</a>
+<a href="#320" id="320">320</a>
+<a href="#321" id="321">321</a>
+<a href="#322" id="322">322</a>
+<a href="#323" id="323">323</a>
+<a href="#324" id="324">324</a>
+<a href="#325" id="325">325</a>
+<a href="#326" id="326">326</a>
+<a href="#327" id="327">327</a>
+<a href="#328" id="328">328</a>
+<a href="#329" id="329">329</a>
+<a href="#330" id="330">330</a>
+<a href="#331" id="331">331</a>
+<a href="#332" id="332">332</a>
+<a href="#333" id="333">333</a>
+<a href="#334" id="334">334</a>
+<a href="#335" id="335">335</a>
+<a href="#336" id="336">336</a>
+<a href="#337" id="337">337</a>
+<a href="#338" id="338">338</a>
+<a href="#339" id="339">339</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{net::SocketAddr, sync::Arc, time::Duration};
 
 <span class="kw">use </span>anyhow::{Context, Error};
-<span class="kw">use </span>futures::future::AbortHandle;
 <span class="kw">use </span>http::{Request, Response};
 <span class="kw">use </span>hyper::Body;
-<span class="kw">use </span>tower::{make::Shared, ServiceBuilder};
+<span class="kw">use </span>tower::{make::Shared, Service, ServiceBuilder};
 <span class="kw">use </span>tower_http::{catch_panic::CatchPanicLayer, cors::CorsLayer, trace::TraceLayer};
 <span class="kw">use </span>tracing::Span;
 <span class="kw">use </span>wcgi_host::CgiDialect;
@@ -310,14 +363,21 @@
     Runtime, WasiEnvBuilder,
 };
 
-<span class="attr">#[derive(Debug, Default)]
+<span class="kw">use </span><span class="kw">super</span>::Callbacks;
+
+<span class="attr">#[derive(Debug)]
 </span><span class="kw">pub struct </span>WcgiRunner {
     config: Config,
 }
 
 <span class="kw">impl </span>WcgiRunner {
-    <span class="kw">pub fn </span>new() -&gt; <span class="self">Self </span>{
-        WcgiRunner::default()
+    <span class="kw">pub fn </span>new&lt;C&gt;(callbacks: C) -&gt; <span class="self">Self
+    </span><span class="kw">where
+        </span>C: Callbacks,
+    {
+        <span class="self">Self </span>{
+            config: Config::new(callbacks),
+        }
     }
 
     <span class="kw">pub fn </span>config(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;mut </span>Config {
@@ -325,10 +385,12 @@
     }
 
     <span class="attr">#[tracing::instrument(skip_all)]
-    </span><span class="kw">fn </span>prepare_handler(
+    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>prepare_handler(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
         command_name: <span class="kw-2">&amp;</span>str,
         pkg: <span class="kw-2">&amp;</span>BinaryPackage,
+        propagate_stderr: bool,
+        default_dialect: CgiDialect,
         runtime: Arc&lt;<span class="kw">dyn </span>Runtime + Send + Sync&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;Handler, Error&gt; {
         <span class="kw">let </span>cmd = pkg
@@ -344,7 +406,7 @@
         <span class="kw">let </span>Wcgi { dialect, .. } = metadata.annotation(<span class="string">&quot;wcgi&quot;</span>)<span class="question-mark">?</span>.unwrap_or_default();
         <span class="kw">let </span>dialect = <span class="kw">match </span>dialect {
             <span class="prelude-val">Some</span>(d) =&gt; d.parse().context(<span class="string">&quot;Unable to parse the CGI dialect&quot;</span>)<span class="question-mark">?</span>,
-            <span class="prelude-val">None </span>=&gt; CgiDialect::Wcgi,
+            <span class="prelude-val">None </span>=&gt; default_dialect,
         };
 
         <span class="kw">let </span>container_fs = Arc::clone(<span class="kw-2">&amp;</span>pkg.webc_fs);
@@ -354,39 +416,39 @@
         <span class="kw">let </span>setup_builder = <span class="kw">move </span>|builder: <span class="kw-2">&amp;mut </span>WasiEnvBuilder| {
             wasi_common.prepare_webc_env(builder, <span class="prelude-val">Some</span>(Arc::clone(<span class="kw-2">&amp;</span>container_fs)), <span class="kw-2">&amp;</span>wasi, <span class="prelude-val">None</span>)<span class="question-mark">?</span>;
             builder.set_runtime(Arc::clone(<span class="kw-2">&amp;</span>rt));
-
             <span class="prelude-val">Ok</span>(())
         };
 
         <span class="kw">let </span>shared = SharedState {
             module,
+            module_hash: pkg.hash(),
             dialect,
+            propagate_stderr,
             program_name: command_name.to_string(),
-            setup_builder: Box::new(setup_builder),
+            setup_builder: Arc::new(setup_builder),
             callbacks: Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.config.callbacks),
             runtime,
         };
 
-        <span class="prelude-val">Ok</span>(Handler::new(shared))
-    }
-}
-
-<span class="kw">impl </span><span class="kw">crate</span>::runners::Runner <span class="kw">for </span>WcgiRunner {
-    <span class="kw">fn </span>can_run_command(command: <span class="kw-2">&amp;</span>Command) -&gt; <span class="prelude-ty">Result</span>&lt;bool, Error&gt; {
-        <span class="prelude-val">Ok</span>(command
-            .runner
-            .starts_with(webc::metadata::annotations::WCGI_RUNNER_URI))
+        <span class="prelude-val">Ok</span>(Handler::new(Arc::new(shared)))
     }
 
-    <span class="kw">fn </span>run_command(
+    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>run_command_with_handler&lt;S&gt;(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
-        command_name: <span class="kw-2">&amp;</span>str,
-        pkg: <span class="kw-2">&amp;</span>BinaryPackage,
+        handler: S,
         runtime: Arc&lt;<span class="kw">dyn </span>Runtime + Send + Sync&gt;,
-    ) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt; {
-        <span class="kw">let </span>handler = <span class="self">self</span>.prepare_handler(command_name, pkg, Arc::clone(<span class="kw-2">&amp;</span>runtime))<span class="question-mark">?</span>;
-        <span class="kw">let </span>callbacks = Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.config.callbacks);
-
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt;
+    <span class="kw">where
+        </span>S: Service&lt;
+            Request&lt;Body&gt;,
+            Response = http::Response&lt;Body&gt;,
+            Error = anyhow::Error,
+            Future = std::pin::Pin&lt;
+                Box&lt;<span class="kw">dyn </span>futures::Future&lt;Output = <span class="prelude-ty">Result</span>&lt;Response&lt;Body&gt;, Error&gt;&gt; + Send&gt;,
+            &gt;,
+        &gt;,
+        S: Clone + Send + Sync + <span class="lifetime">&#39;static</span>,
+    {
         <span class="kw">let </span>service = ServiceBuilder::new()
             .layer(
                 TraceLayer::new_for_http()
@@ -410,6 +472,7 @@
         <span class="kw">let </span>address = <span class="self">self</span>.config.addr;
         <span class="macro">tracing::info!</span>(%address, <span class="string">&quot;Starting the server&quot;</span>);
 
+        <span class="kw">let </span>callbacks = Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.config.callbacks);
         runtime
             .task_manager()
             .spawn_and_block_on(<span class="kw">async move </span>{
@@ -432,13 +495,37 @@
     }
 }
 
+<span class="kw">impl </span><span class="kw">crate</span>::runners::Runner <span class="kw">for </span>WcgiRunner {
+    <span class="kw">fn </span>can_run_command(command: <span class="kw-2">&amp;</span>Command) -&gt; <span class="prelude-ty">Result</span>&lt;bool, Error&gt; {
+        <span class="prelude-val">Ok</span>(command
+            .runner
+            .starts_with(webc::metadata::annotations::WCGI_RUNNER_URI))
+    }
+
+    <span class="kw">fn </span>run_command(
+        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
+        command_name: <span class="kw-2">&amp;</span>str,
+        pkg: <span class="kw-2">&amp;</span>BinaryPackage,
+        runtime: Arc&lt;<span class="kw">dyn </span>Runtime + Send + Sync&gt;,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt; {
+        <span class="kw">let </span>handler = <span class="self">self</span>.prepare_handler(
+            command_name,
+            pkg,
+            <span class="bool-val">false</span>,
+            CgiDialect::Wcgi,
+            Arc::clone(<span class="kw-2">&amp;</span>runtime),
+        )<span class="question-mark">?</span>;
+        <span class="self">self</span>.run_command_with_handler(handler, runtime)
+    }
+}
+
 <span class="attr">#[derive(derivative::Derivative)]
 #[derivative(Debug)]
 </span><span class="kw">pub struct </span>Config {
-    wasi: CommonWasiOptions,
-    addr: SocketAddr,
+    <span class="kw">pub</span>(<span class="kw">crate</span>) wasi: CommonWasiOptions,
+    <span class="kw">pub</span>(<span class="kw">crate</span>) addr: SocketAddr,
     <span class="attr">#[derivative(Debug = <span class="string">&quot;ignore&quot;</span>)]
-    </span>callbacks: Arc&lt;<span class="kw">dyn </span>Callbacks&gt;,
+    </span><span class="kw">pub</span>(<span class="kw">crate</span>) callbacks: Arc&lt;<span class="kw">dyn </span>Callbacks&gt;,
 }
 
 <span class="kw">impl </span>Config {
@@ -526,34 +613,55 @@
     <span class="kw">pub fn </span>capabilities(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;mut </span>Capabilities {
         <span class="kw-2">&amp;mut </span><span class="self">self</span>.wasi.capabilities
     }
+
+    <span class="attr">#[cfg(feature = <span class="string">&quot;journal&quot;</span>)]
+    </span><span class="kw">pub fn </span>add_snapshot_trigger(<span class="kw-2">&amp;mut </span><span class="self">self</span>, on: <span class="kw">crate</span>::journal::SnapshotTrigger) {
+        <span class="self">self</span>.wasi.snapshot_on.push(on);
+    }
+
+    <span class="attr">#[cfg(feature = <span class="string">&quot;journal&quot;</span>)]
+    </span><span class="kw">pub fn </span>add_default_snapshot_triggers(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;mut </span><span class="self">Self </span>{
+        <span class="kw">for </span>on <span class="kw">in </span><span class="kw">crate</span>::journal::DEFAULT_SNAPSHOT_TRIGGERS {
+            <span class="kw">if </span>!<span class="self">self</span>.has_snapshot_trigger(on) {
+                <span class="self">self</span>.add_snapshot_trigger(on);
+            }
+        }
+        <span class="self">self
+    </span>}
+
+    <span class="attr">#[cfg(feature = <span class="string">&quot;journal&quot;</span>)]
+    </span><span class="kw">pub fn </span>has_snapshot_trigger(<span class="kw-2">&amp;</span><span class="self">self</span>, on: <span class="kw">crate</span>::journal::SnapshotTrigger) -&gt; bool {
+        <span class="self">self</span>.wasi.snapshot_on.iter().any(|t| <span class="kw-2">*</span>t == on)
+    }
+
+    <span class="attr">#[cfg(feature = <span class="string">&quot;journal&quot;</span>)]
+    </span><span class="kw">pub fn </span>with_snapshot_interval(<span class="kw-2">&amp;mut </span><span class="self">self</span>, period: std::time::Duration) -&gt; <span class="kw-2">&amp;mut </span><span class="self">Self </span>{
+        <span class="kw">if </span>!<span class="self">self</span>.has_snapshot_trigger(<span class="kw">crate</span>::journal::SnapshotTrigger::PeriodicInterval) {
+            <span class="self">self</span>.add_snapshot_trigger(<span class="kw">crate</span>::journal::SnapshotTrigger::PeriodicInterval);
+        }
+        <span class="self">self</span>.wasi.snapshot_interval.replace(period);
+        <span class="self">self
+    </span>}
+
+    <span class="attr">#[cfg(feature = <span class="string">&quot;journal&quot;</span>)]
+    </span><span class="kw">pub fn </span>add_journal(<span class="kw-2">&amp;mut </span><span class="self">self</span>, journal: Arc&lt;<span class="kw">crate</span>::journal::DynJournal&gt;) -&gt; <span class="kw-2">&amp;mut </span><span class="self">Self </span>{
+        <span class="self">self</span>.wasi.journals.push(journal);
+        <span class="self">self
+    </span>}
 }
 
-<span class="kw">impl </span>Default <span class="kw">for </span>Config {
-    <span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
+<span class="kw">impl </span>Config {
+    <span class="kw">pub fn </span>new&lt;C&gt;(callbacks: C) -&gt; <span class="self">Self
+    </span><span class="kw">where
+        </span>C: Callbacks,
+    {
         <span class="self">Self </span>{
             addr: ([<span class="number">127</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">1</span>], <span class="number">8000</span>).into(),
             wasi: CommonWasiOptions::default(),
-            callbacks: Arc::new(NoopCallbacks),
+            callbacks: Arc::new(callbacks),
         }
     }
 }
-
-<span class="doccomment">/// Callbacks that are triggered at various points in the lifecycle of a runner
-/// and any WebAssembly instances it may start.
-</span><span class="kw">pub trait </span>Callbacks: Send + Sync + <span class="lifetime">&#39;static </span>{
-    <span class="doccomment">/// A callback that is called whenever the server starts.
-    </span><span class="kw">fn </span>started(<span class="kw-2">&amp;</span><span class="self">self</span>, _abort: AbortHandle) {}
-
-    <span class="doccomment">/// Data was written to stderr by an instance.
-    </span><span class="kw">fn </span>on_stderr(<span class="kw-2">&amp;</span><span class="self">self</span>, _stderr: <span class="kw-2">&amp;</span>[u8]) {}
-
-    <span class="doccomment">/// Reading from stderr failed.
-    </span><span class="kw">fn </span>on_stderr_error(<span class="kw-2">&amp;</span><span class="self">self</span>, _error: std::io::Error) {}
-}
-
-<span class="kw">struct </span>NoopCallbacks;
-
-<span class="kw">impl </span>Callbacks <span class="kw">for </span>NoopCallbacks {}
 
 <span class="attr">#[cfg(test)]
 </span><span class="kw">mod </span>tests {

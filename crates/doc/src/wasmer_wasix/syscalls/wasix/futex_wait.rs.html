@@ -172,6 +172,8 @@
 <a href="#172" id="172">172</a>
 <a href="#173" id="173">173</a>
 <a href="#174" id="174">174</a>
+<a href="#175" id="175">175</a>
+<a href="#176" id="176">176</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::task::Waker;
 
 <span class="kw">use super</span>::<span class="kw-2">*</span>;
@@ -263,6 +265,8 @@
     ret_woken: WasmPtr&lt;Bool, M&gt;,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;Errno, WasiError&gt; {
     <span class="macro">wasi_try_ok!</span>(WasiEnv::process_signals_and_exit(<span class="kw-2">&amp;mut </span>ctx)<span class="question-mark">?</span>);
+
+    ctx = <span class="macro">wasi_try_ok!</span>(maybe_snapshot::&lt;M&gt;(ctx)<span class="question-mark">?</span>);
 
     <span class="comment">// If we were just restored then we were woken after a deep sleep
     // and thus we repeat all the checks again, we do not immediately

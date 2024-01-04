@@ -1528,6 +1528,20 @@
 <a href="#1528" id="1528">1528</a>
 <a href="#1529" id="1529">1529</a>
 <a href="#1530" id="1530">1530</a>
+<a href="#1531" id="1531">1531</a>
+<a href="#1532" id="1532">1532</a>
+<a href="#1533" id="1533">1533</a>
+<a href="#1534" id="1534">1534</a>
+<a href="#1535" id="1535">1535</a>
+<a href="#1536" id="1536">1536</a>
+<a href="#1537" id="1537">1537</a>
+<a href="#1538" id="1538">1538</a>
+<a href="#1539" id="1539">1539</a>
+<a href="#1540" id="1540">1540</a>
+<a href="#1541" id="1541">1541</a>
+<a href="#1542" id="1542">1542</a>
+<a href="#1543" id="1543">1543</a>
+<a href="#1544" id="1544">1544</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::collections::HashMap;
 <span class="kw">use </span>std::collections::VecDeque;
 <span class="kw">use </span>std::future::Future;
@@ -1865,7 +1879,9 @@
                                 <span class="kw">let </span>guard = <span class="self">self</span>.common.recv_tx.lock().unwrap();
                                 <span class="kw">match </span>guard.get(<span class="kw-2">&amp;</span>socket_id) {
                                     <span class="prelude-val">Some</span>(tx) =&gt; tx.clone(),
-                                    <span class="prelude-val">None </span>=&gt; <span class="kw">continue</span>,
+                                    <span class="prelude-val">None </span>=&gt; {
+                                        <span class="kw">continue</span>;
+                                    }
                                 }
                             };
                             <span class="kw">let </span>common = <span class="self">self</span>.common.clone();
@@ -1939,7 +1955,6 @@
                                 }
                             }
                         },
-
                         MessageResponse::FinishAccept {
                             socket_id,
                             child_id,
@@ -2402,7 +2417,7 @@
     tx_waker: Waker,
     rx_accept: mpsc::Receiver&lt;SocketWithAddr&gt;,
     rx_sent: mpsc::Receiver&lt;u64&gt;,
-    pending_accept: <span class="prelude-ty">Option</span>&lt;SocketId&gt;,
+    pending_accept: <span class="prelude-ty">Option</span>&lt;(SocketId, mpsc::Receiver&lt;Vec&lt;u8&gt;&gt;)&gt;,
     buffer_recv_with_addr: VecDeque&lt;DataWithAddr&gt;,
     buffer_accept: VecDeque&lt;SocketWithAddr&gt;,
     send_available: u64,
@@ -2460,7 +2475,11 @@
             .fetch_add(<span class="number">1</span>, Ordering::SeqCst)
             .into();
         <span class="self">self</span>.io_socket_fire_and_forget(RequestType::BeginAccept(child_id))<span class="question-mark">?</span>;
-        <span class="self">self</span>.pending_accept.replace(child_id);
+
+        <span class="kw">let </span>(tx, rx_recv) = tokio::sync::mpsc::channel(<span class="number">100</span>);
+        <span class="self">self</span>.common.recv_tx.lock().unwrap().insert(child_id, tx);
+
+        <span class="self">self</span>.pending_accept.replace((child_id, rx_recv));
         <span class="prelude-val">Ok</span>(())
     }
 }
@@ -2589,16 +2608,25 @@
         <span class="comment">// This placed here will mean there is always an accept request pending at the
         // server as the constructor invokes this method and we invoke it here after
         // receiving a child connection.
-        </span><span class="self">self</span>.pending_accept.take();
+        </span><span class="kw">let </span><span class="kw-2">mut </span>rx_recv = <span class="prelude-val">None</span>;
+        <span class="kw">if let </span><span class="prelude-val">Some</span>((rx_socket, existing_rx_recv)) = <span class="self">self</span>.pending_accept.take() {
+            <span class="kw">if </span>accepted.socket == rx_socket {
+                rx_recv.replace(existing_rx_recv);
+            }
+        }
+        <span class="kw">let </span>rx_recv = <span class="kw">match </span>rx_recv {
+            <span class="prelude-val">Some</span>(rx_recv) =&gt; rx_recv,
+            <span class="prelude-val">None </span>=&gt; {
+                <span class="kw">let </span>(tx, rx_recv) = tokio::sync::mpsc::channel(<span class="number">100</span>);
+                <span class="self">self</span>.common
+                    .recv_tx
+                    .lock()
+                    .unwrap()
+                    .insert(accepted.socket, tx);
+                rx_recv
+            }
+        };
         <span class="self">self</span>.touch_begin_accept().ok();
-
-        <span class="comment">// Now we construct the child
-        </span><span class="kw">let </span>(tx, rx_recv) = tokio::sync::mpsc::channel(<span class="number">100</span>);
-        <span class="self">self</span>.common
-            .recv_tx
-            .lock()
-            .unwrap()
-            .insert(accepted.socket, tx);
 
         <span class="kw">let </span>(tx, rx_recv_with_addr) = tokio::sync::mpsc::channel(<span class="number">100</span>);
         <span class="self">self</span>.common

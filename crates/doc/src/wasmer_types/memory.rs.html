@@ -151,7 +151,10 @@
 <a href="#151" id="151">151</a>
 <a href="#152" id="152">152</a>
 <a href="#153" id="153">153</a>
+<a href="#154" id="154">154</a>
+<a href="#155" id="155">155</a>
 </pre></div><pre class="rust"><code><span class="kw">use crate</span>::{Pages, ValueType};
+<span class="kw">use </span>core::ops::SubAssign;
 <span class="kw">use </span>rkyv::{Archive, Deserialize <span class="kw">as </span>RkyvDeserialize, Serialize <span class="kw">as </span>RkyvSerialize};
 <span class="attr">#[cfg(feature = <span class="string">&quot;enable-serde&quot;</span>)]
 </span><span class="kw">use </span>serde::{Deserialize, Serialize};
@@ -246,6 +249,7 @@
         + Add&lt;<span class="self">Self</span>::Offset&gt;
         + Sum&lt;<span class="self">Self</span>::Offset&gt;
         + AddAssign&lt;<span class="self">Self</span>::Offset&gt;
+        + SubAssign&lt;<span class="self">Self</span>::Offset&gt;
         + <span class="lifetime">&#39;static</span>;
 
     <span class="doccomment">/// Type used to pass this value as an argument or return value for a Wasm function.

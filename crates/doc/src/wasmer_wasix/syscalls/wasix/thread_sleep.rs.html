@@ -44,6 +44,8 @@
 <a href="#44" id="44">44</a>
 <a href="#45" id="45">45</a>
 <a href="#46" id="46">46</a>
+<a href="#47" id="47">47</a>
+<a href="#48" id="48">48</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::task::Waker;
 
 <span class="kw">use super</span>::<span class="kw-2">*</span>;
@@ -72,6 +74,8 @@
     <span class="kw">if let </span><span class="prelude-val">Some</span>(()) = <span class="kw">unsafe </span>{ handle_rewind::&lt;M, <span class="kw">_</span>&gt;(<span class="kw-2">&amp;mut </span>ctx) } {
         <span class="kw">return </span><span class="prelude-val">Ok</span>(Errno::Success);
     }
+
+    ctx = <span class="macro">wasi_try_ok!</span>(maybe_snapshot::&lt;M&gt;(ctx)<span class="question-mark">?</span>);
 
     <span class="kw">let </span>env = ctx.data();
 

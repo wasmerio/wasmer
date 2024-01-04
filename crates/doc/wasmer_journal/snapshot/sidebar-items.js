@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["DEFAULT_SNAPSHOT_TRIGGERS"],"enum":["SnapshotTrigger"]};
