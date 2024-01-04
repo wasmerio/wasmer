@@ -11,9 +11,10 @@ use webc::metadata::{annotations::Wasi, Command};
 use crate::{
     bin_factory::BinaryPackage,
     capabilities::Capabilities,
+    journal::{DynJournal, SnapshotTrigger},
     runners::{wasi_common::CommonWasiOptions, MappedDirectory},
-    runtime::task_manager::VirtualTaskManagerExt,
-    Runtime, WasiEnvBuilder, WasiRuntimeError,
+    runtime::{module_cache::ModuleHash, task_manager::VirtualTaskManagerExt},
+    Runtime, WasiEnvBuilder, WasiError, WasiRuntimeError,
 };
 
 use super::wasi_common::MappedCommand;
@@ -188,6 +189,37 @@ impl WasiRunner {
         self.wasi.capabilities = capabilities;
     }
 
+    pub fn add_snapshot_trigger(&mut self, on: SnapshotTrigger) -> &mut Self {
+        self.wasi.snapshot_on.push(on);
+        self
+    }
+
+    pub fn add_default_snapshot_triggers(&mut self) -> &mut Self {
+        for on in crate::journal::DEFAULT_SNAPSHOT_TRIGGERS {
+            if !self.has_snapshot_trigger(on) {
+                self.add_snapshot_trigger(on);
+            }
+        }
+        self
+    }
+
+    pub fn has_snapshot_trigger(&self, on: SnapshotTrigger) -> bool {
+        self.wasi.snapshot_on.iter().any(|t| *t == on)
+    }
+
+    pub fn with_snapshot_interval(&mut self, period: std::time::Duration) -> &mut Self {
+        if !self.has_snapshot_trigger(SnapshotTrigger::PeriodicInterval) {
+            self.add_snapshot_trigger(SnapshotTrigger::PeriodicInterval);
+        }
+        self.wasi.snapshot_interval.replace(period);
+        self
+    }
+
+    pub fn add_journal(&mut self, journal: Arc<DynJournal>) -> &mut Self {
+        self.wasi.journals.push(journal);
+        self
+    }
+
     pub fn with_stdin(mut self, stdin: Box<dyn VirtualFile + Send + Sync>) -> Self {
         self.set_stdin(stdin);
         self
@@ -231,6 +263,7 @@ impl WasiRunner {
 
         let container_fs = if let Some(pkg) = pkg {
             builder.add_webc(pkg.clone());
+            builder.set_module_hash(pkg.hash());
             Some(Arc::clone(&pkg.webc_fs))
         } else {
             None
@@ -257,6 +290,7 @@ impl WasiRunner {
         runtime: Arc<dyn Runtime + Send + Sync>,
         program_name: &str,
         module: &Module,
+        module_hash: ModuleHash,
         asyncify: bool,
     ) -> Result<(), Error> {
         let wasi = webc::metadata::annotations::Wasi::new(program_name);
@@ -264,9 +298,9 @@ impl WasiRunner {
         let env = self.prepare_webc_env(program_name, &wasi, None, runtime, None)?;
 
         if asyncify {
-            env.run_with_store_async(module.clone(), store)?;
+            env.run_with_store_async(module.clone(), module_hash, store)?;
         } else {
-            env.run_with_store(module.clone(), &mut store)?;
+            env.run_with_store_ext(module.clone(), module_hash, &mut store)?;
         }
 
         Ok(())
@@ -295,11 +329,23 @@ impl crate::runners::Runner for WasiRunner {
             .annotation("wasi")?
             .unwrap_or_else(|| Wasi::new(command_name));
 
-        let env = self
+        #[allow(unused_mut)]
+        let mut env = self
             .prepare_webc_env(command_name, &wasi, Some(pkg), Arc::clone(&runtime), None)
-            .context("Unable to prepare the WASI environment")?
-            .build()?;
+            .context("Unable to prepare the WASI environment")?;
 
+        #[cfg(feature = "journal")]
+        {
+            for journal in self.wasi.journals.clone() {
+                env.add_journal(journal);
+            }
+
+            for snapshot_trigger in self.wasi.snapshot_on.iter().cloned() {
+                env.add_snapshot_trigger(snapshot_trigger);
+            }
+        }
+
+        let env = env.build()?;
         let store = runtime.new_store();
 
         let command_name = command_name.to_string();
@@ -316,7 +362,51 @@ impl crate::runners::Runner for WasiRunner {
                 task_handle
                     .wait_finished()
                     .await
-                    .map_err(|err| Arc::into_inner(err).expect("Error shouldn't be shared"))
+                    .map_err(|err| {
+                        // We do our best to recover the error
+                        let msg = err.to_string();
+                        let weak = Arc::downgrade(&err);
+                        Arc::into_inner(err).unwrap_or_else(|| {
+                            weak.upgrade()
+                                .map(|err| match err.as_ref() {
+                                    WasiRuntimeError::Init(a) => WasiRuntimeError::Init(a.clone()),
+                                    WasiRuntimeError::Export(a) => {
+                                        WasiRuntimeError::Export(a.clone())
+                                    }
+                                    WasiRuntimeError::Instantiation(a) => {
+                                        WasiRuntimeError::Instantiation(a.clone())
+                                    }
+                                    WasiRuntimeError::Wasi(WasiError::Exit(a)) => {
+                                        WasiRuntimeError::Wasi(WasiError::Exit(*a))
+                                    }
+                                    WasiRuntimeError::Wasi(WasiError::UnknownWasiVersion) => {
+                                        WasiRuntimeError::Wasi(WasiError::UnknownWasiVersion)
+                                    }
+                                    WasiRuntimeError::Wasi(WasiError::DeepSleep(_)) => {
+                                        WasiRuntimeError::Anyhow(Arc::new(anyhow::format_err!(
+                                            "deep-sleep"
+                                        )))
+                                    }
+                                    WasiRuntimeError::ControlPlane(a) => {
+                                        WasiRuntimeError::ControlPlane(a.clone())
+                                    }
+                                    WasiRuntimeError::Runtime(a) => {
+                                        WasiRuntimeError::Runtime(a.clone())
+                                    }
+                                    WasiRuntimeError::Thread(a) => {
+                                        WasiRuntimeError::Thread(a.clone())
+                                    }
+                                    WasiRuntimeError::Anyhow(a) => {
+                                        WasiRuntimeError::Anyhow(a.clone())
+                                    }
+                                })
+                                .unwrap_or_else(|| {
+                                    WasiRuntimeError::Anyhow(Arc::new(anyhow::format_err!(
+                                        "{}", msg
+                                    )))
+                                })
+                        })
+                    })
                     .context("Unable to wait for the process to exit")
             }
             .in_current_span(),

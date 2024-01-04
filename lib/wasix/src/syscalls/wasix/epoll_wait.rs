@@ -26,6 +26,8 @@ pub fn epoll_wait<'a, M: MemorySize + 'static>(
 ) -> Result<Errno, WasiError> {
     wasi_try_ok!(WasiEnv::process_signals_and_exit(&mut ctx)?);
 
+    ctx = wasi_try_ok!(maybe_snapshot::<M>(ctx)?);
+
     if timeout == TIMEOUT_FOREVER {
         tracing::trace!(maxevents, epfd, "waiting forever on wakers");
     } else {

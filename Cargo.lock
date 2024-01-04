@@ -2614,6 +2614,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b5e6163cb8c49088c2c36f57875e58ccd8c87c7427f7fbd50ea6710b2f3f2e8f"
 
 [[package]]
+name = "lz4_flex"
+version = "0.11.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3ea9b256699eda7b0387ffbc776dd625e28bde3918446381781245b7a50349d8"
+dependencies = [
+ "twox-hash",
+]
+
+[[package]]
 name = "lzma-rs"
 version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4234,7 +4243,21 @@ checksum = "e0bccbcf40c8938196944a3da0e133e031a33f4d6b72db3bda3cc556e361905d"
 dependencies = [
  "lazy_static",
  "parking_lot 0.11.2",
- "serial_test_derive",
+ "serial_test_derive 0.5.1",
+]
+
+[[package]]
+name = "serial_test"
+version = "2.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0e56dd856803e253c8f298af3f4d7eb0ae5e23a737252cd90bb4f3b435033b2d"
+dependencies = [
+ "dashmap",
+ "futures",
+ "lazy_static",
+ "log",
+ "parking_lot 0.12.1",
+ "serial_test_derive 2.0.0",
 ]
 
 [[package]]
@@ -4246,6 +4269,17 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 1.0.109",
+]
+
+[[package]]
+name = "serial_test_derive"
+version = "2.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "91d129178576168c589c9ec973feedf7d3126c01ac2bf08795109aa35b69fb8f"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.42",
 ]
 
 [[package]]
@@ -5076,6 +5110,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "twox-hash"
+version = "1.6.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "97fee6b57c6a41524a810daee9286c02d7752c4253064d0b05472833a438f675"
+dependencies = [
+ "cfg-if",
+ "static_assertions",
+]
+
+[[package]]
 name = "typenum"
 version = "1.17.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5268,6 +5312,7 @@ dependencies = [
  "pin-project-lite",
  "pretty_assertions",
  "replace_with",
+ "serde",
  "shared-buffer",
  "slab",
  "tempfile",
@@ -5347,6 +5392,7 @@ dependencies = [
  "async-trait",
  "base64",
  "bincode",
+ "bytecheck",
  "bytes",
  "derivative",
  "futures-util",
@@ -5355,7 +5401,9 @@ dependencies = [
  "libc",
  "mio",
  "pin-project-lite",
+ "rkyv",
  "serde",
+ "serial_test 2.0.0",
  "socket2 0.4.10",
  "thiserror",
  "tokio",
@@ -6161,6 +6209,32 @@ name = "wasmer-integration-tests-ios"
 version = "4.2.5"
 
 [[package]]
+name = "wasmer-journal"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "base64",
+ "bincode",
+ "bytecheck",
+ "bytes",
+ "derivative",
+ "lz4_flex",
+ "num_enum",
+ "rkyv",
+ "serde",
+ "serde_json",
+ "shared-buffer",
+ "tempfile",
+ "thiserror",
+ "tracing",
+ "tracing-test",
+ "virtual-net 0.6.2",
+ "wasmer",
+ "wasmer-wasix-types",
+]
+
+[[package]]
 name = "wasmer-middlewares"
 version = "4.2.5"
 dependencies = [
@@ -6350,7 +6424,9 @@ version = "0.18.0"
 dependencies = [
  "anyhow",
  "async-trait",
+ "base64",
  "bincode",
+ "bytecheck",
  "bytes",
  "cfg-if",
  "chrono",
@@ -6367,12 +6443,16 @@ dependencies = [
  "lazy_static",
  "libc",
  "linked_hash_set",
+ "lz4_flex",
+ "num_enum",
  "once_cell",
  "petgraph",
  "pin-project",
  "pretty_assertions",
  "rand",
+ "rayon",
  "reqwest",
+ "rkyv",
  "rusty_pool",
  "semver 1.0.20",
  "serde",
@@ -6381,6 +6461,7 @@ dependencies = [
  "serde_json",
  "serde_yaml 0.8.26",
  "sha2",
+ "shared-buffer",
  "tempfile",
  "term_size",
  "termios",
@@ -6390,6 +6471,7 @@ dependencies = [
  "tower-http",
  "tracing",
  "tracing-subscriber",
+ "tracing-test",
  "tracing-wasm",
  "typetag",
  "url",
@@ -6404,6 +6486,7 @@ dependencies = [
  "wasm-bindgen-test",
  "wasmer",
  "wasmer-emscripten",
+ "wasmer-journal",
  "wasmer-types",
  "wasmer-wasix-types",
  "wcgi",
@@ -6506,7 +6589,7 @@ dependencies = [
  "glob",
  "lazy_static",
  "rustc_version 0.4.0",
- "serial_test",
+ "serial_test 0.5.1",
  "tempfile",
  "test-generator",
  "test-log",

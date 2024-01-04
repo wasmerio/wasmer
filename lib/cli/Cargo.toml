@@ -39,6 +39,7 @@ wasmer-vm = { version = "=4.2.5", path = "../vm", optional = true }
 wasmer-wasix = { version = "0.18.0", path = "../wasix", features = [
   "logging",
   "webc_runner_rt_wcgi",
+  "webc_runner_rt_dcgi",
   "webc_runner_rt_emscripten",
   "host-fs",
 ] }
@@ -158,7 +159,16 @@ unix_mode = "0.1.3"
 [features]
 # Don't add the compiler features in default, please add them on the Makefile
 # since we might want to autoconfigure them depending on the availability on the host.
-default = ["sys", "wat", "wast", "compiler", "wasmer-artifact-create", "static-artifact-create"]
+default = [
+  "sys",
+  "wat",
+  "wast",
+  "compiler",
+  "journal",
+  "wasmer-artifact-create",
+  "static-artifact-create",
+]
+journal = ["wasmer-wasix/journal"]
 backend = []
 coredump = ["wasm-coredump-builder"]
 sys = ["compiler", "wasmer-vm"]

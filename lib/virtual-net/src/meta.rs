@@ -1,13 +1,14 @@
+use std::net::IpAddr;
+use std::net::Ipv4Addr;
+use std::net::Ipv6Addr;
+use std::net::SocketAddr;
+use std::time::Duration;
+
 use serde::{Deserialize, Serialize};
 
-pub use super::Duration;
-pub use super::IpAddr;
 pub use super::IpCidr;
 pub use super::IpRoute;
-pub use super::Ipv4Addr;
-pub use super::Ipv6Addr;
 pub use super::NetworkError;
-pub use super::SocketAddr;
 pub use super::SocketStatus;
 pub use super::StreamSecurity;
 

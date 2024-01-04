@@ -72,6 +72,9 @@ pub enum InodeSocketKind {
         socket: Box<dyn VirtualUdpSocket + Sync>,
         peer: Option<SocketAddr>,
     },
+    RemoteTcpStream {
+        peer_addr: SocketAddr,
+    },
 }
 
 pub enum WasiSocketOption {
@@ -148,6 +151,7 @@ pub enum WasiSocketStatus {
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 pub enum TimeType {
     ReadTimeout,
     WriteTimeout,
@@ -155,6 +159,33 @@ pub enum TimeType {
     ConnectTimeout,
     BindTimeout,
     Linger,
+}
+
+impl From<TimeType> for wasmer_journal::SocketOptTimeType {
+    fn from(value: TimeType) -> Self {
+        match value {
+            TimeType::ReadTimeout => Self::ReadTimeout,
+            TimeType::WriteTimeout => Self::WriteTimeout,
+            TimeType::AcceptTimeout => Self::AcceptTimeout,
+            TimeType::ConnectTimeout => Self::ConnectTimeout,
+            TimeType::BindTimeout => Self::BindTimeout,
+            TimeType::Linger => Self::Linger,
+        }
+    }
+}
+
+impl From<wasmer_journal::SocketOptTimeType> for TimeType {
+    fn from(value: wasmer_journal::SocketOptTimeType) -> Self {
+        use wasmer_journal::SocketOptTimeType;
+        match value {
+            SocketOptTimeType::ReadTimeout => TimeType::ReadTimeout,
+            SocketOptTimeType::WriteTimeout => TimeType::WriteTimeout,
+            SocketOptTimeType::AcceptTimeout => TimeType::AcceptTimeout,
+            SocketOptTimeType::ConnectTimeout => TimeType::ConnectTimeout,
+            SocketOptTimeType::BindTimeout => TimeType::BindTimeout,
+            SocketOptTimeType::Linger => TimeType::Linger,
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -176,13 +207,13 @@ pub struct InodeSocket {
 }
 
 impl InodeSocket {
-    pub fn new(kind: InodeSocketKind) -> virtual_net::Result<Self> {
+    pub fn new(kind: InodeSocketKind) -> Self {
         let protected = InodeSocketProtected { kind };
-        Ok(Self {
+        Self {
             inner: Arc::new(InodeSocketInner {
                 protected: RwLock::new(protected),
             }),
-        })
+        }
     }
 
     pub fn poll_read_ready(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<usize>> {
@@ -266,7 +297,7 @@ impl InodeSocket {
         tokio::select! {
             socket = socket => {
                 let socket = socket.map_err(net_error_into_wasi_err)?;
-                Ok(Some(InodeSocket::new(InodeSocketKind::UdpSocket { socket, peer: None }).map_err(net_error_into_wasi_err)?))
+                Ok(Some(InodeSocket::new(InodeSocketKind::UdpSocket { socket, peer: None })))
             },
             _ = tasks.sleep_now(timeout) => Err(Errno::Timedout)
         }
@@ -326,7 +357,7 @@ impl InodeSocket {
                 Ok(Some(InodeSocket::new(InodeSocketKind::TcpListener {
                     socket,
                     accept_timeout: Some(timeout),
-                }).map_err(net_error_into_wasi_err)?))
+                })))
             },
             _ = tasks.sleep_now(timeout) => Err(Errno::Timedout)
         }
@@ -410,6 +441,7 @@ impl InodeSocket {
             InodeSocketKind::UdpSocket { .. } => {}
             InodeSocketKind::Raw(_) => {}
             InodeSocketKind::PreSocket { .. } => return Err(Errno::Notconn),
+            InodeSocketKind::RemoteTcpStream { .. } => {}
         };
         Ok(())
     }
@@ -502,8 +534,7 @@ impl InodeSocket {
             socket,
             write_timeout: new_write_timeout,
             read_timeout: new_read_timeout,
-        })
-        .map_err(net_error_into_wasi_err)?;
+        });
 
         Ok(Some(socket))
     }
@@ -989,6 +1020,9 @@ impl InodeSocket {
                         InodeSocketKind::PreSocket { .. } => {
                             return Poll::Ready(Err(Errno::Notconn))
                         }
+                        InodeSocketKind::RemoteTcpStream { .. } => {
+                            return Poll::Ready(Ok(self.data.len()))
+                        }
                         _ => return Poll::Ready(Err(Errno::Notsup)),
                     };
                     return match res {
@@ -1065,6 +1099,9 @@ impl InodeSocket {
                         }
                         InodeSocketKind::PreSocket { .. } => {
                             return Poll::Ready(Err(Errno::Notconn))
+                        }
+                        InodeSocketKind::RemoteTcpStream { .. } => {
+                            return Poll::Ready(Ok(self.data.len()))
                         }
                         _ => return Poll::Ready(Err(Errno::Notsup)),
                     };
@@ -1305,6 +1342,7 @@ impl InodeSocketProtected {
             InodeSocketKind::PreSocket { handler, .. } => {
                 handler.take();
             }
+            InodeSocketKind::RemoteTcpStream { .. } => {}
         }
     }
 
@@ -1316,6 +1354,7 @@ impl InodeSocketProtected {
             InodeSocketKind::Raw(socket) => socket.poll_read_ready(cx),
             InodeSocketKind::Icmp(socket) => socket.poll_read_ready(cx),
             InodeSocketKind::PreSocket { .. } => Poll::Pending,
+            InodeSocketKind::RemoteTcpStream { .. } => Poll::Pending,
         }
         .map_err(net_error_into_io_err)
     }
@@ -1328,6 +1367,7 @@ impl InodeSocketProtected {
             InodeSocketKind::Raw(socket) => socket.poll_write_ready(cx),
             InodeSocketKind::Icmp(socket) => socket.poll_write_ready(cx),
             InodeSocketKind::PreSocket { .. } => Poll::Pending,
+            InodeSocketKind::RemoteTcpStream { .. } => Poll::Pending,
         }
         .map_err(net_error_into_io_err)
     }
@@ -1346,6 +1386,7 @@ impl InodeSocketProtected {
                 h.replace(handler);
                 Ok(())
             }
+            InodeSocketKind::RemoteTcpStream { .. } => Ok(()),
         }
     }
 }

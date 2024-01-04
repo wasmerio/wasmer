@@ -1,5 +1,7 @@
 mod runner;
 
+#[cfg(feature = "webc_runner_rt_dcgi")]
+pub mod dcgi;
 #[cfg(feature = "webc_runner_rt_emscripten")]
 pub mod emscripten;
 pub mod wasi;

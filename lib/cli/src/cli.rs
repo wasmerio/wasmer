@@ -2,6 +2,8 @@
 
 #[cfg(target_os = "linux")]
 use crate::commands::Binfmt;
+#[cfg(feature = "journal")]
+use crate::commands::CmdJournal;
 #[cfg(feature = "compiler")]
 use crate::commands::Compile;
 #[cfg(any(feature = "static-artifact-create", feature = "wasmer-artifact-create"))]
@@ -130,6 +132,8 @@ impl Args {
             // Deploy commands.
             Some(Cmd::Deploy(c)) => c.run(),
             Some(Cmd::App(apps)) => apps.run(),
+            #[cfg(feature = "journal")]
+            Some(Cmd::Journal(journal)) => journal.run(),
             Some(Cmd::Ssh(ssh)) => ssh.run(),
             Some(Cmd::Namespace(namespace)) => namespace.run(),
             None => {
@@ -142,6 +146,7 @@ impl Args {
 }
 
 #[derive(Parser, Debug)]
+#[allow(clippy::large_enum_variant)]
 /// The options for the wasmer Command Line Interface
 enum Cmd {
     /// Login into a wasmer.io-like registry
@@ -264,6 +269,11 @@ enum Cmd {
     /// Run a WebAssembly file or Wasmer container.
     #[clap(alias = "run-unstable")]
     Run(Run),
+
+    /// Manage journals (compacting, inspecting, filtering, ...)
+    #[cfg(feature = "journal")]
+    #[clap(subcommand)]
+    Journal(CmdJournal),
 
     #[clap(subcommand)]
     Package(crate::commands::Package),

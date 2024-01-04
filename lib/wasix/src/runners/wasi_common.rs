@@ -5,12 +5,16 @@ use std::{
 };
 
 use anyhow::{Context, Error};
+use derivative::Derivative;
 use futures::future::BoxFuture;
 use virtual_fs::{FileSystem, FsError, OverlayFileSystem, RootFileSystemBuilder, TmpFileSystem};
 use webc::metadata::annotations::Wasi as WasiAnnotation;
 
 use crate::{
-    bin_factory::BinaryPackage, capabilities::Capabilities, runners::MappedDirectory,
+    bin_factory::BinaryPackage,
+    capabilities::Capabilities,
+    journal::{DynJournal, SnapshotTrigger},
+    runners::MappedDirectory,
     WasiEnvBuilder,
 };
 
@@ -22,7 +26,8 @@ pub struct MappedCommand {
     pub target: String,
 }
 
-#[derive(Debug, Default, Clone)]
+#[derive(Derivative, Default, Clone)]
+#[derivative(Debug)]
 pub(crate) struct CommonWasiOptions {
     pub(crate) args: Vec<String>,
     pub(crate) env: HashMap<String, String>,
@@ -31,6 +36,10 @@ pub(crate) struct CommonWasiOptions {
     pub(crate) mapped_host_commands: Vec<MappedCommand>,
     pub(crate) injected_packages: Vec<BinaryPackage>,
     pub(crate) capabilities: Capabilities,
+    #[derivative(Debug = "ignore")]
+    pub(crate) journals: Vec<Arc<DynJournal>>,
+    pub(crate) snapshot_on: Vec<SnapshotTrigger>,
+    pub(crate) snapshot_interval: Option<std::time::Duration>,
     pub(crate) current_dir: Option<PathBuf>,
 }
 
@@ -43,6 +52,7 @@ impl CommonWasiOptions {
         root_fs: Option<TmpFileSystem>,
     ) -> Result<(), anyhow::Error> {
         let root_fs = root_fs.unwrap_or_else(|| RootFileSystemBuilder::default().build());
+
         let fs = prepare_filesystem(root_fs, &self.mapped_dirs, container_fs, builder)?;
 
         builder.add_preopen_dir("/")?;

@@ -1,4 +1,5 @@
 use crate::{Pages, ValueType};
+use core::ops::SubAssign;
 use rkyv::{Archive, Deserialize as RkyvDeserialize, Serialize as RkyvSerialize};
 #[cfg(feature = "enable-serde")]
 use serde::{Deserialize, Serialize};
@@ -93,6 +94,7 @@ pub unsafe trait MemorySize: Copy {
         + Add<Self::Offset>
         + Sum<Self::Offset>
         + AddAssign<Self::Offset>
+        + SubAssign<Self::Offset>
         + 'static;
 
     /// Type used to pass this value as an argument or return value for a Wasm function.

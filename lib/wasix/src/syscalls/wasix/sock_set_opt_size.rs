@@ -16,19 +16,38 @@ pub fn sock_set_opt_size(
     sock: WasiFd,
     opt: Sockoption,
     size: Filesize,
-) -> Errno {
+) -> Result<Errno, WasiError> {
+    wasi_try_ok!(sock_set_opt_size_internal(&mut ctx, sock, opt, size)?);
+
+    #[cfg(feature = "journal")]
+    if ctx.data().enable_journal {
+        JournalEffector::save_sock_set_opt_size(&mut ctx, sock, opt, size).map_err(|err| {
+            tracing::error!("failed to save sock_set_opt_size event - {}", err);
+            WasiError::Exit(ExitCode::Errno(Errno::Fault))
+        })?;
+    }
+
+    Ok(Errno::Success)
+}
+
+pub(crate) fn sock_set_opt_size_internal(
+    ctx: &mut FunctionEnvMut<'_, WasiEnv>,
+    sock: WasiFd,
+    opt: Sockoption,
+    size: Filesize,
+) -> Result<Result<(), Errno>, WasiError> {
     let ty = match opt {
         Sockoption::RecvTimeout => TimeType::ReadTimeout,
         Sockoption::SendTimeout => TimeType::WriteTimeout,
         Sockoption::ConnectTimeout => TimeType::ConnectTimeout,
         Sockoption::AcceptTimeout => TimeType::AcceptTimeout,
         Sockoption::Linger => TimeType::Linger,
-        _ => return Errno::Inval,
+        _ => return Ok(Err(Errno::Inval)),
     };
 
     let option: crate::net::socket::WasiSocketOption = opt.into();
-    wasi_try!(__sock_actor_mut(
-        &mut ctx,
+    wasi_try_ok_ok!(__sock_actor_mut(
+        ctx,
         sock,
         Rights::empty(),
         |mut socket, _| match opt {
@@ -39,5 +58,5 @@ pub fn sock_set_opt_size(
             _ => Err(Errno::Inval),
         }
     ));
-    Errno::Success
+    Ok(Ok(()))
 }

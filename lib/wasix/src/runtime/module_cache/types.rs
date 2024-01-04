@@ -5,6 +5,7 @@ use std::{
     path::PathBuf,
 };
 
+use rand::RngCore;
 use wasmer::{Engine, Module};
 
 use crate::runtime::module_cache::FallbackCache;
@@ -134,6 +135,14 @@ impl ModuleHash {
     /// Create a new [`ModuleHash`] from the raw XXHash hash.
     pub fn from_bytes(key: [u8; 8]) -> Self {
         ModuleHash(key)
+    }
+
+    // Creates a random hash for the module
+    pub fn random() -> Self {
+        let mut rand = rand::thread_rng();
+        let mut key = [0u8; 8];
+        rand.fill_bytes(&mut key);
+        Self(key)
     }
 
     /// Parse a XXHash hash from a hex-encoded string.
