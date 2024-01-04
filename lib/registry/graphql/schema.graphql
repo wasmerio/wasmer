@@ -40,7 +40,7 @@ type User implements Node & PackageOwner & Owner {
   twitterUrl: String
   companyRole: String
   companyDescription: String
-  publicActivity(before: String, after: String, first: Int, last: Int): ActivityEventConnection!
+  publicActivity(offset: Int, before: String, after: String, first: Int, last: Int): ActivityEventConnection!
   billing: Billing
   waitlist(name: String!): WaitlistMember
   namespaces(role: GrapheneRole, offset: Int, before: String, after: String, first: Int, last: Int): NamespaceConnection!
@@ -83,6 +83,9 @@ type ActivityEventConnection {
 
   """Contains the nodes in this connection."""
   edges: [ActivityEventEdge]!
+
+  """Total number of items in the connection."""
+  totalCount: Int
 }
 
 """
@@ -114,12 +117,12 @@ type ActivityEventEdge {
 type ActivityEvent implements Node {
   """The ID of the object"""
   id: ID!
-  body: ActivityEventBody!
+  body: EventBody!
   actorIcon: String!
   createdAt: DateTime!
 }
 
-type ActivityEventBody {
+type EventBody {
   text: String!
   ranges: [NodeBodyRange!]!
 }
@@ -178,6 +181,9 @@ type Namespace implements Node & PackageOwner & Owner {
   description: String!
   avatar: String!
   avatarUpdatedAt: DateTime
+  twitterHandle: String
+  githubHandle: String
+  websiteUrl: String
   createdAt: DateTime!
   updatedAt: DateTime!
   maintainerInvites(offset: Int, before: String, after: String, first: Int, last: Int): NamespaceCollaboratorInviteConnection!
@@ -189,9 +195,15 @@ type Namespace implements Node & PackageOwner & Owner {
   packageVersions(offset: Int, before: String, after: String, first: Int, last: Int): PackageVersionConnection!
   collaborators(offset: Int, before: String, after: String, first: Int, last: Int): NamespaceCollaboratorConnection!
   publicActivity(before: String, after: String, first: Int, last: Int): ActivityEventConnection!
-  pendingInvites(before: String, after: String, first: Int, last: Int): NamespaceCollaboratorInviteConnection!
+  pendingInvites(offset: Int, before: String, after: String, first: Int, last: Int): NamespaceCollaboratorInviteConnection!
   viewerHasRole(role: GrapheneRole!): Boolean!
-  packageTransfersIncoming(before: String, after: String, first: Int, last: Int): PackageTransferRequestConnection!
+
+  """Whether the current user is invited to the namespace"""
+  viewerIsInvited: Boolean!
+
+  """The invitation for the current user to the namespace"""
+  viewerInvitation: NamespaceCollaboratorInvite
+  packageTransfersIncoming(offset: Int, before: String, after: String, first: Int, last: Int): PackageTransferRequestConnection!
   usageMetrics(forRange: MetricRange!, variant: MetricType!): [UsageMetric]!
 }
 
@@ -323,8 +335,10 @@ type Package implements Likeable & Node & PackageOwner {
   totalDownloads: Int!
   iconUpdatedAt: DateTime
   watchersCount: Int!
+  webcs(offset: Int, before: String, after: String, first: Int, last: Int): WebcImageConnection!
   versions: [PackageVersion]!
   collectionSet: [Collection!]!
+  categories(offset: Int, before: String, after: String, first: Int, last: Int): CategoryConnection!
   keywords(offset: Int, before: String, after: String, first: Int, last: Int): PackageKeywordConnection!
   likersCount: Int!
   viewerHasLiked: Boolean!
@@ -355,6 +369,12 @@ type Package implements Likeable & Node & PackageOwner {
   viewerIsWatching: Boolean!
   showDeployButton: Boolean!
   similarPackageVersions(before: String, after: String, first: Int, last: Int): PackageSearchConnection!
+
+  """Whether the current user is invited to the package"""
+  viewerIsInvited: Boolean!
+
+  """The invitation for the current user to the package"""
+  viewerInvitation: PackageCollaboratorInvite
 }
 
 interface Likeable {
@@ -381,20 +401,15 @@ type PackageVersion implements Node {
   staticObjectsCompiled: Boolean!
   nativeExecutablesCompiled: Boolean!
   publishedBy: User!
+  clientName: String
   signature: Signature
   isArchived: Boolean!
   file: String!
 
   """"""
   fileSize: BigInt!
-  piritaFile: String
-
-  """"""
-  piritaFileSize: BigInt!
-  piritaManifest: JSONString
-  piritaVolumes: JSONString
+  webc: WebcImage
   totalDownloads: Int!
-  pirita256hash: String @deprecated(reason: "Please use distribution.piritaSha256Hash instead.")
   bindingsState: RegistryPackageVersionBindingsStateChoices!
   nativeExecutablesState: RegistryPackageVersionNativeExecutablesStateChoices!
 
@@ -407,6 +422,12 @@ type PackageVersion implements Node {
   bindingsgeneratorSet(offset: Int, before: String, after: String, first: Int, last: Int): BindingsGeneratorConnection!
   javascriptlanguagebindingSet(offset: Int, before: String, after: String, first: Int, last: Int): PackageVersionNPMBindingConnection!
   pythonlanguagebindingSet(offset: Int, before: String, after: String, first: Int, last: Int): PackageVersionPythonBindingConnection!
+  piritaFile: String @deprecated(reason: "Please use distribution.piritaDownloadUrl instead.")
+  piritaFileSize: Int @deprecated(reason: "Please use distribution.piritaSize instead.")
+  piritaManifest: JSONString
+  piritaOffsets: JSONString
+  piritaVolumes: JSONString
+  pirita256hash: String @deprecated(reason: "Please use distribution.piritaSha256Hash instead.")
   distribution: PackageDistribution!
   filesystem: [PackageVersionFilesystem]!
   isLastVersion: Boolean!
@@ -431,6 +452,22 @@ The `BigInt` scalar type represents non-fractional whole numeric values.
 compatible type.
 """
 scalar BigInt
+
+type WebcImage implements Node {
+  """The ID of the object"""
+  id: ID!
+
+  """"""
+  fileSize: BigInt!
+  manifest: JSONString!
+  volumes: JSONString!
+  offsets: JSONString!
+  webcSha256: String!
+  targzSha256: String
+  createdAt: DateTime!
+  updatedAt: DateTime!
+  webcUrl: String!
+}
 
 """
 Allows use of a JSON String for input / output from the GraphQL schema.
@@ -514,6 +551,7 @@ type DeployAppVersion implements Node {
   app: DeployApp!
   yamlConfig: String!
   userYamlConfig: String!
+  clientName: String
   signature: String
   description: String
   publishedBy: User!
@@ -532,7 +570,10 @@ type DeployAppVersion implements Node {
     """
     Get logs starting from this timestamp. Takes EPOCH timestamp in seconds.
     """
-    startingFrom: Float!
+    startingFrom: Float
+
+    """Get logs starting from this timestamp. Takes ISO timestamp."""
+    startingFromISO: DateTime
 
     """Fetch logs until this timestamp. Takes EPOCH timestamp in seconds."""
     until: Float
@@ -680,6 +721,19 @@ type PackageVersionModule {
   source: String!
   abi: String
   publicUrl: String!
+  atom: PiritaFilesystemFile!
+  rangeHeader: String!
+}
+
+type PiritaFilesystemFile {
+  name(display: PiritaFilesystemNameDisplay): String!
+  size: Int!
+  offset: Int!
+}
+
+enum PiritaFilesystemNameDisplay {
+  RELATIVE
+  ABSOLUTE
 }
 
 type NativeExecutableConnection {
@@ -780,6 +834,12 @@ type PackageVersionNPMBinding implements PackageVersionLanguageBinding & Node {
 
   """Name of package source"""
   packageName: String!
+
+  """Name of the package to import"""
+  importablePackageName: String!
+
+  """Code snippet example to use the package"""
+  codeSnippetExample: String!
   module: String! @deprecated(reason: "Do not use this field, since bindings for all modules are generated at once now.")
   npmDefaultInstallPackageName(url: String): String! @deprecated(reason: "Please use packageName instead")
 }
@@ -801,6 +861,12 @@ interface PackageVersionLanguageBinding {
 
   """Name of package source"""
   packageName: String!
+
+  """Name of the package to import"""
+  importablePackageName: String!
+
+  """Code snippet example to use the package"""
+  codeSnippetExample: String!
   module: String! @deprecated(reason: "Do not use this field, since bindings for all modules are generated at once now.")
 }
 
@@ -849,15 +915,21 @@ type PackageVersionPythonBinding implements PackageVersionLanguageBinding & Node
 
   """Name of package source"""
   packageName: String!
+
+  """Name of the package to import"""
+  importablePackageName: String!
+
+  """Code snippet example to use the package"""
+  codeSnippetExample: String!
   module: String! @deprecated(reason: "Do not use this field, since bindings for all modules are generated at once now.")
   pythonDefaultInstallPackageName(url: String): String!
 }
 
 type PackageDistribution {
   downloadUrl: String!
-  size: Int!
+  size: Int
   piritaDownloadUrl: String
-  piritaSize: Int!
+  piritaSize: Int
   piritaSha256Hash: String
 }
 
@@ -914,17 +986,6 @@ type InterfaceVersionEdge {
 
 union PiritaFilesystemItem = PiritaFilesystemFile | PiritaFilesystemDir
 
-type PiritaFilesystemFile {
-  name(display: PiritaFilesystemNameDisplay): String!
-  size: Int!
-  offset: Int!
-}
-
-enum PiritaFilesystemNameDisplay {
-  RELATIVE
-  ABSOLUTE
-}
-
 type PiritaFilesystemDir {
   name(display: PiritaFilesystemNameDisplay): String!
 }
@@ -936,6 +997,26 @@ type WEBCFilesystemItem {
   offset: Int!
 }
 
+type WebcImageConnection {
+  """Pagination data for this connection."""
+  pageInfo: PageInfo!
+
+  """Contains the nodes in this connection."""
+  edges: [WebcImageEdge]!
+
+  """Total number of items in the connection."""
+  totalCount: Int
+}
+
+"""A Relay edge containing a `WebcImage` and its cursor."""
+type WebcImageEdge {
+  """The item at the end of the edge"""
+  node: WebcImage
+
+  """A cursor for use in pagination"""
+  cursor: String!
+}
+
 type Collection {
   slug: String!
   displayName: String!
@@ -943,6 +1024,35 @@ type Collection {
   createdAt: DateTime!
   banner: String!
   packages(before: String, after: String, first: Int, last: Int): PackageConnection!
+}
+
+type CategoryConnection {
+  """Pagination data for this connection."""
+  pageInfo: PageInfo!
+
+  """Contains the nodes in this connection."""
+  edges: [CategoryEdge]!
+
+  """Total number of items in the connection."""
+  totalCount: Int
+}
+
+"""A Relay edge containing a `Category` and its cursor."""
+type CategoryEdge {
+  """The item at the end of the edge"""
+  node: Category
+
+  """A cursor for use in pagination"""
+  cursor: String!
+}
+
+type Category implements Node {
+  """The ID of the object"""
+  id: ID!
+
+  """A category is a label that can be attached to a package."""
+  name: String!
+  packages(offset: Int, before: String, after: String, first: Int, last: Int): PackageConnection
 }
 
 type PackageKeywordConnection {
@@ -1233,6 +1343,7 @@ type UserNotificationConnection {
   """Contains the nodes in this connection."""
   edges: [UserNotificationEdge]!
   hasPendingNotifications: Boolean!
+  pendingNotificationsCount: Int!
 }
 
 """A Relay edge containing a `UserNotification` and its cursor."""
@@ -1248,15 +1359,10 @@ type UserNotification implements Node {
   """The ID of the object"""
   id: ID!
   icon: String
-  body: UserNotificationBody!
+  body: EventBody!
   seenState: UserNotificationSeenState!
   kind: UserNotificationKind
   createdAt: DateTime!
-}
-
-type UserNotificationBody {
-  text: String!
-  ranges: [NodeBodyRange]!
 }
 
 enum UserNotificationSeenState {
@@ -1265,7 +1371,7 @@ enum UserNotificationSeenState {
   SEEN_AND_READ
 }
 
-union UserNotificationKind = UserNotificationKindPublishedPackageVersion | UserNotificationKindIncomingPackageTransfer | UserNotificationKindIncomingPackageInvite | UserNotificationKindIncomingNamespaceInvite
+union UserNotificationKind = UserNotificationKindPublishedPackageVersion | UserNotificationKindIncomingPackageTransfer | UserNotificationKindIncomingPackageInvite | UserNotificationKindIncomingNamespaceInvite | UserNotificationKindValidateEmail
 
 type UserNotificationKindPublishedPackageVersion {
   packageVersion: PackageVersion!
@@ -1275,11 +1381,15 @@ type UserNotificationKindIncomingNamespaceInvite {
   namespaceInvite: NamespaceCollaboratorInvite!
 }
 
+type UserNotificationKindValidateEmail {
+  user: User!
+}
+
 """
 
     Enum of ways a user can login. One user can have many login methods
     associated with their account.
-    
+
 """
 enum LoginMethod {
   GOOGLE
@@ -1524,7 +1634,13 @@ type Payment {
 
 """Log entry for deploy app."""
 type Log {
+  """Timestamp in nanoseconds"""
   timestamp: Float!
+
+  """ISO 8601 string in UTC"""
+  datetime: DateTime!
+
+  """Log message"""
   message: String!
 }
 
@@ -1539,14 +1655,16 @@ type Query {
   getUser(username: String!): User
   getPasswordResetToken(token: String!): GetPasswordResetToken
   getAuthNonce(name: String!): Nonce
-  packages(before: String, after: String, first: Int, last: Int): PackageConnection
+  packages(offset: Int, before: String, after: String, first: Int, last: Int): PackageConnection
   recentPackageVersions(curated: Boolean, offset: Int, before: String, after: String, first: Int, last: Int): PackageVersionConnection!
   allPackageVersions(sortBy: PackageVersionSortBy, createdAfter: DateTime, updatedAfter: DateTime, offset: Int, before: String, after: String, first: Int, last: Int): PackageVersionConnection!
+  getWebcImage(hash: String!): WebcImage
   getNamespace(name: String!): Namespace
   getPackage(name: String!): Package
   getPackages(names: [String!]!): [Package]!
   getPackageVersion(name: String!, version: String = "latest"): PackageVersion
   getPackageVersions(names: [String!]!): [PackageVersion]
+  getPackageVersionByHash(name: String!, hash: String!): PackageVersion
   getInterface(name: String!): Interface
   getInterfaces(names: [String!]!): [Interface]!
   getInterfaceVersion(name: String!, version: String = "latest"): InterfaceVersion
@@ -1557,6 +1675,7 @@ type Query {
   getCommands(names: [String!]!): [Command]
   getCollections(before: String, after: String, first: Int, last: Int): CollectionConnection
   getSignedUrlForPackageUpload(name: String!, version: String = "latest", expiresAfterSeconds: Int = 60): SignedUrl
+  categories(offset: Int, before: String, after: String, first: Int, last: Int): CategoryConnection!
   blogposts(tags: [String!], before: String, after: String, first: Int, last: Int): BlogPostConnection!
   getBlogpost(slug: String, featured: Boolean): BlogPost
   allBlogpostTags(offset: Int, before: String, after: String, first: Int, last: Int): BlogPostTagConnection
@@ -1642,13 +1761,29 @@ type BlogPost implements Node {
   owner: User
   body: String!
   publishDate: DateTime
+  theme: BlogBlogPostThemeChoices!
   url: String!
   coverImageUrl: String
+  opengraphImageUrl: String
   tagline: String!
   relatedArticles: [BlogPost!]
   updatedAt: DateTime!
   tags: [BlogPostTag!]
   editUrl: String
+}
+
+enum BlogBlogPostThemeChoices {
+  """Green"""
+  GREEN
+
+  """Purple"""
+  PURPLE
+
+  """Orange"""
+  ORANGE
+
+  """Blue"""
+  BLUE
 }
 
 type BlogPostTag implements Node {
@@ -1701,19 +1836,59 @@ union SearchResult = PackageVersion | User | Namespace | DeployApp | BlogPost
 input PackagesFilter {
   count: Int = 1000
   sortBy: SearchOrderSort = ASC
+
+  """Filter packages by being curated."""
   curated: Boolean
+
+  """Filter packages by publish date."""
   publishDate: SearchPublishDate
+
+  """Filter packages by having bindings."""
   hasBindings: Boolean = false
+
+  """Filter packages by being standalone."""
   isStandalone: Boolean = false
+
+  """Filter packages by having commands."""
   hasCommands: Boolean = false
+
+  """Filter packages by interface."""
   withInterfaces: [String]
+
+  """Filter packages by deployable status."""
   deployable: Boolean
+
+  """Filter packages by license."""
   license: String
+
+  """Filter packages created after this date."""
+  createdAfter: DateTime
+
+  """Filter packages created before this date."""
+  createdBefore: DateTime
+
+  """Filter packages with version published after this date."""
+  lastPublishedAfter: DateTime
+
+  """Filter packages with version published before this date."""
+  lastPublishedBefore: DateTime
+
+  """Filter packages by size."""
   size: CountFilter
+
+  """Filter packages by download count."""
   downloads: CountFilter
+
+  """Filter packages by like count."""
   likes: CountFilter
+
+  """Filter packages by owner."""
   owner: String
+
+  """Filter packages by published by."""
   publishedBy: String
+
+  """Order packages by field."""
   orderBy: PackageOrderBy = PUBLISHED_DATE
 }
 
@@ -1747,14 +1922,30 @@ enum PackageOrderBy {
   SIZE
   TOTAL_DOWNLOADS
   PUBLISHED_DATE
+  CREATED_DATE
+  TOTAL_LIKES
 }
 
 input NamespacesFilter {
   count: Int = 1000
   sortBy: SearchOrderSort = ASC
+
+  """Filter namespaces by package count."""
   packageCount: CountFilter
+
+  """Filter namespaces created after this date."""
+  createdAfter: DateTime
+
+  """Filter namespaces created before this date."""
+  createdBefore: DateTime
+
+  """Filter namespaces by user count."""
   userCount: CountFilter
+
+  """Filter namespaces by collaborator."""
   collaborator: String
+
+  """Order namespaces by field."""
   orderBy: NamespaceOrderBy = CREATED_DATE
 }
 
@@ -1768,8 +1959,20 @@ enum NamespaceOrderBy {
 input UsersFilter {
   count: Int = 1000
   sortBy: SearchOrderSort = ASC
+
+  """Filter users by package count."""
   packageCount: CountFilter
+
+  """Filter users by namespace count."""
   namespaceCount: CountFilter
+
+  """Filter users joined after this date."""
+  joinedAfter: DateTime
+
+  """Filter users joined before this date."""
+  joinedBefore: DateTime
+
+  """Order users by field."""
   orderBy: UserOrderBy = CREATED_DATE
 }
 
@@ -1782,13 +1985,36 @@ enum UserOrderBy {
 input AppFilter {
   count: Int = 1000
   sortBy: SearchOrderSort = ASC
+
+  """Filter apps by deployed by."""
   deployedBy: String
+
+  """Filter apps last deployed after this date."""
+  lastDeployedAfter: DateTime
+
+  """Filter apps last deployed before this date."""
+  lastDeployedBefore: DateTime
+
+  """Filter apps by owner."""
   owner: String
+
+  """Order apps by field."""
+  orderBy: AppOrderBy = CREATED_DATE
+
+  """Filter apps by client name."""
+  clientName: String
+}
+
+enum AppOrderBy {
+  PUBLISHED_DATE
+  CREATED_DATE
 }
 
 input BlogPostsFilter {
   count: Int = 1000
   sortBy: SearchOrderSort = ASC
+
+  """Filter blog posts by tag."""
   tags: [String]
 }
 
@@ -1869,6 +2095,8 @@ type Mutation {
   """
   detachPaymentMethod(input: DetachPaymentMethodInput!): DetachPaymentMethodPayload
   generateDeployConfigToken(input: GenerateDeployConfigTokenInput!): GenerateDeployConfigTokenPayload
+  renameApp(input: RenameAppInput!): RenameAppPayload
+  renameAppAlias(input: RenameAppAliasInput!): RenameAppAliasPayload
   requestAppTransfer(input: RequestAppTransferInput!): RequestAppTransferPayload
   acceptAppTransferRequest(input: AcceptAppTransferRequestInput!): AcceptAppTransferRequestPayload
   removeAppTransferRequest(input: RemoveAppTransferRequestInput!): RemoveAppTransferRequestPayload
@@ -2058,6 +2286,36 @@ type GenerateDeployConfigTokenPayload {
 
 input GenerateDeployConfigTokenInput {
   config: String!
+  clientMutationId: String
+}
+
+type RenameAppPayload {
+  success: Boolean!
+  app: DeployApp!
+  clientMutationId: String
+}
+
+input RenameAppInput {
+  """App ID to delete."""
+  id: ID!
+
+  """New name for the app."""
+  name: String!
+  clientMutationId: String
+}
+
+type RenameAppAliasPayload {
+  success: Boolean!
+  alias: AppAlias!
+  clientMutationId: String
+}
+
+input RenameAppAliasInput {
+  """App alias ID to delete."""
+  id: ID!
+
+  """New name for the alias."""
+  name: String!
   clientMutationId: String
 }
 
@@ -2441,12 +2699,23 @@ input PublishPackageInput {
 
   """Whether the package is private"""
   private: Boolean = false
+
+  """The upload format of the package"""
+  uploadFormat: UploadFormat = targz
+
+  """Whether to wait for webc generation to finish"""
+  wait: Boolean = false
   clientMutationId: String
 }
 
 input InputSignature {
   publicKeyKeyId: String!
   data: String!
+}
+
+enum UploadFormat {
+  targz
+  webcv2
 }
 
 type UpdatePackagePayload {
@@ -2562,6 +2831,19 @@ input UpdateNamespaceInput {
 
   """The namespace avatar"""
   avatar: String
+
+  """
+  The user Twitter (it can be the url, or the handle with or without the @)
+  """
+  twitter: String
+
+  """
+  The user Github (it can be the url, or the handle with or without the @)
+  """
+  github: String
+
+  """The user website (it must be a valid url)"""
+  websiteUrl: String
   clientMutationId: String
 }
 
@@ -2763,7 +3045,25 @@ input MakePackagePublicInput {
 
 type Subscription {
   packageVersionCreated(publishedBy: ID, ownerId: ID): PackageVersion!
+
+  """Subscribe to package version ready"""
+  packageVersionReady(packageVersionId: ID!): PackageVersionReadyResponse!
+
+  """Subscribe to new messages"""
+  newMessage: String!
   userNotificationCreated(userId: ID!): UserNotificationCreated!
+}
+
+type PackageVersionReadyResponse {
+  state: PackageVersionState!
+  packageVersion: PackageVersion!
+  success: Boolean!
+}
+
+enum PackageVersionState {
+  WEBC_GENERATED
+  BINDINGS_GENERATED
+  NATIVE_EXES_GENERATED
 }
 
 type UserNotificationCreated {
