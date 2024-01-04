@@ -161,16 +161,15 @@ pub enum TimeType {
     Linger,
 }
 
-impl Into<wasmer_journal::SocketOptTimeType> for TimeType {
-    fn into(self) -> wasmer_journal::SocketOptTimeType {
-        use wasmer_journal::SocketOptTimeType;
-        match self {
-            TimeType::ReadTimeout => SocketOptTimeType::ReadTimeout,
-            TimeType::WriteTimeout => SocketOptTimeType::WriteTimeout,
-            TimeType::AcceptTimeout => SocketOptTimeType::AcceptTimeout,
-            TimeType::ConnectTimeout => SocketOptTimeType::ConnectTimeout,
-            TimeType::BindTimeout => SocketOptTimeType::BindTimeout,
-            TimeType::Linger => SocketOptTimeType::Linger,
+impl From<TimeType> for wasmer_journal::SocketOptTimeType {
+    fn from(value: TimeType) -> Self {
+        match value {
+            TimeType::ReadTimeout => Self::ReadTimeout,
+            TimeType::WriteTimeout => Self::WriteTimeout,
+            TimeType::AcceptTimeout => Self::AcceptTimeout,
+            TimeType::ConnectTimeout => Self::ConnectTimeout,
+            TimeType::BindTimeout => Self::BindTimeout,
+            TimeType::Linger => Self::Linger,
         }
     }
 }
