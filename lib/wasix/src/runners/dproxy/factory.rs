@@ -75,6 +75,8 @@ impl DProxyInstanceFactory {
             .await;
 
         // Now we run the actual instance under a WasiRunner
+        #[cfg(feature = "sys")]
+        let handle = tokio::runtime::Handle::current();
         let this = self.clone();
         let pkg = handler.config.pkg.clone();
         let command_name = handler.command_name.clone();
@@ -84,6 +86,8 @@ impl DProxyInstanceFactory {
             .task_manager()
             .clone()
             .task_dedicated(Box::new(move || {
+                #[cfg(feature = "sys")]
+                let _guard = handle.enter();
                 if let Err(err) = runner.run_command(&command_name, &pkg, runtime) {
                     tracing::error!("Instance Exited: {}", err);
                 } else {
