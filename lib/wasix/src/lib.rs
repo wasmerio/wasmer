@@ -47,6 +47,7 @@ pub mod net;
 pub mod capabilities;
 pub mod fs;
 pub mod http;
+pub mod journal;
 mod rewind;
 pub mod runners;
 pub mod runtime;
@@ -56,6 +57,8 @@ mod utils;
 
 /// WAI based bindings.
 mod bindings;
+
+use std::sync::Arc;
 
 #[allow(unused_imports)]
 use bytes::{Bytes, BytesMut};
@@ -103,7 +106,7 @@ pub use crate::{
     utils::is_wasix_module,
     utils::{
         get_wasi_version, get_wasi_versions, is_wasi_module,
-        store::{capture_snapshot, restore_snapshot, InstanceSnapshot},
+        store::{capture_instance_snapshot, restore_instance_snapshot, InstanceSnapshot},
         WasiVersion,
     },
 };
@@ -119,6 +122,8 @@ pub enum WasiError {
     #[error("The WASI version could not be determined")]
     UnknownWasiVersion,
 }
+
+pub type WasiResult<T> = Result<Result<T, Errno>, WasiError>;
 
 #[deny(unused, dead_code)]
 #[derive(Error, Debug)]
@@ -203,6 +208,8 @@ pub enum WasiRuntimeError {
     Runtime(#[from] RuntimeError),
     #[error("Memory access error")]
     Thread(#[from] WasiThreadError),
+    #[error("{0}")]
+    Anyhow(#[from] Arc<anyhow::Error>),
 }
 
 impl WasiRuntimeError {

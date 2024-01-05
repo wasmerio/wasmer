@@ -16,7 +16,7 @@ use std::ptr::NonNull;
 use std::slice;
 use std::sync::{Arc, RwLock};
 use std::time::Duration;
-use wasmer_types::{Bytes, MemoryError, MemoryStyle, MemoryType, Pages};
+use wasmer_types::{Bytes, MemoryError, MemoryStyle, MemoryType, Pages, WASM_PAGE_SIZE};
 
 // The memory mapped area
 #[derive(Debug)]
@@ -118,6 +118,25 @@ impl WasmMmap {
         }
 
         Ok(prev_pages)
+    }
+
+    /// Grows the memory to at least a minimum size. If the memory is already big enough
+    /// for the min size then this function does nothing
+    fn grow_at_least(&mut self, min_size: u64, conf: VMMemoryConfig) -> Result<(), MemoryError> {
+        let cur_size = self.size.bytes().0 as u64;
+        if cur_size < min_size {
+            let growth = min_size - cur_size;
+            let growth_pages = ((growth - 1) / WASM_PAGE_SIZE as u64) + 1;
+            self.grow(Pages(growth_pages as u32), conf)?;
+        }
+
+        Ok(())
+    }
+
+    /// Resets the memory down to a zero size
+    fn reset(&mut self) -> Result<(), MemoryError> {
+        self.size.0 = 0;
+        Ok(())
     }
 
     /// Copies the memory
@@ -326,6 +345,18 @@ impl LinearMemory for VMOwnedMemory {
         self.mmap.grow(delta, self.config.clone())
     }
 
+    /// Grows the memory to at least a minimum size. If the memory is already big enough
+    /// for the min size then this function does nothing
+    fn grow_at_least(&mut self, min_size: u64) -> Result<(), MemoryError> {
+        self.mmap.grow_at_least(min_size, self.config.clone())
+    }
+
+    /// Resets the memory down to a zero size
+    fn reset(&mut self) -> Result<(), MemoryError> {
+        self.mmap.reset()?;
+        Ok(())
+    }
+
     /// Return a `VMMemoryDefinition` for exposing the memory to compiled wasm code.
     fn vmmemory(&self) -> NonNull<VMMemoryDefinition> {
         self.mmap.vm_memory_definition.as_ptr()
@@ -422,6 +453,20 @@ impl LinearMemory for VMSharedMemory {
         guard.grow(delta, self.config.clone())
     }
 
+    /// Grows the memory to at least a minimum size. If the memory is already big enough
+    /// for the min size then this function does nothing
+    fn grow_at_least(&mut self, min_size: u64) -> Result<(), MemoryError> {
+        let mut guard = self.mmap.write().unwrap();
+        guard.grow_at_least(min_size, self.config.clone())
+    }
+
+    /// Resets the memory down to a zero size
+    fn reset(&mut self) -> Result<(), MemoryError> {
+        let mut guard = self.mmap.write().unwrap();
+        guard.reset()?;
+        Ok(())
+    }
+
     /// Return a `VMMemoryDefinition` for exposing the memory to compiled wasm code.
     fn vmmemory(&self) -> NonNull<VMMemoryDefinition> {
         let guard = self.mmap.read().unwrap();
@@ -493,6 +538,18 @@ impl LinearMemory for VMMemory {
     /// of wasm pages.
     fn grow(&mut self, delta: Pages) -> Result<Pages, MemoryError> {
         self.0.grow(delta)
+    }
+
+    /// Grows the memory to at least a minimum size. If the memory is already big enough
+    /// for the min size then this function does nothing
+    fn grow_at_least(&mut self, min_size: u64) -> Result<(), MemoryError> {
+        self.0.grow_at_least(min_size)
+    }
+
+    /// Resets the memory down to a zero size
+    fn reset(&mut self) -> Result<(), MemoryError> {
+        self.0.reset()?;
+        Ok(())
     }
 
     /// Returns the memory style for this memory.
@@ -632,6 +689,13 @@ where
     /// Returns `None` if memory can't be grown by the specified amount
     /// of wasm pages.
     fn grow(&mut self, delta: Pages) -> Result<Pages, MemoryError>;
+
+    /// Grows the memory to at least a minimum size. If the memory is already big enough
+    /// for the min size then this function does nothing
+    fn grow_at_least(&mut self, min_size: u64) -> Result<(), MemoryError>;
+
+    /// Resets the memory back to zero length
+    fn reset(&mut self) -> Result<(), MemoryError>;
 
     /// Return a `VMMemoryDefinition` for exposing the memory to compiled wasm code.
     fn vmmemory(&self) -> NonNull<VMMemoryDefinition>;

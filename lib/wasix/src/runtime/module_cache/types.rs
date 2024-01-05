@@ -5,6 +5,7 @@ use std::{
     path::PathBuf,
 };
 
+use rand::RngCore;
 use wasmer::{Engine, Module};
 
 use crate::runtime::module_cache::FallbackCache;
@@ -55,9 +56,14 @@ pub trait ModuleCache: Debug {
     /// use wasmer_wasix::runtime::module_cache::{
     ///     ModuleCache, ThreadLocalCache, FileSystemCache, SharedCache,
     /// };
+    /// use wasmer_wasix::runtime::task_manager::tokio::{RuntimeOrHandle, TokioTaskManager};
+    ///
+    /// let runtime = tokio::runtime::Runtime::new().unwrap();
+    /// let rt_handle = RuntimeOrHandle::from(runtime);
+    /// let task_manager = std::sync::Arc::new(TokioTaskManager::new(rt_handle));
     ///
     /// let cache = SharedCache::default()
-    ///     .with_fallback(FileSystemCache::new("~/.local/cache"));
+    ///     .with_fallback(FileSystemCache::new("~/.local/cache", task_manager));
     /// ```
     fn with_fallback<C>(self, other: C) -> FallbackCache<Self, C>
     where
@@ -129,6 +135,14 @@ impl ModuleHash {
     /// Create a new [`ModuleHash`] from the raw XXHash hash.
     pub fn from_bytes(key: [u8; 8]) -> Self {
         ModuleHash(key)
+    }
+
+    // Creates a random hash for the module
+    pub fn random() -> Self {
+        let mut rand = rand::thread_rng();
+        let mut key = [0u8; 8];
+        rand.fill_bytes(&mut key);
+        Self(key)
     }
 
     /// Parse a XXHash hash from a hex-encoded string.

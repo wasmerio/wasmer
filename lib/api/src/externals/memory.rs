@@ -121,6 +121,22 @@ impl Memory {
         self.0.grow(store, delta)
     }
 
+    /// Grows the memory to at least a minimum size. If the memory is already big enough
+    /// for the min size then this function does nothing
+    pub fn grow_at_least(
+        &self,
+        store: &mut impl AsStoreMut,
+        min_size: u64,
+    ) -> Result<(), MemoryError> {
+        self.0.grow_at_least(store, min_size)
+    }
+
+    /// Resets the memory back to zero length
+    pub fn reset(&self, store: &mut impl AsStoreMut) -> Result<(), MemoryError> {
+        self.0.reset(store)?;
+        Ok(())
+    }
+
     /// Attempts to duplicate this memory (if its clonable) in a new store
     /// (copied memory)
     pub fn copy_to_store(

@@ -34,13 +34,14 @@ pub struct Publish {
     ///
     /// Note that this is not the timeout for the entire publish process, but
     /// for each individual query to the registry during the publish flow.
-    #[clap(long, default_value = "30s")]
+    #[clap(long, default_value = "2m")]
     pub timeout: humantime::Duration,
 }
 
 impl Publish {
     /// Executes `wasmer publish`
-    pub fn execute(&self) -> Result<(), anyhow::Error> {
+    #[tokio::main]
+    pub async fn execute(&self) -> Result<(), anyhow::Error> {
         let token = self
             .env
             .token()
@@ -58,7 +59,7 @@ impl Publish {
             wait: self.wait,
             timeout: self.timeout.into(),
         };
-        publish.execute().map_err(on_error)?;
+        publish.execute().await.map_err(on_error)?;
 
         if let Err(e) = invalidate_graphql_query_cache(&self.env) {
             tracing::warn!(

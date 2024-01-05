@@ -95,7 +95,7 @@ pub enum MemoryError {
 ///
 /// Note: this error is not standard to WebAssembly, but it's
 /// useful to determine the import issue on the API side.
-#[derive(Error, Debug)]
+#[derive(Error, Debug, Clone)]
 pub enum ImportError {
     /// Incompatible Import Type.
     /// This error occurs when the import types mismatch.

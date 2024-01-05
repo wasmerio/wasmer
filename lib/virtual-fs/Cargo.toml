@@ -29,6 +29,7 @@ tokio = { version = "1", features = ["io-util", "sync", "macros"], default_featu
 tracing = { version = "0.1" }
 typetag = { version = "0.1", optional = true }
 webc = { version = "5.0", optional = true }
+serde = { version = "1.0", default-features = false, features = ["derive"], optional = true }
 
 [target.'cfg(not(all(target_arch = "wasm32", target_os = "unknown")))'.dependencies]
 getrandom = { version = "0.2" }
@@ -46,7 +47,7 @@ default = ["host-fs", "webc-fs", "static-fs"]
 host-fs = ["libc", "fs_extra", "filetime", "tokio/fs", "tokio/io-std", "tokio/rt"]
 webc-fs = ["webc", "anyhow"]
 static-fs = ["webc", "anyhow"]
-enable-serde = ["typetag"]
+enable-serde = ["typetag", "serde"]
 no-time = []
 # Enables memory tracking/limiting functionality for the in-memory filesystem.
 tracking = []

@@ -1,6 +1,7 @@
 use std::{
     collections::{BTreeSet, HashMap},
     path::{Path, PathBuf},
+    str::FromStr,
     sync::{mpsc::Sender, Arc},
     time::Duration,
 };
@@ -13,16 +14,19 @@ use url::Url;
 use virtual_fs::{DeviceFile, FileSystem, PassthruFileSystem, RootFileSystemBuilder};
 use wasmer::{Engine, Function, Instance, Memory32, Memory64, Module, RuntimeError, Store, Value};
 use wasmer_registry::wasmer_env::WasmerEnv;
+#[cfg(feature = "journal")]
+use wasmer_wasix::journal::{LogFileJournal, SnapshotTrigger};
 use wasmer_wasix::{
     bin_factory::BinaryPackage,
     capabilities::Capabilities,
     default_fs_backing, get_wasi_versions,
     http::HttpClient,
+    journal::{CompactingLogFileJournal, DynJournal},
     os::{tty_sys::SysTty, TtyBridge},
     rewind_ext,
     runners::{MappedCommand, MappedDirectory},
     runtime::{
-        module_cache::{FileSystemCache, ModuleCache},
+        module_cache::{FileSystemCache, ModuleCache, ModuleHash},
         package_loader::{BuiltinPackageLoader, PackageLoader},
         resolver::{
             FileSystemSource, InMemorySource, MultiSource, PackageSpecifier, Source, WapmSource,
@@ -104,6 +108,59 @@ pub struct Wasi {
     /// Enables asynchronous threading
     #[clap(long = "enable-async-threads")]
     pub enable_async_threads: bool,
+
+    /// Specifies one or more journal files that Wasmer will use to restore
+    /// and save the state of the WASM process as it executes.
+    ///
+    /// The state of the WASM process and its sandbox will be reapplied using
+    /// the journals in the order that you specify here.
+    ///
+    /// The last journal file specified will be created if it does not exist
+    /// and opened for read and write. New journal events will be written to this
+    /// file
+    #[cfg(feature = "journal")]
+    #[clap(long = "journal")]
+    pub journals: Vec<PathBuf>,
+
+    /// Flag that indicates if the journal will be automatically compacted
+    /// as it fills up and when the process exits
+    #[cfg(feature = "journal")]
+    #[clap(long = "enable-compaction")]
+    pub enable_compaction: bool,
+
+    /// Tells the compactor not to compact when the journal log file is closed
+    #[cfg(feature = "journal")]
+    #[clap(long = "without-compact-on-drop")]
+    pub without_compact_on_drop: bool,
+
+    /// Tells the compactor to compact when it grows by a certain factor of
+    /// its original size. (i.e. '0.2' would be it compacts after the journal
+    /// has grown by 20 percent)
+    ///
+    /// Default is to compact on growth that exceeds 15%
+    #[cfg(feature = "journal")]
+    #[clap(long = "with-compact-on-growth", default_value = "0.15")]
+    pub with_compact_on_growth: f32,
+
+    /// Indicates what events will cause a snapshot to be taken
+    /// and written to the journal file.
+    ///
+    /// If not specified, the default is to snapshot when the process idles, when
+    /// the process exits or periodically if an interval argument is also supplied.
+    ///
+    /// Additionally if the snapshot-on is not specified it will also take a snapshot
+    /// on the first stdin, environ or socket listen - this can be used to accelerate
+    /// the boot up time of WASM processes.
+    #[cfg(feature = "journal")]
+    #[clap(long = "snapshot-on")]
+    pub snapshot_on: Vec<SnapshotTrigger>,
+
+    /// Adds a periodic interval (measured in milli-seconds) that the runtime will automatically
+    /// takes snapshots of the running process and write them to the journal. When specifying
+    /// this parameter it implies that `--snapshot-on interval` has also been specified.
+    #[cfg(feature = "journal")]
+    #[clap(long = "snapshot-period")]
+    pub snapshot_interval: Option<u64>,
 
     /// Allow instances to send http requests.
     ///
@@ -306,6 +363,19 @@ impl Wasi {
 
         *builder.capabilities_mut() = self.capabilities();
 
+        #[cfg(feature = "journal")]
+        {
+            for trigger in self.snapshot_on.iter().cloned() {
+                builder.add_snapshot_trigger(trigger);
+            }
+            if let Some(interval) = self.snapshot_interval {
+                builder.with_snapshot_interval(std::time::Duration::from_millis(interval));
+            }
+            for journal in self.build_journals()? {
+                builder.add_journal(journal);
+            }
+        }
+
         #[cfg(feature = "experimental-io-devices")]
         {
             if self.enable_experimental_io_devices {
@@ -315,6 +385,31 @@ impl Wasi {
         }
 
         Ok(builder)
+    }
+
+    #[cfg(feature = "journal")]
+    pub fn build_journals(&self) -> anyhow::Result<Vec<Arc<DynJournal>>> {
+        let mut ret = Vec::new();
+        for journal in self.journals.clone() {
+            if self.enable_compaction {
+                let mut journal = CompactingLogFileJournal::new(journal)?;
+                if !self.without_compact_on_drop {
+                    journal = journal.with_compact_on_drop()
+                }
+                if self.with_compact_on_growth.is_normal() && self.with_compact_on_growth != 0f32 {
+                    journal = journal.with_compact_on_factor_size(self.with_compact_on_growth);
+                }
+                ret.push(Arc::new(journal) as Arc<DynJournal>);
+            } else {
+                ret.push(Arc::new(LogFileJournal::new(journal)?));
+            }
+        }
+        Ok(ret)
+    }
+
+    #[cfg(not(feature = "journal"))]
+    pub fn build_journals(&self) -> anyhow::Result<Vec<Arc<DynJournal>>> {
+        Ok(Vec::new())
     }
 
     pub fn build_mapped_directories(&self) -> Result<Vec<MappedDirectory>, anyhow::Error> {
@@ -451,12 +546,18 @@ impl Wasi {
     where
         I: Into<RuntimeOrHandle>,
     {
-        let mut rt = PluggableRuntime::new(Arc::new(TokioTaskManager::new(rt_or_handle.into())));
+        let tokio_task_manager = Arc::new(TokioTaskManager::new(rt_or_handle.into()));
+        let mut rt = PluggableRuntime::new(tokio_task_manager.clone());
 
         if self.networking {
             rt.set_networking_implementation(virtual_net::host::LocalNetworking::default());
         } else {
             rt.set_networking_implementation(virtual_net::UnsupportedVirtualNetworking::default());
+        }
+
+        #[cfg(feature = "journal")]
+        for journal in self.build_journals()? {
+            rt.add_journal(journal);
         }
 
         if !self.no_tty {
@@ -477,7 +578,7 @@ impl Wasi {
 
         let cache_dir = env.cache_dir().join("compiled");
         let module_cache = wasmer_wasix::runtime::module_cache::in_memory()
-            .with_fallback(FileSystemCache::new(cache_dir));
+            .with_fallback(FileSystemCache::new(cache_dir, tokio_task_manager));
 
         rt.set_package_loader(package_loader)
             .set_module_cache(module_cache)
@@ -491,13 +592,14 @@ impl Wasi {
     pub fn instantiate(
         &self,
         module: &Module,
+        module_hash: ModuleHash,
         program_name: String,
         args: Vec<String>,
         runtime: Arc<dyn Runtime + Send + Sync>,
         store: &mut Store,
     ) -> Result<(WasiFunctionEnv, Instance)> {
         let builder = self.prepare(module, program_name, args, runtime)?;
-        let (instance, wasi_env) = builder.instantiate(module.clone(), store)?;
+        let (instance, wasi_env) = builder.instantiate_ext(module.clone(), module_hash, store)?;
 
         Ok((wasi_env, instance))
     }

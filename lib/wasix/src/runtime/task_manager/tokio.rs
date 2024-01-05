@@ -98,6 +98,10 @@ impl TokioTaskManager {
     pub fn runtime_handle(&self) -> tokio::runtime::Handle {
         self.rt.handle().clone()
     }
+
+    pub fn pool_handle(&self) -> Arc<ThreadPool> {
+        self.pool.clone()
+    }
 }
 
 impl Default for TokioTaskManager {
@@ -143,6 +147,7 @@ impl VirtualTaskManager for TokioTaskManager {
     fn task_wasm(&self, task: TaskWasm) -> Result<(), WasiThreadError> {
         // Create the context on a new store
         let run = task.run;
+        let recycle = task.recycle;
         let (ctx, store) = WasiFunctionEnv::new_with_store(
             task.module,
             task.env,
@@ -167,6 +172,7 @@ impl VirtualTaskManager for TokioTaskManager {
                         ctx,
                         store,
                         trigger_result: Some(result),
+                        recycle,
                     });
                 });
             });
@@ -182,6 +188,7 @@ impl VirtualTaskManager for TokioTaskManager {
                     ctx,
                     store,
                     trigger_result: None,
+                    recycle,
                 });
             });
         }
