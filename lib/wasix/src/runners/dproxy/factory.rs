@@ -1,6 +1,7 @@
 use std::{
     collections::HashMap,
     sync::{Arc, Mutex},
+    task::Context,
     time::Instant,
 };
 
@@ -62,7 +63,12 @@ impl DProxyInstanceFactory {
         // We attach a composite networking to the runtime which includes a loopback
         // networking implementation connected to a socket manager
         let composite_networking = LocalWithLoopbackNetworking::new();
+        let poll_listening = {
+            let networking = composite_networking.clone();
+            Arc::new(move |cx: &mut Context<'_>| networking.poll_listening(cx))
+        };
         let socket_manager = Arc::new(SocketManager::new(
+            poll_listening,
             composite_networking.loopback_networking(),
             handler.config.proxy_connect_init_timeout,
             handler.config.proxy_connect_nominal_timeout,

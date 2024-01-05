@@ -1,14 +1,14 @@
 use std::{
     net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr},
     sync::{Arc, Mutex},
-    task::Waker,
+    task::{Context, Poll, Waker},
     time::Duration,
 };
 
 use virtual_net::{
-    host::LocalNetworking, loopback::LoopbackNetworking, CompositeTcpListener, IpCidr, IpRoute,
-    NetworkError, StreamSecurity, VirtualIcmpSocket, VirtualNetworking, VirtualRawSocket,
-    VirtualTcpListener, VirtualTcpSocket, VirtualUdpSocket,
+    host::LocalNetworking, loopback::LoopbackNetworking, IpCidr, IpRoute, NetworkError,
+    StreamSecurity, VirtualIcmpSocket, VirtualNetworking, VirtualRawSocket, VirtualTcpListener,
+    VirtualTcpSocket, VirtualUdpSocket,
 };
 
 #[derive(Debug, Default)]
@@ -17,10 +17,9 @@ struct LocalWithLoopbackNetworkingListening {
     wakers: Vec<Waker>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct LocalWithLoopbackNetworking {
     inner_networking: Arc<dyn VirtualNetworking + Send + Sync + 'static>,
-    listen_port: Option<u16>,
     local_listening: Arc<Mutex<LocalWithLoopbackNetworkingListening>>,
     loopback_networking: LoopbackNetworking,
 }
@@ -32,10 +31,23 @@ impl LocalWithLoopbackNetworking {
         }
         Self {
             local_listening: Default::default(),
-            listen_port: None,
             inner_networking: LOCAL_NETWORKING.clone(),
             loopback_networking: LoopbackNetworking::new(),
         }
+    }
+
+    pub fn poll_listening(&self, cx: &mut Context<'_>) -> Poll<SocketAddr> {
+        let mut listening = self.local_listening.lock().unwrap();
+
+        if let Some(addr) = listening.addresses.first() {
+            return Poll::Ready(*addr);
+        }
+
+        if listening.wakers.iter().any(|w| w.will_wake(cx.waker())) == false {
+            listening.wakers.push(cx.waker().clone());
+        }
+
+        Poll::Pending
     }
 
     pub fn register_listener(&self, addr: SocketAddr) {
@@ -150,42 +162,17 @@ impl VirtualNetworking for LocalWithLoopbackNetworking {
         reuse_port: bool,
         reuse_addr: bool,
     ) -> Result<Box<dyn VirtualTcpListener + Sync>, NetworkError> {
-        // We determine if the listener should be registered so that
-        // anyone waiting to start a connection attempt from the proxy
-        // can do so
-        let add_listener = if let Some(special_port) = self.listen_port {
-            addr.port() == special_port
-        } else {
-            true
-        };
-
         let backlog = 1024;
 
-        let ret: Result<Box<dyn VirtualTcpListener + Sync>, NetworkError> =
-            if is_ip_unspecified(&addr.ip()) {
-                let mut socket = CompositeTcpListener::new();
-                socket.add_port(
-                    self.loopback_networking
-                        .listen_tcp(addr, only_v6, reuse_port, reuse_addr)
-                        .await?,
-                );
-                socket.add_port(
-                    self.inner_networking
-                        .listen_tcp(addr, only_v6, reuse_port, reuse_addr)
-                        .await?,
-                );
-                Ok(Box::new(socket))
-            } else if is_ip_loopback(&addr.ip()) {
-                self.loopback_networking
-                    .listen_tcp(addr, only_v6, reuse_port, reuse_addr)
-                    .await
-            } else {
-                self.inner_networking
-                    .listen_tcp(addr, only_v6, reuse_port, reuse_addr)
-                    .await
-            };
+        tracing::debug!("registering listener on loopback networking");
 
-        if add_listener {
+        let ret: Result<Box<dyn VirtualTcpListener + Sync>, NetworkError> = self
+            .loopback_networking
+            .listen_tcp(addr, only_v6, reuse_port, reuse_addr)
+            .await;
+
+        if ret.is_ok() {
+            tracing::debug!("registering listener on loopback networking");
             self.register_listener(addr);
         }
 
@@ -233,26 +220,4 @@ impl VirtualNetworking for LocalWithLoopbackNetworking {
     ) -> Result<Vec<IpAddr>, NetworkError> {
         self.inner_networking.resolve(host, port, dns_server).await
     }
-}
-
-pub const fn is_ip_unspecified(ip: &IpAddr) -> bool {
-    match ip {
-        IpAddr::V4(ip) => ip.is_unspecified(),
-        IpAddr::V6(ip) => ip.is_unspecified(),
-    }
-}
-
-pub const fn is_ip_loopback(ip: &IpAddr) -> bool {
-    match ip {
-        IpAddr::V4(ip) => is_ip4_loopback(ip),
-        IpAddr::V6(ip) => is_ip6_loopback(ip),
-    }
-}
-
-pub const fn is_ip4_loopback(ip: &Ipv4Addr) -> bool {
-    ip.is_loopback()
-}
-
-pub const fn is_ip6_loopback(ip: &Ipv6Addr) -> bool {
-    ip.is_loopback()
 }

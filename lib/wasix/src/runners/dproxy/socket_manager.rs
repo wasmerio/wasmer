@@ -1,13 +1,25 @@
 use std::{
+    future::poll_fn,
     net::{IpAddr, Ipv4Addr, SocketAddr},
-    sync::atomic::{AtomicBool, Ordering},
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        Arc,
+    },
+    task::{Context, Poll},
     time::Duration,
 };
 
+use derivative::Derivative;
 use virtual_net::{tcp_pair::TcpSocketHalf, LoopbackNetworking};
 
-#[derive(Debug)]
+pub type PollListeningFn =
+    Arc<dyn Fn(&mut Context<'_>) -> Poll<SocketAddr> + Send + Sync + 'static>;
+
+#[derive(Derivative)]
+#[derivative(Debug)]
 pub struct SocketManager {
+    #[derivative(Debug = "ignore")]
+    poll_listening: PollListeningFn,
     loopback_networking: LoopbackNetworking,
     proxy_connect_init_timeout: Duration,
     proxy_connect_nominal_timeout: Duration,
@@ -16,11 +28,13 @@ pub struct SocketManager {
 
 impl SocketManager {
     pub fn new(
+        poll_listening: PollListeningFn,
         loopback_networking: LoopbackNetworking,
         proxy_connect_init_timeout: Duration,
         proxy_connect_nominal_timeout: Duration,
     ) -> Self {
         Self {
+            poll_listening,
             loopback_networking,
             proxy_connect_init_timeout,
             proxy_connect_nominal_timeout,
@@ -41,7 +55,10 @@ impl SocketManager {
     }
 
     pub async fn open_proxy_http_socket(&self) -> anyhow::Result<TcpSocketHalf> {
-        let dst = SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), 80);
+        // We need to find the destination address
+        let poll_listening = self.poll_listening.clone();
+        let port = poll_fn(|cx| poll_listening(cx)).await.port();
+        let dst = SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), port);
 
         // Open a connection directly to the loopback port
         // (or at least try to)

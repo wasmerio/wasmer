@@ -952,12 +952,14 @@ impl<'a> TryFrom<ArchivedJournalEntry<'a>> for JournalEntry<'a> {
                 fd: *fd,
                 backlog: *backlog,
             },
-            ArchivedJournalEntry::SocketBindV1(ArchivedJournalEntrySocketBindV1 { fd, addr }) => {
-                Self::SocketBindV1 {
-                    fd: *fd,
-                    addr: addr.as_socket_addr(),
-                }
-            }
+            ArchivedJournalEntry::SocketBindV1(ArchivedJournalEntrySocketBindV1 {
+                fd,
+                addr,
+                _padding,
+            }) => Self::SocketBindV1 {
+                fd: *fd,
+                addr: addr.as_socket_addr(),
+            },
             ArchivedJournalEntry::SocketConnectedV1(ArchivedJournalEntrySocketConnectedV1 {
                 fd,
                 addr,

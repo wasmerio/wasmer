@@ -741,7 +741,11 @@ impl<'a> JournalEntry<'a> {
                 serializer.serialize_value(&JournalEntrySocketListenV1 { fd, backlog })
             }
             JournalEntry::SocketBindV1 { fd, addr } => {
-                serializer.serialize_value(&JournalEntrySocketBindV1 { fd, addr })
+                serializer.serialize_value(&JournalEntrySocketBindV1 {
+                    fd,
+                    addr,
+                    _padding: 0,
+                })
             }
             JournalEntry::SocketConnectedV1 { fd, addr } => {
                 serializer.serialize_value(&JournalEntrySocketConnectedV1 { fd, addr })
@@ -1355,6 +1359,7 @@ pub struct JournalEntrySocketListenV1 {
 #[archive_attr(derive(CheckBytes))]
 pub struct JournalEntrySocketBindV1 {
     pub fd: u32,
+    pub _padding: u32,
     pub addr: SocketAddr,
 }
 
