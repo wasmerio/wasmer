@@ -116,13 +116,15 @@ impl WasiThread {
         self.rewind.take()
     }
 
-    pub(crate) fn has_rewind_of_type(&self, _type: HandleRewindType) -> bool {
-        match _type {
+    /// Returns true if a rewind of a particular type has been queued
+    /// for processed by a rewind operation
+    pub(crate) fn has_rewind_of_type(&self, type_: HandleRewindType) -> bool {
+        match type_ {
             HandleRewindType::ResultDriven => match &self.rewind {
                 Some(rewind) => rewind.rewind_result.is_some(),
                 None => false,
             },
-            HandleRewindType::Resultless => match &self.rewind {
+            HandleRewindType::ResultLess => match &self.rewind {
                 Some(rewind) => rewind.rewind_result.is_none(),
                 None => false,
             },

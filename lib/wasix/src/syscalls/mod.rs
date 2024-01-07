@@ -1264,25 +1264,36 @@ pub(crate) unsafe fn handle_rewind<M: MemorySize, T>(
 where
     T: serde::de::DeserializeOwned,
 {
-    handle_rewind_ext::<M, T>(ctx, HandleRewindType::ResultDriven)
+    handle_rewind_ext::<M, T>(ctx, HandleRewindType::ResultDriven).flatten()
 }
 
 pub(crate) enum HandleRewindType {
     /// Handle rewind types that have a result to be processed
     ResultDriven,
-    /// Handle rewind types that are resultless (generally these
+    /// Handle rewind types that are result-less (generally these
     /// are caused by snapshot events)
-    Resultless,
+    ResultLess,
+}
+
+pub(crate) unsafe fn handle_rewind_ext_with_default<M: MemorySize, T>(
+    ctx: &mut FunctionEnvMut<'_, WasiEnv>,
+    type_: HandleRewindType,
+) -> Option<T>
+where
+    T: serde::de::DeserializeOwned + Default,
+{
+    let ret = handle_rewind_ext::<M, T>(ctx, type_);
+    ret.unwrap_or_default()
 }
 
 pub(crate) unsafe fn handle_rewind_ext<M: MemorySize, T>(
     ctx: &mut FunctionEnvMut<'_, WasiEnv>,
-    _type: HandleRewindType,
-) -> Option<T>
+    type_: HandleRewindType,
+) -> Option<Option<T>>
 where
     T: serde::de::DeserializeOwned,
 {
-    if !ctx.data().thread.has_rewind_of_type(_type) {
+    if !ctx.data().thread.has_rewind_of_type(type_) {
         return None;
     };
 
@@ -1297,7 +1308,7 @@ where
             asyncify_stop_rewind.call(ctx);
         } else {
             warn!("failed to handle rewind because the asyncify_start_rewind export is missing or inaccessible");
-            return None;
+            return Some(None);
         }
 
         // Restore the memory stack
@@ -1307,12 +1318,12 @@ where
         if let Some(rewind_result) = result.rewind_result {
             let ret = bincode::deserialize(&rewind_result)
                 .expect("failed to deserialize the rewind result");
-            Some(ret)
+            Some(Some(ret))
         } else {
-            None
+            Some(None)
         }
     } else {
-        None
+        Some(None)
     }
 }
 
