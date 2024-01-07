@@ -109,8 +109,7 @@ fn calling_function_exports() -> Result<()> {
     };
     let instance = Instance::new(&mut store, &module, &imports)?;
 
-    let add: TypedFunction<(i32, i32), i32> =
-        instance.exports.get_typed_function(&mut store, "add")?;
+    let add: TypedFunction<(i32, i32), i32> = instance.exports.get_typed_function(&store, "add")?;
 
     let result = add.call(&mut store, 10, 20)?;
     assert_eq!(result, 30);
@@ -145,7 +144,7 @@ fn back_and_forth_with_imports() -> Result<()> {
     let instance = Instance::new(&mut store, &module, &import_object)?;
 
     let add_one: TypedFunction<i32, i32> =
-        instance.exports.get_typed_function(&mut store, "add_one")?;
+        instance.exports.get_typed_function(&store, "add_one")?;
     add_one.call(&mut store, 1)?;
 
     Ok(())
