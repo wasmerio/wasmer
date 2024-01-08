@@ -63,19 +63,19 @@ impl ModuleCache for FileSystemCache {
                             }
                             Err(e) => {
                                 tracing::debug!(
-                            %key,
-                            path=%path.display(),
-                            error=&e as &dyn std::error::Error,
-                            "Deleting the cache file because the artifact couldn't be deserialized",
-                        );
+                                    %key,
+                                    path=%path.display(),
+                                    error=&e as &dyn std::error::Error,
+                                    "Deleting the cache file because the artifact couldn't be deserialized",
+                                );
 
                                 if let Err(e) = std::fs::remove_file(&path) {
                                     tracing::warn!(
-                                %key,
-                                path=%path.display(),
-                                error=&e as &dyn std::error::Error,
-                                "Unable to remove the corrupted cache file",
-                            );
+                                        %key,
+                                        path=%path.display(),
+                                        error=&e as &dyn std::error::Error,
+                                        "Unable to remove the corrupted cache file",
+                                    );
                                 }
 
                                 Err(e)
@@ -131,10 +131,11 @@ impl ModuleCache for FileSystemCache {
                         .await
                         .unwrap()?;
 
-                    if let Err(error) = tokio::io::BufWriter::new(&mut file)
-                        .write_all(&serialized)
-                        .await
-                    {
+                    let mut writer = tokio::io::BufWriter::new(&mut file);
+                    if let Err(error) = writer.write_all(&serialized).await {
+                        return Err(CacheError::FileWrite { path, error });
+                    }
+                    if let Err(error) = writer.flush().await {
                         return Err(CacheError::FileWrite { path, error });
                     }
 
