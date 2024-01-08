@@ -692,10 +692,18 @@ where
 
     /// Grows the memory to at least a minimum size. If the memory is already big enough
     /// for the min size then this function does nothing
-    fn grow_at_least(&mut self, min_size: u64) -> Result<(), MemoryError>;
+    fn grow_at_least(&mut self, _min_size: u64) -> Result<(), MemoryError> {
+        Err(MemoryError::UnsupportedOperation {
+            message: "grow_at_least() is not supported".to_string(),
+        })
+    }
 
     /// Resets the memory back to zero length
-    fn reset(&mut self) -> Result<(), MemoryError>;
+    fn reset(&mut self) -> Result<(), MemoryError> {
+        Err(MemoryError::UnsupportedOperation {
+            message: "reset() is not supported".to_string(),
+        })
+    }
 
     /// Return a `VMMemoryDefinition` for exposing the memory to compiled wasm code.
     fn vmmemory(&self) -> NonNull<VMMemoryDefinition>;
