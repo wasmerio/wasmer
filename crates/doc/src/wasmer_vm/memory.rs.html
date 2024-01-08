@@ -731,6 +731,14 @@
 <a href="#731" id="731">731</a>
 <a href="#732" id="732">732</a>
 <a href="#733" id="733">733</a>
+<a href="#734" id="734">734</a>
+<a href="#735" id="735">735</a>
+<a href="#736" id="736">736</a>
+<a href="#737" id="737">737</a>
+<a href="#738" id="738">738</a>
+<a href="#739" id="739">739</a>
+<a href="#740" id="740">740</a>
+<a href="#741" id="741">741</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file contains code from external sources.
 // Attributions: https://github.com/wasmerio/wasmer/blob/master/ATTRIBUTIONS.md
 
@@ -1425,10 +1433,18 @@
 
     <span class="doccomment">/// Grows the memory to at least a minimum size. If the memory is already big enough
     /// for the min size then this function does nothing
-    </span><span class="kw">fn </span>grow_at_least(<span class="kw-2">&amp;mut </span><span class="self">self</span>, min_size: u64) -&gt; <span class="prelude-ty">Result</span>&lt;(), MemoryError&gt;;
+    </span><span class="kw">fn </span>grow_at_least(<span class="kw-2">&amp;mut </span><span class="self">self</span>, _min_size: u64) -&gt; <span class="prelude-ty">Result</span>&lt;(), MemoryError&gt; {
+        <span class="prelude-val">Err</span>(MemoryError::UnsupportedOperation {
+            message: <span class="string">&quot;grow_at_least() is not supported&quot;</span>.to_string(),
+        })
+    }
 
     <span class="doccomment">/// Resets the memory back to zero length
-    </span><span class="kw">fn </span>reset(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;(), MemoryError&gt;;
+    </span><span class="kw">fn </span>reset(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;(), MemoryError&gt; {
+        <span class="prelude-val">Err</span>(MemoryError::UnsupportedOperation {
+            message: <span class="string">&quot;reset() is not supported&quot;</span>.to_string(),
+        })
+    }
 
     <span class="doccomment">/// Return a `VMMemoryDefinition` for exposing the memory to compiled wasm code.
     </span><span class="kw">fn </span>vmmemory(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; NonNull&lt;VMMemoryDefinition&gt;;

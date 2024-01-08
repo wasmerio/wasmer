@@ -278,6 +278,13 @@
 <a href="#278" id="278">278</a>
 <a href="#279" id="279">279</a>
 <a href="#280" id="280">280</a>
+<a href="#281" id="281">281</a>
+<a href="#282" id="282">282</a>
+<a href="#283" id="283">283</a>
+<a href="#284" id="284">284</a>
+<a href="#285" id="285">285</a>
+<a href="#286" id="286">286</a>
+<a href="#287" id="287">287</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! The WebAssembly possible errors
 </span><span class="kw">use crate</span>::{ExternType, Pages};
 <span class="kw">use </span>std::io;
@@ -366,6 +373,13 @@
     <span class="doccomment">/// Returned when a shared memory is required, but the given memory is not shared.
     </span><span class="attr">#[error(<span class="string">&quot;The memory is not shared&quot;</span>)]
     </span>MemoryNotShared,
+    <span class="doccomment">/// Returned when trying to call a memory operation that is not supported by
+    /// the particular memory implementation.
+    </span><span class="attr">#[error(<span class="string">&quot;tried to call an unsupported memory operation: {message}&quot;</span>)]
+    </span>UnsupportedOperation {
+        <span class="doccomment">/// Message describing the unsupported operation.
+        </span>message: String,
+    },
     <span class="doccomment">/// A user defined error value, used for error cases not listed above.
     </span><span class="attr">#[error(<span class="string">&quot;A user-defined error occurred: {0}&quot;</span>)]
     </span>Generic(String),
