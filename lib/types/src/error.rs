@@ -86,6 +86,13 @@ pub enum MemoryError {
     /// Returned when a shared memory is required, but the given memory is not shared.
     #[error("The memory is not shared")]
     MemoryNotShared,
+    /// Returned when trying to call a memory operation that is not supported by
+    /// the particular memory implementation.
+    #[error("tried to call an unsupported memory operation: {message}")]
+    UnsupportedOperation {
+        /// Message describing the unsupported operation.
+        message: String,
+    },
     /// A user defined error value, used for error cases not listed above.
     #[error("A user-defined error occurred: {0}")]
     Generic(String),
