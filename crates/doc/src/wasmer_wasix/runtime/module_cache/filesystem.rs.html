@@ -299,6 +299,7 @@
 <a href="#299" id="299">299</a>
 <a href="#300" id="300">300</a>
 <a href="#301" id="301">301</a>
+<a href="#302" id="302">302</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::path::{Path, PathBuf};
 <span class="kw">use </span>std::sync::Arc;
 
@@ -364,19 +365,19 @@
                             }
                             <span class="prelude-val">Err</span>(e) =&gt; {
                                 <span class="macro">tracing::debug!</span>(
-                            %key,
-                            path=%path.display(),
-                            error=<span class="kw-2">&amp;</span>e <span class="kw">as </span><span class="kw-2">&amp;</span><span class="kw">dyn </span>std::error::Error,
-                            <span class="string">&quot;Deleting the cache file because the artifact couldn&#39;t be deserialized&quot;</span>,
-                        );
+                                    %key,
+                                    path=%path.display(),
+                                    error=<span class="kw-2">&amp;</span>e <span class="kw">as </span><span class="kw-2">&amp;</span><span class="kw">dyn </span>std::error::Error,
+                                    <span class="string">&quot;Deleting the cache file because the artifact couldn&#39;t be deserialized&quot;</span>,
+                                );
 
                                 <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = std::fs::remove_file(<span class="kw-2">&amp;</span>path) {
                                     <span class="macro">tracing::warn!</span>(
-                                %key,
-                                path=%path.display(),
-                                error=<span class="kw-2">&amp;</span>e <span class="kw">as </span><span class="kw-2">&amp;</span><span class="kw">dyn </span>std::error::Error,
-                                <span class="string">&quot;Unable to remove the corrupted cache file&quot;</span>,
-                            );
+                                        %key,
+                                        path=%path.display(),
+                                        error=<span class="kw-2">&amp;</span>e <span class="kw">as </span><span class="kw-2">&amp;</span><span class="kw">dyn </span>std::error::Error,
+                                        <span class="string">&quot;Unable to remove the corrupted cache file&quot;</span>,
+                                    );
                                 }
 
                                 <span class="prelude-val">Err</span>(e)
@@ -432,10 +433,11 @@
                         .<span class="kw">await
                         </span>.unwrap()<span class="question-mark">?</span>;
 
-                    <span class="kw">if let </span><span class="prelude-val">Err</span>(error) = tokio::io::BufWriter::new(<span class="kw-2">&amp;mut </span>file)
-                        .write_all(<span class="kw-2">&amp;</span>serialized)
-                        .<span class="kw">await
-                    </span>{
+                    <span class="kw">let </span><span class="kw-2">mut </span>writer = tokio::io::BufWriter::new(<span class="kw-2">&amp;mut </span>file);
+                    <span class="kw">if let </span><span class="prelude-val">Err</span>(error) = writer.write_all(<span class="kw-2">&amp;</span>serialized).<span class="kw">await </span>{
+                        <span class="kw">return </span><span class="prelude-val">Err</span>(CacheError::FileWrite { path, error });
+                    }
+                    <span class="kw">if let </span><span class="prelude-val">Err</span>(error) = writer.flush().<span class="kw">await </span>{
                         <span class="kw">return </span><span class="prelude-val">Err</span>(CacheError::FileWrite { path, error });
                     }
 
