@@ -275,21 +275,6 @@ impl WasiThread {
         self.state.status.set_running();
     }
 
-    /// Gets or sets the exit code based of a signal that was received
-    /// Note: if the exit code was already set earlier this method will
-    /// just return that earlier set exit code
-    pub fn set_or_get_exit_code_for_signal(&self, sig: Signal) -> ExitCode {
-        let default_exitcode: ExitCode = match sig {
-            Signal::Sigquit | Signal::Sigabrt => Errno::Success.into(),
-            _ => Errno::Intr.into(),
-        };
-        // This will only set the status code if its not already set
-        self.set_status_finished(Ok(default_exitcode));
-        self.try_join()
-            .map(|r| r.unwrap_or(default_exitcode))
-            .unwrap_or(default_exitcode)
-    }
-
     /// Marks the thread as finished (which will cause anyone that
     /// joined on it to wake up)
     pub fn set_status_finished(&self, res: Result<ExitCode, WasiRuntimeError>) {

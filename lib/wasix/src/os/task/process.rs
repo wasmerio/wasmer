@@ -8,13 +8,13 @@ use std::{
     collections::HashMap,
     convert::TryInto,
     sync::{
-        atomic::{AtomicU32, Ordering},
+        atomic::{AtomicI32, AtomicU32, Ordering},
         Arc, Condvar, Mutex, MutexGuard, RwLock, Weak,
     },
     time::Duration,
 };
 use tracing::trace;
-use wasmer::FunctionEnvMut;
+use wasmer::{FromToNativeWasmType, FunctionEnvMut};
 use wasmer_wasix_types::{
     types::Signal,
     wasi::{Errno, ExitCode, Snapshot0Clockid},
@@ -98,6 +98,11 @@ struct State {
     // (we don't want cyclical references)
     compute: WasiControlPlaneHandle,
 
+    /// This process was instructed to terminate and should stop executing
+    /// immediately.
+    /// The value is either 0 (= shouldl not terminate), or an exit code.
+    should_terminate_with_code: AtomicI32,
+
     /// Reference to the exit code for the main thread
     status: Arc<OwnedTaskStatus>,
 
@@ -165,6 +170,7 @@ impl WasiProcess {
                     checkpoint: ProcessCheckpoint::Execute,
                 }),
                 status: Arc::new(OwnedTaskStatus::default()),
+                should_terminate_with_code: AtomicI32::new(0),
                 waiting: Arc::new(AtomicU32::new(0)),
             }),
         }
@@ -205,6 +211,22 @@ impl WasiProcess {
         guard: MutexGuard<'a, WasiProcessInner>,
     ) -> MutexGuard<'a, WasiProcessInner> {
         self.state.lock_condvar.wait(guard).unwrap()
+    }
+
+    /// Whether the process should terminate.
+    ///
+    /// Returns `None` if the process should not terminate, or `Some(code)` if
+    /// the process should terminate with the given exit code.
+    pub fn should_terminate_with_code(&self) -> Option<ExitCode> {
+        let v = self
+            .state
+            .should_terminate_with_code
+            .load(Ordering::Acquire);
+        if v == 0 {
+            None
+        } else {
+            Some(ExitCode::from_native(v))
+        }
     }
 
     /// Gets the process ID of the parent process
@@ -421,12 +443,17 @@ impl WasiProcess {
 
     /// Terminate the process and all its threads
     pub fn terminate(&self, exit_code: ExitCode) {
-        // FIXME: this is wrong, threads might still be running!
-        // Need special logic for the main thread.
-        let guard = self.lock();
-        for thread in guard.threads.values() {
-            thread.set_status_finished(Ok(exit_code))
-        }
+        self.state
+            .should_terminate_with_code
+            .store(exit_code.raw(), Ordering::Release);
+        self.signal_process(Signal::Sigkill);
+    }
+
+    /// Terminate the process and wait for all its threads to finish.
+    pub async fn terminate_wait(&self, exit_code: ExitCode) {
+        self.terminate(exit_code);
+        self.join_children().await;
+        self.join().await.ok();
     }
 }
 

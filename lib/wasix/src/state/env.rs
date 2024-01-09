@@ -675,6 +675,12 @@ impl WasiEnv {
         // If a signal handler has never been set then we need to handle signals
         // differently
         let env = ctx.data();
+
+        // Check for forced exit
+        if let Some(forced_exit) = env.process.should_terminate_with_code() {
+            return Err(WasiError::Exit(forced_exit));
+        }
+
         let inner = env
             .try_inner()
             .ok_or_else(|| WasiError::Exit(Errno::Fault.into()))?;
@@ -687,8 +693,7 @@ impl WasiEnv {
                         || sig == Signal::Sigkill
                         || sig == Signal::Sigabrt
                     {
-                        let exit_code = env.thread.set_or_get_exit_code_for_signal(sig);
-                        return Err(WasiError::Exit(exit_code));
+                        return Err(WasiError::Exit(ExitCode::Errno(Errno::Intr)));
                     } else {
                         tracing::trace!(pid=%env.pid(), ?sig, "Signal ignored");
                     }
@@ -697,16 +702,11 @@ impl WasiEnv {
             }
         }
 
-        // Check for forced exit
-        if let Some(forced_exit) = env.should_exit() {
-            return Err(WasiError::Exit(forced_exit));
-        }
-
         Self::process_signals(ctx)
     }
 
     /// Porcesses any signals that are batched up
-    pub(crate) fn process_signals(ctx: &mut FunctionEnvMut<'_, Self>) -> WasiResult<bool> {
+    fn process_signals(ctx: &mut FunctionEnvMut<'_, Self>) -> WasiResult<bool> {
         // If a signal handler has never been set then we need to handle signals
         // differently
         let env = ctx.data();
@@ -801,30 +801,6 @@ impl WasiEnv {
         } else {
             Ok(false)
         }
-    }
-
-    /// Returns an exit code if the thread or process has been forced to exit
-    pub fn should_exit(&self) -> Option<ExitCode> {
-        // Check for forced exit
-        if let Some(forced_exit) = self.thread.try_join() {
-            return Some(forced_exit.unwrap_or_else(|err| {
-                tracing::debug!(
-                    error = &*err as &dyn std::error::Error,
-                    "exit runtime error",
-                );
-                Errno::Child.into()
-            }));
-        }
-        if let Some(forced_exit) = self.process.try_join() {
-            return Some(forced_exit.unwrap_or_else(|err| {
-                tracing::debug!(
-                    error = &*err as &dyn std::error::Error,
-                    "exit runtime error",
-                );
-                Errno::Child.into()
-            }));
-        }
-        None
     }
 
     /// Accesses the virtual networking implementation

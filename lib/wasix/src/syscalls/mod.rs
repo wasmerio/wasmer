@@ -28,6 +28,7 @@ use futures::{
 use tracing::instrument;
 pub use wasi::*;
 pub use wasix::*;
+use wasmer::FromToNativeWasmType;
 
 pub mod legacy;
 
@@ -305,7 +306,7 @@ where
     let mut env = ctx.data();
 
     // Check if we need to exit the asynchronous loop
-    if let Some(exit_code) = env.should_exit() {
+    if let Some(exit_code) = env.process.should_terminate_with_code() {
         return Err(WasiError::Exit(exit_code));
     }
 
@@ -369,22 +370,24 @@ where
         }
 
         let env = self.ctx.data();
-        if let Some(forced_exit) = env.thread.try_join() {
-            return Poll::Ready(Err(WasiError::Exit(forced_exit.unwrap_or_else(|err| {
-                tracing::debug!("exit runtime error - {}", err);
-                Errno::Child.into()
-            }))));
+        if let Some(code) = env.process.should_terminate_with_code() {
+            return Poll::Ready(Err(WasiError::Exit(code)));
         }
         if self.process_signals && env.thread.has_signals_or_subscribe(cx.waker()) {
             let signals = env.thread.signals().lock().unwrap();
             for sig in signals.0.iter() {
+                // FIXME: quit and abort should invoke the handler.
+                // FIXME: prevent duplication with code in WasiEnv::process_signals_and_exit
                 if *sig == Signal::Sigint
                     || *sig == Signal::Sigquit
                     || *sig == Signal::Sigkill
                     || *sig == Signal::Sigabrt
                 {
-                    let exit_code = env.thread.set_or_get_exit_code_for_signal(*sig);
-                    return Poll::Ready(Err(WasiError::Exit(exit_code)));
+                    let code = env
+                        .process
+                        .should_terminate_with_code()
+                        .unwrap_or(ExitCode::Errno(Errno::Intr));
+                    return Poll::Ready(Err(WasiError::Exit(code)));
                 }
             }
         }
@@ -507,7 +510,7 @@ where
             if let Poll::Ready(res) = Pin::new(&mut self.pinned_work).poll(cx) {
                 return Poll::Ready(Ok(res));
             }
-            if let Some(exit_code) = self.env.should_exit() {
+            if let Some(exit_code) = self.env.process.should_terminate_with_code() {
                 return Poll::Ready(Err(WasiError::Exit(exit_code)));
             }
             if self.env.thread.has_signals_or_subscribe(cx.waker()) {
