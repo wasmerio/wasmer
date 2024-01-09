@@ -1,19 +1,21 @@
+mod dummy_waker;
 mod owned_mutex_guard;
 pub mod store;
 mod thread_parker;
 
-mod dummy_waker;
-pub use self::dummy_waker::WasiDummyWaker;
+#[cfg(feature = "js")]
+pub(crate) mod web;
+
+pub use self::{dummy_waker::WasiDummyWaker, thread_parker::WasiParkingLot};
+
+pub(crate) use owned_mutex_guard::{
+    read_owned, write_owned, OwnedRwLockReadGuard, OwnedRwLockWriteGuard,
+};
 
 use std::collections::BTreeSet;
 
 use wasmer::Module;
 use wasmer_wasix_types::wasi::Errno;
-
-pub use self::thread_parker::WasiParkingLot;
-pub(crate) use owned_mutex_guard::{
-    read_owned, write_owned, OwnedRwLockReadGuard, OwnedRwLockWriteGuard,
-};
 
 /// Check if a provided module is compiled for some version of WASI.
 /// Use [`get_wasi_version`] to find out which version of WASI the module is.
@@ -34,6 +36,12 @@ pub fn is_wasix_module(module: &Module) -> bool {
 
 pub fn map_io_err(err: std::io::Error) -> Errno {
     From::<std::io::Error>::from(err)
+}
+
+#[cfg(feature = "journal")]
+pub fn map_snapshot_err(err: anyhow::Error) -> Errno {
+    tracing::warn!("unknown snapshot error: {}", err);
+    Errno::Unknown
 }
 
 /// The version of WASI. This is determined by the imports namespace

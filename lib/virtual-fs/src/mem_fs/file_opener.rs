@@ -554,8 +554,8 @@ mod test_file_opener {
         };
     }
 
-    #[test]
-    fn test_create_new_file() {
+    #[tokio::test]
+    async fn test_create_new_file() {
         let fs = FileSystem::default();
 
         assert!(
@@ -633,8 +633,8 @@ mod test_file_opener {
         );
     }
 
-    #[test]
-    fn test_truncate_a_read_only_file() {
+    #[tokio::test]
+    async fn test_truncate_a_read_only_file() {
         let fs = FileSystem::default();
 
         assert!(

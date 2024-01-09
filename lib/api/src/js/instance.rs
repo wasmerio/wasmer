@@ -1,4 +1,3 @@
-use crate::errors::InstantiationError;
 use crate::exports::Exports;
 use crate::imports::Imports;
 use crate::js::as_js::AsJs;
@@ -6,11 +5,12 @@ use crate::js::vm::VMInstance;
 use crate::module::Module;
 use crate::store::AsStoreMut;
 use crate::Extern;
+use crate::{errors::InstantiationError, js::js_handle::JsHandle};
 use js_sys::WebAssembly;
 
 #[derive(Clone, PartialEq, Eq)]
 pub struct Instance {
-    pub(crate) _handle: VMInstance,
+    pub(crate) _handle: JsHandle<VMInstance>,
 }
 
 // Instance can't be Send in js because it dosen't support `structuredClone`
@@ -67,6 +67,10 @@ impl Instance {
             })
             .collect::<Result<Exports, InstantiationError>>()?;
 
-        Ok((Self { _handle: instance }, exports))
+        let instance = Instance {
+            _handle: JsHandle::new(instance),
+        };
+
+        Ok((instance, exports))
     }
 }

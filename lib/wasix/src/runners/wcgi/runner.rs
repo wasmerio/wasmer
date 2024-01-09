@@ -1,10 +1,9 @@
 use std::{net::SocketAddr, sync::Arc, time::Duration};
 
 use anyhow::{Context, Error};
-use futures::future::AbortHandle;
 use http::{Request, Response};
 use hyper::Body;
-use tower::{make::Shared, ServiceBuilder};
+use tower::{make::Shared, Service, ServiceBuilder};
 use tower_http::{catch_panic::CatchPanicLayer, cors::CorsLayer, trace::TraceLayer};
 use tracing::Span;
 use wcgi_host::CgiDialect;
@@ -21,17 +20,25 @@ use crate::{
         wcgi::handler::{Handler, SharedState},
         MappedDirectory,
     },
+    runtime::task_manager::VirtualTaskManagerExt,
     Runtime, WasiEnvBuilder,
 };
 
-#[derive(Debug, Default)]
+use super::Callbacks;
+
+#[derive(Debug)]
 pub struct WcgiRunner {
     config: Config,
 }
 
 impl WcgiRunner {
-    pub fn new() -> Self {
-        WcgiRunner::default()
+    pub fn new<C>(callbacks: C) -> Self
+    where
+        C: Callbacks,
+    {
+        Self {
+            config: Config::new(callbacks),
+        }
     }
 
     pub fn config(&mut self) -> &mut Config {
@@ -39,10 +46,12 @@ impl WcgiRunner {
     }
 
     #[tracing::instrument(skip_all)]
-    fn prepare_handler(
+    pub(crate) fn prepare_handler(
         &mut self,
         command_name: &str,
         pkg: &BinaryPackage,
+        propagate_stderr: bool,
+        default_dialect: CgiDialect,
         runtime: Arc<dyn Runtime + Send + Sync>,
     ) -> Result<Handler, Error> {
         let cmd = pkg
@@ -53,12 +62,12 @@ impl WcgiRunner {
             .annotation("wasi")?
             .unwrap_or_else(|| Wasi::new(command_name));
 
-        let module = crate::runners::compile_module(cmd.atom(), &*runtime)?;
+        let module = runtime.load_module_sync(cmd.atom())?;
 
         let Wcgi { dialect, .. } = metadata.annotation("wcgi")?.unwrap_or_default();
         let dialect = match dialect {
             Some(d) => d.parse().context("Unable to parse the CGI dialect")?,
-            None => CgiDialect::Wcgi,
+            None => default_dialect,
         };
 
         let container_fs = Arc::clone(&pkg.webc_fs);
@@ -66,41 +75,41 @@ impl WcgiRunner {
         let wasi_common = self.config.wasi.clone();
         let rt = Arc::clone(&runtime);
         let setup_builder = move |builder: &mut WasiEnvBuilder| {
-            wasi_common.prepare_webc_env(builder, Arc::clone(&container_fs), &wasi)?;
+            wasi_common.prepare_webc_env(builder, Some(Arc::clone(&container_fs)), &wasi, None)?;
             builder.set_runtime(Arc::clone(&rt));
-
             Ok(())
         };
 
         let shared = SharedState {
             module,
+            module_hash: pkg.hash(),
             dialect,
+            propagate_stderr,
             program_name: command_name.to_string(),
-            setup_builder: Box::new(setup_builder),
+            setup_builder: Arc::new(setup_builder),
             callbacks: Arc::clone(&self.config.callbacks),
             runtime,
         };
 
-        Ok(Handler::new(shared))
-    }
-}
-
-impl crate::runners::Runner for WcgiRunner {
-    fn can_run_command(command: &Command) -> Result<bool, Error> {
-        Ok(command
-            .runner
-            .starts_with(webc::metadata::annotations::WCGI_RUNNER_URI))
+        Ok(Handler::new(Arc::new(shared)))
     }
 
-    fn run_command(
+    pub(crate) fn run_command_with_handler<S>(
         &mut self,
-        command_name: &str,
-        pkg: &BinaryPackage,
+        handler: S,
         runtime: Arc<dyn Runtime + Send + Sync>,
-    ) -> Result<(), Error> {
-        let handler = self.prepare_handler(command_name, pkg, Arc::clone(&runtime))?;
-        let callbacks = Arc::clone(&self.config.callbacks);
-
+    ) -> Result<(), Error>
+    where
+        S: Service<
+            Request<Body>,
+            Response = http::Response<Body>,
+            Error = anyhow::Error,
+            Future = std::pin::Pin<
+                Box<dyn futures::Future<Output = Result<Response<Body>, Error>> + Send>,
+            >,
+        >,
+        S: Clone + Send + Sync + 'static,
+    {
         let service = ServiceBuilder::new()
             .layer(
                 TraceLayer::new_for_http()
@@ -124,9 +133,10 @@ impl crate::runners::Runner for WcgiRunner {
         let address = self.config.addr;
         tracing::info!(%address, "Starting the server");
 
+        let callbacks = Arc::clone(&self.config.callbacks);
         runtime
             .task_manager()
-            .block_on(async {
+            .spawn_and_block_on(async move {
                 let (shutdown, abort_handle) =
                     futures::future::abortable(futures::future::pending::<()>());
 
@@ -146,13 +156,37 @@ impl crate::runners::Runner for WcgiRunner {
     }
 }
 
+impl crate::runners::Runner for WcgiRunner {
+    fn can_run_command(command: &Command) -> Result<bool, Error> {
+        Ok(command
+            .runner
+            .starts_with(webc::metadata::annotations::WCGI_RUNNER_URI))
+    }
+
+    fn run_command(
+        &mut self,
+        command_name: &str,
+        pkg: &BinaryPackage,
+        runtime: Arc<dyn Runtime + Send + Sync>,
+    ) -> Result<(), Error> {
+        let handler = self.prepare_handler(
+            command_name,
+            pkg,
+            false,
+            CgiDialect::Wcgi,
+            Arc::clone(&runtime),
+        )?;
+        self.run_command_with_handler(handler, runtime)
+    }
+}
+
 #[derive(derivative::Derivative)]
 #[derivative(Debug)]
 pub struct Config {
-    wasi: CommonWasiOptions,
-    addr: SocketAddr,
+    pub(crate) wasi: CommonWasiOptions,
+    pub(crate) addr: SocketAddr,
     #[derivative(Debug = "ignore")]
-    callbacks: Arc<dyn Callbacks>,
+    pub(crate) callbacks: Arc<dyn Callbacks>,
 }
 
 impl Config {
@@ -240,34 +274,55 @@ impl Config {
     pub fn capabilities(&mut self) -> &mut Capabilities {
         &mut self.wasi.capabilities
     }
-}
 
-impl Default for Config {
-    fn default() -> Self {
-        Self {
-            addr: ([127, 0, 0, 1], 8000).into(),
-            wasi: CommonWasiOptions::default(),
-            callbacks: Arc::new(NoopCallbacks),
+    #[cfg(feature = "journal")]
+    pub fn add_snapshot_trigger(&mut self, on: crate::journal::SnapshotTrigger) {
+        self.wasi.snapshot_on.push(on);
+    }
+
+    #[cfg(feature = "journal")]
+    pub fn add_default_snapshot_triggers(&mut self) -> &mut Self {
+        for on in crate::journal::DEFAULT_SNAPSHOT_TRIGGERS {
+            if !self.has_snapshot_trigger(on) {
+                self.add_snapshot_trigger(on);
+            }
         }
+        self
+    }
+
+    #[cfg(feature = "journal")]
+    pub fn has_snapshot_trigger(&self, on: crate::journal::SnapshotTrigger) -> bool {
+        self.wasi.snapshot_on.iter().any(|t| *t == on)
+    }
+
+    #[cfg(feature = "journal")]
+    pub fn with_snapshot_interval(&mut self, period: std::time::Duration) -> &mut Self {
+        if !self.has_snapshot_trigger(crate::journal::SnapshotTrigger::PeriodicInterval) {
+            self.add_snapshot_trigger(crate::journal::SnapshotTrigger::PeriodicInterval);
+        }
+        self.wasi.snapshot_interval.replace(period);
+        self
+    }
+
+    #[cfg(feature = "journal")]
+    pub fn add_journal(&mut self, journal: Arc<crate::journal::DynJournal>) -> &mut Self {
+        self.wasi.journals.push(journal);
+        self
     }
 }
 
-/// Callbacks that are triggered at various points in the lifecycle of a runner
-/// and any WebAssembly instances it may start.
-pub trait Callbacks: Send + Sync + 'static {
-    /// A callback that is called whenever the server starts.
-    fn started(&self, _abort: AbortHandle) {}
-
-    /// Data was written to stderr by an instance.
-    fn on_stderr(&self, _stderr: &[u8]) {}
-
-    /// Reading from stderr failed.
-    fn on_stderr_error(&self, _error: std::io::Error) {}
+impl Config {
+    pub fn new<C>(callbacks: C) -> Self
+    where
+        C: Callbacks,
+    {
+        Self {
+            addr: ([127, 0, 0, 1], 8000).into(),
+            wasi: CommonWasiOptions::default(),
+            callbacks: Arc::new(callbacks),
+        }
+    }
 }
-
-struct NoopCallbacks;
-
-impl Callbacks for NoopCallbacks {}
 
 #[cfg(test)]
 mod tests {

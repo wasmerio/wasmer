@@ -1,3 +1,5 @@
+use std::task::Waker;
+
 use serde::{Deserialize, Serialize};
 use wasmer::FromToNativeWasmType;
 use wasmer_wasix_types::wasi::{JoinFlags, JoinStatus, JoinStatusType, JoinStatusUnion, OptionPid};
@@ -18,14 +20,25 @@ enum JoinStatusResult {
 /// ## Parameters
 ///
 /// * `pid` - Handle of the child process to wait on
-//#[instrument(level = "trace", skip_all, fields(pid = ctx.data().process.pid().raw()), ret, err)]
+//#[instrument(level = "trace", skip_all, fields(pid = ctx.data().process.pid().raw()), ret)]
 pub fn proc_join<M: MemorySize + 'static>(
+    ctx: FunctionEnvMut<'_, WasiEnv>,
+    pid_ptr: WasmPtr<OptionPid, M>,
+    flags: JoinFlags,
+    status_ptr: WasmPtr<JoinStatus, M>,
+) -> Result<Errno, WasiError> {
+    proc_join_internal(ctx, pid_ptr, flags, status_ptr)
+}
+
+pub(super) fn proc_join_internal<M: MemorySize + 'static>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     pid_ptr: WasmPtr<OptionPid, M>,
-    _flags: JoinFlags,
+    flags: JoinFlags,
     status_ptr: WasmPtr<JoinStatus, M>,
 ) -> Result<Errno, WasiError> {
     wasi_try_ok!(WasiEnv::process_signals_and_exit(&mut ctx)?);
+
+    ctx = wasi_try_ok!(maybe_snapshot::<M>(ctx)?);
 
     // This lambda will look at what we wrote in the status variable
     // and use this to determine the return code sent back to the caller
@@ -144,7 +157,7 @@ pub fn proc_join<M: MemorySize + 'static>(
     // Waiting for a process that is an explicit child will join it
     // meaning it will no longer be a sub-process of the main process
     let mut process = {
-        let mut inner = ctx.data().process.inner.write().unwrap();
+        let mut inner = ctx.data().process.lock();
         let process = inner
             .children
             .iter()
@@ -171,20 +184,32 @@ pub fn proc_join<M: MemorySize + 'static>(
             }
         ));
 
-        // Wait for the process to finish
-        let process2 = process.clone();
-        let res =
-            __asyncify_with_deep_sleep::<M, _, _>(ctx, Duration::from_millis(50), async move {
-                let exit_code = process.join().await.unwrap_or_else(|_| Errno::Child.into());
-                tracing::trace!(%exit_code, "triggered child join");
-                JoinStatusResult::ExitNormal(pid, exit_code)
-            })?;
-        return match res {
-            AsyncifyAction::Finish(ctx, result) => ret_result(ctx, result),
-            AsyncifyAction::Unwind => Ok(Errno::Success),
-        };
+        if flags.contains(JoinFlags::NON_BLOCKING) {
+            if let Some(status) = process.try_join() {
+                let exit_code = status.unwrap_or_else(|_| Errno::Child.into());
+                ret_result(ctx, JoinStatusResult::ExitNormal(pid, exit_code))
+            } else {
+                ret_result(ctx, JoinStatusResult::Nothing)
+            }
+        } else {
+            // Wait for the process to finish
+            let process2 = process.clone();
+            let res = __asyncify_with_deep_sleep::<M, _, _>(
+                ctx,
+                Duration::from_millis(50),
+                async move {
+                    let exit_code = process.join().await.unwrap_or_else(|_| Errno::Child.into());
+                    tracing::trace!(%exit_code, "triggered child join");
+                    JoinStatusResult::ExitNormal(pid, exit_code)
+                },
+            )?;
+            match res {
+                AsyncifyAction::Finish(ctx, result) => ret_result(ctx, result),
+                AsyncifyAction::Unwind => Ok(Errno::Success),
+            }
+        }
+    } else {
+        trace!(ret_id = pid.raw(), "status=nothing");
+        ret_result(ctx, JoinStatusResult::Nothing)
     }
-
-    trace!(ret_id = pid.raw(), "status=nothing");
-    ret_result(ctx, JoinStatusResult::Nothing)
 }

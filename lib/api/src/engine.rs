@@ -5,7 +5,9 @@ use crate::sys::engine as engine_imp;
 #[cfg(feature = "sys")]
 pub(crate) use crate::sys::engine::default_engine;
 #[cfg(feature = "sys")]
-use std::io::Read;
+use crate::IntoBytes;
+#[cfg(feature = "sys")]
+use shared_buffer::OwnedBuffer;
 #[cfg(feature = "sys")]
 use std::path::Path;
 #[cfg(feature = "sys")]
@@ -45,9 +47,12 @@ impl Engine {
     /// See [`Artifact::deserialize_unchecked`].
     pub unsafe fn deserialize_unchecked(
         &self,
-        bytes: &[u8],
+        bytes: impl IntoBytes,
     ) -> Result<Arc<Artifact>, DeserializeError> {
-        Ok(Arc::new(Artifact::deserialize_unchecked(&self.0, bytes)?))
+        Ok(Arc::new(Artifact::deserialize_unchecked(
+            &self.0,
+            bytes.into_bytes().into(),
+        )?))
     }
 
     #[cfg(all(feature = "sys", not(target_arch = "wasm32")))]
@@ -56,8 +61,14 @@ impl Engine {
     ///
     /// # Safety
     /// See [`Artifact::deserialize`].
-    pub unsafe fn deserialize(&self, bytes: &[u8]) -> Result<Arc<Artifact>, DeserializeError> {
-        Ok(Arc::new(Artifact::deserialize(&self.0, bytes)?))
+    pub unsafe fn deserialize(
+        &self,
+        bytes: impl IntoBytes,
+    ) -> Result<Arc<Artifact>, DeserializeError> {
+        Ok(Arc::new(Artifact::deserialize(
+            &self.0,
+            bytes.into_bytes().into(),
+        )?))
     }
 
     #[cfg(all(feature = "sys", not(target_arch = "wasm32")))]
@@ -71,13 +82,11 @@ impl Engine {
         &self,
         file_ref: &Path,
     ) -> Result<Arc<Artifact>, DeserializeError> {
-        let mut file = std::fs::File::open(file_ref)?;
-        let mut buffer = Vec::new();
-        // read the whole file
-        file.read_to_end(&mut buffer)?;
+        let file = std::fs::File::open(file_ref)?;
         Ok(Arc::new(Artifact::deserialize_unchecked(
             &self.0,
-            buffer.as_slice(),
+            OwnedBuffer::from_file(&file)
+                .map_err(|e| DeserializeError::Generic(format!("{e:?}")))?,
         )?))
     }
 
@@ -90,11 +99,8 @@ impl Engine {
         &self,
         file_ref: &Path,
     ) -> Result<Arc<Artifact>, DeserializeError> {
-        let mut file = std::fs::File::open(file_ref)?;
-        let mut buffer = Vec::new();
-        // read the whole file
-        file.read_to_end(&mut buffer)?;
-        Ok(Arc::new(Artifact::deserialize(&self.0, buffer.as_slice())?))
+        let bytes = std::fs::read(file_ref)?;
+        Ok(Arc::new(Artifact::deserialize(&self.0, bytes.into())?))
     }
 }
 

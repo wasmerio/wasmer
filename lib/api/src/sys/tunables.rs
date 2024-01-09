@@ -106,6 +106,24 @@ mod tests {
                 attempted_delta: delta,
             })
         }
+
+        fn grow_at_least(&mut self, min_size: u64) -> Result<(), MemoryError> {
+            let cur_size = self.size().0 as u64 * WASM_PAGE_SIZE as u64;
+            if min_size > cur_size {
+                let delta = min_size - cur_size;
+                return Err(MemoryError::CouldNotGrow {
+                    current: Pages::from(100u32),
+                    attempted_delta: Pages(delta as u32),
+                });
+            }
+            Ok(())
+        }
+
+        fn reset(&mut self) -> Result<(), MemoryError> {
+            self.mem.fill(0);
+            Ok(())
+        }
+
         fn vmmemory(&self) -> NonNull<VMMemoryDefinition> {
             unsafe {
                 NonNull::new(
@@ -279,7 +297,13 @@ mod tests {
     }
 
     #[test]
-    #[cfg(all(feature = "singlepass", not(target_os = "windows")))]
+    #[cfg(all(
+        feature = "singlepass",
+        not(any(
+            target_os = "windows",
+            all(target_os = "macos", target_arch = "aarch64")
+        ))
+    ))]
     fn check_small_stack() -> Result<(), Box<dyn std::error::Error>> {
         use crate::{imports, wat2wasm, Engine, Instance, Module, Store};
         use wasmer_compiler_singlepass::Singlepass;

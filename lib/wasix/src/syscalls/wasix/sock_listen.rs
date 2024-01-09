@@ -1,5 +1,5 @@
 use super::*;
-use crate::syscalls::*;
+use crate::{journal::SnapshotTrigger, syscalls::*};
 
 /// ### `sock_listen()`
 /// Listen for connections on a socket
@@ -18,18 +18,39 @@ pub fn sock_listen<M: MemorySize>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     sock: WasiFd,
     backlog: M::Offset,
-) -> Errno {
+) -> Result<Errno, WasiError> {
+    ctx = wasi_try_ok!(maybe_snapshot_once::<M>(ctx, SnapshotTrigger::FirstListen)?);
+
+    let env = ctx.data();
+    let backlog: usize = wasi_try_ok!(backlog.try_into().map_err(|_| Errno::Inval));
+
+    wasi_try_ok!(sock_listen_internal(&mut ctx, sock, backlog)?);
+
+    #[cfg(feature = "journal")]
+    if ctx.data().enable_journal {
+        JournalEffector::save_sock_listen(&mut ctx, sock, backlog).map_err(|err| {
+            tracing::error!("failed to save sock_listen event - {}", err);
+            WasiError::Exit(ExitCode::Errno(Errno::Fault))
+        })?;
+    }
+
+    Ok(Errno::Success)
+}
+
+pub(crate) fn sock_listen_internal(
+    ctx: &mut FunctionEnvMut<'_, WasiEnv>,
+    sock: WasiFd,
+    backlog: usize,
+) -> Result<Result<(), Errno>, WasiError> {
     let env = ctx.data();
     let net = env.net().clone();
-    let backlog: usize = wasi_try!(backlog.try_into().map_err(|_| Errno::Inval));
-
     let tasks = ctx.data().tasks().clone();
-    wasi_try!(__sock_upgrade(
-        &mut ctx,
+    wasi_try_ok_ok!(__sock_upgrade(
+        ctx,
         sock,
         Rights::SOCK_LISTEN,
         |socket| async move { socket.listen(tasks.deref(), net.deref(), backlog).await }
     ));
 
-    Errno::Success
+    Ok(Ok(()))
 }

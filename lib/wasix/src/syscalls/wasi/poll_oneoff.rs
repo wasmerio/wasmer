@@ -54,7 +54,7 @@ impl EventResult {
 /// Output:
 /// - `u32 nevents`
 ///     The number of events seen
-#[instrument(level = "trace", skip_all, fields(timeout_ms = field::Empty, fd_guards = field::Empty, seen = field::Empty), ret, err)]
+#[instrument(level = "trace", skip_all, fields(timeout_ms = field::Empty, fd_guards = field::Empty, seen = field::Empty), ret)]
 pub fn poll_oneoff<M: MemorySize + 'static>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     in_: WasmPtr<Subscription, M>,
@@ -63,6 +63,8 @@ pub fn poll_oneoff<M: MemorySize + 'static>(
     nevents: WasmPtr<M::Offset, M>,
 ) -> Result<Errno, WasiError> {
     wasi_try_ok!(WasiEnv::process_signals_and_exit(&mut ctx)?);
+
+    ctx = wasi_try_ok!(maybe_snapshot::<M>(ctx)?);
 
     ctx.data_mut().poll_seed += 1;
     let mut env = ctx.data();
@@ -136,9 +138,10 @@ impl Future for PollBatch {
             match guard.poll(cx) {
                 Poll::Pending => {}
                 Poll::Ready(e) => {
-                    for evt in e {
+                    for (evt, readiness) in e {
                         tracing::trace!(
                             fd,
+                            readiness = ?readiness,
                             userdata = evt.userdata,
                             ty = evt.type_ as u8,
                             peb,
@@ -156,6 +159,40 @@ impl Future for PollBatch {
 
         Poll::Pending
     }
+}
+
+pub(crate) fn poll_fd_guard(
+    state: &Arc<WasiState>,
+    peb: PollEventSet,
+    fd: WasiFd,
+    s: Subscription,
+) -> Result<InodeValFilePollGuard, Errno> {
+    Ok(match fd {
+        __WASI_STDERR_FILENO => WasiInodes::stderr(&state.fs.fd_map)
+            .map(|g| g.into_poll_guard(fd, peb, s))
+            .map_err(fs_error_into_wasi_err)?,
+        __WASI_STDOUT_FILENO => WasiInodes::stdout(&state.fs.fd_map)
+            .map(|g| g.into_poll_guard(fd, peb, s))
+            .map_err(fs_error_into_wasi_err)?,
+        _ => {
+            let fd_entry = state.fs.get_fd(fd)?;
+            if !fd_entry.rights.contains(Rights::POLL_FD_READWRITE) {
+                return Err(Errno::Access);
+            }
+            let inode = fd_entry.inode;
+
+            {
+                let guard = inode.read();
+                if let Some(guard) =
+                    crate::fs::InodeValFilePollGuard::new(fd, peb, s, guard.deref())
+                {
+                    guard
+                } else {
+                    return Err(Errno::Badf);
+                }
+            }
+        }
+    })
 }
 
 /// ### `poll_oneoff()`
@@ -259,6 +296,7 @@ where
                         time_to_sleep = Duration::MAX;
                     } else if clock_info.timeout == 1 {
                         time_to_sleep = Duration::ZERO;
+                        clock_subs.push((clock_info, s.userdata));
                     } else {
                         time_to_sleep = Duration::from_nanos(clock_info.timeout);
                         clock_subs.push((clock_info, s.userdata));
@@ -268,6 +306,9 @@ where
                     error!("polling not implemented for these clocks yet");
                     return Ok(Errno::Inval);
                 }
+            }
+            Eventtype::Unknown => {
+                continue;
             }
         };
     }
@@ -286,36 +327,7 @@ where
             #[allow(clippy::significant_drop_in_scrutinee)]
             for (fd, peb, s) in subs {
                 if let Some(fd) = fd {
-                    let wasi_file_ref = match fd {
-                        __WASI_STDERR_FILENO => {
-                            wasi_try_ok!(WasiInodes::stderr(&state.fs.fd_map)
-                                .map(|g| g.into_poll_guard(fd, peb, s))
-                                .map_err(fs_error_into_wasi_err))
-                        }
-                        __WASI_STDOUT_FILENO => {
-                            wasi_try_ok!(WasiInodes::stdout(&state.fs.fd_map)
-                                .map(|g| g.into_poll_guard(fd, peb, s))
-                                .map_err(fs_error_into_wasi_err))
-                        }
-                        _ => {
-                            let fd_entry = wasi_try_ok!(state.fs.get_fd(fd));
-                            if !fd_entry.rights.contains(Rights::POLL_FD_READWRITE) {
-                                return Ok(Errno::Access);
-                            }
-                            let inode = fd_entry.inode;
-
-                            {
-                                let guard = inode.read();
-                                if let Some(guard) =
-                                    crate::fs::InodeValFilePollGuard::new(fd, peb, s, guard.deref())
-                                {
-                                    guard
-                                } else {
-                                    return Ok(Errno::Badf);
-                                }
-                            }
-                        }
-                    };
+                    let wasi_file_ref = wasi_try_ok!(poll_fd_guard(&state, peb, fd, s));
                     fd_guards.push(wasi_file_ref);
                 }
             }
@@ -375,13 +387,17 @@ where
             match events {
                 Ok(evts) => {
                     // If its a timeout then return an event for it
-                    Span::current().record("seen", evts.len());
+                    if evts.len() == 1 {
+                        Span::current().record("seen", &format!("{:?}", evts.first().unwrap()));
+                    } else {
+                        Span::current().record("seen", &format!("trigger_cnt=({})", evts.len()));
+                    }
 
                     // Process the events
                     process_events(ctx, evts)
                 }
                 Err(Errno::Timedout) => {
-                    // The timeout has triggerred so lets add that event
+                    // The timeout has triggered so lets add that event
                     if clock_subs.is_empty() {
                         tracing::warn!("triggered_timeout (without any clock subscriptions)",);
                     }

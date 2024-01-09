@@ -3,7 +3,7 @@ use crate::syscalls::*;
 
 /// ### `port_mac()`
 /// Returns the MAC address of the local port
-#[instrument(level = "debug", skip_all, fields(max = field::Empty), ret, err)]
+#[instrument(level = "debug", skip_all, fields(max = field::Empty), ret)]
 pub fn port_mac<M: MemorySize>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     ret_mac: WasmPtr<__wasi_hardwareaddress_t, M>,
@@ -13,7 +13,7 @@ pub fn port_mac<M: MemorySize>(
 
     let net = env.net().clone();
     let mac = wasi_try_ok!(__asyncify(&mut ctx, None, async {
-        net.mac().map_err(net_error_into_wasi_err)
+        net.mac().await.map_err(net_error_into_wasi_err)
     })?);
     let env = ctx.data();
     let memory = unsafe { env.memory_view(&ctx) };

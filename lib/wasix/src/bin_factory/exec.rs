@@ -2,7 +2,9 @@ use std::{pin::Pin, sync::Arc};
 
 use crate::{
     os::task::{thread::WasiThreadRunGuard, TaskJoinHandle},
-    runtime::task_manager::{TaskWasm, TaskWasmRunProperties},
+    runtime::task_manager::{
+        TaskWasm, TaskWasmRecycle, TaskWasmRecycleProperties, TaskWasmRunProperties,
+    },
     syscalls::rewind_ext,
     RewindState, SpawnError, WasiError, WasiRuntimeError,
 };
@@ -13,51 +15,40 @@ use wasmer::{Function, FunctionEnvMut, Memory32, Memory64, Module, Store};
 use wasmer_wasix_types::wasi::Errno;
 
 use super::{BinFactory, BinaryPackage};
-use crate::{runtime::SpawnMemoryType, Runtime, WasiEnv, WasiFunctionEnv};
+use crate::{Runtime, WasiEnv, WasiFunctionEnv};
 
 #[tracing::instrument(level = "trace", skip_all, fields(%name, %binary.package_name))]
 pub async fn spawn_exec(
     binary: BinaryPackage,
     name: &str,
-    store: Store,
+    _store: Store,
     env: WasiEnv,
     runtime: &Arc<dyn Runtime + Send + Sync + 'static>,
 ) -> Result<TaskJoinHandle, SpawnError> {
-    let key = binary.hash();
+    let wasm = if let Some(cmd) = binary.get_command(name) {
+        cmd.atom.as_ref()
+    } else if let Some(wasm) = binary.entrypoint_bytes() {
+        wasm
+    } else {
+        tracing::error!(
+          command=name,
+          pkg.name=%binary.package_name,
+          pkg.version=%binary.version,
+          "Unable to spawn a command because its package has no entrypoint",
+        );
+        env.on_exit(Some(Errno::Noexec.into())).await;
+        return Err(SpawnError::CompileError);
+    };
 
-    let compiled_modules = runtime.module_cache();
-    let module = compiled_modules.load(key, store.engine()).await.ok();
-
-    let module = match (module, binary.entrypoint_bytes()) {
-        (Some(a), _) => a,
-        (None, Some(entry)) => {
-            let module = Module::new(&store, entry).map_err(|err| {
-                error!(
-                    "failed to compile module [{}, len={}] - {}",
-                    name,
-                    entry.len(),
-                    err
-                );
-                SpawnError::CompileError
-            });
-            if module.is_err() {
-                env.cleanup(Some(Errno::Noexec.into())).await;
-            }
-            let module = module?;
-
-            if let Err(e) = compiled_modules.save(key, store.engine(), &module).await {
-                tracing::debug!(
-                    %key,
-                    package_name=%binary.package_name,
-                    error=&e as &dyn std::error::Error,
-                    "Unable to save the compiled module",
-                );
-            }
-            module
-        }
-        (None, None) => {
-            error!("package has no entry [{}]", name,);
-            env.cleanup(Some(Errno::Noexec.into())).await;
+    let module = match runtime.load_module(wasm).await {
+        Ok(module) => module,
+        Err(err) => {
+            tracing::error!(
+                command = name,
+                error = &*err,
+                "Failed to compile the module",
+            );
+            env.on_exit(Some(Errno::Noexec.into())).await;
             return Err(SpawnError::CompileError);
         }
     };
@@ -90,57 +81,11 @@ pub fn spawn_exec_module(
 
     let join_handle = env.thread.join_handle();
     {
-        // Determine if shared memory needs to be created and imported
-        let shared_memory = module.imports().memories().next().map(|a| *a.ty());
-
-        // Determine if we are going to create memory and import it or just rely on self creation of memory
-        let memory_spawn = match shared_memory {
-            Some(ty) => SpawnMemoryType::CreateMemoryOfType(ty),
-            None => SpawnMemoryType::CreateMemory,
-        };
-
         // Create a thread that will run this process
         let tasks_outer = tasks.clone();
 
-        let run = {
-            move |props: TaskWasmRunProperties| {
-                let ctx = props.ctx;
-                let mut store = props.store;
-
-                // Create the WasiFunctionEnv
-                let thread = WasiThreadRunGuard::new(ctx.data(&store).thread.clone());
-
-                // Perform the initialization
-                let ctx = {
-                    // If this module exports an _initialize function, run that first.
-                    if let Ok(initialize) = unsafe { ctx.data(&store).inner() }
-                        .instance
-                        .exports
-                        .get_function("_initialize")
-                    {
-                        let initialize = initialize.clone();
-                        if let Err(err) = initialize.call(&mut store, &[]) {
-                            thread.thread.set_status_finished(Err(err.into()));
-                            ctx.data(&store)
-                                .blocking_cleanup(Some(Errno::Noexec.into()));
-                            return;
-                        }
-                    }
-
-                    WasiFunctionEnv { env: ctx.env }
-                };
-
-                // If there is a start function
-                debug!("wasi[{}]::called main()", pid);
-                // TODO: rewrite to use crate::run_wasi_func
-
-                // Call the module
-                call_module(ctx, store, thread, None);
-            }
-        };
-
         tasks_outer
-            .task_wasm(TaskWasm::new(Box::new(run), env, module, true).with_memory(memory_spawn))
+            .task_wasm(TaskWasm::new(Box::new(run_exec), env, module, true))
             .map_err(|err| {
                 error!("wasi[{}]::failed to launch module - {}", pid, err);
                 SpawnError::UnknownError
@@ -148,6 +93,78 @@ pub fn spawn_exec_module(
     };
 
     Ok(join_handle)
+}
+
+/// # SAFETY
+/// This must be executed from the same thread that owns the instance as
+/// otherwise it will cause a panic
+unsafe fn run_recycle(
+    callback: Option<Box<TaskWasmRecycle>>,
+    ctx: WasiFunctionEnv,
+    mut store: Store,
+) {
+    if let Some(callback) = callback {
+        let env = ctx.data_mut(&mut store);
+        let memory = env.memory().clone();
+
+        let props = TaskWasmRecycleProperties {
+            env: env.clone(),
+            memory,
+            store,
+        };
+        callback(props);
+    }
+}
+
+pub fn run_exec(props: TaskWasmRunProperties) {
+    let ctx = props.ctx;
+    let mut store = props.store;
+
+    // Create the WasiFunctionEnv
+    let thread = WasiThreadRunGuard::new(ctx.data(&store).thread.clone());
+    let recycle = props.recycle;
+
+    // Perform the initialization
+    let ctx = {
+        // If this module exports an _initialize function, run that first.
+        if let Ok(initialize) = unsafe { ctx.data(&store).inner() }
+            .instance
+            .exports
+            .get_function("_initialize")
+        {
+            let initialize = initialize.clone();
+            if let Err(err) = initialize.call(&mut store, &[]) {
+                thread.thread.set_status_finished(Err(err.into()));
+                ctx.data(&store)
+                    .blocking_on_exit(Some(Errno::Noexec.into()));
+                unsafe { run_recycle(recycle, ctx, store) };
+                return;
+            }
+        }
+
+        WasiFunctionEnv { env: ctx.env }
+    };
+
+    // Bootstrap the process
+    // Unsafe: The bootstrap must be executed in the same thread that runs the
+    //         actual WASM code
+    let rewind_state = match unsafe { ctx.bootstrap(&mut store) } {
+        Ok(r) => r,
+        Err(err) => {
+            thread.thread.set_status_finished(Err(err));
+            ctx.data(&store)
+                .blocking_on_exit(Some(Errno::Noexec.into()));
+            unsafe { run_recycle(recycle, ctx, store) };
+            return;
+        }
+    };
+
+    // If there is a start function
+    debug!("wasi[{}]::called main()", ctx.data(&store).pid());
+    // TODO: rewrite to use crate::run_wasi_func
+
+    // Call the module
+    call_module(ctx, store, thread, rewind_state, recycle);
 }
 
 fn get_start(ctx: &WasiFunctionEnv, store: &Store) -> Option<Function> {
@@ -164,7 +181,8 @@ fn call_module(
     ctx: WasiFunctionEnv,
     mut store: Store,
     handle: WasiThreadRunGuard,
-    rewind_state: Option<(RewindState, Bytes)>,
+    rewind_state: Option<(RewindState, Option<Bytes>)>,
+    recycle: Option<Box<TaskWasmRecycle>>,
 ) {
     let env = ctx.data(&store);
     let pid = env.pid();
@@ -173,28 +191,31 @@ fn call_module(
 
     // If we need to rewind then do so
     if let Some((rewind_state, rewind_result)) = rewind_state {
+        let mut ctx = ctx.env.clone().into_mut(&mut store);
         if rewind_state.is_64bit {
             let res = rewind_ext::<Memory64>(
-                ctx.env.clone().into_mut(&mut store),
+                &mut ctx,
                 rewind_state.memory_stack,
                 rewind_state.rewind_stack,
                 rewind_state.store_data,
                 rewind_result,
             );
             if res != Errno::Success {
-                ctx.data(&store).blocking_cleanup(Some(res.into()));
+                ctx.data().blocking_on_exit(Some(res.into()));
+                unsafe { run_recycle(recycle, WasiFunctionEnv { env: ctx.as_ref() }, store) };
                 return;
             }
         } else {
             let res = rewind_ext::<Memory32>(
-                ctx.env.clone().into_mut(&mut store),
+                &mut ctx,
                 rewind_state.memory_stack,
                 rewind_state.rewind_stack,
                 rewind_state.store_data,
                 rewind_result,
             );
             if res != Errno::Success {
-                ctx.data(&store).blocking_cleanup(Some(res.into()));
+                ctx.data().blocking_on_exit(Some(res.into()));
+                unsafe { run_recycle(recycle, WasiFunctionEnv { env: ctx.as_ref() }, store) };
                 return;
             }
         };
@@ -208,26 +229,28 @@ fn call_module(
         } else {
             debug!("wasi[{}]::exec-failed: missing _start function", pid);
             ctx.data(&store)
-                .blocking_cleanup(Some(Errno::Noexec.into()));
+                .blocking_on_exit(Some(Errno::Noexec.into()));
+            unsafe { run_recycle(recycle, ctx, store) };
             return;
         };
 
         if let Err(err) = call_ret {
             match err.downcast::<WasiError>() {
-                Ok(WasiError::Exit(code)) => {
-                    if code.is_success() {
-                        Ok(Errno::Success)
-                    } else {
-                        Ok(Errno::Noexec)
-                    }
-                }
+                Ok(WasiError::Exit(code)) if code.is_success() => Ok(Errno::Success),
+                Ok(err @ WasiError::Exit(_)) => Err(err.into()),
                 Ok(WasiError::DeepSleep(deep)) => {
                     // Create the callback that will be invoked when the thread respawns after a deep sleep
                     let rewind = deep.rewind;
                     let respawn = {
                         move |ctx, store, rewind_result| {
                             // Call the thread
-                            call_module(ctx, store, handle, Some((rewind, rewind_result)));
+                            call_module(
+                                ctx,
+                                store,
+                                handle,
+                                Some((rewind, Some(rewind_result))),
+                                recycle,
+                            );
                         }
                     };
 
@@ -257,7 +280,8 @@ fn call_module(
     };
 
     // Cleanup the environment
-    ctx.data(&store).blocking_cleanup(Some(code));
+    ctx.data(&store).blocking_on_exit(Some(code));
+    unsafe { run_recycle(recycle, ctx, store) };
 
     debug!("wasi[{pid}]::main() has exited with {code}");
     handle.thread.set_status_finished(ret.map(|a| a.into()));
@@ -277,7 +301,7 @@ impl BinFactory {
                 .await
                 .ok_or(SpawnError::NotFound);
             if binary.is_err() {
-                env.cleanup(Some(Errno::Noent.into())).await;
+                env.on_exit(Some(Errno::Noent.into())).await;
             }
             let binary = binary?;
 

@@ -30,6 +30,9 @@ compile_error!(
     "The `js` feature must be enabled only for the `wasm32` target (either `wasm32-unknown-unknown` or `wasm32-wasi`)."
 );
 
+#[cfg(all(test, target_arch = "wasm32"))]
+wasm_bindgen_test::wasm_bindgen_test_configure!(run_in_browser);
+
 #[cfg(test)]
 #[macro_use]
 extern crate pretty_assertions;
@@ -44,8 +47,8 @@ pub mod net;
 pub mod capabilities;
 pub mod fs;
 pub mod http;
+pub mod journal;
 mod rewind;
-#[cfg(feature = "webc_runner")]
 pub mod runners;
 pub mod runtime;
 mod state;
@@ -54,6 +57,8 @@ mod utils;
 
 /// WAI based bindings.
 mod bindings;
+
+use std::sync::Arc;
 
 #[allow(unused_imports)]
 use bytes::{Bytes, BytesMut};
@@ -75,8 +80,9 @@ pub use virtual_net;
 pub use virtual_net::{UnsupportedVirtualNetworking, VirtualNetworking};
 
 #[cfg(feature = "host-vnet")]
-pub use virtual_net::host::{
-    io_err_into_net_error, LocalNetworking, LocalTcpListener, LocalTcpStream, LocalUdpSocket,
+pub use virtual_net::{
+    host::{LocalNetworking, LocalTcpListener, LocalTcpStream, LocalUdpSocket},
+    io_err_into_net_error,
 };
 use wasmer_wasix_types::wasi::{Errno, ExitCode};
 
@@ -91,10 +97,7 @@ pub use crate::{
         WasiTtyState,
     },
     rewind::*,
-    runtime::{
-        task_manager::{VirtualTaskManager, VirtualTaskManagerExt},
-        PluggableRuntime, Runtime,
-    },
+    runtime::{task_manager::VirtualTaskManager, PluggableRuntime, Runtime},
     state::{
         WasiEnv, WasiEnvBuilder, WasiEnvInit, WasiFunctionEnv, WasiInstanceHandles,
         WasiStateCreationError, ALL_RIGHTS,
@@ -103,7 +106,7 @@ pub use crate::{
     utils::is_wasix_module,
     utils::{
         get_wasi_version, get_wasi_versions, is_wasi_module,
-        store::{capture_snapshot, restore_snapshot, InstanceSnapshot},
+        store::{capture_instance_snapshot, restore_instance_snapshot, InstanceSnapshot},
         WasiVersion,
     },
 };
@@ -120,8 +123,10 @@ pub enum WasiError {
     UnknownWasiVersion,
 }
 
+pub type WasiResult<T> = Result<Result<T, Errno>, WasiError>;
+
 #[deny(unused, dead_code)]
-#[derive(Error, Copy, Clone, Debug, PartialEq, Eq)]
+#[derive(Error, Debug)]
 pub enum SpawnError {
     /// Failed during serialization
     #[error("serialization failed")]
@@ -171,6 +176,20 @@ pub enum SpawnError {
     /// Some other unhandled error. If you see this, it's probably a bug.
     #[error("unknown error found")]
     UnknownError,
+    #[error("runtime error")]
+    Runtime(#[from] WasiRuntimeError),
+    #[error(transparent)]
+    Other(#[from] Box<dyn std::error::Error + Send + Sync>),
+}
+
+impl SpawnError {
+    /// Returns `true` if the spawn error is [`NotFound`].
+    ///
+    /// [`NotFound`]: SpawnError::NotFound
+    #[must_use]
+    pub fn is_not_found(&self) -> bool {
+        matches!(self, Self::NotFound)
+    }
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -189,6 +208,8 @@ pub enum WasiRuntimeError {
     Runtime(#[from] RuntimeError),
     #[error("Memory access error")]
     Thread(#[from] WasiThreadError),
+    #[error("{0}")]
+    Anyhow(#[from] Arc<anyhow::Error>),
 }
 
 impl WasiRuntimeError {
@@ -415,6 +436,9 @@ fn wasix_exports_32(mut store: &mut impl AsStoreMut, env: &FunctionEnv<WasiEnv>)
         "clock_time_set" => Function::new_typed_with_env(&mut store, env, clock_time_set::<Memory32>),
         "environ_get" => Function::new_typed_with_env(&mut store, env, environ_get::<Memory32>),
         "environ_sizes_get" => Function::new_typed_with_env(&mut store, env, environ_sizes_get::<Memory32>),
+        "epoll_create" => Function::new_typed_with_env(&mut store, env, epoll_create::<Memory32>),
+        "epoll_ctl" => Function::new_typed_with_env(&mut store, env, epoll_ctl::<Memory32>),
+        "epoll_wait" => Function::new_typed_with_env(&mut store, env, epoll_wait::<Memory32>),
         "fd_advise" => Function::new_typed_with_env(&mut store, env, fd_advise),
         "fd_allocate" => Function::new_typed_with_env(&mut store, env, fd_allocate),
         "fd_close" => Function::new_typed_with_env(&mut store, env, fd_close),
@@ -533,6 +557,9 @@ fn wasix_exports_64(mut store: &mut impl AsStoreMut, env: &FunctionEnv<WasiEnv>)
         "clock_time_set" => Function::new_typed_with_env(&mut store, env, clock_time_set::<Memory64>),
         "environ_get" => Function::new_typed_with_env(&mut store, env, environ_get::<Memory64>),
         "environ_sizes_get" => Function::new_typed_with_env(&mut store, env, environ_sizes_get::<Memory64>),
+        "epoll_create" => Function::new_typed_with_env(&mut store, env, epoll_create::<Memory64>),
+        "epoll_ctl" => Function::new_typed_with_env(&mut store, env, epoll_ctl::<Memory64>),
+        "epoll_wait" => Function::new_typed_with_env(&mut store, env, epoll_wait::<Memory64>),
         "fd_advise" => Function::new_typed_with_env(&mut store, env, fd_advise),
         "fd_allocate" => Function::new_typed_with_env(&mut store, env, fd_allocate),
         "fd_close" => Function::new_typed_with_env(&mut store, env, fd_close),

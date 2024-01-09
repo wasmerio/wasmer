@@ -7,7 +7,7 @@ use crate::syscalls::*;
 /// ## Parameters
 ///
 /// * `addr` - Address to be removed
-#[instrument(level = "debug", skip_all, fields(ip = field::Empty), ret, err)]
+#[instrument(level = "debug", skip_all, fields(ip = field::Empty), ret)]
 pub fn port_addr_remove<M: MemorySize>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     ip: WasmPtr<__wasi_addr_t, M>,
@@ -18,9 +18,27 @@ pub fn port_addr_remove<M: MemorySize>(
     let ip = wasi_try_ok!(crate::net::read_ip(&memory, ip));
     Span::current().record("ip", &format!("{:?}", ip));
 
-    let net = env.net().clone();
-    wasi_try_ok!(__asyncify(&mut ctx, None, async {
-        net.ip_remove(ip).map_err(net_error_into_wasi_err)
-    })?);
+    wasi_try_ok!(port_addr_remove_internal(&mut ctx, ip)?);
+
+    #[cfg(feature = "journal")]
+    if ctx.data().enable_journal {
+        JournalEffector::save_port_addr_remove(&mut ctx, ip).map_err(|err| {
+            tracing::error!("failed to save port_addr_remove event - {}", err);
+            WasiError::Exit(ExitCode::Errno(Errno::Fault))
+        })?;
+    }
+
     Ok(Errno::Success)
+}
+
+pub(crate) fn port_addr_remove_internal(
+    ctx: &mut FunctionEnvMut<'_, WasiEnv>,
+    ip: IpAddr,
+) -> Result<Result<(), Errno>, WasiError> {
+    let env = ctx.data();
+    let net = env.net().clone();
+    wasi_try_ok_ok!(__asyncify(ctx, None, async {
+        net.ip_remove(ip).await.map_err(net_error_into_wasi_err)
+    })?);
+    Ok(Ok(()))
 }

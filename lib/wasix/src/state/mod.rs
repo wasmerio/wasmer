@@ -19,6 +19,7 @@ mod builder;
 mod env;
 mod func_env;
 mod handles;
+mod run;
 mod types;
 
 use std::{
@@ -29,6 +30,7 @@ use std::{
     time::Duration,
 };
 
+use run::*;
 #[cfg(feature = "enable-serde")]
 use serde::{Deserialize, Serialize};
 use virtual_fs::{FileOpener, FileSystem, FsError, OpenOptions, VirtualFile};
@@ -131,7 +133,8 @@ pub(crate) struct WasiState {
     pub futexs: Mutex<WasiFutexState>,
     pub clock_offset: Mutex<HashMap<Snapshot0Clockid, i64>>,
     pub args: Vec<String>,
-    pub envs: Vec<Vec<u8>>,
+    pub envs: Mutex<Vec<Vec<u8>>>,
+
     // TODO: should not be here, since this requires active work to resolve.
     // State should only hold active runtime state that can be reproducibly re-created.
     pub preopen: Vec<String>,
@@ -252,7 +255,7 @@ impl WasiState {
             futexs: Default::default(),
             clock_offset: Mutex::new(self.clock_offset.lock().unwrap().clone()),
             args: self.args.clone(),
-            envs: self.envs.clone(),
+            envs: Mutex::new(self.envs.lock().unwrap().clone()),
             preopen: self.preopen.clone(),
         }
     }

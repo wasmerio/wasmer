@@ -117,7 +117,7 @@ impl SerializableModule {
     ///
     /// This method is unsafe.
     /// Please check `SerializableModule::deserialize` for more details.
-    unsafe fn archive_from_slice(
+    pub unsafe fn archive_from_slice(
         metadata_slice: &[u8],
     ) -> Result<&ArchivedSerializableModule, DeserializeError> {
         if metadata_slice.len() < 8 {
@@ -138,7 +138,7 @@ impl SerializableModule {
     ///
     /// In contrast to [`Self::deserialize`], this method performs validation
     /// and is not unsafe.
-    fn archive_from_slice_checked(
+    pub fn archive_from_slice_checked(
         metadata_slice: &[u8],
     ) -> Result<&ArchivedSerializableModule, DeserializeError> {
         if metadata_slice.len() < 8 {
@@ -211,7 +211,7 @@ pub struct MetadataHeader {
 impl MetadataHeader {
     /// Current ABI version. Increment this any time breaking changes are made
     /// to the format of the serialized data.
-    pub const CURRENT_VERSION: u32 = 4;
+    pub const CURRENT_VERSION: u32 = 5;
 
     /// Magic number to identify wasmer metadata.
     const MAGIC: [u8; 8] = *b"WASMER\0\0";

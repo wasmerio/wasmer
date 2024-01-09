@@ -12,7 +12,7 @@ use inkwell::{
     module::{Linkage, Module},
     passes::PassManager,
     targets::{FileType, TargetMachine},
-    types::{BasicType, FloatMathType, IntType, PointerType, VectorType},
+    types::{BasicType, BasicTypeEnum, FloatMathType, IntType, PointerType, VectorType},
     values::{
         BasicMetadataValueEnum, BasicValue, BasicValueEnum, FloatValue, FunctionValue,
         InstructionOpcode, InstructionValue, IntValue, PhiValue, PointerValue, VectorValue,
@@ -24,7 +24,6 @@ use smallvec::SmallVec;
 use crate::abi::{get_abi, Abi};
 use crate::config::{CompiledKind, LLVM};
 use crate::object_file::{load_object_file, CompiledFunction};
-use std::convert::TryFrom;
 use wasmer_compiler::wasmparser::{MemArg, Operator};
 use wasmer_compiler::{
     from_binaryreadererror_wasmerror, wptype_to_type, FunctionBinaryReader, FunctionBodyData,
@@ -168,7 +167,7 @@ impl FuncTranslator {
                 .unwrap();
             let alloca = insert_alloca(ty, "param");
             cache_builder.build_store(alloca, value);
-            params.push(alloca);
+            params.push((ty, alloca));
         }
 
         let mut locals = vec![];
@@ -180,7 +179,7 @@ impl FuncTranslator {
             for _ in 0..count {
                 let alloca = insert_alloca(ty, "local");
                 cache_builder.build_store(alloca, ty.const_zero());
-                locals.push(alloca);
+                locals.push((ty, alloca));
             }
         }
 
@@ -209,6 +208,7 @@ impl FuncTranslator {
         fcg.ctx.add_func(
             func_index,
             func.as_global_value().as_pointer_value(),
+            func_type,
             fcg.ctx.basic(),
             &func_attrs,
         );
@@ -243,7 +243,6 @@ impl FuncTranslator {
         pass_manager.add_cfg_simplification_pass();
         pass_manager.add_reassociate_pass();
         pass_manager.add_loop_rotate_pass();
-        pass_manager.add_loop_unswitch_pass();
         pass_manager.add_ind_var_simplify_pass();
         pass_manager.add_licm_pass();
         pass_manager.add_loop_vectorize_pass();
@@ -1099,7 +1098,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                         let load_offset_end = builder.build_int_add(offset, value_size_v, "");
 
                         let current_length = builder
-                            .build_load(ptr_to_current_length, "")
+                            .build_load(self.intrinsics.i32_ty, ptr_to_current_length, "")
                             .into_int_value();
                         tbaa_label(
                             self.module,
@@ -1157,7 +1156,9 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                         builder.build_unreachable();
                         builder.position_at_end(in_bounds_continue_block);
                     }
-                    let ptr_to_base = builder.build_load(ptr_to_base_ptr, "").into_pointer_value();
+                    let ptr_to_base = builder
+                        .build_load(intrinsics.i8_ptr_ty, ptr_to_base_ptr, "")
+                        .into_pointer_value();
                     tbaa_label(
                         self.module,
                         self.intrinsics,
@@ -1168,7 +1169,8 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 }
                 MemoryCache::Static { base_ptr } => base_ptr,
             };
-        let value_ptr = unsafe { builder.build_gep(base_ptr, &[offset], "") };
+        let value_ptr =
+            unsafe { builder.build_gep(self.intrinsics.i8_ty, base_ptr, &[offset], "") };
         Ok(builder
             .build_bitcast(value_ptr, ptr_ty, "")
             .into_pointer_value())
@@ -1239,10 +1241,14 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 .get_first_param()
                 .unwrap()
                 .into_pointer_value();
-            let mut struct_value = sret
-                .get_type()
-                .get_element_type()
-                .into_struct_type()
+            let llvm_params: Vec<_> = wasm_fn_type
+                .results()
+                .iter()
+                .map(|x| type_to_llvm(self.intrinsics, *x).unwrap())
+                .collect();
+            let mut struct_value = self
+                .context
+                .struct_type(llvm_params.as_slice(), false)
                 .get_undef();
             for (idx, value) in results.enumerate() {
                 let value = self.builder.build_bitcast(
@@ -1363,7 +1369,7 @@ pub struct LLVMFunctionCodeGenerator<'ctx, 'a> {
     intrinsics: &'a Intrinsics<'ctx>,
     state: State<'ctx>,
     function: FunctionValue<'ctx>,
-    locals: Vec<PointerValue<'ctx>>, // Contains params and locals
+    locals: Vec<(BasicTypeEnum<'ctx>, PointerValue<'ctx>)>, // Contains params and locals
     ctx: CtxType<'ctx, 'a>,
     unreachable_depth: usize,
     memory_styles: &'a PrimaryMap<MemoryIndex, MemoryStyle>,
@@ -2023,8 +2029,8 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
 
             // Operate on self.locals.
             Operator::LocalGet { local_index } => {
-                let pointer_value = self.locals[local_index as usize];
-                let v = self.builder.build_load(pointer_value, "");
+                let (type_value, pointer_value) = self.locals[local_index as usize];
+                let v = self.builder.build_load(type_value, pointer_value, "");
                 tbaa_label(
                     self.module,
                     self.intrinsics,
@@ -2034,7 +2040,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 self.state.push1(v);
             }
             Operator::LocalSet { local_index } => {
-                let pointer_value = self.locals[local_index as usize];
+                let pointer_value = self.locals[local_index as usize].1;
                 let (v, i) = self.state.pop1_extra()?;
                 let v = self.apply_pending_canonicalization(v, i);
                 let store = self.builder.build_store(pointer_value, v);
@@ -2046,7 +2052,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 );
             }
             Operator::LocalTee { local_index } => {
-                let pointer_value = self.locals[local_index as usize];
+                let pointer_value = self.locals[local_index as usize].1;
                 let (v, i) = self.state.peek1_extra()?;
                 let v = self.apply_pending_canonicalization(v, i);
                 let store = self.builder.build_store(pointer_value, v);
@@ -2067,8 +2073,11 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     GlobalCache::Const { value } => {
                         self.state.push1(*value);
                     }
-                    GlobalCache::Mut { ptr_to_value } => {
-                        let value = self.builder.build_load(*ptr_to_value, "");
+                    GlobalCache::Mut {
+                        ptr_to_value,
+                        value_type,
+                    } => {
+                        let value = self.builder.build_load(*value_type, *ptr_to_value, "");
                         tbaa_label(
                             self.module,
                             self.intrinsics,
@@ -2091,7 +2100,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                             global_index.as_u32()
                         )))
                     }
-                    GlobalCache::Mut { ptr_to_value } => {
+                    GlobalCache::Mut { ptr_to_value, .. } => {
                         let ptr_to_value = *ptr_to_value;
                         let (value, info) = self.state.pop1_extra()?;
                         let value = self.apply_pending_canonicalization(value, info);
@@ -2157,6 +2166,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
 
                 let FunctionCache {
                     func,
+                    llvm_func_type,
                     vmctx: callee_vmctx,
                     attrs,
                 } = if let Some(local_func_index) = self.wasm_module.local_func_index(func_index) {
@@ -2176,6 +2186,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     self.ctx
                         .func(func_index, self.intrinsics, self.context, func_type)?
                 };
+                let llvm_func_type = *llvm_func_type;
                 let func = *func;
                 let callee_vmctx = *callee_vmctx;
                 let attrs = attrs.clone();
@@ -2188,31 +2199,32 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 let params = self.state.popn_save_extra(func_type.params().len())?;
 
                 // Apply pending canonicalizations.
-                let params =
-                    params
-                        .iter()
-                        .zip(func_type.params().iter())
-                        .map(|((v, info), wasm_ty)| match wasm_ty {
-                            Type::F32 => self.builder.build_bitcast(
-                                self.apply_pending_canonicalization(*v, *info),
-                                self.intrinsics.f32_ty,
-                                "",
-                            ),
-                            Type::F64 => self.builder.build_bitcast(
-                                self.apply_pending_canonicalization(*v, *info),
-                                self.intrinsics.f64_ty,
-                                "",
-                            ),
-                            Type::V128 => self.apply_pending_canonicalization(*v, *info),
-                            _ => *v,
-                        });
+                let params = params
+                    .iter()
+                    .zip(func_type.params().iter())
+                    .map(|((v, info), wasm_ty)| match wasm_ty {
+                        Type::F32 => self.builder.build_bitcast(
+                            self.apply_pending_canonicalization(*v, *info),
+                            self.intrinsics.f32_ty,
+                            "",
+                        ),
+                        Type::F64 => self.builder.build_bitcast(
+                            self.apply_pending_canonicalization(*v, *info),
+                            self.intrinsics.f64_ty,
+                            "",
+                        ),
+                        Type::V128 => self.apply_pending_canonicalization(*v, *info),
+                        _ => *v,
+                    })
+                    .collect::<Vec<_>>();
 
                 let params = self.abi.args_to_call(
                     &self.alloca_builder,
                     func_type,
+                    &llvm_func_type,
                     callee_vmctx.into_pointer_value(),
-                    &func.get_type().get_element_type().into_function_type(),
-                    params.collect::<Vec<_>>().as_slice(),
+                    params.as_slice(),
+                    self.intrinsics,
                 );
 
                 /*
@@ -2234,10 +2246,9 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     }
                 }
                 */
-
-                let callable_func = inkwell::values::CallableValue::try_from(func).unwrap();
-                let call_site = self.builder.build_call(
-                    callable_func,
+                let call_site = self.builder.build_indirect_call(
+                    llvm_func_type,
+                    func,
                     params
                         .iter()
                         .copied()
@@ -2346,6 +2357,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
 
                 let funcref_ptr = unsafe {
                     self.builder.build_in_bounds_gep(
+                        self.intrinsics.funcref_ty,
                         casted_table_base,
                         &[func_index],
                         "funcref_ptr",
@@ -2355,7 +2367,11 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 // a funcref (pointer to `anyfunc`)
                 let anyfunc_struct_ptr = self
                     .builder
-                    .build_load(funcref_ptr, "anyfunc_struct_ptr")
+                    .build_load(
+                        self.intrinsics.funcref_ty,
+                        funcref_ptr,
+                        "anyfunc_struct_ptr",
+                    )
                     .into_pointer_value();
 
                 // trap if we're trying to call a null funcref
@@ -2387,29 +2403,42 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 }
 
                 // Load things from the anyfunc data structure.
+                let func_ptr_ptr = self
+                    .builder
+                    .build_struct_gep(
+                        self.intrinsics.anyfunc_ty,
+                        anyfunc_struct_ptr,
+                        0,
+                        "func_ptr_ptr",
+                    )
+                    .unwrap();
+                let sigindex_ptr = self
+                    .builder
+                    .build_struct_gep(
+                        self.intrinsics.anyfunc_ty,
+                        anyfunc_struct_ptr,
+                        1,
+                        "sigindex_ptr",
+                    )
+                    .unwrap();
+                let ctx_ptr_ptr = self
+                    .builder
+                    .build_struct_gep(
+                        self.intrinsics.anyfunc_ty,
+                        anyfunc_struct_ptr,
+                        2,
+                        "ctx_ptr_ptr",
+                    )
+                    .unwrap();
                 let (func_ptr, found_dynamic_sigindex, ctx_ptr) = (
                     self.builder
-                        .build_load(
-                            self.builder
-                                .build_struct_gep(anyfunc_struct_ptr, 0, "func_ptr_ptr")
-                                .unwrap(),
-                            "func_ptr",
-                        )
+                        .build_load(self.intrinsics.i8_ptr_ty, func_ptr_ptr, "func_ptr")
                         .into_pointer_value(),
                     self.builder
-                        .build_load(
-                            self.builder
-                                .build_struct_gep(anyfunc_struct_ptr, 1, "sigindex_ptr")
-                                .unwrap(),
-                            "sigindex",
-                        )
+                        .build_load(self.intrinsics.i32_ty, sigindex_ptr, "sigindex")
                         .into_int_value(),
-                    self.builder.build_load(
-                        self.builder
-                            .build_struct_gep(anyfunc_struct_ptr, 2, "ctx_ptr_ptr")
-                            .unwrap(),
-                        "ctx_ptr",
-                    ),
+                    self.builder
+                        .build_load(self.intrinsics.ctx_ptr_ty, ctx_ptr_ptr, "ctx_ptr"),
                 );
 
                 // Next, check if the table element is initialized.
@@ -2502,9 +2531,10 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 let params = self.abi.args_to_call(
                     &self.alloca_builder,
                     func_type,
-                    ctx_ptr.into_pointer_value(),
                     &llvm_func_type,
+                    ctx_ptr.into_pointer_value(),
                     params.collect::<Vec<_>>().as_slice(),
+                    self.intrinsics,
                 );
 
                 let typed_func_ptr = self.builder.build_pointer_cast(
@@ -2532,10 +2562,9 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     }
                 }
                 */
-                let callable_func =
-                    inkwell::values::CallableValue::try_from(typed_func_ptr).unwrap();
-                let call_site = self.builder.build_call(
-                    callable_func,
+                let call_site = self.builder.build_indirect_call(
+                    llvm_func_type,
+                    typed_func_ptr,
                     params
                         .iter()
                         .copied()
@@ -7628,7 +7657,9 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     offset,
                     4,
                 )?;
-                let result = self.builder.build_load(effective_address, "");
+                let result = self
+                    .builder
+                    .build_load(self.intrinsics.i32_ty, effective_address, "");
                 self.annotate_user_memaccess(
                     memory_index,
                     memarg,
@@ -7647,7 +7678,9 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     offset,
                     8,
                 )?;
-                let result = self.builder.build_load(effective_address, "");
+                let result = self
+                    .builder
+                    .build_load(self.intrinsics.i64_ty, effective_address, "");
                 self.annotate_user_memaccess(
                     memory_index,
                     memarg,
@@ -7666,7 +7699,9 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     offset,
                     4,
                 )?;
-                let result = self.builder.build_load(effective_address, "");
+                let result = self
+                    .builder
+                    .build_load(self.intrinsics.f32_ty, effective_address, "");
                 self.annotate_user_memaccess(
                     memory_index,
                     memarg,
@@ -7685,7 +7720,9 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     offset,
                     8,
                 )?;
-                let result = self.builder.build_load(effective_address, "");
+                let result = self
+                    .builder
+                    .build_load(self.intrinsics.f64_ty, effective_address, "");
                 self.annotate_user_memaccess(
                     memory_index,
                     memarg,
@@ -7704,7 +7741,9 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     offset,
                     16,
                 )?;
-                let result = self.builder.build_load(effective_address, "");
+                let result =
+                    self.builder
+                        .build_load(self.intrinsics.i128_ty, effective_address, "");
                 self.annotate_user_memaccess(
                     memory_index,
                     memarg,
@@ -7725,7 +7764,9 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     offset,
                     1,
                 )?;
-                let element = self.builder.build_load(effective_address, "");
+                let element = self
+                    .builder
+                    .build_load(self.intrinsics.i8_ty, effective_address, "");
                 self.annotate_user_memaccess(
                     memory_index,
                     memarg,
@@ -7749,7 +7790,9 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     offset,
                     2,
                 )?;
-                let element = self.builder.build_load(effective_address, "");
+                let element =
+                    self.builder
+                        .build_load(self.intrinsics.i16_ty, effective_address, "");
                 self.annotate_user_memaccess(
                     memory_index,
                     memarg,
@@ -7773,7 +7816,9 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     offset,
                     4,
                 )?;
-                let element = self.builder.build_load(effective_address, "");
+                let element =
+                    self.builder
+                        .build_load(self.intrinsics.i32_ty, effective_address, "");
                 self.annotate_user_memaccess(
                     memory_index,
                     memarg,
@@ -7797,7 +7842,9 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     offset,
                     8,
                 )?;
-                let element = self.builder.build_load(effective_address, "");
+                let element =
+                    self.builder
+                        .build_load(self.intrinsics.i64_ty, effective_address, "");
                 self.annotate_user_memaccess(
                     memory_index,
                     memarg,
@@ -7821,7 +7868,9 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     offset,
                     4,
                 )?;
-                let dead_load = self.builder.build_load(effective_address, "");
+                let dead_load =
+                    self.builder
+                        .build_load(self.intrinsics.i32_ty, effective_address, "");
                 self.annotate_user_memaccess(
                     memory_index,
                     memarg,
@@ -7842,7 +7891,9 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     offset,
                     8,
                 )?;
-                let dead_load = self.builder.build_load(effective_address, "");
+                let dead_load =
+                    self.builder
+                        .build_load(self.intrinsics.i64_ty, effective_address, "");
                 self.annotate_user_memaccess(
                     memory_index,
                     memarg,
@@ -7864,7 +7915,9 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     offset,
                     4,
                 )?;
-                let dead_load = self.builder.build_load(effective_address, "");
+                let dead_load =
+                    self.builder
+                        .build_load(self.intrinsics.f32_ty, effective_address, "");
                 self.annotate_user_memaccess(
                     memory_index,
                     memarg,
@@ -7886,7 +7939,9 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     offset,
                     8,
                 )?;
-                let dead_load = self.builder.build_load(effective_address, "");
+                let dead_load =
+                    self.builder
+                        .build_load(self.intrinsics.f64_ty, effective_address, "");
                 self.annotate_user_memaccess(
                     memory_index,
                     memarg,
@@ -7908,7 +7963,9 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     offset,
                     16,
                 )?;
-                let dead_load = self.builder.build_load(effective_address, "");
+                let dead_load =
+                    self.builder
+                        .build_load(self.intrinsics.i128_ty, effective_address, "");
                 self.annotate_user_memaccess(
                     memory_index,
                     memarg,
@@ -7931,7 +7988,9 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     offset,
                     1,
                 )?;
-                let dead_load = self.builder.build_load(effective_address, "");
+                let dead_load =
+                    self.builder
+                        .build_load(self.intrinsics.i8_ty, effective_address, "");
                 self.annotate_user_memaccess(
                     memory_index,
                     memarg,
@@ -7956,7 +8015,9 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     offset,
                     2,
                 )?;
-                let dead_load = self.builder.build_load(effective_address, "");
+                let dead_load =
+                    self.builder
+                        .build_load(self.intrinsics.i16_ty, effective_address, "");
                 self.annotate_user_memaccess(
                     memory_index,
                     memarg,
@@ -7981,7 +8042,9 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     offset,
                     4,
                 )?;
-                let dead_load = self.builder.build_load(effective_address, "");
+                let dead_load =
+                    self.builder
+                        .build_load(self.intrinsics.i32_ty, effective_address, "");
                 self.annotate_user_memaccess(
                     memory_index,
                     memarg,
@@ -8006,7 +8069,9 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     offset,
                     8,
                 )?;
-                let dead_load = self.builder.build_load(effective_address, "");
+                let dead_load =
+                    self.builder
+                        .build_load(self.intrinsics.i64_ty, effective_address, "");
                 self.annotate_user_memaccess(
                     memory_index,
                     memarg,
@@ -8028,7 +8093,9 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     offset,
                     1,
                 )?;
-                let narrow_result = self.builder.build_load(effective_address, "");
+                let narrow_result =
+                    self.builder
+                        .build_load(self.intrinsics.i8_ty, effective_address, "");
                 self.annotate_user_memaccess(
                     memory_index,
                     memarg,
@@ -8052,7 +8119,9 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     offset,
                     2,
                 )?;
-                let narrow_result = self.builder.build_load(effective_address, "");
+                let narrow_result =
+                    self.builder
+                        .build_load(self.intrinsics.i16_ty, effective_address, "");
                 self.annotate_user_memaccess(
                     memory_index,
                     memarg,
@@ -8078,7 +8147,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 )?;
                 let narrow_result = self
                     .builder
-                    .build_load(effective_address, "")
+                    .build_load(self.intrinsics.i8_ty, effective_address, "")
                     .into_int_value();
                 self.annotate_user_memaccess(
                     memory_index,
@@ -8103,7 +8172,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 )?;
                 let narrow_result = self
                     .builder
-                    .build_load(effective_address, "")
+                    .build_load(self.intrinsics.i16_ty, effective_address, "")
                     .into_int_value();
                 self.annotate_user_memaccess(
                     memory_index,
@@ -8126,7 +8195,9 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     offset,
                     4,
                 )?;
-                let narrow_result = self.builder.build_load(effective_address, "");
+                let narrow_result =
+                    self.builder
+                        .build_load(self.intrinsics.i32_ty, effective_address, "");
                 self.annotate_user_memaccess(
                     memory_index,
                     memarg,
@@ -8151,7 +8222,9 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     offset,
                     1,
                 )?;
-                let narrow_result = self.builder.build_load(effective_address, "");
+                let narrow_result =
+                    self.builder
+                        .build_load(self.intrinsics.i8_ty, effective_address, "");
                 self.annotate_user_memaccess(
                     memory_index,
                     memarg,
@@ -8175,7 +8248,9 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     offset,
                     2,
                 )?;
-                let narrow_result = self.builder.build_load(effective_address, "");
+                let narrow_result =
+                    self.builder
+                        .build_load(self.intrinsics.i16_ty, effective_address, "");
                 self.annotate_user_memaccess(
                     memory_index,
                     memarg,
@@ -8199,7 +8274,9 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     offset,
                     1,
                 )?;
-                let narrow_result = self.builder.build_load(effective_address, "");
+                let narrow_result =
+                    self.builder
+                        .build_load(self.intrinsics.i8_ty, effective_address, "");
                 self.annotate_user_memaccess(
                     memory_index,
                     memarg,
@@ -8223,7 +8300,9 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     offset,
                     2,
                 )?;
-                let narrow_result = self.builder.build_load(effective_address, "");
+                let narrow_result =
+                    self.builder
+                        .build_load(self.intrinsics.i16_ty, effective_address, "");
                 self.annotate_user_memaccess(
                     memory_index,
                     memarg,
@@ -8247,7 +8326,9 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     offset,
                     4,
                 )?;
-                let narrow_result = self.builder.build_load(effective_address, "");
+                let narrow_result =
+                    self.builder
+                        .build_load(self.intrinsics.i32_ty, effective_address, "");
                 self.annotate_user_memaccess(
                     memory_index,
                     memarg,
@@ -8273,7 +8354,9 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     offset,
                     1,
                 )?;
-                let dead_load = self.builder.build_load(effective_address, "");
+                let dead_load =
+                    self.builder
+                        .build_load(self.intrinsics.i8_ty, effective_address, "");
                 self.annotate_user_memaccess(
                     memory_index,
                     memarg,
@@ -8297,7 +8380,9 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     offset,
                     2,
                 )?;
-                let dead_load = self.builder.build_load(effective_address, "");
+                let dead_load =
+                    self.builder
+                        .build_load(self.intrinsics.i16_ty, effective_address, "");
                 self.annotate_user_memaccess(
                     memory_index,
                     memarg,
@@ -8321,7 +8406,9 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     offset,
                     4,
                 )?;
-                let dead_load = self.builder.build_load(effective_address, "");
+                let dead_load =
+                    self.builder
+                        .build_load(self.intrinsics.i32_ty, effective_address, "");
                 self.annotate_user_memaccess(
                     memory_index,
                     memarg,
@@ -8703,7 +8790,9 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     offset,
                     8,
                 )?;
-                let v = self.builder.build_load(effective_address, "");
+                let v = self
+                    .builder
+                    .build_load(self.intrinsics.i64_ty, effective_address, "");
                 let v = self
                     .builder
                     .build_bitcast(v, self.intrinsics.i8_ty.vec_type(8), "")
@@ -8724,7 +8813,9 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     offset,
                     8,
                 )?;
-                let v = self.builder.build_load(effective_address, "");
+                let v = self
+                    .builder
+                    .build_load(self.intrinsics.i64_ty, effective_address, "");
                 let v = self
                     .builder
                     .build_bitcast(v, self.intrinsics.i8_ty.vec_type(8), "")
@@ -8745,7 +8836,9 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     offset,
                     8,
                 )?;
-                let v = self.builder.build_load(effective_address, "");
+                let v = self
+                    .builder
+                    .build_load(self.intrinsics.i64_ty, effective_address, "");
                 let v = self
                     .builder
                     .build_bitcast(v, self.intrinsics.i16_ty.vec_type(4), "")
@@ -8766,7 +8859,9 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     offset,
                     8,
                 )?;
-                let v = self.builder.build_load(effective_address, "");
+                let v = self
+                    .builder
+                    .build_load(self.intrinsics.i64_ty, effective_address, "");
                 let v = self
                     .builder
                     .build_bitcast(v, self.intrinsics.i16_ty.vec_type(4), "")
@@ -8787,7 +8882,9 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     offset,
                     8,
                 )?;
-                let v = self.builder.build_load(effective_address, "");
+                let v = self
+                    .builder
+                    .build_load(self.intrinsics.i64_ty, effective_address, "");
                 let v = self
                     .builder
                     .build_bitcast(v, self.intrinsics.i32_ty.vec_type(2), "")
@@ -8808,7 +8905,9 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     offset,
                     8,
                 )?;
-                let v = self.builder.build_load(effective_address, "");
+                let v = self
+                    .builder
+                    .build_load(self.intrinsics.i64_ty, effective_address, "");
                 let v = self
                     .builder
                     .build_bitcast(v, self.intrinsics.i32_ty.vec_type(2), "")
@@ -8829,7 +8928,9 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     offset,
                     4,
                 )?;
-                let elem = self.builder.build_load(effective_address, "");
+                let elem = self
+                    .builder
+                    .build_load(self.intrinsics.i32_ty, effective_address, "");
                 self.annotate_user_memaccess(
                     memory_index,
                     memarg,
@@ -8853,7 +8954,9 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     offset,
                     8,
                 )?;
-                let elem = self.builder.build_load(effective_address, "");
+                let elem = self
+                    .builder
+                    .build_load(self.intrinsics.i64_ty, effective_address, "");
                 self.annotate_user_memaccess(
                     memory_index,
                     memarg,
@@ -8877,7 +8980,9 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     offset,
                     1,
                 )?;
-                let elem = self.builder.build_load(effective_address, "");
+                let elem = self
+                    .builder
+                    .build_load(self.intrinsics.i8_ty, effective_address, "");
                 self.annotate_user_memaccess(
                     memory_index,
                     memarg,
@@ -8898,7 +9003,9 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     offset,
                     2,
                 )?;
-                let elem = self.builder.build_load(effective_address, "");
+                let elem = self
+                    .builder
+                    .build_load(self.intrinsics.i16_ty, effective_address, "");
                 self.annotate_user_memaccess(
                     memory_index,
                     memarg,
@@ -8919,7 +9026,9 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     offset,
                     4,
                 )?;
-                let elem = self.builder.build_load(effective_address, "");
+                let elem = self
+                    .builder
+                    .build_load(self.intrinsics.i32_ty, effective_address, "");
                 self.annotate_user_memaccess(
                     memory_index,
                     memarg,
@@ -8940,7 +9049,9 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     offset,
                     8,
                 )?;
-                let elem = self.builder.build_load(effective_address, "");
+                let elem = self
+                    .builder
+                    .build_load(self.intrinsics.i64_ty, effective_address, "");
                 self.annotate_user_memaccess(
                     memory_index,
                     memarg,
@@ -8971,7 +9082,9 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     4,
                 )?;
                 self.trap_if_misaligned(memarg, effective_address, 4);
-                let result = self.builder.build_load(effective_address, "");
+                let result = self
+                    .builder
+                    .build_load(self.intrinsics.i32_ty, effective_address, "");
                 let load = result.as_instruction_value().unwrap();
                 self.annotate_user_memaccess(memory_index, memarg, 4, load)?;
                 load.set_atomic_ordering(AtomicOrdering::SequentiallyConsistent)
@@ -8989,7 +9102,9 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     8,
                 )?;
                 self.trap_if_misaligned(memarg, effective_address, 8);
-                let result = self.builder.build_load(effective_address, "");
+                let result = self
+                    .builder
+                    .build_load(self.intrinsics.i64_ty, effective_address, "");
                 let load = result.as_instruction_value().unwrap();
                 self.annotate_user_memaccess(memory_index, memarg, 8, load)?;
                 load.set_atomic_ordering(AtomicOrdering::SequentiallyConsistent)
@@ -9009,7 +9124,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 self.trap_if_misaligned(memarg, effective_address, 1);
                 let narrow_result = self
                     .builder
-                    .build_load(effective_address, "")
+                    .build_load(self.intrinsics.i8_ty, effective_address, "")
                     .into_int_value();
                 let load = narrow_result.as_instruction_value().unwrap();
                 self.annotate_user_memaccess(memory_index, memarg, 1, load)?;
@@ -9033,7 +9148,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 self.trap_if_misaligned(memarg, effective_address, 2);
                 let narrow_result = self
                     .builder
-                    .build_load(effective_address, "")
+                    .build_load(self.intrinsics.i16_ty, effective_address, "")
                     .into_int_value();
                 let load = narrow_result.as_instruction_value().unwrap();
                 self.annotate_user_memaccess(memory_index, memarg, 2, load)?;
@@ -9057,7 +9172,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 self.trap_if_misaligned(memarg, effective_address, 1);
                 let narrow_result = self
                     .builder
-                    .build_load(effective_address, "")
+                    .build_load(self.intrinsics.i8_ty, effective_address, "")
                     .into_int_value();
                 let load = narrow_result.as_instruction_value().unwrap();
                 self.annotate_user_memaccess(memory_index, memarg, 1, load)?;
@@ -9081,7 +9196,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 self.trap_if_misaligned(memarg, effective_address, 2);
                 let narrow_result = self
                     .builder
-                    .build_load(effective_address, "")
+                    .build_load(self.intrinsics.i16_ty, effective_address, "")
                     .into_int_value();
                 let load = narrow_result.as_instruction_value().unwrap();
                 self.annotate_user_memaccess(memory_index, memarg, 2, load)?;
@@ -9105,7 +9220,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 self.trap_if_misaligned(memarg, effective_address, 4);
                 let narrow_result = self
                     .builder
-                    .build_load(effective_address, "")
+                    .build_load(self.intrinsics.i32_ty, effective_address, "")
                     .into_int_value();
                 let load = narrow_result.as_instruction_value().unwrap();
                 self.annotate_user_memaccess(memory_index, memarg, 4, load)?;
@@ -10925,9 +11040,9 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 let memory_index = MemoryIndex::from_u32(mem);
                 let delta = self.state.pop1()?;
                 let grow_fn_ptr = self.ctx.memory_grow(memory_index, self.intrinsics);
-                let callable_func = inkwell::values::CallableValue::try_from(grow_fn_ptr).unwrap();
-                let grow = self.builder.build_call(
-                    callable_func,
+                let grow = self.builder.build_indirect_call(
+                    self.intrinsics.memory_grow_ty,
+                    grow_fn_ptr,
                     &[
                         vmctx.as_basic_value_enum().into(),
                         delta.into(),
@@ -10940,9 +11055,9 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
             Operator::MemorySize { mem, mem_byte: _ } => {
                 let memory_index = MemoryIndex::from_u32(mem);
                 let size_fn_ptr = self.ctx.memory_size(memory_index, self.intrinsics);
-                let callable_func = inkwell::values::CallableValue::try_from(size_fn_ptr).unwrap();
-                let size = self.builder.build_call(
-                    callable_func,
+                let size = self.builder.build_indirect_call(
+                    self.intrinsics.memory_size_ty,
+                    size_fn_ptr,
                     &[
                         vmctx.as_basic_value_enum().into(),
                         self.intrinsics.i32_ty.const_int(mem.into(), false).into(),
@@ -11243,10 +11358,9 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 let memory_index = MemoryIndex::from_u32(memarg.memory);
                 let (dst, val, timeout) = self.state.pop3()?;
                 let wait32_fn_ptr = self.ctx.memory_wait32(memory_index, self.intrinsics);
-                let callable_func =
-                    inkwell::values::CallableValue::try_from(wait32_fn_ptr).unwrap();
-                let ret = self.builder.build_call(
-                    callable_func,
+                let ret = self.builder.build_indirect_call(
+                    self.intrinsics.memory_wait32_ty,
+                    wait32_fn_ptr,
                     &[
                         vmctx.as_basic_value_enum().into(),
                         self.intrinsics
@@ -11265,10 +11379,9 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 let memory_index = MemoryIndex::from_u32(memarg.memory);
                 let (dst, val, timeout) = self.state.pop3()?;
                 let wait64_fn_ptr = self.ctx.memory_wait64(memory_index, self.intrinsics);
-                let callable_func =
-                    inkwell::values::CallableValue::try_from(wait64_fn_ptr).unwrap();
-                let ret = self.builder.build_call(
-                    callable_func,
+                let ret = self.builder.build_indirect_call(
+                    self.intrinsics.memory_wait64_ty,
+                    wait64_fn_ptr,
                     &[
                         vmctx.as_basic_value_enum().into(),
                         self.intrinsics
@@ -11287,10 +11400,9 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 let memory_index = MemoryIndex::from_u32(memarg.memory);
                 let (dst, count) = self.state.pop2()?;
                 let notify_fn_ptr = self.ctx.memory_notify(memory_index, self.intrinsics);
-                let callable_func =
-                    inkwell::values::CallableValue::try_from(notify_fn_ptr).unwrap();
-                let cnt = self.builder.build_call(
-                    callable_func,
+                let cnt = self.builder.build_indirect_call(
+                    self.intrinsics.memory_notify_ty,
+                    notify_fn_ptr,
                     &[
                         vmctx.as_basic_value_enum().into(),
                         self.intrinsics

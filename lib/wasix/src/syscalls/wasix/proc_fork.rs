@@ -1,6 +1,6 @@
 use super::*;
 use crate::{
-    capture_snapshot,
+    capture_instance_snapshot,
     os::task::OwnedTaskStatus,
     runtime::task_manager::{TaskWasm, TaskWasmRunProperties},
     syscalls::*,
@@ -19,7 +19,7 @@ pub(crate) struct ForkResult {
 /// Forks the current process into a new subprocess. If the function
 /// returns a zero then its the new subprocess. If it returns a positive
 /// number then its the current process and the $pid represents the child.
-#[instrument(level = "debug", skip_all, fields(pid = ctx.data().process.pid().raw()), ret, err)]
+#[instrument(level = "debug", skip_all, fields(pid = ctx.data().process.pid().raw()), ret)]
 pub fn proc_fork<M: MemorySize>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     mut copy_memory: Bool,
@@ -62,7 +62,7 @@ pub fn proc_fork<M: MemorySize>(
     // We write a zero to the PID before we capture the stack
     // so that this is what will be returned to the child
     {
-        let mut inner = ctx.data().process.inner.write().unwrap();
+        let mut inner = ctx.data().process.lock();
         inner.children.push(child_env.process.clone());
     }
     let env = ctx.data();
@@ -84,9 +84,10 @@ pub fn proc_fork<M: MemorySize>(
         // Perform the unwind action
         return unwind::<M, _>(ctx, move |mut ctx, mut memory_stack, rewind_stack| {
             // Grab all the globals and serialize them
-            let store_data = crate::utils::store::capture_snapshot(&mut ctx.as_store_mut())
-                .serialize()
-                .unwrap();
+            let store_data =
+                crate::utils::store::capture_instance_snapshot(&mut ctx.as_store_mut())
+                    .serialize()
+                    .unwrap();
             let store_data = Bytes::from(store_data);
 
             // We first fork the environment and replace the current environment
@@ -129,7 +130,7 @@ pub fn proc_fork<M: MemorySize>(
     let bin_factory = env.bin_factory.clone();
 
     // Perform the unwind action
-    let snapshot = capture_snapshot(&mut ctx.as_store_mut());
+    let snapshot = capture_instance_snapshot(&mut ctx.as_store_mut());
     unwind::<M, _>(ctx, move |mut ctx, mut memory_stack, rewind_stack| {
         let tasks = ctx.data().tasks().clone();
         let span = debug_span!(
@@ -246,12 +247,13 @@ fn run<M: MemorySize>(
 
     // If we need to rewind then do so
     if let Some((rewind_state, rewind_result)) = rewind_state {
+        let mut ctx = ctx.env.clone().into_mut(&mut store);
         let res = rewind_ext::<M>(
-            ctx.env.clone().into_mut(&mut store),
+            &mut ctx,
             rewind_state.memory_stack,
             rewind_state.rewind_stack,
             rewind_state.store_data,
-            rewind_result,
+            Some(rewind_result),
         );
         if res != Errno::Success {
             return res.into();
@@ -305,7 +307,7 @@ fn run<M: MemorySize>(
     trace!(%pid, %tid, "child exited (code = {})", ret);
 
     // Clean up the environment and return the result
-    ctx.cleanup((&mut store), Some(ret));
+    ctx.on_exit((&mut store), Some(ret));
 
     // We drop the handle at the last moment which will close the thread
     drop(child_handle);

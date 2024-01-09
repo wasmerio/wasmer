@@ -10,7 +10,7 @@ use crate::syscalls::*;
 /// ## Parameters
 ///
 /// * `routes` - The buffer where routes will be stored
-#[instrument(level = "debug", skip_all, fields(nroutes = field::Empty, max_routes = field::Empty), ret, err)]
+#[instrument(level = "debug", skip_all, fields(nroutes = field::Empty, max_routes = field::Empty), ret)]
 pub fn port_route_list<M: MemorySize>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     routes_ptr: WasmPtr<Route, M>,
@@ -28,7 +28,7 @@ pub fn port_route_list<M: MemorySize>(
 
     let net = env.net().clone();
     let routes = wasi_try_ok!(__asyncify(&mut ctx, None, async {
-        net.route_list().map_err(net_error_into_wasi_err)
+        net.route_list().await.map_err(net_error_into_wasi_err)
     })?);
     Span::current().record("nroutes", routes.len());
 

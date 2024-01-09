@@ -21,7 +21,7 @@ use std::mem;
 use std::mem::MaybeUninit;
 use std::ptr::{self, NonNull};
 use std::sync::atomic::{compiler_fence, AtomicPtr, AtomicUsize, Ordering};
-use std::sync::{Mutex, Once};
+use std::sync::Once;
 use wasmer_types::TrapCode;
 
 /// Configuration for the the runtime VM
@@ -37,6 +37,41 @@ pub struct VMConfig {
 static MAGIC: u8 = 0xc0;
 
 static DEFAULT_STACK_SIZE: AtomicUsize = AtomicUsize::new(1024 * 1024);
+
+// Current definition of `ucontext_t` in the `libc` crate is incorrect
+// on aarch64-apple-drawin so it's defined here with a more accurate definition.
+#[repr(C)]
+#[cfg(all(target_arch = "aarch64", target_os = "macos"))]
+#[allow(non_camel_case_types)]
+struct ucontext_t {
+    uc_onstack: libc::c_int,
+    uc_sigmask: libc::sigset_t,
+    uc_stack: libc::stack_t,
+    uc_link: *mut libc::ucontext_t,
+    uc_mcsize: usize,
+    uc_mcontext: libc::mcontext_t,
+}
+
+// Current definition of `ucontext_t` in the `libc` crate is not present
+// on aarch64-unknown-freebsd so it's defined here.
+#[repr(C)]
+#[cfg(all(target_arch = "aarch64", target_os = "freebsd"))]
+#[allow(non_camel_case_types)]
+struct ucontext_t {
+    uc_sigmask: libc::sigset_t,
+    uc_mcontext: libc::mcontext_t,
+    uc_link: *mut ucontext_t,
+    uc_stack: libc::stack_t,
+    uc_flags: libc::c_int,
+    spare: [libc::c_int; 4],
+}
+
+#[cfg(all(
+    unix,
+    not(all(target_arch = "aarch64", target_os = "macos")),
+    not(all(target_arch = "aarch64", target_os = "freebsd"))
+))]
+use libc::ucontext_t;
 
 /// Default stack size is 1MB.
 pub fn set_stack_size(size: usize) {
@@ -216,7 +251,7 @@ cfg_if::cfg_if! {
                 }
                 _ => None,
             };
-            let ucontext = &mut *(context as *mut libc::ucontext_t);
+            let ucontext = &mut *(context as *mut ucontext_t);
             let (pc, sp) = get_pc_sp(ucontext);
             let handled = TrapHandlerContext::handle_trap(
                 pc,
@@ -256,7 +291,7 @@ cfg_if::cfg_if! {
             }
         }
 
-        unsafe fn get_pc_sp(context: &libc::ucontext_t) -> (usize, usize) {
+        unsafe fn get_pc_sp(context: &ucontext_t) -> (usize, usize) {
             let (pc, sp);
             cfg_if::cfg_if! {
                 if #[cfg(all(
@@ -311,7 +346,7 @@ cfg_if::cfg_if! {
             (pc, sp)
         }
 
-        unsafe fn update_context(context: &mut libc::ucontext_t, regs: TrapHandlerRegs) {
+        unsafe fn update_context(context: &mut ucontext_t, regs: TrapHandlerRegs) {
             cfg_if::cfg_if! {
                 if #[cfg(all(
                         any(target_os = "linux", target_os = "android"),
@@ -417,7 +452,8 @@ cfg_if::cfg_if! {
                     (*context.uc_mcontext).__ss.__fp = x29;
                     (*context.uc_mcontext).__ss.__lr = lr;
                 } else if #[cfg(all(target_os = "freebsd", target_arch = "aarch64"))] {
-                    context.uc_mcontext.mc_gpregs.gp_pc = pc as libc::register_t;
+                    let TrapHandlerRegs { pc, sp, x0, x1, x29, lr } = regs;
+                    context.uc_mcontext.mc_gpregs.gp_elr = pc as libc::register_t;
                     context.uc_mcontext.mc_gpregs.gp_sp = sp as libc::register_t;
                     context.uc_mcontext.mc_gpregs.gp_x[0] = x0 as libc::register_t;
                     context.uc_mcontext.mc_gpregs.gp_x[1] = x1 as libc::register_t;
@@ -878,14 +914,12 @@ fn on_wasm_stack<F: FnOnce() -> T, T>(
     // allows them to be reused multiple times.
     // FIXME(Amanieu): We should refactor this to avoid the lock.
     lazy_static::lazy_static! {
-        static ref STACK_POOL: Mutex<Vec<DefaultStack>> = Mutex::new(vec![]);
+        static ref STACK_POOL: crossbeam_queue::SegQueue<DefaultStack> = crossbeam_queue::SegQueue::new();
     }
     let stack = STACK_POOL
-        .lock()
-        .unwrap()
         .pop()
         .unwrap_or_else(|| DefaultStack::new(stack_size).unwrap());
-    let mut stack = scopeguard::guard(stack, |stack| STACK_POOL.lock().unwrap().push(stack));
+    let mut stack = scopeguard::guard(stack, |stack| STACK_POOL.push(stack));
 
     // Create a coroutine with a new stack to run the function on.
     let mut coro = ScopedCoroutine::with_stack(&mut *stack, move |yielder, ()| {

@@ -23,7 +23,7 @@ use crate::syscalls::*;
 /// ## Return
 ///
 /// Returns a bus process id that can be used to invoke calls
-#[instrument(level = "debug", skip_all, fields(name = field::Empty, working_dir = field::Empty), ret, err)]
+#[instrument(level = "debug", skip_all, fields(name = field::Empty, working_dir = field::Empty), ret)]
 pub fn proc_spawn<M: MemorySize>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     name: WasmPtr<u8, M>,
@@ -100,7 +100,7 @@ pub fn proc_spawn_internal(
     stdin: WasiStdioMode,
     stdout: WasiStdioMode,
     stderr: WasiStdioMode,
-) -> Result<Result<(ProcessHandles, FunctionEnvMut<'_, WasiEnv>), Errno>, WasiError> {
+) -> WasiResult<(ProcessHandles, FunctionEnvMut<'_, WasiEnv>)> {
     let env = ctx.data();
 
     // Build a new store that will be passed to the thread
@@ -145,8 +145,7 @@ pub fn proc_spawn_internal(
 
     // Replace the STDIO
     let (stdin, stdout, stderr) = {
-        let (_, child_state, child_inodes) =
-            unsafe { child_env.get_memory_and_wasi_state_and_inodes(&new_store, 0) };
+        let (child_state, child_inodes) = child_env.get_wasi_state_and_inodes();
         let mut conv_stdio_mode = |mode: WasiStdioMode, fd: WasiFd| -> Result<OptionFd, Errno> {
             match mode {
                 WasiStdioMode::Piped => {
@@ -227,7 +226,7 @@ pub fn proc_spawn_internal(
         match bin_factory.try_built_in(name.clone(), Some(&ctx), &mut new_store, &mut builder) {
             Ok(a) => a,
             Err(err) => {
-                if err != SpawnError::NotFound {
+                if !err.is_not_found() {
                     error!("builtin failed - {}", err);
                 }
                 // Now we actually spawn the process
@@ -238,7 +237,7 @@ pub fn proc_spawn_internal(
                     .map_err(|err| Errno::Unknown)
                 {
                     Ok(Ok(a)) => a,
-                    Ok(Err(err)) => return Ok(Err(conv_spawn_err_to_errno(err))),
+                    Ok(Err(err)) => return Ok(Err(conv_spawn_err_to_errno(&err))),
                     Err(err) => return Ok(Err(err)),
                 }
             }
@@ -246,7 +245,7 @@ pub fn proc_spawn_internal(
 
     // Add the process to the environment state
     {
-        let mut inner = ctx.data().process.inner.write().unwrap();
+        let mut inner = ctx.data().process.lock();
         inner.children.push(child_process);
     }
     let env = ctx.data();

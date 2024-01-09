@@ -1,7 +1,7 @@
-use std::mem::MaybeUninit;
+use std::{mem::MaybeUninit, task::Waker};
 
 use super::*;
-use crate::syscalls::*;
+use crate::{net::socket::TimeType, syscalls::*};
 
 /// ### `sock_recv_from()`
 /// Receive a message and its peer address from a socket.
@@ -16,8 +16,30 @@ use crate::syscalls::*;
 /// ## Return
 ///
 /// Number of bytes stored in ri_data and message flags.
-#[instrument(level = "trace", skip_all, fields(%sock, nread = field::Empty, peer = field::Empty), ret, err)]
+#[instrument(level = "trace", skip_all, fields(%sock, nread = field::Empty, peer = field::Empty), ret)]
 pub fn sock_recv_from<M: MemorySize>(
+    ctx: FunctionEnvMut<'_, WasiEnv>,
+    sock: WasiFd,
+    ri_data: WasmPtr<__wasi_iovec_t<M>, M>,
+    ri_data_len: M::Offset,
+    ri_flags: RiFlags,
+    ro_data_len: WasmPtr<M::Offset, M>,
+    ro_flags: WasmPtr<RoFlags, M>,
+    ro_addr: WasmPtr<__wasi_addr_port_t, M>,
+) -> Result<Errno, WasiError> {
+    sock_recv_from_internal(
+        ctx,
+        sock,
+        ri_data,
+        ri_data_len,
+        ri_flags,
+        ro_data_len,
+        ro_flags,
+        ro_addr,
+    )
+}
+
+pub(super) fn sock_recv_from_internal<M: MemorySize>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     sock: WasiFd,
     ri_data: WasmPtr<__wasi_iovec_t<M>, M>,
@@ -52,8 +74,14 @@ pub fn sock_recv_from<M: MemorySize>(
                 sock,
                 Rights::SOCK_RECV,
                 |socket, fd| async move {
+                    let nonblocking = fd.flags.contains(Fdflags::NONBLOCK);
+                    let timeout = socket
+                        .opt_time(TimeType::ReadTimeout)
+                        .ok()
+                        .flatten()
+                        .unwrap_or(Duration::from_secs(30));
                     socket
-                        .recv_from(env.tasks().deref(), writer, fd.flags)
+                        .recv_from(env.tasks().deref(), writer, Some(timeout), nonblocking)
                         .await
                 },
             ));
@@ -71,12 +99,19 @@ pub fn sock_recv_from<M: MemorySize>(
                 sock,
                 Rights::SOCK_RECV_FROM,
                 |socket, fd| async move {
+                    let nonblocking = fd.flags.contains(Fdflags::NONBLOCK);
+                    let timeout = socket
+                        .opt_time(TimeType::ReadTimeout)
+                        .ok()
+                        .flatten()
+                        .unwrap_or(Duration::from_secs(30));
+
                     let mut buf = Vec::with_capacity(max_size);
                     unsafe {
                         buf.set_len(max_size);
                     }
                     socket
-                        .recv_from(env.tasks().deref(), &mut buf, fd.flags)
+                        .recv_from(env.tasks().deref(), &mut buf, Some(timeout), nonblocking)
                         .await
                         .map(|(amt, addr)| {
                             unsafe {

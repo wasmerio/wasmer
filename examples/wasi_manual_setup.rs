@@ -33,6 +33,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Let's compile the Wasm module.
     let module = Module::new(&store, wasm_bytes)?;
 
+    println!("Starting `tokio` runtime...");
+    let runtime = tokio::runtime::Builder::new_multi_thread()
+        .enable_all()
+        .build()
+        .unwrap();
+    let _guard = runtime.enter();
+
     println!("Creating `WasiEnv`...");
     // First, we create the `WasiEnv`
     let mut wasi_env = WasiEnv::builder("hello")
@@ -58,7 +65,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let start = instance.exports.get_function("_start")?;
     start.call(&mut store, &[])?;
 
-    wasi_env.cleanup(&mut store, None);
+    wasi_env.on_exit(&mut store, None);
 
     Ok(())
 }

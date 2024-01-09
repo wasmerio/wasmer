@@ -16,11 +16,15 @@ pub mod wasm;
 #[cfg(any(target_os = "windows"))]
 pub mod windows;
 
+pub mod journal;
 pub mod wasi;
 pub mod wasix;
 
 use bytes::{Buf, BufMut};
-use futures::Future;
+use futures::{
+    future::{BoxFuture, LocalBoxFuture},
+    Future,
+};
 use tracing::instrument;
 pub use wasi::*;
 pub use wasix::*;
@@ -47,10 +51,11 @@ pub(crate) use std::{
     thread::LocalKey,
     time::Duration,
 };
-use std::{io::IoSlice, marker::PhantomData, mem::MaybeUninit, time::Instant};
+use std::{io::IoSlice, marker::PhantomData, mem::MaybeUninit, task::Waker, time::Instant};
 
 pub(crate) use bytes::{Bytes, BytesMut};
 pub(crate) use cooked_waker::IntoWaker;
+pub use journal::*;
 pub(crate) use sha2::Sha256;
 pub(crate) use tracing::{debug, error, trace, warn};
 #[cfg(any(
@@ -100,7 +105,7 @@ pub(crate) use crate::{
         socket::{InodeHttpSocketType, InodeSocket, InodeSocketKind},
         write_ip_port,
     },
-    runtime::{task_manager::VirtualTaskManagerExt, SpawnMemoryType},
+    runtime::SpawnMemoryType,
     state::{
         self, iterate_poll_events, InodeGuard, InodeWeakGuard, PollEvent, PollEventBuilder,
         WasiFutex, WasiState,
@@ -114,9 +119,12 @@ use crate::{
         fs_error_into_wasi_err, virtual_file_type_to_wasi_file_type, Fd, InodeVal, Kind,
         MAX_SYMLINKS,
     },
-    os::task::thread::RewindResult,
+    journal::{DynJournal, JournalEffector},
+    os::task::{process::MaybeCheckpointResult, thread::RewindResult},
+    runtime::task_manager::InlineWaker,
     utils::store::InstanceSnapshot,
-    DeepSleepWork, RewindPostProcess, RewindState, SpawnError, WasiInodes,
+    DeepSleepWork, RewindPostProcess, RewindState, RewindStateOption, SpawnError, WasiInodes,
+    WasiResult, WasiRuntimeError,
 };
 pub(crate) use crate::{net::net_error_into_wasi_err, utils::WasiParkingLot};
 
@@ -218,25 +226,28 @@ pub(crate) fn read_bytes<T: Read, M: MemorySize>(
 
 // TODO: remove allow once inodes are refactored (see comments on [`WasiState`])
 #[allow(clippy::await_holding_lock)]
-pub async unsafe fn stderr_write(
+pub unsafe fn stderr_write<'a>(
     ctx: &FunctionEnvMut<'_, WasiEnv>,
     buf: &[u8],
-) -> Result<(), Errno> {
+) -> LocalBoxFuture<'a, Result<(), Errno>> {
     let env = ctx.data();
     let (memory, state, inodes) = env.get_memory_and_wasi_state_and_inodes(ctx, 0);
 
-    let mut stderr = WasiInodes::stderr_mut(&state.fs.fd_map).map_err(fs_error_into_wasi_err)?;
-
-    stderr.write_all(buf).await.map_err(map_io_err)
+    let buf = buf.to_vec();
+    let fd_map = state.fs.fd_map.clone();
+    Box::pin(async move {
+        let mut stderr = WasiInodes::stderr_mut(&fd_map).map_err(fs_error_into_wasi_err)?;
+        stderr.write_all(&buf).await.map_err(map_io_err)
+    })
 }
 
 fn block_on_with_timeout<T, Fut>(
     tasks: &Arc<dyn VirtualTaskManager>,
     timeout: Option<Duration>,
     work: Fut,
-) -> Result<Result<T, Errno>, WasiError>
+) -> WasiResult<T>
 where
-    Fut: Future<Output = Result<Result<T, Errno>, WasiError>>,
+    Fut: Future<Output = WasiResult<T>>,
 {
     let mut nonblocking = false;
     if timeout == Some(Duration::ZERO) {
@@ -267,7 +278,6 @@ where
     if nonblocking {
         let waker = WasiDummyWaker.into_waker();
         let mut cx = Context::from_waker(&waker);
-        let _guard = tasks.runtime_enter();
         let mut pinned_work = Box::pin(work);
         if let Poll::Ready(res) = pinned_work.as_mut().poll(&mut cx) {
             return res;
@@ -276,7 +286,7 @@ where
     }
 
     // Slow path, block on the work and process process
-    tasks.block_on(work)
+    InlineWaker::block_on(work)
 }
 
 /// Asyncify takes the current thread and blocks on the async runtime associated with it
@@ -287,7 +297,7 @@ pub(crate) fn __asyncify<T, Fut>(
     ctx: &mut FunctionEnvMut<'_, WasiEnv>,
     timeout: Option<Duration>,
     work: Fut,
-) -> Result<Result<T, Errno>, WasiError>
+) -> WasiResult<T>
 where
     T: 'static,
     Fut: std::future::Future<Output = Result<T, Errno>>,
@@ -316,9 +326,6 @@ where
             if let Poll::Ready(res) = Pin::new(&mut self.pinned_work).poll(cx) {
                 return Poll::Ready(Ok(res));
             }
-            if let Some(exit_code) = self.ctx.data().should_exit() {
-                return Poll::Ready(Err(WasiError::Exit(exit_code)));
-            }
             if let Some(signals) = self.ctx.data().thread.pop_signals_or_subscribe(cx.waker()) {
                 if let Err(err) = WasiEnv::process_signals_internal(self.ctx, signals) {
                     return Poll::Ready(Err(err));
@@ -342,15 +349,15 @@ where
 pub type AsyncifyFuture = dyn Future<Output = Bytes> + Send + Sync + 'static;
 
 // This poller will process any signals when the main working function is idle
-struct AsyncifyPoller<'a, T, Fut>
+struct AsyncifyPoller<'a, 'b, 'c, T, Fut>
 where
     Fut: Future<Output = T> + Send + Sync + 'static,
 {
     process_signals: bool,
-    thread: WasiThread,
+    ctx: &'b mut FunctionEnvMut<'c, WasiEnv>,
     work: &'a mut Pin<Box<Fut>>,
 }
-impl<'a, T, Fut> Future for AsyncifyPoller<'a, T, Fut>
+impl<'a, 'b, 'c, T, Fut> Future for AsyncifyPoller<'a, 'b, 'c, T, Fut>
 where
     Fut: Future<Output = T> + Send + Sync + 'static,
 {
@@ -360,21 +367,23 @@ where
         if let Poll::Ready(res) = self.work.as_mut().poll(cx) {
             return Poll::Ready(Ok(res));
         }
-        if let Some(forced_exit) = self.thread.try_join() {
+
+        let env = self.ctx.data();
+        if let Some(forced_exit) = env.thread.try_join() {
             return Poll::Ready(Err(WasiError::Exit(forced_exit.unwrap_or_else(|err| {
                 tracing::debug!("exit runtime error - {}", err);
                 Errno::Child.into()
             }))));
         }
-        if self.process_signals && self.thread.has_signals_or_subscribe(cx.waker()) {
-            let signals = self.thread.signals().lock().unwrap();
+        if self.process_signals && env.thread.has_signals_or_subscribe(cx.waker()) {
+            let signals = env.thread.signals().lock().unwrap();
             for sig in signals.0.iter() {
                 if *sig == Signal::Sigint
                     || *sig == Signal::Sigquit
                     || *sig == Signal::Sigkill
                     || *sig == Signal::Sigabrt
                 {
-                    let exit_code = self.thread.set_or_get_exit_code_for_signal(*sig);
+                    let exit_code = env.thread.set_or_get_exit_code_for_signal(*sig);
                     return Poll::Ready(Err(WasiError::Exit(exit_code)));
                 }
             }
@@ -402,9 +411,9 @@ pub enum AsyncifyAction<'a, R> {
 /// and instead process it on a shared task
 ///
 pub(crate) fn __asyncify_with_deep_sleep<M: MemorySize, T, Fut>(
-    ctx: FunctionEnvMut<'_, WasiEnv>,
+    mut ctx: FunctionEnvMut<'_, WasiEnv>,
     deep_sleep_time: Duration,
-    trigger: Fut,
+    work: Fut,
 ) -> Result<AsyncifyAction<'_, T>, WasiError>
 where
     T: serde::Serialize + serde::de::DeserializeOwned,
@@ -418,7 +427,7 @@ where
         .unwrap_or(true);
 
     // Box up the trigger
-    let mut trigger = Box::pin(trigger);
+    let mut trigger = Box::pin(work);
 
     // Define the work
     let tasks = ctx.data().tasks().clone();
@@ -426,9 +435,14 @@ where
         let env = ctx.data();
 
         // Create the deep sleeper
+        let tasks_for_deep_sleep = if env.enable_deep_sleep {
+            Some(env.tasks().clone())
+        } else {
+            None
+        };
         let deep_sleep_wait = async {
-            if env.enable_deep_sleep {
-                env.tasks().sleep_now(deep_sleep_time).await
+            if let Some(tasks) = tasks_for_deep_sleep {
+                tasks.sleep_now(deep_sleep_time).await
             } else {
                 InfiniteSleep::default().await
             }
@@ -438,7 +452,7 @@ where
             // Inner wait with finializer
             res = AsyncifyPoller {
                 process_signals,
-                thread: ctx.data().thread.clone(),
+                ctx: &mut ctx,
                 work: &mut trigger,
             } => {
                 let result = res?;
@@ -458,8 +472,9 @@ where
         })
     };
 
-    // Block on the work
-    tasks.block_on(work)
+    // Block until the work is finished or until we
+    // unload the thread using asyncify
+    InlineWaker::block_on(work)
 }
 
 /// Asyncify takes the current thread and blocks on the async runtime associated with it
@@ -470,7 +485,7 @@ pub(crate) fn __asyncify_light<T, Fut>(
     env: &WasiEnv,
     timeout: Option<Duration>,
     work: Fut,
-) -> Result<Result<T, Errno>, WasiError>
+) -> WasiResult<T>
 where
     T: 'static,
     Fut: Future<Output = Result<T, Errno>>,
@@ -495,17 +510,16 @@ where
             if let Some(exit_code) = self.env.should_exit() {
                 return Poll::Ready(Err(WasiError::Exit(exit_code)));
             }
-            if let Some(signals) = self.env.thread.pop_signals_or_subscribe(cx.waker()) {
+            if self.env.thread.has_signals_or_subscribe(cx.waker()) {
                 return Poll::Ready(Ok(Err(Errno::Intr)));
             }
             Poll::Pending
         }
     }
 
-    // Block on the work
-    let mut pinned_work = Box::pin(work);
-    let poller = Poller { env, pinned_work };
-    block_on_with_timeout(env.tasks(), timeout, poller)
+    // Block until the work is finished or until we
+    // unload the thread using asyncify
+    Ok(InlineWaker::block_on(work))
 }
 
 // This should be compiled away, it will simply wait forever however its never
@@ -537,11 +551,11 @@ where
         return Err(Errno::Access);
     }
 
-    let work = {
+    let mut work = {
         let inode = fd_entry.inode.clone();
         let tasks = env.tasks().clone();
-        let mut guard = inode.read();
-        match guard.deref() {
+        let mut guard = inode.write();
+        match guard.deref_mut() {
             Kind::Socket { socket } => {
                 // Clone the socket and release the lock
                 let socket = socket.clone();
@@ -556,8 +570,9 @@ where
         }
     };
 
-    // Block on the work and process it
-    env.tasks().block_on(work)
+    // Block until the work is finished or until we
+    // unload the thread using asyncify
+    InlineWaker::block_on(work)
 }
 
 /// Performs mutable work on a socket under an asynchronous runtime with
@@ -589,10 +604,11 @@ where
             drop(guard);
 
             // Start the work using the socket
-            let work = actor(socket, fd_entry);
+            let mut work = actor(socket, fd_entry);
 
-            // Block on the work and process it
-            tasks.block_on(work)
+            // Otherwise we block on the work and process it
+            // using an asynchronou context
+            InlineWaker::block_on(work)
         }
         _ => Err(Errno::Notsock),
     }
@@ -621,8 +637,8 @@ where
     let inode = fd_entry.inode.clone();
 
     let tasks = env.tasks().clone();
-    let mut guard = inode.read();
-    match guard.deref() {
+    let mut guard = inode.write();
+    match guard.deref_mut() {
         Kind::Socket { socket } => {
             // Clone the socket and release the lock
             let socket = socket.clone();
@@ -709,17 +725,13 @@ where
                 let work = actor(socket);
 
                 // Block on the work and process it
-                let (tx, rx) = std::sync::mpsc::channel();
-                tasks.block_on(Box::pin(async move {
-                    let ret = work.await;
-                    tx.send(ret);
-                }));
-                let new_socket = rx.recv().unwrap()?;
+                let res = InlineWaker::block_on(work);
+                let new_socket = res?;
 
                 if let Some(mut new_socket) = new_socket {
                     let mut guard = inode.write();
                     match guard.deref_mut() {
-                        Kind::Socket { socket } => {
+                        Kind::Socket { socket, .. } => {
                             std::mem::swap(socket, &mut new_socket);
                         }
                         _ => {
@@ -941,7 +953,7 @@ pub(crate) fn deep_sleep<M: MemorySize>(
     trigger: Pin<Box<AsyncifyFuture>>,
 ) -> Result<(), WasiError> {
     // Grab all the globals and serialize them
-    let store_data = crate::utils::store::capture_snapshot(&mut ctx.as_store_mut())
+    let store_data = crate::utils::store::capture_instance_snapshot(&mut ctx.as_store_mut())
         .serialize()
         .unwrap();
     let store_data = Bytes::from(store_data);
@@ -950,17 +962,15 @@ pub(crate) fn deep_sleep<M: MemorySize>(
     let tasks = ctx.data().tasks().clone();
     let res = unwind::<M, _>(ctx, move |_ctx, memory_stack, rewind_stack| {
         // Schedule the process on the stack so that it can be resumed
-        OnCalledAction::Trap(Box::new(RuntimeError::user(Box::new(
-            WasiError::DeepSleep(DeepSleepWork {
-                trigger,
-                rewind: RewindState {
-                    memory_stack: memory_stack.freeze(),
-                    rewind_stack: rewind_stack.freeze(),
-                    store_data,
-                    is_64bit: M::is_64bit(),
-                },
-            }),
-        ))))
+        OnCalledAction::Trap(Box::new(WasiError::DeepSleep(DeepSleepWork {
+            trigger,
+            rewind: RewindState {
+                memory_stack: memory_stack.freeze(),
+                rewind_stack: rewind_stack.freeze(),
+                store_data,
+                is_64bit: M::is_64bit(),
+            },
+        })))
     })?;
 
     // If there is an error then exit the process, otherwise we are done
@@ -1104,7 +1114,7 @@ where
 #[instrument(level = "debug", skip_all, fields(memory_stack_len = memory_stack.len(), rewind_stack_len = rewind_stack.len(), store_data_len = store_data.len()))]
 #[must_use = "the action must be passed to the call loop"]
 pub fn rewind<M: MemorySize, T>(
-    ctx: FunctionEnvMut<WasiEnv>,
+    mut ctx: FunctionEnvMut<WasiEnv>,
     memory_stack: Bytes,
     rewind_stack: Bytes,
     store_data: Bytes,
@@ -1114,17 +1124,23 @@ where
     T: serde::Serialize,
 {
     let rewind_result = bincode::serialize(&result).unwrap().into();
-    rewind_ext::<M>(ctx, memory_stack, rewind_stack, store_data, rewind_result)
+    rewind_ext::<M>(
+        &mut ctx,
+        memory_stack,
+        rewind_stack,
+        store_data,
+        Some(rewind_result),
+    )
 }
 
 #[instrument(level = "debug", skip_all, fields(memory_stack_len = memory_stack.len(), rewind_stack_len = rewind_stack.len(), store_data_len = store_data.len()))]
 #[must_use = "the action must be passed to the call loop"]
 pub fn rewind_ext<M: MemorySize>(
-    mut ctx: FunctionEnvMut<WasiEnv>,
+    ctx: &mut FunctionEnvMut<WasiEnv>,
     memory_stack: Bytes,
     rewind_stack: Bytes,
     store_data: Bytes,
-    rewind_result: Bytes,
+    rewind_result: Option<Bytes>,
 ) -> Errno {
     // Store the memory stack so that it can be restored later
     ctx.data_mut().thread.set_rewind(RewindResult {
@@ -1140,7 +1156,7 @@ pub fn rewind_ext<M: MemorySize>(
             return Errno::Unknown;
         }
     };
-    crate::utils::store::restore_snapshot(&mut ctx, &store_snapshot);
+    crate::utils::store::restore_instance_snapshot(ctx, &store_snapshot);
     let env = ctx.data();
     let memory = match env.try_memory_view(&ctx) {
         Some(v) => v,
@@ -1195,7 +1211,7 @@ pub fn rewind_ext<M: MemorySize>(
         .filter_map(|a| a.asyncify_start_rewind.clone())
         .next()
     {
-        asyncify_start_rewind.call(&mut ctx, asyncify_data);
+        asyncify_start_rewind.call(ctx, asyncify_data);
     } else {
         warn!("failed to rewind the stack because the asyncify_start_rewind export is missing or inaccessible");
         return Errno::Noexec;
@@ -1204,18 +1220,76 @@ pub fn rewind_ext<M: MemorySize>(
     Errno::Success
 }
 
+pub fn rewind_ext2(
+    ctx: &mut FunctionEnvMut<WasiEnv>,
+    rewind_state: RewindStateOption,
+) -> Result<(), ExitCode> {
+    if let Some((rewind_state, rewind_result)) = rewind_state {
+        tracing::trace!("Rewinding");
+        let errno = if rewind_state.is_64bit {
+            crate::rewind_ext::<wasmer_types::Memory64>(
+                ctx,
+                rewind_state.memory_stack,
+                rewind_state.rewind_stack,
+                rewind_state.store_data,
+                rewind_result,
+            )
+        } else {
+            crate::rewind_ext::<wasmer_types::Memory32>(
+                ctx,
+                rewind_state.memory_stack,
+                rewind_state.rewind_stack,
+                rewind_state.store_data,
+                rewind_result,
+            )
+        };
+
+        if errno != Errno::Success {
+            let exit_code = ExitCode::from(errno);
+            ctx.data().on_exit(Some(exit_code));
+            return Err(exit_code);
+        }
+    }
+
+    Ok(())
+}
+
+pub fn anyhow_err_to_runtime_err(err: anyhow::Error) -> WasiRuntimeError {
+    WasiRuntimeError::Runtime(RuntimeError::user(err.into()))
+}
+
 pub(crate) unsafe fn handle_rewind<M: MemorySize, T>(
     ctx: &mut FunctionEnvMut<'_, WasiEnv>,
 ) -> Option<T>
 where
     T: serde::de::DeserializeOwned,
 {
+    handle_rewind_ext::<M, T>(ctx, HandleRewindType::ResultDriven)
+}
+
+pub(crate) enum HandleRewindType {
+    /// Handle rewind types that have a result to be processed
+    ResultDriven,
+    /// Handle rewind types that are resultless (generally these
+    /// are caused by snapshot events)
+    Resultless,
+}
+
+pub(crate) unsafe fn handle_rewind_ext<M: MemorySize, T>(
+    ctx: &mut FunctionEnvMut<'_, WasiEnv>,
+    _type: HandleRewindType,
+) -> Option<T>
+where
+    T: serde::de::DeserializeOwned,
+{
+    if !ctx.data().thread.has_rewind_of_type(_type) {
+        return None;
+    };
+
     // If the stack has been restored
     if let Some(result) = ctx.data_mut().thread.take_rewind() {
         // Deserialize the result
         let memory_stack = result.memory_stack;
-        let ret = bincode::deserialize(&result.rewind_result)
-            .expect("failed to deserialize the rewind result");
 
         // Notify asyncify that we are no longer rewinding
         let env = ctx.data();
@@ -1229,7 +1303,14 @@ where
         // Restore the memory stack
         let (env, mut store) = ctx.data_and_store_mut();
         set_memory_stack::<M>(env, &mut store, memory_stack);
-        Some(ret)
+
+        if let Some(rewind_result) = result.rewind_result {
+            let ret = bincode::deserialize(&rewind_result)
+                .expect("failed to deserialize the rewind result");
+            Some(ret)
+        } else {
+            None
+        }
     } else {
         None
     }
@@ -1267,7 +1348,7 @@ pub(crate) fn _prepare_wasi(wasi_env: &mut WasiEnv, args: Option<Vec<String>>) {
     }
 }
 
-pub(crate) fn conv_spawn_err_to_errno(err: SpawnError) -> Errno {
+pub(crate) fn conv_spawn_err_to_errno(err: &SpawnError) -> Errno {
     match err {
         SpawnError::AccessDenied => Errno::Access,
         SpawnError::NotFound => Errno::Noent,
@@ -1276,6 +1357,6 @@ pub(crate) fn conv_spawn_err_to_errno(err: SpawnError) -> Errno {
     }
 }
 
-pub(crate) fn conv_spawn_err_to_exit_code(err: SpawnError) -> ExitCode {
+pub(crate) fn conv_spawn_err_to_exit_code(err: &SpawnError) -> ExitCode {
     conv_spawn_err_to_errno(err).into()
 }

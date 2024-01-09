@@ -2,6 +2,8 @@
 
 #[cfg(target_os = "linux")]
 use crate::commands::Binfmt;
+#[cfg(feature = "journal")]
+use crate::commands::CmdJournal;
 #[cfg(feature = "compiler")]
 use crate::commands::Compile;
 #[cfg(any(feature = "static-artifact-create", feature = "wasmer-artifact-create"))]
@@ -9,13 +11,13 @@ use crate::commands::CreateExe;
 #[cfg(feature = "wast")]
 use crate::commands::Wast;
 use crate::commands::{
-    Add, Cache, Config, Init, Inspect, Login, Publish, Run, SelfUpdate, Validate, Whoami,
+    Add, Cache, Config, Init, Inspect, Login, Package, Publish, Run, SelfUpdate, Validate, Whoami,
 };
 #[cfg(feature = "static-artifact-create")]
 use crate::commands::{CreateObj, GenCHeader};
 use crate::error::PrettyError;
 use clap::{CommandFactory, Parser};
-use wasmer_deploy_cli::cmd::CliCommand;
+use wasmer_edge_cli::cmd::CliCommand;
 
 /// The main function for the Wasmer CLI tool.
 pub fn wasmer_main() {
@@ -108,6 +110,16 @@ impl Args {
             Some(Cmd::Init(init)) => init.execute(),
             Some(Cmd::Login(login)) => login.execute(),
             Some(Cmd::Publish(publish)) => publish.execute(),
+            Some(Cmd::Package(cmd)) => match cmd {
+                Package::Download(cmd) => cmd.execute(),
+                Package::Build(cmd) => cmd.execute(),
+            },
+            Some(Cmd::Container(cmd)) => match cmd {
+                crate::commands::Container::Unpack(cmd) => cmd.execute(),
+            },
+            /*
+            Some(Cmd::Connect(connect)) => connect.execute(),
+            */
             #[cfg(feature = "static-artifact-create")]
             Some(Cmd::GenCHeader(gen_heder)) => gen_heder.execute(),
             #[cfg(feature = "wast")]
@@ -120,6 +132,8 @@ impl Args {
             // Deploy commands.
             Some(Cmd::Deploy(c)) => c.run(),
             Some(Cmd::App(apps)) => apps.run(),
+            #[cfg(feature = "journal")]
+            Some(Cmd::Journal(journal)) => journal.run(),
             Some(Cmd::Ssh(ssh)) => ssh.run(),
             Some(Cmd::Namespace(namespace)) => namespace.run(),
             None => {
@@ -132,6 +146,7 @@ impl Args {
 }
 
 #[derive(Parser, Debug)]
+#[allow(clippy::large_enum_variant)]
 /// The options for the wasmer Command Line Interface
 enum Cmd {
     /// Login into a wasmer.io-like registry
@@ -142,7 +157,6 @@ enum Cmd {
     Publish(Publish),
 
     /// Wasmer cache
-    #[clap(subcommand)]
     Cache(Cache),
 
     /// Validate a WebAssembly binary
@@ -256,20 +270,31 @@ enum Cmd {
     #[clap(alias = "run-unstable")]
     Run(Run),
 
-    // DEPLOY commands
-    /// Deploy apps to the Wasmer Edge.
-    Deploy(wasmer_deploy_cli::cmd::deploy::CmdDeploy),
+    /// Manage journals (compacting, inspecting, filtering, ...)
+    #[cfg(feature = "journal")]
+    #[clap(subcommand)]
+    Journal(CmdJournal),
 
-    /// Manage deployed apps.
+    #[clap(subcommand)]
+    Package(crate::commands::Package),
+
+    #[clap(subcommand)]
+    Container(crate::commands::Container),
+
+    // Edge commands
+    /// Deploy apps to Wasmer Edge.
+    Deploy(wasmer_edge_cli::cmd::deploy::CmdDeploy),
+
+    /// Manage deployed Edge apps.
     #[clap(subcommand, alias = "apps")]
-    App(wasmer_deploy_cli::cmd::app::CmdApp),
+    App(wasmer_edge_cli::cmd::app::CmdApp),
 
-    /// Create a dynamic on the Deploy Edge, and connect to it through SSH.
-    Ssh(wasmer_deploy_cli::cmd::ssh::CmdSsh),
+    /// Run commands/packages on Wasmer Edge in an interactive shell session.
+    Ssh(wasmer_edge_cli::cmd::ssh::CmdSsh),
 
     /// Manage Wasmer namespaces.
     #[clap(subcommand, alias = "namespaces")]
-    Namespace(wasmer_deploy_cli::cmd::namespace::CmdNamespace),
+    Namespace(wasmer_edge_cli::cmd::namespace::CmdNamespace),
 }
 
 fn is_binfmt_interpreter() -> bool {

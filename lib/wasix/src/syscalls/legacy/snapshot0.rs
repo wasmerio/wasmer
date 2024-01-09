@@ -1,9 +1,9 @@
 use tracing::{field, instrument, trace_span};
 use wasmer::{AsStoreMut, AsStoreRef, FunctionEnvMut, Memory, WasmPtr};
 use wasmer_wasix_types::wasi::{
-    Errno, Event, EventFdReadwrite, Eventrwflags, Eventtype, Fd, Filesize, Filestat, Filetype,
-    Snapshot0Event, Snapshot0Filestat, Snapshot0Subscription, Snapshot0Whence, Subscription,
-    Whence,
+    Errno, Event, EventFdReadwrite, Eventrwflags, Eventtype, ExitCode, Fd, Filesize, Filestat,
+    Filetype, Snapshot0Event, Snapshot0Filestat, Snapshot0Subscription, Snapshot0Whence,
+    Subscription, Whence,
 };
 
 use crate::{
@@ -62,13 +62,14 @@ pub fn fd_seek(
         Snapshot0Whence::Cur => Whence::Cur,
         Snapshot0Whence::End => Whence::End,
         Snapshot0Whence::Set => Whence::Set,
+        Snapshot0Whence::Unknown => return Ok(Errno::Inval),
     };
     syscalls::fd_seek::<Memory32>(ctx, fd, offset, new_whence, newoffset)
 }
 
 /// Wrapper around `syscalls::poll_oneoff` with extra logic to add the removed
 /// userdata field back
-#[instrument(level = "trace", skip_all, fields(timeout_ms = field::Empty, fd_guards = field::Empty, seen = field::Empty), ret, err)]
+#[instrument(level = "trace", skip_all, fields(timeout_ms = field::Empty, fd_guards = field::Empty, seen = field::Empty), ret)]
 pub fn poll_oneoff<M: MemorySize>(
     mut ctx: FunctionEnvMut<WasiEnv>,
     in_: WasmPtr<Snapshot0Subscription, Memory32>,
@@ -111,6 +112,7 @@ pub fn poll_oneoff<M: MemorySize>(
                         nbytes: 0,
                         flags: Eventrwflags::empty(),
                     },
+                    Eventtype::Unknown => return Errno::Inval,
                 },
             };
             wasi_try_mem!(event_array.index(events_seen as u64).write(event));

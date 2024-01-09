@@ -1,6 +1,7 @@
-use std::fs;
 use std::io::{self, Write};
 use std::path::{Path, PathBuf};
+use std::time::Duration;
+use std::{fs, io::IsTerminal};
 
 use anyhow::{anyhow, bail, Context};
 use flate2::{write::GzEncoder, Compression};
@@ -9,7 +10,7 @@ use tar::Builder;
 use thiserror::Error;
 use time::{self, OffsetDateTime};
 
-use crate::publish::SignArchiveResult;
+use crate::{package::builder::validate::ValidationPolicy, publish::SignArchiveResult};
 use crate::{WasmerConfig, PACKAGE_TOML_FALLBACK_NAME};
 
 const MIGRATIONS: &[(i32, &str)] = &[
@@ -32,12 +33,16 @@ pub struct Publish {
     pub package_name: Option<String>,
     /// Override the package version of the uploaded package in the wasmer.toml
     pub version: Option<semver::Version>,
-    /// Override the token (by default, it will use the current logged in user)
-    pub token: Option<String>,
+    /// The auth token to use.
+    pub token: String,
     /// Skip validation of the uploaded package
     pub no_validate: bool,
     /// Directory containing the `wasmer.toml` (defaults to current root dir)
     pub package_path: Option<String>,
+    /// Wait for package to be available on the registry before exiting
+    pub wait: bool,
+    /// Timeout (in seconds) for the publish query to the registry
+    pub timeout: Duration,
 }
 
 #[derive(Debug, Error)]
@@ -58,7 +63,7 @@ enum PackageBuildError {
 
 impl Publish {
     /// Executes `wasmer publish`
-    pub fn execute(&self) -> Result<(), anyhow::Error> {
+    pub async fn execute(&self) -> Result<(), anyhow::Error> {
         let input_path = match self.package_path.as_ref() {
             Some(s) => std::env::current_dir()?.join(s),
             None => std::env::current_dir()?,
@@ -106,7 +111,6 @@ impl Publish {
             .parent()
             .context("could not determine manifest parent directory")?
             .to_owned();
-        manifest.base_directory_path = manifest_dir.to_owned();
 
         if let Some(package_name) = self.package_name.as_ref() {
             manifest.package.name = package_name.to_string();
@@ -130,8 +134,16 @@ impl Publish {
             }
         };
 
-        if !self.no_validate {
-            validate::validate_directory(&manifest, &registry, manifest_dir)?;
+        let mut policy = self.validation_policy();
+
+        if !policy.skip_validation() {
+            validate::validate_directory(
+                &manifest,
+                &registry,
+                manifest_dir,
+                &mut *policy,
+                &self.token,
+            )?;
         }
 
         let archive_path = &archive_meta.archive_path;
@@ -147,7 +159,7 @@ impl Publish {
             // dry run: publish is done here
 
             println!(
-                "Successfully published package `{}@{}`",
+                "🚀 Successfully published package `{}@{}`",
                 manifest.package.name, manifest.package.version
             );
 
@@ -163,7 +175,7 @@ impl Publish {
 
         crate::publish::try_chunked_uploading(
             Some(registry),
-            self.token.clone(),
+            Some(self.token.clone()),
             &manifest.package,
             &archive_meta.manifest_toml,
             &archive_meta.license,
@@ -179,7 +191,20 @@ impl Publish {
             &maybe_signature_data,
             archived_data_size,
             self.quiet,
+            self.wait,
+            self.timeout,
         )
+        .await
+    }
+
+    fn validation_policy(&self) -> Box<dyn ValidationPolicy> {
+        if self.no_validate {
+            Box::<validate::Skip>::default()
+        } else if std::io::stdin().is_terminal() {
+            Box::<validate::Interactive>::default()
+        } else {
+            Box::<validate::NonInteractive>::default()
+        }
     }
 }
 
@@ -208,15 +233,14 @@ fn construct_tar_gz(
     let manifest_string = toml::to_string(&manifest)?;
 
     let package = &manifest.package;
-    let modules = manifest.module.as_deref().unwrap_or_default();
+    let modules = &manifest.modules;
 
     let readme = match package.readme.as_ref() {
         None => None,
         Some(s) => {
-            let path = append_path_to_tar_gz(&mut builder, &manifest.base_directory_path, s)
-                .map_err(|(p, e)| {
-                    PackageBuildError::ErrorBuildingPackage(format!("{}", p.display()), e)
-                })?;
+            let path = append_path_to_tar_gz(&mut builder, manifest_dir, s).map_err(|(p, e)| {
+                PackageBuildError::ErrorBuildingPackage(format!("{}", p.display()), e)
+            })?;
             Some(std::fs::read_to_string(path)?)
         }
     };
@@ -224,24 +248,32 @@ fn construct_tar_gz(
     let license = match package.license_file.as_ref() {
         None => None,
         Some(s) => {
-            let path = append_path_to_tar_gz(&mut builder, &manifest.base_directory_path, s)
-                .map_err(|(p, e)| {
-                    PackageBuildError::ErrorBuildingPackage(format!("{}", p.display()), e)
-                })?;
+            let path = append_path_to_tar_gz(&mut builder, manifest_dir, s).map_err(|(p, e)| {
+                PackageBuildError::ErrorBuildingPackage(format!("{}", p.display()), e)
+            })?;
             Some(std::fs::read_to_string(path)?)
         }
     };
 
     for module in modules {
-        append_path_to_tar_gz(&mut builder, &manifest.base_directory_path, &module.source)
-            .map_err(|(normalized_path, _)| PackageBuildError::SourceMustBeFile {
+        append_path_to_tar_gz(&mut builder, manifest_dir, &module.source).map_err(
+            |(normalized_path, _)| PackageBuildError::SourceMustBeFile {
                 module: module.name.clone(),
                 path: normalized_path,
-            })?;
+            },
+        )?;
 
         if let Some(bindings) = &module.bindings {
-            for path in bindings.referenced_files(&manifest.base_directory_path)? {
-                append_path_to_tar_gz(&mut builder, &manifest.base_directory_path, &path).map_err(
+            for path in bindings.referenced_files(manifest_dir)? {
+                let relative_path = path.strip_prefix(manifest_dir).with_context(|| {
+                    format!(
+                        "\"{}\" should be inside \"{}\"",
+                        path.display(),
+                        manifest_dir.display(),
+                    )
+                })?;
+
+                append_path_to_tar_gz(&mut builder, manifest_dir, relative_path).map_err(
                     |(normalized_path, _)| PackageBuildError::MissingBindings {
                         module: module.name.clone(),
                         path: normalized_path,
@@ -252,8 +284,7 @@ fn construct_tar_gz(
     }
 
     // bundle the package filesystem
-    let default = indexmap::IndexMap::default();
-    for (_alias, path) in manifest.fs.as_ref().unwrap_or(&default).iter() {
+    for (_alias, path) in &manifest.fs {
         let normalized_path = normalize_path(manifest_dir, path);
         let path_metadata = normalized_path.metadata().map_err(|_| {
             PackageBuildError::MissingManifestFsPath(normalized_path.to_string_lossy().to_string())
@@ -459,7 +490,7 @@ pub struct PersonalKey {
 
 fn get_active_personal_key(conn: &Connection) -> anyhow::Result<PersonalKey> {
     let mut stmt = conn.prepare(
-        "SELECT active, public_key_value, private_key_location, date_added, key_type_identifier, public_key_id FROM personal_keys 
+        "SELECT active, public_key_value, private_key_location, date_added, key_type_identifier, public_key_id FROM personal_keys
          where active = 1",
     )?;
 
@@ -572,93 +603,150 @@ mod validate {
     use wasmer_wasm_interface::{validate, Interface};
 
     use super::interfaces;
-    use crate::interface::InterfaceFromServer;
+    use crate::{interface::InterfaceFromServer, QueryPackageError};
     use std::{
         fs,
         io::Read,
+        ops::ControlFlow,
         path::{Path, PathBuf},
     };
 
-    pub fn validate_directory(
+    pub(crate) fn validate_directory(
         manifest: &wasmer_toml::Manifest,
         registry: &str,
         pkg_path: PathBuf,
+        callbacks: &mut dyn ValidationPolicy,
+        auth_token: &str,
     ) -> anyhow::Result<()> {
         // validate as dir
-        if let Some(modules) = manifest.module.as_ref() {
-            for module in modules.iter() {
-                let source_path = if module.source.is_relative() {
-                    manifest.base_directory_path.join(&module.source)
-                } else {
-                    module.source.clone()
-                };
-                let source_path_string = source_path.to_string_lossy().to_string();
-                let mut wasm_file =
-                    fs::File::open(&source_path).map_err(|_| ValidationError::MissingFile {
-                        file: source_path_string.clone(),
-                    })?;
-                let mut wasm_buffer = Vec::new();
-                wasm_file.read_to_end(&mut wasm_buffer).map_err(|err| {
-                    ValidationError::MiscCannotRead {
-                        file: source_path_string.clone(),
-                        error: format!("{}", err),
-                    }
-                })?;
-
-                if let Some(bindings) = &module.bindings {
-                    validate_bindings(bindings, &manifest.base_directory_path)?;
+        for module in manifest.modules.iter() {
+            if let Err(e) = validate_module(module, registry, &pkg_path) {
+                if callbacks.on_invalid_module(module, &e).is_break() {
+                    return Err(e.into());
                 }
-
-                // hack, short circuit if no interface for now
-                if module.interfaces.is_none() {
-                    return validate_wasm_and_report_errors_old(
-                        &wasm_buffer[..],
-                        source_path_string,
-                    );
-                }
-
-                let mut conn = super::open_db()?;
-                let mut interface: Interface = Default::default();
-                for (interface_name, interface_version) in
-                    module.interfaces.clone().unwrap_or_default().into_iter()
-                {
-                    if !interfaces::interface_exists(
-                        &mut conn,
-                        &interface_name,
-                        &interface_version,
-                    )? {
-                        // download interface and store it if we don't have it locally
-                        let interface_data_from_server = InterfaceFromServer::get(
-                            registry,
-                            interface_name.clone(),
-                            interface_version.clone(),
-                        )?;
-                        interfaces::import_interface(
-                            &mut conn,
-                            &interface_name,
-                            &interface_version,
-                            &interface_data_from_server.content,
-                        )?;
-                    }
-                    let sub_interface = interfaces::load_interface_from_db(
-                        &mut conn,
-                        &interface_name,
-                        &interface_version,
-                    )?;
-                    interface = interface.merge(sub_interface).map_err(|e| {
-                        anyhow!("Failed to merge interface {}: {}", &interface_name, e)
-                    })?;
-                }
-                validate::validate_wasm_and_report_errors(&wasm_buffer, &interface).map_err(
-                    |e| ValidationError::InvalidWasm {
-                        file: source_path_string,
-                        error: format!("{:?}", e),
-                    },
-                )?;
             }
         }
+
+        if would_change_package_privacy(manifest, registry, auth_token)?
+            && callbacks.on_package_privacy_changed(manifest).is_break()
+        {
+            if manifest.package.private {
+                return Err(ValidationError::WouldBecomePrivate.into());
+            } else {
+                return Err(ValidationError::WouldBecomePublic.into());
+            }
+        }
+
         log::debug!("package at path {:#?} validated", &pkg_path);
 
+        Ok(())
+    }
+
+    /// Check if publishing this manifest would change the package's privacy.
+    fn would_change_package_privacy(
+        manifest: &wasmer_toml::Manifest,
+        registry: &str,
+        auth_token: &str,
+    ) -> Result<bool, ValidationError> {
+        let result = crate::query_package_from_registry(
+            registry,
+            &manifest.package.name,
+            None,
+            Some(auth_token),
+        );
+
+        match result {
+            Ok(package_version) => Ok(package_version.is_private != manifest.package.private),
+            Err(QueryPackageError::NoPackageFound { .. }) => {
+                // The package hasn't been published yet
+                Ok(false)
+            }
+            Err(e) => Err(e.into()),
+        }
+    }
+
+    fn validate_module(
+        module: &wasmer_toml::Module,
+        registry: &str,
+        pkg_path: &Path,
+    ) -> Result<(), ValidationError> {
+        let source_path = if module.source.is_relative() {
+            pkg_path.join(&module.source)
+        } else {
+            module.source.clone()
+        };
+        let source_path_string = source_path.to_string_lossy().to_string();
+        let mut wasm_file =
+            fs::File::open(&source_path).map_err(|_| ValidationError::MissingFile {
+                file: source_path_string.clone(),
+            })?;
+        let mut wasm_buffer = Vec::new();
+        wasm_file
+            .read_to_end(&mut wasm_buffer)
+            .map_err(|err| ValidationError::MiscCannotRead {
+                file: source_path_string.clone(),
+                error: format!("{}", err),
+            })?;
+
+        if let Some(bindings) = &module.bindings {
+            validate_bindings(bindings, pkg_path)?;
+        }
+
+        // hack, short circuit if no interface for now
+        if module.interfaces.is_none() {
+            return validate_wasm_and_report_errors_old(&wasm_buffer[..], source_path_string);
+        }
+
+        let mut conn = super::open_db().map_err(ValidationError::UpdatingInterfaces)?;
+        let mut interface: Interface = Default::default();
+        for (interface_name, interface_version) in
+            module.interfaces.clone().unwrap_or_default().into_iter()
+        {
+            add_module_interface(
+                &mut conn,
+                interface_name,
+                interface_version,
+                registry,
+                &mut interface,
+            )
+            .map_err(ValidationError::UpdatingInterfaces)?;
+        }
+        validate::validate_wasm_and_report_errors(&wasm_buffer, &interface).map_err(|e| {
+            ValidationError::InvalidWasm {
+                file: source_path_string,
+                error: format!("{:?}", e),
+            }
+        })?;
+
+        Ok(())
+    }
+
+    fn add_module_interface(
+        conn: &mut rusqlite::Connection,
+        interface_name: String,
+        interface_version: String,
+        registry: &str,
+        interface: &mut Interface,
+    ) -> anyhow::Result<()> {
+        if !interfaces::interface_exists(conn, &interface_name, &interface_version)? {
+            // download interface and store it if we don't have it locally
+            let interface_data_from_server = InterfaceFromServer::get(
+                registry,
+                interface_name.clone(),
+                interface_version.clone(),
+            )?;
+            interfaces::import_interface(
+                conn,
+                &interface_name,
+                &interface_version,
+                &interface_data_from_server.content,
+            )?;
+        }
+        let sub_interface =
+            interfaces::load_interface_from_db(conn, &interface_name, &interface_version)?;
+        *interface = interface
+            .merge(sub_interface)
+            .map_err(|e| anyhow!("Failed to merge interface {}: {}", &interface_name, e))?;
         Ok(())
     }
 
@@ -673,6 +761,7 @@ mod validate {
     }
 
     #[derive(Debug, Error)]
+    #[non_exhaustive]
     pub enum ValidationError {
         #[error("WASM file \"{file}\" detected as invalid because {error}")]
         InvalidWasm { file: String, error: String },
@@ -682,13 +771,21 @@ mod validate {
         MiscCannotRead { file: String, error: String },
         #[error(transparent)]
         Imports(#[from] wasmer_toml::ImportsError),
+        #[error("Unable to update the interfaces database")]
+        UpdatingInterfaces(#[source] anyhow::Error),
+        #[error("Aborting because publishing the package would make it public")]
+        WouldBecomePublic,
+        #[error("Aborting because publishing the package would make it private")]
+        WouldBecomePrivate,
+        #[error("Unable to look up package information")]
+        Registry(#[from] QueryPackageError),
     }
 
     // legacy function, validates wasm.  TODO: clean up
     pub fn validate_wasm_and_report_errors_old(
         wasm: &[u8],
         file_name: String,
-    ) -> anyhow::Result<()> {
+    ) -> Result<(), ValidationError> {
         use wasmparser::WasmDecoder;
         let mut parser = wasmparser::ValidatingParser::new(
             wasm,
@@ -710,11 +807,142 @@ mod validate {
                     return Err(ValidationError::InvalidWasm {
                         file: file_name,
                         error: format!("{}", e),
-                    }
-                    .into());
+                    });
                 }
                 _ => {}
             }
+        }
+    }
+
+    /// How should validation be treated by the publishing process?
+    pub(crate) trait ValidationPolicy {
+        /// Should validation be skipped entirely?
+        fn skip_validation(&mut self) -> bool;
+
+        /// How should publishing proceed when a module is invalid?
+        fn on_invalid_module(
+            &mut self,
+            module: &wasmer_toml::Module,
+            error: &ValidationError,
+        ) -> ControlFlow<(), ()>;
+
+        /// How should publishing proceed when it might change a package's
+        /// privacy? (i.e. by making a private package publicly available).
+        fn on_package_privacy_changed(
+            &mut self,
+            manifest: &wasmer_toml::Manifest,
+        ) -> ControlFlow<(), ()>;
+    }
+
+    #[derive(Debug, Default, Copy, Clone, PartialEq)]
+    pub(crate) struct Skip;
+
+    impl ValidationPolicy for Skip {
+        fn skip_validation(&mut self) -> bool {
+            true
+        }
+
+        fn on_invalid_module(
+            &mut self,
+            _module: &wasmer_toml::Module,
+            _error: &ValidationError,
+        ) -> ControlFlow<(), ()> {
+            unreachable!()
+        }
+
+        fn on_package_privacy_changed(
+            &mut self,
+            _manifest: &wasmer_toml::Manifest,
+        ) -> ControlFlow<(), ()> {
+            unreachable!()
+        }
+    }
+
+    #[derive(Debug, Default, Copy, Clone, PartialEq)]
+    pub(crate) struct Interactive;
+
+    impl ValidationPolicy for Interactive {
+        fn skip_validation(&mut self) -> bool {
+            false
+        }
+
+        fn on_invalid_module(
+            &mut self,
+            module: &wasmer_toml::Module,
+            error: &ValidationError,
+        ) -> ControlFlow<(), ()> {
+            let module_name = &module.name;
+            let prompt =
+                format!("Validation error with the \"{module_name}\" module: {error}. Would you like to continue?");
+
+            match dialoguer::Confirm::new()
+                .with_prompt(prompt)
+                .default(false)
+                .interact()
+            {
+                Ok(true) => ControlFlow::Continue(()),
+                Ok(false) => ControlFlow::Break(()),
+                Err(e) => {
+                    tracing::error!(
+                        error = &e as &dyn std::error::Error,
+                        "Unable to check whether the user wants to change the package's privacy",
+                    );
+                    ControlFlow::Break(())
+                }
+            }
+        }
+
+        fn on_package_privacy_changed(
+            &mut self,
+            manifest: &wasmer_toml::Manifest,
+        ) -> ControlFlow<(), ()> {
+            let privacy = if manifest.package.private {
+                "private"
+            } else {
+                "public"
+            };
+            let prompt =
+                format!("This will make the package {privacy}. Would you like to continue?");
+
+            match dialoguer::Confirm::new()
+                .with_prompt(prompt)
+                .default(false)
+                .interact()
+            {
+                Ok(true) => ControlFlow::Continue(()),
+                Ok(false) => ControlFlow::Break(()),
+                Err(e) => {
+                    tracing::error!(
+                        error = &e as &dyn std::error::Error,
+                        "Unable to check whether the user wants to change the package's privacy",
+                    );
+                    ControlFlow::Break(())
+                }
+            }
+        }
+    }
+
+    #[derive(Debug, Default, Copy, Clone, PartialEq)]
+    pub(crate) struct NonInteractive;
+
+    impl ValidationPolicy for NonInteractive {
+        fn skip_validation(&mut self) -> bool {
+            false
+        }
+
+        fn on_invalid_module(
+            &mut self,
+            _module: &wasmer_toml::Module,
+            _error: &ValidationError,
+        ) -> ControlFlow<(), ()> {
+            ControlFlow::Break(())
+        }
+
+        fn on_package_privacy_changed(
+            &mut self,
+            _manifest: &wasmer_toml::Manifest,
+        ) -> ControlFlow<(), ()> {
+            ControlFlow::Break(())
         }
     }
 }
@@ -753,12 +981,11 @@ runner = "https://webc.org/runner/wcgi"
         std::fs::write(&manifest_path, manifest_str).unwrap();
         std::fs::write(mp.join("module.wasm"), "()").unwrap();
 
-        let mut manifest = wasmer_toml::Manifest::parse(&manifest_str).unwrap();
-        manifest.base_directory_path = manifest_dir.path().to_owned();
+        let manifest = wasmer_toml::Manifest::parse(manifest_str).unwrap();
 
-        let meta = construct_tar_gz(&archive_dir.path(), &manifest, &manifest_path).unwrap();
+        let meta = construct_tar_gz(archive_dir.path(), &manifest, &manifest_path).unwrap();
 
-        let mut data = std::io::Cursor::new(std::fs::read(&meta.archive_path).unwrap());
+        let mut data = std::io::Cursor::new(std::fs::read(meta.archive_path).unwrap());
 
         let gz = flate2::read::GzDecoder::new(&mut data);
         let mut archive = tar::Archive::new(gz);
@@ -779,6 +1006,65 @@ runner = "https://webc.org/runner/wcgi"
         let expected: std::collections::HashMap<String, String> = [
             ("wapm.toml".to_string(), manifest_str.to_string()),
             ("module.wasm".to_string(), "()".to_string()),
+        ]
+        .into_iter()
+        .collect();
+
+        pretty_assertions::assert_eq!(map, expected);
+    }
+
+    #[test]
+    fn test_construct_wai_package_tar_gz() {
+        let manifest_str = r#"[package]
+name = "wasmer/crumsort-wasm"
+version = "0.2.4"
+description = "Crumsort from Google made for WASM"
+
+[[module]]
+name = "crumsort-wasm"
+source = "crumsort_wasm.wasm"
+
+[module.bindings]
+wai-version = "0.2.0"
+exports = "crum-sort.wai"
+"#;
+
+        let archive_dir = tempfile::tempdir().unwrap();
+
+        let manifest_dir = tempfile::tempdir().unwrap();
+
+        let mp = manifest_dir.path();
+        let manifest_path = mp.join("wasmer.toml");
+
+        std::fs::write(&manifest_path, manifest_str).unwrap();
+        std::fs::write(mp.join("crumsort_wasm.wasm"), "()").unwrap();
+        std::fs::write(mp.join("crum-sort.wai"), "/// crum-sort.wai").unwrap();
+
+        let manifest = wasmer_toml::Manifest::parse(manifest_str).unwrap();
+        let meta = construct_tar_gz(archive_dir.path(), &manifest, &manifest_path).unwrap();
+
+        let mut data = std::io::Cursor::new(std::fs::read(meta.archive_path).unwrap());
+
+        let gz = flate2::read::GzDecoder::new(&mut data);
+        let mut archive = tar::Archive::new(gz);
+
+        let map = archive
+            .entries()
+            .unwrap()
+            .map(|res| {
+                let mut entry = res.unwrap();
+                let name = entry.path().unwrap().to_str().unwrap().to_string();
+                let mut contents = String::new();
+                entry.read_to_string(&mut contents).unwrap();
+                eprintln!("{name}:\n{contents}\n\n");
+                (name, contents)
+            })
+            .collect::<std::collections::HashMap<String, String>>();
+
+        let expected: std::collections::HashMap<String, String> = [
+            ("wapm.toml".to_string(), manifest_str.to_string()),
+            ("crum-sort.wai".to_string(), "/// crum-sort.wai".to_string()),
+            ("crumsort_wasm.wasm".to_string(), "()".to_string()),
         ]
         .into_iter()
         .collect();

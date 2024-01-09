@@ -16,19 +16,38 @@ pub fn sock_set_opt_flag(
     sock: WasiFd,
     opt: Sockoption,
     flag: Bool,
-) -> Errno {
+) -> Result<Errno, WasiError> {
     let flag = match flag {
         Bool::False => false,
         Bool::True => true,
-        _ => return Errno::Inval,
+        _ => return Ok(Errno::Inval),
     };
 
+    wasi_try_ok!(sock_set_opt_flag_internal(&mut ctx, sock, opt, flag)?);
+
+    #[cfg(feature = "journal")]
+    if ctx.data().enable_journal {
+        JournalEffector::save_sock_set_opt_flag(&mut ctx, sock, opt, flag).map_err(|err| {
+            tracing::error!("failed to save sock_set_opt_flag event - {}", err);
+            WasiError::Exit(ExitCode::Errno(Errno::Fault))
+        })?;
+    }
+
+    Ok(Errno::Success)
+}
+
+pub(crate) fn sock_set_opt_flag_internal(
+    ctx: &mut FunctionEnvMut<'_, WasiEnv>,
+    sock: WasiFd,
+    opt: Sockoption,
+    flag: bool,
+) -> Result<Result<(), Errno>, WasiError> {
     let option: crate::net::socket::WasiSocketOption = opt.into();
-    wasi_try!(__sock_actor_mut(
-        &mut ctx,
+    wasi_try_ok_ok!(__sock_actor_mut(
+        ctx,
         sock,
         Rights::empty(),
         |mut socket, _| socket.set_opt_flag(option, flag)
     ));
-    Errno::Success
+    Ok(Ok(()))
 }

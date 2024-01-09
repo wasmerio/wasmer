@@ -3,7 +3,7 @@
 
 //! Module for Windows x64 ABI unwind registry.
 use std::collections::HashMap;
-use wasmer_types::CompiledFunctionUnwindInfo;
+use wasmer_types::CompiledFunctionUnwindInfoReference;
 use winapi::um::winnt;
 
 /// Represents a registry of function unwind information for Windows x64 ABI.
@@ -28,14 +28,14 @@ impl UnwindRegistry {
         base_address: usize,
         func_start: u32,
         func_len: u32,
-        info: &CompiledFunctionUnwindInfo,
+        info: &CompiledFunctionUnwindInfoReference,
     ) -> Result<(), String> {
         if self.published {
             return Err("unwind registry has already been published".to_string());
         }
 
         match info {
-            CompiledFunctionUnwindInfo::WindowsX64(_) => {}
+            CompiledFunctionUnwindInfoReference::WindowsX64(_) => {}
             _ => return Err("unsupported unwind information".to_string()),
         };
 
@@ -49,10 +49,7 @@ impl UnwindRegistry {
         unsafe {
             *entry.u.UnwindInfoAddress_mut() = (entry.EndAddress + 3) & !3;
         }
-        let entries = self
-            .functions
-            .entry(base_address)
-            .or_insert_with(|| Vec::new());
+        let entries = self.functions.entry(base_address).or_insert_with(Vec::new);
 
         entries.push(entry);
 

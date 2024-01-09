@@ -12,21 +12,27 @@ rust-version.workspace = true
 version.workspace = true
 
 [dependencies]
-wasmer = { version = "=4.0.0", path = "lib/api", default-features = false }
-wasmer-compiler = { version = "=4.0.0", path = "lib/compiler", features = [
+wasmer = { version = "=4.2.5", path = "lib/api", default-features = false }
+wasmer-compiler = { version = "=4.2.5", path = "lib/compiler", features = [
     "compiler",
-], optional=true }
-wasmer-compiler-cranelift = { version = "=4.0.0", path = "lib/compiler-cranelift", optional = true }
-wasmer-compiler-singlepass = { version = "=4.0.0", path = "lib/compiler-singlepass", optional = true }
-wasmer-compiler-llvm = { version = "=4.0.0", path = "lib/compiler-llvm", optional = true }
-wasmer-emscripten = { version = "=4.0.0", path = "lib/emscripten", optional = true }
-wasmer-wasix = { version = "0.9.0", path = "lib/wasix", optional = true }
-wasmer-wast = { version = "=4.0.0", path = "tests/lib/wast", optional = true }
-wasi-test-generator = { version = "=4.0.0", path = "tests/wasi-wast", optional = true }
-wasmer-cache = { version = "=4.0.0", path = "lib/cache", optional = true }
-wasmer-types = { version = "=4.0.0", path = "lib/types" }
-wasmer-middlewares = { version = "=4.0.0", path = "lib/middlewares", optional = true }
+], optional = true }
+wasmer-compiler-cranelift = { version = "=4.2.5", path = "lib/compiler-cranelift", optional = true }
+wasmer-compiler-singlepass = { version = "=4.2.5", path = "lib/compiler-singlepass", optional = true }
+wasmer-compiler-llvm = { version = "=4.2.5", path = "lib/compiler-llvm", optional = true }
+wasmer-emscripten = { version = "=4.2.5", path = "lib/emscripten", optional = true }
+wasmer-wasix = { version = "0.18.0", path = "lib/wasix", optional = true }
+wasmer-wast = { version = "=4.2.5", path = "tests/lib/wast", optional = true }
+wasi-test-generator = { version = "=4.2.5", path = "tests/wasi-wast", optional = true }
+wasmer-cache = { version = "=4.2.5", path = "lib/cache", optional = true }
+wasmer-types = { version = "=4.2.5", path = "lib/types" }
+wasmer-middlewares = { version = "=4.2.5", path = "lib/middlewares", optional = true }
 cfg-if = "1.0"
+tokio = { version = "1", features = [
+    "rt",
+    "rt-multi-thread",
+    "macros",
+], optional = true }
+crossbeam-queue = "0.3.8"
 
 [workspace]
 members = [
@@ -49,6 +55,7 @@ members = [
     "lib/registry",
     "lib/sys-utils",
     "lib/types",
+    "lib/virtual-io",
     "lib/virtual-fs",
     "lib/virtual-net",
     "lib/vm",
@@ -58,14 +65,12 @@ members = [
     "lib/wasix",
     "lib/wasix-http-client",
     "lib/wasm-interface",
+    "lib/journal",
     "tests/integration/cli",
     "tests/integration/ios",
     "tests/lib/compiler-test-derive",
     "tests/lib/wast",
     "tests/wasi-wast",
-]
-exclude = [
-    "lib/wasi-web",
 ]
 resolver = "2"
 
@@ -75,13 +80,15 @@ edition = "2021"
 homepage = "https://wasmer.io/"
 license = "MIT"
 repository = "https://github.com/wasmerio/wasmer"
-rust-version = "1.67"
-version = "4.0.0"
+rust-version = "1.70"
+version = "4.2.5"
 
 [workspace.dependencies]
-webc = { version = "5.0.4", default-features = false }
-wapm-targz-to-pirita = "0.3.1"
-wasmer-toml = "0.6.0"
+enumset = "1.1.0"
+memoffset = "0.9.0"
+wasmer-toml = "0.9.2"
+webc = { version = "5.8.0", default-features = false, features = ["package"] }
+shared-buffer = "0.1.4"
 
 [build-dependencies]
 test-generator = { path = "tests/lib/test-generator" }
@@ -91,9 +98,13 @@ glob = "0.3"
 rustc_version = "0.4"
 
 [dev-dependencies]
-wasmer = { version = "=4.0.0", path = "lib/api", default-features = false, features = [] }
+wasmer = { version = "=4.2.5", path = "lib/api", features = [
+    "compiler",
+    "singlepass",
+    "sys",
+] }
 anyhow = "1.0"
-criterion = "0.3"
+criterion = { version = "0.5", default-features = false }
 lazy_static = "1.4"
 serial_test = "0.5"
 compiler-test-derive = { path = "tests/lib/compiler-test-derive" }
@@ -109,15 +120,7 @@ tracing-subscriber = { version = "0.3", default-features = false, features = [
 [features]
 # Don't add the compiler features in default, please add them on the Makefile
 # since we might want to autoconfigure them depending on the availability on the host.
-default = [
-    "wat",
-    "wast",
-    "cache",
-    "wasi",
-    "engine",
-    "emscripten",
-    "middlewares",
-]
+default = ["wat", "wast", "cache", "wasi", "engine", "emscripten", "middlewares"]
 # backend means that the `wasmer` crate will be compiled with the `wasmer-compiler` or the `jsc`.
 # That means: that is able to execute modules
 backend = []
@@ -152,6 +155,26 @@ coverage = []
 
 #[profile.release]
 #debug = true
+
+# Enable optimizations for a few crates, even for debug builds.
+# This greatly speeds up using debug builds, because these crates are extremely
+# slow without optimizations.
+[profile.dev.package.cranelift-codegen]
+opt-level = 3
+[profile.dev.package.regalloc2]
+opt-level = 3
+[profile.dev.package.wasmparser]
+opt-level = 3
+[profile.dev.package.rkyv]
+opt-level = 3
+[profile.dev.package.wasmer-types]
+opt-level = 3
+[profile.dev.package.weezl]
+opt-level = 3
+[profile.dev.package.sha2]
+opt-level = 3
+[profile.dev.package.digest]
+opt-level = 3
 
 [[bench]]
 name = "static_and_dynamic_functions"
@@ -235,12 +258,12 @@ required-features = ["backend", "wasi"]
 [[example]]
 name = "wasi-manual-setup"
 path = "examples/wasi_manual_setup.rs"
-required-features = ["backend", "wasi"]
+required-features = ["tokio", "backend", "wasi"]
 
 [[example]]
 name = "wasi-pipes"
 path = "examples/wasi_pipes.rs"
-required-features = ["backend", "wasi"]
+required-features = ["tokio", "backend", "wasi"]
 
 [[example]]
 name = "table"
@@ -260,7 +283,7 @@ required-features = ["backend"]
 [[example]]
 name = "errors"
 path = "examples/errors.rs"
-required-features = ["sys"]
+required-features = ["backend"]
 
 [[example]]
 name = "imported-function-env"

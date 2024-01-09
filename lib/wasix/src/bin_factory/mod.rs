@@ -14,7 +14,7 @@ mod exec;
 
 pub use self::{
     binary_package::*,
-    exec::{spawn_exec, spawn_exec_module},
+    exec::{run_exec, spawn_exec, spawn_exec_module},
 };
 use crate::{os::command::Commands, Runtime};
 
@@ -34,7 +34,7 @@ impl BinFactory {
         }
     }
 
-    pub fn runtime(&self) -> &dyn Runtime {
+    pub fn runtime(&self) -> &(dyn Runtime + Send + Sync) {
         self.runtime.deref()
     }
 
@@ -97,7 +97,7 @@ impl BinFactory {
 async fn load_package_from_filesystem(
     fs: &dyn FileSystem,
     path: &Path,
-    rt: &dyn Runtime,
+    rt: &(dyn Runtime + Send + Sync),
 ) -> Result<BinaryPackage, anyhow::Error> {
     let mut f = fs
         .new_open_options()

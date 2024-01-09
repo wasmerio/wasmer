@@ -24,27 +24,15 @@
 
 <br />
 
-Wasmer is a _fast_ and _secure_ [**WebAssembly**](https://webassembly.org) runtime that enables super
-_lightweight containers_ to run anywhere: from _Desktop_ to the _Cloud_, _Edge_ and _IoT_ devices.
+Wasmer is a _blazing fast_ and _secure_ [**WebAssembly**](https://webassembly.org) runtime that enables incredibly
+_lightweight containers_ to run anywhere: from _Desktop_ to the _Cloud_, _Edge_ and even the browser.
 
-> _This document is also available in:
-> [🇨🇳 中 文 -Chinese](https://github.com/wasmerio/wasmer/blob/master/docs/cn/README.md) •
-> [🇩🇪 Deutsch-German](https://github.com/wasmerio/wasmer/blob/master/docs/de/README.md) •
-> [🇪🇸 Español-Spanish](https://github.com/wasmerio/wasmer/blob/master/docs/es/README.md) •
-> [🇫🇷 Français-French](https://github.com/wasmerio/wasmer/blob/master/docs/fr/README.md) •
-> [🇯🇵 日本 語 -Japanese](https://github.com/wasmerio/wasmer/blob/master/docs/ja/README.md) •
-> [🇰🇷 한국어 -Korean](https://github.com/wasmerio/wasmer/blob/master/docs/ko/README.md)_.
+- **Secure** by default. No file, network, or environment access, unless explicitly enabled.
+- **Pluggable**. supports [**WASIX**](https://wasix.org/), [WASI](https://github.com/WebAssembly/WASI) and [Emscripten](https://emscripten.org/) out of the box.
+- **Incredibly Fast**. Run WebAssembly at near-native speeds.
+- **Embeddable** [anywhere via Wasmer SDKs](https://github.com/wasmerio/wasmer/#wasmer-sdk)
 
-### Features
-
-- Secure by default. No file, network, or environment access, unless explicitly enabled.
-- Supports [WASIX](http://wasix.org/), [WASI](https://github.com/WebAssembly/WASI) and [Emscripten](https://emscripten.org/) out of the box.
-- Fast. Run WebAssembly at near-native speeds.
-- Embeddable [anywhere via Wasmer SDKs](https://github.com/wasmerio/wasmer/#wasmer-sdk)
-
-### Install
-
-Wasmer CLI ships as a single executable with no dependencies.
+### Install Wasmer
 
 ```sh
 curl https://get.wasmer.io -sSfL | sh
@@ -100,20 +88,26 @@ curl https://get.wasmer.io -sSfL | sh
 
 </details>
 
+> Note: You can also try Wasmer online in [wasmer.sh](https://wasmer.sh/)
+> 
 ### Quickstart
 
 You can start by running
-[QuickJS](https://wasmer.io/saghul/quickjs), a small and
-embeddable Javascript engine:
+[Cowsay](https://wasmer.io/syrusakbary/cowsay):
 
 ```bash
-$ wasmer run saghul/quickjs --command=qjs
-QuickJS - Type "\h" for help
-qjs > console.log("hello world");
-hello world
+$ wasmer run cowsay "hello world"
+ _____________
+< hello world >
+ -------------
+        \   ^__^
+         \  (oo)\_______
+            (__)\       )\/\
+               ||----w |
+                ||     ||
 ```
 
-> There are many more available packages, such as `wasmer/python` or `syrusakbary/cowsay`. [Create your own package](https://docs.wasmer.io/registry/get-started), or explore from the community: https://wasmer.io/explore
+> There are many more available packages, such as [`wasmer/python`](https://wasmer.io/wasmer/python) or [`quickjs`](https://wasmer.io/saghul/quickjs). [Create your own package](https://docs.wasmer.io/registry/get-started), or explore packages from the community: https://wasmer.io/explore
 
 #### Here is what you can do next:
 
@@ -252,3 +246,14 @@ Wasmer has an amazing community of developers and contributors. Welcome, please 
 
 - [Wasmer Community Discord](https://discord.gg/rWkMNStrEW)
 - [Wasmer on Twitter](https://twitter.com/wasmerio)
+
+--------
+
+> _README also in:
+> [🇨🇳 中 文 -Chinese](https://github.com/wasmerio/wasmer/blob/master/docs/cn/README.md) •
+> [🇩🇪 Deutsch-German](https://github.com/wasmerio/wasmer/blob/master/docs/de/README.md) •
+> [🇪🇸 Español-Spanish](https://github.com/wasmerio/wasmer/blob/master/docs/es/README.md) •
+> [🇫🇷 Français-French](https://github.com/wasmerio/wasmer/blob/master/docs/fr/README.md) •
+> [🇯🇵 日本 語 -Japanese](https://github.com/wasmerio/wasmer/blob/master/docs/ja/README.md) •
+> [🇰🇷 한국어 -Korean](https://github.com/wasmerio/wasmer/blob/master/docs/ko/README.md)_.
+

@@ -52,7 +52,7 @@ impl BinaryPackageCommand {
     }
 
     pub fn hash(&self) -> &ModuleHash {
-        self.hash.get_or_init(|| ModuleHash::sha256(self.atom()))
+        self.hash.get_or_init(|| ModuleHash::hash(self.atom()))
     }
 }
 
@@ -70,14 +70,17 @@ pub struct BinaryPackage {
     pub commands: Vec<BinaryPackageCommand>,
     pub uses: Vec<String>,
     pub version: Version,
-    pub module_memory_footprint: u64,
     pub file_system_memory_footprint: u64,
 }
 
 impl BinaryPackage {
     /// Load a [`webc::Container`] and all its dependencies into a
     /// [`BinaryPackage`].
-    pub async fn from_webc(container: &Container, rt: &dyn Runtime) -> Result<Self, anyhow::Error> {
+    #[tracing::instrument(level = "debug", skip_all)]
+    pub async fn from_webc(
+        container: &Container,
+        rt: &(dyn Runtime + Send + Sync),
+    ) -> Result<Self, anyhow::Error> {
         let source = rt.source();
         let root = PackageInfo::from_manifest(container.manifest())?;
         let root_id = PackageId {
@@ -96,9 +99,10 @@ impl BinaryPackage {
     }
 
     /// Load a [`BinaryPackage`] and all its dependencies from a registry.
+    #[tracing::instrument(level = "debug", skip_all)]
     pub async fn from_registry(
         specifier: &PackageSpecifier,
-        runtime: &dyn Runtime,
+        runtime: &(dyn Runtime + Send + Sync),
     ) -> Result<Self, anyhow::Error> {
         let source = runtime.source();
         let root_summary =
@@ -139,9 +143,9 @@ impl BinaryPackage {
     pub fn hash(&self) -> ModuleHash {
         *self.hash.get_or_init(|| {
             if let Some(entry) = self.entrypoint_bytes() {
-                ModuleHash::sha256(entry)
+                ModuleHash::hash(entry)
             } else {
-                ModuleHash::sha256(self.package_name.as_bytes())
+                ModuleHash::hash(self.package_name.as_bytes())
             }
         })
     }
@@ -149,19 +153,19 @@ impl BinaryPackage {
 
 #[cfg(test)]
 mod tests {
-    use std::{collections::BTreeMap, path::Path};
-
     use tempfile::TempDir;
     use virtual_fs::AsyncReadExt;
-    use wapm_targz_to_pirita::{webc::v1::DirOrFile, FileMap, TransformManifestFunctions};
 
-    use crate::{runtime::task_manager::VirtualTaskManager, PluggableRuntime};
+    use crate::{
+        runtime::{package_loader::BuiltinPackageLoader, task_manager::VirtualTaskManager},
+        PluggableRuntime,
+    };
 
     use super::*;
 
     fn task_manager() -> Arc<dyn VirtualTaskManager + Send + Sync> {
         cfg_if::cfg_if! {
-            if #[cfg(feature = "sys-threads")] {
+            if #[cfg(feature = "sys-thread")] {
                 Arc::new(crate::runtime::task_manager::tokio::TokioTaskManager::new(tokio::runtime::Handle::current()))
             } else {
                 unimplemented!("Unable to get the task manager")
@@ -171,7 +175,7 @@ mod tests {
 
     #[tokio::test]
     #[cfg_attr(
-        not(feature = "sys-threads"),
+        not(feature = "sys-thread"),
         ignore = "The tokio task manager isn't available on this platform"
     )]
     async fn fs_table_can_map_directories_to_different_names() {
@@ -185,15 +189,21 @@ mod tests {
             [fs]
             "/public" = "./out"
         "#;
-        std::fs::write(temp.path().join("wasmer.toml"), wasmer_toml).unwrap();
+        let manifest = temp.path().join("wasmer.toml");
+        std::fs::write(&manifest, wasmer_toml).unwrap();
         let out = temp.path().join("out");
         std::fs::create_dir_all(&out).unwrap();
         let file_txt = "Hello, World!";
         std::fs::write(out.join("file.txt"), file_txt).unwrap();
-        let webc = construct_webc_in_memory(temp.path());
-        let webc = Container::from_bytes(webc).unwrap();
+        let webc: Container = webc::wasmer_package::Package::from_manifest(manifest)
+            .unwrap()
+            .into();
         let tasks = task_manager();
-        let runtime = PluggableRuntime::new(tasks);
+        let mut runtime = PluggableRuntime::new(tasks);
+        runtime.set_package_loader(
+            BuiltinPackageLoader::new()
+                .with_shared_http_client(runtime.http_client().unwrap().clone()),
+        );
 
         let pkg = BinaryPackage::from_webc(&webc, &runtime).await.unwrap();
 
@@ -208,41 +218,5 @@ mod tests {
         let mut buffer = String::new();
         f.read_to_string(&mut buffer).await.unwrap();
         assert_eq!(buffer, file_txt);
-    }
-
-    fn construct_webc_in_memory(dir: &Path) -> Vec<u8> {
-        let mut files = BTreeMap::new();
-        load_files_from_disk(&mut files, dir, dir);
-
-        let wasmer_toml = DirOrFile::File("wasmer.toml".into());
-        if let Some(toml_data) = files.remove(&wasmer_toml) {
-            // HACK(Michael-F-Bryan): The version of wapm-targz-to-pirita we are
-            // using doesn't know we renamed "wapm.toml" to "wasmer.toml", so we
-            // manually patch things up if people have already migrated their
-            // projects.
-            files
-                .entry(DirOrFile::File("wapm.toml".into()))
-                .or_insert(toml_data);
-        }
-
-        let functions = TransformManifestFunctions::default();
-        wapm_targz_to_pirita::generate_webc_file(files, dir, &functions).unwrap()
-    }
-
-    fn load_files_from_disk(files: &mut FileMap, dir: &Path, base: &Path) {
-        let entries = dir.read_dir().unwrap();
-
-        for entry in entries {
-            let path = entry.unwrap().path();
-            let relative_path = path.strip_prefix(base).unwrap().to_path_buf();
-
-            if path.is_dir() {
-                load_files_from_disk(files, &path, base);
-                files.insert(DirOrFile::Dir(relative_path), Vec::new());
-            } else if path.is_file() {
-                let data = std::fs::read(&path).unwrap();
-                files.insert(DirOrFile::File(relative_path), data);
-            }
-        }
     }
 }
