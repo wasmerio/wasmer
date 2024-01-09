@@ -1,5 +1,6 @@
 use std::io::{self, Write};
 use std::path::{Path, PathBuf};
+use std::time::Duration;
 use std::{fs, io::IsTerminal};
 
 use anyhow::{anyhow, bail, Context};
@@ -38,6 +39,10 @@ pub struct Publish {
     pub no_validate: bool,
     /// Directory containing the `wasmer.toml` (defaults to current root dir)
     pub package_path: Option<String>,
+    /// Wait for package to be available on the registry before exiting
+    pub wait: bool,
+    /// Timeout (in seconds) for the publish query to the registry
+    pub timeout: Duration,
 }
 
 #[derive(Debug, Error)]
@@ -58,7 +63,7 @@ enum PackageBuildError {
 
 impl Publish {
     /// Executes `wasmer publish`
-    pub fn execute(&self) -> Result<(), anyhow::Error> {
+    pub async fn execute(&self) -> Result<(), anyhow::Error> {
         let input_path = match self.package_path.as_ref() {
             Some(s) => std::env::current_dir()?.join(s),
             None => std::env::current_dir()?,
@@ -154,7 +159,7 @@ impl Publish {
             // dry run: publish is done here
 
             println!(
-                "Successfully published package `{}@{}`",
+                "🚀 Successfully published package `{}@{}`",
                 manifest.package.name, manifest.package.version
             );
 
@@ -186,7 +191,10 @@ impl Publish {
             &maybe_signature_data,
             archived_data_size,
             self.quiet,
+            self.wait,
+            self.timeout,
         )
+        .await
     }
 
     fn validation_policy(&self) -> Box<dyn ValidationPolicy> {
@@ -640,14 +648,21 @@ mod validate {
         registry: &str,
         auth_token: &str,
     ) -> Result<bool, ValidationError> {
-        let package_version = crate::query_package_from_registry(
+        let result = crate::query_package_from_registry(
             registry,
             &manifest.package.name,
             None,
             Some(auth_token),
-        )?;
+        );
 
-        Ok(package_version.is_private != manifest.package.private)
+        match result {
+            Ok(package_version) => Ok(package_version.is_private != manifest.package.private),
+            Err(QueryPackageError::NoPackageFound { .. }) => {
+                // The package hasn't been published yet
+                Ok(false)
+            }
+            Err(e) => Err(e.into()),
+        }
     }
 
     fn validate_module(

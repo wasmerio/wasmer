@@ -47,21 +47,6 @@ fn rust_toolchain_file_is_up_to_date() {
 }
 
 #[test]
-fn wasi_web_is_up_to_date() {
-    let pattern = Regex::new(r#"rust-version\s*=\s*"\d\.\d\d""#).unwrap();
-    let rust_toolchain = project_root()
-        .join("lib")
-        .join("wasi-web")
-        .join("Cargo.toml");
-
-    let replacement = format!("rust-version = \"{}\"", MSRV.as_str());
-    let contents = std::fs::read_to_string(&rust_toolchain).unwrap();
-    let expected = pattern.replace_all(&contents, replacement);
-
-    ensure_file_contents(rust_toolchain, expected);
-}
-
-#[test]
 fn ci_files_are_up_to_date() {
     let pattern = Regex::new(r#"MSRV:\s*"\d+\.\d+""#).unwrap();
     let replacement = format!("MSRV: \"{}\"", MSRV.as_str());

@@ -28,9 +28,16 @@ use wasmer::{
 #[cfg(feature = "compiler")]
 use wasmer_compiler::ArtifactBuild;
 use wasmer_registry::{wasmer_env::WasmerEnv, Package};
+#[cfg(feature = "journal")]
+use wasmer_wasix::journal::{LogFileJournal, SnapshotTrigger};
 use wasmer_wasix::{
     bin_factory::BinaryPackage,
-    runners::{MappedCommand, MappedDirectory, Runner},
+    journal::CompactingLogFileJournal,
+    runners::{
+        dcgi::DcgiInstanceFactory,
+        wcgi::{self, NoOpWcgiCallbacks},
+        MappedCommand, MappedDirectory, Runner,
+    },
     runtime::{
         module_cache::{CacheError, ModuleHash},
         package_loader::PackageLoader,
@@ -41,6 +48,7 @@ use wasmer_wasix::{
 };
 use wasmer_wasix::{
     runners::{
+        dcgi::DcgiRunner,
         emscripten::EmscriptenRunner,
         wasi::WasiRunner,
         wcgi::{AbortHandle, WcgiRunner},
@@ -119,14 +127,26 @@ impl Run {
 
         pb.finish_and_clear();
 
+        // push the TTY state so we can restore it after the program finishes
+        let tty = runtime.tty().map(|tty| tty.tty_get());
+
         let result = {
             match target {
-                ExecutableTarget::WebAssembly { module, path } => {
-                    self.execute_wasm(&path, &module, store, runtime)
-                }
-                ExecutableTarget::Package(pkg) => self.execute_webc(&pkg, runtime),
+                ExecutableTarget::WebAssembly {
+                    module,
+                    module_hash,
+                    path,
+                } => self.execute_wasm(&path, &module, module_hash, store, runtime.clone()),
+                ExecutableTarget::Package(pkg) => self.execute_webc(&pkg, runtime.clone()),
             }
         };
+
+        // restore the TTY state as the execution may have changed it
+        if let Some(state) = tty {
+            if let Some(tty) = runtime.tty() {
+                tty.tty_set(state);
+            }
+        }
 
         if let Err(e) = &result {
             self.maybe_save_coredump(e);
@@ -140,13 +160,14 @@ impl Run {
         &self,
         path: &Path,
         module: &Module,
+        module_hash: ModuleHash,
         mut store: Store,
         runtime: Arc<dyn Runtime + Send + Sync>,
     ) -> Result<(), Error> {
         if wasmer_emscripten::is_emscripten_module(module) {
             self.execute_emscripten_module()
         } else if wasmer_wasix::is_wasi_module(module) || wasmer_wasix::is_wasix_module(module) {
-            self.execute_wasi_module(path, module, runtime, store)
+            self.execute_wasi_module(path, module, module_hash, runtime, store)
         } else {
             self.execute_pure_wasm_module(module, &mut store)
         }
@@ -168,7 +189,9 @@ impl Run {
 
         let uses = self.load_injected_packages(&runtime)?;
 
-        if WcgiRunner::can_run_command(cmd.metadata())? {
+        if DcgiRunner::can_run_command(cmd.metadata())? {
+            self.run_dcgi(id, pkg, uses, runtime)
+        } else if WcgiRunner::can_run_command(cmd.metadata())? {
             self.run_wcgi(id, pkg, uses, runtime)
         } else if WasiRunner::can_run_command(cmd.metadata())? {
             self.run_wasi(id, pkg, uses, runtime)
@@ -226,21 +249,62 @@ impl Run {
         uses: Vec<BinaryPackage>,
         runtime: Arc<dyn Runtime + Send + Sync>,
     ) -> Result<(), Error> {
-        let mut runner = wasmer_wasix::runners::wcgi::WcgiRunner::new();
+        let mut runner = wasmer_wasix::runners::wcgi::WcgiRunner::new(NoOpWcgiCallbacks);
+        self.config_wcgi(runner.config(), uses)?;
+        runner.run_command(command_name, pkg, runtime)
+    }
 
-        runner
-            .config()
+    fn config_wcgi(
+        &self,
+        config: &mut wcgi::Config,
+        uses: Vec<BinaryPackage>,
+    ) -> Result<(), Error> {
+        config
             .args(self.args.clone())
             .addr(self.wcgi.addr)
             .envs(self.wasi.env_vars.clone())
             .map_directories(self.wasi.mapped_dirs.clone())
             .callbacks(Callbacks::new(self.wcgi.addr))
             .inject_packages(uses);
-        *runner.config().capabilities() = self.wasi.capabilities();
+        *config.capabilities() = self.wasi.capabilities();
         if self.wasi.forward_host_env {
-            runner.config().forward_host_env();
+            config.forward_host_env();
         }
 
+        #[cfg(feature = "journal")]
+        {
+            for trigger in self.wasi.snapshot_on.iter().cloned() {
+                config.add_snapshot_trigger(trigger);
+            }
+            if self.wasi.snapshot_on.is_empty() && !self.wasi.journals.is_empty() {
+                config.add_default_snapshot_triggers();
+            }
+            if let Some(period) = self.wasi.snapshot_interval {
+                if self.wasi.journals.is_empty() {
+                    return Err(anyhow::format_err!(
+                        "If you specify a snapshot interval then you must also specify a journal file"
+                    ));
+                }
+                config.with_snapshot_interval(Duration::from_millis(period));
+            }
+            for journal in self.wasi.build_journals()? {
+                config.add_journal(journal);
+            }
+        }
+
+        Ok(())
+    }
+
+    fn run_dcgi(
+        &self,
+        command_name: &str,
+        pkg: &BinaryPackage,
+        uses: Vec<BinaryPackage>,
+        runtime: Arc<dyn Runtime + Send + Sync>,
+    ) -> Result<(), Error> {
+        let factory = DcgiInstanceFactory::new();
+        let mut runner = wasmer_wasix::runners::dcgi::DcgiRunner::new(factory);
+        self.config_wcgi(runner.config().inner(), uses);
         runner.run_command(command_name, pkg, runtime)
     }
 
@@ -294,7 +358,7 @@ impl Run {
     ) -> Result<WasiRunner, anyhow::Error> {
         let packages = self.load_injected_packages(runtime)?;
 
-        let runner = WasiRunner::new()
+        let mut runner = WasiRunner::new()
             .with_args(&self.args)
             .with_injected_packages(packages)
             .with_envs(self.wasi.env_vars.clone())
@@ -302,6 +366,27 @@ impl Run {
             .with_mapped_directories(self.wasi.build_mapped_directories()?)
             .with_forward_host_env(self.wasi.forward_host_env)
             .with_capabilities(self.wasi.capabilities());
+
+        #[cfg(feature = "journal")]
+        {
+            for trigger in self.wasi.snapshot_on.iter().cloned() {
+                runner.add_snapshot_trigger(trigger);
+            }
+            if self.wasi.snapshot_on.is_empty() && !self.wasi.journals.is_empty() {
+                runner.add_default_snapshot_triggers();
+            }
+            if let Some(period) = self.wasi.snapshot_interval {
+                if self.wasi.journals.is_empty() {
+                    return Err(anyhow::format_err!(
+                        "If you specify a snapshot interval then you must also specify a journal file"
+                    ));
+                }
+                runner.with_snapshot_interval(Duration::from_millis(period));
+            }
+            for journal in self.wasi.build_journals()? {
+                runner.add_journal(journal);
+            }
+        }
 
         Ok(runner)
     }
@@ -311,6 +396,7 @@ impl Run {
         &self,
         wasm_path: &Path,
         module: &Module,
+        module_hash: ModuleHash,
         runtime: Arc<dyn Runtime + Send + Sync>,
         mut store: Store,
     ) -> Result<(), Error> {
@@ -321,6 +407,7 @@ impl Run {
             runtime,
             &program_name,
             module,
+            module_hash,
             self.wasi.enable_async_threads,
         )
     }
@@ -556,7 +643,11 @@ impl TargetOnDisk {
 
 #[derive(Debug, Clone)]
 enum ExecutableTarget {
-    WebAssembly { module: Module, path: PathBuf },
+    WebAssembly {
+        module: Module,
+        module_hash: ModuleHash,
+        path: PathBuf,
+    },
     Package(BinaryPackage),
 }
 
@@ -604,6 +695,7 @@ impl ExecutableTarget {
 
                 Ok(ExecutableTarget::WebAssembly {
                     module,
+                    module_hash: ModuleHash::hash(&wasm),
                     path: path.to_path_buf(),
                 })
             }
@@ -611,9 +703,14 @@ impl ExecutableTarget {
                 let engine = runtime.engine();
                 pb.set_message("Deserializing pre-compiled WebAssembly module");
                 let module = unsafe { Module::deserialize_from_file(&engine, path)? };
+                let module_hash = {
+                    let wasm = std::fs::read(path)?;
+                    ModuleHash::hash(wasm)
+                };
 
                 Ok(ExecutableTarget::WebAssembly {
                     module,
+                    module_hash,
                     path: path.to_path_buf(),
                 })
             }

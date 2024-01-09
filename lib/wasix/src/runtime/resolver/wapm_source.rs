@@ -6,7 +6,7 @@ use std::{
 
 use anyhow::{Context, Error};
 use http::{HeaderMap, Method};
-use semver::Version;
+use semver::{Version, VersionReq};
 use url::Url;
 use webc::metadata::Manifest;
 
@@ -58,39 +58,6 @@ impl WapmSource {
 
     pub fn registry_endpoint(&self) -> &Url {
         &self.registry_endpoint
-    }
-
-    async fn lookup_package(&self, package_name: &str) -> Result<WapmWebQuery, Error> {
-        if let Some(cache) = &self.cache {
-            match cache.lookup_cached_query(package_name) {
-                Ok(Some(cached)) => {
-                    tracing::debug!("Cache hit!");
-                    return Ok(cached);
-                }
-                Ok(None) => {}
-                Err(e) => {
-                    tracing::warn!(
-                        package_name,
-                        error = &*e,
-                        "An unexpected error occurred while checking the local query cache",
-                    );
-                }
-            }
-        }
-
-        let response = self.query_graphql(package_name).await?;
-
-        if let Some(cache) = &self.cache {
-            if let Err(e) = cache.update(package_name, &response) {
-                tracing::warn!(
-                    package_name,
-                    error = &*e,
-                    "An error occurred while caching the GraphQL response",
-                );
-            }
-        }
-
-        Ok(response)
     }
 
     #[tracing::instrument(level = "debug", skip_all)]
@@ -166,94 +133,116 @@ impl WapmSource {
 impl Source for WapmSource {
     #[tracing::instrument(level = "debug", skip_all, fields(%package))]
     async fn query(&self, package: &PackageSpecifier) -> Result<Vec<PackageSummary>, QueryError> {
-        let (full_name, version_constraint) = match package {
+        let (package_name, version_constraint) = match package {
             PackageSpecifier::Registry { full_name, version } => (full_name, version),
             _ => return Err(QueryError::Unsupported),
         };
 
-        let response: WapmWebQuery = self.lookup_package(full_name).await?;
-
-        let mut summaries = Vec::new();
-
-        let WapmWebQueryGetPackage {
-            package_name,
-            namespace,
-            versions,
-        } = response.data.get_package.ok_or(QueryError::NotFound)?;
-        let mut archived_versions = Vec::new();
-
-        for pkg_version in versions {
-            let version = match Version::parse(&pkg_version.version) {
-                Ok(v) => v,
-                Err(e) => {
-                    tracing::debug!(
-                        pkg.version = pkg_version.version.as_str(),
-                        error = &e as &dyn std::error::Error,
-                        "Skipping a version because it doesn't have a valid version numer",
-                    );
-                    continue;
-                }
-            };
-
-            if pkg_version.is_archived {
-                tracing::debug!(
-                    pkg.version=%version,
-                    "Skipping an archived version",
-                );
-                archived_versions.push(version);
-                continue;
-            }
-
-            if version_constraint.matches(&version) {
-                match decode_summary(
-                    pkg_version,
-                    &response.data.info.default_frontend,
-                    &namespace,
-                    &package_name,
-                ) {
-                    Ok(summary) => summaries.push(summary),
-                    Err(e) => {
-                        tracing::debug!(
-                            version=%version,
-                            error=&*e,
-                            "Skipping version because its metadata couldn't be parsed"
-                        );
+        if let Some(cache) = &self.cache {
+            match cache.lookup_cached_query(package_name) {
+                Ok(Some(cached)) => {
+                    if let Ok(cached) = matching_package_summaries(cached, version_constraint) {
+                        tracing::debug!("Cache hit!");
+                        return Ok(cached);
                     }
                 }
+                Ok(None) => {}
+                Err(e) => {
+                    tracing::warn!(
+                        package_name,
+                        error = &*e,
+                        "An unexpected error occurred while checking the local query cache",
+                    );
+                }
             }
         }
 
-        if summaries.is_empty() {
-            Err(QueryError::NoMatches { archived_versions })
-        } else {
-            Ok(summaries)
+        let response = self.query_graphql(package_name).await?;
+
+        if let Some(cache) = &self.cache {
+            if let Err(e) = cache.update(package_name, &response) {
+                tracing::warn!(
+                    package_name,
+                    error = &*e,
+                    "An error occurred while caching the GraphQL response",
+                );
+            }
         }
+
+        matching_package_summaries(response, version_constraint)
     }
 }
 
-fn decode_summary(
-    pkg_version: WapmWebQueryGetPackageVersion,
-    frontend_url: &Url,
-    namespace: &str,
-    package_name: &str,
-) -> Result<PackageSummary, Error> {
+fn matching_package_summaries(
+    response: WapmWebQuery,
+    version_constraint: &VersionReq,
+) -> Result<Vec<PackageSummary>, QueryError> {
+    let mut summaries = Vec::new();
+
+    let WapmWebQueryGetPackage { versions, .. } =
+        response.data.get_package.ok_or(QueryError::NotFound)?;
+    let mut archived_versions = Vec::new();
+
+    for pkg_version in versions {
+        let version = match Version::parse(&pkg_version.version) {
+            Ok(v) => v,
+            Err(e) => {
+                tracing::debug!(
+                    pkg.version = pkg_version.version.as_str(),
+                    error = &e as &dyn std::error::Error,
+                    "Skipping a version because it doesn't have a valid version numer",
+                );
+                continue;
+            }
+        };
+
+        if pkg_version.is_archived {
+            tracing::debug!(
+                pkg.version=%version,
+                "Skipping an archived version",
+            );
+            archived_versions.push(version);
+            continue;
+        }
+
+        if version_constraint.matches(&version) {
+            match decode_summary(pkg_version) {
+                Ok(summary) => summaries.push(summary),
+                Err(e) => {
+                    tracing::debug!(
+                        version=%version,
+                        error=&*e,
+                        "Skipping version because its metadata couldn't be parsed"
+                    );
+                }
+            }
+        }
+    }
+
+    if summaries.is_empty() {
+        Err(QueryError::NoMatches { archived_versions })
+    } else {
+        Ok(summaries)
+    }
+}
+
+fn decode_summary(pkg_version: WapmWebQueryGetPackageVersion) -> Result<PackageSummary, Error> {
     let WapmWebQueryGetPackageVersion {
         manifest,
-        version,
-        distribution: WapmWebQueryGetPackageVersionDistribution { pirita_sha256_hash },
+        distribution:
+            WapmWebQueryGetPackageVersionDistribution {
+                pirita_sha256_hash,
+                pirita_download_url,
+            },
         ..
     } = pkg_version;
 
     let manifest = manifest.context("missing Manifest")?;
     let hash = pirita_sha256_hash.context("missing sha256")?;
+    let webc = pirita_download_url.context("missing download URL")?;
 
     let manifest: Manifest = serde_json::from_slice(manifest.as_bytes())
         .context("Unable to deserialize the manifest")?;
-
-    // Note: The backend gives us signed URLs, which aren't cacheable, so we'll
-    // download the *.webc file using the more human-friendly URL
-    // (https://wasmer.io/wasmer/python@0.1.0) and rely on redirects.
-    let webc = frontend_url.join(&format!("{namespace}/{package_name}@{version}"))?;
 
     let webc_sha256 = WebcHash::parse_hex(&hash).context("invalid webc sha256 hash in manifest")?;
 
@@ -465,6 +454,8 @@ pub struct WapmWebQueryGetPackageVersion {
 
 #[derive(Debug, serde::Serialize, serde::Deserialize, Clone)]
 pub struct WapmWebQueryGetPackageVersionDistribution {
+    #[serde(rename = "piritaDownloadUrl")]
+    pub pirita_download_url: Option<Url>,
     #[serde(rename = "piritaSha256Hash")]
     pub pirita_sha256_hash: Option<String>,
 }
@@ -514,7 +505,6 @@ mod tests {
             &self,
             request: HttpRequest,
         ) -> futures::future::BoxFuture<'_, Result<HttpResponse, anyhow::Error>> {
-            std::fs::write("/tmp/request.txt", request.body.as_deref().unwrap()).unwrap();
             self.requests.lock().unwrap().push(request);
             let response = self.responses.lock().unwrap().remove(0);
             Box::pin(async { Ok(response) })
@@ -558,7 +548,7 @@ mod tests {
                     }],
                 },
                 dist: DistributionInfo {
-                    webc: "https://wasmer.io/wasmer/wasmer-pack-cli@0.6.0"
+                    webc: "https://storage.googleapis.com/wapm-registry-prod/webc/wasmer/wasmer-pack-cli/0.6.0/wasmer-pack-cli-0.6.0.webc"
                         .parse()
                         .unwrap(),
                     webc_sha256: WebcHash::from_bytes([
@@ -718,5 +708,89 @@ mod tests {
 
         assert_eq!(summaries.len(), 1);
         assert_eq!(summaries[0].pkg.version.to_string(), "3.12.1");
+    }
+
+    #[tokio::test]
+    async fn query_the_backend_again_if_cached_queries_dont_match() {
+        let cached_value = serde_json::from_value(serde_json::json! {
+            {
+                "data": {
+                    "getPackage": {
+                        "packageName": "python",
+                        "namespace": "wasmer",
+                        "versions": [
+                            {
+                                "version": "3.12.0",
+                                "piritaManifest": "{\"package\": {\"wapm\": {\"name\": \"wasmer/python\", \"version\": \"3.12.0\", \"description\": \"Python\"}}}",
+                                "distribution": {
+                                    "piritaDownloadUrl": "https://wasmer.io/wasmer/python@3.12.0",
+                                    "piritaSha256Hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+                                }
+                            },
+                        ]
+                    },
+                    "info": {
+                        "defaultFrontend": "https://wasmer.io/",
+                    },
+                }
+            }
+        }).unwrap();
+        let body = serde_json::json! {
+            {
+                "data": {
+                    "getPackage": {
+                        "packageName": "python",
+                        "namespace": "wasmer",
+                        "versions": [
+                            {
+                                "version": "4.0.0",
+                                "piritaManifest": "{\"package\": {\"wapm\": {\"name\": \"wasmer/python\", \"version\": \"4.0.0\", \"description\": \"Python\"}}}",
+                                "distribution": {
+                                    "piritaDownloadUrl": "https://wasmer.io/wasmer/python@4.0.0",
+                                    "piritaSha256Hash": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+                                }
+                            },
+                            {
+                                "version": "3.12.0",
+                                "piritaManifest": "{\"package\": {\"wapm\": {\"name\": \"wasmer/python\", \"version\": \"3.12.0\", \"description\": \"Python\"}}}",
+                                "distribution": {
+                                    "piritaDownloadUrl": "https://wasmer.io/wasmer/python@3.12.0",
+                                    "piritaSha256Hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+                                }
+                            },
+                        ]
+                    },
+                    "info": {
+                        "defaultFrontend": "https://wasmer.io/",
+                    },
+                }
+            }
+        };
+        let response = HttpResponse {
+            body: Some(serde_json::to_vec(&body).unwrap()),
+            redirected: false,
+            status: StatusCode::OK,
+            headers: HeaderMap::new(),
+        };
+        let client = Arc::new(DummyClient::new(vec![response]));
+        let registry_endpoint = WapmSource::WASMER_PROD_ENDPOINT.parse().unwrap();
+        let request = PackageSpecifier::Registry {
+            full_name: "wasmer/python".to_string(),
+            version: "4.0.0".parse().unwrap(),
+        };
+        let temp = tempfile::tempdir().unwrap();
+        let source = WapmSource::new(registry_endpoint, client.clone())
+            .with_local_cache(temp.path(), Duration::from_secs(0));
+        source
+            .cache
+            .as_ref()
+            .unwrap()
+            .update("wasmer/python", &cached_value)
+            .unwrap();
+
+        let summaries = source.query(&request).await.unwrap();
+
+        assert_eq!(summaries.len(), 1);
+        assert_eq!(summaries[0].pkg.version.to_string(), "4.0.0");
     }
 }

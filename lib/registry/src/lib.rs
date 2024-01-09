@@ -17,6 +17,8 @@ pub mod interface;
 pub mod login;
 pub mod package;
 pub mod publish;
+pub mod subscriptions;
+pub(crate) mod tokio_spawner;
 pub mod types;
 pub mod utils;
 pub mod wasmer_env;
@@ -111,7 +113,12 @@ impl fmt::Display for QueryPackageError {
         match self {
             QueryPackageError::ErrorSendingQuery(q) => write!(f, "error sending query: {q}"),
             QueryPackageError::NoPackageFound { name, version } => {
-                write!(f, "no package found for {name:?} (version = {version:?})")
+                write!(f, "no package found for {name:?}")?;
+                if let Some(version) = version {
+                    write!(f, " (version = {version:?})")?;
+                }
+
+                Ok(())
             }
         }
     }
@@ -170,9 +177,13 @@ pub fn query_package_from_registry(
             QueryPackageError::ErrorSendingQuery(format!("Error sending GetPackagesQuery: {e}"))
         })?;
 
-    let v = response.package_version.as_ref().ok_or_else(|| {
-        QueryPackageError::ErrorSendingQuery(format!("no package version for {name:?}"))
-    })?;
+    let v = response
+        .package_version
+        .as_ref()
+        .ok_or_else(|| QueryPackageError::NoPackageFound {
+            name: name.to_string(),
+            version: None,
+        })?;
 
     let manifest = toml::from_str::<wasmer_toml::Manifest>(&v.manifest).map_err(|e| {
         QueryPackageError::ErrorSendingQuery(format!("Invalid manifest for crate {name:?}: {e}"))

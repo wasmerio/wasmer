@@ -1,8 +1,0 @@
-[unstable]
-build-std = ['std', 'panic_abort']
-
-[build]
-target = "wasm32-unknown-unknown"
-# This is needed so the module is compiled with atomics support (shared memory)
-# We add the `-no-check-features` linker args because otherwise one of the modules fails to link
-rustflags = '-Ctarget-feature=+atomics,+bulk-memory -Clink-args=--no-check-features'

@@ -52,7 +52,7 @@ impl BinaryPackageCommand {
     }
 
     pub fn hash(&self) -> &ModuleHash {
-        self.hash.get_or_init(|| ModuleHash::sha256(self.atom()))
+        self.hash.get_or_init(|| ModuleHash::hash(self.atom()))
     }
 }
 
@@ -70,7 +70,6 @@ pub struct BinaryPackage {
     pub commands: Vec<BinaryPackageCommand>,
     pub uses: Vec<String>,
     pub version: Version,
-    pub module_memory_footprint: u64,
     pub file_system_memory_footprint: u64,
 }
 
@@ -144,9 +143,9 @@ impl BinaryPackage {
     pub fn hash(&self) -> ModuleHash {
         *self.hash.get_or_init(|| {
             if let Some(entry) = self.entrypoint_bytes() {
-                ModuleHash::sha256(entry)
+                ModuleHash::hash(entry)
             } else {
-                ModuleHash::sha256(self.package_name.as_bytes())
+                ModuleHash::hash(self.package_name.as_bytes())
             }
         })
     }

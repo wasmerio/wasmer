@@ -100,7 +100,7 @@ pub fn proc_spawn_internal(
     stdin: WasiStdioMode,
     stdout: WasiStdioMode,
     stderr: WasiStdioMode,
-) -> Result<Result<(ProcessHandles, FunctionEnvMut<'_, WasiEnv>), Errno>, WasiError> {
+) -> WasiResult<(ProcessHandles, FunctionEnvMut<'_, WasiEnv>)> {
     let env = ctx.data();
 
     // Build a new store that will be passed to the thread
@@ -245,7 +245,7 @@ pub fn proc_spawn_internal(
 
     // Add the process to the environment state
     {
-        let mut inner = ctx.data().process.inner.write().unwrap();
+        let mut inner = ctx.data().process.lock();
         inner.children.push(child_process);
     }
     let env = ctx.data();

@@ -377,6 +377,7 @@ wai_bindgen_rust::bitflags::bitflags! {
 #[doc = " Epoll operation."]
 #[repr(u32)]
 #[derive(Clone, Copy, PartialEq, Eq, num_enum :: TryFromPrimitive, Hash)]
+#[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 pub enum EpollCtl {
     #[doc = " Add an entry to the interest list of the epoll file descriptor, epfd."]
     Add,
@@ -428,6 +429,16 @@ unsafe impl wasmer::FromToNativeWasmType for EpollCtl {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
+pub struct EpollEventCtl {
+    pub events: EpollType,
+    pub ptr: u64,
+    pub fd: Fd,
+    pub data1: u32,
+    pub data2: u64,
+}
+
 /// An event that can be triggered
 #[repr(C)]
 #[derive(Copy, Clone)]
@@ -459,7 +470,7 @@ where
 #[repr(C)]
 #[derive(Copy, Clone)]
 pub struct EpollEvent<M: MemorySize> {
-    /// Pointer to the dataa
+    /// Pointer to the data
     pub events: EpollType,
     /// File descriptor
     pub data: EpollData<M>,

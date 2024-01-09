@@ -43,11 +43,34 @@ impl RuntimeOrHandle {
     }
 }
 
+#[derive(Clone)]
+pub struct ThreadPool {
+    inner: rusty_pool::ThreadPool,
+}
+
+impl std::ops::Deref for ThreadPool {
+    type Target = rusty_pool::ThreadPool;
+
+    fn deref(&self) -> &Self::Target {
+        &self.inner
+    }
+}
+
+impl std::fmt::Debug for ThreadPool {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("ThreadPool")
+            .field("name", &self.get_name())
+            .field("current_worker_count", &self.get_current_worker_count())
+            .field("idle_worker_count", &self.get_idle_worker_count())
+            .finish()
+    }
+}
+
 /// A task manager that uses tokio to spawn tasks.
 #[derive(Clone, Debug)]
 pub struct TokioTaskManager {
     rt: RuntimeOrHandle,
-    pool: Arc<rayon::ThreadPool>,
+    pool: Arc<ThreadPool>,
 }
 
 impl TokioTaskManager {
@@ -62,17 +85,22 @@ impl TokioTaskManager {
 
         Self {
             rt: rt.into(),
-            pool: Arc::new(
-                rayon::ThreadPoolBuilder::new()
-                    .num_threads(max_threads)
-                    .build()
-                    .unwrap(),
-            ),
+            pool: Arc::new(ThreadPool {
+                inner: rusty_pool::Builder::new()
+                    .name("TokioTaskManager Thread Pool".to_string())
+                    .core_size(max_threads)
+                    .max_size(max_threads)
+                    .build(),
+            }),
         }
     }
 
     pub fn runtime_handle(&self) -> tokio::runtime::Handle {
         self.rt.handle().clone()
+    }
+
+    pub fn pool_handle(&self) -> Arc<ThreadPool> {
+        self.pool.clone()
     }
 }
 
@@ -93,17 +121,13 @@ impl<'g> Drop for TokioRuntimeGuard<'g> {
 impl VirtualTaskManager for TokioTaskManager {
     /// See [`VirtualTaskManager::sleep_now`].
     fn sleep_now(&self, time: Duration) -> Pin<Box<dyn Future<Output = ()> + Send + Sync>> {
-        let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel();
-        self.rt.handle().spawn(async move {
-            if time == Duration::ZERO {
-                tokio::task::yield_now().await;
-            } else {
-                tokio::time::sleep(time).await;
-            }
-            tx.send(()).ok();
-        });
+        let handle = self.runtime_handle();
         Box::pin(async move {
-            rx.recv().await;
+            SleepNow::default()
+                .enter(handle, time)
+                .await
+                .ok()
+                .unwrap_or(())
         })
     }
 
@@ -123,6 +147,7 @@ impl VirtualTaskManager for TokioTaskManager {
     fn task_wasm(&self, task: TaskWasm) -> Result<(), WasiThreadError> {
         // Create the context on a new store
         let run = task.run;
+        let recycle = task.recycle;
         let (ctx, store) = WasiFunctionEnv::new_with_store(
             task.module,
             task.env,
@@ -141,12 +166,13 @@ impl VirtualTaskManager for TokioTaskManager {
             self.rt.handle().spawn(async move {
                 let result = trigger.await;
                 // Build the task that will go on the callback
-                pool.spawn(move || {
+                pool.execute(move || {
                     // Invoke the callback
                     run(TaskWasmRunProperties {
                         ctx,
                         store,
                         trigger_result: Some(result),
+                        recycle,
                     });
                 });
             });
@@ -154,7 +180,7 @@ impl VirtualTaskManager for TokioTaskManager {
             tracing::trace!("spawning task_wasm in blocking thread");
 
             // Run the callback on a dedicated thread
-            self.pool.spawn(move || {
+            self.pool.execute(move || {
                 tracing::trace!("task_wasm started in blocking thread");
 
                 // Invoke the callback
@@ -162,6 +188,7 @@ impl VirtualTaskManager for TokioTaskManager {
                     ctx,
                     store,
                     trigger_result: None,
+                    recycle,
                 });
             });
         }
@@ -173,7 +200,7 @@ impl VirtualTaskManager for TokioTaskManager {
         &self,
         task: Box<dyn FnOnce() + Send + 'static>,
     ) -> Result<(), WasiThreadError> {
-        self.pool.spawn(move || {
+        self.pool.execute(move || {
             task();
         });
         Ok(())
@@ -184,5 +211,37 @@ impl VirtualTaskManager for TokioTaskManager {
         Ok(std::thread::available_parallelism()
             .map(usize::from)
             .unwrap_or(8))
+    }
+}
+
+// Used by [`VirtualTaskManager::sleep_now`] to abort a sleep task when drop.
+#[derive(Default)]
+struct SleepNow {
+    abort_handle: Option<tokio::task::AbortHandle>,
+}
+
+impl SleepNow {
+    async fn enter(
+        &mut self,
+        handle: tokio::runtime::Handle,
+        time: Duration,
+    ) -> Result<(), tokio::task::JoinError> {
+        let handle = handle.spawn(async move {
+            if time == Duration::ZERO {
+                tokio::task::yield_now().await;
+            } else {
+                tokio::time::sleep(time).await;
+            }
+        });
+        self.abort_handle = Some(handle.abort_handle());
+        handle.await
+    }
+}
+
+impl Drop for SleepNow {
+    fn drop(&mut self) {
+        if let Some(h) = self.abort_handle.as_ref() {
+            h.abort()
+        }
     }
 }

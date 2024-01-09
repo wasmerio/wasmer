@@ -376,7 +376,7 @@ pub unsafe extern "C" fn wasi_env_new(
 pub extern "C" fn wasi_env_delete(state: Option<Box<wasi_env_t>>) {
     if let Some(mut env) = state {
         env.inner
-            .cleanup(unsafe { &mut env.store.store_mut() }, None);
+            .on_exit(unsafe { &mut env.store.store_mut() }, None);
     }
 }
 

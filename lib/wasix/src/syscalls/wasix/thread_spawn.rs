@@ -1,8 +1,10 @@
 use std::f32::consts::E;
 
 use super::*;
+#[cfg(feature = "journal")]
+use crate::journal::JournalEffector;
 use crate::{
-    capture_snapshot,
+    capture_instance_snapshot,
     os::task::thread::WasiMemoryLayout,
     runtime::task_manager::{TaskWasm, TaskWasmRunProperties},
     syscalls::*,
@@ -73,7 +75,7 @@ pub(crate) fn thread_spawn_internal<M: MemorySize>(
     tracing::trace!("spawn with layout {:?}", layout);
 
     // Create the handle that represents this thread
-    let mut thread_handle = match env.process.new_thread() {
+    let mut thread_handle = match env.process.new_thread(layout.clone()) {
         Ok(h) => Arc::new(h),
         Err(err) => {
             error!(
@@ -119,7 +121,7 @@ pub(crate) fn thread_spawn_internal<M: MemorySize>(
         return Err(Errno::Notcapable);
     }
     let thread_module = unsafe { env.inner() }.module_clone();
-    let snapshot = capture_snapshot(&mut ctx.as_store_mut());
+    let snapshot = capture_instance_snapshot(&mut ctx.as_store_mut());
     let spawn_type =
         crate::runtime::SpawnMemoryType::ShareMemory(thread_memory, ctx.as_store_ref());
 
@@ -195,7 +197,7 @@ fn call_module<M: MemorySize>(
         trace!("callback finished (ret={})", ret);
 
         // Clean up the environment
-        env.cleanup(store, Some(ret.into()));
+        env.on_exit(store, Some(ret.into()));
 
         // Return the result
         Ok(ret as u32)
@@ -203,12 +205,13 @@ fn call_module<M: MemorySize>(
 
     // If we need to rewind then do so
     if let Some((rewind_state, rewind_result)) = rewind_state {
+        let mut ctx = ctx.env.clone().into_mut(&mut store);
         let res = rewind_ext::<M>(
-            ctx.env.clone().into_mut(&mut store),
+            &mut ctx,
             rewind_state.memory_stack,
             rewind_state.rewind_stack,
             rewind_state.store_data,
-            rewind_result,
+            Some(rewind_result),
         );
         if res != Errno::Success {
             return Err(res);
