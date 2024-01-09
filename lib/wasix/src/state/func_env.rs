@@ -275,21 +275,28 @@ impl WasiFunctionEnv {
                 self.data_mut(&mut store).replaying_journal = false;
             }
 
-            // The first event we save is an event that records the module hash.
-            // Note: This is used to detect if an incorrect journal is used on the wrong
-            // process or if a process has been recompiled
-            let wasm_hash = self.data(&store).process.module_hash.as_bytes();
-            let mut ctx = self.env.clone().into_mut(&mut store);
-            crate::journal::JournalEffector::save_event(
-                &mut ctx,
-                crate::journal::JournalEntry::InitModuleV1 { wasm_hash },
-            )
-            .map_err(|err| {
-                WasiRuntimeError::Runtime(wasmer::RuntimeError::new(format!(
-                    "journal failied to save the module initialization event - {}",
-                    err
-                )))
-            })?;
+            // If there is no rewind state then the journal is being replayed
+            // and hence we do not need to write an init module event
+            //
+            // But otherwise we need to notify the journal of the module hash
+            // so that recompiled modules will restart
+            if rewind_state.is_none() {
+                // The first event we save is an event that records the module hash.
+                // Note: This is used to detect if an incorrect journal is used on the wrong
+                // process or if a process has been recompiled
+                let wasm_hash = self.data(&store).process.module_hash.as_bytes();
+                let mut ctx = self.env.clone().into_mut(&mut store);
+                crate::journal::JournalEffector::save_event(
+                    &mut ctx,
+                    crate::journal::JournalEntry::InitModuleV1 { wasm_hash },
+                )
+                .map_err(|err| {
+                    WasiRuntimeError::Runtime(wasmer::RuntimeError::new(format!(
+                        "journal failied to save the module initialization event - {}",
+                        err
+                    )))
+                })?;
+            }
         }
 
         Ok(rewind_state)

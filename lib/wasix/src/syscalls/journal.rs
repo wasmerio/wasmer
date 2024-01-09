@@ -621,10 +621,6 @@ pub unsafe fn restore_snapshot(
             JournalEffector::apply_process_exit(&mut ctx, None)
                 .map_err(anyhow_err_to_runtime_err)?;
         }
-    } else {
-        tracing::debug!(
-            "journal used on a different module - the process will simulate a restart."
-        );
     }
 
     // We do not yet support multi threading
