@@ -1453,6 +1453,13 @@
 <a href="#1453" id="1453">1453</a>
 <a href="#1454" id="1454">1454</a>
 <a href="#1455" id="1455">1455</a>
+<a href="#1456" id="1456">1456</a>
+<a href="#1457" id="1457">1457</a>
+<a href="#1458" id="1458">1458</a>
+<a href="#1459" id="1459">1459</a>
+<a href="#1460" id="1460">1460</a>
+<a href="#1461" id="1461">1461</a>
+<a href="#1462" id="1462">1462</a>
 </pre></div><pre class="rust"><code><span class="kw">use crate</span>::{
     DirEntry, FileType, FsError, Metadata, OpenOptions, OpenOptionsConfig, ReadDir, <span class="prelude-ty">Result</span>,
     VirtualFile,
@@ -1677,13 +1684,20 @@
         <span class="comment">// TODO: handle create implying write, etc.
         </span><span class="kw">let </span>read = conf.read();
         <span class="kw">let </span>write = conf.write();
-        <span class="kw">let </span>append = conf.append();
+
+        <span class="comment">// according to Rust&#39;s stdlib, specifying both truncate and append is nonsensical,
+        // and it will return an error if we try to open a file with both flags set.
+        // in order to prevent this, and stay compatible with native binaries, we just ignore
+        // the append flag if truncate is set. the rationale behind this decision is that
+        // truncate is going to be applied first and append is going to be ignored anyway.
+        </span><span class="kw">let </span>append = <span class="kw">if </span>conf.truncate { <span class="bool-val">false </span>} <span class="kw">else </span>{ conf.append() };
+
         <span class="kw">let </span><span class="kw-2">mut </span>oo = fs::OpenOptions::new();
         oo.read(conf.read())
             .write(conf.write())
             .create_new(conf.create_new())
             .create(conf.create())
-            .append(conf.append())
+            .append(append)
             .truncate(conf.truncate())
             .open(path)
             .map_err(Into::into)
