@@ -161,10 +161,10 @@ pub(super) fn proc_join_internal<M: MemorySize + 'static>(
         let process = inner
             .children
             .iter()
-            .filter(|c| c.pid == pid)
+            .filter(|c| c.pid() == pid)
             .map(Clone::clone)
             .next();
-        inner.children.retain(|c| c.pid != pid);
+        inner.children.retain(|c| c.pid() != pid);
         process
     };
 

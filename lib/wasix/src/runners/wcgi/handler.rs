@@ -98,7 +98,7 @@ impl Handler {
                 drop(token);
             }
         };
-        let finished = env.process.finished.clone();
+        let finished = env.process.status().clone();
 
         /*
          * TODO: Reusing memory for DCGI calls and not just the file system

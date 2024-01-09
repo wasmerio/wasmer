@@ -82,7 +82,7 @@ pub fn proc_exec<M: MemorySize>(
         // We will need the child pid later
         let child_process = ctx.data().process.clone();
         let child_pid = child_process.pid();
-        let child_finished = child_process.finished;
+        let child_finished = child_process.status();
 
         // Restore the WasiEnv to the point when we vforked
         vfork.env.swap_inner(ctx.data_mut());

@@ -57,7 +57,7 @@ pub fn proc_fork<M: MemorySize>(
         }
     };
     let child_pid = child_env.process.pid();
-    let child_finished = child_env.process.finished.clone();
+    let child_finished = child_env.process.status().clone();
 
     // We write a zero to the PID before we capture the stack
     // so that this is what will be returned to the child

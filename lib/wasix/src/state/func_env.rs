@@ -278,7 +278,7 @@ impl WasiFunctionEnv {
             // The first event we save is an event that records the module hash.
             // Note: This is used to detect if an incorrect journal is used on the wrong
             // process or if a process has been recompiled
-            let wasm_hash = self.data(&store).process.module_hash.as_bytes();
+            let wasm_hash = self.data(&store).process.module_hash().as_bytes();
             let mut ctx = self.env.clone().into_mut(&mut store);
             crate::journal::JournalEffector::save_event(
                 &mut ctx,

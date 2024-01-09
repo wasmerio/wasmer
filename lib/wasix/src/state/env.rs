@@ -372,7 +372,9 @@ impl WasiEnv {
 
     /// Forking the WasiState is used when either fork or vfork is called
     pub fn fork(&self) -> Result<(Self, WasiThreadHandle), ControlPlaneError> {
-        let process = self.control_plane.new_process(self.process.module_hash)?;
+        let process = self
+            .control_plane
+            .new_process(*self.process.module_hash())?;
         let handle = process.new_thread(self.layout.clone())?;
 
         let thread = handle.as_thread();
@@ -447,16 +449,19 @@ impl WasiEnv {
 
         // The process and thread state need to be reset
         self.process = WasiProcess::new(
-            self.process.pid,
-            self.process.module_hash,
-            self.process.compute.clone(),
+            self.process.pid(),
+            *self.process.module_hash(),
+            self.process.control_plane().clone(),
         );
         self.thread = WasiThread::new(
             self.thread.pid(),
             self.thread.tid(),
             self.thread.is_main(),
-            self.process.finished.clone(),
-            self.process.compute.must_upgrade().register_task()?,
+            self.process.status().clone(),
+            self.process
+                .control_plane()
+                .must_upgrade()
+                .register_task()?,
             self.thread.memory_layout().clone(),
         );
 
@@ -737,7 +742,7 @@ impl WasiEnv {
             let mut now = 0;
             {
                 let mut has_signal_interval = false;
-                let inner = env.process.inner.0.lock().unwrap();
+                let inner = env.process.lock();
                 if !inner.signal_intervals.is_empty() {
                     now = platform_clock_time_get(Snapshot0Clockid::Monotonic, 1_000_000).unwrap()
                         as u128;
@@ -750,7 +755,7 @@ impl WasiEnv {
                     }
                 }
                 if has_signal_interval {
-                    let mut inner = env.process.inner.0.lock().unwrap();
+                    let mut inner = env.process.lock();
                     for signal in inner.signal_intervals.values_mut() {
                         let elapsed = now - signal.last_signal;
                         if elapsed >= signal.interval.as_nanos() {

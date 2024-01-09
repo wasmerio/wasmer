@@ -133,12 +133,11 @@ impl WasiControlPlane {
         }
 
         // Create the process first to do all the allocations before locking.
-        let mut proc = WasiProcess::new(WasiProcessId::from(0), module_hash, self.handle());
 
         let mut mutable = self.state.mutable.write().unwrap();
 
         let pid = mutable.next_process_id()?;
-        proc.set_pid(pid);
+        let proc = WasiProcess::new(pid, module_hash, self.handle());
         mutable.processes.insert(pid, proc.clone());
         Ok(proc)
     }

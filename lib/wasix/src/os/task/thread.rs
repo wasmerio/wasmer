@@ -4,7 +4,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::{
     collections::HashMap,
     ops::{Deref, DerefMut},
-    sync::{Arc, Condvar, Mutex, Weak},
+    sync::{Arc, Mutex},
     task::Waker,
 };
 
@@ -15,14 +15,11 @@ use wasmer_wasix_types::{
     wasi::{Errno, ExitCode},
 };
 
-use crate::{
-    os::task::process::{WasiProcessId, WasiProcessInner},
-    syscalls::HandleRewindType,
-    WasiRuntimeError,
-};
+use crate::{os::task::process::WasiProcessId, syscalls::HandleRewindType, WasiRuntimeError};
 
 use super::{
     control_plane::TaskCountGuard,
+    process::WasiProcessHandle,
     task_join_handle::{OwnedTaskStatus, TaskJoinHandle},
 };
 
@@ -494,7 +491,7 @@ impl WasiThread {
 #[derive(Debug)]
 pub struct WasiThreadHandleProtected {
     thread: WasiThread,
-    inner: Weak<(Mutex<WasiProcessInner>, Condvar)>,
+    process: WasiProcessHandle,
 }
 
 #[derive(Debug, Clone)]
@@ -503,14 +500,11 @@ pub struct WasiThreadHandle {
 }
 
 impl WasiThreadHandle {
-    pub(crate) fn new(
-        thread: WasiThread,
-        inner: &Arc<(Mutex<WasiProcessInner>, Condvar)>,
-    ) -> WasiThreadHandle {
+    pub(crate) fn new(thread: WasiThread, proc: WasiProcessHandle) -> WasiThreadHandle {
         Self {
             protected: Arc::new(WasiThreadHandleProtected {
                 thread,
-                inner: Arc::downgrade(inner),
+                process: proc,
             }),
         }
     }
@@ -527,8 +521,8 @@ impl WasiThreadHandle {
 impl Drop for WasiThreadHandleProtected {
     fn drop(&mut self) {
         let id = self.thread.tid();
-        if let Some(inner) = Weak::upgrade(&self.inner) {
-            let mut inner = inner.0.lock().unwrap();
+        if let Some(proc) = self.process.upgrade() {
+            let mut inner = proc.lock();
             if let Some(ctrl) = inner.threads.remove(&id) {
                 ctrl.set_status_finished(Ok(Errno::Success.into()));
             }
