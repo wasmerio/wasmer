@@ -7,7 +7,7 @@ use crate::{
     fs::NotificationInner,
     journal::SnapshotTrigger,
     net::socket::TimeType,
-    os::task::process::{MaybeCheckpointResult, WasiProcessCheckpoint, WasiProcessInner},
+    os::task::process::{MaybeCheckpointResult, ProcessCheckpoint, WasiProcessInner},
     syscalls::*,
 };
 

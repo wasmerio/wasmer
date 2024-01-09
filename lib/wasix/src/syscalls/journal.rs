@@ -14,7 +14,7 @@ pub fn maybe_snapshot_once<M: MemorySize>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     trigger: crate::journal::SnapshotTrigger,
 ) -> WasiResult<FunctionEnvMut<'_, WasiEnv>> {
-    use crate::os::task::process::{WasiProcessCheckpoint, WasiProcessInner};
+    use crate::os::task::process::{ProcessCheckpoint, WasiProcessInner};
 
     unsafe { handle_rewind_ext::<M, ()>(&mut ctx, HandleRewindType::Resultless) };
 
@@ -27,7 +27,7 @@ pub fn maybe_snapshot_once<M: MemorySize>(
         let res = wasi_try_ok_ok!(WasiProcessInner::checkpoint::<M>(
             process,
             ctx,
-            WasiProcessCheckpoint::Snapshot { trigger },
+            ProcessCheckpoint::Snapshot { trigger },
         )?);
         match res {
             MaybeCheckpointResult::Unwinding => return Ok(Err(Errno::Success)),
@@ -51,7 +51,7 @@ pub fn maybe_snapshot<M: MemorySize>(
 pub fn maybe_snapshot<M: MemorySize>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
 ) -> WasiResult<FunctionEnvMut<'_, WasiEnv>> {
-    use crate::os::task::process::{WasiProcessCheckpoint, WasiProcessInner};
+    use crate::os::task::process::{ProcessCheckpoint, WasiProcessInner};
 
     if !ctx.data().enable_journal {
         return Ok(Ok(ctx));

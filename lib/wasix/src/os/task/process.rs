@@ -115,7 +115,7 @@ struct State {
 /// things like snapshots which require the memory to remain
 /// stable while it performs a diff.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
-pub enum WasiProcessCheckpoint {
+pub enum ProcessCheckpoint {
     /// No checkpoint will take place and the process
     /// should just execute as per normal
     Execute,
@@ -139,7 +139,7 @@ pub struct WasiProcessInner {
     pub children: Vec<WasiProcess>,
     /// Represents a checkpoint which blocks all the threads
     /// and then executes some maintenance action
-    pub checkpoint: WasiProcessCheckpoint,
+    pub checkpoint: ProcessCheckpoint,
 }
 
 pub enum MaybeCheckpointResult<'a> {
@@ -162,7 +162,7 @@ impl WasiProcess {
                     thread_count: Default::default(),
                     signal_intervals: Default::default(),
                     children: Default::default(),
-                    checkpoint: WasiProcessCheckpoint::Execute,
+                    checkpoint: ProcessCheckpoint::Execute,
                 }),
                 status: Arc::new(OwnedTaskStatus::default()),
                 waiting: Arc::new(AtomicU32::new(0)),
@@ -465,7 +465,7 @@ impl WasiProcessInner {
         use crate::{rewind_ext, WasiError};
         {
             let guard = process.lock();
-            if guard.checkpoint == WasiProcessCheckpoint::Execute {
+            if guard.checkpoint == ProcessCheckpoint::Execute {
                 // No checkpoint so just carry on
                 return Ok(Ok(MaybeCheckpointResult::NotThisTime(ctx)));
             }
@@ -508,7 +508,7 @@ impl WasiProcessInner {
             // Wait for the checkpoint to finish (or if we are the last thread
             // to freeze then we have to execute the checksum operation)
             loop {
-                if let WasiProcessCheckpoint::Snapshot { trigger } = guard.checkpoint {
+                if let ProcessCheckpoint::Snapshot { trigger } = guard.checkpoint {
                     ctx.data().thread.set_check_pointing(true);
 
                     // Now if we are the last thread we also write the memory
@@ -523,7 +523,7 @@ impl WasiProcessInner {
 
                         // Clear the checkpointing flag and notify everyone to wake up
                         ctx.data().thread.set_check_pointing(false);
-                        guard.checkpoint = WasiProcessCheckpoint::Execute;
+                        guard.checkpoint = ProcessCheckpoint::Execute;
                         trace!("checkpoint complete");
                         process.lock_notify_all();
                     } else {
