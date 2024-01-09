@@ -12,7 +12,7 @@ use crate::syscalls::*;
 ///     The number of bytes in the `path` array
 #[instrument(level = "debug", skip_all, fields(%fd, path = field::Empty), ret)]
 pub fn path_unlink_file<M: MemorySize>(
-    ctx: FunctionEnvMut<'_, WasiEnv>,
+    mut ctx: FunctionEnvMut<'_, WasiEnv>,
     fd: WasiFd,
     path: WasmPtr<u8, M>,
     path_len: M::Offset,
@@ -32,11 +32,37 @@ pub fn path_unlink_file<M: MemorySize>(
         path_str = ctx.data().state.fs.relative_path_to_absolute(path_str);
     }
 
-    let inode = wasi_try_ok!(state.fs.get_inode_at_path(inodes, fd, &path_str, false));
+    let ret = path_unlink_file_internal(&mut ctx, fd, &path_str)?;
+    let env = ctx.data();
+
+    if ret == Errno::Success {
+        #[cfg(feature = "journal")]
+        if env.enable_journal {
+            wasi_try_ok!(
+                JournalEffector::save_path_unlink(&mut ctx, fd, path_str).map_err(|err| {
+                    tracing::error!("failed to save unlink event - {}", err);
+                    Errno::Fault
+                })
+            )
+        }
+    }
+
+    Ok(ret)
+}
+
+pub(crate) fn path_unlink_file_internal(
+    ctx: &mut FunctionEnvMut<'_, WasiEnv>,
+    fd: WasiFd,
+    path: &str,
+) -> Result<Errno, WasiError> {
+    let env = ctx.data();
+    let (memory, mut state, inodes) = unsafe { env.get_memory_and_wasi_state_and_inodes(&ctx, 0) };
+
+    let inode = wasi_try_ok!(state.fs.get_inode_at_path(inodes, fd, path, false));
     let (parent_inode, childs_name) = wasi_try_ok!(state.fs.get_parent_inode_at_path(
         inodes,
         fd,
-        std::path::Path::new(&path_str),
+        std::path::Path::new(path),
         false
     ));
 

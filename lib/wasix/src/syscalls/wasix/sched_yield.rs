@@ -3,7 +3,7 @@ use crate::syscalls::*;
 
 /// ### `sched_yield()`
 /// Yields execution of the thread
-#[instrument(level = "trace", skip_all, ret, err)]
+#[instrument(level = "trace", skip_all, ret)]
 pub fn sched_yield<M: MemorySize + 'static>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
 ) -> Result<Errno, WasiError> {

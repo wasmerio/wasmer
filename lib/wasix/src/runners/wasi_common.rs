@@ -5,34 +5,54 @@ use std::{
 };
 
 use anyhow::{Context, Error};
+use derivative::Derivative;
 use futures::future::BoxFuture;
 use virtual_fs::{FileSystem, FsError, OverlayFileSystem, RootFileSystemBuilder, TmpFileSystem};
 use webc::metadata::annotations::Wasi as WasiAnnotation;
 
 use crate::{
-    bin_factory::BinaryPackage, capabilities::Capabilities, runners::MappedDirectory,
+    bin_factory::BinaryPackage,
+    capabilities::Capabilities,
+    journal::{DynJournal, SnapshotTrigger},
+    runners::MappedDirectory,
     WasiEnvBuilder,
 };
 
-#[derive(Debug, Default, Clone)]
+#[derive(Debug, Clone)]
+pub struct MappedCommand {
+    /// The new alias.
+    pub alias: String,
+    /// The original command.
+    pub target: String,
+}
+
+#[derive(Derivative, Default, Clone)]
+#[derivative(Debug)]
 pub(crate) struct CommonWasiOptions {
     pub(crate) args: Vec<String>,
     pub(crate) env: HashMap<String, String>,
     pub(crate) forward_host_env: bool,
     pub(crate) mapped_dirs: Vec<MappedDirectory>,
+    pub(crate) mapped_host_commands: Vec<MappedCommand>,
     pub(crate) injected_packages: Vec<BinaryPackage>,
     pub(crate) capabilities: Capabilities,
+    #[derivative(Debug = "ignore")]
+    pub(crate) journals: Vec<Arc<DynJournal>>,
+    pub(crate) snapshot_on: Vec<SnapshotTrigger>,
+    pub(crate) snapshot_interval: Option<std::time::Duration>,
+    pub(crate) current_dir: Option<PathBuf>,
 }
 
 impl CommonWasiOptions {
     pub(crate) fn prepare_webc_env(
         &self,
         builder: &mut WasiEnvBuilder,
-        container_fs: Arc<dyn FileSystem + Send + Sync>,
+        container_fs: Option<Arc<dyn FileSystem + Send + Sync>>,
         wasi: &WasiAnnotation,
         root_fs: Option<TmpFileSystem>,
     ) -> Result<(), anyhow::Error> {
         let root_fs = root_fs.unwrap_or_else(|| RootFileSystemBuilder::default().build());
+
         let fs = prepare_filesystem(root_fs, &self.mapped_dirs, container_fs, builder)?;
 
         builder.add_preopen_dir("/")?;
@@ -47,6 +67,12 @@ impl CommonWasiOptions {
         for pkg in &self.injected_packages {
             builder.add_webc(pkg.clone());
         }
+
+        let mapped_cmds = self
+            .mapped_host_commands
+            .iter()
+            .map(|c| (c.alias.as_str(), c.target.as_str()));
+        builder.add_mapped_commands(mapped_cmds);
 
         self.populate_env(wasi, builder);
         self.populate_args(wasi, builder);
@@ -87,75 +113,83 @@ impl CommonWasiOptions {
     }
 }
 
-type ContainerFs =
-    OverlayFileSystem<TmpFileSystem, [RelativeOrAbsolutePathHack<Arc<dyn FileSystem>>; 1]>;
+// type ContainerFs =
+//     OverlayFileSystem<TmpFileSystem, [RelativeOrAbsolutePathHack<Arc<dyn FileSystem>>; 1]>;
 
-fn prepare_filesystem(
-    root_fs: TmpFileSystem,
-    mapped_dirs: &[MappedDirectory],
-    container_fs: Arc<dyn FileSystem>,
+fn build_directory_mappings(
     builder: &mut WasiEnvBuilder,
-) -> Result<ContainerFs, Error> {
-    if !mapped_dirs.is_empty() {
-        let host_fs: Arc<dyn FileSystem + Send + Sync> = Arc::new(crate::default_fs_backing());
+    root_fs: &mut TmpFileSystem,
+    host_fs: &Arc<dyn FileSystem + Send + Sync>,
+    mapped_dirs: &[MappedDirectory],
+) -> Result<(), anyhow::Error> {
+    for dir in mapped_dirs {
+        let MappedDirectory {
+            host: host_path,
+            guest: guest_path,
+        } = dir;
+        let mut guest_path = PathBuf::from(guest_path);
+        tracing::debug!(
+            guest=%guest_path.display(),
+            host=%host_path.display(),
+            "Mounting host folder",
+        );
 
-        for dir in mapped_dirs {
-            let MappedDirectory {
-                host: host_path,
-                guest: guest_path,
-            } = dir;
-            let mut guest_path = PathBuf::from(guest_path);
-            tracing::debug!(
-                guest=%guest_path.display(),
-                host=%host_path.display(),
-                "Mounting host folder",
-            );
+        if guest_path.is_relative() {
+            guest_path = apply_relative_path_mounting_hack(&guest_path);
+        }
 
-            if guest_path.is_relative() {
-                guest_path = apply_relative_path_mounting_hack(&guest_path);
-            }
+        let host_path = std::fs::canonicalize(host_path).with_context(|| {
+            format!("Unable to canonicalize host path '{}'", host_path.display())
+        })?;
 
-            let host_path = std::fs::canonicalize(host_path).with_context(|| {
-                format!("Unable to canonicalize host path '{}'", host_path.display())
+        let guest_path = root_fs
+            .canonicalize_unchecked(&guest_path)
+            .with_context(|| {
+                format!(
+                    "Unable to canonicalize guest path '{}'",
+                    guest_path.display()
+                )
             })?;
 
-            let guest_path = root_fs
-                .canonicalize_unchecked(&guest_path)
+        if guest_path == Path::new("/") {
+            root_fs
+                .mount_directory_entries(&guest_path, host_fs, &host_path)
+                .with_context(|| format!("Unable to mount \"{}\" to root", host_path.display(),))?;
+        } else {
+            if let Some(parent) = guest_path.parent() {
+                create_dir_all(root_fs, parent).with_context(|| {
+                    format!("Unable to create the \"{}\" directory", parent.display())
+                })?;
+            }
+
+            root_fs
+                .mount(guest_path.clone(), host_fs, host_path.clone())
                 .with_context(|| {
                     format!(
-                        "Unable to canonicalize guest path '{}'",
+                        "Unable to mount \"{}\" to \"{}\"",
+                        host_path.display(),
                         guest_path.display()
                     )
                 })?;
 
-            if guest_path == Path::new("/") {
-                root_fs
-                    .mount_directory_entries(&guest_path, &host_fs, &host_path)
-                    .with_context(|| {
-                        format!("Unable to mount \"{}\" to root", host_path.display(),)
-                    })?;
-            } else {
-                if let Some(parent) = guest_path.parent() {
-                    create_dir_all(&root_fs, parent).with_context(|| {
-                        format!("Unable to create the \"{}\" directory", parent.display())
-                    })?;
-                }
-
-                root_fs
-                    .mount(guest_path.clone(), &host_fs, host_path.clone())
-                    .with_context(|| {
-                        format!(
-                            "Unable to mount \"{}\" to \"{}\"",
-                            host_path.display(),
-                            guest_path.display()
-                        )
-                    })?;
-
-                builder
-                    .add_preopen_dir(&guest_path)
-                    .with_context(|| format!("Unable to preopen \"{}\"", guest_path.display()))?;
-            }
+            builder
+                .add_preopen_dir(&guest_path)
+                .with_context(|| format!("Unable to preopen \"{}\"", guest_path.display()))?;
         }
+    }
+
+    Ok(())
+}
+
+fn prepare_filesystem(
+    mut root_fs: TmpFileSystem,
+    mapped_dirs: &[MappedDirectory],
+    container_fs: Option<Arc<dyn FileSystem + Send + Sync>>,
+    builder: &mut WasiEnvBuilder,
+) -> Result<Box<dyn FileSystem + Send + Sync>, Error> {
+    if !mapped_dirs.is_empty() {
+        let host_fs: Arc<dyn FileSystem + Send + Sync> = Arc::new(crate::default_fs_backing());
+        build_directory_mappings(builder, &mut root_fs, &host_fs, mapped_dirs)?;
     }
 
     // HACK(Michael-F-Bryan): The WebcVolumeFileSystem only accepts relative
@@ -166,8 +200,15 @@ fn prepare_filesystem(
     // Until the FileSystem trait figures out whether relative paths should be
     // supported or not, we'll add an adapter that automatically retries
     // operations using an absolute path if it failed using a relative path.
-    let container_fs = RelativeOrAbsolutePathHack(container_fs);
-    let fs = OverlayFileSystem::new(root_fs, [container_fs]);
+
+    let fs = if let Some(container) = container_fs {
+        let container = RelativeOrAbsolutePathHack(container);
+        let fs = OverlayFileSystem::new(root_fs, [container]);
+        Box::new(fs) as Box<dyn FileSystem + Send + Sync>
+    } else {
+        let fs = RelativeOrAbsolutePathHack(root_fs);
+        Box::new(fs) as Box<dyn FileSystem + Send + Sync>
+    };
 
     Ok(fs)
 }
@@ -309,7 +350,7 @@ mod tests {
             "args".to_string(),
         ]);
 
-        args.prepare_webc_env(&mut builder, fs, &annotations, None)
+        args.prepare_webc_env(&mut builder, Some(fs), &annotations, None)
             .unwrap();
 
         assert_eq!(
@@ -341,7 +382,7 @@ mod tests {
         let mut annotations = WasiAnnotation::new("python");
         annotations.env = Some(vec!["HARD_CODED=env-vars".to_string()]);
 
-        args.prepare_webc_env(&mut builder, fs, &annotations, None)
+        args.prepare_webc_env(&mut builder, Some(fs), &annotations, None)
             .unwrap();
 
         assert_eq!(
@@ -368,7 +409,8 @@ mod tests {
         let mut builder = WasiEnvBuilder::new("");
 
         let root_fs = RootFileSystemBuilder::default().build();
-        let fs = prepare_filesystem(root_fs, &mapping, Arc::new(webc_fs), &mut builder).unwrap();
+        let fs =
+            prepare_filesystem(root_fs, &mapping, Some(Arc::new(webc_fs)), &mut builder).unwrap();
 
         assert!(fs.metadata("/home/file.txt".as_ref()).unwrap().is_file());
         assert!(fs.metadata("lib".as_ref()).unwrap().is_dir());

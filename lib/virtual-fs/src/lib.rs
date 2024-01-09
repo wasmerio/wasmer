@@ -665,6 +665,13 @@ pub struct FileType {
 }
 
 impl FileType {
+    pub fn new_dir() -> Self {
+        Self {
+            dir: true,
+            ..Default::default()
+        }
+    }
+
     pub fn is_dir(&self) -> bool {
         self.dir
     }

@@ -70,7 +70,7 @@ impl Drop for FutexPoller {
 /// * `futex` - Memory location that holds the value that will be checked
 /// * `expected` - Expected value that should be currently held at the memory location
 /// * `timeout` - Timeout should the futex not be triggered in the allocated time
-#[instrument(level = "trace", skip_all, fields(futex_idx = field::Empty, poller_idx = field::Empty, %expected, timeout = field::Empty, woken = field::Empty), err)]
+#[instrument(level = "trace", skip_all, fields(futex_idx = field::Empty, poller_idx = field::Empty, %expected, timeout = field::Empty, woken = field::Empty))]
 pub fn futex_wait<M: MemorySize + 'static>(
     ctx: FunctionEnvMut<'_, WasiEnv>,
     futex_ptr: WasmPtr<u32, M>,
@@ -89,6 +89,8 @@ pub(super) fn futex_wait_internal<M: MemorySize + 'static>(
     ret_woken: WasmPtr<Bool, M>,
 ) -> Result<Errno, WasiError> {
     wasi_try_ok!(WasiEnv::process_signals_and_exit(&mut ctx)?);
+
+    ctx = wasi_try_ok!(maybe_snapshot::<M>(ctx)?);
 
     // If we were just restored then we were woken after a deep sleep
     // and thus we repeat all the checks again, we do not immediately

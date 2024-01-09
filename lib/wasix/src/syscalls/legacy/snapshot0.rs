@@ -69,7 +69,7 @@ pub fn fd_seek(
 
 /// Wrapper around `syscalls::poll_oneoff` with extra logic to add the removed
 /// userdata field back
-#[instrument(level = "trace", skip_all, fields(timeout_ms = field::Empty, fd_guards = field::Empty, seen = field::Empty), ret, err)]
+#[instrument(level = "trace", skip_all, fields(timeout_ms = field::Empty, fd_guards = field::Empty, seen = field::Empty), ret)]
 pub fn poll_oneoff<M: MemorySize>(
     mut ctx: FunctionEnvMut<WasiEnv>,
     in_: WasmPtr<Snapshot0Subscription, Memory32>,

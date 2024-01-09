@@ -23,11 +23,11 @@ use wasmer_types::{
 ///
 /// This should be fixed once the JS-Types Wasm proposal is adopted
 /// by the browsers:
-/// https://github.com/WebAssembly/js-types/blob/master/proposals/js-types/Overview.md
+/// <https://github.com/WebAssembly/js-types/blob/master/proposals/js-types/Overview.md>
 ///
 /// Until that happens, we annotate the module with the expected
 /// types so we can built on top of them at runtime.
-#[derive(Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ModuleTypeHints {
     /// The type hints for the imported types
     pub imports: Vec<ExternType>,
@@ -472,5 +472,10 @@ impl<T: IntoBytes> From<(WebAssembly::Module, T)> for crate::module::Module {
 impl From<WebAssembly::Module> for crate::module::Module {
     fn from(module: WebAssembly::Module) -> crate::module::Module {
         crate::module::Module(module.into())
+    }
+}
+impl From<crate::module::Module> for WebAssembly::Module {
+    fn from(value: crate::module::Module) -> Self {
+        value.0.module.into_inner()
     }
 }

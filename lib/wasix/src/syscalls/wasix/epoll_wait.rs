@@ -15,7 +15,7 @@ const TIMEOUT_FOREVER: u64 = u64::MAX;
 
 /// ### `epoll_wait()`
 /// Wait for an I/O event on an epoll file descriptor
-#[instrument(level = "trace", skip_all, fields(timeout_ms = field::Empty, fd_guards = field::Empty, seen = field::Empty), ret, err)]
+#[instrument(level = "trace", skip_all, fields(timeout_ms = field::Empty, fd_guards = field::Empty, seen = field::Empty), ret)]
 pub fn epoll_wait<'a, M: MemorySize + 'static>(
     mut ctx: FunctionEnvMut<'a, WasiEnv>,
     epfd: WasiFd,
@@ -25,6 +25,8 @@ pub fn epoll_wait<'a, M: MemorySize + 'static>(
     ret_nevents: WasmPtr<M::Offset, M>,
 ) -> Result<Errno, WasiError> {
     wasi_try_ok!(WasiEnv::process_signals_and_exit(&mut ctx)?);
+
+    ctx = wasi_try_ok!(maybe_snapshot::<M>(ctx)?);
 
     if timeout == TIMEOUT_FOREVER {
         tracing::trace!(maxevents, epfd, "waiting forever on wakers");

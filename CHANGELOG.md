@@ -9,6 +9,164 @@ Looking for changes that affect our C API? See the [C API Changelog](lib/c-api/C
 
 ## **Unreleased**
 
+## 4.2.5 - 23/12/2023
+
+This release includes substantial improvements to Wasmer's startup time when loading cached modules. Also includes a couple of filesystem-related fixes and updates the Edge application templates.
+
+## Added
+
+  - [#4370](https://github.com/wasmerio/wasmer/pull/4370) feat(wasix): Add optional chunk timeout to ReqwestHttpClient
+  - [#4369](https://github.com/wasmerio/wasmer/pull/4369) WASIX: Add QueryError::Timeout
+  - [#4336](https://github.com/wasmerio/wasmer/pull/4336) fix(docs): add cpp in Chinese
+
+## Changed
+
+  - [#4372](https://github.com/wasmerio/wasmer/pull/4372) use faster hash algorithm when loading and saving a module
+  - [#4367](https://github.com/wasmerio/wasmer/pull/4367) deps: Bump edge cli to 0.1.4
+  - [#4366](https://github.com/wasmerio/wasmer/pull/4366) Always use the download URL provided by the Wasmer registry instead of going through the frontend redirect
+  - [#4350](https://github.com/wasmerio/wasmer/pull/4350) Optimize sleep_now for TokioTaskManager
+  - [#4351](https://github.com/wasmerio/wasmer/pull/4351) Remove the wasmer-web crate and all tests
+  - [#4229](https://github.com/wasmerio/wasmer/pull/4229) Use `cargo nextest` when running tests in CI
+  - [#4339](https://github.com/wasmerio/wasmer/pull/4339) deps: Bump edge-cli version
+
+## Fixed
+
+  - [#4368](https://github.com/wasmerio/wasmer/pull/4368) fix(wasix): http client: use reasonable default connect timeout
+  - [#4365](https://github.com/wasmerio/wasmer/pull/4365) lib/api/src/js/store.rs: fix typo
+  - [#4356](https://github.com/wasmerio/wasmer/pull/4356) Fixed a subtract-with-overflow in `StaticFile::poll_read_ready()`
+  - [#4355](https://github.com/wasmerio/wasmer/pull/4355) Fix the `virtual_fs::StaticFile` implementation
+  - [#4348](https://github.com/wasmerio/wasmer/pull/4348) fix sync
+
+
+
+## 4.2.4 - 30/11/2023
+
+This release allows publishing private packages and fixes the issue of the file system being accessible by WASI modules in the abscence of directory mapping. Also improves startup speed, and fixes multiple issues around the WASI filesystem, packages and apps.
+
+## Added
+
+  - [#4334](https://github.com/wasmerio/wasmer/pull/4334) Add `application/wasm` to list of accepted content-types for webcs
+  - [#4328](https://github.com/wasmerio/wasmer/pull/4328) Add `--wait` and `--timeout` flags to `wamer publish`
+  - [#4315](https://github.com/wasmerio/wasmer/pull/4315) Add TTY aware output to the wasmer package and wasmer container commands
+  - [#4287](https://github.com/wasmerio/wasmer/pull/4287) feat(cli): Add package commands
+  - [#4247](https://github.com/wasmerio/wasmer/pull/4247) Add support for publishing private packages
+  - [#4291](https://github.com/wasmerio/wasmer/pull/4291) feat(cli): add pnpm support
+
+## Changed
+
+  - [#4333](https://github.com/wasmerio/wasmer/pull/4333) deps: Bump edge-cli
+  - [#4332](https://github.com/wasmerio/wasmer/pull/4332) use rusty_pool instead of rayon
+  - [#4321](https://github.com/wasmerio/wasmer/pull/4321) deps(cli): Upgrade Edge CLI
+  - [#4326](https://github.com/wasmerio/wasmer/pull/4326) Always re-execute a registry query when cache lookups fail
+  - [#4317](https://github.com/wasmerio/wasmer/pull/4317) Bump min enumset version to 1.1.0
+  - [#4300](https://github.com/wasmerio/wasmer/pull/4300) Use authentication when running a package
+  - [#4294](https://github.com/wasmerio/wasmer/pull/4294) Terminate after flushing file descriptors
+  - [#4273](https://github.com/wasmerio/wasmer/pull/4273) Update memoffset to 0.9.0
+
+## Fixed
+
+  - [#4307](https://github.com/wasmerio/wasmer/pull/4307) Fix for the non-flushing of file descriptors and a nasty deadlock
+  - [#4331](https://github.com/wasmerio/wasmer/pull/4331) Fix visibility validation to work when publishing a new package
+  - [#4314](https://github.com/wasmerio/wasmer/pull/4314) fix(cli): Prevent temporary file issues in "package download"
+  - [#4296](https://github.com/wasmerio/wasmer/pull/4296) fix: prevent potential UB by deriving repr C for union
+  - [#4192](https://github.com/wasmerio/wasmer/pull/4192) More fixes to support Wasmer JS
+
+
+
+## 4.2.3 - 26/10/2023
+
+This new version fixes a bug in module bindings path.
+
+## Added
+
+
+## Changed
+
+
+## Fixed
+
+  - [#4272](https://github.com/wasmerio/wasmer/pull/4272) fix: Fix async runtime mismatch in virtual "wasmer run" command
+  - [#4276](https://github.com/wasmerio/wasmer/pull/4276) fix: module path using stripping a prefix
+  - [#4241](https://github.com/wasmerio/wasmer/pull/4241) Fix FreeBSD ucontext_t issues
+  - [#4246](https://github.com/wasmerio/wasmer/pull/4246) Fix Cargo.lock for 4.2.2 release
+
+
+
+## 4.2.2 - 04/10/2023
+New wasmer version that utilizes the more recent LLVM15 to compile WASM modules. Also adds new application templates for Wasmer Edge.
+
+## Added
+
+
+## Changed
+
+  - [#4239](https://github.com/wasmerio/wasmer/pull/4239) Wasmer Deploy CLI with js and py worker templates
+  - [#4238](https://github.com/wasmerio/wasmer/pull/4238) Using hard coded package version number in test...
+  - [#4206](https://github.com/wasmerio/wasmer/pull/4206) Remove StdioMode::Reserved variant
+  - [#4234](https://github.com/wasmerio/wasmer/pull/4234) Migration to LLVM15
+  - [#4236](https://github.com/wasmerio/wasmer/pull/4236) Updated tugstsenite
+
+## Fixed
+
+
+
+
+## 4.2.1 - 28/09/2023
+New release of wasmer with improved WASIX compatibility. MSRV was bumped to 1.70 for this release. 
+
+Now it is possible for packages to execute atoms from their dependencies, enabling e.g. python packages to not include the binary but use the one from the official python package.
+
+## Added
+
+  - [#4213](https://github.com/wasmerio/wasmer/pull/4213) feat(wasix): Add BuiltinPackageLoader::insert_cached
+  - [#4202](https://github.com/wasmerio/wasmer/pull/4202) Add support for `JoinFlags::NON_BLOCKING` to `proc_join`
+
+## Changed
+
+  - [#4223](https://github.com/wasmerio/wasmer/pull/4223) Allow packages to have commands that use a dependency's atom
+  - [#4224](https://github.com/wasmerio/wasmer/pull/4224) Use write instead of send for pipe, to accomodate socketpair
+  - [#4221](https://github.com/wasmerio/wasmer/pull/4221) Bump the MSRV from 1.69 to 1.70
+  - [#4214](https://github.com/wasmerio/wasmer/pull/4214) Rephrase the docstring for `--forward-host-env` flag on `wasmer run`
+  - [#4215](https://github.com/wasmerio/wasmer/pull/4215) Ignore `fd_close(3)` to avoid breaking POSIX programs that blindly close all file descriptors
+  - [#4204](https://github.com/wasmerio/wasmer/pull/4204) Stability improvements
+
+## Fixed
+
+  - [#4211](https://github.com/wasmerio/wasmer/pull/4211) Fixes for sockets
+  - [#4193](https://github.com/wasmerio/wasmer/pull/4193) Fix sockets
+  - [#4205](https://github.com/wasmerio/wasmer/pull/4205) Fix File System Merging Problems
+
+
+
+## 4.2.0 - 05/09/2023
+New release of wasmer, with a new 0-copy module deserialization for shorter startup time, some fixes to avoid misaligned pointer acces, and faster internal stack handling, among some other fixes.
+
+## Added
+
+  - [#4199](https://github.com/wasmerio/wasmer/pull/4199) Added some Socket filtype return for fdstat syscall
+  - [#4186](https://github.com/wasmerio/wasmer/pull/4186) Add stdin/stdout/stderr streams to `WasiRunner` and only use async threading when requested
+
+## Changed
+
+  - [#4170](https://github.com/wasmerio/wasmer/pull/4170) deps: Bump Edge client CLI to 0.1.25
+  - [#4179](https://github.com/wasmerio/wasmer/pull/4179) Faster compiles for debug by using release version of cranelift
+  - [#4196](https://github.com/wasmerio/wasmer/pull/4196) Replace stack pool mutex with lock-free queue
+  - [#4180](https://github.com/wasmerio/wasmer/pull/4180) NativeEngineExt::deserialize now returns Module
+  - [#4190](https://github.com/wasmerio/wasmer/pull/4190) Early check that a cached artifact is compatible with current CPU Features
+  - [#4167](https://github.com/wasmerio/wasmer/pull/4167) Make sure vmoffset are aligned to pointer size (for #4059)
+  - [#4184](https://github.com/wasmerio/wasmer/pull/4184) Allow `VirtualTaskManager` to explicitly transfer a module to a blocking task on the threadpool
+  - [#4176](https://github.com/wasmerio/wasmer/pull/4176) Js integrity checks
+  - [#4171](https://github.com/wasmerio/wasmer/pull/4171) Revive "0-copy module deserialization"
+  - [#4173](https://github.com/wasmerio/wasmer/pull/4173) deps: Bump Edge CLI version
+
+## Fixed
+
+  - [#4198](https://github.com/wasmerio/wasmer/pull/4198) chore: fix unavailable document url
+  - [#4191](https://github.com/wasmerio/wasmer/pull/4191) Fix invalid access to wasi instance handles in wasix proc_spawn
+  - [#4165](https://github.com/wasmerio/wasmer/pull/4165) Fix writing to middle of files and improve performance
+
+
+
 ## 4.1.2 - 21/08/2023
 Another maintenance release, bringing some networking improvements, and centralising all wasmer caches under the same folder.
 

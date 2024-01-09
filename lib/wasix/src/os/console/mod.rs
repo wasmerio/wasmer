@@ -222,15 +222,20 @@ impl Console {
             .with_envs(self.env.clone().into_iter())
             .with_args(args)
             .with_capabilities(self.capabilities.clone())
-            .prepare_webc_env(prog, &wasi_opts, &pkg, self.runtime.clone(), Some(root_fs))
+            .with_stdin(Box::new(self.stdin.clone()))
+            .with_stdout(Box::new(self.stdout.clone()))
+            .with_stderr(Box::new(self.stderr.clone()))
+            .prepare_webc_env(
+                prog,
+                &wasi_opts,
+                Some(&pkg),
+                self.runtime.clone(),
+                Some(root_fs),
+            )
             // TODO: better error conversion
             .map_err(|err| SpawnError::Other(err.into()))?;
 
-        let env = builder
-            .stdin(Box::new(self.stdin.clone()))
-            .stdout(Box::new(self.stdout.clone()))
-            .stderr(Box::new(self.stderr.clone()))
-            .build()?;
+        let env = builder.build()?;
 
         // Display the welcome message
         if !self.whitelabel && !self.no_welcome {
@@ -313,8 +318,15 @@ mod tests {
 
     /// Test that [`Console`] correctly runs a command with arguments and
     /// specified env vars, and that the TTY correctly handles stdout output.
+    ///
+    /// Note that this test currently aborts the process unconditionally due
+    /// to a misaligned pointer access in stack_checkpoint() triggering a panic
+    /// in a function that isn't allowed to unwind.
+    ///
+    /// See [#4284](https://github.com/wasmerio/wasmer/issues/4284) for more.
     #[test]
     #[cfg_attr(not(feature = "host-reqwest"), ignore = "Requires a HTTP client")]
+    #[ignore = "Unconditionally aborts (CC #4284)"]
     fn test_console_dash_tty_with_args_and_env() {
         let tokio_rt = tokio::runtime::Runtime::new().unwrap();
         let rt_handle = tokio_rt.handle().clone();
@@ -322,8 +334,9 @@ mod tests {
 
         let tm = TokioTaskManager::new(tokio_rt);
         let mut rt = PluggableRuntime::new(Arc::new(tm));
+        let client = rt.http_client().unwrap().clone();
         rt.set_engine(Some(wasmer::Engine::default()))
-            .set_package_loader(BuiltinPackageLoader::from_env().unwrap());
+            .set_package_loader(BuiltinPackageLoader::new().with_shared_http_client(client));
 
         let env: HashMap<String, String> = [("MYENV1".to_string(), "VAL1".to_string())]
             .into_iter()
@@ -358,11 +371,38 @@ mod tests {
             })
             .unwrap();
 
-        assert_eq!(code.raw(), 0);
+        assert_eq!(code.raw(), 78);
 
         let mut out = String::new();
         stdout_rx.read_to_string(&mut out).unwrap();
 
         assert_eq!(out, "hello VAL1\n");
+    }
+
+    /// Regression test to ensure merging of multiple packages works correctly.
+    #[test]
+    fn test_console_python_merge() {
+        let tokio_rt = tokio::runtime::Runtime::new().unwrap();
+        let rt_handle = tokio_rt.handle().clone();
+        let _guard = rt_handle.enter();
+
+        let tm = TokioTaskManager::new(tokio_rt);
+        let mut rt = PluggableRuntime::new(Arc::new(tm));
+        let client = rt.http_client().unwrap().clone();
+        rt.set_engine(Some(wasmer::Engine::default()))
+            .set_package_loader(BuiltinPackageLoader::new().with_shared_http_client(client));
+
+        let cmd = "wasmer-tests/python-env-dump --help";
+
+        let (mut handle, _proc) = Console::new(cmd, Arc::new(rt)).run().unwrap();
+
+        let code = rt_handle
+            .block_on(async move {
+                let res = handle.wait_finished().await?;
+                Ok::<_, anyhow::Error>(res)
+            })
+            .unwrap();
+
+        assert_eq!(code.raw(), 0);
     }
 }

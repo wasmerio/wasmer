@@ -182,7 +182,7 @@ fn test_wasmer_run_works_with_dir() {
 #[test]
 fn test_wasmer_run_works() {
     let assert = Command::new(get_wasmer_path())
-        .arg("https://wasmer.io/python/python")
+        .arg("https://wasmer.io/python/python@0.1.0")
         .arg(format!("--mapdir=.:{}", asset_path().display()))
         .arg("test.py")
         .assert()
@@ -193,7 +193,7 @@ fn test_wasmer_run_works() {
     // same test again, but this time with "wasmer run ..."
     let assert = Command::new(get_wasmer_path())
         .arg("run")
-        .arg("https://wasmer.io/python/python")
+        .arg("https://wasmer.io/python/python@0.1.0")
         .arg(format!("--mapdir=.:{}", asset_path().display()))
         .arg("test.py")
         .assert()
@@ -204,7 +204,7 @@ fn test_wasmer_run_works() {
     // same test again, but this time without specifying the registry in the URL
     let assert = Command::new(get_wasmer_path())
         .arg("run")
-        .arg("python/python")
+        .arg("python/python@0.1.0")
         .arg(format!("--mapdir=.:{}", asset_path().display()))
         .arg("--registry=wasmer.io")
         .arg("test.py")
@@ -259,7 +259,7 @@ fn run_test_caching_works_for_packages() {
     let wasmer_dir = TempDir::new().unwrap();
 
     let assert = Command::new(get_wasmer_path())
-        .arg("python/python")
+        .arg("python/python@0.1.0")
         .arg(format!("--mapdir=/app:{}", asset_path().display()))
         .arg("--registry=wasmer.io")
         .arg("/app/test.py")
@@ -274,7 +274,7 @@ fn run_test_caching_works_for_packages() {
         .stderr(contains("module_cache::filesystem: Saved to disk"));
 
     let assert = Command::new(get_wasmer_path())
-        .arg("python/python")
+        .arg("python/python@0.1.0")
         .arg(format!("--mapdir=/app:{}", asset_path().display()))
         .arg("--registry=wasmer.io")
         .arg("/app/test.py")
@@ -331,7 +331,7 @@ fn run_test_caching_works_for_urls() {
 
     let assert = Command::new(get_wasmer_path())
         .arg("run")
-        .arg("https://wasmer.io/python/python")
+        .arg("https://wasmer.io/python/python@0.1.0")
         .arg(format!("--mapdir=/app:{}", asset_path().display()))
         .arg("/app/test.py")
         .env("RUST_LOG", &*CACHE_RUST_LOG)
@@ -346,7 +346,7 @@ fn run_test_caching_works_for_urls() {
 
     let assert = Command::new(get_wasmer_path())
         .arg("run")
-        .arg("https://wasmer.io/python/python")
+        .arg("https://wasmer.io/python/python@0.1.0")
         .arg(format!("--mapdir=/app:{}", asset_path().display()))
         .arg("/app/test.py")
         .env("RUST_LOG", &*CACHE_RUST_LOG)
@@ -883,6 +883,33 @@ fn run_bash_using_coreutils() {
     ]
     .join("\n");
     assert.success().stdout(contains(some_expected_binaries));
+}
+
+#[test]
+fn run_a_package_that_uses_an_atom_from_a_dependency() {
+    let js_script_dir = project_root()
+        .join("tests")
+        .join("integration")
+        .join("cli")
+        .join("tests")
+        .join("packages")
+        .join("js-script");
+
+    let assert = Command::new(get_wasmer_path())
+        .arg("run")
+        .arg(&js_script_dir)
+        .arg("--registry=wasmer.io")
+        .env("RUST_LOG", &*RUST_LOG)
+        .assert();
+
+    assert.success().stdout(contains("Hello, World!"));
+}
+
+fn project_root() -> &'static Path {
+    Path::new(env!("CARGO_MANIFEST_DIR"))
+        .ancestors()
+        .nth(3)
+        .unwrap()
 }
 
 /// A helper that wraps [`Child`] to make sure it gets terminated

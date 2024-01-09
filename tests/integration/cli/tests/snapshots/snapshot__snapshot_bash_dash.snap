@@ -25,7 +25,7 @@ expression: snapshot
     "Success": {
       "stdout": "hi\n",
       "stderr": "test.wasm-5.1# # # test.wasm-5.1# exit\n",
-      "exit_code": 0
+      "exit_code": 78
     }
   }
 }

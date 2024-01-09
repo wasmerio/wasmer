@@ -1,21 +1,27 @@
+use crate::graphql::queries::get_signed_url::GetSignedUrlUrl;
+
+use crate::graphql::subscriptions::package_version_ready::PackageVersionState;
+use crate::graphql::{
+    mutations::{publish_package_mutation_chunked, PublishPackageMutationChunked},
+    queries::{get_signed_url, GetSignedUrl},
+};
+use crate::subscriptions::subscribe_package_version_ready;
+use crate::{format_graphql, WasmerConfig};
+use anyhow::{Context, Result};
+use console::{style, Emoji};
+use futures_util::StreamExt;
+use graphql_client::GraphQLQuery;
+use indicatif::{MultiProgress, ProgressBar, ProgressState, ProgressStyle};
 use std::collections::BTreeMap;
 use std::fmt::Write;
 use std::io::BufRead;
 use std::path::PathBuf;
+use std::sync::{Arc, Mutex};
+use std::thread;
+use std::time::Duration;
 
-use console::{style, Emoji};
-use graphql_client::GraphQLQuery;
-use indicatif::{ProgressBar, ProgressState, ProgressStyle};
-
-use crate::graphql::{
-    execute_query_modifier_inner,
-    mutations::{publish_package_mutation_chunked, PublishPackageMutationChunked},
-    queries::{get_signed_url, GetSignedUrl},
-};
-use crate::{format_graphql, WasmerConfig};
-
-static UPLOAD: Emoji<'_, '_> = Emoji("⬆️  ", "");
-static PACKAGE: Emoji<'_, '_> = Emoji("📦  ", "");
+static UPLOAD: Emoji<'_, '_> = Emoji("⬆️ ", "");
+static PACKAGE: Emoji<'_, '_> = Emoji("📦", "");
 
 #[derive(Debug, Clone)]
 pub enum SignArchiveResult {
@@ -27,7 +33,7 @@ pub enum SignArchiveResult {
 }
 
 #[allow(clippy::too_many_arguments)]
-pub fn try_chunked_uploading(
+pub async fn try_chunked_uploading(
     registry: Option<String>,
     token: Option<String>,
     package: &wasmer_toml::Package,
@@ -39,7 +45,75 @@ pub fn try_chunked_uploading(
     maybe_signature_data: &SignArchiveResult,
     archived_data_size: u64,
     quiet: bool,
+    wait: bool,
+    timeout: Duration,
 ) -> Result<(), anyhow::Error> {
+    let (registry, token) = initialize_registry_and_token(registry, token)?;
+
+    let maybe_signature_data = sign_package(maybe_signature_data);
+
+    // fetch this before showing the `Uploading...` message
+    // because there is a chance that the registry may not return a signed url.
+    // This usually happens if the package version already exists in the registry.
+    let signed_url = google_signed_url(&registry, &token, package, timeout)?;
+
+    if !quiet {
+        println!("{} {} Uploading...", style("[1/2]").bold().dim(), UPLOAD);
+    }
+    upload_package(&signed_url.url, archive_path, archived_data_size, timeout)?;
+
+    if !quiet {
+        println!("{} {} Publishing...", style("[2/2]").bold().dim(), PACKAGE);
+    }
+
+    let q =
+        PublishPackageMutationChunked::build_query(publish_package_mutation_chunked::Variables {
+            name: package.name.to_string(),
+            version: package.version.to_string(),
+            description: package.description.clone(),
+            manifest: manifest_string.to_string(),
+            license: package.license.clone(),
+            license_file: license_file.to_owned(),
+            readme: readme.to_owned(),
+            repository: package.repository.clone(),
+            homepage: package.homepage.clone(),
+            file_name: Some(archive_name.to_string()),
+            signature: maybe_signature_data,
+            signed_url: Some(signed_url.url),
+            private: Some(package.private),
+            wait: Some(wait),
+        });
+
+    let response: publish_package_mutation_chunked::ResponseData =
+        crate::graphql::execute_query_with_timeout(&registry, &token, timeout, &q)?;
+
+    if let Some(pkg) = response.publish_package {
+        if !pkg.success {
+            return Err(anyhow::anyhow!("Could not publish package"));
+        }
+        if wait {
+            wait_for_package_version_to_become_ready(
+                &registry,
+                &token,
+                pkg.package_version.id,
+                quiet,
+            )
+            .await?;
+        }
+    }
+
+    println!(
+        "🚀 Successfully published package `{}@{}`",
+        package.name, package.version,
+    );
+
+    Ok(())
+}
+
+fn initialize_registry_and_token(
+    registry: Option<String>,
+    token: Option<String>,
+) -> Result<(String, String), anyhow::Error> {
     let registry = match registry.as_ref() {
         Some(s) => format_graphql(s),
         None => {
@@ -71,7 +145,13 @@ pub fn try_chunked_uploading(
         }
     };
 
-    let maybe_signature_data = match maybe_signature_data {
+    Ok((registry, token))
+}
+
+fn sign_package(
+    maybe_signature_data: &SignArchiveResult,
+) -> Option<publish_package_mutation_chunked::InputSignature> {
+    match maybe_signature_data {
         SignArchiveResult::Ok {
             public_key_id,
             signature,
@@ -90,20 +170,27 @@ pub fn try_chunked_uploading(
             //warn!("Publishing package without a verifying signature. Consider registering a key pair with wasmer");
             None
         }
-    };
-
-    if !quiet {
-        println!("{} {} Uploading...", style("[1/2]").bold().dim(), UPLOAD);
     }
+}
 
+fn google_signed_url(
+    registry: &str,
+    token: &str,
+    package: &wasmer_toml::Package,
+    timeout: Duration,
+) -> Result<GetSignedUrlUrl, anyhow::Error> {
     let get_google_signed_url = GetSignedUrl::build_query(get_signed_url::Variables {
         name: package.name.to_string(),
         version: package.version.to_string(),
         expires_after_seconds: Some(60 * 30),
     });
 
-    let _response: get_signed_url::ResponseData =
-        execute_query_modifier_inner(&registry, &token, &get_google_signed_url, None, |f| f)?;
+    let _response: get_signed_url::ResponseData = crate::graphql::execute_query_with_timeout(
+        registry,
+        token,
+        timeout,
+        &get_google_signed_url,
+    )?;
 
     let url = _response.url.ok_or_else(|| {
         anyhow::anyhow!(
@@ -112,11 +199,19 @@ pub fn try_chunked_uploading(
             package.version
         )
     })?;
+    Ok(url)
+}
 
-    let signed_url = url.url;
-    let url = url::Url::parse(&signed_url).unwrap();
+fn upload_package(
+    signed_url: &str,
+    archive_path: &PathBuf,
+    archived_data_size: u64,
+    timeout: Duration,
+) -> Result<(), anyhow::Error> {
+    let url = url::Url::parse(signed_url).context("cannot parse signed url")?;
     let client = reqwest::blocking::Client::builder()
         .default_headers(reqwest::header::HeaderMap::default())
+        .timeout(timeout)
         .build()
         .unwrap();
 
@@ -212,34 +307,109 @@ pub fn try_chunked_uploading(
     }
 
     pb.finish_and_clear();
+    Ok(())
+}
+
+struct PackageVersionReadySharedState {
+    webc_generated: Arc<Mutex<Option<bool>>>,
+    bindings_generated: Arc<Mutex<Option<bool>>>,
+    native_exes_generated: Arc<Mutex<Option<bool>>>,
+}
+
+impl PackageVersionReadySharedState {
+    fn new() -> Self {
+        Self {
+            webc_generated: Arc::new(Mutex::new(Option::None)),
+            bindings_generated: Arc::new(Mutex::new(Option::None)),
+            native_exes_generated: Arc::new(Mutex::new(Option::None)),
+        }
+    }
+}
+
+fn create_spinner(m: &MultiProgress, message: String) -> ProgressBar {
+    let spinner = m.add(ProgressBar::new_spinner());
+    spinner.set_message(message);
+    spinner.set_style(ProgressStyle::default_spinner());
+    spinner.enable_steady_tick(Duration::from_millis(100));
+    spinner
+}
+
+fn show_spinners_while_waiting(state: &PackageVersionReadySharedState) {
+    // Clone shared state for threads
+    let (state_webc, state_bindings, state_native) = (
+        Arc::clone(&state.webc_generated),
+        Arc::clone(&state.bindings_generated),
+        Arc::clone(&state.native_exes_generated),
+    );
+    let m = MultiProgress::new();
+
+    let webc_spinner = create_spinner(&m, String::from("Generating WEBC..."));
+    let bindings_spinner = create_spinner(&m, String::from("Generating language bindings..."));
+    let exe_spinner = create_spinner(&m, String::from("Generating native executables..."));
+
+    let check_and_finish = |spinner: ProgressBar, state: Arc<Mutex<Option<bool>>>, name: String| {
+        thread::spawn(move || loop {
+            match state.lock() {
+                Ok(lock) => {
+                    if lock.is_some() {
+                        spinner.finish_with_message(format!("✅ {} generation complete", name));
+                        break;
+                    }
+                }
+                Err(_) => {
+                    break;
+                }
+            }
+            thread::sleep(Duration::from_millis(100));
+        });
+    };
+    check_and_finish(webc_spinner, state_webc, String::from("WEBC"));
+    check_and_finish(
+        bindings_spinner,
+        state_bindings,
+        String::from("Language bindings"),
+    );
+    check_and_finish(
+        exe_spinner,
+        state_native,
+        String::from("Native executables"),
+    );
+}
+
+async fn wait_for_package_version_to_become_ready(
+    registry: &str,
+    token: &str,
+    package_version_id: impl AsRef<str>,
+    quiet: bool,
+) -> Result<()> {
+    let (mut stream, _client) =
+        subscribe_package_version_ready(registry, token, package_version_id.as_ref()).await?;
+
+    let state = PackageVersionReadySharedState::new();
 
     if !quiet {
-        println!("{} {}Publishing...", style("[2/2]").bold().dim(), PACKAGE);
+        show_spinners_while_waiting(&state);
     }
 
-    let q =
-        PublishPackageMutationChunked::build_query(publish_package_mutation_chunked::Variables {
-            name: package.name.to_string(),
-            version: package.version.to_string(),
-            description: package.description.clone(),
-            manifest: manifest_string.to_string(),
-            license: package.license.clone(),
-            license_file: license_file.to_owned(),
-            readme: readme.to_owned(),
-            repository: package.repository.clone(),
-            homepage: package.homepage.clone(),
-            file_name: Some(archive_name.to_string()),
-            signature: maybe_signature_data,
-            signed_url: Some(signed_url),
-        });
-
-    let _response: publish_package_mutation_chunked::ResponseData =
-        crate::graphql::execute_query(&registry, &token, &q)?;
-
-    println!(
-        "Successfully published package `{}@{}`",
-        package.name, package.version
-    );
+    while let Some(data) = stream.next().await {
+        if let Some(res_data) = data.unwrap().data {
+            match res_data.package_version_ready.state {
+                PackageVersionState::BINDINGS_GENERATED => {
+                    let mut st = state.bindings_generated.lock().unwrap();
+                    *st = Some(res_data.package_version_ready.success);
+                }
+                PackageVersionState::NATIVE_EXES_GENERATED => {
+                    let mut st = state.native_exes_generated.lock().unwrap();
+                    *st = Some(res_data.package_version_ready.success);
+                }
+                PackageVersionState::WEBC_GENERATED => {
+                    let mut st = state.webc_generated.lock().unwrap();
+                    *st = Some(res_data.package_version_ready.success);
+                }
+                PackageVersionState::Other(_) => {}
+            }
+        }
+    }
 
     Ok(())
 }

@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::collections::VecDeque;
 use std::future::Future;
 use std::net::IpAddr;
 use std::net::SocketAddr;
@@ -87,6 +88,7 @@ impl RemoteNetworkingClient {
             recv_tx: Default::default(),
             recv_with_addr_tx: Default::default(),
             accept_tx: Default::default(),
+            sent_tx: Default::default(),
             handlers: Default::default(),
             stall: Default::default(),
         };
@@ -257,6 +259,9 @@ impl RemoteNetworkingClient {
         let (tx, rx_accept) = tokio::sync::mpsc::channel(100);
         self.common.accept_tx.lock().unwrap().insert(id, tx);
 
+        let (tx, rx_sent) = tokio::sync::mpsc::channel(100);
+        self.common.sent_tx.lock().unwrap().insert(id, tx);
+
         RemoteSocket {
             socket_id: id,
             common: self.common.clone(),
@@ -264,8 +269,12 @@ impl RemoteNetworkingClient {
             rx_recv,
             rx_recv_with_addr,
             rx_accept,
+            rx_sent,
             tx_waker: TxWaker::new(&self.common).as_waker(),
             pending_accept: None,
+            buffer_accept: Default::default(),
+            buffer_recv_with_addr: Default::default(),
+            send_available: 0,
         }
     }
 }
@@ -326,7 +335,9 @@ impl Future for RemoteNetworkingClientDriver {
                                 let guard = self.common.recv_tx.lock().unwrap();
                                 match guard.get(&socket_id) {
                                     Some(tx) => tx.clone(),
-                                    None => continue,
+                                    None => {
+                                        continue;
+                                    }
                                 }
                             };
                             let common = self.common.clone();
@@ -335,7 +346,7 @@ impl Future for RemoteNetworkingClientDriver {
 
                                 if let Some(h) = common.handlers.lock().unwrap().get_mut(&socket_id)
                                 {
-                                    h.interest(InterestType::Readable)
+                                    h.push_interest(InterestType::Readable)
                                 }
                             }));
                         }
@@ -357,15 +368,27 @@ impl Future for RemoteNetworkingClientDriver {
 
                                 if let Some(h) = common.handlers.lock().unwrap().get_mut(&socket_id)
                                 {
-                                    h.interest(InterestType::Readable)
+                                    h.push_interest(InterestType::Readable)
                                 }
                             }));
                         }
-                        MessageResponse::Sent { socket_id, .. } => {
+                        MessageResponse::Sent {
+                            socket_id, amount, ..
+                        } => {
+                            let tx = {
+                                let guard = self.common.sent_tx.lock().unwrap();
+                                match guard.get(&socket_id) {
+                                    Some(tx) => tx.clone(),
+                                    None => continue,
+                                }
+                            };
+                            self.tasks.push_back(Box::pin(async move {
+                                tx.send(amount).await.ok();
+                            }));
                             if let Some(h) =
                                 self.common.handlers.lock().unwrap().get_mut(&socket_id)
                             {
-                                h.interest(InterestType::Writable)
+                                h.push_interest(InterestType::Writable)
                             }
                         }
                         MessageResponse::SendError {
@@ -377,18 +400,17 @@ impl Future for RemoteNetworkingClientDriver {
                                 if let Some(h) =
                                     self.common.handlers.lock().unwrap().get_mut(&socket_id)
                                 {
-                                    h.interest(InterestType::Closed)
+                                    h.push_interest(InterestType::Closed)
                                 }
                             }
                             _ => {
                                 if let Some(h) =
                                     self.common.handlers.lock().unwrap().get_mut(&socket_id)
                                 {
-                                    h.interest(InterestType::Writable)
+                                    h.push_interest(InterestType::Writable)
                                 }
                             }
                         },
-
                         MessageResponse::FinishAccept {
                             socket_id,
                             child_id,
@@ -408,7 +430,7 @@ impl Future for RemoteNetworkingClientDriver {
 
                                 if let Some(h) = common.handlers.lock().unwrap().get_mut(&socket_id)
                                 {
-                                    h.interest(InterestType::Readable)
+                                    h.push_interest(InterestType::Readable)
                                 }
                             }));
                         }
@@ -416,7 +438,7 @@ impl Future for RemoteNetworkingClientDriver {
                             if let Some(h) =
                                 self.common.handlers.lock().unwrap().get_mut(&socket_id)
                             {
-                                h.interest(InterestType::Closed)
+                                h.push_interest(InterestType::Closed)
                             }
                         }
                         MessageResponse::ResponseToRequest { req_id, res } => {
@@ -449,7 +471,7 @@ impl TxWaker {
     fn wake_now(&self) {
         let mut guard = self.common.handlers.lock().unwrap();
         for (_, handler) in guard.iter_mut() {
-            handler.interest(InterestType::Writable);
+            handler.push_interest(InterestType::Writable);
         }
     }
 
@@ -519,6 +541,7 @@ struct RemoteCommon {
     recv_tx: Mutex<SocketMap<mpsc::Sender<Vec<u8>>>>,
     recv_with_addr_tx: Mutex<SocketMap<mpsc::Sender<DataWithAddr>>>,
     accept_tx: Mutex<SocketMap<mpsc::Sender<SocketWithAddr>>>,
+    sent_tx: Mutex<SocketMap<mpsc::Sender<u64>>>,
     #[derivative(Debug = "ignore")]
     handlers: Mutex<SocketMap<Box<dyn virtual_mio::InterestHandler + Send + Sync>>>,
 
@@ -849,7 +872,11 @@ struct RemoteSocket {
     rx_recv_with_addr: mpsc::Receiver<DataWithAddr>,
     tx_waker: Waker,
     rx_accept: mpsc::Receiver<SocketWithAddr>,
-    pending_accept: Option<SocketId>,
+    rx_sent: mpsc::Receiver<u64>,
+    pending_accept: Option<(SocketId, mpsc::Receiver<Vec<u8>>)>,
+    buffer_recv_with_addr: VecDeque<DataWithAddr>,
+    buffer_accept: VecDeque<SocketWithAddr>,
+    send_available: u64,
 }
 impl Drop for RemoteSocket {
     fn drop(&mut self) {
@@ -904,7 +931,11 @@ impl RemoteSocket {
             .fetch_add(1, Ordering::SeqCst)
             .into();
         self.io_socket_fire_and_forget(RequestType::BeginAccept(child_id))?;
-        self.pending_accept.replace(child_id);
+
+        let (tx, rx_recv) = tokio::sync::mpsc::channel(100);
+        self.common.recv_tx.lock().unwrap().insert(child_id, tx);
+
+        self.pending_accept.replace((child_id, rx_recv));
         Ok(())
     }
 }
@@ -912,6 +943,57 @@ impl RemoteSocket {
 impl VirtualIoSource for RemoteSocket {
     fn remove_handler(&mut self) {
         self.common.handlers.lock().unwrap().remove(&self.socket_id);
+    }
+
+    fn poll_read_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<usize>> {
+        if !self.rx_buffer.is_empty() {
+            return Poll::Ready(Ok(self.rx_buffer.len()));
+        }
+        match self.rx_recv.poll_recv(cx) {
+            Poll::Ready(Some(data)) => {
+                self.rx_buffer.extend_from_slice(&data);
+                return Poll::Ready(Ok(self.rx_buffer.len()));
+            }
+            Poll::Ready(None) => return Poll::Ready(Ok(0)),
+            Poll::Pending => {}
+        }
+        if !self.buffer_recv_with_addr.is_empty() {
+            let total = self
+                .buffer_recv_with_addr
+                .iter()
+                .map(|a| a.data.len())
+                .sum();
+            return Poll::Ready(Ok(total));
+        }
+        match self.rx_recv_with_addr.poll_recv(cx) {
+            Poll::Ready(Some(data)) => self.buffer_recv_with_addr.push_back(data),
+            Poll::Ready(None) => return Poll::Ready(Ok(0)),
+            Poll::Pending => {}
+        }
+        if !self.buffer_accept.is_empty() {
+            return Poll::Ready(Ok(self.buffer_accept.len()));
+        }
+        match self.rx_accept.poll_recv(cx) {
+            Poll::Ready(Some(data)) => self.buffer_accept.push_back(data),
+            Poll::Ready(None) => {}
+            Poll::Pending => {}
+        }
+        Poll::Pending
+    }
+
+    fn poll_write_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<usize>> {
+        if self.send_available > 0 {
+            return Poll::Ready(Ok(self.send_available as usize));
+        }
+        match self.rx_sent.poll_recv(cx) {
+            Poll::Ready(Some(amt)) => {
+                self.send_available += amt;
+                return Poll::Ready(Ok(self.send_available as usize));
+            }
+            Poll::Ready(None) => return Poll::Ready(Ok(0)),
+            Poll::Pending => {}
+        }
+        Poll::Pending
     }
 }
 
@@ -968,26 +1050,39 @@ impl VirtualSocket for RemoteSocket {
 
 impl VirtualTcpListener for RemoteSocket {
     fn try_accept(&mut self) -> Result<(Box<dyn VirtualTcpSocket + Sync>, SocketAddr)> {
+        // We may already have accepted a connection in the `poll_read_ready` method
         self.touch_begin_accept()?;
-
-        let accepted = self.rx_accept.try_recv().map_err(|err| match err {
-            TryRecvError::Empty => NetworkError::WouldBlock,
-            TryRecvError::Disconnected => NetworkError::ConnectionAborted,
-        })?;
+        let accepted = if let Some(child) = self.buffer_accept.pop_front() {
+            child
+        } else {
+            self.rx_accept.try_recv().map_err(|err| match err {
+                TryRecvError::Empty => NetworkError::WouldBlock,
+                TryRecvError::Disconnected => NetworkError::ConnectionAborted,
+            })?
+        };
 
         // This placed here will mean there is always an accept request pending at the
         // server as the constructor invokes this method and we invoke it here after
         // receiving a child connection.
-        self.pending_accept.take();
+        let mut rx_recv = None;
+        if let Some((rx_socket, existing_rx_recv)) = self.pending_accept.take() {
+            if accepted.socket == rx_socket {
+                rx_recv.replace(existing_rx_recv);
+            }
+        }
+        let rx_recv = match rx_recv {
+            Some(rx_recv) => rx_recv,
+            None => {
+                let (tx, rx_recv) = tokio::sync::mpsc::channel(100);
+                self.common
+                    .recv_tx
+                    .lock()
+                    .unwrap()
+                    .insert(accepted.socket, tx);
+                rx_recv
+            }
+        };
         self.touch_begin_accept().ok();
-
-        // Now we construct the child
-        let (tx, rx_recv) = tokio::sync::mpsc::channel(100);
-        self.common
-            .recv_tx
-            .lock()
-            .unwrap()
-            .insert(accepted.socket, tx);
 
         let (tx, rx_recv_with_addr) = tokio::sync::mpsc::channel(100);
         self.common
@@ -1003,6 +1098,13 @@ impl VirtualTcpListener for RemoteSocket {
             .unwrap()
             .insert(accepted.socket, tx);
 
+        let (tx, rx_sent) = tokio::sync::mpsc::channel(100);
+        self.common
+            .sent_tx
+            .lock()
+            .unwrap()
+            .insert(accepted.socket, tx);
+
         let socket = RemoteSocket {
             socket_id: accepted.socket,
             common: self.common.clone(),
@@ -1010,8 +1112,12 @@ impl VirtualTcpListener for RemoteSocket {
             rx_recv,
             rx_recv_with_addr,
             rx_accept,
+            rx_sent,
             pending_accept: None,
             tx_waker: TxWaker::new(&self.common).as_waker(),
+            buffer_accept: Default::default(),
+            buffer_recv_with_addr: Default::default(),
+            send_available: 0,
         };
         Ok((Box::new(socket), accepted.addr))
     }
@@ -1062,8 +1168,11 @@ impl VirtualRawSocket for RemoteSocket {
             },
         ) {
             Poll::Ready(Ok(())) => Ok(data.len()),
+            Poll::Ready(Err(NetworkError::WouldBlock)) | Poll::Pending => {
+                self.send_available = 0;
+                Err(NetworkError::WouldBlock)
+            }
             Poll::Ready(Err(err)) => Err(err),
-            Poll::Pending => Err(NetworkError::WouldBlock),
         }
     }
 
@@ -1078,8 +1187,11 @@ impl VirtualRawSocket for RemoteSocket {
             },
         ) {
             Poll::Ready(Ok(())) => Ok(()),
+            Poll::Ready(Err(NetworkError::WouldBlock)) | Poll::Pending => {
+                self.send_available = 0;
+                Err(NetworkError::WouldBlock)
+            }
             Poll::Ready(Err(err)) => Err(err),
-            Poll::Pending => Err(NetworkError::WouldBlock),
         }
     }
 
@@ -1130,8 +1242,11 @@ impl VirtualConnectionlessSocket for RemoteSocket {
             },
         ) {
             Poll::Ready(Ok(())) => Ok(data.len()),
+            Poll::Ready(Err(NetworkError::WouldBlock)) | Poll::Pending => {
+                self.send_available = 0;
+                Err(NetworkError::WouldBlock)
+            }
             Poll::Ready(Err(err)) => Err(err),
-            Poll::Pending => Err(NetworkError::WouldBlock),
         }
     }
 
@@ -1361,6 +1476,36 @@ impl VirtualTcpSocket for RemoteSocket {
 
     fn nodelay(&self) -> Result<bool> {
         match InlineWaker::block_on(self.io_socket(RequestType::GetNoDelay)) {
+            ResponseType::Err(err) => Err(err),
+            ResponseType::Flag(val) => Ok(val),
+            res => {
+                tracing::debug!("invalid response to get nodelay request - {res:?}");
+                Err(NetworkError::IOError)
+            }
+        }
+    }
+
+    fn set_keepalive(&mut self, keep_alive: bool) -> Result<()> {
+        self.io_socket_fire_and_forget(RequestType::SetKeepAlive(keep_alive))
+    }
+
+    fn keepalive(&self) -> Result<bool> {
+        match InlineWaker::block_on(self.io_socket(RequestType::GetKeepAlive)) {
+            ResponseType::Err(err) => Err(err),
+            ResponseType::Flag(val) => Ok(val),
+            res => {
+                tracing::debug!("invalid response to get nodelay request - {res:?}");
+                Err(NetworkError::IOError)
+            }
+        }
+    }
+
+    fn set_dontroute(&mut self, dont_route: bool) -> Result<()> {
+        self.io_socket_fire_and_forget(RequestType::SetDontRoute(dont_route))
+    }
+
+    fn dontroute(&self) -> Result<bool> {
+        match InlineWaker::block_on(self.io_socket(RequestType::GetDontRoute)) {
             ResponseType::Err(err) => Err(err),
             ResponseType::Flag(val) => Ok(val),
             res => {

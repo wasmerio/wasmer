@@ -1,9 +1,11 @@
+use virtual_net::IpCidr;
+
 use super::*;
 use crate::syscalls::*;
 
 /// ### `port_route_add()`
 /// Adds a new route to the local port
-#[instrument(level = "debug", skip_all, fields(cidr = field::Empty, via_router = field::Empty), ret, err)]
+#[instrument(level = "debug", skip_all, fields(cidr = field::Empty, via_router = field::Empty), ret)]
 pub fn port_route_add<M: MemorySize>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     cidr: WasmPtr<__wasi_cidr_t, M>,
@@ -33,11 +35,46 @@ pub fn port_route_add<M: MemorySize>(
         _ => return Ok(Errno::Inval),
     };
 
+    wasi_try_ok!(port_route_add_internal(
+        &mut ctx,
+        cidr,
+        via_router,
+        preferred_until,
+        expires_at
+    )?);
+
+    #[cfg(feature = "journal")]
+    if ctx.data().enable_journal {
+        JournalEffector::save_port_route_add(
+            &mut ctx,
+            cidr,
+            via_router,
+            preferred_until,
+            expires_at,
+        )
+        .map_err(|err| {
+            tracing::error!("failed to save port_route_add event - {}", err);
+            WasiError::Exit(ExitCode::Errno(Errno::Fault))
+        })?;
+    }
+
+    Ok(Errno::Success)
+}
+
+pub(crate) fn port_route_add_internal(
+    ctx: &mut FunctionEnvMut<'_, WasiEnv>,
+    cidr: IpCidr,
+    via_router: IpAddr,
+    preferred_until: Option<Duration>,
+    expires_at: Option<Duration>,
+) -> Result<Result<(), Errno>, WasiError> {
+    let env = ctx.data();
     let net = env.net().clone();
-    wasi_try_ok!(__asyncify(&mut ctx, None, async {
+    wasi_try_ok_ok!(__asyncify(ctx, None, async {
         net.route_add(cidr, via_router, preferred_until, expires_at)
             .await
             .map_err(net_error_into_wasi_err)
     })?);
-    Ok(Errno::Success)
+
+    Ok(Ok(()))
 }

@@ -96,8 +96,19 @@ impl CmdWasmer {
     }
 
     pub async fn get_package(&self, name: &str) -> Result<BinaryPackage, anyhow::Error> {
+        // Need to make sure this task runs on the main runtime.
+        let (tx, rx) = tokio::sync::oneshot::channel();
         let specifier = name.parse()?;
-        BinaryPackage::from_registry(&specifier, &*self.runtime).await
+        let rt = self.runtime.clone();
+        self.runtime.task_manager().task_shared(Box::new(|| {
+            Box::pin(async move {
+                let res = BinaryPackage::from_registry(&specifier, rt.as_ref()).await;
+                tx.send(res)
+                    .expect("could not send response to output channel");
+            })
+        }))?;
+        rx.await
+            .map_err(|_| anyhow::anyhow!("package retrieval response channel died"))?
     }
 }
 

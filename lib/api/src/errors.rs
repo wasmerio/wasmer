@@ -17,7 +17,7 @@ use wasmer_types::ImportError;
 /// This is based on the [link error][link-error] API.
 ///
 /// [link-error]: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/WebAssembly/LinkError
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 #[cfg_attr(feature = "std", derive(Error))]
 #[cfg_attr(feature = "std", error("Link error: {0}"))]
 pub enum LinkError {
@@ -41,7 +41,7 @@ pub enum LinkError {
 /// Trap that occurs when calling the WebAssembly module
 /// start function, and an error when initializing the user's
 /// host environments.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 #[cfg_attr(feature = "std", derive(Error))]
 pub enum InstantiationError {
     /// A linking ocurred during instantiation.

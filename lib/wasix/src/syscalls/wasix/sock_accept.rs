@@ -15,7 +15,7 @@ use crate::{net::socket::TimeType, syscalls::*};
 /// ## Return
 ///
 /// New socket connection
-#[instrument(level = "debug", skip_all, fields(%sock, fd = field::Empty), ret, err)]
+#[instrument(level = "debug", skip_all, fields(%sock, fd = field::Empty), ret)]
 pub fn sock_accept<M: MemorySize>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     sock: WasiFd,
@@ -24,12 +24,14 @@ pub fn sock_accept<M: MemorySize>(
 ) -> Result<Errno, WasiError> {
     wasi_try_ok!(WasiEnv::process_signals_and_exit(&mut ctx)?);
 
+    ctx = wasi_try_ok!(maybe_snapshot::<M>(ctx)?);
+
     let env = ctx.data();
     let (memory, state, _) = unsafe { env.get_memory_and_wasi_state_and_inodes(&ctx, 0) };
 
     let nonblocking = fd_flags.contains(Fdflags::NONBLOCK);
 
-    let (fd, addr) = wasi_try_ok!(sock_accept_internal(env, sock, fd_flags, nonblocking));
+    let (fd, addr) = wasi_try_ok!(sock_accept_internal(env, sock, fd_flags, nonblocking)?);
 
     wasi_try_mem_ok!(ro_fd.write(&memory, fd));
 
@@ -49,7 +51,7 @@ pub fn sock_accept<M: MemorySize>(
 /// ## Return
 ///
 /// New socket connection
-#[instrument(level = "debug", skip_all, fields(%sock, fd = field::Empty), ret, err)]
+#[instrument(level = "debug", skip_all, fields(%sock, fd = field::Empty), ret)]
 pub fn sock_accept_v2<M: MemorySize>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     sock: WasiFd,
@@ -64,8 +66,19 @@ pub fn sock_accept_v2<M: MemorySize>(
 
     let nonblocking = fd_flags.contains(Fdflags::NONBLOCK);
 
-    let (fd, addr) = wasi_try_ok!(sock_accept_internal(env, sock, fd_flags, nonblocking));
+    let (fd, addr) = wasi_try_ok!(sock_accept_internal(env, sock, fd_flags, nonblocking)?);
 
+    #[cfg(feature = "journal")]
+    if ctx.data().enable_journal {
+        JournalEffector::save_sock_accepted(&mut ctx, sock, fd, addr, fd_flags, nonblocking)
+            .map_err(|err| {
+                tracing::error!("failed to save sock_accepted event - {}", err);
+                WasiError::Exit(ExitCode::Errno(Errno::Fault))
+            })?;
+    }
+
+    let env = ctx.data();
+    let (memory, state, _) = unsafe { env.get_memory_and_wasi_state_and_inodes(&ctx, 0) };
     wasi_try_mem_ok!(ro_fd.write(&memory, fd));
     wasi_try_ok!(crate::net::write_ip_port(
         &memory,
@@ -77,17 +90,17 @@ pub fn sock_accept_v2<M: MemorySize>(
     Ok(Errno::Success)
 }
 
-pub fn sock_accept_internal(
+pub(crate) fn sock_accept_internal(
     env: &WasiEnv,
     sock: WasiFd,
     mut fd_flags: Fdflags,
     mut nonblocking: bool,
-) -> Result<(WasiFd, SocketAddr), Errno> {
+) -> Result<Result<(WasiFd, SocketAddr), Errno>, WasiError> {
     let state = env.state();
     let inodes = &state.inodes;
 
     let tasks = env.tasks().clone();
-    let (child, addr, fd_flags) = __sock_asyncify(
+    let (child, addr, fd_flags) = wasi_try_ok_ok!(__sock_asyncify(
         env,
         sock,
         Rights::SOCK_ACCEPT,
@@ -106,7 +119,7 @@ pub fn sock_accept_internal(
                 .await
                 .map(|a| (a.0, a.1, fd_flags))
         },
-    )?;
+    ));
 
     let kind = Kind::Socket {
         socket: InodeSocket::new(InodeSocketKind::TcpStream {
@@ -130,8 +143,8 @@ pub fn sock_accept_internal(
     }
 
     let rights = Rights::all_socket();
-    let fd = state.fs.create_fd(rights, rights, new_flags, 0, inode)?;
+    let fd = wasi_try_ok_ok!(state.fs.create_fd(rights, rights, new_flags, 0, inode));
     Span::current().record("fd", fd);
 
-    Ok((fd, addr))
+    Ok(Ok((fd, addr)))
 }

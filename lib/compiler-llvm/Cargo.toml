@@ -14,11 +14,11 @@ rust-version.workspace = true
 version.workspace = true
 
 [dependencies]
-wasmer-compiler = { path = "../compiler", version = "=4.1.2", features = [
+wasmer-compiler = { path = "../compiler", version = "=4.2.5", features = [
     "translator", "compiler"
 ] }
-wasmer-vm = { path = "../vm", version = "=4.1.2" }
-wasmer-types = { path = "../types", version = "=4.1.2" }
+wasmer-vm = { path = "../vm", version = "=4.2.5" }
+wasmer-types = { path = "../types", version = "=4.2.5" }
 target-lexicon = { version = "0.12.2", default-features = false }
 smallvec = "1.6"
 object = { version = "0.28.3", default-features = false, features = ["read"] }
@@ -31,7 +31,7 @@ rayon = "1.5"
 package = "inkwell"
 version = "0.1.1"
 default-features = false
-features = ["llvm14-0", "target-x86", "target-aarch64", "target-riscv"]
+features = ["llvm15-0", "target-x86", "target-aarch64", "target-riscv"]
 
 [build-dependencies]
 cc = "1.0"

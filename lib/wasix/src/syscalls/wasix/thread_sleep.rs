@@ -9,7 +9,7 @@ use crate::syscalls::*;
 /// ## Parameters
 ///
 /// * `duration` - Amount of time that the thread should sleep
-#[instrument(level = "debug", skip_all, fields(%duration), ret, err)]
+#[instrument(level = "debug", skip_all, fields(%duration), ret)]
 pub fn thread_sleep<M: MemorySize + 'static>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     duration: Timestamp,
@@ -26,6 +26,8 @@ pub(crate) fn thread_sleep_internal<M: MemorySize + 'static>(
     if let Some(()) = unsafe { handle_rewind::<M, _>(&mut ctx) } {
         return Ok(Errno::Success);
     }
+
+    ctx = wasi_try_ok!(maybe_snapshot::<M>(ctx)?);
 
     let env = ctx.data();
 

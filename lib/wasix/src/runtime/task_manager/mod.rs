@@ -7,14 +7,15 @@ use std::task::{Context, Poll};
 use std::{pin::Pin, time::Duration};
 
 use bytes::Bytes;
+use derivative::Derivative;
 use futures::future::BoxFuture;
-use futures::Future;
+use futures::{Future, TryFutureExt};
 use wasmer::{AsStoreMut, AsStoreRef, Memory, MemoryType, Module, Store, StoreMut, StoreRef};
 use wasmer_wasix_types::wasi::{Errno, ExitCode};
 
 use crate::os::task::thread::WasiThreadError;
 use crate::syscalls::AsyncifyFuture;
-use crate::{capture_snapshot, InstanceSnapshot, WasiEnv, WasiFunctionEnv, WasiThread};
+use crate::{capture_instance_snapshot, InstanceSnapshot, WasiEnv, WasiFunctionEnv, WasiThread};
 
 pub use virtual_mio::waker::*;
 
@@ -38,6 +39,8 @@ pub type WasmResumeTrigger = dyn FnOnce() -> Pin<Box<dyn Future<Output = Result<
     + Sync;
 
 /// The properties passed to the task
+#[derive(Derivative)]
+#[derivative(Debug)]
 pub struct TaskWasmRunProperties {
     pub ctx: WasiFunctionEnv,
     pub store: Store,
@@ -45,6 +48,9 @@ pub struct TaskWasmRunProperties {
     /// When no trigger is associated with the run operation (i.e. spawning threads) then this will be None.
     /// (if the trigger returns an ExitCode then the WASM process will be terminated without resuming)
     pub trigger_result: Option<Result<Bytes, ExitCode>>,
+    /// The instance will be recycled back to this function when the WASM run has finished
+    #[derivative(Debug = "ignore")]
+    pub recycle: Option<Box<TaskWasmRecycle>>,
 }
 
 /// Callback that will be invoked
@@ -53,9 +59,21 @@ pub type TaskWasmRun = dyn FnOnce(TaskWasmRunProperties) + Send + 'static;
 /// Callback that will be invoked
 pub type TaskExecModule = dyn FnOnce(Module) + Send + 'static;
 
+/// The properties passed to the task
+#[derive(Debug)]
+pub struct TaskWasmRecycleProperties {
+    pub env: WasiEnv,
+    pub memory: Memory,
+    pub store: Store,
+}
+
+/// Callback that will be invoked
+pub type TaskWasmRecycle = dyn FnOnce(TaskWasmRecycleProperties) + Send + 'static;
+
 /// Represents a WASM task that will be executed on a dedicated thread
 pub struct TaskWasm<'a, 'b> {
     pub run: Box<TaskWasmRun>,
+    pub recycle: Option<Box<TaskWasmRecycle>>,
     pub env: WasiEnv,
     pub module: Module,
     pub snapshot: Option<&'b InstanceSnapshot>,
@@ -63,21 +81,34 @@ pub struct TaskWasm<'a, 'b> {
     pub trigger: Option<Box<WasmResumeTrigger>>,
     pub update_layout: bool,
 }
+
 impl<'a, 'b> TaskWasm<'a, 'b> {
     pub fn new(run: Box<TaskWasmRun>, env: WasiEnv, module: Module, update_layout: bool) -> Self {
+        let shared_memory = module.imports().memories().next().map(|a| *a.ty());
         Self {
             run,
             env,
             module,
             snapshot: None,
-            spawn_type: SpawnMemoryType::CreateMemory,
+            spawn_type: match shared_memory {
+                Some(ty) => SpawnMemoryType::CreateMemoryOfType(ty),
+                None => SpawnMemoryType::CreateMemory,
+            },
             trigger: None,
             update_layout,
+            recycle: None,
         }
     }
 
     pub fn with_memory(mut self, spawn_type: SpawnMemoryType<'a>) -> Self {
         self.spawn_type = spawn_type;
+        self
+    }
+
+    pub fn with_optional_memory(mut self, spawn_type: Option<SpawnMemoryType<'a>>) -> Self {
+        if let Some(spawn_type) = spawn_type {
+            self.spawn_type = spawn_type;
+        }
         self
     }
 
@@ -90,9 +121,28 @@ impl<'a, 'b> TaskWasm<'a, 'b> {
         self.trigger.replace(trigger);
         self
     }
+
+    pub fn with_recycle(mut self, trigger: Box<TaskWasmRecycle>) -> Self {
+        self.recycle.replace(trigger);
+        self
+    }
 }
 
-/// An implementation of task management
+/// A task executor backed by a thread pool.
+///
+/// ## Thread Safety
+///
+/// Due to [#4158], it is possible to pass non-thread safe objects across
+/// threads by capturing them in the task passed to
+/// [`VirtualTaskManager::task_shared()`] or
+/// [`VirtualTaskManager::task_dedicated()`].
+///
+/// If your task needs access to a [`wasmer::Module`], [`wasmer::Memory`], or
+/// [`wasmer::Instance`], it should explicitly transfer the objects using
+/// either [`VirtualTaskManager::task_wasm()`] when in syscall context or
+/// [`VirtualTaskManager::spawn_with_module()`] for higher level code.
+///
+/// [#4158]: https://github.com/wasmerio/wasmer/issues/4158
 #[allow(unused_variables)]
 pub trait VirtualTaskManager: std::fmt::Debug + Send + Sync + 'static {
     /// Build a new Webassembly memory.
@@ -106,22 +156,37 @@ pub trait VirtualTaskManager: std::fmt::Debug + Send + Sync + 'static {
         match spawn_type {
             SpawnMemoryType::CreateMemoryOfType(mut ty) => {
                 ty.shared = true;
+
+                // Note: If memory is shared, maximum needs to be set in the
+                // browser otherwise creation will fail.
+                let _ = ty.maximum.get_or_insert(wasmer_types::Pages::max_value());
+
                 let mem = Memory::new(&mut store, ty).map_err(|err| {
-                    tracing::error!("could not create memory: {err}");
+                    tracing::error!(
+                        error = &err as &dyn std::error::Error,
+                        memory_type=?ty,
+                        "could not create memory",
+                    );
                     WasiThreadError::MemoryCreateFailed(err)
                 })?;
                 Ok(Some(mem))
             }
             SpawnMemoryType::ShareMemory(mem, old_store) => {
                 let mem = mem.share_in_store(&old_store, store).map_err(|err| {
-                    tracing::warn!("could not clone memory: {err}");
+                    tracing::warn!(
+                        error = &err as &dyn std::error::Error,
+                        "could not clone memory",
+                    );
                     WasiThreadError::MemoryCreateFailed(err)
                 })?;
                 Ok(Some(mem))
             }
             SpawnMemoryType::CopyMemory(mem, old_store) => {
                 let mem = mem.copy_to_store(&old_store, store).map_err(|err| {
-                    tracing::warn!("could not copy memory: {err}");
+                    tracing::warn!(
+                        error = &err as &dyn std::error::Error,
+                        "could not copy memory",
+                    );
                     WasiThreadError::MemoryCreateFailed(err)
                 })?;
                 Ok(Some(mem))
@@ -130,35 +195,70 @@ pub trait VirtualTaskManager: std::fmt::Debug + Send + Sync + 'static {
         }
     }
 
-    /// Invokes whenever a WASM thread goes idle. In some runtimes (like singlethreaded
-    /// execution environments) they will need to do asynchronous work whenever the main
-    /// thread goes idle and this is the place to hook for that.
+    /// Pause the current thread of execution.
+    ///
+    /// This is typically invoked whenever a WASM thread goes idle. Besides
+    /// acting as a platform-agnostic [`std::thread::sleep()`], this also gives
+    /// the runtime a chance to do asynchronous work like pumping an event
+    /// loop.
     fn sleep_now(
         &self,
         time: Duration,
     ) -> Pin<Box<dyn Future<Output = ()> + Send + Sync + 'static>>;
 
-    /// Starts an asynchronous task that will run on a shared worker pool
-    /// This task must not block the execution or it could cause a deadlock
+    /// Run an asynchronous operation on the thread pool.
+    ///
+    /// This task must not block execution or it could cause deadlocks.
+    ///
+    /// See the "Thread Safety" documentation on [`VirtualTaskManager`] for
+    /// limitations on what a `task` can and can't contain.
     fn task_shared(
         &self,
         task: Box<dyn FnOnce() -> BoxFuture<'static, ()> + Send + 'static>,
     ) -> Result<(), WasiThreadError>;
 
-    /// Starts an WebAssembly task will will run on a dedicated thread
-    /// pulled from the worker pool that has a stateful thread local variable
+    /// Run a blocking WebAssembly operation on the thread pool.
+    ///
+    /// This is primarily used inside the context of a syscall and allows
+    /// the transfer of things like [`wasmer::Module`] across threads.
     fn task_wasm(&self, task: TaskWasm) -> Result<(), WasiThreadError>;
 
-    /// Starts an asynchronous task will will run on a dedicated thread
-    /// pulled from the worker pool. It is ok for this task to block execution
-    /// and any async futures within its scope
+    /// Run a blocking operation on the thread pool.
+    ///
+    /// It is okay for this task to block execution and any async futures within
+    /// its scope.
     fn task_dedicated(
         &self,
         task: Box<dyn FnOnce() + Send + 'static>,
     ) -> Result<(), WasiThreadError>;
 
-    /// Returns the amount of parallelism that is possible on this platform
+    /// Returns the amount of parallelism that is possible on this platform.
     fn thread_parallelism(&self) -> Result<usize, WasiThreadError>;
+
+    /// Schedule a blocking task to run on the threadpool, explicitly
+    /// transferring a [`Module`] to the task.
+    ///
+    /// This should be preferred over [`VirtualTaskManager::task_dedicated()`]
+    /// where possible because [`wasmer::Module`] is actually `!Send` in the
+    /// browser and can only be transferred to background threads via
+    /// an explicit `postMessage()`. See [#4158] for more details.
+    ///
+    /// This is very similar to [`VirtualTaskManager::task_wasm()`], but
+    /// intended for use outside of a syscall context. For example, when you are
+    /// running in the browser and want to run a WebAssembly module in the
+    /// background.
+    ///
+    /// [#4158]: https://github.com/wasmerio/wasmer/issues/4158
+    fn spawn_with_module(
+        &self,
+        module: Module,
+        task: Box<dyn FnOnce(Module) + Send + 'static>,
+    ) -> Result<(), WasiThreadError> {
+        // Note: Ideally, this function and task_wasm() would be superseded by
+        // a more general mechanism for transferring non-thread safe values
+        // to the thread pool.
+        self.task_dedicated(Box::new(move || task(module)))
+    }
 }
 
 impl<D, T> VirtualTaskManager for D
@@ -202,6 +302,14 @@ where
     fn thread_parallelism(&self) -> Result<usize, WasiThreadError> {
         (**self).thread_parallelism()
     }
+
+    fn spawn_with_module(
+        &self,
+        module: Module,
+        task: Box<dyn FnOnce(Module) + Send + 'static>,
+    ) -> Result<(), WasiThreadError> {
+        (**self).spawn_with_module(module, task)
+    }
 }
 
 impl dyn VirtualTaskManager {
@@ -238,7 +346,7 @@ impl dyn VirtualTaskManager {
             }
         }
 
-        let snapshot = capture_snapshot(&mut store.as_store_mut());
+        let snapshot = capture_instance_snapshot(&mut store.as_store_mut());
         let env = ctx.data(&store);
         let module = env.inner().module_clone();
         let memory = env.inner().memory_clone();
@@ -297,6 +405,14 @@ pub trait VirtualTaskManagerExt {
     fn spawn_and_block_on<A>(&self, task: impl Future<Output = A> + Send + 'static) -> A
     where
         A: Send + 'static;
+
+    fn spawn_await<O, F>(
+        &self,
+        f: F,
+    ) -> Box<dyn Future<Output = Result<O, Box<dyn std::error::Error>>> + Unpin + Send + 'static>
+    where
+        O: Send + 'static,
+        F: FnOnce() -> O + Send + 'static;
 }
 
 impl<D, T> VirtualTaskManagerExt for D
@@ -317,5 +433,24 @@ where
         });
         self.task_shared(Box::new(move || work)).unwrap();
         InlineWaker::block_on(work_rx.recv()).unwrap()
+    }
+
+    fn spawn_await<O, F>(
+        &self,
+        f: F,
+    ) -> Box<dyn Future<Output = Result<O, Box<dyn std::error::Error>>> + Unpin + Send + 'static>
+    where
+        O: Send + 'static,
+        F: FnOnce() -> O + Send + 'static,
+    {
+        let (sender, receiver) = ::tokio::sync::oneshot::channel();
+
+        self.task_dedicated(Box::new(move || {
+            let result = f();
+            let _ = sender.send(result);
+        }))
+        .unwrap();
+
+        Box::new(receiver.map_err(|e| Box::new(e).into()))
     }
 }

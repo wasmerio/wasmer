@@ -2,10 +2,10 @@ use crate::store::AsStoreRef;
 use crate::MemoryAccessError;
 use rusty_jsc::JSObject;
 use std::convert::TryFrom;
-use std::convert::TryInto;
 use std::marker::PhantomData;
 use std::mem::MaybeUninit;
 use std::slice;
+use std::{convert::TryInto, ops::Range};
 use wasmer_types::{Bytes, Pages};
 
 use super::memory::{Memory, MemoryBuffer};
@@ -178,11 +178,18 @@ impl<'a> MemoryView<'a> {
     #[allow(unused)]
     /// Copies the memory and returns it as a vector of bytes
     pub fn copy_to_vec(&self) -> Result<Vec<u8>, MemoryAccessError> {
+        self.copy_range_to_vec(0..self.data_size())
+    }
+
+    #[allow(unused)]
+    /// Copies a range of the memory and returns it as a vector of bytes
+    pub fn copy_range_to_vec(&self, range: Range<u64>) -> Result<Vec<u8>, MemoryAccessError> {
         let mut new_memory = Vec::new();
-        let mut offset = 0;
+        let mut offset = range.start;
+        let end = range.end.min(self.data_size());
         let mut chunk = [0u8; 40960];
-        while offset < self.data_size() {
-            let remaining = self.data_size() - offset;
+        while offset < end {
+            let remaining = end - offset;
             let sublen = remaining.min(chunk.len() as u64) as usize;
             self.read(offset, &mut chunk[..sublen])?;
             new_memory.extend_from_slice(&chunk[..sublen]);
