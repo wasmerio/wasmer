@@ -122,7 +122,7 @@ use crate::{
     journal::{DynJournal, JournalEffector},
     os::task::{process::MaybeCheckpointResult, thread::RewindResult},
     runtime::task_manager::InlineWaker,
-    utils::store::InstanceSnapshot,
+    utils::store::StoreSnapshot,
     DeepSleepWork, RewindPostProcess, RewindState, RewindStateOption, SpawnError, WasiInodes,
     WasiResult, WasiRuntimeError,
 };
@@ -953,7 +953,7 @@ pub(crate) fn deep_sleep<M: MemorySize>(
     trigger: Pin<Box<AsyncifyFuture>>,
 ) -> Result<(), WasiError> {
     // Grab all the globals and serialize them
-    let store_data = crate::utils::store::capture_instance_snapshot(&mut ctx.as_store_mut())
+    let store_data = crate::utils::store::capture_store_snapshot(&mut ctx.as_store_mut())
         .serialize()
         .unwrap();
     let store_data = Bytes::from(store_data);
@@ -1149,14 +1149,14 @@ pub fn rewind_ext<M: MemorySize>(
     });
 
     // Deserialize the store data back into a snapshot
-    let store_snapshot = match InstanceSnapshot::deserialize(&store_data[..]) {
+    let store_snapshot = match StoreSnapshot::deserialize(&store_data[..]) {
         Ok(a) => a,
         Err(err) => {
             warn!("snapshot restore failed - the store snapshot could not be deserialized");
             return Errno::Unknown;
         }
     };
-    crate::utils::store::restore_instance_snapshot(ctx, &store_snapshot);
+    crate::utils::store::restore_store_snapshot(ctx, &store_snapshot);
     let env = ctx.data();
     let memory = match env.try_memory_view(&ctx) {
         Some(v) => v,

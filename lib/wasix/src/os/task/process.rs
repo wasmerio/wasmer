@@ -183,10 +183,9 @@ impl WasiProcessInner {
         // Perform the unwind action
         unwind::<M, _>(ctx, move |mut ctx, memory_stack, rewind_stack| {
             // Grab all the globals and serialize them
-            let store_data =
-                crate::utils::store::capture_instance_snapshot(&mut ctx.as_store_mut())
-                    .serialize()
-                    .unwrap();
+            let store_data = crate::utils::store::capture_store_snapshot(&mut ctx.as_store_mut())
+                .serialize()
+                .unwrap();
             let memory_stack = memory_stack.freeze();
             let rewind_stack = rewind_stack.freeze();
             let store_data = Bytes::from(store_data);

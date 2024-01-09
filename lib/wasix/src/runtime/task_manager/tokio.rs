@@ -151,7 +151,7 @@ impl VirtualTaskManager for TokioTaskManager {
         let (ctx, store) = WasiFunctionEnv::new_with_store(
             task.module,
             task.env,
-            task.snapshot,
+            task.globals,
             task.spawn_type,
             task.update_layout,
         )?;

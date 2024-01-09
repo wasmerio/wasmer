@@ -106,7 +106,7 @@ pub use crate::{
     utils::is_wasix_module,
     utils::{
         get_wasi_version, get_wasi_versions, is_wasi_module,
-        store::{capture_instance_snapshot, restore_instance_snapshot, InstanceSnapshot},
+        store::{capture_store_snapshot, restore_store_snapshot, StoreSnapshot},
         WasiVersion,
     },
 };

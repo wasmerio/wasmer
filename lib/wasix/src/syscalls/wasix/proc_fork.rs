@@ -1,6 +1,6 @@
 use super::*;
 use crate::{
-    capture_instance_snapshot,
+    capture_store_snapshot,
     os::task::OwnedTaskStatus,
     runtime::task_manager::{TaskWasm, TaskWasmRunProperties},
     syscalls::*,
@@ -84,10 +84,9 @@ pub fn proc_fork<M: MemorySize>(
         // Perform the unwind action
         return unwind::<M, _>(ctx, move |mut ctx, mut memory_stack, rewind_stack| {
             // Grab all the globals and serialize them
-            let store_data =
-                crate::utils::store::capture_instance_snapshot(&mut ctx.as_store_mut())
-                    .serialize()
-                    .unwrap();
+            let store_data = crate::utils::store::capture_store_snapshot(&mut ctx.as_store_mut())
+                .serialize()
+                .unwrap();
             let store_data = Bytes::from(store_data);
 
             // We first fork the environment and replace the current environment
@@ -130,7 +129,7 @@ pub fn proc_fork<M: MemorySize>(
     let bin_factory = env.bin_factory.clone();
 
     // Perform the unwind action
-    let snapshot = capture_instance_snapshot(&mut ctx.as_store_mut());
+    let snapshot = capture_store_snapshot(&mut ctx.as_store_mut());
     unwind::<M, _>(ctx, move |mut ctx, mut memory_stack, rewind_stack| {
         let tasks = ctx.data().tasks().clone();
         let span = debug_span!(
@@ -201,7 +200,7 @@ pub fn proc_fork<M: MemorySize>(
             tasks_outer
                 .task_wasm(
                     TaskWasm::new(Box::new(run), child_env, module, false)
-                        .with_snapshot(&snapshot)
+                        .with_globals(&snapshot)
                         .with_memory(spawn_type),
                 )
                 .map_err(|err| {

@@ -12,8 +12,8 @@ use crate::{
     import_object_for_all_wasi_versions,
     runtime::SpawnMemoryType,
     state::WasiInstanceHandles,
-    utils::{get_wasi_version, get_wasi_versions, store::restore_instance_snapshot},
-    InstanceSnapshot, RewindStateOption, WasiEnv, WasiError, WasiRuntimeError, WasiThreadError,
+    utils::{get_wasi_version, get_wasi_versions, store::restore_store_snapshot},
+    RewindStateOption, StoreSnapshot, WasiEnv, WasiError, WasiRuntimeError, WasiThreadError,
 };
 
 /// The default stack size for WASIX - the number itself is the default that compilers
@@ -39,7 +39,7 @@ impl WasiFunctionEnv {
     pub fn new_with_store(
         module: Module,
         env: WasiEnv,
-        snapshot: Option<&InstanceSnapshot>,
+        store_snapshot: Option<&StoreSnapshot>,
         spawn_type: SpawnMemoryType,
         update_layout: bool,
     ) -> Result<(Self, Store), WasiThreadError> {
@@ -76,9 +76,8 @@ impl WasiFunctionEnv {
             })?;
 
         // Set all the globals
-        if let Some(snapshot) = snapshot {
-            tracing::trace!("restoring snapshot for new thread");
-            restore_instance_snapshot(&mut store, snapshot);
+        if let Some(snapshot) = store_snapshot {
+            restore_store_snapshot(&mut store, snapshot);
         }
 
         Ok((ctx, store))
