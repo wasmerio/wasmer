@@ -5,14 +5,17 @@
 
   <p>
     <a href="https://github.com/wasmerio/wasmer/actions?query=workflow%3Abuild">
-      <img src="https://github.com/wasmerio/wasmer/workflows/build/badge.svg?style=flat-square" alt="Build Status">
+      <img src="https://github.com/wasmerio/wasmer/actions/workflows/build.yml/badge.svg?event=push" alt="Build Status">
     </a>
     <a href="https://github.com/wasmerio/wasmer/blob/master/LICENSE">
-      <img src="https://img.shields.io/github/license/wasmerio/wasmer.svg?style=flat-square" alt="License">
+      <img src="https://img.shields.io/github/license/wasmerio/wasmer.svg" alt="License">
+    </a>
+    <a href="https://docs.wasmer.io">
+      <img src="https://img.shields.io/static/v1?label=Docs&message=docs.wasmer.io&color=blue" alt="Wasmer Docs">
     </a>
     <a href="https://slack.wasmer.io">
-      <img src="https://img.shields.io/static/v1?label=Slack&message=join%20chat&color=brighgreen&style=flat-square" alt="Slack channel">
-    </a> 
+      <img src="https://img.shields.io/static/v1?label=Slack&message=join%20us!&color=brighgreen" alt="Slack channel">
+    </a>
   </p>
 
   <h3>
@@ -72,7 +75,9 @@ iwr https://win.wasmer.io -useb | iex
 ```bash
 $ wasmer qjs.wasm
 QuickJS - Type "\h" for help
-qjs >
+qjs > const i = 1 + 2;
+qjs > console.log("hello " + i);
+hello 3
 ```
 
 #### 接下来是你可以做的:
@@ -88,7 +93,8 @@ qjs >
 | &nbsp; | 语言 | 程序包 | 文档 |
 |-|-|-|-|
 | ![Rust logo] | [**Rust**][Rust integration] | [`wasmer` Rust crate] | [文档][rust docs]
-| ![C logo] | [**C/C++**][C integration] | [`wasmer.h` headers] | [文档][c docs] |
+| ![C logo] | [**C**][C integration] | [`wasm.h` header] | [文档][c docs] |
+| ![C++ logo] | [**C++**][C integration] | [`wasm.hh` header] | [文档][c docs] |
 | ![C# logo] | [**C#**][C# integration] | [`WasmerSharp` NuGet package] | [文档][c# docs] |
 | ![D logo] | [**D**][D integration] | [`wasmer` Dub package] | [文档][d docs] |
 | ![Python logo] | [**Python**][Python integration] | [`wasmer` PyPI package] | [文档][python docs] |
@@ -109,12 +115,12 @@ qjs >
 [rust logo]: https://raw.githubusercontent.com/wasmerio/wasmer/master/assets/languages/rust.svg
 [rust integration]: https://github.com/wasmerio/wasmer/tree/master/lib/api
 [`wasmer` rust crate]: https://crates.io/crates/wasmer/
-[rust docs]: https://wasmerio.github.io/wasmer/crates/wasmer
+[rust docs]: https://docs.rs/wasmer/
 
 [c logo]: https://raw.githubusercontent.com/wasmerio/wasmer/master/assets/languages/c.svg
 [c integration]: https://github.com/wasmerio/wasmer/tree/master/lib/c-api
 [`wasmer.h` headers]: https://wasmerio.github.io/wasmer/c/
-[c docs]: https://wasmerio.github.io/wasmer/c/
+[c docs]: https://docs.rs/wasmer-c-api/*/wasmer/wasm_c_api/index.html
 
 [c# logo]: https://raw.githubusercontent.com/wasmerio/wasmer/master/assets/languages/csharp.svg
 [c# integration]: https://github.com/migueldeicaza/WasmerSharp
@@ -137,7 +143,7 @@ qjs >
 [go docs]: https://pkg.go.dev/github.com/wasmerio/wasmer-go/wasmer?tab=doc
 
 [php logo]: https://raw.githubusercontent.com/wasmerio/wasmer/master/assets/languages/php.svg
-[php integration]: https://github.com/wasmerio/wasmer-php
+[php integration]: https://wasmerio.github.io/wasmer-php/
 [`wasm` pecl package]: https://pecl.php.net/package/wasm
 [php docs]: https://wasmerio.github.io/wasmer-php/wasm/
 
@@ -182,7 +188,7 @@ qjs >
 
 **我们欢迎任何形式的贡献，尤其是来自社区新成员的贡献** 💜
 
-你可以在[我们的出色文档](https://docs.wasmer.io/ecosystem/wasmer/building-from-source) 中学习如何构建 Wasmer 运行时!
+你可以在[我们的出色文档](https://docs.wasmer.io/developers/build-from-source) 中学习如何构建 Wasmer 运行时!
 
 ### 测试
 

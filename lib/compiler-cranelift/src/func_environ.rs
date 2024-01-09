@@ -13,7 +13,7 @@ use cranelift_codegen::ir::{AbiParam, ArgumentPurpose, Function, InstBuilder, Si
 use cranelift_codegen::isa::TargetFrontendConfig;
 use cranelift_frontend::FunctionBuilder;
 use std::convert::TryFrom;
-use wasmer_compiler::wasmparser::Type;
+use wasmer_compiler::wasmparser::ValType;
 use wasmer_types::entity::EntityRef;
 use wasmer_types::entity::PrimaryMap;
 use wasmer_types::VMBuiltinFunctionIndex;
@@ -27,7 +27,7 @@ use wasmer_types::{WasmError, WasmResult};
 
 /// Compute an `ir::ExternalName` for a given wasm function index.
 pub fn get_function_name(func_index: FunctionIndex) -> ir::ExternalName {
-    ir::ExternalName::user(0, func_index.as_u32())
+    ir::ExternalName::user(ir::UserExternalNameRef::from_u32(func_index.as_u32()))
 }
 
 /// The type of the `current_elements` field.
@@ -999,11 +999,11 @@ impl<'module_environment> BaseFuncEnvironment for FuncEnvironment<'module_enviro
     fn translate_ref_null(
         &mut self,
         mut pos: cranelift_codegen::cursor::FuncCursor,
-        ty: Type,
+        ty: ValType,
     ) -> WasmResult<ir::Value> {
         Ok(match ty {
-            Type::FuncRef => pos.ins().null(self.reference_type()),
-            Type::ExternRef => pos.ins().null(self.reference_type()),
+            ValType::FuncRef => pos.ins().null(self.reference_type()),
+            ValType::ExternRef => pos.ins().null(self.reference_type()),
             _ => {
                 return Err(WasmError::Unsupported(
                     "`ref.null T` that is not a `funcref` or an `externref`".into(),
@@ -1028,7 +1028,7 @@ impl<'module_environment> BaseFuncEnvironment for FuncEnvironment<'module_enviro
             _ => unreachable!(),
         };
 
-        Ok(pos.ins().bint(ir::types::I32, bool_is_null))
+        Ok(pos.ins().uextend(ir::types::I32, bool_is_null))
     }
 
     fn translate_ref_func(

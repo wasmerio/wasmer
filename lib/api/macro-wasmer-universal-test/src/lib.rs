@@ -28,7 +28,7 @@ pub fn universal_test(_attr: TokenStream, item: TokenStream) -> TokenStream {
         #[cfg_attr(feature = "js", wasm_bindgen_test)]
         fn #function_name_js() { #function_name_normal().unwrap(); }
 
-        #[cfg_attr(feature = "sys", test)]
+        #[cfg_attr(any(feature = "sys", feature = "jsc"), test)]
         #parsed
     };
 

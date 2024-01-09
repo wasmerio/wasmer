@@ -12,7 +12,7 @@ use crate::lib::std::marker::PhantomData;
 use crate::lib::std::ops::{Index, IndexMut};
 use crate::lib::std::slice;
 use crate::lib::std::vec::Vec;
-use rkyv::{Archive, Deserialize as RkyvDeserialize, Serialize as RkyvSerialize};
+use rkyv::{Archive, Archived, Deserialize as RkyvDeserialize, Serialize as RkyvSerialize};
 #[cfg(feature = "enable-serde")]
 use serde::{Deserialize, Serialize};
 
@@ -34,6 +34,7 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, Hash, PartialEq, Eq)]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 #[derive(RkyvSerialize, RkyvDeserialize, Archive)]
+#[archive_attr(derive(rkyv::CheckBytes))]
 pub struct PrimaryMap<K, V>
 where
     K: EntityRef,
@@ -235,6 +236,36 @@ where
             elems: Vec::from_iter(iter),
             unused: PhantomData,
         }
+    }
+}
+
+impl<K, V> ArchivedPrimaryMap<K, V>
+where
+    K: EntityRef,
+    V: Archive,
+{
+    /// Iterator over all values in the `ArchivedPrimaryMap`
+    pub fn values(&self) -> slice::Iter<Archived<V>> {
+        self.elems.iter()
+    }
+
+    /// Iterate over all the keys and values in this map.
+    pub fn iter(&self) -> Iter<K, Archived<V>> {
+        Iter::new(self.elems.iter())
+    }
+}
+
+/// Immutable indexing into an `ArchivedPrimaryMap`.
+/// The indexed value must be in the map.
+impl<K, V> Index<K> for ArchivedPrimaryMap<K, V>
+where
+    K: EntityRef,
+    V: Archive,
+{
+    type Output = Archived<V>;
+
+    fn index(&self, k: K) -> &Self::Output {
+        &self.elems[k.index()]
     }
 }
 

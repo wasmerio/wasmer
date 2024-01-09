@@ -1,0 +1,28 @@
+---
+source: tests/integration/cli/tests/snapshot.rs
+expression: snapshot
+---
+{
+  "spec": {
+    "name": "snapshot::test_snapshot_dash_echo_to_cat",
+    "use_packages": [
+      "sharrattj/coreutils"
+    ],
+    "include_webcs": [
+      {
+        "name": "sharrattj/coreutils@1.0.16"
+      }
+    ],
+    "cli_args": [],
+    "stdin_hash": "4a75babacd4e06efe6c6594a2864f61f",
+    "enable_threads": true,
+    "enable_network": false
+  },
+  "result": {
+    "Success": {
+      "stdout": "hello\n",
+      "stderr": "# # \n",
+      "exit_code": 0
+    }
+  }
+}

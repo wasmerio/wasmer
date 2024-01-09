@@ -14,7 +14,17 @@ use thiserror::Error;
 ///
 /// All trap instructions have an explicit trap code.
 #[derive(
-    Clone, Copy, PartialEq, Eq, Debug, Hash, Error, RkyvSerialize, RkyvDeserialize, Archive,
+    Clone,
+    Copy,
+    PartialEq,
+    Eq,
+    Debug,
+    Hash,
+    Error,
+    RkyvSerialize,
+    RkyvDeserialize,
+    Archive,
+    rkyv::CheckBytes,
 )]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 #[repr(u32)]
@@ -118,6 +128,19 @@ impl FromStr for TrapCode {
             _ => Err(()),
         }
     }
+}
+
+// TODO: OnCalledAction is needed for asyncify. It will be refactored with https://github.com/wasmerio/wasmer/issues/3451
+/// After the stack is unwound via asyncify what
+/// should the call loop do next
+#[derive(Debug)]
+pub enum OnCalledAction {
+    /// Will call the function again
+    InvokeAgain,
+    /// Will return the result of the invocation
+    Finish,
+    /// Traps with an error
+    Trap(Box<dyn std::error::Error + Send + Sync>),
 }
 
 #[cfg(test)]

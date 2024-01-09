@@ -1,0 +1,22 @@
+---
+source: tests/integration/cli/tests/snapshot.rs
+expression: snapshot
+---
+{
+  "spec": {
+    "name": "snapshot::test_snapshot_catsay",
+    "use_packages": [],
+    "include_webcs": [],
+    "cli_args": [],
+    "stdin_hash": "ed17ce0ab9af325cceb217a26ee9b8a1",
+    "enable_threads": true,
+    "enable_network": false
+  },
+  "result": {
+    "Success": {
+      "stdout": " _________ \n< meoooww >\n --------- \n  \\                              _\n   \\                            | \\\n    \\                           | |\n     \\                          | |\n      \\    |\\                   | |\n       \\  /, ~\\                / /\n         X     `-.....-------./ /\n          ~-. ~  ~              |\n             \\             /    |\n              \\  /_     ___\\   /\n              | /\\ ~~~~~   \\ |\n              | | \\        || |\n              | |\\ \\       || )\n             (_/ (_/      ((_/\n",
+      "stderr": "",
+      "exit_code": 0
+    }
+  }
+}

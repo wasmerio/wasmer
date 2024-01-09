@@ -2,7 +2,7 @@
 
 use libfuzzer_sys::{arbitrary, arbitrary::Arbitrary, fuzz_target};
 use wasm_smith::{Config, ConfiguredModule};
-use wasmer::{imports, EngineBuilder, Instance, Module, Store};
+use wasmer::{imports, Instance, Module, Store};
 use wasmer_compiler_singlepass::Singlepass;
 
 #[derive(Arbitrary, Debug, Default, Copy, Clone)]
@@ -51,7 +51,7 @@ fuzz_target!(|module: WasmSmithModule| {
             panic!("{}", e);
         }
     };
-    match Instance::new(&module, &imports! {}) {
+    match Instance::new(&mut store, &module, &imports! {}) {
         Ok(_) => {}
         Err(e) => {
             let error_message = format!("{}", e);

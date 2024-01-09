@@ -3,10 +3,12 @@ use std::ptr::NonNull;
 use wasmer::{
     imports,
     vm::{self, MemoryError, MemoryStyle, TableStyle, VMMemoryDefinition, VMTableDefinition},
-    wat2wasm, BaseTunables, Instance, Memory, MemoryType, Module, Pages, Store, TableType, Target,
-    Tunables,
+    wat2wasm, BaseTunables, Engine, Instance, Memory, MemoryType, Module, Pages, Store, TableType,
+    Target, Tunables,
 };
 use wasmer_compiler_cranelift::Cranelift;
+// This is to be able to set the tunables
+use wasmer::NativeEngineExt;
 
 /// A custom tunables that allows you to set a memory limit.
 ///
@@ -140,9 +142,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Here is where the fun begins
     let base = BaseTunables::for_target(&Target::default());
     let tunables = LimitingTunables::new(base, Pages(24));
+    let mut engine: Engine = compiler.into();
+    engine.set_tunables(tunables);
 
     // Create a store, that holds the engine and our custom tunables
-    let mut store = Store::new_with_tunables(compiler, tunables);
+    let mut store = Store::new(engine);
 
     println!("Compiling module...");
     let module = Module::new(&store, wasm_bytes)?;

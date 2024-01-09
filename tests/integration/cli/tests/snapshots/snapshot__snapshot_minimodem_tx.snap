@@ -1,0 +1,28 @@
+---
+source: tests/integration/cli/tests/snapshot.rs
+expression: snapshot
+---
+{
+  "spec": {
+    "name": "snapshot::test_snapshot_minimodem_tx",
+    "use_packages": [],
+    "include_webcs": [],
+    "cli_args": [
+      "--tx",
+      "--tx-carrier",
+      "--stdio",
+      "--float-samples",
+      "same"
+    ],
+    "stdin_hash": "efbbebc40e07bc2365088f9506f8a5d1",
+    "enable_threads": true,
+    "enable_network": false
+  },
+  "result": {
+    "Success": {
+      "stdout": "hash: 50e55400b51b975eab31f31cb07419fd",
+      "stderr": "",
+      "exit_code": 0
+    }
+  }
+}

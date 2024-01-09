@@ -1,22 +1,26 @@
 [package]
-name = "wasmer-wasi-experimental-io-devices"
-version = "3.1.0"
-description = "An experimental non-standard WASI extension for graphics"
+name = "wasmer-wasix-experimental-io-devices"
+version = "0.18.0"
+description = "An experimental non-standard WASI/WASIX extension for graphics"
 categories = ["wasm"]
 keywords = ["wasm", "webassembly", "types"]
-authors = ["Wasmer Engineering Team <engineering@wasmer.io>"]
-repository = "https://github.com/wasmerio/wasmer"
-license = "MIT"
 readme = "README.md"
-edition = "2018"
+authors.workspace = true
+edition.workspace = true
+homepage.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
 
 [badges]
 maintenance = { status = "experimental" }
 
 [dependencies]
-wasmer-wasi = { version = "=3.1.0", path = "../wasi", default-features=false }
+wasmer = { version = "4.2.5", path = "../api", default-features=false }
+wasmer-wasix = { version = "0.18.0", path = "../wasix", default-features=false }
+wasmer-wasix-types = { path = "../wasi-types", version = "0.18.0" }
 tracing = "0.1"
-minifb = { version = "0.23", optional = true }
+minifb = { version = "0.24.0", optional = true }
 nix = "0.25.0"
 ref_thread_local = "0.1"
 serde = "1"
@@ -24,15 +28,19 @@ typetag = "0.1"
 
 [features]
 default = [
-    "wasmer-wasi/default"
+    "wasmer-wasix/default"
 ]
 enable-serde = [
-    "wasmer-wasi/enable-serde"
+    "wasmer-wasix/enable-serde"
 ]
 # This feature exists, so that "cargo build --all" doesn't
-# accidentally link libxcbcommon and libwayland into the CLI 
+# accidentally link libxcbcommon and libwayland into the CLI
 # libraries. When using wasi-experimental-io-devices, users
 # have to enable this feature manually
 link_external_libs = [
     "minifb"
 ]
+
+[package.metadata.docs.rs]
+features = ["wasmer/sys"]
+rustc-args = ["--cfg", "docsrs"]

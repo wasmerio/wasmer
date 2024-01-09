@@ -66,6 +66,7 @@ pub fn run_wast(mut config: crate::Config, wast_path: &str) -> anyhow::Result<()
         wast.allow_instantiation_failures(&[
             "Validation error: invalid result arity: func type returns multiple values",
             "Validation error: blocks, loops, and ifs may only produce a resulttype when multi-value is not enabled",
+            "Validation error: func type returns multiple values but the multi-value feature is not enabled",
         ]);
     }
     wast.fail_fast = false;

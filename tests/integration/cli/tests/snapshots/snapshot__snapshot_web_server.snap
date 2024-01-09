@@ -1,0 +1,36 @@
+---
+source: tests/integration/cli/tests/snapshot.rs
+assertion_line: 739
+expression: snapshot
+---
+{
+  "spec": {
+    "name": "snapshot::test_snapshot_web_server",
+    "use_packages": [
+      "sharrattj/coreutils",
+      "sharrattj/wasmer-sh"
+    ],
+    "include_webcs": [
+      {
+        "name": "sharrattj/static-web-server@1.0.92"
+      },
+      {
+        "name": "sharrattj/wasmer-sh@1.0.63"
+      },
+      {
+        "name": "sharrattj/coreutils@1.0.16"
+      }
+    ],
+    "cli_args": [],
+    "stdin_hash": "ea308175bb22236a4c3ab8ac6643d3ce",
+    "enable_threads": true,
+    "enable_network": true
+  },
+  "result": {
+    "Success": {
+      "stdout": "",
+      "stderr": "# # # # # ",
+      "exit_code": 0
+    }
+  }
+}

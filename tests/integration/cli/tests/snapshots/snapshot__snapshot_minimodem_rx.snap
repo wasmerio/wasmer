@@ -1,0 +1,28 @@
+---
+source: tests/integration/cli/tests/snapshot.rs
+expression: snapshot
+---
+{
+  "spec": {
+    "name": "snapshot::test_snapshot_minimodem_rx",
+    "use_packages": [],
+    "include_webcs": [],
+    "cli_args": [
+      "--rx",
+      "--tx-carrier",
+      "--stdio",
+      "--float-samples",
+      "same"
+    ],
+    "stdin_hash": "eeaf940b4ae9db7eb9a4f45a24989a57",
+    "enable_threads": true,
+    "enable_network": false
+  },
+  "result": {
+    "Success": {
+      "stdout": "This message wont get through\n",
+      "stderr": "### CARRIER 521 @ 2083.3 Hz ###\n\n### NOCARRIER ndata=46 confidence=140169.578 ampl=45.976 bps=521.03 (0.0% fast) ###\n",
+      "exit_code": 0
+    }
+  }
+}

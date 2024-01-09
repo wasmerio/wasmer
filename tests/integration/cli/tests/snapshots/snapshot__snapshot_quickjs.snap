@@ -1,0 +1,22 @@
+---
+source: tests/integration/cli/tests/snapshot.rs
+expression: snapshot
+---
+{
+  "spec": {
+    "name": "snapshot::test_snapshot_quickjs",
+    "use_packages": [],
+    "include_webcs": [],
+    "cli_args": [],
+    "stdin_hash": "7b1ec18c69fb609403f75c6e673f2d33",
+    "enable_threads": true,
+    "enable_network": false
+  },
+  "result": {
+    "Success": {
+      "stdout": "QuickJS - Type \"\\h\" for help\nqjs > \u001b[32;1mp\u001b[0m\u001b[J\u001b[D\u001b[32;1mpr\u001b[0m\u001b[J\u001b[2D\u001b[32;1mpri\u001b[0m\u001b[J\u001b[3D\u001b[32;1mprin\u001b[0m\u001b[J\u001b[4D\u001b[32;1mprint\u001b[0m\u001b[J\u001b[5D\u001b[33;1mprint\u001b[0m\u001b[32;1m(\u001b[0m\u001b[J\u001b[6D\u001b[33;1mprint\u001b[0m\u001b[32;1m(\u001b[0m\u001b[32m2\u001b[0m\u001b[J\u001b[7D\u001b[33;1mprint\u001b[0m\u001b[32;1m(\u001b[0m\u001b[32m2\u001b[0m\u001b[32;1m+\u001b[0m\u001b[J\u001b[8D\u001b[33;1mprint\u001b[0m\u001b[32;1m(\u001b[0m\u001b[32m2\u001b[0m\u001b[32;1m+\u001b[0m\u001b[32m2\u001b[0m\u001b[J\u001b[9D\u001b[33;1mprint\u001b[0m\u001b[32;1m(\u001b[0m\u001b[32m2\u001b[0m\u001b[32;1m+\u001b[0m\u001b[32m2\u001b[0m\u001b[32;1m)\u001b[0m\u001b[J\u001b[10D\u001b[33;1mprint\u001b[0m\u001b[32;1m(\u001b[0m\u001b[32m2\u001b[0m\u001b[32;1m+\u001b[0m\u001b[32m2\u001b[0m\u001b[32;1m);\u001b[0m\u001b[J\n4\n\u001b[37;1mundefined\n\u001b[0mqjs > \u001b[32;1m\\\u001b[0m\u001b[J\u001b[D\u001b[32;1m\\\u001b[0m\u001b[32;1mq\u001b[0m\u001b[J\n",
+      "stderr": "",
+      "exit_code": 0
+    }
+  }
+}

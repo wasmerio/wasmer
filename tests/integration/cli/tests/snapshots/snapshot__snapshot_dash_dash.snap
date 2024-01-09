@@ -1,0 +1,31 @@
+---
+source: tests/integration/cli/tests/snapshot.rs
+expression: snapshot
+---
+{
+  "spec": {
+    "name": "snapshot::test_snapshot_dash_dash",
+    "use_packages": [
+      "sharrattj/dash"
+    ],
+    "include_webcs": [
+      {
+        "name": "sharrattj/dash@1.0.16"
+      },
+      {
+        "name": "sharrattj/coreutils@1.0.11"
+      }
+    ],
+    "cli_args": [],
+    "stdin_hash": "702da725f176c20024965c8830b620ae",
+    "enable_threads": true,
+    "enable_network": false
+  },
+  "result": {
+    "Success": {
+      "stdout": "hi\n",
+      "stderr": "# # \n# # ",
+      "exit_code": 78
+    }
+  }
+}

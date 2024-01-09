@@ -739,9 +739,12 @@ macro_rules! sse_fn {
         |emitter: &mut AssemblerX64, precision: Precision, src1: XMM, src2: XMMOrMemory, dst: XMM| {
             match src2 {
                 XMMOrMemory::XMM(x) => {
-                    assert_ne!(x, dst);
-                    move_src_to_dst(emitter, precision, src1, dst);
-                    dynasm!(emitter ; $ins Rx((dst as u8)), Rx((x as u8)))
+                    if x == dst {
+                        dynasm!(emitter ; $ins Rx((dst as u8)), Rx((src1 as u8)))
+                    } else {
+                        move_src_to_dst(emitter, precision, src1, dst);
+                        dynasm!(emitter ; $ins Rx((dst as u8)), Rx((x as u8)))
+                    }
                 }
                 XMMOrMemory::Memory(base, disp) => {
                     move_src_to_dst(emitter, precision, src1, dst);
@@ -906,11 +909,14 @@ macro_rules! sse_round_fn {
         |emitter: &mut AssemblerX64, precision: Precision, src1: XMM, src2: XMMOrMemory, dst: XMM| {
             match src2 {
                 XMMOrMemory::XMM(x) => {
-                    assert_eq!(src1, x);
-                    move_src_to_dst(emitter, precision, src1, dst);
-                    dynasm!(emitter ; $ins Rx((dst as u8)), Rx((dst as u8)), $mode)
+                    if x != dst {
+                        move_src_to_dst(emitter, precision, src1, dst);
+                    }
+                    dynasm!(emitter ; $ins Rx((x as u8)), Rx((dst as u8)), $mode)
                 }
-                XMMOrMemory::Memory(..) => unreachable!(),
+                XMMOrMemory::Memory(base, disp) => {
+                    dynasm!(emitter ; $ins Rx((dst as u8)), [Rq((base as u8)) + disp], $mode)
+                },
             }
         }
     }
@@ -1101,6 +1107,15 @@ impl EmitterX64 for AssemblerX64 {
                     }
                     (Size::S32, Location::SIMD(src), Location::Memory(dst, disp)) => {
                         dynasm!(self ; movd [Rq(dst as u8) + disp], Rx(src as u8));
+                    }
+                    (Size::S64, Location::Imm64(src), Location::GPR(dst)) => {
+                        dynasm!(self ; mov Rd(dst as u8), src as i32);
+                    }
+                    (Size::S64, Location::Imm32(src), Location::GPR(dst)) => {
+                        dynasm!(self ; mov Rd(dst as u8), src as i32);
+                    }
+                    (Size::S64, Location::Imm8(src), Location::GPR(dst)) => {
+                        dynasm!(self ; mov Rd(dst as u8), src as i32);
                     }
 
                     (Size::S64, Location::GPR(src), Location::SIMD(dst)) => {
@@ -1465,10 +1480,22 @@ impl EmitterX64 for AssemblerX64 {
             (Size::S32, Location::Memory(src, disp), Size::S64, Location::GPR(dst)) => {
                 dynasm!(self ; mov Rd(dst as u8), DWORD [Rq(src as u8) + disp]);
             }
-            (Size::S32, Location::Imm64(imm), Size::S64, Location::GPR(dst)) => {
+            (Size::S8, Location::Imm32(imm), Size::S32, Location::GPR(dst)) => {
+                dynasm!(self ; mov Rq(dst as u8), imm as i32);
+            }
+            (Size::S16, Location::Imm32(imm), Size::S64, Location::GPR(dst)) => {
+                dynasm!(self ; mov Rq(dst as u8), imm as i32);
+            }
+            (Size::S32, Location::Imm32(imm), Size::S64, Location::GPR(dst)) => {
+                dynasm!(self ; mov Rq(dst as u8), imm as i32);
+            }
+            (Size::S8, Location::Imm64(imm), Size::S32, Location::GPR(dst)) => {
                 dynasm!(self ; mov Rq(dst as u8), imm as i32);
             }
             (Size::S16, Location::Imm64(imm), Size::S64, Location::GPR(dst)) => {
+                dynasm!(self ; mov Rq(dst as u8), imm as i32);
+            }
+            (Size::S32, Location::Imm64(imm), Size::S64, Location::GPR(dst)) => {
                 dynasm!(self ; mov Rq(dst as u8), imm as i32);
             }
             _ => {

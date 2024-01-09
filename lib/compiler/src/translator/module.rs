@@ -24,7 +24,7 @@ pub fn translate_module<'data>(
 
     for payload in Parser::new(0).parse_all(data) {
         match payload.map_err(from_binaryreadererror_wasmerror)? {
-            Payload::Version { .. } | Payload::End => {}
+            Payload::Version { .. } | Payload::End { .. } => {}
 
             Payload::TypeSection(types) => {
                 parse_type_section(types, &mut module_translation_state, environ)?;
@@ -84,28 +84,35 @@ pub fn translate_module<'data>(
             }
 
             Payload::InstanceSection(_)
-            | Payload::AliasSection(_)
-            | Payload::ModuleSectionStart { .. }
-            | Payload::ModuleSectionEntry { .. } => {
-                unimplemented!("module linking not implemented yet")
+            | Payload::ComponentSection { .. }
+            | Payload::CoreTypeSection(_)
+            | Payload::ComponentTypeSection(_)
+            | Payload::ComponentInstanceSection(_)
+            | Payload::ComponentAliasSection(_)
+            | Payload::ComponentCanonicalSection(_)
+            | Payload::ComponentStartSection { .. }
+            | Payload::ComponentImportSection(_)
+            | Payload::ComponentExportSection(_)
+            | Payload::ModuleSection { .. } => {
+                unimplemented!("module linking not implemented. It will only be implemented if/when browsers support it")
             }
 
             Payload::TagSection(_) => {
                 unimplemented!("exception handling not implemented yet")
             }
 
-            Payload::CustomSection {
-                name: "name",
-                data,
-                data_offset,
-                ..
-            } => parse_name_section(
-                NameSectionReader::new(data, data_offset)
-                    .map_err(from_binaryreadererror_wasmerror)?,
-                environ,
-            )?,
-
-            Payload::CustomSection { name, data, .. } => environ.custom_section(name, data)?,
+            Payload::CustomSection(sectionreader) => {
+                // We still add the custom section data, but also read it as name section reader
+                let name = sectionreader.name();
+                environ.custom_section(name, sectionreader.data())?;
+                if name == "name" {
+                    parse_name_section(
+                        NameSectionReader::new(sectionreader.data(), sectionreader.data_offset())
+                            .map_err(from_binaryreadererror_wasmerror)?,
+                        environ,
+                    )?;
+                }
+            }
 
             Payload::UnknownSection { .. } => unreachable!(),
         }

@@ -26,7 +26,7 @@ pub fn call_malloc(mut ctx: &mut FunctionEnvMut<EmEnv>, size: u32) -> u32 {
     malloc_ref.call(&mut ctx, size).unwrap()
 }
 
-#[warn(dead_code)]
+#[allow(dead_code)]
 pub fn call_malloc_with_cast<T: Copy>(ctx: &mut FunctionEnvMut<EmEnv>, size: u32) -> WasmPtr<T> {
     WasmPtr::new(call_malloc(ctx, size))
 }

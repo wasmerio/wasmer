@@ -18,7 +18,7 @@
 //!   function frame, we need to raise it. This involves some nasty and quite
 //!   unsafe code under the covers! Notable, after raising the trap, drops
 //!   **will not** be run for local variables! This can lead to things like
-//!   leaking `InstanceHandle`s which leads to never deallocating JIT code,
+//!   leaking `VMInstance`s which leads to never deallocating JIT code,
 //!   instances, and modules! Therefore, always use nested blocks to ensure
 //!   drops run before raising a trap:
 //!
@@ -844,7 +844,7 @@ pub fn function_pointer(libcall: LibCall) -> usize {
         LibCall::Memory32Copy => wasmer_vm_memory32_copy as usize,
         LibCall::ImportedMemory32Copy => wasmer_vm_imported_memory32_copy as usize,
         LibCall::Memory32Fill => wasmer_vm_memory32_fill as usize,
-        LibCall::ImportedMemory32Fill => wasmer_vm_memory32_fill as usize,
+        LibCall::ImportedMemory32Fill => wasmer_vm_imported_memory32_fill as usize,
         LibCall::Memory32Init => wasmer_vm_memory32_init as usize,
         LibCall::DataDrop => wasmer_vm_data_drop as usize,
         LibCall::Probestack => wasmer_vm_probestack as usize,

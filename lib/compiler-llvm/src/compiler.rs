@@ -43,6 +43,7 @@ struct ShortNames {}
 impl SymbolRegistry for ShortNames {
     fn symbol_to_name(&self, symbol: Symbol) -> String {
         match symbol {
+            Symbol::Metadata => "M".to_string(),
             Symbol::LocalFunction(index) => format!("f{}", index.index()),
             Symbol::Section(index) => format!("s{}", index.index()),
             Symbol::FunctionCallTrampoline(index) => format!("t{}", index.index()),
@@ -55,6 +56,10 @@ impl SymbolRegistry for ShortNames {
             return None;
         }
         let (ty, idx) = name.split_at(1);
+        if ty.starts_with('M') {
+            return Some(Symbol::Metadata);
+        }
+
         let idx = idx.parse::<u32>().ok()?;
         match ty.chars().next().unwrap() {
             'f' => Some(Symbol::LocalFunction(LocalFunctionIndex::from_u32(idx))),
@@ -71,12 +76,12 @@ impl SymbolRegistry for ShortNames {
 }
 
 impl LLVMCompiler {
-    fn compile_native_object<'data, 'module>(
+    fn compile_native_object(
         &self,
         target: &Target,
-        compile_info: &'module CompileModuleInfo,
+        compile_info: &CompileModuleInfo,
         module_translation: &ModuleTranslationState,
-        function_body_inputs: &PrimaryMap<LocalFunctionIndex, FunctionBodyData<'data>>,
+        function_body_inputs: &PrimaryMap<LocalFunctionIndex, FunctionBodyData<'_>>,
         symbol_registry: &dyn SymbolRegistry,
         wasmer_metadata: &[u8],
     ) -> Result<Vec<u8>, CompileError> {
@@ -164,8 +169,11 @@ impl LLVMCompiler {
                 .collect::<Vec<_>>()
                 .as_slice(),
         );
-        let metadata_gv =
-            merged_module.add_global(metadata_init.get_type(), None, "WASMER_METADATA");
+        let metadata_gv = merged_module.add_global(
+            metadata_init.get_type(),
+            None,
+            &symbol_registry.symbol_to_name(wasmer_types::Symbol::Metadata),
+        );
         metadata_gv.set_initializer(&metadata_init);
         metadata_gv.set_linkage(Linkage::DLLExport);
         metadata_gv.set_dll_storage_class(DLLStorageClass::Export);
@@ -187,18 +195,22 @@ impl LLVMCompiler {
 }
 
 impl Compiler for LLVMCompiler {
+    fn name(&self) -> &str {
+        "llvm"
+    }
+
     /// Get the middlewares for this compiler
     fn get_middlewares(&self) -> &[Arc<dyn ModuleMiddleware>] {
         &self.config.middlewares
     }
 
-    fn experimental_native_compile_module<'data, 'module>(
+    fn experimental_native_compile_module(
         &self,
         target: &Target,
-        compile_info: &'module CompileModuleInfo,
+        compile_info: &CompileModuleInfo,
         module_translation: &ModuleTranslationState,
         // The list of function bodies
-        function_body_inputs: &PrimaryMap<LocalFunctionIndex, FunctionBodyData<'data>>,
+        function_body_inputs: &PrimaryMap<LocalFunctionIndex, FunctionBodyData<'_>>,
         symbol_registry: &dyn SymbolRegistry,
         // The metadata to inject into the wasmer_metadata section of the object file.
         wasmer_metadata: &[u8],
@@ -215,12 +227,12 @@ impl Compiler for LLVMCompiler {
 
     /// Compile the module using LLVM, producing a compilation result with
     /// associated relocations.
-    fn compile_module<'data, 'module>(
+    fn compile_module(
         &self,
         target: &Target,
-        compile_info: &'module CompileModuleInfo,
+        compile_info: &CompileModuleInfo,
         module_translation: &ModuleTranslationState,
-        function_body_inputs: PrimaryMap<LocalFunctionIndex, FunctionBodyData<'data>>,
+        function_body_inputs: PrimaryMap<LocalFunctionIndex, FunctionBodyData<'_>>,
     ) -> Result<Compilation, CompileError> {
         //let data = Arc::new(Mutex::new(0));
         let memory_styles = &compile_info.memory_styles;
@@ -264,7 +276,7 @@ impl Compiler for LLVMCompiler {
                 for (section_index, custom_section) in compiled_function.custom_sections.iter() {
                     // TODO: remove this call to clone()
                     let mut custom_section = custom_section.clone();
-                    for mut reloc in &mut custom_section.relocations {
+                    for reloc in &mut custom_section.relocations {
                         if let RelocationTarget::CustomSection(index) = reloc.reloc_target {
                             reloc.reloc_target = RelocationTarget::CustomSection(
                                 SectionIndex::from_u32(first_section + index.as_u32()),
@@ -276,7 +288,7 @@ impl Compiler for LLVMCompiler {
                         .contains(&section_index)
                     {
                         let offset = frame_section_bytes.len() as u32;
-                        for mut reloc in &mut custom_section.relocations {
+                        for reloc in &mut custom_section.relocations {
                             reloc.offset += offset;
                         }
                         frame_section_bytes.extend_from_slice(custom_section.bytes.as_slice());
@@ -291,7 +303,7 @@ impl Compiler for LLVMCompiler {
                         module_custom_sections.push(custom_section);
                     }
                 }
-                for mut reloc in &mut compiled_function.compiled_function.relocations {
+                for reloc in &mut compiled_function.compiled_function.relocations {
                     if let RelocationTarget::CustomSection(index) = reloc.reloc_target {
                         reloc.reloc_target = RelocationTarget::CustomSection(
                             SectionIndex::from_u32(first_section + index.as_u32()),
@@ -306,17 +318,9 @@ impl Compiler for LLVMCompiler {
             let dwarf = Some(Dwarf::new(SectionIndex::from_u32(
                 module_custom_sections.len() as u32,
             )));
-            // Terminating zero-length CIE.
-            frame_section_bytes.extend(vec![
-                0x00, 0x00, 0x00, 0x00, // Length
-                0x00, 0x00, 0x00, 0x00, // CIE ID
-                0x10, // Version (must be 1)
-                0x00, // Augmentation data
-                0x00, // Code alignment factor
-                0x00, // Data alignment factor
-                0x00, // Return address register
-                0x00, 0x00, 0x00, // Padding to a multiple of 4 bytes
-            ]);
+            // Do not terminate dwarf info with a zero-length CIE.
+            // Because more info will be added later
+            // in lib/object/src/module.rs emit_compilation
             module_custom_sections.push(CustomSection {
                 protection: CustomSectionProtection::Read,
                 bytes: SectionBody::new_with_vec(frame_section_bytes),

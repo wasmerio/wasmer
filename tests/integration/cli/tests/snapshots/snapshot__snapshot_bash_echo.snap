@@ -1,0 +1,22 @@
+---
+source: tests/integration/cli/tests/snapshot.rs
+expression: snapshot
+---
+{
+  "spec": {
+    "name": "snapshot::test_snapshot_bash_echo",
+    "use_packages": [],
+    "include_webcs": [],
+    "cli_args": [],
+    "stdin_hash": "664d0430ee33458602e580520841a2d4",
+    "enable_threads": true,
+    "enable_network": false
+  },
+  "result": {
+    "Success": {
+      "stdout": "hello\n",
+      "stderr": "test.wasm-5.1# test.wasm-5.1# exit\n",
+      "exit_code": 0
+    }
+  }
+}

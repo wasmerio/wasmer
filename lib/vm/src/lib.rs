@@ -19,6 +19,7 @@
         clippy::use_self
     )
 )]
+#![cfg_attr(docsrs, feature(doc_cfg, doc_auto_cfg))]
 
 mod export;
 mod extern_ref;
@@ -32,6 +33,7 @@ mod probestack;
 mod sig_registry;
 mod store;
 mod table;
+mod threadconditions;
 mod trap;
 mod vmcontext;
 
@@ -44,17 +46,19 @@ pub use crate::extern_ref::{VMExternObj, VMExternRef};
 pub use crate::function_env::VMFunctionEnvironment;
 pub use crate::global::*;
 pub use crate::imports::Imports;
-pub use crate::instance::{InstanceAllocator, InstanceHandle};
+pub use crate::instance::{InstanceAllocator, VMInstance};
 pub use crate::memory::{
-    initialize_memory_with_data, LinearMemory, VMMemory, VMOwnedMemory, VMSharedMemory,
+    initialize_memory_with_data, LinearMemory, NotifyLocation, VMMemory, VMOwnedMemory,
+    VMSharedMemory,
 };
 pub use crate::mmap::Mmap;
 pub use crate::probestack::PROBESTACK;
 pub use crate::sig_registry::SignatureRegistry;
-pub use crate::store::{
-    InternalStoreHandle, MaybeInstanceOwned, StoreHandle, StoreId, StoreObjects,
-};
+pub use crate::store::{InternalStoreHandle, MaybeInstanceOwned, StoreHandle, StoreObjects};
 pub use crate::table::{TableElement, VMTable};
+#[doc(hidden)]
+pub use crate::threadconditions::ThreadConditions;
+pub use crate::threadconditions::WaiterError;
 pub use crate::trap::*;
 pub use crate::vmcontext::{
     VMCallerCheckedAnyfunc, VMContext, VMDynamicFunctionContext, VMFunctionContext,
@@ -66,13 +70,7 @@ pub use wasmer_types::MemoryError;
 pub use wasmer_types::MemoryStyle;
 use wasmer_types::RawValue;
 pub use wasmer_types::TableStyle;
-pub use wasmer_types::{TargetSharedSignatureIndex, VMBuiltinFunctionIndex, VMOffsets};
-
-#[deprecated(
-    since = "2.1.0",
-    note = "ModuleInfo, ExportsIterator, ImportsIterator should be imported from wasmer_types."
-)]
-pub use wasmer_types::{ExportsIterator, ImportsIterator, ModuleInfo};
+pub use wasmer_types::{StoreId, TargetSharedSignatureIndex, VMBuiltinFunctionIndex, VMOffsets};
 
 /// Version number of this crate.
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");

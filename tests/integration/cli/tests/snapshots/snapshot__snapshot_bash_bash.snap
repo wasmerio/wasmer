@@ -1,0 +1,31 @@
+---
+source: tests/integration/cli/tests/snapshot.rs
+expression: snapshot
+---
+{
+  "spec": {
+    "name": "snapshot::test_snapshot_bash_bash",
+    "use_packages": [
+      "sharrattj/bash"
+    ],
+    "include_webcs": [
+      {
+        "name": "sharrattj/bash@1.0.12"
+      },
+      {
+        "name": "sharrattj/coreutils@1.0.11"
+      }
+    ],
+    "cli_args": [],
+    "stdin_hash": "eb83da76ee5fbab28288ecf6385c69db",
+    "enable_threads": true,
+    "enable_network": false
+  },
+  "result": {
+    "Success": {
+      "stdout": "hi\nhi2\n",
+      "stderr": "test.wasm-5.1# bash-5.1# bash-5.1# exit\ntest.wasm-5.1# test.wasm-5.1# exit\n",
+      "exit_code": 0
+    }
+  }
+}

@@ -52,6 +52,9 @@ const MIDDLEWARES_FEATURE_AS_C_DEFINE: &str = "WASMER_MIDDLEWARES_ENABLED";
 #[allow(unused)]
 const EMSCRIPTEN_FEATURE_AS_C_DEFINE: &str = "WASMER_EMSCRIPTEN_ENABLED";
 
+#[allow(unused)]
+const JSC_FEATURE_AS_C_DEFINE: &str = "WASMER_JSC_BACKEND";
+
 macro_rules! map_feature_as_c_define {
     ($feature:expr, $c_define:ident, $accumulator:ident) => {
         #[cfg(feature = $feature)]
@@ -142,6 +145,7 @@ fn build_wasm_c_api_headers(crate_dir: &str, out_dir: &str) {
         pre_header = PRE_HEADER
     );
 
+    map_feature_as_c_define!("jsc", JSC_FEATURE_AS_C_DEFINE, pre_header);
     map_feature_as_c_define!("compiler", UNIVERSAL_FEATURE_AS_C_DEFINE, pre_header);
     map_feature_as_c_define!("compiler", COMPILER_FEATURE_AS_C_DEFINE, pre_header);
     map_feature_as_c_define!("wasi", WASI_FEATURE_AS_C_DEFINE, pre_header);
@@ -347,7 +351,11 @@ fn shared_object_dir() -> PathBuf {
     // We either find `target` or the target triple if cross-compiling.
     if shared_object_dir.file_name() != Some(OsStr::new("target")) {
         let target = env::var("TARGET").unwrap();
-        assert_eq!(shared_object_dir.file_name(), Some(OsStr::new(&target)));
+        if shared_object_dir.file_name() != Some(OsStr::new("llvm-cov-target")) {
+            assert_eq!(shared_object_dir.file_name(), Some(OsStr::new(&target)));
+        } else {
+            shared_object_dir.set_file_name(&target);
+        }
     }
 
     shared_object_dir.push(env::var("PROFILE").unwrap());

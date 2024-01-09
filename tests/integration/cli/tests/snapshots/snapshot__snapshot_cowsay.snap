@@ -1,0 +1,22 @@
+---
+source: tests/integration/cli/tests/snapshot.rs
+expression: snapshot
+---
+{
+  "spec": {
+    "name": "snapshot::test_snapshot_cowsay",
+    "use_packages": [],
+    "include_webcs": [],
+    "cli_args": [],
+    "stdin_hash": "0d599f0ec05c3bda8c3b8a68c32a1b47",
+    "enable_threads": true,
+    "enable_network": false
+  },
+  "result": {
+    "Success": {
+      "stdout": " ______\n< blah >\n ------\n        \\   ^__^\n         \\  (oo)\\_______\n            (__)\\       )\\/\\\n               ||----w |\n                ||     ||\n",
+      "stderr": "",
+      "exit_code": 0
+    }
+  }
+}

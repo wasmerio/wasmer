@@ -46,6 +46,13 @@ SETTINGS = {
     # compiler by default otherwise it won't work standalone
     "publish_features": {
         "wasmer-cli": "default,cranelift",
+        "wasmer-wasix": "sys,wasmer/sys",
+        "wasmer-wasix-types": "wasmer/sys",
+        "wasmer-wasix-experimental-io-devices": "wasmer-wasix/sys,wasmer/sys",
+        "wasmer-wast": "wasmer/sys",
+        "wai-bindgen-wasmer": "sys",
+        "wasmer-cache": "wasmer/sys",
+        "wasmer-emscripten": "wasmer/sys"
     },
     # workspace members we want to publish but whose path doesn't start by
     # "./lib/"
@@ -172,21 +179,6 @@ class Publisher:
 
             dependencies = return_dependencies(member_data)
             crates.append(Crate(dependencies, member_data, cargo_file_path=member))
-
-        invalids: typing.List[str] = []
-        for crate in crates:
-            if crate.version != self.version:
-                print(
-                    f"Crate {crate.name} is version {crate.version} but"
-                    f" we're publishing for version {self.version}"
-                )
-                invalids.append(crate.name)
-
-        if len(invalids) > 0:
-            raise Exception(
-                f"Some crates have a different version than the"
-                f" one we're publishing ({self.version}): {invalids}"
-            )
 
         self.crates = crates
         self.crate_index: typing.Dict[str, Crate] = {c.name: c for c in crates}

@@ -1,22 +1,24 @@
 [package]
 name = "wasmer-compiler-cranelift"
-version = "3.1.0"
 description = "Cranelift compiler for Wasmer WebAssembly runtime"
 categories = ["wasm"]
 keywords = ["wasm", "webassembly", "compiler", "cranelift"]
-authors = ["Wasmer Engineering Team <engineering@wasmer.io>"]
-repository = "https://github.com/wasmerio/wasmer"
 documentation = "https://docs.rs/wasmer-compiler-cranelift/"
-license = "MIT OR Apache-2.0 WITH LLVM-exception"
 readme = "README.md"
-edition = "2018"
+authors.workspace = true
+edition.workspace = true
+homepage.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+version.workspace = true
 
 [dependencies]
-wasmer-compiler = { path = "../compiler", version = "=3.1.0", features = ["translator", "compiler"], default-features = false }
-wasmer-types = { path = "../types", version = "=3.1.0", default-features = false, features = ["std"] }
-cranelift-entity = { version = "0.86.1", default-features = false }
-cranelift-codegen = { version = "0.86.1", default-features = false, features = ["x86", "arm64"] }
-cranelift-frontend = { version = "0.86.1", default-features = false }
+wasmer-compiler = { path = "../compiler", version = "=4.2.5", features = ["translator", "compiler"], default-features = false }
+wasmer-types = { path = "../types", version = "=4.2.5", default-features = false, features = ["std"] }
+cranelift-entity = { version = "0.91.1", default-features = false }
+cranelift-codegen = { version = "0.91.1", default-features = false, features = ["x86", "arm64", "riscv64"] }
+cranelift-frontend = { version = "0.91.1", default-features = false }
 tracing = "0.1"
 hashbrown = { version = "0.11", optional = true }
 rayon = { version = "1.5", optional = true }
@@ -26,7 +28,7 @@ smallvec = "1.6"
 target-lexicon = { version = "0.12.2", default-features = false }
 
 [dev-dependencies]
-cranelift-codegen = { version = "0.86.1", features = ["all-arch"] }
+cranelift-codegen = { version = "0.91.1", features = ["all-arch"] }
 lazy_static = "1.4"
 
 [badges]
@@ -38,3 +40,6 @@ wasm = ["std", "unwind"]
 unwind = ["cranelift-codegen/unwind", "gimli"]
 std = ["cranelift-codegen/std", "cranelift-frontend/std", "wasmer-compiler/std", "wasmer-types/std"]
 core = ["hashbrown", "cranelift-codegen/core", "cranelift-frontend/core"]
+
+[package.metadata.docs.rs]
+rustc-args = ["--cfg", "docsrs"]

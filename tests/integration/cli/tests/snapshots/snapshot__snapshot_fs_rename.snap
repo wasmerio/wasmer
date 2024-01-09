@@ -1,0 +1,21 @@
+---
+source: tests/integration/cli/tests/snapshot.rs
+expression: snapshot
+---
+{
+  "spec": {
+    "name": "snapshot::test_snapshot_fs_rename",
+    "use_packages": [],
+    "include_webcs": [],
+    "cli_args": [],
+    "enable_threads": true,
+    "enable_network": false
+  },
+  "result": {
+    "Success": {
+      "stdout": "/test-dir/a:a\n/test-dir/b:a\n/test-dir/c:c\n/test-dir/d:c\n",
+      "stderr": "",
+      "exit_code": 0
+    }
+  }
+}

@@ -1,25 +1,30 @@
 //! Utility functions for the WebAssembly module
-use anyhow::{bail, Result};
-use std::env;
+use anyhow::{bail, Context, Result};
+use is_terminal::IsTerminal;
 use std::path::PathBuf;
+use std::{env, path::Path};
 
 /// Whether or not Wasmer should print with color
 pub fn wasmer_should_print_color() -> bool {
     env::var("WASMER_COLOR")
         .ok()
         .and_then(|inner| inner.parse::<bool>().ok())
-        .unwrap_or_else(|| atty::is(atty::Stream::Stdout))
+        .unwrap_or_else(|| std::io::stdout().is_terminal())
 }
 
 fn retrieve_alias_pathbuf(alias: &str, real_dir: &str) -> Result<(String, PathBuf)> {
-    let pb = PathBuf::from(&real_dir);
+    let pb = Path::new(real_dir)
+        .canonicalize()
+        .with_context(|| format!("Unable to get the absolute path for \"{real_dir}\""))?;
+
     if let Ok(pb_metadata) = pb.metadata() {
         if !pb_metadata.is_dir() {
-            bail!("\"{}\" exists, but it is not a directory", &real_dir);
+            bail!("\"{real_dir}\" exists, but it is not a directory");
         }
     } else {
-        bail!("Directory \"{}\" does not exist", &real_dir);
+        bail!("Directory \"{real_dir}\" does not exist");
     }
+
     Ok((alias.to_string(), pb))
 }
 

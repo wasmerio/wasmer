@@ -5,7 +5,7 @@
 //! to emit a custom relocation: `RelocationTarget::CustomSection`, so
 //! it can be patched later by the engine (native or JIT).
 
-use super::relocation::Relocation;
+use super::relocation::{ArchivedRelocation, Relocation, RelocationLike};
 use crate::entity::entity_impl;
 use crate::lib::std::vec::Vec;
 use rkyv::{Archive, Deserialize as RkyvDeserialize, Serialize as RkyvSerialize};
@@ -17,6 +17,7 @@ use serde::{Deserialize, Serialize};
     RkyvSerialize,
     RkyvDeserialize,
     Archive,
+    rkyv::CheckBytes,
     Copy,
     Clone,
     PartialEq,
@@ -37,8 +38,11 @@ entity_impl!(SectionIndex);
 ///
 /// Determines how a custom section may be used.
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
-#[derive(RkyvSerialize, RkyvDeserialize, Archive, Debug, Clone, PartialEq, Eq)]
+#[derive(
+    RkyvSerialize, RkyvDeserialize, Archive, rkyv::CheckBytes, Debug, Clone, PartialEq, Eq,
+)]
 #[archive(as = "Self")]
+#[repr(u8)]
 pub enum CustomSectionProtection {
     /// A custom section with read permission.
     Read,
@@ -53,6 +57,7 @@ pub enum CustomSectionProtection {
 /// in the emitted module.
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 #[derive(RkyvSerialize, RkyvDeserialize, Archive, Debug, Clone, PartialEq, Eq)]
+#[archive_attr(derive(rkyv::CheckBytes))]
 pub struct CustomSection {
     /// Memory protection that applies to this section.
     pub protection: CustomSectionProtection,
@@ -69,9 +74,52 @@ pub struct CustomSection {
     pub relocations: Vec<Relocation>,
 }
 
+/// Any struct that acts like a `CustomSection`.
+#[allow(missing_docs)]
+pub trait CustomSectionLike<'a> {
+    type Relocations: RelocationLike;
+
+    fn protection(&self) -> &CustomSectionProtection;
+    fn bytes(&self) -> &[u8];
+    fn relocations(&'a self) -> &[Self::Relocations];
+}
+
+impl<'a> CustomSectionLike<'a> for CustomSection {
+    type Relocations = Relocation;
+
+    fn protection(&self) -> &CustomSectionProtection {
+        &self.protection
+    }
+
+    fn bytes(&self) -> &[u8] {
+        self.bytes.0.as_ref()
+    }
+
+    fn relocations(&'a self) -> &[Self::Relocations] {
+        self.relocations.as_slice()
+    }
+}
+
+impl<'a> CustomSectionLike<'a> for ArchivedCustomSection {
+    type Relocations = ArchivedRelocation;
+
+    fn protection(&self) -> &CustomSectionProtection {
+        &self.protection
+    }
+
+    fn bytes(&self) -> &[u8] {
+        self.bytes.0.as_ref()
+    }
+
+    fn relocations(&'a self) -> &[Self::Relocations] {
+        self.relocations.as_slice()
+    }
+}
+
 /// The bytes in the section.
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 #[derive(RkyvSerialize, RkyvDeserialize, Archive, Debug, Clone, PartialEq, Eq, Default)]
+#[archive_attr(derive(rkyv::CheckBytes))]
 pub struct SectionBody(#[cfg_attr(feature = "enable-serde", serde(with = "serde_bytes"))] Vec<u8>);
 
 impl SectionBody {
@@ -93,6 +141,18 @@ impl SectionBody {
     /// Dereferences into the section's buffer.
     pub fn as_slice(&self) -> &[u8] {
         self.0.as_slice()
+    }
+
+    /// Returns whether or not the section body is empty.
+    pub fn is_empty(&self) -> bool {
+        self.0.is_empty()
+    }
+}
+
+impl ArchivedSectionBody {
+    /// Returns the length of this section in bytes.
+    pub fn len(&self) -> usize {
+        self.0.len()
     }
 
     /// Returns whether or not the section body is empty.

@@ -1,8 +1,9 @@
-use crate::sys::exports::{ExportError, Exportable};
-use crate::sys::externals::Extern;
-use crate::sys::store::{AsStoreMut, AsStoreRef};
-use crate::sys::MemoryType;
+use super::memory_view::MemoryView;
+use crate::store::{AsStoreMut, AsStoreRef};
+use crate::sys::engine::NativeEngineExt;
+use crate::vm::VMExternMemory;
 use crate::MemoryAccessError;
+use crate::MemoryType;
 use std::convert::TryInto;
 use std::marker::PhantomData;
 use std::mem;
@@ -11,47 +12,17 @@ use std::slice;
 #[cfg(feature = "tracing")]
 use tracing::warn;
 use wasmer_types::Pages;
-use wasmer_vm::{InternalStoreHandle, LinearMemory, MemoryError, StoreHandle, VMExtern, VMMemory};
+use wasmer_vm::{LinearMemory, MemoryError, StoreHandle, VMExtern, VMMemory};
 
-use super::MemoryView;
-
-/// A WebAssembly `memory` instance.
-///
-/// A memory instance is the runtime representation of a linear memory.
-/// It consists of a vector of bytes and an optional maximum size.
-///
-/// The length of the vector always is a multiple of the WebAssembly
-/// page size, which is defined to be the constant 65536 – abbreviated 64Ki.
-/// Like in a memory type, the maximum size in a memory instance is
-/// given in units of this page size.
-///
-/// A memory created by the host or in WebAssembly code will be accessible and
-/// mutable from both host and WebAssembly.
-///
-/// Spec: <https://webassembly.github.io/spec/core/exec/runtime.html#memory-instances>
 #[derive(Debug, Clone)]
 pub struct Memory {
     pub(crate) handle: StoreHandle<VMMemory>,
 }
 
 impl Memory {
-    #[cfg(feature = "compiler")]
-    /// Creates a new host `Memory` from the provided [`MemoryType`].
-    ///
-    /// This function will construct the `Memory` using the store
-    /// [`BaseTunables`][crate::sys::BaseTunables].
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// # use wasmer::{Memory, MemoryType, Pages, Store, Type, Value};
-    /// # let mut store = Store::default();
-    /// #
-    /// let m = Memory::new(&mut store, MemoryType::new(1, None, false)).unwrap();
-    /// ```
     pub fn new(store: &mut impl AsStoreMut, ty: MemoryType) -> Result<Self, MemoryError> {
         let mut store = store.as_store_mut();
-        let tunables = store.tunables();
+        let tunables = store.engine().tunables();
         let style = tunables.memory_style(&ty);
         let memory = tunables.create_host_memory(&ty, &style)?;
 
@@ -60,67 +31,15 @@ impl Memory {
         })
     }
 
-    /// Create a memory object from an existing memory and attaches it to the store
     pub fn new_from_existing(new_store: &mut impl AsStoreMut, memory: VMMemory) -> Self {
         let handle = StoreHandle::new(new_store.objects_mut(), memory);
         Self::from_vm_extern(new_store, handle.internal_handle())
     }
 
-    /// Returns the [`MemoryType`] of the `Memory`.
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// # use wasmer::{Memory, MemoryType, Pages, Store, Type, Value};
-    /// # let mut store = Store::default();
-    /// #
-    /// let mt = MemoryType::new(1, None, false);
-    /// let m = Memory::new(&mut store, mt).unwrap();
-    ///
-    /// assert_eq!(m.ty(&mut store), mt);
-    /// ```
     pub fn ty(&self, store: &impl AsStoreRef) -> MemoryType {
         self.handle.get(store.as_store_ref().objects()).ty()
     }
 
-    /// Creates a view into the memory that then allows for
-    /// read and write
-    pub fn view<'a>(&'a self, store: &impl AsStoreRef) -> MemoryView<'a> {
-        MemoryView::new(self, store)
-    }
-
-    /// Grow memory by the specified amount of WebAssembly [`Pages`] and return
-    /// the previous memory size.
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// # use wasmer::{Memory, MemoryType, Pages, Store, Type, Value, WASM_MAX_PAGES};
-    /// # let mut store = Store::default();
-    /// #
-    /// let m = Memory::new(&mut store, MemoryType::new(1, Some(3), false)).unwrap();
-    /// let p = m.grow(&mut store, 2).unwrap();
-    ///
-    /// assert_eq!(p, Pages(1));
-    /// assert_eq!(m.view(&mut store).size(), Pages(3));
-    /// ```
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if memory can't be grown by the specified amount
-    /// of pages.
-    ///
-    /// ```should_panic
-    /// # use wasmer::{Memory, MemoryType, Pages, Store, Type, Value, WASM_MAX_PAGES};
-    /// # use wasmer::FunctionEnv;
-    /// # let mut store = Store::default();
-    /// # let env = FunctionEnv::new(&mut store, ());
-    /// #
-    /// let m = Memory::new(&mut store, MemoryType::new(1, Some(1), false)).unwrap();
-    ///
-    /// // This results in an error: `MemoryError::CouldNotGrow`.
-    /// let s = m.grow(&mut store, 1).unwrap();
-    /// ```
     pub fn grow<IntoPages>(
         &self,
         store: &mut impl AsStoreMut,
@@ -132,13 +51,25 @@ impl Memory {
         self.handle.get_mut(store.objects_mut()).grow(delta.into())
     }
 
-    pub(crate) fn from_vm_extern(
-        store: &impl AsStoreRef,
-        internal: InternalStoreHandle<VMMemory>,
-    ) -> Self {
+    pub fn grow_at_least(
+        &self,
+        store: &mut impl AsStoreMut,
+        min_size: u64,
+    ) -> Result<(), MemoryError> {
+        self.handle
+            .get_mut(store.objects_mut())
+            .grow_at_least(min_size)
+    }
+
+    pub fn reset(&self, store: &mut impl AsStoreMut) -> Result<(), MemoryError> {
+        self.handle.get_mut(store.objects_mut()).reset()?;
+        Ok(())
+    }
+
+    pub(crate) fn from_vm_extern(store: &impl AsStoreRef, vm_extern: VMExternMemory) -> Self {
         Self {
             handle: unsafe {
-                StoreHandle::from_internal(store.as_store_ref().objects().id(), internal)
+                StoreHandle::from_internal(store.as_store_ref().objects().id(), vm_extern)
             },
         }
     }
@@ -148,10 +79,22 @@ impl Memory {
         self.handle.store_id() == store.as_store_ref().objects().id()
     }
 
-    /// Attempts to clone this memory (if its clonable)
-    pub fn try_clone(&self, store: &impl AsStoreRef) -> Option<VMMemory> {
+    /// Cloning memory will create another reference to the same memory that
+    /// can be put into a new store
+    pub fn try_clone(&self, store: &impl AsStoreRef) -> Result<VMMemory, MemoryError> {
         let mem = self.handle.get(store.as_store_ref().objects());
-        mem.try_clone().map(|mem| mem.into())
+        let cloned = mem.try_clone()?;
+        Ok(cloned.into())
+    }
+
+    /// Copying the memory will actually copy all the bytes in the memory to
+    /// a identical byte copy of the original that can be put into a new store
+    pub fn try_copy(
+        &self,
+        store: &impl AsStoreRef,
+    ) -> Result<Box<dyn LinearMemory + 'static>, MemoryError> {
+        let mut mem = self.try_clone(store)?;
+        mem.copy()
     }
 
     /// To `VMExtern`.
@@ -167,15 +110,6 @@ impl std::cmp::PartialEq for Memory {
 }
 
 impl std::cmp::Eq for Memory {}
-
-impl<'a> Exportable<'a> for Memory {
-    fn get_self_from_extern(_extern: &'a Extern) -> Result<&'a Self, ExportError> {
-        match _extern {
-            Extern::Memory(memory) => Ok(memory),
-            _ => Err(ExportError::IncompatibleType),
-        }
-    }
-}
 
 /// Underlying buffer for a memory.
 #[derive(Debug, Copy, Clone)]

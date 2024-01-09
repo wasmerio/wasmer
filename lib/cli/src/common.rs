@@ -1,9 +1,7 @@
 //! Common module with common used structures across different
 //! commands.
-use crate::VERSION;
+
 use clap::Parser;
-use std::env;
-use std::path::PathBuf;
 
 #[derive(Debug, Parser, Clone, Default)]
 /// The WebAssembly features that can be passed through the
@@ -13,9 +11,13 @@ pub struct WasmFeatures {
     #[clap(long = "enable-simd")]
     pub simd: bool,
 
-    /// Enable support for the threads proposal.
+    /// Disable support for the threads proposal.
+    #[clap(long = "disable-threads")]
+    pub disable_threads: bool,
+
+    /// Deprecated, threads are enabled by default.
     #[clap(long = "enable-threads")]
-    pub threads: bool,
+    pub _threads: bool,
 
     /// Enable support for the reference types proposal.
     #[clap(long = "enable-reference-types")]
@@ -34,20 +36,6 @@ pub struct WasmFeatures {
     pub all: bool,
 }
 
-/// Get the cache dir
-pub fn get_cache_dir() -> PathBuf {
-    match env::var("WASMER_CACHE_DIR") {
-        Ok(dir) => {
-            let mut path = PathBuf::from(dir);
-            path.push(VERSION);
-            path
-        }
-        Err(_) => {
-            // We use a temporal directory for saving cache files
-            let mut temp_dir = env::temp_dir();
-            temp_dir.push("wasmer");
-            temp_dir.push(VERSION);
-            temp_dir
-        }
-    }
+pub(crate) fn normalize_path(s: &str) -> String {
+    wasmer_registry::utils::normalize_path(s)
 }

@@ -1,0 +1,42 @@
+mutation PublishPackageMutationChunked(
+  $name: String!
+  $version: String!
+  $description: String!
+  $manifest: String!
+  $license: String
+  $licenseFile: String
+  $readme: String
+  $fileName: String
+  $repository: String
+  $homepage: String
+  $signature: InputSignature
+  $signedUrl: String
+  $private: Boolean
+  $wait: Boolean
+) {
+  publishPackage(
+    input: {
+      name: $name
+      version: $version
+      description: $description
+      manifest: $manifest
+      license: $license
+      licenseFile: $licenseFile
+      readme: $readme
+      file: $fileName
+      signedUrl: $signedUrl
+      repository: $repository
+      homepage: $homepage
+      signature: $signature
+      clientMutationId: ""
+      private: $private
+      wait: $wait
+    }
+  ) {
+    success
+    packageVersion {
+      id
+      version
+    }
+  }
+}

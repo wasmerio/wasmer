@@ -1,6 +1,6 @@
-use graphql_client::GraphQLQuery;
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
+use url::Url;
 
 pub static GLOBAL_CONFIG_DATABASE_FILE_NAME: &str = "wasmer.sqlite";
 
@@ -14,7 +14,7 @@ pub struct WasmerConfig {
     #[serde(default)]
     pub update_notifications_enabled: bool,
 
-    /// The registry that wapm will connect to.
+    /// The registry that wasmer will connect to.
     pub registry: MultiRegistry,
 
     /// The proxy to use when connecting to the Internet.
@@ -53,7 +53,7 @@ pub struct RegistryLogin {
 impl Default for MultiRegistry {
     fn default() -> Self {
         MultiRegistry {
-            active_registry: format_graphql("wapm.io"),
+            active_registry: format_graphql("wasmer.io"),
             tokens: Vec::new(),
         }
     }
@@ -66,22 +66,37 @@ pub struct Registry {
 }
 
 pub fn format_graphql(registry: &str) -> String {
-    let mut registry = registry.to_string();
-    if registry.contains("wapm.dev") {
-        registry = "https://registry.wapm.dev/graphql".to_string();
-    } else if registry.contains("wapm.io") {
-        registry = "https://registry.wapm.io/graphql".to_string();
+    if let Ok(mut url) = Url::parse(registry) {
+        // Looks like we've got a valid URL. Let's try to use it as-is.
+        if url.has_host() {
+            if url.path() == "/" {
+                // make sure we convert http://registry.wasmer.io/ to
+                // http://registry.wasmer.io/graphql
+                url.set_path("/graphql");
+            }
+
+            return url.to_string();
+        }
     }
-    if !registry.starts_with("https://") {
-        registry = format!("https://{registry}");
+
+    if !registry.contains("://") && !registry.contains('/') {
+        return endpoint_from_domain_name(registry);
     }
-    if registry.ends_with("/graphql") {
-        registry
-    } else if registry.ends_with('/') {
-        format!("{}graphql", registry)
-    } else {
-        format!("{}/graphql", registry)
+
+    // looks like we've received something we can't deal with. Just pass it
+    // through as-is and hopefully it'll either work or the end user can figure
+    // it out
+    registry.to_string()
+}
+
+/// By convention, something like `"wasmer.io"` should be converted to
+/// `"https://registry.wasmer.io/graphql"`.
+fn endpoint_from_domain_name(domain_name: &str) -> String {
+    if domain_name.contains("localhost") {
+        return format!("http://{domain_name}/graphql");
     }
+
+    format!("https://registry.{domain_name}/graphql")
 }
 
 fn test_if_registry_present(registry: &str) -> Result<(), String> {
@@ -96,46 +111,15 @@ pub enum UpdateRegistry {
     LeaveAsIs,
 }
 
-#[test]
-fn test_registries_switch_token() {
-    let mut registries = MultiRegistry::default();
-
-    registries.set_current_registry("https://registry.wapm.dev");
-    assert_eq!(
-        registries.get_current_registry(),
-        "https://registry.wapm.dev/graphql".to_string()
-    );
-    registries.set_login_token_for_registry(
-        "https://registry.wapm.io",
-        "token1",
-        UpdateRegistry::LeaveAsIs,
-    );
-    assert_eq!(
-        registries.get_current_registry(),
-        "https://registry.wapm.dev/graphql".to_string()
-    );
-    assert_eq!(
-        registries.get_login_token_for_registry(&registries.get_current_registry()),
-        None
-    );
-    registries.set_current_registry("https://registry.wapm.io");
-    assert_eq!(
-        registries.get_login_token_for_registry(&registries.get_current_registry()),
-        Some("token1".to_string())
-    );
-    registries.clear_current_registry_token();
-    assert_eq!(
-        registries.get_login_token_for_registry(&registries.get_current_registry()),
-        None
-    );
-}
-
 impl MultiRegistry {
     /// Gets the current (active) registry URL
     pub fn clear_current_registry_token(&mut self) {
-        self.tokens.retain(|i| i.registry != self.active_registry);
-        self.tokens
-            .retain(|i| i.registry != format_graphql(&self.active_registry));
+        let MultiRegistry {
+            active_registry,
+            tokens,
+        } = self;
+        tokens.retain(|i| i.registry != *active_registry);
+        tokens.retain(|i| i.registry != format_graphql(active_registry));
     }
 
     pub fn get_graphql_url(&self) -> String {
@@ -146,6 +130,12 @@ impl MultiRegistry {
     /// Gets the current (active) registry URL
     pub fn get_current_registry(&self) -> String {
         format_graphql(&self.active_registry)
+    }
+
+    pub fn current_login(&self) -> Option<&RegistryLogin> {
+        self.tokens
+            .iter()
+            .find(|login| login.registry == self.active_registry)
     }
 
     /// Sets the current (active) registry URL
@@ -189,6 +179,9 @@ impl MultiRegistry {
 }
 
 impl WasmerConfig {
+    pub(crate) const ENV_VAR_WASMER_REGISTRY_TOKEN: &str = "WASMER_TOKEN";
+    pub(crate) const ENV_VAR_WASMER_REGISTRY_TOKEN_LEGACY: &str = "WAPM_REGISTRY_TOKEN";
+
     /// Save the config to a file
     pub fn save<P: AsRef<Path>>(&self, to: P) -> anyhow::Result<()> {
         use std::{fs::File, io::Write};
@@ -200,7 +193,7 @@ impl WasmerConfig {
 
     pub fn from_file(wasmer_dir: &Path) -> Result<Self, String> {
         let path = Self::get_file_location(wasmer_dir);
-        match std::fs::read_to_string(&path) {
+        match std::fs::read_to_string(path) {
             Ok(config_toml) => Ok(toml::from_str(&config_toml).unwrap_or_else(|_| Self::default())),
             Err(_e) => Ok(Self::default()),
         }
@@ -230,6 +223,20 @@ impl WasmerConfig {
         )
     }
 
+    /// Load the config based on environment variables and default config file locations.
+    pub fn from_env() -> Result<Self, anyhow::Error> {
+        let dir = Self::get_wasmer_dir()
+            .map_err(|err| anyhow::anyhow!("Could not determine wasmer dir: {err}"))?;
+        let file_path = Self::get_file_location(&dir);
+        Self::from_file(&file_path).map_err(|err| {
+            anyhow::anyhow!(
+                "Could not load config file at '{}': {}",
+                file_path.display(),
+                err
+            )
+        })
+    }
+
     pub fn get_current_dir() -> std::io::Result<PathBuf> {
         std::env::current_dir()
     }
@@ -243,10 +250,74 @@ impl WasmerConfig {
     }
 }
 
-#[derive(GraphQLQuery)]
-#[graphql(
-    schema_path = "graphql/schema.graphql",
-    query_path = "graphql/queries/test_if_registry_present.graphql",
-    response_derives = "Debug"
-)]
-struct TestIfRegistryPresent;
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_registries_switch_token() {
+        let mut registries = MultiRegistry::default();
+
+        registries.set_current_registry("https://registry.wasmer.wtf");
+        assert_eq!(
+            registries.get_current_registry(),
+            "https://registry.wasmer.wtf/graphql".to_string()
+        );
+        registries.set_login_token_for_registry(
+            "https://registry.wasmer.io",
+            "token1",
+            UpdateRegistry::LeaveAsIs,
+        );
+        assert_eq!(
+            registries.get_current_registry(),
+            "https://registry.wasmer.wtf/graphql".to_string()
+        );
+        assert_eq!(
+            registries.get_login_token_for_registry(&registries.get_current_registry()),
+            None
+        );
+        registries.set_current_registry("https://registry.wasmer.io");
+        assert_eq!(
+            registries.get_login_token_for_registry(&registries.get_current_registry()),
+            Some("token1".to_string())
+        );
+        registries.clear_current_registry_token();
+        assert_eq!(
+            registries.get_login_token_for_registry(&registries.get_current_registry()),
+            None
+        );
+    }
+
+    #[test]
+    fn format_registry_urls() {
+        let inputs = [
+            // Domain names work
+            ("wasmer.io", "https://registry.wasmer.io/graphql"),
+            ("wasmer.wtf", "https://registry.wasmer.wtf/graphql"),
+            // Plain URLs
+            (
+                "https://registry.wasmer.wtf/graphql",
+                "https://registry.wasmer.wtf/graphql",
+            ),
+            (
+                "https://registry.wasmer.wtf/something/else",
+                "https://registry.wasmer.wtf/something/else",
+            ),
+            // We don't automatically prepend the domain name with
+            // "registry", but we will make sure "/" gets turned into "/graphql"
+            ("https://wasmer.wtf/", "https://wasmer.wtf/graphql"),
+            ("https://wasmer.wtf", "https://wasmer.wtf/graphql"),
+            // local development
+            (
+                "http://localhost:8000/graphql",
+                "http://localhost:8000/graphql",
+            ),
+            ("localhost:8000", "http://localhost:8000/graphql"),
+        ];
+
+        for (input, expected) in inputs {
+            let url = format_graphql(input);
+            assert_eq!(url, expected);
+        }
+    }
+}

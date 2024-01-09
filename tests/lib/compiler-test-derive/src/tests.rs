@@ -36,7 +36,7 @@ macro_rules! gen_tests {(
 gen_tests! {
     identity_for_no_unsafe:
     stringify! {
-        #[compiler_test(derive_test)]
+        #[compiler_test_impl(derive_test)]
         #[cold]
         fn foo(config: crate::Config) {
             // Do tests

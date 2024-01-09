@@ -4,7 +4,7 @@ use std::process::Command;
 pub fn main() {
     // Set WASMER_GIT_HASH
     let git_hash = Command::new("git")
-        .args(&["rev-parse", "HEAD"])
+        .args(["rev-parse", "HEAD"])
         .output()
         .ok()
         .and_then(|output| String::from_utf8(output.stdout).ok())
@@ -14,10 +14,10 @@ pub fn main() {
     if git_hash.len() > 5 {
         println!(
             "cargo:rustc-env=WASMER_BUILD_GIT_HASH_SHORT={}",
-            &git_hash[..5]
+            &git_hash[..7]
         );
     } else {
-        println!("cargo:rustc-env=WASMER_BUILD_GIT_HASH_SHORT=??????");
+        println!("cargo:rustc-env=WASMER_BUILD_GIT_HASH_SHORT=???????");
     }
 
     let utc: DateTime<Utc> = Utc::now();

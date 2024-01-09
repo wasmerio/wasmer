@@ -8,27 +8,27 @@ use std::path::PathBuf;
 /// The options for the `wasmer config` subcommand
 pub struct Config {
     /// Print the installation prefix.
-    #[clap(long, conflicts_with = "pkg-config")]
+    #[clap(long, conflicts_with = "pkg_config")]
     prefix: bool,
 
     /// Directory containing Wasmer executables.
-    #[clap(long, conflicts_with = "pkg-config")]
+    #[clap(long, conflicts_with = "pkg_config")]
     bindir: bool,
 
     /// Directory containing Wasmer headers.
-    #[clap(long, conflicts_with = "pkg-config")]
+    #[clap(long, conflicts_with = "pkg_config")]
     includedir: bool,
 
     /// Directory containing Wasmer libraries.
-    #[clap(long, conflicts_with = "pkg-config")]
+    #[clap(long, conflicts_with = "pkg_config")]
     libdir: bool,
 
     /// Libraries needed to link against Wasmer components.
-    #[clap(long, conflicts_with = "pkg-config")]
+    #[clap(long, conflicts_with = "pkg_config")]
     libs: bool,
 
     /// C compiler flags for files that include Wasmer headers.
-    #[clap(long, conflicts_with = "pkg-config")]
+    #[clap(long, conflicts_with = "pkg_config")]
     cflags: bool,
 
     /// It outputs the necessary details for compiling
@@ -46,10 +46,15 @@ impl Config {
     fn inner_execute(&self) -> Result<()> {
         let key = "WASMER_DIR";
         let wasmer_dir = env::var(key)
-            .or_else(|e| {
-                option_env!("WASMER_INSTALL_PREFIX")
-                    .map(str::to_string)
-                    .ok_or(e)
+            .ok()
+            .or_else(|| option_env!("WASMER_INSTALL_PREFIX").map(str::to_string))
+            .or_else(|| {
+                // Allowing deprecated function home_dir since it works fine,
+                // and will never be removed from std.
+                #[allow(deprecated)]
+                let dir = std::env::home_dir()?.join(".wasmer").to_str()?.to_string();
+
+                Some(dir)
             })
             .context(format!(
                 "failed to retrieve the {} environment variables",

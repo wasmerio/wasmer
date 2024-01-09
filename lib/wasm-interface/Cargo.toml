@@ -1,12 +1,14 @@
 [package]
 name = "wasmer-wasm-interface"
-version = "3.1.0"
-authors = ["The Wasmer Engineering Team <engineering@wasmer.io>"]
-edition = "2018"
-repository = "https://github.com/wasmerio/wapm-cli"
 description = "WASM Interface definition and parser"
 readme = "README.md"
-license = "MIT"
+authors.workspace = true
+edition.workspace = true
+homepage.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+version.workspace = true
 
 [dependencies]
 bincode = { version = "1", optional = true }
@@ -22,3 +24,6 @@ wat = "1.0"
 validation = ["wasmparser"]
 binary_encode = ["bincode"]
 default = ["validation"]
+
+[package.metadata.docs.rs]
+rustc-args = ["--cfg", "docsrs"]

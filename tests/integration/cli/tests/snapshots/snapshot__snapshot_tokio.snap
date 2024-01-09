@@ -1,0 +1,21 @@
+---
+source: tests/integration/cli/tests/snapshot.rs
+expression: snapshot
+---
+{
+  "spec": {
+    "name": "snapshot::test_snapshot_tokio",
+    "use_packages": [],
+    "include_webcs": [],
+    "cli_args": [],
+    "enable_threads": true,
+    "enable_network": false
+  },
+  "result": {
+    "Success": {
+      "stdout": "step-B1\nstep-B2\nstep-B3\nstep-B4\n",
+      "stderr": "step-1\nreceived ErrorKind::WouldBlock - receiving on an empty channel\nstep-2\nstep-3\ndata match verified (len=128)\nstep-4\nreceived ErrorKind::WouldBlock - receiving on an empty channel\nstep-5\nstep-A1\nstep-A2\ndata match verified (len=128)\nstep-A3\nstep-A4\ndata match verified (len=128)\nstep-A5\nreceived ErrorKind::WouldBlock - receiving on an empty channel\nstep-A6\nstep-A7\nreceived ErrorKind::WouldBlock - receiving on an empty channel\nstep-A8\nall done\n",
+      "exit_code": 0
+    }
+  }
+}

@@ -8,25 +8,25 @@ use crate::BaseTunables;
 #[cfg(not(target_arch = "wasm32"))]
 use crate::CodeMemory;
 #[cfg(not(target_arch = "wasm32"))]
-use crate::{AsEngineRef, EngineRef};
+use crate::GlobalFrameInfoRegistration;
 #[cfg(feature = "compiler")]
 use crate::{Compiler, CompilerConfig};
 #[cfg(not(target_arch = "wasm32"))]
 use crate::{FunctionExtent, Tunables};
 #[cfg(not(target_arch = "wasm32"))]
-use memmap2::Mmap;
+use shared_buffer::OwnedBuffer;
 #[cfg(not(target_arch = "wasm32"))]
 use std::path::Path;
 use std::sync::atomic::{AtomicUsize, Ordering::SeqCst};
 use std::sync::{Arc, Mutex};
 #[cfg(not(target_arch = "wasm32"))]
 use wasmer_types::{
-    entity::PrimaryMap, DeserializeError, FunctionBody, FunctionIndex, FunctionType,
-    LocalFunctionIndex, ModuleInfo, SignatureIndex,
+    entity::PrimaryMap, DeserializeError, FunctionBodyLike, FunctionIndex, FunctionType,
+    LocalFunctionIndex, SignatureIndex,
 };
-use wasmer_types::{CompileError, Features, Target};
+use wasmer_types::{CompileError, Features, ModuleInfo, Target};
 #[cfg(not(target_arch = "wasm32"))]
-use wasmer_types::{CustomSection, CustomSectionProtection, SectionIndex};
+use wasmer_types::{CustomSectionLike, CustomSectionProtection, SectionIndex};
 #[cfg(not(target_arch = "wasm32"))]
 use wasmer_vm::{
     FunctionBodyPtr, SectionBodyPtr, SignatureRegistry, VMFunctionBody, VMSharedSignatureIndex,
@@ -42,6 +42,7 @@ pub struct Engine {
     engine_id: EngineId,
     #[cfg(not(target_arch = "wasm32"))]
     tunables: Arc<dyn Tunables + Send + Sync>,
+    name: String,
 }
 
 impl Engine {
@@ -54,9 +55,11 @@ impl Engine {
     ) -> Self {
         #[cfg(not(target_arch = "wasm32"))]
         let tunables = BaseTunables::for_target(&target);
+        let compiler = compiler_config.compiler();
+        let name = format!("engine-{}", compiler.name());
         Self {
             inner: Arc::new(Mutex::new(EngineInner {
-                compiler: Some(compiler_config.compiler()),
+                compiler: Some(compiler),
                 features,
                 #[cfg(not(target_arch = "wasm32"))]
                 code_memory: vec![],
@@ -67,7 +70,31 @@ impl Engine {
             engine_id: EngineId::default(),
             #[cfg(not(target_arch = "wasm32"))]
             tunables: Arc::new(tunables),
+            name,
         }
+    }
+
+    #[cfg(not(feature = "compiler"))]
+    pub fn new(
+        compiler_config: Box<dyn CompilerConfig>,
+        target: Target,
+        features: Features,
+    ) -> Self {
+        panic!("The engine is not compiled with any compiler support")
+    }
+
+    /// Returns the name of this engine
+    pub fn name(&self) -> &str {
+        self.name.as_str()
+    }
+
+    /// Returns the deterministic id of this engine
+    pub fn deterministic_id(&self) -> &str {
+        // TODO: add a `deterministic_id` to the Compiler, so two
+        // compilers can actually serialize into a different deterministic_id
+        // if their configuration is different (eg. LLVM with optimizations vs LLVM
+        // without optimizations)
+        self.name.as_str()
     }
 
     /// Create a headless `Engine`
@@ -102,6 +129,7 @@ impl Engine {
             engine_id: EngineId::default(),
             #[cfg(not(target_arch = "wasm32"))]
             tunables: Arc::new(tunables),
+            name: "engine-headless".to_string(),
         }
     }
 
@@ -165,28 +193,62 @@ impl Engine {
     }
 
     #[cfg(not(target_arch = "wasm32"))]
-    /// Deserializes a WebAssembly module
+    /// Deserializes a WebAssembly module which was previously serialized with
+    /// [`Module::serialize`].
     ///
     /// # Safety
     ///
-    /// The serialized content must represent a serialized WebAssembly module.
-    pub unsafe fn deserialize(&self, bytes: &[u8]) -> Result<Arc<Artifact>, DeserializeError> {
+    /// See [`Artifact::deserialize_unchecked`].
+    pub unsafe fn deserialize_unchecked(
+        &self,
+        bytes: OwnedBuffer,
+    ) -> Result<Arc<Artifact>, DeserializeError> {
+        Ok(Arc::new(Artifact::deserialize_unchecked(self, bytes)?))
+    }
+
+    /// Deserializes a WebAssembly module which was previously serialized with
+    /// [`Module::serialize`].
+    ///
+    /// # Safety
+    ///
+    /// See [`Artifact::deserialize`].
+    #[cfg(not(target_arch = "wasm32"))]
+    pub unsafe fn deserialize(
+        &self,
+        bytes: OwnedBuffer,
+    ) -> Result<Arc<Artifact>, DeserializeError> {
         Ok(Arc::new(Artifact::deserialize(self, bytes)?))
     }
 
-    #[cfg(not(target_arch = "wasm32"))]
-    /// Deserializes a WebAssembly module from a path
+    /// Deserializes a WebAssembly module from a path.
     ///
     /// # Safety
-    ///
-    /// The file's content must represent a serialized WebAssembly module.
+    /// See [`Artifact::deserialize`].
+    #[cfg(not(target_arch = "wasm32"))]
     pub unsafe fn deserialize_from_file(
         &self,
         file_ref: &Path,
     ) -> Result<Arc<Artifact>, DeserializeError> {
         let file = std::fs::File::open(file_ref)?;
-        let mmap = Mmap::map(&file)?;
-        self.deserialize(&mmap)
+        self.deserialize(
+            OwnedBuffer::from_file(&file).map_err(|e| DeserializeError::Generic(e.to_string()))?,
+        )
+    }
+
+    /// Deserialize from a file path.
+    ///
+    /// # Safety
+    ///
+    /// See [`Artifact::deserialize_unchecked`].
+    #[cfg(not(target_arch = "wasm32"))]
+    pub unsafe fn deserialize_from_file_unchecked(
+        &self,
+        file_ref: &Path,
+    ) -> Result<Arc<Artifact>, DeserializeError> {
+        let file = std::fs::File::open(file_ref)?;
+        self.deserialize_unchecked(
+            OwnedBuffer::from_file(&file).map_err(|e| DeserializeError::Generic(e.to_string()))?,
+        )
     }
 
     /// A unique identifier for this object.
@@ -216,10 +278,13 @@ impl Engine {
     }
 }
 
-#[cfg(not(target_arch = "wasm32"))]
-impl AsEngineRef for Engine {
-    fn as_engine_ref(&self) -> EngineRef {
-        EngineRef { inner: self }
+impl std::fmt::Debug for Engine {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        f.debug_struct("Engine")
+            .field("target", &self.target)
+            .field("engine_id", &self.engine_id)
+            .field("name", &self.name)
+            .finish()
     }
 }
 
@@ -247,7 +312,7 @@ impl EngineInner {
     pub fn compiler(&self) -> Result<&dyn Compiler, CompileError> {
         match self.compiler.as_ref() {
             None => Err(CompileError::Codegen(
-                "The Engine is not compiled in.".to_string(),
+                "No compiler compiled into executable".to_string(),
             )),
             Some(compiler) => Ok(&**compiler),
         }
@@ -269,13 +334,13 @@ impl EngineInner {
     /// Allocate compiled functions into memory
     #[cfg(not(target_arch = "wasm32"))]
     #[allow(clippy::type_complexity)]
-    pub(crate) fn allocate(
-        &mut self,
+    pub(crate) fn allocate<'a, FunctionBody, CustomSection>(
+        &'a mut self,
         _module: &ModuleInfo,
-        functions: &PrimaryMap<LocalFunctionIndex, FunctionBody>,
-        function_call_trampolines: &PrimaryMap<SignatureIndex, FunctionBody>,
-        dynamic_function_trampolines: &PrimaryMap<FunctionIndex, FunctionBody>,
-        custom_sections: &PrimaryMap<SectionIndex, CustomSection>,
+        functions: impl ExactSizeIterator<Item = &'a FunctionBody> + 'a,
+        function_call_trampolines: impl ExactSizeIterator<Item = &'a FunctionBody> + 'a,
+        dynamic_function_trampolines: impl ExactSizeIterator<Item = &'a FunctionBody> + 'a,
+        custom_sections: impl ExactSizeIterator<Item = &'a CustomSection> + Clone + 'a,
     ) -> Result<
         (
             PrimaryMap<LocalFunctionIndex, FunctionExtent>,
@@ -284,15 +349,21 @@ impl EngineInner {
             PrimaryMap<SectionIndex, SectionBodyPtr>,
         ),
         CompileError,
-    > {
+    >
+    where
+        FunctionBody: FunctionBodyLike<'a> + 'a,
+        CustomSection: CustomSectionLike<'a> + 'a,
+    {
+        let functions_len = functions.len();
+        let function_call_trampolines_len = function_call_trampolines.len();
+
         let function_bodies = functions
-            .values()
-            .chain(function_call_trampolines.values())
-            .chain(dynamic_function_trampolines.values())
+            .chain(function_call_trampolines)
+            .chain(dynamic_function_trampolines)
             .collect::<Vec<_>>();
         let (executable_sections, data_sections): (Vec<_>, _) = custom_sections
-            .values()
-            .partition(|section| section.protection == CustomSectionProtection::ReadExecute);
+            .clone()
+            .partition(|section| *section.protection() == CustomSectionProtection::ReadExecute);
         self.code_memory.push(CodeMemory::new());
 
         let (mut allocated_functions, allocated_executable_sections, allocated_data_sections) =
@@ -312,7 +383,7 @@ impl EngineInner {
                 })?;
 
         let allocated_functions_result = allocated_functions
-            .drain(0..functions.len())
+            .drain(0..functions_len)
             .map(|slice| FunctionExtent {
                 ptr: FunctionBodyPtr(slice.as_ptr()),
                 length: slice.len(),
@@ -322,7 +393,7 @@ impl EngineInner {
         let mut allocated_function_call_trampolines: PrimaryMap<SignatureIndex, VMTrampoline> =
             PrimaryMap::new();
         for ptr in allocated_functions
-            .drain(0..function_call_trampolines.len())
+            .drain(0..function_call_trampolines_len)
             .map(|slice| slice.as_ptr())
         {
             let trampoline =
@@ -338,10 +409,9 @@ impl EngineInner {
         let mut exec_iter = allocated_executable_sections.iter();
         let mut data_iter = allocated_data_sections.iter();
         let allocated_custom_sections = custom_sections
-            .iter()
-            .map(|(_, section)| {
+            .map(|section| {
                 SectionBodyPtr(
-                    if section.protection == CustomSectionProtection::ReadExecute {
+                    if *section.protection() == CustomSectionProtection::ReadExecute {
                         exec_iter.next()
                     } else {
                         data_iter.next()
@@ -384,6 +454,15 @@ impl EngineInner {
     #[cfg(not(target_arch = "wasm32"))]
     pub fn signatures(&self) -> &SignatureRegistry {
         &self.signatures
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    /// Register the frame info for the code memory
+    pub(crate) fn register_frame_info(&mut self, frame_info: GlobalFrameInfoRegistration) {
+        self.code_memory
+            .last_mut()
+            .unwrap()
+            .register_frame_info(frame_info);
     }
 }
 

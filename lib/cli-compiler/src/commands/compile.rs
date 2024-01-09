@@ -2,6 +2,7 @@ use crate::store::StoreOptions;
 use crate::warning;
 use anyhow::{Context, Result};
 use clap::Parser;
+use std::fs;
 use std::path::{Path, PathBuf};
 use wasmer_compiler::{ArtifactBuild, ArtifactCreate, ModuleEnvironment};
 use wasmer_types::entity::PrimaryMap;
@@ -14,11 +15,11 @@ use wasmer_types::{
 /// The options for the `wasmer compile` subcommand
 pub struct Compile {
     /// Input file
-    #[clap(name = "FILE", parse(from_os_str))]
+    #[clap(name = "FILE")]
     path: PathBuf,
 
     /// Output file
-    #[clap(name = "OUTPUT PATH", short = 'o', parse(from_os_str))]
+    #[clap(name = "OUTPUT PATH", short = 'o')]
     output: PathBuf,
 
     /// Compilation Target triple
@@ -105,7 +106,8 @@ impl Compile {
             memory_styles,
             table_styles,
         )?;
-        artifact.serialize_to_file(self.output.as_ref())?;
+        let serialized = artifact.serialize()?;
+        fs::write(output_filename, serialized)?;
         eprintln!(
             "✔ File compiled successfully to `{}`.",
             self.output.display(),

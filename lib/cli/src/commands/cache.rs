@@ -1,44 +1,51 @@
-use crate::common::get_cache_dir;
-use anyhow::{Context, Result};
+use std::{fs, path::Path};
+
+use anyhow::Result;
 use clap::Parser;
-use std::fs;
+use wasmer_registry::wasmer_env::WasmerEnv;
 
 #[derive(Debug, Parser)]
 /// The options for the `wasmer cache` subcommand
-pub enum Cache {
-    /// Clear the cache
-    #[clap(name = "clean")]
-    Clean,
-
-    /// Display the location of the cache
-    #[clap(name = "dir")]
-    Dir,
+pub struct Cache {
+    #[clap(flatten)]
+    env: WasmerEnv,
+    /// The operation to perform.
+    #[clap(subcommand)]
+    cmd: Cmd,
 }
 
 impl Cache {
     /// Execute the cache command
     pub fn execute(&self) -> Result<()> {
-        match &self {
-            Cache::Clean => {
-                self.clean().context("failed to clean wasmer cache.")?;
+        let cache_dir = self.env.cache_dir();
+
+        match self.cmd {
+            Cmd::Clean => {
+                clean(&cache_dir)?;
             }
-            Cache::Dir => {
-                self.dir()?;
+            Cmd::Dir => {
+                println!("{}", self.env.cache_dir().display());
             }
         }
+
         Ok(())
     }
-    fn clean(&self) -> Result<()> {
-        let cache_dir = get_cache_dir();
-        if cache_dir.exists() {
-            fs::remove_dir_all(cache_dir.clone())?;
-        }
-        fs::create_dir_all(cache_dir)?;
-        eprintln!("Wasmer cache cleaned successfully.");
-        Ok(())
+}
+
+#[derive(Debug, Copy, Clone, Parser)]
+enum Cmd {
+    /// Clear the cache
+    Clean,
+    /// Display the location of the cache
+    Dir,
+}
+
+fn clean(cache_dir: &Path) -> Result<()> {
+    if cache_dir.exists() {
+        fs::remove_dir_all(cache_dir)?;
     }
-    fn dir(&self) -> Result<()> {
-        println!("{}", get_cache_dir().to_string_lossy());
-        Ok(())
-    }
+    fs::create_dir_all(cache_dir)?;
+    eprintln!("Wasmer cache cleaned successfully.");
+
+    Ok(())
 }

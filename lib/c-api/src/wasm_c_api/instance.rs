@@ -85,6 +85,12 @@ pub unsafe extern "C" fn wasm_instance_new(
 
             return None;
         }
+
+        Err(e @ InstantiationError::DifferentArchOS) => {
+            crate::error::update_last_error(e);
+
+            return None;
+        }
     };
 
     Some(Box::new(wasm_instance_t {
@@ -212,6 +218,7 @@ mod tests {
     #[cfg(target_os = "windows")]
     use wasmer_inline_c::assert_c;
 
+    #[cfg_attr(coverage, ignore)]
     #[test]
     fn test_instance_new() {
         (assert_c! {

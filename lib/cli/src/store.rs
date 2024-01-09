@@ -14,6 +14,7 @@ use std::sync::Arc;
 use wasmer::*;
 #[cfg(feature = "compiler")]
 use wasmer_compiler::CompilerConfig;
+#[cfg(feature = "compiler")]
 use wasmer_compiler::Engine;
 
 #[derive(Debug, Clone, Parser, Default)]
@@ -47,7 +48,7 @@ pub struct CompilerOptions {
 
     /// LLVM debug directory, where IR and object files will be written to.
     #[cfg(feature = "llvm")]
-    #[clap(long, parse(from_os_str))]
+    #[clap(long)]
     llvm_debug_dir: Option<PathBuf>,
 
     #[clap(flatten)]
@@ -69,7 +70,7 @@ impl CompilerOptions {
                 if #[cfg(all(feature = "cranelift", any(target_arch = "x86_64", target_arch = "aarch64")))] {
                     Ok(CompilerType::Cranelift)
                 }
-                else if #[cfg(all(feature = "singlepass", target_arch = "x86_64"))] {
+                else if #[cfg(all(feature = "singlepass", any(target_arch = "x86_64", target_arch = "aarch64")))] {
                     Ok(CompilerType::Singlepass)
                 }
                 else if #[cfg(feature = "llvm")] {
@@ -83,8 +84,11 @@ impl CompilerOptions {
 
     /// Get the enaled Wasm features.
     pub fn get_features(&self, mut features: Features) -> Result<Features> {
-        if self.features.threads || self.features.all {
+        if !self.features.disable_threads || self.features.all {
             features.threads(true);
+        }
+        if self.features.disable_threads && !self.features.all {
+            features.threads(false);
         }
         if self.features.multi_value || self.features.all {
             features.multi_value(true);
@@ -107,6 +111,13 @@ impl CompilerOptions {
         let engine = self.get_engine(target, compiler_config)?;
         let store = Store::new(engine);
         Ok((store, compiler_type))
+    }
+
+    /// Gets the Engine for a given target.
+    pub fn get_engine_for_target(&self, target: Target) -> Result<(Engine, CompilerType)> {
+        let (compiler_config, compiler_type) = self.get_compiler_config()?;
+        let engine = self.get_engine(target, compiler_config)?;
+        Ok((engine, compiler_type))
     }
 
     #[cfg(feature = "compiler")]
@@ -329,10 +340,10 @@ impl StoreOptions {
 }
 
 // If we don't have a compiler, but we have an engine
-#[cfg(not(feature = "compiler"))]
+#[cfg(not(any(feature = "compiler", feature = "jsc")))]
 impl StoreOptions {
-    fn get_engine_headless(&self) -> Result<Engine> {
-        let engine: Engine = wasmer_compiler::EngineBuilder::headless().engine();
+    fn get_engine_headless(&self) -> Result<wasmer_compiler::Engine> {
+        let engine: wasmer_compiler::Engine = wasmer_compiler::EngineBuilder::headless().engine();
         Ok(engine)
     }
 
@@ -340,6 +351,15 @@ impl StoreOptions {
     pub fn get_store(&self) -> Result<(Store, CompilerType)> {
         let engine = self.get_engine_headless()?;
         let store = Store::new(engine);
+        Ok((store, CompilerType::Headless))
+    }
+}
+
+#[cfg(all(not(feature = "compiler"), feature = "jsc"))]
+impl StoreOptions {
+    /// Get the store (headless engine)
+    pub fn get_store(&self) -> Result<(Store, CompilerType)> {
+        let store = Store::default();
         Ok((store, CompilerType::Headless))
     }
 }

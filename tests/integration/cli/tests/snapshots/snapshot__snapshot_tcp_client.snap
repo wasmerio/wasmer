@@ -1,0 +1,23 @@
+---
+source: tests/integration/cli/tests/snapshot.rs
+expression: snapshot
+---
+{
+  "spec": {
+    "name": null,
+    "wasm_hash": "1ed22ea4a1af6d569d6deadc3ba93364",
+    "use_packages": [
+      "sharrattj/coreutils"
+    ],
+    "cli_args": [],
+    "debug_output": false,
+    "enable_threads": true,
+  },
+  "result": {
+    "Success": {
+      "stdout": "Successfully connected to server in port 53\nFinished.\n",
+      "stderr": "",
+      "exit_code": 0
+    }
+  }
+}

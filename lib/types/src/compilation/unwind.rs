@@ -19,10 +19,43 @@ use serde::{Deserialize, Serialize};
 /// [unwind info]: https://docs.microsoft.com/en-us/cpp/build/exception-handling-x64?view=vs-2019
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 #[derive(RkyvSerialize, RkyvDeserialize, Archive, Debug, Clone, PartialEq, Eq)]
+#[archive_attr(derive(rkyv::CheckBytes))]
 pub enum CompiledFunctionUnwindInfo {
     /// Windows UNWIND_INFO.
     WindowsX64(Vec<u8>),
 
     /// The unwind info is added to the Dwarf section in `Compilation`.
     Dwarf,
+}
+
+/// Generic reference to data in a `CompiledFunctionUnwindInfo`
+#[allow(missing_docs)]
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum CompiledFunctionUnwindInfoReference<'a> {
+    WindowsX64(&'a [u8]),
+    Dwarf,
+}
+
+/// Any struct that acts like a `CompiledFunctionUnwindInfo`.
+#[allow(missing_docs)]
+pub trait CompiledFunctionUnwindInfoLike<'a> {
+    fn get(&'a self) -> CompiledFunctionUnwindInfoReference<'a>;
+}
+
+impl<'a> CompiledFunctionUnwindInfoLike<'a> for CompiledFunctionUnwindInfo {
+    fn get(&'a self) -> CompiledFunctionUnwindInfoReference<'a> {
+        match self {
+            Self::WindowsX64(v) => CompiledFunctionUnwindInfoReference::WindowsX64(v.as_ref()),
+            Self::Dwarf => CompiledFunctionUnwindInfoReference::Dwarf,
+        }
+    }
+}
+
+impl<'a> CompiledFunctionUnwindInfoLike<'a> for ArchivedCompiledFunctionUnwindInfo {
+    fn get(&'a self) -> CompiledFunctionUnwindInfoReference<'a> {
+        match self {
+            Self::WindowsX64(v) => CompiledFunctionUnwindInfoReference::WindowsX64(v.as_ref()),
+            Self::Dwarf => CompiledFunctionUnwindInfoReference::Dwarf,
+        }
+    }
 }

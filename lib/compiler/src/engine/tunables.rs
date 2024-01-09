@@ -7,7 +7,7 @@ use wasmer_types::{
 };
 use wasmer_vm::{InternalStoreHandle, MemoryError, StoreObjects};
 use wasmer_vm::{MemoryStyle, TableStyle};
-use wasmer_vm::{VMGlobal, VMMemory, VMTable};
+use wasmer_vm::{VMConfig, VMGlobal, VMMemory, VMTable};
 use wasmer_vm::{VMMemoryDefinition, VMTableDefinition};
 
 /// An engine delegates the creation of memories, tables, and globals
@@ -60,6 +60,7 @@ pub trait Tunables {
     ///
     /// # Safety
     /// - `memory_definition_locations` must point to a valid locations in VM memory.
+    #[allow(clippy::result_large_err)]
     unsafe fn create_memories(
         &self,
         context: &mut StoreObjects,
@@ -93,6 +94,7 @@ pub trait Tunables {
     /// # Safety
     ///
     /// To be done
+    #[allow(clippy::result_large_err)]
     unsafe fn create_tables(
         &self,
         context: &mut StoreObjects,
@@ -123,6 +125,7 @@ pub trait Tunables {
 
     /// Allocate memory for just the globals of the current module,
     /// with initializers applied.
+    #[allow(clippy::result_large_err)]
     fn create_globals(
         &self,
         context: &mut StoreObjects,
@@ -140,6 +143,18 @@ pub trait Tunables {
         }
 
         Ok(vmctx_globals)
+    }
+
+    /// Get the VMConfig for this tunables
+    /// Currently, VMConfig have optional Stack size
+    /// If wasm_stack_size is left to None (the default value)
+    /// then the global stack size will be use
+    /// Else the defined stack size will be used. Size is in byte
+    /// and the value might be rounded to sane value is needed.
+    fn vmconfig(&self) -> &VMConfig {
+        &VMConfig {
+            wasm_stack_size: None,
+        }
     }
 }
 
@@ -265,5 +280,89 @@ impl Tunables for BaseTunables {
         vm_definition_location: NonNull<VMTableDefinition>,
     ) -> Result<VMTable, String> {
         VMTable::from_definition(ty, style, vm_definition_location)
+    }
+}
+
+impl Tunables for Box<dyn Tunables + Send + Sync> {
+    fn memory_style(&self, memory: &MemoryType) -> MemoryStyle {
+        self.as_ref().memory_style(memory)
+    }
+
+    fn table_style(&self, table: &TableType) -> TableStyle {
+        self.as_ref().table_style(table)
+    }
+
+    fn create_host_memory(
+        &self,
+        ty: &MemoryType,
+        style: &MemoryStyle,
+    ) -> Result<VMMemory, MemoryError> {
+        self.as_ref().create_host_memory(ty, style)
+    }
+
+    unsafe fn create_vm_memory(
+        &self,
+        ty: &MemoryType,
+        style: &MemoryStyle,
+        vm_definition_location: NonNull<VMMemoryDefinition>,
+    ) -> Result<VMMemory, MemoryError> {
+        self.as_ref()
+            .create_vm_memory(ty, style, vm_definition_location)
+    }
+
+    fn create_host_table(&self, ty: &TableType, style: &TableStyle) -> Result<VMTable, String> {
+        self.as_ref().create_host_table(ty, style)
+    }
+
+    unsafe fn create_vm_table(
+        &self,
+        ty: &TableType,
+        style: &TableStyle,
+        vm_definition_location: NonNull<VMTableDefinition>,
+    ) -> Result<VMTable, String> {
+        self.as_ref()
+            .create_vm_table(ty, style, vm_definition_location)
+    }
+}
+
+impl Tunables for std::sync::Arc<dyn Tunables + Send + Sync> {
+    fn memory_style(&self, memory: &MemoryType) -> MemoryStyle {
+        self.as_ref().memory_style(memory)
+    }
+
+    fn table_style(&self, table: &TableType) -> TableStyle {
+        self.as_ref().table_style(table)
+    }
+
+    fn create_host_memory(
+        &self,
+        ty: &MemoryType,
+        style: &MemoryStyle,
+    ) -> Result<VMMemory, MemoryError> {
+        self.as_ref().create_host_memory(ty, style)
+    }
+
+    unsafe fn create_vm_memory(
+        &self,
+        ty: &MemoryType,
+        style: &MemoryStyle,
+        vm_definition_location: NonNull<VMMemoryDefinition>,
+    ) -> Result<VMMemory, MemoryError> {
+        self.as_ref()
+            .create_vm_memory(ty, style, vm_definition_location)
+    }
+
+    fn create_host_table(&self, ty: &TableType, style: &TableStyle) -> Result<VMTable, String> {
+        self.as_ref().create_host_table(ty, style)
+    }
+
+    unsafe fn create_vm_table(
+        &self,
+        ty: &TableType,
+        style: &TableStyle,
+        vm_definition_location: NonNull<VMTableDefinition>,
+    ) -> Result<VMTable, String> {
+        self.as_ref()
+            .create_vm_table(ty, style, vm_definition_location)
     }
 }

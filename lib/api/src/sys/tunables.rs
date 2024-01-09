@@ -6,14 +6,16 @@ pub use wasmer_compiler::BaseTunables;
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::sys::TableType;
+    #[allow(unused)]
+    use crate::sys::NativeEngineExt;
+    use crate::TableType;
     use std::cell::UnsafeCell;
     use std::ptr::NonNull;
     use wasmer_compiler::Tunables;
     use wasmer_types::{MemoryType, Pages, WASM_PAGE_SIZE};
     use wasmer_vm::{
-        LinearMemory, MemoryError, MemoryStyle, TableStyle, VMMemory, VMMemoryDefinition, VMTable,
-        VMTableDefinition,
+        LinearMemory, MemoryError, MemoryStyle, TableStyle, VMConfig, VMMemory, VMMemoryDefinition,
+        VMTable, VMTableDefinition,
     };
 
     #[test]
@@ -69,7 +71,7 @@ mod tests {
             let sz = 18 * WASM_PAGE_SIZE;
             let mut memory = Vec::new();
             memory.resize(sz, 0);
-            let mut ret = VMTinyMemory {
+            let mut ret = Self {
                 mem: memory,
                 memory_definition: None,
             };
@@ -104,6 +106,24 @@ mod tests {
                 attempted_delta: delta,
             })
         }
+
+        fn grow_at_least(&mut self, min_size: u64) -> Result<(), MemoryError> {
+            let cur_size = self.size().0 as u64 * WASM_PAGE_SIZE as u64;
+            if min_size > cur_size {
+                let delta = min_size - cur_size;
+                return Err(MemoryError::CouldNotGrow {
+                    current: Pages::from(100u32),
+                    attempted_delta: Pages(delta as u32),
+                });
+            }
+            Ok(())
+        }
+
+        fn reset(&mut self) -> Result<(), MemoryError> {
+            self.mem.fill(0);
+            Ok(())
+        }
+
         fn vmmemory(&self) -> NonNull<VMMemoryDefinition> {
             unsafe {
                 NonNull::new(
@@ -117,8 +137,22 @@ mod tests {
                 .unwrap()
             }
         }
-        fn try_clone(&self) -> Option<Box<dyn LinearMemory + 'static>> {
-            None
+
+        fn try_clone(&self) -> Result<Box<dyn LinearMemory + 'static>, MemoryError> {
+            Err(MemoryError::InvalidMemory {
+                reason: "VMTinyMemory can not be cloned".to_string(),
+            })
+        }
+
+        fn copy(&mut self) -> Result<Box<dyn LinearMemory + 'static>, MemoryError> {
+            let mem = self.mem.clone();
+            Ok(Box::new(Self {
+                memory_definition: Some(UnsafeCell::new(VMMemoryDefinition {
+                    base: mem.as_ptr() as _,
+                    current_length: mem.len(),
+                })),
+                mem,
+            }))
         }
         /*
         // this code allow custom memory to be ignoring init_memory
@@ -190,6 +224,13 @@ mod tests {
         ) -> Result<VMTable, String> {
             VMTable::from_definition(ty, style, vm_definition_location)
         }
+
+        // Will use a minimum stack size of 8kb, not the 1Mb default
+        fn vmconfig(&self) -> &crate::vm::VMConfig {
+            &VMConfig {
+                wasm_stack_size: Some(8 * 1024),
+            }
+        }
     }
 
     #[test]
@@ -216,7 +257,7 @@ mod tests {
 
     #[test]
     fn check_customtunables() -> Result<(), Box<dyn std::error::Error>> {
-        use crate::{imports, wat2wasm, Instance, Memory, Module, Store};
+        use crate::{imports, wat2wasm, Engine, Instance, Memory, Module, Store};
         use wasmer_compiler_cranelift::Cranelift;
 
         let wasm_bytes = wat2wasm(
@@ -230,7 +271,10 @@ mod tests {
         let compiler = Cranelift::default();
 
         let tunables = TinyTunables {};
-        let mut store = Store::new_with_tunables(compiler, tunables);
+        #[allow(deprecated)]
+        let mut engine = Engine::new(compiler.into(), Default::default(), Default::default());
+        engine.set_tunables(tunables);
+        let mut store = Store::new(engine);
         //let mut store = Store::new(compiler);
         let module = Module::new(&store, wasm_bytes)?;
         let import_object = imports! {};
@@ -248,6 +292,179 @@ mod tests {
         let view = first_memory.view(&store);
         let x = unsafe { view.data_unchecked_mut() }[0];
         assert_eq!(x, 0);
+
+        Ok(())
+    }
+
+    #[test]
+    #[cfg(all(
+        feature = "singlepass",
+        not(any(
+            target_os = "windows",
+            all(target_os = "macos", target_arch = "aarch64")
+        ))
+    ))]
+    fn check_small_stack() -> Result<(), Box<dyn std::error::Error>> {
+        use crate::{imports, wat2wasm, Engine, Instance, Module, Store};
+        use wasmer_compiler_singlepass::Singlepass;
+        // This test needs Singlepass compiler
+        // because Cranelift will optimize the webassembly file
+        // and remove all the unused local, even at optimization level "None"
+        // But this test needs the huge amount of locals (1024 + a few)
+        // so that the small stack is overflown (stack is only 8K, 1024 i64 local = 8K)
+        // tWindows is disable as it seems Stack frame protection is not 100% efficient
+        let wasm_bytes = wat2wasm(
+            br#"(module
+                (func (;0;) (result i64)
+                  (local i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64)
+                  i64.const 0
+                  i64.const 5555
+                  i64.add
+                  local.set 8
+                  i64.const 0
+                  i64.const 5555
+                  i64.add
+                  local.set 9
+                  i64.const 0
+                  i64.const 5555
+                  i64.add
+                  local.set 10
+                  local.get 10
+                )
+                (func $large_local (export "large_local") (result i64)
+                  (local
+                   i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64
+                   i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64
+                   i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64
+                   i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64
+                   i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64
+                   i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64
+                   i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64
+                   i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64
+                   i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64
+                   i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64
+                   i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64
+                   i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64
+                   i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64
+                   i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64
+                   i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64
+                   i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64
+                   i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64
+                   i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64
+                   i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64
+                   i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64
+                   i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64
+                   i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64
+                   i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64
+                   i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64
+                   i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64
+                   i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64
+                   i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64
+                   i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64
+                   i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64
+                   i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64
+                   i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64
+                   i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64
+                   i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64
+                   i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64
+                   i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64
+                   i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64
+                   i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64
+                   i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64
+                   i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64
+                   i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64
+                   i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64
+                   i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64
+                   i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64
+                   i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64
+                   i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64
+                   i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64
+                   i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64
+                   i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64
+                   i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64
+                   i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64
+                   i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64
+                   i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64
+                   i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64
+                   i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64
+                   i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64
+                   i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64
+                   i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64
+                   i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64
+                   i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64
+                   i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64
+                   i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64
+                   i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64
+                   i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64
+                   i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64
+
+                   i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64
+                   i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64
+                   i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64
+                   i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64
+                   i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64
+                   i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64
+                   i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64
+                   i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64
+
+                   i64
+                  )
+                  (local.set 0 (i64.const 1))
+                  (local.set 1 (i64.const 1))
+                  (local.set 2 (i64.const 1))
+                  (local.set 3 (i64.const 1))
+                  (local.set 1024 (i64.const 2))
+                  (call 0)
+                  local.set 1024
+                  local.get 6
+                  local.get 7
+                  i64.add
+                  local.get 8
+                  i64.add
+                  (call 0)
+                  local.set 10
+                  local.get 9
+                  i64.add
+                  local.get 10
+                  i64.add
+                  local.get 11
+                  i64.add
+                  local.get 12
+                  i64.add
+                  (call 0)
+                  local.set 512
+                  local.get 13
+                  i64.add
+                  local.get 14
+                  i64.add
+                  local.get 15
+                  i64.add
+                  local.get 1024
+                  i64.add
+                  local.get 0
+                  i64.add
+                )
+              )
+            "#,
+        )?;
+        let compiler = Singlepass::default();
+
+        let tunables = TinyTunables {};
+        #[allow(deprecated)]
+        let mut engine = Engine::new(compiler.into(), Default::default(), Default::default());
+        engine.set_tunables(tunables);
+        let mut store = Store::new(engine);
+        let module = Module::new(&store, wasm_bytes)?;
+        let import_object = imports! {};
+        let instance = Instance::new(&mut store, &module, &import_object)?;
+
+        let result = instance
+            .exports
+            .get_function("large_local")?
+            .call(&mut store, &[]);
+
+        println!("result = {:?}", result);
+        assert!(result.is_err());
 
         Ok(())
     }

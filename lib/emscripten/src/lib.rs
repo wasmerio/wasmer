@@ -10,9 +10,10 @@
 // This allow attribute is ignored when placed directly on fields that also
 // have a #[wasmer(...)] attribute. As a dirty workaround it is for now
 // allowed for the whole library.
-#![allow(clippy::type_complexity)]
+#![allow(clippy::type_complexity, clippy::unnecessary_cast)]
 #![doc(html_favicon_url = "https://wasmer.io/images/icons/favicon-32x32.png")]
 #![doc(html_logo_url = "https://github.com/wasmerio.png?size=200")]
+#![cfg_attr(docsrs, feature(doc_cfg, doc_auto_cfg))]
 
 #[macro_use]
 extern crate log;
@@ -23,9 +24,9 @@ use std::f64;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex, RwLock};
 use wasmer::{
-    imports, namespace, AsStoreMut, ExportError, Exports, Function, FunctionEnv, FunctionEnvMut,
-    FunctionType, Global, Imports, Instance, Memory, MemoryType, Module, Pages, RuntimeError,
-    Table, TableType, TypedFunction, Value, WasmPtr,
+    imports, namespace, AsStoreMut, AsStoreRef, ExportError, Exports, Function, FunctionEnv,
+    FunctionEnvMut, FunctionType, Global, Imports, Instance, Memory, MemoryType, Module, Pages,
+    RuntimeError, Table, TableType, TypedFunction, Value, WasmPtr,
 };
 use wasmer_types::Type as ValType;
 
@@ -131,7 +132,7 @@ impl EmEnv {
         }
     }
 
-    pub fn set_memory(&mut self, memory: Memory) {
+    pub fn set_memory(&self, memory: Memory) {
         let mut w = self.memory.write().unwrap();
         *w = Some(memory);
     }
@@ -141,15 +142,12 @@ impl EmEnv {
         (*self.memory.read().unwrap()).as_ref().cloned().unwrap()
     }
 
-    pub fn set_functions(&mut self, funcs: EmscriptenFunctions) {
-        self.funcs = Arc::new(Mutex::new(funcs));
+    pub fn set_functions(&self, funcs: EmscriptenFunctions) {
+        let mut w = self.funcs.lock().unwrap();
+        *w = funcs;
     }
 
-    pub fn set_data(
-        &mut self,
-        data: &EmscriptenGlobalsData,
-        mapped_dirs: HashMap<String, PathBuf>,
-    ) {
+    pub fn set_data(&self, data: &EmscriptenGlobalsData, mapped_dirs: HashMap<String, PathBuf>) {
         let mut w = self.data.lock().unwrap();
         *w = Some(EmscriptenData::new(data.clone(), mapped_dirs));
     }
@@ -887,7 +885,7 @@ pub fn run_emscripten_instance(
     if let Ok(func) = instance.exports.get_typed_function(&env, "setThrew") {
         emfuncs.set_threw = Some(func);
     }
-    env.data_mut().set_functions(emfuncs);
+    env.data().set_functions(emfuncs);
 
     set_up_emscripten(&mut env, instance)?;
 
@@ -928,12 +926,12 @@ fn store_module_arguments(env: &mut FunctionEnvMut<EmEnv>, args: Vec<&str>) -> (
 }
 
 pub fn emscripten_set_up_memory(
-    store: &mut impl AsStoreMut,
+    store: &impl AsStoreRef,
     env: &FunctionEnv<EmEnv>,
     memory: &Memory,
     globals: &EmscriptenGlobalsData,
 ) -> Result<(), String> {
-    env.as_mut(store).set_memory(memory.clone());
+    env.as_ref(store).set_memory(memory.clone());
     let memory = memory.view(store);
     let dynamictop_ptr = WasmPtr::<i32>::new(globals.dynamictop_ptr).deref(&memory);
     let dynamic_base = globals.dynamic_base;

@@ -2,6 +2,7 @@ use wasmer::*;
 
 /// Return an instance implementing the "spectest" interface used in the
 /// spec testsuite.
+#[allow(clippy::print_stdout)]
 pub fn spectest_importobject(store: &mut Store) -> Imports {
     let print = Function::new_typed(store, || {});
     let print_i32 = Function::new_typed(store, |val: i32| println!("{}: i32", val));

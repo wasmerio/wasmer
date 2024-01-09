@@ -1,0 +1,25 @@
+---
+source: tests/integration/cli/tests/snapshot.rs
+expression: snapshot
+---
+{
+  "spec": {
+    "name": "snapshot::test_snapshot_stdin_stdout_stderr",
+    "use_packages": [],
+    "include_webcs": [],
+    "cli_args": [
+      "tee",
+      "/dev/stderr"
+    ],
+    "stdin_hash": "6f1ed002ab5595859014ebf0951522d9",
+    "enable_threads": true,
+    "enable_network": false
+  },
+  "result": {
+    "Success": {
+      "stdout": "blah",
+      "stderr": "blah",
+      "exit_code": 0
+    }
+  }
+}

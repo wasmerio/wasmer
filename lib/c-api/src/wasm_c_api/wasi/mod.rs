@@ -15,10 +15,15 @@ use std::convert::TryFrom;
 use std::ffi::CStr;
 use std::os::raw::c_char;
 use std::slice;
+use std::sync::Arc;
 #[cfg(feature = "webc_runner")]
 use wasmer_api::{AsStoreMut, Imports, Module};
-use wasmer_wasi::{
-    get_wasi_version, Pipe, WasiFile, WasiFunctionEnv, WasiState, WasiStateBuilder, WasiVersion,
+use wasmer_wasix::{
+    default_fs_backing, get_wasi_version,
+    runtime::task_manager::{tokio::TokioTaskManager, InlineWaker},
+    virtual_fs::AsyncReadExt,
+    virtual_fs::VirtualFile,
+    Pipe, PluggableRuntime, WasiEnv, WasiEnvBuilder, WasiFunctionEnv, WasiVersion,
 };
 
 #[derive(Debug)]
@@ -27,7 +32,8 @@ pub struct wasi_config_t {
     inherit_stdout: bool,
     inherit_stderr: bool,
     inherit_stdin: bool,
-    state_builder: WasiStateBuilder,
+    builder: WasiEnvBuilder,
+    runtime: Option<tokio::runtime::Runtime>,
 }
 
 #[no_mangle]
@@ -39,11 +45,18 @@ pub unsafe extern "C" fn wasi_config_new(
     let name_c_str = CStr::from_ptr(program_name);
     let prog_name = c_try!(name_c_str.to_str());
 
+    let runtime = tokio::runtime::Builder::new_multi_thread()
+        .enable_all()
+        .build()
+        .unwrap();
+    let _guard = runtime.enter();
+
     Some(Box::new(wasi_config_t {
         inherit_stdout: true,
         inherit_stderr: true,
         inherit_stdin: true,
-        state_builder: WasiState::new(prog_name),
+        builder: WasiEnv::builder(prog_name).fs(default_fs_backing()),
+        runtime: Some(runtime),
     }))
 }
 
@@ -61,7 +74,7 @@ pub unsafe extern "C" fn wasi_config_env(
     let value_cstr = CStr::from_ptr(value);
     let value_bytes = value_cstr.to_bytes();
 
-    config.state_builder.env(key_bytes, value_bytes);
+    config.builder.add_env(key_bytes, value_bytes);
 }
 
 #[no_mangle]
@@ -71,7 +84,7 @@ pub unsafe extern "C" fn wasi_config_arg(config: &mut wasi_config_t, arg: *const
     let arg_cstr = CStr::from_ptr(arg);
     let arg_bytes = arg_cstr.to_bytes();
 
-    config.state_builder.arg(arg_bytes);
+    config.builder.add_arg(arg_bytes);
 }
 
 #[no_mangle]
@@ -89,7 +102,7 @@ pub unsafe extern "C" fn wasi_config_preopen_dir(
         }
     };
 
-    if let Err(e) = config.state_builder.preopen_dir(dir_str) {
+    if let Err(e) = config.builder.add_preopen_dir(dir_str) {
         update_last_error(e);
         return false;
     }
@@ -123,7 +136,7 @@ pub unsafe extern "C" fn wasi_config_mapdir(
         }
     };
 
-    if let Err(e) = config.state_builder.map_dir(alias_str, dir_str) {
+    if let Err(e) = config.builder.add_map_dir(alias_str, dir_str) {
         update_last_error(e);
         return false;
     }
@@ -224,12 +237,12 @@ unsafe fn wasi_env_with_filesystem_inner(
         config,
         &mut store.store_mut(),
         module,
-        std::mem::transmute(fs.ptr), // cast wasi_filesystem_t.ptr as &'static [u8]
+        &*(fs.ptr as *const u8), // cast wasi_filesystem_t.ptr as &'static [u8]
         fs.size,
         package,
     )?;
 
-    imports_set_buffer(&store, module, import_object, imports)?;
+    imports_set_buffer(store, module, import_object, imports)?;
 
     Some(Box::new(wasi_env_t {
         inner: wasi_env,
@@ -239,18 +252,33 @@ unsafe fn wasi_env_with_filesystem_inner(
 
 #[cfg(feature = "webc_runner")]
 fn prepare_webc_env(
-    config: Box<wasi_config_t>,
+    mut config: Box<wasi_config_t>,
     store: &mut impl AsStoreMut,
     module: &Module,
     bytes: &'static u8,
     len: usize,
     package_name: &str,
 ) -> Option<(WasiFunctionEnv, Imports)> {
-    use wasmer_vfs::static_fs::StaticFileSystem;
-    use webc::FsEntryType;
+    use virtual_fs::static_fs::StaticFileSystem;
+    use webc::v1::{FsEntryType, WebC};
+
+    let store_mut = store.as_store_mut();
+    let runtime = config.runtime.take();
+
+    let runtime = runtime.unwrap_or_else(|| {
+        tokio::runtime::Builder::new_multi_thread()
+            .enable_all()
+            .build()
+            .unwrap()
+    });
+
+    let handle = runtime.handle().clone();
+    let _guard = handle.enter();
+    let mut rt = PluggableRuntime::new(Arc::new(TokioTaskManager::new(runtime)));
+    rt.set_engine(Some(store_mut.engine().clone()));
 
     let slice = unsafe { std::slice::from_raw_parts(bytes, len) };
-    let volumes = webc::WebC::parse_volumes_from_fileblock(slice).ok()?;
+    let volumes = WebC::parse_volumes_from_fileblock(slice).ok()?;
     let top_level_dirs = volumes
         .into_iter()
         .flat_map(|(_, volume)| {
@@ -266,26 +294,27 @@ fn prepare_webc_env(
         })
         .collect::<Vec<_>>();
 
-    let filesystem = Box::new(StaticFileSystem::init(slice, &package_name)?);
-    let mut wasi_env = config.state_builder;
+    let filesystem = Box::new(StaticFileSystem::init(slice, package_name)?);
+    let mut builder = config.builder.runtime(Arc::new(rt));
 
     if !config.inherit_stdout {
-        wasi_env.stdout(Box::new(Pipe::new()));
+        builder.set_stdout(Box::new(Pipe::channel().0));
     }
 
     if !config.inherit_stderr {
-        wasi_env.stderr(Box::new(Pipe::new()));
+        builder.set_stderr(Box::new(Pipe::channel().0));
     }
 
-    wasi_env.set_fs(filesystem);
+    builder.set_fs(filesystem);
 
     for f_name in top_level_dirs.iter() {
-        wasi_env
-            .preopen(|p| p.directory(f_name).read(true).write(true).create(true))
+        builder
+            .add_preopen_build(|p| p.directory(f_name).read(true).write(true).create(true))
             .ok()?;
     }
-    let env = wasi_env.finalize(store).ok()?;
-    let import_object = env.import_object(store, &module).ok()?;
+    let env = builder.finalize(store).ok()?;
+
+    let import_object = env.import_object(store, module).ok()?;
     Some((env, import_object))
 }
 
@@ -306,34 +335,59 @@ pub unsafe extern "C" fn wasi_env_new(
 ) -> Option<Box<wasi_env_t>> {
     let store = &mut store?.inner;
     let mut store_mut = store.store_mut();
+
+    let runtime = config.runtime.take();
+
+    let runtime = runtime.unwrap_or_else(|| {
+        tokio::runtime::Builder::new_multi_thread()
+            .enable_all()
+            .build()
+            .unwrap()
+    });
+
+    let handle = runtime.handle().clone();
+    let _guard = handle.enter();
+    let mut rt = PluggableRuntime::new(Arc::new(TokioTaskManager::new(runtime)));
+    rt.set_engine(Some(store_mut.engine().clone()));
+
     if !config.inherit_stdout {
-        config.state_builder.stdout(Box::new(Pipe::new()));
+        config.builder.set_stdout(Box::new(Pipe::channel().0));
     }
 
     if !config.inherit_stderr {
-        config.state_builder.stderr(Box::new(Pipe::new()));
+        config.builder.set_stderr(Box::new(Pipe::channel().0));
     }
 
     // TODO: impl capturer for stdin
 
-    let wasi_state = c_try!(config.state_builder.finalize(&mut store_mut));
+    let env = c_try!(config
+        .builder
+        .runtime(Arc::new(rt))
+        .finalize(&mut store_mut));
 
     Some(Box::new(wasi_env_t {
-        inner: wasi_state,
+        inner: env,
         store: store.clone(),
     }))
 }
 
 /// Delete a [`wasi_env_t`].
 #[no_mangle]
-pub extern "C" fn wasi_env_delete(_state: Option<Box<wasi_env_t>>) {}
+pub extern "C" fn wasi_env_delete(state: Option<Box<wasi_env_t>>) {
+    if let Some(mut env) = state {
+        env.inner
+            .on_exit(unsafe { &mut env.store.store_mut() }, None);
+    }
+}
 
 /// Set the memory on a [`wasi_env_t`].
+// NOTE: Only here to not break the C API.
+// This was previosly supported, but is no longer possible due to WASIX changes.
+// Customizing memories should be done through the builder or the runtime.
 #[no_mangle]
-pub unsafe extern "C" fn wasi_env_set_memory(env: &mut wasi_env_t, memory: &wasm_memory_t) {
-    let mut store_mut = env.store.store_mut();
-    let wasi_env = env.inner.data_mut(&mut store_mut);
-    wasi_env.set_memory(memory.extern_.memory());
+#[deprecated(since = "4.0.0")]
+pub unsafe extern "C" fn wasi_env_set_memory(_env: &mut wasi_env_t, _memory: &wasm_memory_t) {
+    panic!("wasmer_env_set_memory() is not supported");
 }
 
 #[no_mangle]
@@ -342,11 +396,15 @@ pub unsafe extern "C" fn wasi_env_read_stdout(
     buffer: *mut c_char,
     buffer_len: usize,
 ) -> isize {
-    let inner_buffer = slice::from_raw_parts_mut(buffer as *mut _, buffer_len as usize);
-    let mut store_mut = env.store.store_mut();
-    let state = env.inner.data_mut(&mut store_mut).state();
+    let inner_buffer = slice::from_raw_parts_mut(buffer as *mut _, buffer_len);
+    let store = env.store.store();
 
-    if let Ok(mut stdout) = state.stdout() {
+    let stdout = {
+        let data = env.inner.data(&store);
+        data.stdout()
+    };
+
+    if let Ok(mut stdout) = stdout {
         if let Some(stdout) = stdout.as_mut() {
             read_inner(stdout, inner_buffer)
         } else {
@@ -365,10 +423,13 @@ pub unsafe extern "C" fn wasi_env_read_stderr(
     buffer: *mut c_char,
     buffer_len: usize,
 ) -> isize {
-    let inner_buffer = slice::from_raw_parts_mut(buffer as *mut _, buffer_len as usize);
-    let mut store_mut = env.store.store_mut();
-    let state = env.inner.data_mut(&mut store_mut).state();
-    if let Ok(mut stderr) = state.stderr() {
+    let inner_buffer = slice::from_raw_parts_mut(buffer as *mut _, buffer_len);
+    let store = env.store.store();
+    let stderr = {
+        let data = env.inner.data(&store);
+        data.stderr()
+    };
+    if let Ok(mut stderr) = stderr {
         if let Some(stderr) = stderr.as_mut() {
             read_inner(stderr, inner_buffer)
         } else {
@@ -382,16 +443,18 @@ pub unsafe extern "C" fn wasi_env_read_stderr(
 }
 
 fn read_inner(
-    wasi_file: &mut Box<dyn WasiFile + Send + Sync + 'static>,
+    wasi_file: &mut Box<dyn VirtualFile + Send + Sync + 'static>,
     inner_buffer: &mut [u8],
 ) -> isize {
-    match wasi_file.read(inner_buffer) {
-        Ok(a) => a as isize,
-        Err(err) => {
-            update_last_error(format!("failed to read wasi_file: {}", err));
-            -1
+    InlineWaker::block_on(async {
+        match wasi_file.read(inner_buffer).await {
+            Ok(a) => a as isize,
+            Err(err) => {
+                update_last_error(format!("failed to read wasi_file: {}", err));
+                -1
+            }
         }
-    }
+    })
 }
 
 /// The version of WASI. This is determined by the imports namespace
@@ -523,11 +586,10 @@ pub unsafe extern "C" fn wasi_env_initialize_instance(
     store: &mut wasm_store_t,
     instance: &mut wasm_instance_t,
 ) -> bool {
-    let mem = c_try!(instance.inner.exports.get_memory("memory"); otherwise false);
     wasi_env
         .inner
-        .data_mut(&mut store.inner.store_mut())
-        .set_memory(mem.clone());
+        .initialize(&mut store.inner.store_mut(), instance.inner.clone())
+        .unwrap();
     true
 }
 
@@ -549,6 +611,7 @@ mod tests {
     #[cfg(target_os = "windows")]
     use wasmer_inline_c::assert_c;
 
+    #[cfg_attr(coverage, ignore)]
     #[test]
     fn test_wasi_get_wasi_version_snapshot0() {
         (assert_c! {
@@ -582,6 +645,7 @@ mod tests {
         .success();
     }
 
+    #[cfg_attr(coverage, ignore)]
     #[test]
     fn test_wasi_get_wasi_version_snapshot1() {
         (assert_c! {
@@ -615,6 +679,7 @@ mod tests {
         .success();
     }
 
+    #[cfg_attr(coverage, ignore)]
     #[test]
     fn test_wasi_get_wasi_version_invalid() {
         (assert_c! {

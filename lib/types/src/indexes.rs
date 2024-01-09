@@ -18,6 +18,7 @@ use serde::{Deserialize, Serialize};
     RkyvSerialize,
     RkyvDeserialize,
     Archive,
+    rkyv::CheckBytes,
 )]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 #[archive(as = "Self")]
@@ -49,6 +50,7 @@ entity_impl!(LocalMemoryIndex);
     RkyvSerialize,
     RkyvDeserialize,
     Archive,
+    rkyv::CheckBytes,
 )]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 #[archive(as = "Self")]
@@ -68,6 +70,7 @@ entity_impl!(LocalGlobalIndex);
     RkyvSerialize,
     RkyvDeserialize,
     Archive,
+    rkyv::CheckBytes,
 )]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 #[archive(as = "Self")]
@@ -87,6 +90,7 @@ entity_impl!(FunctionIndex);
     RkyvSerialize,
     RkyvDeserialize,
     Archive,
+    rkyv::CheckBytes,
 )]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 #[archive(as = "Self")]
@@ -106,6 +110,7 @@ entity_impl!(TableIndex);
     RkyvSerialize,
     RkyvDeserialize,
     Archive,
+    rkyv::CheckBytes,
 )]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 #[archive(as = "Self")]
@@ -125,6 +130,7 @@ entity_impl!(GlobalIndex);
     RkyvSerialize,
     RkyvDeserialize,
     Archive,
+    rkyv::CheckBytes,
 )]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 #[archive(as = "Self")]
@@ -144,6 +150,7 @@ entity_impl!(MemoryIndex);
     RkyvSerialize,
     RkyvDeserialize,
     Archive,
+    rkyv::CheckBytes,
 )]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 #[archive(as = "Self")]
@@ -163,6 +170,7 @@ entity_impl!(SignatureIndex);
     RkyvSerialize,
     RkyvDeserialize,
     Archive,
+    rkyv::CheckBytes,
 )]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 #[archive(as = "Self")]
@@ -182,6 +190,7 @@ entity_impl!(DataIndex);
     RkyvSerialize,
     RkyvDeserialize,
     Archive,
+    rkyv::CheckBytes,
 )]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 #[archive(as = "Self")]
@@ -201,6 +210,7 @@ entity_impl!(ElemIndex);
     RkyvSerialize,
     RkyvDeserialize,
     Archive,
+    rkyv::CheckBytes,
 )]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 #[archive(as = "Self")]
@@ -220,9 +230,11 @@ entity_impl!(CustomSectionIndex);
     RkyvSerialize,
     RkyvDeserialize,
     Archive,
+    rkyv::CheckBytes,
 )]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 #[archive(as = "Self")]
+#[repr(u8)]
 pub enum ExportIndex {
     /// Function export.
     Function(FunctionIndex),
@@ -236,10 +248,21 @@ pub enum ExportIndex {
 
 /// An entity to import.
 #[derive(
-    Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord, RkyvSerialize, RkyvDeserialize, Archive,
+    Clone,
+    Debug,
+    Hash,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    RkyvSerialize,
+    RkyvDeserialize,
+    Archive,
+    rkyv::CheckBytes,
 )]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 #[archive(as = "Self")]
+#[repr(u8)]
 pub enum ImportIndex {
     /// Function import.
     Function(FunctionIndex),

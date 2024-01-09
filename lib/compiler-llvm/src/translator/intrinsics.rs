@@ -13,8 +13,8 @@ use inkwell::{
     module::{Linkage, Module},
     targets::TargetData,
     types::{
-        BasicMetadataTypeEnum, BasicType, BasicTypeEnum, FloatType, IntType, PointerType,
-        StructType, VectorType, VoidType,
+        BasicMetadataTypeEnum, BasicType, BasicTypeEnum, FloatType, FunctionType, IntType,
+        PointerType, StructType, VectorType, VoidType,
     },
     values::{
         BasicValue, BasicValueEnum, FloatValue, FunctionValue, InstructionValue, IntValue,
@@ -40,8 +40,8 @@ pub fn type_to_llvm_ptr<'ctx>(
         Type::F32 => Ok(intrinsics.f32_ptr_ty),
         Type::F64 => Ok(intrinsics.f64_ptr_ty),
         Type::V128 => Ok(intrinsics.i128_ptr_ty),
-        Type::FuncRef => Ok(intrinsics.funcref_ty.ptr_type(AddressSpace::Generic)),
-        Type::ExternRef => Ok(intrinsics.externref_ty.ptr_type(AddressSpace::Generic)),
+        Type::FuncRef => Ok(intrinsics.funcref_ty.ptr_type(AddressSpace::default())),
+        Type::ExternRef => Ok(intrinsics.externref_ty.ptr_type(AddressSpace::default())),
     }
 }
 
@@ -240,21 +240,28 @@ pub struct Intrinsics<'ctx> {
     pub imported_memory_copy: FunctionValue<'ctx>,
     pub memory_fill: FunctionValue<'ctx>,
     pub imported_memory_fill: FunctionValue<'ctx>,
+    pub memory_size_ty: FunctionType<'ctx>,
+    pub memory_grow_ty: FunctionType<'ctx>,
     pub memory_wait32: FunctionValue<'ctx>,
+    pub memory_wait32_ty: FunctionType<'ctx>,
     pub imported_memory_wait32: FunctionValue<'ctx>,
     pub memory_wait64: FunctionValue<'ctx>,
+    pub memory_wait64_ty: FunctionType<'ctx>,
     pub imported_memory_wait64: FunctionValue<'ctx>,
     pub memory_notify: FunctionValue<'ctx>,
+    pub memory_notify_ty: FunctionType<'ctx>,
     pub imported_memory_notify: FunctionValue<'ctx>,
 
     pub throw_trap: FunctionValue<'ctx>,
 
     // VM builtins.
     pub vmfunction_import_ptr_ty: PointerType<'ctx>,
+    pub vmfunction_import_ty: StructType<'ctx>,
     pub vmfunction_import_body_element: u32,
     pub vmfunction_import_vmctx_element: u32,
 
     pub vmmemory_definition_ptr_ty: PointerType<'ctx>,
+    pub vmmemory_definition_ty: StructType<'ctx>,
     pub vmmemory_definition_base_element: u32,
     pub vmmemory_definition_current_length_element: u32,
 
@@ -304,14 +311,14 @@ impl<'ctx> Intrinsics<'ctx> {
         let f64x2_ty = f64_ty.vec_type(2);
         let i32x8_ty = i32_ty.vec_type(8);
 
-        let i8_ptr_ty = i8_ty.ptr_type(AddressSpace::Generic);
-        let i16_ptr_ty = i16_ty.ptr_type(AddressSpace::Generic);
-        let i32_ptr_ty = i32_ty.ptr_type(AddressSpace::Generic);
-        let i64_ptr_ty = i64_ty.ptr_type(AddressSpace::Generic);
-        let i128_ptr_ty = i128_ty.ptr_type(AddressSpace::Generic);
-        let isize_ptr_ty = isize_ty.ptr_type(AddressSpace::Generic);
-        let f32_ptr_ty = f32_ty.ptr_type(AddressSpace::Generic);
-        let f64_ptr_ty = f64_ty.ptr_type(AddressSpace::Generic);
+        let i8_ptr_ty = i8_ty.ptr_type(AddressSpace::default());
+        let i16_ptr_ty = i16_ty.ptr_type(AddressSpace::default());
+        let i32_ptr_ty = i32_ty.ptr_type(AddressSpace::default());
+        let i64_ptr_ty = i64_ty.ptr_type(AddressSpace::default());
+        let i128_ptr_ty = i128_ty.ptr_type(AddressSpace::default());
+        let isize_ptr_ty = isize_ty.ptr_type(AddressSpace::default());
+        let f32_ptr_ty = f32_ty.ptr_type(AddressSpace::default());
+        let f64_ptr_ty = f64_ty.ptr_type(AddressSpace::default());
 
         let i1_zero = i1_ty.const_int(0, false);
         let i8_zero = i8_ty.const_int(0, false);
@@ -358,7 +365,7 @@ impl<'ctx> Intrinsics<'ctx> {
         let md_ty_basic_md: BasicMetadataTypeEnum = md_ty.into();
 
         let ctx_ty = i8_ty;
-        let ctx_ptr_ty = ctx_ty.ptr_type(AddressSpace::Generic);
+        let ctx_ptr_ty = ctx_ty.ptr_type(AddressSpace::default());
         let ctx_ptr_ty_basic = ctx_ptr_ty.as_basic_type_enum();
         let ctx_ptr_ty_basic_md: BasicMetadataTypeEnum = ctx_ptr_ty.into();
 
@@ -368,7 +375,7 @@ impl<'ctx> Intrinsics<'ctx> {
             &[i8_ptr_ty_basic, sigindex_ty.into(), ctx_ptr_ty_basic],
             false,
         );
-        let funcref_ty = anyfunc_ty.ptr_type(AddressSpace::Generic);
+        let funcref_ty = anyfunc_ty.ptr_type(AddressSpace::default());
         let externref_ty = funcref_ty;
         let anyref_ty = i8_ptr_ty;
         let anyref_ty_basic_md: BasicMetadataTypeEnum = anyref_ty.into();
@@ -999,6 +1006,11 @@ impl<'ctx> Intrinsics<'ctx> {
                 ),
                 None,
             ),
+            memory_size_ty: i32_ty.fn_type(&[ctx_ptr_ty_basic_md, i32_ty_basic_md], false),
+            memory_grow_ty: i32_ty.fn_type(
+                &[ctx_ptr_ty_basic_md, i32_ty_basic_md, i32_ty_basic_md],
+                false,
+            ),
             data_drop: module.add_function(
                 "wasmer_vm_data_drop",
                 void_ty.fn_type(&[ctx_ptr_ty_basic_md, i32_ty_basic_md], false),
@@ -1033,6 +1045,16 @@ impl<'ctx> Intrinsics<'ctx> {
                 ),
                 None,
             ),
+            memory_wait32_ty: i32_ty.fn_type(
+                &[
+                    ctx_ptr_ty_basic_md,
+                    i32_ty_basic_md,
+                    i32_ty_basic_md,
+                    i32_ty_basic_md,
+                    i64_ty_basic_md,
+                ],
+                false,
+            ),
             imported_memory_wait32: module.add_function(
                 "wasmer_vm_imported_memory32_atomic_wait32",
                 i32_ty.fn_type(
@@ -1061,6 +1083,16 @@ impl<'ctx> Intrinsics<'ctx> {
                 ),
                 None,
             ),
+            memory_wait64_ty: i32_ty.fn_type(
+                &[
+                    ctx_ptr_ty_basic_md,
+                    i32_ty_basic_md,
+                    i32_ty_basic_md,
+                    i64_ty_basic_md,
+                    i64_ty_basic_md,
+                ],
+                false,
+            ),
             imported_memory_wait64: module.add_function(
                 "wasmer_vm_imported_memory32_atomic_wait64",
                 i32_ty.fn_type(
@@ -1078,15 +1110,34 @@ impl<'ctx> Intrinsics<'ctx> {
             memory_notify: module.add_function(
                 "wasmer_vm_memory32_atomic_notify",
                 i32_ty.fn_type(
-                    &[ctx_ptr_ty_basic_md, i32_ty_basic_md, i32_ty_basic_md],
+                    &[
+                        ctx_ptr_ty_basic_md,
+                        i32_ty_basic_md,
+                        i32_ty_basic_md,
+                        i32_ty_basic_md,
+                    ],
                     false,
                 ),
                 None,
             ),
+            memory_notify_ty: i32_ty.fn_type(
+                &[
+                    ctx_ptr_ty_basic_md,
+                    i32_ty_basic_md,
+                    i32_ty_basic_md,
+                    i32_ty_basic_md,
+                ],
+                false,
+            ),
             imported_memory_notify: module.add_function(
                 "wasmer_vm_imported_memory32_atomic_notify",
                 i32_ty.fn_type(
-                    &[ctx_ptr_ty_basic_md, i32_ty_basic_md, i32_ty_basic_md],
+                    &[
+                        ctx_ptr_ty_basic_md,
+                        i32_ty_basic_md,
+                        i32_ty_basic_md,
+                        i32_ty_basic_md,
+                    ],
                     false,
                 ),
                 None,
@@ -1094,13 +1145,15 @@ impl<'ctx> Intrinsics<'ctx> {
 
             vmfunction_import_ptr_ty: context
                 .struct_type(&[i8_ptr_ty_basic, i8_ptr_ty_basic], false)
-                .ptr_type(AddressSpace::Generic),
+                .ptr_type(AddressSpace::default()),
+            vmfunction_import_ty: context.struct_type(&[i8_ptr_ty_basic, i8_ptr_ty_basic], false),
             vmfunction_import_body_element: 0,
             vmfunction_import_vmctx_element: 1,
 
             vmmemory_definition_ptr_ty: context
                 .struct_type(&[i8_ptr_ty_basic, isize_ty.into()], false)
-                .ptr_type(AddressSpace::Generic),
+                .ptr_type(AddressSpace::default()),
+            vmmemory_definition_ty: context.struct_type(&[i8_ptr_ty_basic, isize_ty.into()], false),
             vmmemory_definition_base_element: 0,
             vmmemory_definition_current_length_element: 1,
 
@@ -1109,19 +1162,19 @@ impl<'ctx> Intrinsics<'ctx> {
                     &[ctx_ptr_ty_basic_md, i32_ty_basic_md, i32_ty_basic_md],
                     false,
                 )
-                .ptr_type(AddressSpace::Generic),
+                .ptr_type(AddressSpace::default()),
             imported_memory32_grow_ptr_ty: i32_ty
                 .fn_type(
                     &[ctx_ptr_ty_basic_md, i32_ty_basic_md, i32_ty_basic_md],
                     false,
                 )
-                .ptr_type(AddressSpace::Generic),
+                .ptr_type(AddressSpace::default()),
             memory32_size_ptr_ty: i32_ty
                 .fn_type(&[ctx_ptr_ty_basic_md, i32_ty_basic_md], false)
-                .ptr_type(AddressSpace::Generic),
+                .ptr_type(AddressSpace::default()),
             imported_memory32_size_ptr_ty: i32_ty
                 .fn_type(&[ctx_ptr_ty_basic_md, i32_ty_basic_md], false)
-                .ptr_type(AddressSpace::Generic),
+                .ptr_type(AddressSpace::default()),
             memory32_wait32_ptr_ty: i32_ty
                 .fn_type(
                     &[
@@ -1133,7 +1186,7 @@ impl<'ctx> Intrinsics<'ctx> {
                     ],
                     false,
                 )
-                .ptr_type(AddressSpace::Generic),
+                .ptr_type(AddressSpace::default()),
             imported_memory32_wait32_ptr_ty: i32_ty
                 .fn_type(
                     &[
@@ -1145,7 +1198,7 @@ impl<'ctx> Intrinsics<'ctx> {
                     ],
                     false,
                 )
-                .ptr_type(AddressSpace::Generic),
+                .ptr_type(AddressSpace::default()),
             memory32_wait64_ptr_ty: i32_ty
                 .fn_type(
                     &[
@@ -1157,7 +1210,7 @@ impl<'ctx> Intrinsics<'ctx> {
                     ],
                     false,
                 )
-                .ptr_type(AddressSpace::Generic),
+                .ptr_type(AddressSpace::default()),
             imported_memory32_wait64_ptr_ty: i32_ty
                 .fn_type(
                     &[
@@ -1169,7 +1222,7 @@ impl<'ctx> Intrinsics<'ctx> {
                     ],
                     false,
                 )
-                .ptr_type(AddressSpace::Generic),
+                .ptr_type(AddressSpace::default()),
             memory32_notify_ptr_ty: i32_ty
                 .fn_type(
                     &[
@@ -1180,7 +1233,7 @@ impl<'ctx> Intrinsics<'ctx> {
                     ],
                     false,
                 )
-                .ptr_type(AddressSpace::Generic),
+                .ptr_type(AddressSpace::default()),
             imported_memory32_notify_ptr_ty: i32_ty
                 .fn_type(
                     &[
@@ -1191,7 +1244,7 @@ impl<'ctx> Intrinsics<'ctx> {
                     ],
                     false,
                 )
-                .ptr_type(AddressSpace::Generic),
+                .ptr_type(AddressSpace::default()),
 
             ctx_ptr_ty,
         };
@@ -1227,13 +1280,19 @@ struct TableCache<'ctx> {
 
 #[derive(Clone, Copy)]
 pub enum GlobalCache<'ctx> {
-    Mut { ptr_to_value: PointerValue<'ctx> },
-    Const { value: BasicValueEnum<'ctx> },
+    Mut {
+        ptr_to_value: PointerValue<'ctx>,
+        value_type: BasicTypeEnum<'ctx>,
+    },
+    Const {
+        value: BasicValueEnum<'ctx>,
+    },
 }
 
 #[derive(Clone)]
 pub struct FunctionCache<'ctx> {
     pub func: PointerValue<'ctx>,
+    pub llvm_func_type: FunctionType<'ctx>,
     pub vmctx: BasicValueEnum<'ctx>,
     pub attrs: Vec<(Attribute, AttributeLoc)>,
 }
@@ -1303,34 +1362,36 @@ impl<'ctx, 'a> CtxType<'ctx, 'a> {
         );
         let memory_style = &memory_styles[index];
         *cached_memories.entry(index).or_insert_with(|| {
-            let memory_definition_ptr =
-                if let Some(local_memory_index) = wasm_module.local_memory_index(index) {
-                    let offset = offsets.vmctx_vmmemory_definition(local_memory_index);
-                    let offset = intrinsics.i32_ty.const_int(offset.into(), false);
-                    unsafe { cache_builder.build_gep(ctx_ptr_value, &[offset], "") }
-                } else {
-                    let offset = offsets.vmctx_vmmemory_import(index);
-                    let offset = intrinsics.i32_ty.const_int(offset.into(), false);
-                    let memory_definition_ptr_ptr =
-                        unsafe { cache_builder.build_gep(ctx_ptr_value, &[offset], "") };
-                    let memory_definition_ptr_ptr = cache_builder
-                        .build_bitcast(
-                            memory_definition_ptr_ptr,
-                            intrinsics.i8_ptr_ty.ptr_type(AddressSpace::Generic),
-                            "",
-                        )
-                        .into_pointer_value();
-                    let memory_definition_ptr = cache_builder
-                        .build_load(memory_definition_ptr_ptr, "")
-                        .into_pointer_value();
-                    tbaa_label(
-                        module,
-                        intrinsics,
-                        format!("memory {} definition", index.as_u32()),
-                        memory_definition_ptr.as_instruction_value().unwrap(),
-                    );
-                    memory_definition_ptr
+            let memory_definition_ptr = if let Some(local_memory_index) =
+                wasm_module.local_memory_index(index)
+            {
+                let offset = offsets.vmctx_vmmemory_definition(local_memory_index);
+                let offset = intrinsics.i32_ty.const_int(offset.into(), false);
+                unsafe { cache_builder.build_gep(intrinsics.i8_ty, ctx_ptr_value, &[offset], "") }
+            } else {
+                let offset = offsets.vmctx_vmmemory_import(index);
+                let offset = intrinsics.i32_ty.const_int(offset.into(), false);
+                let memory_definition_ptr_ptr = unsafe {
+                    cache_builder.build_gep(intrinsics.i8_ty, ctx_ptr_value, &[offset], "")
                 };
+                let memory_definition_ptr_ptr = cache_builder
+                    .build_bitcast(
+                        memory_definition_ptr_ptr,
+                        intrinsics.i8_ptr_ty.ptr_type(AddressSpace::default()),
+                        "",
+                    )
+                    .into_pointer_value();
+                let memory_definition_ptr = cache_builder
+                    .build_load(intrinsics.i8_ptr_ty, memory_definition_ptr_ptr, "")
+                    .into_pointer_value();
+                tbaa_label(
+                    module,
+                    intrinsics,
+                    format!("memory {} definition", index.as_u32()),
+                    memory_definition_ptr.as_instruction_value().unwrap(),
+                );
+                memory_definition_ptr
+            };
             let memory_definition_ptr = cache_builder
                 .build_bitcast(
                     memory_definition_ptr,
@@ -1340,6 +1401,7 @@ impl<'ctx, 'a> CtxType<'ctx, 'a> {
                 .into_pointer_value();
             let base_ptr = cache_builder
                 .build_struct_gep(
+                    intrinsics.vmmemory_definition_ty,
                     memory_definition_ptr,
                     intrinsics.vmmemory_definition_base_element,
                     "",
@@ -1348,6 +1410,7 @@ impl<'ctx, 'a> CtxType<'ctx, 'a> {
             if let MemoryStyle::Dynamic { .. } = memory_style {
                 let current_length_ptr = cache_builder
                     .build_struct_gep(
+                        intrinsics.vmmemory_definition_ty,
                         memory_definition_ptr,
                         intrinsics.vmmemory_definition_current_length_element,
                         "",
@@ -1358,7 +1421,9 @@ impl<'ctx, 'a> CtxType<'ctx, 'a> {
                     ptr_to_current_length: current_length_ptr,
                 }
             } else {
-                let base_ptr = cache_builder.build_load(base_ptr, "").into_pointer_value();
+                let base_ptr = cache_builder
+                    .build_load(intrinsics.i8_ptr_ty, base_ptr, "")
+                    .into_pointer_value();
                 tbaa_label(
                     module,
                     intrinsics,
@@ -1395,12 +1460,13 @@ impl<'ctx, 'a> CtxType<'ctx, 'a> {
                             .into(),
                         false,
                     );
-                    let ptr_to_base_ptr =
-                        unsafe { cache_builder.build_gep(ctx_ptr_value, &[offset], "") };
+                    let ptr_to_base_ptr = unsafe {
+                        cache_builder.build_gep(intrinsics.i8_ty, ctx_ptr_value, &[offset], "")
+                    };
                     let ptr_to_base_ptr = cache_builder
                         .build_bitcast(
                             ptr_to_base_ptr,
-                            intrinsics.i8_ptr_ty.ptr_type(AddressSpace::Generic),
+                            intrinsics.i8_ptr_ty.ptr_type(AddressSpace::default()),
                             "",
                         )
                         .into_pointer_value();
@@ -1410,8 +1476,9 @@ impl<'ctx, 'a> CtxType<'ctx, 'a> {
                             .into(),
                         false,
                     );
-                    let ptr_to_bounds =
-                        unsafe { cache_builder.build_gep(ctx_ptr_value, &[offset], "") };
+                    let ptr_to_bounds = unsafe {
+                        cache_builder.build_gep(intrinsics.i8_ty, ctx_ptr_value, &[offset], "")
+                    };
                     let ptr_to_bounds = cache_builder
                         .build_bitcast(ptr_to_bounds, intrinsics.i32_ptr_ty, "")
                         .into_pointer_value();
@@ -1421,17 +1488,18 @@ impl<'ctx, 'a> CtxType<'ctx, 'a> {
                         offsets.vmctx_vmtable_import_definition(table_index).into(),
                         false,
                     );
-                    let definition_ptr_ptr =
-                        unsafe { cache_builder.build_gep(ctx_ptr_value, &[offset], "") };
+                    let definition_ptr_ptr = unsafe {
+                        cache_builder.build_gep(intrinsics.i8_ty, ctx_ptr_value, &[offset], "")
+                    };
                     let definition_ptr_ptr = cache_builder
                         .build_bitcast(
                             definition_ptr_ptr,
-                            intrinsics.i8_ptr_ty.ptr_type(AddressSpace::Generic),
+                            intrinsics.i8_ptr_ty.ptr_type(AddressSpace::default()),
                             "",
                         )
                         .into_pointer_value();
                     let definition_ptr = cache_builder
-                        .build_load(definition_ptr_ptr, "")
+                        .build_load(intrinsics.i8_ptr_ty, definition_ptr_ptr, "")
                         .into_pointer_value();
                     tbaa_label(
                         module,
@@ -1443,20 +1511,22 @@ impl<'ctx, 'a> CtxType<'ctx, 'a> {
                     let offset = intrinsics
                         .i64_ty
                         .const_int(offsets.vmtable_definition_base().into(), false);
-                    let ptr_to_base_ptr =
-                        unsafe { cache_builder.build_gep(definition_ptr, &[offset], "") };
+                    let ptr_to_base_ptr = unsafe {
+                        cache_builder.build_gep(intrinsics.i8_ty, definition_ptr, &[offset], "")
+                    };
                     let ptr_to_base_ptr = cache_builder
                         .build_bitcast(
                             ptr_to_base_ptr,
-                            intrinsics.i8_ptr_ty.ptr_type(AddressSpace::Generic),
+                            intrinsics.i8_ptr_ty.ptr_type(AddressSpace::default()),
                             "",
                         )
                         .into_pointer_value();
                     let offset = intrinsics
                         .i64_ty
                         .const_int(offsets.vmtable_definition_current_elements().into(), false);
-                    let ptr_to_bounds =
-                        unsafe { cache_builder.build_gep(definition_ptr, &[offset], "") };
+                    let ptr_to_bounds = unsafe {
+                        cache_builder.build_gep(intrinsics.i8_ty, definition_ptr, &[offset], "")
+                    };
                     let ptr_to_bounds = cache_builder
                         .build_bitcast(ptr_to_bounds, intrinsics.i32_ptr_ty, "")
                         .into_pointer_value();
@@ -1480,11 +1550,11 @@ impl<'ctx, 'a> CtxType<'ctx, 'a> {
         let (ptr_to_base_ptr, ptr_to_bounds) = self.table_prepare(index, intrinsics, module);
         let base_ptr = self
             .cache_builder
-            .build_load(ptr_to_base_ptr, "base_ptr")
+            .build_load(intrinsics.i8_ptr_ty, ptr_to_base_ptr, "base_ptr")
             .into_pointer_value();
         let bounds = self
             .cache_builder
-            .build_load(ptr_to_bounds, "bounds")
+            .build_load(intrinsics.isize_ty, ptr_to_bounds, "bounds")
             .into_int_value();
         tbaa_label(
             module,
@@ -1518,14 +1588,19 @@ impl<'ctx, 'a> CtxType<'ctx, 'a> {
                 .i64_ty
                 .const_int(offsets.vmctx_vmshared_signature_id(index).into(), false);
             let sigindex_ptr = unsafe {
-                cache_builder.build_gep(ctx_ptr_value, &[byte_offset], "dynamic_sigindex")
+                cache_builder.build_gep(
+                    intrinsics.i8_ty,
+                    ctx_ptr_value,
+                    &[byte_offset],
+                    "dynamic_sigindex",
+                )
             };
             let sigindex_ptr = cache_builder
                 .build_bitcast(sigindex_ptr, intrinsics.i32_ptr_ty, "")
                 .into_pointer_value();
 
             let sigindex = cache_builder
-                .build_load(sigindex_ptr, "sigindex")
+                .build_load(intrinsics.i32_ty, sigindex_ptr, "sigindex")
                 .into_int_value();
             tbaa_label(
                 module,
@@ -1565,17 +1640,18 @@ impl<'ctx, 'a> CtxType<'ctx, 'a> {
                 };
                 let offset = intrinsics.i32_ty.const_int(offset.into(), false);
                 let global_ptr = {
-                    let global_ptr_ptr =
-                        unsafe { cache_builder.build_gep(ctx_ptr_value, &[offset], "") };
+                    let global_ptr_ptr = unsafe {
+                        cache_builder.build_gep(intrinsics.i8_ty, ctx_ptr_value, &[offset], "")
+                    };
                     let global_ptr_ptr = cache_builder
                         .build_bitcast(
                             global_ptr_ptr,
-                            intrinsics.i32_ptr_ty.ptr_type(AddressSpace::Generic),
+                            intrinsics.i32_ptr_ty.ptr_type(AddressSpace::default()),
                             "",
                         )
                         .into_pointer_value();
                     let global_ptr = cache_builder
-                        .build_load(global_ptr_ptr, "")
+                        .build_load(intrinsics.i32_ptr_ty, global_ptr_ptr, "")
                         .into_pointer_value();
                     tbaa_label(
                         module,
@@ -1595,7 +1671,11 @@ impl<'ctx, 'a> CtxType<'ctx, 'a> {
 
                 entry.insert(match global_mutability {
                     Mutability::Const => {
-                        let value = cache_builder.build_load(global_ptr, "");
+                        let value = cache_builder.build_load(
+                            type_to_llvm(intrinsics, global_value_type)?,
+                            global_ptr,
+                            "",
+                        );
                         tbaa_label(
                             module,
                             intrinsics,
@@ -1606,6 +1686,7 @@ impl<'ctx, 'a> CtxType<'ctx, 'a> {
                     }
                     Mutability::Var => GlobalCache::Mut {
                         ptr_to_value: global_ptr,
+                        value_type: type_to_llvm(intrinsics, global_value_type)?,
                     },
                 })
             }
@@ -1616,6 +1697,7 @@ impl<'ctx, 'a> CtxType<'ctx, 'a> {
         &mut self,
         function_index: FunctionIndex,
         func: PointerValue<'ctx>,
+        llvm_func_type: FunctionType<'ctx>,
         vmctx: BasicValueEnum<'ctx>,
         attrs: &[(Attribute, AttributeLoc)],
     ) {
@@ -1624,6 +1706,7 @@ impl<'ctx, 'a> CtxType<'ctx, 'a> {
             Entry::Vacant(entry) => {
                 entry.insert(FunctionCache {
                     func,
+                    llvm_func_type,
                     vmctx,
                     attrs: attrs.to_vec(),
                 });
@@ -1661,6 +1744,7 @@ impl<'ctx, 'a> CtxType<'ctx, 'a> {
                 }
                 entry.insert(FunctionCache {
                     func: func.as_global_value().as_pointer_value(),
+                    llvm_func_type,
                     vmctx: ctx_ptr_value.as_basic_value_enum(),
                     attrs: llvm_func_attrs,
                 })
@@ -1691,8 +1775,9 @@ impl<'ctx, 'a> CtxType<'ctx, 'a> {
                 debug_assert!(wasm_module.local_func_index(function_index).is_none());
                 let offset = offsets.vmctx_vmfunction_import(function_index);
                 let offset = intrinsics.i32_ty.const_int(offset.into(), false);
-                let vmfunction_import_ptr =
-                    unsafe { cache_builder.build_gep(*ctx_ptr_value, &[offset], "") };
+                let vmfunction_import_ptr = unsafe {
+                    cache_builder.build_gep(intrinsics.i8_ty, *ctx_ptr_value, &[offset], "")
+                };
                 let vmfunction_import_ptr = cache_builder
                     .build_bitcast(
                         vmfunction_import_ptr,
@@ -1703,25 +1788,32 @@ impl<'ctx, 'a> CtxType<'ctx, 'a> {
 
                 let body_ptr_ptr = cache_builder
                     .build_struct_gep(
+                        intrinsics.vmfunction_import_ty,
                         vmfunction_import_ptr,
                         intrinsics.vmfunction_import_body_element,
                         "",
                     )
                     .unwrap();
-                let body_ptr = cache_builder.build_load(body_ptr_ptr, "");
+                let body_ptr = cache_builder.build_load(intrinsics.i8_ptr_ty, body_ptr_ptr, "");
                 let body_ptr = cache_builder
-                    .build_bitcast(body_ptr, llvm_func_type.ptr_type(AddressSpace::Generic), "")
+                    .build_bitcast(
+                        body_ptr,
+                        llvm_func_type.ptr_type(AddressSpace::default()),
+                        "",
+                    )
                     .into_pointer_value();
                 let vmctx_ptr_ptr = cache_builder
                     .build_struct_gep(
+                        intrinsics.vmfunction_import_ty,
                         vmfunction_import_ptr,
                         intrinsics.vmfunction_import_vmctx_element,
                         "",
                     )
                     .unwrap();
-                let vmctx_ptr = cache_builder.build_load(vmctx_ptr_ptr, "");
+                let vmctx_ptr = cache_builder.build_load(intrinsics.ctx_ptr_ty, vmctx_ptr_ptr, "");
                 entry.insert(FunctionCache {
                     func: body_ptr,
+                    llvm_func_type,
                     vmctx: vmctx_ptr,
                     attrs: llvm_func_attrs,
                 })
@@ -1755,17 +1847,18 @@ impl<'ctx, 'a> CtxType<'ctx, 'a> {
             };
             let offset = offsets.vmctx_builtin_function(grow_fn);
             let offset = intrinsics.i32_ty.const_int(offset.into(), false);
-            let grow_fn_ptr_ptr = unsafe { cache_builder.build_gep(*ctx_ptr_value, &[offset], "") };
+            let grow_fn_ptr_ptr =
+                unsafe { cache_builder.build_gep(intrinsics.i8_ty, *ctx_ptr_value, &[offset], "") };
 
             let grow_fn_ptr_ptr = cache_builder
                 .build_bitcast(
                     grow_fn_ptr_ptr,
-                    grow_fn_ty.ptr_type(AddressSpace::Generic),
+                    grow_fn_ty.ptr_type(AddressSpace::default()),
                     "",
                 )
                 .into_pointer_value();
             cache_builder
-                .build_load(grow_fn_ptr_ptr, "")
+                .build_load(grow_fn_ty, grow_fn_ptr_ptr, "")
                 .into_pointer_value()
         })
     }
@@ -1796,18 +1889,19 @@ impl<'ctx, 'a> CtxType<'ctx, 'a> {
             };
             let offset = offsets.vmctx_builtin_function(size_fn);
             let offset = intrinsics.i32_ty.const_int(offset.into(), false);
-            let size_fn_ptr_ptr = unsafe { cache_builder.build_gep(*ctx_ptr_value, &[offset], "") };
+            let size_fn_ptr_ptr =
+                unsafe { cache_builder.build_gep(intrinsics.i8_ty, *ctx_ptr_value, &[offset], "") };
 
             let size_fn_ptr_ptr = cache_builder
                 .build_bitcast(
                     size_fn_ptr_ptr,
-                    size_fn_ty.ptr_type(AddressSpace::Generic),
+                    size_fn_ty.ptr_type(AddressSpace::default()),
                     "",
                 )
                 .into_pointer_value();
 
             cache_builder
-                .build_load(size_fn_ptr_ptr, "")
+                .build_load(size_fn_ty, size_fn_ptr_ptr, "")
                 .into_pointer_value()
         })
     }
@@ -1838,18 +1932,19 @@ impl<'ctx, 'a> CtxType<'ctx, 'a> {
             };
             let offset = offsets.vmctx_builtin_function(size_fn);
             let offset = intrinsics.i32_ty.const_int(offset.into(), false);
-            let size_fn_ptr_ptr = unsafe { cache_builder.build_gep(*ctx_ptr_value, &[offset], "") };
+            let size_fn_ptr_ptr =
+                unsafe { cache_builder.build_gep(intrinsics.i8_ty, *ctx_ptr_value, &[offset], "") };
 
             let size_fn_ptr_ptr = cache_builder
                 .build_bitcast(
                     size_fn_ptr_ptr,
-                    size_fn_ty.ptr_type(AddressSpace::Generic),
+                    size_fn_ty.ptr_type(AddressSpace::default()),
                     "",
                 )
                 .into_pointer_value();
 
             cache_builder
-                .build_load(size_fn_ptr_ptr, "")
+                .build_load(size_fn_ty, size_fn_ptr_ptr, "")
                 .into_pointer_value()
         })
     }
@@ -1880,18 +1975,19 @@ impl<'ctx, 'a> CtxType<'ctx, 'a> {
             };
             let offset = offsets.vmctx_builtin_function(size_fn);
             let offset = intrinsics.i32_ty.const_int(offset.into(), false);
-            let size_fn_ptr_ptr = unsafe { cache_builder.build_gep(*ctx_ptr_value, &[offset], "") };
+            let size_fn_ptr_ptr =
+                unsafe { cache_builder.build_gep(intrinsics.i8_ty, *ctx_ptr_value, &[offset], "") };
 
             let size_fn_ptr_ptr = cache_builder
                 .build_bitcast(
                     size_fn_ptr_ptr,
-                    size_fn_ty.ptr_type(AddressSpace::Generic),
+                    size_fn_ty.ptr_type(AddressSpace::default()),
                     "",
                 )
                 .into_pointer_value();
 
             cache_builder
-                .build_load(size_fn_ptr_ptr, "")
+                .build_load(size_fn_ty, size_fn_ptr_ptr, "")
                 .into_pointer_value()
         })
     }
@@ -1922,18 +2018,19 @@ impl<'ctx, 'a> CtxType<'ctx, 'a> {
             };
             let offset = offsets.vmctx_builtin_function(size_fn);
             let offset = intrinsics.i32_ty.const_int(offset.into(), false);
-            let size_fn_ptr_ptr = unsafe { cache_builder.build_gep(*ctx_ptr_value, &[offset], "") };
+            let size_fn_ptr_ptr =
+                unsafe { cache_builder.build_gep(intrinsics.i8_ty, *ctx_ptr_value, &[offset], "") };
 
             let size_fn_ptr_ptr = cache_builder
                 .build_bitcast(
                     size_fn_ptr_ptr,
-                    size_fn_ty.ptr_type(AddressSpace::Generic),
+                    size_fn_ty.ptr_type(AddressSpace::default()),
                     "",
                 )
                 .into_pointer_value();
 
             cache_builder
-                .build_load(size_fn_ptr_ptr, "")
+                .build_load(size_fn_ty, size_fn_ptr_ptr, "")
                 .into_pointer_value()
         })
     }
@@ -1965,13 +2062,6 @@ pub fn tbaa_label<'ctx>(
     //   https://llvm.org/docs/AliasAnalysis.html#must-may-and-no-alias-responses
 
     let context = module.get_context();
-
-    // TODO: StoreRef can't return us the lifetime from module through Deref.
-    // This could be fixed once generic_associated_types is stable.
-    let context = {
-        let context2 = &*context;
-        unsafe { std::mem::transmute::<&Context, &'ctx Context>(context2) }
-    };
 
     // `!wasmer_tbaa_root = {}`, the TBAA root node for wasmer.
     let tbaa_root = module

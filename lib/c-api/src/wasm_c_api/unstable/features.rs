@@ -72,12 +72,12 @@ pub extern "C" fn wasmer_features_delete(_features: Option<Box<wasmer_features_t
 ///
 /// The [WebAssembly threads proposal][threads] is not currently fully
 /// standardized and is undergoing development. Support for this feature can
-/// be enabled through this method for appropriate WebAssembly modules.
+/// be disabled through this method for appropriate WebAssembly modules.
 ///
 /// This feature gates items such as shared memories and atomic
 /// instructions.
 ///
-/// This is `false` by default.
+/// This is `true` by default.
 ///
 /// [threads]: https://github.com/webassembly/threads
 ///

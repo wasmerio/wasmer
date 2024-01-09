@@ -7,6 +7,9 @@ on:
     paths:
       - 'lib/**'
 
+env:
+  MSRV: "1.70"
+
 jobs:
   documentation:
     name: Documentation
@@ -16,7 +19,7 @@ jobs:
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
         with:
-          toolchain: 1.63
+          toolchain: ${{ env.MSRV }}
       - name: Install LLVM
         shell: bash
         run: |

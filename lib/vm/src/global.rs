@@ -1,10 +1,14 @@
 use crate::{store::MaybeInstanceOwned, vmcontext::VMGlobalDefinition};
+use derivative::Derivative;
 use std::{cell::UnsafeCell, ptr::NonNull};
 use wasmer_types::GlobalType;
 
 /// A Global instance
+#[derive(Derivative)]
+#[derivative(Debug)]
 pub struct VMGlobal {
     ty: GlobalType,
+    #[derivative(Debug = "ignore")]
     vm_global_definition: MaybeInstanceOwned<VMGlobalDefinition>,
 }
 
@@ -29,5 +33,17 @@ impl VMGlobal {
     /// Get a pointer to the underlying definition used by the generated code.
     pub fn vmglobal(&self) -> NonNull<VMGlobalDefinition> {
         self.vm_global_definition.as_ptr()
+    }
+
+    /// Copies this global
+    pub fn copy_on_write(&self) -> Self {
+        unsafe {
+            Self {
+                ty: self.ty,
+                vm_global_definition: MaybeInstanceOwned::Host(Box::new(UnsafeCell::new(
+                    self.vm_global_definition.as_ptr().as_ref().clone(),
+                ))),
+            }
+        }
     }
 }

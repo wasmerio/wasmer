@@ -42,7 +42,6 @@
 //!
 //! ```rust
 //! use wasmer::{Store, Module, Instance, Value, imports};
-//! use wasmer::FunctionEnv;
 //!
 //! fn main() -> anyhow::Result<()> {
 //!     let module_wat = r#"
@@ -82,13 +81,13 @@
 //!     compilation-time and runtime performance, useful for development,
 //!   * [`wasmer-compiler-llvm`] provides a deeply optimized executable
 //!     code with the fastest runtime speed, ideal for production.
-//!     
+//!
 //! * **Headless mode** — Once a WebAssembly module has been compiled, it
 //!   is possible to serialize it in a file for example, and later execute
 //!   it with Wasmer with headless mode turned on. Headless Wasmer has no
 //!   compiler, which makes it more portable and faster to load. It's
 //!   ideal for constrainted environments.
-//!   
+//!
 //! * **Cross-compilation** — Most compilers support cross-compilation. It
 //!   means it possible to pre-compile a WebAssembly module targetting a
 //!   different architecture or platform and serialize it, to then run it
@@ -143,7 +142,7 @@
 //! module.
 //!
 //! To import an extern, simply give it a namespace and a name with the
-//! [`imports`] macro:
+//! [`imports!`] macro:
 //!
 //! ```
 //! # use wasmer::{imports, Function, FunctionEnv, FunctionEnvMut, Memory, MemoryType, Store, Imports};
@@ -193,11 +192,11 @@
 //!
 //! Thus WebAssembly modules by themselves cannot do anything but computation
 //! on the core types in [`Value`]. In order to make them more useful we
-//! give them access to the outside world with [`imports`].
+//! give them access to the outside world with [`imports!`].
 //!
 //! If you're looking for a sandboxed, POSIX-like environment to execute Wasm
-//! in, check out the [`wasmer-wasi`] crate for our implementation of WASI,
-//! the WebAssembly System Interface.
+//! in, check out the [`wasmer-wasix`] crate for our implementation of WASI,
+//! the WebAssembly System Interface, and WASIX, the Extended version of WASI.
 //!
 //! In the `wasmer` API we support functions which take their arguments and
 //! return their results dynamically, [`Function`], and functions which
@@ -236,7 +235,7 @@
 //! - [`wasmer-cache`] for caching compiled Wasm modules,
 //! - [`wasmer-emscripten`] for running Wasm modules compiled to the
 //!   Emscripten ABI,
-//! - [`wasmer-wasi`] for running Wasm modules compiled to the WASI ABI.
+//! - [`wasmer-wasix`] for running Wasm modules compiled to the WASI ABI.
 //!
 //! The Wasmer project has two major abstractions:
 //! 1. [Engine][wasmer-compiler],
@@ -312,21 +311,6 @@
 #![cfg_attr(not(feature = "compiler"), doc = "(disabled),")]
 //!   enables compilation with the wasmer engine.
 //!
-//! The features that set defaults come in sets that are mutually exclusive.
-//!
-//! The first set is the default compiler set:
-//! - `default-cranelift`
-#![cfg_attr(feature = "default-cranelift", doc = "(enabled),")]
-#![cfg_attr(not(feature = "default-cranelift"), doc = "(disabled),")]
-//!   set Wasmer's Cranelift compiler as the default,
-//! - `default-llvm`
-#![cfg_attr(feature = "default-llvm", doc = "(enabled),")]
-#![cfg_attr(not(feature = "default-llvm"), doc = "(disabled),")]
-//!   set Wasmer's LLVM compiler as the default,
-//! - `default-singlepass`
-#![cfg_attr(feature = "default-singlepass", doc = "(enabled),")]
-#![cfg_attr(not(feature = "default-singlepass"), doc = "(disabled),")]
-//!   set Wasmer's Singlepass compiler as the default.
 #![cfg_attr(
     feature = "js",
     doc = "## Features for the `js` feature group (enabled)"
@@ -368,6 +352,9 @@
 //! to compile it with [`wasm-pack`] and [`wasm-bindgen`]:
 //!
 //! ```ignore
+//! use wasm_bindgen::prelude::*;
+//! use wasmer::{imports, Instance, Module, Store, Value};
+//!
 //! #[wasm_bindgen]
 //! pub extern fn do_add_one_in_wasmer() -> i32 {
 //!     let module_wat = r#"
@@ -382,10 +369,10 @@
 //!     let module = Module::new(&store, &module_wat).unwrap();
 //!     // The module doesn't import anything, so we create an empty import object.
 //!     let import_object = imports! {};
-//!     let instance = Instance::new(&module, &import_object).unwrap();
+//!     let instance = Instance::new(&mut store, &module, &import_object).unwrap();
 //!
 //!     let add_one = instance.exports.get_function("add_one").unwrap();
-//!     let result = add_one.call(&[Value::I32(42)]).unwrap();
+//!     let result = add_one.call(&mut store, &[Value::I32(42)]).unwrap();
 //!     assert_eq!(result[0], Value::I32(43));
 //!
 //!     result[0].unwrap_i32()
@@ -406,25 +393,57 @@
 //! [`wasmer-compiler-singlepass`]: https://docs.rs/wasmer-compiler-singlepass/
 //! [`wasmer-compiler-llvm`]: https://docs.rs/wasmer-compiler-llvm/
 //! [`wasmer-compiler-cranelift`]: https://docs.rs/wasmer-compiler-cranelift/
-//! [`wasmer-wasi`]: https://docs.rs/wasmer-wasi/
+//! [`wasmer-wasix`]: https://docs.rs/wasmer-wasix/
 //! [`wasm-pack`]: https://github.com/rustwasm/wasm-pack/
 //! [`wasm-bindgen`]: https://github.com/rustwasm/wasm-bindgen
 
-#[cfg(all(not(feature = "sys"), not(feature = "js")))]
-compile_error!("At least the `sys` or the `js` feature must be enabled. Please, pick one.");
+#[cfg(all(not(feature = "sys"), not(feature = "js"), not(feature = "jsc")))]
+compile_error!("One of: `sys`, `js` or `jsc` features must be enabled. Please, pick one.");
 
 #[cfg(all(feature = "sys", feature = "js"))]
 compile_error!(
     "Cannot have both `sys` and `js` features enabled at the same time. Please, pick one."
 );
 
+#[cfg(all(feature = "js", feature = "jsc"))]
+compile_error!(
+    "Cannot have both `js` and `jsc` features enabled at the same time. Please, pick one."
+);
+
+#[cfg(all(feature = "sys", feature = "jsc"))]
+compile_error!(
+    "Cannot have both `sys` and `jsc` features enabled at the same time. Please, pick one."
+);
+
 #[cfg(all(feature = "sys", target_arch = "wasm32"))]
 compile_error!("The `sys` feature must be enabled only for non-`wasm32` target.");
+
+#[cfg(all(feature = "jsc", target_arch = "wasm32"))]
+compile_error!("The `jsc` feature must be enabled only for non-`wasm32` target.");
 
 #[cfg(all(feature = "js", not(target_arch = "wasm32")))]
 compile_error!(
     "The `js` feature must be enabled only for the `wasm32` target (either `wasm32-unknown-unknown` or `wasm32-wasi`)."
 );
+
+mod access;
+mod engine;
+mod errors;
+mod exports;
+mod extern_ref;
+mod externals;
+mod function_env;
+mod imports;
+mod instance;
+mod into_bytes;
+mod mem_access;
+mod module;
+mod native_type;
+mod ptr;
+mod store;
+mod typed_function;
+mod value;
+pub mod vm;
 
 #[cfg(feature = "sys")]
 mod sys;
@@ -437,3 +456,51 @@ mod js;
 
 #[cfg(feature = "js")]
 pub use js::*;
+
+#[cfg(feature = "jsc")]
+mod jsc;
+
+#[cfg(feature = "jsc")]
+pub use jsc::*;
+
+pub use crate::externals::{Extern, Function, Global, HostFunction, Memory, MemoryView, Table};
+pub use access::WasmSliceAccess;
+pub use engine::{AsEngineRef, Engine, EngineRef};
+pub use errors::{InstantiationError, LinkError, RuntimeError};
+pub use exports::{ExportError, Exportable, Exports, ExportsIterator};
+pub use extern_ref::ExternRef;
+pub use function_env::{FunctionEnv, FunctionEnvMut};
+pub use imports::Imports;
+pub use instance::Instance;
+pub use into_bytes::IntoBytes;
+pub use mem_access::{MemoryAccessError, WasmRef, WasmSlice, WasmSliceIter};
+pub use module::{IoCompileError, Module};
+pub use native_type::{FromToNativeWasmType, NativeWasmTypeInto, WasmTypeList};
+pub use ptr::{Memory32, Memory64, MemorySize, WasmPtr, WasmPtr64};
+pub use store::{AsStoreMut, AsStoreRef, OnCalledHandler, Store, StoreId, StoreMut, StoreRef};
+#[cfg(feature = "sys")]
+pub use store::{TrapHandlerFn, Tunables};
+#[cfg(any(feature = "sys", feature = "jsc"))]
+pub use target_lexicon::{Architecture, CallingConvention, OperatingSystem, Triple, HOST};
+pub use typed_function::TypedFunction;
+pub use value::Value;
+
+// Reexport from other modules
+
+pub use wasmer_derive::ValueType;
+// TODO: OnCalledAction is needed for asyncify. It will be refactored with https://github.com/wasmerio/wasmer/issues/3451
+pub use wasmer_types::{
+    is_wasm, Bytes, CompileError, CpuFeature, DeserializeError, ExportIndex, ExportType,
+    ExternType, FrameInfo, FunctionType, GlobalInit, GlobalType, ImportType, LocalFunctionIndex,
+    MemoryError, MemoryType, MiddlewareError, Mutability, OnCalledAction, Pages,
+    ParseCpuFeatureError, SerializeError, TableType, Target, Type, ValueType, WasmError,
+    WasmResult, WASM_MAX_PAGES, WASM_MIN_PAGES, WASM_PAGE_SIZE,
+};
+#[cfg(feature = "wat")]
+pub use wat::parse_bytes as wat2wasm;
+
+#[cfg(feature = "wasmparser")]
+pub use wasmparser;
+
+/// Version number of this crate.
+pub const VERSION: &str = env!("CARGO_PKG_VERSION");

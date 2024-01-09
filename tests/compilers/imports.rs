@@ -40,7 +40,7 @@ fn get_module(store: &Store) -> Result<Module> {
         (start $foo)
     "#;
 
-    let module = Module::new(store, &wat)?;
+    let module = Module::new(store, wat)?;
     Ok(module)
 }
 
@@ -339,7 +339,7 @@ fn static_function_that_fails(config: crate::Config) -> Result<()> {
         (start $foo)
     "#;
 
-    let module = Module::new(&store, &wat)?;
+    let module = Module::new(&store, wat)?;
     let f0 = Function::new_typed(&mut store, || -> Result<Infallible, RuntimeError> {
         Err(RuntimeError::new("oops"))
     });
@@ -375,7 +375,7 @@ fn get_module2(store: &Store) -> Result<Module> {
           (call 0))
     "#;
 
-    let module = Module::new(store, &wat)?;
+    let module = Module::new(store, wat)?;
     Ok(module)
 }
 

@@ -1,16 +1,16 @@
-use crate::js::store::AsStoreRef;
-use crate::js::MemoryAccessError;
-use std::convert::TryInto;
+use crate::mem_access::MemoryAccessError;
+use crate::store::AsStoreRef;
 use std::marker::PhantomData;
 use std::mem::MaybeUninit;
 use std::slice;
+use std::{convert::TryInto, ops::Range};
 #[cfg(feature = "tracing")]
 use tracing::warn;
+use wasm_bindgen::JsCast;
 
 use wasmer_types::{Bytes, Pages};
 
-use super::memory::MemoryBuffer;
-use super::Memory;
+use super::memory::{Memory, MemoryBuffer};
 
 /// A WebAssembly `memory` view.
 ///
@@ -26,17 +26,18 @@ pub struct MemoryView<'a> {
 }
 
 impl<'a> MemoryView<'a> {
-    pub(crate) fn new(memory: &Memory, store: &impl AsStoreRef) -> Self {
-        let buffer = memory
-            .handle
-            .get(store.as_store_ref().objects())
-            .memory
-            .buffer();
+    pub(crate) fn new(memory: &Memory, _store: &'a (impl AsStoreRef + ?Sized)) -> Self {
+        Self::new_raw(&memory.handle.memory)
+    }
 
-        let size = js_sys::Reflect::get(&buffer, &"byteLength".into())
-            .unwrap()
-            .as_f64()
-            .unwrap() as u64;
+    pub(crate) fn new_raw(memory: &js_sys::WebAssembly::Memory) -> Self {
+        let buffer = memory.buffer();
+
+        // This also works for SharedArrayBuffer.
+        let size = buffer
+            .unchecked_ref::<js_sys::ArrayBuffer>()
+            .byte_length()
+            .into();
 
         let view = js_sys::Uint8Array::new(&buffer);
 
@@ -103,6 +104,7 @@ impl<'a> MemoryView<'a> {
         Bytes(self.size as usize).try_into().unwrap()
     }
 
+    #[inline]
     pub(crate) fn buffer(&self) -> MemoryBuffer<'a> {
         MemoryBuffer {
             base: &self.view as *const _ as *mut _,
@@ -168,11 +170,11 @@ impl<'a> MemoryView<'a> {
     ///
     /// This method is guaranteed to be safe (from the host side) in the face of
     /// concurrent writes.
-    pub fn read_uninit(
+    pub fn read_uninit<'b>(
         &self,
         offset: u64,
-        buf: &'a mut [MaybeUninit<u8>],
-    ) -> Result<&'a mut [u8], MemoryAccessError> {
+        buf: &'b mut [MaybeUninit<u8>],
+    ) -> Result<&'b mut [u8], MemoryAccessError> {
         let view = &self.view;
         let offset: u32 = offset.try_into().map_err(|_| MemoryAccessError::Overflow)?;
         let len: u32 = buf
@@ -248,6 +250,45 @@ impl<'a> MemoryView<'a> {
             Err(MemoryAccessError::HeapOutOfBounds)?;
         }
         view.set_index(offset, val);
+        Ok(())
+    }
+
+    /// Copies the memory and returns it as a vector of bytes
+    #[allow(unused)]
+    pub fn copy_to_vec(&self) -> Result<Vec<u8>, MemoryAccessError> {
+        self.copy_range_to_vec(0..self.data_size())
+    }
+
+    /// Copies a range of the memory and returns it as a vector of bytes
+    #[allow(unused)]
+    pub fn copy_range_to_vec(&self, range: Range<u64>) -> Result<Vec<u8>, MemoryAccessError> {
+        let mut new_memory = Vec::new();
+        let mut offset = range.start;
+        let end = range.end.min(self.data_size());
+        let mut chunk = [0u8; 40960];
+        while offset < end {
+            let remaining = end - offset;
+            let sublen = remaining.min(chunk.len() as u64) as usize;
+            self.read(offset, &mut chunk[..sublen])?;
+            new_memory.extend_from_slice(&chunk[..sublen]);
+            offset += sublen as u64;
+        }
+        Ok(new_memory)
+    }
+
+    /// Copies the memory to another new memory object
+    pub fn copy_to_memory(&self, amount: u64, new_memory: &Self) -> Result<(), MemoryAccessError> {
+        let mut offset = 0;
+        let mut chunk = [0u8; 40960];
+        while offset < amount {
+            let remaining = amount - offset;
+            let sublen = remaining.min(chunk.len() as u64) as usize;
+            self.read(offset, &mut chunk[..sublen])?;
+
+            new_memory.write(offset, &chunk[..sublen])?;
+
+            offset += sublen as u64;
+        }
         Ok(())
     }
 }

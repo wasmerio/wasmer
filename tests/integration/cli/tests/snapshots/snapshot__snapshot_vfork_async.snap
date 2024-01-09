@@ -1,0 +1,28 @@
+---
+source: tests/integration/cli/tests/snapshot.rs
+expression: snapshot
+---
+{
+  "spec": {
+    "name": "snapshot::test_snapshot_vfork_async",
+    "use_packages": [
+      "sharrattj/coreutils"
+    ],
+    "include_webcs": [
+      {
+        "name": "sharrattj/coreutils@1.0.16"
+      }
+    ],
+    "cli_args": [],
+    "enable_threads": true,
+    "enable_network": false,
+    "enable_async_threads": true
+  },
+  "result": {
+    "Success": {
+      "stdout": "Parent waiting on Child(2)\nChild(2) exited with 10\n",
+      "stderr": "",
+      "exit_code": 0
+    }
+  }
+}

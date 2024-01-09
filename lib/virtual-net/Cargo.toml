@@ -1,0 +1,55 @@
+[package]
+name = "virtual-net"
+version = "0.6.2"
+description = "Wasmer Virtual Networking"
+authors.workspace = true
+edition.workspace = true
+homepage.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+thiserror = "1"
+bytes = "1.1"
+async-trait = { version = "^0.1" }
+tracing = "0.1"
+tokio = { version = "1", default_features = false, optional = true }
+libc = { version = "0.2.139", optional = true }
+mio = { version = "0.8", optional = true }
+socket2 = { version = "0.4", optional = true }
+derivative = { version = "^2" }
+virtual-mio  = { path = "../virtual-io", version = "0.3.0", default-features = false }
+base64 = "0.21"
+bincode = { version = "1.3" }
+serde = { version = "1.0", default-features = false, features = ["derive"] }
+pin-project-lite = "0.2.9"
+futures-util = { version = "0.3" }
+anyhow = "1.0"
+tokio-serde = { version = "0.8", features = [ "bincode" ], optional = true }
+tokio-util = { version = "0.6", features = ["codec"], optional = true }
+hyper-tungstenite = { version = "0.11", optional = true }
+hyper = { version = "0.14", optional = true }
+tokio-tungstenite = { version = "0.20", optional = true }
+rkyv = { version = "0.7.40", features = ["indexmap", "validation", "strict"], optional = true }
+bytecheck = { version = "0.6.8", optional = true }
+
+[dev-dependencies]
+tokio = { version = "1", default_features = false, features = [ "macros", "rt-multi-thread" ] }
+tracing-test = { version = "0.2" }
+serial_test = "2.0.0"
+
+[features]
+default = [ "host-net", "remote", "json", "messagepack", "cbor", "hyper", "tokio-tungstenite" ]
+host-net = [ "tokio", "libc", "tokio/io-util", "virtual-mio/sys", "tokio/net", "tokio/rt", "socket2", "mio" ]
+remote = [ "tokio", "libc", "tokio/io-util", "tokio/sync", "tokio-serde", "tokio-util" ]
+json = [ "tokio-serde/json" ]
+messagepack = [ "tokio-serde/messagepack" ]
+cbor = [ "tokio-serde/cbor" ]
+hyper = [ "hyper-tungstenite", "dep:hyper" ]
+tokio-tungstenite = [ "dep:tokio-tungstenite" ]
+rkyv = [ "dep:rkyv", "dep:bytecheck" ]
+
+[package.metadata.docs.rs]
+features = ["host-net", "remote"]
+rustc-args = ["--cfg", "docsrs"]

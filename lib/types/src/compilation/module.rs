@@ -4,6 +4,7 @@ use crate::{Features, MemoryIndex, MemoryStyle, ModuleInfo, TableIndex, TableSty
 use rkyv::{Archive, Deserialize as RkyvDeserialize, Serialize as RkyvSerialize};
 #[cfg(feature = "enable-serde")]
 use serde::{Deserialize, Serialize};
+use std::sync::Arc;
 
 /// The required info for compiling a module.
 ///
@@ -11,12 +12,13 @@ use serde::{Deserialize, Serialize};
 /// possible after translation (such as the features used for compiling,
 /// or the `MemoryStyle` and `TableStyle`).
 #[cfg_attr(feature = "enable-serde", derive(Deserialize, Serialize))]
-#[derive(Debug, PartialEq, Eq, RkyvSerialize, RkyvDeserialize, Archive)]
+#[derive(Debug, Clone, PartialEq, Eq, RkyvSerialize, RkyvDeserialize, Archive)]
+#[archive_attr(derive(rkyv::CheckBytes))]
 pub struct CompileModuleInfo {
     /// The features used for compiling the module
     pub features: Features,
     /// The module information
-    pub module: ModuleInfo,
+    pub module: Arc<ModuleInfo>,
     /// The memory styles used for compiling.
     ///
     /// The compiler will emit the most optimal code based

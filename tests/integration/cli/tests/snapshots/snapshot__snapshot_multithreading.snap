@@ -1,0 +1,21 @@
+---
+source: tests/integration/cli/tests/snapshot.rs
+expression: snapshot
+---
+{
+  "spec": {
+    "name": "snapshot::test_snapshot_multithreading",
+    "use_packages": [],
+    "include_webcs": [],
+    "cli_args": [],
+    "enable_threads": true,
+    "enable_network": false
+  },
+  "result": {
+    "Success": {
+      "stdout": "thread 1 started\nthread 2 started\nthread 3 started\nthread 4 started\nthread 5 started\nthread 6 started\nthread 7 started\nthread 8 started\nthread 9 started\nwaiting for threads\nthread 1 finished\nthread 2 finished\nthread 3 finished\nthread 4 finished\nthread 5 finished\nthread 6 finished\nthread 7 finished\nthread 8 finished\nthread 9 finished\nall done\n",
+      "stderr": "",
+      "exit_code": 0
+    }
+  }
+}

@@ -1,218 +1,14 @@
-use std::fmt;
-
-/// We require the context to have a fixed memory address for its lifetime since
-/// various bits of the VM have raw pointers that point back to it. Hence we
-/// wrap the actual context in a box.
-pub(crate) struct StoreInner {
-    pub(crate) objects: StoreObjects,
-}
-
-/// The store represents all global state that can be manipulated by
-/// WebAssembly programs. It consists of the runtime representation
-/// of all instances of functions, tables, memories, and globals that
-/// have been allocated during the lifetime of the abstract machine.
-///
-/// The `Store` holds the engine (that is —amongst many things— used to compile
-/// the Wasm bytes into a valid module artifact), in addition to the
-/// [`Tunables`] (that are used to create the memories, tables and globals).
-///
-/// Spec: <https://webassembly.github.io/spec/core/exec/runtime.html#store>
-pub struct Store {
-    pub(crate) inner: Box<StoreInner>,
-}
-
-impl Store {
-    /// Creates a new `Store`.
-    pub fn new() -> Self {
-        Self {
-            inner: Box::new(StoreInner {
-                objects: Default::default(),
-            }),
-        }
-    }
-
-    /// Checks whether two stores are identical. A store is considered
-    /// equal to another store if both have the same engine. The
-    /// tunables are excluded from the logic.
-    pub fn same(_a: &Self, _b: &Self) -> bool {
-        true
-    }
-}
-
-impl PartialEq for Store {
-    fn eq(&self, other: &Self) -> bool {
-        Self::same(self, other)
-    }
-}
-
-// This is required to be able to set the trap_handler in the
-// Store.
-unsafe impl Send for Store {}
-unsafe impl Sync for Store {}
-
-impl Default for Store {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl fmt::Debug for Store {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        f.debug_struct("Store").finish()
-    }
-}
-
-/// A trait represinting any object that lives in the `Store`.
-pub trait StoreObject {
-    /// Return true if the object `Store` is the same as the provided `Store`.
-    fn comes_from_same_store(&self, _store: &Store) -> bool {
-        true
-    }
-}
-
-impl AsStoreRef for Store {
-    fn as_store_ref(&self) -> StoreRef<'_> {
-        StoreRef { inner: &self.inner }
-    }
-}
-impl AsStoreMut for Store {
-    fn as_store_mut(&mut self) -> StoreMut<'_> {
-        StoreMut {
-            inner: &mut self.inner,
-        }
-    }
-    fn objects_mut(&mut self) -> &mut StoreObjects {
-        &mut self.inner.objects
-    }
-}
-
-/// A temporary handle to a [`Context`].
-pub struct StoreRef<'a> {
-    pub(crate) inner: &'a StoreInner,
-}
-
-impl<'a> StoreRef<'a> {
-    pub(crate) fn objects(&self) -> &'a StoreObjects {
-        &self.inner.objects
-    }
-
-    /// Checks whether two stores are identical. A store is considered
-    /// equal to another store if both have the same engine. The
-    /// tunables are excluded from the logic.
-    pub fn same(a: &Self, b: &Self) -> bool {
-        a.inner.objects.id() == b.inner.objects.id()
-    }
-}
-
-/// A temporary handle to a [`Context`].
-pub struct StoreMut<'a> {
-    pub(crate) inner: &'a mut StoreInner,
-}
-
-impl<'a> StoreMut<'a> {
-    /// Checks whether two stores are identical. A store is considered
-    /// equal to another store if both have the same engine. The
-    /// tunables are excluded from the logic.
-    pub fn same(a: &Self, b: &Self) -> bool {
-        a.inner.objects.id() == b.inner.objects.id()
-    }
-
-    pub(crate) fn as_raw(&self) -> *mut StoreInner {
-        self.inner as *const StoreInner as *mut StoreInner
-    }
-
-    pub(crate) unsafe fn from_raw(raw: *mut StoreInner) -> Self {
-        Self { inner: &mut *raw }
-    }
-}
-
-/// Helper trait for a value that is convertible to a [`StoreRef`].
-pub trait AsStoreRef {
-    /// Returns a `StoreRef` pointing to the underlying context.
-    fn as_store_ref(&self) -> StoreRef<'_>;
-}
-
-/// Helper trait for a value that is convertible to a [`StoreMut`].
-pub trait AsStoreMut: AsStoreRef {
-    /// Returns a `StoreMut` pointing to the underlying context.
-    fn as_store_mut(&mut self) -> StoreMut<'_>;
-
-    /// Returns the ObjectMutable
-    fn objects_mut(&mut self) -> &mut StoreObjects;
-}
-
-impl AsStoreRef for StoreRef<'_> {
-    fn as_store_ref(&self) -> StoreRef<'_> {
-        StoreRef { inner: self.inner }
-    }
-}
-
-impl AsStoreRef for StoreMut<'_> {
-    fn as_store_ref(&self) -> StoreRef<'_> {
-        StoreRef { inner: self.inner }
-    }
-}
-impl AsStoreMut for StoreMut<'_> {
-    fn as_store_mut(&mut self) -> StoreMut<'_> {
-        StoreMut { inner: self.inner }
-    }
-    fn objects_mut(&mut self) -> &mut StoreObjects {
-        &mut self.inner.objects
-    }
-}
-
-impl<T: AsStoreRef> AsStoreRef for &'_ T {
-    fn as_store_ref(&self) -> StoreRef<'_> {
-        T::as_store_ref(*self)
-    }
-}
-impl<T: AsStoreRef> AsStoreRef for &'_ mut T {
-    fn as_store_ref(&self) -> StoreRef<'_> {
-        T::as_store_ref(*self)
-    }
-}
-impl<T: AsStoreMut> AsStoreMut for &'_ mut T {
-    fn as_store_mut(&mut self) -> StoreMut<'_> {
-        T::as_store_mut(*self)
-    }
-    fn objects_mut(&mut self) -> &mut StoreObjects {
-        T::objects_mut(*self)
-    }
-}
-
-pub use objects::*;
+pub(crate) use objects::{InternalStoreHandle, StoreObject};
+pub use objects::{StoreHandle, StoreObjects};
 
 mod objects {
-    use crate::js::{
-        export::{VMFunction, VMGlobal, VMMemory, VMTable},
-        function_env::VMFunctionEnvironment,
-    };
-    use std::{
-        cell::UnsafeCell,
-        fmt,
-        marker::PhantomData,
-        num::{NonZeroU64, NonZeroUsize},
-        ptr::NonNull,
-        sync::atomic::{AtomicU64, Ordering},
-    };
+    use std::{fmt, marker::PhantomData, num::NonZeroUsize};
 
-    /// Unique ID to identify a context.
-    ///
-    /// Every handle to an object managed by a context also contains the ID of the
-    /// context. This is used to check that a handle is always used with the
-    /// correct context.
-    #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
-    pub struct StoreId(NonZeroU64);
+    use wasm_bindgen::JsValue;
 
-    impl Default for StoreId {
-        // Allocates a unique ID for a new context.
-        fn default() -> Self {
-            // No overflow checking is needed here: overflowing this would take
-            // thousands of years.
-            static NEXT_ID: AtomicU64 = AtomicU64::new(1);
-            Self(NonZeroU64::new(NEXT_ID.fetch_add(1, Ordering::Relaxed)).unwrap())
-        }
-    }
+    use crate::js::vm::{VMFunctionEnvironment, VMGlobal};
+
+    pub use wasmer_types::StoreId;
 
     /// Trait to represent an object managed by a context. This is implemented on
     /// the VM types managed by the context.
@@ -237,23 +33,23 @@ mod objects {
 }
 
     impl_store_object! {
-        functions => VMFunction,
-        tables => VMTable,
+        // Note: we store the globals in order to be able to access them later via
+        // `StoreObjects::iter_globals`.
         globals => VMGlobal,
-        memories => VMMemory,
-        instances => js_sys::WebAssembly::Instance,
+        // functions => VMFunction,
+        // tables => VMTable,
+        // memories => VMMemory,
+        // The function environments are the only things attached to a store,
+        // since the other JS objects (table, globals, memory and functions)
+        // live in the JS VM Store by default
         function_environments => VMFunctionEnvironment,
     }
 
     /// Set of objects managed by a context.
-    #[derive(Default)]
+    #[derive(Default, Debug)]
     pub struct StoreObjects {
         id: StoreId,
-        memories: Vec<VMMemory>,
-        tables: Vec<VMTable>,
         globals: Vec<VMGlobal>,
-        functions: Vec<VMFunction>,
-        instances: Vec<js_sys::WebAssembly::Instance>,
         function_environments: Vec<VMFunctionEnvironment>,
     }
 
@@ -284,6 +80,33 @@ mod objects {
             } else {
                 let (low, high) = list.split_at_mut(a.index());
                 (&mut high[0], &mut low[a.index()])
+            }
+        }
+
+        /// Return an immutable iterator over all globals
+        pub fn iter_globals(&self) -> core::slice::Iter<VMGlobal> {
+            self.globals.iter()
+        }
+
+        /// Return an vector of all globals and converted to u128
+        pub fn as_u128_globals(&self) -> Vec<u128> {
+            self.iter_globals()
+                .map(|v| v.global.value().as_f64().unwrap() as u128)
+                .collect()
+        }
+
+        /// Set a global, at index idx. Will panic if idx is out of range
+        /// Safety: the caller should check that the raw value is compatible
+        /// with destination VMGlobal type
+        pub fn set_global_unchecked(&self, idx: usize, new_val: u128) {
+            assert!(idx < self.globals.len());
+
+            let g = &self.globals[idx].global;
+            let cur_val = g.value().as_f64().unwrap();
+            let new_val = new_val as f64;
+            if cur_val != new_val {
+                let new_value = JsValue::from(new_val);
+                g.set_value(&new_value);
             }
         }
     }
@@ -355,8 +178,15 @@ mod objects {
         }
 
         /// Returns the ID of the context associated with the handle.
+        #[allow(unused)]
         pub fn store_id(&self) -> StoreId {
             self.id
+        }
+
+        /// Overrides the store id with a new ID
+        #[allow(unused)]
+        pub fn set_store_id(&mut self, id: StoreId) {
+            self.id = id;
         }
 
         /// Constructs a `StoreHandle` from a `StoreId` and an `InternalStoreHandle`.
@@ -431,29 +261,6 @@ mod objects {
                 idx,
                 marker: PhantomData,
             })
-        }
-    }
-
-    /// Data used by the generated code is generally located inline within the
-    /// `VMContext` for items defined in an instance. Host-defined objects are
-    /// allocated separately and owned directly by the context.
-    #[allow(dead_code)]
-    pub enum MaybeInstanceOwned<T> {
-        /// The data is owned here.
-        Host(Box<UnsafeCell<T>>),
-
-        /// The data is stored inline in the `VMContext` of an instance.
-        Instance(NonNull<T>),
-    }
-
-    impl<T> MaybeInstanceOwned<T> {
-        /// Returns underlying pointer to the VM data.
-        #[allow(dead_code)]
-        pub fn as_ptr(&self) -> NonNull<T> {
-            match self {
-                MaybeInstanceOwned::Host(p) => unsafe { NonNull::new_unchecked(p.get()) },
-                MaybeInstanceOwned::Instance(p) => *p,
-            }
         }
     }
 }

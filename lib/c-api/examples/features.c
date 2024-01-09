@@ -2,6 +2,9 @@
 #include "wasmer.h"
 
 int main(int argc, const char* argv[]) {
+    // This is not enabled in JavascriptCore
+    #ifndef WASMER_JSC_BACKEND
+
     const char *wat_string =
         "(module\n"
         "  (type $swap_t (func (param i32 i64) (result i64 i32)))\n"
@@ -88,4 +91,6 @@ int main(int argc, const char* argv[]) {
     wasm_instance_delete(instance);
     wasm_store_delete(store);
     wasm_engine_delete(engine);
+
+    #endif //WASMER_JSC_BACKEND
 }

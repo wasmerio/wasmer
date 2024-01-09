@@ -53,6 +53,9 @@ fn seccheck(path: &Path) -> Result<()> {
 }
 
 impl Binfmt {
+    /// The filename used to register the wasmer CLI as a binfmt interpreter.
+    pub const FILENAME: &str = "wasmer-binfmt-interpreter";
+
     /// execute [Binfmt]
     pub fn execute(&self) -> Result<()> {
         if !self.binfmt_misc.exists() {
@@ -66,8 +69,8 @@ impl Binfmt {
                 let bin_path_orig: PathBuf = env::current_exe()
                     .and_then(|p| p.canonicalize())
                     .context("Cannot get path to wasmer executable")?;
-                let bin_path = temp_dir.path().join("wasmer-binfmt-interpreter");
-                fs::copy(&bin_path_orig, &bin_path).context("Copy wasmer binary to temp folder")?;
+                let bin_path = temp_dir.path().join(Binfmt::FILENAME);
+                fs::copy(bin_path_orig, &bin_path).context("Copy wasmer binary to temp folder")?;
                 let bin_path = fs::canonicalize(&bin_path).with_context(|| {
                     format!(
                         "Couldn't get absolute path for {}",

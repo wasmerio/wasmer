@@ -1,0 +1,23 @@
+---
+source: tests/integration/cli/tests/snapshot.rs
+expression: snapshot
+---
+{
+  "spec": {
+    "name": "snapshot::test_snapshot_default_file_system_tree",
+    "use_packages": [],
+    "include_webcs": [],
+    "cli_args": [
+      "ls"
+    ],
+    "enable_threads": true,
+    "enable_network": false
+  },
+  "result": {
+    "Success": {
+      "stdout": "bin\ndev\netc\ntmp\n",
+      "stderr": "",
+      "exit_code": 0
+    }
+  }
+}

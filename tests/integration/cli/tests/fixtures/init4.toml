@@ -3,9 +3,7 @@ name = 'ciuser/wasmer'
 version = '0.1.0'
 description = 'Description for package wasmer'
 
-# See more keys and definitions at https://docs.wasmer.io/ecosystem/wapm/manifest
-
-[dependencies]
+# See more keys and definitions at https://docs.wasmer.io/registry/manifest
 
 [[module]]
 name = 'wasmer'
@@ -18,3 +16,4 @@ wasi = '0.1.0-unstable'
 [[command]]
 name = 'wasmer'
 module = 'wasmer'
+runner = 'wasi'

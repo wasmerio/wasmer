@@ -1,14 +1,13 @@
-use crate::sys::store::AsStoreRef;
+use crate::store::AsStoreRef;
 use crate::MemoryAccessError;
-use std::convert::TryInto;
 use std::marker::PhantomData;
 use std::mem::MaybeUninit;
 use std::slice;
+use std::{convert::TryInto, ops::Range};
 use wasmer_types::Pages;
 use wasmer_vm::LinearMemory;
 
-use super::memory::MemoryBuffer;
-use super::Memory;
+use super::memory::{Memory, MemoryBuffer};
 
 /// A WebAssembly `memory` view.
 ///
@@ -23,7 +22,7 @@ pub struct MemoryView<'a> {
 }
 
 impl<'a> MemoryView<'a> {
-    pub(crate) fn new(memory: &'a Memory, store: &impl AsStoreRef) -> Self {
+    pub(crate) fn new(memory: &Memory, store: &'a (impl AsStoreRef + ?Sized)) -> Self {
         let size = memory.handle.get(store.as_store_ref().objects()).size();
 
         let definition = memory.handle.get(store.as_store_ref().objects()).vmmemory();
@@ -96,6 +95,7 @@ impl<'a> MemoryView<'a> {
         self.size
     }
 
+    #[inline]
     pub(crate) fn buffer(&'a self) -> MemoryBuffer<'a> {
         self.buffer
     }
@@ -157,6 +157,46 @@ impl<'a> MemoryView<'a> {
     pub fn write_u8(&self, offset: u64, val: u8) -> Result<(), MemoryAccessError> {
         let buf = [val];
         self.write(offset, &buf)?;
+        Ok(())
+    }
+
+    #[allow(unused)]
+    /// Copies the memory and returns it as a vector of bytes
+    pub fn copy_to_vec(&self) -> Result<Vec<u8>, MemoryAccessError> {
+        self.copy_range_to_vec(0..self.data_size())
+    }
+
+    #[allow(unused)]
+    /// Copies a range of the memory and returns it as a vector of bytes
+    pub fn copy_range_to_vec(&self, range: Range<u64>) -> Result<Vec<u8>, MemoryAccessError> {
+        let mut new_memory = Vec::new();
+        let mut offset = range.start;
+        let end = range.end.min(self.data_size());
+        let mut chunk = [0u8; 40960];
+        while offset < end {
+            let remaining = end - offset;
+            let sublen = remaining.min(chunk.len() as u64) as usize;
+            self.read(offset, &mut chunk[..sublen])?;
+            new_memory.extend_from_slice(&chunk[..sublen]);
+            offset += sublen as u64;
+        }
+        Ok(new_memory)
+    }
+
+    #[allow(unused)]
+    /// Copies the memory to another new memory object
+    pub fn copy_to_memory(&self, amount: u64, new_memory: &Self) -> Result<(), MemoryAccessError> {
+        let mut offset = 0;
+        let mut chunk = [0u8; 40960];
+        while offset < amount {
+            let remaining = amount - offset;
+            let sublen = remaining.min(chunk.len() as u64) as usize;
+            self.read(offset, &mut chunk[..sublen])?;
+
+            new_memory.write(offset, &chunk[..sublen])?;
+
+            offset += sublen as u64;
+        }
         Ok(())
     }
 }

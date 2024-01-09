@@ -1,0 +1,22 @@
+---
+source: tests/integration/cli/tests/snapshot.rs
+expression: snapshot
+---
+{
+  "spec": {
+    "name": "snapshot::test_snapshot_dash_echo",
+    "use_packages": [],
+    "include_webcs": [],
+    "cli_args": [],
+    "stdin_hash": "f21e64a91c2b4c628da60b9a6ef26c46",
+    "enable_threads": true,
+    "enable_network": false
+  },
+  "result": {
+    "Success": {
+      "stdout": "2\n",
+      "stderr": "# # \n",
+      "exit_code": 0
+    }
+  }
+}

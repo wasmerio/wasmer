@@ -124,7 +124,7 @@ fn compile_wasm_for_version(
 ) -> io::Result<PathBuf> {
     //let out_dir = base_dir; //base_dir.join("..").join(version.get_directory_name());
     if !out_dir.exists() {
-        fs::create_dir(&out_dir)?;
+        fs::create_dir(out_dir)?;
     }
     let wasm_out_name = {
         let mut wasm_out_name = out_dir.join(rs_mod_name);
@@ -134,7 +134,7 @@ fn compile_wasm_for_version(
     println!("Reading contents from file `{}`", file);
     let file_contents: String = {
         let mut fc = String::new();
-        let mut f = fs::OpenOptions::new().read(true).open(&file)?;
+        let mut f = fs::OpenOptions::new().read(true).open(file)?;
         f.read_to_string(&mut fc)?;
         fc
     };

@@ -1,0 +1,27 @@
+---
+source: tests/integration/cli/tests/snapshot.rs
+expression: snapshot
+---
+{
+  "spec": {
+    "name": "snapshot::test_snapshot_fork",
+    "use_packages": [
+      "sharrattj/coreutils"
+    ],
+    "include_webcs": [
+      {
+        "name": "sharrattj/coreutils@1.0.16"
+      }
+    ],
+    "cli_args": [],
+    "enable_threads": true,
+    "enable_network": false
+  },
+  "result": {
+    "Success": {
+      "stdout": "Parent has x = 0\nParent memory is good\nChild(2) exited with 3\n",
+      "stderr": "Child has x = 2\nChild memory is good\n",
+      "exit_code": 0
+    }
+  }
+}

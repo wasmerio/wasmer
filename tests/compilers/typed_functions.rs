@@ -309,7 +309,7 @@ fn static_host_function_with_env(config: crate::Config) -> anyhow::Result<()> {
     let mut store = config.store();
 
     fn f(mut env: FunctionEnvMut<Env>, a: i32, b: i64, c: f32, d: f64) -> (f64, f32, i64, i32) {
-        let mut guard = env.data_mut().0.lock().unwrap();
+        let mut guard = env.data().0.lock().unwrap();
         assert_eq!(*guard, 100);
         *guard = 101;
 
@@ -323,7 +323,7 @@ fn static_host_function_with_env(config: crate::Config) -> anyhow::Result<()> {
         c: f32,
         d: f64,
     ) -> Result<(f64, f32, i64, i32), Infallible> {
-        let mut guard = env.data_mut().0.lock().unwrap();
+        let mut guard = env.data().0.lock().unwrap();
         assert_eq!(*guard, 100);
         *guard = 101;
 
@@ -448,7 +448,7 @@ fn dynamic_host_function_with_env(config: crate::Config) -> anyhow::Result<()> {
             ],
         ),
         |mut env, values| {
-            let mut guard = env.data_mut().0.lock().unwrap();
+            let mut guard = env.data().0.lock().unwrap();
             assert_eq!(*guard, 100);
 
             *guard = 101;

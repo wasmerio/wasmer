@@ -1,0 +1,16 @@
+mutation PublishDeployApp($config: JSONString!, $name: ID, $owner: ID) {
+  publishDeployApp(input: { config: $config, name: $name, owner: $owner }) {
+    deployAppVersion {
+      id
+      version
+      app {
+        id
+        owner {
+          __typename
+          globalName
+        }
+        name
+      }
+    }
+  }
+}

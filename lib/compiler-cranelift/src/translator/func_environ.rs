@@ -12,7 +12,7 @@ use cranelift_codegen::ir::immediates::Offset32;
 use cranelift_codegen::ir::{self, InstBuilder};
 use cranelift_codegen::isa::TargetFrontendConfig;
 use cranelift_frontend::FunctionBuilder;
-use wasmer_compiler::wasmparser::{Operator, Type};
+use wasmer_compiler::wasmparser::{Operator, ValType};
 use wasmer_types::{
     FunctionIndex, FunctionType, GlobalIndex, LocalFunctionIndex, MemoryIndex, SignatureIndex,
     TableIndex, Type as WasmerType, WasmResult,
@@ -46,8 +46,6 @@ pub enum GlobalVariable {
 pub enum ReturnMode {
     /// Use normal return instructions as needed.
     NormalReturns,
-    /// Use a single fallthrough return at the end of the function.
-    FallthroughReturn,
 }
 
 /// Environment affecting the translation of a WebAssembly.
@@ -361,7 +359,7 @@ pub trait FuncEnvironment: TargetEnvironment {
     /// null sentinel is not a null reference type pointer for your type. If you
     /// override this method, then you should also override
     /// `translate_ref_is_null` as well.
-    fn translate_ref_null(&mut self, pos: FuncCursor, ty: Type) -> WasmResult<ir::Value>;
+    fn translate_ref_null(&mut self, pos: FuncCursor, ty: ValType) -> WasmResult<ir::Value>;
     // {
     //     let _ = ty;
     //     Ok(pos.ins().null(self.reference_type(ty)))
@@ -381,7 +379,7 @@ pub trait FuncEnvironment: TargetEnvironment {
         value: ir::Value,
     ) -> WasmResult<ir::Value> {
         let is_null = pos.ins().is_null(value);
-        Ok(pos.ins().bint(ir::types::I64, is_null))
+        Ok(pos.ins().uextend(ir::types::I64, is_null))
     }
 
     /// Translate a `ref.func` WebAssembly instruction.

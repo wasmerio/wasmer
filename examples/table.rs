@@ -1,7 +1,6 @@
 use wasmer::{
     imports, wat2wasm, Function, Instance, Module, Store, TableType, Type, TypedFunction, Value,
 };
-use wasmer_compiler_cranelift::Cranelift;
 
 /// A function we'll call through a table.
 fn host_callback(arg1: i32, arg2: i32) -> i32 {
@@ -49,8 +48,8 @@ fn main() -> anyhow::Result<()> {
         .as_bytes(),
     )?;
 
-    // We set up our store with an engine and a compiler.
-    let mut store = Store::new(Cranelift::default());
+    // Create a Store.
+    let mut store = Store::default();
     // Then compile our Wasm.
     let module = Module::new(&store, wasm_bytes)?;
     let import_object = imports! {};

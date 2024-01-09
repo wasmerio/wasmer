@@ -1,0 +1,21 @@
+---
+source: tests/integration/cli/tests/snapshot.rs
+expression: snapshot
+---
+{
+  "spec": {
+    "name": "snapshot::test_snapshot_longjump_fork",
+    "use_packages": [],
+    "include_webcs": [],
+    "cli_args": [],
+    "enable_threads": true,
+    "enable_network": false
+  },
+  "result": {
+    "Success": {
+      "stdout": "Parent memory is good\nParent memory after longjmp is good\nParent has x = 0\nChild(2) exited with 5\n",
+      "stderr": "Child memory is good\nChild memory after longjmp is good\nChild has x = 2\n",
+      "exit_code": 0
+    }
+  }
+}

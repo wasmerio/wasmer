@@ -51,6 +51,10 @@ impl SinglepassCompiler {
 }
 
 impl Compiler for SinglepassCompiler {
+    fn name(&self) -> &str {
+        "singlepass"
+    }
+
     /// Get the middlewares for this compiler
     fn get_middlewares(&self) -> &[Arc<dyn ModuleMiddleware>] {
         &self.config.middlewares
@@ -298,7 +302,7 @@ mod tests {
     ) {
         let compile_info = CompileModuleInfo {
             features: Features::new(),
-            module: ModuleInfo::new(),
+            module: Arc::new(ModuleInfo::new()),
             memory_styles: PrimaryMap::<MemoryIndex, MemoryStyle>::new(),
             table_styles: PrimaryMap::<TableIndex, TableStyle>::new(),
         };

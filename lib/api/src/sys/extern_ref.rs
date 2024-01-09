@@ -1,18 +1,16 @@
 use std::any::Any;
+use wasmer_vm::VMExternRef;
+use wasmer_vm::{StoreHandle, VMExternObj};
 
-use wasmer_vm::{StoreHandle, VMExternObj, VMExternRef};
-
-use super::store::{AsStoreMut, AsStoreRef};
+use crate::store::{AsStoreMut, AsStoreRef};
 
 #[derive(Debug, Clone)]
 #[repr(transparent)]
-/// An opaque reference to some data. This reference can be passed through Wasm.
 pub struct ExternRef {
     handle: StoreHandle<VMExternObj>,
 }
 
 impl ExternRef {
-    /// Make a new extern reference
     pub fn new<T>(store: &mut impl AsStoreMut, value: T) -> Self
     where
         T: Any + Send + Sync + 'static + Sized,
@@ -22,7 +20,6 @@ impl ExternRef {
         }
     }
 
-    /// Try to downcast to the given value.
     pub fn downcast<'a, T>(&self, store: &'a impl AsStoreRef) -> Option<&'a T>
     where
         T: Any + Send + Sync + 'static + Sized,
@@ -46,13 +43,6 @@ impl ExternRef {
         }
     }
 
-    /// Checks whether this `ExternRef` can be used with the given context.
-    ///
-    /// Primitive (`i32`, `i64`, etc) and null funcref/externref values are not
-    /// tied to a context and can be freely shared between contexts.
-    ///
-    /// Externref and funcref values are tied to a context and can only be used
-    /// with that context.
     pub fn is_from_store(&self, store: &impl AsStoreRef) -> bool {
         self.handle.store_id() == store.as_store_ref().objects().id()
     }

@@ -1,22 +1,24 @@
 [package]
 name = "wasmer-compiler-singlepass"
-version = "3.1.0"
 description = "Singlepass compiler for Wasmer WebAssembly runtime"
 categories = ["wasm"]
 keywords = ["wasm", "webassembly", "compiler", "singlepass"]
-authors = ["Wasmer Engineering Team <engineering@wasmer.io>"]
-repository = "https://github.com/wasmerio/wasmer"
 documentation = "https://docs.rs/wasmer-compiler-singlepass/"
-license = "MIT"
 readme = "README.md"
-edition = "2018"
+authors.workspace = true
+edition.workspace = true
+homepage.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+version.workspace = true
 
 [dependencies]
-wasmer-compiler = { path = "../compiler", version = "=3.1.0", features = ["translator", "compiler"], default-features = false }
-wasmer-types = { path = "../types", version = "=3.1.0", default-features = false, features = ["std"] }
+wasmer-compiler = { path = "../compiler", version = "=4.2.5", features = ["translator", "compiler"], default-features = false }
+wasmer-types = { path = "../types", version = "=4.2.5", default-features = false, features = ["std"] }
 hashbrown = { version = "0.11", optional = true }
 gimli = { version = "0.26", optional = true }
-enumset = "1.0.2"
+enumset.workspace = true
 more-asserts = "0.2"
 dynasm = "1.2.3"
 dynasmrt = "1.2.3"
@@ -41,3 +43,6 @@ core = ["hashbrown", "wasmer-types/core"]
 unwind = ["gimli"]
 sse = []
 avx = []
+
+[package.metadata.docs.rs]
+rustc-args = ["--cfg", "docsrs"]

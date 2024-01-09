@@ -9,7 +9,3 @@ https://github.com/wasmerio/wasmer/blob/master/CONTRIBUTING.md#pull-requests
 Provide details regarding the change including motivation,
 links to related issues, and the context of the PR.
 -->
-
-# Review
-
-- [ ] Add a short description of the change to the CHANGELOG.md file

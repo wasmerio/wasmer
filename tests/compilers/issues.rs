@@ -25,7 +25,7 @@ fn issue_2329(mut config: crate::Config) -> Result<()> {
     }
 
     pub fn read_memory(mut ctx: FunctionEnvMut<Env>, guest_ptr: u32) -> u32 {
-        dbg!(ctx.data_mut().memory.as_ref());
+        dbg!(ctx.data().memory.as_ref());
         dbg!(guest_ptr);
         0
     }
@@ -101,7 +101,7 @@ fn call_with_static_data_pointers(mut config: crate::Config) -> Result<()> {
     ) -> u64 {
         println!("{:?}", (a, b, c, d, e, f, g, h));
         let mut buf = vec![0; d as usize];
-        let memory = ctx.data_mut().memory.as_ref().unwrap().clone();
+        let memory = ctx.data().memory.as_ref().unwrap().clone();
         memory.view(&ctx).read(e, &mut buf).unwrap();
         let input_string = std::str::from_utf8(&buf).unwrap();
         assert_eq!(input_string, "bananapeach");
@@ -261,6 +261,26 @@ fn regression_gpr_exhaustion_for_calls(mut config: crate::Config) -> Result<()> 
     let module = Module::new(&store, wat)?;
     let imports: Imports = imports! {};
     let instance = Instance::new(&mut store, &module, &imports)?;
+    Ok(())
+}
+
+#[compiler_test(issues)]
+fn test_start(mut config: crate::Config) -> Result<()> {
+    let mut store = config.store();
+    let mut env = FunctionEnv::new(&mut store, ());
+    let imports: Imports = imports! {};
+    let wat = r#"
+    (module (func $main (unreachable)) (start $main))
+    "#;
+    let module = Module::new(&store, wat)?;
+    let instance = Instance::new(&mut store, &module, &imports);
+    assert!(instance.is_err());
+    if let InstantiationError::Start(err) = instance.unwrap_err() {
+        assert_eq!(err.message(), "unreachable");
+    } else {
+        panic!("_start should have failed with an unreachable error")
+    }
+
     Ok(())
 }
 

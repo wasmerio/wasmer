@@ -1,0 +1,30 @@
+---
+source: tests/integration/cli/tests/snapshot.rs
+assertion_line: 381
+expression: snapshot
+---
+{
+  "spec": {
+    "name": "snapshot::test_snapshot_execve_async",
+    "use_packages": [
+      "sharrattj/coreutils"
+    ],
+    "include_webcs": [
+      {
+        "name": "sharrattj/coreutils@1.0.16"
+      }
+    ],
+    "cli_args": [],
+    "debug_output": false,
+    "enable_threads": true,
+    "enable_network": false,
+    "enable_async_threads": true
+  },
+  "result": {
+    "Success": {
+      "stdout": "Main program started\nexecve: echo hi-from-child\nhi-from-child\nChild(2) exited with 0\nexecve: echo hi-from-parent\nhi-from-parent\n",
+      "stderr": "",
+      "exit_code": 0
+    }
+  }
+}

@@ -1,5 +1,6 @@
 use super::store::wasm_store_t;
-use super::types::{wasm_byte_vec_t, wasm_frame_t, wasm_frame_vec_t, wasm_message_t};
+use super::types::{wasm_byte_vec_t, wasm_message_t};
+use super::types::{wasm_frame_t, wasm_frame_vec_t};
 use std::ffi::CString;
 use wasmer_api::RuntimeError;
 
@@ -149,6 +150,7 @@ mod tests {
     #[cfg(target_os = "windows")]
     use wasmer_inline_c::assert_c;
 
+    #[cfg_attr(coverage, ignore)]
     #[test]
     fn test_trap_message_null_terminated() {
         (assert_c! {
@@ -181,6 +183,7 @@ mod tests {
         .success();
     }
 
+    #[cfg_attr(coverage, ignore)]
     #[test]
     fn test_trap_message_not_null_terminated() {
         (assert_c! {

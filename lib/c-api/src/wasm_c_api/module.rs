@@ -485,6 +485,7 @@ mod tests {
     #[cfg(target_os = "windows")]
     use wasmer_inline_c::assert_c;
 
+    #[cfg_attr(coverage, ignore)]
     #[test]
     fn test_module_validate() {
         (assert_c! {
@@ -512,6 +513,7 @@ mod tests {
         .success();
     }
 
+    #[cfg_attr(coverage, ignore)]
     #[test]
     fn test_module_new() {
         (assert_c! {
@@ -541,6 +543,7 @@ mod tests {
         .success();
     }
 
+    #[cfg_attr(coverage, ignore)]
     #[test]
     fn test_module_exports() {
         (assert_c! {
@@ -649,6 +652,7 @@ mod tests {
         .success();
     }
 
+    #[cfg_attr(coverage, ignore)]
     #[test]
     fn test_module_imports() {
         (assert_c! {
@@ -767,6 +771,7 @@ mod tests {
         .success();
     }
 
+    #[cfg_attr(coverage, ignore)]
     #[test]
     fn test_module_serialize() {
         (assert_c! {
@@ -801,6 +806,7 @@ mod tests {
         .success();
     }
 
+    #[cfg_attr(coverage, ignore)]
     #[test]
     fn test_module_serialize_and_deserialize() {
         (assert_c! {

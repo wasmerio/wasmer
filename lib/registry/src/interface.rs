@@ -2,16 +2,13 @@
     not(feature = "full"),
     allow(dead_code, unused_imports, unused_variables)
 )]
-use crate::graphql::execute_query;
-use graphql_client::*;
 
-#[derive(GraphQLQuery)]
-#[graphql(
-    schema_path = "graphql/schema.graphql",
-    query_path = "graphql/queries/get_interface_version.graphql",
-    response_derives = "Debug"
-)]
-struct GetInterfaceVersionQuery;
+use graphql_client::GraphQLQuery;
+
+use crate::graphql::{
+    execute_query,
+    queries::{get_interface_version_query, GetInterfaceVersionQuery},
+};
 
 #[derive(Debug)]
 pub struct InterfaceFromServer {

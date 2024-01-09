@@ -23,77 +23,21 @@ mod lib {
     }
 }
 
-pub(crate) mod error;
-mod export;
-mod exports;
-mod externals;
-mod function_env;
-mod imports;
-mod instance;
-mod mem_access;
-mod module;
+mod as_js;
+pub(crate) mod engine;
+pub(crate) mod errors;
+pub(crate) mod extern_ref;
+pub(crate) mod externals;
+pub(crate) mod instance;
+mod js_handle;
+pub(crate) mod mem_access;
+pub(crate) mod module;
 #[cfg(feature = "wasm-types-polyfill")]
 mod module_info_polyfill;
-mod native;
-mod native_type;
-mod ptr;
-mod store;
-mod trap;
-mod types;
-mod value;
+pub(crate) mod store;
+pub(crate) mod trap;
+pub(crate) mod typed_function;
+pub(crate) mod vm;
 mod wasm_bindgen_polyfill;
 
-pub use crate::js::error::{DeserializeError, InstantiationError, SerializeError};
-pub use crate::js::export::Export;
-pub use crate::js::exports::{ExportError, Exportable, Exports, ExportsIterator};
-pub use crate::js::externals::{
-    Extern, FromToNativeWasmType, Function, Global, HostFunction, Memory, MemoryError, MemoryView,
-    Table, WasmTypeList,
-};
-pub use crate::js::function_env::{FunctionEnv, FunctionEnvMut};
-pub use crate::js::imports::Imports;
-pub use crate::js::instance::Instance;
-pub use crate::js::mem_access::{MemoryAccessError, WasmRef, WasmSlice, WasmSliceIter};
-pub use crate::js::module::{IoCompileError, Module, ModuleTypeHints};
-pub use crate::js::native::TypedFunction;
-pub use crate::js::native_type::NativeWasmTypeInto;
-pub use crate::js::ptr::{Memory32, Memory64, MemorySize, WasmPtr, WasmPtr64};
-pub use crate::js::trap::RuntimeError;
-
-pub use crate::js::store::{
-    AsStoreMut, AsStoreRef, Store, StoreHandle, StoreMut, StoreObject, StoreObjects, StoreRef,
-};
-pub use crate::js::types::ValType as Type;
-pub use crate::js::types::{
-    ExportType, ExternType, FunctionType, GlobalType, ImportType, MemoryType, Mutability,
-    TableType, ValType,
-};
-pub use crate::js::value::Value;
-pub use crate::js::value::Value as Val;
-
-pub mod vm {
-    //! The `vm` module re-exports wasmer-vm types.
-    pub use crate::js::export::VMMemory;
-}
-
-pub use wasmer_types::is_wasm;
-pub use wasmer_types::{
-    Bytes, ExportIndex, GlobalInit, LocalFunctionIndex, Pages, ValueType, WASM_MAX_PAGES,
-    WASM_MIN_PAGES, WASM_PAGE_SIZE,
-};
-
-#[cfg(feature = "wat")]
-pub use wat::parse_bytes as wat2wasm;
-
-#[cfg(feature = "wasm-types-polyfill")]
-pub use wasmparser;
-
-/// Version number of this crate.
-pub const VERSION: &str = env!("CARGO_PKG_VERSION");
-
-/// This type is deprecated, it has been replaced by TypedFunction.
-#[deprecated(
-    since = "3.0.0",
-    note = "NativeFunc has been replaced by TypedFunction"
-)]
-pub type NativeFunc<Args = (), Rets = ()> = TypedFunction<Args, Rets>;
+pub use self::{as_js::AsJs, js_handle::current_thread_id, module::ModuleTypeHints};

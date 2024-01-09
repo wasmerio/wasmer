@@ -20,14 +20,63 @@ use std::mem;
 #[cfg(unix)]
 use std::mem::MaybeUninit;
 use std::ptr::{self, NonNull};
-use std::sync::atomic::{compiler_fence, AtomicPtr, Ordering};
-use std::sync::{Mutex, Once};
+use std::sync::atomic::{compiler_fence, AtomicPtr, AtomicUsize, Ordering};
+use std::sync::Once;
 use wasmer_types::TrapCode;
+
+/// Configuration for the the runtime VM
+/// Currently only the stack size is configurable
+pub struct VMConfig {
+    /// Optionnal stack size (in byte) of the VM. Value lower than 8K will be rounded to 8K.
+    pub wasm_stack_size: Option<usize>,
+}
 
 // TrapInformation can be stored in the "Undefined Instruction" itself.
 // On x86_64, 0xC? select a "Register" for the Mod R/M part of "ud1" (so with no other bytes after)
 // On Arm64, the udf alows for a 16bits values, so we'll use the same 0xC? to store the trapinfo
 static MAGIC: u8 = 0xc0;
+
+static DEFAULT_STACK_SIZE: AtomicUsize = AtomicUsize::new(1024 * 1024);
+
+// Current definition of `ucontext_t` in the `libc` crate is incorrect
+// on aarch64-apple-drawin so it's defined here with a more accurate definition.
+#[repr(C)]
+#[cfg(all(target_arch = "aarch64", target_os = "macos"))]
+#[allow(non_camel_case_types)]
+struct ucontext_t {
+    uc_onstack: libc::c_int,
+    uc_sigmask: libc::sigset_t,
+    uc_stack: libc::stack_t,
+    uc_link: *mut libc::ucontext_t,
+    uc_mcsize: usize,
+    uc_mcontext: libc::mcontext_t,
+}
+
+// Current definition of `ucontext_t` in the `libc` crate is not present
+// on aarch64-unknown-freebsd so it's defined here.
+#[repr(C)]
+#[cfg(all(target_arch = "aarch64", target_os = "freebsd"))]
+#[allow(non_camel_case_types)]
+struct ucontext_t {
+    uc_sigmask: libc::sigset_t,
+    uc_mcontext: libc::mcontext_t,
+    uc_link: *mut ucontext_t,
+    uc_stack: libc::stack_t,
+    uc_flags: libc::c_int,
+    spare: [libc::c_int; 4],
+}
+
+#[cfg(all(
+    unix,
+    not(all(target_arch = "aarch64", target_os = "macos")),
+    not(all(target_arch = "aarch64", target_os = "freebsd"))
+))]
+use libc::ucontext_t;
+
+/// Default stack size is 1MB.
+pub fn set_stack_size(size: usize) {
+    DEFAULT_STACK_SIZE.store(size.max(8 * 1024).min(100 * 1024 * 1024), Ordering::Relaxed);
+}
 
 cfg_if::cfg_if! {
     if #[cfg(unix)] {
@@ -84,21 +133,6 @@ unsafe fn process_illegal_op(addr: usize) -> Option<TrapCode> {
             _ => None,
         },
     }
-}
-
-/// A package of functionality needed by `catch_traps` to figure out what to do
-/// when handling a trap.
-///
-/// # Safety
-///
-/// Note that this is an `unsafe` trait at least because it's being run in the
-/// context of a synchronous signal handler, so it needs to be careful to not
-/// access too much state in answering these queries.
-pub unsafe trait TrapHandler {
-    /// Uses `call` to call a custom signal handler, if one is specified.
-    ///
-    /// Returns `true` if `call` returns true, otherwise returns `false`.
-    fn custom_trap_handler(&self, call: &dyn Fn(&TrapHandlerFn) -> bool) -> bool;
 }
 
 cfg_if::cfg_if! {
@@ -217,7 +251,7 @@ cfg_if::cfg_if! {
                 }
                 _ => None,
             };
-            let ucontext = &mut *(context as *mut libc::ucontext_t);
+            let ucontext = &mut *(context as *mut ucontext_t);
             let (pc, sp) = get_pc_sp(ucontext);
             let handled = TrapHandlerContext::handle_trap(
                 pc,
@@ -257,7 +291,7 @@ cfg_if::cfg_if! {
             }
         }
 
-        unsafe fn get_pc_sp(context: &libc::ucontext_t) -> (usize, usize) {
+        unsafe fn get_pc_sp(context: &ucontext_t) -> (usize, usize) {
             let (pc, sp);
             cfg_if::cfg_if! {
                 if #[cfg(all(
@@ -272,7 +306,10 @@ cfg_if::cfg_if! {
                 ))] {
                     pc = context.uc_mcontext.gregs[libc::REG_EIP as usize] as usize;
                     sp = context.uc_mcontext.gregs[libc::REG_ESP as usize] as usize;
-                } else if #[cfg(all(target_os = "freebsd", any(target_arch = "x86", target_arch = "x86_64")))] {
+                } else if #[cfg(all(target_os = "freebsd", target_arch = "x86"))] {
+                    pc = context.uc_mcontext.mc_eip as usize;
+                    sp = context.uc_mcontext.mc_esp as usize;
+                } else if #[cfg(all(target_os = "freebsd", target_arch = "x86_64"))] {
                     pc = context.uc_mcontext.mc_rip as usize;
                     sp = context.uc_mcontext.mc_rsp as usize;
                 } else if #[cfg(all(target_vendor = "apple", target_arch = "x86_64"))] {
@@ -309,7 +346,7 @@ cfg_if::cfg_if! {
             (pc, sp)
         }
 
-        unsafe fn update_context(context: &mut libc::ucontext_t, regs: TrapHandlerRegs) {
+        unsafe fn update_context(context: &mut ucontext_t, regs: TrapHandlerRegs) {
             cfg_if::cfg_if! {
                 if #[cfg(all(
                         any(target_os = "linux", target_os = "android"),
@@ -338,6 +375,13 @@ cfg_if::cfg_if! {
                     (*context.uc_mcontext).__ss.__rbp = rbp;
                     (*context.uc_mcontext).__ss.__rdi = rdi;
                     (*context.uc_mcontext).__ss.__rsi = rsi;
+                } else if #[cfg(all(target_os = "freebsd", target_arch = "x86"))] {
+                    let TrapHandlerRegs { eip, esp, ebp, ecx, edx } = regs;
+                    context.uc_mcontext.mc_eip = eip as libc::register_t;
+                    context.uc_mcontext.mc_esp = esp as libc::register_t;
+                    context.uc_mcontext.mc_ebp = ebp as libc::register_t;
+                    context.uc_mcontext.mc_ecx = ecx as libc::register_t;
+                    context.uc_mcontext.mc_edx = edx as libc::register_t;
                 } else if #[cfg(all(target_os = "freebsd", target_arch = "x86_64"))] {
                     let TrapHandlerRegs { rip, rsp, rbp, rdi, rsi } = regs;
                     context.uc_mcontext.mc_rip = rip as libc::register_t;
@@ -408,7 +452,8 @@ cfg_if::cfg_if! {
                     (*context.uc_mcontext).__ss.__fp = x29;
                     (*context.uc_mcontext).__ss.__lr = lr;
                 } else if #[cfg(all(target_os = "freebsd", target_arch = "aarch64"))] {
-                    context.uc_mcontext.mc_gpregs.gp_pc = pc as libc::register_t;
+                    let TrapHandlerRegs { pc, sp, x0, x1, x29, lr } = regs;
+                    context.uc_mcontext.mc_gpregs.gp_elr = pc as libc::register_t;
                     context.uc_mcontext.mc_gpregs.gp_sp = sp as libc::register_t;
                     context.uc_mcontext.mc_gpregs.gp_x[0] = x0 as libc::register_t;
                     context.uc_mcontext.mc_gpregs.gp_x[1] = x1 as libc::register_t;
@@ -611,12 +656,13 @@ pub unsafe fn resume_panic(payload: Box<dyn Any + Send>) -> ! {
 /// function pointers.
 pub unsafe fn wasmer_call_trampoline(
     trap_handler: Option<*const TrapHandlerFn<'static>>,
+    config: &VMConfig,
     vmctx: VMFunctionContext,
     trampoline: VMTrampoline,
     callee: *const VMFunctionBody,
     values_vec: *mut u8,
 ) -> Result<(), Trap> {
-    catch_traps(trap_handler, || {
+    catch_traps(trap_handler, config, || {
         mem::transmute::<_, extern "C" fn(VMFunctionContext, *const VMFunctionBody, *mut u8)>(
             trampoline,
         )(vmctx, callee, values_vec);
@@ -631,6 +677,7 @@ pub unsafe fn wasmer_call_trampoline(
 /// Highly unsafe since `closure` won't have any dtors run.
 pub unsafe fn catch_traps<F, R>(
     trap_handler: Option<*const TrapHandlerFn<'static>>,
+    config: &VMConfig,
     closure: F,
 ) -> Result<R, Trap>
 where
@@ -638,8 +685,10 @@ where
 {
     // Ensure that per-thread initialization is done.
     lazy_per_thread_init()?;
-
-    on_wasm_stack(trap_handler, closure).map_err(UnwindReason::into_trap)
+    let stack_size = config
+        .wasm_stack_size
+        .unwrap_or_else(|| DEFAULT_STACK_SIZE.load(Ordering::Relaxed));
+    on_wasm_stack(stack_size, trap_handler, closure).map_err(UnwindReason::into_trap)
 }
 
 // We need two separate thread-local variables here:
@@ -856,6 +905,7 @@ unsafe fn unwind_with(reason: UnwindReason) -> ! {
 /// bounded. Stack overflows and other traps can be caught and execution
 /// returned to the root of the stack.
 fn on_wasm_stack<F: FnOnce() -> T, T>(
+    stack_size: usize,
     trap_handler: Option<*const TrapHandlerFn<'static>>,
     f: F,
 ) -> Result<T, UnwindReason> {
@@ -864,10 +914,12 @@ fn on_wasm_stack<F: FnOnce() -> T, T>(
     // allows them to be reused multiple times.
     // FIXME(Amanieu): We should refactor this to avoid the lock.
     lazy_static::lazy_static! {
-        static ref STACK_POOL: Mutex<Vec<DefaultStack>> = Mutex::new(vec![]);
+        static ref STACK_POOL: crossbeam_queue::SegQueue<DefaultStack> = crossbeam_queue::SegQueue::new();
     }
-    let stack = STACK_POOL.lock().unwrap().pop().unwrap_or_default();
-    let mut stack = scopeguard::guard(stack, |stack| STACK_POOL.lock().unwrap().push(stack));
+    let stack = STACK_POOL
+        .pop()
+        .unwrap_or_else(|| DefaultStack::new(stack_size).unwrap());
+    let mut stack = scopeguard::guard(stack, |stack| STACK_POOL.push(stack));
 
     // Create a coroutine with a new stack to run the function on.
     let mut coro = ScopedCoroutine::with_stack(&mut *stack, move |yielder, ()| {
@@ -930,7 +982,10 @@ pub fn on_host_stack<F: FnOnce() -> T, T>(f: F) -> T {
     struct SendWrapper<T>(T);
     unsafe impl<T> Send for SendWrapper<T> {}
     let wrapped = SendWrapper(f);
-    yielder.on_parent_stack(move || (wrapped.0)())
+    yielder.on_parent_stack(move || {
+        let wrapped = wrapped;
+        (wrapped.0)()
+    })
 }
 
 #[cfg(windows)]
