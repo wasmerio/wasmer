@@ -29,6 +29,7 @@ pub(crate) mod errors;
 pub(crate) mod extern_ref;
 pub(crate) mod externals;
 pub(crate) mod instance;
+mod js_handle;
 pub(crate) mod mem_access;
 pub(crate) mod module;
 #[cfg(feature = "wasm-types-polyfill")]
@@ -39,5 +40,4 @@ pub(crate) mod typed_function;
 pub(crate) mod vm;
 mod wasm_bindgen_polyfill;
 
-pub use crate::js::as_js::AsJs;
-pub use crate::js::module::ModuleTypeHints;
+pub use self::{as_js::AsJs, js_handle::current_thread_id, module::ModuleTypeHints};

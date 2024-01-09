@@ -2,6 +2,8 @@ name: Builds
 
 env:
   RUST_BACKTRACE: 1
+  CARGO_REGISTRIES_CRATES_IO_PROTOCOL: git
+  MSRV: "1.70"
 
 on:
   push:
@@ -44,38 +46,38 @@ jobs:
           - build: linux-x64
             os: ubuntu-20.04
             artifact_name: 'wasmer-linux-amd64'
-            llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/14.x/llvm-linux-amd64.tar.xz'
+            llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/15.x/llvm-linux-amd64.tar.xz'
             cross_compilation_artifact_name: 'cross_compiled_from_linux'
-            use_sccache: true
+            use_sccache: false
             use_llvm: true
             build_wasm: true
           - build: macos-x64
             os: macos-11
-            llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/14.x/llvm-darwin-amd64.tar.xz'
+            llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/15.x/llvm-darwin-amd64.tar.xz'
             artifact_name: 'wasmer-darwin-amd64'
             cross_compilation_artifact_name: 'cross_compiled_from_mac'
-            use_sccache: true
+            use_sccache: false
             use_llvm: true
             build_wasm: false
           - build: macos-arm64
             os: macos-11.0
             target: aarch64-apple-darwin
             artifact_name: 'wasmer-darwin-arm64'
-            use_sccache: true
+            use_sccache: false
             use_llvm: false
             build_wasm: false
           - build: windows-x64
             os: windows-2019
             artifact_name: 'wasmer-windows-amd64'
-            llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/14.x/llvm-windows-amd64.tar.xz'
+            llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/15.x/llvm-windows-amd64.tar.xz'
             cross_compilation_artifact_name: 'cross_compiled_from_win'
-            use_sccache: true
+            use_sccache: false
             use_llvm: true
             build_wasm: false
           - build: linux-musl-x64
             os: ubuntu-latest
             artifact_name: 'wasmer-linux-musl-amd64'
-            #llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/14.x/llvm-linux-amd64.tar.xz'
+            #llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/15.x/llvm-linux-amd64.tar.xz'
             container: alpine:latest
             use_sccache: false
             use_llvm: false
@@ -94,12 +96,12 @@ jobs:
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
         with:
-          toolchain: 1.65
+          toolchain: ${{ env.MSRV }}
           target: ${{ matrix.target }}
       - name: Install Rust nightly (to build capi-headless)
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@master
         with:
-          toolchain: nightly
+          toolchain: "nightly-2023-05-25"
           target: ${{ matrix.metadata.target }}
       - uses: Swatinem/rust-cache@v2
         if: matrix.use_sccache != true
@@ -123,7 +125,7 @@ jobs:
         shell: bash
         run: |
           LLVM_DIR=$(pwd)/${{ env.LLVM_DIR }}
-          echo LLVM_SYS_140_PREFIX="${LLVM_DIR}" >> $GITHUB_ENV
+          echo LLVM_SYS_150_PREFIX="${LLVM_DIR}" >> $GITHUB_ENV
           echo LLVM_ENABLE=1 >> $GITHUB_ENV
         env:
           LLVM_DIR: .llvm
@@ -222,9 +224,9 @@ jobs:
      #  run: |
      #    make build-wasmer-wasm
       - name: Install Nightly Rust for Headless
-        uses: dtolnay/rust-toolchain@nightly
+        uses: dtolnay/rust-toolchain@master
         with:
-          toolchain: "nightly-2022-10-09"
+          toolchain: "nightly-2023-05-25"
           target: ${{ matrix.target }}
           components: "rust-src"
       - name: Build Minimal Wasmer Headless
@@ -242,7 +244,7 @@ jobs:
           echo "incremental = false" >> Cargo.toml
           echo "codegen-units = 1" >> Cargo.toml
           echo "rpath = false" >> Cargo.toml
-          rustup override set nightly-2022-10-09
+          rustup override set nightly-2023-05-25
           make build-wasmer-headless-minimal
           rustup override unset
       - name: Dist
@@ -277,9 +279,9 @@ jobs:
         with:
           target: x86_64-pc-windows-gnu
       - name: Install Rust nightly (to build capi-headless)
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@master
         with:
-          toolchain: nightly
+          toolchain: "nightly-2023-05-25"
           target: x86_64-pc-windows-gnu
       - name: Install Windows-GNU target
         shell: bash
@@ -325,7 +327,7 @@ jobs:
       - name: Dist
         run: |
           make distribution-gnu
-        env: 
+        env:
           CARGO_TARGET: x86_64-pc-windows-gnu
           TARGET_DIR: target/x86_64-pc-windows-gnu/release
       - name: Upload Artifacts
@@ -358,7 +360,7 @@ jobs:
       - name: Dist
         run: |
           make distribution
-        env: 
+        env:
           CARGO_TARGET: aarch64-apple-darwin
           TARGET_DIR: target/aarch64-apple-darwin/release
       - name: Upload Artifacts
@@ -387,7 +389,7 @@ jobs:
       - name: Dist
         run: |
           make distribution
-        env: 
+        env:
           CARGO_TARGET: x86_64-apple-darwin
           TARGET_DIR: target/x86_64-apple-darwin/release
       - name: Upload Artifacts

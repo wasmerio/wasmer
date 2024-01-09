@@ -1,22 +1,27 @@
 [package]
 name = "wasmer-middlewares"
-version = "3.3.0"
-authors = ["Wasmer Engineering Team <engineering@wasmer.io>"]
 description = "A collection of various useful middlewares"
-license = "MIT OR Apache-2.0 WITH LLVM-exception"
 categories = ["wasm"]
 keywords = ["webassembly", "wasm"]
-repository = "https://github.com/wasmerio/wasmer"
 readme = "README.md"
-edition = "2018"
+authors.workspace = true
+edition.workspace = true
+homepage.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+version.workspace = true
 
 [dependencies]
-wasmer = { path = "../api", version = "=3.3.0", default-features = false, features = ["compiler"] }
-wasmer-types = { path = "../types", version = "=3.3.0" }
-wasmer-vm = { path = "../vm", version = "=3.3.0" }
+wasmer = { path = "../api", version = "=4.2.5", default-features = false, features = ["compiler"] }
+wasmer-types = { path = "../types", version = "=4.2.5" }
+wasmer-vm = { path = "../vm", version = "=4.2.5" }
 
 [dev-dependencies]
-wasmer = { path = "../api", version = "=3.3.0", features = ["compiler"] }
+wasmer = { path = "../api", version = "=4.2.5", features = ["compiler"] }
 
 [badges]
 maintenance = { status = "actively-developed" }
+
+[package.metadata.docs.rs]
+rustc-args = ["--cfg", "docsrs"]

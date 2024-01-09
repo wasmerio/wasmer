@@ -1,6 +1,7 @@
 use crate::externals::function::{HostFunction, WithEnv, WithoutEnv};
 use crate::native_type::{FromToNativeWasmType, IntoResult, NativeWasmTypeInto, WasmTypeList};
 use crate::store::{AsStoreMut, AsStoreRef, StoreInner, StoreMut};
+use crate::sys::engine::NativeEngineExt;
 use crate::vm::{VMExternFunction, VMFunctionCallback};
 use crate::{FunctionEnv, FunctionEnvMut, FunctionType, RuntimeError, Value};
 use std::panic::{self, AssertUnwindSafe};
@@ -271,10 +272,13 @@ impl Function {
             let mut r;
             // TODO: This loop is needed for asyncify. It will be refactored with https://github.com/wasmerio/wasmer/issues/3451
             loop {
-                let vm_function = self.handle.get(store.as_store_ref().objects());
+                let storeref = store.as_store_ref();
+                let vm_function = self.handle.get(storeref.objects());
+                let config = storeref.engine().tunables().vmconfig();
                 r = unsafe {
                     wasmer_call_trampoline(
                         store.as_store_ref().signal_handler(),
+                        config,
                         vm_function.anyfunc.as_ptr().as_ref().vmctx,
                         trampoline,
                         vm_function.anyfunc.as_ptr().as_ref().func_ptr,
@@ -291,7 +295,7 @@ impl Function {
                             break;
                         }
                         Ok(wasmer_types::OnCalledAction::Trap(trap)) => {
-                            return Err(RuntimeError::user(trap))
+                            return Err(RuntimeError::user(trap));
                         }
                         Err(trap) => return Err(RuntimeError::user(trap)),
                     }

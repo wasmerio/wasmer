@@ -406,7 +406,7 @@ fn fixup_symlinks_inner(include_paths: &[String], log: &mut String) -> Result<()
     log.push_str(&format!("fixup symlinks: {include_paths:#?}"));
     let regex = regex::Regex::new(INCLUDE_REGEX).unwrap();
     for path in include_paths.iter() {
-        let file = match std::fs::read_to_string(&path) {
+        let file = match std::fs::read_to_string(path) {
             Ok(o) => o,
             _ => continue,
         };
@@ -414,9 +414,9 @@ fn fixup_symlinks_inner(include_paths: &[String], log: &mut String) -> Result<()
         log.push_str(&format!("first 3 lines of {path:?}: {:#?}\n", lines_3));
 
         let parent = std::path::Path::new(&path).parent().unwrap();
-        if let Ok(symlink) = std::fs::read_to_string(parent.clone().join(&file)) {
+        if let Ok(symlink) = std::fs::read_to_string(parent.join(&file)) {
             log.push_str(&format!("symlinking {path:?}\n"));
-            std::fs::write(&path, symlink)?;
+            std::fs::write(path, symlink)?;
         }
 
         // follow #include directives and recurse
@@ -427,9 +427,9 @@ fn fixup_symlinks_inner(include_paths: &[String], log: &mut String) -> Result<()
         log.push_str(&format!("regex captures: ({path:?}): {:#?}\n", filepaths));
         let joined_filepaths = filepaths
             .iter()
-            .filter_map(|s| {
-                let path = parent.clone().join(s);
-                Some(format!("{}", path.display()))
+            .map(|s| {
+                let path = parent.join(s);
+                format!("{}", path.display())
             })
             .collect::<Vec<_>>();
         fixup_symlinks_inner(&joined_filepaths, log)?;

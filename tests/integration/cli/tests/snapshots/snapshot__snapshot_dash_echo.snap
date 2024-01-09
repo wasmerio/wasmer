@@ -9,7 +9,6 @@ expression: snapshot
     "include_webcs": [],
     "cli_args": [],
     "stdin_hash": "f21e64a91c2b4c628da60b9a6ef26c46",
-    "debug_output": false,
     "enable_threads": true,
     "enable_network": false
   },

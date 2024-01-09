@@ -10,7 +10,7 @@ use tracing::warn;
 
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsCast;
-use wasmer_types::{Pages, WASM_PAGE_SIZE};
+use wasmer_types::Pages;
 
 use super::memory_view::MemoryView;
 
@@ -88,8 +88,16 @@ impl Memory {
             js_sys::Reflect::set(&descriptor, &"shared".into(), &ty.shared.into()).unwrap();
         }
 
-        let js_memory = js_sys::WebAssembly::Memory::new(&descriptor)
-            .map_err(|_e| MemoryError::Generic("Error while creating the memory".to_owned()))?;
+        let js_memory = js_sys::WebAssembly::Memory::new(&descriptor).map_err(|e| {
+            let error_message = if let Some(s) = e.as_string() {
+                s
+            } else if let Some(obj) = e.dyn_ref::<js_sys::Object>() {
+                obj.to_string().into()
+            } else {
+                "Error while creating the memory".to_string()
+            };
+            MemoryError::Generic(error_message)
+        })?;
 
         Ok(js_memory)
     }
@@ -136,64 +144,62 @@ impl Memory {
         Ok(Pages(new_pages))
     }
 
-    pub fn copy_to_store(
+    pub fn grow_at_least(
         &self,
-        store: &impl AsStoreRef,
-        new_store: &mut impl AsStoreMut,
-    ) -> Result<Self, MemoryError> {
-        // Create the new memory using the parameters of the existing memory
-        let view = self.view(store);
-        let ty = self.ty(store);
-        let amount = view.data_size() as usize;
+        store: &mut impl AsStoreMut,
+        min_size: u64,
+    ) -> Result<(), MemoryError> {
+        let cur_size = self.view(store).data_size();
+        if min_size > cur_size {
+            let delta = min_size - cur_size;
+            let pages = ((delta - 1) / wasmer_types::WASM_PAGE_SIZE as u64) + 1;
 
-        let new_memory = Self::new(new_store, ty)?;
-        let new_view_size = new_memory.view(&new_store).data_size() as usize;
-        if amount > new_view_size {
-            let delta = amount - new_view_size;
-            let pages = ((delta - 1) / WASM_PAGE_SIZE) + 1;
-            new_memory.grow(new_store, Pages(pages as u32))?;
+            self.grow(store, Pages(pages as u32))?;
         }
-        let new_view = new_memory.view(&new_store);
+        Ok(())
+    }
 
-        // Copy the bytes
-        view.copy_to_memory(amount as u64, &new_view)
-            .map_err(|err| MemoryError::Generic(err.to_string()))?;
-
-        // Return the new memory
-        Ok(new_memory)
+    pub fn reset(&self, _store: &mut impl AsStoreMut) -> Result<(), MemoryError> {
+        Ok(())
     }
 
     pub(crate) fn from_vm_extern(_store: &mut impl AsStoreMut, internal: VMMemory) -> Self {
         Self { handle: internal }
     }
 
-    pub fn try_clone(&self, _store: &impl AsStoreRef) -> Option<VMMemory> {
+    /// Cloning memory will create another reference to the same memory that
+    /// can be put into a new store
+    pub fn try_clone(&self, _store: &impl AsStoreRef) -> Result<VMMemory, MemoryError> {
         self.handle.try_clone()
+    }
+
+    /// Copying the memory will actually copy all the bytes in the memory to
+    /// a identical byte copy of the original that can be put into a new store
+    pub fn try_copy(&self, store: &impl AsStoreRef) -> Result<VMMemory, MemoryError> {
+        let mut cloned = self.try_clone(store)?;
+        cloned.copy()
     }
 
     pub fn is_from_store(&self, _store: &impl AsStoreRef) -> bool {
         true
-    }
-
-    pub fn duplicate_in_store(
-        &self,
-        store: &impl AsStoreRef,
-        new_store: &mut impl AsStoreMut,
-    ) -> Option<Self> {
-        self.try_clone(&store)
-            .and_then(|mut memory| memory.duplicate().ok())
-            .map(|new_memory| Self::new_from_existing(new_store, new_memory.into()))
-    }
-
-    #[allow(unused)]
-    pub fn duplicate(&mut self, _store: &impl AsStoreRef) -> Result<VMMemory, MemoryError> {
-        self.handle.duplicate()
     }
 }
 
 impl std::cmp::PartialEq for Memory {
     fn eq(&self, other: &Self) -> bool {
         self.handle == other.handle
+    }
+}
+
+impl From<Memory> for crate::Memory {
+    fn from(value: Memory) -> Self {
+        crate::Memory(value)
+    }
+}
+
+impl From<crate::Memory> for Memory {
+    fn from(value: crate::Memory) -> Self {
+        value.0
     }
 }
 

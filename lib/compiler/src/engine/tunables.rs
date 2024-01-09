@@ -7,7 +7,7 @@ use wasmer_types::{
 };
 use wasmer_vm::{InternalStoreHandle, MemoryError, StoreObjects};
 use wasmer_vm::{MemoryStyle, TableStyle};
-use wasmer_vm::{VMGlobal, VMMemory, VMTable};
+use wasmer_vm::{VMConfig, VMGlobal, VMMemory, VMTable};
 use wasmer_vm::{VMMemoryDefinition, VMTableDefinition};
 
 /// An engine delegates the creation of memories, tables, and globals
@@ -143,6 +143,18 @@ pub trait Tunables {
         }
 
         Ok(vmctx_globals)
+    }
+
+    /// Get the VMConfig for this tunables
+    /// Currently, VMConfig have optional Stack size
+    /// If wasm_stack_size is left to None (the default value)
+    /// then the global stack size will be use
+    /// Else the defined stack size will be used. Size is in byte
+    /// and the value might be rounded to sane value is needed.
+    fn vmconfig(&self) -> &VMConfig {
+        &VMConfig {
+            wasm_stack_size: None,
+        }
     }
 }
 

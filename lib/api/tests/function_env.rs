@@ -16,7 +16,7 @@ fn data_and_store_mut() -> Result<(), String> {
         &mut store,
         Env {
             value: 0i32,
-            global: global_mut.clone(),
+            global: global_mut,
         },
     );
     let mut envmut = env.into_mut(&mut store);
@@ -24,7 +24,7 @@ fn data_and_store_mut() -> Result<(), String> {
     let (mut data, mut storemut) = envmut.data_and_store_mut();
 
     assert_eq!(
-        data.global.ty(&mut storemut),
+        data.global.ty(&storemut),
         GlobalType {
             ty: Type::I32,
             mutability: Mutability::Var

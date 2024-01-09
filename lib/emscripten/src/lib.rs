@@ -10,9 +10,10 @@
 // This allow attribute is ignored when placed directly on fields that also
 // have a #[wasmer(...)] attribute. As a dirty workaround it is for now
 // allowed for the whole library.
-#![allow(clippy::type_complexity)]
+#![allow(clippy::type_complexity, clippy::unnecessary_cast)]
 #![doc(html_favicon_url = "https://wasmer.io/images/icons/favicon-32x32.png")]
 #![doc(html_logo_url = "https://github.com/wasmerio.png?size=200")]
+#![cfg_attr(docsrs, feature(doc_cfg, doc_auto_cfg))]
 
 #[macro_use]
 extern crate log;

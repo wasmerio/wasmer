@@ -8,14 +8,13 @@ expression: snapshot
     "use_packages": [],
     "include_webcs": [],
     "cli_args": [],
-    "debug_output": false,
     "enable_threads": true,
     "enable_network": false
   },
   "result": {
     "Success": {
-      "stdout": "Parent memory is good\nParent memory after longjmp is good\nParent has x = 0\nChild memory is good\nChild memory after longjmp is good\nChild has x = 2\nChild(2) exited with 5\n",
-      "stderr": "",
+      "stdout": "Parent memory is good\nParent memory after longjmp is good\nParent has x = 0\nChild(2) exited with 5\n",
+      "stderr": "Child memory is good\nChild memory after longjmp is good\nChild has x = 2\n",
       "exit_code": 0
     }
   }

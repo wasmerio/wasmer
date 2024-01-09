@@ -140,6 +140,25 @@ impl Memory {
         // Ok(Pages(new_pages))
     }
 
+    pub fn grow_at_least(
+        &self,
+        store: &mut impl AsStoreMut,
+        min_size: u64,
+    ) -> Result<(), MemoryError> {
+        let cur_size = self.view(store).data_size();
+        if min_size > cur_size {
+            let delta = min_size - cur_size;
+            let pages = ((delta - 1) / wasmer_types::WASM_PAGE_SIZE as u64) + 1;
+
+            self.grow(store, Pages(pages as u32))?;
+        }
+        Ok(())
+    }
+
+    pub fn reset(&self, _store: &mut impl AsStoreMut) -> Result<(), MemoryError> {
+        Ok(())
+    }
+
     pub fn copy_to_store(
         &self,
         store: &impl AsStoreRef,
@@ -170,18 +189,17 @@ impl Memory {
         Self { handle: internal }
     }
 
-    pub fn try_clone(&self, _store: &impl AsStoreRef) -> Option<VMMemory> {
+    /// Cloning memory will create another reference to the same memory that
+    /// can be put into a new store
+    pub fn try_clone(&self, _store: &impl AsStoreRef) -> Result<VMMemory, MemoryError> {
         self.handle.try_clone()
     }
 
-    pub fn duplicate_in_store(
-        &self,
-        store: &impl AsStoreRef,
-        new_store: &mut impl AsStoreMut,
-    ) -> Option<Self> {
-        self.try_clone(&store)
-            .and_then(|mut memory| memory.duplicate(&store).ok())
-            .map(|new_memory| Self::new_from_existing(new_store, new_memory.into()))
+    /// Copying the memory will actually copy all the bytes in the memory to
+    /// a identical byte copy of the original that can be put into a new store
+    pub fn try_copy(&self, store: &impl AsStoreRef) -> Result<VMMemory, MemoryError> {
+        let mut cloned = self.try_clone(store)?;
+        cloned.copy(store)
     }
 
     pub fn is_from_store(&self, _store: &impl AsStoreRef) -> bool {

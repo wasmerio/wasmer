@@ -60,7 +60,7 @@ pub type WasmPtr64<T> = WasmPtr<T, Memory64>;
 #[repr(transparent)]
 pub struct WasmPtr<T, M: MemorySize = Memory32> {
     offset: M::Offset,
-    _phantom: PhantomData<*mut T>,
+    _phantom: PhantomData<T>,
 }
 
 impl<T, M: MemorySize> WasmPtr<T, M> {

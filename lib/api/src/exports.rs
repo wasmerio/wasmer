@@ -42,7 +42,7 @@ use thiserror::Error;
 /// // This results with an error: `ExportError::Missing`.
 /// let export = instance.exports.get_function("unknown").unwrap();
 /// ```
-#[derive(Error, Debug)]
+#[derive(Error, Debug, Clone)]
 pub enum ExportError {
     /// An error than occurs when the exported type and the expected type
     /// are incompatible.
@@ -130,23 +130,6 @@ impl Exports {
     /// Get an export as a `Func`.
     pub fn get_function(&self, name: &str) -> Result<&Function, ExportError> {
         self.get(name)
-    }
-
-    #[deprecated(
-        since = "3.0.0",
-        note = "get_native_function() has been renamed to get_typed_function(), just like NativeFunc has been renamed to TypedFunction."
-    )]
-    /// Get an export as a `TypedFunction`.
-    pub fn get_native_function<Args, Rets>(
-        &self,
-        store: &impl AsStoreRef,
-        name: &str,
-    ) -> Result<TypedFunction<Args, Rets>, ExportError>
-    where
-        Args: WasmTypeList,
-        Rets: WasmTypeList,
-    {
-        self.get_typed_function(store, name)
     }
 
     /// Get an export as a `TypedFunction`.

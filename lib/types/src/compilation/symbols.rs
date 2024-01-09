@@ -110,7 +110,7 @@ impl ModuleMetadata {
     /// Right now we are not doing any extra work for validation, but
     /// `rkyv` has an option to do bytecheck on the serialized data before
     /// serializing (via `rkyv::check_archived_value`).
-    pub unsafe fn deserialize(metadata_slice: &[u8]) -> Result<Self, DeserializeError> {
+    pub unsafe fn deserialize_unchecked(metadata_slice: &[u8]) -> Result<Self, DeserializeError> {
         let archived = Self::archive_from_slice(metadata_slice)?;
         Self::deserialize_from_archive(archived)
     }
@@ -118,7 +118,7 @@ impl ModuleMetadata {
     /// Deserialize a Module from a slice.
     /// The slice must have the following format:
     /// RKYV serialization (any length) + POS (8 bytes)
-    pub fn deserialize_checked(metadata_slice: &[u8]) -> Result<Self, DeserializeError> {
+    pub fn deserialize(metadata_slice: &[u8]) -> Result<Self, DeserializeError> {
         let archived = Self::archive_from_slice_checked(metadata_slice)?;
         Self::deserialize_from_archive(archived)
     }

@@ -1,5 +1,6 @@
 use super::memory_view::MemoryView;
 use crate::store::{AsStoreMut, AsStoreRef};
+use crate::sys::engine::NativeEngineExt;
 use crate::vm::VMExternMemory;
 use crate::MemoryAccessError;
 use crate::MemoryType;
@@ -39,12 +40,6 @@ impl Memory {
         self.handle.get(store.as_store_ref().objects()).ty()
     }
 
-    /// Creates a view into the memory that then allows for
-    /// read and write
-    pub fn view<'a>(&self, store: &'a impl AsStoreRef) -> MemoryView<'a> {
-        MemoryView::new(self, store)
-    }
-
     pub fn grow<IntoPages>(
         &self,
         store: &mut impl AsStoreMut,
@@ -56,32 +51,19 @@ impl Memory {
         self.handle.get_mut(store.objects_mut()).grow(delta.into())
     }
 
-    pub fn copy_to_store(
+    pub fn grow_at_least(
         &self,
-        store: &impl AsStoreRef,
-        new_store: &mut impl AsStoreMut,
-    ) -> Result<Self, MemoryError> {
-        // Create the new memory using the parameters of the existing memory
-        let view = self.view(store);
-        let ty = self.ty(store);
-        let amount = view.data_size() as usize;
+        store: &mut impl AsStoreMut,
+        min_size: u64,
+    ) -> Result<(), MemoryError> {
+        self.handle
+            .get_mut(store.objects_mut())
+            .grow_at_least(min_size)
+    }
 
-        let new_memory = Self::new(new_store, ty)?;
-        let mut new_view = new_memory.view(&new_store);
-        let new_view_size = new_view.data_size() as usize;
-        if amount > new_view_size {
-            let delta = amount - new_view_size;
-            let pages = ((delta - 1) / wasmer_types::WASM_PAGE_SIZE) + 1;
-            new_memory.grow(new_store, Pages(pages as u32))?;
-            new_view = new_memory.view(&new_store);
-        }
-
-        // Copy the bytes
-        view.copy_to_memory(amount as u64, &new_view)
-            .map_err(|err| MemoryError::Generic(err.to_string()))?;
-
-        // Return the new memory
-        Ok(new_memory)
+    pub fn reset(&self, store: &mut impl AsStoreMut) -> Result<(), MemoryError> {
+        self.handle.get_mut(store.objects_mut()).reset()?;
+        Ok(())
     }
 
     pub(crate) fn from_vm_extern(store: &impl AsStoreRef, vm_extern: VMExternMemory) -> Self {
@@ -97,19 +79,22 @@ impl Memory {
         self.handle.store_id() == store.as_store_ref().objects().id()
     }
 
-    pub fn try_clone(&self, store: &impl AsStoreRef) -> Option<VMMemory> {
+    /// Cloning memory will create another reference to the same memory that
+    /// can be put into a new store
+    pub fn try_clone(&self, store: &impl AsStoreRef) -> Result<VMMemory, MemoryError> {
         let mem = self.handle.get(store.as_store_ref().objects());
-        mem.try_clone().map(|mem| mem.into())
+        let cloned = mem.try_clone()?;
+        Ok(cloned.into())
     }
 
-    pub fn duplicate_in_store(
+    /// Copying the memory will actually copy all the bytes in the memory to
+    /// a identical byte copy of the original that can be put into a new store
+    pub fn try_copy(
         &self,
         store: &impl AsStoreRef,
-        new_store: &mut impl AsStoreMut,
-    ) -> Option<Self> {
-        self.try_clone(&store)
-            .and_then(|mut memory| memory.duplicate().ok())
-            .map(|new_memory| Self::new_from_existing(new_store, new_memory.into()))
+    ) -> Result<Box<dyn LinearMemory + 'static>, MemoryError> {
+        let mut mem = self.try_clone(store)?;
+        mem.copy()
     }
 
     /// To `VMExtern`.

@@ -1,0 +1,22 @@
+---
+source: tests/integration/cli/tests/snapshot.rs
+expression: snapshot
+---
+{
+  "spec": {
+    "name": "snapshot::test_snapshot_sleep_async",
+    "use_packages": [],
+    "include_webcs": [],
+    "cli_args": [],
+    "enable_threads": true,
+    "enable_network": false,
+    "enable_async_threads": true
+  },
+  "result": {
+    "Success": {
+      "stdout": "before\ndone\n",
+      "stderr": "",
+      "exit_code": 0
+    }
+  }
+}

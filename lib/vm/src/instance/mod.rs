@@ -21,7 +21,7 @@ use crate::vmcontext::{
 };
 use crate::{FunctionBodyPtr, MaybeInstanceOwned, TrapHandlerFn, VMFunctionBody};
 use crate::{LinearMemory, NotifyLocation};
-use crate::{VMFuncRef, VMFunction, VMGlobal, VMMemory, VMTable};
+use crate::{VMConfig, VMFuncRef, VMFunction, VMGlobal, VMMemory, VMTable};
 pub use allocator::InstanceAllocator;
 use memoffset::offset_of;
 use more_asserts::assert_lt;
@@ -326,6 +326,7 @@ impl Instance {
     /// Invoke the WebAssembly start function of the instance, if one is present.
     fn invoke_start_function(
         &self,
+        config: &VMConfig,
         trap_handler: Option<*const TrapHandlerFn<'static>>,
     ) -> Result<(), Trap> {
         let start_index = match self.module.start_function {
@@ -356,7 +357,7 @@ impl Instance {
 
         // Make the call.
         unsafe {
-            catch_traps(trap_handler, || {
+            catch_traps(trap_handler, config, || {
                 mem::transmute::<*const VMFunctionBody, unsafe extern "C" fn(VMFunctionContext)>(
                     callee_address,
                 )(callee_vmctx)
@@ -837,7 +838,7 @@ impl Instance {
         if let Ok(mut ret) = ret {
             if ret == 0 {
                 let memory = self.get_local_vmmemory_mut(memory_index);
-                ret = Instance::memory_wait(memory, dst, timeout)?;
+                ret = Self::memory_wait(memory, dst, timeout)?;
             }
             Ok(ret)
         } else {
@@ -863,7 +864,7 @@ impl Instance {
         if let Ok(mut ret) = ret {
             if ret == 0 {
                 let memory = self.get_vmmemory_mut(memory_index);
-                ret = Instance::memory_wait(memory, dst, timeout)?;
+                ret = Self::memory_wait(memory, dst, timeout)?;
             }
             Ok(ret)
         } else {
@@ -889,7 +890,7 @@ impl Instance {
         if let Ok(mut ret) = ret {
             if ret == 0 {
                 let memory = self.get_local_vmmemory_mut(memory_index);
-                ret = Instance::memory_wait(memory, dst, timeout)?;
+                ret = Self::memory_wait(memory, dst, timeout)?;
             }
             Ok(ret)
         } else {
@@ -916,7 +917,7 @@ impl Instance {
         if let Ok(mut ret) = ret {
             if ret == 0 {
                 let memory = self.get_vmmemory_mut(memory_index);
-                ret = Instance::memory_wait(memory, dst, timeout)?;
+                ret = Self::memory_wait(memory, dst, timeout)?;
             }
             Ok(ret)
         } else {
@@ -1143,6 +1144,7 @@ impl VMInstance {
     /// Only safe to call immediately after instantiation.
     pub unsafe fn finish_instantiation(
         &mut self,
+        config: &VMConfig,
         trap_handler: Option<*const TrapHandlerFn<'static>>,
         data_initializers: &[DataInitializer<'_>],
     ) -> Result<(), Trap> {
@@ -1154,7 +1156,7 @@ impl VMInstance {
 
         // The WebAssembly spec specifies that the start function is
         // invoked automatically at instantiation time.
-        instance.invoke_start_function(trap_handler)?;
+        instance.invoke_start_function(config, trap_handler)?;
         Ok(())
     }
 
@@ -1531,10 +1533,3 @@ fn build_funcrefs(
         imported_func_refs.into_boxed_slice(),
     )
 }
-
-/// This type is deprecated, it has been replaced by VMinstance.
-#[deprecated(
-    since = "3.2.0",
-    note = "InstanceHandle has been replaced by VMInstance"
-)]
-pub type InstanceHandle = VMInstance;

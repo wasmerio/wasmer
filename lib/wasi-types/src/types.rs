@@ -233,6 +233,8 @@ pub mod net {
     #[repr(C)]
     pub struct __wasi_addr_t {
         pub tag: Addressfamily,
+        // C will add a padding byte here which must be set to zero otherwise the tag will corrupt
+        pub _padding: u8,
         pub u: __wasi_addr_u,
     }
 
@@ -246,6 +248,8 @@ pub mod net {
     #[repr(C)]
     pub struct __wasi_addr_port_t {
         pub tag: Addressfamily,
+        // C will add a padding byte here which must be set to zero otherwise the tag will corrupt
+        pub _padding: u8,
         pub u: __wasi_addr_port_u,
     }
 
@@ -259,6 +263,8 @@ pub mod net {
     #[repr(C)]
     pub struct __wasi_cidr_t {
         pub tag: Addressfamily,
+        // C will add a padding byte here which must be set to zero otherwise the tag will corrupt
+        pub _padding: u8,
         pub u: __wasi_cidr_u,
     }
 

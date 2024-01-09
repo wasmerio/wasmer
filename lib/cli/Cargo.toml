@@ -1,16 +1,17 @@
 [package]
 name = "wasmer-cli"
-version = "3.3.0"
 description = "Wasmer CLI"
 categories = ["wasm", "command-line-interface"]
 keywords = ["wasm", "webassembly", "cli"]
-authors = ["Wasmer Engineering Team <engineering@wasmer.io>"]
-repository = "https://github.com/wasmerio/wasmer"
-license = "MIT"
 readme = "README.md"
-edition = "2018"
 default-run = "wasmer"
-build = "build.rs"
+authors.workspace = true
+edition.workspace = true
+homepage.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+version.workspace = true
 
 [[bin]]
 name = "wasmer"
@@ -25,53 +26,79 @@ doc = false
 required-features = ["headless"]
 
 [dependencies]
-wasmer = { version = "=3.3.0", path = "../api", default-features = false }
-wasmer-compiler = { version = "=3.3.0", path = "../compiler", features = ["compiler"], optional = true }
-wasmer-compiler-cranelift = { version = "=3.3.0", path = "../compiler-cranelift", optional = true }
-wasmer-compiler-singlepass = { version = "=3.3.0", path = "../compiler-singlepass", optional = true }
-wasmer-compiler-llvm = { version = "=3.3.0", path = "../compiler-llvm", optional = true }
-wasmer-emscripten = { version = "=3.3.0", path = "../emscripten" }
-wasmer-vm = { version = "=3.3.0", path = "../vm", optional = true }
-wasmer-wasix = { version = "0.4.0", path = "../wasi", features = ["logging", "webc_runner", "webc_runner_rt_wcgi", "webc_runner_rt_wasi", "webc_runner_rt_emscripten", "host-fs"] }
-wasmer-wasix-experimental-io-devices = { version = "0.4.0", path = "../wasi-experimental-io-devices", optional = true, features = ["link_external_libs"] }
-wasmer-wast = { version = "=3.3.0", path = "../../tests/lib/wast", optional = true }
-wasmer-cache = { version = "=3.3.0", path = "../cache", features = ["blake3-pure"] }
-wasmer-types = { version = "=3.3.0", path = "../types", features = ["enable-serde"] }
-wasmer-registry = { version = "4.5.0", path = "../registry", features = ["build-package"]  }
-wasmer-object = { version = "=3.3.0", path = "../object", optional = true }
-virtual-fs  = { version = "0.2.0", path = "../vfs", default-features = false, features = ["host-fs"] }
-virtual-net  = { version = "0.1.0", path = "../vnet" }
-atty = "0.2"
+# Repo-local dependencies.
+wasmer = { version = "=4.2.5", path = "../api", default-features = false }
+wasmer-compiler = { version = "=4.2.5", path = "../compiler", features = [
+  "compiler",
+], optional = true }
+wasmer-compiler-cranelift = { version = "=4.2.5", path = "../compiler-cranelift", optional = true }
+wasmer-compiler-singlepass = { version = "=4.2.5", path = "../compiler-singlepass", optional = true }
+wasmer-compiler-llvm = { version = "=4.2.5", path = "../compiler-llvm", optional = true }
+wasmer-emscripten = { version = "=4.2.5", path = "../emscripten" }
+wasmer-vm = { version = "=4.2.5", path = "../vm", optional = true }
+wasmer-wasix = { version = "0.18.0", path = "../wasix", features = [
+  "logging",
+  "webc_runner_rt_wcgi",
+  "webc_runner_rt_dcgi",
+  "webc_runner_rt_emscripten",
+  "host-fs",
+] }
+wasmer-wasix-experimental-io-devices = { version = "0.18.0", path = "../wasi-experimental-io-devices", optional = true, features = [
+  "link_external_libs",
+] }
+wasmer-wast = { version = "=4.2.5", path = "../../tests/lib/wast", optional = true }
+wasmer-cache = { version = "=4.2.5", path = "../cache", features = [
+  "blake3-pure",
+] }
+wasmer-types = { version = "=4.2.5", path = "../types", features = [
+  "enable-serde",
+] }
+wasmer-registry = { version = "5.10.1", path = "../registry", features = [
+  "build-package",
+  "clap", 
+] }
+wasmer-object = { version = "=4.2.5", path = "../object", optional = true }
+virtual-fs = { version = "0.11.0", path = "../virtual-fs", default-features = false, features = [
+  "host-fs",
+] }
+virtual-net = { version = "0.6.2", path = "../virtual-net" }
+
+# Wasmer-owned dependencies.
+webc = { workspace = true }
+wasmer-edge-cli = { version = "=0.1.4", default-features = false }
+
+# Third-party dependencies.
+
+is-terminal = "0.4.7"
 colored = "2.0"
 anyhow = "1.0"
 spinoff = "0.5.4"
-clap = { version = "3.2.22", features = ["derive", "env"] }
+
 # For the function names autosuggestion
 distance = "0.4"
 # For the inspect subcommand
 bytesize = "1.0"
 cfg-if = "1.0"
-tempfile = "3.4.0"
+tempfile = "3.6.0"
 serde = { version = "1.0.147", features = ["derive"] }
 dirs = { version = "4.0" }
 serde_json = { version = "1.0" }
 target-lexicon = { version = "0.12", features = ["std"] }
 prettytable-rs = "0.10.0"
-wasmer-toml = "0.6.0"
+wasmer-toml = { workspace = true }
 indexmap = "1.9.2"
 walkdir = "2.3.2"
 regex = "1.6.0"
 toml = "0.5.9"
 url = "2.3.1"
 libc = { version = "^0.2", default-features = false }
-webc = { version = "5.0" }
-isatty = "0.1.9"
 dialoguer = "0.10.2"
 tldextract = "0.6.0"
 hex = "0.4.3"
 flate2 = "1.0.25"
 cargo_metadata = "0.15.2"
 tar = "0.4.38"
+bytes = "1"
 thiserror = "1.0.37"
 log = "0.4.17"
 semver = "1.0.14"
@@ -80,20 +107,51 @@ sha2 = "0.10.6"
 object = "0.30.0"
 wasm-coredump-builder = { version = "0.1.11", optional = true }
 tracing = { version = "0.1" }
-tracing-subscriber = { version = "0.3", features = [ "env-filter", "fmt" ] }
-clap-verbosity-flag = "1"
-wapm-targz-to-pirita = "0.2.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt"] }
+async-trait = "0.1.68"
+tokio = { version = "1.28.1", features = ["macros", "rt-multi-thread"] }
+once_cell = "1.17.1"
+indicatif = "0.17.5"
+opener = "0.6.1"
+hyper = { version = "0.14.27", features = ["server"] }
+http = "0.2.9"
+futures = "0.3.29"
+humantime = "2.1.0"
+
+# NOTE: Must use different features for clap because the "color" feature does not
+# work on wasi due to the anstream dependency not compiling.
+[target.'cfg(not(target_family = "wasm"))'.dependencies]
+clap = { version = "4.2.7", features = ["derive", "env"] }
+[target.'cfg(target_family = "wasm")'.dependencies]
+clap = { version = "4.2.7", default-features = false, features = [
+  "std",
+  "help",
+  "usage",
+  "error-context",
+  "suggestions",
+  "derive",
+  "env",
+] }
 
 [target.'cfg(not(target_arch = "riscv64"))'.dependencies]
-http_req  = { version="^0.8", default-features = false, features = ["rust-tls"] }
-reqwest = { version = "^0.11", default-features = false, features = ["rustls-tls", "json", "multipart"] }
+reqwest = { version = "^0.11", default-features = false, features = [
+  "rustls-tls",
+  "json",
+  "multipart",
+] }
 
 [target.'cfg(target_arch = "riscv64")'.dependencies]
-http_req  = { version="^0.8", default-features = false, features = ["native-tls"] }
-reqwest = { version = "^0.11", default-features = false, features = ["native-tls", "json", "multipart"] }
+reqwest = { version = "^0.11", default-features = false, features = [
+  "native-tls",
+  "json",
+  "multipart",
+] }
 
 [build-dependencies]
-chrono = { version = "^0.4", default-features = false, features = ["std", "clock"] }
+chrono = { version = "^0.4", default-features = false, features = [
+  "std",
+  "clock",
+] }
 
 [target.'cfg(target_os = "linux")'.dependencies]
 unix_mode = "0.1.3"
@@ -102,96 +160,42 @@ unix_mode = "0.1.3"
 # Don't add the compiler features in default, please add them on the Makefile
 # since we might want to autoconfigure them depending on the availability on the host.
 default = [
-    "sys",
-    "wat",
-    "wast",
-    "cache",
-    "wasi",
-    "emscripten",
-    "compiler",
-    "wasmer-artifact-create",
-    "static-artifact-create",
-    "webc_runner",
+  "sys",
+  "wat",
+  "wast",
+  "compiler",
+  "journal",
+  "wasmer-artifact-create",
+  "static-artifact-create",
 ]
+journal = ["wasmer-wasix/journal"]
 backend = []
-coredump = [
-    "wasm-coredump-builder",
-]
-sys = [
-    "compiler",
-    "wasmer-vm",
-]
-jsc = [
-    "backend",
-    "wasmer/jsc",
-    "wasmer/std"
-]
+coredump = ["wasm-coredump-builder"]
+sys = ["compiler", "wasmer-vm"]
+jsc = ["backend", "wasmer/jsc", "wasmer/std"]
 wast = ["wasmer-wast"]
-host-net = [ "virtual-net/host-net" ]
+host-net = ["virtual-net/host-net"]
 wat = ["wasmer/wat"]
-compiler = [
-    "backend",
-    "wasmer/compiler",
-    "wasmer-compiler/translator",
-    "wasmer-compiler/compiler"
-]
-wasmer-artifact-create = ["compiler",
- "wasmer/wasmer-artifact-load",
- "wasmer/wasmer-artifact-create",
- "wasmer-compiler/wasmer-artifact-load",
- "wasmer-compiler/wasmer-artifact-create",
- "wasmer-object",
- ]
-static-artifact-create = ["compiler",
- "wasmer/static-artifact-load",
- "wasmer/static-artifact-create",
- "wasmer-compiler/static-artifact-load",
- "wasmer-compiler/static-artifact-create",
- "wasmer-object",
- ]
-wasmer-artifact-load = ["compiler",
- "wasmer/wasmer-artifact-load",
- "wasmer-compiler/wasmer-artifact-load",
- ]
-static-artifact-load = ["compiler",
- "wasmer/static-artifact-load",
- "wasmer-compiler/static-artifact-load",
- ]
-experimental-io-devices = [
-    "wasmer-wasix-experimental-io-devices",
-    "wasi"
-]
-singlepass = [
-    "wasmer-compiler-singlepass",
-    "compiler",
-]
-cranelift = [
-    "wasmer-compiler-cranelift",
-    "compiler",
-]
-llvm = [
-    "wasmer-compiler-llvm",
-    "compiler",
-]
+compiler = ["backend", "wasmer/compiler", "wasmer-compiler/translator", "wasmer-compiler/compiler"]
+wasmer-artifact-create = ["compiler", "wasmer/wasmer-artifact-load", "wasmer/wasmer-artifact-create", "wasmer-compiler/wasmer-artifact-load", "wasmer-compiler/wasmer-artifact-create", "wasmer-object"]
+static-artifact-create = ["compiler", "wasmer/static-artifact-load", "wasmer/static-artifact-create", "wasmer-compiler/static-artifact-load", "wasmer-compiler/static-artifact-create", "wasmer-object"]
+wasmer-artifact-load = ["compiler", "wasmer/wasmer-artifact-load", "wasmer-compiler/wasmer-artifact-load"]
+static-artifact-load = ["compiler", "wasmer/static-artifact-load", "wasmer-compiler/static-artifact-load"]
+experimental-io-devices = ["wasmer-wasix-experimental-io-devices"]
+singlepass = ["wasmer-compiler-singlepass", "compiler"]
+cranelift = ["wasmer-compiler-cranelift", "compiler"]
+llvm = ["wasmer-compiler-llvm", "compiler"]
 disable-all-logging = ["wasmer-wasix/disable-all-logging", "log/release_max_level_off"]
 headless = []
-headless-minimal = ["headless", "disable-all-logging", "wasi"]
+headless-minimal = ["headless", "disable-all-logging"]
 
 # Optional
-enable-serde = [
-  "wasmer/enable-serde",
-  "wasmer-vm/enable-serde",
-  "wasmer-compiler/enable-serde",
-  "wasmer-wasix/enable-serde",
-]
+enable-serde = ["wasmer/enable-serde", "wasmer-vm/enable-serde", "wasmer-compiler/enable-serde", "wasmer-wasix/enable-serde"]
 
-# Deprecated. These feature flags no longer protect anything.
-cache = []
-cache-blake3-pure = []
-debug = []
-wasi = []
-emscripten = []
-webc_runner = []
+[dev-dependencies]
+assert_cmd = "2.0.11"
+predicates = "3.0.3"
+pretty_assertions = "1.3.0"
 
 [target.'cfg(target_os = "windows")'.dependencies]
 colored = "2.0.0"
@@ -226,3 +230,6 @@ bin-dir = "bin/{ bin }"
 [package.metadata.binstall.overrides.x86_64-pc-windows-msvc]
 pkg-url = "{ repo }/releases/download/v{ version }/wasmer-windows-amd64.{ archive-format }"
 bin-dir = "bin/{ bin }.exe"
+
+[package.metadata.docs.rs]
+rustc-args = ["--cfg", "docsrs"]

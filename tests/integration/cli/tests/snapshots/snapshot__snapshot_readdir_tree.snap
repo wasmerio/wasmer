@@ -1,0 +1,29 @@
+---
+source: tests/integration/cli/tests/snapshot.rs
+expression: snapshot
+---
+{
+  "spec": {
+    "name": "snapshot::test_snapshot_readdir_tree",
+    "use_packages": [
+      "sharrattj/coreutils"
+    ],
+    "include_webcs": [
+      {
+        "name": "sharrattj/coreutils@1.0.16"
+      }
+    ],
+    "cli_args": [
+      "/"
+    ],
+    "enable_threads": true,
+    "enable_network": false
+  },
+  "result": {
+    "Success": {
+      "stdout": "/\n  .app:\n  .private:\n  bin:\n    arch\n    base32\n    base64\n    baseenc\n    basename\n    cat\n    chcon\n    chgrp\n    chmod\n    chown\n    chroot\n    cksum\n    comm\n    cp\n    csplit\n    cut\n    date\n    dd\n    df\n    dircolors\n    dirname\n    du\n    echo\n    env\n    expand\n    expr\n    factor\n    false\n    fmt\n    fold\n    groups\n    hashsum\n    head\n    hostid\n    hostname\n    id\n    install\n    join\n    kill\n    link\n    ln\n    logname\n    ls\n    mkdir\n    mkfifo\n    mknod\n    mktemp\n    more\n    mv\n    nice\n    nl\n    nohup\n    nproc\n    numfmt\n    od\n    paste\n    pathchk\n    pinky\n    pr\n    printenv\n    printf\n    ptx\n    pwd\n    readlink\n    realpath\n    relpath\n    rm\n    rmdir\n    runcon\n    seq\n    sh\n    shred\n    shuf\n    sleep\n    sort\n    split\n    stat\n    stdbuf\n    sum\n    sync\n    tac\n    tail\n    tee\n    test\n    timeout\n    touch\n    tr\n    true\n    truncate\n    tsort\n    tty\n    uname\n    unexpand\n    uniq\n    unlink\n    uptime\n    users\n    wasmer\n    wc\n    who\n    whoami\n    yes\n  dev:\n    null\n    stderr\n    stdin\n    stdout\n    tty\n    urandom\n    zero\n  etc:\n  tmp:\n  usr:\n    coreutils:\n",
+      "stderr": "",
+      "exit_code": 0
+    }
+  }
+}

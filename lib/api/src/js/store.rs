@@ -2,10 +2,12 @@ pub(crate) use objects::{InternalStoreHandle, StoreObject};
 pub use objects::{StoreHandle, StoreObjects};
 
 mod objects {
+    use std::{fmt, marker::PhantomData, num::NonZeroUsize};
+
     use wasm_bindgen::JsValue;
 
     use crate::js::vm::{VMFunctionEnvironment, VMGlobal};
-    use std::{fmt, marker::PhantomData, num::NonZeroUsize};
+
     pub use wasmer_types::StoreId;
 
     /// Trait to represent an object managed by a context. This is implemented on
@@ -94,7 +96,7 @@ mod objects {
         }
 
         /// Set a global, at index idx. Will panic if idx is out of range
-        /// Safety: the caller should check taht the raw value is compatible
+        /// Safety: the caller should check that the raw value is compatible
         /// with destination VMGlobal type
         pub fn set_global_unchecked(&self, idx: usize, new_val: u128) {
             assert!(idx < self.globals.len());

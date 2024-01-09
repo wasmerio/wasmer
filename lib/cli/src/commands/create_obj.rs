@@ -14,16 +14,16 @@ use wasmer::*;
 /// The options for the `wasmer create-exe` subcommand
 pub struct CreateObj {
     /// Input file
-    #[clap(name = "FILE", parse(from_os_str))]
+    #[clap(name = "FILE")]
     path: PathBuf,
 
     /// Output file or directory if the input is a pirita file
-    #[clap(name = "OUTPUT_PATH", short = 'o', parse(from_os_str))]
+    #[clap(name = "OUTPUT_PATH", short = 'o')]
     output: PathBuf,
 
     /// Optional directorey used for debugging: if present, will
     /// output the files to a debug instead of a temp directory
-    #[clap(long, name = "DEBUG PATH", parse(from_os_str))]
+    #[clap(long, name = "DEBUG PATH")]
     debug_dir: Option<PathBuf>,
 
     /// Prefix for the function names in the input file in the compiled object file.
@@ -51,7 +51,7 @@ pub struct CreateObj {
     #[clap(long = "target")]
     target_triple: Option<Triple>,
 
-    #[clap(long, short = 'm', multiple = true, number_of_values = 1)]
+    #[clap(long, short = 'm', number_of_values = 1)]
     cpu_features: Vec<CpuFeature>,
 
     #[clap(flatten)]
@@ -64,7 +64,7 @@ impl CreateObj {
         let path = crate::common::normalize_path(&format!("{}", self.path.display()));
         let target_triple = self.target_triple.clone().unwrap_or_else(Triple::host);
         let starting_cd = env::current_dir()?;
-        let input_path = starting_cd.join(&path);
+        let input_path = starting_cd.join(path);
         let temp_dir = tempfile::tempdir();
         let output_directory_path = match self.debug_dir.as_ref() {
             Some(s) => s.clone(),
@@ -84,11 +84,9 @@ impl CreateObj {
         println!("Compiler: {}", compiler_type.to_string());
         println!("Target: {}", target.triple());
 
-        let atoms = if let Ok(pirita) =
-            webc::v1::WebCMmap::parse(input_path.clone(), &webc::v1::ParseOptions::default())
-        {
+        let atoms = if let Ok(webc) = webc::compat::Container::from_disk(&input_path) {
             crate::commands::create_exe::compile_pirita_into_directory(
-                &pirita,
+                &webc,
                 &output_directory_path,
                 &self.compiler,
                 &self.cpu_features,

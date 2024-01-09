@@ -22,6 +22,8 @@ pub use wasmer_compiler_llvm::{LLVMOptLevel, LLVM};
 #[cfg(feature = "singlepass")]
 pub use wasmer_compiler_singlepass::Singlepass;
 
+pub use wasmer_vm::VMConfig;
+
 pub(crate) mod vm {
     //! The `vm` module re-exports wasmer-vm types.
     use wasmer_vm::InternalStoreHandle;

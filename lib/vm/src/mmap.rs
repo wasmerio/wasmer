@@ -286,7 +286,13 @@ impl Mmap {
     }
 
     /// Duplicate in a new memory mapping.
+    #[deprecated = "use `copy` instead"]
     pub fn duplicate(&mut self, size_hint: Option<usize>) -> Result<Self, String> {
+        self.copy(size_hint)
+    }
+
+    /// Duplicate in a new memory mapping.
+    pub fn copy(&mut self, size_hint: Option<usize>) -> Result<Self, String> {
         // NOTE: accessible_size != used size as the value is not
         //       automatically updated when the pre-provisioned space is used
         let mut copy_size = self.accessible_size;

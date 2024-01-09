@@ -1,6 +1,7 @@
 use crate::indexes::{FunctionIndex, GlobalIndex, MemoryIndex, TableIndex};
 use crate::lib::std::boxed::Box;
 
+use enumset::__internal::EnumSetTypeRepr;
 use rkyv::{Archive, CheckBytes, Deserialize as RkyvDeserialize, Serialize as RkyvSerialize};
 #[cfg(feature = "enable-serde")]
 use serde::{Deserialize, Serialize};
@@ -36,6 +37,45 @@ pub struct DataInitializerLocation {
     pub offset: usize,
 }
 
+/// Any struct that acts like a `DataInitializerLocation`.
+#[allow(missing_docs)]
+pub trait DataInitializerLocationLike {
+    fn memory_index(&self) -> MemoryIndex;
+    fn base(&self) -> Option<GlobalIndex>;
+    fn offset(&self) -> usize;
+}
+
+impl DataInitializerLocationLike for &DataInitializerLocation {
+    fn memory_index(&self) -> MemoryIndex {
+        self.memory_index
+    }
+
+    fn base(&self) -> Option<GlobalIndex> {
+        self.base
+    }
+
+    fn offset(&self) -> usize {
+        self.offset
+    }
+}
+
+impl DataInitializerLocationLike for &ArchivedDataInitializerLocation {
+    fn memory_index(&self) -> MemoryIndex {
+        MemoryIndex::from_u32(self.memory_index.as_u32())
+    }
+
+    fn base(&self) -> Option<GlobalIndex> {
+        match self.base {
+            rkyv::option::ArchivedOption::None => None,
+            rkyv::option::ArchivedOption::Some(base) => Some(GlobalIndex::from_u32(base.as_u32())),
+        }
+    }
+
+    fn offset(&self) -> usize {
+        self.offset.to_usize()
+    }
+}
+
 /// A data initializer for linear memory.
 #[derive(Debug)]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
@@ -60,6 +100,15 @@ pub struct OwnedDataInitializer {
     pub data: Box<[u8]>,
 }
 
+/// Any struct that acts like a `DataInitializer`.
+#[allow(missing_docs)]
+pub trait DataInitializerLike<'a> {
+    type Location: DataInitializerLocationLike + Copy + 'a;
+
+    fn location(&self) -> Self::Location;
+    fn data(&self) -> &'a [u8];
+}
+
 impl OwnedDataInitializer {
     /// Creates a new `OwnedDataInitializer` from a `DataInitializer`.
     pub fn new(borrowed: &DataInitializer<'_>) -> Self {
@@ -67,5 +116,29 @@ impl OwnedDataInitializer {
             location: borrowed.location.clone(),
             data: borrowed.data.to_vec().into_boxed_slice(),
         }
+    }
+}
+
+impl<'a> DataInitializerLike<'a> for &'a OwnedDataInitializer {
+    type Location = &'a DataInitializerLocation;
+
+    fn location(&self) -> Self::Location {
+        &self.location
+    }
+
+    fn data(&self) -> &'a [u8] {
+        self.data.as_ref()
+    }
+}
+
+impl<'a> DataInitializerLike<'a> for &'a ArchivedOwnedDataInitializer {
+    type Location = &'a ArchivedDataInitializerLocation;
+
+    fn location(&self) -> Self::Location {
+        &self.location
+    }
+
+    fn data(&self) -> &'a [u8] {
+        self.data.as_ref()
     }
 }

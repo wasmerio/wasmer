@@ -1,25 +1,17 @@
 //! Tests of the `wasmer create-exe` command.
 
+use std::{
+    fs,
+    io::prelude::*,
+    path::{Path, PathBuf},
+    process::Command,
+};
+
 use anyhow::{bail, Context};
-use std::fs;
-use std::io::prelude::*;
-use std::path::PathBuf;
-use std::process::Command;
+use assert_cmd::prelude::OutputAssertExt;
 use tempfile::TempDir;
 use wasmer_integration_tests_cli::*;
 
-fn create_exe_wabt_path() -> String {
-    format!("{}/{}", C_ASSET_PATH, "wabt-1.0.37.wasmer")
-}
-
-#[allow(dead_code)]
-fn create_exe_python_wasmer() -> String {
-    format!("{}/{}", C_ASSET_PATH, "python-0.1.0.wasmer")
-}
-
-fn create_exe_test_wasm_path() -> String {
-    format!("{}/{}", C_ASSET_PATH, "qjs.wasm")
-}
 const JS_TEST_SRC_CODE: &[u8] =
     b"function greet(name) { return JSON.stringify('Hello, ' + name); }; print(greet('World'));\n";
 
@@ -49,7 +41,7 @@ impl Default for WasmerCreateExe {
         Self {
             current_dir: std::env::current_dir().unwrap(),
             wasmer_path: get_wasmer_path(),
-            wasm_path: PathBuf::from(create_exe_test_wasm_path()),
+            wasm_path: PathBuf::from(fixtures::qjs()),
             native_executable_path,
             compiler: Compiler::Cranelift,
             extra_cli_flags: vec![],
@@ -63,7 +55,7 @@ impl WasmerCreateExe {
         output.current_dir(&self.current_dir);
         output.arg("create-exe");
         output.arg(&self.wasm_path.canonicalize()?);
-        output.arg(&self.compiler.to_flag());
+        output.arg(self.compiler.to_flag());
         output.args(self.extra_cli_flags.iter());
         output.arg("-o");
         output.arg(&self.native_executable_path);
@@ -124,7 +116,7 @@ impl Default for WasmerCreateObj {
         Self {
             current_dir: std::env::current_dir().unwrap(),
             wasmer_path: get_wasmer_path(),
-            wasm_path: PathBuf::from(create_exe_test_wasm_path()),
+            wasm_path: PathBuf::from(fixtures::qjs()),
             output_object_path,
             compiler: Compiler::Cranelift,
             extra_cli_flags: vec![],
@@ -138,7 +130,7 @@ impl WasmerCreateObj {
         output.current_dir(&self.current_dir);
         output.arg("create-obj");
         output.arg(&self.wasm_path.canonicalize()?);
-        output.arg(&self.compiler.to_flag());
+        output.arg(self.compiler.to_flag());
         output.args(self.extra_cli_flags.iter());
         output.arg("-o");
         output.arg(&self.output_object_path);
@@ -163,13 +155,14 @@ impl WasmerCreateObj {
 }
 
 #[test]
+#[ignore = "See https://github.com/wasmerio/wasmer/issues/4285"]
 fn test_create_exe_with_pirita_works_1() {
     let tempdir = TempDir::new().unwrap();
     let path = tempdir.path();
     let wasm_out = path.join("out.obj");
     let cmd = Command::new(get_wasmer_path())
         .arg("create-obj")
-        .arg(create_exe_wabt_path())
+        .arg(fixtures::wabt())
         .arg("-o")
         .arg(&wasm_out)
         .output()
@@ -187,7 +180,7 @@ fn test_create_exe_with_pirita_works_1() {
 
     let cmd = Command::new(get_wasmer_path())
         .arg("create-obj")
-        .arg(create_exe_wabt_path())
+        .arg(fixtures::wabt())
         .arg("--atom")
         .arg("wasm2wat")
         .arg("-o")
@@ -214,6 +207,7 @@ fn test_create_exe_with_pirita_works_1() {
 }
 
 #[test]
+#[ignore = "See https://github.com/wasmerio/wasmer/issues/4285"]
 fn test_create_exe_with_precompiled_works_1() {
     use object::{Object, ObjectSymbol};
 
@@ -222,7 +216,7 @@ fn test_create_exe_with_precompiled_works_1() {
     let wasm_out = path.join("out.obj");
     let _ = Command::new(get_wasmer_path())
         .arg("create-obj")
-        .arg(create_exe_test_wasm_path())
+        .arg(fixtures::qjs())
         .arg("--prefix")
         .arg("sha123123")
         .arg("-o")
@@ -244,7 +238,7 @@ fn test_create_exe_with_precompiled_works_1() {
 
     let _ = Command::new(get_wasmer_path())
         .arg("create-obj")
-        .arg(create_exe_test_wasm_path())
+        .arg(fixtures::qjs())
         .arg("-o")
         .arg(&wasm_out)
         .output()
@@ -270,13 +264,15 @@ fn test_create_exe_with_precompiled_works_1() {
 
 // Ignored because of -lunwind linker issue on Windows
 // see https://github.com/wasmerio/wasmer/issues/3459
-#[cfg_attr(target_os = "windows", ignore)]
+// Also ignored on macOS because it's flaky
+#[cfg_attr(any(target_os = "windows", target_os = "macos"), ignore)]
 #[test]
+#[ignore = "See https://github.com/wasmerio/wasmer/issues/4285"]
 fn create_exe_works() -> anyhow::Result<()> {
     let temp_dir = tempfile::tempdir()?;
     let operating_dir: PathBuf = temp_dir.path().to_owned();
 
-    let wasm_path = operating_dir.join(create_exe_test_wasm_path());
+    let wasm_path = operating_dir.join(fixtures::qjs());
     #[cfg(not(windows))]
     let executable_path = operating_dir.join("wasm.out");
     #[cfg(windows)]
@@ -309,15 +305,16 @@ fn create_exe_works() -> anyhow::Result<()> {
 // Ignored because of -lunwind linker issue on Windows
 // see https://github.com/wasmerio/wasmer/issues/3459
 #[cfg_attr(target_os = "windows", ignore)]
-// #[test]
+#[test]
 // FIXME: Fix an re-enable test
 // See https://github.com/wasmerio/wasmer/issues/3615
 #[allow(dead_code)]
+#[ignore = "See https://github.com/wasmerio/wasmer/issues/4285"]
 fn create_exe_works_multi_command_args_handling() -> anyhow::Result<()> {
     let temp_dir = tempfile::tempdir()?;
     let operating_dir: PathBuf = temp_dir.path().to_owned();
 
-    let wasm_path = operating_dir.join(create_exe_wabt_path());
+    let wasm_path = operating_dir.join(fixtures::wabt());
     #[cfg(not(windows))]
     let executable_path = operating_dir.join("multicommand.out");
     #[cfg(windows)]
@@ -380,10 +377,11 @@ fn create_exe_works_multi_command_args_handling() -> anyhow::Result<()> {
 // see https://github.com/wasmerio/wasmer/issues/3459
 #[cfg_attr(target_os = "windows", ignore)]
 #[test]
+#[ignore = "See https://github.com/wasmerio/wasmer/issues/4285"]
 fn create_exe_works_underscore_module_name() -> anyhow::Result<()> {
     let temp_dir = tempfile::tempdir()?;
     let operating_dir: PathBuf = temp_dir.path().to_owned();
-    let wasm_path = operating_dir.join(create_exe_wabt_path());
+    let wasm_path = operating_dir.join(fixtures::wabt());
 
     let atoms = &[
         "wabt",
@@ -429,9 +427,9 @@ fn create_exe_works_underscore_module_name() -> anyhow::Result<()> {
     let executable_path = operating_dir.join("multicommand.exe");
 
     WasmerCreateExe {
-        current_dir: operating_dir.clone(),
+        current_dir: operating_dir,
         wasm_path,
-        native_executable_path: executable_path.clone(),
+        native_executable_path: executable_path,
         compiler: Compiler::Cranelift,
         extra_cli_flags: create_exe_flags,
         ..Default::default()
@@ -446,11 +444,12 @@ fn create_exe_works_underscore_module_name() -> anyhow::Result<()> {
 // see https://github.com/wasmerio/wasmer/issues/3459
 #[cfg_attr(target_os = "windows", ignore)]
 #[test]
+#[ignore = "See https://github.com/wasmerio/wasmer/issues/4285"]
 fn create_exe_works_multi_command() -> anyhow::Result<()> {
     let temp_dir = tempfile::tempdir()?;
     let operating_dir: PathBuf = temp_dir.path().to_owned();
 
-    let wasm_path = operating_dir.join(create_exe_wabt_path());
+    let wasm_path = operating_dir.join(fixtures::wabt());
     #[cfg(not(windows))]
     let executable_path = operating_dir.join("multicommand.out");
     #[cfg(windows)]
@@ -503,11 +502,12 @@ fn create_exe_works_multi_command() -> anyhow::Result<()> {
 // see https://github.com/wasmerio/wasmer/issues/3459
 #[cfg_attr(target_os = "windows", ignore)]
 #[test]
+#[ignore = "See https://github.com/wasmerio/wasmer/issues/4285"]
 fn create_exe_works_with_file() -> anyhow::Result<()> {
     let temp_dir = tempfile::tempdir()?;
     let operating_dir: PathBuf = temp_dir.path().to_owned();
 
-    let wasm_path = operating_dir.join(create_exe_test_wasm_path());
+    let wasm_path = operating_dir.join(fixtures::qjs());
     #[cfg(not(windows))]
     let executable_path = operating_dir.join("wasm.out");
     #[cfg(windows)]
@@ -568,7 +568,7 @@ fn create_obj(args: Vec<String>) -> anyhow::Result<()> {
     let temp_dir = tempfile::tempdir()?;
     let operating_dir: PathBuf = temp_dir.path().to_owned();
 
-    let wasm_path = operating_dir.as_path().join(create_exe_test_wasm_path());
+    let wasm_path = operating_dir.as_path().join(fixtures::qjs());
 
     let object_path = operating_dir.as_path().join("wasm");
     let _output: Vec<u8> = WasmerCreateObj {
@@ -592,6 +592,7 @@ fn create_obj(args: Vec<String>) -> anyhow::Result<()> {
 }
 
 #[test]
+#[ignore = "See https://github.com/wasmerio/wasmer/issues/4285"]
 fn create_obj_default() -> anyhow::Result<()> {
     create_obj(vec![])
 }
@@ -600,7 +601,7 @@ fn create_exe_with_object_input(args: Vec<String>) -> anyhow::Result<()> {
     let temp_dir = tempfile::tempdir()?;
     let operating_dir: PathBuf = temp_dir.path().to_owned();
 
-    let wasm_path = operating_dir.join(create_exe_test_wasm_path());
+    let wasm_path = operating_dir.join(fixtures::qjs());
 
     #[cfg(not(windows))]
     let object_path = operating_dir.join("wasm.o");
@@ -638,7 +639,7 @@ fn create_exe_with_object_input(args: Vec<String>) -> anyhow::Result<()> {
     #[cfg(windows)]
     let executable_path = operating_dir.join("wasm.exe");
 
-    let mut create_exe_args = args.clone();
+    let mut create_exe_args = args;
     create_exe_args.push("--precompiled-atom".to_string());
     create_exe_args.push(format!("qjs:abc123:{}", object_path.display()));
     create_exe_args.push("--debug-dir".to_string());
@@ -681,6 +682,175 @@ fn create_exe_with_object_input(args: Vec<String>) -> anyhow::Result<()> {
 // see https://github.com/wasmerio/wasmer/issues/3459
 #[cfg_attr(target_os = "windows", ignore)]
 #[test]
+#[ignore = "See https://github.com/wasmerio/wasmer/issues/4285"]
 fn create_exe_with_object_input_default() -> anyhow::Result<()> {
     create_exe_with_object_input(vec![])
+}
+
+/// TODO: on linux-musl, the packaging of libwasmer.a doesn't work properly
+/// Tracked in https://github.com/wasmerio/wasmer/issues/3271
+#[cfg_attr(any(target_env = "musl", target_os = "windows"), ignore)]
+#[test]
+#[ignore = "See https://github.com/wasmerio/wasmer/issues/4285"]
+fn test_wasmer_create_exe_pirita_works() {
+    // let temp_dir = Path::new("debug");
+    // std::fs::create_dir_all(&temp_dir);
+
+    use wasmer_integration_tests_cli::get_repo_root_path;
+    let temp_dir = TempDir::new().unwrap();
+    let temp_dir = temp_dir.path().to_path_buf();
+    let python_wasmer_path = temp_dir.join("python.wasmer");
+    std::fs::copy(fixtures::python(), &python_wasmer_path).unwrap();
+    let python_exe_output_path = temp_dir.join("python");
+
+    let native_target = target_lexicon::HOST;
+    let tmp_targz_path = get_repo_root_path().unwrap().join("link.tar.gz");
+
+    println!("compiling to target {native_target}");
+
+    let mut cmd = Command::new(get_wasmer_path());
+    cmd.arg("create-exe");
+    cmd.arg(&python_wasmer_path);
+    cmd.arg("--tarball");
+    cmd.arg(&tmp_targz_path);
+    cmd.arg("--target");
+    cmd.arg(format!("{native_target}"));
+    cmd.arg("-o");
+    cmd.arg(&python_exe_output_path);
+    // change temp_dir to a local path and run this test again
+    // to output the compilation files into a debug folder
+    //
+    // cmd.arg("--debug-dir");
+    // cmd.arg(&temp_dir);
+
+    cmd.assert().success();
+
+    println!("compilation ok!");
+
+    if !python_exe_output_path.exists() {
+        panic!(
+            "python_exe_output_path {} does not exist",
+            python_exe_output_path.display()
+        );
+    }
+
+    println!("invoking command...");
+
+    let mut command = Command::new(&python_exe_output_path);
+    command.arg("-c");
+    command.arg("print(\"hello\")");
+
+    command.assert().success().stdout("hello\n");
+}
+
+// FIXME: Fix and re-enable this test
+// See https://github.com/wasmerio/wasmer/issues/3615
+#[test]
+#[ignore]
+fn test_cross_compile_python_windows() {
+    let temp_dir = TempDir::new().unwrap();
+
+    let targets: &[&str] = if cfg!(windows) {
+        &[
+            "aarch64-darwin",
+            "x86_64-darwin",
+            "x86_64-linux-gnu",
+            "aarch64-linux-gnu",
+        ]
+    } else {
+        &[
+            "aarch64-darwin",
+            "x86_64-darwin",
+            "x86_64-linux-gnu",
+            "aarch64-linux-gnu",
+            "x86_64-windows-gnu",
+        ]
+    };
+
+    let compilers: &[&str] = if cfg!(target_env = "musl") {
+        // MUSL has no support for LLVM in C-API
+        &["cranelift", "singlepass"]
+    } else {
+        &["cranelift", "singlepass", "llvm"]
+    };
+
+    // llvm-objdump  --disassemble-all --demangle ./objects/wasmer_vm-50cb118b098c15db.wasmer_vm.60425a0a-cgu.12.rcgu.o
+    // llvm-objdump --macho --exports-trie ~/.wasmer/cache/wasmer-darwin-arm64/lib/libwasmer.dylib
+    let excluded_combinations = &[
+        ("aarch64-darwin", "llvm"), // LLVM: aarch64 not supported relocation Arm64MovwG0 not supported
+        ("aarch64-linux-gnu", "llvm"), // LLVM: aarch64 not supported relocation Arm64MovwG0 not supported
+        // https://github.com/ziglang/zig/issues/13729
+        ("x86_64-darwin", "llvm"), // undefined reference to symbol 'wasmer_vm_raise_trap' kind Unknown
+        ("x86_64-windows-gnu", "llvm"), // unimplemented symbol `wasmer_vm_raise_trap` kind Unknown
+    ];
+
+    for t in targets {
+        for c in compilers {
+            if excluded_combinations.contains(&(t, c)) {
+                continue;
+            }
+            println!("{t} target {c}");
+            let python_wasmer_path = temp_dir.path().join(format!("{t}-python"));
+
+            let tarball = match std::env::var("GITHUB_TOKEN") {
+                Ok(_) => Some(assert_tarball_is_present_local(t).unwrap()),
+                Err(_) => None,
+            };
+            let mut cmd = Command::new(get_wasmer_path());
+
+            cmd.arg("create-exe");
+            cmd.arg(fixtures::python());
+            cmd.arg("--target");
+            cmd.arg(t);
+            cmd.arg("-o");
+            cmd.arg(python_wasmer_path.clone());
+            cmd.arg(format!("--{c}"));
+            if std::env::var("GITHUB_TOKEN").is_ok() {
+                cmd.arg("--debug-dir");
+                cmd.arg(format!("{t}-{c}"));
+            }
+
+            if t.contains("x86_64") && *c == "singlepass" {
+                cmd.arg("-m");
+                cmd.arg("avx");
+            }
+
+            if let Some(t) = tarball {
+                cmd.arg("--tarball");
+                cmd.arg(t);
+            }
+
+            let assert = cmd.assert().success();
+
+            if !python_wasmer_path.exists() {
+                let p = std::fs::read_dir(temp_dir.path())
+                    .unwrap()
+                    .filter_map(|e| Some(e.ok()?.path()))
+                    .collect::<Vec<_>>();
+                let output = assert.get_output();
+                panic!("target {t} was not compiled correctly tempdir: {p:#?}, {output:?}",);
+            }
+        }
+    }
+}
+
+fn assert_tarball_is_present_local(target: &str) -> Result<PathBuf, anyhow::Error> {
+    let wasmer_dir = std::env::var("WASMER_DIR").expect("no WASMER_DIR set");
+    let directory = match target {
+        "aarch64-darwin" => "wasmer-darwin-arm64.tar.gz",
+        "x86_64-darwin" => "wasmer-darwin-amd64.tar.gz",
+        "x86_64-linux-gnu" => "wasmer-linux-amd64.tar.gz",
+        "aarch64-linux-gnu" => "wasmer-linux-aarch64.tar.gz",
+        "x86_64-windows-gnu" => "wasmer-windows-gnu64.tar.gz",
+        _ => return Err(anyhow::anyhow!("unknown target {target}")),
+    };
+    let libwasmer_cache_path = Path::new(&wasmer_dir).join("cache").join(directory);
+    if !libwasmer_cache_path.exists() {
+        return Err(anyhow::anyhow!(
+            "targz {} does not exist",
+            libwasmer_cache_path.display()
+        ));
+    }
+    println!("using targz {}", libwasmer_cache_path.display());
+    Ok(libwasmer_cache_path)
 }

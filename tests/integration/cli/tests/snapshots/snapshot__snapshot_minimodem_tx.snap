@@ -1,6 +1,5 @@
 ---
 source: tests/integration/cli/tests/snapshot.rs
-assertion_line: 519
 expression: snapshot
 ---
 {
@@ -16,7 +15,6 @@ expression: snapshot
       "same"
     ],
     "stdin_hash": "efbbebc40e07bc2365088f9506f8a5d1",
-    "debug_output": false,
     "enable_threads": true,
     "enable_network": false
   },

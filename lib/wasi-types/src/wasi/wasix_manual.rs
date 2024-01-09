@@ -1,9 +1,11 @@
+#[cfg(feature = "enable-serde")]
+use serde::{Deserialize, Serialize};
 use std::mem::MaybeUninit;
 
 use wasmer::{FromToNativeWasmType, MemorySize, ValueType};
 
 use super::{
-    Errno, ErrnoSignal, EventFdReadwrite, Eventtype, JoinStatusType, Signal,
+    Errno, ErrnoSignal, EventFdReadwrite, Eventtype, Fd, JoinStatusType, Signal,
     Snapshot0SubscriptionClock, SubscriptionClock, SubscriptionFsReadwrite, Userdata,
 };
 
@@ -83,6 +85,11 @@ impl From<Snapshot0Subscription> for Subscription {
                 },
                 Eventtype::FdWrite => SubscriptionUnion {
                     fd_readwrite: unsafe { other.u.fd_readwrite },
+                },
+                Eventtype::Unknown => SubscriptionUnion {
+                    fd_readwrite: SubscriptionFsReadwrite {
+                        file_descriptor: u32::MAX,
+                    },
                 },
             },
         }
@@ -196,7 +203,7 @@ impl core::fmt::Debug for JoinStatus {
         let mut f = binding.field("tag", &self.tag);
         f = unsafe {
             match self.tag {
-                JoinStatusType::Nothing => f.field("pid", &self.u.nothing),
+                JoinStatusType::Nothing => f.field("nothing", &self.u.nothing),
                 JoinStatusType::ExitNormal => f.field("exit_normal", &self.u.exit_normal),
                 JoinStatusType::ExitSignal => f.field("exit_signal", &self.u.exit_signal),
                 JoinStatusType::Stopped => f.field("stopped", &self.u.stopped),
@@ -214,7 +221,7 @@ unsafe impl ValueType for JoinStatus {
 #[repr(C)]
 #[derive(Copy, Clone)]
 pub struct ThreadStart<M: MemorySize> {
-    pub stack_start: M::Offset,
+    pub stack_upper: M::Offset,
     pub tls_base: M::Offset,
     pub start_funct: M::Offset,
     pub start_args: M::Offset,
@@ -225,7 +232,7 @@ pub struct ThreadStart<M: MemorySize> {
 impl<M: MemorySize> core::fmt::Debug for ThreadStart<M> {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         f.debug_struct("ThreadStart")
-            .field("stack_start", &self.stack_start)
+            .field("stack_upper", &self.stack_upper)
             .field("tls-base", &self.tls_base)
             .field("start-funct", &self.start_funct)
             .field("start-args", &self.start_args)
@@ -242,6 +249,7 @@ unsafe impl<M: MemorySize> ValueType for ThreadStart<M> {
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+#[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 pub enum ExitCode {
     Errno(Errno),
     Other(i32),
@@ -320,4 +328,168 @@ impl From<ExitCode> for i32 {
             ExitCode::Other(code) => code,
         }
     }
+}
+
+// TODO: if necessary, must be implemented in wit-bindgen
+unsafe impl ValueType for EpollType {
+    #[inline]
+    fn zero_padding_bytes(&self, _bytes: &mut [MaybeUninit<u8>]) {}
+}
+
+wai_bindgen_rust::bitflags::bitflags! {
+    #[doc = " Epoll available event types."]
+    #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
+    pub struct EpollType : u32 {
+        #[doc = " The associated file is available for read(2) operations."]
+        const EPOLLIN = 1 << 0;
+        #[doc = " The associated file is available for write(2) operations."]
+        const EPOLLOUT = 1 << 1;
+        #[doc = " Stream socket peer closed connection, or shut down writing"]
+        #[doc = " half of connection.  (This flag is especially useful for"]
+        #[doc = " writing simple code to detect peer shutdown when using"]
+        #[doc = " edge-triggered monitoring.)"]
+        const EPOLLRDHUP = 1 << 2;
+        #[doc = " There is an exceptional condition on the file descriptor."]
+        #[doc = " See the discussion of POLLPRI in poll(2)."]
+        const EPOLLPRI = 1 << 3;
+        #[doc = " Error condition happened on the associated file"]
+        #[doc = " descriptor.  This event is also reported for the write end"]
+        #[doc = " of a pipe when the read end has been closed."]
+        const EPOLLERR = 1 << 4;
+        #[doc = " Hang up happened on the associated file descriptor."]
+        const EPOLLHUP = 1 << 5;
+        #[doc = " Requests edge-triggered notification for the associated"]
+        #[doc = " file descriptor.  The default behavior for epoll is level-"]
+        #[doc = " triggered.  See epoll(7) for more detailed information"]
+        #[doc = " about edge-triggered and level-triggered notification."]
+        const EPOLLET = 1 << 6;
+        #[doc = " Requests one-shot notification for the associated file"]
+        #[doc = " descriptor.  This means that after an event notified for"]
+        #[doc = " the file descriptor by epoll_wait(2), the file descriptor"]
+        #[doc = " is disabled in the interest list and no other events will"]
+        #[doc = " be reported by the epoll interface.  The user must call"]
+        #[doc = " epoll_ctl() with EPOLL_CTL_MOD to rearm the file"]
+        #[doc = " descriptor with a new event mask."]
+        const EPOLLONESHOT = 1 << 7;
+    }
+}
+
+#[doc = " Epoll operation."]
+#[repr(u32)]
+#[derive(Clone, Copy, PartialEq, Eq, num_enum :: TryFromPrimitive, Hash)]
+#[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
+pub enum EpollCtl {
+    #[doc = " Add an entry to the interest list of the epoll file descriptor, epfd."]
+    Add,
+    #[doc = " Change the settings associated with fd in the interest list to the new settings specified in event."]
+    Mod,
+    #[doc = " Remove (deregister) the target file descriptor fd from the interest list."]
+    Del,
+    #[doc = " Unknown."]
+    Unknown,
+}
+impl core::fmt::Debug for EpollCtl {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        match self {
+            EpollCtl::Add => f.debug_tuple("EPOLL_CTL_ADD").finish(),
+            EpollCtl::Mod => f.debug_tuple("EPOLL_CTL_MOD").finish(),
+            EpollCtl::Del => f.debug_tuple("EPOLL_CTL_DEL").finish(),
+            EpollCtl::Unknown => f.debug_tuple("Unknown").finish(),
+        }
+    }
+}
+// TODO: if necessary, must be implemented in wit-bindgen
+unsafe impl ValueType for EpollCtl {
+    #[inline]
+    fn zero_padding_bytes(&self, _bytes: &mut [MaybeUninit<u8>]) {}
+}
+
+unsafe impl wasmer::FromToNativeWasmType for EpollCtl {
+    type Native = i32;
+
+    fn to_native(self) -> Self::Native {
+        self as i32
+    }
+
+    fn from_native(n: Self::Native) -> Self {
+        match n {
+            0 => Self::Add,
+            1 => Self::Mod,
+            2 => Self::Del,
+
+            q => {
+                tracing::debug!("could not serialize number {q} to enum EpollCtl");
+                Self::Unknown
+            }
+        }
+    }
+
+    fn is_from_store(&self, _store: &impl wasmer::AsStoreRef) -> bool {
+        false
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
+pub struct EpollEventCtl {
+    pub events: EpollType,
+    pub ptr: u64,
+    pub fd: Fd,
+    pub data1: u32,
+    pub data2: u64,
+}
+
+/// An event that can be triggered
+#[repr(C)]
+#[derive(Copy, Clone)]
+pub struct EpollData<M: MemorySize> {
+    /// Pointer to the data
+    pub ptr: M::Offset,
+    /// File descriptor
+    pub fd: Fd,
+    /// Associated user data
+    pub data1: u32,
+    /// Associated user data
+    pub data2: u64,
+}
+impl<M> core::fmt::Debug for EpollData<M>
+where
+    M: MemorySize,
+{
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        f.debug_struct("EpollData")
+            .field("ptr", &self.ptr)
+            .field("fd", &self.fd)
+            .field("data1", &self.data1)
+            .field("data2", &self.data2)
+            .finish()
+    }
+}
+
+/// An event that can be triggered
+#[repr(C)]
+#[derive(Copy, Clone)]
+pub struct EpollEvent<M: MemorySize> {
+    /// Pointer to the data
+    pub events: EpollType,
+    /// File descriptor
+    pub data: EpollData<M>,
+}
+impl<M> core::fmt::Debug for EpollEvent<M>
+where
+    M: MemorySize,
+{
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        f.debug_struct("EpollData")
+            .field("events", &self.events)
+            .field("data", &self.data)
+            .finish()
+    }
+}
+unsafe impl<M> ValueType for EpollEvent<M>
+where
+    M: MemorySize,
+{
+    #[inline]
+    fn zero_padding_bytes(&self, _bytes: &mut [MaybeUninit<u8>]) {}
 }

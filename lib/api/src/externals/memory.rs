@@ -36,7 +36,7 @@ impl Memory {
     /// Creates a new host `Memory` from the provided [`MemoryType`].
     ///
     /// This function will construct the `Memory` using the store
-    /// [`BaseTunables`][crate::sys::BaseTunables].
+    /// `BaseTunables`.
     ///
     /// # Example
     ///
@@ -74,7 +74,7 @@ impl Memory {
 
     /// Creates a view into the memory that then allows for
     /// read and write
-    pub fn view<'a>(&self, store: &'a impl AsStoreRef) -> MemoryView<'a> {
+    pub fn view<'a>(&self, store: &'a (impl AsStoreRef + ?Sized)) -> MemoryView<'a> {
         MemoryView::new(self, store)
     }
 
@@ -121,13 +121,38 @@ impl Memory {
         self.0.grow(store, delta)
     }
 
-    /// Copies the memory to a new store and returns a memory reference to it
+    /// Grows the memory to at least a minimum size. If the memory is already big enough
+    /// for the min size then this function does nothing
+    pub fn grow_at_least(
+        &self,
+        store: &mut impl AsStoreMut,
+        min_size: u64,
+    ) -> Result<(), MemoryError> {
+        self.0.grow_at_least(store, min_size)
+    }
+
+    /// Resets the memory back to zero length
+    pub fn reset(&self, store: &mut impl AsStoreMut) -> Result<(), MemoryError> {
+        self.0.reset(store)?;
+        Ok(())
+    }
+
+    /// Attempts to duplicate this memory (if its clonable) in a new store
+    /// (copied memory)
     pub fn copy_to_store(
         &self,
         store: &impl AsStoreRef,
         new_store: &mut impl AsStoreMut,
     ) -> Result<Self, MemoryError> {
-        Ok(Self(self.0.copy_to_store(store, new_store)?))
+        if !self.ty(store).shared {
+            // We should only be able to duplicate in a new store if the memory is shared
+            return Err(MemoryError::InvalidMemory {
+                reason: "memory is not a shared memory type".to_string(),
+            });
+        }
+        self.0
+            .try_copy(&store)
+            .map(|new_memory| Self::new_from_existing(new_store, new_memory.into()))
     }
 
     pub(crate) fn from_vm_extern(store: &mut impl AsStoreMut, vm_extern: VMExternMemory) -> Self {
@@ -140,36 +165,26 @@ impl Memory {
     }
 
     /// Attempts to clone this memory (if its clonable)
-    pub fn try_clone(&self, store: &impl AsStoreRef) -> Option<VMMemory> {
+    pub fn try_clone(&self, store: &impl AsStoreRef) -> Result<VMMemory, MemoryError> {
         self.0.try_clone(store)
     }
 
     /// Attempts to clone this memory (if its clonable) in a new store
-    pub fn clone_in_store(
+    /// (cloned memory will be shared between those that clone it)
+    pub fn share_in_store(
         &self,
         store: &impl AsStoreRef,
         new_store: &mut impl AsStoreMut,
-    ) -> Option<Self> {
+    ) -> Result<Self, MemoryError> {
         if !self.ty(store).shared {
             // We should only be able to duplicate in a new store if the memory is shared
-            return None;
+            return Err(MemoryError::InvalidMemory {
+                reason: "memory is not a shared memory type".to_string(),
+            });
         }
         self.0
             .try_clone(&store)
             .map(|new_memory| Self::new_from_existing(new_store, new_memory))
-    }
-
-    /// Attempts to duplicate this memory (if its clonable) in a new store
-    pub fn duplicate_in_store(
-        &self,
-        store: &impl AsStoreRef,
-        new_store: &mut impl AsStoreMut,
-    ) -> Option<Self> {
-        if !self.ty(store).shared {
-            // We should only be able to duplicate in a new store if the memory is shared
-            return None;
-        }
-        self.0.duplicate_in_store(store, new_store).map(Self)
     }
 
     /// To `VMExtern`.

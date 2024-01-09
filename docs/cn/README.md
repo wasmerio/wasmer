@@ -93,7 +93,8 @@ hello 3
 | &nbsp; | 语言 | 程序包 | 文档 |
 |-|-|-|-|
 | ![Rust logo] | [**Rust**][Rust integration] | [`wasmer` Rust crate] | [文档][rust docs]
-| ![C logo] | [**C/C++**][C integration] | [`wasmer.h` headers] | [文档][c docs] |
+| ![C logo] | [**C**][C integration] | [`wasm.h` header] | [文档][c docs] |
+| ![C++ logo] | [**C++**][C integration] | [`wasm.hh` header] | [文档][c docs] |
 | ![C# logo] | [**C#**][C# integration] | [`WasmerSharp` NuGet package] | [文档][c# docs] |
 | ![D logo] | [**D**][D integration] | [`wasmer` Dub package] | [文档][d docs] |
 | ![Python logo] | [**Python**][Python integration] | [`wasmer` PyPI package] | [文档][python docs] |
@@ -187,7 +188,7 @@ hello 3
 
 **我们欢迎任何形式的贡献，尤其是来自社区新成员的贡献** 💜
 
-你可以在[我们的出色文档](https://docs.wasmer.io/ecosystem/wasmer/building-from-source) 中学习如何构建 Wasmer 运行时!
+你可以在[我们的出色文档](https://docs.wasmer.io/developers/build-from-source) 中学习如何构建 Wasmer 运行时!
 
 ### 测试
 

@@ -127,3 +127,25 @@ impl Cache for FileSystemCache {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_fs_cache() {
+        let dir = tempfile::tempdir().unwrap();
+
+        let mut cache = FileSystemCache::new(dir.path()).unwrap();
+
+        let engine = wasmer::Engine::default();
+
+        let bytes = include_bytes!("../../wasix/tests/envvar.wasm");
+
+        let module = Module::from_binary(&engine, bytes).unwrap();
+        let key = Hash::generate(bytes);
+
+        cache.store(key, &module).unwrap();
+        let _restored = unsafe { cache.load(&engine, key).unwrap() };
+    }
+}

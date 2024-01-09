@@ -55,7 +55,6 @@ impl FromStr for Hash {
                 "Prehashed keys must deserialze into exactly 32 bytes".to_string(),
             ));
         }
-        use std::convert::TryInto;
         Ok(Self(bytes[0..32].try_into().map_err(|e| {
             DeserializeError::Generic(format!("Could not get first 32 bytes: {}", e))
         })?))

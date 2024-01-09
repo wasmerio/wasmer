@@ -1,9 +1,9 @@
 use crate::mem_access::MemoryAccessError;
 use crate::store::AsStoreRef;
-use std::convert::TryInto;
 use std::marker::PhantomData;
 use std::mem::MaybeUninit;
 use std::slice;
+use std::{convert::TryInto, ops::Range};
 #[cfg(feature = "tracing")]
 use tracing::warn;
 use wasm_bindgen::JsCast;
@@ -26,7 +26,7 @@ pub struct MemoryView<'a> {
 }
 
 impl<'a> MemoryView<'a> {
-    pub(crate) fn new(memory: &Memory, _store: &'a impl AsStoreRef) -> Self {
+    pub(crate) fn new(memory: &Memory, _store: &'a (impl AsStoreRef + ?Sized)) -> Self {
         Self::new_raw(&memory.handle.memory)
     }
 
@@ -256,11 +256,18 @@ impl<'a> MemoryView<'a> {
     /// Copies the memory and returns it as a vector of bytes
     #[allow(unused)]
     pub fn copy_to_vec(&self) -> Result<Vec<u8>, MemoryAccessError> {
+        self.copy_range_to_vec(0..self.data_size())
+    }
+
+    /// Copies a range of the memory and returns it as a vector of bytes
+    #[allow(unused)]
+    pub fn copy_range_to_vec(&self, range: Range<u64>) -> Result<Vec<u8>, MemoryAccessError> {
         let mut new_memory = Vec::new();
-        let mut offset = 0;
+        let mut offset = range.start;
+        let end = range.end.min(self.data_size());
         let mut chunk = [0u8; 40960];
-        while offset < self.data_size() {
-            let remaining = self.data_size() - offset;
+        while offset < end {
+            let remaining = end - offset;
             let sublen = remaining.min(chunk.len() as u64) as usize;
             self.read(offset, &mut chunk[..sublen])?;
             new_memory.extend_from_slice(&chunk[..sublen]);

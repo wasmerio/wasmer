@@ -1,7 +1,0 @@
-node_modules
-dist
-.parcel-cache
-.cache
-target
-pkg
-wapm/*.wasm

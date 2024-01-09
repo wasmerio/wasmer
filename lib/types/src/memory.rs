@@ -1,4 +1,5 @@
 use crate::{Pages, ValueType};
+use core::ops::SubAssign;
 use rkyv::{Archive, Deserialize as RkyvDeserialize, Serialize as RkyvSerialize};
 #[cfg(feature = "enable-serde")]
 use serde::{Deserialize, Serialize};
@@ -93,6 +94,7 @@ pub unsafe trait MemorySize: Copy {
         + Add<Self::Offset>
         + Sum<Self::Offset>
         + AddAssign<Self::Offset>
+        + SubAssign<Self::Offset>
         + 'static;
 
     /// Type used to pass this value as an argument or return value for a Wasm function.
@@ -109,6 +111,9 @@ pub unsafe trait MemorySize: Copy {
 
     /// Convert a `Native` to an `Offset`.
     fn native_to_offset(native: Self::Native) -> Self::Offset;
+
+    /// True if the memory is 64-bit
+    fn is_64bit() -> bool;
 }
 
 /// Marker trait for 32-bit memories.
@@ -125,6 +130,9 @@ unsafe impl MemorySize for Memory32 {
     fn native_to_offset(native: Self::Native) -> Self::Offset {
         native as Self::Offset
     }
+    fn is_64bit() -> bool {
+        false
+    }
 }
 
 /// Marker trait for 64-bit memories.
@@ -140,5 +148,8 @@ unsafe impl MemorySize for Memory64 {
     }
     fn native_to_offset(native: Self::Native) -> Self::Offset {
         native as Self::Offset
+    }
+    fn is_64bit() -> bool {
+        true
     }
 }

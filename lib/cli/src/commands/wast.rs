@@ -9,7 +9,7 @@ use wasmer_wast::Wast as WastSpectest;
 /// The options for the `wasmer wast` subcommand
 pub struct Wast {
     /// Wast file to run
-    #[clap(name = "FILE", parse(from_os_str))]
+    #[clap(name = "FILE")]
     path: PathBuf,
 
     #[clap(flatten)]

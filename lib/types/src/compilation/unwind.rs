@@ -27,3 +27,35 @@ pub enum CompiledFunctionUnwindInfo {
     /// The unwind info is added to the Dwarf section in `Compilation`.
     Dwarf,
 }
+
+/// Generic reference to data in a `CompiledFunctionUnwindInfo`
+#[allow(missing_docs)]
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum CompiledFunctionUnwindInfoReference<'a> {
+    WindowsX64(&'a [u8]),
+    Dwarf,
+}
+
+/// Any struct that acts like a `CompiledFunctionUnwindInfo`.
+#[allow(missing_docs)]
+pub trait CompiledFunctionUnwindInfoLike<'a> {
+    fn get(&'a self) -> CompiledFunctionUnwindInfoReference<'a>;
+}
+
+impl<'a> CompiledFunctionUnwindInfoLike<'a> for CompiledFunctionUnwindInfo {
+    fn get(&'a self) -> CompiledFunctionUnwindInfoReference<'a> {
+        match self {
+            Self::WindowsX64(v) => CompiledFunctionUnwindInfoReference::WindowsX64(v.as_ref()),
+            Self::Dwarf => CompiledFunctionUnwindInfoReference::Dwarf,
+        }
+    }
+}
+
+impl<'a> CompiledFunctionUnwindInfoLike<'a> for ArchivedCompiledFunctionUnwindInfo {
+    fn get(&'a self) -> CompiledFunctionUnwindInfoReference<'a> {
+        match self {
+            Self::WindowsX64(v) => CompiledFunctionUnwindInfoReference::WindowsX64(v.as_ref()),
+            Self::Dwarf => CompiledFunctionUnwindInfoReference::Dwarf,
+        }
+    }
+}

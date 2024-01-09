@@ -23,6 +23,7 @@ use wasmer_types::RawValue;
 /// It may either be a pointer to the [`VMContext`] if it's a Wasm function
 /// or a pointer to arbitrary data controlled by the host if it's a host function.
 #[derive(Copy, Clone, Eq)]
+#[repr(C)]
 pub union VMFunctionContext {
     /// Wasm functions take a pointer to [`VMContext`].
     pub vmctx: *mut VMContext,
@@ -781,10 +782,10 @@ unsafe impl Sync for VMMemoryDefinition {}
 #[cfg(test)]
 mod test_vmmemory_definition {
     use super::VMMemoryDefinition;
-    use crate::ModuleInfo;
     use crate::VMOffsets;
     use memoffset::offset_of;
     use std::mem::size_of;
+    use wasmer_types::ModuleInfo;
 
     #[test]
     fn check_vmmemory_definition_offsets() {

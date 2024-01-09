@@ -265,12 +265,9 @@ impl<'a, T: ValueType> WasmSlice<'a, T> {
             self.len,
             "slice length doesn't match WasmSlice length"
         );
-        let bytes = unsafe {
-            slice::from_raw_parts_mut(
-                buf.as_mut_ptr() as *mut MaybeUninit<u8>,
-                buf.len() * mem::size_of::<T>(),
-            )
-        };
+        let size = std::mem::size_of_val(buf);
+        let bytes =
+            unsafe { slice::from_raw_parts_mut(buf.as_mut_ptr() as *mut MaybeUninit<u8>, size) };
         self.buffer.read_uninit(self.offset, bytes)?;
         Ok(())
     }
@@ -310,9 +307,8 @@ impl<'a, T: ValueType> WasmSlice<'a, T> {
             self.len,
             "slice length doesn't match WasmSlice length"
         );
-        let bytes = unsafe {
-            slice::from_raw_parts(data.as_ptr() as *const u8, data.len() * mem::size_of::<T>())
-        };
+        let size = std::mem::size_of_val(data);
+        let bytes = unsafe { slice::from_raw_parts(data.as_ptr() as *const u8, size) };
         self.buffer.write(self.offset, bytes)
     }
 

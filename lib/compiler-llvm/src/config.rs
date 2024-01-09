@@ -259,10 +259,6 @@ impl CompilerConfig for LLVM {
         self.enable_verifier = true;
     }
 
-    fn enable_nan_canonicalization(&mut self) {
-        self.enable_nan_canonicalization = true;
-    }
-
     fn canonicalize_nans(&mut self, enable: bool) {
         self.enable_nan_canonicalization = enable;
     }

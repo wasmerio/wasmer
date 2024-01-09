@@ -308,7 +308,7 @@ fn visit_item(item: &mut syn::Item) {
 
                 // Change enum repr type.
                 match name.as_str() {
-                    "Clockid" | "Snapshot0Clockid" | "BusErrno" => {
+                    "Clockid" | "Snapshot0Clockid" | "Errno" => {
                         repr_attr.unwrap().tokens = quote!((u32));
                     }
                     "Errno" | "Socktype" | "Addressfamily" | "Sockproto" => {

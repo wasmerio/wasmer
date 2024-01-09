@@ -10,6 +10,13 @@ pub struct PrettyError {
     error: Error,
 }
 
+impl PrettyError {
+    /// Create a new [`PrettyError`].
+    pub fn new(error: Error) -> Self {
+        PrettyError { error }
+    }
+}
+
 /// A macro that prints a warning with nice colors
 #[macro_export]
 macro_rules! warning {
