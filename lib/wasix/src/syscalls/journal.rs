@@ -90,11 +90,14 @@ pub unsafe fn restore_snapshot(
     // possible that the threads will be cancelled before all the
     // events finished the streaming process
     let mut spawn_threads: HashMap<WasiThreadId, RewindState> = Default::default();
+    let mut staging_spawn_threads: HashMap<WasiThreadId, RewindState> = Default::default();
+    let mut staging_kill_thread: HashSet<WasiThreadId> = Default::default();
 
     // We delay the memory updates until the end as its possible the
     // memory will be cleared before all the events finished the
     // streaming process
     let mut update_memory: HashMap<Range<u64>, Cow<'_, [u8]>> = Default::default();
+    let mut staging_update_memory: HashMap<Range<u64>, Cow<'_, [u8]>> = Default::default();
     let mut update_tty = None;
 
     // We capture the stdout and stderr while we replay
@@ -109,6 +112,7 @@ pub unsafe fn restore_snapshot(
     let cur_module_hash = Some(ctx.data().process.module_hash.as_bytes());
     let mut journal_module_hash = None;
     let mut rewind = None;
+    let mut staging_rewind = None;
     while let Some(next) = journal.read().map_err(anyhow_err_to_runtime_err)? {
         tracing::trace!("Restoring snapshot event - {next:?}");
         match next {
@@ -118,8 +122,11 @@ pub unsafe fn restore_snapshot(
             crate::journal::JournalEntry::ProcessExitV1 { exit_code } => {
                 if bootstrapping {
                     rewind = None;
+                    staging_rewind = None;
                     spawn_threads.clear();
+                    staging_spawn_threads.clear();
                     update_memory.clear();
+                    staging_update_memory.clear();
                     update_tty.take();
                     stdout.clear();
                     stderr.clear();
@@ -164,7 +171,7 @@ pub unsafe fn restore_snapshot(
                 }
 
                 if bootstrapping {
-                    update_memory.insert(region, data.clone());
+                    staging_update_memory.insert(region, data.clone());
                 } else {
                     JournalEffector::apply_memory(&mut ctx, region, &data)
                         .map_err(anyhow_err_to_runtime_err)?;
@@ -174,8 +181,11 @@ pub unsafe fn restore_snapshot(
                 if id == ctx.data().tid().raw() {
                     if bootstrapping {
                         rewind = None;
+                        staging_rewind = None;
                         spawn_threads.clear();
+                        staging_spawn_threads.clear();
                         update_memory.clear();
+                        staging_update_memory.clear();
                         update_tty.take();
                         stdout.clear();
                         stderr.clear();
@@ -188,7 +198,8 @@ pub unsafe fn restore_snapshot(
                             .map_err(anyhow_err_to_runtime_err)?;
                     }
                 } else if bootstrapping {
-                    spawn_threads.remove(&Into::<WasiThreadId>::into(id));
+                    staging_spawn_threads.remove(&Into::<WasiThreadId>::into(id));
+                    staging_kill_thread.insert(id.into());
                 } else {
                     JournalEffector::apply_thread_exit(
                         &mut ctx,
@@ -218,9 +229,10 @@ pub unsafe fn restore_snapshot(
 
                 let id = Into::<WasiThreadId>::into(id);
                 if id == ctx.data().tid() {
-                    rewind.replace(state);
+                    staging_rewind.replace(state);
                 } else if bootstrapping {
-                    spawn_threads.insert(id, state);
+                    staging_kill_thread.remove(&id);
+                    staging_spawn_threads.insert(id, state);
                 } else {
                     return Err(WasiRuntimeError::Runtime(RuntimeError::user(
                         anyhow::format_err!(
@@ -279,6 +291,18 @@ pub unsafe fn restore_snapshot(
                 if cur_module_hash != journal_module_hash {
                     continue;
                 }
+
+                rewind = staging_rewind.take();
+                for thread_id in staging_kill_thread.drain() {
+                    spawn_threads.remove(&thread_id);
+                }
+                for thread in staging_spawn_threads.drain() {
+                    spawn_threads.insert(thread.0, thread.1);
+                }
+                for mem in staging_update_memory.drain() {
+                    update_memory.insert(mem.0, mem.1);
+                }
+
                 ctx.data_mut().pop_snapshot_trigger(trigger);
             }
             crate::journal::JournalEntry::SetClockTimeV1 { clock_id, time } => {
@@ -597,6 +621,20 @@ pub unsafe fn restore_snapshot(
         }
     }
 
+    // Check for events that are orphaned
+    if !staging_kill_thread.is_empty() {
+        tracing::debug!("Orphaned thread exit (missing snapshot) - it will be ignored");
+    }
+    if !staging_update_memory.is_empty() {
+        tracing::debug!("Orphaned memory update (missing snapshot) - it will be ignored");
+    }
+    if !staging_spawn_threads.is_empty() {
+        tracing::debug!("Orphaned thread spawn (missing snapshot) - it will be ignored");
+    }
+    if staging_rewind.is_some() {
+        tracing::debug!("Orphaned main rewind (missing snapshot) - it will be ignored");
+    }
+
     // If we are not in the same module then we fire off an exit
     // that simulates closing the process (hence keeps everything
     // in a clean state)
@@ -608,8 +646,11 @@ pub unsafe fn restore_snapshot(
         );
         if bootstrapping {
             rewind = None;
+            staging_rewind = None;
             spawn_threads.clear();
+            staging_spawn_threads.clear();
             update_memory.clear();
+            staging_update_memory.clear();
             update_tty.take();
             stdout.clear();
             stderr.clear();
