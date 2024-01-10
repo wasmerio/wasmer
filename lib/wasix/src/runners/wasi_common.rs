@@ -7,10 +7,7 @@ use std::{
 use anyhow::{Context, Error};
 use derivative::Derivative;
 use futures::future::BoxFuture;
-use virtual_fs::{
-    DirEntry, FileOpener, FileSystem, FsError, OverlayFileSystem, RootFileSystemBuilder,
-    ScopedDirectoryFileSystem, TmpFileSystem,
-};
+use virtual_fs::{FileSystem, FsError, OverlayFileSystem, RootFileSystemBuilder, TmpFileSystem};
 use webc::metadata::annotations::Wasi as WasiAnnotation;
 
 use crate::{
@@ -239,8 +236,20 @@ fn create_dir_all(fs: &dyn FileSystem, path: &Path) -> Result<(), Error> {
     Ok(())
 }
 
+#[derive(Debug, Clone)]
+pub struct MountedDirectory {
+    pub guest: String,
+    pub fs: Arc<dyn FileSystem + Send + Sync>,
+}
+
 /// A directory that should be mapped from the host filesystem into a WASI
 /// instance (the "guest").
+///
+/// # Panics
+///
+/// Converting a [`MappedDirectory`] to a [`MountedDirectory`] requires enabling
+/// the `host-fs` feature flag. Using the [`From`] implementation without
+/// enabling this feature will result in a runtime panic.
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct MappedDirectory {
     /// The absolute path for a directory on the host filesystem.
@@ -250,19 +259,19 @@ pub struct MappedDirectory {
     pub guest: String,
 }
 
-#[derive(Debug, Clone)]
-pub struct MountedDirectory {
-    pub guest: String,
-    pub fs: Arc<dyn FileSystem + Send + Sync>,
-}
-
 impl From<MappedDirectory> for MountedDirectory {
     fn from(value: MappedDirectory) -> Self {
-        let MappedDirectory { host, guest } = value;
-        let fs: Arc<dyn FileSystem + Send + Sync> =
-            Arc::new(ScopedDirectoryFileSystem::new_with_default_runtime(host));
+        cfg_if::cfg_if! {
+            if #[cfg(feature = "host-fs")] {
+                let MappedDirectory { host, guest } = value;
+                let fs: Arc<dyn FileSystem + Send + Sync> =
+                    Arc::new(ScopedDirectoryFileSystem::new_with_default_runtime(host));
 
-        MountedDirectory { guest, fs }
+                MountedDirectory { guest, fs }
+            } else {
+                unreachable!("The `host-fs` feature needs to be enabled to map {value:?}")
+            }
+        }
     }
 }
 
@@ -340,8 +349,6 @@ mod tests {
     use virtual_fs::{DirEntry, FileType, Metadata, WebcVolumeFileSystem};
     use webc::Container;
 
-    use crate::runners::MappedDirectory;
-
     use super::*;
 
     const PYTHON: &[u8] = include_bytes!("../../../c-api/examples/assets/python-0.1.0.wasmer");
@@ -407,6 +414,7 @@ mod tests {
     }
 
     #[tokio::test]
+    #[cfg_attr(not(feature = "host-fs"), ignore)]
     async fn python_use_case() {
         let temp = TempDir::new().unwrap();
         let sub_dir = temp.path().join("path").join("to");
@@ -435,6 +443,7 @@ mod tests {
     }
 
     #[tokio::test]
+    #[cfg_attr(not(feature = "host-fs"), ignore)]
     async fn convert_mapped_directory_to_mounted_directory() {
         let temp = TempDir::new().unwrap();
         let dir = MappedDirectory {
