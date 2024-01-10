@@ -1,5 +1,8 @@
 use anyhow::Result;
-use wasmer::{wat2wasm, imports, Instance, Module, Store, Memory, AsStoreRef, MemoryView, FunctionEnvMut, WasmPtr, FunctionEnv, Function};
+use wasmer::{
+    imports, wat2wasm, AsStoreRef, Function, FunctionEnv, FunctionEnvMut, Instance, Memory,
+    MemoryView, Module, Store, WasmPtr,
+};
 
 // Utils
 pub fn read_string(view: &MemoryView, start: u32, len: u32) -> Result<String> {
@@ -19,7 +22,7 @@ impl ExampleEnv {
     fn get_memory(&self) -> &Memory {
         self.memory.as_ref().unwrap()
     }
-    
+
     fn view<'a>(&'a self, store: &'a impl AsStoreRef) -> MemoryView<'a> {
         self.get_memory().view(store)
     }
@@ -35,7 +38,10 @@ fn http_get(mut ctx: FunctionEnvMut<ExampleEnv>, url: u32, url_len: u32) -> u32 
 
         // Get request
         let response = ureq::get(&address).call().unwrap();
-        let capacity = match response.header("Content-Length").map(|it| it.parse::<usize>()) {
+        let capacity = match response
+            .header("Content-Length")
+            .map(|it| it.parse::<usize>())
+        {
             Some(Ok(len)) => len,
             _ => 1024,
         };
@@ -44,7 +50,7 @@ fn http_get(mut ctx: FunctionEnvMut<ExampleEnv>, url: u32, url_len: u32) -> u32 
         reader.read_to_end(&mut buffer).unwrap();
         (buffer, memory_size)
     };
-    
+
     // If the response is too big, grow memory
     if 1114112 + response.len() > memory_size {
         let delta = (1114112 + response.len() - memory_size) / wasmer::WASM_PAGE_SIZE + 1;
@@ -55,8 +61,10 @@ fn http_get(mut ctx: FunctionEnvMut<ExampleEnv>, url: u32, url_len: u32) -> u32 
     // Write response as string [ptr, cap, len] to wasm memory and return pointer
     let view = ctx.data().view(&ctx);
     view.write(1114112, &u32::to_le_bytes(1114124)).unwrap();
-    view.write(1114116, &u32::to_le_bytes(response.len() as u32)).unwrap();
-    view.write(1114120, &u32::to_le_bytes(response.len() as u32)).unwrap();
+    view.write(1114116, &u32::to_le_bytes(response.len() as u32))
+        .unwrap();
+    view.write(1114120, &u32::to_le_bytes(response.len() as u32))
+        .unwrap();
     view.write(1114124, &response).unwrap();
     1114112
 }
@@ -91,7 +99,7 @@ fn main() -> Result<()> {
   (data (;0;) (i32.const 1048576) "https://postman-echo.com/bytes/5/mb?type=json"))
 "#,
     )?;
-    
+
     // Load module
     let mut store = Store::default();
     let module = Module::new(&store, wasm_bytes)?;
