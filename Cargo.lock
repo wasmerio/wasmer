@@ -241,7 +241,7 @@ dependencies = [
  "futures-util",
  "log",
  "pin-project-lite",
- "tungstenite",
+ "tungstenite 0.20.1",
 ]
 
 [[package]]
@@ -653,8 +653,8 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7c64043d6c7b7a4c58e39e7efccfdea7b93d885a795d0c054a69dbbf4dd52686"
 dependencies = [
  "crossterm",
- "strum 0.25.0",
- "strum_macros 0.25.3",
+ "strum",
+ "strum_macros",
  "unicode-width",
 ]
 
@@ -977,10 +977,7 @@ dependencies = [
  "bitflags 2.4.1",
  "crossterm_winapi",
  "libc",
- "mio",
  "parking_lot",
- "signal-hook",
- "signal-hook-mio",
  "winapi",
 ]
 
@@ -1373,7 +1370,7 @@ dependencies = [
  "anyhow",
  "bytesize",
  "once_cell",
- "parking_lot 0.12.1",
+ "parking_lot",
  "rand_chacha",
  "rand_core",
  "schemars",
@@ -1397,7 +1394,7 @@ dependencies = [
  "anyhow",
  "bytesize",
  "once_cell",
- "parking_lot 0.12.1",
+ "parking_lot",
  "rand_chacha",
  "rand_core",
  "schemars",
@@ -1582,7 +1579,7 @@ checksum = "1ee447700ac8aa0b2f2bd7bc4462ad686ba06baa6727ac149a2d6277f0d240fd"
 dependencies = [
  "cfg-if",
  "libc",
- "redox_syscall 0.4.1",
+ "redox_syscall",
  "windows-sys 0.52.0",
 ]
 
@@ -2186,6 +2183,19 @@ dependencies = [
 
 [[package]]
 name = "hyper-tungstenite"
+version = "0.10.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "226df6fd0aece319a325419d770aa9d947defa60463f142cd82b329121f906a3"
+dependencies = [
+ "hyper",
+ "pin-project",
+ "tokio",
+ "tokio-tungstenite 0.19.0",
+ "tungstenite 0.19.0",
+]
+
+[[package]]
+name = "hyper-tungstenite"
 version = "0.11.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7cc7dcb1ab67cd336f468a12491765672e61a3b6b148634dbfe2fe8acd3fe7d9"
@@ -2193,8 +2203,8 @@ dependencies = [
  "hyper",
  "pin-project-lite",
  "tokio",
- "tokio-tungstenite",
- "tungstenite",
+ "tokio-tungstenite 0.20.1",
+ "tungstenite 0.20.1",
 ]
 
 [[package]]
@@ -2514,7 +2524,7 @@ checksum = "85c833ca1e66078851dba29046874e38f08b2c883700aa29a03ddd3b23814ee8"
 dependencies = [
  "bitflags 2.4.1",
  "libc",
- "redox_syscall 0.4.1",
+ "redox_syscall",
 ]
 
 [[package]]
@@ -2525,7 +2535,7 @@ checksum = "3af92c55d7d839293953fcd0fda5ecfe93297cfde6ffbdec13b41d99c0ba6607"
 dependencies = [
  "bitflags 2.4.1",
  "libc",
- "redox_syscall 0.4.1",
+ "redox_syscall",
 ]
 
 [[package]]
@@ -3085,7 +3095,7 @@ checksum = "4c42a9226546d68acdd9c0a280d17ce19bfe27a46bf68784e4066115788d008e"
 dependencies = [
  "cfg-if",
  "libc",
- "redox_syscall 0.4.1",
+ "redox_syscall",
  "smallvec",
  "windows-targets 0.48.5",
 ]
@@ -3432,15 +3442,6 @@ checksum = "5ce3fb6ad83f861aac485e76e1985cd109d9a3713802152be56c3b1f0e0658ed"
 dependencies = [
  "crossbeam-deque",
  "crossbeam-utils",
-]
-
-[[package]]
-name = "redox_syscall"
-version = "0.2.16"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fb5a58c1855b4b6819d59012155603f0b22ad30cad752600aadfcb695265519a"
-dependencies = [
- "bitflags 1.3.2",
 ]
 
 [[package]]
@@ -4173,20 +4174,11 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0e56dd856803e253c8f298af3f4d7eb0ae5e23a737252cd90bb4f3b435033b2d"
 dependencies = [
  "dashmap",
+ "futures",
  "lazy_static",
+ "log",
  "parking_lot",
  "serial_test_derive",
-]
-
-[[package]]
-name = "serial_test_derive"
-version = "2.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "91d129178576168c589c9ec973feedf7d3126c01ac2bf08795109aa35b69fb8f"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn 2.0.31",
 ]
 
 [[package]]
@@ -4338,28 +4330,9 @@ checksum = "73473c0e59e6d5812c5dfe2a064a6444949f089e20eec9a2e5506596494e4623"
 
 [[package]]
 name = "strum"
-version = "0.24.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "063e6045c0e62079840579a7e47a355ae92f60eb74daaf156fb1e84ba164e63f"
-
-[[package]]
-name = "strum"
 version = "0.25.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "290d54ea6f91c969195bdbcd7442c8c2a2ba87da8bf60a7ee86a235d4bc1e125"
-
-[[package]]
-name = "strum_macros"
-version = "0.24.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1e385be0d24f186b4ce2f9982191e7101bb737312ad61c1f2f984f34bcf85d59"
-dependencies = [
- "heck 0.4.1",
- "proc-macro2",
- "quote",
- "rustversion",
- "syn 1.0.109",
-]
 
 [[package]]
 name = "strum_macros"
@@ -4460,7 +4433,7 @@ checksum = "7ef1adac450ad7f4b3c28589471ade84f25f731a7a0fe30d71dfa9f60fd808e5"
 dependencies = [
  "cfg-if",
  "fastrand",
- "redox_syscall 0.4.1",
+ "redox_syscall",
  "rustix",
  "windows-sys 0.48.0",
 ]
@@ -4718,6 +4691,18 @@ dependencies = [
 
 [[package]]
 name = "tokio-tungstenite"
+version = "0.19.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ec509ac96e9a0c43427c74f003127d953a265737636129424288d27cb5c4b12c"
+dependencies = [
+ "futures-util",
+ "log",
+ "tokio",
+ "tungstenite 0.19.0",
+]
+
+[[package]]
+name = "tokio-tungstenite"
 version = "0.20.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "212d5dcb2a1ce06d81107c3d0ffa3121fe974b73f068c8282cb1c32328113b6c"
@@ -4728,7 +4713,7 @@ dependencies = [
  "rustls-native-certs",
  "tokio",
  "tokio-rustls",
- "tungstenite",
+ "tungstenite 0.20.1",
 ]
 
 [[package]]
@@ -4990,6 +4975,25 @@ dependencies = [
  "serde_derive",
  "serde_json",
  "termcolor",
+]
+
+[[package]]
+name = "tungstenite"
+version = "0.19.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "15fba1a6d6bb030745759a9a2a588bfe8490fc8b4751a277db3a0be1c9ebbf67"
+dependencies = [
+ "byteorder",
+ "bytes",
+ "data-encoding",
+ "http",
+ "httparse",
+ "log",
+ "rand",
+ "sha1",
+ "thiserror",
+ "url",
+ "utf-8",
 ]
 
 [[package]]
@@ -5272,7 +5276,7 @@ dependencies = [
  "derivative",
  "futures-util",
  "hyper",
- "hyper-tungstenite",
+ "hyper-tungstenite 0.11.1",
  "libc",
  "mio",
  "pin-project-lite",
@@ -5281,7 +5285,7 @@ dependencies = [
  "thiserror",
  "tokio",
  "tokio-serde",
- "tokio-tungstenite",
+ "tokio-tungstenite 0.20.1",
  "tokio-util 0.6.10",
  "tracing",
  "virtual-mio 0.3.0 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -5300,19 +5304,19 @@ dependencies = [
  "derivative",
  "futures-util",
  "hyper",
- "hyper-tungstenite",
+ "hyper-tungstenite 0.10.0",
  "libc",
  "mio",
  "pin-project-lite",
  "rkyv",
  "serde",
- "serial_test 2.0.0",
+ "serial_test",
  "socket2 0.4.10",
  "thiserror",
  "tokio",
  "tokio-serde",
- "tokio-tungstenite",
- "tokio-util 0.7.8",
+ "tokio-tungstenite 0.20.1",
+ "tokio-util 0.7.10",
  "tracing",
  "tracing-test",
  "virtual-mio 0.3.0",
@@ -6012,7 +6016,7 @@ dependencies = [
  "is-terminal",
  "log",
  "once_cell",
- "parking_lot 0.12.1",
+ "parking_lot",
  "regex",
  "reqwest",
  "semver 1.0.20",
@@ -6232,7 +6236,7 @@ dependencies = [
  "time",
  "tldextract",
  "tokio",
- "tokio-tungstenite",
+ "tokio-tungstenite 0.20.1",
  "toml 0.5.11",
  "tracing",
  "url",
@@ -6360,7 +6364,7 @@ dependencies = [
  "serde_cbor",
  "serde_derive",
  "serde_json",
- "serde_yaml 0.9.25",
+ "serde_yaml 0.9.29",
  "sha2",
  "shared-buffer",
  "tempfile",
@@ -6490,7 +6494,7 @@ dependencies = [
  "glob",
  "lazy_static",
  "rustc_version 0.4.0",
- "serial_test 0.5.1",
+ "serial_test",
  "tempfile",
  "test-generator",
  "test-log",
