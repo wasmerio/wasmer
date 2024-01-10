@@ -4,7 +4,7 @@ use std::{path::PathBuf, sync::Arc};
 
 use anyhow::{Context, Error};
 use tracing::Instrument;
-use virtual_fs::{ArcBoxFile, TmpFileSystem, VirtualFile};
+use virtual_fs::{ArcBoxFile, FileSystem, TmpFileSystem, VirtualFile};
 use wasmer::Module;
 use webc::metadata::{annotations::Wasi, Command};
 
@@ -12,7 +12,7 @@ use crate::{
     bin_factory::BinaryPackage,
     capabilities::Capabilities,
     journal::{DynJournal, SnapshotTrigger},
-    runners::{wasi_common::CommonWasiOptions, MappedDirectory},
+    runners::{wasi_common::CommonWasiOptions, MappedDirectory, MountedDirectory},
     runtime::{module_cache::ModuleHash, task_manager::VirtualTaskManagerExt},
     Runtime, WasiEnvBuilder, WasiError, WasiRuntimeError,
 };
@@ -98,14 +98,25 @@ impl WasiRunner {
         self.wasi.forward_host_env = forward;
     }
 
-    pub fn with_mapped_directories<I, D>(mut self, dirs: I) -> Self
+    pub fn with_mapped_directories<I, D>(self, dirs: I) -> Self
     where
         I: IntoIterator<Item = D>,
         D: Into<MappedDirectory>,
     {
-        self.wasi
-            .mapped_dirs
-            .extend(dirs.into_iter().map(|d| d.into()));
+        self.with_mounted_directories(dirs.into_iter().map(Into::into).map(MountedDirectory::from))
+    }
+
+    pub fn with_mounted_directories<I, D>(mut self, dirs: I) -> Self
+    where
+        I: IntoIterator<Item = D>,
+        D: Into<MountedDirectory>,
+    {
+        self.wasi.mounts.extend(dirs.into_iter().map(Into::into));
+        self
+    }
+
+    pub fn mount(&mut self, dest: String, fs: Arc<dyn FileSystem + Send + Sync>) -> &mut Self {
+        self.wasi.mounts.push(MountedDirectory { guest: dest, fs });
         self
     }
 
