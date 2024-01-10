@@ -706,6 +706,17 @@
 <a href="#706" id="706">706</a>
 <a href="#707" id="707">707</a>
 <a href="#708" id="708">708</a>
+<a href="#709" id="709">709</a>
+<a href="#710" id="710">710</a>
+<a href="#711" id="711">711</a>
+<a href="#712" id="712">712</a>
+<a href="#713" id="713">713</a>
+<a href="#714" id="714">714</a>
+<a href="#715" id="715">715</a>
+<a href="#716" id="716">716</a>
+<a href="#717" id="717">717</a>
+<a href="#718" id="718">718</a>
+<a href="#719" id="719">719</a>
 </pre></div><pre class="rust"><code><span class="attr">#![cfg_attr(docsrs, feature(doc_cfg, doc_auto_cfg))]
 
 #[cfg(test)]
@@ -748,6 +759,8 @@
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">mod </span>ops;
 <span class="kw">mod </span>overlay_fs;
 <span class="kw">pub mod </span>pipe;
+<span class="attr">#[cfg(feature = <span class="string">&quot;host-fs&quot;</span>)]
+</span><span class="kw">mod </span>scoped_directory_fs;
 <span class="kw">mod </span>static_file;
 <span class="attr">#[cfg(feature = <span class="string">&quot;static-fs&quot;</span>)]
 </span><span class="kw">pub mod </span>static_fs;
@@ -773,6 +786,8 @@
 <span class="kw">pub use </span>overlay_fs::OverlayFileSystem;
 <span class="kw">pub use </span>passthru_fs::<span class="kw-2">*</span>;
 <span class="kw">pub use </span>pipe::<span class="kw-2">*</span>;
+<span class="attr">#[cfg(feature = <span class="string">&quot;host-fs&quot;</span>)]
+</span><span class="kw">pub use </span>scoped_directory_fs::ScopedDirectoryFileSystem;
 <span class="kw">pub use </span>special_file::<span class="kw-2">*</span>;
 <span class="kw">pub use </span>static_file::StaticFile;
 <span class="kw">pub use </span>tmp_fs::<span class="kw-2">*</span>;
@@ -1376,6 +1391,13 @@
     <span class="kw">pub fn </span>new_dir() -&gt; <span class="self">Self </span>{
         <span class="self">Self </span>{
             dir: <span class="bool-val">true</span>,
+            ..Default::default()
+        }
+    }
+
+    <span class="kw">pub fn </span>new_file() -&gt; <span class="self">Self </span>{
+        <span class="self">Self </span>{
+            file: <span class="bool-val">true</span>,
             ..Default::default()
         }
     }

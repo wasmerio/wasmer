@@ -433,13 +433,24 @@
 <a href="#433" id="433">433</a>
 <a href="#434" id="434">434</a>
 <a href="#435" id="435">435</a>
+<a href="#436" id="436">436</a>
+<a href="#437" id="437">437</a>
+<a href="#438" id="438">438</a>
+<a href="#439" id="439">439</a>
+<a href="#440" id="440">440</a>
+<a href="#441" id="441">441</a>
+<a href="#442" id="442">442</a>
+<a href="#443" id="443">443</a>
+<a href="#444" id="444">444</a>
+<a href="#445" id="445">445</a>
+<a href="#446" id="446">446</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! WebC container support for running WASI modules
 
 </span><span class="kw">use </span>std::{path::PathBuf, sync::Arc};
 
 <span class="kw">use </span>anyhow::{Context, Error};
 <span class="kw">use </span>tracing::Instrument;
-<span class="kw">use </span>virtual_fs::{ArcBoxFile, TmpFileSystem, VirtualFile};
+<span class="kw">use </span>virtual_fs::{ArcBoxFile, FileSystem, TmpFileSystem, VirtualFile};
 <span class="kw">use </span>wasmer::Module;
 <span class="kw">use </span>webc::metadata::{annotations::Wasi, Command};
 
@@ -447,7 +458,7 @@
     bin_factory::BinaryPackage,
     capabilities::Capabilities,
     journal::{DynJournal, SnapshotTrigger},
-    runners::{wasi_common::CommonWasiOptions, MappedDirectory},
+    runners::{wasi_common::CommonWasiOptions, MappedDirectory, MountedDirectory},
     runtime::{module_cache::ModuleHash, task_manager::VirtualTaskManagerExt},
     Runtime, WasiEnvBuilder, WasiError, WasiRuntimeError,
 };
@@ -533,14 +544,25 @@
         <span class="self">self</span>.wasi.forward_host_env = forward;
     }
 
-    <span class="kw">pub fn </span>with_mapped_directories&lt;I, D&gt;(<span class="kw-2">mut </span><span class="self">self</span>, dirs: I) -&gt; <span class="self">Self
+    <span class="kw">pub fn </span>with_mapped_directories&lt;I, D&gt;(<span class="self">self</span>, dirs: I) -&gt; <span class="self">Self
     </span><span class="kw">where
         </span>I: IntoIterator&lt;Item = D&gt;,
         D: Into&lt;MappedDirectory&gt;,
     {
-        <span class="self">self</span>.wasi
-            .mapped_dirs
-            .extend(dirs.into_iter().map(|d| d.into()));
+        <span class="self">self</span>.with_mounted_directories(dirs.into_iter().map(Into::into).map(MountedDirectory::from))
+    }
+
+    <span class="kw">pub fn </span>with_mounted_directories&lt;I, D&gt;(<span class="kw-2">mut </span><span class="self">self</span>, dirs: I) -&gt; <span class="self">Self
+    </span><span class="kw">where
+        </span>I: IntoIterator&lt;Item = D&gt;,
+        D: Into&lt;MountedDirectory&gt;,
+    {
+        <span class="self">self</span>.wasi.mounts.extend(dirs.into_iter().map(Into::into));
+        <span class="self">self
+    </span>}
+
+    <span class="kw">pub fn </span>mount(<span class="kw-2">&amp;mut </span><span class="self">self</span>, dest: String, fs: Arc&lt;<span class="kw">dyn </span>FileSystem + Send + Sync&gt;) -&gt; <span class="kw-2">&amp;mut </span><span class="self">Self </span>{
+        <span class="self">self</span>.wasi.mounts.push(MountedDirectory { guest: dest, fs });
         <span class="self">self
     </span>}
 

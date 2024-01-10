@@ -337,6 +337,8 @@
 <a href="#337" id="337">337</a>
 <a href="#338" id="338">338</a>
 <a href="#339" id="339">339</a>
+<a href="#340" id="340">340</a>
+<a href="#341" id="341">341</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{net::SocketAddr, sync::Arc, time::Duration};
 
 <span class="kw">use </span>anyhow::{Context, Error};
@@ -576,7 +578,7 @@
     </span>}
 
     <span class="kw">pub fn </span>map_directory(<span class="kw-2">&amp;mut </span><span class="self">self</span>, dir: MappedDirectory) -&gt; <span class="kw-2">&amp;mut </span><span class="self">Self </span>{
-        <span class="self">self</span>.wasi.mapped_dirs.push(dir);
+        <span class="self">self</span>.wasi.mounts.push(dir.into());
         <span class="self">self
     </span>}
 
@@ -584,7 +586,9 @@
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
         mappings: <span class="kw">impl </span>IntoIterator&lt;Item = MappedDirectory&gt;,
     ) -&gt; <span class="kw-2">&amp;mut </span><span class="self">Self </span>{
-        <span class="self">self</span>.wasi.mapped_dirs.extend(mappings.into_iter());
+        <span class="kw">for </span>mapping <span class="kw">in </span>mappings {
+            <span class="self">self</span>.map_directory(mapping);
+        }
         <span class="self">self
     </span>}
 
