@@ -442,6 +442,11 @@ mod tests {
             .is_file());
     }
 
+    fn unix_timestamp_nanos(instant: SystemTime) -> Option<u64> {
+        let duration = instant.duration_since(SystemTime::UNIX_EPOCH).ok()?;
+        Some(duration.as_nanos() as u64)
+    }
+
     #[tokio::test]
     #[cfg_attr(not(feature = "host-fs"), ignore)]
     async fn convert_mapped_directory_to_mounted_directory() {
@@ -469,24 +474,23 @@ mod tests {
                 path: PathBuf::from("/file.txt"),
                 metadata: Ok(Metadata {
                     ft: FileType::new_file(),
+                    // Note: Some timestamps aren't available on MUSL and will
+                    // default to zero.
                     accessed: metadata
                         .accessed()
-                        .unwrap()
-                        .duration_since(SystemTime::UNIX_EPOCH)
-                        .unwrap()
-                        .as_nanos() as u64,
+                        .ok()
+                        .and_then(unix_timestamp_nanos)
+                        .unwrap_or(0),
                     created: metadata
                         .created()
-                        .unwrap()
-                        .duration_since(SystemTime::UNIX_EPOCH)
-                        .unwrap()
-                        .as_nanos() as u64,
+                        .ok()
+                        .and_then(unix_timestamp_nanos)
+                        .unwrap_or(0),
                     modified: metadata
                         .modified()
-                        .unwrap()
-                        .duration_since(SystemTime::UNIX_EPOCH)
-                        .unwrap()
-                        .as_nanos() as u64,
+                        .ok()
+                        .and_then(unix_timestamp_nanos)
+                        .unwrap_or(0),
                     len: contents.len() as u64,
                 })
             }]
