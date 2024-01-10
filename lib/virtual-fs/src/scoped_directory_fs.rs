@@ -122,12 +122,16 @@ impl FileOpener for ScopedDirectoryFileSystem {
 // https://github.com/rust-lang/cargo/blob/fede83ccf973457de319ba6fa0e36ead454d2e20/src/cargo/util/paths.rs#L61
 fn normalize_path(path: &Path) -> PathBuf {
     let mut components = path.components().peekable();
-    let mut ret = if let Some(c @ Component::Prefix(..)) = components.peek().cloned() {
-        components.next();
-        PathBuf::from(c.as_os_str())
-    } else {
-        PathBuf::new()
-    };
+
+    if matches!(components.peek(), Some(Component::Prefix(..))) {
+        // This bit diverges from the original cargo implementation, but we want
+        // to ignore the drive letter or UNC prefix on Windows. This shouldn't
+        // make a difference in practice because WASI is meant to give us
+        // Unix-style paths, not Windows-style ones.
+        let _ = components.next();
+    }
+
+    let mut ret = PathBuf::new();
 
     for component in components {
         match component {
