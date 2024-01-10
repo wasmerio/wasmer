@@ -265,7 +265,7 @@ impl From<MappedDirectory> for MountedDirectory {
             if #[cfg(feature = "host-fs")] {
                 let MappedDirectory { host, guest } = value;
                 let fs: Arc<dyn FileSystem + Send + Sync> =
-                    Arc::new(ScopedDirectoryFileSystem::new_with_default_runtime(host));
+                    Arc::new(virtual_fs::ScopedDirectoryFileSystem::new_with_default_runtime(host));
 
                 MountedDirectory { guest, fs }
             } else {
