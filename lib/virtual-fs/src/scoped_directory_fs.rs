@@ -144,3 +144,51 @@ fn normalize_path(path: &Path) -> PathBuf {
     }
     ret
 }
+
+#[cfg(test)]
+mod tests {
+    use tempfile::TempDir;
+    use tokio::io::AsyncReadExt;
+
+    use super::*;
+
+    #[tokio::test]
+    async fn open_files() {
+        let temp = TempDir::new().unwrap();
+        std::fs::write(temp.path().join("file.txt"), "Hello, World!").unwrap();
+        let fs = ScopedDirectoryFileSystem::new_with_default_runtime(temp.path());
+
+        let mut f = fs.new_open_options().read(true).open("/file.txt").unwrap();
+        let mut contents = String::new();
+        f.read_to_string(&mut contents).await.unwrap();
+
+        assert_eq!(contents, "Hello, World!");
+    }
+
+    #[tokio::test]
+    async fn cant_access_outside_the_scoped_directory() {
+        let scoped_directory = TempDir::new().unwrap();
+        std::fs::write(scoped_directory.path().join("file.txt"), "").unwrap();
+        std::fs::create_dir_all(scoped_directory.path().join("nested").join("dir")).unwrap();
+        let fs = ScopedDirectoryFileSystem::new_with_default_runtime(scoped_directory.path());
+
+        // Using ".." shouldn't let you escape the scoped directory
+        let mut directory_entries: Vec<_> = fs
+            .read_dir("/../../../".as_ref())
+            .unwrap()
+            .map(|e| e.unwrap().path())
+            .collect();
+        directory_entries.sort();
+        assert_eq!(
+            directory_entries,
+            vec![PathBuf::from("/file.txt"), PathBuf::from("/nested")],
+        );
+
+        // Using a directory's absolute path also shouldn't work
+        let other_dir = TempDir::new().unwrap();
+        assert_eq!(
+            fs.read_dir(other_dir.path()).unwrap_err(),
+            FsError::EntryNotFound
+        );
+    }
+}

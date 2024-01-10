@@ -9,7 +9,7 @@ use derivative::Derivative;
 use futures::future::BoxFuture;
 use virtual_fs::{
     DirEntry, FileOpener, FileSystem, FsError, OverlayFileSystem, RootFileSystemBuilder,
-    TmpFileSystem, ScopedDirectoryFileSystem,
+    ScopedDirectoryFileSystem, TmpFileSystem,
 };
 use webc::metadata::annotations::Wasi as WasiAnnotation;
 
@@ -265,7 +265,6 @@ impl From<MappedDirectory> for MountedDirectory {
         MountedDirectory { guest, fs }
     }
 }
-
 
 #[derive(Debug)]
 struct RelativeOrAbsolutePathHack<F>(F);
