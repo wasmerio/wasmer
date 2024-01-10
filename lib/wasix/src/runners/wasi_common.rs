@@ -9,7 +9,7 @@ use derivative::Derivative;
 use futures::future::BoxFuture;
 use virtual_fs::{
     DirEntry, FileOpener, FileSystem, FsError, OverlayFileSystem, RootFileSystemBuilder,
-    TmpFileSystem,
+    TmpFileSystem, ScopedDirectoryFileSystem,
 };
 use webc::metadata::annotations::Wasi as WasiAnnotation;
 
@@ -260,98 +260,12 @@ impl From<MappedDirectory> for MountedDirectory {
     fn from(value: MappedDirectory) -> Self {
         let MappedDirectory { host, guest } = value;
         let fs: Arc<dyn FileSystem + Send + Sync> =
-            Arc::new(HostFolderFileSystem::new(crate::default_fs_backing(), host));
+            Arc::new(ScopedDirectoryFileSystem::new_with_default_runtime(host));
 
         MountedDirectory { guest, fs }
     }
 }
 
-/// A [`FileSystem`] implementation that is scoped to a specific directory on
-/// the host.
-#[derive(Debug, Clone)]
-struct HostFolderFileSystem<F> {
-    root: PathBuf,
-    inner: F,
-}
-
-impl<F> HostFolderFileSystem<F> {
-    fn new(inner: F, root: PathBuf) -> Self {
-        HostFolderFileSystem { root, inner }
-    }
-
-    fn path(&self, path: &Path) -> Result<PathBuf, virtual_fs::FsError> {
-        let path = path.strip_prefix("/").unwrap_or(path);
-        Ok(self.root.join(path))
-    }
-}
-
-impl<F: FileSystem> FileSystem for HostFolderFileSystem<F> {
-    fn read_dir(&self, path: &Path) -> virtual_fs::Result<virtual_fs::ReadDir> {
-        let path = self.path(path)?;
-
-        let mut entries = Vec::new();
-
-        for entry in self.inner.read_dir(&path)? {
-            let entry = entry?;
-            let path = entry
-                .path
-                .strip_prefix(&self.root)
-                .map_err(|_| FsError::InvalidData)?;
-            entries.push(DirEntry {
-                path: Path::new("/").join(path),
-                ..entry
-            });
-        }
-
-        Ok(virtual_fs::ReadDir::new(entries))
-    }
-
-    fn create_dir(&self, path: &Path) -> virtual_fs::Result<()> {
-        let path = self.path(path)?;
-        self.inner.create_dir(&path)
-    }
-
-    fn remove_dir(&self, path: &Path) -> virtual_fs::Result<()> {
-        let path = self.path(path)?;
-        self.inner.remove_dir(&path)
-    }
-
-    fn rename<'a>(&'a self, from: &'a Path, to: &'a Path) -> BoxFuture<'a, virtual_fs::Result<()>> {
-        Box::pin(async move {
-            let from = self.path(from)?;
-            let to = self.path(to)?;
-            self.inner.rename(&from, &to).await
-        })
-    }
-
-    fn metadata(&self, path: &Path) -> virtual_fs::Result<virtual_fs::Metadata> {
-        let path = self.path(path)?;
-        self.inner.metadata(&path)
-    }
-
-    fn remove_file(&self, path: &Path) -> virtual_fs::Result<()> {
-        let path = self.path(path)?;
-        self.inner.remove_file(&path)
-    }
-
-    fn new_open_options(&self) -> virtual_fs::OpenOptions {
-        virtual_fs::OpenOptions::new(self)
-    }
-}
-
-impl<F: FileSystem> FileOpener for HostFolderFileSystem<F> {
-    fn open(
-        &self,
-        path: &Path,
-        conf: &virtual_fs::OpenOptionsConfig,
-    ) -> virtual_fs::Result<Box<dyn virtual_fs::VirtualFile + Send + Sync + 'static>> {
-        let path = self.path(path)?;
-        self.inner
-            .new_open_options()
-            .options(conf.clone())
-            .open(&path)
-    }
-}
 
 #[derive(Debug)]
 struct RelativeOrAbsolutePathHack<F>(F);
