@@ -109,6 +109,7 @@ lazy_static = "1.4"
 serial_test = { version = "2.0", default-features = false }
 compiler-test-derive = { path = "tests/lib/compiler-test-derive" }
 tempfile = "3.6.0"
+ureq = "2.6"
 # For logging tests using the `RUST_LOG=debug` when testing
 test-log = { version = "0.2", default-features = false, features = ["trace"] }
 tracing = { version = "0.1", default-features = false, features = ["log"] }
@@ -313,4 +314,9 @@ required-features = ["backend"]
 [[example]]
 name = "features"
 path = "examples/features.rs"
+required-features = ["cranelift"]
+
+[[example]]
+name = "http-dynamic-size"
+path = "examples/http_dynamic_size.rs"
 required-features = ["cranelift"]
