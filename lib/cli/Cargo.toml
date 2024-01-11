@@ -55,7 +55,7 @@ wasmer-types = { version = "=4.2.5", path = "../types", features = [
 ] }
 wasmer-registry = { version = "5.10.1", path = "../registry", features = [
   "build-package",
-  "clap", 
+  "clap",
 ] }
 wasmer-object = { version = "=4.2.5", path = "../object", optional = true }
 virtual-fs = { version = "0.11.0", path = "../virtual-fs", default-features = false, features = [
@@ -72,7 +72,6 @@ wasmer-edge-cli = { version = "=0.1.4", default-features = false }
 is-terminal = "0.4.7"
 colored = "2.0"
 anyhow = "1.0"
-spinoff = "0.5.4"
 
 # For the function names autosuggestion
 distance = "0.4"
@@ -84,7 +83,6 @@ serde = { version = "1.0.147", features = ["derive"] }
 dirs = { version = "4.0" }
 serde_json = { version = "1.0" }
 target-lexicon = { version = "0.12", features = ["std"] }
-prettytable-rs = "0.10.0"
 wasmer-toml = { workspace = true }
 indexmap = "1.9.2"
 walkdir = "2.3.2"
