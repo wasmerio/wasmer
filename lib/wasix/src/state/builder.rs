@@ -912,6 +912,7 @@ impl WasiEnvBuilder {
     }
 
     #[allow(clippy::result_large_err)]
+    #[tracing::instrument(level = "debug", skip_all)]
     pub fn run_with_store(self, module: Module, store: &mut Store) -> Result<(), WasiRuntimeError> {
         self.run_with_store_ext(module, ModuleHash::random(), store)
     }
@@ -978,6 +979,7 @@ impl WasiEnvBuilder {
 
     /// Start the WASI executable with async threads enabled.
     #[allow(clippy::result_large_err)]
+    #[tracing::instrument(level = "debug", skip_all)]
     pub fn run_with_store_async(
         self,
         module: Module,

@@ -94,6 +94,7 @@ impl Run {
         exit_with_wasi_exit_code(result);
     }
 
+    #[tracing::instrument(level = "debug", name = "wasmer_run", skip_all)]
     fn execute_inner(self, output: Output) -> Result<(), Error> {
         let pb = ProgressBar::new_spinner();
         pb.set_draw_target(output.draw_target());
@@ -563,6 +564,7 @@ impl PackageSource {
     ///
     /// This will try to automatically download and cache any resources from the
     /// internet.
+    #[tracing::instrument(level = "debug", skip_all)]
     fn resolve_target(
         &self,
         rt: &Arc<dyn Runtime + Send + Sync>,

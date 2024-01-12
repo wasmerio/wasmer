@@ -276,6 +276,7 @@ pub enum WasiFsRoot {
 
 impl WasiFsRoot {
     /// Merge the contents of a filesystem into this one.
+    #[tracing::instrument(level = "debug", skip_all)]
     pub(crate) async fn merge(
         &self,
         other: &Arc<dyn FileSystem + Send + Sync>,
@@ -351,7 +352,7 @@ impl FileSystem for WasiFsRoot {
 
 /// Merge the contents of one filesystem into another.
 ///
-#[tracing::instrument(level = "debug", skip_all)]
+#[tracing::instrument(level = "trace", skip_all)]
 async fn merge_filesystems(
     source: &dyn FileSystem,
     destination: &dyn FileSystem,
@@ -503,14 +504,7 @@ impl WasiFs {
             return Ok(());
         }
 
-        match self.root_fs {
-            WasiFsRoot::Sandbox(ref sandbox_fs) => {
-                sandbox_fs.union(&binary.webc_fs);
-            }
-            WasiFsRoot::Backing(ref fs) => {
-                merge_filesystems(&binary.webc_fs, fs.deref()).await?;
-            }
-        }
+        self.root_fs.merge(&binary.webc_fs).await?;
 
         Ok(())
     }
