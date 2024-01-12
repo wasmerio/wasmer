@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"constant":["WHITELISTED_LOG_TARGETS"],"static":["DEFAULT_VALUE"],"struct":["Output"]};
+window.SIDEBAR_ITEMS = {"constant":["WHITELISTED_LOG_TARGETS"],"enum":["LogFormat"],"static":["DEFAULT_VALUE"],"struct":["Output"]};

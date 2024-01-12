@@ -92,9 +92,13 @@
 <a href="#92" id="92">92</a>
 <a href="#93" id="93">93</a>
 <a href="#94" id="94">94</a>
-</pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::access::{RefCow, SliceCow, WasmRefAccess, WasmSliceAccess};
-<span class="kw">use crate</span>::{MemoryAccessError, WasmRef, WasmSlice};
-<span class="kw">use </span>std::mem;
+<a href="#95" id="95">95</a>
+</pre></div><pre class="rust"><code><span class="kw">use </span>std::mem;
+
+<span class="kw">use crate</span>::{
+    access::{RefCow, SliceCow, WasmRefAccess, WasmSliceAccess},
+    MemoryAccessError, WasmRef, WasmSlice,
+};
 
 <span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>, T&gt; WasmSliceAccess&lt;<span class="lifetime">&#39;a</span>, T&gt;
 <span class="kw">where
@@ -110,8 +114,7 @@
             .checked_add(total_len)
             .ok_or(MemoryAccessError::Overflow)<span class="question-mark">?</span>;
         <span class="kw">if </span>end &gt; slice.buffer.<span class="number">0</span>.len <span class="kw">as </span>u64 {
-            <span class="attr">#[cfg(feature = <span class="string">&quot;tracing&quot;</span>)]
-            </span><span class="macro">tracing::warn!</span>(
+            <span class="macro">tracing::warn!</span>(
                 <span class="string">&quot;attempted to read ({} bytes) beyond the bounds of the memory view ({} &gt; {})&quot;</span>,
                 total_len,
                 end,
@@ -142,8 +145,7 @@
             .checked_add(total_len)
             .ok_or(MemoryAccessError::Overflow)<span class="question-mark">?</span>;
         <span class="kw">if </span>end &gt; ptr.buffer.<span class="number">0</span>.len <span class="kw">as </span>u64 {
-            <span class="attr">#[cfg(feature = <span class="string">&quot;tracing&quot;</span>)]
-            </span><span class="macro">tracing::warn!</span>(
+            <span class="macro">tracing::warn!</span>(
                 <span class="string">&quot;attempted to read ({} bytes) beyond the bounds of the memory view ({} &gt; {})&quot;</span>,
                 total_len,
                 end,

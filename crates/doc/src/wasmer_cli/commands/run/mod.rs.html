@@ -958,6 +958,8 @@
 <a href="#958" id="958">958</a>
 <a href="#959" id="959">959</a>
 <a href="#960" id="960">960</a>
+<a href="#961" id="961">961</a>
+<a href="#962" id="962">962</a>
 </pre></div><pre class="rust"><code><span class="attr">#![allow(missing_docs, unused)]
 
 </span><span class="kw">mod </span>wasi;
@@ -1054,7 +1056,8 @@
         exit_with_wasi_exit_code(result);
     }
 
-    <span class="kw">fn </span>execute_inner(<span class="self">self</span>, output: Output) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt; {
+    <span class="attr">#[tracing::instrument(level = <span class="string">&quot;debug&quot;</span>, name = <span class="string">&quot;wasmer_run&quot;</span>, skip_all)]
+    </span><span class="kw">fn </span>execute_inner(<span class="self">self</span>, output: Output) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt; {
         <span class="kw">let </span>pb = ProgressBar::new_spinner();
         pb.set_draw_target(output.draw_target());
         pb.enable_steady_tick(TICK);
@@ -1523,6 +1526,7 @@
     ///
     /// This will try to automatically download and cache any resources from the
     /// internet.
+    </span><span class="attr">#[tracing::instrument(level = <span class="string">&quot;debug&quot;</span>, skip_all)]
     </span><span class="kw">fn </span>resolve_target(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         rt: <span class="kw-2">&amp;</span>Arc&lt;<span class="kw">dyn </span>Runtime + Send + Sync&gt;,

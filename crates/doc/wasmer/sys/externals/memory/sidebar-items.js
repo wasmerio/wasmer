@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["copy_one","volatile_memcpy_read","volatile_memcpy_write"],"struct":["Memory","MemoryBuffer","Unaligned"]};
+window.SIDEBAR_ITEMS = {"fn":["copy_one","volatile_memcpy_read","volatile_memcpy_write"],"static":["META","__CALLSITE"],"struct":["Memory","MemoryBuffer","Unaligned"]};

@@ -245,22 +245,23 @@
 <a href="#245" id="245">245</a>
 <a href="#246" id="246">246</a>
 <a href="#247" id="247">247</a>
-<a href="#248" id="248">248</a>
-</pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">super</span>::memory_view::MemoryView;
-<span class="kw">use </span><span class="kw">crate</span>::store::{AsStoreMut, AsStoreRef};
-<span class="kw">use </span><span class="kw">crate</span>::sys::engine::NativeEngineExt;
-<span class="kw">use </span><span class="kw">crate</span>::vm::VMExternMemory;
-<span class="kw">use </span><span class="kw">crate</span>::MemoryAccessError;
-<span class="kw">use </span><span class="kw">crate</span>::MemoryType;
-<span class="kw">use </span>std::convert::TryInto;
-<span class="kw">use </span>std::marker::PhantomData;
-<span class="kw">use </span>std::mem;
-<span class="kw">use </span>std::mem::MaybeUninit;
-<span class="kw">use </span>std::slice;
-<span class="attr">#[cfg(feature = <span class="string">&quot;tracing&quot;</span>)]
-</span><span class="kw">use </span>tracing::warn;
+</pre></div><pre class="rust"><code><span class="kw">use </span>std::{
+    convert::TryInto,
+    marker::PhantomData,
+    mem::{<span class="self">self</span>, MaybeUninit},
+    slice,
+};
+
+<span class="kw">use </span>tracing::warn;
 <span class="kw">use </span>wasmer_types::Pages;
 <span class="kw">use </span>wasmer_vm::{LinearMemory, MemoryError, StoreHandle, VMExtern, VMMemory};
+
+<span class="kw">use crate</span>::{
+    store::{AsStoreMut, AsStoreRef},
+    sys::{engine::NativeEngineExt, externals::memory_view::MemoryView},
+    vm::VMExternMemory,
+    MemoryAccessError, MemoryType,
+};
 
 <span class="attr">#[derive(Debug, Clone)]
 </span><span class="kw">pub struct </span>Memory {
@@ -373,8 +374,7 @@
             .checked_add(buf.len() <span class="kw">as </span>u64)
             .ok_or(MemoryAccessError::Overflow)<span class="question-mark">?</span>;
         <span class="kw">if </span>end &gt; <span class="self">self</span>.len.try_into().unwrap() {
-            <span class="attr">#[cfg(feature = <span class="string">&quot;tracing&quot;</span>)]
-            </span><span class="macro">warn!</span>(
+            <span class="macro">warn!</span>(
                 <span class="string">&quot;attempted to read ({} bytes) beyond the bounds of the memory view ({} &gt; {})&quot;</span>,
                 buf.len(),
                 end,
@@ -397,8 +397,7 @@
             .checked_add(buf.len() <span class="kw">as </span>u64)
             .ok_or(MemoryAccessError::Overflow)<span class="question-mark">?</span>;
         <span class="kw">if </span>end &gt; <span class="self">self</span>.len.try_into().unwrap() {
-            <span class="attr">#[cfg(feature = <span class="string">&quot;tracing&quot;</span>)]
-            </span><span class="macro">warn!</span>(
+            <span class="macro">warn!</span>(
                 <span class="string">&quot;attempted to read ({} bytes) beyond the bounds of the memory view ({} &gt; {})&quot;</span>,
                 buf.len(),
                 end,
@@ -419,8 +418,7 @@
             .checked_add(data.len() <span class="kw">as </span>u64)
             .ok_or(MemoryAccessError::Overflow)<span class="question-mark">?</span>;
         <span class="kw">if </span>end &gt; <span class="self">self</span>.len.try_into().unwrap() {
-            <span class="attr">#[cfg(feature = <span class="string">&quot;tracing&quot;</span>)]
-            </span><span class="macro">warn!</span>(
+            <span class="macro">warn!</span>(
                 <span class="string">&quot;attempted to write ({} bytes) beyond the bounds of the memory view ({} &gt; {})&quot;</span>,
                 data.len(),
                 end,

@@ -551,6 +551,7 @@
 <a href="#551" id="551">551</a>
 <a href="#552" id="552">552</a>
 <a href="#553" id="553">553</a>
+<a href="#554" id="554">554</a>
 </pre></div><pre class="rust"><code><span class="kw">pub mod </span>module_cache;
 <span class="kw">pub mod </span>package_loader;
 <span class="kw">pub mod </span>resolver;
@@ -686,6 +687,7 @@
 ///
 </span><span class="comment">// This function exists to provide a reusable baseline implementation for
 // implementing [`Runtime::load_module`], so custom logic can be added on top.
+</span><span class="attr">#[tracing::instrument(level = <span class="string">&quot;debug&quot;</span>, skip_all)]
 </span><span class="kw">pub async fn </span>load_module(
     engine: <span class="kw-2">&amp;</span>wasmer::Engine,
     module_cache: <span class="kw-2">&amp;</span>(<span class="kw">dyn </span>ModuleCache + Send + Sync),

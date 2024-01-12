@@ -1629,7 +1629,6 @@
 <a href="#1629" id="1629">1629</a>
 <a href="#1630" id="1630">1630</a>
 <a href="#1631" id="1631">1631</a>
-<a href="#1632" id="1632">1632</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{
     collections::HashSet,
     fmt::Debug,
@@ -1745,8 +1744,7 @@
     S: <span class="kw">for</span>&lt;<span class="lifetime">&#39;a</span>&gt; FileSystems&lt;<span class="lifetime">&#39;a</span>&gt; + Send + Sync + <span class="lifetime">&#39;static</span>,
     <span class="kw">for</span>&lt;<span class="lifetime">&#39;a</span>&gt; &lt;&lt;S <span class="kw">as </span>FileSystems&lt;<span class="lifetime">&#39;a</span>&gt;&gt;::Iter <span class="kw">as </span>IntoIterator&gt;::IntoIter: Send,
 {
-    <span class="attr">#[tracing::instrument(level = <span class="string">&quot;debug&quot;</span>, skip_all, fields(path=%path.display()))]
-    </span><span class="kw">fn </span>read_dir(<span class="kw-2">&amp;</span><span class="self">self</span>, path: <span class="kw-2">&amp;</span>Path) -&gt; <span class="prelude-ty">Result</span>&lt;ReadDir, FsError&gt; {
+    <span class="kw">fn </span>read_dir(<span class="kw-2">&amp;</span><span class="self">self</span>, path: <span class="kw-2">&amp;</span>Path) -&gt; <span class="prelude-ty">Result</span>&lt;ReadDir, FsError&gt; {
         <span class="kw">let </span><span class="kw-2">mut </span>entries = Vec::new();
         <span class="kw">let </span><span class="kw-2">mut </span>had_at_least_one_success = <span class="bool-val">false</span>;
         <span class="kw">let </span><span class="kw-2">mut </span>white_outs = HashSet::new();

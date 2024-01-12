@@ -1183,6 +1183,8 @@
 <a href="#1183" id="1183">1183</a>
 <a href="#1184" id="1184">1184</a>
 <a href="#1185" id="1185">1185</a>
+<a href="#1186" id="1186">1186</a>
+<a href="#1187" id="1187">1187</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Builder system for configuring a [`WasiState`] and creating it.
 
 </span><span class="kw">use </span>std::{
@@ -2097,6 +2099,7 @@
     }
 
     <span class="attr">#[allow(clippy::result_large_err)]
+    #[tracing::instrument(level = <span class="string">&quot;debug&quot;</span>, skip_all)]
     </span><span class="kw">pub fn </span>run_with_store(<span class="self">self</span>, module: Module, store: <span class="kw-2">&amp;mut </span>Store) -&gt; <span class="prelude-ty">Result</span>&lt;(), WasiRuntimeError&gt; {
         <span class="self">self</span>.run_with_store_ext(module, ModuleHash::random(), store)
     }
@@ -2163,6 +2166,7 @@
 
     <span class="doccomment">/// Start the WASI executable with async threads enabled.
     </span><span class="attr">#[allow(clippy::result_large_err)]
+    #[tracing::instrument(level = <span class="string">&quot;debug&quot;</span>, skip_all)]
     </span><span class="kw">pub fn </span>run_with_store_async(
         <span class="self">self</span>,
         module: Module,

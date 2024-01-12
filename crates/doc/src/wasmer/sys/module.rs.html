@@ -196,20 +196,23 @@
 <a href="#196" id="196">196</a>
 <a href="#197" id="197">197</a>
 <a href="#198" id="198">198</a>
-</pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::engine::AsEngineRef;
-<span class="kw">use </span>bytes::Bytes;
-<span class="kw">use </span>std::path::Path;
+<a href="#199" id="199">199</a>
+<a href="#200" id="200">200</a>
+<a href="#201" id="201">201</a>
+</pre></div><pre class="rust"><code><span class="kw">use </span>std::path::Path;
 <span class="kw">use </span>std::sync::Arc;
-<span class="kw">use </span>wasmer_compiler::Artifact;
-<span class="kw">use </span>wasmer_compiler::ArtifactCreate;
+
+<span class="kw">use </span>bytes::Bytes;
+<span class="kw">use </span>wasmer_compiler::{Artifact, ArtifactCreate};
 <span class="kw">use </span>wasmer_types::{
     CompileError, DeserializeError, ExportsIterator, ImportsIterator, ModuleInfo, SerializeError,
 };
 <span class="kw">use </span>wasmer_types::{ExportType, ImportType};
 
-<span class="kw">use </span><span class="kw">crate</span>::sys::engine::NativeEngineExt;
-<span class="kw">use </span><span class="kw">crate</span>::vm::VMInstance;
-<span class="kw">use crate</span>::{AsStoreMut, AsStoreRef, InstantiationError, IntoBytes};
+<span class="kw">use crate</span>::{
+    engine::AsEngineRef, sys::engine::NativeEngineExt, vm::VMInstance, AsStoreMut, AsStoreRef,
+    InstantiationError, IntoBytes,
+};
 
 <span class="attr">#[derive(Clone, PartialEq, Eq)]
 </span><span class="kw">pub struct </span>Module {
@@ -247,7 +250,8 @@
         <span class="prelude-val">Ok</span>(module)
     }
 
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>validate(engine: <span class="kw-2">&amp;</span><span class="kw">impl </span>AsEngineRef, binary: <span class="kw-2">&amp;</span>[u8]) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
+    <span class="attr">#[tracing::instrument(level = <span class="string">&quot;debug&quot;</span>, skip_all)]
+    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>validate(engine: <span class="kw-2">&amp;</span><span class="kw">impl </span>AsEngineRef, binary: <span class="kw-2">&amp;</span>[u8]) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
         engine.as_engine_ref().engine().<span class="number">0</span>.validate(binary)
     }
 
@@ -268,7 +272,8 @@
         <span class="self">self</span>.artifact.serialize().map(|bytes| bytes.into())
     }
 
-    <span class="kw">pub unsafe fn </span>deserialize_unchecked(
+    <span class="attr">#[tracing::instrument(level = <span class="string">&quot;debug&quot;</span>, skip_all)]
+    </span><span class="kw">pub unsafe fn </span>deserialize_unchecked(
         engine: <span class="kw-2">&amp;</span><span class="kw">impl </span>AsEngineRef,
         bytes: <span class="kw">impl </span>IntoBytes,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, DeserializeError&gt; {
@@ -281,7 +286,8 @@
         <span class="prelude-val">Ok</span>(<span class="self">Self</span>::from_artifact(artifact))
     }
 
-    <span class="kw">pub unsafe fn </span>deserialize(
+    <span class="attr">#[tracing::instrument(level = <span class="string">&quot;debug&quot;</span>, skip_all)]
+    </span><span class="kw">pub unsafe fn </span>deserialize(
         engine: <span class="kw-2">&amp;</span><span class="kw">impl </span>AsEngineRef,
         bytes: <span class="kw">impl </span>IntoBytes,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, DeserializeError&gt; {
