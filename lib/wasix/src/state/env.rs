@@ -155,7 +155,13 @@ impl WasiInstanceHandles {
             signal: instance
                 .exports
                 .get_typed_function(&store, "__wasm_signal")
-                .ok(),
+                .ok()
+                .or_else(|| {
+                    instance
+                        .exports
+                        .get_typed_function(&store, "__wasm_signal_polyfill")
+                        .ok()
+                }),
             signal_set: false,
             asyncify_start_unwind: instance
                 .exports
