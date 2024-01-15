@@ -1850,6 +1850,8 @@
 <a href="#1850" id="1850">1850</a>
 <a href="#1851" id="1851">1851</a>
 <a href="#1852" id="1852">1852</a>
+<a href="#1853" id="1853">1853</a>
+<a href="#1854" id="1854">1854</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! This module contains the [`FileSystem`] type itself.
 
 </span><span class="kw">use super</span>::<span class="kw-2">*</span>;
@@ -3372,11 +3374,13 @@
                     modified,
                     len: <span class="number">0
                 </span>}) <span class="kw">if
-                    </span>accessed == foo_metadata.accessed &amp;&amp;
-                    created == foo_metadata.created &amp;&amp;
+                    </span>accessed &lt;= foo_metadata.accessed &amp;&amp;
+                    created &lt;= foo_metadata.created &amp;&amp;
                     modified &gt; foo_metadata.modified
             ),
-            <span class="string">&quot;the modified time of the parent is updated when file is renamed&quot;</span>,
+            <span class="string">&quot;the modified time of the parent is updated when file is renamed \n{:?}\n{:?}&quot;</span>,
+            fs.metadata(<span class="macro">path!</span>(<span class="string">&quot;/&quot;</span>)),
+            foo_metadata,
         );
     }
 

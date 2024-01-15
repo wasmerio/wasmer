@@ -294,7 +294,7 @@
         </span>std::time::SystemTime::now()
             .duration_since(std::time::SystemTime::UNIX_EPOCH)
             .unwrap()
-            .as_secs()
+            .as_nanos() <span class="kw">as </span>u64
     }
 
     <span class="attr">#[cfg(feature = <span class="string">&quot;no-time&quot;</span>)]
