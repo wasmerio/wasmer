@@ -115,6 +115,44 @@ impl Memory {
 }
 
 impl crate::externals::memory::SharedMemoryOps for ThreadConditionsHandle {
+    fn notify(
+        &self,
+        dst: crate::externals::memory::MemoryLocation,
+        count: u32,
+    ) -> Result<u32, crate::AtomicsError> {
+        let count = self
+            .upgrade()
+            .ok_or_else(|| crate::AtomicsError::Unimplemented)?
+            .do_notify(
+                wasmer_vm::NotifyLocation {
+                    address: dst.address,
+                },
+                count,
+            );
+        Ok(count)
+    }
+
+    fn wait(
+        &self,
+        dst: crate::externals::memory::MemoryLocation,
+        timeout: Option<std::time::Duration>,
+    ) -> Result<u32, crate::AtomicsError> {
+        self.upgrade()
+            .ok_or_else(|| crate::AtomicsError::Unimplemented)?
+            .do_wait(
+                wasmer_vm::NotifyLocation {
+                    address: dst.address,
+                },
+                timeout,
+            )
+            .map_err(|e| match e {
+                wasmer_vm::WaiterError::Unimplemented => crate::AtomicsError::Unimplemented,
+                wasmer_vm::WaiterError::TooManyWaiters => crate::AtomicsError::TooManyWaiters,
+                wasmer_vm::WaiterError::AtomicsDisabled => crate::AtomicsError::AtomicsDisabled,
+                _ => crate::AtomicsError::Unimplemented,
+            })
+    }
+
     fn disable_atomics(&self) -> Result<(), MemoryError> {
         self.upgrade()
             .ok_or_else(|| MemoryError::Generic("memory was dropped".to_string()))?

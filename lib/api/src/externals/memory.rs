@@ -9,9 +9,9 @@ use super::memory_view::MemoryView;
 use crate::exports::{ExportError, Exportable};
 use crate::store::{AsStoreMut, AsStoreRef};
 use crate::vm::{VMExtern, VMExternMemory, VMMemory};
-use crate::Extern;
 use crate::MemoryAccessError;
 use crate::MemoryType;
+use crate::{AtomicsError, Extern};
 use std::mem::MaybeUninit;
 use wasmer_types::{MemoryError, Pages};
 
@@ -211,6 +211,26 @@ impl<'a> Exportable<'a> for Memory {
     }
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub struct MemoryLocation {
+    // NOTE: must be expanded to an enum that also supports 64bit memory in
+    // the future
+    // That's why this is private.
+    pub(crate) address: u32,
+}
+
+impl MemoryLocation {
+    pub fn new_32bit(address: u32) -> Self {
+        Self { address }
+    }
+}
+
+impl From<u32> for MemoryLocation {
+    fn from(value: u32) -> Self {
+        Self::new_32bit(value)
+    }
+}
+
 /// See [`SharedMemoryHandle`].
 pub(crate) trait SharedMemoryOps {
     /// See [`SharedMemoryHandle::disable_atomics`].
@@ -221,6 +241,20 @@ pub(crate) trait SharedMemoryOps {
     /// See [`SharedMemoryHandle::wake_all_atomic_waiters`].
     fn wake_all_atomic_waiters(&self) -> Result<(), MemoryError> {
         Err(MemoryError::AtomicsNotSupported)
+    }
+
+    /// See [`SharedMemoryHandle::notify`].
+    fn notify(&self, _dst: MemoryLocation, _count: u32) -> Result<u32, AtomicsError> {
+        Err(AtomicsError::Unimplemented)
+    }
+
+    /// See [`SharedMemoryHandle::wait`].
+    fn wait(
+        &self,
+        _dst: MemoryLocation,
+        _timeout: Option<std::time::Duration>,
+    ) -> Result<u32, AtomicsError> {
+        Err(AtomicsError::Unimplemented)
     }
 }
 
@@ -244,8 +278,23 @@ impl std::fmt::Debug for SharedMemoryHandle {
 }
 
 impl SharedMemoryHandle {
+    /// Create a new handle from ops.
     pub(crate) fn new(memory: impl SharedMemoryOps + Send + Sync + 'static) -> Self {
         Self(std::sync::Arc::new(memory))
+    }
+
+    /// Notify up to `count` waiters waiting for the memory location.
+    pub fn notify(&self, location: MemoryLocation, count: u32) -> Result<u32, AtomicsError> {
+        self.0.notify(location, count)
+    }
+
+    /// Wait for the memory location to be notified.
+    pub fn wait(
+        &self,
+        location: MemoryLocation,
+        timeout: Option<std::time::Duration>,
+    ) -> Result<u32, AtomicsError> {
+        self.0.wait(location, timeout)
     }
 
     /// Disable atomics for this memory.
