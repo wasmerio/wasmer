@@ -1183,8 +1183,6 @@
 <a href="#1183" id="1183">1183</a>
 <a href="#1184" id="1184">1184</a>
 <a href="#1185" id="1185">1185</a>
-<a href="#1186" id="1186">1186</a>
-<a href="#1187" id="1187">1187</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Builder system for configuring a [`WasiState`] and creating it.
 
 </span><span class="kw">use </span>std::{
@@ -1200,8 +1198,6 @@
 
 <span class="attr">#[cfg(feature = <span class="string">&quot;journal&quot;</span>)]
 </span><span class="kw">use </span><span class="kw">crate</span>::journal::{DynJournal, SnapshotTrigger};
-<span class="attr">#[cfg(feature = <span class="string">&quot;sys&quot;</span>)]
-</span><span class="kw">use </span><span class="kw">crate</span>::PluggableRuntime;
 <span class="kw">use crate</span>::{
     bin_factory::{BinFactory, BinaryPackage},
     capabilities::Capabilities,
@@ -1987,7 +1983,7 @@
             <span class="attr">#[cfg(feature = <span class="string">&quot;sys-thread&quot;</span>)]
             </span>{
                 <span class="attr">#[allow(unused_mut)]
-                </span><span class="kw">let </span><span class="kw-2">mut </span>runtime = PluggableRuntime::new(Arc::new(<span class="kw">crate</span>::runtime::task_manager::tokio::TokioTaskManager::default()));
+                </span><span class="kw">let </span><span class="kw-2">mut </span>runtime = <span class="kw">crate</span>::runtime::PluggableRuntime::new(Arc::new(<span class="kw">crate</span>::runtime::task_manager::tokio::TokioTaskManager::default()));
                 <span class="attr">#[cfg(feature = <span class="string">&quot;journal&quot;</span>)]
                 </span><span class="kw">for </span>journal <span class="kw">in </span><span class="self">self</span>.journals.clone() {
                     runtime.add_journal(journal);

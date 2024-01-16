@@ -585,14 +585,6 @@
 <a href="#585" id="585">585</a>
 <a href="#586" id="586">586</a>
 <a href="#587" id="587">587</a>
-<a href="#588" id="588">588</a>
-<a href="#589" id="589">589</a>
-<a href="#590" id="590">590</a>
-<a href="#591" id="591">591</a>
-<a href="#592" id="592">592</a>
-<a href="#593" id="593">593</a>
-<a href="#594" id="594">594</a>
-<a href="#595" id="595">595</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{
     fmt::Write <span class="kw">as _</span>,
     io::Write,
@@ -835,20 +827,12 @@
             .<span class="kw">await
             </span>.context(<span class="string">&quot;Unable to get the locally cached file&quot;</span>)<span class="question-mark">?</span>;
 
-        <span class="attr">#[cfg(target_arch = <span class="string">&quot;wasm32&quot;</span>)]
-        </span><span class="kw">let </span>webc_sha256 = WebcHash::for_file(<span class="kw-2">&amp;</span>local_path)
-            .with_context(|| <span class="macro">format!</span>(<span class="string">&quot;Unable to hash \&quot;{}\&quot;&quot;</span>, local_path.display()))<span class="question-mark">?</span>;
-        <span class="attr">#[cfg(not(target_arch = <span class="string">&quot;wasm32&quot;</span>))]
-        </span><span class="kw">let </span>webc_sha256 = tokio::task::block_in_place(|| WebcHash::for_file(<span class="kw-2">&amp;</span>local_path))
+        <span class="kw">let </span>webc_sha256 = <span class="kw">crate</span>::block_in_place(|| WebcHash::for_file(<span class="kw-2">&amp;</span>local_path))
             .with_context(|| <span class="macro">format!</span>(<span class="string">&quot;Unable to hash \&quot;{}\&quot;&quot;</span>, local_path.display()))<span class="question-mark">?</span>;
 
         <span class="comment">// Note: We want to use Container::from_disk() rather than the bytes
         // our HTTP client gave us because then we can use memory-mapped files
-        </span><span class="attr">#[cfg(target_arch = <span class="string">&quot;wasm32&quot;</span>)]
-        </span><span class="kw">let </span>container = Container::from_disk(<span class="kw-2">&amp;</span>local_path)
-            .with_context(|| <span class="macro">format!</span>(<span class="string">&quot;Unable to load \&quot;{}\&quot;&quot;</span>, local_path.display()))<span class="question-mark">?</span>;
-        <span class="attr">#[cfg(not(target_arch = <span class="string">&quot;wasm32&quot;</span>))]
-        </span><span class="kw">let </span>container = tokio::task::block_in_place(|| Container::from_disk(<span class="kw-2">&amp;</span>local_path))
+        </span><span class="kw">let </span>container = <span class="kw">crate</span>::block_in_place(|| Container::from_disk(<span class="kw-2">&amp;</span>local_path))
             .with_context(|| <span class="macro">format!</span>(<span class="string">&quot;Unable to load \&quot;{}\&quot;&quot;</span>, local_path.display()))<span class="question-mark">?</span>;
         <span class="kw">let </span>pkg = PackageInfo::from_manifest(container.manifest())
             .context(<span class="string">&quot;Unable to determine the package&#39;s metadata&quot;</span>)<span class="question-mark">?</span>;
