@@ -359,7 +359,9 @@ impl Run {
     ) -> Result<WasiRunner, anyhow::Error> {
         let packages = self.load_injected_packages(runtime)?;
 
-        let mut runner = WasiRunner::new()
+        let mut runner = WasiRunner::new();
+
+        runner
             .with_args(&self.args)
             .with_injected_packages(packages)
             .with_envs(self.wasi.env_vars.clone())
@@ -371,10 +373,10 @@ impl Run {
         #[cfg(feature = "journal")]
         {
             for trigger in self.wasi.snapshot_on.iter().cloned() {
-                runner.add_snapshot_trigger(trigger);
+                runner.with_snapshot_trigger(trigger);
             }
             if self.wasi.snapshot_on.is_empty() && !self.wasi.journals.is_empty() {
-                runner.add_default_snapshot_triggers();
+                runner.with_default_snapshot_triggers();
             }
             if let Some(period) = self.wasi.snapshot_interval {
                 if self.wasi.journals.is_empty() {
@@ -385,7 +387,7 @@ impl Run {
                 runner.with_snapshot_interval(Duration::from_millis(period));
             }
             for journal in self.wasi.build_journals()? {
-                runner.add_journal(journal);
+                runner.with_journal(journal);
             }
         }
 

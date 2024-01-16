@@ -88,11 +88,13 @@ impl WasiRunner {
         self
     }
 
-    pub fn mount(&mut self, dest: String, fs: Arc<dyn FileSystem + Send + Sync>) -> &mut Self {
+    /// Mount a [`FileSystem`] instance at a particular location.
+    pub fn with_mount(&mut self, dest: String, fs: Arc<dyn FileSystem + Send + Sync>) -> &mut Self {
         self.wasi.mounts.push(MountedDirectory { guest: dest, fs });
         self
     }
 
+    /// Override the directory the WASIX instance will start in.
     pub fn with_current_dir(&mut self, dir: impl Into<PathBuf>) -> &mut Self {
         self.wasi.current_dir = Some(dir.into());
         self
@@ -198,6 +200,9 @@ impl WasiRunner {
         self.with_imports([((namespace, name), value)])
     }
 
+    /// Add multiple import functions.
+    ///
+    /// This method will accept a [`&Imports`][wasmer::Imports] object.
     pub fn with_imports<I, S1, S2, E>(&mut self, imports: I) -> &mut Self
     where
         I: IntoIterator<Item = ((S1, S2), E)>,
