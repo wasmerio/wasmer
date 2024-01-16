@@ -786,3 +786,18 @@ fn mem_error_to_wasi(err: MemoryAccessError) -> Errno {
         _ => Errno::Unknown,
     }
 }
+
+/// Run a synchronous function that would normally be blocking.
+///
+/// When the `sys-thread` feature is enabled, this will call
+/// [`tokio::task::block_in_place()`]. Otherwise, it calls the function
+/// immediately.
+pub(crate) fn block_in_place<Ret>(thunk: impl FnOnce() -> Ret) -> Ret {
+    cfg_if::cfg_if! {
+        if #[cfg(feature = "sys-thread")] {
+            tokio::task::block_in_place(thunk)
+        } else {
+            thunk()
+        }
+    }
+}

@@ -13,8 +13,6 @@ use wasmer::{AsStoreMut, Instance, Module, Store};
 
 #[cfg(feature = "journal")]
 use crate::journal::{DynJournal, SnapshotTrigger};
-#[cfg(feature = "sys")]
-use crate::PluggableRuntime;
 use crate::{
     bin_factory::{BinFactory, BinaryPackage},
     capabilities::Capabilities,
@@ -800,7 +798,7 @@ impl WasiEnvBuilder {
             #[cfg(feature = "sys-thread")]
             {
                 #[allow(unused_mut)]
-                let mut runtime = PluggableRuntime::new(Arc::new(crate::runtime::task_manager::tokio::TokioTaskManager::default()));
+                let mut runtime = crate::runtime::PluggableRuntime::new(Arc::new(crate::runtime::task_manager::tokio::TokioTaskManager::default()));
                 #[cfg(feature = "journal")]
                 for journal in self.journals.clone() {
                     runtime.add_journal(journal);
