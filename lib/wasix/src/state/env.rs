@@ -14,8 +14,8 @@ use rand::Rng;
 use virtual_fs::{FileSystem, FsError, StaticFile, VirtualFile};
 use virtual_net::DynVirtualNetworking;
 use wasmer::{
-    AsStoreMut, AsStoreRef, FunctionEnvMut, Global, Instance, Memory, MemoryType, MemoryView,
-    Module, TypedFunction,
+    AsStoreMut, AsStoreRef, FunctionEnvMut, Global, Imports, Instance, Memory, MemoryType,
+    MemoryView, Module, TypedFunction,
 };
 use wasmer_wasix_types::{
     types::Signal,
@@ -237,6 +237,10 @@ pub struct WasiEnvInit {
     /// Indicates if extra tracing should be output
     pub extra_tracing: bool,
 
+    /// Additional functionality provided to the WASIX instance, besides the
+    /// normal WASIX syscalls.
+    pub additional_imports: Imports,
+
     /// Indicates triggers that will cause a snapshot to be taken
     #[cfg(feature = "journal")]
     pub snapshot_on: Vec<SnapshotTrigger>,
@@ -278,6 +282,7 @@ impl WasiEnvInit {
             extra_tracing: false,
             #[cfg(feature = "journal")]
             snapshot_on: self.snapshot_on.clone(),
+            additional_imports: self.additional_imports.clone(),
         }
     }
 }
@@ -556,6 +561,8 @@ impl WasiEnv {
             }
         }
 
+        let additional_imports = init.additional_imports.clone();
+
         let env = Self::from_init(init, module_hash)?;
         let pid = env.process.pid();
 
@@ -581,6 +588,14 @@ impl WasiEnv {
         // Let's instantiate the module with the imports.
         let (mut import_object, instance_init_callback) =
             import_object_for_all_wasi_versions(&module, &mut store, &func_env.env);
+
+        for ((namespace, name), value) in &additional_imports {
+            // Note: We don't want to let downstream users override WASIX
+            // syscalls
+            if !import_object.exists(&namespace, &name) {
+                import_object.define(&namespace, &name, value);
+            }
+        }
 
         let imported_memory = if let Some(memory) = memory {
             import_object.define("env", "memory", memory.clone());
