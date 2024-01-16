@@ -5,7 +5,7 @@ use std::{path::PathBuf, sync::Arc};
 use anyhow::{Context, Error};
 use tracing::Instrument;
 use virtual_fs::{ArcBoxFile, FileSystem, TmpFileSystem, VirtualFile};
-use wasmer::Module;
+use wasmer::{Extern, Module};
 use webc::metadata::{annotations::Wasi, Command};
 
 use crate::{
@@ -39,46 +39,22 @@ impl WasiRunner {
     }
 
     /// Builder method to provide CLI args to the runner
-    pub fn with_args<A, S>(mut self, args: A) -> Self
-    where
-        A: IntoIterator<Item = S>,
-        S: Into<String>,
-    {
-        self.set_args(args);
-        self
-    }
-
-    /// Set the CLI args
-    pub fn set_args<A, S>(&mut self, args: A)
+    pub fn with_args<A, S>(&mut self, args: A) -> &mut Self
     where
         A: IntoIterator<Item = S>,
         S: Into<String>,
     {
         self.wasi.args = args.into_iter().map(|s| s.into()).collect();
+        self
     }
 
     /// Builder method to provide environment variables to the runner.
     pub fn with_env(mut self, key: impl Into<String>, value: impl Into<String>) -> Self {
-        self.set_env(key, value);
-        self
-    }
-
-    /// Provide environment variables to the runner.
-    pub fn set_env(&mut self, key: impl Into<String>, value: impl Into<String>) {
         self.wasi.env.insert(key.into(), value.into());
-    }
-
-    pub fn with_envs<I, K, V>(mut self, envs: I) -> Self
-    where
-        I: IntoIterator<Item = (K, V)>,
-        K: Into<String>,
-        V: Into<String>,
-    {
-        self.set_envs(envs);
         self
     }
 
-    pub fn set_envs<I, K, V>(&mut self, envs: I)
+    pub fn with_envs<I, K, V>(&mut self, envs: I) -> &mut Self
     where
         I: IntoIterator<Item = (K, V)>,
         K: Into<String>,
@@ -87,18 +63,15 @@ impl WasiRunner {
         for (key, value) in envs {
             self.wasi.env.insert(key.into(), value.into());
         }
-    }
-
-    pub fn with_forward_host_env(mut self, forward: bool) -> Self {
-        self.set_forward_host_env(forward);
         self
     }
 
-    pub fn set_forward_host_env(&mut self, forward: bool) {
+    pub fn with_forward_host_env(&mut self, forward: bool) -> &mut Self {
         self.wasi.forward_host_env = forward;
+        self
     }
 
-    pub fn with_mapped_directories<I, D>(self, dirs: I) -> Self
+    pub fn with_mapped_directories<I, D>(&mut self, dirs: I) -> &mut Self
     where
         I: IntoIterator<Item = D>,
         D: Into<MappedDirectory>,
@@ -106,7 +79,7 @@ impl WasiRunner {
         self.with_mounted_directories(dirs.into_iter().map(Into::into).map(MountedDirectory::from))
     }
 
-    pub fn with_mounted_directories<I, D>(mut self, dirs: I) -> Self
+    pub fn with_mounted_directories<I, D>(&mut self, dirs: I) -> &mut Self
     where
         I: IntoIterator<Item = D>,
         D: Into<MountedDirectory>,
@@ -115,34 +88,26 @@ impl WasiRunner {
         self
     }
 
-    pub fn mount(&mut self, dest: String, fs: Arc<dyn FileSystem + Send + Sync>) -> &mut Self {
+    /// Mount a [`FileSystem`] instance at a particular location.
+    pub fn with_mount(&mut self, dest: String, fs: Arc<dyn FileSystem + Send + Sync>) -> &mut Self {
         self.wasi.mounts.push(MountedDirectory { guest: dest, fs });
         self
     }
 
-    pub fn set_current_dir(&mut self, dir: impl Into<PathBuf>) {
+    /// Override the directory the WASIX instance will start in.
+    pub fn with_current_dir(&mut self, dir: impl Into<PathBuf>) -> &mut Self {
         self.wasi.current_dir = Some(dir.into());
-    }
-
-    pub fn with_current_dir(mut self, dir: impl Into<PathBuf>) -> Self {
-        self.set_current_dir(dir);
         self
     }
 
     /// Add a package that should be available to the instance at runtime.
-    pub fn add_injected_package(&mut self, pkg: BinaryPackage) -> &mut Self {
+    pub fn with_injected_package(&mut self, pkg: BinaryPackage) -> &mut Self {
         self.wasi.injected_packages.push(pkg);
         self
     }
 
-    /// Add a package that should be available to the instance at runtime.
-    pub fn with_injected_package(mut self, pkg: BinaryPackage) -> Self {
-        self.add_injected_package(pkg);
-        self
-    }
-
     /// Add packages that should be available to the instance at runtime.
-    pub fn add_injected_packages(
+    pub fn with_injected_packages(
         &mut self,
         packages: impl IntoIterator<Item = BinaryPackage>,
     ) -> &mut Self {
@@ -150,40 +115,23 @@ impl WasiRunner {
         self
     }
 
-    /// Add packages that should be available to the instance at runtime.
-    pub fn with_injected_packages(
-        mut self,
-        packages: impl IntoIterator<Item = BinaryPackage>,
-    ) -> Self {
-        self.add_injected_packages(packages);
-        self
-    }
-
-    pub fn add_mapped_host_command(&mut self, alias: impl Into<String>, target: impl Into<String>) {
+    pub fn with_mapped_host_command(
+        &mut self,
+        alias: impl Into<String>,
+        target: impl Into<String>,
+    ) -> &mut Self {
         self.wasi.mapped_host_commands.push(MappedCommand {
             alias: alias.into(),
             target: target.into(),
         });
-    }
-
-    pub fn with_mapped_host_command(
-        mut self,
-        alias: impl Into<String>,
-        target: impl Into<String>,
-    ) -> Self {
-        self.add_mapped_host_command(alias, target);
         self
     }
 
-    pub fn add_mapped_host_commands(&mut self, commands: impl IntoIterator<Item = MappedCommand>) {
-        self.wasi.mapped_host_commands.extend(commands);
-    }
-
     pub fn with_mapped_host_commands(
-        mut self,
+        &mut self,
         commands: impl IntoIterator<Item = MappedCommand>,
-    ) -> Self {
-        self.add_mapped_host_commands(commands);
+    ) -> &mut Self {
+        self.wasi.mapped_host_commands.extend(commands);
         self
     }
 
@@ -191,24 +139,20 @@ impl WasiRunner {
         &mut self.wasi.capabilities
     }
 
-    pub fn with_capabilities(mut self, capabilities: Capabilities) -> Self {
-        self.set_capabilities(capabilities);
+    pub fn with_capabilities(&mut self, capabilities: Capabilities) -> &mut Self {
+        self.wasi.capabilities = capabilities;
         self
     }
 
-    pub fn set_capabilities(&mut self, capabilities: Capabilities) {
-        self.wasi.capabilities = capabilities;
-    }
-
-    pub fn add_snapshot_trigger(&mut self, on: SnapshotTrigger) -> &mut Self {
+    pub fn with_snapshot_trigger(&mut self, on: SnapshotTrigger) -> &mut Self {
         self.wasi.snapshot_on.push(on);
         self
     }
 
-    pub fn add_default_snapshot_triggers(&mut self) -> &mut Self {
+    pub fn with_default_snapshot_triggers(&mut self) -> &mut Self {
         for on in crate::journal::DEFAULT_SNAPSHOT_TRIGGERS {
             if !self.has_snapshot_trigger(on) {
-                self.add_snapshot_trigger(on);
+                self.with_snapshot_trigger(on);
             }
         }
         self
@@ -220,44 +164,56 @@ impl WasiRunner {
 
     pub fn with_snapshot_interval(&mut self, period: std::time::Duration) -> &mut Self {
         if !self.has_snapshot_trigger(SnapshotTrigger::PeriodicInterval) {
-            self.add_snapshot_trigger(SnapshotTrigger::PeriodicInterval);
+            self.with_snapshot_trigger(SnapshotTrigger::PeriodicInterval);
         }
         self.wasi.snapshot_interval.replace(period);
         self
     }
 
-    pub fn add_journal(&mut self, journal: Arc<DynJournal>) -> &mut Self {
+    pub fn with_journal(&mut self, journal: Arc<DynJournal>) -> &mut Self {
         self.wasi.journals.push(journal);
         self
     }
 
-    pub fn with_stdin(mut self, stdin: Box<dyn VirtualFile + Send + Sync>) -> Self {
-        self.set_stdin(stdin);
-        self
-    }
-
-    pub fn set_stdin(&mut self, stdin: Box<dyn VirtualFile + Send + Sync>) -> &mut Self {
+    pub fn with_stdin(&mut self, stdin: Box<dyn VirtualFile + Send + Sync>) -> &mut Self {
         self.stdin = Some(ArcBoxFile::new(stdin));
         self
     }
 
-    pub fn with_stdout(mut self, stdout: Box<dyn VirtualFile + Send + Sync>) -> Self {
-        self.set_stdout(stdout);
-        self
-    }
-
-    pub fn set_stdout(&mut self, stdout: Box<dyn VirtualFile + Send + Sync>) -> &mut Self {
+    pub fn with_stdout(&mut self, stdout: Box<dyn VirtualFile + Send + Sync>) -> &mut Self {
         self.stdout = Some(ArcBoxFile::new(stdout));
         self
     }
 
-    pub fn with_stderr(mut self, stderr: Box<dyn VirtualFile + Send + Sync>) -> Self {
-        self.set_stderr(stderr);
+    pub fn with_stderr(&mut self, stderr: Box<dyn VirtualFile + Send + Sync>) -> &mut Self {
+        self.stderr = Some(ArcBoxFile::new(stderr));
         self
     }
 
-    pub fn set_stderr(&mut self, stderr: Box<dyn VirtualFile + Send + Sync>) -> &mut Self {
-        self.stderr = Some(ArcBoxFile::new(stderr));
+    /// Add an item to the list of importable items provided to the instance.
+    pub fn with_import(
+        &mut self,
+        namespace: impl Into<String>,
+        name: impl Into<String>,
+        value: impl Into<Extern>,
+    ) -> &mut Self {
+        self.with_imports([((namespace, name), value)])
+    }
+
+    /// Add multiple import functions.
+    ///
+    /// This method will accept a [`&Imports`][wasmer::Imports] object.
+    pub fn with_imports<I, S1, S2, E>(&mut self, imports: I) -> &mut Self
+    where
+        I: IntoIterator<Item = ((S1, S2), E)>,
+        S1: Into<String>,
+        S2: Into<String>,
+        E: Into<Extern>,
+    {
+        let imports = imports
+            .into_iter()
+            .map(|((ns, n), e)| ((ns.into(), n.into()), e.into()));
+        self.wasi.additional_imports.extend(imports);
         self
     }
 

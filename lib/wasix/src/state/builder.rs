@@ -9,7 +9,7 @@ use std::{
 use rand::Rng;
 use thiserror::Error;
 use virtual_fs::{ArcFile, FileSystem, FsError, TmpFileSystem, VirtualFile};
-use wasmer::{AsStoreMut, Instance, Module, Store};
+use wasmer::{AsStoreMut, Extern, Imports, Instance, Module, Store};
 
 #[cfg(feature = "journal")]
 use crate::journal::{DynJournal, SnapshotTrigger};
@@ -74,6 +74,7 @@ pub struct WasiEnvBuilder {
     pub(super) map_commands: HashMap<String, PathBuf>,
 
     pub(super) capabilites: Capabilities,
+    pub(super) additional_imports: Imports,
 
     #[cfg(feature = "journal")]
     pub(super) snapshot_on: Vec<SnapshotTrigger>,
@@ -642,6 +643,51 @@ impl WasiEnvBuilder {
         self.snapshot_interval.replace(interval);
     }
 
+    /// Add an item to the list of importable items provided to the instance.
+    pub fn import(
+        mut self,
+        namespace: impl Into<String>,
+        name: impl Into<String>,
+        value: impl Into<Extern>,
+    ) -> Self {
+        self.add_imports([((namespace, name), value)]);
+        self
+    }
+
+    /// Add an item to the list of importable items provided to the instance.
+    pub fn add_import(
+        &mut self,
+        namespace: impl Into<String>,
+        name: impl Into<String>,
+        value: impl Into<Extern>,
+    ) {
+        self.add_imports([((namespace, name), value)]);
+    }
+
+    pub fn add_imports<I, S1, S2, E>(&mut self, imports: I)
+    where
+        I: IntoIterator<Item = ((S1, S2), E)>,
+        S1: Into<String>,
+        S2: Into<String>,
+        E: Into<Extern>,
+    {
+        let imports = imports
+            .into_iter()
+            .map(|((ns, n), e)| ((ns.into(), n.into()), e.into()));
+        self.additional_imports.extend(imports);
+    }
+
+    pub fn imports<I, S1, S2, E>(mut self, imports: I) -> Self
+    where
+        I: IntoIterator<Item = ((S1, S2), E)>,
+        S1: Into<String>,
+        S2: Into<String>,
+        E: Into<Extern>,
+    {
+        self.add_imports(imports);
+        self
+    }
+
     /// Consumes the [`WasiEnvBuilder`] and produces a [`WasiEnvInit`], which
     /// can be used to construct a new [`WasiEnv`].
     ///
@@ -844,6 +890,7 @@ impl WasiEnvBuilder {
             extra_tracing: true,
             #[cfg(feature = "journal")]
             snapshot_on: self.snapshot_on,
+            additional_imports: self.additional_imports,
         };
 
         Ok(init)
