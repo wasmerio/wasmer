@@ -497,6 +497,10 @@
 <a href="#497" id="497">497</a>
 <a href="#498" id="498">498</a>
 <a href="#499" id="499">499</a>
+<a href="#500" id="500">500</a>
+<a href="#501" id="501">501</a>
+<a href="#502" id="502">502</a>
+<a href="#503" id="503">503</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{
     collections::HashMap,
     path::{Path, PathBuf},
@@ -507,6 +511,7 @@
 <span class="kw">use </span>derivative::Derivative;
 <span class="kw">use </span>futures::future::BoxFuture;
 <span class="kw">use </span>virtual_fs::{FileSystem, FsError, OverlayFileSystem, RootFileSystemBuilder, TmpFileSystem};
+<span class="kw">use </span>wasmer::Imports;
 <span class="kw">use </span>webc::metadata::annotations::Wasi <span class="kw">as </span>WasiAnnotation;
 
 <span class="kw">use crate</span>::{
@@ -539,6 +544,7 @@
     <span class="kw">pub</span>(<span class="kw">crate</span>) snapshot_on: Vec&lt;SnapshotTrigger&gt;,
     <span class="kw">pub</span>(<span class="kw">crate</span>) snapshot_interval: <span class="prelude-ty">Option</span>&lt;std::time::Duration&gt;,
     <span class="kw">pub</span>(<span class="kw">crate</span>) current_dir: <span class="prelude-ty">Option</span>&lt;PathBuf&gt;,
+    <span class="kw">pub</span>(<span class="kw">crate</span>) additional_imports: Imports,
 }
 
 <span class="kw">impl </span>CommonWasiOptions {
@@ -575,6 +581,8 @@
         <span class="self">self</span>.populate_args(wasi, builder);
 
         <span class="kw-2">*</span>builder.capabilities_mut() = <span class="self">self</span>.capabilities.clone();
+
+        builder.add_imports(<span class="kw-2">&amp;</span><span class="self">self</span>.additional_imports);
 
         <span class="prelude-val">Ok</span>(())
     }

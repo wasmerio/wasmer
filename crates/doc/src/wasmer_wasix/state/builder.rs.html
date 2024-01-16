@@ -1183,6 +1183,53 @@
 <a href="#1183" id="1183">1183</a>
 <a href="#1184" id="1184">1184</a>
 <a href="#1185" id="1185">1185</a>
+<a href="#1186" id="1186">1186</a>
+<a href="#1187" id="1187">1187</a>
+<a href="#1188" id="1188">1188</a>
+<a href="#1189" id="1189">1189</a>
+<a href="#1190" id="1190">1190</a>
+<a href="#1191" id="1191">1191</a>
+<a href="#1192" id="1192">1192</a>
+<a href="#1193" id="1193">1193</a>
+<a href="#1194" id="1194">1194</a>
+<a href="#1195" id="1195">1195</a>
+<a href="#1196" id="1196">1196</a>
+<a href="#1197" id="1197">1197</a>
+<a href="#1198" id="1198">1198</a>
+<a href="#1199" id="1199">1199</a>
+<a href="#1200" id="1200">1200</a>
+<a href="#1201" id="1201">1201</a>
+<a href="#1202" id="1202">1202</a>
+<a href="#1203" id="1203">1203</a>
+<a href="#1204" id="1204">1204</a>
+<a href="#1205" id="1205">1205</a>
+<a href="#1206" id="1206">1206</a>
+<a href="#1207" id="1207">1207</a>
+<a href="#1208" id="1208">1208</a>
+<a href="#1209" id="1209">1209</a>
+<a href="#1210" id="1210">1210</a>
+<a href="#1211" id="1211">1211</a>
+<a href="#1212" id="1212">1212</a>
+<a href="#1213" id="1213">1213</a>
+<a href="#1214" id="1214">1214</a>
+<a href="#1215" id="1215">1215</a>
+<a href="#1216" id="1216">1216</a>
+<a href="#1217" id="1217">1217</a>
+<a href="#1218" id="1218">1218</a>
+<a href="#1219" id="1219">1219</a>
+<a href="#1220" id="1220">1220</a>
+<a href="#1221" id="1221">1221</a>
+<a href="#1222" id="1222">1222</a>
+<a href="#1223" id="1223">1223</a>
+<a href="#1224" id="1224">1224</a>
+<a href="#1225" id="1225">1225</a>
+<a href="#1226" id="1226">1226</a>
+<a href="#1227" id="1227">1227</a>
+<a href="#1228" id="1228">1228</a>
+<a href="#1229" id="1229">1229</a>
+<a href="#1230" id="1230">1230</a>
+<a href="#1231" id="1231">1231</a>
+<a href="#1232" id="1232">1232</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Builder system for configuring a [`WasiState`] and creating it.
 
 </span><span class="kw">use </span>std::{
@@ -1194,7 +1241,7 @@
 <span class="kw">use </span>rand::Rng;
 <span class="kw">use </span>thiserror::Error;
 <span class="kw">use </span>virtual_fs::{ArcFile, FileSystem, FsError, TmpFileSystem, VirtualFile};
-<span class="kw">use </span>wasmer::{AsStoreMut, Instance, Module, Store};
+<span class="kw">use </span>wasmer::{AsStoreMut, Extern, Imports, Instance, Module, Store};
 
 <span class="attr">#[cfg(feature = <span class="string">&quot;journal&quot;</span>)]
 </span><span class="kw">use </span><span class="kw">crate</span>::journal::{DynJournal, SnapshotTrigger};
@@ -1259,6 +1306,7 @@
     </span><span class="kw">pub</span>(<span class="kw">super</span>) map_commands: HashMap&lt;String, PathBuf&gt;,
 
     <span class="kw">pub</span>(<span class="kw">super</span>) capabilites: Capabilities,
+    <span class="kw">pub</span>(<span class="kw">super</span>) additional_imports: Imports,
 
     <span class="attr">#[cfg(feature = <span class="string">&quot;journal&quot;</span>)]
     </span><span class="kw">pub</span>(<span class="kw">super</span>) snapshot_on: Vec&lt;SnapshotTrigger&gt;,
@@ -1827,6 +1875,51 @@
         <span class="self">self</span>.snapshot_interval.replace(interval);
     }
 
+    <span class="doccomment">/// Add an item to the list of importable items provided to the instance.
+    </span><span class="kw">pub fn </span>import(
+        <span class="kw-2">mut </span><span class="self">self</span>,
+        namespace: <span class="kw">impl </span>Into&lt;String&gt;,
+        name: <span class="kw">impl </span>Into&lt;String&gt;,
+        value: <span class="kw">impl </span>Into&lt;Extern&gt;,
+    ) -&gt; <span class="self">Self </span>{
+        <span class="self">self</span>.add_imports([((namespace, name), value)]);
+        <span class="self">self
+    </span>}
+
+    <span class="doccomment">/// Add an item to the list of importable items provided to the instance.
+    </span><span class="kw">pub fn </span>add_import(
+        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
+        namespace: <span class="kw">impl </span>Into&lt;String&gt;,
+        name: <span class="kw">impl </span>Into&lt;String&gt;,
+        value: <span class="kw">impl </span>Into&lt;Extern&gt;,
+    ) {
+        <span class="self">self</span>.add_imports([((namespace, name), value)]);
+    }
+
+    <span class="kw">pub fn </span>add_imports&lt;I, S1, S2, E&gt;(<span class="kw-2">&amp;mut </span><span class="self">self</span>, imports: I)
+    <span class="kw">where
+        </span>I: IntoIterator&lt;Item = ((S1, S2), E)&gt;,
+        S1: Into&lt;String&gt;,
+        S2: Into&lt;String&gt;,
+        E: Into&lt;Extern&gt;,
+    {
+        <span class="kw">let </span>imports = imports
+            .into_iter()
+            .map(|((ns, n), e)| ((ns.into(), n.into()), e.into()));
+        <span class="self">self</span>.additional_imports.extend(imports);
+    }
+
+    <span class="kw">pub fn </span>imports&lt;I, S1, S2, E&gt;(<span class="kw-2">mut </span><span class="self">self</span>, imports: I) -&gt; <span class="self">Self
+    </span><span class="kw">where
+        </span>I: IntoIterator&lt;Item = ((S1, S2), E)&gt;,
+        S1: Into&lt;String&gt;,
+        S2: Into&lt;String&gt;,
+        E: Into&lt;Extern&gt;,
+    {
+        <span class="self">self</span>.add_imports(imports);
+        <span class="self">self
+    </span>}
+
     <span class="doccomment">/// Consumes the [`WasiEnvBuilder`] and produces a [`WasiEnvInit`], which
     /// can be used to construct a new [`WasiEnv`].
     ///
@@ -2029,6 +2122,7 @@
             extra_tracing: <span class="bool-val">true</span>,
             <span class="attr">#[cfg(feature = <span class="string">&quot;journal&quot;</span>)]
             </span>snapshot_on: <span class="self">self</span>.snapshot_on,
+            additional_imports: <span class="self">self</span>.additional_imports,
         };
 
         <span class="prelude-val">Ok</span>(init)

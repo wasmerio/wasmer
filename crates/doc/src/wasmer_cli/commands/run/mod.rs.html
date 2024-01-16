@@ -960,6 +960,8 @@
 <a href="#960" id="960">960</a>
 <a href="#961" id="961">961</a>
 <a href="#962" id="962">962</a>
+<a href="#963" id="963">963</a>
+<a href="#964" id="964">964</a>
 </pre></div><pre class="rust"><code><span class="attr">#![allow(missing_docs, unused)]
 
 </span><span class="kw">mod </span>wasi;
@@ -1321,7 +1323,9 @@
     ) -&gt; <span class="prelude-ty">Result</span>&lt;WasiRunner, anyhow::Error&gt; {
         <span class="kw">let </span>packages = <span class="self">self</span>.load_injected_packages(runtime)<span class="question-mark">?</span>;
 
-        <span class="kw">let </span><span class="kw-2">mut </span>runner = WasiRunner::new()
+        <span class="kw">let </span><span class="kw-2">mut </span>runner = WasiRunner::new();
+
+        runner
             .with_args(<span class="kw-2">&amp;</span><span class="self">self</span>.args)
             .with_injected_packages(packages)
             .with_envs(<span class="self">self</span>.wasi.env_vars.clone())
@@ -1333,10 +1337,10 @@
         <span class="attr">#[cfg(feature = <span class="string">&quot;journal&quot;</span>)]
         </span>{
             <span class="kw">for </span>trigger <span class="kw">in </span><span class="self">self</span>.wasi.snapshot_on.iter().cloned() {
-                runner.add_snapshot_trigger(trigger);
+                runner.with_snapshot_trigger(trigger);
             }
             <span class="kw">if </span><span class="self">self</span>.wasi.snapshot_on.is_empty() &amp;&amp; !<span class="self">self</span>.wasi.journals.is_empty() {
-                runner.add_default_snapshot_triggers();
+                runner.with_default_snapshot_triggers();
             }
             <span class="kw">if let </span><span class="prelude-val">Some</span>(period) = <span class="self">self</span>.wasi.snapshot_interval {
                 <span class="kw">if </span><span class="self">self</span>.wasi.journals.is_empty() {
@@ -1347,7 +1351,7 @@
                 runner.with_snapshot_interval(Duration::from_millis(period));
             }
             <span class="kw">for </span>journal <span class="kw">in </span><span class="self">self</span>.wasi.build_journals()<span class="question-mark">? </span>{
-                runner.add_journal(journal);
+                runner.with_journal(journal);
             }
         }
 

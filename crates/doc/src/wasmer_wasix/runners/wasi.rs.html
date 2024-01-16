@@ -400,50 +400,6 @@
 <a href="#400" id="400">400</a>
 <a href="#401" id="401">401</a>
 <a href="#402" id="402">402</a>
-<a href="#403" id="403">403</a>
-<a href="#404" id="404">404</a>
-<a href="#405" id="405">405</a>
-<a href="#406" id="406">406</a>
-<a href="#407" id="407">407</a>
-<a href="#408" id="408">408</a>
-<a href="#409" id="409">409</a>
-<a href="#410" id="410">410</a>
-<a href="#411" id="411">411</a>
-<a href="#412" id="412">412</a>
-<a href="#413" id="413">413</a>
-<a href="#414" id="414">414</a>
-<a href="#415" id="415">415</a>
-<a href="#416" id="416">416</a>
-<a href="#417" id="417">417</a>
-<a href="#418" id="418">418</a>
-<a href="#419" id="419">419</a>
-<a href="#420" id="420">420</a>
-<a href="#421" id="421">421</a>
-<a href="#422" id="422">422</a>
-<a href="#423" id="423">423</a>
-<a href="#424" id="424">424</a>
-<a href="#425" id="425">425</a>
-<a href="#426" id="426">426</a>
-<a href="#427" id="427">427</a>
-<a href="#428" id="428">428</a>
-<a href="#429" id="429">429</a>
-<a href="#430" id="430">430</a>
-<a href="#431" id="431">431</a>
-<a href="#432" id="432">432</a>
-<a href="#433" id="433">433</a>
-<a href="#434" id="434">434</a>
-<a href="#435" id="435">435</a>
-<a href="#436" id="436">436</a>
-<a href="#437" id="437">437</a>
-<a href="#438" id="438">438</a>
-<a href="#439" id="439">439</a>
-<a href="#440" id="440">440</a>
-<a href="#441" id="441">441</a>
-<a href="#442" id="442">442</a>
-<a href="#443" id="443">443</a>
-<a href="#444" id="444">444</a>
-<a href="#445" id="445">445</a>
-<a href="#446" id="446">446</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! WebC container support for running WASI modules
 
 </span><span class="kw">use </span>std::{path::PathBuf, sync::Arc};
@@ -451,7 +407,7 @@
 <span class="kw">use </span>anyhow::{Context, Error};
 <span class="kw">use </span>tracing::Instrument;
 <span class="kw">use </span>virtual_fs::{ArcBoxFile, FileSystem, TmpFileSystem, VirtualFile};
-<span class="kw">use </span>wasmer::Module;
+<span class="kw">use </span>wasmer::{Extern, Module};
 <span class="kw">use </span>webc::metadata::{annotations::Wasi, Command};
 
 <span class="kw">use crate</span>::{
@@ -485,47 +441,23 @@
     }
 
     <span class="doccomment">/// Builder method to provide CLI args to the runner
-    </span><span class="kw">pub fn </span>with_args&lt;A, S&gt;(<span class="kw-2">mut </span><span class="self">self</span>, args: A) -&gt; <span class="self">Self
+    </span><span class="kw">pub fn </span>with_args&lt;A, S&gt;(<span class="kw-2">&amp;mut </span><span class="self">self</span>, args: A) -&gt; <span class="kw-2">&amp;mut </span><span class="self">Self
     </span><span class="kw">where
-        </span>A: IntoIterator&lt;Item = S&gt;,
-        S: Into&lt;String&gt;,
-    {
-        <span class="self">self</span>.set_args(args);
-        <span class="self">self
-    </span>}
-
-    <span class="doccomment">/// Set the CLI args
-    </span><span class="kw">pub fn </span>set_args&lt;A, S&gt;(<span class="kw-2">&amp;mut </span><span class="self">self</span>, args: A)
-    <span class="kw">where
         </span>A: IntoIterator&lt;Item = S&gt;,
         S: Into&lt;String&gt;,
     {
         <span class="self">self</span>.wasi.args = args.into_iter().map(|s| s.into()).collect();
-    }
+        <span class="self">self
+    </span>}
 
     <span class="doccomment">/// Builder method to provide environment variables to the runner.
     </span><span class="kw">pub fn </span>with_env(<span class="kw-2">mut </span><span class="self">self</span>, key: <span class="kw">impl </span>Into&lt;String&gt;, value: <span class="kw">impl </span>Into&lt;String&gt;) -&gt; <span class="self">Self </span>{
-        <span class="self">self</span>.set_env(key, value);
-        <span class="self">self
-    </span>}
-
-    <span class="doccomment">/// Provide environment variables to the runner.
-    </span><span class="kw">pub fn </span>set_env(<span class="kw-2">&amp;mut </span><span class="self">self</span>, key: <span class="kw">impl </span>Into&lt;String&gt;, value: <span class="kw">impl </span>Into&lt;String&gt;) {
         <span class="self">self</span>.wasi.env.insert(key.into(), value.into());
-    }
-
-    <span class="kw">pub fn </span>with_envs&lt;I, K, V&gt;(<span class="kw-2">mut </span><span class="self">self</span>, envs: I) -&gt; <span class="self">Self
-    </span><span class="kw">where
-        </span>I: IntoIterator&lt;Item = (K, V)&gt;,
-        K: Into&lt;String&gt;,
-        V: Into&lt;String&gt;,
-    {
-        <span class="self">self</span>.set_envs(envs);
         <span class="self">self
     </span>}
 
-    <span class="kw">pub fn </span>set_envs&lt;I, K, V&gt;(<span class="kw-2">&amp;mut </span><span class="self">self</span>, envs: I)
-    <span class="kw">where
+    <span class="kw">pub fn </span>with_envs&lt;I, K, V&gt;(<span class="kw-2">&amp;mut </span><span class="self">self</span>, envs: I) -&gt; <span class="kw-2">&amp;mut </span><span class="self">Self
+    </span><span class="kw">where
         </span>I: IntoIterator&lt;Item = (K, V)&gt;,
         K: Into&lt;String&gt;,
         V: Into&lt;String&gt;,
@@ -533,18 +465,15 @@
         <span class="kw">for </span>(key, value) <span class="kw">in </span>envs {
             <span class="self">self</span>.wasi.env.insert(key.into(), value.into());
         }
-    }
-
-    <span class="kw">pub fn </span>with_forward_host_env(<span class="kw-2">mut </span><span class="self">self</span>, forward: bool) -&gt; <span class="self">Self </span>{
-        <span class="self">self</span>.set_forward_host_env(forward);
         <span class="self">self
     </span>}
 
-    <span class="kw">pub fn </span>set_forward_host_env(<span class="kw-2">&amp;mut </span><span class="self">self</span>, forward: bool) {
+    <span class="kw">pub fn </span>with_forward_host_env(<span class="kw-2">&amp;mut </span><span class="self">self</span>, forward: bool) -&gt; <span class="kw-2">&amp;mut </span><span class="self">Self </span>{
         <span class="self">self</span>.wasi.forward_host_env = forward;
-    }
+        <span class="self">self
+    </span>}
 
-    <span class="kw">pub fn </span>with_mapped_directories&lt;I, D&gt;(<span class="self">self</span>, dirs: I) -&gt; <span class="self">Self
+    <span class="kw">pub fn </span>with_mapped_directories&lt;I, D&gt;(<span class="kw-2">&amp;mut </span><span class="self">self</span>, dirs: I) -&gt; <span class="kw-2">&amp;mut </span><span class="self">Self
     </span><span class="kw">where
         </span>I: IntoIterator&lt;Item = D&gt;,
         D: Into&lt;MappedDirectory&gt;,
@@ -552,7 +481,7 @@
         <span class="self">self</span>.with_mounted_directories(dirs.into_iter().map(Into::into).map(MountedDirectory::from))
     }
 
-    <span class="kw">pub fn </span>with_mounted_directories&lt;I, D&gt;(<span class="kw-2">mut </span><span class="self">self</span>, dirs: I) -&gt; <span class="self">Self
+    <span class="kw">pub fn </span>with_mounted_directories&lt;I, D&gt;(<span class="kw-2">&amp;mut </span><span class="self">self</span>, dirs: I) -&gt; <span class="kw-2">&amp;mut </span><span class="self">Self
     </span><span class="kw">where
         </span>I: IntoIterator&lt;Item = D&gt;,
         D: Into&lt;MountedDirectory&gt;,
@@ -561,34 +490,26 @@
         <span class="self">self
     </span>}
 
-    <span class="kw">pub fn </span>mount(<span class="kw-2">&amp;mut </span><span class="self">self</span>, dest: String, fs: Arc&lt;<span class="kw">dyn </span>FileSystem + Send + Sync&gt;) -&gt; <span class="kw-2">&amp;mut </span><span class="self">Self </span>{
+    <span class="doccomment">/// Mount a [`FileSystem`] instance at a particular location.
+    </span><span class="kw">pub fn </span>with_mount(<span class="kw-2">&amp;mut </span><span class="self">self</span>, dest: String, fs: Arc&lt;<span class="kw">dyn </span>FileSystem + Send + Sync&gt;) -&gt; <span class="kw-2">&amp;mut </span><span class="self">Self </span>{
         <span class="self">self</span>.wasi.mounts.push(MountedDirectory { guest: dest, fs });
         <span class="self">self
     </span>}
 
-    <span class="kw">pub fn </span>set_current_dir(<span class="kw-2">&amp;mut </span><span class="self">self</span>, dir: <span class="kw">impl </span>Into&lt;PathBuf&gt;) {
+    <span class="doccomment">/// Override the directory the WASIX instance will start in.
+    </span><span class="kw">pub fn </span>with_current_dir(<span class="kw-2">&amp;mut </span><span class="self">self</span>, dir: <span class="kw">impl </span>Into&lt;PathBuf&gt;) -&gt; <span class="kw-2">&amp;mut </span><span class="self">Self </span>{
         <span class="self">self</span>.wasi.current_dir = <span class="prelude-val">Some</span>(dir.into());
-    }
-
-    <span class="kw">pub fn </span>with_current_dir(<span class="kw-2">mut </span><span class="self">self</span>, dir: <span class="kw">impl </span>Into&lt;PathBuf&gt;) -&gt; <span class="self">Self </span>{
-        <span class="self">self</span>.set_current_dir(dir);
         <span class="self">self
     </span>}
 
     <span class="doccomment">/// Add a package that should be available to the instance at runtime.
-    </span><span class="kw">pub fn </span>add_injected_package(<span class="kw-2">&amp;mut </span><span class="self">self</span>, pkg: BinaryPackage) -&gt; <span class="kw-2">&amp;mut </span><span class="self">Self </span>{
+    </span><span class="kw">pub fn </span>with_injected_package(<span class="kw-2">&amp;mut </span><span class="self">self</span>, pkg: BinaryPackage) -&gt; <span class="kw-2">&amp;mut </span><span class="self">Self </span>{
         <span class="self">self</span>.wasi.injected_packages.push(pkg);
         <span class="self">self
     </span>}
 
-    <span class="doccomment">/// Add a package that should be available to the instance at runtime.
-    </span><span class="kw">pub fn </span>with_injected_package(<span class="kw-2">mut </span><span class="self">self</span>, pkg: BinaryPackage) -&gt; <span class="self">Self </span>{
-        <span class="self">self</span>.add_injected_package(pkg);
-        <span class="self">self
-    </span>}
-
     <span class="doccomment">/// Add packages that should be available to the instance at runtime.
-    </span><span class="kw">pub fn </span>add_injected_packages(
+    </span><span class="kw">pub fn </span>with_injected_packages(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
         packages: <span class="kw">impl </span>IntoIterator&lt;Item = BinaryPackage&gt;,
     ) -&gt; <span class="kw-2">&amp;mut </span><span class="self">Self </span>{
@@ -596,40 +517,23 @@
         <span class="self">self
     </span>}
 
-    <span class="doccomment">/// Add packages that should be available to the instance at runtime.
-    </span><span class="kw">pub fn </span>with_injected_packages(
-        <span class="kw-2">mut </span><span class="self">self</span>,
-        packages: <span class="kw">impl </span>IntoIterator&lt;Item = BinaryPackage&gt;,
-    ) -&gt; <span class="self">Self </span>{
-        <span class="self">self</span>.add_injected_packages(packages);
-        <span class="self">self
-    </span>}
-
-    <span class="kw">pub fn </span>add_mapped_host_command(<span class="kw-2">&amp;mut </span><span class="self">self</span>, alias: <span class="kw">impl </span>Into&lt;String&gt;, target: <span class="kw">impl </span>Into&lt;String&gt;) {
+    <span class="kw">pub fn </span>with_mapped_host_command(
+        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
+        alias: <span class="kw">impl </span>Into&lt;String&gt;,
+        target: <span class="kw">impl </span>Into&lt;String&gt;,
+    ) -&gt; <span class="kw-2">&amp;mut </span><span class="self">Self </span>{
         <span class="self">self</span>.wasi.mapped_host_commands.push(MappedCommand {
             alias: alias.into(),
             target: target.into(),
         });
-    }
-
-    <span class="kw">pub fn </span>with_mapped_host_command(
-        <span class="kw-2">mut </span><span class="self">self</span>,
-        alias: <span class="kw">impl </span>Into&lt;String&gt;,
-        target: <span class="kw">impl </span>Into&lt;String&gt;,
-    ) -&gt; <span class="self">Self </span>{
-        <span class="self">self</span>.add_mapped_host_command(alias, target);
         <span class="self">self
     </span>}
 
-    <span class="kw">pub fn </span>add_mapped_host_commands(<span class="kw-2">&amp;mut </span><span class="self">self</span>, commands: <span class="kw">impl </span>IntoIterator&lt;Item = MappedCommand&gt;) {
-        <span class="self">self</span>.wasi.mapped_host_commands.extend(commands);
-    }
-
     <span class="kw">pub fn </span>with_mapped_host_commands(
-        <span class="kw-2">mut </span><span class="self">self</span>,
+        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
         commands: <span class="kw">impl </span>IntoIterator&lt;Item = MappedCommand&gt;,
-    ) -&gt; <span class="self">Self </span>{
-        <span class="self">self</span>.add_mapped_host_commands(commands);
+    ) -&gt; <span class="kw-2">&amp;mut </span><span class="self">Self </span>{
+        <span class="self">self</span>.wasi.mapped_host_commands.extend(commands);
         <span class="self">self
     </span>}
 
@@ -637,24 +541,20 @@
         <span class="kw-2">&amp;mut </span><span class="self">self</span>.wasi.capabilities
     }
 
-    <span class="kw">pub fn </span>with_capabilities(<span class="kw-2">mut </span><span class="self">self</span>, capabilities: Capabilities) -&gt; <span class="self">Self </span>{
-        <span class="self">self</span>.set_capabilities(capabilities);
+    <span class="kw">pub fn </span>with_capabilities(<span class="kw-2">&amp;mut </span><span class="self">self</span>, capabilities: Capabilities) -&gt; <span class="kw-2">&amp;mut </span><span class="self">Self </span>{
+        <span class="self">self</span>.wasi.capabilities = capabilities;
         <span class="self">self
     </span>}
 
-    <span class="kw">pub fn </span>set_capabilities(<span class="kw-2">&amp;mut </span><span class="self">self</span>, capabilities: Capabilities) {
-        <span class="self">self</span>.wasi.capabilities = capabilities;
-    }
-
-    <span class="kw">pub fn </span>add_snapshot_trigger(<span class="kw-2">&amp;mut </span><span class="self">self</span>, on: SnapshotTrigger) -&gt; <span class="kw-2">&amp;mut </span><span class="self">Self </span>{
+    <span class="kw">pub fn </span>with_snapshot_trigger(<span class="kw-2">&amp;mut </span><span class="self">self</span>, on: SnapshotTrigger) -&gt; <span class="kw-2">&amp;mut </span><span class="self">Self </span>{
         <span class="self">self</span>.wasi.snapshot_on.push(on);
         <span class="self">self
     </span>}
 
-    <span class="kw">pub fn </span>add_default_snapshot_triggers(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;mut </span><span class="self">Self </span>{
+    <span class="kw">pub fn </span>with_default_snapshot_triggers(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;mut </span><span class="self">Self </span>{
         <span class="kw">for </span>on <span class="kw">in </span><span class="kw">crate</span>::journal::DEFAULT_SNAPSHOT_TRIGGERS {
             <span class="kw">if </span>!<span class="self">self</span>.has_snapshot_trigger(on) {
-                <span class="self">self</span>.add_snapshot_trigger(on);
+                <span class="self">self</span>.with_snapshot_trigger(on);
             }
         }
         <span class="self">self
@@ -666,44 +566,56 @@
 
     <span class="kw">pub fn </span>with_snapshot_interval(<span class="kw-2">&amp;mut </span><span class="self">self</span>, period: std::time::Duration) -&gt; <span class="kw-2">&amp;mut </span><span class="self">Self </span>{
         <span class="kw">if </span>!<span class="self">self</span>.has_snapshot_trigger(SnapshotTrigger::PeriodicInterval) {
-            <span class="self">self</span>.add_snapshot_trigger(SnapshotTrigger::PeriodicInterval);
+            <span class="self">self</span>.with_snapshot_trigger(SnapshotTrigger::PeriodicInterval);
         }
         <span class="self">self</span>.wasi.snapshot_interval.replace(period);
         <span class="self">self
     </span>}
 
-    <span class="kw">pub fn </span>add_journal(<span class="kw-2">&amp;mut </span><span class="self">self</span>, journal: Arc&lt;DynJournal&gt;) -&gt; <span class="kw-2">&amp;mut </span><span class="self">Self </span>{
+    <span class="kw">pub fn </span>with_journal(<span class="kw-2">&amp;mut </span><span class="self">self</span>, journal: Arc&lt;DynJournal&gt;) -&gt; <span class="kw-2">&amp;mut </span><span class="self">Self </span>{
         <span class="self">self</span>.wasi.journals.push(journal);
         <span class="self">self
     </span>}
 
-    <span class="kw">pub fn </span>with_stdin(<span class="kw-2">mut </span><span class="self">self</span>, stdin: Box&lt;<span class="kw">dyn </span>VirtualFile + Send + Sync&gt;) -&gt; <span class="self">Self </span>{
-        <span class="self">self</span>.set_stdin(stdin);
-        <span class="self">self
-    </span>}
-
-    <span class="kw">pub fn </span>set_stdin(<span class="kw-2">&amp;mut </span><span class="self">self</span>, stdin: Box&lt;<span class="kw">dyn </span>VirtualFile + Send + Sync&gt;) -&gt; <span class="kw-2">&amp;mut </span><span class="self">Self </span>{
+    <span class="kw">pub fn </span>with_stdin(<span class="kw-2">&amp;mut </span><span class="self">self</span>, stdin: Box&lt;<span class="kw">dyn </span>VirtualFile + Send + Sync&gt;) -&gt; <span class="kw-2">&amp;mut </span><span class="self">Self </span>{
         <span class="self">self</span>.stdin = <span class="prelude-val">Some</span>(ArcBoxFile::new(stdin));
         <span class="self">self
     </span>}
 
-    <span class="kw">pub fn </span>with_stdout(<span class="kw-2">mut </span><span class="self">self</span>, stdout: Box&lt;<span class="kw">dyn </span>VirtualFile + Send + Sync&gt;) -&gt; <span class="self">Self </span>{
-        <span class="self">self</span>.set_stdout(stdout);
-        <span class="self">self
-    </span>}
-
-    <span class="kw">pub fn </span>set_stdout(<span class="kw-2">&amp;mut </span><span class="self">self</span>, stdout: Box&lt;<span class="kw">dyn </span>VirtualFile + Send + Sync&gt;) -&gt; <span class="kw-2">&amp;mut </span><span class="self">Self </span>{
+    <span class="kw">pub fn </span>with_stdout(<span class="kw-2">&amp;mut </span><span class="self">self</span>, stdout: Box&lt;<span class="kw">dyn </span>VirtualFile + Send + Sync&gt;) -&gt; <span class="kw-2">&amp;mut </span><span class="self">Self </span>{
         <span class="self">self</span>.stdout = <span class="prelude-val">Some</span>(ArcBoxFile::new(stdout));
         <span class="self">self
     </span>}
 
-    <span class="kw">pub fn </span>with_stderr(<span class="kw-2">mut </span><span class="self">self</span>, stderr: Box&lt;<span class="kw">dyn </span>VirtualFile + Send + Sync&gt;) -&gt; <span class="self">Self </span>{
-        <span class="self">self</span>.set_stderr(stderr);
+    <span class="kw">pub fn </span>with_stderr(<span class="kw-2">&amp;mut </span><span class="self">self</span>, stderr: Box&lt;<span class="kw">dyn </span>VirtualFile + Send + Sync&gt;) -&gt; <span class="kw-2">&amp;mut </span><span class="self">Self </span>{
+        <span class="self">self</span>.stderr = <span class="prelude-val">Some</span>(ArcBoxFile::new(stderr));
         <span class="self">self
     </span>}
 
-    <span class="kw">pub fn </span>set_stderr(<span class="kw-2">&amp;mut </span><span class="self">self</span>, stderr: Box&lt;<span class="kw">dyn </span>VirtualFile + Send + Sync&gt;) -&gt; <span class="kw-2">&amp;mut </span><span class="self">Self </span>{
-        <span class="self">self</span>.stderr = <span class="prelude-val">Some</span>(ArcBoxFile::new(stderr));
+    <span class="doccomment">/// Add an item to the list of importable items provided to the instance.
+    </span><span class="kw">pub fn </span>with_import(
+        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
+        namespace: <span class="kw">impl </span>Into&lt;String&gt;,
+        name: <span class="kw">impl </span>Into&lt;String&gt;,
+        value: <span class="kw">impl </span>Into&lt;Extern&gt;,
+    ) -&gt; <span class="kw-2">&amp;mut </span><span class="self">Self </span>{
+        <span class="self">self</span>.with_imports([((namespace, name), value)])
+    }
+
+    <span class="doccomment">/// Add multiple import functions.
+    ///
+    /// This method will accept a [`&amp;Imports`][wasmer::Imports] object.
+    </span><span class="kw">pub fn </span>with_imports&lt;I, S1, S2, E&gt;(<span class="kw-2">&amp;mut </span><span class="self">self</span>, imports: I) -&gt; <span class="kw-2">&amp;mut </span><span class="self">Self
+    </span><span class="kw">where
+        </span>I: IntoIterator&lt;Item = ((S1, S2), E)&gt;,
+        S1: Into&lt;String&gt;,
+        S2: Into&lt;String&gt;,
+        E: Into&lt;Extern&gt;,
+    {
+        <span class="kw">let </span>imports = imports
+            .into_iter()
+            .map(|((ns, n), e)| ((ns.into(), n.into()), e.into()));
+        <span class="self">self</span>.wasi.additional_imports.extend(imports);
         <span class="self">self
     </span>}
 
