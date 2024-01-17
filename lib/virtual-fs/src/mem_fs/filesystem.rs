@@ -3,6 +3,7 @@
 use super::*;
 use crate::{DirEntry, FileSystem as _, FileType, FsError, Metadata, OpenOptions, ReadDir, Result};
 use futures::future::BoxFuture;
+use shared_buffer::OwnedBuffer;
 use slab::Slab;
 use std::collections::VecDeque;
 use std::convert::identity;
@@ -27,6 +28,20 @@ impl FileSystem {
 
     pub fn new_open_options_ext(&self) -> &FileSystem {
         self
+    }
+
+    /// Uses a mmap'ed file as a cache for file data thus removing the
+    /// need to copy the data into memory.
+    ///
+    /// This is especially important for journals as it means that the
+    /// data stored within the journals does not need to be copied
+    /// into memory, for very large journals this would otherwise be
+    /// a problem.
+    pub fn with_mmap_offload(self, buffer: OwnedBuffer) -> Result<Self> {
+        let mut lock = self.inner.write().map_err(|_| FsError::Lock)?;
+        lock.mmap_offload.replace(buffer);
+        drop(lock);
+        Ok(self)
     }
 
     /// Canonicalize a path without validating that it actually exists.
@@ -619,6 +634,7 @@ impl fmt::Debug for FileSystem {
 /// indexed by their respective `Inode` in a slab.
 pub(super) struct FileSystemInner {
     pub(super) storage: Slab<Node>,
+    pub(super) mmap_offload: Option<OwnedBuffer>,
     pub(super) limiter: Option<crate::limiter::DynFsMemoryLimiter>,
 }
 
@@ -754,6 +770,7 @@ impl FileSystemInner {
                 .filter_map(|(nth, inode)| self.storage.get(*inode).map(|node| (nth, node)))
                 .find_map(|(nth, node)| match node {
                     Node::File(FileNode { inode, name, .. })
+                    | Node::OffloadedFile(OffloadedFileNode { inode, name, .. })
                     | Node::ReadOnlyFile(ReadOnlyFileNode { inode, name, .. })
                     | Node::CustomFile(CustomFileNode { inode, name, .. })
                     | Node::ArcFile(ArcFileNode { inode, name, .. })
@@ -793,6 +810,7 @@ impl FileSystemInner {
                 .filter_map(|(nth, inode)| self.storage.get(*inode).map(|node| (nth, node)))
                 .find_map(|(nth, node)| match node {
                     Node::File(FileNode { inode, name, .. })
+                    | Node::OffloadedFile(OffloadedFileNode { inode, name, .. })
                     | Node::Directory(DirectoryNode { inode, name, .. })
                     | Node::ReadOnlyFile(ReadOnlyFileNode { inode, name, .. })
                     | Node::CustomFile(CustomFileNode { inode, name, .. })
@@ -956,6 +974,7 @@ impl fmt::Debug for FileSystemInner {
                     inode = node.inode(),
                     ty = match node {
                         Node::File { .. } => "file",
+                        Node::OffloadedFile { .. } => "offloaded-file",
                         Node::ReadOnlyFile { .. } => "ro-file",
                         Node::ArcFile { .. } => "arc-file",
                         Node::CustomFile { .. } => "custom-file",
@@ -1015,6 +1034,7 @@ impl Default for FileSystemInner {
 
         Self {
             storage: slab,
+            mmap_offload: None,
             limiter: None,
         }
     }

@@ -151,6 +151,7 @@ impl VirtualFile for FileHandle {
         let inode = fs.storage.get(self.inode);
         match inode {
             Some(Node::File(node)) => node.file.len().try_into().unwrap_or(0),
+            Some(Node::OffloadedFile(node)) => node.file.len().try_into().unwrap_or(0),
             Some(Node::ReadOnlyFile(node)) => node.file.len().try_into().unwrap_or(0),
             Some(Node::CustomFile(node)) => {
                 let file = node.file.lock().unwrap();
@@ -180,6 +181,10 @@ impl VirtualFile for FileHandle {
             Some(Node::File(FileNode { file, metadata, .. })) => {
                 file.buffer
                     .resize(new_size.try_into().map_err(|_| FsError::UnknownError)?, 0)?;
+                metadata.len = new_size;
+            }
+            Some(Node::OffloadedFile(OffloadedFileNode { file, metadata, .. })) => {
+                file.resize(new_size.try_into().map_err(|_| FsError::UnknownError)?, 0);
                 metadata.len = new_size;
             }
             Some(Node::CustomFile(node)) => {
@@ -337,6 +342,10 @@ impl VirtualFile for FileHandle {
                 let remaining = node.file.buffer.len() - (self.cursor as usize);
                 Poll::Ready(Ok(remaining))
             }
+            Some(Node::OffloadedFile(node)) => {
+                let remaining = node.file.len() as usize - (self.cursor as usize);
+                Poll::Ready(Ok(remaining))
+            }
             Some(Node::ReadOnlyFile(node)) => {
                 let remaining = node.file.buffer.len() - (self.cursor as usize);
                 Poll::Ready(Ok(remaining))
@@ -385,6 +394,7 @@ impl VirtualFile for FileHandle {
         let inode = fs.storage.get_mut(self.inode);
         match inode {
             Some(Node::File(_)) => Poll::Ready(Ok(8192)),
+            Some(Node::OffloadedFile(_)) => Poll::Ready(Ok(8192)),
             Some(Node::ReadOnlyFile(_)) => Poll::Ready(Ok(0)),
             Some(Node::CustomFile(node)) => {
                 let mut file = node.file.lock().unwrap();
@@ -624,6 +634,17 @@ impl AsyncRead for FileHandle {
                     }
                     Poll::Ready(read.map(|_| ()))
                 }
+                Some(Node::OffloadedFile(node)) => {
+                    let read = unsafe {
+                        node.file
+                            .read(std::mem::transmute(buf.unfilled_mut()), &mut cursor)
+                    };
+                    if let Ok(read) = &read {
+                        unsafe { buf.assume_init(*read) };
+                        buf.advance(*read);
+                    }
+                    Poll::Ready(read.map(|_| ()))
+                }
                 Some(Node::ReadOnlyFile(node)) => {
                     let read = unsafe {
                         node.file
@@ -683,6 +704,10 @@ impl AsyncSeek for FileHandle {
             let inode = fs.storage.get_mut(self.inode);
             match inode {
                 Some(Node::File(node)) => {
+                    node.file.seek(position, &mut cursor)?;
+                    Ok(())
+                }
+                Some(Node::OffloadedFile(node)) => {
                     node.file.seek(position, &mut cursor)?;
                     Ok(())
                 }
@@ -749,6 +774,7 @@ impl AsyncSeek for FileHandle {
         let inode = fs.storage.get_mut(self.inode);
         match inode {
             Some(Node::File { .. }) => Poll::Ready(Ok(self.cursor)),
+            Some(Node::OffloadedFile { .. }) => Poll::Ready(Ok(self.cursor)),
             Some(Node::ReadOnlyFile { .. }) => Poll::Ready(Ok(self.cursor)),
             Some(Node::CustomFile(node)) => {
                 let mut file = node.file.lock().unwrap();
@@ -801,6 +827,11 @@ impl AsyncWrite for FileHandle {
             let inode = fs.storage.get_mut(self.inode);
             match inode {
                 Some(Node::File(node)) => {
+                    let bytes_written = node.file.write(buf, &mut cursor)?;
+                    node.metadata.len = node.file.len().try_into().unwrap();
+                    bytes_written
+                }
+                Some(Node::OffloadedFile(node)) => {
                     let bytes_written = node.file.write(buf, &mut cursor)?;
                     node.metadata.len = node.file.len().try_into().unwrap();
                     bytes_written
@@ -880,6 +911,15 @@ impl AsyncWrite for FileHandle {
                     node.metadata.len = node.file.buffer.len() as u64;
                     Poll::Ready(Ok(bytes_written))
                 }
+                Some(Node::OffloadedFile(node)) => {
+                    let buf = bufs
+                        .iter()
+                        .find(|b| !b.is_empty())
+                        .map_or(&[][..], |b| &**b);
+                    let bytes_written = node.file.write(buf, &mut cursor)?;
+                    node.metadata.len = node.file.len();
+                    Poll::Ready(Ok(bytes_written))
+                }
                 Some(Node::ReadOnlyFile(node)) => {
                     let buf = bufs
                         .iter()
@@ -926,6 +966,7 @@ impl AsyncWrite for FileHandle {
         let inode = fs.storage.get_mut(self.inode);
         match inode {
             Some(Node::File(node)) => Poll::Ready(node.file.flush()),
+            Some(Node::OffloadedFile(node)) => Poll::Ready(node.file.flush()),
             Some(Node::ReadOnlyFile(node)) => Poll::Ready(node.file.flush()),
             Some(Node::CustomFile(node)) => {
                 let mut file = node.file.lock().unwrap();
@@ -961,6 +1002,7 @@ impl AsyncWrite for FileHandle {
         let inode = fs.storage.get_mut(self.inode);
         match inode {
             Some(Node::File { .. }) => Poll::Ready(Ok(())),
+            Some(Node::OffloadedFile { .. }) => Poll::Ready(Ok(())),
             Some(Node::ReadOnlyFile { .. }) => Poll::Ready(Ok(())),
             Some(Node::CustomFile(node)) => {
                 let mut file = node.file.lock().unwrap();
@@ -996,6 +1038,7 @@ impl AsyncWrite for FileHandle {
         let inode = fs.storage.get_mut(self.inode);
         match inode {
             Some(Node::File { .. }) => false,
+            Some(Node::OffloadedFile { .. }) => false,
             Some(Node::ReadOnlyFile { .. }) => false,
             Some(Node::CustomFile(node)) => {
                 let file = node.file.lock().unwrap();
