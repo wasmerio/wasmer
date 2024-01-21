@@ -40,6 +40,7 @@ getrandom = { version = "0.2", features = [ "js" ] }
 [dev-dependencies]
 pretty_assertions = "1.3.0"
 tempfile = "3.6.0"
+tracing-test = "0.2.4"
 tokio = { version = "1", features = ["io-util", "rt"], default_features = false }
 
 [features]

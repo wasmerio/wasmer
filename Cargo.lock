@@ -5336,6 +5336,7 @@ dependencies = [
  "thiserror",
  "tokio",
  "tracing",
+ "tracing-test",
  "typetag",
  "webc",
 ]

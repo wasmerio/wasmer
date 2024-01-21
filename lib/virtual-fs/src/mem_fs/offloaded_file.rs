@@ -172,23 +172,23 @@ impl OffloadedFile {
         // Now we delete all the extents that exist between the
         // range that we are about to insert
         let mut index = 0usize;
-        while extent_offset > 0 && index < self.extents.len() {
+        while index < self.extents.len() {
             let extent = &self.extents[index];
-            if extent_offset > extent.size() {
+            if extent_offset >= extent.size() {
                 extent_offset -= extent.size();
                 index += 1;
                 continue;
             } else {
-                while index < self.extents.len() {
-                    let extent = &self.extents[index];
-                    if data_len < extent.size() {
-                        break;
-                    }
-                    data_len -= extent.size();
-                    self.extents.remove(index);
-                }
                 break;
             }
+        }
+        while index < self.extents.len() {
+            let extent = &self.extents[index];
+            if data_len < extent.size() {
+                break;
+            }
+            data_len -= extent.size();
+            self.extents.remove(index);
         }
 
         // Finally we add the new extent
@@ -250,6 +250,89 @@ impl OffloadedFile {
 
 #[cfg(test)]
 mod tests {
+    use super::*;
+
     #[test]
-    pub fn test_resize() {}
+    #[tracing_test::traced_test]
+    pub fn test_offload_file() -> anyhow::Result<()> {
+        let buffer = OwnedBuffer::from_bytes(std::iter::repeat(12u8).take(100).collect::<Vec<_>>());
+        let test_data2 = buffer.clone();
+
+        let mut file = OffloadedFile::new(None, buffer);
+
+        let mut cursor = 0u64;
+        let test_data = std::iter::repeat(56u8).take(100).collect::<Vec<_>>();
+        file.write(&test_data, &mut cursor)?;
+
+        assert_eq!(file.len(), 100);
+
+        cursor = 0;
+        let mut result = std::iter::repeat(0u8).take(100).collect::<Vec<_>>();
+        file.read(&mut result, &mut cursor)?;
+        assert_eq!(
+            &result,
+            &std::iter::repeat(56u8).take(100).collect::<Vec<_>>()
+        );
+
+        cursor = 50;
+        file.write(&test_data2, &mut cursor)?;
+
+        assert_eq!(file.len(), 150);
+
+        cursor = 0;
+        let mut result = std::iter::repeat(0u8).take(150).collect::<Vec<_>>();
+        file.read(&mut result, &mut cursor)?;
+        assert_eq!(
+            &result,
+            &std::iter::repeat(56u8)
+                .take(50)
+                .chain(std::iter::repeat(12u8).take(100))
+                .collect::<Vec<_>>()
+        );
+
+        file.resize(200, 99u8);
+        assert_eq!(file.len(), 200);
+
+        cursor = 0;
+        let mut result = std::iter::repeat(0u8).take(200).collect::<Vec<_>>();
+        file.read(&mut result, &mut cursor)?;
+        assert_eq!(
+            &result,
+            &std::iter::repeat(56u8)
+                .take(50)
+                .chain(std::iter::repeat(12u8).take(100))
+                .chain(std::iter::repeat(99u8).take(50))
+                .collect::<Vec<_>>()
+        );
+
+        file.resize(33, 01u8);
+
+        cursor = 0;
+        let mut result = std::iter::repeat(0u8).take(33).collect::<Vec<_>>();
+        file.read(&mut result, &mut cursor)?;
+        assert_eq!(
+            &result,
+            &std::iter::repeat(56u8).take(33).collect::<Vec<_>>()
+        );
+
+        let mut cursor = 10u64;
+        let test_data = std::iter::repeat(74u8).take(10).collect::<Vec<_>>();
+        file.write(&test_data, &mut cursor)?;
+
+        assert_eq!(file.len(), 33);
+
+        cursor = 0;
+        let mut result = std::iter::repeat(0u8).take(33).collect::<Vec<_>>();
+        file.read(&mut result, &mut cursor)?;
+        assert_eq!(
+            &result,
+            &std::iter::repeat(56u8)
+                .take(10)
+                .chain(std::iter::repeat(74u8).take(10))
+                .chain(std::iter::repeat(56u8).take(13))
+                .collect::<Vec<_>>()
+        );
+
+        Ok(())
+    }
 }
