@@ -882,7 +882,7 @@ pub enum ArchivedJournalEntry<'a> {
     SetThreadV1(&'a ArchivedJournalEntrySetThreadV1),
     CloseThreadV1(&'a ArchivedJournalEntryCloseThreadV1),
     FileDescriptorSeekV1(&'a ArchivedJournalEntryFileDescriptorSeekV1),
-    FileDescriptorWriteV1(&'a ArchivedJournalEntryFileDescriptorWriteV1),
+    FileDescriptorWriteV1(&'a ArchivedJournalEntryFileDescriptorWriteV1<'a>),
     UpdateMemoryRegionV1(&'a ArchivedJournalEntryUpdateMemoryRegionV1),
     SetClockTimeV1(&'a ArchivedJournalEntrySetClockTimeV1),
     OpenFileDescriptorV1(&'a ArchivedJournalEntryOpenFileDescriptorV1),
