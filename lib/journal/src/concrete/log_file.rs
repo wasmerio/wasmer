@@ -91,11 +91,12 @@ impl LogFileJournal {
         Self::from_file(file)
     }
 
-    pub fn from_file(file: std::fs::File) -> anyhow::Result<Self> {
+    pub fn from_file(mut file: std::fs::File) -> anyhow::Result<Self> {
         // Move to the end of the file and write the
         // magic if one is needed
         let underlying_file = file.try_clone()?;
-        let mut serializer = WriteSerializer::new(file);
+        let end_pos = file.seek(SeekFrom::End(0))?;
+        let mut serializer = WriteSerializer::with_pos(file, end_pos as usize);
         if serializer.pos() == 0 {
             let magic = JOURNAL_MAGIC_NUMBER;
             let magic = magic.to_be_bytes();

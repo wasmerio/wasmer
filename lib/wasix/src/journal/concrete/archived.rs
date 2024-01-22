@@ -553,7 +553,7 @@ impl<'a> JournalEntry<'a> {
             } => serializer.serialize_value(&JournalEntryPathSetTimesV1 {
                 fd,
                 flags,
-                path: to_aligned_vec_str(path)),
+                path: to_aligned_vec_str(path),
                 st_atim,
                 st_mtim,
                 fst_flags: fst_flags.bits(),

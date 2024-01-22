@@ -234,6 +234,30 @@ impl WritableJournal for MutexState {
                         .await
                 })?;
             }
+            JournalEntry::SocketOpenV1 { fd, .. } => {
+                state.seed.clip_val(fd + 1);
+            }
+            JournalEntry::CreatePipeV1 { fd1, fd2 } => {
+                state.seed.clip_val(fd1 + 1);
+                state.seed.clip_val(fd2 + 1);
+            }
+            JournalEntry::CreateEventV1 { fd, .. } => {
+                state.seed.clip_val(fd + 1);
+            }
+            JournalEntry::EpollCreateV1 { fd } => {
+                state.seed.clip_val(fd + 1);
+            }
+            JournalEntry::EpollCtlV1 {
+                epfd,
+                op,
+                fd,
+                event,
+            } => {
+                state.seed.clip_val(fd + 1);
+            }
+            JournalEntry::SocketAcceptedV1 { fd, .. } => {
+                state.seed.clip_val(fd + 1);
+            }
             _ => {}
         }
         Ok(ret)
