@@ -193,8 +193,11 @@ impl Memory {
     /// backend supports shared memory operations.
     ///
     /// See [`SharedMemory`] and its methods for more information.
-    pub fn to_shared(&self, store: &impl AsStoreRef) -> Option<SharedMemory> {
-        self.0.to_shared(store)
+    pub fn as_shared(&self, store: &impl AsStoreRef) -> Option<SharedMemory> {
+        if !self.ty(store).shared {
+            return None;
+        }
+        self.0.as_shared(store)
     }
 
     /// To `VMExtern`.
