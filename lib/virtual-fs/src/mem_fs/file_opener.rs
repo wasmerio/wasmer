@@ -502,11 +502,7 @@ impl crate::FileOpener for FileSystem {
                 let inode_of_file = fs.storage.vacant_entry().key();
 
                 // We might be in optimized mode
-                let offload = {
-                    let inner = self.inner.read().map_err(|_| FsError::Lock)?;
-                    inner.mmap_offload.clone()
-                };
-                let file = if let Some(offload) = offload {
+                let file = if let Some(offload) = fs.mmap_offload.clone() {
                     let file = OffloadedFile::new(fs.limiter.clone(), offload);
                     Node::OffloadedFile(OffloadedFileNode {
                         inode: inode_of_file,

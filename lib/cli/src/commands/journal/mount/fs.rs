@@ -327,6 +327,7 @@ impl Filesystem for JournalFileSystem {
         state
             .journal_lookup
             .insert(fh, Arc::new(tokio::sync::Mutex::new(file)));
+        drop(state);
 
         // Write the journals
         let entry = JournalEntry::OpenFileDescriptorV1 {
@@ -392,6 +393,7 @@ impl Filesystem for JournalFileSystem {
         state
             .journal_lookup
             .insert(fh, Arc::new(tokio::sync::Mutex::new(file)));
+        drop(state);
 
         // Write the journals
         let entry = JournalEntry::OpenFileDescriptorV1 {
