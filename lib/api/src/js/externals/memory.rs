@@ -184,7 +184,7 @@ impl Memory {
         true
     }
 
-    pub fn shared_handle(&self, _store: &impl AsStoreRef) -> Option<crate::SharedMemoryHandle> {
+    pub fn to_shared(&self, _store: &impl AsStoreRef) -> Option<crate::SharedMemoryHandle> {
         // Not supported.
         None
     }

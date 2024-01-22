@@ -464,7 +464,7 @@ mod jsc;
 pub use jsc::*;
 
 pub use crate::externals::{
-    Extern, Function, Global, HostFunction, Memory, MemoryView, SharedMemoryHandle, Table,
+    Extern, Function, Global, HostFunction, Memory, MemoryLocation, MemoryView, SharedMemory, Table,
 };
 pub use access::WasmSliceAccess;
 pub use engine::{AsEngineRef, Engine, EngineRef};

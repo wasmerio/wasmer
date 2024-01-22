@@ -187,11 +187,14 @@ impl Memory {
             .map(|new_memory| Self::new_from_existing(new_store, new_memory))
     }
 
-    /// Acquire a shared memory handle.
+    /// Get a [`SharedMemory`].
     ///
-    /// See [`SharedMemoryHandle`] and its methods for more information.
-    pub fn shared_handle(&self, store: &impl AsStoreRef) -> Option<SharedMemoryHandle> {
-        self.0.shared_handle(store)
+    /// Only returns `Some(_)` if the memory is shared, and if the target
+    /// backend supports shared memory operations.
+    ///
+    /// See [`SharedMemory`] and its methods for more information.
+    pub fn to_shared(&self, store: &impl AsStoreRef) -> Option<SharedMemory> {
+        self.0.to_shared(store)
     }
 
     /// To `VMExtern`.
@@ -211,6 +214,7 @@ impl<'a> Exportable<'a> for Memory {
     }
 }
 
+/// Location in a WebAssembly memory.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct MemoryLocation {
     // NOTE: must be expanded to an enum that also supports 64bit memory in
@@ -220,14 +224,15 @@ pub struct MemoryLocation {
 }
 
 impl MemoryLocation {
-    pub fn new_32bit(address: u32) -> Self {
+    /// Create a new memory location for a 32bit memory.
+    pub fn new_32(address: u32) -> Self {
         Self { address }
     }
 }
 
 impl From<u32> for MemoryLocation {
     fn from(value: u32) -> Self {
-        Self::new_32bit(value)
+        Self::new_32(value)
     }
 }
 
@@ -260,32 +265,39 @@ pub(crate) trait SharedMemoryOps {
 
 /// A handle that exposes operations only relevant for shared memories.
 ///
-/// This handle can be cloned and shared independent of a a store, and hence
-/// enables interaction outside of the regular instance lifecycle.
+/// Enables interaction independent from the [`Store`], and thus allows calling
+/// some methods an instane is running.
 ///
-/// One such usecase is disabling atomics during forceful termination.
-///
-/// **NOTE**: This handle is generally only useful on native engine implementations
-/// that have direct control over atomics, but NOT in environments like Javascript
-/// engines.
+/// **NOTE**: Not all methods are supported by all backends.
 #[derive(Clone)]
-pub struct SharedMemoryHandle(std::sync::Arc<dyn SharedMemoryOps + Send + Sync>);
+pub struct SharedMemory {
+    memory: Memory,
+    ops: std::sync::Arc<dyn SharedMemoryOps + Send + Sync>,
+}
 
-impl std::fmt::Debug for SharedMemoryHandle {
+impl std::fmt::Debug for SharedMemory {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("SharedMemoryHandle").finish()
     }
 }
 
-impl SharedMemoryHandle {
+impl SharedMemory {
+    /// Get the underlying memory.
+    pub fn memory(&self) -> &Memory {
+        &self.memory
+    }
+
     /// Create a new handle from ops.
-    pub(crate) fn new(memory: impl SharedMemoryOps + Send + Sync + 'static) -> Self {
-        Self(std::sync::Arc::new(memory))
+    pub(crate) fn new(memory: Memory, ops: impl SharedMemoryOps + Send + Sync + 'static) -> Self {
+        Self {
+            memory,
+            ops: std::sync::Arc::new(ops),
+        }
     }
 
     /// Notify up to `count` waiters waiting for the memory location.
     pub fn notify(&self, location: MemoryLocation, count: u32) -> Result<u32, AtomicsError> {
-        self.0.notify(location, count)
+        self.ops.notify(location, count)
     }
 
     /// Wait for the memory location to be notified.
@@ -294,7 +306,7 @@ impl SharedMemoryHandle {
         location: MemoryLocation,
         timeout: Option<std::time::Duration>,
     ) -> Result<u32, AtomicsError> {
-        self.0.wait(location, timeout)
+        self.ops.wait(location, timeout)
     }
 
     /// Disable atomics for this memory.
@@ -307,7 +319,7 @@ impl SharedMemoryHandle {
     /// NOTE: this operation might not be supported by all memory implementations.
     /// In that case, this function will return an error.
     pub fn disable_atomics(&self) -> Result<(), MemoryError> {
-        self.0.disable_atomics()
+        self.ops.disable_atomics()
     }
 
     /// Wake up all atomic waiters.
@@ -317,7 +329,7 @@ impl SharedMemoryHandle {
     /// NOTE: this operation might not be supported by all memory implementations.
     /// In that case, this function will return an error.
     pub fn wake_all_atomic_waiters(&self) -> Result<(), MemoryError> {
-        self.0.wake_all_atomic_waiters()
+        self.ops.wake_all_atomic_waiters()
     }
 }
 
