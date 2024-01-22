@@ -1,6 +1,7 @@
 use bytes::Buf;
-use rkyv::ser::serializers::{
-    AllocScratch, CompositeSerializer, SharedSerializeMap, WriteSerializer,
+use rkyv::ser::{
+    serializers::{AllocScratch, CompositeSerializer, SharedSerializeMap, WriteSerializer},
+    Serializer,
 };
 use shared_buffer::OwnedBuffer;
 use std::{
@@ -23,6 +24,7 @@ use super::*;
 ///
 /// The logfile snapshot capturer uses a 64bit number as a entry encoding
 /// delimiter.
+#[derive(Debug)]
 pub struct LogFileJournal {
     tx: LogFileJournalTx,
     rx: LogFileJournalRx,
@@ -89,21 +91,23 @@ impl LogFileJournal {
         Self::from_file(file)
     }
 
-    pub fn from_file(mut file: std::fs::File) -> anyhow::Result<Self> {
+    pub fn from_file(file: std::fs::File) -> anyhow::Result<Self> {
         // Move to the end of the file and write the
         // magic if one is needed
-        if file.seek(SeekFrom::End(0)).unwrap() == 0 {
+        let underlying_file = file.try_clone()?;
+        let mut serializer = WriteSerializer::new(file);
+        if serializer.pos() == 0 {
             let magic = JOURNAL_MAGIC_NUMBER;
             let magic = magic.to_be_bytes();
-            file.write_all(&magic)?;
+            serializer.write(&magic)?;
         }
 
         // Create the tx
         let tx = LogFileJournalTx {
             state: Arc::new(Mutex::new(TxState {
-                file: file.try_clone()?,
+                file: underlying_file,
                 serializer: CompositeSerializer::new(
-                    WriteSerializer::new(file),
+                    serializer,
                     AllocScratch::default(),
                     SharedSerializeMap::default(),
                 ),
@@ -125,30 +129,34 @@ impl WritableJournal for LogFileJournalTx {
 
         // Write the header (with a record size of zero)
         let record_type: JournalEntryRecordType = entry.archive_record_type();
-        state.file.write_all(&(record_type as u16).to_be_bytes())?;
-        let offset_size = state.file.stream_position()?;
-        state.file.write_all(&[0u8; 6])?; // record and pad size (48 bits)
+        let offset_header = state.file.stream_position()?;
+        state.serializer.write(&[0u8; 8])?;
 
-        // Now serialize the actual data to the log
-        let offset_start = state.file.stream_position()?;
-        entry.serialize_archive(&mut state.serializer)?;
-        let offset_end = state.file.stream_position()?;
-        let record_size = offset_end - offset_start;
-
-        // If the alightment is out then fail
-        if record_size % 8 != 0 {
-            tracing::error!(
-                "alignment is out for journal event (type={:?}, record_size={}, alignment={})",
-                record_type,
-                record_size,
-                record_size % 8
-            );
+        // Now serialize the actual data to the log (we need to pad to a
+        // location that is aligned with the structure)
+        let offset_start = state.serializer.pos() as u64;
+        if state.serializer.pos() as u64 != offset_start {
+            return Err(anyhow::format_err!(
+                "serializer has misaligned positioning ({} vs {offset_start})",
+                state.serializer.pos()
+            ));
         }
+        entry.serialize_archive(&mut state.serializer)?;
+        let offset_end = state.serializer.pos() as u64;
+        let record_size = offset_end - offset_start;
+        tracing::trace!(
+            "delimiter header={offset_header},start={offset_start},record_size={record_size}"
+        );
 
         // Write the record and then move back to the end again
-        state.file.seek(SeekFrom::Start(offset_size))?;
-        state.file.write_all(&record_size.to_be_bytes()[2..8])?;
-        state.file.seek(SeekFrom::Start(offset_end))?;
+        state.file.seek(SeekFrom::Start(offset_header))?;
+        let header_bytes = {
+            let a = (record_type as u16).to_be_bytes();
+            let b = &record_size.to_be_bytes()[2..8];
+            [a[0], a[1], b[0], b[1], b[2], b[3], b[4], b[5]]
+        };
+        state.file.write_all(&header_bytes)?;
+        state.file.seek(SeekFrom::End(0))?;
 
         // Now write the actual data and update the offsets
         Ok(record_size)
@@ -193,16 +201,6 @@ impl ReadableJournal for LogFileJournalRx {
                 *buffer_pos += 8;
                 header
             };
-
-            if header.record_size as usize > buffer_ptr.len() {
-                *buffer_pos += buffer_ptr.len();
-                tracing::trace!(
-                    "journal is corrupt (record_size={} vs remaining={})",
-                    header.record_size,
-                    buffer_ptr.len()
-                );
-                return Ok(None);
-            }
 
             // Move the buffer position forward past the record
             let entry = &buffer_ptr[..(header.record_size as usize)];

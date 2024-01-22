@@ -68,8 +68,11 @@ virtual-net = { version = "0.6.2", path = "../virtual-net" }
 webc = { workspace = true }
 wasmer-edge-cli = { version = "=0.1.4", default-features = false }
 
-# Third-party dependencies.
+# Used by the mount command
+fuse = { version = "0.3", optional = true }
+time = { version = "0.1.45", optional = true }
 
+# Third-party dependencies.
 is-terminal = "0.4.7"
 colored = "2.0"
 anyhow = "1.0"
@@ -166,10 +169,12 @@ default = [
   "wast",
   "compiler",
   "journal",
+  "fuse",
   "wasmer-artifact-create",
   "static-artifact-create",
 ]
 journal = ["wasmer-wasix/journal"]
+fuse = ["dep:fuse", "dep:time"]
 backend = []
 coredump = ["wasm-coredump-builder"]
 sys = ["compiler", "wasmer-vm"]

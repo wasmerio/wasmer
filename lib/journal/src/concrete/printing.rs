@@ -136,11 +136,11 @@ impl<'a> fmt::Display for JournalEntry<'a> {
                 "fd-duplicate (original={}, copied={})",
                 original_fd, copied_fd
             ),
-            JournalEntry::CreateDirectoryV1 { path, .. } => {
-                write!(f, "path-create-dir (path={})", path)
+            JournalEntry::CreateDirectoryV1 { fd, path } => {
+                write!(f, "path-create-dir (fd={}, path={})", fd, path)
             }
-            JournalEntry::RemoveDirectoryV1 { path, .. } => {
-                write!(f, "path-remove-dir (path={})", path)
+            JournalEntry::RemoveDirectoryV1 { fd, path } => {
+                write!(f, "path-remove-dir (fd={}, path={})", fd, path)
             }
             JournalEntry::PathSetTimesV1 {
                 path,

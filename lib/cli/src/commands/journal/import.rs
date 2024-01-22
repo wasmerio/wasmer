@@ -7,19 +7,19 @@ use wasmer_wasix::journal::{JournalEntry, LogFileJournal, WritableJournal};
 /// Imports events into a journal file. Events are streamed as JSON
 /// objects into `stdin`
 #[derive(Debug, Parser)]
-pub struct CmdJournaImport {
+pub struct CmdJournalImport {
     /// Path to the journal that will be printed
     #[clap(index = 1)]
     journal_path: PathBuf,
 }
 
-impl AsyncCliCommand for CmdJournaImport {
+impl AsyncCliCommand for CmdJournalImport {
     fn run_async(self) -> futures::future::BoxFuture<'static, Result<(), anyhow::Error>> {
         Box::pin(self.run())
     }
 }
 
-impl CmdJournaImport {
+impl CmdJournalImport {
     async fn run(self) -> Result<(), anyhow::Error> {
         // Erase the journal file at the path and reopen it
         if self.journal_path.exists() {

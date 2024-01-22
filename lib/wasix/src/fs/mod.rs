@@ -410,6 +410,60 @@ fn create_dir_all(fs: &dyn FileSystem, path: &Path) -> Result<(), virtual_fs::Fs
     Ok(())
 }
 
+#[derive(Debug, Clone)]
+#[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
+pub struct WasiFdSeed {
+    next_fd: Arc<AtomicU32>,
+}
+
+impl Default for WasiFdSeed {
+    fn default() -> Self {
+        Self::new(3)
+    }
+}
+
+impl WasiFdSeed {
+    pub fn new(initial_val: u32) -> Self {
+        Self {
+            next_fd: Arc::new(AtomicU32::new(initial_val)),
+        }
+    }
+
+    pub fn fork(&self) -> Self {
+        Self {
+            next_fd: Arc::new(AtomicU32::new(self.next_fd.load(Ordering::SeqCst))),
+        }
+    }
+
+    pub fn next_val(&self) -> WasiFd {
+        self.next_fd.fetch_add(1, Ordering::SeqCst)
+    }
+
+    pub fn set_val(&self, val: WasiFd) {
+        self.next_fd.store(val, std::sync::atomic::Ordering::SeqCst)
+    }
+
+    pub fn cur_val(&self) -> WasiFd {
+        self.next_fd.load(Ordering::SeqCst)
+    }
+
+    pub fn clip_val(&self, fd: WasiFd) {
+        loop {
+            let existing = self.next_fd.load(Ordering::SeqCst);
+            if existing >= fd {
+                return;
+            }
+            if self
+                .next_fd
+                .compare_exchange(existing, fd, Ordering::SeqCst, Ordering::Relaxed)
+                .is_ok()
+            {
+                break;
+            }
+        }
+    }
+}
+
 /// Warning, modifying these fields directly may cause invariants to break and
 /// should be considered unsafe.  These fields may be made private in a future release
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
@@ -417,7 +471,7 @@ pub struct WasiFs {
     //pub repo: Repo,
     pub preopen_fds: RwLock<Vec<u32>>,
     pub fd_map: Arc<RwLock<HashMap<WasiFd, Fd>>>,
-    pub next_fd: AtomicU32,
+    pub next_fd: WasiFdSeed,
     pub current_dir: Mutex<String>,
     #[cfg_attr(feature = "enable-serde", serde(skip, default))]
     pub root_fs: WasiFsRoot,
@@ -453,7 +507,7 @@ impl WasiFs {
         Self {
             preopen_fds: RwLock::new(self.preopen_fds.read().unwrap().clone()),
             fd_map: Arc::new(RwLock::new(fd_map)),
-            next_fd: AtomicU32::new(self.next_fd.load(Ordering::SeqCst)),
+            next_fd: self.next_fd.fork(),
             current_dir: Mutex::new(self.current_dir.lock().unwrap().clone()),
             is_wasix: AtomicBool::new(self.is_wasix.load(Ordering::Acquire)),
             root_fs: self.root_fs.clone(),
@@ -563,7 +617,7 @@ impl WasiFs {
         let wasi_fs = Self {
             preopen_fds: RwLock::new(vec![]),
             fd_map: Arc::new(RwLock::new(HashMap::new())),
-            next_fd: AtomicU32::new(3),
+            next_fd: WasiFdSeed::default(),
             current_dir: Mutex::new("/".to_string()),
             is_wasix: AtomicBool::new(false),
             root_fs: fs_backing,
@@ -689,7 +743,7 @@ impl WasiFs {
                 let kind = Kind::File {
                     handle: Some(Arc::new(RwLock::new(file))),
                     path: PathBuf::from(""),
-                    fd: Some(self.next_fd.fetch_add(1, Ordering::SeqCst)),
+                    fd: Some(self.next_fd.next_val()),
                 };
 
                 drop(guard);
@@ -1250,6 +1304,9 @@ impl WasiFs {
     }
 
     pub fn get_fd_inode(&self, fd: WasiFd) -> Result<InodeGuard, Errno> {
+        if fd == VIRTUAL_ROOT_FD {
+            return Ok(self.root_inode.clone());
+        }
         self.fd_map
             .read()
             .unwrap()
@@ -1471,25 +1528,13 @@ impl WasiFs {
         open_flags: u16,
         inode: InodeGuard,
     ) -> Result<WasiFd, Errno> {
-        let idx = self.next_fd.fetch_add(1, Ordering::SeqCst);
+        let idx = self.next_fd.next_val();
         self.create_fd_ext(rights, rights_inheriting, flags, open_flags, inode, idx)?;
         Ok(idx)
     }
 
     pub fn make_max_fd(&self, fd: u32) {
-        loop {
-            let existing = self.next_fd.load(Ordering::SeqCst);
-            if existing >= fd {
-                return;
-            }
-            if self
-                .next_fd
-                .compare_exchange(existing, fd, Ordering::SeqCst, Ordering::Relaxed)
-                .is_ok()
-            {
-                break;
-            }
-        }
+        self.next_fd.clip_val(fd);
     }
 
     pub fn create_fd_ext(
@@ -1522,7 +1567,7 @@ impl WasiFs {
 
     pub fn clone_fd(&self, fd: WasiFd) -> Result<WasiFd, Errno> {
         let fd = self.get_fd(fd)?;
-        let idx = self.next_fd.fetch_add(1, Ordering::SeqCst);
+        let idx = self.next_fd.next_val();
         self.fd_map.write().unwrap().insert(
             idx,
             Fd {
@@ -1925,7 +1970,7 @@ impl std::fmt::Debug for WasiFs {
         } else {
             write!(f, "current_dir=(locked) ")?;
         }
-        write!(f, "next_fd={} ", self.next_fd.load(Ordering::Relaxed))?;
+        write!(f, "next_fd={} ", self.next_fd.cur_val())?;
         write!(f, "{:?}", self.root_fs)
     }
 }

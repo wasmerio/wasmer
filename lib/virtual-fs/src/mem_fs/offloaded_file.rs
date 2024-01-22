@@ -8,7 +8,7 @@ use crate::limiter::DynFsMemoryLimiter;
 pub enum FileExtent {
     MmapOffload { offset: u64, size: u64 },
     RepeatingBytes { value: u8, cnt: u64 },
-    Bytes { data: Bytes },
+    InMemory { data: Bytes },
 }
 
 impl FileExtent {
@@ -16,7 +16,7 @@ impl FileExtent {
         match self {
             FileExtent::MmapOffload { size, .. } => *size,
             FileExtent::RepeatingBytes { cnt, .. } => *cnt,
-            FileExtent::Bytes { data } => data.len() as u64,
+            FileExtent::InMemory { data } => data.len() as u64,
         }
     }
 
@@ -24,7 +24,7 @@ impl FileExtent {
         match self {
             FileExtent::MmapOffload { size, .. } => *size = new_size.min(*size),
             FileExtent::RepeatingBytes { cnt, .. } => *cnt = new_size,
-            FileExtent::Bytes { data } => {
+            FileExtent::InMemory { data } => {
                 *data = data.slice(..(new_size as usize));
             }
         }
@@ -108,7 +108,7 @@ impl OffloadedFile {
                     });
                     cnt
                 }
-                FileExtent::Bytes { data } => {
+                FileExtent::InMemory { data } => {
                     let data = &data.as_ref()[extent_offset as usize..];
                     let data_len = cmp::min(buf.len(), data.len());
                     buf[..data_len].copy_from_slice(&data[..data_len]);
@@ -156,7 +156,7 @@ impl OffloadedFile {
                             value: *other_value,
                             cnt: *other_cnt - split_at,
                         },
-                        FileExtent::Bytes { data: other_data } => FileExtent::Bytes {
+                        FileExtent::InMemory { data: other_data } => FileExtent::InMemory {
                             data: other_data.slice((split_at as usize)..),
                         },
                     };
@@ -205,7 +205,7 @@ impl OffloadedFile {
                 size: data_end - data_start,
             }
         } else {
-            FileExtent::Bytes {
+            FileExtent::InMemory {
                 data: data.to_vec().into(),
             }
         };
