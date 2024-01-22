@@ -6,10 +6,11 @@ use std::{collections::HashMap, sync::Arc};
 
 use crate::tcp_pair::TcpSocketHalf;
 use crate::{
-    InterestHandler, InterestType, IpAddr, IpCidr, Ipv4Addr, Ipv6Addr, NetworkError,
-    VirtualIoSource, VirtualNetworking, VirtualTcpListener, VirtualTcpSocket,
+    InterestHandler, IpAddr, IpCidr, Ipv4Addr, Ipv6Addr, NetworkError, VirtualIoSource,
+    VirtualNetworking, VirtualTcpListener, VirtualTcpSocket,
 };
 use derivative::Derivative;
+use virtual_mio::InterestType;
 
 const DEFAULT_MAX_BUFFER_SIZE: usize = 1_048_576;
 

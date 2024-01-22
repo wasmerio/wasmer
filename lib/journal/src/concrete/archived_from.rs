@@ -724,7 +724,8 @@ impl<'a> TryFrom<ArchivedJournalEntry<'a>> for JournalEntry<'a> {
             ArchivedJournalEntry::CreateDirectoryV1(ArchivedJournalEntryCreateDirectoryV1 {
                 fd,
                 path,
-                _padding: _,
+                _padding1: _,
+                _padding2: _,
             }) => Self::CreateDirectoryV1 {
                 fd: *fd,
                 path: String::from_utf8_lossy(path.as_ref()),

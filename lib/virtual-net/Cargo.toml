@@ -14,7 +14,7 @@ thiserror = "1"
 bytes = "1.1"
 async-trait = { version = "^0.1" }
 tracing = "0.1"
-tokio = { version = "1", default_features = false, optional = true }
+tokio = { version = "1", default_features = false, features = ["io-util"] }
 libc = { version = "0.2.139", optional = true }
 mio = { version = "0.8", optional = true }
 socket2 = { version = "0.4", optional = true }
@@ -46,8 +46,8 @@ serial_test = "2.0.0"
 
 [features]
 default = [ "host-net", "remote", "json", "messagepack", "cbor", "hyper", "tokio-tungstenite" ]
-host-net = [ "tokio", "libc", "tokio/io-util", "virtual-mio/sys", "tokio/net", "tokio/rt", "socket2", "mio" ]
-remote = [ "tokio", "libc", "tokio/io-util", "tokio/sync", "tokio-serde", "tokio-util" ]
+host-net = [ "libc", "tokio/io-util", "virtual-mio/sys", "tokio/net", "tokio/rt", "socket2", "mio" ]
+remote = [ "libc", "tokio/io-util", "tokio/sync", "tokio-serde", "tokio-util" ]
 json = [ "tokio-serde/json" ]
 messagepack = [ "tokio-serde/messagepack" ]
 cbor = [ "tokio-serde/cbor" ]

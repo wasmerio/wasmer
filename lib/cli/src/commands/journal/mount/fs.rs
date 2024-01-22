@@ -425,7 +425,7 @@ impl Filesystem for JournalFileSystem {
             dirfd: VIRTUAL_ROOT_FD,
             dirflags: 0,
             path,
-            o_flags: wasi::Oflags::empty(),
+            o_flags: wasi::Oflags::CREATE,
             fs_rights_base: wasi::Rights::all(),
             fs_rights_inheriting: wasi::Rights::all(),
             fs_flags: wasi::Fdflags::empty(),

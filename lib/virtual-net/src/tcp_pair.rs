@@ -1,6 +1,6 @@
 use crate::{
-    net_error_into_io_err, InterestHandler, InterestType, NetworkError, SocketStatus,
-    VirtualConnectedSocket, VirtualIoSource, VirtualSocket, VirtualTcpSocket,
+    net_error_into_io_err, InterestHandler, NetworkError, SocketStatus, VirtualConnectedSocket,
+    VirtualIoSource, VirtualSocket, VirtualTcpSocket,
 };
 use bytes::{Buf, Bytes};
 use futures_util::Future;
@@ -13,7 +13,7 @@ use std::task::{Context, Waker};
 use std::time::Duration;
 use std::{net::SocketAddr, task::Poll};
 use tokio::io::{AsyncBufRead, AsyncRead, AsyncWrite, BufReader};
-use virtual_mio::ArcInterestHandler;
+use virtual_mio::{ArcInterestHandler, InterestType};
 
 #[derive(Debug)]
 struct SocketBufferState {

@@ -525,7 +525,8 @@ impl<'a> JournalEntry<'a> {
                     serializer.serialize_value(&JournalEntryCreateDirectoryV1 {
                         fd,
                         path: to_aligned_vec(path.as_bytes()),
-                        _padding: 0,
+                        _padding1: 0,
+                        _padding2: 0,
                     })
                 }
                 JournalEntry::RemoveDirectoryV1 { fd, path } => {
@@ -1098,7 +1099,8 @@ pub struct JournalEntryDuplicateFileDescriptorV1 {
 #[archive_attr(derive(CheckBytes))]
 pub struct JournalEntryCreateDirectoryV1 {
     pub fd: u32,
-    pub _padding: u32,
+    pub _padding1: u32,
+    pub _padding2: u64,
     pub path: AlignedVec,
 }
 
