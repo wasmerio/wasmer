@@ -12,7 +12,7 @@ use std::{
 
 use fuse::{
     FileAttr, Filesystem, ReplyAttr, ReplyCreate, ReplyData, ReplyDirectory, ReplyEmpty,
-    ReplyEntry, ReplyOpen, Request,
+    ReplyEntry, ReplyOpen, ReplyWrite, Request,
 };
 use tokio::runtime::Handle;
 use virtual_fs::{mem_fs, AsyncReadExt, AsyncSeekExt, AsyncWriteExt, FileSystem, FsError};
@@ -31,12 +31,11 @@ struct State {
     handle: tokio::runtime::Handle,
     mem_fs: mem_fs::FileSystem,
     inos: HashMap<u64, Cow<'static, str>>,
-    fuse_lookup: HashMap<u64, Box<dyn virtual_fs::VirtualFile + Send + Sync + 'static>>,
-    seed: WasiFdSeed,
-    journal_lookup: HashMap<
+    lookup: HashMap<
         u32,
         Arc<tokio::sync::Mutex<Box<dyn virtual_fs::VirtualFile + Send + Sync + 'static>>>,
     >,
+    seed: WasiFdSeed,
 }
 
 #[derive(Debug)]
@@ -64,11 +63,10 @@ impl JournalFileSystem {
                 mem_fs,
                 inos: Default::default(),
                 seed: fd_seed,
-                fuse_lookup: Default::default(),
-                journal_lookup: Default::default(),
+                lookup: Default::default(),
             }),
         };
-        copy_journal(&journal, &state)?;
+        tokio::task::block_in_place(|| copy_journal(&journal, &state))?;
 
         let ret = Self {
             handle: tokio::runtime::Handle::current(),
@@ -146,7 +144,7 @@ impl WritableJournal for MutexState {
                 is_64bit,
             } => {
                 let handle = state.handle.clone();
-                if let Some(file) = state.journal_lookup.get_mut(&fd) {
+                if let Some(file) = state.lookup.get_mut(&fd) {
                     handle.block_on(async {
                         let mut file = file.lock().await;
                         file.seek(io::SeekFrom::Start(offset)).await;
@@ -155,7 +153,7 @@ impl WritableJournal for MutexState {
                 }
             }
             JournalEntry::CloseFileDescriptorV1 { fd } => {
-                state.journal_lookup.remove(&fd);
+                state.lookup.remove(&fd);
             }
             JournalEntry::OpenFileDescriptorV1 {
                 fd,
@@ -173,15 +171,17 @@ impl WritableJournal for MutexState {
                     .new_open_options()
                     .create(o_flags.contains(Oflags::CREATE))
                     .truncate(o_flags.contains(Oflags::TRUNC))
+                    .write(true)
+                    .read(true)
                     .open(path.as_ref())?;
                 state
-                    .journal_lookup
+                    .lookup
                     .insert(fd, Arc::new(tokio::sync::Mutex::new(file)));
             }
             JournalEntry::RenumberFileDescriptorV1 { old_fd, new_fd } => {
                 state.seed.clip_val(new_fd + 1);
-                if let Some(file) = state.journal_lookup.remove(&old_fd) {
-                    state.journal_lookup.insert(new_fd, file);
+                if let Some(file) = state.lookup.remove(&old_fd) {
+                    state.lookup.insert(new_fd, file);
                 }
             }
             JournalEntry::DuplicateFileDescriptorV1 {
@@ -189,8 +189,8 @@ impl WritableJournal for MutexState {
                 copied_fd,
             } => {
                 state.seed.clip_val(copied_fd + 1);
-                if let Some(file) = state.journal_lookup.get(&original_fd).cloned() {
-                    state.journal_lookup.insert(copied_fd, file);
+                if let Some(file) = state.lookup.get(&original_fd).cloned() {
+                    state.lookup.insert(copied_fd, file);
                 }
             }
             JournalEntry::CreateDirectoryV1 { fd, path } => {
@@ -201,7 +201,7 @@ impl WritableJournal for MutexState {
             }
             JournalEntry::FileDescriptorSetSizeV1 { fd, st_size } => {
                 let handle = state.handle.clone();
-                if let Some(file) = state.journal_lookup.get(&fd) {
+                if let Some(file) = state.lookup.get(&fd) {
                     handle.block_on(async {
                         let mut file = file.lock().await;
                         file.set_len(st_size)
@@ -210,7 +210,7 @@ impl WritableJournal for MutexState {
             }
             JournalEntry::FileDescriptorAllocateV1 { fd, offset, len } => {
                 let handle = state.handle.clone();
-                if let Some(file) = state.journal_lookup.get(&fd) {
+                if let Some(file) = state.lookup.get(&fd) {
                     handle.block_on(async {
                         let mut file = file.lock().await;
                         file.set_len(offset + len)
@@ -326,32 +326,11 @@ impl Filesystem for JournalFileSystem {
             }
         };
 
-        let mut state = self.state.inner.lock().unwrap();
-        let file = state
-            .mem_fs
-            .new_open_options()
-            .write(true)
-            .read(true)
-            .open(&Path::new(path.as_ref()));
-        let file = match file {
-            Ok(a) => a,
-            Err(FsError::EntryNotFound) => {
-                tracing::trace!("fs::open new_open_options({}) err=ENOENT", path);
-                reply.error(libc::ENOENT);
-                return;
-            }
-            Err(err) => {
-                tracing::trace!("fs::open new_open_options({}) err={}", path, err);
-                reply.error(libc::EIO);
-                return;
-            }
+        // Reserve a file descriptor
+        let fh = {
+            let mut state = self.state.inner.lock().unwrap();
+            state.seed.next_val()
         };
-
-        let fh = state.seed.next_val();
-        state
-            .journal_lookup
-            .insert(fh, Arc::new(tokio::sync::Mutex::new(file)));
-        drop(state);
 
         // Write the journals
         let entry = JournalEntry::OpenFileDescriptorV1 {
@@ -364,10 +343,51 @@ impl Filesystem for JournalFileSystem {
             fs_rights_inheriting: wasi::Rights::all(),
             fs_flags: wasi::Fdflags::empty(),
         };
-        self.state.write(entry.clone());
-        self.journal.write(entry);
+        if self.state.write(entry.clone()).is_err() {
+            reply.error(libc::EIO);
+            return;
+        }
+        if self.journal.write(entry).is_err() {
+            reply.error(libc::EIO);
+            return;
+        }
 
         reply.opened(fh as u64, flags);
+    }
+
+    fn release(
+        &mut self,
+        _req: &Request,
+        _ino: u64,
+        fh: u64,
+        _flags: u32,
+        _lock_owner: u64,
+        _flush: bool,
+        reply: ReplyEmpty,
+    ) {
+        let fh = fh as u32;
+
+        {
+            // Check that the file handle exists
+            let mut state = self.state.inner.lock().unwrap();
+            if !state.lookup.contains_key(&fh) {
+                reply.error(libc::ENOENT);
+                return;
+            }
+        }
+
+        // Write the journals
+        let entry = JournalEntry::CloseFileDescriptorV1 { fd: fh };
+        if self.state.write(entry.clone()).is_err() {
+            reply.error(libc::EIO);
+            return;
+        }
+        if self.journal.write(entry).is_err() {
+            reply.error(libc::EIO);
+            return;
+        }
+
+        reply.ok();
     }
 
     fn create(
@@ -389,35 +409,11 @@ impl Filesystem for JournalFileSystem {
         path.hash(&mut hasher);
         let ino = hasher.finish();
 
-        // Now create the new file
-        let mut state = self.state.inner.lock().unwrap();
-        let file = state
-            .mem_fs
-            .new_open_options()
-            .create(true)
-            .write(true)
-            .read(true)
-            .open(&Path::new(path.as_ref()));
-        let file = match file {
-            Ok(a) => a,
-            Err(FsError::EntryNotFound) => {
-                tracing::trace!("fs::create new_open_options({}) err=ENOENT", path);
-                reply.error(libc::ENOENT);
-                return;
-            }
-            Err(err) => {
-                tracing::trace!("fs::create new_open_options({}) err={}", path, err);
-                reply.error(libc::EIO);
-                return;
-            }
+        // Reserve a file descriptor
+        let fh = {
+            let mut state = self.state.inner.lock().unwrap();
+            state.seed.next_val()
         };
-
-        // Create the file and load it into the lookup
-        let fh = state.seed.next_val();
-        state
-            .journal_lookup
-            .insert(fh, Arc::new(tokio::sync::Mutex::new(file)));
-        drop(state);
 
         // Write the journals
         let entry = JournalEntry::OpenFileDescriptorV1 {
@@ -430,8 +426,14 @@ impl Filesystem for JournalFileSystem {
             fs_rights_inheriting: wasi::Rights::all(),
             fs_flags: wasi::Fdflags::empty(),
         };
-        self.state.write(entry.clone());
-        self.journal.write(entry);
+        if self.state.write(entry.clone()).is_err() {
+            reply.error(libc::EIO);
+            return;
+        }
+        if self.journal.write(entry).is_err() {
+            reply.error(libc::EIO);
+            return;
+        }
 
         let now = time::get_time();
         reply.created(
@@ -467,9 +469,11 @@ impl Filesystem for JournalFileSystem {
         size: u32,
         reply: ReplyData,
     ) {
+        let fh = fh as u32;
+
         // Grab the file from the file handle
         let mut state = self.state.inner.lock().unwrap();
-        let file = match state.fuse_lookup.get_mut(&fh) {
+        let file = match state.lookup.get_mut(&fh) {
             Some(a) => a,
             None => {
                 tracing::trace!("fs::read lookup(fh={fh}) noent err=EIO");
@@ -480,6 +484,8 @@ impl Filesystem for JournalFileSystem {
 
         // Read the data from the file and return it
         let data: Result<_, io::Error> = self.handle.block_on(async {
+            let mut file = file.lock().await;
+
             let mut buf = Vec::with_capacity(size as usize);
             unsafe { buf.set_len(size as usize) };
             file.seek(io::SeekFrom::Start(offset as u64)).await?;
@@ -498,6 +504,46 @@ impl Filesystem for JournalFileSystem {
 
         // Return the data
         reply.data(&data);
+    }
+
+    fn write(
+        &mut self,
+        _req: &Request,
+        _ino: u64,
+        fh: u64,
+        offset: i64,
+        data: &[u8],
+        _flags: u32,
+        reply: ReplyWrite,
+    ) {
+        let fh = fh as u32;
+
+        {
+            // Check that the file handle exists
+            let mut state = self.state.inner.lock().unwrap();
+            if !state.lookup.contains_key(&fh) {
+                reply.error(libc::ENOENT);
+                return;
+            }
+        }
+
+        // Write the entry to the log file
+        let entry = JournalEntry::FileDescriptorWriteV1 {
+            fd: fh as u32,
+            offset: offset as u64,
+            data: data.into(),
+            is_64bit: false,
+        };
+        if self.state.write(entry.clone()).is_err() {
+            reply.error(libc::EIO);
+            return;
+        }
+        if self.journal.write(entry).is_err() {
+            reply.error(libc::EIO);
+            return;
+        }
+
+        reply.written(data.len() as u32);
     }
 
     fn readdir(

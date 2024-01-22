@@ -1346,6 +1346,8 @@ impl fmt::Debug for FileHandle {
         formatter
             .debug_struct("FileHandle")
             .field("inode", &self.inode)
+            .field("readable", &self.readable)
+            .field("writable", &self.writable)
             .finish()
     }
 }
