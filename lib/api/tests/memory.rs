@@ -25,7 +25,7 @@ fn test_shared_memory_atomics_notify_send() {
 
     let _inst = Instance::new(&mut store, &module, &imports).unwrap();
 
-    let mem = if let Some(m) = mem.to_shared(&store) {
+    let mem = if let Some(m) = mem.as_shared(&store) {
         m
     } else {
         #[cfg(feature = "sys")]
@@ -70,7 +70,7 @@ fn test_shared_memory_disable_atomics() {
     let mut store = Store::default();
     let mem = Memory::new(&mut store, MemoryType::new(10, Some(65536), true)).unwrap();
 
-    let mem = mem.to_shared(&store).unwrap();
+    let mem = mem.as_shared(&store).unwrap();
     mem.disable_atomics().unwrap();
 
     let err = mem.wait(MemoryLocation::new_32(1), None).unwrap_err();

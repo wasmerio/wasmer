@@ -101,7 +101,7 @@ impl Memory {
         mem.copy()
     }
 
-    pub fn to_shared(&self, store: &impl AsStoreRef) -> Option<crate::SharedMemory> {
+    pub fn as_shared(&self, store: &impl AsStoreRef) -> Option<crate::SharedMemory> {
         let mem = self.handle.get(store.as_store_ref().objects());
         let conds = mem.thread_conditions()?.downgrade();
 
