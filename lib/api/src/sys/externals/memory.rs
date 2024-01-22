@@ -101,11 +101,11 @@ impl Memory {
         mem.copy()
     }
 
-    pub fn shared_handle(&self, store: &impl AsStoreRef) -> Option<crate::SharedMemoryHandle> {
+    pub fn to_shared(&self, store: &impl AsStoreRef) -> Option<crate::SharedMemory> {
         let mem = self.handle.get(store.as_store_ref().objects());
         let conds = mem.thread_conditions()?.downgrade();
 
-        Some(crate::SharedMemoryHandle::new(conds))
+        Some(crate::SharedMemory::new(crate::Memory(self.clone()), conds))
     }
 
     /// To `VMExtern`.
@@ -122,7 +122,7 @@ impl crate::externals::memory::SharedMemoryOps for ThreadConditionsHandle {
     ) -> Result<u32, crate::AtomicsError> {
         let count = self
             .upgrade()
-            .ok_or_else(|| crate::AtomicsError::Unimplemented)?
+            .ok_or(crate::AtomicsError::Unimplemented)?
             .do_notify(
                 wasmer_vm::NotifyLocation {
                     address: dst.address,
@@ -138,7 +138,7 @@ impl crate::externals::memory::SharedMemoryOps for ThreadConditionsHandle {
         timeout: Option<std::time::Duration>,
     ) -> Result<u32, crate::AtomicsError> {
         self.upgrade()
-            .ok_or_else(|| crate::AtomicsError::Unimplemented)?
+            .ok_or(crate::AtomicsError::Unimplemented)?
             .do_wait(
                 wasmer_vm::NotifyLocation {
                     address: dst.address,
