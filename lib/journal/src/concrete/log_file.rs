@@ -130,18 +130,11 @@ impl WritableJournal for LogFileJournalTx {
 
         // Write the header (with a record size of zero)
         let record_type: JournalEntryRecordType = entry.archive_record_type();
-        let offset_header = state.file.stream_position()?;
+        let offset_header = state.serializer.pos() as u64;
         state.serializer.write(&[0u8; 8])?;
 
-        // Now serialize the actual data to the log (we need to pad to a
-        // location that is aligned with the structure)
+        // Now serialize the actual data to the log
         let offset_start = state.serializer.pos() as u64;
-        if state.serializer.pos() as u64 != offset_start {
-            return Err(anyhow::format_err!(
-                "serializer has misaligned positioning ({} vs {offset_start})",
-                state.serializer.pos()
-            ));
-        }
         entry.serialize_archive(&mut state.serializer)?;
         let offset_end = state.serializer.pos() as u64;
         let record_size = offset_end - offset_start;

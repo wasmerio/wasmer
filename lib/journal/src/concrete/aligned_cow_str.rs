@@ -1,8 +1,4 @@
-use std::{
-    borrow::{Borrow, BorrowMut, Cow},
-    fmt::{self, Pointer},
-    ops::{Deref, DerefMut},
-};
+use std::{borrow::Cow, fmt, ops::Deref};
 
 use rkyv::{
     ser::{ScratchSpace, Serializer},
@@ -43,7 +39,7 @@ impl<'a> Default for AlignedCowStr<'a> {
 impl<'a> fmt::Debug for AlignedCowStr<'a> {
     #[inline]
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        self.fmt(f)
+        self.inner.fmt(f)
     }
 }
 
@@ -102,6 +98,11 @@ impl<'a, S: ScratchSpace + Serializer + ?Sized> Serialize<S> for AlignedCowStr<'
     #[inline]
     fn serialize(&self, serializer: &mut S) -> Result<Self::Resolver, S::Error> {
         serializer.align(Self::ALIGNMENT)?;
-        ArchivedVec::<Archived<u8>>::serialize_from_slice(self.inner.as_bytes(), serializer)
+        unsafe {
+            ArchivedVec::<Archived<u8>>::serialize_copy_from_slice(
+                self.inner.as_bytes(),
+                serializer,
+            )
+        }
     }
 }

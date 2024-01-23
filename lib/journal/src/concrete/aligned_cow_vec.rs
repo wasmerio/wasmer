@@ -196,15 +196,12 @@ where
     }
 }
 
-impl<'a, T, S: ScratchSpace + Serializer + ?Sized> Serialize<S> for AlignedCowVec<'a, T>
-where
-    T: 'a,
-    [T]: ToOwned,
-    T: Serialize<S>,
-{
+impl<'a, S: ScratchSpace + Serializer + ?Sized> Serialize<S> for AlignedCowVec<'a, u8> {
     #[inline]
     fn serialize(&self, serializer: &mut S) -> Result<Self::Resolver, S::Error> {
         serializer.align(Self::ALIGNMENT)?;
-        ArchivedVec::<Archived<T>>::serialize_from_slice(self.as_slice(), serializer)
+        unsafe {
+            ArchivedVec::<Archived<u8>>::serialize_copy_from_slice(self.as_slice(), serializer)
+        }
     }
 }
