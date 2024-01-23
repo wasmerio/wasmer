@@ -224,22 +224,83 @@
 <a href="#224" id="224">224</a>
 <a href="#225" id="225">225</a>
 <a href="#226" id="226">226</a>
+<a href="#227" id="227">227</a>
+<a href="#228" id="228">228</a>
+<a href="#229" id="229">229</a>
+<a href="#230" id="230">230</a>
+<a href="#231" id="231">231</a>
+<a href="#232" id="232">232</a>
+<a href="#233" id="233">233</a>
+<a href="#234" id="234">234</a>
+<a href="#235" id="235">235</a>
+<a href="#236" id="236">236</a>
+<a href="#237" id="237">237</a>
+<a href="#238" id="238">238</a>
+<a href="#239" id="239">239</a>
+<a href="#240" id="240">240</a>
+<a href="#241" id="241">241</a>
+<a href="#242" id="242">242</a>
+<a href="#243" id="243">243</a>
+<a href="#244" id="244">244</a>
+<a href="#245" id="245">245</a>
+<a href="#246" id="246">246</a>
+<a href="#247" id="247">247</a>
+<a href="#248" id="248">248</a>
+<a href="#249" id="249">249</a>
+<a href="#250" id="250">250</a>
+<a href="#251" id="251">251</a>
+<a href="#252" id="252">252</a>
+<a href="#253" id="253">253</a>
+<a href="#254" id="254">254</a>
+<a href="#255" id="255">255</a>
+<a href="#256" id="256">256</a>
+<a href="#257" id="257">257</a>
+<a href="#258" id="258">258</a>
+<a href="#259" id="259">259</a>
+<a href="#260" id="260">260</a>
+<a href="#261" id="261">261</a>
+<a href="#262" id="262">262</a>
+<a href="#263" id="263">263</a>
+<a href="#264" id="264">264</a>
+<a href="#265" id="265">265</a>
+<a href="#266" id="266">266</a>
+<a href="#267" id="267">267</a>
+<a href="#268" id="268">268</a>
+<a href="#269" id="269">269</a>
+<a href="#270" id="270">270</a>
+<a href="#271" id="271">271</a>
+<a href="#272" id="272">272</a>
+<a href="#273" id="273">273</a>
+<a href="#274" id="274">274</a>
+<a href="#275" id="275">275</a>
+<a href="#276" id="276">276</a>
+<a href="#277" id="277">277</a>
+<a href="#278" id="278">278</a>
+<a href="#279" id="279">279</a>
+<a href="#280" id="280">280</a>
+<a href="#281" id="281">281</a>
+<a href="#282" id="282">282</a>
+<a href="#283" id="283">283</a>
+<a href="#284" id="284">284</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>dashmap::DashMap;
 <span class="kw">use </span>fnv::FnvBuildHasher;
+<span class="kw">use </span>std::sync::atomic::AtomicBool;
 <span class="kw">use </span>std::sync::Arc;
 <span class="kw">use </span>std::thread::{current, park, park_timeout, Thread};
 <span class="kw">use </span>std::time::Duration;
 <span class="kw">use </span>thiserror::Error;
 
 <span class="doccomment">/// Error that can occur during wait/notify calls.
-</span><span class="attr">#[derive(Debug, Error)]
 </span><span class="comment">// Non-exhaustive to allow for future variants without breaking changes!
-</span><span class="attr">#[non_exhaustive]
+</span><span class="attr">#[derive(Debug, Error)]
+#[non_exhaustive]
 </span><span class="kw">pub enum </span>WaiterError {
     <span class="doccomment">/// Wait/Notify is not implemented for this memory
     </span>Unimplemented,
     <span class="doccomment">/// To many waiter for an address
     </span>TooManyWaiters,
+    <span class="doccomment">/// Atomic operations are disabled.
+    </span>AtomicsDisabled,
 }
 
 <span class="kw">impl </span>std::fmt::Display <span class="kw">for </span>WaiterError {
@@ -257,12 +318,15 @@
 
 <span class="attr">#[derive(Debug)]
 </span><span class="kw">struct </span>NotifyWaiter {
-    <span class="kw">pub </span>thread: Thread,
-    <span class="kw">pub </span>notified: bool,
+    thread: Thread,
+    notified: bool,
 }
+
 <span class="attr">#[derive(Debug, Default)]
 </span><span class="kw">struct </span>NotifyMap {
-    <span class="kw">pub </span>map: DashMap&lt;NotifyLocation, Vec&lt;NotifyWaiter&gt;, FnvBuildHasher&gt;,
+    <span class="doccomment">/// If set to true, all waits will fail with an error.
+    </span>closed: AtomicBool,
+    map: DashMap&lt;NotifyLocation, Vec&lt;NotifyWaiter&gt;, FnvBuildHasher&gt;,
 }
 
 <span class="doccomment">/// HashMap of Waiters for the Thread/Notify opcodes
@@ -270,6 +334,14 @@
 </span><span class="kw">pub struct </span>ThreadConditions {
     inner: Arc&lt;NotifyMap&gt;, <span class="comment">// The Hasmap with the Notify for the Notify/wait opcodes
 </span>}
+
+<span class="kw">impl </span>Clone <span class="kw">for </span>ThreadConditions {
+    <span class="kw">fn </span>clone(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="self">Self </span>{
+        <span class="self">Self </span>{
+            inner: Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.inner),
+        }
+    }
+}
 
 <span class="kw">impl </span>ThreadConditions {
     <span class="doccomment">/// Create a new ThreadConditions
@@ -294,6 +366,10 @@
         dst: NotifyLocation,
         timeout: <span class="prelude-ty">Option</span>&lt;Duration&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;u32, WaiterError&gt; {
+        <span class="kw">if </span><span class="self">self</span>.inner.closed.load(std::sync::atomic::Ordering::Acquire) {
+            <span class="kw">return </span><span class="prelude-val">Err</span>(WaiterError::AtomicsDisabled);
+        }
+
         <span class="comment">// fetch the notifier
         </span><span class="kw">if </span><span class="self">self</span>.inner.map.len() &gt;= <span class="number">1 </span>&lt;&lt; <span class="number">32 </span>{
             <span class="kw">return </span><span class="prelude-val">Err</span>(WaiterError::TooManyWaiters);
@@ -337,7 +413,7 @@
         <span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">mut </span>v) = <span class="self">self</span>.inner.map.get_mut(<span class="kw-2">&amp;</span>dst) {
             <span class="kw">for </span>waiter <span class="kw">in </span>v.value_mut() {
                 <span class="kw">if </span>count_token &lt; count &amp;&amp; !waiter.notified {
-                    waiter.notified = <span class="bool-val">true</span>; <span class="comment">// mark as was waiked up
+                    waiter.notified = <span class="bool-val">true</span>; <span class="comment">// waiter was notified, not just an elapsed timeout
                     </span>waiter.thread.unpark(); <span class="comment">// wakeup!
                     </span>count_token += <span class="number">1</span>;
                 }
@@ -345,13 +421,53 @@
         }
         count_token
     }
+
+    <span class="doccomment">/// Wake all the waiters, *without* marking them as notified.
+    ///
+    /// Useful on shutdown to resume execution in all waiters.
+    </span><span class="kw">pub fn </span>wake_all_atomic_waiters(<span class="kw-2">&amp;</span><span class="self">self</span>) {
+        <span class="kw">for </span><span class="kw-2">mut </span>item <span class="kw">in </span><span class="self">self</span>.inner.map.iter_mut() {
+            <span class="kw">for </span>waiter <span class="kw">in </span>item.value_mut() {
+                waiter.thread.unpark();
+            }
+        }
+    }
+
+    <span class="doccomment">/// Disable the use of atomics, leading to all atomic waits failing with
+    /// an error, which leads to a Webassembly trap.
+    ///
+    /// Useful for force-closing instances that keep waiting on atomics.
+    </span><span class="kw">pub fn </span>disable_atomics(<span class="kw-2">&amp;</span><span class="self">self</span>) {
+        <span class="self">self</span>.inner
+            .closed
+            .store(<span class="bool-val">true</span>, std::sync::atomic::Ordering::Release);
+        <span class="self">self</span>.wake_all_atomic_waiters();
+    }
+
+    <span class="doccomment">/// Get a weak handle to this `ThreadConditions` instance.
+    ///
+    /// See [`ThreadConditionsHandle`] for more information.
+    </span><span class="kw">pub fn </span>downgrade(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; ThreadConditionsHandle {
+        ThreadConditionsHandle {
+            inner: Arc::downgrade(<span class="kw-2">&amp;</span><span class="self">self</span>.inner),
+        }
+    }
 }
 
-<span class="kw">impl </span>Clone <span class="kw">for </span>ThreadConditions {
-    <span class="kw">fn </span>clone(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="self">Self </span>{
-        <span class="self">Self </span>{
-            inner: <span class="self">self</span>.inner.clone(),
-        }
+<span class="doccomment">/// A weak handle to a `ThreadConditions` instance, which does not prolong its
+/// lifetime.
+///
+/// Internally holds a [`std::sync::Weak`] pointer.
+</span><span class="kw">pub struct </span>ThreadConditionsHandle {
+    inner: std::sync::Weak&lt;NotifyMap&gt;,
+}
+
+<span class="kw">impl </span>ThreadConditionsHandle {
+    <span class="doccomment">/// Attempt to upgrade this handle to a strong reference.
+    ///
+    /// Returns `None` if the original `ThreadConditions` instance has been dropped.
+    </span><span class="kw">pub fn </span>upgrade(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;ThreadConditions&gt; {
+        <span class="self">self</span>.inner.upgrade().map(|inner| ThreadConditions { inner })
     }
 }
 

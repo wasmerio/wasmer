@@ -262,6 +262,29 @@
 <a href="#262" id="262">262</a>
 <a href="#263" id="263">263</a>
 <a href="#264" id="264">264</a>
+<a href="#265" id="265">265</a>
+<a href="#266" id="266">266</a>
+<a href="#267" id="267">267</a>
+<a href="#268" id="268">268</a>
+<a href="#269" id="269">269</a>
+<a href="#270" id="270">270</a>
+<a href="#271" id="271">271</a>
+<a href="#272" id="272">272</a>
+<a href="#273" id="273">273</a>
+<a href="#274" id="274">274</a>
+<a href="#275" id="275">275</a>
+<a href="#276" id="276">276</a>
+<a href="#277" id="277">277</a>
+<a href="#278" id="278">278</a>
+<a href="#279" id="279">279</a>
+<a href="#280" id="280">280</a>
+<a href="#281" id="281">281</a>
+<a href="#282" id="282">282</a>
+<a href="#283" id="283">283</a>
+<a href="#284" id="284">284</a>
+<a href="#285" id="285">285</a>
+<a href="#286" id="286">286</a>
+<a href="#287" id="287">287</a>
 </pre></div><pre class="rust"><code><span class="attr">#[cfg(feature = <span class="string">&quot;js&quot;</span>)]
 </span><span class="kw">use </span><span class="kw">crate</span>::js::trap::Trap;
 <span class="attr">#[cfg(feature = <span class="string">&quot;jsc&quot;</span>)]
@@ -523,6 +546,29 @@
             <span class="comment">// The error is already a RuntimeError, we return it directly
             </span><span class="prelude-val">Ok</span>(runtime_error) =&gt; <span class="kw-2">*</span>runtime_error,
             <span class="prelude-val">Err</span>(error) =&gt; Trap::user(error).into(),
+        }
+    }
+}
+
+<span class="doccomment">/// Error that can occur during atomic operations. (notify/wait)
+</span><span class="comment">// Non-exhaustive to allow for future variants without breaking changes!
+</span><span class="attr">#[derive(PartialEq, Eq, Debug, Error)]
+#[non_exhaustive]
+</span><span class="kw">pub enum </span>AtomicsError {
+    <span class="doccomment">/// Atomic operations are not supported by this memory.
+    </span>Unimplemented,
+    <span class="doccomment">/// To many waiter for address.
+    </span>TooManyWaiters,
+    <span class="doccomment">/// Atomic operations are disabled.
+    </span>AtomicsDisabled,
+}
+
+<span class="kw">impl </span>std::fmt::Display <span class="kw">for </span>AtomicsError {
+    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>std::fmt::Formatter&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; std::fmt::Result {
+        <span class="kw">match </span><span class="self">self </span>{
+            <span class="self">Self</span>::Unimplemented =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;Atomic operations are not supported&quot;</span>),
+            <span class="self">Self</span>::TooManyWaiters =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;Too many waiters for address&quot;</span>),
+            <span class="self">Self</span>::AtomicsDisabled =&gt; <span class="macro">write!</span>(f, <span class="string">&quot;Atomic operations are disabled&quot;</span>),
         }
     }
 }

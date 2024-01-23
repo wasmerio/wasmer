@@ -1533,6 +1533,7 @@
 <a href="#1533" id="1533">1533</a>
 <a href="#1534" id="1534">1534</a>
 <a href="#1535" id="1535">1535</a>
+<a href="#1536" id="1536">1536</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file contains code from external sources.
 // Attributions: https://github.com/wasmerio/wasmer/blob/master/ATTRIBUTIONS.md
 
@@ -2347,12 +2348,13 @@
         </span>} <span class="kw">else </span>{
             <span class="prelude-val">Some</span>(std::time::Duration::from_nanos(timeout <span class="kw">as </span>u64))
         };
-        <span class="kw">let </span>waiter = memory.do_wait(location, timeout);
-        <span class="kw">if </span>waiter.is_err() {
-            <span class="comment">// ret is None if there is more than 2^32 waiter in queue or some other error
-            </span><span class="kw">return </span><span class="prelude-val">Err</span>(Trap::lib(TrapCode::TableAccessOutOfBounds));
+        <span class="kw">match </span>memory.do_wait(location, timeout) {
+            <span class="prelude-val">Ok</span>(count) =&gt; <span class="prelude-val">Ok</span>(count),
+            <span class="prelude-val">Err</span>(_err) =&gt; {
+                <span class="comment">// ret is None if there is more than 2^32 waiter in queue or some other error
+                </span><span class="prelude-val">Err</span>(Trap::lib(TrapCode::TableAccessOutOfBounds))
+            }
         }
-        <span class="prelude-val">Ok</span>(waiter.unwrap())
     }
 
     <span class="doccomment">/// Perform an Atomic.Wait32

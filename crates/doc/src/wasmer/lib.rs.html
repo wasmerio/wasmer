@@ -504,6 +504,8 @@
 <a href="#504" id="504">504</a>
 <a href="#505" id="505">505</a>
 <a href="#506" id="506">506</a>
+<a href="#507" id="507">507</a>
+<a href="#508" id="508">508</a>
 </pre></div><pre class="rust"><code><span class="attr">#![doc(
     html_logo_url = <span class="string">&quot;https://github.com/wasmerio.png?size=200&quot;</span>,
     html_favicon_url = <span class="string">&quot;https://wasmer.io/images/icons/favicon-32x32.png&quot;
@@ -969,10 +971,12 @@
 <span class="attr">#[cfg(feature = <span class="string">&quot;jsc&quot;</span>)]
 </span><span class="kw">pub use </span>jsc::<span class="kw-2">*</span>;
 
-<span class="kw">pub use </span><span class="kw">crate</span>::externals::{Extern, Function, Global, HostFunction, Memory, MemoryView, Table};
+<span class="kw">pub use </span><span class="kw">crate</span>::externals::{
+    Extern, Function, Global, HostFunction, Memory, MemoryLocation, MemoryView, SharedMemory, Table,
+};
 <span class="kw">pub use </span>access::WasmSliceAccess;
 <span class="kw">pub use </span>engine::{AsEngineRef, Engine, EngineRef};
-<span class="kw">pub use </span>errors::{InstantiationError, LinkError, RuntimeError};
+<span class="kw">pub use </span>errors::{AtomicsError, InstantiationError, LinkError, RuntimeError};
 <span class="kw">pub use </span>exports::{ExportError, Exportable, Exports, ExportsIterator};
 <span class="kw">pub use </span>extern_ref::ExternRef;
 <span class="kw">pub use </span>function_env::{FunctionEnv, FunctionEnvMut};

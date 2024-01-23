@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":["Memory","MemoryBuffer"]};
+window.SIDEBAR_ITEMS = {"struct":["Memory","MemoryBuffer","MemoryLocation","SharedMemory"],"trait":["SharedMemoryOps"]};
