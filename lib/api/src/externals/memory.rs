@@ -239,24 +239,24 @@ impl From<u32> for MemoryLocation {
     }
 }
 
-/// See [`SharedMemoryHandle`].
+/// See [`SharedMemory`].
 pub(crate) trait SharedMemoryOps {
-    /// See [`SharedMemoryHandle::disable_atomics`].
+    /// See [`SharedMemory::disable_atomics`].
     fn disable_atomics(&self) -> Result<(), MemoryError> {
         Err(MemoryError::AtomicsNotSupported)
     }
 
-    /// See [`SharedMemoryHandle::wake_all_atomic_waiters`].
+    /// See [`SharedMemory::wake_all_atomic_waiters`].
     fn wake_all_atomic_waiters(&self) -> Result<(), MemoryError> {
         Err(MemoryError::AtomicsNotSupported)
     }
 
-    /// See [`SharedMemoryHandle::notify`].
+    /// See [`SharedMemory::notify`].
     fn notify(&self, _dst: MemoryLocation, _count: u32) -> Result<u32, AtomicsError> {
         Err(AtomicsError::Unimplemented)
     }
 
-    /// See [`SharedMemoryHandle::wait`].
+    /// See [`SharedMemory::wait`].
     fn wait(
         &self,
         _dst: MemoryLocation,
@@ -280,7 +280,7 @@ pub struct SharedMemory {
 
 impl std::fmt::Debug for SharedMemory {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("SharedMemoryHandle").finish()
+        f.debug_struct("SharedMemory").finish()
     }
 }
 
@@ -291,6 +291,7 @@ impl SharedMemory {
     }
 
     /// Create a new handle from ops.
+    #[allow(unused)]
     pub(crate) fn new(memory: Memory, ops: impl SharedMemoryOps + Send + Sync + 'static) -> Self {
         Self {
             memory,
