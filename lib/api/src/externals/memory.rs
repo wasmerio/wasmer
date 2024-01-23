@@ -268,7 +268,7 @@ pub(crate) trait SharedMemoryOps {
 
 /// A handle that exposes operations only relevant for shared memories.
 ///
-/// Enables interaction independent from the [`Store`], and thus allows calling
+/// Enables interaction independent from the [`crate::Store`], and thus allows calling
 /// some methods an instane is running.
 ///
 /// **NOTE**: Not all methods are supported by all backends.
