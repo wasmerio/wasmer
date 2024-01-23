@@ -81,11 +81,11 @@ impl JournalFileSystemBuilder {
     // Opens the journal and copies all its contents into
     // and memory file system
     pub fn build(self) -> anyhow::Result<JournalFileSystem> {
-        let journal = LogFileJournal::new(&self.path)?;
-
         let file = File::open(&self.path)?;
-        let mem_fs = mem_fs::FileSystem::default()
-            .with_backing_offload(OffloadBackingStore::from_file(&file))?;
+        let journal = LogFileJournal::from_file(file.try_clone()?)?;
+        let backing_store = journal.backing_store();
+
+        let mem_fs = mem_fs::FileSystem::default().with_backing_offload(backing_store)?;
         let state = MutexState {
             inner: Mutex::new(State {
                 handle: tokio::runtime::Handle::current(),

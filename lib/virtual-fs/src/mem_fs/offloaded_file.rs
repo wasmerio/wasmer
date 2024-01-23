@@ -101,10 +101,15 @@ impl OffloadBackingStore {
         }
     }
 
-    pub fn from_file(filie: &File) -> Self {
-        let file = filie.try_clone().unwrap();
+    pub fn from_file(file: &File) -> Self {
+        let file = file.try_clone().unwrap();
         let buffer = OwnedBuffer::from_file(&file).unwrap();
         Self::new(buffer, Some(file))
+    }
+
+    pub fn owned_buffer(&self) -> OwnedBuffer {
+        let guard = self.state.lock().unwrap();
+        guard.mmap_offload.clone()
     }
 
     fn lock(&self) -> MutexGuard<'_, OffloadBackingStoreState> {
@@ -118,6 +123,7 @@ pub struct OffloadedFile {
     #[allow(dead_code)]
     limiter: Option<DynFsMemoryLimiter>,
     extents: Vec<FileExtent>,
+    size: u64,
 }
 
 pub enum OffloadWrite<'a> {
@@ -140,6 +146,7 @@ impl OffloadedFile {
             backing,
             limiter,
             extents: Vec::new(),
+            size: 0,
         }
     }
 
@@ -261,31 +268,52 @@ impl OffloadedFile {
                 }
             }
         };
-        split_extents(extent_offset);
-        split_extents(extent_offset + data_len);
 
-        // Now we delete all the extents that exist between the
-        // range that we are about to insert
-        let mut index = 0usize;
-        while index < self.extents.len() {
-            let extent = &self.extents[index];
-            if extent_offset >= extent.size() {
-                extent_offset -= extent.size();
-                index += 1;
-                continue;
-            } else {
-                break;
+        // If the extent is below the actual size of the file then we need to split it
+        let mut index = if extent_offset < self.size {
+            split_extents(extent_offset);
+            split_extents(extent_offset + data_len);
+
+            // Now we delete all the extents that exist between the
+            // range that we are about to insert
+            let mut index = 0usize;
+            while index < self.extents.len() {
+                let extent = &self.extents[index];
+                if extent_offset >= extent.size() {
+                    extent_offset -= extent.size();
+                    index += 1;
+                    continue;
+                } else {
+                    break;
+                }
             }
-        }
-        while index < self.extents.len() {
-            let extent = &self.extents[index];
-            if data_len < extent.size() {
-                break;
+            while index < self.extents.len() {
+                let extent = &self.extents[index];
+                if data_len < extent.size() {
+                    break;
+                }
+                data_len -= extent.size();
+                self.extents.remove(index);
             }
-            data_len -= extent.size();
-            self.extents.remove(index);
+            index
+        } else {
+            self.extents.len()
+        };
+
+        // If we have a gap that needs to be filled then do so
+        if extent_offset > self.size {
+            self.extents.insert(
+                index,
+                FileExtent::RepeatingBytes {
+                    value: 0,
+                    cnt: extent_offset - self.size,
+                },
+            );
+            self.size = extent_offset;
+            index += 1;
         }
 
+        // Insert the extent into the buffer
         match data {
             OffloadWrite::MmapOffset { offset, size } => {
                 self.extents
@@ -316,6 +344,7 @@ impl OffloadedFile {
                 self.extents.insert(index, new_extent);
             }
         }
+        self.size = extent_offset + data_len;
 
         // Update the cursor
         *cursor += data.len() as u64;
@@ -343,14 +372,16 @@ impl OffloadedFile {
                 self.extents.pop();
             }
         }
+        self.size = new_len;
     }
 
     pub fn len(&self) -> u64 {
-        self.extents.iter().map(FileExtent::size).sum()
+        self.size
     }
 
     pub fn truncate(&mut self) {
         self.extents.clear();
+        self.size = 0;
     }
 }
 

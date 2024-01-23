@@ -6297,6 +6297,7 @@ dependencies = [
  "thiserror",
  "tracing",
  "tracing-test",
+ "virtual-fs",
  "virtual-net 0.6.2",
  "wasmer",
  "wasmer-wasix-types",

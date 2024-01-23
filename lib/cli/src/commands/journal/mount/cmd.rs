@@ -25,21 +25,21 @@ impl AsyncCliCommand for CmdJournalMount {
 
 impl CmdJournalMount {
     async fn run(self) -> Result<(), anyhow::Error> {
+        // First we unmount any existing file system on this path
+        std::process::Command::new("/bin/umount")
+            .arg(self.mount_path.to_string_lossy().as_ref())
+            .stderr(Stdio::null())
+            .stdout(Stdio::null())
+            .spawn()?
+            .wait()
+            .ok();
+
         let fs = JournalFileSystemBuilder::new(&self.journal_path)
             .with_fd_seed(WasiFdSeed::default())
             .with_progress_bar(true)
             .build()?;
 
         tokio::task::spawn_blocking(move || {
-            // First we unmount any existing file system on this path
-            std::process::Command::new("/bin/umount")
-                .arg(self.mount_path.to_string_lossy().as_ref())
-                .stderr(Stdio::null())
-                .stdout(Stdio::null())
-                .spawn()?
-                .wait()
-                .ok();
-
             // Mounts the journal file system at a path
             fuse::mount(fs, &self.mount_path, &[])?;
             Ok(())

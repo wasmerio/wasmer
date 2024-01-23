@@ -17,6 +17,7 @@ log-file = [ "shared-buffer" ]
 wasmer = { default-features = false, path = "../api", version = "=4.2.5" }
 wasmer-wasix-types = { path = "../wasi-types", version = "0.18.0", features = [ "enable-serde" ] }
 virtual-net = { path = "../virtual-net", version = "0.6.2", default-features = false, features = ["rkyv"] }
+virtual-fs = { path = "../virtual-fs" }
 
 shared-buffer = { workspace = true, optional = true }
 thiserror = "1"

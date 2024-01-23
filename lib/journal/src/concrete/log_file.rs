@@ -10,6 +10,7 @@ use std::{
     path::Path,
     sync::{Arc, Mutex},
 };
+use virtual_fs::mem_fs::OffloadBackingStore;
 
 use super::*;
 
@@ -46,11 +47,16 @@ pub struct LogFileJournalRx {
     tx: LogFileJournalTx,
     buffer_pos: Mutex<usize>,
     buffer: OwnedBuffer,
+    store: OffloadBackingStore,
 }
 
 impl LogFileJournalRx {
     pub fn owned_buffer(&self) -> OwnedBuffer {
-        self.buffer.clone()
+        self.store.owned_buffer().clone()
+    }
+
+    pub fn backing_store(&self) -> OffloadBackingStore {
+        self.store.clone()
     }
 }
 
@@ -59,7 +65,8 @@ impl LogFileJournalTx {
         let state = self.state.lock().unwrap();
         let file = state.file.try_clone()?;
 
-        let buffer = OwnedBuffer::from_file(&file)?;
+        let store = OffloadBackingStore::from_file(&file);
+        let buffer = store.owned_buffer();
 
         // If the buffer exists we valid the magic number
         let mut buffer_pos = 0;
@@ -83,6 +90,7 @@ impl LogFileJournalTx {
             tx: self.clone(),
             buffer_pos: Mutex::new(buffer_pos),
             buffer,
+            store,
         })
     }
 }
@@ -99,6 +107,10 @@ impl LogFileJournal {
 
     pub fn owned_buffer(&self) -> OwnedBuffer {
         self.rx.owned_buffer()
+    }
+
+    pub fn backing_store(&self) -> OffloadBackingStore {
+        self.rx.backing_store()
     }
 
     pub fn from_file(mut file: std::fs::File) -> anyhow::Result<Self> {
