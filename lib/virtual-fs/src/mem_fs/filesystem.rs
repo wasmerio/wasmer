@@ -1,9 +1,10 @@
 //! This module contains the [`FileSystem`] type itself.
 
+use self::offloaded_file::OffloadBackingStore;
+
 use super::*;
 use crate::{DirEntry, FileSystem as _, FileType, FsError, Metadata, OpenOptions, ReadDir, Result};
 use futures::future::BoxFuture;
-use shared_buffer::OwnedBuffer;
 use slab::Slab;
 use std::collections::VecDeque;
 use std::convert::identity;
@@ -37,9 +38,9 @@ impl FileSystem {
     /// data stored within the journals does not need to be copied
     /// into memory, for very large journals this would otherwise be
     /// a problem.
-    pub fn with_mmap_offload(self, buffer: OwnedBuffer) -> Result<Self> {
+    pub fn with_backing_offload(self, buffer: OffloadBackingStore) -> Result<Self> {
         let mut lock = self.inner.write().map_err(|_| FsError::Lock)?;
-        lock.mmap_offload.replace(buffer);
+        lock.backing_offload.replace(buffer);
         drop(lock);
         Ok(self)
     }
@@ -634,7 +635,7 @@ impl fmt::Debug for FileSystem {
 /// indexed by their respective `Inode` in a slab.
 pub(super) struct FileSystemInner {
     pub(super) storage: Slab<Node>,
-    pub(super) mmap_offload: Option<OwnedBuffer>,
+    pub(super) backing_offload: Option<OffloadBackingStore>,
     pub(super) limiter: Option<crate::limiter::DynFsMemoryLimiter>,
 }
 
@@ -1034,7 +1035,7 @@ impl Default for FileSystemInner {
 
         Self {
             storage: slab,
-            mmap_offload: None,
+            backing_offload: None,
             limiter: None,
         }
     }

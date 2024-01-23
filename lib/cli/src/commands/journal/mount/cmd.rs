@@ -4,7 +4,7 @@ use clap::Parser;
 use wasmer_edge_cli::cmd::AsyncCliCommand;
 use wasmer_wasix::fs::WasiFdSeed;
 
-use super::fs::JournalFileSystem;
+use super::fs::JournalFileSystemBuilder;
 
 /// Mounts a journal as a file system on the local machine
 #[derive(Debug, Parser)]
@@ -25,8 +25,11 @@ impl AsyncCliCommand for CmdJournalMount {
 
 impl CmdJournalMount {
     async fn run(self) -> Result<(), anyhow::Error> {
-        let fs: JournalFileSystem =
-            JournalFileSystem::new(&self.journal_path, WasiFdSeed::default())?;
+        let fs = JournalFileSystemBuilder::new(&self.journal_path)
+            .with_fd_seed(WasiFdSeed::default())
+            .with_progress_bar(true)
+            .build()?;
+
         tokio::task::spawn_blocking(move || {
             // First we unmount any existing file system on this path
             std::process::Command::new("/bin/umount")

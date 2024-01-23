@@ -79,9 +79,9 @@ tower-http = { version = "0.4.0", features = [
 ], optional = true }
 tower = { version = "0.4.13", features = ["make", "util"], optional = true }
 url = "2.3.1"
-rkyv = { version = "0.7.40", features = ["indexmap", "validation", "strict"] }
+rkyv = { workspace = true }
 bytecheck = "0.6.8"
-shared-buffer = "0.1"
+shared-buffer = { workspace = true }
 petgraph = "0.6.3"
 base64 = "0.21"
 lz4_flex = { version = "0.11" }

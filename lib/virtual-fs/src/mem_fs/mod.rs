@@ -6,6 +6,7 @@ mod stdio;
 
 use file::{File, FileHandle, ReadOnlyFile};
 pub use filesystem::FileSystem;
+pub use offloaded_file::OffloadBackingStore;
 pub use stdio::{Stderr, Stdin, Stdout};
 
 use crate::Metadata;

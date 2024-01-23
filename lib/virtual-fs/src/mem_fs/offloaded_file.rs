@@ -1,6 +1,12 @@
 use bytes::Bytes;
 use shared_buffer::OwnedBuffer;
-use std::{cmp, io};
+use std::{
+    cmp,
+    fs::File,
+    io,
+    ops::Range,
+    sync::{Arc, Mutex, MutexGuard},
+};
 
 use crate::limiter::DynFsMemoryLimiter;
 
@@ -32,17 +38,106 @@ impl FileExtent {
 }
 
 #[derive(Debug)]
-pub struct OffloadedFile {
+struct OffloadBackingStoreState {
+    mmap_file: Option<File>,
     mmap_offload: OwnedBuffer,
+}
+
+impl OffloadBackingStoreState {
+    fn get_slice(&mut self, range: Range<u64>) -> io::Result<&[u8]> {
+        let offset = range.start;
+        let size = match range.end {
+            u64::MAX => {
+                let len = self.mmap_offload.len() as u64;
+                if len < offset {
+                    tracing::trace!("range out of bounds {} vs {}", len, offset);
+                    return Err(io::ErrorKind::UnexpectedEof.into());
+                }
+                len - offset
+            }
+            end => end - offset,
+        };
+
+        let end = offset + size;
+        if end > self.mmap_offload.len() as u64 {
+            let mmap_file = match self.mmap_file.as_ref() {
+                Some(a) => a,
+                None => {
+                    tracing::trace!(
+                        "mmap buffer out of bounds and no mmap file to reload {} vs {}",
+                        end,
+                        self.mmap_offload.len()
+                    );
+                    return Err(io::ErrorKind::UnexpectedEof.into());
+                }
+            };
+            self.mmap_offload = OwnedBuffer::from_file(mmap_file)
+                .map_err(|err| io::Error::new(io::ErrorKind::Other, err))?;
+            if end > self.mmap_offload.len() as u64 {
+                tracing::trace!(
+                    "mmap buffer out of bounds {} vs {}",
+                    end,
+                    self.mmap_offload.len()
+                );
+                return Err(io::ErrorKind::UnexpectedEof.into());
+            }
+        }
+        Ok(&self.mmap_offload[offset as usize..end as usize])
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct OffloadBackingStore {
+    state: Arc<Mutex<OffloadBackingStoreState>>,
+}
+
+impl OffloadBackingStore {
+    pub fn new(mmap_offload: OwnedBuffer, mmap_file: Option<File>) -> Self {
+        Self {
+            state: Arc::new(Mutex::new(OffloadBackingStoreState {
+                mmap_file,
+                mmap_offload,
+            })),
+        }
+    }
+
+    pub fn from_file(filie: &File) -> Self {
+        let file = filie.try_clone().unwrap();
+        let buffer = OwnedBuffer::from_file(&file).unwrap();
+        Self::new(buffer, Some(file))
+    }
+
+    fn lock(&self) -> MutexGuard<'_, OffloadBackingStoreState> {
+        self.state.lock().unwrap()
+    }
+}
+
+#[derive(Debug)]
+pub struct OffloadedFile {
+    backing: OffloadBackingStore,
     #[allow(dead_code)]
     limiter: Option<DynFsMemoryLimiter>,
     extents: Vec<FileExtent>,
 }
 
+pub enum OffloadWrite<'a> {
+    MmapOffset { offset: u64, size: u64 },
+    Buffer(&'a [u8]),
+}
+
+impl<'a> OffloadWrite<'a> {
+    fn len(&self) -> usize {
+        match self {
+            OffloadWrite::MmapOffset { size, .. } => *size as usize,
+            OffloadWrite::Buffer(data) => data.len(),
+        }
+    }
+}
+
 impl OffloadedFile {
-    pub fn new(limiter: Option<DynFsMemoryLimiter>, buffer: OwnedBuffer) -> Self {
+    pub fn new(limiter: Option<DynFsMemoryLimiter>, backing: OffloadBackingStore) -> Self {
         Self {
-            mmap_offload: buffer,
+            backing,
             limiter,
             extents: Vec::new(),
         }
@@ -94,9 +189,9 @@ impl OffloadedFile {
                     offset: mmap_offset,
                     size: extent_size,
                 } => {
+                    let mut backing = self.backing.lock();
                     let mmap_offset = mmap_offset + extent_offset;
-                    let data = &self.mmap_offload.as_slice()[mmap_offset as usize..];
-                    let data = &data[..(*extent_size - extent_offset) as usize];
+                    let data = backing.get_slice(mmap_offset..(mmap_offset + *extent_size))?;
                     let data_len = cmp::min(buf.len(), data.len());
                     buf[..data_len].copy_from_slice(&data[..data_len]);
                     data_len
@@ -124,7 +219,7 @@ impl OffloadedFile {
         Ok((*cursor - cursor_start) as usize)
     }
 
-    pub fn write(&mut self, data: &[u8], cursor: &mut u64) -> io::Result<usize> {
+    pub fn write(&mut self, data: OffloadWrite<'_>, cursor: &mut u64) -> io::Result<usize> {
         let mut extent_offset = *cursor;
         let mut data_len = data.len() as u64;
 
@@ -191,25 +286,36 @@ impl OffloadedFile {
             self.extents.remove(index);
         }
 
-        // Finally we add the new extent
-        let data_start = data.as_ptr() as u64;
-        let data_end = data_start + data.len() as u64;
-        let mmap_start = self.mmap_offload.as_slice().as_ptr() as u64;
-        let mmap_end = mmap_start + self.mmap_offload.as_slice().len() as u64;
+        match data {
+            OffloadWrite::MmapOffset { offset, size } => {
+                self.extents
+                    .insert(index, FileExtent::MmapOffload { offset, size });
+            }
+            OffloadWrite::Buffer(data) => {
+                // Finally we add the new extent
+                let data_start = data.as_ptr() as u64;
+                let data_end = data_start + data.len() as u64;
+                let mut backing = self.backing.lock();
+                let backing_data = backing.get_slice(0u64..u64::MAX)?;
 
-        // If the data is within the mmap buffer then we use a extent range
-        // to represent the data, otherwise we fall back on copying the data
-        let new_extent = if data_start >= mmap_start && data_end <= mmap_end {
-            FileExtent::MmapOffload {
-                offset: data_start - mmap_start,
-                size: data_end - data_start,
+                let mmap_start = backing_data.as_ptr() as u64;
+                let mmap_end = mmap_start + backing_data.len() as u64;
+
+                // If the data is within the mmap buffer then we use a extent range
+                // to represent the data, otherwise we fall back on copying the data
+                let new_extent = if data_start >= mmap_start && data_end <= mmap_end {
+                    FileExtent::MmapOffload {
+                        offset: data_start - mmap_start,
+                        size: data_end - data_start,
+                    }
+                } else {
+                    FileExtent::InMemory {
+                        data: data.to_vec().into(),
+                    }
+                };
+                self.extents.insert(index, new_extent);
             }
-        } else {
-            FileExtent::InMemory {
-                data: data.to_vec().into(),
-            }
-        };
-        self.extents.insert(index, new_extent);
+        }
 
         // Update the cursor
         *cursor += data.len() as u64;
@@ -258,11 +364,12 @@ mod tests {
         let buffer = OwnedBuffer::from_bytes(std::iter::repeat(12u8).take(100).collect::<Vec<_>>());
         let test_data2 = buffer.clone();
 
-        let mut file = OffloadedFile::new(None, buffer);
+        let backing = OffloadBackingStore::new(buffer, None);
+        let mut file = OffloadedFile::new(None, backing);
 
         let mut cursor = 0u64;
         let test_data = std::iter::repeat(56u8).take(100).collect::<Vec<_>>();
-        file.write(&test_data, &mut cursor)?;
+        file.write(OffloadWrite::Buffer(&test_data), &mut cursor)?;
 
         assert_eq!(file.len(), 100);
 
@@ -275,7 +382,7 @@ mod tests {
         );
 
         cursor = 50;
-        file.write(&test_data2, &mut cursor)?;
+        file.write(OffloadWrite::Buffer(&test_data2), &mut cursor)?;
 
         assert_eq!(file.len(), 150);
 
@@ -317,7 +424,7 @@ mod tests {
 
         let mut cursor = 10u64;
         let test_data = std::iter::repeat(74u8).take(10).collect::<Vec<_>>();
-        file.write(&test_data, &mut cursor)?;
+        file.write(OffloadWrite::Buffer(&test_data), &mut cursor)?;
 
         assert_eq!(file.len(), 33);
 

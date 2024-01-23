@@ -48,6 +48,12 @@ pub struct LogFileJournalRx {
     buffer: OwnedBuffer,
 }
 
+impl LogFileJournalRx {
+    pub fn owned_buffer(&self) -> OwnedBuffer {
+        self.buffer.clone()
+    }
+}
+
 impl LogFileJournalTx {
     pub fn as_rx(&self) -> anyhow::Result<LogFileJournalRx> {
         let state = self.state.lock().unwrap();
@@ -91,6 +97,10 @@ impl LogFileJournal {
         Self::from_file(file)
     }
 
+    pub fn owned_buffer(&self) -> OwnedBuffer {
+        self.rx.owned_buffer()
+    }
+
     pub fn from_file(mut file: std::fs::File) -> anyhow::Result<Self> {
         // Move to the end of the file and write the
         // magic if one is needed
@@ -123,7 +133,7 @@ impl LogFileJournal {
 }
 
 impl WritableJournal for LogFileJournalTx {
-    fn write<'a>(&'a self, entry: JournalEntry<'a>) -> anyhow::Result<u64> {
+    fn write<'a>(&'a self, entry: JournalEntry<'a>) -> anyhow::Result<LogWriteResult> {
         tracing::debug!("journal event: {:?}", entry);
 
         let mut state = self.state.lock().unwrap();
@@ -150,17 +160,20 @@ impl WritableJournal for LogFileJournalTx {
             [a[0], a[1], b[0], b[1], b[2], b[3], b[4], b[5]]
         };
         state.file.write_all(&header_bytes)?;
-        state.file.seek(SeekFrom::End(0))?;
+        state.file.seek(SeekFrom::Start(offset_end))?;
 
         // Now write the actual data and update the offsets
-        Ok(record_size)
+        Ok(LogWriteResult {
+            record_offset: offset_start,
+            record_size,
+        })
     }
 }
 
 impl ReadableJournal for LogFileJournalRx {
     /// UNSAFE: This method uses unsafe operations to remove the need to zero
     /// the buffer before its read the log entries into it
-    fn read(&self) -> anyhow::Result<Option<JournalEntry<'_>>> {
+    fn read(&self) -> anyhow::Result<Option<LogReadResult<'_>>> {
         let mut buffer_pos = self.buffer_pos.lock().unwrap();
 
         // Get a memory reference to the data on the disk at
@@ -214,7 +227,10 @@ impl ReadableJournal for LogFileJournalRx {
             };
 
             let record = unsafe { record_type.deserialize_archive(entry)? };
-            return Ok(Some(record));
+            return Ok(Some(LogReadResult {
+                record_offset: *buffer_pos as u64,
+                record,
+            }));
         }
     }
 
@@ -225,13 +241,13 @@ impl ReadableJournal for LogFileJournalRx {
 }
 
 impl WritableJournal for LogFileJournal {
-    fn write<'a>(&'a self, entry: JournalEntry<'a>) -> anyhow::Result<u64> {
+    fn write<'a>(&'a self, entry: JournalEntry<'a>) -> anyhow::Result<LogWriteResult> {
         self.tx.write(entry)
     }
 }
 
 impl ReadableJournal for LogFileJournal {
-    fn read(&self) -> anyhow::Result<Option<JournalEntry<'_>>> {
+    fn read(&self) -> anyhow::Result<Option<LogReadResult<'_>>> {
         self.rx.read()
     }
 
@@ -275,10 +291,10 @@ mod tests {
 
         // Read the events and validate
         let journal = LogFileJournal::new(file.path()).unwrap();
-        let event1 = journal.read().unwrap();
-        let event2 = journal.read().unwrap();
-        let event3 = journal.read().unwrap();
-        let event4 = journal.read().unwrap();
+        let event1 = journal.read().unwrap().map(LogReadResult::into_inner);
+        let event2 = journal.read().unwrap().map(LogReadResult::into_inner);
+        let event3 = journal.read().unwrap().map(LogReadResult::into_inner);
+        let event4 = journal.read().unwrap().map(LogReadResult::into_inner);
 
         // Check the events
         assert_eq!(event1, Some(JournalEntry::CreatePipeV1 { fd1: 1, fd2: 2 }));
@@ -306,7 +322,7 @@ mod tests {
             .unwrap();
 
         // The event should not be visible yet unless we reload the log file
-        assert_eq!(journal.read().unwrap(), None);
+        assert_eq!(journal.read().unwrap().map(LogReadResult::into_inner), None);
 
         // Reload the load file
         let journal = LogFileJournal::new(file.path()).unwrap();
@@ -319,11 +335,11 @@ mod tests {
             })
             .unwrap();
 
-        let event1 = journal.read().unwrap();
-        let event2 = journal.read().unwrap();
-        let event3 = journal.read().unwrap();
-        let event4 = journal.read().unwrap();
-        let event5 = journal.read().unwrap();
+        let event1 = journal.read().unwrap().map(LogReadResult::into_inner);
+        let event2 = journal.read().unwrap().map(LogReadResult::into_inner);
+        let event3 = journal.read().unwrap().map(LogReadResult::into_inner);
+        let event4 = journal.read().unwrap().map(LogReadResult::into_inner);
+        let event5 = journal.read().unwrap().map(LogReadResult::into_inner);
         assert_eq!(event1, Some(JournalEntry::CreatePipeV1 { fd1: 1, fd2: 2 }));
         assert_eq!(
             event2,
@@ -350,12 +366,12 @@ mod tests {
         // Load it again
         let journal = LogFileJournal::new(file.path()).unwrap();
 
-        let event1 = journal.read().unwrap();
-        let event2 = journal.read().unwrap();
-        let event3 = journal.read().unwrap();
-        let event4 = journal.read().unwrap();
-        let event5 = journal.read().unwrap();
-        let event6 = journal.read().unwrap();
+        let event1 = journal.read().unwrap().map(LogReadResult::into_inner);
+        let event2 = journal.read().unwrap().map(LogReadResult::into_inner);
+        let event3 = journal.read().unwrap().map(LogReadResult::into_inner);
+        let event4 = journal.read().unwrap().map(LogReadResult::into_inner);
+        let event5 = journal.read().unwrap().map(LogReadResult::into_inner);
+        let event6 = journal.read().unwrap().map(LogReadResult::into_inner);
 
         tracing::info!("event1 {:?}", event1);
         tracing::info!("event2 {:?}", event2);

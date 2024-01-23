@@ -69,6 +69,8 @@ webc = { workspace = true }
 wasmer-edge-cli = { version = "=0.1.4", default-features = false }
 
 # Used by the mount command
+shared-buffer = { workspace = true, optional = true }
+rkyv = { workspace = true, optional = true }
 fuse = { version = "0.3", optional = true }
 time = { version = "0.1.45", optional = true }
 
@@ -115,7 +117,7 @@ tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt"] }
 async-trait = "0.1.68"
 tokio = { version = "1.28.1", features = ["macros", "rt-multi-thread"] }
 once_cell = "1.17.1"
-indicatif = "0.17.5"
+indicatif = "0.17.7"
 opener = "0.6.1"
 hyper = { version = "0.14.27", features = ["server"] }
 http = "0.2.9"
@@ -174,7 +176,7 @@ default = [
   "static-artifact-create",
 ]
 journal = ["wasmer-wasix/journal"]
-fuse = ["dep:fuse", "dep:time"]
+fuse = ["dep:fuse", "dep:time", "dep:shared-buffer", "dep:rkyv"]
 backend = []
 coredump = ["wasm-coredump-builder"]
 sys = ["compiler", "wasmer-vm"]

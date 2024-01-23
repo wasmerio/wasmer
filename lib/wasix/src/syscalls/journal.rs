@@ -115,7 +115,7 @@ pub unsafe fn restore_snapshot(
     let mut staging_rewind = None;
     while let Some(next) = journal.read().map_err(anyhow_err_to_runtime_err)? {
         tracing::trace!("Restoring snapshot event - {next:?}");
-        match next {
+        match next.into_inner() {
             crate::journal::JournalEntry::InitModuleV1 { wasm_hash } => {
                 journal_module_hash.replace(wasm_hash);
             }

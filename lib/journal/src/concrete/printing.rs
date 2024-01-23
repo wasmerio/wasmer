@@ -29,7 +29,7 @@ impl PrintingJournal {
 }
 
 impl ReadableJournal for PrintingJournal {
-    fn read(&self) -> anyhow::Result<Option<JournalEntry<'_>>> {
+    fn read(&self) -> anyhow::Result<Option<LogReadResult<'_>>> {
         Ok(None)
     }
 
@@ -39,14 +39,17 @@ impl ReadableJournal for PrintingJournal {
 }
 
 impl WritableJournal for PrintingJournal {
-    fn write<'a>(&'a self, entry: JournalEntry<'a>) -> anyhow::Result<u64> {
+    fn write<'a>(&'a self, entry: JournalEntry<'a>) -> anyhow::Result<LogWriteResult> {
         match self.mode {
             JournalPrintingMode::Text => println!("{}", entry),
             JournalPrintingMode::Json => {
                 println!("{}", serde_json::to_string_pretty(&entry)?)
             }
         }
-        Ok(entry.estimate_size() as u64)
+        Ok(LogWriteResult {
+            record_offset: 0,
+            record_size: entry.estimate_size() as u64,
+        })
     }
 }
 

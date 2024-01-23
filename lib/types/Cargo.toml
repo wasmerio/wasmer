@@ -18,7 +18,7 @@ serde_bytes = { version = "0.11", optional = true }
 thiserror = "1.0"
 more-asserts = "0.2"
 indexmap = { version = "1.6" }
-rkyv = { version = "0.7.40", features = ["indexmap", "validation", "strict"] }
+rkyv = { workspace = true }
 enum-iterator = "0.7.0"
 target-lexicon = { version = "0.12.2", default-features = false }
 enumset.workspace = true

@@ -6,6 +6,8 @@ use futures::future::BoxFuture;
 use tokio::io::AsyncRead;
 use tokio::io::{AsyncSeek, AsyncWrite};
 
+use self::offloaded_file::OffloadWrite;
+
 use super::*;
 use crate::limiter::TrackedVec;
 use crate::{CopyOnWriteFile, FsError, Result, VirtualFile};
@@ -420,6 +422,39 @@ impl VirtualFile for FileHandle {
             ))),
         }
     }
+
+    fn write_from_mmap(&mut self, offset: u64, size: u64) -> std::io::Result<()> {
+        if !self.writable {
+            return Err(io::Error::new(
+                io::ErrorKind::PermissionDenied,
+                format!(
+                    "the file (inode `{}) doesn't have the `write` permission",
+                    self.inode
+                ),
+            ));
+        }
+
+        let mut cursor = self.cursor;
+        {
+            let mut fs = self.filesystem.inner.write().map_err(|_| {
+                io::Error::new(io::ErrorKind::Other, "failed to acquire a write lock")
+            })?;
+
+            let inode = fs.storage.get_mut(self.inode);
+            match inode {
+                Some(Node::OffloadedFile(node)) => {
+                    node.file
+                        .write(OffloadWrite::MmapOffset { offset, size }, &mut cursor)?;
+                    node.metadata.len = node.file.len().try_into().unwrap();
+                }
+                _ => {
+                    return Err(io::ErrorKind::Unsupported.into());
+                }
+            }
+        }
+        self.cursor = cursor;
+        Ok(())
+    }
 }
 
 #[cfg(test)]
@@ -832,7 +867,7 @@ impl AsyncWrite for FileHandle {
                     bytes_written
                 }
                 Some(Node::OffloadedFile(node)) => {
-                    let bytes_written = node.file.write(buf, &mut cursor)?;
+                    let bytes_written = node.file.write(OffloadWrite::Buffer(buf), &mut cursor)?;
                     node.metadata.len = node.file.len().try_into().unwrap();
                     bytes_written
                 }
@@ -916,7 +951,7 @@ impl AsyncWrite for FileHandle {
                         .iter()
                         .find(|b| !b.is_empty())
                         .map_or(&[][..], |b| &**b);
-                    let bytes_written = node.file.write(buf, &mut cursor)?;
+                    let bytes_written = node.file.write(OffloadWrite::Buffer(buf), &mut cursor)?;
                     node.metadata.len = node.file.len();
                     Poll::Ready(Ok(bytes_written))
                 }
