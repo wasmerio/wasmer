@@ -31,7 +31,7 @@ fn test_shared_memory_atomics_notify_send() {
         #[cfg(feature = "sys")]
         panic!("Memory is not shared");
         #[cfg(not(feature = "sys"))]
-        return Ok(());
+        return;
     };
 
     // Test basic notify.
