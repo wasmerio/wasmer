@@ -1,6 +1,6 @@
 use crate::{
     cmd::{app::get::CmdAppGet, AsyncCliCommand},
-    ApiOpts, ItemFormatOpts,
+    opts::{ApiOpts, ItemFormatOpts},
 };
 
 use super::util::AppIdentOpts;

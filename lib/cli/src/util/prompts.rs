@@ -50,6 +50,7 @@ pub enum PackageCheckMode {
     /// The package must exist in the registry.
     MustExist,
     /// The package must NOT exist in the registry.
+    #[allow(dead_code)]
     MustNotExist,
 }
 
@@ -151,6 +152,7 @@ pub fn prompt_for_namespace(
 
 /// Prompt for an app name.
 /// If an api provided, will check if an app with the givne alias already exists.
+#[allow(dead_code)]
 pub async fn prompt_new_app_name(
     message: &str,
     default: Option<&str>,
@@ -179,6 +181,7 @@ pub async fn prompt_new_app_name(
 
 /// Prompt for an app name.
 /// If an api provided, will check if an app with the givne alias already exists.
+#[allow(dead_code)]
 pub async fn prompt_new_app_alias(
     message: &str,
     default: Option<&str>,

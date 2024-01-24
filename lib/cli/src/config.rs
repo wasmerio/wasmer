@@ -4,7 +4,7 @@ use anyhow::{bail, Context};
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, PartialEq, Eq, Clone, Debug)]
-pub struct DeployClientConfigV1 {
+pub struct EdgeConfig {
     pub version: u32,
     /// Token used for ssh access.
     pub ssh_token: Option<String>,
@@ -12,9 +12,9 @@ pub struct DeployClientConfigV1 {
     pub network_token: Option<String>,
 }
 
-pub type DeployClientConfig = DeployClientConfigV1;
+pub type DeployClientConfig = EdgeConfig;
 
-impl DeployClientConfigV1 {
+impl EdgeConfig {
     pub const VERSION: u32 = 1;
 
     pub fn from_slice(data: &[u8]) -> Result<Self, anyhow::Error> {
@@ -38,7 +38,7 @@ impl DeployClientConfigV1 {
     }
 }
 
-impl Default for DeployClientConfigV1 {
+impl Default for EdgeConfig {
     fn default() -> Self {
         Self {
             ssh_token: None,
@@ -51,18 +51,19 @@ impl Default for DeployClientConfigV1 {
 const CONFIG_FILE_NAME: &str = "deploy_client.toml";
 const CONFIG_PATH_ENV_VAR: &str = "DEPLOY_CLIENT_CONFIG_PATH";
 
-pub struct LoadedClientConfig {
+pub struct LoadedEdgeConfig {
     pub config: DeployClientConfig,
     pub path: PathBuf,
 }
 
-impl LoadedClientConfig {
+impl LoadedEdgeConfig {
     pub fn set_ssh_token(&mut self, token: String) -> Result<(), anyhow::Error> {
         self.config.ssh_token = Some(token);
         self.save()?;
         Ok(())
     }
 
+    #[allow(dead_code)]
     pub fn set_network_token(&mut self, token: String) -> Result<(), anyhow::Error> {
         self.config.network_token = Some(token);
         self.save()?;
@@ -91,7 +92,7 @@ pub fn default_config_path() -> Result<PathBuf, anyhow::Error> {
     }
 }
 
-pub fn load_config(custom_path: Option<PathBuf>) -> Result<LoadedClientConfig, anyhow::Error> {
+pub fn load_config(custom_path: Option<PathBuf>) -> Result<LoadedEdgeConfig, anyhow::Error> {
     let default_path = default_config_path()?;
 
     let path = if let Some(p) = custom_path {
@@ -106,7 +107,7 @@ pub fn load_config(custom_path: Option<PathBuf>) -> Result<LoadedClientConfig, a
         if path.is_file() {
             match try_load_config(&path) {
                 Ok(config) => {
-                    return Ok(LoadedClientConfig { config, path });
+                    return Ok(LoadedEdgeConfig { config, path });
                 }
                 Err(err) => {
                     eprintln!(
@@ -119,7 +120,7 @@ pub fn load_config(custom_path: Option<PathBuf>) -> Result<LoadedClientConfig, a
         }
     }
 
-    Ok(LoadedClientConfig {
+    Ok(LoadedEdgeConfig {
         config: DeployClientConfig::default(),
         path: default_path,
     })

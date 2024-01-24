@@ -1,4 +1,7 @@
-use crate::{cmd::AsyncCliCommand, ApiOpts, ListFormatOpts};
+use crate::{
+    cmd::AsyncCliCommand,
+    opts::{ApiOpts, ListFormatOpts},
+};
 
 /// List namespaces.
 #[derive(clap::Parser, Debug)]

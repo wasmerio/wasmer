@@ -85,6 +85,7 @@ pub enum PackageCheckMode {
     /// The package must exist in the registry.
     MustExist,
     /// The package must NOT exist in the registry.
+    #[allow(dead_code)]
     MustNotExist,
 }
 
@@ -181,27 +182,21 @@ pub async fn republish_package_with_bumped_version(
         .context("no auth token configured - run 'wasmer login'")?
         .to_string();
 
-    std::thread::spawn({
-        move || {
-            let publish = wasmer_registry::package::builder::Publish {
-                registry: Some(registry),
-                dry_run: false,
-                quiet: false,
-                package_name: None,
-                version: None,
-                wait: false,
-                token,
-                no_validate: true,
-                package_path: Some(dir.to_str().unwrap().to_string()),
-                // Use a high timeout to prevent interrupting uploads of
-                // large packages.
-                timeout: std::time::Duration::from_secs(60 * 60 * 12),
-            };
-            publish.execute()
-        }
-    })
-    .join()
-    .expect("thread failed")?;
+    let publish = wasmer_registry::package::builder::Publish {
+        registry: Some(registry),
+        dry_run: false,
+        quiet: false,
+        package_name: None,
+        version: None,
+        wait: false,
+        token,
+        no_validate: true,
+        package_path: Some(dir.to_str().unwrap().to_string()),
+        // Use a high timeout to prevent interrupting uploads of
+        // large packages.
+        timeout: std::time::Duration::from_secs(60 * 60 * 12),
+    };
+    publish.execute().await?;
 
     Ok(manifest)
 }

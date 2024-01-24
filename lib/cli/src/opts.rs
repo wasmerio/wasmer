@@ -1,36 +1,6 @@
-// Allowed because it makes code more readable.
-#![allow(clippy::bool_comparison, clippy::match_like_matches_macro)]
-
-mod types;
-
-pub mod cmd;
-pub mod config;
-pub mod util;
-
-#[cfg(all(target_os = "linux", feature = "tun-tap"))]
-pub mod net;
-
 use anyhow::Context;
-use clap::Parser;
-use cmd::CliCommand;
-use tracing_subscriber::{fmt, layer::SubscriberExt, util::SubscriberInitExt, EnvFilter};
 use wasmer_api::WasmerClient;
 use wasmer_registry::WasmerConfig;
-
-pub fn run() -> Result<(), anyhow::Error> {
-    let args = Args::parse();
-    initialize_logging(&args);
-    args.cmd.run()
-}
-
-#[derive(clap::Parser, Debug)]
-#[clap(about, version)]
-pub(crate) struct Args {
-    #[clap(flatten)]
-    pub verbosity: Option<clap_verbosity_flag::Verbosity<clap_verbosity_flag::WarnLevel>>,
-    #[clap(subcommand)]
-    cmd: cmd::SubCmd,
-}
 
 #[derive(clap::Parser, Debug, Clone, Default)]
 pub struct ApiOpts {
@@ -98,7 +68,7 @@ impl ApiOpts {
         Ok(login)
     }
 
-    fn client_unauthennticated(&self) -> Result<WasmerClient, anyhow::Error> {
+    pub fn client_unauthennticated(&self) -> Result<WasmerClient, anyhow::Error> {
         let login = self.build_login()?;
 
         let client = wasmer_api::WasmerClient::new(login.url, "edge-cli")?;
@@ -112,7 +82,7 @@ impl ApiOpts {
         Ok(client)
     }
 
-    fn client(&self) -> Result<WasmerClient, anyhow::Error> {
+    pub fn client(&self) -> Result<WasmerClient, anyhow::Error> {
         let client = self.client_unauthennticated()?;
         if client.auth_token().is_none() {
             anyhow::bail!("no token provided - run 'wasmer login', specify --token=XXX, or set the WASMER_TOKEN env var");
@@ -127,7 +97,7 @@ impl ApiOpts {
 pub struct ItemFormatOpts {
     /// Output format. (json, text)
     #[clap(short = 'f', long, default_value = "yaml")]
-    pub format: util::render::ItemFormat,
+    pub format: crate::util::render::ItemFormat,
 }
 
 /// Formatting options for a list of items.
@@ -135,46 +105,5 @@ pub struct ItemFormatOpts {
 pub struct ListFormatOpts {
     /// Output format. (json, text)
     #[clap(short = 'f', long, default_value = "table")]
-    pub format: util::render::ListFormat,
-}
-
-/// Initialize logging.
-///
-/// This will prefer the `$RUST_LOG` environment variable, with the `-v` and
-/// `-q` flags being used to modify the default log level.
-///
-/// For example, running `RUST_LOG=wasmer_registry=debug wasmer-edge -q` will
-/// log everything at the `error` level (`-q` means to be one level more quiet
-/// than the default `warn`), but anything from the `wasmer_registry` crate will
-/// be logged at the `debug` level.
-pub(crate) fn initialize_logging(args: &Args) {
-    let level = args
-        .verbosity
-        .as_ref()
-        .map(|x| x.log_level_filter())
-        .unwrap_or(log::LevelFilter::Off);
-
-    let fmt_layer = fmt::layer()
-        .with_target(true)
-        .with_span_events(fmt::format::FmtSpan::CLOSE)
-        .with_writer(std::io::stderr)
-        .compact();
-
-    let default_level = match level {
-        log::LevelFilter::Off => tracing::level_filters::LevelFilter::OFF,
-        log::LevelFilter::Error => tracing::level_filters::LevelFilter::ERROR,
-        log::LevelFilter::Warn => tracing::level_filters::LevelFilter::WARN,
-        log::LevelFilter::Info => tracing::level_filters::LevelFilter::INFO,
-        log::LevelFilter::Debug => tracing::level_filters::LevelFilter::DEBUG,
-        log::LevelFilter::Trace => tracing::level_filters::LevelFilter::TRACE,
-    };
-
-    let filter_layer = EnvFilter::builder()
-        .with_default_directive(default_level.into())
-        .from_env_lossy();
-
-    tracing_subscriber::registry()
-        .with(filter_layer)
-        .with(fmt_layer)
-        .init();
+    pub format: crate::util::render::ListFormat,
 }

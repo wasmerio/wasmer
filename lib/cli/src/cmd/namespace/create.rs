@@ -1,4 +1,7 @@
-use crate::{cmd::AsyncCliCommand, ApiOpts, ItemFormatOpts};
+use crate::{
+    cmd::AsyncCliCommand,
+    opts::{ApiOpts, ItemFormatOpts},
+};
 
 /// Create a new namespace.
 #[derive(clap::Parser, Debug)]

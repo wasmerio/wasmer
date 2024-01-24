@@ -1,4 +1,7 @@
-use crate::{cmd::AsyncCliCommand, ApiOpts, ItemFormatOpts};
+use crate::{
+    cmd::AsyncCliCommand,
+    opts::{ApiOpts, ItemFormatOpts},
+};
 
 /// Switch the active version of an app. (rollback / rollforward)
 #[derive(clap::Parser, Debug)]

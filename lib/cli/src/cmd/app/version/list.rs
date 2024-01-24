@@ -2,7 +2,7 @@ use wasmer_api::types::{DeployAppVersionsSortBy, GetDeployAppVersionsVars};
 
 use crate::{
     cmd::{app::util::AppIdentOpts, AsyncCliCommand},
-    ApiOpts, ListFormatOpts,
+    opts::{ApiOpts, ListFormatOpts},
 };
 
 /// List versions of an app.

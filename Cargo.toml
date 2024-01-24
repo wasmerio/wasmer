@@ -40,7 +40,6 @@ members = [
     "lib/api",
     "lib/api/macro-wasmer-universal-test",
     "lib/backend-api",
-    "lib/backend-cli",
     "lib/c-api",
     "lib/c-api/examples/wasmer-capi-examples-runner",
     "lib/c-api/tests/wasmer-c-api-test-runner",

@@ -1,6 +1,9 @@
 use anyhow::Context;
 
-use crate::{cmd::AsyncCliCommand, ApiOpts, ItemFormatOpts};
+use crate::{
+    cmd::AsyncCliCommand,
+    opts::{ApiOpts, ItemFormatOpts},
+};
 
 /// Show a namespace.
 #[derive(clap::Parser, Debug)]

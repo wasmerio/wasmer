@@ -39,6 +39,7 @@ pub enum PackageType {
 pub enum CreateMode {
     Create,
     SelectExisting,
+    #[allow(dead_code)]
     CreateOrSelect,
 }
 

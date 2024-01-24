@@ -141,9 +141,6 @@ name = "anyhow"
 version = "1.0.76"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "59d2a3357dde987206219e78ecfbbb6e8dad06cbb65292758d3270e6254f7355"
-dependencies = [
- "backtrace",
-]
 
 [[package]]
 name = "arbitrary"
@@ -586,16 +583,6 @@ checksum = "bfaff671f6b22ca62406885ece523383b9b64022e341e53e009a62ebc47a45f2"
 dependencies = [
  "clap_builder",
  "clap_derive",
-]
-
-[[package]]
-name = "clap-verbosity-flag"
-version = "2.1.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3c90e95e5bd4e8ac34fa6f37c774b0c6f8ed06ea90c79931fd448fcf941a9767"
-dependencies = [
- "clap",
- "log",
 ]
 
 [[package]]
@@ -1294,18 +1281,6 @@ dependencies = [
 
 [[package]]
 name = "dialoguer"
-version = "0.10.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "59c6f2989294b9a498d3ad5491a79c6deb604617378e1cdc4bfc1c1361fe2f87"
-dependencies = [
- "console",
- "shell-words",
- "tempfile",
- "zeroize",
-]
-
-[[package]]
-name = "dialoguer"
 version = "0.11.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "658bce805d770f407bc62102fca7c2c64ceef2fbcb2b8bd19d2765ce093980de"
@@ -1942,7 +1917,7 @@ checksum = "c0063064d93204da0f0baf4dc0e03bf8a9307f6924a37e604b912a63b08aa7ea"
 dependencies = [
  "async-tungstenite",
  "futures 0.3.29",
- "graphql_client 0.13.0",
+ "graphql_client",
  "log",
  "pin-project",
  "serde",
@@ -1953,41 +1928,13 @@ dependencies = [
 
 [[package]]
 name = "graphql_client"
-version = "0.11.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7fc16d75d169fddb720d8f1c7aed6413e329e1584079b9734ff07266a193f5bc"
-dependencies = [
- "graphql_query_derive 0.11.0",
- "serde",
- "serde_json",
-]
-
-[[package]]
-name = "graphql_client"
 version = "0.13.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "09cdf7b487d864c2939b23902291a5041bc4a84418268f25fda1c8d4e15ad8fa"
 dependencies = [
- "graphql_query_derive 0.13.0",
+ "graphql_query_derive",
  "serde",
  "serde_json",
-]
-
-[[package]]
-name = "graphql_client_codegen"
-version = "0.11.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f290ecfa3bea3e8a157899dc8a1d96ee7dd6405c18c8ddd213fc58939d18a0e9"
-dependencies = [
- "graphql-introspection-query",
- "graphql-parser",
- "heck 0.4.1",
- "lazy_static",
- "proc-macro2",
- "quote",
- "serde",
- "serde_json",
- "syn 1.0.109",
 ]
 
 [[package]]
@@ -2009,22 +1956,11 @@ dependencies = [
 
 [[package]]
 name = "graphql_query_derive"
-version = "0.11.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a755cc59cda2641ea3037b4f9f7ef40471c329f55c1fa2db6fa0bb7ae6c1f7ce"
-dependencies = [
- "graphql_client_codegen 0.11.0",
- "proc-macro2",
- "syn 1.0.109",
-]
-
-[[package]]
-name = "graphql_query_derive"
 version = "0.13.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "00bda454f3d313f909298f626115092d348bc231025699f557b27e248475f48c"
 dependencies = [
- "graphql_client_codegen 0.13.0",
+ "graphql_client_codegen",
  "proc-macro2",
  "syn 1.0.109",
 ]
@@ -2064,7 +2000,7 @@ dependencies = [
  "indexmap 2.1.0",
  "slab",
  "tokio 1.35.1",
- "tokio-util 0.7.10",
+ "tokio-util",
  "tracing",
 ]
 
@@ -2341,19 +2277,6 @@ dependencies = [
  "native-tls",
  "tokio 1.35.1",
  "tokio-native-tls",
-]
-
-[[package]]
-name = "hyper-tungstenite"
-version = "0.11.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7cc7dcb1ab67cd336f468a12491765672e61a3b6b148634dbfe2fe8acd3fe7d9"
-dependencies = [
- "hyper 0.14.28",
- "pin-project-lite",
- "tokio 1.35.1",
- "tokio-tungstenite 0.20.1",
- "tungstenite 0.20.1",
 ]
 
 [[package]]
@@ -4020,7 +3943,7 @@ dependencies = [
  "tokio 1.35.1",
  "tokio-native-tls",
  "tokio-rustls",
- "tokio-util 0.7.10",
+ "tokio-util",
  "tower-service",
  "url",
  "wasm-bindgen",
@@ -5403,20 +5326,6 @@ dependencies = [
 
 [[package]]
 name = "tokio-util"
-version = "0.6.10"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "36943ee01a6d67977dd3f84a5a1d2efeb4ada3a1ae771cadfaa535d9d9fc6507"
-dependencies = [
- "bytes 1.5.0",
- "futures-core",
- "futures-sink",
- "log",
- "pin-project-lite",
- "tokio 1.35.1",
-]
-
-[[package]]
-name = "tokio-util"
 version = "0.7.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5419f34732d9eb6ee4c3578b7989078579b7f039cbbb9ca2c4da015749371e15"
@@ -5979,52 +5888,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "virtual-mio"
-version = "0.3.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b9f38a379f14296f9fb93eda42ece4d57b568af417569102c3dcfeb88ab4800f"
-dependencies = [
- "async-trait",
- "bytes 1.5.0",
- "derivative",
- "futures 0.3.29",
- "mio 0.8.10",
- "serde",
- "socket2 0.4.10",
- "thiserror",
- "tracing",
-]
-
-[[package]]
-name = "virtual-net"
-version = "0.6.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "762dac9d5da7f609894b31f7fd03b19ee8959510847c98c1973acce32270b132"
-dependencies = [
- "anyhow",
- "async-trait",
- "base64 0.21.5",
- "bincode",
- "bytes 1.5.0",
- "derivative",
- "futures-util",
- "hyper 0.14.28",
- "hyper-tungstenite 0.11.1",
- "libc",
- "mio 0.8.10",
- "pin-project-lite",
- "serde",
- "socket2 0.4.10",
- "thiserror",
- "tokio 1.35.1",
- "tokio-serde",
- "tokio-tungstenite 0.20.1",
- "tokio-util 0.6.10",
- "tracing",
- "virtual-mio 0.3.0 (registry+https://github.com/rust-lang/crates.io-index)",
-]
-
-[[package]]
 name = "virtual-net"
 version = "0.6.2"
 dependencies = [
@@ -6037,7 +5900,7 @@ dependencies = [
  "derivative",
  "futures-util",
  "hyper 0.14.28",
- "hyper-tungstenite 0.13.0",
+ "hyper-tungstenite",
  "libc",
  "mio 0.8.10",
  "pin-project-lite",
@@ -6049,10 +5912,10 @@ dependencies = [
  "tokio 1.35.1",
  "tokio-serde",
  "tokio-tungstenite 0.20.1",
- "tokio-util 0.7.10",
+ "tokio-util",
  "tracing",
  "tracing-test",
- "virtual-mio 0.3.0",
+ "virtual-mio",
 ]
 
 [[package]]
@@ -6457,56 +6320,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "wasmer-backend-cli"
-version = "0.1.4"
-dependencies = [
- "anyhow",
- "async-trait",
- "bytes 1.5.0",
- "clap",
- "clap-verbosity-flag",
- "colored 2.1.0",
- "comfy-table",
- "dialoguer 0.11.0",
- "edge-schema 0.0.2",
- "edge-util",
- "futures 0.3.29",
- "futures-util",
- "hex",
- "interfaces",
- "is-terminal",
- "libc",
- "log",
- "mac_address",
- "mio 0.8.10",
- "once_cell",
- "parking_lot 0.12.1",
- "pretty_assertions",
- "regex",
- "reqwest",
- "semver 1.0.20",
- "serde",
- "serde_json",
- "serde_yaml 0.8.26",
- "tempfile",
- "time",
- "tokio 1.35.1",
- "tokio-tungstenite 0.20.1",
- "toml 0.7.8",
- "tracing",
- "tracing-subscriber",
- "tun-tap",
- "url",
- "uuid",
- "virtual-mio 0.3.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "virtual-net 0.6.1",
- "wasmer-api",
- "wasmer-registry 5.10.0",
- "wasmer-toml",
- "webc",
-]
-
-[[package]]
 name = "wasmer-bin-fuzz"
 version = "0.0.0"
 dependencies = [
@@ -6599,23 +6412,31 @@ dependencies = [
  "chrono",
  "clap",
  "colored 2.1.0",
- "dialoguer 0.10.4",
+ "comfy-table",
+ "dialoguer",
  "dirs",
  "distance",
+ "edge-schema 0.0.2",
+ "edge-util",
  "flate2",
  "futures 0.3.29",
+ "futures-util",
  "hex",
  "http 0.2.11",
  "humantime",
  "hyper 0.14.28",
  "indexmap 1.9.3",
  "indicatif",
+ "interfaces",
  "is-terminal",
  "libc",
  "log",
+ "mac_address",
+ "mio 0.8.10",
  "object 0.30.4",
  "once_cell",
  "opener",
+ "parking_lot 0.12.1",
  "pathdiff",
  "predicates 3.0.4",
  "pretty_assertions",
@@ -6624,24 +6445,30 @@ dependencies = [
  "semver 1.0.20",
  "serde",
  "serde_json",
+ "serde_yaml 0.8.26",
  "sha2",
  "tar",
  "target-lexicon 0.12.12",
  "tempfile",
  "thiserror",
+ "time",
  "tldextract",
  "tokio 1.35.1",
+ "tokio-tungstenite 0.20.1",
  "toml 0.5.11",
  "tracing",
  "tracing-subscriber",
+ "tun-tap",
  "unix_mode",
  "url",
+ "uuid",
  "virtual-fs",
- "virtual-net 0.6.2",
+ "virtual-mio",
+ "virtual-net",
  "walkdir",
  "wasm-coredump-builder",
  "wasmer",
- "wasmer-backend-cli",
+ "wasmer-api",
  "wasmer-cache",
  "wasmer-compiler",
  "wasmer-compiler-cranelift",
@@ -6649,7 +6476,7 @@ dependencies = [
  "wasmer-compiler-singlepass",
  "wasmer-emscripten",
  "wasmer-object",
- "wasmer-registry 5.10.1",
+ "wasmer-registry",
  "wasmer-toml",
  "wasmer-types",
  "wasmer-vm",
@@ -6849,7 +6676,7 @@ dependencies = [
  "target-lexicon 0.12.12",
  "tempfile",
  "tokio 1.35.1",
- "wasmer-registry 5.10.1",
+ "wasmer-registry",
 ]
 
 [[package]]
@@ -6877,7 +6704,7 @@ dependencies = [
  "thiserror",
  "tracing",
  "tracing-test",
- "virtual-net 0.6.2",
+ "virtual-net",
  "wasmer",
  "wasmer-wasix-types",
 ]
@@ -6902,62 +6729,19 @@ dependencies = [
 
 [[package]]
 name = "wasmer-registry"
-version = "5.10.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3c06bbf7ad273a7c367b2e8ac7446ed830cf97c22db4bb6cc6ae39e188b6d1ce"
-dependencies = [
- "anyhow",
- "console",
- "dialoguer 0.11.0",
- "dirs",
- "filetime",
- "flate2",
- "futures-util",
- "graphql_client 0.11.0",
- "hex",
- "indexmap 1.9.3",
- "indicatif",
- "lazy_static",
- "log",
- "lzma-rs",
- "minisign",
- "regex",
- "reqwest",
- "rpassword",
- "rusqlite",
- "semver 1.0.20",
- "serde",
- "serde_json",
- "tar",
- "tempfile",
- "thiserror",
- "time",
- "tldextract",
- "tokio 1.35.1",
- "toml 0.5.11",
- "tracing",
- "url",
- "wasmer-toml",
- "wasmer-wasm-interface 4.2.4",
- "wasmparser 0.51.4",
- "whoami",
-]
-
-[[package]]
-name = "wasmer-registry"
 version = "5.10.1"
 dependencies = [
  "anyhow",
  "clap",
  "console",
- "dialoguer 0.11.0",
+ "dialoguer",
  "dirs",
  "filetime",
  "flate2",
  "futures 0.3.29",
  "futures-util",
  "graphql-ws-client",
- "graphql_client 0.13.0",
+ "graphql_client",
  "hex",
  "indexmap 1.9.3",
  "indicatif",
@@ -6984,7 +6768,7 @@ dependencies = [
  "tracing",
  "url",
  "wasmer-toml",
- "wasmer-wasm-interface 4.2.5",
+ "wasmer-wasm-interface",
  "wasmparser 0.51.4",
  "whoami",
 ]
@@ -7125,8 +6909,8 @@ dependencies = [
  "url",
  "urlencoding",
  "virtual-fs",
- "virtual-mio 0.3.0",
- "virtual-net 0.6.2",
+ "virtual-mio",
+ "virtual-net",
  "wai-bindgen-wasmer",
  "waker-fn",
  "wasm-bindgen",
@@ -7182,18 +6966,6 @@ dependencies = [
  "wasmer",
  "wasmer-derive",
  "wasmer-types",
-]
-
-[[package]]
-name = "wasmer-wasm-interface"
-version = "4.2.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6a53f9caef66f4deaa939d91cc8fe6cbe19411e6ffdff871639e29ddde97e3a6"
-dependencies = [
- "either",
- "nom",
- "serde",
- "wasmparser 0.51.4",
 ]
 
 [[package]]

@@ -5,8 +5,8 @@ use time::{format_description::well_known::Rfc3339, OffsetDateTime};
 use wasmer_api::types::Log;
 
 use crate::{
+    opts::{ApiOpts, ListFormatOpts},
     util::{render::CliRender, Identifier},
-    ApiOpts, ListFormatOpts,
 };
 
 /// Show an app.

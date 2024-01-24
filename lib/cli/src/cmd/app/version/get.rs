@@ -2,7 +2,7 @@ use anyhow::Context;
 
 use crate::{
     cmd::{app::util::AppIdentOpts, AsyncCliCommand},
-    ApiOpts, ItemFormatOpts,
+    opts::{ApiOpts, ItemFormatOpts},
 };
 
 /// Show information for a specific app version.

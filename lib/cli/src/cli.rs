@@ -17,7 +17,8 @@ use crate::commands::{
 use crate::commands::{CreateObj, GenCHeader};
 use crate::error::PrettyError;
 use clap::{CommandFactory, Parser};
-use wasmer_backend_cli::cmd::CliCommand;
+
+use crate::cmd::CliCommand;
 
 /// The main function for the Wasmer CLI tool.
 pub fn wasmer_main() {
@@ -283,18 +284,18 @@ enum Cmd {
 
     // Edge commands
     /// Deploy apps to Wasmer Edge.
-    Deploy(wasmer_backend_cli::cmd::deploy::CmdDeploy),
+    Deploy(crate::cmd::deploy::CmdDeploy),
 
     /// Manage deployed Edge apps.
     #[clap(subcommand, alias = "apps")]
-    App(wasmer_backend_cli::cmd::app::CmdApp),
+    App(crate::cmd::app::CmdApp),
 
     /// Run commands/packages on Wasmer Edge in an interactive shell session.
-    Ssh(wasmer_backend_cli::cmd::ssh::CmdSsh),
+    Ssh(crate::cmd::ssh::CmdSsh),
 
     /// Manage Wasmer namespaces.
     #[clap(subcommand, alias = "namespaces")]
-    Namespace(wasmer_backend_cli::cmd::namespace::CmdNamespace),
+    Namespace(crate::cmd::namespace::CmdNamespace),
 }
 
 fn is_binfmt_interpreter() -> bool {

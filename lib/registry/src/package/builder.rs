@@ -815,7 +815,7 @@ mod validate {
     }
 
     /// How should validation be treated by the publishing process?
-    pub(crate) trait ValidationPolicy {
+    pub(crate) trait ValidationPolicy: Send + Sync {
         /// Should validation be skipped entirely?
         fn skip_validation(&mut self) -> bool;
 

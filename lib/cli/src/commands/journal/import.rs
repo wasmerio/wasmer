@@ -1,7 +1,7 @@
 use std::{io::ErrorKind, path::PathBuf};
 
+use crate::cmd::CliCommand;
 use clap::Parser;
-use wasmer_backend_cli::cmd::CliCommand;
 use wasmer_wasix::journal::{JournalEntry, LogFileJournal, WritableJournal};
 
 /// Imports events into a journal file. Events are streamed as JSON

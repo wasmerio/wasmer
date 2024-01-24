@@ -15,8 +15,8 @@ use crate::{
         app::{deploy_app_verbose, AppConfigV1, DeployAppOpts, WaitMode},
         AsyncCliCommand,
     },
+    opts::{ApiOpts, ItemFormatOpts},
     util::package_wizard::{CreateMode, PackageType, PackageWizard},
-    ApiOpts, ItemFormatOpts,
 };
 
 #[derive(clap::Parser, Debug)]

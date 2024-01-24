@@ -1,6 +1,6 @@
 use std::net::IpAddr;
 
-use crate::ApiOpts;
+use crate::opts::ApiOpts;
 
 use super::AsyncCliCommand;
 

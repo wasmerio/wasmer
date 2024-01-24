@@ -1,4 +1,4 @@
-use wasmer_backend_cli::cmd::CliCommand;
+use crate::cmd::CliCommand;
 
 mod compact;
 mod export;

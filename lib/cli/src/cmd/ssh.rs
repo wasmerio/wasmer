@@ -1,7 +1,7 @@
 use anyhow::Context;
 use wasmer_api::WasmerClient;
 
-use crate::{config::DeployClientConfig, ApiOpts};
+use crate::{config::DeployClientConfig, opts::ApiOpts};
 
 use super::AsyncCliCommand;
 

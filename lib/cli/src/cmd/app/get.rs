@@ -1,6 +1,9 @@
 use wasmer_api::types::DeployApp;
 
-use crate::{cmd::AsyncCliCommand, ApiOpts, ItemFormatOpts};
+use crate::{
+    cmd::AsyncCliCommand,
+    opts::{ApiOpts, ItemFormatOpts},
+};
 
 use super::util::AppIdentOpts;
 

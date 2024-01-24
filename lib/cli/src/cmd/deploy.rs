@@ -10,7 +10,7 @@ use crate::{
         app::{deploy_app_verbose, DeployAppOpts, WaitMode},
         AsyncCliCommand,
     },
-    ApiOpts, ItemFormatOpts,
+    opts::{ApiOpts, ItemFormatOpts},
 };
 
 /// Start a remote SSH session.
