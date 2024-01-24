@@ -9,8 +9,11 @@ pub struct CmdNamespaceList {
     api: ApiOpts,
 }
 
-impl CmdNamespaceList {
-    async fn run(self) -> Result<(), anyhow::Error> {
+#[async_trait::async_trait]
+impl AsyncCliCommand for CmdNamespaceList {
+    type Output = ();
+
+    async fn run_async(self) -> Result<(), anyhow::Error> {
         let client = self.api.client()?;
 
         let namespaces = wasmer_api::query::user_namespaces(&client).await?;
@@ -18,11 +21,5 @@ impl CmdNamespaceList {
         println!("{}", self.fmt.format.render(&namespaces));
 
         Ok(())
-    }
-}
-
-impl AsyncCliCommand for CmdNamespaceList {
-    fn run_async(self) -> futures::future::BoxFuture<'static, Result<(), anyhow::Error>> {
-        Box::pin(self.run())
     }
 }

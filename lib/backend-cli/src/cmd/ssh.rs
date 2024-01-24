@@ -32,8 +32,11 @@ pub struct CmdSsh {
     pub print: bool,
 }
 
-impl CmdSsh {
-    async fn exec(self) -> Result<(), anyhow::Error> {
+#[async_trait::async_trait]
+impl AsyncCliCommand for CmdSsh {
+    type Output = ();
+
+    async fn run_async(self) -> Result<(), anyhow::Error> {
         let mut config = crate::config::load_config(None)?;
         let client = self.api.client()?;
 
@@ -102,12 +105,6 @@ impl CmdSsh {
 
 type IsNew = bool;
 type RawToken = String;
-
-impl AsyncCliCommand for CmdSsh {
-    fn run_async(self) -> futures::future::BoxFuture<'static, Result<(), anyhow::Error>> {
-        Box::pin(self.exec())
-    }
-}
 
 async fn acquire_ssh_token(
     client: &WasmerClient,

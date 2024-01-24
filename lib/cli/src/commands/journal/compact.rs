@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 
 use clap::Parser;
-use wasmer_backend_cli::cmd::AsyncCliCommand;
+use wasmer_backend_cli::cmd::CliCommand;
 use wasmer_wasix::journal::{
     copy_journal, CompactingLogFileJournal, LogFileJournal, PrintingJournal,
 };
@@ -15,14 +15,10 @@ pub struct CmdJournalCompact {
     journal_path: PathBuf,
 }
 
-impl AsyncCliCommand for CmdJournalCompact {
-    fn run_async(self) -> futures::future::BoxFuture<'static, Result<(), anyhow::Error>> {
-        Box::pin(self.run())
-    }
-}
+impl CliCommand for CmdJournalCompact {
+    type Output = ();
 
-impl CmdJournalCompact {
-    async fn run(self) -> Result<(), anyhow::Error> {
+    fn run(self) -> Result<(), anyhow::Error> {
         let compactor = CompactingLogFileJournal::new(&self.journal_path)?.with_compact_on_drop();
         drop(compactor);
 

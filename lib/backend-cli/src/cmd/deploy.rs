@@ -59,8 +59,11 @@ pub struct CmdDeploy {
     pub owner: Option<String>,
 }
 
-impl CmdDeploy {
-    pub async fn exec(self) -> Result<DeployAppVersion, anyhow::Error> {
+#[async_trait::async_trait]
+impl AsyncCliCommand for CmdDeploy {
+    type Output = DeployAppVersion;
+
+    async fn run_async(self) -> Result<DeployAppVersion, anyhow::Error> {
         let client = self.api.client()?;
 
         let base_path = if let Some(p) = self.path {
@@ -225,14 +228,5 @@ impl CmdDeploy {
         }
 
         Ok(app_version)
-    }
-}
-
-impl AsyncCliCommand for CmdDeploy {
-    fn run_async(self) -> futures::future::BoxFuture<'static, Result<(), anyhow::Error>> {
-        Box::pin(async move {
-            self.exec().await?;
-            Ok(())
-        })
     }
 }

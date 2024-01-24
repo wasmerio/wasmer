@@ -16,6 +16,8 @@ pub enum SubCmd {
 }
 
 impl CliCommand for SubCmd {
+    type Output = ();
+
     fn run(self) -> Result<(), anyhow::Error> {
         match self {
             Self::Ssh(cmd) => cmd.run(),
@@ -28,15 +30,23 @@ impl CliCommand for SubCmd {
 }
 
 pub trait CliCommand {
+    type Output;
+
     fn run(self) -> Result<(), anyhow::Error>;
 }
 
-pub trait AsyncCliCommand: Send + Sync + 'static {
-    fn run_async(self) -> futures::future::BoxFuture<'static, Result<(), anyhow::Error>>;
+#[async_trait::async_trait]
+pub trait AsyncCliCommand: Send + Sync {
+    type Output: Send + Sync;
+
+    async fn run_async(self) -> Result<Self::Output, anyhow::Error>;
 }
 
-impl<C: AsyncCliCommand> CliCommand for C {
+impl<O: Send + Sync, C: AsyncCliCommand<Output = O>> CliCommand for C {
+    type Output = O;
+
     fn run(self) -> Result<(), anyhow::Error> {
-        tokio::runtime::Runtime::new()?.block_on(self.run_async())
+        tokio::runtime::Runtime::new()?.block_on(AsyncCliCommand::run_async(self))?;
+        Ok(())
     }
 }

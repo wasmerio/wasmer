@@ -14,8 +14,11 @@ pub struct CmdNamespaceGet {
     name: String,
 }
 
-impl CmdNamespaceGet {
-    async fn run(self) -> Result<(), anyhow::Error> {
+#[async_trait::async_trait]
+impl AsyncCliCommand for CmdNamespaceGet {
+    type Output = ();
+
+    async fn run_async(self) -> Result<(), anyhow::Error> {
         let client = self.api.client()?;
 
         let namespace = wasmer_api::query::get_namespace(&client, self.name)
@@ -25,11 +28,5 @@ impl CmdNamespaceGet {
         println!("{}", self.fmt.format.render(&namespace));
 
         Ok(())
-    }
-}
-
-impl AsyncCliCommand for CmdNamespaceGet {
-    fn run_async(self) -> futures::future::BoxFuture<'static, Result<(), anyhow::Error>> {
-        Box::pin(self.run())
     }
 }

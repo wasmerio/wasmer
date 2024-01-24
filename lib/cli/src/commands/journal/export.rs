@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 
 use clap::Parser;
-use wasmer_backend_cli::cmd::AsyncCliCommand;
+use wasmer_backend_cli::cmd::CliCommand;
 use wasmer_wasix::journal::{copy_journal, JournalPrintingMode, LogFileJournal, PrintingJournal};
 
 /// Exports all the events in a journal to STDOUT as JSON data
@@ -12,14 +12,10 @@ pub struct CmdJournalExport {
     journal_path: PathBuf,
 }
 
-impl AsyncCliCommand for CmdJournalExport {
-    fn run_async(self) -> futures::future::BoxFuture<'static, Result<(), anyhow::Error>> {
-        Box::pin(self.run())
-    }
-}
+impl CliCommand for CmdJournalExport {
+    type Output = ();
 
-impl CmdJournalExport {
-    async fn run(self) -> Result<(), anyhow::Error> {
+    fn run(self) -> Result<(), anyhow::Error> {
         let journal = LogFileJournal::new(self.journal_path)?;
         let printer = PrintingJournal::new(JournalPrintingMode::Json);
         copy_journal(&journal, &printer)?;

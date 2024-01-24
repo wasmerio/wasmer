@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 
 use clap::Parser;
-use wasmer_backend_cli::cmd::AsyncCliCommand;
+use wasmer_backend_cli::cmd::CliCommand;
 use wasmer_wasix::journal::{copy_journal, LogFileJournal, PrintingJournal};
 
 /// Prints a summarized version of contents of a journal to stdout
@@ -12,14 +12,10 @@ pub struct CmdJournaInspect {
     journal_path: PathBuf,
 }
 
-impl AsyncCliCommand for CmdJournaInspect {
-    fn run_async(self) -> futures::future::BoxFuture<'static, Result<(), anyhow::Error>> {
-        Box::pin(self.run())
-    }
-}
+impl CliCommand for CmdJournaInspect {
+    type Output = ();
 
-impl CmdJournaInspect {
-    async fn run(self) -> Result<(), anyhow::Error> {
+    fn run(self) -> Result<(), anyhow::Error> {
         let journal = LogFileJournal::new(self.journal_path)?;
         let printer = PrintingJournal::default();
         copy_journal(&journal, &printer)?;

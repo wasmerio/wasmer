@@ -1,7 +1,7 @@
 use std::{path::PathBuf, str::FromStr};
 
 use clap::Parser;
-use wasmer_backend_cli::cmd::AsyncCliCommand;
+use wasmer_backend_cli::cmd::CliCommand;
 use wasmer_wasix::journal::{
     copy_journal, FilteredJournalBuilder, LogFileJournal, PrintingJournal,
 };
@@ -60,14 +60,10 @@ pub struct CmdJournalFilter {
     filters: Vec<FilterOut>,
 }
 
-impl AsyncCliCommand for CmdJournalFilter {
-    fn run_async(self) -> futures::future::BoxFuture<'static, Result<(), anyhow::Error>> {
-        Box::pin(self.run())
-    }
-}
+impl CliCommand for CmdJournalFilter {
+    type Output = ();
 
-impl CmdJournalFilter {
-    async fn run(self) -> Result<(), anyhow::Error> {
+    fn run(self) -> Result<(), anyhow::Error> {
         // Create a new file name that will be the temp new file
         // while its written
         let mut temp_filename = self

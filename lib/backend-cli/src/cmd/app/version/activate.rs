@@ -14,8 +14,11 @@ pub struct CmdAppVersionActivate {
     pub version: String,
 }
 
-impl CmdAppVersionActivate {
-    async fn run(self) -> Result<(), anyhow::Error> {
+#[async_trait::async_trait]
+impl AsyncCliCommand for CmdAppVersionActivate {
+    type Output = ();
+
+    async fn run_async(self) -> Result<(), anyhow::Error> {
         let client = self.api.client()?;
 
         let app = wasmer_api::query::app_version_activate(&client, self.version).await?;
@@ -30,11 +33,5 @@ impl CmdAppVersionActivate {
         );
 
         Ok(())
-    }
-}
-
-impl AsyncCliCommand for CmdAppVersionActivate {
-    fn run_async(self) -> futures::future::BoxFuture<'static, Result<(), anyhow::Error>> {
-        Box::pin(self.run())
     }
 }

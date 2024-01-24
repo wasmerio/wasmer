@@ -30,9 +30,12 @@ pub struct CmdConnect {
     pub url: url::Url,
 }
 
-impl CmdConnect {
+#[async_trait::async_trait]
+impl AsyncCliCommand for CmdConnect {
+    type Output = ();
+
     #[cfg(all(target_os = "linux", feature = "tun-tap"))]
-    async fn exec(mut self) -> Result<(), anyhow::Error> {
+    async fn run_async(mut self) -> Result<(), anyhow::Error> {
         use crate::net::TunTapSocket;
         use edge_schema::{AppId, NetworkIdEncodingMethod, WELL_KNOWN_VPN};
         use virtual_mio::Selector;
@@ -89,15 +92,9 @@ impl CmdConnect {
     }
 
     #[cfg(not(all(target_os = "linux", feature = "tun-tap")))]
-    async fn exec(self) -> Result<(), anyhow::Error> {
+    async fn run_async(self) -> Result<(), anyhow::Error> {
         Err(anyhow::anyhow!(
             "This CLI does not support the 'connect' command: only available on Linux (feature: tun-tap)"
         ))
-    }
-}
-
-impl AsyncCliCommand for CmdConnect {
-    fn run_async(self) -> futures::future::BoxFuture<'static, Result<(), anyhow::Error>> {
-        Box::pin(self.exec())
     }
 }

@@ -16,14 +16,17 @@ pub struct CmdAppInfo {
     ident: AppIdentOpts,
 }
 
-impl CmdAppInfo {
-    async fn run(self) -> Result<(), anyhow::Error> {
+#[async_trait::async_trait]
+impl AsyncCliCommand for CmdAppInfo {
+    type Output = ();
+
+    async fn run_async(self) -> Result<(), anyhow::Error> {
         let cmd_app_get = CmdAppGet {
             api: self.api,
             fmt: self.fmt,
             ident: self.ident,
         };
-        let app = cmd_app_get.get_app().await?;
+        let app = cmd_app_get.run_async().await?;
 
         let app_url = app.url;
         let versioned_url = app.active_version.url;
@@ -36,11 +39,5 @@ impl CmdAppInfo {
         eprintln!("> Admin dashboard: {}", dashboard_url);
 
         Ok(())
-    }
-}
-
-impl AsyncCliCommand for CmdAppInfo {
-    fn run_async(self) -> futures::future::BoxFuture<'static, Result<(), anyhow::Error>> {
-        Box::pin(self.run())
     }
 }

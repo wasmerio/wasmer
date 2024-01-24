@@ -1,7 +1,7 @@
 use std::{io::ErrorKind, path::PathBuf};
 
 use clap::Parser;
-use wasmer_backend_cli::cmd::AsyncCliCommand;
+use wasmer_backend_cli::cmd::CliCommand;
 use wasmer_wasix::journal::{JournalEntry, LogFileJournal, WritableJournal};
 
 /// Imports events into a journal file. Events are streamed as JSON
@@ -13,14 +13,10 @@ pub struct CmdJournaImport {
     journal_path: PathBuf,
 }
 
-impl AsyncCliCommand for CmdJournaImport {
-    fn run_async(self) -> futures::future::BoxFuture<'static, Result<(), anyhow::Error>> {
-        Box::pin(self.run())
-    }
-}
+impl CliCommand for CmdJournaImport {
+    type Output = ();
 
-impl CmdJournaImport {
-    async fn run(self) -> Result<(), anyhow::Error> {
+    fn run(self) -> Result<(), anyhow::Error> {
         // Erase the journal file at the path and reopen it
         if self.journal_path.exists() {
             std::fs::remove_file(&self.journal_path)?;

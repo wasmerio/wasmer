@@ -12,12 +12,15 @@ pub enum CmdAppVersion {
     Activate(activate::CmdAppVersionActivate),
 }
 
+#[async_trait::async_trait]
 impl AsyncCliCommand for CmdAppVersion {
-    fn run_async(self) -> futures::future::BoxFuture<'static, Result<(), anyhow::Error>> {
+    type Output = ();
+
+    async fn run_async(self) -> Result<(), anyhow::Error> {
         match self {
-            Self::Get(cmd) => cmd.run_async(),
-            Self::List(cmd) => cmd.run_async(),
-            Self::Activate(cmd) => cmd.run_async(),
+            Self::Get(cmd) => cmd.run_async().await,
+            Self::List(cmd) => cmd.run_async().await,
+            Self::Activate(cmd) => cmd.run_async().await,
         }
     }
 }

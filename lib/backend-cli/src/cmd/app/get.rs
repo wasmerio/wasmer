@@ -16,22 +16,13 @@ pub struct CmdAppGet {
     pub ident: AppIdentOpts,
 }
 
-impl CmdAppGet {
-    async fn run(self) -> Result<(), anyhow::Error> {
-        let app = self.get_app().await?;
-        println!("{}", self.fmt.format.render(&app));
-        Ok(())
-    }
+#[async_trait::async_trait]
+impl AsyncCliCommand for CmdAppGet {
+    type Output = DeployApp;
 
-    pub async fn get_app(&self) -> Result<DeployApp, anyhow::Error> {
+    async fn run_async(self) -> Result<DeployApp, anyhow::Error> {
         let client = self.api.client()?;
         let (_ident, app) = self.ident.load_app(&client).await?;
         Ok(app)
-    }
-}
-
-impl AsyncCliCommand for CmdAppGet {
-    fn run_async(self) -> futures::future::BoxFuture<'static, Result<(), anyhow::Error>> {
-        Box::pin(self.run())
     }
 }

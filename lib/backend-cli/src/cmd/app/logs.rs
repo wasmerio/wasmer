@@ -59,8 +59,11 @@ pub struct CmdAppLogs {
     ident: Identifier,
 }
 
-impl CmdAppLogs {
-    pub async fn run(self) -> Result<(), anyhow::Error> {
+#[async_trait::async_trait]
+impl crate::cmd::AsyncCliCommand for CmdAppLogs {
+    type Output = ();
+
+    async fn run_async(self) -> Result<(), anyhow::Error> {
         let client = self.api.client()?;
 
         let Identifier {
@@ -160,10 +163,4 @@ impl CliRender for Log {
 fn datetime_from_unix(timestamp: f64) -> OffsetDateTime {
     OffsetDateTime::from_unix_timestamp_nanos(timestamp as i128)
         .expect("Timestamp should always be valid")
-}
-
-impl crate::cmd::AsyncCliCommand for CmdAppLogs {
-    fn run_async(self) -> futures::future::BoxFuture<'static, Result<(), anyhow::Error>> {
-        Box::pin(self.run())
-    }
 }

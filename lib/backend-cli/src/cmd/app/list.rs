@@ -20,8 +20,11 @@ pub struct CmdAppList {
     all: bool,
 }
 
-impl CmdAppList {
-    async fn run(self) -> Result<(), anyhow::Error> {
+#[async_trait::async_trait]
+impl AsyncCliCommand for CmdAppList {
+    type Output = ();
+
+    async fn run_async(self) -> Result<(), anyhow::Error> {
         let client = self.api.client()?;
 
         let apps = if let Some(ns) = self.namespace {
@@ -35,11 +38,5 @@ impl CmdAppList {
         println!("{}", self.fmt.format.render(&apps));
 
         Ok(())
-    }
-}
-
-impl AsyncCliCommand for CmdAppList {
-    fn run_async(self) -> futures::future::BoxFuture<'static, Result<(), anyhow::Error>> {
-        Box::pin(self.run())
     }
 }

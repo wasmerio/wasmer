@@ -32,16 +32,28 @@ pub enum CmdApp {
     Version(version::CmdAppVersion),
 }
 
+#[async_trait::async_trait]
 impl AsyncCliCommand for CmdApp {
-    fn run_async(self) -> futures::future::BoxFuture<'static, Result<(), anyhow::Error>> {
+    type Output = ();
+
+    async fn run_async(self) -> Result<(), anyhow::Error> {
         match self {
-            Self::Get(cmd) => cmd.run_async(),
-            Self::Info(cmd) => cmd.run_async(),
-            Self::Create(cmd) => cmd.run_async(),
-            Self::List(cmd) => cmd.run_async(),
-            Self::Logs(cmd) => cmd.run_async(),
-            Self::Delete(cmd) => cmd.run_async(),
-            Self::Version(cmd) => cmd.run_async(),
+            Self::Get(cmd) => {
+                cmd.run_async().await?;
+                Ok(())
+            }
+            Self::Info(cmd) => {
+                cmd.run_async().await?;
+                Ok(())
+            }
+            Self::Create(cmd) => {
+                cmd.run_async().await?;
+                Ok(())
+            }
+            Self::List(cmd) => cmd.run_async().await,
+            Self::Logs(cmd) => cmd.run_async().await,
+            Self::Delete(cmd) => cmd.run_async().await,
+            Self::Version(cmd) => cmd.run_async().await,
         }
     }
 }

@@ -351,8 +351,11 @@ impl AppCreator {
     }
 }
 
-impl CmdAppCreate {
-    pub async fn exec(self) -> Result<(AppConfigV1, Option<DeployAppVersion>), anyhow::Error> {
+#[async_trait::async_trait]
+impl AsyncCliCommand for CmdAppCreate {
+    type Output = (AppConfigV1, Option<DeployAppVersion>);
+
+    async fn run_async(self) -> Result<(AppConfigV1, Option<DeployAppVersion>), anyhow::Error> {
         let interactive = self.non_interactive == false && std::io::stdin().is_terminal();
 
         let base_path = if let Some(p) = self.path {
@@ -563,15 +566,6 @@ impl CmdAppCreate {
     }
 }
 
-impl AsyncCliCommand for CmdAppCreate {
-    fn run_async(self) -> futures::future::BoxFuture<'static, Result<(), anyhow::Error>> {
-        Box::pin(async move {
-            self.exec().await?;
-            Ok(())
-        })
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -595,7 +589,7 @@ mod tests {
             fmt: ItemFormatOpts::default(),
             package: None,
         };
-        cmd.exec().await.unwrap();
+        cmd.run_async().await.unwrap();
 
         let app = std::fs::read_to_string(dir.path().join("app.yaml")).unwrap();
         assert_eq!(
@@ -628,7 +622,7 @@ debug: false
             fmt: ItemFormatOpts::default(),
             package: Some("wasmer/testpkg".to_string()),
         };
-        cmd.exec().await.unwrap();
+        cmd.run_async().await.unwrap();
 
         let app = std::fs::read_to_string(dir.path().join("app.yaml")).unwrap();
         assert_eq!(
@@ -660,7 +654,7 @@ debug: false
             fmt: ItemFormatOpts::default(),
             package: Some("wasmer/test-js-worker".to_string()),
         };
-        cmd.exec().await.unwrap();
+        cmd.run_async().await.unwrap();
 
         let app = std::fs::read_to_string(dir.path().join("app.yaml")).unwrap();
         assert_eq!(
@@ -695,7 +689,7 @@ debug: false
             fmt: ItemFormatOpts::default(),
             package: Some("wasmer/test-py-worker".to_string()),
         };
-        cmd.exec().await.unwrap();
+        cmd.run_async().await.unwrap();
 
         let app = std::fs::read_to_string(dir.path().join("app.yaml")).unwrap();
         assert_eq!(

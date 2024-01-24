@@ -11,11 +11,14 @@ pub enum CmdNamespace {
     List(list::CmdNamespaceList),
 }
 
+#[async_trait::async_trait]
 impl AsyncCliCommand for CmdNamespace {
-    fn run_async(self) -> futures::future::BoxFuture<'static, Result<(), anyhow::Error>> {
+    type Output = ();
+
+    async fn run_async(self) -> Result<(), anyhow::Error> {
         match self {
-            CmdNamespace::List(cmd) => cmd.run_async(),
-            CmdNamespace::Get(cmd) => cmd.run_async(),
+            CmdNamespace::List(cmd) => cmd.run_async().await,
+            CmdNamespace::Get(cmd) => cmd.run_async().await,
         }
     }
 }
