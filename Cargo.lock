@@ -5844,6 +5844,29 @@ dependencies = [
 [[package]]
 name = "wasmer-api"
 version = "0.0.23"
+dependencies = [
+ "anyhow",
+ "base64 0.13.1",
+ "cynic",
+ "edge-schema 0.0.2",
+ "futures",
+ "harsh",
+ "pin-project-lite",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "serde_path_to_error",
+ "time",
+ "tokio",
+ "tracing",
+ "url",
+ "uuid",
+ "webc",
+]
+
+[[package]]
+name = "wasmer-api"
+version = "0.0.23"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "aa0e68c76f730824b100d77c85a6a57432f15f1388a14eb3b406780f8dbbd751"
 dependencies = [
@@ -6173,7 +6196,7 @@ dependencies = [
  "uuid",
  "virtual-mio 0.3.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "virtual-net 0.6.1",
- "wasmer-api",
+ "wasmer-api 0.0.23 (registry+https://github.com/rust-lang/crates.io-index)",
  "wasmer-registry 5.10.0",
  "wasmer-toml",
  "webc",
