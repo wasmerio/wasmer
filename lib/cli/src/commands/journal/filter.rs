@@ -1,7 +1,7 @@
 use std::{path::PathBuf, str::FromStr};
 
 use clap::Parser;
-use wasmer_edge_cli::cmd::AsyncCliCommand;
+use wasmer_backend_cli::cmd::AsyncCliCommand;
 use wasmer_wasix::journal::{
     copy_journal, FilteredJournalBuilder, LogFileJournal, PrintingJournal,
 };

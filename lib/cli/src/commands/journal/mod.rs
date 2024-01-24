@@ -1,4 +1,4 @@
-use wasmer_edge_cli::cmd::AsyncCliCommand;
+use wasmer_backend_cli::cmd::AsyncCliCommand;
 
 mod compact;
 mod export;

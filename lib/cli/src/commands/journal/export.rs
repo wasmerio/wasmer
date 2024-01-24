@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 
 use clap::Parser;
-use wasmer_edge_cli::cmd::AsyncCliCommand;
+use wasmer_backend_cli::cmd::AsyncCliCommand;
 use wasmer_wasix::journal::{copy_journal, JournalPrintingMode, LogFileJournal, PrintingJournal};
 
 /// Exports all the events in a journal to STDOUT as JSON data
