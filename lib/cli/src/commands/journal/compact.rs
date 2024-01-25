@@ -1,10 +1,11 @@
 use std::path::PathBuf;
 
-use crate::commands::CliCommand;
 use clap::Parser;
 use wasmer_wasix::journal::{
     copy_journal, CompactingLogFileJournal, LogFileJournal, PrintingJournal,
 };
+
+use crate::commands::CliCommand;
 
 /// Compacts a journal by removing duplicate or redundant
 /// events and rewriting the log

@@ -1,10 +1,11 @@
 use std::{path::PathBuf, str::FromStr};
 
-use crate::commands::CliCommand;
 use clap::Parser;
 use wasmer_wasix::journal::{
     copy_journal, FilteredJournalBuilder, LogFileJournal, PrintingJournal,
 };
+
+use crate::commands::CliCommand;
 
 /// Flags that specify what should be filtered out
 #[derive(Debug, Clone, Copy, PartialOrd, Ord, PartialEq, Eq, Hash)]

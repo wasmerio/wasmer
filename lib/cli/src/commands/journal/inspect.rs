@@ -1,8 +1,9 @@
 use std::path::PathBuf;
 
-use crate::commands::CliCommand;
 use clap::Parser;
 use wasmer_wasix::journal::{copy_journal, LogFileJournal, PrintingJournal};
+
+use crate::commands::CliCommand;
 
 /// Prints a summarized version of contents of a journal to stdout
 #[derive(Debug, Parser)]

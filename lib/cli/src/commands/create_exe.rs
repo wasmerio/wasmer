@@ -1,10 +1,11 @@
 //! Create a standalone native executable for a given Wasm file.
 
-use std::collections::BTreeMap;
-use std::env;
-use std::path::{Path, PathBuf};
-use std::process::Command;
-use std::process::Stdio;
+use std::{
+    collections::BTreeMap,
+    env,
+    path::{Path, PathBuf},
+    process::{Command, Stdio},
+};
 
 use anyhow::{anyhow, bail, Context, Result};
 use clap::Parser;
@@ -19,9 +20,7 @@ use webc::{
 };
 
 use self::utils::normalize_atom_name;
-
-use crate::common::normalize_path;
-use crate::store::CompilerOptions;
+use crate::{common::normalize_path, store::CompilerOptions};
 
 const LINK_SYSTEM_LIBRARIES_WINDOWS: &[&str] = &["userenv", "Ws2_32", "advapi32", "bcrypt"];
 
@@ -787,9 +786,10 @@ fn compile_atoms(
     prefixes: &PrefixMapCompilation,
     debug: bool,
 ) -> Result<BTreeMap<String, ModuleInfo>, anyhow::Error> {
-    use std::fs::File;
-    use std::io::BufWriter;
-    use std::io::Write;
+    use std::{
+        fs::File,
+        io::{BufWriter, Write},
+    };
 
     let mut module_infos = BTreeMap::new();
     for (a, data) in atoms {
@@ -896,9 +896,10 @@ fn write_volume_obj(
     output_path: &Path,
     target: &Target,
 ) -> anyhow::Result<()> {
-    use std::fs::File;
-    use std::io::BufWriter;
-    use std::io::Write;
+    use std::{
+        fs::File,
+        io::{BufWriter, Write},
+    };
 
     let mut volumes_object = get_object_for_target(target.triple())?;
     emit_serialized(
@@ -1559,14 +1560,16 @@ fn generate_wasmer_main_c(
 #[allow(dead_code)]
 pub(super) mod utils {
 
-    use super::{CrossCompile, CrossCompileSetup, UrlOrVersion};
-    use anyhow::{anyhow, Context};
     use std::{
         ffi::OsStr,
         path::{Path, PathBuf},
     };
+
+    use anyhow::{anyhow, Context};
     use target_lexicon::{Architecture, Environment, OperatingSystem, Triple};
     use wasmer_types::{CpuFeature, Target};
+
+    use super::{CrossCompile, CrossCompileSetup, UrlOrVersion};
 
     pub(in crate::commands) fn target_triple_to_target(
         target_triple: &Triple,
@@ -2080,8 +2083,9 @@ pub(super) mod utils {
 }
 
 mod http_fetch {
-    use anyhow::{anyhow, Context, Result};
     use std::path::Path;
+
+    use anyhow::{anyhow, Context, Result};
 
     pub(super) fn get_release(
         release_version: Option<semver::Version>,

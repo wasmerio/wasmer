@@ -32,15 +32,6 @@ mod validate;
 mod wast;
 mod whoami;
 
-use crate::error::PrettyError;
-
-#[cfg(feature = "journal")]
-pub use self::journal::*;
-pub use self::{
-    add::*, cache::*, config::*, container::*, init::*, inspect::*, login::*, package::*,
-    publish::*, run::Run, self_update::*, validate::*, whoami::*,
-};
-
 #[cfg(target_os = "linux")]
 pub use binfmt::*;
 use clap::{CommandFactory, Parser};
@@ -52,6 +43,14 @@ pub use create_exe::*;
 pub use wast::*;
 #[cfg(feature = "static-artifact-create")]
 pub use {create_obj::*, gen_c_header::*};
+
+#[cfg(feature = "journal")]
+pub use self::journal::*;
+pub use self::{
+    add::*, cache::*, config::*, container::*, init::*, inspect::*, login::*, package::*,
+    publish::*, run::Run, self_update::*, validate::*, whoami::*,
+};
+use crate::error::PrettyError;
 
 /// An executable CLI command.
 pub(crate) trait CliCommand {

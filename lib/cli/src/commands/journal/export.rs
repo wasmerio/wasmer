@@ -1,8 +1,9 @@
 use std::path::PathBuf;
 
-use crate::commands::CliCommand;
 use clap::Parser;
 use wasmer_wasix::journal::{copy_journal, JournalPrintingMode, LogFileJournal, PrintingJournal};
+
+use crate::commands::CliCommand;
 
 /// Exports all the events in a journal to STDOUT as JSON data
 #[derive(Debug, Parser)]

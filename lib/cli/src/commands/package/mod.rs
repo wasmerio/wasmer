@@ -1,7 +1,8 @@
 mod build;
 mod download;
 
-pub use {build::PackageBuild, download::PackageDownload};
+pub use build::PackageBuild;
+pub use download::PackageDownload;
 
 /// Package related commands.
 #[derive(clap::Subcommand, Debug)]

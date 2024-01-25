@@ -3,9 +3,8 @@
 use anyhow::Context;
 use wasmer_api::WasmerClient;
 
-use crate::{config::DeployClientConfig, opts::ApiOpts};
-
 use super::AsyncCliCommand;
+use crate::{config::DeployClientConfig, opts::ApiOpts};
 
 /// Start a remote SSH session.
 #[derive(clap::Parser, Debug)]

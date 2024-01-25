@@ -8,7 +8,6 @@ use std::string::ToString;
 use std::sync::Arc;
 
 use anyhow::{bail, Result};
-
 use wasmer::*;
 #[cfg(feature = "compiler")]
 use wasmer_compiler::CompilerConfig;
@@ -190,9 +189,8 @@ impl CompilerOptions {
             }
             #[cfg(feature = "llvm")]
             CompilerType::LLVM => {
-                use std::fmt;
-                use std::fs::File;
-                use std::io::Write;
+                use std::{fmt, fs::File, io::Write};
+
                 use wasmer_compiler_llvm::{
                     CompiledKind, InkwellMemoryBuffer, InkwellModule, LLVMCallbacks, LLVM,
                 };

@@ -34,8 +34,10 @@ use wasmer_wasix::{
     bin_factory::BinaryPackage,
     journal::CompactingLogFileJournal,
     runners::{
-        dcgi::DcgiInstanceFactory,
-        wcgi::{self, NoOpWcgiCallbacks},
+        dcgi::{DcgiInstanceFactory, DcgiRunner},
+        emscripten::EmscriptenRunner,
+        wasi::WasiRunner,
+        wcgi::{self, AbortHandle, NoOpWcgiCallbacks, WcgiRunner},
         MappedCommand, MappedDirectory, Runner,
     },
     runtime::{
@@ -44,16 +46,7 @@ use wasmer_wasix::{
         resolver::{PackageSpecifier, QueryError},
         task_manager::VirtualTaskManagerExt,
     },
-    WasiError,
-};
-use wasmer_wasix::{
-    runners::{
-        dcgi::DcgiRunner,
-        emscripten::EmscriptenRunner,
-        wasi::WasiRunner,
-        wcgi::{AbortHandle, WcgiRunner},
-    },
-    Runtime,
+    Runtime, WasiError,
 };
 use webc::{metadata::Manifest, Container};
 

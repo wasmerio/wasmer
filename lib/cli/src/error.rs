@@ -1,8 +1,9 @@
 //! Implements `PretyError` to print pretty errors in the CLI (when they happen)
 
+use std::fmt::{self, Debug, Write};
+
 use anyhow::{Chain, Error};
 use colored::*;
-use std::fmt::{self, Debug, Write};
 use wasmer::RuntimeError;
 
 /// A `PrettyError` for printing `anyhow::Error` nicely.

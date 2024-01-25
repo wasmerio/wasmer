@@ -7,7 +7,6 @@ use std::{
 
 use anyhow::{bail, Context, Result};
 use clap::Parser;
-
 use Action::*;
 
 #[derive(Debug, Parser, Clone, Copy)]

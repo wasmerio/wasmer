@@ -2,12 +2,11 @@
 
 use wasmer_api::types::DeployApp;
 
+use super::util::AppIdentOpts;
 use crate::{
     commands::AsyncCliCommand,
     opts::{ApiOpts, ItemFormatOpts},
 };
-
-use super::util::AppIdentOpts;
 
 /// Show an app.
 #[derive(clap::Parser, Debug)]

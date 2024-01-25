@@ -3,9 +3,8 @@
 use dialoguer::Confirm;
 use is_terminal::IsTerminal;
 
-use crate::{commands::AsyncCliCommand, opts::ApiOpts};
-
 use super::util::AppIdentOpts;
+use crate::{commands::AsyncCliCommand, opts::ApiOpts};
 
 /// Show an app.
 #[derive(clap::Parser, Debug)]

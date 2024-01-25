@@ -1,24 +1,25 @@
-use parking_lot::Mutex;
-use std::collections::{HashSet, VecDeque};
-use std::io::{self, ErrorKind};
-use std::mem::MaybeUninit;
-use std::os::fd::{AsRawFd, RawFd};
-use std::pin::Pin;
-use std::process::Command;
-use std::sync::Arc;
-use std::task::{Context, Poll, Waker};
+use std::{
+    collections::{HashSet, VecDeque},
+    io::{self, ErrorKind},
+    mem::MaybeUninit,
+    os::fd::{AsRawFd, RawFd},
+    pin::Pin,
+    process::Command,
+    sync::Arc,
+    task::{Context, Poll, Waker},
+};
 
 use anyhow::Context as _;
 use bytes::Bytes;
 use futures_util::{Future, StreamExt};
-use mio::unix::SourceFd;
-use mio::{event, Interest, Registry, Token};
+use mio::{event, unix::SourceFd, Interest, Registry, Token};
+use parking_lot::Mutex;
 use tun_tap::{Iface, Mode};
 use virtual_mio::{InterestGuard, InterestHandler, InterestType, InterestWakerMap, Selector};
-use virtual_net::meta::FrameSerializationFormat;
 use virtual_net::{
-    io_err_into_net_error, IpAddr, IpCidr, IpRoute, Ipv4Addr, Ipv6Addr, NetworkError,
-    RemoteNetworkingClient, RemoteNetworkingClientDriver, VirtualNetworking, VirtualRawSocket,
+    io_err_into_net_error, meta::FrameSerializationFormat, IpAddr, IpCidr, IpRoute, Ipv4Addr,
+    Ipv6Addr, NetworkError, RemoteNetworkingClient, RemoteNetworkingClientDriver,
+    VirtualNetworking, VirtualRawSocket,
 };
 
 fn cmd(cmd: &str, args: &[&str]) -> anyhow::Result<()> {

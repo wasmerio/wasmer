@@ -1,8 +1,7 @@
 use std::net::IpAddr;
 
-use crate::opts::ApiOpts;
-
 use super::AsyncCliCommand;
+use crate::opts::ApiOpts;
 
 /// Connects to the Wasmer Edge distributed network.
 #[derive(clap::Parser, Debug)]
@@ -36,9 +35,10 @@ impl AsyncCliCommand for CmdConnect {
 
     #[cfg(all(target_os = "linux", feature = "tun-tap"))]
     async fn run_async(mut self) -> Result<(), anyhow::Error> {
-        use crate::net::TunTapSocket;
         use edge_schema::{AppId, NetworkIdEncodingMethod, WELL_KNOWN_VPN};
         use virtual_mio::Selector;
+
+        use crate::net::TunTapSocket;
 
         // If the URL does not include the well known postfix then add it
         if !self.leave_postfix {

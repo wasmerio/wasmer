@@ -1,7 +1,8 @@
+use std::path::PathBuf;
+
 use anyhow::{bail, Context};
 use dialoguer::console::{style, Emoji};
 use indicatif::{ProgressBar, ProgressStyle};
-use std::path::PathBuf;
 use tempfile::NamedTempFile;
 use wasmer_registry::wasmer_env::WasmerEnv;
 use wasmer_wasix::runtime::resolver::PackageSpecifier;

@@ -1,11 +1,10 @@
 //! Show short information about an Edge app.
 
+use super::util::AppIdentOpts;
 use crate::{
     commands::{app::get::CmdAppGet, AsyncCliCommand},
     opts::{ApiOpts, ItemFormatOpts},
 };
-
-use super::util::AppIdentOpts;
 
 /// Show short information about an Edge app.
 ///
