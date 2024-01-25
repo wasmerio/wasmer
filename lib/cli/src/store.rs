@@ -72,12 +72,14 @@ pub struct CompilerOptions {
     llvm: bool,
 
     /// Enable compiler internal verification.
+    ///
+    /// Available for cranelift, LLVM and singlepass.
     #[clap(long)]
-    #[cfg(any(feature = "singlepass", feature = "cranelift", feature = "llvm"))]
     enable_verifier: bool,
 
     /// LLVM debug directory, where IR and object files will be written to.
-    #[cfg(feature = "llvm")]
+    ///
+    /// Only available for the LLVM compiler.
     #[clap(long)]
     llvm_debug_dir: Option<PathBuf>,
 
@@ -305,6 +307,7 @@ impl CompilerOptions {
 
 /// The compiler used for the store
 #[derive(Debug, PartialEq, Eq)]
+#[allow(clippy::upper_case_acronyms, dead_code)]
 pub enum CompilerType {
     /// Singlepass compiler
     Singlepass,

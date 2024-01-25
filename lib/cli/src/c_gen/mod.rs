@@ -1,6 +1,8 @@
 //! A convenient little abstraction for building up C expressions and generating
 //! simple C code.
 
+#![allow(dead_code)]
+
 pub mod staticlib_header;
 
 /// An identifier in C.
