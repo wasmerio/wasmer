@@ -794,6 +794,21 @@
 <a href="#794" id="794">794</a>
 <a href="#795" id="795">795</a>
 <a href="#796" id="796">796</a>
+<a href="#797" id="797">797</a>
+<a href="#798" id="798">798</a>
+<a href="#799" id="799">799</a>
+<a href="#800" id="800">800</a>
+<a href="#801" id="801">801</a>
+<a href="#802" id="802">802</a>
+<a href="#803" id="803">803</a>
+<a href="#804" id="804">804</a>
+<a href="#805" id="805">805</a>
+<a href="#806" id="806">806</a>
+<a href="#807" id="807">807</a>
+<a href="#808" id="808">808</a>
+<a href="#809" id="809">809</a>
+<a href="#810" id="810">810</a>
+<a href="#811" id="811">811</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{
     path::PathBuf,
     sync::Arc,
@@ -883,6 +898,21 @@
         <span class="kw">if </span>!response.is_ok() {
             <span class="kw">let </span>url = <span class="kw-2">&amp;</span><span class="self">self</span>.registry_endpoint;
             <span class="kw">let </span>status = response.status;
+
+            <span class="kw">let </span>body = <span class="kw">if let </span><span class="prelude-val">Some</span>(body) = <span class="kw-2">&amp;</span>response.body {
+                String::from_utf8_lossy(body).into_owned()
+            } <span class="kw">else </span>{
+                <span class="string">&quot;&lt;no body&gt;&quot;</span>.to_string()
+            };
+
+            <span class="macro">tracing::warn!</span>(
+                %url,
+                %status,
+                package=%package_name,
+                %body,
+                <span class="string">&quot;failed to query package info from registry&quot;
+            </span>);
+
             <span class="macro">anyhow::bail!</span>(<span class="string">&quot;\&quot;{url}\&quot; replied with {status}&quot;</span>);
         }
 
