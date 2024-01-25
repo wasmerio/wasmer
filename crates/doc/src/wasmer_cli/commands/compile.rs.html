@@ -83,12 +83,14 @@
 <a href="#83" id="83">83</a>
 <a href="#84" id="84">84</a>
 <a href="#85" id="85">85</a>
-</pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::store::StoreOptions;
-<span class="kw">use </span><span class="kw">crate</span>::warning;
+<a href="#86" id="86">86</a>
+</pre></div><pre class="rust"><code><span class="kw">use </span>std::path::PathBuf;
+
 <span class="kw">use </span>anyhow::{Context, <span class="prelude-ty">Result</span>};
 <span class="kw">use </span>clap::Parser;
-<span class="kw">use </span>std::path::PathBuf;
 <span class="kw">use </span>wasmer::<span class="kw-2">*</span>;
+
+<span class="kw">use crate</span>::{store::StoreOptions, warning};
 
 <span class="attr">#[derive(Debug, Parser)]
 </span><span class="doccomment">/// The options for the `wasmer compile` subcommand

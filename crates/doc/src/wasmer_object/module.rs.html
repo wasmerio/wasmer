@@ -465,6 +465,8 @@
 <a href="#465" id="465">465</a>
 <a href="#466" id="466">466</a>
 <a href="#467" id="467">467</a>
+<a href="#468" id="468">468</a>
+<a href="#469" id="469">469</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::error::ObjectError;
 <span class="kw">use </span>object::write::{
     Object, Relocation, StandardSection, StandardSegment, Symbol <span class="kw">as </span>ObjSymbol, SymbolSection,
@@ -534,6 +536,8 @@
     <span class="kw">if let </span>Architecture::Riscv64(<span class="kw">_</span>) = triple.architecture {
         object.flags = FileFlags::Elf {
             e_flags: elf::EF_RISCV_FLOAT_ABI_DOUBLE,
+            os_abi: <span class="number">2</span>,
+            abi_version: <span class="number">0</span>,
         };
     }
 

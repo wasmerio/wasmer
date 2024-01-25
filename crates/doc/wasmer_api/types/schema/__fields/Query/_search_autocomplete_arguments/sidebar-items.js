@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":["after","before","first","kind","last","query"]};

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["_logs_arguments","_usage_metrics_arguments"],"struct":["__typename","aggregateMetrics","app","config","configWebc","createdAt","description","id","isActive","jsonConfig","logs","manifest","permalink","publishedBy","signature","sourcePackageVersion","updatedAt","url","urls","usageMetrics","userYamlConfig","version","yamlConfig"]};

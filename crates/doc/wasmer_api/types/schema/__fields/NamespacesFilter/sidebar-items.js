@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":["collaborator","count","orderBy","packageCount","sortBy","userCount"]};

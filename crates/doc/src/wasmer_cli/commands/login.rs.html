@@ -539,28 +539,22 @@
 <a href="#539" id="539">539</a>
 <a href="#540" id="540">540</a>
 <a href="#541" id="541">541</a>
-<a href="#542" id="542">542</a>
-<a href="#543" id="543">543</a>
-<a href="#544" id="544">544</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{net::TcpListener, path::PathBuf, str::FromStr, time::Duration};
 
 <span class="kw">use </span>anyhow::Ok;
-
 <span class="kw">use </span>clap::Parser;
 <span class="attr">#[cfg(not(test))]
 </span><span class="kw">use </span>dialoguer::{console::style, Input};
+<span class="kw">use </span>hyper::{
+    service::{make_service_fn, service_fn},
+    Body, Request, Response, Server, StatusCode,
+};
 <span class="kw">use </span>reqwest::Method;
-
 <span class="kw">use </span>serde::Deserialize;
 <span class="kw">use </span>wasmer_registry::{
     types::NewNonceOutput,
     wasmer_env::{Registry, WasmerEnv, WASMER_DIR},
     RegistryClient,
-};
-
-<span class="kw">use </span>hyper::{
-    service::{make_service_fn, service_fn},
-    Body, Request, Response, Server, StatusCode,
 };
 
 <span class="kw">const </span>WASMER_CLI: <span class="kw-2">&amp;</span>str = <span class="string">&quot;wasmer-cli&quot;</span>;

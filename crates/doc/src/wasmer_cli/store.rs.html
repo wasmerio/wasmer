@@ -363,26 +363,57 @@
 <a href="#363" id="363">363</a>
 <a href="#364" id="364">364</a>
 <a href="#365" id="365">365</a>
+<a href="#366" id="366">366</a>
+<a href="#367" id="367">367</a>
+<a href="#368" id="368">368</a>
+<a href="#369" id="369">369</a>
+<a href="#370" id="370">370</a>
+<a href="#371" id="371">371</a>
+<a href="#372" id="372">372</a>
+<a href="#373" id="373">373</a>
+<a href="#374" id="374">374</a>
+<a href="#375" id="375">375</a>
+<a href="#376" id="376">376</a>
+<a href="#377" id="377">377</a>
+<a href="#378" id="378">378</a>
+<a href="#379" id="379">379</a>
+<a href="#380" id="380">380</a>
+<a href="#381" id="381">381</a>
+<a href="#382" id="382">382</a>
+<a href="#383" id="383">383</a>
+<a href="#384" id="384">384</a>
+<a href="#385" id="385">385</a>
+<a href="#386" id="386">386</a>
+<a href="#387" id="387">387</a>
+<a href="#388" id="388">388</a>
+<a href="#389" id="389">389</a>
+<a href="#390" id="390">390</a>
+<a href="#391" id="391">391</a>
+<a href="#392" id="392">392</a>
+<a href="#393" id="393">393</a>
+<a href="#394" id="394">394</a>
+<a href="#395" id="395">395</a>
+<a href="#396" id="396">396</a>
+<a href="#397" id="397">397</a>
+<a href="#398" id="398">398</a>
+<a href="#399" id="399">399</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Common module with common used structures across different
 //! commands.
 
-</span><span class="kw">use </span>anyhow::Result;
-
-<span class="attr">#[allow(unused_imports)]
-</span><span class="kw">use </span><span class="kw">crate</span>::common::WasmFeatures;
-<span class="kw">use </span>clap::Parser;
-<span class="attr">#[allow(unused_imports)]
+</span><span class="attr">#[allow(unused_imports)]
 </span><span class="kw">use </span>std::path::PathBuf;
 <span class="kw">use </span>std::string::ToString;
 <span class="attr">#[allow(unused_imports)]
 </span><span class="kw">use </span>std::sync::Arc;
+
+<span class="kw">use </span>anyhow::{bail, <span class="prelude-ty">Result</span>};
 <span class="kw">use </span>wasmer::<span class="kw-2">*</span>;
 <span class="attr">#[cfg(feature = <span class="string">&quot;compiler&quot;</span>)]
 </span><span class="kw">use </span>wasmer_compiler::CompilerConfig;
 <span class="attr">#[cfg(feature = <span class="string">&quot;compiler&quot;</span>)]
 </span><span class="kw">use </span>wasmer_compiler::Engine;
 
-<span class="attr">#[derive(Debug, Clone, Parser, Default)]
+<span class="attr">#[derive(Debug, Clone, clap::Parser, Default)]
 </span><span class="doccomment">/// The compiler options
 </span><span class="kw">pub struct </span>StoreOptions {
     <span class="attr">#[cfg(feature = <span class="string">&quot;compiler&quot;</span>)]
@@ -390,8 +421,41 @@
     </span>compiler: CompilerOptions,
 }
 
+<span class="attr">#[derive(Debug, clap::Parser, Clone, Default)]
+</span><span class="doccomment">/// The WebAssembly features that can be passed through the
+/// Command Line args.
+</span><span class="kw">pub struct </span>WasmFeatures {
+    <span class="doccomment">/// Enable support for the SIMD proposal.
+    </span><span class="attr">#[clap(long = <span class="string">&quot;enable-simd&quot;</span>)]
+    </span><span class="kw">pub </span>simd: bool,
+
+    <span class="doccomment">/// Disable support for the threads proposal.
+    </span><span class="attr">#[clap(long = <span class="string">&quot;disable-threads&quot;</span>)]
+    </span><span class="kw">pub </span>disable_threads: bool,
+
+    <span class="doccomment">/// Deprecated, threads are enabled by default.
+    </span><span class="attr">#[clap(long = <span class="string">&quot;enable-threads&quot;</span>)]
+    </span><span class="kw">pub </span>_threads: bool,
+
+    <span class="doccomment">/// Enable support for the reference types proposal.
+    </span><span class="attr">#[clap(long = <span class="string">&quot;enable-reference-types&quot;</span>)]
+    </span><span class="kw">pub </span>reference_types: bool,
+
+    <span class="doccomment">/// Enable support for the multi value proposal.
+    </span><span class="attr">#[clap(long = <span class="string">&quot;enable-multi-value&quot;</span>)]
+    </span><span class="kw">pub </span>multi_value: bool,
+
+    <span class="doccomment">/// Enable support for the bulk memory proposal.
+    </span><span class="attr">#[clap(long = <span class="string">&quot;enable-bulk-memory&quot;</span>)]
+    </span><span class="kw">pub </span>bulk_memory: bool,
+
+    <span class="doccomment">/// Enable support for all pre-standard proposals.
+    </span><span class="attr">#[clap(long = <span class="string">&quot;enable-all&quot;</span>)]
+    </span><span class="kw">pub </span>all: bool,
+}
+
 <span class="attr">#[cfg(feature = <span class="string">&quot;compiler&quot;</span>)]
-#[derive(Debug, Clone, Parser, Default)]
+#[derive(Debug, Clone, clap::Parser, Default)]
 </span><span class="doccomment">/// The compiler options
 </span><span class="kw">pub struct </span>CompilerOptions {
     <span class="doccomment">/// Use Singlepass compiler.
@@ -407,13 +471,15 @@
     llvm: bool,
 
     <span class="doccomment">/// Enable compiler internal verification.
+    ///
+    /// Available for cranelift, LLVM and singlepass.
     </span><span class="attr">#[clap(long)]
-    #[cfg(any(feature = <span class="string">&quot;singlepass&quot;</span>, feature = <span class="string">&quot;cranelift&quot;</span>, feature = <span class="string">&quot;llvm&quot;</span>))]
     </span>enable_verifier: bool,
 
     <span class="doccomment">/// LLVM debug directory, where IR and object files will be written to.
-    </span><span class="attr">#[cfg(feature = <span class="string">&quot;llvm&quot;</span>)]
-    #[clap(long)]
+    ///
+    /// Only available for the LLVM compiler.
+    </span><span class="attr">#[clap(long)]
     </span>llvm_debug_dir: <span class="prelude-ty">Option</span>&lt;PathBuf&gt;,
 
     <span class="attr">#[clap(flatten)]
@@ -524,9 +590,8 @@
             }
             <span class="attr">#[cfg(feature = <span class="string">&quot;llvm&quot;</span>)]
             </span>CompilerType::LLVM =&gt; {
-                <span class="kw">use </span>std::fmt;
-                <span class="kw">use </span>std::fs::File;
-                <span class="kw">use </span>std::io::Write;
+                <span class="kw">use </span>std::{fmt, fs::File, io::Write};
+
                 <span class="kw">use </span>wasmer_compiler_llvm::{
                     CompiledKind, InkwellMemoryBuffer, InkwellModule, LLVMCallbacks, LLVM,
                 };
@@ -641,6 +706,7 @@
 
 <span class="doccomment">/// The compiler used for the store
 </span><span class="attr">#[derive(Debug, PartialEq, Eq)]
+#[allow(clippy::upper_case_acronyms, dead_code)]
 </span><span class="kw">pub enum </span>CompilerType {
     <span class="doccomment">/// Singlepass compiler
     </span>Singlepass,
@@ -649,11 +715,13 @@
     <span class="doccomment">/// LLVM compiler
     </span>LLVM,
     <span class="doccomment">/// Headless compiler
+    </span><span class="attr">#[allow(dead_code)]
     </span>Headless,
 }
 
 <span class="kw">impl </span>CompilerType {
     <span class="doccomment">/// Return all enabled compilers
+    </span><span class="attr">#[allow(dead_code)]
     </span><span class="kw">pub fn </span>enabled() -&gt; Vec&lt;CompilerType&gt; {
         <span class="macro">vec!</span>[
             <span class="attr">#[cfg(feature = <span class="string">&quot;singlepass&quot;</span>)]

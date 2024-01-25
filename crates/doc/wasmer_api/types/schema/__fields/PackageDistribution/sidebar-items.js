@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":["__typename","downloadUrl","piritaDownloadUrl","piritaSha256Hash","piritaSize","size"]};

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["_packages_arguments"],"struct":["__typename","banner","createdAt","description","displayName","packages","slug"]};

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["AppIdent","ResolvedAppIdent"],"fn":["get_app_config_from_current_dir"],"struct":["AppIdentOpts"]};

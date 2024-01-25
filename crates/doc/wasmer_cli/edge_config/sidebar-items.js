@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["CONFIG_FILE_NAME","CONFIG_PATH_ENV_VAR"],"fn":["default_config_path","load_config","try_load_config"],"struct":["EdgeConfig","LoadedEdgeConfig"]};

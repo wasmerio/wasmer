@@ -168,18 +168,16 @@
 <a href="#168" id="168">168</a>
 <a href="#169" id="169">169</a>
 <a href="#170" id="170">170</a>
-<a href="#171" id="171">171</a>
 </pre></div><pre class="rust"><code><span class="attr">#![allow(dead_code)]
 </span><span class="doccomment">//! Create a standalone native executable for a given Wasm file.
 
-</span><span class="kw">use </span><span class="kw">crate</span>::store::CompilerOptions;
+</span><span class="kw">use </span>std::{env, path::PathBuf};
+
 <span class="kw">use </span>anyhow::{Context, <span class="prelude-ty">Result</span>};
 <span class="kw">use </span>clap::Parser;
-<span class="kw">use </span>std::env;
-
-<span class="kw">use </span>std::path::PathBuf;
-
 <span class="kw">use </span>wasmer::<span class="kw-2">*</span>;
+
+<span class="kw">use </span><span class="kw">crate</span>::store::CompilerOptions;
 
 <span class="attr">#[derive(Debug, Parser)]
 </span><span class="doccomment">/// The options for the `wasmer create-exe` subcommand

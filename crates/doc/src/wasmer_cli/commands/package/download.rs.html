@@ -258,10 +258,12 @@
 <a href="#258" id="258">258</a>
 <a href="#259" id="259">259</a>
 <a href="#260" id="260">260</a>
-</pre></div><pre class="rust"><code><span class="kw">use </span>anyhow::Context;
+<a href="#261" id="261">261</a>
+</pre></div><pre class="rust"><code><span class="kw">use </span>std::path::PathBuf;
+
+<span class="kw">use </span>anyhow::{bail, Context};
 <span class="kw">use </span>dialoguer::console::{style, Emoji};
 <span class="kw">use </span>indicatif::{ProgressBar, ProgressStyle};
-<span class="kw">use </span>std::path::PathBuf;
 <span class="kw">use </span>tempfile::NamedTempFile;
 <span class="kw">use </span>wasmer_registry::wasmer_env::WasmerEnv;
 <span class="kw">use </span>wasmer_wasix::runtime::resolver::PackageSpecifier;
@@ -328,7 +330,7 @@
             <span class="kw">match </span>parent.metadata() {
                 <span class="prelude-val">Ok</span>(m) =&gt; {
                     <span class="kw">if </span>!m.is_dir() {
-                        <span class="macro">anyhow::bail!</span>(
+                        <span class="macro">bail!</span>(
                             <span class="string">&quot;parent of output file is not a directory: &#39;{}&#39;&quot;</span>,
                             parent.display()
                         );
@@ -369,7 +371,7 @@
                 <span class="macro">bail!</span>(<span class="string">&quot;cannot download a package from a URL: &#39;{}&#39;&quot;</span>, url);
             }
             PackageSpecifier::Path(<span class="kw">_</span>) =&gt; {
-                <span class="macro">anyhow::bail!</span>(<span class="string">&quot;cannot download a package from a local path&quot;</span>);
+                <span class="macro">bail!</span>(<span class="string">&quot;cannot download a package from a local path&quot;</span>);
             }
         };
 
@@ -422,7 +424,7 @@
             .unwrap_or_default();
 
         <span class="kw">if </span>webc_total_size == <span class="number">0 </span>{
-            <span class="macro">anyhow::bail!</span>(<span class="string">&quot;Package is empty&quot;</span>);
+            <span class="macro">bail!</span>(<span class="string">&quot;Package is empty&quot;</span>);
         }
 
         <span class="comment">// Set the length of the progress bar

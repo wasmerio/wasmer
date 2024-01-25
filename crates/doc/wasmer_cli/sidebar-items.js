@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"constant":["VERSION"],"macro":["warning"],"mod":["c_gen","cli","commands","common","error","logging","package_source","store","suggestions","utils"]};
+window.SIDEBAR_ITEMS = {"constant":["VERSION"],"fn":["run_cli"],"macro":["warning"],"mod":["c_gen","commands","common","edge_config","error","logging","opts","package_source","store","types","utils"]};

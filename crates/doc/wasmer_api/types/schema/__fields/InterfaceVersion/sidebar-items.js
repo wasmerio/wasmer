@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["_package_versions_arguments"],"struct":["__typename","content","createdAt","id","interface","packageVersions","publishedBy","updatedAt","version"]};

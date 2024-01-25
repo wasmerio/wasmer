@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["_package_version_created_arguments","_user_notification_created_arguments"],"struct":["__typename","packageVersionCreated","userNotificationCreated"]};

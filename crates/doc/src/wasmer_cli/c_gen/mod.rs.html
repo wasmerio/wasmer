@@ -543,8 +543,13 @@
 <a href="#543" id="543">543</a>
 <a href="#544" id="544">544</a>
 <a href="#545" id="545">545</a>
+<a href="#546" id="546">546</a>
+<a href="#547" id="547">547</a>
+<a href="#548" id="548">548</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! A convenient little abstraction for building up C expressions and generating
 //! simple C code.
+
+</span><span class="attr">#![allow(dead_code)]
 
 </span><span class="kw">pub mod </span>staticlib_header;
 
@@ -553,6 +558,7 @@
 
 <span class="doccomment">/// A Type in the C language.
 </span><span class="attr">#[derive(Debug, Clone, Default)]
+#[allow(dead_code)]
 </span><span class="kw">pub enum </span>CType {
     <span class="doccomment">/// C `void` type.
     </span><span class="attr">#[default]

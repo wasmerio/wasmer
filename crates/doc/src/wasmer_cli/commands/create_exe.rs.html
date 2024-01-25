@@ -2301,20 +2301,20 @@
 <a href="#2301" id="2301">2301</a>
 <a href="#2302" id="2302">2302</a>
 <a href="#2303" id="2303">2303</a>
+<a href="#2304" id="2304">2304</a>
+<a href="#2305" id="2305">2305</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Create a standalone native executable for a given Wasm file.
 
-</span><span class="kw">use </span><span class="self">self</span>::utils::normalize_atom_name;
+</span><span class="kw">use </span>std::{
+    collections::BTreeMap,
+    env,
+    path::{Path, PathBuf},
+    process::{Command, Stdio},
+};
 
-<span class="kw">use </span><span class="kw">crate</span>::common::normalize_path;
-<span class="kw">use </span><span class="kw">crate</span>::store::CompilerOptions;
-<span class="kw">use </span>anyhow::{Context, <span class="prelude-ty">Result</span>};
+<span class="kw">use </span>anyhow::{anyhow, bail, Context, <span class="prelude-ty">Result</span>};
 <span class="kw">use </span>clap::Parser;
 <span class="kw">use </span>serde::{Deserialize, Serialize};
-<span class="kw">use </span>std::collections::BTreeMap;
-<span class="kw">use </span>std::env;
-<span class="kw">use </span>std::path::{Path, PathBuf};
-<span class="kw">use </span>std::process::Command;
-<span class="kw">use </span>std::process::Stdio;
 <span class="kw">use </span>tar::Archive;
 <span class="kw">use </span>wasmer::<span class="kw-2">*</span>;
 <span class="kw">use </span>wasmer_object::{emit_serialized, get_object_for_target};
@@ -2323,6 +2323,9 @@
     compat::{Container, Volume <span class="kw">as </span>WebcVolume},
     PathSegments,
 };
+
+<span class="kw">use </span><span class="self">self</span>::utils::normalize_atom_name;
+<span class="kw">use crate</span>::{common::normalize_path, store::CompilerOptions};
 
 <span class="kw">const </span>LINK_SYSTEM_LIBRARIES_WINDOWS: <span class="kw-2">&amp;</span>[<span class="kw-2">&amp;</span>str] = <span class="kw-2">&amp;</span>[<span class="string">&quot;userenv&quot;</span>, <span class="string">&quot;Ws2_32&quot;</span>, <span class="string">&quot;advapi32&quot;</span>, <span class="string">&quot;bcrypt&quot;</span>];
 
@@ -3088,9 +3091,10 @@
     prefixes: <span class="kw-2">&amp;</span>PrefixMapCompilation,
     debug: bool,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;BTreeMap&lt;String, ModuleInfo&gt;, anyhow::Error&gt; {
-    <span class="kw">use </span>std::fs::File;
-    <span class="kw">use </span>std::io::BufWriter;
-    <span class="kw">use </span>std::io::Write;
+    <span class="kw">use </span>std::{
+        fs::File,
+        io::{BufWriter, Write},
+    };
 
     <span class="kw">let </span><span class="kw-2">mut </span>module_infos = BTreeMap::new();
     <span class="kw">for </span>(a, data) <span class="kw">in </span>atoms {
@@ -3197,9 +3201,10 @@
     output_path: <span class="kw-2">&amp;</span>Path,
     target: <span class="kw-2">&amp;</span>Target,
 ) -&gt; anyhow::Result&lt;()&gt; {
-    <span class="kw">use </span>std::fs::File;
-    <span class="kw">use </span>std::io::BufWriter;
-    <span class="kw">use </span>std::io::Write;
+    <span class="kw">use </span>std::{
+        fs::File,
+        io::{BufWriter, Write},
+    };
 
     <span class="kw">let </span><span class="kw-2">mut </span>volumes_object = get_object_for_target(target.triple())<span class="question-mark">?</span>;
     emit_serialized(
@@ -3860,14 +3865,16 @@
 <span class="attr">#[allow(dead_code)]
 </span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">mod </span>utils {
 
-    <span class="kw">use super</span>::{CrossCompile, CrossCompileSetup, UrlOrVersion};
-    <span class="kw">use </span>anyhow::Context;
     <span class="kw">use </span>std::{
         ffi::OsStr,
         path::{Path, PathBuf},
     };
+
+    <span class="kw">use </span>anyhow::{anyhow, Context};
     <span class="kw">use </span>target_lexicon::{Architecture, Environment, OperatingSystem, Triple};
     <span class="kw">use </span>wasmer_types::{CpuFeature, Target};
+
+    <span class="kw">use super</span>::{CrossCompile, CrossCompileSetup, UrlOrVersion};
 
     <span class="kw">pub</span>(<span class="kw">in </span><span class="kw">crate</span>::commands) <span class="kw">fn </span>target_triple_to_target(
         target_triple: <span class="kw-2">&amp;</span>Triple,
@@ -3929,7 +3936,7 @@
             <span class="kw">let </span>wasmer_cache_dir =
                 <span class="kw">if </span><span class="kw-2">*</span>target_triple == Triple::host() &amp;&amp; std::env::var(<span class="string">&quot;WASMER_DIR&quot;</span>).is_ok() {
                     wasmer_registry::WasmerConfig::get_wasmer_dir()
-                        .map_err(|e| <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;{e}&quot;</span>))
+                        .map_err(|e| <span class="macro">anyhow!</span>(<span class="string">&quot;{e}&quot;</span>))
                         .map(|o| o.join(<span class="string">&quot;cache&quot;</span>))
                 } <span class="kw">else </span>{
                     get_libwasmer_cache_path()
@@ -3972,8 +3979,7 @@
             }
         };
 
-        <span class="kw">let </span>library =
-            library.ok_or_else(|| <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;libwasmer.a / wasmer.lib not found&quot;</span>))<span class="question-mark">?</span>;
+        <span class="kw">let </span>library = library.ok_or_else(|| <span class="macro">anyhow!</span>(<span class="string">&quot;libwasmer.a / wasmer.lib not found&quot;</span>))<span class="question-mark">?</span>;
 
         <span class="kw">let </span>ccs = CrossCompileSetup {
             target: target.clone(),
@@ -4056,11 +4062,11 @@
             .unwrap_or_else(|| target_file_path.clone());
 
         std::fs::create_dir_all(<span class="kw-2">&amp;</span>target_file_path)
-            .map_err(|e| <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;{e}&quot;</span>))
-            .with_context(|| <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;{}&quot;</span>, target_file_path.display()))<span class="question-mark">?</span>;
+            .map_err(|e| <span class="macro">anyhow!</span>(<span class="string">&quot;{e}&quot;</span>))
+            .with_context(|| <span class="macro">anyhow!</span>(<span class="string">&quot;{}&quot;</span>, target_file_path.display()))<span class="question-mark">?</span>;
         <span class="kw">let </span>files =
             <span class="kw">super</span>::http_fetch::untar(local_tarball, <span class="kw-2">&amp;</span>target_file_path).with_context(|| {
-                <span class="macro">anyhow::anyhow!</span>(
+                <span class="macro">anyhow!</span>(
                     <span class="string">&quot;{} -&gt; {}&quot;</span>,
                     local_tarball.display(),
                     target_file_path.display()
@@ -4130,7 +4136,7 @@
     }
 
     <span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">fn </span>get_wasmer_dir() -&gt; anyhow::Result&lt;PathBuf&gt; {
-        wasmer_registry::WasmerConfig::get_wasmer_dir().map_err(|e| <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;{e}&quot;</span>))
+        wasmer_registry::WasmerConfig::get_wasmer_dir().map_err(|e| <span class="macro">anyhow!</span>(<span class="string">&quot;{e}&quot;</span>))
     }
 
     <span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">fn </span>get_wasmer_include_directory() -&gt; anyhow::Result&lt;PathBuf&gt; {
@@ -4141,10 +4147,7 @@
         path.push(<span class="string">&quot;include&quot;</span>);
         <span class="kw">if </span>!path.clone().join(<span class="string">&quot;wasmer.h&quot;</span>).exists() {
             <span class="kw">if </span>!path.exists() {
-                <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">anyhow::anyhow!</span>(
-                    <span class="string">&quot;WASMER_DIR path {} does not exist&quot;</span>,
-                    path.display()
-                ));
+                <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">anyhow!</span>(<span class="string">&quot;WASMER_DIR path {} does not exist&quot;</span>, path.display()));
             }
             <span class="macro">println!</span>(
                 <span class="string">&quot;wasmer.h does not exist in {}, will probably default to the system path&quot;</span>,
@@ -4385,8 +4388,9 @@
 }
 
 <span class="kw">mod </span>http_fetch {
-    <span class="kw">use </span>anyhow::{anyhow, Context, <span class="prelude-ty">Result</span>};
     <span class="kw">use </span>std::path::Path;
+
+    <span class="kw">use </span>anyhow::{anyhow, Context, <span class="prelude-ty">Result</span>};
 
     <span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">fn </span>get_release(
         release_version: <span class="prelude-ty">Option</span>&lt;semver::Version&gt;,

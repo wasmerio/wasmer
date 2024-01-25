@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":["__typename","accepted","approvedBy","closedAt","createdAt","declinedBy","expiresAt","id","inviteEmail","package","requestedBy","role","user"]};

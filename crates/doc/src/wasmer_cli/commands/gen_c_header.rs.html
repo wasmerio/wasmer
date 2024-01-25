@@ -138,15 +138,21 @@
 <a href="#138" id="138">138</a>
 <a href="#139" id="139">139</a>
 <a href="#140" id="140">140</a>
-</pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::store::CompilerOptions;
+<a href="#141" id="141">141</a>
+<a href="#142" id="142">142</a>
+<a href="#143" id="143">143</a>
+</pre></div><pre class="rust"><code><span class="kw">use </span>std::path::PathBuf;
+
 <span class="kw">use </span>anyhow::{Context, Error};
 <span class="kw">use </span>bytes::Bytes;
 <span class="kw">use </span>clap::Parser;
-<span class="kw">use </span>std::path::PathBuf;
 <span class="kw">use </span>wasmer_compiler::Artifact;
-<span class="kw">use </span>wasmer_types::compilation::symbols::ModuleMetadataSymbolRegistry;
-<span class="kw">use </span>wasmer_types::{CpuFeature, MetadataHeader, Triple};
+<span class="kw">use </span>wasmer_types::{
+    compilation::symbols::ModuleMetadataSymbolRegistry, CpuFeature, MetadataHeader, Triple,
+};
 <span class="kw">use </span>webc::{compat::SharedBytes, Container, DetectError};
+
+<span class="kw">use </span><span class="kw">crate</span>::store::CompilerOptions;
 
 <span class="attr">#[derive(Debug, Parser)]
 </span><span class="doccomment">/// The options for the `wasmer gen-c-header` subcommand

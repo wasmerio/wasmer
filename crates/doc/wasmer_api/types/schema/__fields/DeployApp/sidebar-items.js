@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["_aliases_arguments","_usage_metrics_arguments","_versions_arguments"],"struct":["__typename","activeVersion","adminUrl","aggregateMetrics","aliases","createdAt","createdBy","deleted","description","globalName","id","name","owner","permalink","updatedAt","url","urls","usageMetrics","versions"]};

@@ -301,9 +301,9 @@
 <a href="#301" id="301">301</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Generate a header file for the static object file produced.
 
-</span><span class="kw">use super</span>::{generate_c, CStatement, CType};
-<span class="kw">use </span>wasmer_types::ModuleInfo;
-<span class="kw">use </span>wasmer_types::{Symbol, SymbolRegistry};
+</span><span class="kw">use </span>wasmer_types::{ModuleInfo, Symbol, SymbolRegistry};
+
+<span class="kw">use super</span>::{generate_c, CStatement, CType};
 
 <span class="doccomment">/// Helper functions to simplify the usage of the static artifact.
 </span><span class="kw">fn </span>gen_helper_functions(atom_name: <span class="kw-2">&amp;</span>str, module_name: <span class="kw-2">&amp;</span>str) -&gt; String {

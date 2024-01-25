@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"fn":["suggest_function_exports"]};

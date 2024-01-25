@@ -115,10 +115,12 @@
 <a href="#115" id="115">115</a>
 <a href="#116" id="116">116</a>
 <a href="#117" id="117">117</a>
-</pre></div><pre class="rust"><code><span class="kw">use </span>anyhow::Context;
+<a href="#118" id="118">118</a>
+</pre></div><pre class="rust"><code><span class="kw">use </span>std::path::PathBuf;
+
+<span class="kw">use </span>anyhow::Context;
 <span class="kw">use </span>dialoguer::console::{style, Emoji};
 <span class="kw">use </span>indicatif::ProgressBar;
-<span class="kw">use </span>std::path::PathBuf;
 
 <span class="doccomment">/// Extract contents of a container to a directory.
 </span><span class="attr">#[derive(clap::Parser, Debug)]

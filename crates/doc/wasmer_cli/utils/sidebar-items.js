@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["parse_envvar","parse_mapdir","retrieve_alias_pathbuf","wasmer_should_print_color"]};
+window.SIDEBAR_ITEMS = {"constant":["DEFAULT_PACKAGE_MANIFEST_FILE","PATTERN"],"enum":["PackageCheckMode"],"fn":["load_package_manifest","merge_yaml_values","parse_envvar","parse_mapdir","prompt_for_package","prompt_for_package_name","republish_package_with_bumped_version","retrieve_alias_pathbuf"],"mod":["package_wizard","prompts","render"],"static":["RE"],"struct":["Identifier"]};

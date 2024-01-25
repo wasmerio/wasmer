@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":["__typename","content","createdAt","id","viewerHasAccepted"]};

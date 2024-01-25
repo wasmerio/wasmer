@@ -32,11 +32,15 @@
 <a href="#32" id="32">32</a>
 <a href="#33" id="33">33</a>
 <a href="#34" id="34">34</a>
-</pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::store::StoreOptions;
+<a href="#35" id="35">35</a>
+<a href="#36" id="36">36</a>
+</pre></div><pre class="rust"><code><span class="kw">use </span>std::path::PathBuf;
+
 <span class="kw">use </span>anyhow::{bail, Context, <span class="prelude-ty">Result</span>};
 <span class="kw">use </span>clap::Parser;
-<span class="kw">use </span>std::path::PathBuf;
 <span class="kw">use </span>wasmer::<span class="kw-2">*</span>;
+
+<span class="kw">use </span><span class="kw">crate</span>::store::StoreOptions;
 
 <span class="attr">#[derive(Debug, Parser)]
 </span><span class="doccomment">/// The options for the `wasmer validate` subcommand

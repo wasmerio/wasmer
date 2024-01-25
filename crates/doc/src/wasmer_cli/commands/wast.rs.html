@@ -35,12 +35,16 @@
 <a href="#35" id="35">35</a>
 <a href="#36" id="36">36</a>
 <a href="#37" id="37">37</a>
+<a href="#38" id="38">38</a>
+<a href="#39" id="39">39</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Runs a .wast WebAssembly test suites
-</span><span class="kw">use </span><span class="kw">crate</span>::store::StoreOptions;
+</span><span class="kw">use </span>std::path::PathBuf;
+
 <span class="kw">use </span>anyhow::{Context, <span class="prelude-ty">Result</span>};
 <span class="kw">use </span>clap::Parser;
-<span class="kw">use </span>std::path::PathBuf;
 <span class="kw">use </span>wasmer_wast::Wast <span class="kw">as </span>WastSpectest;
+
+<span class="kw">use </span><span class="kw">crate</span>::store::StoreOptions;
 
 <span class="attr">#[derive(Debug, Parser)]
 </span><span class="doccomment">/// The options for the `wasmer wast` subcommand

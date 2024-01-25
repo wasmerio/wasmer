@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":["__typename","authUrl","callbackUrl","createdAt","expired","id","isValidated","name","secret","token"]};

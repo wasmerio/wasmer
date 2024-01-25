@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":["authToken","name","namespace","repository","tag"]};

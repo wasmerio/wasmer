@@ -38,7 +38,9 @@
 <a href="#38" id="38">38</a>
 <a href="#39" id="39">39</a>
 <a href="#40" id="40">40</a>
-</pre></div><pre class="rust"><code><span class="kw">use </span>wasmer_edge_cli::cmd::AsyncCliCommand;
+<a href="#41" id="41">41</a>
+<a href="#42" id="42">42</a>
+</pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::commands::CliCommand;
 
 <span class="kw">mod </span>compact;
 <span class="kw">mod </span>export;
@@ -67,14 +69,16 @@
     </span>Filter(CmdJournalFilter),
 }
 
-<span class="kw">impl </span>AsyncCliCommand <span class="kw">for </span>CmdJournal {
-    <span class="kw">fn </span>run_async(<span class="self">self</span>) -&gt; futures::future::BoxFuture&lt;<span class="lifetime">&#39;static</span>, <span class="prelude-ty">Result</span>&lt;(), anyhow::Error&gt;&gt; {
+<span class="kw">impl </span>CliCommand <span class="kw">for </span>CmdJournal {
+    <span class="kw">type </span>Output = ();
+
+    <span class="kw">fn </span>run(<span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;(), anyhow::Error&gt; {
         <span class="kw">match </span><span class="self">self </span>{
-            <span class="self">Self</span>::Compact(cmd) =&gt; cmd.run_async(),
-            <span class="self">Self</span>::Import(cmd) =&gt; cmd.run_async(),
-            <span class="self">Self</span>::Export(cmd) =&gt; cmd.run_async(),
-            <span class="self">Self</span>::Inspect(cmd) =&gt; cmd.run_async(),
-            <span class="self">Self</span>::Filter(cmd) =&gt; cmd.run_async(),
+            <span class="self">Self</span>::Compact(cmd) =&gt; cmd.run(),
+            <span class="self">Self</span>::Import(cmd) =&gt; cmd.run(),
+            <span class="self">Self</span>::Export(cmd) =&gt; cmd.run(),
+            <span class="self">Self</span>::Inspect(cmd) =&gt; cmd.run(),
+            <span class="self">Self</span>::Filter(cmd) =&gt; cmd.run(),
         }
     }
 }

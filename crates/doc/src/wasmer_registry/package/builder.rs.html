@@ -1889,7 +1889,7 @@
     }
 
     <span class="doccomment">/// How should validation be treated by the publishing process?
-    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">trait </span>ValidationPolicy {
+    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">trait </span>ValidationPolicy: Send + Sync {
         <span class="doccomment">/// Should validation be skipped entirely?
         </span><span class="kw">fn </span>skip_validation(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; bool;
 

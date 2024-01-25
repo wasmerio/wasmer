@@ -152,14 +152,16 @@
 <a href="#152" id="152">152</a>
 <a href="#153" id="153">153</a>
 <a href="#154" id="154">154</a>
-</pre></div><pre class="rust"><code><span class="kw">use </span>anyhow::{Context, <span class="prelude-ty">Result</span>};
+<a href="#155" id="155">155</a>
+</pre></div><pre class="rust"><code><span class="kw">use </span>std::{
+    env, fs,
+    io::Write,
+    os::unix::{ffi::OsStrExt, fs::MetadataExt},
+    path::{Path, PathBuf},
+};
+
+<span class="kw">use </span>anyhow::{bail, Context, <span class="prelude-ty">Result</span>};
 <span class="kw">use </span>clap::Parser;
-<span class="kw">use </span>std::env;
-<span class="kw">use </span>std::fs;
-<span class="kw">use </span>std::io::Write;
-<span class="kw">use </span>std::os::unix::ffi::OsStrExt;
-<span class="kw">use </span>std::os::unix::fs::MetadataExt;
-<span class="kw">use </span>std::path::{Path, PathBuf};
 <span class="kw">use </span>Action::<span class="kw-2">*</span>;
 
 <span class="attr">#[derive(Debug, Parser, Clone, Copy)]

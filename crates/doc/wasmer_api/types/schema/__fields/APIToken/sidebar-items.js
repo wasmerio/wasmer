@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["_nonce_set_arguments"],"struct":["__typename","createdAt","id","identifier","lastUsedAt","nonceSet","revokedAt","user"]};

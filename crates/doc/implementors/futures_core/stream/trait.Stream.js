@@ -1,0 +1,3 @@
+(function() {var implementors = {
+"wasmer_api":[["impl&lt;Q: <a class=\"trait\" href=\"wasmer_api/stream/trait.PaginatedQuery.html\" title=\"trait wasmer_api::stream::PaginatedQuery\">PaginatedQuery</a>&gt; Stream for <a class=\"struct\" href=\"wasmer_api/stream/struct.QueryStream.html\" title=\"struct wasmer_api::stream::QueryStream\">QueryStream</a>&lt;Q&gt;"]]
+};if (window.register_implementors) {window.register_implementors(implementors);} else {window.pending_implementors = implementors;}})()

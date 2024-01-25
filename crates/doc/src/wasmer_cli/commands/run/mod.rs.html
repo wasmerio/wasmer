@@ -955,13 +955,6 @@
 <a href="#955" id="955">955</a>
 <a href="#956" id="956">956</a>
 <a href="#957" id="957">957</a>
-<a href="#958" id="958">958</a>
-<a href="#959" id="959">959</a>
-<a href="#960" id="960">960</a>
-<a href="#961" id="961">961</a>
-<a href="#962" id="962">962</a>
-<a href="#963" id="963">963</a>
-<a href="#964" id="964">964</a>
 </pre></div><pre class="rust"><code><span class="attr">#![allow(missing_docs, unused)]
 
 </span><span class="kw">mod </span>wasi;
@@ -978,7 +971,7 @@
     time::{Duration, SystemTime},
 };
 
-<span class="kw">use </span>anyhow::{Context, Error};
+<span class="kw">use </span>anyhow::{bail, Context, Error};
 <span class="kw">use </span>clap::Parser;
 <span class="kw">use </span>indicatif::{MultiProgress, ProgressBar};
 <span class="kw">use </span>once_cell::sync::Lazy;
@@ -998,8 +991,10 @@
     bin_factory::BinaryPackage,
     journal::CompactingLogFileJournal,
     runners::{
-        dcgi::DcgiInstanceFactory,
-        wcgi::{<span class="self">self</span>, NoOpWcgiCallbacks},
+        dcgi::{DcgiInstanceFactory, DcgiRunner},
+        emscripten::EmscriptenRunner,
+        wasi::WasiRunner,
+        wcgi::{<span class="self">self</span>, AbortHandle, NoOpWcgiCallbacks, WcgiRunner},
         MappedCommand, MappedDirectory, Runner,
     },
     runtime::{
@@ -1008,16 +1003,7 @@
         resolver::{PackageSpecifier, QueryError},
         task_manager::VirtualTaskManagerExt,
     },
-    WasiError,
-};
-<span class="kw">use </span>wasmer_wasix::{
-    runners::{
-        dcgi::DcgiRunner,
-        emscripten::EmscriptenRunner,
-        wasi::WasiRunner,
-        wcgi::{AbortHandle, WcgiRunner},
-    },
-    Runtime,
+    Runtime, WasiError,
 };
 <span class="kw">use </span>webc::{metadata::Manifest, Container};
 
@@ -1163,7 +1149,7 @@
         } <span class="kw">else if </span>EmscriptenRunner::can_run_command(cmd.metadata())<span class="question-mark">? </span>{
             <span class="self">self</span>.run_emscripten(id, pkg, runtime)
         } <span class="kw">else </span>{
-            <span class="macro">anyhow::bail!</span>(
+            <span class="macro">bail!</span>(
                 <span class="string">&quot;Unable to find a runner that supports \&quot;{}\&quot;&quot;</span>,
                 cmd.metadata().runner
             );
@@ -1381,7 +1367,7 @@
 
     <span class="attr">#[tracing::instrument(skip_all)]
     </span><span class="kw">fn </span>execute_emscripten_module(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt; {
-        <span class="macro">anyhow::bail!</span>(<span class="string">&quot;Emscripten packages are not currently supported&quot;</span>)
+        <span class="macro">bail!</span>(<span class="string">&quot;Emscripten packages are not currently supported&quot;</span>)
     }
 
     <span class="attr">#[allow(unused_variables)]
@@ -1410,7 +1396,7 @@
 
     <span class="kw">fn </span>from_binfmt_args_fallible() -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, Error&gt; {
         <span class="kw">if </span>!<span class="macro">cfg!</span>(linux) {
-            <span class="macro">anyhow::bail!</span>(<span class="string">&quot;binfmt_misc is only available on linux.&quot;</span>);
+            <span class="macro">bail!</span>(<span class="string">&quot;binfmt_misc is only available on linux.&quot;</span>);
         }
 
         <span class="kw">let </span>argv = std::env::args().collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
@@ -1473,7 +1459,7 @@
         Type::F32 =&gt; Value::F32(s.parse()<span class="question-mark">?</span>),
         Type::F64 =&gt; Value::F64(s.parse()<span class="question-mark">?</span>),
         Type::V128 =&gt; Value::V128(s.parse()<span class="question-mark">?</span>),
-        <span class="kw">_ </span>=&gt; <span class="macro">anyhow::bail!</span>(<span class="string">&quot;There is no known conversion from {s:?} to {ty:?}&quot;</span>),
+        <span class="kw">_ </span>=&gt; <span class="macro">bail!</span>(<span class="string">&quot;There is no known conversion from {s:?} to {ty:?}&quot;</span>),
     };
     <span class="prelude-val">Ok</span>(value)
 }
@@ -1484,12 +1470,12 @@
     }
 
     <span class="kw">match </span>pkg.commands.as_slice() {
-        [] =&gt; <span class="macro">anyhow::bail!</span>(<span class="string">&quot;The WEBC file doesn&#39;t contain any executable commands&quot;</span>),
+        [] =&gt; <span class="macro">bail!</span>(<span class="string">&quot;The WEBC file doesn&#39;t contain any executable commands&quot;</span>),
         [one] =&gt; <span class="prelude-val">Ok</span>(one.name()),
         [..] =&gt; {
             <span class="kw">let </span><span class="kw-2">mut </span>commands: Vec&lt;<span class="kw">_</span>&gt; = pkg.commands.iter().map(|cmd| cmd.name()).collect();
             commands.sort();
-            <span class="macro">anyhow::bail!</span>(
+            <span class="macro">bail!</span>(
                 <span class="string">&quot;Unable to determine the WEBC file&#39;s entrypoint. Please choose one of {:?}&quot;</span>,
                 commands,
             );
@@ -1604,7 +1590,7 @@
             <span class="prelude-val">Some</span>(<span class="string">&quot;wasm&quot;</span>) =&gt; <span class="prelude-val">Ok</span>(TargetOnDisk::WebAssemblyBinary),
             <span class="prelude-val">Some</span>(<span class="string">&quot;webc&quot;</span>) =&gt; <span class="prelude-val">Ok</span>(TargetOnDisk::LocalWebc),
             <span class="prelude-val">Some</span>(<span class="string">&quot;wasmu&quot;</span>) =&gt; <span class="prelude-val">Ok</span>(TargetOnDisk::WebAssemblyBinary),
-            <span class="kw">_ </span>=&gt; <span class="macro">anyhow::bail!</span>(<span class="string">&quot;Unable to determine how to execute \&quot;{}\&quot;&quot;</span>, path.display()),
+            <span class="kw">_ </span>=&gt; <span class="macro">bail!</span>(<span class="string">&quot;Unable to determine how to execute \&quot;{}\&quot;&quot;</span>, path.display()),
         }
     }
 }

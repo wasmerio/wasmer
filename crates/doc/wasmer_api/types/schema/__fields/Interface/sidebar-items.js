@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["_versions_arguments"],"struct":["__typename","createdAt","description","displayName","homepage","icon","id","lastVersion","name","updatedAt","versions"]};

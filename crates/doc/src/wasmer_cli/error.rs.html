@@ -150,11 +150,13 @@
 <a href="#150" id="150">150</a>
 <a href="#151" id="151">151</a>
 <a href="#152" id="152">152</a>
+<a href="#153" id="153">153</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Implements `PretyError` to print pretty errors in the CLI (when they happen)
 
-</span><span class="kw">use </span>anyhow::{Chain, Error};
+</span><span class="kw">use </span>std::fmt::{<span class="self">self</span>, Debug, Write};
+
+<span class="kw">use </span>anyhow::{Chain, Error};
 <span class="kw">use </span>colored::<span class="kw-2">*</span>;
-<span class="kw">use </span>std::fmt::{<span class="self">self</span>, Debug, Write};
 <span class="kw">use </span>wasmer::RuntimeError;
 
 <span class="doccomment">/// A `PrettyError` for printing `anyhow::Error` nicely.

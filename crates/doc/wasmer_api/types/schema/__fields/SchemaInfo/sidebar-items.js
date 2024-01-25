@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":["SHA256Hash","__typename","downloadUrl","lastUpdated"]};

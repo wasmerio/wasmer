@@ -68,12 +68,16 @@
 <a href="#68" id="68">68</a>
 <a href="#69" id="69">69</a>
 <a href="#70" id="70">70</a>
-</pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::store::StoreOptions;
+<a href="#71" id="71">71</a>
+<a href="#72" id="72">72</a>
+</pre></div><pre class="rust"><code><span class="kw">use </span>std::path::PathBuf;
+
 <span class="kw">use </span>anyhow::{Context, <span class="prelude-ty">Result</span>};
 <span class="kw">use </span>bytesize::ByteSize;
 <span class="kw">use </span>clap::Parser;
-<span class="kw">use </span>std::path::PathBuf;
 <span class="kw">use </span>wasmer::<span class="kw-2">*</span>;
+
+<span class="kw">use </span><span class="kw">crate</span>::store::StoreOptions;
 
 <span class="attr">#[derive(Debug, Parser)]
 </span><span class="doccomment">/// The options for the `wasmer validate` subcommand

@@ -23,14 +23,12 @@
 <a href="#23" id="23">23</a>
 <a href="#24" id="24">24</a>
 <a href="#25" id="25">25</a>
-<a href="#26" id="26">26</a>
-<a href="#27" id="27">27</a>
-<a href="#28" id="28">28</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::path::PathBuf;
 
 <span class="kw">use </span>clap::Parser;
-<span class="kw">use </span>wasmer_edge_cli::cmd::AsyncCliCommand;
 <span class="kw">use </span>wasmer_wasix::journal::{copy_journal, JournalPrintingMode, LogFileJournal, PrintingJournal};
+
+<span class="kw">use </span><span class="kw">crate</span>::commands::CliCommand;
 
 <span class="doccomment">/// Exports all the events in a journal to STDOUT as JSON data
 </span><span class="attr">#[derive(Debug, Parser)]
@@ -40,14 +38,10 @@
     </span>journal_path: PathBuf,
 }
 
-<span class="kw">impl </span>AsyncCliCommand <span class="kw">for </span>CmdJournalExport {
-    <span class="kw">fn </span>run_async(<span class="self">self</span>) -&gt; futures::future::BoxFuture&lt;<span class="lifetime">&#39;static</span>, <span class="prelude-ty">Result</span>&lt;(), anyhow::Error&gt;&gt; {
-        Box::pin(<span class="self">self</span>.run())
-    }
-}
+<span class="kw">impl </span>CliCommand <span class="kw">for </span>CmdJournalExport {
+    <span class="kw">type </span>Output = ();
 
-<span class="kw">impl </span>CmdJournalExport {
-    <span class="kw">async fn </span>run(<span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;(), anyhow::Error&gt; {
+    <span class="kw">fn </span>run(<span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;(), anyhow::Error&gt; {
         <span class="kw">let </span>journal = LogFileJournal::new(<span class="self">self</span>.journal_path)<span class="question-mark">?</span>;
         <span class="kw">let </span>printer = PrintingJournal::new(JournalPrintingMode::Json);
         copy_journal(<span class="kw-2">&amp;</span>journal, <span class="kw-2">&amp;</span>printer)<span class="question-mark">?</span>;

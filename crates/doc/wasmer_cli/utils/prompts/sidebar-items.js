@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["PackageCheckMode"],"fn":["prompt_for_ident","prompt_for_namespace","prompt_for_package","prompt_for_package_ident","prompt_new_app_alias","prompt_new_app_name"]};

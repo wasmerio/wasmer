@@ -112,16 +112,14 @@
 <a href="#112" id="112">112</a>
 <a href="#113" id="113">113</a>
 <a href="#114" id="114">114</a>
-<a href="#115" id="115">115</a>
-<a href="#116" id="116">116</a>
-<a href="#117" id="117">117</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{path::PathBuf, str::FromStr};
 
 <span class="kw">use </span>clap::Parser;
-<span class="kw">use </span>wasmer_edge_cli::cmd::AsyncCliCommand;
 <span class="kw">use </span>wasmer_wasix::journal::{
     copy_journal, FilteredJournalBuilder, LogFileJournal, PrintingJournal,
 };
+
+<span class="kw">use </span><span class="kw">crate</span>::commands::CliCommand;
 
 <span class="doccomment">/// Flags that specify what should be filtered out
 </span><span class="attr">#[derive(Debug, Clone, Copy, PartialOrd, Ord, PartialEq, Eq, Hash)]
@@ -177,14 +175,10 @@
     </span>filters: Vec&lt;FilterOut&gt;,
 }
 
-<span class="kw">impl </span>AsyncCliCommand <span class="kw">for </span>CmdJournalFilter {
-    <span class="kw">fn </span>run_async(<span class="self">self</span>) -&gt; futures::future::BoxFuture&lt;<span class="lifetime">&#39;static</span>, <span class="prelude-ty">Result</span>&lt;(), anyhow::Error&gt;&gt; {
-        Box::pin(<span class="self">self</span>.run())
-    }
-}
+<span class="kw">impl </span>CliCommand <span class="kw">for </span>CmdJournalFilter {
+    <span class="kw">type </span>Output = ();
 
-<span class="kw">impl </span>CmdJournalFilter {
-    <span class="kw">async fn </span>run(<span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;(), anyhow::Error&gt; {
+    <span class="kw">fn </span>run(<span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;(), anyhow::Error&gt; {
         <span class="comment">// Create a new file name that will be the temp new file
         // while its written
         </span><span class="kw">let </span><span class="kw-2">mut </span>temp_filename = <span class="self">self
