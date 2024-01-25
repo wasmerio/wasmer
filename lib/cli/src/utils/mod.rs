@@ -238,7 +238,7 @@ pub async fn republish_package_with_bumped_version(
         quiet: false,
         package_name: None,
         version: None,
-        wait: false,
+        wait: wasmer_registry::publish::PublishWait::new_none(),
         token,
         no_validate: true,
         package_path: Some(dir.to_str().unwrap().to_string()),
@@ -246,7 +246,7 @@ pub async fn republish_package_with_bumped_version(
         // large packages.
         timeout: std::time::Duration::from_secs(60 * 60 * 12),
     };
-    publish.execute().await?;
+    publish.execute()?;
 
     Ok(manifest)
 }
