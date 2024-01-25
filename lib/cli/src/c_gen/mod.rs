@@ -8,6 +8,7 @@ pub type CIdent = String;
 
 /// A Type in the C language.
 #[derive(Debug, Clone, Default)]
+#[allow(dead_code)]
 pub enum CType {
     /// C `void` type.
     #[default]

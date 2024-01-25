@@ -1,23 +1,21 @@
 //! Common module with common used structures across different
 //! commands.
 
-use anyhow::Result;
-
-#[allow(unused_imports)]
-use crate::common::WasmFeatures;
-use clap::Parser;
 #[allow(unused_imports)]
 use std::path::PathBuf;
 use std::string::ToString;
 #[allow(unused_imports)]
 use std::sync::Arc;
+
+use anyhow::{bail, Result};
+
 use wasmer::*;
 #[cfg(feature = "compiler")]
 use wasmer_compiler::CompilerConfig;
 #[cfg(feature = "compiler")]
 use wasmer_compiler::Engine;
 
-#[derive(Debug, Clone, Parser, Default)]
+#[derive(Debug, Clone, clap::Parser, Default)]
 /// The compiler options
 pub struct StoreOptions {
     #[cfg(feature = "compiler")]
@@ -25,8 +23,41 @@ pub struct StoreOptions {
     compiler: CompilerOptions,
 }
 
+#[derive(Debug, clap::Parser, Clone, Default)]
+/// The WebAssembly features that can be passed through the
+/// Command Line args.
+pub struct WasmFeatures {
+    /// Enable support for the SIMD proposal.
+    #[clap(long = "enable-simd")]
+    pub simd: bool,
+
+    /// Disable support for the threads proposal.
+    #[clap(long = "disable-threads")]
+    pub disable_threads: bool,
+
+    /// Deprecated, threads are enabled by default.
+    #[clap(long = "enable-threads")]
+    pub _threads: bool,
+
+    /// Enable support for the reference types proposal.
+    #[clap(long = "enable-reference-types")]
+    pub reference_types: bool,
+
+    /// Enable support for the multi value proposal.
+    #[clap(long = "enable-multi-value")]
+    pub multi_value: bool,
+
+    /// Enable support for the bulk memory proposal.
+    #[clap(long = "enable-bulk-memory")]
+    pub bulk_memory: bool,
+
+    /// Enable support for all pre-standard proposals.
+    #[clap(long = "enable-all")]
+    pub all: bool,
+}
+
 #[cfg(feature = "compiler")]
-#[derive(Debug, Clone, Parser, Default)]
+#[derive(Debug, Clone, clap::Parser, Default)]
 /// The compiler options
 pub struct CompilerOptions {
     /// Use Singlepass compiler.
@@ -284,11 +315,13 @@ pub enum CompilerType {
     /// LLVM compiler
     LLVM,
     /// Headless compiler
+    #[allow(dead_code)]
     Headless,
 }
 
 impl CompilerType {
     /// Return all enabled compilers
+    #[allow(dead_code)]
     pub fn enabled() -> Vec<CompilerType> {
         vec![
             #[cfg(feature = "singlepass")]

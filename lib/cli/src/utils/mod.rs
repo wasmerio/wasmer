@@ -5,26 +5,16 @@ pub(crate) mod prompts;
 pub(crate) mod render;
 
 use std::{
-    env,
     path::{Path, PathBuf},
     str::FromStr,
 };
 
 use anyhow::{bail, Context as _, Result};
 use edge_schema::schema::StringWebcIdent;
-use is_terminal::IsTerminal;
 use once_cell::sync::Lazy;
 use regex::Regex;
 use wasmer_api::WasmerClient;
 use wasmer_wasix::runners::MappedDirectory;
-
-/// Whether or not Wasmer should print with color
-pub fn wasmer_should_print_color() -> bool {
-    env::var("WASMER_COLOR")
-        .ok()
-        .and_then(|inner| inner.parse::<bool>().ok())
-        .unwrap_or_else(|| std::io::stdout().is_terminal())
-}
 
 fn retrieve_alias_pathbuf(alias: &str, real_dir: &str) -> Result<MappedDirectory> {
     let pb = PathBuf::from(&real_dir).canonicalize()?;

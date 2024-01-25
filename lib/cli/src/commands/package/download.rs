@@ -1,4 +1,4 @@
-use anyhow::Context;
+use anyhow::{bail, Context};
 use dialoguer::console::{style, Emoji};
 use indicatif::{ProgressBar, ProgressStyle};
 use std::path::PathBuf;
@@ -68,7 +68,7 @@ impl PackageDownload {
             match parent.metadata() {
                 Ok(m) => {
                     if !m.is_dir() {
-                        anyhow::bail!(
+                        bail!(
                             "parent of output file is not a directory: '{}'",
                             parent.display()
                         );
@@ -109,7 +109,7 @@ impl PackageDownload {
                 bail!("cannot download a package from a URL: '{}'", url);
             }
             PackageSpecifier::Path(_) => {
-                anyhow::bail!("cannot download a package from a local path");
+                bail!("cannot download a package from a local path");
             }
         };
 
@@ -162,7 +162,7 @@ impl PackageDownload {
             .unwrap_or_default();
 
         if webc_total_size == 0 {
-            anyhow::bail!("Package is empty");
+            bail!("Package is empty");
         }
 
         // Set the length of the progress bar

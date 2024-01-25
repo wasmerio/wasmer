@@ -16,7 +16,7 @@
 #![cfg_attr(docsrs, feature(doc_cfg, doc_auto_cfg))]
 
 #[cfg(all(target_os = "linux", feature = "tun-tap"))]
-pub mod net;
+mod net;
 
 mod commands;
 mod common;
@@ -27,7 +27,6 @@ mod logging;
 mod opts;
 mod package_source;
 mod store;
-mod suggestions;
 mod types;
 mod utils;
 
@@ -36,6 +35,7 @@ mod config;
 /// Version number of this crate.
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 
+/// Run the Wasmer CLI.
 pub fn run_cli() {
     self::commands::WasmerCmd::run();
 }

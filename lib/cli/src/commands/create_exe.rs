@@ -1,17 +1,14 @@
 //! Create a standalone native executable for a given Wasm file.
 
-use self::utils::normalize_atom_name;
-
-use crate::common::normalize_path;
-use crate::store::CompilerOptions;
-use anyhow::{Context, Result};
-use clap::Parser;
-use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use std::env;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::process::Stdio;
+
+use anyhow::{anyhow, bail, Context, Result};
+use clap::Parser;
+use serde::{Deserialize, Serialize};
 use tar::Archive;
 use wasmer::*;
 use wasmer_object::{emit_serialized, get_object_for_target};
@@ -20,6 +17,11 @@ use webc::{
     compat::{Container, Volume as WebcVolume},
     PathSegments,
 };
+
+use self::utils::normalize_atom_name;
+
+use crate::common::normalize_path;
+use crate::store::CompilerOptions;
 
 const LINK_SYSTEM_LIBRARIES_WINDOWS: &[&str] = &["userenv", "Ws2_32", "advapi32", "bcrypt"];
 
@@ -1558,7 +1560,7 @@ fn generate_wasmer_main_c(
 pub(super) mod utils {
 
     use super::{CrossCompile, CrossCompileSetup, UrlOrVersion};
-    use anyhow::Context;
+    use anyhow::{anyhow, Context};
     use std::{
         ffi::OsStr,
         path::{Path, PathBuf},
@@ -1626,7 +1628,7 @@ pub(super) mod utils {
             let wasmer_cache_dir =
                 if *target_triple == Triple::host() && std::env::var("WASMER_DIR").is_ok() {
                     wasmer_registry::WasmerConfig::get_wasmer_dir()
-                        .map_err(|e| anyhow::anyhow!("{e}"))
+                        .map_err(|e| anyhow!("{e}"))
                         .map(|o| o.join("cache"))
                 } else {
                     get_libwasmer_cache_path()
@@ -1669,8 +1671,7 @@ pub(super) mod utils {
             }
         };
 
-        let library =
-            library.ok_or_else(|| anyhow::anyhow!("libwasmer.a / wasmer.lib not found"))?;
+        let library = library.ok_or_else(|| anyhow!("libwasmer.a / wasmer.lib not found"))?;
 
         let ccs = CrossCompileSetup {
             target: target.clone(),
@@ -1753,11 +1754,11 @@ pub(super) mod utils {
             .unwrap_or_else(|| target_file_path.clone());
 
         std::fs::create_dir_all(&target_file_path)
-            .map_err(|e| anyhow::anyhow!("{e}"))
-            .with_context(|| anyhow::anyhow!("{}", target_file_path.display()))?;
+            .map_err(|e| anyhow!("{e}"))
+            .with_context(|| anyhow!("{}", target_file_path.display()))?;
         let files =
             super::http_fetch::untar(local_tarball, &target_file_path).with_context(|| {
-                anyhow::anyhow!(
+                anyhow!(
                     "{} -> {}",
                     local_tarball.display(),
                     target_file_path.display()
@@ -1827,7 +1828,7 @@ pub(super) mod utils {
     }
 
     pub(super) fn get_wasmer_dir() -> anyhow::Result<PathBuf> {
-        wasmer_registry::WasmerConfig::get_wasmer_dir().map_err(|e| anyhow::anyhow!("{e}"))
+        wasmer_registry::WasmerConfig::get_wasmer_dir().map_err(|e| anyhow!("{e}"))
     }
 
     pub(super) fn get_wasmer_include_directory() -> anyhow::Result<PathBuf> {
@@ -1838,10 +1839,7 @@ pub(super) mod utils {
         path.push("include");
         if !path.clone().join("wasmer.h").exists() {
             if !path.exists() {
-                return Err(anyhow::anyhow!(
-                    "WASMER_DIR path {} does not exist",
-                    path.display()
-                ));
+                return Err(anyhow!("WASMER_DIR path {} does not exist", path.display()));
             }
             println!(
                 "wasmer.h does not exist in {}, will probably default to the system path",

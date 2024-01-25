@@ -6415,7 +6415,6 @@ dependencies = [
  "comfy-table",
  "dialoguer",
  "dirs",
- "distance",
  "edge-schema 0.0.2",
  "edge-util",
  "flate2",
