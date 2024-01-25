@@ -38,18 +38,22 @@
           src = self;
           buildInputs = with pkgs; [
             pkgconfig
-            libffi
-            libxml2
             openssl
-            llvmPackages_14.llvm
+            llvmPackages_15.libllvm
             # Snapshot testing
             cargo-insta
             wabt
             binaryen
+
+            # LLVM and related dependencies
+            llvmPackages_15.llvm
+            libxml2
+            libffi
           ];
           runtimeDependencies = with pkgs; [ ];
 
           LD_LIBRARY_PATH = "${pkgs.openssl.out}/lib";
+          LLVM_SYS_150_PREFIX = "${pkgs.llvmPackages_15.llvm.dev}";
         };
       }
     );

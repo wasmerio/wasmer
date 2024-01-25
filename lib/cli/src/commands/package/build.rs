@@ -1,7 +1,8 @@
+use std::path::PathBuf;
+
 use anyhow::Context;
 use dialoguer::console::{style, Emoji};
 use indicatif::ProgressBar;
-use std::path::PathBuf;
 
 /// Build a container from a package manifest.
 #[derive(clap::Parser, Debug)]
