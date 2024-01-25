@@ -15,15 +15,6 @@ use wasmer_api::WasmerClient;
 
 pub const DEFAULT_PACKAGE_MANIFEST_FILE: &str = "wasmer.toml";
 
-/// A value combined with a label.
-///
-/// Used for select options.
-#[derive(Debug)]
-pub struct Labeled<T> {
-    pub label: String,
-    pub value: T,
-}
-
 /// Load a package manifest from the manifest file.
 ///
 /// Path can either be a directory, or a concrete file path.
