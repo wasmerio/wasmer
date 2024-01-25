@@ -78,7 +78,7 @@ pub async fn deploy_app(
 
     let config_value = app.clone().to_yaml_value()?;
     let final_config = if let Some(old) = &opts.original_config {
-        crate::util::merge_yaml_values(old, &config_value)
+        crate::utils::merge_yaml_values(old, &config_value)
     } else {
         config_value
     };

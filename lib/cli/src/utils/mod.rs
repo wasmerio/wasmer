@@ -1,19 +1,88 @@
-pub mod package_wizard;
-pub mod prompts;
-pub mod render;
+//! Utility functions for the WebAssembly module
+
+pub(crate) mod package_wizard;
+pub(crate) mod prompts;
+pub(crate) mod render;
 
 use std::{
+    env,
     path::{Path, PathBuf},
     str::FromStr,
 };
 
-use anyhow::Context;
+use anyhow::{bail, Context as _, Result};
 use edge_schema::schema::StringWebcIdent;
+use is_terminal::IsTerminal;
 use once_cell::sync::Lazy;
 use regex::Regex;
 use wasmer_api::WasmerClient;
+use wasmer_wasix::runners::MappedDirectory;
 
-pub const DEFAULT_PACKAGE_MANIFEST_FILE: &str = "wasmer.toml";
+/// Whether or not Wasmer should print with color
+pub fn wasmer_should_print_color() -> bool {
+    env::var("WASMER_COLOR")
+        .ok()
+        .and_then(|inner| inner.parse::<bool>().ok())
+        .unwrap_or_else(|| std::io::stdout().is_terminal())
+}
+
+fn retrieve_alias_pathbuf(alias: &str, real_dir: &str) -> Result<MappedDirectory> {
+    let pb = PathBuf::from(&real_dir).canonicalize()?;
+    if let Ok(pb_metadata) = pb.metadata() {
+        if !pb_metadata.is_dir() {
+            bail!("\"{}\" exists, but it is not a directory", &real_dir);
+        }
+    } else {
+        bail!("Directory \"{}\" does not exist", &real_dir);
+    }
+    Ok(MappedDirectory {
+        guest: alias.to_string(),
+        host: pb,
+    })
+}
+
+/// Parses a mapdir from a string
+pub fn parse_mapdir(entry: &str) -> Result<MappedDirectory> {
+    // We try first splitting by `::`
+    if let [alias, real_dir] = entry.split("::").collect::<Vec<&str>>()[..] {
+        retrieve_alias_pathbuf(alias, real_dir)
+    }
+    // And then we try splitting by `:` (for compatibility with previous API)
+    else if let [alias, real_dir] = entry.splitn(2, ':').collect::<Vec<&str>>()[..] {
+        retrieve_alias_pathbuf(alias, real_dir)
+    } else {
+        bail!(
+            "Directory mappings must consist of two paths separate by a `::` or `:`. Found {}",
+            &entry
+        )
+    }
+}
+
+/// Parses an environment variable.
+pub fn parse_envvar(entry: &str) -> Result<(String, String)> {
+    let entry = entry.trim();
+
+    match entry.find('=') {
+        None => bail!(
+            "Environment variable must be of the form `<name>=<value>`; found `{}`",
+            &entry
+        ),
+
+        Some(0) => bail!(
+            "Environment variable is not well formed, the `name` is missing in `<name>=<value>`; got `{}`",
+            &entry
+        ),
+
+        Some(position) if position == entry.len() - 1 => bail!(
+            "Environment variable is not well formed, the `value` is missing in `<name>=<value>`; got `{}`",
+            &entry
+        ),
+
+        Some(position) => Ok((entry[..position].into(), entry[position + 1..].into())),
+    }
+}
+
+pub(crate) const DEFAULT_PACKAGE_MANIFEST_FILE: &str = "wasmer.toml";
 
 /// Load a package manifest from the manifest file.
 ///
@@ -195,7 +264,7 @@ pub async fn republish_package_with_bumped_version(
 /// The identifier for an app or package in the form, `owner/package@version`,
 /// where the `owner` and `version` are optional.
 #[derive(Debug, Clone, PartialEq)]
-pub struct Identifier {
+pub(crate) struct Identifier {
     /// The package's name.
     pub name: String,
     /// The package's owner, typically a username or namespace.
@@ -369,5 +438,27 @@ c: c
             let result = Identifier::from_str(input);
             assert!(result.is_err(), "Got {result:?} from {input:?}");
         }
+    }
+
+    #[test]
+    fn test_parse_envvar() {
+        assert_eq!(
+            parse_envvar("A").unwrap_err().to_string(),
+            "Environment variable must be of the form `<name>=<value>`; found `A`"
+        );
+        assert_eq!(
+            parse_envvar("=A").unwrap_err().to_string(),
+            "Environment variable is not well formed, the `name` is missing in `<name>=<value>`; got `=A`"
+        );
+        assert_eq!(
+            parse_envvar("A=").unwrap_err().to_string(),
+            "Environment variable is not well formed, the `value` is missing in `<name>=<value>`; got `A=`"
+        );
+        assert_eq!(parse_envvar("A=B").unwrap(), ("A".into(), "B".into()));
+        assert_eq!(parse_envvar("   A=B\t").unwrap(), ("A".into(), "B".into()));
+        assert_eq!(
+            parse_envvar("A=B=C=D").unwrap(),
+            ("A".into(), "B=C=D".into())
+        );
     }
 }

@@ -6,7 +6,7 @@ use wasmer_api::types::Log;
 
 use crate::{
     opts::{ApiOpts, ListFormatOpts},
-    util::{render::CliRender, Identifier},
+    utils::{render::CliRender, Identifier},
 };
 
 /// Show an app.

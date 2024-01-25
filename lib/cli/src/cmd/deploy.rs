@@ -103,8 +103,8 @@ impl AsyncCliCommand for CmdDeploy {
 
         // Check for a wasmer.toml
 
-        let local_manifest_path = abs_dir_path.join(crate::util::DEFAULT_PACKAGE_MANIFEST_FILE);
-        let local_manifest = crate::util::load_package_manifest(&local_manifest_path)?
+        let local_manifest_path = abs_dir_path.join(crate::utils::DEFAULT_PACKAGE_MANIFEST_FILE);
+        let local_manifest = crate::utils::load_package_manifest(&local_manifest_path)?
             .map(|x| x.1)
             // Ignore local package if it is not referenced by the app.
             .filter(|m| m.package.name == pkg_name);
@@ -124,7 +124,7 @@ impl AsyncCliCommand for CmdDeploy {
 
             if should_publish {
                 eprintln!("Publishing package...");
-                let new_manifest = crate::util::republish_package_with_bumped_version(
+                let new_manifest = crate::utils::republish_package_with_bumped_version(
                     &client,
                     &local_manifest_path,
                     manifest,
@@ -221,7 +221,7 @@ impl AsyncCliCommand for CmdDeploy {
             // We want to preserve unknown fields to allow for newer app.yaml
             // settings without requring new CLI versions, so instead of just
             // serializing the new config, we merge it with the old one.
-            let new_merged = crate::util::merge_yaml_values(&orig_config_value, &new_config_value);
+            let new_merged = crate::utils::merge_yaml_values(&orig_config_value, &new_config_value);
             let new_config_raw = serde_yaml::to_string(&new_merged)?;
             std::fs::write(&file_path, new_config_raw)
                 .with_context(|| format!("Could not write file: '{}'", file_path.display()))?;

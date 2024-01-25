@@ -37,7 +37,6 @@ pub mod package_source;
 pub mod store;
 pub mod suggestions;
 mod types;
-mod util;
 pub mod utils;
 
 mod cmd;

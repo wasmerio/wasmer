@@ -1,7 +1,7 @@
 use comfy_table::Table;
 use wasmer_api::types::{DeployApp, DeployAppVersion, Namespace};
 
-use crate::util::render::CliRender;
+use crate::utils::render::CliRender;
 
 impl CliRender for Namespace {
     fn render_item_table(&self) -> String {

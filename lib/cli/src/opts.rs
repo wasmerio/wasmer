@@ -97,7 +97,7 @@ impl ApiOpts {
 pub struct ItemFormatOpts {
     /// Output format. (json, text)
     #[clap(short = 'f', long, default_value = "yaml")]
-    pub format: crate::util::render::ItemFormat,
+    pub format: crate::utils::render::ItemFormat,
 }
 
 /// Formatting options for a list of items.
@@ -105,5 +105,5 @@ pub struct ItemFormatOpts {
 pub struct ListFormatOpts {
     /// Output format. (json, text)
     #[clap(short = 'f', long, default_value = "table")]
-    pub format: crate::util::render::ListFormat,
+    pub format: crate::utils::render::ListFormat,
 }

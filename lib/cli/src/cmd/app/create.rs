@@ -16,7 +16,7 @@ use crate::{
         AsyncCliCommand,
     },
     opts::{ApiOpts, ItemFormatOpts},
-    util::package_wizard::{CreateMode, PackageType, PackageWizard},
+    utils::package_wizard::{CreateMode, PackageType, PackageWizard},
 };
 
 #[derive(clap::Parser, Debug)]
@@ -117,10 +117,10 @@ impl AppCreator {
         eprintln!("A browser web shell wraps another package and runs it in the browser");
         eprintln!("Select the package to wrap.");
 
-        let (inner_pkg, _inner_pkg_api) = crate::util::prompt_for_package(
+        let (inner_pkg, _inner_pkg_api) = crate::utils::prompt_for_package(
             "Package",
             None,
-            Some(crate::util::PackageCheckMode::MustExist),
+            Some(crate::utils::PackageCheckMode::MustExist),
             self.api.as_ref(),
         )
         .await?;
@@ -129,7 +129,7 @@ impl AppCreator {
 
         let default_name = format!("{}-webshell", inner_pkg.0.name);
         let outer_pkg_name =
-            crate::util::prompts::prompt_for_ident("Package name", Some(&default_name))?;
+            crate::utils::prompts::prompt_for_ident("Package name", Some(&default_name))?;
         let outer_pkg_full_name = format!("{}/{}", self.owner, outer_pkg_name);
         let outer_pkg = StringWebcIdent(edge_schema::schema::WebcIdent {
             repository: None,
@@ -145,7 +145,7 @@ impl AppCreator {
         } else {
             format!("{}-{}-webshell", self.owner, outer_pkg_name)
         };
-        let app_name = crate::util::prompts::prompt_for_ident("App name", Some(&default_name))?;
+        let app_name = crate::utils::prompts::prompt_for_ident("App name", Some(&default_name))?;
 
         // Build the package.
 
@@ -435,7 +435,7 @@ impl AsyncCliCommand for CmdAppCreate {
         let owner = if let Some(owner) = self.owner {
             owner
         } else if interactive {
-            crate::util::prompts::prompt_for_namespace(
+            crate::utils::prompts::prompt_for_namespace(
                 "Who should own this package?",
                 None,
                 user.as_ref(),
@@ -453,7 +453,7 @@ impl AsyncCliCommand for CmdAppCreate {
         };
 
         let local_package = if allow_local_package {
-            match crate::util::load_package_manifest(&base_dir) {
+            match crate::utils::load_package_manifest(&base_dir) {
                 Ok(Some(p)) => Some(p),
                 Ok(None) => None,
                 Err(err) => {
@@ -523,7 +523,7 @@ impl AsyncCliCommand for CmdAppCreate {
                 if let Some((path, manifest)) = &local_package {
                     eprintln!("Publishing package...");
                     let manifest = manifest.clone();
-                    crate::util::republish_package_with_bumped_version(&api, path, manifest)
+                    crate::utils::republish_package_with_bumped_version(&api, path, manifest)
                         .await?;
                 }
             }
