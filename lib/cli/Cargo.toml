@@ -87,9 +87,6 @@ wasmer-wasix-experimental-io-devices = { version = "0.18.0", path = "../wasi-exp
   "link_external_libs",
 ] }
 wasmer-wast = { version = "=4.2.5", path = "../../tests/lib/wast", optional = true }
-wasmer-cache = { version = "=4.2.5", path = "../cache", features = [
-  "blake3-pure",
-] }
 wasmer-types = { version = "=4.2.5", path = "../types", features = [
   "enable-serde",
 ] }
