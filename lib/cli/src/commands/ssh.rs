@@ -4,7 +4,7 @@ use anyhow::Context;
 use wasmer_api::WasmerClient;
 
 use super::AsyncCliCommand;
-use crate::{config::DeployClientConfig, opts::ApiOpts};
+use crate::{edge_config::EdgeConfig, opts::ApiOpts};
 
 /// Start a remote SSH session.
 #[derive(clap::Parser, Debug)]
@@ -38,7 +38,7 @@ impl AsyncCliCommand for CmdSsh {
     type Output = ();
 
     async fn run_async(self) -> Result<(), anyhow::Error> {
-        let mut config = crate::config::load_config(None)?;
+        let mut config = crate::edge_config::load_config(None)?;
         let client = self.api.client()?;
 
         let (token, is_new) = acquire_ssh_token(&client, &config.config).await?;
@@ -109,7 +109,7 @@ type RawToken = String;
 
 async fn acquire_ssh_token(
     client: &WasmerClient,
-    config: &DeployClientConfig,
+    config: &EdgeConfig,
 ) -> Result<(RawToken, IsNew), anyhow::Error> {
     if let Some(token) = &config.ssh_token {
         // TODO: validate that token is still valid.

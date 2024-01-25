@@ -30,7 +30,7 @@ mod store;
 mod types;
 mod utils;
 
-mod config;
+mod edge_config;
 
 /// Version number of this crate.
 const VERSION: &str = env!("CARGO_PKG_VERSION");

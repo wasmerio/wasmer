@@ -12,8 +12,6 @@ pub struct EdgeConfig {
     pub network_token: Option<String>,
 }
 
-pub type DeployClientConfig = EdgeConfig;
-
 impl EdgeConfig {
     pub const VERSION: u32 = 1;
 
@@ -52,7 +50,7 @@ const CONFIG_FILE_NAME: &str = "deploy_client.toml";
 const CONFIG_PATH_ENV_VAR: &str = "DEPLOY_CLIENT_CONFIG_PATH";
 
 pub struct LoadedEdgeConfig {
-    pub config: DeployClientConfig,
+    pub config: EdgeConfig,
     pub path: PathBuf,
 }
 
@@ -121,15 +119,15 @@ pub fn load_config(custom_path: Option<PathBuf>) -> Result<LoadedEdgeConfig, any
     }
 
     Ok(LoadedEdgeConfig {
-        config: DeployClientConfig::default(),
+        config: EdgeConfig::default(),
         path: default_path,
     })
 }
 
-fn try_load_config(path: &Path) -> Result<DeployClientConfig, anyhow::Error> {
+fn try_load_config(path: &Path) -> Result<EdgeConfig, anyhow::Error> {
     let data = std::fs::read(path)
         .with_context(|| format!("failed to read config file at '{}'", path.display()))?;
-    let config = DeployClientConfig::from_slice(&data)
+    let config = EdgeConfig::from_slice(&data)
         .with_context(|| format!("failed to parse config file at '{}'", path.display()))?;
     Ok(config)
 }
