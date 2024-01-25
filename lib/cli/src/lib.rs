@@ -18,20 +18,24 @@
 #[cfg(all(target_os = "linux", feature = "tun-tap"))]
 pub mod net;
 
-pub mod commands;
-pub mod common;
+mod commands;
+mod common;
 #[macro_use]
-pub mod error;
-pub mod c_gen;
-pub mod logging;
+mod error;
+mod c_gen;
+mod logging;
 mod opts;
-pub mod package_source;
-pub mod store;
-pub mod suggestions;
+mod package_source;
+mod store;
+mod suggestions;
 mod types;
-pub mod utils;
+mod utils;
 
 mod config;
 
 /// Version number of this crate.
-pub const VERSION: &str = env!("CARGO_PKG_VERSION");
+const VERSION: &str = env!("CARGO_PKG_VERSION");
+
+pub fn run_cli() {
+    self::commands::WasmerCmd::run();
+}

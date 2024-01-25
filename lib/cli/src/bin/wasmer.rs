@@ -4,5 +4,5 @@ compile_error!(
 );
 
 fn main() {
-    wasmer_cli::commands::WasmerCmd::run();
+    wasmer_cli::run_cli();
 }
