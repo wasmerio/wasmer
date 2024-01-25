@@ -1,7 +1,9 @@
+//! Delete an Edge app.
+
 use dialoguer::Confirm;
 use is_terminal::IsTerminal;
 
-use crate::{cmd::AsyncCliCommand, opts::ApiOpts};
+use crate::{commands::AsyncCliCommand, opts::ApiOpts};
 
 use super::util::AppIdentOpts;
 

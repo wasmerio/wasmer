@@ -1,5 +1,5 @@
 use crate::{
-    cmd::AsyncCliCommand,
+    commands::AsyncCliCommand,
     opts::{ApiOpts, ListFormatOpts},
 };
 

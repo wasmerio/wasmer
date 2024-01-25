@@ -1,6 +1,6 @@
 use std::{io::ErrorKind, path::PathBuf};
 
-use crate::cmd::CliCommand;
+use crate::commands::CliCommand;
 use clap::Parser;
 use wasmer_wasix::journal::{JournalEntry, LogFileJournal, WritableJournal};
 

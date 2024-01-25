@@ -1,3 +1,5 @@
+//! Create a new Edge app.
+
 use std::path::PathBuf;
 
 use anyhow::{bail, Context};
@@ -11,7 +13,7 @@ use wasmer_api::{
 };
 
 use crate::{
-    cmd::{
+    commands::{
         app::{deploy_app_verbose, AppConfigV1, DeployAppOpts, WaitMode},
         AsyncCliCommand,
     },
@@ -19,6 +21,7 @@ use crate::{
     utils::package_wizard::{CreateMode, PackageType, PackageWizard},
 };
 
+/// Create a new Edge app.
 #[derive(clap::Parser, Debug)]
 pub struct CmdAppCreate {
     #[clap(name = "type", short = 't', long)]
@@ -61,8 +64,11 @@ pub struct CmdAppCreate {
 
     // Common args.
     #[clap(flatten)]
+    #[allow(missing_docs)]
     pub api: ApiOpts,
+
     #[clap(flatten)]
+    #[allow(missing_docs)]
     pub fmt: ItemFormatOpts,
 
     /// Name of the package to use.
@@ -70,6 +76,7 @@ pub struct CmdAppCreate {
     pub package: Option<String>,
 }
 
+/// App type.
 #[derive(clap::ValueEnum, Clone, Copy, Debug)]
 pub enum AppType {
     /// A HTTP server.

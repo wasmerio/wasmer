@@ -1,10 +1,15 @@
+//! Show short information about an Edge app.
+
 use crate::{
-    cmd::{app::get::CmdAppGet, AsyncCliCommand},
+    commands::{app::get::CmdAppGet, AsyncCliCommand},
     opts::{ApiOpts, ItemFormatOpts},
 };
 
 use super::util::AppIdentOpts;
 
+/// Show short information about an Edge app.
+///
+/// Use `app get` to get more detailed information.
 #[derive(clap::Parser, Debug)]
 pub struct CmdAppInfo {
     #[clap(flatten)]

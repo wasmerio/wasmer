@@ -1,7 +1,7 @@
 use wasmer_api::types::{DeployAppVersionsSortBy, GetDeployAppVersionsVars};
 
 use crate::{
-    cmd::{app::util::AppIdentOpts, AsyncCliCommand},
+    commands::{app::util::AppIdentOpts, AsyncCliCommand},
     opts::{ApiOpts, ListFormatOpts},
 };
 
@@ -9,7 +9,9 @@ use crate::{
 #[derive(clap::Parser, Debug)]
 pub struct CmdAppVersionList {
     #[clap(flatten)]
+    #[allow(missing_docs)]
     pub api: ApiOpts,
+    #[allow(missing_docs)]
     #[clap(flatten)]
     pub fmt: ListFormatOpts,
 
@@ -46,6 +48,7 @@ pub struct CmdAppVersionList {
     sort: Option<Sort>,
 
     #[clap(flatten)]
+    #[allow(missing_docs)]
     pub ident: AppIdentOpts,
 }
 

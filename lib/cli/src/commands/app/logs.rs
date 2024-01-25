@@ -1,3 +1,5 @@
+//! Show logs for an Edge app.
+
 use comfy_table::Table;
 use edge_schema::pretty_duration::parse_timestamp_or_relative_time;
 use futures::StreamExt;
@@ -60,7 +62,7 @@ pub struct CmdAppLogs {
 }
 
 #[async_trait::async_trait]
-impl crate::cmd::AsyncCliCommand for CmdAppLogs {
+impl crate::commands::AsyncCliCommand for CmdAppLogs {
     type Output = ();
 
     async fn run_async(self) -> Result<(), anyhow::Error> {

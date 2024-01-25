@@ -1,3 +1,5 @@
+//! Edge SSH command.
+
 use anyhow::Context;
 use wasmer_api::WasmerClient;
 

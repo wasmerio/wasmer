@@ -6,7 +6,7 @@ use is_terminal::IsTerminal;
 use wasmer_api::types::DeployAppVersion;
 
 use crate::{
-    cmd::{
+    commands::{
         app::{deploy_app_verbose, DeployAppOpts, WaitMode},
         AsyncCliCommand,
     },

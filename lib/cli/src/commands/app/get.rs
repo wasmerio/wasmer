@@ -1,7 +1,9 @@
+//! Get information about an edge app.
+
 use wasmer_api::types::DeployApp;
 
 use crate::{
-    cmd::AsyncCliCommand,
+    commands::AsyncCliCommand,
     opts::{ApiOpts, ItemFormatOpts},
 };
 
@@ -11,11 +13,14 @@ use super::util::AppIdentOpts;
 #[derive(clap::Parser, Debug)]
 pub struct CmdAppGet {
     #[clap(flatten)]
+    #[allow(missing_docs)]
     pub api: ApiOpts,
     #[clap(flatten)]
+    #[allow(missing_docs)]
     pub fmt: ItemFormatOpts,
 
     #[clap(flatten)]
+    #[allow(missing_docs)]
     pub ident: AppIdentOpts,
 }
 

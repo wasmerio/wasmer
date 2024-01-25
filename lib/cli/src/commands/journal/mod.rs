@@ -1,4 +1,4 @@
-use crate::cmd::CliCommand;
+use crate::commands::CliCommand;
 
 mod compact;
 mod export;

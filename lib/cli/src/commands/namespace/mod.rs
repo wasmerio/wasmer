@@ -2,7 +2,7 @@ pub mod create;
 pub mod get;
 pub mod list;
 
-use crate::cmd::AsyncCliCommand;
+use crate::commands::AsyncCliCommand;
 
 /// Manage namespaces.
 #[derive(clap::Subcommand, Debug)]

@@ -1,3 +1,5 @@
+//! Edge app commands.
+
 pub mod create;
 pub mod delete;
 pub mod get;
@@ -17,7 +19,7 @@ use wasmer_api::{
     WasmerClient,
 };
 
-use crate::cmd::AsyncCliCommand;
+use crate::commands::AsyncCliCommand;
 
 /// Manage Wasmer Deploy apps.
 #[derive(clap::Subcommand, Debug)]

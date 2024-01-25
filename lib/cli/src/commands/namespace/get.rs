@@ -1,7 +1,7 @@
 use anyhow::Context;
 
 use crate::{
-    cmd::AsyncCliCommand,
+    commands::AsyncCliCommand,
     opts::{ApiOpts, ItemFormatOpts},
 };
 

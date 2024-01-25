@@ -1,7 +1,7 @@
 use anyhow::Context;
 
 use crate::{
-    cmd::{app::util::AppIdentOpts, AsyncCliCommand},
+    commands::{app::util::AppIdentOpts, AsyncCliCommand},
     opts::{ApiOpts, ItemFormatOpts},
 };
 
@@ -9,8 +9,10 @@ use crate::{
 #[derive(clap::Parser, Debug)]
 pub struct CmdAppVersionGet {
     #[clap(flatten)]
+    #[allow(missing_docs)]
     pub api: ApiOpts,
     #[clap(flatten)]
+    #[allow(missing_docs)]
     pub fmt: ItemFormatOpts,
 
     /// *Name* of the version - NOT the unique version id!
@@ -18,6 +20,7 @@ pub struct CmdAppVersionGet {
     pub name: String,
 
     #[clap(flatten)]
+    #[allow(missing_docs)]
     pub ident: AppIdentOpts,
 }
 

@@ -1,5 +1,5 @@
 use crate::{
-    cmd::AsyncCliCommand,
+    commands::AsyncCliCommand,
     opts::{ApiOpts, ItemFormatOpts},
 };
 
@@ -7,12 +7,15 @@ use crate::{
 #[derive(clap::Parser, Debug)]
 pub struct CmdAppVersionActivate {
     #[clap(flatten)]
+    #[allow(missing_docs)]
     pub api: ApiOpts,
     #[clap(flatten)]
+    #[allow(missing_docs)]
     pub fmt: ItemFormatOpts,
 
-    /// *ID* of the version, NOT the version name!
+    /// App version ID to activate.
     ///
+    /// This must be the unique version ID, not the version name!
     /// Eg: dav_xYzaB1aaaaax
     pub version: String,
 }

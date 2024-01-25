@@ -30,7 +30,6 @@ pub mod common;
 #[macro_use]
 pub mod error;
 pub mod c_gen;
-pub mod cli;
 pub mod logging;
 mod opts;
 pub mod package_source;
@@ -39,7 +38,6 @@ pub mod suggestions;
 mod types;
 pub mod utils;
 
-mod cmd;
 mod config;
 
 /// Version number of this crate.

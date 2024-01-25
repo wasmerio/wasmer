@@ -1,4 +1,6 @@
-use crate::cmd::AsyncCliCommand;
+//! Edge app version management.
+
+use crate::commands::AsyncCliCommand;
 
 pub mod activate;
 pub mod get;
