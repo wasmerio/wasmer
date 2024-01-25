@@ -36,7 +36,7 @@ impl CmdJournalMount {
 
         let fs = JournalFileSystemBuilder::new(&self.journal_path)
             .with_fd_seed(WasiFdSeed::default())
-            .with_progress_bar(true)
+            .with_progress_bar(false)
             .build()?;
 
         tokio::task::spawn_blocking(move || {

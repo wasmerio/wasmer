@@ -969,11 +969,17 @@ pub struct JournalEntryFileDescriptorSeekV1 {
     pub offset: i64,
 }
 
+/// WARNING!!!! Do not change this structure without updating
+/// "/lib/cli/src/commands/journal/mount/fs.rs"
+///
+/// The code over there assumes that the aligned vector is the
+/// first item in the serialized entry
 #[repr(C)]
 #[repr(align(8))]
 #[derive(Debug, Clone, RkyvSerialize, RkyvDeserialize, Archive)]
 #[archive_attr(derive(CheckBytes), repr(align(8)))]
 pub struct JournalEntryFileDescriptorWriteV1<'a> {
+    /// DO NOT MOVE!
     pub data: AlignedCowVec<'a, u8>,
     pub offset: u64,
     pub fd: u32,

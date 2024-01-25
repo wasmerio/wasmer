@@ -70,7 +70,8 @@ impl WritableJournal for PipeJournalTx {
         sender
             .sender
             .send(LogReadResult {
-                record_offset: sender.offset,
+                record_start: sender.offset,
+                record_end: sender.offset + entry_size,
                 record: entry,
             })
             .map_err(|err| {
@@ -78,8 +79,8 @@ impl WritableJournal for PipeJournalTx {
             })?;
         sender.offset += entry_size;
         Ok(LogWriteResult {
-            record_offset: sender.offset,
-            record_size: entry_size,
+            record_start: sender.offset,
+            record_end: sender.offset + entry_size,
         })
     }
 }

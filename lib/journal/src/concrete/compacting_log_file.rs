@@ -204,9 +204,9 @@ impl WritableJournal for CompactingLogFileJournalTx {
 
         let triggered = {
             let mut state = self.state.lock().unwrap();
-            if res.record_size > 0 {
+            if res.record_size() > 0 {
                 state.cnt_records += 1;
-                state.cnt_size += res.record_size;
+                state.cnt_size += res.record_size();
             }
 
             let mut triggered = false;

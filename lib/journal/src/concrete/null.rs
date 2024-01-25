@@ -24,8 +24,8 @@ impl WritableJournal for NullJournal {
             tracing::debug!("journal event: {:?}", entry);
         }
         Ok(LogWriteResult {
-            record_offset: 0,
-            record_size: entry.estimate_size() as u64,
+            record_start: 0,
+            record_end: entry.estimate_size() as u64,
         })
     }
 }

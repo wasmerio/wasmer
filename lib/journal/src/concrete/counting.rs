@@ -35,11 +35,11 @@ impl ReadableJournal for CountingJournal {
 impl WritableJournal for CountingJournal {
     fn write<'a>(&'a self, entry: JournalEntry<'a>) -> anyhow::Result<LogWriteResult> {
         let size = entry.estimate_size() as u64;
-        self.n_cnt.fetch_add(1, Ordering::SeqCst);
+        let offset = self.n_cnt.fetch_add(1, Ordering::SeqCst);
         self.n_size.fetch_add(size, Ordering::SeqCst);
         Ok(LogWriteResult {
-            record_offset: 0,
-            record_size: size,
+            record_start: offset as u64,
+            record_end: offset as u64 + size,
         })
     }
 }

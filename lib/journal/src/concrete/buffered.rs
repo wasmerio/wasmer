@@ -46,8 +46,8 @@ impl WritableJournal for BufferedJournalTx {
         let estimate_size = entry.estimate_size();
         state.records.lock().unwrap().push(entry);
         Ok(LogWriteResult {
-            record_offset: state.offset as u64,
-            record_size: estimate_size as u64,
+            record_start: state.offset as u64,
+            record_end: state.offset as u64 + estimate_size as u64,
         })
     }
 }
@@ -56,11 +56,14 @@ impl ReadableJournal for BufferedJournalRx {
     fn read(&self) -> anyhow::Result<Option<LogReadResult<'_>>> {
         let mut state = self.state.lock().unwrap();
         let ret = state.records.lock().unwrap().get(state.offset).cloned();
+
+        let record_start = state.offset as u64;
         if ret.is_some() {
             state.offset += 1;
         }
         Ok(ret.map(|r| LogReadResult {
-            record_offset: state.offset as u64,
+            record_start,
+            record_end: state.offset as u64,
             record: r,
         }))
     }

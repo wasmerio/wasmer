@@ -133,7 +133,7 @@ pub fn copy_journal_with_progress<R: ReadableJournal, W: WritableJournal>(
     mut progress: ProgressBar,
 ) -> anyhow::Result<()> {
     while let Some(record) = from.read()? {
-        progress.set_position(record.record_offset);
+        progress.set_position(record.record_end);
         to.write(record.into_inner())?;
     }
     progress.finish_and_clear();
@@ -208,10 +208,10 @@ impl WritableJournal for MutexState {
     fn write<'a>(&'a self, entry: JournalEntry<'a>) -> anyhow::Result<LogWriteResult> {
         let mut state = self.inner.lock().unwrap();
         let ret = LogWriteResult {
-            record_offset: state.fake_offset,
-            record_size: entry.estimate_size() as u64,
+            record_start: state.fake_offset,
+            record_end: state.fake_offset + entry.estimate_size() as u64,
         };
-        state.fake_offset += ret.record_size;
+        state.fake_offset += ret.record_size();
         match entry {
             JournalEntry::FileDescriptorWriteV1 {
                 fd,
@@ -832,14 +832,18 @@ impl Filesystem for JournalFileSystem {
                     let mut file = file.lock().await;
                     file.seek(io::SeekFrom::Start(offset as u64)).await;
 
-                    // make sure adjustments to the record offset and size
-                    let wrapping =
-                        std::mem::size_of::<ArchivedJournalEntryFileDescriptorWriteV1>() as u64;
+                    // Unsafe!!! This assumes the structure does not change
+                    // where the first bytes in the entry are an aligned
+                    // array that corresponds to the data itself
                     let size = data.len() as u64;
-                    let offset = (res.record_offset + res.record_size) - size;
+                    let mut mmap_offset = res.record_start;
+                    let align = mmap_offset % 16;
+                    if align != 0 {
+                        mmap_offset += 16 - align;
+                    }
 
                     // Add the entry
-                    if file.write_from_mmap(res.record_offset, size).is_err() {
+                    if file.write_from_mmap(mmap_offset, size).is_err() {
                         // We fall back on just writing the data normally
                         file.seek(io::SeekFrom::Start(offset as u64)).await;
                         file.write_all(&data).await?;

@@ -16,9 +16,15 @@ use std::{ops::Deref, str::FromStr};
 #[derive(Debug)]
 pub struct LogWriteResult {
     // Start of the actual entry
-    pub record_offset: u64,
+    pub record_start: u64,
     // End of the actual entry
-    pub record_size: u64,
+    pub record_end: u64,
+}
+
+impl LogWriteResult {
+    pub fn record_size(&self) -> u64 {
+        self.record_end - self.record_start
+    }
 }
 
 /// The snapshot capturer will take a series of objects that represents the state of
@@ -35,7 +41,9 @@ pub trait WritableJournal {
 #[derive(Debug)]
 pub struct LogReadResult<'a> {
     /// Offset into the journal where this entry exists
-    pub record_offset: u64,
+    pub record_start: u64,
+    /// Offset of the end of the entry
+    pub record_end: u64,
     /// Represents the journal entry
     pub record: JournalEntry<'a>,
 }

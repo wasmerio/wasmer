@@ -253,8 +253,8 @@ impl CompactingJournalTx {
         // strip off the filter so that its a normal journal again
         while let Some(entry) = replay_rx.read()? {
             let res = new_journal.write(entry.into_inner())?;
-            if res.record_size > 0 {
-                result.total_size += res.record_size;
+            if res.record_size() > 0 {
+                result.total_size += res.record_size();
                 result.total_events += 1;
             }
         }

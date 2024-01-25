@@ -176,8 +176,8 @@ impl WritableJournal for LogFileJournalTx {
 
         // Now write the actual data and update the offsets
         Ok(LogWriteResult {
-            record_offset: offset_start,
-            record_size,
+            record_start: offset_start,
+            record_end: offset_end,
         })
     }
 }
@@ -220,6 +220,7 @@ impl ReadableJournal for LogFileJournalRx {
                 *buffer_pos += 8;
                 header
             };
+            let record_start = *buffer_pos as u64;
 
             // Move the buffer position forward past the record
             let entry = &buffer_ptr[..(header.record_size as usize)];
@@ -240,7 +241,8 @@ impl ReadableJournal for LogFileJournalRx {
 
             let record = unsafe { record_type.deserialize_archive(entry)? };
             return Ok(Some(LogReadResult {
-                record_offset: *buffer_pos as u64,
+                record_start,
+                record_end: *buffer_pos as u64,
                 record,
             }));
         }

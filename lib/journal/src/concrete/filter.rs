@@ -212,8 +212,8 @@ impl WritableJournal for FilteredJournalTx {
         if let Some(events) = self.config.filter_events.as_ref() {
             if !events.contains(&event_index) {
                 return Ok(LogWriteResult {
-                    record_offset: 0,
-                    record_size: 0,
+                    record_start: 0,
+                    record_end: 0,
                 });
             }
         }
@@ -227,8 +227,8 @@ impl WritableJournal for FilteredJournalTx {
             | JournalEntry::TtySetV1 { .. } => {
                 if self.config.filter_core {
                     return Ok(LogWriteResult {
-                        record_offset: 0,
-                        record_size: 0,
+                        record_start: 0,
+                        record_end: 0,
                     });
                 }
                 entry
@@ -236,8 +236,8 @@ impl WritableJournal for FilteredJournalTx {
             JournalEntry::SetThreadV1 { .. } | JournalEntry::CloseThreadV1 { .. } => {
                 if self.config.filter_threads {
                     return Ok(LogWriteResult {
-                        record_offset: 0,
-                        record_size: 0,
+                        record_start: 0,
+                        record_end: 0,
                     });
                 }
                 entry
@@ -245,8 +245,8 @@ impl WritableJournal for FilteredJournalTx {
             JournalEntry::UpdateMemoryRegionV1 { .. } => {
                 if self.config.filter_memory {
                     return Ok(LogWriteResult {
-                        record_offset: 0,
-                        record_size: 0,
+                        record_start: 0,
+                        record_end: 0,
                     });
                 }
                 entry
@@ -267,14 +267,14 @@ impl WritableJournal for FilteredJournalTx {
             | JournalEntry::FileDescriptorSetSizeV1 { fd, .. } => {
                 if self.config.filter_stdio && fd <= 2 {
                     return Ok(LogWriteResult {
-                        record_offset: 0,
-                        record_size: 0,
+                        record_start: 0,
+                        record_end: 0,
                     });
                 }
                 if self.config.filter_fs {
                     return Ok(LogWriteResult {
-                        record_offset: 0,
-                        record_size: 0,
+                        record_start: 0,
+                        record_end: 0,
                     });
                 }
                 entry
@@ -291,8 +291,8 @@ impl WritableJournal for FilteredJournalTx {
             | JournalEntry::CreateEventV1 { .. } => {
                 if self.config.filter_fs {
                     return Ok(LogWriteResult {
-                        record_offset: 0,
-                        record_size: 0,
+                        record_start: 0,
+                        record_end: 0,
                     });
                 }
                 entry
@@ -300,8 +300,8 @@ impl WritableJournal for FilteredJournalTx {
             JournalEntry::SnapshotV1 { .. } => {
                 if self.config.filter_snapshots {
                     return Ok(LogWriteResult {
-                        record_offset: 0,
-                        record_size: 0,
+                        record_start: 0,
+                        record_end: 0,
                     });
                 }
                 entry
@@ -334,8 +334,8 @@ impl WritableJournal for FilteredJournalTx {
             | JournalEntry::SocketShutdownV1 { .. } => {
                 if self.config.filter_net {
                     return Ok(LogWriteResult {
-                        record_offset: 0,
-                        record_size: 0,
+                        record_start: 0,
+                        record_end: 0,
                     });
                 }
                 entry

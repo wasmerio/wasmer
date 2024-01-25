@@ -75,9 +75,10 @@ impl OffloadBackingStoreState {
                 .map_err(|err| io::Error::new(io::ErrorKind::Other, err))?;
             if end > self.mmap_offload.len() as u64 {
                 tracing::trace!(
-                    "mmap buffer out of bounds {} vs {}",
+                    "mmap buffer out of bounds {} vs {} for {:?}",
                     end,
-                    self.mmap_offload.len()
+                    self.mmap_offload.len(),
+                    range
                 );
                 return Err(io::ErrorKind::UnexpectedEof.into());
             }
@@ -197,8 +198,11 @@ impl OffloadedFile {
                     size: extent_size,
                 } => {
                     let mut backing = self.backing.lock();
-                    let mmap_offset = mmap_offset + extent_offset;
-                    let data = backing.get_slice(mmap_offset..(mmap_offset + *extent_size))?;
+                    let mmap_offset_plus_extent = mmap_offset + extent_offset;
+                    let data = backing.get_slice(
+                        mmap_offset_plus_extent
+                            ..(mmap_offset_plus_extent + *extent_size - extent_offset),
+                    )?;
                     let data_len = cmp::min(buf.len(), data.len());
                     buf[..data_len].copy_from_slice(&data[..data_len]);
                     data_len
