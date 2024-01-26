@@ -692,7 +692,7 @@
         quiet: <span class="bool-val">false</span>,
         package_name: <span class="prelude-val">None</span>,
         version: <span class="prelude-val">None</span>,
-        wait: <span class="bool-val">false</span>,
+        wait: wasmer_registry::publish::PublishWait::new_none(),
         token,
         no_validate: <span class="bool-val">true</span>,
         package_path: <span class="prelude-val">Some</span>(dir.to_str().unwrap().to_string()),
@@ -700,7 +700,7 @@
         // large packages.
         </span>timeout: std::time::Duration::from_secs(<span class="number">60 </span>* <span class="number">60 </span>* <span class="number">12</span>),
     };
-    publish.execute().<span class="kw">await</span><span class="question-mark">?</span>;
+    publish.execute()<span class="question-mark">?</span>;
 
     <span class="prelude-val">Ok</span>(manifest)
 }

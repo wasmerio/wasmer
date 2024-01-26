@@ -1084,6 +1084,7 @@
 <span class="kw">use </span>thiserror::Error;
 <span class="kw">use </span>time::{<span class="self">self</span>, OffsetDateTime};
 
+<span class="kw">use </span><span class="kw">crate</span>::publish::PublishWait;
 <span class="kw">use crate</span>::{package::builder::validate::ValidationPolicy, publish::SignArchiveResult};
 <span class="kw">use crate</span>::{WasmerConfig, PACKAGE_TOML_FALLBACK_NAME};
 
@@ -1114,7 +1115,7 @@
     <span class="doccomment">/// Directory containing the `wasmer.toml` (defaults to current root dir)
     </span><span class="kw">pub </span>package_path: <span class="prelude-ty">Option</span>&lt;String&gt;,
     <span class="doccomment">/// Wait for package to be available on the registry before exiting
-    </span><span class="kw">pub </span>wait: bool,
+    </span><span class="kw">pub </span>wait: PublishWait,
     <span class="doccomment">/// Timeout (in seconds) for the publish query to the registry
     </span><span class="kw">pub </span>timeout: Duration,
 }
@@ -1137,7 +1138,7 @@
 
 <span class="kw">impl </span>Publish {
     <span class="doccomment">/// Executes `wasmer publish`
-    </span><span class="kw">pub async fn </span>execute(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;(), anyhow::Error&gt; {
+    </span><span class="kw">pub fn </span>execute(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;(), anyhow::Error&gt; {
         <span class="kw">let </span>input_path = <span class="kw">match </span><span class="self">self</span>.package_path.as_ref() {
             <span class="prelude-val">Some</span>(s) =&gt; std::env::current_dir()<span class="question-mark">?</span>.join(s),
             <span class="prelude-val">None </span>=&gt; std::env::current_dir()<span class="question-mark">?</span>,
@@ -1268,8 +1269,7 @@
             <span class="self">self</span>.wait,
             <span class="self">self</span>.timeout,
         )
-        .<span class="kw">await
-    </span>}
+    }
 
     <span class="kw">fn </span>validation_policy(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Box&lt;<span class="kw">dyn </span>ValidationPolicy&gt; {
         <span class="kw">if </span><span class="self">self</span>.no_validate {
