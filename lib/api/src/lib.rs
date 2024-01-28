@@ -446,10 +446,30 @@ mod value;
 pub mod vm;
 
 #[cfg(feature = "sys")]
-mod sys;
+/// sys docs
+pub mod sys;
 
 #[cfg(feature = "sys")]
 pub use sys::*;
+
+/// A compiled wasm module, ready to be instantiated.
+#[deprecated(note = "Use sys::Artifact instead")]
+pub type Artifact = sys::Artifact;
+/// The Builder contents of `Engine`
+#[deprecated(note = "Use sys::EngineBuilder instead")]
+pub type EngineBuilder = sys::EngineBuilder;
+/// Controls which experimental features will be enabled.
+#[deprecated(note = "Use sys::Features instead")]
+pub type Features = sys::Features;
+/// Tunable parameters for WebAssembly compilation.
+/// This is the reference implementation of the `Tunables` trait,
+/// used by default.
+#[deprecated(note = "Use sys::BaseTunables instead")]
+pub type BaseTunables = sys::BaseTunables;
+/// Configuration for the the runtime VM
+/// Currently only the stack size is configurable
+#[deprecated(note = "Use sys::VMConfig instead")]
+pub type VMConfig = sys::VMConfig;
 
 #[cfg(feature = "js")]
 mod js;
