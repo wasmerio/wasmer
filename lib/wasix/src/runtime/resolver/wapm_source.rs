@@ -87,6 +87,21 @@ impl WapmSource {
         if !response.is_ok() {
             let url = &self.registry_endpoint;
             let status = response.status;
+
+            let body = if let Some(body) = &response.body {
+                String::from_utf8_lossy(body).into_owned()
+            } else {
+                "<no body>".to_string()
+            };
+
+            tracing::warn!(
+                %url,
+                %status,
+                package=%package_name,
+                %body,
+                "failed to query package info from registry"
+            );
+
             anyhow::bail!("\"{url}\" replied with {status}");
         }
 

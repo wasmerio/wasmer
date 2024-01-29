@@ -1,21 +1,19 @@
-//! When wasmer self-update is executed, this is what gets executed
-use anyhow::{Context, Result};
-use clap::Parser;
-#[cfg(not(target_os = "windows"))]
-use std::process::{Command, Stdio};
+use anyhow::Context as _;
 
 /// The options for the `wasmer self-update` subcommand
-#[derive(Debug, Parser)]
+#[derive(clap::Parser, Debug)]
 pub struct SelfUpdate {}
 
 impl SelfUpdate {
     /// Runs logic for the `self-update` subcommand
-    pub fn execute(&self) -> Result<()> {
+    pub fn execute(&self) -> Result<(), anyhow::Error> {
         self.inner_execute().context("failed to self-update wasmer")
     }
 
     #[cfg(not(target_os = "windows"))]
-    fn inner_execute(&self) -> Result<()> {
+    fn inner_execute(&self) -> Result<(), anyhow::Error> {
+        use std::process::{Command, Stdio};
+
         println!("Fetching latest installer");
         let cmd = Command::new("curl")
             .arg("https://get.wasmer.io")
@@ -33,7 +31,7 @@ impl SelfUpdate {
     }
 
     #[cfg(target_os = "windows")]
-    fn inner_execute(&self) -> Result<()> {
-        bail!("Self update is not supported on Windows. Use install instructions on the Wasmer homepage: https://wasmer.io");
+    fn inner_execute(&self) -> Result<(), anyhow::Error> {
+        anyhow::bail!("Self update is not supported on Windows. Use install instructions on the Wasmer homepage: https://wasmer.io");
     }
 }

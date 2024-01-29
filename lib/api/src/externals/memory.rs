@@ -9,9 +9,9 @@ use super::memory_view::MemoryView;
 use crate::exports::{ExportError, Exportable};
 use crate::store::{AsStoreMut, AsStoreRef};
 use crate::vm::{VMExtern, VMExternMemory, VMMemory};
-use crate::Extern;
 use crate::MemoryAccessError;
 use crate::MemoryType;
+use crate::{AtomicsError, Extern};
 use std::mem::MaybeUninit;
 use wasmer_types::{MemoryError, Pages};
 
@@ -187,6 +187,19 @@ impl Memory {
             .map(|new_memory| Self::new_from_existing(new_store, new_memory))
     }
 
+    /// Get a [`SharedMemory`].
+    ///
+    /// Only returns `Some(_)` if the memory is shared, and if the target
+    /// backend supports shared memory operations.
+    ///
+    /// See [`SharedMemory`] and its methods for more information.
+    pub fn as_shared(&self, store: &impl AsStoreRef) -> Option<SharedMemory> {
+        if !self.ty(store).shared {
+            return None;
+        }
+        self.0.as_shared(store)
+    }
+
     /// To `VMExtern`.
     pub(crate) fn to_vm_extern(&self) -> VMExtern {
         self.0.to_vm_extern()
@@ -201,6 +214,126 @@ impl<'a> Exportable<'a> for Memory {
             Extern::Memory(memory) => Ok(memory),
             _ => Err(ExportError::IncompatibleType),
         }
+    }
+}
+
+/// Location in a WebAssembly memory.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub struct MemoryLocation {
+    // NOTE: must be expanded to an enum that also supports 64bit memory in
+    // the future
+    // That's why this is private.
+    pub(crate) address: u32,
+}
+
+impl MemoryLocation {
+    /// Create a new memory location for a 32bit memory.
+    pub fn new_32(address: u32) -> Self {
+        Self { address }
+    }
+}
+
+impl From<u32> for MemoryLocation {
+    fn from(value: u32) -> Self {
+        Self::new_32(value)
+    }
+}
+
+/// See [`SharedMemory`].
+pub(crate) trait SharedMemoryOps {
+    /// See [`SharedMemory::disable_atomics`].
+    fn disable_atomics(&self) -> Result<(), MemoryError> {
+        Err(MemoryError::AtomicsNotSupported)
+    }
+
+    /// See [`SharedMemory::wake_all_atomic_waiters`].
+    fn wake_all_atomic_waiters(&self) -> Result<(), MemoryError> {
+        Err(MemoryError::AtomicsNotSupported)
+    }
+
+    /// See [`SharedMemory::notify`].
+    fn notify(&self, _dst: MemoryLocation, _count: u32) -> Result<u32, AtomicsError> {
+        Err(AtomicsError::Unimplemented)
+    }
+
+    /// See [`SharedMemory::wait`].
+    fn wait(
+        &self,
+        _dst: MemoryLocation,
+        _timeout: Option<std::time::Duration>,
+    ) -> Result<u32, AtomicsError> {
+        Err(AtomicsError::Unimplemented)
+    }
+}
+
+/// A handle that exposes operations only relevant for shared memories.
+///
+/// Enables interaction independent from the [`crate::Store`], and thus allows calling
+/// some methods an instane is running.
+///
+/// **NOTE**: Not all methods are supported by all backends.
+#[derive(Clone)]
+pub struct SharedMemory {
+    memory: Memory,
+    ops: std::sync::Arc<dyn SharedMemoryOps + Send + Sync>,
+}
+
+impl std::fmt::Debug for SharedMemory {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("SharedMemory").finish()
+    }
+}
+
+impl SharedMemory {
+    /// Get the underlying memory.
+    pub fn memory(&self) -> &Memory {
+        &self.memory
+    }
+
+    /// Create a new handle from ops.
+    #[allow(unused)]
+    pub(crate) fn new(memory: Memory, ops: impl SharedMemoryOps + Send + Sync + 'static) -> Self {
+        Self {
+            memory,
+            ops: std::sync::Arc::new(ops),
+        }
+    }
+
+    /// Notify up to `count` waiters waiting for the memory location.
+    pub fn notify(&self, location: MemoryLocation, count: u32) -> Result<u32, AtomicsError> {
+        self.ops.notify(location, count)
+    }
+
+    /// Wait for the memory location to be notified.
+    pub fn wait(
+        &self,
+        location: MemoryLocation,
+        timeout: Option<std::time::Duration>,
+    ) -> Result<u32, AtomicsError> {
+        self.ops.wait(location, timeout)
+    }
+
+    /// Disable atomics for this memory.
+    ///
+    /// All subsequent atomic wait calls will produce a trap.
+    ///
+    /// This can be used or forced shutdown of instances that continuously try
+    /// to wait on atomics.
+    ///
+    /// NOTE: this operation might not be supported by all memory implementations.
+    /// In that case, this function will return an error.
+    pub fn disable_atomics(&self) -> Result<(), MemoryError> {
+        self.ops.disable_atomics()
+    }
+
+    /// Wake up all atomic waiters.
+    ///
+    /// This can be used to force-resume waiting execution.
+    ///
+    /// NOTE: this operation might not be supported by all memory implementations.
+    /// In that case, this function will return an error.
+    pub fn wake_all_atomic_waiters(&self) -> Result<(), MemoryError> {
+        self.ops.wake_all_atomic_waiters()
     }
 }
 

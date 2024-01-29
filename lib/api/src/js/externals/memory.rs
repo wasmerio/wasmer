@@ -183,6 +183,11 @@ impl Memory {
     pub fn is_from_store(&self, _store: &impl AsStoreRef) -> bool {
         true
     }
+
+    pub fn as_shared(&self, _store: &impl AsStoreRef) -> Option<crate::SharedMemory> {
+        // Not supported.
+        None
+    }
 }
 
 impl std::cmp::PartialEq for Memory {

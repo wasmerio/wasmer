@@ -14,7 +14,7 @@ use std::{
     time::{Duration, SystemTime},
 };
 
-use anyhow::{Context, Error};
+use anyhow::{bail, Context, Error};
 use clap::Parser;
 use indicatif::{MultiProgress, ProgressBar};
 use once_cell::sync::Lazy;
@@ -34,8 +34,10 @@ use wasmer_wasix::{
     bin_factory::BinaryPackage,
     journal::CompactingLogFileJournal,
     runners::{
-        dcgi::DcgiInstanceFactory,
-        wcgi::{self, NoOpWcgiCallbacks},
+        dcgi::{DcgiInstanceFactory, DcgiRunner},
+        emscripten::EmscriptenRunner,
+        wasi::WasiRunner,
+        wcgi::{self, AbortHandle, NoOpWcgiCallbacks, WcgiRunner},
         MappedCommand, MappedDirectory, Runner,
     },
     runtime::{
@@ -44,16 +46,7 @@ use wasmer_wasix::{
         resolver::{PackageSpecifier, QueryError},
         task_manager::VirtualTaskManagerExt,
     },
-    WasiError,
-};
-use wasmer_wasix::{
-    runners::{
-        dcgi::DcgiRunner,
-        emscripten::EmscriptenRunner,
-        wasi::WasiRunner,
-        wcgi::{AbortHandle, WcgiRunner},
-    },
-    Runtime,
+    Runtime, WasiError,
 };
 use webc::{metadata::Manifest, Container};
 
@@ -199,7 +192,7 @@ impl Run {
         } else if EmscriptenRunner::can_run_command(cmd.metadata())? {
             self.run_emscripten(id, pkg, runtime)
         } else {
-            anyhow::bail!(
+            bail!(
                 "Unable to find a runner that supports \"{}\"",
                 cmd.metadata().runner
             );
@@ -417,7 +410,7 @@ impl Run {
 
     #[tracing::instrument(skip_all)]
     fn execute_emscripten_module(&self) -> Result<(), Error> {
-        anyhow::bail!("Emscripten packages are not currently supported")
+        bail!("Emscripten packages are not currently supported")
     }
 
     #[allow(unused_variables)]
@@ -446,7 +439,7 @@ impl Run {
 
     fn from_binfmt_args_fallible() -> Result<Self, Error> {
         if !cfg!(linux) {
-            anyhow::bail!("binfmt_misc is only available on linux.");
+            bail!("binfmt_misc is only available on linux.");
         }
 
         let argv = std::env::args().collect::<Vec<_>>();
@@ -509,7 +502,7 @@ fn parse_value(s: &str, ty: wasmer_types::Type) -> Result<Value, Error> {
         Type::F32 => Value::F32(s.parse()?),
         Type::F64 => Value::F64(s.parse()?),
         Type::V128 => Value::V128(s.parse()?),
-        _ => anyhow::bail!("There is no known conversion from {s:?} to {ty:?}"),
+        _ => bail!("There is no known conversion from {s:?} to {ty:?}"),
     };
     Ok(value)
 }
@@ -520,12 +513,12 @@ fn infer_webc_entrypoint(pkg: &BinaryPackage) -> Result<&str, Error> {
     }
 
     match pkg.commands.as_slice() {
-        [] => anyhow::bail!("The WEBC file doesn't contain any executable commands"),
+        [] => bail!("The WEBC file doesn't contain any executable commands"),
         [one] => Ok(one.name()),
         [..] => {
             let mut commands: Vec<_> = pkg.commands.iter().map(|cmd| cmd.name()).collect();
             commands.sort();
-            anyhow::bail!(
+            bail!(
                 "Unable to determine the WEBC file's entrypoint. Please choose one of {:?}",
                 commands,
             );
@@ -640,7 +633,7 @@ impl TargetOnDisk {
             Some("wasm") => Ok(TargetOnDisk::WebAssemblyBinary),
             Some("webc") => Ok(TargetOnDisk::LocalWebc),
             Some("wasmu") => Ok(TargetOnDisk::WebAssemblyBinary),
-            _ => anyhow::bail!("Unable to determine how to execute \"{}\"", path.display()),
+            _ => bail!("Unable to determine how to execute \"{}\"", path.display()),
         }
     }
 }
