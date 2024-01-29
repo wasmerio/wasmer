@@ -397,14 +397,20 @@
 <a href="#397" id="397">397</a>
 <a href="#398" id="398">398</a>
 <a href="#399" id="399">399</a>
+<a href="#400" id="400">400</a>
+<a href="#401" id="401">401</a>
+<a href="#402" id="402">402</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Common module with common used structures across different
 //! commands.
 
-</span><span class="attr">#[allow(unused_imports)]
+</span><span class="comment">// NOTE: A lot of this code depends on feature flags.
+// To not go crazy with annotations, some lints are disablefor the whole
+// module.
+</span><span class="attr">#![allow(dead_code, unused_imports, unused_variables)]
+
 </span><span class="kw">use </span>std::path::PathBuf;
 <span class="kw">use </span>std::string::ToString;
-<span class="attr">#[allow(unused_imports)]
-</span><span class="kw">use </span>std::sync::Arc;
+<span class="kw">use </span>std::sync::Arc;
 
 <span class="kw">use </span>anyhow::{bail, <span class="prelude-ty">Result</span>};
 <span class="kw">use </span>wasmer::<span class="kw-2">*</span>;
