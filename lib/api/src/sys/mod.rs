@@ -5,7 +5,7 @@ pub(crate) mod externals;
 pub(crate) mod instance;
 pub(crate) mod mem_access;
 pub(crate) mod module;
-mod tunables;
+pub(super) mod tunables;
 pub(crate) mod typed_function;
 
 pub use crate::sys::engine::NativeEngineExt;
