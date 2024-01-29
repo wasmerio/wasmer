@@ -7,7 +7,7 @@ use std::convert::TryInto;
 use std::marker::PhantomData;
 use std::mem::{self, MaybeUninit};
 use std::slice;
-#[cfg(feature = "tracing")]
+
 use tracing::warn;
 
 use wasmer_types::{Pages, WASM_PAGE_SIZE};
@@ -210,6 +210,11 @@ impl Memory {
     pub fn duplicate(&mut self, store: &impl AsStoreRef) -> Result<VMMemory, MemoryError> {
         self.handle.duplicate(store)
     }
+
+    pub fn as_shared(&self, _store: &impl AsStoreRef) -> Option<crate::SharedMemory> {
+        // Not supported.
+        None
+    }
 }
 
 impl std::cmp::PartialEq for Memory {
@@ -234,7 +239,6 @@ impl<'a> MemoryBuffer<'a> {
             .checked_add(buf.len() as u64)
             .ok_or(MemoryAccessError::Overflow)?;
         if end > self.len.try_into().unwrap() {
-            #[cfg(feature = "tracing")]
             warn!(
                 "attempted to read ({} bytes) beyond the bounds of the memory view ({} > {})",
                 buf.len(),
@@ -258,7 +262,6 @@ impl<'a> MemoryBuffer<'a> {
             .checked_add(buf.len() as u64)
             .ok_or(MemoryAccessError::Overflow)?;
         if end > self.len.try_into().unwrap() {
-            #[cfg(feature = "tracing")]
             warn!(
                 "attempted to read ({} bytes) beyond the bounds of the memory view ({} > {})",
                 buf.len(),
@@ -280,7 +283,6 @@ impl<'a> MemoryBuffer<'a> {
             .checked_add(data.len() as u64)
             .ok_or(MemoryAccessError::Overflow)?;
         if end > self.len.try_into().unwrap() {
-            #[cfg(feature = "tracing")]
             warn!(
                 "attempted to write ({} bytes) beyond the bounds of the memory view ({} > {})",
                 data.len(),

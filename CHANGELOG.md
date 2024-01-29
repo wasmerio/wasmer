@@ -712,6 +712,7 @@ Lots of new things in the release!
 ## Fixed
 
   - [#3439](https://github.com/wasmerio/wasmer/pull/3439) Use GNU/Linux frame registration code for FreeBSD too
+  - [#3448](https://github.com/wasmerio/wasmer/pull/3448) Fix `make install-capi-lib` install paths
 
 ## 3.1.0 - 12/12/2022
 

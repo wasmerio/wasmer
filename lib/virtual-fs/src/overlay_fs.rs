@@ -113,7 +113,6 @@ where
     S: for<'a> FileSystems<'a> + Send + Sync + 'static,
     for<'a> <<S as FileSystems<'a>>::Iter as IntoIterator>::IntoIter: Send,
 {
-    #[tracing::instrument(level = "debug", skip_all, fields(path=%path.display()))]
     fn read_dir(&self, path: &Path) -> Result<ReadDir, FsError> {
         let mut entries = Vec::new();
         let mut had_at_least_one_success = false;

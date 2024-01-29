@@ -15,6 +15,9 @@ pub struct Output {
     /// Do not print progress messages.
     #[clap(short, long, global = true, conflicts_with = "verbose")]
     pub quiet: bool,
+    /// The format to use when generating logs.
+    #[clap(long, global = true, env, default_value = "text")]
+    pub log_format: LogFormat,
     /// When to display colored output.
     #[clap(long, default_value_t = clap::ColorChoice::Auto, global = true)]
     pub color: clap::ColorChoice,
@@ -34,15 +37,20 @@ impl Output {
             .with_span_events(fmt::format::FmtSpan::CLOSE)
             .with_ansi(self.should_emit_colors())
             .with_thread_ids(true)
-            .with_writer(std::io::stderr)
-            .compact();
+            .with_writer(std::io::stderr);
 
         let filter_layer = self.log_filter();
 
-        tracing_subscriber::registry()
-            .with(filter_layer)
-            .with(fmt_layer)
-            .init();
+        match self.log_format {
+            LogFormat::Text => tracing_subscriber::registry()
+                .with(filter_layer)
+                .with(fmt_layer.compact().with_target(true))
+                .init(),
+            LogFormat::Json => tracing_subscriber::registry()
+                .with(filter_layer)
+                .with(fmt_layer.json().with_target(true))
+                .init(),
+        }
     }
 
     fn log_filter(&self) -> EnvFilter {
@@ -106,4 +114,14 @@ impl Output {
 
         indicatif::ProgressDrawTarget::stderr()
     }
+}
+
+/// The format used when generating logs.
+#[derive(Debug, Default, Copy, Clone, PartialEq, clap::ValueEnum)]
+pub enum LogFormat {
+    /// Human-readable logs.
+    #[default]
+    Text,
+    /// Machine-readable logs.
+    Json,
 }

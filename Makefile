@@ -883,7 +883,7 @@ install-capi-headers:
 
 # Currently implemented for linux only. TODO
 install-capi-lib:
-	pkgver=$$($(CARGO_BINARY) pkgid --manifest-path lib/c-api/Cargo.toml | sed --posix 's/^.*wasmer-c-api:\([0-9.]*\)$\/\1/') && \
+	pkgver=$$($(CARGO_BINARY) pkgid --manifest-path lib/c-api/Cargo.toml | sed 's/^.*wasmer-c-api@//') && \
 	shortver="$${pkgver%.*}" && \
 	majorver="$${shortver%.*}" && \
 	install -Dm755 target/release/libwasmer.so "$(DESTDIR)/lib/libwasmer.so.$$pkgver" && \

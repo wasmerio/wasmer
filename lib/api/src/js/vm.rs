@@ -4,20 +4,20 @@
 /// This module should not be needed any longer (with the exception of the memory)
 /// once the type reflection is added to the WebAssembly JS API.
 /// https://github.com/WebAssembly/js-types/
-use crate::js::{js_handle::JsHandle, wasm_bindgen_polyfill::Global as JsGlobal};
-use js_sys::Function as JsFunction;
-use js_sys::WebAssembly;
-use js_sys::WebAssembly::{Memory as JsMemory, Table as JsTable};
+use std::{any::Any, fmt};
+
+use js_sys::{
+    Function as JsFunction,
+    WebAssembly::{self, Memory as JsMemory, Table as JsTable},
+};
 use serde::{Deserialize, Serialize};
-use std::any::Any;
-use std::fmt;
-#[cfg(feature = "tracing")]
 use tracing::trace;
 use wasm_bindgen::{JsCast, JsValue};
-use wasmer_types::RawValue;
 use wasmer_types::{
-    FunctionType, GlobalType, MemoryError, MemoryType, Pages, TableType, WASM_PAGE_SIZE,
+    FunctionType, GlobalType, MemoryError, MemoryType, Pages, RawValue, TableType, WASM_PAGE_SIZE,
 };
+
+use crate::js::{js_handle::JsHandle, wasm_bindgen_polyfill::Global as JsGlobal};
 
 /// Represents linear memory that is managed by the javascript runtime
 #[derive(Clone, Debug, PartialEq)]
@@ -74,7 +74,6 @@ impl VMMemory {
         let src = crate::js::externals::memory_view::MemoryView::new_raw(&self.memory);
         let amount = src.data_size() as usize;
 
-        #[cfg(feature = "tracing")]
         trace!(%amount, "memory copy started");
 
         let mut dst = crate::js::externals::memory_view::MemoryView::new_raw(&new_memory);
@@ -105,7 +104,6 @@ impl VMMemory {
             wasmer_types::MemoryError::Generic(format!("failed to copy the memory - {}", err))
         })?;
 
-        #[cfg(feature = "tracing")]
         trace!("memory copy finished (size={})", dst.size().bytes().0);
 
         Ok(Self {

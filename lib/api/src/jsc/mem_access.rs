@@ -16,10 +16,11 @@ where
             .checked_add(total_len)
             .ok_or(MemoryAccessError::Overflow)?;
         if end > slice.buffer.0.len as u64 {
-            #[cfg(feature = "tracing")]
-            warn!(
+            tracing::warn!(
                 "attempted to read ({} bytes) beyond the bounds of the memory view ({} > {})",
-                total_len, end, slice.buffer.0.len
+                total_len,
+                end,
+                slice.buffer.0.len
             );
             return Err(MemoryAccessError::HeapOutOfBounds);
         }
@@ -46,10 +47,11 @@ where
             .checked_add(total_len)
             .ok_or(MemoryAccessError::Overflow)?;
         if end > ptr.buffer.0.len as u64 {
-            #[cfg(feature = "tracing")]
-            warn!(
+            tracing::warn!(
                 "attempted to read ({} bytes) beyond the bounds of the memory view ({} > {})",
-                total_len, end, ptr.buffer.0.len
+                total_len,
+                end,
+                ptr.buffer.0.len
             );
             return Err(MemoryAccessError::HeapOutOfBounds);
         }

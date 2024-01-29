@@ -497,6 +497,10 @@ impl LinearMemory for VMSharedMemory {
     fn do_notify(&mut self, dst: NotifyLocation, count: u32) -> u32 {
         self.conditions.do_notify(dst, count)
     }
+
+    fn thread_conditions(&self) -> Option<&ThreadConditions> {
+        Some(&self.conditions)
+    }
 }
 
 impl From<VMOwnedMemory> for VMMemory {
@@ -589,6 +593,10 @@ impl LinearMemory for VMMemory {
     /// Notify waiters from the wait list. Return the number of waiters notified
     fn do_notify(&mut self, dst: NotifyLocation, count: u32) -> u32 {
         self.0.do_notify(dst, count)
+    }
+
+    fn thread_conditions(&self) -> Option<&ThreadConditions> {
+        self.0.thread_conditions()
     }
 }
 
@@ -692,10 +700,18 @@ where
 
     /// Grows the memory to at least a minimum size. If the memory is already big enough
     /// for the min size then this function does nothing
-    fn grow_at_least(&mut self, min_size: u64) -> Result<(), MemoryError>;
+    fn grow_at_least(&mut self, _min_size: u64) -> Result<(), MemoryError> {
+        Err(MemoryError::UnsupportedOperation {
+            message: "grow_at_least() is not supported".to_string(),
+        })
+    }
 
     /// Resets the memory back to zero length
-    fn reset(&mut self) -> Result<(), MemoryError>;
+    fn reset(&mut self) -> Result<(), MemoryError> {
+        Err(MemoryError::UnsupportedOperation {
+            message: "reset() is not supported".to_string(),
+        })
+    }
 
     /// Return a `VMMemoryDefinition` for exposing the memory to compiled wasm code.
     fn vmmemory(&self) -> NonNull<VMMemoryDefinition>;
@@ -729,5 +745,12 @@ where
     /// Notify waiters from the wait list. Return the number of waiters notified
     fn do_notify(&mut self, _dst: NotifyLocation, _count: u32) -> u32 {
         0
+    }
+
+    /// Access the internal atomics handler.
+    ///
+    /// Will be [`None`] if the memory does not support atomics.
+    fn thread_conditions(&self) -> Option<&ThreadConditions> {
+        None
     }
 }

@@ -1,18 +1,22 @@
-use super::memory_view::MemoryView;
-use crate::store::{AsStoreMut, AsStoreRef};
-use crate::sys::engine::NativeEngineExt;
-use crate::vm::VMExternMemory;
-use crate::MemoryAccessError;
-use crate::MemoryType;
-use std::convert::TryInto;
-use std::marker::PhantomData;
-use std::mem;
-use std::mem::MaybeUninit;
-use std::slice;
-#[cfg(feature = "tracing")]
+use std::{
+    convert::TryInto,
+    marker::PhantomData,
+    mem::{self, MaybeUninit},
+    slice,
+};
+
 use tracing::warn;
 use wasmer_types::Pages;
-use wasmer_vm::{LinearMemory, MemoryError, StoreHandle, VMExtern, VMMemory};
+use wasmer_vm::{
+    LinearMemory, MemoryError, StoreHandle, ThreadConditionsHandle, VMExtern, VMMemory,
+};
+
+use crate::{
+    store::{AsStoreMut, AsStoreRef},
+    sys::{engine::NativeEngineExt, externals::memory_view::MemoryView},
+    vm::VMExternMemory,
+    MemoryAccessError, MemoryType,
+};
 
 #[derive(Debug, Clone)]
 pub struct Memory {
@@ -97,9 +101,70 @@ impl Memory {
         mem.copy()
     }
 
+    pub fn as_shared(&self, store: &impl AsStoreRef) -> Option<crate::SharedMemory> {
+        let mem = self.handle.get(store.as_store_ref().objects());
+        let conds = mem.thread_conditions()?.downgrade();
+
+        Some(crate::SharedMemory::new(crate::Memory(self.clone()), conds))
+    }
+
     /// To `VMExtern`.
     pub(crate) fn to_vm_extern(&self) -> VMExtern {
         VMExtern::Memory(self.handle.internal_handle())
+    }
+}
+
+impl crate::externals::memory::SharedMemoryOps for ThreadConditionsHandle {
+    fn notify(
+        &self,
+        dst: crate::externals::memory::MemoryLocation,
+        count: u32,
+    ) -> Result<u32, crate::AtomicsError> {
+        let count = self
+            .upgrade()
+            .ok_or(crate::AtomicsError::Unimplemented)?
+            .do_notify(
+                wasmer_vm::NotifyLocation {
+                    address: dst.address,
+                },
+                count,
+            );
+        Ok(count)
+    }
+
+    fn wait(
+        &self,
+        dst: crate::externals::memory::MemoryLocation,
+        timeout: Option<std::time::Duration>,
+    ) -> Result<u32, crate::AtomicsError> {
+        self.upgrade()
+            .ok_or(crate::AtomicsError::Unimplemented)?
+            .do_wait(
+                wasmer_vm::NotifyLocation {
+                    address: dst.address,
+                },
+                timeout,
+            )
+            .map_err(|e| match e {
+                wasmer_vm::WaiterError::Unimplemented => crate::AtomicsError::Unimplemented,
+                wasmer_vm::WaiterError::TooManyWaiters => crate::AtomicsError::TooManyWaiters,
+                wasmer_vm::WaiterError::AtomicsDisabled => crate::AtomicsError::AtomicsDisabled,
+                _ => crate::AtomicsError::Unimplemented,
+            })
+    }
+
+    fn disable_atomics(&self) -> Result<(), MemoryError> {
+        self.upgrade()
+            .ok_or_else(|| MemoryError::Generic("memory was dropped".to_string()))?
+            .disable_atomics();
+        Ok(())
+    }
+
+    fn wake_all_atomic_waiters(&self) -> Result<(), MemoryError> {
+        self.upgrade()
+            .ok_or_else(|| MemoryError::Generic("memory was dropped".to_string()))?
+            .wake_all_atomic_waiters();
+        Ok(())
     }
 }
 
@@ -125,7 +190,6 @@ impl<'a> MemoryBuffer<'a> {
             .checked_add(buf.len() as u64)
             .ok_or(MemoryAccessError::Overflow)?;
         if end > self.len.try_into().unwrap() {
-            #[cfg(feature = "tracing")]
             warn!(
                 "attempted to read ({} bytes) beyond the bounds of the memory view ({} > {})",
                 buf.len(),
@@ -149,7 +213,6 @@ impl<'a> MemoryBuffer<'a> {
             .checked_add(buf.len() as u64)
             .ok_or(MemoryAccessError::Overflow)?;
         if end > self.len.try_into().unwrap() {
-            #[cfg(feature = "tracing")]
             warn!(
                 "attempted to read ({} bytes) beyond the bounds of the memory view ({} > {})",
                 buf.len(),
@@ -171,7 +234,6 @@ impl<'a> MemoryBuffer<'a> {
             .checked_add(data.len() as u64)
             .ok_or(MemoryAccessError::Overflow)?;
         if end > self.len.try_into().unwrap() {
-            #[cfg(feature = "tracing")]
             warn!(
                 "attempted to write ({} bytes) beyond the bounds of the memory view ({} > {})",
                 data.len(),

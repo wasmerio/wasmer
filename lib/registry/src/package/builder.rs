@@ -10,6 +10,7 @@ use tar::Builder;
 use thiserror::Error;
 use time::{self, OffsetDateTime};
 
+use crate::publish::PublishWait;
 use crate::{package::builder::validate::ValidationPolicy, publish::SignArchiveResult};
 use crate::{WasmerConfig, PACKAGE_TOML_FALLBACK_NAME};
 
@@ -40,7 +41,7 @@ pub struct Publish {
     /// Directory containing the `wasmer.toml` (defaults to current root dir)
     pub package_path: Option<String>,
     /// Wait for package to be available on the registry before exiting
-    pub wait: bool,
+    pub wait: PublishWait,
     /// Timeout (in seconds) for the publish query to the registry
     pub timeout: Duration,
 }
@@ -63,7 +64,7 @@ enum PackageBuildError {
 
 impl Publish {
     /// Executes `wasmer publish`
-    pub async fn execute(&self) -> Result<(), anyhow::Error> {
+    pub fn execute(&self) -> Result<(), anyhow::Error> {
         let input_path = match self.package_path.as_ref() {
             Some(s) => std::env::current_dir()?.join(s),
             None => std::env::current_dir()?,
@@ -194,7 +195,6 @@ impl Publish {
             self.wait,
             self.timeout,
         )
-        .await
     }
 
     fn validation_policy(&self) -> Box<dyn ValidationPolicy> {
@@ -815,7 +815,7 @@ mod validate {
     }
 
     /// How should validation be treated by the publishing process?
-    pub(crate) trait ValidationPolicy {
+    pub(crate) trait ValidationPolicy: Send + Sync {
         /// Should validation be skipped entirely?
         fn skip_validation(&mut self) -> bool;
 
