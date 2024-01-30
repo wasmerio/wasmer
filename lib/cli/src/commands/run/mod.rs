@@ -217,7 +217,7 @@ impl Run {
                     .spawn_and_block_on(async move {
                         BinaryPackage::from_registry(&specifier, inner_runtime.as_ref()).await
                     })
-                    .with_context(|| format!("Unable to load \"{name}\""))?
+                    .with_context(|| format!("Unable to load \"{name}\""))??
             };
             dependencies.push(pkg);
         }
@@ -574,7 +574,7 @@ impl PackageSource {
                 let inner_rt = rt.clone();
                 let pkg = rt.task_manager().spawn_and_block_on(async move {
                     BinaryPackage::from_registry(&inner_pck, inner_rt.as_ref()).await
-                })?;
+                })??;
                 Ok(ExecutableTarget::Package(pkg))
             }
         }
@@ -667,7 +667,7 @@ impl ExecutableTarget {
         let inner_runtime = runtime.clone();
         let pkg = runtime.task_manager().spawn_and_block_on(async move {
             BinaryPackage::from_webc(&container, inner_runtime.as_ref()).await
-        })?;
+        })??;
 
         Ok(ExecutableTarget::Package(pkg))
     }
@@ -718,7 +718,7 @@ impl ExecutableTarget {
                 let inner_runtime = runtime.clone();
                 let pkg = runtime.task_manager().spawn_and_block_on(async move {
                     BinaryPackage::from_webc(&container, inner_runtime.as_ref()).await
-                })?;
+                })??;
                 Ok(ExecutableTarget::Package(pkg))
             }
         }

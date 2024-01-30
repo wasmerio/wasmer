@@ -150,7 +150,7 @@ impl WcgiRunner {
                     })
                     .await
             })
-            .context("Unable to start the server")?;
+            .context("Unable to start the server")??;
 
         Ok(())
     }
