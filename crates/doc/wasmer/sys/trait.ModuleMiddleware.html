@@ -3,7 +3,7 @@
     fn <a href="#tymethod.generate_function_middleware" class="fn">generate_function_middleware</a>(
         &amp;self,
         local_function_index: <a class="struct" href="../struct.LocalFunctionIndex.html" title="struct wasmer::LocalFunctionIndex">LocalFunctionIndex</a>
-    ) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.70.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="../trait.FunctionMiddleware.html" title="trait wasmer::FunctionMiddleware">FunctionMiddleware</a> + 'static, <a class="struct" href="https://doc.rust-lang.org/1.70.0/alloc/alloc/struct.Global.html" title="struct alloc::alloc::Global">Global</a>&gt;;
+    ) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.70.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="trait.FunctionMiddleware.html" title="trait wasmer::sys::FunctionMiddleware">FunctionMiddleware</a> + 'static, <a class="struct" href="https://doc.rust-lang.org/1.70.0/alloc/alloc/struct.Global.html" title="struct alloc::alloc::Global">Global</a>&gt;;
 
     // Provided method
     fn <a href="#method.transform_module_info" class="fn">transform_module_info</a>(&amp;self, _: &amp;mut ModuleInfo) { ... }
@@ -11,7 +11,7 @@
 </div></details><h2 id="required-methods" class="small-section-header">Required Methods<a href="#required-methods" class="anchor">§</a></h2><div class="methods"><details class="toggle method-toggle" open><summary><section id="tymethod.generate_function_middleware" class="method"><h4 class="code-header">fn <a href="#tymethod.generate_function_middleware" class="fn">generate_function_middleware</a>(
     &amp;self,
     local_function_index: <a class="struct" href="../struct.LocalFunctionIndex.html" title="struct wasmer::LocalFunctionIndex">LocalFunctionIndex</a>
-) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.70.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="../trait.FunctionMiddleware.html" title="trait wasmer::FunctionMiddleware">FunctionMiddleware</a> + 'static, <a class="struct" href="https://doc.rust-lang.org/1.70.0/alloc/alloc/struct.Global.html" title="struct alloc::alloc::Global">Global</a>&gt;</h4></section></summary><div class="docblock"><p>Generates a <code>FunctionMiddleware</code> for a given function.</p>
+) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.70.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="trait.FunctionMiddleware.html" title="trait wasmer::sys::FunctionMiddleware">FunctionMiddleware</a> + 'static, <a class="struct" href="https://doc.rust-lang.org/1.70.0/alloc/alloc/struct.Global.html" title="struct alloc::alloc::Global">Global</a>&gt;</h4></section></summary><div class="docblock"><p>Generates a <code>FunctionMiddleware</code> for a given function.</p>
 <p>Here we generate a separate object for each function instead of executing directly on per-function operators,
 in order to enable concurrent middleware application. Takes immutable <code>&amp;self</code> because this function can be called
 concurrently from multiple compilation threads.</p>
