@@ -1174,7 +1174,7 @@
                     .spawn_and_block_on(<span class="kw">async move </span>{
                         BinaryPackage::from_registry(<span class="kw-2">&amp;</span>specifier, inner_runtime.as_ref()).<span class="kw">await
                     </span>})
-                    .with_context(|| <span class="macro">format!</span>(<span class="string">&quot;Unable to load \&quot;{name}\&quot;&quot;</span>))<span class="question-mark">?
+                    .with_context(|| <span class="macro">format!</span>(<span class="string">&quot;Unable to load \&quot;{name}\&quot;&quot;</span>))<span class="question-mark">??
             </span>};
             dependencies.push(pkg);
         }
@@ -1531,7 +1531,7 @@
                 <span class="kw">let </span>inner_rt = rt.clone();
                 <span class="kw">let </span>pkg = rt.task_manager().spawn_and_block_on(<span class="kw">async move </span>{
                     BinaryPackage::from_registry(<span class="kw-2">&amp;</span>inner_pck, inner_rt.as_ref()).<span class="kw">await
-                </span>})<span class="question-mark">?</span>;
+                </span>})<span class="question-mark">??</span>;
                 <span class="prelude-val">Ok</span>(ExecutableTarget::Package(pkg))
             }
         }
@@ -1624,7 +1624,7 @@
         <span class="kw">let </span>inner_runtime = runtime.clone();
         <span class="kw">let </span>pkg = runtime.task_manager().spawn_and_block_on(<span class="kw">async move </span>{
             BinaryPackage::from_webc(<span class="kw-2">&amp;</span>container, inner_runtime.as_ref()).<span class="kw">await
-        </span>})<span class="question-mark">?</span>;
+        </span>})<span class="question-mark">??</span>;
 
         <span class="prelude-val">Ok</span>(ExecutableTarget::Package(pkg))
     }
@@ -1675,7 +1675,7 @@
                 <span class="kw">let </span>inner_runtime = runtime.clone();
                 <span class="kw">let </span>pkg = runtime.task_manager().spawn_and_block_on(<span class="kw">async move </span>{
                     BinaryPackage::from_webc(<span class="kw-2">&amp;</span>container, inner_runtime.as_ref()).<span class="kw">await
-                </span>})<span class="question-mark">?</span>;
+                </span>})<span class="question-mark">??</span>;
                 <span class="prelude-val">Ok</span>(ExecutableTarget::Package(pkg))
             }
         }
