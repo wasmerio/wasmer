@@ -93,6 +93,9 @@ pub enum MemoryError {
         /// Message describing the unsupported operation.
         message: String,
     },
+    /// The memory does not support atomic operations.
+    #[error("The memory does not support atomic operations")]
+    AtomicsNotSupported,
     /// A user defined error value, used for error cases not listed above.
     #[error("A user-defined error occurred: {0}")]
     Generic(String),

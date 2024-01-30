@@ -10,7 +10,6 @@ use crate::{AsEngineRef, ExportType, ImportType};
 use bytes::Bytes;
 use js_sys::{Reflect, Uint8Array, WebAssembly};
 use std::path::Path;
-#[cfg(feature = "tracing")]
 use tracing::{debug, warn};
 use wasm_bindgen::JsValue;
 use wasmer_types::{
@@ -155,10 +154,8 @@ impl Module {
             #[allow(unused_variables)]
             if let wasmer_types::ExternType::Memory(mem_ty) = import_type.ty() {
                 if resolved_import.is_some() {
-                    #[cfg(feature = "tracing")]
                     debug!("imported shared memory {:?}", &mem_ty);
                 } else {
-                    #[cfg(feature = "tracing")]
                     warn!(
                         "Error while importing {0:?}.{1:?}: memory. Expected {2:?}",
                         import_type.module(),
@@ -195,7 +192,6 @@ impl Module {
                     }
                     import_externs.push(import);
                 } else {
-                    #[cfg(feature = "tracing")]
                     warn!(
                         "import not found {}:{}",
                         import_type.module(),
@@ -227,6 +223,7 @@ impl Module {
         ));
     }
 
+    #[tracing::instrument(level = "debug", skip_all)]
     pub unsafe fn deserialize_unchecked(
         _engine: &impl AsEngineRef,
         _bytes: impl IntoBytes,
@@ -239,6 +236,7 @@ impl Module {
         return Err(DeserializeError::Generic("You need to enable the `js-serializable-module` feature flag to deserialize a `Module`".to_string()));
     }
 
+    #[tracing::instrument(level = "debug", skip_all)]
     pub unsafe fn deserialize(
         _engine: &impl AsEngineRef,
         _bytes: impl IntoBytes,

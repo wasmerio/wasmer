@@ -1,7 +1,8 @@
+use std::path::PathBuf;
+
 use anyhow::Context;
 use dialoguer::console::{style, Emoji};
 use indicatif::ProgressBar;
-use std::path::PathBuf;
 
 /// Extract contents of a container to a directory.
 #[derive(clap::Parser, Debug)]

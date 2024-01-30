@@ -1,6 +1,8 @@
 //! A convenient little abstraction for building up C expressions and generating
 //! simple C code.
 
+#![allow(dead_code)]
+
 pub mod staticlib_header;
 
 /// An identifier in C.
@@ -8,6 +10,7 @@ pub type CIdent = String;
 
 /// A Type in the C language.
 #[derive(Debug, Clone, Default)]
+#[allow(dead_code)]
 pub enum CType {
     /// C `void` type.
     #[default]

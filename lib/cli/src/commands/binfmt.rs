@@ -1,11 +1,12 @@
-use anyhow::{Context, Result};
+use std::{
+    env, fs,
+    io::Write,
+    os::unix::{ffi::OsStrExt, fs::MetadataExt},
+    path::{Path, PathBuf},
+};
+
+use anyhow::{bail, Context, Result};
 use clap::Parser;
-use std::env;
-use std::fs;
-use std::io::Write;
-use std::os::unix::ffi::OsStrExt;
-use std::os::unix::fs::MetadataExt;
-use std::path::{Path, PathBuf};
 use Action::*;
 
 #[derive(Debug, Parser, Clone, Copy)]

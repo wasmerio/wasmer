@@ -1,16 +1,12 @@
-use crate::mem_access::MemoryAccessError;
-use crate::store::AsStoreRef;
-use std::marker::PhantomData;
-use std::mem::MaybeUninit;
-use std::slice;
-use std::{convert::TryInto, ops::Range};
-#[cfg(feature = "tracing")]
-use tracing::warn;
+use std::{convert::TryInto, marker::PhantomData, mem::MaybeUninit, ops::Range, slice};
 use wasm_bindgen::JsCast;
-
 use wasmer_types::{Bytes, Pages};
 
-use super::memory::{Memory, MemoryBuffer};
+use crate::{
+    js::externals::memory::{Memory, MemoryBuffer},
+    mem_access::MemoryAccessError,
+    store::AsStoreRef,
+};
 
 /// A WebAssembly `memory` view.
 ///
@@ -128,8 +124,7 @@ impl<'a> MemoryView<'a> {
             .map_err(|_| MemoryAccessError::Overflow)?;
         let end = offset.checked_add(len).ok_or(MemoryAccessError::Overflow)?;
         if end > view.length() {
-            #[cfg(feature = "tracing")]
-            warn!(
+            tracing::warn!(
                 "attempted to read ({} bytes) beyond the bounds of the memory view ({} > {})",
                 len,
                 end,
@@ -149,8 +144,7 @@ impl<'a> MemoryView<'a> {
         let view = &self.view;
         let offset: u32 = offset.try_into().map_err(|_| MemoryAccessError::Overflow)?;
         if offset >= view.length() {
-            #[cfg(feature = "tracing")]
-            warn!(
+            tracing::warn!(
                 "attempted to read beyond the bounds of the memory view ({} >= {})",
                 offset,
                 view.length()
@@ -183,8 +177,7 @@ impl<'a> MemoryView<'a> {
             .map_err(|_| MemoryAccessError::Overflow)?;
         let end = offset.checked_add(len).ok_or(MemoryAccessError::Overflow)?;
         if end > view.length() {
-            #[cfg(feature = "tracing")]
-            warn!(
+            tracing::warn!(
                 "attempted to read ({} bytes) beyond the bounds of the memory view ({} > {})",
                 len,
                 end,
@@ -220,8 +213,7 @@ impl<'a> MemoryView<'a> {
         let view = &self.view;
         let end = offset.checked_add(len).ok_or(MemoryAccessError::Overflow)?;
         if end > view.length() {
-            #[cfg(feature = "tracing")]
-            warn!(
+            tracing::warn!(
                 "attempted to write ({} bytes) beyond the bounds of the memory view ({} > {})",
                 len,
                 end,
@@ -241,8 +233,7 @@ impl<'a> MemoryView<'a> {
         let view = &self.view;
         let offset: u32 = offset.try_into().map_err(|_| MemoryAccessError::Overflow)?;
         if offset >= view.length() {
-            #[cfg(feature = "tracing")]
-            warn!(
+            tracing::warn!(
                 "attempted to write beyond the bounds of the memory view ({} >= {})",
                 offset,
                 view.length()
