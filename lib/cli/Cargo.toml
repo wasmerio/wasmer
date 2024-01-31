@@ -142,7 +142,7 @@ log = "0.4.17"
 semver = "1.0.14"
 pathdiff = "0.2.1"
 sha2 = "0.10.6"
-object = "0.30.0"
+object = "0.32.0"
 wasm-coredump-builder = { version = "0.1.11", optional = true }
 tracing = { version = "0.1" }
 tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt", "json"] }
