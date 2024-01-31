@@ -786,32 +786,22 @@ mod validate {
         wasm: &[u8],
         file_name: String,
     ) -> Result<(), ValidationError> {
-        use wasmparser::WasmDecoder;
-        let mut parser = wasmparser::ValidatingParser::new(
-            wasm,
-            Some(wasmparser::ValidatingParserConfig {
-                operator_config: wasmparser::OperatorValidatorConfig {
-                    enable_threads: true,
-                    enable_reference_types: true,
-                    enable_simd: true,
-                    enable_bulk_memory: true,
-                    enable_multi_value: true,
-                },
-            }),
-        );
-        loop {
-            let state = parser.read();
-            match state {
-                wasmparser::ParserState::EndWasm => return Ok(()),
-                wasmparser::ParserState::Error(e) => {
-                    return Err(ValidationError::InvalidWasm {
-                        file: file_name,
-                        error: format!("{}", e),
-                    });
-                }
-                _ => {}
-            }
-        }
+        let mut val = wasmparser::Validator::new_with_features(wasmparser::WasmFeatures {
+            threads: true,
+            reference_types: true,
+            simd: true,
+            bulk_memory: true,
+            multi_value: true,
+            ..Default::default()
+        });
+
+        val.validate_all(wasm)
+            .map_err(|e| ValidationError::InvalidWasm {
+                file: file_name.clone(),
+                error: format!("{}", e),
+            })?;
+
+        Ok(())
     }
 
     /// How should validation be treated by the publishing process?

@@ -288,8 +288,7 @@ pub fn translate_module<'data>(data: &'data [u8]) -> WasmResult<ModuleInfoPolyfi
                 let name = sectionreader.name();
                 if name == "name" {
                     parse_name_section(
-                        NameSectionReader::new(sectionreader.data(), sectionreader.data_offset())
-                            .map_err(transform_err)?,
+                        NameSectionReader::new(sectionreader.data(), sectionreader.data_offset()),
                         &mut module_info,
                     )?;
                 }
@@ -310,41 +309,57 @@ pub fn wptype_to_type(ty: wasmparser::ValType) -> WasmResult<Type> {
         wasmparser::ValType::F32 => Ok(Type::F32),
         wasmparser::ValType::F64 => Ok(Type::F64),
         wasmparser::ValType::V128 => Ok(Type::V128),
-        wasmparser::ValType::ExternRef => Ok(Type::ExternRef),
-        wasmparser::ValType::FuncRef => Ok(Type::FuncRef),
+        wasmparser::ValType::Ref(ty) => wpreftype_to_type(ty),
+    }
+}
+
+/// Converts a wasmparser ref type to a [`Type`].
+pub fn wpreftype_to_type(ty: wasmparser::RefType) -> WasmResult<Type> {
+    if ty.is_extern_ref() {
+        Ok(Type::ExternRef)
+    } else if ty.is_func_ref() {
+        Ok(Type::FuncRef)
+    } else {
+        Err(format!("Unsupported ref type: {:?}", ty))
     }
 }
 
 /// Parses the Type section of the wasm module.
 pub fn parse_type_section(
-    types: TypeSectionReader,
+    reader: TypeSectionReader,
     module_info: &mut ModuleInfoPolyfill,
 ) -> WasmResult<()> {
-    let count = types.get_count();
-    module_info.reserve_signatures(count)?;
+    module_info.reserve_signatures(reader.count())?;
 
-    for entry in types {
-        if let Ok(wasmparser::Type::Func(functype)) = entry {
-            let params = functype.params();
-            let returns = functype.results();
-            let sig_params: Vec<Type> = params
-                .iter()
-                .map(|ty| {
-                    wptype_to_type(*ty)
-                        .expect("only numeric types are supported in function signatures")
-                })
-                .collect();
-            let sig_returns: Vec<Type> = returns
-                .iter()
-                .map(|ty| {
-                    wptype_to_type(*ty)
-                        .expect("only numeric types are supported in function signatures")
-                })
-                .collect();
-            let sig = FunctionType::new(sig_params, sig_returns);
-            module_info.declare_signature(sig)?;
-        } else {
-            unimplemented!("module linking not implemented yet")
+    for res in reader {
+        let group = res.map_err(transform_err)?;
+
+        for ty in group.into_types() {
+            match ty.composite_type {
+                wasmparser::CompositeType::Func(functype) => {
+                    let params = functype.params();
+                    let returns = functype.results();
+                    let sig_params: Vec<Type> = params
+                        .iter()
+                        .map(|ty| {
+                            wptype_to_type(*ty)
+                                .expect("only numeric types are supported in function signatures")
+                        })
+                        .collect();
+                    let sig_returns: Vec<Type> = returns
+                        .iter()
+                        .map(|ty| {
+                            wptype_to_type(*ty)
+                                .expect("only numeric types are supported in function signatures")
+                        })
+                        .collect();
+                    let sig = FunctionType::new(sig_params, sig_returns);
+                    module_info.declare_signature(sig)?;
+                }
+                _ => {
+                    unimplemented!("GC is  not implemented yet")
+                }
+            }
         }
     }
 
@@ -356,7 +371,7 @@ pub fn parse_import_section<'data>(
     imports: ImportSectionReader<'data>,
     module_info: &mut ModuleInfoPolyfill,
 ) -> WasmResult<()> {
-    module_info.reserve_imports(imports.get_count())?;
+    module_info.reserve_imports(imports.count())?;
 
     for entry in imports {
         let import = entry.map_err(transform_err)?;
@@ -406,7 +421,7 @@ pub fn parse_import_section<'data>(
             TypeRef::Table(ref tab) => {
                 module_info.declare_table_import(
                     TableType {
-                        ty: wptype_to_type(tab.element_type).unwrap(),
+                        ty: wpreftype_to_type(tab.element_type).unwrap(),
                         minimum: tab.initial,
                         maximum: tab.maximum,
                     },
@@ -424,7 +439,7 @@ pub fn parse_function_section(
     functions: FunctionSectionReader,
     module_info: &mut ModuleInfoPolyfill,
 ) -> WasmResult<()> {
-    let num_functions = functions.get_count();
+    let num_functions = functions.count();
     module_info.reserve_func_types(num_functions)?;
 
     for entry in functions {
@@ -440,14 +455,14 @@ pub fn parse_table_section(
     tables: TableSectionReader,
     module_info: &mut ModuleInfoPolyfill,
 ) -> WasmResult<()> {
-    module_info.reserve_tables(tables.get_count())?;
+    module_info.reserve_tables(tables.count())?;
 
     for entry in tables {
         let table = entry.map_err(transform_err)?;
         module_info.declare_table(TableType {
-            ty: wptype_to_type(table.element_type).unwrap(),
-            minimum: table.initial,
-            maximum: table.maximum,
+            ty: wpreftype_to_type(table.ty.element_type).unwrap(),
+            minimum: table.ty.initial,
+            maximum: table.ty.maximum,
         })?;
     }
 
@@ -459,7 +474,7 @@ pub fn parse_memory_section(
     memories: MemorySectionReader,
     module_info: &mut ModuleInfoPolyfill,
 ) -> WasmResult<()> {
-    module_info.reserve_memories(memories.get_count())?;
+    module_info.reserve_memories(memories.count())?;
 
     for entry in memories {
         let WPMemoryType {
@@ -486,7 +501,7 @@ pub fn parse_global_section(
     globals: GlobalSectionReader,
     module_info: &mut ModuleInfoPolyfill,
 ) -> WasmResult<()> {
-    module_info.reserve_globals(globals.get_count())?;
+    module_info.reserve_globals(globals.count())?;
 
     for entry in globals {
         let WPGlobalType {
@@ -508,7 +523,7 @@ pub fn parse_export_section<'data>(
     exports: ExportSectionReader<'data>,
     module_info: &mut ModuleInfoPolyfill,
 ) -> WasmResult<()> {
-    module_info.reserve_exports(exports.get_count())?;
+    module_info.reserve_exports(exports.count())?;
 
     for entry in exports {
         let Export {
@@ -553,7 +568,7 @@ pub fn parse_name_section<'data>(
     mut names: NameSectionReader<'data>,
     module_info: &mut ModuleInfoPolyfill,
 ) -> WasmResult<()> {
-    while let Ok(subsection) = names.read() {
+    while let Some(Ok(subsection)) = names.next() {
         match subsection {
             wasmparser::Name::Function(_function_subsection) => {
                 //for naming in function_subsection.into_iter().flatten() {
@@ -579,6 +594,7 @@ pub fn parse_name_section<'data>(
             | wasmparser::Name::Global(_)
             | wasmparser::Name::Element(_)
             | wasmparser::Name::Data(_)
+            | wasmparser::Name::Tag(_)
             | wasmparser::Name::Unknown { .. } => {}
         };
     }
@@ -589,7 +605,7 @@ pub fn parse_name_section<'data>(
 //     mut naming_reader: NamingReader<'_>,
 // ) -> Option<HashMap<FunctionIndex, &str>> {
 //     let mut function_names = HashMap::new();
-//     for _ in 0..naming_reader.get_count() {
+//     for _ in 0..naming_reader.count() {
 //         let Naming { index, name } = naming_reader.read().ok()?;
 //         if index == std::u32::MAX {
 //             // We reserve `u32::MAX` for our own use.
