@@ -531,6 +531,9 @@
 <a href="#531" id="531">531</a>
 <a href="#532" id="532">532</a>
 <a href="#533" id="533">533</a>
+<a href="#534" id="534">534</a>
+<a href="#535" id="535">535</a>
+<a href="#536" id="536">536</a>
 </pre></div><pre class="rust"><code><span class="attr">#![doc(
     html_logo_url = <span class="string">&quot;https://github.com/wasmerio.png?size=200&quot;</span>,
     html_favicon_url = <span class="string">&quot;https://wasmer.io/images/icons/favicon-32x32.png&quot;
@@ -977,6 +980,9 @@
 <span class="kw">mod </span>typed_function;
 <span class="kw">mod </span>value;
 <span class="kw">pub mod </span>vm;
+
+<span class="attr">#[cfg(any(feature = <span class="string">&quot;wasm-types-polyfill&quot;</span>, feature = <span class="string">&quot;jsc&quot;</span>))]
+</span><span class="kw">mod </span>module_info_polyfill;
 
 <span class="attr">#[cfg(feature = <span class="string">&quot;sys&quot;</span>)]
 </span><span class="doccomment">/// sys

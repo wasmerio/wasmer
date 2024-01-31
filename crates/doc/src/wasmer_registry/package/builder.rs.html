@@ -1062,16 +1062,6 @@
 <a href="#1062" id="1062">1062</a>
 <a href="#1063" id="1063">1063</a>
 <a href="#1064" id="1064">1064</a>
-<a href="#1065" id="1065">1065</a>
-<a href="#1066" id="1066">1066</a>
-<a href="#1067" id="1067">1067</a>
-<a href="#1068" id="1068">1068</a>
-<a href="#1069" id="1069">1069</a>
-<a href="#1070" id="1070">1070</a>
-<a href="#1071" id="1071">1071</a>
-<a href="#1072" id="1072">1072</a>
-<a href="#1073" id="1073">1073</a>
-<a href="#1074" id="1074">1074</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::io::{<span class="self">self</span>, Write};
 <span class="kw">use </span>std::path::{Path, PathBuf};
 <span class="kw">use </span>std::time::Duration;
@@ -1860,32 +1850,22 @@
         wasm: <span class="kw-2">&amp;</span>[u8],
         file_name: String,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), ValidationError&gt; {
-        <span class="kw">use </span>wasmparser::WasmDecoder;
-        <span class="kw">let </span><span class="kw-2">mut </span>parser = wasmparser::ValidatingParser::new(
-            wasm,
-            <span class="prelude-val">Some</span>(wasmparser::ValidatingParserConfig {
-                operator_config: wasmparser::OperatorValidatorConfig {
-                    enable_threads: <span class="bool-val">true</span>,
-                    enable_reference_types: <span class="bool-val">true</span>,
-                    enable_simd: <span class="bool-val">true</span>,
-                    enable_bulk_memory: <span class="bool-val">true</span>,
-                    enable_multi_value: <span class="bool-val">true</span>,
-                },
-            }),
-        );
-        <span class="kw">loop </span>{
-            <span class="kw">let </span>state = parser.read();
-            <span class="kw">match </span>state {
-                wasmparser::ParserState::EndWasm =&gt; <span class="kw">return </span><span class="prelude-val">Ok</span>(()),
-                wasmparser::ParserState::Error(e) =&gt; {
-                    <span class="kw">return </span><span class="prelude-val">Err</span>(ValidationError::InvalidWasm {
-                        file: file_name,
-                        error: <span class="macro">format!</span>(<span class="string">&quot;{}&quot;</span>, e),
-                    });
-                }
-                <span class="kw">_ </span>=&gt; {}
-            }
-        }
+        <span class="kw">let </span><span class="kw-2">mut </span>val = wasmparser::Validator::new_with_features(wasmparser::WasmFeatures {
+            threads: <span class="bool-val">true</span>,
+            reference_types: <span class="bool-val">true</span>,
+            simd: <span class="bool-val">true</span>,
+            bulk_memory: <span class="bool-val">true</span>,
+            multi_value: <span class="bool-val">true</span>,
+            ..Default::default()
+        });
+
+        val.validate_all(wasm)
+            .map_err(|e| ValidationError::InvalidWasm {
+                file: file_name.clone(),
+                error: <span class="macro">format!</span>(<span class="string">&quot;{}&quot;</span>, e),
+            })<span class="question-mark">?</span>;
+
+        <span class="prelude-val">Ok</span>(())
     }
 
     <span class="doccomment">/// How should validation be treated by the publishing process?
