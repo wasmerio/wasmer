@@ -445,6 +445,9 @@ mod typed_function;
 mod value;
 pub mod vm;
 
+#[cfg(any(feature = "wasm-types-polyfill", feature = "jsc"))]
+mod module_info_polyfill;
+
 #[cfg(feature = "sys")]
 /// sys
 pub mod sys;

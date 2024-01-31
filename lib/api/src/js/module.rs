@@ -89,7 +89,7 @@ impl Module {
         // The module is now validated, so we can safely parse it's types
         #[cfg(feature = "wasm-types-polyfill")]
         let (type_hints, name) = {
-            let info = crate::js::module_info_polyfill::translate_module(&binary[..]).unwrap();
+            let info = crate::module_info_polyfill::translate_module(&binary[..]).unwrap();
 
             (
                 Some(ModuleTypeHints {
