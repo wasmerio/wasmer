@@ -11506,8 +11506,8 @@
 <span class="kw">use </span><span class="kw">crate</span>::object_file::{load_object_file, CompiledFunction};
 <span class="kw">use </span>wasmer_compiler::wasmparser::{MemArg, Operator};
 <span class="kw">use </span>wasmer_compiler::{
-    from_binaryreadererror_wasmerror, wptype_to_type, FunctionBinaryReader, FunctionBodyData,
-    MiddlewareBinaryReader, ModuleMiddlewareChain, ModuleTranslationState,
+    from_binaryreadererror_wasmerror, wpheaptype_to_type, wptype_to_type, FunctionBinaryReader,
+    FunctionBodyData, MiddlewareBinaryReader, ModuleMiddlewareChain, ModuleTranslationState,
 };
 <span class="kw">use </span>wasmer_types::entity::PrimaryMap;
 <span class="kw">use </span>wasmer_types::{
@@ -12919,7 +12919,7 @@ fn finalize_opcode_stack_map&lt;&#39;ctx&gt;(
 
                 <span class="kw">let </span>phis: SmallVec&lt;[PhiValue&lt;<span class="lifetime">&#39;ctx</span>&gt;; <span class="number">1</span>]&gt; = <span class="self">self
                     </span>.module_translation
-                    .blocktype_params_results(blockty)<span class="question-mark">?
+                    .blocktype_params_results(<span class="kw-2">&amp;</span>blockty)<span class="question-mark">?
                     </span>.<span class="number">1
                     </span>.iter()
                     .map(|<span class="kw-2">&amp;</span>wp_ty| {
@@ -12943,7 +12943,7 @@ fn finalize_opcode_stack_map&lt;&#39;ctx&gt;(
                 <span class="self">self</span>.builder.build_unconditional_branch(loop_body);
 
                 <span class="self">self</span>.builder.position_at_end(loop_next);
-                <span class="kw">let </span>blocktypes = <span class="self">self</span>.module_translation.blocktype_params_results(blockty)<span class="question-mark">?</span>;
+                <span class="kw">let </span>blocktypes = <span class="self">self</span>.module_translation.blocktype_params_results(<span class="kw-2">&amp;</span>blockty)<span class="question-mark">?</span>;
                 <span class="kw">let </span>phis = blocktypes
                     .<span class="number">1
                     </span>.iter()
@@ -13151,7 +13151,7 @@ fn finalize_opcode_stack_map&lt;&#39;ctx&gt;(
 
                     <span class="kw">let </span>phis = <span class="self">self
                         </span>.module_translation
-                        .blocktype_params_results(blockty)<span class="question-mark">?
+                        .blocktype_params_results(<span class="kw-2">&amp;</span>blockty)<span class="question-mark">?
                         </span>.<span class="number">1
                         </span>.iter()
                         .map(|<span class="kw-2">&amp;</span>wp_ty| {
@@ -13182,7 +13182,7 @@ fn finalize_opcode_stack_map&lt;&#39;ctx&gt;(
                 <span class="self">self</span>.builder.position_at_end(if_else_block);
                 <span class="kw">let </span>block_param_types = <span class="self">self
                     </span>.module_translation
-                    .blocktype_params_results(blockty)<span class="question-mark">?
+                    .blocktype_params_results(<span class="kw-2">&amp;</span>blockty)<span class="question-mark">?
                     </span>.<span class="number">0
                     </span>.iter()
                     .map(|<span class="kw-2">&amp;</span>wp_ty| {
@@ -22626,8 +22626,8 @@ fn finalize_opcode_stack_map&lt;&#39;ctx&gt;(
              * Reference types.
              * https://github.com/WebAssembly/reference-types/blob/master/proposals/reference-types/Overview.md
              ***************************/
-            </span>Operator::RefNull { ty } =&gt; {
-                <span class="kw">let </span>ty = wptype_to_type(ty).map_err(to_compile_error)<span class="question-mark">?</span>;
+            </span>Operator::RefNull { hty } =&gt; {
+                <span class="kw">let </span>ty = wpheaptype_to_type(hty).map_err(to_compile_error)<span class="question-mark">?</span>;
                 <span class="kw">let </span>ty = type_to_llvm(<span class="self">self</span>.intrinsics, ty)<span class="question-mark">?</span>;
                 <span class="self">self</span>.state.push1(ty.const_zero());
             }

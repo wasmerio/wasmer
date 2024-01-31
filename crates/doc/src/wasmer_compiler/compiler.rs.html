@@ -140,6 +140,13 @@
 <a href="#140" id="140">140</a>
 <a href="#141" id="141">141</a>
 <a href="#142" id="142">142</a>
+<a href="#143" id="143">143</a>
+<a href="#144" id="144">144</a>
+<a href="#145" id="145">145</a>
+<a href="#146" id="146">146</a>
+<a href="#147" id="147">147</a>
+<a href="#148" id="148">148</a>
+<a href="#149" id="149">149</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! This module mainly outputs the `Compiler` trait that custom
 //! compilers will need to implement.
 
@@ -230,13 +237,20 @@
             multi_memory: features.multi_memory,
             memory64: features.memory64,
             exceptions: features.exceptions,
-            deterministic_only: <span class="bool-val">false</span>,
             extended_const: features.extended_const,
             relaxed_simd: features.relaxed_simd,
             mutable_global: <span class="bool-val">true</span>,
             saturating_float_to_int: <span class="bool-val">true</span>,
+            floats: <span class="bool-val">true</span>,
             sign_extension: <span class="bool-val">true</span>,
-            component_model: <span class="bool-val">false</span>,
+
+            <span class="comment">// Not supported
+            </span>component_model: <span class="bool-val">false</span>,
+            function_references: <span class="bool-val">false</span>,
+            memory_control: <span class="bool-val">false</span>,
+            gc: <span class="bool-val">false</span>,
+            component_model_values: <span class="bool-val">false</span>,
+            component_model_nested_names: <span class="bool-val">false</span>,
         };
         <span class="kw">let </span><span class="kw-2">mut </span>validator = Validator::new_with_features(wasm_features);
         validator

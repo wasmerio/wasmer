@@ -136,6 +136,13 @@
 <a href="#136" id="136">136</a>
 <a href="#137" id="137">137</a>
 <a href="#138" id="138">138</a>
+<a href="#139" id="139">139</a>
+<a href="#140" id="140">140</a>
+<a href="#141" id="141">141</a>
+<a href="#142" id="142">142</a>
+<a href="#143" id="143">143</a>
+<a href="#144" id="144">144</a>
+<a href="#145" id="145">145</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Helper functions and structures for the translation.
 
 </span><span class="kw">use </span><span class="kw">super</span>::func_environ::TargetEnvironment;
@@ -228,13 +235,13 @@
 }
 
 <span class="doccomment">/// Create a `Block` with the given Wasm parameters.
-</span><span class="kw">pub fn </span>block_with_params&lt;PE: TargetEnvironment + <span class="question-mark">?</span>Sized&gt;(
+</span><span class="kw">pub fn </span>block_with_params&lt;<span class="lifetime">&#39;a</span>, PE: TargetEnvironment + <span class="question-mark">?</span>Sized&gt;(
     builder: <span class="kw-2">&amp;mut </span>FunctionBuilder,
-    params: <span class="kw-2">&amp;</span>[wasmparser::ValType],
+    params: <span class="kw">impl </span>Iterator&lt;Item = <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>wasmparser::ValType&gt;,
     environ: <span class="kw-2">&amp;</span>PE,
 ) -&gt; WasmResult&lt;ir::Block&gt; {
     <span class="kw">let </span>block = builder.create_block();
-    <span class="kw">for </span>ty <span class="kw">in </span>params.iter() {
+    <span class="kw">for </span>ty <span class="kw">in </span>params.into_iter() {
         <span class="kw">match </span>ty {
             wasmparser::ValType::I32 =&gt; {
                 builder.append_block_param(block, ir::types::I32);
@@ -248,8 +255,15 @@
             wasmparser::ValType::F64 =&gt; {
                 builder.append_block_param(block, ir::types::F64);
             }
-            wasmparser::ValType::ExternRef | wasmparser::ValType::FuncRef =&gt; {
-                builder.append_block_param(block, environ.reference_type());
+            wasmparser::ValType::Ref(ty) =&gt; {
+                <span class="kw">if </span>ty.is_extern_ref() || ty.is_func_ref() {
+                    builder.append_block_param(block, environ.reference_type());
+                } <span class="kw">else </span>{
+                    <span class="kw">return </span><span class="prelude-val">Err</span>(WasmError::Unsupported(<span class="macro">format!</span>(
+                        <span class="string">&quot;unsupported reference type: {:?}&quot;</span>,
+                        ty
+                    )));
+                }
             }
             wasmparser::ValType::V128 =&gt; {
                 builder.append_block_param(block, ir::types::I8X16);

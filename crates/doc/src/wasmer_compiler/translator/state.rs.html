@@ -56,6 +56,86 @@
 <a href="#56" id="56">56</a>
 <a href="#57" id="57">57</a>
 <a href="#58" id="58">58</a>
+<a href="#59" id="59">59</a>
+<a href="#60" id="60">60</a>
+<a href="#61" id="61">61</a>
+<a href="#62" id="62">62</a>
+<a href="#63" id="63">63</a>
+<a href="#64" id="64">64</a>
+<a href="#65" id="65">65</a>
+<a href="#66" id="66">66</a>
+<a href="#67" id="67">67</a>
+<a href="#68" id="68">68</a>
+<a href="#69" id="69">69</a>
+<a href="#70" id="70">70</a>
+<a href="#71" id="71">71</a>
+<a href="#72" id="72">72</a>
+<a href="#73" id="73">73</a>
+<a href="#74" id="74">74</a>
+<a href="#75" id="75">75</a>
+<a href="#76" id="76">76</a>
+<a href="#77" id="77">77</a>
+<a href="#78" id="78">78</a>
+<a href="#79" id="79">79</a>
+<a href="#80" id="80">80</a>
+<a href="#81" id="81">81</a>
+<a href="#82" id="82">82</a>
+<a href="#83" id="83">83</a>
+<a href="#84" id="84">84</a>
+<a href="#85" id="85">85</a>
+<a href="#86" id="86">86</a>
+<a href="#87" id="87">87</a>
+<a href="#88" id="88">88</a>
+<a href="#89" id="89">89</a>
+<a href="#90" id="90">90</a>
+<a href="#91" id="91">91</a>
+<a href="#92" id="92">92</a>
+<a href="#93" id="93">93</a>
+<a href="#94" id="94">94</a>
+<a href="#95" id="95">95</a>
+<a href="#96" id="96">96</a>
+<a href="#97" id="97">97</a>
+<a href="#98" id="98">98</a>
+<a href="#99" id="99">99</a>
+<a href="#100" id="100">100</a>
+<a href="#101" id="101">101</a>
+<a href="#102" id="102">102</a>
+<a href="#103" id="103">103</a>
+<a href="#104" id="104">104</a>
+<a href="#105" id="105">105</a>
+<a href="#106" id="106">106</a>
+<a href="#107" id="107">107</a>
+<a href="#108" id="108">108</a>
+<a href="#109" id="109">109</a>
+<a href="#110" id="110">110</a>
+<a href="#111" id="111">111</a>
+<a href="#112" id="112">112</a>
+<a href="#113" id="113">113</a>
+<a href="#114" id="114">114</a>
+<a href="#115" id="115">115</a>
+<a href="#116" id="116">116</a>
+<a href="#117" id="117">117</a>
+<a href="#118" id="118">118</a>
+<a href="#119" id="119">119</a>
+<a href="#120" id="120">120</a>
+<a href="#121" id="121">121</a>
+<a href="#122" id="122">122</a>
+<a href="#123" id="123">123</a>
+<a href="#124" id="124">124</a>
+<a href="#125" id="125">125</a>
+<a href="#126" id="126">126</a>
+<a href="#127" id="127">127</a>
+<a href="#128" id="128">128</a>
+<a href="#129" id="129">129</a>
+<a href="#130" id="130">130</a>
+<a href="#131" id="131">131</a>
+<a href="#132" id="132">132</a>
+<a href="#133" id="133">133</a>
+<a href="#134" id="134">134</a>
+<a href="#135" id="135">135</a>
+<a href="#136" id="136">136</a>
+<a href="#137" id="137">137</a>
+<a href="#138" id="138">138</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file contains code from external sources.
 // Attributions: https://github.com/wasmerio/wasmer/blob/master/ATTRIBUTIONS.md
 
@@ -91,27 +171,107 @@
     }
 
     <span class="doccomment">/// Get the parameter and result types for the given Wasm blocktype.
-    </span><span class="kw">pub fn </span>blocktype_params_results(
-        <span class="kw-2">&amp;</span><span class="self">self</span>,
-        ty_or_ft: wasmparser::BlockType,
-    ) -&gt; WasmResult&lt;(<span class="kw-2">&amp;</span>[wasmparser::ValType], <span class="kw-2">&amp;</span>[wasmparser::ValType])&gt; {
+    </span><span class="kw">pub fn </span>blocktype_params_results&lt;<span class="lifetime">&#39;a</span>&gt;(
+        <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="self">self</span>,
+        ty_or_ft: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>wasmparser::BlockType,
+    ) -&gt; WasmResult&lt;(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>[wasmparser::ValType], SingleOrMultiValue&lt;<span class="lifetime">&#39;a</span>&gt;)&gt; {
         <span class="prelude-val">Ok</span>(<span class="kw">match </span>ty_or_ft {
-            wasmparser::BlockType::Type(ty) =&gt; <span class="kw">match </span>ty {
-                wasmparser::ValType::I32 =&gt; (<span class="kw-2">&amp;</span>[], <span class="kw-2">&amp;</span>[wasmparser::ValType::I32]),
-                wasmparser::ValType::I64 =&gt; (<span class="kw-2">&amp;</span>[], <span class="kw-2">&amp;</span>[wasmparser::ValType::I64]),
-                wasmparser::ValType::F32 =&gt; (<span class="kw-2">&amp;</span>[], <span class="kw-2">&amp;</span>[wasmparser::ValType::F32]),
-                wasmparser::ValType::F64 =&gt; (<span class="kw-2">&amp;</span>[], <span class="kw-2">&amp;</span>[wasmparser::ValType::F64]),
-                wasmparser::ValType::V128 =&gt; (<span class="kw-2">&amp;</span>[], <span class="kw-2">&amp;</span>[wasmparser::ValType::V128]),
-                wasmparser::ValType::ExternRef =&gt; (<span class="kw-2">&amp;</span>[], <span class="kw-2">&amp;</span>[wasmparser::ValType::ExternRef]),
-                wasmparser::ValType::FuncRef =&gt; (<span class="kw-2">&amp;</span>[], <span class="kw-2">&amp;</span>[wasmparser::ValType::FuncRef]),
-            },
+            wasmparser::BlockType::Type(ty) =&gt; (<span class="kw-2">&amp;</span>[], SingleOrMultiValue::Single(ty)),
             wasmparser::BlockType::FuncType(ty_index) =&gt; {
-                <span class="kw">let </span>sig_idx = SignatureIndex::from_u32(ty_index);
+                <span class="kw">let </span>sig_idx = SignatureIndex::from_u32(<span class="kw-2">*</span>ty_index);
                 <span class="kw">let </span>(<span class="kw-2">ref </span>params, <span class="kw-2">ref </span>results) = <span class="self">self</span>.wasm_types[sig_idx];
-                (params, results)
+                (params, SingleOrMultiValue::Multi(results.as_ref()))
             }
-            wasmparser::BlockType::Empty =&gt; (<span class="kw-2">&amp;</span>[], <span class="kw-2">&amp;</span>[]),
+            wasmparser::BlockType::Empty =&gt; (<span class="kw-2">&amp;</span>[], SingleOrMultiValue::Multi(<span class="kw-2">&amp;</span>[])),
         })
+    }
+}
+
+<span class="doccomment">/// A helper enum for representing either a single or multiple values.
+</span><span class="kw">pub enum </span>SingleOrMultiValue&lt;<span class="lifetime">&#39;a</span>&gt; {
+    <span class="doccomment">/// A single value.
+    </span>Single(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>wasmparser::ValType),
+    <span class="doccomment">/// Multiple values.
+    </span>Multi(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>[wasmparser::ValType]),
+}
+
+<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>&gt; SingleOrMultiValue&lt;<span class="lifetime">&#39;a</span>&gt; {
+    <span class="doccomment">/// True if empty.
+    </span><span class="kw">pub fn </span>is_empty(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
+        <span class="kw">match </span><span class="self">self </span>{
+            SingleOrMultiValue::Single(<span class="kw">_</span>) =&gt; <span class="bool-val">false</span>,
+            SingleOrMultiValue::Multi(values) =&gt; values.is_empty(),
+        }
+    }
+
+    <span class="doccomment">/// Count of values.
+    </span><span class="kw">pub fn </span>len(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; usize {
+        <span class="kw">match </span><span class="self">self </span>{
+            SingleOrMultiValue::Single(<span class="kw">_</span>) =&gt; <span class="number">1</span>,
+            SingleOrMultiValue::Multi(values) =&gt; values.len(),
+        }
+    }
+
+    <span class="doccomment">/// Iterate ofer the value types.
+    </span><span class="kw">pub fn </span>iter(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; SingleOrMultiValueIterator&lt;<span class="lifetime">&#39;_</span>&gt; {
+        <span class="kw">match </span><span class="self">self </span>{
+            SingleOrMultiValue::Single(v) =&gt; SingleOrMultiValueIterator::Single(v),
+            SingleOrMultiValue::Multi(items) =&gt; SingleOrMultiValueIterator::Multi {
+                index: <span class="number">0</span>,
+                values: items,
+            },
+        }
+    }
+}
+
+<span class="kw">pub enum </span>SingleOrMultiValueIterator&lt;<span class="lifetime">&#39;a</span>&gt; {
+    Done,
+    Single(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>wasmparser::ValType),
+    Multi {
+        index: usize,
+        values: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>[wasmparser::ValType],
+    },
+}
+
+<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>&gt; Iterator <span class="kw">for </span>SingleOrMultiValueIterator&lt;<span class="lifetime">&#39;a</span>&gt; {
+    <span class="kw">type </span>Item = <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>wasmparser::ValType;
+
+    <span class="kw">fn </span>next(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="self">Self</span>::Item&gt; {
+        <span class="kw">match </span><span class="self">self </span>{
+            SingleOrMultiValueIterator::Done =&gt; <span class="prelude-val">None</span>,
+            SingleOrMultiValueIterator::Single(v) =&gt; {
+                <span class="kw">let </span>v = <span class="kw-2">*</span>v;
+                <span class="kw-2">*</span><span class="self">self </span>= SingleOrMultiValueIterator::Done;
+                <span class="prelude-val">Some</span>(v)
+            }
+            SingleOrMultiValueIterator::Multi { index, values } =&gt; {
+                <span class="kw">if let </span><span class="prelude-val">Some</span>(x) = values.get(<span class="kw-2">*</span>index) {
+                    <span class="kw-2">*</span>index += <span class="number">1</span>;
+                    <span class="prelude-val">Some</span>(x)
+                } <span class="kw">else </span>{
+                    <span class="kw-2">*</span><span class="self">self </span>= SingleOrMultiValueIterator::Done;
+                    <span class="prelude-val">None
+                </span>}
+            }
+        }
+    }
+}
+
+<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>&gt; PartialEq&lt;[wasmparser::ValType]&gt; <span class="kw">for </span>SingleOrMultiValue&lt;<span class="lifetime">&#39;a</span>&gt; {
+    <span class="kw">fn </span>eq(<span class="kw-2">&amp;</span><span class="self">self</span>, other: <span class="kw-2">&amp;</span>[wasmparser::ValType]) -&gt; bool {
+        <span class="kw">match </span><span class="self">self </span>{
+            SingleOrMultiValue::Single(ty) =&gt; other.len() == <span class="number">1 </span>&amp;&amp; <span class="kw-2">&amp;</span>other[<span class="number">0</span>] == <span class="kw-2">*</span>ty,
+            SingleOrMultiValue::Multi(tys) =&gt; <span class="kw-2">*</span>tys == other,
+        }
+    }
+}
+
+<span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>&gt; PartialEq&lt;SingleOrMultiValue&lt;<span class="lifetime">&#39;a</span>&gt;&gt; <span class="kw">for </span><span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>[wasmparser::ValType] {
+    <span class="kw">fn </span>eq(<span class="kw-2">&amp;</span><span class="self">self</span>, other: <span class="kw-2">&amp;</span>SingleOrMultiValue&lt;<span class="lifetime">&#39;a</span>&gt;) -&gt; bool {
+        <span class="kw">match </span>other {
+            SingleOrMultiValue::Single(ty) =&gt; <span class="self">self</span>.len() == <span class="number">1 </span>&amp;&amp; <span class="kw-2">&amp;</span><span class="self">self</span>[<span class="number">0</span>] == <span class="kw-2">*</span>ty,
+            SingleOrMultiValue::Multi(tys) =&gt; tys == <span class="self">self</span>,
+        }
     }
 }
 </code></pre></div></section></main></body></html>

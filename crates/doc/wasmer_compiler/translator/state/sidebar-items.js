@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":["ModuleTranslationState"],"type":["WasmTypes"]};
+window.SIDEBAR_ITEMS = {"enum":["SingleOrMultiValue","SingleOrMultiValueIterator"],"struct":["ModuleTranslationState"],"type":["WasmTypes"]};

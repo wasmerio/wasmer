@@ -270,6 +270,11 @@
 <a href="#270" id="270">270</a>
 <a href="#271" id="271">271</a>
 <a href="#272" id="272">272</a>
+<a href="#273" id="273">273</a>
+<a href="#274" id="274">274</a>
+<a href="#275" id="275">275</a>
+<a href="#276" id="276">276</a>
+<a href="#277" id="277">277</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file contains code from external sources.
 // Attributions: https://github.com/wasmerio/wasmer/blob/master/ATTRIBUTIONS.md
 
@@ -287,7 +292,7 @@
 <span class="kw">use </span>cranelift_codegen::ir::{<span class="self">self</span>, Block, InstBuilder, ValueLabel};
 <span class="kw">use </span>cranelift_codegen::timing;
 <span class="kw">use </span>cranelift_frontend::{FunctionBuilder, FunctionBuilderContext, Variable};
-<span class="kw">use </span>wasmer_compiler::wasmparser;
+<span class="kw">use </span>wasmer_compiler::{wasm_unsupported, wasmparser};
 <span class="kw">use </span>wasmer_compiler::{wptype_to_type, FunctionBinaryReader, ModuleTranslationState};
 <span class="kw">use </span>wasmer_types::{LocalFunctionIndex, WasmResult};
 
@@ -466,8 +471,13 @@
             <span class="kw">let </span>constant_handle = builder.func.dfg.constants.insert([<span class="number">0</span>; <span class="number">16</span>].to_vec().into());
             builder.ins().vconst(ir::types::I8X16, constant_handle)
         }
-        ExternRef =&gt; builder.ins().null(environ.reference_type()),
-        FuncRef =&gt; builder.ins().null(environ.reference_type()),
+        Ref(ty) =&gt; {
+            <span class="kw">if </span>ty.is_func_ref() || ty.is_extern_ref() {
+                builder.ins().null(environ.reference_type())
+            } <span class="kw">else </span>{
+                <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">wasm_unsupported!</span>(<span class="string">&quot;unsupported reference type: {:?}&quot;</span>, ty));
+            }
+        }
     };
 
     <span class="kw">let </span>wasmer_ty = wptype_to_type(wasm_type).unwrap();

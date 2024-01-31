@@ -6738,6 +6738,11 @@
 <a href="#6738" id="6738">6738</a>
 <a href="#6739" id="6739">6739</a>
 <a href="#6740" id="6740">6740</a>
+<a href="#6741" id="6741">6741</a>
+<a href="#6742" id="6742">6742</a>
+<a href="#6743" id="6743">6743</a>
+<a href="#6744" id="6744">6744</a>
+<a href="#6745" id="6745">6745</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::address_map::get_function_address_map;
 <span class="kw">use </span><span class="kw">crate</span>::codegen_error;
 <span class="attr">#[cfg(feature = <span class="string">&quot;unwind&quot;</span>)]
@@ -6751,7 +6756,10 @@
 <span class="kw">use </span>smallvec::{smallvec, SmallVec};
 <span class="kw">use </span>std::cmp;
 <span class="kw">use </span>std::iter;
-<span class="kw">use </span>wasmer_compiler::wasmparser::{BlockType <span class="kw">as </span>WpTypeOrFuncType, Operator, ValType <span class="kw">as </span>WpType};
+<span class="kw">use </span>wasmer_compiler::wasmparser::{
+    BlockType <span class="kw">as </span>WpTypeOrFuncType, HeapType <span class="kw">as </span>WpHeapType, Operator, RefType <span class="kw">as </span>WpRefType,
+    ValType <span class="kw">as </span>WpType,
+};
 <span class="kw">use </span>wasmer_compiler::FunctionBodyData;
 <span class="attr">#[cfg(feature = <span class="string">&quot;unwind&quot;</span>)]
 </span><span class="kw">use </span>wasmer_types::CompiledFunctionUnwindInfo;
@@ -6975,9 +6983,9 @@
         Type::F32 =&gt; WpType::F32,
         Type::F64 =&gt; WpType::F64,
         Type::V128 =&gt; WpType::V128,
-        Type::ExternRef =&gt; WpType::ExternRef,
-        Type::FuncRef =&gt; WpType::FuncRef, <span class="comment">// TODO: FuncRef or Func?
-    </span>}
+        Type::ExternRef =&gt; WpType::Ref(WpRefType::new(<span class="bool-val">true</span>, WpHeapType::Extern).unwrap()),
+        Type::FuncRef =&gt; WpType::Ref(WpRefType::new(<span class="bool-val">true</span>, WpHeapType::Func).unwrap()),
+    }
 }
 
 <span class="doccomment">/// Abstraction for a 2-input, 1-output operator. Can be an integer/floating-point
@@ -7010,7 +7018,9 @@
             <span class="kw">let </span>loc = <span class="kw">match </span><span class="kw-2">*</span>ty {
                 WpType::F32 | WpType::F64 =&gt; <span class="self">self</span>.machine.pick_simd().map(Location::SIMD),
                 WpType::I32 | WpType::I64 =&gt; <span class="self">self</span>.machine.pick_gpr().map(Location::GPR),
-                WpType::FuncRef | WpType::ExternRef =&gt; <span class="self">self</span>.machine.pick_gpr().map(Location::GPR),
+                WpType::Ref(ty) <span class="kw">if </span>ty.is_extern_ref() || ty.is_func_ref() =&gt; {
+                    <span class="self">self</span>.machine.pick_gpr().map(Location::GPR)
+                }
                 <span class="kw">_ </span>=&gt; <span class="macro">codegen_error!</span>(<span class="string">&quot;can&#39;t acquire location for type {:?}&quot;</span>, ty),
             };
 
@@ -12807,7 +12817,7 @@
 
                 <span class="kw">let </span>ret = <span class="self">self</span>.acquire_locations(
                     <span class="kw-2">&amp;</span>[(
-                        WpType::FuncRef,
+                        WpType::Ref(WpRefType::new(<span class="bool-val">true</span>, WpHeapType::Func).unwrap()),
                         MachineValue::WasmStack(<span class="self">self</span>.value_stack.len()),
                     )],
                     <span class="bool-val">false</span>,
@@ -12903,7 +12913,7 @@
 
                 <span class="kw">let </span>ret = <span class="self">self</span>.acquire_locations(
                     <span class="kw-2">&amp;</span>[(
-                        WpType::FuncRef,
+                        WpType::Ref(WpRefType::new(<span class="bool-val">true</span>, WpHeapType::Func).unwrap()),
                         MachineValue::WasmStack(<span class="self">self</span>.value_stack.len()),
                     )],
                     <span class="bool-val">false</span>,

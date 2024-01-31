@@ -3061,6 +3061,54 @@
 <a href="#3061" id="3061">3061</a>
 <a href="#3062" id="3062">3062</a>
 <a href="#3063" id="3063">3063</a>
+<a href="#3064" id="3064">3064</a>
+<a href="#3065" id="3065">3065</a>
+<a href="#3066" id="3066">3066</a>
+<a href="#3067" id="3067">3067</a>
+<a href="#3068" id="3068">3068</a>
+<a href="#3069" id="3069">3069</a>
+<a href="#3070" id="3070">3070</a>
+<a href="#3071" id="3071">3071</a>
+<a href="#3072" id="3072">3072</a>
+<a href="#3073" id="3073">3073</a>
+<a href="#3074" id="3074">3074</a>
+<a href="#3075" id="3075">3075</a>
+<a href="#3076" id="3076">3076</a>
+<a href="#3077" id="3077">3077</a>
+<a href="#3078" id="3078">3078</a>
+<a href="#3079" id="3079">3079</a>
+<a href="#3080" id="3080">3080</a>
+<a href="#3081" id="3081">3081</a>
+<a href="#3082" id="3082">3082</a>
+<a href="#3083" id="3083">3083</a>
+<a href="#3084" id="3084">3084</a>
+<a href="#3085" id="3085">3085</a>
+<a href="#3086" id="3086">3086</a>
+<a href="#3087" id="3087">3087</a>
+<a href="#3088" id="3088">3088</a>
+<a href="#3089" id="3089">3089</a>
+<a href="#3090" id="3090">3090</a>
+<a href="#3091" id="3091">3091</a>
+<a href="#3092" id="3092">3092</a>
+<a href="#3093" id="3093">3093</a>
+<a href="#3094" id="3094">3094</a>
+<a href="#3095" id="3095">3095</a>
+<a href="#3096" id="3096">3096</a>
+<a href="#3097" id="3097">3097</a>
+<a href="#3098" id="3098">3098</a>
+<a href="#3099" id="3099">3099</a>
+<a href="#3100" id="3100">3100</a>
+<a href="#3101" id="3101">3101</a>
+<a href="#3102" id="3102">3102</a>
+<a href="#3103" id="3103">3103</a>
+<a href="#3104" id="3104">3104</a>
+<a href="#3105" id="3105">3105</a>
+<a href="#3106" id="3106">3106</a>
+<a href="#3107" id="3107">3107</a>
+<a href="#3108" id="3108">3108</a>
+<a href="#3109" id="3109">3109</a>
+<a href="#3110" id="3110">3110</a>
+<a href="#3111" id="3111">3111</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file contains code from external sources.
 // Attributions: https://github.com/wasmerio/wasmer/blob/master/ATTRIBUTIONS.md
 
@@ -3299,14 +3347,14 @@
          *  possible `Block`&#39;s arguments values.
          ***********************************************************************************/
         </span>Operator::Block { blockty } =&gt; {
-            <span class="kw">let </span>(params, results) = module_translation_state.blocktype_params_results(<span class="kw-2">*</span>blockty)<span class="question-mark">?</span>;
-            <span class="kw">let </span>next = block_with_params(builder, results, environ)<span class="question-mark">?</span>;
+            <span class="kw">let </span>(params, results) = module_translation_state.blocktype_params_results(blockty)<span class="question-mark">?</span>;
+            <span class="kw">let </span>next = block_with_params(builder, results.iter(), environ)<span class="question-mark">?</span>;
             state.push_block(next, params.len(), results.len());
         }
         Operator::Loop { blockty } =&gt; {
-            <span class="kw">let </span>(params, results) = module_translation_state.blocktype_params_results(<span class="kw-2">*</span>blockty)<span class="question-mark">?</span>;
-            <span class="kw">let </span>loop_body = block_with_params(builder, params, environ)<span class="question-mark">?</span>;
-            <span class="kw">let </span>next = block_with_params(builder, results, environ)<span class="question-mark">?</span>;
+            <span class="kw">let </span>(params, results) = module_translation_state.blocktype_params_results(blockty)<span class="question-mark">?</span>;
+            <span class="kw">let </span>loop_body = block_with_params(builder, params.iter(), environ)<span class="question-mark">?</span>;
+            <span class="kw">let </span>next = block_with_params(builder, results.iter(), environ)<span class="question-mark">?</span>;
             canonicalise_then_jump(builder, loop_body, state.peekn(params.len()));
             state.push_loop(loop_body, next, params.len(), results.len());
 
@@ -3323,7 +3371,7 @@
         Operator::If { blockty } =&gt; {
             <span class="kw">let </span>val = state.pop1();
 
-            <span class="kw">let </span>(params, results) = module_translation_state.blocktype_params_results(<span class="kw-2">*</span>blockty)<span class="question-mark">?</span>;
+            <span class="kw">let </span>(params, results) = module_translation_state.blocktype_params_results(blockty)<span class="question-mark">?</span>;
             <span class="kw">let </span>(destination, else_data) = <span class="kw">if </span>params == results {
                 <span class="comment">// It is possible there is no `else` block, so we will only
                 // allocate a block for it if/when we find the `else`. For now,
@@ -3331,15 +3379,15 @@
                 // destination block following the whole `if...end`. If we do end
                 // up discovering an `else`, then we will allocate a block for it
                 // and go back and patch the jump.
-                </span><span class="kw">let </span>destination = block_with_params(builder, results, environ)<span class="question-mark">?</span>;
+                </span><span class="kw">let </span>destination = block_with_params(builder, results.iter(), environ)<span class="question-mark">?</span>;
                 <span class="kw">let </span>branch_inst =
                     canonicalise_then_brz(builder, val, destination, state.peekn(params.len()));
                 (destination, ElseData::NoElse { branch_inst })
             } <span class="kw">else </span>{
                 <span class="comment">// The `if` type signature is not valid without an `else` block,
                 // so we eagerly allocate the `else` block here.
-                </span><span class="kw">let </span>destination = block_with_params(builder, results, environ)<span class="question-mark">?</span>;
-                <span class="kw">let </span>else_block = block_with_params(builder, params, environ)<span class="question-mark">?</span>;
+                </span><span class="kw">let </span>destination = block_with_params(builder, results.iter(), environ)<span class="question-mark">?</span>;
+                <span class="kw">let </span>else_block = block_with_params(builder, params.iter(), environ)<span class="question-mark">?</span>;
                 canonicalise_then_brz(builder, val, else_block, state.peekn(params.len()));
                 builder.seal_block(else_block);
                 (destination, ElseData::WithElse { else_block })
@@ -3389,10 +3437,11 @@
                         // already been pre-allocated, see `ElseData` for details).
                         </span><span class="kw">let </span>else_block = <span class="kw">match </span><span class="kw-2">*</span>else_data {
                             ElseData::NoElse { branch_inst } =&gt; {
-                                <span class="kw">let </span>(params, _results) =
-                                    module_translation_state.blocktype_params_results(blocktype)<span class="question-mark">?</span>;
+                                <span class="kw">let </span>(params, _results) = module_translation_state
+                                    .blocktype_params_results(<span class="kw-2">&amp;</span>blocktype)<span class="question-mark">?</span>;
                                 <span class="macro">debug_assert_eq!</span>(params.len(), num_return_values);
-                                <span class="kw">let </span>else_block = block_with_params(builder, params, environ)<span class="question-mark">?</span>;
+                                <span class="kw">let </span>else_block =
+                                    block_with_params(builder, params.iter(), environ)<span class="question-mark">?</span>;
                                 canonicalise_then_jump(
                                     builder,
                                     destination,
@@ -4102,7 +4151,9 @@
         Operator::F32Le | Operator::F64Le =&gt; {
             translate_fcmp(FloatCC::LessThanOrEqual, builder, state)
         }
-        Operator::RefNull { ty } =&gt; state.push1(environ.translate_ref_null(builder.cursor(), <span class="kw-2">*</span>ty)<span class="question-mark">?</span>),
+        Operator::RefNull { hty } =&gt; {
+            state.push1(environ.translate_ref_null(builder.cursor(), <span class="kw-2">*</span>hty)<span class="question-mark">?</span>)
+        }
         Operator::RefIsNull =&gt; {
             <span class="kw">let </span>value = state.pop1();
             state.push1(environ.translate_ref_is_null(builder.cursor(), value)<span class="question-mark">?</span>);
@@ -5095,14 +5146,12 @@
             <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">wasm_unsupported!</span>(<span class="string">&quot;proposed tail-call operator {:?}&quot;</span>, op));
         }
         Operator::I8x16RelaxedSwizzle
-        | Operator::I32x4RelaxedTruncSatF32x4S
-        | Operator::I32x4RelaxedTruncSatF32x4U
-        | Operator::I32x4RelaxedTruncSatF64x2SZero
-        | Operator::I32x4RelaxedTruncSatF64x2UZero
-        | Operator::F32x4RelaxedFma
-        | Operator::F32x4RelaxedFnma
-        | Operator::F64x2RelaxedFma
-        | Operator::F64x2RelaxedFnma
+        | Operator::I32x4RelaxedTruncF32x4S
+        | Operator::I32x4RelaxedTruncF32x4U
+        | Operator::I32x4RelaxedTruncF64x2SZero
+        | Operator::I32x4RelaxedTruncF64x2UZero
+        | Operator::F32x4RelaxedNmadd
+        | Operator::F32x4RelaxedMadd
         | Operator::I8x16RelaxedLaneselect
         | Operator::I16x8RelaxedLaneselect
         | Operator::I32x4RelaxedLaneselect
@@ -5111,11 +5160,57 @@
         | Operator::F32x4RelaxedMax
         | Operator::F64x2RelaxedMin
         | Operator::F64x2RelaxedMax
-        | Operator::F32x4RelaxedDotBf16x8AddF32x4
-        | Operator::I16x8RelaxedQ15mulrS
-        | Operator::I16x8DotI8x16I7x16S
-        | Operator::I32x4DotI8x16I7x16AddS =&gt; {
+        | Operator::F64x2RelaxedMadd
+        | Operator::F64x2RelaxedNmadd
+        | Operator::I16x8RelaxedDotI8x16I7x16S
+        | Operator::I32x4RelaxedDotI8x16I7x16AddS
+        | Operator::I16x8RelaxedQ15mulrS =&gt; {
             <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">wasm_unsupported!</span>(<span class="string">&quot;proposed relaxed-simd operator {:?}&quot;</span>, op));
+        }
+        Operator::TryTable { .. } | Operator::ThrowRef =&gt; {
+            <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">wasm_unsupported!</span>(
+                <span class="string">&quot;exceptions are not supported (operator: {op:?})&quot;
+            </span>));
+        }
+        Operator::RefEq
+        | Operator::StructNew { .. }
+        | Operator::StructNewDefault { .. }
+        | Operator::StructGet { .. }
+        | Operator::StructGetS { .. }
+        | Operator::StructGetU { .. }
+        | Operator::StructSet { .. }
+        | Operator::ArrayNew { .. }
+        | Operator::ArrayNewDefault { .. }
+        | Operator::ArrayNewFixed { .. }
+        | Operator::ArrayNewData { .. }
+        | Operator::ArrayNewElem { .. }
+        | Operator::ArrayGet { .. }
+        | Operator::ArrayGetS { .. }
+        | Operator::ArrayGetU { .. }
+        | Operator::ArraySet { .. }
+        | Operator::ArrayLen
+        | Operator::ArrayFill { .. }
+        | Operator::ArrayCopy { .. }
+        | Operator::ArrayInitData { .. }
+        | Operator::ArrayInitElem { .. }
+        | Operator::RefTestNonNull { .. } =&gt; {}
+        Operator::RefTestNullable { .. }
+        | Operator::RefCastNonNull { .. }
+        | Operator::RefCastNullable { .. }
+        | Operator::BrOnCast { .. }
+        | Operator::BrOnCastFail { .. }
+        | Operator::AnyConvertExtern
+        | Operator::ExternConvertAny
+        | Operator::RefI31
+        | Operator::I31GetS
+        | Operator::I31GetU
+        | Operator::MemoryDiscard { .. }
+        | Operator::CallRef { .. }
+        | Operator::ReturnCallRef { .. }
+        | Operator::RefAsNonNull
+        | Operator::BrOnNull { .. }
+        | Operator::BrOnNonNull { .. } =&gt; {
+            <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">wasm_unsupported!</span>(<span class="string">&quot;GC proposal not (operator: {:?})&quot;</span>, op));
         }
     };
     <span class="prelude-val">Ok</span>(())
@@ -5170,9 +5265,10 @@
 
                         <span class="kw">let </span>else_block = <span class="kw">match </span><span class="kw-2">*</span>else_data {
                             ElseData::NoElse { branch_inst } =&gt; {
-                                <span class="kw">let </span>(params, _results) =
-                                    module_translation_state.blocktype_params_results(blocktype)<span class="question-mark">?</span>;
-                                <span class="kw">let </span>else_block = block_with_params(builder, params, environ)<span class="question-mark">?</span>;
+                                <span class="kw">let </span>(params, _results) = module_translation_state
+                                    .blocktype_params_results(<span class="kw-2">&amp;</span>blocktype)<span class="question-mark">?</span>;
+                                <span class="kw">let </span>else_block =
+                                    block_with_params(builder, params.iter(), environ)<span class="question-mark">?</span>;
                                 <span class="kw">let </span>frame = state.control_stack.last().unwrap();
                                 frame.truncate_value_stack_to_else_params(<span class="kw-2">&amp;mut </span>state.stack);
 

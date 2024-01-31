@@ -1622,7 +1622,7 @@
 <span class="kw">use </span>cranelift_codegen::isa::TargetFrontendConfig;
 <span class="kw">use </span>cranelift_frontend::FunctionBuilder;
 <span class="kw">use </span>std::convert::TryFrom;
-<span class="kw">use </span>wasmer_compiler::wasmparser::ValType;
+<span class="kw">use </span>wasmer_compiler::wasmparser::HeapType;
 <span class="kw">use </span>wasmer_types::entity::EntityRef;
 <span class="kw">use </span>wasmer_types::entity::PrimaryMap;
 <span class="kw">use </span>wasmer_types::VMBuiltinFunctionIndex;
@@ -2608,11 +2608,11 @@
     <span class="kw">fn </span>translate_ref_null(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
         <span class="kw-2">mut </span>pos: cranelift_codegen::cursor::FuncCursor,
-        ty: ValType,
+        ty: HeapType,
     ) -&gt; WasmResult&lt;ir::Value&gt; {
         <span class="prelude-val">Ok</span>(<span class="kw">match </span>ty {
-            ValType::FuncRef =&gt; pos.ins().null(<span class="self">self</span>.reference_type()),
-            ValType::ExternRef =&gt; pos.ins().null(<span class="self">self</span>.reference_type()),
+            HeapType::Func =&gt; pos.ins().null(<span class="self">self</span>.reference_type()),
+            HeapType::Extern =&gt; pos.ins().null(<span class="self">self</span>.reference_type()),
             <span class="kw">_ </span>=&gt; {
                 <span class="kw">return </span><span class="prelude-val">Err</span>(WasmError::Unsupported(
                     <span class="string">&quot;`ref.null T` that is not a `funcref` or an `externref`&quot;</span>.into(),

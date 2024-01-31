@@ -1078,9 +1078,6 @@
 <a href="#1078" id="1078">1078</a>
 <a href="#1079" id="1079">1079</a>
 <a href="#1080" id="1080">1080</a>
-<a href="#1081" id="1081">1081</a>
-<a href="#1082" id="1082">1082</a>
-<a href="#1083" id="1083">1083</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>wasmer_api::wasmparser::Operator;
 
 <span class="attr">#[repr(C)]
@@ -2141,14 +2138,11 @@
             O::I32x4TruncSatF64x2SZero =&gt; <span class="self">Self</span>::I32x4TruncSatF64x2SZero,
             O::I32x4TruncSatF64x2UZero =&gt; <span class="self">Self</span>::I32x4TruncSatF64x2UZero,
             O::I8x16RelaxedSwizzle =&gt; <span class="self">Self</span>::I8x16RelaxedSwizzle,
-            O::I32x4RelaxedTruncSatF32x4S =&gt; <span class="self">Self</span>::I32x4RelaxedTruncSatF32x4S,
-            O::I32x4RelaxedTruncSatF32x4U =&gt; <span class="self">Self</span>::I32x4RelaxedTruncSatF32x4U,
-            O::I32x4RelaxedTruncSatF64x2SZero =&gt; <span class="self">Self</span>::I32x4RelaxedTruncSatF64x2SZero,
-            O::I32x4RelaxedTruncSatF64x2UZero =&gt; <span class="self">Self</span>::I32x4RelaxedTruncSatF64x2UZero,
-            O::F32x4RelaxedFma =&gt; <span class="self">Self</span>::F32x4Fma,
-            O::F32x4RelaxedFnma =&gt; <span class="self">Self</span>::F32x4Fms,
-            O::F64x2RelaxedFma =&gt; <span class="self">Self</span>::F64x2Fma,
-            O::F64x2RelaxedFnma =&gt; <span class="self">Self</span>::F64x2Fms,
+            O::I32x4RelaxedTruncF32x4S =&gt; <span class="self">Self</span>::I32x4RelaxedTruncSatF32x4S,
+            O::I32x4RelaxedTruncF32x4U =&gt; <span class="self">Self</span>::I32x4RelaxedTruncSatF32x4U,
+            O::I32x4RelaxedTruncF64x2SZero =&gt; <span class="self">Self</span>::I32x4RelaxedTruncSatF64x2SZero,
+            O::I32x4RelaxedTruncF64x2UZero =&gt; <span class="self">Self</span>::I32x4RelaxedTruncSatF64x2UZero,
+            O::F32x4RelaxedMadd =&gt; <span class="self">Self</span>::F32x4Fma,
             O::I8x16RelaxedLaneselect =&gt; <span class="self">Self</span>::I8x16LaneSelect,
             O::I16x8RelaxedLaneselect =&gt; <span class="self">Self</span>::I16x8LaneSelect,
             O::I32x4RelaxedLaneselect =&gt; <span class="self">Self</span>::I32x4LaneSelect,
@@ -2158,9 +2152,9 @@
             O::F64x2RelaxedMin =&gt; <span class="self">Self</span>::F64x2RelaxedMin,
             O::F64x2RelaxedMax =&gt; <span class="self">Self</span>::F64x2RelaxedMax,
             O::I16x8RelaxedQ15mulrS =&gt; <span class="self">Self</span>::I16x8RelaxedQ15mulrS,
-            O::I16x8DotI8x16I7x16S =&gt; <span class="self">Self</span>::I16x8DotI8x16I7x16S,
-            O::I32x4DotI8x16I7x16AddS =&gt; <span class="self">Self</span>::I32x4DotI8x16I7x16AddS,
-            O::F32x4RelaxedDotBf16x8AddF32x4 =&gt; <span class="self">Self</span>::F32x4RelaxedDotBf16x8AddF32x4,
+            <span class="kw">_ </span>=&gt; {
+                <span class="macro">panic!</span>(<span class="string">&quot;unimplemented operator {operator:?}&quot;</span>);
+            }
         }
     }
 }

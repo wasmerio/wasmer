@@ -86,6 +86,7 @@
 <a href="#86" id="86">86</a>
 <a href="#87" id="87">87</a>
 <a href="#88" id="88">88</a>
+<a href="#89" id="89">89</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! The `wasmer-compiler` crate provides the necessary abstractions
 //! to create a compiler.
 //!
@@ -161,9 +162,10 @@
 </span><span class="kw">pub use </span><span class="kw">crate</span>::compiler::{Compiler, CompilerConfig};
 <span class="attr">#[cfg(feature = <span class="string">&quot;translator&quot;</span>)]
 </span><span class="kw">pub use </span><span class="kw">crate</span>::translator::{
-    from_binaryreadererror_wasmerror, translate_module, wptype_to_type, FunctionBinaryReader,
-    FunctionBodyData, FunctionMiddleware, MiddlewareBinaryReader, MiddlewareReaderState,
-    ModuleEnvironment, ModuleMiddleware, ModuleMiddlewareChain, ModuleTranslationState,
+    from_binaryreadererror_wasmerror, translate_module, wpheaptype_to_type, wptype_to_type,
+    FunctionBinaryReader, FunctionBodyData, FunctionMiddleware, MiddlewareBinaryReader,
+    MiddlewareReaderState, ModuleEnvironment, ModuleMiddleware, ModuleMiddlewareChain,
+    ModuleTranslationState,
 };
 
 <span class="kw">pub use </span>wasmer_types::{Addend, CodeOffset, Features};

@@ -356,7 +356,7 @@
         <span class="kw">let </span>ty: ValType = <span class="self">self
             </span>.state
             .inner
-            .read_val_type()
+            .read::&lt;ValType&gt;()
             .map_err(from_binaryreadererror_wasmerror)<span class="question-mark">?</span>;
         <span class="prelude-val">Ok</span>((count, ty))
     }

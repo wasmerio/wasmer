@@ -504,7 +504,7 @@
 <span class="kw">use </span>cranelift_codegen::ir::{<span class="self">self</span>, InstBuilder};
 <span class="kw">use </span>cranelift_codegen::isa::TargetFrontendConfig;
 <span class="kw">use </span>cranelift_frontend::FunctionBuilder;
-<span class="kw">use </span>wasmer_compiler::wasmparser::{Operator, ValType};
+<span class="kw">use </span>wasmer_compiler::wasmparser::{HeapType, Operator};
 <span class="kw">use </span>wasmer_types::{
     FunctionIndex, FunctionType, GlobalIndex, LocalFunctionIndex, MemoryIndex, SignatureIndex,
     TableIndex, Type <span class="kw">as </span>WasmerType, WasmResult,
@@ -851,7 +851,7 @@
     /// null sentinel is not a null reference type pointer for your type. If you
     /// override this method, then you should also override
     /// `translate_ref_is_null` as well.
-    </span><span class="kw">fn </span>translate_ref_null(<span class="kw-2">&amp;mut </span><span class="self">self</span>, pos: FuncCursor, ty: ValType) -&gt; WasmResult&lt;ir::Value&gt;;
+    </span><span class="kw">fn </span>translate_ref_null(<span class="kw-2">&amp;mut </span><span class="self">self</span>, pos: FuncCursor, ty: HeapType) -&gt; WasmResult&lt;ir::Value&gt;;
     <span class="comment">// {
     //     let _ = ty;
     //     Ok(pos.ins().null(self.reference_type(ty)))

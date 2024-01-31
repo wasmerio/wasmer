@@ -119,7 +119,6 @@
 <a href="#119" id="119">119</a>
 <a href="#120" id="120">120</a>
 <a href="#121" id="121">121</a>
-<a href="#122" id="122">122</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file contains code from external sources.
 // Attributions: https://github.com/wasmerio/wasmer/blob/master/ATTRIBUTIONS.md
 
@@ -229,8 +228,7 @@
                 environ.custom_section(name, sectionreader.data())<span class="question-mark">?</span>;
                 <span class="kw">if </span>name == <span class="string">&quot;name&quot; </span>{
                     parse_name_section(
-                        NameSectionReader::new(sectionreader.data(), sectionreader.data_offset())
-                            .map_err(from_binaryreadererror_wasmerror)<span class="question-mark">?</span>,
+                        NameSectionReader::new(sectionreader.data(), sectionreader.data_offset()),
                         environ,
                     )<span class="question-mark">?</span>;
                 }

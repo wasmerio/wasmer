@@ -149,7 +149,7 @@
 <span class="item-spacer"></span>    fn <a href="#tymethod.translate_ref_null" class="fn">translate_ref_null</a>(
         &amp;mut self,
         pos: FuncCursor&lt;'_&gt;,
-        ty: ValType
+        ty: HeapType
     ) -&gt; WasmResult&lt;Value&gt;;
 <span class="item-spacer"></span>    fn <a href="#tymethod.translate_ref_func" class="fn">translate_ref_func</a>(
         &amp;mut self,
@@ -420,7 +420,7 @@ from.</p>
 </div></details><details class="toggle method-toggle" open><summary><section id="tymethod.translate_ref_null" class="method"><a class="srclink rightside" href="../../../src/wasmer_compiler_cranelift/translator/func_environ.rs.html#362">source</a><h4 class="code-header">fn <a href="#tymethod.translate_ref_null" class="fn">translate_ref_null</a>(
     &amp;mut self,
     pos: FuncCursor&lt;'_&gt;,
-    ty: ValType
+    ty: HeapType
 ) -&gt; WasmResult&lt;Value&gt;</h4></section></summary><div class="docblock"><p>Translate a <code>ref.null T</code> WebAssembly instruction.</p>
 <p>By default, translates into a null reference type.</p>
 <p>Override this if you don’t use Cranelift reference types for all Wasm
