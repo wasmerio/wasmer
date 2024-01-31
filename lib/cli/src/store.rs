@@ -11,6 +11,7 @@ use std::string::ToString;
 use std::sync::Arc;
 
 use anyhow::{bail, Result};
+#[cfg(feature = "sys")]
 use wasmer::sys::Features;
 use wasmer::*;
 #[cfg(feature = "compiler")]
