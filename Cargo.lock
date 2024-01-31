@@ -6299,8 +6299,7 @@ dependencies = [
  "wasmer-derive",
  "wasmer-types",
  "wasmer-vm",
- "wasmparser 0.83.0",
- "wasmparser 0.95.0",
+ "wasmparser 0.121.0",
  "wat",
  "winapi 0.3.9",
 ]
@@ -6776,7 +6775,7 @@ dependencies = [
  "url",
  "wasmer-toml",
  "wasmer-wasm-interface",
- "wasmparser 0.51.4",
+ "wasmparser 0.121.0",
  "whoami",
 ]
 
@@ -6983,7 +6982,7 @@ dependencies = [
  "either",
  "nom",
  "serde",
- "wasmparser 0.51.4",
+ "wasmparser 0.121.0",
  "wat",
 ]
 
@@ -7037,18 +7036,6 @@ dependencies = [
  "wasmer-wasix",
  "wasmer-wast",
 ]
-
-[[package]]
-name = "wasmparser"
-version = "0.51.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "aeb1956b19469d1c5e63e459d29e7b5aa0f558d9f16fcef09736f8a265e6c10a"
-
-[[package]]
-name = "wasmparser"
-version = "0.83.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "718ed7c55c2add6548cca3ddd6383d738cd73b892df400e96b9aa876f0141d7a"
 
 [[package]]
 name = "wasmparser"
