@@ -73,9 +73,10 @@ mod translator;
 pub use crate::compiler::{Compiler, CompilerConfig};
 #[cfg(feature = "translator")]
 pub use crate::translator::{
-    from_binaryreadererror_wasmerror, translate_module, wptype_to_type, FunctionBinaryReader,
-    FunctionBodyData, FunctionMiddleware, MiddlewareBinaryReader, MiddlewareReaderState,
-    ModuleEnvironment, ModuleMiddleware, ModuleMiddlewareChain, ModuleTranslationState,
+    from_binaryreadererror_wasmerror, translate_module, wpheaptype_to_type, wptype_to_type,
+    FunctionBinaryReader, FunctionBodyData, FunctionMiddleware, MiddlewareBinaryReader,
+    MiddlewareReaderState, ModuleEnvironment, ModuleMiddleware, ModuleMiddlewareChain,
+    ModuleTranslationState,
 };
 
 pub use wasmer_types::{Addend, CodeOffset, Features};
