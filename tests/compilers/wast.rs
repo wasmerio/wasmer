@@ -1,4 +1,4 @@
-use ::wasmer::Features;
+use ::wasmer::sys::Features;
 use std::path::Path;
 use wasmer_wast::Wast;
 
