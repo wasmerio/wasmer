@@ -6518,7 +6518,7 @@ dependencies = [
  "wasmer-object",
  "wasmer-types",
  "wasmer-vm",
- "wasmparser 0.95.0",
+ "wasmparser 0.121.0",
  "winapi 0.3.9",
 ]
 
@@ -7066,6 +7066,17 @@ version = "0.118.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "95ee9723b928e735d53000dec9eae7b07a60e490c85ab54abb66659fc61bfcd9"
 dependencies = [
+ "indexmap 2.1.0",
+ "semver 1.0.20",
+]
+
+[[package]]
+name = "wasmparser"
+version = "0.121.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "953cf6a7606ab31382cb1caa5ae403e77ba70c7f8e12eeda167e7040d42bfda8"
+dependencies = [
+ "bitflags 2.4.1",
  "indexmap 2.1.0",
  "semver 1.0.20",
 ]

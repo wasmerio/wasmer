@@ -12,7 +12,7 @@ use cranelift_codegen::ir::immediates::Offset32;
 use cranelift_codegen::ir::{self, InstBuilder};
 use cranelift_codegen::isa::TargetFrontendConfig;
 use cranelift_frontend::FunctionBuilder;
-use wasmer_compiler::wasmparser::{Operator, ValType};
+use wasmer_compiler::wasmparser::{HeapType, Operator};
 use wasmer_types::{
     FunctionIndex, FunctionType, GlobalIndex, LocalFunctionIndex, MemoryIndex, SignatureIndex,
     TableIndex, Type as WasmerType, WasmResult,
@@ -359,7 +359,7 @@ pub trait FuncEnvironment: TargetEnvironment {
     /// null sentinel is not a null reference type pointer for your type. If you
     /// override this method, then you should also override
     /// `translate_ref_is_null` as well.
-    fn translate_ref_null(&mut self, pos: FuncCursor, ty: ValType) -> WasmResult<ir::Value>;
+    fn translate_ref_null(&mut self, pos: FuncCursor, ty: HeapType) -> WasmResult<ir::Value>;
     // {
     //     let _ = ty;
     //     Ok(pos.ins().null(self.reference_type(ty)))

@@ -107,8 +107,7 @@ pub fn translate_module<'data>(
                 environ.custom_section(name, sectionreader.data())?;
                 if name == "name" {
                     parse_name_section(
-                        NameSectionReader::new(sectionreader.data(), sectionreader.data_offset())
-                            .map_err(from_binaryreadererror_wasmerror)?,
+                        NameSectionReader::new(sectionreader.data(), sectionreader.data_offset()),
                         environ,
                     )?;
                 }
