@@ -49,6 +49,9 @@
             llvmPackages_15.llvm
             libxml2
             libffi
+
+            # Test runner
+            cargo-nextest
           ];
           runtimeDependencies = with pkgs; [ ];
 
