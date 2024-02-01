@@ -176,6 +176,26 @@
 <a href="#176" id="176">176</a>
 <a href="#177" id="177">177</a>
 <a href="#178" id="178">178</a>
+<a href="#179" id="179">179</a>
+<a href="#180" id="180">180</a>
+<a href="#181" id="181">181</a>
+<a href="#182" id="182">182</a>
+<a href="#183" id="183">183</a>
+<a href="#184" id="184">184</a>
+<a href="#185" id="185">185</a>
+<a href="#186" id="186">186</a>
+<a href="#187" id="187">187</a>
+<a href="#188" id="188">188</a>
+<a href="#189" id="189">189</a>
+<a href="#190" id="190">190</a>
+<a href="#191" id="191">191</a>
+<a href="#192" id="192">192</a>
+<a href="#193" id="193">193</a>
+<a href="#194" id="194">194</a>
+<a href="#195" id="195">195</a>
+<a href="#196" id="196">196</a>
+<a href="#197" id="197">197</a>
+<a href="#198" id="198">198</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::path::PathBuf;
 
 <span class="kw">use </span>anyhow::Context;
@@ -198,6 +218,10 @@
     ///
     /// Defaults to current directory.
     </span>package: <span class="prelude-ty">Option</span>&lt;PathBuf&gt;,
+
+    <span class="doccomment">/// Only checks whether the package could be built successfully
+    </span><span class="attr">#[clap(long)]
+    </span>check: bool,
 }
 
 <span class="kw">static </span>READING_MANIFEST_EMOJI: Emoji&lt;<span class="lifetime">&#39;_</span>, <span class="lifetime">&#39;_</span>&gt; = Emoji(<span class="string">&quot;📖 &quot;</span>, <span class="string">&quot;&quot;</span>);
@@ -206,6 +230,15 @@
 <span class="kw">static </span>SPARKLE: Emoji&lt;<span class="lifetime">&#39;_</span>, <span class="lifetime">&#39;_</span>&gt; = Emoji(<span class="string">&quot;✨ &quot;</span>, <span class="string">&quot;:-)&quot;</span>);
 
 <span class="kw">impl </span>PackageBuild {
+    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>check(package_path: PathBuf) -&gt; <span class="self">Self </span>{
+        PackageBuild {
+            out: <span class="prelude-val">None</span>,
+            quiet: <span class="bool-val">true</span>,
+            package: <span class="prelude-val">Some</span>(package_path),
+            check: <span class="bool-val">true</span>,
+        }
+    }
+
     <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>execute(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;(), anyhow::Error&gt; {
         <span class="kw">let </span>manifest_path = <span class="self">self</span>.manifest_path()<span class="question-mark">?</span>;
         <span class="kw">let </span>pkg = webc::wasmer_package::Package::from_manifest(manifest_path)<span class="question-mark">?</span>;
@@ -228,6 +261,12 @@
             .wapm()
             .context(<span class="string">&quot;could not load package manifest&quot;</span>)<span class="question-mark">?
             </span>.context(<span class="string">&quot;package does not contain a Wasmer manifest&quot;</span>)<span class="question-mark">?</span>;
+
+        <span class="comment">// rest of the code writes the package to disk and is irrelevant
+        // to checking.
+        </span><span class="kw">if </span><span class="self">self</span>.check {
+            <span class="kw">return </span><span class="prelude-val">Ok</span>(());
+        }
 
         <span class="kw">let </span>pkgname = manifest.name.replace(<span class="string">&#39;/&#39;</span>, <span class="string">&quot;-&quot;</span>);
         <span class="kw">let </span>name = <span class="macro">format!</span>(<span class="string">&quot;{}-{}.webc&quot;</span>, pkgname, manifest.version,);
@@ -347,6 +386,7 @@ description = &quot;hello&quot;
             package: <span class="prelude-val">Some</span>(path.to_owned()),
             out: <span class="prelude-val">Some</span>(path.to_owned()),
             quiet: <span class="bool-val">true</span>,
+            check: <span class="bool-val">false</span>,
         };
 
         cmd.execute().unwrap();
