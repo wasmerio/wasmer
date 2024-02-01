@@ -16,6 +16,7 @@ pub mod wasm;
 #[cfg(any(target_os = "windows"))]
 pub mod windows;
 
+pub mod journal;
 pub mod wasi;
 pub mod wasix;
 
@@ -54,6 +55,7 @@ use std::{io::IoSlice, marker::PhantomData, mem::MaybeUninit, task::Waker, time:
 
 pub(crate) use bytes::{Bytes, BytesMut};
 pub(crate) use cooked_waker::IntoWaker;
+pub use journal::*;
 pub(crate) use sha2::Sha256;
 pub(crate) use tracing::{debug, error, trace, warn};
 #[cfg(any(
@@ -117,10 +119,12 @@ use crate::{
         fs_error_into_wasi_err, virtual_file_type_to_wasi_file_type, Fd, InodeVal, Kind,
         MAX_SYMLINKS,
     },
-    os::task::thread::RewindResult,
+    journal::{DynJournal, JournalEffector},
+    os::task::{process::MaybeCheckpointResult, thread::RewindResult},
     runtime::task_manager::InlineWaker,
     utils::store::InstanceSnapshot,
-    DeepSleepWork, RewindPostProcess, RewindState, SpawnError, WasiInodes,
+    DeepSleepWork, RewindPostProcess, RewindState, RewindStateOption, SpawnError, WasiInodes,
+    WasiResult, WasiRuntimeError,
 };
 pub(crate) use crate::{net::net_error_into_wasi_err, utils::WasiParkingLot};
 
@@ -241,9 +245,9 @@ fn block_on_with_timeout<T, Fut>(
     tasks: &Arc<dyn VirtualTaskManager>,
     timeout: Option<Duration>,
     work: Fut,
-) -> Result<Result<T, Errno>, WasiError>
+) -> WasiResult<T>
 where
-    Fut: Future<Output = Result<Result<T, Errno>, WasiError>>,
+    Fut: Future<Output = WasiResult<T>>,
 {
     let mut nonblocking = false;
     if timeout == Some(Duration::ZERO) {
@@ -293,7 +297,7 @@ pub(crate) fn __asyncify<T, Fut>(
     ctx: &mut FunctionEnvMut<'_, WasiEnv>,
     timeout: Option<Duration>,
     work: Fut,
-) -> Result<Result<T, Errno>, WasiError>
+) -> WasiResult<T>
 where
     T: 'static,
     Fut: std::future::Future<Output = Result<T, Errno>>,
@@ -481,7 +485,7 @@ pub(crate) fn __asyncify_light<T, Fut>(
     env: &WasiEnv,
     timeout: Option<Duration>,
     work: Fut,
-) -> Result<Result<T, Errno>, WasiError>
+) -> WasiResult<T>
 where
     T: 'static,
     Fut: Future<Output = Result<T, Errno>>,
@@ -949,7 +953,7 @@ pub(crate) fn deep_sleep<M: MemorySize>(
     trigger: Pin<Box<AsyncifyFuture>>,
 ) -> Result<(), WasiError> {
     // Grab all the globals and serialize them
-    let store_data = crate::utils::store::capture_snapshot(&mut ctx.as_store_mut())
+    let store_data = crate::utils::store::capture_instance_snapshot(&mut ctx.as_store_mut())
         .serialize()
         .unwrap();
     let store_data = Bytes::from(store_data);
@@ -958,17 +962,15 @@ pub(crate) fn deep_sleep<M: MemorySize>(
     let tasks = ctx.data().tasks().clone();
     let res = unwind::<M, _>(ctx, move |_ctx, memory_stack, rewind_stack| {
         // Schedule the process on the stack so that it can be resumed
-        OnCalledAction::Trap(Box::new(RuntimeError::user(Box::new(
-            WasiError::DeepSleep(DeepSleepWork {
-                trigger,
-                rewind: RewindState {
-                    memory_stack: memory_stack.freeze(),
-                    rewind_stack: rewind_stack.freeze(),
-                    store_data,
-                    is_64bit: M::is_64bit(),
-                },
-            }),
-        ))))
+        OnCalledAction::Trap(Box::new(WasiError::DeepSleep(DeepSleepWork {
+            trigger,
+            rewind: RewindState {
+                memory_stack: memory_stack.freeze(),
+                rewind_stack: rewind_stack.freeze(),
+                store_data,
+                is_64bit: M::is_64bit(),
+            },
+        })))
     })?;
 
     // If there is an error then exit the process, otherwise we are done
@@ -1112,7 +1114,7 @@ where
 #[instrument(level = "debug", skip_all, fields(memory_stack_len = memory_stack.len(), rewind_stack_len = rewind_stack.len(), store_data_len = store_data.len()))]
 #[must_use = "the action must be passed to the call loop"]
 pub fn rewind<M: MemorySize, T>(
-    ctx: FunctionEnvMut<WasiEnv>,
+    mut ctx: FunctionEnvMut<WasiEnv>,
     memory_stack: Bytes,
     rewind_stack: Bytes,
     store_data: Bytes,
@@ -1122,17 +1124,23 @@ where
     T: serde::Serialize,
 {
     let rewind_result = bincode::serialize(&result).unwrap().into();
-    rewind_ext::<M>(ctx, memory_stack, rewind_stack, store_data, rewind_result)
+    rewind_ext::<M>(
+        &mut ctx,
+        memory_stack,
+        rewind_stack,
+        store_data,
+        Some(rewind_result),
+    )
 }
 
 #[instrument(level = "debug", skip_all, fields(memory_stack_len = memory_stack.len(), rewind_stack_len = rewind_stack.len(), store_data_len = store_data.len()))]
 #[must_use = "the action must be passed to the call loop"]
 pub fn rewind_ext<M: MemorySize>(
-    mut ctx: FunctionEnvMut<WasiEnv>,
+    ctx: &mut FunctionEnvMut<WasiEnv>,
     memory_stack: Bytes,
     rewind_stack: Bytes,
     store_data: Bytes,
-    rewind_result: Bytes,
+    rewind_result: Option<Bytes>,
 ) -> Errno {
     // Store the memory stack so that it can be restored later
     ctx.data_mut().thread.set_rewind(RewindResult {
@@ -1148,7 +1156,7 @@ pub fn rewind_ext<M: MemorySize>(
             return Errno::Unknown;
         }
     };
-    crate::utils::store::restore_snapshot(&mut ctx, &store_snapshot);
+    crate::utils::store::restore_instance_snapshot(ctx, &store_snapshot);
     let env = ctx.data();
     let memory = match env.try_memory_view(&ctx) {
         Some(v) => v,
@@ -1203,7 +1211,7 @@ pub fn rewind_ext<M: MemorySize>(
         .filter_map(|a| a.asyncify_start_rewind.clone())
         .next()
     {
-        asyncify_start_rewind.call(&mut ctx, asyncify_data);
+        asyncify_start_rewind.call(ctx, asyncify_data);
     } else {
         warn!("failed to rewind the stack because the asyncify_start_rewind export is missing or inaccessible");
         return Errno::Noexec;
@@ -1212,18 +1220,76 @@ pub fn rewind_ext<M: MemorySize>(
     Errno::Success
 }
 
+pub fn rewind_ext2(
+    ctx: &mut FunctionEnvMut<WasiEnv>,
+    rewind_state: RewindStateOption,
+) -> Result<(), ExitCode> {
+    if let Some((rewind_state, rewind_result)) = rewind_state {
+        tracing::trace!("Rewinding");
+        let errno = if rewind_state.is_64bit {
+            crate::rewind_ext::<wasmer_types::Memory64>(
+                ctx,
+                rewind_state.memory_stack,
+                rewind_state.rewind_stack,
+                rewind_state.store_data,
+                rewind_result,
+            )
+        } else {
+            crate::rewind_ext::<wasmer_types::Memory32>(
+                ctx,
+                rewind_state.memory_stack,
+                rewind_state.rewind_stack,
+                rewind_state.store_data,
+                rewind_result,
+            )
+        };
+
+        if errno != Errno::Success {
+            let exit_code = ExitCode::from(errno);
+            ctx.data().on_exit(Some(exit_code));
+            return Err(exit_code);
+        }
+    }
+
+    Ok(())
+}
+
+pub fn anyhow_err_to_runtime_err(err: anyhow::Error) -> WasiRuntimeError {
+    WasiRuntimeError::Runtime(RuntimeError::user(err.into()))
+}
+
 pub(crate) unsafe fn handle_rewind<M: MemorySize, T>(
     ctx: &mut FunctionEnvMut<'_, WasiEnv>,
 ) -> Option<T>
 where
     T: serde::de::DeserializeOwned,
 {
+    handle_rewind_ext::<M, T>(ctx, HandleRewindType::ResultDriven)
+}
+
+pub(crate) enum HandleRewindType {
+    /// Handle rewind types that have a result to be processed
+    ResultDriven,
+    /// Handle rewind types that are resultless (generally these
+    /// are caused by snapshot events)
+    Resultless,
+}
+
+pub(crate) unsafe fn handle_rewind_ext<M: MemorySize, T>(
+    ctx: &mut FunctionEnvMut<'_, WasiEnv>,
+    _type: HandleRewindType,
+) -> Option<T>
+where
+    T: serde::de::DeserializeOwned,
+{
+    if !ctx.data().thread.has_rewind_of_type(_type) {
+        return None;
+    };
+
     // If the stack has been restored
     if let Some(result) = ctx.data_mut().thread.take_rewind() {
         // Deserialize the result
         let memory_stack = result.memory_stack;
-        let ret = bincode::deserialize(&result.rewind_result)
-            .expect("failed to deserialize the rewind result");
 
         // Notify asyncify that we are no longer rewinding
         let env = ctx.data();
@@ -1237,7 +1303,14 @@ where
         // Restore the memory stack
         let (env, mut store) = ctx.data_and_store_mut();
         set_memory_stack::<M>(env, &mut store, memory_stack);
-        Some(ret)
+
+        if let Some(rewind_result) = result.rewind_result {
+            let ret = bincode::deserialize(&rewind_result)
+                .expect("failed to deserialize the rewind result");
+            Some(ret)
+        } else {
+            None
+        }
     } else {
         None
     }

@@ -20,16 +20,25 @@ use tokio::runtime::Handle;
 
 #[derive(Debug, Clone)]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
-pub struct FileSystem(Handle);
+pub struct FileSystem {
+    #[cfg_attr(feature = "enable-serde", serde(skip, default = "default_handle"))]
+    handle: Handle,
+}
+#[allow(dead_code)]
+fn default_handle() -> Handle {
+    Handle::current()
+}
 
 impl Default for FileSystem {
     fn default() -> Self {
-        Self(Handle::current())
+        Self {
+            handle: Handle::current(),
+        }
     }
 }
 impl FileSystem {
     pub fn new(handle: Handle) -> Self {
-        FileSystem(handle)
+        FileSystem { handle }
     }
 }
 
@@ -213,19 +222,26 @@ impl crate::FileOpener for FileSystem {
         // TODO: handle create implying write, etc.
         let read = conf.read();
         let write = conf.write();
-        let append = conf.append();
+
+        // according to Rust's stdlib, specifying both truncate and append is nonsensical,
+        // and it will return an error if we try to open a file with both flags set.
+        // in order to prevent this, and stay compatible with native binaries, we just ignore
+        // the append flag if truncate is set. the rationale behind this decision is that
+        // truncate is going to be applied first and append is going to be ignored anyway.
+        let append = if conf.truncate { false } else { conf.append() };
+
         let mut oo = fs::OpenOptions::new();
         oo.read(conf.read())
             .write(conf.write())
             .create_new(conf.create_new())
             .create(conf.create())
-            .append(conf.append())
+            .append(append)
             .truncate(conf.truncate())
             .open(path)
             .map_err(Into::into)
             .map(|file| {
                 Box::new(File::new(
-                    self.0.clone(),
+                    self.handle.clone(),
                     file,
                     path.to_owned(),
                     read,
@@ -240,9 +256,11 @@ impl crate::FileOpener for FileSystem {
 #[derive(Debug)]
 #[cfg_attr(feature = "enable-serde", derive(Serialize))]
 pub struct File {
+    #[cfg_attr(feature = "enable-serde", serde(skip, default = "default_handle"))]
     handle: Handle,
     #[cfg_attr(feature = "enable-serde", serde(skip_serializing))]
     inner_std: fs::File,
+    #[cfg_attr(feature = "enable-serde", serde(skip))]
     inner: tfs::File,
     pub host_path: PathBuf,
     #[cfg(feature = "enable-serde")]
@@ -288,7 +306,9 @@ impl<'de> Deserialize<'de> for File {
                     .open(&host_path)
                     .map_err(|_| de::Error::custom("Could not open file on this system"))?;
                 Ok(File {
-                    inner,
+                    handle: Handle::current(),
+                    inner: tokio::fs::File::from_std(inner.try_clone().unwrap()),
+                    inner_std: inner,
                     host_path,
                     flags,
                 })
@@ -325,7 +345,9 @@ impl<'de> Deserialize<'de> for File {
                     .open(&host_path)
                     .map_err(|_| de::Error::custom("Could not open file on this system"))?;
                 Ok(File {
-                    inner,
+                    handle: Handle::current(),
+                    inner: tokio::fs::File::from_std(inner.try_clone().unwrap()),
+                    inner_std: inner,
                     host_path,
                     flags,
                 })
@@ -517,10 +539,15 @@ impl AsyncSeek for File {
 #[derive(Debug)]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 pub struct Stdout {
+    #[cfg_attr(feature = "enable-serde", serde(skip, default = "default_handle"))]
     handle: Handle,
+    #[cfg_attr(feature = "enable-serde", serde(skip, default = "default_stdout"))]
     inner: tokio::io::Stdout,
 }
-
+#[allow(dead_code)]
+fn default_stdout() -> tokio::io::Stdout {
+    tokio::io::stdout()
+}
 impl Default for Stdout {
     fn default() -> Self {
         Self {
@@ -647,8 +674,14 @@ impl AsyncSeek for Stdout {
 #[derive(Debug)]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 pub struct Stderr {
+    #[cfg_attr(feature = "enable-serde", serde(skip, default = "default_handle"))]
     handle: Handle,
+    #[cfg_attr(feature = "enable-serde", serde(skip, default = "default_stderr"))]
     inner: tokio::io::Stderr,
+}
+#[allow(dead_code)]
+fn default_stderr() -> tokio::io::Stderr {
+    tokio::io::stderr()
 }
 impl Default for Stderr {
     fn default() -> Self {
@@ -768,8 +801,14 @@ impl VirtualFile for Stderr {
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 pub struct Stdin {
     read_buffer: Arc<std::sync::Mutex<Option<Bytes>>>,
+    #[cfg_attr(feature = "enable-serde", serde(skip, default = "default_handle"))]
     handle: Handle,
+    #[cfg_attr(feature = "enable-serde", serde(skip, default = "default_stdin"))]
     inner: tokio::io::Stdin,
+}
+#[allow(dead_code)]
+fn default_stdin() -> tokio::io::Stdin {
+    tokio::io::stdin()
 }
 impl Default for Stdin {
     fn default() -> Self {

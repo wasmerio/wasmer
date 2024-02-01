@@ -18,7 +18,30 @@ pub fn epoll_create<M: MemorySize + 'static>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     ret_fd: WasmPtr<WasiFd, M>,
 ) -> Result<Errno, WasiError> {
-    wasi_try_ok!(WasiEnv::process_signals_and_exit(&mut ctx)?);
+    let fd = wasi_try_ok!(epoll_create_internal(&mut ctx)?);
+    let env = ctx.data();
+
+    #[cfg(feature = "journal")]
+    if env.enable_journal {
+        JournalEffector::save_epoll_create(&mut ctx, fd).map_err(|err| {
+            tracing::error!("failed to save epoll_create event - {}", err);
+            WasiError::Exit(ExitCode::Errno(Errno::Fault))
+        })?;
+    }
+
+    Span::current().record("fd", fd);
+
+    let env = ctx.data();
+    let (memory, state, inodes) = unsafe { env.get_memory_and_wasi_state_and_inodes(&ctx, 0) };
+    wasi_try_mem_ok!(ret_fd.write(&memory, fd));
+
+    Ok(Errno::Success)
+}
+
+pub fn epoll_create_internal(
+    ctx: &mut FunctionEnvMut<'_, WasiEnv>,
+) -> Result<Result<WasiFd, Errno>, WasiError> {
+    wasi_try_ok_ok!(WasiEnv::process_signals_and_exit(ctx)?);
 
     let env = ctx.data();
     let (memory, state, inodes) = unsafe { env.get_memory_and_wasi_state_and_inodes(&ctx, 0) };
@@ -37,12 +60,9 @@ pub fn epoll_create<M: MemorySize + 'static>(
     );
 
     let rights = Rights::POLL_FD_READWRITE | Rights::FD_FDSTAT_SET_FLAGS;
-    let fd = wasi_try_ok!(state
+    let fd = wasi_try_ok_ok!(state
         .fs
         .create_fd(rights, rights, Fdflags::empty(), 0, inode));
-    Span::current().record("fd", fd);
 
-    wasi_try_mem_ok!(ret_fd.write(&memory, fd));
-
-    Ok(Errno::Success)
+    Ok(Ok(fd))
 }

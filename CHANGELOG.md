@@ -9,6 +9,36 @@ Looking for changes that affect our C API? See the [C API Changelog](lib/c-api/C
 
 ## **Unreleased**
 
+## 4.2.5 - 23/12/2023
+
+This release includes substantial improvements to Wasmer's startup time when loading cached modules. Also includes a couple of filesystem-related fixes and updates the Edge application templates.
+
+## Added
+
+  - [#4370](https://github.com/wasmerio/wasmer/pull/4370) feat(wasix): Add optional chunk timeout to ReqwestHttpClient
+  - [#4369](https://github.com/wasmerio/wasmer/pull/4369) WASIX: Add QueryError::Timeout
+  - [#4336](https://github.com/wasmerio/wasmer/pull/4336) fix(docs): add cpp in Chinese
+
+## Changed
+
+  - [#4372](https://github.com/wasmerio/wasmer/pull/4372) use faster hash algorithm when loading and saving a module
+  - [#4367](https://github.com/wasmerio/wasmer/pull/4367) deps: Bump edge cli to 0.1.4
+  - [#4366](https://github.com/wasmerio/wasmer/pull/4366) Always use the download URL provided by the Wasmer registry instead of going through the frontend redirect
+  - [#4350](https://github.com/wasmerio/wasmer/pull/4350) Optimize sleep_now for TokioTaskManager
+  - [#4351](https://github.com/wasmerio/wasmer/pull/4351) Remove the wasmer-web crate and all tests
+  - [#4229](https://github.com/wasmerio/wasmer/pull/4229) Use `cargo nextest` when running tests in CI
+  - [#4339](https://github.com/wasmerio/wasmer/pull/4339) deps: Bump edge-cli version
+
+## Fixed
+
+  - [#4368](https://github.com/wasmerio/wasmer/pull/4368) fix(wasix): http client: use reasonable default connect timeout
+  - [#4365](https://github.com/wasmerio/wasmer/pull/4365) lib/api/src/js/store.rs: fix typo
+  - [#4356](https://github.com/wasmerio/wasmer/pull/4356) Fixed a subtract-with-overflow in `StaticFile::poll_read_ready()`
+  - [#4355](https://github.com/wasmerio/wasmer/pull/4355) Fix the `virtual_fs::StaticFile` implementation
+  - [#4348](https://github.com/wasmerio/wasmer/pull/4348) fix sync
+
+
+
 ## 4.2.4 - 30/11/2023
 
 This release allows publishing private packages and fixes the issue of the file system being accessible by WASI modules in the abscence of directory mapping. Also improves startup speed, and fixes multiple issues around the WASI filesystem, packages and apps.
@@ -682,6 +712,7 @@ Lots of new things in the release!
 ## Fixed
 
   - [#3439](https://github.com/wasmerio/wasmer/pull/3439) Use GNU/Linux frame registration code for FreeBSD too
+  - [#3448](https://github.com/wasmerio/wasmer/pull/3448) Fix `make install-capi-lib` install paths
 
 ## 3.1.0 - 12/12/2022
 

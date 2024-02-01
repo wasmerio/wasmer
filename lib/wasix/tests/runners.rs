@@ -103,7 +103,10 @@ mod wcgi {
     use futures::{channel::mpsc::Sender, future::AbortHandle, SinkExt, StreamExt};
     use rand::Rng;
     use tokio::runtime::Handle;
-    use wasmer_wasix::{bin_factory::BinaryPackage, runners::wcgi::WcgiRunner};
+    use wasmer_wasix::{
+        bin_factory::BinaryPackage,
+        runners::wcgi::{NoOpWcgiCallbacks, WcgiRunner},
+    };
 
     use super::*;
 
@@ -121,7 +124,7 @@ mod wcgi {
         let webc = download_cached("https://wasmer.io/Michael-F-Bryan/staticserver@1.0.3").await;
         let (rt, tasks) = runtime();
         let container = Container::from_bytes(webc).unwrap();
-        let mut runner = WcgiRunner::new();
+        let mut runner = WcgiRunner::new(NoOpWcgiCallbacks);
         let port = rand::thread_rng().gen_range(10000_u16..65535_u16);
         let (cb, started) = callbacks(Handle::current());
         runner
@@ -246,8 +249,10 @@ fn runtime() -> (impl Runtime + Send + Sync, Arc<TokioTaskManager>) {
     let tasks = Arc::new(tasks);
     let mut rt = PluggableRuntime::new(Arc::clone(&tasks) as Arc<_>);
 
-    let cache =
-        SharedCache::default().with_fallback(FileSystemCache::new(tmp_dir().join("compiled")));
+    let cache = SharedCache::default().with_fallback(FileSystemCache::new(
+        tmp_dir().join("compiled"),
+        tasks.clone(),
+    ));
 
     let cache_dir = Path::new(env!("CARGO_TARGET_TMPDIR"))
         .join(env!("CARGO_PKG_NAME"))

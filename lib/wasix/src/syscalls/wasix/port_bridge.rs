@@ -33,11 +33,37 @@ pub fn port_bridge<M: MemorySize>(
         _ => return Ok(Errno::Inval),
     };
 
+    wasi_try_ok!(port_bridge_internal(
+        &mut ctx,
+        network.as_str(),
+        token.as_str(),
+        security
+    )?);
+
+    #[cfg(feature = "journal")]
+    if ctx.data().enable_journal {
+        JournalEffector::save_port_bridge(&mut ctx, network, token, security).map_err(|err| {
+            tracing::error!("failed to save port_bridge event - {}", err);
+            WasiError::Exit(ExitCode::Errno(Errno::Fault))
+        })?;
+    }
+
+    Ok(Errno::Success)
+}
+
+pub(crate) fn port_bridge_internal(
+    ctx: &mut FunctionEnvMut<'_, WasiEnv>,
+    network: &str,
+    token: &str,
+    security: StreamSecurity,
+) -> Result<Result<(), Errno>, WasiError> {
+    let env = ctx.data();
+
     let net = env.net().clone();
-    wasi_try_ok!(__asyncify(&mut ctx, None, async move {
-        net.bridge(network.as_str(), token.as_str(), security)
+    wasi_try_ok_ok!(__asyncify(ctx, None, async move {
+        net.bridge(network, token, security)
             .await
             .map_err(net_error_into_wasi_err)
     })?);
-    Ok(Errno::Success)
+    Ok(Ok(()))
 }

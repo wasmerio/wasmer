@@ -57,8 +57,7 @@ pub use crate::sig_registry::SignatureRegistry;
 pub use crate::store::{InternalStoreHandle, MaybeInstanceOwned, StoreHandle, StoreObjects};
 pub use crate::table::{TableElement, VMTable};
 #[doc(hidden)]
-pub use crate::threadconditions::ThreadConditions;
-pub use crate::threadconditions::WaiterError;
+pub use crate::threadconditions::{ThreadConditions, ThreadConditionsHandle, WaiterError};
 pub use crate::trap::*;
 pub use crate::vmcontext::{
     VMCallerCheckedAnyfunc, VMContext, VMDynamicFunctionContext, VMFunctionContext,

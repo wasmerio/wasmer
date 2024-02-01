@@ -1,5 +1,6 @@
 use std::sync::Arc;
-use wasmer::{CompilerConfig, Features, ModuleMiddleware, Store};
+use wasmer::sys::Features;
+use wasmer::{CompilerConfig, ModuleMiddleware, Store};
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Compiler {
@@ -50,7 +51,7 @@ impl Config {
     }
 
     pub fn engine(&self, compiler_config: Box<dyn CompilerConfig>) -> wasmer::Engine {
-        let mut engine = wasmer::EngineBuilder::new(compiler_config);
+        let mut engine = wasmer::sys::EngineBuilder::new(compiler_config);
         if let Some(ref features) = self.features {
             engine = engine.set_features(Some(features.clone()));
         }
@@ -58,7 +59,7 @@ impl Config {
     }
 
     pub fn engine_headless(&self) -> wasmer::Engine {
-        wasmer::EngineBuilder::headless().engine().into()
+        wasmer::sys::EngineBuilder::headless().engine().into()
     }
 
     pub fn compiler_config(

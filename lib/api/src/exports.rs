@@ -42,7 +42,7 @@ use thiserror::Error;
 /// // This results with an error: `ExportError::Missing`.
 /// let export = instance.exports.get_function("unknown").unwrap();
 /// ```
-#[derive(Error, Debug)]
+#[derive(Error, Debug, Clone)]
 pub enum ExportError {
     /// An error than occurs when the exported type and the expected type
     /// are incompatible.

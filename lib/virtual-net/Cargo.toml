@@ -1,6 +1,6 @@
 [package]
 name = "virtual-net"
-version = "0.6.1"
+version = "0.6.2"
 description = "Wasmer Virtual Networking"
 authors.workspace = true
 edition.workspace = true
@@ -27,14 +27,17 @@ pin-project-lite = "0.2.9"
 futures-util = { version = "0.3" }
 anyhow = "1.0"
 tokio-serde = { version = "0.8", features = [ "bincode" ], optional = true }
-tokio-util = { version = "0.6", features = ["codec"], optional = true }
+tokio-util = { version = "0.7.8", features = ["codec"], optional = true }
 hyper-tungstenite = { version = "0.11", optional = true }
 hyper = { version = "0.14", optional = true }
 tokio-tungstenite = { version = "0.20", optional = true }
+rkyv = { version = "0.7.40", features = ["indexmap", "validation", "strict"], optional = true }
+bytecheck = { version = "0.6.8", optional = true }
 
 [dev-dependencies]
-tokio = { version = "1", default_features = false, features = [ "macros" ] }
+tokio = { version = "1", default_features = false, features = [ "macros", "rt-multi-thread" ] }
 tracing-test = { version = "0.2" }
+serial_test = "2.0.0"
 
 [features]
 default = [ "host-net", "remote", "json", "messagepack", "cbor", "hyper", "tokio-tungstenite" ]
@@ -45,6 +48,7 @@ messagepack = [ "tokio-serde/messagepack" ]
 cbor = [ "tokio-serde/cbor" ]
 hyper = [ "hyper-tungstenite", "dep:hyper" ]
 tokio-tungstenite = [ "dep:tokio-tungstenite" ]
+rkyv = [ "dep:rkyv", "dep:bytecheck" ]
 
 [package.metadata.docs.rs]
 features = ["host-net", "remote"]

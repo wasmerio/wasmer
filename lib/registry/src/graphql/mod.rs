@@ -1,6 +1,7 @@
 pub(crate) mod mutations;
 pub(crate) mod proxy;
 pub(crate) mod queries;
+pub(crate) mod subscriptions;
 
 use graphql_client::*;
 use reqwest::{

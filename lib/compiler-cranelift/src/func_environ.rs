@@ -13,7 +13,7 @@ use cranelift_codegen::ir::{AbiParam, ArgumentPurpose, Function, InstBuilder, Si
 use cranelift_codegen::isa::TargetFrontendConfig;
 use cranelift_frontend::FunctionBuilder;
 use std::convert::TryFrom;
-use wasmer_compiler::wasmparser::ValType;
+use wasmer_compiler::wasmparser::HeapType;
 use wasmer_types::entity::EntityRef;
 use wasmer_types::entity::PrimaryMap;
 use wasmer_types::VMBuiltinFunctionIndex;
@@ -999,11 +999,11 @@ impl<'module_environment> BaseFuncEnvironment for FuncEnvironment<'module_enviro
     fn translate_ref_null(
         &mut self,
         mut pos: cranelift_codegen::cursor::FuncCursor,
-        ty: ValType,
+        ty: HeapType,
     ) -> WasmResult<ir::Value> {
         Ok(match ty {
-            ValType::FuncRef => pos.ins().null(self.reference_type()),
-            ValType::ExternRef => pos.ins().null(self.reference_type()),
+            HeapType::Func => pos.ins().null(self.reference_type()),
+            HeapType::Extern => pos.ins().null(self.reference_type()),
             _ => {
                 return Err(WasmError::Unsupported(
                     "`ref.null T` that is not a `funcref` or an `externref`".into(),

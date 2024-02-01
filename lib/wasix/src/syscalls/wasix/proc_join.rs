@@ -38,6 +38,8 @@ pub(super) fn proc_join_internal<M: MemorySize + 'static>(
 ) -> Result<Errno, WasiError> {
     wasi_try_ok!(WasiEnv::process_signals_and_exit(&mut ctx)?);
 
+    ctx = wasi_try_ok!(maybe_snapshot::<M>(ctx)?);
+
     // This lambda will look at what we wrote in the status variable
     // and use this to determine the return code sent back to the caller
     let ret_result = {
@@ -155,7 +157,7 @@ pub(super) fn proc_join_internal<M: MemorySize + 'static>(
     // Waiting for a process that is an explicit child will join it
     // meaning it will no longer be a sub-process of the main process
     let mut process = {
-        let mut inner = ctx.data().process.inner.write().unwrap();
+        let mut inner = ctx.data().process.lock();
         let process = inner
             .children
             .iter()

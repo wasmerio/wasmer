@@ -1,5 +1,6 @@
-use chrono::prelude::*;
 use std::process::Command;
+
+use chrono::prelude::*;
 
 pub fn main() {
     // Set WASMER_GIT_HASH

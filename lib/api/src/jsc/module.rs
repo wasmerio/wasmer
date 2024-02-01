@@ -12,7 +12,6 @@ use crate::{AsEngineRef, ExportType, ImportType};
 use bytes::Bytes;
 use rusty_jsc::{JSObject, JSString, JSValue};
 use std::path::Path;
-#[cfg(feature = "tracing")]
 use tracing::{debug, warn};
 use wasmer_types::{
     CompileError, DeserializeError, ExportsIterator, ExternType, FunctionType, GlobalType,
@@ -69,7 +68,7 @@ impl Module {
     pub(crate) unsafe fn from_js_module(module: JSObject, binary: impl IntoBytes) -> Self {
         let binary = binary.into_bytes();
         // The module is now validated, so we can safely parse it's types
-        let info = crate::jsc::module_info_polyfill::translate_module(&binary[..])
+        let info = crate::module_info_polyfill::translate_module(&binary[..])
             .unwrap()
             .info;
 
@@ -154,7 +153,6 @@ impl Module {
                         .unwrap();
                 }
             } else {
-                #[cfg(feature = "tracing")]
                 warn!(
                     "import not found {}:{}",
                     import_type.module(),

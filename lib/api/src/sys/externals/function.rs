@@ -295,7 +295,7 @@ impl Function {
                             break;
                         }
                         Ok(wasmer_types::OnCalledAction::Trap(trap)) => {
-                            return Err(RuntimeError::user(trap))
+                            return Err(RuntimeError::user(trap));
                         }
                         Err(trap) => return Err(RuntimeError::user(trap)),
                     }

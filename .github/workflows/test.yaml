@@ -25,6 +25,7 @@ env:
   # can override that behaviour
   CARGO_REGISTRIES_CRATES_IO_PROTOCOL: git
   MSRV: "1.70"
+  NEXTEST_PROFILE: "ci"
 
 jobs:
 
@@ -97,6 +98,8 @@ jobs:
     steps:
       - uses: actions/checkout@v3
       - uses: EmbarkStudios/cargo-deny-action@v1
+        with:
+          log-level: error
 
   test_nodejs:
     name: Test on NodeJS
@@ -371,6 +374,8 @@ jobs:
         with:
           toolchain: "nightly-2023-05-25"
           target: ${{ matrix.metadata.target }}
+      - name: Install Nextest
+        uses: taiki-e/install-action@nextest
       - name: Install Windows-GNU linker
         if: ${{ matrix.metadata.build == 'windows-gnu' }}
         shell: bash
@@ -595,6 +600,8 @@ jobs:
         with:
           toolchain: ${{ env.MSRV }}
           target: ${{ matrix.metadata.target }}
+      - name: Install Nextest
+        uses: taiki-e/install-action@nextest
       - name: Install LLVM (macOS Apple Silicon)
         if: matrix.metadata.os == 'macos-11.0' && !matrix.metadata.llvm_url
         run: |
@@ -696,6 +703,8 @@ jobs:
         with:
           toolchain: ${{ env.MSRV }}
           target: ${{ matrix.metadata.target }}
+      - name: Install Nextest
+        uses: taiki-e/install-action@nextest
       - name: Cache
         uses: whywaita/actions-cache-s3@v2
         with:

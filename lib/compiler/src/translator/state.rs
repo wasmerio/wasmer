@@ -33,26 +33,106 @@ impl ModuleTranslationState {
     }
 
     /// Get the parameter and result types for the given Wasm blocktype.
-    pub fn blocktype_params_results(
-        &self,
-        ty_or_ft: wasmparser::BlockType,
-    ) -> WasmResult<(&[wasmparser::ValType], &[wasmparser::ValType])> {
+    pub fn blocktype_params_results<'a>(
+        &'a self,
+        ty_or_ft: &'a wasmparser::BlockType,
+    ) -> WasmResult<(&'a [wasmparser::ValType], SingleOrMultiValue<'a>)> {
         Ok(match ty_or_ft {
-            wasmparser::BlockType::Type(ty) => match ty {
-                wasmparser::ValType::I32 => (&[], &[wasmparser::ValType::I32]),
-                wasmparser::ValType::I64 => (&[], &[wasmparser::ValType::I64]),
-                wasmparser::ValType::F32 => (&[], &[wasmparser::ValType::F32]),
-                wasmparser::ValType::F64 => (&[], &[wasmparser::ValType::F64]),
-                wasmparser::ValType::V128 => (&[], &[wasmparser::ValType::V128]),
-                wasmparser::ValType::ExternRef => (&[], &[wasmparser::ValType::ExternRef]),
-                wasmparser::ValType::FuncRef => (&[], &[wasmparser::ValType::FuncRef]),
-            },
+            wasmparser::BlockType::Type(ty) => (&[], SingleOrMultiValue::Single(ty)),
             wasmparser::BlockType::FuncType(ty_index) => {
-                let sig_idx = SignatureIndex::from_u32(ty_index);
+                let sig_idx = SignatureIndex::from_u32(*ty_index);
                 let (ref params, ref results) = self.wasm_types[sig_idx];
-                (params, results)
+                (params, SingleOrMultiValue::Multi(results.as_ref()))
             }
-            wasmparser::BlockType::Empty => (&[], &[]),
+            wasmparser::BlockType::Empty => (&[], SingleOrMultiValue::Multi(&[])),
         })
+    }
+}
+
+/// A helper enum for representing either a single or multiple values.
+pub enum SingleOrMultiValue<'a> {
+    /// A single value.
+    Single(&'a wasmparser::ValType),
+    /// Multiple values.
+    Multi(&'a [wasmparser::ValType]),
+}
+
+impl<'a> SingleOrMultiValue<'a> {
+    /// True if empty.
+    pub fn is_empty(&self) -> bool {
+        match self {
+            SingleOrMultiValue::Single(_) => false,
+            SingleOrMultiValue::Multi(values) => values.is_empty(),
+        }
+    }
+
+    /// Count of values.
+    pub fn len(&self) -> usize {
+        match self {
+            SingleOrMultiValue::Single(_) => 1,
+            SingleOrMultiValue::Multi(values) => values.len(),
+        }
+    }
+
+    /// Iterate ofer the value types.
+    pub fn iter(&self) -> SingleOrMultiValueIterator<'_> {
+        match self {
+            SingleOrMultiValue::Single(v) => SingleOrMultiValueIterator::Single(v),
+            SingleOrMultiValue::Multi(items) => SingleOrMultiValueIterator::Multi {
+                index: 0,
+                values: items,
+            },
+        }
+    }
+}
+
+pub enum SingleOrMultiValueIterator<'a> {
+    Done,
+    Single(&'a wasmparser::ValType),
+    Multi {
+        index: usize,
+        values: &'a [wasmparser::ValType],
+    },
+}
+
+impl<'a> Iterator for SingleOrMultiValueIterator<'a> {
+    type Item = &'a wasmparser::ValType;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        match self {
+            SingleOrMultiValueIterator::Done => None,
+            SingleOrMultiValueIterator::Single(v) => {
+                let v = *v;
+                *self = SingleOrMultiValueIterator::Done;
+                Some(v)
+            }
+            SingleOrMultiValueIterator::Multi { index, values } => {
+                if let Some(x) = values.get(*index) {
+                    *index += 1;
+                    Some(x)
+                } else {
+                    *self = SingleOrMultiValueIterator::Done;
+                    None
+                }
+            }
+        }
+    }
+}
+
+impl<'a> PartialEq<[wasmparser::ValType]> for SingleOrMultiValue<'a> {
+    fn eq(&self, other: &[wasmparser::ValType]) -> bool {
+        match self {
+            SingleOrMultiValue::Single(ty) => other.len() == 1 && &other[0] == *ty,
+            SingleOrMultiValue::Multi(tys) => *tys == other,
+        }
+    }
+}
+
+impl<'a> PartialEq<SingleOrMultiValue<'a>> for &'a [wasmparser::ValType] {
+    fn eq(&self, other: &SingleOrMultiValue<'a>) -> bool {
+        match other {
+            SingleOrMultiValue::Single(ty) => self.len() == 1 && &self[0] == *ty,
+            SingleOrMultiValue::Multi(tys) => tys == self,
+        }
     }
 }

@@ -7,7 +7,7 @@ use std::convert::TryInto;
 use std::marker::PhantomData;
 use std::mem::{self, MaybeUninit};
 use std::slice;
-#[cfg(feature = "tracing")]
+
 use tracing::warn;
 
 use wasmer_types::{Pages, WASM_PAGE_SIZE};
@@ -140,6 +140,25 @@ impl Memory {
         // Ok(Pages(new_pages))
     }
 
+    pub fn grow_at_least(
+        &self,
+        store: &mut impl AsStoreMut,
+        min_size: u64,
+    ) -> Result<(), MemoryError> {
+        let cur_size = self.view(store).data_size();
+        if min_size > cur_size {
+            let delta = min_size - cur_size;
+            let pages = ((delta - 1) / wasmer_types::WASM_PAGE_SIZE as u64) + 1;
+
+            self.grow(store, Pages(pages as u32))?;
+        }
+        Ok(())
+    }
+
+    pub fn reset(&self, _store: &mut impl AsStoreMut) -> Result<(), MemoryError> {
+        Ok(())
+    }
+
     pub fn copy_to_store(
         &self,
         store: &impl AsStoreRef,
@@ -191,6 +210,11 @@ impl Memory {
     pub fn duplicate(&mut self, store: &impl AsStoreRef) -> Result<VMMemory, MemoryError> {
         self.handle.duplicate(store)
     }
+
+    pub fn as_shared(&self, _store: &impl AsStoreRef) -> Option<crate::SharedMemory> {
+        // Not supported.
+        None
+    }
 }
 
 impl std::cmp::PartialEq for Memory {
@@ -215,7 +239,6 @@ impl<'a> MemoryBuffer<'a> {
             .checked_add(buf.len() as u64)
             .ok_or(MemoryAccessError::Overflow)?;
         if end > self.len.try_into().unwrap() {
-            #[cfg(feature = "tracing")]
             warn!(
                 "attempted to read ({} bytes) beyond the bounds of the memory view ({} > {})",
                 buf.len(),
@@ -239,7 +262,6 @@ impl<'a> MemoryBuffer<'a> {
             .checked_add(buf.len() as u64)
             .ok_or(MemoryAccessError::Overflow)?;
         if end > self.len.try_into().unwrap() {
-            #[cfg(feature = "tracing")]
             warn!(
                 "attempted to read ({} bytes) beyond the bounds of the memory view ({} > {})",
                 buf.len(),
@@ -261,7 +283,6 @@ impl<'a> MemoryBuffer<'a> {
             .checked_add(data.len() as u64)
             .ok_or(MemoryAccessError::Overflow)?;
         if end > self.len.try_into().unwrap() {
-            #[cfg(feature = "tracing")]
             warn!(
                 "attempted to write ({} bytes) beyond the bounds of the memory view ({} > {})",
                 data.len(),
