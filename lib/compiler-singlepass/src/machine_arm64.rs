@@ -1,6 +1,6 @@
 use dynasmrt::{aarch64::Aarch64Relocation, VecAssembler};
 #[cfg(feature = "unwind")]
-use gimli::{AArch64, write::CallFrameInstruction};
+use gimli::{write::CallFrameInstruction, AArch64};
 
 use wasmer_compiler::wasmparser::ValType as WpType;
 use wasmer_types::{
@@ -9,8 +9,8 @@ use wasmer_types::{
     TrapInformation, VMOffsets,
 };
 
-use crate::arm64_decl::{GPR, NEON};
 use crate::arm64_decl::new_machine_state;
+use crate::arm64_decl::{GPR, NEON};
 use crate::codegen_error;
 use crate::common_decl::*;
 use crate::emitter_arm64::*;
