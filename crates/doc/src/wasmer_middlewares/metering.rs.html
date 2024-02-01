@@ -485,7 +485,6 @@
 <a href="#485" id="485">485</a>
 <a href="#486" id="486">486</a>
 <a href="#487" id="487">487</a>
-<a href="#488" id="488">488</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! `metering` is a middleware for tracking how many operators are
 //! executed in total and putting a limit on the total number of
 //! operators executed. The WebAssembly instance execution is stopped
@@ -841,9 +840,8 @@
     <span class="kw">use super</span>::<span class="kw-2">*</span>;
 
     <span class="kw">use </span>std::sync::Arc;
-    <span class="kw">use </span>wasmer::{
-        imports, wat2wasm, CompilerConfig, Cranelift, EngineBuilder, Module, Store, TypedFunction,
-    };
+    <span class="kw">use </span>wasmer::sys::EngineBuilder;
+    <span class="kw">use </span>wasmer::{imports, wat2wasm, CompilerConfig, Cranelift, Module, Store, TypedFunction};
 
     <span class="kw">fn </span>cost_function(operator: <span class="kw-2">&amp;</span>Operator) -&gt; u64 {
         <span class="kw">match </span>operator {

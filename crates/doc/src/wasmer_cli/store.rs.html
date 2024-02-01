@@ -400,6 +400,8 @@
 <a href="#400" id="400">400</a>
 <a href="#401" id="401">401</a>
 <a href="#402" id="402">402</a>
+<a href="#403" id="403">403</a>
+<a href="#404" id="404">404</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Common module with common used structures across different
 //! commands.
 
@@ -413,6 +415,8 @@
 <span class="kw">use </span>std::sync::Arc;
 
 <span class="kw">use </span>anyhow::{bail, <span class="prelude-ty">Result</span>};
+<span class="attr">#[cfg(feature = <span class="string">&quot;sys&quot;</span>)]
+</span><span class="kw">use </span>wasmer::sys::Features;
 <span class="kw">use </span>wasmer::<span class="kw-2">*</span>;
 <span class="attr">#[cfg(feature = <span class="string">&quot;compiler&quot;</span>)]
 </span><span class="kw">use </span>wasmer_compiler::CompilerConfig;

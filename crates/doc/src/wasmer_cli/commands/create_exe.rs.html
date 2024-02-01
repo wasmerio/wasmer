@@ -2303,6 +2303,7 @@
 <a href="#2303" id="2303">2303</a>
 <a href="#2304" id="2304">2304</a>
 <a href="#2305" id="2305">2305</a>
+<a href="#2306" id="2306">2306</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Create a standalone native executable for a given Wasm file.
 
 </span><span class="kw">use </span>std::{
@@ -2316,6 +2317,7 @@
 <span class="kw">use </span>clap::Parser;
 <span class="kw">use </span>serde::{Deserialize, Serialize};
 <span class="kw">use </span>tar::Archive;
+<span class="kw">use </span>wasmer::sys::Artifact;
 <span class="kw">use </span>wasmer::<span class="kw-2">*</span>;
 <span class="kw">use </span>wasmer_object::{emit_serialized, get_object_for_target};
 <span class="kw">use </span>wasmer_types::{compilation::symbols::ModuleMetadataSymbolRegistry, ModuleInfo};
