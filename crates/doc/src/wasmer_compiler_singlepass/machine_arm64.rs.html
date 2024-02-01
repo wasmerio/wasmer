@@ -8726,7 +8726,104 @@
 <a href="#8726" id="8726">8726</a>
 <a href="#8727" id="8727">8727</a>
 <a href="#8728" id="8728">8728</a>
-</pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::arm64_decl::new_machine_state;
+<a href="#8729" id="8729">8729</a>
+<a href="#8730" id="8730">8730</a>
+<a href="#8731" id="8731">8731</a>
+<a href="#8732" id="8732">8732</a>
+<a href="#8733" id="8733">8733</a>
+<a href="#8734" id="8734">8734</a>
+<a href="#8735" id="8735">8735</a>
+<a href="#8736" id="8736">8736</a>
+<a href="#8737" id="8737">8737</a>
+<a href="#8738" id="8738">8738</a>
+<a href="#8739" id="8739">8739</a>
+<a href="#8740" id="8740">8740</a>
+<a href="#8741" id="8741">8741</a>
+<a href="#8742" id="8742">8742</a>
+<a href="#8743" id="8743">8743</a>
+<a href="#8744" id="8744">8744</a>
+<a href="#8745" id="8745">8745</a>
+<a href="#8746" id="8746">8746</a>
+<a href="#8747" id="8747">8747</a>
+<a href="#8748" id="8748">8748</a>
+<a href="#8749" id="8749">8749</a>
+<a href="#8750" id="8750">8750</a>
+<a href="#8751" id="8751">8751</a>
+<a href="#8752" id="8752">8752</a>
+<a href="#8753" id="8753">8753</a>
+<a href="#8754" id="8754">8754</a>
+<a href="#8755" id="8755">8755</a>
+<a href="#8756" id="8756">8756</a>
+<a href="#8757" id="8757">8757</a>
+<a href="#8758" id="8758">8758</a>
+<a href="#8759" id="8759">8759</a>
+<a href="#8760" id="8760">8760</a>
+<a href="#8761" id="8761">8761</a>
+<a href="#8762" id="8762">8762</a>
+<a href="#8763" id="8763">8763</a>
+<a href="#8764" id="8764">8764</a>
+<a href="#8765" id="8765">8765</a>
+<a href="#8766" id="8766">8766</a>
+<a href="#8767" id="8767">8767</a>
+<a href="#8768" id="8768">8768</a>
+<a href="#8769" id="8769">8769</a>
+<a href="#8770" id="8770">8770</a>
+<a href="#8771" id="8771">8771</a>
+<a href="#8772" id="8772">8772</a>
+<a href="#8773" id="8773">8773</a>
+<a href="#8774" id="8774">8774</a>
+<a href="#8775" id="8775">8775</a>
+<a href="#8776" id="8776">8776</a>
+<a href="#8777" id="8777">8777</a>
+<a href="#8778" id="8778">8778</a>
+<a href="#8779" id="8779">8779</a>
+<a href="#8780" id="8780">8780</a>
+<a href="#8781" id="8781">8781</a>
+<a href="#8782" id="8782">8782</a>
+<a href="#8783" id="8783">8783</a>
+<a href="#8784" id="8784">8784</a>
+<a href="#8785" id="8785">8785</a>
+<a href="#8786" id="8786">8786</a>
+<a href="#8787" id="8787">8787</a>
+<a href="#8788" id="8788">8788</a>
+<a href="#8789" id="8789">8789</a>
+<a href="#8790" id="8790">8790</a>
+<a href="#8791" id="8791">8791</a>
+<a href="#8792" id="8792">8792</a>
+<a href="#8793" id="8793">8793</a>
+<a href="#8794" id="8794">8794</a>
+<a href="#8795" id="8795">8795</a>
+<a href="#8796" id="8796">8796</a>
+<a href="#8797" id="8797">8797</a>
+<a href="#8798" id="8798">8798</a>
+<a href="#8799" id="8799">8799</a>
+<a href="#8800" id="8800">8800</a>
+<a href="#8801" id="8801">8801</a>
+<a href="#8802" id="8802">8802</a>
+<a href="#8803" id="8803">8803</a>
+<a href="#8804" id="8804">8804</a>
+<a href="#8805" id="8805">8805</a>
+<a href="#8806" id="8806">8806</a>
+<a href="#8807" id="8807">8807</a>
+<a href="#8808" id="8808">8808</a>
+<a href="#8809" id="8809">8809</a>
+<a href="#8810" id="8810">8810</a>
+<a href="#8811" id="8811">8811</a>
+<a href="#8812" id="8812">8812</a>
+<a href="#8813" id="8813">8813</a>
+<a href="#8814" id="8814">8814</a>
+</pre></div><pre class="rust"><code><span class="kw">use </span>dynasmrt::{aarch64::Aarch64Relocation, VecAssembler};
+<span class="attr">#[cfg(feature = <span class="string">&quot;unwind&quot;</span>)]
+</span><span class="kw">use </span>gimli::{write::CallFrameInstruction, AArch64};
+
+<span class="kw">use </span>wasmer_compiler::wasmparser::ValType <span class="kw">as </span>WpType;
+<span class="kw">use </span>wasmer_types::{
+    CallingConvention, CompileError, CustomSection, FunctionBody, FunctionIndex, FunctionType,
+    InstructionAddressMap, Relocation, RelocationKind, RelocationTarget, SourceLoc, TrapCode,
+    TrapInformation, VMOffsets,
+};
+
+<span class="kw">use </span><span class="kw">crate</span>::arm64_decl::new_machine_state;
 <span class="kw">use </span><span class="kw">crate</span>::arm64_decl::{GPR, NEON};
 <span class="kw">use </span><span class="kw">crate</span>::codegen_error;
 <span class="kw">use </span><span class="kw">crate</span>::common_decl::<span class="kw-2">*</span>;
@@ -8735,15 +8832,6 @@
 <span class="kw">use </span><span class="kw">crate</span>::location::Reg;
 <span class="kw">use </span><span class="kw">crate</span>::machine::<span class="kw-2">*</span>;
 <span class="kw">use </span><span class="kw">crate</span>::unwind::{UnwindInstructions, UnwindOps};
-<span class="kw">use </span>dynasmrt::{aarch64::Aarch64Relocation, VecAssembler};
-<span class="attr">#[cfg(feature = <span class="string">&quot;unwind&quot;</span>)]
-</span><span class="kw">use </span>gimli::{write::CallFrameInstruction, AArch64};
-<span class="kw">use </span>wasmer_compiler::wasmparser::ValType <span class="kw">as </span>WpType;
-<span class="kw">use </span>wasmer_types::{
-    CallingConvention, CompileError, CustomSection, FunctionBody, FunctionIndex, FunctionType,
-    InstructionAddressMap, Relocation, RelocationKind, RelocationTarget, SourceLoc, TrapCode,
-    TrapInformation, VMOffsets,
-};
 
 <span class="kw">type </span>Assembler = VecAssembler&lt;Aarch64Relocation&gt;;
 <span class="kw">type </span>Location = AbstractLocation&lt;GPR, NEON&gt;;
@@ -12334,6 +12422,8 @@
                 <span class="kw">for </span>r <span class="kw">in </span>temps {
                     this.release_gpr(r);
                 }
+                this.release_gpr(tmp1);
+                this.release_gpr(tmp2);
                 <span class="prelude-val">Ok</span>(())
             },
         )
@@ -12393,6 +12483,8 @@
                 <span class="kw">for </span>r <span class="kw">in </span>temps {
                     this.release_gpr(r);
                 }
+                this.release_gpr(tmp1);
+                this.release_gpr(tmp2);
                 <span class="prelude-val">Ok</span>(())
             },
         )
@@ -12452,6 +12544,8 @@
                 <span class="kw">for </span>r <span class="kw">in </span>temps {
                     this.release_gpr(r);
                 }
+                this.release_gpr(tmp1);
+                this.release_gpr(tmp2);
                 <span class="prelude-val">Ok</span>(())
             },
         )
@@ -12511,6 +12605,8 @@
                 <span class="kw">for </span>r <span class="kw">in </span>temps {
                     this.release_gpr(r);
                 }
+                this.release_gpr(tmp1);
+                this.release_gpr(tmp2);
                 <span class="prelude-val">Ok</span>(())
             },
         )
@@ -12570,6 +12666,8 @@
                 <span class="kw">for </span>r <span class="kw">in </span>temps {
                     this.release_gpr(r);
                 }
+                this.release_gpr(tmp1);
+                this.release_gpr(tmp2);
                 <span class="prelude-val">Ok</span>(())
             },
         )
@@ -12629,6 +12727,8 @@
                 <span class="kw">for </span>r <span class="kw">in </span>temps {
                     this.release_gpr(r);
                 }
+                this.release_gpr(tmp1);
+                this.release_gpr(tmp2);
                 <span class="prelude-val">Ok</span>(())
             },
         )
@@ -12688,6 +12788,8 @@
                 <span class="kw">for </span>r <span class="kw">in </span>temps {
                     this.release_gpr(r);
                 }
+                this.release_gpr(tmp1);
+                this.release_gpr(tmp2);
                 <span class="prelude-val">Ok</span>(())
             },
         )
@@ -12747,6 +12849,8 @@
                 <span class="kw">for </span>r <span class="kw">in </span>temps {
                     this.release_gpr(r);
                 }
+                this.release_gpr(tmp1);
+                this.release_gpr(tmp2);
                 <span class="prelude-val">Ok</span>(())
             },
         )
@@ -12806,6 +12910,8 @@
                 <span class="kw">for </span>r <span class="kw">in </span>temps {
                     this.release_gpr(r);
                 }
+                this.release_gpr(tmp1);
+                this.release_gpr(tmp2);
                 <span class="prelude-val">Ok</span>(())
             },
         )
@@ -12865,6 +12971,8 @@
                 <span class="kw">for </span>r <span class="kw">in </span>temps {
                     this.release_gpr(r);
                 }
+                this.release_gpr(tmp1);
+                this.release_gpr(tmp2);
                 <span class="prelude-val">Ok</span>(())
             },
         )
@@ -12924,6 +13032,8 @@
                 <span class="kw">for </span>r <span class="kw">in </span>temps {
                     this.release_gpr(r);
                 }
+                this.release_gpr(tmp1);
+                this.release_gpr(tmp2);
                 <span class="prelude-val">Ok</span>(())
             },
         )
@@ -12983,6 +13093,8 @@
                 <span class="kw">for </span>r <span class="kw">in </span>temps {
                     this.release_gpr(r);
                 }
+                this.release_gpr(tmp1);
+                this.release_gpr(tmp2);
                 <span class="prelude-val">Ok</span>(())
             },
         )
@@ -13042,6 +13154,8 @@
                 <span class="kw">for </span>r <span class="kw">in </span>temps {
                     this.release_gpr(r);
                 }
+                this.release_gpr(tmp1);
+                this.release_gpr(tmp2);
                 <span class="prelude-val">Ok</span>(())
             },
         )
@@ -13101,6 +13215,8 @@
                 <span class="kw">for </span>r <span class="kw">in </span>temps {
                     this.release_gpr(r);
                 }
+                this.release_gpr(tmp1);
+                this.release_gpr(tmp2);
                 <span class="prelude-val">Ok</span>(())
             },
         )
@@ -13160,6 +13276,8 @@
                 <span class="kw">for </span>r <span class="kw">in </span>temps {
                     this.release_gpr(r);
                 }
+                this.release_gpr(tmp1);
+                this.release_gpr(tmp2);
                 <span class="prelude-val">Ok</span>(())
             },
         )
@@ -13217,6 +13335,7 @@
                 <span class="kw">for </span>r <span class="kw">in </span>temps {
                     this.release_gpr(r);
                 }
+                this.release_gpr(tmp);
                 <span class="prelude-val">Ok</span>(())
             },
         )
@@ -13274,6 +13393,7 @@
                 <span class="kw">for </span>r <span class="kw">in </span>temps {
                     this.release_gpr(r);
                 }
+                this.release_gpr(tmp);
                 <span class="prelude-val">Ok</span>(())
             },
         )
@@ -13331,6 +13451,7 @@
                 <span class="kw">for </span>r <span class="kw">in </span>temps {
                     this.release_gpr(r);
                 }
+                this.release_gpr(tmp);
                 <span class="prelude-val">Ok</span>(())
             },
         )
@@ -13393,6 +13514,7 @@
                 <span class="kw">for </span>r <span class="kw">in </span>temps {
                     this.release_gpr(r);
                 }
+                this.release_gpr(tmp);
                 <span class="prelude-val">Ok</span>(())
             },
         )
@@ -13455,6 +13577,7 @@
                 <span class="kw">for </span>r <span class="kw">in </span>temps {
                     this.release_gpr(r);
                 }
+                this.release_gpr(tmp);
                 <span class="prelude-val">Ok</span>(())
             },
         )
@@ -13517,6 +13640,7 @@
                 <span class="kw">for </span>r <span class="kw">in </span>temps {
                     this.release_gpr(r);
                 }
+                this.release_gpr(tmp);
                 <span class="prelude-val">Ok</span>(())
             },
         )
@@ -14530,6 +14654,8 @@
                 <span class="kw">for </span>r <span class="kw">in </span>temps {
                     this.release_gpr(r);
                 }
+                this.release_gpr(tmp1);
+                this.release_gpr(tmp2);
                 <span class="prelude-val">Ok</span>(())
             },
         )
@@ -14589,6 +14715,8 @@
                 <span class="kw">for </span>r <span class="kw">in </span>temps {
                     this.release_gpr(r);
                 }
+                this.release_gpr(tmp1);
+                this.release_gpr(tmp2);
                 <span class="prelude-val">Ok</span>(())
             },
         )
@@ -14648,6 +14776,8 @@
                 <span class="kw">for </span>r <span class="kw">in </span>temps {
                     this.release_gpr(r);
                 }
+                this.release_gpr(tmp1);
+                this.release_gpr(tmp2);
                 <span class="prelude-val">Ok</span>(())
             },
         )
@@ -14707,6 +14837,8 @@
                 <span class="kw">for </span>r <span class="kw">in </span>temps {
                     this.release_gpr(r);
                 }
+                this.release_gpr(tmp1);
+                this.release_gpr(tmp2);
                 <span class="prelude-val">Ok</span>(())
             },
         )
@@ -14766,6 +14898,8 @@
                 <span class="kw">for </span>r <span class="kw">in </span>temps {
                     this.release_gpr(r);
                 }
+                this.release_gpr(tmp1);
+                this.release_gpr(tmp2);
                 <span class="prelude-val">Ok</span>(())
             },
         )
@@ -14825,6 +14959,8 @@
                 <span class="kw">for </span>r <span class="kw">in </span>temps {
                     this.release_gpr(r);
                 }
+                this.release_gpr(tmp1);
+                this.release_gpr(tmp2);
                 <span class="prelude-val">Ok</span>(())
             },
         )
@@ -14884,6 +15020,8 @@
                 <span class="kw">for </span>r <span class="kw">in </span>temps {
                     this.release_gpr(r);
                 }
+                this.release_gpr(tmp1);
+                this.release_gpr(tmp2);
                 <span class="prelude-val">Ok</span>(())
             },
         )
@@ -14943,6 +15081,8 @@
                 <span class="kw">for </span>r <span class="kw">in </span>temps {
                     this.release_gpr(r);
                 }
+                this.release_gpr(tmp1);
+                this.release_gpr(tmp2);
                 <span class="prelude-val">Ok</span>(())
             },
         )
@@ -15002,6 +15142,8 @@
                 <span class="kw">for </span>r <span class="kw">in </span>temps {
                     this.release_gpr(r);
                 }
+                this.release_gpr(tmp1);
+                this.release_gpr(tmp2);
                 <span class="prelude-val">Ok</span>(())
             },
         )
@@ -15061,6 +15203,8 @@
                 <span class="kw">for </span>r <span class="kw">in </span>temps {
                     this.release_gpr(r);
                 }
+                this.release_gpr(tmp1);
+                this.release_gpr(tmp2);
                 <span class="prelude-val">Ok</span>(())
             },
         )
@@ -15120,6 +15264,8 @@
                 <span class="kw">for </span>r <span class="kw">in </span>temps {
                     this.release_gpr(r);
                 }
+                this.release_gpr(tmp1);
+                this.release_gpr(tmp2);
                 <span class="prelude-val">Ok</span>(())
             },
         )
@@ -15179,6 +15325,8 @@
                 <span class="kw">for </span>r <span class="kw">in </span>temps {
                     this.release_gpr(r);
                 }
+                this.release_gpr(tmp1);
+                this.release_gpr(tmp2);
                 <span class="prelude-val">Ok</span>(())
             },
         )
@@ -15238,6 +15386,8 @@
                 <span class="kw">for </span>r <span class="kw">in </span>temps {
                     this.release_gpr(r);
                 }
+                this.release_gpr(tmp1);
+                this.release_gpr(tmp2);
                 <span class="prelude-val">Ok</span>(())
             },
         )
@@ -15297,6 +15447,8 @@
                 <span class="kw">for </span>r <span class="kw">in </span>temps {
                     this.release_gpr(r);
                 }
+                this.release_gpr(tmp1);
+                this.release_gpr(tmp2);
                 <span class="prelude-val">Ok</span>(())
             },
         )
@@ -15356,6 +15508,8 @@
                 <span class="kw">for </span>r <span class="kw">in </span>temps {
                     this.release_gpr(r);
                 }
+                this.release_gpr(tmp1);
+                this.release_gpr(tmp2);
                 <span class="prelude-val">Ok</span>(())
             },
         )
@@ -15415,6 +15569,8 @@
                 <span class="kw">for </span>r <span class="kw">in </span>temps {
                     this.release_gpr(r);
                 }
+                this.release_gpr(tmp1);
+                this.release_gpr(tmp2);
                 <span class="prelude-val">Ok</span>(())
             },
         )
@@ -15474,6 +15630,8 @@
                 <span class="kw">for </span>r <span class="kw">in </span>temps {
                     this.release_gpr(r);
                 }
+                this.release_gpr(tmp1);
+                this.release_gpr(tmp2);
                 <span class="prelude-val">Ok</span>(())
             },
         )
@@ -15533,6 +15691,8 @@
                 <span class="kw">for </span>r <span class="kw">in </span>temps {
                     this.release_gpr(r);
                 }
+                this.release_gpr(tmp1);
+                this.release_gpr(tmp2);
                 <span class="prelude-val">Ok</span>(())
             },
         )
@@ -15592,6 +15752,8 @@
                 <span class="kw">for </span>r <span class="kw">in </span>temps {
                     this.release_gpr(r);
                 }
+                this.release_gpr(tmp1);
+                this.release_gpr(tmp2);
                 <span class="prelude-val">Ok</span>(())
             },
         )
@@ -15651,6 +15813,8 @@
                 <span class="kw">for </span>r <span class="kw">in </span>temps {
                     this.release_gpr(r);
                 }
+                this.release_gpr(tmp1);
+                this.release_gpr(tmp2);
                 <span class="prelude-val">Ok</span>(())
             },
         )
@@ -15708,6 +15872,7 @@
                 <span class="kw">for </span>r <span class="kw">in </span>temps {
                     this.release_gpr(r);
                 }
+                this.release_gpr(tmp);
                 <span class="prelude-val">Ok</span>(())
             },
         )
@@ -15765,6 +15930,7 @@
                 <span class="kw">for </span>r <span class="kw">in </span>temps {
                     this.release_gpr(r);
                 }
+                this.release_gpr(tmp);
                 <span class="prelude-val">Ok</span>(())
             },
         )
@@ -15822,6 +15988,7 @@
                 <span class="kw">for </span>r <span class="kw">in </span>temps {
                     this.release_gpr(r);
                 }
+                this.release_gpr(tmp);
                 <span class="prelude-val">Ok</span>(())
             },
         )
@@ -15879,6 +16046,7 @@
                 <span class="kw">for </span>r <span class="kw">in </span>temps {
                     this.release_gpr(r);
                 }
+                this.release_gpr(tmp);
                 <span class="prelude-val">Ok</span>(())
             },
         )
@@ -15941,6 +16109,7 @@
                 <span class="kw">for </span>r <span class="kw">in </span>temps {
                     this.release_gpr(r);
                 }
+                this.release_gpr(tmp);
                 <span class="prelude-val">Ok</span>(())
             },
         )
@@ -16003,6 +16172,7 @@
                 <span class="kw">for </span>r <span class="kw">in </span>temps {
                     this.release_gpr(r);
                 }
+                this.release_gpr(tmp);
                 <span class="prelude-val">Ok</span>(())
             },
         )
@@ -16065,6 +16235,7 @@
                 <span class="kw">for </span>r <span class="kw">in </span>temps {
                     this.release_gpr(r);
                 }
+                this.release_gpr(tmp);
                 <span class="prelude-val">Ok</span>(())
             },
         )
@@ -16127,6 +16298,7 @@
                 <span class="kw">for </span>r <span class="kw">in </span>temps {
                     this.release_gpr(r);
                 }
+                this.release_gpr(tmp);
                 <span class="prelude-val">Ok</span>(())
             },
         )
