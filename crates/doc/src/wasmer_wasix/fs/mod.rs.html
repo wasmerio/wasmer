@@ -2041,6 +2041,7 @@
 <a href="#2041" id="2041">2041</a>
 <a href="#2042" id="2042">2042</a>
 <a href="#2043" id="2043">2043</a>
+<a href="#2044" id="2044">2044</a>
 </pre></div><pre class="rust"><code><span class="kw">mod </span>fd;
 <span class="kw">mod </span>inode_guard;
 <span class="kw">mod </span>notification;
@@ -2973,7 +2974,8 @@
                                 <span class="kw">let </span>(pre_open_dir_fd, relative_path) = <span class="kw">if </span>link_value.is_relative() {
                                     <span class="self">self</span>.path_into_pre_open_and_relative_path(<span class="kw-2">&amp;</span>file)<span class="question-mark">?
                                 </span>} <span class="kw">else </span>{
-                                    <span class="macro">unimplemented!</span>(<span class="string">&quot;Absolute symlinks are not yet supported&quot;</span>);
+                                    <span class="macro">tracing::error!</span>(<span class="string">&quot;Absolute symlinks are not yet supported&quot;</span>);
+                                    <span class="kw">return </span><span class="prelude-val">Err</span>(Errno::Notsup);
                                 };
                                 loop_for_symlink = <span class="bool-val">true</span>;
                                 symlink_count += <span class="number">1</span>;
