@@ -2,6 +2,8 @@ use anyhow::Context as _;
 use clap::Parser;
 use wasmer_registry::{publish::PublishWait, wasmer_env::WasmerEnv};
 
+use super::PackageBuild;
+
 /// Publish a package to the package registry.
 #[derive(Debug, Parser)]
 pub struct Publish {
@@ -47,6 +49,13 @@ pub struct Publish {
 impl Publish {
     /// Executes `wasmer publish`
     pub fn execute(&self) -> Result<(), anyhow::Error> {
+        // first check if the package could be built successfuly
+        let package_path = match self.package_path.as_ref() {
+            Some(s) => std::env::current_dir()?.join(s),
+            None => std::env::current_dir()?,
+        };
+        PackageBuild::check(package_path).execute()?;
+
         let token = self
             .env
             .token()
