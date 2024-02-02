@@ -557,6 +557,12 @@ jobs:
             llvm_url: 'https://github.com/llvm/llvm-project/releases/download/llvmorg-15.0.7/clang+llvm-15.0.7-x86_64-apple-darwin21.0.tar.xz'
           },
           {
+            build: macos-arm64,
+            os: macos-latest-large,
+            target: aarch64-apple-darwin,
+            exe: '',
+          },
+          {
             build: windows-x64,
             os: windows-2019,
             target: x86_64-pc-windows-msvc,
