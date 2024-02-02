@@ -56,7 +56,7 @@ use crate::error::PrettyError;
 pub(crate) trait CliCommand {
     type Output;
 
-    fn run(self) -> Result<(), anyhow::Error>;
+    fn run(self) -> Result<Self::Output, anyhow::Error>;
 }
 
 /// An executable CLI command that runs in an async context.
@@ -73,9 +73,8 @@ pub(crate) trait AsyncCliCommand: Send + Sync {
 impl<O: Send + Sync, C: AsyncCliCommand<Output = O>> CliCommand for C {
     type Output = O;
 
-    fn run(self) -> Result<(), anyhow::Error> {
-        tokio::runtime::Runtime::new()?.block_on(AsyncCliCommand::run_async(self))?;
-        Ok(())
+    fn run(self) -> Result<Self::Output, anyhow::Error> {
+        tokio::runtime::Runtime::new()?.block_on(AsyncCliCommand::run_async(self))
     }
 }
 
@@ -147,11 +146,11 @@ impl WasmerCmd {
             Some(Cmd::Wast(wast)) => wast.execute(),
             #[cfg(target_os = "linux")]
             Some(Cmd::Binfmt(binfmt)) => binfmt.execute(),
-            Some(Cmd::Whoami(whoami)) => whoami.run(),
+            Some(Cmd::Whoami(whoami)) => whoami.run().map(|_| ()),
             Some(Cmd::Add(install)) => install.run(),
 
             // Deploy commands.
-            Some(Cmd::Deploy(c)) => c.run(),
+            Some(Cmd::Deploy(c)) => c.run().map(|_| ()),
             Some(Cmd::App(apps)) => apps.run(),
             #[cfg(feature = "journal")]
             Some(Cmd::Journal(journal)) => journal.run(),
