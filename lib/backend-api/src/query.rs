@@ -44,14 +44,25 @@ pub async fn fetch_webc_package(
 /// Get the currently logged in used, together with all accessible namespaces.
 ///
 /// You can optionally filter the namespaces by the user role.
+pub async fn current_user(client: &WasmerClient) -> Result<types::User, anyhow::Error> {
+    client
+        .run_graphql(types::GetCurrentUser::build(()))
+        .await?
+        .viewer
+        .context("not logged in")
+}
+
+/// Get the currently logged in used, together with all accessible namespaces.
+///
+/// You can optionally filter the namespaces by the user role.
 pub async fn current_user_with_namespaces(
     client: &WasmerClient,
     namespace_role: Option<types::GrapheneRole>,
 ) -> Result<types::UserWithNamespaces, anyhow::Error> {
     client
-        .run_graphql(types::GetCurrentUser::build(types::GetCurrentUserVars {
-            namespace_role,
-        }))
+        .run_graphql(types::GetCurrentUserWithNamespaces::build(
+            types::GetCurrentUserWithNamespacesVars { namespace_role },
+        ))
         .await?
         .viewer
         .context("not logged in")
@@ -401,9 +412,11 @@ pub async fn user_accessible_apps(
 
     // Get all aps in user-accessible namespaces.
     let namespace_res = client
-        .run_graphql(types::GetCurrentUser::build(types::GetCurrentUserVars {
-            namespace_role: None,
-        }))
+        .run_graphql(types::GetCurrentUserWithNamespaces::build(
+            types::GetCurrentUserWithNamespacesVars {
+                namespace_role: None,
+            },
+        ))
         .await?;
     let active_user = namespace_res.viewer.context("not logged in")?;
     let namespace_names = active_user
@@ -503,9 +516,11 @@ pub async fn user_namespaces(
     client: &WasmerClient,
 ) -> Result<Vec<types::Namespace>, anyhow::Error> {
     let user = client
-        .run_graphql(types::GetCurrentUser::build(types::GetCurrentUserVars {
-            namespace_role: None,
-        }))
+        .run_graphql(types::GetCurrentUserWithNamespaces::build(
+            types::GetCurrentUserWithNamespacesVars {
+                namespace_role: None,
+            },
+        ))
         .await?
         .viewer
         .context("not logged in")?;
