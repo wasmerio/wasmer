@@ -21,7 +21,7 @@ use webc::{
 };
 
 use self::utils::normalize_atom_name;
-use crate::{common::normalize_path, store::CompilerOptions};
+use crate::{common::normalize_path, opts::DirOpts, store::CompilerOptions};
 
 const LINK_SYSTEM_LIBRARIES_WINDOWS: &[&str] = &["userenv", "Ws2_32", "advapi32", "bcrypt"];
 
@@ -30,6 +30,9 @@ const LINK_SYSTEM_LIBRARIES_UNIX: &[&str] = &["dl", "m", "pthread"];
 #[derive(Debug, Parser)]
 /// The options for the `wasmer create-exe` subcommand
 pub struct CreateExe {
+    #[clap(flatten)]
+    dirs: DirOpts,
+
     /// Input file
     #[clap(name = "FILE")]
     path: PathBuf,
@@ -207,8 +210,15 @@ impl CreateExe {
             None => None,
         };
 
-        let cross_compilation =
-            utils::get_cross_compile_setup(&mut cc, &target_triple, &starting_cd, url_or_version)?;
+        let cache_dir = self.dirs.cache_dir().ok();
+
+        let cross_compilation = utils::get_cross_compile_setup(
+            &mut cc,
+            &target_triple,
+            &starting_cd,
+            url_or_version,
+            cache_dir.clone(),
+        )?;
 
         if input_path.is_dir() {
             return Err(anyhow::anyhow!("input path cannot be a directory"));
@@ -1590,6 +1600,7 @@ pub(super) mod utils {
         target_triple: &Triple,
         starting_cd: &Path,
         specific_release: Option<UrlOrVersion>,
+        cache_dir: Option<PathBuf>,
     ) -> Result<CrossCompileSetup, anyhow::Error> {
         let target = target_triple;
 
@@ -1629,18 +1640,8 @@ pub(super) mod utils {
             let (filename, tarball_dir) = find_filename(local_tarball, target)?;
             Some(tarball_dir.join(filename))
         } else {
-            let wasmer_cache_dir =
-                if *target_triple == Triple::host() && std::env::var("WASMER_DIR").is_ok() {
-                    wasmer_registry::WasmerConfig::get_wasmer_dir()
-                        .map_err(|e| anyhow!("{e}"))
-                        .map(|o| o.join("cache"))
-                } else {
-                    get_libwasmer_cache_path()
-                }
-                .ok();
-
             // check if the tarball for the target already exists locally
-            let local_tarball = wasmer_cache_dir.as_ref().and_then(|wc| {
+            let local_tarball = cache_dir.as_ref().and_then(|wc| {
                 let wasmer_cache = std::fs::read_dir(wc).ok()?;
                 wasmer_cache
                     .filter_map(|e| e.ok())
@@ -1656,12 +1657,17 @@ pub(super) mod utils {
             });
 
             if let Some(UrlOrVersion::Url(wasmer_release)) = specific_release.as_ref() {
-                let tarball = super::http_fetch::download_url(wasmer_release.as_ref())?;
+                let tarball =
+                    super::http_fetch::download_url(wasmer_release.as_ref(), cache_dir.clone())?;
                 let (filename, tarball_dir) = find_filename(&tarball, target)?;
                 Some(tarball_dir.join(filename))
             } else if let Some(UrlOrVersion::Version(wasmer_release)) = specific_release.as_ref() {
                 let release = super::http_fetch::get_release(Some(wasmer_release.clone()))?;
-                let tarball = super::http_fetch::download_release(release, target.clone())?;
+                let tarball = super::http_fetch::download_release(
+                    release,
+                    target.clone(),
+                    cache_dir.clone(),
+                )?;
                 let (filename, tarball_dir) = find_filename(&tarball, target)?;
                 Some(tarball_dir.join(filename))
             } else if let Some(local_tarball) = local_tarball.as_ref() {
@@ -1669,7 +1675,11 @@ pub(super) mod utils {
                 Some(tarball_dir.join(filename))
             } else {
                 let release = super::http_fetch::get_release(None)?;
-                let tarball = super::http_fetch::download_release(release, target.clone())?;
+                let tarball = super::http_fetch::download_release(
+                    release,
+                    target.clone(),
+                    cache_dir.clone(),
+                )?;
                 let (filename, tarball_dir) = find_filename(&tarball, target)?;
                 Some(tarball_dir.join(filename))
             }
@@ -1868,14 +1878,6 @@ pub(super) mod utils {
         } else {
             Ok(path.join("lib").join(libwasmer_static_name))
         }
-    }
-
-    /// path to library tarball cache dir
-    pub(super) fn get_libwasmer_cache_path() -> anyhow::Result<PathBuf> {
-        let mut path = get_wasmer_dir()?;
-        path.push("cache");
-        std::fs::create_dir_all(&path)?;
-        Ok(path)
     }
 
     pub(super) fn get_zig_exe_str() -> &'static str {
@@ -2086,7 +2088,7 @@ pub(super) mod utils {
 mod http_fetch {
     use std::path::Path;
 
-    use anyhow::{anyhow, Context, Result};
+    use anyhow::{anyhow, bail, Context, Result};
 
     pub(super) fn get_release(
         release_version: Option<semver::Version>,
@@ -2166,9 +2168,10 @@ mod http_fetch {
     pub(super) fn download_release(
         mut release: serde_json::Value,
         target_triple: wasmer::Triple,
+        cache_dir: Option<PathBuf>,
     ) -> Result<std::path::PathBuf> {
         // Test if file has been already downloaded
-        if let Ok(mut cache_path) = super::utils::get_libwasmer_cache_path() {
+        if let Some(mut cache_path) = cache_dir.clone() {
             let paths = std::fs::read_dir(&cache_path).and_then(|r| {
                 r.map(|res| res.map(|e| e.path()))
                     .collect::<Result<Vec<_>, std::io::Error>>()
@@ -2221,11 +2224,12 @@ mod http_fetch {
             ));
         };
 
-        download_url(&browser_download_url)
+        download_url(&browser_download_url, cache_dir)
     }
 
     pub(crate) fn download_url(
         browser_download_url: &str,
+        cache_dir: Option<PathBuf>,
     ) -> Result<std::path::PathBuf, anyhow::Error> {
         let filename = browser_download_url
             .split('/')
@@ -2258,8 +2262,8 @@ mod http_fetch {
             .copy_to(&mut file)
             .map_err(|e| anyhow::anyhow!("{e}"))?;
 
-        match super::utils::get_libwasmer_cache_path() {
-            Ok(mut cache_path) => {
+        match cache_dir {
+            Some(mut cache_path) => {
                 cache_path.push(&filename);
                 if let Err(err) = std::fs::copy(&download_path, &cache_path) {
                     eprintln!(
@@ -2277,12 +2281,9 @@ mod http_fetch {
                     Ok(cache_path)
                 }
             }
-            Err(err) => {
-                eprintln!(
-                    "Could not determine cache path for downloaded binaries.: {}",
-                    err
-                );
-                Err(anyhow!("Could not determine libwasmer cache path"))
+            None => {
+                eprintln!("Could not determine cache path for downloaded binaries.",);
+                bail!("Could not determine libwasmer cache path")
             }
         }
     }

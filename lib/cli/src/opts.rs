@@ -4,6 +4,41 @@ use anyhow::Context;
 use wasmer_api::WasmerClient;
 use wasmer_registry::WasmerConfig;
 
+#[derive(clap::Parser, Debug, Default)]
+pub struct DirOpts {
+    /// Cache directory.
+    ///
+    /// Stores compilation artifacts, package registry caches, ...
+    #[clap(long, env = "WASMER_CACHE_DIR")]
+    cache_dir: Option<PathBuf>,
+}
+
+impl DirOpts {
+    pub fn default_cache_dir() -> Result<PathBuf, anyhow::Error> {
+        if let Some(d) = dirs::cache_dir() {
+            Ok(d.join("wasmer"))
+        } else {
+            WasmerConfig::get_wasmer_dir()
+                .map(|x| x.join("cache"))
+                .map_err(|e| {
+                    anyhow::anyhow!("could not determine an appropriate cache directory: '{e}'")
+                })
+        }
+    }
+
+    /// Get the cache directory.
+    ///
+    /// If the cache directory is not set, the default cache directory is
+    /// returned.
+    pub fn cache_dir(&self) -> Result<PathBuf, anyhow::Error> {
+        if let Some(d) = &self.cache_dir {
+            Ok(d.clone())
+        } else {
+            Self::default_cache_dir()
+        }
+    }
+}
+
 #[derive(clap::Parser, Debug, Clone, Default)]
 pub struct ApiOpts {
     /// The API token for the backend.

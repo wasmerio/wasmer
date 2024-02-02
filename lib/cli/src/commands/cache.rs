@@ -2,13 +2,15 @@ use std::{fs, path::Path};
 
 use anyhow::Result;
 use clap::Parser;
-use wasmer_registry::wasmer_env::WasmerEnv;
+
+use crate::opts::DirOpts;
 
 #[derive(Debug, Parser)]
 /// The options for the `wasmer cache` subcommand
 pub struct Cache {
     #[clap(flatten)]
-    env: WasmerEnv,
+    cache: DirOpts,
+
     /// The operation to perform.
     #[clap(subcommand)]
     cmd: Cmd,
@@ -17,14 +19,14 @@ pub struct Cache {
 impl Cache {
     /// Execute the cache command
     pub fn execute(&self) -> Result<()> {
-        let cache_dir = self.env.cache_dir();
+        let cache_dir = self.cache.cache_dir()?;
 
         match self.cmd {
             Cmd::Clean => {
                 clean(&cache_dir)?;
             }
             Cmd::Dir => {
-                println!("{}", self.env.cache_dir().display());
+                println!("{}", cache_dir.display());
             }
         }
 
