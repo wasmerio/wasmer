@@ -61,7 +61,7 @@ ENV CARGO_TARGET_RISCV64GC_UNKNOWN_LINUX_GNU_LINKER="$CROSS_TOOLCHAIN_PREFIX"gcc
     RUST_TEST_THREADS=1 \
     PKG_CONFIG_PATH="/usr/lib/riscv64-linux-gnu/pkgconfig/:${PKG_CONFIG_PATH}"
 
-RUN rustup target add riscv64gc-unknown-linux-gnu --toolchain 1.70-x86_64-unknown-linux-gnu
+RUN rustup target add riscv64gc-unknown-linux-gnu --toolchain 1.73-x86_64-unknown-linux-gnu
 
 #compile libssl-dev for riscv64!
 COPY build_openssl.sh /
