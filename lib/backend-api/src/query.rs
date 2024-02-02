@@ -561,6 +561,8 @@ pub async fn create_namespace(
         .context("no namespace returned")
 }
 
+const PACKAGE_VERSION_LATEST: &'static str = "latest";
+
 /// Retrieve a package by its name.
 pub async fn get_package(
     client: &WasmerClient,
@@ -584,6 +586,29 @@ pub async fn get_package_version(
         ))
         .await
         .map(|x| x.get_package_version)
+}
+
+/// Retrieve language bindings for a package version.
+pub async fn get_package_version_bindings(
+    client: &WasmerClient,
+    name: String,
+    version: Option<String>,
+) -> Result<Vec<types::PackageVersionLanguageBinding>, anyhow::Error> {
+    let version = version.unwrap_or_else(|| PACKAGE_VERSION_LATEST.to_string());
+    let out = client
+        .run_graphql_strict(types::GetPackageVersionBindings::build(
+            types::GetPackageVersionVars { name, version },
+        ))
+        .await?;
+
+    let bindings = out
+        .get_package_version
+        .context("could not find package version")?
+        .bindings
+        .into_iter()
+        .flatten()
+        .collect::<Vec<_>>();
+    Ok(bindings)
 }
 
 /// Retrieve package versions for an app.

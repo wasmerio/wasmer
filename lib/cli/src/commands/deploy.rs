@@ -64,7 +64,7 @@ impl AsyncCliCommand for CmdDeploy {
     type Output = DeployAppVersion;
 
     async fn run_async(self) -> Result<DeployAppVersion, anyhow::Error> {
-        let client = self.api.client()?;
+        let client = self.api.client_authenticated()?;
 
         let base_path = if let Some(p) = self.path {
             p

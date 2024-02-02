@@ -24,7 +24,7 @@ impl AsyncCliCommand for CmdNamespaceCreate {
     type Output = ();
 
     async fn run_async(self) -> Result<(), anyhow::Error> {
-        let client = self.api.client()?;
+        let client = self.api.client_authenticated()?;
 
         let vars = wasmer_api::types::CreateNamespaceVars {
             name: self.name.clone(),

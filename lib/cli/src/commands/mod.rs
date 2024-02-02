@@ -132,7 +132,7 @@ impl WasmerCmd {
             Some(Cmd::Login(login)) => login.execute(),
             Some(Cmd::Publish(publish)) => publish.execute(),
             Some(Cmd::Package(cmd)) => match cmd {
-                Package::Download(cmd) => cmd.execute(),
+                Package::Download(cmd) => cmd.run(),
                 Package::Build(cmd) => cmd.execute(),
             },
             Some(Cmd::Container(cmd)) => match cmd {
@@ -147,8 +147,8 @@ impl WasmerCmd {
             Some(Cmd::Wast(wast)) => wast.execute(),
             #[cfg(target_os = "linux")]
             Some(Cmd::Binfmt(binfmt)) => binfmt.execute(),
-            Some(Cmd::Whoami(whoami)) => whoami.execute(),
-            Some(Cmd::Add(install)) => install.execute(),
+            Some(Cmd::Whoami(whoami)) => whoami.run(),
+            Some(Cmd::Add(install)) => install.run(),
 
             // Deploy commands.
             Some(Cmd::Deploy(c)) => c.run(),

@@ -25,7 +25,7 @@ impl AsyncCliCommand for CmdAppDelete {
 
     async fn run_async(self) -> Result<(), anyhow::Error> {
         let interactive = std::io::stdin().is_terminal() && !self.non_interactive;
-        let client = self.api.client()?;
+        let client = self.api.client_authenticated()?;
 
         eprintln!("Looking up the app...");
         let (_ident, app) = self.ident.load_app(&client).await?;

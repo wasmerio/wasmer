@@ -2,16 +2,19 @@ use std::path::PathBuf;
 
 use anyhow::{bail, Context};
 use dialoguer::console::{style, Emoji};
+use futures::TryStreamExt;
 use indicatif::{ProgressBar, ProgressStyle};
-use tempfile::NamedTempFile;
-use wasmer_registry::wasmer_env::WasmerEnv;
+use tokio::io::AsyncWriteExt;
 use wasmer_wasix::runtime::resolver::PackageSpecifier;
+
+use crate::{commands::AsyncCliCommand, opts::ApiOpts};
 
 /// Download a package from the registry.
 #[derive(clap::Parser, Debug)]
 pub struct PackageDownload {
     #[clap(flatten)]
-    env: WasmerEnv,
+    #[allow(missing_docs)]
+    pub api: ApiOpts,
 
     /// Verify that the downloaded file is a valid package.
     #[clap(long)]
@@ -39,8 +42,11 @@ static RETRIEVING_PACKAGE_INFORMATION_EMOJI: Emoji<'_, '_> = Emoji("📜 ", "");
 static VALIDATING_PACKAGE_EMOJI: Emoji<'_, '_> = Emoji("🔍 ", "");
 static WRITING_PACKAGE_EMOJI: Emoji<'_, '_> = Emoji("📦 ", "");
 
-impl PackageDownload {
-    pub(crate) fn execute(&self) -> Result<(), anyhow::Error> {
+#[async_trait::async_trait]
+impl AsyncCliCommand for PackageDownload {
+    type Output = ();
+
+    async fn run_async(self) -> Result<Self::Output, anyhow::Error> {
         let total_steps = if self.validate { 5 } else { 4 };
         let mut step_num = 1;
 
@@ -93,18 +99,12 @@ impl PackageDownload {
 
         step_num += 1;
 
-        let (full_name, version, api_endpoint, token) = match &self.package {
+        let (full_name, version) = match &self.package {
             PackageSpecifier::Registry { full_name, version } => {
-                let endpoint = self.env.registry_endpoint()?;
                 let version = version.to_string();
                 let version = if version == "*" { None } else { Some(version) };
 
-                (
-                    full_name,
-                    version,
-                    endpoint,
-                    self.env.get_token_opt().map(|x| x.to_string()),
-                )
+                (full_name, version)
             }
             PackageSpecifier::Url(url) => {
                 bail!("cannot download a package from a URL: '{}'", url);
@@ -114,30 +114,58 @@ impl PackageDownload {
             }
         };
 
-        let package = wasmer_registry::query_package_from_registry(
-            api_endpoint.as_str(),
-            full_name,
-            version.as_deref(),
-            token.as_deref(),
-        )
-        .with_context(|| {
-            format!(
-                "could not retrieve package information for package '{}' from registry '{}'",
-                full_name, api_endpoint,
-            )
-        })?;
+        let client = self.api.client()?;
 
-        let download_url = package
-            .pirita_url
-            .context("registry does provide a container download container download URL")?;
+        let version = version.unwrap_or_else(|| "latest".to_string());
+        let pkg =
+            wasmer_api::query::get_package_version(&client, full_name.clone(), version.clone())
+                .await
+                .with_context(|| {
+                    format!(
+                    "could not retrieve package information for package '{}' from registry '{}'",
+                    full_name,
+                    client.graphql_endpoint(),
+                )
+                })?
+                .with_context(|| format!("package '{full_name}@{version}' could not be found"))?;
 
-        let client = reqwest::blocking::Client::new();
-        let mut b = client
-            .get(download_url)
-            .header(http::header::ACCEPT, "application/webc");
-        if let Some(token) = token {
-            b = b.header(http::header::AUTHORIZATION, format!("Bearer {token}"));
+        let download_url = pkg.distribution.pirita_download_url.context(
+            "Package is not available for download. Maybe it is still building or failed to build.",
+        )?;
+
+        let tmp_path = self.out_path.with_extension("webc.tmp");
+        if let Some(parent) = tmp_path.parent() {
+            if !parent.exists() {
+                std::fs::create_dir_all(parent).with_context(|| {
+                    format!("could not create directory '{}'", parent.display())
+                })?;
+            }
         };
+        let mut file = tokio::fs::File::create(&tmp_path)
+            .await
+            .with_context(|| format!("could not create temporary file '{}'", tmp_path.display()))?;
+
+        let res = client
+            .client()
+            .get(&download_url)
+            .header(http::header::ACCEPT, "application/webc")
+            .header(http::header::USER_AGENT, client.user_agent().clone())
+            .send()
+            .await
+            .context("http request failed")?;
+
+        if !res.status().is_success() {
+            let status = res.status();
+            let body = res
+                .text()
+                .await
+                .unwrap_or_else(|_| "<non-utf8 body>".to_string());
+            bail!(
+                "could not download package - server returned status code {}\n\n{}",
+                status,
+                body,
+            );
+        }
 
         pb.println(format!(
             "{} {}Downloading package...",
@@ -148,12 +176,6 @@ impl PackageDownload {
         ));
 
         step_num += 1;
-
-        let res = b
-            .send()
-            .context("http request failed")?
-            .error_for_status()
-            .context("http request failed with non-success status code")?;
 
         let webc_total_size = res
             .headers()
@@ -169,7 +191,6 @@ impl PackageDownload {
         // Set the length of the progress bar
         pb.set_length(webc_total_size);
 
-        let mut tmpfile = NamedTempFile::new_in(self.out_path.parent().unwrap())?;
         let accepted_contenttypes = vec![
             "application/webc",
             "application/octet-stream",
@@ -188,10 +209,18 @@ impl PackageDownload {
             );
         }
 
-        std::io::copy(&mut pb.wrap_read(res), &mut tmpfile)
-            .context("could not write downloaded data to temporary file")?;
+        let mut body = res.bytes_stream();
+        while let Some(chunk) = body.try_next().await.context("http request failed")? {
+            file.write_all(&chunk)
+                .await
+                .context("could not write downloaded data to temporary file")?;
+            pb.inc(chunk.len() as u64);
+        }
 
-        tmpfile.as_file_mut().sync_all()?;
+        file.sync_all()
+            .await
+            .context("could not sync temporary file to disk")?;
+        std::mem::drop(file);
 
         if self.validate {
             if !self.quiet {
@@ -206,13 +235,13 @@ impl PackageDownload {
 
             step_num += 1;
 
-            webc::compat::Container::from_disk(tmpfile.path())
+            webc::compat::Container::from_disk(&tmp_path)
                 .context("could not parse downloaded file as a package - invalid download?")?;
         }
 
-        tmpfile.persist(&self.out_path).with_context(|| {
+        std::fs::rename(&tmp_path, &self.out_path).with_context(|| {
             format!(
-                "could not persist temporary file to '{}'",
+                "could not rename temporary file to '{}'",
                 self.out_path.display()
             )
         })?;
@@ -235,7 +264,7 @@ impl PackageDownload {
 
 #[cfg(test)]
 mod tests {
-    use wasmer_registry::wasmer_env::WASMER_DIR;
+    use crate::commands::CliCommand;
 
     use super::*;
 
@@ -247,14 +276,14 @@ mod tests {
         let out_path = dir.path().join("hello.webc");
 
         let cmd = PackageDownload {
-            env: WasmerEnv::new(WASMER_DIR.clone(), Some("wasmer.wtf".into()), None, None),
+            api: ApiOpts::default(),
             validate: true,
             out_path: out_path.clone(),
             package: "wasmer/hello@0.1.0".parse().unwrap(),
             quiet: true,
         };
 
-        cmd.execute().unwrap();
+        cmd.run().unwrap();
 
         webc::compat::Container::from_disk(out_path).unwrap();
     }

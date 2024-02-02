@@ -28,7 +28,7 @@ impl AsyncCliCommand for CmdAppGet {
     type Output = DeployApp;
 
     async fn run_async(self) -> Result<DeployApp, anyhow::Error> {
-        let client = self.api.client()?;
+        let client = self.api.client_authenticated()?;
         let (_ident, app) = self.ident.load_app(&client).await?;
         Ok(app)
     }

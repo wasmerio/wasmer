@@ -1,21 +1,32 @@
 use clap::Parser;
-use wasmer_registry::wasmer_env::WasmerEnv;
 
+use crate::opts::ApiOpts;
+
+use super::AsyncCliCommand;
+
+/// Show the current user.
+///
+/// Use this to verify you are currently logged in.
 #[derive(Debug, Parser)]
-/// The options for the `wasmer whoami` subcommand
 pub struct Whoami {
     #[clap(flatten)]
-    env: WasmerEnv,
+    #[allow(missing_docs)]
+    pub api: ApiOpts,
 }
 
-impl Whoami {
-    /// Execute `wasmer whoami`
-    pub fn execute(&self) -> Result<(), anyhow::Error> {
-        let registry = self.env.registry_endpoint()?;
-        let token = self.env.token();
-        let (registry, username) =
-            wasmer_registry::whoami(self.env.dir(), Some(registry.as_str()), token.as_deref())?;
-        println!("logged into registry {registry:?} as user {username:?}");
-        Ok(())
+#[async_trait::async_trait]
+impl AsyncCliCommand for Whoami {
+    type Output = wasmer_api::types::User;
+
+    async fn run_async(self) -> Result<Self::Output, anyhow::Error> {
+        let client = self.api.client_authenticated()?;
+        let user = wasmer_api::query::current_user(&client).await?;
+
+        println!(
+            "You are logged in as user '{}' @{}.",
+            user.username,
+            client.graphql_endpoint().host_str().unwrap_or_default(),
+        );
+        Ok(user)
     }
 }

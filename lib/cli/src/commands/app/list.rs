@@ -30,7 +30,7 @@ impl AsyncCliCommand for CmdAppList {
     type Output = ();
 
     async fn run_async(self) -> Result<(), anyhow::Error> {
-        let client = self.api.client()?;
+        let client = self.api.client_authenticated()?;
 
         let apps = if let Some(ns) = self.namespace {
             wasmer_api::query::namespace_apps(&client, &ns).await?

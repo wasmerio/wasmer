@@ -66,7 +66,7 @@ impl crate::commands::AsyncCliCommand for CmdAppLogs {
     type Output = ();
 
     async fn run_async(self) -> Result<(), anyhow::Error> {
-        let client = self.api.client()?;
+        let client = self.api.client_authenticated()?;
 
         let Identifier {
             name,

@@ -1,13 +1,25 @@
+use std::path::PathBuf;
+
 use anyhow::Context;
 use wasmer_api::WasmerClient;
 use wasmer_registry::WasmerConfig;
 
 #[derive(clap::Parser, Debug, Clone, Default)]
 pub struct ApiOpts {
+    /// The API token for the backend.
+    /// Inferred from the environment by default.
     #[clap(long, env = "WASMER_TOKEN")]
     pub token: Option<String>,
-    #[clap(long)]
+
+    /// The backend URL.
+    /// May be either a full URL to a GraphQL endpoint, or a plain URL.
+    /// Plain URLs are expanded to "<registry.URL/graphql>"
+    #[clap(long, env = "WASMER_REGISTRY")]
     pub registry: Option<url::Url>,
+
+    /// The directory cached artefacts are saved to.
+    #[clap(long, env = "WASMER_CACHE_DIR")]
+    cache_dir: Option<PathBuf>,
 }
 
 struct Login {
@@ -68,7 +80,14 @@ impl ApiOpts {
         Ok(login)
     }
 
-    pub fn client_unauthennticated(&self) -> Result<WasmerClient, anyhow::Error> {
+    /// Get the backend client.
+    ///
+    /// If a token is provided in the options, the token will be used.
+    /// Otherwise the client will be anonymous and unauthenticated.
+    ///
+    /// Use [`Self::client_authenticated`] to get an error if no token is
+    /// available.
+    pub fn client(&self) -> Result<WasmerClient, anyhow::Error> {
         let login = self.build_login()?;
 
         let client = wasmer_api::WasmerClient::new(login.url, "edge-cli")?;
@@ -82,15 +101,22 @@ impl ApiOpts {
         Ok(client)
     }
 
-    pub fn client(&self) -> Result<WasmerClient, anyhow::Error> {
-        let client = self.client_unauthennticated()?;
+    /// Get the backend client that is authenticated.
+    ///
+    /// Returns an error if no token is available.
+    pub fn client_authenticated(&self) -> Result<WasmerClient, anyhow::Error> {
+        let client = self.client()?;
         if client.auth_token().is_none() {
-            anyhow::bail!("no token provided - run 'wasmer login', specify --token=XXX, or set the WASMER_TOKEN env var");
+            return Err(ApiUnauthenticatedError.into());
         }
 
         Ok(client)
     }
 }
+
+#[derive(thiserror::Error, Debug)]
+#[error("No backend token provided - run 'wasmer login', specify --token=XXX, or set the WASMER_TOKEN env var")]
+pub struct ApiUnauthenticatedError;
 
 /// Formatting options for a single item.
 #[derive(clap::Parser, Debug, Default)]
