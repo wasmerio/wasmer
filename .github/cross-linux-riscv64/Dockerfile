@@ -28,7 +28,7 @@ RUN apt-get update  && \
 # install rust tools
 RUN curl --proto "=https" --tlsv1.2 --retry 3 -sSfL https://sh.rustup.rs | sh -s -- -y
 ENV PATH="/root/.cargo/bin:${PATH}"
-RUN rustup -v toolchain install 1.70
+RUN rustup -v toolchain install 1.73
 # add docker the manual way
 COPY install_docker.sh /
 RUN /install_docker.sh
