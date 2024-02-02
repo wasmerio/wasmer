@@ -426,7 +426,8 @@ pub fn _strftime(
     ) else {
         return 0;
     };
-    let Ok(rust_time) = time::Time::from_hms(tm.tm_hour as u8, tm.tm_min as u8, tm.tm_sec as u8) else {
+    let Ok(rust_time) = time::Time::from_hms(tm.tm_hour as u8, tm.tm_min as u8, tm.tm_sec as u8)
+    else {
         return 0;
     };
     let rust_datetime = time::PrimitiveDateTime::new(rust_date, rust_time);
