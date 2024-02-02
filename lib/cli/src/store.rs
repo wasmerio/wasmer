@@ -351,7 +351,7 @@ impl ToString for CompilerType {
     }
 }
 
-#[cfg(all(feature = "compiler"))]
+#[cfg(feature = "compiler")]
 impl StoreOptions {
     /// Gets the store for the host target, with the compiler name selected
     pub fn get_store(&self) -> Result<(Store, CompilerType)> {

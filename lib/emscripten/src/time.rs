@@ -183,8 +183,8 @@ unsafe fn fmt_time(ctx: FunctionEnvMut<EmEnv>, time: u32) -> *const c_char {
     let memory = ctx.data().memory(0);
     let date = &*(emscripten_memory_pointer!(memory.view(&ctx), time) as *mut guest_tm);
 
-    let days = vec!["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-    let months = vec![
+    let days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+    let months = [
         "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
     ];
     let year = 1900 + date.tm_year;
