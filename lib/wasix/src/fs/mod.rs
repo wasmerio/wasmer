@@ -1295,12 +1295,27 @@ impl WasiFs {
     }
 
     pub fn get_fd(&self, fd: WasiFd) -> Result<Fd, Errno> {
-        self.fd_map
+        let ret = self
+            .fd_map
             .read()
             .unwrap()
             .get(&fd)
             .ok_or(Errno::Badf)
-            .map(|a| a.clone())
+            .map(|a| a.clone());
+
+        if ret.is_err() && fd == VIRTUAL_ROOT_FD {
+            Ok(Fd {
+                rights: ALL_RIGHTS,
+                rights_inheriting: ALL_RIGHTS,
+                flags: Fdflags::empty(),
+                offset: Arc::new(AtomicU64::new(0)),
+                open_flags: 0,
+                inode: self.root_inode.clone(),
+                is_stdio: false,
+            })
+        } else {
+            ret
+        }
     }
 
     pub fn get_fd_inode(&self, fd: WasiFd) -> Result<InodeGuard, Errno> {

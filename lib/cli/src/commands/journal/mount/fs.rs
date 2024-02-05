@@ -474,6 +474,7 @@ impl Filesystem for JournalFileSystem {
                     }
                 };
 
+                let fh;
                 let mut state = self.state.inner.lock().unwrap();
                 let file = state
                     .mem_fs
@@ -481,75 +482,94 @@ impl Filesystem for JournalFileSystem {
                     .read(true)
                     .write(true)
                     .open(&Path::new(path.as_ref()));
-                let file = match file {
-                    Ok(f) => f,
+                match file {
+                    Ok(file) => {
+                        // Reserve a file descriptor and close the state
+                        fh = state.seed.next_val();
+                        drop(state);
+
+                        entries.push(JournalEntry::OpenFileDescriptorV1 {
+                            fd: fh,
+                            dirfd: VIRTUAL_ROOT_FD,
+                            dirflags: 0,
+                            path,
+                            o_flags: wasi::Oflags::empty(),
+                            fs_rights_base: wasi::Rights::all(),
+                            fs_rights_inheriting: wasi::Rights::all(),
+                            fs_flags: wasi::Fdflags::empty(),
+                        });
+                        if let Some(size) = size {
+                            entries.push(JournalEntry::FileDescriptorSetSizeV1 {
+                                fd: fh as u32,
+                                st_size: size,
+                            })
+                        }
+                        entries.push(JournalEntry::CloseFileDescriptorV1 { fd: fh });
+
+                        for entry in entries.iter() {
+                            if self.state.write(entry.clone()).is_err() {
+                                tracing::trace!("fs::open err=EIO");
+                                reply.error(libc::EIO);
+                                return;
+                            }
+                        }
+                        for entry in entries.iter() {
+                            if self.journal.write(entry.clone()).is_err() {
+                                tracing::trace!("fs::open err=EIO");
+                                reply.error(libc::EIO);
+                                return;
+                            }
+                        }
+                        FileAttr {
+                            ino,
+                            size: file.size(),
+                            blocks: (1u64.max(file.size()) - 1 / 512) + 1,
+                            atime: time::Timespec::new(file.last_accessed() as i64, 0),
+                            mtime: time::Timespec::new(file.last_modified() as i64, 0),
+                            ctime: time::Timespec::new(file.created_time() as i64, 0),
+                            crtime: time::Timespec::new(file.created_time() as i64, 0),
+                            kind: fuse::FileType::RegularFile,
+                            perm: 0o644,
+                            nlink: 1,
+                            uid: 0,
+                            gid: 0,
+                            rdev: 0,
+                            flags: 0,
+                        }
+                    }
+                    Err(FsError::EntryNotFound) => {
+                        // Maybe its a directory, in which case we are done
+                        if let Ok(meta) = state.mem_fs.metadata(&Path::new(path.as_ref())) {
+                            FileAttr {
+                                ino,
+                                size: meta.len,
+                                blocks: (1u64.max(meta.len) - 1 / 512) + 1,
+                                atime: time::Timespec::new(meta.accessed as i64, 0),
+                                mtime: time::Timespec::new(meta.modified as i64, 0),
+                                ctime: time::Timespec::new(meta.created as i64, 0),
+                                crtime: time::Timespec::new(meta.created as i64, 0),
+                                kind: file_type_to_kind(meta.ft),
+                                perm: 0o644,
+                                nlink: 1,
+                                uid: 0,
+                                gid: 0,
+                                rdev: 0,
+                                flags: 0,
+                            }
+                        } else {
+                            tracing::trace!("fs::setattr open_file({path}) err=ENOENT");
+                            reply.error(libc::ENOENT);
+                            return;
+                        }
+                    }
                     Err(err) => {
                         tracing::trace!("fs::setattr open_file({path}) err={err}");
                         reply.error(libc::EIO);
                         return;
                     }
-                };
-                drop(state);
-
-                // Reserve a file descriptor
-                let fh = {
-                    let mut state = self.state.inner.lock().unwrap();
-                    state.seed.next_val()
-                };
-
-                self.handle.block_on(async {
-                    entries.push(JournalEntry::OpenFileDescriptorV1 {
-                        fd: fh,
-                        dirfd: VIRTUAL_ROOT_FD,
-                        dirflags: 0,
-                        path,
-                        o_flags: wasi::Oflags::empty(),
-                        fs_rights_base: wasi::Rights::all(),
-                        fs_rights_inheriting: wasi::Rights::all(),
-                        fs_flags: wasi::Fdflags::empty(),
-                    });
-                    if let Some(size) = size {
-                        entries.push(JournalEntry::FileDescriptorSetSizeV1 {
-                            fd: fh as u32,
-                            st_size: size,
-                        })
-                    }
-                    entries.push(JournalEntry::CloseFileDescriptorV1 { fd: fh });
-
-                    FileAttr {
-                        ino,
-                        size: file.size(),
-                        blocks: (1u64.max(file.size()) - 1 / 512) + 1,
-                        atime: time::Timespec::new(file.last_accessed() as i64, 0),
-                        mtime: time::Timespec::new(file.last_modified() as i64, 0),
-                        ctime: time::Timespec::new(file.created_time() as i64, 0),
-                        crtime: time::Timespec::new(file.created_time() as i64, 0),
-                        kind: fuse::FileType::RegularFile,
-                        perm: 0o644,
-                        nlink: 1,
-                        uid: 0,
-                        gid: 0,
-                        rdev: 0,
-                        flags: 0,
-                    }
-                })
+                }
             }
         };
-
-        for entry in entries.iter() {
-            if self.state.write(entry.clone()).is_err() {
-                tracing::trace!("fs::open err=EIO");
-                reply.error(libc::EIO);
-                return;
-            }
-        }
-        for entry in entries.iter() {
-            if self.journal.write(entry.clone()).is_err() {
-                tracing::trace!("fs::open err=EIO");
-                reply.error(libc::EIO);
-                return;
-            }
-        }
 
         // Return the data
         reply.attr(&time::Timespec::new(1, 0), &attr)
