@@ -10,6 +10,7 @@ use std::{
 };
 
 use derivative::Derivative;
+use tokio::sync::broadcast;
 use virtual_net::{tcp_pair::TcpSocketHalf, LoopbackNetworking};
 
 pub type PollListeningFn =
@@ -24,6 +25,8 @@ pub struct SocketManager {
     proxy_connect_init_timeout: Duration,
     proxy_connect_nominal_timeout: Duration,
     is_running: AtomicBool,
+    is_terminated: AtomicBool,
+    terminate_all: broadcast::Sender<()>,
 }
 
 impl SocketManager {
@@ -39,17 +42,38 @@ impl SocketManager {
             proxy_connect_init_timeout,
             proxy_connect_nominal_timeout,
             is_running: AtomicBool::new(false),
+            is_terminated: AtomicBool::new(false),
+            terminate_all: broadcast::channel(1).0,
         }
     }
 
+    pub fn shutdown(&self) {
+        self.is_terminated.store(true, Ordering::SeqCst);
+        self.terminate_all.send(()).ok();
+    }
+
     pub async fn acquire_http_socket(&self) -> anyhow::Result<TcpSocketHalf> {
+        let mut rx_terminate = self.terminate_all.subscribe();
+
+        if self.is_terminated.load(Ordering::SeqCst) {
+            return Err(anyhow::anyhow!(
+                "failed to open HTTP socket as the instance has terminated"
+            ));
+        }
         let connect_timeout = if self.is_running.load(Ordering::SeqCst) == true {
             self.proxy_connect_nominal_timeout
         } else {
             self.proxy_connect_init_timeout
         };
 
-        let ret = tokio::time::timeout(connect_timeout, self.open_proxy_http_socket()).await??;
+        let ret = tokio::select! {
+            socket = tokio::time::timeout(connect_timeout, self.open_proxy_http_socket()) => socket??,
+            _ = rx_terminate.recv() => {
+                return Err(anyhow::anyhow!(
+                    "failed to open HTTP socket as the instance has terminated"
+                ));
+            }
+        };
         self.is_running.store(true, Ordering::Relaxed);
         Ok(ret)
     }

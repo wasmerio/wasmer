@@ -86,6 +86,7 @@ impl DProxyInstanceFactory {
         let this = self.clone();
         let pkg = handler.config.pkg.clone();
         let command_name = handler.command_name.clone();
+        let connector_inner = connector.clone();
         let runtime = Arc::new(runtime) as Arc<DynRuntime>;
         let mut runner = handler.config.inner.clone();
         runtime
@@ -99,8 +100,11 @@ impl DProxyInstanceFactory {
                 } else {
                     tracing::info!("Instance Exited: Nominal");
                 }
-                let mut state = this.state.lock().unwrap();
-                state.instance.remove(&shard);
+                {
+                    let mut state = this.state.lock().unwrap();
+                    state.instance.remove(&shard);
+                }
+                connector_inner.shutdown();
             }))?;
 
         // Return an instance

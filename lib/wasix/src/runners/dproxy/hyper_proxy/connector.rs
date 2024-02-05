@@ -10,6 +10,12 @@ pub struct HyperProxyConnector {
     pub(super) socket_manager: Arc<SocketManager>,
 }
 
+impl HyperProxyConnector {
+    pub fn shutdown(&self) {
+        self.socket_manager.shutdown();
+    }
+}
+
 impl Service<Uri> for HyperProxyConnector {
     type Response = HyperProxyStream;
     type Error = BoxError;
