@@ -101,7 +101,6 @@ jobs:
       - name: Install Rust nightly (to build capi-headless)
         uses: dtolnay/rust-toolchain@master
         with:
-          toolchain: "nightly-2023-05-25"
           target: ${{ matrix.metadata.target }}
       - uses: Swatinem/rust-cache@v2
         if: matrix.use_sccache != true
@@ -226,7 +225,6 @@ jobs:
       - name: Install Nightly Rust for Headless
         uses: dtolnay/rust-toolchain@master
         with:
-          toolchain: "nightly-2023-05-25"
           target: ${{ matrix.target }}
           components: "rust-src"
       - name: Build Minimal Wasmer Headless
@@ -244,7 +242,6 @@ jobs:
           echo "incremental = false" >> Cargo.toml
           echo "codegen-units = 1" >> Cargo.toml
           echo "rpath = false" >> Cargo.toml
-          rustup override set nightly-2023-05-25
           make build-wasmer-headless-minimal
           rustup override unset
       - name: Dist
@@ -281,7 +278,6 @@ jobs:
       - name: Install Rust nightly (to build capi-headless)
         uses: dtolnay/rust-toolchain@master
         with:
-          toolchain: "nightly-2023-05-25"
           target: x86_64-pc-windows-gnu
       - name: Install Windows-GNU target
         shell: bash
