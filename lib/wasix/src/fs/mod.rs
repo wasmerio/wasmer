@@ -1096,6 +1096,9 @@ impl WasiFs {
 
                         if let Some(entry) = entries.get(component.as_ref()) {
                             cur_inode = entry.clone();
+                        } else if let Some(root) = entries.get(&format!("/")) {
+                            cur_inode = root.clone();
+                            continue 'symlink_resolution;
                         } else {
                             // Root is not capable of having something other then preopenned folders
                             return Err(Errno::Notcapable);
