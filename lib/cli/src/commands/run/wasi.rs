@@ -156,7 +156,7 @@ pub struct Wasi {
     pub snapshot_on: Vec<SnapshotTrigger>,
 
     /// Adds a periodic interval (measured in milli-seconds) that the runtime will automatically
-    /// takes snapshots of the running process and write them to the journal. When specifying
+    /// take snapshots of the running process and write them to the journal. When specifying
     /// this parameter it implies that `--snapshot-on interval` has also been specified.
     #[cfg(feature = "journal")]
     #[clap(long = "snapshot-period")]

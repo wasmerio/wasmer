@@ -197,6 +197,8 @@ impl ReadableJournal for LogFileJournalRx {
             if buffer_ptr.len() < 8 {
                 return Ok(None);
             }
+
+            let record_type: JournalEntryRecordType;
             let header = {
                 let b = buffer_ptr;
 
@@ -216,6 +218,19 @@ impl ReadableJournal for LogFileJournalRx {
                     record_type: u16::from_be_bytes([b[0], b[1]]),
                     record_size: u64::from_be_bytes([0u8, 0u8, b[2], b[3], b[4], b[5], b[6], b[7]]),
                 };
+
+                // Now we read the entry
+                record_type = match header.record_type.try_into() {
+                    Ok(t) => t,
+                    Err(_) => {
+                        tracing::debug!(
+                            "unknown journal entry type ({}) - the journal stops here",
+                            header.record_type
+                        );
+                        return Ok(None);
+                    }
+                };
+
                 buffer_ptr.advance(8);
                 *buffer_pos += 8;
                 header
@@ -226,18 +241,6 @@ impl ReadableJournal for LogFileJournalRx {
             let entry = &buffer_ptr[..(header.record_size as usize)];
             buffer_ptr.advance(header.record_size as usize);
             *buffer_pos += header.record_size as usize;
-
-            // Now we read the entry
-            let record_type: JournalEntryRecordType = match header.record_type.try_into() {
-                Ok(t) => t,
-                Err(_) => {
-                    tracing::debug!(
-                        "unknown journal entry type ({}) - skipping",
-                        header.record_type
-                    );
-                    continue;
-                }
-            };
 
             let record = unsafe { record_type.deserialize_archive(entry)? };
             return Ok(Some(LogReadResult {
