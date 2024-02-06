@@ -131,10 +131,22 @@ impl WasiThread {
         }
     }
 
+    /// Sets a flag that tells others if this thread is currently
+    /// deep sleeping
+    pub(crate) fn set_deep_sleeping(&self, val: bool) {
+        self.state.deep_sleeping.store(val, Ordering::SeqCst);
+    }
+
+    /// Reads a flag that determines if this thread is currently
+    /// deep sleeping
+    pub(crate) fn is_deep_sleeping(&self) -> bool {
+        self.state.deep_sleeping.load(Ordering::SeqCst)
+    }
+
     /// Sets a flag that tells others that this thread is currently
     /// check pointing itself
     #[cfg(feature = "journal")]
-    pub(crate) fn set_check_pointing(&self, val: bool) {
+    pub(crate) fn set_checkpointing(&self, val: bool) {
         self.state.check_pointing.store(val, Ordering::SeqCst);
     }
 
@@ -217,6 +229,7 @@ struct WasiThreadState {
     status: Arc<OwnedTaskStatus>,
     #[cfg(feature = "journal")]
     check_pointing: AtomicBool,
+    deep_sleeping: AtomicBool,
 
     // Registers the task termination with the ControlPlane on drop.
     // Never accessed, since it's a drop guard.
@@ -244,6 +257,7 @@ impl WasiThread {
                 stack: Mutex::new(ThreadStack::default()),
                 #[cfg(feature = "journal")]
                 check_pointing: AtomicBool::new(false),
+                deep_sleeping: AtomicBool::new(false),
                 _task_count_guard: guard,
             }),
             layout,

@@ -161,8 +161,7 @@ pub(super) fn futex_wait_internal<M: MemorySize + 'static>(
 
     // We use asyncify on the poller and potentially go into deep sleep
     tracing::trace!("wait on {futex_idx}");
-    let res =
-        __asyncify_with_deep_sleep::<M, _, _>(ctx, Duration::from_millis(50), Box::pin(poller))?;
+    let res = __asyncify_with_deep_sleep::<M, _, _>(ctx, Box::pin(poller))?;
     if let AsyncifyAction::Finish(ctx, res) = res {
         let mut env = ctx.data();
         let memory = unsafe { env.memory_view(&ctx) };

@@ -11,6 +11,7 @@ use std::{
         atomic::{AtomicU32, Ordering},
         Arc, Condvar, Mutex, MutexGuard, RwLock, Weak,
     },
+    task::Waker,
     time::Duration,
 };
 use tracing::trace;
@@ -91,7 +92,7 @@ pub struct WasiProcess {
     /// List of all the children spawned from this thread
     pub(crate) parent: Option<Weak<RwLock<WasiProcessInner>>>,
     /// The inner protected region of the process with a conditional
-    /// variable that is used for coordination such as checksums.
+    /// variable that is used for coordination such as snapshots.
     pub(crate) inner: LockableWasiProcessInner,
     /// Reference back to the compute engine
     // TODO: remove this reference, access should happen via separate state instead
@@ -133,6 +134,8 @@ pub struct WasiProcessInner {
     /// Represents a checkpoint which blocks all the threads
     /// and then executes some maintenance action
     pub checkpoint: WasiProcessCheckpoint,
+    /// Any wakers waiting on this process (for example for a checkpoint)
+    pub wakers: Vec<Waker>,
 }
 
 pub enum MaybeCheckpointResult<'a> {
@@ -151,8 +154,12 @@ impl WasiProcessInner {
     ) -> WasiResult<MaybeCheckpointResult<'_>> {
         // Set the checkpoint flag and then enter the normal processing loop
         {
-            let mut inner = inner.0.lock().unwrap();
-            inner.checkpoint = for_what;
+            let mut guard = inner.0.lock().unwrap();
+            guard.checkpoint = for_what;
+            for waker in guard.wakers.drain(..) {
+                waker.wake();
+            }
+            inner.1.notify_all();
         }
 
         Self::maybe_checkpoint::<M>(inner, ctx)
@@ -161,10 +168,10 @@ impl WasiProcessInner {
     /// If a checkpoint has been started this will block the current process
     /// until the checkpoint operation has completed
     #[cfg(feature = "journal")]
-    pub fn maybe_checkpoint<M: wasmer_types::MemorySize>(
+    pub fn maybe_checkpoint<'a, M: wasmer_types::MemorySize>(
         inner: LockableWasiProcessInner,
-        ctx: FunctionEnvMut<'_, WasiEnv>,
-    ) -> WasiResult<MaybeCheckpointResult<'_>> {
+        ctx: FunctionEnvMut<'a, WasiEnv>,
+    ) -> WasiResult<MaybeCheckpointResult<'a>> {
         // Enter the lock which will determine if we are in a checkpoint or not
 
         use bytes::Bytes;
@@ -215,10 +222,13 @@ impl WasiProcessInner {
             // to freeze then we have to execute the checksum operation)
             loop {
                 if let WasiProcessCheckpoint::Snapshot { trigger } = guard.checkpoint {
-                    ctx.data().thread.set_check_pointing(true);
+                    ctx.data().thread.set_checkpointing(true);
 
                     // Now if we are the last thread we also write the memory
-                    let is_last_thread = guard.threads.values().all(WasiThread::is_check_pointing);
+                    let is_last_thread = guard
+                        .threads
+                        .values()
+                        .all(|t| t.is_check_pointing() || t.is_deep_sleeping());
                     if is_last_thread {
                         if let Err(err) =
                             JournalEffector::save_memory_and_snapshot(&mut ctx, &mut guard, trigger)
@@ -228,9 +238,12 @@ impl WasiProcessInner {
                         }
 
                         // Clear the checkpointing flag and notify everyone to wake up
-                        ctx.data().thread.set_check_pointing(false);
-                        guard.checkpoint = WasiProcessCheckpoint::Execute;
+                        ctx.data().thread.set_checkpointing(false);
                         trace!("checkpoint complete");
+                        guard.checkpoint = WasiProcessCheckpoint::Execute;
+                        for waker in guard.wakers.drain(..) {
+                            waker.wake();
+                        }
                         inner.1.notify_all();
                     } else {
                         guard = inner.1.wait(guard).unwrap();
@@ -238,7 +251,7 @@ impl WasiProcessInner {
                     continue;
                 }
 
-                ctx.data().thread.set_check_pointing(false);
+                ctx.data().thread.set_checkpointing(false);
                 trace!("checkpoint finished");
 
                 // Rewind the stack and carry on
@@ -295,6 +308,7 @@ impl WasiProcess {
                     signal_intervals: Default::default(),
                     children: Default::default(),
                     checkpoint: WasiProcessCheckpoint::Execute,
+                    wakers: Default::default(),
                 }),
                 Condvar::new(),
             )),

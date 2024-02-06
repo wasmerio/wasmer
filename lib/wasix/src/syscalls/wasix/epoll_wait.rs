@@ -203,7 +203,6 @@ pub fn epoll_wait<'a, M: MemorySize + 'static>(
     // We use asyncify with a deep sleep to wait on new IO events
     let res = __asyncify_with_deep_sleep::<M, Result<Vec<(EpollFd, EpollType)>, Errno>, _>(
         ctx,
-        Duration::from_millis(50),
         Box::pin(trigger),
     )?;
     if let AsyncifyAction::Finish(mut ctx, events) = res {

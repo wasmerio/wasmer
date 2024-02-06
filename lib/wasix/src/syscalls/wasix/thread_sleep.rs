@@ -39,10 +39,9 @@ pub(crate) fn thread_sleep_internal<M: MemorySize + 'static>(
     if duration > 0 {
         let duration = Duration::from_nanos(duration);
         let tasks = env.tasks().clone();
-        let res =
-            __asyncify_with_deep_sleep::<M, _, _>(ctx, Duration::from_millis(50), async move {
-                tasks.sleep_now(duration).await;
-            })?;
+        let res = __asyncify_with_deep_sleep::<M, _, _>(ctx, async move {
+            tasks.sleep_now(duration).await;
+        })?;
     }
     Ok(Errno::Success)
 }

@@ -412,13 +412,18 @@ pub enum AsyncifyAction<'a, R> {
 ///
 pub(crate) fn __asyncify_with_deep_sleep<M: MemorySize, T, Fut>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
-    deep_sleep_time: Duration,
     work: Fut,
 ) -> Result<AsyncifyAction<'_, T>, WasiError>
 where
     T: serde::Serialize + serde::de::DeserializeOwned,
     Fut: Future<Output = T> + Send + Sync + 'static,
 {
+    // Determine the deep sleep time
+    let deep_sleep_time = match ctx.data().enable_journal {
+        true => Duration::from_micros(100),
+        false => Duration::from_millis(50),
+    };
+
     // Determine if we should process signals or now
     let process_signals = ctx
         .data()
@@ -440,6 +445,7 @@ where
         } else {
             None
         };
+
         let deep_sleep_wait = async {
             if let Some(tasks) = tasks_for_deep_sleep {
                 tasks.sleep_now(deep_sleep_time).await
@@ -462,9 +468,16 @@ where
             _ = deep_sleep_wait => {
                 let pid = ctx.data().pid();
                 let tid = ctx.data().tid();
+
+                let thread = ctx.data().thread.clone();
+                thread.set_deep_sleeping(true);
+                ctx.data().process.inner.1.notify_all();
+
                 tracing::trace!(%pid, %tid, "thread entering deep sleep");
                 deep_sleep::<M>(ctx, Box::pin(async move {
                     let result = trigger.await;
+                    tracing::trace!(%pid, %tid, "thread leaving deep sleep");
+                    thread.set_deep_sleeping(false);
                     bincode::serialize(&result).unwrap().into()
                 }))?;
                 AsyncifyAction::Unwind
@@ -490,6 +503,8 @@ where
     T: 'static,
     Fut: Future<Output = Result<T, Errno>>,
 {
+    let snapshot_wait = wait_for_snapshot(env);
+
     // This poller will process any signals when the main working function is idle
     struct Poller<'a, Fut, T>
     where
@@ -497,6 +512,7 @@ where
     {
         env: &'a WasiEnv,
         pinned_work: Pin<Box<Fut>>,
+        pinned_snapshot: Pin<Box<dyn Future<Output = ()>>>,
     }
     impl<'a, Fut, T> Future for Poller<'a, Fut, T>
     where
@@ -506,6 +522,9 @@ where
         fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
             if let Poll::Ready(res) = Pin::new(&mut self.pinned_work).poll(cx) {
                 return Poll::Ready(Ok(res));
+            }
+            if let Poll::Ready(()) = Pin::new(&mut self.pinned_snapshot).poll(cx) {
+                return Poll::Ready(Ok(Err(Errno::Intr)));
             }
             if let Some(exit_code) = self.env.should_exit() {
                 return Poll::Ready(Err(WasiError::Exit(exit_code)));
@@ -960,13 +979,44 @@ pub(crate) fn deep_sleep<M: MemorySize>(
 
     // Perform the unwind action
     let tasks = ctx.data().tasks().clone();
-    let res = unwind::<M, _>(ctx, move |_ctx, memory_stack, rewind_stack| {
+    let res = unwind::<M, _>(ctx, move |mut ctx, memory_stack, rewind_stack| {
+        let memory_stack = memory_stack.freeze();
+        let rewind_stack = rewind_stack.freeze();
+
+        // If journal'ing is enabled then we dump the stack into the journal
+        if ctx.data().enable_journal {
+            // Grab all the globals and serialize them
+            let store_data = crate::utils::store::capture_store_snapshot(&mut ctx.as_store_mut())
+                .serialize()
+                .unwrap();
+            let store_data = Bytes::from(store_data);
+
+            tracing::debug!(
+                "stack snapshot unwind (memory_stack={}, rewind_stack={}, store_data={})",
+                memory_stack.len(),
+                rewind_stack.len(),
+                store_data.len(),
+            );
+
+            // Write our thread state to the snapshot
+            let tid = ctx.data().thread.tid();
+            if let Err(err) = JournalEffector::save_thread_state::<M>(
+                &mut ctx,
+                tid,
+                memory_stack.clone(),
+                rewind_stack.clone(),
+                store_data.clone(),
+            ) {
+                return wasmer_types::OnCalledAction::Trap(err.into());
+            }
+        }
+
         // Schedule the process on the stack so that it can be resumed
         OnCalledAction::Trap(Box::new(WasiError::DeepSleep(DeepSleepWork {
             trigger,
             rewind: RewindState {
-                memory_stack: memory_stack.freeze(),
-                rewind_stack: rewind_stack.freeze(),
+                memory_stack,
+                rewind_stack,
                 store_data,
                 is_64bit: M::is_64bit(),
             },

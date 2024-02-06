@@ -390,7 +390,7 @@ impl dyn VirtualTaskManager {
                         }
                     };
 
-                    tracing::trace!("deep sleep woken - {:?}", res);
+                    tracing::trace!("deep sleep woken - res.len={}", res.len());
                     Ok(res)
                 })
             })),

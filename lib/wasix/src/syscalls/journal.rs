@@ -2,18 +2,18 @@ use super::*;
 
 #[allow(clippy::extra_unused_type_parameters)]
 #[cfg(not(feature = "journal"))]
-pub fn maybe_snapshot_once<M: MemorySize>(
-    ctx: FunctionEnvMut<'_, WasiEnv>,
+pub fn maybe_snapshot_once<'a, M: MemorySize>(
+    ctx: FunctionEnvMut<'a, WasiEnv>,
     _trigger: crate::journal::SnapshotTrigger,
-) -> WasiResult<FunctionEnvMut<'_, WasiEnv>> {
+) -> WasiResult<FunctionEnvMut<'a, WasiEnv>> {
     Ok(Ok(ctx))
 }
 
 #[cfg(feature = "journal")]
-pub fn maybe_snapshot_once<M: MemorySize>(
-    mut ctx: FunctionEnvMut<'_, WasiEnv>,
+pub fn maybe_snapshot_once<'a, M: MemorySize>(
+    mut ctx: FunctionEnvMut<'a, WasiEnv>,
     trigger: crate::journal::SnapshotTrigger,
-) -> WasiResult<FunctionEnvMut<'_, WasiEnv>> {
+) -> WasiResult<FunctionEnvMut<'a, WasiEnv>> {
     use crate::os::task::process::{WasiProcessCheckpoint, WasiProcessInner};
 
     if unsafe { handle_rewind_ext_with_default::<M, ()>(&mut ctx, HandleRewindType::ResultLess) }
@@ -45,16 +45,16 @@ pub fn maybe_snapshot_once<M: MemorySize>(
 
 #[allow(clippy::extra_unused_type_parameters)]
 #[cfg(not(feature = "journal"))]
-pub fn maybe_snapshot<M: MemorySize>(
-    ctx: FunctionEnvMut<'_, WasiEnv>,
-) -> WasiResult<FunctionEnvMut<'_, WasiEnv>> {
+pub fn maybe_snapshot<'a, M: MemorySize>(
+    ctx: FunctionEnvMut<'a, WasiEnv>,
+) -> WasiResult<FunctionEnvMut<'a, WasiEnv>> {
     Ok(Ok(ctx))
 }
 
 #[cfg(feature = "journal")]
-pub fn maybe_snapshot<M: MemorySize>(
-    mut ctx: FunctionEnvMut<'_, WasiEnv>,
-) -> WasiResult<FunctionEnvMut<'_, WasiEnv>> {
+pub fn maybe_snapshot<'a, M: MemorySize>(
+    mut ctx: FunctionEnvMut<'a, WasiEnv>,
+) -> WasiResult<FunctionEnvMut<'a, WasiEnv>> {
     use crate::os::task::process::{WasiProcessCheckpoint, WasiProcessInner};
 
     if !ctx.data().enable_journal {
@@ -70,6 +70,36 @@ pub fn maybe_snapshot<M: MemorySize>(
         }
     }
     Ok(Ok(ctx))
+}
+
+#[cfg(not(feature = "journal"))]
+pub fn wait_for_snapshot(_env: &WasiEnv) -> Pin<Box<dyn Future<Output = ()>>> {
+    Box::pin(std::future::pending())
+}
+
+#[cfg(feature = "journal")]
+pub fn wait_for_snapshot(env: &WasiEnv) -> Pin<Box<dyn Future<Output = ()>>> {
+    use crate::os::task::process::{LockableWasiProcessInner, WasiProcessCheckpoint};
+
+    struct Poller {
+        inner: LockableWasiProcessInner,
+    }
+    impl Future for Poller {
+        type Output = ();
+        fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+            let mut guard = self.inner.0.lock().unwrap();
+            if !matches!(guard.checkpoint, WasiProcessCheckpoint::Execute) {
+                return Poll::Ready(());
+            }
+            if !guard.wakers.iter().any(|w| w.will_wake(cx.waker())) {
+                guard.wakers.push(cx.waker().clone());
+            }
+            Poll::Pending
+        }
+    }
+    Box::pin(Poller {
+        inner: env.process.inner.clone(),
+    })
 }
 
 /// Safety: This function manipulates the memory of the process and thus must
