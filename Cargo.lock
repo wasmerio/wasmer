@@ -6495,6 +6495,7 @@ dependencies = [
  "async-trait",
  "base64",
  "bincode",
+ "blake3",
  "bytecheck",
  "bytes",
  "cfg-if",

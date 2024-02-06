@@ -1,9 +1,11 @@
+use std::collections::hash_map;
+
 use super::*;
 
 impl JournalEffector {
     pub fn save_memory_and_snapshot(
         ctx: &mut FunctionEnvMut<'_, WasiEnv>,
-        process: &mut MutexGuard<'_, WasiProcessInner>,
+        guard: &mut MutexGuard<'_, WasiProcessInner>,
         trigger: SnapshotTrigger,
     ) -> anyhow::Result<()> {
         let env = ctx.data();
@@ -15,12 +17,14 @@ impl JournalEffector {
         // We do not want the regions to be greater than 64KB as this will
         // otherwise create too much inefficiency. We choose 64KB as its
         // aligned with the standard WASM page size.
+        let batch = 8192;
         let mut cur = 0u64;
         let mut regions = LinkedList::<Range<u64>>::new();
         while cur < memory.data_size() {
             let mut again = false;
-            let mut end = memory.data_size().min(cur + 65536);
-            for (_, thread) in process.threads.iter() {
+            let next = ((cur + batch) / batch) * batch;
+            let mut end = memory.data_size().min(next);
+            for (_, thread) in guard.threads.iter() {
                 let layout = thread.memory_layout();
                 if cur >= layout.stack_lower && cur < layout.stack_upper {
                     cur = layout.stack_upper;
@@ -51,6 +55,21 @@ impl JournalEffector {
             let data = memory
                 .copy_range_to_vec(region.clone())
                 .map_err(mem_error_to_wasi)?;
+
+            // Compute a checksum and skip the memory if its already
+            // been saved to the journal once already
+            let hash: [u8; 32] = blake3::hash(&data).into();
+            match guard.snapshot_memory_hash.entry(region.clone()) {
+                hash_map::Entry::Occupied(mut val) => {
+                    if *val.get() == hash {
+                        continue;
+                    }
+                    val.insert(hash);
+                }
+                hash_map::Entry::Vacant(vacant) => {
+                    vacant.insert(hash);
+                }
+            }
 
             // Now we write it to the snap snapshot capturer
             journal
@@ -85,10 +104,22 @@ impl JournalEffector {
         let memory = unsafe { env.memory() };
         memory.grow_at_least(&mut store, region.end + data.len() as u64)?;
 
+        // Write the data to the memory
         let memory = unsafe { env.memory_view(&store) };
         memory
-            .write(region.start, data.as_ref())
+            .write(region.start, data)
             .map_err(|err| WasiRuntimeError::Runtime(RuntimeError::user(err.into())))?;
+
+        // Compute the hash and update it
+        let hash: [u8; 32] = blake3::hash(data).into();
+        env.process
+            .inner
+            .0
+            .lock()
+            .unwrap()
+            .snapshot_memory_hash
+            .insert(region, hash);
+
         Ok(())
     }
 }

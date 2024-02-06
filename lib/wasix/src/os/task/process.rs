@@ -136,6 +136,9 @@ pub struct WasiProcessInner {
     pub checkpoint: WasiProcessCheckpoint,
     /// Any wakers waiting on this process (for example for a checkpoint)
     pub wakers: Vec<Waker>,
+    /// The snapshot memory significantly reduce the amount of
+    /// duplicate entries in the journal for memory that has not changed
+    pub snapshot_memory_hash: HashMap<std::ops::Range<u64>, [u8; 32]>,
 }
 
 pub enum MaybeCheckpointResult<'a> {
@@ -309,6 +312,7 @@ impl WasiProcess {
                     children: Default::default(),
                     checkpoint: WasiProcessCheckpoint::Execute,
                     wakers: Default::default(),
+                    snapshot_memory_hash: Default::default(),
                 }),
                 Condvar::new(),
             )),
