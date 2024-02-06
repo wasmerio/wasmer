@@ -368,10 +368,6 @@ jobs:
         with:
           toolchain: ${{ env.MSRV }}
           target: ${{ matrix.metadata.target }}
-      - name: Install Rust nightly (to build capi-headless)
-        uses: dtolnay/rust-toolchain@master
-        with:
-          target: ${{ matrix.metadata.target }}
       - name: Install Nextest
         uses: taiki-e/install-action@nextest
       - name: Install Windows-GNU linker

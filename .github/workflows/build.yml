@@ -98,10 +98,6 @@ jobs:
         with:
           toolchain: ${{ env.MSRV }}
           target: ${{ matrix.target }}
-      - name: Install Rust nightly (to build capi-headless)
-        uses: dtolnay/rust-toolchain@master
-        with:
-          target: ${{ matrix.metadata.target }}
       - uses: Swatinem/rust-cache@v2
         if: matrix.use_sccache != true
       - name: Install LLVM (macOS Apple Silicon)
@@ -273,10 +269,6 @@ jobs:
         run: |
           sudo apt install -y mingw-w64
       - uses: dtolnay/rust-toolchain@stable
-        with:
-          target: x86_64-pc-windows-gnu
-      - name: Install Rust nightly (to build capi-headless)
-        uses: dtolnay/rust-toolchain@master
         with:
           target: x86_64-pc-windows-gnu
       - name: Install Windows-GNU target
