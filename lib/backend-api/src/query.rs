@@ -693,7 +693,7 @@ fn get_app_logs(
             // TODO: increase pagination size
             // See https://github.com/wasmerio/edge/issues/460
             // first: Some(500),
-            first: Some(10),
+            first: Some(100),
             starting_from: unix_timestamp(start),
             until: end.map(unix_timestamp),
         };
