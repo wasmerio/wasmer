@@ -28,6 +28,7 @@ use futures::{
 use tracing::instrument;
 pub use wasi::*;
 pub use wasix::*;
+use wasmer_journal::SnapshotTrigger;
 
 pub mod legacy;
 
@@ -120,7 +121,10 @@ use crate::{
         MAX_SYMLINKS,
     },
     journal::{DynJournal, JournalEffector},
-    os::task::{process::MaybeCheckpointResult, thread::RewindResult},
+    os::task::{
+        process::{MaybeCheckpointResult, WasiProcessCheckpoint},
+        thread::RewindResult,
+    },
     runtime::task_manager::InlineWaker,
     utils::store::StoreSnapshot,
     DeepSleepWork, RewindPostProcess, RewindState, RewindStateOption, SpawnError, WasiInodes,
@@ -469,12 +473,16 @@ where
                 let pid = ctx.data().pid();
                 let tid = ctx.data().tid();
 
+                // We put thread into a deep sleeping state and
+                // notify anyone who is waiting for that
                 let thread = ctx.data().thread.clone();
                 thread.set_deep_sleeping(true);
-                ctx.data().process.inner.1.notify_all();
+                ctx.data().process.inner.1.notify_one();
 
                 tracing::trace!(%pid, %tid, "thread entering deep sleep");
                 deep_sleep::<M>(ctx, Box::pin(async move {
+                    // After this wakes the background work or waking
+                    // event has triggered and its time to result
                     let result = trigger.await;
                     tracing::trace!(%pid, %tid, "thread leaving deep sleep");
                     thread.set_deep_sleeping(false);
@@ -1008,6 +1016,26 @@ pub(crate) fn deep_sleep<M: MemorySize>(
                 store_data.clone(),
             ) {
                 return wasmer_types::OnCalledAction::Trap(err.into());
+            }
+
+            // If all the threads are now in a deep sleep state
+            // then we can trigger the idle snapshot event
+            let inner = ctx.data().process.inner.clone();
+            let is_idle = {
+                let mut guard = inner.0.lock().unwrap();
+                guard.threads.values().all(WasiThread::is_deep_sleeping)
+            };
+            if is_idle {
+                if ctx.data_mut().has_snapshot_trigger(SnapshotTrigger::Idle) {
+                    let mut guard = inner.0.lock().unwrap();
+                    if let Err(err) = JournalEffector::save_memory_and_snapshot(
+                        &mut ctx,
+                        &mut guard,
+                        SnapshotTrigger::Idle,
+                    ) {
+                        return wasmer_types::OnCalledAction::Trap(err.into());
+                    }
+                }
             }
         }
 
