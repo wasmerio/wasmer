@@ -4,7 +4,7 @@ use comfy_table::Table;
 use edge_schema::pretty_duration::parse_timestamp_or_relative_time;
 use futures::StreamExt;
 use time::{format_description::well_known::Rfc3339, OffsetDateTime};
-use wasmer_api::types::Log;
+use wasmer_api::types::{Log, LogStream};
 
 use crate::{
     opts::{ApiOpts, ListFormatOpts},
@@ -59,6 +59,14 @@ pub struct CmdAppLogs {
     /// - namespace/name
     /// - namespace/name@version
     ident: Identifier,
+
+    /// Enables STDOUT log stream
+    #[clap(long)]
+    stdout: bool,
+
+    /// Enables STDERR log stream
+    #[clap(long)]
+    stderr: bool,
 }
 
 #[async_trait::async_trait]
@@ -95,6 +103,12 @@ impl crate::commands::AsyncCliCommand for CmdAppLogs {
             "Fetching logs",
         );
 
+        let streams = Vec::from(match (self.stdout, self.stderr) {
+            (true, true) | (false, false) => &[LogStream::Stdout, LogStream::Stderr][..],
+            (true, false) => &[LogStream::Stdout][..],
+            (false, true) => &[LogStream::Stderr][..],
+        });
+
         let logs_stream = wasmer_api::query::get_app_logs_paginated(
             &client,
             name.clone(),
@@ -103,6 +117,7 @@ impl crate::commands::AsyncCliCommand for CmdAppLogs {
             from,
             self.until,
             self.watch,
+            Some(streams),
         )
         .await;
 

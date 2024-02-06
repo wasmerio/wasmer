@@ -31,6 +31,7 @@ type User implements Node & PackageOwner & Owner {
   """The ID of the object"""
   id: ID!
   globalName: String!
+  globalId: ID!
   avatar(size: Int = 80): String!
   isViewer: Boolean!
   hasUsablePassword: Boolean
@@ -39,7 +40,7 @@ type User implements Node & PackageOwner & Owner {
   twitterUrl: String
   companyRole: String
   companyDescription: String
-  publicActivity(before: String, after: String, first: Int, last: Int): ActivityEventConnection!
+  publicActivity(offset: Int, before: String, after: String, first: Int, last: Int): ActivityEventConnection!
   billing: Billing
   waitlist(name: String!): WaitlistMember
   namespaces(role: GrapheneRole, offset: Int, before: String, after: String, first: Int, last: Int): NamespaceConnection!
@@ -48,21 +49,27 @@ type User implements Node & PackageOwner & Owner {
   usageMetrics(forRange: MetricRange!, variant: MetricType!): [UsageMetric]!
   isStaff: Boolean
   packageVersions(offset: Int, before: String, after: String, first: Int, last: Int): PackageVersionConnection!
-  packageTransfersIncoming(before: String, after: String, first: Int, last: Int): PackageTransferRequestConnection!
-  packageInvitesIncoming(before: String, after: String, first: Int, last: Int): PackageCollaboratorInviteConnection!
-  namespaceInvitesIncoming(before: String, after: String, first: Int, last: Int): NamespaceCollaboratorInviteConnection!
+  packageTransfersIncoming(offset: Int, before: String, after: String, first: Int, last: Int): PackageTransferRequestConnection!
+  packageInvitesIncoming(offset: Int, before: String, after: String, first: Int, last: Int): PackageCollaboratorInviteConnection!
+  namespaceInvitesIncoming(offset: Int, before: String, after: String, first: Int, last: Int): NamespaceCollaboratorInviteConnection!
   apiTokens(before: String, after: String, first: Int, last: Int): APITokenConnection!
   notifications(before: String, after: String, first: Int, last: Int): UserNotificationConnection!
+  dashboardActivity(offset: Int, before: String, after: String, first: Int, last: Int): ActivityEventConnection!
   loginMethods: [LoginMethod!]!
+  githubUser: SocialAuth
+  githubScopes: [String]!
 }
 
 """Setup for backwards compatibility with existing frontends."""
 interface PackageOwner {
   globalName: String!
+  globalId: ID!
 }
 
+"""An owner of a package."""
 interface Owner {
   globalName: String!
+  globalId: ID!
 }
 
 """
@@ -78,6 +85,9 @@ type ActivityEventConnection {
 
   """Contains the nodes in this connection."""
   edges: [ActivityEventEdge]!
+
+  """Total number of items in the connection."""
+  totalCount: Int
 }
 
 """
@@ -109,12 +119,12 @@ type ActivityEventEdge {
 type ActivityEvent implements Node {
   """The ID of the object"""
   id: ID!
-  body: ActivityEventBody!
+  body: EventBody!
   actorIcon: String!
   createdAt: DateTime!
 }
 
-type ActivityEventBody {
+type EventBody {
   text: String!
   ranges: [NodeBodyRange!]!
 }
@@ -173,19 +183,29 @@ type Namespace implements Node & PackageOwner & Owner {
   description: String!
   avatar: String!
   avatarUpdatedAt: DateTime
+  twitterHandle: String
+  githubHandle: String
+  websiteUrl: String
   createdAt: DateTime!
   updatedAt: DateTime!
   maintainerInvites(offset: Int, before: String, after: String, first: Int, last: Int): NamespaceCollaboratorInviteConnection!
   userSet(offset: Int, before: String, after: String, first: Int, last: Int): UserConnection!
   globalName: String!
+  globalId: ID!
   packages(offset: Int, before: String, after: String, first: Int, last: Int): PackageConnection!
   apps(sortBy: DeployAppsSortBy, offset: Int, before: String, after: String, first: Int, last: Int): DeployAppConnection!
   packageVersions(offset: Int, before: String, after: String, first: Int, last: Int): PackageVersionConnection!
   collaborators(offset: Int, before: String, after: String, first: Int, last: Int): NamespaceCollaboratorConnection!
   publicActivity(before: String, after: String, first: Int, last: Int): ActivityEventConnection!
-  pendingInvites(before: String, after: String, first: Int, last: Int): NamespaceCollaboratorInviteConnection!
+  pendingInvites(offset: Int, before: String, after: String, first: Int, last: Int): NamespaceCollaboratorInviteConnection!
   viewerHasRole(role: GrapheneRole!): Boolean!
-  packageTransfersIncoming(before: String, after: String, first: Int, last: Int): PackageTransferRequestConnection!
+
+  """Whether the current user is invited to the namespace"""
+  viewerIsInvited: Boolean!
+
+  """The invitation for the current user to the namespace"""
+  viewerInvitation: NamespaceCollaboratorInvite
+  packageTransfersIncoming(offset: Int, before: String, after: String, first: Int, last: Int): PackageTransferRequestConnection!
   usageMetrics(forRange: MetricRange!, variant: MetricType!): [UsageMetric]!
 }
 
@@ -195,6 +215,9 @@ type NamespaceCollaboratorInviteConnection {
 
   """Contains the nodes in this connection."""
   edges: [NamespaceCollaboratorInviteEdge]!
+
+  """Total number of items in the connection."""
+  totalCount: Int
 }
 
 """
@@ -314,11 +337,17 @@ type Package implements Likeable & Node & PackageOwner {
   totalDownloads: Int!
   iconUpdatedAt: DateTime
   watchersCount: Int!
+  webcs(offset: Int, before: String, after: String, first: Int, last: Int): WebcImageConnection!
+  appTemplates(offset: Int, before: String, after: String, first: Int, last: Int): AppTemplateConnection!
+  packagewebcSet(offset: Int, before: String, after: String, first: Int, last: Int): PackageWebcConnection!
   versions: [PackageVersion]!
   collectionSet: [Collection!]!
+  categories(offset: Int, before: String, after: String, first: Int, last: Int): CategoryConnection!
+  keywords(offset: Int, before: String, after: String, first: Int, last: Int): PackageKeywordConnection!
   likersCount: Int!
   viewerHasLiked: Boolean!
   globalName: String!
+  globalId: ID!
   alias: String
   namespace: String!
   displayName: String!
@@ -335,14 +364,21 @@ type Package implements Likeable & Node & PackageOwner {
   """The public keys for all the published versions"""
   publicKeys: [PublicKey!]!
   collaborators(offset: Int, before: String, after: String, first: Int, last: Int): PackageCollaboratorConnection!
-  pendingInvites(before: String, after: String, first: Int, last: Int): PackageCollaboratorInviteConnection!
+  pendingInvites(offset: Int, before: String, after: String, first: Int, last: Int): PackageCollaboratorInviteConnection!
   viewerHasRole(role: GrapheneRole!): Boolean!
   owner: PackageOwner!
   isTransferring: Boolean!
   activeTransferRequest: PackageTransferRequest
   isArchived: Boolean!
   viewerIsWatching: Boolean!
+  showDeployButton: Boolean!
   similarPackageVersions(before: String, after: String, first: Int, last: Int): PackageSearchConnection!
+
+  """Whether the current user is invited to the package"""
+  viewerIsInvited: Boolean!
+
+  """The invitation for the current user to the package"""
+  viewerInvitation: PackageCollaboratorInvite
 }
 
 interface Likeable {
@@ -351,10 +387,11 @@ interface Likeable {
   viewerHasLiked: Boolean!
 }
 
-type PackageVersion implements Node {
+type PackageVersion implements Node & PackageInstance {
   """The ID of the object"""
   id: ID!
   package: Package!
+  webcGenerationErrors: String
   version: String!
   description: String!
   manifest: String!
@@ -369,20 +406,15 @@ type PackageVersion implements Node {
   staticObjectsCompiled: Boolean!
   nativeExecutablesCompiled: Boolean!
   publishedBy: User!
+  clientName: String
   signature: Signature
   isArchived: Boolean!
   file: String!
 
   """"""
   fileSize: BigInt!
-  piritaFile: String
-
-  """"""
-  piritaFileSize: BigInt!
-  piritaManifest: JSONString
-  piritaVolumes: JSONString
+  webc: WebcImage
   totalDownloads: Int!
-  pirita256hash: String @deprecated(reason: "Please use distribution.piritaSha256Hash instead.")
   bindingsState: RegistryPackageVersionBindingsStateChoices!
   nativeExecutablesState: RegistryPackageVersionNativeExecutablesStateChoices!
 
@@ -395,6 +427,12 @@ type PackageVersion implements Node {
   bindingsgeneratorSet(offset: Int, before: String, after: String, first: Int, last: Int): BindingsGeneratorConnection!
   javascriptlanguagebindingSet(offset: Int, before: String, after: String, first: Int, last: Int): PackageVersionNPMBindingConnection!
   pythonlanguagebindingSet(offset: Int, before: String, after: String, first: Int, last: Int): PackageVersionPythonBindingConnection!
+  piritaManifest: JSONString
+  piritaOffsets: JSONString
+  piritaVolumes: JSONString
+  piritaFile: String @deprecated(reason: "Please use distribution.piritaDownloadUrl instead.")
+  piritaFileSize: Int @deprecated(reason: "Please use distribution.piritaSize instead.")
+  pirita256hash: String @deprecated(reason: "Please use distribution.piritaSha256Hash instead.")
   distribution: PackageDistribution!
   filesystem: [PackageVersionFilesystem]!
   isLastVersion: Boolean!
@@ -402,21 +440,30 @@ type PackageVersion implements Node {
   isSigned: Boolean!
   moduleInterfaces: [InterfaceVersion!]!
   modules: [PackageVersionModule!]!
-  getPiritaContents(volume: String! = "atom", root: String! = ""): [PiritaFilesystemItem!]!
+  getPiritaContents(volume: String! = "atom", base: String! = ""): [PiritaFilesystemItem!]!
+  getWebcContents(volume: String! = "atom", base: String! = "/"): [WEBCFilesystemItem!]!
   nativeExecutables(triple: String, wasmerCompilerVersion: String): [NativeExecutable]
   bindings: [PackageVersionLanguageBinding]!
   npmBindings: PackageVersionNPMBinding
   pythonBindings: PackageVersionPythonBinding
   hasBindings: Boolean!
   hasCommands: Boolean!
+  showDeployButton: Boolean!
+  isCorrupt: Boolean!
 }
 
-"""
-The `BigInt` scalar type represents non-fractional whole numeric values.
-`BigInt` is not constrained to 32-bit like the `Int` type and thus is a less
-compatible type.
-"""
-scalar BigInt
+interface PackageInstance {
+  piritaManifest: JSONString
+  piritaOffsets: JSONString
+  piritaVolumes: JSONString
+  isArchived: Boolean!
+  clientName: String
+  publishedBy: User!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+  package: Package!
+  webc: WebcImage
+}
 
 """
 Allows use of a JSON String for input / output from the GraphQL schema.
@@ -425,6 +472,29 @@ Use of this type is *not recommended* as you lose the benefits of having a defin
 schema (one of the key benefits of GraphQL).
 """
 scalar JSONString
+
+type WebcImage implements Node {
+  """The ID of the object"""
+  id: ID!
+
+  """"""
+  fileSize: BigInt!
+  manifest: JSONString!
+  volumes: JSONString!
+  offsets: JSONString!
+  webcSha256: String!
+  targzSha256: String
+  createdAt: DateTime!
+  updatedAt: DateTime!
+  webcUrl: String!
+}
+
+"""
+The `BigInt` scalar type represents non-fractional whole numeric values.
+`BigInt` is not constrained to 32-bit like the `Int` type and thus is a less
+compatible type.
+"""
+scalar BigInt
 
 enum RegistryPackageVersionBindingsStateChoices {
   """Bindings are not detected"""
@@ -500,6 +570,7 @@ type DeployAppVersion implements Node {
   app: DeployApp!
   yamlConfig: String!
   userYamlConfig: String!
+  clientName: String
   signature: String
   description: String
   publishedBy: User!
@@ -518,10 +589,16 @@ type DeployAppVersion implements Node {
     """
     Get logs starting from this timestamp. Takes EPOCH timestamp in seconds.
     """
-    startingFrom: Float!
+    startingFrom: Float
+
+    """Get logs starting from this timestamp. Takes ISO timestamp."""
+    startingFromISO: DateTime
 
     """Fetch logs until this timestamp. Takes EPOCH timestamp in seconds."""
     until: Float
+
+    """List of streams to fetch logs from. e.g. stdout, stderr."""
+    streams: [LogStream]
     before: String
     after: String
     first: Int
@@ -530,6 +607,7 @@ type DeployAppVersion implements Node {
   usageMetrics(forRange: MetricRange!, variant: MetricType!): [UsageMetric]!
   sourcePackageVersion: PackageVersion!
   aggregateMetrics: AggregateMetrics!
+  volumes: [AppVersionVolume]
 }
 
 type DeployApp implements Node & Owner {
@@ -540,6 +618,7 @@ type DeployApp implements Node & Owner {
   updatedAt: DateTime!
   activeVersion: DeployAppVersion!
   globalName: String!
+  globalId: ID!
   url: String!
   adminUrl: String!
   permalink: String!
@@ -565,6 +644,7 @@ type AggregateMetrics {
   ingress: String!
   egress: String!
   noRequests: String!
+  noFailedRequests: String!
   monthlyCost: String!
 }
 
@@ -611,6 +691,7 @@ enum MetricType {
   network_egress
   network_ingress
   no_of_requests
+  no_of_failed_requests
   cost
 }
 
@@ -618,6 +699,9 @@ enum MetricType {
 enum MetricUnit {
   """represents the unit of "seconds"."""
   SEC
+
+  """represents the unit of "milliseconds"."""
+  MS
 
   """represents the unit of "kilobytes"."""
   KB
@@ -654,6 +738,23 @@ type LogEdge {
   cursor: String!
 }
 
+enum LogStream {
+  STDOUT
+  STDERR
+}
+
+type AppVersionVolume {
+  name: String!
+  mountPaths: [AppVersionVolumeMountPath]!
+  size: Int
+  usedSize: Int
+}
+
+type AppVersionVolumeMountPath {
+  path: String!
+  subpath: String!
+}
+
 type Command {
   command: String!
   packageVersion: PackageVersion!
@@ -665,6 +766,19 @@ type PackageVersionModule {
   source: String!
   abi: String
   publicUrl: String!
+  atom: PiritaFilesystemFile!
+  rangeHeader: String!
+}
+
+type PiritaFilesystemFile {
+  name(display: PiritaFilesystemNameDisplay): String!
+  size: Int!
+  offset: Int!
+}
+
+enum PiritaFilesystemNameDisplay {
+  RELATIVE
+  ABSOLUTE
 }
 
 type NativeExecutableConnection {
@@ -765,6 +879,12 @@ type PackageVersionNPMBinding implements PackageVersionLanguageBinding & Node {
 
   """Name of package source"""
   packageName: String!
+
+  """Name of the package to import"""
+  importablePackageName: String!
+
+  """Code snippet example to use the package"""
+  codeSnippetExample: String!
   module: String! @deprecated(reason: "Do not use this field, since bindings for all modules are generated at once now.")
   npmDefaultInstallPackageName(url: String): String! @deprecated(reason: "Please use packageName instead")
 }
@@ -786,6 +906,12 @@ interface PackageVersionLanguageBinding {
 
   """Name of package source"""
   packageName: String!
+
+  """Name of the package to import"""
+  importablePackageName: String!
+
+  """Code snippet example to use the package"""
+  codeSnippetExample: String!
   module: String! @deprecated(reason: "Do not use this field, since bindings for all modules are generated at once now.")
 }
 
@@ -834,16 +960,32 @@ type PackageVersionPythonBinding implements PackageVersionLanguageBinding & Node
 
   """Name of package source"""
   packageName: String!
+
+  """Name of the package to import"""
+  importablePackageName: String!
+
+  """Code snippet example to use the package"""
+  codeSnippetExample: String!
   module: String! @deprecated(reason: "Do not use this field, since bindings for all modules are generated at once now.")
   pythonDefaultInstallPackageName(url: String): String!
 }
 
 type PackageDistribution {
+  """
+  Download URL of the tar.gz file.
+  If the package was published with webc only,this will contain download URL for webc file instead.
+  """
   downloadUrl: String!
-  size: Int!
+  expiresInSeconds: Int
+  size: Int
   piritaDownloadUrl: String
-  piritaSize: Int!
+  piritaExpiresInSeconds: Int
+  piritaSize: Int
   piritaSha256Hash: String
+  webcDownloadUrl: String
+  webcExpiresInSeconds: Int
+  webcSize: Int
+  webcSha256Hash: String
 }
 
 type PackageVersionFilesystem {
@@ -899,19 +1041,123 @@ type InterfaceVersionEdge {
 
 union PiritaFilesystemItem = PiritaFilesystemFile | PiritaFilesystemDir
 
-type PiritaFilesystemFile {
+type PiritaFilesystemDir {
   name(display: PiritaFilesystemNameDisplay): String!
+}
+
+type WEBCFilesystemItem {
+  name: String!
+  checksum: String!
   size: Int!
   offset: Int!
 }
 
-enum PiritaFilesystemNameDisplay {
-  RELATIVE
-  ABSOLUTE
+type WebcImageConnection {
+  """Pagination data for this connection."""
+  pageInfo: PageInfo!
+
+  """Contains the nodes in this connection."""
+  edges: [WebcImageEdge]!
+
+  """Total number of items in the connection."""
+  totalCount: Int
 }
 
-type PiritaFilesystemDir {
-  name(display: PiritaFilesystemNameDisplay): String!
+"""A Relay edge containing a `WebcImage` and its cursor."""
+type WebcImageEdge {
+  """The item at the end of the edge"""
+  node: WebcImage
+
+  """A cursor for use in pagination"""
+  cursor: String!
+}
+
+type AppTemplateConnection {
+  """Pagination data for this connection."""
+  pageInfo: PageInfo!
+
+  """Contains the nodes in this connection."""
+  edges: [AppTemplateEdge]!
+
+  """Total number of items in the connection."""
+  totalCount: Int
+}
+
+"""A Relay edge containing a `AppTemplate` and its cursor."""
+type AppTemplateEdge {
+  """The item at the end of the edge"""
+  node: AppTemplate
+
+  """A cursor for use in pagination"""
+  cursor: String!
+}
+
+type AppTemplate implements Node {
+  """The ID of the object"""
+  id: ID!
+  name: String!
+  slug: String!
+  description: String!
+  demoUrl: String!
+  repoUrl: String!
+  category: AppTemplateCategory!
+  isPublic: Boolean!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+  readme: String!
+  useCases: JSONString!
+  framework: String!
+  language: String!
+  repoLicense: String!
+  usingPackage: Package
+  defaultImage: String
+}
+
+type AppTemplateCategory implements Node {
+  """The ID of the object"""
+  id: ID!
+  name: String!
+  slug: String!
+  description: String!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+  appTemplates(offset: Int, before: String, after: String, first: Int, last: Int): AppTemplateConnection!
+}
+
+type PackageWebcConnection {
+  """Pagination data for this connection."""
+  pageInfo: PageInfo!
+
+  """Contains the nodes in this connection."""
+  edges: [PackageWebcEdge]!
+
+  """Total number of items in the connection."""
+  totalCount: Int
+}
+
+"""A Relay edge containing a `PackageWebc` and its cursor."""
+type PackageWebcEdge {
+  """The item at the end of the edge"""
+  node: PackageWebc
+
+  """A cursor for use in pagination"""
+  cursor: String!
+}
+
+type PackageWebc implements Node & PackageInstance {
+  """The ID of the object"""
+  id: ID!
+  package: Package!
+  webc: WebcImage
+  createdAt: DateTime!
+  updatedAt: DateTime!
+  piritaManifest: JSONString
+  piritaOffsets: JSONString
+  piritaVolumes: JSONString
+  isArchived: Boolean!
+  clientName: String
+  publishedBy: User!
+  webcUrl: String!
 }
 
 type Collection {
@@ -921,6 +1167,61 @@ type Collection {
   createdAt: DateTime!
   banner: String!
   packages(before: String, after: String, first: Int, last: Int): PackageConnection!
+}
+
+type CategoryConnection {
+  """Pagination data for this connection."""
+  pageInfo: PageInfo!
+
+  """Contains the nodes in this connection."""
+  edges: [CategoryEdge]!
+
+  """Total number of items in the connection."""
+  totalCount: Int
+}
+
+"""A Relay edge containing a `Category` and its cursor."""
+type CategoryEdge {
+  """The item at the end of the edge"""
+  node: Category
+
+  """A cursor for use in pagination"""
+  cursor: String!
+}
+
+type Category implements Node {
+  """The ID of the object"""
+  id: ID!
+
+  """A category is a label that can be attached to a package."""
+  name: String!
+  packages(offset: Int, before: String, after: String, first: Int, last: Int): PackageConnection
+}
+
+type PackageKeywordConnection {
+  """Pagination data for this connection."""
+  pageInfo: PageInfo!
+
+  """Contains the nodes in this connection."""
+  edges: [PackageKeywordEdge]!
+
+  """Total number of items in the connection."""
+  totalCount: Int
+}
+
+"""A Relay edge containing a `PackageKeyword` and its cursor."""
+type PackageKeywordEdge {
+  """The item at the end of the edge"""
+  node: PackageKeyword
+
+  """A cursor for use in pagination"""
+  cursor: String!
+}
+
+type PackageKeyword implements Node {
+  """The ID of the object"""
+  id: ID!
+  name: String!
 }
 
 type PackageCollaboratorConnection {
@@ -998,6 +1299,9 @@ type PackageCollaboratorInviteConnection {
 
   """Contains the nodes in this connection."""
   edges: [PackageCollaboratorInviteEdge]!
+
+  """Total number of items in the connection."""
+  totalCount: Int
 }
 
 """A Relay edge containing a `PackageCollaboratorInvite` and its cursor."""
@@ -1101,6 +1405,9 @@ type PackageTransferRequestConnection {
 
   """Contains the nodes in this connection."""
   edges: [PackageTransferRequestEdge]!
+
+  """Total number of items in the connection."""
+  totalCount: Int
 }
 
 """A Relay edge containing a `PackageTransferRequest` and its cursor."""
@@ -1179,6 +1486,7 @@ type UserNotificationConnection {
   """Contains the nodes in this connection."""
   edges: [UserNotificationEdge]!
   hasPendingNotifications: Boolean!
+  pendingNotificationsCount: Int!
 }
 
 """A Relay edge containing a `UserNotification` and its cursor."""
@@ -1194,15 +1502,10 @@ type UserNotification implements Node {
   """The ID of the object"""
   id: ID!
   icon: String
-  body: UserNotificationBody!
+  body: EventBody!
   seenState: UserNotificationSeenState!
   kind: UserNotificationKind
   createdAt: DateTime!
-}
-
-type UserNotificationBody {
-  text: String!
-  ranges: [NodeBodyRange]!
 }
 
 enum UserNotificationSeenState {
@@ -1211,7 +1514,7 @@ enum UserNotificationSeenState {
   SEEN_AND_READ
 }
 
-union UserNotificationKind = UserNotificationKindPublishedPackageVersion | UserNotificationKindIncomingPackageTransfer | UserNotificationKindIncomingPackageInvite | UserNotificationKindIncomingNamespaceInvite
+union UserNotificationKind = UserNotificationKindPublishedPackageVersion | UserNotificationKindIncomingPackageTransfer | UserNotificationKindIncomingPackageInvite | UserNotificationKindIncomingNamespaceInvite | UserNotificationKindValidateEmail
 
 type UserNotificationKindPublishedPackageVersion {
   packageVersion: PackageVersion!
@@ -1219,6 +1522,10 @@ type UserNotificationKindPublishedPackageVersion {
 
 type UserNotificationKindIncomingNamespaceInvite {
   namespaceInvite: NamespaceCollaboratorInvite!
+}
+
+type UserNotificationKindValidateEmail {
+  user: User!
 }
 
 """
@@ -1231,6 +1538,18 @@ enum LoginMethod {
   GOOGLE
   GITHUB
   PASSWORD
+}
+
+type SocialAuth implements Node {
+  """The ID of the object"""
+  id: ID!
+  user: User!
+  provider: String!
+  uid: String!
+  extraData: JSONString!
+  created: DateTime!
+  modified: DateTime!
+  username: String!
 }
 
 type Signature {
@@ -1379,6 +1698,9 @@ type Billing {
 }
 
 type PaymentIntent implements Node {
+  """The datetime this object was created in stripe."""
+  created: DateTime
+
   """Three-letter ISO currency code"""
   currency: String!
 
@@ -1467,29 +1789,64 @@ type Payment {
 
 """Log entry for deploy app."""
 type Log {
+  """Timestamp in nanoseconds"""
   timestamp: Float!
+
+  """ISO 8601 string in UTC"""
+  datetime: DateTime!
+
+  """Log message"""
   message: String!
+
+  """Log stream"""
+  stream: LogStream
 }
 
 type Query {
   latestTOS: TermsOfService!
-  getDeployAppVersion(name: String!, owner: String!, version: String): DeployAppVersion
-  getDeployApp(name: String!, owner: String!): DeployApp
+  getDeployAppVersion(name: String!, owner: String, version: String): DeployAppVersion
+  getDeployApp(name: String!, owner: String): DeployApp
   getAppByGlobalAlias(alias: String!): DeployApp
   getDeployApps(sortBy: DeployAppsSortBy, updatedAfter: DateTime, offset: Int, before: String, after: String, first: Int, last: Int): DeployAppConnection!
   getAppVersions(sortBy: DeployAppVersionsSortBy, updatedAfter: DateTime, offset: Int, before: String, after: String, first: Int, last: Int): DeployAppVersionConnection!
+  getAppTemplates(categorySlug: String, offset: Int, before: String, after: String, first: Int, last: Int): AppTemplateConnection!
+  getAppTemplate(slug: String!): AppTemplate!
+  getAppTemplateCategories(offset: Int, before: String, after: String, first: Int, last: Int): AppTemplateCategoryConnection!
   viewer: User
   getUser(username: String!): User
   getPasswordResetToken(token: String!): GetPasswordResetToken
   getAuthNonce(name: String!): Nonce
-  packages(before: String, after: String, first: Int, last: Int): PackageConnection
+
+  """Can the logged in user create app templates?"""
+  canDeployAppToGithub: Boolean!
+
+  """Check if a repo exists in the logged in user's github account."""
+  checkRepoExists(
+    """The namespace of the repo to check."""
+    namespace: String!
+
+    """The name of the repo to check."""
+    name: String!
+  ): Boolean!
+
+  """Generate a unique repo name in the logged in user's github account."""
+  newRepoName(
+    """The github namespace of the repo to create the repo in."""
+    namespace: String!
+
+    """The template to use."""
+    templateSlug: String!
+  ): String!
+  packages(offset: Int, before: String, after: String, first: Int, last: Int): PackageConnection
   recentPackageVersions(curated: Boolean, offset: Int, before: String, after: String, first: Int, last: Int): PackageVersionConnection!
   allPackageVersions(sortBy: PackageVersionSortBy, createdAfter: DateTime, updatedAfter: DateTime, offset: Int, before: String, after: String, first: Int, last: Int): PackageVersionConnection!
+  getWebcImage(hash: String!): WebcImage
   getNamespace(name: String!): Namespace
   getPackage(name: String!): Package
   getPackages(names: [String!]!): [Package]!
   getPackageVersion(name: String!, version: String = "latest"): PackageVersion
   getPackageVersions(names: [String!]!): [PackageVersion]
+  getPackageVersionByHash(name: String!, hash: String!): PackageVersion
   getInterface(name: String!): Interface
   getInterfaces(names: [String!]!): [Interface]!
   getInterfaceVersion(name: String!, version: String = "latest"): InterfaceVersion
@@ -1500,9 +1857,12 @@ type Query {
   getCommands(names: [String!]!): [Command]
   getCollections(before: String, after: String, first: Int, last: Int): CollectionConnection
   getSignedUrlForPackageUpload(name: String!, version: String = "latest", expiresAfterSeconds: Int = 60): SignedUrl
+  getPackageHash(name: String!, hash: String!): PackageWebc!
+  categories(offset: Int, before: String, after: String, first: Int, last: Int): CategoryConnection!
   blogposts(tags: [String!], before: String, after: String, first: Int, last: Int): BlogPostConnection!
   getBlogpost(slug: String, featured: Boolean): BlogPost
-  search(query: String!, packages: PackagesFilter, namespaces: NamespacesFilter, users: UsersFilter, apps: AppFilter, before: String, after: String, first: Int, last: Int): SearchConnection!
+  allBlogpostTags(offset: Int, before: String, after: String, first: Int, last: Int): BlogPostTagConnection
+  search(query: String!, packages: PackagesFilter, namespaces: NamespacesFilter, users: UsersFilter, apps: AppFilter, blogposts: BlogPostsFilter, appTemplates: AppTemplateFilter, before: String, after: String, first: Int, last: Int): SearchConnection!
   searchAutocomplete(kind: [SearchKind!], query: String!, before: String, after: String, first: Int, last: Int): SearchConnection!
   getGlobalObject(slug: String!): GlobalObject
   node(
@@ -1519,6 +1879,26 @@ type TermsOfService implements Node {
   content: String!
   createdAt: DateTime!
   viewerHasAccepted: Boolean!
+}
+
+type AppTemplateCategoryConnection {
+  """Pagination data for this connection."""
+  pageInfo: PageInfo!
+
+  """Contains the nodes in this connection."""
+  edges: [AppTemplateCategoryEdge]!
+
+  """Total number of items in the connection."""
+  totalCount: Int
+}
+
+"""A Relay edge containing a `AppTemplateCategory` and its cursor."""
+type AppTemplateCategoryEdge {
+  """The item at the end of the edge"""
+  node: AppTemplateCategory
+
+  """A cursor for use in pagination"""
+  cursor: String!
 }
 
 type GetPasswordResetToken {
@@ -1584,8 +1964,10 @@ type BlogPost implements Node {
   owner: User
   body: String!
   publishDate: DateTime
+  theme: BlogBlogPostThemeChoices!
   url: String!
   coverImageUrl: String
+  opengraphImageUrl: String
   tagline: String!
   relatedArticles: [BlogPost!]
   updatedAt: DateTime!
@@ -1593,11 +1975,45 @@ type BlogPost implements Node {
   editUrl: String
 }
 
+enum BlogBlogPostThemeChoices {
+  """Green"""
+  GREEN
+
+  """Purple"""
+  PURPLE
+
+  """Orange"""
+  ORANGE
+
+  """Blue"""
+  BLUE
+}
+
 type BlogPostTag implements Node {
   """The ID of the object"""
   id: ID!
   name: String!
   slug: String!
+}
+
+type BlogPostTagConnection {
+  """Pagination data for this connection."""
+  pageInfo: PageInfo!
+
+  """Contains the nodes in this connection."""
+  edges: [BlogPostTagEdge]!
+
+  """Total number of items in the connection."""
+  totalCount: Int
+}
+
+"""A Relay edge containing a `BlogPostTag` and its cursor."""
+type BlogPostTagEdge {
+  """The item at the end of the edge"""
+  node: BlogPostTag
+
+  """A cursor for use in pagination"""
+  cursor: String!
 }
 
 type SearchConnection {
@@ -1618,23 +2034,64 @@ type SearchEdge {
   cursor: String!
 }
 
-union SearchResult = PackageVersion | User | Namespace | DeployApp
+union SearchResult = PackageVersion | User | Namespace | DeployApp | BlogPost | AppTemplate
 
 input PackagesFilter {
   count: Int = 1000
   sortBy: SearchOrderSort = ASC
+
+  """Filter packages by being curated."""
   curated: Boolean
+
+  """Filter packages by publish date."""
   publishDate: SearchPublishDate
+
+  """Filter packages by having bindings."""
   hasBindings: Boolean = false
+
+  """Filter packages by being standalone."""
   isStandalone: Boolean = false
+
+  """Filter packages by having commands."""
   hasCommands: Boolean = false
+
+  """Filter packages by interface."""
   withInterfaces: [String]
+
+  """Filter packages by deployable status."""
+  deployable: Boolean
+
+  """Filter packages by license."""
   license: String
+
+  """Filter packages created after this date."""
+  createdAfter: DateTime
+
+  """Filter packages created before this date."""
+  createdBefore: DateTime
+
+  """Filter packages with version published after this date."""
+  lastPublishedAfter: DateTime
+
+  """Filter packages with version published before this date."""
+  lastPublishedBefore: DateTime
+
+  """Filter packages by size."""
   size: CountFilter
+
+  """Filter packages by download count."""
   downloads: CountFilter
+
+  """Filter packages by like count."""
   likes: CountFilter
+
+  """Filter packages by owner."""
   owner: String
+
+  """Filter packages by published by."""
   publishedBy: String
+
+  """Order packages by field."""
   orderBy: PackageOrderBy = PUBLISHED_DATE
 }
 
@@ -1668,14 +2125,30 @@ enum PackageOrderBy {
   SIZE
   TOTAL_DOWNLOADS
   PUBLISHED_DATE
+  CREATED_DATE
+  TOTAL_LIKES
 }
 
 input NamespacesFilter {
   count: Int = 1000
   sortBy: SearchOrderSort = ASC
+
+  """Filter namespaces by package count."""
   packageCount: CountFilter
+
+  """Filter namespaces created after this date."""
+  createdAfter: DateTime
+
+  """Filter namespaces created before this date."""
+  createdBefore: DateTime
+
+  """Filter namespaces by user count."""
   userCount: CountFilter
+
+  """Filter namespaces by collaborator."""
   collaborator: String
+
+  """Order namespaces by field."""
   orderBy: NamespaceOrderBy = CREATED_DATE
 }
 
@@ -1689,8 +2162,20 @@ enum NamespaceOrderBy {
 input UsersFilter {
   count: Int = 1000
   sortBy: SearchOrderSort = ASC
+
+  """Filter users by package count."""
   packageCount: CountFilter
+
+  """Filter users by namespace count."""
   namespaceCount: CountFilter
+
+  """Filter users joined after this date."""
+  joinedAfter: DateTime
+
+  """Filter users joined before this date."""
+  joinedBefore: DateTime
+
+  """Order users by field."""
   orderBy: UserOrderBy = CREATED_DATE
 }
 
@@ -1703,8 +2188,58 @@ enum UserOrderBy {
 input AppFilter {
   count: Int = 1000
   sortBy: SearchOrderSort = ASC
+
+  """Filter apps by deployed by."""
   deployedBy: String
+
+  """Filter apps last deployed after this date."""
+  lastDeployedAfter: DateTime
+
+  """Filter apps last deployed before this date."""
+  lastDeployedBefore: DateTime
+
+  """Filter apps by owner."""
   owner: String
+
+  """Order apps by field."""
+  orderBy: AppOrderBy = CREATED_DATE
+
+  """Filter apps by client name."""
+  clientName: String
+}
+
+enum AppOrderBy {
+  PUBLISHED_DATE
+  CREATED_DATE
+}
+
+input BlogPostsFilter {
+  count: Int = 1000
+  sortBy: SearchOrderSort = ASC
+
+  """Filter blog posts by tag."""
+  tags: [String]
+}
+
+input AppTemplateFilter {
+  count: Int = 1000
+  sortBy: SearchOrderSort = ASC
+
+  """Order app templates by field."""
+  orderBy: AppTemplateOrderBy = CREATED_DATE
+
+  """Filter by app template framework"""
+  framework: String
+
+  """Filter by app template language"""
+  language: String
+
+  """Filter by one or more of the use-cases for the app template"""
+  useCases: [String]
+}
+
+enum AppTemplateOrderBy {
+  CREATED_DATE
 }
 
 enum SearchKind {
@@ -1784,6 +2319,12 @@ type Mutation {
   """
   detachPaymentMethod(input: DetachPaymentMethodInput!): DetachPaymentMethodPayload
   generateDeployConfigToken(input: GenerateDeployConfigTokenInput!): GenerateDeployConfigTokenPayload
+  renameApp(input: RenameAppInput!): RenameAppPayload
+  renameAppAlias(input: RenameAppAliasInput!): RenameAppAliasPayload
+  requestAppTransfer(input: RequestAppTransferInput!): RequestAppTransferPayload
+  acceptAppTransferRequest(input: AcceptAppTransferRequestInput!): AcceptAppTransferRequestPayload
+  removeAppTransferRequest(input: RemoveAppTransferRequestInput!): RemoveAppTransferRequestPayload
+  createRepoForAppTemplate(input: CreateRepoForAppTemplateInput!): CreateRepoForAppTemplatePayload
   tokenAuth(input: ObtainJSONWebTokenInput!): ObtainJSONWebTokenPayload
   generateDeployToken(input: GenerateDeployTokenInput!): GenerateDeployTokenPayload
   verifyAccessToken(token: String): Verify
@@ -1806,6 +2347,13 @@ type Mutation {
   seePendingNotifications(input: SeePendingNotificationsInput!): SeePendingNotificationsPayload
   newNonce(input: NewNonceInput!): NewNoncePayload
   validateNonce(input: ValidateNonceInput!): ValidateNoncePayload
+  mfa2totpGetToken(input: MFATOTPGetTokenInput!): MFATOTPTokenType
+  mfa2totpVerify(input: MFATOTPVerifyInput!): MFATOTPVerifyPayload
+  mfa2totpAuth(input: MFATOTPAuthInput!): MFAAuthResponse
+  mfa2RecoveryGetToken(input: MFAGenerateRecoveryTokenInput!): MFARecoveryCodes
+  mfa2RecoveryAuth(input: MFARecoveryAuthInput!): MFAAuthResponse
+  mfa2EmailAuth(input: MFAEmailAuthInput!): MFAAuthResponse
+  mfa2EmailGetToken(input: MFAGenerateEmailOTPInput!): MFAEmailGenerationResponse
   publishPublicKey(input: PublishPublicKeyInput!): PublishPublicKeyPayload
   publishPackage(input: PublishPackageInput!): PublishPackagePayload
   updatePackage(input: UpdatePackageInput!): UpdatePackagePayload
@@ -1834,6 +2382,7 @@ type Mutation {
   acceptPackageTransferRequest(input: AcceptPackageTransferRequestInput!): AcceptPackageTransferRequestPayload
   removePackageTransferRequest(input: RemovePackageTransferRequestInput!): RemovePackageTransferRequestPayload
   generateBindingsForAllPackages(input: GenerateBindingsForAllPackagesInput!): GenerateBindingsForAllPackagesPayload
+  makePackagePublic(input: MakePackagePublicInput!): MakePackagePublicPayload
 }
 
 """Viewer accepts the latest ToS."""
@@ -1972,6 +2521,99 @@ input GenerateDeployConfigTokenInput {
   clientMutationId: String
 }
 
+type RenameAppPayload {
+  success: Boolean!
+  app: DeployApp!
+  clientMutationId: String
+}
+
+input RenameAppInput {
+  """App ID to delete."""
+  id: ID!
+
+  """New name for the app."""
+  name: String!
+  clientMutationId: String
+}
+
+type RenameAppAliasPayload {
+  success: Boolean!
+  alias: AppAlias!
+  clientMutationId: String
+}
+
+input RenameAppAliasInput {
+  """App alias ID to delete."""
+  id: ID!
+
+  """New name for the alias."""
+  name: String!
+  clientMutationId: String
+}
+
+type RequestAppTransferPayload {
+  appTransferRequest: AppTransferRequest
+  wasInstantlyTransferred: Boolean!
+  clientMutationId: String
+}
+
+type AppTransferRequest implements Node {
+  """The ID of the object"""
+  id: ID!
+  requestedBy: User!
+  previousOwnerObjectId: Int!
+  newOwnerObjectId: Int!
+  app: DeployApp!
+  approvedBy: User
+  declinedBy: User
+  createdAt: DateTime!
+  expiresAt: DateTime!
+  closedAt: DateTime
+  previousOwner: Owner!
+  newOwner: Owner!
+}
+
+input RequestAppTransferInput {
+  appId: ID!
+  newOwnerId: ID!
+  clientMutationId: String
+}
+
+type AcceptAppTransferRequestPayload {
+  app: DeployApp!
+  appTransferRequest: AppTransferRequest!
+  clientMutationId: String
+}
+
+input AcceptAppTransferRequestInput {
+  appTransferRequestId: ID!
+  clientMutationId: String
+}
+
+type RemoveAppTransferRequestPayload {
+  app: DeployApp!
+  clientMutationId: String
+}
+
+input RemoveAppTransferRequestInput {
+  appTransferRequestId: ID!
+  clientMutationId: String
+}
+
+type CreateRepoForAppTemplatePayload {
+  success: Boolean!
+  repoId: ID!
+  clientMutationId: String
+}
+
+input CreateRepoForAppTemplateInput {
+  templateId: ID!
+  name: String!
+  namespace: String!
+  private: Boolean = false
+  clientMutationId: String
+}
+
 type ObtainJSONWebTokenPayload {
   payload: GenericScalar!
   refreshExpiresIn: Int!
@@ -2037,6 +2679,7 @@ input RegisterUserInput {
   email: String!
   username: CaseInsensitiveString!
   password: String!
+  acceptedTos: Boolean
   clientMutationId: String
 }
 
@@ -2044,17 +2687,6 @@ type SocialAuthJWTPayload {
   social: SocialAuth
   token: String
   clientMutationId: String
-}
-
-type SocialAuth implements Node {
-  """The ID of the object"""
-  id: ID!
-  user: User!
-  provider: String!
-  uid: String!
-  extraData: String!
-  created: DateTime!
-  modified: DateTime!
 }
 
 input SocialAuthJWTInput {
@@ -2266,6 +2898,74 @@ input ValidateNonceInput {
   clientMutationId: String
 }
 
+type MFATOTPTokenType {
+  qr: String
+  secretKey: String
+}
+
+input MFATOTPGetTokenInput {
+  clientMutationId: String
+}
+
+type MFATOTPVerifyPayload {
+  status: MFATOTPVerifyStatus
+  clientMutationId: String
+}
+
+enum MFATOTPVerifyStatus {
+  SUCCESS
+  RECOVERY
+}
+
+input MFATOTPVerifyInput {
+  answer: String!
+  secretKey: String!
+  clientMutationId: String
+}
+
+"""Response object for MFAAuth mutation."""
+type MFAAuthResponse {
+  success: Boolean!
+  token: String
+  refreshToken: String
+  username: String
+  refreshTokenExpiresIn: Int
+}
+
+input MFATOTPAuthInput {
+  username: String!
+  otp: String!
+  clientMutationId: String
+}
+
+type MFARecoveryCodes {
+  codes: [String]!
+}
+
+input MFAGenerateRecoveryTokenInput {
+  clientMutationId: String
+}
+
+input MFARecoveryAuthInput {
+  username: String!
+  otp: String!
+  clientMutationId: String
+}
+
+input MFAEmailAuthInput {
+  username: String!
+  otp: String!
+  clientMutationId: String
+}
+
+type MFAEmailGenerationResponse {
+  success: Boolean!
+}
+
+input MFAGenerateEmailOTPInput {
+  clientMutationId: String
+}
+
 type PublishPublicKeyPayload {
   success: Boolean!
   publicKey: PublicKey!
@@ -2304,12 +3004,23 @@ input PublishPackageInput {
 
   """Whether the package is private"""
   private: Boolean = false
+
+  """The upload format of the package"""
+  uploadFormat: UploadFormat = targz
+
+  """Whether to wait for webc generation to finish"""
+  wait: Boolean = false
   clientMutationId: String
 }
 
 input InputSignature {
   publicKeyKeyId: String!
   data: String!
+}
+
+enum UploadFormat {
+  targz
+  webcv2
 }
 
 type UpdatePackagePayload {
@@ -2425,6 +3136,19 @@ input UpdateNamespaceInput {
 
   """The namespace avatar"""
   avatar: String
+
+  """
+  The user Twitter (it can be the url, or the handle with or without the @)
+  """
+  twitter: String
+
+  """
+  The user Github (it can be the url, or the handle with or without the @)
+  """
+  github: String
+
+  """The user website (it must be a valid url)"""
+  websiteUrl: String
   clientMutationId: String
 }
 
@@ -2572,6 +3296,8 @@ input RemovePackageCollaboratorInput {
 
 type RequestPackageTransferPayload {
   package: Package!
+  wasInstantlyTransferred: Boolean!
+  packageTransferRequest: PackageTransferRequest
   clientMutationId: String
 }
 
@@ -2613,9 +3339,56 @@ input GenerateBindingsForAllPackagesInput {
   clientMutationId: String
 }
 
+type MakePackagePublicPayload {
+  package: Package!
+  clientMutationId: String
+}
+
+input MakePackagePublicInput {
+  """The ID of the package to make public"""
+  id: ID!
+  clientMutationId: String
+}
+
 type Subscription {
+  streamLogs(
+    appVersionId: ID!
+
+    """
+    Get logs starting from this timestamp. Takes ISO timestamp in UTC timezone.
+    """
+    startingFromISO: DateTime
+
+    """
+    Fetch logs until this timestamp. Takes ISO timestamp in UTC timezone. If specified, the subscription will at this time.
+    """
+    untilISO: DateTime
+
+    """Filter logs by stream"""
+    streams: [LogStream]
+
+    """Search logs for this term"""
+    searchTerm: String
+  ): Log!
+  waitOnRepoCreation(repoId: ID!): Boolean!
+  appIsPublishedFromRepo(repoId: ID!): DeployAppVersion!
   packageVersionCreated(publishedBy: ID, ownerId: ID): PackageVersion!
+
+  """Subscribe to package version ready"""
+  packageVersionReady(packageVersionId: ID!): PackageVersionReadyResponse!
   userNotificationCreated(userId: ID!): UserNotificationCreated!
+}
+
+type PackageVersionReadyResponse {
+  state: PackageVersionState!
+  packageVersion: PackageVersion!
+  success: Boolean!
+}
+
+enum PackageVersionState {
+  WEBC_GENERATED
+  BINDINGS_GENERATED
+  NATIVE_EXES_GENERATED
 }
 
 type UserNotificationCreated {
