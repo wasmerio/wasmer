@@ -7,6 +7,7 @@ use serde::{Deserialize, Serialize};
 use std::{
     collections::HashMap,
     convert::TryInto,
+    ops::Range,
     sync::{
         atomic::{AtomicU32, Ordering},
         Arc, Condvar, Mutex, MutexGuard, RwLock, Weak,
@@ -118,6 +119,28 @@ pub enum WasiProcessCheckpoint {
     Snapshot { trigger: SnapshotTrigger },
 }
 
+#[repr(C)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct MemorySnapshotRegion {
+    pub start: u64,
+    pub end: u64,
+}
+
+impl From<Range<u64>> for MemorySnapshotRegion {
+    fn from(value: Range<u64>) -> Self {
+        Self {
+            start: value.start,
+            end: value.end,
+        }
+    }
+}
+
+impl Into<Range<u64>> for MemorySnapshotRegion {
+    fn into(self) -> Range<u64> {
+        self.start..self.end
+    }
+}
+
 // TODO: fields should be private and only accessed via methods.
 #[derive(Debug)]
 pub struct WasiProcessInner {
@@ -138,7 +161,7 @@ pub struct WasiProcessInner {
     pub wakers: Vec<Waker>,
     /// The snapshot memory significantly reduce the amount of
     /// duplicate entries in the journal for memory that has not changed
-    pub snapshot_memory_hash: HashMap<std::ops::Range<u64>, [u8; 32]>,
+    pub snapshot_memory_hash: HashMap<MemorySnapshotRegion, u64>,
 }
 
 pub enum MaybeCheckpointResult<'a> {
