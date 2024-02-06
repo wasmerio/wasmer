@@ -23,6 +23,7 @@ fn artifact_serialization_roundtrip() {
 // This test is just here to update the compiled objects to their
 // latest version, so we can commit them to the repo.
 #[test]
+#[ignore = "Please enable it when tests fail, so we can generate new versions of the .wasmu files"]
 fn artifact_serialization_build() {
     use std::str::FromStr;
     use wasmer::sys::{get_default_compiler_config, Features, NativeEngineExt};

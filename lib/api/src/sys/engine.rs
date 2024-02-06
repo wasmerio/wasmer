@@ -13,11 +13,11 @@ use wasmer_types::{DeserializeError, Target};
 pub fn get_default_compiler_config() -> Option<Box<dyn wasmer_compiler::CompilerConfig>> {
     cfg_if::cfg_if! {
         if #[cfg(feature = "cranelift")] {
-            Some(Box::new(wasmer_compiler_cranelift::Cranelift::default()))
+            Some(Box::<wasmer_compiler_cranelift::Cranelift>::default())
         } else if #[cfg(feature = "llvm")] {
-            Some(Box::new(wasmer_compiler_llvm::LLVM::default()))
+            Some(Box::<wasmer_compiler_llvm::LLVM>::default())
         } else if #[cfg(feature = "singlepass")] {
-            Some(Box::new(wasmer_compiler_singlepass::Singlepass::default()))
+            Some(Box::<wasmer_compiler_singlepass::Singlepass>::default())
         }
         else {
             None
