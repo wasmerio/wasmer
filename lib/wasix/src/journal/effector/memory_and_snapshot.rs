@@ -74,6 +74,9 @@ impl JournalEffector {
         // Next we examine the dirty page manager and filter out any pages
         // that have not been explicitly written to (according to the
         // PTE)
+        //
+        // # TODO
+        // https://docs.kernel.org/admin-guide/mm/soft-dirty.html
 
         // Now that we know all the regions that need to be saved we
         // enter a processing loop that dumps all the data to the log
