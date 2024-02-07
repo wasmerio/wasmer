@@ -791,9 +791,6 @@
 <a href="#791" id="791">791</a>
 <a href="#792" id="792">792</a>
 <a href="#793" id="793">793</a>
-<a href="#794" id="794">794</a>
-<a href="#795" id="795">795</a>
-<a href="#796" id="796">796</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{collections::HashSet, time::Duration};
 
 <span class="kw">use </span>anyhow::{bail, Context};
@@ -1486,10 +1483,7 @@
             name: name.clone(),
             owner: owner.clone(),
             version: tag.clone(),
-            <span class="comment">// TODO: increase pagination size
-            // See https://github.com/wasmerio/edge/issues/460
-            // first: Some(500),
-            </span>first: <span class="prelude-val">Some</span>(<span class="number">10</span>),
+            first: <span class="prelude-val">Some</span>(<span class="number">100</span>),
             starting_from: unix_timestamp(start),
             until: end.map(unix_timestamp),
         };
