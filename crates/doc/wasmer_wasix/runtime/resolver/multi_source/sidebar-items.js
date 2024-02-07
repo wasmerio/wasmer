@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"static":["META","__CALLSITE"],"struct":["MultiSource","MultiSourceStrategy"]};
+window.SIDEBAR_ITEMS = {"struct":["MultiSource","MultiSourceStrategy"]};

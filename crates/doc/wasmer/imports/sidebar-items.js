@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":["SecretMap"],"struct":["Imports","ImportsIterator"]};
+window.SIDEBAR_ITEMS = {"struct":["Imports","ImportsIterator"]};

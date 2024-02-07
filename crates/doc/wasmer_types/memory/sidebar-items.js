@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":["ArchivedTag","MemoryStyle","MemoryStyleResolver","Tag"],"struct":["ArchivedVariantDynamic","ArchivedVariantStatic","Discriminant","Memory32","Memory64","VariantDynamic","VariantStatic"],"trait":["MemorySize"]};
+window.SIDEBAR_ITEMS = {"enum":["MemoryStyle","MemoryStyleResolver"],"struct":["Memory32","Memory64"],"trait":["MemorySize"]};

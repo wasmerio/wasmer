@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"constant":["DEFAULT_STACK_BASE","DEFAULT_STACK_SIZE"],"static":["META","__CALLSITE"],"struct":["WasiFunctionEnv"]};
+window.SIDEBAR_ITEMS = {"constant":["DEFAULT_STACK_BASE","DEFAULT_STACK_SIZE"],"struct":["WasiFunctionEnv"]};

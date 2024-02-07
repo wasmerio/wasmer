@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"static":["META","__CALLSITE"],"struct":["BinaryPackage","BinaryPackageCommand"]};
+window.SIDEBAR_ITEMS = {"struct":["BinaryPackage","BinaryPackageCommand"]};

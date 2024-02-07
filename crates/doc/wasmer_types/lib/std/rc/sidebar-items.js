@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":["Rc","Weak"]};
+window.SIDEBAR_ITEMS = {"struct":["Rc","UniqueRc","Weak"]};

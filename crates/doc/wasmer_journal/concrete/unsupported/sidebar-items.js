@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"static":["META","UNSUPPORTED_JOURNAL","__CALLSITE"],"struct":["UnsupportedJournal"]};
+window.SIDEBAR_ITEMS = {"static":["UNSUPPORTED_JOURNAL"],"struct":["UnsupportedJournal"]};

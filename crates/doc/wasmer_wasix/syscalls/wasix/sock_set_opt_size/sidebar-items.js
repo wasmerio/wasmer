@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["sock_set_opt_size","sock_set_opt_size_internal"],"static":["META","__CALLSITE"]};
+window.SIDEBAR_ITEMS = {"fn":["sock_set_opt_size","sock_set_opt_size_internal"]};

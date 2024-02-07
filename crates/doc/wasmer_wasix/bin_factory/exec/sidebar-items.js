@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["call_module","get_start","run_exec","run_recycle","spawn_exec","spawn_exec_module"],"static":["META","__CALLSITE"]};
+window.SIDEBAR_ITEMS = {"fn":["call_module","get_start","run_exec","run_recycle","spawn_exec","spawn_exec_module"]};

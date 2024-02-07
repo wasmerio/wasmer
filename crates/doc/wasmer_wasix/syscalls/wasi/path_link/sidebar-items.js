@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["path_link","path_link_internal"],"static":["META","__CALLSITE"]};
+window.SIDEBAR_ITEMS = {"fn":["path_link","path_link_internal"]};

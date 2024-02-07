@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["port_dhcp_acquire","port_dhcp_acquire_internal"],"static":["META","__CALLSITE"]};
+window.SIDEBAR_ITEMS = {"fn":["port_dhcp_acquire","port_dhcp_acquire_internal"]};

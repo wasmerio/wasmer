@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"constant":["BRANCHES","CLEANUP_TIMEOUT"],"static":["META","__CALLSITE"],"struct":["WasiEnv","WasiEnvInit","WasiInstanceHandles"]};
+window.SIDEBAR_ITEMS = {"struct":["WasiEnv","WasiEnvInit","WasiInstanceHandles"]};

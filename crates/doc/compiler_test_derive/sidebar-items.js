@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"attr":["compiler_test"],"fn":["compiler_test_impl"],"mod":["ignores"],"static":["_DECLS"]};
+window.SIDEBAR_ITEMS = {"attr":["compiler_test"],"fn":["compiler_test_impl"],"mod":["ignores"]};

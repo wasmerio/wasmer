@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["proc_parent"],"static":["META","__CALLSITE"]};
+window.SIDEBAR_ITEMS = {"fn":["proc_parent"]};

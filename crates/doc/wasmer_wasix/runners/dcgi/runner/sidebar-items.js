@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"constant":["DCGI_RUNNER_URI"],"static":["META","__CALLSITE"],"struct":["Config","DcgiRunner"]};
+window.SIDEBAR_ITEMS = {"constant":["DCGI_RUNNER_URI"],"struct":["Config","DcgiRunner"]};

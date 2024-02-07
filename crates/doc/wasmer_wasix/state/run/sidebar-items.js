@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["handle_result","run_with_deep_sleep","wasi_exit_code"],"static":["META","__CALLSITE"]};
+window.SIDEBAR_ITEMS = {"fn":["handle_result","run_with_deep_sleep","wasi_exit_code"]};

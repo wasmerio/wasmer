@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"static":["META","__CALLSITE"],"struct":["DcgiCallbacks"]};
+window.SIDEBAR_ITEMS = {"struct":["DcgiCallbacks"]};

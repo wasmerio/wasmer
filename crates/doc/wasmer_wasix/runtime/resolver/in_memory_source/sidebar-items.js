@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["process_entry"],"static":["META","__CALLSITE"],"struct":["InMemorySource"]};
+window.SIDEBAR_ITEMS = {"struct":["InMemorySource"]};

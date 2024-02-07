@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"static":["META","__CALLSITE"],"struct":["RootFileSystemBuilder"]};
+window.SIDEBAR_ITEMS = {"struct":["RootFileSystemBuilder"]};

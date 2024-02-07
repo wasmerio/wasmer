@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"constant":["BRANCHES"],"enum":["InodeHttpSocketType","InodeSocketKind","TimeType","WasiSocketOption","WasiSocketStatus"],"fn":["all_socket_rights"],"static":["META","__CALLSITE"],"struct":["IndefinitePoll","InodeSocket","InodeSocketInner","InodeSocketProtected","SocketAccepter","SocketReceiver","SocketSender"]};
+window.SIDEBAR_ITEMS = {"enum":["InodeHttpSocketType","InodeSocketKind","TimeType","WasiSocketOption","WasiSocketStatus"],"fn":["all_socket_rights"],"struct":["IndefinitePoll","InodeSocket","InodeSocketInner","InodeSocketProtected"]};

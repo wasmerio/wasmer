@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"static":["META","__CALLSITE"],"struct":["WasmerClient"]};
+window.SIDEBAR_ITEMS = {"struct":["WasmerClient"]};

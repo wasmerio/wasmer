@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Environment affecting the translation of a single WebAssembly function."><title>FuncEnvironment in wasmer_compiler_cranelift::translator::func_environ - Rust</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-ba5701c5741a7b69.css" id="mainThemeStyle"><div id="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="wasmer_compiler_cranelift" data-themes="" data-resource-suffix="" data-rustdoc-version="1.70.0 (90c541806 2023-05-31)" data-search-js="search-e077946657036a58.js" data-settings-js="settings-298e1ea74db45b39.js" data-settings-css="settings-7bfb4c59cc6bc502.css" data-theme-light-css="light-0f8c037637f9eb3e.css" data-theme-dark-css="dark-1097f8e92a01e3cf.css" data-theme-ayu-css="ayu-614652228113ac93.css" ></div><script src="../../../static.files/storage-62ce34ea385b278a.js"></script><script defer src="sidebar-items.js"></script><script defer src="../../../static.files/main-f61008743c98d196.js"></script><noscript><link rel="stylesheet" media="(prefers-color-scheme:light)" href="../../../static.files/light-0f8c037637f9eb3e.css"><link rel="stylesheet" media="(prefers-color-scheme:dark)" href="../../../static.files/dark-1097f8e92a01e3cf.css"><link rel="stylesheet" href="../../../static.files/noscript-13285aec31fa243e.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc trait"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="logo-container" href="../../../wasmer_compiler_cranelift/index.html"><img class="rust-logo" src="../../../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><h2></h2></nav><nav class="sidebar"><a class="logo-container" href="../../../wasmer_compiler_cranelift/index.html"><img class="rust-logo" src="../../../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><h2 class="location"><a href="#">FuncEnvironment</a></h2><div class="sidebar-elems"><section><h3><a href="#required-methods">Required Methods</a></h3><ul class="block"><li><a href="#tymethod.get_function_sig">get_function_sig</a></li><li><a href="#tymethod.get_function_type">get_function_type</a></li><li><a href="#tymethod.get_global_type">get_global_type</a></li><li><a href="#tymethod.get_local_type">get_local_type</a></li><li><a href="#tymethod.get_local_types">get_local_types</a></li><li><a href="#tymethod.make_direct_func">make_direct_func</a></li><li><a href="#tymethod.make_global">make_global</a></li><li><a href="#tymethod.make_heap">make_heap</a></li><li><a href="#tymethod.make_indirect_sig">make_indirect_sig</a></li><li><a href="#tymethod.make_table">make_table</a></li><li><a href="#tymethod.push_local_decl_on_stack">push_local_decl_on_stack</a></li><li><a href="#tymethod.push_params_on_stack">push_params_on_stack</a></li><li><a href="#tymethod.translate_atomic_notify">translate_atomic_notify</a></li><li><a href="#tymethod.translate_atomic_wait">translate_atomic_wait</a></li><li><a href="#tymethod.translate_call_indirect">translate_call_indirect</a></li><li><a href="#tymethod.translate_custom_global_get">translate_custom_global_get</a></li><li><a href="#tymethod.translate_custom_global_set">translate_custom_global_set</a></li><li><a href="#tymethod.translate_data_drop">translate_data_drop</a></li><li><a href="#tymethod.translate_elem_drop">translate_elem_drop</a></li><li><a href="#tymethod.translate_memory_copy">translate_memory_copy</a></li><li><a href="#tymethod.translate_memory_fill">translate_memory_fill</a></li><li><a href="#tymethod.translate_memory_grow">translate_memory_grow</a></li><li><a href="#tymethod.translate_memory_init">translate_memory_init</a></li><li><a href="#tymethod.translate_memory_size">translate_memory_size</a></li><li><a href="#tymethod.translate_ref_func">translate_ref_func</a></li><li><a href="#tymethod.translate_ref_null">translate_ref_null</a></li><li><a href="#tymethod.translate_table_copy">translate_table_copy</a></li><li><a href="#tymethod.translate_table_fill">translate_table_fill</a></li><li><a href="#tymethod.translate_table_get">translate_table_get</a></li><li><a href="#tymethod.translate_table_grow">translate_table_grow</a></li><li><a href="#tymethod.translate_table_init">translate_table_init</a></li><li><a href="#tymethod.translate_table_set">translate_table_set</a></li><li><a href="#tymethod.translate_table_size">translate_table_size</a></li></ul><h3><a href="#provided-methods">Provided Methods</a></h3><ul class="block"><li><a href="#method.after_translate_operator">after_translate_operator</a></li><li><a href="#method.before_translate_operator">before_translate_operator</a></li><li><a href="#method.is_wasm_parameter">is_wasm_parameter</a></li><li><a href="#method.is_wasm_return">is_wasm_return</a></li><li><a href="#method.return_mode">return_mode</a></li><li><a href="#method.translate_call">translate_call</a></li><li><a href="#method.translate_loop_header">translate_loop_header</a></li><li><a href="#method.translate_ref_is_null">translate_ref_is_null</a></li></ul><h3><a href="#implementors">Implementors</a></h3></section><h2><a href="index.html">In wasmer_compiler_cranelift::translator::func_environ</a></h2></div></nav><main><div class="width-limiter"><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="main-heading"><h1>Trait <a href="../../index.html">wasmer_compiler_cranelift</a>::<wbr><a href="../index.html">translator</a>::<wbr><a href="index.html">func_environ</a>::<wbr><a class="trait" href="#">FuncEnvironment</a><button id="copy-path" title="Copy item path to clipboard"><img src="../../../static.files/clipboard-7571035ce49a181d.svg" width="19" height="18" alt="Copy item path"></button></h1><span class="out-of-band"><a class="srclink" href="../../../src/wasmer_compiler_cranelift/translator/func_environ.rs.html#81-492">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><pre class="rust item-decl"><code>pub trait FuncEnvironment: <a class="trait" href="trait.TargetEnvironment.html" title="trait wasmer_compiler_cranelift::translator::func_environ::TargetEnvironment">TargetEnvironment</a> {
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Environment affecting the translation of a single WebAssembly function."><title>FuncEnvironment in wasmer_compiler_cranelift::translator::func_environ - Rust</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-cb6f1f67f1bcd037.css" id="mainThemeStyle"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="wasmer_compiler_cranelift" data-themes="" data-resource-suffix="" data-rustdoc-version="1.73.0 (cc66ad468 2023-10-03)" data-channel="1.73.0" data-search-js="search-6dfdfced5eff6596.js" data-settings-js="settings-de11bff964e9d4e5.js" data-settings-css="settings-8c76f75bfb6bd192.css" data-theme-light-css="light-1596385f77d47ef2.css" data-theme-dark-css="dark-0a43001d3fc2282c.css" data-theme-ayu-css="ayu-fd19013d6ce078bf.css" ><script src="../../../static.files/storage-db41da1a38ea3cb8.js"></script><script defer src="sidebar-items.js"></script><script defer src="../../../static.files/main-0795b7d26be81095.js"></script><noscript><link rel="stylesheet" media="(prefers-color-scheme:light)" href="../../../static.files/light-1596385f77d47ef2.css"><link rel="stylesheet" media="(prefers-color-scheme:dark)" href="../../../static.files/dark-0a43001d3fc2282c.css"><link rel="stylesheet" href="../../../static.files/noscript-cffde32267a19fd6.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc trait"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="logo-container" href="../../../wasmer_compiler_cranelift/index.html"><img class="rust-logo" src="../../../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><h2></h2></nav><nav class="sidebar"><a class="logo-container" href="../../../wasmer_compiler_cranelift/index.html"><img class="rust-logo" src="../../../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><h2 class="location"><a href="#">FuncEnvironment</a></h2><div class="sidebar-elems"><section><h3><a href="#required-methods">Required Methods</a></h3><ul class="block"><li><a href="#tymethod.get_function_sig">get_function_sig</a></li><li><a href="#tymethod.get_function_type">get_function_type</a></li><li><a href="#tymethod.get_global_type">get_global_type</a></li><li><a href="#tymethod.get_local_type">get_local_type</a></li><li><a href="#tymethod.get_local_types">get_local_types</a></li><li><a href="#tymethod.make_direct_func">make_direct_func</a></li><li><a href="#tymethod.make_global">make_global</a></li><li><a href="#tymethod.make_heap">make_heap</a></li><li><a href="#tymethod.make_indirect_sig">make_indirect_sig</a></li><li><a href="#tymethod.make_table">make_table</a></li><li><a href="#tymethod.push_local_decl_on_stack">push_local_decl_on_stack</a></li><li><a href="#tymethod.push_params_on_stack">push_params_on_stack</a></li><li><a href="#tymethod.translate_atomic_notify">translate_atomic_notify</a></li><li><a href="#tymethod.translate_atomic_wait">translate_atomic_wait</a></li><li><a href="#tymethod.translate_call_indirect">translate_call_indirect</a></li><li><a href="#tymethod.translate_custom_global_get">translate_custom_global_get</a></li><li><a href="#tymethod.translate_custom_global_set">translate_custom_global_set</a></li><li><a href="#tymethod.translate_data_drop">translate_data_drop</a></li><li><a href="#tymethod.translate_elem_drop">translate_elem_drop</a></li><li><a href="#tymethod.translate_memory_copy">translate_memory_copy</a></li><li><a href="#tymethod.translate_memory_fill">translate_memory_fill</a></li><li><a href="#tymethod.translate_memory_grow">translate_memory_grow</a></li><li><a href="#tymethod.translate_memory_init">translate_memory_init</a></li><li><a href="#tymethod.translate_memory_size">translate_memory_size</a></li><li><a href="#tymethod.translate_ref_func">translate_ref_func</a></li><li><a href="#tymethod.translate_ref_null">translate_ref_null</a></li><li><a href="#tymethod.translate_table_copy">translate_table_copy</a></li><li><a href="#tymethod.translate_table_fill">translate_table_fill</a></li><li><a href="#tymethod.translate_table_get">translate_table_get</a></li><li><a href="#tymethod.translate_table_grow">translate_table_grow</a></li><li><a href="#tymethod.translate_table_init">translate_table_init</a></li><li><a href="#tymethod.translate_table_set">translate_table_set</a></li><li><a href="#tymethod.translate_table_size">translate_table_size</a></li></ul><h3><a href="#provided-methods">Provided Methods</a></h3><ul class="block"><li><a href="#method.after_translate_operator">after_translate_operator</a></li><li><a href="#method.before_translate_operator">before_translate_operator</a></li><li><a href="#method.is_wasm_parameter">is_wasm_parameter</a></li><li><a href="#method.is_wasm_return">is_wasm_return</a></li><li><a href="#method.return_mode">return_mode</a></li><li><a href="#method.translate_call">translate_call</a></li><li><a href="#method.translate_loop_header">translate_loop_header</a></li><li><a href="#method.translate_ref_is_null">translate_ref_is_null</a></li></ul><h3><a href="#implementors">Implementors</a></h3></section><h2><a href="index.html">In wasmer_compiler_cranelift::translator::func_environ</a></h2></div></nav><main><div class="width-limiter"><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="main-heading"><h1>Trait <a href="../../index.html">wasmer_compiler_cranelift</a>::<wbr><a href="../index.html">translator</a>::<wbr><a href="index.html">func_environ</a>::<wbr><a class="trait" href="#">FuncEnvironment</a><button id="copy-path" title="Copy item path to clipboard"><img src="../../../static.files/clipboard-7571035ce49a181d.svg" width="19" height="18" alt="Copy item path"></button></h1><span class="out-of-band"><a class="src" href="../../../src/wasmer_compiler_cranelift/translator/func_environ.rs.html#81-492">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><pre class="rust item-decl"><code>pub trait FuncEnvironment: <a class="trait" href="trait.TargetEnvironment.html" title="trait wasmer_compiler_cranelift::translator::func_environ::TargetEnvironment">TargetEnvironment</a> {
 <details class="toggle type-contents-toggle"><summary class="hideme"><span>Show 41 methods</span></summary>    // Required methods
     fn <a href="#tymethod.make_global" class="fn">make_global</a>(
         &amp;mut self,
@@ -58,7 +58,7 @@
         dst: Value,
         src: Value,
         len: Value
-    ) -&gt; WasmResult&lt;<a class="primitive" href="https://doc.rust-lang.org/1.70.0/std/primitive.unit.html">()</a>&gt;;
+    ) -&gt; WasmResult&lt;<a class="primitive" href="https://doc.rust-lang.org/1.73.0/std/primitive.unit.html">()</a>&gt;;
 <span class="item-spacer"></span>    fn <a href="#tymethod.translate_memory_fill" class="fn">translate_memory_fill</a>(
         &amp;mut self,
         pos: FuncCursor&lt;'_&gt;,
@@ -67,22 +67,22 @@
         dst: Value,
         val: Value,
         len: Value
-    ) -&gt; WasmResult&lt;<a class="primitive" href="https://doc.rust-lang.org/1.70.0/std/primitive.unit.html">()</a>&gt;;
+    ) -&gt; WasmResult&lt;<a class="primitive" href="https://doc.rust-lang.org/1.73.0/std/primitive.unit.html">()</a>&gt;;
 <span class="item-spacer"></span>    fn <a href="#tymethod.translate_memory_init" class="fn">translate_memory_init</a>(
         &amp;mut self,
         pos: FuncCursor&lt;'_&gt;,
         index: MemoryIndex,
         heap: Heap,
-        seg_index: <a class="primitive" href="https://doc.rust-lang.org/1.70.0/std/primitive.u32.html">u32</a>,
+        seg_index: <a class="primitive" href="https://doc.rust-lang.org/1.73.0/std/primitive.u32.html">u32</a>,
         dst: Value,
         src: Value,
         len: Value
-    ) -&gt; WasmResult&lt;<a class="primitive" href="https://doc.rust-lang.org/1.70.0/std/primitive.unit.html">()</a>&gt;;
+    ) -&gt; WasmResult&lt;<a class="primitive" href="https://doc.rust-lang.org/1.73.0/std/primitive.unit.html">()</a>&gt;;
 <span class="item-spacer"></span>    fn <a href="#tymethod.translate_data_drop" class="fn">translate_data_drop</a>(
         &amp;mut self,
         pos: FuncCursor&lt;'_&gt;,
-        seg_index: <a class="primitive" href="https://doc.rust-lang.org/1.70.0/std/primitive.u32.html">u32</a>
-    ) -&gt; WasmResult&lt;<a class="primitive" href="https://doc.rust-lang.org/1.70.0/std/primitive.unit.html">()</a>&gt;;
+        seg_index: <a class="primitive" href="https://doc.rust-lang.org/1.73.0/std/primitive.u32.html">u32</a>
+    ) -&gt; WasmResult&lt;<a class="primitive" href="https://doc.rust-lang.org/1.73.0/std/primitive.unit.html">()</a>&gt;;
 <span class="item-spacer"></span>    fn <a href="#tymethod.translate_table_size" class="fn">translate_table_size</a>(
         &amp;mut self,
         pos: FuncCursor&lt;'_&gt;,
@@ -111,7 +111,7 @@
         table: Table,
         value: Value,
         index: Value
-    ) -&gt; WasmResult&lt;<a class="primitive" href="https://doc.rust-lang.org/1.70.0/std/primitive.unit.html">()</a>&gt;;
+    ) -&gt; WasmResult&lt;<a class="primitive" href="https://doc.rust-lang.org/1.73.0/std/primitive.unit.html">()</a>&gt;;
 <span class="item-spacer"></span>    fn <a href="#tymethod.translate_table_copy" class="fn">translate_table_copy</a>(
         &amp;mut self,
         pos: FuncCursor&lt;'_&gt;,
@@ -122,7 +122,7 @@
         dst: Value,
         src: Value,
         len: Value
-    ) -&gt; WasmResult&lt;<a class="primitive" href="https://doc.rust-lang.org/1.70.0/std/primitive.unit.html">()</a>&gt;;
+    ) -&gt; WasmResult&lt;<a class="primitive" href="https://doc.rust-lang.org/1.73.0/std/primitive.unit.html">()</a>&gt;;
 <span class="item-spacer"></span>    fn <a href="#tymethod.translate_table_fill" class="fn">translate_table_fill</a>(
         &amp;mut self,
         pos: FuncCursor&lt;'_&gt;,
@@ -130,22 +130,22 @@
         dst: Value,
         val: Value,
         len: Value
-    ) -&gt; WasmResult&lt;<a class="primitive" href="https://doc.rust-lang.org/1.70.0/std/primitive.unit.html">()</a>&gt;;
+    ) -&gt; WasmResult&lt;<a class="primitive" href="https://doc.rust-lang.org/1.73.0/std/primitive.unit.html">()</a>&gt;;
 <span class="item-spacer"></span>    fn <a href="#tymethod.translate_table_init" class="fn">translate_table_init</a>(
         &amp;mut self,
         pos: FuncCursor&lt;'_&gt;,
-        seg_index: <a class="primitive" href="https://doc.rust-lang.org/1.70.0/std/primitive.u32.html">u32</a>,
+        seg_index: <a class="primitive" href="https://doc.rust-lang.org/1.73.0/std/primitive.u32.html">u32</a>,
         table_index: TableIndex,
         table: Table,
         dst: Value,
         src: Value,
         len: Value
-    ) -&gt; WasmResult&lt;<a class="primitive" href="https://doc.rust-lang.org/1.70.0/std/primitive.unit.html">()</a>&gt;;
+    ) -&gt; WasmResult&lt;<a class="primitive" href="https://doc.rust-lang.org/1.73.0/std/primitive.unit.html">()</a>&gt;;
 <span class="item-spacer"></span>    fn <a href="#tymethod.translate_elem_drop" class="fn">translate_elem_drop</a>(
         &amp;mut self,
         pos: FuncCursor&lt;'_&gt;,
-        seg_index: <a class="primitive" href="https://doc.rust-lang.org/1.70.0/std/primitive.u32.html">u32</a>
-    ) -&gt; WasmResult&lt;<a class="primitive" href="https://doc.rust-lang.org/1.70.0/std/primitive.unit.html">()</a>&gt;;
+        seg_index: <a class="primitive" href="https://doc.rust-lang.org/1.73.0/std/primitive.u32.html">u32</a>
+    ) -&gt; WasmResult&lt;<a class="primitive" href="https://doc.rust-lang.org/1.73.0/std/primitive.unit.html">()</a>&gt;;
 <span class="item-spacer"></span>    fn <a href="#tymethod.translate_ref_null" class="fn">translate_ref_null</a>(
         &amp;mut self,
         pos: FuncCursor&lt;'_&gt;,
@@ -166,7 +166,7 @@
         pos: FuncCursor&lt;'_&gt;,
         global_index: GlobalIndex,
         val: Value
-    ) -&gt; WasmResult&lt;<a class="primitive" href="https://doc.rust-lang.org/1.70.0/std/primitive.unit.html">()</a>&gt;;
+    ) -&gt; WasmResult&lt;<a class="primitive" href="https://doc.rust-lang.org/1.73.0/std/primitive.unit.html">()</a>&gt;;
 <span class="item-spacer"></span>    fn <a href="#tymethod.translate_atomic_wait" class="fn">translate_atomic_wait</a>(
         &amp;mut self,
         pos: FuncCursor&lt;'_&gt;,
@@ -184,23 +184,23 @@
         addr: Value,
         count: Value
     ) -&gt; WasmResult&lt;Value&gt;;
-<span class="item-spacer"></span>    fn <a href="#tymethod.get_global_type" class="fn">get_global_type</a>(&amp;self, global_index: GlobalIndex) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.70.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;WasmerType&gt;;
+<span class="item-spacer"></span>    fn <a href="#tymethod.get_global_type" class="fn">get_global_type</a>(&amp;self, global_index: GlobalIndex) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.73.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;WasmerType&gt;;
 <span class="item-spacer"></span>    fn <a href="#tymethod.push_local_decl_on_stack" class="fn">push_local_decl_on_stack</a>(&amp;mut self, ty: WasmerType);
 <span class="item-spacer"></span>    fn <a href="#tymethod.push_params_on_stack" class="fn">push_params_on_stack</a>(&amp;mut self, function_index: LocalFunctionIndex);
-<span class="item-spacer"></span>    fn <a href="#tymethod.get_local_type" class="fn">get_local_type</a>(&amp;self, local_index: <a class="primitive" href="https://doc.rust-lang.org/1.70.0/std/primitive.u32.html">u32</a>) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.70.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;WasmerType&gt;;
+<span class="item-spacer"></span>    fn <a href="#tymethod.get_local_type" class="fn">get_local_type</a>(&amp;self, local_index: <a class="primitive" href="https://doc.rust-lang.org/1.73.0/std/primitive.u32.html">u32</a>) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.73.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;WasmerType&gt;;
 <span class="item-spacer"></span>    fn <a href="#tymethod.get_local_types" class="fn">get_local_types</a>(&amp;self) -&gt; &amp;[WasmerType];
 <span class="item-spacer"></span>    fn <a href="#tymethod.get_function_type" class="fn">get_function_type</a>(
         &amp;self,
         function_index: FunctionIndex
-    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.70.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;&amp;FunctionType&gt;;
+    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.73.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;&amp;FunctionType&gt;;
 <span class="item-spacer"></span>    fn <a href="#tymethod.get_function_sig" class="fn">get_function_sig</a>(
         &amp;self,
         sig_index: SignatureIndex
-    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.70.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;&amp;FunctionType&gt;;
+    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.73.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;&amp;FunctionType&gt;;
 
     // Provided methods
-    fn <a href="#method.is_wasm_parameter" class="fn">is_wasm_parameter</a>(&amp;self, signature: &amp;Signature, index: <a class="primitive" href="https://doc.rust-lang.org/1.70.0/std/primitive.usize.html">usize</a>) -&gt; <a class="primitive" href="https://doc.rust-lang.org/1.70.0/std/primitive.bool.html">bool</a> { ... }
-<span class="item-spacer"></span>    fn <a href="#method.is_wasm_return" class="fn">is_wasm_return</a>(&amp;self, signature: &amp;Signature, index: <a class="primitive" href="https://doc.rust-lang.org/1.70.0/std/primitive.usize.html">usize</a>) -&gt; <a class="primitive" href="https://doc.rust-lang.org/1.70.0/std/primitive.bool.html">bool</a> { ... }
+    fn <a href="#method.is_wasm_parameter" class="fn">is_wasm_parameter</a>(&amp;self, signature: &amp;Signature, index: <a class="primitive" href="https://doc.rust-lang.org/1.73.0/std/primitive.usize.html">usize</a>) -&gt; <a class="primitive" href="https://doc.rust-lang.org/1.73.0/std/primitive.bool.html">bool</a> { ... }
+<span class="item-spacer"></span>    fn <a href="#method.is_wasm_return" class="fn">is_wasm_return</a>(&amp;self, signature: &amp;Signature, index: <a class="primitive" href="https://doc.rust-lang.org/1.73.0/std/primitive.usize.html">usize</a>) -&gt; <a class="primitive" href="https://doc.rust-lang.org/1.73.0/std/primitive.bool.html">bool</a> { ... }
 <span class="item-spacer"></span>    fn <a href="#method.return_mode" class="fn">return_mode</a>(&amp;self) -&gt; <a class="enum" href="enum.ReturnMode.html" title="enum wasmer_compiler_cranelift::translator::func_environ::ReturnMode">ReturnMode</a> { ... }
 <span class="item-spacer"></span>    fn <a href="#method.translate_call" class="fn">translate_call</a>(
         &amp;mut self,
@@ -214,24 +214,24 @@
         pos: FuncCursor&lt;'_&gt;,
         value: Value
     ) -&gt; WasmResult&lt;Value&gt; { ... }
-<span class="item-spacer"></span>    fn <a href="#method.translate_loop_header" class="fn">translate_loop_header</a>(&amp;mut self, _pos: FuncCursor&lt;'_&gt;) -&gt; WasmResult&lt;<a class="primitive" href="https://doc.rust-lang.org/1.70.0/std/primitive.unit.html">()</a>&gt; { ... }
+<span class="item-spacer"></span>    fn <a href="#method.translate_loop_header" class="fn">translate_loop_header</a>(&amp;mut self, _pos: FuncCursor&lt;'_&gt;) -&gt; WasmResult&lt;<a class="primitive" href="https://doc.rust-lang.org/1.73.0/std/primitive.unit.html">()</a>&gt; { ... }
 <span class="item-spacer"></span>    fn <a href="#method.before_translate_operator" class="fn">before_translate_operator</a>(
         &amp;mut self,
         _op: &amp;Operator&lt;'_&gt;,
         _builder: &amp;mut <a class="struct" href="../../trampoline/struct.FunctionBuilder.html" title="struct wasmer_compiler_cranelift::trampoline::FunctionBuilder">FunctionBuilder</a>&lt;'_&gt;,
         _state: &amp;<a class="struct" href="../func_state/struct.FuncTranslationState.html" title="struct wasmer_compiler_cranelift::translator::func_state::FuncTranslationState">FuncTranslationState</a>
-    ) -&gt; WasmResult&lt;<a class="primitive" href="https://doc.rust-lang.org/1.70.0/std/primitive.unit.html">()</a>&gt; { ... }
+    ) -&gt; WasmResult&lt;<a class="primitive" href="https://doc.rust-lang.org/1.73.0/std/primitive.unit.html">()</a>&gt; { ... }
 <span class="item-spacer"></span>    fn <a href="#method.after_translate_operator" class="fn">after_translate_operator</a>(
         &amp;mut self,
         _op: &amp;Operator&lt;'_&gt;,
         _builder: &amp;mut <a class="struct" href="../../trampoline/struct.FunctionBuilder.html" title="struct wasmer_compiler_cranelift::trampoline::FunctionBuilder">FunctionBuilder</a>&lt;'_&gt;,
         _state: &amp;<a class="struct" href="../func_state/struct.FuncTranslationState.html" title="struct wasmer_compiler_cranelift::translator::func_state::FuncTranslationState">FuncTranslationState</a>
-    ) -&gt; WasmResult&lt;<a class="primitive" href="https://doc.rust-lang.org/1.70.0/std/primitive.unit.html">()</a>&gt; { ... }
+    ) -&gt; WasmResult&lt;<a class="primitive" href="https://doc.rust-lang.org/1.73.0/std/primitive.unit.html">()</a>&gt; { ... }
 </details>}</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Environment affecting the translation of a single WebAssembly function.</p>
 <p>A <code>FuncEnvironment</code> trait object is required to translate a WebAssembly function to Cranelift
 IR. The function environment provides information about the WebAssembly module as well as the
 runtime environment.</p>
-</div></details><h2 id="required-methods" class="small-section-header">Required Methods<a href="#required-methods" class="anchor">§</a></h2><div class="methods"><details class="toggle method-toggle" open><summary><section id="tymethod.make_global" class="method"><a class="srclink rightside" href="../../../src/wasmer_compiler_cranelift/translator/func_environ.rs.html#108-112">source</a><h4 class="code-header">fn <a href="#tymethod.make_global" class="fn">make_global</a>(
+</div></details><h2 id="required-methods" class="small-section-header">Required Methods<a href="#required-methods" class="anchor">§</a></h2><div class="methods"><details class="toggle method-toggle" open><summary><section id="tymethod.make_global" class="method"><a class="src rightside" href="../../../src/wasmer_compiler_cranelift/translator/func_environ.rs.html#108-112">source</a><h4 class="code-header">fn <a href="#tymethod.make_global" class="fn">make_global</a>(
     &amp;mut self,
     func: &amp;mut Function,
     index: GlobalIndex
@@ -240,21 +240,21 @@ identified by <code>index</code>.</p>
 <p>The index space covers both imported globals and globals defined by the module.</p>
 <p>Return the global variable reference that should be used to access the global and the
 WebAssembly type of the global.</p>
-</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.make_heap" class="method"><a class="srclink rightside" href="../../../src/wasmer_compiler_cranelift/translator/func_environ.rs.html#118">source</a><h4 class="code-header">fn <a href="#tymethod.make_heap" class="fn">make_heap</a>(
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.make_heap" class="method"><a class="src rightside" href="../../../src/wasmer_compiler_cranelift/translator/func_environ.rs.html#118">source</a><h4 class="code-header">fn <a href="#tymethod.make_heap" class="fn">make_heap</a>(
     &amp;mut self,
     func: &amp;mut Function,
     index: MemoryIndex
 ) -&gt; WasmResult&lt;Heap&gt;</h4></section></summary><div class="docblock"><p>Set up the necessary preamble definitions in <code>func</code> to access the linear memory identified
 by <code>index</code>.</p>
 <p>The index space covers both imported and locally declared memories.</p>
-</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.make_table" class="method"><a class="srclink rightside" href="../../../src/wasmer_compiler_cranelift/translator/func_environ.rs.html#124">source</a><h4 class="code-header">fn <a href="#tymethod.make_table" class="fn">make_table</a>(
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.make_table" class="method"><a class="src rightside" href="../../../src/wasmer_compiler_cranelift/translator/func_environ.rs.html#124">source</a><h4 class="code-header">fn <a href="#tymethod.make_table" class="fn">make_table</a>(
     &amp;mut self,
     func: &amp;mut Function,
     index: TableIndex
 ) -&gt; WasmResult&lt;Table&gt;</h4></section></summary><div class="docblock"><p>Set up the necessary preamble definitions in <code>func</code> to access the table identified
 by <code>index</code>.</p>
 <p>The index space covers both imported and locally declared tables.</p>
-</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.make_indirect_sig" class="method"><a class="srclink rightside" href="../../../src/wasmer_compiler_cranelift/translator/func_environ.rs.html#135-139">source</a><h4 class="code-header">fn <a href="#tymethod.make_indirect_sig" class="fn">make_indirect_sig</a>(
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.make_indirect_sig" class="method"><a class="src rightside" href="../../../src/wasmer_compiler_cranelift/translator/func_environ.rs.html#135-139">source</a><h4 class="code-header">fn <a href="#tymethod.make_indirect_sig" class="fn">make_indirect_sig</a>(
     &amp;mut self,
     func: &amp;mut Function,
     index: SignatureIndex
@@ -265,7 +265,7 @@ arguments marked as <code>ArgumentPurpose::Normal</code> must correspond to the 
 arguments.</p>
 <p>The signature will only be used for indirect calls, even if the module has direct function
 calls with the same WebAssembly type.</p>
-</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.make_direct_func" class="method"><a class="srclink rightside" href="../../../src/wasmer_compiler_cranelift/translator/func_environ.rs.html#152-156">source</a><h4 class="code-header">fn <a href="#tymethod.make_direct_func" class="fn">make_direct_func</a>(
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.make_direct_func" class="method"><a class="src rightside" href="../../../src/wasmer_compiler_cranelift/translator/func_environ.rs.html#152-156">source</a><h4 class="code-header">fn <a href="#tymethod.make_direct_func" class="fn">make_direct_func</a>(
     &amp;mut self,
     func: &amp;mut Function,
     index: FunctionIndex
@@ -277,7 +277,7 @@ arguments marked as <code>ArgumentPurpose::Normal</code> must correspond to the 
 arguments.</p>
 <p>The function’s signature will only be used for direct calls, even if the module has
 indirect calls with the same WebAssembly type.</p>
-</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.translate_call_indirect" class="method"><a class="srclink rightside" href="../../../src/wasmer_compiler_cranelift/translator/func_environ.rs.html#168-177">source</a><h4 class="code-header">fn <a href="#tymethod.translate_call_indirect" class="fn">translate_call_indirect</a>(
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.translate_call_indirect" class="method"><a class="src rightside" href="../../../src/wasmer_compiler_cranelift/translator/func_environ.rs.html#168-177">source</a><h4 class="code-header">fn <a href="#tymethod.translate_call_indirect" class="fn">translate_call_indirect</a>(
     &amp;mut self,
     pos: FuncCursor&lt;'_&gt;,
     table_index: TableIndex,
@@ -292,7 +292,7 @@ indirect calls with the same WebAssembly type.</p>
 <code>i32</code>.</p>
 <p>The signature <code>sig_ref</code> was previously created by <code>make_indirect_sig()</code>.</p>
 <p>Return the call instruction whose results are the WebAssembly return values.</p>
-</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.translate_memory_grow" class="method"><a class="srclink rightside" href="../../../src/wasmer_compiler_cranelift/translator/func_environ.rs.html#204-210">source</a><h4 class="code-header">fn <a href="#tymethod.translate_memory_grow" class="fn">translate_memory_grow</a>(
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.translate_memory_grow" class="method"><a class="src rightside" href="../../../src/wasmer_compiler_cranelift/translator/func_environ.rs.html#204-210">source</a><h4 class="code-header">fn <a href="#tymethod.translate_memory_grow" class="fn">translate_memory_grow</a>(
     &amp;mut self,
     pos: FuncCursor&lt;'_&gt;,
     index: MemoryIndex,
@@ -303,7 +303,7 @@ indirect calls with the same WebAssembly type.</p>
 returned by <code>make_heap</code> for the same index.</p>
 <p>The <code>val</code> value is the requested memory size in pages.</p>
 <p>Returns the old size (in pages) of the memory.</p>
-</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.translate_memory_size" class="method"><a class="srclink rightside" href="../../../src/wasmer_compiler_cranelift/translator/func_environ.rs.html#218-223">source</a><h4 class="code-header">fn <a href="#tymethod.translate_memory_size" class="fn">translate_memory_size</a>(
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.translate_memory_size" class="method"><a class="src rightside" href="../../../src/wasmer_compiler_cranelift/translator/func_environ.rs.html#218-223">source</a><h4 class="code-header">fn <a href="#tymethod.translate_memory_size" class="fn">translate_memory_size</a>(
     &amp;mut self,
     pos: FuncCursor&lt;'_&gt;,
     index: MemoryIndex,
@@ -312,7 +312,7 @@ returned by <code>make_heap</code> for the same index.</p>
 <p>The <code>index</code> provided identifies the linear memory to query, and <code>heap</code> is the heap reference
 returned by <code>make_heap</code> for the same index.</p>
 <p>Returns the size in pages of the memory.</p>
-</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.translate_memory_copy" class="method"><a class="srclink rightside" href="../../../src/wasmer_compiler_cranelift/translator/func_environ.rs.html#230-240">source</a><h4 class="code-header">fn <a href="#tymethod.translate_memory_copy" class="fn">translate_memory_copy</a>(
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.translate_memory_copy" class="method"><a class="src rightside" href="../../../src/wasmer_compiler_cranelift/translator/func_environ.rs.html#230-240">source</a><h4 class="code-header">fn <a href="#tymethod.translate_memory_copy" class="fn">translate_memory_copy</a>(
     &amp;mut self,
     pos: FuncCursor&lt;'_&gt;,
     src_index: MemoryIndex,
@@ -322,10 +322,10 @@ returned by <code>make_heap</code> for the same index.</p>
     dst: Value,
     src: Value,
     len: Value
-) -&gt; WasmResult&lt;<a class="primitive" href="https://doc.rust-lang.org/1.70.0/std/primitive.unit.html">()</a>&gt;</h4></section></summary><div class="docblock"><p>Translate a <code>memory.copy</code> WebAssembly instruction.</p>
+) -&gt; WasmResult&lt;<a class="primitive" href="https://doc.rust-lang.org/1.73.0/std/primitive.unit.html">()</a>&gt;</h4></section></summary><div class="docblock"><p>Translate a <code>memory.copy</code> WebAssembly instruction.</p>
 <p>The <code>index</code> provided identifies the linear memory to query, and <code>heap</code> is the heap reference
 returned by <code>make_heap</code> for the same index.</p>
-</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.translate_memory_fill" class="method"><a class="srclink rightside" href="../../../src/wasmer_compiler_cranelift/translator/func_environ.rs.html#246-254">source</a><h4 class="code-header">fn <a href="#tymethod.translate_memory_fill" class="fn">translate_memory_fill</a>(
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.translate_memory_fill" class="method"><a class="src rightside" href="../../../src/wasmer_compiler_cranelift/translator/func_environ.rs.html#246-254">source</a><h4 class="code-header">fn <a href="#tymethod.translate_memory_fill" class="fn">translate_memory_fill</a>(
     &amp;mut self,
     pos: FuncCursor&lt;'_&gt;,
     index: MemoryIndex,
@@ -333,34 +333,34 @@ returned by <code>make_heap</code> for the same index.</p>
     dst: Value,
     val: Value,
     len: Value
-) -&gt; WasmResult&lt;<a class="primitive" href="https://doc.rust-lang.org/1.70.0/std/primitive.unit.html">()</a>&gt;</h4></section></summary><div class="docblock"><p>Translate a <code>memory.fill</code> WebAssembly instruction.</p>
+) -&gt; WasmResult&lt;<a class="primitive" href="https://doc.rust-lang.org/1.73.0/std/primitive.unit.html">()</a>&gt;</h4></section></summary><div class="docblock"><p>Translate a <code>memory.fill</code> WebAssembly instruction.</p>
 <p>The <code>index</code> provided identifies the linear memory to query, and <code>heap</code> is the heap reference
 returned by <code>make_heap</code> for the same index.</p>
-</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.translate_memory_init" class="method"><a class="srclink rightside" href="../../../src/wasmer_compiler_cranelift/translator/func_environ.rs.html#262-271">source</a><h4 class="code-header">fn <a href="#tymethod.translate_memory_init" class="fn">translate_memory_init</a>(
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.translate_memory_init" class="method"><a class="src rightside" href="../../../src/wasmer_compiler_cranelift/translator/func_environ.rs.html#262-271">source</a><h4 class="code-header">fn <a href="#tymethod.translate_memory_init" class="fn">translate_memory_init</a>(
     &amp;mut self,
     pos: FuncCursor&lt;'_&gt;,
     index: MemoryIndex,
     heap: Heap,
-    seg_index: <a class="primitive" href="https://doc.rust-lang.org/1.70.0/std/primitive.u32.html">u32</a>,
+    seg_index: <a class="primitive" href="https://doc.rust-lang.org/1.73.0/std/primitive.u32.html">u32</a>,
     dst: Value,
     src: Value,
     len: Value
-) -&gt; WasmResult&lt;<a class="primitive" href="https://doc.rust-lang.org/1.70.0/std/primitive.unit.html">()</a>&gt;</h4></section></summary><div class="docblock"><p>Translate a <code>memory.init</code> WebAssembly instruction.</p>
+) -&gt; WasmResult&lt;<a class="primitive" href="https://doc.rust-lang.org/1.73.0/std/primitive.unit.html">()</a>&gt;</h4></section></summary><div class="docblock"><p>Translate a <code>memory.init</code> WebAssembly instruction.</p>
 <p>The <code>index</code> provided identifies the linear memory to query, and <code>heap</code> is the heap reference
 returned by <code>make_heap</code> for the same index. <code>seg_index</code> is the index of the segment to copy
 from.</p>
-</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.translate_data_drop" class="method"><a class="srclink rightside" href="../../../src/wasmer_compiler_cranelift/translator/func_environ.rs.html#274">source</a><h4 class="code-header">fn <a href="#tymethod.translate_data_drop" class="fn">translate_data_drop</a>(
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.translate_data_drop" class="method"><a class="src rightside" href="../../../src/wasmer_compiler_cranelift/translator/func_environ.rs.html#274">source</a><h4 class="code-header">fn <a href="#tymethod.translate_data_drop" class="fn">translate_data_drop</a>(
     &amp;mut self,
     pos: FuncCursor&lt;'_&gt;,
-    seg_index: <a class="primitive" href="https://doc.rust-lang.org/1.70.0/std/primitive.u32.html">u32</a>
-) -&gt; WasmResult&lt;<a class="primitive" href="https://doc.rust-lang.org/1.70.0/std/primitive.unit.html">()</a>&gt;</h4></section></summary><div class="docblock"><p>Translate a <code>data.drop</code> WebAssembly instruction.</p>
-</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.translate_table_size" class="method"><a class="srclink rightside" href="../../../src/wasmer_compiler_cranelift/translator/func_environ.rs.html#277-282">source</a><h4 class="code-header">fn <a href="#tymethod.translate_table_size" class="fn">translate_table_size</a>(
+    seg_index: <a class="primitive" href="https://doc.rust-lang.org/1.73.0/std/primitive.u32.html">u32</a>
+) -&gt; WasmResult&lt;<a class="primitive" href="https://doc.rust-lang.org/1.73.0/std/primitive.unit.html">()</a>&gt;</h4></section></summary><div class="docblock"><p>Translate a <code>data.drop</code> WebAssembly instruction.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.translate_table_size" class="method"><a class="src rightside" href="../../../src/wasmer_compiler_cranelift/translator/func_environ.rs.html#277-282">source</a><h4 class="code-header">fn <a href="#tymethod.translate_table_size" class="fn">translate_table_size</a>(
     &amp;mut self,
     pos: FuncCursor&lt;'_&gt;,
     index: TableIndex,
     table: Table
 ) -&gt; WasmResult&lt;Value&gt;</h4></section></summary><div class="docblock"><p>Translate a <code>table.size</code> WebAssembly instruction.</p>
-</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.translate_table_grow" class="method"><a class="srclink rightside" href="../../../src/wasmer_compiler_cranelift/translator/func_environ.rs.html#285-292">source</a><h4 class="code-header">fn <a href="#tymethod.translate_table_grow" class="fn">translate_table_grow</a>(
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.translate_table_grow" class="method"><a class="src rightside" href="../../../src/wasmer_compiler_cranelift/translator/func_environ.rs.html#285-292">source</a><h4 class="code-header">fn <a href="#tymethod.translate_table_grow" class="fn">translate_table_grow</a>(
     &amp;mut self,
     pos: FuncCursor&lt;'_&gt;,
     table_index: TableIndex,
@@ -368,22 +368,22 @@ from.</p>
     delta: Value,
     init_value: Value
 ) -&gt; WasmResult&lt;Value&gt;</h4></section></summary><div class="docblock"><p>Translate a <code>table.grow</code> WebAssembly instruction.</p>
-</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.translate_table_get" class="method"><a class="srclink rightside" href="../../../src/wasmer_compiler_cranelift/translator/func_environ.rs.html#295-301">source</a><h4 class="code-header">fn <a href="#tymethod.translate_table_get" class="fn">translate_table_get</a>(
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.translate_table_get" class="method"><a class="src rightside" href="../../../src/wasmer_compiler_cranelift/translator/func_environ.rs.html#295-301">source</a><h4 class="code-header">fn <a href="#tymethod.translate_table_get" class="fn">translate_table_get</a>(
     &amp;mut self,
     builder: &amp;mut <a class="struct" href="../../trampoline/struct.FunctionBuilder.html" title="struct wasmer_compiler_cranelift::trampoline::FunctionBuilder">FunctionBuilder</a>&lt;'_&gt;,
     table_index: TableIndex,
     table: Table,
     index: Value
 ) -&gt; WasmResult&lt;Value&gt;</h4></section></summary><div class="docblock"><p>Translate a <code>table.get</code> WebAssembly instruction.</p>
-</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.translate_table_set" class="method"><a class="srclink rightside" href="../../../src/wasmer_compiler_cranelift/translator/func_environ.rs.html#304-311">source</a><h4 class="code-header">fn <a href="#tymethod.translate_table_set" class="fn">translate_table_set</a>(
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.translate_table_set" class="method"><a class="src rightside" href="../../../src/wasmer_compiler_cranelift/translator/func_environ.rs.html#304-311">source</a><h4 class="code-header">fn <a href="#tymethod.translate_table_set" class="fn">translate_table_set</a>(
     &amp;mut self,
     builder: &amp;mut <a class="struct" href="../../trampoline/struct.FunctionBuilder.html" title="struct wasmer_compiler_cranelift::trampoline::FunctionBuilder">FunctionBuilder</a>&lt;'_&gt;,
     table_index: TableIndex,
     table: Table,
     value: Value,
     index: Value
-) -&gt; WasmResult&lt;<a class="primitive" href="https://doc.rust-lang.org/1.70.0/std/primitive.unit.html">()</a>&gt;</h4></section></summary><div class="docblock"><p>Translate a <code>table.set</code> WebAssembly instruction.</p>
-</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.translate_table_copy" class="method"><a class="srclink rightside" href="../../../src/wasmer_compiler_cranelift/translator/func_environ.rs.html#315-325">source</a><h4 class="code-header">fn <a href="#tymethod.translate_table_copy" class="fn">translate_table_copy</a>(
+) -&gt; WasmResult&lt;<a class="primitive" href="https://doc.rust-lang.org/1.73.0/std/primitive.unit.html">()</a>&gt;</h4></section></summary><div class="docblock"><p>Translate a <code>table.set</code> WebAssembly instruction.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.translate_table_copy" class="method"><a class="src rightside" href="../../../src/wasmer_compiler_cranelift/translator/func_environ.rs.html#315-325">source</a><h4 class="code-header">fn <a href="#tymethod.translate_table_copy" class="fn">translate_table_copy</a>(
     &amp;mut self,
     pos: FuncCursor&lt;'_&gt;,
     dst_table_index: TableIndex,
@@ -393,31 +393,31 @@ from.</p>
     dst: Value,
     src: Value,
     len: Value
-) -&gt; WasmResult&lt;<a class="primitive" href="https://doc.rust-lang.org/1.70.0/std/primitive.unit.html">()</a>&gt;</h4></section></summary><div class="docblock"><p>Translate a <code>table.copy</code> WebAssembly instruction.</p>
-</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.translate_table_fill" class="method"><a class="srclink rightside" href="../../../src/wasmer_compiler_cranelift/translator/func_environ.rs.html#328-335">source</a><h4 class="code-header">fn <a href="#tymethod.translate_table_fill" class="fn">translate_table_fill</a>(
+) -&gt; WasmResult&lt;<a class="primitive" href="https://doc.rust-lang.org/1.73.0/std/primitive.unit.html">()</a>&gt;</h4></section></summary><div class="docblock"><p>Translate a <code>table.copy</code> WebAssembly instruction.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.translate_table_fill" class="method"><a class="src rightside" href="../../../src/wasmer_compiler_cranelift/translator/func_environ.rs.html#328-335">source</a><h4 class="code-header">fn <a href="#tymethod.translate_table_fill" class="fn">translate_table_fill</a>(
     &amp;mut self,
     pos: FuncCursor&lt;'_&gt;,
     table_index: TableIndex,
     dst: Value,
     val: Value,
     len: Value
-) -&gt; WasmResult&lt;<a class="primitive" href="https://doc.rust-lang.org/1.70.0/std/primitive.unit.html">()</a>&gt;</h4></section></summary><div class="docblock"><p>Translate a <code>table.fill</code> WebAssembly instruction.</p>
-</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.translate_table_init" class="method"><a class="srclink rightside" href="../../../src/wasmer_compiler_cranelift/translator/func_environ.rs.html#339-348">source</a><h4 class="code-header">fn <a href="#tymethod.translate_table_init" class="fn">translate_table_init</a>(
+) -&gt; WasmResult&lt;<a class="primitive" href="https://doc.rust-lang.org/1.73.0/std/primitive.unit.html">()</a>&gt;</h4></section></summary><div class="docblock"><p>Translate a <code>table.fill</code> WebAssembly instruction.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.translate_table_init" class="method"><a class="src rightside" href="../../../src/wasmer_compiler_cranelift/translator/func_environ.rs.html#339-348">source</a><h4 class="code-header">fn <a href="#tymethod.translate_table_init" class="fn">translate_table_init</a>(
     &amp;mut self,
     pos: FuncCursor&lt;'_&gt;,
-    seg_index: <a class="primitive" href="https://doc.rust-lang.org/1.70.0/std/primitive.u32.html">u32</a>,
+    seg_index: <a class="primitive" href="https://doc.rust-lang.org/1.73.0/std/primitive.u32.html">u32</a>,
     table_index: TableIndex,
     table: Table,
     dst: Value,
     src: Value,
     len: Value
-) -&gt; WasmResult&lt;<a class="primitive" href="https://doc.rust-lang.org/1.70.0/std/primitive.unit.html">()</a>&gt;</h4></section></summary><div class="docblock"><p>Translate a <code>table.init</code> WebAssembly instruction.</p>
-</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.translate_elem_drop" class="method"><a class="srclink rightside" href="../../../src/wasmer_compiler_cranelift/translator/func_environ.rs.html#351">source</a><h4 class="code-header">fn <a href="#tymethod.translate_elem_drop" class="fn">translate_elem_drop</a>(
+) -&gt; WasmResult&lt;<a class="primitive" href="https://doc.rust-lang.org/1.73.0/std/primitive.unit.html">()</a>&gt;</h4></section></summary><div class="docblock"><p>Translate a <code>table.init</code> WebAssembly instruction.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.translate_elem_drop" class="method"><a class="src rightside" href="../../../src/wasmer_compiler_cranelift/translator/func_environ.rs.html#351">source</a><h4 class="code-header">fn <a href="#tymethod.translate_elem_drop" class="fn">translate_elem_drop</a>(
     &amp;mut self,
     pos: FuncCursor&lt;'_&gt;,
-    seg_index: <a class="primitive" href="https://doc.rust-lang.org/1.70.0/std/primitive.u32.html">u32</a>
-) -&gt; WasmResult&lt;<a class="primitive" href="https://doc.rust-lang.org/1.70.0/std/primitive.unit.html">()</a>&gt;</h4></section></summary><div class="docblock"><p>Translate a <code>elem.drop</code> WebAssembly instruction.</p>
-</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.translate_ref_null" class="method"><a class="srclink rightside" href="../../../src/wasmer_compiler_cranelift/translator/func_environ.rs.html#362">source</a><h4 class="code-header">fn <a href="#tymethod.translate_ref_null" class="fn">translate_ref_null</a>(
+    seg_index: <a class="primitive" href="https://doc.rust-lang.org/1.73.0/std/primitive.u32.html">u32</a>
+) -&gt; WasmResult&lt;<a class="primitive" href="https://doc.rust-lang.org/1.73.0/std/primitive.unit.html">()</a>&gt;</h4></section></summary><div class="docblock"><p>Translate a <code>elem.drop</code> WebAssembly instruction.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.translate_ref_null" class="method"><a class="src rightside" href="../../../src/wasmer_compiler_cranelift/translator/func_environ.rs.html#362">source</a><h4 class="code-header">fn <a href="#tymethod.translate_ref_null" class="fn">translate_ref_null</a>(
     &amp;mut self,
     pos: FuncCursor&lt;'_&gt;,
     ty: HeapType
@@ -428,25 +428,25 @@ reference types (e.g. you use a raw pointer for <code>funcref</code>s) or if the
 null sentinel is not a null reference type pointer for your type. If you
 override this method, then you should also override
 <code>translate_ref_is_null</code> as well.</p>
-</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.translate_ref_func" class="method"><a class="srclink rightside" href="../../../src/wasmer_compiler_cranelift/translator/func_environ.rs.html#386-390">source</a><h4 class="code-header">fn <a href="#tymethod.translate_ref_func" class="fn">translate_ref_func</a>(
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.translate_ref_func" class="method"><a class="src rightside" href="../../../src/wasmer_compiler_cranelift/translator/func_environ.rs.html#386-390">source</a><h4 class="code-header">fn <a href="#tymethod.translate_ref_func" class="fn">translate_ref_func</a>(
     &amp;mut self,
     pos: FuncCursor&lt;'_&gt;,
     func_index: FunctionIndex
 ) -&gt; WasmResult&lt;Value&gt;</h4></section></summary><div class="docblock"><p>Translate a <code>ref.func</code> WebAssembly instruction.</p>
-</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.translate_custom_global_get" class="method"><a class="srclink rightside" href="../../../src/wasmer_compiler_cranelift/translator/func_environ.rs.html#394-398">source</a><h4 class="code-header">fn <a href="#tymethod.translate_custom_global_get" class="fn">translate_custom_global_get</a>(
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.translate_custom_global_get" class="method"><a class="src rightside" href="../../../src/wasmer_compiler_cranelift/translator/func_environ.rs.html#394-398">source</a><h4 class="code-header">fn <a href="#tymethod.translate_custom_global_get" class="fn">translate_custom_global_get</a>(
     &amp;mut self,
     pos: FuncCursor&lt;'_&gt;,
     global_index: GlobalIndex
 ) -&gt; WasmResult&lt;Value&gt;</h4></section></summary><div class="docblock"><p>Translate a <code>global.get</code> WebAssembly instruction at <code>pos</code> for a global
 that is custom.</p>
-</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.translate_custom_global_set" class="method"><a class="srclink rightside" href="../../../src/wasmer_compiler_cranelift/translator/func_environ.rs.html#402-407">source</a><h4 class="code-header">fn <a href="#tymethod.translate_custom_global_set" class="fn">translate_custom_global_set</a>(
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.translate_custom_global_set" class="method"><a class="src rightside" href="../../../src/wasmer_compiler_cranelift/translator/func_environ.rs.html#402-407">source</a><h4 class="code-header">fn <a href="#tymethod.translate_custom_global_set" class="fn">translate_custom_global_set</a>(
     &amp;mut self,
     pos: FuncCursor&lt;'_&gt;,
     global_index: GlobalIndex,
     val: Value
-) -&gt; WasmResult&lt;<a class="primitive" href="https://doc.rust-lang.org/1.70.0/std/primitive.unit.html">()</a>&gt;</h4></section></summary><div class="docblock"><p>Translate a <code>global.set</code> WebAssembly instruction at <code>pos</code> for a global
+) -&gt; WasmResult&lt;<a class="primitive" href="https://doc.rust-lang.org/1.73.0/std/primitive.unit.html">()</a>&gt;</h4></section></summary><div class="docblock"><p>Translate a <code>global.set</code> WebAssembly instruction at <code>pos</code> for a global
 that is custom.</p>
-</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.translate_atomic_wait" class="method"><a class="srclink rightside" href="../../../src/wasmer_compiler_cranelift/translator/func_environ.rs.html#416-424">source</a><h4 class="code-header">fn <a href="#tymethod.translate_atomic_wait" class="fn">translate_atomic_wait</a>(
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.translate_atomic_wait" class="method"><a class="src rightside" href="../../../src/wasmer_compiler_cranelift/translator/func_environ.rs.html#416-424">source</a><h4 class="code-header">fn <a href="#tymethod.translate_atomic_wait" class="fn">translate_atomic_wait</a>(
     &amp;mut self,
     pos: FuncCursor&lt;'_&gt;,
     index: MemoryIndex,
@@ -460,7 +460,7 @@ to wait on, and <code>heap</code> is the heap reference returned by <code>make_h
 for the same index.  Whether the waited-on value is 32- or 64-bit can be
 determined by examining the type of <code>expected</code>, which must be only I32 or I64.</p>
 <p>Returns an i32, which is negative if the helper call failed.</p>
-</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.translate_atomic_notify" class="method"><a class="srclink rightside" href="../../../src/wasmer_compiler_cranelift/translator/func_environ.rs.html#432-439">source</a><h4 class="code-header">fn <a href="#tymethod.translate_atomic_notify" class="fn">translate_atomic_notify</a>(
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.translate_atomic_notify" class="method"><a class="src rightside" href="../../../src/wasmer_compiler_cranelift/translator/func_environ.rs.html#432-439">source</a><h4 class="code-header">fn <a href="#tymethod.translate_atomic_notify" class="fn">translate_atomic_notify</a>(
     &amp;mut self,
     pos: FuncCursor&lt;'_&gt;,
     index: MemoryIndex,
@@ -472,24 +472,24 @@ The <code>index</code> provided identifies the linear memory containing the valu
 to wait on, and <code>heap</code> is the heap reference returned by <code>make_heap</code>
 for the same index.</p>
 <p>Returns an i64, which is negative if the helper call failed.</p>
-</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.get_global_type" class="method"><a class="srclink rightside" href="../../../src/wasmer_compiler_cranelift/translator/func_environ.rs.html#473">source</a><h4 class="code-header">fn <a href="#tymethod.get_global_type" class="fn">get_global_type</a>(&amp;self, global_index: GlobalIndex) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.70.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;WasmerType&gt;</h4></section></summary><div class="docblock"><p>Get the type of the global at the given index.</p>
-</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.push_local_decl_on_stack" class="method"><a class="srclink rightside" href="../../../src/wasmer_compiler_cranelift/translator/func_environ.rs.html#476">source</a><h4 class="code-header">fn <a href="#tymethod.push_local_decl_on_stack" class="fn">push_local_decl_on_stack</a>(&amp;mut self, ty: WasmerType)</h4></section></summary><div class="docblock"><p>Push a local declaration on to the stack to track the type of locals.</p>
-</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.push_params_on_stack" class="method"><a class="srclink rightside" href="../../../src/wasmer_compiler_cranelift/translator/func_environ.rs.html#479">source</a><h4 class="code-header">fn <a href="#tymethod.push_params_on_stack" class="fn">push_params_on_stack</a>(&amp;mut self, function_index: LocalFunctionIndex)</h4></section></summary><div class="docblock"><p>Push locals for a the params of a function on to the stack.</p>
-</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.get_local_type" class="method"><a class="srclink rightside" href="../../../src/wasmer_compiler_cranelift/translator/func_environ.rs.html#482">source</a><h4 class="code-header">fn <a href="#tymethod.get_local_type" class="fn">get_local_type</a>(&amp;self, local_index: <a class="primitive" href="https://doc.rust-lang.org/1.70.0/std/primitive.u32.html">u32</a>) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.70.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;WasmerType&gt;</h4></section></summary><div class="docblock"><p>Get the type of the local at the given index.</p>
-</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.get_local_types" class="method"><a class="srclink rightside" href="../../../src/wasmer_compiler_cranelift/translator/func_environ.rs.html#485">source</a><h4 class="code-header">fn <a href="#tymethod.get_local_types" class="fn">get_local_types</a>(&amp;self) -&gt; &amp;[WasmerType]</h4></section></summary><div class="docblock"><p>Get the types of all the current locals.</p>
-</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.get_function_type" class="method"><a class="srclink rightside" href="../../../src/wasmer_compiler_cranelift/translator/func_environ.rs.html#488">source</a><h4 class="code-header">fn <a href="#tymethod.get_function_type" class="fn">get_function_type</a>(
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.get_global_type" class="method"><a class="src rightside" href="../../../src/wasmer_compiler_cranelift/translator/func_environ.rs.html#473">source</a><h4 class="code-header">fn <a href="#tymethod.get_global_type" class="fn">get_global_type</a>(&amp;self, global_index: GlobalIndex) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.73.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;WasmerType&gt;</h4></section></summary><div class="docblock"><p>Get the type of the global at the given index.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.push_local_decl_on_stack" class="method"><a class="src rightside" href="../../../src/wasmer_compiler_cranelift/translator/func_environ.rs.html#476">source</a><h4 class="code-header">fn <a href="#tymethod.push_local_decl_on_stack" class="fn">push_local_decl_on_stack</a>(&amp;mut self, ty: WasmerType)</h4></section></summary><div class="docblock"><p>Push a local declaration on to the stack to track the type of locals.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.push_params_on_stack" class="method"><a class="src rightside" href="../../../src/wasmer_compiler_cranelift/translator/func_environ.rs.html#479">source</a><h4 class="code-header">fn <a href="#tymethod.push_params_on_stack" class="fn">push_params_on_stack</a>(&amp;mut self, function_index: LocalFunctionIndex)</h4></section></summary><div class="docblock"><p>Push locals for a the params of a function on to the stack.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.get_local_type" class="method"><a class="src rightside" href="../../../src/wasmer_compiler_cranelift/translator/func_environ.rs.html#482">source</a><h4 class="code-header">fn <a href="#tymethod.get_local_type" class="fn">get_local_type</a>(&amp;self, local_index: <a class="primitive" href="https://doc.rust-lang.org/1.73.0/std/primitive.u32.html">u32</a>) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.73.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;WasmerType&gt;</h4></section></summary><div class="docblock"><p>Get the type of the local at the given index.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.get_local_types" class="method"><a class="src rightside" href="../../../src/wasmer_compiler_cranelift/translator/func_environ.rs.html#485">source</a><h4 class="code-header">fn <a href="#tymethod.get_local_types" class="fn">get_local_types</a>(&amp;self) -&gt; &amp;[WasmerType]</h4></section></summary><div class="docblock"><p>Get the types of all the current locals.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.get_function_type" class="method"><a class="src rightside" href="../../../src/wasmer_compiler_cranelift/translator/func_environ.rs.html#488">source</a><h4 class="code-header">fn <a href="#tymethod.get_function_type" class="fn">get_function_type</a>(
     &amp;self,
     function_index: FunctionIndex
-) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.70.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;&amp;FunctionType&gt;</h4></section></summary><div class="docblock"><p>Get the type of the local at the given index.</p>
-</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.get_function_sig" class="method"><a class="srclink rightside" href="../../../src/wasmer_compiler_cranelift/translator/func_environ.rs.html#491">source</a><h4 class="code-header">fn <a href="#tymethod.get_function_sig" class="fn">get_function_sig</a>(&amp;self, sig_index: SignatureIndex) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.70.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;&amp;FunctionType&gt;</h4></section></summary><div class="docblock"><p>Get the type of a function with the given signature index.</p>
-</div></details></div><h2 id="provided-methods" class="small-section-header">Provided Methods<a href="#provided-methods" class="anchor">§</a></h2><div class="methods"><details class="toggle method-toggle" open><summary><section id="method.is_wasm_parameter" class="method"><a class="srclink rightside" href="../../../src/wasmer_compiler_cranelift/translator/func_environ.rs.html#84-86">source</a><h4 class="code-header">fn <a href="#method.is_wasm_parameter" class="fn">is_wasm_parameter</a>(&amp;self, signature: &amp;Signature, index: <a class="primitive" href="https://doc.rust-lang.org/1.70.0/std/primitive.usize.html">usize</a>) -&gt; <a class="primitive" href="https://doc.rust-lang.org/1.70.0/std/primitive.bool.html">bool</a></h4></section></summary><div class="docblock"><p>Is the given parameter of the given function a wasm-level parameter, as opposed to a hidden
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.73.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;&amp;FunctionType&gt;</h4></section></summary><div class="docblock"><p>Get the type of the local at the given index.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="tymethod.get_function_sig" class="method"><a class="src rightside" href="../../../src/wasmer_compiler_cranelift/translator/func_environ.rs.html#491">source</a><h4 class="code-header">fn <a href="#tymethod.get_function_sig" class="fn">get_function_sig</a>(&amp;self, sig_index: SignatureIndex) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.73.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;&amp;FunctionType&gt;</h4></section></summary><div class="docblock"><p>Get the type of a function with the given signature index.</p>
+</div></details></div><h2 id="provided-methods" class="small-section-header">Provided Methods<a href="#provided-methods" class="anchor">§</a></h2><div class="methods"><details class="toggle method-toggle" open><summary><section id="method.is_wasm_parameter" class="method"><a class="src rightside" href="../../../src/wasmer_compiler_cranelift/translator/func_environ.rs.html#84-86">source</a><h4 class="code-header">fn <a href="#method.is_wasm_parameter" class="fn">is_wasm_parameter</a>(&amp;self, signature: &amp;Signature, index: <a class="primitive" href="https://doc.rust-lang.org/1.73.0/std/primitive.usize.html">usize</a>) -&gt; <a class="primitive" href="https://doc.rust-lang.org/1.73.0/std/primitive.bool.html">bool</a></h4></section></summary><div class="docblock"><p>Is the given parameter of the given function a wasm-level parameter, as opposed to a hidden
 parameter added for use by the implementation?</p>
-</div></details><details class="toggle method-toggle" open><summary><section id="method.is_wasm_return" class="method"><a class="srclink rightside" href="../../../src/wasmer_compiler_cranelift/translator/func_environ.rs.html#90-92">source</a><h4 class="code-header">fn <a href="#method.is_wasm_return" class="fn">is_wasm_return</a>(&amp;self, signature: &amp;Signature, index: <a class="primitive" href="https://doc.rust-lang.org/1.70.0/std/primitive.usize.html">usize</a>) -&gt; <a class="primitive" href="https://doc.rust-lang.org/1.70.0/std/primitive.bool.html">bool</a></h4></section></summary><div class="docblock"><p>Is the given return of the given function a wasm-level parameter, as
+</div></details><details class="toggle method-toggle" open><summary><section id="method.is_wasm_return" class="method"><a class="src rightside" href="../../../src/wasmer_compiler_cranelift/translator/func_environ.rs.html#90-92">source</a><h4 class="code-header">fn <a href="#method.is_wasm_return" class="fn">is_wasm_return</a>(&amp;self, signature: &amp;Signature, index: <a class="primitive" href="https://doc.rust-lang.org/1.73.0/std/primitive.usize.html">usize</a>) -&gt; <a class="primitive" href="https://doc.rust-lang.org/1.73.0/std/primitive.bool.html">bool</a></h4></section></summary><div class="docblock"><p>Is the given return of the given function a wasm-level parameter, as
 opposed to a hidden parameter added for use by the implementation?</p>
-</div></details><details class="toggle method-toggle" open><summary><section id="method.return_mode" class="method"><a class="srclink rightside" href="../../../src/wasmer_compiler_cranelift/translator/func_environ.rs.html#97-99">source</a><h4 class="code-header">fn <a href="#method.return_mode" class="fn">return_mode</a>(&amp;self) -&gt; <a class="enum" href="enum.ReturnMode.html" title="enum wasmer_compiler_cranelift::translator::func_environ::ReturnMode">ReturnMode</a></h4></section></summary><div class="docblock"><p>Should the code be structured to use a single <code>fallthrough_return</code> instruction at the end
+</div></details><details class="toggle method-toggle" open><summary><section id="method.return_mode" class="method"><a class="src rightside" href="../../../src/wasmer_compiler_cranelift/translator/func_environ.rs.html#97-99">source</a><h4 class="code-header">fn <a href="#method.return_mode" class="fn">return_mode</a>(&amp;self) -&gt; <a class="enum" href="enum.ReturnMode.html" title="enum wasmer_compiler_cranelift::translator::func_environ::ReturnMode">ReturnMode</a></h4></section></summary><div class="docblock"><p>Should the code be structured to use a single <code>fallthrough_return</code> instruction at the end
 of the function body, rather than <code>return</code> instructions as needed? This is used by VMs
 to append custom epilogues.</p>
-</div></details><details class="toggle method-toggle" open><summary><section id="method.translate_call" class="method"><a class="srclink rightside" href="../../../src/wasmer_compiler_cranelift/translator/func_environ.rs.html#186-194">source</a><h4 class="code-header">fn <a href="#method.translate_call" class="fn">translate_call</a>(
+</div></details><details class="toggle method-toggle" open><summary><section id="method.translate_call" class="method"><a class="src rightside" href="../../../src/wasmer_compiler_cranelift/translator/func_environ.rs.html#186-194">source</a><h4 class="code-header">fn <a href="#method.translate_call" class="fn">translate_call</a>(
     &amp;mut self,
     pos: FuncCursor&lt;'_&gt;,
     _callee_index: FunctionIndex,
@@ -499,7 +499,7 @@ to append custom epilogues.</p>
 <p>Insert instructions at <code>pos</code> for a direct call to the function <code>callee_index</code>.</p>
 <p>The function reference <code>callee</code> was previously created by <code>make_direct_func()</code>.</p>
 <p>Return the call instruction whose results are the WebAssembly return values.</p>
-</div></details><details class="toggle method-toggle" open><summary><section id="method.translate_ref_is_null" class="method"><a class="srclink rightside" href="../../../src/wasmer_compiler_cranelift/translator/func_environ.rs.html#376-383">source</a><h4 class="code-header">fn <a href="#method.translate_ref_is_null" class="fn">translate_ref_is_null</a>(
+</div></details><details class="toggle method-toggle" open><summary><section id="method.translate_ref_is_null" class="method"><a class="src rightside" href="../../../src/wasmer_compiler_cranelift/translator/func_environ.rs.html#376-383">source</a><h4 class="code-header">fn <a href="#method.translate_ref_is_null" class="fn">translate_ref_is_null</a>(
     &amp;mut self,
     pos: FuncCursor&lt;'_&gt;,
     value: Value
@@ -509,21 +509,21 @@ a null Cranelift reference type is the null value for all Wasm reference
 types.</p>
 <p>If you override this method, you probably also want to override
 <code>translate_ref_null</code> as well.</p>
-</div></details><details class="toggle method-toggle" open><summary><section id="method.translate_loop_header" class="method"><a class="srclink rightside" href="../../../src/wasmer_compiler_cranelift/translator/func_environ.rs.html#445-448">source</a><h4 class="code-header">fn <a href="#method.translate_loop_header" class="fn">translate_loop_header</a>(&amp;mut self, _pos: FuncCursor&lt;'_&gt;) -&gt; WasmResult&lt;<a class="primitive" href="https://doc.rust-lang.org/1.70.0/std/primitive.unit.html">()</a>&gt;</h4></section></summary><div class="docblock"><p>Emit code at the beginning of every wasm loop.</p>
+</div></details><details class="toggle method-toggle" open><summary><section id="method.translate_loop_header" class="method"><a class="src rightside" href="../../../src/wasmer_compiler_cranelift/translator/func_environ.rs.html#445-448">source</a><h4 class="code-header">fn <a href="#method.translate_loop_header" class="fn">translate_loop_header</a>(&amp;mut self, _pos: FuncCursor&lt;'_&gt;) -&gt; WasmResult&lt;<a class="primitive" href="https://doc.rust-lang.org/1.73.0/std/primitive.unit.html">()</a>&gt;</h4></section></summary><div class="docblock"><p>Emit code at the beginning of every wasm loop.</p>
 <p>This can be used to insert explicit interrupt or safepoint checking at
 the beginnings of loops.</p>
-</div></details><details class="toggle method-toggle" open><summary><section id="method.before_translate_operator" class="method"><a class="srclink rightside" href="../../../src/wasmer_compiler_cranelift/translator/func_environ.rs.html#452-459">source</a><h4 class="code-header">fn <a href="#method.before_translate_operator" class="fn">before_translate_operator</a>(
+</div></details><details class="toggle method-toggle" open><summary><section id="method.before_translate_operator" class="method"><a class="src rightside" href="../../../src/wasmer_compiler_cranelift/translator/func_environ.rs.html#452-459">source</a><h4 class="code-header">fn <a href="#method.before_translate_operator" class="fn">before_translate_operator</a>(
     &amp;mut self,
     _op: &amp;Operator&lt;'_&gt;,
     _builder: &amp;mut <a class="struct" href="../../trampoline/struct.FunctionBuilder.html" title="struct wasmer_compiler_cranelift::trampoline::FunctionBuilder">FunctionBuilder</a>&lt;'_&gt;,
     _state: &amp;<a class="struct" href="../func_state/struct.FuncTranslationState.html" title="struct wasmer_compiler_cranelift::translator::func_state::FuncTranslationState">FuncTranslationState</a>
-) -&gt; WasmResult&lt;<a class="primitive" href="https://doc.rust-lang.org/1.70.0/std/primitive.unit.html">()</a>&gt;</h4></section></summary><div class="docblock"><p>Optional callback for the <code>FunctionEnvMutironment</code> performing this translation to maintain
+) -&gt; WasmResult&lt;<a class="primitive" href="https://doc.rust-lang.org/1.73.0/std/primitive.unit.html">()</a>&gt;</h4></section></summary><div class="docblock"><p>Optional callback for the <code>FunctionEnvMutironment</code> performing this translation to maintain
 internal state or prepare custom state for the operator to translate</p>
-</div></details><details class="toggle method-toggle" open><summary><section id="method.after_translate_operator" class="method"><a class="srclink rightside" href="../../../src/wasmer_compiler_cranelift/translator/func_environ.rs.html#463-470">source</a><h4 class="code-header">fn <a href="#method.after_translate_operator" class="fn">after_translate_operator</a>(
+</div></details><details class="toggle method-toggle" open><summary><section id="method.after_translate_operator" class="method"><a class="src rightside" href="../../../src/wasmer_compiler_cranelift/translator/func_environ.rs.html#463-470">source</a><h4 class="code-header">fn <a href="#method.after_translate_operator" class="fn">after_translate_operator</a>(
     &amp;mut self,
     _op: &amp;Operator&lt;'_&gt;,
     _builder: &amp;mut <a class="struct" href="../../trampoline/struct.FunctionBuilder.html" title="struct wasmer_compiler_cranelift::trampoline::FunctionBuilder">FunctionBuilder</a>&lt;'_&gt;,
     _state: &amp;<a class="struct" href="../func_state/struct.FuncTranslationState.html" title="struct wasmer_compiler_cranelift::translator::func_state::FuncTranslationState">FuncTranslationState</a>
-) -&gt; WasmResult&lt;<a class="primitive" href="https://doc.rust-lang.org/1.70.0/std/primitive.unit.html">()</a>&gt;</h4></section></summary><div class="docblock"><p>Optional callback for the <code>FunctionEnvMutironment</code> performing this translation to maintain
+) -&gt; WasmResult&lt;<a class="primitive" href="https://doc.rust-lang.org/1.73.0/std/primitive.unit.html">()</a>&gt;</h4></section></summary><div class="docblock"><p>Optional callback for the <code>FunctionEnvMutironment</code> performing this translation to maintain
 internal state or finalize custom state for the operator that was translated</p>
-</div></details></div><h2 id="implementors" class="small-section-header">Implementors<a href="#implementors" class="anchor">§</a></h2><div id="implementors-list"><section id="impl-FuncEnvironment-for-FuncEnvironment%3C'module_environment%3E" class="impl"><a class="srclink rightside" href="../../../src/wasmer_compiler_cranelift/func_environ.rs.html#862-1609">source</a><a href="#impl-FuncEnvironment-for-FuncEnvironment%3C'module_environment%3E" class="anchor">§</a><h3 class="code-header">impl&lt;'module_environment&gt; <a class="trait" href="trait.FuncEnvironment.html" title="trait wasmer_compiler_cranelift::translator::func_environ::FuncEnvironment">FuncEnvironment</a> for <a class="struct" href="../../func_environ/struct.FuncEnvironment.html" title="struct wasmer_compiler_cranelift::func_environ::FuncEnvironment">FuncEnvironment</a>&lt;'module_environment&gt;</h3></section></div><script src="../../../implementors/wasmer_compiler_cranelift/translator/func_environ/trait.FuncEnvironment.js" async></script></section></div></main></body></html>
+</div></details></div><h2 id="implementors" class="small-section-header">Implementors<a href="#implementors" class="anchor">§</a></h2><div id="implementors-list"><section id="impl-FuncEnvironment-for-FuncEnvironment%3C'module_environment%3E" class="impl"><a class="src rightside" href="../../../src/wasmer_compiler_cranelift/func_environ.rs.html#862-1609">source</a><a href="#impl-FuncEnvironment-for-FuncEnvironment%3C'module_environment%3E" class="anchor">§</a><h3 class="code-header">impl&lt;'module_environment&gt; <a class="trait" href="trait.FuncEnvironment.html" title="trait wasmer_compiler_cranelift::translator::func_environ::FuncEnvironment">FuncEnvironment</a> for <a class="struct" href="../../func_environ/struct.FuncEnvironment.html" title="struct wasmer_compiler_cranelift::func_environ::FuncEnvironment">FuncEnvironment</a>&lt;'module_environment&gt;</h3></section></div><script src="../../../implementors/wasmer_compiler_cranelift/translator/func_environ/trait.FuncEnvironment.js" async></script></section></div></main></body></html>

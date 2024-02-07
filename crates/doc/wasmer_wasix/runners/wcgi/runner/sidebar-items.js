@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"static":["META","__CALLSITE"],"struct":["Config","WcgiRunner"]};
+window.SIDEBAR_ITEMS = {"struct":["Config","WcgiRunner"]};

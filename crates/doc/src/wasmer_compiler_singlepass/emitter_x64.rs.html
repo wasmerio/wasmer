@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/compiler-singlepass/src/emitter_x64.rs`."><title>emitter_x64.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-ba5701c5741a7b69.css" id="mainThemeStyle"><div id="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="wasmer_compiler_singlepass" data-themes="" data-resource-suffix="" data-rustdoc-version="1.70.0 (90c541806 2023-05-31)" data-search-js="search-e077946657036a58.js" data-settings-js="settings-298e1ea74db45b39.js" data-settings-css="settings-7bfb4c59cc6bc502.css" data-theme-light-css="light-0f8c037637f9eb3e.css" data-theme-dark-css="dark-1097f8e92a01e3cf.css" data-theme-ayu-css="ayu-614652228113ac93.css" ></div><script src="../../static.files/storage-62ce34ea385b278a.js"></script><script defer src="../../static.files/source-script-905937fbbdc8e9ea.js"></script><script defer src="../../source-files.js"></script><script defer src="../../static.files/main-f61008743c98d196.js"></script><noscript><link rel="stylesheet" media="(prefers-color-scheme:light)" href="../../static.files/light-0f8c037637f9eb3e.css"><link rel="stylesheet" media="(prefers-color-scheme:dark)" href="../../static.files/dark-1097f8e92a01e3cf.css"><link rel="stylesheet" href="../../static.files/noscript-13285aec31fa243e.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc source"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><a class="sub-logo-container" href="../../wasmer_compiler_singlepass/index.html"><img class="rust-logo" src="../../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/compiler-singlepass/src/emitter_x64.rs`."><title>emitter_x64.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-cb6f1f67f1bcd037.css" id="mainThemeStyle"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="wasmer_compiler_singlepass" data-themes="" data-resource-suffix="" data-rustdoc-version="1.73.0 (cc66ad468 2023-10-03)" data-channel="1.73.0" data-search-js="search-6dfdfced5eff6596.js" data-settings-js="settings-de11bff964e9d4e5.js" data-settings-css="settings-8c76f75bfb6bd192.css" data-theme-light-css="light-1596385f77d47ef2.css" data-theme-dark-css="dark-0a43001d3fc2282c.css" data-theme-ayu-css="ayu-fd19013d6ce078bf.css" ><script src="../../static.files/storage-db41da1a38ea3cb8.js"></script><script defer src="../../static.files/src-script-3280b574d94e47b4.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-0795b7d26be81095.js"></script><noscript><link rel="stylesheet" media="(prefers-color-scheme:light)" href="../../static.files/light-1596385f77d47ef2.css"><link rel="stylesheet" media="(prefers-color-scheme:dark)" href="../../static.files/dark-0a43001d3fc2282c.css"><link rel="stylesheet" href="../../static.files/noscript-cffde32267a19fd6.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"></nav><main><nav class="sub"><a class="sub-logo-container" href="../../wasmer_compiler_singlepass/index.html"><img class="rust-logo" src="../../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -2418,24 +2418,6 @@
 <a href="#2418" id="2418">2418</a>
 <a href="#2419" id="2419">2419</a>
 <a href="#2420" id="2420">2420</a>
-<a href="#2421" id="2421">2421</a>
-<a href="#2422" id="2422">2422</a>
-<a href="#2423" id="2423">2423</a>
-<a href="#2424" id="2424">2424</a>
-<a href="#2425" id="2425">2425</a>
-<a href="#2426" id="2426">2426</a>
-<a href="#2427" id="2427">2427</a>
-<a href="#2428" id="2428">2428</a>
-<a href="#2429" id="2429">2429</a>
-<a href="#2430" id="2430">2430</a>
-<a href="#2431" id="2431">2431</a>
-<a href="#2432" id="2432">2432</a>
-<a href="#2433" id="2433">2433</a>
-<a href="#2434" id="2434">2434</a>
-<a href="#2435" id="2435">2435</a>
-<a href="#2436" id="2436">2436</a>
-<a href="#2437" id="2437">2437</a>
-<a href="#2438" id="2438">2438</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::codegen_error;
 <span class="kw">use </span><span class="kw">crate</span>::common_decl::Size;
 <span class="kw">use </span><span class="kw">crate</span>::location::Location <span class="kw">as </span>AbstractLocation;
@@ -3127,235 +3109,217 @@
 }
 
 <span class="macro">macro_rules! </span>avx_fn {
-    (<span class="macro-nonterminal">$ins</span>:ident) =&gt; {
-        |emitter: <span class="kw-2">&amp;mut </span>AssemblerX64, src1: XMM, src2: XMMOrMemory, dst: XMM| {
-            <span class="comment">// Dynasm bug: AVX instructions are not encoded correctly.
-            </span><span class="kw">match </span>src2 {
-                XMMOrMemory::XMM(x) =&gt; <span class="kw">match </span>src1 {
-                    XMM::XMM0 =&gt; <span class="macro">dynasm!</span>(emitter ; <span class="macro-nonterminal">$ins </span>Rx((dst <span class="kw">as </span>u8)), xmm0, Rx((x <span class="kw">as </span>u8))),
-                    XMM::XMM1 =&gt; <span class="macro">dynasm!</span>(emitter ; <span class="macro-nonterminal">$ins </span>Rx((dst <span class="kw">as </span>u8)), xmm1, Rx((x <span class="kw">as </span>u8))),
-                    XMM::XMM2 =&gt; <span class="macro">dynasm!</span>(emitter ; <span class="macro-nonterminal">$ins </span>Rx((dst <span class="kw">as </span>u8)), xmm2, Rx((x <span class="kw">as </span>u8))),
-                    XMM::XMM3 =&gt; <span class="macro">dynasm!</span>(emitter ; <span class="macro-nonterminal">$ins </span>Rx((dst <span class="kw">as </span>u8)), xmm3, Rx((x <span class="kw">as </span>u8))),
-                    XMM::XMM4 =&gt; <span class="macro">dynasm!</span>(emitter ; <span class="macro-nonterminal">$ins </span>Rx((dst <span class="kw">as </span>u8)), xmm4, Rx((x <span class="kw">as </span>u8))),
-                    XMM::XMM5 =&gt; <span class="macro">dynasm!</span>(emitter ; <span class="macro-nonterminal">$ins </span>Rx((dst <span class="kw">as </span>u8)), xmm5, Rx((x <span class="kw">as </span>u8))),
-                    XMM::XMM6 =&gt; <span class="macro">dynasm!</span>(emitter ; <span class="macro-nonterminal">$ins </span>Rx((dst <span class="kw">as </span>u8)), xmm6, Rx((x <span class="kw">as </span>u8))),
-                    XMM::XMM7 =&gt; <span class="macro">dynasm!</span>(emitter ; <span class="macro-nonterminal">$ins </span>Rx((dst <span class="kw">as </span>u8)), xmm7, Rx((x <span class="kw">as </span>u8))),
-                    XMM::XMM8 =&gt; <span class="macro">dynasm!</span>(emitter ; <span class="macro-nonterminal">$ins </span>Rx((dst <span class="kw">as </span>u8)), xmm8, Rx((x <span class="kw">as </span>u8))),
-                    XMM::XMM9 =&gt; <span class="macro">dynasm!</span>(emitter ; <span class="macro-nonterminal">$ins </span>Rx((dst <span class="kw">as </span>u8)), xmm9, Rx((x <span class="kw">as </span>u8))),
-                    XMM::XMM10 =&gt; <span class="macro">dynasm!</span>(emitter ; <span class="macro-nonterminal">$ins </span>Rx((dst <span class="kw">as </span>u8)), xmm10, Rx((x <span class="kw">as </span>u8))),
-                    XMM::XMM11 =&gt; <span class="macro">dynasm!</span>(emitter ; <span class="macro-nonterminal">$ins </span>Rx((dst <span class="kw">as </span>u8)), xmm11, Rx((x <span class="kw">as </span>u8))),
-                    XMM::XMM12 =&gt; <span class="macro">dynasm!</span>(emitter ; <span class="macro-nonterminal">$ins </span>Rx((dst <span class="kw">as </span>u8)), xmm12, Rx((x <span class="kw">as </span>u8))),
-                    XMM::XMM13 =&gt; <span class="macro">dynasm!</span>(emitter ; <span class="macro-nonterminal">$ins </span>Rx((dst <span class="kw">as </span>u8)), xmm13, Rx((x <span class="kw">as </span>u8))),
-                    XMM::XMM14 =&gt; <span class="macro">dynasm!</span>(emitter ; <span class="macro-nonterminal">$ins </span>Rx((dst <span class="kw">as </span>u8)), xmm14, Rx((x <span class="kw">as </span>u8))),
-                    XMM::XMM15 =&gt; <span class="macro">dynasm!</span>(emitter ; <span class="macro-nonterminal">$ins </span>Rx((dst <span class="kw">as </span>u8)), xmm15, Rx((x <span class="kw">as </span>u8))),
-                },
-                XMMOrMemory::Memory(base, disp) =&gt; <span class="kw">match </span>src1 {
-                    XMM::XMM0 =&gt; <span class="macro">dynasm!</span>(emitter ; <span class="macro-nonterminal">$ins </span>Rx((dst <span class="kw">as </span>u8)), xmm0, [Rq((base <span class="kw">as </span>u8)) + disp]),
-                    XMM::XMM1 =&gt; <span class="macro">dynasm!</span>(emitter ; <span class="macro-nonterminal">$ins </span>Rx((dst <span class="kw">as </span>u8)), xmm1, [Rq((base <span class="kw">as </span>u8)) + disp]),
-                    XMM::XMM2 =&gt; <span class="macro">dynasm!</span>(emitter ; <span class="macro-nonterminal">$ins </span>Rx((dst <span class="kw">as </span>u8)), xmm2, [Rq((base <span class="kw">as </span>u8)) + disp]),
-                    XMM::XMM3 =&gt; <span class="macro">dynasm!</span>(emitter ; <span class="macro-nonterminal">$ins </span>Rx((dst <span class="kw">as </span>u8)), xmm3, [Rq((base <span class="kw">as </span>u8)) + disp]),
-                    XMM::XMM4 =&gt; <span class="macro">dynasm!</span>(emitter ; <span class="macro-nonterminal">$ins </span>Rx((dst <span class="kw">as </span>u8)), xmm4, [Rq((base <span class="kw">as </span>u8)) + disp]),
-                    XMM::XMM5 =&gt; <span class="macro">dynasm!</span>(emitter ; <span class="macro-nonterminal">$ins </span>Rx((dst <span class="kw">as </span>u8)), xmm5, [Rq((base <span class="kw">as </span>u8)) + disp]),
-                    XMM::XMM6 =&gt; <span class="macro">dynasm!</span>(emitter ; <span class="macro-nonterminal">$ins </span>Rx((dst <span class="kw">as </span>u8)), xmm6, [Rq((base <span class="kw">as </span>u8)) + disp]),
-                    XMM::XMM7 =&gt; <span class="macro">dynasm!</span>(emitter ; <span class="macro-nonterminal">$ins </span>Rx((dst <span class="kw">as </span>u8)), xmm7, [Rq((base <span class="kw">as </span>u8)) + disp]),
-                    XMM::XMM8 =&gt; <span class="macro">dynasm!</span>(emitter ; <span class="macro-nonterminal">$ins </span>Rx((dst <span class="kw">as </span>u8)), xmm8, [Rq((base <span class="kw">as </span>u8)) + disp]),
-                    XMM::XMM9 =&gt; <span class="macro">dynasm!</span>(emitter ; <span class="macro-nonterminal">$ins </span>Rx((dst <span class="kw">as </span>u8)), xmm9, [Rq((base <span class="kw">as </span>u8)) + disp]),
-                    XMM::XMM10 =&gt; <span class="macro">dynasm!</span>(emitter ; <span class="macro-nonterminal">$ins </span>Rx((dst <span class="kw">as </span>u8)), xmm10, [Rq((base <span class="kw">as </span>u8)) + disp]),
-                    XMM::XMM11 =&gt; <span class="macro">dynasm!</span>(emitter ; <span class="macro-nonterminal">$ins </span>Rx((dst <span class="kw">as </span>u8)), xmm11, [Rq((base <span class="kw">as </span>u8)) + disp]),
-                    XMM::XMM12 =&gt; <span class="macro">dynasm!</span>(emitter ; <span class="macro-nonterminal">$ins </span>Rx((dst <span class="kw">as </span>u8)), xmm12, [Rq((base <span class="kw">as </span>u8)) + disp]),
-                    XMM::XMM13 =&gt; <span class="macro">dynasm!</span>(emitter ; <span class="macro-nonterminal">$ins </span>Rx((dst <span class="kw">as </span>u8)), xmm13, [Rq((base <span class="kw">as </span>u8)) + disp]),
-                    XMM::XMM14 =&gt; <span class="macro">dynasm!</span>(emitter ; <span class="macro-nonterminal">$ins </span>Rx((dst <span class="kw">as </span>u8)), xmm14, [Rq((base <span class="kw">as </span>u8)) + disp]),
-                    XMM::XMM15 =&gt; <span class="macro">dynasm!</span>(emitter ; <span class="macro-nonterminal">$ins </span>Rx((dst <span class="kw">as </span>u8)), xmm15, [Rq((base <span class="kw">as </span>u8)) + disp]),
-                },
-            }
+    (<span class="macro-nonterminal">$ins</span>:ident, <span class="macro-nonterminal">$emitter</span>:ident, <span class="macro-nonterminal">$src1</span>:ident, <span class="macro-nonterminal">$src2</span>:ident, <span class="macro-nonterminal">$dst</span>:ident) =&gt; {
+        <span class="comment">// Dynasm bug: AVX instructions are not encoded correctly.
+        </span><span class="kw">match </span><span class="macro-nonterminal">$src2 </span>{
+            XMMOrMemory::XMM(x) =&gt; <span class="kw">match </span><span class="macro-nonterminal">$src1 </span>{
+                XMM::XMM0 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx((<span class="macro-nonterminal">$dst </span><span class="kw">as </span>u8)), xmm0, Rx((x <span class="kw">as </span>u8))),
+                XMM::XMM1 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx((<span class="macro-nonterminal">$dst </span><span class="kw">as </span>u8)), xmm1, Rx((x <span class="kw">as </span>u8))),
+                XMM::XMM2 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx((<span class="macro-nonterminal">$dst </span><span class="kw">as </span>u8)), xmm2, Rx((x <span class="kw">as </span>u8))),
+                XMM::XMM4 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx((<span class="macro-nonterminal">$dst </span><span class="kw">as </span>u8)), xmm4, Rx((x <span class="kw">as </span>u8))),
+                XMM::XMM3 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx((<span class="macro-nonterminal">$dst </span><span class="kw">as </span>u8)), xmm3, Rx((x <span class="kw">as </span>u8))),
+                XMM::XMM5 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx((<span class="macro-nonterminal">$dst </span><span class="kw">as </span>u8)), xmm5, Rx((x <span class="kw">as </span>u8))),
+                XMM::XMM6 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx((<span class="macro-nonterminal">$dst </span><span class="kw">as </span>u8)), xmm6, Rx((x <span class="kw">as </span>u8))),
+                XMM::XMM7 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx((<span class="macro-nonterminal">$dst </span><span class="kw">as </span>u8)), xmm7, Rx((x <span class="kw">as </span>u8))),
+                XMM::XMM8 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx((<span class="macro-nonterminal">$dst </span><span class="kw">as </span>u8)), xmm8, Rx((x <span class="kw">as </span>u8))),
+                XMM::XMM9 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx((<span class="macro-nonterminal">$dst </span><span class="kw">as </span>u8)), xmm9, Rx((x <span class="kw">as </span>u8))),
+                XMM::XMM10 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx((<span class="macro-nonterminal">$dst </span><span class="kw">as </span>u8)), xmm10, Rx((x <span class="kw">as </span>u8))),
+                XMM::XMM11 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx((<span class="macro-nonterminal">$dst </span><span class="kw">as </span>u8)), xmm11, Rx((x <span class="kw">as </span>u8))),
+                XMM::XMM12 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx((<span class="macro-nonterminal">$dst </span><span class="kw">as </span>u8)), xmm12, Rx((x <span class="kw">as </span>u8))),
+                XMM::XMM13 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx((<span class="macro-nonterminal">$dst </span><span class="kw">as </span>u8)), xmm13, Rx((x <span class="kw">as </span>u8))),
+                XMM::XMM14 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx((<span class="macro-nonterminal">$dst </span><span class="kw">as </span>u8)), xmm14, Rx((x <span class="kw">as </span>u8))),
+                XMM::XMM15 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx((<span class="macro-nonterminal">$dst </span><span class="kw">as </span>u8)), xmm15, Rx((x <span class="kw">as </span>u8))),
+            },
+            XMMOrMemory::Memory(base, disp) =&gt; <span class="kw">match </span><span class="macro-nonterminal">$src1 </span>{
+                XMM::XMM0 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx((<span class="macro-nonterminal">$dst </span><span class="kw">as </span>u8)), xmm0, [Rq((base <span class="kw">as </span>u8)) + disp]),
+                XMM::XMM1 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx((<span class="macro-nonterminal">$dst </span><span class="kw">as </span>u8)), xmm1, [Rq((base <span class="kw">as </span>u8)) + disp]),
+                XMM::XMM2 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx((<span class="macro-nonterminal">$dst </span><span class="kw">as </span>u8)), xmm2, [Rq((base <span class="kw">as </span>u8)) + disp]),
+                XMM::XMM3 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx((<span class="macro-nonterminal">$dst </span><span class="kw">as </span>u8)), xmm3, [Rq((base <span class="kw">as </span>u8)) + disp]),
+                XMM::XMM4 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx((<span class="macro-nonterminal">$dst </span><span class="kw">as </span>u8)), xmm4, [Rq((base <span class="kw">as </span>u8)) + disp]),
+                XMM::XMM5 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx((<span class="macro-nonterminal">$dst </span><span class="kw">as </span>u8)), xmm5, [Rq((base <span class="kw">as </span>u8)) + disp]),
+                XMM::XMM6 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx((<span class="macro-nonterminal">$dst </span><span class="kw">as </span>u8)), xmm6, [Rq((base <span class="kw">as </span>u8)) + disp]),
+                XMM::XMM7 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx((<span class="macro-nonterminal">$dst </span><span class="kw">as </span>u8)), xmm7, [Rq((base <span class="kw">as </span>u8)) + disp]),
+                XMM::XMM8 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx((<span class="macro-nonterminal">$dst </span><span class="kw">as </span>u8)), xmm8, [Rq((base <span class="kw">as </span>u8)) + disp]),
+                XMM::XMM9 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx((<span class="macro-nonterminal">$dst </span><span class="kw">as </span>u8)), xmm9, [Rq((base <span class="kw">as </span>u8)) + disp]),
+                XMM::XMM10 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx((<span class="macro-nonterminal">$dst </span><span class="kw">as </span>u8)), xmm10, [Rq((base <span class="kw">as </span>u8)) + disp]),
+                XMM::XMM11 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx((<span class="macro-nonterminal">$dst </span><span class="kw">as </span>u8)), xmm11, [Rq((base <span class="kw">as </span>u8)) + disp]),
+                XMM::XMM12 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx((<span class="macro-nonterminal">$dst </span><span class="kw">as </span>u8)), xmm12, [Rq((base <span class="kw">as </span>u8)) + disp]),
+                XMM::XMM13 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx((<span class="macro-nonterminal">$dst </span><span class="kw">as </span>u8)), xmm13, [Rq((base <span class="kw">as </span>u8)) + disp]),
+                XMM::XMM14 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx((<span class="macro-nonterminal">$dst </span><span class="kw">as </span>u8)), xmm14, [Rq((base <span class="kw">as </span>u8)) + disp]),
+                XMM::XMM15 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx((<span class="macro-nonterminal">$dst </span><span class="kw">as </span>u8)), xmm15, [Rq((base <span class="kw">as </span>u8)) + disp]),
+            },
         }
     }
 }
 
 <span class="macro">macro_rules! </span>sse_fn {
-    (<span class="macro-nonterminal">$ins</span>:ident) =&gt; {
-        |emitter: <span class="kw-2">&amp;mut </span>AssemblerX64, precision: Precision, src1: XMM, src2: XMMOrMemory, dst: XMM| {
-            <span class="kw">match </span>src2 {
-                XMMOrMemory::XMM(x) =&gt; {
-                    <span class="kw">if </span>x == dst {
-                        <span class="macro">dynasm!</span>(emitter ; <span class="macro-nonterminal">$ins </span>Rx((dst <span class="kw">as </span>u8)), Rx((src1 <span class="kw">as </span>u8)))
-                    } <span class="kw">else </span>{
-                        move_src_to_dst(emitter, precision, src1, dst);
-                        <span class="macro">dynasm!</span>(emitter ; <span class="macro-nonterminal">$ins </span>Rx((dst <span class="kw">as </span>u8)), Rx((x <span class="kw">as </span>u8)))
-                    }
+    (<span class="macro-nonterminal">$ins</span>:ident, <span class="macro-nonterminal">$emitter</span>:ident, <span class="macro-nonterminal">$precision</span>:expr, <span class="macro-nonterminal">$src1</span>:ident, <span class="macro-nonterminal">$src2</span>:ident, <span class="macro-nonterminal">$dst</span>:ident) =&gt; {
+        <span class="kw">match </span><span class="macro-nonterminal">$src2 </span>{
+            XMMOrMemory::XMM(x) =&gt; {
+                <span class="kw">if </span>x == <span class="macro-nonterminal">$dst </span>{
+                    <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx((<span class="macro-nonterminal">$dst </span><span class="kw">as </span>u8)), Rx((<span class="macro-nonterminal">$src1 </span><span class="kw">as </span>u8)))
+                } <span class="kw">else </span>{
+                    move_src_to_dst(<span class="macro-nonterminal">$emitter</span>, <span class="macro-nonterminal">$precision</span>, <span class="macro-nonterminal">$src1</span>, <span class="macro-nonterminal">$dst</span>);
+                    <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx((<span class="macro-nonterminal">$dst </span><span class="kw">as </span>u8)), Rx((x <span class="kw">as </span>u8)))
                 }
-                XMMOrMemory::Memory(base, disp) =&gt; {
-                    move_src_to_dst(emitter, precision, src1, dst);
-                    <span class="macro">dynasm!</span>(emitter ; <span class="macro-nonterminal">$ins </span>Rx((dst <span class="kw">as </span>u8)), [Rq((base <span class="kw">as </span>u8)) + disp])
-                }
+            }
+            XMMOrMemory::Memory(base, disp) =&gt; {
+                move_src_to_dst(<span class="macro-nonterminal">$emitter</span>, <span class="macro-nonterminal">$precision</span>, <span class="macro-nonterminal">$src1</span>, <span class="macro-nonterminal">$dst</span>);
+                <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx((<span class="macro-nonterminal">$dst </span><span class="kw">as </span>u8)), [Rq((base <span class="kw">as </span>u8)) + disp])
             }
         }
     };
-    (<span class="macro-nonterminal">$ins</span>:ident, <span class="macro-nonterminal">$mode</span>:expr) =&gt; {
-        |emitter: <span class="kw-2">&amp;mut </span>AssemblerX64, precision: Precision, src1: XMM, src2: XMMOrMemory, dst: XMM| {
-            <span class="kw">match </span>src2 {
-                XMMOrMemory::XMM(x) =&gt; {
-                    move_src_to_dst(emitter, precision, src1, dst);
-                    <span class="macro">dynasm!</span>(emitter ; <span class="macro-nonterminal">$ins </span>Rx((dst <span class="kw">as </span>u8)), Rx((x <span class="kw">as </span>u8)), <span class="macro-nonterminal">$mode</span>)
-                }
-                XMMOrMemory::Memory(base, disp) =&gt; {
-                    move_src_to_dst(emitter, precision, src1, dst);
-                    <span class="macro">dynasm!</span>(emitter ; <span class="macro-nonterminal">$ins </span>Rx((dst <span class="kw">as </span>u8)), [Rq((base <span class="kw">as </span>u8)) + disp], <span class="macro-nonterminal">$mode</span>)
-                }
+    (<span class="macro-nonterminal">$ins</span>:ident, <span class="macro-nonterminal">$mode</span>:expr, <span class="macro-nonterminal">$emitter</span>:ident, <span class="macro-nonterminal">$precision</span>:expr, <span class="macro-nonterminal">$src1</span>:ident, <span class="macro-nonterminal">$src2</span>:ident, <span class="macro-nonterminal">$dst</span>:ident) =&gt; {
+        <span class="kw">match </span><span class="macro-nonterminal">$src2 </span>{
+            XMMOrMemory::XMM(x) =&gt; {
+                move_src_to_dst(<span class="macro-nonterminal">$emitter</span>, <span class="macro-nonterminal">$precision</span>, <span class="macro-nonterminal">$src1</span>, <span class="macro-nonterminal">$dst</span>);
+                <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx((<span class="macro-nonterminal">$dst </span><span class="kw">as </span>u8)), Rx((x <span class="kw">as </span>u8)), <span class="macro-nonterminal">$mode</span>)
+            }
+            XMMOrMemory::Memory(base, disp) =&gt; {
+                move_src_to_dst(<span class="macro-nonterminal">$emitter</span>, <span class="macro-nonterminal">$precision</span>, <span class="macro-nonterminal">$src1</span>, <span class="macro-nonterminal">$dst</span>);
+                <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx((<span class="macro-nonterminal">$dst </span><span class="kw">as </span>u8)), [Rq((base <span class="kw">as </span>u8)) + disp], <span class="macro-nonterminal">$mode</span>)
             }
         }
     };
 }
 
 <span class="macro">macro_rules! </span>avx_i2f_64_fn {
-    (<span class="macro-nonterminal">$ins</span>:ident) =&gt; {
-        |emitter: <span class="kw-2">&amp;mut </span>AssemblerX64, src1: XMM, src2: GPROrMemory, dst: XMM| {
-            <span class="kw">match </span>src2 {
-                GPROrMemory::GPR(x) =&gt; <span class="kw">match </span>src1 {
-                    XMM::XMM0 =&gt; <span class="macro">dynasm!</span>(emitter ; <span class="macro-nonterminal">$ins </span>Rx((dst <span class="kw">as </span>u8)), xmm0, Rq((x <span class="kw">as </span>u8))),
-                    XMM::XMM1 =&gt; <span class="macro">dynasm!</span>(emitter ; <span class="macro-nonterminal">$ins </span>Rx((dst <span class="kw">as </span>u8)), xmm1, Rq((x <span class="kw">as </span>u8))),
-                    XMM::XMM2 =&gt; <span class="macro">dynasm!</span>(emitter ; <span class="macro-nonterminal">$ins </span>Rx((dst <span class="kw">as </span>u8)), xmm2, Rq((x <span class="kw">as </span>u8))),
-                    XMM::XMM3 =&gt; <span class="macro">dynasm!</span>(emitter ; <span class="macro-nonterminal">$ins </span>Rx((dst <span class="kw">as </span>u8)), xmm3, Rq((x <span class="kw">as </span>u8))),
-                    XMM::XMM4 =&gt; <span class="macro">dynasm!</span>(emitter ; <span class="macro-nonterminal">$ins </span>Rx((dst <span class="kw">as </span>u8)), xmm4, Rq((x <span class="kw">as </span>u8))),
-                    XMM::XMM5 =&gt; <span class="macro">dynasm!</span>(emitter ; <span class="macro-nonterminal">$ins </span>Rx((dst <span class="kw">as </span>u8)), xmm5, Rq((x <span class="kw">as </span>u8))),
-                    XMM::XMM6 =&gt; <span class="macro">dynasm!</span>(emitter ; <span class="macro-nonterminal">$ins </span>Rx((dst <span class="kw">as </span>u8)), xmm6, Rq((x <span class="kw">as </span>u8))),
-                    XMM::XMM7 =&gt; <span class="macro">dynasm!</span>(emitter ; <span class="macro-nonterminal">$ins </span>Rx((dst <span class="kw">as </span>u8)), xmm7, Rq((x <span class="kw">as </span>u8))),
-                    XMM::XMM8 =&gt; <span class="macro">dynasm!</span>(emitter ; <span class="macro-nonterminal">$ins </span>Rx((dst <span class="kw">as </span>u8)), xmm8, Rq((x <span class="kw">as </span>u8))),
-                    XMM::XMM9 =&gt; <span class="macro">dynasm!</span>(emitter ; <span class="macro-nonterminal">$ins </span>Rx((dst <span class="kw">as </span>u8)), xmm9, Rq((x <span class="kw">as </span>u8))),
-                    XMM::XMM10 =&gt; <span class="macro">dynasm!</span>(emitter ; <span class="macro-nonterminal">$ins </span>Rx((dst <span class="kw">as </span>u8)), xmm10, Rq((x <span class="kw">as </span>u8))),
-                    XMM::XMM11 =&gt; <span class="macro">dynasm!</span>(emitter ; <span class="macro-nonterminal">$ins </span>Rx((dst <span class="kw">as </span>u8)), xmm11, Rq((x <span class="kw">as </span>u8))),
-                    XMM::XMM12 =&gt; <span class="macro">dynasm!</span>(emitter ; <span class="macro-nonterminal">$ins </span>Rx((dst <span class="kw">as </span>u8)), xmm12, Rq((x <span class="kw">as </span>u8))),
-                    XMM::XMM13 =&gt; <span class="macro">dynasm!</span>(emitter ; <span class="macro-nonterminal">$ins </span>Rx((dst <span class="kw">as </span>u8)), xmm13, Rq((x <span class="kw">as </span>u8))),
-                    XMM::XMM14 =&gt; <span class="macro">dynasm!</span>(emitter ; <span class="macro-nonterminal">$ins </span>Rx((dst <span class="kw">as </span>u8)), xmm14, Rq((x <span class="kw">as </span>u8))),
-                    XMM::XMM15 =&gt; <span class="macro">dynasm!</span>(emitter ; <span class="macro-nonterminal">$ins </span>Rx((dst <span class="kw">as </span>u8)), xmm15, Rq((x <span class="kw">as </span>u8))),
-                },
-                GPROrMemory::Memory(base, disp) =&gt; <span class="kw">match </span>src1 {
-                    XMM::XMM0 =&gt; <span class="macro">dynasm!</span>(emitter ; <span class="macro-nonterminal">$ins </span>Rx((dst <span class="kw">as </span>u8)), xmm0, QWORD [Rq((base <span class="kw">as </span>u8)) + disp]),
-                    XMM::XMM1 =&gt; <span class="macro">dynasm!</span>(emitter ; <span class="macro-nonterminal">$ins </span>Rx((dst <span class="kw">as </span>u8)), xmm1, QWORD [Rq((base <span class="kw">as </span>u8)) + disp]),
-                    XMM::XMM2 =&gt; <span class="macro">dynasm!</span>(emitter ; <span class="macro-nonterminal">$ins </span>Rx((dst <span class="kw">as </span>u8)), xmm2, QWORD [Rq((base <span class="kw">as </span>u8)) + disp]),
-                    XMM::XMM3 =&gt; <span class="macro">dynasm!</span>(emitter ; <span class="macro-nonterminal">$ins </span>Rx((dst <span class="kw">as </span>u8)), xmm3, QWORD [Rq((base <span class="kw">as </span>u8)) + disp]),
-                    XMM::XMM4 =&gt; <span class="macro">dynasm!</span>(emitter ; <span class="macro-nonterminal">$ins </span>Rx((dst <span class="kw">as </span>u8)), xmm4, QWORD [Rq((base <span class="kw">as </span>u8)) + disp]),
-                    XMM::XMM5 =&gt; <span class="macro">dynasm!</span>(emitter ; <span class="macro-nonterminal">$ins </span>Rx((dst <span class="kw">as </span>u8)), xmm5, QWORD [Rq((base <span class="kw">as </span>u8)) + disp]),
-                    XMM::XMM6 =&gt; <span class="macro">dynasm!</span>(emitter ; <span class="macro-nonterminal">$ins </span>Rx((dst <span class="kw">as </span>u8)), xmm6, QWORD [Rq((base <span class="kw">as </span>u8)) + disp]),
-                    XMM::XMM7 =&gt; <span class="macro">dynasm!</span>(emitter ; <span class="macro-nonterminal">$ins </span>Rx((dst <span class="kw">as </span>u8)), xmm7, QWORD [Rq((base <span class="kw">as </span>u8)) + disp]),
-                    XMM::XMM8 =&gt; <span class="macro">dynasm!</span>(emitter ; <span class="macro-nonterminal">$ins </span>Rx((dst <span class="kw">as </span>u8)), xmm8, QWORD [Rq((base <span class="kw">as </span>u8)) + disp]),
-                    XMM::XMM9 =&gt; <span class="macro">dynasm!</span>(emitter ; <span class="macro-nonterminal">$ins </span>Rx((dst <span class="kw">as </span>u8)), xmm9, QWORD [Rq((base <span class="kw">as </span>u8)) + disp]),
-                    XMM::XMM10 =&gt; <span class="macro">dynasm!</span>(emitter ; <span class="macro-nonterminal">$ins </span>Rx((dst <span class="kw">as </span>u8)), xmm10, QWORD [Rq((base <span class="kw">as </span>u8)) + disp]),
-                    XMM::XMM11 =&gt; <span class="macro">dynasm!</span>(emitter ; <span class="macro-nonterminal">$ins </span>Rx((dst <span class="kw">as </span>u8)), xmm11, QWORD [Rq((base <span class="kw">as </span>u8)) + disp]),
-                    XMM::XMM12 =&gt; <span class="macro">dynasm!</span>(emitter ; <span class="macro-nonterminal">$ins </span>Rx((dst <span class="kw">as </span>u8)), xmm12, QWORD [Rq((base <span class="kw">as </span>u8)) + disp]),
-                    XMM::XMM13 =&gt; <span class="macro">dynasm!</span>(emitter ; <span class="macro-nonterminal">$ins </span>Rx((dst <span class="kw">as </span>u8)), xmm13, QWORD [Rq((base <span class="kw">as </span>u8)) + disp]),
-                    XMM::XMM14 =&gt; <span class="macro">dynasm!</span>(emitter ; <span class="macro-nonterminal">$ins </span>Rx((dst <span class="kw">as </span>u8)), xmm14, QWORD [Rq((base <span class="kw">as </span>u8)) + disp]),
-                    XMM::XMM15 =&gt; <span class="macro">dynasm!</span>(emitter ; <span class="macro-nonterminal">$ins </span>Rx((dst <span class="kw">as </span>u8)), xmm15, QWORD [Rq((base <span class="kw">as </span>u8)) + disp]),
-                },
-            }
+    (<span class="macro-nonterminal">$ins</span>:ident, <span class="macro-nonterminal">$emitter</span>:ident, <span class="macro-nonterminal">$src1</span>:ident, <span class="macro-nonterminal">$src2</span>:ident, <span class="macro-nonterminal">$dst</span>:ident) =&gt; {
+        <span class="kw">match </span><span class="macro-nonterminal">$src2 </span>{
+            GPROrMemory::GPR(x) =&gt; <span class="kw">match </span><span class="macro-nonterminal">$src1 </span>{
+                XMM::XMM0 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx((<span class="macro-nonterminal">$dst </span><span class="kw">as </span>u8)), xmm0, Rq((x <span class="kw">as </span>u8))),
+                XMM::XMM1 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx((<span class="macro-nonterminal">$dst </span><span class="kw">as </span>u8)), xmm1, Rq((x <span class="kw">as </span>u8))),
+                XMM::XMM2 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx((<span class="macro-nonterminal">$dst </span><span class="kw">as </span>u8)), xmm2, Rq((x <span class="kw">as </span>u8))),
+                XMM::XMM3 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx((<span class="macro-nonterminal">$dst </span><span class="kw">as </span>u8)), xmm3, Rq((x <span class="kw">as </span>u8))),
+                XMM::XMM4 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx((<span class="macro-nonterminal">$dst </span><span class="kw">as </span>u8)), xmm4, Rq((x <span class="kw">as </span>u8))),
+                XMM::XMM5 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx((<span class="macro-nonterminal">$dst </span><span class="kw">as </span>u8)), xmm5, Rq((x <span class="kw">as </span>u8))),
+                XMM::XMM6 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx((<span class="macro-nonterminal">$dst </span><span class="kw">as </span>u8)), xmm6, Rq((x <span class="kw">as </span>u8))),
+                XMM::XMM7 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx((<span class="macro-nonterminal">$dst </span><span class="kw">as </span>u8)), xmm7, Rq((x <span class="kw">as </span>u8))),
+                XMM::XMM8 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx((<span class="macro-nonterminal">$dst </span><span class="kw">as </span>u8)), xmm8, Rq((x <span class="kw">as </span>u8))),
+                XMM::XMM9 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx((<span class="macro-nonterminal">$dst </span><span class="kw">as </span>u8)), xmm9, Rq((x <span class="kw">as </span>u8))),
+                XMM::XMM10 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx((<span class="macro-nonterminal">$dst </span><span class="kw">as </span>u8)), xmm10, Rq((x <span class="kw">as </span>u8))),
+                XMM::XMM11 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx((<span class="macro-nonterminal">$dst </span><span class="kw">as </span>u8)), xmm11, Rq((x <span class="kw">as </span>u8))),
+                XMM::XMM12 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx((<span class="macro-nonterminal">$dst </span><span class="kw">as </span>u8)), xmm12, Rq((x <span class="kw">as </span>u8))),
+                XMM::XMM13 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx((<span class="macro-nonterminal">$dst </span><span class="kw">as </span>u8)), xmm13, Rq((x <span class="kw">as </span>u8))),
+                XMM::XMM14 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx((<span class="macro-nonterminal">$dst </span><span class="kw">as </span>u8)), xmm14, Rq((x <span class="kw">as </span>u8))),
+                XMM::XMM15 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx((<span class="macro-nonterminal">$dst </span><span class="kw">as </span>u8)), xmm15, Rq((x <span class="kw">as </span>u8))),
+            },
+            GPROrMemory::Memory(base, disp) =&gt; <span class="kw">match </span><span class="macro-nonterminal">$src1 </span>{
+                XMM::XMM0 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx((<span class="macro-nonterminal">$dst </span><span class="kw">as </span>u8)), xmm0, QWORD [Rq((base <span class="kw">as </span>u8)) + disp]),
+                XMM::XMM1 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx((<span class="macro-nonterminal">$dst </span><span class="kw">as </span>u8)), xmm1, QWORD [Rq((base <span class="kw">as </span>u8)) + disp]),
+                XMM::XMM2 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx((<span class="macro-nonterminal">$dst </span><span class="kw">as </span>u8)), xmm2, QWORD [Rq((base <span class="kw">as </span>u8)) + disp]),
+                XMM::XMM3 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx((<span class="macro-nonterminal">$dst </span><span class="kw">as </span>u8)), xmm3, QWORD [Rq((base <span class="kw">as </span>u8)) + disp]),
+                XMM::XMM4 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx((<span class="macro-nonterminal">$dst </span><span class="kw">as </span>u8)), xmm4, QWORD [Rq((base <span class="kw">as </span>u8)) + disp]),
+                XMM::XMM5 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx((<span class="macro-nonterminal">$dst </span><span class="kw">as </span>u8)), xmm5, QWORD [Rq((base <span class="kw">as </span>u8)) + disp]),
+                XMM::XMM6 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx((<span class="macro-nonterminal">$dst </span><span class="kw">as </span>u8)), xmm6, QWORD [Rq((base <span class="kw">as </span>u8)) + disp]),
+                XMM::XMM7 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx((<span class="macro-nonterminal">$dst </span><span class="kw">as </span>u8)), xmm7, QWORD [Rq((base <span class="kw">as </span>u8)) + disp]),
+                XMM::XMM8 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx((<span class="macro-nonterminal">$dst </span><span class="kw">as </span>u8)), xmm8, QWORD [Rq((base <span class="kw">as </span>u8)) + disp]),
+                XMM::XMM9 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx((<span class="macro-nonterminal">$dst </span><span class="kw">as </span>u8)), xmm9, QWORD [Rq((base <span class="kw">as </span>u8)) + disp]),
+                XMM::XMM10 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx((<span class="macro-nonterminal">$dst </span><span class="kw">as </span>u8)), xmm10, QWORD [Rq((base <span class="kw">as </span>u8)) + disp]),
+                XMM::XMM11 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx((<span class="macro-nonterminal">$dst </span><span class="kw">as </span>u8)), xmm11, QWORD [Rq((base <span class="kw">as </span>u8)) + disp]),
+                XMM::XMM12 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx((<span class="macro-nonterminal">$dst </span><span class="kw">as </span>u8)), xmm12, QWORD [Rq((base <span class="kw">as </span>u8)) + disp]),
+                XMM::XMM13 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx((<span class="macro-nonterminal">$dst </span><span class="kw">as </span>u8)), xmm13, QWORD [Rq((base <span class="kw">as </span>u8)) + disp]),
+                XMM::XMM14 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx((<span class="macro-nonterminal">$dst </span><span class="kw">as </span>u8)), xmm14, QWORD [Rq((base <span class="kw">as </span>u8)) + disp]),
+                XMM::XMM15 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx((<span class="macro-nonterminal">$dst </span><span class="kw">as </span>u8)), xmm15, QWORD [Rq((base <span class="kw">as </span>u8)) + disp]),
+            },
         }
     }
 }
 
 <span class="macro">macro_rules! </span>sse_i2f_64_fn {
-    (<span class="macro-nonterminal">$ins</span>:ident) =&gt; {
-        |emitter: <span class="kw-2">&amp;mut </span>AssemblerX64, precision: Precision, src1: XMM, src2: GPROrMemory, dst: XMM| {
-            <span class="kw">match </span>src2 {
-                GPROrMemory::GPR(x) =&gt; {
-                    move_src_to_dst(emitter, precision, src1, dst);
-                    <span class="macro">dynasm!</span>(emitter ; <span class="macro-nonterminal">$ins </span>Rx((dst <span class="kw">as </span>u8)), Rq((x <span class="kw">as </span>u8)))
-                },
-                GPROrMemory::Memory(base, disp) =&gt; {
-                    move_src_to_dst(emitter, precision, src1, dst);
-                    <span class="macro">dynasm!</span>(emitter ; <span class="macro-nonterminal">$ins </span>Rx((dst <span class="kw">as </span>u8)), QWORD [Rq((base <span class="kw">as </span>u8)) + disp])
-                }
+    (<span class="macro-nonterminal">$ins</span>:ident, <span class="macro-nonterminal">$emitter</span>:ident, <span class="macro-nonterminal">$precision</span>:expr, <span class="macro-nonterminal">$src1</span>:ident, <span class="macro-nonterminal">$src2</span>:ident, <span class="macro-nonterminal">$dst</span>:ident) =&gt; {
+        <span class="kw">match </span><span class="macro-nonterminal">$src2 </span>{
+            GPROrMemory::GPR(x) =&gt; {
+                move_src_to_dst(<span class="macro-nonterminal">$emitter</span>, <span class="macro-nonterminal">$precision</span>, <span class="macro-nonterminal">$src1</span>, <span class="macro-nonterminal">$dst</span>);
+                <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx((<span class="macro-nonterminal">$dst </span><span class="kw">as </span>u8)), Rq((x <span class="kw">as </span>u8)))
+            },
+            GPROrMemory::Memory(base, disp) =&gt; {
+                move_src_to_dst(<span class="macro-nonterminal">$emitter</span>, <span class="macro-nonterminal">$precision</span>, <span class="macro-nonterminal">$src1</span>, <span class="macro-nonterminal">$dst</span>);
+                <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx((<span class="macro-nonterminal">$dst </span><span class="kw">as </span>u8)), QWORD [Rq((base <span class="kw">as </span>u8)) + disp])
             }
         }
     }
 }
 
 <span class="macro">macro_rules! </span>avx_i2f_32_fn {
-    (<span class="macro-nonterminal">$ins</span>:ident) =&gt; {
-        |emitter: <span class="kw-2">&amp;mut </span>AssemblerX64, src1: XMM, src2: GPROrMemory, dst: XMM| {
-            <span class="kw">match </span>src2 {
-                GPROrMemory::GPR(x) =&gt; <span class="kw">match </span>src1 {
-                    XMM::XMM0 =&gt; <span class="macro">dynasm!</span>(emitter ; <span class="macro-nonterminal">$ins </span>Rx((dst <span class="kw">as </span>u8)), xmm0, Rd((x <span class="kw">as </span>u8))),
-                    XMM::XMM1 =&gt; <span class="macro">dynasm!</span>(emitter ; <span class="macro-nonterminal">$ins </span>Rx((dst <span class="kw">as </span>u8)), xmm1, Rd((x <span class="kw">as </span>u8))),
-                    XMM::XMM2 =&gt; <span class="macro">dynasm!</span>(emitter ; <span class="macro-nonterminal">$ins </span>Rx((dst <span class="kw">as </span>u8)), xmm2, Rd((x <span class="kw">as </span>u8))),
-                    XMM::XMM3 =&gt; <span class="macro">dynasm!</span>(emitter ; <span class="macro-nonterminal">$ins </span>Rx((dst <span class="kw">as </span>u8)), xmm3, Rd((x <span class="kw">as </span>u8))),
-                    XMM::XMM4 =&gt; <span class="macro">dynasm!</span>(emitter ; <span class="macro-nonterminal">$ins </span>Rx((dst <span class="kw">as </span>u8)), xmm4, Rd((x <span class="kw">as </span>u8))),
-                    XMM::XMM5 =&gt; <span class="macro">dynasm!</span>(emitter ; <span class="macro-nonterminal">$ins </span>Rx((dst <span class="kw">as </span>u8)), xmm5, Rd((x <span class="kw">as </span>u8))),
-                    XMM::XMM6 =&gt; <span class="macro">dynasm!</span>(emitter ; <span class="macro-nonterminal">$ins </span>Rx((dst <span class="kw">as </span>u8)), xmm6, Rd((x <span class="kw">as </span>u8))),
-                    XMM::XMM7 =&gt; <span class="macro">dynasm!</span>(emitter ; <span class="macro-nonterminal">$ins </span>Rx((dst <span class="kw">as </span>u8)), xmm7, Rd((x <span class="kw">as </span>u8))),
-                    XMM::XMM8 =&gt; <span class="macro">dynasm!</span>(emitter ; <span class="macro-nonterminal">$ins </span>Rx((dst <span class="kw">as </span>u8)), xmm8, Rd((x <span class="kw">as </span>u8))),
-                    XMM::XMM9 =&gt; <span class="macro">dynasm!</span>(emitter ; <span class="macro-nonterminal">$ins </span>Rx((dst <span class="kw">as </span>u8)), xmm9, Rd((x <span class="kw">as </span>u8))),
-                    XMM::XMM10 =&gt; <span class="macro">dynasm!</span>(emitter ; <span class="macro-nonterminal">$ins </span>Rx((dst <span class="kw">as </span>u8)), xmm10, Rd((x <span class="kw">as </span>u8))),
-                    XMM::XMM11 =&gt; <span class="macro">dynasm!</span>(emitter ; <span class="macro-nonterminal">$ins </span>Rx((dst <span class="kw">as </span>u8)), xmm11, Rd((x <span class="kw">as </span>u8))),
-                    XMM::XMM12 =&gt; <span class="macro">dynasm!</span>(emitter ; <span class="macro-nonterminal">$ins </span>Rx((dst <span class="kw">as </span>u8)), xmm12, Rd((x <span class="kw">as </span>u8))),
-                    XMM::XMM13 =&gt; <span class="macro">dynasm!</span>(emitter ; <span class="macro-nonterminal">$ins </span>Rx((dst <span class="kw">as </span>u8)), xmm13, Rd((x <span class="kw">as </span>u8))),
-                    XMM::XMM14 =&gt; <span class="macro">dynasm!</span>(emitter ; <span class="macro-nonterminal">$ins </span>Rx((dst <span class="kw">as </span>u8)), xmm14, Rd((x <span class="kw">as </span>u8))),
-                    XMM::XMM15 =&gt; <span class="macro">dynasm!</span>(emitter ; <span class="macro-nonterminal">$ins </span>Rx((dst <span class="kw">as </span>u8)), xmm15, Rd((x <span class="kw">as </span>u8))),
-                },
-                GPROrMemory::Memory(base, disp) =&gt; <span class="kw">match </span>src1 {
-                    XMM::XMM0 =&gt; <span class="macro">dynasm!</span>(emitter ; <span class="macro-nonterminal">$ins </span>Rx((dst <span class="kw">as </span>u8)), xmm0, DWORD [Rq((base <span class="kw">as </span>u8)) + disp]),
-                    XMM::XMM1 =&gt; <span class="macro">dynasm!</span>(emitter ; <span class="macro-nonterminal">$ins </span>Rx((dst <span class="kw">as </span>u8)), xmm1, DWORD [Rq((base <span class="kw">as </span>u8)) + disp]),
-                    XMM::XMM2 =&gt; <span class="macro">dynasm!</span>(emitter ; <span class="macro-nonterminal">$ins </span>Rx((dst <span class="kw">as </span>u8)), xmm2, DWORD [Rq((base <span class="kw">as </span>u8)) + disp]),
-                    XMM::XMM3 =&gt; <span class="macro">dynasm!</span>(emitter ; <span class="macro-nonterminal">$ins </span>Rx((dst <span class="kw">as </span>u8)), xmm3, DWORD [Rq((base <span class="kw">as </span>u8)) + disp]),
-                    XMM::XMM4 =&gt; <span class="macro">dynasm!</span>(emitter ; <span class="macro-nonterminal">$ins </span>Rx((dst <span class="kw">as </span>u8)), xmm4, DWORD [Rq((base <span class="kw">as </span>u8)) + disp]),
-                    XMM::XMM5 =&gt; <span class="macro">dynasm!</span>(emitter ; <span class="macro-nonterminal">$ins </span>Rx((dst <span class="kw">as </span>u8)), xmm5, DWORD [Rq((base <span class="kw">as </span>u8)) + disp]),
-                    XMM::XMM6 =&gt; <span class="macro">dynasm!</span>(emitter ; <span class="macro-nonterminal">$ins </span>Rx((dst <span class="kw">as </span>u8)), xmm6, DWORD [Rq((base <span class="kw">as </span>u8)) + disp]),
-                    XMM::XMM7 =&gt; <span class="macro">dynasm!</span>(emitter ; <span class="macro-nonterminal">$ins </span>Rx((dst <span class="kw">as </span>u8)), xmm7, DWORD [Rq((base <span class="kw">as </span>u8)) + disp]),
-                    XMM::XMM8 =&gt; <span class="macro">dynasm!</span>(emitter ; <span class="macro-nonterminal">$ins </span>Rx((dst <span class="kw">as </span>u8)), xmm8, DWORD [Rq((base <span class="kw">as </span>u8)) + disp]),
-                    XMM::XMM9 =&gt; <span class="macro">dynasm!</span>(emitter ; <span class="macro-nonterminal">$ins </span>Rx((dst <span class="kw">as </span>u8)), xmm9, DWORD [Rq((base <span class="kw">as </span>u8)) + disp]),
-                    XMM::XMM10 =&gt; <span class="macro">dynasm!</span>(emitter ; <span class="macro-nonterminal">$ins </span>Rx((dst <span class="kw">as </span>u8)), xmm10, DWORD [Rq((base <span class="kw">as </span>u8)) + disp]),
-                    XMM::XMM11 =&gt; <span class="macro">dynasm!</span>(emitter ; <span class="macro-nonterminal">$ins </span>Rx((dst <span class="kw">as </span>u8)), xmm11, DWORD [Rq((base <span class="kw">as </span>u8)) + disp]),
-                    XMM::XMM12 =&gt; <span class="macro">dynasm!</span>(emitter ; <span class="macro-nonterminal">$ins </span>Rx((dst <span class="kw">as </span>u8)), xmm12, DWORD [Rq((base <span class="kw">as </span>u8)) + disp]),
-                    XMM::XMM13 =&gt; <span class="macro">dynasm!</span>(emitter ; <span class="macro-nonterminal">$ins </span>Rx((dst <span class="kw">as </span>u8)), xmm13, DWORD [Rq((base <span class="kw">as </span>u8)) + disp]),
-                    XMM::XMM14 =&gt; <span class="macro">dynasm!</span>(emitter ; <span class="macro-nonterminal">$ins </span>Rx((dst <span class="kw">as </span>u8)), xmm14, DWORD [Rq((base <span class="kw">as </span>u8)) + disp]),
-                    XMM::XMM15 =&gt; <span class="macro">dynasm!</span>(emitter ; <span class="macro-nonterminal">$ins </span>Rx((dst <span class="kw">as </span>u8)), xmm15, DWORD [Rq((base <span class="kw">as </span>u8)) + disp]),
-                },
-            }
+    (<span class="macro-nonterminal">$ins</span>:ident, <span class="macro-nonterminal">$emitter</span>:ident, <span class="macro-nonterminal">$src1</span>:ident, <span class="macro-nonterminal">$src2</span>:ident, <span class="macro-nonterminal">$dst</span>:ident) =&gt; {
+        <span class="kw">match </span><span class="macro-nonterminal">$src2 </span>{
+            GPROrMemory::GPR(x) =&gt; <span class="kw">match </span><span class="macro-nonterminal">$src1 </span>{
+                XMM::XMM0 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx((<span class="macro-nonterminal">$dst </span><span class="kw">as </span>u8)), xmm0, Rd((x <span class="kw">as </span>u8))),
+                XMM::XMM1 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx((<span class="macro-nonterminal">$dst </span><span class="kw">as </span>u8)), xmm1, Rd((x <span class="kw">as </span>u8))),
+                XMM::XMM2 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx((<span class="macro-nonterminal">$dst </span><span class="kw">as </span>u8)), xmm2, Rd((x <span class="kw">as </span>u8))),
+                XMM::XMM3 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx((<span class="macro-nonterminal">$dst </span><span class="kw">as </span>u8)), xmm3, Rd((x <span class="kw">as </span>u8))),
+                XMM::XMM4 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx((<span class="macro-nonterminal">$dst </span><span class="kw">as </span>u8)), xmm4, Rd((x <span class="kw">as </span>u8))),
+                XMM::XMM5 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx((<span class="macro-nonterminal">$dst </span><span class="kw">as </span>u8)), xmm5, Rd((x <span class="kw">as </span>u8))),
+                XMM::XMM6 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx((<span class="macro-nonterminal">$dst </span><span class="kw">as </span>u8)), xmm6, Rd((x <span class="kw">as </span>u8))),
+                XMM::XMM7 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx((<span class="macro-nonterminal">$dst </span><span class="kw">as </span>u8)), xmm7, Rd((x <span class="kw">as </span>u8))),
+                XMM::XMM8 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx((<span class="macro-nonterminal">$dst </span><span class="kw">as </span>u8)), xmm8, Rd((x <span class="kw">as </span>u8))),
+                XMM::XMM9 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx((<span class="macro-nonterminal">$dst </span><span class="kw">as </span>u8)), xmm9, Rd((x <span class="kw">as </span>u8))),
+                XMM::XMM10 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx((<span class="macro-nonterminal">$dst </span><span class="kw">as </span>u8)), xmm10, Rd((x <span class="kw">as </span>u8))),
+                XMM::XMM11 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx((<span class="macro-nonterminal">$dst </span><span class="kw">as </span>u8)), xmm11, Rd((x <span class="kw">as </span>u8))),
+                XMM::XMM12 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx((<span class="macro-nonterminal">$dst </span><span class="kw">as </span>u8)), xmm12, Rd((x <span class="kw">as </span>u8))),
+                XMM::XMM13 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx((<span class="macro-nonterminal">$dst </span><span class="kw">as </span>u8)), xmm13, Rd((x <span class="kw">as </span>u8))),
+                XMM::XMM14 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx((<span class="macro-nonterminal">$dst </span><span class="kw">as </span>u8)), xmm14, Rd((x <span class="kw">as </span>u8))),
+                XMM::XMM15 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx((<span class="macro-nonterminal">$dst </span><span class="kw">as </span>u8)), xmm15, Rd((x <span class="kw">as </span>u8))),
+            },
+            GPROrMemory::Memory(base, disp) =&gt; <span class="kw">match </span><span class="macro-nonterminal">$src1 </span>{
+                XMM::XMM0 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx((<span class="macro-nonterminal">$dst </span><span class="kw">as </span>u8)), xmm0, DWORD [Rq((base <span class="kw">as </span>u8)) + disp]),
+                XMM::XMM1 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx((<span class="macro-nonterminal">$dst </span><span class="kw">as </span>u8)), xmm1, DWORD [Rq((base <span class="kw">as </span>u8)) + disp]),
+                XMM::XMM2 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx((<span class="macro-nonterminal">$dst </span><span class="kw">as </span>u8)), xmm2, DWORD [Rq((base <span class="kw">as </span>u8)) + disp]),
+                XMM::XMM3 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx((<span class="macro-nonterminal">$dst </span><span class="kw">as </span>u8)), xmm3, DWORD [Rq((base <span class="kw">as </span>u8)) + disp]),
+                XMM::XMM4 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx((<span class="macro-nonterminal">$dst </span><span class="kw">as </span>u8)), xmm4, DWORD [Rq((base <span class="kw">as </span>u8)) + disp]),
+                XMM::XMM5 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx((<span class="macro-nonterminal">$dst </span><span class="kw">as </span>u8)), xmm5, DWORD [Rq((base <span class="kw">as </span>u8)) + disp]),
+                XMM::XMM6 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx((<span class="macro-nonterminal">$dst </span><span class="kw">as </span>u8)), xmm6, DWORD [Rq((base <span class="kw">as </span>u8)) + disp]),
+                XMM::XMM7 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx((<span class="macro-nonterminal">$dst </span><span class="kw">as </span>u8)), xmm7, DWORD [Rq((base <span class="kw">as </span>u8)) + disp]),
+                XMM::XMM8 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx((<span class="macro-nonterminal">$dst </span><span class="kw">as </span>u8)), xmm8, DWORD [Rq((base <span class="kw">as </span>u8)) + disp]),
+                XMM::XMM9 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx((<span class="macro-nonterminal">$dst </span><span class="kw">as </span>u8)), xmm9, DWORD [Rq((base <span class="kw">as </span>u8)) + disp]),
+                XMM::XMM10 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx((<span class="macro-nonterminal">$dst </span><span class="kw">as </span>u8)), xmm10, DWORD [Rq((base <span class="kw">as </span>u8)) + disp]),
+                XMM::XMM11 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx((<span class="macro-nonterminal">$dst </span><span class="kw">as </span>u8)), xmm11, DWORD [Rq((base <span class="kw">as </span>u8)) + disp]),
+                XMM::XMM12 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx((<span class="macro-nonterminal">$dst </span><span class="kw">as </span>u8)), xmm12, DWORD [Rq((base <span class="kw">as </span>u8)) + disp]),
+                XMM::XMM13 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx((<span class="macro-nonterminal">$dst </span><span class="kw">as </span>u8)), xmm13, DWORD [Rq((base <span class="kw">as </span>u8)) + disp]),
+                XMM::XMM14 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx((<span class="macro-nonterminal">$dst </span><span class="kw">as </span>u8)), xmm14, DWORD [Rq((base <span class="kw">as </span>u8)) + disp]),
+                XMM::XMM15 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx((<span class="macro-nonterminal">$dst </span><span class="kw">as </span>u8)), xmm15, DWORD [Rq((base <span class="kw">as </span>u8)) + disp]),
+            },
         }
     }
 }
 
 <span class="macro">macro_rules! </span>sse_i2f_32_fn {
-    (<span class="macro-nonterminal">$ins</span>:ident) =&gt; {
-        |emitter: <span class="kw-2">&amp;mut </span>AssemblerX64, precision: Precision, src1: XMM, src2: GPROrMemory, dst: XMM| {
-            <span class="kw">match </span>src2 {
-                GPROrMemory::GPR(x) =&gt; {
-                    move_src_to_dst(emitter, precision, src1, dst);
-                    <span class="macro">dynasm!</span>(emitter; <span class="macro-nonterminal">$ins </span>Rx((src1 <span class="kw">as </span>u8)), Rd((x <span class="kw">as </span>u8)))
-                },
-                GPROrMemory::Memory(base, disp) =&gt; {
-                    move_src_to_dst(emitter, precision, src1, dst);
-                    <span class="macro">dynasm!</span>(emitter ;  <span class="macro-nonterminal">$ins </span>Rx((dst <span class="kw">as </span>u8)), DWORD [Rq((base <span class="kw">as </span>u8)) + disp])
-                }
+    (<span class="macro-nonterminal">$ins</span>:ident, <span class="macro-nonterminal">$emitter</span>:ident, <span class="macro-nonterminal">$precision</span>:expr, <span class="macro-nonterminal">$src1</span>:ident, <span class="macro-nonterminal">$src2</span>:ident, <span class="macro-nonterminal">$dst</span>:ident) =&gt; {
+        <span class="kw">match </span><span class="macro-nonterminal">$src2 </span>{
+            GPROrMemory::GPR(x) =&gt; {
+                move_src_to_dst(<span class="macro-nonterminal">$emitter</span>, <span class="macro-nonterminal">$precision</span>, <span class="macro-nonterminal">$src1</span>, <span class="macro-nonterminal">$dst</span>);
+                <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter</span>; <span class="macro-nonterminal">$ins </span>Rx((<span class="macro-nonterminal">$src1 </span><span class="kw">as </span>u8)), Rd((x <span class="kw">as </span>u8)))
+            },
+            GPROrMemory::Memory(base, disp) =&gt; {
+                move_src_to_dst(<span class="macro-nonterminal">$emitter</span>, <span class="macro-nonterminal">$precision</span>, <span class="macro-nonterminal">$src1</span>, <span class="macro-nonterminal">$dst</span>);
+                <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter</span>; <span class="macro-nonterminal">$ins </span>Rx((<span class="macro-nonterminal">$dst </span><span class="kw">as </span>u8)), DWORD [Rq((base <span class="kw">as </span>u8)) + disp])
             }
         }
     }
 }
 
 <span class="macro">macro_rules! </span>avx_round_fn {
-    (<span class="macro-nonterminal">$ins</span>:ident, <span class="macro-nonterminal">$mode</span>:expr) =&gt; {
-        |emitter: <span class="kw-2">&amp;mut </span>AssemblerX64, src1: XMM, src2: XMMOrMemory, dst: XMM| {
-            <span class="kw">match </span>src2 {
-                XMMOrMemory::XMM(x) =&gt; <span class="macro">dynasm!</span>(emitter ; <span class="macro-nonterminal">$ins </span>Rx((dst <span class="kw">as </span>u8)), Rx((src1 <span class="kw">as </span>u8)), Rx((x <span class="kw">as </span>u8)), <span class="macro-nonterminal">$mode</span>),
-                XMMOrMemory::Memory(base, disp) =&gt; <span class="macro">dynasm!</span>(emitter ; <span class="macro-nonterminal">$ins </span>Rx((dst <span class="kw">as </span>u8)), Rx((src1 <span class="kw">as </span>u8)), [Rq((base <span class="kw">as </span>u8)) + disp], <span class="macro-nonterminal">$mode</span>),
-            }
+    (<span class="macro-nonterminal">$ins</span>:ident, <span class="macro-nonterminal">$mode</span>:expr, <span class="macro-nonterminal">$emitter</span>:ident, <span class="macro-nonterminal">$src1</span>:ident, <span class="macro-nonterminal">$src2</span>:ident, <span class="macro-nonterminal">$dst</span>:ident) =&gt; {
+        <span class="kw">match </span><span class="macro-nonterminal">$src2 </span>{
+            XMMOrMemory::XMM(x) =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx((<span class="macro-nonterminal">$dst </span><span class="kw">as </span>u8)), Rx((<span class="macro-nonterminal">$src1 </span><span class="kw">as </span>u8)), Rx((x <span class="kw">as </span>u8)), <span class="macro-nonterminal">$mode</span>),
+            XMMOrMemory::Memory(base, disp) =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx((<span class="macro-nonterminal">$dst </span><span class="kw">as </span>u8)), Rx((<span class="macro-nonterminal">$src1 </span><span class="kw">as </span>u8)), [Rq((base <span class="kw">as </span>u8)) + disp], <span class="macro-nonterminal">$mode</span>),
         }
     }
 }
 
 <span class="macro">macro_rules! </span>sse_round_fn {
-    (<span class="macro-nonterminal">$ins</span>:ident, <span class="macro-nonterminal">$mode</span>:expr) =&gt; {
-        |emitter: <span class="kw-2">&amp;mut </span>AssemblerX64, precision: Precision, src1: XMM, src2: XMMOrMemory, dst: XMM| {
-            <span class="kw">match </span>src2 {
-                XMMOrMemory::XMM(x) =&gt; {
-                    <span class="kw">if </span>x != dst {
-                        move_src_to_dst(emitter, precision, src1, dst);
-                    }
-                    <span class="macro">dynasm!</span>(emitter ; <span class="macro-nonterminal">$ins </span>Rx((x <span class="kw">as </span>u8)), Rx((dst <span class="kw">as </span>u8)), <span class="macro-nonterminal">$mode</span>)
+    (<span class="macro-nonterminal">$ins</span>:ident, <span class="macro-nonterminal">$mode</span>:expr, <span class="macro-nonterminal">$emitter</span>:ident, <span class="macro-nonterminal">$precision</span>:expr, <span class="macro-nonterminal">$src1</span>:ident, <span class="macro-nonterminal">$src2</span>:ident, <span class="macro-nonterminal">$dst</span>:ident) =&gt; {
+        <span class="kw">match </span><span class="macro-nonterminal">$src2 </span>{
+            XMMOrMemory::XMM(x) =&gt; {
+                <span class="kw">if </span>x != <span class="macro-nonterminal">$dst </span>{
+                    move_src_to_dst(<span class="macro-nonterminal">$emitter</span>, <span class="macro-nonterminal">$precision</span>, <span class="macro-nonterminal">$src1</span>, <span class="macro-nonterminal">$dst</span>);
                 }
-                XMMOrMemory::Memory(base, disp) =&gt; {
-                    <span class="macro">dynasm!</span>(emitter ; <span class="macro-nonterminal">$ins </span>Rx((dst <span class="kw">as </span>u8)), [Rq((base <span class="kw">as </span>u8)) + disp], <span class="macro-nonterminal">$mode</span>)
-                },
+                <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx((x <span class="kw">as </span>u8)), Rx((<span class="macro-nonterminal">$dst </span><span class="kw">as </span>u8)), <span class="macro-nonterminal">$mode</span>)
             }
+            XMMOrMemory::Memory(base, disp) =&gt; {
+                <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx((<span class="macro-nonterminal">$dst </span><span class="kw">as </span>u8)), [Rq((base <span class="kw">as </span>u8)) + disp], <span class="macro-nonterminal">$mode</span>)
+            },
         }
     }
 }
@@ -4157,112 +4121,112 @@
     }
     <span class="kw">fn </span>emit_vxorps(<span class="kw-2">&amp;mut </span><span class="self">self</span>, src1: XMM, src2: XMMOrMemory, dst: XMM) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
         <span class="kw">match </span><span class="self">self</span>.get_simd_arch() {
-            <span class="prelude-val">Some</span>(CpuFeature::AVX) =&gt; <span class="macro">avx_fn!</span>(vxorps)(<span class="self">self</span>, src1, src2, dst),
-            <span class="prelude-val">Some</span>(CpuFeature::SSE42) =&gt; <span class="macro">sse_fn!</span>(xorps)(<span class="self">self</span>, Precision::Single, src1, src2, dst),
+            <span class="prelude-val">Some</span>(CpuFeature::AVX) =&gt; <span class="macro">avx_fn!</span>(vxorps, <span class="self">self</span>, src1, src2, dst),
+            <span class="prelude-val">Some</span>(CpuFeature::SSE42) =&gt; <span class="macro">sse_fn!</span>(xorps, <span class="self">self</span>, Precision::Single, src1, src2, dst),
             <span class="kw">_ </span>=&gt; {}
         }
         <span class="prelude-val">Ok</span>(())
     }
     <span class="kw">fn </span>emit_vxorpd(<span class="kw-2">&amp;mut </span><span class="self">self</span>, src1: XMM, src2: XMMOrMemory, dst: XMM) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
         <span class="kw">match </span><span class="self">self</span>.get_simd_arch() {
-            <span class="prelude-val">Some</span>(CpuFeature::AVX) =&gt; <span class="macro">avx_fn!</span>(vxorpd)(<span class="self">self</span>, src1, src2, dst),
-            <span class="prelude-val">Some</span>(CpuFeature::SSE42) =&gt; <span class="macro">sse_fn!</span>(xorpd)(<span class="self">self</span>, Precision::Double, src1, src2, dst),
+            <span class="prelude-val">Some</span>(CpuFeature::AVX) =&gt; <span class="macro">avx_fn!</span>(vxorpd, <span class="self">self</span>, src1, src2, dst),
+            <span class="prelude-val">Some</span>(CpuFeature::SSE42) =&gt; <span class="macro">sse_fn!</span>(xorpd, <span class="self">self</span>, Precision::Double, src1, src2, dst),
             <span class="kw">_ </span>=&gt; {}
         }
         <span class="prelude-val">Ok</span>(())
     }
     <span class="kw">fn </span>emit_vaddss(<span class="kw-2">&amp;mut </span><span class="self">self</span>, src1: XMM, src2: XMMOrMemory, dst: XMM) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
         <span class="kw">match </span><span class="self">self</span>.get_simd_arch() {
-            <span class="prelude-val">Some</span>(CpuFeature::AVX) =&gt; <span class="macro">avx_fn!</span>(vaddss)(<span class="self">self</span>, src1, src2, dst),
-            <span class="prelude-val">Some</span>(CpuFeature::SSE42) =&gt; <span class="macro">sse_fn!</span>(addss)(<span class="self">self</span>, Precision::Single, src1, src2, dst),
+            <span class="prelude-val">Some</span>(CpuFeature::AVX) =&gt; <span class="macro">avx_fn!</span>(vaddss, <span class="self">self</span>, src1, src2, dst),
+            <span class="prelude-val">Some</span>(CpuFeature::SSE42) =&gt; <span class="macro">sse_fn!</span>(addss, <span class="self">self</span>, Precision::Single, src1, src2, dst),
             <span class="kw">_ </span>=&gt; {}
         }
         <span class="prelude-val">Ok</span>(())
     }
     <span class="kw">fn </span>emit_vaddsd(<span class="kw-2">&amp;mut </span><span class="self">self</span>, src1: XMM, src2: XMMOrMemory, dst: XMM) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
         <span class="kw">match </span><span class="self">self</span>.get_simd_arch() {
-            <span class="prelude-val">Some</span>(CpuFeature::AVX) =&gt; <span class="macro">avx_fn!</span>(vaddsd)(<span class="self">self</span>, src1, src2, dst),
-            <span class="prelude-val">Some</span>(CpuFeature::SSE42) =&gt; <span class="macro">sse_fn!</span>(addsd)(<span class="self">self</span>, Precision::Double, src1, src2, dst),
+            <span class="prelude-val">Some</span>(CpuFeature::AVX) =&gt; <span class="macro">avx_fn!</span>(vaddsd, <span class="self">self</span>, src1, src2, dst),
+            <span class="prelude-val">Some</span>(CpuFeature::SSE42) =&gt; <span class="macro">sse_fn!</span>(addsd, <span class="self">self</span>, Precision::Double, src1, src2, dst),
             <span class="kw">_ </span>=&gt; {}
         }
         <span class="prelude-val">Ok</span>(())
     }
     <span class="kw">fn </span>emit_vsubss(<span class="kw-2">&amp;mut </span><span class="self">self</span>, src1: XMM, src2: XMMOrMemory, dst: XMM) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
         <span class="kw">match </span><span class="self">self</span>.get_simd_arch() {
-            <span class="prelude-val">Some</span>(CpuFeature::AVX) =&gt; <span class="macro">avx_fn!</span>(vsubss)(<span class="self">self</span>, src1, src2, dst),
-            <span class="prelude-val">Some</span>(CpuFeature::SSE42) =&gt; <span class="macro">sse_fn!</span>(subss)(<span class="self">self</span>, Precision::Single, src1, src2, dst),
+            <span class="prelude-val">Some</span>(CpuFeature::AVX) =&gt; <span class="macro">avx_fn!</span>(vsubss, <span class="self">self</span>, src1, src2, dst),
+            <span class="prelude-val">Some</span>(CpuFeature::SSE42) =&gt; <span class="macro">sse_fn!</span>(subss, <span class="self">self</span>, Precision::Single, src1, src2, dst),
             <span class="kw">_ </span>=&gt; {}
         }
         <span class="prelude-val">Ok</span>(())
     }
     <span class="kw">fn </span>emit_vsubsd(<span class="kw-2">&amp;mut </span><span class="self">self</span>, src1: XMM, src2: XMMOrMemory, dst: XMM) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
         <span class="kw">match </span><span class="self">self</span>.get_simd_arch() {
-            <span class="prelude-val">Some</span>(CpuFeature::AVX) =&gt; <span class="macro">avx_fn!</span>(vsubsd)(<span class="self">self</span>, src1, src2, dst),
-            <span class="prelude-val">Some</span>(CpuFeature::SSE42) =&gt; <span class="macro">sse_fn!</span>(subsd)(<span class="self">self</span>, Precision::Double, src1, src2, dst),
+            <span class="prelude-val">Some</span>(CpuFeature::AVX) =&gt; <span class="macro">avx_fn!</span>(vsubsd, <span class="self">self</span>, src1, src2, dst),
+            <span class="prelude-val">Some</span>(CpuFeature::SSE42) =&gt; <span class="macro">sse_fn!</span>(subsd, <span class="self">self</span>, Precision::Double, src1, src2, dst),
             <span class="kw">_ </span>=&gt; {}
         }
         <span class="prelude-val">Ok</span>(())
     }
     <span class="kw">fn </span>emit_vmulss(<span class="kw-2">&amp;mut </span><span class="self">self</span>, src1: XMM, src2: XMMOrMemory, dst: XMM) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
         <span class="kw">match </span><span class="self">self</span>.get_simd_arch() {
-            <span class="prelude-val">Some</span>(CpuFeature::AVX) =&gt; <span class="macro">avx_fn!</span>(vmulss)(<span class="self">self</span>, src1, src2, dst),
-            <span class="prelude-val">Some</span>(CpuFeature::SSE42) =&gt; <span class="macro">sse_fn!</span>(mulss)(<span class="self">self</span>, Precision::Single, src1, src2, dst),
+            <span class="prelude-val">Some</span>(CpuFeature::AVX) =&gt; <span class="macro">avx_fn!</span>(vmulss, <span class="self">self</span>, src1, src2, dst),
+            <span class="prelude-val">Some</span>(CpuFeature::SSE42) =&gt; <span class="macro">sse_fn!</span>(mulss, <span class="self">self</span>, Precision::Single, src1, src2, dst),
             <span class="kw">_ </span>=&gt; {}
         }
         <span class="prelude-val">Ok</span>(())
     }
     <span class="kw">fn </span>emit_vmulsd(<span class="kw-2">&amp;mut </span><span class="self">self</span>, src1: XMM, src2: XMMOrMemory, dst: XMM) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
         <span class="kw">match </span><span class="self">self</span>.get_simd_arch() {
-            <span class="prelude-val">Some</span>(CpuFeature::AVX) =&gt; <span class="macro">avx_fn!</span>(vmulsd)(<span class="self">self</span>, src1, src2, dst),
-            <span class="prelude-val">Some</span>(CpuFeature::SSE42) =&gt; <span class="macro">sse_fn!</span>(mulsd)(<span class="self">self</span>, Precision::Double, src1, src2, dst),
+            <span class="prelude-val">Some</span>(CpuFeature::AVX) =&gt; <span class="macro">avx_fn!</span>(vmulsd, <span class="self">self</span>, src1, src2, dst),
+            <span class="prelude-val">Some</span>(CpuFeature::SSE42) =&gt; <span class="macro">sse_fn!</span>(mulsd, <span class="self">self</span>, Precision::Double, src1, src2, dst),
             <span class="kw">_ </span>=&gt; {}
         }
         <span class="prelude-val">Ok</span>(())
     }
     <span class="kw">fn </span>emit_vdivss(<span class="kw-2">&amp;mut </span><span class="self">self</span>, src1: XMM, src2: XMMOrMemory, dst: XMM) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
         <span class="kw">match </span><span class="self">self</span>.get_simd_arch() {
-            <span class="prelude-val">Some</span>(CpuFeature::AVX) =&gt; <span class="macro">avx_fn!</span>(vdivss)(<span class="self">self</span>, src1, src2, dst),
-            <span class="prelude-val">Some</span>(CpuFeature::SSE42) =&gt; <span class="macro">sse_fn!</span>(divss)(<span class="self">self</span>, Precision::Single, src1, src2, dst),
+            <span class="prelude-val">Some</span>(CpuFeature::AVX) =&gt; <span class="macro">avx_fn!</span>(vdivss, <span class="self">self</span>, src1, src2, dst),
+            <span class="prelude-val">Some</span>(CpuFeature::SSE42) =&gt; <span class="macro">sse_fn!</span>(divss, <span class="self">self</span>, Precision::Single, src1, src2, dst),
             <span class="kw">_ </span>=&gt; {}
         }
         <span class="prelude-val">Ok</span>(())
     }
     <span class="kw">fn </span>emit_vdivsd(<span class="kw-2">&amp;mut </span><span class="self">self</span>, src1: XMM, src2: XMMOrMemory, dst: XMM) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
         <span class="kw">match </span><span class="self">self</span>.get_simd_arch() {
-            <span class="prelude-val">Some</span>(CpuFeature::AVX) =&gt; <span class="macro">avx_fn!</span>(vdivsd)(<span class="self">self</span>, src1, src2, dst),
-            <span class="prelude-val">Some</span>(CpuFeature::SSE42) =&gt; <span class="macro">sse_fn!</span>(divsd)(<span class="self">self</span>, Precision::Double, src1, src2, dst),
+            <span class="prelude-val">Some</span>(CpuFeature::AVX) =&gt; <span class="macro">avx_fn!</span>(vdivsd, <span class="self">self</span>, src1, src2, dst),
+            <span class="prelude-val">Some</span>(CpuFeature::SSE42) =&gt; <span class="macro">sse_fn!</span>(divsd, <span class="self">self</span>, Precision::Double, src1, src2, dst),
             <span class="kw">_ </span>=&gt; {}
         }
         <span class="prelude-val">Ok</span>(())
     }
     <span class="kw">fn </span>emit_vmaxss(<span class="kw-2">&amp;mut </span><span class="self">self</span>, src1: XMM, src2: XMMOrMemory, dst: XMM) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
         <span class="kw">match </span><span class="self">self</span>.get_simd_arch() {
-            <span class="prelude-val">Some</span>(CpuFeature::AVX) =&gt; <span class="macro">avx_fn!</span>(vmaxss)(<span class="self">self</span>, src1, src2, dst),
-            <span class="prelude-val">Some</span>(CpuFeature::SSE42) =&gt; <span class="macro">sse_fn!</span>(maxss)(<span class="self">self</span>, Precision::Single, src1, src2, dst),
+            <span class="prelude-val">Some</span>(CpuFeature::AVX) =&gt; <span class="macro">avx_fn!</span>(vmaxss, <span class="self">self</span>, src1, src2, dst),
+            <span class="prelude-val">Some</span>(CpuFeature::SSE42) =&gt; <span class="macro">sse_fn!</span>(maxss, <span class="self">self</span>, Precision::Single, src1, src2, dst),
             <span class="kw">_ </span>=&gt; {}
         }
         <span class="prelude-val">Ok</span>(())
     }
     <span class="kw">fn </span>emit_vmaxsd(<span class="kw-2">&amp;mut </span><span class="self">self</span>, src1: XMM, src2: XMMOrMemory, dst: XMM) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
         <span class="kw">match </span><span class="self">self</span>.get_simd_arch() {
-            <span class="prelude-val">Some</span>(CpuFeature::AVX) =&gt; <span class="macro">avx_fn!</span>(vmaxsd)(<span class="self">self</span>, src1, src2, dst),
-            <span class="prelude-val">Some</span>(CpuFeature::SSE42) =&gt; <span class="macro">sse_fn!</span>(maxsd)(<span class="self">self</span>, Precision::Double, src1, src2, dst),
+            <span class="prelude-val">Some</span>(CpuFeature::AVX) =&gt; <span class="macro">avx_fn!</span>(vmaxsd, <span class="self">self</span>, src1, src2, dst),
+            <span class="prelude-val">Some</span>(CpuFeature::SSE42) =&gt; <span class="macro">sse_fn!</span>(maxsd, <span class="self">self</span>, Precision::Double, src1, src2, dst),
             <span class="kw">_ </span>=&gt; {}
         }
         <span class="prelude-val">Ok</span>(())
     }
     <span class="kw">fn </span>emit_vminss(<span class="kw-2">&amp;mut </span><span class="self">self</span>, src1: XMM, src2: XMMOrMemory, dst: XMM) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
         <span class="kw">match </span><span class="self">self</span>.get_simd_arch() {
-            <span class="prelude-val">Some</span>(CpuFeature::AVX) =&gt; <span class="macro">avx_fn!</span>(vminss)(<span class="self">self</span>, src1, src2, dst),
-            <span class="prelude-val">Some</span>(CpuFeature::SSE42) =&gt; <span class="macro">sse_fn!</span>(minss)(<span class="self">self</span>, Precision::Single, src1, src2, dst),
+            <span class="prelude-val">Some</span>(CpuFeature::AVX) =&gt; <span class="macro">avx_fn!</span>(vminss, <span class="self">self</span>, src1, src2, dst),
+            <span class="prelude-val">Some</span>(CpuFeature::SSE42) =&gt; <span class="macro">sse_fn!</span>(minss, <span class="self">self</span>, Precision::Single, src1, src2, dst),
             <span class="kw">_ </span>=&gt; {}
         }
         <span class="prelude-val">Ok</span>(())
     }
     <span class="kw">fn </span>emit_vminsd(<span class="kw-2">&amp;mut </span><span class="self">self</span>, src1: XMM, src2: XMMOrMemory, dst: XMM) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
         <span class="kw">match </span><span class="self">self</span>.get_simd_arch() {
-            <span class="prelude-val">Some</span>(CpuFeature::AVX) =&gt; <span class="macro">avx_fn!</span>(vminsd)(<span class="self">self</span>, src1, src2, dst),
-            <span class="prelude-val">Some</span>(CpuFeature::SSE42) =&gt; <span class="macro">sse_fn!</span>(minsd)(<span class="self">self</span>, Precision::Double, src1, src2, dst),
+            <span class="prelude-val">Some</span>(CpuFeature::AVX) =&gt; <span class="macro">avx_fn!</span>(vminsd, <span class="self">self</span>, src1, src2, dst),
+            <span class="prelude-val">Some</span>(CpuFeature::SSE42) =&gt; <span class="macro">sse_fn!</span>(minsd, <span class="self">self</span>, Precision::Double, src1, src2, dst),
             <span class="kw">_ </span>=&gt; {}
         }
         <span class="prelude-val">Ok</span>(())
@@ -4274,8 +4238,8 @@
         dst: XMM,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
         <span class="kw">match </span><span class="self">self</span>.get_simd_arch() {
-            <span class="prelude-val">Some</span>(CpuFeature::AVX) =&gt; <span class="macro">avx_fn!</span>(vcmpeqss)(<span class="self">self</span>, src1, src2, dst),
-            <span class="prelude-val">Some</span>(CpuFeature::SSE42) =&gt; <span class="macro">sse_fn!</span>(cmpss, <span class="number">0</span>)(<span class="self">self</span>, Precision::Single, src1, src2, dst),
+            <span class="prelude-val">Some</span>(CpuFeature::AVX) =&gt; <span class="macro">avx_fn!</span>(vcmpeqss, <span class="self">self</span>, src1, src2, dst),
+            <span class="prelude-val">Some</span>(CpuFeature::SSE42) =&gt; <span class="macro">sse_fn!</span>(cmpss, <span class="number">0</span>, <span class="self">self</span>, Precision::Single, src1, src2, dst),
             <span class="kw">_ </span>=&gt; {}
         }
         <span class="prelude-val">Ok</span>(())
@@ -4287,8 +4251,8 @@
         dst: XMM,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
         <span class="kw">match </span><span class="self">self</span>.get_simd_arch() {
-            <span class="prelude-val">Some</span>(CpuFeature::AVX) =&gt; <span class="macro">avx_fn!</span>(vcmpeqsd)(<span class="self">self</span>, src1, src2, dst),
-            <span class="prelude-val">Some</span>(CpuFeature::SSE42) =&gt; <span class="macro">sse_fn!</span>(cmpsd, <span class="number">0</span>)(<span class="self">self</span>, Precision::Double, src1, src2, dst),
+            <span class="prelude-val">Some</span>(CpuFeature::AVX) =&gt; <span class="macro">avx_fn!</span>(vcmpeqsd, <span class="self">self</span>, src1, src2, dst),
+            <span class="prelude-val">Some</span>(CpuFeature::SSE42) =&gt; <span class="macro">sse_fn!</span>(cmpsd, <span class="number">0</span>, <span class="self">self</span>, Precision::Double, src1, src2, dst),
             <span class="kw">_ </span>=&gt; {}
         }
         <span class="prelude-val">Ok</span>(())
@@ -4300,8 +4264,8 @@
         dst: XMM,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
         <span class="kw">match </span><span class="self">self</span>.get_simd_arch() {
-            <span class="prelude-val">Some</span>(CpuFeature::AVX) =&gt; <span class="macro">avx_fn!</span>(vcmpneqss)(<span class="self">self</span>, src1, src2, dst),
-            <span class="prelude-val">Some</span>(CpuFeature::SSE42) =&gt; <span class="macro">sse_fn!</span>(cmpss, <span class="number">4</span>)(<span class="self">self</span>, Precision::Single, src1, src2, dst),
+            <span class="prelude-val">Some</span>(CpuFeature::AVX) =&gt; <span class="macro">avx_fn!</span>(vcmpneqss, <span class="self">self</span>, src1, src2, dst),
+            <span class="prelude-val">Some</span>(CpuFeature::SSE42) =&gt; <span class="macro">sse_fn!</span>(cmpss, <span class="number">4</span>, <span class="self">self</span>, Precision::Single, src1, src2, dst),
             <span class="kw">_ </span>=&gt; {}
         }
         <span class="prelude-val">Ok</span>(())
@@ -4313,8 +4277,8 @@
         dst: XMM,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
         <span class="kw">match </span><span class="self">self</span>.get_simd_arch() {
-            <span class="prelude-val">Some</span>(CpuFeature::AVX) =&gt; <span class="macro">avx_fn!</span>(vcmpneqsd)(<span class="self">self</span>, src1, src2, dst),
-            <span class="prelude-val">Some</span>(CpuFeature::SSE42) =&gt; <span class="macro">sse_fn!</span>(cmpsd, <span class="number">4</span>)(<span class="self">self</span>, Precision::Double, src1, src2, dst),
+            <span class="prelude-val">Some</span>(CpuFeature::AVX) =&gt; <span class="macro">avx_fn!</span>(vcmpneqsd, <span class="self">self</span>, src1, src2, dst),
+            <span class="prelude-val">Some</span>(CpuFeature::SSE42) =&gt; <span class="macro">sse_fn!</span>(cmpsd, <span class="number">4</span>, <span class="self">self</span>, Precision::Double, src1, src2, dst),
             <span class="kw">_ </span>=&gt; {}
         }
         <span class="prelude-val">Ok</span>(())
@@ -4326,8 +4290,8 @@
         dst: XMM,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
         <span class="kw">match </span><span class="self">self</span>.get_simd_arch() {
-            <span class="prelude-val">Some</span>(CpuFeature::AVX) =&gt; <span class="macro">avx_fn!</span>(vcmpltss)(<span class="self">self</span>, src1, src2, dst),
-            <span class="prelude-val">Some</span>(CpuFeature::SSE42) =&gt; <span class="macro">sse_fn!</span>(cmpss, <span class="number">1</span>)(<span class="self">self</span>, Precision::Single, src1, src2, dst),
+            <span class="prelude-val">Some</span>(CpuFeature::AVX) =&gt; <span class="macro">avx_fn!</span>(vcmpltss, <span class="self">self</span>, src1, src2, dst),
+            <span class="prelude-val">Some</span>(CpuFeature::SSE42) =&gt; <span class="macro">sse_fn!</span>(cmpss, <span class="number">1</span>, <span class="self">self</span>, Precision::Single, src1, src2, dst),
             <span class="kw">_ </span>=&gt; {}
         }
         <span class="prelude-val">Ok</span>(())
@@ -4339,8 +4303,8 @@
         dst: XMM,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
         <span class="kw">match </span><span class="self">self</span>.get_simd_arch() {
-            <span class="prelude-val">Some</span>(CpuFeature::AVX) =&gt; <span class="macro">avx_fn!</span>(vcmpltsd)(<span class="self">self</span>, src1, src2, dst),
-            <span class="prelude-val">Some</span>(CpuFeature::SSE42) =&gt; <span class="macro">sse_fn!</span>(cmpsd, <span class="number">1</span>)(<span class="self">self</span>, Precision::Double, src1, src2, dst),
+            <span class="prelude-val">Some</span>(CpuFeature::AVX) =&gt; <span class="macro">avx_fn!</span>(vcmpltsd, <span class="self">self</span>, src1, src2, dst),
+            <span class="prelude-val">Some</span>(CpuFeature::SSE42) =&gt; <span class="macro">sse_fn!</span>(cmpsd, <span class="number">1</span>, <span class="self">self</span>, Precision::Double, src1, src2, dst),
             <span class="kw">_ </span>=&gt; {}
         }
         <span class="prelude-val">Ok</span>(())
@@ -4352,8 +4316,8 @@
         dst: XMM,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
         <span class="kw">match </span><span class="self">self</span>.get_simd_arch() {
-            <span class="prelude-val">Some</span>(CpuFeature::AVX) =&gt; <span class="macro">avx_fn!</span>(vcmpless)(<span class="self">self</span>, src1, src2, dst),
-            <span class="prelude-val">Some</span>(CpuFeature::SSE42) =&gt; <span class="macro">sse_fn!</span>(cmpss, <span class="number">2</span>)(<span class="self">self</span>, Precision::Single, src1, src2, dst),
+            <span class="prelude-val">Some</span>(CpuFeature::AVX) =&gt; <span class="macro">avx_fn!</span>(vcmpless, <span class="self">self</span>, src1, src2, dst),
+            <span class="prelude-val">Some</span>(CpuFeature::SSE42) =&gt; <span class="macro">sse_fn!</span>(cmpss, <span class="number">2</span>, <span class="self">self</span>, Precision::Single, src1, src2, dst),
             <span class="kw">_ </span>=&gt; {}
         }
         <span class="prelude-val">Ok</span>(())
@@ -4365,8 +4329,8 @@
         dst: XMM,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
         <span class="kw">match </span><span class="self">self</span>.get_simd_arch() {
-            <span class="prelude-val">Some</span>(CpuFeature::AVX) =&gt; <span class="macro">avx_fn!</span>(vcmplesd)(<span class="self">self</span>, src1, src2, dst),
-            <span class="prelude-val">Some</span>(CpuFeature::SSE42) =&gt; <span class="macro">sse_fn!</span>(cmpsd, <span class="number">2</span>)(<span class="self">self</span>, Precision::Double, src1, src2, dst),
+            <span class="prelude-val">Some</span>(CpuFeature::AVX) =&gt; <span class="macro">avx_fn!</span>(vcmplesd, <span class="self">self</span>, src1, src2, dst),
+            <span class="prelude-val">Some</span>(CpuFeature::SSE42) =&gt; <span class="macro">sse_fn!</span>(cmpsd, <span class="number">2</span>, <span class="self">self</span>, Precision::Double, src1, src2, dst),
             <span class="kw">_ </span>=&gt; {}
         }
         <span class="prelude-val">Ok</span>(())
@@ -4378,8 +4342,8 @@
         dst: XMM,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
         <span class="kw">match </span><span class="self">self</span>.get_simd_arch() {
-            <span class="prelude-val">Some</span>(CpuFeature::AVX) =&gt; <span class="macro">avx_fn!</span>(vcmpgtss)(<span class="self">self</span>, src1, src2, dst),
-            <span class="prelude-val">Some</span>(CpuFeature::SSE42) =&gt; <span class="macro">sse_fn!</span>(cmpss, <span class="number">6</span>)(<span class="self">self</span>, Precision::Single, src1, src2, dst),
+            <span class="prelude-val">Some</span>(CpuFeature::AVX) =&gt; <span class="macro">avx_fn!</span>(vcmpgtss, <span class="self">self</span>, src1, src2, dst),
+            <span class="prelude-val">Some</span>(CpuFeature::SSE42) =&gt; <span class="macro">sse_fn!</span>(cmpss, <span class="number">6</span>, <span class="self">self</span>, Precision::Single, src1, src2, dst),
             <span class="kw">_ </span>=&gt; {}
         }
         <span class="prelude-val">Ok</span>(())
@@ -4391,8 +4355,8 @@
         dst: XMM,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
         <span class="kw">match </span><span class="self">self</span>.get_simd_arch() {
-            <span class="prelude-val">Some</span>(CpuFeature::AVX) =&gt; <span class="macro">avx_fn!</span>(vcmpgtsd)(<span class="self">self</span>, src1, src2, dst),
-            <span class="prelude-val">Some</span>(CpuFeature::SSE42) =&gt; <span class="macro">sse_fn!</span>(cmpsd, <span class="number">6</span>)(<span class="self">self</span>, Precision::Double, src1, src2, dst),
+            <span class="prelude-val">Some</span>(CpuFeature::AVX) =&gt; <span class="macro">avx_fn!</span>(vcmpgtsd, <span class="self">self</span>, src1, src2, dst),
+            <span class="prelude-val">Some</span>(CpuFeature::SSE42) =&gt; <span class="macro">sse_fn!</span>(cmpsd, <span class="number">6</span>, <span class="self">self</span>, Precision::Double, src1, src2, dst),
             <span class="kw">_ </span>=&gt; {}
         }
         <span class="prelude-val">Ok</span>(())
@@ -4404,8 +4368,8 @@
         dst: XMM,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
         <span class="kw">match </span><span class="self">self</span>.get_simd_arch() {
-            <span class="prelude-val">Some</span>(CpuFeature::AVX) =&gt; <span class="macro">avx_fn!</span>(vcmpgess)(<span class="self">self</span>, src1, src2, dst),
-            <span class="prelude-val">Some</span>(CpuFeature::SSE42) =&gt; <span class="macro">sse_fn!</span>(cmpss, <span class="number">5</span>)(<span class="self">self</span>, Precision::Single, src1, src2, dst),
+            <span class="prelude-val">Some</span>(CpuFeature::AVX) =&gt; <span class="macro">avx_fn!</span>(vcmpgess, <span class="self">self</span>, src1, src2, dst),
+            <span class="prelude-val">Some</span>(CpuFeature::SSE42) =&gt; <span class="macro">sse_fn!</span>(cmpss, <span class="number">5</span>, <span class="self">self</span>, Precision::Single, src1, src2, dst),
             <span class="kw">_ </span>=&gt; {}
         }
         <span class="prelude-val">Ok</span>(())
@@ -4417,8 +4381,8 @@
         dst: XMM,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
         <span class="kw">match </span><span class="self">self</span>.get_simd_arch() {
-            <span class="prelude-val">Some</span>(CpuFeature::AVX) =&gt; <span class="macro">avx_fn!</span>(vcmpgesd)(<span class="self">self</span>, src1, src2, dst),
-            <span class="prelude-val">Some</span>(CpuFeature::SSE42) =&gt; <span class="macro">sse_fn!</span>(cmpsd, <span class="number">5</span>)(<span class="self">self</span>, Precision::Double, src1, src2, dst),
+            <span class="prelude-val">Some</span>(CpuFeature::AVX) =&gt; <span class="macro">avx_fn!</span>(vcmpgesd, <span class="self">self</span>, src1, src2, dst),
+            <span class="prelude-val">Some</span>(CpuFeature::SSE42) =&gt; <span class="macro">sse_fn!</span>(cmpsd, <span class="number">5</span>, <span class="self">self</span>, Precision::Double, src1, src2, dst),
             <span class="kw">_ </span>=&gt; {}
         }
         <span class="prelude-val">Ok</span>(())
@@ -4430,8 +4394,8 @@
         dst: XMM,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
         <span class="kw">match </span><span class="self">self</span>.get_simd_arch() {
-            <span class="prelude-val">Some</span>(CpuFeature::AVX) =&gt; <span class="macro">avx_fn!</span>(vcmpunordss)(<span class="self">self</span>, src1, src2, dst),
-            <span class="prelude-val">Some</span>(CpuFeature::SSE42) =&gt; <span class="macro">sse_fn!</span>(cmpss, <span class="number">3</span>)(<span class="self">self</span>, Precision::Single, src1, src2, dst),
+            <span class="prelude-val">Some</span>(CpuFeature::AVX) =&gt; <span class="macro">avx_fn!</span>(vcmpunordss, <span class="self">self</span>, src1, src2, dst),
+            <span class="prelude-val">Some</span>(CpuFeature::SSE42) =&gt; <span class="macro">sse_fn!</span>(cmpss, <span class="number">3</span>, <span class="self">self</span>, Precision::Single, src1, src2, dst),
             <span class="kw">_ </span>=&gt; {}
         }
         <span class="prelude-val">Ok</span>(())
@@ -4443,8 +4407,8 @@
         dst: XMM,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
         <span class="kw">match </span><span class="self">self</span>.get_simd_arch() {
-            <span class="prelude-val">Some</span>(CpuFeature::AVX) =&gt; <span class="macro">avx_fn!</span>(vcmpunordsd)(<span class="self">self</span>, src1, src2, dst),
-            <span class="prelude-val">Some</span>(CpuFeature::SSE42) =&gt; <span class="macro">sse_fn!</span>(cmpsd, <span class="number">3</span>)(<span class="self">self</span>, Precision::Double, src1, src2, dst),
+            <span class="prelude-val">Some</span>(CpuFeature::AVX) =&gt; <span class="macro">avx_fn!</span>(vcmpunordsd, <span class="self">self</span>, src1, src2, dst),
+            <span class="prelude-val">Some</span>(CpuFeature::SSE42) =&gt; <span class="macro">sse_fn!</span>(cmpsd, <span class="number">3</span>, <span class="self">self</span>, Precision::Double, src1, src2, dst),
             <span class="kw">_ </span>=&gt; {}
         }
         <span class="prelude-val">Ok</span>(())
@@ -4456,8 +4420,8 @@
         dst: XMM,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
         <span class="kw">match </span><span class="self">self</span>.get_simd_arch() {
-            <span class="prelude-val">Some</span>(CpuFeature::AVX) =&gt; <span class="macro">avx_fn!</span>(vcmpordss)(<span class="self">self</span>, src1, src2, dst),
-            <span class="prelude-val">Some</span>(CpuFeature::SSE42) =&gt; <span class="macro">sse_fn!</span>(cmpss, <span class="number">7</span>)(<span class="self">self</span>, Precision::Single, src1, src2, dst),
+            <span class="prelude-val">Some</span>(CpuFeature::AVX) =&gt; <span class="macro">avx_fn!</span>(vcmpordss, <span class="self">self</span>, src1, src2, dst),
+            <span class="prelude-val">Some</span>(CpuFeature::SSE42) =&gt; <span class="macro">sse_fn!</span>(cmpss, <span class="number">7</span>, <span class="self">self</span>, Precision::Single, src1, src2, dst),
             <span class="kw">_ </span>=&gt; {}
         }
         <span class="prelude-val">Ok</span>(())
@@ -4469,24 +4433,24 @@
         dst: XMM,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
         <span class="kw">match </span><span class="self">self</span>.get_simd_arch() {
-            <span class="prelude-val">Some</span>(CpuFeature::AVX) =&gt; <span class="macro">avx_fn!</span>(vcmpordsd)(<span class="self">self</span>, src1, src2, dst),
-            <span class="prelude-val">Some</span>(CpuFeature::SSE42) =&gt; <span class="macro">sse_fn!</span>(cmpsd, <span class="number">7</span>)(<span class="self">self</span>, Precision::Double, src1, src2, dst),
+            <span class="prelude-val">Some</span>(CpuFeature::AVX) =&gt; <span class="macro">avx_fn!</span>(vcmpordsd, <span class="self">self</span>, src1, src2, dst),
+            <span class="prelude-val">Some</span>(CpuFeature::SSE42) =&gt; <span class="macro">sse_fn!</span>(cmpsd, <span class="number">7</span>, <span class="self">self</span>, Precision::Double, src1, src2, dst),
             <span class="kw">_ </span>=&gt; {}
         }
         <span class="prelude-val">Ok</span>(())
     }
     <span class="kw">fn </span>emit_vsqrtss(<span class="kw-2">&amp;mut </span><span class="self">self</span>, src1: XMM, src2: XMMOrMemory, dst: XMM) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
         <span class="kw">match </span><span class="self">self</span>.get_simd_arch() {
-            <span class="prelude-val">Some</span>(CpuFeature::AVX) =&gt; <span class="macro">avx_fn!</span>(vsqrtss)(<span class="self">self</span>, src1, src2, dst),
-            <span class="prelude-val">Some</span>(CpuFeature::SSE42) =&gt; <span class="macro">sse_fn!</span>(sqrtss)(<span class="self">self</span>, Precision::Single, src1, src2, dst),
+            <span class="prelude-val">Some</span>(CpuFeature::AVX) =&gt; <span class="macro">avx_fn!</span>(vsqrtss, <span class="self">self</span>, src1, src2, dst),
+            <span class="prelude-val">Some</span>(CpuFeature::SSE42) =&gt; <span class="macro">sse_fn!</span>(sqrtss, <span class="self">self</span>, Precision::Single, src1, src2, dst),
             <span class="kw">_ </span>=&gt; {}
         }
         <span class="prelude-val">Ok</span>(())
     }
     <span class="kw">fn </span>emit_vsqrtsd(<span class="kw-2">&amp;mut </span><span class="self">self</span>, src1: XMM, src2: XMMOrMemory, dst: XMM) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
         <span class="kw">match </span><span class="self">self</span>.get_simd_arch() {
-            <span class="prelude-val">Some</span>(CpuFeature::AVX) =&gt; <span class="macro">avx_fn!</span>(vsqrtsd)(<span class="self">self</span>, src1, src2, dst),
-            <span class="prelude-val">Some</span>(CpuFeature::SSE42) =&gt; <span class="macro">sse_fn!</span>(sqrtsd)(<span class="self">self</span>, Precision::Double, src1, src2, dst),
+            <span class="prelude-val">Some</span>(CpuFeature::AVX) =&gt; <span class="macro">avx_fn!</span>(vsqrtsd, <span class="self">self</span>, src1, src2, dst),
+            <span class="prelude-val">Some</span>(CpuFeature::SSE42) =&gt; <span class="macro">sse_fn!</span>(sqrtsd, <span class="self">self</span>, Precision::Double, src1, src2, dst),
             <span class="kw">_ </span>=&gt; {}
         }
         <span class="prelude-val">Ok</span>(())
@@ -4498,8 +4462,8 @@
         dst: XMM,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
         <span class="kw">match </span><span class="self">self</span>.get_simd_arch() {
-            <span class="prelude-val">Some</span>(CpuFeature::AVX) =&gt; <span class="macro">avx_fn!</span>(vcvtss2sd)(<span class="self">self</span>, src1, src2, dst),
-            <span class="prelude-val">Some</span>(CpuFeature::SSE42) =&gt; <span class="macro">sse_fn!</span>(cvtss2sd)(<span class="self">self</span>, Precision::Single, src1, src2, dst),
+            <span class="prelude-val">Some</span>(CpuFeature::AVX) =&gt; <span class="macro">avx_fn!</span>(vcvtss2sd, <span class="self">self</span>, src1, src2, dst),
+            <span class="prelude-val">Some</span>(CpuFeature::SSE42) =&gt; <span class="macro">sse_fn!</span>(cvtss2sd, <span class="self">self</span>, Precision::Single, src1, src2, dst),
             <span class="kw">_ </span>=&gt; {}
         }
         <span class="prelude-val">Ok</span>(())
@@ -4511,8 +4475,8 @@
         dst: XMM,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
         <span class="kw">match </span><span class="self">self</span>.get_simd_arch() {
-            <span class="prelude-val">Some</span>(CpuFeature::AVX) =&gt; <span class="macro">avx_fn!</span>(vcvtsd2ss)(<span class="self">self</span>, src1, src2, dst),
-            <span class="prelude-val">Some</span>(CpuFeature::SSE42) =&gt; <span class="macro">sse_fn!</span>(cvtsd2ss)(<span class="self">self</span>, Precision::Double, src1, src2, dst),
+            <span class="prelude-val">Some</span>(CpuFeature::AVX) =&gt; <span class="macro">avx_fn!</span>(vcvtsd2ss, <span class="self">self</span>, src1, src2, dst),
+            <span class="prelude-val">Some</span>(CpuFeature::SSE42) =&gt; <span class="macro">sse_fn!</span>(cvtsd2ss, <span class="self">self</span>, Precision::Double, src1, src2, dst),
             <span class="kw">_ </span>=&gt; {}
         }
         <span class="prelude-val">Ok</span>(())
@@ -4524,9 +4488,9 @@
         dst: XMM,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
         <span class="kw">match </span><span class="self">self</span>.get_simd_arch() {
-            <span class="prelude-val">Some</span>(CpuFeature::AVX) =&gt; <span class="macro">avx_round_fn!</span>(vroundss, <span class="number">0</span>)(<span class="self">self</span>, src1, src2, dst),
+            <span class="prelude-val">Some</span>(CpuFeature::AVX) =&gt; <span class="macro">avx_round_fn!</span>(vroundss, <span class="number">0</span>, <span class="self">self</span>, src1, src2, dst),
             <span class="prelude-val">Some</span>(CpuFeature::SSE42) =&gt; {
-                <span class="macro">sse_round_fn!</span>(roundss, <span class="number">0</span>)(<span class="self">self</span>, Precision::Single, src1, src2, dst)
+                <span class="macro">sse_round_fn!</span>(roundss, <span class="number">0</span>, <span class="self">self</span>, Precision::Single, src1, src2, dst)
             }
             <span class="kw">_ </span>=&gt; {}
         }
@@ -4539,9 +4503,9 @@
         dst: XMM,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
         <span class="kw">match </span><span class="self">self</span>.get_simd_arch() {
-            <span class="prelude-val">Some</span>(CpuFeature::AVX) =&gt; <span class="macro">avx_round_fn!</span>(vroundsd, <span class="number">0</span>)(<span class="self">self</span>, src1, src2, dst),
+            <span class="prelude-val">Some</span>(CpuFeature::AVX) =&gt; <span class="macro">avx_round_fn!</span>(vroundsd, <span class="number">0</span>, <span class="self">self</span>, src1, src2, dst),
             <span class="prelude-val">Some</span>(CpuFeature::SSE42) =&gt; {
-                <span class="macro">sse_round_fn!</span>(roundsd, <span class="number">0</span>)(<span class="self">self</span>, Precision::Double, src1, src2, dst)
+                <span class="macro">sse_round_fn!</span>(roundsd, <span class="number">0</span>, <span class="self">self</span>, Precision::Double, src1, src2, dst)
             }
             <span class="kw">_ </span>=&gt; {}
         }
@@ -4554,9 +4518,9 @@
         dst: XMM,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
         <span class="kw">match </span><span class="self">self</span>.get_simd_arch() {
-            <span class="prelude-val">Some</span>(CpuFeature::AVX) =&gt; <span class="macro">avx_round_fn!</span>(vroundss, <span class="number">1</span>)(<span class="self">self</span>, src1, src2, dst),
+            <span class="prelude-val">Some</span>(CpuFeature::AVX) =&gt; <span class="macro">avx_round_fn!</span>(vroundss, <span class="number">1</span>, <span class="self">self</span>, src1, src2, dst),
             <span class="prelude-val">Some</span>(CpuFeature::SSE42) =&gt; {
-                <span class="macro">sse_round_fn!</span>(roundss, <span class="number">1</span>)(<span class="self">self</span>, Precision::Single, src1, src2, dst)
+                <span class="macro">sse_round_fn!</span>(roundss, <span class="number">1</span>, <span class="self">self</span>, Precision::Single, src1, src2, dst)
             }
             <span class="kw">_ </span>=&gt; {}
         }
@@ -4569,9 +4533,9 @@
         dst: XMM,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
         <span class="kw">match </span><span class="self">self</span>.get_simd_arch() {
-            <span class="prelude-val">Some</span>(CpuFeature::AVX) =&gt; <span class="macro">avx_round_fn!</span>(vroundsd, <span class="number">1</span>)(<span class="self">self</span>, src1, src2, dst),
+            <span class="prelude-val">Some</span>(CpuFeature::AVX) =&gt; <span class="macro">avx_round_fn!</span>(vroundsd, <span class="number">1</span>, <span class="self">self</span>, src1, src2, dst),
             <span class="prelude-val">Some</span>(CpuFeature::SSE42) =&gt; {
-                <span class="macro">sse_round_fn!</span>(roundsd, <span class="number">1</span>)(<span class="self">self</span>, Precision::Double, src1, src2, dst)
+                <span class="macro">sse_round_fn!</span>(roundsd, <span class="number">1</span>, <span class="self">self</span>, Precision::Double, src1, src2, dst)
             }
             <span class="kw">_ </span>=&gt; {}
         }
@@ -4584,9 +4548,9 @@
         dst: XMM,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
         <span class="kw">match </span><span class="self">self</span>.get_simd_arch() {
-            <span class="prelude-val">Some</span>(CpuFeature::AVX) =&gt; <span class="macro">avx_round_fn!</span>(vroundss, <span class="number">2</span>)(<span class="self">self</span>, src1, src2, dst),
+            <span class="prelude-val">Some</span>(CpuFeature::AVX) =&gt; <span class="macro">avx_round_fn!</span>(vroundss, <span class="number">2</span>, <span class="self">self</span>, src1, src2, dst),
             <span class="prelude-val">Some</span>(CpuFeature::SSE42) =&gt; {
-                <span class="macro">sse_round_fn!</span>(roundss, <span class="number">2</span>)(<span class="self">self</span>, Precision::Single, src1, src2, dst)
+                <span class="macro">sse_round_fn!</span>(roundss, <span class="number">2</span>, <span class="self">self</span>, Precision::Single, src1, src2, dst)
             }
             <span class="kw">_ </span>=&gt; {}
         }
@@ -4599,9 +4563,9 @@
         dst: XMM,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
         <span class="kw">match </span><span class="self">self</span>.get_simd_arch() {
-            <span class="prelude-val">Some</span>(CpuFeature::AVX) =&gt; <span class="macro">avx_round_fn!</span>(vroundsd, <span class="number">2</span>)(<span class="self">self</span>, src1, src2, dst),
+            <span class="prelude-val">Some</span>(CpuFeature::AVX) =&gt; <span class="macro">avx_round_fn!</span>(vroundsd, <span class="number">2</span>, <span class="self">self</span>, src1, src2, dst),
             <span class="prelude-val">Some</span>(CpuFeature::SSE42) =&gt; {
-                <span class="macro">sse_round_fn!</span>(roundsd, <span class="number">2</span>)(<span class="self">self</span>, Precision::Double, src1, src2, dst)
+                <span class="macro">sse_round_fn!</span>(roundsd, <span class="number">2</span>, <span class="self">self</span>, Precision::Double, src1, src2, dst)
             }
             <span class="kw">_ </span>=&gt; {}
         }
@@ -4614,9 +4578,9 @@
         dst: XMM,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
         <span class="kw">match </span><span class="self">self</span>.get_simd_arch() {
-            <span class="prelude-val">Some</span>(CpuFeature::AVX) =&gt; <span class="macro">avx_round_fn!</span>(vroundss, <span class="number">3</span>)(<span class="self">self</span>, src1, src2, dst),
+            <span class="prelude-val">Some</span>(CpuFeature::AVX) =&gt; <span class="macro">avx_round_fn!</span>(vroundss, <span class="number">3</span>, <span class="self">self</span>, src1, src2, dst),
             <span class="prelude-val">Some</span>(CpuFeature::SSE42) =&gt; {
-                <span class="macro">sse_round_fn!</span>(roundss, <span class="number">3</span>)(<span class="self">self</span>, Precision::Single, src1, src2, dst)
+                <span class="macro">sse_round_fn!</span>(roundss, <span class="number">3</span>, <span class="self">self</span>, Precision::Single, src1, src2, dst)
             }
             <span class="kw">_ </span>=&gt; {}
         }
@@ -4629,9 +4593,9 @@
         dst: XMM,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
         <span class="kw">match </span><span class="self">self</span>.get_simd_arch() {
-            <span class="prelude-val">Some</span>(CpuFeature::AVX) =&gt; <span class="macro">avx_round_fn!</span>(vroundsd, <span class="number">3</span>)(<span class="self">self</span>, src1, src2, dst),
+            <span class="prelude-val">Some</span>(CpuFeature::AVX) =&gt; <span class="macro">avx_round_fn!</span>(vroundsd, <span class="number">3</span>, <span class="self">self</span>, src1, src2, dst),
             <span class="prelude-val">Some</span>(CpuFeature::SSE42) =&gt; {
-                <span class="macro">sse_round_fn!</span>(roundsd, <span class="number">3</span>)(<span class="self">self</span>, Precision::Double, src1, src2, dst)
+                <span class="macro">sse_round_fn!</span>(roundsd, <span class="number">3</span>, <span class="self">self</span>, Precision::Double, src1, src2, dst)
             }
             <span class="kw">_ </span>=&gt; {}
         }
@@ -4644,9 +4608,9 @@
         dst: XMM,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
         <span class="kw">match </span><span class="self">self</span>.get_simd_arch() {
-            <span class="prelude-val">Some</span>(CpuFeature::AVX) =&gt; <span class="macro">avx_i2f_32_fn!</span>(vcvtsi2ss)(<span class="self">self</span>, src1, src2, dst),
+            <span class="prelude-val">Some</span>(CpuFeature::AVX) =&gt; <span class="macro">avx_i2f_32_fn!</span>(vcvtsi2ss, <span class="self">self</span>, src1, src2, dst),
             <span class="prelude-val">Some</span>(CpuFeature::SSE42) =&gt; {
-                <span class="macro">sse_i2f_32_fn!</span>(cvtsi2ss)(<span class="self">self</span>, Precision::Single, src1, src2, dst)
+                <span class="macro">sse_i2f_32_fn!</span>(cvtsi2ss, <span class="self">self</span>, Precision::Single, src1, src2, dst)
             }
             <span class="kw">_ </span>=&gt; {}
         }
@@ -4659,9 +4623,9 @@
         dst: XMM,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
         <span class="kw">match </span><span class="self">self</span>.get_simd_arch() {
-            <span class="prelude-val">Some</span>(CpuFeature::AVX) =&gt; <span class="macro">avx_i2f_32_fn!</span>(vcvtsi2sd)(<span class="self">self</span>, src1, src2, dst),
+            <span class="prelude-val">Some</span>(CpuFeature::AVX) =&gt; <span class="macro">avx_i2f_32_fn!</span>(vcvtsi2sd, <span class="self">self</span>, src1, src2, dst),
             <span class="prelude-val">Some</span>(CpuFeature::SSE42) =&gt; {
-                <span class="macro">sse_i2f_32_fn!</span>(cvtsi2sd)(<span class="self">self</span>, Precision::Double, src1, src2, dst)
+                <span class="macro">sse_i2f_32_fn!</span>(cvtsi2sd, <span class="self">self</span>, Precision::Double, src1, src2, dst)
             }
             <span class="kw">_ </span>=&gt; {}
         }
@@ -4674,9 +4638,9 @@
         dst: XMM,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
         <span class="kw">match </span><span class="self">self</span>.get_simd_arch() {
-            <span class="prelude-val">Some</span>(CpuFeature::AVX) =&gt; <span class="macro">avx_i2f_64_fn!</span>(vcvtsi2ss)(<span class="self">self</span>, src1, src2, dst),
+            <span class="prelude-val">Some</span>(CpuFeature::AVX) =&gt; <span class="macro">avx_i2f_64_fn!</span>(vcvtsi2ss, <span class="self">self</span>, src1, src2, dst),
             <span class="prelude-val">Some</span>(CpuFeature::SSE42) =&gt; {
-                <span class="macro">sse_i2f_64_fn!</span>(cvtsi2ss)(<span class="self">self</span>, Precision::Single, src1, src2, dst)
+                <span class="macro">sse_i2f_64_fn!</span>(cvtsi2ss, <span class="self">self</span>, Precision::Single, src1, src2, dst)
             }
             <span class="kw">_ </span>=&gt; {}
         }
@@ -4689,9 +4653,9 @@
         dst: XMM,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
         <span class="kw">match </span><span class="self">self</span>.get_simd_arch() {
-            <span class="prelude-val">Some</span>(CpuFeature::AVX) =&gt; <span class="macro">avx_i2f_64_fn!</span>(vcvtsi2sd)(<span class="self">self</span>, src1, src2, dst),
+            <span class="prelude-val">Some</span>(CpuFeature::AVX) =&gt; <span class="macro">avx_i2f_64_fn!</span>(vcvtsi2sd, <span class="self">self</span>, src1, src2, dst),
             <span class="prelude-val">Some</span>(CpuFeature::SSE42) =&gt; {
-                <span class="macro">sse_i2f_64_fn!</span>(cvtsi2sd)(<span class="self">self</span>, Precision::Double, src1, src2, dst)
+                <span class="macro">sse_i2f_64_fn!</span>(cvtsi2sd, <span class="self">self</span>, Precision::Double, src1, src2, dst)
             }
             <span class="kw">_ </span>=&gt; {}
         }

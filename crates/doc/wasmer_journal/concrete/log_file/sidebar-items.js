@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"static":["META","__CALLSITE"],"struct":["LogFileJournal","LogFileJournalRx","LogFileJournalTx","TxState"]};
+window.SIDEBAR_ITEMS = {"struct":["LogFileJournal","LogFileJournalRx","LogFileJournalTx","TxState"]};

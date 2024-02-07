@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["load_module"],"mod":["module_cache","package_loader","resolver","task_manager"],"static":["EMPTY_JOURNAL_LIST","META","__CALLSITE"],"struct":["DefaultTty","OverriddenRuntime","PluggableRuntime"],"trait":["Runtime"],"type":["DynRuntime"]};
+window.SIDEBAR_ITEMS = {"fn":["load_module"],"mod":["module_cache","package_loader","resolver","task_manager"],"static":["EMPTY_JOURNAL_LIST"],"struct":["DefaultTty","OverriddenRuntime","PluggableRuntime"],"trait":["Runtime"],"type":["DynRuntime"]};

@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["sock_send_to","sock_send_to_internal"],"static":["META","__CALLSITE"]};
+window.SIDEBAR_ITEMS = {"fn":["sock_send_to","sock_send_to_internal"]};

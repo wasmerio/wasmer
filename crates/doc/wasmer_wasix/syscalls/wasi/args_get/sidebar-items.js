@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["args_get"],"static":["META","__CALLSITE"]};
+window.SIDEBAR_ITEMS = {"fn":["args_get"]};

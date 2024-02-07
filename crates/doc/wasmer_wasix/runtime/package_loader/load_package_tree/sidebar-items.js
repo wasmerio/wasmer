@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"constant":["MAX_PARALLEL_DOWNLOADS"],"fn":["atom_name_for_command","commands","count_file_system","fetch_dependencies","filesystem","legacy_atom_hack","load_binary_command","load_package_tree"],"static":["META","__CALLSITE"],"struct":["MappedPathFileSystem"]};
+window.SIDEBAR_ITEMS = {"constant":["MAX_PARALLEL_DOWNLOADS"],"fn":["atom_name_for_command","commands","count_file_system","fetch_dependencies","filesystem","legacy_atom_hack","load_binary_command","load_package_tree"],"struct":["MappedPathFileSystem"]};

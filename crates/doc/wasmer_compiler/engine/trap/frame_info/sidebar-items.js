@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["__stability","__static_ref_initialize","register"],"static":["LAZY"],"struct":["FRAME_INFO","FunctionExtent","FunctionInfo","GlobalFrameInfo","GlobalFrameInfoRegistration","ModuleInfoFrameInfo"]};
+window.SIDEBAR_ITEMS = {"fn":["register"],"struct":["FRAME_INFO","FunctionExtent","FunctionInfo","GlobalFrameInfo","GlobalFrameInfoRegistration","ModuleInfoFrameInfo"]};

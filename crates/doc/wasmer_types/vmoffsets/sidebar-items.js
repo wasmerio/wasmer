@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["align","cast_to_u32","offset_by","offset_by_aligned"],"struct":["TargetSharedSignatureIndex","VMBuiltinFunctionIndex","VMOffsets"]};
+window.SIDEBAR_ITEMS = {"fn":["align","cast_to_u32"],"struct":["TargetSharedSignatureIndex","VMBuiltinFunctionIndex","VMOffsets"]};

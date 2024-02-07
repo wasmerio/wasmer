@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"constant":["WASM_BROWSER_CONTAINER_PACKAGE","WASM_BROWSER_CONTAINER_VERSION"],"enum":["AppType"],"struct":["AppCreator","AppCreatorOutput","CmdAppCreate"]};
+window.SIDEBAR_ITEMS = {"enum":["AppType"],"struct":["AppCreator","AppCreatorOutput","CmdAppCreate"]};

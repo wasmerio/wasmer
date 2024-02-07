@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"mod":["cconst"],"static":["META","__CALLSITE"],"struct":["Console"]};
+window.SIDEBAR_ITEMS = {"mod":["cconst"],"struct":["Console"]};

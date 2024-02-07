@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":["DirectoryMustBeEmpty","InodeResolution"],"fn":["debug"],"struct":["FileSystem","FileSystemInner"]};
+window.SIDEBAR_ITEMS = {"enum":["DirectoryMustBeEmpty","InodeResolution"],"struct":["FileSystem","FileSystemInner"]};

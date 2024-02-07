@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["futex_wake"],"static":["META","__CALLSITE"]};
+window.SIDEBAR_ITEMS = {"fn":["futex_wake"]};

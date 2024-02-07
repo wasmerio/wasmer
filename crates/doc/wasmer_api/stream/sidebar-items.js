@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["__assert_not_repr_packed"],"struct":["QueryStream","__Origin"],"trait":["MustNotImplDrop","PaginatedQuery"],"type":["PaginationFuture"]};
+window.SIDEBAR_ITEMS = {"struct":["QueryStream"],"trait":["PaginatedQuery"],"type":["PaginationFuture"]};

@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["thread_parallelism"],"static":["META","__CALLSITE"]};
+window.SIDEBAR_ITEMS = {"fn":["thread_parallelism"]};

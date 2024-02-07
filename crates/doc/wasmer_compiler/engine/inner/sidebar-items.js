@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"static":["NEXT_ID"],"struct":["Engine","EngineId","EngineInner"]};
+window.SIDEBAR_ITEMS = {"struct":["Engine","EngineId","EngineInner"]};

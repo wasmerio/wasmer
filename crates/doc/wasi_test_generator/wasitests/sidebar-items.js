@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"constant":["EXECUTE_DIR","WASI_TEST_SRC_DIR"],"fn":["build","compile","compile_wasm_for_version","extract_args_from_source_file","generate_native_output"],"struct":["NativeOutput","WasiOptions","WasiTest"]};
+window.SIDEBAR_ITEMS = {"constant":["WASI_TEST_SRC_DIR"],"fn":["build","compile","compile_wasm_for_version","extract_args_from_source_file","generate_native_output"],"struct":["NativeOutput","WasiOptions","WasiTest"]};

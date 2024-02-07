@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"static":["META","__CALLSITE"],"struct":["Handler","SharedState"]};
+window.SIDEBAR_ITEMS = {"struct":["Handler","SharedState"]};

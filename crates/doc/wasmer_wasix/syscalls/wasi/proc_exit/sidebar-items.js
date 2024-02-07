@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["proc_exit"],"static":["META","__CALLSITE"]};
+window.SIDEBAR_ITEMS = {"fn":["proc_exit"]};

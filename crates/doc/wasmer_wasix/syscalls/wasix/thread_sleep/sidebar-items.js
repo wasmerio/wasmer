@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["thread_sleep","thread_sleep_internal"],"static":["META","__CALLSITE"]};
+window.SIDEBAR_ITEMS = {"fn":["thread_sleep","thread_sleep_internal"]};

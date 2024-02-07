@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"constant":["VMCTX_LABEL"],"fn":["block_with_params","f32_translation","f64_translation","get_vmctx_value_label","irlibcall_to_libcall","irreloc_to_relocationkind","reference_type","signature_to_cranelift_ir","type_to_irtype"]};
+window.SIDEBAR_ITEMS = {"fn":["block_with_params","f32_translation","f64_translation","get_vmctx_value_label","irlibcall_to_libcall","irreloc_to_relocationkind","reference_type","signature_to_cranelift_ir","type_to_irtype"]};

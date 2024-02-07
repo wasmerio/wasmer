@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"constant":["WORD_SIZE"],"enum":["ArtifactBuildVariant","DataInitializerLocationVariant","OwnedDataInitializerVariant"],"fn":["to_compile_error"],"static":["NEXT_ID"],"struct":["AllocatedArtifact","Artifact","ArtifactId"]};
+window.SIDEBAR_ITEMS = {"enum":["ArtifactBuildVariant","DataInitializerLocationVariant","OwnedDataInitializerVariant"],"struct":["AllocatedArtifact","Artifact","ArtifactId"]};

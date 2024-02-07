@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"constant":["BRANCHES"],"enum":["EventResultType"],"fn":["poll_fd_guard","poll_oneoff","poll_oneoff_internal"],"static":["META","__CALLSITE"],"struct":["EventResult","PollBatch"]};
+window.SIDEBAR_ITEMS = {"enum":["EventResultType"],"fn":["poll_fd_guard","poll_oneoff","poll_oneoff_internal"],"struct":["EventResult","PollBatch"]};

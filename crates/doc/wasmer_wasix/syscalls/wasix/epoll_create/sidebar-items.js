@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["epoll_create","epoll_create_internal"],"static":["META","__CALLSITE"]};
+window.SIDEBAR_ITEMS = {"fn":["epoll_create","epoll_create_internal"]};

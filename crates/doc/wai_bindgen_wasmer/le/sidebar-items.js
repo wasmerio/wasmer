@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["all_bytes_valid"],"macro":["primitives","tuples"],"struct":["Le"],"trait":["Endian"]};
+window.SIDEBAR_ITEMS = {"macro":["primitives","tuples"],"struct":["Le"],"trait":["Endian"]};

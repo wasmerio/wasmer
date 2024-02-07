@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["request_ref","request_value","type_name","type_name_of_val"],"struct":["Demand","TypeId"],"trait":["Any","Provider"]};
+window.SIDEBAR_ITEMS = {"fn":["type_name","type_name_of_val"],"struct":["TypeId"],"trait":["Any"]};

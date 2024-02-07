@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":["ResolveError"],"fn":["check_for_duplicate_versions","cycle_error","discover_dependencies","log_dependencies","print_cycle","registry_error_message","resolve","resolve_dependency_graph","resolve_package"],"static":["META","__CALLSITE"],"struct":["DiscoveredPackages"]};
+window.SIDEBAR_ITEMS = {"enum":["ResolveError"],"fn":["check_for_duplicate_versions","cycle_error","discover_dependencies","log_dependencies","print_cycle","registry_error_message","resolve","resolve_dependency_graph","resolve_package"],"struct":["DiscoveredPackages"]};

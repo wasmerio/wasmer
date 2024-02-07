@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":["CacheInfo","CacheState"],"fn":["classify_cache_using_mtime","sha256"],"static":["META","__CALLSITE"],"struct":["WebSource"]};
+window.SIDEBAR_ITEMS = {"enum":["CacheInfo","CacheState"],"fn":["classify_cache_using_mtime","sha256"],"struct":["WebSource"]};

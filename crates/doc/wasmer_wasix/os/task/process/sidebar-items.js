@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":["MaybeCheckpointResult","WasiProcessCheckpoint"],"static":["META","__CALLSITE"],"struct":["WasiProcess","WasiProcessId","WasiProcessInner","WasiProcessWait"],"type":["LockableWasiProcessInner"]};
+window.SIDEBAR_ITEMS = {"enum":["MaybeCheckpointResult","WasiProcessCheckpoint"],"struct":["WasiProcess","WasiProcessId","WasiProcessInner","WasiProcessWait"],"type":["LockableWasiProcessInner"]};

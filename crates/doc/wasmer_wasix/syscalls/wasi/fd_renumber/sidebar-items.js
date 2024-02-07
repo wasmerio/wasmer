@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["fd_renumber","fd_renumber_internal"],"static":["META","__CALLSITE"]};
+window.SIDEBAR_ITEMS = {"fn":["fd_renumber","fd_renumber_internal"]};

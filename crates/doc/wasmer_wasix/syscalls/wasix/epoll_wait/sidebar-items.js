@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"constant":["BRANCHES","TIMEOUT_FOREVER"],"fn":["epoll_wait"],"static":["META","__CALLSITE"]};
+window.SIDEBAR_ITEMS = {"constant":["TIMEOUT_FOREVER"],"fn":["epoll_wait"]};

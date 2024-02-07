@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["compat_meta","normalize"],"static":["META","__CALLSITE"],"struct":["File","WebcVolumeFileSystem"]};
+window.SIDEBAR_ITEMS = {"fn":["compat_meta","normalize"],"struct":["File","WebcVolumeFileSystem"]};

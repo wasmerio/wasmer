@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":["CompilerType"],"fn":["function_kind_to_filename","types_to_signature"],"struct":["Callbacks","CompilerOptions","StoreOptions","WasmFeatures"]};
+window.SIDEBAR_ITEMS = {"enum":["CompilerType"],"struct":["CompilerOptions","StoreOptions","WasmFeatures"]};

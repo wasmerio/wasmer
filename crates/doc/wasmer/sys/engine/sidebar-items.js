@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["default_engine","get_config","get_engine"],"struct":["Artifact","BaseTunables","Engine","EngineBuilder"],"trait":["CompilerConfig","NativeEngineExt","Tunables"]};
+window.SIDEBAR_ITEMS = {"fn":["default_engine","get_default_compiler_config"],"struct":["Artifact","BaseTunables","Engine","EngineBuilder"],"trait":["CompilerConfig","NativeEngineExt","Tunables"]};

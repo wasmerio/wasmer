@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["__stability","__static_ref_initialize"],"static":["LAZY"],"struct":["Registry","WASMER_DIR","WasmerEnv"]};
+window.SIDEBAR_ITEMS = {"struct":["Registry","WASMER_DIR","WasmerEnv"]};

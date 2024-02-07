@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["futex_wait","futex_wait_internal"],"static":["META","__CALLSITE"],"struct":["FutexPoller"]};
+window.SIDEBAR_ITEMS = {"fn":["futex_wait","futex_wait_internal"],"struct":["FutexPoller"]};

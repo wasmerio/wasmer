@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["port_bridge","port_bridge_internal"],"static":["META","__CALLSITE"]};
+window.SIDEBAR_ITEMS = {"fn":["port_bridge","port_bridge_internal"]};

@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":["ArchivedSecondaryMap","SecondaryMap","SecondaryMapResolver","SecondaryMapVisitor"]};
+window.SIDEBAR_ITEMS = {"struct":["ArchivedSecondaryMap","SecondaryMap","SecondaryMapResolver"]};

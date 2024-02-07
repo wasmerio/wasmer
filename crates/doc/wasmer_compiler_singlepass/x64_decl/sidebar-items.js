@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"constant":["IS_CALLEE_SAVE"],"enum":["GPR","X64Register","XMM"],"fn":["new_machine_state"],"static":["DWARF_REGS","GPRS","GPR_SEQ","XMMS","XMM_SEQ"],"struct":["ArgumentRegisterAllocator"]};
+window.SIDEBAR_ITEMS = {"enum":["GPR","X64Register","XMM"],"fn":["new_machine_state"],"struct":["ArgumentRegisterAllocator"]};

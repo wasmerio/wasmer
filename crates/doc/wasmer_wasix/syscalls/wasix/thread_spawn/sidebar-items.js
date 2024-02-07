@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["call_module","thread_spawn_internal","thread_spawn_v2"],"static":["META","__CALLSITE"]};
+window.SIDEBAR_ITEMS = {"fn":["call_module","thread_spawn_internal","thread_spawn_v2"]};
