@@ -402,7 +402,6 @@
 <a href="#402" id="402">402</a>
 <a href="#403" id="403">403</a>
 <a href="#404" id="404">404</a>
-<a href="#405" id="405">405</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::access::WasmRefAccess;
 <span class="kw">use </span><span class="kw">crate</span>::externals::memory::MemoryBuffer;
 <span class="kw">use crate</span>::{Memory32, Memory64, MemorySize, MemoryView, WasmPtr};
@@ -449,8 +448,7 @@
 /// trait which guarantees that reading and writing such a value to untrusted
 /// memory is safe.
 ///
-/// The address is not required to be aligned: unaligned accesses are fully
-/// supported.
+/// The address is required to be aligned: unaligned accesses cause undefined behavior.
 ///
 /// This wrapper safely handles concurrent modifications of the data by another
 /// thread.
@@ -491,7 +489,7 @@
         WasmPtr::new(<span class="self">self</span>.offset)
     }
 
-    <span class="doccomment">/// Get a `WasmPtr` fror this `WasmRef`.
+    <span class="doccomment">/// Get a `WasmPtr` for this `WasmRef`.
     </span><span class="attr">#[inline]
     </span><span class="kw">pub fn </span>as_ptr&lt;M: MemorySize&gt;(<span class="self">self</span>) -&gt; WasmPtr&lt;T, M&gt; {
         <span class="kw">let </span>offset: M::Offset = <span class="self">self
