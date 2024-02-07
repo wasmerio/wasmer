@@ -221,6 +221,7 @@ jobs:
       - name: Install Nightly Rust for Headless
         uses: dtolnay/rust-toolchain@master
         with:
+          toolchain: "nightly-2023-10-05"
           target: ${{ matrix.target }}
           components: "rust-src"
       - name: Build Minimal Wasmer Headless
