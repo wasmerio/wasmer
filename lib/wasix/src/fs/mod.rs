@@ -930,7 +930,8 @@ impl WasiFs {
                                 let (pre_open_dir_fd, relative_path) = if link_value.is_relative() {
                                     self.path_into_pre_open_and_relative_path(&file)?
                                 } else {
-                                    unimplemented!("Absolute symlinks are not yet supported");
+                                    tracing::error!("Absolute symlinks are not yet supported");
+                                    return Err(Errno::Notsup);
                                 };
                                 loop_for_symlink = true;
                                 symlink_count += 1;

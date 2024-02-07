@@ -1,13 +1,18 @@
 //! Common module with common used structures across different
 //! commands.
 
-#[allow(unused_imports)]
+// NOTE: A lot of this code depends on feature flags.
+// To not go crazy with annotations, some lints are disablefor the whole
+// module.
+#![allow(dead_code, unused_imports, unused_variables)]
+
 use std::path::PathBuf;
 use std::string::ToString;
-#[allow(unused_imports)]
 use std::sync::Arc;
 
 use anyhow::{bail, Result};
+#[cfg(feature = "sys")]
+use wasmer::sys::Features;
 use wasmer::*;
 #[cfg(feature = "compiler")]
 use wasmer_compiler::CompilerConfig;

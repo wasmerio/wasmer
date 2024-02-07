@@ -275,17 +275,31 @@ pub async fn get_app_by_id(
     client: &WasmerClient,
     app_id: String,
 ) -> Result<DeployApp, anyhow::Error> {
-    client
+    get_app_by_id_opt(client, app_id)
+        .await?
+        .context("app not found")
+}
+
+/// Retrieve an app by its global id.
+pub async fn get_app_by_id_opt(
+    client: &WasmerClient,
+    app_id: String,
+) -> Result<Option<DeployApp>, anyhow::Error> {
+    let app_opt = client
         .run_graphql(types::GetDeployAppById::build(
             types::GetDeployAppByIdVars {
                 app_id: app_id.into(),
             },
         ))
         .await?
-        .app
-        .context("app not found")?
-        .into_deploy_app()
-        .context("app conversion failed")
+        .app;
+
+    if let Some(app) = app_opt {
+        let app = app.into_deploy_app().context("app conversion failed")?;
+        Ok(Some(app))
+    } else {
+        Ok(None)
+    }
 }
 
 /// Retrieve an app together with a specific version.
@@ -690,10 +704,7 @@ fn get_app_logs(
             name: name.clone(),
             owner: owner.clone(),
             version: tag.clone(),
-            // TODO: increase pagination size
-            // See https://github.com/wasmerio/edge/issues/460
-            // first: Some(500),
-            first: Some(10),
+            first: Some(100),
             starting_from: unix_timestamp(start),
             until: end.map(unix_timestamp),
         };
