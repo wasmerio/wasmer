@@ -178,7 +178,7 @@ impl JournalEffector {
     pub unsafe fn apply_memory(
         ctx: &mut FunctionEnvMut<'_, WasiEnv>,
         region: Range<u64>,
-        data: &[u8],
+        mut data: &[u8],
     ) -> anyhow::Result<()> {
         let (env, mut store) = ctx.data_and_store_mut();
 
@@ -199,8 +199,9 @@ impl JournalEffector {
             offset = next;
 
             // Compute the hash and update it
+            let size = region.end - region.start;
             let hash = {
-                let h: [u8; 32] = blake3::hash(&data).into();
+                let h: [u8; 32] = blake3::hash(&data[..size as usize]).into();
                 u64::from_be_bytes([h[0], h[1], h[2], h[3], h[4], h[5], h[6], h[7]])
             };
             env.process
@@ -210,6 +211,9 @@ impl JournalEffector {
                 .unwrap()
                 .snapshot_memory_hash
                 .insert(region.into(), hash);
+
+            // Shift the data pointer
+            data = &data[size as usize..];
         }
 
         Ok(())

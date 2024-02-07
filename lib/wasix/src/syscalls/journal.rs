@@ -155,22 +155,23 @@ pub unsafe fn restore_snapshot(
     journal: Arc<DynJournal>,
     bootstrapping: bool,
 ) -> Result<Option<RewindState>, WasiRuntimeError> {
-    use std::ops::Range;
+    use std::{collections::BTreeMap, ops::Range};
 
-    use crate::journal::Journal;
+    use crate::{journal::Journal, os::task::process::MemorySnapshotRegion};
 
     // We delay the spawning of threads until the end as its
     // possible that the threads will be cancelled before all the
     // events finished the streaming process
-    let mut spawn_threads: HashMap<WasiThreadId, RewindState> = Default::default();
-    let mut staging_spawn_threads: HashMap<WasiThreadId, RewindState> = Default::default();
+    let mut spawn_threads: BTreeMap<WasiThreadId, RewindState> = Default::default();
+    let mut staging_spawn_threads: BTreeMap<WasiThreadId, RewindState> = Default::default();
     let mut staging_kill_thread: HashSet<WasiThreadId> = Default::default();
 
     // We delay the memory updates until the end as its possible the
     // memory will be cleared before all the events finished the
     // streaming process
-    let mut update_memory: HashMap<Range<u64>, Cow<'_, [u8]>> = Default::default();
-    let mut staging_update_memory: HashMap<Range<u64>, Cow<'_, [u8]>> = Default::default();
+    let mut update_memory: BTreeMap<MemorySnapshotRegion, Cow<'_, [u8]>> = Default::default();
+    let mut staging_update_memory: BTreeMap<MemorySnapshotRegion, Cow<'_, [u8]>> =
+        Default::default();
     let mut update_tty = None;
 
     // We capture the stdout and stderr while we replay
@@ -244,7 +245,7 @@ pub unsafe fn restore_snapshot(
                 }
 
                 if bootstrapping {
-                    staging_update_memory.insert(region, data.clone());
+                    staging_update_memory.insert(region.into(), data.clone());
                 } else {
                     JournalEffector::apply_memory(&mut ctx, region, &data)
                         .map_err(anyhow_err_to_runtime_err)?;
@@ -369,10 +370,10 @@ pub unsafe fn restore_snapshot(
                 for thread_id in staging_kill_thread.drain() {
                     spawn_threads.remove(&thread_id);
                 }
-                for thread in staging_spawn_threads.drain() {
+                while let Some(thread) = staging_spawn_threads.pop_first() {
                     spawn_threads.insert(thread.0, thread.1);
                 }
-                for mem in staging_update_memory.drain() {
+                while let Some(mem) = staging_update_memory.pop_first() {
                     update_memory.insert(mem.0, mem.1);
                 }
 
@@ -759,12 +760,14 @@ pub unsafe fn restore_snapshot(
         }
         .map_err(anyhow_err_to_runtime_err)?;
     }
+
     // Next we apply all the memory updates that were delayed while the logs
     // were processed to completion.
     for (region, data) in update_memory {
-        JournalEffector::apply_memory(&mut ctx, region, &data)
+        JournalEffector::apply_memory(&mut ctx, region.into(), &data)
             .map_err(anyhow_err_to_runtime_err)?;
     }
+
     if let Some(state) = update_tty {
         JournalEffector::apply_tty_set(&mut ctx, state).map_err(anyhow_err_to_runtime_err)?;
     }
