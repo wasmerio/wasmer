@@ -219,6 +219,7 @@ jobs:
      #  run: |
      #    make build-wasmer-wasm
       - name: Install Nightly Rust for Headless
+        if: matrix.build != 'linux-musl-x64'
         uses: dtolnay/rust-toolchain@master
         with:
           toolchain: "nightly-2023-10-05"
@@ -239,6 +240,7 @@ jobs:
           echo "incremental = false" >> Cargo.toml
           echo "codegen-units = 1" >> Cargo.toml
           echo "rpath = false" >> Cargo.toml
+          rustup override set nightly-2023-10-05
           make build-wasmer-headless-minimal
           rustup override unset
       - name: Dist
