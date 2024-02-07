@@ -561,7 +561,7 @@ impl Wasi {
         }
 
         if !self.no_tty {
-            let tty = Arc::new(SysTty::default());
+            let tty = Arc::new(SysTty);
             tty.reset();
             rt.set_tty(tty);
         }

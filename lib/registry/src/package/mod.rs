@@ -8,7 +8,7 @@ use std::{fmt, str::FromStr};
 use url::Url;
 
 const REGEX_PACKAGE_WITH_VERSION: &str =
-    r#"^([a-zA-Z0-9\-_]+)/([a-zA-Z0-9\-_]+)(@([a-zA-Z0-9\.\-_]+*))?$"#;
+    r"^([a-zA-Z0-9\-_]+)/([a-zA-Z0-9\-_]+)(@([a-zA-Z0-9\.\-_]+*))?$";
 
 lazy_static::lazy_static! {
     static ref PACKAGE_WITH_VERSION: Regex = regex::Regex::new(REGEX_PACKAGE_WITH_VERSION).unwrap();
