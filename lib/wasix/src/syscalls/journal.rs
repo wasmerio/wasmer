@@ -596,13 +596,16 @@ pub unsafe fn restore_snapshot(
                 JournalEffector::apply_sock_bind(&mut ctx, fd, addr)
                     .map_err(anyhow_err_to_runtime_err)?
             }
-            crate::journal::JournalEntry::SocketConnectedV1 { fd, addr } => {
-                JournalEffector::apply_sock_connect(&mut ctx, fd, addr)
-                    .map_err(anyhow_err_to_runtime_err)?
-            }
+            crate::journal::JournalEntry::SocketConnectedV1 {
+                fd,
+                local_addr,
+                peer_addr,
+            } => JournalEffector::apply_sock_connect(&mut ctx, fd, local_addr, peer_addr)
+                .map_err(anyhow_err_to_runtime_err)?,
             crate::journal::JournalEntry::SocketAcceptedV1 {
                 listen_fd,
                 fd,
+                local_addr: addr,
                 peer_addr,
                 fd_flags,
                 non_blocking: nonblocking,
@@ -610,6 +613,7 @@ pub unsafe fn restore_snapshot(
                 &mut ctx,
                 listen_fd,
                 fd,
+                addr,
                 peer_addr,
                 fd_flags,
                 nonblocking,
@@ -737,16 +741,6 @@ pub unsafe fn restore_snapshot(
         }
     }
 
-    // We do not yet support multi threading
-    if !spawn_threads.is_empty() {
-        return Err(WasiRuntimeError::Runtime(RuntimeError::user(
-            anyhow::format_err!(
-                "Snapshot restoration does not currently support multiple threads."
-            )
-            .into(),
-        )));
-    }
-
     // Now output the stdout and stderr
     for (offset, data, is_64bit) in stdout {
         if is_64bit {
@@ -773,6 +767,16 @@ pub unsafe fn restore_snapshot(
     }
     if let Some(state) = update_tty {
         JournalEffector::apply_tty_set(&mut ctx, state).map_err(anyhow_err_to_runtime_err)?;
+    }
+
+    // We do not yet support multi threading
+    if !spawn_threads.is_empty() {
+        return Err(WasiRuntimeError::Runtime(RuntimeError::user(
+            anyhow::format_err!(
+                "Snapshot restoration does not currently support multiple threads."
+            )
+            .into(),
+        )));
     }
 
     Ok(rewind)

@@ -151,6 +151,7 @@ pub fn run_exec(props: TaskWasmRunProperties) {
     let rewind_state = match unsafe { ctx.bootstrap(&mut store) } {
         Ok(r) => r,
         Err(err) => {
+            tracing::warn!("failed to bootstrap - {}", err);
             thread.thread.set_status_finished(Err(err));
             ctx.data(&store)
                 .blocking_on_exit(Some(Errno::Noexec.into()));

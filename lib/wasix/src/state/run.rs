@@ -42,6 +42,7 @@ impl WasiFunctionEnv {
                 match this.bootstrap(&mut store) {
                     Ok(a) => a,
                     Err(err) => {
+                        tracing::warn!("failed to bootstrap - {}", err);
                         this.on_exit(&mut store, None);
                         tx.send(Err(err)).ok();
                         return;

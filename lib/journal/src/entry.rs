@@ -287,11 +287,13 @@ pub enum JournalEntry<'a> {
     },
     SocketConnectedV1 {
         fd: Fd,
-        addr: SocketAddr,
+        local_addr: SocketAddr,
+        peer_addr: SocketAddr,
     },
     SocketAcceptedV1 {
         listen_fd: Fd,
         fd: Fd,
+        local_addr: SocketAddr,
         peer_addr: SocketAddr,
         fd_flags: Fdflags,
         non_blocking: bool,
@@ -592,16 +594,26 @@ impl<'a> JournalEntry<'a> {
             Self::SocketOpenV1 { af, ty, pt, fd } => JournalEntry::SocketOpenV1 { af, ty, pt, fd },
             Self::SocketListenV1 { fd, backlog } => JournalEntry::SocketListenV1 { fd, backlog },
             Self::SocketBindV1 { fd, addr } => JournalEntry::SocketBindV1 { fd, addr },
-            Self::SocketConnectedV1 { fd, addr } => JournalEntry::SocketConnectedV1 { fd, addr },
+            Self::SocketConnectedV1 {
+                fd,
+                local_addr,
+                peer_addr,
+            } => JournalEntry::SocketConnectedV1 {
+                fd,
+                local_addr,
+                peer_addr,
+            },
             Self::SocketAcceptedV1 {
                 listen_fd,
                 fd,
+                local_addr,
                 peer_addr,
                 fd_flags,
                 non_blocking: nonblocking,
             } => JournalEntry::SocketAcceptedV1 {
                 listen_fd,
                 fd,
+                local_addr,
                 peer_addr,
                 fd_flags,
                 non_blocking: nonblocking,

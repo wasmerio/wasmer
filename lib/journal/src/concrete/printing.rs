@@ -249,18 +249,27 @@ impl<'a> fmt::Display for JournalEntry<'a> {
             JournalEntry::SocketBindV1 { fd, addr } => {
                 write!(f, "sock-bind (fd={}, addr={})", fd, addr)
             }
-            JournalEntry::SocketConnectedV1 { fd, addr } => {
-                write!(f, "sock-connect (fd={}, addr={})", fd, addr)
+            JournalEntry::SocketConnectedV1 {
+                fd,
+                local_addr,
+                peer_addr,
+            } => {
+                write!(
+                    f,
+                    "sock-connect (fd={}, addr={}, peer={})",
+                    fd, local_addr, peer_addr
+                )
             }
             JournalEntry::SocketAcceptedV1 {
                 listen_fd,
                 fd,
+                local_addr,
                 peer_addr,
                 ..
             } => write!(
                 f,
-                "sock-accept (listen-fd={}, sock_fd={}, peer={})",
-                listen_fd, fd, peer_addr
+                "sock-accept (listen-fd={}, sock_fd={}, addr={}, peer={})",
+                listen_fd, fd, local_addr, peer_addr
             ),
             JournalEntry::SocketJoinIpv4MulticastV1 {
                 fd,

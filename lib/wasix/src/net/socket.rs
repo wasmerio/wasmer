@@ -72,8 +72,28 @@ pub enum InodeSocketKind {
         socket: Box<dyn VirtualUdpSocket + Sync>,
         peer: Option<SocketAddr>,
     },
-    RemoteTcpStream {
+    RemoteSocket {
+        family: Addressfamily,
+        ty: Socktype,
+        pt: SockProto,
+        local_addr: SocketAddr,
         peer_addr: SocketAddr,
+        only_v6: bool,
+        reuse_port: bool,
+        reuse_addr: bool,
+        ttl: u32,
+        multicast_ttl: u32,
+        no_delay: Option<bool>,
+        keep_alive: Option<bool>,
+        dont_route: Option<bool>,
+        send_buf_size: Option<usize>,
+        recv_buf_size: Option<usize>,
+        write_timeout: Option<Duration>,
+        read_timeout: Option<Duration>,
+        accept_timeout: Option<Duration>,
+        connect_timeout: Option<Duration>,
+        #[derivative(Debug = "ignore")]
+        handler: Option<Box<dyn InterestHandler + Send + Sync>>,
     },
 }
 
@@ -290,6 +310,55 @@ impl InodeSocket {
                         _ => return Err(Errno::Inval),
                     }
                 }
+                InodeSocketKind::RemoteSocket {
+                    family,
+                    ty,
+                    local_addr: addr,
+                    reuse_port,
+                    reuse_addr,
+                    ..
+                } => {
+                    match *family {
+                        Addressfamily::Inet4 => {
+                            if !set_addr.is_ipv4() {
+                                tracing::debug!(
+                                    "IP address is the wrong type IPv4 ({set_addr}) vs IPv6 family"
+                                );
+                                return Err(Errno::Inval);
+                            }
+                        }
+                        Addressfamily::Inet6 => {
+                            if !set_addr.is_ipv6() {
+                                tracing::debug!(
+                                    "IP address is the wrong type IPv6 ({set_addr}) vs IPv4 family"
+                                );
+                                return Err(Errno::Inval);
+                            }
+                        }
+                        _ => {
+                            return Err(Errno::Notsup);
+                        }
+                    }
+
+                    *addr = set_addr;
+                    let addr = *addr;
+
+                    match *ty {
+                        Socktype::Stream => {
+                            // we already set the socket address - next we need a listen or connect so nothing
+                            // more to do at this time
+                            return Ok(None);
+                        }
+                        Socktype::Dgram => {
+                            let reuse_port = *reuse_port;
+                            let reuse_addr = *reuse_addr;
+                            drop(inner);
+
+                            net.bind_udp(addr, reuse_port, reuse_addr)
+                        }
+                        _ => return Err(Errno::Inval),
+                    }
+                }
                 _ => return Err(Errno::Notsup),
             }
         };
@@ -332,6 +401,28 @@ impl InodeSocket {
                             return Err(Errno::Inval);
                         }
                         let addr = *addr.as_ref().unwrap();
+                        let only_v6 = *only_v6;
+                        let reuse_port = *reuse_port;
+                        let reuse_addr = *reuse_addr;
+                        drop(inner);
+
+                        net.listen_tcp(addr, only_v6, reuse_port, reuse_addr)
+                    }
+                    _ => {
+                        tracing::warn!("wasi[?]::sock_listen - failed - not supported(1)");
+                        return Err(Errno::Notsup);
+                    }
+                },
+                InodeSocketKind::RemoteSocket {
+                    ty,
+                    local_addr: addr,
+                    only_v6,
+                    reuse_port,
+                    reuse_addr,
+                    ..
+                } => match *ty {
+                    Socktype::Stream => {
+                        let addr = *addr;
                         let only_v6 = *only_v6;
                         let reuse_port = *reuse_port;
                         let reuse_addr = *reuse_addr;
@@ -441,7 +532,7 @@ impl InodeSocket {
             InodeSocketKind::UdpSocket { .. } => {}
             InodeSocketKind::Raw(_) => {}
             InodeSocketKind::PreSocket { .. } => return Err(Errno::Notconn),
-            InodeSocketKind::RemoteTcpStream { .. } => {}
+            InodeSocketKind::RemoteSocket { .. } => {}
         };
         Ok(())
     }
@@ -515,6 +606,10 @@ impl InodeSocket {
                     target_peer.replace(peer);
                     return Ok(None);
                 }
+                InodeSocketKind::RemoteSocket { peer_addr, .. } => {
+                    *peer_addr = peer;
+                    return Ok(None);
+                }
                 _ => return Err(Errno::Notsup),
             }
         };
@@ -546,6 +641,7 @@ impl InodeSocket {
             InodeSocketKind::TcpListener { .. } => WasiSocketStatus::Opened,
             InodeSocketKind::TcpStream { .. } => WasiSocketStatus::Opened,
             InodeSocketKind::UdpSocket { .. } => WasiSocketStatus::Opened,
+            InodeSocketKind::RemoteSocket { .. } => WasiSocketStatus::Opened,
             _ => WasiSocketStatus::Failed,
         })
     }
@@ -577,6 +673,9 @@ impl InodeSocket {
             InodeSocketKind::UdpSocket { socket, .. } => {
                 socket.addr_local().map_err(net_error_into_wasi_err)?
             }
+            InodeSocketKind::RemoteSocket {
+                local_addr: addr, ..
+            } => *addr,
             _ => return Err(Errno::Notsup),
         })
     }
@@ -613,6 +712,7 @@ impl InodeSocket {
                             )
                         })
                 })?,
+            InodeSocketKind::RemoteSocket { peer_addr, .. } => *peer_addr,
             _ => return Err(Errno::Notsup),
         })
     }
@@ -621,6 +721,15 @@ impl InodeSocket {
         let mut inner = self.inner.protected.write().unwrap();
         match &mut inner.kind {
             InodeSocketKind::PreSocket {
+                only_v6,
+                reuse_port,
+                reuse_addr,
+                no_delay,
+                keep_alive,
+                dont_route,
+                ..
+            }
+            | InodeSocketKind::RemoteSocket {
                 only_v6,
                 reuse_port,
                 reuse_addr,
@@ -685,6 +794,14 @@ impl InodeSocket {
                 no_delay,
                 keep_alive,
                 ..
+            }
+            | InodeSocketKind::RemoteSocket {
+                only_v6,
+                reuse_port,
+                reuse_addr,
+                no_delay,
+                keep_alive,
+                ..
             } => match option {
                 WasiSocketOption::OnlyV6 => *only_v6,
                 WasiSocketOption::ReusePort => *reuse_port,
@@ -728,7 +845,8 @@ impl InodeSocket {
     pub fn set_send_buf_size(&mut self, size: usize) -> Result<(), Errno> {
         let mut inner = self.inner.protected.write().unwrap();
         match &mut inner.kind {
-            InodeSocketKind::PreSocket { send_buf_size, .. } => {
+            InodeSocketKind::PreSocket { send_buf_size, .. }
+            | InodeSocketKind::RemoteSocket { send_buf_size, .. } => {
                 *send_buf_size = Some(size);
             }
             InodeSocketKind::TcpStream { socket, .. } => {
@@ -744,7 +862,8 @@ impl InodeSocket {
     pub fn send_buf_size(&self) -> Result<usize, Errno> {
         let inner = self.inner.protected.read().unwrap();
         match &inner.kind {
-            InodeSocketKind::PreSocket { send_buf_size, .. } => {
+            InodeSocketKind::PreSocket { send_buf_size, .. }
+            | InodeSocketKind::RemoteSocket { send_buf_size, .. } => {
                 Ok((*send_buf_size).unwrap_or_default())
             }
             InodeSocketKind::TcpStream { socket, .. } => {
@@ -757,7 +876,8 @@ impl InodeSocket {
     pub fn set_recv_buf_size(&mut self, size: usize) -> Result<(), Errno> {
         let mut inner = self.inner.protected.write().unwrap();
         match &mut inner.kind {
-            InodeSocketKind::PreSocket { recv_buf_size, .. } => {
+            InodeSocketKind::PreSocket { recv_buf_size, .. }
+            | InodeSocketKind::RemoteSocket { recv_buf_size, .. } => {
                 *recv_buf_size = Some(size);
             }
             InodeSocketKind::TcpStream { socket, .. } => {
@@ -773,7 +893,8 @@ impl InodeSocket {
     pub fn recv_buf_size(&self) -> Result<usize, Errno> {
         let inner = self.inner.protected.read().unwrap();
         match &inner.kind {
-            InodeSocketKind::PreSocket { recv_buf_size, .. } => {
+            InodeSocketKind::PreSocket { recv_buf_size, .. }
+            | InodeSocketKind::RemoteSocket { recv_buf_size, .. } => {
                 Ok((*recv_buf_size).unwrap_or_default())
             }
             InodeSocketKind::TcpStream { socket, .. } => {
@@ -789,6 +910,7 @@ impl InodeSocket {
             InodeSocketKind::TcpStream { socket, .. } => {
                 socket.set_linger(linger).map_err(net_error_into_wasi_err)
             }
+            InodeSocketKind::RemoteSocket { .. } => Ok(()),
             InodeSocketKind::PreSocket { .. } => Err(Errno::Io),
             _ => Err(Errno::Notsup),
         }
@@ -837,6 +959,13 @@ impl InodeSocket {
                 connect_timeout,
                 accept_timeout,
                 ..
+            }
+            | InodeSocketKind::RemoteSocket {
+                read_timeout,
+                write_timeout,
+                connect_timeout,
+                accept_timeout,
+                ..
             } => {
                 match ty {
                     TimeType::ConnectTimeout => *connect_timeout = timeout,
@@ -873,6 +1002,13 @@ impl InodeSocket {
                 connect_timeout,
                 accept_timeout,
                 ..
+            }
+            | InodeSocketKind::RemoteSocket {
+                read_timeout,
+                write_timeout,
+                connect_timeout,
+                accept_timeout,
+                ..
             } => match ty {
                 TimeType::ConnectTimeout => Ok(*connect_timeout),
                 TimeType::AcceptTimeout => Ok(*accept_timeout),
@@ -893,6 +1029,10 @@ impl InodeSocket {
             InodeSocketKind::UdpSocket { socket, .. } => {
                 socket.set_ttl(ttl).map_err(net_error_into_wasi_err)
             }
+            InodeSocketKind::RemoteSocket { ttl: set_ttl, .. } => {
+                *set_ttl = ttl;
+                Ok(())
+            }
             InodeSocketKind::PreSocket { .. } => Err(Errno::Io),
             _ => Err(Errno::Notsup),
         }
@@ -907,6 +1047,7 @@ impl InodeSocket {
             InodeSocketKind::UdpSocket { socket, .. } => {
                 socket.ttl().map_err(net_error_into_wasi_err)
             }
+            InodeSocketKind::RemoteSocket { ttl, .. } => Ok(*ttl),
             InodeSocketKind::PreSocket { .. } => Err(Errno::Io),
             _ => Err(Errno::Notsup),
         }
@@ -918,6 +1059,13 @@ impl InodeSocket {
             InodeSocketKind::UdpSocket { socket, .. } => socket
                 .set_multicast_ttl_v4(ttl)
                 .map_err(net_error_into_wasi_err),
+            InodeSocketKind::RemoteSocket {
+                multicast_ttl: set_ttl,
+                ..
+            } => {
+                *set_ttl = ttl;
+                Ok(())
+            }
             InodeSocketKind::PreSocket { .. } => Err(Errno::Io),
             _ => Err(Errno::Notsup),
         }
@@ -929,6 +1077,7 @@ impl InodeSocket {
             InodeSocketKind::UdpSocket { socket, .. } => {
                 socket.multicast_ttl_v4().map_err(net_error_into_wasi_err)
             }
+            InodeSocketKind::RemoteSocket { multicast_ttl, .. } => Ok(*multicast_ttl),
             InodeSocketKind::PreSocket { .. } => Err(Errno::Io),
             _ => Err(Errno::Notsup),
         }
@@ -940,6 +1089,7 @@ impl InodeSocket {
             InodeSocketKind::UdpSocket { socket, .. } => socket
                 .join_multicast_v4(multiaddr, iface)
                 .map_err(net_error_into_wasi_err),
+            InodeSocketKind::RemoteSocket { .. } => Ok(()),
             InodeSocketKind::PreSocket { .. } => Err(Errno::Io),
             _ => Err(Errno::Notsup),
         }
@@ -951,6 +1101,7 @@ impl InodeSocket {
             InodeSocketKind::UdpSocket { socket, .. } => socket
                 .leave_multicast_v4(multiaddr, iface)
                 .map_err(net_error_into_wasi_err),
+            InodeSocketKind::RemoteSocket { .. } => Ok(()),
             InodeSocketKind::PreSocket { .. } => Err(Errno::Io),
             _ => Err(Errno::Notsup),
         }
@@ -962,6 +1113,7 @@ impl InodeSocket {
             InodeSocketKind::UdpSocket { socket, .. } => socket
                 .join_multicast_v6(multiaddr, iface)
                 .map_err(net_error_into_wasi_err),
+            InodeSocketKind::RemoteSocket { .. } => Ok(()),
             InodeSocketKind::PreSocket { .. } => Err(Errno::Io),
             _ => Err(Errno::Notsup),
         }
@@ -973,6 +1125,7 @@ impl InodeSocket {
             InodeSocketKind::UdpSocket { socket, .. } => socket
                 .leave_multicast_v6(multiaddr, iface)
                 .map_err(net_error_into_wasi_err),
+            InodeSocketKind::RemoteSocket { .. } => Ok(()),
             InodeSocketKind::PreSocket { .. } => Err(Errno::Io),
             _ => Err(Errno::Notsup),
         }
@@ -1020,7 +1173,7 @@ impl InodeSocket {
                         InodeSocketKind::PreSocket { .. } => {
                             return Poll::Ready(Err(Errno::Notconn))
                         }
-                        InodeSocketKind::RemoteTcpStream { .. } => {
+                        InodeSocketKind::RemoteSocket { .. } => {
                             return Poll::Ready(Ok(self.data.len()))
                         }
                         _ => return Poll::Ready(Err(Errno::Notsup)),
@@ -1100,7 +1253,7 @@ impl InodeSocket {
                         InodeSocketKind::PreSocket { .. } => {
                             return Poll::Ready(Err(Errno::Notconn))
                         }
-                        InodeSocketKind::RemoteTcpStream { .. } => {
+                        InodeSocketKind::RemoteSocket { .. } => {
                             return Poll::Ready(Ok(self.data.len()))
                         }
                         _ => return Poll::Ready(Err(Errno::Notsup)),
@@ -1188,6 +1341,9 @@ impl InodeSocket {
                                 }
                             }
                         }
+                        InodeSocketKind::RemoteSocket { .. } => {
+                            return Poll::Pending;
+                        }
                         InodeSocketKind::PreSocket { .. } => {
                             return Poll::Ready(Err(Errno::Notconn))
                         }
@@ -1264,6 +1420,9 @@ impl InodeSocket {
                         InodeSocketKind::UdpSocket { socket, .. } => {
                             socket.try_recv_from(self.data)
                         }
+                        InodeSocketKind::RemoteSocket { .. } => {
+                            return Poll::Pending;
+                        }
                         InodeSocketKind::PreSocket { .. } => {
                             return Poll::Ready(Err(Errno::Notconn))
                         }
@@ -1310,6 +1469,7 @@ impl InodeSocket {
             InodeSocketKind::TcpStream { socket, .. } => {
                 socket.shutdown(how).map_err(net_error_into_wasi_err)?;
             }
+            InodeSocketKind::RemoteSocket { .. } => return Ok(()),
             InodeSocketKind::PreSocket { .. } => return Err(Errno::Notconn),
             _ => return Err(Errno::Notsup),
         }
@@ -1321,6 +1481,7 @@ impl InodeSocket {
             #[allow(clippy::match_like_matches_macro)]
             match &mut guard.kind {
                 InodeSocketKind::TcpStream { .. }
+                | InodeSocketKind::RemoteSocket { .. }
                 | InodeSocketKind::UdpSocket { .. }
                 | InodeSocketKind::Raw(..) => true,
                 _ => false,
@@ -1342,7 +1503,9 @@ impl InodeSocketProtected {
             InodeSocketKind::PreSocket { handler, .. } => {
                 handler.take();
             }
-            InodeSocketKind::RemoteTcpStream { .. } => {}
+            InodeSocketKind::RemoteSocket { handler, .. } => {
+                handler.take();
+            }
         }
     }
 
@@ -1354,7 +1517,7 @@ impl InodeSocketProtected {
             InodeSocketKind::Raw(socket) => socket.poll_read_ready(cx),
             InodeSocketKind::Icmp(socket) => socket.poll_read_ready(cx),
             InodeSocketKind::PreSocket { .. } => Poll::Pending,
-            InodeSocketKind::RemoteTcpStream { .. } => Poll::Pending,
+            InodeSocketKind::RemoteSocket { .. } => Poll::Pending,
         }
         .map_err(net_error_into_io_err)
     }
@@ -1367,7 +1530,7 @@ impl InodeSocketProtected {
             InodeSocketKind::Raw(socket) => socket.poll_write_ready(cx),
             InodeSocketKind::Icmp(socket) => socket.poll_write_ready(cx),
             InodeSocketKind::PreSocket { .. } => Poll::Pending,
-            InodeSocketKind::RemoteTcpStream { .. } => Poll::Pending,
+            InodeSocketKind::RemoteSocket { .. } => Poll::Pending,
         }
         .map_err(net_error_into_io_err)
     }
@@ -1382,11 +1545,11 @@ impl InodeSocketProtected {
             InodeSocketKind::UdpSocket { socket, .. } => socket.set_handler(handler),
             InodeSocketKind::Raw(socket) => socket.set_handler(handler),
             InodeSocketKind::Icmp(socket) => socket.set_handler(handler),
-            InodeSocketKind::PreSocket { handler: h, .. } => {
+            InodeSocketKind::PreSocket { handler: h, .. }
+            | InodeSocketKind::RemoteSocket { handler: h, .. } => {
                 h.replace(handler);
                 Ok(())
             }
-            InodeSocketKind::RemoteTcpStream { .. } => Ok(()),
         }
     }
 }

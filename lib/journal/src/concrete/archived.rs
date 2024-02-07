@@ -720,18 +720,26 @@ impl<'a> JournalEntry<'a> {
             JournalEntry::SocketBindV1 { fd, addr } => {
                 serializer.serialize_value(&JournalEntrySocketBindV1 { fd, addr })
             }
-            JournalEntry::SocketConnectedV1 { fd, addr } => {
-                serializer.serialize_value(&JournalEntrySocketConnectedV1 { fd, addr })
-            }
+            JournalEntry::SocketConnectedV1 {
+                fd,
+                local_addr,
+                peer_addr,
+            } => serializer.serialize_value(&JournalEntrySocketConnectedV1 {
+                fd,
+                local_addr,
+                peer_addr,
+            }),
             JournalEntry::SocketAcceptedV1 {
                 listen_fd,
                 fd,
+                local_addr: addr,
                 peer_addr,
                 fd_flags,
                 non_blocking: nonblocking,
             } => serializer.serialize_value(&JournalEntrySocketAcceptedV1 {
                 listen_fd,
                 fd,
+                local_addr: addr,
                 peer_addr,
                 fd_flags: fd_flags.bits(),
                 nonblocking,
@@ -1330,7 +1338,8 @@ pub struct JournalEntrySocketBindV1 {
 #[archive_attr(derive(CheckBytes), repr(align(8)))]
 pub struct JournalEntrySocketConnectedV1 {
     pub fd: u32,
-    pub addr: SocketAddr,
+    pub local_addr: SocketAddr,
+    pub peer_addr: SocketAddr,
 }
 
 #[repr(C)]
@@ -1340,6 +1349,7 @@ pub struct JournalEntrySocketConnectedV1 {
 pub struct JournalEntrySocketAcceptedV1 {
     pub listen_fd: u32,
     pub fd: u32,
+    pub local_addr: SocketAddr,
     pub peer_addr: SocketAddr,
     pub fd_flags: u16,
     pub nonblocking: bool,

@@ -481,7 +481,8 @@ pub fn test_record_socket_bind() {
 pub fn test_record_socket_connected() {
     run_test(JournalEntry::SocketConnectedV1 {
         fd: 12341,
-        addr: SocketAddr::new(Ipv6Addr::UNSPECIFIED.into(), 1234),
+        local_addr: SocketAddr::new(Ipv6Addr::UNSPECIFIED.into(), 1234),
+        peer_addr: SocketAddr::new(Ipv6Addr::UNSPECIFIED.into(), 1234),
     });
 }
 
@@ -491,6 +492,7 @@ pub fn test_record_socket_accepted() {
     run_test(JournalEntry::SocketAcceptedV1 {
         listen_fd: 21234,
         fd: 1,
+        local_addr: SocketAddr::new(Ipv6Addr::UNSPECIFIED.into(), 3452),
         peer_addr: SocketAddr::new(Ipv6Addr::UNSPECIFIED.into(), 3452),
         fd_flags: wasi::Fdflags::all(),
         non_blocking: true,

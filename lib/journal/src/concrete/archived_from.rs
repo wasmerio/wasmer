@@ -945,20 +945,24 @@ impl<'a> TryFrom<ArchivedJournalEntry<'a>> for JournalEntry<'a> {
             }
             ArchivedJournalEntry::SocketConnectedV1(ArchivedJournalEntrySocketConnectedV1 {
                 fd,
-                addr,
+                local_addr,
+                peer_addr,
             }) => Self::SocketConnectedV1 {
                 fd: *fd,
-                addr: addr.as_socket_addr(),
+                local_addr: local_addr.as_socket_addr(),
+                peer_addr: peer_addr.as_socket_addr(),
             },
             ArchivedJournalEntry::SocketAcceptedV1(ArchivedJournalEntrySocketAcceptedV1 {
                 listen_fd,
                 fd,
+                local_addr,
                 peer_addr,
                 fd_flags,
                 nonblocking,
             }) => Self::SocketAcceptedV1 {
                 listen_fd: *listen_fd,
                 fd: *fd,
+                local_addr: local_addr.as_socket_addr(),
                 peer_addr: peer_addr.as_socket_addr(),
                 fd_flags: wasi::Fdflags::from_bits_truncate(*fd_flags),
                 non_blocking: *nonblocking,
