@@ -205,7 +205,7 @@ impl WasiProcessInner {
         use wasmer::AsStoreMut;
         use wasmer_types::OnCalledAction;
 
-        use crate::{rewind_ext, WasiError};
+        use crate::{os::task::thread::RewindResultType, rewind_ext, WasiError};
         let guard = inner.0.lock().unwrap();
         if guard.checkpoint == WasiProcessCheckpoint::Execute {
             // No checkpoint so just carry on
@@ -286,8 +286,13 @@ impl WasiProcessInner {
                 trace!("checkpoint finished");
 
                 // Rewind the stack and carry on
-                return match rewind_ext::<M>(&mut ctx, memory_stack, rewind_stack, store_data, None)
-                {
+                return match rewind_ext::<M>(
+                    &mut ctx,
+                    memory_stack,
+                    rewind_stack,
+                    store_data,
+                    RewindResultType::RewindWithoutResult,
+                ) {
                     Errno::Success => OnCalledAction::InvokeAgain,
                     err => {
                         tracing::warn!(

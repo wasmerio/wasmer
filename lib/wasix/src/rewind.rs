@@ -7,6 +7,8 @@ use wasmer_wasix_types::{
     wasix::{ThreadStartType, WasiMemoryLayout},
 };
 
+use crate::os::task::thread::RewindResultType;
+
 /// Future that will be polled by asyncify methods
 #[doc(hidden)]
 pub type AsyncifyFuture = dyn Future<Output = Bytes> + Send + Sync + 'static;
@@ -35,7 +37,7 @@ pub struct RewindState {
     pub is_64bit: bool,
 }
 
-pub type RewindStateOption = Option<(RewindState, Option<Bytes>)>;
+pub type RewindStateOption = Option<(RewindState, RewindResultType)>;
 
 /// Represents the work that will be done when a thread goes to deep sleep and
 /// includes the things needed to restore it again

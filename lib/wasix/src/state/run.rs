@@ -2,7 +2,7 @@ use virtual_mio::InlineWaker;
 use wasmer::{RuntimeError, Store};
 use wasmer_wasix_types::wasi::ExitCode;
 
-use crate::{RewindStateOption, WasiError, WasiRuntimeError};
+use crate::{os::task::thread::RewindResultType, RewindStateOption, WasiError, WasiRuntimeError};
 
 use super::*;
 
@@ -158,7 +158,12 @@ fn handle_result(
             let tasks = env.data(&store).tasks().clone();
             let rewind = work.rewind;
             let respawn = move |ctx, store, res| {
-                run_with_deep_sleep(store, Some((rewind, Some(res))), ctx, sender)
+                run_with_deep_sleep(
+                    store,
+                    Some((rewind, RewindResultType::RewindWithResult(res))),
+                    ctx,
+                    sender,
+                )
             };
 
             // Spawns the WASM process after a trigger

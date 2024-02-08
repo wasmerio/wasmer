@@ -128,11 +128,19 @@ impl WasiThread {
     pub(crate) fn has_rewind_of_type(&self, type_: HandleRewindType) -> bool {
         match type_ {
             HandleRewindType::ResultDriven => match &self.rewind {
-                Some(rewind) => rewind.rewind_result.is_some(),
+                Some(rewind) => match rewind.rewind_result {
+                    RewindResultType::RewindRestart => true,
+                    RewindResultType::RewindWithoutResult => false,
+                    RewindResultType::RewindWithResult(_) => true,
+                },
                 None => false,
             },
             HandleRewindType::ResultLess => match &self.rewind {
-                Some(rewind) => rewind.rewind_result.is_none(),
+                Some(rewind) => match rewind.rewind_result {
+                    RewindResultType::RewindRestart => true,
+                    RewindResultType::RewindWithoutResult => true,
+                    RewindResultType::RewindWithResult(_) => false,
+                },
                 None => false,
             },
         }
@@ -204,6 +212,16 @@ impl Drop for WasiThreadRunGuard {
 /// Represents the memory layout of the parts that the thread itself uses
 pub use wasmer_wasix_types::wasix::WasiMemoryLayout;
 
+#[derive(Clone, Debug)]
+pub enum RewindResultType {
+    // The rewind must restart the operation it had already started
+    RewindRestart,
+    // The rewind has been triggered and should be handled but has not result
+    RewindWithoutResult,
+    // The rewind has been triggered and should be handled with the supplied result
+    RewindWithResult(Bytes),
+}
+
 // Contains the result of a rewind operation
 #[derive(Clone, Debug)]
 pub(crate) struct RewindResult {
@@ -211,7 +229,7 @@ pub(crate) struct RewindResult {
     pub memory_stack: Bytes,
     /// Generic serialized object passed back to the rewind resumption code
     /// (uses the bincode serializer)
-    pub rewind_result: Option<Bytes>,
+    pub rewind_result: RewindResultType,
 }
 
 #[derive(Debug)]

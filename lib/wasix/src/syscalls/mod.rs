@@ -124,7 +124,7 @@ use crate::{
     journal::{DynJournal, JournalEffector},
     os::task::{
         process::{MaybeCheckpointResult, WasiProcessCheckpoint},
-        thread::RewindResult,
+        thread::{RewindResult, RewindResultType},
     },
     runtime::task_manager::InlineWaker,
     utils::store::StoreSnapshot,
@@ -1215,7 +1215,7 @@ where
         memory_stack,
         rewind_stack,
         store_data,
-        Some(rewind_result),
+        RewindResultType::RewindWithResult(rewind_result),
     )
 }
 
@@ -1226,7 +1226,7 @@ pub fn rewind_ext<M: MemorySize>(
     memory_stack: Bytes,
     rewind_stack: Bytes,
     store_data: Bytes,
-    rewind_result: Option<Bytes>,
+    rewind_result: RewindResultType,
 ) -> Errno {
     // Store the memory stack so that it can be restored later
     ctx.data_mut().thread.set_rewind(RewindResult {
@@ -1379,11 +1379,14 @@ pub(crate) unsafe fn handle_rewind_ext<M: MemorySize, T>(
 where
     T: serde::de::DeserializeOwned,
 {
-    if !ctx.data().thread.has_rewind_of_type(type_) {
+    let env = ctx.data();
+    if !env.thread.has_rewind_of_type(type_) {
         return None;
     };
 
     // If the stack has been restored
+    let tid = env.tid();
+    let pid = env.pid();
     if let Some(result) = ctx.data_mut().thread.take_rewind() {
         // Deserialize the result
         let memory_stack = result.memory_stack;
@@ -1401,19 +1404,24 @@ where
         let (env, mut store) = ctx.data_and_store_mut();
         set_memory_stack::<M>(env, &mut store, memory_stack);
 
-        if let Some(rewind_result) = result.rewind_result {
-            match rewind_result.len() {
-                0 => Some(None),
-                _ => {
-                    let ret = bincode::deserialize(&rewind_result)
-                        .expect("failed to deserialize the rewind result");
-                    Some(Some(ret))
-                }
+        match result.rewind_result {
+            RewindResultType::RewindRestart => {
+                debug!(%pid, %tid, "rewind for syscall restart");
+                None
             }
-        } else {
-            Some(None)
+            RewindResultType::RewindWithoutResult => {
+                debug!(%pid, %tid, "rewind with no result");
+                Some(None)
+            }
+            RewindResultType::RewindWithResult(rewind_result) => {
+                debug!(%pid, %tid, "rewind with result (data={})", rewind_result.len());
+                let ret = bincode::deserialize(&rewind_result)
+                    .expect("failed to deserialize the rewind result");
+                Some(Some(ret))
+            }
         }
     } else {
+        debug!(%pid, %tid, "rewind miss");
         Some(None)
     }
 }

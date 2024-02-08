@@ -203,6 +203,8 @@ pub enum ControlPlaneError {
 
 #[cfg(test)]
 mod tests {
+    use wasmer_wasix_types::wasix::ThreadStartType;
+
     use crate::os::task::thread::WasiMemoryLayout;
 
     use super::*;
@@ -216,8 +218,12 @@ mod tests {
         });
 
         let p1 = p.new_process(ModuleHash::random()).unwrap();
-        let _t1 = p1.new_thread(WasiMemoryLayout::default()).unwrap();
-        let _t2 = p1.new_thread(WasiMemoryLayout::default()).unwrap();
+        let _t1 = p1
+            .new_thread(WasiMemoryLayout::default(), ThreadStartType::MainThread)
+            .unwrap();
+        let _t2 = p1
+            .new_thread(WasiMemoryLayout::default(), ThreadStartType::MainThread)
+            .unwrap();
 
         assert_eq!(
             p.new_process(ModuleHash::random()).unwrap_err(),
@@ -236,11 +242,17 @@ mod tests {
         let p1 = p.new_process(ModuleHash::random()).unwrap();
 
         for _ in 0..10 {
-            let _thread = p1.new_thread(WasiMemoryLayout::default()).unwrap();
+            let _thread = p1
+                .new_thread(WasiMemoryLayout::default(), ThreadStartType::MainThread)
+                .unwrap();
         }
 
-        let _t1 = p1.new_thread(WasiMemoryLayout::default()).unwrap();
-        let _t2 = p1.new_thread(WasiMemoryLayout::default()).unwrap();
+        let _t1 = p1
+            .new_thread(WasiMemoryLayout::default(), ThreadStartType::MainThread)
+            .unwrap();
+        let _t2 = p1
+            .new_thread(WasiMemoryLayout::default(), ThreadStartType::MainThread)
+            .unwrap();
 
         assert_eq!(
             p.new_process(ModuleHash::random()).unwrap_err(),

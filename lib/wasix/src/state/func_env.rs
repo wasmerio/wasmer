@@ -10,6 +10,7 @@ use wasmer_wasix_types::wasi::ExitCode;
 use crate::syscalls::restore_snapshot;
 use crate::{
     import_object_for_all_wasi_versions,
+    os::task::thread::RewindResultType,
     runtime::SpawnMemoryType,
     state::WasiInstanceHandles,
     utils::{get_wasi_version, get_wasi_versions, store::restore_store_snapshot},
@@ -268,7 +269,7 @@ impl WasiFunctionEnv {
                             return Err(err);
                         }
                     };
-                    rewind_state = rewind.map(|rewind| (rewind, None));
+                    rewind_state = rewind.map(|rewind| (rewind, RewindResultType::RewindRestart));
                 }
 
                 self.data_mut(&mut store).replaying_journal = false;

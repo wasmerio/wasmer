@@ -237,7 +237,7 @@ fn run<M: MemorySize>(
     ctx: WasiFunctionEnv,
     mut store: Store,
     child_handle: WasiThreadHandle,
-    rewind_state: Option<(RewindState, Bytes)>,
+    rewind_state: Option<(RewindState, RewindResultType)>,
 ) -> ExitCode {
     let env = ctx.data(&store);
     let tasks = env.tasks().clone();
@@ -252,7 +252,7 @@ fn run<M: MemorySize>(
             rewind_state.memory_stack,
             rewind_state.rewind_stack,
             rewind_state.store_data,
-            Some(rewind_result),
+            rewind_result,
         );
         if res != Errno::Success {
             return res.into();
@@ -289,7 +289,10 @@ fn run<M: MemorySize>(
                             ctx,
                             store,
                             child_handle,
-                            Some((rewind_state, rewind_result)),
+                            Some((
+                                rewind_state,
+                                RewindResultType::RewindWithResult(rewind_result),
+                            )),
                         );
                     }
                 };

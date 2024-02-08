@@ -101,7 +101,7 @@ pub fn thread_spawn_internal_phase2<M: MemorySize>(
     thread_handle: Arc<WasiThreadHandle>,
     layout: WasiMemoryLayout,
     start_ptr_offset: M::Offset,
-    rewind_state: Option<(RewindState, Bytes)>,
+    rewind_state: Option<(RewindState, RewindResultType)>,
 ) -> Result<(), Errno> {
     // We extract the memory which will be passed to the thread
     let env = ctx.data();
@@ -167,7 +167,7 @@ fn call_module<M: MemorySize>(
     mut store: Store,
     start_ptr_offset: M::Offset,
     thread_handle: Arc<WasiThreadHandle>,
-    rewind_state: Option<(RewindState, Bytes)>,
+    rewind_state: Option<(RewindState, RewindResultType)>,
 ) -> Result<Tid, Errno> {
     let env = ctx.data(&store);
     let tasks = env.tasks().clone();
@@ -230,7 +230,7 @@ fn call_module<M: MemorySize>(
             rewind_state.memory_stack,
             rewind_state.rewind_stack,
             rewind_state.store_data,
-            Some(rewind_result),
+            rewind_result,
         );
         if res != Errno::Success {
             return Err(res);
@@ -259,7 +259,7 @@ fn call_module<M: MemorySize>(
                         store,
                         start_ptr_offset,
                         thread_handle,
-                        Some((rewind, trigger_res)),
+                        Some((rewind, RewindResultType::RewindWithResult(trigger_res))),
                     );
                 }
             };

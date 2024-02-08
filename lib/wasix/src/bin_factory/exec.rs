@@ -1,14 +1,16 @@
 use std::{pin::Pin, sync::Arc};
 
 use crate::{
-    os::task::{thread::WasiThreadRunGuard, TaskJoinHandle},
+    os::task::{
+        thread::{RewindResultType, WasiThreadRunGuard},
+        TaskJoinHandle,
+    },
     runtime::task_manager::{
         TaskWasm, TaskWasmRecycle, TaskWasmRecycleProperties, TaskWasmRunProperties,
     },
     syscalls::rewind_ext,
     RewindState, SpawnError, WasiError, WasiRuntimeError,
 };
-use bytes::Bytes;
 use futures::Future;
 use tracing::*;
 use wasmer::{Function, FunctionEnvMut, Memory32, Memory64, Module, Store};
@@ -182,7 +184,7 @@ fn call_module(
     ctx: WasiFunctionEnv,
     mut store: Store,
     handle: WasiThreadRunGuard,
-    rewind_state: Option<(RewindState, Option<Bytes>)>,
+    rewind_state: Option<(RewindState, RewindResultType)>,
     recycle: Option<Box<TaskWasmRecycle>>,
 ) {
     let env = ctx.data(&store);
@@ -249,7 +251,7 @@ fn call_module(
                                 ctx,
                                 store,
                                 handle,
-                                Some((rewind, Some(rewind_result))),
+                                Some((rewind, RewindResultType::RewindWithResult(rewind_result))),
                                 recycle,
                             );
                         }
