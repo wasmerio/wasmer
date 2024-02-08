@@ -129,7 +129,7 @@ pub fn thread_spawn_internal_phase2<M: MemorySize>(
         let thread_handle = thread_handle;
         move |ctx: WasiFunctionEnv, mut store: Store| {
             // Call the thread
-            call_module::<M>(ctx, store, start_ptr_offset, thread_handle, None)
+            call_module::<M>(ctx, store, start_ptr_offset, thread_handle, rewind_state)
         }
     };
 

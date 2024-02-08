@@ -1402,9 +1402,14 @@ where
         set_memory_stack::<M>(env, &mut store, memory_stack);
 
         if let Some(rewind_result) = result.rewind_result {
-            let ret = bincode::deserialize(&rewind_result)
-                .expect("failed to deserialize the rewind result");
-            Some(Some(ret))
+            match rewind_result.len() {
+                0 => Some(None),
+                _ => {
+                    let ret = bincode::deserialize(&rewind_result)
+                        .expect("failed to deserialize the rewind result");
+                    Some(Some(ret))
+                }
+            }
         } else {
             Some(None)
         }
