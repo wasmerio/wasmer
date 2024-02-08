@@ -1,6 +1,10 @@
+use std::sync::Arc;
+
 use wasmer_wasix_types::wasix::ThreadStartType;
 
-use crate::{os::task::thread::WasiMemoryLayout, syscalls::thread_spawn_internal_phase2};
+use crate::{
+    os::task::thread::WasiMemoryLayout, syscalls::thread_spawn_internal_phase2, RewindState,
+};
 
 use super::*;
 
@@ -30,7 +34,7 @@ impl JournalEffector {
 
     pub fn apply_thread_state<M: MemorySize>(
         ctx: &mut FunctionEnvMut<'_, WasiEnv>,
-        id: WasiThreadId,
+        tid: WasiThreadId,
         memory_stack: Bytes,
         rewind_stack: Bytes,
         store_data: Bytes,
@@ -49,11 +53,31 @@ impl JournalEffector {
         };
 
         // Create the thread for this ID
-        let thread_handle = ctx.data().process.new_thread_with_id(layout, start, tid)?;
+        let thread_handle = Arc::new(ctx.data().process.new_thread_with_id(
+            layout.clone(),
+            start,
+            tid,
+        )?);
 
         // Now spawn the thread itself
-        thread_spawn_internal_phase2(&mut ctx, thread_handle, layout, start_ptr)
-            .map_err(|err| anyhow::format_err!("failed to spawn thread"))?;
+        thread_spawn_internal_phase2::<M>(
+            ctx,
+            thread_handle,
+            layout.clone(),
+            start_ptr,
+            Some((
+                RewindState {
+                    memory_stack,
+                    rewind_stack,
+                    store_data,
+                    start,
+                    layout,
+                    is_64bit: M::is_64bit(),
+                },
+                Bytes::new(),
+            )),
+        )
+        .map_err(|err| anyhow::format_err!("failed to spawn thread - {}", err))?;
 
         Ok(())
     }

@@ -89,7 +89,11 @@ pub fn thread_spawn_internal_phase1<M: MemorySize>(
     let thread_id: Tid = thread_handle.id().into();
     Span::current().record("tid", thread_id);
 
-    thread_spawn_internal_phase2(ctx, thread_handle)
+    // Spawn the thread
+    thread_spawn_internal_phase2::<M>(ctx, thread_handle, layout, start_ptr_offset, None)?;
+
+    // Success
+    Ok(thread_id)
 }
 
 pub fn thread_spawn_internal_phase2<M: MemorySize>(
@@ -97,9 +101,11 @@ pub fn thread_spawn_internal_phase2<M: MemorySize>(
     thread_handle: Arc<WasiThreadHandle>,
     layout: WasiMemoryLayout,
     start_ptr_offset: M::Offset,
-) -> Result<Tid, Errno> {
+    rewind_state: Option<(RewindState, Bytes)>,
+) -> Result<(), Errno> {
     // We extract the memory which will be passed to the thread
     let env = ctx.data();
+    let tasks = env.tasks().clone();
     let thread_memory = unsafe { env.inner() }.memory_clone();
 
     // We capture some local variables
@@ -152,7 +158,7 @@ pub fn thread_spawn_internal_phase2<M: MemorySize>(
         .map_err(Into::<Errno>::into)?;
 
     // Success
-    Ok(thread_id)
+    Ok(())
 }
 
 /// Calls the module

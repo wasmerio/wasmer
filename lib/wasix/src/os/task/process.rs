@@ -381,7 +381,6 @@ impl WasiProcess {
         start: ThreadStartType,
     ) -> Result<WasiThreadHandle, ControlPlaneError> {
         let control_plane = self.compute.must_upgrade();
-        let task_count_guard = control_plane.register_task()?;
 
         // Determine if its the main thread or not
         let is_main = matches!(start, ThreadStartType::MainThread);
@@ -408,6 +407,8 @@ impl WasiProcess {
         let control_plane = self.compute.must_upgrade();
         let task_count_guard = control_plane.register_task()?;
 
+        let is_main = matches!(start, ThreadStartType::MainThread);
+
         // The wait finished should be the process version if its the main thread
         let mut inner = self.inner.0.lock().unwrap();
         let finished = if is_main {
@@ -420,7 +421,7 @@ impl WasiProcess {
         let ctrl = WasiThread::new(
             self.pid(),
             tid,
-            matches!(start, ThreadStartType::MainThread),
+            is_main,
             finished,
             task_count_guard,
             layout,
