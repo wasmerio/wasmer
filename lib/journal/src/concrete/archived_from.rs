@@ -2,6 +2,7 @@ use lz4_flex::block::decompress_size_prepended;
 use std::borrow::Cow;
 use std::time::SystemTime;
 use wasmer_wasix_types::wasi;
+use wasmer_wasix_types::wasix::{ThreadStartType, WasiMemoryLayout};
 
 use super::*;
 
@@ -569,6 +570,74 @@ impl From<&'_ ArchivedJournalSocketShutdownV1> for SocketShutdownHow {
     }
 }
 
+impl From<JournalThreadStartTypeV1> for ThreadStartType {
+    fn from(value: JournalThreadStartTypeV1) -> Self {
+        match value {
+            JournalThreadStartTypeV1::MainThread => ThreadStartType::MainThread,
+            JournalThreadStartTypeV1::ThreadSpawn { start_ptr } => {
+                ThreadStartType::ThreadSpawn { start_ptr }
+            }
+        }
+    }
+}
+
+impl From<&'_ ArchivedJournalThreadStartTypeV1> for ThreadStartType {
+    fn from(value: &'_ ArchivedJournalThreadStartTypeV1) -> Self {
+        match value {
+            ArchivedJournalThreadStartTypeV1::MainThread => ThreadStartType::MainThread,
+            ArchivedJournalThreadStartTypeV1::ThreadSpawn { start_ptr } => {
+                ThreadStartType::ThreadSpawn {
+                    start_ptr: *start_ptr,
+                }
+            }
+        }
+    }
+}
+
+impl From<ThreadStartType> for JournalThreadStartTypeV1 {
+    fn from(value: ThreadStartType) -> Self {
+        match value {
+            ThreadStartType::MainThread => JournalThreadStartTypeV1::MainThread,
+            ThreadStartType::ThreadSpawn { start_ptr } => {
+                JournalThreadStartTypeV1::ThreadSpawn { start_ptr }
+            }
+        }
+    }
+}
+
+impl From<JournalWasiMemoryLayout> for WasiMemoryLayout {
+    fn from(value: JournalWasiMemoryLayout) -> Self {
+        Self {
+            stack_upper: value.stack_upper,
+            stack_lower: value.stack_lower,
+            guard_size: value.guard_size,
+            stack_size: value.stack_size,
+        }
+    }
+}
+
+impl From<&'_ ArchivedJournalWasiMemoryLayout> for WasiMemoryLayout {
+    fn from(value: &'_ ArchivedJournalWasiMemoryLayout) -> Self {
+        Self {
+            stack_upper: value.stack_upper,
+            stack_lower: value.stack_lower,
+            guard_size: value.guard_size,
+            stack_size: value.stack_size,
+        }
+    }
+}
+
+impl From<WasiMemoryLayout> for JournalWasiMemoryLayout {
+    fn from(value: WasiMemoryLayout) -> Self {
+        Self {
+            stack_upper: value.stack_upper,
+            stack_lower: value.stack_lower,
+            guard_size: value.guard_size,
+            stack_size: value.stack_size,
+        }
+    }
+}
+
 impl<'a> TryFrom<ArchivedJournalEntry<'a>> for JournalEntry<'a> {
     type Error = anyhow::Error;
 
@@ -600,11 +669,15 @@ impl<'a> TryFrom<ArchivedJournalEntry<'a>> for JournalEntry<'a> {
                 memory_stack,
                 store_data,
                 is_64bit,
+                start,
+                layout,
             }) => Self::SetThreadV1 {
                 id: *id,
                 call_stack: call_stack.as_ref().into(),
                 memory_stack: memory_stack.as_ref().into(),
                 store_data: store_data.as_ref().into(),
+                start: start.into(),
+                layout: layout.into(),
                 is_64bit: *is_64bit,
             },
             ArchivedJournalEntry::CloseThreadV1(ArchivedJournalEntryCloseThreadV1 {

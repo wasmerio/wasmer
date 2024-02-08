@@ -20,6 +20,7 @@ use wasmer::FunctionEnvMut;
 use wasmer_wasix_types::{
     types::Signal,
     wasi::{Errno, ExitCode, Snapshot0Clockid},
+    wasix::ThreadStartType,
 };
 
 use crate::{
@@ -214,6 +215,7 @@ impl WasiProcessInner {
         drop(guard);
 
         // Perform the unwind action
+        let thread_layout = ctx.data().thread.memory_layout().clone();
         unwind::<M, _>(ctx, move |mut ctx, memory_stack, rewind_stack| {
             // Grab all the globals and serialize them
             let store_data = crate::utils::store::capture_store_snapshot(&mut ctx.as_store_mut())
@@ -231,6 +233,7 @@ impl WasiProcessInner {
             );
 
             // Write our thread state to the snapshot
+            let thread_start = ctx.data().thread.thread_start_type();
             let tid = ctx.data().thread.tid();
             if let Err(err) = JournalEffector::save_thread_state::<M>(
                 &mut ctx,
@@ -238,6 +241,8 @@ impl WasiProcessInner {
                 memory_stack.clone(),
                 rewind_stack.clone(),
                 store_data.clone(),
+                thread_start,
+                thread_layout,
             ) {
                 return wasmer_types::OnCalledAction::Trap(err.into());
             }
@@ -373,6 +378,7 @@ impl WasiProcess {
     pub fn new_thread(
         &self,
         layout: WasiMemoryLayout,
+        start: ThreadStartType,
     ) -> Result<WasiThreadHandle, ControlPlaneError> {
         let control_plane = self.compute.must_upgrade();
         let task_count_guard = control_plane.register_task()?;
@@ -401,7 +407,15 @@ impl WasiProcess {
         };
 
         // Insert the thread into the pool
-        let ctrl = WasiThread::new(self.pid(), tid, is_main, finished, task_count_guard, layout);
+        let ctrl = WasiThread::new(
+            self.pid(),
+            tid,
+            is_main,
+            finished,
+            task_count_guard,
+            layout,
+            start,
+        );
         inner.threads.insert(tid, ctrl.clone());
         inner.thread_count += 1;
 

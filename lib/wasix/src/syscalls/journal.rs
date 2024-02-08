@@ -289,6 +289,8 @@ pub unsafe fn restore_snapshot(
                 memory_stack,
                 store_data,
                 is_64bit,
+                start,
+                layout,
             } => {
                 if cur_module_hash != journal_module_hash {
                     continue;
@@ -298,6 +300,8 @@ pub unsafe fn restore_snapshot(
                     memory_stack: memory_stack.to_vec().into(),
                     rewind_stack: call_stack.to_vec().into(),
                     store_data: store_data.to_vec().into(),
+                    start,
+                    layout,
                     is_64bit,
                 };
 
@@ -772,14 +776,38 @@ pub unsafe fn restore_snapshot(
         JournalEffector::apply_tty_set(&mut ctx, state).map_err(anyhow_err_to_runtime_err)?;
     }
 
-    // We do not yet support multi threading
-    if !spawn_threads.is_empty() {
-        return Err(WasiRuntimeError::Runtime(RuntimeError::user(
-            anyhow::format_err!(
-                "Snapshot restoration does not currently support multiple threads."
+    // If the main thread is not being restored then don't bother
+    // attempting to restore the spawned threads either as the
+    // main process is effectively in an exited state
+    if rewind.is_none() {
+        spawn_threads.clear();
+    }
+
+    // Spawn all the threads
+    for (thread_id, thread_state) in spawn_threads {
+        if thread_state.is_64bit {
+            JournalEffector::apply_thread_state::<Memory64>(
+                &mut ctx,
+                thread_id,
+                thread_state.memory_stack,
+                thread_state.rewind_stack,
+                thread_state.store_data,
+                thread_state.start,
+                thread_state.layout,
             )
-            .into(),
-        )));
+            .map_err(anyhow_err_to_runtime_err)?;
+        } else {
+            JournalEffector::apply_thread_state::<Memory32>(
+                &mut ctx,
+                thread_id,
+                thread_state.memory_stack,
+                thread_state.rewind_stack,
+                thread_state.store_data,
+                thread_state.start,
+                thread_state.layout,
+            )
+            .map_err(anyhow_err_to_runtime_err)?;
+        }
     }
 
     Ok(rewind)

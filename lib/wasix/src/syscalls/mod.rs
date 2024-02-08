@@ -29,6 +29,7 @@ use tracing::instrument;
 pub use wasi::*;
 pub use wasix::*;
 use wasmer_journal::SnapshotTrigger;
+use wasmer_wasix_types::wasix::ThreadStartType;
 
 pub mod legacy;
 
@@ -984,12 +985,14 @@ pub(crate) fn deep_sleep<M: MemorySize>(
         .serialize()
         .unwrap();
     let store_data = Bytes::from(store_data);
+    let thread_start = ctx.data().thread.thread_start_type();
 
     // Perform the unwind action
     let tasks = ctx.data().tasks().clone();
     let res = unwind::<M, _>(ctx, move |mut ctx, memory_stack, rewind_stack| {
         let memory_stack = memory_stack.freeze();
         let rewind_stack = rewind_stack.freeze();
+        let thread_layout = ctx.data().thread.memory_layout().clone();
 
         // If journal'ing is enabled then we dump the stack into the journal
         if ctx.data().enable_journal {
@@ -1008,12 +1011,15 @@ pub(crate) fn deep_sleep<M: MemorySize>(
 
             // Write our thread state to the snapshot
             let tid = ctx.data().thread.tid();
+            let thread_start = ctx.data().thread.thread_start_type();
             if let Err(err) = JournalEffector::save_thread_state::<M>(
                 &mut ctx,
                 tid,
                 memory_stack.clone(),
                 rewind_stack.clone(),
                 store_data.clone(),
+                thread_start,
+                thread_layout.clone(),
             ) {
                 return wasmer_types::OnCalledAction::Trap(err.into());
             }
@@ -1046,6 +1052,8 @@ pub(crate) fn deep_sleep<M: MemorySize>(
                 memory_stack,
                 rewind_stack,
                 store_data,
+                start: thread_start,
+                layout: thread_layout,
                 is_64bit: M::is_64bit(),
             },
         })))

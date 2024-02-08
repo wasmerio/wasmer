@@ -13,6 +13,7 @@ use wasmer::{ExportError, InstantiationError, MemoryError};
 use wasmer_wasix_types::{
     types::Signal,
     wasi::{Errno, ExitCode},
+    wasix::ThreadStartType,
 };
 
 use crate::{
@@ -100,6 +101,7 @@ pub struct ThreadStack {
 pub struct WasiThread {
     state: Arc<WasiThreadState>,
     layout: WasiMemoryLayout,
+    start: ThreadStartType,
 
     // This is used for stack rewinds
     rewind: Option<RewindResult>,
@@ -114,6 +116,11 @@ impl WasiThread {
     /// Pops any rewinds that need to take place
     pub(crate) fn take_rewind(&mut self) -> Option<RewindResult> {
         self.rewind.take()
+    }
+
+    /// Gets the thread start type for this thread
+    pub fn thread_start_type(&self) -> ThreadStartType {
+        self.start.clone()
     }
 
     /// Returns true if a rewind of a particular type has been queued
@@ -195,19 +202,7 @@ impl Drop for WasiThreadRunGuard {
 }
 
 /// Represents the memory layout of the parts that the thread itself uses
-#[derive(Debug, Default, Clone)]
-pub struct WasiMemoryLayout {
-    /// This is the top part of the stack (stacks go backwards)
-    pub stack_upper: u64,
-    /// This is the bottom part of the stack (anything more below this is a stack overflow)
-    pub stack_lower: u64,
-    /// Piece of memory that is marked as none readable/writable so stack overflows cause an exception
-    /// TODO: This field will need to be used to mark the guard memory as inaccessible
-    #[allow(dead_code)]
-    pub guard_size: u64,
-    /// Total size of the stack
-    pub stack_size: u64,
-}
+pub use wasmer_wasix_types::wasix::WasiMemoryLayout;
 
 // Contains the result of a rewind operation
 #[derive(Clone, Debug)]
@@ -246,6 +241,7 @@ impl WasiThread {
         status: Arc<OwnedTaskStatus>,
         guard: TaskCountGuard,
         layout: WasiMemoryLayout,
+        start: ThreadStartType,
     ) -> Self {
         Self {
             state: Arc::new(WasiThreadState {
@@ -261,6 +257,7 @@ impl WasiThread {
                 _task_count_guard: guard,
             }),
             layout,
+            start,
             rewind: None,
         }
     }

@@ -20,6 +20,7 @@ use wasmer::{
 use wasmer_wasix_types::{
     types::Signal,
     wasi::{Errno, ExitCode, Snapshot0Clockid},
+    wasix::ThreadStartType,
 };
 
 #[cfg(feature = "journal")]
@@ -373,7 +374,7 @@ impl WasiEnv {
     /// Forking the WasiState is used when either fork or vfork is called
     pub fn fork(&self) -> Result<(Self, WasiThreadHandle), ControlPlaneError> {
         let process = self.control_plane.new_process(self.process.module_hash)?;
-        let handle = process.new_thread(self.layout.clone())?;
+        let handle = process.new_thread(self.layout.clone(), ThreadStartType::MainThread)?;
 
         let thread = handle.as_thread();
         thread.copy_stack_from(&self.thread);
@@ -455,6 +456,7 @@ impl WasiEnv {
             self.process.finished.clone(),
             self.process.compute.must_upgrade().register_task()?,
             self.thread.memory_layout().clone(),
+            self.thread.thread_start_type(),
         );
 
         Ok(())
@@ -497,7 +499,7 @@ impl WasiEnv {
         let thread = if let Some(t) = init.thread {
             t
         } else {
-            process.new_thread(layout.clone())?
+            process.new_thread(layout.clone(), ThreadStartType::MainThread)?
         };
 
         let mut env = Self {

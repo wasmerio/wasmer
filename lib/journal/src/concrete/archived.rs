@@ -451,11 +451,15 @@ impl<'a> JournalEntry<'a> {
                 memory_stack,
                 store_data,
                 is_64bit,
+                start,
+                layout,
             } => serializer.serialize_value(&JournalEntrySetThreadV1 {
                 id,
                 call_stack: call_stack.into(),
                 memory_stack: memory_stack.into(),
                 store_data: store_data.into(),
+                start: start.into(),
+                layout: layout.into(),
                 is_64bit,
             }),
             JournalEntry::CloseThreadV1 { id, exit_code } => {
@@ -955,6 +959,8 @@ pub struct JournalEntrySetThreadV1<'a> {
     pub call_stack: AlignedCowVec<'a, u8>,
     pub memory_stack: AlignedCowVec<'a, u8>,
     pub store_data: AlignedCowVec<'a, u8>,
+    pub start: JournalThreadStartTypeV1,
+    pub layout: JournalWasiMemoryLayout,
     pub is_64bit: bool,
 }
 
@@ -1746,4 +1752,36 @@ pub enum JournalSocketShutdownV1 {
     Read,
     Write,
     Both,
+}
+
+#[repr(C)]
+#[repr(align(8))]
+#[derive(
+    Debug,
+    Clone,
+    Copy,
+    RkyvSerialize,
+    RkyvDeserialize,
+    Archive,
+    PartialOrd,
+    Ord,
+    PartialEq,
+    Eq,
+    Hash,
+)]
+#[archive_attr(derive(CheckBytes), repr(align(8)))]
+pub enum JournalThreadStartTypeV1 {
+    MainThread,
+    ThreadSpawn { start_ptr: u64 },
+}
+
+#[repr(C)]
+#[repr(align(8))]
+#[derive(Debug, Clone, Copy, RkyvSerialize, RkyvDeserialize, Archive, PartialEq, Eq, Hash)]
+#[archive_attr(derive(CheckBytes), repr(align(8)))]
+pub struct JournalWasiMemoryLayout {
+    pub stack_upper: u64,
+    pub stack_lower: u64,
+    pub guard_size: u64,
+    pub stack_size: u64,
 }

@@ -10,6 +10,7 @@ use wasmer_wasix_types::wasi::{
     Filesize, Fstflags, LookupFlags, Oflags, Rights, SiFlags, Snapshot0Clockid, SockProto,
     Sockoption, Socktype, Timestamp, Tty, Whence,
 };
+use wasmer_wasix_types::wasix::{ThreadStartType, WasiMemoryLayout};
 
 use crate::{base64, SnapshotTrigger};
 
@@ -105,6 +106,8 @@ pub enum JournalEntry<'a> {
         #[derivative(Debug = "ignore")]
         #[serde(with = "base64")]
         store_data: Cow<'a, [u8]>,
+        start: ThreadStartType,
+        layout: WasiMemoryLayout,
         is_64bit: bool,
     },
     CloseThreadV1 {
@@ -382,11 +385,15 @@ impl<'a> JournalEntry<'a> {
                 memory_stack,
                 store_data,
                 is_64bit,
+                start,
+                layout,
             } => JournalEntry::SetThreadV1 {
                 id,
                 call_stack: call_stack.into_owned().into(),
                 memory_stack: memory_stack.into_owned().into(),
                 store_data: store_data.into_owned().into(),
+                start,
+                layout,
                 is_64bit,
             },
             Self::CloseThreadV1 { id, exit_code } => JournalEntry::CloseThreadV1 { id, exit_code },
