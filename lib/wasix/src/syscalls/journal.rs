@@ -370,7 +370,9 @@ pub unsafe fn restore_snapshot(
                     continue;
                 }
 
-                rewind = staging_rewind.take();
+                if let Some(new_rewind) = staging_rewind.take() {
+                    rewind.replace(new_rewind);
+                }
                 for thread_id in staging_kill_thread.drain() {
                     spawn_threads.remove(&thread_id);
                 }
