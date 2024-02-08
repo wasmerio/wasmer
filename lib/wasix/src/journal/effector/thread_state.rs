@@ -1,6 +1,6 @@
 use wasmer_wasix_types::wasix::ThreadStartType;
 
-use crate::os::task::thread::WasiMemoryLayout;
+use crate::{os::task::thread::WasiMemoryLayout, syscalls::thread_spawn_internal_phase2};
 
 use super::*;
 
@@ -49,7 +49,12 @@ impl JournalEffector {
         };
 
         // Create the thread for this ID
-        //ctx.data().process.new_thread(layout, start);
+        let thread_handle = ctx.data().process.new_thread_with_id(layout, start, tid)?;
+
+        // Now spawn the thread itself
+        thread_spawn_internal_phase2(&mut ctx, thread_handle, layout, start_ptr)
+            .map_err(|err| anyhow::format_err!("failed to spawn thread"))?;
+
         Ok(())
     }
 }

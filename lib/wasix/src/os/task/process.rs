@@ -384,10 +384,7 @@ impl WasiProcess {
         let task_count_guard = control_plane.register_task()?;
 
         // Determine if its the main thread or not
-        let is_main = {
-            let inner = self.inner.0.lock().unwrap();
-            inner.thread_count == 0
-        };
+        let is_main = matches!(start, ThreadStartType::MainThread);
 
         // Generate a new process ID (this is because the process ID and thread ID
         // address space must not overlap in libc). For the main proecess the TID=PID
@@ -397,6 +394,19 @@ impl WasiProcess {
             let tid: u32 = control_plane.generate_id()?.into();
             tid.into()
         };
+
+        self.new_thread_with_id(layout, start, tid)
+    }
+
+    /// Creates a a thread and returns it
+    pub fn new_thread_with_id(
+        &self,
+        layout: WasiMemoryLayout,
+        start: ThreadStartType,
+        tid: WasiThreadId,
+    ) -> Result<WasiThreadHandle, ControlPlaneError> {
+        let control_plane = self.compute.must_upgrade();
+        let task_count_guard = control_plane.register_task()?;
 
         // The wait finished should be the process version if its the main thread
         let mut inner = self.inner.0.lock().unwrap();
@@ -410,7 +420,7 @@ impl WasiProcess {
         let ctrl = WasiThread::new(
             self.pid(),
             tid,
-            is_main,
+            matches!(start, ThreadStartType::MainThread),
             finished,
             task_count_guard,
             layout,

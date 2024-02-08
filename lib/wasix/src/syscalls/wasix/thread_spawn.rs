@@ -34,7 +34,7 @@ pub fn thread_spawn_v2<M: MemorySize>(
     ret_tid: WasmPtr<Tid, M>,
 ) -> Errno {
     // Create the thread
-    let tid = wasi_try!(thread_spawn_internal(&mut ctx, start_ptr));
+    let tid = wasi_try!(thread_spawn_internal_phase1(&mut ctx, start_ptr));
 
     // Success
     let memory = unsafe { ctx.data().memory_view(&ctx) };
@@ -42,7 +42,7 @@ pub fn thread_spawn_v2<M: MemorySize>(
     Errno::Success
 }
 
-pub(crate) fn thread_spawn_internal<M: MemorySize>(
+pub fn thread_spawn_internal_phase1<M: MemorySize>(
     ctx: &mut FunctionEnvMut<'_, WasiEnv>,
     start_ptr: WasmPtr<ThreadStart<M>, M>,
 ) -> Result<Tid, Errno> {
@@ -52,9 +52,6 @@ pub(crate) fn thread_spawn_internal<M: MemorySize>(
     let runtime = env.runtime.clone();
     let tasks = env.tasks().clone();
     let start_ptr_offset = start_ptr.offset();
-
-    // We extract the memory which will be passed to the thread
-    let thread_memory = unsafe { env.inner() }.memory_clone();
 
     // Read the properties about the stack which we will use for asyncify
     let layout = {
@@ -92,6 +89,19 @@ pub(crate) fn thread_spawn_internal<M: MemorySize>(
     let thread_id: Tid = thread_handle.id().into();
     Span::current().record("tid", thread_id);
 
+    thread_spawn_internal_phase2(ctx, thread_handle)
+}
+
+pub fn thread_spawn_internal_phase2<M: MemorySize>(
+    ctx: &mut FunctionEnvMut<'_, WasiEnv>,
+    thread_handle: Arc<WasiThreadHandle>,
+    layout: WasiMemoryLayout,
+    start_ptr_offset: M::Offset,
+) -> Result<Tid, Errno> {
+    // We extract the memory which will be passed to the thread
+    let env = ctx.data();
+    let thread_memory = unsafe { env.inner() }.memory_clone();
+
     // We capture some local variables
     let state = env.state.clone();
     let mut thread_env = env.clone();
@@ -99,7 +109,7 @@ pub(crate) fn thread_spawn_internal<M: MemorySize>(
     thread_env.layout = layout;
 
     // TODO: Currently asynchronous threading does not work with multi
-    //       threading but it does work for the main thread. This will
+    //       threading in JS but it does work for the main thread. This will
     //       require more work to find out why.
     thread_env.enable_deep_sleep = if cfg!(feature = "js") {
         false
