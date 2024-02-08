@@ -47,6 +47,7 @@ tokio = { version = "1", features = [
     "time",
     "rt",
 ], default_features = false }
+tokio-stream = { version = "0.1", features = [ "sync" ] }
 futures = { version = "0.3" }
 # used by feature='os'
 async-trait = { version = "^0.1" }

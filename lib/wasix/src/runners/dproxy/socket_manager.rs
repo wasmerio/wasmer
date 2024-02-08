@@ -52,6 +52,10 @@ impl SocketManager {
         self.terminate_all.send(()).ok();
     }
 
+    pub fn terminate_rx(&self) -> broadcast::Receiver<()> {
+        self.terminate_all.subscribe()
+    }
+
     pub async fn acquire_http_socket(&self) -> anyhow::Result<TcpSocketHalf> {
         let mut rx_terminate = self.terminate_all.subscribe();
 

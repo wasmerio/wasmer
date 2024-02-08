@@ -1,6 +1,8 @@
 use std::io;
 
+use futures::Stream;
 use hyper::client::connect::Connected;
+use tokio_stream::wrappers::BroadcastStream;
 use virtual_net::tcp_pair::{TcpSocketHalfRx, TcpSocketHalfTx};
 
 use super::*;
@@ -9,6 +11,8 @@ use super::*;
 pub struct HyperProxyStream {
     pub(super) tx: TcpSocketHalfTx,
     pub(super) rx: TcpSocketHalfRx,
+    pub(super) terminate: BroadcastStream<()>,
+    pub(super) terminated: bool,
 }
 
 impl AsyncRead for HyperProxyStream {
@@ -18,7 +22,16 @@ impl AsyncRead for HyperProxyStream {
         cx: &mut Context,
         buf: &mut ReadBuf<'_>,
     ) -> Poll<Result<(), io::Error>> {
-        Pin::new(&mut self.rx).poll_read(cx, buf)
+        if let Poll::Ready(ret) = Pin::new(&mut self.rx).poll_read(cx, buf) {
+            return Poll::Ready(ret);
+        }
+        if self.terminated {
+            return Poll::Ready(Err(io::ErrorKind::ConnectionReset.into()));
+        }
+        if let Poll::Ready(Some(_)) = Pin::new(&mut self.terminate).poll_next(cx) {
+            return Poll::Ready(Err(io::ErrorKind::ConnectionReset.into()));
+        }
+        Poll::Pending
     }
 }
 
@@ -29,12 +42,30 @@ impl AsyncWrite for HyperProxyStream {
         cx: &mut Context<'_>,
         buf: &[u8],
     ) -> Poll<Result<usize, io::Error>> {
-        Pin::new(&mut self.tx).poll_write(cx, buf)
+        if let Poll::Ready(ret) = Pin::new(&mut self.tx).poll_write(cx, buf) {
+            return Poll::Ready(ret);
+        }
+        if self.terminated {
+            return Poll::Ready(Err(io::ErrorKind::ConnectionReset.into()));
+        }
+        if let Poll::Ready(Some(_)) = Pin::new(&mut self.terminate).poll_next(cx) {
+            return Poll::Ready(Err(io::ErrorKind::ConnectionReset.into()));
+        }
+        Poll::Pending
     }
 
     #[inline]
     fn poll_flush(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), io::Error>> {
-        Pin::new(&mut self.tx).poll_flush(cx)
+        if let Poll::Ready(ret) = Pin::new(&mut self.tx).poll_flush(cx) {
+            return Poll::Ready(ret);
+        }
+        if self.terminated {
+            return Poll::Ready(Err(io::ErrorKind::ConnectionReset.into()));
+        }
+        if let Poll::Ready(Some(_)) = Pin::new(&mut self.terminate).poll_next(cx) {
+            return Poll::Ready(Err(io::ErrorKind::ConnectionReset.into()));
+        }
+        Poll::Pending
     }
 
     #[inline]
@@ -42,7 +73,16 @@ impl AsyncWrite for HyperProxyStream {
         mut self: Pin<&mut Self>,
         cx: &mut Context<'_>,
     ) -> Poll<Result<(), io::Error>> {
-        Pin::new(&mut self.tx).poll_shutdown(cx)
+        if let Poll::Ready(ret) = Pin::new(&mut self.tx).poll_shutdown(cx) {
+            return Poll::Ready(ret);
+        }
+        if self.terminated {
+            return Poll::Ready(Err(io::ErrorKind::ConnectionReset.into()));
+        }
+        if let Poll::Ready(Some(_)) = Pin::new(&mut self.terminate).poll_next(cx) {
+            return Poll::Ready(Err(io::ErrorKind::ConnectionReset.into()));
+        }
+        Poll::Pending
     }
 }
 

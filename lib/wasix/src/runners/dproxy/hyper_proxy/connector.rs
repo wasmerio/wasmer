@@ -1,5 +1,7 @@
 use std::sync::Arc;
 
+use tokio_stream::wrappers::BroadcastStream;
+
 use super::socket_manager::SocketManager;
 
 use super::*;
@@ -30,9 +32,15 @@ impl Service<Uri> for HyperProxyConnector {
     fn call(&mut self, _dst: Uri) -> Self::Future {
         let this = self.clone();
         Box::pin(async move {
+            let terminate_rx = this.socket_manager.terminate_rx();
             let socket = this.socket_manager.acquire_http_socket().await?;
             let (tx, rx) = socket.split();
-            Ok(HyperProxyStream { tx, rx })
+            Ok(HyperProxyStream {
+                tx,
+                rx,
+                terminate: BroadcastStream::new(terminate_rx),
+                terminated: false,
+            })
         })
     }
 }
