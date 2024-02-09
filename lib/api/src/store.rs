@@ -1,4 +1,6 @@
 use crate::engine::{AsEngineRef, Engine, EngineRef};
+#[cfg(feature = "sys")]
+use crate::sys::NativeStoreExt;
 use derivative::Derivative;
 use std::{
     fmt,
@@ -7,8 +9,6 @@ use std::{
 #[cfg(feature = "sys")]
 pub use wasmer_compiler::Tunables;
 pub use wasmer_types::{OnCalledAction, StoreId};
-#[cfg(feature = "sys")]
-use wasmer_vm::init_traps;
 #[cfg(feature = "sys")]
 pub use wasmer_vm::TrapHandlerFn;
 
@@ -20,6 +20,15 @@ pub use crate::js::store::{StoreHandle, StoreObjects};
 
 #[cfg(feature = "jsc")]
 pub use crate::jsc::store::{StoreHandle, StoreObjects};
+
+#[cfg(feature = "sys")]
+use crate::sys::store as store_imp;
+
+#[cfg(feature = "js")]
+use crate::js::store as store_imp;
+
+#[cfg(feature = "jsc")]
+use crate::jsc::store as store_imp;
 
 /// Call handler for a store.
 // TODO: better documentation!
@@ -35,10 +44,7 @@ pub type OnCalledHandler = Box<
 pub(crate) struct StoreInner {
     pub(crate) objects: StoreObjects,
     #[derivative(Debug = "ignore")]
-    pub(crate) engine: Engine,
-    #[cfg(feature = "sys")]
-    #[derivative(Debug = "ignore")]
-    pub(crate) trap_handler: Option<Box<TrapHandlerFn<'static>>>,
+    pub(crate) store: store_imp::Store,
     #[derivative(Debug = "ignore")]
     pub(crate) on_called: Option<OnCalledHandler>,
 }
@@ -59,17 +65,10 @@ pub struct Store {
 impl Store {
     /// Creates a new `Store` with a specific [`Engine`].
     pub fn new(engine: impl Into<Engine>) -> Self {
-        // Make sure the signal handlers are installed.
-        // This is required for handling traps.
-        #[cfg(feature = "sys")]
-        init_traps();
-
         Self {
             inner: Box::new(StoreInner {
                 objects: Default::default(),
-                engine: engine.into(),
-                #[cfg(feature = "sys")]
-                trap_handler: None,
+                store: store_imp::Store::new(engine.into()),
                 on_called: None,
             }),
         }
@@ -78,12 +77,12 @@ impl Store {
     #[cfg(feature = "sys")]
     /// Set the trap handler in this store.
     pub fn set_trap_handler(&mut self, handler: Option<Box<TrapHandlerFn<'static>>>) {
-        self.inner.trap_handler = handler;
+        self.inner.store.set_trap_handler(handler)
     }
 
     /// Returns the [`Engine`].
     pub fn engine(&self) -> &Engine {
-        &self.inner.engine
+        self.inner.store.engine()
     }
 
     /// Checks whether two stores are identical. A store is considered
@@ -133,19 +132,19 @@ impl AsStoreMut for Store {
 
 impl AsEngineRef for Store {
     fn as_engine_ref(&self) -> EngineRef<'_> {
-        EngineRef::new(&self.inner.engine)
+        EngineRef::new(&self.inner.store.engine)
     }
 }
 
 impl AsEngineRef for StoreRef<'_> {
     fn as_engine_ref(&self) -> EngineRef<'_> {
-        EngineRef::new(&self.inner.engine)
+        EngineRef::new(&self.inner.store.engine)
     }
 }
 
 impl AsEngineRef for StoreMut<'_> {
     fn as_engine_ref(&self) -> EngineRef<'_> {
-        EngineRef::new(&self.inner.engine)
+        EngineRef::new(&self.inner.store.engine)
     }
 }
 
@@ -168,7 +167,7 @@ impl<'a> StoreRef<'a> {
 
     /// Returns the [`Engine`].
     pub fn engine(&self) -> &Engine {
-        &self.inner.engine
+        &self.inner.store.engine
     }
 
     /// Checks whether two stores are identical. A store is considered
@@ -181,10 +180,7 @@ impl<'a> StoreRef<'a> {
     #[cfg(feature = "sys")]
     #[inline]
     pub fn signal_handler(&self) -> Option<*const TrapHandlerFn<'static>> {
-        self.inner
-            .trap_handler
-            .as_ref()
-            .map(|handler| handler.as_ref() as *const _)
+        self.inner.store.signal_handler()
     }
 }
 
@@ -196,7 +192,7 @@ pub struct StoreMut<'a> {
 impl<'a> StoreMut<'a> {
     /// Returns the [`Engine`].
     pub fn engine(&self) -> &Engine {
-        &self.inner.engine
+        &self.inner.store.engine
     }
 
     /// Checks whether two stores are identical. A store is considered
@@ -207,7 +203,7 @@ impl<'a> StoreMut<'a> {
 
     #[allow(unused)]
     pub(crate) fn engine_and_objects_mut(&mut self) -> (&Engine, &mut StoreObjects) {
-        (&self.inner.engine, &mut self.inner.objects)
+        (&self.inner.store.engine, &mut self.inner.objects)
     }
 
     pub(crate) fn as_raw(&self) -> *mut StoreInner {

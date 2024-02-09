@@ -1,6 +1,14 @@
 pub(crate) use objects::{InternalStoreHandle, StoreObject};
 pub use objects::{StoreHandle, StoreObjects};
 
+pub(crate) struct Store;
+
+impl Store {
+    pub(crate) fn new(_engine: crate::engine::Engine) -> Self {
+        Self
+    }
+}
+
 mod objects {
     use std::{fmt, marker::PhantomData, num::NonZeroUsize};
 

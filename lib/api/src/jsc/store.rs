@@ -1,6 +1,14 @@
 pub(crate) use objects::{InternalStoreHandle, StoreObject};
 pub use objects::{StoreHandle, StoreObjects};
 
+pub(crate) struct Store;
+
+impl Store {
+    pub(crate) fn new(_engine: crate::engine::Engine) -> Self {
+        Self
+    }
+}
+
 mod objects {
     use rusty_jsc::{JSContext, JSObject, JSValue};
 
@@ -44,7 +52,7 @@ mod objects {
     }
 
     /// Set of objects managed by a context.
-    #[derive(Default, Debug)]
+    #[derive(Debug)]
     pub struct StoreObjects {
         id: StoreId,
         globals: Vec<VMGlobal>,
