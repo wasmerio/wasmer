@@ -68,7 +68,7 @@ mod objects {
     }
 
     /// Set of objects managed by a context.
-    #[derive(Debug)]
+    #[derive(Default, Debug)]
     pub struct StoreObjects {
         id: StoreId,
         globals: Vec<VMGlobal>,
