@@ -1,6 +1,4 @@
 use crate::engine::{AsEngineRef, Engine, EngineRef};
-use wasmer_vm::init_traps;
-use wasmer_vm::TrapHandlerFn;
 
 pub(crate) use objects::{InternalStoreHandle, StoreObject};
 pub use objects::{StoreHandle, StoreObjects};
