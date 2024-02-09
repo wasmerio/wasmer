@@ -132,19 +132,19 @@ impl AsStoreMut for Store {
 
 impl AsEngineRef for Store {
     fn as_engine_ref(&self) -> EngineRef<'_> {
-        EngineRef::new(&self.inner.store.engine)
+        self.inner.store.as_engine_ref()
     }
 }
 
 impl AsEngineRef for StoreRef<'_> {
     fn as_engine_ref(&self) -> EngineRef<'_> {
-        EngineRef::new(&self.inner.store.engine)
+        self.inner.store.as_engine_ref()
     }
 }
 
 impl AsEngineRef for StoreMut<'_> {
     fn as_engine_ref(&self) -> EngineRef<'_> {
-        EngineRef::new(&self.inner.store.engine)
+        self.inner.store.as_engine_ref()
     }
 }
 

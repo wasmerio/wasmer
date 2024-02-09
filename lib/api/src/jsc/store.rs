@@ -1,4 +1,7 @@
-pub use crate::engine::Engine;
+use crate::engine::{AsEngineRef, Engine, EngineRef};
+use wasmer_vm::init_traps;
+use wasmer_vm::TrapHandlerFn;
+
 pub(crate) use objects::{InternalStoreHandle, StoreObject};
 pub use objects::{StoreHandle, StoreObjects};
 
@@ -13,6 +16,12 @@ impl Store {
 
     pub(crate) fn engine(&self) -> &Engine {
         &self.engine
+    }
+}
+
+impl AsEngineRef for Store {
+    fn as_engine_ref(&self) -> EngineRef<'_> {
+        EngineRef::new(&self.engine)
     }
 }
 
