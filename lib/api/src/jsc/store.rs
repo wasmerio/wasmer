@@ -1,11 +1,14 @@
+pub use crate::engine::Engine;
 pub(crate) use objects::{InternalStoreHandle, StoreObject};
 pub use objects::{StoreHandle, StoreObjects};
 
-pub(crate) struct Store;
+pub(crate) struct Store {
+    pub(crate) engine: Engine,
+}
 
 impl Store {
-    pub(crate) fn new(_engine: crate::engine::Engine) -> Self {
-        Self
+    pub(crate) fn new(engine: Engine) -> Self {
+        Self { engine }
     }
 }
 
