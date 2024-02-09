@@ -18,7 +18,6 @@ impl Store {
         }
     }
 
-    /// Returns the [`Engine`].
     pub(crate) fn engine(&self) -> &Engine {
         &self.engine
     }

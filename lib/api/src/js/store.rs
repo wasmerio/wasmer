@@ -10,6 +10,10 @@ impl Store {
     pub(crate) fn new(engine: Engine) -> Self {
         Self { engine }
     }
+
+    pub(crate) fn engine(&self) -> &Engine {
+        &self.engine
+    }
 }
 
 mod objects {
