@@ -8,9 +8,7 @@ use wasmer::*;
 fn module_get_name() -> Result<(), String> {
     let store = Store::default();
     let wat = r#"(module)"#;
-    let module = Module::new(&store, wat)
-        .map_err(|e| format!("{e:?}"))
-        .map_err(|e| format!("{e:?}"))?;
+    let module = Module::new(&store, wat).map_err(|e| format!("{e:?}"))?;
     assert_eq!(module.name(), None);
 
     Ok(())
