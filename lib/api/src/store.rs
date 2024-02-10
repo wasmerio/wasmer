@@ -134,6 +134,10 @@ impl AsEngineRef for Store {
     fn as_engine_ref(&self) -> EngineRef<'_> {
         self.inner.store.as_engine_ref()
     }
+
+    fn maybe_as_store(&self) -> Option<StoreRef<'_>> {
+        Some(self.as_store_ref())
+    }
 }
 
 impl AsEngineRef for StoreRef<'_> {

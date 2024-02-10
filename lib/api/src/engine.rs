@@ -6,6 +6,7 @@ use crate::sys::engine as engine_imp;
 pub(crate) use crate::sys::engine::default_engine;
 #[cfg(feature = "sys")]
 use crate::IntoBytes;
+use crate::StoreRef;
 #[cfg(feature = "sys")]
 use shared_buffer::OwnedBuffer;
 #[cfg(feature = "sys")]
@@ -148,6 +149,11 @@ impl<'a> EngineRef<'a> {
 pub trait AsEngineRef {
     /// Returns a `EngineRef` pointing to the underlying context.
     fn as_engine_ref(&self) -> EngineRef<'_>;
+
+    /// Returns an optional `StoreRef` is the passed reference is a `Store`.
+    fn maybe_as_store(&self) -> Option<StoreRef<'_>> {
+        None
+    }
 }
 
 impl AsEngineRef for EngineRef<'_> {
@@ -165,5 +171,9 @@ where
     #[inline]
     fn as_engine_ref(&self) -> EngineRef<'_> {
         (**self).as_engine_ref()
+    }
+
+    fn maybe_as_store(&self) -> Option<StoreRef<'_>> {
+        (**self).maybe_as_store()
     }
 }
