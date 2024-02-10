@@ -121,6 +121,22 @@ jobs:
         run: |
           make test-js
 
+  test_wasi_fyi:
+    name: Test wasi-fyi
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v3
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: ${{ env.MSRV }}
+      - name: Install wasm-pack
+        run: |
+          curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
+      - name: make test-wasi-fyi
+        run: |
+          make test-wasi-fyi
+
       # The no_std functionality doesn't work at the moment - no point in testing it.
       # - name: make test-js-core
       #   run: |
