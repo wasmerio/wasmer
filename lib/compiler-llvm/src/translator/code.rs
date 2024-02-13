@@ -26,8 +26,8 @@ use crate::config::{CompiledKind, LLVM};
 use crate::object_file::{load_object_file, CompiledFunction};
 use wasmer_compiler::wasmparser::{MemArg, Operator};
 use wasmer_compiler::{
-    from_binaryreadererror_wasmerror, wptype_to_type, FunctionBinaryReader, FunctionBodyData,
-    MiddlewareBinaryReader, ModuleMiddlewareChain, ModuleTranslationState,
+    from_binaryreadererror_wasmerror, wpheaptype_to_type, wptype_to_type, FunctionBinaryReader,
+    FunctionBodyData, MiddlewareBinaryReader, ModuleMiddlewareChain, ModuleTranslationState,
 };
 use wasmer_types::entity::PrimaryMap;
 use wasmer_types::{
@@ -1439,7 +1439,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
 
                 let phis: SmallVec<[PhiValue<'ctx>; 1]> = self
                     .module_translation
-                    .blocktype_params_results(blockty)?
+                    .blocktype_params_results(&blockty)?
                     .1
                     .iter()
                     .map(|&wp_ty| {
@@ -1463,7 +1463,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 self.builder.build_unconditional_branch(loop_body);
 
                 self.builder.position_at_end(loop_next);
-                let blocktypes = self.module_translation.blocktype_params_results(blockty)?;
+                let blocktypes = self.module_translation.blocktype_params_results(&blockty)?;
                 let phis = blocktypes
                     .1
                     .iter()
@@ -1671,7 +1671,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
 
                     let phis = self
                         .module_translation
-                        .blocktype_params_results(blockty)?
+                        .blocktype_params_results(&blockty)?
                         .1
                         .iter()
                         .map(|&wp_ty| {
@@ -1702,7 +1702,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 self.builder.position_at_end(if_else_block);
                 let block_param_types = self
                     .module_translation
-                    .blocktype_params_results(blockty)?
+                    .blocktype_params_results(&blockty)?
                     .0
                     .iter()
                     .map(|&wp_ty| {
@@ -11146,8 +11146,8 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
              * Reference types.
              * https://github.com/WebAssembly/reference-types/blob/master/proposals/reference-types/Overview.md
              ***************************/
-            Operator::RefNull { ty } => {
-                let ty = wptype_to_type(ty).map_err(to_compile_error)?;
+            Operator::RefNull { hty } => {
+                let ty = wpheaptype_to_type(hty).map_err(to_compile_error)?;
                 let ty = type_to_llvm(self.intrinsics, ty)?;
                 self.state.push1(ty.const_zero());
             }

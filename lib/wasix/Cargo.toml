@@ -54,7 +54,7 @@ async-trait = { version = "^0.1" }
 urlencoding = { version = "^2" }
 serde_derive = { version = "^1" }
 serde_json = { version = "^1" }
-serde_yaml = { version = "^0.8" }
+serde_yaml = { version = "^0.9" }
 weezl = { version = "^0.1" }
 hex = { version = "^0.4" }
 term_size = { version = "0.3" }

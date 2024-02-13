@@ -1,22 +1,19 @@
 use std::{net::TcpListener, path::PathBuf, str::FromStr, time::Duration};
 
 use anyhow::Ok;
-
 use clap::Parser;
 #[cfg(not(test))]
 use dialoguer::{console::style, Input};
+use hyper::{
+    service::{make_service_fn, service_fn},
+    Body, Request, Response, Server, StatusCode,
+};
 use reqwest::Method;
-
 use serde::Deserialize;
 use wasmer_registry::{
     types::NewNonceOutput,
     wasmer_env::{Registry, WasmerEnv, WASMER_DIR},
     RegistryClient,
-};
-
-use hyper::{
-    service::{make_service_fn, service_fn},
-    Body, Request, Response, Server, StatusCode,
 };
 
 const WASMER_CLI: &str = "wasmer-cli";

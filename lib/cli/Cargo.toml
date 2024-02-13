@@ -25,143 +25,6 @@ path = "src/bin/wasmer_headless.rs"
 doc = false
 required-features = ["headless"]
 
-[dependencies]
-# Repo-local dependencies.
-wasmer = { version = "=4.2.5", path = "../api", default-features = false }
-wasmer-compiler = { version = "=4.2.5", path = "../compiler", features = [
-  "compiler",
-], optional = true }
-wasmer-compiler-cranelift = { version = "=4.2.5", path = "../compiler-cranelift", optional = true }
-wasmer-compiler-singlepass = { version = "=4.2.5", path = "../compiler-singlepass", optional = true }
-wasmer-compiler-llvm = { version = "=4.2.5", path = "../compiler-llvm", optional = true }
-wasmer-emscripten = { version = "=4.2.5", path = "../emscripten" }
-wasmer-vm = { version = "=4.2.5", path = "../vm", optional = true }
-wasmer-wasix = { version = "0.18.0", path = "../wasix", features = [
-  "logging",
-  "webc_runner_rt_wcgi",
-  "webc_runner_rt_dcgi",
-  "webc_runner_rt_dproxy",
-  "webc_runner_rt_emscripten",
-  "host-fs",
-] }
-wasmer-wasix-experimental-io-devices = { version = "0.18.0", path = "../wasi-experimental-io-devices", optional = true, features = [
-  "link_external_libs",
-] }
-wasmer-wast = { version = "=4.2.5", path = "../../tests/lib/wast", optional = true }
-wasmer-cache = { version = "=4.2.5", path = "../cache", features = [
-  "blake3-pure",
-] }
-wasmer-types = { version = "=4.2.5", path = "../types", features = [
-  "enable-serde",
-] }
-wasmer-registry = { version = "5.10.1", path = "../registry", features = [
-  "build-package",
-  "clap", 
-] }
-wasmer-object = { version = "=4.2.5", path = "../object", optional = true }
-virtual-fs = { version = "0.11.0", path = "../virtual-fs", default-features = false, features = [
-  "host-fs",
-] }
-virtual-net = { version = "0.6.2", path = "../virtual-net" }
-
-# Wasmer-owned dependencies.
-webc = { workspace = true }
-wasmer-edge-cli = { version = "=0.1.4", default-features = false }
-
-# Used by the mount command
-shared-buffer = { workspace = true, optional = true }
-rkyv = { workspace = true, optional = true }
-fuse = { version = "0.3", optional = true }
-time = { version = "0.1.45", optional = true }
-
-# Third-party dependencies.
-is-terminal = "0.4.7"
-colored = "2.0"
-anyhow = "1.0"
-spinoff = "0.5.4"
-
-# For the function names autosuggestion
-distance = "0.4"
-# For the inspect subcommand
-bytesize = "1.0"
-cfg-if = "1.0"
-tempfile = "3.6.0"
-serde = { version = "1.0.147", features = ["derive"] }
-dirs = { version = "4.0" }
-serde_json = { version = "1.0" }
-target-lexicon = { version = "0.12", features = ["std"] }
-prettytable-rs = "0.10.0"
-wasmer-toml = { workspace = true }
-indexmap = "1.9.2"
-walkdir = "2.3.2"
-regex = "1.6.0"
-toml = "0.5.9"
-url = "2.3.1"
-libc = { version = "^0.2", default-features = false }
-dialoguer = "0.10.2"
-tldextract = "0.6.0"
-hex = "0.4.3"
-flate2 = "1.0.25"
-cargo_metadata = "0.15.2"
-tar = "0.4.38"
-bytes = "1"
-thiserror = "1.0.37"
-log = "0.4.17"
-semver = "1.0.14"
-pathdiff = "0.2.1"
-sha2 = "0.10.6"
-object = "0.30.0"
-wasm-coredump-builder = { version = "0.1.11", optional = true }
-tracing = { version = "0.1" }
-tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt"] }
-async-trait = "0.1.68"
-tokio = { version = "1.28.1", features = ["macros", "rt-multi-thread"] }
-once_cell = "1.17.1"
-indicatif = "0.17.7"
-opener = "0.6.1"
-hyper = { version = "0.14.27", features = ["server"] }
-http = "0.2.9"
-futures = "0.3.29"
-humantime = "2.1.0"
-
-# NOTE: Must use different features for clap because the "color" feature does not
-# work on wasi due to the anstream dependency not compiling.
-[target.'cfg(not(target_family = "wasm"))'.dependencies]
-clap = { version = "4.2.7", features = ["derive", "env"] }
-[target.'cfg(target_family = "wasm")'.dependencies]
-clap = { version = "4.2.7", default-features = false, features = [
-  "std",
-  "help",
-  "usage",
-  "error-context",
-  "suggestions",
-  "derive",
-  "env",
-] }
-
-[target.'cfg(not(target_arch = "riscv64"))'.dependencies]
-reqwest = { version = "^0.11", default-features = false, features = [
-  "rustls-tls",
-  "json",
-  "multipart",
-] }
-
-[target.'cfg(target_arch = "riscv64")'.dependencies]
-reqwest = { version = "^0.11", default-features = false, features = [
-  "native-tls",
-  "json",
-  "multipart",
-] }
-
-[build-dependencies]
-chrono = { version = "^0.4", default-features = false, features = [
-  "std",
-  "clock",
-] }
-
-[target.'cfg(target_os = "linux")'.dependencies]
-unix_mode = "0.1.3"
-
 [features]
 # Don't add the compiler features in default, please add them on the Makefile
 # since we might want to autoconfigure them depending on the availability on the host.
@@ -175,8 +38,11 @@ default = [
   "wasmer-artifact-create",
   "static-artifact-create",
 ]
+
+# Tun-tap client for connecting to Wasmer Edge VPNs
+tun-tap = ["dep:tun-tap", "virtual-net/tokio-tungstenite", "tokio-tungstenite", "mio", "futures-util",  "mac_address", "dep:interfaces"]
 journal = ["wasmer-wasix/journal"]
-fuse = ["dep:fuse", "dep:time", "dep:shared-buffer", "dep:rkyv"]
+fuse = ["dep:fuse", "dep:time01", "dep:shared-buffer", "dep:rkyv"]
 backend = []
 coredump = ["wasm-coredump-builder"]
 sys = ["compiler", "wasmer-vm"]
@@ -199,6 +65,163 @@ headless-minimal = ["headless", "disable-all-logging"]
 
 # Optional
 enable-serde = ["wasmer/enable-serde", "wasmer-vm/enable-serde", "wasmer-compiler/enable-serde", "wasmer-wasix/enable-serde"]
+
+[dependencies]
+# Repo-local dependencies.
+
+wasmer = { version = "=4.2.5", path = "../api", default-features = false }
+wasmer-compiler = { version = "=4.2.5", path = "../compiler", features = [
+  "compiler",
+], optional = true }
+wasmer-compiler-cranelift = { version = "=4.2.5", path = "../compiler-cranelift", optional = true }
+wasmer-compiler-singlepass = { version = "=4.2.5", path = "../compiler-singlepass", optional = true }
+wasmer-compiler-llvm = { version = "=4.2.5", path = "../compiler-llvm", optional = true }
+wasmer-emscripten = { version = "=4.2.5", path = "../emscripten" }
+wasmer-vm = { version = "=4.2.5", path = "../vm", optional = true }
+wasmer-wasix = { version = "0.18.0", path = "../wasix", features = [
+  "logging",
+  "webc_runner_rt_wcgi",
+  "webc_runner_rt_dcgi",
+  "webc_runner_rt_dproxy",
+  "webc_runner_rt_emscripten",
+  "host-fs",
+] }
+wasmer-wasix-experimental-io-devices = { version = "0.18.0", path = "../wasi-experimental-io-devices", optional = true, features = [
+  "link_external_libs",
+] }
+wasmer-wast = { version = "=4.2.5", path = "../../tests/lib/wast", optional = true }
+wasmer-types = { version = "=4.2.5", path = "../types", features = [
+  "enable-serde",
+] }
+wasmer-registry = { version = "5.10.1", path = "../registry", features = [
+  "build-package",
+  "clap",
+] }
+wasmer-object = { version = "=4.2.5", path = "../object", optional = true }
+virtual-fs = { version = "0.11.0", path = "../virtual-fs", default-features = false, features = [
+  "host-fs",
+] }
+virtual-net = { version = "0.6.2", path = "../virtual-net" }
+virtual-mio = { version = "0.3.0", path = "../virtual-io" }
+
+# Wasmer-owned dependencies.
+
+webc = { workspace = true }
+wasmer-api = { version = "=0.0.23", path = "../backend-api" }
+edge-schema = { version = "=0.0.2" }
+edge-util = { version = "=0.0.1" }
+
+# Used by the mount command
+
+shared-buffer = { workspace = true, optional = true }
+rkyv = { workspace = true, optional = true }
+fuse = { version = "0.3", optional = true }
+time01 = { package = "time", version = "0.1.45", optional = true }
+
+
+# Third-party dependencies.
+
+is-terminal = "0.4.7"
+colored = "2.0"
+anyhow = "1.0"
+
+# For the inspect subcommand
+bytesize = "1.0"
+cfg-if = "1.0"
+tempfile = "3.6.0"
+serde = { version = "1.0.147", features = ["derive"] }
+dirs = { version = "4.0" }
+serde_json = { version = "1.0" }
+target-lexicon = { version = "0.12", features = ["std"] }
+wasmer-toml = { workspace = true }
+indexmap = "1.9.2"
+walkdir = "2.3.2"
+regex = "1.6.0"
+toml = "0.5.9"
+url = "2.3.1"
+libc = { version = "^0.2", default-features = false }
+parking_lot = "0.12"
+dialoguer = "0.11.0"
+tldextract = "0.6.0"
+hex = "0.4.3"
+flate2 = "1.0.25"
+cargo_metadata = "0.15.2"
+tar = "0.4.38"
+bytes = "1"
+thiserror = "1.0.37"
+log = "0.4.17"
+semver = "1.0.14"
+pathdiff = "0.2.1"
+sha2 = "0.10.6"
+object = "0.32.0"
+wasm-coredump-builder = { version = "0.1.11", optional = true }
+tracing = { version = "0.1" }
+tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt", "json"] }
+async-trait = "0.1.68"
+tokio = { version = "1.28.1", features = ["macros", "rt-multi-thread"] }
+once_cell = "1.17.1"
+indicatif = "0.17.5"
+opener = "0.6.1"
+hyper = { version = "0.14.27", features = ["server"] }
+http = "0.2.9"
+futures = "0.3.29"
+humantime = "2.1.0"
+interfaces = { version = "0.0.9", optional = true }
+
+uuid = { version = "1.3.0", features = ["v4"] }
+time = { version = "0.3.17", features = ["macros"] }
+serde_yaml = "0.8.26"
+comfy-table = "7.0.1"
+
+
+# Used by tuntap and connect
+futures-util = { version = "0.3", optional = true }
+mio = { version = "0.8", optional = true }
+tokio-tungstenite = { version = "0.20.1", features = [
+    "rustls-tls-webpki-roots",
+], optional = true }
+mac_address = { version = "1.1.5", optional = true }
+tun-tap = { version = "0.1.3", features = ["tokio"], optional = true }
+
+# NOTE: Must use different features for clap because the "color" feature does not
+# work on wasi due to the anstream dependency not compiling.
+[target.'cfg(not(target_family = "wasm"))'.dependencies]
+clap = { version = "4.2.7", features = ["derive", "env"] }
+[target.'cfg(target_family = "wasm")'.dependencies]
+clap = { version = "4.2.7", default-features = false, features = [
+  "std",
+  "help",
+  "usage",
+  "error-context",
+  "suggestions",
+  "derive",
+  "env",
+] }
+
+[target.'cfg(not(target_arch = "riscv64"))'.dependencies]
+reqwest = { version = "^0.11", default-features = false, features = [
+  "rustls-tls",
+  "json",
+  "multipart",
+  "gzip",
+] }
+
+[target.'cfg(target_arch = "riscv64")'.dependencies]
+reqwest = { version = "^0.11", default-features = false, features = [
+  "native-tls",
+  "json",
+  "multipart",
+] }
+
+[build-dependencies]
+chrono = { version = "^0.4", default-features = false, features = [
+  "std",
+  "clock",
+] }
+
+[target.'cfg(target_os = "linux")'.dependencies]
+unix_mode = "0.1.3"
+
 
 [dev-dependencies]
 assert_cmd = "2.0.11"

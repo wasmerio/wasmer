@@ -1,14 +1,13 @@
 #![allow(dead_code)]
 //! Create a standalone native executable for a given Wasm file.
 
-use crate::store::CompilerOptions;
+use std::{env, path::PathBuf};
+
 use anyhow::{Context, Result};
 use clap::Parser;
-use std::env;
-
-use std::path::PathBuf;
-
 use wasmer::*;
+
+use crate::store::CompilerOptions;
 
 #[derive(Debug, Parser)]
 /// The options for the `wasmer create-exe` subcommand

@@ -1,4 +1,4 @@
-use wasmer_edge_cli::cmd::AsyncCliCommand;
+use crate::commands::CliCommand;
 
 mod compact;
 mod export;
@@ -34,16 +34,18 @@ pub enum CmdJournal {
     Mount(CmdJournalMount),
 }
 
-impl AsyncCliCommand for CmdJournal {
-    fn run_async(self) -> futures::future::BoxFuture<'static, Result<(), anyhow::Error>> {
+impl CliCommand for CmdJournal {
+    type Output = ();
+
+    fn run(self) -> Result<(), anyhow::Error> {
         match self {
-            Self::Compact(cmd) => cmd.run_async(),
-            Self::Import(cmd) => cmd.run_async(),
-            Self::Export(cmd) => cmd.run_async(),
-            Self::Inspect(cmd) => cmd.run_async(),
-            Self::Filter(cmd) => cmd.run_async(),
+            Self::Compact(cmd) => cmd.run(),
+            Self::Import(cmd) => cmd.run(),
+            Self::Export(cmd) => cmd.run(),
+            Self::Inspect(cmd) => cmd.run(),
+            Self::Filter(cmd) => cmd.run(),
             #[cfg(feature = "fuse")]
-            Self::Mount(cmd) => cmd.run_async(),
+            Self::Mount(cmd) => cmd.run(),
         }
     }
 }

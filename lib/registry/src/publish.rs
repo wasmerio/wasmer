@@ -23,6 +23,49 @@ use std::time::Duration;
 static UPLOAD: Emoji<'_, '_> = Emoji("⬆️ ", "");
 static PACKAGE: Emoji<'_, '_> = Emoji("📦", "");
 
+/// Different conditions that can be "awaited" when publishing a package.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct PublishWait {
+    pub container: bool,
+    pub native_executables: bool,
+    pub bindings: bool,
+
+    pub timeout: Option<Duration>,
+}
+
+impl PublishWait {
+    pub fn is_any(self) -> bool {
+        self.container || self.native_executables || self.bindings
+    }
+
+    pub fn new_none() -> Self {
+        Self {
+            container: false,
+            native_executables: false,
+            bindings: false,
+            timeout: None,
+        }
+    }
+
+    pub fn new_all() -> Self {
+        Self {
+            container: true,
+            native_executables: true,
+            bindings: true,
+            timeout: None,
+        }
+    }
+
+    pub fn new_container() -> Self {
+        Self {
+            container: true,
+            native_executables: false,
+            bindings: false,
+            timeout: None,
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
 pub enum SignArchiveResult {
     Ok {
@@ -33,7 +76,7 @@ pub enum SignArchiveResult {
 }
 
 #[allow(clippy::too_many_arguments)]
-pub async fn try_chunked_uploading(
+pub fn try_chunked_uploading(
     registry: Option<String>,
     token: Option<String>,
     package: &wasmer_toml::Package,
@@ -45,7 +88,7 @@ pub async fn try_chunked_uploading(
     maybe_signature_data: &SignArchiveResult,
     archived_data_size: u64,
     quiet: bool,
-    wait: bool,
+    wait: PublishWait,
     timeout: Duration,
 ) -> Result<(), anyhow::Error> {
     let (registry, token) = initialize_registry_and_token(registry, token)?;
@@ -81,7 +124,7 @@ pub async fn try_chunked_uploading(
             signature: maybe_signature_data,
             signed_url: Some(signed_url.url),
             private: Some(package.private),
-            wait: Some(wait),
+            wait: Some(wait.is_any()),
         });
 
     let response: publish_package_mutation_chunked::ResponseData =
@@ -91,14 +134,20 @@ pub async fn try_chunked_uploading(
         if !pkg.success {
             return Err(anyhow::anyhow!("Could not publish package"));
         }
-        if wait {
-            wait_for_package_version_to_become_ready(
+        if wait.is_any() {
+            let f = wait_for_package_version_to_become_ready(
                 &registry,
                 &token,
                 pkg.package_version.id,
                 quiet,
-            )
-            .await?;
+                wait,
+            );
+
+            if let Ok(handle) = tokio::runtime::Handle::try_current() {
+                handle.block_on(f)?
+            } else {
+                tokio::runtime::Runtime::new().unwrap().block_on(f)?;
+            }
         }
     }
 
@@ -381,6 +430,7 @@ async fn wait_for_package_version_to_become_ready(
     token: &str,
     package_version_id: impl AsRef<str>,
     quiet: bool,
+    mut conditions: PublishWait,
 ) -> Result<()> {
     let (mut stream, _client) =
         subscribe_package_version_ready(registry, token, package_version_id.as_ref()).await?;
@@ -391,20 +441,56 @@ async fn wait_for_package_version_to_become_ready(
         show_spinners_while_waiting(&state);
     }
 
-    while let Some(data) = stream.next().await {
+    if !conditions.is_any() {
+        return Ok(());
+    }
+
+    let deadline = conditions
+        .timeout
+        .map(|x| std::time::Instant::now() + x)
+        .unwrap_or_else(|| std::time::Instant::now() + std::time::Duration::from_secs(60 * 10));
+
+    loop {
+        if !conditions.is_any() {
+            break;
+        }
+        if std::time::Instant::now() > deadline {
+            return Err(anyhow::anyhow!(
+                "Timed out waiting for package version to become ready"
+            ));
+        }
+
+        let data = match tokio::time::timeout_at(deadline.into(), stream.next()).await {
+            Err(_) => {
+                return Err(anyhow::anyhow!(
+                    "Timed out waiting for package version to become ready"
+                ))
+            }
+            Ok(None) => {
+                break;
+            }
+            Ok(Some(data)) => data,
+        };
+
         if let Some(res_data) = data.unwrap().data {
             match res_data.package_version_ready.state {
                 PackageVersionState::BINDINGS_GENERATED => {
                     let mut st = state.bindings_generated.lock().unwrap();
-                    *st = Some(res_data.package_version_ready.success);
+                    let is_ready = res_data.package_version_ready.success;
+                    *st = Some(is_ready);
+                    conditions.bindings = false;
                 }
                 PackageVersionState::NATIVE_EXES_GENERATED => {
                     let mut st = state.native_exes_generated.lock().unwrap();
                     *st = Some(res_data.package_version_ready.success);
+
+                    conditions.native_executables = false;
                 }
                 PackageVersionState::WEBC_GENERATED => {
                     let mut st = state.webc_generated.lock().unwrap();
                     *st = Some(res_data.package_version_ready.success);
+
+                    conditions.container = false;
                 }
                 PackageVersionState::Other(_) => {}
             }

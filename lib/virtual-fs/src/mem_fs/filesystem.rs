@@ -1541,11 +1541,13 @@ mod test_filesystem {
                     modified,
                     len: 0
                 }) if
-                    accessed == foo_metadata.accessed &&
-                    created == foo_metadata.created &&
+                    accessed <= foo_metadata.accessed &&
+                    created <= foo_metadata.created &&
                     modified > foo_metadata.modified
             ),
-            "the modified time of the parent is updated when file is renamed",
+            "the modified time of the parent is updated when file is renamed \n{:?}\n{:?}",
+            fs.metadata(path!("/")),
+            foo_metadata,
         );
     }
 

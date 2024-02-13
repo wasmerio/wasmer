@@ -185,10 +185,10 @@ impl JournalFileSystem {
                     ino,
                     size: meta.len,
                     blocks: (1u64.max(meta.len) - 1 / 512) + 1,
-                    atime: time::Timespec::new(meta.accessed as i64, 0),
-                    mtime: time::Timespec::new(meta.modified as i64, 0),
-                    ctime: time::Timespec::new(meta.created as i64, 0),
-                    crtime: time::Timespec::new(meta.created as i64, 0),
+                    atime: time01::Timespec::new(meta.accessed as i64, 0),
+                    mtime: time01::Timespec::new(meta.modified as i64, 0),
+                    ctime: time01::Timespec::new(meta.created as i64, 0),
+                    crtime: time01::Timespec::new(meta.created as i64, 0),
                     kind: file_type_to_kind(meta.ft),
                     perm: 0o644,
                     nlink: 1,
@@ -380,7 +380,7 @@ impl Filesystem for JournalFileSystem {
         };
 
         match self.attr(path) {
-            Ok(meta) => reply.entry(&time::Timespec::new(1, 0), &meta, 0),
+            Ok(meta) => reply.entry(&time01::Timespec::new(1, 0), &meta, 0),
             Err(err) => {
                 tracing::trace!("fs::lookup err={err}");
                 reply.error(err)
@@ -399,7 +399,7 @@ impl Filesystem for JournalFileSystem {
         };
 
         match self.attr(path) {
-            Ok(meta) => reply.attr(&time::Timespec::new(1, 0), &meta),
+            Ok(meta) => reply.attr(&time01::Timespec::new(1, 0), &meta),
             Err(err) => reply.error(err),
         }
     }
@@ -412,12 +412,12 @@ impl Filesystem for JournalFileSystem {
         _uid: Option<u32>,
         _gid: Option<u32>,
         size: Option<u64>,
-        _atime: Option<time::Timespec>,
-        _mtime: Option<time::Timespec>,
+        _atime: Option<time01::Timespec>,
+        _mtime: Option<time01::Timespec>,
         fh: Option<u64>,
-        _crtime: Option<time::Timespec>,
-        _chgtime: Option<time::Timespec>,
-        _bkuptime: Option<time::Timespec>,
+        _crtime: Option<time01::Timespec>,
+        _chgtime: Option<time01::Timespec>,
+        _bkuptime: Option<time01::Timespec>,
         _flags: Option<u32>,
         reply: ReplyAttr,
     ) {
@@ -450,10 +450,10 @@ impl Filesystem for JournalFileSystem {
                         ino,
                         size: file.size(),
                         blocks: (1u64.max(file.size()) - 1 / 512) + 1,
-                        atime: time::Timespec::new(file.last_accessed() as i64, 0),
-                        mtime: time::Timespec::new(file.last_modified() as i64, 0),
-                        ctime: time::Timespec::new(file.created_time() as i64, 0),
-                        crtime: time::Timespec::new(file.created_time() as i64, 0),
+                        atime: time01::Timespec::new(file.last_accessed() as i64, 0),
+                        mtime: time01::Timespec::new(file.last_modified() as i64, 0),
+                        ctime: time01::Timespec::new(file.created_time() as i64, 0),
+                        crtime: time01::Timespec::new(file.created_time() as i64, 0),
                         kind: fuse::FileType::RegularFile,
                         perm: 0o644,
                         nlink: 1,
@@ -524,10 +524,10 @@ impl Filesystem for JournalFileSystem {
                             ino,
                             size: file.size(),
                             blocks: (1u64.max(file.size()) - 1 / 512) + 1,
-                            atime: time::Timespec::new(file.last_accessed() as i64, 0),
-                            mtime: time::Timespec::new(file.last_modified() as i64, 0),
-                            ctime: time::Timespec::new(file.created_time() as i64, 0),
-                            crtime: time::Timespec::new(file.created_time() as i64, 0),
+                            atime: time01::Timespec::new(file.last_accessed() as i64, 0),
+                            mtime: time01::Timespec::new(file.last_modified() as i64, 0),
+                            ctime: time01::Timespec::new(file.created_time() as i64, 0),
+                            crtime: time01::Timespec::new(file.created_time() as i64, 0),
                             kind: fuse::FileType::RegularFile,
                             perm: 0o644,
                             nlink: 1,
@@ -544,10 +544,10 @@ impl Filesystem for JournalFileSystem {
                                 ino,
                                 size: meta.len,
                                 blocks: (1u64.max(meta.len) - 1 / 512) + 1,
-                                atime: time::Timespec::new(meta.accessed as i64, 0),
-                                mtime: time::Timespec::new(meta.modified as i64, 0),
-                                ctime: time::Timespec::new(meta.created as i64, 0),
-                                crtime: time::Timespec::new(meta.created as i64, 0),
+                                atime: time01::Timespec::new(meta.accessed as i64, 0),
+                                mtime: time01::Timespec::new(meta.modified as i64, 0),
+                                ctime: time01::Timespec::new(meta.created as i64, 0),
+                                crtime: time01::Timespec::new(meta.created as i64, 0),
                                 kind: file_type_to_kind(meta.ft),
                                 perm: 0o644,
                                 nlink: 1,
@@ -572,7 +572,7 @@ impl Filesystem for JournalFileSystem {
         };
 
         // Return the data
-        reply.attr(&time::Timespec::new(1, 0), &attr)
+        reply.attr(&time01::Timespec::new(1, 0), &attr)
     }
 
     fn setxattr(
@@ -729,9 +729,9 @@ impl Filesystem for JournalFileSystem {
             return;
         }
 
-        let now = time::get_time();
+        let now = time01::get_time();
         reply.created(
-            &time::Timespec::new(1, 0),
+            &time01::Timespec::new(1, 0),
             &FileAttr {
                 ino,
                 size: 0,
@@ -978,7 +978,7 @@ impl Filesystem for JournalFileSystem {
         match self.attr(path) {
             Ok(meta) => {
                 tracing::trace!("fs::mkdir ok");
-                reply.entry(&time::Timespec::new(1, 0), &meta, 0)
+                reply.entry(&time01::Timespec::new(1, 0), &meta, 0)
             }
             Err(err) => {
                 tracing::trace!("fs::mkdir attr err={err}");

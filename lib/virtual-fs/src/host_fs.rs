@@ -222,13 +222,20 @@ impl crate::FileOpener for FileSystem {
         // TODO: handle create implying write, etc.
         let read = conf.read();
         let write = conf.write();
-        let append = conf.append();
+
+        // according to Rust's stdlib, specifying both truncate and append is nonsensical,
+        // and it will return an error if we try to open a file with both flags set.
+        // in order to prevent this, and stay compatible with native binaries, we just ignore
+        // the append flag if truncate is set. the rationale behind this decision is that
+        // truncate is going to be applied first and append is going to be ignored anyway.
+        let append = if conf.truncate { false } else { conf.append() };
+
         let mut oo = fs::OpenOptions::new();
         oo.read(conf.read())
             .write(conf.write())
             .create_new(conf.create_new())
             .create(conf.create())
-            .append(conf.append())
+            .append(append)
             .truncate(conf.truncate())
             .open(path)
             .map_err(Into::into)

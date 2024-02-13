@@ -271,10 +271,7 @@ impl FileSystemCache {
     async fn lookup(&self, hash: &WebcHash) -> Result<Option<Container>, Error> {
         let path = self.path(hash);
 
-        #[cfg(target_arch = "wasm32")]
-        let container = Container::from_disk(&path);
-        #[cfg(not(target_arch = "wasm32"))]
-        let container = tokio::task::block_in_place(|| Container::from_disk(&path));
+        let container = crate::block_in_place(|| Container::from_disk(&path));
         match container {
             Ok(c) => Ok(Some(c)),
             Err(ContainerError::Open { error, .. })

@@ -183,7 +183,7 @@ pub unsafe fn restore_snapshot(
     stderr_fds.insert(2 as WasiFd);
 
     // Loop through all the events and process them
-    let cur_module_hash = Some(ctx.data().process.module_hash.as_bytes());
+    let cur_module_hash = ctx.data().process.module_hash.as_bytes();
     let mut journal_module_hash = None;
     let mut rewind = None;
     let mut staging_rewind = None;
@@ -240,7 +240,7 @@ pub unsafe fn restore_snapshot(
                     .map_err(anyhow_err_to_runtime_err)?;
             }
             crate::journal::JournalEntry::UpdateMemoryRegionV1 { region, data } => {
-                if cur_module_hash != journal_module_hash {
+                if Some(cur_module_hash) != journal_module_hash {
                     continue;
                 }
 
@@ -292,7 +292,7 @@ pub unsafe fn restore_snapshot(
                 start,
                 layout,
             } => {
-                if cur_module_hash != journal_module_hash {
+                if Some(cur_module_hash) != journal_module_hash {
                     continue;
                 }
 
@@ -366,7 +366,7 @@ pub unsafe fn restore_snapshot(
                     .map_err(anyhow_err_to_runtime_err)?;
             }
             crate::journal::JournalEntry::SnapshotV1 { when: _, trigger } => {
-                if cur_module_hash != journal_module_hash {
+                if Some(cur_module_hash) != journal_module_hash {
                     continue;
                 }
 
@@ -722,11 +722,11 @@ pub unsafe fn restore_snapshot(
     // If we are not in the same module then we fire off an exit
     // that simulates closing the process (hence keeps everything
     // in a clean state)
-    if journal_module_hash.is_some() && cur_module_hash != journal_module_hash {
+    if journal_module_hash.is_some() && Some(cur_module_hash) != journal_module_hash {
         tracing::error!(
             "The WASM module hash does not match the journal module hash (journal_hash={:x?} vs module_hash{:x?}) - forcing a restart",
             journal_module_hash.unwrap(),
-            cur_module_hash.unwrap()
+            cur_module_hash
         );
         if bootstrapping {
             rewind = None;

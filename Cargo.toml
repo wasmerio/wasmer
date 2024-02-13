@@ -39,6 +39,7 @@ members = [
     "fuzz",
     "lib/api",
     "lib/api/macro-wasmer-universal-test",
+    "lib/backend-api",
     "lib/c-api",
     "lib/c-api/examples/wasmer-capi-examples-runner",
     "lib/c-api/tests/wasmer-c-api-test-runner",
@@ -80,13 +81,14 @@ edition = "2021"
 homepage = "https://wasmer.io/"
 license = "MIT"
 repository = "https://github.com/wasmerio/wasmer"
-rust-version = "1.70"
+rust-version = "1.73"
 version = "4.2.5"
 
 [workspace.dependencies]
 enumset = "1.1.0"
 memoffset = "0.9.0"
 wasmer-toml = "0.9.2"
+wasmparser = { version = "0.121.0", default-features = false }
 webc = { version = "5.8.0", default-features = false, features = ["package"] }
 shared-buffer = "0.1.4"
 rkyv = { version = "0.7.40", features = ["indexmap", "validation", "strict"] }
@@ -108,9 +110,10 @@ wasmer = { version = "=4.2.5", path = "lib/api", features = [
 anyhow = "1.0"
 criterion = { version = "0.5", default-features = false }
 lazy_static = "1.4"
-serial_test = "0.5"
+serial_test = { version = "2.0", default-features = false }
 compiler-test-derive = { path = "tests/lib/compiler-test-derive" }
 tempfile = "3.6.0"
+ureq = "2.6"
 # For logging tests using the `RUST_LOG=debug` when testing
 test-log = { version = "0.2", default-features = false, features = ["trace"] }
 tracing = { version = "0.1", default-features = false, features = ["log"] }
@@ -315,4 +318,9 @@ required-features = ["backend"]
 [[example]]
 name = "features"
 path = "examples/features.rs"
+required-features = ["cranelift"]
+
+[[example]]
+name = "http-dynamic-size"
+path = "examples/http_dynamic_size.rs"
 required-features = ["cranelift"]

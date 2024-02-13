@@ -6,7 +6,7 @@ use std::{
     time::Duration,
 };
 
-use anyhow::{Context, Result};
+use anyhow::{bail, Context, Result};
 use bytes::Bytes;
 use clap::Parser;
 use tokio::runtime::Handle;
@@ -237,7 +237,7 @@ impl Wasi {
                     .spawn_and_block_on(async move {
                         BinaryPackage::from_registry(&specifier, &*inner_rt).await
                     })
-                    .with_context(|| format!("Unable to load \"{name}\""))?
+                    .with_context(|| format!("Unable to load \"{name}\""))??
             };
             uses.push(pkg);
         }
@@ -561,7 +561,7 @@ impl Wasi {
         }
 
         if !self.no_tty {
-            let tty = Arc::new(SysTty::default());
+            let tty = Arc::new(SysTty);
             tty.reset();
             rt.set_tty(tty);
         }

@@ -160,7 +160,7 @@ fn time() -> u64 {
         std::time::SystemTime::now()
             .duration_since(std::time::SystemTime::UNIX_EPOCH)
             .unwrap()
-            .as_secs()
+            .as_nanos() as u64
     }
 
     #[cfg(feature = "no-time")]

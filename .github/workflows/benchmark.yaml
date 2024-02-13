@@ -7,7 +7,7 @@ on:
 
 env:
   CARGO_REGISTRIES_CRATES_IO_PROTOCOL: git
-  MSRV: "1.70"
+  MSRV: "1.73"
 
 jobs:
   run_benchmark:

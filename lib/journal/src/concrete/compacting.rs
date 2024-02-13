@@ -363,7 +363,7 @@ impl WritableJournal for CompactingJournalTx {
                 state
                     .descriptors
                     .entry(lookup)
-                    .or_insert_with(Default::default)
+                    .or_default()
                     .events
                     .push(event_index);
 
@@ -394,10 +394,7 @@ impl WritableJournal for CompactingJournalTx {
                     .or_else(|| state.stdio_descriptors.get(fd).cloned());
 
                 if let Some(lookup) = lookup {
-                    let state = state
-                        .descriptors
-                        .entry(lookup)
-                        .or_insert_with(Default::default);
+                    let state = state.descriptors.entry(lookup).or_default();
                     state.events.push(event_index);
                 } else {
                     state.whitelist.insert(event_index);
@@ -425,10 +422,7 @@ impl WritableJournal for CompactingJournalTx {
 
                 // Update the state
                 if let Some(lookup) = lookup {
-                    let state = state
-                        .descriptors
-                        .entry(lookup)
-                        .or_insert_with(Default::default);
+                    let state = state.descriptors.entry(lookup).or_default();
                     if let JournalEntry::FileDescriptorWriteV1 { offset, data, .. } = &entry {
                         state.write_map.insert(
                             MemoryRange {

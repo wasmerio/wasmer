@@ -1,4 +1,6 @@
-# For now, this file has no contents as we don't require any specific
-# rustfmt settings. It rather serves as a marker indicating to users and
-# tools that we use rustfmt. In case you add settings to the file, feel
-# free to remove this comment.
+# Nightly only, sadly.
+# Need to wait until they are stabilised.
+# imports_granularity = "Crate"
+# group_imports = "StdExternalCrate"
+# reorder_imports = true
+

@@ -96,7 +96,7 @@ impl crate::runners::Runner for DProxyRunner {
                     })
                     .await
             })
-            .context("Unable to start the server")?;
+            .context("Unable to start the server")??;
 
         Ok(())
     }

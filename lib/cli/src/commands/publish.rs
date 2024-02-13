@@ -1,6 +1,8 @@
 use anyhow::Context as _;
 use clap::Parser;
-use wasmer_registry::wasmer_env::WasmerEnv;
+use wasmer_registry::{publish::PublishWait, wasmer_env::WasmerEnv};
+
+use super::PackageBuild;
 
 /// Publish a package to the package registry.
 #[derive(Debug, Parser)]
@@ -30,6 +32,12 @@ pub struct Publish {
     /// Wait for package to be available on the registry before exiting.
     #[clap(long)]
     pub wait: bool,
+    /// Wait for the package and all dependencies to be available on the registry
+    /// before exiting.
+    ///
+    /// This includes the container, native executables and bindings.
+    #[clap(long)]
+    pub wait_all: bool,
     /// Timeout (in seconds) for the publish query to the registry.
     ///
     /// Note that this is not the timeout for the entire publish process, but
@@ -40,12 +48,26 @@ pub struct Publish {
 
 impl Publish {
     /// Executes `wasmer publish`
-    #[tokio::main]
-    pub async fn execute(&self) -> Result<(), anyhow::Error> {
+    pub fn execute(&self) -> Result<(), anyhow::Error> {
+        // first check if the package could be built successfuly
+        let package_path = match self.package_path.as_ref() {
+            Some(s) => std::env::current_dir()?.join(s),
+            None => std::env::current_dir()?,
+        };
+        PackageBuild::check(package_path).execute()?;
+
         let token = self
             .env
             .token()
             .context("could not determine auth token for registry - run 'wasmer login'")?;
+
+        let wait = if self.wait_all {
+            PublishWait::new_all()
+        } else if self.wait {
+            PublishWait::new_container()
+        } else {
+            PublishWait::new_none()
+        };
 
         let publish = wasmer_registry::package::builder::Publish {
             registry: self.env.registry_endpoint().map(|u| u.to_string()).ok(),
@@ -56,10 +78,10 @@ impl Publish {
             token,
             no_validate: self.no_validate,
             package_path: self.package_path.clone(),
-            wait: self.wait,
+            wait,
             timeout: self.timeout.into(),
         };
-        publish.execute().await.map_err(on_error)?;
+        publish.execute().map_err(on_error)?;
 
         if let Err(e) = invalidate_graphql_query_cache(&self.env) {
             tracing::warn!(
