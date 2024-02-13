@@ -11,6 +11,12 @@ use crate::{
     utils::{render::CliRender, Identifier},
 };
 
+#[derive(Debug, PartialEq, Eq, Clone, Copy, clap::ValueEnum)]
+pub enum LogStreamArg {
+    Stdout,
+    Stderr,
+}
+
 /// Show an app.
 #[derive(clap::Parser, Debug)]
 pub struct CmdAppLogs {
@@ -60,13 +66,9 @@ pub struct CmdAppLogs {
     /// - namespace/name@version
     ident: Identifier,
 
-    /// Enables STDOUT log stream
-    #[clap(long)]
-    stdout: bool,
-
-    /// Enables STDERR log stream
-    #[clap(long)]
-    stderr: bool,
+    /// Streams of logs to display
+    #[clap(long, value_delimiter = ',', value_enum)]
+    streams: Option<Vec<LogStreamArg>>,
 }
 
 #[async_trait::async_trait]
@@ -103,7 +105,25 @@ impl crate::commands::AsyncCliCommand for CmdAppLogs {
             "Fetching logs",
         );
 
-        let streams = Vec::from(match (self.stdout, self.stderr) {
+        let (stdout, stderr) = self
+            .streams
+            .map(|s| {
+                let mut stdout = false;
+                let mut stderr = false;
+
+                for stream in s {
+                    if matches!(stream, LogStreamArg::Stdout) {
+                        stdout = true;
+                    } else if matches!(stream, LogStreamArg::Stderr) {
+                        stderr = true;
+                    }
+                }
+
+                (stdout, stderr)
+            })
+            .unwrap_or_default();
+
+        let streams = Vec::from(match (stdout, stderr) {
             (true, true) | (false, false) => &[LogStream::Stdout, LogStream::Stderr][..],
             (true, false) => &[LogStream::Stdout][..],
             (false, true) => &[LogStream::Stderr][..],
