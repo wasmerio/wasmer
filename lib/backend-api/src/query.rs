@@ -671,6 +671,7 @@ pub async fn generate_deploy_config_token_raw(
 // The stream can loop forever due to re-fetching the same logs over and over.
 #[tracing::instrument(skip_all, level = "debug")]
 #[allow(clippy::let_with_type_underscore)]
+#[allow(clippy::too_many_arguments)]
 fn get_app_logs(
     client: &WasmerClient,
     name: String,
@@ -760,6 +761,7 @@ fn get_app_logs(
 /// final vector.
 #[tracing::instrument(skip_all, level = "debug")]
 #[allow(clippy::let_with_type_underscore)]
+#[allow(clippy::too_many_arguments)]
 pub async fn get_app_logs_paginated(
     client: &WasmerClient,
     name: String,
