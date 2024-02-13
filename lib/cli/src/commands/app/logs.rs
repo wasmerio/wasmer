@@ -113,7 +113,7 @@ impl crate::commands::AsyncCliCommand for CmdAppLogs {
         while let Some(logs) = logs_stream.next().await {
             let logs = logs?;
 
-            let limit = std::cmp::max(logs.len(), rem);
+            let limit = std::cmp::min(logs.len(), rem);
 
             let logs = &logs[..limit];
             if !logs.is_empty() {
