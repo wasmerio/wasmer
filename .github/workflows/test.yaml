@@ -558,7 +558,7 @@ jobs:
           },
           {
             build: macos-arm64,
-            os: macos-latest-large,
+            os: macos-14,
             target: aarch64-apple-darwin,
             exe: '',
           },

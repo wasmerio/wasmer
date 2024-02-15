@@ -60,7 +60,7 @@ jobs:
             use_llvm: true
             build_wasm: false
           - build: macos-arm64
-            os: macos-latest-large
+            os: macos-14
             target: aarch64-apple-darwin
             artifact_name: 'wasmer-darwin-arm64'
             use_sccache: false
