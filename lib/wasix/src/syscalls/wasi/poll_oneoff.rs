@@ -64,6 +64,7 @@ pub fn poll_oneoff<M: MemorySize + 'static>(
 ) -> Result<Errno, WasiError> {
     wasi_try_ok!(WasiEnv::process_signals_and_exit(&mut ctx)?);
 
+    ctx = wasi_try_ok!(maybe_backoff::<M>(ctx)?);
     ctx = wasi_try_ok!(maybe_snapshot::<M>(ctx)?);
 
     ctx.data_mut().poll_seed += 1;
