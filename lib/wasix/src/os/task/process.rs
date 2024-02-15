@@ -108,7 +108,7 @@ pub struct WasiProcess {
     /// Number of tokens that are currently active and thus
     /// the exponential backoff of CPU is halted (as in CPU
     /// is allowed to run freely)
-    pub(crate) cpu_release_tokens: Arc<AtomicU32>,
+    pub(crate) cpu_run_tokens: Arc<AtomicU32>,
 }
 
 /// Represents a freeze of all threads to perform some action
@@ -144,9 +144,9 @@ pub struct WasiProcessInner {
     /// Referenced list of wakers that will be triggered
     /// when the process goes active again due to a token
     /// being acquired
-    cpu_release_wakers: HashMap<u64, Waker>,
+    cpu_backoff_wakers: HashMap<u64, Waker>,
     /// Seed used to register CPU release wakers
-    cpu_release_waker_seed: u64,
+    cpu_backoff_waker_seed: u64,
     /// The amount of CPU backoff time we are currently waiting
     cpu_backoff_time: Duration,
     /// Maximum amount of CPU backoff time before it starts capping
@@ -318,8 +318,8 @@ impl WasiProcess {
                     signal_intervals: Default::default(),
                     children: Default::default(),
                     checkpoint: WasiProcessCheckpoint::Execute,
-                    cpu_release_wakers: Default::default(),
-                    cpu_release_waker_seed: 0,
+                    cpu_backoff_wakers: Default::default(),
+                    cpu_backoff_waker_seed: 0,
                     cpu_backoff_time: Duration::ZERO,
                     max_cpu_backoff_time,
                 }),
@@ -327,7 +327,7 @@ impl WasiProcess {
             )),
             finished: Arc::new(OwnedTaskStatus::default()),
             waiting: Arc::new(AtomicU32::new(0)),
-            cpu_release_tokens: Arc::new(AtomicU32::new(0)),
+            cpu_run_tokens: Arc::new(AtomicU32::new(0)),
         }
     }
 
@@ -564,17 +564,17 @@ impl WasiProcess {
 
     // Releases the CPU backoff (if one is active)
     pub fn acquire_cpu_run_token(&self) -> CpuRunToken {
-        self.cpu_release_tokens.fetch_add(1, Ordering::SeqCst);
+        self.cpu_run_tokens.fetch_add(1, Ordering::SeqCst);
 
         let mut inner = self.inner.0.lock().unwrap();
-        for (_, waker) in inner.cpu_release_wakers.iter() {
+        for (_, waker) in inner.cpu_backoff_wakers.iter() {
             waker.wake_by_ref();
         }
-        inner.cpu_release_wakers.clear();
+        inner.cpu_backoff_wakers.clear();
         inner.cpu_backoff_time = Duration::ZERO;
 
         CpuRunToken {
-            tokens: self.cpu_release_tokens.clone(),
+            tokens: self.cpu_run_tokens.clone(),
         }
     }
 
@@ -583,14 +583,14 @@ impl WasiProcess {
         &self,
         tasks: &Arc<dyn VirtualTaskManager>,
     ) -> Option<CpuBackoffToken> {
-        if self.cpu_release_tokens.load(Ordering::SeqCst) > 0 {
+        if self.cpu_run_tokens.load(Ordering::SeqCst) > 0 {
             return None;
         }
         let cpu_backoff_time = {
             let mut inner = self.inner.0.lock().unwrap();
 
             // check again as it might have changed (race condition)
-            if self.cpu_release_tokens.load(Ordering::SeqCst) > 0 {
+            if self.cpu_run_tokens.load(Ordering::SeqCst) > 0 {
                 return None;
             }
 
@@ -644,7 +644,7 @@ impl Future for CpuBackoffToken {
         // Registering the waker will unregister any previous wakers
         // so that we don't go into an endless memory growth situation
         if let Some(waker_id) = self.waker_id.take() {
-            if inner.cpu_release_wakers.remove(&waker_id).is_none() {
+            if inner.cpu_backoff_wakers.remove(&waker_id).is_none() {
                 // if we did not remove the waker, then someone else did
                 // which means we were woken and should exit the backoff phase
                 return Poll::Ready(());
@@ -652,9 +652,9 @@ impl Future for CpuBackoffToken {
         }
 
         // Register ourselves as a waker to be woken
-        let id = inner.cpu_release_waker_seed + 1;
-        inner.cpu_release_waker_seed = id;
-        inner.cpu_release_wakers.insert(id, cx.waker().clone());
+        let id = inner.cpu_backoff_waker_seed + 1;
+        inner.cpu_backoff_waker_seed = id;
+        inner.cpu_backoff_wakers.insert(id, cx.waker().clone());
 
         // Now poll the waiting period
         let ret = self.wait.poll_unpin(cx);
@@ -679,7 +679,7 @@ impl Drop for CpuBackoffToken {
     fn drop(&mut self) {
         if let Some(waker_id) = self.waker_id.take() {
             let mut inner = self.inner.0.lock().unwrap();
-            inner.cpu_release_wakers.remove(&waker_id);
+            inner.cpu_backoff_wakers.remove(&waker_id);
         }
     }
 }
