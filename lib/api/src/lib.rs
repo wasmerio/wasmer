@@ -397,8 +397,15 @@
 //! [`wasm-pack`]: https://github.com/rustwasm/wasm-pack/
 //! [`wasm-bindgen`]: https://github.com/rustwasm/wasm-bindgen
 
-#[cfg(all(not(feature = "sys"), not(feature = "js"), not(feature = "jsc")))]
-compile_error!("One of: `sys`, `js` or `jsc` features must be enabled. Please, pick one.");
+#[cfg(all(
+    not(feature = "sys"),
+    not(feature = "js"),
+    not(feature = "jsc"),
+    not(feature = "wasm-c-api")
+))]
+compile_error!(
+    "One of: `sys`, `js`, `jsc` or `wasm-c-api` features must be enabled. Please, pick one."
+);
 
 #[cfg(all(feature = "sys", feature = "js"))]
 compile_error!(
@@ -413,6 +420,11 @@ compile_error!(
 #[cfg(all(feature = "sys", feature = "jsc"))]
 compile_error!(
     "Cannot have both `sys` and `jsc` features enabled at the same time. Please, pick one."
+);
+
+#[cfg(all(feature = "sys", feature = "wasm-c-api"))]
+compile_error!(
+    "Cannot have both `sys` and `wasm-c-api` features enabled at the same time. Please, pick one."
 );
 
 #[cfg(all(feature = "sys", target_arch = "wasm32"))]
@@ -449,9 +461,7 @@ pub mod vm;
 mod module_info_polyfill;
 
 #[cfg(feature = "sys")]
-/// sys
 pub mod sys;
-
 #[cfg(feature = "sys")]
 pub use sys::*;
 
@@ -481,15 +491,18 @@ pub type VMConfig = sys::VMConfig;
 
 #[cfg(feature = "js")]
 mod js;
-
 #[cfg(feature = "js")]
 pub use js::*;
 
 #[cfg(feature = "jsc")]
 mod jsc;
-
 #[cfg(feature = "jsc")]
 pub use jsc::*;
+
+#[cfg(feature = "wasm-c-api")]
+mod c_api;
+#[cfg(feature = "wasm-c-api")]
+pub use c_api::*;
 
 pub use crate::externals::{
     Extern, Function, Global, HostFunction, Memory, MemoryLocation, MemoryView, SharedMemory, Table,

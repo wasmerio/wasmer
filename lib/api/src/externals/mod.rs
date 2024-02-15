@@ -14,6 +14,8 @@ use crate::exports::{ExportError, Exportable};
 use crate::ExternType;
 use std::fmt;
 
+#[cfg(feature = "wasm-c-api")]
+use crate::c_api::vm::VMExtern;
 #[cfg(feature = "js")]
 use crate::js::vm::VMExtern;
 #[cfg(feature = "jsc")]

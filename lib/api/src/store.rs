@@ -21,6 +21,9 @@ pub use crate::js::store::{StoreHandle, StoreObjects};
 #[cfg(feature = "jsc")]
 pub use crate::jsc::store::{StoreHandle, StoreObjects};
 
+#[cfg(feature = "wasm-c-api")]
+pub use crate::c_api::store::{StoreHandle, StoreObjects};
+
 #[cfg(feature = "sys")]
 use crate::sys::store as store_imp;
 
@@ -29,6 +32,9 @@ use crate::js::store as store_imp;
 
 #[cfg(feature = "jsc")]
 use crate::jsc::store as store_imp;
+
+#[cfg(feature = "wasm-c-api")]
+use crate::c_api::store as store_imp;
 
 /// Call handler for a store.
 // TODO: better documentation!

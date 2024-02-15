@@ -2,6 +2,8 @@ use std::any::Any;
 
 use crate::store::{AsStoreMut, AsStoreRef};
 
+#[cfg(feature = "wasm-c-api")]
+use crate::c_api::extern_ref as extern_ref_imp;
 #[cfg(feature = "js")]
 use crate::js::extern_ref as extern_ref_imp;
 #[cfg(feature = "jsc")]

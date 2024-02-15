@@ -1,31 +1,52 @@
-use super::memory::{Memory, MemoryBuffer};
 use crate::store::AsStoreRef;
 use crate::MemoryAccessError;
+use std::convert::TryFrom;
+use std::marker::PhantomData;
 use std::mem::MaybeUninit;
-use std::ops::Range;
-use wasmer_types::Pages;
+use std::slice;
+use std::{convert::TryInto, ops::Range};
+use wasmer_types::{Bytes, Pages};
 
-#[cfg(feature = "wasm-c-api")]
-use crate::c_api::externals::memory_view as memory_view_impl;
-#[cfg(feature = "js")]
-use crate::js::externals::memory_view as memory_view_impl;
-#[cfg(feature = "jsc")]
-use crate::jsc::externals::memory_view as memory_view_impl;
-#[cfg(feature = "sys")]
-use crate::sys::externals::memory_view as memory_view_impl;
+use super::memory::{Memory, MemoryBuffer};
 
 /// A WebAssembly `memory` view.
 ///
 /// A memory view is used to read and write to the linear memory.
 ///
 /// After a memory is grown a view must not be used anymore. Views are
-/// created using the Memory.view() method.
+/// created using the Memory.grow() method.
 #[derive(Debug)]
-pub struct MemoryView<'a>(pub(crate) memory_view_impl::MemoryView<'a>);
+pub struct MemoryView<'a> {
+    pub(crate) buffer: MemoryBuffer<'a>,
+    // pub(crate) size: Pages,
+}
 
 impl<'a> MemoryView<'a> {
     pub(crate) fn new(memory: &Memory, store: &'a (impl AsStoreRef + ?Sized)) -> Self {
-        MemoryView(memory_view_impl::MemoryView::new(&memory.0, store))
+        unimplemented!();
+        // let store_ref = store.as_store_ref();
+        // let engine = store_ref.engine();
+        // let context = engine.0.context();
+
+        // let buffer = memory
+        //     .get_property(&context, "buffer".to_string())
+        //     .to_object(&context)
+        //     .unwrap();
+        // let typed_buffer = JSObject::create_typed_array_from_buffer(&context, buffer).unwrap();
+
+        // let mut buffer_data = typed_buffer.get_typed_array_buffer(&context).unwrap();
+        // // println!("BUFFER DATA {}", buffer_data.to_string(&context));
+
+        // // let definition = memory.handle.get(store.as_store_ref().objects()).vmmemory();
+        // // let def = unsafe { definition.as_ref() };
+        // Self {
+        //     buffer: MemoryBuffer {
+        //         base: buffer_data.as_mut_ptr(),
+        //         len: buffer_data.len(),
+        //         marker: PhantomData,
+        //     },
+        //     // size,
+        // }
     }
 
     /// Returns the pointer to the raw bytes of the `Memory`.
@@ -34,12 +55,12 @@ impl<'a> MemoryView<'a> {
     // as deprecated and not used in future code.
     #[doc(hidden)]
     pub fn data_ptr(&self) -> *mut u8 {
-        self.0.data_ptr()
+        self.buffer.base
     }
 
     /// Returns the size (in bytes) of the `Memory`.
     pub fn data_size(&self) -> u64 {
-        self.0.data_size()
+        self.buffer.len.try_into().unwrap()
     }
 
     /// Retrieve a slice of the memory contents.
@@ -51,7 +72,7 @@ impl<'a> MemoryView<'a> {
     /// function that writes to the memory or by resizing the memory.
     #[doc(hidden)]
     pub unsafe fn data_unchecked(&self) -> &[u8] {
-        self.0.data_unchecked()
+        self.data_unchecked_mut()
     }
 
     /// Retrieve a mutable slice of the memory contents.
@@ -66,7 +87,7 @@ impl<'a> MemoryView<'a> {
     #[allow(clippy::mut_from_ref)]
     #[doc(hidden)]
     pub unsafe fn data_unchecked_mut(&self) -> &mut [u8] {
-        self.0.data_unchecked_mut()
+        slice::from_raw_parts_mut(self.buffer.base, self.buffer.len)
     }
 
     /// Returns the size (in [`Pages`]) of the `Memory`.
@@ -82,12 +103,12 @@ impl<'a> MemoryView<'a> {
     /// assert_eq!(m.view(&mut store).size(), Pages(1));
     /// ```
     pub fn size(&self) -> Pages {
-        self.0.size()
+        Bytes(self.buffer.len).try_into().unwrap()
     }
 
     #[inline]
     pub(crate) fn buffer(&'a self) -> MemoryBuffer<'a> {
-        MemoryBuffer(self.0.buffer())
+        self.buffer
     }
 
     /// Safely reads bytes from the memory at the given offset.
@@ -98,7 +119,7 @@ impl<'a> MemoryView<'a> {
     /// This method is guaranteed to be safe (from the host side) in the face of
     /// concurrent writes.
     pub fn read(&self, offset: u64, buf: &mut [u8]) -> Result<(), MemoryAccessError> {
-        self.0.read(offset, buf)
+        self.buffer.read(offset, buf)
     }
 
     /// Safely reads a single byte from memory at the given offset
@@ -106,7 +127,9 @@ impl<'a> MemoryView<'a> {
     /// This method is guaranteed to be safe (from the host side) in the face of
     /// concurrent writes.
     pub fn read_u8(&self, offset: u64) -> Result<u8, MemoryAccessError> {
-        self.0.read_u8(offset)
+        let mut buf = [0u8; 1];
+        self.read(offset, &mut buf)?;
+        Ok(buf[0])
     }
 
     /// Safely reads bytes from the memory at the given offset.
@@ -124,7 +147,7 @@ impl<'a> MemoryView<'a> {
         offset: u64,
         buf: &'b mut [MaybeUninit<u8>],
     ) -> Result<&'b mut [u8], MemoryAccessError> {
-        self.0.read_uninit(offset, buf)
+        self.buffer.read_uninit(offset, buf)
     }
 
     /// Safely writes bytes to the memory at the given offset.
@@ -135,22 +158,26 @@ impl<'a> MemoryView<'a> {
     /// This method is guaranteed to be safe (from the host side) in the face of
     /// concurrent reads/writes.
     pub fn write(&self, offset: u64, data: &[u8]) -> Result<(), MemoryAccessError> {
-        self.0.write(offset, data)
+        self.buffer.write(offset, data)
     }
 
-    /// Safely writes a single byte from memory at the given offset
+    /// Safely reads a single byte from memory at the given offset
     ///
     /// This method is guaranteed to be safe (from the host side) in the face of
     /// concurrent writes.
     pub fn write_u8(&self, offset: u64, val: u8) -> Result<(), MemoryAccessError> {
-        self.0.write_u8(offset, val)
+        let buf = [val];
+        self.write(offset, &buf)?;
+        Ok(())
     }
 
+    #[allow(unused)]
     /// Copies the memory and returns it as a vector of bytes
     pub fn copy_to_vec(&self) -> Result<Vec<u8>, MemoryAccessError> {
         self.copy_range_to_vec(0..self.data_size())
     }
 
+    #[allow(unused)]
     /// Copies a range of the memory and returns it as a vector of bytes
     pub fn copy_range_to_vec(&self, range: Range<u64>) -> Result<Vec<u8>, MemoryAccessError> {
         let mut new_memory = Vec::new();
@@ -167,6 +194,7 @@ impl<'a> MemoryView<'a> {
         Ok(new_memory)
     }
 
+    #[allow(unused)]
     /// Copies the memory to another new memory object
     pub fn copy_to_memory(&self, amount: u64, new_memory: &Self) -> Result<(), MemoryAccessError> {
         let mut offset = 0;

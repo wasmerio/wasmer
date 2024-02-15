@@ -28,6 +28,11 @@ use crate::jsc::engine as engine_imp;
 #[cfg(feature = "jsc")]
 pub(crate) use crate::jsc::engine::default_engine;
 
+#[cfg(feature = "wasm-c-api")]
+use crate::c_api::engine as engine_imp;
+#[cfg(feature = "wasm-c-api")]
+pub(crate) use crate::c_api::engine::default_engine;
+
 /// The engine type
 #[derive(Clone, Debug)]
 pub struct Engine(pub(crate) engine_imp::Engine);

@@ -4,6 +4,7 @@ description = "High-performance WebAssembly runtime"
 categories = ["wasm"]
 keywords = ["wasm", "webassembly", "runtime", "vm"]
 readme = "README.md"
+build = "build.rs"
 authors.workspace = true
 edition.workspace = true
 homepage.workspace = true
@@ -38,12 +39,12 @@ shared-buffer = { workspace = true }
 
 # Dependencies and Development Dependencies for `sys`.
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-# - Mandatory dependencies for `sys`.
-wasmer-vm = { path = "../vm", version = "=4.2.5" }
-wasmer-compiler = { path = "../compiler", version = "=4.2.5" }
-wasmer-derive = { path = "../derive", version = "=4.2.5" }
 wasmer-types = { path = "../types", version = "=4.2.5" }
+wasmer-derive = { path = "../derive", version = "=4.2.5" }
 target-lexicon = { version = "0.12.2", default-features = false }
+# - Mandatory dependencies for `sys`.
+wasmer-vm = { path = "../vm", version = "=4.2.5", optional = true }
+wasmer-compiler = { path = "../compiler", version = "=4.2.5", optional = true }
 # - Optional dependencies for `sys`.
 wasmer-compiler-singlepass = { path = "../compiler-singlepass", version = "=4.2.5", optional = true }
 wasmer-compiler-cranelift = { path = "../compiler-cranelift", version = "=4.2.5", optional = true }
@@ -74,8 +75,8 @@ wasmer-derive = { path = "../derive", version = "=4.2.5" }
 # - Optional dependencies for `js`.
 wasmparser = { workspace = true, default-features = false, optional = true }
 hashbrown = { version = "0.11", optional = true }
-serde-wasm-bindgen = { version = "0.4.5" }
-serde = { version = "1.0", features = ["derive"] }
+serde-wasm-bindgen = { version = "0.4.5", optional = true }
+serde = { version = "1.0", features = ["derive"], optional = true }
 
 # - Development Dependencies for `js`.
 [target.'cfg(target_arch = "wasm32")'.dev-dependencies]
@@ -95,32 +96,40 @@ wasm-opt = false
 maintenance = { status = "actively-developed" }
 
 [features]
-default = ["sys-default"]
-# default = ["js-default"]
+# default = ["sys-default"]
+default = ["wasm-c-api"]
 std = []
 core = ["hashbrown"]
 
-# Features for `sys`.
-sys = ["wasmer-compiler/translator", "wasmer-compiler/compiler", "std"]
+# Backends
+sys = [
+  "wasmer-vm",
+  "wasmer-compiler",
+  "wasmer-compiler/translator",
+  "wasmer-compiler/compiler",
+  "std"
+]
 sys-default = ["sys", "wat", "cranelift"]
-# - Compilers.
+js = ["wasm-bindgen", "js-sys"]
+js-default = ["js", "std", "wasm-types-polyfill"]
+jsc = ["rusty_jsc", "wasm-types-polyfill", "wasmparser"]
+wasm-c-api = ["std", "wasm-types-polyfill", "wat"]
+
+# Features for `sys`
 compiler = ["sys"]
 singlepass = ["compiler", "wasmer-compiler-singlepass"]
 cranelift = ["compiler", "wasmer-compiler-cranelift"]
 llvm = ["compiler", "wasmer-compiler-llvm"]
-# - Engines.
-engine = ["sys"]
-# - Deprecated features.
+wasmer-artifact-load = ["wasmer-compiler/wasmer-artifact-load"]
+wasmer-artifact-create = ["wasmer-compiler/wasmer-artifact-create"]
+static-artifact-load = ["wasmer-compiler/static-artifact-load"]
+static-artifact-create = ["wasmer-compiler/static-artifact-create"]
+## Deprecated sys features.
 jit = ["engine"]
+engine = ["sys"]
 
 # Features for `js`.
-js = ["wasm-bindgen", "js-sys"]
-js-default = ["js", "std", "wasm-types-polyfill"]
-
 wasm-types-polyfill = ["wasmparser"]
-
-jsc = ["rusty_jsc", "wasm-types-polyfill", "wasmparser"]
-
 js-serializable-module = []
 
 # Optional
@@ -129,11 +138,6 @@ enable-serde = [
   "wasmer-compiler/enable-serde",
   "wasmer-types/enable-serde",
 ]
-
-wasmer-artifact-load = ["wasmer-compiler/wasmer-artifact-load"]
-wasmer-artifact-create = ["wasmer-compiler/wasmer-artifact-create"]
-static-artifact-load = ["wasmer-compiler/static-artifact-load"]
-static-artifact-create = ["wasmer-compiler/static-artifact-create"]
 
 [package.metadata.docs.rs]
 features = [
@@ -151,3 +155,9 @@ features = [
   "wasmer-artifact-load",
 ]
 rustc-args = ["--cfg", "docsrs"]
+
+
+[target.'cfg(not(target_arch = "wasm32"))'.build-dependencies]
+# cc = "1.0"
+cmake = "0.1"
+bindgen = "0.69"
