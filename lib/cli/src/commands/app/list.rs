@@ -1,5 +1,10 @@
 //! List Edge apps.
 
+use std::pin::Pin;
+
+use futures::{Stream, StreamExt};
+use wasmer_api::types::DeployApp;
+
 use crate::{
     commands::AsyncCliCommand,
     opts::{ApiOpts, ListFormatOpts},
@@ -23,6 +28,10 @@ pub struct CmdAppList {
     /// directly owned by the user and apps in namespaces the user can access.
     #[clap(short = 'a', long)]
     all: bool,
+
+    /// Maximum number of apps to display
+    #[clap(long, default_value = "1000")]
+    max: usize,
 }
 
 #[async_trait::async_trait]
@@ -32,15 +41,37 @@ impl AsyncCliCommand for CmdAppList {
     async fn run_async(self) -> Result<(), anyhow::Error> {
         let client = self.api.client()?;
 
-        let apps = if let Some(ns) = self.namespace {
-            wasmer_api::query::namespace_apps(&client, &ns).await?
+        let apps_stream: Pin<
+            Box<dyn Stream<Item = Result<Vec<DeployApp>, anyhow::Error>> + Send + Sync>,
+        > = if let Some(ns) = self.namespace.clone() {
+            Box::pin(wasmer_api::query::namespace_apps(&client, ns).await)
         } else if self.all {
-            wasmer_api::query::user_accessible_apps(&client).await?
+            Box::pin(wasmer_api::query::user_accessible_apps(&client).await?)
         } else {
-            wasmer_api::query::user_apps(&client).await?
+            Box::pin(wasmer_api::query::user_apps(&client).await)
         };
 
-        println!("{}", self.fmt.format.render(&apps));
+        let mut apps_stream = std::pin::pin!(apps_stream);
+
+        let mut rem = self.max;
+
+        let mut display_apps = vec![];
+
+        while let Some(apps) = apps_stream.next().await {
+            let mut apps = apps?;
+
+            let limit = std::cmp::min(apps.len(), rem);
+
+            if limit == 0 {
+                break;
+            }
+
+            display_apps.extend(apps.drain(..limit));
+
+            rem -= limit;
+        }
+
+        println!("{}", self.fmt.format.render(&display_apps));
 
         Ok(())
     }
