@@ -149,8 +149,14 @@ pub struct WasiProcessInner {
     cpu_backoff_waker_seed: u64,
     /// The amount of CPU backoff time we are currently waiting
     cpu_backoff_time: Duration,
+    /// When the backoff is reset the cool-off period will keep
+    /// things running for a short period of time extra
+    cpu_run_cool_off: u128,
     /// Maximum amount of CPU backoff time before it starts capping
     max_cpu_backoff_time: Duration,
+    /// Amount of time the CPU should cool-off after exiting run
+    /// before it begins a backoff
+    max_cpu_cool_off_time: Duration,
 }
 
 pub enum MaybeCheckpointResult<'a> {
@@ -305,6 +311,7 @@ impl WasiProcess {
             .upgrade()
             .and_then(|p| p.config().enable_exponential_cpu_backoff)
             .unwrap_or(Duration::from_secs(30));
+        let max_cpu_cool_off_time = Duration::from_millis(500);
         WasiProcess {
             pid,
             module_hash,
@@ -321,7 +328,9 @@ impl WasiProcess {
                     cpu_backoff_wakers: Default::default(),
                     cpu_backoff_waker_seed: 0,
                     cpu_backoff_time: Duration::ZERO,
+                    cpu_run_cool_off: 0,
                     max_cpu_backoff_time,
+                    max_cpu_cool_off_time,
                 }),
                 Condvar::new(),
             )),
@@ -572,6 +581,7 @@ impl WasiProcess {
         }
         inner.cpu_backoff_wakers.clear();
         inner.cpu_backoff_time = Duration::ZERO;
+        inner.cpu_run_cool_off = 0;
 
         CpuRunToken {
             tokens: self.cpu_run_tokens.clone(),
@@ -583,14 +593,28 @@ impl WasiProcess {
         &self,
         tasks: &Arc<dyn VirtualTaskManager>,
     ) -> Option<CpuBackoffToken> {
+        // If run tokens are held then we should allow executing to
+        // continue at its top pace
         if self.cpu_run_tokens.load(Ordering::SeqCst) > 0 {
             return None;
         }
+
         let cpu_backoff_time = {
             let mut inner = self.inner.0.lock().unwrap();
 
             // check again as it might have changed (race condition)
             if self.cpu_run_tokens.load(Ordering::SeqCst) > 0 {
+                return None;
+            }
+
+            // Check if a cool-off-period has passed
+            let now =
+                platform_clock_time_get(Snapshot0Clockid::Monotonic, 1_000_000).unwrap() as u128;
+            if inner.cpu_run_cool_off == 0 {
+                inner.cpu_run_cool_off =
+                    now + (1_000_000 * inner.max_cpu_cool_off_time.as_millis());
+            }
+            if now <= inner.cpu_run_cool_off {
                 return None;
             }
 
