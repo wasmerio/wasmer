@@ -257,6 +257,12 @@ pub(crate) fn fd_read_internal<M: MemorySize>(
                                         nonblocking,
                                     )
                                     .await?;
+
+                                tracing::trace!(
+                                    strval = %String::from_utf8_lossy(&buf.iter().take(local_read).cloned().collect::<Vec<u8>>()),
+                                    "sock_read"
+                                );
+
                                 total_read += local_read;
                                 if total_read != buf.len() {
                                     break;
