@@ -686,12 +686,10 @@ impl Future for CpuBackoffToken {
         // If we have reached the end of the wait period
         // then we need to exponentially grow it any future
         // backoff's so that it gets slower
-        if ret.is_ready() {
-            if self.cpu_backoff_time == inner.cpu_backoff_time {
-                inner.cpu_backoff_time *= 2;
-                if inner.cpu_backoff_time > inner.max_cpu_backoff_time {
-                    inner.cpu_backoff_time = inner.max_cpu_backoff_time;
-                }
+        if ret.is_ready() && self.cpu_backoff_time == inner.cpu_backoff_time {
+            inner.cpu_backoff_time *= 2;
+            if inner.cpu_backoff_time > inner.max_cpu_backoff_time {
+                inner.cpu_backoff_time = inner.max_cpu_backoff_time;
             }
         }
 
