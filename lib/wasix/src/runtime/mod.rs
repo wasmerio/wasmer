@@ -57,7 +57,7 @@ where
 
     /// A package loader.
     fn package_loader(&self) -> Arc<dyn PackageLoader + Send + Sync> {
-        Arc::new(UnsupportedPackageLoader::default())
+        Arc::new(UnsupportedPackageLoader)
     }
 
     /// A cache for compiled modules.
@@ -233,7 +233,7 @@ impl PluggableRuntime {
         let http_client =
             crate::http::default_http_client().map(|client| Arc::new(client) as DynHttpClient);
 
-        let loader = UnsupportedPackageLoader::default();
+        let loader = UnsupportedPackageLoader;
 
         let mut source = MultiSource::new();
         if let Some(client) = &http_client {

@@ -90,14 +90,10 @@ impl ThreadConditions {
         if self.inner.map.len() >= 1 << 32 {
             return Err(WaiterError::TooManyWaiters);
         }
-        self.inner
-            .map
-            .entry(dst)
-            .or_insert_with(Vec::new)
-            .push(NotifyWaiter {
-                thread: current(),
-                notified: false,
-            });
+        self.inner.map.entry(dst).or_default().push(NotifyWaiter {
+            thread: current(),
+            notified: false,
+        });
         if let Some(timeout) = timeout {
             park_timeout(timeout);
         } else {

@@ -724,8 +724,6 @@ fn import_object_for_all_wasi_versions(
             } else {
                 Box::new(stub_initializer) as ModuleInitializer
             };
-
-            let init = init;
         } else {
             // Prevents unused warning.
             let _ = module;

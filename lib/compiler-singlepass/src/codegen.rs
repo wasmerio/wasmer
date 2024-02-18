@@ -2998,7 +2998,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 self.release_locations_value(stack_depth)?;
                 self.value_stack.truncate(stack_depth);
                 self.fp_stack.truncate(fp_depth);
-                let mut frame = &mut self.control_stack.last_mut().unwrap();
+                let frame = &mut self.control_stack.last_mut().unwrap();
 
                 match frame.if_else {
                     IfElseState::If(label) => {

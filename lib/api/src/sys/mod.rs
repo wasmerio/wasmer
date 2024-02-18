@@ -8,7 +8,7 @@ pub(crate) mod module;
 pub(super) mod tunables;
 pub(crate) mod typed_function;
 
-pub use crate::sys::engine::NativeEngineExt;
+pub use crate::sys::engine::{get_default_compiler_config, NativeEngineExt};
 pub use crate::sys::tunables::BaseTunables;
 #[cfg(feature = "compiler")]
 pub use wasmer_compiler::{

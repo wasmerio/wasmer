@@ -11,9 +11,9 @@ pub mod types {
     target_vendor = "apple"
 ))]
 pub mod unix;
-#[cfg(any(target_family = "wasm"))]
+#[cfg(target_family = "wasm")]
 pub mod wasm;
-#[cfg(any(target_os = "windows"))]
+#[cfg(target_os = "windows")]
 pub mod windows;
 
 pub mod journal;
@@ -65,7 +65,7 @@ pub(crate) use tracing::{debug, error, trace, warn};
     target_vendor = "apple"
 ))]
 pub use unix::*;
-#[cfg(any(target_family = "wasm"))]
+#[cfg(target_family = "wasm")]
 pub use wasm::*;
 
 pub(crate) use virtual_fs::{
@@ -78,7 +78,7 @@ pub(crate) use wasmer::{
     OnCalledAction, Pages, RuntimeError, Store, TypedFunction, Value, WasmPtr, WasmSlice,
 };
 pub(crate) use wasmer_wasix_types::{asyncify::__wasi_asyncify_t, wasi::EventUnion};
-#[cfg(any(target_os = "windows"))]
+#[cfg(target_os = "windows")]
 pub use windows::*;
 
 pub(crate) use self::types::{
@@ -399,6 +399,41 @@ pub enum AsyncifyAction<'a, R> {
     /// Indicates that asyncify should unwind by immediately exiting
     /// the current function
     Unwind,
+}
+
+/// Exponentially increasing backoff of CPU usage
+///
+/// Under certain conditions the process will exponentially backoff
+/// using waits that either put the thread into a low usage state
+/// or even underload the thread completely when deep sleep is enabled
+///
+/// The use-case for this is to handle rogue WASM processes that
+/// generate excessively high CPU usage and need to be artificially
+/// throttled
+///
+pub(crate) fn maybe_backoff<M: MemorySize>(
+    mut ctx: FunctionEnvMut<'_, WasiEnv>,
+) -> Result<Result<FunctionEnvMut<'_, WasiEnv>, Errno>, WasiError> {
+    let env = ctx.data();
+
+    // Fast path that exits this high volume call if we do not have
+    // exponential backoff enabled
+    if env.enable_exponential_cpu_backoff.is_none() {
+        return Ok(Ok(ctx));
+    }
+
+    // Determine if we need to do a backoff, if so lets do one
+    if let Some(backoff) = env.process.acquire_cpu_backoff_token(env.tasks()) {
+        if let AsyncifyAction::Finish(mut ctx, _) =
+            __asyncify_with_deep_sleep::<M, _, _>(ctx, Duration::from_millis(50), backoff)?
+        {
+            Ok(Ok(ctx))
+        } else {
+            Ok(Err(Errno::Success))
+        }
+    } else {
+        Ok(Ok(ctx))
+    }
 }
 
 /// Asyncify takes the current thread and blocks on the async runtime associated with it

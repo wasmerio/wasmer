@@ -39,7 +39,6 @@ pub fn clock_time_set_internal(
 
     let precision = 1 as Timestamp;
     let t_now = wasi_try!(platform_clock_time_get(clock_id, precision));
-    let t_now = t_now;
 
     let t_target = time as i64;
     let t_offset = t_target - t_now;
