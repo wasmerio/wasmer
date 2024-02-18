@@ -658,6 +658,12 @@ pub struct CpuBackoffToken {
     inner: LockableWasiProcessInner,
 }
 
+impl CpuBackoffToken {
+    pub fn backoff_time(&self) -> Duration {
+        self.cpu_backoff_time
+    }
+}
+
 impl Future for CpuBackoffToken {
     type Output = ();
 
