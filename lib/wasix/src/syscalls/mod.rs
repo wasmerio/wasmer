@@ -424,7 +424,7 @@ pub(crate) fn maybe_backoff<M: MemorySize>(
 
     // Determine if we need to do a backoff, if so lets do one
     if let Some(backoff) = env.process.acquire_cpu_backoff_token(env.tasks()) {
-        tracing::trace!("exponential CPU backoff {}", backoff);
+        tracing::trace!("exponential CPU backoff {:?}", backoff.backoff_time());
         if let AsyncifyAction::Finish(mut ctx, _) =
             __asyncify_with_deep_sleep::<M, _, _>(ctx, Duration::from_millis(50), backoff)?
         {
