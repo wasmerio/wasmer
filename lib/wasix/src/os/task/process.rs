@@ -636,6 +636,7 @@ impl WasiProcess {
     }
 }
 
+#[derive(Debug)]
 pub struct CpuRunToken {
     tokens: Arc<AtomicU32>,
 }
