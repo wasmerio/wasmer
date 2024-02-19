@@ -32,6 +32,10 @@ pub struct CmdAppList {
     /// Maximum number of apps to display
     #[clap(long, default_value = "1000")]
     max: usize,
+
+    /// Asks whether to display the next page or not
+    #[clap(long, default_value = "false")]
+    paging_mode: bool,
 }
 
 #[async_trait::async_trait]
@@ -57,7 +61,7 @@ impl AsyncCliCommand for CmdAppList {
 
         let mut display_apps = vec![];
 
-        while let Some(apps) = apps_stream.next().await {
+        'list: while let Some(apps) = apps_stream.next().await {
             let mut apps = apps?;
 
             let limit = std::cmp::min(apps.len(), rem);
@@ -66,12 +70,34 @@ impl AsyncCliCommand for CmdAppList {
                 break;
             }
 
-            display_apps.extend(apps.drain(..limit));
-
             rem -= limit;
+
+            if self.paging_mode {
+                println!("{}", self.fmt.format.render(&apps));
+
+                loop {
+                    println!("next page? [y, n]");
+
+                    let mut rsp = String::new();
+                    std::io::stdin().read_line(&mut rsp)?;
+
+                    if rsp.trim() == "y" {
+                        continue 'list;
+                    }
+                    if rsp.trim() == "n" {
+                        break 'list;
+                    }
+
+                    println!("uknown response: {rsp}");
+                }
+            }
+
+            display_apps.extend(apps.drain(..limit));
         }
 
-        println!("{}", self.fmt.format.render(&display_apps));
+        if !display_apps.is_empty() {
+            println!("{}", self.fmt.format.render(&display_apps));
+        }
 
         Ok(())
     }
