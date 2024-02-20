@@ -70,6 +70,7 @@ mod queries {
     pub struct PackageDistribution {
         pub pirita_sha256_hash: Option<String>,
         pub pirita_download_url: Option<String>,
+        pub download_url: Option<String>,
     }
 
     #[derive(cynic::QueryFragment, Debug, Clone)]
