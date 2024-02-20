@@ -41,7 +41,7 @@ fi
 
 status=0
 
-"$runtime" --mapdir /hamlet:./test_fs/hamlet "$input_base.wasm" $dir $env -- $arg \
+"$runtime" --mapdir /hamlet:./test_fs/hamlet --mapdir /fyi:./test_fs/fyi "$input_base.wasm" $dir $env -- $arg \
     < "$stdin" \
     > "$stdout_actual" \
     2> "$stderr_actual" \
