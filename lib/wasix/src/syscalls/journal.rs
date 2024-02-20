@@ -172,6 +172,7 @@ pub unsafe fn restore_snapshot(
     let mut update_memory: BTreeMap<MemorySnapshotRegion, Cow<'_, [u8]>> = Default::default();
     let mut staging_update_memory: BTreeMap<MemorySnapshotRegion, Cow<'_, [u8]>> =
         Default::default();
+    let mut ethereal_fds = HashSet::new();
     let mut update_tty = None;
 
     // We capture the stdout and stderr while we replay
@@ -208,6 +209,10 @@ pub unsafe fn restore_snapshot(
                     stderr_fds.clear();
                     stdout_fds.insert(1 as WasiFd);
                     stderr_fds.insert(2 as WasiFd);
+                    for fd in ethereal_fds.drain() {
+                        JournalEffector::apply_fd_close(&mut ctx, fd)
+                            .map_err(anyhow_err_to_runtime_err)?;
+                    }
                 } else {
                     JournalEffector::apply_process_exit(&mut ctx, exit_code)
                         .map_err(anyhow_err_to_runtime_err)?;
@@ -267,6 +272,10 @@ pub unsafe fn restore_snapshot(
                         stderr_fds.clear();
                         stdout_fds.insert(1 as WasiFd);
                         stderr_fds.insert(2 as WasiFd);
+                        for fd in ethereal_fds.drain() {
+                            JournalEffector::apply_fd_close(&mut ctx, fd)
+                                .map_err(anyhow_err_to_runtime_err)?;
+                        }
                     } else {
                         JournalEffector::apply_process_exit(&mut ctx, exit_code)
                             .map_err(anyhow_err_to_runtime_err)?;
@@ -321,6 +330,7 @@ pub unsafe fn restore_snapshot(
                 }
             }
             crate::journal::JournalEntry::CloseFileDescriptorV1 { fd } => {
+                ethereal_fds.remove(&fd);
                 stdout_fds.remove(&fd);
                 stderr_fds.remove(&fd);
                 JournalEffector::apply_fd_close(&mut ctx, fd).map_err(anyhow_err_to_runtime_err)?;
@@ -400,6 +410,9 @@ pub unsafe fn restore_snapshot(
                 if stderr_fds.remove(&old_fd) {
                     stderr_fds.insert(new_fd);
                 }
+                if ethereal_fds.remove(&old_fd) {
+                    ethereal_fds.insert(new_fd);
+                }
                 JournalEffector::apply_fd_renumber(&mut ctx, old_fd, new_fd)
                     .map_err(anyhow_err_to_runtime_err)?;
             }
@@ -416,6 +429,9 @@ pub unsafe fn restore_snapshot(
                 }
                 if stderr_fds.contains(&original_fd) {
                     stderr_fds.insert(copied_fd);
+                }
+                if ethereal_fds.contains(&original_fd) {
+                    ethereal_fds.insert(copied_fd);
                 }
                 JournalEffector::apply_fd_duplicate(&mut ctx, original_fd, copied_fd)
                     .map_err(anyhow_err_to_runtime_err)?;
@@ -504,10 +520,13 @@ pub unsafe fn restore_snapshot(
                 JournalEffector::apply_chdir(&mut ctx, &path).map_err(anyhow_err_to_runtime_err)?;
             }
             crate::journal::JournalEntry::CreatePipeV1 { fd1, fd2 } => {
+                ethereal_fds.insert(fd1);
+                ethereal_fds.insert(fd2);
                 JournalEffector::apply_fd_pipe(&mut ctx, fd1, fd2)
                     .map_err(anyhow_err_to_runtime_err)?;
             }
             crate::journal::JournalEntry::EpollCreateV1 { fd } => {
+                ethereal_fds.insert(fd);
                 JournalEffector::apply_epoll_create(&mut ctx, fd)
                     .map_err(anyhow_err_to_runtime_err)?;
             }
@@ -592,6 +611,7 @@ pub unsafe fn restore_snapshot(
                     .map_err(anyhow_err_to_runtime_err)?
             }
             crate::journal::JournalEntry::SocketOpenV1 { af, ty, pt, fd } => {
+                ethereal_fds.insert(fd);
                 JournalEffector::apply_sock_open(&mut ctx, af, ty, pt, fd)
                     .map_err(anyhow_err_to_runtime_err)?
             }
@@ -616,16 +636,19 @@ pub unsafe fn restore_snapshot(
                 peer_addr,
                 fd_flags,
                 non_blocking: nonblocking,
-            } => JournalEffector::apply_sock_accepted(
-                &mut ctx,
-                listen_fd,
-                fd,
-                addr,
-                peer_addr,
-                fd_flags,
-                nonblocking,
-            )
-            .map_err(anyhow_err_to_runtime_err)?,
+            } => {
+                ethereal_fds.insert(fd);
+                JournalEffector::apply_sock_accepted(
+                    &mut ctx,
+                    listen_fd,
+                    fd,
+                    addr,
+                    peer_addr,
+                    fd_flags,
+                    nonblocking,
+                )
+                .map_err(anyhow_err_to_runtime_err)?
+            }
             crate::journal::JournalEntry::SocketJoinIpv4MulticastV1 {
                 fd,
                 multiaddr,
@@ -700,8 +723,11 @@ pub unsafe fn restore_snapshot(
                 initial_val,
                 flags,
                 fd,
-            } => JournalEffector::apply_fd_event(&mut ctx, initial_val, flags, fd)
-                .map_err(anyhow_err_to_runtime_err)?,
+            } => {
+                ethereal_fds.insert(fd);
+                JournalEffector::apply_fd_event(&mut ctx, initial_val, flags, fd)
+                    .map_err(anyhow_err_to_runtime_err)?
+            }
         }
     }
 
@@ -742,6 +768,9 @@ pub unsafe fn restore_snapshot(
             stderr_fds.clear();
             stdout_fds.insert(1 as WasiFd);
             stderr_fds.insert(2 as WasiFd);
+            for fd in ethereal_fds.drain() {
+                JournalEffector::apply_fd_close(&mut ctx, fd).map_err(anyhow_err_to_runtime_err)?;
+            }
         } else {
             JournalEffector::apply_process_exit(&mut ctx, None)
                 .map_err(anyhow_err_to_runtime_err)?;
