@@ -371,9 +371,7 @@ jobs:
           sudo apt-get install --reinstall g++
       - name: Set up base deps on musl
         if: matrix.metadata.build == 'linux-musl'
-        run: |
-            apk update
-            apk add build-base bash musl-dev curl tar make libtool libffi-dev gcc automake autoconf git openssl-dev g++
+        run: ./scripts/alpine-linux-install-deps.sh
       - name: Set up dependencies for Mac OS
         run: |
           brew install automake
@@ -603,9 +601,7 @@ jobs:
           sudo apt-get install --reinstall g++
       - name: Set up base deps on musl
         if: matrix.metadata.build == 'linux-musl'
-        run: |
-            apk update
-            apk add build-base bash musl-dev curl tar make libtool libffi-dev gcc automake autoconf git openssl-dev g++
+        run: ./scripts/alpine-linux-install-deps.sh
       - name: Set up dependencies for Mac OS
         run: |
           brew install automake
@@ -704,9 +700,7 @@ jobs:
           version: 0.10.0
       - name: Set up base deps on musl
         if: matrix.build == 'linux-musl'
-        run: |
-            apk update
-            apk add build-base bash musl-dev curl tar make libtool libffi-dev gcc automake autoconf git openssl-dev g++
+        run: ./scripts/alpine-linux-install-deps.sh
       - uses: actions/download-artifact@v3
         id: download
         with:
