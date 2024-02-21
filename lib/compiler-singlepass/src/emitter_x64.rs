@@ -689,235 +689,217 @@ fn move_src_to_dst(emitter: &mut AssemblerX64, precision: Precision, src: XMM, d
 }
 
 macro_rules! avx_fn {
-    ($ins:ident) => {
-        |emitter: &mut AssemblerX64, src1: XMM, src2: XMMOrMemory, dst: XMM| {
-            // Dynasm bug: AVX instructions are not encoded correctly.
-            match src2 {
-                XMMOrMemory::XMM(x) => match src1 {
-                    XMM::XMM0 => dynasm!(emitter ; $ins Rx((dst as u8)), xmm0, Rx((x as u8))),
-                    XMM::XMM1 => dynasm!(emitter ; $ins Rx((dst as u8)), xmm1, Rx((x as u8))),
-                    XMM::XMM2 => dynasm!(emitter ; $ins Rx((dst as u8)), xmm2, Rx((x as u8))),
-                    XMM::XMM3 => dynasm!(emitter ; $ins Rx((dst as u8)), xmm3, Rx((x as u8))),
-                    XMM::XMM4 => dynasm!(emitter ; $ins Rx((dst as u8)), xmm4, Rx((x as u8))),
-                    XMM::XMM5 => dynasm!(emitter ; $ins Rx((dst as u8)), xmm5, Rx((x as u8))),
-                    XMM::XMM6 => dynasm!(emitter ; $ins Rx((dst as u8)), xmm6, Rx((x as u8))),
-                    XMM::XMM7 => dynasm!(emitter ; $ins Rx((dst as u8)), xmm7, Rx((x as u8))),
-                    XMM::XMM8 => dynasm!(emitter ; $ins Rx((dst as u8)), xmm8, Rx((x as u8))),
-                    XMM::XMM9 => dynasm!(emitter ; $ins Rx((dst as u8)), xmm9, Rx((x as u8))),
-                    XMM::XMM10 => dynasm!(emitter ; $ins Rx((dst as u8)), xmm10, Rx((x as u8))),
-                    XMM::XMM11 => dynasm!(emitter ; $ins Rx((dst as u8)), xmm11, Rx((x as u8))),
-                    XMM::XMM12 => dynasm!(emitter ; $ins Rx((dst as u8)), xmm12, Rx((x as u8))),
-                    XMM::XMM13 => dynasm!(emitter ; $ins Rx((dst as u8)), xmm13, Rx((x as u8))),
-                    XMM::XMM14 => dynasm!(emitter ; $ins Rx((dst as u8)), xmm14, Rx((x as u8))),
-                    XMM::XMM15 => dynasm!(emitter ; $ins Rx((dst as u8)), xmm15, Rx((x as u8))),
-                },
-                XMMOrMemory::Memory(base, disp) => match src1 {
-                    XMM::XMM0 => dynasm!(emitter ; $ins Rx((dst as u8)), xmm0, [Rq((base as u8)) + disp]),
-                    XMM::XMM1 => dynasm!(emitter ; $ins Rx((dst as u8)), xmm1, [Rq((base as u8)) + disp]),
-                    XMM::XMM2 => dynasm!(emitter ; $ins Rx((dst as u8)), xmm2, [Rq((base as u8)) + disp]),
-                    XMM::XMM3 => dynasm!(emitter ; $ins Rx((dst as u8)), xmm3, [Rq((base as u8)) + disp]),
-                    XMM::XMM4 => dynasm!(emitter ; $ins Rx((dst as u8)), xmm4, [Rq((base as u8)) + disp]),
-                    XMM::XMM5 => dynasm!(emitter ; $ins Rx((dst as u8)), xmm5, [Rq((base as u8)) + disp]),
-                    XMM::XMM6 => dynasm!(emitter ; $ins Rx((dst as u8)), xmm6, [Rq((base as u8)) + disp]),
-                    XMM::XMM7 => dynasm!(emitter ; $ins Rx((dst as u8)), xmm7, [Rq((base as u8)) + disp]),
-                    XMM::XMM8 => dynasm!(emitter ; $ins Rx((dst as u8)), xmm8, [Rq((base as u8)) + disp]),
-                    XMM::XMM9 => dynasm!(emitter ; $ins Rx((dst as u8)), xmm9, [Rq((base as u8)) + disp]),
-                    XMM::XMM10 => dynasm!(emitter ; $ins Rx((dst as u8)), xmm10, [Rq((base as u8)) + disp]),
-                    XMM::XMM11 => dynasm!(emitter ; $ins Rx((dst as u8)), xmm11, [Rq((base as u8)) + disp]),
-                    XMM::XMM12 => dynasm!(emitter ; $ins Rx((dst as u8)), xmm12, [Rq((base as u8)) + disp]),
-                    XMM::XMM13 => dynasm!(emitter ; $ins Rx((dst as u8)), xmm13, [Rq((base as u8)) + disp]),
-                    XMM::XMM14 => dynasm!(emitter ; $ins Rx((dst as u8)), xmm14, [Rq((base as u8)) + disp]),
-                    XMM::XMM15 => dynasm!(emitter ; $ins Rx((dst as u8)), xmm15, [Rq((base as u8)) + disp]),
-                },
-            }
+    ($ins:ident, $emitter:ident, $src1:ident, $src2:ident, $dst:ident) => {
+        // Dynasm bug: AVX instructions are not encoded correctly.
+        match $src2 {
+            XMMOrMemory::XMM(x) => match $src1 {
+                XMM::XMM0 => dynasm!($emitter ; $ins Rx(($dst as u8)), xmm0, Rx((x as u8))),
+                XMM::XMM1 => dynasm!($emitter ; $ins Rx(($dst as u8)), xmm1, Rx((x as u8))),
+                XMM::XMM2 => dynasm!($emitter ; $ins Rx(($dst as u8)), xmm2, Rx((x as u8))),
+                XMM::XMM4 => dynasm!($emitter ; $ins Rx(($dst as u8)), xmm4, Rx((x as u8))),
+                XMM::XMM3 => dynasm!($emitter ; $ins Rx(($dst as u8)), xmm3, Rx((x as u8))),
+                XMM::XMM5 => dynasm!($emitter ; $ins Rx(($dst as u8)), xmm5, Rx((x as u8))),
+                XMM::XMM6 => dynasm!($emitter ; $ins Rx(($dst as u8)), xmm6, Rx((x as u8))),
+                XMM::XMM7 => dynasm!($emitter ; $ins Rx(($dst as u8)), xmm7, Rx((x as u8))),
+                XMM::XMM8 => dynasm!($emitter ; $ins Rx(($dst as u8)), xmm8, Rx((x as u8))),
+                XMM::XMM9 => dynasm!($emitter ; $ins Rx(($dst as u8)), xmm9, Rx((x as u8))),
+                XMM::XMM10 => dynasm!($emitter ; $ins Rx(($dst as u8)), xmm10, Rx((x as u8))),
+                XMM::XMM11 => dynasm!($emitter ; $ins Rx(($dst as u8)), xmm11, Rx((x as u8))),
+                XMM::XMM12 => dynasm!($emitter ; $ins Rx(($dst as u8)), xmm12, Rx((x as u8))),
+                XMM::XMM13 => dynasm!($emitter ; $ins Rx(($dst as u8)), xmm13, Rx((x as u8))),
+                XMM::XMM14 => dynasm!($emitter ; $ins Rx(($dst as u8)), xmm14, Rx((x as u8))),
+                XMM::XMM15 => dynasm!($emitter ; $ins Rx(($dst as u8)), xmm15, Rx((x as u8))),
+            },
+            XMMOrMemory::Memory(base, disp) => match $src1 {
+                XMM::XMM0 => dynasm!($emitter ; $ins Rx(($dst as u8)), xmm0, [Rq((base as u8)) + disp]),
+                XMM::XMM1 => dynasm!($emitter ; $ins Rx(($dst as u8)), xmm1, [Rq((base as u8)) + disp]),
+                XMM::XMM2 => dynasm!($emitter ; $ins Rx(($dst as u8)), xmm2, [Rq((base as u8)) + disp]),
+                XMM::XMM3 => dynasm!($emitter ; $ins Rx(($dst as u8)), xmm3, [Rq((base as u8)) + disp]),
+                XMM::XMM4 => dynasm!($emitter ; $ins Rx(($dst as u8)), xmm4, [Rq((base as u8)) + disp]),
+                XMM::XMM5 => dynasm!($emitter ; $ins Rx(($dst as u8)), xmm5, [Rq((base as u8)) + disp]),
+                XMM::XMM6 => dynasm!($emitter ; $ins Rx(($dst as u8)), xmm6, [Rq((base as u8)) + disp]),
+                XMM::XMM7 => dynasm!($emitter ; $ins Rx(($dst as u8)), xmm7, [Rq((base as u8)) + disp]),
+                XMM::XMM8 => dynasm!($emitter ; $ins Rx(($dst as u8)), xmm8, [Rq((base as u8)) + disp]),
+                XMM::XMM9 => dynasm!($emitter ; $ins Rx(($dst as u8)), xmm9, [Rq((base as u8)) + disp]),
+                XMM::XMM10 => dynasm!($emitter ; $ins Rx(($dst as u8)), xmm10, [Rq((base as u8)) + disp]),
+                XMM::XMM11 => dynasm!($emitter ; $ins Rx(($dst as u8)), xmm11, [Rq((base as u8)) + disp]),
+                XMM::XMM12 => dynasm!($emitter ; $ins Rx(($dst as u8)), xmm12, [Rq((base as u8)) + disp]),
+                XMM::XMM13 => dynasm!($emitter ; $ins Rx(($dst as u8)), xmm13, [Rq((base as u8)) + disp]),
+                XMM::XMM14 => dynasm!($emitter ; $ins Rx(($dst as u8)), xmm14, [Rq((base as u8)) + disp]),
+                XMM::XMM15 => dynasm!($emitter ; $ins Rx(($dst as u8)), xmm15, [Rq((base as u8)) + disp]),
+            },
         }
     }
 }
 
 macro_rules! sse_fn {
-    ($ins:ident) => {
-        |emitter: &mut AssemblerX64, precision: Precision, src1: XMM, src2: XMMOrMemory, dst: XMM| {
-            match src2 {
-                XMMOrMemory::XMM(x) => {
-                    if x == dst {
-                        dynasm!(emitter ; $ins Rx((dst as u8)), Rx((src1 as u8)))
-                    } else {
-                        move_src_to_dst(emitter, precision, src1, dst);
-                        dynasm!(emitter ; $ins Rx((dst as u8)), Rx((x as u8)))
-                    }
+    ($ins:ident, $emitter:ident, $precision:expr, $src1:ident, $src2:ident, $dst:ident) => {
+        match $src2 {
+            XMMOrMemory::XMM(x) => {
+                if x == $dst {
+                    dynasm!($emitter ; $ins Rx(($dst as u8)), Rx(($src1 as u8)))
+                } else {
+                    move_src_to_dst($emitter, $precision, $src1, $dst);
+                    dynasm!($emitter ; $ins Rx(($dst as u8)), Rx((x as u8)))
                 }
-                XMMOrMemory::Memory(base, disp) => {
-                    move_src_to_dst(emitter, precision, src1, dst);
-                    dynasm!(emitter ; $ins Rx((dst as u8)), [Rq((base as u8)) + disp])
-                }
+            }
+            XMMOrMemory::Memory(base, disp) => {
+                move_src_to_dst($emitter, $precision, $src1, $dst);
+                dynasm!($emitter ; $ins Rx(($dst as u8)), [Rq((base as u8)) + disp])
             }
         }
     };
-    ($ins:ident, $mode:expr) => {
-        |emitter: &mut AssemblerX64, precision: Precision, src1: XMM, src2: XMMOrMemory, dst: XMM| {
-            match src2 {
-                XMMOrMemory::XMM(x) => {
-                    move_src_to_dst(emitter, precision, src1, dst);
-                    dynasm!(emitter ; $ins Rx((dst as u8)), Rx((x as u8)), $mode)
-                }
-                XMMOrMemory::Memory(base, disp) => {
-                    move_src_to_dst(emitter, precision, src1, dst);
-                    dynasm!(emitter ; $ins Rx((dst as u8)), [Rq((base as u8)) + disp], $mode)
-                }
+    ($ins:ident, $mode:expr, $emitter:ident, $precision:expr, $src1:ident, $src2:ident, $dst:ident) => {
+        match $src2 {
+            XMMOrMemory::XMM(x) => {
+                move_src_to_dst($emitter, $precision, $src1, $dst);
+                dynasm!($emitter ; $ins Rx(($dst as u8)), Rx((x as u8)), $mode)
+            }
+            XMMOrMemory::Memory(base, disp) => {
+                move_src_to_dst($emitter, $precision, $src1, $dst);
+                dynasm!($emitter ; $ins Rx(($dst as u8)), [Rq((base as u8)) + disp], $mode)
             }
         }
     };
 }
 
 macro_rules! avx_i2f_64_fn {
-    ($ins:ident) => {
-        |emitter: &mut AssemblerX64, src1: XMM, src2: GPROrMemory, dst: XMM| {
-            match src2 {
-                GPROrMemory::GPR(x) => match src1 {
-                    XMM::XMM0 => dynasm!(emitter ; $ins Rx((dst as u8)), xmm0, Rq((x as u8))),
-                    XMM::XMM1 => dynasm!(emitter ; $ins Rx((dst as u8)), xmm1, Rq((x as u8))),
-                    XMM::XMM2 => dynasm!(emitter ; $ins Rx((dst as u8)), xmm2, Rq((x as u8))),
-                    XMM::XMM3 => dynasm!(emitter ; $ins Rx((dst as u8)), xmm3, Rq((x as u8))),
-                    XMM::XMM4 => dynasm!(emitter ; $ins Rx((dst as u8)), xmm4, Rq((x as u8))),
-                    XMM::XMM5 => dynasm!(emitter ; $ins Rx((dst as u8)), xmm5, Rq((x as u8))),
-                    XMM::XMM6 => dynasm!(emitter ; $ins Rx((dst as u8)), xmm6, Rq((x as u8))),
-                    XMM::XMM7 => dynasm!(emitter ; $ins Rx((dst as u8)), xmm7, Rq((x as u8))),
-                    XMM::XMM8 => dynasm!(emitter ; $ins Rx((dst as u8)), xmm8, Rq((x as u8))),
-                    XMM::XMM9 => dynasm!(emitter ; $ins Rx((dst as u8)), xmm9, Rq((x as u8))),
-                    XMM::XMM10 => dynasm!(emitter ; $ins Rx((dst as u8)), xmm10, Rq((x as u8))),
-                    XMM::XMM11 => dynasm!(emitter ; $ins Rx((dst as u8)), xmm11, Rq((x as u8))),
-                    XMM::XMM12 => dynasm!(emitter ; $ins Rx((dst as u8)), xmm12, Rq((x as u8))),
-                    XMM::XMM13 => dynasm!(emitter ; $ins Rx((dst as u8)), xmm13, Rq((x as u8))),
-                    XMM::XMM14 => dynasm!(emitter ; $ins Rx((dst as u8)), xmm14, Rq((x as u8))),
-                    XMM::XMM15 => dynasm!(emitter ; $ins Rx((dst as u8)), xmm15, Rq((x as u8))),
-                },
-                GPROrMemory::Memory(base, disp) => match src1 {
-                    XMM::XMM0 => dynasm!(emitter ; $ins Rx((dst as u8)), xmm0, QWORD [Rq((base as u8)) + disp]),
-                    XMM::XMM1 => dynasm!(emitter ; $ins Rx((dst as u8)), xmm1, QWORD [Rq((base as u8)) + disp]),
-                    XMM::XMM2 => dynasm!(emitter ; $ins Rx((dst as u8)), xmm2, QWORD [Rq((base as u8)) + disp]),
-                    XMM::XMM3 => dynasm!(emitter ; $ins Rx((dst as u8)), xmm3, QWORD [Rq((base as u8)) + disp]),
-                    XMM::XMM4 => dynasm!(emitter ; $ins Rx((dst as u8)), xmm4, QWORD [Rq((base as u8)) + disp]),
-                    XMM::XMM5 => dynasm!(emitter ; $ins Rx((dst as u8)), xmm5, QWORD [Rq((base as u8)) + disp]),
-                    XMM::XMM6 => dynasm!(emitter ; $ins Rx((dst as u8)), xmm6, QWORD [Rq((base as u8)) + disp]),
-                    XMM::XMM7 => dynasm!(emitter ; $ins Rx((dst as u8)), xmm7, QWORD [Rq((base as u8)) + disp]),
-                    XMM::XMM8 => dynasm!(emitter ; $ins Rx((dst as u8)), xmm8, QWORD [Rq((base as u8)) + disp]),
-                    XMM::XMM9 => dynasm!(emitter ; $ins Rx((dst as u8)), xmm9, QWORD [Rq((base as u8)) + disp]),
-                    XMM::XMM10 => dynasm!(emitter ; $ins Rx((dst as u8)), xmm10, QWORD [Rq((base as u8)) + disp]),
-                    XMM::XMM11 => dynasm!(emitter ; $ins Rx((dst as u8)), xmm11, QWORD [Rq((base as u8)) + disp]),
-                    XMM::XMM12 => dynasm!(emitter ; $ins Rx((dst as u8)), xmm12, QWORD [Rq((base as u8)) + disp]),
-                    XMM::XMM13 => dynasm!(emitter ; $ins Rx((dst as u8)), xmm13, QWORD [Rq((base as u8)) + disp]),
-                    XMM::XMM14 => dynasm!(emitter ; $ins Rx((dst as u8)), xmm14, QWORD [Rq((base as u8)) + disp]),
-                    XMM::XMM15 => dynasm!(emitter ; $ins Rx((dst as u8)), xmm15, QWORD [Rq((base as u8)) + disp]),
-                },
-            }
+    ($ins:ident, $emitter:ident, $src1:ident, $src2:ident, $dst:ident) => {
+        match $src2 {
+            GPROrMemory::GPR(x) => match $src1 {
+                XMM::XMM0 => dynasm!($emitter ; $ins Rx(($dst as u8)), xmm0, Rq((x as u8))),
+                XMM::XMM1 => dynasm!($emitter ; $ins Rx(($dst as u8)), xmm1, Rq((x as u8))),
+                XMM::XMM2 => dynasm!($emitter ; $ins Rx(($dst as u8)), xmm2, Rq((x as u8))),
+                XMM::XMM3 => dynasm!($emitter ; $ins Rx(($dst as u8)), xmm3, Rq((x as u8))),
+                XMM::XMM4 => dynasm!($emitter ; $ins Rx(($dst as u8)), xmm4, Rq((x as u8))),
+                XMM::XMM5 => dynasm!($emitter ; $ins Rx(($dst as u8)), xmm5, Rq((x as u8))),
+                XMM::XMM6 => dynasm!($emitter ; $ins Rx(($dst as u8)), xmm6, Rq((x as u8))),
+                XMM::XMM7 => dynasm!($emitter ; $ins Rx(($dst as u8)), xmm7, Rq((x as u8))),
+                XMM::XMM8 => dynasm!($emitter ; $ins Rx(($dst as u8)), xmm8, Rq((x as u8))),
+                XMM::XMM9 => dynasm!($emitter ; $ins Rx(($dst as u8)), xmm9, Rq((x as u8))),
+                XMM::XMM10 => dynasm!($emitter ; $ins Rx(($dst as u8)), xmm10, Rq((x as u8))),
+                XMM::XMM11 => dynasm!($emitter ; $ins Rx(($dst as u8)), xmm11, Rq((x as u8))),
+                XMM::XMM12 => dynasm!($emitter ; $ins Rx(($dst as u8)), xmm12, Rq((x as u8))),
+                XMM::XMM13 => dynasm!($emitter ; $ins Rx(($dst as u8)), xmm13, Rq((x as u8))),
+                XMM::XMM14 => dynasm!($emitter ; $ins Rx(($dst as u8)), xmm14, Rq((x as u8))),
+                XMM::XMM15 => dynasm!($emitter ; $ins Rx(($dst as u8)), xmm15, Rq((x as u8))),
+            },
+            GPROrMemory::Memory(base, disp) => match $src1 {
+                XMM::XMM0 => dynasm!($emitter ; $ins Rx(($dst as u8)), xmm0, QWORD [Rq((base as u8)) + disp]),
+                XMM::XMM1 => dynasm!($emitter ; $ins Rx(($dst as u8)), xmm1, QWORD [Rq((base as u8)) + disp]),
+                XMM::XMM2 => dynasm!($emitter ; $ins Rx(($dst as u8)), xmm2, QWORD [Rq((base as u8)) + disp]),
+                XMM::XMM3 => dynasm!($emitter ; $ins Rx(($dst as u8)), xmm3, QWORD [Rq((base as u8)) + disp]),
+                XMM::XMM4 => dynasm!($emitter ; $ins Rx(($dst as u8)), xmm4, QWORD [Rq((base as u8)) + disp]),
+                XMM::XMM5 => dynasm!($emitter ; $ins Rx(($dst as u8)), xmm5, QWORD [Rq((base as u8)) + disp]),
+                XMM::XMM6 => dynasm!($emitter ; $ins Rx(($dst as u8)), xmm6, QWORD [Rq((base as u8)) + disp]),
+                XMM::XMM7 => dynasm!($emitter ; $ins Rx(($dst as u8)), xmm7, QWORD [Rq((base as u8)) + disp]),
+                XMM::XMM8 => dynasm!($emitter ; $ins Rx(($dst as u8)), xmm8, QWORD [Rq((base as u8)) + disp]),
+                XMM::XMM9 => dynasm!($emitter ; $ins Rx(($dst as u8)), xmm9, QWORD [Rq((base as u8)) + disp]),
+                XMM::XMM10 => dynasm!($emitter ; $ins Rx(($dst as u8)), xmm10, QWORD [Rq((base as u8)) + disp]),
+                XMM::XMM11 => dynasm!($emitter ; $ins Rx(($dst as u8)), xmm11, QWORD [Rq((base as u8)) + disp]),
+                XMM::XMM12 => dynasm!($emitter ; $ins Rx(($dst as u8)), xmm12, QWORD [Rq((base as u8)) + disp]),
+                XMM::XMM13 => dynasm!($emitter ; $ins Rx(($dst as u8)), xmm13, QWORD [Rq((base as u8)) + disp]),
+                XMM::XMM14 => dynasm!($emitter ; $ins Rx(($dst as u8)), xmm14, QWORD [Rq((base as u8)) + disp]),
+                XMM::XMM15 => dynasm!($emitter ; $ins Rx(($dst as u8)), xmm15, QWORD [Rq((base as u8)) + disp]),
+            },
         }
     }
 }
 
 macro_rules! sse_i2f_64_fn {
-    ($ins:ident) => {
-        |emitter: &mut AssemblerX64, precision: Precision, src1: XMM, src2: GPROrMemory, dst: XMM| {
-            match src2 {
-                GPROrMemory::GPR(x) => {
-                    move_src_to_dst(emitter, precision, src1, dst);
-                    dynasm!(emitter ; $ins Rx((dst as u8)), Rq((x as u8)))
-                },
-                GPROrMemory::Memory(base, disp) => {
-                    move_src_to_dst(emitter, precision, src1, dst);
-                    dynasm!(emitter ; $ins Rx((dst as u8)), QWORD [Rq((base as u8)) + disp])
-                }
+    ($ins:ident, $emitter:ident, $precision:expr, $src1:ident, $src2:ident, $dst:ident) => {
+        match $src2 {
+            GPROrMemory::GPR(x) => {
+                move_src_to_dst($emitter, $precision, $src1, $dst);
+                dynasm!($emitter ; $ins Rx(($dst as u8)), Rq((x as u8)))
+            },
+            GPROrMemory::Memory(base, disp) => {
+                move_src_to_dst($emitter, $precision, $src1, $dst);
+                dynasm!($emitter ; $ins Rx(($dst as u8)), QWORD [Rq((base as u8)) + disp])
             }
         }
     }
 }
 
 macro_rules! avx_i2f_32_fn {
-    ($ins:ident) => {
-        |emitter: &mut AssemblerX64, src1: XMM, src2: GPROrMemory, dst: XMM| {
-            match src2 {
-                GPROrMemory::GPR(x) => match src1 {
-                    XMM::XMM0 => dynasm!(emitter ; $ins Rx((dst as u8)), xmm0, Rd((x as u8))),
-                    XMM::XMM1 => dynasm!(emitter ; $ins Rx((dst as u8)), xmm1, Rd((x as u8))),
-                    XMM::XMM2 => dynasm!(emitter ; $ins Rx((dst as u8)), xmm2, Rd((x as u8))),
-                    XMM::XMM3 => dynasm!(emitter ; $ins Rx((dst as u8)), xmm3, Rd((x as u8))),
-                    XMM::XMM4 => dynasm!(emitter ; $ins Rx((dst as u8)), xmm4, Rd((x as u8))),
-                    XMM::XMM5 => dynasm!(emitter ; $ins Rx((dst as u8)), xmm5, Rd((x as u8))),
-                    XMM::XMM6 => dynasm!(emitter ; $ins Rx((dst as u8)), xmm6, Rd((x as u8))),
-                    XMM::XMM7 => dynasm!(emitter ; $ins Rx((dst as u8)), xmm7, Rd((x as u8))),
-                    XMM::XMM8 => dynasm!(emitter ; $ins Rx((dst as u8)), xmm8, Rd((x as u8))),
-                    XMM::XMM9 => dynasm!(emitter ; $ins Rx((dst as u8)), xmm9, Rd((x as u8))),
-                    XMM::XMM10 => dynasm!(emitter ; $ins Rx((dst as u8)), xmm10, Rd((x as u8))),
-                    XMM::XMM11 => dynasm!(emitter ; $ins Rx((dst as u8)), xmm11, Rd((x as u8))),
-                    XMM::XMM12 => dynasm!(emitter ; $ins Rx((dst as u8)), xmm12, Rd((x as u8))),
-                    XMM::XMM13 => dynasm!(emitter ; $ins Rx((dst as u8)), xmm13, Rd((x as u8))),
-                    XMM::XMM14 => dynasm!(emitter ; $ins Rx((dst as u8)), xmm14, Rd((x as u8))),
-                    XMM::XMM15 => dynasm!(emitter ; $ins Rx((dst as u8)), xmm15, Rd((x as u8))),
-                },
-                GPROrMemory::Memory(base, disp) => match src1 {
-                    XMM::XMM0 => dynasm!(emitter ; $ins Rx((dst as u8)), xmm0, DWORD [Rq((base as u8)) + disp]),
-                    XMM::XMM1 => dynasm!(emitter ; $ins Rx((dst as u8)), xmm1, DWORD [Rq((base as u8)) + disp]),
-                    XMM::XMM2 => dynasm!(emitter ; $ins Rx((dst as u8)), xmm2, DWORD [Rq((base as u8)) + disp]),
-                    XMM::XMM3 => dynasm!(emitter ; $ins Rx((dst as u8)), xmm3, DWORD [Rq((base as u8)) + disp]),
-                    XMM::XMM4 => dynasm!(emitter ; $ins Rx((dst as u8)), xmm4, DWORD [Rq((base as u8)) + disp]),
-                    XMM::XMM5 => dynasm!(emitter ; $ins Rx((dst as u8)), xmm5, DWORD [Rq((base as u8)) + disp]),
-                    XMM::XMM6 => dynasm!(emitter ; $ins Rx((dst as u8)), xmm6, DWORD [Rq((base as u8)) + disp]),
-                    XMM::XMM7 => dynasm!(emitter ; $ins Rx((dst as u8)), xmm7, DWORD [Rq((base as u8)) + disp]),
-                    XMM::XMM8 => dynasm!(emitter ; $ins Rx((dst as u8)), xmm8, DWORD [Rq((base as u8)) + disp]),
-                    XMM::XMM9 => dynasm!(emitter ; $ins Rx((dst as u8)), xmm9, DWORD [Rq((base as u8)) + disp]),
-                    XMM::XMM10 => dynasm!(emitter ; $ins Rx((dst as u8)), xmm10, DWORD [Rq((base as u8)) + disp]),
-                    XMM::XMM11 => dynasm!(emitter ; $ins Rx((dst as u8)), xmm11, DWORD [Rq((base as u8)) + disp]),
-                    XMM::XMM12 => dynasm!(emitter ; $ins Rx((dst as u8)), xmm12, DWORD [Rq((base as u8)) + disp]),
-                    XMM::XMM13 => dynasm!(emitter ; $ins Rx((dst as u8)), xmm13, DWORD [Rq((base as u8)) + disp]),
-                    XMM::XMM14 => dynasm!(emitter ; $ins Rx((dst as u8)), xmm14, DWORD [Rq((base as u8)) + disp]),
-                    XMM::XMM15 => dynasm!(emitter ; $ins Rx((dst as u8)), xmm15, DWORD [Rq((base as u8)) + disp]),
-                },
-            }
+    ($ins:ident, $emitter:ident, $src1:ident, $src2:ident, $dst:ident) => {
+        match $src2 {
+            GPROrMemory::GPR(x) => match $src1 {
+                XMM::XMM0 => dynasm!($emitter ; $ins Rx(($dst as u8)), xmm0, Rd((x as u8))),
+                XMM::XMM1 => dynasm!($emitter ; $ins Rx(($dst as u8)), xmm1, Rd((x as u8))),
+                XMM::XMM2 => dynasm!($emitter ; $ins Rx(($dst as u8)), xmm2, Rd((x as u8))),
+                XMM::XMM3 => dynasm!($emitter ; $ins Rx(($dst as u8)), xmm3, Rd((x as u8))),
+                XMM::XMM4 => dynasm!($emitter ; $ins Rx(($dst as u8)), xmm4, Rd((x as u8))),
+                XMM::XMM5 => dynasm!($emitter ; $ins Rx(($dst as u8)), xmm5, Rd((x as u8))),
+                XMM::XMM6 => dynasm!($emitter ; $ins Rx(($dst as u8)), xmm6, Rd((x as u8))),
+                XMM::XMM7 => dynasm!($emitter ; $ins Rx(($dst as u8)), xmm7, Rd((x as u8))),
+                XMM::XMM8 => dynasm!($emitter ; $ins Rx(($dst as u8)), xmm8, Rd((x as u8))),
+                XMM::XMM9 => dynasm!($emitter ; $ins Rx(($dst as u8)), xmm9, Rd((x as u8))),
+                XMM::XMM10 => dynasm!($emitter ; $ins Rx(($dst as u8)), xmm10, Rd((x as u8))),
+                XMM::XMM11 => dynasm!($emitter ; $ins Rx(($dst as u8)), xmm11, Rd((x as u8))),
+                XMM::XMM12 => dynasm!($emitter ; $ins Rx(($dst as u8)), xmm12, Rd((x as u8))),
+                XMM::XMM13 => dynasm!($emitter ; $ins Rx(($dst as u8)), xmm13, Rd((x as u8))),
+                XMM::XMM14 => dynasm!($emitter ; $ins Rx(($dst as u8)), xmm14, Rd((x as u8))),
+                XMM::XMM15 => dynasm!($emitter ; $ins Rx(($dst as u8)), xmm15, Rd((x as u8))),
+            },
+            GPROrMemory::Memory(base, disp) => match $src1 {
+                XMM::XMM0 => dynasm!($emitter ; $ins Rx(($dst as u8)), xmm0, DWORD [Rq((base as u8)) + disp]),
+                XMM::XMM1 => dynasm!($emitter ; $ins Rx(($dst as u8)), xmm1, DWORD [Rq((base as u8)) + disp]),
+                XMM::XMM2 => dynasm!($emitter ; $ins Rx(($dst as u8)), xmm2, DWORD [Rq((base as u8)) + disp]),
+                XMM::XMM3 => dynasm!($emitter ; $ins Rx(($dst as u8)), xmm3, DWORD [Rq((base as u8)) + disp]),
+                XMM::XMM4 => dynasm!($emitter ; $ins Rx(($dst as u8)), xmm4, DWORD [Rq((base as u8)) + disp]),
+                XMM::XMM5 => dynasm!($emitter ; $ins Rx(($dst as u8)), xmm5, DWORD [Rq((base as u8)) + disp]),
+                XMM::XMM6 => dynasm!($emitter ; $ins Rx(($dst as u8)), xmm6, DWORD [Rq((base as u8)) + disp]),
+                XMM::XMM7 => dynasm!($emitter ; $ins Rx(($dst as u8)), xmm7, DWORD [Rq((base as u8)) + disp]),
+                XMM::XMM8 => dynasm!($emitter ; $ins Rx(($dst as u8)), xmm8, DWORD [Rq((base as u8)) + disp]),
+                XMM::XMM9 => dynasm!($emitter ; $ins Rx(($dst as u8)), xmm9, DWORD [Rq((base as u8)) + disp]),
+                XMM::XMM10 => dynasm!($emitter ; $ins Rx(($dst as u8)), xmm10, DWORD [Rq((base as u8)) + disp]),
+                XMM::XMM11 => dynasm!($emitter ; $ins Rx(($dst as u8)), xmm11, DWORD [Rq((base as u8)) + disp]),
+                XMM::XMM12 => dynasm!($emitter ; $ins Rx(($dst as u8)), xmm12, DWORD [Rq((base as u8)) + disp]),
+                XMM::XMM13 => dynasm!($emitter ; $ins Rx(($dst as u8)), xmm13, DWORD [Rq((base as u8)) + disp]),
+                XMM::XMM14 => dynasm!($emitter ; $ins Rx(($dst as u8)), xmm14, DWORD [Rq((base as u8)) + disp]),
+                XMM::XMM15 => dynasm!($emitter ; $ins Rx(($dst as u8)), xmm15, DWORD [Rq((base as u8)) + disp]),
+            },
         }
     }
 }
 
 macro_rules! sse_i2f_32_fn {
-    ($ins:ident) => {
-        |emitter: &mut AssemblerX64, precision: Precision, src1: XMM, src2: GPROrMemory, dst: XMM| {
-            match src2 {
-                GPROrMemory::GPR(x) => {
-                    move_src_to_dst(emitter, precision, src1, dst);
-                    dynasm!(emitter; $ins Rx((src1 as u8)), Rd((x as u8)))
-                },
-                GPROrMemory::Memory(base, disp) => {
-                    move_src_to_dst(emitter, precision, src1, dst);
-                    dynasm!(emitter ;  $ins Rx((dst as u8)), DWORD [Rq((base as u8)) + disp])
-                }
+    ($ins:ident, $emitter:ident, $precision:expr, $src1:ident, $src2:ident, $dst:ident) => {
+        match $src2 {
+            GPROrMemory::GPR(x) => {
+                move_src_to_dst($emitter, $precision, $src1, $dst);
+                dynasm!($emitter; $ins Rx(($src1 as u8)), Rd((x as u8)))
+            },
+            GPROrMemory::Memory(base, disp) => {
+                move_src_to_dst($emitter, $precision, $src1, $dst);
+                dynasm!($emitter; $ins Rx(($dst as u8)), DWORD [Rq((base as u8)) + disp])
             }
         }
     }
 }
 
 macro_rules! avx_round_fn {
-    ($ins:ident, $mode:expr) => {
-        |emitter: &mut AssemblerX64, src1: XMM, src2: XMMOrMemory, dst: XMM| {
-            match src2 {
-                XMMOrMemory::XMM(x) => dynasm!(emitter ; $ins Rx((dst as u8)), Rx((src1 as u8)), Rx((x as u8)), $mode),
-                XMMOrMemory::Memory(base, disp) => dynasm!(emitter ; $ins Rx((dst as u8)), Rx((src1 as u8)), [Rq((base as u8)) + disp], $mode),
-            }
+    ($ins:ident, $mode:expr, $emitter:ident, $src1:ident, $src2:ident, $dst:ident) => {
+        match $src2 {
+            XMMOrMemory::XMM(x) => dynasm!($emitter ; $ins Rx(($dst as u8)), Rx(($src1 as u8)), Rx((x as u8)), $mode),
+            XMMOrMemory::Memory(base, disp) => dynasm!($emitter ; $ins Rx(($dst as u8)), Rx(($src1 as u8)), [Rq((base as u8)) + disp], $mode),
         }
     }
 }
 
 macro_rules! sse_round_fn {
-    ($ins:ident, $mode:expr) => {
-        |emitter: &mut AssemblerX64, precision: Precision, src1: XMM, src2: XMMOrMemory, dst: XMM| {
-            match src2 {
-                XMMOrMemory::XMM(x) => {
-                    if x != dst {
-                        move_src_to_dst(emitter, precision, src1, dst);
-                    }
-                    dynasm!(emitter ; $ins Rx((x as u8)), Rx((dst as u8)), $mode)
+    ($ins:ident, $mode:expr, $emitter:ident, $precision:expr, $src1:ident, $src2:ident, $dst:ident) => {
+        match $src2 {
+            XMMOrMemory::XMM(x) => {
+                if x != $dst {
+                    move_src_to_dst($emitter, $precision, $src1, $dst);
                 }
-                XMMOrMemory::Memory(base, disp) => {
-                    dynasm!(emitter ; $ins Rx((dst as u8)), [Rq((base as u8)) + disp], $mode)
-                },
+                dynasm!($emitter ; $ins Rx((x as u8)), Rx(($dst as u8)), $mode)
             }
+            XMMOrMemory::Memory(base, disp) => {
+                dynasm!($emitter ; $ins Rx(($dst as u8)), [Rq((base as u8)) + disp], $mode)
+            },
         }
     }
 }
@@ -1719,112 +1701,112 @@ impl EmitterX64 for AssemblerX64 {
     }
     fn emit_vxorps(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) -> Result<(), CompileError> {
         match self.get_simd_arch() {
-            Some(CpuFeature::AVX) => avx_fn!(vxorps)(self, src1, src2, dst),
-            Some(CpuFeature::SSE42) => sse_fn!(xorps)(self, Precision::Single, src1, src2, dst),
+            Some(CpuFeature::AVX) => avx_fn!(vxorps, self, src1, src2, dst),
+            Some(CpuFeature::SSE42) => sse_fn!(xorps, self, Precision::Single, src1, src2, dst),
             _ => {}
         }
         Ok(())
     }
     fn emit_vxorpd(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) -> Result<(), CompileError> {
         match self.get_simd_arch() {
-            Some(CpuFeature::AVX) => avx_fn!(vxorpd)(self, src1, src2, dst),
-            Some(CpuFeature::SSE42) => sse_fn!(xorpd)(self, Precision::Double, src1, src2, dst),
+            Some(CpuFeature::AVX) => avx_fn!(vxorpd, self, src1, src2, dst),
+            Some(CpuFeature::SSE42) => sse_fn!(xorpd, self, Precision::Double, src1, src2, dst),
             _ => {}
         }
         Ok(())
     }
     fn emit_vaddss(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) -> Result<(), CompileError> {
         match self.get_simd_arch() {
-            Some(CpuFeature::AVX) => avx_fn!(vaddss)(self, src1, src2, dst),
-            Some(CpuFeature::SSE42) => sse_fn!(addss)(self, Precision::Single, src1, src2, dst),
+            Some(CpuFeature::AVX) => avx_fn!(vaddss, self, src1, src2, dst),
+            Some(CpuFeature::SSE42) => sse_fn!(addss, self, Precision::Single, src1, src2, dst),
             _ => {}
         }
         Ok(())
     }
     fn emit_vaddsd(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) -> Result<(), CompileError> {
         match self.get_simd_arch() {
-            Some(CpuFeature::AVX) => avx_fn!(vaddsd)(self, src1, src2, dst),
-            Some(CpuFeature::SSE42) => sse_fn!(addsd)(self, Precision::Double, src1, src2, dst),
+            Some(CpuFeature::AVX) => avx_fn!(vaddsd, self, src1, src2, dst),
+            Some(CpuFeature::SSE42) => sse_fn!(addsd, self, Precision::Double, src1, src2, dst),
             _ => {}
         }
         Ok(())
     }
     fn emit_vsubss(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) -> Result<(), CompileError> {
         match self.get_simd_arch() {
-            Some(CpuFeature::AVX) => avx_fn!(vsubss)(self, src1, src2, dst),
-            Some(CpuFeature::SSE42) => sse_fn!(subss)(self, Precision::Single, src1, src2, dst),
+            Some(CpuFeature::AVX) => avx_fn!(vsubss, self, src1, src2, dst),
+            Some(CpuFeature::SSE42) => sse_fn!(subss, self, Precision::Single, src1, src2, dst),
             _ => {}
         }
         Ok(())
     }
     fn emit_vsubsd(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) -> Result<(), CompileError> {
         match self.get_simd_arch() {
-            Some(CpuFeature::AVX) => avx_fn!(vsubsd)(self, src1, src2, dst),
-            Some(CpuFeature::SSE42) => sse_fn!(subsd)(self, Precision::Double, src1, src2, dst),
+            Some(CpuFeature::AVX) => avx_fn!(vsubsd, self, src1, src2, dst),
+            Some(CpuFeature::SSE42) => sse_fn!(subsd, self, Precision::Double, src1, src2, dst),
             _ => {}
         }
         Ok(())
     }
     fn emit_vmulss(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) -> Result<(), CompileError> {
         match self.get_simd_arch() {
-            Some(CpuFeature::AVX) => avx_fn!(vmulss)(self, src1, src2, dst),
-            Some(CpuFeature::SSE42) => sse_fn!(mulss)(self, Precision::Single, src1, src2, dst),
+            Some(CpuFeature::AVX) => avx_fn!(vmulss, self, src1, src2, dst),
+            Some(CpuFeature::SSE42) => sse_fn!(mulss, self, Precision::Single, src1, src2, dst),
             _ => {}
         }
         Ok(())
     }
     fn emit_vmulsd(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) -> Result<(), CompileError> {
         match self.get_simd_arch() {
-            Some(CpuFeature::AVX) => avx_fn!(vmulsd)(self, src1, src2, dst),
-            Some(CpuFeature::SSE42) => sse_fn!(mulsd)(self, Precision::Double, src1, src2, dst),
+            Some(CpuFeature::AVX) => avx_fn!(vmulsd, self, src1, src2, dst),
+            Some(CpuFeature::SSE42) => sse_fn!(mulsd, self, Precision::Double, src1, src2, dst),
             _ => {}
         }
         Ok(())
     }
     fn emit_vdivss(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) -> Result<(), CompileError> {
         match self.get_simd_arch() {
-            Some(CpuFeature::AVX) => avx_fn!(vdivss)(self, src1, src2, dst),
-            Some(CpuFeature::SSE42) => sse_fn!(divss)(self, Precision::Single, src1, src2, dst),
+            Some(CpuFeature::AVX) => avx_fn!(vdivss, self, src1, src2, dst),
+            Some(CpuFeature::SSE42) => sse_fn!(divss, self, Precision::Single, src1, src2, dst),
             _ => {}
         }
         Ok(())
     }
     fn emit_vdivsd(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) -> Result<(), CompileError> {
         match self.get_simd_arch() {
-            Some(CpuFeature::AVX) => avx_fn!(vdivsd)(self, src1, src2, dst),
-            Some(CpuFeature::SSE42) => sse_fn!(divsd)(self, Precision::Double, src1, src2, dst),
+            Some(CpuFeature::AVX) => avx_fn!(vdivsd, self, src1, src2, dst),
+            Some(CpuFeature::SSE42) => sse_fn!(divsd, self, Precision::Double, src1, src2, dst),
             _ => {}
         }
         Ok(())
     }
     fn emit_vmaxss(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) -> Result<(), CompileError> {
         match self.get_simd_arch() {
-            Some(CpuFeature::AVX) => avx_fn!(vmaxss)(self, src1, src2, dst),
-            Some(CpuFeature::SSE42) => sse_fn!(maxss)(self, Precision::Single, src1, src2, dst),
+            Some(CpuFeature::AVX) => avx_fn!(vmaxss, self, src1, src2, dst),
+            Some(CpuFeature::SSE42) => sse_fn!(maxss, self, Precision::Single, src1, src2, dst),
             _ => {}
         }
         Ok(())
     }
     fn emit_vmaxsd(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) -> Result<(), CompileError> {
         match self.get_simd_arch() {
-            Some(CpuFeature::AVX) => avx_fn!(vmaxsd)(self, src1, src2, dst),
-            Some(CpuFeature::SSE42) => sse_fn!(maxsd)(self, Precision::Double, src1, src2, dst),
+            Some(CpuFeature::AVX) => avx_fn!(vmaxsd, self, src1, src2, dst),
+            Some(CpuFeature::SSE42) => sse_fn!(maxsd, self, Precision::Double, src1, src2, dst),
             _ => {}
         }
         Ok(())
     }
     fn emit_vminss(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) -> Result<(), CompileError> {
         match self.get_simd_arch() {
-            Some(CpuFeature::AVX) => avx_fn!(vminss)(self, src1, src2, dst),
-            Some(CpuFeature::SSE42) => sse_fn!(minss)(self, Precision::Single, src1, src2, dst),
+            Some(CpuFeature::AVX) => avx_fn!(vminss, self, src1, src2, dst),
+            Some(CpuFeature::SSE42) => sse_fn!(minss, self, Precision::Single, src1, src2, dst),
             _ => {}
         }
         Ok(())
     }
     fn emit_vminsd(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) -> Result<(), CompileError> {
         match self.get_simd_arch() {
-            Some(CpuFeature::AVX) => avx_fn!(vminsd)(self, src1, src2, dst),
-            Some(CpuFeature::SSE42) => sse_fn!(minsd)(self, Precision::Double, src1, src2, dst),
+            Some(CpuFeature::AVX) => avx_fn!(vminsd, self, src1, src2, dst),
+            Some(CpuFeature::SSE42) => sse_fn!(minsd, self, Precision::Double, src1, src2, dst),
             _ => {}
         }
         Ok(())
@@ -1836,8 +1818,8 @@ impl EmitterX64 for AssemblerX64 {
         dst: XMM,
     ) -> Result<(), CompileError> {
         match self.get_simd_arch() {
-            Some(CpuFeature::AVX) => avx_fn!(vcmpeqss)(self, src1, src2, dst),
-            Some(CpuFeature::SSE42) => sse_fn!(cmpss, 0)(self, Precision::Single, src1, src2, dst),
+            Some(CpuFeature::AVX) => avx_fn!(vcmpeqss, self, src1, src2, dst),
+            Some(CpuFeature::SSE42) => sse_fn!(cmpss, 0, self, Precision::Single, src1, src2, dst),
             _ => {}
         }
         Ok(())
@@ -1849,8 +1831,8 @@ impl EmitterX64 for AssemblerX64 {
         dst: XMM,
     ) -> Result<(), CompileError> {
         match self.get_simd_arch() {
-            Some(CpuFeature::AVX) => avx_fn!(vcmpeqsd)(self, src1, src2, dst),
-            Some(CpuFeature::SSE42) => sse_fn!(cmpsd, 0)(self, Precision::Double, src1, src2, dst),
+            Some(CpuFeature::AVX) => avx_fn!(vcmpeqsd, self, src1, src2, dst),
+            Some(CpuFeature::SSE42) => sse_fn!(cmpsd, 0, self, Precision::Double, src1, src2, dst),
             _ => {}
         }
         Ok(())
@@ -1862,8 +1844,8 @@ impl EmitterX64 for AssemblerX64 {
         dst: XMM,
     ) -> Result<(), CompileError> {
         match self.get_simd_arch() {
-            Some(CpuFeature::AVX) => avx_fn!(vcmpneqss)(self, src1, src2, dst),
-            Some(CpuFeature::SSE42) => sse_fn!(cmpss, 4)(self, Precision::Single, src1, src2, dst),
+            Some(CpuFeature::AVX) => avx_fn!(vcmpneqss, self, src1, src2, dst),
+            Some(CpuFeature::SSE42) => sse_fn!(cmpss, 4, self, Precision::Single, src1, src2, dst),
             _ => {}
         }
         Ok(())
@@ -1875,8 +1857,8 @@ impl EmitterX64 for AssemblerX64 {
         dst: XMM,
     ) -> Result<(), CompileError> {
         match self.get_simd_arch() {
-            Some(CpuFeature::AVX) => avx_fn!(vcmpneqsd)(self, src1, src2, dst),
-            Some(CpuFeature::SSE42) => sse_fn!(cmpsd, 4)(self, Precision::Double, src1, src2, dst),
+            Some(CpuFeature::AVX) => avx_fn!(vcmpneqsd, self, src1, src2, dst),
+            Some(CpuFeature::SSE42) => sse_fn!(cmpsd, 4, self, Precision::Double, src1, src2, dst),
             _ => {}
         }
         Ok(())
@@ -1888,8 +1870,8 @@ impl EmitterX64 for AssemblerX64 {
         dst: XMM,
     ) -> Result<(), CompileError> {
         match self.get_simd_arch() {
-            Some(CpuFeature::AVX) => avx_fn!(vcmpltss)(self, src1, src2, dst),
-            Some(CpuFeature::SSE42) => sse_fn!(cmpss, 1)(self, Precision::Single, src1, src2, dst),
+            Some(CpuFeature::AVX) => avx_fn!(vcmpltss, self, src1, src2, dst),
+            Some(CpuFeature::SSE42) => sse_fn!(cmpss, 1, self, Precision::Single, src1, src2, dst),
             _ => {}
         }
         Ok(())
@@ -1901,8 +1883,8 @@ impl EmitterX64 for AssemblerX64 {
         dst: XMM,
     ) -> Result<(), CompileError> {
         match self.get_simd_arch() {
-            Some(CpuFeature::AVX) => avx_fn!(vcmpltsd)(self, src1, src2, dst),
-            Some(CpuFeature::SSE42) => sse_fn!(cmpsd, 1)(self, Precision::Double, src1, src2, dst),
+            Some(CpuFeature::AVX) => avx_fn!(vcmpltsd, self, src1, src2, dst),
+            Some(CpuFeature::SSE42) => sse_fn!(cmpsd, 1, self, Precision::Double, src1, src2, dst),
             _ => {}
         }
         Ok(())
@@ -1914,8 +1896,8 @@ impl EmitterX64 for AssemblerX64 {
         dst: XMM,
     ) -> Result<(), CompileError> {
         match self.get_simd_arch() {
-            Some(CpuFeature::AVX) => avx_fn!(vcmpless)(self, src1, src2, dst),
-            Some(CpuFeature::SSE42) => sse_fn!(cmpss, 2)(self, Precision::Single, src1, src2, dst),
+            Some(CpuFeature::AVX) => avx_fn!(vcmpless, self, src1, src2, dst),
+            Some(CpuFeature::SSE42) => sse_fn!(cmpss, 2, self, Precision::Single, src1, src2, dst),
             _ => {}
         }
         Ok(())
@@ -1927,8 +1909,8 @@ impl EmitterX64 for AssemblerX64 {
         dst: XMM,
     ) -> Result<(), CompileError> {
         match self.get_simd_arch() {
-            Some(CpuFeature::AVX) => avx_fn!(vcmplesd)(self, src1, src2, dst),
-            Some(CpuFeature::SSE42) => sse_fn!(cmpsd, 2)(self, Precision::Double, src1, src2, dst),
+            Some(CpuFeature::AVX) => avx_fn!(vcmplesd, self, src1, src2, dst),
+            Some(CpuFeature::SSE42) => sse_fn!(cmpsd, 2, self, Precision::Double, src1, src2, dst),
             _ => {}
         }
         Ok(())
@@ -1940,8 +1922,8 @@ impl EmitterX64 for AssemblerX64 {
         dst: XMM,
     ) -> Result<(), CompileError> {
         match self.get_simd_arch() {
-            Some(CpuFeature::AVX) => avx_fn!(vcmpgtss)(self, src1, src2, dst),
-            Some(CpuFeature::SSE42) => sse_fn!(cmpss, 6)(self, Precision::Single, src1, src2, dst),
+            Some(CpuFeature::AVX) => avx_fn!(vcmpgtss, self, src1, src2, dst),
+            Some(CpuFeature::SSE42) => sse_fn!(cmpss, 6, self, Precision::Single, src1, src2, dst),
             _ => {}
         }
         Ok(())
@@ -1953,8 +1935,8 @@ impl EmitterX64 for AssemblerX64 {
         dst: XMM,
     ) -> Result<(), CompileError> {
         match self.get_simd_arch() {
-            Some(CpuFeature::AVX) => avx_fn!(vcmpgtsd)(self, src1, src2, dst),
-            Some(CpuFeature::SSE42) => sse_fn!(cmpsd, 6)(self, Precision::Double, src1, src2, dst),
+            Some(CpuFeature::AVX) => avx_fn!(vcmpgtsd, self, src1, src2, dst),
+            Some(CpuFeature::SSE42) => sse_fn!(cmpsd, 6, self, Precision::Double, src1, src2, dst),
             _ => {}
         }
         Ok(())
@@ -1966,8 +1948,8 @@ impl EmitterX64 for AssemblerX64 {
         dst: XMM,
     ) -> Result<(), CompileError> {
         match self.get_simd_arch() {
-            Some(CpuFeature::AVX) => avx_fn!(vcmpgess)(self, src1, src2, dst),
-            Some(CpuFeature::SSE42) => sse_fn!(cmpss, 5)(self, Precision::Single, src1, src2, dst),
+            Some(CpuFeature::AVX) => avx_fn!(vcmpgess, self, src1, src2, dst),
+            Some(CpuFeature::SSE42) => sse_fn!(cmpss, 5, self, Precision::Single, src1, src2, dst),
             _ => {}
         }
         Ok(())
@@ -1979,8 +1961,8 @@ impl EmitterX64 for AssemblerX64 {
         dst: XMM,
     ) -> Result<(), CompileError> {
         match self.get_simd_arch() {
-            Some(CpuFeature::AVX) => avx_fn!(vcmpgesd)(self, src1, src2, dst),
-            Some(CpuFeature::SSE42) => sse_fn!(cmpsd, 5)(self, Precision::Double, src1, src2, dst),
+            Some(CpuFeature::AVX) => avx_fn!(vcmpgesd, self, src1, src2, dst),
+            Some(CpuFeature::SSE42) => sse_fn!(cmpsd, 5, self, Precision::Double, src1, src2, dst),
             _ => {}
         }
         Ok(())
@@ -1992,8 +1974,8 @@ impl EmitterX64 for AssemblerX64 {
         dst: XMM,
     ) -> Result<(), CompileError> {
         match self.get_simd_arch() {
-            Some(CpuFeature::AVX) => avx_fn!(vcmpunordss)(self, src1, src2, dst),
-            Some(CpuFeature::SSE42) => sse_fn!(cmpss, 3)(self, Precision::Single, src1, src2, dst),
+            Some(CpuFeature::AVX) => avx_fn!(vcmpunordss, self, src1, src2, dst),
+            Some(CpuFeature::SSE42) => sse_fn!(cmpss, 3, self, Precision::Single, src1, src2, dst),
             _ => {}
         }
         Ok(())
@@ -2005,8 +1987,8 @@ impl EmitterX64 for AssemblerX64 {
         dst: XMM,
     ) -> Result<(), CompileError> {
         match self.get_simd_arch() {
-            Some(CpuFeature::AVX) => avx_fn!(vcmpunordsd)(self, src1, src2, dst),
-            Some(CpuFeature::SSE42) => sse_fn!(cmpsd, 3)(self, Precision::Double, src1, src2, dst),
+            Some(CpuFeature::AVX) => avx_fn!(vcmpunordsd, self, src1, src2, dst),
+            Some(CpuFeature::SSE42) => sse_fn!(cmpsd, 3, self, Precision::Double, src1, src2, dst),
             _ => {}
         }
         Ok(())
@@ -2018,8 +2000,8 @@ impl EmitterX64 for AssemblerX64 {
         dst: XMM,
     ) -> Result<(), CompileError> {
         match self.get_simd_arch() {
-            Some(CpuFeature::AVX) => avx_fn!(vcmpordss)(self, src1, src2, dst),
-            Some(CpuFeature::SSE42) => sse_fn!(cmpss, 7)(self, Precision::Single, src1, src2, dst),
+            Some(CpuFeature::AVX) => avx_fn!(vcmpordss, self, src1, src2, dst),
+            Some(CpuFeature::SSE42) => sse_fn!(cmpss, 7, self, Precision::Single, src1, src2, dst),
             _ => {}
         }
         Ok(())
@@ -2031,24 +2013,24 @@ impl EmitterX64 for AssemblerX64 {
         dst: XMM,
     ) -> Result<(), CompileError> {
         match self.get_simd_arch() {
-            Some(CpuFeature::AVX) => avx_fn!(vcmpordsd)(self, src1, src2, dst),
-            Some(CpuFeature::SSE42) => sse_fn!(cmpsd, 7)(self, Precision::Double, src1, src2, dst),
+            Some(CpuFeature::AVX) => avx_fn!(vcmpordsd, self, src1, src2, dst),
+            Some(CpuFeature::SSE42) => sse_fn!(cmpsd, 7, self, Precision::Double, src1, src2, dst),
             _ => {}
         }
         Ok(())
     }
     fn emit_vsqrtss(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) -> Result<(), CompileError> {
         match self.get_simd_arch() {
-            Some(CpuFeature::AVX) => avx_fn!(vsqrtss)(self, src1, src2, dst),
-            Some(CpuFeature::SSE42) => sse_fn!(sqrtss)(self, Precision::Single, src1, src2, dst),
+            Some(CpuFeature::AVX) => avx_fn!(vsqrtss, self, src1, src2, dst),
+            Some(CpuFeature::SSE42) => sse_fn!(sqrtss, self, Precision::Single, src1, src2, dst),
             _ => {}
         }
         Ok(())
     }
     fn emit_vsqrtsd(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) -> Result<(), CompileError> {
         match self.get_simd_arch() {
-            Some(CpuFeature::AVX) => avx_fn!(vsqrtsd)(self, src1, src2, dst),
-            Some(CpuFeature::SSE42) => sse_fn!(sqrtsd)(self, Precision::Double, src1, src2, dst),
+            Some(CpuFeature::AVX) => avx_fn!(vsqrtsd, self, src1, src2, dst),
+            Some(CpuFeature::SSE42) => sse_fn!(sqrtsd, self, Precision::Double, src1, src2, dst),
             _ => {}
         }
         Ok(())
@@ -2060,8 +2042,8 @@ impl EmitterX64 for AssemblerX64 {
         dst: XMM,
     ) -> Result<(), CompileError> {
         match self.get_simd_arch() {
-            Some(CpuFeature::AVX) => avx_fn!(vcvtss2sd)(self, src1, src2, dst),
-            Some(CpuFeature::SSE42) => sse_fn!(cvtss2sd)(self, Precision::Single, src1, src2, dst),
+            Some(CpuFeature::AVX) => avx_fn!(vcvtss2sd, self, src1, src2, dst),
+            Some(CpuFeature::SSE42) => sse_fn!(cvtss2sd, self, Precision::Single, src1, src2, dst),
             _ => {}
         }
         Ok(())
@@ -2073,8 +2055,8 @@ impl EmitterX64 for AssemblerX64 {
         dst: XMM,
     ) -> Result<(), CompileError> {
         match self.get_simd_arch() {
-            Some(CpuFeature::AVX) => avx_fn!(vcvtsd2ss)(self, src1, src2, dst),
-            Some(CpuFeature::SSE42) => sse_fn!(cvtsd2ss)(self, Precision::Double, src1, src2, dst),
+            Some(CpuFeature::AVX) => avx_fn!(vcvtsd2ss, self, src1, src2, dst),
+            Some(CpuFeature::SSE42) => sse_fn!(cvtsd2ss, self, Precision::Double, src1, src2, dst),
             _ => {}
         }
         Ok(())
@@ -2086,9 +2068,9 @@ impl EmitterX64 for AssemblerX64 {
         dst: XMM,
     ) -> Result<(), CompileError> {
         match self.get_simd_arch() {
-            Some(CpuFeature::AVX) => avx_round_fn!(vroundss, 0)(self, src1, src2, dst),
+            Some(CpuFeature::AVX) => avx_round_fn!(vroundss, 0, self, src1, src2, dst),
             Some(CpuFeature::SSE42) => {
-                sse_round_fn!(roundss, 0)(self, Precision::Single, src1, src2, dst)
+                sse_round_fn!(roundss, 0, self, Precision::Single, src1, src2, dst)
             }
             _ => {}
         }
@@ -2101,9 +2083,9 @@ impl EmitterX64 for AssemblerX64 {
         dst: XMM,
     ) -> Result<(), CompileError> {
         match self.get_simd_arch() {
-            Some(CpuFeature::AVX) => avx_round_fn!(vroundsd, 0)(self, src1, src2, dst),
+            Some(CpuFeature::AVX) => avx_round_fn!(vroundsd, 0, self, src1, src2, dst),
             Some(CpuFeature::SSE42) => {
-                sse_round_fn!(roundsd, 0)(self, Precision::Double, src1, src2, dst)
+                sse_round_fn!(roundsd, 0, self, Precision::Double, src1, src2, dst)
             }
             _ => {}
         }
@@ -2116,9 +2098,9 @@ impl EmitterX64 for AssemblerX64 {
         dst: XMM,
     ) -> Result<(), CompileError> {
         match self.get_simd_arch() {
-            Some(CpuFeature::AVX) => avx_round_fn!(vroundss, 1)(self, src1, src2, dst),
+            Some(CpuFeature::AVX) => avx_round_fn!(vroundss, 1, self, src1, src2, dst),
             Some(CpuFeature::SSE42) => {
-                sse_round_fn!(roundss, 1)(self, Precision::Single, src1, src2, dst)
+                sse_round_fn!(roundss, 1, self, Precision::Single, src1, src2, dst)
             }
             _ => {}
         }
@@ -2131,9 +2113,9 @@ impl EmitterX64 for AssemblerX64 {
         dst: XMM,
     ) -> Result<(), CompileError> {
         match self.get_simd_arch() {
-            Some(CpuFeature::AVX) => avx_round_fn!(vroundsd, 1)(self, src1, src2, dst),
+            Some(CpuFeature::AVX) => avx_round_fn!(vroundsd, 1, self, src1, src2, dst),
             Some(CpuFeature::SSE42) => {
-                sse_round_fn!(roundsd, 1)(self, Precision::Double, src1, src2, dst)
+                sse_round_fn!(roundsd, 1, self, Precision::Double, src1, src2, dst)
             }
             _ => {}
         }
@@ -2146,9 +2128,9 @@ impl EmitterX64 for AssemblerX64 {
         dst: XMM,
     ) -> Result<(), CompileError> {
         match self.get_simd_arch() {
-            Some(CpuFeature::AVX) => avx_round_fn!(vroundss, 2)(self, src1, src2, dst),
+            Some(CpuFeature::AVX) => avx_round_fn!(vroundss, 2, self, src1, src2, dst),
             Some(CpuFeature::SSE42) => {
-                sse_round_fn!(roundss, 2)(self, Precision::Single, src1, src2, dst)
+                sse_round_fn!(roundss, 2, self, Precision::Single, src1, src2, dst)
             }
             _ => {}
         }
@@ -2161,9 +2143,9 @@ impl EmitterX64 for AssemblerX64 {
         dst: XMM,
     ) -> Result<(), CompileError> {
         match self.get_simd_arch() {
-            Some(CpuFeature::AVX) => avx_round_fn!(vroundsd, 2)(self, src1, src2, dst),
+            Some(CpuFeature::AVX) => avx_round_fn!(vroundsd, 2, self, src1, src2, dst),
             Some(CpuFeature::SSE42) => {
-                sse_round_fn!(roundsd, 2)(self, Precision::Double, src1, src2, dst)
+                sse_round_fn!(roundsd, 2, self, Precision::Double, src1, src2, dst)
             }
             _ => {}
         }
@@ -2176,9 +2158,9 @@ impl EmitterX64 for AssemblerX64 {
         dst: XMM,
     ) -> Result<(), CompileError> {
         match self.get_simd_arch() {
-            Some(CpuFeature::AVX) => avx_round_fn!(vroundss, 3)(self, src1, src2, dst),
+            Some(CpuFeature::AVX) => avx_round_fn!(vroundss, 3, self, src1, src2, dst),
             Some(CpuFeature::SSE42) => {
-                sse_round_fn!(roundss, 3)(self, Precision::Single, src1, src2, dst)
+                sse_round_fn!(roundss, 3, self, Precision::Single, src1, src2, dst)
             }
             _ => {}
         }
@@ -2191,9 +2173,9 @@ impl EmitterX64 for AssemblerX64 {
         dst: XMM,
     ) -> Result<(), CompileError> {
         match self.get_simd_arch() {
-            Some(CpuFeature::AVX) => avx_round_fn!(vroundsd, 3)(self, src1, src2, dst),
+            Some(CpuFeature::AVX) => avx_round_fn!(vroundsd, 3, self, src1, src2, dst),
             Some(CpuFeature::SSE42) => {
-                sse_round_fn!(roundsd, 3)(self, Precision::Double, src1, src2, dst)
+                sse_round_fn!(roundsd, 3, self, Precision::Double, src1, src2, dst)
             }
             _ => {}
         }
@@ -2206,9 +2188,9 @@ impl EmitterX64 for AssemblerX64 {
         dst: XMM,
     ) -> Result<(), CompileError> {
         match self.get_simd_arch() {
-            Some(CpuFeature::AVX) => avx_i2f_32_fn!(vcvtsi2ss)(self, src1, src2, dst),
+            Some(CpuFeature::AVX) => avx_i2f_32_fn!(vcvtsi2ss, self, src1, src2, dst),
             Some(CpuFeature::SSE42) => {
-                sse_i2f_32_fn!(cvtsi2ss)(self, Precision::Single, src1, src2, dst)
+                sse_i2f_32_fn!(cvtsi2ss, self, Precision::Single, src1, src2, dst)
             }
             _ => {}
         }
@@ -2221,9 +2203,9 @@ impl EmitterX64 for AssemblerX64 {
         dst: XMM,
     ) -> Result<(), CompileError> {
         match self.get_simd_arch() {
-            Some(CpuFeature::AVX) => avx_i2f_32_fn!(vcvtsi2sd)(self, src1, src2, dst),
+            Some(CpuFeature::AVX) => avx_i2f_32_fn!(vcvtsi2sd, self, src1, src2, dst),
             Some(CpuFeature::SSE42) => {
-                sse_i2f_32_fn!(cvtsi2sd)(self, Precision::Double, src1, src2, dst)
+                sse_i2f_32_fn!(cvtsi2sd, self, Precision::Double, src1, src2, dst)
             }
             _ => {}
         }
@@ -2236,9 +2218,9 @@ impl EmitterX64 for AssemblerX64 {
         dst: XMM,
     ) -> Result<(), CompileError> {
         match self.get_simd_arch() {
-            Some(CpuFeature::AVX) => avx_i2f_64_fn!(vcvtsi2ss)(self, src1, src2, dst),
+            Some(CpuFeature::AVX) => avx_i2f_64_fn!(vcvtsi2ss, self, src1, src2, dst),
             Some(CpuFeature::SSE42) => {
-                sse_i2f_64_fn!(cvtsi2ss)(self, Precision::Single, src1, src2, dst)
+                sse_i2f_64_fn!(cvtsi2ss, self, Precision::Single, src1, src2, dst)
             }
             _ => {}
         }
@@ -2251,9 +2233,9 @@ impl EmitterX64 for AssemblerX64 {
         dst: XMM,
     ) -> Result<(), CompileError> {
         match self.get_simd_arch() {
-            Some(CpuFeature::AVX) => avx_i2f_64_fn!(vcvtsi2sd)(self, src1, src2, dst),
+            Some(CpuFeature::AVX) => avx_i2f_64_fn!(vcvtsi2sd, self, src1, src2, dst),
             Some(CpuFeature::SSE42) => {
-                sse_i2f_64_fn!(cvtsi2sd)(self, Precision::Double, src1, src2, dst)
+                sse_i2f_64_fn!(cvtsi2sd, self, Precision::Double, src1, src2, dst)
             }
             _ => {}
         }

@@ -673,7 +673,7 @@ impl PrefixMapCompilation {
 
     fn split_prefix(s: &str) -> Vec<String> {
         let regex =
-            regex::Regex::new(r#"^([a-zA-Z0-9\-_]+)(:([a-zA-Z0-9\.\-_]+))?(:(.+*))?"#).unwrap();
+            regex::Regex::new(r"^([a-zA-Z0-9\-_]+)(:([a-zA-Z0-9\.\-_]+))?(:(.+*))?").unwrap();
         let mut captures = regex
             .captures(s.trim())
             .map(|c| {
@@ -1480,11 +1480,9 @@ fn generate_wasmer_main_c(
         .iter()
         .map(|v| utils::normalize_atom_name(&v.name).to_uppercase())
         .map(|uppercase| {
-            vec![
-                format!("extern size_t {uppercase}_LENGTH asm(\"{uppercase}_LENGTH\");"),
-                format!("extern char {uppercase}_DATA asm(\"{uppercase}_DATA\");"),
-            ]
-            .join("\r\n")
+            format!(
+                "extern size_t {uppercase}_LENGTH asm(\"{uppercase}_LENGTH\");\r\nextern char {uppercase}_DATA asm(\"{uppercase}_DATA\");"
+            )
         })
         .collect::<Vec<_>>();
 

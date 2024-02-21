@@ -146,19 +146,20 @@ impl crate::commands::AsyncCliCommand for CmdAppLogs {
         let mut rem = self.max;
 
         while let Some(logs) = logs_stream.next().await {
-            let logs = logs?;
+            let mut logs = logs?;
 
-            let limit = std::cmp::max(logs.len(), rem);
+            let limit = std::cmp::min(logs.len(), rem);
 
-            let logs = &logs[..limit];
+            let logs: Vec<_> = logs.drain(..limit).collect();
+
             if !logs.is_empty() {
-                let rendered = self.fmt.format.render(logs);
+                let rendered = self.fmt.format.render(&logs);
                 println!("{rendered}");
 
                 rem -= limit;
             }
 
-            if !self.watch && rem == 0 {
+            if !self.watch || rem == 0 {
                 break;
             }
         }

@@ -180,17 +180,24 @@ mod queries {
         pub get_deploy_app: Option<DeployApp>,
     }
 
+    #[derive(cynic::QueryVariables, Debug)]
+    pub struct GetCurrentUserWithAppsVars {
+        pub after: Option<String>,
+    }
+
     #[derive(cynic::QueryFragment, Debug)]
-    #[cynic(graphql_type = "Query")]
+    #[cynic(graphql_type = "Query", variables = "GetCurrentUserWithAppsVars")]
     pub struct GetCurrentUserWithApps {
         pub viewer: Option<UserWithApps>,
     }
 
     #[derive(cynic::QueryFragment, Debug)]
     #[cynic(graphql_type = "User")]
+    #[cynic(variables = "GetCurrentUserWithAppsVars")]
     pub struct UserWithApps {
         pub id: cynic::Id,
         pub username: String,
+        #[arguments(after: $after)]
         pub apps: DeployAppConnection,
     }
 
@@ -537,6 +544,7 @@ mod queries {
     #[derive(cynic::QueryVariables, Debug)]
     pub struct GetNamespaceAppsVars {
         pub name: String,
+        pub after: Option<String>,
     }
 
     #[derive(cynic::QueryFragment, Debug)]
@@ -548,9 +556,11 @@ mod queries {
 
     #[derive(cynic::QueryFragment, Debug)]
     #[cynic(graphql_type = "Namespace")]
+    #[cynic(variables = "GetNamespaceAppsVars")]
     pub struct NamespaceWithApps {
         pub id: cynic::Id,
         pub name: String,
+        #[arguments(after: $after)]
         pub apps: DeployAppConnection,
     }
 

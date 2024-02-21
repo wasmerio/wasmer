@@ -11,9 +11,9 @@ pub mod types {
     target_vendor = "apple"
 ))]
 pub mod unix;
-#[cfg(any(target_family = "wasm"))]
+#[cfg(target_family = "wasm")]
 pub mod wasm;
-#[cfg(any(target_os = "windows"))]
+#[cfg(target_os = "windows")]
 pub mod windows;
 
 pub mod journal;
@@ -65,7 +65,7 @@ pub(crate) use tracing::{debug, error, trace, warn};
     target_vendor = "apple"
 ))]
 pub use unix::*;
-#[cfg(any(target_family = "wasm"))]
+#[cfg(target_family = "wasm")]
 pub use wasm::*;
 
 pub(crate) use virtual_fs::{
@@ -78,7 +78,7 @@ pub(crate) use wasmer::{
     OnCalledAction, Pages, RuntimeError, Store, TypedFunction, Value, WasmPtr, WasmSlice,
 };
 pub(crate) use wasmer_wasix_types::{asyncify::__wasi_asyncify_t, wasi::EventUnion};
-#[cfg(any(target_os = "windows"))]
+#[cfg(target_os = "windows")]
 pub use windows::*;
 
 pub(crate) use self::types::{

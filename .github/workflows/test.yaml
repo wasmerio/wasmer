@@ -24,7 +24,7 @@ env:
   # Rust, but it's not stable on 1.69 yet. By explicitly setting the protocol we
   # can override that behaviour
   CARGO_REGISTRIES_CRATES_IO_PROTOCOL: git
-  MSRV: "1.70"
+  MSRV: "1.73"
   NEXTEST_PROFILE: "ci"
 
 jobs:
@@ -161,7 +161,7 @@ jobs:
       - uses: actions/checkout@v3
       - uses: dtolnay/rust-toolchain@master
         with:
-          toolchain: "nightly-2023-05-25"
+          toolchain: "nightly-2023-10-05"
           target: x86_64-unknown-linux-gnu
       - run: cargo install toml-cli # toml-cli is required to run `make test-build-docs-rs`
       - name: make test-build-docs-rs-ci
@@ -369,11 +369,6 @@ jobs:
         with:
           toolchain: ${{ env.MSRV }}
           target: ${{ matrix.metadata.target }}
-      - name: Install Rust nightly (to build capi-headless)
-        uses: dtolnay/rust-toolchain@master
-        with:
-          toolchain: "nightly-2023-05-25"
-          target: ${{ matrix.metadata.target }}
       - name: Install Nextest
         uses: taiki-e/install-action@nextest
       - name: Install Windows-GNU linker
@@ -555,6 +550,12 @@ jobs:
             target: x86_64-apple-darwin,
             exe: '',
             llvm_url: 'https://github.com/llvm/llvm-project/releases/download/llvmorg-15.0.7/clang+llvm-15.0.7-x86_64-apple-darwin21.0.tar.xz'
+          },
+          {
+            build: macos-arm64,
+            os: macos-14,
+            target: aarch64-apple-darwin,
+            exe: '',
           },
           {
             build: windows-x64,
