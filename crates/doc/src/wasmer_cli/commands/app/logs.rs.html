@@ -166,6 +166,7 @@
 <a href="#166" id="166">166</a>
 <a href="#167" id="167">167</a>
 <a href="#168" id="168">168</a>
+<a href="#169" id="169">169</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Show logs for an Edge app.
 
 </span><span class="kw">use </span>comfy_table::Table;
@@ -279,19 +280,20 @@
         <span class="kw">let </span><span class="kw-2">mut </span>rem = <span class="self">self</span>.max;
 
         <span class="kw">while let </span><span class="prelude-val">Some</span>(logs) = logs_stream.next().<span class="kw">await </span>{
-            <span class="kw">let </span>logs = logs<span class="question-mark">?</span>;
+            <span class="kw">let </span><span class="kw-2">mut </span>logs = logs<span class="question-mark">?</span>;
 
-            <span class="kw">let </span>limit = std::cmp::max(logs.len(), rem);
+            <span class="kw">let </span>limit = std::cmp::min(logs.len(), rem);
 
-            <span class="kw">let </span>logs = <span class="kw-2">&amp;</span>logs[..limit];
+            <span class="kw">let </span>logs: Vec&lt;<span class="kw">_</span>&gt; = logs.drain(..limit).collect();
+
             <span class="kw">if </span>!logs.is_empty() {
-                <span class="kw">let </span>rendered = <span class="self">self</span>.fmt.format.render(logs);
+                <span class="kw">let </span>rendered = <span class="self">self</span>.fmt.format.render(<span class="kw-2">&amp;</span>logs);
                 <span class="macro">println!</span>(<span class="string">&quot;{rendered}&quot;</span>);
 
                 rem -= limit;
             }
 
-            <span class="kw">if </span>!<span class="self">self</span>.watch &amp;&amp; rem == <span class="number">0 </span>{
+            <span class="kw">if </span>!<span class="self">self</span>.watch || rem == <span class="number">0 </span>{
                 <span class="kw">break</span>;
             }
         }
