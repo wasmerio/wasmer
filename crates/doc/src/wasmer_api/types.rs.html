@@ -738,6 +738,16 @@
 <a href="#738" id="738">738</a>
 <a href="#739" id="739">739</a>
 <a href="#740" id="740">740</a>
+<a href="#741" id="741">741</a>
+<a href="#742" id="742">742</a>
+<a href="#743" id="743">743</a>
+<a href="#744" id="744">744</a>
+<a href="#745" id="745">745</a>
+<a href="#746" id="746">746</a>
+<a href="#747" id="747">747</a>
+<a href="#748" id="748">748</a>
+<a href="#749" id="749">749</a>
+<a href="#750" id="750">750</a>
 </pre></div><pre class="rust"><code><span class="kw">pub use </span>queries::<span class="kw-2">*</span>;
 
 <span class="kw">pub use </span>cynic::Id;
@@ -920,18 +930,25 @@
         </span><span class="kw">pub </span>get_deploy_app: <span class="prelude-ty">Option</span>&lt;DeployApp&gt;,
     }
 
+    <span class="attr">#[derive(cynic::QueryVariables, Debug)]
+    </span><span class="kw">pub struct </span>GetCurrentUserWithAppsVars {
+        <span class="kw">pub </span>after: <span class="prelude-ty">Option</span>&lt;String&gt;,
+    }
+
     <span class="attr">#[derive(cynic::QueryFragment, Debug)]
-    #[cynic(graphql_type = <span class="string">&quot;Query&quot;</span>)]
+    #[cynic(graphql_type = <span class="string">&quot;Query&quot;</span>, variables = <span class="string">&quot;GetCurrentUserWithAppsVars&quot;</span>)]
     </span><span class="kw">pub struct </span>GetCurrentUserWithApps {
         <span class="kw">pub </span>viewer: <span class="prelude-ty">Option</span>&lt;UserWithApps&gt;,
     }
 
     <span class="attr">#[derive(cynic::QueryFragment, Debug)]
     #[cynic(graphql_type = <span class="string">&quot;User&quot;</span>)]
+    #[cynic(variables = <span class="string">&quot;GetCurrentUserWithAppsVars&quot;</span>)]
     </span><span class="kw">pub struct </span>UserWithApps {
         <span class="kw">pub </span>id: cynic::Id,
         <span class="kw">pub </span>username: String,
-        <span class="kw">pub </span>apps: DeployAppConnection,
+        <span class="attr">#[arguments(after: <span class="macro-nonterminal">$after</span>)]
+        </span><span class="kw">pub </span>apps: DeployAppConnection,
     }
 
     <span class="attr">#[derive(cynic::QueryFragment, Serialize, Debug, Clone)]
@@ -1277,6 +1294,7 @@
     <span class="attr">#[derive(cynic::QueryVariables, Debug)]
     </span><span class="kw">pub struct </span>GetNamespaceAppsVars {
         <span class="kw">pub </span>name: String,
+        <span class="kw">pub </span>after: <span class="prelude-ty">Option</span>&lt;String&gt;,
     }
 
     <span class="attr">#[derive(cynic::QueryFragment, Debug)]
@@ -1288,10 +1306,12 @@
 
     <span class="attr">#[derive(cynic::QueryFragment, Debug)]
     #[cynic(graphql_type = <span class="string">&quot;Namespace&quot;</span>)]
+    #[cynic(variables = <span class="string">&quot;GetNamespaceAppsVars&quot;</span>)]
     </span><span class="kw">pub struct </span>NamespaceWithApps {
         <span class="kw">pub </span>id: cynic::Id,
         <span class="kw">pub </span>name: String,
-        <span class="kw">pub </span>apps: DeployAppConnection,
+        <span class="attr">#[arguments(after: <span class="macro-nonterminal">$after</span>)]
+        </span><span class="kw">pub </span>apps: DeployAppConnection,
     }
 
     <span class="attr">#[derive(cynic::QueryVariables, Debug)]

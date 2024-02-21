@@ -805,12 +805,29 @@
 <a href="#805" id="805">805</a>
 <a href="#806" id="806">806</a>
 <a href="#807" id="807">807</a>
-</pre></div><pre class="rust"><code><span class="kw">use </span>std::{collections::HashSet, time::Duration};
+<a href="#808" id="808">808</a>
+<a href="#809" id="809">809</a>
+<a href="#810" id="810">810</a>
+<a href="#811" id="811">811</a>
+<a href="#812" id="812">812</a>
+<a href="#813" id="813">813</a>
+<a href="#814" id="814">814</a>
+<a href="#815" id="815">815</a>
+<a href="#816" id="816">816</a>
+<a href="#817" id="817">817</a>
+<a href="#818" id="818">818</a>
+<a href="#819" id="819">819</a>
+<a href="#820" id="820">820</a>
+<a href="#821" id="821">821</a>
+<a href="#822" id="822">822</a>
+<a href="#823" id="823">823</a>
+<a href="#824" id="824">824</a>
+</pre></div><pre class="rust"><code><span class="kw">use </span>std::{collections::HashSet, pin::Pin, time::Duration};
 
 <span class="kw">use </span>anyhow::{bail, Context};
 <span class="kw">use </span>cynic::{MutationBuilder, QueryBuilder};
 <span class="kw">use </span>edge_schema::schema::{NetworkTokenV1, WebcIdent};
-<span class="kw">use </span>futures::StreamExt;
+<span class="kw">use </span>futures::{Stream, StreamExt};
 <span class="kw">use </span>time::OffsetDateTime;
 <span class="kw">use </span>tracing::Instrument;
 <span class="kw">use </span>url::Url;
@@ -818,8 +835,9 @@
 <span class="kw">use crate</span>::{
     types::{
         <span class="self">self</span>, CreateNamespaceVars, DeployApp, DeployAppConnection, DeployAppVersion,
-        DeployAppVersionConnection, GetDeployAppAndVersion, GetDeployAppVersionsVars,
-        GetNamespaceAppsVars, Log, PackageVersionConnection, PublishDeployAppVars,
+        DeployAppVersionConnection, GetCurrentUserWithAppsVars, GetDeployAppAndVersion,
+        GetDeployAppVersionsVars, GetNamespaceAppsVars, Log, PackageVersionConnection,
+        PublishDeployAppVars,
     },
     GraphQLApiFailure, WasmerClient,
 };
@@ -1187,38 +1205,45 @@
 <span class="doccomment">/// List all apps that are accessible by the current user.
 ///
 /// NOTE: this will only include the first pages and does not provide pagination.
-</span><span class="kw">pub async fn </span>user_apps(client: <span class="kw-2">&amp;</span>WasmerClient) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;types::DeployApp&gt;, anyhow::Error&gt; {
-    <span class="kw">let </span>user = client
-        .run_graphql(types::GetCurrentUserWithApps::build(()))
-        .<span class="kw">await</span><span class="question-mark">?
-        </span>.viewer
-        .context(<span class="string">&quot;not logged in&quot;</span>)<span class="question-mark">?</span>;
+</span><span class="kw">pub async fn </span>user_apps(
+    client: <span class="kw-2">&amp;</span>WasmerClient,
+) -&gt; <span class="kw">impl </span>futures::Stream&lt;Item = <span class="prelude-ty">Result</span>&lt;Vec&lt;types::DeployApp&gt;, anyhow::Error&gt;&gt; + <span class="lifetime">&#39;_ </span>{
+    futures::stream::try_unfold(<span class="prelude-val">None</span>, <span class="kw">move </span>|cursor| <span class="kw">async move </span>{
+        <span class="kw">let </span>user = client
+            .run_graphql(types::GetCurrentUserWithApps::build(
+                GetCurrentUserWithAppsVars { after: cursor },
+            ))
+            .<span class="kw">await</span><span class="question-mark">?
+            </span>.viewer
+            .context(<span class="string">&quot;not logged in&quot;</span>)<span class="question-mark">?</span>;
 
-    <span class="kw">let </span>apps = user
-        .apps
-        .edges
-        .into_iter()
-        .flatten()
-        .filter_map(|x| x.node)
-        .collect();
+        <span class="kw">let </span>apps: Vec&lt;<span class="kw">_</span>&gt; = user
+            .apps
+            .edges
+            .into_iter()
+            .flatten()
+            .filter_map(|x| x.node)
+            .collect();
 
-    <span class="prelude-val">Ok</span>(apps)
+        <span class="kw">let </span>cursor = user.apps.page_info.end_cursor;
+
+        <span class="kw">if </span>apps.is_empty() {
+            <span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>)
+        } <span class="kw">else </span>{
+            <span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>((apps, cursor)))
+        }
+    })
 }
 
 <span class="doccomment">/// List all apps that are accessible by the current user.
-///
-/// NOTE: this does not currently do full pagination properly.
-</span><span class="comment">// TODO(theduke): fix pagination
 </span><span class="kw">pub async fn </span>user_accessible_apps(
     client: <span class="kw-2">&amp;</span>WasmerClient,
-) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;types::DeployApp&gt;, anyhow::Error&gt; {
-    <span class="kw">let </span><span class="kw-2">mut </span>apps = Vec::new();
-
-    <span class="comment">// Get user apps.
-
-    </span><span class="kw">let </span>user_apps = user_apps(client).<span class="kw">await</span><span class="question-mark">?</span>;
-
-    apps.extend(user_apps);
+) -&gt; <span class="prelude-ty">Result</span>&lt;
+    <span class="kw">impl </span>futures::Stream&lt;Item = <span class="prelude-ty">Result</span>&lt;Vec&lt;types::DeployApp&gt;, anyhow::Error&gt;&gt; + <span class="lifetime">&#39;_</span>,
+    anyhow::Error,
+&gt; {
+    <span class="kw">let </span>apps: Pin&lt;Box&lt;<span class="kw">dyn </span>Stream&lt;Item = <span class="prelude-ty">Result</span>&lt;Vec&lt;DeployApp&gt;, anyhow::Error&gt;&gt; + Send + Sync&gt;&gt; =
+        Box::pin(user_apps(client).<span class="kw">await</span>);
 
     <span class="comment">// Get all aps in user-accessible namespaces.
     </span><span class="kw">let </span>namespace_res = client
@@ -1236,18 +1261,16 @@
         .map(|node| node.name.clone())
         .collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
 
-    <span class="kw">for </span>namespace <span class="kw">in </span>namespace_names {
-        <span class="kw">let </span>out = client
-            .run_graphql(types::GetNamespaceApps::build(GetNamespaceAppsVars {
-                name: namespace.to_string(),
-            }))
-            .<span class="kw">await</span><span class="question-mark">?</span>;
+    <span class="kw">let </span><span class="kw-2">mut </span>all_apps = <span class="macro">vec!</span>[apps];
+    <span class="kw">for </span>ns <span class="kw">in </span>namespace_names {
+        <span class="kw">let </span>apps: Pin&lt;Box&lt;<span class="kw">dyn </span>Stream&lt;Item = <span class="prelude-ty">Result</span>&lt;Vec&lt;DeployApp&gt;, anyhow::Error&gt;&gt; + Send + Sync&gt;&gt; =
+            Box::pin(namespace_apps(client, ns).<span class="kw">await</span>);
 
-        <span class="kw">if let </span><span class="prelude-val">Some</span>(ns) = out.get_namespace {
-            <span class="kw">let </span>ns_apps = ns.apps.edges.into_iter().flatten().filter_map(|x| x.node);
-            apps.extend(ns_apps);
-        }
+        all_apps.push(apps);
     }
+
+    <span class="kw">let </span>apps = futures::stream::select_all(all_apps);
+
     <span class="prelude-val">Ok</span>(apps)
 }
 
@@ -1256,27 +1279,38 @@
 /// NOTE: only retrieves the first page and does not do pagination.
 </span><span class="kw">pub async fn </span>namespace_apps(
     client: <span class="kw-2">&amp;</span>WasmerClient,
-    namespace: <span class="kw-2">&amp;</span>str,
-) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;types::DeployApp&gt;, anyhow::Error&gt; {
-    <span class="kw">let </span>res = client
-        .run_graphql(types::GetNamespaceApps::build(GetNamespaceAppsVars {
-            name: namespace.to_string(),
-        }))
-        .<span class="kw">await</span><span class="question-mark">?</span>;
+    namespace: String,
+) -&gt; <span class="kw">impl </span>futures::Stream&lt;Item = <span class="prelude-ty">Result</span>&lt;Vec&lt;types::DeployApp&gt;, anyhow::Error&gt;&gt; + <span class="lifetime">&#39;_ </span>{
+    <span class="kw">let </span>namespace = namespace.clone();
 
-    <span class="kw">let </span>ns = res
-        .get_namespace
-        .with_context(|| <span class="macro">format!</span>(<span class="string">&quot;failed to get namespace &#39;{}&#39;&quot;</span>, namespace))<span class="question-mark">?</span>;
+    futures::stream::try_unfold((<span class="prelude-val">None</span>, namespace), <span class="kw">move </span>|(cursor, namespace)| <span class="kw">async move </span>{
+        <span class="kw">let </span>res = client
+            .run_graphql(types::GetNamespaceApps::build(GetNamespaceAppsVars {
+                name: namespace.to_string(),
+                after: cursor,
+            }))
+            .<span class="kw">await</span><span class="question-mark">?</span>;
 
-    <span class="kw">let </span>apps = ns
-        .apps
-        .edges
-        .into_iter()
-        .flatten()
-        .filter_map(|x| x.node)
-        .collect();
+        <span class="kw">let </span>ns = res
+            .get_namespace
+            .with_context(|| <span class="macro">format!</span>(<span class="string">&quot;failed to get namespace &#39;{}&#39;&quot;</span>, namespace))<span class="question-mark">?</span>;
 
-    <span class="prelude-val">Ok</span>(apps)
+        <span class="kw">let </span>apps: Vec&lt;<span class="kw">_</span>&gt; = ns
+            .apps
+            .edges
+            .into_iter()
+            .flatten()
+            .filter_map(|x| x.node)
+            .collect();
+
+        <span class="kw">let </span>cursor = ns.apps.page_info.end_cursor;
+
+        <span class="kw">if </span>apps.is_empty() {
+            <span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>)
+        } <span class="kw">else </span>{
+            <span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>((apps, (cursor, namespace))))
+        }
+    })
 }
 
 <span class="doccomment">/// Publish a new app (version).
