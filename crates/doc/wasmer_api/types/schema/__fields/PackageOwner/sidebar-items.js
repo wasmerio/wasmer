@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":["__typename","globalName"]};
+window.SIDEBAR_ITEMS = {"struct":["__typename","globalId","globalName"]};

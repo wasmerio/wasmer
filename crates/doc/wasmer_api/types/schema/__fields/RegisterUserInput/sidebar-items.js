@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":["clientMutationId","email","fullName","password","username"]};
+window.SIDEBAR_ITEMS = {"struct":["acceptedTos","clientMutationId","email","fullName","password","username"]};

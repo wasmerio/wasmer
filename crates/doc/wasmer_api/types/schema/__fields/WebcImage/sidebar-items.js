@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":["__typename","createdAt","fileSize","id","manifest","offsets","targzSha256","updatedAt","volumes","webcSha256","webcUrl"]};

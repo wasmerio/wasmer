@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["_app_templates_arguments"],"struct":["__typename","appTemplates","createdAt","description","id","name","slug","updatedAt"]};

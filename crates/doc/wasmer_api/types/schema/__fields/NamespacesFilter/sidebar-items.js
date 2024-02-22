@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":["collaborator","count","orderBy","packageCount","sortBy","userCount"]};
+window.SIDEBAR_ITEMS = {"struct":["collaborator","count","createdAfter","createdBefore","orderBy","packageCount","sortBy","userCount"]};

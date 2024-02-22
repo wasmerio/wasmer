@@ -167,18 +167,59 @@
 <a href="#167" id="167">167</a>
 <a href="#168" id="168">168</a>
 <a href="#169" id="169">169</a>
+<a href="#170" id="170">170</a>
+<a href="#171" id="171">171</a>
+<a href="#172" id="172">172</a>
+<a href="#173" id="173">173</a>
+<a href="#174" id="174">174</a>
+<a href="#175" id="175">175</a>
+<a href="#176" id="176">176</a>
+<a href="#177" id="177">177</a>
+<a href="#178" id="178">178</a>
+<a href="#179" id="179">179</a>
+<a href="#180" id="180">180</a>
+<a href="#181" id="181">181</a>
+<a href="#182" id="182">182</a>
+<a href="#183" id="183">183</a>
+<a href="#184" id="184">184</a>
+<a href="#185" id="185">185</a>
+<a href="#186" id="186">186</a>
+<a href="#187" id="187">187</a>
+<a href="#188" id="188">188</a>
+<a href="#189" id="189">189</a>
+<a href="#190" id="190">190</a>
+<a href="#191" id="191">191</a>
+<a href="#192" id="192">192</a>
+<a href="#193" id="193">193</a>
+<a href="#194" id="194">194</a>
+<a href="#195" id="195">195</a>
+<a href="#196" id="196">196</a>
+<a href="#197" id="197">197</a>
+<a href="#198" id="198">198</a>
+<a href="#199" id="199">199</a>
+<a href="#200" id="200">200</a>
+<a href="#201" id="201">201</a>
+<a href="#202" id="202">202</a>
+<a href="#203" id="203">203</a>
+<a href="#204" id="204">204</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Show logs for an Edge app.
 
 </span><span class="kw">use </span>comfy_table::Table;
 <span class="kw">use </span>edge_schema::pretty_duration::parse_timestamp_or_relative_time;
 <span class="kw">use </span>futures::StreamExt;
 <span class="kw">use </span>time::{format_description::well_known::Rfc3339, OffsetDateTime};
-<span class="kw">use </span>wasmer_api::types::Log;
+<span class="kw">use </span>wasmer_api::types::{Log, LogStream};
 
 <span class="kw">use crate</span>::{
     opts::{ApiOpts, ListFormatOpts},
     utils::{render::CliRender, Identifier},
 };
+
+<span class="attr">#[derive(Debug, PartialEq, Eq, Clone, Copy, clap::ValueEnum)]
+</span><span class="kw">pub enum </span>LogStreamArg {
+    Stdout,
+    Stderr,
+}
 
 <span class="doccomment">/// Show an app.
 </span><span class="attr">#[derive(clap::Parser, Debug)]
@@ -228,6 +269,10 @@
     /// - namespace/name
     /// - namespace/name@version
     </span>ident: Identifier,
+
+    <span class="doccomment">/// Streams of logs to display
+    </span><span class="attr">#[clap(long, value_delimiter = <span class="string">&#39;,&#39;</span>, value_enum)]
+    </span>streams: <span class="prelude-ty">Option</span>&lt;Vec&lt;LogStreamArg&gt;&gt;,
 }
 
 <span class="attr">#[async_trait::async_trait]
@@ -264,6 +309,30 @@
             <span class="string">&quot;Fetching logs&quot;</span>,
         );
 
+        <span class="kw">let </span>(stdout, stderr) = <span class="self">self
+            </span>.streams
+            .map(|s| {
+                <span class="kw">let </span><span class="kw-2">mut </span>stdout = <span class="bool-val">false</span>;
+                <span class="kw">let </span><span class="kw-2">mut </span>stderr = <span class="bool-val">false</span>;
+
+                <span class="kw">for </span>stream <span class="kw">in </span>s {
+                    <span class="kw">if </span><span class="macro">matches!</span>(stream, LogStreamArg::Stdout) {
+                        stdout = <span class="bool-val">true</span>;
+                    } <span class="kw">else if </span><span class="macro">matches!</span>(stream, LogStreamArg::Stderr) {
+                        stderr = <span class="bool-val">true</span>;
+                    }
+                }
+
+                (stdout, stderr)
+            })
+            .unwrap_or_default();
+
+        <span class="kw">let </span>streams = Vec::from(<span class="kw">match </span>(stdout, stderr) {
+            (<span class="bool-val">true</span>, <span class="bool-val">true</span>) | (<span class="bool-val">false</span>, <span class="bool-val">false</span>) =&gt; <span class="kw-2">&amp;</span>[LogStream::Stdout, LogStream::Stderr][..],
+            (<span class="bool-val">true</span>, <span class="bool-val">false</span>) =&gt; <span class="kw-2">&amp;</span>[LogStream::Stdout][..],
+            (<span class="bool-val">false</span>, <span class="bool-val">true</span>) =&gt; <span class="kw-2">&amp;</span>[LogStream::Stderr][..],
+        });
+
         <span class="kw">let </span>logs_stream = wasmer_api::query::get_app_logs_paginated(
             <span class="kw-2">&amp;</span>client,
             name.clone(),
@@ -272,6 +341,7 @@
             from,
             <span class="self">self</span>.until,
             <span class="self">self</span>.watch,
+            <span class="prelude-val">Some</span>(streams),
         )
         .<span class="kw">await</span>;
 

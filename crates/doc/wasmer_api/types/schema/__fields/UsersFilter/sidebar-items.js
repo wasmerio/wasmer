@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":["count","namespaceCount","orderBy","packageCount","sortBy"]};
+window.SIDEBAR_ITEMS = {"struct":["count","joinedAfter","joinedBefore","namespaceCount","orderBy","packageCount","sortBy"]};

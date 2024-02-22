@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":["__typename","createdAt","generator","id","kind","language","module","name","packageName","url"]};
+window.SIDEBAR_ITEMS = {"struct":["__typename","codeSnippetExample","createdAt","generator","id","importablePackageName","kind","language","module","name","packageName","url"]};

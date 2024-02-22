@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":["__typename","abi","name","publicUrl","source"]};
+window.SIDEBAR_ITEMS = {"struct":["__typename","abi","atom","name","publicUrl","rangeHeader","source"]};

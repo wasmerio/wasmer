@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":["__typename","downloadUrl","piritaDownloadUrl","piritaSha256Hash","piritaSize","size"]};
+window.SIDEBAR_ITEMS = {"struct":["__typename","downloadUrl","expiresInSeconds","piritaDownloadUrl","piritaExpiresInSeconds","piritaSha256Hash","piritaSize","size","webcDownloadUrl","webcExpiresInSeconds","webcSha256Hash","webcSize"]};

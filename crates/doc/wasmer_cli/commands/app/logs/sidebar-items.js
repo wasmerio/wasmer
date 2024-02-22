@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["datetime_from_unix"],"struct":["CmdAppLogs"]};
+window.SIDEBAR_ITEMS = {"enum":["LogStreamArg"],"fn":["datetime_from_unix"],"struct":["CmdAppLogs"]};

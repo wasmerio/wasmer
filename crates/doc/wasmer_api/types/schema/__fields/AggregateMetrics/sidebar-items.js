@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":["__typename","cpuTime","egress","ingress","memoryTime","monthlyCost","noRequests"]};
+window.SIDEBAR_ITEMS = {"struct":["__typename","cpuTime","egress","ingress","memoryTime","monthlyCost","noFailedRequests","noRequests"]};

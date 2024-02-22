@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":["clientMutationId","name","namespace","private","templateId"]};

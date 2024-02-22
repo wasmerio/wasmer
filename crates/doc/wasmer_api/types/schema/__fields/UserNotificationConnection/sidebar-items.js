@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":["__typename","edges","hasPendingNotifications","pageInfo"]};
+window.SIDEBAR_ITEMS = {"struct":["__typename","edges","hasPendingNotifications","pageInfo","pendingNotificationsCount"]};

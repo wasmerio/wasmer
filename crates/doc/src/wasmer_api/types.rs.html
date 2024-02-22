@@ -748,6 +748,14 @@
 <a href="#748" id="748">748</a>
 <a href="#749" id="749">749</a>
 <a href="#750" id="750">750</a>
+<a href="#751" id="751">751</a>
+<a href="#752" id="752">752</a>
+<a href="#753" id="753">753</a>
+<a href="#754" id="754">754</a>
+<a href="#755" id="755">755</a>
+<a href="#756" id="756">756</a>
+<a href="#757" id="757">757</a>
+<a href="#758" id="758">758</a>
 </pre></div><pre class="rust"><code><span class="kw">pub use </span>queries::<span class="kw-2">*</span>;
 
 <span class="kw">pub use </span>cynic::Id;
@@ -1351,6 +1359,12 @@
         <span class="kw">pub </span>token: String,
     }
 
+    <span class="attr">#[derive(cynic::Enum, Clone, Copy, Debug)]
+    </span><span class="kw">pub enum </span>LogStream {
+        Stdout,
+        Stderr,
+    }
+
     <span class="attr">#[derive(cynic::QueryVariables, Debug, Clone)]
     </span><span class="kw">pub struct </span>GetDeployAppLogsVars {
         <span class="kw">pub </span>name: String,
@@ -1365,6 +1379,8 @@
         /// epoch.
         </span><span class="kw">pub </span>until: <span class="prelude-ty">Option</span>&lt;f64&gt;,
         <span class="kw">pub </span>first: <span class="prelude-ty">Option</span>&lt;i32&gt;,
+
+        <span class="kw">pub </span>streams: <span class="prelude-ty">Option</span>&lt;Vec&lt;LogStream&gt;&gt;,
     }
 
     <span class="attr">#[derive(cynic::QueryFragment, Debug)]

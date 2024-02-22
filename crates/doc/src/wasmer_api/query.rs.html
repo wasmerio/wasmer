@@ -822,6 +822,11 @@
 <a href="#822" id="822">822</a>
 <a href="#823" id="823">823</a>
 <a href="#824" id="824">824</a>
+<a href="#825" id="825">825</a>
+<a href="#826" id="826">826</a>
+<a href="#827" id="827">827</a>
+<a href="#828" id="828">828</a>
+<a href="#829" id="829">829</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{collections::HashSet, pin::Pin, time::Duration};
 
 <span class="kw">use </span>anyhow::{bail, Context};
@@ -836,7 +841,7 @@
     types::{
         <span class="self">self</span>, CreateNamespaceVars, DeployApp, DeployAppConnection, DeployAppVersion,
         DeployAppVersionConnection, GetCurrentUserWithAppsVars, GetDeployAppAndVersion,
-        GetDeployAppVersionsVars, GetNamespaceAppsVars, Log, PackageVersionConnection,
+        GetDeployAppVersionsVars, GetNamespaceAppsVars, Log, LogStream, PackageVersionConnection,
         PublishDeployAppVars,
     },
     GraphQLApiFailure, WasmerClient,
@@ -1526,6 +1531,7 @@
 // The stream can loop forever due to re-fetching the same logs over and over.
 </span><span class="attr">#[tracing::instrument(skip_all, level = <span class="string">&quot;debug&quot;</span>)]
 #[allow(clippy::let_with_type_underscore)]
+#[allow(clippy::too_many_arguments)]
 </span><span class="kw">fn </span>get_app_logs(
     client: <span class="kw-2">&amp;</span>WasmerClient,
     name: String,
@@ -1534,6 +1540,7 @@
     start: OffsetDateTime,
     end: <span class="prelude-ty">Option</span>&lt;OffsetDateTime&gt;,
     watch: bool,
+    streams: <span class="prelude-ty">Option</span>&lt;Vec&lt;LogStream&gt;&gt;,
 ) -&gt; <span class="kw">impl </span>futures::Stream&lt;Item = <span class="prelude-ty">Result</span>&lt;Vec&lt;Log&gt;, anyhow::Error&gt;&gt; + <span class="lifetime">&#39;_ </span>{
     <span class="comment">// Note: the backend will limit responses to a certain number of log
     // messages, so we use try_unfold() to keep calling it until we stop getting
@@ -1548,6 +1555,7 @@
             first: <span class="prelude-val">Some</span>(<span class="number">100</span>),
             starting_from: unix_timestamp(start),
             until: end.map(unix_timestamp),
+            streams: streams.clone(),
         };
 
         <span class="kw">let </span>fut = <span class="kw">async move </span>{
@@ -1610,6 +1618,7 @@
 /// final vector.
 </span><span class="attr">#[tracing::instrument(skip_all, level = <span class="string">&quot;debug&quot;</span>)]
 #[allow(clippy::let_with_type_underscore)]
+#[allow(clippy::too_many_arguments)]
 </span><span class="kw">pub async fn </span>get_app_logs_paginated(
     client: <span class="kw-2">&amp;</span>WasmerClient,
     name: String,
@@ -1618,8 +1627,9 @@
     start: OffsetDateTime,
     end: <span class="prelude-ty">Option</span>&lt;OffsetDateTime&gt;,
     watch: bool,
+    streams: <span class="prelude-ty">Option</span>&lt;Vec&lt;LogStream&gt;&gt;,
 ) -&gt; <span class="kw">impl </span>futures::Stream&lt;Item = <span class="prelude-ty">Result</span>&lt;Vec&lt;Log&gt;, anyhow::Error&gt;&gt; + <span class="lifetime">&#39;_ </span>{
-    <span class="kw">let </span>stream = get_app_logs(client, name, owner, tag, start, end, watch);
+    <span class="kw">let </span>stream = get_app_logs(client, name, owner, tag, start, end, watch, streams);
 
     stream.map(|res| {
         <span class="kw">let </span><span class="kw-2">mut </span>logs = Vec::new();

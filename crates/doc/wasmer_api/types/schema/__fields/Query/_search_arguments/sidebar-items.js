@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":["after","apps","before","first","last","namespaces","packages","query","users"]};
+window.SIDEBAR_ITEMS = {"struct":["after","appTemplates","apps","before","blogposts","first","last","namespaces","packages","query","users"]};
