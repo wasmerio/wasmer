@@ -601,6 +601,12 @@ mod queries {
         pub token: String,
     }
 
+    #[derive(cynic::Enum, Clone, Copy, Debug)]
+    pub enum LogStream {
+        Stdout,
+        Stderr,
+    }
+
     #[derive(cynic::QueryVariables, Debug, Clone)]
     pub struct GetDeployAppLogsVars {
         pub name: String,
@@ -615,6 +621,8 @@ mod queries {
         /// epoch.
         pub until: Option<f64>,
         pub first: Option<i32>,
+
+        pub streams: Option<Vec<LogStream>>,
     }
 
     #[derive(cynic::QueryFragment, Debug)]

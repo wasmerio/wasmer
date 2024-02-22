@@ -4,12 +4,18 @@ use comfy_table::Table;
 use edge_schema::pretty_duration::parse_timestamp_or_relative_time;
 use futures::StreamExt;
 use time::{format_description::well_known::Rfc3339, OffsetDateTime};
-use wasmer_api::types::Log;
+use wasmer_api::types::{Log, LogStream};
 
 use crate::{
     opts::{ApiOpts, ListFormatOpts},
     utils::{render::CliRender, Identifier},
 };
+
+#[derive(Debug, PartialEq, Eq, Clone, Copy, clap::ValueEnum)]
+pub enum LogStreamArg {
+    Stdout,
+    Stderr,
+}
 
 /// Show an app.
 #[derive(clap::Parser, Debug)]
@@ -59,6 +65,10 @@ pub struct CmdAppLogs {
     /// - namespace/name
     /// - namespace/name@version
     ident: Identifier,
+
+    /// Streams of logs to display
+    #[clap(long, value_delimiter = ',', value_enum)]
+    streams: Option<Vec<LogStreamArg>>,
 }
 
 #[async_trait::async_trait]
@@ -95,6 +105,30 @@ impl crate::commands::AsyncCliCommand for CmdAppLogs {
             "Fetching logs",
         );
 
+        let (stdout, stderr) = self
+            .streams
+            .map(|s| {
+                let mut stdout = false;
+                let mut stderr = false;
+
+                for stream in s {
+                    if matches!(stream, LogStreamArg::Stdout) {
+                        stdout = true;
+                    } else if matches!(stream, LogStreamArg::Stderr) {
+                        stderr = true;
+                    }
+                }
+
+                (stdout, stderr)
+            })
+            .unwrap_or_default();
+
+        let streams = Vec::from(match (stdout, stderr) {
+            (true, true) | (false, false) => &[LogStream::Stdout, LogStream::Stderr][..],
+            (true, false) => &[LogStream::Stdout][..],
+            (false, true) => &[LogStream::Stderr][..],
+        });
+
         let logs_stream = wasmer_api::query::get_app_logs_paginated(
             &client,
             name.clone(),
@@ -103,6 +137,7 @@ impl crate::commands::AsyncCliCommand for CmdAppLogs {
             from,
             self.until,
             self.watch,
+            Some(streams),
         )
         .await;
 
