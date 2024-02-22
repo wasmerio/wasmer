@@ -292,7 +292,20 @@ impl WasiFunctionEnv {
                 )
                 .map_err(|err| {
                     WasiRuntimeError::Runtime(wasmer::RuntimeError::new(format!(
-                        "journal failied to save the module initialization event - {}",
+                        "journal failed to save the module initialization event - {}",
+                        err
+                    )))
+                })?;
+            } else {
+                // Otherwise we should emit a clear ethereal event
+                let mut ctx = self.env.clone().into_mut(&mut store);
+                crate::journal::JournalEffector::save_event(
+                    &mut ctx,
+                    crate::journal::JournalEntry::ClearEtherealV1,
+                )
+                .map_err(|err| {
+                    WasiRuntimeError::Runtime(wasmer::RuntimeError::new(format!(
+                        "journal failed to save clear ethereal event - {}",
                         err
                     )))
                 })?;

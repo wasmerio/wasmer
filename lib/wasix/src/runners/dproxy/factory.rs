@@ -6,6 +6,7 @@ use std::{
 };
 
 use derivative::Derivative;
+use wasmer_journal::{DynJournal, RecombinedJournal};
 
 use crate::{
     runners::Runner,
@@ -57,7 +58,16 @@ impl DProxyInstanceFactory {
 
         // DProxy is able to resume execution of the stateful workload using memory
         // snapshots hence the journals it stores are complete journals
-        let journals = runtime.journals().clone().into_iter().collect::<Vec<_>>();
+        let journals = runtime
+            .journals()
+            .clone()
+            .into_iter()
+            .map(|journal| {
+                let tx = Box::new(journal.clone());
+                let rx = journal.as_restarted()?;
+                anyhow::Result::Ok(Arc::new(RecombinedJournal::new(tx, rx)) as Arc<DynJournal>)
+            })
+            .collect::<anyhow::Result<Vec<_>>>()?;
         let mut runtime = OverriddenRuntime::new(runtime).with_journals(journals);
 
         // We attach a composite networking to the runtime which includes a loopback

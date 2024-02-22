@@ -233,6 +233,7 @@ impl WritableJournal for FilteredJournalTx {
                 }
                 entry
             }
+            JournalEntry::ClearEtherealV1 => entry,
             JournalEntry::SetThreadV1 { .. } | JournalEntry::CloseThreadV1 { .. } => {
                 if self.config.filter_threads {
                     return Ok(LogWriteResult {

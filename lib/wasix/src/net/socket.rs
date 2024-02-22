@@ -408,8 +408,11 @@ impl InodeSocket {
 
                         net.listen_tcp(addr, only_v6, reuse_port, reuse_addr)
                     }
-                    _ => {
-                        tracing::warn!("wasi[?]::sock_listen - failed - not supported(1)");
+                    ty => {
+                        tracing::warn!(
+                            "wasi[?]::sock_listen - failed - not supported(pre-socket:{:?})",
+                            ty
+                        );
                         return Err(Errno::Notsup);
                     }
                 },
@@ -430,13 +433,34 @@ impl InodeSocket {
 
                         net.listen_tcp(addr, only_v6, reuse_port, reuse_addr)
                     }
-                    _ => {
-                        tracing::warn!("wasi[?]::sock_listen - failed - not supported(1)");
+                    ty => {
+                        tracing::warn!(
+                            "wasi[?]::sock_listen - failed - not supported(remote-socket:{:?})",
+                            ty
+                        );
                         return Err(Errno::Notsup);
                     }
                 },
-                _ => {
-                    tracing::warn!("wasi[?]::sock_listen - failed - not supported(2)");
+                InodeSocketKind::Icmp(_) => {
+                    tracing::warn!("wasi[?]::sock_listen - failed - not supported(icmp)");
+                    return Err(Errno::Notsup);
+                }
+                InodeSocketKind::Raw(_) => {
+                    tracing::warn!("wasi[?]::sock_listen - failed - not supported(raw)");
+                    return Err(Errno::Notsup);
+                }
+                InodeSocketKind::TcpListener { .. } => {
+                    tracing::warn!(
+                        "wasi[?]::sock_listen - failed - already listening (tcp-listener)"
+                    );
+                    return Err(Errno::Notsup);
+                }
+                InodeSocketKind::TcpStream { .. } => {
+                    tracing::warn!("wasi[?]::sock_listen - failed - not supported(tcp-stream)");
+                    return Err(Errno::Notsup);
+                }
+                InodeSocketKind::UdpSocket { .. } => {
+                    tracing::warn!("wasi[?]::sock_listen - failed - not supported(udp-socket)");
                     return Err(Errno::Notsup);
                 }
             }

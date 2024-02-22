@@ -83,6 +83,7 @@ pub enum JournalEntryRecordType {
     SocketSetOptTimeV1 = 57,
     SocketShutdownV1 = 58,
     SnapshotV1 = 59,
+    ClearEtherealV1 = 60,
 }
 
 impl JournalEntryRecordType {
@@ -96,6 +97,11 @@ impl JournalEntryRecordType {
             JournalEntryRecordType::InitModuleV1 => ArchivedJournalEntry::InitModuleV1(
                 rkyv::archived_root::<JournalEntryInitModuleV1>(data),
             ),
+            JournalEntryRecordType::ClearEtherealV1 => {
+                ArchivedJournalEntry::ClearEtherealV1(rkyv::archived_root::<
+                    JournalEntryClearEtherealV1,
+                >(data))
+            }
             JournalEntryRecordType::ProcessExitV1 => ArchivedJournalEntry::ProcessExitV1(
                 rkyv::archived_root::<JournalEntryProcessExitV1>(data),
             ),
@@ -342,6 +348,7 @@ impl<'a> JournalEntry<'a> {
     pub fn archive_record_type(&self) -> JournalEntryRecordType {
         match self {
             Self::InitModuleV1 { .. } => JournalEntryRecordType::InitModuleV1,
+            Self::ClearEtherealV1 { .. } => JournalEntryRecordType::ClearEtherealV1,
             Self::UpdateMemoryRegionV1 { .. } => JournalEntryRecordType::UpdateMemoryRegionV1,
             Self::ProcessExitV1 { .. } => JournalEntryRecordType::ProcessExitV1,
             Self::SetThreadV1 { .. } => JournalEntryRecordType::SetThreadV1,
@@ -432,6 +439,9 @@ impl<'a> JournalEntry<'a> {
         let amt = match self {
             JournalEntry::InitModuleV1 { wasm_hash } => {
                 serializer.serialize_value(&JournalEntryInitModuleV1 { wasm_hash })
+            }
+            JournalEntry::ClearEtherealV1 => {
+                serializer.serialize_value(&JournalEntryClearEtherealV1 {})
             }
             JournalEntry::UpdateMemoryRegionV1 { region, data } => {
                 serializer.serialize_value(&JournalEntryUpdateMemoryRegionV1 {
@@ -875,6 +885,7 @@ pub(crate) struct JournalEntryHeader {
 
 pub enum ArchivedJournalEntry<'a> {
     InitModuleV1(&'a ArchivedJournalEntryInitModuleV1),
+    ClearEtherealV1(&'a ArchivedJournalEntryClearEtherealV1),
     ProcessExitV1(&'a ArchivedJournalEntryProcessExitV1),
     SetThreadV1(&'a ArchivedJournalEntrySetThreadV1<'a>),
     CloseThreadV1(&'a ArchivedJournalEntryCloseThreadV1),
@@ -941,6 +952,12 @@ pub enum ArchivedJournalEntry<'a> {
 pub struct JournalEntryInitModuleV1 {
     pub wasm_hash: [u8; 8],
 }
+
+#[repr(C)]
+#[repr(align(8))]
+#[derive(Debug, Clone, RkyvSerialize, RkyvDeserialize, Archive)]
+#[archive_attr(derive(CheckBytes), repr(align(8)))]
+pub struct JournalEntryClearEtherealV1 {}
 
 #[repr(C)]
 #[repr(align(8))]

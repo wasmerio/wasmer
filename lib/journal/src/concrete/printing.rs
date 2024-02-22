@@ -68,6 +68,9 @@ impl<'a> fmt::Display for JournalEntry<'a> {
             JournalEntry::InitModuleV1 { wasm_hash } => {
                 write!(f, "init-module (hash={:x?})", wasm_hash)
             }
+            JournalEntry::ClearEtherealV1 => {
+                write!(f, "clear-ethereal")
+            }
             JournalEntry::UpdateMemoryRegionV1 { region, data } => write!(
                 f,
                 "memory-update (start={}, end={}, data.len={})",

@@ -86,6 +86,7 @@ pub enum JournalEntry<'a> {
     InitModuleV1 {
         wasm_hash: [u8; 8],
     },
+    ClearEtherealV1,
     UpdateMemoryRegionV1 {
         region: Range<u64>,
         #[derivative(Debug = "ignore")]
@@ -374,6 +375,7 @@ impl<'a> JournalEntry<'a> {
     pub fn into_owned(self) -> JournalEntry<'static> {
         match self {
             Self::InitModuleV1 { wasm_hash } => JournalEntry::InitModuleV1 { wasm_hash },
+            Self::ClearEtherealV1 => JournalEntry::ClearEtherealV1,
             Self::UpdateMemoryRegionV1 { region, data } => JournalEntry::UpdateMemoryRegionV1 {
                 region,
                 data: data.into_owned().into(),
@@ -714,6 +716,7 @@ impl<'a> JournalEntry<'a> {
         let base_size = std::mem::size_of_val(self);
         match self {
             JournalEntry::InitModuleV1 { .. } => base_size,
+            JournalEntry::ClearEtherealV1 => base_size,
             JournalEntry::UpdateMemoryRegionV1 { data, .. } => base_size + data.len(),
             JournalEntry::ProcessExitV1 { .. } => base_size,
             JournalEntry::SetThreadV1 {

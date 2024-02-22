@@ -648,6 +648,9 @@ impl<'a> TryFrom<ArchivedJournalEntry<'a>> for JournalEntry<'a> {
                     wasm_hash: *wasm_hash,
                 }
             }
+            ArchivedJournalEntry::ClearEtherealV1(ArchivedJournalEntryClearEtherealV1 {
+                ..
+            }) => Self::ClearEtherealV1,
             ArchivedJournalEntry::UpdateMemoryRegionV1(
                 ArchivedJournalEntryUpdateMemoryRegionV1 {
                     start,
