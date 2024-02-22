@@ -1,17 +1,6 @@
 #!/bin/bash
 set -ueo pipefail
 
-usage() {
-  echo "Usage: $0 <runtime>"
-  exit 1
-}
-
-if [ $# -ne 1 ]; then
-  usage
-else
-  runtime=$1
-fi
-
 bash build.sh
 
 status=0
@@ -25,7 +14,7 @@ for file in *.wasm; do
         echo "Skipping $file"
     else
         echo "Testing $file"
-        ./wasm-test.sh $runtime $file || status=1
+        ./wasm-test.sh $file || status=1
     fi
 done
 

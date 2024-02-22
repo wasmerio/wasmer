@@ -2,8 +2,7 @@
 
 set -e
 
-runtime=$1
-input=$2
+input=$1
 
 input_dir=$(dirname $input)
 cd $input_dir
@@ -41,7 +40,7 @@ fi
 
 status=0
 
-"$runtime" --mapdir /hamlet:./test_fs/hamlet --mapdir /fyi:./test_fs/fyi "$input_base.wasm" $dir $env -- $arg \
+"../../target/release/wasmer" --mapdir /hamlet:./test_fs/hamlet --mapdir /fyi:./test_fs/fyi "$input_base.wasm" $dir $env -- $arg \
     < "$stdin" \
     > "$stdout_actual" \
     2> "$stderr_actual" \
