@@ -28,6 +28,7 @@ impl JournalEffector {
         new_fd: Fd,
         new_path: &str,
     ) -> anyhow::Result<()> {
+        // see `VIRTUAL_ROOT_FD` for details as to why this exists
         if old_fd == VIRTUAL_ROOT_FD && new_fd == VIRTUAL_ROOT_FD {
             let state = ctx.data().state.clone();
             let old_path = old_path.to_string();
