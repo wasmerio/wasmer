@@ -14,6 +14,8 @@ pub enum SnapshotTrigger {
     FirstStdin,
     /// Triggered periodically based on a interval (default 10 seconds) which can be specified using the `snapshot-interval` option
     PeriodicInterval,
+    /// Triggered when the CLI presses the CTRL-C key
+    CtrlC,
     /// Issued if the user sends an interrupt signal (Ctrl + C).
     Sigint,
     /// Alarm clock signal (used for timers)
@@ -30,16 +32,17 @@ impl SnapshotTrigger {
     pub fn only_once(&self) -> bool {
         matches!(
             self,
-            Self::FirstListen | Self::FirstEnviron | Self::FirstStdin
+            Self::FirstListen | Self::FirstEnviron | Self::FirstStdin | Self::CtrlC
         )
     }
 }
 
-pub const DEFAULT_SNAPSHOT_TRIGGERS: [SnapshotTrigger; 4] = [
+pub const DEFAULT_SNAPSHOT_TRIGGERS: [SnapshotTrigger; 5] = [
     SnapshotTrigger::Idle,
     SnapshotTrigger::FirstEnviron,
     SnapshotTrigger::FirstListen,
     SnapshotTrigger::FirstStdin,
+    SnapshotTrigger::CtrlC,
 ];
 
 impl FromStr for SnapshotTrigger {
@@ -53,7 +56,8 @@ impl FromStr for SnapshotTrigger {
             "first-stdin" => Self::FirstStdin,
             "first-environ" => Self::FirstEnviron,
             "periodic-interval" => Self::PeriodicInterval,
-            "intr" | "sigint" | "ctrlc" | "ctrl-c" => Self::Sigint,
+            "intr" | "sigint" => Self::Sigint,
+            "ctrlc" | "ctrl-c" => Self::CtrlC,
             "alarm" | "timer" | "sigalrm" => Self::Sigalrm,
             "sigtstp" | "ctrlz" | "ctrl-z" => Self::Sigtstp,
             "stop" | "sigstop" => Self::Sigstop,

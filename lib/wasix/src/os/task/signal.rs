@@ -1,4 +1,4 @@
-use std::time::Duration;
+use std::{sync::Arc, time::Duration};
 
 use wasmer_wasix_types::types::Signal;
 
@@ -15,6 +15,8 @@ where
     fn signal(&self, signal: u8) -> Result<(), SignalDeliveryError>;
 }
 
+pub type DynSignalHandlerAbi = dyn SignalHandlerAbi + Send + Sync + 'static;
+
 #[derive(Debug)]
 pub struct WasiSignalInterval {
     /// Signal that will be raised
@@ -25,4 +27,31 @@ pub struct WasiSignalInterval {
     pub repeat: bool,
     /// Last time that a signal was triggered
     pub last_signal: u128,
+}
+
+pub fn default_signal_handler() -> Arc<DynSignalHandlerAbi> {
+    #[derive(Debug)]
+    struct DefaultHandler {}
+    impl SignalHandlerAbi for DefaultHandler {
+        fn signal(&self, signal: u8) -> Result<(), SignalDeliveryError> {
+            if let Ok(signal) = TryInto::<Signal>::try_into(signal) {
+                match signal {
+                    Signal::Sigkill
+                    | Signal::Sigterm
+                    | Signal::Sigabrt
+                    | Signal::Sigquit
+                    | Signal::Sigint
+                    | Signal::Sigstop => {
+                        tracing::debug!("handling terminate signal");
+                        std::process::exit(1);
+                    }
+                    signal => tracing::info!("unhandled signal - {:?}", signal),
+                }
+            } else {
+                tracing::info!("unknown signal - {}", signal)
+            }
+            Ok(())
+        }
+    }
+    Arc::new(DefaultHandler {})
 }

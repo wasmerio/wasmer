@@ -33,6 +33,7 @@ use super::{
     signal::{SignalDeliveryError, SignalHandlerAbi},
     task_join_handle::OwnedTaskStatus,
     thread::WasiMemoryLayout,
+    TaskStatus,
 };
 
 /// Represents the ID of a sub-process
@@ -147,6 +148,8 @@ impl Into<Range<u64>> for MemorySnapshotRegion {
 pub struct WasiProcessInner {
     /// Unique ID of this process
     pub pid: WasiProcessId,
+    /// Number of threads waiting for children to exit
+    pub(crate) waiting: Arc<AtomicU32>,
     /// The threads that make up this process
     pub threads: HashMap<WasiThreadId, WasiThread>,
     /// Number of threads running for this process
@@ -331,26 +334,46 @@ impl Drop for WasiProcessWait {
 
 impl WasiProcess {
     pub fn new(pid: WasiProcessId, module_hash: ModuleHash, plane: WasiControlPlaneHandle) -> Self {
+        let waiting = Arc::new(AtomicU32::new(0));
+        let inner = Arc::new((
+            Mutex::new(WasiProcessInner {
+                pid,
+                threads: Default::default(),
+                thread_count: Default::default(),
+                signal_intervals: Default::default(),
+                children: Default::default(),
+                checkpoint: WasiProcessCheckpoint::Execute,
+                wakers: Default::default(),
+                waiting: waiting.clone(),
+                snapshot_memory_hash: Default::default(),
+            }),
+            Condvar::new(),
+        ));
+
+        #[derive(Debug)]
+        struct SignalHandler(LockableWasiProcessInner);
+        impl SignalHandlerAbi for SignalHandler {
+            fn signal(&self, signal: u8) -> Result<(), SignalDeliveryError> {
+                if let Ok(signal) = signal.try_into() {
+                    signal_process_internal(&self.0, signal);
+                    Ok(())
+                } else {
+                    Err(SignalDeliveryError)
+                }
+            }
+        }
+
         WasiProcess {
             pid,
             module_hash,
             parent: None,
             compute: plane,
-            inner: Arc::new((
-                Mutex::new(WasiProcessInner {
-                    pid,
-                    threads: Default::default(),
-                    thread_count: Default::default(),
-                    signal_intervals: Default::default(),
-                    children: Default::default(),
-                    checkpoint: WasiProcessCheckpoint::Execute,
-                    wakers: Default::default(),
-                    snapshot_memory_hash: Default::default(),
-                }),
-                Condvar::new(),
-            )),
-            finished: Arc::new(OwnedTaskStatus::default()),
-            waiting: Arc::new(AtomicU32::new(0)),
+            inner: inner.clone(),
+            finished: Arc::new(
+                OwnedTaskStatus::new(TaskStatus::Pending)
+                    .with_signal_handler(Arc::new(SignalHandler(inner))),
+            ),
+            waiting,
         }
     }
 
@@ -471,26 +494,7 @@ impl WasiProcess {
 
     /// Signals all the threads in this process
     pub fn signal_process(&self, signal: Signal) {
-        let pid = self.pid();
-        tracing::trace!(%pid, "signal-process({:?})", signal);
-
-        {
-            let inner = self.inner.0.lock().unwrap();
-            if self.waiting.load(Ordering::Acquire) > 0 {
-                let mut triggered = false;
-                for child in inner.children.iter() {
-                    child.signal_process(signal);
-                    triggered = true;
-                }
-                if triggered {
-                    return;
-                }
-            }
-        }
-        let inner = self.inner.0.lock().unwrap();
-        for thread in inner.threads.values() {
-            thread.signal(signal);
-        }
+        signal_process_internal(&self.inner, signal);
     }
 
     /// Signals one of the threads every interval
@@ -603,6 +607,27 @@ impl WasiProcess {
         for thread in guard.threads.values() {
             thread.set_status_finished(Ok(exit_code))
         }
+    }
+}
+
+/// Signals all the threads in this process
+fn signal_process_internal(process: &LockableWasiProcessInner, signal: Signal) {
+    let inner = process.0.lock().unwrap();
+    let pid = inner.pid;
+    tracing::trace!(%pid, "signal-process({:?})", signal);
+
+    if inner.waiting.load(Ordering::Acquire) > 0 {
+        let mut triggered = false;
+        for child in inner.children.iter() {
+            child.signal_process(signal);
+            triggered = true;
+        }
+        if triggered {
+            return;
+        }
+    }
+    for thread in inner.threads.values() {
+        thread.signal(signal);
     }
 }
 
