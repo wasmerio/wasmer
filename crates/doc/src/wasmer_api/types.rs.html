@@ -756,6 +756,7 @@
 <a href="#756" id="756">756</a>
 <a href="#757" id="757">757</a>
 <a href="#758" id="758">758</a>
+<a href="#759" id="759">759</a>
 </pre></div><pre class="rust"><code><span class="kw">pub use </span>queries::<span class="kw-2">*</span>;
 
 <span class="kw">pub use </span>cynic::Id;
@@ -828,6 +829,7 @@
     </span><span class="kw">pub struct </span>PackageDistribution {
         <span class="kw">pub </span>pirita_sha256_hash: <span class="prelude-ty">Option</span>&lt;String&gt;,
         <span class="kw">pub </span>pirita_download_url: <span class="prelude-ty">Option</span>&lt;String&gt;,
+        <span class="kw">pub </span>download_url: <span class="prelude-ty">Option</span>&lt;String&gt;,
     }
 
     <span class="attr">#[derive(cynic::QueryFragment, Debug, Clone)]
