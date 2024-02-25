@@ -34,6 +34,10 @@ impl JournalEffector {
         )
     }
 
+    /// This will take the supplied stacks and apply them to the memory region
+    /// dedicated to this thread. After that it will spawn a WASM thread and
+    // continue the thread where it left off, which may even mean it goes
+    // straight back to sleep.
     pub fn apply_thread_state<M: MemorySize>(
         ctx: &mut FunctionEnvMut<'_, WasiEnv>,
         tid: WasiThreadId,
