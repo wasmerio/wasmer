@@ -4,7 +4,7 @@ use wasmer_wasix_types::wasi::{Addressfamily, SockProto, Socktype};
 
 use crate::{
     fs::Kind,
-    net::socket::{InodeSocket, InodeSocketKind},
+    net::socket::{InodeSocket, InodeSocketKind, SocketProperties},
 };
 
 use super::*;
@@ -45,28 +45,29 @@ impl JournalEffector {
             socket: InodeSocket::new(InodeSocketKind::RemoteSocket {
                 local_addr: addr,
                 peer_addr,
-                family: match peer_addr.is_ipv4() {
-                    true => Addressfamily::Inet4,
-                    false => Addressfamily::Inet6,
-                },
-                ty: Socktype::Stream,
-                pt: SockProto::Tcp,
-
-                only_v6: false,
-                reuse_port: false,
-                reuse_addr: false,
                 ttl: 0,
                 multicast_ttl: 0,
-                no_delay: None,
-                keep_alive: None,
-                dont_route: None,
-                send_buf_size: None,
-                recv_buf_size: None,
-                write_timeout: None,
-                read_timeout: None,
-                accept_timeout: None,
-                connect_timeout: None,
-                handler: None,
+                props: SocketProperties {
+                    family: match peer_addr.is_ipv4() {
+                        true => Addressfamily::Inet4,
+                        false => Addressfamily::Inet6,
+                    },
+                    ty: Socktype::Stream,
+                    pt: SockProto::Tcp,
+                    only_v6: false,
+                    reuse_port: false,
+                    reuse_addr: false,
+                    no_delay: None,
+                    keep_alive: None,
+                    dont_route: None,
+                    send_buf_size: None,
+                    recv_buf_size: None,
+                    write_timeout: None,
+                    read_timeout: None,
+                    accept_timeout: None,
+                    connect_timeout: None,
+                    handler: None,
+                },
             }),
         };
 

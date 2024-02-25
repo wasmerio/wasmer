@@ -1380,10 +1380,10 @@ impl WasiFs {
                 Kind::File { .. } => Filetype::RegularFile,
                 Kind::Dir { .. } => Filetype::Directory,
                 Kind::Symlink { .. } => Filetype::SymbolicLink,
-                Kind::Socket { socket } => match socket.inner.protected.read().unwrap().kind {
+                Kind::Socket { socket } => match &socket.inner.protected.read().unwrap().kind {
                     InodeSocketKind::TcpStream { .. } => Filetype::SocketStream,
                     InodeSocketKind::Raw { .. } => Filetype::SocketRaw,
-                    InodeSocketKind::PreSocket { ty, .. } => match ty {
+                    InodeSocketKind::PreSocket { props, .. } => match props.ty {
                         Socktype::Stream => Filetype::SocketStream,
                         Socktype::Dgram => Filetype::SocketDgram,
                         Socktype::Raw => Filetype::SocketRaw,

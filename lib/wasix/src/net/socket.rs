@@ -35,27 +35,32 @@ pub enum InodeHttpSocketType {
 
 #[derive(Derivative)]
 #[derivative(Debug)]
+pub struct SocketProperties {
+    pub family: Addressfamily,
+    pub ty: Socktype,
+    pub pt: SockProto,
+    pub only_v6: bool,
+    pub reuse_port: bool,
+    pub reuse_addr: bool,
+    pub no_delay: Option<bool>,
+    pub keep_alive: Option<bool>,
+    pub dont_route: Option<bool>,
+    pub send_buf_size: Option<usize>,
+    pub recv_buf_size: Option<usize>,
+    pub write_timeout: Option<Duration>,
+    pub read_timeout: Option<Duration>,
+    pub accept_timeout: Option<Duration>,
+    pub connect_timeout: Option<Duration>,
+    #[derivative(Debug = "ignore")]
+    pub handler: Option<Box<dyn InterestHandler + Send + Sync>>,
+}
+
+#[derive(Debug)]
 //#[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 pub enum InodeSocketKind {
     PreSocket {
-        family: Addressfamily,
-        ty: Socktype,
-        pt: SockProto,
+        props: SocketProperties,
         addr: Option<SocketAddr>,
-        only_v6: bool,
-        reuse_port: bool,
-        reuse_addr: bool,
-        no_delay: Option<bool>,
-        keep_alive: Option<bool>,
-        dont_route: Option<bool>,
-        send_buf_size: Option<usize>,
-        recv_buf_size: Option<usize>,
-        write_timeout: Option<Duration>,
-        read_timeout: Option<Duration>,
-        accept_timeout: Option<Duration>,
-        connect_timeout: Option<Duration>,
-        #[derivative(Debug = "ignore")]
-        handler: Option<Box<dyn InterestHandler + Send + Sync>>,
     },
     Icmp(Box<dyn VirtualIcmpSocket + Sync>),
     Raw(Box<dyn VirtualRawSocket + Sync>),
@@ -73,27 +78,11 @@ pub enum InodeSocketKind {
         peer: Option<SocketAddr>,
     },
     RemoteSocket {
-        family: Addressfamily,
-        ty: Socktype,
-        pt: SockProto,
+        props: SocketProperties,
         local_addr: SocketAddr,
         peer_addr: SocketAddr,
-        only_v6: bool,
-        reuse_port: bool,
-        reuse_addr: bool,
         ttl: u32,
         multicast_ttl: u32,
-        no_delay: Option<bool>,
-        keep_alive: Option<bool>,
-        dont_route: Option<bool>,
-        send_buf_size: Option<usize>,
-        recv_buf_size: Option<usize>,
-        write_timeout: Option<Duration>,
-        read_timeout: Option<Duration>,
-        accept_timeout: Option<Duration>,
-        connect_timeout: Option<Duration>,
-        #[derivative(Debug = "ignore")]
-        handler: Option<Box<dyn InterestHandler + Send + Sync>>,
     },
 }
 
@@ -261,15 +250,8 @@ impl InodeSocket {
         let socket = {
             let mut inner = self.inner.protected.write().unwrap();
             match &mut inner.kind {
-                InodeSocketKind::PreSocket {
-                    family,
-                    ty,
-                    addr,
-                    reuse_port,
-                    reuse_addr,
-                    ..
-                } => {
-                    match *family {
+                InodeSocketKind::PreSocket { props, addr, .. } => {
+                    match props.family {
                         Addressfamily::Inet4 => {
                             if !set_addr.is_ipv4() {
                                 tracing::debug!(
@@ -294,15 +276,15 @@ impl InodeSocket {
                     addr.replace(set_addr);
                     let addr = (*addr).unwrap();
 
-                    match *ty {
+                    match props.ty {
                         Socktype::Stream => {
                             // we already set the socket address - next we need a listen or connect so nothing
                             // more to do at this time
                             return Ok(None);
                         }
                         Socktype::Dgram => {
-                            let reuse_port = *reuse_port;
-                            let reuse_addr = *reuse_addr;
+                            let reuse_port = props.reuse_port;
+                            let reuse_addr = props.reuse_addr;
                             drop(inner);
 
                             net.bind_udp(addr, reuse_port, reuse_addr)
@@ -311,14 +293,11 @@ impl InodeSocket {
                     }
                 }
                 InodeSocketKind::RemoteSocket {
-                    family,
-                    ty,
+                    props,
                     local_addr: addr,
-                    reuse_port,
-                    reuse_addr,
                     ..
                 } => {
-                    match *family {
+                    match props.family {
                         Addressfamily::Inet4 => {
                             if !set_addr.is_ipv4() {
                                 tracing::debug!(
@@ -343,15 +322,15 @@ impl InodeSocket {
                     *addr = set_addr;
                     let addr = *addr;
 
-                    match *ty {
+                    match props.ty {
                         Socktype::Stream => {
                             // we already set the socket address - next we need a listen or connect so nothing
                             // more to do at this time
                             return Ok(None);
                         }
                         Socktype::Dgram => {
-                            let reuse_port = *reuse_port;
-                            let reuse_addr = *reuse_addr;
+                            let reuse_port = props.reuse_port;
+                            let reuse_addr = props.reuse_addr;
                             drop(inner);
 
                             net.bind_udp(addr, reuse_port, reuse_addr)
@@ -387,23 +366,16 @@ impl InodeSocket {
         let socket = {
             let inner = self.inner.protected.read().unwrap();
             match &inner.kind {
-                InodeSocketKind::PreSocket {
-                    ty,
-                    addr,
-                    only_v6,
-                    reuse_port,
-                    reuse_addr,
-                    ..
-                } => match *ty {
+                InodeSocketKind::PreSocket { props, addr, .. } => match props.ty {
                     Socktype::Stream => {
                         if addr.is_none() {
                             tracing::warn!("wasi[?]::sock_listen - failed - address not set");
                             return Err(Errno::Inval);
                         }
                         let addr = *addr.as_ref().unwrap();
-                        let only_v6 = *only_v6;
-                        let reuse_port = *reuse_port;
-                        let reuse_addr = *reuse_addr;
+                        let only_v6 = props.only_v6;
+                        let reuse_port = props.reuse_port;
+                        let reuse_addr = props.reuse_addr;
                         drop(inner);
 
                         net.listen_tcp(addr, only_v6, reuse_port, reuse_addr)
@@ -417,18 +389,15 @@ impl InodeSocket {
                     }
                 },
                 InodeSocketKind::RemoteSocket {
-                    ty,
+                    props,
                     local_addr: addr,
-                    only_v6,
-                    reuse_port,
-                    reuse_addr,
                     ..
-                } => match *ty {
+                } => match props.ty {
                     Socktype::Stream => {
                         let addr = *addr;
-                        let only_v6 = *only_v6;
-                        let reuse_port = *reuse_port;
-                        let reuse_addr = *reuse_addr;
+                        let only_v6 = props.only_v6;
+                        let reuse_port = props.reuse_port;
+                        let reuse_addr = props.reuse_addr;
                         drop(inner);
 
                         net.listen_tcp(addr, only_v6, reuse_port, reuse_addr)
@@ -577,25 +546,15 @@ impl InodeSocket {
         let connect = {
             let mut inner = self.inner.protected.write().unwrap();
             match &mut inner.kind {
-                InodeSocketKind::PreSocket {
-                    ty,
-                    addr,
-                    write_timeout,
-                    read_timeout,
-                    no_delay,
-                    keep_alive,
-                    dont_route,
-                    handler: h,
-                    ..
-                } => {
-                    handler = h.take();
-                    new_write_timeout = *write_timeout;
-                    new_read_timeout = *read_timeout;
-                    match *ty {
+                InodeSocketKind::PreSocket { props, addr, .. } => {
+                    handler = props.handler.take();
+                    new_write_timeout = props.write_timeout;
+                    new_read_timeout = props.read_timeout;
+                    match props.ty {
                         Socktype::Stream => {
-                            let no_delay = *no_delay;
-                            let keep_alive = *keep_alive;
-                            let dont_route = *dont_route;
+                            let no_delay = props.no_delay;
+                            let keep_alive = props.keep_alive;
+                            let dont_route = props.dont_route;
                             let addr = match addr {
                                 Some(a) => *a,
                                 None => {
@@ -673,12 +632,12 @@ impl InodeSocket {
     pub fn addr_local(&self) -> Result<SocketAddr, Errno> {
         let inner = self.inner.protected.read().unwrap();
         Ok(match &inner.kind {
-            InodeSocketKind::PreSocket { family, addr, .. } => {
+            InodeSocketKind::PreSocket { props, addr, .. } => {
                 if let Some(addr) = addr {
                     *addr
                 } else {
                     SocketAddr::new(
-                        match *family {
+                        match props.family {
                             Addressfamily::Inet4 => IpAddr::V4(Ipv4Addr::UNSPECIFIED),
                             Addressfamily::Inet6 => IpAddr::V6(Ipv6Addr::UNSPECIFIED),
                             _ => return Err(Errno::Inval),
@@ -707,8 +666,8 @@ impl InodeSocket {
     pub fn addr_peer(&self) -> Result<SocketAddr, Errno> {
         let inner = self.inner.protected.read().unwrap();
         Ok(match &inner.kind {
-            InodeSocketKind::PreSocket { family, .. } => SocketAddr::new(
-                match *family {
+            InodeSocketKind::PreSocket { props, .. } => SocketAddr::new(
+                match props.family {
                     Addressfamily::Inet4 => IpAddr::V4(Ipv4Addr::UNSPECIFIED),
                     Addressfamily::Inet6 => IpAddr::V6(Ipv6Addr::UNSPECIFIED),
                     _ => return Err(Errno::Inval),
@@ -744,31 +703,15 @@ impl InodeSocket {
     pub fn set_opt_flag(&mut self, option: WasiSocketOption, val: bool) -> Result<(), Errno> {
         let mut inner = self.inner.protected.write().unwrap();
         match &mut inner.kind {
-            InodeSocketKind::PreSocket {
-                only_v6,
-                reuse_port,
-                reuse_addr,
-                no_delay,
-                keep_alive,
-                dont_route,
-                ..
-            }
-            | InodeSocketKind::RemoteSocket {
-                only_v6,
-                reuse_port,
-                reuse_addr,
-                no_delay,
-                keep_alive,
-                dont_route,
-                ..
-            } => {
+            InodeSocketKind::PreSocket { props, .. }
+            | InodeSocketKind::RemoteSocket { props, .. } => {
                 match option {
-                    WasiSocketOption::OnlyV6 => *only_v6 = val,
-                    WasiSocketOption::ReusePort => *reuse_port = val,
-                    WasiSocketOption::ReuseAddr => *reuse_addr = val,
-                    WasiSocketOption::NoDelay => *no_delay = Some(val),
-                    WasiSocketOption::KeepAlive => *keep_alive = Some(val),
-                    WasiSocketOption::DontRoute => *dont_route = Some(val),
+                    WasiSocketOption::OnlyV6 => props.only_v6 = val,
+                    WasiSocketOption::ReusePort => props.reuse_port = val,
+                    WasiSocketOption::ReuseAddr => props.reuse_addr = val,
+                    WasiSocketOption::NoDelay => props.no_delay = Some(val),
+                    WasiSocketOption::KeepAlive => props.keep_alive = Some(val),
+                    WasiSocketOption::DontRoute => props.dont_route = Some(val),
                     _ => return Err(Errno::Inval),
                 };
             }
@@ -811,27 +754,13 @@ impl InodeSocket {
     pub fn get_opt_flag(&self, option: WasiSocketOption) -> Result<bool, Errno> {
         let mut inner = self.inner.protected.write().unwrap();
         Ok(match &mut inner.kind {
-            InodeSocketKind::PreSocket {
-                only_v6,
-                reuse_port,
-                reuse_addr,
-                no_delay,
-                keep_alive,
-                ..
-            }
-            | InodeSocketKind::RemoteSocket {
-                only_v6,
-                reuse_port,
-                reuse_addr,
-                no_delay,
-                keep_alive,
-                ..
-            } => match option {
-                WasiSocketOption::OnlyV6 => *only_v6,
-                WasiSocketOption::ReusePort => *reuse_port,
-                WasiSocketOption::ReuseAddr => *reuse_addr,
-                WasiSocketOption::NoDelay => no_delay.unwrap_or_default(),
-                WasiSocketOption::KeepAlive => keep_alive.unwrap_or_default(),
+            InodeSocketKind::PreSocket { props, .. }
+            | InodeSocketKind::RemoteSocket { props, .. } => match option {
+                WasiSocketOption::OnlyV6 => props.only_v6,
+                WasiSocketOption::ReusePort => props.reuse_port,
+                WasiSocketOption::ReuseAddr => props.reuse_addr,
+                WasiSocketOption::NoDelay => props.no_delay.unwrap_or_default(),
+                WasiSocketOption::KeepAlive => props.keep_alive.unwrap_or_default(),
                 _ => return Err(Errno::Inval),
             },
             InodeSocketKind::Raw(sock) => match option {
@@ -869,9 +798,9 @@ impl InodeSocket {
     pub fn set_send_buf_size(&mut self, size: usize) -> Result<(), Errno> {
         let mut inner = self.inner.protected.write().unwrap();
         match &mut inner.kind {
-            InodeSocketKind::PreSocket { send_buf_size, .. }
-            | InodeSocketKind::RemoteSocket { send_buf_size, .. } => {
-                *send_buf_size = Some(size);
+            InodeSocketKind::PreSocket { props, .. }
+            | InodeSocketKind::RemoteSocket { props, .. } => {
+                props.send_buf_size = Some(size);
             }
             InodeSocketKind::TcpStream { socket, .. } => {
                 socket
@@ -886,9 +815,9 @@ impl InodeSocket {
     pub fn send_buf_size(&self) -> Result<usize, Errno> {
         let inner = self.inner.protected.read().unwrap();
         match &inner.kind {
-            InodeSocketKind::PreSocket { send_buf_size, .. }
-            | InodeSocketKind::RemoteSocket { send_buf_size, .. } => {
-                Ok((*send_buf_size).unwrap_or_default())
+            InodeSocketKind::PreSocket { props, .. }
+            | InodeSocketKind::RemoteSocket { props, .. } => {
+                Ok(props.send_buf_size.unwrap_or_default())
             }
             InodeSocketKind::TcpStream { socket, .. } => {
                 socket.send_buf_size().map_err(net_error_into_wasi_err)
@@ -900,9 +829,9 @@ impl InodeSocket {
     pub fn set_recv_buf_size(&mut self, size: usize) -> Result<(), Errno> {
         let mut inner = self.inner.protected.write().unwrap();
         match &mut inner.kind {
-            InodeSocketKind::PreSocket { recv_buf_size, .. }
-            | InodeSocketKind::RemoteSocket { recv_buf_size, .. } => {
-                *recv_buf_size = Some(size);
+            InodeSocketKind::PreSocket { props, .. }
+            | InodeSocketKind::RemoteSocket { props, .. } => {
+                props.recv_buf_size = Some(size);
             }
             InodeSocketKind::TcpStream { socket, .. } => {
                 socket
@@ -917,9 +846,9 @@ impl InodeSocket {
     pub fn recv_buf_size(&self) -> Result<usize, Errno> {
         let inner = self.inner.protected.read().unwrap();
         match &inner.kind {
-            InodeSocketKind::PreSocket { recv_buf_size, .. }
-            | InodeSocketKind::RemoteSocket { recv_buf_size, .. } => {
-                Ok((*recv_buf_size).unwrap_or_default())
+            InodeSocketKind::PreSocket { props, .. }
+            | InodeSocketKind::RemoteSocket { props, .. } => {
+                Ok(props.recv_buf_size.unwrap_or_default())
             }
             InodeSocketKind::TcpStream { socket, .. } => {
                 socket.recv_buf_size().map_err(net_error_into_wasi_err)
@@ -977,25 +906,13 @@ impl InodeSocket {
                 }
                 Ok(())
             }
-            InodeSocketKind::PreSocket {
-                read_timeout,
-                write_timeout,
-                connect_timeout,
-                accept_timeout,
-                ..
-            }
-            | InodeSocketKind::RemoteSocket {
-                read_timeout,
-                write_timeout,
-                connect_timeout,
-                accept_timeout,
-                ..
-            } => {
+            InodeSocketKind::PreSocket { props, .. }
+            | InodeSocketKind::RemoteSocket { props, .. } => {
                 match ty {
-                    TimeType::ConnectTimeout => *connect_timeout = timeout,
-                    TimeType::AcceptTimeout => *accept_timeout = timeout,
-                    TimeType::ReadTimeout => *read_timeout = timeout,
-                    TimeType::WriteTimeout => *write_timeout = timeout,
+                    TimeType::ConnectTimeout => props.connect_timeout = timeout,
+                    TimeType::AcceptTimeout => props.accept_timeout = timeout,
+                    TimeType::ReadTimeout => props.read_timeout = timeout,
+                    TimeType::WriteTimeout => props.write_timeout = timeout,
                     _ => return Err(Errno::Io),
                 }
                 Ok(())
@@ -1020,24 +937,12 @@ impl InodeSocket {
                 TimeType::AcceptTimeout => *accept_timeout,
                 _ => return Err(Errno::Inval),
             }),
-            InodeSocketKind::PreSocket {
-                read_timeout,
-                write_timeout,
-                connect_timeout,
-                accept_timeout,
-                ..
-            }
-            | InodeSocketKind::RemoteSocket {
-                read_timeout,
-                write_timeout,
-                connect_timeout,
-                accept_timeout,
-                ..
-            } => match ty {
-                TimeType::ConnectTimeout => Ok(*connect_timeout),
-                TimeType::AcceptTimeout => Ok(*accept_timeout),
-                TimeType::ReadTimeout => Ok(*read_timeout),
-                TimeType::WriteTimeout => Ok(*write_timeout),
+            InodeSocketKind::PreSocket { props, .. }
+            | InodeSocketKind::RemoteSocket { props, .. } => match ty {
+                TimeType::ConnectTimeout => Ok(props.connect_timeout),
+                TimeType::AcceptTimeout => Ok(props.accept_timeout),
+                TimeType::ReadTimeout => Ok(props.read_timeout),
+                TimeType::WriteTimeout => Ok(props.write_timeout),
                 _ => Err(Errno::Inval),
             },
             _ => Err(Errno::Notsup),
@@ -1524,11 +1429,11 @@ impl InodeSocketProtected {
             InodeSocketKind::UdpSocket { socket, .. } => socket.remove_handler(),
             InodeSocketKind::Raw(socket) => socket.remove_handler(),
             InodeSocketKind::Icmp(socket) => socket.remove_handler(),
-            InodeSocketKind::PreSocket { handler, .. } => {
-                handler.take();
+            InodeSocketKind::PreSocket { props, .. } => {
+                props.handler.take();
             }
-            InodeSocketKind::RemoteSocket { handler, .. } => {
-                handler.take();
+            InodeSocketKind::RemoteSocket { props, .. } => {
+                props.handler.take();
             }
         }
     }
@@ -1569,9 +1474,9 @@ impl InodeSocketProtected {
             InodeSocketKind::UdpSocket { socket, .. } => socket.set_handler(handler),
             InodeSocketKind::Raw(socket) => socket.set_handler(handler),
             InodeSocketKind::Icmp(socket) => socket.set_handler(handler),
-            InodeSocketKind::PreSocket { handler: h, .. }
-            | InodeSocketKind::RemoteSocket { handler: h, .. } => {
-                h.replace(handler);
+            InodeSocketKind::PreSocket { props, .. }
+            | InodeSocketKind::RemoteSocket { props, .. } => {
+                props.handler.replace(handler);
                 Ok(())
             }
         }

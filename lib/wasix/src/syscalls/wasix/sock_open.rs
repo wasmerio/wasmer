@@ -1,5 +1,5 @@
 use super::*;
-use crate::syscalls::*;
+use crate::{net::socket::SocketProperties, syscalls::*};
 
 /// ### `sock_open()`
 /// Create an endpoint for communication.
@@ -72,23 +72,25 @@ pub(crate) fn sock_open_internal(
     let kind = match ty {
         Socktype::Stream | Socktype::Dgram => Kind::Socket {
             socket: InodeSocket::new(InodeSocketKind::PreSocket {
-                family: af,
-                ty,
-                pt,
+                props: SocketProperties {
+                    family: af,
+                    ty,
+                    pt,
+                    only_v6: false,
+                    reuse_port: false,
+                    reuse_addr: false,
+                    no_delay: None,
+                    keep_alive: None,
+                    dont_route: None,
+                    send_buf_size: None,
+                    recv_buf_size: None,
+                    write_timeout: None,
+                    read_timeout: None,
+                    accept_timeout: None,
+                    connect_timeout: None,
+                    handler: None,
+                },
                 addr: None,
-                only_v6: false,
-                reuse_port: false,
-                reuse_addr: false,
-                no_delay: None,
-                keep_alive: None,
-                dont_route: None,
-                send_buf_size: None,
-                recv_buf_size: None,
-                write_timeout: None,
-                read_timeout: None,
-                accept_timeout: None,
-                connect_timeout: None,
-                handler: None,
             }),
         },
         _ => return Ok(Err(Errno::Notsup)),
