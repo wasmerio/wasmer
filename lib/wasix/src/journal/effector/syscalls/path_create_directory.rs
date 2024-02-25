@@ -26,6 +26,7 @@ impl JournalEffector {
         fd: Fd,
         path: &str,
     ) -> anyhow::Result<()> {
+        // see `VIRTUAL_ROOT_FD` for details as to why this exists
         if fd == VIRTUAL_ROOT_FD {
             ctx.data().state.fs.root_fs.create_dir(&Path::new(path))?;
         } else {

@@ -43,6 +43,18 @@ use crate::syscalls::map_io_err;
 use crate::{bin_factory::BinaryPackage, state::PreopenedDir, ALL_RIGHTS};
 
 /// the fd value of the virtual root
+///
+/// Used for interacting with the file system when it has no
+/// pre-opened file descriptors at the root level. Normally
+/// a WASM process will do this in the libc initialization stage
+/// however that does not happen when the WASM process has never
+/// been run. Further that logic could change at any time in libc
+/// which would then break functionality. Instead we use this fixed
+/// file descriptor
+///
+/// This is especially important for fuse mounting journals which
+/// use the same syscalls as a normal WASI application but do not
+/// run the libc initialization logic
 pub const VIRTUAL_ROOT_FD: WasiFd = 3;
 
 const STDIN_DEFAULT_RIGHTS: Rights = {
@@ -1317,6 +1329,7 @@ impl WasiFs {
     }
 
     pub fn get_fd_inode(&self, fd: WasiFd) -> Result<InodeGuard, Errno> {
+        // see `VIRTUAL_ROOT_FD` for details as to why this exists
         if fd == VIRTUAL_ROOT_FD {
             return Ok(self.root_inode.clone());
         }

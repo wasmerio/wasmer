@@ -34,6 +34,7 @@ impl JournalEffector {
         st_mtim: Timestamp,
         fst_flags: Fstflags,
     ) -> anyhow::Result<()> {
+        // see `VIRTUAL_ROOT_FD` for details as to why this exists
         if fd == VIRTUAL_ROOT_FD {
             // we ignore this record as its not implemented yet
         } else {
