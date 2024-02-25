@@ -177,6 +177,7 @@ impl From<SnapshotTrigger> for JournalSnapshotTriggerV1 {
             SnapshotTrigger::FirstListen => JournalSnapshotTriggerV1::Listen,
             SnapshotTrigger::FirstEnviron => JournalSnapshotTriggerV1::Environ,
             SnapshotTrigger::FirstStdin => JournalSnapshotTriggerV1::Stdin,
+            SnapshotTrigger::FirstSigint => JournalSnapshotTriggerV1::Sigint,
             SnapshotTrigger::PeriodicInterval => JournalSnapshotTriggerV1::Timer,
             SnapshotTrigger::Sigint => JournalSnapshotTriggerV1::Sigint,
             SnapshotTrigger::Sigalrm => JournalSnapshotTriggerV1::Sigalrm,

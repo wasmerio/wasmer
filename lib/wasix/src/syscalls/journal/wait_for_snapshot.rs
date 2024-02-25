@@ -1,12 +1,12 @@
 use super::*;
 
 #[cfg(not(feature = "journal"))]
-pub fn wait_for_snapshot(_env: &WasiEnv) -> Pin<Box<dyn Future<Output = ()>>> {
+pub fn wait_for_snapshot(_env: &WasiEnv) -> Pin<Box<dyn Future<Output = ()> + Send + Sync>> {
     Box::pin(std::future::pending())
 }
 
 #[cfg(feature = "journal")]
-pub fn wait_for_snapshot(env: &WasiEnv) -> Pin<Box<dyn Future<Output = ()>>> {
+pub fn wait_for_snapshot(env: &WasiEnv) -> Pin<Box<dyn Future<Output = ()> + Send + Sync>> {
     use crate::os::task::process::{LockableWasiProcessInner, WasiProcessCheckpoint};
 
     struct Poller {

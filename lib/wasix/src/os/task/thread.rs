@@ -360,6 +360,27 @@ impl WasiThread {
         false
     }
 
+    /// Waits for a signal to arrive
+    pub async fn wait_for_signal(&self) {
+        // This poller will process any signals when the main working function is idle
+        struct SignalPoller<'a> {
+            thread: &'a WasiThread,
+        }
+        impl<'a> std::future::Future for SignalPoller<'a> {
+            type Output = ();
+            fn poll(
+                self: std::pin::Pin<&mut Self>,
+                cx: &mut std::task::Context<'_>,
+            ) -> std::task::Poll<Self::Output> {
+                if self.thread.has_signals_or_subscribe(cx.waker()) {
+                    return std::task::Poll::Ready(());
+                }
+                std::task::Poll::Pending
+            }
+        }
+        SignalPoller { thread: self }.await
+    }
+
     /// Returns all the signals that are waiting to be processed
     pub fn pop_signals_or_subscribe(&self, waker: &Waker) -> Option<Vec<Signal>> {
         let mut guard = self.state.signals.lock().unwrap();

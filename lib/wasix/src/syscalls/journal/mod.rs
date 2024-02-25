@@ -1,5 +1,6 @@
 mod actions;
 mod clear_ethereal;
+mod do_checkpoint_from_outside;
 mod maybe_snapshot;
 mod maybe_snapshot_many;
 mod maybe_snapshot_once;
@@ -9,13 +10,9 @@ mod wait_for_snapshot;
 
 use actions::*;
 use clear_ethereal::*;
-use maybe_snapshot::*;
-use maybe_snapshot_many::*;
-use maybe_snapshot_once::*;
-use restore_snapshot::*;
-use wait_for_snapshot::*;
 use wasmer_journal::JournalEntry;
 
+pub use do_checkpoint_from_outside::*;
 pub use maybe_snapshot::*;
 pub use maybe_snapshot_many::*;
 pub use maybe_snapshot_once::*;

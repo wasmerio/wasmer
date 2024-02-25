@@ -1,5 +1,3 @@
-#[cfg(feature = "journal")]
-use std::collections::HashSet;
 use std::{
     collections::HashMap,
     ops::Deref,
@@ -328,10 +326,6 @@ pub struct WasiEnv {
     /// (this is normally used so that the instance can be reused later on)
     pub(crate) disable_fs_cleanup: bool,
 
-    /// List of situations that the process will checkpoint on
-    #[cfg(feature = "journal")]
-    snapshot_on: HashSet<SnapshotTrigger>,
-
     /// Inner functions and references that are loaded before the environment starts
     /// (inner is not safe to send between threads and so it is private and will
     ///  not be cloned when `WasiEnv` is cloned)
@@ -363,8 +357,6 @@ impl Clone for WasiEnv {
             enable_deep_sleep: self.enable_deep_sleep,
             enable_journal: self.enable_journal,
             replaying_journal: self.replaying_journal,
-            #[cfg(feature = "journal")]
-            snapshot_on: self.snapshot_on.clone(),
             disable_fs_cleanup: self.disable_fs_cleanup,
         }
     }
@@ -404,8 +396,6 @@ impl WasiEnv {
             enable_deep_sleep: self.enable_deep_sleep,
             enable_journal: self.enable_journal,
             replaying_journal: false,
-            #[cfg(feature = "journal")]
-            snapshot_on: self.snapshot_on.clone(),
             disable_fs_cleanup: self.disable_fs_cleanup,
         };
         Ok((new_env, handle))
@@ -500,12 +490,9 @@ impl WasiEnv {
             init.control_plane.new_process(module_hash)?
         };
 
-        if init
-            .snapshot_on
-            .iter()
-            .any(|s| matches!(s, SnapshotTrigger::Sigint))
+        #[cfg(feature = "journal")]
         {
-            process.inner.0.lock().unwrap().snapshot_on_sigint = true;
+            process.inner.0.lock().unwrap().snapshot_on = init.snapshot_on.into_iter().collect();
         }
 
         let layout = WasiMemoryLayout::default();
@@ -534,8 +521,6 @@ impl WasiEnv {
             runtime: init.runtime,
             bin_factory: init.bin_factory,
             capabilities: init.capabilities,
-            #[cfg(feature = "journal")]
-            snapshot_on: init.snapshot_on.into_iter().collect(),
             disable_fs_cleanup: false,
         };
         env.owned_handles.push(thread);
@@ -816,6 +801,7 @@ impl WasiEnv {
             }
             Ok(true)
         } else {
+            tracing::trace!("no signal handler");
             Ok(false)
         }
     }
@@ -973,16 +959,18 @@ impl WasiEnv {
     /// Returns true if a particular snapshot trigger is enabled
     #[cfg(feature = "journal")]
     pub fn has_snapshot_trigger(&self, trigger: SnapshotTrigger) -> bool {
-        self.snapshot_on.contains(&trigger)
+        let guard = self.process.inner.0.lock().unwrap();
+        guard.snapshot_on.contains(&trigger)
     }
 
     /// Returns true if a particular snapshot trigger is enabled
     #[cfg(feature = "journal")]
     pub fn pop_snapshot_trigger(&mut self, trigger: SnapshotTrigger) -> bool {
+        let mut guard = self.process.inner.0.lock().unwrap();
         if trigger.only_once() {
-            self.snapshot_on.remove(&trigger)
+            guard.snapshot_on.remove(&trigger)
         } else {
-            self.snapshot_on.contains(&trigger)
+            guard.snapshot_on.contains(&trigger)
         }
     }
 

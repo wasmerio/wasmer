@@ -6,6 +6,7 @@ pub mod signal;
 mod task_join_handle;
 pub mod thread;
 
+pub(crate) use process::WasiProcessInner;
 pub use task_join_handle::{
     OwnedTaskStatus, TaskJoinHandle, TaskStatus, TaskTerminatedError, VirtualTaskHandle,
 };

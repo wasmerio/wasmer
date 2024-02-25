@@ -315,14 +315,14 @@ where
     }
 
     // This poller will process any signals when the main working function is idle
-    struct Poller<'a, 'b, Fut, T>
+    struct SignalPoller<'a, 'b, Fut, T>
     where
         Fut: Future<Output = Result<T, Errno>>,
     {
         ctx: &'a mut FunctionEnvMut<'b, WasiEnv>,
         pinned_work: Pin<Box<Fut>>,
     }
-    impl<'a, 'b, Fut, T> Future for Poller<'a, 'b, Fut, T>
+    impl<'a, 'b, Fut, T> Future for SignalPoller<'a, 'b, Fut, T>
     where
         Fut: Future<Output = Result<T, Errno>>,
     {
@@ -344,7 +344,7 @@ where
     // Block on the work
     let mut pinned_work = Box::pin(work);
     let tasks = env.tasks().clone();
-    let poller = Poller { ctx, pinned_work };
+    let poller = SignalPoller { ctx, pinned_work };
     block_on_with_timeout(&tasks, timeout, poller)
 }
 

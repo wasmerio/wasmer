@@ -49,7 +49,6 @@ tokio = { version = "1", features = [
 ], default_features = false }
 tokio-stream = { version = "0.1", features = [ "sync" ] }
 futures = { version = "0.3" }
-async-ctrlc = { version = "1.2.0", features = [ "stream" ], optional = true }
 # used by feature='os'
 async-trait = { version = "^0.1" }
 urlencoding = { version = "^2" }
@@ -142,7 +141,7 @@ wasmer = { path = "../api", version = "=4.2.5", default-features = false, featur
 default = ["sys-default"]
 
 time = ["tokio/time"]
-ctrlc = ["dep:async-ctrlc"]
+ctrlc = ["tokio/signal"]
 
 webc_runner_rt_wcgi = ["hyper", "wcgi", "wcgi-host", "tower", "tower-http"]
 webc_runner_rt_dcgi = ["webc_runner_rt_wcgi", "journal"]

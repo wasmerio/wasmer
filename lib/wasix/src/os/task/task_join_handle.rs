@@ -176,6 +176,7 @@ impl Default for OwnedTaskStatus {
 /// A handle that allows awaiting the termination of a task, and retrieving its exit code.
 #[derive(Clone, Debug)]
 pub struct TaskJoinHandle {
+    #[allow(unused)]
     signal_handler: Arc<DynSignalHandlerAbi>,
     watch: tokio::sync::watch::Receiver<TaskStatus>,
 }
@@ -193,14 +194,9 @@ impl TaskJoinHandle {
 
         let signal_handler = self.signal_handler.clone();
 
-        let mut ctrlc = async_ctrlc::CtrlC::new().expect("cannot create Ctrl+C handler");
-        let task_handle = self.clone();
         tokio::spawn(async move {
             // Loop sending ctrl-c presses as signals to the signal handler
-            loop {
-                let ctrlc_pin = &mut ctrlc;
-                ctrlc_pin.await;
-
+            while tokio::signal::ctrl_c().await.is_ok() {
                 if let Err(err) = signal_handler.signal(Signal::Sigint.to_native() as u8) {
                     tracing::error!("failed to process signal - {}", err);
                     std::process::exit(1);
