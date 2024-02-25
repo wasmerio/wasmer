@@ -1,6 +1,6 @@
 use super::*;
 
-impl<'a, 'c> JournalReplayRunner<'a, 'c> {
+impl<'a, 'c> JournalSyscallPlayer<'a, 'c> {
     pub(crate) unsafe fn action_fd_close(&mut self, fd: u32) -> Result<(), WasiRuntimeError> {
         tracing::trace!(%fd, "Replay journal - FdClose");
         self.stdout_fds.remove(&fd);

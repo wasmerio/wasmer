@@ -1,6 +1,6 @@
 use super::*;
 
-impl<'a, 'c> JournalReplayRunner<'a, 'c> {
+impl<'a, 'c> JournalSyscallPlayer<'a, 'c> {
     pub(super) fn clear_ethereal(
         &mut self,
         mut differ_ethereal: Option<&mut Vec<JournalEntry<'a>>>,

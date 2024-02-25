@@ -1,6 +1,6 @@
 use super::*;
 
-impl<'a, 'c> JournalReplayRunner<'a, 'c> {
+impl<'a, 'c> JournalSyscallPlayer<'a, 'c> {
     pub(crate) unsafe fn action_update_memory(
         &mut self,
         region: Range<u64>,

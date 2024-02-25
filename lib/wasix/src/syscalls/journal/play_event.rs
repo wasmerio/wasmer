@@ -2,7 +2,7 @@ use std::ops::Range;
 
 use super::*;
 
-impl<'a, 'c> JournalReplayRunner<'a, 'c> {
+impl<'a, 'c> JournalSyscallPlayer<'a, 'c> {
     pub(super) unsafe fn play_event(
         &mut self,
         next: JournalEntry<'a>,

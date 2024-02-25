@@ -1,6 +1,6 @@
 use super::*;
 
-impl<'a, 'c> JournalReplayRunner<'a, 'c> {
+impl<'a, 'c> JournalSyscallPlayer<'a, 'c> {
     pub(crate) unsafe fn action_process_exit(
         &mut self,
         exit_code: Option<ExitCode>,

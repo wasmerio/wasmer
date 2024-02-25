@@ -15,7 +15,7 @@ pub unsafe fn restore_snapshot(
     use crate::{journal::Journal, os::task::process::MemorySnapshotRegion};
 
     // Create the journal replay runner
-    let mut runner = JournalReplayRunner::new(ctx, bootstrapping);
+    let mut runner = JournalSyscallPlayer::new(ctx, bootstrapping);
 
     // We read all the logs from the journal into the state machine
     let mut ethereal_events = Vec::new();

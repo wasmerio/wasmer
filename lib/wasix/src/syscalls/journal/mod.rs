@@ -24,7 +24,7 @@ use std::{collections::BTreeMap, ops::Range};
 
 use super::*;
 
-pub struct JournalReplayRunner<'a, 'c> {
+pub struct JournalSyscallPlayer<'a, 'c> {
     pub ctx: FunctionEnvMut<'c, WasiEnv>,
     pub bootstrapping: bool,
 
@@ -47,10 +47,10 @@ pub struct JournalReplayRunner<'a, 'c> {
     pub stderr_fds: HashSet<u32>,
 }
 
-impl<'a, 'c> JournalReplayRunner<'a, 'c> {
+impl<'a, 'c> JournalSyscallPlayer<'a, 'c> {
     pub fn new(mut ctx: FunctionEnvMut<'c, WasiEnv>, bootstrapping: bool) -> Self {
         let cur_module_hash: [u8; 8] = ctx.data().process.module_hash.as_bytes();
-        let mut ret = JournalReplayRunner {
+        let mut ret = JournalSyscallPlayer {
             ctx,
             bootstrapping,
             cur_module_hash,
