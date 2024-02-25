@@ -1571,7 +1571,6 @@ pub enum JournalSnapshotTriggerV1 {
     Listen,
     Environ,
     Stdin,
-    CtrlC,
     Timer,
     Sigint,
     Sigalrm,

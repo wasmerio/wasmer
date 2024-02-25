@@ -500,6 +500,14 @@ impl WasiEnv {
             init.control_plane.new_process(module_hash)?
         };
 
+        if init
+            .snapshot_on
+            .iter()
+            .any(|s| matches!(s, SnapshotTrigger::Sigint))
+        {
+            process.inner.0.lock().unwrap().snapshot_on_sigint = true;
+        }
+
         let layout = WasiMemoryLayout::default();
         let thread = if let Some(t) = init.thread {
             t

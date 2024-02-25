@@ -161,6 +161,9 @@ pub struct WasiProcessInner {
     /// Represents a checkpoint which blocks all the threads
     /// and then executes some maintenance action
     pub checkpoint: WasiProcessCheckpoint,
+    /// Flag that indicates that the process should snapshot
+    /// itself and exit when the ctrl-c key is pressed
+    pub snapshot_on_sigint: bool,
     /// Any wakers waiting on this process (for example for a checkpoint)
     pub wakers: Vec<Waker>,
     /// The snapshot memory significantly reduce the amount of
@@ -345,6 +348,7 @@ impl WasiProcess {
                 checkpoint: WasiProcessCheckpoint::Execute,
                 wakers: Default::default(),
                 waiting: waiting.clone(),
+                snapshot_on_sigint: false,
                 snapshot_memory_hash: Default::default(),
             }),
             Condvar::new(),
@@ -612,10 +616,28 @@ impl WasiProcess {
 
 /// Signals all the threads in this process
 fn signal_process_internal(process: &LockableWasiProcessInner, signal: Signal) {
-    let inner = process.0.lock().unwrap();
+    let mut inner = process.0.lock().unwrap();
     let pid = inner.pid;
     tracing::trace!(%pid, "signal-process({:?})", signal);
 
+    // If the snapshot on ctrl-c is currently registered then we need
+    // to take a snapshot and exit
+    if inner.snapshot_on_sigint {
+        tracing::debug!(%pid, "snapshot-on-interrupt-signal");
+
+        // Initiate the checksum
+        inner.checkpoint = WasiProcessCheckpoint::Snapshot {
+            trigger: SnapshotTrigger::Sigint,
+        };
+        for waker in inner.wakers.drain(..) {
+            waker.wake();
+        }
+        process.1.notify_all();
+        return;
+    }
+
+    // Check if there are subprocesses that will receive this signal
+    // instead of this process
     if inner.waiting.load(Ordering::Acquire) > 0 {
         let mut triggered = false;
         for child in inner.children.iter() {
@@ -626,6 +648,8 @@ fn signal_process_internal(process: &LockableWasiProcessInner, signal: Signal) {
             return;
         }
     }
+
+    // Otherwise just send the signal to all the threads
     for thread in inner.threads.values() {
         thread.signal(signal);
     }
