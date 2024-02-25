@@ -423,6 +423,9 @@ fn create_dir_all(fs: &dyn FileSystem, path: &Path) -> Result<(), virtual_fs::Fs
     Ok(())
 }
 
+/// This needs to be exposed so that the multiple use-cases are able
+/// to generated unique file descriptors and update the seed during
+/// journal restoration
 #[derive(Debug, Clone)]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 pub struct WasiFdSeed {
