@@ -4,7 +4,7 @@ use wasmer_wasix_types::wasix::ThreadStartType;
 
 use crate::{
     os::task::thread::{RewindResultType, WasiMemoryLayout},
-    syscalls::thread_spawn_internal_phase2,
+    syscalls::thread_spawn_internal_using_layout,
     RewindState,
 };
 
@@ -62,7 +62,7 @@ impl JournalEffector {
         )?);
 
         // Now spawn the thread itself
-        thread_spawn_internal_phase2::<M>(
+        thread_spawn_internal_using_layout::<M>(
             ctx,
             thread_handle,
             layout.clone(),

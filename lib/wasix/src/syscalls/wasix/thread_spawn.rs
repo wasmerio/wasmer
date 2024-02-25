@@ -34,7 +34,7 @@ pub fn thread_spawn_v2<M: MemorySize>(
     ret_tid: WasmPtr<Tid, M>,
 ) -> Errno {
     // Create the thread
-    let tid = wasi_try!(thread_spawn_internal_phase1(&mut ctx, start_ptr));
+    let tid = wasi_try!(thread_spawn_internal_from_wasi(&mut ctx, start_ptr));
 
     // Success
     let memory = unsafe { ctx.data().memory_view(&ctx) };
@@ -42,7 +42,7 @@ pub fn thread_spawn_v2<M: MemorySize>(
     Errno::Success
 }
 
-pub fn thread_spawn_internal_phase1<M: MemorySize>(
+pub fn thread_spawn_internal_from_wasi<M: MemorySize>(
     ctx: &mut FunctionEnvMut<'_, WasiEnv>,
     start_ptr: WasmPtr<ThreadStart<M>, M>,
 ) -> Result<Tid, Errno> {
@@ -90,13 +90,13 @@ pub fn thread_spawn_internal_phase1<M: MemorySize>(
     Span::current().record("tid", thread_id);
 
     // Spawn the thread
-    thread_spawn_internal_phase2::<M>(ctx, thread_handle, layout, start_ptr_offset, None)?;
+    thread_spawn_internal_using_layout::<M>(ctx, thread_handle, layout, start_ptr_offset, None)?;
 
     // Success
     Ok(thread_id)
 }
 
-pub fn thread_spawn_internal_phase2<M: MemorySize>(
+pub fn thread_spawn_internal_using_layout<M: MemorySize>(
     ctx: &mut FunctionEnvMut<'_, WasiEnv>,
     thread_handle: Arc<WasiThreadHandle>,
     layout: WasiMemoryLayout,
