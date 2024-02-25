@@ -414,7 +414,7 @@ impl crate::FileOpener for FileSystem {
 
                         // Move the cursor to the end if needed.
                         if append {
-                            cursor = file.len() as u64;
+                            cursor = file.len();
                         }
                     }
 

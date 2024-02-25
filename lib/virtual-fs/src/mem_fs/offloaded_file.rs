@@ -174,7 +174,7 @@ impl OffloadedFile {
         // In this implementation, it's an error to seek beyond the
         // end of the buffer.
         let next_cursor = next_cursor.try_into().map_err(to_err)?;
-        *cursor = cmp::min(self.len() as u64, next_cursor);
+        *cursor = cmp::min(self.len(), next_cursor);
         Ok(*cursor)
     }
 
@@ -183,7 +183,7 @@ impl OffloadedFile {
 
         let mut extent_offset = cursor_start;
         let mut extent_index = 0usize;
-        while buf.len() > 0 && extent_index < self.extents.len() {
+        while !buf.is_empty() && extent_index < self.extents.len() {
             let extent = &self.extents[extent_index];
 
             if extent_offset >= extent.size() {

@@ -153,7 +153,7 @@ impl VirtualFile for FileHandle {
         let inode = fs.storage.get(self.inode);
         match inode {
             Some(Node::File(node)) => node.file.len().try_into().unwrap_or(0),
-            Some(Node::OffloadedFile(node)) => node.file.len().try_into().unwrap_or(0),
+            Some(Node::OffloadedFile(node)) => node.file.len(),
             Some(Node::ReadOnlyFile(node)) => node.file.len().try_into().unwrap_or(0),
             Some(Node::CustomFile(node)) => {
                 let file = node.file.lock().unwrap();
@@ -186,7 +186,7 @@ impl VirtualFile for FileHandle {
                 metadata.len = new_size;
             }
             Some(Node::OffloadedFile(OffloadedFileNode { file, metadata, .. })) => {
-                file.resize(new_size.try_into().map_err(|_| FsError::UnknownError)?, 0);
+                file.resize(new_size, 0);
                 metadata.len = new_size;
             }
             Some(Node::CustomFile(node)) => {
@@ -445,7 +445,7 @@ impl VirtualFile for FileHandle {
                 Some(Node::OffloadedFile(node)) => {
                     node.file
                         .write(OffloadWrite::MmapOffset { offset, size }, &mut cursor)?;
-                    node.metadata.len = node.file.len().try_into().unwrap();
+                    node.metadata.len = node.file.len();
                 }
                 _ => {
                     return Err(io::ErrorKind::Unsupported.into());
@@ -868,7 +868,7 @@ impl AsyncWrite for FileHandle {
                 }
                 Some(Node::OffloadedFile(node)) => {
                     let bytes_written = node.file.write(OffloadWrite::Buffer(buf), &mut cursor)?;
-                    node.metadata.len = node.file.len().try_into().unwrap();
+                    node.metadata.len = node.file.len();
                     bytes_written
                 }
                 Some(Node::ReadOnlyFile(node)) => {
