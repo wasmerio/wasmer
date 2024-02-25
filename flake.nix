@@ -37,7 +37,7 @@
           name = NAME;
           src = self;
           buildInputs = with pkgs; [
-            pkgconfig
+            pkg-config
             openssl
             llvmPackages_15.libllvm
             # Snapshot testing
@@ -52,6 +52,7 @@
 
             # Test runner
             cargo-nextest
+            cargo-llvm-cov
           ];
           runtimeDependencies = with pkgs; [ ];
 
