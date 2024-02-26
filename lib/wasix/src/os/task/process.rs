@@ -1,8 +1,7 @@
 #[cfg(feature = "journal")]
-use crate::{journal::JournalEffector, unwind, WasiResult};
+use crate::{journal::JournalEffector, syscalls::do_checkpoint_from_outside, unwind, WasiResult};
 use crate::{
-    journal::SnapshotTrigger, runtime::module_cache::ModuleHash,
-    syscalls::do_checkpoint_from_outside, WasiEnv, WasiRuntimeError,
+    journal::SnapshotTrigger, runtime::module_cache::ModuleHash, WasiEnv, WasiRuntimeError,
 };
 use serde::{Deserialize, Serialize};
 #[cfg(feature = "journal")]
@@ -171,6 +170,7 @@ pub struct WasiProcessInner {
     pub wakers: Vec<Waker>,
     /// The snapshot memory significantly reduce the amount of
     /// duplicate entries in the journal for memory that has not changed
+    #[cfg(feature = "journal")]
     pub snapshot_memory_hash: HashMap<MemorySnapshotRegion, u64>,
 }
 
@@ -398,7 +398,9 @@ impl WasiProcess {
                 checkpoint: WasiProcessCheckpoint::Execute,
                 wakers: Default::default(),
                 waiting: waiting.clone(),
+                #[cfg(feature = "journal")]
                 snapshot_on: Default::default(),
+                #[cfg(feature = "journal")]
                 snapshot_memory_hash: Default::default(),
             }),
             Condvar::new(),
@@ -666,28 +668,32 @@ impl WasiProcess {
 
 /// Signals all the threads in this process
 fn signal_process_internal(process: &LockableWasiProcessInner, signal: Signal) {
+    #[allow(unused_mut)]
     let mut guard = process.0.lock().unwrap();
     let pid = guard.pid;
     tracing::trace!(%pid, "signal-process({:?})", signal);
 
     // If the snapshot on ctrl-c is currently registered then we need
     // to take a snapshot and exit
-    if signal == Signal::Sigint
-        && (guard.snapshot_on.contains(&SnapshotTrigger::Sigint)
-            || guard.snapshot_on.remove(&SnapshotTrigger::FirstSigint))
+    #[cfg(feature = "journal")]
     {
-        drop(guard);
+        if signal == Signal::Sigint
+            && (guard.snapshot_on.contains(&SnapshotTrigger::Sigint)
+                || guard.snapshot_on.remove(&SnapshotTrigger::FirstSigint))
+        {
+            drop(guard);
 
-        tracing::debug!(%pid, "snapshot-on-interrupt-signal");
+            tracing::debug!(%pid, "snapshot-on-interrupt-signal");
 
-        do_checkpoint_from_outside(
-            process,
-            WasiProcessCheckpoint::Snapshot {
-                trigger: SnapshotTrigger::Sigint,
-            },
-        );
-        return;
-    };
+            do_checkpoint_from_outside(
+                process,
+                WasiProcessCheckpoint::Snapshot {
+                    trigger: SnapshotTrigger::Sigint,
+                },
+            );
+            return;
+        };
+    }
 
     // Check if there are subprocesses that will receive this signal
     // instead of this process

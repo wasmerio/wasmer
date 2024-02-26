@@ -372,7 +372,7 @@ impl OffloadedFile {
             let diff = extent.size().min(cur_len - new_len);
             extent.resize(extent.size() - diff);
             cur_len -= diff;
-            if extent.size() <= 0 {
+            if extent.size() == 0 {
                 self.extents.pop();
             }
         }

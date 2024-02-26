@@ -1,5 +1,4 @@
 use serde::{Deserialize, Serialize};
-#[cfg(feature = "journal")]
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::{
     collections::HashMap,

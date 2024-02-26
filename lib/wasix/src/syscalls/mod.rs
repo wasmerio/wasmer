@@ -1009,19 +1009,22 @@ pub(crate) fn deep_sleep<M: MemorySize>(
                 store_data.len(),
             );
 
-            // Write our thread state to the snapshot
-            let tid = ctx.data().thread.tid();
-            let thread_start = ctx.data().thread.thread_start_type();
-            if let Err(err) = JournalEffector::save_thread_state::<M>(
-                &mut ctx,
-                tid,
-                memory_stack.clone(),
-                rewind_stack.clone(),
-                store_data.clone(),
-                thread_start,
-                thread_layout.clone(),
-            ) {
-                return wasmer_types::OnCalledAction::Trap(err.into());
+            #[cfg(feature = "journal")]
+            {
+                // Write our thread state to the snapshot
+                let tid = ctx.data().thread.tid();
+                let thread_start = ctx.data().thread.thread_start_type();
+                if let Err(err) = JournalEffector::save_thread_state::<M>(
+                    &mut ctx,
+                    tid,
+                    memory_stack.clone(),
+                    rewind_stack.clone(),
+                    store_data.clone(),
+                    thread_start,
+                    thread_layout.clone(),
+                ) {
+                    return wasmer_types::OnCalledAction::Trap(err.into());
+                }
             }
 
             // If all the threads are now in a deep sleep state
@@ -1031,15 +1034,22 @@ pub(crate) fn deep_sleep<M: MemorySize>(
                 let mut guard = inner.0.lock().unwrap();
                 guard.threads.values().all(WasiThread::is_deep_sleeping)
             };
-            if is_idle {
-                if ctx.data_mut().has_snapshot_trigger(SnapshotTrigger::Idle) {
-                    let mut guard = inner.0.lock().unwrap();
-                    if let Err(err) = JournalEffector::save_memory_and_snapshot(
-                        &mut ctx,
-                        &mut guard,
-                        SnapshotTrigger::Idle,
-                    ) {
-                        return wasmer_types::OnCalledAction::Trap(err.into());
+
+            // When we idle the journal functionality may be set
+            // will take a snapshot of the memory and threads so
+            // that it can resumed.
+            #[cfg(feature = "journal")]
+            {
+                if is_idle {
+                    if ctx.data_mut().has_snapshot_trigger(SnapshotTrigger::Idle) {
+                        let mut guard = inner.0.lock().unwrap();
+                        if let Err(err) = JournalEffector::save_memory_and_snapshot(
+                            &mut ctx,
+                            &mut guard,
+                            SnapshotTrigger::Idle,
+                        ) {
+                            return wasmer_types::OnCalledAction::Trap(err.into());
+                        }
                     }
                 }
             }

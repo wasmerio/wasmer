@@ -8,9 +8,10 @@ use wasmer_wasix_types::wasi::ExitCode;
 
 #[cfg(feature = "journal")]
 use crate::syscalls::restore_snapshot;
+#[allow(unused_imports)]
+use crate::os::task::thread::RewindResultType;
 use crate::{
     import_object_for_all_wasi_versions,
-    os::task::thread::RewindResultType,
     runtime::SpawnMemoryType,
     state::WasiInstanceHandles,
     utils::{get_wasi_version, get_wasi_versions, store::restore_store_snapshot},

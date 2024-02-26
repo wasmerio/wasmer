@@ -1,13 +1,16 @@
+#[cfg(feature = "journal")]
 mod actions;
 mod clear_ethereal;
 mod do_checkpoint_from_outside;
 mod maybe_snapshot;
 mod maybe_snapshot_many;
 mod maybe_snapshot_once;
+#[cfg(feature = "journal")]
 mod play_event;
 mod restore_snapshot;
 mod wait_for_snapshot;
 
+#[cfg(feature = "journal")]
 use actions::*;
 use clear_ethereal::*;
 use wasmer_journal::JournalEntry;
