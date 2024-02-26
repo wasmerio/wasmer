@@ -70,6 +70,13 @@ pub fn test_record_set_thread() {
         memory_stack: vec![4, 5, 6, 7].into(),
         store_data: vec![10, 11].into(),
         is_64bit: true,
+        layout: wasmer_wasix_types::wasix::WasiMemoryLayout {
+            stack_upper: 0,
+            stack_lower: 1024,
+            guard_size: 16,
+            stack_size: 1024,
+        },
+        start: wasmer_wasix_types::wasix::ThreadStartType::MainThread,
     });
 }
 
