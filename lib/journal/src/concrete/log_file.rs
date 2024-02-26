@@ -281,6 +281,8 @@ impl Journal for LogFileJournal {
 
 #[cfg(test)]
 mod tests {
+    use wasmer_wasix_types::wasix::WasiMemoryLayout;
+
     use super::*;
 
     #[tracing_test::traced_test]
@@ -301,6 +303,13 @@ mod tests {
                 memory_stack: vec![22; 16].into(),
                 store_data: vec![33; 136].into(),
                 is_64bit: false,
+                layout: WasiMemoryLayout {
+                    stack_upper: 0,
+                    stack_lower: 1024,
+                    guard_size: 16,
+                    stack_size: 1024,
+                },
+                start: wasmer_wasix_types::wasix::ThreadStartType::MainThread,
             })
             .unwrap();
         journal.write(JournalEntry::PortAddrClearV1).unwrap();
@@ -323,6 +332,13 @@ mod tests {
                 memory_stack: vec![22; 16].into(),
                 store_data: vec![33; 136].into(),
                 is_64bit: false,
+                layout: WasiMemoryLayout {
+                    stack_upper: 0,
+                    stack_lower: 1024,
+                    guard_size: 16,
+                    stack_size: 1024,
+                },
+                start: wasmer_wasix_types::wasix::ThreadStartType::MainThread,
             })
         );
         assert_eq!(event3, Some(JournalEntry::PortAddrClearV1));
@@ -366,6 +382,13 @@ mod tests {
                 memory_stack: vec![22; 16].into(),
                 store_data: vec![33; 136].into(),
                 is_64bit: false,
+                layout: WasiMemoryLayout {
+                    stack_upper: 0,
+                    stack_lower: 1024,
+                    guard_size: 16,
+                    stack_size: 1024,
+                },
+                start: wasmer_wasix_types::wasix::ThreadStartType::MainThread,
             })
         );
         assert_eq!(event3, Some(JournalEntry::PortAddrClearV1));
@@ -406,6 +429,13 @@ mod tests {
                 memory_stack: vec![22; 16].into(),
                 store_data: vec![33; 136].into(),
                 is_64bit: false,
+                layout: WasiMemoryLayout {
+                    stack_upper: 0,
+                    stack_lower: 1024,
+                    guard_size: 16,
+                    stack_size: 1024,
+                },
+                start: wasmer_wasix_types::wasix::ThreadStartType::MainThread,
             })
         );
         assert_eq!(event3, Some(JournalEntry::PortAddrClearV1));
