@@ -26,6 +26,10 @@ impl<'a> AlignedCowStr<'a> {
     pub fn len(&self) -> usize {
         self.inner.len()
     }
+
+    pub fn is_empty(&self) -> bool {
+        self.inner.is_empty()
+    }
 }
 
 impl<'a> Default for AlignedCowStr<'a> {
@@ -51,6 +55,7 @@ impl<'a> From<String> for AlignedCowStr<'a> {
     }
 }
 
+#[allow(clippy::from_over_into)]
 impl<'a> Into<String> for AlignedCowStr<'a> {
     fn into(self) -> String {
         self.inner.into_owned()
@@ -63,6 +68,7 @@ impl<'a> From<Cow<'a, str>> for AlignedCowStr<'a> {
     }
 }
 
+#[allow(clippy::from_over_into)]
 impl<'a> Into<Cow<'a, str>> for AlignedCowStr<'a> {
     fn into(self) -> Cow<'a, str> {
         self.inner

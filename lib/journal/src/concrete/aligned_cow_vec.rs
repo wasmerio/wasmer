@@ -42,6 +42,10 @@ where
         self.inner.len()
     }
 
+    pub fn is_empty(&self) -> bool {
+        self.inner.is_empty()
+    }
+
     pub fn len_with_padding(&self) -> usize {
         let mut ret = self.inner.len() * std::mem::size_of::<T>();
         let padding = ret % Self::ALIGNMENT;
@@ -87,6 +91,7 @@ where
     }
 }
 
+#[allow(clippy::from_over_into)]
 impl<'a> Into<Vec<u8>> for AlignedCowVec<'a, u8> {
     fn into(self) -> Vec<u8> {
         self.inner.into_owned()
@@ -103,6 +108,7 @@ where
     }
 }
 
+#[allow(clippy::from_over_into)]
 impl<'a, T> Into<Cow<'a, [T]>> for AlignedCowVec<'a, T>
 where
     T: 'a,
