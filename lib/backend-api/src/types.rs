@@ -70,6 +70,7 @@ mod queries {
     pub struct PackageDistribution {
         pub pirita_sha256_hash: Option<String>,
         pub pirita_download_url: Option<String>,
+        pub download_url: Option<String>,
     }
 
     #[derive(cynic::QueryFragment, Debug, Clone)]
@@ -601,6 +602,12 @@ mod queries {
         pub token: String,
     }
 
+    #[derive(cynic::Enum, Clone, Copy, Debug)]
+    pub enum LogStream {
+        Stdout,
+        Stderr,
+    }
+
     #[derive(cynic::QueryVariables, Debug, Clone)]
     pub struct GetDeployAppLogsVars {
         pub name: String,
@@ -615,6 +622,8 @@ mod queries {
         /// epoch.
         pub until: Option<f64>,
         pub first: Option<i32>,
+
+        pub streams: Option<Vec<LogStream>>,
     }
 
     #[derive(cynic::QueryFragment, Debug)]

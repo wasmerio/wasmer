@@ -12,7 +12,7 @@ use crate::{
     types::{
         self, CreateNamespaceVars, DeployApp, DeployAppConnection, DeployAppVersion,
         DeployAppVersionConnection, GetCurrentUserWithAppsVars, GetDeployAppAndVersion,
-        GetDeployAppVersionsVars, GetNamespaceAppsVars, Log, PackageVersionConnection,
+        GetDeployAppVersionsVars, GetNamespaceAppsVars, Log, LogStream, PackageVersionConnection,
         PublishDeployAppVars,
     },
     GraphQLApiFailure, WasmerClient,
@@ -702,6 +702,7 @@ pub async fn generate_deploy_config_token_raw(
 // The stream can loop forever due to re-fetching the same logs over and over.
 #[tracing::instrument(skip_all, level = "debug")]
 #[allow(clippy::let_with_type_underscore)]
+#[allow(clippy::too_many_arguments)]
 fn get_app_logs(
     client: &WasmerClient,
     name: String,
@@ -710,6 +711,7 @@ fn get_app_logs(
     start: OffsetDateTime,
     end: Option<OffsetDateTime>,
     watch: bool,
+    streams: Option<Vec<LogStream>>,
 ) -> impl futures::Stream<Item = Result<Vec<Log>, anyhow::Error>> + '_ {
     // Note: the backend will limit responses to a certain number of log
     // messages, so we use try_unfold() to keep calling it until we stop getting
@@ -724,6 +726,7 @@ fn get_app_logs(
             first: Some(100),
             starting_from: unix_timestamp(start),
             until: end.map(unix_timestamp),
+            streams: streams.clone(),
         };
 
         let fut = async move {
@@ -786,6 +789,7 @@ fn get_app_logs(
 /// final vector.
 #[tracing::instrument(skip_all, level = "debug")]
 #[allow(clippy::let_with_type_underscore)]
+#[allow(clippy::too_many_arguments)]
 pub async fn get_app_logs_paginated(
     client: &WasmerClient,
     name: String,
@@ -794,8 +798,9 @@ pub async fn get_app_logs_paginated(
     start: OffsetDateTime,
     end: Option<OffsetDateTime>,
     watch: bool,
+    streams: Option<Vec<LogStream>>,
 ) -> impl futures::Stream<Item = Result<Vec<Log>, anyhow::Error>> + '_ {
-    let stream = get_app_logs(client, name, owner, tag, start, end, watch);
+    let stream = get_app_logs(client, name, owner, tag, start, end, watch, streams);
 
     stream.map(|res| {
         let mut logs = Vec::new();
