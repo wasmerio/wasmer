@@ -34,7 +34,6 @@ default = [
   "wast",
   "compiler",
   "journal",
-  "fuse",
   "wasmer-artifact-create",
   "static-artifact-create",
 ]
