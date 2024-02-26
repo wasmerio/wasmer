@@ -28,7 +28,7 @@ struct SocketBufferState {
 
 impl SocketBufferState {
     fn add_waker(&mut self, waker: &Waker) {
-        if self.wakers.iter().any(|w| w.will_wake(waker)) == false {
+        if !self.wakers.iter().any(|w| w.will_wake(waker)) {
             self.wakers.push(waker.clone());
         }
     }
@@ -103,7 +103,7 @@ impl SocketBuffer {
         if state.dead {
             return Poll::Ready(Ok(0));
         }
-        if state.wakers.iter().any(|w| w.will_wake(cx.waker())) == false {
+        if !state.wakers.iter().any(|w| w.will_wake(cx.waker())) {
             state.wakers.push(cx.waker().clone());
         }
         Poll::Pending
@@ -114,11 +114,11 @@ impl SocketBuffer {
         if state.dead {
             return Poll::Ready(Ok(0));
         }
-        if !state.buffer.is_full() && state.halt_immediate_poll_write == false {
+        if !state.buffer.is_full() && !state.halt_immediate_poll_write {
             state.halt_immediate_poll_write = true;
             return Poll::Ready(Ok(state.buffer.window()));
         }
-        if state.wakers.iter().any(|w| w.will_wake(cx.waker())) == false {
+        if !state.wakers.iter().any(|w| w.will_wake(cx.waker())) {
             state.wakers.push(cx.waker().clone());
         }
         Poll::Pending
@@ -334,7 +334,7 @@ impl TcpSocketHalf {
     }
 
     pub fn is_active(&self) -> bool {
-        self.tx.is_dead() == false
+        !self.tx.is_dead()
     }
 
     pub fn close(&self) -> crate::Result<()> {

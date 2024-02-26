@@ -189,7 +189,7 @@ impl VirtualIoSource for LoopbackTcpListener {
         if !state.backlog.is_empty() {
             return Poll::Ready(Ok(state.backlog.len()));
         }
-        if state.wakers.iter().any(|w| w.will_wake(cx.waker())) == false {
+        if !state.wakers.iter().any(|w| w.will_wake(cx.waker())) {
             state.wakers.push(cx.waker().clone());
         }
         Poll::Pending
