@@ -64,7 +64,7 @@ impl SocketManager {
                 "failed to open HTTP socket as the instance has terminated"
             ));
         }
-        let connect_timeout = if self.is_running.load(Ordering::SeqCst) == true {
+        let connect_timeout = if self.is_running.load(Ordering::SeqCst) {
             self.proxy_connect_nominal_timeout
         } else {
             self.proxy_connect_init_timeout

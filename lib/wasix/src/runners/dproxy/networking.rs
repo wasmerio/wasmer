@@ -43,7 +43,7 @@ impl LocalWithLoopbackNetworking {
             return Poll::Ready(*addr);
         }
 
-        if listening.wakers.iter().any(|w| w.will_wake(cx.waker())) == false {
+        if !listening.wakers.iter().any(|w| w.will_wake(cx.waker())) {
             listening.wakers.push(cx.waker().clone());
         }
 

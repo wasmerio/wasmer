@@ -58,7 +58,7 @@ impl Handler {
             .headers()
             .get("X-Shard")
             .map(|v| String::from_utf8_lossy(v.as_bytes()))
-            .map(|s| match u64::from_str_radix(&s, 10) {
+            .map(|s| match (&s).parse::<u64>() {
                 Ok(id) => Ok(Shard::ById(id)),
                 Err(err) => Err(err),
             })

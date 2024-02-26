@@ -231,7 +231,8 @@ impl OffloadedFile {
     }
 
     pub fn write(&mut self, data: OffloadWrite<'_>, cursor: &mut u64) -> io::Result<usize> {
-        let mut extent_offset = *cursor;
+        let original_extent_offset = *cursor;
+        let mut extent_offset = original_extent_offset;
         let mut data_len = data.len() as u64;
 
         // We need to split any extents that are intersecting with the
@@ -348,7 +349,7 @@ impl OffloadedFile {
                 self.extents.insert(index, new_extent);
             }
         }
-        self.size = extent_offset + data_len;
+        self.size = self.size.max(original_extent_offset + data.len() as u64);
 
         // Update the cursor
         *cursor += data.len() as u64;
