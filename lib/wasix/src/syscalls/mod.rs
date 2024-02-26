@@ -1040,16 +1040,14 @@ pub(crate) fn deep_sleep<M: MemorySize>(
             // that it can resumed.
             #[cfg(feature = "journal")]
             {
-                if is_idle {
-                    if ctx.data_mut().has_snapshot_trigger(SnapshotTrigger::Idle) {
-                        let mut guard = inner.0.lock().unwrap();
-                        if let Err(err) = JournalEffector::save_memory_and_snapshot(
-                            &mut ctx,
-                            &mut guard,
-                            SnapshotTrigger::Idle,
-                        ) {
-                            return wasmer_types::OnCalledAction::Trap(err.into());
-                        }
+                if is_idle && ctx.data_mut().has_snapshot_trigger(SnapshotTrigger::Idle) {
+                    let mut guard = inner.0.lock().unwrap();
+                    if let Err(err) = JournalEffector::save_memory_and_snapshot(
+                        &mut ctx,
+                        &mut guard,
+                        SnapshotTrigger::Idle,
+                    ) {
+                        return wasmer_types::OnCalledAction::Trap(err.into());
                     }
                 }
             }

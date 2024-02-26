@@ -1,6 +1,7 @@
 use super::*;
 
 impl<'a, 'c> JournalSyscallPlayer<'a, 'c> {
+    #[allow(clippy::result_large_err)]
     pub(crate) unsafe fn action_snapshot(
         &mut self,
         when: SystemTime,

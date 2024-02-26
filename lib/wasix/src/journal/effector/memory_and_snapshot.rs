@@ -113,7 +113,7 @@ impl JournalEffector {
             // Compute a checksum and skip the memory if its already
             // been saved to the journal once already
             let hash = {
-                let h: [u8; 32] = blake3::hash(&data).into();
+                let h: [u8; 32] = blake3::hash(data).into();
                 u64::from_be_bytes([h[0], h[1], h[2], h[3], h[4], h[5], h[6], h[7]])
             };
             match guard.snapshot_memory_hash.entry(region) {

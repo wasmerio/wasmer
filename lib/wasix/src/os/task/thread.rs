@@ -119,7 +119,7 @@ impl WasiThread {
 
     /// Gets the thread start type for this thread
     pub fn thread_start_type(&self) -> ThreadStartType {
-        self.start.clone()
+        self.start
     }
 
     /// Returns true if a rewind of a particular type has been queued

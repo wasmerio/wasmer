@@ -139,6 +139,7 @@ impl From<Range<u64>> for MemorySnapshotRegion {
     }
 }
 
+#[allow(clippy::from_over_into)]
 impl Into<Range<u64>> for MemorySnapshotRegion {
     fn into(self) -> Range<u64> {
         self.start..self.end
@@ -204,10 +205,10 @@ impl WasiProcessInner {
     /// If a checkpoint has been started this will block the current process
     /// until the checkpoint operation has completed
     #[cfg(feature = "journal")]
-    pub fn maybe_checkpoint<'a, M: wasmer_types::MemorySize>(
+    pub fn maybe_checkpoint<M: wasmer_types::MemorySize>(
         inner: LockableWasiProcessInner,
-        ctx: FunctionEnvMut<'a, WasiEnv>,
-    ) -> WasiResult<MaybeCheckpointResult<'a>> {
+        ctx: FunctionEnvMut<'_, WasiEnv>,
+    ) -> WasiResult<MaybeCheckpointResult<'_>> {
         // Enter the lock which will determine if we are in a checkpoint or not
 
         use bytes::Bytes;
@@ -319,11 +320,11 @@ impl WasiProcessInner {
 
     // Execute any checkpoints that can be executed while outside of the WASM process
     #[cfg(not(feature = "journal"))]
-    pub fn do_checkpoints_from_outside<'a>(_ctx: &mut FunctionEnvMut<'a, WasiEnv>) {}
+    pub fn do_checkpoints_from_outside(_ctx: &mut FunctionEnvMut<'_, WasiEnv>) {}
 
     // Execute any checkpoints that can be executed while outside of the WASM process
     #[cfg(feature = "journal")]
-    pub fn do_checkpoints_from_outside<'a>(mut ctx: &mut FunctionEnvMut<'a, WasiEnv>) {
+    pub fn do_checkpoints_from_outside(ctx: &mut FunctionEnvMut<'_, WasiEnv>) {
         let inner = ctx.data().process.inner.clone();
         let mut guard = inner.0.lock().unwrap();
 
@@ -339,7 +340,7 @@ impl WasiProcessInner {
                 .all(|t| t.is_check_pointing() || t.is_deep_sleeping());
             if is_last_thread {
                 if let Err(err) =
-                    JournalEffector::save_memory_and_snapshot(&mut ctx, &mut guard, trigger)
+                    JournalEffector::save_memory_and_snapshot(ctx, &mut guard, trigger)
                 {
                     inner.1.notify_all();
                     tracing::error!("failed to snapshot memory and threads - {}", err);

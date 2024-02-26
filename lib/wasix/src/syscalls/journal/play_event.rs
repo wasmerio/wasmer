@@ -3,6 +3,7 @@ use std::ops::Range;
 use super::*;
 
 impl<'a, 'c> JournalSyscallPlayer<'a, 'c> {
+    #[allow(clippy::result_large_err)]
     pub(super) unsafe fn play_event(
         &mut self,
         next: JournalEntry<'a>,

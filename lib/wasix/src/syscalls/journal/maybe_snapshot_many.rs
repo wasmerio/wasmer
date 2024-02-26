@@ -2,18 +2,18 @@ use super::*;
 
 #[allow(clippy::extra_unused_type_parameters)]
 #[cfg(not(feature = "journal"))]
-pub fn maybe_snapshot_many<'a, M: MemorySize>(
-    ctx: FunctionEnvMut<'a, WasiEnv>,
+pub fn maybe_snapshot_many<M: MemorySize>(
+    ctx: FunctionEnvMut<'_, WasiEnv>,
     _trigger: crate::journal::SnapshotTrigger,
-) -> WasiResult<FunctionEnvMut<'a, WasiEnv>> {
+) -> WasiResult<FunctionEnvMut<'_, WasiEnv>> {
     Ok(Ok(ctx))
 }
 
 #[cfg(feature = "journal")]
-pub fn maybe_snapshot_many<'a, M: MemorySize>(
-    mut ctx: FunctionEnvMut<'a, WasiEnv>,
+pub fn maybe_snapshot_many<M: MemorySize>(
+    mut ctx: FunctionEnvMut<'_, WasiEnv>,
     trigger: crate::journal::SnapshotTrigger,
-) -> WasiResult<FunctionEnvMut<'a, WasiEnv>> {
+) -> WasiResult<FunctionEnvMut<'_, WasiEnv>> {
     use crate::os::task::process::{WasiProcessCheckpoint, WasiProcessInner};
 
     if unsafe { handle_rewind_ext_with_default::<M, ()>(&mut ctx, HandleRewindType::ResultLess) }

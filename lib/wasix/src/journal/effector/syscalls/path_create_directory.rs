@@ -28,7 +28,7 @@ impl JournalEffector {
     ) -> anyhow::Result<()> {
         // see `VIRTUAL_ROOT_FD` for details as to why this exists
         if fd == VIRTUAL_ROOT_FD {
-            ctx.data().state.fs.root_fs.create_dir(&Path::new(path))?;
+            ctx.data().state.fs.root_fs.create_dir(Path::new(path))?;
         } else {
             crate::syscalls::path_create_directory_internal(ctx, fd, path).map_err(|err| {
                 anyhow::format_err!(

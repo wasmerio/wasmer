@@ -1,6 +1,7 @@
 use super::*;
 
 impl<'a, 'c> JournalSyscallPlayer<'a, 'c> {
+    #[allow(clippy::result_large_err)]
     pub(crate) unsafe fn action_fd_seek(
         &mut self,
         fd: u32,

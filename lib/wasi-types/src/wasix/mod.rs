@@ -1,16 +1,20 @@
+#[cfg(feature = "enable-serde")]
 use serde::*;
 
 // pub mod wasix_http_client_v1;
 
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialOrd, Ord, PartialEq, Eq, Hash)]
-#[serde(rename_all = "snake_case")]
+#[derive(Debug, Clone, Copy, PartialOrd, Ord, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "enable-serde", serde(rename_all = "snake_case"))]
 pub enum ThreadStartType {
     MainThread,
     ThreadSpawn { start_ptr: u64 },
 }
 
 /// Represents the memory layout of the parts that the thread itself uses
-#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Default, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "enable-serde", serde(rename_all = "snake_case"))]
 pub struct WasiMemoryLayout {
     /// This is the top part of the stack (stacks go backwards)
     pub stack_upper: u64,
