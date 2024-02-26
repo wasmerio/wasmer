@@ -5,6 +5,7 @@ impl<'a, 'c> JournalSyscallPlayer<'a, 'c> {
         &mut self,
         mut differ_ethereal: Option<&mut Vec<JournalEntry<'a>>>,
     ) {
+        tracing::trace!("Replay journal - ClearEthereal");
         self.spawn_threads.clear();
         self.stdout.clear();
         self.stderr.clear();

@@ -13,8 +13,8 @@ impl<'a, 'c> JournalSyscallPlayer<'a, 'c> {
         layout: WasiMemoryLayout,
         differ_ethereal: Option<&mut Vec<JournalEntry<'a>>>,
     ) -> Result<(), WasiRuntimeError> {
-        tracing::trace!(%id, "Replay journal - SetThread call_stack={} bytes memory_stack={} bytes store_data={} bytes", call_stack.len(), memory_stack.len(), store_data.len());
         if Some(self.cur_module_hash) != self.journal_module_hash {
+            tracing::trace!(%id, "Skipping journal entry - SetThread call_stack={} bytes memory_stack={} bytes store_data={} bytes", call_stack.len(), memory_stack.len(), store_data.len());
             return Ok(());
         }
 
@@ -28,8 +28,10 @@ impl<'a, 'c> JournalSyscallPlayer<'a, 'c> {
         };
 
         if Into::<WasiThreadId>::into(id) == self.ctx.data().tid() {
+            tracing::trace!(%id, "Differ(end) journal - SetThread(main) call_stack={} bytes memory_stack={} bytes store_data={} bytes", call_stack.len(), memory_stack.len(), store_data.len());
             self.rewind.replace(state);
         } else if let Some(differ_ethereal) = differ_ethereal {
+            tracing::trace!(%id, "Differ(ether) journal - SetThread call_stack={} bytes memory_stack={} bytes store_data={} bytes", call_stack.len(), memory_stack.len(), store_data.len());
             differ_ethereal.push(JournalEntry::SetThreadV1 {
                 id,
                 call_stack,
@@ -39,6 +41,9 @@ impl<'a, 'c> JournalSyscallPlayer<'a, 'c> {
                 layout,
                 is_64bit,
             });
+        } else if self.bootstrapping {
+            tracing::trace!(%id, "Differ(end) journal - SetThread({id}) call_stack={} bytes memory_stack={} bytes store_data={} bytes", call_stack.len(), memory_stack.len(), store_data.len());
+            self.spawn_threads.insert(id.into(), state);
         } else {
             return Err(WasiRuntimeError::Runtime(RuntimeError::user(
                 anyhow::format_err!(

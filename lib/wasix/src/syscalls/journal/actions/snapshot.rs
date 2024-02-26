@@ -8,8 +8,6 @@ impl<'a, 'c> JournalSyscallPlayer<'a, 'c> {
         trigger: SnapshotTrigger,
         differ_ethereal: Option<&mut Vec<JournalEntry<'a>>>,
     ) -> Result<(), WasiRuntimeError> {
-        tracing::trace!("Replay journal - Snapshot");
-
         // If we are not in the same module then we fire off an exit
         // that simulates closing the process (hence keeps everything
         // in a clean state)
@@ -26,13 +24,22 @@ impl<'a, 'c> JournalSyscallPlayer<'a, 'c> {
             return Ok(());
         }
 
+        tracing::trace!("Replay journal - Snapshot (trigger={:?})", trigger);
+
         // Execute all the ethereal events
         if let Some(ethereal_events) = differ_ethereal {
             for next in ethereal_events.drain(..) {
-                tracing::trace!("Ethereal snapshot event - {next:?}");
-                self.play_event(next, None)?;
+                tracing::trace!("Replay(ether) snapshot event - {next:?}");
+                if let Err(err) = self.play_event(next, None) {
+                    tracing::warn!("failed to replay event - {}", err);
+                    return Err(err);
+                }
             }
             for (region, data) in self.staged_differ_memory.drain(..) {
+                tracing::trace!(
+                    "Differ(end) memory event - {region:?} data.len={}",
+                    data.len()
+                );
                 self.differ_memory.push((region, data));
             }
         }

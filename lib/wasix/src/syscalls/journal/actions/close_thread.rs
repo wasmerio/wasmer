@@ -8,8 +8,8 @@ impl<'a, 'c> JournalSyscallPlayer<'a, 'c> {
         exit_code: Option<ExitCode>,
         differ_ethereal: Option<&mut Vec<JournalEntry<'a>>>,
     ) -> Result<(), WasiRuntimeError> {
-        tracing::trace!(%id, ?exit_code, "Replay journal - CloseThread");
         if id == self.ctx.data().tid().raw() {
+            tracing::trace!(%id, ?exit_code, "Replay journal - CloseThread(main)");
             if self.bootstrapping {
                 self.clear_ethereal(differ_ethereal);
                 self.staged_differ_memory.clear();
@@ -20,8 +20,10 @@ impl<'a, 'c> JournalSyscallPlayer<'a, 'c> {
                     .map_err(anyhow_err_to_runtime_err)?;
             }
         } else if let Some(differ_ethereal) = differ_ethereal {
+            tracing::trace!(%id, ?exit_code, "Differ(end) journal - CloseThread");
             differ_ethereal.push(JournalEntry::CloseThreadV1 { id, exit_code });
         } else {
+            tracing::trace!(%id, ?exit_code, "Replay journal - CloseThread");
             JournalEffector::apply_thread_exit(
                 &mut self.ctx,
                 Into::<WasiThreadId>::into(id),
