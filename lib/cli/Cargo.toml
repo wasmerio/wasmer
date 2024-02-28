@@ -53,7 +53,6 @@ wasmer-artifact-create = ["compiler", "wasmer/wasmer-artifact-load", "wasmer/was
 static-artifact-create = ["compiler", "wasmer/static-artifact-load", "wasmer/static-artifact-create", "wasmer-compiler/static-artifact-load", "wasmer-compiler/static-artifact-create", "wasmer-object"]
 wasmer-artifact-load = ["compiler", "wasmer/wasmer-artifact-load", "wasmer-compiler/wasmer-artifact-load"]
 static-artifact-load = ["compiler", "wasmer/static-artifact-load", "wasmer-compiler/static-artifact-load"]
-experimental-io-devices = ["wasmer-wasix-experimental-io-devices"]
 singlepass = ["wasmer-compiler-singlepass", "compiler"]
 cranelift = ["wasmer-compiler-cranelift", "compiler"]
 llvm = ["wasmer-compiler-llvm", "compiler"]
@@ -82,9 +81,6 @@ wasmer-wasix = { version = "0.18.0", path = "../wasix", features = [
   "webc_runner_rt_dcgi",
   "webc_runner_rt_emscripten",
   "host-fs",
-] }
-wasmer-wasix-experimental-io-devices = { version = "0.18.0", path = "../wasi-experimental-io-devices", optional = true, features = [
-  "link_external_libs",
 ] }
 wasmer-wast = { version = "=4.2.5", path = "../../tests/lib/wast", optional = true }
 wasmer-types = { version = "=4.2.5", path = "../types", features = [

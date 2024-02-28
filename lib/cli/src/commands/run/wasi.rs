@@ -87,14 +87,6 @@ pub struct Wasi {
     #[clap(long = "map-command", name = "MAPCMD")]
     pub(super) map_commands: Vec<String>,
 
-    /// Enable experimental IO devices
-    #[cfg(feature = "experimental-io-devices")]
-    #[cfg_attr(
-        feature = "experimental-io-devices",
-        clap(long = "enable-experimental-io-devices")
-    )]
-    enable_experimental_io_devices: bool,
-
     /// Enable networking with the host network.
     ///
     /// Allows WASI modules to open TCP and UDP connections, create sockets, ...
@@ -373,14 +365,6 @@ impl Wasi {
             }
             for journal in self.build_journals()? {
                 builder.add_journal(journal);
-            }
-        }
-
-        #[cfg(feature = "experimental-io-devices")]
-        {
-            if self.enable_experimental_io_devices {
-                wasi_state_builder
-                    .setup_fs(Box::new(wasmer_wasi_experimental_io_devices::initialize));
             }
         }
 

@@ -61,7 +61,6 @@ members = [
     "lib/virtual-net",
     "lib/vm",
     "lib/wai-bindgen-wasmer",
-    "lib/wasi-experimental-io-devices",
     "lib/wasi-types",
     "lib/wasix",
     "lib/wasm-interface",
