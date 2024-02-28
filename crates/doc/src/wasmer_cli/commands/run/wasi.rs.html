@@ -716,22 +716,6 @@
 <a href="#716" id="716">716</a>
 <a href="#717" id="717">717</a>
 <a href="#718" id="718">718</a>
-<a href="#719" id="719">719</a>
-<a href="#720" id="720">720</a>
-<a href="#721" id="721">721</a>
-<a href="#722" id="722">722</a>
-<a href="#723" id="723">723</a>
-<a href="#724" id="724">724</a>
-<a href="#725" id="725">725</a>
-<a href="#726" id="726">726</a>
-<a href="#727" id="727">727</a>
-<a href="#728" id="728">728</a>
-<a href="#729" id="729">729</a>
-<a href="#730" id="730">730</a>
-<a href="#731" id="731">731</a>
-<a href="#732" id="732">732</a>
-<a href="#733" id="733">733</a>
-<a href="#734" id="734">734</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{
     collections::{BTreeSet, HashMap},
     path::{Path, PathBuf},
@@ -820,14 +804,6 @@
     <span class="doccomment">/// List of injected atoms
     </span><span class="attr">#[clap(long = <span class="string">&quot;map-command&quot;</span>, name = <span class="string">&quot;MAPCMD&quot;</span>)]
     </span><span class="kw">pub</span>(<span class="kw">super</span>) map_commands: Vec&lt;String&gt;,
-
-    <span class="doccomment">/// Enable experimental IO devices
-    </span><span class="attr">#[cfg(feature = <span class="string">&quot;experimental-io-devices&quot;</span>)]
-    #[cfg_attr(
-        feature = <span class="string">&quot;experimental-io-devices&quot;</span>,
-        clap(long = <span class="string">&quot;enable-experimental-io-devices&quot;</span>)
-    )]
-    </span>enable_experimental_io_devices: bool,
 
     <span class="doccomment">/// Enable networking with the host network.
     ///
@@ -1107,14 +1083,6 @@
             }
             <span class="kw">for </span>journal <span class="kw">in </span><span class="self">self</span>.build_journals()<span class="question-mark">? </span>{
                 builder.add_journal(journal);
-            }
-        }
-
-        <span class="attr">#[cfg(feature = <span class="string">&quot;experimental-io-devices&quot;</span>)]
-        </span>{
-            <span class="kw">if </span><span class="self">self</span>.enable_experimental_io_devices {
-                wasi_state_builder
-                    .setup_fs(Box::new(wasmer_wasi_experimental_io_devices::initialize));
             }
         }
 
