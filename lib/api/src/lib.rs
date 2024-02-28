@@ -9,21 +9,15 @@
     rustdoc::broken_intra_doc_links
 )]
 #![warn(unused_import_braces)]
-#![cfg_attr(
-    feature = "cargo-clippy",
-    allow(clippy::new_without_default, clippy::vtable_address_comparisons)
-)]
-#![cfg_attr(
-    feature = "cargo-clippy",
-    warn(
-        clippy::float_arithmetic,
-        clippy::mut_mut,
-        clippy::nonminimal_bool,
-        clippy::map_unwrap_or,
-        clippy::print_stdout,
-        clippy::unicode_not_nfc,
-        clippy::use_self
-    )
+#![allow(clippy::new_without_default, clippy::vtable_address_comparisons)]
+#![warn(
+    clippy::float_arithmetic,
+    clippy::mut_mut,
+    clippy::nonminimal_bool,
+    clippy::map_unwrap_or,
+    clippy::print_stdout,
+    clippy::unicode_not_nfc,
+    clippy::use_self
 )]
 #![allow(deprecated_cfg_attr_crate_type_name)]
 #![cfg_attr(feature = "js", crate_type = "cdylib")]
