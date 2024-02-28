@@ -48,7 +48,6 @@ SETTINGS = {
         "wasmer-cli": "default,cranelift",
         "wasmer-wasix": "sys,wasmer/sys",
         "wasmer-wasix-types": "wasmer/sys",
-        "wasmer-wasix-experimental-io-devices": "wasmer-wasix/sys,wasmer/sys",
         "wasmer-wast": "wasmer/sys",
         "wai-bindgen-wasmer": "sys",
         "wasmer-cache": "wasmer/sys",
