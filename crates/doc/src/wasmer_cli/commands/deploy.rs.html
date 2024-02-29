@@ -230,6 +230,10 @@
 <a href="#230" id="230">230</a>
 <a href="#231" id="231">231</a>
 <a href="#232" id="232">232</a>
+<a href="#233" id="233">233</a>
+<a href="#234" id="234">234</a>
+<a href="#235" id="235">235</a>
+<a href="#236" id="236">236</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{io::Write, path::PathBuf};
 
 <span class="kw">use </span>anyhow::{bail, Context};
@@ -457,6 +461,10 @@
             <span class="kw">let </span>new_config_raw = serde_yaml::to_string(<span class="kw-2">&amp;</span>new_merged)<span class="question-mark">?</span>;
             std::fs::write(<span class="kw-2">&amp;</span>file_path, new_config_raw)
                 .with_context(|| <span class="macro">format!</span>(<span class="string">&quot;Could not write file: &#39;{}&#39;&quot;</span>, file_path.display()))<span class="question-mark">?</span>;
+        }
+
+        <span class="kw">if </span><span class="self">self</span>.fmt.format == <span class="kw">crate</span>::utils::render::ItemFormat::Json {
+            <span class="macro">println!</span>(<span class="string">&quot;{}&quot;</span>, serde_json::to_string_pretty(<span class="kw-2">&amp;</span>app_version)<span class="question-mark">?</span>);
         }
 
         <span class="prelude-val">Ok</span>(app_version)
