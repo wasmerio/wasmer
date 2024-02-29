@@ -1,7 +1,7 @@
 use std::borrow::BorrowMut;
 use std::ops::DerefMut;
-use std::ptr;
 use std::sync::Arc;
+use std::{mem, ptr};
 
 use wasmer_types::CompileError;
 
@@ -17,6 +17,7 @@ use crate::exports::Exports;
 use crate::imports::Imports;
 use crate::module::Module;
 use crate::store::AsStoreMut;
+use crate::trap::Trap;
 use crate::Extern;
 
 use super::vm::VMExtern;
@@ -28,21 +29,25 @@ impl InstanceHandle {
     fn new(
         store: *mut wasm_store_t,
         module: *mut wasm_module_t,
-        mut externs: Box<[VMExtern]>,
+        mut externs: Vec<VMExtern>,
     ) -> Result<Self, InstantiationError> {
-        let imports = wasm_extern_vec_t {
+        let mut externs = externs.into_boxed_slice();
+        let mut imports = wasm_extern_vec_t {
             size: externs.len(),
             data: externs.as_mut_ptr(),
         };
+        std::mem::forget(externs);
         // unsafe { wasm_extern_vec_new(&mut imports, , externs:) };
         let mut trap: *mut wasm_trap_t = std::ptr::null_mut() as _;
         // let mut trap_ptr: *mut wasm_trap_t = &mut trap as *mut _;
-        let instance =
-            unsafe { wasm_instance_new(store, module, Box::leak(Box::new(imports)), &mut trap) };
+        let instance = unsafe { wasm_instance_new(store, module, &imports, &mut trap) };
         if instance.is_null() {
-            return Err(InstantiationError::Start(crate::RuntimeError::new(
-                format!("Failed to instantiate"),
-            )));
+            let trap = Trap::from(trap);
+            println!("{}", trap);
+            return Err(InstantiationError::Start(trap.into()));
+            // return Err(InstantiationError::Start(crate::RuntimeError::new(
+            //     format!("Failed to instantiate"),
+            // )));
         }
         Ok(InstanceHandle(instance))
     }
@@ -116,11 +121,14 @@ impl Instance {
         externs: &[Extern],
     ) -> Result<(Self, Exports), InstantiationError> {
         let store_ref = store.as_store_ref();
-        let externs = externs
+        let externs: Vec<*mut wasm_extern_t> = externs
             .iter()
-            .map(|extern_| extern_.to_vm_extern())
-            .collect::<Vec<_>>()
-            .into_boxed_slice();
+            .map(|extern_| {
+                let vm_extern = extern_.to_vm_extern();
+                // mem::forget(extern_);
+                vm_extern
+            })
+            .collect::<Vec<_>>();
         let instance =
             InstanceHandle::new(store_ref.inner.store.inner, module.0.handle.0, externs)?;
         let exports = instance.get_exports(store, module);
