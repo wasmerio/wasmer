@@ -6688,7 +6688,6 @@ dependencies = [
  "virtual-fs",
  "virtual-mio",
  "virtual-net",
- "wai-bindgen-wasmer",
  "waker-fn",
  "wasm-bindgen",
  "wasm-bindgen-futures",
