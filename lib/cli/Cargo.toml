@@ -75,7 +75,7 @@ wasmer-compiler-singlepass = { version = "=4.2.6", path = "../compiler-singlepas
 wasmer-compiler-llvm = { version = "=4.2.6", path = "../compiler-llvm", optional = true }
 wasmer-emscripten = { version = "=4.2.6", path = "../emscripten" }
 wasmer-vm = { version = "=4.2.6", path = "../vm", optional = true }
-wasmer-wasix = { version = "0.18.0", path = "../wasix", features = [
+wasmer-wasix = { version = "0.18.1", path = "../wasix", features = [
   "logging",
   "webc_runner_rt_wcgi",
   "webc_runner_rt_dcgi",
@@ -86,15 +86,15 @@ wasmer-wast = { version = "=4.2.6", path = "../../tests/lib/wast", optional = tr
 wasmer-types = { version = "=4.2.6", path = "../types", features = [
   "enable-serde",
 ] }
-wasmer-registry = { version = "5.10.1", path = "../registry", features = [
+wasmer-registry = { version = "5.10.2", path = "../registry", features = [
   "build-package",
   "clap",
 ] }
 wasmer-object = { version = "=4.2.6", path = "../object", optional = true }
-virtual-fs = { version = "0.11.0", path = "../virtual-fs", default-features = false, features = [
+virtual-fs = { version = "0.11.1", path = "../virtual-fs", default-features = false, features = [
   "host-fs",
 ] }
-virtual-net = { version = "0.6.2", path = "../virtual-net" }
+virtual-net = { version = "0.6.3", path = "../virtual-net" }
 virtual-mio = { version = "0.3.0", path = "../virtual-io" }
 
 # Wasmer-owned dependencies.

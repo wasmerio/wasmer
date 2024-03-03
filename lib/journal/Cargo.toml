@@ -15,8 +15,8 @@ log-file = [ "shared-buffer" ]
 
 [dependencies]
 wasmer = { default-features = false, path = "../api", version = "=4.2.6" }
-wasmer-wasix-types = { path = "../wasi-types", version = "0.18.0", features = [ "enable-serde" ] }
-virtual-net = { path = "../virtual-net", version = "0.6.2", default-features = false, features = ["rkyv"] }
+wasmer-wasix-types = { path = "../wasi-types", version = "0.18.1", features = [ "enable-serde" ] }
+virtual-net = { path = "../virtual-net", version = "0.6.3", default-features = false, features = ["rkyv"] }
 
 shared-buffer = { workspace = true, optional = true }
 thiserror = "1"
