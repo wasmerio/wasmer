@@ -15,7 +15,7 @@ the “same” module.</li>
 optimize their strategy accordingly.</li>
 </ul>
 <p>Cache implementations are encouraged to take
-<a href="../../../wasmer/engine/struct.Engine.html#method.deterministic_id" title="method wasmer::engine::Engine::deterministic_id"><code>wasmer::Engine::deterministic_id()</code></a> into account when saving and loading
+[<code>wasmer::Engine::deterministic_id()</code>] into account when saving and loading
 cached modules to ensure correct module retrieval.</p>
 <p>Cache implementations should choose a suitable eviction policy and implement
 invalidation transparently as part of <a href="types/trait.ModuleCache.html#tymethod.load" title="method wasmer_wasix::runtime::module_cache::types::ModuleCache::load"><code>ModuleCache::load()</code></a> or

@@ -3,7 +3,7 @@
     fn <a href="#tymethod.load" class="fn">load</a>&lt;'life0, 'life1, 'async_trait&gt;(
         &amp;'life0 self,
         key: <a class="struct" href="struct.ModuleHash.html" title="struct wasmer_wasix::runtime::module_cache::types::ModuleHash">ModuleHash</a>,
-        engine: &amp;'life1 <a class="struct" href="../../../../wasmer/engine/struct.Engine.html" title="struct wasmer::engine::Engine">Engine</a>
+        engine: &amp;'life1 Engine
     ) -&gt; <a class="struct" href="../../../syscalls/struct.Pin.html" title="struct wasmer_wasix::syscalls::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.73.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.73.0/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="enum" href="https://doc.rust-lang.org/1.73.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="../../../syscalls/struct.Module.html" title="struct wasmer_wasix::syscalls::Module">Module</a>, <a class="enum" href="enum.CacheError.html" title="enum wasmer_wasix::runtime::module_cache::types::CacheError">CacheError</a>&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.73.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;
        <span class="where">where Self: 'async_trait,
              'life0: 'async_trait,
@@ -11,7 +11,7 @@
 <span class="item-spacer"></span>    fn <a href="#tymethod.save" class="fn">save</a>&lt;'life0, 'life1, 'life2, 'async_trait&gt;(
         &amp;'life0 self,
         key: <a class="struct" href="struct.ModuleHash.html" title="struct wasmer_wasix::runtime::module_cache::types::ModuleHash">ModuleHash</a>,
-        engine: &amp;'life1 <a class="struct" href="../../../../wasmer/engine/struct.Engine.html" title="struct wasmer::engine::Engine">Engine</a>,
+        engine: &amp;'life1 Engine,
         module: &amp;'life2 <a class="struct" href="../../../syscalls/struct.Module.html" title="struct wasmer_wasix::syscalls::Module">Module</a>
     ) -&gt; <a class="struct" href="../../../syscalls/struct.Pin.html" title="struct wasmer_wasix::syscalls::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.73.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.73.0/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="enum" href="https://doc.rust-lang.org/1.73.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.73.0/std/primitive.unit.html">()</a>, <a class="enum" href="enum.CacheError.html" title="enum wasmer_wasix::runtime::module_cache::types::CacheError">CacheError</a>&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.73.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;
        <span class="where">where Self: 'async_trait,
@@ -25,7 +25,7 @@
              C: <a class="trait" href="trait.ModuleCache.html" title="trait wasmer_wasix::runtime::module_cache::types::ModuleCache">ModuleCache</a></span> { ... }
 }</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>A cache for compiled WebAssembly modules.</p>
 <h3 id="deterministic-id"><a href="#deterministic-id">Deterministic ID</a></h3>
-<p>Implementations are encouraged to take the <a href="../../../../wasmer/engine/struct.Engine.html#method.deterministic_id" title="method wasmer::engine::Engine::deterministic_id"><code>Engine::deterministic_id()</code></a>
+<p>Implementations are encouraged to take the [<code>Engine::deterministic_id()</code>]
 into account when saving and loading cached a <a href="../../../syscalls/struct.Module.html" title="struct wasmer_wasix::syscalls::Module"><code>Module</code></a>.</p>
 <h3 id="assumptions"><a href="#assumptions">Assumptions</a></h3>
 <p>Implementations can assume that cache keys are unique and that using the
@@ -36,7 +36,7 @@ their caching strategy accordingly.</p>
 </div></details><h2 id="required-methods" class="small-section-header">Required Methods<a href="#required-methods" class="anchor">§</a></h2><div class="methods"><details class="toggle method-toggle" open><summary><section id="tymethod.load" class="method"><a class="src rightside" href="../../../../src/wasmer_wasix/runtime/module_cache/types.rs.html#32">source</a><h4 class="code-header">fn <a href="#tymethod.load" class="fn">load</a>&lt;'life0, 'life1, 'async_trait&gt;(
     &amp;'life0 self,
     key: <a class="struct" href="struct.ModuleHash.html" title="struct wasmer_wasix::runtime::module_cache::types::ModuleHash">ModuleHash</a>,
-    engine: &amp;'life1 <a class="struct" href="../../../../wasmer/engine/struct.Engine.html" title="struct wasmer::engine::Engine">Engine</a>
+    engine: &amp;'life1 Engine
 ) -&gt; <a class="struct" href="../../../syscalls/struct.Pin.html" title="struct wasmer_wasix::syscalls::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.73.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.73.0/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="enum" href="https://doc.rust-lang.org/1.73.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="../../../syscalls/struct.Module.html" title="struct wasmer_wasix::syscalls::Module">Module</a>, <a class="enum" href="enum.CacheError.html" title="enum wasmer_wasix::runtime::module_cache::types::CacheError">CacheError</a>&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.73.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;<span class="where fmt-newline">where
     Self: 'async_trait,
     'life0: 'async_trait,
@@ -44,7 +44,7 @@ their caching strategy accordingly.</p>
 </div></details><details class="toggle method-toggle" open><summary><section id="tymethod.save" class="method"><a class="src rightside" href="../../../../src/wasmer_wasix/runtime/module_cache/types.rs.html#42-47">source</a><h4 class="code-header">fn <a href="#tymethod.save" class="fn">save</a>&lt;'life0, 'life1, 'life2, 'async_trait&gt;(
     &amp;'life0 self,
     key: <a class="struct" href="struct.ModuleHash.html" title="struct wasmer_wasix::runtime::module_cache::types::ModuleHash">ModuleHash</a>,
-    engine: &amp;'life1 <a class="struct" href="../../../../wasmer/engine/struct.Engine.html" title="struct wasmer::engine::Engine">Engine</a>,
+    engine: &amp;'life1 Engine,
     module: &amp;'life2 <a class="struct" href="../../../syscalls/struct.Module.html" title="struct wasmer_wasix::syscalls::Module">Module</a>
 ) -&gt; <a class="struct" href="../../../syscalls/struct.Pin.html" title="struct wasmer_wasix::syscalls::Pin">Pin</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.73.0/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;dyn <a class="trait" href="https://doc.rust-lang.org/1.73.0/core/future/future/trait.Future.html" title="trait core::future::future::Future">Future</a>&lt;Output = <a class="enum" href="https://doc.rust-lang.org/1.73.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.73.0/std/primitive.unit.html">()</a>, <a class="enum" href="enum.CacheError.html" title="enum wasmer_wasix::runtime::module_cache::types::CacheError">CacheError</a>&gt;&gt; + <a class="trait" href="https://doc.rust-lang.org/1.73.0/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + 'async_trait&gt;&gt;<span class="where fmt-newline">where
     Self: 'async_trait,
@@ -54,7 +54,7 @@ their caching strategy accordingly.</p>
 later time.</p>
 <h5 id="panics"><a href="#panics">Panics</a></h5>
 <p>Implementations are free to assume the <a href="../../../syscalls/struct.Module.html" title="struct wasmer_wasix::syscalls::Module"><code>Module</code></a> being passed in was
-compiled using the provided <a href="../../../../wasmer/engine/struct.Engine.html" title="struct wasmer::engine::Engine"><code>Engine</code></a>, and may panic if this isn’t the
+compiled using the provided [<code>Engine</code>], and may panic if this isn’t the
 case.</p>
 </div></details></div><h2 id="provided-methods" class="small-section-header">Provided Methods<a href="#provided-methods" class="anchor">§</a></h2><div class="methods"><details class="toggle method-toggle" open><summary><section id="method.with_fallback" class="method"><a class="src rightside" href="../../../../src/wasmer_wasix/runtime/module_cache/types.rs.html#68-74">source</a><h4 class="code-header">fn <a href="#method.with_fallback" class="fn">with_fallback</a>&lt;C&gt;(self, other: C) -&gt; <a class="struct" href="../fallback/struct.FallbackCache.html" title="struct wasmer_wasix::runtime::module_cache::fallback::FallbackCache">FallbackCache</a>&lt;Self, C&gt;<span class="where fmt-newline">where
     Self: <a class="trait" href="https://doc.rust-lang.org/1.73.0/core/marker/trait.Sized.html" title="trait core::marker::Sized">Sized</a>,
