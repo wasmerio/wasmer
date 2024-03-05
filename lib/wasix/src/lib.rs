@@ -55,9 +55,6 @@ mod state;
 mod syscalls;
 mod utils;
 
-/// WAI based bindings.
-mod bindings;
-
 use std::sync::Arc;
 
 #[allow(unused_imports)]
@@ -685,7 +682,7 @@ fn stub_initializer(
 // TODO: split function into two variants, one for JS and one for sys.
 // (this will make code less messy)
 fn import_object_for_all_wasi_versions(
-    module: &wasmer::Module,
+    _module: &wasmer::Module,
     store: &mut impl AsStoreMut,
     env: &FunctionEnv<WasiEnv>,
 ) -> (Imports, ModuleInitializer) {
@@ -705,31 +702,7 @@ fn import_object_for_all_wasi_versions(
         "wasix_64v1" => exports_wasix_64v1,
     };
 
-    // TODO: clean this up!
-    cfg_if::cfg_if! {
-        if #[cfg(feature = "sys")] {
-            // Check if the module needs http.
-
-            let has_canonical_realloc = module.exports().any(|t| t.name() == "canonical_abi_realloc");
-            let has_wasix_http_import = module.imports().any(|t| t.module() == "wasix_http_client_v1");
-
-            let init = if has_canonical_realloc && has_wasix_http_import {
-                let wenv = env.as_ref(store);
-                let http = crate::http::client_impl::WasixHttpClientImpl::new(wenv);
-                    crate::bindings::wasix_http_client_v1::add_to_imports(
-                        store,
-                        &mut imports,
-                        http,
-                    )
-            } else {
-                Box::new(stub_initializer) as ModuleInitializer
-            };
-        } else {
-            // Prevents unused warning.
-            let _ = module;
-            let init = Box::new(stub_initializer) as ModuleInitializer;
-        }
-    }
+    let init = Box::new(stub_initializer) as ModuleInitializer;
 
     (imports, init)
 }
