@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"mod":["asyncify","types","wasi","wasix"]};
+window.SIDEBAR_ITEMS = {"mod":["asyncify","types","wasi"]};

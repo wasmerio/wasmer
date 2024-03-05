@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"mod":["wasix_http_client_v1"]};

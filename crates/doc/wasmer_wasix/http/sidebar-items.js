@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"constant":["USER_AGENT"],"fn":["default_http_client"],"mod":["client","client_impl","reqwest"],"struct":["HttpClientCapabilityV1","HttpRequest","HttpRequestOptions","HttpResponse"],"trait":["HttpClient"],"type":["DynHttpClient"]};
+window.SIDEBAR_ITEMS = {"constant":["USER_AGENT"],"fn":["default_http_client"],"mod":["client","reqwest"],"struct":["HttpClientCapabilityV1","HttpRequest","HttpRequestOptions","HttpResponse"],"trait":["HttpClient"],"type":["DynHttpClient"]};

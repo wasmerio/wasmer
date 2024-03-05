@@ -772,33 +772,6 @@
 <a href="#772" id="772">772</a>
 <a href="#773" id="773">773</a>
 <a href="#774" id="774">774</a>
-<a href="#775" id="775">775</a>
-<a href="#776" id="776">776</a>
-<a href="#777" id="777">777</a>
-<a href="#778" id="778">778</a>
-<a href="#779" id="779">779</a>
-<a href="#780" id="780">780</a>
-<a href="#781" id="781">781</a>
-<a href="#782" id="782">782</a>
-<a href="#783" id="783">783</a>
-<a href="#784" id="784">784</a>
-<a href="#785" id="785">785</a>
-<a href="#786" id="786">786</a>
-<a href="#787" id="787">787</a>
-<a href="#788" id="788">788</a>
-<a href="#789" id="789">789</a>
-<a href="#790" id="790">790</a>
-<a href="#791" id="791">791</a>
-<a href="#792" id="792">792</a>
-<a href="#793" id="793">793</a>
-<a href="#794" id="794">794</a>
-<a href="#795" id="795">795</a>
-<a href="#796" id="796">796</a>
-<a href="#797" id="797">797</a>
-<a href="#798" id="798">798</a>
-<a href="#799" id="799">799</a>
-<a href="#800" id="800">800</a>
-<a href="#801" id="801">801</a>
 </pre></div><pre class="rust"><code><span class="comment">// FIXME: merge with ./lib.rs_upstream
 
 </span><span class="attr">#![doc(html_favicon_url = <span class="string">&quot;https://wasmer.io/images/icons/favicon-32x32.png&quot;</span>)]
@@ -855,9 +828,6 @@
 <span class="kw">mod </span>state;
 <span class="kw">mod </span>syscalls;
 <span class="kw">mod </span>utils;
-
-<span class="doccomment">/// WAI based bindings.
-</span><span class="kw">mod </span>bindings;
 
 <span class="kw">use </span>std::sync::Arc;
 
@@ -1486,7 +1456,7 @@
 <span class="comment">// TODO: split function into two variants, one for JS and one for sys.
 // (this will make code less messy)
 </span><span class="kw">fn </span>import_object_for_all_wasi_versions(
-    module: <span class="kw-2">&amp;</span>wasmer::Module,
+    _module: <span class="kw-2">&amp;</span>wasmer::Module,
     store: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>AsStoreMut,
     env: <span class="kw-2">&amp;</span>FunctionEnv&lt;WasiEnv&gt;,
 ) -&gt; (Imports, ModuleInitializer) {
@@ -1506,31 +1476,7 @@
         <span class="string">&quot;wasix_64v1&quot; </span>=&gt; exports_wasix_64v1,
     };
 
-    <span class="comment">// TODO: clean this up!
-    </span><span class="macro">cfg_if::cfg_if! </span>{
-        <span class="kw">if </span><span class="attr">#[cfg(feature = <span class="string">&quot;sys&quot;</span>)] </span>{
-            <span class="comment">// Check if the module needs http.
-
-            </span><span class="kw">let </span>has_canonical_realloc = module.exports().any(|t| t.name() == <span class="string">&quot;canonical_abi_realloc&quot;</span>);
-            <span class="kw">let </span>has_wasix_http_import = module.imports().any(|t| t.module() == <span class="string">&quot;wasix_http_client_v1&quot;</span>);
-
-            <span class="kw">let </span>init = <span class="kw">if </span>has_canonical_realloc &amp;&amp; has_wasix_http_import {
-                <span class="kw">let </span>wenv = env.as_ref(store);
-                <span class="kw">let </span>http = <span class="kw">crate</span>::http::client_impl::WasixHttpClientImpl::new(wenv);
-                    <span class="kw">crate</span>::bindings::wasix_http_client_v1::add_to_imports(
-                        store,
-                        <span class="kw-2">&amp;mut </span>imports,
-                        http,
-                    )
-            } <span class="kw">else </span>{
-                Box::new(stub_initializer) <span class="kw">as </span>ModuleInitializer
-            };
-        } <span class="kw">else </span>{
-            <span class="comment">// Prevents unused warning.
-            </span><span class="kw">let _ </span>= module;
-            <span class="kw">let </span>init = Box::new(stub_initializer) <span class="kw">as </span>ModuleInitializer;
-        }
-    }
+    <span class="kw">let </span>init = Box::new(stub_initializer) <span class="kw">as </span>ModuleInitializer;
 
     (imports, init)
 }
