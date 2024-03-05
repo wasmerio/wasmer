@@ -99,10 +99,7 @@ use wasmer_types::{
 };
 
 // Clippy warns about "align: _" but its important to document that the align field is ignored
-#[cfg_attr(
-    feature = "cargo-clippy",
-    allow(clippy::unneeded_field_pattern, clippy::cognitive_complexity)
-)]
+#[allow(clippy::unneeded_field_pattern, clippy::cognitive_complexity)]
 /// Translates wasm operators into Cranelift IR instructions. Returns `true` if it inserted
 /// a return.
 pub fn translate_operator<FE: FuncEnvironment + ?Sized>(
@@ -2106,7 +2103,7 @@ pub fn translate_operator<FE: FuncEnvironment + ?Sized>(
 }
 
 // Clippy warns us of some fields we are deliberately ignoring
-#[cfg_attr(feature = "cargo-clippy", allow(clippy::unneeded_field_pattern))]
+#[allow(clippy::unneeded_field_pattern)]
 /// Deals with a Wasm instruction located in an unreachable portion of the code. Most of them
 /// are dropped but special ones like `End` or `Else` signal the potential end of the unreachable
 /// portion so the translation state must be updated accordingly.
