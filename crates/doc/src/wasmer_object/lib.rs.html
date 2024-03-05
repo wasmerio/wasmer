@@ -23,9 +23,6 @@
 <a href="#23" id="23">23</a>
 <a href="#24" id="24">24</a>
 <a href="#25" id="25">25</a>
-<a href="#26" id="26">26</a>
-<a href="#27" id="27">27</a>
-<a href="#28" id="28">28</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Object creator for Wasm Compilations.
 //!
 //! Given a compilation result (this is, the result when calling `Compiler::compile_module`)
@@ -33,18 +30,15 @@
 
 </span><span class="attr">#![deny(missing_docs, trivial_numeric_casts, unused_extern_crates)]
 #![warn(unused_import_braces)]
-#![cfg_attr(feature = <span class="string">&quot;cargo-clippy&quot;</span>, allow(clippy::new_without_default))]
-#![cfg_attr(
-    feature = <span class="string">&quot;cargo-clippy&quot;</span>,
-    warn(
-        clippy::float_arithmetic,
-        clippy::mut_mut,
-        clippy::nonminimal_bool,
-        clippy::map_unwrap_or,
-        clippy::print_stdout,
-        clippy::unicode_not_nfc,
-        clippy::use_self
-    )
+#![allow(clippy::new_without_default)]
+#![warn(
+    clippy::float_arithmetic,
+    clippy::mut_mut,
+    clippy::nonminimal_bool,
+    clippy::map_unwrap_or,
+    clippy::print_stdout,
+    clippy::unicode_not_nfc,
+    clippy::use_self
 )]
 #![cfg_attr(docsrs, feature(doc_cfg, doc_auto_cfg))]
 

@@ -227,9 +227,6 @@
 <a href="#227" id="227">227</a>
 <a href="#228" id="228">228</a>
 <a href="#229" id="229">229</a>
-<a href="#230" id="230">230</a>
-<a href="#231" id="231">231</a>
-<a href="#232" id="232">232</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! This are the common types and utility tools for using WebAssembly
 //! in a Rust environment.
 //!
@@ -239,18 +236,15 @@
 </span><span class="attr">#![deny(missing_docs, unused_extern_crates)]
 #![warn(unused_import_braces)]
 #![cfg_attr(not(feature = <span class="string">&quot;std&quot;</span>), no_std)]
-#![cfg_attr(feature = <span class="string">&quot;cargo-clippy&quot;</span>, allow(clippy::new_without_default))]
-#![cfg_attr(
-    feature = <span class="string">&quot;cargo-clippy&quot;</span>,
-    warn(
-        clippy::float_arithmetic,
-        clippy::mut_mut,
-        clippy::nonminimal_bool,
-        clippy::map_unwrap_or,
-        clippy::print_stdout,
-        clippy::unicode_not_nfc,
-        clippy::use_self
-    )
+#![allow(clippy::new_without_default)]
+#![warn(
+    clippy::float_arithmetic,
+    clippy::mut_mut,
+    clippy::nonminimal_bool,
+    clippy::map_unwrap_or,
+    clippy::print_stdout,
+    clippy::unicode_not_nfc,
+    clippy::use_self
 )]
 #![cfg_attr(docsrs, feature(doc_cfg, doc_auto_cfg))]
 

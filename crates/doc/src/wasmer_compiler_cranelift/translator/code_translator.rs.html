@@ -3106,9 +3106,6 @@
 <a href="#3106" id="3106">3106</a>
 <a href="#3107" id="3107">3107</a>
 <a href="#3108" id="3108">3108</a>
-<a href="#3109" id="3109">3109</a>
-<a href="#3110" id="3110">3110</a>
-<a href="#3111" id="3111">3111</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file contains code from external sources.
 // Attributions: https://github.com/wasmerio/wasmer/blob/master/ATTRIBUTIONS.md
 
@@ -3210,10 +3207,7 @@
 };
 
 <span class="comment">// Clippy warns about &quot;align: _&quot; but its important to document that the align field is ignored
-</span><span class="attr">#[cfg_attr(
-    feature = <span class="string">&quot;cargo-clippy&quot;</span>,
-    allow(clippy::unneeded_field_pattern, clippy::cognitive_complexity)
-)]
+</span><span class="attr">#[allow(clippy::unneeded_field_pattern, clippy::cognitive_complexity)]
 </span><span class="doccomment">/// Translates wasm operators into Cranelift IR instructions. Returns `true` if it inserted
 /// a return.
 </span><span class="kw">pub fn </span>translate_operator&lt;FE: FuncEnvironment + <span class="question-mark">?</span>Sized&gt;(
@@ -5217,7 +5211,7 @@
 }
 
 <span class="comment">// Clippy warns us of some fields we are deliberately ignoring
-</span><span class="attr">#[cfg_attr(feature = <span class="string">&quot;cargo-clippy&quot;</span>, allow(clippy::unneeded_field_pattern))]
+</span><span class="attr">#[allow(clippy::unneeded_field_pattern)]
 </span><span class="doccomment">/// Deals with a Wasm instruction located in an unreachable portion of the code. Most of them
 /// are dropped but special ones like `End` or `Else` signal the potential end of the unreachable
 /// portion so the translation state must be updated accordingly.

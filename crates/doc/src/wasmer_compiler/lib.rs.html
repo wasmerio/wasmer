@@ -81,12 +81,6 @@
 <a href="#81" id="81">81</a>
 <a href="#82" id="82">82</a>
 <a href="#83" id="83">83</a>
-<a href="#84" id="84">84</a>
-<a href="#85" id="85">85</a>
-<a href="#86" id="86">86</a>
-<a href="#87" id="87">87</a>
-<a href="#88" id="88">88</a>
-<a href="#89" id="89">89</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! The `wasmer-compiler` crate provides the necessary abstractions
 //! to create a compiler.
 //!
@@ -97,21 +91,15 @@
 </span><span class="attr">#![deny(missing_docs, trivial_numeric_casts, unused_extern_crates)]
 #![warn(unused_import_braces)]
 #![cfg_attr(not(feature = <span class="string">&quot;std&quot;</span>), no_std)]
-#![cfg_attr(
-    feature = <span class="string">&quot;cargo-clippy&quot;</span>,
-    allow(clippy::new_without_default, clippy::upper_case_acronyms)
-)]
-#![cfg_attr(
-    feature = <span class="string">&quot;cargo-clippy&quot;</span>,
-    warn(
-        clippy::float_arithmetic,
-        clippy::mut_mut,
-        clippy::nonminimal_bool,
-        clippy::map_unwrap_or,
-        clippy::print_stdout,
-        clippy::unicode_not_nfc,
-        clippy::use_self
-    )
+#![allow(clippy::new_without_default, clippy::upper_case_acronyms)]
+#![warn(
+    clippy::float_arithmetic,
+    clippy::mut_mut,
+    clippy::nonminimal_bool,
+    clippy::map_unwrap_or,
+    clippy::print_stdout,
+    clippy::unicode_not_nfc,
+    clippy::use_self
 )]
 #![cfg_attr(docsrs, feature(doc_cfg, doc_auto_cfg))]
 
