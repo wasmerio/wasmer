@@ -13,8 +13,9 @@ use more_asserts::assert_ge;
 use std::cell::UnsafeCell;
 use std::convert::TryInto;
 use std::ptr::NonNull;
+use std::rc::Rc;
 use std::slice;
-use std::sync::{Arc, RwLock};
+use std::sync::RwLock;
 use std::time::Duration;
 use wasmer_types::{Bytes, MemoryError, MemoryStyle, MemoryType, Pages, WASM_PAGE_SIZE};
 
@@ -305,7 +306,7 @@ impl VMOwnedMemory {
     /// Converts this owned memory into shared memory
     pub fn to_shared(self) -> VMSharedMemory {
         VMSharedMemory {
-            mmap: Arc::new(RwLock::new(self.mmap)),
+            mmap: Rc::new(RwLock::new(self.mmap)),
             config: self.config,
             conditions: ThreadConditions::new(),
         }
@@ -378,7 +379,7 @@ impl LinearMemory for VMOwnedMemory {
 #[derive(Debug, Clone)]
 pub struct VMSharedMemory {
     // The underlying allocation.
-    mmap: Arc<RwLock<WasmMmap>>,
+    mmap: Rc<RwLock<WasmMmap>>,
     // Configuration of this memory
     config: VMMemoryConfig,
     // waiters list for this memory
@@ -416,7 +417,7 @@ impl VMSharedMemory {
     pub fn copy(&mut self) -> Result<Self, MemoryError> {
         let mut guard = self.mmap.write().unwrap();
         Ok(Self {
-            mmap: Arc::new(RwLock::new(guard.copy()?)),
+            mmap: Rc::new(RwLock::new(guard.copy()?)),
             config: self.config.clone(),
             conditions: ThreadConditions::new(),
         })
@@ -496,6 +497,10 @@ impl LinearMemory for VMSharedMemory {
     /// Notify waiters from the wait list. Return the number of waiters notified
     fn do_notify(&mut self, dst: NotifyLocation, count: u32) -> u32 {
         self.conditions.do_notify(dst, count)
+    }
+
+    fn thread_conditions(&self) -> Option<&ThreadConditions> {
+        Some(&self.conditions)
     }
 }
 
@@ -589,6 +594,10 @@ impl LinearMemory for VMMemory {
     /// Notify waiters from the wait list. Return the number of waiters notified
     fn do_notify(&mut self, dst: NotifyLocation, count: u32) -> u32 {
         self.0.do_notify(dst, count)
+    }
+
+    fn thread_conditions(&self) -> Option<&ThreadConditions> {
+        self.0.thread_conditions()
     }
 }
 
@@ -737,5 +746,12 @@ where
     /// Notify waiters from the wait list. Return the number of waiters notified
     fn do_notify(&mut self, _dst: NotifyLocation, _count: u32) -> u32 {
         0
+    }
+
+    /// Access the internal atomics handler.
+    ///
+    /// Will be [`None`] if the memory does not support atomics.
+    fn thread_conditions(&self) -> Option<&ThreadConditions> {
+        None
     }
 }

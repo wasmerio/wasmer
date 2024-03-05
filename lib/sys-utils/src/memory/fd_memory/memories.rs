@@ -4,12 +4,7 @@
 // This file contains code from external sources.
 // Attributions: https://github.com/wasmerio/wasmer/blob/master/ATTRIBUTIONS.md
 
-use std::{
-    cell::UnsafeCell,
-    convert::TryInto,
-    ptr::NonNull,
-    sync::{Arc, RwLock},
-};
+use std::{cell::UnsafeCell, convert::TryInto, ptr::NonNull, rc::Rc, sync::RwLock};
 
 use wasmer::{Bytes, MemoryError, MemoryType, Pages};
 use wasmer_types::{MemoryStyle, WASM_PAGE_SIZE};
@@ -315,7 +310,7 @@ impl VMOwnedMemory {
     /// Converts this owned memory into shared memory
     pub fn to_shared(self) -> VMSharedMemory {
         VMSharedMemory {
-            mmap: Arc::new(RwLock::new(self.mmap)),
+            mmap: Rc::new(RwLock::new(self.mmap)),
             config: self.config,
             conditions: ThreadConditions::new(),
         }
@@ -387,7 +382,7 @@ impl LinearMemory for VMOwnedMemory {
 #[derive(Debug, Clone)]
 pub struct VMSharedMemory {
     // The underlying allocation.
-    mmap: Arc<RwLock<WasmMmap>>,
+    mmap: Rc<RwLock<WasmMmap>>,
     // Configuration of this memory
     config: VMMemoryConfig,
     conditions: ThreadConditions,
@@ -424,7 +419,7 @@ impl VMSharedMemory {
     pub fn copy(&mut self) -> Result<Self, MemoryError> {
         let mut guard = self.mmap.write().unwrap();
         Ok(Self {
-            mmap: Arc::new(RwLock::new(guard.copy()?)),
+            mmap: Rc::new(RwLock::new(guard.copy()?)),
             config: self.config.clone(),
             conditions: ThreadConditions::new(),
         })

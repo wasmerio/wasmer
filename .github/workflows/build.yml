@@ -3,7 +3,7 @@ name: Builds
 env:
   RUST_BACKTRACE: 1
   CARGO_REGISTRIES_CRATES_IO_PROTOCOL: git
-  MSRV: "1.70"
+  MSRV: "1.73"
 
 on:
   push:
@@ -60,7 +60,7 @@ jobs:
             use_llvm: true
             build_wasm: false
           - build: macos-arm64
-            os: macos-11.0
+            os: macos-14
             target: aarch64-apple-darwin
             artifact_name: 'wasmer-darwin-arm64'
             use_sccache: false
@@ -91,18 +91,12 @@ jobs:
       - uses: actions/checkout@v3
       - name: Set up base deps on musl
         if: matrix.build == 'linux-musl-x64'
-        run: |
-            apk add build-base bash musl-dev curl make libtool libffi-dev gcc automake autoconf git openssl-dev g++
+        run: ./scripts/alpine-linux-install-deps.sh
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: ${{ env.MSRV }}
           target: ${{ matrix.target }}
-      - name: Install Rust nightly (to build capi-headless)
-        uses: dtolnay/rust-toolchain@master
-        with:
-          toolchain: "nightly-2023-05-25"
-          target: ${{ matrix.metadata.target }}
       - uses: Swatinem/rust-cache@v2
         if: matrix.use_sccache != true
       - name: Install LLVM (macOS Apple Silicon)
@@ -191,17 +185,9 @@ jobs:
           echo 'RUSTC_WRAPPER=${{ runner.tool_cache }}/cargo-sccache/bin/sccache' >> $GITHUB_ENV
         shell: bash
       - name: Build C API headless
-        if: matrix.build != 'macos-arm64'
         shell: bash
         run: |
           make package-capi-headless
-      - name: Build C API headless
-        if: matrix.build == 'macos-arm64'
-        run: |
-          make package-capi-headless
-        env:
-          TARGET: aarch64-apple-darwin
-          TARGET_DIR: target/aarch64-apple-darwin/release
       - name: Build C API
         shell: bash
         run: |
@@ -224,9 +210,10 @@ jobs:
      #  run: |
      #    make build-wasmer-wasm
       - name: Install Nightly Rust for Headless
+        if: matrix.build != 'linux-musl-x64'
         uses: dtolnay/rust-toolchain@master
         with:
-          toolchain: "nightly-2023-05-25"
+          toolchain: "nightly-2023-10-05"
           target: ${{ matrix.target }}
           components: "rust-src"
       - name: Build Minimal Wasmer Headless
@@ -244,20 +231,12 @@ jobs:
           echo "incremental = false" >> Cargo.toml
           echo "codegen-units = 1" >> Cargo.toml
           echo "rpath = false" >> Cargo.toml
-          rustup override set nightly-2023-05-25
+          rustup override set nightly-2023-10-05
           make build-wasmer-headless-minimal
           rustup override unset
       - name: Dist
-        if: matrix.build != 'macos-arm64'
         run: |
           make distribution
-      - name: Dist macos-arm64
-        if: matrix.build == 'macos-arm64'
-        run: |
-          make distribution
-        env:
-          TARGET: aarch64-apple-darwin
-          TARGET_DIR: target/aarch64-apple-darwin/release
       - name: Upload Artifacts
         uses: actions/upload-artifact@v3
         with:
@@ -277,11 +256,6 @@ jobs:
           sudo apt install -y mingw-w64
       - uses: dtolnay/rust-toolchain@stable
         with:
-          target: x86_64-pc-windows-gnu
-      - name: Install Rust nightly (to build capi-headless)
-        uses: dtolnay/rust-toolchain@master
-        with:
-          toolchain: "nightly-2023-05-25"
           target: x86_64-pc-windows-gnu
       - name: Install Windows-GNU target
         shell: bash

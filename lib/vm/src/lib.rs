@@ -3,21 +3,15 @@
 #![deny(missing_docs, trivial_numeric_casts, unused_extern_crates)]
 #![deny(trivial_numeric_casts, unused_extern_crates)]
 #![warn(unused_import_braces)]
-#![cfg_attr(
-    feature = "cargo-clippy",
-    allow(clippy::new_without_default, clippy::vtable_address_comparisons)
-)]
-#![cfg_attr(
-    feature = "cargo-clippy",
-    warn(
-        clippy::float_arithmetic,
-        clippy::mut_mut,
-        clippy::nonminimal_bool,
-        clippy::map_unwrap_or,
-        clippy::print_stdout,
-        clippy::unicode_not_nfc,
-        clippy::use_self
-    )
+#![allow(clippy::new_without_default, clippy::vtable_address_comparisons)]
+#![warn(
+    clippy::float_arithmetic,
+    clippy::mut_mut,
+    clippy::nonminimal_bool,
+    clippy::map_unwrap_or,
+    clippy::print_stdout,
+    clippy::unicode_not_nfc,
+    clippy::use_self
 )]
 #![cfg_attr(docsrs, feature(doc_cfg, doc_auto_cfg))]
 
@@ -57,8 +51,7 @@ pub use crate::sig_registry::SignatureRegistry;
 pub use crate::store::{InternalStoreHandle, MaybeInstanceOwned, StoreHandle, StoreObjects};
 pub use crate::table::{TableElement, VMTable};
 #[doc(hidden)]
-pub use crate::threadconditions::ThreadConditions;
-pub use crate::threadconditions::WaiterError;
+pub use crate::threadconditions::{ThreadConditions, ThreadConditionsHandle, WaiterError};
 pub use crate::trap::*;
 pub use crate::vmcontext::{
     VMCallerCheckedAnyfunc, VMContext, VMDynamicFunctionContext, VMFunctionContext,

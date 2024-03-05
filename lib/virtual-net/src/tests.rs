@@ -132,6 +132,9 @@ async fn test_tcp_with_mpsc() {
     test_tcp(client, server).await
 }
 
+// Disabled on musl due to flakiness.
+// See https://github.com/wasmerio/wasmer/issues/4425
+#[cfg(not(target_env = "musl"))]
 #[cfg(feature = "remote")]
 #[cfg_attr(windows, ignore)]
 #[traced_test]
@@ -152,6 +155,9 @@ async fn test_tcp_with_large_pipe_using_bincode() {
     test_tcp(client, server).await
 }
 
+// Disabled on musl due to flakiness.
+// See https://github.com/wasmerio/wasmer/issues/4425
+#[cfg(not(target_env = "musl"))]
 #[cfg(feature = "remote")]
 #[cfg(feature = "json")]
 #[cfg_attr(windows, ignore)]
@@ -174,6 +180,9 @@ async fn test_tcp_with_large_pipe_json_using_json() {
     test_tcp(client, server).await
 }
 
+// Disabled on musl due to flakiness.
+// See https://github.com/wasmerio/wasmer/issues/4425
+#[cfg(not(target_env = "musl"))]
 #[cfg(feature = "remote")]
 #[cfg(feature = "messagepack")]
 #[cfg_attr(windows, ignore)]
@@ -185,6 +194,9 @@ async fn test_tcp_with_small_pipe_using_messagepack() {
     test_tcp(client, server).await
 }
 
+// Disabled on musl due to flakiness.
+// See https://github.com/wasmerio/wasmer/issues/4425
+#[cfg(not(target_env = "musl"))]
 #[cfg(feature = "remote")]
 #[cfg(feature = "messagepack")]
 #[cfg_attr(windows, ignore)]
@@ -196,6 +208,9 @@ async fn test_tcp_with_large_pipe_json_using_messagepack() {
     test_tcp(client, server).await
 }
 
+// Disabled on musl due to flakiness.
+// See https://github.com/wasmerio/wasmer/issues/4425
+#[cfg(not(target_env = "musl"))]
 #[cfg(feature = "remote")]
 #[cfg(feature = "cbor")]
 #[cfg_attr(windows, ignore)]

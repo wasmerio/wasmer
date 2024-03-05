@@ -6,7 +6,7 @@ use std::{
     time::Duration,
 };
 
-use anyhow::{Context, Result};
+use anyhow::{bail, Context, Result};
 use bytes::Bytes;
 use clap::Parser;
 use tokio::runtime::Handle;
@@ -86,14 +86,6 @@ pub struct Wasi {
     /// List of injected atoms
     #[clap(long = "map-command", name = "MAPCMD")]
     pub(super) map_commands: Vec<String>,
-
-    /// Enable experimental IO devices
-    #[cfg(feature = "experimental-io-devices")]
-    #[cfg_attr(
-        feature = "experimental-io-devices",
-        clap(long = "enable-experimental-io-devices")
-    )]
-    enable_experimental_io_devices: bool,
 
     /// Enable networking with the host network.
     ///
@@ -237,7 +229,7 @@ impl Wasi {
                     .spawn_and_block_on(async move {
                         BinaryPackage::from_registry(&specifier, &*inner_rt).await
                     })
-                    .with_context(|| format!("Unable to load \"{name}\""))?
+                    .with_context(|| format!("Unable to load \"{name}\""))??
             };
             uses.push(pkg);
         }
@@ -373,14 +365,6 @@ impl Wasi {
             }
             for journal in self.build_journals()? {
                 builder.add_journal(journal);
-            }
-        }
-
-        #[cfg(feature = "experimental-io-devices")]
-        {
-            if self.enable_experimental_io_devices {
-                wasi_state_builder
-                    .setup_fs(Box::new(wasmer_wasi_experimental_io_devices::initialize));
             }
         }
 
@@ -561,7 +545,7 @@ impl Wasi {
         }
 
         if !self.no_tty {
-            let tty = Arc::new(SysTty::default());
+            let tty = Arc::new(SysTty);
             tty.reset();
             rt.set_tty(tty);
         }

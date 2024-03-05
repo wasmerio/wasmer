@@ -11,7 +11,10 @@ use gimli::write::Address;
 use smallvec::{smallvec, SmallVec};
 use std::cmp;
 use std::iter;
-use wasmer_compiler::wasmparser::{BlockType as WpTypeOrFuncType, Operator, ValType as WpType};
+use wasmer_compiler::wasmparser::{
+    BlockType as WpTypeOrFuncType, HeapType as WpHeapType, Operator, RefType as WpRefType,
+    ValType as WpType,
+};
 use wasmer_compiler::FunctionBodyData;
 #[cfg(feature = "unwind")]
 use wasmer_types::CompiledFunctionUnwindInfo;
@@ -235,8 +238,8 @@ fn type_to_wp_type(ty: Type) -> WpType {
         Type::F32 => WpType::F32,
         Type::F64 => WpType::F64,
         Type::V128 => WpType::V128,
-        Type::ExternRef => WpType::ExternRef,
-        Type::FuncRef => WpType::FuncRef, // TODO: FuncRef or Func?
+        Type::ExternRef => WpType::Ref(WpRefType::new(true, WpHeapType::Extern).unwrap()),
+        Type::FuncRef => WpType::Ref(WpRefType::new(true, WpHeapType::Func).unwrap()),
     }
 }
 
@@ -270,7 +273,9 @@ impl<'a, M: Machine> FuncGen<'a, M> {
             let loc = match *ty {
                 WpType::F32 | WpType::F64 => self.machine.pick_simd().map(Location::SIMD),
                 WpType::I32 | WpType::I64 => self.machine.pick_gpr().map(Location::GPR),
-                WpType::FuncRef | WpType::ExternRef => self.machine.pick_gpr().map(Location::GPR),
+                WpType::Ref(ty) if ty.is_extern_ref() || ty.is_func_ref() => {
+                    self.machine.pick_gpr().map(Location::GPR)
+                }
                 _ => codegen_error!("can't acquire location for type {:?}", ty),
             };
 
@@ -2993,7 +2998,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 self.release_locations_value(stack_depth)?;
                 self.value_stack.truncate(stack_depth);
                 self.fp_stack.truncate(fp_depth);
-                let mut frame = &mut self.control_stack.last_mut().unwrap();
+                let frame = &mut self.control_stack.last_mut().unwrap();
 
                 match frame.if_else {
                     IfElseState::If(label) => {
@@ -6067,7 +6072,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
 
                 let ret = self.acquire_locations(
                     &[(
-                        WpType::FuncRef,
+                        WpType::Ref(WpRefType::new(true, WpHeapType::Func).unwrap()),
                         MachineValue::WasmStack(self.value_stack.len()),
                     )],
                     false,
@@ -6163,7 +6168,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
 
                 let ret = self.acquire_locations(
                     &[(
-                        WpType::FuncRef,
+                        WpType::Ref(WpRefType::new(true, WpHeapType::Func).unwrap()),
                         MachineValue::WasmStack(self.value_stack.len()),
                     )],
                     false,

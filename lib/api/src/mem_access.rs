@@ -44,8 +44,7 @@ impl From<FromUtf8Error> for MemoryAccessError {
 /// trait which guarantees that reading and writing such a value to untrusted
 /// memory is safe.
 ///
-/// The address is not required to be aligned: unaligned accesses are fully
-/// supported.
+/// The address is required to be aligned: unaligned accesses cause undefined behavior.
 ///
 /// This wrapper safely handles concurrent modifications of the data by another
 /// thread.
@@ -86,7 +85,7 @@ impl<'a, T: ValueType> WasmRef<'a, T> {
         WasmPtr::new(self.offset)
     }
 
-    /// Get a `WasmPtr` fror this `WasmRef`.
+    /// Get a `WasmPtr` for this `WasmRef`.
     #[inline]
     pub fn as_ptr<M: MemorySize>(self) -> WasmPtr<T, M> {
         let offset: M::Offset = self

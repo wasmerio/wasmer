@@ -1,9 +1,10 @@
-use crate::store::StoreOptions;
-use crate::warning;
+use std::path::PathBuf;
+
 use anyhow::{Context, Result};
 use clap::Parser;
-use std::path::PathBuf;
 use wasmer::*;
+
+use crate::{store::StoreOptions, warning};
 
 #[derive(Debug, Parser)]
 /// The options for the `wasmer compile` subcommand

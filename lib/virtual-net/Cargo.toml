@@ -1,6 +1,6 @@
 [package]
 name = "virtual-net"
-version = "0.6.2"
+version = "0.6.3"
 description = "Wasmer Virtual Networking"
 authors.workspace = true
 edition.workspace = true
@@ -28,7 +28,7 @@ futures-util = { version = "0.3" }
 anyhow = "1.0"
 tokio-serde = { version = "0.8", features = [ "bincode" ], optional = true }
 tokio-util = { version = "0.7.8", features = ["codec"], optional = true }
-hyper-tungstenite = { version = "0.13", optional = true }
+hyper-tungstenite = { version = "0.11", optional = true }
 hyper = { version = "0.14", optional = true }
 tokio-tungstenite = { version = "0.20", optional = true }
 rkyv = { version = "0.7.40", features = ["indexmap", "validation", "strict"], optional = true }

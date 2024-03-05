@@ -262,3 +262,26 @@ impl From<Box<dyn std::error::Error + Send + Sync>> for RuntimeError {
         }
     }
 }
+
+/// Error that can occur during atomic operations. (notify/wait)
+// Non-exhaustive to allow for future variants without breaking changes!
+#[derive(PartialEq, Eq, Debug, Error)]
+#[non_exhaustive]
+pub enum AtomicsError {
+    /// Atomic operations are not supported by this memory.
+    Unimplemented,
+    /// To many waiter for address.
+    TooManyWaiters,
+    /// Atomic operations are disabled.
+    AtomicsDisabled,
+}
+
+impl std::fmt::Display for AtomicsError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Unimplemented => write!(f, "Atomic operations are not supported"),
+            Self::TooManyWaiters => write!(f, "Too many waiters for address"),
+            Self::AtomicsDisabled => write!(f, "Atomic operations are disabled"),
+        }
+    }
+}

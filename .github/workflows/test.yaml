@@ -24,7 +24,7 @@ env:
   # Rust, but it's not stable on 1.69 yet. By explicitly setting the protocol we
   # can override that behaviour
   CARGO_REGISTRIES_CRATES_IO_PROTOCOL: git
-  MSRV: "1.70"
+  MSRV: "1.73"
   NEXTEST_PROFILE: "ci"
 
 jobs:
@@ -121,6 +121,23 @@ jobs:
         run: |
           make test-js
 
+  test_wasi_fyi:
+    name: Test wasi-fyi
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v3
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: nightly
+          targets: "wasm32-wasi"
+      - name: Install wasm-pack
+        run: |
+          curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
+      - name: make test-wasi-fyi
+        run: |
+          make test-wasi-fyi
+
       # The no_std functionality doesn't work at the moment - no point in testing it.
       # - name: make test-js-core
       #   run: |
@@ -161,7 +178,7 @@ jobs:
       - uses: actions/checkout@v3
       - uses: dtolnay/rust-toolchain@master
         with:
-          toolchain: "nightly-2023-05-25"
+          toolchain: "nightly-2023-10-05"
           target: x86_64-unknown-linux-gnu
       - run: cargo install toml-cli # toml-cli is required to run `make test-build-docs-rs`
       - name: make test-build-docs-rs-ci
@@ -354,9 +371,7 @@ jobs:
           sudo apt-get install --reinstall g++
       - name: Set up base deps on musl
         if: matrix.metadata.build == 'linux-musl'
-        run: |
-            apk update
-            apk add build-base bash musl-dev curl tar make libtool libffi-dev gcc automake autoconf git openssl-dev g++
+        run: ./scripts/alpine-linux-install-deps.sh
       - name: Set up dependencies for Mac OS
         run: |
           brew install automake
@@ -368,11 +383,6 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: ${{ env.MSRV }}
-          target: ${{ matrix.metadata.target }}
-      - name: Install Rust nightly (to build capi-headless)
-        uses: dtolnay/rust-toolchain@master
-        with:
-          toolchain: "nightly-2023-05-25"
           target: ${{ matrix.metadata.target }}
       - name: Install Nextest
         uses: taiki-e/install-action@nextest
@@ -557,6 +567,12 @@ jobs:
             llvm_url: 'https://github.com/llvm/llvm-project/releases/download/llvmorg-15.0.7/clang+llvm-15.0.7-x86_64-apple-darwin21.0.tar.xz'
           },
           {
+            build: macos-arm64,
+            os: macos-14,
+            target: aarch64-apple-darwin,
+            exe: '',
+          },
+          {
             build: windows-x64,
             os: windows-2019,
             target: x86_64-pc-windows-msvc,
@@ -585,9 +601,7 @@ jobs:
           sudo apt-get install --reinstall g++
       - name: Set up base deps on musl
         if: matrix.metadata.build == 'linux-musl'
-        run: |
-            apk update
-            apk add build-base bash musl-dev curl tar make libtool libffi-dev gcc automake autoconf git openssl-dev g++
+        run: ./scripts/alpine-linux-install-deps.sh
       - name: Set up dependencies for Mac OS
         run: |
           brew install automake
@@ -686,9 +700,7 @@ jobs:
           version: 0.10.0
       - name: Set up base deps on musl
         if: matrix.build == 'linux-musl'
-        run: |
-            apk update
-            apk add build-base bash musl-dev curl tar make libtool libffi-dev gcc automake autoconf git openssl-dev g++
+        run: ./scripts/alpine-linux-install-deps.sh
       - uses: actions/download-artifact@v3
         id: download
         with:
