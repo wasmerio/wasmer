@@ -7,7 +7,6 @@ This crate is the Wasmer Compiler only CLI.
 
 The Compiler only Wasmer supports the following features:
 * `wasi` (default): support for [WASI].
-* `experimental-io-devices`: support for experimental IO devices in WASI.
 * `emscripten` (default): support for [Emscripten].
 * `singlepass`: support for the [Singlepass compiler].
 

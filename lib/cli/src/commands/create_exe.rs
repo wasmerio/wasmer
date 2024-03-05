@@ -1958,7 +1958,7 @@ pub(super) mod utils {
     #[test]
     fn test_filter_tarball() {
         use std::str::FromStr;
-        let test_paths = vec![
+        let test_paths = [
             "/test/wasmer-darwin-amd64.tar.gz",
             "/test/wasmer-darwin-arm64.tar.gz",
             "/test/wasmer-linux-aarch64.tar.gz",

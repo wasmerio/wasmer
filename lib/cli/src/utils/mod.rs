@@ -194,11 +194,31 @@ pub async fn republish_package_with_bumped_version(
         .context("could not load package info from backend")?
         .and_then(|x| x.last_version);
 
-    let new_version = if let Some(current) = current_opt {
+    let new_version = if let Some(current) = &current_opt {
         let mut v = semver::Version::parse(&current.version)
             .with_context(|| format!("Could not parse package version: '{}'", current.version))?;
 
         v.patch += 1;
+
+        // The backend does not have a reliable way to return the latest version,
+        // so we have to check each version in a loop.
+        loop {
+            let version = format!("={}", v);
+            let version = wasmer_api::query::get_package_version(
+                client,
+                manifest.package.name.clone(),
+                version.clone(),
+            )
+            .await
+            .context("could not load package info from backend")?;
+
+            if version.is_some() {
+                v.patch += 1;
+            } else {
+                break;
+            }
+        }
+
         v
     } else {
         manifest.package.version
@@ -246,7 +266,13 @@ pub async fn republish_package_with_bumped_version(
         // large packages.
         timeout: std::time::Duration::from_secs(60 * 60 * 12),
     };
-    publish.execute()?;
+
+    // Publish uses a blocking http client internally, which leads to a
+    // "can't drop a runtime within an async context" error, so this has
+    // to be run in a separate thread.
+    std::thread::spawn(move || publish.execute())
+        .join()
+        .map_err(|e| anyhow::format_err!("failed to publish package: {:?}", e))??;
 
     Ok(manifest)
 }
