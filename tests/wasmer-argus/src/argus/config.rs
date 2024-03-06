@@ -15,7 +15,7 @@ fn get_default_token() -> String {
 
 #[derive(Debug, Clone, Serialize, Deserialize, ValueEnum, derive_more::Display)]
 pub enum Backend {
-    LLVM,
+    Llvm,
     Singlepass,
     Cranelift,
 }
@@ -23,7 +23,7 @@ pub enum Backend {
 impl Backend {
     pub fn to_engine(&self) -> Engine {
         match self {
-            Backend::LLVM => Engine::new(
+            Backend::Llvm => Engine::new(
                 Box::new(wasmer::LLVM::new()),
                 Target::default(),
                 Features::default(),
