@@ -8,7 +8,7 @@ use indicatif::{MultiProgress, ProgressBar};
 use std::{
     fs::{File, OpenOptions},
     io::{BufReader, Write as _},
-    path::PathBuf,
+    path::Path,
     sync::Arc,
     time::Duration,
 };
@@ -80,7 +80,7 @@ impl Argus {
                 Argus::test(count, c, &pkg, bar).await
             });
 
-            count = count + 1;
+            count += 1;
         }
 
         while let Some(t) = pool.join_next().await {
@@ -94,10 +94,10 @@ impl Argus {
     }
 
     /// The actual test
-    async fn test<'a>(
+    async fn test(
         test_id: u64,
         config: Arc<ArgusConfig>,
-        pkg: &'a PackageVersionWithPackage,
+        pkg: &PackageVersionWithPackage,
         p: ProgressBar,
     ) -> anyhow::Result<()> {
         p.set_style(
@@ -279,7 +279,7 @@ impl Argus {
         !prev_run.has(&self.config)
     }
 
-    async fn write_report(path: &PathBuf, report: TestReport) -> anyhow::Result<()> {
+    async fn write_report(path: &Path, report: TestReport) -> anyhow::Result<()> {
         let test_results_path = path.join("results.json");
 
         let mut test_results = if test_results_path.exists() {
