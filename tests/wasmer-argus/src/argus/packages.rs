@@ -82,7 +82,7 @@ impl Argus {
         if !path.exists() {
             tokio::fs::create_dir_all(path).await?;
         } else if path.exists() && !path.is_dir() {
-                anyhow::bail!("path {:?} exists, but it is not a directory!", path)
+            anyhow::bail!("path {:?} exists, but it is not a directory!", path)
         }
 
         let client = Client::builder().user_agent(APP_USER_AGENT).build()?;
@@ -186,10 +186,7 @@ impl Argus {
 
     /// Return the complete path to the folder of the test for the package, from the outdir to the
     /// hash
-    pub async fn get_path(
-        config: Arc<ArgusConfig>,
-        pkg: &PackageVersionWithPackage,
-    ) -> PathBuf {
+    pub async fn get_path(config: Arc<ArgusConfig>, pkg: &PackageVersionWithPackage) -> PathBuf {
         let hash = match &pkg.distribution.pirita_sha256_hash {
             Some(hash) => hash,
             None => {
