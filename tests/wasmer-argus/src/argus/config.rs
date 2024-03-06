@@ -10,7 +10,7 @@ fn get_default_out_path() -> PathBuf {
 }
 
 fn get_default_token() -> String {
-    std::env::var("WASMER_TOKEN").unwrap_or(String::new())
+    std::env::var("WASMER_TOKEN").unwrap_or_default()
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, ValueEnum, derive_more::Display)]
@@ -23,7 +23,11 @@ pub enum Backend {
 impl Backend {
     pub fn to_engine(&self) -> Engine {
         match self {
-            Backend::LLVM => todo!(),
+            Backend::LLVM => Engine::new(
+                Box::new(wasmer::LLVM::new()),
+                Target::default(),
+                Features::default(),
+            ),
             Backend::Singlepass => Engine::new(
                 Box::new(wasmer::Singlepass::new()),
                 Target::default(),
