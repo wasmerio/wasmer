@@ -49,7 +49,7 @@ impl Argus {
                 }
             };
             p.set_message(format!("fetched {} packages", count));
-            count = count + pkgs.len();
+            count += pkgs.len();
 
             for pkg in pkgs {
                 if self.to_test(&pkg).await {
@@ -81,10 +81,8 @@ impl Argus {
 
         if !path.exists() {
             tokio::fs::create_dir_all(path).await?;
-        } else {
-            if path.exists() && !path.is_dir() {
+        } else if path.exists() && !path.is_dir() {
                 anyhow::bail!("path {:?} exists, but it is not a directory!", path)
-            }
         }
 
         let client = Client::builder().user_agent(APP_USER_AGENT).build()?;
@@ -188,9 +186,9 @@ impl Argus {
 
     /// Return the complete path to the folder of the test for the package, from the outdir to the
     /// hash
-    pub async fn get_path<'a>(
+    pub async fn get_path(
         config: Arc<ArgusConfig>,
-        pkg: &'a PackageVersionWithPackage,
+        pkg: &PackageVersionWithPackage,
     ) -> PathBuf {
         let hash = match &pkg.distribution.pirita_sha256_hash {
             Some(hash) => hash,
@@ -215,7 +213,7 @@ impl Argus {
         format!(
             "{}/{}_v{}",
             namespace,
-            pkg.package.package_name.replace("/", "_"),
+            pkg.package.package_name.replace('/', "_"),
             pkg.version
         )
     }
