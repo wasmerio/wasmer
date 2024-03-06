@@ -1,0 +1,37 @@
+[package]
+name = "wasmer-argus"
+authors.workspace = true
+edition.workspace = true
+homepage.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+version.workspace = true
+
+[lib]
+path = "src/lib.rs"
+
+[[bin]]
+name = "wasmer-argus"
+path = "src/main.rs"
+
+[dependencies]
+indicatif = "0.17.8"
+# structopt = { version = "0.2", features = [ "paw" ] }
+paw = "1.0"
+wasmer-api = { version = "0.0.23", path = "../../lib/backend-api" }
+anyhow = "1.0.80"
+log = "0.4.21"
+cynic = "3.4.3"
+url = "2.5.0"
+futures = "0.3.30"
+tracing = "0.1.40"
+tokio = { version = "1.36.0", features = ["rt-multi-thread", "sync", "time", "fs"] }
+clap = {version = "4.4.11", features = ["derive", "string"]}
+tracing-subscriber = { version = "0.3.18", features = ["env-filter"] }
+serde = { version = "1.0.197", features = ["derive"] }
+serde_json = "1.0.114"
+wasmer = { version = "4.2.6", path = "../../lib/api", features = ["engine", "core", "singlepass", "cranelift"] }
+reqwest = "0.11.24"
+derive_more = "0.99.17"
+webc.workspace = true
