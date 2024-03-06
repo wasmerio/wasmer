@@ -70,6 +70,7 @@ members = [
     "tests/lib/compiler-test-derive",
     "tests/lib/wast",
     "tests/wasi-wast",
+    "tests/wasmer-argus",
 ]
 resolver = "2"
 
