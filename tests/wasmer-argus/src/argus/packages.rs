@@ -3,8 +3,8 @@ use crate::ArgusConfig;
 use futures::StreamExt;
 use indicatif::{ProgressBar, ProgressStyle};
 use reqwest::{header, Client};
-use std::{fs::File, io::Write, path::PathBuf, sync::Arc, time::Duration};
-use tokio::sync::mpsc::UnboundedSender;
+use std::{path::PathBuf, sync::Arc, time::Duration};
+use tokio::{fs::File, io::AsyncWriteExt, sync::mpsc::UnboundedSender};
 use tracing::*;
 use url::Url;
 use wasmer_api::{
@@ -119,7 +119,7 @@ impl Argus {
 
         p.set_message(format!("downloading from {url}"));
 
-        let mut outfile = match File::create(&path.join("package.webc")) {
+        let mut outfile = match File::create(&path.join("package.webc")).await {
             Ok(o) => o,
             Err(e) => {
                 error!(
@@ -160,7 +160,7 @@ impl Argus {
                 Ok(chunk) => {
                     if let Some(chunk) = chunk {
                         p.inc(chunk.len() as u64);
-                        if let Err(e) = outfile.write(&chunk) {
+                        if let Err(e) = outfile.write(&chunk).await {
                             error!(
                                 "[{test_id}] failed to write chunk to file {:?}. Error: {e}",
                                 outfile
@@ -178,7 +178,7 @@ impl Argus {
             }
         }
 
-        outfile.flush()?;
+        outfile.flush().await?;
         drop(outfile);
 
         Ok(())
