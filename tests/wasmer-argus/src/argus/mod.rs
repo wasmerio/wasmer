@@ -149,7 +149,7 @@ impl Argus {
 
         let start = time::Instant::now();
 
-        let res = match std::panic::catch_unwind(|| {
+        let test_exec_result = std::panic::catch_unwind(|| {
             p.set_message("reading webc bytes from filesystem");
             let bytes = std::fs::read(&filepath)?;
             let store = wasmer::Store::new(config.compiler_backend.to_engine());
@@ -182,7 +182,9 @@ impl Argus {
             }
 
             Ok(())
-        }) {
+        });
+
+        let res = match test_exec_result {
             Ok(r) => match r {
                 Ok(_) => Ok(()),
                 Err(e) => Err(format!("{e}")),

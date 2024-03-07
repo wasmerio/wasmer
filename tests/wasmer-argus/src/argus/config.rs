@@ -13,6 +13,12 @@ fn get_default_token() -> String {
     std::env::var("WASMER_TOKEN").unwrap_or_default()
 }
 
+fn get_default_jobs() -> usize {
+    std::thread::available_parallelism()
+        .unwrap_or(std::num::NonZeroUsize::new(2).unwrap())
+        .into()
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, ValueEnum, derive_more::Display)]
 pub enum Backend {
     Llvm,
@@ -71,7 +77,7 @@ pub struct ArgusConfig {
     pub auth_token: String,
 
     /// The number of concurrent tests (jobs) to perform
-    #[arg(long, default_value = <std::num::NonZeroUsize as Into<usize>>::into(std::thread::available_parallelism().unwrap_or(std::num::NonZeroUsize::new(2).unwrap())).to_string()) ]
+    #[arg(long, default_value_t = get_default_jobs()) ]
     pub jobs: usize,
 }
 
