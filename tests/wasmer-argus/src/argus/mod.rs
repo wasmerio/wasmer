@@ -213,7 +213,7 @@ impl Argus {
     /// configuration.
     ///
     /// For example, given a package such as
-    /// ```
+    /// ```text
     /// {
     ///     "package": {
     ///         "package_name": "any/mytest",
