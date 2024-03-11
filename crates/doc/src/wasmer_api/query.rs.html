@@ -826,7 +826,6 @@
 <a href="#826" id="826">826</a>
 <a href="#827" id="827">827</a>
 <a href="#828" id="828">828</a>
-<a href="#829" id="829">829</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{collections::HashSet, pin::Pin, time::Duration};
 
 <span class="kw">use </span>anyhow::{bail, Context};
@@ -1042,7 +1041,6 @@
 
     <span class="kw">loop </span>{
         <span class="kw">let </span>page = get_deploy_app_versions(client, vars.clone()).<span class="kw">await</span><span class="question-mark">?</span>;
-        <span class="macro">dbg!</span>(<span class="kw-2">&amp;</span>page);
         <span class="kw">if </span>page.edges.is_empty() {
             <span class="kw">break</span>;
         }
