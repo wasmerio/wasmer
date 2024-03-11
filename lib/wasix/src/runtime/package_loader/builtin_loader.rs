@@ -117,7 +117,7 @@ impl BuiltinPackageLoader {
                 Ok(path) => {
                     let bytes = crate::spawn_blocking({
                         let path = path.clone();
-                        move || std::fs::read(&path)
+                        move || std::fs::read(path)
                     })
                     .await?
                     .with_context(|| format!("Unable to read \"{}\"", path.display()))?;
@@ -279,7 +279,7 @@ impl FileSystemCache {
 
         let container = crate::spawn_blocking({
             let path = path.clone();
-            move || Container::from_disk(&path)
+            move || Container::from_disk(path)
         })
         .await?;
         match container {
