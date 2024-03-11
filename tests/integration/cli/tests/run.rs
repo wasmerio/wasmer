@@ -178,7 +178,6 @@ fn test_wasmer_run_works_with_dir() {
 
 // FIXME: Re-enable. See https://github.com/wasmerio/wasmer/issues/3717
 #[ignore]
-#[cfg_attr(target_env = "musl", ignore)]
 #[test]
 fn test_wasmer_run_works() {
     let assert = Command::new(get_wasmer_path())

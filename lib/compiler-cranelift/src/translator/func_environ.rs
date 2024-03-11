@@ -164,7 +164,7 @@ pub trait FuncEnvironment: TargetEnvironment {
     /// The signature `sig_ref` was previously created by `make_indirect_sig()`.
     ///
     /// Return the call instruction whose results are the WebAssembly return values.
-    #[cfg_attr(feature = "cargo-clippy", allow(clippy::too_many_arguments))]
+    #[allow(clippy::too_many_arguments)]
     fn translate_call_indirect(
         &mut self,
         pos: FuncCursor,

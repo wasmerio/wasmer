@@ -70,6 +70,7 @@ mod queries {
     pub struct PackageDistribution {
         pub pirita_sha256_hash: Option<String>,
         pub pirita_download_url: Option<String>,
+        pub download_url: Option<String>,
     }
 
     #[derive(cynic::QueryFragment, Debug, Clone)]
@@ -180,17 +181,24 @@ mod queries {
         pub get_deploy_app: Option<DeployApp>,
     }
 
+    #[derive(cynic::QueryVariables, Debug)]
+    pub struct GetCurrentUserWithAppsVars {
+        pub after: Option<String>,
+    }
+
     #[derive(cynic::QueryFragment, Debug)]
-    #[cynic(graphql_type = "Query")]
+    #[cynic(graphql_type = "Query", variables = "GetCurrentUserWithAppsVars")]
     pub struct GetCurrentUserWithApps {
         pub viewer: Option<UserWithApps>,
     }
 
     #[derive(cynic::QueryFragment, Debug)]
     #[cynic(graphql_type = "User")]
+    #[cynic(variables = "GetCurrentUserWithAppsVars")]
     pub struct UserWithApps {
         pub id: cynic::Id,
         pub username: String,
+        #[arguments(after: $after)]
         pub apps: DeployAppConnection,
     }
 
@@ -537,6 +545,7 @@ mod queries {
     #[derive(cynic::QueryVariables, Debug)]
     pub struct GetNamespaceAppsVars {
         pub name: String,
+        pub after: Option<String>,
     }
 
     #[derive(cynic::QueryFragment, Debug)]
@@ -548,9 +557,11 @@ mod queries {
 
     #[derive(cynic::QueryFragment, Debug)]
     #[cynic(graphql_type = "Namespace")]
+    #[cynic(variables = "GetNamespaceAppsVars")]
     pub struct NamespaceWithApps {
         pub id: cynic::Id,
         pub name: String,
+        #[arguments(after: $after)]
         pub apps: DeployAppConnection,
     }
 
@@ -591,6 +602,12 @@ mod queries {
         pub token: String,
     }
 
+    #[derive(cynic::Enum, Clone, Copy, Debug)]
+    pub enum LogStream {
+        Stdout,
+        Stderr,
+    }
+
     #[derive(cynic::QueryVariables, Debug, Clone)]
     pub struct GetDeployAppLogsVars {
         pub name: String,
@@ -605,6 +622,8 @@ mod queries {
         /// epoch.
         pub until: Option<f64>,
         pub first: Option<i32>,
+
+        pub streams: Option<Vec<LogStream>>,
     }
 
     #[derive(cynic::QueryFragment, Debug)]
