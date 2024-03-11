@@ -35,6 +35,7 @@ mod queries {
 
     #[derive(cynic::Enum, Clone, Copy, Debug)]
     pub enum GrapheneRole {
+        Owner,
         Admin,
         Editor,
         Viewer,
@@ -606,6 +607,7 @@ mod queries {
     pub enum LogStream {
         Stdout,
         Stderr,
+        Runtime,
     }
 
     #[derive(cynic::QueryVariables, Debug, Clone)]
@@ -727,6 +729,356 @@ mod queries {
         #[cynic(rename = "node")]
         pub version: Option<Node>,
     }
+
+    #[derive(cynic::QueryFragment, Debug, Clone)]
+    #[cynic(graphql_type = "TXTRecord")]
+    pub struct TxtRecord {
+        pub id: cynic::Id,
+        pub created_at: DateTime,
+        pub updated_at: DateTime,
+        pub deleted_at: Option<DateTime>,
+        pub name: Option<String>,
+        pub ttl: Option<i32>,
+        pub data: String,
+
+        pub domain: DnsDomain,
+    }
+
+    #[derive(cynic::QueryFragment, Debug, Clone)]
+    #[cynic(graphql_type = "SSHFPRecord")]
+    pub struct SshfpRecord {
+        pub id: cynic::Id,
+        pub created_at: DateTime,
+        pub updated_at: DateTime,
+        pub deleted_at: Option<DateTime>,
+        pub name: Option<String>,
+        pub ttl: Option<i32>,
+        #[cynic(rename = "type")]
+        pub type_: DnsmanagerSshFingerprintRecordTypeChoices,
+        pub algorithm: DnsmanagerSshFingerprintRecordAlgorithmChoices,
+        pub fingerprint: String,
+
+        pub domain: DnsDomain,
+    }
+
+    #[derive(cynic::QueryFragment, Debug, Clone)]
+    #[cynic(graphql_type = "SRVRecord")]
+    pub struct SrvRecord {
+        pub id: cynic::Id,
+        pub created_at: DateTime,
+        pub updated_at: DateTime,
+        pub deleted_at: Option<DateTime>,
+        pub name: Option<String>,
+        pub ttl: Option<i32>,
+        pub service: String,
+        pub protocol: String,
+        pub priority: i32,
+        pub weight: i32,
+        pub port: i32,
+        pub target: String,
+
+        pub domain: DnsDomain,
+    }
+
+    #[derive(cynic::QueryFragment, Debug, Clone)]
+    #[cynic(graphql_type = "SOARecord")]
+    pub struct SoaRecord {
+        pub id: cynic::Id,
+        pub created_at: DateTime,
+        pub updated_at: DateTime,
+        pub deleted_at: Option<DateTime>,
+        pub name: Option<String>,
+        pub ttl: Option<i32>,
+        pub mname: String,
+        pub rname: String,
+        pub serial: BigInt,
+        pub refresh: BigInt,
+        pub retry: BigInt,
+        pub expire: BigInt,
+        pub minimum: BigInt,
+
+        pub domain: DnsDomain,
+    }
+
+    #[derive(cynic::Enum, Debug, Clone, Copy)]
+    pub enum DNSRecordsSortBy {
+        Newest,
+        Oldest,
+    }
+
+    #[derive(cynic::QueryVariables, Debug, Clone)]
+    pub struct GetAllDnsRecordsVariables {
+        pub after: Option<String>,
+        pub updated_after: Option<DateTime>,
+        pub sort_by: Option<DNSRecordsSortBy>,
+        pub first: Option<i32>,
+    }
+
+    #[derive(cynic::QueryFragment, Debug)]
+    #[cynic(graphql_type = "Query", variables = "GetAllDnsRecordsVariables")]
+    pub struct GetAllDnsRecords {
+        #[arguments(
+            first: $first,
+            after: $after,
+            updatedAfter: $updated_after,
+            sortBy: $sort_by
+        )]
+        #[cynic(rename = "getAllDNSRecords")]
+        pub get_all_dnsrecords: DnsRecordConnection,
+    }
+
+    #[derive(cynic::QueryFragment, Debug, Clone)]
+    #[cynic(graphql_type = "PTRRecord")]
+    pub struct PtrRecord {
+        pub id: cynic::Id,
+        pub created_at: DateTime,
+        pub updated_at: DateTime,
+        pub deleted_at: Option<DateTime>,
+        pub name: Option<String>,
+        pub ttl: Option<i32>,
+        pub ptrdname: String,
+
+        pub domain: DnsDomain,
+    }
+
+    #[derive(cynic::QueryFragment, Debug, Clone)]
+    #[cynic(graphql_type = "NSRecord")]
+    pub struct NsRecord {
+        pub id: cynic::Id,
+        pub created_at: DateTime,
+        pub updated_at: DateTime,
+        pub deleted_at: Option<DateTime>,
+        pub name: Option<String>,
+        pub ttl: Option<i32>,
+        pub nsdname: String,
+
+        pub domain: DnsDomain,
+    }
+
+    #[derive(cynic::QueryFragment, Debug, Clone)]
+    #[cynic(graphql_type = "MXRecord")]
+    pub struct MxRecord {
+        pub id: cynic::Id,
+        pub created_at: DateTime,
+        pub updated_at: DateTime,
+        pub deleted_at: Option<DateTime>,
+        pub name: Option<String>,
+        pub ttl: Option<i32>,
+        pub preference: i32,
+        pub exchange: String,
+
+        pub domain: DnsDomain,
+    }
+
+    #[derive(cynic::QueryFragment, Debug)]
+    #[cynic(graphql_type = "DNSRecordConnection")]
+    pub struct DnsRecordConnection {
+        pub page_info: PageInfo,
+        pub edges: Vec<Option<DnsRecordEdge>>,
+    }
+
+    #[derive(cynic::QueryFragment, Debug)]
+    #[cynic(graphql_type = "DNSRecordEdge")]
+    pub struct DnsRecordEdge {
+        pub node: Option<DnsRecord>,
+    }
+
+    #[derive(cynic::QueryFragment, Debug, Clone)]
+    #[cynic(graphql_type = "DNAMERecord")]
+    pub struct DNameRecord {
+        pub id: cynic::Id,
+        pub created_at: DateTime,
+        pub updated_at: DateTime,
+        pub deleted_at: Option<DateTime>,
+        pub name: Option<String>,
+        pub ttl: Option<i32>,
+        pub d_name: String,
+
+        pub domain: DnsDomain,
+    }
+
+    #[derive(cynic::QueryFragment, Debug, Clone)]
+    #[cynic(graphql_type = "CNAMERecord")]
+    pub struct CNameRecord {
+        pub id: cynic::Id,
+        pub created_at: DateTime,
+        pub updated_at: DateTime,
+        pub deleted_at: Option<DateTime>,
+        pub name: Option<String>,
+        pub ttl: Option<i32>,
+        pub c_name: String,
+
+        pub domain: DnsDomain,
+    }
+
+    #[derive(cynic::QueryFragment, Debug, Clone)]
+    #[cynic(graphql_type = "CAARecord")]
+    pub struct CaaRecord {
+        pub id: cynic::Id,
+        pub created_at: DateTime,
+        pub updated_at: DateTime,
+        pub deleted_at: Option<DateTime>,
+        pub name: Option<String>,
+        pub ttl: Option<i32>,
+        pub value: String,
+        pub flags: i32,
+        pub tag: DnsmanagerCertificationAuthorityAuthorizationRecordTagChoices,
+
+        pub domain: DnsDomain,
+    }
+
+    #[derive(cynic::QueryFragment, Debug, Clone)]
+    #[cynic(graphql_type = "ARecord")]
+    pub struct ARecord {
+        pub id: cynic::Id,
+        pub created_at: DateTime,
+        pub updated_at: DateTime,
+        pub deleted_at: Option<DateTime>,
+        pub name: Option<String>,
+        pub ttl: Option<i32>,
+        pub address: String,
+
+        pub domain: DnsDomain,
+    }
+
+    #[derive(cynic::QueryFragment, Debug, Clone)]
+    #[cynic(graphql_type = "AAAARecord")]
+    pub struct AaaaRecord {
+        pub id: cynic::Id,
+        pub created_at: DateTime,
+        pub updated_at: DateTime,
+        pub deleted_at: Option<DateTime>,
+        pub name: Option<String>,
+        pub ttl: Option<i32>,
+        pub address: String,
+
+        pub domain: DnsDomain,
+    }
+
+    #[derive(cynic::InlineFragments, Debug, Clone)]
+    #[cynic(graphql_type = "DNSRecord")]
+    pub enum DnsRecord {
+        A(ARecord),
+        AAAA(AaaaRecord),
+        CName(CNameRecord),
+        Txt(TxtRecord),
+        Mx(MxRecord),
+        Ns(NsRecord),
+        CAA(CaaRecord),
+        DName(DNameRecord),
+        Ptr(PtrRecord),
+        Soa(SoaRecord),
+        Srv(SrvRecord),
+        Sshfp(SshfpRecord),
+        #[cynic(fallback)]
+        Unknown,
+    }
+
+    impl DnsRecord {
+        pub fn id(&self) -> &str {
+            match self {
+                DnsRecord::A(record) => record.id.inner(),
+                DnsRecord::AAAA(record) => record.id.inner(),
+                DnsRecord::CName(record) => record.id.inner(),
+                DnsRecord::Txt(record) => record.id.inner(),
+                DnsRecord::Mx(record) => record.id.inner(),
+                DnsRecord::Ns(record) => record.id.inner(),
+                DnsRecord::CAA(record) => record.id.inner(),
+                DnsRecord::DName(record) => record.id.inner(),
+                DnsRecord::Ptr(record) => record.id.inner(),
+                DnsRecord::Soa(record) => record.id.inner(),
+                DnsRecord::Srv(record) => record.id.inner(),
+                DnsRecord::Sshfp(record) => record.id.inner(),
+                DnsRecord::Unknown => "",
+            }
+        }
+
+        pub fn domain(&self) -> Option<&DnsDomain> {
+            match self {
+                DnsRecord::A(record) => Some(&record.domain),
+                DnsRecord::AAAA(record) => Some(&record.domain),
+                DnsRecord::CName(record) => Some(&record.domain),
+                DnsRecord::Txt(record) => Some(&record.domain),
+                DnsRecord::Mx(record) => Some(&record.domain),
+                DnsRecord::Ns(record) => Some(&record.domain),
+                DnsRecord::CAA(record) => Some(&record.domain),
+                DnsRecord::DName(record) => Some(&record.domain),
+                DnsRecord::Ptr(record) => Some(&record.domain),
+                DnsRecord::Soa(record) => Some(&record.domain),
+                DnsRecord::Srv(record) => Some(&record.domain),
+                DnsRecord::Sshfp(record) => Some(&record.domain),
+                DnsRecord::Unknown => None,
+            }
+        }
+    }
+
+    #[derive(cynic::Enum, Clone, Copy, Debug)]
+    pub enum DnsmanagerCertificationAuthorityAuthorizationRecordTagChoices {
+        Issue,
+        Issuewild,
+        Iodef,
+    }
+
+    impl DnsmanagerCertificationAuthorityAuthorizationRecordTagChoices {
+        pub fn as_str(self) -> &'static str {
+            match self {
+                Self::Issue => "issue",
+                Self::Issuewild => "issuewild",
+                Self::Iodef => "iodef",
+            }
+        }
+    }
+
+    #[derive(cynic::Enum, Clone, Copy, Debug)]
+    pub enum DnsmanagerSshFingerprintRecordAlgorithmChoices {
+        #[cynic(rename = "A_1")]
+        A1,
+        #[cynic(rename = "A_2")]
+        A2,
+        #[cynic(rename = "A_3")]
+        A3,
+        #[cynic(rename = "A_4")]
+        A4,
+    }
+
+    #[derive(cynic::Enum, Clone, Copy, Debug)]
+    pub enum DnsmanagerSshFingerprintRecordTypeChoices {
+        #[cynic(rename = "A_1")]
+        A1,
+        #[cynic(rename = "A_2")]
+        A2,
+    }
+
+    #[derive(cynic::QueryVariables, Debug)]
+    pub struct GetDomainVars {
+        pub domain: String,
+    }
+
+    #[derive(cynic::QueryFragment, Debug)]
+    #[cynic(graphql_type = "Query", variables = "GetDomainVars")]
+    pub struct GetDomain {
+        #[arguments(name: $domain)]
+        pub get_domain: Option<DnsDomain>,
+    }
+
+    #[derive(cynic::QueryFragment, Debug)]
+    #[cynic(graphql_type = "Query", variables = "GetDomainVars")]
+    pub struct GetDomainWithRecords {
+        #[arguments(name: $domain)]
+        pub get_domain: Option<DnsDomain>,
+    }
+
+    #[derive(cynic::QueryFragment, Debug, Clone)]
+    #[cynic(graphql_type = "DNSDomain")]
+    pub struct DnsDomain {
+        pub id: cynic::Id,
+        pub name: String,
+        pub slug: String,
+        pub records: Option<Vec<Option<DnsRecord>>>,
+    }
+
+    #[derive(cynic::Scalar, Debug, Clone)]
+    pub struct BigInt(pub String);
 
     #[derive(cynic::InlineFragments, Debug)]
     pub enum Node {

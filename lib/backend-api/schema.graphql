@@ -1511,9 +1511,6 @@ type DNSDomain implements Node {
 
   """This zone will be accessible at /dns/{slug}/."""
   slug: String!
-  createdAt: DateTime!
-  updatedAt: DateTime!
-  deletedAt: DateTime
 
   """The ID of the object"""
   id: ID!
@@ -1534,12 +1531,17 @@ type ARecord implements Node & DNSRecordInterface {
   name: String
   ttl: Int
   dnsClass: String
+  domain: DNSDomain!
 }
 
 interface DNSRecordInterface {
   name: String
   ttl: Int
   dnsClass: String
+  domain: DNSDomain!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+  deletedAt: DateTime
 }
 
 type AAAARecord implements Node & DNSRecordInterface {
@@ -1553,6 +1555,7 @@ type AAAARecord implements Node & DNSRecordInterface {
   name: String
   ttl: Int
   dnsClass: String
+  domain: DNSDomain!
 }
 
 type CNAMERecord implements Node & DNSRecordInterface {
@@ -1568,6 +1571,7 @@ type CNAMERecord implements Node & DNSRecordInterface {
   name: String
   ttl: Int
   dnsClass: String
+  domain: DNSDomain!
 }
 
 type TXTRecord implements Node & DNSRecordInterface {
@@ -1581,6 +1585,7 @@ type TXTRecord implements Node & DNSRecordInterface {
   name: String
   ttl: Int
   dnsClass: String
+  domain: DNSDomain!
 }
 
 type MXRecord implements Node & DNSRecordInterface {
@@ -1595,6 +1600,7 @@ type MXRecord implements Node & DNSRecordInterface {
   name: String
   ttl: Int
   dnsClass: String
+  domain: DNSDomain!
 }
 
 type NSRecord implements Node & DNSRecordInterface {
@@ -1608,6 +1614,7 @@ type NSRecord implements Node & DNSRecordInterface {
   name: String
   ttl: Int
   dnsClass: String
+  domain: DNSDomain!
 }
 
 type CAARecord implements Node & DNSRecordInterface {
@@ -1623,6 +1630,7 @@ type CAARecord implements Node & DNSRecordInterface {
   name: String
   ttl: Int
   dnsClass: String
+  domain: DNSDomain!
 }
 
 enum DnsmanagerCertificationAuthorityAuthorizationRecordTagChoices {
@@ -1651,6 +1659,7 @@ type DNAMERecord implements Node & DNSRecordInterface {
   name: String
   ttl: Int
   dnsClass: String
+  domain: DNSDomain!
 }
 
 type PTRRecord implements Node & DNSRecordInterface {
@@ -1664,6 +1673,7 @@ type PTRRecord implements Node & DNSRecordInterface {
   name: String
   ttl: Int
   dnsClass: String
+  domain: DNSDomain!
 }
 
 type SOARecord implements Node & DNSRecordInterface {
@@ -1705,6 +1715,7 @@ type SOARecord implements Node & DNSRecordInterface {
   name: String
   ttl: Int
   dnsClass: String
+  domain: DNSDomain!
 }
 
 type SRVRecord implements Node & DNSRecordInterface {
@@ -1739,6 +1750,7 @@ type SRVRecord implements Node & DNSRecordInterface {
   name: String
   ttl: Int
   dnsClass: String
+  domain: DNSDomain!
 }
 
 type SSHFPRecord implements Node & DNSRecordInterface {
@@ -1754,6 +1766,7 @@ type SSHFPRecord implements Node & DNSRecordInterface {
   name: String
   ttl: Int
   dnsClass: String
+  domain: DNSDomain!
 }
 
 enum DnsmanagerSshFingerprintRecordAlgorithmChoices {
@@ -2165,7 +2178,7 @@ type Query {
   latestTOS: TermsOfService!
   getDeployAppVersion(name: String!, owner: String, version: String): DeployAppVersion
   getAllDomains(offset: Int, before: String, after: String, first: Int, last: Int): DNSDomainConnection!
-  getAllDNSRecords(before: String, after: String, first: Int, last: Int): DNSRecordConnection!
+  getAllDNSRecords(sortBy: DNSRecordsSortBy, updatedAfter: DateTime, before: String, after: String, first: Int, last: Int): DNSRecordConnection!
   getDomain(name: String!): DNSDomain
   getDeployApp(name: String!, owner: String): DeployApp
   getAppByGlobalAlias(alias: String!): DeployApp
@@ -2261,6 +2274,11 @@ type DNSRecordEdge {
 
   """A cursor for use in pagination"""
   cursor: String!
+}
+
+enum DNSRecordsSortBy {
+  NEWEST
+  OLDEST
 }
 
 type AppTemplateCategoryConnection {
@@ -3003,6 +3021,7 @@ input CreateRepoForAppTemplateInput {
 
 type RegisterDomainPayload {
   success: Boolean!
+  domain: DNSDomain
   clientMutationId: String
 }
 
