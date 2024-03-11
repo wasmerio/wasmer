@@ -525,7 +525,7 @@ impl Wasi {
 
         caps.threading.enable_asynchronous_threading = self.enable_async_threads;
         caps.threading.enable_exponential_cpu_backoff =
-            self.enable_cpu_backoff.map(|ms| Duration::from_millis(ms));
+            self.enable_cpu_backoff.map(Duration::from_millis);
 
         caps
     }
