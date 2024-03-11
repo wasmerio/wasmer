@@ -403,6 +403,8 @@
 <a href="#403" id="403">403</a>
 <a href="#404" id="404">404</a>
 <a href="#405" id="405">405</a>
+<a href="#406" id="406">406</a>
+<a href="#407" id="407">407</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{collections::VecDeque, task::Waker};
 
 <span class="kw">use </span>virtual_fs::{AsyncReadExt, DeviceFile, ReadBuf};
@@ -449,6 +451,7 @@
         fd_entry.offset.load(Ordering::Acquire) <span class="kw">as </span>usize
     };
 
+    ctx = <span class="macro">wasi_try_ok!</span>(maybe_backoff::&lt;M&gt;(ctx)<span class="question-mark">?</span>);
     <span class="kw">if </span>fd == DeviceFile::STDIN {
         ctx = <span class="macro">wasi_try_ok!</span>(maybe_snapshot_once::&lt;M&gt;(ctx, SnapshotTrigger::FirstStdin)<span class="question-mark">?</span>);
     }
@@ -484,6 +487,7 @@
     <span class="kw">let </span>pid = ctx.data().pid();
     <span class="kw">let </span>tid = ctx.data().tid();
 
+    ctx = <span class="macro">wasi_try_ok!</span>(maybe_backoff::&lt;M&gt;(ctx)<span class="question-mark">?</span>);
     <span class="kw">if </span>fd == DeviceFile::STDIN {
         ctx = <span class="macro">wasi_try_ok!</span>(maybe_snapshot_once::&lt;M&gt;(ctx, SnapshotTrigger::FirstStdin)<span class="question-mark">?</span>);
     }

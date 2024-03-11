@@ -10,6 +10,8 @@
 <a href="#10" id="10">10</a>
 <a href="#11" id="11">11</a>
 <a href="#12" id="12">12</a>
+<a href="#13" id="13">13</a>
+<a href="#14" id="14">14</a>
 </pre></div><pre class="rust"><code><span class="kw">use super</span>::<span class="kw-2">*</span>;
 <span class="kw">use </span><span class="kw">crate</span>::syscalls::<span class="kw-2">*</span>;
 
@@ -19,6 +21,8 @@
 </span><span class="kw">pub fn </span>sched_yield&lt;M: MemorySize + <span class="lifetime">&#39;static</span>&gt;(
     <span class="kw-2">mut </span>ctx: FunctionEnvMut&lt;<span class="lifetime">&#39;_</span>, WasiEnv&gt;,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;Errno, WasiError&gt; {
+    ctx = <span class="macro">wasi_try_ok!</span>(maybe_backoff::&lt;M&gt;(ctx)<span class="question-mark">?</span>);
+
     <span class="comment">//trace!(&quot;wasi[{}:{}]::sched_yield&quot;, ctx.data().pid(), ctx.data().tid());
     </span>thread_sleep_internal::&lt;M&gt;(ctx, <span class="number">0</span>)
 }

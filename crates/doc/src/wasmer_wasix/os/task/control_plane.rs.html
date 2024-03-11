@@ -248,12 +248,22 @@
 <a href="#248" id="248">248</a>
 <a href="#249" id="249">249</a>
 <a href="#250" id="250">250</a>
+<a href="#251" id="251">251</a>
+<a href="#252" id="252">252</a>
+<a href="#253" id="253">253</a>
+<a href="#254" id="254">254</a>
+<a href="#255" id="255">255</a>
+<a href="#256" id="256">256</a>
+<a href="#257" id="257">257</a>
+<a href="#258" id="258">258</a>
+<a href="#259" id="259">259</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{
     collections::HashMap,
     sync::{
         atomic::{AtomicUsize, Ordering},
         Arc, RwLock,
     },
+    time::Duration,
 };
 
 <span class="kw">use crate</span>::{runtime::module_cache::ModuleHash, WasiProcess, WasiProcessId};
@@ -291,6 +301,11 @@
     </span><span class="kw">pub </span>max_task_count: <span class="prelude-ty">Option</span>&lt;usize&gt;,
     <span class="doccomment">/// Flag that indicates if asynchronous threading is enables (opt-in)
     </span><span class="kw">pub </span>enable_asynchronous_threading: bool,
+    <span class="doccomment">/// Enables an exponential backoff of the process CPU usage when there
+    /// are no active run tokens (when set holds the maximum amount of
+    /// time that it will pause the CPU)
+    /// (default = off)
+    </span><span class="kw">pub </span>enable_exponential_cpu_backoff: <span class="prelude-ty">Option</span>&lt;Duration&gt;,
 }
 
 <span class="kw">impl </span>ControlPlaneConfig {
@@ -298,6 +313,7 @@
         <span class="self">Self </span>{
             max_task_count: <span class="prelude-val">None</span>,
             enable_asynchronous_threading: <span class="bool-val">false</span>,
+            enable_exponential_cpu_backoff: <span class="prelude-val">None</span>,
         }
     }
 }
@@ -463,6 +479,7 @@
         <span class="kw">let </span>p = WasiControlPlane::new(ControlPlaneConfig {
             max_task_count: <span class="prelude-val">Some</span>(<span class="number">2</span>),
             enable_asynchronous_threading: <span class="bool-val">false</span>,
+            enable_exponential_cpu_backoff: <span class="prelude-val">None</span>,
         });
 
         <span class="kw">let </span>p1 = p.new_process(ModuleHash::random()).unwrap();
@@ -481,6 +498,7 @@
         <span class="kw">let </span>p = WasiControlPlane::new(ControlPlaneConfig {
             max_task_count: <span class="prelude-val">Some</span>(<span class="number">2</span>),
             enable_asynchronous_threading: <span class="bool-val">false</span>,
+            enable_exponential_cpu_backoff: <span class="prelude-val">None</span>,
         });
 
         <span class="kw">let </span>p1 = p.new_process(ModuleHash::random()).unwrap();

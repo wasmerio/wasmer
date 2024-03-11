@@ -31,6 +31,8 @@
 <a href="#31" id="31">31</a>
 <a href="#32" id="32">32</a>
 <a href="#33" id="33">33</a>
+<a href="#34" id="34">34</a>
+<a href="#35" id="35">35</a>
 </pre></div><pre class="rust"><code><span class="kw">use super</span>::<span class="kw-2">*</span>;
 <span class="kw">use </span><span class="kw">crate</span>::syscalls::<span class="kw-2">*</span>;
 
@@ -46,22 +48,24 @@
 ///     The value of the clock in nanoseconds
 </span><span class="comment">//#[instrument(level = &quot;trace&quot;, skip_all, fields(?clock_id, %precision), ret)]
 </span><span class="kw">pub fn </span>clock_time_get&lt;M: MemorySize&gt;(
-    ctx: FunctionEnvMut&lt;<span class="lifetime">&#39;_</span>, WasiEnv&gt;,
+    <span class="kw-2">mut </span>ctx: FunctionEnvMut&lt;<span class="lifetime">&#39;_</span>, WasiEnv&gt;,
     clock_id: Snapshot0Clockid,
     precision: Timestamp,
     time: WasmPtr&lt;Timestamp, M&gt;,
-) -&gt; Errno {
+) -&gt; <span class="prelude-ty">Result</span>&lt;Errno, WasiError&gt; {
+    ctx = <span class="macro">wasi_try_ok!</span>(maybe_backoff::&lt;M&gt;(ctx)<span class="question-mark">?</span>);
+
     <span class="kw">let </span>env = ctx.data();
     <span class="kw">let </span>memory = <span class="kw">unsafe </span>{ env.memory_view(<span class="kw-2">&amp;</span>ctx) };
 
-    <span class="kw">let </span><span class="kw-2">mut </span>t_out = <span class="macro">wasi_try!</span>(platform_clock_time_get(clock_id, precision));
+    <span class="kw">let </span><span class="kw-2">mut </span>t_out = <span class="macro">wasi_try_ok!</span>(platform_clock_time_get(clock_id, precision));
     {
         <span class="kw">let </span>guard = env.state.clock_offset.lock().unwrap();
         <span class="kw">if let </span><span class="prelude-val">Some</span>(offset) = guard.get(<span class="kw-2">&amp;</span>clock_id) {
             t_out += <span class="kw-2">*</span>offset;
         }
     };
-    <span class="macro">wasi_try_mem!</span>(time.write(<span class="kw-2">&amp;</span>memory, t_out <span class="kw">as </span>Timestamp));
-    Errno::Success
+    <span class="macro">wasi_try_mem_ok!</span>(time.write(<span class="kw-2">&amp;</span>memory, t_out <span class="kw">as </span>Timestamp));
+    <span class="prelude-val">Ok</span>(Errno::Success)
 }
 </code></pre></div></section></main></body></html>

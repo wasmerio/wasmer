@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":["TaskStatus"],"mod":["control_plane","process","signal","task_join_handle","thread"],"struct":["OwnedTaskStatus","TaskJoinHandle","TaskTerminatedError"],"trait":["VirtualTaskHandle"]};
+window.SIDEBAR_ITEMS = {"enum":["TaskStatus"],"mod":["backoff","control_plane","process","signal","task_join_handle","thread"],"struct":["OwnedTaskStatus","TaskJoinHandle","TaskTerminatedError"],"trait":["VirtualTaskHandle"]};

@@ -546,6 +546,25 @@
 <a href="#546" id="546">546</a>
 <a href="#547" id="547">547</a>
 <a href="#548" id="548">548</a>
+<a href="#549" id="549">549</a>
+<a href="#550" id="550">550</a>
+<a href="#551" id="551">551</a>
+<a href="#552" id="552">552</a>
+<a href="#553" id="553">553</a>
+<a href="#554" id="554">554</a>
+<a href="#555" id="555">555</a>
+<a href="#556" id="556">556</a>
+<a href="#557" id="557">557</a>
+<a href="#558" id="558">558</a>
+<a href="#559" id="559">559</a>
+<a href="#560" id="560">560</a>
+<a href="#561" id="561">561</a>
+<a href="#562" id="562">562</a>
+<a href="#563" id="563">563</a>
+<a href="#564" id="564">564</a>
+<a href="#565" id="565">565</a>
+<a href="#566" id="566">566</a>
+<a href="#567" id="567">567</a>
 </pre></div><pre class="rust"><code><span class="attr">#[cfg(feature = <span class="string">&quot;journal&quot;</span>)]
 </span><span class="kw">use crate</span>::{journal::JournalEffector, unwind, WasiResult};
 <span class="kw">use crate</span>::{
@@ -574,6 +593,7 @@
 };
 
 <span class="kw">use super</span>::{
+    backoff::WasiProcessCpuBackoff,
     control_plane::{ControlPlaneError, WasiControlPlaneHandle},
     signal::{SignalDeliveryError, SignalHandlerAbi},
     task_join_handle::OwnedTaskStatus,
@@ -649,6 +669,10 @@
     </span><span class="kw">pub</span>(<span class="kw">crate</span>) finished: Arc&lt;OwnedTaskStatus&gt;,
     <span class="doccomment">/// Number of threads waiting for children to exit
     </span><span class="kw">pub</span>(<span class="kw">crate</span>) waiting: Arc&lt;AtomicU32&gt;,
+    <span class="doccomment">/// Number of tokens that are currently active and thus
+    /// the exponential backoff of CPU is halted (as in CPU
+    /// is allowed to run freely)
+    </span><span class="kw">pub</span>(<span class="kw">crate</span>) cpu_run_tokens: Arc&lt;AtomicU32&gt;,
 }
 
 <span class="doccomment">/// Represents a freeze of all threads to perform some action
@@ -681,6 +705,10 @@
     <span class="doccomment">/// Represents a checkpoint which blocks all the threads
     /// and then executes some maintenance action
     </span><span class="kw">pub </span>checkpoint: WasiProcessCheckpoint,
+    <span class="doccomment">/// Represents all the backoff properties for this process
+    /// which will be used to determine if the CPU should be
+    /// throttled or not
+    </span><span class="kw">pub</span>(<span class="kw">super</span>) backoff: WasiProcessCpuBackoff,
 }
 
 <span class="kw">pub enum </span>MaybeCheckpointResult&lt;<span class="lifetime">&#39;a</span>&gt; {
@@ -831,6 +859,11 @@
 
 <span class="kw">impl </span>WasiProcess {
     <span class="kw">pub fn </span>new(pid: WasiProcessId, module_hash: ModuleHash, plane: WasiControlPlaneHandle) -&gt; <span class="self">Self </span>{
+        <span class="kw">let </span>max_cpu_backoff_time = plane
+            .upgrade()
+            .and_then(|p| p.config().enable_exponential_cpu_backoff)
+            .unwrap_or(Duration::from_secs(<span class="number">30</span>));
+        <span class="kw">let </span>max_cpu_cool_off_time = Duration::from_millis(<span class="number">500</span>);
         WasiProcess {
             pid,
             module_hash,
@@ -844,11 +877,16 @@
                     signal_intervals: Default::default(),
                     children: Default::default(),
                     checkpoint: WasiProcessCheckpoint::Execute,
+                    backoff: WasiProcessCpuBackoff::new(
+                        max_cpu_backoff_time,
+                        max_cpu_cool_off_time,
+                    ),
                 }),
                 Condvar::new(),
             )),
             finished: Arc::new(OwnedTaskStatus::default()),
             waiting: Arc::new(AtomicU32::new(<span class="number">0</span>)),
+            cpu_run_tokens: Arc::new(AtomicU32::new(<span class="number">0</span>)),
         }
     }
 

@@ -60,7 +60,21 @@
 <a href="#60" id="60">60</a>
 <a href="#61" id="61">61</a>
 <a href="#62" id="62">62</a>
-</pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::http::HttpClientCapabilityV1;
+<a href="#63" id="63">63</a>
+<a href="#64" id="64">64</a>
+<a href="#65" id="65">65</a>
+<a href="#66" id="66">66</a>
+<a href="#67" id="67">67</a>
+<a href="#68" id="68">68</a>
+<a href="#69" id="69">69</a>
+<a href="#70" id="70">70</a>
+<a href="#71" id="71">71</a>
+<a href="#72" id="72">72</a>
+<a href="#73" id="73">73</a>
+<a href="#74" id="74">74</a>
+</pre></div><pre class="rust"><code><span class="kw">use </span>std::time::Duration;
+
+<span class="kw">use </span><span class="kw">crate</span>::http::HttpClientCapabilityV1;
 
 <span class="doccomment">/// Defines capabilities for a Wasi environment.
 </span><span class="attr">#[derive(Clone, Debug)]
@@ -110,6 +124,12 @@
     <span class="doccomment">/// Flag that indicates if asynchronous threading is disabled
     /// (default = false)
     </span><span class="kw">pub </span>enable_asynchronous_threading: bool,
+
+    <span class="doccomment">/// Enables an exponential backoff of the process CPU usage when there
+    /// are no active run tokens (when set holds the maximum amount of
+    /// time that it will pause the CPU)
+    /// (default = off)
+    </span><span class="kw">pub </span>enable_exponential_cpu_backoff: <span class="prelude-ty">Option</span>&lt;Duration&gt;,
 }
 
 <span class="kw">impl </span>CapabilityThreadingV1 {
@@ -117,8 +137,12 @@
         <span class="kw">let </span>CapabilityThreadingV1 {
             max_threads,
             enable_asynchronous_threading,
+            enable_exponential_cpu_backoff,
         } = other;
         <span class="self">self</span>.enable_asynchronous_threading |= enable_asynchronous_threading;
+        <span class="kw">if let </span><span class="prelude-val">Some</span>(val) = enable_exponential_cpu_backoff {
+            <span class="self">self</span>.enable_exponential_cpu_backoff = <span class="prelude-val">Some</span>(val);
+        }
         <span class="self">self</span>.max_threads = max_threads.or(<span class="self">self</span>.max_threads);
     }
 }

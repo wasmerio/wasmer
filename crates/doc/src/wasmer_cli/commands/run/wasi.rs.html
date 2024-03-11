@@ -716,6 +716,15 @@
 <a href="#716" id="716">716</a>
 <a href="#717" id="717">717</a>
 <a href="#718" id="718">718</a>
+<a href="#719" id="719">719</a>
+<a href="#720" id="720">720</a>
+<a href="#721" id="721">721</a>
+<a href="#722" id="722">722</a>
+<a href="#723" id="723">723</a>
+<a href="#724" id="724">724</a>
+<a href="#725" id="725">725</a>
+<a href="#726" id="726">726</a>
+<a href="#727" id="727">727</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{
     collections::{BTreeSet, HashMap},
     path::{Path, PathBuf},
@@ -818,6 +827,13 @@
     <span class="doccomment">/// Enables asynchronous threading
     </span><span class="attr">#[clap(long = <span class="string">&quot;enable-async-threads&quot;</span>)]
     </span><span class="kw">pub </span>enable_async_threads: bool,
+
+    <span class="doccomment">/// Enables an exponential backoff (measured in milli-seconds) of
+    /// the process CPU usage when there are no active run tokens (when set
+    /// holds the maximum amount of time that it will pause the CPU)
+    /// (default = off)
+    </span><span class="attr">#[clap(long = <span class="string">&quot;enable-cpu-backoff&quot;</span>)]
+    </span><span class="kw">pub </span>enable_cpu_backoff: <span class="prelude-ty">Option</span>&lt;u64&gt;,
 
     <span class="doccomment">/// Specifies one or more journal files that Wasmer will use to restore
     /// and save the state of the WASM process as it executes.
@@ -1235,6 +1251,8 @@
         }
 
         caps.threading.enable_asynchronous_threading = <span class="self">self</span>.enable_async_threads;
+        caps.threading.enable_exponential_cpu_backoff =
+            <span class="self">self</span>.enable_cpu_backoff.map(Duration::from_millis);
 
         caps
     }

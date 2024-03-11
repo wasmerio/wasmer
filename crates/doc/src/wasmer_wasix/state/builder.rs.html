@@ -1230,6 +1230,7 @@
 <a href="#1230" id="1230">1230</a>
 <a href="#1231" id="1231">1231</a>
 <a href="#1232" id="1232">1232</a>
+<a href="#1233" id="1233">1233</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Builder system for configuring a [`WasiState`] and creating it.
 
 </span><span class="kw">use </span>std::{
@@ -2100,6 +2101,7 @@
         <span class="kw">let </span>plane_config = ControlPlaneConfig {
             max_task_count: capabilities.threading.max_threads,
             enable_asynchronous_threading: capabilities.threading.enable_asynchronous_threading,
+            enable_exponential_cpu_backoff: capabilities.threading.enable_exponential_cpu_backoff,
         };
         <span class="kw">let </span>control_plane = WasiControlPlane::new(plane_config);
 
