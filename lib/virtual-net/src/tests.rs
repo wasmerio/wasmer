@@ -71,19 +71,20 @@ async fn setup_pipe(
 
 #[cfg(feature = "remote")]
 async fn test_tcp(client: RemoteNetworkingClient, _server: RemoteNetworkingServer) {
-    static PORT: AtomicU16 = AtomicU16::new(8000);
-    let addr = SocketAddr::V4(SocketAddrV4::new(
-        Ipv4Addr::LOCALHOST,
-        PORT.fetch_add(1, Ordering::SeqCst),
-    ));
-    tracing::info!("listening on {addr}");
     let mut listener = client
-        .listen_tcp(addr.clone(), false, false, false)
+        .listen_tcp(
+            SocketAddr::from((Ipv4Addr::LOCALHOST, 0)),
+            false,
+            false,
+            false,
+        )
         .await
         .unwrap();
+    let addr: SocketAddr = listener.addr_local().unwrap();
+    tracing::info!("listening on {addr}");
 
-    const TEST1: &'static str = "the cat ran up the wall!";
-    const TEST2: &'static str = "...and fell off the roof! raise the roof! oop oop";
+    const TEST1: &str = "the cat ran up the wall!";
+    const TEST2: &str = "...and fell off the roof! raise the roof! oop oop";
 
     tracing::info!("spawning acceptor worker thread");
     tokio::task::spawn(async move {
@@ -104,10 +105,7 @@ async fn test_tcp(client: RemoteNetworkingClient, _server: RemoteNetworkingServe
 
     tracing::info!("connecting to listening socket");
     let mut socket = client
-        .connect_tcp(
-            SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::LOCALHOST, 0)),
-            addr,
-        )
+        .connect_tcp(SocketAddr::from((Ipv4Addr::LOCALHOST, 0)), addr)
         .await
         .unwrap();
 
@@ -125,37 +123,47 @@ async fn test_tcp(client: RemoteNetworkingClient, _server: RemoteNetworkingServe
 }
 
 #[cfg(feature = "remote")]
-#[cfg(target_os = "linux")]
+#[cfg_attr(windows, ignore)]
 #[traced_test]
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread")]
+#[serial_test::serial]
 async fn test_tcp_with_mpsc() {
     let (client, server) = setup_mpsc().await;
     test_tcp(client, server).await
 }
 
+// Disabled on musl due to flakiness.
+// See https://github.com/wasmerio/wasmer/issues/4425
+#[cfg(not(target_env = "musl"))]
 #[cfg(feature = "remote")]
-#[cfg(target_os = "linux")]
+#[cfg_attr(windows, ignore)]
 #[traced_test]
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread")]
+#[serial_test::serial]
 async fn test_tcp_with_small_pipe_using_bincode() {
     let (client, server) = setup_pipe(10, FrameSerializationFormat::Bincode).await;
     test_tcp(client, server).await
 }
 
 #[cfg(feature = "remote")]
-#[cfg(target_os = "linux")]
+#[cfg_attr(windows, ignore)]
 #[traced_test]
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread")]
+#[serial_test::serial]
 async fn test_tcp_with_large_pipe_using_bincode() {
     let (client, server) = setup_pipe(1024000, FrameSerializationFormat::Bincode).await;
     test_tcp(client, server).await
 }
 
+// Disabled on musl due to flakiness.
+// See https://github.com/wasmerio/wasmer/issues/4425
+#[cfg(not(target_env = "musl"))]
 #[cfg(feature = "remote")]
 #[cfg(feature = "json")]
-#[cfg(target_os = "linux")]
+#[cfg_attr(windows, ignore)]
 #[traced_test]
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread")]
+#[serial_test::serial]
 async fn test_tcp_with_small_pipe_using_json() {
     let (client, server) = setup_pipe(10, FrameSerializationFormat::Json).await;
     test_tcp(client, server).await
@@ -163,39 +171,52 @@ async fn test_tcp_with_small_pipe_using_json() {
 
 #[cfg(feature = "remote")]
 #[cfg(feature = "json")]
-#[cfg(target_os = "linux")]
+#[cfg_attr(windows, ignore)]
 #[traced_test]
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread")]
+#[serial_test::serial]
 async fn test_tcp_with_large_pipe_json_using_json() {
     let (client, server) = setup_pipe(1024000, FrameSerializationFormat::Json).await;
     test_tcp(client, server).await
 }
 
+// Disabled on musl due to flakiness.
+// See https://github.com/wasmerio/wasmer/issues/4425
+#[cfg(not(target_env = "musl"))]
 #[cfg(feature = "remote")]
 #[cfg(feature = "messagepack")]
-#[cfg(target_os = "linux")]
+#[cfg_attr(windows, ignore)]
 #[traced_test]
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread")]
+#[serial_test::serial]
 async fn test_tcp_with_small_pipe_using_messagepack() {
     let (client, server) = setup_pipe(10, FrameSerializationFormat::MessagePack).await;
     test_tcp(client, server).await
 }
 
+// Disabled on musl due to flakiness.
+// See https://github.com/wasmerio/wasmer/issues/4425
+#[cfg(not(target_env = "musl"))]
 #[cfg(feature = "remote")]
 #[cfg(feature = "messagepack")]
-#[cfg(target_os = "linux")]
+#[cfg_attr(windows, ignore)]
 #[traced_test]
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread")]
+#[serial_test::serial]
 async fn test_tcp_with_large_pipe_json_using_messagepack() {
     let (client, server) = setup_pipe(1024000, FrameSerializationFormat::MessagePack).await;
     test_tcp(client, server).await
 }
 
+// Disabled on musl due to flakiness.
+// See https://github.com/wasmerio/wasmer/issues/4425
+#[cfg(not(target_env = "musl"))]
 #[cfg(feature = "remote")]
 #[cfg(feature = "cbor")]
-#[cfg(target_os = "linux")]
+#[cfg_attr(windows, ignore)]
 #[traced_test]
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread")]
+#[serial_test::serial]
 async fn test_tcp_with_small_pipe_using_cbor() {
     let (client, server) = setup_pipe(10, FrameSerializationFormat::Cbor).await;
     test_tcp(client, server).await
@@ -203,17 +224,19 @@ async fn test_tcp_with_small_pipe_using_cbor() {
 
 #[cfg(feature = "remote")]
 #[cfg(feature = "cbor")]
-#[cfg(target_os = "linux")]
+#[cfg_attr(windows, ignore)]
 #[traced_test]
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread")]
+#[serial_test::serial]
 async fn test_tcp_with_large_pipe_json_using_cbor() {
     let (client, server) = setup_pipe(1024000, FrameSerializationFormat::Cbor).await;
     test_tcp(client, server).await
 }
 
-#[cfg(target_os = "linux")]
+#[cfg_attr(windows, ignore)]
 #[traced_test]
 #[tokio::test]
+#[serial_test::serial]
 async fn test_google_poll() {
     use futures_util::Future;
 
@@ -302,9 +325,10 @@ async fn test_google_poll() {
     tracing::info!("done");
 }
 
-#[cfg(target_os = "linux")]
+#[cfg_attr(windows, ignore)]
 #[traced_test]
 #[tokio::test]
+#[serial_test::serial]
 async fn test_google_epoll() {
     use futures_util::Future;
     use virtual_mio::SharedWakerInterestHandler;

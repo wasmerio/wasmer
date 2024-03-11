@@ -8,7 +8,6 @@ use crate::store::AsStoreRef;
 use rusty_jsc::{JSObject, JSObjectCallAsFunctionCallback, JSValue};
 use std::any::Any;
 use std::fmt;
-#[cfg(feature = "tracing")]
 use tracing::trace;
 use wasmer_types::RawValue;
 use wasmer_types::{
@@ -63,7 +62,6 @@ impl VMMemory {
         let new_memory =
             crate::jsc::externals::memory::Memory::js_memory_from_type(&store, &self.ty)?;
 
-        #[cfg(feature = "tracing")]
         trace!("memory copy started");
 
         let src = crate::jsc::externals::memory_view::MemoryView::new_raw(&self.memory, store);
@@ -96,7 +94,6 @@ impl VMMemory {
             wasmer_types::MemoryError::Generic(format!("failed to copy the memory - {}", err))
         })?;
 
-        #[cfg(feature = "tracing")]
         trace!("memory copy finished (size={})", dst.size().bytes().0);
 
         Ok(Self {

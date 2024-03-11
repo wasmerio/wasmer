@@ -1,6 +1,7 @@
 //! Module for parsing and installing packages
 
 use std::str::FromStr;
+
 use url::Url;
 
 /// Source of a package

@@ -10,6 +10,7 @@ use tar::Builder;
 use thiserror::Error;
 use time::{self, OffsetDateTime};
 
+use crate::publish::PublishWait;
 use crate::{package::builder::validate::ValidationPolicy, publish::SignArchiveResult};
 use crate::{WasmerConfig, PACKAGE_TOML_FALLBACK_NAME};
 
@@ -40,7 +41,7 @@ pub struct Publish {
     /// Directory containing the `wasmer.toml` (defaults to current root dir)
     pub package_path: Option<String>,
     /// Wait for package to be available on the registry before exiting
-    pub wait: bool,
+    pub wait: PublishWait,
     /// Timeout (in seconds) for the publish query to the registry
     pub timeout: Duration,
 }
@@ -159,7 +160,7 @@ impl Publish {
             // dry run: publish is done here
 
             println!(
-                "Successfully published package `{}@{}`",
+                "🚀 Successfully published package `{}@{}`",
                 manifest.package.name, manifest.package.version
             );
 
@@ -785,36 +786,26 @@ mod validate {
         wasm: &[u8],
         file_name: String,
     ) -> Result<(), ValidationError> {
-        use wasmparser::WasmDecoder;
-        let mut parser = wasmparser::ValidatingParser::new(
-            wasm,
-            Some(wasmparser::ValidatingParserConfig {
-                operator_config: wasmparser::OperatorValidatorConfig {
-                    enable_threads: true,
-                    enable_reference_types: true,
-                    enable_simd: true,
-                    enable_bulk_memory: true,
-                    enable_multi_value: true,
-                },
-            }),
-        );
-        loop {
-            let state = parser.read();
-            match state {
-                wasmparser::ParserState::EndWasm => return Ok(()),
-                wasmparser::ParserState::Error(e) => {
-                    return Err(ValidationError::InvalidWasm {
-                        file: file_name,
-                        error: format!("{}", e),
-                    });
-                }
-                _ => {}
-            }
-        }
+        let mut val = wasmparser::Validator::new_with_features(wasmparser::WasmFeatures {
+            threads: true,
+            reference_types: true,
+            simd: true,
+            bulk_memory: true,
+            multi_value: true,
+            ..Default::default()
+        });
+
+        val.validate_all(wasm)
+            .map_err(|e| ValidationError::InvalidWasm {
+                file: file_name.clone(),
+                error: format!("{}", e),
+            })?;
+
+        Ok(())
     }
 
     /// How should validation be treated by the publishing process?
-    pub(crate) trait ValidationPolicy {
+    pub(crate) trait ValidationPolicy: Send + Sync {
         /// Should validation be skipped entirely?
         fn skip_validation(&mut self) -> bool;
 

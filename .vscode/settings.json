@@ -8,5 +8,6 @@
         "editor.formatOnSave": true,
         "editor.formatOnPaste": false,
         "editor.formatOnType": false
-    }
+    },
+    "rust-analyzer.showUnlinkedFileNotification": false
 }

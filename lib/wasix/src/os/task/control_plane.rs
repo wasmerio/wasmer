@@ -6,7 +6,7 @@ use std::{
     },
 };
 
-use crate::{WasiProcess, WasiProcessId};
+use crate::{runtime::module_cache::ModuleHash, WasiProcess, WasiProcessId};
 
 #[derive(Debug, Clone)]
 pub struct WasiControlPlane {
@@ -109,7 +109,7 @@ impl WasiControlPlane {
     /// Register a new task.
     ///
     // Currently just increments the task counter.
-    pub(super) fn register_task(&self) -> Result<TaskCountGuard, ControlPlaneError> {
+    pub(crate) fn register_task(&self) -> Result<TaskCountGuard, ControlPlaneError> {
         let count = self.state.task_count.fetch_add(1, Ordering::SeqCst);
         if let Some(max) = self.state.config.max_task_count {
             if count > max {
@@ -123,7 +123,7 @@ impl WasiControlPlane {
     /// Creates a new process
     // FIXME: De-register terminated processes!
     // Currently they just accumulate.
-    pub fn new_process(&self) -> Result<WasiProcess, ControlPlaneError> {
+    pub fn new_process(&self, module_hash: ModuleHash) -> Result<WasiProcess, ControlPlaneError> {
         if let Some(max) = self.state.config.max_task_count {
             if self.active_task_count() >= max {
                 // NOTE: task count is not incremented here, only when new threads are spawned.
@@ -133,7 +133,7 @@ impl WasiControlPlane {
         }
 
         // Create the process first to do all the allocations before locking.
-        let mut proc = WasiProcess::new(WasiProcessId::from(0), self.handle());
+        let mut proc = WasiProcess::new(WasiProcessId::from(0), module_hash, self.handle());
 
         let mut mutable = self.state.mutable.write().unwrap();
 
@@ -203,6 +203,8 @@ pub enum ControlPlaneError {
 
 #[cfg(test)]
 mod tests {
+    use crate::os::task::thread::WasiMemoryLayout;
+
     use super::*;
 
     /// Simple test to ensure task limits are respected.
@@ -213,12 +215,12 @@ mod tests {
             enable_asynchronous_threading: false,
         });
 
-        let p1 = p.new_process().unwrap();
-        let _t1 = p1.new_thread().unwrap();
-        let _t2 = p1.new_thread().unwrap();
+        let p1 = p.new_process(ModuleHash::random()).unwrap();
+        let _t1 = p1.new_thread(WasiMemoryLayout::default()).unwrap();
+        let _t2 = p1.new_thread(WasiMemoryLayout::default()).unwrap();
 
         assert_eq!(
-            p.new_process().unwrap_err(),
+            p.new_process(ModuleHash::random()).unwrap_err(),
             ControlPlaneError::TaskLimitReached { max: 2 }
         );
     }
@@ -231,17 +233,17 @@ mod tests {
             enable_asynchronous_threading: false,
         });
 
-        let p1 = p.new_process().unwrap();
+        let p1 = p.new_process(ModuleHash::random()).unwrap();
 
         for _ in 0..10 {
-            let _thread = p1.new_thread().unwrap();
+            let _thread = p1.new_thread(WasiMemoryLayout::default()).unwrap();
         }
 
-        let _t1 = p1.new_thread().unwrap();
-        let _t2 = p1.new_thread().unwrap();
+        let _t1 = p1.new_thread(WasiMemoryLayout::default()).unwrap();
+        let _t2 = p1.new_thread(WasiMemoryLayout::default()).unwrap();
 
         assert_eq!(
-            p.new_process().unwrap_err(),
+            p.new_process(ModuleHash::random()).unwrap_err(),
             ControlPlaneError::TaskLimitReached { max: 2 }
         );
     }

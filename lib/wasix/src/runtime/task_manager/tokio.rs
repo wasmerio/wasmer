@@ -98,6 +98,10 @@ impl TokioTaskManager {
     pub fn runtime_handle(&self) -> tokio::runtime::Handle {
         self.rt.handle().clone()
     }
+
+    pub fn pool_handle(&self) -> Arc<ThreadPool> {
+        self.pool.clone()
+    }
 }
 
 impl Default for TokioTaskManager {
@@ -117,17 +121,13 @@ impl<'g> Drop for TokioRuntimeGuard<'g> {
 impl VirtualTaskManager for TokioTaskManager {
     /// See [`VirtualTaskManager::sleep_now`].
     fn sleep_now(&self, time: Duration) -> Pin<Box<dyn Future<Output = ()> + Send + Sync>> {
-        let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel();
-        self.rt.handle().spawn(async move {
-            if time == Duration::ZERO {
-                tokio::task::yield_now().await;
-            } else {
-                tokio::time::sleep(time).await;
-            }
-            tx.send(()).ok();
-        });
+        let handle = self.runtime_handle();
         Box::pin(async move {
-            rx.recv().await;
+            SleepNow::default()
+                .enter(handle, time)
+                .await
+                .ok()
+                .unwrap_or(())
         })
     }
 
@@ -147,6 +147,7 @@ impl VirtualTaskManager for TokioTaskManager {
     fn task_wasm(&self, task: TaskWasm) -> Result<(), WasiThreadError> {
         // Create the context on a new store
         let run = task.run;
+        let recycle = task.recycle;
         let (ctx, store) = WasiFunctionEnv::new_with_store(
             task.module,
             task.env,
@@ -171,6 +172,7 @@ impl VirtualTaskManager for TokioTaskManager {
                         ctx,
                         store,
                         trigger_result: Some(result),
+                        recycle,
                     });
                 });
             });
@@ -186,6 +188,7 @@ impl VirtualTaskManager for TokioTaskManager {
                     ctx,
                     store,
                     trigger_result: None,
+                    recycle,
                 });
             });
         }
@@ -208,5 +211,37 @@ impl VirtualTaskManager for TokioTaskManager {
         Ok(std::thread::available_parallelism()
             .map(usize::from)
             .unwrap_or(8))
+    }
+}
+
+// Used by [`VirtualTaskManager::sleep_now`] to abort a sleep task when drop.
+#[derive(Default)]
+struct SleepNow {
+    abort_handle: Option<tokio::task::AbortHandle>,
+}
+
+impl SleepNow {
+    async fn enter(
+        &mut self,
+        handle: tokio::runtime::Handle,
+        time: Duration,
+    ) -> Result<(), tokio::task::JoinError> {
+        let handle = handle.spawn(async move {
+            if time == Duration::ZERO {
+                tokio::task::yield_now().await;
+            } else {
+                tokio::time::sleep(time).await;
+            }
+        });
+        self.abort_handle = Some(handle.abort_handle());
+        handle.await
+    }
+}
+
+impl Drop for SleepNow {
+    fn drop(&mut self) {
+        if let Some(h) = self.abort_handle.as_ref() {
+            h.abort()
+        }
     }
 }

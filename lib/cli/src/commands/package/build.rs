@@ -1,7 +1,8 @@
+use std::path::PathBuf;
+
 use anyhow::Context;
 use dialoguer::console::{style, Emoji};
 use indicatif::ProgressBar;
-use std::path::PathBuf;
 
 /// Build a container from a package manifest.
 #[derive(clap::Parser, Debug)]
@@ -19,6 +20,10 @@ pub struct PackageBuild {
     ///
     /// Defaults to current directory.
     package: Option<PathBuf>,
+
+    /// Only checks whether the package could be built successfully
+    #[clap(long)]
+    check: bool,
 }
 
 static READING_MANIFEST_EMOJI: Emoji<'_, '_> = Emoji("📖 ", "");
@@ -27,6 +32,15 @@ static WRITING_PACKAGE_EMOJI: Emoji<'_, '_> = Emoji("📦 ", "");
 static SPARKLE: Emoji<'_, '_> = Emoji("✨ ", ":-)");
 
 impl PackageBuild {
+    pub(crate) fn check(package_path: PathBuf) -> Self {
+        PackageBuild {
+            out: None,
+            quiet: true,
+            package: Some(package_path),
+            check: true,
+        }
+    }
+
     pub(crate) fn execute(&self) -> Result<(), anyhow::Error> {
         let manifest_path = self.manifest_path()?;
         let pkg = webc::wasmer_package::Package::from_manifest(manifest_path)?;
@@ -49,6 +63,12 @@ impl PackageBuild {
             .wapm()
             .context("could not load package manifest")?
             .context("package does not contain a Wasmer manifest")?;
+
+        // rest of the code writes the package to disk and is irrelevant
+        // to checking.
+        if self.check {
+            return Ok(());
+        }
 
         let pkgname = manifest.name.replace('/', "-");
         let name = format!("{}-{}.webc", pkgname, manifest.version,);
@@ -168,6 +188,7 @@ description = "hello"
             package: Some(path.to_owned()),
             out: Some(path.to_owned()),
             quiet: true,
+            check: false,
         };
 
         cmd.execute().unwrap();

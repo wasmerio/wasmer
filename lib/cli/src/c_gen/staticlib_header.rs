@@ -1,8 +1,8 @@
 //! Generate a header file for the static object file produced.
 
+use wasmer_types::{ModuleInfo, Symbol, SymbolRegistry};
+
 use super::{generate_c, CStatement, CType};
-use wasmer_types::ModuleInfo;
-use wasmer_types::{Symbol, SymbolRegistry};
 
 /// Helper functions to simplify the usage of the static artifact.
 fn gen_helper_functions(atom_name: &str, module_name: &str) -> String {

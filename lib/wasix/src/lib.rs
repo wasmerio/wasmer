@@ -47,6 +47,7 @@ pub mod net;
 pub mod capabilities;
 pub mod fs;
 pub mod http;
+pub mod journal;
 mod rewind;
 pub mod runners;
 pub mod runtime;
@@ -54,8 +55,7 @@ mod state;
 mod syscalls;
 mod utils;
 
-/// WAI based bindings.
-mod bindings;
+use std::sync::Arc;
 
 #[allow(unused_imports)]
 use bytes::{Bytes, BytesMut};
@@ -103,7 +103,7 @@ pub use crate::{
     utils::is_wasix_module,
     utils::{
         get_wasi_version, get_wasi_versions, is_wasi_module,
-        store::{capture_snapshot, restore_snapshot, InstanceSnapshot},
+        store::{capture_instance_snapshot, restore_instance_snapshot, InstanceSnapshot},
         WasiVersion,
     },
 };
@@ -119,6 +119,8 @@ pub enum WasiError {
     #[error("The WASI version could not be determined")]
     UnknownWasiVersion,
 }
+
+pub type WasiResult<T> = Result<Result<T, Errno>, WasiError>;
 
 #[deny(unused, dead_code)]
 #[derive(Error, Debug)]
@@ -203,6 +205,8 @@ pub enum WasiRuntimeError {
     Runtime(#[from] RuntimeError),
     #[error("Memory access error")]
     Thread(#[from] WasiThreadError),
+    #[error("{0}")]
+    Anyhow(#[from] Arc<anyhow::Error>),
 }
 
 impl WasiRuntimeError {
@@ -678,7 +682,7 @@ fn stub_initializer(
 // TODO: split function into two variants, one for JS and one for sys.
 // (this will make code less messy)
 fn import_object_for_all_wasi_versions(
-    module: &wasmer::Module,
+    _module: &wasmer::Module,
     store: &mut impl AsStoreMut,
     env: &FunctionEnv<WasiEnv>,
 ) -> (Imports, ModuleInitializer) {
@@ -698,33 +702,7 @@ fn import_object_for_all_wasi_versions(
         "wasix_64v1" => exports_wasix_64v1,
     };
 
-    // TODO: clean this up!
-    cfg_if::cfg_if! {
-        if #[cfg(feature = "sys")] {
-            // Check if the module needs http.
-
-            let has_canonical_realloc = module.exports().any(|t| t.name() == "canonical_abi_realloc");
-            let has_wasix_http_import = module.imports().any(|t| t.module() == "wasix_http_client_v1");
-
-            let init = if has_canonical_realloc && has_wasix_http_import {
-                let wenv = env.as_ref(store);
-                let http = crate::http::client_impl::WasixHttpClientImpl::new(wenv);
-                    crate::bindings::wasix_http_client_v1::add_to_imports(
-                        store,
-                        &mut imports,
-                        http,
-                    )
-            } else {
-                Box::new(stub_initializer) as ModuleInitializer
-            };
-
-            let init = init;
-        } else {
-            // Prevents unused warning.
-            let _ = module;
-            let init = Box::new(stub_initializer) as ModuleInitializer;
-        }
-    }
+    let init = Box::new(stub_initializer) as ModuleInitializer;
 
     (imports, init)
 }
@@ -777,5 +755,39 @@ fn mem_error_to_wasi(err: MemoryAccessError) -> Errno {
         MemoryAccessError::Overflow => Errno::Overflow,
         MemoryAccessError::NonUtf8String => Errno::Inval,
         _ => Errno::Unknown,
+    }
+}
+
+/// Run a synchronous function that would normally be blocking.
+///
+/// When the `sys-thread` feature is enabled, this will call
+/// [`tokio::task::block_in_place()`]. Otherwise, it calls the function
+/// immediately.
+pub(crate) fn block_in_place<Ret>(thunk: impl FnOnce() -> Ret) -> Ret {
+    cfg_if::cfg_if! {
+        if #[cfg(feature = "sys-thread")] {
+            tokio::task::block_in_place(thunk)
+        } else {
+            thunk()
+        }
+    }
+}
+
+/// Spawns a new blocking task that runs the provided closure.
+///
+/// The closure is executed on a separate thread, allowing it to perform blocking operations
+/// without blocking the main thread. The closure is wrapped in a `Future` that resolves to the
+/// result of the closure's execution.
+pub(crate) async fn spawn_blocking<F, R>(f: F) -> Result<R, tokio::task::JoinError>
+where
+    F: FnOnce() -> R + Send + 'static,
+    R: Send + 'static,
+{
+    cfg_if::cfg_if! {
+        if #[cfg(target_arch = "wasm32")] {
+            Ok(block_in_place(f))
+        } else {
+            tokio::task::spawn_blocking(f).await
+        }
     }
 }

@@ -1,7 +1,10 @@
+use serde::{Deserialize, Serialize};
+#[cfg(feature = "journal")]
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::{
     collections::HashMap,
     ops::{Deref, DerefMut},
-    sync::{Arc, Mutex, RwLock, Weak},
+    sync::{Arc, Condvar, Mutex, Weak},
     task::Waker,
 };
 
@@ -14,6 +17,7 @@ use wasmer_wasix_types::{
 
 use crate::{
     os::task::process::{WasiProcessId, WasiProcessInner},
+    syscalls::HandleRewindType,
     WasiRuntimeError,
 };
 
@@ -23,7 +27,7 @@ use super::{
 };
 
 /// Represents the ID of a WASI thread
-#[derive(Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub struct WasiThreadId(u32);
 
 impl WasiThreadId {
@@ -95,6 +99,7 @@ pub struct ThreadStack {
 #[derive(Clone, Debug)]
 pub struct WasiThread {
     state: Arc<WasiThreadState>,
+    layout: WasiMemoryLayout,
 
     // This is used for stack rewinds
     rewind: Option<RewindResult>,
@@ -109,6 +114,44 @@ impl WasiThread {
     /// Pops any rewinds that need to take place
     pub(crate) fn take_rewind(&mut self) -> Option<RewindResult> {
         self.rewind.take()
+    }
+
+    pub(crate) fn has_rewind_of_type(&self, _type: HandleRewindType) -> bool {
+        match _type {
+            HandleRewindType::ResultDriven => match &self.rewind {
+                Some(rewind) => rewind.rewind_result.is_some(),
+                None => false,
+            },
+            HandleRewindType::Resultless => match &self.rewind {
+                Some(rewind) => rewind.rewind_result.is_none(),
+                None => false,
+            },
+        }
+    }
+
+    /// Sets a flag that tells others that this thread is currently
+    /// check pointing itself
+    #[cfg(feature = "journal")]
+    pub(crate) fn set_check_pointing(&self, val: bool) {
+        self.state.check_pointing.store(val, Ordering::SeqCst);
+    }
+
+    /// Reads a flag that determines if this thread is currently
+    /// check pointing itself or not
+    #[cfg(feature = "journal")]
+    pub(crate) fn is_check_pointing(&self) -> bool {
+        self.state.check_pointing.load(Ordering::SeqCst)
+    }
+
+    /// Gets the memory layout for this thread
+    #[allow(dead_code)]
+    pub(crate) fn memory_layout(&self) -> &WasiMemoryLayout {
+        &self.layout
+    }
+
+    /// Gets the memory layout for this thread
+    pub(crate) fn set_memory_layout(&mut self, layout: WasiMemoryLayout) {
+        self.layout = layout;
     }
 }
 
@@ -159,7 +202,7 @@ pub(crate) struct RewindResult {
     pub memory_stack: Bytes,
     /// Generic serialized object passed back to the rewind resumption code
     /// (uses the bincode serializer)
-    pub rewind_result: Bytes,
+    pub rewind_result: Option<Bytes>,
 }
 
 #[derive(Debug)]
@@ -170,6 +213,8 @@ struct WasiThreadState {
     signals: Mutex<(Vec<Signal>, Vec<Waker>)>,
     stack: Mutex<ThreadStack>,
     status: Arc<OwnedTaskStatus>,
+    #[cfg(feature = "journal")]
+    check_pointing: AtomicBool,
 
     // Registers the task termination with the ControlPlane on drop.
     // Never accessed, since it's a drop guard.
@@ -185,6 +230,7 @@ impl WasiThread {
         is_main: bool,
         status: Arc<OwnedTaskStatus>,
         guard: TaskCountGuard,
+        layout: WasiMemoryLayout,
     ) -> Self {
         Self {
             state: Arc::new(WasiThreadState {
@@ -194,8 +240,11 @@ impl WasiThread {
                 status,
                 signals: Mutex::new((Vec::new(), Vec::new())),
                 stack: Mutex::new(ThreadStack::default()),
+                #[cfg(feature = "journal")]
+                check_pointing: AtomicBool::new(false),
                 _task_count_guard: guard,
             }),
+            layout,
             rewind: None,
         }
     }
@@ -445,7 +494,7 @@ impl WasiThread {
 #[derive(Debug)]
 pub struct WasiThreadHandleProtected {
     thread: WasiThread,
-    inner: Weak<RwLock<WasiProcessInner>>,
+    inner: Weak<(Mutex<WasiProcessInner>, Condvar)>,
 }
 
 #[derive(Debug, Clone)]
@@ -456,7 +505,7 @@ pub struct WasiThreadHandle {
 impl WasiThreadHandle {
     pub(crate) fn new(
         thread: WasiThread,
-        inner: &Arc<RwLock<WasiProcessInner>>,
+        inner: &Arc<(Mutex<WasiProcessInner>, Condvar)>,
     ) -> WasiThreadHandle {
         Self {
             protected: Arc::new(WasiThreadHandleProtected {
@@ -479,7 +528,7 @@ impl Drop for WasiThreadHandleProtected {
     fn drop(&mut self) {
         let id = self.thread.tid();
         if let Some(inner) = Weak::upgrade(&self.inner) {
-            let mut inner = inner.write().unwrap();
+            let mut inner = inner.0.lock().unwrap();
             if let Some(ctrl) = inner.threads.remove(&id) {
                 ctrl.set_status_finished(Ok(Errno::Success.into()));
             }
@@ -496,7 +545,7 @@ impl std::ops::Deref for WasiThreadHandle {
     }
 }
 
-#[derive(thiserror::Error, Debug)]
+#[derive(thiserror::Error, Debug, Clone)]
 pub enum WasiThreadError {
     #[error("Multithreading is not supported")]
     Unsupported,
@@ -510,7 +559,7 @@ pub enum WasiThreadError {
     // Note: Boxed so we can keep the error size down
     InstanceCreateFailed(Box<InstantiationError>),
     #[error("Initialization function failed - {0}")]
-    InitFailed(anyhow::Error),
+    InitFailed(Arc<anyhow::Error>),
     /// This will happen if WASM is running in a thread has not been created by the spawn_wasm call
     #[error("WASM context is invalid")]
     InvalidWasmContext,

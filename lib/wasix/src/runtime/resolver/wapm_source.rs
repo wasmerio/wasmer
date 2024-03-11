@@ -87,6 +87,21 @@ impl WapmSource {
         if !response.is_ok() {
             let url = &self.registry_endpoint;
             let status = response.status;
+
+            let body = if let Some(body) = &response.body {
+                String::from_utf8_lossy(body).into_owned()
+            } else {
+                "<no body>".to_string()
+            };
+
+            tracing::warn!(
+                %url,
+                %status,
+                package=%package_name,
+                %body,
+                "failed to query package info from registry"
+            );
+
             anyhow::bail!("\"{url}\" replied with {status}");
         }
 
@@ -179,11 +194,8 @@ fn matching_package_summaries(
 ) -> Result<Vec<PackageSummary>, QueryError> {
     let mut summaries = Vec::new();
 
-    let WapmWebQueryGetPackage {
-        package_name,
-        namespace,
-        versions,
-    } = response.data.get_package.ok_or(QueryError::NotFound)?;
+    let WapmWebQueryGetPackage { versions, .. } =
+        response.data.get_package.ok_or(QueryError::NotFound)?;
     let mut archived_versions = Vec::new();
 
     for pkg_version in versions {
@@ -209,12 +221,7 @@ fn matching_package_summaries(
         }
 
         if version_constraint.matches(&version) {
-            match decode_summary(
-                pkg_version,
-                &response.data.info.default_frontend,
-                &namespace,
-                &package_name,
-            ) {
+            match decode_summary(pkg_version) {
                 Ok(summary) => summaries.push(summary),
                 Err(e) => {
                     tracing::debug!(
@@ -234,29 +241,23 @@ fn matching_package_summaries(
     }
 }
 
-fn decode_summary(
-    pkg_version: WapmWebQueryGetPackageVersion,
-    frontend_url: &Url,
-    namespace: &str,
-    package_name: &str,
-) -> Result<PackageSummary, Error> {
+fn decode_summary(pkg_version: WapmWebQueryGetPackageVersion) -> Result<PackageSummary, Error> {
     let WapmWebQueryGetPackageVersion {
         manifest,
-        version,
-        distribution: WapmWebQueryGetPackageVersionDistribution { pirita_sha256_hash },
+        distribution:
+            WapmWebQueryGetPackageVersionDistribution {
+                pirita_sha256_hash,
+                pirita_download_url,
+            },
         ..
     } = pkg_version;
 
     let manifest = manifest.context("missing Manifest")?;
     let hash = pirita_sha256_hash.context("missing sha256")?;
+    let webc = pirita_download_url.context("missing download URL")?;
 
     let manifest: Manifest = serde_json::from_slice(manifest.as_bytes())
         .context("Unable to deserialize the manifest")?;
-
-    // Note: The backend gives us signed URLs, which aren't cacheable, so we'll
-    // download the *.webc file using the more human-friendly URL
-    // (https://wasmer.io/wasmer/python@0.1.0) and rely on redirects.
-    let webc = frontend_url.join(&format!("{namespace}/{package_name}@{version}"))?;
 
     let webc_sha256 = WebcHash::parse_hex(&hash).context("invalid webc sha256 hash in manifest")?;
 
@@ -468,6 +469,8 @@ pub struct WapmWebQueryGetPackageVersion {
 
 #[derive(Debug, serde::Serialize, serde::Deserialize, Clone)]
 pub struct WapmWebQueryGetPackageVersionDistribution {
+    #[serde(rename = "piritaDownloadUrl")]
+    pub pirita_download_url: Option<Url>,
     #[serde(rename = "piritaSha256Hash")]
     pub pirita_sha256_hash: Option<String>,
 }
@@ -560,7 +563,7 @@ mod tests {
                     }],
                 },
                 dist: DistributionInfo {
-                    webc: "https://wasmer.io/wasmer/wasmer-pack-cli@0.6.0"
+                    webc: "https://storage.googleapis.com/wapm-registry-prod/webc/wasmer/wasmer-pack-cli/0.6.0/wasmer-pack-cli-0.6.0.webc"
                         .parse()
                         .unwrap(),
                     webc_sha256: WebcHash::from_bytes([

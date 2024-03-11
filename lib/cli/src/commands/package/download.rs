@@ -1,7 +1,8 @@
-use anyhow::Context;
+use std::path::PathBuf;
+
+use anyhow::{bail, Context};
 use dialoguer::console::{style, Emoji};
 use indicatif::{ProgressBar, ProgressStyle};
-use std::path::PathBuf;
 use tempfile::NamedTempFile;
 use wasmer_registry::wasmer_env::WasmerEnv;
 use wasmer_wasix::runtime::resolver::PackageSpecifier;
@@ -68,7 +69,7 @@ impl PackageDownload {
             match parent.metadata() {
                 Ok(m) => {
                     if !m.is_dir() {
-                        anyhow::bail!(
+                        bail!(
                             "parent of output file is not a directory: '{}'",
                             parent.display()
                         );
@@ -109,7 +110,7 @@ impl PackageDownload {
                 bail!("cannot download a package from a URL: '{}'", url);
             }
             PackageSpecifier::Path(_) => {
-                anyhow::bail!("cannot download a package from a local path");
+                bail!("cannot download a package from a local path");
             }
         };
 
@@ -162,23 +163,28 @@ impl PackageDownload {
             .unwrap_or_default();
 
         if webc_total_size == 0 {
-            anyhow::bail!("Package is empty");
+            bail!("Package is empty");
         }
 
         // Set the length of the progress bar
         pb.set_length(webc_total_size);
 
         let mut tmpfile = NamedTempFile::new_in(self.out_path.parent().unwrap())?;
-
+        let accepted_contenttypes = vec![
+            "application/webc",
+            "application/octet-stream",
+            "application/wasm",
+        ];
         let ty = res
             .headers()
             .get(http::header::CONTENT_TYPE)
             .and_then(|t| t.to_str().ok())
             .unwrap_or_default();
-        if !(ty == "application/webc" || ty == "application/octet-stream") {
+        if !(accepted_contenttypes.contains(&ty)) {
             eprintln!(
                 "Warning: response has invalid content type - expected \
-                'application/webc' or 'application/octet-stream', got {ty}"
+                 one of {:?}, got {ty}",
+                accepted_contenttypes
             );
         }
 

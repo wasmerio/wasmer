@@ -115,7 +115,7 @@ impl BuiltinPackageLoader {
         if dist.webc.scheme() == "file" {
             match crate::runtime::resolver::utils::file_path_from_url(&dist.webc) {
                 Ok(path) => {
-                    let bytes = tokio::task::spawn_blocking({
+                    let bytes = crate::spawn_blocking({
                         let path = path.clone();
                         move || std::fs::read(&path)
                     })
@@ -251,7 +251,7 @@ impl PackageLoader for BuiltinPackageLoader {
 
         // The sad path - looks like we don't have a filesystem cache so we'll
         // need to keep the whole thing in memory.
-        let container = Container::from_bytes(bytes)?;
+        let container = crate::spawn_blocking(move || Container::from_bytes(bytes)).await??;
         // We still want to cache it in memory, of course
         self.in_memory.save(&container, summary.dist.webc_sha256);
         Ok(container)
@@ -277,13 +277,11 @@ impl FileSystemCache {
     async fn lookup(&self, hash: &WebcHash) -> Result<Option<Container>, Error> {
         let path = self.path(hash);
 
-        #[cfg(target_arch = "wasm32")]
-        let container = Container::from_disk(&path);
-        #[cfg(not(target_arch = "wasm32"))]
-        let container = {
+        let container = crate::spawn_blocking({
             let path = path.clone();
-            tokio::task::spawn_blocking(move || Container::from_disk(&path)).await?
-        };
+            move || Container::from_disk(&path)
+        })
+        .await?;
         match container {
             Ok(c) => Ok(Some(c)),
             Err(ContainerError::Open { error, .. })
@@ -304,7 +302,7 @@ impl FileSystemCache {
         let path = self.path(&dist.webc_sha256);
         let dist = dist.clone();
 
-        tokio::task::spawn_blocking(move || {
+        crate::spawn_blocking(move || {
             let parent = path.parent().expect("Always within cache_dir");
 
             std::fs::create_dir_all(parent)

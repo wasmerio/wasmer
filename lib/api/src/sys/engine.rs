@@ -8,41 +8,35 @@ pub use wasmer_compiler::{
 use wasmer_types::Features;
 use wasmer_types::{DeserializeError, Target};
 
-/// Returns the default engine for the Sys engine
-pub(crate) fn default_engine() -> Engine {
-    // We store them on a function that returns to make
-    // sure this function doesn't emit a compile error even if
-    // more than one compiler is enabled.
-    #[allow(unreachable_code)]
-    #[cfg(any(feature = "cranelift", feature = "llvm", feature = "singlepass"))]
-    fn get_config() -> impl wasmer_compiler::CompilerConfig + 'static {
-        cfg_if::cfg_if! {
-            if #[cfg(feature = "cranelift")] {
-                wasmer_compiler_cranelift::Cranelift::default()
-            } else if #[cfg(feature = "llvm")] {
-                wasmer_compiler_llvm::LLVM::default()
-            } else if #[cfg(feature = "singlepass")] {
-                wasmer_compiler_singlepass::Singlepass::default()
-            } else {
-                compile_error!("No default compiler chosen")
-            }
+/// Get the default config for the sys Engine
+#[allow(unreachable_code)]
+pub fn get_default_compiler_config() -> Option<Box<dyn wasmer_compiler::CompilerConfig>> {
+    cfg_if::cfg_if! {
+        if #[cfg(feature = "cranelift")] {
+            Some(Box::<wasmer_compiler_cranelift::Cranelift>::default())
+        } else if #[cfg(feature = "llvm")] {
+            Some(Box::<wasmer_compiler_llvm::LLVM>::default())
+        } else if #[cfg(feature = "singlepass")] {
+            Some(Box::<wasmer_compiler_singlepass::Singlepass>::default())
+        }
+        else {
+            None
         }
     }
+}
 
+/// Returns the default engine for the Sys engine
+pub(crate) fn default_engine() -> Engine {
     #[allow(unreachable_code, unused_mut)]
     fn get_engine() -> Engine {
         cfg_if::cfg_if! {
             if #[cfg(feature = "compiler")] {
-                cfg_if::cfg_if! {
-                    if #[cfg(any(feature = "cranelift", feature = "llvm", feature = "singlepass"))]
-                    {
-                        let config = get_config();
-                        EngineBuilder::new(Box::new(config) as Box<dyn wasmer_compiler::CompilerConfig>)
-                            .engine()
-                    } else {
-                        EngineBuilder::headless()
-                            .engine()
-                    }
+                if let Some(config) = get_default_compiler_config() {
+                    EngineBuilder::new(config)
+                        .engine()
+                } else {
+                    EngineBuilder::headless()
+                        .engine()
                 }
             } else {
                 EngineBuilder::headless().engine()

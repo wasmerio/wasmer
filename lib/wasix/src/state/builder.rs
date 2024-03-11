@@ -6,24 +6,25 @@ use std::{
     sync::Arc,
 };
 
-use bytes::Bytes;
 use rand::Rng;
 use thiserror::Error;
 use virtual_fs::{ArcFile, FileSystem, FsError, TmpFileSystem, VirtualFile};
-use wasmer::{AsStoreMut, Instance, Module, RuntimeError, Store};
-use wasmer_wasix_types::wasi::{Errno, ExitCode};
+use wasmer::{AsStoreMut, Extern, Imports, Instance, Module, Store};
 
-#[cfg(feature = "sys")]
-use crate::PluggableRuntime;
+#[cfg(feature = "journal")]
+use crate::journal::{DynJournal, SnapshotTrigger};
 use crate::{
     bin_factory::{BinFactory, BinaryPackage},
     capabilities::Capabilities,
     fs::{WasiFs, WasiFsRoot, WasiInodes},
     os::task::control_plane::{ControlPlaneConfig, ControlPlaneError, WasiControlPlane},
-    runtime::task_manager::InlineWaker,
+    runtime::module_cache::ModuleHash,
     state::WasiState,
-    syscalls::types::{__WASI_STDERR_FILENO, __WASI_STDIN_FILENO, __WASI_STDOUT_FILENO},
-    RewindState, Runtime, WasiEnv, WasiError, WasiFunctionEnv, WasiRuntimeError,
+    syscalls::{
+        rewind_ext2,
+        types::{__WASI_STDERR_FILENO, __WASI_STDIN_FILENO, __WASI_STDOUT_FILENO},
+    },
+    Runtime, WasiEnv, WasiError, WasiFunctionEnv, WasiRuntimeError,
 };
 
 use super::env::WasiEnvInit;
@@ -67,10 +68,22 @@ pub struct WasiEnvBuilder {
     /// List of webc dependencies to be injected.
     pub(super) uses: Vec<BinaryPackage>,
 
+    pub(super) module_hash: Option<ModuleHash>,
+
     /// List of host commands to map into the WASI instance.
     pub(super) map_commands: HashMap<String, PathBuf>,
 
     pub(super) capabilites: Capabilities,
+    pub(super) additional_imports: Imports,
+
+    #[cfg(feature = "journal")]
+    pub(super) snapshot_on: Vec<SnapshotTrigger>,
+
+    #[cfg(feature = "journal")]
+    pub(super) snapshot_interval: Option<std::time::Duration>,
+
+    #[cfg(feature = "journal")]
+    pub(super) journals: Vec<Arc<DynJournal>>,
 }
 
 impl std::fmt::Debug for WasiEnvBuilder {
@@ -91,7 +104,7 @@ impl std::fmt::Debug for WasiEnvBuilder {
 }
 
 /// Error type returned when bad data is given to [`WasiEnvBuilder`].
-#[derive(Error, Debug, PartialEq, Eq)]
+#[derive(Error, Debug, Clone, PartialEq, Eq)]
 pub enum WasiStateCreationError {
     #[error("bad environment variable format: `{0}`")]
     EnvironmentVariableFormatError(String),
@@ -278,6 +291,14 @@ impl WasiEnvBuilder {
     /// resulting WASI instance.
     pub fn use_webc(mut self, pkg: BinaryPackage) -> Self {
         self.add_webc(pkg);
+        self
+    }
+
+    /// Sets the module hash for the running process. This ensures that the journal
+    /// can restore the records for the right module. If no module hash is supplied
+    /// then the process will start with a random module hash.
+    pub fn set_module_hash(&mut self, hash: ModuleHash) -> &mut Self {
+        self.module_hash.replace(hash);
         self
     }
 
@@ -496,6 +517,20 @@ impl WasiEnvBuilder {
         Ok(self)
     }
 
+    /// Specifies one or more journal files that Wasmer will use to restore
+    /// the state of the WASM process.
+    ///
+    /// The state of the WASM process and its sandbox will be reapplied use
+    /// the journals in the order that you specify here.
+    ///
+    /// The last journal file specified will be created if it does not exist
+    /// and opened for read and write. New journal events will be written to this
+    /// file
+    #[cfg(feature = "journal")]
+    pub fn add_journal(&mut self, journal: Arc<DynJournal>) {
+        self.journals.push(journal);
+    }
+
     pub fn set_current_dir(&mut self, dir: impl Into<PathBuf>) {
         self.current_dir = Some(dir.into());
     }
@@ -596,6 +631,61 @@ impl WasiEnvBuilder {
 
     pub fn set_capabilities(&mut self, capabilities: Capabilities) {
         self.capabilites = capabilities;
+    }
+
+    #[cfg(feature = "journal")]
+    pub fn add_snapshot_trigger(&mut self, on: SnapshotTrigger) {
+        self.snapshot_on.push(on);
+    }
+
+    #[cfg(feature = "journal")]
+    pub fn with_snapshot_interval(&mut self, interval: std::time::Duration) {
+        self.snapshot_interval.replace(interval);
+    }
+
+    /// Add an item to the list of importable items provided to the instance.
+    pub fn import(
+        mut self,
+        namespace: impl Into<String>,
+        name: impl Into<String>,
+        value: impl Into<Extern>,
+    ) -> Self {
+        self.add_imports([((namespace, name), value)]);
+        self
+    }
+
+    /// Add an item to the list of importable items provided to the instance.
+    pub fn add_import(
+        &mut self,
+        namespace: impl Into<String>,
+        name: impl Into<String>,
+        value: impl Into<Extern>,
+    ) {
+        self.add_imports([((namespace, name), value)]);
+    }
+
+    pub fn add_imports<I, S1, S2, E>(&mut self, imports: I)
+    where
+        I: IntoIterator<Item = ((S1, S2), E)>,
+        S1: Into<String>,
+        S2: Into<String>,
+        E: Into<Extern>,
+    {
+        let imports = imports
+            .into_iter()
+            .map(|((ns, n), e)| ((ns.into(), n.into()), e.into()));
+        self.additional_imports.extend(imports);
+    }
+
+    pub fn imports<I, S1, S2, E>(mut self, imports: I) -> Self
+    where
+        I: IntoIterator<Item = ((S1, S2), E)>,
+        S1: Into<String>,
+        S2: Into<String>,
+        E: Into<Extern>,
+    {
+        self.add_imports(imports);
+        self
     }
 
     /// Consumes the [`WasiEnvBuilder`] and produces a [`WasiEnvInit`], which
@@ -739,19 +829,6 @@ impl WasiEnvBuilder {
             wasi_fs.set_current_dir(s);
         }
 
-        let envs = self
-            .envs
-            .into_iter()
-            .map(|(key, value)| {
-                let mut env = Vec::with_capacity(key.len() + value.len() + 1);
-                env.extend_from_slice(key.as_bytes());
-                env.push(b'=');
-                env.extend_from_slice(&value);
-
-                env
-            })
-            .collect();
-
         let state = WasiState {
             fs: wasi_fs,
             secret: rand::thread_rng().gen::<[u8; 32]>(),
@@ -760,13 +837,19 @@ impl WasiEnvBuilder {
             preopen: self.vfs_preopens.clone(),
             futexs: Default::default(),
             clock_offset: Default::default(),
-            envs,
+            envs: std::sync::Mutex::new(conv_env_vars(self.envs)),
         };
 
         let runtime = self.runtime.unwrap_or_else(|| {
             #[cfg(feature = "sys-thread")]
             {
-                Arc::new(PluggableRuntime::new(Arc::new(crate::runtime::task_manager::tokio::TokioTaskManager::default())))
+                #[allow(unused_mut)]
+                let mut runtime = crate::runtime::PluggableRuntime::new(Arc::new(crate::runtime::task_manager::tokio::TokioTaskManager::default()));
+                #[cfg(feature = "journal")]
+                for journal in self.journals.clone() {
+                    runtime.add_journal(journal);
+                }
+                Arc::new(runtime)
             }
 
             #[cfg(not(feature = "sys-thread"))]
@@ -799,9 +882,15 @@ impl WasiEnvBuilder {
             memory_ty: None,
             process: None,
             thread: None,
+            #[cfg(feature = "journal")]
+            call_initialize: self.journals.is_empty(),
+            #[cfg(not(feature = "journal"))]
             call_initialize: true,
             can_deep_sleep: false,
             extra_tracing: true,
+            #[cfg(feature = "journal")]
+            snapshot_on: self.snapshot_on,
+            additional_imports: self.additional_imports,
         };
 
         Ok(init)
@@ -809,8 +898,9 @@ impl WasiEnvBuilder {
 
     #[allow(clippy::result_large_err)]
     pub fn build(self) -> Result<WasiEnv, WasiRuntimeError> {
+        let module_hash = self.module_hash.unwrap_or_else(ModuleHash::random);
         let init = self.build_init()?;
-        WasiEnv::from_init(init)
+        WasiEnv::from_init(init, module_hash)
     }
 
     /// Construct a [`WasiFunctionEnv`].
@@ -823,8 +913,9 @@ impl WasiEnvBuilder {
         self,
         store: &mut impl AsStoreMut,
     ) -> Result<WasiFunctionEnv, WasiRuntimeError> {
+        let module_hash = self.module_hash.unwrap_or_else(ModuleHash::random);
         let init = self.build_init()?;
-        let env = WasiEnv::from_init(init)?;
+        let env = WasiEnv::from_init(init, module_hash)?;
         let func_env = WasiFunctionEnv::new(store, env);
         Ok(func_env)
     }
@@ -840,18 +931,44 @@ impl WasiEnvBuilder {
         module: Module,
         store: &mut impl AsStoreMut,
     ) -> Result<(Instance, WasiFunctionEnv), WasiRuntimeError> {
+        self.instantiate_ext(module, ModuleHash::random(), store)
+    }
+
+    #[allow(clippy::result_large_err)]
+    pub fn instantiate_ext(
+        self,
+        module: Module,
+        module_hash: ModuleHash,
+        store: &mut impl AsStoreMut,
+    ) -> Result<(Instance, WasiFunctionEnv), WasiRuntimeError> {
         let init = self.build_init()?;
-        WasiEnv::instantiate(init, module, store)
+        WasiEnv::instantiate(init, module, module_hash, store)
     }
 
     #[allow(clippy::result_large_err)]
     pub fn run(self, module: Module) -> Result<(), WasiRuntimeError> {
-        let mut store = wasmer::Store::default();
-        self.run_with_store(module, &mut store)
+        self.run_ext(module, ModuleHash::random())
     }
 
     #[allow(clippy::result_large_err)]
+    pub fn run_ext(self, module: Module, module_hash: ModuleHash) -> Result<(), WasiRuntimeError> {
+        let mut store = wasmer::Store::default();
+        self.run_with_store_ext(module, module_hash, &mut store)
+    }
+
+    #[allow(clippy::result_large_err)]
+    #[tracing::instrument(level = "debug", skip_all)]
     pub fn run_with_store(self, module: Module, store: &mut Store) -> Result<(), WasiRuntimeError> {
+        self.run_with_store_ext(module, ModuleHash::random(), store)
+    }
+
+    #[allow(clippy::result_large_err)]
+    pub fn run_with_store_ext(
+        self,
+        module: Module,
+        module_hash: ModuleHash,
+        store: &mut Store,
+    ) -> Result<(), WasiRuntimeError> {
         // If no handle or runtime exists then create one
         #[cfg(feature = "sys-thread")]
         let _guard = if tokio::runtime::Handle::try_current().is_err() {
@@ -872,13 +989,23 @@ impl WasiEnvBuilder {
             );
         }
 
-        let (instance, env) = self.instantiate(module, store)?;
+        let (instance, env) = self.instantiate_ext(module, module_hash, store)?;
+
+        // Bootstrap the process
+        // Unsafe: The bootstrap must be executed in the same thread that runs the
+        //         actual WASM code
+        let rewind_state = unsafe { env.bootstrap(store)? };
+        if rewind_state.is_some() {
+            let mut ctx = env.env.clone().into_mut(store);
+            rewind_ext2(&mut ctx, rewind_state)
+                .map_err(|exit| WasiRuntimeError::Wasi(WasiError::Exit(exit)))?;
+        }
 
         let start = instance.exports.get_function("_start")?;
         env.data(&store).thread.set_status_running();
 
         let result = crate::run_wasi_func_start(start, store);
-        let (result, exit_code) = wasi_exit_code(result);
+        let (result, exit_code) = super::wasi_exit_code(result);
 
         let pid = env.data(&store).pid();
         let tid = env.data(&store).tid();
@@ -890,188 +1017,37 @@ impl WasiEnvBuilder {
             "main exit",
         );
 
-        env.cleanup(store, Some(exit_code));
+        env.on_exit(store, Some(exit_code));
 
         result
     }
 
     /// Start the WASI executable with async threads enabled.
     #[allow(clippy::result_large_err)]
+    #[tracing::instrument(level = "debug", skip_all)]
     pub fn run_with_store_async(
         self,
         module: Module,
+        module_hash: ModuleHash,
         mut store: Store,
     ) -> Result<(), WasiRuntimeError> {
-        // If no handle or runtime exists then create one
-        #[cfg(feature = "sys-thread")]
-        let _guard = if tokio::runtime::Handle::try_current().is_err() {
-            let runtime = tokio::runtime::Builder::new_multi_thread()
-                .enable_all()
-                .build()
-                .unwrap();
-            Some(runtime)
-        } else {
-            None
-        };
-        #[cfg(feature = "sys-thread")]
-        let _guard = _guard.as_ref().map(|r| r.enter());
-
-        let (_, env) = self.instantiate(module, &mut store)?;
-
-        env.data(&store).thread.set_status_running();
-
-        let tasks = env.data(&store).tasks().clone();
-        let pid = env.data(&store).pid();
-        let tid = env.data(&store).tid();
-
-        // The return value is passed synchronously and will block until the result
-        // is returned this is because the main thread can go into a deep sleep and
-        // exit the dedicated thread
-        let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel();
-
-        tasks.task_dedicated(Box::new(move || {
-            run_with_deep_sleep(store, None, env, tx);
-        }))?;
-
-        let result = InlineWaker::block_on(rx.recv());
-        let result = result.unwrap_or_else(|| {
-            Err(WasiRuntimeError::Runtime(RuntimeError::new(
-                "main thread terminated without a result, this normally means a panic occurred",
-            )))
-        });
-        let (result, exit_code) = wasi_exit_code(result);
-
-        tracing::trace!(
-            %pid,
-            %tid,
-            %exit_code,
-            error=result.as_ref().err().map(|e| e as &dyn std::error::Error),
-            "main exit",
-        );
-
-        result
+        let (_, env) = self.instantiate_ext(module, module_hash, &mut store)?;
+        env.run_async(store)?;
+        Ok(())
     }
 }
 
-/// Extract the exit code from a `Result<(), WasiRuntimeError>`.
-///
-/// We need this because calling `exit(0)` inside a WASI program technically
-/// triggers [`WasiError`] with an exit code of `0`, but the end user won't want
-/// that treated as an error.
-fn wasi_exit_code(
-    mut result: Result<(), WasiRuntimeError>,
-) -> (Result<(), WasiRuntimeError>, ExitCode) {
-    let exit_code = match &result {
-        Ok(_) => Errno::Success.into(),
-        Err(err) => match err.as_exit_code() {
-            Some(code) if code.is_success() => {
-                // This is actually not an error, so we need to fix up the
-                // result
-                result = Ok(());
-                Errno::Success.into()
-            }
-            Some(other) => other,
-            None => Errno::Noexec.into(),
-        },
-    };
+pub(crate) fn conv_env_vars(envs: Vec<(String, Vec<u8>)>) -> Vec<Vec<u8>> {
+    envs.into_iter()
+        .map(|(key, value)| {
+            let mut env = Vec::with_capacity(key.len() + value.len() + 1);
+            env.extend_from_slice(key.as_bytes());
+            env.push(b'=');
+            env.extend_from_slice(&value);
 
-    (result, exit_code)
-}
-
-fn run_with_deep_sleep(
-    mut store: Store,
-    rewind_state: Option<(RewindState, Bytes)>,
-    env: WasiFunctionEnv,
-    sender: tokio::sync::mpsc::UnboundedSender<Result<(), WasiRuntimeError>>,
-) {
-    if let Some((rewind_state, rewind_result)) = rewind_state {
-        tracing::trace!("Rewinding");
-        let errno = if rewind_state.is_64bit {
-            crate::rewind_ext::<wasmer_types::Memory64>(
-                env.env.clone().into_mut(&mut store),
-                rewind_state.memory_stack,
-                rewind_state.rewind_stack,
-                rewind_state.store_data,
-                rewind_result,
-            )
-        } else {
-            crate::rewind_ext::<wasmer_types::Memory32>(
-                env.env.clone().into_mut(&mut store),
-                rewind_state.memory_stack,
-                rewind_state.rewind_stack,
-                rewind_state.store_data,
-                rewind_result,
-            )
-        };
-
-        if errno != Errno::Success {
-            let exit_code = ExitCode::from(errno);
-            env.cleanup(&mut store, Some(exit_code));
-            let _ = sender.send(Err(WasiRuntimeError::Wasi(WasiError::Exit(exit_code))));
-            return;
-        }
-    }
-
-    let instance = match env.data(&store).try_clone_instance() {
-        Some(instance) => instance,
-        None => {
-            tracing::debug!("Unable to clone the instance");
-            env.cleanup(&mut store, None);
-            let _ = sender.send(Err(WasiRuntimeError::Wasi(WasiError::Exit(
-                Errno::Noexec.into(),
-            ))));
-            return;
-        }
-    };
-
-    let start = match instance.exports.get_function("_start") {
-        Ok(start) => start,
-        Err(e) => {
-            tracing::debug!("Unable to get the _start function");
-            env.cleanup(&mut store, None);
-            let _ = sender.send(Err(e.into()));
-            return;
-        }
-    };
-
-    let result = start.call(&mut store, &[]);
-    handle_result(store, env, result, sender);
-}
-
-fn handle_result(
-    mut store: Store,
-    env: WasiFunctionEnv,
-    result: Result<Box<[wasmer::Value]>, RuntimeError>,
-    sender: tokio::sync::mpsc::UnboundedSender<Result<(), WasiRuntimeError>>,
-) {
-    let result = match result.map_err(|e| e.downcast::<WasiError>()) {
-        Err(Ok(WasiError::DeepSleep(work))) => {
-            let pid = env.data(&store).pid();
-            let tid = env.data(&store).tid();
-            tracing::trace!(%pid, %tid, "entered a deep sleep");
-
-            let tasks = env.data(&store).tasks().clone();
-            let rewind = work.rewind;
-            let respawn =
-                move |ctx, store, res| run_with_deep_sleep(store, Some((rewind, res)), ctx, sender);
-
-            // Spawns the WASM process after a trigger
-            unsafe {
-                tasks
-                    .resume_wasm_after_poller(Box::new(respawn), env, store, work.trigger)
-                    .unwrap();
-            }
-
-            return;
-        }
-        Ok(_) => Ok(()),
-        Err(Ok(other)) => Err(other.into()),
-        Err(Err(e)) => Err(e.into()),
-    };
-
-    let (result, exit_code) = wasi_exit_code(result);
-    env.cleanup(&mut store, Some(exit_code));
-    sender.send(result).ok();
+            env
+        })
+        .collect()
 }
 
 /// Builder for preopened directories.

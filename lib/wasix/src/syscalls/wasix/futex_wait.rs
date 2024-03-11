@@ -90,6 +90,8 @@ pub(super) fn futex_wait_internal<M: MemorySize + 'static>(
 ) -> Result<Errno, WasiError> {
     wasi_try_ok!(WasiEnv::process_signals_and_exit(&mut ctx)?);
 
+    ctx = wasi_try_ok!(maybe_snapshot::<M>(ctx)?);
+
     // If we were just restored then we were woken after a deep sleep
     // and thus we repeat all the checks again, we do not immediately
     // exit here as it could be the case that we were woken but the

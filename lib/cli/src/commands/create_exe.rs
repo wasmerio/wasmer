@@ -1,18 +1,17 @@
 //! Create a standalone native executable for a given Wasm file.
 
-use self::utils::normalize_atom_name;
+use std::{
+    collections::BTreeMap,
+    env,
+    path::{Path, PathBuf},
+    process::{Command, Stdio},
+};
 
-use crate::common::normalize_path;
-use crate::store::CompilerOptions;
-use anyhow::{Context, Result};
+use anyhow::{anyhow, bail, Context, Result};
 use clap::Parser;
 use serde::{Deserialize, Serialize};
-use std::collections::BTreeMap;
-use std::env;
-use std::path::{Path, PathBuf};
-use std::process::Command;
-use std::process::Stdio;
 use tar::Archive;
+use wasmer::sys::Artifact;
 use wasmer::*;
 use wasmer_object::{emit_serialized, get_object_for_target};
 use wasmer_types::{compilation::symbols::ModuleMetadataSymbolRegistry, ModuleInfo};
@@ -20,6 +19,9 @@ use webc::{
     compat::{Container, Volume as WebcVolume},
     PathSegments,
 };
+
+use self::utils::normalize_atom_name;
+use crate::{common::normalize_path, store::CompilerOptions};
 
 const LINK_SYSTEM_LIBRARIES_WINDOWS: &[&str] = &["userenv", "Ws2_32", "advapi32", "bcrypt"];
 
@@ -671,7 +673,7 @@ impl PrefixMapCompilation {
 
     fn split_prefix(s: &str) -> Vec<String> {
         let regex =
-            regex::Regex::new(r#"^([a-zA-Z0-9\-_]+)(:([a-zA-Z0-9\.\-_]+))?(:(.+*))?"#).unwrap();
+            regex::Regex::new(r"^([a-zA-Z0-9\-_]+)(:([a-zA-Z0-9\.\-_]+))?(:(.+*))?").unwrap();
         let mut captures = regex
             .captures(s.trim())
             .map(|c| {
@@ -785,9 +787,10 @@ fn compile_atoms(
     prefixes: &PrefixMapCompilation,
     debug: bool,
 ) -> Result<BTreeMap<String, ModuleInfo>, anyhow::Error> {
-    use std::fs::File;
-    use std::io::BufWriter;
-    use std::io::Write;
+    use std::{
+        fs::File,
+        io::{BufWriter, Write},
+    };
 
     let mut module_infos = BTreeMap::new();
     for (a, data) in atoms {
@@ -894,9 +897,10 @@ fn write_volume_obj(
     output_path: &Path,
     target: &Target,
 ) -> anyhow::Result<()> {
-    use std::fs::File;
-    use std::io::BufWriter;
-    use std::io::Write;
+    use std::{
+        fs::File,
+        io::{BufWriter, Write},
+    };
 
     let mut volumes_object = get_object_for_target(target.triple())?;
     emit_serialized(
@@ -1476,11 +1480,9 @@ fn generate_wasmer_main_c(
         .iter()
         .map(|v| utils::normalize_atom_name(&v.name).to_uppercase())
         .map(|uppercase| {
-            vec![
-                format!("extern size_t {uppercase}_LENGTH asm(\"{uppercase}_LENGTH\");"),
-                format!("extern char {uppercase}_DATA asm(\"{uppercase}_DATA\");"),
-            ]
-            .join("\r\n")
+            format!(
+                "extern size_t {uppercase}_LENGTH asm(\"{uppercase}_LENGTH\");\r\nextern char {uppercase}_DATA asm(\"{uppercase}_DATA\");"
+            )
         })
         .collect::<Vec<_>>();
 
@@ -1557,14 +1559,16 @@ fn generate_wasmer_main_c(
 #[allow(dead_code)]
 pub(super) mod utils {
 
-    use super::{CrossCompile, CrossCompileSetup, UrlOrVersion};
-    use anyhow::Context;
     use std::{
         ffi::OsStr,
         path::{Path, PathBuf},
     };
+
+    use anyhow::{anyhow, Context};
     use target_lexicon::{Architecture, Environment, OperatingSystem, Triple};
     use wasmer_types::{CpuFeature, Target};
+
+    use super::{CrossCompile, CrossCompileSetup, UrlOrVersion};
 
     pub(in crate::commands) fn target_triple_to_target(
         target_triple: &Triple,
@@ -1626,7 +1630,7 @@ pub(super) mod utils {
             let wasmer_cache_dir =
                 if *target_triple == Triple::host() && std::env::var("WASMER_DIR").is_ok() {
                     wasmer_registry::WasmerConfig::get_wasmer_dir()
-                        .map_err(|e| anyhow::anyhow!("{e}"))
+                        .map_err(|e| anyhow!("{e}"))
                         .map(|o| o.join("cache"))
                 } else {
                     get_libwasmer_cache_path()
@@ -1669,8 +1673,7 @@ pub(super) mod utils {
             }
         };
 
-        let library =
-            library.ok_or_else(|| anyhow::anyhow!("libwasmer.a / wasmer.lib not found"))?;
+        let library = library.ok_or_else(|| anyhow!("libwasmer.a / wasmer.lib not found"))?;
 
         let ccs = CrossCompileSetup {
             target: target.clone(),
@@ -1753,11 +1756,11 @@ pub(super) mod utils {
             .unwrap_or_else(|| target_file_path.clone());
 
         std::fs::create_dir_all(&target_file_path)
-            .map_err(|e| anyhow::anyhow!("{e}"))
-            .with_context(|| anyhow::anyhow!("{}", target_file_path.display()))?;
+            .map_err(|e| anyhow!("{e}"))
+            .with_context(|| anyhow!("{}", target_file_path.display()))?;
         let files =
             super::http_fetch::untar(local_tarball, &target_file_path).with_context(|| {
-                anyhow::anyhow!(
+                anyhow!(
                     "{} -> {}",
                     local_tarball.display(),
                     target_file_path.display()
@@ -1827,7 +1830,7 @@ pub(super) mod utils {
     }
 
     pub(super) fn get_wasmer_dir() -> anyhow::Result<PathBuf> {
-        wasmer_registry::WasmerConfig::get_wasmer_dir().map_err(|e| anyhow::anyhow!("{e}"))
+        wasmer_registry::WasmerConfig::get_wasmer_dir().map_err(|e| anyhow!("{e}"))
     }
 
     pub(super) fn get_wasmer_include_directory() -> anyhow::Result<PathBuf> {
@@ -1838,10 +1841,7 @@ pub(super) mod utils {
         path.push("include");
         if !path.clone().join("wasmer.h").exists() {
             if !path.exists() {
-                return Err(anyhow::anyhow!(
-                    "WASMER_DIR path {} does not exist",
-                    path.display()
-                ));
+                return Err(anyhow!("WASMER_DIR path {} does not exist", path.display()));
             }
             println!(
                 "wasmer.h does not exist in {}, will probably default to the system path",
@@ -1958,7 +1958,7 @@ pub(super) mod utils {
     #[test]
     fn test_filter_tarball() {
         use std::str::FromStr;
-        let test_paths = vec![
+        let test_paths = [
             "/test/wasmer-darwin-amd64.tar.gz",
             "/test/wasmer-darwin-arm64.tar.gz",
             "/test/wasmer-linux-aarch64.tar.gz",
@@ -2082,8 +2082,9 @@ pub(super) mod utils {
 }
 
 mod http_fetch {
-    use anyhow::{anyhow, Context, Result};
     use std::path::Path;
+
+    use anyhow::{anyhow, Context, Result};
 
     pub(super) fn get_release(
         release_version: Option<semver::Version>,

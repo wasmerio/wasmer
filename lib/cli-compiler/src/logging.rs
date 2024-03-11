@@ -1,5 +1,5 @@
 //! Logging functions for the debug feature.
-use crate::utils::wasmer_should_print_color;
+
 use anyhow::Result;
 use fern::colors::{Color, ColoredLevelConfig};
 use std::time;
@@ -13,7 +13,7 @@ pub fn set_up_logging(verbose: u8) -> Result<(), String> {
         .error(Color::Red)
         .warn(Color::Yellow)
         .trace(Color::BrightBlack);
-    let should_color = wasmer_should_print_color();
+    let should_color = crate::utils::wasmer_should_print_color();
 
     let colors_level = colors_line.info(Color::Green);
     let level = match verbose {

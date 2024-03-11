@@ -1,10 +1,11 @@
+use std::hash::Hash;
 use std::{
     fmt::{self, Debug, Display, Formatter},
     ops::Deref,
     path::PathBuf,
 };
 
-use sha2::{Digest, Sha256};
+use rand::RngCore;
 use wasmer::{Engine, Module};
 
 use crate::runtime::module_cache::FallbackCache;
@@ -55,9 +56,14 @@ pub trait ModuleCache: Debug {
     /// use wasmer_wasix::runtime::module_cache::{
     ///     ModuleCache, ThreadLocalCache, FileSystemCache, SharedCache,
     /// };
+    /// use wasmer_wasix::runtime::task_manager::tokio::{RuntimeOrHandle, TokioTaskManager};
+    ///
+    /// let runtime = tokio::runtime::Runtime::new().unwrap();
+    /// let rt_handle = RuntimeOrHandle::from(runtime);
+    /// let task_manager = std::sync::Arc::new(TokioTaskManager::new(rt_handle));
     ///
     /// let cache = SharedCache::default()
-    ///     .with_fallback(FileSystemCache::new("~/.local/cache"));
+    ///     .with_fallback(FileSystemCache::new("~/.local/cache", task_manager));
     /// ```
     fn with_fallback<C>(self, other: C) -> FallbackCache<Self, C>
     where
@@ -121,34 +127,42 @@ impl CacheError {
     }
 }
 
-/// The SHA-256 hash of a WebAssembly module.
+/// The XXHash hash of a WebAssembly module.
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
-pub struct ModuleHash([u8; 32]);
+pub struct ModuleHash([u8; 8]);
 
 impl ModuleHash {
-    /// Create a new [`ModuleHash`] from the raw SHA-256 hash.
-    pub fn from_bytes(key: [u8; 32]) -> Self {
+    /// Create a new [`ModuleHash`] from the raw XXHash hash.
+    pub fn from_bytes(key: [u8; 8]) -> Self {
         ModuleHash(key)
     }
 
-    /// Parse a sha256 hash from a hex-encoded string.
+    // Creates a random hash for the module
+    pub fn random() -> Self {
+        let mut rand = rand::thread_rng();
+        let mut key = [0u8; 8];
+        rand.fill_bytes(&mut key);
+        Self(key)
+    }
+
+    /// Parse a XXHash hash from a hex-encoded string.
     pub fn parse_hex(hex_str: &str) -> Result<Self, hex::FromHexError> {
-        let mut hash = [0_u8; 32];
+        let mut hash = [0_u8; 8];
         hex::decode_to_slice(hex_str, &mut hash)?;
         Ok(Self(hash))
     }
 
-    /// Generate a new [`ModuleCache`] based on the SHA-256 hash of some bytes.
-    pub fn sha256(wasm: impl AsRef<[u8]>) -> Self {
+    /// Generate a new [`ModuleCache`] based on the XXHash hash of some bytes.
+    pub fn hash(wasm: impl AsRef<[u8]>) -> Self {
         let wasm = wasm.as_ref();
 
-        let mut hasher = Sha256::default();
-        hasher.update(wasm);
-        ModuleHash::from_bytes(hasher.finalize().into())
+        let hash = xxhash_rust::xxh64::xxh64(wasm, 0);
+
+        Self(hash.to_ne_bytes())
     }
 
-    /// Get the raw SHA-256 hash.
-    pub fn as_bytes(self) -> [u8; 32] {
+    /// Get the raw XXHash hash.
+    pub fn as_bytes(self) -> [u8; 8] {
         self.0
     }
 }
@@ -174,30 +188,19 @@ mod tests {
 
     #[test]
     fn key_is_displayed_as_hex() {
-        let key = ModuleHash::from_bytes([
-            0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d,
-            0x0e, 0x0f, 0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18, 0x19, 0x1a, 0x1b,
-            0x1c, 0x1d, 0x1e, 0x1f,
-        ]);
+        let key = ModuleHash::from_bytes([0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07]);
 
         let repr = key.to_string();
 
-        assert_eq!(
-            repr,
-            "000102030405060708090A0B0C0D0E0F101112131415161718191A1B1C1D1E1F"
-        );
+        assert_eq!(repr, "0001020304050607");
     }
 
     #[test]
     fn module_hash_is_just_sha_256() {
         let wasm = b"\0asm...";
-        let raw = [
-            0x5a, 0x39, 0xfe, 0xef, 0x52, 0xe5, 0x3b, 0x8f, 0xfe, 0xdf, 0xd7, 0x05, 0x15, 0x56,
-            0xec, 0x10, 0x5e, 0xd8, 0x69, 0x82, 0xf1, 0x22, 0xa0, 0x5d, 0x27, 0x28, 0xd9, 0x67,
-            0x78, 0xe4, 0xeb, 0x96,
-        ];
+        let raw = [0x0c, 0xc7, 0x88, 0x60, 0xd4, 0x14, 0x71, 0x4c];
 
-        let hash = ModuleHash::sha256(wasm);
+        let hash = ModuleHash::hash(wasm);
 
         assert_eq!(hash.as_bytes(), raw);
     }

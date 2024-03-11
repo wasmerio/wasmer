@@ -5,7 +5,7 @@ use crate::MemoryType;
 use std::marker::PhantomData;
 use std::mem::MaybeUninit;
 use std::slice;
-#[cfg(feature = "tracing")]
+
 use tracing::warn;
 
 use wasm_bindgen::prelude::*;
@@ -144,6 +144,25 @@ impl Memory {
         Ok(Pages(new_pages))
     }
 
+    pub fn grow_at_least(
+        &self,
+        store: &mut impl AsStoreMut,
+        min_size: u64,
+    ) -> Result<(), MemoryError> {
+        let cur_size = self.view(store).data_size();
+        if min_size > cur_size {
+            let delta = min_size - cur_size;
+            let pages = ((delta - 1) / wasmer_types::WASM_PAGE_SIZE as u64) + 1;
+
+            self.grow(store, Pages(pages as u32))?;
+        }
+        Ok(())
+    }
+
+    pub fn reset(&self, _store: &mut impl AsStoreMut) -> Result<(), MemoryError> {
+        Ok(())
+    }
+
     pub(crate) fn from_vm_extern(_store: &mut impl AsStoreMut, internal: VMMemory) -> Self {
         Self { handle: internal }
     }
@@ -163,6 +182,11 @@ impl Memory {
 
     pub fn is_from_store(&self, _store: &impl AsStoreRef) -> bool {
         true
+    }
+
+    pub fn as_shared(&self, _store: &impl AsStoreRef) -> Option<crate::SharedMemory> {
+        // Not supported.
+        None
     }
 }
 
@@ -198,7 +222,6 @@ impl<'a> MemoryBuffer<'a> {
             .ok_or(MemoryAccessError::Overflow)?;
         let view = unsafe { &*(self.base) };
         if end > view.length().into() {
-            #[cfg(feature = "tracing")]
             warn!(
                 "attempted to read ({} bytes) beyond the bounds of the memory view ({} > {})",
                 buf.len(),
@@ -222,7 +245,6 @@ impl<'a> MemoryBuffer<'a> {
             .ok_or(MemoryAccessError::Overflow)?;
         let view = unsafe { &*(self.base) };
         if end > view.length().into() {
-            #[cfg(feature = "tracing")]
             warn!(
                 "attempted to read ({} bytes) beyond the bounds of the memory view ({} > {})",
                 buf.len(),
@@ -244,7 +266,6 @@ impl<'a> MemoryBuffer<'a> {
             .ok_or(MemoryAccessError::Overflow)?;
         let view = unsafe { &mut *(self.base) };
         if end > view.length().into() {
-            #[cfg(feature = "tracing")]
             warn!(
                 "attempted to write ({} bytes) beyond the bounds of the memory view ({} > {})",
                 data.len(),

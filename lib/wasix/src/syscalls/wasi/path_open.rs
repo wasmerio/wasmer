@@ -27,7 +27,7 @@ use crate::syscalls::*;
 /// - `Errno::Access`, `Errno::Badf`, `Errno::Fault`, `Errno::Fbig?`, `Errno::Inval`, `Errno::Io`, `Errno::Loop`, `Errno::Mfile`, `Errno::Nametoolong?`, `Errno::Nfile`, `Errno::Noent`, `Errno::Notdir`, `Errno::Rofs`, and `Errno::Notcapable`
 #[instrument(level = "debug", skip_all, fields(%dirfd, path = field::Empty, follow_symlinks = field::Empty, ret_fd = field::Empty), ret)]
 pub fn path_open<M: MemorySize>(
-    ctx: FunctionEnvMut<'_, WasiEnv>,
+    mut ctx: FunctionEnvMut<'_, WasiEnv>,
     dirfd: WasiFd,
     dirflags: LookupFlags,
     path: WasmPtr<u8, M>,
@@ -37,7 +37,7 @@ pub fn path_open<M: MemorySize>(
     fs_rights_inheriting: Rights,
     fs_flags: Fdflags,
     fd: WasmPtr<WasiFd, M>,
-) -> Errno {
+) -> Result<Errno, WasiError> {
     if dirflags & __WASI_LOOKUP_SYMLINK_FOLLOW != 0 {
         Span::current().record("follow_symlinks", true);
     }
@@ -47,10 +47,8 @@ pub fn path_open<M: MemorySize>(
     /* TODO: find actual upper bound on name size (also this is a path, not a name :think-fish:) */
     let path_len64: u64 = path_len.into();
     if path_len64 > 1024u64 * 1024u64 {
-        return Errno::Nametoolong;
+        return Ok(Errno::Nametoolong);
     }
-
-    let fd_ref = fd.deref(&memory);
 
     // o_flags:
     // - __WASI_O_CREAT (create if it does not exist)
@@ -58,15 +56,7 @@ pub fn path_open<M: MemorySize>(
     // - __WASI_O_EXCL (fail if file exists)
     // - __WASI_O_TRUNC (truncate size to 0)
 
-    let working_dir = wasi_try!(state.fs.get_fd(dirfd));
-    let working_dir_rights_inheriting = working_dir.rights_inheriting;
-
-    // ASSUMPTION: open rights apply recursively
-    if !working_dir.rights.contains(Rights::PATH_OPEN) {
-        return Errno::Access;
-    }
-
-    let mut path_string = unsafe { get_input_str!(&memory, path, path_len) };
+    let mut path_string = unsafe { get_input_str_ok!(&memory, path, path_len) };
     Span::current().record("path", path_string.as_str());
 
     // Convert relative paths into absolute paths
@@ -77,13 +67,78 @@ pub fn path_open<M: MemorySize>(
         );
     }
 
-    let path_arg = std::path::PathBuf::from(&path_string);
+    let out_fd = wasi_try_ok!(path_open_internal(
+        &mut ctx,
+        dirfd,
+        dirflags,
+        &path_string,
+        o_flags,
+        fs_rights_base,
+        fs_rights_inheriting,
+        fs_flags,
+    )?);
+    let env = ctx.data();
+
+    #[cfg(feature = "journal")]
+    if env.enable_journal {
+        JournalEffector::save_path_open(
+            &mut ctx,
+            out_fd,
+            dirfd,
+            dirflags,
+            path_string,
+            o_flags,
+            fs_rights_base,
+            fs_rights_inheriting,
+            fs_flags,
+        )
+        .map_err(|err| {
+            tracing::error!("failed to save unlink event - {}", err);
+            WasiError::Exit(ExitCode::Errno(Errno::Fault))
+        })?;
+    }
+
+    let env = ctx.data();
+    let (memory, mut state, mut inodes) =
+        unsafe { env.get_memory_and_wasi_state_and_inodes(&ctx, 0) };
+
+    Span::current().record("ret_fd", out_fd);
+
+    let fd_ref = fd.deref(&memory);
+    wasi_try_mem_ok!(fd_ref.write(out_fd));
+
+    Ok(Errno::Success)
+}
+
+pub(crate) fn path_open_internal(
+    ctx: &mut FunctionEnvMut<'_, WasiEnv>,
+    dirfd: WasiFd,
+    dirflags: LookupFlags,
+    path: &str,
+    o_flags: Oflags,
+    fs_rights_base: Rights,
+    fs_rights_inheriting: Rights,
+    fs_flags: Fdflags,
+) -> Result<Result<WasiFd, Errno>, WasiError> {
+    let env = ctx.data();
+    let (memory, mut state, mut inodes) =
+        unsafe { env.get_memory_and_wasi_state_and_inodes(&ctx, 0) };
+
+    let path_arg = std::path::PathBuf::from(&path);
     let maybe_inode = state.fs.get_inode_at_path(
         inodes,
         dirfd,
-        &path_string,
+        path,
         dirflags & __WASI_LOOKUP_SYMLINK_FOLLOW != 0,
     );
+
+    let working_dir = wasi_try_ok_ok!(state.fs.get_fd(dirfd));
+    let working_dir_rights_inheriting = working_dir.rights_inheriting;
+
+    // ASSUMPTION: open rights apply recursively
+    if !working_dir.rights.contains(Rights::PATH_OPEN) {
+        return Ok(Err(Errno::Access));
+    }
 
     let mut open_flags = 0;
     // TODO: traverse rights of dirs properly
@@ -160,14 +215,13 @@ pub fn path_open<M: MemorySize>(
                 if let Some(special_fd) = fd {
                     // short circuit if we're dealing with a special file
                     assert!(handle.is_some());
-                    wasi_try_mem!(fd_ref.write(*special_fd));
-                    return Errno::Success;
+                    return Ok(Ok(*special_fd));
                 }
                 if o_flags.contains(Oflags::DIRECTORY) {
-                    return Errno::Notdir;
+                    return Ok(Err(Errno::Notdir));
                 }
                 if o_flags.contains(Oflags::EXCL) {
-                    return Errno::Exist;
+                    return Ok(Err(Errno::Exist));
                 }
 
                 let open_options = open_options
@@ -188,31 +242,30 @@ pub fn path_open<M: MemorySize>(
                 if minimum_rights.truncate {
                     open_flags |= Fd::TRUNCATE;
                 }
-                *handle = Some(Arc::new(std::sync::RwLock::new(wasi_try!(open_options
-                    .open(&path)
-                    .map_err(fs_error_into_wasi_err)))));
+                *handle = Some(Arc::new(std::sync::RwLock::new(wasi_try_ok_ok!(
+                    open_options.open(&path).map_err(fs_error_into_wasi_err)
+                ))));
 
                 if let Some(handle) = handle {
                     let handle = handle.read().unwrap();
                     if let Some(fd) = handle.get_special_fd() {
                         // We clone the file descriptor so that when its closed
                         // nothing bad happens
-                        let dup_fd = wasi_try!(state.fs.clone_fd(fd));
+                        let dup_fd = wasi_try_ok_ok!(state.fs.clone_fd(fd));
                         trace!(
                             %dup_fd
                         );
 
                         // some special files will return a constant FD rather than
                         // actually open the file (/dev/stdin, /dev/stdout, /dev/stderr)
-                        wasi_try_mem!(fd_ref.write(dup_fd));
-                        return Errno::Success;
+                        return Ok(Ok(dup_fd));
                     }
                 }
             }
             Kind::Buffer { .. } => unimplemented!("wasi::path_open for Buffer type files"),
             Kind::Root { .. } => {
                 if !o_flags.contains(Oflags::DIRECTORY) {
-                    return Errno::Notcapable;
+                    return Ok(Err(Errno::Notcapable));
                 }
             }
             Kind::Dir { .. }
@@ -235,16 +288,17 @@ pub fn path_open<M: MemorySize>(
         // less-happy path, we have to try to create the file
         if o_flags.contains(Oflags::CREATE) {
             if o_flags.contains(Oflags::DIRECTORY) {
-                return Errno::Notdir;
+                return Ok(Err(Errno::Notdir));
             }
             // strip end file name
 
-            let (parent_inode, new_entity_name) = wasi_try!(state.fs.get_parent_inode_at_path(
-                inodes,
-                dirfd,
-                &path_arg,
-                dirflags & __WASI_LOOKUP_SYMLINK_FOLLOW != 0
-            ));
+            let (parent_inode, new_entity_name) =
+                wasi_try_ok_ok!(state.fs.get_parent_inode_at_path(
+                    inodes,
+                    dirfd,
+                    &path_arg,
+                    dirflags & __WASI_LOOKUP_SYMLINK_FOLLOW != 0
+                ));
             let new_file_host_path = {
                 let guard = parent_inode.read();
                 match guard.deref() {
@@ -258,7 +312,7 @@ pub fn path_open<M: MemorySize>(
                         new_path.push(&new_entity_name);
                         new_path
                     }
-                    _ => return Errno::Inval,
+                    _ => return Ok(Err(Errno::Inval)),
                 }
             };
             // once we got the data we need from the parent, we lookup the host file
@@ -283,7 +337,7 @@ pub fn path_open<M: MemorySize>(
                     open_flags |= Fd::TRUNCATE;
                 }
 
-                Some(wasi_try!(open_options
+                Some(wasi_try_ok_ok!(open_options
                     .open(&new_file_host_path)
                     .map_err(|e| { fs_error_into_wasi_err(e) })))
             };
@@ -294,7 +348,7 @@ pub fn path_open<M: MemorySize>(
                     path: new_file_host_path,
                     fd: None,
                 };
-                wasi_try!(state
+                wasi_try_ok_ok!(state
                     .fs
                     .create_inode(inodes, kind, false, new_entity_name.clone()))
             };
@@ -311,13 +365,13 @@ pub fn path_open<M: MemorySize>(
 
             new_inode
         } else {
-            return maybe_inode.unwrap_err();
+            return Ok(Err(maybe_inode.unwrap_err()));
         }
     };
 
     // TODO: check and reduce these
     // TODO: ensure a mutable fd to root can never be opened
-    let out_fd = wasi_try!(state.fs.create_fd(
+    let out_fd = wasi_try_ok_ok!(state.fs.create_fd(
         adjusted_rights,
         fs_rights_inheriting,
         fs_flags,
@@ -325,8 +379,5 @@ pub fn path_open<M: MemorySize>(
         inode
     ));
 
-    Span::current().record("ret_fd", out_fd);
-
-    wasi_try_mem!(fd_ref.write(out_fd));
-    Errno::Success
+    Ok(Ok(out_fd))
 }

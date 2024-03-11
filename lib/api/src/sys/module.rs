@@ -1,17 +1,17 @@
-use crate::engine::AsEngineRef;
-use bytes::Bytes;
 use std::path::Path;
 use std::sync::Arc;
-use wasmer_compiler::Artifact;
-use wasmer_compiler::ArtifactCreate;
+
+use bytes::Bytes;
+use wasmer_compiler::{Artifact, ArtifactCreate};
 use wasmer_types::{
     CompileError, DeserializeError, ExportsIterator, ImportsIterator, ModuleInfo, SerializeError,
 };
 use wasmer_types::{ExportType, ImportType};
 
-use crate::sys::engine::NativeEngineExt;
-use crate::vm::VMInstance;
-use crate::{AsStoreMut, AsStoreRef, InstantiationError, IntoBytes};
+use crate::{
+    engine::AsEngineRef, sys::engine::NativeEngineExt, vm::VMInstance, AsStoreMut, AsStoreRef,
+    InstantiationError, IntoBytes,
+};
 
 #[derive(Clone, PartialEq, Eq)]
 pub struct Module {
@@ -49,6 +49,7 @@ impl Module {
         Ok(module)
     }
 
+    #[tracing::instrument(level = "debug", skip_all)]
     pub(crate) fn validate(engine: &impl AsEngineRef, binary: &[u8]) -> Result<(), CompileError> {
         engine.as_engine_ref().engine().0.validate(binary)
     }
@@ -70,6 +71,7 @@ impl Module {
         self.artifact.serialize().map(|bytes| bytes.into())
     }
 
+    #[tracing::instrument(level = "debug", skip_all)]
     pub unsafe fn deserialize_unchecked(
         engine: &impl AsEngineRef,
         bytes: impl IntoBytes,
@@ -83,6 +85,7 @@ impl Module {
         Ok(Self::from_artifact(artifact))
     }
 
+    #[tracing::instrument(level = "debug", skip_all)]
     pub unsafe fn deserialize(
         engine: &impl AsEngineRef,
         bytes: impl IntoBytes,

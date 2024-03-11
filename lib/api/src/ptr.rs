@@ -259,10 +259,7 @@ unsafe impl<T: ValueType, M: MemorySize> ValueType for WasmPtr<T, M> {
 
 impl<T: ValueType, M: MemorySize> Clone for WasmPtr<T, M> {
     fn clone(&self) -> Self {
-        Self {
-            offset: self.offset,
-            _phantom: PhantomData,
-        }
+        *self
     }
 }
 

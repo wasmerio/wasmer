@@ -335,7 +335,9 @@ impl Future for RemoteNetworkingClientDriver {
                                 let guard = self.common.recv_tx.lock().unwrap();
                                 match guard.get(&socket_id) {
                                     Some(tx) => tx.clone(),
-                                    None => continue,
+                                    None => {
+                                        continue;
+                                    }
                                 }
                             };
                             let common = self.common.clone();
@@ -409,7 +411,6 @@ impl Future for RemoteNetworkingClientDriver {
                                 }
                             }
                         },
-
                         MessageResponse::FinishAccept {
                             socket_id,
                             child_id,
@@ -872,7 +873,7 @@ struct RemoteSocket {
     tx_waker: Waker,
     rx_accept: mpsc::Receiver<SocketWithAddr>,
     rx_sent: mpsc::Receiver<u64>,
-    pending_accept: Option<SocketId>,
+    pending_accept: Option<(SocketId, mpsc::Receiver<Vec<u8>>)>,
     buffer_recv_with_addr: VecDeque<DataWithAddr>,
     buffer_accept: VecDeque<SocketWithAddr>,
     send_available: u64,
@@ -930,7 +931,11 @@ impl RemoteSocket {
             .fetch_add(1, Ordering::SeqCst)
             .into();
         self.io_socket_fire_and_forget(RequestType::BeginAccept(child_id))?;
-        self.pending_accept.replace(child_id);
+
+        let (tx, rx_recv) = tokio::sync::mpsc::channel(100);
+        self.common.recv_tx.lock().unwrap().insert(child_id, tx);
+
+        self.pending_accept.replace((child_id, rx_recv));
         Ok(())
     }
 }
@@ -1059,16 +1064,25 @@ impl VirtualTcpListener for RemoteSocket {
         // This placed here will mean there is always an accept request pending at the
         // server as the constructor invokes this method and we invoke it here after
         // receiving a child connection.
-        self.pending_accept.take();
+        let mut rx_recv = None;
+        if let Some((rx_socket, existing_rx_recv)) = self.pending_accept.take() {
+            if accepted.socket == rx_socket {
+                rx_recv.replace(existing_rx_recv);
+            }
+        }
+        let rx_recv = match rx_recv {
+            Some(rx_recv) => rx_recv,
+            None => {
+                let (tx, rx_recv) = tokio::sync::mpsc::channel(100);
+                self.common
+                    .recv_tx
+                    .lock()
+                    .unwrap()
+                    .insert(accepted.socket, tx);
+                rx_recv
+            }
+        };
         self.touch_begin_accept().ok();
-
-        // Now we construct the child
-        let (tx, rx_recv) = tokio::sync::mpsc::channel(100);
-        self.common
-            .recv_tx
-            .lock()
-            .unwrap()
-            .insert(accepted.socket, tx);
 
         let (tx, rx_recv_with_addr) = tokio::sync::mpsc::channel(100);
         self.common

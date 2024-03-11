@@ -28,6 +28,8 @@ pub struct RewindState {
     pub is_64bit: bool,
 }
 
+pub type RewindStateOption = Option<(RewindState, Option<Bytes>)>;
+
 /// Represents the work that will be done when a thread goes to deep sleep and
 /// includes the things needed to restore it again
 pub struct DeepSleepWork {

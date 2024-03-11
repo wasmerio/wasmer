@@ -1,12 +1,15 @@
-use crate::store::CompilerOptions;
+use std::path::PathBuf;
+
 use anyhow::{Context, Error};
 use bytes::Bytes;
 use clap::Parser;
-use std::path::PathBuf;
 use wasmer_compiler::Artifact;
-use wasmer_types::compilation::symbols::ModuleMetadataSymbolRegistry;
-use wasmer_types::{CpuFeature, MetadataHeader, Triple};
+use wasmer_types::{
+    compilation::symbols::ModuleMetadataSymbolRegistry, CpuFeature, MetadataHeader, Triple,
+};
 use webc::{compat::SharedBytes, Container, DetectError};
+
+use crate::store::CompilerOptions;
 
 #[derive(Debug, Parser)]
 /// The options for the `wasmer gen-c-header` subcommand
