@@ -227,6 +227,10 @@ impl AsyncCliCommand for CmdDeploy {
                 .with_context(|| format!("Could not write file: '{}'", file_path.display()))?;
         }
 
+        if self.fmt.format == crate::utils::render::ItemFormat::Json {
+            println!("{}", serde_json::to_string_pretty(&app_version)?);
+        }
+
         Ok(app_version)
     }
 }
