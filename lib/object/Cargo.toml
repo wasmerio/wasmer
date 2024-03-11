@@ -1,16 +1,21 @@
 [package]
 name = "wasmer-object"
-version = "3.2.0-alpha.1"
 description = "Wasmer Native Object generator"
 categories = ["wasm"]
 keywords = ["wasm", "webassembly"]
-authors = ["Wasmer Engineering Team <engineering@wasmer.io>"]
-repository = "https://github.com/wasmerio/wasmer"
-license = "MIT"
 readme = "README.md"
-edition = "2018"
+authors.workspace = true
+edition.workspace = true
+homepage.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+version.workspace = true
 
 [dependencies]
-wasmer-types = { path = "../types", version = "=3.2.0-alpha.1" }
-object = { version = "0.28.3", default-features = false, features = ["write"] }
+wasmer-types = { path = "../types", version = "=4.2.6" }
+object = { version = "0.29.0", default-features = false, features = ["write"] }
 thiserror = "1.0"
+
+[package.metadata.docs.rs]
+rustc-args = ["--cfg", "docsrs"]

@@ -13,7 +13,7 @@ pub trait Cache {
     /// The deserialization error for the implementation
     type DeserializeError: Error + Send + Sync;
 
-    /// Loads a module using the provided [`Store`] and [`Hash`].
+    /// Loads a module using the provided [`wasmer::Store`] and [`crate::Hash`].
     ///
     /// # Safety
     /// This function is unsafe as the cache store could be tampered with.
@@ -23,6 +23,6 @@ pub trait Cache {
         key: Hash,
     ) -> Result<Module, Self::DeserializeError>;
 
-    /// Store a [`Module`] into the cache with the given [`Hash`].
+    /// Store a [`Module`] into the cache with the given [`crate::Hash`].
     fn store(&mut self, key: Hash, module: &Module) -> Result<(), Self::SerializeError>;
 }

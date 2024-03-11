@@ -14,15 +14,13 @@ expression: snapshot
       }
     ],
     "cli_args": [],
-    "stdin": null,
-    "debug_output": false,
     "enable_threads": true,
     "enable_network": false
   },
   "result": {
     "Success": {
-      "stdout": "Parent has x = 0\nParent memory is good\nChild has x = 2\nChild memory is good\nChild(2) exited with 3\n",
-      "stderr": "",
+      "stdout": "Parent has x = 0\nParent memory is good\nChild(2) exited with 3\n",
+      "stderr": "Child has x = 2\nChild memory is good\n",
       "exit_code": 0
     }
   }

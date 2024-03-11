@@ -16,10 +16,6 @@ Or by building it inside the codebase:
 cargo build --release --features "singlepass,cranelift"
 ```
 
-> Note: installing `wasmer` via Cargo (or manual install) will not install
-> the WAPM cli. If you want to use them together, please use the [wasmer installer](https://github.com/wasmerio/wasmer-install).
-
-
 ## Features
 
 The Wasmer supports the following features:
@@ -27,7 +23,6 @@ The Wasmer supports the following features:
 * `wast`(default): support for running wast test files.
 * `cache` (default): support or automatically caching compiled artifacts.
 * `wasi` (default): support for [WASI].
-* `experimental-io-devices`: support for experimental IO devices in WASI.
 * `emscripten` (default): support for [Emscripten].
 * `singlepass`: support for the [Singlepass compiler].
 * `cranelift`: support for the [Cranelift compiler].

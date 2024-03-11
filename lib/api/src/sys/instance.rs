@@ -16,27 +16,30 @@ pub struct Instance {
 mod send_test {
     use super::*;
 
-    fn is_send<T: Send>() -> bool {
-        true
-    }
+    // Only here to statically ensure that `Instance` is `Send`.
+    // Will fail to compile otherwise.
+    #[allow(dead_code)]
+    fn instance_is_send(inst: Instance) {
+        fn is_send(t: impl Send) {
+            let _ = t;
+        }
 
-    #[test]
-    fn instance_is_send() {
-        assert!(is_send::<Instance>());
+        is_send(inst);
     }
 }
 
 impl From<wasmer_compiler::InstantiationError> for InstantiationError {
     fn from(other: wasmer_compiler::InstantiationError) -> Self {
         match other {
-            wasmer_compiler::InstantiationError::Link(e) => Self::Link(e),
-            wasmer_compiler::InstantiationError::Start(e) => Self::Start(e),
+            wasmer_compiler::InstantiationError::Link(e) => Self::Link(e.into()),
+            wasmer_compiler::InstantiationError::Start(e) => Self::Start(e.into()),
             wasmer_compiler::InstantiationError::CpuFeature(e) => Self::CpuFeature(e),
         }
     }
 }
 
 impl Instance {
+    #[allow(clippy::result_large_err)]
     pub(crate) fn new(
         store: &mut impl AsStoreMut,
         module: &Module,
@@ -55,6 +58,7 @@ impl Instance {
         Ok((instance, exports))
     }
 
+    #[allow(clippy::result_large_err)]
     pub(crate) fn new_by_index(
         store: &mut impl AsStoreMut,
         module: &Module,

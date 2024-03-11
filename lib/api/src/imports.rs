@@ -140,6 +140,7 @@ impl Imports {
     /// Resolve and return a vector of imports in the order they are defined in the `module`'s source code.
     ///
     /// This means the returned `Vec<Extern>` might be a subset of the imports contained in `self`.
+    #[allow(clippy::result_large_err)]
     pub fn imports_for_module(&self, module: &Module) -> Result<Vec<Extern>, LinkError> {
         let mut ret = vec![];
         for import in module.imports() {

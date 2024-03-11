@@ -5,7 +5,8 @@
 // type itself has no effect, therefore it's disabled for the whole module.
 // Feel free to remove this allow attribute once the bug is fixed.
 // See https://github.com/rust-lang/rust-clippy/issues/6902
-#![allow(clippy::use_self)]
+// Same things is now happening with unused-unit for the EnumSetType derivative
+#![allow(clippy::unused_unit, clippy::use_self)]
 
 use crate::error::ParseCpuFeatureError;
 use enumset::{EnumSet, EnumSetType};
@@ -28,7 +29,7 @@ pub use target_lexicon::{
 ///
 /// [`cpuid` crate]: https://docs.rs/cpuid/0.1.1/cpuid/enum.CpuFeature.html
 /// [`cranelift-native`]: https://github.com/bytecodealliance/cranelift/blob/6988545fd20249b084c53f4761b8c861266f5d31/cranelift-native/src/lib.rs#L51-L92
-#[allow(missing_docs, clippy::derive_hash_xor_eq)]
+#[allow(missing_docs, clippy::derived_hash_with_manual_eq)]
 #[derive(EnumSetType, Debug, Hash)]
 pub enum CpuFeature {
     // X86 features

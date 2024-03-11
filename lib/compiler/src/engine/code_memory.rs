@@ -3,7 +3,11 @@
 
 //! Memory management for executable code.
 use super::unwind::UnwindRegistry;
-use wasmer_types::{CompiledFunctionUnwindInfo, CustomSection, FunctionBody};
+use crate::GlobalFrameInfoRegistration;
+use wasmer_types::{
+    compilation::unwind::CompiledFunctionUnwindInfoLike, CompiledFunctionUnwindInfoReference,
+    CustomSectionLike, FunctionBodyLike,
+};
 use wasmer_vm::{Mmap, VMFunctionBody};
 
 /// The optimal alignment for functions.
@@ -19,6 +23,8 @@ const DATA_SECTION_ALIGNMENT: usize = 64;
 
 /// Memory manager for executable code.
 pub struct CodeMemory {
+    // frame info is placed first, to ensure it's dropped before the mmap
+    frame_info_registration: Option<GlobalFrameInfoRegistration>,
     unwind_registry: UnwindRegistry,
     mmap: Mmap,
     start_of_nonexecutable_pages: usize,
@@ -31,6 +37,7 @@ impl CodeMemory {
             unwind_registry: UnwindRegistry::new(),
             mmap: Mmap::new(),
             start_of_nonexecutable_pages: 0,
+            frame_info_registration: None,
         }
     }
 
@@ -41,12 +48,23 @@ impl CodeMemory {
 
     /// Allocate a single contiguous block of memory at a fixed virtual address for the functions and custom sections, and copy the data in place.
     #[allow(clippy::type_complexity)]
-    pub fn allocate(
-        &mut self,
-        functions: &[&FunctionBody],
-        executable_sections: &[&CustomSection],
-        data_sections: &[&CustomSection],
-    ) -> Result<(Vec<&mut [VMFunctionBody]>, Vec<&mut [u8]>, Vec<&mut [u8]>), String> {
+    pub fn allocate<'module, 'memory, FunctionBody, CustomSection>(
+        &'memory mut self,
+        functions: &'memory [&'module FunctionBody],
+        executable_sections: &'memory [&'module CustomSection],
+        data_sections: &'memory [&'module CustomSection],
+    ) -> Result<
+        (
+            Vec<&'memory mut [VMFunctionBody]>,
+            Vec<&'memory mut [u8]>,
+            Vec<&'memory mut [u8]>,
+        ),
+        String,
+    >
+    where
+        FunctionBody: FunctionBodyLike<'module> + 'module,
+        CustomSection: CustomSectionLike<'module> + 'module,
+    {
         let mut function_result = vec![];
         let mut data_section_result = vec![];
         let mut executable_section_result = vec![];
@@ -66,15 +84,15 @@ impl CodeMemory {
         let total_len = round_up(
             functions.iter().fold(0, |acc, func| {
                 round_up(
-                    acc + Self::function_allocation_size(func),
+                    acc + Self::function_allocation_size(*func),
                     ARCH_FUNCTION_ALIGNMENT,
                 )
             }) + executable_sections.iter().fold(0, |acc, exec| {
-                round_up(acc + exec.bytes.len(), ARCH_FUNCTION_ALIGNMENT)
+                round_up(acc + exec.bytes().len(), ARCH_FUNCTION_ALIGNMENT)
             }),
             page_size,
         ) + data_sections.iter().fold(0, |acc, data| {
-            round_up(acc + data.bytes.len(), DATA_SECTION_ALIGNMENT)
+            round_up(acc + data.bytes().len(), DATA_SECTION_ALIGNMENT)
         });
 
         // 2. Allocate the pages. Mark them all read-write.
@@ -88,25 +106,25 @@ impl CodeMemory {
         let mut buf = self.mmap.as_mut_slice();
         for func in functions {
             let len = round_up(
-                Self::function_allocation_size(func),
+                Self::function_allocation_size(*func),
                 ARCH_FUNCTION_ALIGNMENT,
             );
             let (func_buf, next_buf) = buf.split_at_mut(len);
             buf = next_buf;
             bytes += len;
 
-            let vmfunc = Self::copy_function(&mut self.unwind_registry, func, func_buf);
+            let vmfunc = Self::copy_function(&mut self.unwind_registry, *func, func_buf);
             assert_eq!(vmfunc.as_ptr() as usize % ARCH_FUNCTION_ALIGNMENT, 0);
             function_result.push(vmfunc);
         }
         for section in executable_sections {
-            let section = &section.bytes;
+            let section = section.bytes();
             assert_eq!(buf.as_mut_ptr() as usize % ARCH_FUNCTION_ALIGNMENT, 0);
             let len = round_up(section.len(), ARCH_FUNCTION_ALIGNMENT);
             let (s, next_buf) = buf.split_at_mut(len);
             buf = next_buf;
             bytes += len;
-            s[..section.len()].copy_from_slice(section.as_slice());
+            s[..section.len()].copy_from_slice(section);
             executable_section_result.push(s);
         }
 
@@ -119,12 +137,12 @@ impl CodeMemory {
             buf = buf.split_at_mut(padding).1;
 
             for section in data_sections {
-                let section = &section.bytes;
+                let section = section.bytes();
                 assert_eq!(buf.as_mut_ptr() as usize % DATA_SECTION_ALIGNMENT, 0);
                 let len = round_up(section.len(), DATA_SECTION_ALIGNMENT);
                 let (s, next_buf) = buf.split_at_mut(len);
                 buf = next_buf;
-                s[..section.len()].copy_from_slice(section.as_slice());
+                s[..section.len()].copy_from_slice(section);
                 data_section_result.push(s);
             }
         }
@@ -153,35 +171,36 @@ impl CodeMemory {
     }
 
     /// Calculates the allocation size of the given compiled function.
-    fn function_allocation_size(func: &FunctionBody) -> usize {
-        match &func.unwind_info {
-            Some(CompiledFunctionUnwindInfo::WindowsX64(info)) => {
+    fn function_allocation_size<'a>(func: &'a impl FunctionBodyLike<'a>) -> usize {
+        match &func.unwind_info().map(|o| o.get()) {
+            Some(CompiledFunctionUnwindInfoReference::WindowsX64(info)) => {
                 // Windows unwind information is required to be emitted into code memory
                 // This is because it must be a positive relative offset from the start of the memory
                 // Account for necessary unwind information alignment padding (32-bit alignment)
-                ((func.body.len() + 3) & !3) + info.len()
+                ((func.body().len() + 3) & !3) + info.len()
             }
-            _ => func.body.len(),
+            _ => func.body().len(),
         }
     }
 
     /// Copies the data of the compiled function to the given buffer.
     ///
     /// This will also add the function to the current function table.
-    fn copy_function<'a>(
+    fn copy_function<'module, 'memory>(
         registry: &mut UnwindRegistry,
-        func: &FunctionBody,
-        buf: &'a mut [u8],
-    ) -> &'a mut [VMFunctionBody] {
+        func: &'module impl FunctionBodyLike<'module>,
+        buf: &'memory mut [u8],
+    ) -> &'memory mut [VMFunctionBody] {
         assert_eq!(buf.as_ptr() as usize % ARCH_FUNCTION_ALIGNMENT, 0);
 
-        let func_len = func.body.len();
+        let func_len = func.body().len();
 
         let (body, remainder) = buf.split_at_mut(func_len);
-        body.copy_from_slice(&func.body);
+        body.copy_from_slice(func.body());
         let vmfunc = Self::view_as_mut_vmfunc_slice(body);
 
-        if let Some(CompiledFunctionUnwindInfo::WindowsX64(info)) = &func.unwind_info {
+        let unwind_info = func.unwind_info().map(|o| o.get());
+        if let Some(CompiledFunctionUnwindInfoReference::WindowsX64(info)) = unwind_info {
             // Windows unwind information is written following the function body
             // Keep unwind information 32-bit aligned (round up to the nearest 4 byte boundary)
             let unwind_start = (func_len + 3) & !3;
@@ -192,7 +211,7 @@ impl CodeMemory {
             slice[padding..].copy_from_slice(info);
         }
 
-        if let Some(info) = &func.unwind_info {
+        if let Some(ref info) = unwind_info {
             registry
                 .register(vmfunc.as_ptr() as usize, 0, func_len as u32, info)
                 .expect("failed to register unwind information");
@@ -206,6 +225,11 @@ impl CodeMemory {
         let byte_ptr: *mut [u8] = slice;
         let body_ptr = byte_ptr as *mut [VMFunctionBody];
         unsafe { &mut *body_ptr }
+    }
+
+    /// Register the frame info, so it's free when the mememory gets freed
+    pub fn register_frame_info(&mut self, frame_info: GlobalFrameInfoRegistration) {
+        self.frame_info_registration = Some(frame_info);
     }
 }
 

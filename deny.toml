@@ -111,7 +111,6 @@ confidence-threshold = 0.8
 exceptions = [
     # Each entry is the crate and version constraint, and its specific allow
     # list
-    { name = "webc", allow = ["BUSL-1.1"] }
 ]
 
 

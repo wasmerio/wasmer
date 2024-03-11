@@ -3,8 +3,8 @@ use object::write::{
     Object, Relocation, StandardSection, StandardSegment, Symbol as ObjSymbol, SymbolSection,
 };
 use object::{
-    elf, macho, RelocationEncoding, RelocationKind, SectionKind, SymbolFlags, SymbolKind,
-    SymbolScope,
+    elf, macho, FileFlags, RelocationEncoding, RelocationKind, SectionKind, SymbolFlags,
+    SymbolKind, SymbolScope,
 };
 use wasmer_types::entity::PrimaryMap;
 use wasmer_types::LocalFunctionIndex;
@@ -46,6 +46,7 @@ pub fn get_object_for_target(triple: &Triple) -> Result<Object, ObjectError> {
     let obj_architecture = match triple.architecture {
         Architecture::X86_64 => object::Architecture::X86_64,
         Architecture::Aarch64(_) => object::Architecture::Aarch64,
+        Architecture::Riscv64(_) => object::Architecture::Riscv64,
         architecture => {
             return Err(ObjectError::UnsupportedArchitecture(format!(
                 "{}",
@@ -61,11 +62,17 @@ pub fn get_object_for_target(triple: &Triple) -> Result<Object, ObjectError> {
         Endianness::Big => object::Endianness::Big,
     };
 
-    Ok(Object::new(
-        obj_binary_format,
-        obj_architecture,
-        obj_endianness,
-    ))
+    let mut object = Object::new(obj_binary_format, obj_architecture, obj_endianness);
+
+    if let Architecture::Riscv64(_) = triple.architecture {
+        object.flags = FileFlags::Elf {
+            e_flags: elf::EF_RISCV_FLOAT_ABI_DOUBLE,
+            os_abi: 2,
+            abi_version: 0,
+        };
+    }
+
+    Ok(object)
 }
 
 /// Write data into an existing object.

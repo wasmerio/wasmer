@@ -1,11 +1,12 @@
-use anyhow::{Context, Result};
+use std::{
+    env, fs,
+    io::Write,
+    os::unix::{ffi::OsStrExt, fs::MetadataExt},
+    path::{Path, PathBuf},
+};
+
+use anyhow::{bail, Context, Result};
 use clap::Parser;
-use std::env;
-use std::fs;
-use std::io::Write;
-use std::os::unix::ffi::OsStrExt;
-use std::os::unix::fs::MetadataExt;
-use std::path::{Path, PathBuf};
 use Action::*;
 
 #[derive(Debug, Parser, Clone, Copy)]
@@ -53,6 +54,9 @@ fn seccheck(path: &Path) -> Result<()> {
 }
 
 impl Binfmt {
+    /// The filename used to register the wasmer CLI as a binfmt interpreter.
+    pub const FILENAME: &str = "wasmer-binfmt-interpreter";
+
     /// execute [Binfmt]
     pub fn execute(&self) -> Result<()> {
         if !self.binfmt_misc.exists() {
@@ -66,8 +70,8 @@ impl Binfmt {
                 let bin_path_orig: PathBuf = env::current_exe()
                     .and_then(|p| p.canonicalize())
                     .context("Cannot get path to wasmer executable")?;
-                let bin_path = temp_dir.path().join("wasmer-binfmt-interpreter");
-                fs::copy(&bin_path_orig, &bin_path).context("Copy wasmer binary to temp folder")?;
+                let bin_path = temp_dir.path().join(Binfmt::FILENAME);
+                fs::copy(bin_path_orig, &bin_path).context("Copy wasmer binary to temp folder")?;
                 let bin_path = fs::canonicalize(&bin_path).with_context(|| {
                     format!(
                         "Couldn't get absolute path for {}",

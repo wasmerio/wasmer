@@ -1,22 +1,13 @@
-use std::path::PathBuf;
-use std::process::Command;
-use wasmer_integration_tests_cli::get_wasmer_path;
-use wasmer_integration_tests_cli::C_ASSET_PATH;
+use std::{path::PathBuf, process::Command};
 
-fn create_exe_wabt_path() -> String {
-    format!("{}/{}", C_ASSET_PATH, "wabt-1.0.37.wasmer")
-}
-
-fn create_exe_test_wasm_path() -> String {
-    format!("{}/{}", C_ASSET_PATH, "qjs.wasm")
-}
+use wasmer_integration_tests_cli::{fixtures, get_wasmer_path};
 
 #[test]
 fn gen_c_header_works() -> anyhow::Result<()> {
     let temp_dir = tempfile::tempdir()?;
     let operating_dir: PathBuf = temp_dir.path().to_owned();
 
-    let wasm_path = operating_dir.join(create_exe_test_wasm_path());
+    let wasm_path = operating_dir.join(fixtures::qjs());
     let out_path = temp_dir.path().join("header.h");
 
     let _ = Command::new(get_wasmer_path())
@@ -54,7 +45,7 @@ fn gen_c_header_works_pirita() -> anyhow::Result<()> {
     let temp_dir = tempfile::tempdir()?;
     let operating_dir: PathBuf = temp_dir.path().to_owned();
 
-    let wasm_path = operating_dir.join(create_exe_wabt_path());
+    let wasm_path = operating_dir.join(fixtures::wabt());
     let out_path = temp_dir.path().join("header.h");
 
     let _ = Command::new(get_wasmer_path())

@@ -2,48 +2,60 @@
 //! to allow compiling and instantiating to be done as separate steps.
 
 use crate::engine::link::link_module;
+use crate::lib::std::vec::IntoIter;
 use crate::ArtifactBuild;
+use crate::ArtifactBuildFromArchive;
 use crate::ArtifactCreate;
 use crate::Features;
 use crate::ModuleEnvironment;
 use crate::{
     register_frame_info, resolve_imports, FunctionExtent, GlobalFrameInfoRegistration,
-    InstantiationError, RuntimeError, Tunables,
+    InstantiationError, Tunables,
 };
 #[cfg(feature = "static-artifact-create")]
 use crate::{Compiler, FunctionBodyData, ModuleTranslationState};
 use crate::{Engine, EngineInner};
 use enumset::EnumSet;
+use shared_buffer::OwnedBuffer;
 #[cfg(any(feature = "static-artifact-create", feature = "static-artifact-load"))]
 use std::mem;
 use std::sync::atomic::{AtomicUsize, Ordering::SeqCst};
 use std::sync::Arc;
-use std::sync::Mutex;
 #[cfg(feature = "static-artifact-create")]
 use wasmer_object::{emit_compilation, emit_data, get_object_for_target, Object};
 #[cfg(any(feature = "static-artifact-create", feature = "static-artifact-load"))]
 use wasmer_types::compilation::symbols::ModuleMetadata;
 use wasmer_types::entity::{BoxedSlice, PrimaryMap};
+use wasmer_types::ArchivedDataInitializerLocation;
+use wasmer_types::ArchivedOwnedDataInitializer;
 #[cfg(feature = "static-artifact-create")]
 use wasmer_types::CompileModuleInfo;
+use wasmer_types::DataInitializerLike;
+use wasmer_types::DataInitializerLocation;
+use wasmer_types::DataInitializerLocationLike;
 use wasmer_types::MetadataHeader;
-#[cfg(feature = "static-artifact-load")]
-use wasmer_types::SerializableCompilation;
 use wasmer_types::{
     CompileError, CpuFeature, DataInitializer, DeserializeError, FunctionIndex, LocalFunctionIndex,
     MemoryIndex, ModuleInfo, OwnedDataInitializer, SignatureIndex, TableIndex, Target,
 };
 use wasmer_types::{SerializableModule, SerializeError};
 use wasmer_vm::{FunctionBodyPtr, MemoryStyle, TableStyle, VMSharedSignatureIndex, VMTrampoline};
-use wasmer_vm::{InstanceAllocator, StoreObjects, TrapHandlerFn, VMExtern, VMInstance};
+use wasmer_vm::{InstanceAllocator, StoreObjects, TrapHandlerFn, VMConfig, VMExtern, VMInstance};
 
 pub struct AllocatedArtifact {
+    // This shows if the frame info has been regestered already or not.
+    // Because the 'GlobalFrameInfoRegistration' ownership can be transfered to EngineInner
+    // this bool is needed to track the status, as 'frame_info_registration' will be None
+    // after the ownership is transfered.
+    frame_info_registered: bool,
+    // frame_info_registered is not staying there but transfered to CodeMemory from EngineInner
+    // using 'Artifact::take_frame_info_registration' method
+    // so the GloabelFrameInfo and MMap stays in sync and get dropped at the same time
+    frame_info_registration: Option<GlobalFrameInfoRegistration>,
     finished_functions: BoxedSlice<LocalFunctionIndex, FunctionBodyPtr>,
     finished_function_call_trampolines: BoxedSlice<SignatureIndex, VMTrampoline>,
     finished_dynamic_function_trampolines: BoxedSlice<FunctionIndex, FunctionBodyPtr>,
     signatures: BoxedSlice<SignatureIndex, VMSharedSignatureIndex>,
-    /// Some(_) only if this is not a deserialized static artifact
-    frame_info_registration: Option<Mutex<Option<GlobalFrameInfoRegistration>>>,
     finished_function_lengths: BoxedSlice<LocalFunctionIndex, usize>,
 }
 
@@ -79,10 +91,18 @@ impl Default for ArtifactId {
 /// A compiled wasm module, ready to be instantiated.
 pub struct Artifact {
     id: ArtifactId,
-    artifact: ArtifactBuild,
+    artifact: ArtifactBuildVariant,
     // The artifact will only be allocated in memory in case we can execute it
     // (that means, if the target != host then this will be None).
     allocated: Option<AllocatedArtifact>,
+}
+
+/// Artifacts may be created as the result of the compilation of a wasm
+/// module, corresponding to `ArtifactBuildVariant::Plain`, or loaded
+/// from an archive, corresponding to `ArtifactBuildVariant::Archived`.
+pub enum ArtifactBuildVariant {
+    Plain(ArtifactBuild),
+    Archived(ArtifactBuildFromArchive),
 }
 
 impl Artifact {
@@ -116,7 +136,24 @@ impl Artifact {
             table_styles,
         )?;
 
-        Self::from_parts(&mut inner_engine, artifact, engine.target())
+        Self::from_parts(
+            &mut inner_engine,
+            ArtifactBuildVariant::Plain(artifact),
+            engine.target(),
+        )
+        .map_err(|e| match e {
+            DeserializeError::Compiler(c) => c,
+
+            // `from_parts` only ever returns `CompileError`s when an
+            // `ArtifactBuildVariant::Plain` is passed in. Other cases
+            // of `DeserializeError` can only happen when an
+            // `ArtifactBuildVariant::Archived` is passed in. We don't
+            // wish to change the return type of this method because
+            // a. it makes no sense and b. it would be a breaking change,
+            // hence this match block and the other cases being
+            // unreachable.
+            _ => unreachable!(),
+        })
     }
 
     /// This indicates if the Artifact is allocated and can be run by the current
@@ -143,52 +180,117 @@ impl Artifact {
         ))
     }
 
-    /// Deserialize a ArtifactBuild
+    /// Deserialize a serialized artifact.
     ///
     /// # Safety
-    /// This function is unsafe because rkyv reads directly without validating
-    /// the data.
-    pub unsafe fn deserialize(engine: &Engine, bytes: &[u8]) -> Result<Self, DeserializeError> {
-        if !ArtifactBuild::is_deserializable(bytes) {
+    /// This function loads executable code into memory.
+    /// You must trust the loaded bytes to be valid for the chosen engine and
+    /// for the host CPU architecture.
+    /// In contrast to [`Self::deserialize_unchecked`] the artifact layout is
+    /// validated, which increases safety.
+    pub unsafe fn deserialize(
+        engine: &Engine,
+        bytes: OwnedBuffer,
+    ) -> Result<Self, DeserializeError> {
+        if !ArtifactBuild::is_deserializable(bytes.as_ref()) {
             let static_artifact = Self::deserialize_object(engine, bytes);
             match static_artifact {
                 Ok(v) => {
                     return Ok(v);
                 }
-                Err(err) => {
-                    eprintln!("Could not deserialize as static object: {}", err);
+                Err(_) => {
+                    return Err(DeserializeError::Incompatible(
+                        "The provided bytes are not wasmer-universal".to_string(),
+                    ));
                 }
             }
-            return Err(DeserializeError::Incompatible(
-                "The provided bytes are not wasmer-universal".to_string(),
-            ));
         }
 
-        let bytes = Self::get_byte_slice(bytes, ArtifactBuild::MAGIC_HEADER.len(), bytes.len())?;
+        let artifact = ArtifactBuildFromArchive::try_new(bytes, |bytes| {
+            let bytes =
+                Self::get_byte_slice(bytes, ArtifactBuild::MAGIC_HEADER.len(), bytes.len())?;
 
-        let metadata_len = MetadataHeader::parse(bytes)?;
-        let metadata_slice = Self::get_byte_slice(bytes, MetadataHeader::LEN, bytes.len())?;
-        let metadata_slice = Self::get_byte_slice(metadata_slice, 0, metadata_len)?;
+            let metadata_len = MetadataHeader::parse(bytes)?;
+            let metadata_slice = Self::get_byte_slice(bytes, MetadataHeader::LEN, bytes.len())?;
+            let metadata_slice = Self::get_byte_slice(metadata_slice, 0, metadata_len)?;
 
-        let serializable = SerializableModule::deserialize(metadata_slice)?;
-        let artifact = ArtifactBuild::from_serializable(serializable);
+            SerializableModule::archive_from_slice_checked(metadata_slice)
+        })?;
+
         let mut inner_engine = engine.inner_mut();
-        Self::from_parts(&mut inner_engine, artifact, engine.target())
-            .map_err(DeserializeError::Compiler)
+        Self::from_parts(
+            &mut inner_engine,
+            ArtifactBuildVariant::Archived(artifact),
+            engine.target(),
+        )
+    }
+
+    /// Deserialize a serialized artifact.
+    ///
+    /// NOTE: You should prefer [`Self::deserialize`].
+    ///
+    /// # Safety
+    /// See [`Self::deserialize`].
+    /// In contrast to the above, this function skips artifact layout validation,
+    /// which increases the risk of loading invalid artifacts.
+    pub unsafe fn deserialize_unchecked(
+        engine: &Engine,
+        bytes: OwnedBuffer,
+    ) -> Result<Self, DeserializeError> {
+        if !ArtifactBuild::is_deserializable(bytes.as_ref()) {
+            let static_artifact = Self::deserialize_object(engine, bytes);
+            match static_artifact {
+                Ok(v) => {
+                    return Ok(v);
+                }
+                Err(_) => {
+                    return Err(DeserializeError::Incompatible(
+                        "The provided bytes are not wasmer-universal".to_string(),
+                    ));
+                }
+            }
+        }
+
+        let artifact = ArtifactBuildFromArchive::try_new(bytes, |bytes| {
+            let bytes =
+                Self::get_byte_slice(bytes, ArtifactBuild::MAGIC_HEADER.len(), bytes.len())?;
+
+            let metadata_len = MetadataHeader::parse(bytes)?;
+            let metadata_slice = Self::get_byte_slice(bytes, MetadataHeader::LEN, bytes.len())?;
+            let metadata_slice = Self::get_byte_slice(metadata_slice, 0, metadata_len)?;
+
+            SerializableModule::archive_from_slice(metadata_slice)
+        })?;
+
+        let mut inner_engine = engine.inner_mut();
+        Self::from_parts(
+            &mut inner_engine,
+            ArtifactBuildVariant::Archived(artifact),
+            engine.target(),
+        )
     }
 
     /// Construct a `ArtifactBuild` from component parts.
     pub fn from_parts(
         engine_inner: &mut EngineInner,
-        artifact: ArtifactBuild,
+        artifact: ArtifactBuildVariant,
         target: &Target,
-    ) -> Result<Self, CompileError> {
+    ) -> Result<Self, DeserializeError> {
         if !target.is_native() {
             return Ok(Self {
                 id: Default::default(),
                 artifact,
                 allocated: None,
             });
+        } else {
+            // check if cpu features are compatible before anything else
+            let cpu_features = artifact.cpu_features();
+            if !target.cpu_features().is_superset(cpu_features) {
+                return Err(DeserializeError::Incompatible(format!(
+                    "Some CPU Features needed for the artifact are missing: {:?}",
+                    cpu_features.difference(*target.cpu_features())
+                )));
+            }
         }
         let module_info = artifact.module_info();
         let (
@@ -196,23 +298,51 @@ impl Artifact {
             finished_function_call_trampolines,
             finished_dynamic_function_trampolines,
             custom_sections,
-        ) = engine_inner.allocate(
-            module_info,
-            artifact.get_function_bodies_ref(),
-            artifact.get_function_call_trampolines_ref(),
-            artifact.get_dynamic_function_trampolines_ref(),
-            artifact.get_custom_sections_ref(),
-        )?;
+        ) = match &artifact {
+            ArtifactBuildVariant::Plain(p) => engine_inner.allocate(
+                module_info,
+                p.get_function_bodies_ref().values(),
+                p.get_function_call_trampolines_ref().values(),
+                p.get_dynamic_function_trampolines_ref().values(),
+                p.get_custom_sections_ref().values(),
+            )?,
+            ArtifactBuildVariant::Archived(a) => engine_inner.allocate(
+                module_info,
+                a.get_function_bodies_ref().values(),
+                a.get_function_call_trampolines_ref().values(),
+                a.get_dynamic_function_trampolines_ref().values(),
+                a.get_custom_sections_ref().values(),
+            )?,
+        };
 
-        link_module(
-            module_info,
-            &finished_functions,
-            artifact.get_function_relocations(),
-            &custom_sections,
-            artifact.get_custom_section_relocations_ref(),
-            artifact.get_libcall_trampolines(),
-            artifact.get_libcall_trampoline_len(),
-        );
+        match &artifact {
+            ArtifactBuildVariant::Plain(p) => link_module(
+                module_info,
+                &finished_functions,
+                p.get_function_relocations()
+                    .iter()
+                    .map(|(k, v)| (k, v.iter())),
+                &custom_sections,
+                p.get_custom_section_relocations_ref()
+                    .iter()
+                    .map(|(k, v)| (k, v.iter())),
+                p.get_libcall_trampolines(),
+                p.get_libcall_trampoline_len(),
+            ),
+            ArtifactBuildVariant::Archived(a) => link_module(
+                module_info,
+                &finished_functions,
+                a.get_function_relocations()
+                    .iter()
+                    .map(|(k, v)| (k, v.iter())),
+                &custom_sections,
+                a.get_custom_section_relocations_ref()
+                    .iter()
+                    .map(|(k, v)| (k, v.iter())),
+                a.get_libcall_trampolines(),
+                a.get_libcall_trampoline_len(),
+            ),
+        };
 
         // Compute indices into the shared signature table.
         let signatures = {
@@ -224,11 +354,20 @@ impl Artifact {
                 .collect::<PrimaryMap<_, _>>()
         };
 
-        let eh_frame = match artifact.get_debug_ref() {
+        let debug_ref = match &artifact {
+            ArtifactBuildVariant::Plain(p) => p.get_debug_ref(),
+            ArtifactBuildVariant::Archived(a) => a.get_debug_ref(),
+        };
+        let eh_frame = match debug_ref {
             Some(debug) => {
-                let eh_frame_section_size = artifact.get_custom_sections_ref()[debug.eh_frame]
-                    .bytes
-                    .len();
+                let eh_frame_section_size = match &artifact {
+                    ArtifactBuildVariant::Plain(p) => {
+                        p.get_custom_sections_ref()[debug.eh_frame].bytes.len()
+                    }
+                    ArtifactBuildVariant::Archived(a) => {
+                        a.get_custom_sections_ref()[debug.eh_frame].bytes.len()
+                    }
+                };
                 let eh_frame_section_pointer = custom_sections[debug.eh_frame];
                 Some(unsafe {
                     std::slice::from_raw_parts(*eh_frame_section_pointer, eh_frame_section_size)
@@ -258,18 +397,28 @@ impl Artifact {
             finished_dynamic_function_trampolines.into_boxed_slice();
         let signatures = signatures.into_boxed_slice();
 
-        Ok(Self {
+        let mut artifact = Self {
             id: Default::default(),
             artifact,
             allocated: Some(AllocatedArtifact {
+                frame_info_registered: false,
+                frame_info_registration: None,
                 finished_functions,
                 finished_function_call_trampolines,
                 finished_dynamic_function_trampolines,
                 signatures,
-                frame_info_registration: Some(Mutex::new(None)),
                 finished_function_lengths,
             }),
-        })
+        };
+
+        artifact
+            .internal_register_frame_info()
+            .map_err(|e| DeserializeError::CorruptedBinary(format!("{:?}", e)))?;
+        if let Some(frame_info) = artifact.internal_take_frame_info_registration() {
+            engine_inner.register_frame_info(frame_info);
+        }
+
+        Ok(artifact)
     }
 
     /// Check if the provided bytes look like a serialized `ArtifactBuild`.
@@ -294,7 +443,11 @@ impl std::fmt::Debug for Artifact {
     }
 }
 
-impl ArtifactCreate for Artifact {
+impl<'a> ArtifactCreate<'a> for Artifact {
+    type OwnedDataInitializer = <ArtifactBuildVariant as ArtifactCreate<'a>>::OwnedDataInitializer;
+    type OwnedDataInitializerIterator =
+        <ArtifactBuildVariant as ArtifactCreate<'a>>::OwnedDataInitializerIterator;
+
     fn set_module_info_name(&mut self, name: String) -> bool {
         self.artifact.set_module_info_name(name)
     }
@@ -315,7 +468,7 @@ impl ArtifactCreate for Artifact {
         self.artifact.cpu_features()
     }
 
-    fn data_initializers(&self) -> &[OwnedDataInitializer] {
+    fn data_initializers(&'a self) -> Self::OwnedDataInitializerIterator {
         self.artifact.data_initializers()
     }
 
@@ -332,50 +485,229 @@ impl ArtifactCreate for Artifact {
     }
 }
 
+impl<'a> ArtifactCreate<'a> for ArtifactBuildVariant {
+    type OwnedDataInitializer = OwnedDataInitializerVariant<'a>;
+    type OwnedDataInitializerIterator = IntoIter<Self::OwnedDataInitializer>;
+
+    fn create_module_info(&self) -> Arc<ModuleInfo> {
+        match self {
+            Self::Plain(artifact) => artifact.create_module_info(),
+            Self::Archived(artifact) => artifact.create_module_info(),
+        }
+    }
+
+    fn set_module_info_name(&mut self, name: String) -> bool {
+        match self {
+            Self::Plain(artifact) => artifact.set_module_info_name(name),
+            Self::Archived(artifact) => artifact.set_module_info_name(name),
+        }
+    }
+
+    fn module_info(&self) -> &ModuleInfo {
+        match self {
+            Self::Plain(artifact) => artifact.module_info(),
+            Self::Archived(artifact) => artifact.module_info(),
+        }
+    }
+
+    fn features(&self) -> &Features {
+        match self {
+            Self::Plain(artifact) => artifact.features(),
+            Self::Archived(artifact) => artifact.features(),
+        }
+    }
+
+    fn cpu_features(&self) -> EnumSet<CpuFeature> {
+        match self {
+            Self::Plain(artifact) => artifact.cpu_features(),
+            Self::Archived(artifact) => artifact.cpu_features(),
+        }
+    }
+
+    fn memory_styles(&self) -> &PrimaryMap<MemoryIndex, MemoryStyle> {
+        match self {
+            Self::Plain(artifact) => artifact.memory_styles(),
+            Self::Archived(artifact) => artifact.memory_styles(),
+        }
+    }
+
+    fn table_styles(&self) -> &PrimaryMap<TableIndex, TableStyle> {
+        match self {
+            Self::Plain(artifact) => artifact.table_styles(),
+            Self::Archived(artifact) => artifact.table_styles(),
+        }
+    }
+
+    fn data_initializers(&'a self) -> Self::OwnedDataInitializerIterator {
+        match self {
+            Self::Plain(artifact) => artifact
+                .data_initializers()
+                .map(OwnedDataInitializerVariant::Plain)
+                .collect::<Vec<_>>()
+                .into_iter(),
+            Self::Archived(artifact) => artifact
+                .data_initializers()
+                .map(OwnedDataInitializerVariant::Archived)
+                .collect::<Vec<_>>()
+                .into_iter(),
+        }
+    }
+
+    fn serialize(&self) -> Result<Vec<u8>, SerializeError> {
+        match self {
+            Self::Plain(artifact) => artifact.serialize(),
+            Self::Archived(artifact) => artifact.serialize(),
+        }
+    }
+}
+
+#[derive(Clone, Copy)]
+pub enum OwnedDataInitializerVariant<'a> {
+    Plain(&'a OwnedDataInitializer),
+    Archived(&'a ArchivedOwnedDataInitializer),
+}
+
+impl<'a> DataInitializerLike<'a> for OwnedDataInitializerVariant<'a> {
+    type Location = DataInitializerLocationVariant<'a>;
+
+    fn location(&self) -> Self::Location {
+        match self {
+            Self::Plain(plain) => DataInitializerLocationVariant::Plain(plain.location()),
+            Self::Archived(archived) => {
+                DataInitializerLocationVariant::Archived(archived.location())
+            }
+        }
+    }
+
+    fn data(&self) -> &'a [u8] {
+        match self {
+            Self::Plain(plain) => plain.data(),
+            Self::Archived(archived) => archived.data(),
+        }
+    }
+}
+
+#[derive(Clone, Copy)]
+pub enum DataInitializerLocationVariant<'a> {
+    Plain(&'a DataInitializerLocation),
+    Archived(&'a ArchivedDataInitializerLocation),
+}
+
+impl<'a> DataInitializerLocationVariant<'a> {
+    pub fn clone_to_plain(&self) -> DataInitializerLocation {
+        match self {
+            Self::Plain(p) => (*p).clone(),
+            Self::Archived(a) => DataInitializerLocation {
+                memory_index: a.memory_index(),
+                base: a.base(),
+                offset: a.offset(),
+            },
+        }
+    }
+}
+
+impl<'a> DataInitializerLocationLike for DataInitializerLocationVariant<'a> {
+    fn memory_index(&self) -> MemoryIndex {
+        match self {
+            Self::Plain(plain) => plain.memory_index(),
+            Self::Archived(archived) => archived.memory_index(),
+        }
+    }
+
+    fn base(&self) -> Option<wasmer_types::GlobalIndex> {
+        match self {
+            Self::Plain(plain) => plain.base(),
+            Self::Archived(archived) => archived.base(),
+        }
+    }
+
+    fn offset(&self) -> usize {
+        match self {
+            Self::Plain(plain) => plain.offset(),
+            Self::Archived(archived) => archived.offset(),
+        }
+    }
+}
+
 impl Artifact {
     /// Register thie `Artifact` stack frame information into the global scope.
     ///
-    /// This is required to ensure that any traps can be properly symbolicated.
-    pub fn register_frame_info(&self) {
-        if let Some(frame_info_registration) = self
+    /// This is not required anymore as it's done automaticaly when creating by 'Artifact::from_parts'
+    #[deprecated(
+        since = "4.0.0",
+        note = "done automaticaly by Artifact::from_parts, use 'take_frame_info_registration' if you use this method"
+    )]
+    pub fn register_frame_info(&mut self) -> Result<(), DeserializeError> {
+        self.internal_register_frame_info()
+    }
+
+    fn internal_register_frame_info(&mut self) -> Result<(), DeserializeError> {
+        if self
             .allocated
             .as_ref()
             .expect("It must be allocated")
-            .frame_info_registration
-            .as_ref()
+            .frame_info_registered
         {
-            let mut info = frame_info_registration.lock().unwrap();
-
-            if info.is_some() {
-                return;
-            }
-
-            let finished_function_extents = self
-                .allocated
-                .as_ref()
-                .expect("It must be allocated")
-                .finished_functions
-                .values()
-                .copied()
-                .zip(
-                    self.allocated
-                        .as_ref()
-                        .expect("It must be allocated")
-                        .finished_function_lengths
-                        .values()
-                        .copied(),
-                )
-                .map(|(ptr, length)| FunctionExtent { ptr, length })
-                .collect::<PrimaryMap<LocalFunctionIndex, _>>()
-                .into_boxed_slice();
-
-            let frame_infos = self.artifact.get_frame_info_ref();
-            *info = register_frame_info(
-                self.artifact.create_module_info(),
-                &finished_function_extents,
-                frame_infos.clone(),
-            );
+            return Ok(()); // already done
         }
+
+        let finished_function_extents = self
+            .allocated
+            .as_ref()
+            .expect("It must be allocated")
+            .finished_functions
+            .values()
+            .copied()
+            .zip(
+                self.allocated
+                    .as_ref()
+                    .expect("It must be allocated")
+                    .finished_function_lengths
+                    .values()
+                    .copied(),
+            )
+            .map(|(ptr, length)| FunctionExtent { ptr, length })
+            .collect::<PrimaryMap<LocalFunctionIndex, _>>()
+            .into_boxed_slice();
+
+        let frame_info_registration = &mut self
+            .allocated
+            .as_mut()
+            .expect("It must be allocated")
+            .frame_info_registration;
+
+        *frame_info_registration = register_frame_info(
+            self.artifact.create_module_info(),
+            &finished_function_extents,
+            match &self.artifact {
+                ArtifactBuildVariant::Plain(p) => p.get_frame_info_ref().clone(),
+                ArtifactBuildVariant::Archived(a) => a.deserialize_frame_info_ref()?,
+            },
+        );
+
+        self.allocated
+            .as_mut()
+            .expect("It must be allocated")
+            .frame_info_registered = true;
+
+        Ok(())
+    }
+
+    /// The GlobalFrameInfoRegistration needs to be transfered to EngineInner if
+    /// register_frame_info has been used.
+    #[deprecated(since = "4.0.0", note = "done automaticaly by Artifact::from_parts.")]
+    pub fn take_frame_info_registration(&mut self) -> Option<GlobalFrameInfoRegistration> {
+        self.internal_take_frame_info_registration()
+    }
+
+    fn internal_take_frame_info_registration(&mut self) -> Option<GlobalFrameInfoRegistration> {
+        let frame_info_registration = &mut self
+            .allocated
+            .as_mut()
+            .expect("It must be allocated")
+            .frame_info_registration;
+
+        frame_info_registration.take()
     }
 
     /// Returns the functions allocated in memory or this `Artifact`
@@ -420,6 +752,7 @@ impl Artifact {
     }
 
     /// Do preinstantiation logic that is executed before instantiating
+    #[allow(clippy::result_large_err)]
     pub fn preinstantiate(&self) -> Result<(), InstantiationError> {
         Ok(())
     }
@@ -429,6 +762,7 @@ impl Artifact {
     /// # Safety
     ///
     /// See [`VMInstance::new`].
+    #[allow(clippy::result_large_err)]
     pub unsafe fn instantiate(
         &self,
         tunables: &dyn Tunables,
@@ -486,8 +820,6 @@ impl Artifact {
             .map_err(InstantiationError::Link)?
             .into_boxed_slice();
 
-        self.register_frame_info();
-
         let handle = VMInstance::new(
             allocator,
             module,
@@ -500,7 +832,7 @@ impl Artifact {
             imports,
             self.signatures().clone(),
         )
-        .map_err(|trap| InstantiationError::Start(RuntimeError::from_trap(trap)))?;
+        .map_err(InstantiationError::Start)?;
         Ok(handle)
     }
 
@@ -509,22 +841,23 @@ impl Artifact {
     /// # Safety
     ///
     /// See [`VMInstance::finish_instantiation`].
+    #[allow(clippy::result_large_err)]
     pub unsafe fn finish_instantiation(
         &self,
+        config: &VMConfig,
         trap_handler: Option<*const TrapHandlerFn<'static>>,
         handle: &mut VMInstance,
     ) -> Result<(), InstantiationError> {
         let data_initializers = self
             .data_initializers()
-            .iter()
             .map(|init| DataInitializer {
-                location: init.location.clone(),
-                data: &init.data,
+                location: init.location().clone_to_plain(),
+                data: init.data(),
             })
             .collect::<Vec<_>>();
         handle
-            .finish_instantiation(trap_handler, &data_initializers)
-            .map_err(|trap| InstantiationError::Start(RuntimeError::from_trap(trap)))
+            .finish_instantiation(config, trap_handler, &data_initializers)
+            .map_err(InstantiationError::Start)
     }
 
     #[allow(clippy::type_complexity)]
@@ -581,11 +914,11 @@ impl Artifact {
     /// Generate the metadata object for the module
     #[cfg(feature = "static-artifact-create")]
     #[allow(clippy::type_complexity)]
-    pub fn metadata<'data, 'a>(
+    pub fn metadata<'a>(
         compiler: &dyn Compiler,
         data: &'a [u8],
         metadata_prefix: Option<&str>,
-        target: &'data Target,
+        target: &Target,
         tunables: &dyn Tunables,
         features: &Features,
     ) -> Result<
@@ -718,7 +1051,7 @@ impl Artifact {
     #[cfg(not(feature = "static-artifact-load"))]
     pub unsafe fn deserialize_object(
         _engine: &Engine,
-        _bytes: &[u8],
+        _bytes: OwnedBuffer,
     ) -> Result<Self, DeserializeError> {
         Err(DeserializeError::Compiler(
             CompileError::UnsupportedFeature("static load is not compiled in".to_string()),
@@ -745,8 +1078,11 @@ impl Artifact {
     #[cfg(feature = "static-artifact-load")]
     pub unsafe fn deserialize_object(
         engine: &Engine,
-        bytes: &[u8],
+        bytes: OwnedBuffer,
     ) -> Result<Self, DeserializeError> {
+        use wasmer_types::SerializableCompilation;
+
+        let bytes = bytes.as_slice();
         let metadata_len = MetadataHeader::parse(bytes)?;
         let metadata_slice = Self::get_byte_slice(bytes, MetadataHeader::LEN, bytes.len())?;
         let metadata_slice = Self::get_byte_slice(metadata_slice, 0, metadata_len)?;
@@ -842,8 +1178,10 @@ impl Artifact {
 
         Ok(Self {
             id: Default::default(),
-            artifact,
+            artifact: ArtifactBuildVariant::Plain(artifact),
             allocated: Some(AllocatedArtifact {
+                frame_info_registered: false,
+                frame_info_registration: None,
                 finished_functions: finished_functions.into_boxed_slice(),
                 finished_function_call_trampolines: finished_function_call_trampolines
                     .into_boxed_slice(),
@@ -851,7 +1189,6 @@ impl Artifact {
                     .into_boxed_slice(),
                 signatures: signatures.into_boxed_slice(),
                 finished_function_lengths,
-                frame_info_registration: None,
             }),
         })
     }

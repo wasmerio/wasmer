@@ -1,5 +1,6 @@
 use super::store::wasm_store_t;
-use super::types::{wasm_byte_vec_t, wasm_frame_t, wasm_frame_vec_t, wasm_message_t};
+use super::types::{wasm_byte_vec_t, wasm_message_t};
+use super::types::{wasm_frame_t, wasm_frame_vec_t};
 use std::ffi::CString;
 use wasmer_api::RuntimeError;
 

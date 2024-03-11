@@ -14,15 +14,13 @@ expression: snapshot
       }
     ],
     "cli_args": [],
-    "stdin": null,
-    "debug_output": false,
     "enable_threads": true,
     "enable_network": false
   },
   "result": {
     "Success": {
-      "stdout": "Child pid: 2\nhi\nChild status 0\n",
-      "stderr": "",
+      "stdout": "hi\n",
+      "stderr": "Child pid: 2\nChild status 0\n",
       "exit_code": 0
     }
   }

@@ -13,12 +13,13 @@ use wasmer_vm::init_traps;
 pub use wasmer_vm::TrapHandlerFn;
 
 #[cfg(feature = "sys")]
-use crate::sys::NativeEngineExt;
-#[cfg(feature = "sys")]
 pub use wasmer_vm::{StoreHandle, StoreObjects};
 
 #[cfg(feature = "js")]
 pub use crate::js::store::{StoreHandle, StoreObjects};
+
+#[cfg(feature = "jsc")]
+pub use crate::jsc::store::{StoreHandle, StoreObjects};
 
 /// Call handler for a store.
 // TODO: better documentation!
@@ -74,45 +75,10 @@ impl Store {
         }
     }
 
-    #[deprecated(
-        since = "3.0.0",
-        note = "Store::new_with_engine has been deprecated in favor of Store::new"
-    )]
-    /// Creates a new `Store` with a specific [`Engine`].
-    pub fn new_with_engine(engine: impl Into<Engine>) -> Self {
-        Self::new(engine)
-    }
-
     #[cfg(feature = "sys")]
     /// Set the trap handler in this store.
     pub fn set_trap_handler(&mut self, handler: Option<Box<TrapHandlerFn<'static>>>) {
         self.inner.trap_handler = handler;
-    }
-
-    #[cfg(feature = "sys")]
-    #[deprecated(
-        since = "3.2.0",
-        note = "store.new_with_tunables() has been deprecated in favor of engine.set_tunables()"
-    )]
-    /// Creates a new `Store` with a specific [`Engine`] and [`Tunables`].
-    pub fn new_with_tunables(
-        engine: impl Into<Engine>,
-        tunables: impl Tunables + Send + Sync + 'static,
-    ) -> Self {
-        let mut engine = engine.into();
-        engine.set_tunables(tunables);
-
-        Self::new(engine)
-    }
-
-    #[cfg(feature = "sys")]
-    #[deprecated(
-        since = "3.2.0",
-        note = "store.tunables() has been deprecated in favor of store.engine().tunables()"
-    )]
-    /// Returns the [`Tunables`].
-    pub fn tunables(&self) -> &dyn Tunables {
-        self.inner.engine.tunables()
     }
 
     /// Returns the [`Engine`].
@@ -190,6 +156,7 @@ impl fmt::Debug for Store {
 }
 
 /// A temporary handle to a [`Store`].
+#[derive(Debug)]
 pub struct StoreRef<'a> {
     pub(crate) inner: &'a StoreInner,
 }
@@ -197,16 +164,6 @@ pub struct StoreRef<'a> {
 impl<'a> StoreRef<'a> {
     pub(crate) fn objects(&self) -> &'a StoreObjects {
         &self.inner.objects
-    }
-
-    #[cfg(feature = "sys")]
-    #[deprecated(
-        since = "3.2.0",
-        note = "store.tunables() has been deprecated in favor of store.engine().tunables()"
-    )]
-    /// Returns the [`Tunables`].
-    pub fn tunables(&self) -> &dyn Tunables {
-        self.inner.engine.tunables()
     }
 
     /// Returns the [`Engine`].
@@ -237,16 +194,6 @@ pub struct StoreMut<'a> {
 }
 
 impl<'a> StoreMut<'a> {
-    /// Returns the [`Tunables`].
-    #[cfg(feature = "sys")]
-    #[deprecated(
-        since = "3.2.0",
-        note = "store.tunables() has been deprecated in favor of store.engine().tunables()"
-    )]
-    pub fn tunables(&self) -> &dyn Tunables {
-        self.inner.engine.tunables()
-    }
-
     /// Returns the [`Engine`].
     pub fn engine(&self) -> &Engine {
         &self.inner.engine

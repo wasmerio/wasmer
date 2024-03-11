@@ -183,8 +183,8 @@ unsafe fn fmt_time(ctx: FunctionEnvMut<EmEnv>, time: u32) -> *const c_char {
     let memory = ctx.data().memory(0);
     let date = &*(emscripten_memory_pointer!(memory.view(&ctx), time) as *mut guest_tm);
 
-    let days = vec!["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-    let months = vec![
+    let days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+    let months = [
         "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
     ];
     let year = 1900 + date.tm_year;
@@ -247,7 +247,7 @@ pub fn _localtime(mut ctx: FunctionEnvMut<EmEnv>, time_p: u32) -> c_int {
     let timespec = unsafe {
         let time_p_addr = emscripten_memory_pointer!(memory.view(&ctx), time_p) as *mut i64;
         let seconds = *time_p_addr;
-        time::OffsetDateTime::from_unix_timestamp(seconds)
+        time::OffsetDateTime::from_unix_timestamp(seconds).unwrap()
     };
 
     unsafe {
@@ -285,7 +285,7 @@ pub fn _localtime_r(ctx: FunctionEnvMut<EmEnv>, time_p: u32, result: u32) -> c_i
     let memory = ctx.data().memory(0);
     unsafe {
         let seconds = emscripten_memory_pointer!(memory.view(&ctx), time_p) as *const i32;
-        let timespec = time::OffsetDateTime::from_unix_timestamp_nanos(*seconds as _);
+        let timespec = time::OffsetDateTime::from_unix_timestamp_nanos(*seconds as _).unwrap();
 
         // debug!(
         //     ">>>>>>> time = {}, {}, {}, {}, {}, {}, {}, {}",
@@ -419,18 +419,24 @@ pub fn _strftime(
 
     let tm = unsafe { &*tm };
 
-    let rust_date = time::Date::try_from_ymd(tm.tm_year, tm.tm_mon as u8, tm.tm_mday as u8);
-    if rust_date.is_err() {
+    let Ok(rust_date) = time::Date::from_calendar_date(
+        tm.tm_year,
+        time::Month::try_from(tm.tm_mon as u8).unwrap(),
+        tm.tm_mday as u8,
+    ) else {
         return 0;
-    }
-    let rust_time = time::Time::try_from_hms(tm.tm_hour as u8, tm.tm_min as u8, tm.tm_sec as u8);
-    if rust_time.is_err() {
+    };
+    let Ok(rust_time) = time::Time::from_hms(tm.tm_hour as u8, tm.tm_min as u8, tm.tm_sec as u8)
+    else {
         return 0;
-    }
-    let rust_datetime = time::PrimitiveDateTime::new(rust_date.unwrap(), rust_time.unwrap());
-    let rust_odt = rust_datetime.assume_offset(time::UtcOffset::seconds(tm.tm_gmtoff));
+    };
+    let rust_datetime = time::PrimitiveDateTime::new(rust_date, rust_time);
+    let rust_odt =
+        rust_datetime.assume_offset(time::UtcOffset::from_whole_seconds(tm.tm_gmtoff).unwrap());
 
-    let result_str = rust_odt.format(format_string);
+    let result_str = rust_odt
+        .format(&time::format_description::parse(format_string).unwrap())
+        .unwrap();
 
     // pad for null?
     let bytes = result_str.chars().count();

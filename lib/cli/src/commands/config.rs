@@ -1,14 +1,17 @@
-use crate::VERSION;
+use std::str::ParseBoolError;
+
 use anyhow::{Context, Result};
 use clap::Parser;
-use std::env;
-use std::path::PathBuf;
-use std::str::ParseBoolError;
-use wasmer_registry::WasmerConfig;
+use wasmer_registry::{wasmer_env::WasmerEnv, WasmerConfig};
+
+use crate::VERSION;
 
 #[derive(Debug, Parser)]
 /// The options for the `wasmer config` subcommand: `wasmer config get --OPTION` or `wasmer config set [FLAG]`
 pub struct Config {
+    #[clap(flatten)]
+    env: WasmerEnv,
+
     #[clap(flatten)]
     flags: Flags,
     /// Subcommand for `wasmer config get | set`
@@ -20,31 +23,31 @@ pub struct Config {
 #[derive(Debug, Parser)]
 pub struct Flags {
     /// Print the installation prefix.
-    #[clap(long, conflicts_with = "pkg-config")]
+    #[clap(long, conflicts_with = "pkg_config")]
     prefix: bool,
 
     /// Directory containing Wasmer executables.
-    #[clap(long, conflicts_with = "pkg-config")]
+    #[clap(long, conflicts_with = "pkg_config")]
     bindir: bool,
 
     /// Directory containing Wasmer headers.
-    #[clap(long, conflicts_with = "pkg-config")]
+    #[clap(long, conflicts_with = "pkg_config")]
     includedir: bool,
 
     /// Directory containing Wasmer libraries.
-    #[clap(long, conflicts_with = "pkg-config")]
+    #[clap(long, conflicts_with = "pkg_config")]
     libdir: bool,
 
     /// Libraries needed to link against Wasmer components.
-    #[clap(long, conflicts_with = "pkg-config")]
+    #[clap(long, conflicts_with = "pkg_config")]
     libs: bool,
 
     /// C compiler flags for files that include Wasmer headers.
-    #[clap(long, conflicts_with = "pkg-config")]
+    #[clap(long, conflicts_with = "pkg_config")]
     cflags: bool,
 
     /// Print the path to the wasmer configuration file where all settings are stored
-    #[clap(long, conflicts_with = "pkg-config")]
+    #[clap(long, conflicts_with = "pkg_config")]
     config_path: bool,
 
     /// Outputs the necessary details for compiling
@@ -124,7 +127,9 @@ pub struct SetRegistryToken {
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Parser)]
 pub struct SetUpdateNotificationsEnabled {
     /// Whether to enable update notifications
-    #[clap(name = "ENABLED", possible_values = ["true", "false"])]
+    ///
+    /// ("true" | "false")
+    #[clap(name = "ENABLED")]
     pub enabled: BoolString,
 }
 
@@ -143,7 +148,9 @@ impl std::str::FromStr for BoolString {
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Parser)]
 pub struct SetTelemetryEnabled {
     /// Whether to enable telemetry
-    #[clap(name = "ENABLED", possible_values = ["true", "false"])]
+    ///
+    /// ("true" | "false")
+    #[clap(name = "ENABLED")]
     pub enabled: BoolString,
 }
 
@@ -161,26 +168,15 @@ impl Config {
         self.inner_execute()
             .context("failed to retrieve the wasmer config".to_string())
     }
+
     fn inner_execute(&self) -> Result<()> {
         if let Some(s) = self.set.as_ref() {
-            return s.execute();
+            return s.execute(&self.env);
         }
 
         let flags = &self.flags;
 
-        let key = "WASMER_DIR";
-        let wasmer_dir = env::var(key)
-            .or_else(|e| {
-                option_env!("WASMER_INSTALL_PREFIX")
-                    .map(str::to_string)
-                    .ok_or(e)
-            })
-            .context(format!(
-                "failed to retrieve the {} environment variables",
-                key
-            ))?;
-
-        let prefix = PathBuf::from(wasmer_dir);
+        let prefix = self.env.dir();
 
         let prefixdir = prefix.display().to_string();
         let bindir = prefix.join("bin").display().to_string();
@@ -223,9 +219,7 @@ impl Config {
         }
 
         if flags.config_path {
-            let wasmer_dir = WasmerConfig::get_wasmer_dir()
-                .map_err(|e| anyhow::anyhow!("could not find wasmer dir: {e}"))?;
-            let path = WasmerConfig::get_file_location(&wasmer_dir);
+            let path = WasmerConfig::get_file_location(self.env.dir());
             println!("{}", path.display());
         }
 
@@ -234,16 +228,10 @@ impl Config {
 }
 
 impl GetOrSet {
-    fn execute(&self) -> Result<()> {
-        let wasmer_dir = WasmerConfig::get_wasmer_dir()
-            .map_err(|e| anyhow::anyhow!("could not find wasmer dir: {e}"))?;
-        let config_file = WasmerConfig::get_file_location(&wasmer_dir);
-        let mut config = WasmerConfig::from_file(&wasmer_dir).map_err(|e| {
-            anyhow::anyhow!(
-                "could not find config file {e} at {}",
-                config_file.display()
-            )
-        })?;
+    fn execute(&self, env: &WasmerEnv) -> Result<()> {
+        let config_file = WasmerConfig::get_file_location(env.dir());
+        let mut config = env.config()?;
+
         match self {
             GetOrSet::Get(g) => match g {
                 RetrievableConfigField::RegistryUrl => {

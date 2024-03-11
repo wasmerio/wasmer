@@ -101,7 +101,7 @@ fn imports() -> Result<(), String> {
     Ok(())
 }
 
-#[universal_test]
+#[test]
 fn exports() -> Result<(), String> {
     let store = Store::default();
     let wat = r#"(module
@@ -233,35 +233,35 @@ fn calling_host_functions_with_negative_values_works() -> Result<(), String> {
 
     let f1: TypedFunction<(), ()> = instance
         .exports
-        .get_typed_function(&mut store, "call_host_func1")
+        .get_typed_function(&store, "call_host_func1")
         .map_err(|e| format!("{e:?}"))?;
     let f2: TypedFunction<(), ()> = instance
         .exports
-        .get_typed_function(&mut store, "call_host_func2")
+        .get_typed_function(&store, "call_host_func2")
         .map_err(|e| format!("{e:?}"))?;
     let f3: TypedFunction<(), ()> = instance
         .exports
-        .get_typed_function(&mut store, "call_host_func3")
+        .get_typed_function(&store, "call_host_func3")
         .map_err(|e| format!("{e:?}"))?;
     let f4: TypedFunction<(), ()> = instance
         .exports
-        .get_typed_function(&mut store, "call_host_func4")
+        .get_typed_function(&store, "call_host_func4")
         .map_err(|e| format!("{e:?}"))?;
     let f5: TypedFunction<(), ()> = instance
         .exports
-        .get_typed_function(&mut store, "call_host_func5")
+        .get_typed_function(&store, "call_host_func5")
         .map_err(|e| format!("{e:?}"))?;
     let f6: TypedFunction<(), ()> = instance
         .exports
-        .get_typed_function(&mut store, "call_host_func6")
+        .get_typed_function(&store, "call_host_func6")
         .map_err(|e| format!("{e:?}"))?;
     let f7: TypedFunction<(), ()> = instance
         .exports
-        .get_typed_function(&mut store, "call_host_func7")
+        .get_typed_function(&store, "call_host_func7")
         .map_err(|e| format!("{e:?}"))?;
     let f8: TypedFunction<(), ()> = instance
         .exports
-        .get_typed_function(&mut store, "call_host_func8")
+        .get_typed_function(&store, "call_host_func8")
         .map_err(|e| format!("{e:?}"))?;
 
     f1.call(&mut store).map_err(|e| format!("{e:?}"))?;

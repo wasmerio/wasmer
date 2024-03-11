@@ -1058,14 +1058,11 @@ impl<'a> From<&Operator<'a>> for wasmer_parser_operator_t {
             O::I32x4TruncSatF64x2SZero => Self::I32x4TruncSatF64x2SZero,
             O::I32x4TruncSatF64x2UZero => Self::I32x4TruncSatF64x2UZero,
             O::I8x16RelaxedSwizzle => Self::I8x16RelaxedSwizzle,
-            O::I32x4RelaxedTruncSatF32x4S => Self::I32x4RelaxedTruncSatF32x4S,
-            O::I32x4RelaxedTruncSatF32x4U => Self::I32x4RelaxedTruncSatF32x4U,
-            O::I32x4RelaxedTruncSatF64x2SZero => Self::I32x4RelaxedTruncSatF64x2SZero,
-            O::I32x4RelaxedTruncSatF64x2UZero => Self::I32x4RelaxedTruncSatF64x2UZero,
-            O::F32x4RelaxedFma => Self::F32x4Fma,
-            O::F32x4RelaxedFnma => Self::F32x4Fms,
-            O::F64x2RelaxedFma => Self::F64x2Fma,
-            O::F64x2RelaxedFnma => Self::F64x2Fms,
+            O::I32x4RelaxedTruncF32x4S => Self::I32x4RelaxedTruncSatF32x4S,
+            O::I32x4RelaxedTruncF32x4U => Self::I32x4RelaxedTruncSatF32x4U,
+            O::I32x4RelaxedTruncF64x2SZero => Self::I32x4RelaxedTruncSatF64x2SZero,
+            O::I32x4RelaxedTruncF64x2UZero => Self::I32x4RelaxedTruncSatF64x2UZero,
+            O::F32x4RelaxedMadd => Self::F32x4Fma,
             O::I8x16RelaxedLaneselect => Self::I8x16LaneSelect,
             O::I16x8RelaxedLaneselect => Self::I16x8LaneSelect,
             O::I32x4RelaxedLaneselect => Self::I32x4LaneSelect,
@@ -1075,9 +1072,9 @@ impl<'a> From<&Operator<'a>> for wasmer_parser_operator_t {
             O::F64x2RelaxedMin => Self::F64x2RelaxedMin,
             O::F64x2RelaxedMax => Self::F64x2RelaxedMax,
             O::I16x8RelaxedQ15mulrS => Self::I16x8RelaxedQ15mulrS,
-            O::I16x8DotI8x16I7x16S => Self::I16x8DotI8x16I7x16S,
-            O::I32x4DotI8x16I7x16AddS => Self::I32x4DotI8x16I7x16AddS,
-            O::F32x4RelaxedDotBf16x8AddF32x4 => Self::F32x4RelaxedDotBf16x8AddF32x4,
+            _ => {
+                panic!("unimplemented operator {operator:?}");
+            }
         }
     }
 }

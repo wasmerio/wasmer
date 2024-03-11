@@ -117,17 +117,25 @@ impl Cranelift {
             builder.enable("has_lzcnt").expect("should be valid flag");
         }
 
-        builder.finish(self.flags())
+        builder.finish(self.flags(target))
     }
 
     /// Generates the flags for the compiler
-    pub fn flags(&self) -> settings::Flags {
+    pub fn flags(&self, target: &Target) -> settings::Flags {
+        let is_riscv = matches!(target.triple().architecture, Architecture::Riscv64(_));
         let mut flags = settings::builder();
 
         // Enable probestack
         flags
             .enable("enable_probestack")
             .expect("should be valid flag");
+
+        // Only inline probestack is supported on AArch64
+        if matches!(target.triple().architecture, Architecture::Aarch64(_)) {
+            flags
+                .set("probestack_strategy", "inline")
+                .expect("should be valid flag");
+        }
 
         // There are two possible traps for division, and this way
         // we get the proper one if code traps.
@@ -169,9 +177,15 @@ impl Cranelift {
             )
             .expect("should be valid flag");
 
-        flags
-            .set("enable_simd", "true")
-            .expect("should be valid flag");
+        if is_riscv {
+            flags
+                .set("enable_simd", "false")
+                .expect("should be valid flag");
+        } else {
+            flags
+                .set("enable_simd", "true")
+                .expect("should be valid flag");
+        }
 
         let enable_nan_canonicalization = if self.enable_nan_canonicalization {
             "true"
@@ -193,10 +207,6 @@ impl CompilerConfig for Cranelift {
 
     fn enable_verifier(&mut self) {
         self.enable_verifier = true;
-    }
-
-    fn enable_nan_canonicalization(&mut self) {
-        self.enable_nan_canonicalization = true;
     }
 
     fn canonicalize_nans(&mut self, enable: bool) {

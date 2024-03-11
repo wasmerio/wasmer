@@ -1,7 +1,8 @@
 use crate::externals::function::{HostFunction, WithEnv, WithoutEnv};
 use crate::native_type::{FromToNativeWasmType, IntoResult, NativeWasmTypeInto, WasmTypeList};
 use crate::store::{AsStoreMut, AsStoreRef, StoreInner, StoreMut};
-use crate::vm::VMExternFunction;
+use crate::sys::engine::NativeEngineExt;
+use crate::vm::{VMExternFunction, VMFunctionCallback};
 use crate::{FunctionEnv, FunctionEnvMut, FunctionType, RuntimeError, Value};
 use std::panic::{self, AssertUnwindSafe};
 use std::{cell::UnsafeCell, cmp::max, ffi::c_void};
@@ -9,7 +10,7 @@ use wasmer_types::{NativeWasmType, RawValue};
 use wasmer_vm::{
     on_host_stack, raise_user_trap, resume_panic, wasmer_call_trampoline, MaybeInstanceOwned,
     StoreHandle, VMCallerCheckedAnyfunc, VMContext, VMDynamicFunctionContext, VMExtern, VMFuncRef,
-    VMFunction, VMFunctionBody, VMFunctionContext, VMFunctionKind, VMTrampoline,
+    VMFunction, VMFunctionContext, VMFunctionKind, VMTrampoline,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -80,7 +81,7 @@ impl Function {
         // We don't yet have the address with the Wasm ABI signature.
         // The engine linker will replace the address with one pointing to a
         // generated dynamic trampoline.
-        let func_ptr = std::ptr::null() as *const VMFunctionBody;
+        let func_ptr = std::ptr::null() as VMFunctionCallback;
         let type_index = store
             .as_store_mut()
             .engine()
@@ -116,7 +117,7 @@ impl Function {
         Rets: WasmTypeList,
     {
         let env = FunctionEnv::new(store, ());
-        let func_ptr = func.function_body_ptr();
+        let func_ptr = func.function_callback();
         let host_data = Box::new(StaticFunction {
             raw_store: store.as_store_mut().as_raw() as *mut u8,
             env,
@@ -162,7 +163,7 @@ impl Function {
         Args: WasmTypeList,
         Rets: WasmTypeList,
     {
-        let func_ptr = func.function_body_ptr();
+        let func_ptr = func.function_callback();
         let host_data = Box::new(StaticFunction {
             raw_store: store.as_store_mut().as_raw() as *mut u8,
             env: env.clone(),
@@ -271,10 +272,13 @@ impl Function {
             let mut r;
             // TODO: This loop is needed for asyncify. It will be refactored with https://github.com/wasmerio/wasmer/issues/3451
             loop {
-                let vm_function = self.handle.get(store.as_store_ref().objects());
+                let storeref = store.as_store_ref();
+                let vm_function = self.handle.get(storeref.objects());
+                let config = storeref.engine().tunables().vmconfig();
                 r = unsafe {
                     wasmer_call_trampoline(
                         store.as_store_ref().signal_handler(),
+                        config,
                         vm_function.anyfunc.as_ptr().as_ref().vmctx,
                         trampoline,
                         vm_function.anyfunc.as_ptr().as_ref().func_ptr,
@@ -291,7 +295,7 @@ impl Function {
                             break;
                         }
                         Ok(wasmer_types::OnCalledAction::Trap(trap)) => {
-                            return Err(RuntimeError::user(trap))
+                            return Err(RuntimeError::user(trap));
                         }
                         Err(trap) => return Err(RuntimeError::user(trap)),
                     }
@@ -301,7 +305,7 @@ impl Function {
             r
         };
         if let Err(error) = result {
-            return Err(RuntimeError::from_trap(error));
+            return Err(error.into());
         }
 
         // Load the return values out of `values_vec`.
@@ -428,8 +432,8 @@ where
         }
     }
 
-    fn func_body_ptr(&self) -> *const VMFunctionBody {
-        Self::func_wrapper as *const VMFunctionBody
+    fn func_body_ptr(&self) -> VMFunctionCallback {
+        Self::func_wrapper as VMFunctionCallback
     }
 
     fn call_trampoline_address(&self) -> VMTrampoline {
@@ -438,10 +442,10 @@ where
 
     unsafe extern "C" fn call_trampoline(
         vmctx: *mut VMContext,
-        _body: *const VMFunctionBody,
+        _body: VMFunctionCallback,
         args: *mut RawValue,
     ) {
-        // The VMFunctionBody pointer is null here: it is only filled in later
+        // The VMFunctionCallback is null here: it is only filled in later
         // by the engine linker.
         let dynamic_function = &mut *(vmctx as *mut VMDynamicFunctionContext<Self>);
         Self::func_wrapper(dynamic_function, args);
@@ -476,7 +480,7 @@ macro_rules! impl_host_function {
                 Func: Fn(FunctionEnvMut<T>, $( $x , )*) -> RetsAsResult + 'static,
             {
                 #[allow(non_snake_case)]
-                fn function_body_ptr(&self) -> *const VMFunctionBody {
+                fn function_callback(&self) -> VMFunctionCallback {
                     /// This is a function that wraps the real host
                     /// function. Its address will be used inside the
                     /// runtime.
@@ -513,7 +517,7 @@ macro_rules! impl_host_function {
                         }
                     }
 
-                    func_wrapper::< T, $( $x, )* Rets, RetsAsResult, Self > as *const VMFunctionBody
+                    func_wrapper::< T, $( $x, )* Rets, RetsAsResult, Self > as VMFunctionCallback
                 }
 
                 #[allow(non_snake_case)]
@@ -523,7 +527,7 @@ macro_rules! impl_host_function {
                         Rets: WasmTypeList,
                     >(
                         vmctx: *mut VMContext,
-                        body: *const VMFunctionBody,
+                        body: VMFunctionCallback,
                         args: *mut RawValue,
                     ) {
                             let body: unsafe extern "C" fn(
@@ -560,7 +564,7 @@ macro_rules! impl_host_function {
                 Func: Fn($( $x , )*) -> RetsAsResult + 'static,
             {
                 #[allow(non_snake_case)]
-                fn function_body_ptr(&self) -> *const VMFunctionBody {
+                fn function_callback(&self) -> VMFunctionCallback {
                     /// This is a function that wraps the real host
                     /// function. Its address will be used inside the
                     /// runtime.
@@ -590,7 +594,7 @@ macro_rules! impl_host_function {
                         }
                     }
 
-                    func_wrapper::< $( $x, )* Rets, RetsAsResult, Self > as *const VMFunctionBody
+                    func_wrapper::< $( $x, )* Rets, RetsAsResult, Self > as VMFunctionCallback
                 }
 
                 #[allow(non_snake_case)]
@@ -600,7 +604,7 @@ macro_rules! impl_host_function {
                         Rets: WasmTypeList,
                     >(
                         vmctx: *mut VMContext,
-                        body: *const VMFunctionBody,
+                        body: VMFunctionCallback,
                         args: *mut RawValue,
                     ) {
                             let body: unsafe extern "C" fn(

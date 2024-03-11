@@ -22,6 +22,7 @@ void print_wasmer_error()
 }
 
 int main(int argc, const char* argv[]) {
+  #ifdef WASMER_WASI_ENABLED // If WASI is enabled
 
   // Initialize.
   printf("Initializing...\n");
@@ -184,5 +185,8 @@ int main(int argc, const char* argv[]) {
 
   // All done.
   printf("Done.\n");
+
+  #endif // WASMER_WASI_ENABLED
+
   return 0;
 }

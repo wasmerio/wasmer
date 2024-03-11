@@ -1,6 +1,5 @@
 ---
 source: tests/integration/cli/tests/snapshot.rs
-assertion_line: 363
 expression: snapshot
 ---
 {
@@ -9,8 +8,6 @@ expression: snapshot
     "use_packages": [],
     "include_webcs": [],
     "cli_args": [],
-    "stdin": null,
-    "debug_output": false,
     "enable_threads": true,
     "enable_network": false
   },
@@ -18,7 +15,7 @@ expression: snapshot
     "Success": {
       "stdout": "EFD_NONBLOCK:4\nsuccess write to efd, write 8 bytes(4)\nsuccess read from efd, read 8 bytes(4)\nsuccess write to efd, write 8 bytes(4)\nsuccess read from efd, read 8 bytes(4)\nsuccess write to efd, write 8 bytes(4)\nsuccess read from efd, read 8 bytes(4)\nsuccess write to efd, write 8 bytes(4)\nsuccess read from efd, read 8 bytes(4)\nsuccess write to efd, write 8 bytes(4)\nsuccess read from efd, read 8 bytes(4)\n",
       "stderr": "",
-      "exit_code": 8
+      "exit_code": 0
     }
   }
 }

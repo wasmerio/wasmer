@@ -265,6 +265,26 @@ fn regression_gpr_exhaustion_for_calls(mut config: crate::Config) -> Result<()> 
 }
 
 #[compiler_test(issues)]
+fn test_start(mut config: crate::Config) -> Result<()> {
+    let mut store = config.store();
+    let mut env = FunctionEnv::new(&mut store, ());
+    let imports: Imports = imports! {};
+    let wat = r#"
+    (module (func $main (unreachable)) (start $main))
+    "#;
+    let module = Module::new(&store, wat)?;
+    let instance = Instance::new(&mut store, &module, &imports);
+    assert!(instance.is_err());
+    if let InstantiationError::Start(err) = instance.unwrap_err() {
+        assert_eq!(err.message(), "unreachable");
+    } else {
+        panic!("_start should have failed with an unreachable error")
+    }
+
+    Ok(())
+}
+
+#[compiler_test(issues)]
 fn test_popcnt(mut config: crate::Config) -> Result<()> {
     let mut store = config.store();
     let mut env = FunctionEnv::new(&mut store, ());

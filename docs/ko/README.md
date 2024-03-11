@@ -33,7 +33,7 @@ Wasmer는 _초경량 컨테이너_ 를 *Desktop*에서부터 *Cloud*, *Edge*, *I
 
 ### 특징
 
-* 기본적으로 안전합니다. 파일, 네트워크, 환경 접근이 명시적으로 활성화 되지 않습니다.
+* 기본적으로 안전합니다. 명시적으로 설정하지 않는 한 파일, 네트워크 또는 환경에 액세스할 수 없습니다.
 * [WASI](https://github.com/WebAssembly/WASI)와 [Emscripten](https://emscripten.org/)을 즉시 지원합니다.
 * 빠릅니다. native에 가까운 속도로 WebAssembly를 실행합니다.
 * [여러 프로그래밍 언어](https://github.com/wasmerio/wasmer/#-language-integrations)에 임베디드 가능합니다.

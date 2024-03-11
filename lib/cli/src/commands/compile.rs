@@ -1,19 +1,20 @@
-use crate::store::StoreOptions;
-use crate::warning;
+use std::path::PathBuf;
+
 use anyhow::{Context, Result};
 use clap::Parser;
-use std::path::PathBuf;
 use wasmer::*;
+
+use crate::{store::StoreOptions, warning};
 
 #[derive(Debug, Parser)]
 /// The options for the `wasmer compile` subcommand
 pub struct Compile {
     /// Input file
-    #[clap(name = "FILE", parse(from_os_str))]
+    #[clap(name = "FILE")]
     path: PathBuf,
 
     /// Output file
-    #[clap(name = "OUTPUT PATH", short = 'o', parse(from_os_str))]
+    #[clap(name = "OUTPUT PATH", short = 'o')]
     output: PathBuf,
 
     /// Compilation Target triple

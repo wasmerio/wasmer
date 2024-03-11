@@ -1,15 +1,17 @@
 //! Runs a .wast WebAssembly test suites
-use crate::store::StoreOptions;
+use std::path::PathBuf;
+
 use anyhow::{Context, Result};
 use clap::Parser;
-use std::path::PathBuf;
 use wasmer_wast::Wast as WastSpectest;
+
+use crate::store::StoreOptions;
 
 #[derive(Debug, Parser)]
 /// The options for the `wasmer wast` subcommand
 pub struct Wast {
     /// Wast file to run
-    #[clap(name = "FILE", parse(from_os_str))]
+    #[clap(name = "FILE")]
     path: PathBuf,
 
     #[clap(flatten)]

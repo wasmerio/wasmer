@@ -26,7 +26,7 @@ pub fn call_malloc(mut ctx: &mut FunctionEnvMut<EmEnv>, size: u32) -> u32 {
     malloc_ref.call(&mut ctx, size).unwrap()
 }
 
-#[warn(dead_code)]
+#[allow(dead_code)]
 pub fn call_malloc_with_cast<T: Copy>(ctx: &mut FunctionEnvMut<EmEnv>, size: u32) -> WasmPtr<T> {
     WasmPtr::new(call_malloc(ctx, size))
 }
@@ -139,7 +139,7 @@ pub fn _pathconf(ctx: FunctionEnvMut<EmEnv>, path_addr: c_int, name: c_int) -> c
     let _path = emscripten_memory_pointer!(memory.view(&ctx), path_addr) as *const c_char;
     match name {
         0 => 32000,
-        1 | 2 | 3 => 255,
+        1..=3 => 255,
         4 | 5 | 16 | 17 | 18 => 4096,
         6 | 7 | 20 => 1,
         8 => 0,
@@ -156,7 +156,7 @@ pub fn _fpathconf(_ctx: FunctionEnvMut<EmEnv>, _fildes: c_int, name: c_int) -> c
     debug!("emscripten::_fpathconf {} {}", _fildes, name);
     match name {
         0 => 32000,
-        1 | 2 | 3 => 255,
+        1..=3 => 255,
         4 | 5 | 16 | 17 | 18 => 4096,
         6 | 7 | 20 => 1,
         8 => 0,

@@ -1,0 +1,18 @@
+[package]
+name = "wasmer/js-script"
+version = "0.0.0"
+description = "A package which uses quickjs to run a JavaScript program"
+
+[dependencies]
+"saghul/quickjs" = "0.0.3"
+
+[[command]]
+name = "main"
+module = "saghul/quickjs:quickjs"
+runner = "wasi"
+
+[command.annotations.wasi]
+main-args = ["/src/index.js"]
+
+[fs]
+"/src" = "./src"

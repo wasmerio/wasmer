@@ -1,0 +1,21 @@
+---
+source: tests/integration/cli/tests/snapshot.rs
+expression: snapshot
+---
+{
+  "spec": {
+    "name": "snapshot::test_snapshot_threaded_memory",
+    "use_packages": [],
+    "include_webcs": [],
+    "cli_args": [],
+    "enable_threads": true,
+    "enable_network": false
+  },
+  "result": {
+    "Success": {
+      "stdout": "thread 1 started\nincrementing counter (val=0)\nthread 2 started\nincrementing counter (val=1)\nthread 3 started\nincrementing counter (val=2)\nthread 4 started\nincrementing counter (val=3)\nthread 5 started\nincrementing counter (val=4)\nthread 6 started\nincrementing counter (val=5)\nthread 7 started\nincrementing counter (val=6)\nthread 8 started\nincrementing counter (val=7)\nthread 9 started\nincrementing counter (val=8)\nwaiting for threads\nthread 1 finished\nthread 2 finished\nthread 3 finished\nthread 4 finished\nthread 5 finished\nthread 6 finished\nthread 7 finished\nthread 8 finished\nthread 9 finished\nall done\n",
+      "stderr": "",
+      "exit_code": 0
+    }
+  }
+}

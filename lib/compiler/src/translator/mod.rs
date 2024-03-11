@@ -19,6 +19,6 @@ pub use self::middleware::{
     ModuleMiddlewareChain,
 };
 pub use self::module::translate_module;
-pub use self::sections::wptype_to_type;
+pub use self::sections::{wpheaptype_to_type, wptype_to_type};
 pub use self::state::ModuleTranslationState;
 pub use error::from_binaryreadererror_wasmerror;

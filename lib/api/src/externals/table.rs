@@ -1,5 +1,7 @@
 #[cfg(feature = "js")]
 use crate::js::externals::table as table_impl;
+#[cfg(feature = "jsc")]
+use crate::jsc::externals::table as table_impl;
 #[cfg(feature = "sys")]
 use crate::sys::externals::table as table_impl;
 
@@ -28,8 +30,7 @@ impl Table {
     ///
     /// All the elements in the table will be set to the `init` value.
     ///
-    /// This function will construct the `Table` using the store
-    /// [`BaseTunables`][crate::sys::BaseTunables].
+    /// This function will construct the `Table` using the store `BaseTunables`.
     pub fn new(
         store: &mut impl AsStoreMut,
         ty: TableType,

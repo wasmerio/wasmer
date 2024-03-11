@@ -4,25 +4,25 @@
 /// This module should not be needed any longer (with the exception of the memory)
 /// once the type reflection is added to the WebAssembly JS API.
 /// https://github.com/WebAssembly/js-types/
-use crate::js::wasm_bindgen_polyfill::Global as JsGlobal;
-use js_sys::Function as JsFunction;
-use js_sys::WebAssembly;
-use js_sys::WebAssembly::{Memory as JsMemory, Table as JsTable};
+use std::{any::Any, fmt};
+
+use js_sys::{
+    Function as JsFunction,
+    WebAssembly::{self, Memory as JsMemory, Table as JsTable},
+};
 use serde::{Deserialize, Serialize};
-use std::any::Any;
-use std::fmt;
-#[cfg(feature = "tracing")]
 use tracing::trace;
 use wasm_bindgen::{JsCast, JsValue};
-use wasmer_types::RawValue;
 use wasmer_types::{
-    FunctionType, GlobalType, MemoryError, MemoryType, Pages, TableType, WASM_PAGE_SIZE,
+    FunctionType, GlobalType, MemoryError, MemoryType, Pages, RawValue, TableType, WASM_PAGE_SIZE,
 };
+
+use crate::js::{js_handle::JsHandle, wasm_bindgen_polyfill::Global as JsGlobal};
 
 /// Represents linear memory that is managed by the javascript runtime
 #[derive(Clone, Debug, PartialEq)]
 pub struct VMMemory {
-    pub(crate) memory: JsMemory,
+    pub(crate) memory: JsHandle<JsMemory>,
     pub(crate) ty: MemoryType,
 }
 
@@ -38,7 +38,10 @@ struct DummyBuffer {
 impl VMMemory {
     /// Creates a new memory directly from a WebAssembly javascript object
     pub fn new(memory: JsMemory, ty: MemoryType) -> Self {
-        Self { memory, ty }
+        Self {
+            memory: JsHandle::new(memory),
+            ty,
+        }
     }
 
     /// Returns the size of the memory buffer in pages
@@ -54,18 +57,23 @@ impl VMMemory {
     }
 
     /// Attempts to clone this memory (if its clonable)
-    pub(crate) fn try_clone(&self) -> Option<VMMemory> {
-        Some(self.clone())
+    pub(crate) fn try_clone(&self) -> Result<VMMemory, MemoryError> {
+        Ok(self.clone())
     }
 
     /// Copies this memory to a new memory
-    pub fn duplicate(&self) -> Result<VMMemory, wasmer_types::MemoryError> {
+    #[deprecated = "use `copy` instead"]
+    pub fn duplicate(&mut self) -> Result<VMMemory, wasmer_types::MemoryError> {
+        self.copy()
+    }
+
+    /// Copies this memory to a new memory
+    pub fn copy(&mut self) -> Result<VMMemory, wasmer_types::MemoryError> {
         let new_memory = crate::js::externals::memory::Memory::js_memory_from_type(&self.ty)?;
 
         let src = crate::js::externals::memory_view::MemoryView::new_raw(&self.memory);
         let amount = src.data_size() as usize;
 
-        #[cfg(feature = "tracing")]
         trace!(%amount, "memory copy started");
 
         let mut dst = crate::js::externals::memory_view::MemoryView::new_raw(&new_memory);
@@ -96,11 +104,10 @@ impl VMMemory {
             wasmer_types::MemoryError::Generic(format!("failed to copy the memory - {}", err))
         })?;
 
-        #[cfg(feature = "tracing")]
         trace!("memory copy finished (size={})", dst.size().bytes().0);
 
         Ok(Self {
-            memory: new_memory,
+            memory: JsHandle::new(new_memory),
             ty: self.ty.clone(),
         })
     }
@@ -161,7 +168,7 @@ impl VMTable {
 /// The VM Function type
 #[derive(Clone)]
 pub struct VMFunction {
-    pub(crate) function: JsFunction,
+    pub(crate) function: JsHandle<JsFunction>,
     pub(crate) ty: FunctionType,
 }
 
@@ -170,7 +177,10 @@ unsafe impl Sync for VMFunction {}
 
 impl VMFunction {
     pub(crate) fn new(function: JsFunction, ty: FunctionType) -> Self {
-        Self { function, ty }
+        Self {
+            function: JsHandle::new(function),
+            ty,
+        }
     }
 }
 
@@ -277,3 +287,5 @@ pub(crate) type VMExternTable = VMTable;
 pub(crate) type VMExternMemory = VMMemory;
 pub(crate) type VMExternGlobal = VMGlobal;
 pub(crate) type VMExternFunction = VMFunction;
+
+pub type VMFunctionCallback = *const VMFunctionBody;

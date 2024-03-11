@@ -1,11 +1,13 @@
 #[cfg(feature = "js")]
 use crate::js::externals::function as function_impl;
+#[cfg(feature = "jsc")]
+use crate::jsc::externals::function as function_impl;
 #[cfg(feature = "sys")]
 use crate::sys::externals::function as function_impl;
 
 use crate::exports::{ExportError, Exportable};
 use crate::store::{AsStoreMut, AsStoreRef};
-use crate::vm::{VMExtern, VMExternFunction, VMFuncRef, VMFunctionBody, VMTrampoline};
+use crate::vm::{VMExtern, VMExternFunction, VMFuncRef, VMFunctionCallback, VMTrampoline};
 use crate::{
     Extern, FunctionEnv, FunctionEnvMut, FunctionType, RuntimeError, TypedFunction, Value,
 };
@@ -15,8 +17,8 @@ use crate::native_type::WasmTypeList;
 
 /// The `HostFunction` trait represents the set of functions that
 /// can be used as host function. To uphold this statement, it is
-/// necessary for a function to be transformed into a pointer to
-/// `VMFunctionBody`.
+/// necessary for a function to be transformed into a
+/// `VMFunctionCallback`.
 pub trait HostFunction<T, Args, Rets, Kind>
 where
     Args: WasmTypeList,
@@ -24,7 +26,7 @@ where
     Kind: HostFunctionKind,
 {
     /// Get the pointer to the function body.
-    fn function_body_ptr(&self) -> *const VMFunctionBody;
+    fn function_callback(&self) -> VMFunctionCallback;
 
     /// Get the pointer to the function call trampoline.
     fn call_trampoline_address() -> VMTrampoline {
@@ -58,7 +60,7 @@ mod private {
     //! Sealing the HostFunctionKind because it shouldn't be implemented
     //! by any type outside.
     //! See:
-    //! https://rust-lang.github.io/api-guidelines/future-proofing.html#c-sealed
+    //! <https://rust-lang.github.io/api-guidelines/future-proofing.html#c-sealed>
     pub trait HostFunctionKindSealed {}
     impl HostFunctionKindSealed for super::WithEnv {}
     impl HostFunctionKindSealed for super::WithoutEnv {}
@@ -154,20 +156,6 @@ impl Function {
         Self(function_impl::Function::new_with_env(store, env, ty, func))
     }
 
-    #[deprecated(
-        since = "3.0.0",
-        note = "new_native() has been renamed to new_typed()."
-    )]
-    /// Creates a new host `Function` from a native function.
-    pub fn new_native<F, Args, Rets>(store: &mut impl AsStoreMut, func: F) -> Self
-    where
-        F: HostFunction<(), Args, Rets, WithoutEnv> + 'static + Send + Sync,
-        Args: WasmTypeList,
-        Rets: WasmTypeList,
-    {
-        Self::new_typed(store, func)
-    }
-
     /// Creates a new host `Function` from a native function.
     pub fn new_typed<F, Args, Rets>(store: &mut impl AsStoreMut, func: F) -> Self
     where
@@ -176,24 +164,6 @@ impl Function {
         Rets: WasmTypeList,
     {
         Self(function_impl::Function::new_typed(store, func))
-    }
-
-    #[deprecated(
-        since = "3.0.0",
-        note = "new_native_with_env() has been renamed to new_typed_with_env()."
-    )]
-    /// Creates a new host `Function` with an environment from a native function.
-    pub fn new_native_with_env<T: Send + 'static, F, Args, Rets>(
-        store: &mut impl AsStoreMut,
-        env: &FunctionEnv<T>,
-        func: F,
-    ) -> Self
-    where
-        F: HostFunction<T, Args, Rets, WithEnv> + 'static + Send + Sync,
-        Args: WasmTypeList,
-        Rets: WasmTypeList,
-    {
-        Self::new_typed_with_env(store, env, func)
     }
 
     /// Creates a new host `Function` with an environment from a typed function.
@@ -348,20 +318,6 @@ impl Function {
 
     pub(crate) unsafe fn from_vm_funcref(store: &mut impl AsStoreMut, funcref: VMFuncRef) -> Self {
         Self(function_impl::Function::from_vm_funcref(store, funcref))
-    }
-
-    /// Transform this WebAssembly function into a native function.
-    /// See [`TypedFunction`] to learn more.
-    #[deprecated(since = "3.0.0", note = "native() has been renamed to typed().")]
-    pub fn native<Args, Rets>(
-        &self,
-        store: &impl AsStoreRef,
-    ) -> Result<TypedFunction<Args, Rets>, RuntimeError>
-    where
-        Args: WasmTypeList,
-        Rets: WasmTypeList,
-    {
-        self.typed(store)
     }
 
     /// Transform this WebAssembly function into a typed function.

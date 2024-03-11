@@ -11,7 +11,7 @@ import re
 
 RELEASE_VERSION=""
 DATE = datetime.date.today().strftime("%d/%m/%Y")
-SIGNOFF_REVIEWER = "syrusakbary"
+SIGNOFF_REVIEWER = "Arshia001"
 TAG = "master"
 
 if len(sys.argv) > 1:
@@ -332,7 +332,7 @@ def make_release(version):
     if proc.returncode == 0:
         for line in proc.stdout:
             line = line.decode("utf-8").rstrip()
-            if "Merge #" + pr_number in line:
+            if "Merge pull request #" + pr_number in line:
                 correct_checkout = line
     else:
         raise Exception("could not git log branch " + RELEASE_VERSION_WITH_V)

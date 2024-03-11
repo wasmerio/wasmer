@@ -1,5 +1,6 @@
 use backtrace::Backtrace;
 use std::error::Error;
+use std::fmt;
 use wasmer_types::TrapCode;
 
 /// Stores trace message with backtrace.
@@ -39,7 +40,18 @@ pub enum Trap {
     },
 }
 
+fn _assert_trap_is_sync_and_send(t: &Trap) -> (&dyn Sync, &dyn Send) {
+    (t, t)
+}
+
 impl Trap {
+    /// Construct a new Error with the given a user error.
+    ///
+    /// Internally saves a backtrace when constructed.
+    pub fn user(err: Box<dyn Error + Send + Sync>) -> Self {
+        Self::User(err)
+    }
+
     /// Construct a new Wasm trap with the given source location and backtrace.
     ///
     /// Internally saves a backtrace when constructed.
@@ -49,6 +61,11 @@ impl Trap {
             backtrace,
             signal_trap,
         }
+    }
+
+    /// Returns trap code, if it's a Trap
+    pub fn to_trap(self) -> Option<TrapCode> {
+        unimplemented!()
     }
 
     /// Construct a new Wasm trap with the given trap code.
@@ -68,5 +85,51 @@ impl Trap {
     pub fn oom() -> Self {
         let backtrace = Backtrace::new_unresolved();
         Self::OOM { backtrace }
+    }
+
+    /// Attempts to downcast the `Trap` to a concrete type.
+    pub fn downcast<T: Error + 'static>(self) -> Result<T, Self> {
+        match self {
+            // We only try to downcast user errors
+            Self::User(err) if err.is::<T>() => Ok(*err.downcast::<T>().unwrap()),
+            _ => Err(self),
+        }
+    }
+
+    /// Attempts to downcast the `Trap` to a concrete type.
+    pub fn downcast_ref<T: Error + 'static>(&self) -> Option<&T> {
+        match &self {
+            // We only try to downcast user errors
+            Self::User(err) if err.is::<T>() => err.downcast_ref::<T>(),
+            _ => None,
+        }
+    }
+
+    /// Returns true if the `Trap` is the same as T
+    pub fn is<T: Error + 'static>(&self) -> bool {
+        match self {
+            Self::User(err) => err.is::<T>(),
+            _ => false,
+        }
+    }
+}
+
+impl std::error::Error for Trap {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        match &self {
+            Self::User(err) => Some(&**err),
+            _ => None,
+        }
+    }
+}
+
+impl fmt::Display for Trap {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::User(e) => write!(f, "{}", e),
+            Self::Lib { .. } => write!(f, "lib"),
+            Self::Wasm { .. } => write!(f, "wasm"),
+            Self::OOM { .. } => write!(f, "Wasmer VM out of memory"),
+        }
     }
 }

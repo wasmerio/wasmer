@@ -31,6 +31,7 @@ use wasmer::{AsEngineRef, DeserializeError, Module, SerializeError};
 ///     Ok(())
 /// }
 /// ```
+#[derive(Debug, Clone)]
 pub struct FileSystemCache {
     path: PathBuf,
     ext: Option<String>,
@@ -97,7 +98,7 @@ impl Cache for FileSystemCache {
         key: Hash,
     ) -> Result<Module, Self::DeserializeError> {
         let filename = if let Some(ref ext) = self.ext {
-            format!("{}.{}", key.to_string(), ext)
+            format!("{}.{}", key, ext)
         } else {
             key.to_string()
         };
@@ -113,7 +114,7 @@ impl Cache for FileSystemCache {
 
     fn store(&mut self, key: Hash, module: &Module) -> Result<(), Self::SerializeError> {
         let filename = if let Some(ref ext) = self.ext {
-            format!("{}.{}", key.to_string(), ext)
+            format!("{}.{}", key, ext)
         } else {
             key.to_string()
         };
@@ -124,5 +125,27 @@ impl Cache for FileSystemCache {
         file.write_all(&buffer)?;
 
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_fs_cache() {
+        let dir = tempfile::tempdir().unwrap();
+
+        let mut cache = FileSystemCache::new(dir.path()).unwrap();
+
+        let engine = wasmer::Engine::default();
+
+        let bytes = include_bytes!("../../wasix/tests/envvar.wasm");
+
+        let module = Module::from_binary(&engine, bytes).unwrap();
+        let key = Hash::generate(bytes);
+
+        cache.store(key, &module).unwrap();
+        let _restored = unsafe { cache.load(&engine, key).unwrap() };
     }
 }

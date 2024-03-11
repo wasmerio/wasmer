@@ -7,7 +7,6 @@
 //! ```
 
 use wasmer::{imports, wat2wasm, Function, Instance, Module, Store, TypedFunction};
-use wasmer_compiler_cranelift::Cranelift;
 
 fn main() -> anyhow::Result<()> {
     // First we create a simple Wasm program to use with Wasmer.
@@ -34,16 +33,8 @@ fn main() -> anyhow::Result<()> {
 "#,
     )?;
 
-    // Next we create the `Store`, the top level type in the Wasmer API.
-    //
-    // Note that we don't need to specify the engine/compiler if we want to use
-    // the default provided by Wasmer.
-    // You can use `Store::default()` for that.
-    //
-    // However for the purposes of showing what's happening, we create a compiler
-    // (`Cranelift`) and pass it to an engine (`Universal`). We then pass the engine to
-    // the store and are now ready to compile and run WebAssembly!
-    let mut store = Store::new(Cranelift::default());
+    // Create a Store.
+    let mut store = Store::default();
 
     // We then use our store and Wasm bytes to compile a `Module`.
     // A `Module` is a compiled WebAssembly module that isn't ready to execute yet.

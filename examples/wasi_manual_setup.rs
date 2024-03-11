@@ -16,7 +16,6 @@
 //! Ready?
 
 use wasmer::{Instance, Module, Store};
-use wasmer_compiler_cranelift::Cranelift;
 use wasmer_wasix::WasiEnv;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -28,14 +27,18 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let wasm_bytes = std::fs::read(wasm_path)?;
 
     // Create a Store.
-    // Note that we don't need to specify the engine/compiler if we want to use
-    // the default provided by Wasmer.
-    // You can use `Store::default()` for that.
-    let mut store = Store::new(Cranelift::default());
+    let mut store = Store::default();
 
     println!("Compiling module...");
     // Let's compile the Wasm module.
     let module = Module::new(&store, wasm_bytes)?;
+
+    println!("Starting `tokio` runtime...");
+    let runtime = tokio::runtime::Builder::new_multi_thread()
+        .enable_all()
+        .build()
+        .unwrap();
+    let _guard = runtime.enter();
 
     println!("Creating `WasiEnv`...");
     // First, we create the `WasiEnv`
@@ -62,7 +65,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let start = instance.exports.get_function("_start")?;
     start.call(&mut store, &[])?;
 
-    wasi_env.cleanup(&mut store, None);
+    wasi_env.on_exit(&mut store, None);
 
     Ok(())
 }

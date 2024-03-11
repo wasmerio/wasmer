@@ -6,7 +6,7 @@ mod table;
 
 pub use self::function::{Function, HostFunction};
 pub use self::global::Global;
-pub use self::memory::Memory;
+pub use self::memory::{Memory, MemoryLocation, SharedMemory};
 pub use self::memory_view::MemoryView;
 pub use self::table::Table;
 
@@ -16,6 +16,8 @@ use std::fmt;
 
 #[cfg(feature = "js")]
 use crate::js::vm::VMExtern;
+#[cfg(feature = "jsc")]
+use crate::jsc::vm::VMExtern;
 #[cfg(feature = "sys")]
 use wasmer_vm::VMExtern;
 

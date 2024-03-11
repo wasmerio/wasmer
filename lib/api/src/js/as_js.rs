@@ -36,18 +36,11 @@ pub trait AsJs: Sized {
 pub fn param_from_js(ty: &Type, js_val: &JsValue) -> Value {
     match ty {
         Type::I32 => Value::I32(js_val.as_f64().unwrap() as _),
-        Type::I64 => {
-            let number = js_val.as_f64().map(|f| f as i64).unwrap_or_else(|| {
-                if js_val.is_bigint() {
-                    // To support BigInt
-                    let big_num: u128 = js_sys::BigInt::from(js_val.clone()).try_into().unwrap();
-                    big_num as i64
-                } else {
-                    (js_sys::Number::from(js_val.clone()).as_f64().unwrap()) as i64
-                }
-            });
-            Value::I64(number)
-        }
+        Type::I64 => Value::I64(if js_val.is_bigint() {
+            js_val.clone().try_into().unwrap()
+        } else {
+            js_val.as_f64().unwrap() as _
+        }),
         Type::F32 => Value::F32(js_val.as_f64().unwrap() as _),
         Type::F64 => Value::F64(js_val.as_f64().unwrap()),
         Type::V128 => {
@@ -188,65 +181,18 @@ impl AsJs for Extern {
         // We only check the "kind" of Extern, but nothing else
         match extern_type {
             ExternType::Memory(memory_type) => {
-                if val.is_instance_of::<JsMemory>() {
-                    Ok(Self::Memory(Memory::from_vm_extern(
-                        store,
-                        VMMemory::new(
-                            val.clone().unchecked_into::<JsMemory>(),
-                            memory_type.clone(),
-                        ),
-                    )))
-                } else {
-                    Err(JsError::new(&format!(
-                        "Extern expect to be of type Memory, but received {:?}",
-                        val
-                    )))
-                }
+                Ok(Self::Memory(Memory::from_jsvalue(store, memory_type, val)?))
             }
             ExternType::Global(global_type) => {
-                if val.is_instance_of::<JsGlobal>() {
-                    Ok(Self::Global(Global::from_vm_extern(
-                        store,
-                        VMGlobal::new(
-                            val.clone().unchecked_into::<JsGlobal>(),
-                            global_type.clone(),
-                        ),
-                    )))
-                } else {
-                    Err(JsError::new(&format!(
-                        "Extern expect to be of type Global, but received {:?}",
-                        val
-                    )))
-                }
+                Ok(Self::Global(Global::from_jsvalue(store, global_type, val)?))
             }
-            ExternType::Function(function_type) => {
-                if val.is_instance_of::<JsFunction>() {
-                    Ok(Self::Function(Function::from_vm_extern(
-                        store,
-                        VMFunction::new(
-                            val.clone().unchecked_into::<JsFunction>(),
-                            function_type.clone(),
-                        ),
-                    )))
-                } else {
-                    Err(JsError::new(&format!(
-                        "Extern expect to be of type Function, but received {:?}",
-                        val
-                    )))
-                }
-            }
+            ExternType::Function(function_type) => Ok(Self::Function(Function::from_jsvalue(
+                store,
+                function_type,
+                val,
+            )?)),
             ExternType::Table(table_type) => {
-                if val.is_instance_of::<JsTable>() {
-                    Ok(Self::Table(Table::from_vm_extern(
-                        store,
-                        VMTable::new(val.clone().unchecked_into::<JsTable>(), table_type.clone()),
-                    )))
-                } else {
-                    Err(JsError::new(&format!(
-                        "Extern expect to be of type Table, but received {:?}",
-                        val
-                    )))
-                }
+                Ok(Self::Table(Table::from_jsvalue(store, table_type, val)?))
             }
         }
     }
@@ -271,5 +217,118 @@ impl AsJs for Instance {
             module: module.clone(),
             exports,
         })
+    }
+}
+
+impl AsJs for Memory {
+    type DefinitionType = crate::MemoryType;
+
+    fn as_jsvalue(&self, _store: &impl AsStoreRef) -> wasm_bindgen::JsValue {
+        self.0.handle.memory.clone().into()
+    }
+
+    fn from_jsvalue(
+        store: &mut impl AsStoreMut,
+        memory_type: &Self::DefinitionType,
+        value: &JsValue,
+    ) -> Result<Self, JsError> {
+        if let Some(memory) = value.dyn_ref::<JsMemory>() {
+            Ok(Memory::from_vm_extern(
+                store,
+                VMMemory::new(memory.clone(), memory_type.clone()),
+            ))
+        } else {
+            Err(JsError::new(&format!(
+                "Extern expect to be of type Memory, but received {:?}",
+                value
+            )))
+        }
+    }
+}
+
+impl AsJs for Function {
+    type DefinitionType = crate::FunctionType;
+
+    fn as_jsvalue(&self, _store: &impl AsStoreRef) -> wasm_bindgen::JsValue {
+        self.0.handle.function.clone().into()
+    }
+
+    fn from_jsvalue(
+        store: &mut impl AsStoreMut,
+        function_type: &Self::DefinitionType,
+        value: &JsValue,
+    ) -> Result<Self, JsError> {
+        if value.is_instance_of::<JsFunction>() {
+            Ok(Function::from_vm_extern(
+                store,
+                VMFunction::new(
+                    value.clone().unchecked_into::<JsFunction>(),
+                    function_type.clone(),
+                ),
+            ))
+        } else {
+            Err(JsError::new(&format!(
+                "Extern expect to be of type Function, but received {:?}",
+                value
+            )))
+        }
+    }
+}
+
+impl AsJs for Global {
+    type DefinitionType = crate::GlobalType;
+
+    fn as_jsvalue(&self, _store: &impl AsStoreRef) -> wasm_bindgen::JsValue {
+        self.0.handle.global.clone().into()
+    }
+
+    fn from_jsvalue(
+        store: &mut impl AsStoreMut,
+        global_type: &Self::DefinitionType,
+        value: &JsValue,
+    ) -> Result<Self, JsError> {
+        if value.is_instance_of::<JsGlobal>() {
+            Ok(Global::from_vm_extern(
+                store,
+                VMGlobal::new(
+                    value.clone().unchecked_into::<JsGlobal>(),
+                    global_type.clone(),
+                ),
+            ))
+        } else {
+            Err(JsError::new(&format!(
+                "Extern expect to be of type Global, but received {:?}",
+                value
+            )))
+        }
+    }
+}
+
+impl AsJs for Table {
+    type DefinitionType = crate::TableType;
+
+    fn as_jsvalue(&self, _store: &impl AsStoreRef) -> wasm_bindgen::JsValue {
+        self.0.handle.table.clone().into()
+    }
+
+    fn from_jsvalue(
+        store: &mut impl AsStoreMut,
+        table_type: &Self::DefinitionType,
+        value: &JsValue,
+    ) -> Result<Self, JsError> {
+        if value.is_instance_of::<JsTable>() {
+            Ok(Table::from_vm_extern(
+                store,
+                VMTable::new(
+                    value.clone().unchecked_into::<JsTable>(),
+                    table_type.clone(),
+                ),
+            ))
+        } else {
+            Err(JsError::new(&format!(
+                "Extern expect to be of type Table, but received {:?}",
+                value
+            )))
+        }
     }
 }

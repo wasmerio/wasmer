@@ -1,4 +1,3 @@
-use crate::errors::InstantiationError;
 use crate::errors::RuntimeError;
 use crate::imports::Imports;
 use crate::js::AsJs;
@@ -6,11 +5,11 @@ use crate::store::AsStoreMut;
 use crate::vm::VMInstance;
 use crate::Extern;
 use crate::IntoBytes;
+use crate::{errors::InstantiationError, js::js_handle::JsHandle};
 use crate::{AsEngineRef, ExportType, ImportType};
 use bytes::Bytes;
 use js_sys::{Reflect, Uint8Array, WebAssembly};
 use std::path::Path;
-#[cfg(feature = "tracing")]
 use tracing::{debug, warn};
 use wasm_bindgen::JsValue;
 use wasmer_types::{
@@ -23,11 +22,11 @@ use wasmer_types::{
 ///
 /// This should be fixed once the JS-Types Wasm proposal is adopted
 /// by the browsers:
-/// https://github.com/WebAssembly/js-types/blob/master/proposals/js-types/Overview.md
+/// <https://github.com/WebAssembly/js-types/blob/master/proposals/js-types/Overview.md>
 ///
 /// Until that happens, we annotate the module with the expected
 /// types so we can built on top of them at runtime.
-#[derive(Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ModuleTypeHints {
     /// The type hints for the imported types
     pub imports: Vec<ExternType>,
@@ -37,7 +36,7 @@ pub struct ModuleTypeHints {
 
 #[derive(Clone, PartialEq, Eq)]
 pub struct Module {
-    module: WebAssembly::Module,
+    module: JsHandle<WebAssembly::Module>,
     name: Option<String>,
     // WebAssembly type hints
     type_hints: Option<ModuleTypeHints>,
@@ -75,21 +74,22 @@ impl Module {
         binary: &[u8],
     ) -> Result<Self, CompileError> {
         let js_bytes = Uint8Array::view(binary);
-        let module = WebAssembly::Module::new(&js_bytes.into()).unwrap();
+        let module = WebAssembly::Module::new(&js_bytes.into())
+            .map_err(|e| CompileError::Validate(format!("{}", e.as_string().unwrap())))?;
         Ok(Self::from_js_module(module, binary))
     }
 
     /// Creates a new WebAssembly module skipping any kind of validation from a javascript module
-    ///
     pub(crate) unsafe fn from_js_module(
         module: WebAssembly::Module,
         binary: impl IntoBytes,
     ) -> Self {
         let binary = binary.into_bytes();
+
         // The module is now validated, so we can safely parse it's types
         #[cfg(feature = "wasm-types-polyfill")]
         let (type_hints, name) = {
-            let info = crate::js::module_info_polyfill::translate_module(&binary[..]).unwrap();
+            let info = crate::module_info_polyfill::translate_module(&binary[..]).unwrap();
 
             (
                 Some(ModuleTypeHints {
@@ -111,11 +111,11 @@ impl Module {
         let (type_hints, name) = (None, None);
 
         Self {
-            module,
+            module: JsHandle::new(module),
             type_hints,
             name,
             #[cfg(feature = "js-serializable-module")]
-            raw_bytes: Some(binary.into_bytes()),
+            raw_bytes: Some(binary),
         }
     }
 
@@ -145,13 +145,6 @@ impl Module {
                 InstantiationError::DifferentStores,
             )));
         }
-        // TODO: refactor this if possible, after the WASIX merge.
-        // The imported/exported memory does not have the correct properties
-        // (incorrect size and shared flag) hence when using shared memory its
-        // failing - the only way to fix it is to resolve the import and use the
-        // correct memory properties. this regression issue was only found
-        // in WASIX on the browser as the other areas don't mind that they don't match up
-        // sharrattj/dash should be able to reproduce this.
 
         let imports_object = js_sys::Object::new();
         let mut import_externs: Vec<Extern> = vec![];
@@ -161,10 +154,8 @@ impl Module {
             #[allow(unused_variables)]
             if let wasmer_types::ExternType::Memory(mem_ty) = import_type.ty() {
                 if resolved_import.is_some() {
-                    #[cfg(feature = "tracing")]
                     debug!("imported shared memory {:?}", &mem_ty);
                 } else {
-                    #[cfg(feature = "tracing")]
                     warn!(
                         "Error while importing {0:?}.{1:?}: memory. Expected {2:?}",
                         import_type.module(),
@@ -201,7 +192,6 @@ impl Module {
                     }
                     import_externs.push(import);
                 } else {
-                    #[cfg(feature = "tracing")]
                     warn!(
                         "import not found {}:{}",
                         import_type.module(),
@@ -233,6 +223,20 @@ impl Module {
         ));
     }
 
+    #[tracing::instrument(level = "debug", skip_all)]
+    pub unsafe fn deserialize_unchecked(
+        _engine: &impl AsEngineRef,
+        _bytes: impl IntoBytes,
+    ) -> Result<Self, DeserializeError> {
+        #[cfg(feature = "js-serializable-module")]
+        return Self::from_binary(_engine, &_bytes.into_bytes())
+            .map_err(|e| DeserializeError::Compiler(e));
+
+        #[cfg(not(feature = "js-serializable-module"))]
+        return Err(DeserializeError::Generic("You need to enable the `js-serializable-module` feature flag to deserialize a `Module`".to_string()));
+    }
+
+    #[tracing::instrument(level = "debug", skip_all)]
     pub unsafe fn deserialize(
         _engine: &impl AsEngineRef,
         _bytes: impl IntoBytes,
@@ -243,6 +247,14 @@ impl Module {
 
         #[cfg(not(feature = "js-serializable-module"))]
         return Err(DeserializeError::Generic("You need to enable the `js-serializable-module` feature flag to deserialize a `Module`".to_string()));
+    }
+
+    pub unsafe fn deserialize_from_file_unchecked(
+        engine: &impl AsEngineRef,
+        path: impl AsRef<Path>,
+    ) -> Result<Self, DeserializeError> {
+        let bytes = std::fs::read(path.as_ref())?;
+        Self::deserialize(engine, bytes)
     }
 
     pub unsafe fn deserialize_from_file(
@@ -437,9 +449,10 @@ impl Module {
 }
 
 impl From<WebAssembly::Module> for Module {
+    #[track_caller]
     fn from(module: WebAssembly::Module) -> Module {
         Module {
-            module,
+            module: JsHandle::new(module),
             name: None,
             type_hints: None,
             #[cfg(feature = "js-serializable-module")]
@@ -457,5 +470,10 @@ impl<T: IntoBytes> From<(WebAssembly::Module, T)> for crate::module::Module {
 impl From<WebAssembly::Module> for crate::module::Module {
     fn from(module: WebAssembly::Module) -> crate::module::Module {
         crate::module::Module(module.into())
+    }
+}
+impl From<crate::module::Module> for WebAssembly::Module {
+    fn from(value: crate::module::Module) -> Self {
+        value.0.module.into_inner()
     }
 }

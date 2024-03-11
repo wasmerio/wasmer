@@ -17,6 +17,8 @@ use crate::into_bytes::IntoBytes;
 
 #[cfg(feature = "js")]
 use crate::js::module as module_imp;
+#[cfg(feature = "jsc")]
+use crate::jsc::module as module_imp;
 #[cfg(feature = "sys")]
 use crate::sys::module as module_imp;
 
@@ -130,7 +132,7 @@ impl Module {
         let file_ref = file.as_ref();
         let canonical = file_ref.canonicalize()?;
         let wasm_bytes = std::fs::read(file_ref)?;
-        let mut module = Self::new(engine, &wasm_bytes)?;
+        let mut module = Self::new(engine, wasm_bytes)?;
         // Set the module name to the absolute path of the filename.
         // This is useful for debugging the stack traces.
         let filename = canonical.as_path().to_str().unwrap();
@@ -217,7 +219,9 @@ impl Module {
         Ok(())
     }
 
-    /// Deserializes a serialized Module binary into a `Module`.
+    /// Deserializes a serialized module binary into a `Module`.
+    ///
+    /// Note: You should usually prefer the safer [`Module::deserialize`].
     ///
     /// # Important
     ///
@@ -234,7 +238,35 @@ impl Module {
     ///    a malicious actor could inject code into executable
     ///    memory.
     ///
-    /// And as such, the `deserialize` method is unsafe.
+    /// And as such, the `deserialize_unchecked` method is unsafe.
+    ///
+    /// # Usage
+    ///
+    /// ```ignore
+    /// # use wasmer::*;
+    /// # fn main() -> anyhow::Result<()> {
+    /// # let mut store = Store::default();
+    /// let module = Module::deserialize_unchecked(&store, serialized_data)?;
+    /// # Ok(())
+    /// # }
+    /// ```
+    pub unsafe fn deserialize_unchecked(
+        engine: &impl AsEngineRef,
+        bytes: impl IntoBytes,
+    ) -> Result<Self, DeserializeError> {
+        Ok(Self(module_imp::Module::deserialize_unchecked(
+            engine, bytes,
+        )?))
+    }
+
+    /// Deserializes a serialized Module binary into a `Module`.
+    ///
+    /// # Important
+    ///
+    /// This function only accepts a custom binary format, which will be different
+    /// than the `wasm` binary format and may change among Wasmer versions.
+    /// (it should be the result of the serialization of a Module via the
+    /// `Module::serialize` method.).
     ///
     /// # Usage
     ///
@@ -246,6 +278,12 @@ impl Module {
     /// # Ok(())
     /// # }
     /// ```
+    ///
+    /// # Safety
+    /// This function is inherently **unsafe**, because it loads executable code
+    /// into memory.
+    /// The loaded bytes must be trusted to contain a valid artifact previously
+    /// built with [`Self::serialize`].
     pub unsafe fn deserialize(
         engine: &impl AsEngineRef,
         bytes: impl IntoBytes,
@@ -253,12 +291,8 @@ impl Module {
         Ok(Self(module_imp::Module::deserialize(engine, bytes)?))
     }
 
-    /// Deserializes a a serialized Module located in a `Path` into a `Module`.
+    /// Deserializes a serialized Module located in a `Path` into a `Module`.
     /// > Note: the module has to be serialized before with the `serialize` method.
-    ///
-    /// # Safety
-    ///
-    /// Please check [`Module::deserialize`].
     ///
     /// # Usage
     ///
@@ -270,11 +304,43 @@ impl Module {
     /// # Ok(())
     /// # }
     /// ```
+    ///
+    /// # Safety
+    ///
+    /// See [`Self::deserialize`].
     pub unsafe fn deserialize_from_file(
         engine: &impl AsEngineRef,
         path: impl AsRef<Path>,
     ) -> Result<Self, DeserializeError> {
         Ok(Self(module_imp::Module::deserialize_from_file(
+            engine, path,
+        )?))
+    }
+
+    /// Deserializes a serialized Module located in a `Path` into a `Module`.
+    /// > Note: the module has to be serialized before with the `serialize` method.
+    ///
+    /// You should usually prefer the safer [`Module::deserialize_from_file`].
+    ///
+    /// # Safety
+    ///
+    /// Please check [`Module::deserialize_unchecked`].
+    ///
+    /// # Usage
+    ///
+    /// ```ignore
+    /// # use wasmer::*;
+    /// # let mut store = Store::default();
+    /// # fn main() -> anyhow::Result<()> {
+    /// let module = Module::deserialize_from_file_unchecked(&store, path)?;
+    /// # Ok(())
+    /// # }
+    /// ```
+    pub unsafe fn deserialize_from_file_unchecked(
+        engine: &impl AsEngineRef,
+        path: impl AsRef<Path>,
+    ) -> Result<Self, DeserializeError> {
+        Ok(Self(module_imp::Module::deserialize_from_file_unchecked(
             engine, path,
         )?))
     }

@@ -1,15 +1,17 @@
-use crate::store::StoreOptions;
+use std::path::PathBuf;
+
 use anyhow::{Context, Result};
 use bytesize::ByteSize;
 use clap::Parser;
-use std::path::PathBuf;
 use wasmer::*;
+
+use crate::store::StoreOptions;
 
 #[derive(Debug, Parser)]
 /// The options for the `wasmer validate` subcommand
 pub struct Inspect {
     /// File to validate as WebAssembly
-    #[clap(name = "FILE", parse(from_os_str))]
+    #[clap(name = "FILE")]
     path: PathBuf,
 
     #[clap(flatten)]
@@ -22,6 +24,7 @@ impl Inspect {
         self.inner_execute()
             .context(format!("failed to inspect `{}`", self.path.display()))
     }
+
     fn inner_execute(&self) -> Result<()> {
         let (store, _compiler_type) = self.store.get_store()?;
         let module_contents = std::fs::read(&self.path)?;

@@ -14,8 +14,8 @@ use crate::{
 use indexmap::IndexMap;
 use rkyv::{
     de::SharedDeserializeRegistry, ser::ScratchSpace, ser::Serializer,
-    ser::SharedSerializeRegistry, Archive, Archived, Deserialize as RkyvDeserialize, Fallible,
-    Serialize as RkyvSerialize,
+    ser::SharedSerializeRegistry, Archive, Archived, CheckBytes, Deserialize as RkyvDeserialize,
+    Fallible, Serialize as RkyvSerialize,
 };
 #[cfg(feature = "enable-serde")]
 use serde::{Deserialize, Serialize};
@@ -26,6 +26,7 @@ use std::iter::ExactSizeIterator;
 use std::sync::atomic::{AtomicUsize, Ordering::SeqCst};
 
 #[derive(Debug, Clone, RkyvSerialize, RkyvDeserialize, Archive)]
+#[archive_attr(derive(CheckBytes))]
 pub struct ModuleId {
     id: usize,
 }
@@ -48,6 +49,7 @@ impl Default for ModuleId {
 /// Hash key of an import
 #[derive(Debug, Hash, Eq, PartialEq, Clone, Default, RkyvSerialize, RkyvDeserialize, Archive)]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
+#[archive_attr(derive(CheckBytes, PartialEq, Eq, Hash))]
 pub struct ImportKey {
     /// Module name
     pub module: String,
@@ -177,6 +179,7 @@ pub struct ModuleInfo {
 
 /// Mirror version of ModuleInfo that can derive rkyv traits
 #[derive(RkyvSerialize, RkyvDeserialize, Archive)]
+#[archive_attr(derive(CheckBytes))]
 pub struct ArchivableModuleInfo {
     name: Option<String>,
     imports: IndexMap<ImportKey, ImportIndex>,

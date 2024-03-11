@@ -1,0 +1,22 @@
+---
+source: tests/integration/cli/tests/snapshot.rs
+expression: snapshot
+---
+{
+  "spec": {
+    "name": "snapshot::test_snapshot_condvar_async",
+    "use_packages": [],
+    "include_webcs": [],
+    "cli_args": [],
+    "enable_threads": true,
+    "enable_network": false,
+    "enable_async_threads": true
+  },
+  "result": {
+    "Success": {
+      "stdout": "condvar1 thread spawn\ncondvar1 thread started\ncondvar1 thread sleep(1sec) start\ncondvar loop\ncondvar wait\ncondvar1 thread sleep(1sec) end\ncondvar1 thread set condition\ncondvar1 thread notify\ncondvar woken\ncondvar parent done\ncondvar1 thread exit\nall done\n",
+      "stderr": "",
+      "exit_code": 0
+    }
+  }
+}

@@ -1,22 +1,27 @@
 //! Create a standalone native executable for a given Wasm file.
 
-use self::utils::normalize_atom_name;
+use std::{
+    collections::BTreeMap,
+    env,
+    path::{Path, PathBuf},
+    process::{Command, Stdio},
+};
 
-use crate::common::normalize_path;
-use crate::store::CompilerOptions;
-use anyhow::{Context, Result};
+use anyhow::{anyhow, bail, Context, Result};
 use clap::Parser;
 use serde::{Deserialize, Serialize};
-use std::collections::BTreeMap;
-use std::env;
-use std::path::{Path, PathBuf};
-use std::process::Command;
-use std::process::Stdio;
 use tar::Archive;
+use wasmer::sys::Artifact;
 use wasmer::*;
 use wasmer_object::{emit_serialized, get_object_for_target};
 use wasmer_types::{compilation::symbols::ModuleMetadataSymbolRegistry, ModuleInfo};
-use webc::v1::{ParseOptions, WebCMmap};
+use webc::{
+    compat::{Container, Volume as WebcVolume},
+    PathSegments,
+};
+
+use self::utils::normalize_atom_name;
+use crate::{common::normalize_path, store::CompilerOptions};
 
 const LINK_SYSTEM_LIBRARIES_WINDOWS: &[&str] = &["userenv", "Ws2_32", "advapi32", "bcrypt"];
 
@@ -26,16 +31,16 @@ const LINK_SYSTEM_LIBRARIES_UNIX: &[&str] = &["dl", "m", "pthread"];
 /// The options for the `wasmer create-exe` subcommand
 pub struct CreateExe {
     /// Input file
-    #[clap(name = "FILE", parse(from_os_str))]
+    #[clap(name = "FILE")]
     path: PathBuf,
 
     /// Output file
-    #[clap(name = "OUTPUT PATH", short = 'o', parse(from_os_str))]
+    #[clap(name = "OUTPUT PATH", short = 'o')]
     output: PathBuf,
 
     /// Optional directorey used for debugging: if present, will output the zig command
     /// for reproducing issues in a debug directory
-    #[clap(long, name = "DEBUG PATH", parse(from_os_str))]
+    #[clap(long, name = "DEBUG PATH")]
     debug_dir: Option<PathBuf>,
 
     /// Prefix for every input file, e.g. "wat2wasm:sha256abc123" would
@@ -73,7 +78,7 @@ pub struct CreateExe {
     #[clap(long, name = "URL_OR_RELEASE_VERSION")]
     use_wasmer_release: Option<String>,
 
-    #[clap(long, short = 'm', multiple = true, number_of_values = 1)]
+    #[clap(long, short = 'm', number_of_values = 1)]
     cpu_features: Vec<CpuFeature>,
 
     /// Additional libraries to link against.
@@ -122,7 +127,7 @@ impl UrlOrVersion {
 // Cross-compilation options with `zig`
 #[derive(Debug, Clone, Default, Parser)]
 pub(crate) struct CrossCompile {
-    /// Use the system linker instead of zig instead of zig for linking
+    /// Use the system linker instead of zig for linking
     #[clap(long)]
     use_system_linker: bool,
 
@@ -189,7 +194,7 @@ impl CreateExe {
         let target = utils::target_triple_to_target(&target_triple, &self.cpu_features);
 
         let starting_cd = env::current_dir()?;
-        let input_path = starting_cd.join(&path);
+        let input_path = starting_cd.join(path);
         let output_path = starting_cd.join(&self.output);
 
         let url_or_version = match self
@@ -229,31 +234,30 @@ impl CreateExe {
         };
         std::fs::create_dir_all(&tempdir)?;
 
-        let atoms =
-            if let Ok(pirita) = WebCMmap::parse(input_path.clone(), &ParseOptions::default()) {
-                // pirita file
-                compile_pirita_into_directory(
-                    &pirita,
-                    &tempdir,
-                    &self.compiler,
-                    &self.cpu_features,
-                    &cross_compilation.target,
-                    &self.precompiled_atom,
-                    AllowMultiWasm::Allow,
-                    self.debug_dir.is_some(),
-                )
-            } else {
-                // wasm file
-                prepare_directory_from_single_wasm_file(
-                    &input_path,
-                    &tempdir,
-                    &self.compiler,
-                    &cross_compilation.target,
-                    &self.cpu_features,
-                    &self.precompiled_atom,
-                    self.debug_dir.is_some(),
-                )
-            }?;
+        let atoms = if let Ok(pirita) = Container::from_disk(&input_path) {
+            // pirita file
+            compile_pirita_into_directory(
+                &pirita,
+                &tempdir,
+                &self.compiler,
+                &self.cpu_features,
+                &cross_compilation.target,
+                &self.precompiled_atom,
+                AllowMultiWasm::Allow,
+                self.debug_dir.is_some(),
+            )
+        } else {
+            // wasm file
+            prepare_directory_from_single_wasm_file(
+                &input_path,
+                &tempdir,
+                &self.compiler,
+                &cross_compilation.target,
+                &self.cpu_features,
+                &self.precompiled_atom,
+                self.debug_dir.is_some(),
+            )
+        }?;
 
         get_module_infos(&store, &tempdir, &atoms)?;
         let mut entrypoint = get_entrypoint(&tempdir)?;
@@ -334,7 +338,7 @@ pub enum AllowMultiWasm {
 /// Given a pirita file, compiles the .wasm files into the target directory
 #[allow(clippy::too_many_arguments)]
 pub(super) fn compile_pirita_into_directory(
-    pirita: &WebCMmap,
+    pirita: &Container,
     target_dir: &Path,
     compiler: &CompilerOptions,
     cpu_features: &[CpuFeature],
@@ -345,39 +349,17 @@ pub(super) fn compile_pirita_into_directory(
 ) -> anyhow::Result<Vec<(String, Vec<u8>)>> {
     let all_atoms = match &allow_multi_wasm {
         AllowMultiWasm::Allow | AllowMultiWasm::Reject(None) => {
-            pirita.get_all_atoms().into_iter().collect::<Vec<_>>()
+            pirita.atoms().into_iter().collect::<Vec<_>>()
         }
         AllowMultiWasm::Reject(Some(s)) => {
-            vec![(
-                s.to_string(),
-                pirita
-                    .get_atom(&pirita.get_package_name(), s)
-                    .with_context(|| {
-                        anyhow::anyhow!(
-                            "could not find atom {s} in package {}",
-                            pirita.get_package_name()
-                        )
-                    })?,
-            )]
+            let atom = pirita
+                .get_atom(s)
+                .with_context(|| format!("could not find atom \"{s}\"",))?;
+            vec![(s.to_string(), atom)]
         }
     };
 
-    if allow_multi_wasm == AllowMultiWasm::Reject(None) && all_atoms.len() > 1 {
-        let keys = all_atoms
-            .iter()
-            .map(|(name, _)| name.clone())
-            .collect::<Vec<_>>();
-        return Err(anyhow::anyhow!(
-            "where <ATOM> is one of: {}",
-            keys.join(", ")
-        ))
-        .context(anyhow::anyhow!(
-            "note: use --atom <ATOM> to specify which atom to compile"
-        ))
-        .context(anyhow::anyhow!(
-            "cannot compile more than one atom at a time"
-        ));
-    }
+    allow_multi_wasm.validate(&all_atoms)?;
 
     std::fs::create_dir_all(target_dir)
         .map_err(|e| anyhow::anyhow!("cannot create / dir in {}: {e}", target_dir.display()))?;
@@ -392,7 +374,8 @@ pub(super) fn compile_pirita_into_directory(
         )
     })?;
 
-    let volume_bytes = pirita.get_volumes_as_fileblock();
+    let volumes = pirita.volumes();
+    let volume_bytes = volume_file_block(&volumes);
     let volume_name = "VOLUMES";
     let volume_path = target_dir.join("volumes").join("volume.o");
     write_volume_obj(&volume_bytes, volume_name, &volume_path, target)?;
@@ -454,7 +437,7 @@ pub(super) fn compile_pirita_into_directory(
         if let Ok(a) = atom_path.canonicalize() {
             let opt_header_path = header_path.and_then(|p| p.canonicalize().ok());
             atom_path = pathdiff::diff_paths(&a, &target_dir).unwrap_or_else(|| a.clone());
-            header_path = opt_header_path.and_then(|h| pathdiff::diff_paths(&h, &target_dir));
+            header_path = opt_header_path.and_then(|h| pathdiff::diff_paths(h, &target_dir));
         }
         atoms.push(CommandEntrypoint {
             // TODO: improve, "--command pip" should be able to invoke atom "python" with args "-m pip"
@@ -477,6 +460,105 @@ pub(super) fn compile_pirita_into_directory(
     write_entrypoint(&target_dir, &entrypoint)?;
 
     Ok(atoms_from_file)
+}
+
+/// Serialize a set of volumes so they can be read by the C API.
+///
+/// This is really backwards, but the only way to create a v1 volume "fileblock"
+/// is by first reading every file in a [`webc::compat::Volume`], serializing it
+/// to webc v1's binary form, parsing those bytes into a [`webc::v1::Volume`],
+/// then constructing a dummy [`webc::v1::WebC`] object just so we can make a
+/// copy of its file block.
+fn volume_file_block(volumes: &BTreeMap<String, WebcVolume>) -> Vec<u8> {
+    let serialized_volumes: Vec<(&String, Vec<u8>)> = volumes
+        .iter()
+        .map(|(name, volume)| (name, serialize_volume_to_webc_v1(volume)))
+        .collect();
+
+    let parsed_volumes: indexmap::IndexMap<String, webc::v1::Volume<'_>> = serialized_volumes
+        .iter()
+        .filter_map(|(name, serialized_volume)| {
+            let volume = webc::v1::Volume::parse(serialized_volume).ok()?;
+            Some((name.to_string(), volume))
+        })
+        .collect();
+
+    let webc = webc::v1::WebC {
+        version: 0,
+        checksum: None,
+        signature: None,
+        manifest: webc::metadata::Manifest::default(),
+        atoms: webc::v1::Volume::default(),
+        volumes: parsed_volumes,
+    };
+
+    webc.get_volumes_as_fileblock()
+}
+
+fn serialize_volume_to_webc_v1(volume: &WebcVolume) -> Vec<u8> {
+    fn read_dir(
+        volume: &WebcVolume,
+        path: &mut PathSegments,
+        files: &mut BTreeMap<webc::v1::DirOrFile, Vec<u8>>,
+    ) {
+        for (segment, meta) in volume.read_dir(&*path).unwrap_or_default() {
+            path.push(segment);
+
+            match meta {
+                webc::compat::Metadata::Dir => {
+                    files.insert(
+                        webc::v1::DirOrFile::Dir(path.to_string().into()),
+                        Vec::new(),
+                    );
+                    read_dir(volume, path, files);
+                }
+                webc::compat::Metadata::File { .. } => {
+                    if let Some(contents) = volume.read_file(&*path) {
+                        files.insert(
+                            webc::v1::DirOrFile::File(path.to_string().into()),
+                            contents.to_vec(),
+                        );
+                    }
+                }
+            }
+
+            path.pop();
+        }
+    }
+
+    let mut path = PathSegments::ROOT;
+    let mut files = BTreeMap::new();
+
+    read_dir(volume, &mut path, &mut files);
+
+    webc::v1::Volume::serialize_files(files)
+}
+
+impl AllowMultiWasm {
+    fn validate(
+        &self,
+        all_atoms: &Vec<(String, webc::compat::SharedBytes)>,
+    ) -> Result<(), anyhow::Error> {
+        if matches!(self, AllowMultiWasm::Reject(None)) && all_atoms.len() > 1 {
+            let keys = all_atoms
+                .iter()
+                .map(|(name, _)| name.clone())
+                .collect::<Vec<_>>();
+
+            return Err(anyhow::anyhow!(
+                "where <ATOM> is one of: {}",
+                keys.join(", ")
+            ))
+            .context(anyhow::anyhow!(
+                "note: use --atom <ATOM> to specify which atom to compile"
+            ))
+            .context(anyhow::anyhow!(
+                "cannot compile more than one atom at a time"
+            ));
+        }
+
+        Ok(())
+    }
 }
 
 /// Prefix map used during compilation of object files
@@ -591,7 +673,7 @@ impl PrefixMapCompilation {
 
     fn split_prefix(s: &str) -> Vec<String> {
         let regex =
-            regex::Regex::new(r#"^([a-zA-Z0-9\-_]+)(:([a-zA-Z0-9\.\-_]+))?(:(.+*))?"#).unwrap();
+            regex::Regex::new(r"^([a-zA-Z0-9\-_]+)(:([a-zA-Z0-9\.\-_]+))?(:(.+*))?").unwrap();
         let mut captures = regex
             .captures(s.trim())
             .map(|c| {
@@ -705,9 +787,10 @@ fn compile_atoms(
     prefixes: &PrefixMapCompilation,
     debug: bool,
 ) -> Result<BTreeMap<String, ModuleInfo>, anyhow::Error> {
-    use std::fs::File;
-    use std::io::BufWriter;
-    use std::io::Write;
+    use std::{
+        fs::File,
+        io::{BufWriter, Write},
+    };
 
     let mut module_infos = BTreeMap::new();
     for (a, data) in atoms {
@@ -814,9 +897,10 @@ fn write_volume_obj(
     output_path: &Path,
     target: &Target,
 ) -> anyhow::Result<()> {
-    use std::fs::File;
-    use std::io::BufWriter;
-    use std::io::Write;
+    use std::{
+        fs::File,
+        io::{BufWriter, Write},
+    };
 
     let mut volumes_object = get_object_for_target(target.triple())?;
     emit_serialized(
@@ -826,7 +910,7 @@ fn write_volume_obj(
         object_name,
     )?;
 
-    let mut writer = BufWriter::new(File::create(&output_path)?);
+    let mut writer = BufWriter::new(File::create(output_path)?);
     volumes_object
         .write_stream(&mut writer)
         .map_err(|err| anyhow::anyhow!(err.to_string()))?;
@@ -998,7 +1082,7 @@ pub(crate) fn create_header_files_in_dir(
             &ModuleMetadataSymbolRegistry {
                 prefix: prefix.clone(),
             },
-            metadata_length as usize,
+            metadata_length,
         );
 
         std::fs::write(&header_file_path, &header_file_src).map_err(|e| {
@@ -1123,6 +1207,7 @@ fn link_exe_from_dir(
             library_path,
             linker,
             optimization_flag,
+            &include_dirs,
             &object_paths,
             &cross_compilation.target,
             additional_libraries,
@@ -1136,7 +1221,7 @@ fn link_exe_from_dir(
         .as_ref()
         .ok_or_else(|| anyhow::anyhow!("could not find zig in $PATH {}", directory.display()))?;
 
-    let mut cmd = Command::new(&zig_binary_path);
+    let mut cmd = Command::new(zig_binary_path);
     cmd.arg("build-exe");
     cmd.arg("--verbose-cc");
     cmd.arg("--verbose-link");
@@ -1257,10 +1342,10 @@ fn link_exe_from_dir(
 
     // remove file if it exists - if not done, can lead to errors on copy
     let output_path_normalized = normalize_path(&format!("{}", output_path.display()));
-    let _ = std::fs::remove_file(&output_path_normalized);
+    let _ = std::fs::remove_file(output_path_normalized);
     std::fs::copy(
-        &normalize_path(&format!("{}", out_path.display())),
-        &normalize_path(&format!("{}", output_path.display())),
+        normalize_path(&format!("{}", out_path.display())),
+        normalize_path(&format!("{}", output_path.display())),
     )
     .map_err(|e| {
         anyhow::anyhow!(
@@ -1279,6 +1364,7 @@ fn link_objects_system_linker(
     libwasmer_path: &Path,
     linker_cmd: &str,
     optimization_flag: &str,
+    include_dirs: &[PathBuf],
     object_paths: &[PathBuf],
     target: &Triple,
     additional_libraries: &[String],
@@ -1300,6 +1386,21 @@ fn link_objects_system_linker(
         command = command.arg(format!("{}", target));
     }
 
+    for include_dir in include_dirs {
+        command = command.arg("-I");
+        command = command.arg(normalize_path(&format!("{}", include_dir.display())));
+    }
+    let mut include_path = libwasmer_path.clone();
+    include_path.pop();
+    include_path.pop();
+    include_path.push("include");
+    if !include_path.exists() {
+        // Can happen when we got the wrong library_path
+        return Err(anyhow::anyhow!("Wasmer include path {} does not exist, maybe library path {} is wrong (expected /lib/libwasmer.a)?", include_path.display(), libwasmer_path.display()));
+    }
+    command = command.arg("-I");
+    command = command.arg(normalize_path(&format!("{}", include_path.display())));
+
     // Add libraries required per platform.
     // We need userenv, sockets (Ws2_32), advapi32 for some system calls and bcrypt for random numbers.
     let mut additional_libraries = additional_libraries.to_vec();
@@ -1318,7 +1419,8 @@ fn link_objects_system_linker(
 
     if !output.status.success() {
         bail!(
-            "linking failed with: stdout: {}\n\nstderr: {}",
+            "linking failed with command line:{:#?} stdout: {}\n\nstderr: {}",
+            command,
             String::from_utf8_lossy(&output.stdout),
             String::from_utf8_lossy(&output.stderr),
         );
@@ -1378,11 +1480,9 @@ fn generate_wasmer_main_c(
         .iter()
         .map(|v| utils::normalize_atom_name(&v.name).to_uppercase())
         .map(|uppercase| {
-            vec![
-                format!("extern size_t {uppercase}_LENGTH asm(\"{uppercase}_LENGTH\");"),
-                format!("extern char {uppercase}_DATA asm(\"{uppercase}_DATA\");"),
-            ]
-            .join("\r\n")
+            format!(
+                "extern size_t {uppercase}_LENGTH asm(\"{uppercase}_LENGTH\");\r\nextern char {uppercase}_DATA asm(\"{uppercase}_DATA\");"
+            )
         })
         .collect::<Vec<_>>();
 
@@ -1459,14 +1559,16 @@ fn generate_wasmer_main_c(
 #[allow(dead_code)]
 pub(super) mod utils {
 
-    use super::{CrossCompile, CrossCompileSetup, UrlOrVersion};
-    use anyhow::Context;
     use std::{
         ffi::OsStr,
         path::{Path, PathBuf},
     };
+
+    use anyhow::{anyhow, Context};
     use target_lexicon::{Architecture, Environment, OperatingSystem, Triple};
     use wasmer_types::{CpuFeature, Target};
+
+    use super::{CrossCompile, CrossCompileSetup, UrlOrVersion};
 
     pub(in crate::commands) fn target_triple_to_target(
         target_triple: &Triple,
@@ -1523,12 +1625,12 @@ pub(super) mod utils {
             Some(v.canonicalize().unwrap_or(v))
         } else if let Some(local_tarball) = cross_subc.tarball.as_ref() {
             let (filename, tarball_dir) = find_filename(local_tarball, target)?;
-            Some(tarball_dir.join(&filename))
+            Some(tarball_dir.join(filename))
         } else {
             let wasmer_cache_dir =
                 if *target_triple == Triple::host() && std::env::var("WASMER_DIR").is_ok() {
                     wasmer_registry::WasmerConfig::get_wasmer_dir()
-                        .map_err(|e| anyhow::anyhow!("{e}"))
+                        .map_err(|e| anyhow!("{e}"))
                         .map(|o| o.join("cache"))
                 } else {
                     get_libwasmer_cache_path()
@@ -1554,25 +1656,24 @@ pub(super) mod utils {
             if let Some(UrlOrVersion::Url(wasmer_release)) = specific_release.as_ref() {
                 let tarball = super::http_fetch::download_url(wasmer_release.as_ref())?;
                 let (filename, tarball_dir) = find_filename(&tarball, target)?;
-                Some(tarball_dir.join(&filename))
+                Some(tarball_dir.join(filename))
             } else if let Some(UrlOrVersion::Version(wasmer_release)) = specific_release.as_ref() {
                 let release = super::http_fetch::get_release(Some(wasmer_release.clone()))?;
                 let tarball = super::http_fetch::download_release(release, target.clone())?;
                 let (filename, tarball_dir) = find_filename(&tarball, target)?;
-                Some(tarball_dir.join(&filename))
+                Some(tarball_dir.join(filename))
             } else if let Some(local_tarball) = local_tarball.as_ref() {
                 let (filename, tarball_dir) = find_filename(local_tarball, target)?;
-                Some(tarball_dir.join(&filename))
+                Some(tarball_dir.join(filename))
             } else {
                 let release = super::http_fetch::get_release(None)?;
                 let tarball = super::http_fetch::download_release(release, target.clone())?;
                 let (filename, tarball_dir) = find_filename(&tarball, target)?;
-                Some(tarball_dir.join(&filename))
+                Some(tarball_dir.join(filename))
             }
         };
 
-        let library =
-            library.ok_or_else(|| anyhow::anyhow!("libwasmer.a / wasmer.lib not found"))?;
+        let library = library.ok_or_else(|| anyhow!("libwasmer.a / wasmer.lib not found"))?;
 
         let ccs = CrossCompileSetup {
             target: target.clone(),
@@ -1655,11 +1756,11 @@ pub(super) mod utils {
             .unwrap_or_else(|| target_file_path.clone());
 
         std::fs::create_dir_all(&target_file_path)
-            .map_err(|e| anyhow::anyhow!("{e}"))
-            .with_context(|| anyhow::anyhow!("{}", target_file_path.display()))?;
+            .map_err(|e| anyhow!("{e}"))
+            .with_context(|| anyhow!("{}", target_file_path.display()))?;
         let files =
             super::http_fetch::untar(local_tarball, &target_file_path).with_context(|| {
-                anyhow::anyhow!(
+                anyhow!(
                     "{} -> {}",
                     local_tarball.display(),
                     target_file_path.display()
@@ -1729,7 +1830,7 @@ pub(super) mod utils {
     }
 
     pub(super) fn get_wasmer_dir() -> anyhow::Result<PathBuf> {
-        wasmer_registry::WasmerConfig::get_wasmer_dir().map_err(|e| anyhow::anyhow!("{e}"))
+        wasmer_registry::WasmerConfig::get_wasmer_dir().map_err(|e| anyhow!("{e}"))
     }
 
     pub(super) fn get_wasmer_include_directory() -> anyhow::Result<PathBuf> {
@@ -1740,10 +1841,7 @@ pub(super) mod utils {
         path.push("include");
         if !path.clone().join("wasmer.h").exists() {
             if !path.exists() {
-                return Err(anyhow::anyhow!(
-                    "WASMER_DIR path {} does not exist",
-                    path.display()
-                ));
+                return Err(anyhow!("WASMER_DIR path {} does not exist", path.display()));
             }
             println!(
                 "wasmer.h does not exist in {}, will probably default to the system path",
@@ -1796,7 +1894,7 @@ pub(super) mod utils {
         let path_var = std::env::var("PATH").unwrap_or_default();
         #[cfg(unix)]
         let system_path_var = std::process::Command::new("getconf")
-            .args(&["PATH"])
+            .args(["PATH"])
             .output()
             .map(|output| output.stdout)
             .unwrap_or_default();
@@ -1860,7 +1958,7 @@ pub(super) mod utils {
     #[test]
     fn test_filter_tarball() {
         use std::str::FromStr;
-        let test_paths = vec![
+        let test_paths = [
             "/test/wasmer-darwin-amd64.tar.gz",
             "/test/wasmer-darwin-arm64.tar.gz",
             "/test/wasmer-linux-aarch64.tar.gz",
@@ -1984,44 +2082,47 @@ pub(super) mod utils {
 }
 
 mod http_fetch {
-    use anyhow::{anyhow, Context, Result};
-    use http_req::{request::Request, response::StatusCode, uri::Uri};
-    use std::convert::TryFrom;
     use std::path::Path;
+
+    use anyhow::{anyhow, Context, Result};
 
     pub(super) fn get_release(
         release_version: Option<semver::Version>,
     ) -> Result<serde_json::Value> {
-        let mut writer = Vec::new();
-        let uri = Uri::try_from("https://api.github.com/repos/wasmerio/wasmer/releases").unwrap();
+        let uri = "https://api.github.com/repos/wasmerio/wasmer/releases";
 
         // Increases rate-limiting in GitHub CI
         let auth = std::env::var("GITHUB_TOKEN");
-        let mut response = Request::new(&uri);
 
+        let client = reqwest::blocking::Client::new();
+        let mut req = client.get(uri);
         if let Ok(token) = auth {
-            response.header("Authorization", &format!("Bearer {token}"));
+            req = req.header("Authorization", &format!("Bearer {token}"));
         }
 
-        let response = response
+        let response = req
             .header("User-Agent", "wasmerio")
             .header("Accept", "application/vnd.github.v3+json")
-            .timeout(Some(std::time::Duration::new(30, 0)))
-            .send(&mut writer)
+            .send()
             .map_err(anyhow::Error::new)
             .context("Could not lookup wasmer repository on Github.")?;
 
-        if response.status_code() != StatusCode::new(200) {
-            #[cfg(feature = "debug")]
+        let status = response.status();
+
+        let body = response
+            .bytes()
+            .map_err(anyhow::Error::new)
+            .context("Could not retrieve wasmer release history body")?;
+
+        if status != reqwest::StatusCode::OK {
             log::warn!(
                 "Warning: Github API replied with non-200 status code: {}. Response: {}",
-                response.status_code(),
-                String::from_utf8_lossy(&writer),
+                status,
+                String::from_utf8_lossy(&body),
             );
         }
 
-        let v: std::result::Result<serde_json::Value, _> = serde_json::from_reader(&*writer);
-        let mut response = v.map_err(anyhow::Error::new)?;
+        let mut response = serde_json::from_slice::<serde_json::Value>(&body)?;
 
         if let Some(releases) = response.as_array_mut() {
             releases.retain(|r| {
@@ -2134,7 +2235,6 @@ mod http_fetch {
         let download_path = download_tempdir.path().join(&filename);
 
         let mut file = std::fs::File::create(&download_path)?;
-        #[cfg(feature = "debug")]
         log::debug!(
             "Downloading {} to {}",
             browser_download_url,
@@ -2189,7 +2289,7 @@ mod http_fetch {
 
     pub(crate) fn list_dir(target: &Path) -> Vec<PathBuf> {
         use walkdir::WalkDir;
-        WalkDir::new(&target)
+        WalkDir::new(target)
             .into_iter()
             .filter_map(|e| e.ok())
             .map(|entry| entry.path().to_path_buf())

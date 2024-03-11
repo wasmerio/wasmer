@@ -1,10 +1,8 @@
 //! Module for parsing and installing packages
 
-use anyhow::Context;
-use std::path::{Path, PathBuf};
 use std::str::FromStr;
+
 use url::Url;
-use wasmer_registry::WasmerConfig;
 
 /// Source of a package
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
@@ -46,90 +44,13 @@ impl PackageSource {
             Err(_) => Self::File(s.to_string()),
         })
     }
-
-    /// Downloads the package (if any) to the installation directory, returns the path
-    /// of the package directory (containing the wasmer.toml)
-    pub fn download_and_get_filepath(&self) -> Result<PathBuf, anyhow::Error> {
-        let url = match self {
-            Self::File(f) => {
-                let path = Path::new(&f).to_path_buf();
-                return if path.exists() {
-                    Ok(path)
-                } else {
-                    Err(anyhow::anyhow!("Could not find local file {f}"))
-                };
-            }
-            Self::Url(u) => {
-                let wasmer_dir = WasmerConfig::get_wasmer_dir()
-                    .map_err(|e| anyhow::anyhow!("no wasmer dir: {e}"))?;
-                if let Some(path) =
-                    wasmer_registry::Package::is_url_already_installed(u, &wasmer_dir)
-                {
-                    return Ok(path);
-                } else {
-                    u.clone()
-                }
-            }
-            Self::Package(p) => {
-                let wasmer_dir = WasmerConfig::get_wasmer_dir()
-                    .map_err(|e| anyhow::anyhow!("no wasmer dir: {e}"))?;
-                let package_path = Path::new(&p.file()).to_path_buf();
-                if package_path.exists() {
-                    return Ok(package_path);
-                } else if let Some(path) = p.already_installed(&wasmer_dir) {
-                    return Ok(path);
-                } else {
-                    let config = WasmerConfig::from_file(&wasmer_dir)
-                        .map_err(|e| anyhow::anyhow!("error loading wasmer config file: {e}"))?;
-                    p.url(&config.registry.get_current_registry())?
-                }
-            }
-        };
-
-        let extra = if let Self::Package(p) = self {
-            format!(", local file {} does not exist either", p.file())
-        } else {
-            String::new()
-        };
-
-        let wasmer_dir =
-            WasmerConfig::get_wasmer_dir().map_err(|e| anyhow::anyhow!("no wasmer dir: {e}"))?;
-        let mut sp = start_spinner(format!("Installing package {url} ..."));
-        let opt_path = wasmer_registry::install_package(&wasmer_dir, &url);
-        if let Some(sp) = sp.take() {
-            use std::io::Write;
-            sp.clear();
-            let _ = std::io::stdout().flush();
-        }
-
-        let path = opt_path
-            .with_context(|| anyhow::anyhow!("Could not fetch package from URL {url}{extra}"))?;
-
-        Ok(path)
-    }
-}
-
-fn start_spinner(msg: String) -> Option<spinoff::Spinner> {
-    if !isatty::stdout_isatty() {
-        return None;
-    }
-    #[cfg(target_os = "windows")]
-    {
-        use colored::control;
-        let _ = control::set_virtual_terminal(true);
-    }
-    Some(spinoff::Spinner::new(
-        spinoff::Spinners::Dots,
-        msg,
-        spinoff::Color::White,
-    ))
 }
 
 #[test]
 fn test_package_source() {
     assert_eq!(
-        PackageSource::parse("registry.wapm.io/graphql/python/python").unwrap(),
-        PackageSource::File("registry.wapm.io/graphql/python/python".to_string()),
+        PackageSource::parse("registry.wasmer.io/graphql/python/python").unwrap(),
+        PackageSource::File("registry.wasmer.io/graphql/python/python".to_string()),
     );
 
     assert_eq!(
@@ -184,8 +105,8 @@ fn test_package_source() {
     );
 
     assert_eq!(
-        PackageSource::parse("https://wapm.io/syrusakbary/python").unwrap(),
-        PackageSource::Url(url::Url::parse("https://wapm.io/syrusakbary/python").unwrap()),
+        PackageSource::parse("https://wasmer.io/syrusakbary/python").unwrap(),
+        PackageSource::Url(url::Url::parse("https://wasmer.io/syrusakbary/python").unwrap()),
     );
 
     assert_eq!(

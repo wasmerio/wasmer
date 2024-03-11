@@ -21,19 +21,14 @@ impl Abi for Aarch64SystemV {
     // Given a function definition, retrieve the parameter that is the vmctx pointer.
     fn get_vmctx_ptr_param<'ctx>(&self, func_value: &FunctionValue<'ctx>) -> PointerValue<'ctx> {
         func_value
-            .get_nth_param(
-                if func_value
+            .get_nth_param(u32::from(
+                func_value
                     .get_enum_attribute(
                         AttributeLoc::Param(0),
                         Attribute::get_named_enum_kind_id("sret"),
                     )
-                    .is_some()
-                {
-                    1
-                } else {
-                    0
-                },
-            )
+                    .is_some(),
+            ))
             .unwrap()
             .into_pointer_value()
     }
@@ -242,21 +237,22 @@ impl Abi for Aarch64SystemV {
         &self,
         alloca_builder: &Builder<'ctx>,
         func_sig: &FuncSig,
-        ctx_ptr: PointerValue<'ctx>,
         llvm_fn_ty: &FunctionType<'ctx>,
+        ctx_ptr: PointerValue<'ctx>,
         values: &[BasicValueEnum<'ctx>],
+        intrinsics: &Intrinsics<'ctx>,
     ) -> Vec<BasicValueEnum<'ctx>> {
         // If it's an sret, allocate the return space.
         let sret = if llvm_fn_ty.get_return_type().is_none() && func_sig.results().len() > 1 {
-            Some(
-                alloca_builder.build_alloca(
-                    llvm_fn_ty.get_param_types()[0]
-                        .into_pointer_type()
-                        .get_element_type()
-                        .into_struct_type(),
-                    "sret",
-                ),
-            )
+            let llvm_params: Vec<_> = func_sig
+                .results()
+                .iter()
+                .map(|x| type_to_llvm(intrinsics, *x).unwrap())
+                .collect();
+            let llvm_params = llvm_fn_ty
+                .get_context()
+                .struct_type(llvm_params.as_slice(), false);
+            Some(alloca_builder.build_alloca(llvm_params, "sret"))
         } else {
             None
         };
@@ -430,16 +426,29 @@ impl Abi for Aarch64SystemV {
                 )
                 .is_some()
             {
-                let sret = call_site
+                let sret_ty = call_site
                     .try_as_basic_value()
                     .right()
                     .unwrap()
                     .get_operand(0)
                     .unwrap()
                     .left()
-                    .unwrap()
-                    .into_pointer_value();
-                let struct_value = builder.build_load(sret, "").into_struct_value();
+                    .unwrap();
+                let sret = sret_ty.into_pointer_value();
+                // re-build the llvm-type struct holding the return values
+                let llvm_results: Vec<_> = func_sig
+                    .results()
+                    .iter()
+                    .map(|x| type_to_llvm(intrinsics, *x).unwrap())
+                    .collect();
+                let struct_type = intrinsics
+                    .i32_ty
+                    .get_context()
+                    .struct_type(llvm_results.as_slice(), false);
+
+                let struct_value = builder
+                    .build_load(struct_type, sret, "")
+                    .into_struct_value();
                 let mut rets: Vec<_> = Vec::new();
                 for i in 0..struct_value.get_type().count_fields() {
                     let value = builder.build_extract_value(struct_value, i, "").unwrap();

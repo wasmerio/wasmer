@@ -62,7 +62,6 @@ mod macros;
 /// ```
 ///
 /// To configure the engine, see the [`wasm_config_new`][engine::wasm_config_new].
-#[cfg(any(feature = "compiler", feature = "compiler-headless"))]
 pub mod engine;
 
 /// cbindgen:ignore

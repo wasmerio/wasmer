@@ -1,17 +1,21 @@
-use crate::store::CompilerOptions;
-use anyhow::Context;
-use clap::Parser;
 use std::path::PathBuf;
+
+use anyhow::{Context, Error};
+use bytes::Bytes;
+use clap::Parser;
 use wasmer_compiler::Artifact;
-use wasmer_types::compilation::symbols::ModuleMetadataSymbolRegistry;
-use wasmer_types::{CpuFeature, MetadataHeader, Triple};
-use webc::v1::WebC;
+use wasmer_types::{
+    compilation::symbols::ModuleMetadataSymbolRegistry, CpuFeature, MetadataHeader, Triple,
+};
+use webc::{compat::SharedBytes, Container, DetectError};
+
+use crate::store::CompilerOptions;
 
 #[derive(Debug, Parser)]
 /// The options for the `wasmer gen-c-header` subcommand
 pub struct GenCHeader {
     /// Input file
-    #[clap(name = "FILE", parse(from_os_str))]
+    #[clap(name = "FILE")]
     path: PathBuf,
 
     /// Prefix hash (default: SHA256 of input .wasm file)
@@ -23,7 +27,7 @@ pub struct GenCHeader {
     atom: Option<String>,
 
     /// Output file
-    #[clap(name = "OUTPUT PATH", short = 'o', parse(from_os_str))]
+    #[clap(name = "OUTPUT PATH", short = 'o')]
     output: PathBuf,
 
     /// Compilation Target triple
@@ -41,50 +45,31 @@ pub struct GenCHeader {
     #[clap(long = "target")]
     target_triple: Option<Triple>,
 
-    #[clap(long, short = 'm', multiple = true, number_of_values = 1)]
+    #[clap(long, short = 'm', number_of_values = 1)]
     cpu_features: Vec<CpuFeature>,
 }
 
 impl GenCHeader {
     /// Runs logic for the `gen-c-header` subcommand
-    pub fn execute(&self) -> Result<(), anyhow::Error> {
-        let path = crate::common::normalize_path(&format!("{}", self.path.display()));
-        let mut file = std::fs::read(&path)
-            .map_err(|e| anyhow::anyhow!("{e}"))
-            .with_context(|| anyhow::anyhow!("{path}"))?;
+    pub fn execute(&self) -> Result<(), Error> {
+        let file: Bytes = std::fs::read(&self.path)
+            .with_context(|| format!("Unable to read \"{}\"", self.path.display()))?
+            .into();
         let prefix = match self.prefix.as_deref() {
             Some(s) => s.to_string(),
             None => crate::commands::PrefixMapCompilation::hash_for_bytes(&file),
         };
 
-        if let Ok(pirita) = WebC::parse(&file, &webc::v1::ParseOptions::default()) {
-            let atoms = pirita
-                .manifest
-                .atoms
-                .iter()
-                .map(|a| a.0.clone())
-                .collect::<Vec<_>>();
-            if atoms.len() == 1 {
-                file = pirita
-                    .get_atom(&pirita.get_package_name(), &atoms[0])
-                    .unwrap()
-                    .to_vec();
-            } else if self.atom.is_none() {
-                return Err(anyhow::anyhow!("-> note: available atoms are: {}", atoms.join(", ")))
-                .context(anyhow::anyhow!("file has multiple atoms, please specify which atom to generate the header file for"))?;
-            } else {
-                file = pirita
-                    .get_atom(&pirita.get_package_name(), &atoms[0])
-                    .map_err(|_| {
-                        anyhow::anyhow!("-> note: available atoms are: {}", atoms.join(", "))
-                    })
-                    .context(anyhow::anyhow!(
-                        "could not get atom {} from file (invalid atom name)",
-                        &atoms[0]
-                    ))?
-                    .to_vec();
+        let atom = match Container::from_bytes(file.clone()) {
+            Ok(webc) => self.get_atom(&webc)?,
+            Err(webc::compat::ContainerError::Detect(DetectError::InvalidMagic { .. })) => {
+                // we've probably got a WebAssembly file
+                file.into()
             }
-        }
+            Err(other) => {
+                return Err(Error::new(other).context("Unable to parse the webc file"));
+            }
+        };
 
         let target_triple = self.target_triple.clone().unwrap_or_else(Triple::host);
         let target = crate::commands::create_exe::utils::target_triple_to_target(
@@ -98,7 +83,7 @@ impl GenCHeader {
         let tunables = engine.tunables();
         let (metadata, _, _) = Artifact::metadata(
             compiler,
-            &file,
+            &atom,
             Some(prefix.as_str()),
             &target,
             tunables,
@@ -125,10 +110,34 @@ impl GenCHeader {
 
         let output = crate::common::normalize_path(&self.output.display().to_string());
 
-        std::fs::write(&output, &header_file_src)
+        std::fs::write(&output, header_file_src)
             .map_err(|e| anyhow::anyhow!("{e}"))
             .with_context(|| anyhow::anyhow!("{output}"))?;
 
         Ok(())
+    }
+
+    fn get_atom(&self, pirita: &Container) -> Result<SharedBytes, Error> {
+        let atoms = pirita.atoms();
+        let atom_names: Vec<_> = atoms.keys().map(|s| s.as_str()).collect();
+
+        match *atom_names.as_slice() {
+            [] => Err(Error::msg("The file doesn't contain any atoms")),
+            [name] => Ok(atoms[name].clone()),
+            [..] => match &self.atom {
+                Some(name) => atoms
+                    .get(name)
+                    .cloned()
+                    .with_context(|| format!("The file doesn't contain a \"{name}\" atom"))
+                    .with_context(|| {
+                        format!("-> note: available atoms are: {}", atom_names.join(", "))
+                    }),
+                None => {
+                    let err = Error::msg("file has multiple atoms, please specify which atom to generate the header file for")
+                            .context(format!("-> note: available atoms are: {}", atom_names.join(", ")));
+                    Err(err)
+                }
+            },
+        }
     }
 }

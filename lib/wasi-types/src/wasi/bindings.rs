@@ -1,3 +1,6 @@
+use num_enum::{IntoPrimitive, TryFromPrimitive};
+#[cfg(feature = "enable-serde")]
+use serde::{Deserialize, Serialize};
 use std::mem::MaybeUninit;
 use wasmer::{MemorySize, ValueType};
 // TODO: Remove once bindings generate wai_bindgen_rust::bitflags::bitflags!  (temp hack)
@@ -32,6 +35,7 @@ pub type Pid = u32;
 #[doc = " Identifiers for clocks, snapshot0 version."]
 #[repr(u32)]
 #[derive(Clone, Copy, PartialEq, Eq, num_enum :: TryFromPrimitive, Hash)]
+#[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 pub enum Snapshot0Clockid {
     #[doc = " The clock measuring real time. Time value zero corresponds with"]
     #[doc = " 1970-01-01T00:00:00Z."]
@@ -45,6 +49,8 @@ pub enum Snapshot0Clockid {
     ProcessCputimeId,
     #[doc = " The CPU-time clock associated with the current thread."]
     ThreadCputimeId,
+    #[doc = " The clock type is not known."]
+    Unknown = 255,
 }
 impl core::fmt::Debug for Snapshot0Clockid {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
@@ -57,6 +63,7 @@ impl core::fmt::Debug for Snapshot0Clockid {
             Snapshot0Clockid::ThreadCputimeId => {
                 f.debug_tuple("Snapshot0Clockid::ThreadCputimeId").finish()
             }
+            Snapshot0Clockid::Unknown => f.debug_tuple("Snapshot0Clockid::Unknown").finish(),
         }
     }
 }
@@ -76,6 +83,8 @@ pub enum Clockid {
     ProcessCputimeId,
     #[doc = " The CPU-time clock associated with the current thread."]
     ThreadCputimeId,
+    #[doc = " The clock type is unknown."]
+    Unknown = 255,
 }
 impl core::fmt::Debug for Clockid {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
@@ -84,6 +93,7 @@ impl core::fmt::Debug for Clockid {
             Clockid::Monotonic => f.debug_tuple("Clockid::Monotonic").finish(),
             Clockid::ProcessCputimeId => f.debug_tuple("Clockid::ProcessCputimeId").finish(),
             Clockid::ThreadCputimeId => f.debug_tuple("Clockid::ThreadCputimeId").finish(),
+            Clockid::Unknown => f.debug_tuple("Clockid::Unknown").finish(),
         }
     }
 }
@@ -92,7 +102,8 @@ impl core::fmt::Debug for Clockid {
 #[doc = " API; some are used in higher-level library layers, and others are provided"]
 #[doc = " merely for alignment with POSIX."]
 #[repr(u16)]
-#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, IntoPrimitive, TryFromPrimitive)]
+#[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 pub enum Errno {
     #[doc = " No error occurred. System call completed successfully."]
     Success,
@@ -436,115 +447,9 @@ impl core::fmt::Display for Errno {
     }
 }
 impl std::error::Error for Errno {}
-#[repr(u32)]
-#[derive(Clone, Copy, PartialEq, Eq)]
-pub enum BusErrno {
-    #[doc = " No error occurred. Call completed successfully."]
-    Success,
-    #[doc = " Failed during serialization"]
-    Ser,
-    #[doc = " Failed during deserialization"]
-    Des,
-    #[doc = " Invalid WAPM process"]
-    Wapm,
-    #[doc = " Failed to fetch the WAPM process"]
-    Fetch,
-    #[doc = " Failed to compile the WAPM process"]
-    Compile,
-    #[doc = " Invalid ABI"]
-    Abi,
-    #[doc = " Call was aborted"]
-    Aborted,
-    #[doc = " Bad handle"]
-    Badhandle,
-    #[doc = " Invalid topic"]
-    Topic,
-    #[doc = " Invalid callback"]
-    Badcb,
-    #[doc = " Call is unsupported"]
-    Unsupported,
-    #[doc = " Bad request"]
-    Badrequest,
-    #[doc = " Access denied"]
-    Denied,
-    #[doc = " Internal error has occured"]
-    Internal,
-    #[doc = " Memory allocation failed"]
-    Alloc,
-    #[doc = " Invocation has failed"]
-    Invoke,
-    #[doc = " Already consumed"]
-    Consumed,
-    #[doc = " Memory access violation"]
-    Memviolation,
-    #[doc = " Some other unhandled error. If you see this, it's probably a bug."]
-    Unknown,
-}
-impl BusErrno {
-    pub fn name(&self) -> &'static str {
-        match self {
-            BusErrno::Success => "success",
-            BusErrno::Ser => "ser",
-            BusErrno::Des => "des",
-            BusErrno::Wapm => "wapm",
-            BusErrno::Fetch => "fetch",
-            BusErrno::Compile => "compile",
-            BusErrno::Abi => "abi",
-            BusErrno::Aborted => "aborted",
-            BusErrno::Badhandle => "badhandle",
-            BusErrno::Topic => "topic",
-            BusErrno::Badcb => "badcb",
-            BusErrno::Unsupported => "unsupported",
-            BusErrno::Badrequest => "badrequest",
-            BusErrno::Denied => "denied",
-            BusErrno::Internal => "internal",
-            BusErrno::Alloc => "alloc",
-            BusErrno::Invoke => "invoke",
-            BusErrno::Consumed => "consumed",
-            BusErrno::Memviolation => "memviolation",
-            BusErrno::Unknown => "unknown",
-        }
-    }
-    pub fn message(&self) -> &'static str {
-        match self {
-            BusErrno::Success => "No error occurred. Call completed successfully.",
-            BusErrno::Ser => "Failed during serialization",
-            BusErrno::Des => "Failed during deserialization",
-            BusErrno::Wapm => "Invalid WAPM process",
-            BusErrno::Fetch => "Failed to fetch the WAPM process",
-            BusErrno::Compile => "Failed to compile the WAPM process",
-            BusErrno::Abi => "Invalid ABI",
-            BusErrno::Aborted => "Call was aborted",
-            BusErrno::Badhandle => "Bad handle",
-            BusErrno::Topic => "Invalid topic",
-            BusErrno::Badcb => "Invalid callback",
-            BusErrno::Unsupported => "Call is unsupported",
-            BusErrno::Badrequest => "Bad request",
-            BusErrno::Denied => "Access denied",
-            BusErrno::Internal => "Internal error has occured",
-            BusErrno::Alloc => "Memory allocation failed",
-            BusErrno::Invoke => "Invocation has failed",
-            BusErrno::Consumed => "Already consumed",
-            BusErrno::Memviolation => "Memory access violation",
-            BusErrno::Unknown => {
-                "Some other unhandled error. If you see this, it's probably a bug."
-            }
-        }
-    }
-}
-impl core::fmt::Debug for BusErrno {
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        write!(f, "BusErrno::{}", &self.name())
-    }
-}
-impl core::fmt::Display for BusErrno {
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        write!(f, "{} (error {})", self.name(), *self as i32)
-    }
-}
-impl std::error::Error for BusErrno {}
 wai_bindgen_rust::bitflags::bitflags! {
     #[doc = " File descriptor rights, determining which actions may be performed."]
+    #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
     pub struct Rights : u64 {
         #[doc = " The right to invoke `fd_datasync`."]
         #[doc = " "]
@@ -668,8 +573,10 @@ pub enum Filetype {
     SocketStream,
     #[doc = " The file refers to a symbolic link inode."]
     SymbolicLink,
-    #[doc = " The file descriptor or file refers to a FIFO."]
-    Fifo,
+    #[doc = " The file descriptor or file refers to a raw socket."]
+    SocketRaw,
+    #[doc = " The file descriptor or file refers to a sequential packet socket."]
+    SocketSeqpacket,
 }
 impl core::fmt::Debug for Filetype {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
@@ -682,7 +589,8 @@ impl core::fmt::Debug for Filetype {
             Filetype::SocketDgram => f.debug_tuple("Filetype::SocketDgram").finish(),
             Filetype::SocketStream => f.debug_tuple("Filetype::SocketStream").finish(),
             Filetype::SymbolicLink => f.debug_tuple("Filetype::SymbolicLink").finish(),
-            Filetype::Fifo => f.debug_tuple("Filetype::Fifo").finish(),
+            Filetype::SocketRaw => f.debug_tuple("Filetype::SocketRaw").finish(),
+            Filetype::SocketSeqpacket => f.debug_tuple("Filetype::SocketSeqpacket").finish(),
         }
     }
 }
@@ -735,6 +643,7 @@ impl core::fmt::Debug for Dirent {
 #[doc = " File or memory access pattern advisory information."]
 #[repr(u8)]
 #[derive(Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 pub enum Advice {
     #[doc = " The application has no advice to give on its behavior with respect to the specified data."]
     Normal,
@@ -748,6 +657,8 @@ pub enum Advice {
     Dontneed,
     #[doc = " The application expects to access the specified data once and then not reuse it thereafter."]
     Noreuse,
+    #[doc = " The application expectations are unknown."]
+    Unknown = 255,
 }
 impl core::fmt::Debug for Advice {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
@@ -758,11 +669,13 @@ impl core::fmt::Debug for Advice {
             Advice::Willneed => f.debug_tuple("Advice::Willneed").finish(),
             Advice::Dontneed => f.debug_tuple("Advice::Dontneed").finish(),
             Advice::Noreuse => f.debug_tuple("Advice::Noreuse").finish(),
+            Advice::Unknown => f.debug_tuple("Advice::Unknown").finish(),
         }
     }
 }
 wai_bindgen_rust::bitflags::bitflags! {
     #[doc = " File descriptor flags."]
+    #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
     pub struct Fdflags : u16 {
         #[doc = " Append mode: Data written to the file is always appended to the file's end."]
         const APPEND = 1 << 0;
@@ -813,6 +726,7 @@ wai_bindgen_rust::bitflags::bitflags! {
     #[doc = " Which file time attributes to adjust."]
     #[doc = " TODO: wit appears to not have support for flags repr"]
     #[doc = " (@witx repr u16)"]
+    #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
     pub struct Fstflags : u16 {
         #[doc = " Adjust the last data access timestamp to the value stored in `filestat::atim`."]
         const SET_ATIM = 1 << 0;
@@ -851,6 +765,7 @@ wai_bindgen_rust::bitflags::bitflags! {
     #[doc = " Open flags used by `path_open`."]
     #[doc = " TODO: wit appears to not have support for flags repr"]
     #[doc = " (@witx repr u16)"]
+    #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
     pub struct Oflags : u16 {
         #[doc = " Create file if it does not exist."]
         const CREATE = 1 << 0;
@@ -875,6 +790,7 @@ pub type Userdata = u64;
 #[doc = " Type of a subscription to an event or its occurrence."]
 #[repr(u8)]
 #[derive(Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 pub enum Eventtype {
     #[doc = " The time value of clock `subscription_clock::id` has"]
     #[doc = " reached timestamp `subscription_clock::timeout`."]
@@ -885,6 +801,8 @@ pub enum Eventtype {
     #[doc = " File descriptor `subscription_fd_readwrite::fd` has capacity"]
     #[doc = " available for writing. This event always triggers for regular files."]
     FdWrite,
+    #[doc = " Event type is unknown"]
+    Unknown = 255,
 }
 impl core::fmt::Debug for Eventtype {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
@@ -892,6 +810,7 @@ impl core::fmt::Debug for Eventtype {
             Eventtype::Clock => f.debug_tuple("Eventtype::Clock").finish(),
             Eventtype::FdRead => f.debug_tuple("Eventtype::FdRead").finish(),
             Eventtype::FdWrite => f.debug_tuple("Eventtype::FdWrite").finish(),
+            Eventtype::Unknown => f.debug_tuple("Eventtype::Unknown").finish(),
         }
     }
 }
@@ -971,17 +890,21 @@ impl core::fmt::Debug for SubscriptionClock {
 pub enum Preopentype {
     #[doc = " A pre-opened directory."]
     Dir,
+    #[doc = " Unknown."]
+    Unknown = 255,
 }
 impl core::fmt::Debug for Preopentype {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
             Preopentype::Dir => f.debug_tuple("Preopentype::Dir").finish(),
+            Preopentype::Unknown => f.debug_tuple("Preopentype::Unknown").finish(),
         }
     }
 }
 wai_bindgen_rust::bitflags::bitflags! {
     #[doc = " The state of the file descriptor subscribed to with"]
     #[doc = " `eventtype::fd_read` or `eventtype::fd_write`."]
+    #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
     pub struct Eventrwflags : u16 {
         #[doc = " The peer of this socket has closed or disconnected."]
         const FD_READWRITE_HANGUP = 1 << 0;
@@ -998,6 +921,7 @@ impl Eventrwflags {
 #[doc = " `eventtype::fd_write` variants"]
 #[repr(C)]
 #[derive(Copy, Clone)]
+#[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 pub struct EventFdReadwrite {
     #[doc = " The number of bytes available for reading or writing."]
     pub nbytes: Filesize,
@@ -1032,19 +956,22 @@ impl core::fmt::Debug for SubscriptionFsReadwrite {
             .finish()
     }
 }
-#[repr(u16)]
+#[repr(u8)]
 #[derive(Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 pub enum Socktype {
-    Dgram,
+    Unknown,
     Stream,
+    Dgram,
     Raw,
     Seqpacket,
 }
 impl core::fmt::Debug for Socktype {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
-            Socktype::Dgram => f.debug_tuple("Socktype::Dgram").finish(),
+            Socktype::Unknown => f.debug_tuple("Socktype::Uknown").finish(),
             Socktype::Stream => f.debug_tuple("Socktype::Stream").finish(),
+            Socktype::Dgram => f.debug_tuple("Socktype::Dgram").finish(),
             Socktype::Raw => f.debug_tuple("Socktype::Raw").finish(),
             Socktype::Seqpacket => f.debug_tuple("Socktype::Seqpacket").finish(),
         }
@@ -1057,6 +984,7 @@ pub enum Sockstatus {
     Opened,
     Closed,
     Failed,
+    Unknown = 255,
 }
 impl core::fmt::Debug for Sockstatus {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
@@ -1065,11 +993,13 @@ impl core::fmt::Debug for Sockstatus {
             Sockstatus::Opened => f.debug_tuple("Sockstatus::Opened").finish(),
             Sockstatus::Closed => f.debug_tuple("Sockstatus::Closed").finish(),
             Sockstatus::Failed => f.debug_tuple("Sockstatus::Failed").finish(),
+            Sockstatus::Unknown => f.debug_tuple("Sockstatus::Unknown").finish(),
         }
     }
 }
 #[repr(u8)]
 #[derive(Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 pub enum Sockoption {
     Noop,
     ReusePort,
@@ -1139,6 +1069,7 @@ pub enum Streamsecurity {
     AnyEncryption,
     ClassicEncryption,
     DoubleEncryption,
+    Unknown = 255,
 }
 impl core::fmt::Debug for Streamsecurity {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
@@ -1153,11 +1084,13 @@ impl core::fmt::Debug for Streamsecurity {
             Streamsecurity::DoubleEncryption => {
                 f.debug_tuple("Streamsecurity::DoubleEncryption").finish()
             }
+            Streamsecurity::Unknown => f.debug_tuple("Streamsecurity::Unknown").finish(),
         }
     }
 }
-#[repr(u16)]
+#[repr(u8)]
 #[derive(Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 pub enum Addressfamily {
     Unspec,
     Inet4,
@@ -1232,6 +1165,7 @@ pub enum Snapshot0Whence {
     Cur,
     End,
     Set,
+    Unknown = 255,
 }
 impl core::fmt::Debug for Snapshot0Whence {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
@@ -1239,15 +1173,18 @@ impl core::fmt::Debug for Snapshot0Whence {
             Snapshot0Whence::Cur => f.debug_tuple("Snapshot0Whence::Cur").finish(),
             Snapshot0Whence::End => f.debug_tuple("Snapshot0Whence::End").finish(),
             Snapshot0Whence::Set => f.debug_tuple("Snapshot0Whence::Set").finish(),
+            Snapshot0Whence::Unknown => f.debug_tuple("Snapshot0Whence::Unknown").finish(),
         }
     }
 }
 #[repr(u8)]
 #[derive(Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 pub enum Whence {
     Set,
     Cur,
     End,
+    Unknown = 255,
 }
 impl core::fmt::Debug for Whence {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
@@ -1255,11 +1192,13 @@ impl core::fmt::Debug for Whence {
             Whence::Set => f.debug_tuple("Whence::Set").finish(),
             Whence::Cur => f.debug_tuple("Whence::Cur").finish(),
             Whence::End => f.debug_tuple("Whence::End").finish(),
+            Whence::Unknown => f.debug_tuple("Whence::Unknown").finish(),
         }
     }
 }
 #[repr(C)]
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, PartialEq)]
+#[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 pub struct Tty {
     pub cols: u32,
     pub rows: u32,
@@ -1287,8 +1226,6 @@ impl core::fmt::Debug for Tty {
     }
 }
 
-pub type Bid = u32;
-pub type Cid = u64;
 #[doc = " __wasi_option_t"]
 #[repr(u8)]
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -1302,34 +1239,6 @@ impl core::fmt::Debug for OptionTag {
             OptionTag::None => f.debug_tuple("OptionTag::None").finish(),
             OptionTag::Some => f.debug_tuple("OptionTag::Some").finish(),
         }
-    }
-}
-#[repr(C)]
-#[derive(Copy, Clone)]
-pub struct OptionBid {
-    pub tag: OptionTag,
-    pub bid: Bid,
-}
-impl core::fmt::Debug for OptionBid {
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        f.debug_struct("OptionBid")
-            .field("tag", &self.tag)
-            .field("bid", &self.bid)
-            .finish()
-    }
-}
-#[repr(C)]
-#[derive(Copy, Clone)]
-pub struct OptionCid {
-    pub tag: OptionTag,
-    pub cid: Cid,
-}
-impl core::fmt::Debug for OptionCid {
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        f.debug_struct("OptionCid")
-            .field("tag", &self.tag)
-            .field("cid", &self.cid)
-            .finish()
     }
 }
 #[repr(C)]
@@ -1362,59 +1271,19 @@ impl core::fmt::Debug for OptionFd {
 }
 #[repr(C)]
 #[derive(Copy, Clone)]
-pub struct BusHandles {
-    pub bid: Bid,
+pub struct ProcessHandles {
+    pub pid: Pid,
     pub stdin: OptionFd,
     pub stdout: OptionFd,
     pub stderr: OptionFd,
 }
-impl core::fmt::Debug for BusHandles {
+impl core::fmt::Debug for ProcessHandles {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        f.debug_struct("BusHandles")
-            .field("bid", &self.bid)
+        f.debug_struct("ProcessHandles")
+            .field("pid", &self.pid)
             .field("stdin", &self.stdin)
             .field("stdout", &self.stdout)
             .field("stderr", &self.stderr)
-            .finish()
-    }
-}
-#[repr(C)]
-#[derive(Copy, Clone)]
-pub struct BusEventExit {
-    pub bid: Bid,
-    pub rval: ExitCode,
-}
-impl core::fmt::Debug for BusEventExit {
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        f.debug_struct("BusEventExit")
-            .field("bid", &self.bid)
-            .field("rval", &self.rval)
-            .finish()
-    }
-}
-#[repr(C)]
-#[derive(Copy, Clone)]
-pub struct BusEventFault {
-    pub cid: Cid,
-    pub err: BusErrno,
-}
-impl core::fmt::Debug for BusEventFault {
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        f.debug_struct("BusEventFault")
-            .field("cid", &self.cid)
-            .field("err", &self.err)
-            .finish()
-    }
-}
-#[repr(C)]
-#[derive(Copy, Clone)]
-pub struct BusEventClose {
-    pub cid: Cid,
-}
-impl core::fmt::Debug for BusEventClose {
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        f.debug_struct("BusEventClose")
-            .field("cid", &self.cid)
             .finish()
     }
 }
@@ -1475,7 +1344,6 @@ impl core::fmt::Debug for PipeHandles {
 #[repr(u8)]
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub enum StdioMode {
-    Reserved,
     Piped,
     Inherit,
     Null,
@@ -1484,7 +1352,6 @@ pub enum StdioMode {
 impl core::fmt::Debug for StdioMode {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
-            StdioMode::Reserved => f.debug_tuple("StdioMode::Reserved").finish(),
             StdioMode::Piped => f.debug_tuple("StdioMode::Piped").finish(),
             StdioMode::Inherit => f.debug_tuple("StdioMode::Inherit").finish(),
             StdioMode::Null => f.debug_tuple("StdioMode::Null").finish(),
@@ -1493,7 +1360,8 @@ impl core::fmt::Debug for StdioMode {
     }
 }
 #[repr(u16)]
-#[derive(Clone, Copy, PartialEq, Eq)]
+#[derive(Clone, Copy, PartialEq, Eq, IntoPrimitive, TryFromPrimitive)]
+#[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 pub enum SockProto {
     Ip,
     Icmp,
@@ -2373,7 +2241,7 @@ impl core::fmt::Debug for OptionTimestamp {
 #[repr(u8)]
 #[derive(Clone, Copy, PartialEq, Eq, num_enum :: TryFromPrimitive, Hash)]
 pub enum Signal {
-    Sigunknown = 0,
+    Signone = 0,
     Sighup,
     Sigint,
     Sigquit,
@@ -2409,7 +2277,7 @@ pub enum Signal {
 impl core::fmt::Debug for Signal {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
-            Signal::Sigunknown => f.debug_tuple("Signal::Sigunknown").finish(),
+            Signal::Signone => f.debug_tuple("Signal::Signone").finish(),
             Signal::Sighup => f.debug_tuple("Signal::Sighup").finish(),
             Signal::Sigint => f.debug_tuple("Signal::Sigint").finish(),
             Signal::Sigquit => f.debug_tuple("Signal::Sigquit").finish(),
@@ -2527,6 +2395,7 @@ pub enum Timeout {
     Write,
     Connect,
     Accept,
+    Unknown = 255,
 }
 impl core::fmt::Debug for Timeout {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
@@ -2535,6 +2404,7 @@ impl core::fmt::Debug for Timeout {
             Timeout::Write => f.debug_tuple("Timeout::Write").finish(),
             Timeout::Connect => f.debug_tuple("Timeout::Connect").finish(),
             Timeout::Accept => f.debug_tuple("Timeout::Accept").finish(),
+            Timeout::Unknown => f.debug_tuple("Timeout::Unknown").finish(),
         }
     }
 }
@@ -2630,7 +2500,10 @@ unsafe impl wasmer::FromToNativeWasmType for Snapshot0Clockid {
             2 => Self::ProcessCputimeId,
             3 => Self::ThreadCputimeId,
 
-            q => todo!("could not serialize number {q} to enum Snapshot0Clockid"),
+            q => {
+                tracing::debug!("could not serialize number {q} to enum Snapshot0Clockid");
+                Self::Unknown
+            }
         }
     }
 
@@ -2659,7 +2532,10 @@ unsafe impl wasmer::FromToNativeWasmType for Clockid {
             2 => Self::ProcessCputimeId,
             3 => Self::ThreadCputimeId,
 
-            q => todo!("could not serialize number {q} to enum Clockid"),
+            q => {
+                tracing::debug!("could not serialize number {q} to enum Clockid");
+                Self::Unknown
+            }
         }
     }
 
@@ -2774,51 +2650,6 @@ unsafe impl wasmer::FromToNativeWasmType for Errno {
 }
 
 // TODO: if necessary, must be implemented in wit-bindgen
-unsafe impl ValueType for BusErrno {
-    #[inline]
-    fn zero_padding_bytes(&self, _bytes: &mut [MaybeUninit<u8>]) {}
-}
-
-unsafe impl wasmer::FromToNativeWasmType for BusErrno {
-    type Native = i32;
-
-    fn to_native(self) -> Self::Native {
-        self as i32
-    }
-
-    fn from_native(n: Self::Native) -> Self {
-        match n {
-            0 => Self::Success,
-            1 => Self::Ser,
-            2 => Self::Des,
-            3 => Self::Wapm,
-            4 => Self::Fetch,
-            5 => Self::Compile,
-            6 => Self::Abi,
-            7 => Self::Aborted,
-            8 => Self::Badhandle,
-            9 => Self::Topic,
-            10 => Self::Badcb,
-            11 => Self::Unsupported,
-            12 => Self::Badrequest,
-            13 => Self::Denied,
-            14 => Self::Internal,
-            15 => Self::Alloc,
-            16 => Self::Invoke,
-            17 => Self::Consumed,
-            18 => Self::Memviolation,
-            19 => Self::Unknown,
-
-            q => todo!("could not serialize number {q} to enum BusErrno"),
-        }
-    }
-
-    fn is_from_store(&self, _store: &impl wasmer::AsStoreRef) -> bool {
-        false
-    }
-}
-
-// TODO: if necessary, must be implemented in wit-bindgen
 unsafe impl ValueType for Rights {
     #[inline]
     fn zero_padding_bytes(&self, _bytes: &mut [MaybeUninit<u8>]) {}
@@ -2847,9 +2678,13 @@ unsafe impl wasmer::FromToNativeWasmType for Filetype {
             5 => Self::SocketDgram,
             6 => Self::SocketStream,
             7 => Self::SymbolicLink,
-            8 => Self::Fifo,
+            8 => Self::SocketRaw,
+            9 => Self::SocketSeqpacket,
 
-            q => todo!("could not serialize number {q} to enum Filetype"),
+            q => {
+                tracing::debug!("could not serialize number {q} to enum Filetype");
+                Self::Unknown
+            }
         }
     }
 
@@ -2892,7 +2727,10 @@ unsafe impl wasmer::FromToNativeWasmType for Advice {
             4 => Self::Dontneed,
             5 => Self::Noreuse,
 
-            q => todo!("could not serialize number {q} to enum Advice"),
+            q => {
+                tracing::debug!("could not serialize number {q} to enum Advice");
+                Self::Unknown
+            }
         }
     }
 
@@ -2950,7 +2788,10 @@ unsafe impl wasmer::FromToNativeWasmType for Eventtype {
             1 => Self::FdRead,
             2 => Self::FdWrite,
 
-            q => todo!("could not serialize number {q} to enum Eventtype"),
+            q => {
+                tracing::debug!("could not serialize number {q} to enum Eventtype");
+                Self::Unknown
+            }
         }
     }
 
@@ -2994,7 +2835,10 @@ unsafe impl wasmer::FromToNativeWasmType for Preopentype {
         match n {
             0 => Self::Dir,
 
-            q => todo!("could not serialize number {q} to enum Preopentype"),
+            q => {
+                tracing::debug!("could not serialize number {q} to enum Preopentype");
+                Self::Unknown
+            }
         }
     }
 
@@ -3036,12 +2880,16 @@ unsafe impl wasmer::FromToNativeWasmType for Socktype {
 
     fn from_native(n: Self::Native) -> Self {
         match n {
-            0 => Self::Dgram,
+            0 => Self::Unknown,
             1 => Self::Stream,
-            2 => Self::Raw,
-            3 => Self::Seqpacket,
+            2 => Self::Dgram,
+            3 => Self::Raw,
+            4 => Self::Seqpacket,
 
-            q => todo!("could not serialize number {q} to enum Socktype"),
+            q => {
+                tracing::debug!("could not serialize number {q} to enum Socktype");
+                Self::Unknown
+            }
         }
     }
 
@@ -3070,7 +2918,10 @@ unsafe impl wasmer::FromToNativeWasmType for Sockstatus {
             2 => Self::Closed,
             3 => Self::Failed,
 
-            q => todo!("could not serialize number {q} to enum Sockstatus"),
+            q => {
+                tracing::debug!("could not serialize number {q} to enum Sockstatus");
+                Self::Unknown
+            }
         }
     }
 
@@ -3122,7 +2973,10 @@ unsafe impl wasmer::FromToNativeWasmType for Sockoption {
             25 => Self::Type,
             26 => Self::Proto,
 
-            q => todo!("could not serialize number {q} to enum Sockoption"),
+            q => {
+                tracing::debug!("could not serialize number {q} to enum Sockoption");
+                Self::Noop
+            }
         }
     }
 
@@ -3151,7 +3005,10 @@ unsafe impl wasmer::FromToNativeWasmType for Streamsecurity {
             2 => Self::ClassicEncryption,
             3 => Self::DoubleEncryption,
 
-            q => todo!("could not serialize number {q} to enum Streamsecurity"),
+            q => {
+                tracing::debug!("could not serialize number {q} to enum Streamsecurity");
+                Self::Unknown
+            }
         }
     }
 
@@ -3180,7 +3037,10 @@ unsafe impl wasmer::FromToNativeWasmType for Addressfamily {
             2 => Self::Inet6,
             3 => Self::Unix,
 
-            q => todo!("could not serialize number {q} to enum Addressfamily"),
+            q => {
+                tracing::debug!("could not serialize number {q} to enum Addressfamily");
+                Self::Unspec
+            }
         }
     }
 
@@ -3220,7 +3080,10 @@ unsafe impl wasmer::FromToNativeWasmType for Snapshot0Whence {
             1 => Self::End,
             2 => Self::Set,
 
-            q => todo!("could not serialize number {q} to enum Snapshot0Whence"),
+            q => {
+                tracing::debug!("could not serialize number {q} to enum Snapshot0Whence");
+                Self::Unknown
+            }
         }
     }
 
@@ -3248,7 +3111,10 @@ unsafe impl wasmer::FromToNativeWasmType for Whence {
             1 => Self::Cur,
             2 => Self::End,
 
-            q => todo!("could not serialize number {q} to enum Whence"),
+            q => {
+                tracing::debug!("could not serialize number {q} to enum Whence");
+                Self::Unknown
+            }
         }
     }
 
@@ -3281,7 +3147,10 @@ unsafe impl wasmer::FromToNativeWasmType for OptionTag {
             0 => Self::None,
             1 => Self::Some,
 
-            q => todo!("could not serialize number {q} to enum OptionTag"),
+            q => {
+                tracing::debug!("could not serialize number {q} to enum OptionTag");
+                Self::None
+            }
         }
     }
 
@@ -3291,43 +3160,13 @@ unsafe impl wasmer::FromToNativeWasmType for OptionTag {
 }
 
 // TODO: if necessary, must be implemented in wit-bindgen
-unsafe impl ValueType for OptionBid {
-    #[inline]
-    fn zero_padding_bytes(&self, _bytes: &mut [MaybeUninit<u8>]) {}
-}
-
-// TODO: if necessary, must be implemented in wit-bindgen
-unsafe impl ValueType for OptionCid {
-    #[inline]
-    fn zero_padding_bytes(&self, _bytes: &mut [MaybeUninit<u8>]) {}
-}
-
-// TODO: if necessary, must be implemented in wit-bindgen
 unsafe impl ValueType for OptionPid {
     #[inline]
     fn zero_padding_bytes(&self, _bytes: &mut [MaybeUninit<u8>]) {}
 }
 
 // TODO: if necessary, must be implemented in wit-bindgen
-unsafe impl ValueType for BusHandles {
-    #[inline]
-    fn zero_padding_bytes(&self, _bytes: &mut [MaybeUninit<u8>]) {}
-}
-
-// TODO: if necessary, must be implemented in wit-bindgen
-unsafe impl ValueType for BusEventExit {
-    #[inline]
-    fn zero_padding_bytes(&self, _bytes: &mut [MaybeUninit<u8>]) {}
-}
-
-// TODO: if necessary, must be implemented in wit-bindgen
-unsafe impl ValueType for BusEventFault {
-    #[inline]
-    fn zero_padding_bytes(&self, _bytes: &mut [MaybeUninit<u8>]) {}
-}
-
-// TODO: if necessary, must be implemented in wit-bindgen
-unsafe impl ValueType for BusEventClose {
+unsafe impl ValueType for ProcessHandles {
     #[inline]
     fn zero_padding_bytes(&self, _bytes: &mut [MaybeUninit<u8>]) {}
 }
@@ -3371,13 +3210,15 @@ unsafe impl wasmer::FromToNativeWasmType for StdioMode {
 
     fn from_native(n: Self::Native) -> Self {
         match n {
-            0 => Self::Reserved,
-            1 => Self::Piped,
-            2 => Self::Inherit,
-            3 => Self::Null,
-            4 => Self::Log,
+            0 => Self::Piped,
+            1 => Self::Inherit,
+            2 => Self::Null,
+            3 => Self::Log,
 
-            q => todo!("could not serialize number {q} to enum StdioMode"),
+            q => {
+                tracing::debug!("could not serialize number {q} to enum StdioMode");
+                Self::Null
+            }
         }
     }
 
@@ -3666,7 +3507,10 @@ unsafe impl wasmer::FromToNativeWasmType for SockProto {
             262 => Self::Mptcp,
             263 => Self::Max,
 
-            q => todo!("could not serialize number {q} to enum SockProto"),
+            q => {
+                tracing::debug!("could not serialize number {q} to enum SockProto");
+                Self::None
+            }
         }
     }
 
@@ -3693,7 +3537,10 @@ unsafe impl wasmer::FromToNativeWasmType for Bool {
             0 => Self::False,
             1 => Self::True,
 
-            q => todo!("could not serialize number {q} to enum Bool"),
+            q => {
+                tracing::debug!("could not serialize number {q} to enum Bool");
+                Self::False
+            }
         }
     }
 
@@ -3723,7 +3570,7 @@ unsafe impl wasmer::FromToNativeWasmType for Signal {
 
     fn from_native(n: Self::Native) -> Self {
         match n {
-            0 => Self::Sigunknown,
+            0 => Self::Signone,
             1 => Self::Sighup,
             2 => Self::Sigint,
             3 => Self::Sigquit,
@@ -3756,7 +3603,7 @@ unsafe impl wasmer::FromToNativeWasmType for Signal {
             30 => Self::Sigpwr,
             31 => Self::Sigsys,
 
-            _ => Self::Sigunknown,
+            _ => Self::Signone,
         }
     }
 
@@ -3815,7 +3662,10 @@ unsafe impl wasmer::FromToNativeWasmType for Timeout {
             2 => Self::Connect,
             3 => Self::Accept,
 
-            q => todo!("could not serialize number {q} to enum Timeout"),
+            q => {
+                tracing::debug!("could not serialize number {q} to enum Timeout");
+                Self::Unknown
+            }
         }
     }
 
@@ -3850,7 +3700,10 @@ unsafe impl wasmer::FromToNativeWasmType for JoinStatusType {
             2 => Self::ExitSignal,
             3 => Self::Stopped,
 
-            q => todo!("could not serialize number {q} to enum JoinStatusType"),
+            q => {
+                tracing::debug!("could not serialize number {q} to enum JoinStatusType");
+                Self::Nothing
+            }
         }
     }
 

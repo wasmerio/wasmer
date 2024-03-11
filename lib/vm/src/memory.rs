@@ -5,15 +5,19 @@
 //!
 //! `Memory` is to WebAssembly linear memories what `Table` is to WebAssembly tables.
 
+use crate::threadconditions::ThreadConditions;
+pub use crate::threadconditions::{NotifyLocation, WaiterError};
 use crate::trap::Trap;
 use crate::{mmap::Mmap, store::MaybeInstanceOwned, vmcontext::VMMemoryDefinition};
 use more_asserts::assert_ge;
 use std::cell::UnsafeCell;
 use std::convert::TryInto;
 use std::ptr::NonNull;
+use std::rc::Rc;
 use std::slice;
-use std::sync::{Arc, RwLock};
-use wasmer_types::{Bytes, MemoryError, MemoryStyle, MemoryType, Pages};
+use std::sync::RwLock;
+use std::time::Duration;
+use wasmer_types::{Bytes, MemoryError, MemoryStyle, MemoryType, Pages, WASM_PAGE_SIZE};
 
 // The memory mapped area
 #[derive(Debug)]
@@ -117,13 +121,32 @@ impl WasmMmap {
         Ok(prev_pages)
     }
 
+    /// Grows the memory to at least a minimum size. If the memory is already big enough
+    /// for the min size then this function does nothing
+    fn grow_at_least(&mut self, min_size: u64, conf: VMMemoryConfig) -> Result<(), MemoryError> {
+        let cur_size = self.size.bytes().0 as u64;
+        if cur_size < min_size {
+            let growth = min_size - cur_size;
+            let growth_pages = ((growth - 1) / WASM_PAGE_SIZE as u64) + 1;
+            self.grow(Pages(growth_pages as u32), conf)?;
+        }
+
+        Ok(())
+    }
+
+    /// Resets the memory down to a zero size
+    fn reset(&mut self) -> Result<(), MemoryError> {
+        self.size.0 = 0;
+        Ok(())
+    }
+
     /// Copies the memory
     /// (in this case it performs a copy-on-write to save memory)
-    pub fn duplicate(&mut self) -> Result<Self, MemoryError> {
+    pub fn copy(&mut self) -> Result<Self, MemoryError> {
         let mem_length = self.size.bytes().0;
         let mut alloc = self
             .alloc
-            .duplicate(Some(mem_length))
+            .copy(Some(mem_length))
             .map_err(MemoryError::Generic)?;
         let base_ptr = alloc.as_mut_ptr();
         Ok(Self {
@@ -283,15 +306,16 @@ impl VMOwnedMemory {
     /// Converts this owned memory into shared memory
     pub fn to_shared(self) -> VMSharedMemory {
         VMSharedMemory {
-            mmap: Arc::new(RwLock::new(self.mmap)),
+            mmap: Rc::new(RwLock::new(self.mmap)),
             config: self.config,
+            conditions: ThreadConditions::new(),
         }
     }
 
     /// Copies this memory to a new memory
-    pub fn duplicate(&mut self) -> Result<Self, MemoryError> {
+    pub fn copy(&mut self) -> Result<Self, MemoryError> {
         Ok(Self {
-            mmap: self.mmap.duplicate()?,
+            mmap: self.mmap.copy()?,
             config: self.config.clone(),
         })
     }
@@ -322,19 +346,31 @@ impl LinearMemory for VMOwnedMemory {
         self.mmap.grow(delta, self.config.clone())
     }
 
+    /// Grows the memory to at least a minimum size. If the memory is already big enough
+    /// for the min size then this function does nothing
+    fn grow_at_least(&mut self, min_size: u64) -> Result<(), MemoryError> {
+        self.mmap.grow_at_least(min_size, self.config.clone())
+    }
+
+    /// Resets the memory down to a zero size
+    fn reset(&mut self) -> Result<(), MemoryError> {
+        self.mmap.reset()?;
+        Ok(())
+    }
+
     /// Return a `VMMemoryDefinition` for exposing the memory to compiled wasm code.
     fn vmmemory(&self) -> NonNull<VMMemoryDefinition> {
         self.mmap.vm_memory_definition.as_ptr()
     }
 
     /// Owned memory can not be cloned (this will always return None)
-    fn try_clone(&self) -> Option<Box<dyn LinearMemory + 'static>> {
-        None
+    fn try_clone(&self) -> Result<Box<dyn LinearMemory + 'static>, MemoryError> {
+        Err(MemoryError::MemoryNotShared)
     }
 
     /// Copies this memory to a new memory
-    fn duplicate(&mut self) -> Result<Box<dyn LinearMemory + 'static>, MemoryError> {
-        let forked = Self::duplicate(self)?;
+    fn copy(&mut self) -> Result<Box<dyn LinearMemory + 'static>, MemoryError> {
+        let forked = Self::copy(self)?;
         Ok(Box::new(forked))
     }
 }
@@ -343,9 +379,11 @@ impl LinearMemory for VMOwnedMemory {
 #[derive(Debug, Clone)]
 pub struct VMSharedMemory {
     // The underlying allocation.
-    mmap: Arc<RwLock<WasmMmap>>,
+    mmap: Rc<RwLock<WasmMmap>>,
     // Configuration of this memory
     config: VMMemoryConfig,
+    // waiters list for this memory
+    conditions: ThreadConditions,
 }
 
 unsafe impl Send for VMSharedMemory {}
@@ -376,11 +414,12 @@ impl VMSharedMemory {
     }
 
     /// Copies this memory to a new memory
-    pub fn duplicate(&mut self) -> Result<Self, MemoryError> {
+    pub fn copy(&mut self) -> Result<Self, MemoryError> {
         let mut guard = self.mmap.write().unwrap();
         Ok(Self {
-            mmap: Arc::new(RwLock::new(guard.duplicate()?)),
+            mmap: Rc::new(RwLock::new(guard.copy()?)),
             config: self.config.clone(),
+            conditions: ThreadConditions::new(),
         })
     }
 }
@@ -415,6 +454,20 @@ impl LinearMemory for VMSharedMemory {
         guard.grow(delta, self.config.clone())
     }
 
+    /// Grows the memory to at least a minimum size. If the memory is already big enough
+    /// for the min size then this function does nothing
+    fn grow_at_least(&mut self, min_size: u64) -> Result<(), MemoryError> {
+        let mut guard = self.mmap.write().unwrap();
+        guard.grow_at_least(min_size, self.config.clone())
+    }
+
+    /// Resets the memory down to a zero size
+    fn reset(&mut self) -> Result<(), MemoryError> {
+        let mut guard = self.mmap.write().unwrap();
+        guard.reset()?;
+        Ok(())
+    }
+
     /// Return a `VMMemoryDefinition` for exposing the memory to compiled wasm code.
     fn vmmemory(&self) -> NonNull<VMMemoryDefinition> {
         let guard = self.mmap.read().unwrap();
@@ -422,14 +475,32 @@ impl LinearMemory for VMSharedMemory {
     }
 
     /// Shared memory can always be cloned
-    fn try_clone(&self) -> Option<Box<dyn LinearMemory + 'static>> {
-        Some(Box::new(self.clone()))
+    fn try_clone(&self) -> Result<Box<dyn LinearMemory + 'static>, MemoryError> {
+        Ok(Box::new(self.clone()))
     }
 
     /// Copies this memory to a new memory
-    fn duplicate(&mut self) -> Result<Box<dyn LinearMemory + 'static>, MemoryError> {
-        let forked = Self::duplicate(self)?;
+    fn copy(&mut self) -> Result<Box<dyn LinearMemory + 'static>, MemoryError> {
+        let forked = Self::copy(self)?;
         Ok(Box::new(forked))
+    }
+
+    // Add current thread to waiter list
+    fn do_wait(
+        &mut self,
+        dst: NotifyLocation,
+        timeout: Option<Duration>,
+    ) -> Result<u32, WaiterError> {
+        self.conditions.do_wait(dst, timeout)
+    }
+
+    /// Notify waiters from the wait list. Return the number of waiters notified
+    fn do_notify(&mut self, dst: NotifyLocation, count: u32) -> u32 {
+        self.conditions.do_notify(dst, count)
+    }
+
+    fn thread_conditions(&self) -> Option<&ThreadConditions> {
+        Some(&self.conditions)
     }
 }
 
@@ -474,6 +545,18 @@ impl LinearMemory for VMMemory {
         self.0.grow(delta)
     }
 
+    /// Grows the memory to at least a minimum size. If the memory is already big enough
+    /// for the min size then this function does nothing
+    fn grow_at_least(&mut self, min_size: u64) -> Result<(), MemoryError> {
+        self.0.grow_at_least(min_size)
+    }
+
+    /// Resets the memory down to a zero size
+    fn reset(&mut self) -> Result<(), MemoryError> {
+        self.0.reset()?;
+        Ok(())
+    }
+
     /// Returns the memory style for this memory.
     fn style(&self) -> MemoryStyle {
         self.0.style()
@@ -485,7 +568,7 @@ impl LinearMemory for VMMemory {
     }
 
     /// Attempts to clone this memory (if its clonable)
-    fn try_clone(&self) -> Option<Box<dyn LinearMemory + 'static>> {
+    fn try_clone(&self) -> Result<Box<dyn LinearMemory + 'static>, MemoryError> {
         self.0.try_clone()
     }
 
@@ -495,8 +578,26 @@ impl LinearMemory for VMMemory {
     }
 
     /// Copies this memory to a new memory
-    fn duplicate(&mut self) -> Result<Box<dyn LinearMemory + 'static>, MemoryError> {
-        self.0.duplicate()
+    fn copy(&mut self) -> Result<Box<dyn LinearMemory + 'static>, MemoryError> {
+        self.0.copy()
+    }
+
+    // Add current thread to waiter list
+    fn do_wait(
+        &mut self,
+        dst: NotifyLocation,
+        timeout: Option<Duration>,
+    ) -> Result<u32, WaiterError> {
+        self.0.do_wait(dst, timeout)
+    }
+
+    /// Notify waiters from the wait list. Return the number of waiters notified
+    fn do_notify(&mut self, dst: NotifyLocation, count: u32) -> u32 {
+        self.0.do_notify(dst, count)
+    }
+
+    fn thread_conditions(&self) -> Option<&ThreadConditions> {
+        self.0.thread_conditions()
     }
 }
 
@@ -558,8 +659,8 @@ impl VMMemory {
     }
 
     /// Copies this memory to a new memory
-    pub fn duplicate(&mut self) -> Result<Box<dyn LinearMemory + 'static>, MemoryError> {
-        LinearMemory::duplicate(self)
+    pub fn copy(&mut self) -> Result<Box<dyn LinearMemory + 'static>, MemoryError> {
+        LinearMemory::copy(self)
     }
 }
 
@@ -598,11 +699,26 @@ where
     /// of wasm pages.
     fn grow(&mut self, delta: Pages) -> Result<Pages, MemoryError>;
 
+    /// Grows the memory to at least a minimum size. If the memory is already big enough
+    /// for the min size then this function does nothing
+    fn grow_at_least(&mut self, _min_size: u64) -> Result<(), MemoryError> {
+        Err(MemoryError::UnsupportedOperation {
+            message: "grow_at_least() is not supported".to_string(),
+        })
+    }
+
+    /// Resets the memory back to zero length
+    fn reset(&mut self) -> Result<(), MemoryError> {
+        Err(MemoryError::UnsupportedOperation {
+            message: "reset() is not supported".to_string(),
+        })
+    }
+
     /// Return a `VMMemoryDefinition` for exposing the memory to compiled wasm code.
     fn vmmemory(&self) -> NonNull<VMMemoryDefinition>;
 
     /// Attempts to clone this memory (if its clonable)
-    fn try_clone(&self) -> Option<Box<dyn LinearMemory + 'static>>;
+    fn try_clone(&self) -> Result<Box<dyn LinearMemory + 'static>, MemoryError>;
 
     #[doc(hidden)]
     /// # Safety
@@ -615,5 +731,27 @@ where
     }
 
     /// Copies this memory to a new memory
-    fn duplicate(&mut self) -> Result<Box<dyn LinearMemory + 'static>, MemoryError>;
+    fn copy(&mut self) -> Result<Box<dyn LinearMemory + 'static>, MemoryError>;
+
+    /// Add current thread to the waiter hash, and wait until notified or timout.
+    /// Return 0 if the waiter has been notified, 2 if the timeout occured, or None if en error happened
+    fn do_wait(
+        &mut self,
+        _dst: NotifyLocation,
+        _timeout: Option<Duration>,
+    ) -> Result<u32, WaiterError> {
+        Err(WaiterError::Unimplemented)
+    }
+
+    /// Notify waiters from the wait list. Return the number of waiters notified
+    fn do_notify(&mut self, _dst: NotifyLocation, _count: u32) -> u32 {
+        0
+    }
+
+    /// Access the internal atomics handler.
+    ///
+    /// Will be [`None`] if the memory does not support atomics.
+    fn thread_conditions(&self) -> Option<&ThreadConditions> {
+        None
+    }
 }

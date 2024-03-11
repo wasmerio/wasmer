@@ -1,0 +1,28 @@
+---
+source: tests/integration/cli/tests/snapshot.rs
+expression: snapshot
+---
+{
+  "spec": {
+    "name": "snapshot::test_snapshot_bash_cd_ls",
+    "use_packages": [
+      "sharrattj/coreutils"
+    ],
+    "include_webcs": [
+      {
+        "name": "sharrattj/coreutils@1.0.16"
+      }
+    ],
+    "cli_args": [],
+    "stdin_hash": "862caddcc944cee7b673a57ec2f866e5",
+    "enable_threads": true,
+    "enable_network": false
+  },
+  "result": {
+    "Success": {
+      "stdout": "arch\nbase32\nbase64\nbaseenc\nbasename\ncat\nchcon\nchgrp\nchmod\nchown\nchroot\ncksum\ncomm\ncp\ncsplit\ncut\ndate\ndd\ndf\ndircolors\ndirname\ndu\necho\nenv\nexpand\nexpr\nfactor\nfalse\nfmt\nfold\ngroups\nhashsum\nhead\nhostid\nhostname\nid\ninstall\njoin\nkill\nlink\nln\nlogname\nls\nmkdir\nmkfifo\nmknod\nmktemp\nmore\nmv\nnice\nnl\nnohup\nnproc\nnumfmt\nod\npaste\npathchk\npinky\npr\nprintenv\nprintf\nptx\npwd\nreadlink\nrealpath\nrelpath\nrm\nrmdir\nruncon\nseq\nsh\nshred\nshuf\nsleep\nsort\nsplit\nstat\nstdbuf\nsum\nsync\ntac\ntail\ntee\ntest\ntimeout\ntouch\ntr\ntrue\ntruncate\ntsort\ntty\nuname\nunexpand\nuniq\nunlink\nuptime\nusers\nwasmer\nwc\nwho\nwhoami\nyes\n",
+      "stderr": "test.wasm-5.1# test.wasm-5.1# test.wasm-5.1# exit\n",
+      "exit_code": 0
+    }
+  }
+}

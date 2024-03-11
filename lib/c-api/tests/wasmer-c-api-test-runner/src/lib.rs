@@ -161,7 +161,7 @@ fn test_ok() {
                 println!();
                 println!("stdout: {}", String::from_utf8_lossy(&output.stdout));
                 println!("stderr: {}", String::from_utf8_lossy(&output.stderr));
-                print_wasmer_root_to_stdout(&config);
+                // print_wasmer_root_to_stdout(&config);
                 panic!("failed to invoke vcvars64.bat {test}");
             }
 
@@ -203,7 +203,7 @@ fn test_ok() {
                 println!("stdout: {}", String::from_utf8_lossy(&output.stdout));
                 println!("stderr: {}", String::from_utf8_lossy(&output.stderr));
                 println!("output: {:#?}", output);
-                print_wasmer_root_to_stdout(&config);
+                // print_wasmer_root_to_stdout(&config);
                 panic!("failed to compile {test}");
             }
 
@@ -225,7 +225,7 @@ fn test_ok() {
                 println!("stdout: {}", String::from_utf8_lossy(&output.stdout));
                 println!("stderr: {}", String::from_utf8_lossy(&output.stderr));
                 println!("output: {:#?}", output);
-                print_wasmer_root_to_stdout(&config);
+                // print_wasmer_root_to_stdout(&config);
                 panic!("failed to execute {test}");
             }
 
@@ -275,7 +275,7 @@ fn test_ok() {
             command.arg("-o");
             command.arg(&format!("{manifest_dir}/../{test}"));
 
-            print_wasmer_root_to_stdout(&config);
+            // print_wasmer_root_to_stdout(&config);
 
             println!("compile: {command:#?}");
             // compile
@@ -288,7 +288,7 @@ fn test_ok() {
             if !output.status.success() {
                 println!("stdout: {}", String::from_utf8_lossy(&output.stdout));
                 println!("stderr: {}", String::from_utf8_lossy(&output.stderr));
-                print_wasmer_root_to_stdout(&config);
+                // print_wasmer_root_to_stdout(&config);
                 panic!("failed to compile {test}: {command:#?}");
             }
 
@@ -303,7 +303,7 @@ fn test_ok() {
             if !output.status.success() {
                 println!("stdout: {}", String::from_utf8_lossy(&output.stdout));
                 println!("stderr: {}", String::from_utf8_lossy(&output.stderr));
-                print_wasmer_root_to_stdout(&config);
+                // print_wasmer_root_to_stdout(&config);
                 panic!("failed to execute {test}: {command:#?}");
             }
         }
@@ -406,7 +406,7 @@ fn fixup_symlinks_inner(include_paths: &[String], log: &mut String) -> Result<()
     log.push_str(&format!("fixup symlinks: {include_paths:#?}"));
     let regex = regex::Regex::new(INCLUDE_REGEX).unwrap();
     for path in include_paths.iter() {
-        let file = match std::fs::read_to_string(&path) {
+        let file = match std::fs::read_to_string(path) {
             Ok(o) => o,
             _ => continue,
         };
@@ -414,9 +414,9 @@ fn fixup_symlinks_inner(include_paths: &[String], log: &mut String) -> Result<()
         log.push_str(&format!("first 3 lines of {path:?}: {:#?}\n", lines_3));
 
         let parent = std::path::Path::new(&path).parent().unwrap();
-        if let Ok(symlink) = std::fs::read_to_string(parent.clone().join(&file)) {
+        if let Ok(symlink) = std::fs::read_to_string(parent.join(&file)) {
             log.push_str(&format!("symlinking {path:?}\n"));
-            std::fs::write(&path, symlink)?;
+            std::fs::write(path, symlink)?;
         }
 
         // follow #include directives and recurse
@@ -427,9 +427,9 @@ fn fixup_symlinks_inner(include_paths: &[String], log: &mut String) -> Result<()
         log.push_str(&format!("regex captures: ({path:?}): {:#?}\n", filepaths));
         let joined_filepaths = filepaths
             .iter()
-            .filter_map(|s| {
-                let path = parent.clone().join(s);
-                Some(format!("{}", path.display()))
+            .map(|s| {
+                let path = parent.join(s);
+                format!("{}", path.display())
             })
             .collect::<Vec<_>>();
         fixup_symlinks_inner(&joined_filepaths, log)?;

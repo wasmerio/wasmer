@@ -1,9 +1,9 @@
 use crate::store::{AsStoreMut, AsStoreRef};
-use crate::sys::NativeEngineExt;
+use crate::sys::engine::NativeEngineExt;
 use crate::TableType;
 use crate::Value;
 use crate::{vm::VMExternTable, ExternRef, Function, RuntimeError};
-use wasmer_vm::{StoreHandle, TableElement, VMExtern, VMTable};
+use wasmer_vm::{StoreHandle, TableElement, Trap, VMExtern, VMTable};
 
 #[derive(Debug, Clone)]
 pub struct Table {
@@ -120,7 +120,6 @@ impl Table {
                 "cross-`Store` table copies are not supported",
             ));
         }
-        let store = store;
         if dst_table.handle.internal_handle() == src_table.handle.internal_handle() {
             let table = dst_table.handle.get_mut(store.objects_mut());
             table.copy_within(dst_index, src_index, len)
@@ -131,7 +130,7 @@ impl Table {
             );
             VMTable::copy(dst_table, src_table, dst_index, src_index, len)
         }
-        .map_err(RuntimeError::from_trap)?;
+        .map_err(Into::<Trap>::into)?;
         Ok(())
     }
 

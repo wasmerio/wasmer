@@ -5,6 +5,10 @@ on:
     branches:
     - benchmark  # TODO: change it back to master once we really track the results. We commented this as speed.wasmer.io is failing
 
+env:
+  CARGO_REGISTRIES_CRATES_IO_PROTOCOL: git
+  MSRV: "1.73"
+
 jobs:
   run_benchmark:
     name: Benchmark on ${{ matrix.build }}
@@ -24,7 +28,7 @@ jobs:
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
         with:
-          toolchain: 1.64
+          toolchain: ${{ env.MSRV }}
       - name: Configure cargo data directory
         # After this point, all cargo registry and crate data is stored in
         # $GITHUB_WORKSPACE/.cargo_home. This allows us to cache only the files

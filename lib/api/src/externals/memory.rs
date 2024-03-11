@@ -1,5 +1,7 @@
 #[cfg(feature = "js")]
 use crate::js::externals::memory as memory_impl;
+#[cfg(feature = "jsc")]
+use crate::jsc::externals::memory as memory_impl;
 #[cfg(feature = "sys")]
 use crate::sys::externals::memory as memory_impl;
 
@@ -7,9 +9,9 @@ use super::memory_view::MemoryView;
 use crate::exports::{ExportError, Exportable};
 use crate::store::{AsStoreMut, AsStoreRef};
 use crate::vm::{VMExtern, VMExternMemory, VMMemory};
-use crate::Extern;
 use crate::MemoryAccessError;
 use crate::MemoryType;
+use crate::{AtomicsError, Extern};
 use std::mem::MaybeUninit;
 use wasmer_types::{MemoryError, Pages};
 
@@ -34,7 +36,7 @@ impl Memory {
     /// Creates a new host `Memory` from the provided [`MemoryType`].
     ///
     /// This function will construct the `Memory` using the store
-    /// [`BaseTunables`][crate::sys::BaseTunables].
+    /// `BaseTunables`.
     ///
     /// # Example
     ///
@@ -72,7 +74,7 @@ impl Memory {
 
     /// Creates a view into the memory that then allows for
     /// read and write
-    pub fn view<'a>(&self, store: &'a impl AsStoreRef) -> MemoryView<'a> {
+    pub fn view<'a>(&self, store: &'a (impl AsStoreRef + ?Sized)) -> MemoryView<'a> {
         MemoryView::new(self, store)
     }
 
@@ -119,13 +121,38 @@ impl Memory {
         self.0.grow(store, delta)
     }
 
-    /// Copies the memory to a new store and returns a memory reference to it
+    /// Grows the memory to at least a minimum size. If the memory is already big enough
+    /// for the min size then this function does nothing
+    pub fn grow_at_least(
+        &self,
+        store: &mut impl AsStoreMut,
+        min_size: u64,
+    ) -> Result<(), MemoryError> {
+        self.0.grow_at_least(store, min_size)
+    }
+
+    /// Resets the memory back to zero length
+    pub fn reset(&self, store: &mut impl AsStoreMut) -> Result<(), MemoryError> {
+        self.0.reset(store)?;
+        Ok(())
+    }
+
+    /// Attempts to duplicate this memory (if its clonable) in a new store
+    /// (copied memory)
     pub fn copy_to_store(
         &self,
         store: &impl AsStoreRef,
         new_store: &mut impl AsStoreMut,
     ) -> Result<Self, MemoryError> {
-        Ok(Self(self.0.copy_to_store(store, new_store)?))
+        if !self.ty(store).shared {
+            // We should only be able to duplicate in a new store if the memory is shared
+            return Err(MemoryError::InvalidMemory {
+                reason: "memory is not a shared memory type".to_string(),
+            });
+        }
+        self.0
+            .try_copy(&store)
+            .map(|new_memory| Self::new_from_existing(new_store, new_memory.into()))
     }
 
     pub(crate) fn from_vm_extern(store: &mut impl AsStoreMut, vm_extern: VMExternMemory) -> Self {
@@ -138,8 +165,39 @@ impl Memory {
     }
 
     /// Attempts to clone this memory (if its clonable)
-    pub fn try_clone(&self, store: &impl AsStoreRef) -> Option<VMMemory> {
+    pub fn try_clone(&self, store: &impl AsStoreRef) -> Result<VMMemory, MemoryError> {
         self.0.try_clone(store)
+    }
+
+    /// Attempts to clone this memory (if its clonable) in a new store
+    /// (cloned memory will be shared between those that clone it)
+    pub fn share_in_store(
+        &self,
+        store: &impl AsStoreRef,
+        new_store: &mut impl AsStoreMut,
+    ) -> Result<Self, MemoryError> {
+        if !self.ty(store).shared {
+            // We should only be able to duplicate in a new store if the memory is shared
+            return Err(MemoryError::InvalidMemory {
+                reason: "memory is not a shared memory type".to_string(),
+            });
+        }
+        self.0
+            .try_clone(&store)
+            .map(|new_memory| Self::new_from_existing(new_store, new_memory))
+    }
+
+    /// Get a [`SharedMemory`].
+    ///
+    /// Only returns `Some(_)` if the memory is shared, and if the target
+    /// backend supports shared memory operations.
+    ///
+    /// See [`SharedMemory`] and its methods for more information.
+    pub fn as_shared(&self, store: &impl AsStoreRef) -> Option<SharedMemory> {
+        if !self.ty(store).shared {
+            return None;
+        }
+        self.0.as_shared(store)
     }
 
     /// To `VMExtern`.
@@ -156,6 +214,126 @@ impl<'a> Exportable<'a> for Memory {
             Extern::Memory(memory) => Ok(memory),
             _ => Err(ExportError::IncompatibleType),
         }
+    }
+}
+
+/// Location in a WebAssembly memory.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub struct MemoryLocation {
+    // NOTE: must be expanded to an enum that also supports 64bit memory in
+    // the future
+    // That's why this is private.
+    pub(crate) address: u32,
+}
+
+impl MemoryLocation {
+    /// Create a new memory location for a 32bit memory.
+    pub fn new_32(address: u32) -> Self {
+        Self { address }
+    }
+}
+
+impl From<u32> for MemoryLocation {
+    fn from(value: u32) -> Self {
+        Self::new_32(value)
+    }
+}
+
+/// See [`SharedMemory`].
+pub(crate) trait SharedMemoryOps {
+    /// See [`SharedMemory::disable_atomics`].
+    fn disable_atomics(&self) -> Result<(), MemoryError> {
+        Err(MemoryError::AtomicsNotSupported)
+    }
+
+    /// See [`SharedMemory::wake_all_atomic_waiters`].
+    fn wake_all_atomic_waiters(&self) -> Result<(), MemoryError> {
+        Err(MemoryError::AtomicsNotSupported)
+    }
+
+    /// See [`SharedMemory::notify`].
+    fn notify(&self, _dst: MemoryLocation, _count: u32) -> Result<u32, AtomicsError> {
+        Err(AtomicsError::Unimplemented)
+    }
+
+    /// See [`SharedMemory::wait`].
+    fn wait(
+        &self,
+        _dst: MemoryLocation,
+        _timeout: Option<std::time::Duration>,
+    ) -> Result<u32, AtomicsError> {
+        Err(AtomicsError::Unimplemented)
+    }
+}
+
+/// A handle that exposes operations only relevant for shared memories.
+///
+/// Enables interaction independent from the [`crate::Store`], and thus allows calling
+/// some methods an instane is running.
+///
+/// **NOTE**: Not all methods are supported by all backends.
+#[derive(Clone)]
+pub struct SharedMemory {
+    memory: Memory,
+    ops: std::sync::Arc<dyn SharedMemoryOps + Send + Sync>,
+}
+
+impl std::fmt::Debug for SharedMemory {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("SharedMemory").finish()
+    }
+}
+
+impl SharedMemory {
+    /// Get the underlying memory.
+    pub fn memory(&self) -> &Memory {
+        &self.memory
+    }
+
+    /// Create a new handle from ops.
+    #[allow(unused)]
+    pub(crate) fn new(memory: Memory, ops: impl SharedMemoryOps + Send + Sync + 'static) -> Self {
+        Self {
+            memory,
+            ops: std::sync::Arc::new(ops),
+        }
+    }
+
+    /// Notify up to `count` waiters waiting for the memory location.
+    pub fn notify(&self, location: MemoryLocation, count: u32) -> Result<u32, AtomicsError> {
+        self.ops.notify(location, count)
+    }
+
+    /// Wait for the memory location to be notified.
+    pub fn wait(
+        &self,
+        location: MemoryLocation,
+        timeout: Option<std::time::Duration>,
+    ) -> Result<u32, AtomicsError> {
+        self.ops.wait(location, timeout)
+    }
+
+    /// Disable atomics for this memory.
+    ///
+    /// All subsequent atomic wait calls will produce a trap.
+    ///
+    /// This can be used or forced shutdown of instances that continuously try
+    /// to wait on atomics.
+    ///
+    /// NOTE: this operation might not be supported by all memory implementations.
+    /// In that case, this function will return an error.
+    pub fn disable_atomics(&self) -> Result<(), MemoryError> {
+        self.ops.disable_atomics()
+    }
+
+    /// Wake up all atomic waiters.
+    ///
+    /// This can be used to force-resume waiting execution.
+    ///
+    /// NOTE: this operation might not be supported by all memory implementations.
+    /// In that case, this function will return an error.
+    pub fn wake_all_atomic_waiters(&self) -> Result<(), MemoryError> {
+        self.ops.wake_all_atomic_waiters()
     }
 }
 

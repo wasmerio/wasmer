@@ -10,6 +10,8 @@ use crate::RuntimeError;
 
 #[cfg(feature = "js")]
 use crate::js::externals::global as global_impl;
+#[cfg(feature = "jsc")]
+use crate::jsc::externals::global as global_impl;
 #[cfg(feature = "sys")]
 use crate::sys::externals::global as global_impl;
 

@@ -14,14 +14,12 @@ expression: snapshot
       }
     ],
     "cli_args": [],
-    "stdin": null,
-    "debug_output": false,
     "enable_threads": true,
     "enable_network": false
   },
   "result": {
     "Success": {
-      "stdout": "Parent waiting on Child(2)\nChild(2) exited with 0\n",
+      "stdout": "Parent waiting on Child(2)\nChild(2) exited with 10\n",
       "stderr": "",
       "exit_code": 0
     }

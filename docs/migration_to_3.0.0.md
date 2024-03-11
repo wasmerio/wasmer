@@ -112,10 +112,11 @@ let env = FunctionEnv::new(&mut store, MyEnv {
   multiply_by: 10,
 });
 
-let instance = Instance::new(&module, &imports);
-let mut env_mut = env.as_mut(&mut store);
-env_mut.memory = Some(instance.exports.get_memory("memory"));
-env_mut.alloc_guest_memory = Some(instance.exports.get_typed_function("__alloc"));
+let instance = Instance::new(&mut store, &module, &imports)?;
+let mut env_mut = env.into_mut(&mut store); // change to a FunctionEnvMut
+let (mut data_mut, mut store_mut) = env_mut.data_and_store_mut(); // grab data and a new store_mut
+data_mut.memory = Some(instance.exports.get_memory("memory")?.clone());
+data_mut.alloc_guest_memory = Some(instance.exports.get_typed_function(&mut store_mut, "__alloc")?);
 ```
 
 ### New `MemoryView` API (preparation for shared memory)

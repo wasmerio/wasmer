@@ -3,7 +3,7 @@
 
 //! Module for System V ABI unwind registry.
 
-use wasmer_types::CompiledFunctionUnwindInfo;
+use wasmer_types::CompiledFunctionUnwindInfoReference;
 
 /// Represents a registry of function unwind information for System V ABI.
 pub struct UnwindRegistry {
@@ -32,10 +32,10 @@ impl UnwindRegistry {
         _base_address: usize,
         _func_start: u32,
         _func_len: u32,
-        info: &CompiledFunctionUnwindInfo,
+        info: &CompiledFunctionUnwindInfoReference,
     ) -> Result<(), String> {
         match info {
-            CompiledFunctionUnwindInfo::Dwarf => {}
+            CompiledFunctionUnwindInfoReference::Dwarf => {}
             _ => return Err(format!("unsupported unwind information {info:?}")),
         };
         Ok(())

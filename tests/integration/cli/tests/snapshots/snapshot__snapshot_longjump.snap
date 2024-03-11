@@ -14,15 +14,13 @@ expression: snapshot
       }
     ],
     "cli_args": [],
-    "stdin": null,
-    "debug_output": false,
     "enable_threads": true,
     "enable_network": false
   },
   "result": {
     "Success": {
-      "stdout": "(A1)\n(B1)\n(A2) r=10001\n(B2) r=20001\n(A3) r=10002\n(B3) r=20002\n(A4) r=10003\n",
-      "stderr": "",
+      "stdout": "(A1)\n(A2) r=10001\n(A3) r=10002\n(A4) r=10003\n",
+      "stderr": "(B1)\n(B2) r=20001\n(B3) r=20002\n",
       "exit_code": 0
     }
   }

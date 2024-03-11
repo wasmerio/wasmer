@@ -1,28 +1,35 @@
 [package]
 name = "wasmer-cache"
-version = "3.2.0-alpha.1"
 description = "Cache system for Wasmer WebAssembly runtime"
 categories = ["wasm", "caching"]
 keywords = ["wasm", "webassembly", "cache"]
-authors = ["Wasmer Engineering Team <engineering@wasmer.io>"]
-repository = "https://github.com/wasmerio/wasmer"
-license = "MIT"
 readme = "README.md"
-edition = "2018"
+authors.workspace = true
+edition.workspace = true
+homepage.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+version.workspace = true
 
 [dependencies]
-wasmer = { path = "../api", version = "=3.2.0-alpha.1", default-features = false, features = ["sys"] }
+wasmer = { path = "../api", version = "=4.2.6", default-features = false }
 hex = "0.4"
 thiserror = "1"
 blake3 = "1.0"
 
 [dev-dependencies]
-criterion = "0.3"
-tempfile = "3.4.0"
+criterion = { version = "0.5", default-features = false }
+tempfile = "3.6.0"
 rand = "0.8.3"
-wasmer-compiler-singlepass = { path = "../compiler-singlepass", version = "=3.2.0-alpha.1" }
+wasmer = { path = "../api", version = "=4.2.6", default-features = false, features = ["sys", "cranelift"] }
+wasmer-compiler-singlepass = { path = "../compiler-singlepass", version = "=4.2.6" }
 
 [features]
-default = ["wasmer/js-serializable-module", "wasmer/compiler", "filesystem"]
+default = ["filesystem"]
 filesystem = []
 blake3-pure = ["blake3/pure"]
+
+[package.metadata.docs.rs]
+features = ["wasmer/sys"]
+rustc-args = ["--cfg", "docsrs"]

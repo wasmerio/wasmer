@@ -1,21 +1,23 @@
 [package]
 name = "wasmer-wasix-types"
-version = "0.1.0"
+version = "0.18.1"
 description = "WASI and WASIX types for Wasmer WebAssembly runtime"
 categories = ["wasm", "os"]
-keywords = ["wasm", "webassembly", "wasi", "wasix", "sandbox", "ABI"]
-authors = ["Wasmer Engineering Team <engineering@wasmer.io>"]
-repository = "https://github.com/wasmerio/wasmer"
-license = "MIT"
+keywords = ["wasm", "webassembly", "wasi", "sandbox", "ABI"]
 readme = "README.md"
-edition = "2018"
+authors.workspace = true
+edition.workspace = true
+homepage.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-wasmer = { default-features = false, path = "../api", version = "=3.2.0-alpha.1" }
-wasmer-types = { path = "../types", version = "=3.2.0-alpha.1" }
-wasmer-derive = { path = "../derive", version = "=3.2.0-alpha.1" }
+wasmer = { default-features = false, path = "../api", version = "=4.2.6" }
+wasmer-types = { path = "../types", version = "=4.2.6" }
+wasmer-derive = { path = "../derive", version = "=4.2.6" }
 wai-bindgen-gen-rust = "0.2.1"
 wai-bindgen-rust = { version = "0.2.1", default-features = false, features = ["macros"] }
 wai-bindgen-gen-rust-wasm = "0.2.1"
@@ -27,12 +29,15 @@ bitflags = "1.3.0"
 cfg-if = "1.0.0"
 anyhow = "1.0.66"
 byteorder = "1.3"
-time = "0.2"
+time = { version = "0.3", features = ["formatting"] }
+tracing = { version = "0.1.37" }
 
 [dev-dependencies.pretty_assertions]
 version = "1.3.0"
 
 [features]
 enable-serde = ["serde", "wasmer-types/serde"]
-js = ["wasmer/js", "wasmer/std"]
-sys = ["wasmer/sys"]
+
+[package.metadata.docs.rs]
+features = ["wasmer/sys"]
+rustc-args = ["--cfg", "docsrs"]

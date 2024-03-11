@@ -1,14 +1,16 @@
 [package]
 name = "wasmer-types"
-version = "3.2.0-alpha.1"
 description = "Wasmer Common Types"
 categories = ["wasm", "no-std", "data-structures"]
 keywords = ["wasm", "webassembly", "types"]
-authors = ["Wasmer Engineering Team <engineering@wasmer.io>"]
-repository = "https://github.com/wasmerio/wasmer"
 license = "MIT OR Apache-2.0 WITH LLVM-exception"
 readme = "README.md"
-edition = "2018"
+authors.workspace = true
+edition.workspace = true
+homepage.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+version.workspace = true
 
 [dependencies]
 serde = { version = "1.0", features = ["derive", "rc"], optional = true, default-features = false }
@@ -16,16 +18,20 @@ serde_bytes = { version = "0.11", optional = true }
 thiserror = "1.0"
 more-asserts = "0.2"
 indexmap = { version = "1.6" }
-rkyv = { version = "0.7.40", features = ["indexmap"] }
+rkyv = { version = "0.7.40", features = ["indexmap", "validation", "strict"] }
 enum-iterator = "0.7.0"
 target-lexicon = { version = "0.12.2", default-features = false }
-enumset = "1.0"
+enumset.workspace = true
+bytecheck = "0.6.8"
 
 [dev-dependencies]
-memoffset = "0.6"
+memoffset.workspace = true
 
 [features]
 default = ["std"]
 std = []
 core = []
 enable-serde = ["serde", "serde/std", "serde_bytes", "indexmap/serde-1"]
+
+[package.metadata.docs.rs]
+rustc-args = ["--cfg", "docsrs"]

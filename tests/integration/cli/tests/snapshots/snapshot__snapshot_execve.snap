@@ -1,6 +1,5 @@
 ---
 source: tests/integration/cli/tests/snapshot.rs
-assertion_line: 381
 expression: snapshot
 ---
 {
@@ -15,15 +14,13 @@ expression: snapshot
       }
     ],
     "cli_args": [],
-    "stdin": null,
-    "debug_output": false,
     "enable_threads": true,
     "enable_network": false
   },
   "result": {
     "Success": {
-      "stdout": "Main program started\nexecve: echo hi-from-child\nhi-from-child\nChild(2) exited with 0\nexecve: echo hi-from-parent\nhi-from-parent\n",
-      "stderr": "",
+      "stdout": "Main program started\nexecve: echo hi-from-child\nhi-from-child\nhi-from-parent\n",
+      "stderr": "Child(2) exited with 0\nexecve: echo hi-from-parent\n",
       "exit_code": 0
     }
   }

@@ -9,6 +9,9 @@ use super::unstable::middlewares::wasmer_middleware_t;
 use super::unstable::target_lexicon::wasmer_target_t;
 use crate::error::update_last_error;
 use cfg_if::cfg_if;
+#[cfg(not(any(feature = "compiler", feature = "compiler-headless")))]
+use wasmer_api::Engine;
+#[cfg(any(feature = "compiler", feature = "compiler-headless"))]
 use wasmer_compiler::{Engine, EngineBuilder};
 
 /// Kind of compilers that can be used by the engines.
@@ -117,7 +120,7 @@ pub struct wasm_config_t {
 /// cbindgen:ignore
 #[no_mangle]
 pub extern "C" fn wasm_config_new() -> Box<wasm_config_t> {
-    Box::new(wasm_config_t::default())
+    Box::<wasm_config_t>::default()
 }
 
 /// Delete a Wasmer config object.
@@ -256,11 +259,11 @@ use wasmer_api::CompilerConfig;
 fn get_default_compiler_config() -> Box<dyn CompilerConfig> {
     cfg_if! {
         if #[cfg(feature = "cranelift")] {
-            Box::new(wasmer_compiler_cranelift::Cranelift::default())
+            Box::<wasmer_compiler_cranelift::Cranelift>::default()
         } else if #[cfg(feature = "llvm")] {
-            Box::new(wasmer_compiler_llvm::LLVM::default())
+            Box::<wasmer_compiler_llvm::LLVM>::default()
         } else if #[cfg(feature = "singlepass")] {
-            Box::new(wasmer_compiler_singlepass::Singlepass::default())
+            Box::<wasmer_compiler_singlepass::Singlepass>::default()
         } else {
             compile_error!("Please enable one of the compiler backends")
         }
@@ -293,6 +296,19 @@ cfg_if! {
         #[no_mangle]
         pub extern "C" fn wasm_engine_new() -> Box<wasm_engine_t> {
             let engine: Engine = EngineBuilder::headless().engine();
+            Box::new(wasm_engine_t { inner: engine })
+        }
+    } else if #[cfg(feature = "jsc")] {
+        /// Creates the JavascriptCore Engine.
+        ///
+        /// # Example
+        ///
+        /// See [`wasm_engine_delete`].
+        ///
+        /// cbindgen:ignore
+        #[no_mangle]
+        pub extern "C" fn wasm_engine_new() -> Box<wasm_engine_t> {
+            let engine: Engine = Engine::default();
             Box::new(wasm_engine_t { inner: engine })
         }
     } else {
@@ -358,6 +374,7 @@ pub extern "C" fn wasm_engine_new_with_config(
         None
     }
 
+    #[allow(unused)]
     let config = config?;
     #[cfg(not(any(feature = "compiler", feature = "compiler-headless")))]
     return return_with_error("Wasmer has not been compiled with the `compiler` feature.");
@@ -368,7 +385,7 @@ pub extern "C" fn wasm_engine_new_with_config(
                 wasmer_compiler_t::CRANELIFT => {
                     cfg_if! {
                         if #[cfg(feature = "cranelift")] {
-                            Box::new(wasmer_compiler_cranelift::Cranelift::default())
+                            Box::<wasmer_compiler_cranelift::Cranelift>::default()
                         } else {
                             return return_with_error("Wasmer has not been compiled with the `cranelift` feature.");
                         }
@@ -377,7 +394,7 @@ pub extern "C" fn wasm_engine_new_with_config(
                 wasmer_compiler_t::LLVM => {
                     cfg_if! {
                         if #[cfg(feature = "llvm")] {
-                            Box::new(wasmer_compiler_llvm::LLVM::default())
+                            Box::<wasmer_compiler_llvm::LLVM>::default()
                         } else {
                             return return_with_error("Wasmer has not been compiled with the `llvm` feature.");
                         }
@@ -386,7 +403,7 @@ pub extern "C" fn wasm_engine_new_with_config(
                 wasmer_compiler_t::SINGLEPASS => {
                     cfg_if! {
                         if #[cfg(feature = "singlepass")] {
-                            Box::new(wasmer_compiler_singlepass::Singlepass::default())
+                            Box::<wasmer_compiler_singlepass::Singlepass>::default()
                         } else {
                             return return_with_error("Wasmer has not been compiled with the `singlepass` feature.");
                         }
@@ -419,6 +436,7 @@ pub extern "C" fn wasm_engine_new_with_config(
                         };
             Some(Box::new(wasm_engine_t { inner }))
         } else {
+            #[cfg(feature = "compiler-headless")]
             let inner: Engine =
                      {
                             let mut builder = EngineBuilder::headless();
@@ -433,6 +451,9 @@ pub extern "C" fn wasm_engine_new_with_config(
 
                             builder.engine()
                     };
+            #[cfg(not(any(feature = "compiler-headless", feature="compiler")))]
+            let inner: Engine = Engine::default();
+
             Some(Box::new(wasm_engine_t { inner }))
         }
     }
