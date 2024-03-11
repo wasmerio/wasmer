@@ -5,6 +5,7 @@ pub mod process;
 pub mod signal;
 mod task_join_handle;
 pub mod thread;
+pub mod backoff;
 
 pub use task_join_handle::{
     OwnedTaskStatus, TaskJoinHandle, TaskStatus, TaskTerminatedError, VirtualTaskHandle,
