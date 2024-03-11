@@ -23,7 +23,6 @@ The Wasmer supports the following features:
 * `wast`(default): support for running wast test files.
 * `cache` (default): support or automatically caching compiled artifacts.
 * `wasi` (default): support for [WASI].
-* `experimental-io-devices`: support for experimental IO devices in WASI.
 * `emscripten` (default): support for [Emscripten].
 * `singlepass`: support for the [Singlepass compiler].
 * `cranelift`: support for the [Cranelift compiler].

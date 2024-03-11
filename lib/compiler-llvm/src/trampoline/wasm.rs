@@ -9,15 +9,14 @@ use inkwell::{
     module::{Linkage, Module},
     passes::PassManager,
     targets::{FileType, TargetMachine},
-    types::BasicType,
+    types::{BasicType, FunctionType},
     values::FunctionValue,
     AddressSpace, DLLStorageClass,
 };
 use std::cmp;
-use std::convert::TryFrom;
 use std::convert::TryInto;
 use wasmer_types::{
-    CompileError, FunctionBody, FunctionType, LocalFunctionIndex, RelocationTarget,
+    CompileError, FunctionBody, FunctionType as FuncType, LocalFunctionIndex, RelocationTarget,
 };
 
 pub struct FuncTrampoline {
@@ -40,7 +39,7 @@ impl FuncTrampoline {
 
     pub fn trampoline_to_module(
         &self,
-        ty: &FunctionType,
+        ty: &FuncType,
         config: &LLVM,
         name: &str,
     ) -> Result<Module, CompileError> {
@@ -76,7 +75,14 @@ impl FuncTrampoline {
         trampoline_func
             .as_global_value()
             .set_dll_storage_class(DLLStorageClass::Export);
-        self.generate_trampoline(trampoline_func, ty, &callee_attrs, &self.ctx, &intrinsics)?;
+        self.generate_trampoline(
+            trampoline_func,
+            ty,
+            callee_ty,
+            &callee_attrs,
+            &self.ctx,
+            &intrinsics,
+        )?;
 
         if let Some(ref callbacks) = config.callbacks {
             callbacks.preopt_ir(&function, &module);
@@ -101,7 +107,7 @@ impl FuncTrampoline {
 
     pub fn trampoline(
         &self,
-        ty: &FunctionType,
+        ty: &FuncType,
         config: &LLVM,
         name: &str,
     ) -> Result<FunctionBody, CompileError> {
@@ -166,7 +172,7 @@ impl FuncTrampoline {
 
     pub fn dynamic_trampoline_to_module(
         &self,
-        ty: &FunctionType,
+        ty: &FuncType,
         config: &LLVM,
         name: &str,
     ) -> Result<Module, CompileError> {
@@ -220,7 +226,7 @@ impl FuncTrampoline {
     }
     pub fn dynamic_trampoline(
         &self,
-        ty: &FunctionType,
+        ty: &FuncType,
         config: &LLVM,
         name: &str,
     ) -> Result<FunctionBody, CompileError> {
@@ -287,7 +293,8 @@ impl FuncTrampoline {
     fn generate_trampoline<'ctx>(
         &self,
         trampoline_func: FunctionValue,
-        func_sig: &FunctionType,
+        func_sig: &FuncType,
+        llvm_func_type: FunctionType,
         func_attrs: &[(Attribute, AttributeLoc)],
         context: &'ctx Context,
         intrinsics: &Intrinsics<'ctx>,
@@ -328,20 +335,22 @@ impl FuncTrampoline {
 
         for (i, param_ty) in func_sig.params().iter().enumerate() {
             let index = intrinsics.i32_ty.const_int(i as _, false);
-            let item_pointer =
-                unsafe { builder.build_in_bounds_gep(args_rets_ptr, &[index], "arg_ptr") };
+            let item_pointer = unsafe {
+                builder.build_in_bounds_gep(intrinsics.i128_ty, args_rets_ptr, &[index], "arg_ptr")
+            };
 
+            let casted_type = type_to_llvm(intrinsics, *param_ty)?;
             let casted_pointer_type = type_to_llvm_ptr(intrinsics, *param_ty)?;
 
             let typed_item_pointer =
                 builder.build_pointer_cast(item_pointer, casted_pointer_type, "typed_arg_pointer");
 
-            let arg = builder.build_load(typed_item_pointer, "arg");
+            let arg = builder.build_load(casted_type, typed_item_pointer, "arg");
             args_vec.push(arg.into());
         }
 
-        let callable_func = inkwell::values::CallableValue::try_from(func_ptr).unwrap();
-        let call_site = builder.build_call(callable_func, args_vec.as_slice(), "call");
+        let call_site =
+            builder.build_indirect_call(llvm_func_type, func_ptr, args_vec.as_slice(), "call");
         for (attr, attr_loc) in func_attrs {
             call_site.add_attribute(*attr_loc, *attr);
         }
@@ -353,6 +362,7 @@ impl FuncTrampoline {
         rets.iter().for_each(|v| {
             let ptr = unsafe {
                 builder.build_gep(
+                    intrinsics.i128_ty,
                     args_rets_ptr,
                     &[intrinsics.i32_ty.const_int(idx, false)],
                     "",
@@ -361,9 +371,6 @@ impl FuncTrampoline {
             let ptr =
                 builder.build_pointer_cast(ptr, v.get_type().ptr_type(AddressSpace::default()), "");
             builder.build_store(ptr, *v);
-            if v.get_type() == intrinsics.i128_ty.as_basic_type_enum() {
-                idx += 1;
-            }
             idx += 1;
         });
 
@@ -374,7 +381,7 @@ impl FuncTrampoline {
     fn generate_dynamic_trampoline<'ctx>(
         &self,
         trampoline_func: FunctionValue,
-        func_sig: &FunctionType,
+        func_sig: &FuncType,
         context: &'ctx Context,
         intrinsics: &Intrinsics<'ctx>,
     ) -> Result<(), CompileError> {
@@ -396,12 +403,10 @@ impl FuncTrampoline {
         for i in 0..func_sig.params().len() {
             let ptr = unsafe {
                 builder.build_in_bounds_gep(
+                    intrinsics.i128_ty,
                     values,
-                    &[
-                        intrinsics.i32_zero,
-                        intrinsics.i32_ty.const_int(i.try_into().unwrap(), false),
-                    ],
-                    "",
+                    &[intrinsics.i32_ty.const_int(i.try_into().unwrap(), false)],
+                    "args",
                 )
             };
             let ptr = builder
@@ -415,29 +420,28 @@ impl FuncTrampoline {
             );
         }
 
-        let callee_ty = intrinsics
-            .void_ty
-            .fn_type(
-                &[
-                    intrinsics.ctx_ptr_ty.into(),  // vmctx ptr
-                    intrinsics.i128_ptr_ty.into(), // in/out values ptr
-                ],
-                false,
-            )
-            .ptr_type(AddressSpace::default());
+        let callee_ptr_ty = intrinsics.void_ty.fn_type(
+            &[
+                intrinsics.ctx_ptr_ty.into(),  // vmctx ptr
+                intrinsics.i128_ptr_ty.into(), // in/out values ptr
+            ],
+            false,
+        );
+        let callee_ty = callee_ptr_ty.ptr_type(AddressSpace::default());
         let vmctx = self.abi.get_vmctx_ptr_param(&trampoline_func);
+        let callee_ty =
+            builder.build_bitcast(vmctx, callee_ty.ptr_type(AddressSpace::default()), "");
         let callee = builder
-            .build_load(
-                builder
-                    .build_bitcast(vmctx, callee_ty.ptr_type(AddressSpace::default()), "")
-                    .into_pointer_value(),
-                "",
-            )
+            .build_load(intrinsics.ctx_ptr_ty, callee_ty.into_pointer_value(), "")
             .into_pointer_value();
 
         let values_ptr = builder.build_pointer_cast(values, intrinsics.i128_ptr_ty, "");
-        let callable_func = inkwell::values::CallableValue::try_from(callee).unwrap();
-        builder.build_call(callable_func, &[vmctx.into(), values_ptr.into()], "");
+        builder.build_indirect_call(
+            callee_ptr_ty,
+            callee,
+            &[vmctx.into(), values_ptr.into()],
+            "",
+        );
 
         if func_sig.results().is_empty() {
             builder.build_return(None);
@@ -449,17 +453,15 @@ impl FuncTrampoline {
                 .map(|(idx, ty)| {
                     let ptr = unsafe {
                         builder.build_gep(
+                            intrinsics.i128_ty,
                             values,
-                            &[
-                                intrinsics.i32_ty.const_zero(),
-                                intrinsics.i32_ty.const_int(idx.try_into().unwrap(), false),
-                            ],
+                            &[intrinsics.i32_ty.const_int(idx.try_into().unwrap(), false)],
                             "",
                         )
                     };
                     let ptr =
                         builder.build_pointer_cast(ptr, type_to_llvm_ptr(intrinsics, *ty)?, "");
-                    Ok(builder.build_load(ptr, ""))
+                    Ok(builder.build_load(type_to_llvm(intrinsics, *ty)?, ptr, ""))
                 })
                 .collect::<Result<Vec<_>, CompileError>>()?;
 
@@ -468,11 +470,14 @@ impl FuncTrampoline {
                     .get_first_param()
                     .unwrap()
                     .into_pointer_value();
-                let mut struct_value = sret
-                    .get_type()
-                    .get_element_type()
-                    .into_struct_type()
-                    .get_undef();
+
+                let basic_types: Vec<_> = func_sig
+                    .results()
+                    .iter()
+                    .map(|&ty| type_to_llvm(intrinsics, ty))
+                    .collect::<Result<_, _>>()?;
+                let mut struct_value = context.struct_type(&basic_types, false).get_undef();
+
                 for (idx, value) in results.iter().enumerate() {
                     let value = builder.build_bitcast(
                         *value,

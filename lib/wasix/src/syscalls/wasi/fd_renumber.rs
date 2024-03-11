@@ -9,7 +9,31 @@ use crate::syscalls::*;
 /// - `Fd to`
 ///     Location to copy file descriptor to
 #[instrument(level = "debug", skip_all, fields(%from, %to), ret)]
-pub fn fd_renumber(ctx: FunctionEnvMut<'_, WasiEnv>, from: WasiFd, to: WasiFd) -> Errno {
+pub fn fd_renumber(
+    mut ctx: FunctionEnvMut<'_, WasiEnv>,
+    from: WasiFd,
+    to: WasiFd,
+) -> Result<Errno, WasiError> {
+    let ret = fd_renumber_internal(&mut ctx, from, to);
+    let env = ctx.data();
+
+    if ret == Errno::Success {
+        #[cfg(feature = "journal")]
+        if env.enable_journal {
+            JournalEffector::save_fd_renumber(&mut ctx, from, to).map_err(|err| {
+                tracing::error!("failed to save file descriptor renumber event - {}", err);
+                WasiError::Exit(ExitCode::Errno(Errno::Fault))
+            })?;
+        }
+    }
+    Ok(ret)
+}
+
+pub(crate) fn fd_renumber_internal(
+    ctx: &mut FunctionEnvMut<'_, WasiEnv>,
+    from: WasiFd,
+    to: WasiFd,
+) -> Errno {
     if from == to {
         return Errno::Success;
     }
@@ -27,6 +51,7 @@ pub fn fd_renumber(ctx: FunctionEnvMut<'_, WasiEnv>, from: WasiFd, to: WasiFd) -
         ..*fd_entry
     };
     fd_map.insert(to, new_fd_entry);
+    state.fs.make_max_fd(to + 1);
 
     Errno::Success
 }

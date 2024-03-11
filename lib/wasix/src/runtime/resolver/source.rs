@@ -48,23 +48,23 @@ pub enum QueryError {
     NoMatches {
         archived_versions: Vec<semver::Version>,
     },
+    Timeout,
     Other(anyhow::Error),
 }
 
 impl From<anyhow::Error> for QueryError {
     fn from(value: anyhow::Error) -> Self {
-        QueryError::Other(value)
+        Self::Other(value)
     }
 }
 
 impl Display for QueryError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            QueryError::Unsupported => {
-                f.write_str("This type of package specifier isn't supported")
-            }
-            QueryError::NotFound => f.write_str("Not found"),
-            QueryError::NoMatches { archived_versions } => match archived_versions.as_slice() {
+            Self::Unsupported => f.write_str("This type of package specifier isn't supported"),
+            Self::NotFound => f.write_str("Not found"),
+            Self::Timeout => f.write_str("Timed out"),
+            Self::NoMatches { archived_versions } => match archived_versions.as_slice() {
                 [] => f.write_str(
                     "The package was found, but no published versions matched the constraint",
                 ),
@@ -80,7 +80,7 @@ impl Display for QueryError {
                     )
                 }
             },
-            QueryError::Other(e) => Display::fmt(e, f),
+            Self::Other(e) => Display::fmt(e, f),
         }
     }
 }
@@ -88,8 +88,8 @@ impl Display for QueryError {
 impl std::error::Error for QueryError {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
         match self {
-            QueryError::Other(e) => Some(&**e),
-            QueryError::Unsupported | QueryError::NotFound | QueryError::NoMatches { .. } => None,
+            Self::Other(e) => Some(&**e),
+            Self::Unsupported | Self::NotFound | Self::NoMatches { .. } | Self::Timeout => None,
         }
     }
 }

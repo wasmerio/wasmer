@@ -1,19 +1,22 @@
 use dashmap::DashMap;
 use fnv::FnvBuildHasher;
+use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
 use std::thread::{current, park, park_timeout, Thread};
 use std::time::Duration;
 use thiserror::Error;
 
 /// Error that can occur during wait/notify calls.
-#[derive(Debug, Error)]
 // Non-exhaustive to allow for future variants without breaking changes!
+#[derive(Debug, Error)]
 #[non_exhaustive]
 pub enum WaiterError {
     /// Wait/Notify is not implemented for this memory
     Unimplemented,
     /// To many waiter for an address
     TooManyWaiters,
+    /// Atomic operations are disabled.
+    AtomicsDisabled,
 }
 
 impl std::fmt::Display for WaiterError {
@@ -31,18 +34,29 @@ pub struct NotifyLocation {
 
 #[derive(Debug)]
 struct NotifyWaiter {
-    pub thread: Thread,
-    pub notified: bool,
+    thread: Thread,
+    notified: bool,
 }
+
 #[derive(Debug, Default)]
 struct NotifyMap {
-    pub map: DashMap<NotifyLocation, Vec<NotifyWaiter>, FnvBuildHasher>,
+    /// If set to true, all waits will fail with an error.
+    closed: AtomicBool,
+    map: DashMap<NotifyLocation, Vec<NotifyWaiter>, FnvBuildHasher>,
 }
 
 /// HashMap of Waiters for the Thread/Notify opcodes
 #[derive(Debug)]
 pub struct ThreadConditions {
     inner: Arc<NotifyMap>, // The Hasmap with the Notify for the Notify/wait opcodes
+}
+
+impl Clone for ThreadConditions {
+    fn clone(&self) -> Self {
+        Self {
+            inner: Arc::clone(&self.inner),
+        }
+    }
 }
 
 impl ThreadConditions {
@@ -68,18 +82,18 @@ impl ThreadConditions {
         dst: NotifyLocation,
         timeout: Option<Duration>,
     ) -> Result<u32, WaiterError> {
+        if self.inner.closed.load(std::sync::atomic::Ordering::Acquire) {
+            return Err(WaiterError::AtomicsDisabled);
+        }
+
         // fetch the notifier
         if self.inner.map.len() >= 1 << 32 {
             return Err(WaiterError::TooManyWaiters);
         }
-        self.inner
-            .map
-            .entry(dst)
-            .or_insert_with(Vec::new)
-            .push(NotifyWaiter {
-                thread: current(),
-                notified: false,
-            });
+        self.inner.map.entry(dst).or_default().push(NotifyWaiter {
+            thread: current(),
+            notified: false,
+        });
         if let Some(timeout) = timeout {
             park_timeout(timeout);
         } else {
@@ -111,7 +125,7 @@ impl ThreadConditions {
         if let Some(mut v) = self.inner.map.get_mut(&dst) {
             for waiter in v.value_mut() {
                 if count_token < count && !waiter.notified {
-                    waiter.notified = true; // mark as was waiked up
+                    waiter.notified = true; // waiter was notified, not just an elapsed timeout
                     waiter.thread.unpark(); // wakeup!
                     count_token += 1;
                 }
@@ -119,13 +133,53 @@ impl ThreadConditions {
         }
         count_token
     }
+
+    /// Wake all the waiters, *without* marking them as notified.
+    ///
+    /// Useful on shutdown to resume execution in all waiters.
+    pub fn wake_all_atomic_waiters(&self) {
+        for mut item in self.inner.map.iter_mut() {
+            for waiter in item.value_mut() {
+                waiter.thread.unpark();
+            }
+        }
+    }
+
+    /// Disable the use of atomics, leading to all atomic waits failing with
+    /// an error, which leads to a Webassembly trap.
+    ///
+    /// Useful for force-closing instances that keep waiting on atomics.
+    pub fn disable_atomics(&self) {
+        self.inner
+            .closed
+            .store(true, std::sync::atomic::Ordering::Release);
+        self.wake_all_atomic_waiters();
+    }
+
+    /// Get a weak handle to this `ThreadConditions` instance.
+    ///
+    /// See [`ThreadConditionsHandle`] for more information.
+    pub fn downgrade(&self) -> ThreadConditionsHandle {
+        ThreadConditionsHandle {
+            inner: Arc::downgrade(&self.inner),
+        }
+    }
 }
 
-impl Clone for ThreadConditions {
-    fn clone(&self) -> Self {
-        Self {
-            inner: self.inner.clone(),
-        }
+/// A weak handle to a `ThreadConditions` instance, which does not prolong its
+/// lifetime.
+///
+/// Internally holds a [`std::sync::Weak`] pointer.
+pub struct ThreadConditionsHandle {
+    inner: std::sync::Weak<NotifyMap>,
+}
+
+impl ThreadConditionsHandle {
+    /// Attempt to upgrade this handle to a strong reference.
+    ///
+    /// Returns `None` if the original `ThreadConditions` instance has been dropped.
+    pub fn upgrade(&self) -> Option<ThreadConditions> {
+        self.inner.upgrade().map(|inner| ThreadConditions { inner })
     }
 }
 

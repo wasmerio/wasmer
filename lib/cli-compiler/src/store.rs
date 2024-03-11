@@ -330,6 +330,7 @@ pub enum CompilerType {
     /// LLVM compiler
     LLVM,
     /// Headless compiler
+    #[allow(dead_code)]
     Headless,
 }
 

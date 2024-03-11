@@ -93,7 +93,8 @@ hello 3
 | &nbsp; | 语言 | 程序包 | 文档 |
 |-|-|-|-|
 | ![Rust logo] | [**Rust**][Rust integration] | [`wasmer` Rust crate] | [文档][rust docs]
-| ![C logo] | [**C/C++**][C integration] | [`wasmer.h` headers] | [文档][c docs] |
+| ![C logo] | [**C**][C integration] | [`wasm.h` header] | [文档][c docs] |
+| ![C++ logo] | [**C++**][C integration] | [`wasm.hh` header] | [文档][c docs] |
 | ![C# logo] | [**C#**][C# integration] | [`WasmerSharp` NuGet package] | [文档][c# docs] |
 | ![D logo] | [**D**][D integration] | [`wasmer` Dub package] | [文档][d docs] |
 | ![Python logo] | [**Python**][Python integration] | [`wasmer` PyPI package] | [文档][python docs] |

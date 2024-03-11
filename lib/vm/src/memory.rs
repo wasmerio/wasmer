@@ -13,10 +13,11 @@ use more_asserts::assert_ge;
 use std::cell::UnsafeCell;
 use std::convert::TryInto;
 use std::ptr::NonNull;
+use std::rc::Rc;
 use std::slice;
-use std::sync::{Arc, RwLock};
+use std::sync::RwLock;
 use std::time::Duration;
-use wasmer_types::{Bytes, MemoryError, MemoryStyle, MemoryType, Pages};
+use wasmer_types::{Bytes, MemoryError, MemoryStyle, MemoryType, Pages, WASM_PAGE_SIZE};
 
 // The memory mapped area
 #[derive(Debug)]
@@ -118,6 +119,25 @@ impl WasmMmap {
         }
 
         Ok(prev_pages)
+    }
+
+    /// Grows the memory to at least a minimum size. If the memory is already big enough
+    /// for the min size then this function does nothing
+    fn grow_at_least(&mut self, min_size: u64, conf: VMMemoryConfig) -> Result<(), MemoryError> {
+        let cur_size = self.size.bytes().0 as u64;
+        if cur_size < min_size {
+            let growth = min_size - cur_size;
+            let growth_pages = ((growth - 1) / WASM_PAGE_SIZE as u64) + 1;
+            self.grow(Pages(growth_pages as u32), conf)?;
+        }
+
+        Ok(())
+    }
+
+    /// Resets the memory down to a zero size
+    fn reset(&mut self) -> Result<(), MemoryError> {
+        self.size.0 = 0;
+        Ok(())
     }
 
     /// Copies the memory
@@ -286,7 +306,7 @@ impl VMOwnedMemory {
     /// Converts this owned memory into shared memory
     pub fn to_shared(self) -> VMSharedMemory {
         VMSharedMemory {
-            mmap: Arc::new(RwLock::new(self.mmap)),
+            mmap: Rc::new(RwLock::new(self.mmap)),
             config: self.config,
             conditions: ThreadConditions::new(),
         }
@@ -326,6 +346,18 @@ impl LinearMemory for VMOwnedMemory {
         self.mmap.grow(delta, self.config.clone())
     }
 
+    /// Grows the memory to at least a minimum size. If the memory is already big enough
+    /// for the min size then this function does nothing
+    fn grow_at_least(&mut self, min_size: u64) -> Result<(), MemoryError> {
+        self.mmap.grow_at_least(min_size, self.config.clone())
+    }
+
+    /// Resets the memory down to a zero size
+    fn reset(&mut self) -> Result<(), MemoryError> {
+        self.mmap.reset()?;
+        Ok(())
+    }
+
     /// Return a `VMMemoryDefinition` for exposing the memory to compiled wasm code.
     fn vmmemory(&self) -> NonNull<VMMemoryDefinition> {
         self.mmap.vm_memory_definition.as_ptr()
@@ -347,7 +379,7 @@ impl LinearMemory for VMOwnedMemory {
 #[derive(Debug, Clone)]
 pub struct VMSharedMemory {
     // The underlying allocation.
-    mmap: Arc<RwLock<WasmMmap>>,
+    mmap: Rc<RwLock<WasmMmap>>,
     // Configuration of this memory
     config: VMMemoryConfig,
     // waiters list for this memory
@@ -385,7 +417,7 @@ impl VMSharedMemory {
     pub fn copy(&mut self) -> Result<Self, MemoryError> {
         let mut guard = self.mmap.write().unwrap();
         Ok(Self {
-            mmap: Arc::new(RwLock::new(guard.copy()?)),
+            mmap: Rc::new(RwLock::new(guard.copy()?)),
             config: self.config.clone(),
             conditions: ThreadConditions::new(),
         })
@@ -422,6 +454,20 @@ impl LinearMemory for VMSharedMemory {
         guard.grow(delta, self.config.clone())
     }
 
+    /// Grows the memory to at least a minimum size. If the memory is already big enough
+    /// for the min size then this function does nothing
+    fn grow_at_least(&mut self, min_size: u64) -> Result<(), MemoryError> {
+        let mut guard = self.mmap.write().unwrap();
+        guard.grow_at_least(min_size, self.config.clone())
+    }
+
+    /// Resets the memory down to a zero size
+    fn reset(&mut self) -> Result<(), MemoryError> {
+        let mut guard = self.mmap.write().unwrap();
+        guard.reset()?;
+        Ok(())
+    }
+
     /// Return a `VMMemoryDefinition` for exposing the memory to compiled wasm code.
     fn vmmemory(&self) -> NonNull<VMMemoryDefinition> {
         let guard = self.mmap.read().unwrap();
@@ -451,6 +497,10 @@ impl LinearMemory for VMSharedMemory {
     /// Notify waiters from the wait list. Return the number of waiters notified
     fn do_notify(&mut self, dst: NotifyLocation, count: u32) -> u32 {
         self.conditions.do_notify(dst, count)
+    }
+
+    fn thread_conditions(&self) -> Option<&ThreadConditions> {
+        Some(&self.conditions)
     }
 }
 
@@ -495,6 +545,18 @@ impl LinearMemory for VMMemory {
         self.0.grow(delta)
     }
 
+    /// Grows the memory to at least a minimum size. If the memory is already big enough
+    /// for the min size then this function does nothing
+    fn grow_at_least(&mut self, min_size: u64) -> Result<(), MemoryError> {
+        self.0.grow_at_least(min_size)
+    }
+
+    /// Resets the memory down to a zero size
+    fn reset(&mut self) -> Result<(), MemoryError> {
+        self.0.reset()?;
+        Ok(())
+    }
+
     /// Returns the memory style for this memory.
     fn style(&self) -> MemoryStyle {
         self.0.style()
@@ -532,6 +594,10 @@ impl LinearMemory for VMMemory {
     /// Notify waiters from the wait list. Return the number of waiters notified
     fn do_notify(&mut self, dst: NotifyLocation, count: u32) -> u32 {
         self.0.do_notify(dst, count)
+    }
+
+    fn thread_conditions(&self) -> Option<&ThreadConditions> {
+        self.0.thread_conditions()
     }
 }
 
@@ -633,6 +699,21 @@ where
     /// of wasm pages.
     fn grow(&mut self, delta: Pages) -> Result<Pages, MemoryError>;
 
+    /// Grows the memory to at least a minimum size. If the memory is already big enough
+    /// for the min size then this function does nothing
+    fn grow_at_least(&mut self, _min_size: u64) -> Result<(), MemoryError> {
+        Err(MemoryError::UnsupportedOperation {
+            message: "grow_at_least() is not supported".to_string(),
+        })
+    }
+
+    /// Resets the memory back to zero length
+    fn reset(&mut self) -> Result<(), MemoryError> {
+        Err(MemoryError::UnsupportedOperation {
+            message: "reset() is not supported".to_string(),
+        })
+    }
+
     /// Return a `VMMemoryDefinition` for exposing the memory to compiled wasm code.
     fn vmmemory(&self) -> NonNull<VMMemoryDefinition>;
 
@@ -665,5 +746,12 @@ where
     /// Notify waiters from the wait list. Return the number of waiters notified
     fn do_notify(&mut self, _dst: NotifyLocation, _count: u32) -> u32 {
         0
+    }
+
+    /// Access the internal atomics handler.
+    ///
+    /// Will be [`None`] if the memory does not support atomics.
+    fn thread_conditions(&self) -> Option<&ThreadConditions> {
+        None
     }
 }

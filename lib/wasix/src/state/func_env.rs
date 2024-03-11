@@ -1,15 +1,19 @@
+use std::sync::Arc;
+
 use tracing::trace;
 use wasmer::{
     AsStoreMut, AsStoreRef, ExportError, FunctionEnv, Imports, Instance, Memory, Module, Store,
 };
 use wasmer_wasix_types::wasi::ExitCode;
 
+#[cfg(feature = "journal")]
+use crate::syscalls::restore_snapshot;
 use crate::{
     import_object_for_all_wasi_versions,
     runtime::SpawnMemoryType,
     state::WasiInstanceHandles,
-    utils::{get_wasi_version, get_wasi_versions, store::restore_snapshot},
-    InstanceSnapshot, WasiEnv, WasiError, WasiThreadError,
+    utils::{get_wasi_version, get_wasi_versions, store::restore_instance_snapshot},
+    InstanceSnapshot, RewindStateOption, WasiEnv, WasiError, WasiRuntimeError, WasiThreadError,
 };
 
 /// The default stack size for WASIX - the number itself is the default that compilers
@@ -19,7 +23,7 @@ use crate::{
 const DEFAULT_STACK_SIZE: u64 = 1_048_576u64;
 const DEFAULT_STACK_BASE: u64 = DEFAULT_STACK_SIZE;
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct WasiFunctionEnv {
     pub env: FunctionEnv<WasiEnv>,
 }
@@ -61,7 +65,7 @@ impl WasiFunctionEnv {
 
         init(&instance, &store).map_err(|err| {
             tracing::warn!("failed to init instance - {}", err);
-            WasiThreadError::InitFailed(err)
+            WasiThreadError::InitFailed(Arc::new(err))
         })?;
 
         // Initialize the WASI environment
@@ -74,7 +78,7 @@ impl WasiFunctionEnv {
         // Set all the globals
         if let Some(snapshot) = snapshot {
             tracing::trace!("restoring snapshot for new thread");
-            restore_snapshot(&mut store, snapshot);
+            restore_instance_snapshot(&mut store, snapshot);
         }
 
         Ok((ctx, store))
@@ -170,9 +174,23 @@ impl WasiFunctionEnv {
 
             // Update the stack layout which is need for asyncify
             let env = self.data_mut(store);
+            let tid = env.tid();
             let layout = &mut env.layout;
             layout.stack_upper = stack_base;
             layout.stack_size = layout.stack_upper - layout.stack_lower;
+
+            // Replace the thread object itself
+            env.thread.set_memory_layout(layout.clone());
+
+            // Replace the thread object with this new layout
+            {
+                let mut guard = env.process.lock();
+                guard
+                    .threads
+                    .values_mut()
+                    .filter(|t| t.tid() == tid)
+                    .for_each(|t| t.set_memory_layout(layout.clone()))
+            }
         }
         tracing::trace!("initializing with layout {:?}", self.data(store).layout);
 
@@ -206,14 +224,74 @@ impl WasiFunctionEnv {
     /// This function should only be called from within a syscall
     /// as it can potentially execute local thread variable cleanup
     /// code
-    pub fn cleanup(&self, store: &mut impl AsStoreMut, exit_code: Option<ExitCode>) {
+    pub fn on_exit(&self, store: &mut impl AsStoreMut, exit_code: Option<ExitCode>) {
         trace!(
-            "wasi[{}:{}]::cleanup",
+            "wasi[{}:{}]::on_exit",
             self.data(store).pid(),
             self.data(store).tid()
         );
 
         // Cleans up all the open files (if this is the main thread)
-        self.data(store).blocking_cleanup(exit_code);
+        self.data(store).blocking_on_exit(exit_code);
+    }
+
+    /// Bootstraps this main thread and context with any journals that
+    /// may be present
+    ///
+    /// # Safety
+    ///
+    /// This function manipulates the memory of the process and thus must be executed
+    /// by the WASM process thread itself.
+    ///
+    #[allow(clippy::result_large_err)]
+    #[allow(unused_variables, unused_mut)]
+    pub unsafe fn bootstrap(
+        &self,
+        mut store: &'_ mut impl AsStoreMut,
+    ) -> Result<RewindStateOption, WasiRuntimeError> {
+        #[allow(unused_mut)]
+        let mut rewind_state = None;
+
+        #[cfg(feature = "journal")]
+        {
+            // If there are journals we need to restore then do so (this will
+            // prevent the initialization function from running
+            let restore_journals = self.data(&store).runtime.journals().clone();
+            if !restore_journals.is_empty() {
+                self.data_mut(&mut store).replaying_journal = true;
+
+                for journal in restore_journals {
+                    let ctx = self.env.clone().into_mut(&mut store);
+                    let rewind = match restore_snapshot(ctx, journal, true) {
+                        Ok(r) => r,
+                        Err(err) => {
+                            self.data_mut(&mut store).replaying_journal = false;
+                            return Err(err);
+                        }
+                    };
+                    rewind_state = rewind.map(|rewind| (rewind, None));
+                }
+
+                self.data_mut(&mut store).replaying_journal = false;
+            }
+
+            // The first event we save is an event that records the module hash.
+            // Note: This is used to detect if an incorrect journal is used on the wrong
+            // process or if a process has been recompiled
+            let wasm_hash = self.data(&store).process.module_hash.as_bytes();
+            let mut ctx = self.env.clone().into_mut(&mut store);
+            crate::journal::JournalEffector::save_event(
+                &mut ctx,
+                crate::journal::JournalEntry::InitModuleV1 { wasm_hash },
+            )
+            .map_err(|err| {
+                WasiRuntimeError::Runtime(wasmer::RuntimeError::new(format!(
+                    "journal failied to save the module initialization event - {}",
+                    err
+                )))
+            })?;
+        }
+
+        Ok(rewind_state)
     }
 }

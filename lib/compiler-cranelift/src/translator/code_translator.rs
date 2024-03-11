@@ -99,10 +99,7 @@ use wasmer_types::{
 };
 
 // Clippy warns about "align: _" but its important to document that the align field is ignored
-#[cfg_attr(
-    feature = "cargo-clippy",
-    allow(clippy::unneeded_field_pattern, clippy::cognitive_complexity)
-)]
+#[allow(clippy::unneeded_field_pattern, clippy::cognitive_complexity)]
 /// Translates wasm operators into Cranelift IR instructions. Returns `true` if it inserted
 /// a return.
 pub fn translate_operator<FE: FuncEnvironment + ?Sized>(
@@ -236,14 +233,14 @@ pub fn translate_operator<FE: FuncEnvironment + ?Sized>(
          *  possible `Block`'s arguments values.
          ***********************************************************************************/
         Operator::Block { blockty } => {
-            let (params, results) = module_translation_state.blocktype_params_results(*blockty)?;
-            let next = block_with_params(builder, results, environ)?;
+            let (params, results) = module_translation_state.blocktype_params_results(blockty)?;
+            let next = block_with_params(builder, results.iter(), environ)?;
             state.push_block(next, params.len(), results.len());
         }
         Operator::Loop { blockty } => {
-            let (params, results) = module_translation_state.blocktype_params_results(*blockty)?;
-            let loop_body = block_with_params(builder, params, environ)?;
-            let next = block_with_params(builder, results, environ)?;
+            let (params, results) = module_translation_state.blocktype_params_results(blockty)?;
+            let loop_body = block_with_params(builder, params.iter(), environ)?;
+            let next = block_with_params(builder, results.iter(), environ)?;
             canonicalise_then_jump(builder, loop_body, state.peekn(params.len()));
             state.push_loop(loop_body, next, params.len(), results.len());
 
@@ -260,7 +257,7 @@ pub fn translate_operator<FE: FuncEnvironment + ?Sized>(
         Operator::If { blockty } => {
             let val = state.pop1();
 
-            let (params, results) = module_translation_state.blocktype_params_results(*blockty)?;
+            let (params, results) = module_translation_state.blocktype_params_results(blockty)?;
             let (destination, else_data) = if params == results {
                 // It is possible there is no `else` block, so we will only
                 // allocate a block for it if/when we find the `else`. For now,
@@ -268,15 +265,15 @@ pub fn translate_operator<FE: FuncEnvironment + ?Sized>(
                 // destination block following the whole `if...end`. If we do end
                 // up discovering an `else`, then we will allocate a block for it
                 // and go back and patch the jump.
-                let destination = block_with_params(builder, results, environ)?;
+                let destination = block_with_params(builder, results.iter(), environ)?;
                 let branch_inst =
                     canonicalise_then_brz(builder, val, destination, state.peekn(params.len()));
                 (destination, ElseData::NoElse { branch_inst })
             } else {
                 // The `if` type signature is not valid without an `else` block,
                 // so we eagerly allocate the `else` block here.
-                let destination = block_with_params(builder, results, environ)?;
-                let else_block = block_with_params(builder, params, environ)?;
+                let destination = block_with_params(builder, results.iter(), environ)?;
+                let else_block = block_with_params(builder, params.iter(), environ)?;
                 canonicalise_then_brz(builder, val, else_block, state.peekn(params.len()));
                 builder.seal_block(else_block);
                 (destination, ElseData::WithElse { else_block })
@@ -326,10 +323,11 @@ pub fn translate_operator<FE: FuncEnvironment + ?Sized>(
                         // already been pre-allocated, see `ElseData` for details).
                         let else_block = match *else_data {
                             ElseData::NoElse { branch_inst } => {
-                                let (params, _results) =
-                                    module_translation_state.blocktype_params_results(blocktype)?;
+                                let (params, _results) = module_translation_state
+                                    .blocktype_params_results(&blocktype)?;
                                 debug_assert_eq!(params.len(), num_return_values);
-                                let else_block = block_with_params(builder, params, environ)?;
+                                let else_block =
+                                    block_with_params(builder, params.iter(), environ)?;
                                 canonicalise_then_jump(
                                     builder,
                                     destination,
@@ -1039,7 +1037,9 @@ pub fn translate_operator<FE: FuncEnvironment + ?Sized>(
         Operator::F32Le | Operator::F64Le => {
             translate_fcmp(FloatCC::LessThanOrEqual, builder, state)
         }
-        Operator::RefNull { ty } => state.push1(environ.translate_ref_null(builder.cursor(), *ty)?),
+        Operator::RefNull { hty } => {
+            state.push1(environ.translate_ref_null(builder.cursor(), *hty)?)
+        }
         Operator::RefIsNull => {
             let value = state.pop1();
             state.push1(environ.translate_ref_is_null(builder.cursor(), value)?);
@@ -2032,14 +2032,12 @@ pub fn translate_operator<FE: FuncEnvironment + ?Sized>(
             return Err(wasm_unsupported!("proposed tail-call operator {:?}", op));
         }
         Operator::I8x16RelaxedSwizzle
-        | Operator::I32x4RelaxedTruncSatF32x4S
-        | Operator::I32x4RelaxedTruncSatF32x4U
-        | Operator::I32x4RelaxedTruncSatF64x2SZero
-        | Operator::I32x4RelaxedTruncSatF64x2UZero
-        | Operator::F32x4RelaxedFma
-        | Operator::F32x4RelaxedFnma
-        | Operator::F64x2RelaxedFma
-        | Operator::F64x2RelaxedFnma
+        | Operator::I32x4RelaxedTruncF32x4S
+        | Operator::I32x4RelaxedTruncF32x4U
+        | Operator::I32x4RelaxedTruncF64x2SZero
+        | Operator::I32x4RelaxedTruncF64x2UZero
+        | Operator::F32x4RelaxedNmadd
+        | Operator::F32x4RelaxedMadd
         | Operator::I8x16RelaxedLaneselect
         | Operator::I16x8RelaxedLaneselect
         | Operator::I32x4RelaxedLaneselect
@@ -2048,18 +2046,64 @@ pub fn translate_operator<FE: FuncEnvironment + ?Sized>(
         | Operator::F32x4RelaxedMax
         | Operator::F64x2RelaxedMin
         | Operator::F64x2RelaxedMax
-        | Operator::F32x4RelaxedDotBf16x8AddF32x4
-        | Operator::I16x8RelaxedQ15mulrS
-        | Operator::I16x8DotI8x16I7x16S
-        | Operator::I32x4DotI8x16I7x16AddS => {
+        | Operator::F64x2RelaxedMadd
+        | Operator::F64x2RelaxedNmadd
+        | Operator::I16x8RelaxedDotI8x16I7x16S
+        | Operator::I32x4RelaxedDotI8x16I7x16AddS
+        | Operator::I16x8RelaxedQ15mulrS => {
             return Err(wasm_unsupported!("proposed relaxed-simd operator {:?}", op));
+        }
+        Operator::TryTable { .. } | Operator::ThrowRef => {
+            return Err(wasm_unsupported!(
+                "exceptions are not supported (operator: {op:?})"
+            ));
+        }
+        Operator::RefEq
+        | Operator::StructNew { .. }
+        | Operator::StructNewDefault { .. }
+        | Operator::StructGet { .. }
+        | Operator::StructGetS { .. }
+        | Operator::StructGetU { .. }
+        | Operator::StructSet { .. }
+        | Operator::ArrayNew { .. }
+        | Operator::ArrayNewDefault { .. }
+        | Operator::ArrayNewFixed { .. }
+        | Operator::ArrayNewData { .. }
+        | Operator::ArrayNewElem { .. }
+        | Operator::ArrayGet { .. }
+        | Operator::ArrayGetS { .. }
+        | Operator::ArrayGetU { .. }
+        | Operator::ArraySet { .. }
+        | Operator::ArrayLen
+        | Operator::ArrayFill { .. }
+        | Operator::ArrayCopy { .. }
+        | Operator::ArrayInitData { .. }
+        | Operator::ArrayInitElem { .. }
+        | Operator::RefTestNonNull { .. } => {}
+        Operator::RefTestNullable { .. }
+        | Operator::RefCastNonNull { .. }
+        | Operator::RefCastNullable { .. }
+        | Operator::BrOnCast { .. }
+        | Operator::BrOnCastFail { .. }
+        | Operator::AnyConvertExtern
+        | Operator::ExternConvertAny
+        | Operator::RefI31
+        | Operator::I31GetS
+        | Operator::I31GetU
+        | Operator::MemoryDiscard { .. }
+        | Operator::CallRef { .. }
+        | Operator::ReturnCallRef { .. }
+        | Operator::RefAsNonNull
+        | Operator::BrOnNull { .. }
+        | Operator::BrOnNonNull { .. } => {
+            return Err(wasm_unsupported!("GC proposal not (operator: {:?})", op));
         }
     };
     Ok(())
 }
 
 // Clippy warns us of some fields we are deliberately ignoring
-#[cfg_attr(feature = "cargo-clippy", allow(clippy::unneeded_field_pattern))]
+#[allow(clippy::unneeded_field_pattern)]
 /// Deals with a Wasm instruction located in an unreachable portion of the code. Most of them
 /// are dropped but special ones like `End` or `Else` signal the potential end of the unreachable
 /// portion so the translation state must be updated accordingly.
@@ -2107,9 +2151,10 @@ fn translate_unreachable_operator<FE: FuncEnvironment + ?Sized>(
 
                         let else_block = match *else_data {
                             ElseData::NoElse { branch_inst } => {
-                                let (params, _results) =
-                                    module_translation_state.blocktype_params_results(blocktype)?;
-                                let else_block = block_with_params(builder, params, environ)?;
+                                let (params, _results) = module_translation_state
+                                    .blocktype_params_results(&blocktype)?;
+                                let else_block =
+                                    block_with_params(builder, params.iter(), environ)?;
                                 let frame = state.control_stack.last().unwrap();
                                 frame.truncate_value_stack_to_else_params(&mut state.stack);
 

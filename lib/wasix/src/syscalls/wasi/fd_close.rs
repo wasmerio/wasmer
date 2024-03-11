@@ -32,5 +32,13 @@ pub fn fd_close(mut ctx: FunctionEnvMut<'_, WasiEnv>, fd: WasiFd) -> Result<Errn
     let (_, mut state) = unsafe { env.get_memory_and_wasi_state(&ctx, 0) };
     wasi_try_ok!(state.fs.close_fd(fd));
 
+    #[cfg(feature = "journal")]
+    if env.enable_journal {
+        JournalEffector::save_fd_close(&mut ctx, fd).map_err(|err| {
+            tracing::error!("failed to save close descriptor event - {}", err);
+            WasiError::Exit(ExitCode::Errno(Errno::Fault))
+        })?;
+    }
+
     Ok(Errno::Success)
 }

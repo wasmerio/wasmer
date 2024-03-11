@@ -12,7 +12,7 @@ use std::{
 };
 use tokio::io::{AsyncRead, AsyncSeek, AsyncWrite};
 
-#[derive(Derivative, Clone)]
+#[derive(Derivative)]
 #[derivative(Debug)]
 pub struct ArcFile<T>
 where
@@ -131,7 +131,7 @@ where
         let mut inner = self.inner.lock().unwrap();
         let fut = inner.unlink();
         drop(inner);
-        Box::pin(async move { fut.await })
+        Box::pin(fut)
     }
     fn is_open(&self) -> bool {
         let inner = self.inner.lock().unwrap();
@@ -150,6 +150,17 @@ where
         let mut inner = self.inner.lock().unwrap();
         let inner = Pin::new(inner.as_mut());
         inner.poll_write_ready(cx)
+    }
+}
+
+impl<T> Clone for ArcFile<T>
+where
+    T: VirtualFile + Send + Sync + 'static,
+{
+    fn clone(&self) -> Self {
+        ArcFile {
+            inner: self.inner.clone(),
+        }
     }
 }
 

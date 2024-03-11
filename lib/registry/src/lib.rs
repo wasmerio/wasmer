@@ -17,6 +17,8 @@ pub mod interface;
 pub mod login;
 pub mod package;
 pub mod publish;
+pub mod subscriptions;
+pub(crate) mod tokio_spawner;
 pub mod types;
 pub mod utils;
 pub mod wasmer_env;
@@ -45,11 +47,14 @@ pub static PACKAGE_TOML_FALLBACK_NAME: &str = "wapm.toml";
 pub static GLOBAL_CONFIG_FILE_NAME: &str = "wasmer.toml";
 
 #[derive(Debug, Clone, PartialEq, PartialOrd, Eq, Ord)]
+#[non_exhaustive]
 pub struct PackageDownloadInfo {
     pub registry: String,
     pub package: String,
     pub version: String,
     pub is_latest_version: bool,
+    /// Is the package private?
+    pub is_private: bool,
     pub commands: String,
     pub manifest: String,
     pub url: String,
@@ -90,6 +95,7 @@ pub fn query_command_from_registry(
         commands: command_name.to_string(),
         url,
         pirita_url,
+        is_private: command.package_version.package.private,
     })
 }
 
@@ -107,11 +113,18 @@ impl fmt::Display for QueryPackageError {
         match self {
             QueryPackageError::ErrorSendingQuery(q) => write!(f, "error sending query: {q}"),
             QueryPackageError::NoPackageFound { name, version } => {
-                write!(f, "no package found for {name:?} (version = {version:?})")
+                write!(f, "no package found for {name:?}")?;
+                if let Some(version) = version {
+                    write!(f, " (version = {version:?})")?;
+                }
+
+                Ok(())
             }
         }
     }
 }
+
+impl std::error::Error for QueryPackageError {}
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd)]
 pub enum GetIfPackageHasNewVersionResult {
@@ -147,6 +160,7 @@ pub fn query_package_from_registry(
     registry_url: &str,
     name: &str,
     version: Option<&str>,
+    auth_token: Option<&str>,
 ) -> Result<PackageDownloadInfo, QueryPackageError> {
     use crate::graphql::{
         execute_query,
@@ -158,14 +172,18 @@ pub fn query_package_from_registry(
         version: version.map(|s| s.to_string()),
     });
 
-    let response: get_package_version_query::ResponseData = execute_query(registry_url, "", &q)
-        .map_err(|e| {
+    let response: get_package_version_query::ResponseData =
+        execute_query(registry_url, auth_token.unwrap_or_default(), &q).map_err(|e| {
             QueryPackageError::ErrorSendingQuery(format!("Error sending GetPackagesQuery: {e}"))
         })?;
 
-    let v = response.package_version.as_ref().ok_or_else(|| {
-        QueryPackageError::ErrorSendingQuery(format!("no package version for {name:?}"))
-    })?;
+    let v = response
+        .package_version
+        .as_ref()
+        .ok_or_else(|| QueryPackageError::NoPackageFound {
+            name: name.to_string(),
+            version: None,
+        })?;
 
     let manifest = toml::from_str::<wasmer_toml::Manifest>(&v.manifest).map_err(|e| {
         QueryPackageError::ErrorSendingQuery(format!("Invalid manifest for crate {name:?}: {e}"))
@@ -177,11 +195,11 @@ pub fn query_package_from_registry(
 
         version: v.version.clone(),
         is_latest_version: v.is_last_version,
+        is_private: v.package.private,
         manifest: v.manifest.clone(),
 
         commands: manifest
-            .command
-            .unwrap_or_default()
+            .commands
             .iter()
             .map(|s| s.get_name())
             .collect::<Vec<_>>()

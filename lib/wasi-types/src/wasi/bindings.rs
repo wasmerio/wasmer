@@ -1,3 +1,4 @@
+use num_enum::{IntoPrimitive, TryFromPrimitive};
 #[cfg(feature = "enable-serde")]
 use serde::{Deserialize, Serialize};
 use std::mem::MaybeUninit;
@@ -34,6 +35,7 @@ pub type Pid = u32;
 #[doc = " Identifiers for clocks, snapshot0 version."]
 #[repr(u32)]
 #[derive(Clone, Copy, PartialEq, Eq, num_enum :: TryFromPrimitive, Hash)]
+#[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 pub enum Snapshot0Clockid {
     #[doc = " The clock measuring real time. Time value zero corresponds with"]
     #[doc = " 1970-01-01T00:00:00Z."]
@@ -100,7 +102,7 @@ impl core::fmt::Debug for Clockid {
 #[doc = " API; some are used in higher-level library layers, and others are provided"]
 #[doc = " merely for alignment with POSIX."]
 #[repr(u16)]
-#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, IntoPrimitive, TryFromPrimitive)]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 pub enum Errno {
     #[doc = " No error occurred. System call completed successfully."]
@@ -447,6 +449,7 @@ impl core::fmt::Display for Errno {
 impl std::error::Error for Errno {}
 wai_bindgen_rust::bitflags::bitflags! {
     #[doc = " File descriptor rights, determining which actions may be performed."]
+    #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
     pub struct Rights : u64 {
         #[doc = " The right to invoke `fd_datasync`."]
         #[doc = " "]
@@ -640,6 +643,7 @@ impl core::fmt::Debug for Dirent {
 #[doc = " File or memory access pattern advisory information."]
 #[repr(u8)]
 #[derive(Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 pub enum Advice {
     #[doc = " The application has no advice to give on its behavior with respect to the specified data."]
     Normal,
@@ -671,6 +675,7 @@ impl core::fmt::Debug for Advice {
 }
 wai_bindgen_rust::bitflags::bitflags! {
     #[doc = " File descriptor flags."]
+    #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
     pub struct Fdflags : u16 {
         #[doc = " Append mode: Data written to the file is always appended to the file's end."]
         const APPEND = 1 << 0;
@@ -721,6 +726,7 @@ wai_bindgen_rust::bitflags::bitflags! {
     #[doc = " Which file time attributes to adjust."]
     #[doc = " TODO: wit appears to not have support for flags repr"]
     #[doc = " (@witx repr u16)"]
+    #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
     pub struct Fstflags : u16 {
         #[doc = " Adjust the last data access timestamp to the value stored in `filestat::atim`."]
         const SET_ATIM = 1 << 0;
@@ -759,6 +765,7 @@ wai_bindgen_rust::bitflags::bitflags! {
     #[doc = " Open flags used by `path_open`."]
     #[doc = " TODO: wit appears to not have support for flags repr"]
     #[doc = " (@witx repr u16)"]
+    #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
     pub struct Oflags : u16 {
         #[doc = " Create file if it does not exist."]
         const CREATE = 1 << 0;
@@ -951,6 +958,7 @@ impl core::fmt::Debug for SubscriptionFsReadwrite {
 }
 #[repr(u8)]
 #[derive(Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 pub enum Socktype {
     Unknown,
     Stream,
@@ -991,6 +999,7 @@ impl core::fmt::Debug for Sockstatus {
 }
 #[repr(u8)]
 #[derive(Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 pub enum Sockoption {
     Noop,
     ReusePort,
@@ -1081,6 +1090,7 @@ impl core::fmt::Debug for Streamsecurity {
 }
 #[repr(u8)]
 #[derive(Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 pub enum Addressfamily {
     Unspec,
     Inet4,
@@ -1169,6 +1179,7 @@ impl core::fmt::Debug for Snapshot0Whence {
 }
 #[repr(u8)]
 #[derive(Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 pub enum Whence {
     Set,
     Cur,
@@ -1186,7 +1197,8 @@ impl core::fmt::Debug for Whence {
     }
 }
 #[repr(C)]
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, PartialEq)]
+#[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 pub struct Tty {
     pub cols: u32,
     pub rows: u32,
@@ -1332,7 +1344,6 @@ impl core::fmt::Debug for PipeHandles {
 #[repr(u8)]
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub enum StdioMode {
-    Reserved,
     Piped,
     Inherit,
     Null,
@@ -1341,7 +1352,6 @@ pub enum StdioMode {
 impl core::fmt::Debug for StdioMode {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
-            StdioMode::Reserved => f.debug_tuple("StdioMode::Reserved").finish(),
             StdioMode::Piped => f.debug_tuple("StdioMode::Piped").finish(),
             StdioMode::Inherit => f.debug_tuple("StdioMode::Inherit").finish(),
             StdioMode::Null => f.debug_tuple("StdioMode::Null").finish(),
@@ -1350,7 +1360,8 @@ impl core::fmt::Debug for StdioMode {
     }
 }
 #[repr(u16)]
-#[derive(Clone, Copy, PartialEq, Eq)]
+#[derive(Clone, Copy, PartialEq, Eq, IntoPrimitive, TryFromPrimitive)]
+#[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 pub enum SockProto {
     Ip,
     Icmp,
@@ -3199,11 +3210,10 @@ unsafe impl wasmer::FromToNativeWasmType for StdioMode {
 
     fn from_native(n: Self::Native) -> Self {
         match n {
-            0 => Self::Reserved,
-            1 => Self::Piped,
-            2 => Self::Inherit,
-            3 => Self::Null,
-            4 => Self::Log,
+            0 => Self::Piped,
+            1 => Self::Inherit,
+            2 => Self::Null,
+            3 => Self::Log,
 
             q => {
                 tracing::debug!("could not serialize number {q} to enum StdioMode");

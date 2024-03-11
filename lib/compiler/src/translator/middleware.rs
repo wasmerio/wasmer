@@ -146,7 +146,7 @@ impl<'a> FunctionBinaryReader<'a> for MiddlewareBinaryReader<'a> {
         let ty: ValType = self
             .state
             .inner
-            .read_val_type()
+            .read::<ValType>()
             .map_err(from_binaryreadererror_wasmerror)?;
         Ok((count, ty))
     }

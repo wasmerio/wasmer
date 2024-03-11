@@ -44,8 +44,7 @@ impl From<FromUtf8Error> for MemoryAccessError {
 /// trait which guarantees that reading and writing such a value to untrusted
 /// memory is safe.
 ///
-/// The address is not required to be aligned: unaligned accesses are fully
-/// supported.
+/// The address is required to be aligned: unaligned accesses cause undefined behavior.
 ///
 /// This wrapper safely handles concurrent modifications of the data by another
 /// thread.
@@ -86,7 +85,7 @@ impl<'a, T: ValueType> WasmRef<'a, T> {
         WasmPtr::new(self.offset)
     }
 
-    /// Get a `WasmPtr` fror this `WasmRef`.
+    /// Get a `WasmPtr` for this `WasmRef`.
     #[inline]
     pub fn as_ptr<M: MemorySize>(self) -> WasmPtr<T, M> {
         let offset: M::Offset = self
@@ -265,12 +264,9 @@ impl<'a, T: ValueType> WasmSlice<'a, T> {
             self.len,
             "slice length doesn't match WasmSlice length"
         );
-        let bytes = unsafe {
-            slice::from_raw_parts_mut(
-                buf.as_mut_ptr() as *mut MaybeUninit<u8>,
-                buf.len() * mem::size_of::<T>(),
-            )
-        };
+        let size = std::mem::size_of_val(buf);
+        let bytes =
+            unsafe { slice::from_raw_parts_mut(buf.as_mut_ptr() as *mut MaybeUninit<u8>, size) };
         self.buffer.read_uninit(self.offset, bytes)?;
         Ok(())
     }
@@ -310,9 +306,8 @@ impl<'a, T: ValueType> WasmSlice<'a, T> {
             self.len,
             "slice length doesn't match WasmSlice length"
         );
-        let bytes = unsafe {
-            slice::from_raw_parts(data.as_ptr() as *const u8, data.len() * mem::size_of::<T>())
-        };
+        let size = std::mem::size_of_val(data);
+        let bytes = unsafe { slice::from_raw_parts(data.as_ptr() as *const u8, size) };
         self.buffer.write(self.offset, bytes)
     }
 

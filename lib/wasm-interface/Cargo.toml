@@ -15,7 +15,7 @@ bincode = { version = "1", optional = true }
 either = "1.5"
 nom = "5"
 serde = { version = "1", features = ["derive"] }
-wasmparser = { version = "0.51.4", optional = true }
+wasmparser = { workspace = true, optional = true }
 
 [dev-dependencies]
 wat = "1.0"

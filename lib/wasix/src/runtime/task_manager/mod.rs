@@ -7,14 +7,15 @@ use std::task::{Context, Poll};
 use std::{pin::Pin, time::Duration};
 
 use bytes::Bytes;
+use derivative::Derivative;
 use futures::future::BoxFuture;
-use futures::Future;
+use futures::{Future, TryFutureExt};
 use wasmer::{AsStoreMut, AsStoreRef, Memory, MemoryType, Module, Store, StoreMut, StoreRef};
 use wasmer_wasix_types::wasi::{Errno, ExitCode};
 
 use crate::os::task::thread::WasiThreadError;
 use crate::syscalls::AsyncifyFuture;
-use crate::{capture_snapshot, InstanceSnapshot, WasiEnv, WasiFunctionEnv, WasiThread};
+use crate::{capture_instance_snapshot, InstanceSnapshot, WasiEnv, WasiFunctionEnv, WasiThread};
 
 pub use virtual_mio::waker::*;
 
@@ -38,6 +39,8 @@ pub type WasmResumeTrigger = dyn FnOnce() -> Pin<Box<dyn Future<Output = Result<
     + Sync;
 
 /// The properties passed to the task
+#[derive(Derivative)]
+#[derivative(Debug)]
 pub struct TaskWasmRunProperties {
     pub ctx: WasiFunctionEnv,
     pub store: Store,
@@ -45,6 +48,9 @@ pub struct TaskWasmRunProperties {
     /// When no trigger is associated with the run operation (i.e. spawning threads) then this will be None.
     /// (if the trigger returns an ExitCode then the WASM process will be terminated without resuming)
     pub trigger_result: Option<Result<Bytes, ExitCode>>,
+    /// The instance will be recycled back to this function when the WASM run has finished
+    #[derivative(Debug = "ignore")]
+    pub recycle: Option<Box<TaskWasmRecycle>>,
 }
 
 /// Callback that will be invoked
@@ -53,9 +59,21 @@ pub type TaskWasmRun = dyn FnOnce(TaskWasmRunProperties) + Send + 'static;
 /// Callback that will be invoked
 pub type TaskExecModule = dyn FnOnce(Module) + Send + 'static;
 
+/// The properties passed to the task
+#[derive(Debug)]
+pub struct TaskWasmRecycleProperties {
+    pub env: WasiEnv,
+    pub memory: Memory,
+    pub store: Store,
+}
+
+/// Callback that will be invoked
+pub type TaskWasmRecycle = dyn FnOnce(TaskWasmRecycleProperties) + Send + 'static;
+
 /// Represents a WASM task that will be executed on a dedicated thread
 pub struct TaskWasm<'a, 'b> {
     pub run: Box<TaskWasmRun>,
+    pub recycle: Option<Box<TaskWasmRecycle>>,
     pub env: WasiEnv,
     pub module: Module,
     pub snapshot: Option<&'b InstanceSnapshot>,
@@ -63,21 +81,34 @@ pub struct TaskWasm<'a, 'b> {
     pub trigger: Option<Box<WasmResumeTrigger>>,
     pub update_layout: bool,
 }
+
 impl<'a, 'b> TaskWasm<'a, 'b> {
     pub fn new(run: Box<TaskWasmRun>, env: WasiEnv, module: Module, update_layout: bool) -> Self {
+        let shared_memory = module.imports().memories().next().map(|a| *a.ty());
         Self {
             run,
             env,
             module,
             snapshot: None,
-            spawn_type: SpawnMemoryType::CreateMemory,
+            spawn_type: match shared_memory {
+                Some(ty) => SpawnMemoryType::CreateMemoryOfType(ty),
+                None => SpawnMemoryType::CreateMemory,
+            },
             trigger: None,
             update_layout,
+            recycle: None,
         }
     }
 
     pub fn with_memory(mut self, spawn_type: SpawnMemoryType<'a>) -> Self {
         self.spawn_type = spawn_type;
+        self
+    }
+
+    pub fn with_optional_memory(mut self, spawn_type: Option<SpawnMemoryType<'a>>) -> Self {
+        if let Some(spawn_type) = spawn_type {
+            self.spawn_type = spawn_type;
+        }
         self
     }
 
@@ -88,6 +119,11 @@ impl<'a, 'b> TaskWasm<'a, 'b> {
 
     pub fn with_trigger(mut self, trigger: Box<WasmResumeTrigger>) -> Self {
         self.trigger.replace(trigger);
+        self
+    }
+
+    pub fn with_recycle(mut self, trigger: Box<TaskWasmRecycle>) -> Self {
+        self.recycle.replace(trigger);
         self
     }
 }
@@ -120,22 +156,37 @@ pub trait VirtualTaskManager: std::fmt::Debug + Send + Sync + 'static {
         match spawn_type {
             SpawnMemoryType::CreateMemoryOfType(mut ty) => {
                 ty.shared = true;
+
+                // Note: If memory is shared, maximum needs to be set in the
+                // browser otherwise creation will fail.
+                let _ = ty.maximum.get_or_insert(wasmer_types::Pages::max_value());
+
                 let mem = Memory::new(&mut store, ty).map_err(|err| {
-                    tracing::error!("could not create memory: {err}");
+                    tracing::error!(
+                        error = &err as &dyn std::error::Error,
+                        memory_type=?ty,
+                        "could not create memory",
+                    );
                     WasiThreadError::MemoryCreateFailed(err)
                 })?;
                 Ok(Some(mem))
             }
             SpawnMemoryType::ShareMemory(mem, old_store) => {
                 let mem = mem.share_in_store(&old_store, store).map_err(|err| {
-                    tracing::warn!("could not clone memory: {err}");
+                    tracing::warn!(
+                        error = &err as &dyn std::error::Error,
+                        "could not clone memory",
+                    );
                     WasiThreadError::MemoryCreateFailed(err)
                 })?;
                 Ok(Some(mem))
             }
             SpawnMemoryType::CopyMemory(mem, old_store) => {
                 let mem = mem.copy_to_store(&old_store, store).map_err(|err| {
-                    tracing::warn!("could not copy memory: {err}");
+                    tracing::warn!(
+                        error = &err as &dyn std::error::Error,
+                        "could not copy memory",
+                    );
                     WasiThreadError::MemoryCreateFailed(err)
                 })?;
                 Ok(Some(mem))
@@ -295,7 +346,7 @@ impl dyn VirtualTaskManager {
             }
         }
 
-        let snapshot = capture_snapshot(&mut store.as_store_mut());
+        let snapshot = capture_instance_snapshot(&mut store.as_store_mut());
         let env = ctx.data(&store);
         let module = env.inner().module_clone();
         let memory = env.inner().memory_clone();
@@ -351,9 +402,20 @@ impl dyn VirtualTaskManager {
 pub trait VirtualTaskManagerExt {
     /// Runs the work in the background via the task managers shared background
     /// threads while blocking the current execution until it finishs
-    fn spawn_and_block_on<A>(&self, task: impl Future<Output = A> + Send + 'static) -> A
+    fn spawn_and_block_on<A>(
+        &self,
+        task: impl Future<Output = A> + Send + 'static,
+    ) -> Result<A, anyhow::Error>
     where
         A: Send + 'static;
+
+    fn spawn_await<O, F>(
+        &self,
+        f: F,
+    ) -> Box<dyn Future<Output = Result<O, Box<dyn std::error::Error>>> + Unpin + Send + 'static>
+    where
+        O: Send + 'static,
+        F: FnOnce() -> O + Send + 'static;
 }
 
 impl<D, T> VirtualTaskManagerExt for D
@@ -363,16 +425,39 @@ where
 {
     /// Runs the work in the background via the task managers shared background
     /// threads while blocking the current execution until it finishs
-    fn spawn_and_block_on<A>(&self, task: impl Future<Output = A> + Send + 'static) -> A
+    fn spawn_and_block_on<A>(
+        &self,
+        task: impl Future<Output = A> + Send + 'static,
+    ) -> Result<A, anyhow::Error>
     where
         A: Send + 'static,
     {
-        let (work_tx, mut work_rx) = ::tokio::sync::mpsc::unbounded_channel();
+        let (tx, rx) = ::tokio::sync::oneshot::channel();
         let work = Box::pin(async move {
             let ret = task.await;
-            work_tx.send(ret).ok();
+            tx.send(ret).ok();
         });
         self.task_shared(Box::new(move || work)).unwrap();
-        InlineWaker::block_on(work_rx.recv()).unwrap()
+        rx.blocking_recv()
+            .map_err(|_| anyhow::anyhow!("task execution failed - result channel dropped"))
+    }
+
+    fn spawn_await<O, F>(
+        &self,
+        f: F,
+    ) -> Box<dyn Future<Output = Result<O, Box<dyn std::error::Error>>> + Unpin + Send + 'static>
+    where
+        O: Send + 'static,
+        F: FnOnce() -> O + Send + 'static,
+    {
+        let (sender, receiver) = ::tokio::sync::oneshot::channel();
+
+        self.task_dedicated(Box::new(move || {
+            let result = f();
+            let _ = sender.send(result);
+        }))
+        .unwrap();
+
+        Box::new(receiver.map_err(|e| Box::new(e).into()))
     }
 }

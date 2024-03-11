@@ -1,4 +1,5 @@
 use assert_cmd::prelude::OutputAssertExt;
+use predicates::str::contains;
 use wasmer_integration_tests_cli::{fixtures, get_wasmer_path};
 
 #[test]
@@ -43,7 +44,7 @@ fn wasmer_publish() {
     }
 
     cmd.assert().success().stdout(format!(
-        "Successfully published package `{username}/largewasmfile@{random1}.{random2}.{random3}`\n"
+        "🚀 Successfully published package `{username}/largewasmfile@{random1}.{random2}.{random3}`\n"
     ));
 }
 
@@ -115,6 +116,67 @@ fn wasmer_init_publish() {
     let assert = cmd.assert();
 
     assert.success().stdout(format!(
-        "Successfully published package `{username}/randomversion@{random1}.{random2}.{random3}`\n"
+        "🚀 Successfully published package `{username}/randomversion@{random1}.{random2}.{random3}`\n"
     ));
+}
+
+#[test]
+fn wasmer_publish_and_run() {
+    // Only run this test in the CI
+    if std::env::var("GITHUB_TOKEN").is_err() {
+        return;
+    }
+
+    let wapm_dev_token = std::env::var("WAPM_DEV_TOKEN").ok();
+    let tempdir = tempfile::tempdir().unwrap();
+    let path = tempdir.path();
+    let username = "ciuser";
+
+    let random_major = format!("{}", rand::random::<u32>());
+    let random_minor = format!("{}", rand::random::<u32>());
+    let random_patch = format!("{}", rand::random::<u32>());
+
+    std::fs::copy(fixtures::qjs(), path.join("largewasmfile.wasm")).unwrap();
+    std::fs::write(
+        path.join("wasmer.toml"),
+        include_str!("./fixtures/init6.toml")
+            .replace("WAPMUSERNAME", username) // <-- TODO!
+            .replace("RANDOMVERSION1", &random_major)
+            .replace("RANDOMVERSION2", &random_minor)
+            .replace("RANDOMVERSION3", &random_patch),
+    )
+    .unwrap();
+
+    let package_name =
+        format!("{username}/largewasmfile@{random_major}.{random_minor}.{random_patch}",);
+
+    let mut cmd = std::process::Command::new(get_wasmer_path());
+    cmd.arg("publish")
+        .arg("--quiet")
+        .arg("--wait")
+        .arg("--timeout=60s")
+        .arg("--registry=wasmer.wtf")
+        .arg(path);
+
+    if let Some(token) = wapm_dev_token {
+        // Special case: GitHub secrets aren't visible to outside collaborators
+        if token.is_empty() {
+            return;
+        }
+        cmd.arg("--token").arg(token);
+    }
+
+    cmd.assert().success().stdout(format!(
+        "🚀 Successfully published package `{package_name}`\n"
+    ));
+
+    let assert = std::process::Command::new(get_wasmer_path())
+        .arg("run")
+        .arg(format!("https://wasmer.wtf/{package_name}"))
+        .arg("--")
+        .arg("--eval")
+        .arg("console.log('Hello, World!')")
+        .assert();
+
+    assert.success().stdout(contains("Hello, World!"));
 }

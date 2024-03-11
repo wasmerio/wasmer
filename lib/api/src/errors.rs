@@ -17,7 +17,7 @@ use wasmer_types::ImportError;
 /// This is based on the [link error][link-error] API.
 ///
 /// [link-error]: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/WebAssembly/LinkError
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 #[cfg_attr(feature = "std", derive(Error))]
 #[cfg_attr(feature = "std", error("Link error: {0}"))]
 pub enum LinkError {
@@ -41,7 +41,7 @@ pub enum LinkError {
 /// Trap that occurs when calling the WebAssembly module
 /// start function, and an error when initializing the user's
 /// host environments.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 #[cfg_attr(feature = "std", derive(Error))]
 pub enum InstantiationError {
     /// A linking ocurred during instantiation.
@@ -259,6 +259,29 @@ impl From<Box<dyn std::error::Error + Send + Sync>> for RuntimeError {
             // The error is already a RuntimeError, we return it directly
             Ok(runtime_error) => *runtime_error,
             Err(error) => Trap::user(error).into(),
+        }
+    }
+}
+
+/// Error that can occur during atomic operations. (notify/wait)
+// Non-exhaustive to allow for future variants without breaking changes!
+#[derive(PartialEq, Eq, Debug, Error)]
+#[non_exhaustive]
+pub enum AtomicsError {
+    /// Atomic operations are not supported by this memory.
+    Unimplemented,
+    /// To many waiter for address.
+    TooManyWaiters,
+    /// Atomic operations are disabled.
+    AtomicsDisabled,
+}
+
+impl std::fmt::Display for AtomicsError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Unimplemented => write!(f, "Atomic operations are not supported"),
+            Self::TooManyWaiters => write!(f, "Too many waiters for address"),
+            Self::AtomicsDisabled => write!(f, "Atomic operations are disabled"),
         }
     }
 }

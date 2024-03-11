@@ -10,7 +10,6 @@ use crate::{AsEngineRef, ExportType, ImportType};
 use bytes::Bytes;
 use js_sys::{Reflect, Uint8Array, WebAssembly};
 use std::path::Path;
-#[cfg(feature = "tracing")]
 use tracing::{debug, warn};
 use wasm_bindgen::JsValue;
 use wasmer_types::{
@@ -23,11 +22,11 @@ use wasmer_types::{
 ///
 /// This should be fixed once the JS-Types Wasm proposal is adopted
 /// by the browsers:
-/// https://github.com/WebAssembly/js-types/blob/master/proposals/js-types/Overview.md
+/// <https://github.com/WebAssembly/js-types/blob/master/proposals/js-types/Overview.md>
 ///
 /// Until that happens, we annotate the module with the expected
 /// types so we can built on top of them at runtime.
-#[derive(Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ModuleTypeHints {
     /// The type hints for the imported types
     pub imports: Vec<ExternType>,
@@ -90,7 +89,7 @@ impl Module {
         // The module is now validated, so we can safely parse it's types
         #[cfg(feature = "wasm-types-polyfill")]
         let (type_hints, name) = {
-            let info = crate::js::module_info_polyfill::translate_module(&binary[..]).unwrap();
+            let info = crate::module_info_polyfill::translate_module(&binary[..]).unwrap();
 
             (
                 Some(ModuleTypeHints {
@@ -155,10 +154,8 @@ impl Module {
             #[allow(unused_variables)]
             if let wasmer_types::ExternType::Memory(mem_ty) = import_type.ty() {
                 if resolved_import.is_some() {
-                    #[cfg(feature = "tracing")]
                     debug!("imported shared memory {:?}", &mem_ty);
                 } else {
-                    #[cfg(feature = "tracing")]
                     warn!(
                         "Error while importing {0:?}.{1:?}: memory. Expected {2:?}",
                         import_type.module(),
@@ -195,7 +192,6 @@ impl Module {
                     }
                     import_externs.push(import);
                 } else {
-                    #[cfg(feature = "tracing")]
                     warn!(
                         "import not found {}:{}",
                         import_type.module(),
@@ -227,6 +223,7 @@ impl Module {
         ));
     }
 
+    #[tracing::instrument(level = "debug", skip_all)]
     pub unsafe fn deserialize_unchecked(
         _engine: &impl AsEngineRef,
         _bytes: impl IntoBytes,
@@ -239,6 +236,7 @@ impl Module {
         return Err(DeserializeError::Generic("You need to enable the `js-serializable-module` feature flag to deserialize a `Module`".to_string()));
     }
 
+    #[tracing::instrument(level = "debug", skip_all)]
     pub unsafe fn deserialize(
         _engine: &impl AsEngineRef,
         _bytes: impl IntoBytes,
@@ -472,5 +470,10 @@ impl<T: IntoBytes> From<(WebAssembly::Module, T)> for crate::module::Module {
 impl From<WebAssembly::Module> for crate::module::Module {
     fn from(module: WebAssembly::Module) -> crate::module::Module {
         crate::module::Module(module.into())
+    }
+}
+impl From<crate::module::Module> for WebAssembly::Module {
+    fn from(value: crate::module::Module) -> Self {
+        value.0.module.into_inner()
     }
 }

@@ -14,22 +14,42 @@ pub fn sock_bind<M: MemorySize>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     sock: WasiFd,
     addr: WasmPtr<__wasi_addr_port_t, M>,
-) -> Errno {
+) -> Result<Errno, WasiError> {
     let env = ctx.data();
     let memory = unsafe { env.memory_view(&ctx) };
-    let addr = wasi_try!(crate::net::read_ip_port(&memory, addr));
+
+    let addr = wasi_try_ok!(crate::net::read_ip_port(&memory, addr));
     let addr = SocketAddr::new(addr.0, addr.1);
     Span::current().record("addr", &format!("{:?}", addr));
 
+    wasi_try_ok!(sock_bind_internal(&mut ctx, sock, addr)?);
+
+    #[cfg(feature = "journal")]
+    if ctx.data().enable_journal {
+        JournalEffector::save_sock_bind(&mut ctx, sock, addr).map_err(|err| {
+            tracing::error!("failed to save sock_bind event - {}", err);
+            WasiError::Exit(ExitCode::Errno(Errno::Fault))
+        })?;
+    }
+
+    Ok(Errno::Success)
+}
+
+pub(crate) fn sock_bind_internal(
+    ctx: &mut FunctionEnvMut<'_, WasiEnv>,
+    sock: WasiFd,
+    addr: SocketAddr,
+) -> Result<Result<(), Errno>, WasiError> {
+    let env = ctx.data();
     let net = env.net().clone();
 
     let tasks = ctx.data().tasks().clone();
-    wasi_try!(__sock_upgrade(
-        &mut ctx,
+    wasi_try_ok_ok!(__sock_upgrade(
+        ctx,
         sock,
         Rights::SOCK_BIND,
         move |socket| async move { socket.bind(tasks.deref(), net.deref(), addr).await }
     ));
 
-    Errno::Success
+    Ok(Ok(()))
 }

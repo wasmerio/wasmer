@@ -30,8 +30,7 @@ impl Table {
     ///
     /// All the elements in the table will be set to the `init` value.
     ///
-    /// This function will construct the `Table` using the store
-    /// [`BaseTunables`][crate::sys::BaseTunables].
+    /// This function will construct the `Table` using the store `BaseTunables`.
     pub fn new(
         store: &mut impl AsStoreMut,
         ty: TableType,

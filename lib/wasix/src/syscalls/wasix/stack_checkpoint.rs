@@ -45,12 +45,11 @@ pub fn stack_checkpoint<M: MemorySize>(
     // Perform the unwind action
     unwind::<M, _>(ctx, move |mut ctx, mut memory_stack, rewind_stack| {
         // Grab all the globals and serialize them
-        let store_data = crate::utils::store::capture_snapshot(&mut ctx.as_store_mut())
+        let store_data = crate::utils::store::capture_instance_snapshot(&mut ctx.as_store_mut())
             .serialize()
             .unwrap();
         let env = ctx.data();
         let store_data = Bytes::from(store_data);
-        let mut memory_stack_corrected = memory_stack.clone();
 
         // We compute the hash again for two reasons... integrity so if there
         // is a long jump that goes to the wrong place it will fail gracefully.

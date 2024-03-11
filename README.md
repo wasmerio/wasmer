@@ -25,7 +25,7 @@
 <br />
 
 Wasmer is a _blazing fast_ and _secure_ [**WebAssembly**](https://webassembly.org) runtime that enables incredibly
-_lightweight containers_ to run anywhere: from _Desktop_ to the _Cloud_, _Edge_ and even the browser.
+_lightweight containers_ to run anywhere: from _Desktop_ to the _Cloud_, _Edge_ and your browser.
 
 - **Secure** by default. No file, network, or environment access, unless explicitly enabled.
 - **Pluggable**. supports [**WASIX**](https://wasix.org/), [WASI](https://github.com/WebAssembly/WASI) and [Emscripten](https://emscripten.org/) out of the box.

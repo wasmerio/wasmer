@@ -1,9 +1,11 @@
 //! Runs a .wast WebAssembly test suites
-use crate::store::StoreOptions;
+use std::path::PathBuf;
+
 use anyhow::{Context, Result};
 use clap::Parser;
-use std::path::PathBuf;
 use wasmer_wast::Wast as WastSpectest;
+
+use crate::store::StoreOptions;
 
 #[derive(Debug, Parser)]
 /// The options for the `wasmer wast` subcommand

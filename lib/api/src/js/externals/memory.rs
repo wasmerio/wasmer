@@ -5,7 +5,7 @@ use crate::MemoryType;
 use std::marker::PhantomData;
 use std::mem::MaybeUninit;
 use std::slice;
-#[cfg(feature = "tracing")]
+
 use tracing::warn;
 
 use wasm_bindgen::prelude::*;
@@ -88,8 +88,16 @@ impl Memory {
             js_sys::Reflect::set(&descriptor, &"shared".into(), &ty.shared.into()).unwrap();
         }
 
-        let js_memory = js_sys::WebAssembly::Memory::new(&descriptor)
-            .map_err(|_e| MemoryError::Generic("Error while creating the memory".to_owned()))?;
+        let js_memory = js_sys::WebAssembly::Memory::new(&descriptor).map_err(|e| {
+            let error_message = if let Some(s) = e.as_string() {
+                s
+            } else if let Some(obj) = e.dyn_ref::<js_sys::Object>() {
+                obj.to_string().into()
+            } else {
+                "Error while creating the memory".to_string()
+            };
+            MemoryError::Generic(error_message)
+        })?;
 
         Ok(js_memory)
     }
@@ -136,6 +144,25 @@ impl Memory {
         Ok(Pages(new_pages))
     }
 
+    pub fn grow_at_least(
+        &self,
+        store: &mut impl AsStoreMut,
+        min_size: u64,
+    ) -> Result<(), MemoryError> {
+        let cur_size = self.view(store).data_size();
+        if min_size > cur_size {
+            let delta = min_size - cur_size;
+            let pages = ((delta - 1) / wasmer_types::WASM_PAGE_SIZE as u64) + 1;
+
+            self.grow(store, Pages(pages as u32))?;
+        }
+        Ok(())
+    }
+
+    pub fn reset(&self, _store: &mut impl AsStoreMut) -> Result<(), MemoryError> {
+        Ok(())
+    }
+
     pub(crate) fn from_vm_extern(_store: &mut impl AsStoreMut, internal: VMMemory) -> Self {
         Self { handle: internal }
     }
@@ -156,11 +183,28 @@ impl Memory {
     pub fn is_from_store(&self, _store: &impl AsStoreRef) -> bool {
         true
     }
+
+    pub fn as_shared(&self, _store: &impl AsStoreRef) -> Option<crate::SharedMemory> {
+        // Not supported.
+        None
+    }
 }
 
 impl std::cmp::PartialEq for Memory {
     fn eq(&self, other: &Self) -> bool {
         self.handle == other.handle
+    }
+}
+
+impl From<Memory> for crate::Memory {
+    fn from(value: Memory) -> Self {
+        crate::Memory(value)
+    }
+}
+
+impl From<crate::Memory> for Memory {
+    fn from(value: crate::Memory) -> Self {
+        value.0
     }
 }
 
@@ -178,7 +222,6 @@ impl<'a> MemoryBuffer<'a> {
             .ok_or(MemoryAccessError::Overflow)?;
         let view = unsafe { &*(self.base) };
         if end > view.length().into() {
-            #[cfg(feature = "tracing")]
             warn!(
                 "attempted to read ({} bytes) beyond the bounds of the memory view ({} > {})",
                 buf.len(),
@@ -202,7 +245,6 @@ impl<'a> MemoryBuffer<'a> {
             .ok_or(MemoryAccessError::Overflow)?;
         let view = unsafe { &*(self.base) };
         if end > view.length().into() {
-            #[cfg(feature = "tracing")]
             warn!(
                 "attempted to read ({} bytes) beyond the bounds of the memory view ({} > {})",
                 buf.len(),
@@ -224,7 +266,6 @@ impl<'a> MemoryBuffer<'a> {
             .ok_or(MemoryAccessError::Overflow)?;
         let view = unsafe { &mut *(self.base) };
         if end > view.length().into() {
-            #[cfg(feature = "tracing")]
             warn!(
                 "attempted to write ({} bytes) beyond the bounds of the memory view ({} > {})",
                 data.len(),

@@ -353,9 +353,8 @@ mod tests {
     use super::*;
 
     use std::sync::Arc;
-    use wasmer::{
-        imports, wat2wasm, CompilerConfig, Cranelift, EngineBuilder, Module, Store, TypedFunction,
-    };
+    use wasmer::sys::EngineBuilder;
+    use wasmer::{imports, wat2wasm, CompilerConfig, Cranelift, Module, Store, TypedFunction};
 
     fn cost_function(operator: &Operator) -> u64 {
         match operator {

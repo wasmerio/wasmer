@@ -1,5 +1,0 @@
----
-kind: wasmer.io/App.v0
-name: wasmer-sh
-app_id: da_AKo6IotJUgY2
-package: wasmer/wasmer-sh@0.2.21

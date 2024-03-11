@@ -22,33 +22,56 @@ use crate::syscalls::*;
 /// The file descriptor of the socket that has been opened.
 #[instrument(level = "debug", skip_all, fields(?af, ?ty, ?pt, sock = field::Empty), ret)]
 pub fn sock_open<M: MemorySize>(
-    ctx: FunctionEnvMut<'_, WasiEnv>,
+    mut ctx: FunctionEnvMut<'_, WasiEnv>,
     af: Addressfamily,
     ty: Socktype,
     pt: SockProto,
     ro_sock: WasmPtr<WasiFd, M>,
-) -> Errno {
-    let env = ctx.data();
-    let (memory, state, inodes) = unsafe { env.get_memory_and_wasi_state_and_inodes(&ctx, 0) };
-
+) -> Result<Errno, WasiError> {
     // only certain combinations are supported
     match pt {
         SockProto::Tcp => {
             if ty != Socktype::Stream {
-                return Errno::Notsup;
+                return Ok(Errno::Notsup);
             }
         }
         SockProto::Udp => {
             if ty != Socktype::Dgram {
-                return Errno::Notsup;
+                return Ok(Errno::Notsup);
             }
         }
         _ => {}
     }
 
+    let fd = wasi_try_ok!(sock_open_internal(&mut ctx, af, ty, pt)?);
+
+    #[cfg(feature = "journal")]
+    if ctx.data().enable_journal {
+        JournalEffector::save_sock_open(&mut ctx, af, ty, pt, fd).map_err(|err| {
+            tracing::error!("failed to save sock_open event - {}", err);
+            WasiError::Exit(ExitCode::Errno(Errno::Fault))
+        })?;
+    }
+
+    let env = ctx.data();
+    let (memory, state, inodes) = unsafe { env.get_memory_and_wasi_state_and_inodes(&ctx, 0) };
+    wasi_try_mem_ok!(ro_sock.write(&memory, fd));
+
+    Ok(Errno::Success)
+}
+
+pub(crate) fn sock_open_internal(
+    ctx: &mut FunctionEnvMut<'_, WasiEnv>,
+    af: Addressfamily,
+    ty: Socktype,
+    pt: SockProto,
+) -> Result<Result<WasiFd, Errno>, WasiError> {
+    let env = ctx.data();
+    let (memory, state, inodes) = unsafe { env.get_memory_and_wasi_state_and_inodes(&ctx, 0) };
+
     let kind = match ty {
         Socktype::Stream | Socktype::Dgram => Kind::Socket {
-            socket: wasi_try!(InodeSocket::new(InodeSocketKind::PreSocket {
+            socket: InodeSocket::new(InodeSocketKind::PreSocket {
                 family: af,
                 ty,
                 pt,
@@ -66,10 +89,9 @@ pub fn sock_open<M: MemorySize>(
                 accept_timeout: None,
                 connect_timeout: None,
                 handler: None,
-            })
-            .map_err(net_error_into_wasi_err)),
+            }),
         },
-        _ => return Errno::Notsup,
+        _ => return Ok(Err(Errno::Notsup)),
     };
 
     let inode =
@@ -77,12 +99,10 @@ pub fn sock_open<M: MemorySize>(
             .fs
             .create_inode_with_default_stat(inodes, kind, false, "socket".to_string().into());
     let rights = Rights::all_socket();
-    let fd = wasi_try!(state
+    let fd = wasi_try_ok_ok!(state
         .fs
         .create_fd(rights, rights, Fdflags::empty(), 0, inode));
     Span::current().record("sock", fd);
 
-    wasi_try_mem!(ro_sock.write(&memory, fd));
-
-    Errno::Success
+    Ok(Ok(fd))
 }

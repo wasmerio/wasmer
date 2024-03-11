@@ -812,12 +812,13 @@ impl Instance {
         } else {
             Some(std::time::Duration::from_nanos(timeout as u64))
         };
-        let waiter = memory.do_wait(location, timeout);
-        if waiter.is_err() {
-            // ret is None if there is more than 2^32 waiter in queue or some other error
-            return Err(Trap::lib(TrapCode::TableAccessOutOfBounds));
+        match memory.do_wait(location, timeout) {
+            Ok(count) => Ok(count),
+            Err(_err) => {
+                // ret is None if there is more than 2^32 waiter in queue or some other error
+                Err(Trap::lib(TrapCode::TableAccessOutOfBounds))
+            }
         }
-        Ok(waiter.unwrap())
     }
 
     /// Perform an Atomic.Wait32
@@ -1083,27 +1084,27 @@ impl VMInstance {
 
         ptr::copy(
             vmshared_signatures.values().as_slice().as_ptr(),
-            instance.signature_ids_ptr() as *mut VMSharedSignatureIndex,
+            instance.signature_ids_ptr(),
             vmshared_signatures.len(),
         );
         ptr::copy(
             imports.functions.values().as_slice().as_ptr(),
-            instance.imported_functions_ptr() as *mut VMFunctionImport,
+            instance.imported_functions_ptr(),
             imports.functions.len(),
         );
         ptr::copy(
             imports.tables.values().as_slice().as_ptr(),
-            instance.imported_tables_ptr() as *mut VMTableImport,
+            instance.imported_tables_ptr(),
             imports.tables.len(),
         );
         ptr::copy(
             imports.memories.values().as_slice().as_ptr(),
-            instance.imported_memories_ptr() as *mut VMMemoryImport,
+            instance.imported_memories_ptr(),
             imports.memories.len(),
         );
         ptr::copy(
             imports.globals.values().as_slice().as_ptr(),
-            instance.imported_globals_ptr() as *mut VMGlobalImport,
+            instance.imported_globals_ptr(),
             imports.globals.len(),
         );
         // these should already be set, add asserts here? for:
@@ -1115,7 +1116,7 @@ impl VMInstance {
             vmctx_globals.len(),
         );
         ptr::write(
-            instance.builtin_functions_ptr() as *mut VMBuiltinFunctionsArray,
+            instance.builtin_functions_ptr(),
             VMBuiltinFunctionsArray::initialized(),
         );
 

@@ -16,13 +16,15 @@ pub struct Instance {
 mod send_test {
     use super::*;
 
-    fn is_send<T: Send>() -> bool {
-        true
-    }
+    // Only here to statically ensure that `Instance` is `Send`.
+    // Will fail to compile otherwise.
+    #[allow(dead_code)]
+    fn instance_is_send(inst: Instance) {
+        fn is_send(t: impl Send) {
+            let _ = t;
+        }
 
-    #[test]
-    fn instance_is_send() {
-        assert!(is_send::<Instance>());
+        is_send(inst);
     }
 }
 
