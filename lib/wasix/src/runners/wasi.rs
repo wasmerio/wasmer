@@ -218,7 +218,7 @@ impl WasiRunner {
     }
 
     #[tracing::instrument(level = "debug", skip_all)]
-    pub(crate) fn prepare_webc_env(
+    pub fn prepare_webc_env(
         &self,
         program_name: &str,
         wasi: &Wasi,
