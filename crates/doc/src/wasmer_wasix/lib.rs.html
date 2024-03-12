@@ -772,6 +772,25 @@
 <a href="#772" id="772">772</a>
 <a href="#773" id="773">773</a>
 <a href="#774" id="774">774</a>
+<a href="#775" id="775">775</a>
+<a href="#776" id="776">776</a>
+<a href="#777" id="777">777</a>
+<a href="#778" id="778">778</a>
+<a href="#779" id="779">779</a>
+<a href="#780" id="780">780</a>
+<a href="#781" id="781">781</a>
+<a href="#782" id="782">782</a>
+<a href="#783" id="783">783</a>
+<a href="#784" id="784">784</a>
+<a href="#785" id="785">785</a>
+<a href="#786" id="786">786</a>
+<a href="#787" id="787">787</a>
+<a href="#788" id="788">788</a>
+<a href="#789" id="789">789</a>
+<a href="#790" id="790">790</a>
+<a href="#791" id="791">791</a>
+<a href="#792" id="792">792</a>
+<a href="#793" id="793">793</a>
 </pre></div><pre class="rust"><code><span class="comment">// FIXME: merge with ./lib.rs_upstream
 
 </span><span class="attr">#![doc(html_favicon_url = <span class="string">&quot;https://wasmer.io/images/icons/favicon-32x32.png&quot;</span>)]
@@ -1544,6 +1563,25 @@
         } <span class="kw">else </span>{
             thunk()
         }
+    }
+}
+
+<span class="doccomment">/// Spawns a new blocking task that runs the provided closure.
+///
+/// The closure is executed on a separate thread, allowing it to perform blocking operations
+/// without blocking the main thread. The closure is wrapped in a `Future` that resolves to the
+/// result of the closure&#39;s execution.
+</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">async fn </span>spawn_blocking&lt;F, R&gt;(f: F) -&gt; <span class="prelude-ty">Result</span>&lt;R, tokio::task::JoinError&gt;
+<span class="kw">where
+    </span>F: FnOnce() -&gt; R + Send + <span class="lifetime">&#39;static</span>,
+    R: Send + <span class="lifetime">&#39;static</span>,
+{
+    <span class="macro">cfg_if::cfg_if! </span>{
+        <span class="kw">if </span><span class="attr">#[cfg(target_arch = <span class="string">&quot;wasm32&quot;</span>)] </span>{
+            <span class="prelude-val">Ok</span>(block_in_place(f))
+        } <span class="kw">else </span>{
+            tokio::task::spawn_blocking(f).<span class="kw">await
+        </span>}
     }
 }
 </code></pre></div></section></main></body></html>

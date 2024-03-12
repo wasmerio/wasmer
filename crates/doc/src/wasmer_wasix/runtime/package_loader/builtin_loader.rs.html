@@ -468,6 +468,21 @@
 <a href="#468" id="468">468</a>
 <a href="#469" id="469">469</a>
 <a href="#470" id="470">470</a>
+<a href="#471" id="471">471</a>
+<a href="#472" id="472">472</a>
+<a href="#473" id="473">473</a>
+<a href="#474" id="474">474</a>
+<a href="#475" id="475">475</a>
+<a href="#476" id="476">476</a>
+<a href="#477" id="477">477</a>
+<a href="#478" id="478">478</a>
+<a href="#479" id="479">479</a>
+<a href="#480" id="480">480</a>
+<a href="#481" id="481">481</a>
+<a href="#482" id="482">482</a>
+<a href="#483" id="483">483</a>
+<a href="#484" id="484">484</a>
+<a href="#485" id="485">485</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{
     collections::HashMap,
     fmt::Write <span class="kw">as _</span>,
@@ -585,9 +600,12 @@
         <span class="kw">if </span>dist.webc.scheme() == <span class="string">&quot;file&quot; </span>{
             <span class="kw">match </span><span class="kw">crate</span>::runtime::resolver::utils::file_path_from_url(<span class="kw-2">&amp;</span>dist.webc) {
                 <span class="prelude-val">Ok</span>(path) =&gt; {
-                    <span class="comment">// FIXME: This will block the thread
-                    </span><span class="kw">let </span>bytes = std::fs::read(<span class="kw-2">&amp;</span>path)
-                        .with_context(|| <span class="macro">format!</span>(<span class="string">&quot;Unable to read \&quot;{}\&quot;&quot;</span>, path.display()))<span class="question-mark">?</span>;
+                    <span class="kw">let </span>bytes = <span class="kw">crate</span>::spawn_blocking({
+                        <span class="kw">let </span>path = path.clone();
+                        <span class="kw">move </span>|| std::fs::read(path)
+                    })
+                    .<span class="kw">await</span><span class="question-mark">?
+                    </span>.with_context(|| <span class="macro">format!</span>(<span class="string">&quot;Unable to read \&quot;{}\&quot;&quot;</span>, path.display()))<span class="question-mark">?</span>;
                     <span class="kw">return </span><span class="prelude-val">Ok</span>(bytes.into());
                 }
                 <span class="prelude-val">Err</span>(e) =&gt; {
@@ -692,7 +710,10 @@
         // in a smart way to keep memory usage down.
 
         </span><span class="kw">if let </span><span class="prelude-val">Some</span>(cache) = <span class="kw-2">&amp;</span><span class="self">self</span>.cache {
-            <span class="kw">match </span>cache.save_and_load_as_mmapped(<span class="kw-2">&amp;</span>bytes, <span class="kw-2">&amp;</span>summary.dist).<span class="kw">await </span>{
+            <span class="kw">match </span>cache
+                .save_and_load_as_mmapped(bytes.clone(), <span class="kw-2">&amp;</span>summary.dist)
+                .<span class="kw">await
+            </span>{
                 <span class="prelude-val">Ok</span>(container) =&gt; {
                     <span class="macro">tracing::debug!</span>(<span class="string">&quot;Cached to disk&quot;</span>);
                     <span class="self">self</span>.in_memory.save(<span class="kw-2">&amp;</span>container, summary.dist.webc_sha256);
@@ -715,7 +736,7 @@
 
         <span class="comment">// The sad path - looks like we don&#39;t have a filesystem cache so we&#39;ll
         // need to keep the whole thing in memory.
-        </span><span class="kw">let </span>container = Container::from_bytes(bytes)<span class="question-mark">?</span>;
+        </span><span class="kw">let </span>container = <span class="kw">crate</span>::spawn_blocking(<span class="kw">move </span>|| Container::from_bytes(bytes)).<span class="kw">await</span><span class="question-mark">??</span>;
         <span class="comment">// We still want to cache it in memory, of course
         </span><span class="self">self</span>.in_memory.save(<span class="kw-2">&amp;</span>container, summary.dist.webc_sha256);
         <span class="prelude-val">Ok</span>(container)
@@ -741,7 +762,11 @@
     <span class="kw">async fn </span>lookup(<span class="kw-2">&amp;</span><span class="self">self</span>, hash: <span class="kw-2">&amp;</span>WebcHash) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;Container&gt;, Error&gt; {
         <span class="kw">let </span>path = <span class="self">self</span>.path(hash);
 
-        <span class="kw">let </span>container = <span class="kw">crate</span>::block_in_place(|| Container::from_disk(<span class="kw-2">&amp;</span>path));
+        <span class="kw">let </span>container = <span class="kw">crate</span>::spawn_blocking({
+            <span class="kw">let </span>path = path.clone();
+            <span class="kw">move </span>|| Container::from_disk(path)
+        })
+        .<span class="kw">await</span><span class="question-mark">?</span>;
         <span class="kw">match </span>container {
             <span class="prelude-val">Ok</span>(c) =&gt; <span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(c)),
             <span class="prelude-val">Err</span>(ContainerError::Open { error, .. })
@@ -758,27 +783,32 @@
         }
     }
 
-    <span class="kw">async fn </span>save(<span class="kw-2">&amp;</span><span class="self">self</span>, webc: <span class="kw-2">&amp;</span>[u8], dist: <span class="kw-2">&amp;</span>DistributionInfo) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt; {
+    <span class="kw">async fn </span>save(<span class="kw-2">&amp;</span><span class="self">self</span>, webc: Bytes, dist: <span class="kw-2">&amp;</span>DistributionInfo) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt; {
         <span class="kw">let </span>path = <span class="self">self</span>.path(<span class="kw-2">&amp;</span>dist.webc_sha256);
+        <span class="kw">let </span>dist = dist.clone();
 
-        <span class="kw">let </span>parent = path.parent().expect(<span class="string">&quot;Always within cache_dir&quot;</span>);
+        <span class="kw">crate</span>::spawn_blocking(<span class="kw">move </span>|| {
+            <span class="kw">let </span>parent = path.parent().expect(<span class="string">&quot;Always within cache_dir&quot;</span>);
 
-        std::fs::create_dir_all(parent)
-            .with_context(|| <span class="macro">format!</span>(<span class="string">&quot;Unable to create \&quot;{}\&quot;&quot;</span>, parent.display()))<span class="question-mark">?</span>;
+            std::fs::create_dir_all(parent)
+                .with_context(|| <span class="macro">format!</span>(<span class="string">&quot;Unable to create \&quot;{}\&quot;&quot;</span>, parent.display()))<span class="question-mark">?</span>;
 
-        <span class="kw">let </span><span class="kw-2">mut </span>temp = NamedTempFile::new_in(parent)<span class="question-mark">?</span>;
-        temp.write_all(webc)<span class="question-mark">?</span>;
-        temp.flush()<span class="question-mark">?</span>;
-        temp.as_file_mut().sync_all()<span class="question-mark">?</span>;
-        temp.persist(<span class="kw-2">&amp;</span>path)<span class="question-mark">?</span>;
+            <span class="kw">let </span><span class="kw-2">mut </span>temp = NamedTempFile::new_in(parent)<span class="question-mark">?</span>;
+            temp.write_all(<span class="kw-2">&amp;</span>webc)<span class="question-mark">?</span>;
+            temp.flush()<span class="question-mark">?</span>;
+            temp.as_file_mut().sync_all()<span class="question-mark">?</span>;
+            temp.persist(<span class="kw-2">&amp;</span>path)<span class="question-mark">?</span>;
 
-        <span class="macro">tracing::debug!</span>(
-            pkg.hash=%dist.webc_sha256,
-            pkg.url=%dist.webc,
-            path=%path.display(),
-            num_bytes=webc.len(),
-            <span class="string">&quot;Saved to disk&quot;</span>,
-        );
+            <span class="macro">tracing::debug!</span>(
+                pkg.hash=%dist.webc_sha256,
+                pkg.url=%dist.webc,
+                path=%path.display(),
+                num_bytes=webc.len(),
+                <span class="string">&quot;Saved to disk&quot;</span>,
+            );
+            <span class="prelude-ty">Result</span>::&lt;<span class="kw">_</span>, Error&gt;::Ok(())
+        })
+        .<span class="kw">await</span><span class="question-mark">??</span>;
 
         <span class="prelude-val">Ok</span>(())
     }
@@ -786,7 +816,7 @@
     <span class="attr">#[tracing::instrument(level = <span class="string">&quot;debug&quot;</span>, skip_all)]
     </span><span class="kw">async fn </span>save_and_load_as_mmapped(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        webc: <span class="kw-2">&amp;</span>[u8],
+        webc: Bytes,
         dist: <span class="kw-2">&amp;</span>DistributionInfo,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;Container, Error&gt; {
         <span class="comment">// First, save it to disk
