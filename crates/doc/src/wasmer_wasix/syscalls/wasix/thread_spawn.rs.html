@@ -253,6 +253,18 @@
 <a href="#253" id="253">253</a>
 <a href="#254" id="254">254</a>
 <a href="#255" id="255">255</a>
+<a href="#256" id="256">256</a>
+<a href="#257" id="257">257</a>
+<a href="#258" id="258">258</a>
+<a href="#259" id="259">259</a>
+<a href="#260" id="260">260</a>
+<a href="#261" id="261">261</a>
+<a href="#262" id="262">262</a>
+<a href="#263" id="263">263</a>
+<a href="#264" id="264">264</a>
+<a href="#265" id="265">265</a>
+<a href="#266" id="266">266</a>
+<a href="#267" id="267">267</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::f32::consts::E;
 
 <span class="kw">use super</span>::<span class="kw-2">*</span>;
@@ -261,7 +273,10 @@
 <span class="kw">use crate</span>::{
     capture_instance_snapshot,
     os::task::thread::WasiMemoryLayout,
-    runtime::task_manager::{TaskWasm, TaskWasmRunProperties},
+    runtime::{
+        task_manager::{TaskWasm, TaskWasmRunProperties},
+        TaintReason,
+    },
     syscalls::<span class="kw-2">*</span>,
     WasiThreadHandle,
 };
@@ -432,6 +447,9 @@
                     ret = <span class="kw">if </span>code.is_success() {
                         Errno::Success
                     } <span class="kw">else </span>{
+                        env.data(<span class="kw-2">&amp;</span>store)
+                            .runtime
+                            .on_taint(TaintReason::NonZeroExitCode(code));
                         Errno::Noexec
                     };
                 }
@@ -441,10 +459,16 @@
                 }
                 <span class="prelude-val">Ok</span>(WasiError::UnknownWasiVersion) =&gt; {
                     <span class="macro">debug!</span>(<span class="string">&quot;failed as wasi version is unknown&quot;</span>,);
+                    env.data(<span class="kw-2">&amp;</span>store)
+                        .runtime
+                        .on_taint(TaintReason::UnknownWasiVersion);
                     ret = Errno::Noexec;
                 }
                 <span class="prelude-val">Err</span>(err) =&gt; {
                     <span class="macro">debug!</span>(<span class="string">&quot;failed with runtime error: {}&quot;</span>, err);
+                    env.data(<span class="kw-2">&amp;</span>store)
+                        .runtime
+                        .on_taint(TaintReason::RuntimeError(err));
                     ret = Errno::Noexec;
                 }
             }

@@ -552,6 +552,18 @@
 <a href="#552" id="552">552</a>
 <a href="#553" id="553">553</a>
 <a href="#554" id="554">554</a>
+<a href="#555" id="555">555</a>
+<a href="#556" id="556">556</a>
+<a href="#557" id="557">557</a>
+<a href="#558" id="558">558</a>
+<a href="#559" id="559">559</a>
+<a href="#560" id="560">560</a>
+<a href="#561" id="561">561</a>
+<a href="#562" id="562">562</a>
+<a href="#563" id="563">563</a>
+<a href="#564" id="564">564</a>
+<a href="#565" id="565">565</a>
+<a href="#566" id="566">566</a>
 </pre></div><pre class="rust"><code><span class="kw">pub mod </span>module_cache;
 <span class="kw">pub mod </span>package_loader;
 <span class="kw">pub mod </span>resolver;
@@ -572,7 +584,8 @@
 <span class="kw">use </span>derivative::Derivative;
 <span class="kw">use </span>futures::future::BoxFuture;
 <span class="kw">use </span>virtual_net::{DynVirtualNetworking, VirtualNetworking};
-<span class="kw">use </span>wasmer::Module;
+<span class="kw">use </span>wasmer::{Module, RuntimeError};
+<span class="kw">use </span>wasmer_wasix_types::wasi::ExitCode;
 
 <span class="attr">#[cfg(feature = <span class="string">&quot;journal&quot;</span>)]
 </span><span class="kw">use </span><span class="kw">crate</span>::journal::DynJournal;
@@ -586,6 +599,13 @@
     },
     WasiTtyState,
 };
+
+<span class="attr">#[derive(Clone)]
+</span><span class="kw">pub enum </span>TaintReason {
+    UnknownWasiVersion,
+    NonZeroExitCode(ExitCode),
+    RuntimeError(RuntimeError),
+}
 
 <span class="doccomment">/// Runtime components used when running WebAssembly programs.
 ///
@@ -662,6 +682,10 @@
     </span><span class="kw">fn </span>load_module_sync(<span class="kw-2">&amp;</span><span class="self">self</span>, wasm: <span class="kw-2">&amp;</span>[u8]) -&gt; <span class="prelude-ty">Result</span>&lt;Module, anyhow::Error&gt; {
         InlineWaker::block_on(<span class="self">self</span>.load_module(wasm))
     }
+
+    <span class="doccomment">/// Callback thats invokes whenever the instance is tainted, tainting can occur
+    /// for multiple reasons however the most common is a panic within the process
+    </span><span class="kw">fn </span>on_taint(<span class="kw-2">&amp;</span><span class="self">self</span>, _reason: TaintReason) {}
 
     <span class="doccomment">/// The list of journals which will be used to restore the state of the
     /// runtime at a particular point in time
