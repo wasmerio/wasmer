@@ -26,6 +26,7 @@ use crate::{
 };
 
 use super::{
+    backoff::WasiProcessCpuBackoff,
     control_plane::{ControlPlaneError, WasiControlPlaneHandle},
     signal::{SignalDeliveryError, SignalHandlerAbi},
     task_join_handle::OwnedTaskStatus,
@@ -101,6 +102,10 @@ pub struct WasiProcess {
     pub(crate) finished: Arc<OwnedTaskStatus>,
     /// Number of threads waiting for children to exit
     pub(crate) waiting: Arc<AtomicU32>,
+    /// Number of tokens that are currently active and thus
+    /// the exponential backoff of CPU is halted (as in CPU
+    /// is allowed to run freely)
+    pub(crate) cpu_run_tokens: Arc<AtomicU32>,
 }
 
 /// Represents a freeze of all threads to perform some action
@@ -133,6 +138,10 @@ pub struct WasiProcessInner {
     /// Represents a checkpoint which blocks all the threads
     /// and then executes some maintenance action
     pub checkpoint: WasiProcessCheckpoint,
+    /// Represents all the backoff properties for this process
+    /// which will be used to determine if the CPU should be
+    /// throttled or not
+    pub(super) backoff: WasiProcessCpuBackoff,
 }
 
 pub enum MaybeCheckpointResult<'a> {
@@ -283,6 +292,11 @@ impl Drop for WasiProcessWait {
 
 impl WasiProcess {
     pub fn new(pid: WasiProcessId, module_hash: ModuleHash, plane: WasiControlPlaneHandle) -> Self {
+        let max_cpu_backoff_time = plane
+            .upgrade()
+            .and_then(|p| p.config().enable_exponential_cpu_backoff)
+            .unwrap_or(Duration::from_secs(30));
+        let max_cpu_cool_off_time = Duration::from_millis(500);
         WasiProcess {
             pid,
             module_hash,
@@ -296,11 +310,16 @@ impl WasiProcess {
                     signal_intervals: Default::default(),
                     children: Default::default(),
                     checkpoint: WasiProcessCheckpoint::Execute,
+                    backoff: WasiProcessCpuBackoff::new(
+                        max_cpu_backoff_time,
+                        max_cpu_cool_off_time,
+                    ),
                 }),
                 Condvar::new(),
             )),
             finished: Arc::new(OwnedTaskStatus::default()),
             waiting: Arc::new(AtomicU32::new(0)),
+            cpu_run_tokens: Arc::new(AtomicU32::new(0)),
         }
     }
 

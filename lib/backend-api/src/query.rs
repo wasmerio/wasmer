@@ -213,7 +213,6 @@ pub async fn all_app_versions(
 
     loop {
         let page = get_deploy_app_versions(client, vars.clone()).await?;
-        dbg!(&page);
         if page.edges.is_empty() {
             break;
         }

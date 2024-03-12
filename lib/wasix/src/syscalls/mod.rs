@@ -401,6 +401,42 @@ pub enum AsyncifyAction<'a, R> {
     Unwind,
 }
 
+/// Exponentially increasing backoff of CPU usage
+///
+/// Under certain conditions the process will exponentially backoff
+/// using waits that either put the thread into a low usage state
+/// or even underload the thread completely when deep sleep is enabled
+///
+/// The use-case for this is to handle rogue WASM processes that
+/// generate excessively high CPU usage and need to be artificially
+/// throttled
+///
+pub(crate) fn maybe_backoff<M: MemorySize>(
+    mut ctx: FunctionEnvMut<'_, WasiEnv>,
+) -> Result<Result<FunctionEnvMut<'_, WasiEnv>, Errno>, WasiError> {
+    let env = ctx.data();
+
+    // Fast path that exits this high volume call if we do not have
+    // exponential backoff enabled
+    if env.enable_exponential_cpu_backoff.is_none() {
+        return Ok(Ok(ctx));
+    }
+
+    // Determine if we need to do a backoff, if so lets do one
+    if let Some(backoff) = env.process.acquire_cpu_backoff_token(env.tasks()) {
+        tracing::trace!("exponential CPU backoff {:?}", backoff.backoff_time());
+        if let AsyncifyAction::Finish(mut ctx, _) =
+            __asyncify_with_deep_sleep::<M, _, _>(ctx, Duration::from_millis(50), backoff)?
+        {
+            Ok(Ok(ctx))
+        } else {
+            Ok(Err(Errno::Success))
+        }
+    } else {
+        Ok(Ok(ctx))
+    }
+}
+
 /// Asyncify takes the current thread and blocks on the async runtime associated with it
 /// thus allowed for asynchronous operations to execute. It has built in functionality
 /// to (optionally) timeout the IO, force exit the process, callback signals and pump
