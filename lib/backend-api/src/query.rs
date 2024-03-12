@@ -213,6 +213,7 @@ pub async fn all_app_versions(
 
     loop {
         let page = get_deploy_app_versions(client, vars.clone()).await?;
+        dbg!(&page);
         if page.edges.is_empty() {
             break;
         }
@@ -822,25 +823,15 @@ pub async fn get_app_logs_paginated(
 pub async fn get_domain(
     client: &WasmerClient,
     domain: String,
-    with_records: bool,
-) -> Result<Option<types::DnsDomain>, anyhow::Error> {
+) -> Result<Option<types::DnsDomainWithRecords>, anyhow::Error> {
     let vars = types::GetDomainVars { domain };
 
-    let domain = if with_records {
-        client
-            .run_graphql(types::GetDomainWithRecords::build(vars))
-            .await
-            .map_err(anyhow::Error::from)?
-            .get_domain
-    } else {
-        client
-            .run_graphql(types::GetDomain::build(vars))
-            .await
-            .map_err(anyhow::Error::from)?
-            .get_domain
-    };
-
-    Ok(domain)
+    let opt = client
+        .run_graphql(types::GetDomainWithRecords::build(vars))
+        .await
+        .map_err(anyhow::Error::from)?
+        .get_domain;
+    Ok(opt)
 }
 
 /// Retrieve all DNS records.

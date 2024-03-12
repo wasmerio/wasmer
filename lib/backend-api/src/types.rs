@@ -72,8 +72,6 @@ mod queries {
         pub pirita_sha256_hash: Option<String>,
         pub pirita_download_url: Option<String>,
         pub download_url: Option<String>,
-        pub size: Option<i32>,
-        pub pirita_size: Option<i32>,
     }
 
     #[derive(cynic::QueryFragment, Debug, Clone)]
@@ -1067,12 +1065,20 @@ mod queries {
     #[cynic(graphql_type = "Query", variables = "GetDomainVars")]
     pub struct GetDomainWithRecords {
         #[arguments(name: $domain)]
-        pub get_domain: Option<DnsDomain>,
+        pub get_domain: Option<DnsDomainWithRecords>,
     }
 
     #[derive(cynic::QueryFragment, Debug, Clone)]
     #[cynic(graphql_type = "DNSDomain")]
     pub struct DnsDomain {
+        pub id: cynic::Id,
+        pub name: String,
+        pub slug: String,
+    }
+
+    #[derive(cynic::QueryFragment, Debug, Clone)]
+    #[cynic(graphql_type = "DNSDomain")]
+    pub struct DnsDomainWithRecords {
         pub id: cynic::Id,
         pub name: String,
         pub slug: String,
