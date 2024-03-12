@@ -72,6 +72,7 @@ mod queries {
         pub pirita_sha256_hash: Option<String>,
         pub pirita_download_url: Option<String>,
         pub download_url: Option<String>,
+        pub pirita_size: Option<i32>,
     }
 
     #[derive(cynic::QueryFragment, Debug, Clone)]
