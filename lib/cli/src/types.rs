@@ -1,14 +1,12 @@
 use comfy_table::Table;
-use wasmer_api::types::{DeployApp, DeployAppVersion, Namespace, DnsDomain, DnsDomainWithRecords};
+use wasmer_api::types::{DeployApp, DeployAppVersion, DnsDomain, DnsDomainWithRecords, Namespace};
 
 use crate::utils::render::CliRender;
 
 impl CliRender for DnsDomain {
     fn render_item_table(&self) -> String {
         let mut table = Table::new();
-        table.add_rows([
-            vec!["Domain".to_string(), self.name.clone()],
-        ]);
+        table.add_rows([vec!["Domain".to_string(), self.name.clone()]]);
         table.to_string()
     }
 
@@ -25,14 +23,14 @@ impl CliRender for DnsDomain {
         );
         table.to_string()
     }
-
 }
 
 impl CliRender for DnsDomainWithRecords {
     fn render_item_table(&self) -> String {
         let mut output = String::new();
         let mut table = Table::new();
-        table.load_preset(comfy_table::presets::UTF8_FULL_CONDENSED)
+        table
+            .load_preset(comfy_table::presets::UTF8_FULL_CONDENSED)
             .set_header(vec![
                 "Type".to_string(),
                 "Name".to_string(),
@@ -41,16 +39,17 @@ impl CliRender for DnsDomainWithRecords {
             ]);
         let mut rows: Vec<Vec<String>> = vec![];
         if let Some(ref records) = self.records {
-            for record in records {
-                if let Some(ref record) = record {
-                    rows.push(vec![
-                        record.record_type().to_string(),
-                        record.name().expect("Expected record name").to_string(),
-                        record.ttl().expect("expected a TTL value for record").to_string(),
-                        record.text().to_string(),
-                    ]);
-                }
-            }
+            records.iter().flatten().for_each(|record| {
+                rows.push(vec![
+                    record.record_type().to_string(),
+                    record.name().expect("Expected record name").to_string(),
+                    record
+                        .ttl()
+                        .expect("expected a TTL value for record")
+                        .to_string(),
+                    record.text().to_string(),
+                ]);
+            });
         }
 
         table.add_rows(rows);
@@ -64,14 +63,9 @@ impl CliRender for DnsDomainWithRecords {
         }
         let mut table = Table::new();
         table.set_header(vec!["Domain".to_string()]);
-        table.add_rows(
-            items
-                .iter()
-                .map(|ns| vec![ns.name.clone()]),
-        );
+        table.add_rows(items.iter().map(|ns| vec![ns.name.clone()]));
         table.to_string()
     }
-
 }
 
 impl CliRender for Namespace {

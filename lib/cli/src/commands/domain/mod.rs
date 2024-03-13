@@ -1,25 +1,23 @@
-pub mod list;
 pub mod get;
+pub mod list;
 pub mod zonefile;
 
 use crate::commands::AsyncCliCommand;
-
 
 /// Manage DNS records
 #[derive(clap::Subcommand, Debug)]
 pub enum CmdDomain {
     /// List domains
-        List(self::list::CmdDomainList),
+    List(self::list::CmdDomainList),
 
     /// Get a domain
-        Get(self::get::CmdDomainGet),
+    Get(self::get::CmdDomainGet),
 
     /// Get zone file for a domain
-        GetZoneFile(self::zonefile::CmdZoneFileGet),
+    GetZoneFile(self::zonefile::CmdZoneFileGet),
 
     /// Sync local zone file with remotex
-        SyncZoneFile(self::zonefile::CmdZoneFileSync),
-
+    SyncZoneFile(self::zonefile::CmdZoneFileSync),
 }
 
 #[async_trait::async_trait]

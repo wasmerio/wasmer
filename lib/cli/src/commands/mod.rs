@@ -14,6 +14,7 @@ mod create_exe;
 #[cfg(feature = "static-artifact-create")]
 mod create_obj;
 pub(crate) mod deploy;
+pub(crate) mod domain;
 #[cfg(feature = "static-artifact-create")]
 mod gen_c_header;
 mod init;
@@ -22,7 +23,6 @@ mod inspect;
 mod journal;
 mod login;
 pub(crate) mod namespace;
-pub(crate) mod domain;
 mod package;
 mod publish;
 mod run;

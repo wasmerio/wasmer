@@ -11,9 +11,9 @@ use url::Url;
 use crate::{
     types::{
         self, CreateNamespaceVars, DeployApp, DeployAppConnection, DeployAppVersion,
-        DeployAppVersionConnection, GetCurrentUserWithAppsVars, GetDeployAppAndVersion,
+        DeployAppVersionConnection, DnsDomain, GetCurrentUserWithAppsVars, GetDeployAppAndVersion,
         GetDeployAppVersionsVars, GetNamespaceAppsVars, Log, LogStream, PackageVersionConnection,
-        PublishDeployAppVars, UpsertDomainFromZoneFileVars, DnsDomain,
+        PublishDeployAppVars, UpsertDomainFromZoneFileVars,
     },
     GraphQLApiFailure, WasmerClient,
 };
@@ -850,7 +850,6 @@ pub async fn get_domain_zone_file(
     Ok(opt)
 }
 
-
 /// Retrieve a domain by its name, along with all it's records.
 pub async fn get_domain_with_records(
     client: &WasmerClient,
@@ -891,7 +890,6 @@ pub async fn get_all_domains(
         .map_err(anyhow::Error::from)
         .map(|x| x.get_all_domains)
 }
-
 
 /// Retrieve a domain by its name.
 ///

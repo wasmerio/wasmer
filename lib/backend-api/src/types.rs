@@ -637,13 +637,13 @@ mod queries {
         pub owner: String,
         /// The tag associated with a particular app version. Uses the active
         /// version if not provided.
-            pub version: Option<String>,
+        pub version: Option<String>,
         /// The lower bound for log messages, in nanoseconds since the Unix
         /// epoch.
-            pub starting_from: f64,
+        pub starting_from: f64,
         /// The upper bound for log messages, in nanoseconds since the Unix
         /// epoch.
-            pub until: Option<f64>,
+        pub until: Option<f64>,
         pub first: Option<i32>,
 
         pub streams: Option<Vec<LogStream>>,
@@ -677,7 +677,7 @@ mod queries {
     pub struct Log {
         pub message: String,
         /// When the message was recorded, in nanoseconds since the Unix epoch.
-            pub timestamp: f64,
+        pub timestamp: f64,
     }
 
     #[derive(cynic::QueryVariables, Debug)]
@@ -760,7 +760,7 @@ mod queries {
         pub deleted_at: Option<DateTime>,
         pub name: Option<String>,
         pub text: String,
-	pub ttl: Option<i32>,
+        pub ttl: Option<i32>,
         pub data: String,
 
         pub domain: DnsDomain,
@@ -775,7 +775,7 @@ mod queries {
         pub deleted_at: Option<DateTime>,
         pub name: Option<String>,
         pub text: String,
-	pub ttl: Option<i32>,
+        pub ttl: Option<i32>,
         #[cynic(rename = "type")]
         pub type_: DnsmanagerSshFingerprintRecordTypeChoices,
         pub algorithm: DnsmanagerSshFingerprintRecordAlgorithmChoices,
@@ -793,7 +793,7 @@ mod queries {
         pub deleted_at: Option<DateTime>,
         pub name: Option<String>,
         pub text: String,
-	pub ttl: Option<i32>,
+        pub ttl: Option<i32>,
         pub service: String,
         pub protocol: String,
         pub priority: i32,
@@ -813,7 +813,7 @@ mod queries {
         pub deleted_at: Option<DateTime>,
         pub name: Option<String>,
         pub text: String,
-	pub ttl: Option<i32>,
+        pub ttl: Option<i32>,
         pub mname: String,
         pub rname: String,
         pub serial: BigInt,
@@ -895,7 +895,7 @@ mod queries {
         pub deleted_at: Option<DateTime>,
         pub name: Option<String>,
         pub text: String,
-	pub ttl: Option<i32>,
+        pub ttl: Option<i32>,
         pub nsdname: String,
 
         pub domain: DnsDomain,
@@ -952,7 +952,7 @@ mod queries {
         pub deleted_at: Option<DateTime>,
         pub name: Option<String>,
         pub text: String,
-	pub ttl: Option<i32>,
+        pub ttl: Option<i32>,
         pub d_name: String,
 
         pub domain: DnsDomain,
@@ -967,7 +967,7 @@ mod queries {
         pub deleted_at: Option<DateTime>,
         pub name: Option<String>,
         pub text: String,
-	pub ttl: Option<i32>,
+        pub ttl: Option<i32>,
         pub c_name: String,
 
         pub domain: DnsDomain,
@@ -982,7 +982,7 @@ mod queries {
         pub deleted_at: Option<DateTime>,
         pub name: Option<String>,
         pub text: String,
-	pub ttl: Option<i32>,
+        pub ttl: Option<i32>,
         pub value: String,
         pub flags: i32,
         pub tag: DnsmanagerCertificationAuthorityAuthorizationRecordTagChoices,
@@ -999,7 +999,7 @@ mod queries {
         pub deleted_at: Option<DateTime>,
         pub name: Option<String>,
         pub text: String,
-	pub ttl: Option<i32>,
+        pub ttl: Option<i32>,
         pub address: String,
         pub domain: DnsDomain,
     }
@@ -1013,7 +1013,7 @@ mod queries {
         pub deleted_at: Option<DateTime>,
         pub name: Option<String>,
         pub text: String,
-	pub ttl: Option<i32>,
+        pub ttl: Option<i32>,
         pub address: String,
         pub domain: DnsDomain,
     }
@@ -1225,7 +1225,6 @@ mod queries {
         pub zone_file: String,
     }
 
-
     #[derive(cynic::QueryFragment, Debug, Clone, Serialize)]
     #[cynic(graphql_type = "DNSDomain")]
     pub struct DnsDomainWithRecords {
@@ -1234,7 +1233,6 @@ mod queries {
         pub slug: String,
         pub records: Option<Vec<Option<DnsRecord>>>,
     }
-
 
     #[derive(cynic::Scalar, Debug, Clone)]
     pub struct BigInt(pub u64);

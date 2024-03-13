@@ -108,7 +108,6 @@ pub struct ItemTableFormatOpts {
     pub format: crate::utils::render::ItemFormat,
 }
 
-
 /// Formatting options for a list of items.
 #[derive(clap::Parser, Debug)]
 pub struct ListFormatOpts {
