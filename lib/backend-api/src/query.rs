@@ -13,7 +13,7 @@ use crate::{
         self, CreateNamespaceVars, DeployApp, DeployAppConnection, DeployAppVersion,
         DeployAppVersionConnection, GetCurrentUserWithAppsVars, GetDeployAppAndVersion,
         GetDeployAppVersionsVars, GetNamespaceAppsVars, Log, LogStream, PackageVersionConnection,
-        PublishDeployAppVars,
+        PublishDeployAppVars, UpsertDomainFromZoneFileVars, DnsDomain,
     },
     GraphQLApiFailure, WasmerClient,
 };
@@ -822,6 +822,39 @@ pub async fn get_app_logs_paginated(
 pub async fn get_domain(
     client: &WasmerClient,
     domain: String,
+) -> Result<Option<types::DnsDomain>, anyhow::Error> {
+    let vars = types::GetDomainVars { domain };
+
+    let opt = client
+        .run_graphql(types::GetDomain::build(vars))
+        .await
+        .map_err(anyhow::Error::from)?
+        .get_domain;
+    Ok(opt)
+}
+
+/// Retrieve a domain by its name.
+///
+/// Specify with_records to also retrieve all records for the domain.
+pub async fn get_domain_zone_file(
+    client: &WasmerClient,
+    domain: String,
+) -> Result<Option<types::DnsDomainWithZoneFile>, anyhow::Error> {
+    let vars = types::GetDomainVars { domain };
+
+    let opt = client
+        .run_graphql(types::GetDomainWithZoneFile::build(vars))
+        .await
+        .map_err(anyhow::Error::from)?
+        .get_domain;
+    Ok(opt)
+}
+
+
+/// Retrieve a domain by its name, along with all it's records.
+pub async fn get_domain_with_records(
+    client: &WasmerClient,
+    domain: String,
 ) -> Result<Option<types::DnsDomainWithRecords>, anyhow::Error> {
     let vars = types::GetDomainVars { domain };
 
@@ -846,6 +879,19 @@ pub async fn get_all_dns_records(
         .map_err(anyhow::Error::from)
         .map(|x| x.get_all_dnsrecords)
 }
+
+/// Retrieve all DNS domains.
+pub async fn get_all_domains(
+    client: &WasmerClient,
+    vars: types::GetAllDomainsVariables,
+) -> Result<types::DnsDomainConnection, anyhow::Error> {
+    client
+        .run_graphql_strict(types::GetAllDomains::build(vars))
+        .await
+        .map_err(anyhow::Error::from)
+        .map(|x| x.get_all_domains)
+}
+
 
 /// Retrieve a domain by its name.
 ///
@@ -891,4 +937,32 @@ fn unix_timestamp(ts: OffsetDateTime) -> f64 {
     let secs = timestamp / nanos_per_second;
 
     (secs as f64) + (nanos as f64 / nanos_per_second as f64)
+}
+
+/// Publish a new app (version).
+pub async fn upsert_domain_from_zone_file(
+    client: &WasmerClient,
+    zone_file_contents: String,
+    delete_missing_records: bool,
+) -> Result<DnsDomain, anyhow::Error> {
+    let vars = UpsertDomainFromZoneFileVars {
+        zone_file: zone_file_contents,
+        delete_missing_records: Some(delete_missing_records),
+    };
+    let res = client
+        .run_graphql_raw(types::UpsertDomainFromZoneFile::build(vars))
+        .await?;
+
+    if let Some(domain) = res
+        .data
+        .and_then(|d| d.upsert_domain_from_zone_file)
+        .map(|d| d.domain)
+    {
+        Ok(domain)
+    } else {
+        Err(GraphQLApiFailure::from_errors(
+            "could not sync zone file",
+            res.errors,
+        ))
+    }
 }
