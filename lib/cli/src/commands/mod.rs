@@ -22,6 +22,7 @@ mod inspect;
 mod journal;
 mod login;
 pub(crate) mod namespace;
+pub(crate) mod domain;
 mod package;
 mod publish;
 mod run;
@@ -157,6 +158,7 @@ impl WasmerCmd {
             Some(Cmd::Journal(journal)) => journal.run(),
             Some(Cmd::Ssh(ssh)) => ssh.run(),
             Some(Cmd::Namespace(namespace)) => namespace.run(),
+            Some(Cmd::Domain(namespace)) => namespace.run(),
             None => {
                 WasmerCmd::command().print_long_help()?;
                 // Note: clap uses an exit code of 2 when CLI parsing fails
@@ -356,6 +358,10 @@ enum Cmd {
     /// Manage Wasmer namespaces.
     #[clap(subcommand, alias = "namespaces")]
     Namespace(crate::commands::namespace::CmdNamespace),
+
+    /// Manage DNS records
+    #[clap(subcommand, alias = "domains")]
+    Domain(crate::commands::domain::CmdDomain),
 }
 
 fn is_binfmt_interpreter() -> bool {
