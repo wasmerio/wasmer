@@ -1,3 +1,7 @@
+use crate::bindings::{
+    wasm_limits_t, wasm_memory_t, wasm_memory_type, wasm_memorytype_limits,
+    wasm_memorytype_t,
+};
 use crate::c_api::bindings::wasm_memory_as_extern;
 use crate::c_api::vm::{VMExtern, VMMemory};
 use crate::mem_access::MemoryAccessError;
@@ -52,8 +56,15 @@ impl Memory {
     }
 
     pub fn ty(&self, _store: &impl AsStoreRef) -> MemoryType {
-        unimplemented!();
-        // self.handle.ty
+        let wamr_memory_type: *mut wasm_memorytype_t = unsafe { wasm_memory_type(self.handle) };
+        let limits: *const wasm_limits_t = unsafe { wasm_memorytype_limits(wamr_memory_type) };
+
+        // [todo]
+        MemoryType {
+            shared: true,
+            minimum: unsafe { wasmer_types::Pages((*limits).min) },
+            maximum: unsafe { Some(wasmer_types::Pages((*limits).max)) },
+        }
     }
 
     pub fn view<'a>(&self, store: &'a impl AsStoreRef) -> MemoryView<'a> {
@@ -157,9 +168,8 @@ impl Memory {
         // Ok(new_memory)
     }
 
-    pub(crate) fn from_vm_extern(_store: &mut impl AsStoreMut, internal: VMMemory) -> Self {
-        unimplemented!();
-        // Self { handle: internal }
+    pub(crate) fn from_vm_extern(store: &mut impl AsStoreMut, internal: VMMemory) -> Self {
+        Self { handle: internal }
     }
 
     /// Cloning memory will create another reference to the same memory that
