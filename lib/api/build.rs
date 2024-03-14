@@ -1,7 +1,7 @@
 use cmake::Config;
 use std::{
     env,
-    path::{Path, PathBuf},
+    path::PathBuf,
     process::Command,
 };
 
@@ -23,7 +23,6 @@ fn main() {
     let wamr_dir = PathBuf::from(crate_root).join("third_party").join("wamr");
     let dist = wamr_dir.join("wasm-micro-runtime");
 
-    let dist_githead = dist.join(".git/HEAD");
     maybe_clone_repo(
         dist,
         "https://github.com/bytecodealliance/wasm-micro-runtime.git",
