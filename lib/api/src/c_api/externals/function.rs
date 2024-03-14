@@ -1,9 +1,10 @@
-use crate::as_c::{param_from_c, result_to_value, type_to_c};
+use crate::as_c::{param_from_c, result_to_value, type_to_c, valtype_to_type};
 use crate::bindings::{
     wasm_byte_vec_new_empty, wasm_byte_vec_t, wasm_extern_as_func, wasm_func_call, wasm_func_new,
     wasm_func_new_with_env, wasm_func_param_arity, wasm_func_result_arity, wasm_func_t,
-    wasm_func_type, wasm_functype_copy, wasm_functype_new, wasm_functype_results, wasm_functype_t,
-    wasm_trap_message, wasm_trap_t, wasm_val_t, wasm_val_t__bindgen_ty_1, wasm_val_vec_new,
+    wasm_func_type, wasm_functype_copy, wasm_functype_new, wasm_functype_params,
+    wasm_functype_results, wasm_functype_t, wasm_trap_message, wasm_trap_new, wasm_trap_t,
+    wasm_val_t, wasm_val_t__bindgen_ty_1, wasm_val_vec_copy, wasm_val_vec_new,
     wasm_val_vec_new_uninitialized, wasm_val_vec_t, wasm_valkind_enum_WASM_F32,
     wasm_valkind_enum_WASM_F64, wasm_valkind_enum_WASM_I32, wasm_valkind_enum_WASM_I64,
     wasm_valtype_new, wasm_valtype_t, wasm_valtype_vec_new, wasm_valtype_vec_t,
@@ -19,14 +20,16 @@ use crate::errors::RuntimeError;
 use crate::externals::function::{HostFunction, HostFunctionKind, WithEnv, WithoutEnv};
 use crate::function_env::{FunctionEnv, FunctionEnvMut};
 use crate::native_type::{FromToNativeWasmType, IntoResult, NativeWasmTypeInto, WasmTypeList};
-use crate::store::{AsStoreMut, AsStoreRef, StoreMut};
+use crate::store::{AsStoreMut, AsStoreRef, StoreInner, StoreMut};
 use crate::trap::Trap;
 use crate::value::Value;
-use std::ffi::CStr;
+use std::ffi::{c_void, CStr};
 use std::fmt;
+use std::io::Write;
 use std::marker::PhantomData;
 use std::panic::{self, AssertUnwindSafe};
 use std::ptr::null_mut;
+use std::sync::Arc;
 
 use wasmer_types::{FunctionType, RawValue};
 
@@ -35,30 +38,33 @@ pub struct Function {
     pub(crate) handle: VMFunction,
 }
 
-unsafe extern "C" fn closure_callback(
-    // env: *mut std::os::raw::c_void,
-    args: *const wasm_val_vec_t,
-    results: *mut wasm_val_vec_t,
-) -> *mut wasm_trap_t {
-    println!("Closure called!");
-    unimplemented!();
-    // int i = *(int*)env;
-    // printf("Calling back closure...\n");
-    // printf("> %d\n", i);
-
-    // results->data[0].kind = WASM_I32;
-    // results->data[0].of.i32 = (int32_t)i;
-    // return NULL;
-}
-
-// Function can't be Send in js because it dosen't support `structuredClone`
-// https://developer.mozilla.org/en-US/docs/Web/API/structuredClone
-// unsafe impl Send for Function {}
+unsafe impl Send for Function {}
 
 impl From<VMFunction> for Function {
     fn from(handle: VMFunction) -> Self {
         Self { handle }
     }
+}
+
+pub(crate) struct FunctionCallbackEnv<'a, T> {
+    store: Option<StoreMut<'a>>,
+    env: Option<FunctionEnvMut<'a, T>>,
+}
+
+unsafe extern "C" fn closure_callback_with_env(
+    env: *mut std::os::raw::c_void,
+    args: *const wasm_val_vec_t,
+    results: *mut wasm_val_vec_t,
+) -> *mut wasm_trap_t {
+    unimplemented!("closure_callback_with_env")
+}
+
+unsafe extern "C" fn closure_callback(
+    // env: *mut std::os::raw::c_void,
+    args: *const wasm_val_vec_t,
+    results: *mut wasm_val_vec_t,
+) -> *mut wasm_trap_t {
+    unimplemented!("closure_callback")
 }
 
 impl Function {
@@ -86,137 +92,85 @@ impl Function {
             + Send
             + Sync,
     {
-        let function_type = ty.into();
+        let fn_ty: FunctionType = ty.into();
+        let params = fn_ty.params();
 
-        let store = store.as_store_mut();
-
-        let mut param_types = function_type
-            .params()
+        let mut param_types = params
             .into_iter()
             .map(|param| {
                 let kind = type_to_c(param);
                 unsafe { wasm_valtype_new(kind) }
-                // Box::into_raw(Box::new(unsafe { *wasm_valtype_new(kind) }))
             })
-            .collect::<Vec<_>>()
-            .into_boxed_slice();
+            .collect::<Vec<_>>();
 
         let mut wasm_param_types = wasm_valtype_vec_t {
             size: param_types.len(),
-            data: param_types.as_mut_ptr(),
+            data: param_types.clone().as_mut_ptr(),
         };
-        // let mut wasm_param_types = wasm_valtype_vec_t {
-        //     size: 0,
-        //     data: std::ptr::null_mut(),
-        // };
 
-        // unsafe {
-        //     wasm_valtype_vec_new(
-        //         &mut wasm_param_types,
-        //         param_types.len(),
-        //         param_types.as_mut_ptr(),
-        //     )
-        // };
-        // std::mem::forget(param_types);
+        unsafe {
+            wasm_valtype_vec_new(
+                &mut wasm_param_types,
+                param_types.len(),
+                param_types.as_ptr(),
+            );
+        }
 
-        let mut result_types = function_type
-            .results()
+        std::mem::forget(param_types);
+
+        let results = fn_ty.results();
+        let mut result_types = results
             .into_iter()
             .map(|param| {
                 let kind = type_to_c(param);
                 unsafe { wasm_valtype_new(kind) }
-                // Box::into_raw(Box::new(unsafe { *wasm_valtype_new(kind) }))
             })
-            .collect::<Vec<_>>()
-            .into_boxed_slice();
+            .collect::<Vec<_>>();
 
         let mut wasm_result_types = wasm_valtype_vec_t {
             size: result_types.len(),
-            data: result_types.as_mut_ptr(),
+            data: result_types.clone().as_mut_ptr(),
         };
-        // std::mem::forget(result_types);
 
-        let wasm_functype = unsafe {
-            wasm_functype_new(
-                Box::into_raw(Box::new(wasm_param_types)),
-                Box::into_raw(Box::new(wasm_result_types)),
-            )
-        };
-        // let env = std::ptr::null_mut();
-        // let wasm_function = unsafe {
-        //     wasm_func_new_with_env(
-        //         store.inner.store.inner,
-        //         wasm_functype,
-        //         Some(closure_callback),
-        //         env as _,
-        //         None,
-        //     )
-        // };
+        unsafe {
+            wasm_valtype_vec_new(
+                &mut wasm_result_types,
+                result_types.len(),
+                result_types.as_ptr(),
+            );
+        }
+
+        std::mem::forget(result_types);
+
+        let wasm_functype =
+            unsafe { wasm_functype_new(&mut wasm_param_types, &mut wasm_result_types) };
+
+        let mut store = store.as_store_mut();
+        let inner = store.inner.store.inner;
+
+        let mut callback_env: *mut FunctionCallbackEnv<'_, T> =
+            Box::into_raw(Box::new(FunctionCallbackEnv {
+                store: None,
+                env: Some(env.clone().into_mut(&mut store)),
+            }));
+
         let wasm_function = unsafe {
-            wasm_func_new(
-                store.inner.store.inner,
+            wasm_func_new_with_env(
+                inner,
                 wasm_functype,
-                Some(closure_callback),
+                Some(closure_callback_with_env),
+                callback_env as _,
+                None,
             )
         };
+
         if wasm_function.is_null() {
-            panic!("FAILED WHEN CREATING FUNCTION");
+            panic!("failed when creating new typed function");
         }
 
         Function {
             handle: wasm_function,
         }
-        // unimplemented!();
-        // let store = store.as_store_mut();
-        // let context = store.jsc().context();
-        // let function_type = ty.into();
-
-        // let new_function_type = function_type.clone();
-        // let raw_env = env.clone();
-
-        // let callback = callback_closure!(&context, move |ctx: JSContext,
-        //                                                  function: JSObject,
-        //                                                  this: JSObject,
-        //                                                  args: &[JSValue]|
-        //       -> Result<JSValue, JSValue> {
-        //     let global = ctx.get_global_object();
-        //     let store_ptr = global
-        //         .get_property(&ctx, "__store_ptr".to_string())
-        //         .to_number(&ctx)
-        //         .unwrap();
-
-        //     let mut store = unsafe { StoreMut::from_raw(store_ptr as usize as *mut _) };
-
-        //     let env: FunctionEnvMut<T> = raw_env.clone().into_mut(&mut store);
-
-        //     let wasm_arguments = new_function_type
-        //         .params()
-        //         .iter()
-        //         .enumerate()
-        //         .map(|(i, param)| param_from_js(&ctx, param, &args[i]))
-        //         .collect::<Vec<_>>();
-        //     let results = func(env, &wasm_arguments).map_err(|e| {
-        //         let value = format!("{}", e);
-        //         JSValue::string(&ctx, value)
-        //     })?;
-        //     match new_function_type.results().len() {
-        //         0 => Ok(JSValue::undefined(&ctx)),
-        //         1 => Ok(results[0].as_jsvalue(&mut store)),
-        //         _ => Ok(JSObject::new_array(
-        //             &ctx,
-        //             &results
-        //                 .into_iter()
-        //                 .map(|result| result.as_jsvalue(&mut store))
-        //                 .collect::<Vec<_>>(),
-        //         )?
-        //         .to_jsvalue()),
-        //     }
-        // });
-
-        // let vm_function = VMFunction::new(callback, function_type);
-        // Self {
-        //     handle: vm_function,
-        // }
     }
 
     /// Creates a new host `Function` from a native function.
@@ -226,15 +180,87 @@ impl Function {
         Args: WasmTypeList,
         Rets: WasmTypeList,
     {
-        unimplemented!();
-        // let function = WasmFunction::<Args, Rets>::new(func);
-        // let callback = function.callback(store.jsc().context());
+        let mut param_types = Args::wasm_types()
+            .into_iter()
+            .map(|param| {
+                let kind = type_to_c(param);
+                unsafe { wasm_valtype_new(kind) }
+            })
+            .collect::<Vec<_>>();
 
-        // let ty = function.ty();
-        // let vm_function = VMFunction::new(callback, ty);
-        // Self {
-        //     handle: vm_function,
-        // }
+        let mut wasm_param_types = wasm_valtype_vec_t {
+            size: param_types.len(),
+            data: param_types.clone().as_mut_ptr(),
+        };
+
+        unsafe {
+            wasm_valtype_vec_new(
+                &mut wasm_param_types,
+                param_types.len(),
+                param_types.as_ptr(),
+            );
+        }
+
+        std::mem::forget(param_types);
+
+        let mut result_types = Rets::wasm_types()
+            .into_iter()
+            .map(|param| {
+                let kind = type_to_c(param);
+                unsafe { wasm_valtype_new(kind) }
+            })
+            .collect::<Vec<_>>();
+
+        let mut wasm_result_types = wasm_valtype_vec_t {
+            size: result_types.len(),
+            data: result_types.clone().as_mut_ptr(),
+        };
+
+        unsafe {
+            wasm_valtype_vec_new(
+                &mut wasm_result_types,
+                result_types.len(),
+                result_types.as_ptr(),
+            );
+        }
+
+        std::mem::forget(result_types);
+
+        let wasm_functype =
+            unsafe { wasm_functype_new(&mut wasm_param_types, &mut wasm_result_types) };
+
+        let mut store = store.as_store_mut();
+        let inner = store.inner.store.inner;
+
+        let callback: unsafe extern "C" fn(
+            *mut c_void,
+            *const wasm_val_vec_t,
+            *mut wasm_val_vec_t,
+        ) -> *mut wasm_trap_t = unsafe { std::mem::transmute(func.function_callback()) };
+
+        let mut callback_env: *mut FunctionCallbackEnv<'_, ()> =
+            Box::into_raw(Box::new(FunctionCallbackEnv {
+                store: Some(store.as_store_mut()),
+                env: None,
+            }));
+
+        let wasm_function = unsafe {
+            wasm_func_new_with_env(
+                inner,
+                wasm_functype,
+                Some(callback),
+                callback_env as _,
+                None,
+            )
+        };
+
+        if wasm_function.is_null() {
+            panic!("failed when creating new typed function");
+        }
+
+        Function {
+            handle: wasm_function,
+        }
     }
 
     pub fn new_typed_with_env<T, F, Args, Rets>(
@@ -246,40 +272,115 @@ impl Function {
         F: HostFunction<T, Args, Rets, WithEnv>,
         Args: WasmTypeList,
         Rets: WasmTypeList,
+        T: Send + 'static,
     {
-        unimplemented!();
-        // let store = store.as_store_mut();
-        // let context = store.jsc().context();
-        // let function = WasmFunction::<Args, Rets>::new(func);
-        // let callback = function.callback(store.jsc().context());
+        let mut param_types = Args::wasm_types()
+            .into_iter()
+            .map(|param| {
+                let kind = type_to_c(param);
+                unsafe { wasm_valtype_new(kind) }
+            })
+            .collect::<Vec<_>>();
 
-        // let bind = callback
-        //     .get_property(&context, "bind".to_string())
-        //     .to_object(&context)
-        //     .unwrap();
-        // let callback_with_env = bind
-        //     .call(
-        //         &context,
-        //         Some(&callback),
-        //         &[
-        //             JSValue::undefined(&context),
-        //             JSValue::number(&context, env.handle.internal_handle().index() as f64),
-        //         ],
-        //     )
-        //     .unwrap()
-        //     .to_object(&context)
-        //     .unwrap();
+        let mut wasm_param_types = wasm_valtype_vec_t {
+            size: param_types.len(),
+            data: param_types.clone().as_mut_ptr(),
+        };
 
-        // let ty = function.ty();
-        // let vm_function = VMFunction::new(callback_with_env, ty);
-        // Self {
-        //     handle: vm_function,
-        // }
+        unsafe {
+            wasm_valtype_vec_new(
+                &mut wasm_param_types,
+                param_types.len(),
+                param_types.as_ptr(),
+            );
+        }
+
+        std::mem::forget(param_types);
+
+        let mut result_types = Rets::wasm_types()
+            .into_iter()
+            .map(|param| {
+                let kind = type_to_c(param);
+                unsafe { wasm_valtype_new(kind) }
+            })
+            .collect::<Vec<_>>();
+
+        let mut wasm_result_types = wasm_valtype_vec_t {
+            size: result_types.len(),
+            data: result_types.clone().as_mut_ptr(),
+        };
+
+        unsafe {
+            wasm_valtype_vec_new(
+                &mut wasm_result_types,
+                result_types.len(),
+                result_types.as_ptr(),
+            );
+        }
+
+        std::mem::forget(result_types);
+
+        let wasm_functype =
+            unsafe { wasm_functype_new(&mut wasm_param_types, &mut wasm_result_types) };
+
+        let mut store = store.as_store_mut();
+        let inner = store.inner.store.inner;
+
+        let callback: unsafe extern "C" fn(
+            *mut c_void,
+            *const wasm_val_vec_t,
+            *mut wasm_val_vec_t,
+        ) -> *mut wasm_trap_t = unsafe { std::mem::transmute(func.function_callback()) };
+
+        let env = env.clone().into_mut(&mut store);
+        let mut callback_env: *mut FunctionCallbackEnv<'_, T> =
+            Box::into_raw(Box::new(FunctionCallbackEnv {
+                store: None,
+                env: Some(env),
+            }));
+
+        let wasm_function = unsafe {
+            wasm_func_new_with_env(
+                inner,
+                wasm_functype,
+                Some(callback),
+                callback_env as _,
+                None,
+            )
+        };
+
+        if wasm_function.is_null() {
+            panic!("failed when creating new typed function");
+        }
+
+        Function {
+            handle: wasm_function,
+        }
     }
 
     pub fn ty(&self, _store: &impl AsStoreRef) -> FunctionType {
-        unimplemented!();
-        // self.handle.ty.clone()
+        // unimplemented!();
+        let type_ = unsafe { wasm_func_type(self.handle) };
+        let params: *const wasm_valtype_vec_t = unsafe { wasm_functype_params(type_) };
+        let returns: *const wasm_valtype_vec_t = unsafe { wasm_functype_results(type_) };
+
+        let params: Vec<wasmer_types::Type> = unsafe {
+            let mut res = vec![];
+            for i in 0..(*params).size {
+                res.push(valtype_to_type(*(*params).data.wrapping_add(i)));
+            }
+            res
+        };
+
+        let returns: Vec<wasmer_types::Type> = unsafe {
+            let mut res = vec![];
+            for i in 0..(*returns).size {
+                res.push(valtype_to_type(*(*returns).data.wrapping_add(i)));
+            }
+            res
+        };
+
+        FunctionType::new(params, returns)
     }
 
     pub fn call_raw(
@@ -316,14 +417,17 @@ impl Function {
             size: 0,
             data: std::ptr::null_mut(),
         };
+
         unsafe {
             wasm_val_vec_new_uninitialized(&mut results, size);
         }
+
         let trap = unsafe { wasm_func_call(self.handle, &args, &mut results) };
         if !trap.is_null() {
             return Err(Into::<Trap>::into(trap).into());
         }
         let results = unsafe { std::ptr::slice_from_raw_parts(results.data, results.size) };
+
         Ok(unsafe {
             (*results)
                 .into_iter()
@@ -331,68 +435,6 @@ impl Function {
                 .collect::<Vec<_>>()
                 .into_boxed_slice()
         })
-        // let engine = store_mut.engine();
-        // let context = engine.0.context();
-
-        // let mut global = context.get_global_object();
-        // let store_ptr = store_mut.as_raw() as usize;
-        // global.set_property(
-        //     &context,
-        //     "__store_ptr".to_string(),
-        //     JSValue::number(&context, store_ptr as _),
-        // );
-
-        // let params_list = params
-        //     .iter()
-        //     .map(|v| v.as_jsvalue(&store_mut))
-        //     .collect::<Vec<_>>();
-        // let result = {
-        //     let mut r;
-        //     // TODO: This loop is needed for asyncify. It will be refactored with https://github.com/wasmerio/wasmer/issues/3451
-        //     loop {
-        //         let store_mut = store.as_store_mut();
-        //         let engine = store_mut.engine();
-        //         let context = engine.0.context();
-        //         r = self.handle.function.call(&context, None, &params_list);
-        //         if let Some(callback) = store_mut.inner.on_called.take() {
-        //             match callback(store_mut) {
-        //                 Ok(wasmer_types::OnCalledAction::InvokeAgain) => {
-        //                     continue;
-        //                 }
-        //                 Ok(wasmer_types::OnCalledAction::Finish) => {
-        //                     break;
-        //                 }
-        //                 Ok(wasmer_types::OnCalledAction::Trap(trap)) => {
-        //                     return Err(RuntimeError::user(trap))
-        //                 }
-        //                 Err(trap) => return Err(RuntimeError::user(trap)),
-        //             }
-        //         }
-        //         break;
-        //     }
-        //     r?
-        // };
-        // let result_types = self.handle.ty.results();
-        // let store_mut = store.as_store_mut();
-        // let engine = store_mut.engine();
-        // let context = engine.0.context();
-        // match result_types.len() {
-        //     0 => Ok(Box::new([])),
-        //     1 => {
-        //         let value = param_from_js(&context, &result_types[0], &result);
-        //         Ok(vec![value].into_boxed_slice())
-        //     }
-        //     n => {
-        //         let result = result.to_object(&context).unwrap();
-        //         Ok((0..n)
-        //             .map(|i| {
-        //                 let js_val = result.get_property_at_index(&context, i as _).unwrap();
-        //                 param_from_js(&context, &result_types[i], &js_val)
-        //             })
-        //             .collect::<Vec<_>>()
-        //             .into_boxed_slice())
-        //     }
-        // }
     }
 
     pub(crate) fn from_vm_extern(_store: &mut impl AsStoreMut, internal: VMFunction) -> Self {
@@ -422,48 +464,6 @@ impl fmt::Debug for Function {
     }
 }
 
-// /// Represents a low-level Wasm static host function. See
-// /// `super::Function::new` and `super::Function::new_env` to learn
-// /// more.
-// #[derive(Clone, Debug, Hash, PartialEq, Eq)]
-// pub struct WasmFunction<Args = (), Rets = ()> {
-//     callback: JSObjectCallAsFunctionCallback,
-//     _phantom: PhantomData<(Args, Rets)>,
-// }
-
-// unsafe impl<Args, Rets> Send for WasmFunction<Args, Rets> {}
-
-// impl<Args, Rets> WasmFunction<Args, Rets>
-// where
-//     Args: WasmTypeList,
-//     Rets: WasmTypeList,
-// {
-//     /// Creates a new `WasmFunction`.
-//     #[allow(dead_code)]
-//     pub fn new<F, T, Kind: HostFunctionKind>(function: F) -> Self
-//     where
-//         F: HostFunction<T, Args, Rets, Kind>,
-//         T: Sized,
-//     {
-//         Self {
-//             callback: function.function_callback(),
-//             _phantom: PhantomData,
-//         }
-//     }
-
-//     /// Get the function type of this `WasmFunction`.
-//     #[allow(dead_code)]
-//     pub fn ty(&self) -> FunctionType {
-//         FunctionType::new(Args::wasm_types(), Rets::wasm_types())
-//     }
-
-//     /// Get the address of this `WasmFunction`.
-//     #[allow(dead_code)]
-//     pub fn callback(&self, context: &JSContext) -> JSObject {
-//         JSObject::new_function_with_callback(context, "FunctionCallback".to_string(), self.callback)
-//     }
-// }
-
 macro_rules! impl_host_function {
         ( [$c_struct_representation:ident]
            $c_struct_name:ident,
@@ -485,102 +485,82 @@ macro_rules! impl_host_function {
             {
                 #[allow(non_snake_case)]
                 fn function_callback(&self) -> VMFunctionCallback {
-                    // #[callback]
-                    // fn fn_callback<T, $( $x, )* Rets, RetsAsResult, Func>(
-                    //     ctx: JSContext,
-                    //     function: JSObject,
-                    //     this_object: JSObject,
-                    //     arguments: &[JSValue],
-                    // ) -> Result<JSValue, JSValue>
-                    // where
-                    //     $( $x: FromToNativeWasmType, )*
-                    //     Rets: WasmTypeList,
-                    //     RetsAsResult: IntoResult<Rets>,
-                    //     Func: Fn(FunctionEnvMut<'_, T>, $( $x , )*) -> RetsAsResult + 'static,
-                    //     T: Send + 'static,
-                    // {
-                    //     use std::convert::TryInto;
+                    /// This is a function that wraps the real host
+                    /// function. Its address will be used inside the
+                    /// runtime.
+                    unsafe extern "C" fn func_wrapper<$( $x, )* Rets, RetsAsResult, Func, T>(env: *mut c_void, args: *const wasm_val_vec_t, results: *mut wasm_val_vec_t) -> *mut wasm_trap_t
+                    where
+                        $( $x: FromToNativeWasmType, )*
+                        Rets: WasmTypeList,
+                        RetsAsResult: IntoResult<Rets>,
+                        T: Send + 'static,
+                        Func: Fn(FunctionEnvMut<'_, T>, $( $x , )*) -> RetsAsResult + 'static,
+                    {
+                        let mut env : *mut FunctionCallbackEnv<T> = unsafe {std::mem::transmute(env)};
+                        let mut fn_env: FunctionEnvMut<T> = (*env).env.as_mut().unwrap().as_mut();
+                        let (_,  store) = &mut fn_env.data_and_store_mut();
+                            // (*env).env.unwrap().get_mut();
 
-                    //     let func: &Func = &*(&() as *const () as *const Func);
-                    //     let global = ctx.get_global_object();
-                    //     let store_ptr = global.get_property(&ctx, "__store_ptr".to_string()).to_number(&ctx).unwrap();
-                    //     if store_ptr.is_nan() {
-                    //         panic!("Store pointer is invalid. Received {}", store_ptr as usize)
-                    //     }
-                    //     let mut store = StoreMut::from_raw(store_ptr as usize as *mut _);
+                        let mut i = 0;
 
-                    //     let handle_index = arguments[0].to_number(&ctx).unwrap() as usize;
-                    //     let handle: StoreHandle<VMFunctionEnvironment> = StoreHandle::from_internal(store.objects_mut().id(), InternalStoreHandle::from_index(handle_index).unwrap());
-                    //     let env: FunctionEnvMut<T> = FunctionEnv::from_handle(handle).into_mut(&mut store);
+                       $(
+                           let c_arg = (*(*args).data.wrapping_add(i)).clone();
+                           let wasmer_arg = crate::as_c::param_from_c(&c_arg);
+                           let raw_arg : RawValue = wasmer_arg.as_raw(store);
+                           let $x : $x = FromToNativeWasmType::from_native($x::Native::from_raw(store, raw_arg));
 
-                    //     let result = panic::catch_unwind(AssertUnwindSafe(|| {
-                    //         type JSArray<'a> = &'a [JSValue; count_idents!( $( $x ),* )];
-                    //         let args_without_store: JSArray = arguments[1..].try_into().unwrap();
-                    //         let [ $( $x ),* ] = args_without_store;
-                    //         let mut store = StoreMut::from_raw(store_ptr as usize as *mut _);
-                    //         func(env, $( FromToNativeWasmType::from_native( $x::Native::from_raw(&mut store, RawValue { u128: {
-                    //             // TODO: This may not be the fastest way, but JSC doesn't expose a BigInt interface
-                    //             // so the only thing we can do is parse from the string repr
-                    //             if $x.is_number(&ctx) {
-                    //                 $x.to_number(&ctx).unwrap() as _
-                    //             }
-                    //             else {
-                    //                 $x.to_string(&ctx).unwrap().to_string().parse::<u128>().unwrap()
-                    //             }
-                    //         } }) ) ),* ).into_result()
-                    //     }));
+                           i += 1;
+                        )*
 
-                    //     match result {
-                    //         Ok(Ok(result)) => {
-                    //             match Rets::size() {
-                    //                 0 => {Ok(JSValue::undefined(&ctx))},
-                    //                 1 => {
-                    //                     // unimplemented!();
+                        let result = panic::catch_unwind(AssertUnwindSafe(|| unsafe {
+                            let func: &Func = &*(&() as *const () as *const Func);
+                            func(fn_env, $( $x, )* ).into_result()
+                        }));
 
-                    //                     let ty = Rets::wasm_types()[0];
-                    //                     let mut arr = result.into_array(&mut store);
-                    //                     // Value::from_raw(&store, ty, arr[0])
-                    //                     let val = Value::from_raw(&mut store, ty, arr.as_mut()[0]);
-                    //                     let value: JSValue = val.as_jsvalue(&store);
-                    //                     Ok(value)
-                    //                     // *mut_rets = val.as_raw(&mut store);
-                    //                 }
-                    //                 _n => {
-                    //                     // if !results.is_array(&context) {
-                    //                     //     panic!("Expected results to be an array.")
-                    //                     // }
-                    //                     let mut arr = result.into_array(&mut store);
-                    //                     let result_values = Rets::wasm_types().iter().enumerate().map(|(i, ret_type)| {
-                    //                         let raw = arr.as_mut()[i];
-                    //                         Value::from_raw(&mut store, *ret_type, raw).as_jsvalue(&mut store)
-                    //                     }).collect::<Vec<_>>();
-                    //                     Ok(JSObject::new_array(&ctx, &result_values).unwrap().to_jsvalue())
-                    //                 }
-                    //             }
-                    //         },
-                    //         #[cfg(feature = "std")]
-                    //         Ok(Err(err)) => {
-                    //             let trap: Trap = Trap::user(Box::new(err));
-                    //             Err(trap.into_jsvalue(&ctx))
-                    //         },
-                    //         #[cfg(feature = "core")]
-                    //         Ok(Err(err)) => {
-                    //             let trap: Trap = Trap::user(Box::new(err));
-                    //             Err(trap.into_jsvalue(&ctx))
-                    //         },
-                    //         Err(panic) => {
-                    //             Err(JSValue::string(&ctx, format!("panic: {:?}", panic)))
-                    //             // We can't just resume the unwind, because it will put
-                    //             // JavacriptCore in a bad state, so we need to transform
-                    //             // the error
 
-                    //             // std::panic::resume_unwind(panic)
-                    //         },
-                    //     }
+                        let mut fn_env: FunctionEnvMut<T> = (*env).env.as_mut().unwrap().as_mut();
+                        let (_,  store) = &mut fn_env.data_and_store_mut();
 
-                    // }
-                    // Some(fn_callback::<T, $( $x, )* Rets, RetsAsResult, Self > as _)
-                    unimplemented!();
+
+                       match result {
+                           Ok(Ok(result)) => {
+
+                               let types = Rets::wasm_types();
+                                let mut native_results = result.into_array(store);
+                                let native_results = native_results.as_mut();
+
+                                let native_results: Vec<Value> = native_results.into_iter().enumerate()
+                                    .map(|(i, r)| Value::from_raw(store, types[i], r.clone()))
+                                    .collect();
+
+                                let mut c_results: Vec<wasm_val_t> = native_results.iter().map(|r| crate::as_c::result_to_value(r)).collect();
+
+                                if c_results.len() != (*results).size {
+                                    panic!("when calling host function: number of observed results differ from wanted results")
+                                }
+
+                                unsafe {
+                                    for i in 0..(*results).size {
+                                        *((*results).data.wrapping_add(i)) = c_results[i]
+                                    }
+
+                                }
+
+                                unsafe { std::ptr::null_mut() }
+                           },
+                           Ok(Err(e)) => {
+                               unimplemented!("host function returns an error");
+                           },
+                           Err(e) => {
+                               unimplemented!("host function panicked");
+                           }
+                       }
+
+
+                    }
+
+                    func_wrapper::< $( $x, )* Rets, RetsAsResult, Self, T> as VMFunctionCallback
+
                 }
             }
 
@@ -599,90 +579,73 @@ macro_rules! impl_host_function {
                 #[allow(non_snake_case)]
                 fn function_callback(&self) -> VMFunctionCallback {
 
-                //     #[callback]
-                //     fn fn_callback<$( $x, )* Rets, RetsAsResult, Func>(
-                //         ctx: JSContext,
-                //         function: JSObject,
-                //         this_object: JSObject,
-                //         arguments: &[JSValue],
-                //     ) -> Result<JSValue, JSValue>
-                //     where
-                //         $( $x: FromToNativeWasmType, )*
-                //         Rets: WasmTypeList,
-                //         RetsAsResult: IntoResult<Rets>,
-                //         Func: Fn($( $x , )*) -> RetsAsResult + 'static,
-                //         // $( $x: NativeWasmTypeInto, )*
-                //     {
-                //         use std::convert::TryInto;
+                    /// This is a function that wraps the real host
+                    /// function. Its address will be used inside the
+                    /// runtime.
+                    unsafe extern "C" fn func_wrapper<$( $x, )* Rets, RetsAsResult, Func>(env: *mut c_void, args: *const wasm_val_vec_t, results: *mut wasm_val_vec_t) -> *mut wasm_trap_t
+                    where
+                        $( $x: FromToNativeWasmType, )*
+                        Rets: WasmTypeList,
+                        RetsAsResult: IntoResult<Rets>,
+                        Func: Fn($( $x , )*) -> RetsAsResult + 'static,
+                    {
+                        let mut env : *mut FunctionCallbackEnv<()> = unsafe {std::mem::transmute(env)};
+                        let store = &mut (*env).store.as_mut().unwrap().as_store_mut();
+                        let mut i = 0;
 
-                //         let func: &Func = &*(&() as *const () as *const Func);
-                //         let global = ctx.get_global_object();
-                //         let store_ptr = global.get_property(&ctx, "__store_ptr".to_string()).to_number(&ctx).unwrap();
-                //         if store_ptr.is_nan() {
-                //             panic!("Store pointer is invalid. Received {}", store_ptr as usize)
-                //         }
+                       $(
+                           let c_arg = (*(*args).data.wrapping_add(i)).clone();
+                           let wasmer_arg = crate::as_c::param_from_c(&c_arg);
+                           let raw_arg : RawValue = wasmer_arg.as_raw(store);
+                           let $x : $x = FromToNativeWasmType::from_native($x::Native::from_raw(store, raw_arg));
 
-                //         let mut store = StoreMut::from_raw(store_ptr as usize as *mut _);
-                //         let result = panic::catch_unwind(AssertUnwindSafe(|| {
-                //             type JSArray<'a> = &'a [JSValue; count_idents!( $( $x ),* )];
-                //             let args_without_store: JSArray = arguments.try_into().unwrap();
-                //             let [ $( $x ),* ] = args_without_store;
-                //             func($( FromToNativeWasmType::from_native( $x::Native::from_raw(&mut store, RawValue { u128: {
-                //                 // TODO: This may not be the fastest way, but JSC doesn't expose a BigInt interface
-                //                 // so the only thing we can do is parse from the string repr
-                //                 if $x.is_number(&ctx) {
-                //                     $x.to_number(&ctx).unwrap() as _
-                //                 }
-                //                 else {
-                //                     $x.to_string(&ctx).unwrap().to_string().parse::<u128>().unwrap()
-                //                 }
-                //             } }) ) ),* ).into_result()
-                //         }));
+                           i += 1;
+                        )*
 
-                //         match result {
-                //             Ok(Ok(result)) => {
-                //                 match Rets::size() {
-                //                     0 => {Ok(JSValue::undefined(&ctx))},
-                //                     1 => {
-                //                         let ty = Rets::wasm_types()[0];
-                //                         let mut arr = result.into_array(&mut store);
-                //                         let val = Value::from_raw(&mut store, ty, arr.as_mut()[0]);
-                //                         let value: JSValue = val.as_jsvalue(&store);
-                //                         Ok(value)
-                //                     }
-                //                     _n => {
-                //                         let mut arr = result.into_array(&mut store);
-                //                         let result_values = Rets::wasm_types().iter().enumerate().map(|(i, ret_type)| {
-                //                             let raw = arr.as_mut()[i];
-                //                             Value::from_raw(&mut store, *ret_type, raw).as_jsvalue(&mut store)
-                //                         }).collect::<Vec<_>>();
-                //                         Ok(JSObject::new_array(&ctx, &result_values).unwrap().to_jsvalue())
-                //                     }
-                //                 }
-                //             },
-                //             #[cfg(feature = "std")]
-                //             Ok(Err(err)) => {
-                //                 let trap: Trap = Trap::user(Box::new(err));
-                //                 Err(trap.into_jsvalue(&ctx))
-                //             },
-                //             #[cfg(feature = "core")]
-                //             Ok(Err(err)) => {
-                //                 let trap: Trap = Trap::user(Box::new(err));
-                //                 Err(trap.into_jsvalue(&ctx))
-                //             },
-                //             Err(panic) => {
-                //                 Err(JSValue::string(&ctx, format!("panic: {:?}", panic)))
-                //                 // We can't just resume the unwind, because it will put
-                //                 // JavacriptCore in a bad state, so we need to transform
-                //                 // the error
+                        let result = panic::catch_unwind(AssertUnwindSafe(|| unsafe {
+                            let func: &Func = &*(&() as *const () as *const Func);
+                            func( $( $x, )* ).into_result()
+                        }));
 
-                //                 // std::panic::resume_unwind(panic)
-                //             },
-                //         }
 
-                //     }
-                //     Some(fn_callback::< $( $x, )* Rets, RetsAsResult, Self > as _)
-                    unimplemented!();
+                       match result {
+                           Ok(Ok(result)) => {
+
+                               let types = Rets::wasm_types();
+                                let mut native_results = result.into_array(store);
+                                let native_results = native_results.as_mut();
+
+                                let native_results: Vec<Value> = native_results.into_iter().enumerate()
+                                    .map(|(i, r)| Value::from_raw(store, types[i], r.clone()))
+                                    .collect();
+
+                                let mut c_results: Vec<wasm_val_t> = native_results.iter().map(|r| crate::as_c::result_to_value(r)).collect();
+
+                                if c_results.len() != (*results).size {
+                                    panic!("when calling host function: number of observed results differ from wanted results")
+                                }
+
+                                unsafe {
+                                    for i in 0..(*results).size {
+                                        *((*results).data.wrapping_add(i)) = c_results[i]
+                                    }
+
+                                }
+
+                                unsafe { std::ptr::null_mut() }
+                           },
+                           Ok(Err(e)) => {
+                               unimplemented!("host function returns an error");
+                           },
+                           Err(e) => {
+                               unimplemented!("host function panicked");
+                           }
+                       }
+
+
+                    }
+
+                    func_wrapper::< $( $x, )* Rets, RetsAsResult, Self > as VMFunctionCallback
                 }
             }
         };
