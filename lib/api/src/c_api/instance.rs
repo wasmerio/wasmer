@@ -31,19 +31,23 @@ impl InstanceHandle {
         module: *mut wasm_module_t,
         mut externs: Vec<VMExtern>,
     ) -> Result<Self, InstantiationError> {
-        let mut externs = externs.into_boxed_slice();
+        // let mut externs = externs.into_boxed_slice();
+
         let mut imports = wasm_extern_vec_t {
             size: externs.len(),
-            data: externs.as_mut_ptr(),
+            data: externs.clone().as_mut_ptr(),
         };
+
+        unsafe { wasm_extern_vec_new(&mut imports, externs.len(), externs.as_ptr()) };
+
         std::mem::forget(externs);
+
         // unsafe { wasm_extern_vec_new(&mut imports, , externs:) };
         let mut trap: *mut wasm_trap_t = std::ptr::null_mut() as _;
         // let mut trap_ptr: *mut wasm_trap_t = &mut trap as *mut _;
-        let instance = unsafe { wasm_instance_new(store, module, &imports, &mut trap) };
+        let instance = unsafe { wasm_instance_new(store, module, &mut imports, &mut trap) };
         if instance.is_null() {
             let trap = Trap::from(trap);
-            println!("{}", trap);
             return Err(InstantiationError::Start(trap.into()));
             // return Err(InstantiationError::Start(crate::RuntimeError::new(
             //     format!("Failed to instantiate"),
@@ -73,6 +77,7 @@ impl InstanceHandle {
                 let mut store = store.as_store_mut();
                 let extern_type = export_type.ty();
                 // Annotation is here to prevent spurious IDE warnings.
+
                 let extern_ = Extern::from_vm_extern(&mut store, *wasm_export);
                 (name.to_string(), extern_)
             })
@@ -106,7 +111,6 @@ impl Instance {
         let externs = module
             .imports()
             .map(|import_ty| {
-                println!("RETURNING IMPORTS, {:?}", import_ty);
                 imports
                     .get_export(import_ty.module(), import_ty.name())
                     .expect("Extern not found")
