@@ -1,5 +1,7 @@
 //! The JavascriptCore integration in the Wasmer API
 
+#![allow(unused, dead_code, non_upper_case_globals, non_snake_case)]
+
 #[cfg(all(feature = "std", feature = "core"))]
 compile_error!(
     "The `std` and `core` features are both enabled, which is an error. Please enable only once."
