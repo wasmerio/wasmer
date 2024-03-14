@@ -45,7 +45,9 @@ pub type VMFunctionCallback = *mut ::std::os::raw::c_void;
 // pub type VMTrampoline = *mut ::std::os::raw::c_void;
 
 use crate::bindings::{
-    wasm_extern_as_func, wasm_extern_kind, wasm_extern_type, wasm_externkind_enum_WASM_EXTERN_FUNC,
+    wasm_extern_as_func, wasm_extern_as_global, wasm_extern_as_memory, wasm_extern_as_table,
+    wasm_extern_kind, wasm_extern_type, wasm_externkind_enum_WASM_EXTERN_FUNC,
+    wasm_externkind_enum_WASM_EXTERN_GLOBAL, wasm_externkind_enum_WASM_EXTERN_MEMORY,
 };
 use crate::externals::{Extern, Function, Global, Memory, Table, VMExternToExtern};
 use crate::store::AsStoreMut;
@@ -55,14 +57,37 @@ impl VMExternToExtern for VMExtern {
         let kind = unsafe { wasm_extern_kind(&mut *self) };
 
         match kind as u32 {
-            wasm_externkind_enum_WASM_EXTERN_FUNC => {
+            0 => {
                 let func = unsafe { wasm_extern_as_func(&mut *self) };
                 if func.is_null() {
                     panic!("The wasm-c-api reported extern as function, but is not");
                 }
                 Extern::Function(Function::from_vm_extern(store, func))
             }
-            _ => unimplemented!(),
+            1 => {
+                let global = unsafe { wasm_extern_as_global(&mut *self) };
+                if global.is_null() {
+                    panic!("The wasm-c-api reported extern as a global, but is not");
+                }
+                Extern::Global(Global::from_vm_extern(store, global))
+            }
+            2 => {
+                let table = unsafe { wasm_extern_as_table(&mut *self) };
+                if table.is_null() {
+                    panic!("The wasm-c-api reported extern as a table, but is not");
+                }
+                Extern::Table(Table::from_vm_extern(store, table))
+            }
+            3 => {
+                let memory = unsafe { wasm_extern_as_memory(&mut *self) };
+                if memory.is_null() {
+                    panic!("The wasm-c-api reported extern as a table, but is not");
+                }
+                Extern::Memory(Memory::from_vm_extern(store, memory))
+            }
+            _ => {
+                unimplemented!()
+            }
         }
         // match self {
         //     Self::Function(f) => Extern::Function(Function::from_vm_extern(store, f)),
