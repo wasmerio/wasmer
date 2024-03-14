@@ -1,9 +1,12 @@
+use crate::bindings::{
+    wasm_table_type, wasm_tabletype_element, wasm_tabletype_limits, wasm_tabletype_t,
+};
 use crate::c_api::bindings::wasm_table_as_extern;
 use crate::c_api::vm::{VMExtern, VMExternTable, VMFunction, VMTable};
 use crate::errors::RuntimeError;
 use crate::store::{AsStoreMut, AsStoreRef};
 use crate::value::Value;
-use crate::{FunctionType, TableType};
+use crate::{as_c, FunctionType, TableType};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Table {
@@ -58,8 +61,15 @@ impl Table {
     }
 
     pub fn ty(&self, _store: &impl AsStoreRef) -> TableType {
-        unimplemented!();
-        // self.handle.ty
+        let wamr_table_type: *mut wasm_tabletype_t = unsafe { wasm_table_type(self.handle) };
+        let table_limits = unsafe { wasm_tabletype_limits(wamr_table_type) };
+        let table_type = unsafe { wasm_tabletype_element(wamr_table_type) };
+
+        TableType {
+            ty: unsafe { as_c::valtype_to_type(table_type) },
+            minimum: unsafe { (*table_limits).min },
+            maximum: unsafe { Some((*table_limits).max) },
+        }
     }
 
     pub fn get(&self, store: &mut impl AsStoreMut, index: u32) -> Option<Value> {
