@@ -883,12 +883,19 @@ pub async fn get_all_dns_records(
 pub async fn get_all_domains(
     client: &WasmerClient,
     vars: types::GetAllDomainsVariables,
-) -> Result<types::DnsDomainConnection, anyhow::Error> {
-    client
+) -> Result<Vec<DnsDomain>, anyhow::Error> {
+    let connection = client
         .run_graphql_strict(types::GetAllDomains::build(vars))
         .await
         .map_err(anyhow::Error::from)
         .map(|x| x.get_all_domains)
+        .context("no domains returned")?;
+    Ok(connection
+        .edges
+        .into_iter()
+        .flatten()
+        .filter_map(|x| x.node)
+        .collect())
 }
 
 /// Retrieve a domain by its name.
@@ -948,19 +955,13 @@ pub async fn upsert_domain_from_zone_file(
         delete_missing_records: Some(delete_missing_records),
     };
     let res = client
-        .run_graphql_raw(types::UpsertDomainFromZoneFile::build(vars))
+        .run_graphql_strict(types::UpsertDomainFromZoneFile::build(vars))
         .await?;
 
-    if let Some(domain) = res
-        .data
-        .and_then(|d| d.upsert_domain_from_zone_file)
-        .map(|d| d.domain)
-    {
-        Ok(domain)
-    } else {
-        Err(GraphQLApiFailure::from_errors(
-            "could not sync zone file",
-            res.errors,
-        ))
-    }
+    let domain = res
+        .upsert_domain_from_zone_file
+        .context("Upserting domain from zonefile failed")?
+        .domain;
+
+    Ok(domain)
 }

@@ -25,7 +25,7 @@ impl AsyncCliCommand for CmdDomainGet {
         {
             println!("{}", self.fmt.format.render(&domain));
         } else {
-            println!("Domain not found");
+            anyhow::bail!("Domain not found");
         }
         Ok(())
     }

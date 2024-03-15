@@ -1,7 +1,6 @@
 pub mod get;
 pub mod list;
 pub mod zonefile;
-
 use crate::commands::AsyncCliCommand;
 
 /// Manage DNS records

@@ -42,7 +42,7 @@ impl CliRender for DnsDomainWithRecords {
             records.iter().flatten().for_each(|record| {
                 rows.push(vec![
                     record.record_type().to_string(),
-                    record.name().expect("Expected record name").to_string(),
+                    record.name().unwrap_or("<no name>").to_string(),
                     record
                         .ttl()
                         .expect("expected a TTL value for record")

@@ -23,7 +23,7 @@ impl AsyncCliCommand for CmdDomainList {
 
     async fn run_async(self) -> Result<(), anyhow::Error> {
         let client = self.api.client()?;
-        let domains_connection = wasmer_api::query::get_all_domains(
+        let domains = wasmer_api::query::get_all_domains(
             &client,
             GetAllDomainsVariables {
                 first: None,
@@ -32,15 +32,6 @@ impl AsyncCliCommand for CmdDomainList {
             },
         )
         .await?;
-        let domains = domains_connection
-            .edges
-            .into_iter()
-            .map(|edge| {
-                edge.expect("domain not found")
-                    .node
-                    .expect("domain not found")
-            })
-            .collect::<Vec<_>>();
         println!("{}", self.fmt.format.render(&domains));
         Ok(())
     }
