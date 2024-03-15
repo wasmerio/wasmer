@@ -191,7 +191,7 @@
     ro_flags: WasmPtr&lt;RoFlags, M&gt;,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;Errno, WasiError&gt; {
     <span class="kw">let </span>env = ctx.data();
-    <span class="kw">let </span>fd_entry = env.state.fs.get_fd(sock).unwrap();
+    <span class="kw">let </span>fd_entry = <span class="macro">wasi_try_ok!</span>(env.state.fs.get_fd(sock));
     <span class="kw">let </span>guard = fd_entry.inode.read();
     <span class="kw">let </span>use_read = <span class="macro">matches!</span>(guard.deref(), Kind::Pipe { .. });
     drop(guard);
