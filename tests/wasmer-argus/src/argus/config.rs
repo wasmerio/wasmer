@@ -1,7 +1,6 @@
 use clap::ValueEnum;
 use serde::{Deserialize, Serialize};
-use std::path::PathBuf;
-use wasmer::{sys::Features, Engine, NativeEngineExt, Target};
+use std::{path::PathBuf, process::Command};
 
 fn get_default_out_path() -> PathBuf {
     let mut path = std::env::current_dir().unwrap();
@@ -24,28 +23,6 @@ pub enum Backend {
     Llvm,
     Singlepass,
     Cranelift,
-}
-
-impl Backend {
-    pub fn to_engine(&self) -> Engine {
-        match self {
-            Backend::Llvm => Engine::new(
-                Box::new(wasmer::LLVM::new()),
-                Target::default(),
-                Features::default(),
-            ),
-            Backend::Singlepass => Engine::new(
-                Box::new(wasmer::Singlepass::new()),
-                Target::default(),
-                Features::default(),
-            ),
-            Backend::Cranelift => Engine::new(
-                Box::new(wasmer::Cranelift::new()),
-                Target::default(),
-                Features::default(),
-            ),
-        }
-    }
 }
 
 /// Fetch and test packages from a WebContainer registry.
@@ -72,17 +49,43 @@ pub struct ArgusConfig {
     #[arg(short = 'o', long, default_value = get_default_out_path().into_os_string())]
     pub outdir: std::path::PathBuf,
 
-    /// The authorization token needed to see packages.
+    /// The authorization token needed to see packages
     #[arg(long, default_value_t = get_default_token())]
     pub auth_token: String,
 
     /// The number of concurrent tests (jobs) to perform
     #[arg(long, default_value_t = get_default_jobs()) ]
     pub jobs: usize,
+
+    /// The path to the CLI command to use. [default will be searched in $PATH: "wasmer"]
+    #[arg(long)]
+    pub cli_path: Option<String>,
+
+    /// Whether or not this run should use the linked [`wasmer-api`] library instead of the CLI.
+    #[cfg(feature = "wasmer_lib")]
+    #[arg(long, conflicts_with = "cli_path")]
+    pub use_lib: bool,
 }
 
 impl ArgusConfig {
     pub fn is_compatible(&self, other: &Self) -> bool {
-        self.run_packages == other.run_packages
+        self.run_packages == other.run_packages && self.wasmer_version() == other.wasmer_version()
+    }
+
+    pub fn wasmer_version(&self) -> String {
+        #[cfg(feature = "wasmer_lib")]
+        if self.use_lib {
+            return format!("wasmer_lib/{}", env!("CARGO_PKG_VERSION"));
+        }
+
+        let cli_path = match &self.cli_path {
+            Some(p) => p,
+            None => "wasmer",
+        };
+
+        match Command::new(cli_path).arg("--version").output() {
+            Ok(v) => String::from_utf8(v.stdout).unwrap().replace(' ', "/"),
+            Err(e) => panic!("failed to launch cli program {cli_path}: {e}"),
+        }
     }
 }
