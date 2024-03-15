@@ -3,8 +3,21 @@
 Automatically test packages from the registry. 
 
 ## Building
-Simply build with `cargo build --package wasmer-argus`. The `wasmer-argus`
-binary will be in the `target/debug` directory.
+If you want to use the local `wasmer` crate, you shall 
+build the project with `cargo build --package wasmer-argus --features wasmer_lib`.
+
+On macOS, you may encounter an error where the linker does not find `zstd`: a possible 
+solution to this problem is to install `zstd` using `brew` (`brew install zstd`) and 
+using the following command: 
+
+`RUSTFLAGS="-L$(brew --prefix)/lib" cargo build --package wasmer-argus --features wasmer_lib`
+
+Another possiblity is to add the your brew prefix with `/lib` (probably = `/opt/homebrew/lib/`) 
+to the global Cargo config something like:
+```
+[target.aarch64-apple-darwin]
+rustflags = ["-L/opt/homebrew/lib"]
+```
 
 ## Usage
 This binary fetches packages from the graphql endpoint  of a registry. By
