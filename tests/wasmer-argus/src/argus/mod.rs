@@ -1,9 +1,11 @@
 mod config;
 mod packages;
 mod result;
+mod tester;
 
+use self::result::TestReport;
+use crate::argus::{result::TestResults, tester::Tester};
 pub use config::*;
-
 use indicatif::{MultiProgress, ProgressBar};
 use std::{
     fs::{File, OpenOptions},
@@ -15,20 +17,10 @@ use std::{
 use tokio::{
     sync::{mpsc, Semaphore},
     task::JoinSet,
-    time,
 };
 use tracing::*;
 use url::Url;
 use wasmer_api::{types::PackageVersionWithPackage, WasmerClient};
-use webc::{
-    v1::{ParseOptions, WebCOwned},
-    v2::read::OwnedReader,
-    Container, Version,
-};
-
-use crate::argus::result::TestResults;
-
-use self::result::TestReport;
 
 #[derive(Debug, Clone)]
 pub struct Argus {
@@ -93,7 +85,7 @@ impl Argus {
         Ok(())
     }
 
-    /// The actual test
+    /// Perform the test for a single package
     async fn test(
         test_id: u64,
         config: Arc<ArgusConfig>,
@@ -110,22 +102,22 @@ impl Argus {
 
         p.enable_steady_tick(Duration::from_millis(100));
 
-        let name = Argus::get_package_id(pkg);
+        let package_name = Argus::get_package_id(pkg);
 
         let webc_url: Url = match &pkg.distribution.pirita_download_url {
             Some(url) => url.parse().unwrap(),
             None => {
-                info!("package {} has no download url, skipping", name);
+                info!("package {} has no download url, skipping", package_name);
                 p.finish_and_clear();
                 return Ok(());
             }
         };
 
-        p.set_message(format!("[{test_id}] testing package {name}",));
+        p.set_message(format!("[{test_id}] testing package {package_name}",));
 
         let path = Argus::get_path(config.clone(), pkg).await;
         p.set_message(format!(
-            "testing package {name} -- path to download to is: {:?}",
+            "testing package {package_name} -- path to download to is: {:?}",
             path
         ));
 
@@ -136,7 +128,7 @@ impl Argus {
         p.reset();
         p.set_style(
             indicatif::ProgressStyle::with_template(&format!(
-                "[{test_id}] {{spinner:.blue}} {{msg}}"
+                "[{test_id}/{package_name}] {{spinner:.blue}} {{msg}}"
             ))
             .unwrap()
             .tick_strings(&["✶", "✸", "✹", "✺", "✹", "✷"]),
@@ -145,60 +137,25 @@ impl Argus {
         p.enable_steady_tick(Duration::from_millis(100));
 
         p.set_message("package downloaded");
-        let filepath = path.join("package.webc");
+        let webc_path = path.join("package.webc");
 
-        let start = time::Instant::now();
-
-        let test_exec_result = std::panic::catch_unwind(|| {
-            p.set_message("reading webc bytes from filesystem");
-            let bytes = std::fs::read(&filepath)?;
-            let store = wasmer::Store::new(config.compiler_backend.to_engine());
-
-            let webc = match webc::detect(bytes.as_slice()) {
-                Ok(Version::V1) => {
-                    let options = ParseOptions::default();
-                    let webc = WebCOwned::parse(bytes, &options)?;
-                    Container::from(webc)
-                }
-                Ok(Version::V2) => Container::from(OwnedReader::parse(bytes)?),
-                Ok(other) => anyhow::bail!("Unsupported version, {other}"),
-                Err(e) => anyhow::bail!("An error occurred: {e}"),
-            };
-
-            p.set_message("created webc");
-
-            for atom in webc.atoms().iter() {
-                info!(
-                    "creating module for atom {} with length {}",
-                    atom.0,
-                    atom.1.len()
-                );
-                p.set_message(format!(
-                    "-- {name} -- creating module for atom {} (has length {} bytes)",
-                    atom.0,
-                    atom.1.len()
-                ));
-                wasmer::Module::new(&store, atom.1.as_slice())?;
-            }
-
-            Ok(())
-        });
-
-        let res = match test_exec_result {
-            Ok(r) => match r {
-                Ok(_) => Ok(()),
-                Err(e) => Err(format!("{e}")),
-            },
-            Err(e) => Err(format!("{:?}", e)),
+        #[cfg(feature = "wasmer_lib")]
+        let report = if config.use_lib {
+            tester::lib_tester::LibRunner::run_test(test_id, config, &p, webc_path, &package_name)
+                .await?
+        } else {
+            tester::cli_tester::CLIRunner::run_test(test_id, config, &p, webc_path, &package_name)
+                .await?
         };
 
-        let time = start - time::Instant::now();
-
-        let report = TestReport::new(config.as_ref(), res, time);
+        #[cfg(not(feature = "wasmer_lib"))]
+        let report =
+            tester::cli_tester::CLIRunner::run_test(test_id, config, &p, webc_path, &package_name)
+                .await?;
 
         Argus::write_report(&path, report).await?;
 
-        p.finish_with_message(format!("test for package {name} done!"));
+        p.finish_with_message(format!("test for package {package_name} done!"));
         p.finish_and_clear();
 
         Ok(())
