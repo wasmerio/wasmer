@@ -1,31 +1,20 @@
 use std::env;
 
-use crate::{
-    graphql::subscriptions::{package_version_ready, PackageVersionReady},
-    tokio_spawner::TokioSpawner,
-};
-
-use futures_util::StreamExt;
+use crate::graphql::subscriptions::{package_version_ready, PackageVersionReady};
 
 use graphql_client::GraphQLQuery;
-use graphql_ws_client::{
-    graphql::{GraphQLClient, StreamingOperation},
-    GraphQLClientClient, SubscriptionStream,
-};
+use graphql_ws_client::{graphql::StreamingOperation, Subscription};
 
 use tokio_tungstenite::{
     connect_async,
-    tungstenite::{client::IntoClientRequest, http::HeaderValue, Message},
+    tungstenite::{client::IntoClientRequest, http::HeaderValue},
 };
 
 async fn subscribe_graphql<Q: GraphQLQuery + Send + Sync + Unpin + 'static>(
     registry_url: &str,
     login_token: &str,
     variables: Q::Variables,
-) -> anyhow::Result<(
-    SubscriptionStream<GraphQLClient, StreamingOperation<Q>>,
-    GraphQLClientClient<Message>,
-)>
+) -> anyhow::Result<Subscription<StreamingOperation<Q>>>
 where
     <Q as GraphQLQuery>::Variables: Send + Sync + Unpin,
 {
@@ -46,35 +35,28 @@ where
         .or_else(|| env::var("WAPM_REGISTRY_TOKEN").ok())
         .unwrap_or_else(|| login_token.to_string());
     req.headers_mut().insert(
-        reqwest::header::AUTHORIZATION,
+        tokio_tungstenite::tungstenite::http::header::AUTHORIZATION,
         HeaderValue::from_str(&format!("Bearer {}", token))?,
     );
     let user_agent = crate::client::RegistryClient::default_user_agent();
     req.headers_mut().insert(
-        reqwest::header::USER_AGENT,
+        tokio_tungstenite::tungstenite::http::header::USER_AGENT,
         HeaderValue::from_str(&user_agent)?,
     );
     let (ws_con, _resp) = connect_async(req).await?;
-    let (sink, stream) = ws_con.split();
 
-    let mut client = graphql_ws_client::GraphQLClientClientBuilder::new()
-        .build(stream, sink, TokioSpawner::current())
-        .await?;
-    let stream = client
-        .streaming_operation(StreamingOperation::<Q>::new(variables))
+    let stream = graphql_ws_client::Client::build(ws_con)
+        .subscribe(StreamingOperation::<Q>::new(variables))
         .await?;
 
-    Ok((stream, client))
+    Ok(stream)
 }
 
 pub async fn subscribe_package_version_ready(
     registry_url: &str,
     login_token: &str,
     package_version_id: &str,
-) -> anyhow::Result<(
-    SubscriptionStream<GraphQLClient, StreamingOperation<PackageVersionReady>>,
-    GraphQLClientClient<Message>,
-)> {
+) -> anyhow::Result<Subscription<StreamingOperation<PackageVersionReady>>> {
     subscribe_graphql(
         registry_url,
         login_token,
