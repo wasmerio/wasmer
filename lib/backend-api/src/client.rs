@@ -29,6 +29,14 @@ impl WasmerClient {
         self.auth_token.as_deref()
     }
 
+    pub fn user_agent(&self) -> &reqwest::header::HeaderValue {
+        &self.user_agent
+    }
+
+    pub fn client(&self) -> &reqwest::Client {
+        &self.client
+    }
+
     fn parse_user_agent(user_agent: &str) -> Result<reqwest::header::HeaderValue, anyhow::Error> {
         if user_agent.is_empty() {
             bail!("user agent must not be empty");
@@ -66,6 +74,22 @@ impl WasmerClient {
         self
     }
 
+    fn prepare_request(&self, req: reqwest::RequestBuilder) -> reqwest::RequestBuilder {
+        let req = req.header(reqwest::header::USER_AGENT, &self.user_agent);
+        if let Some(token) = &self.auth_token {
+            req.bearer_auth(token)
+        } else {
+            req
+        }
+    }
+
+    pub async fn send(
+        &self,
+        req: reqwest::RequestBuilder,
+    ) -> Result<reqwest::Response, reqwest::Error> {
+        self.prepare_request(req).send().await
+    }
+
     pub(crate) async fn run_graphql_raw<ResponseData, Vars>(
         &self,
         operation: Operation<ResponseData, Vars>,
@@ -78,12 +102,8 @@ impl WasmerClient {
             .client
             .post(self.graphql_endpoint.as_str())
             .header(reqwest::header::USER_AGENT, &self.user_agent);
-        let req = if let Some(token) = &self.auth_token {
-            req.bearer_auth(token)
-        } else {
-            req
-        };
 
+        let req = self.prepare_request(req);
         if self.extra_debugging {
             tracing::trace!(
                 query=%operation.query,

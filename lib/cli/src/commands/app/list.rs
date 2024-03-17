@@ -43,7 +43,7 @@ impl AsyncCliCommand for CmdAppList {
     type Output = ();
 
     async fn run_async(self) -> Result<(), anyhow::Error> {
-        let client = self.api.client()?;
+        let client = self.api.client_authenticated()?;
 
         let apps_stream: Pin<
             Box<dyn Stream<Item = Result<Vec<DeployApp>, anyhow::Error>> + Send + Sync>,

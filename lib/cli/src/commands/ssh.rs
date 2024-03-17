@@ -39,7 +39,7 @@ impl AsyncCliCommand for CmdSsh {
 
     async fn run_async(self) -> Result<(), anyhow::Error> {
         let mut config = crate::edge_config::load_config(None)?;
-        let client = self.api.client()?;
+        let client = self.api.client_authenticated()?;
 
         let (token, is_new) = acquire_ssh_token(&client, &config.config).await?;
 

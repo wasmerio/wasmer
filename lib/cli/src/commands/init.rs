@@ -7,7 +7,10 @@ use anyhow::Context;
 use cargo_metadata::{CargoOpt, MetadataCommand};
 use clap::Parser;
 use semver::VersionReq;
-use wasmer_registry::wasmer_env::WasmerEnv;
+
+use crate::opts::ApiOpts;
+
+use super::CliCommand;
 
 static NOTE: &str = "# See more keys and definitions at https://docs.wasmer.io/registry/manifest";
 
@@ -17,7 +20,8 @@ const NEWLINE: &str = if cfg!(windows) { "\r\n" } else { "\n" };
 #[derive(Debug, Parser)]
 pub struct Init {
     #[clap(flatten)]
-    env: WasmerEnv,
+    #[allow(missing_docs)]
+    pub api: ApiOpts,
 
     /// Initialize wasmer.toml for a library package
     #[clap(long, group = "crate-type")]
@@ -129,6 +133,16 @@ impl Init {
             );
         }
 
+        let namespace = if let Some(s) = self.namespace.as_ref() {
+            s.clone()
+        } else {
+            super::whoami::Whoami {
+                api: self.api.clone(),
+            }
+            .run()?
+            .username
+        };
+
         let constructed_manifest = construct_manifest(
             cargo_toml.as_ref(),
             &fallback_package_name,
@@ -136,12 +150,11 @@ impl Init {
             &target_file,
             &manifest_path,
             bin_or_lib,
-            self.namespace.clone(),
+            namespace,
             self.version.clone(),
             self.template.as_ref(),
             self.include.as_slice(),
             self.quiet,
-            self.env.dir(),
         )?;
 
         if let Some(parent) = target_file.parent() {
@@ -358,12 +371,11 @@ fn construct_manifest(
     target_file: &Path,
     manifest_path: &Path,
     bin_or_lib: BinOrLib,
-    namespace: Option<String>,
+    namespace: String,
     version: Option<semver::Version>,
     template: Option<&Template>,
     include_fs: &[String],
     quiet: bool,
-    wasmer_dir: &Path,
 ) -> Result<wasmer_toml::Manifest, anyhow::Error> {
     if let Some(ct) = cargo_toml.as_ref() {
         let msg = format!(
@@ -381,11 +393,6 @@ fn construct_manifest(
             .as_ref()
             .map(|p| &p.name)
             .unwrap_or(fallback_package_name)
-    });
-    let namespace = namespace.or_else(|| {
-        wasmer_registry::whoami(wasmer_dir, None, None)
-            .ok()
-            .map(|o| o.1)
     });
     let version = version.unwrap_or_else(|| {
         cargo_toml
@@ -476,15 +483,8 @@ fn construct_manifest(
         }),
     }];
 
-    let mut pkg = wasmer_toml::Package::builder(
-        if let Some(s) = namespace {
-            format!("{s}/{package_name}")
-        } else {
-            package_name.to_string()
-        },
-        version,
-        description,
-    );
+    let mut pkg =
+        wasmer_toml::Package::builder(format!("{namespace}/{package_name}"), version, description);
 
     if let Some(license) = license {
         pkg.license(license);

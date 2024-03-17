@@ -42,5 +42,5 @@ This is not always sensible though, depending on which nested data you want to
 fetch.
 
 [cynic-api-docs]: https://docs.rs/cynic/latest/cynic/
-[cynic-web-ui]: https://docs.rs/cynic/latest/cynic/
+[cynic-web-ui]: https://generator.cynic-rs.dev/
 [cynic-website]: https://cynic-rs.dev

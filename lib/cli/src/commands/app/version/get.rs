@@ -29,7 +29,7 @@ impl AsyncCliCommand for CmdAppVersionGet {
     type Output = ();
 
     async fn run_async(self) -> Result<(), anyhow::Error> {
-        let client = self.api.client()?;
+        let client = self.api.client_authenticated()?;
         let (_ident, app) = self.ident.load_app(&client).await?;
 
         let version = wasmer_api::query::get_app_version(

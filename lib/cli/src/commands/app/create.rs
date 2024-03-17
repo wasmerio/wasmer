@@ -396,7 +396,7 @@ impl AsyncCliCommand for CmdAppCreate {
         let api = if self.offline {
             None
         } else {
-            Some(self.api.client()?)
+            Some(self.api.client_authenticated()?)
         };
 
         let user = if let Some(api) = &api {
@@ -524,7 +524,7 @@ impl AsyncCliCommand for CmdAppCreate {
         let (final_config, app_version) = if deploy_now {
             eprintln!("Creating the app...");
 
-            let api = self.api.client()?;
+            let api = self.api.client_authenticated()?;
 
             if api_pkg.is_none() {
                 if let Some((path, manifest)) = &local_package {

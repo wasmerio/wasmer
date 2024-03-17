@@ -40,14 +40,20 @@ mod queries {
         Viewer,
     }
 
+    #[derive(cynic::QueryFragment, Debug)]
+    #[cynic(graphql_type = "Query")]
+    pub struct GetCurrentUser {
+        pub viewer: Option<User>,
+    }
+
     #[derive(cynic::QueryVariables, Debug)]
-    pub struct GetCurrentUserVars {
+    pub struct GetCurrentUserWithNamespacesVars {
         pub namespace_role: Option<GrapheneRole>,
     }
 
     #[derive(cynic::QueryFragment, Debug)]
-    #[cynic(graphql_type = "Query", variables = "GetCurrentUserVars")]
-    pub struct GetCurrentUser {
+    #[cynic(graphql_type = "Query", variables = "GetCurrentUserWithNamespacesVars")]
+    pub struct GetCurrentUserWithNamespaces {
         pub viewer: Option<UserWithNamespaces>,
     }
 
@@ -96,6 +102,12 @@ mod queries {
     }
 
     #[derive(cynic::QueryVariables, Debug)]
+    pub struct GetPackageVersionVars {
+        pub name: String,
+        pub version: String,
+    }
+
+    #[derive(cynic::QueryVariables, Debug)]
     pub struct GetPackageVars {
         pub name: String,
     }
@@ -105,12 +117,6 @@ mod queries {
     pub struct GetPackage {
         #[arguments(name: $name)]
         pub get_package: Option<Package>,
-    }
-
-    #[derive(cynic::QueryVariables, Debug)]
-    pub struct GetPackageVersionVars {
-        pub name: String,
-        pub version: String,
     }
 
     #[derive(cynic::QueryFragment, Debug)]
@@ -124,6 +130,48 @@ mod queries {
     pub enum PackageVersionSortBy {
         Newest,
         Oldest,
+    }
+
+    /// Retrieve available bindings for a package version.
+    #[derive(cynic::QueryFragment, Debug, Clone)]
+    #[cynic(graphql_type = "Query", variables = "GetPackageVersionVars")]
+    pub struct GetPackageVersionBindings {
+        #[arguments(name: $name, version: $version)]
+        pub get_package_version: Option<PackageVersionWithBindings>,
+    }
+
+    #[derive(cynic::QueryFragment, Clone, Debug)]
+    #[cynic(graphql_type = "PackageVersion")]
+    pub struct PackageVersionWithBindings {
+        pub bindings: Vec<Option<PackageVersionLanguageBinding>>,
+    }
+
+    #[derive(cynic::QueryFragment, Clone, Debug)]
+    pub struct PackageVersionLanguageBinding {
+        pub id: cynic::Id,
+        pub language: ProgrammingLanguage,
+        pub url: String,
+        pub generator: BindingsGenerator,
+    }
+
+    #[derive(cynic::QueryFragment, Clone, Debug)]
+    pub struct BindingsGenerator {
+        pub command_name: String,
+    }
+
+    #[derive(cynic::Enum, Clone, Copy, Debug, PartialEq, Eq)]
+    pub enum ProgrammingLanguage {
+        Python,
+        Javascript,
+    }
+
+    impl ProgrammingLanguage {
+        pub fn as_str(self) -> &'static str {
+            match self {
+                ProgrammingLanguage::Python => "python",
+                ProgrammingLanguage::Javascript => "javascript",
+            }
+        }
     }
 
     #[derive(cynic::QueryVariables, Debug, Clone, Default)]
@@ -210,7 +258,7 @@ mod queries {
     }
 
     #[derive(cynic::QueryFragment, Debug, Clone)]
-    #[cynic(graphql_type = "User", variables = "GetCurrentUserVars")]
+    #[cynic(graphql_type = "User", variables = "GetCurrentUserWithNamespacesVars")]
     pub struct UserWithNamespaces {
         pub id: cynic::Id,
         pub username: String,
