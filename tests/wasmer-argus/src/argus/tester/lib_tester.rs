@@ -1,11 +1,15 @@
 use super::Tester;
-use crate::{Backend, argus::result::TestReport};
+use crate::{argus::result::TestReport, Backend};
 use indicatif::ProgressBar;
-use webc::{Version, v1::{ParseOptions, WebCOwned}, Container, v2::read::OwnedReader};
 use std::path::PathBuf;
 use tokio::time;
-use wasmer::{sys::Features, Engine, NativeEngineExt, Target};
 use tracing::*;
+use wasmer::{sys::Features, Engine, NativeEngineExt, Target};
+use webc::{
+    v1::{ParseOptions, WebCOwned},
+    v2::read::OwnedReader,
+    Container, Version,
+};
 
 pub struct LibRunner;
 
