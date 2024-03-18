@@ -1,35 +1,9 @@
 use cmake::Config;
-use std::{
-    env,
-    path::PathBuf,
-    process::Command,
-};
-
-fn maybe_clone_repo(dest: PathBuf, repo: &str) {
-    if !dest.exists() {
-        assert!(Command::new("git")
-            .arg("clone")
-            .arg("--depth=1")
-            .arg(repo)
-            .arg(dest)
-            .status()
-            .unwrap()
-            .success());
-    }
-}
+use std::{env, path::PathBuf};
 
 fn main() {
     let crate_root = env::var("CARGO_MANIFEST_DIR").unwrap();
     let wamr_dir = PathBuf::from(crate_root).join("third_party").join("wamr");
-    let dist = wamr_dir.join("wasm-micro-runtime");
-
-    maybe_clone_repo(
-        dist,
-        "https://github.com/bytecodealliance/wasm-micro-runtime.git",
-    );
-    // if dist_githead.exists() {
-    //     println!("cargo:rerun-if-changed={}", dist_githead.display());
-    // }
 
     let dst = Config::new(wamr_dir)
         .always_configure(true)
