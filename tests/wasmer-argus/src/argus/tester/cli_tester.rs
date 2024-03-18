@@ -1,7 +1,7 @@
 use super::Tester;
 use crate::{argus::result::TestReport, Backend};
 use indicatif::ProgressBar;
-use std::{path::PathBuf, process::Command};
+use std::{path::Path, path::PathBuf, process::Command};
 use tokio::time::{self, Instant};
 use tracing::*;
 use webc::{
@@ -55,7 +55,7 @@ impl CLIRunner {
         &self,
         cli_path: &String,
         atom: &[u8],
-        dir_path: &PathBuf,
+        dir_path: &Path,
         atom_id: usize,
     ) -> anyhow::Result<Result<(), String>> {
         if let Err(e) = Command::new(cli_path).spawn() {
