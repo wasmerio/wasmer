@@ -62,6 +62,15 @@
 <a href="#62" id="62">62</a>
 <a href="#63" id="63">63</a>
 <a href="#64" id="64">64</a>
+<a href="#65" id="65">65</a>
+<a href="#66" id="66">66</a>
+<a href="#67" id="67">67</a>
+<a href="#68" id="68">68</a>
+<a href="#69" id="69">69</a>
+<a href="#70" id="70">70</a>
+<a href="#71" id="71">71</a>
+<a href="#72" id="72">72</a>
+<a href="#73" id="73">73</a>
 </pre></div><pre class="rust"><code><span class="kw">use super</span>::<span class="kw-2">*</span>;
 <span class="kw">use </span><span class="kw">crate</span>::syscalls::<span class="kw-2">*</span>;
 
@@ -106,7 +115,16 @@
             // so that the execution can end here and continue elsewhere.
             </span><span class="kw">let </span>pid = ctx.data().pid();
             <span class="kw">let </span>tid = ctx.data().tid();
-            <span class="kw">match </span>rewind::&lt;M, <span class="kw">_</span>&gt;(ctx, memory_stack.freeze(), rewind_stack, store_data, val) {
+
+            <span class="kw">let </span>rewind_result = bincode::serialize(<span class="kw-2">&amp;</span>val).unwrap().into();
+            <span class="kw">let </span>ret = rewind_ext::&lt;M&gt;(
+                <span class="kw-2">&amp;mut </span>ctx,
+                <span class="prelude-val">None</span>, <span class="comment">// we do not restore the thread memory as `longjmp`` is not meant to do this
+                </span>rewind_stack,
+                store_data,
+                <span class="prelude-val">Some</span>(rewind_result),
+            );
+            <span class="kw">match </span>ret {
                 Errno::Success =&gt; OnCalledAction::InvokeAgain,
                 err =&gt; {
                     <span class="macro">warn!</span>(<span class="string">&quot;failed to rewind the stack - errno={}&quot;</span>, err);

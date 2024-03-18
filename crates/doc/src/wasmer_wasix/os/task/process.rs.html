@@ -565,6 +565,11 @@
 <a href="#565" id="565">565</a>
 <a href="#566" id="566">566</a>
 <a href="#567" id="567">567</a>
+<a href="#568" id="568">568</a>
+<a href="#569" id="569">569</a>
+<a href="#570" id="570">570</a>
+<a href="#571" id="571">571</a>
+<a href="#572" id="572">572</a>
 </pre></div><pre class="rust"><code><span class="attr">#[cfg(feature = <span class="string">&quot;journal&quot;</span>)]
 </span><span class="kw">use crate</span>::{journal::JournalEffector, unwind, WasiResult};
 <span class="kw">use crate</span>::{
@@ -819,8 +824,13 @@
                 <span class="macro">trace!</span>(<span class="string">&quot;checkpoint finished&quot;</span>);
 
                 <span class="comment">// Rewind the stack and carry on
-                </span><span class="kw">return match </span>rewind_ext::&lt;M&gt;(<span class="kw-2">&amp;mut </span>ctx, memory_stack, rewind_stack, store_data, <span class="prelude-val">None</span>)
-                {
+                </span><span class="kw">return match </span>rewind_ext::&lt;M&gt;(
+                    <span class="kw-2">&amp;mut </span>ctx,
+                    <span class="prelude-val">Some</span>(memory_stack),
+                    rewind_stack,
+                    store_data,
+                    <span class="prelude-val">None</span>,
+                ) {
                     Errno::Success =&gt; OnCalledAction::InvokeAgain,
                     err =&gt; {
                         <span class="macro">tracing::warn!</span>(

@@ -487,7 +487,7 @@
         <span class="kw">let </span><span class="kw-2">mut </span>ctx = ctx.env.clone().into_mut(<span class="kw-2">&amp;mut </span>store);
         <span class="kw">let </span>res = rewind_ext::&lt;M&gt;(
             <span class="kw-2">&amp;mut </span>ctx,
-            rewind_state.memory_stack,
+            <span class="prelude-val">Some</span>(rewind_state.memory_stack),
             rewind_state.rewind_stack,
             rewind_state.store_data,
             <span class="prelude-val">Some</span>(rewind_result),

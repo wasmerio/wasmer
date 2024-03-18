@@ -542,7 +542,7 @@
         <span class="kw">if </span>rewind_state.is_64bit {
             <span class="kw">let </span>res = rewind_ext::&lt;Memory64&gt;(
                 <span class="kw-2">&amp;mut </span>ctx,
-                rewind_state.memory_stack,
+                <span class="prelude-val">Some</span>(rewind_state.memory_stack),
                 rewind_state.rewind_stack,
                 rewind_state.store_data,
                 rewind_result,
@@ -555,7 +555,7 @@
         } <span class="kw">else </span>{
             <span class="kw">let </span>res = rewind_ext::&lt;Memory32&gt;(
                 <span class="kw-2">&amp;mut </span>ctx,
-                rewind_state.memory_stack,
+                <span class="prelude-val">Some</span>(rewind_state.memory_stack),
                 rewind_state.rewind_stack,
                 rewind_state.store_data,
                 rewind_result,

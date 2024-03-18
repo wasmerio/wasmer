@@ -778,8 +778,8 @@
 <span class="comment">// Contains the result of a rewind operation
 </span><span class="attr">#[derive(Clone, Debug)]
 </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct </span>RewindResult {
-    <span class="doccomment">/// Memory stack used to restore the stack trace back to where it was
-    </span><span class="kw">pub </span>memory_stack: Bytes,
+    <span class="doccomment">/// Memory stack used to restore the memory stack (thing that holds local variables) back to where it was
+    </span><span class="kw">pub </span>memory_stack: <span class="prelude-ty">Option</span>&lt;Bytes&gt;,
     <span class="doccomment">/// Generic serialized object passed back to the rewind resumption code
     /// (uses the bincode serializer)
     </span><span class="kw">pub </span>rewind_result: <span class="prelude-ty">Option</span>&lt;Bytes&gt;,
