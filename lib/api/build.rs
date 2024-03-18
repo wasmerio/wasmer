@@ -3,7 +3,20 @@ use std::{env, path::PathBuf};
 
 fn main() {
     let crate_root = env::var("CARGO_MANIFEST_DIR").unwrap();
-    let wamr_dir = PathBuf::from(crate_root).join("third_party").join("wamr");
+    let wamr_dir = PathBuf::from(&crate_root).join("third_party").join("wamr");
+
+    let mut fetch_submodules = std::process::Command::new("git");
+    fetch_submodules
+        .current_dir(crate_root)
+        .arg("submodule")
+        .arg("update")
+        .arg("--init");
+
+    let res = fetch_submodules.output();
+
+    if let Err(e) = res {
+        panic!("fetching submodules failed: {e}");
+    }
 
     let dst = Config::new(wamr_dir)
         .always_configure(true)
