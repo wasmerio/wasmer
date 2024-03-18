@@ -199,7 +199,7 @@ fn call_module(
         if rewind_state.is_64bit {
             let res = rewind_ext::<Memory64>(
                 &mut ctx,
-                rewind_state.memory_stack,
+                Some(rewind_state.memory_stack),
                 rewind_state.rewind_stack,
                 rewind_state.store_data,
                 rewind_result,
@@ -212,7 +212,7 @@ fn call_module(
         } else {
             let res = rewind_ext::<Memory32>(
                 &mut ctx,
-                rewind_state.memory_stack,
+                Some(rewind_state.memory_stack),
                 rewind_state.rewind_stack,
                 rewind_state.store_data,
                 rewind_result,
