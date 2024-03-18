@@ -1,6 +1,5 @@
 use crate::bindings::{
-    wasm_limits_t, wasm_memory_t, wasm_memory_type, wasm_memorytype_limits,
-    wasm_memorytype_t,
+    wasm_limits_t, wasm_memory_t, wasm_memory_type, wasm_memorytype_limits, wasm_memorytype_t,
 };
 use crate::c_api::bindings::wasm_memory_as_extern;
 use crate::c_api::vm::{VMExtern, VMMemory};

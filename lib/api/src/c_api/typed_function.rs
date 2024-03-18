@@ -58,7 +58,7 @@ macro_rules! impl_native_traits {
                  unsafe {
                      wasm_val_vec_new_uninitialized(&mut results, Rets::wasm_types().len())
                  }
-                 
+
                  let func = unsafe { wasm_extern_as_func(self.func.to_vm_extern()) };
 
                  unsafe { wasm_func_call(func, &params, &mut results); }
