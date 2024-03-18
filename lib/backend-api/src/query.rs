@@ -11,9 +11,9 @@ use url::Url;
 use crate::{
     types::{
         self, CreateNamespaceVars, DeployApp, DeployAppConnection, DeployAppVersion,
-        DeployAppVersionConnection, GetCurrentUserWithAppsVars, GetDeployAppAndVersion,
+        DeployAppVersionConnection, DnsDomain, GetCurrentUserWithAppsVars, GetDeployAppAndVersion,
         GetDeployAppVersionsVars, GetNamespaceAppsVars, Log, LogStream, PackageVersionConnection,
-        PublishDeployAppVars,
+        PublishDeployAppVars, UpsertDomainFromZoneFileVars,
     },
     GraphQLApiFailure, WasmerClient,
 };
@@ -816,6 +816,146 @@ pub async fn get_app_logs_paginated(
     })
 }
 
+/// Retrieve a domain by its name.
+///
+/// Specify with_records to also retrieve all records for the domain.
+pub async fn get_domain(
+    client: &WasmerClient,
+    domain: String,
+) -> Result<Option<types::DnsDomain>, anyhow::Error> {
+    let vars = types::GetDomainVars { domain };
+
+    let opt = client
+        .run_graphql(types::GetDomain::build(vars))
+        .await
+        .map_err(anyhow::Error::from)?
+        .get_domain;
+    Ok(opt)
+}
+
+/// Retrieve a domain by its name.
+///
+/// Specify with_records to also retrieve all records for the domain.
+pub async fn get_domain_zone_file(
+    client: &WasmerClient,
+    domain: String,
+) -> Result<Option<types::DnsDomainWithZoneFile>, anyhow::Error> {
+    let vars = types::GetDomainVars { domain };
+
+    let opt = client
+        .run_graphql(types::GetDomainWithZoneFile::build(vars))
+        .await
+        .map_err(anyhow::Error::from)?
+        .get_domain;
+    Ok(opt)
+}
+
+/// Retrieve a domain by its name, along with all it's records.
+pub async fn get_domain_with_records(
+    client: &WasmerClient,
+    domain: String,
+) -> Result<Option<types::DnsDomainWithRecords>, anyhow::Error> {
+    let vars = types::GetDomainVars { domain };
+
+    let opt = client
+        .run_graphql(types::GetDomainWithRecords::build(vars))
+        .await
+        .map_err(anyhow::Error::from)?
+        .get_domain;
+    Ok(opt)
+}
+
+/// Register a new domain
+pub async fn register_domain(
+    client: &WasmerClient,
+    name: String,
+    namespace: Option<String>,
+    import_records: Option<bool>,
+) -> Result<types::DnsDomain, anyhow::Error> {
+    let vars = types::RegisterDomainVars {
+        name,
+        namespace,
+        import_records,
+    };
+    let opt = client
+        .run_graphql_strict(types::RegisterDomain::build(vars))
+        .await
+        .map_err(anyhow::Error::from)?
+        .register_domain
+        .context("Domain registration failed")?
+        .domain
+        .context("Domain registration failed, no associatede domain found.")?;
+    Ok(opt)
+}
+
+/// Retrieve all DNS records.
+///
+/// NOTE: this is a privileged operation that requires extra permissions.
+pub async fn get_all_dns_records(
+    client: &WasmerClient,
+    vars: types::GetAllDnsRecordsVariables,
+) -> Result<types::DnsRecordConnection, anyhow::Error> {
+    client
+        .run_graphql_strict(types::GetAllDnsRecords::build(vars))
+        .await
+        .map_err(anyhow::Error::from)
+        .map(|x| x.get_all_dnsrecords)
+}
+
+/// Retrieve all DNS domains.
+pub async fn get_all_domains(
+    client: &WasmerClient,
+    vars: types::GetAllDomainsVariables,
+) -> Result<Vec<DnsDomain>, anyhow::Error> {
+    let connection = client
+        .run_graphql_strict(types::GetAllDomains::build(vars))
+        .await
+        .map_err(anyhow::Error::from)
+        .map(|x| x.get_all_domains)
+        .context("no domains returned")?;
+    Ok(connection
+        .edges
+        .into_iter()
+        .flatten()
+        .filter_map(|x| x.node)
+        .collect())
+}
+
+/// Retrieve a domain by its name.
+///
+/// Specify with_records to also retrieve all records for the domain.
+pub fn get_all_dns_records_stream(
+    client: &WasmerClient,
+    vars: types::GetAllDnsRecordsVariables,
+) -> impl futures::Stream<Item = Result<Vec<types::DnsRecord>, anyhow::Error>> + '_ {
+    futures::stream::try_unfold(
+        Some(vars),
+        move |vars: Option<types::GetAllDnsRecordsVariables>| async move {
+            let vars = match vars {
+                Some(vars) => vars,
+                None => return Ok(None),
+            };
+
+            let page = get_all_dns_records(client, vars.clone()).await?;
+
+            let end_cursor = page.page_info.end_cursor;
+
+            let items = page
+                .edges
+                .into_iter()
+                .filter_map(|x| x.and_then(|x| x.node))
+                .collect::<Vec<_>>();
+
+            let new_vars = end_cursor.map(|c| types::GetAllDnsRecordsVariables {
+                after: Some(c),
+                ..vars
+            });
+
+            Ok(Some((items, new_vars)))
+        },
+    )
+}
+
 /// Convert a [`OffsetDateTime`] to a unix timestamp that the WAPM backend
 /// understands.
 fn unix_timestamp(ts: OffsetDateTime) -> f64 {
@@ -825,4 +965,26 @@ fn unix_timestamp(ts: OffsetDateTime) -> f64 {
     let secs = timestamp / nanos_per_second;
 
     (secs as f64) + (nanos as f64 / nanos_per_second as f64)
+}
+
+/// Publish a new app (version).
+pub async fn upsert_domain_from_zone_file(
+    client: &WasmerClient,
+    zone_file_contents: String,
+    delete_missing_records: bool,
+) -> Result<DnsDomain, anyhow::Error> {
+    let vars = UpsertDomainFromZoneFileVars {
+        zone_file: zone_file_contents,
+        delete_missing_records: Some(delete_missing_records),
+    };
+    let res = client
+        .run_graphql_strict(types::UpsertDomainFromZoneFile::build(vars))
+        .await?;
+
+    let domain = res
+        .upsert_domain_from_zone_file
+        .context("Upserting domain from zonefile failed")?
+        .domain;
+
+    Ok(domain)
 }
