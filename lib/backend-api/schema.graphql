@@ -3050,8 +3050,8 @@ type RegisterDomainPayload {
 
 input RegisterDomainInput {
   name: String!
-  namespace: String!
-  importRecords: Boolean = false
+  namespace: String
+  importRecords: Boolean = true
   clientMutationId: String
 }
 

@@ -865,6 +865,29 @@ pub async fn get_domain_with_records(
     Ok(opt)
 }
 
+/// Register a new domain
+pub async fn register_domain(
+    client: &WasmerClient,
+    name: String,
+    namespace: Option<String>,
+    import_records: Option<bool>,
+) -> Result<types::DnsDomain, anyhow::Error> {
+    let vars = types::RegisterDomainVars {
+        name,
+        namespace,
+        import_records,
+    };
+    let opt = client
+        .run_graphql_strict(types::RegisterDomain::build(vars))
+        .await
+        .map_err(anyhow::Error::from)?
+        .register_domain
+        .context("Domain registration failed")?
+        .domain
+        .context("Domain registration failed, no associatede domain found.")?;
+    Ok(opt)
+}
+
 /// Retrieve all DNS records.
 ///
 /// NOTE: this is a privileged operation that requires extra permissions.

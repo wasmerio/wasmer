@@ -1,5 +1,6 @@
 pub mod get;
 pub mod list;
+pub mod register;
 pub mod zonefile;
 use crate::commands::AsyncCliCommand;
 
@@ -17,6 +18,9 @@ pub enum CmdDomain {
 
     /// Sync local zone file with remotex
     SyncZoneFile(self::zonefile::CmdZoneFileSync),
+
+    /// Register new domain
+    Register(self::register::CmdDomainRegister),
 }
 
 #[async_trait::async_trait]
@@ -29,6 +33,7 @@ impl AsyncCliCommand for CmdDomain {
             CmdDomain::Get(cmd) => cmd.run_async().await,
             CmdDomain::GetZoneFile(cmd) => cmd.run_async().await,
             CmdDomain::SyncZoneFile(cmd) => cmd.run_async().await,
+            CmdDomain::Register(cmd) => cmd.run_async().await,
         }
     }
 }

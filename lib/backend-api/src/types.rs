@@ -329,6 +329,26 @@ mod queries {
         pub get_deploy_app_version: Option<DeployAppVersion>,
     }
 
+    #[derive(cynic::QueryFragment, Debug)]
+    pub struct RegisterDomainPayload {
+        pub success: bool,
+        pub domain: Option<DnsDomain>,
+    }
+
+    #[derive(cynic::QueryVariables, Debug)]
+    pub struct RegisterDomainVars {
+        pub name: String,
+        pub namespace: Option<String>,
+        pub import_records: Option<bool>,
+    }
+
+    #[derive(cynic::QueryFragment, Debug)]
+    #[cynic(graphql_type = "Mutation", variables = "RegisterDomainVars")]
+    pub struct RegisterDomain {
+        #[arguments(input: {name: $name, importRecords: $import_records, namespace: $namespace})]
+        pub register_domain: Option<RegisterDomainPayload>,
+    }
+
     #[derive(cynic::QueryVariables, Debug)]
     pub struct UpsertDomainFromZoneFileVars {
         pub zone_file: String,
