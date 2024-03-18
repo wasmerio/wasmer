@@ -107,6 +107,14 @@
 <a href="#107" id="107">107</a>
 <a href="#108" id="108">108</a>
 <a href="#109" id="109">109</a>
+<a href="#110" id="110">110</a>
+<a href="#111" id="111">111</a>
+<a href="#112" id="112">112</a>
+<a href="#113" id="113">113</a>
+<a href="#114" id="114">114</a>
+<a href="#115" id="115">115</a>
+<a href="#116" id="116">116</a>
+<a href="#117" id="117">117</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>anyhow::Context;
 <span class="kw">use </span>wasmer_api::WasmerClient;
 <span class="kw">use </span>wasmer_registry::WasmerConfig;
@@ -204,15 +212,23 @@
 <span class="doccomment">/// Formatting options for a single item.
 </span><span class="attr">#[derive(clap::Parser, Debug, Default)]
 </span><span class="kw">pub struct </span>ItemFormatOpts {
-    <span class="doccomment">/// Output format. (json, text)
+    <span class="doccomment">/// Output format. (yaml, json, table)
     </span><span class="attr">#[clap(short = <span class="string">&#39;f&#39;</span>, long, default_value = <span class="string">&quot;yaml&quot;</span>)]
+    </span><span class="kw">pub </span>format: <span class="kw">crate</span>::utils::render::ItemFormat,
+}
+
+<span class="doccomment">/// Formatting options for a single item.
+</span><span class="attr">#[derive(clap::Parser, Debug, Default)]
+</span><span class="kw">pub struct </span>ItemTableFormatOpts {
+    <span class="doccomment">/// Output format. (yaml, json, table)
+    </span><span class="attr">#[clap(short = <span class="string">&#39;f&#39;</span>, long, default_value = <span class="string">&quot;table&quot;</span>)]
     </span><span class="kw">pub </span>format: <span class="kw">crate</span>::utils::render::ItemFormat,
 }
 
 <span class="doccomment">/// Formatting options for a list of items.
 </span><span class="attr">#[derive(clap::Parser, Debug)]
 </span><span class="kw">pub struct </span>ListFormatOpts {
-    <span class="doccomment">/// Output format. (json, text)
+    <span class="doccomment">/// Output format. (yaml, json, table, item-table)
     </span><span class="attr">#[clap(short = <span class="string">&#39;f&#39;</span>, long, default_value = <span class="string">&quot;table&quot;</span>)]
     </span><span class="kw">pub </span>format: <span class="kw">crate</span>::utils::render::ListFormat,
 }

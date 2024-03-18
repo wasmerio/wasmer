@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":["__typename","algorithm","createdAt","deletedAt","dnsClass","domain","fingerprint","id","name","text","ttl","type","updatedAt"]};

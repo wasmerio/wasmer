@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["CmdDomain"],"mod":["get","list","register","zonefile"]};

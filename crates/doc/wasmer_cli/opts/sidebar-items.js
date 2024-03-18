@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":["ApiOpts","ItemFormatOpts","ListFormatOpts","Login"]};
+window.SIDEBAR_ITEMS = {"struct":["ApiOpts","ItemFormatOpts","ItemTableFormatOpts","ListFormatOpts","Login"]};

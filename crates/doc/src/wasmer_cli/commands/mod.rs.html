@@ -404,6 +404,12 @@
 <a href="#404" id="404">404</a>
 <a href="#405" id="405">405</a>
 <a href="#406" id="406">406</a>
+<a href="#407" id="407">407</a>
+<a href="#408" id="408">408</a>
+<a href="#409" id="409">409</a>
+<a href="#410" id="410">410</a>
+<a href="#411" id="411">411</a>
+<a href="#412" id="412">412</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! The commands available in the Wasmer binary.
 </span><span class="kw">mod </span>add;
 <span class="kw">mod </span>app;
@@ -420,6 +426,7 @@
 <span class="attr">#[cfg(feature = <span class="string">&quot;static-artifact-create&quot;</span>)]
 </span><span class="kw">mod </span>create_obj;
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">mod </span>deploy;
+<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">mod </span>domain;
 <span class="attr">#[cfg(feature = <span class="string">&quot;static-artifact-create&quot;</span>)]
 </span><span class="kw">mod </span>gen_c_header;
 <span class="kw">mod </span>init;
@@ -563,6 +570,7 @@
             </span><span class="prelude-val">Some</span>(Cmd::Journal(journal)) =&gt; journal.run(),
             <span class="prelude-val">Some</span>(Cmd::Ssh(ssh)) =&gt; ssh.run(),
             <span class="prelude-val">Some</span>(Cmd::Namespace(namespace)) =&gt; namespace.run(),
+            <span class="prelude-val">Some</span>(Cmd::Domain(namespace)) =&gt; namespace.run(),
             <span class="prelude-val">None </span>=&gt; {
                 WasmerCmd::command().print_long_help()<span class="question-mark">?</span>;
                 <span class="comment">// Note: clap uses an exit code of 2 when CLI parsing fails
@@ -762,6 +770,10 @@
     <span class="doccomment">/// Manage Wasmer namespaces.
     </span><span class="attr">#[clap(subcommand, alias = <span class="string">&quot;namespaces&quot;</span>)]
     </span>Namespace(<span class="kw">crate</span>::commands::namespace::CmdNamespace),
+
+    <span class="doccomment">/// Manage DNS records
+    </span><span class="attr">#[clap(subcommand, alias = <span class="string">&quot;domains&quot;</span>)]
+    </span>Domain(<span class="kw">crate</span>::commands::domain::CmdDomain),
 }
 
 <span class="kw">fn </span>is_binfmt_interpreter() -&gt; bool {
