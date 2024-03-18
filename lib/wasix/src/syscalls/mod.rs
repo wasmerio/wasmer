@@ -1162,18 +1162,18 @@ where
     let rewind_result = bincode::serialize(&result).unwrap().into();
     rewind_ext::<M>(
         &mut ctx,
-        memory_stack,
+        Some(memory_stack),
         rewind_stack,
         store_data,
         Some(rewind_result),
     )
 }
 
-#[instrument(level = "debug", skip_all, fields(memory_stack_len = memory_stack.len(), rewind_stack_len = rewind_stack.len(), store_data_len = store_data.len()))]
+#[instrument(level = "debug", skip_all, fields(rewind_stack_len = rewind_stack.len(), store_data_len = store_data.len()))]
 #[must_use = "the action must be passed to the call loop"]
 pub fn rewind_ext<M: MemorySize>(
     ctx: &mut FunctionEnvMut<WasiEnv>,
-    memory_stack: Bytes,
+    memory_stack: Option<Bytes>,
     rewind_stack: Bytes,
     store_data: Bytes,
     rewind_result: Option<Bytes>,
@@ -1265,7 +1265,7 @@ pub fn rewind_ext2(
         let errno = if rewind_state.is_64bit {
             crate::rewind_ext::<wasmer_types::Memory64>(
                 ctx,
-                rewind_state.memory_stack,
+                Some(rewind_state.memory_stack),
                 rewind_state.rewind_stack,
                 rewind_state.store_data,
                 rewind_result,
@@ -1273,7 +1273,7 @@ pub fn rewind_ext2(
         } else {
             crate::rewind_ext::<wasmer_types::Memory32>(
                 ctx,
-                rewind_state.memory_stack,
+                Some(rewind_state.memory_stack),
                 rewind_state.rewind_stack,
                 rewind_state.store_data,
                 rewind_result,
@@ -1338,7 +1338,9 @@ where
 
         // Restore the memory stack
         let (env, mut store) = ctx.data_and_store_mut();
-        set_memory_stack::<M>(env, &mut store, memory_stack);
+        if let Some(memory_stack) = memory_stack {
+            set_memory_stack::<M>(env, &mut store, memory_stack);
+        }
 
         if let Some(rewind_result) = result.rewind_result {
             let ret = bincode::deserialize(&rewind_result)

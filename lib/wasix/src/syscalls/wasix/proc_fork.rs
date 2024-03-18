@@ -250,7 +250,7 @@ fn run<M: MemorySize>(
         let mut ctx = ctx.env.clone().into_mut(&mut store);
         let res = rewind_ext::<M>(
             &mut ctx,
-            rewind_state.memory_stack,
+            Some(rewind_state.memory_stack),
             rewind_state.rewind_stack,
             rewind_state.store_data,
             Some(rewind_result),
