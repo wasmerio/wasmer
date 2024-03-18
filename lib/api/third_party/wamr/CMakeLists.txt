@@ -142,7 +142,7 @@ if(${WAMR_BUILD_AOT} EQUAL 1)
     )
   endif()
 endif()
-include (${SHARED_DIR}/utils/uncommon/shared_uncommon.cmake)
+#include (${SHARED_DIR}/utils/uncommon/shared_uncommon.cmake)
 
 set(MM_UTIL src/utils/multi_module_utils.c)
 
