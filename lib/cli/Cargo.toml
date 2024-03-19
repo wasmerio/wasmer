@@ -75,7 +75,7 @@ wasmer-compiler-singlepass = { version = "=4.2.7", path = "../compiler-singlepas
 wasmer-compiler-llvm = { version = "=4.2.7", path = "../compiler-llvm", optional = true }
 wasmer-emscripten = { version = "=4.2.7", path = "../emscripten" }
 wasmer-vm = { version = "=4.2.7", path = "../vm", optional = true }
-wasmer-wasix = { version = "0.18.1", path = "../wasix", features = [
+wasmer-wasix = { version = "0.18.2", path = "../wasix", features = [
   "logging",
   "webc_runner_rt_wcgi",
   "webc_runner_rt_dcgi",
@@ -86,7 +86,7 @@ wasmer-wast = { version = "=4.2.7", path = "../../tests/lib/wast", optional = tr
 wasmer-types = { version = "=4.2.7", path = "../types", features = [
   "enable-serde",
 ] }
-wasmer-registry = { version = "5.10.2", path = "../registry", features = [
+wasmer-registry = { version = "5.10.3", path = "../registry", features = [
   "build-package",
   "clap",
 ] }
@@ -100,7 +100,7 @@ virtual-mio = { version = "0.3.0", path = "../virtual-io" }
 # Wasmer-owned dependencies.
 
 webc = { workspace = true }
-wasmer-api = { version = "=0.0.23", path = "../backend-api" }
+wasmer-api = { version = "=0.0.24", path = "../backend-api" }
 edge-schema = { version = "=0.0.2" }
 edge-util = { version = "=0.0.1" }
 
