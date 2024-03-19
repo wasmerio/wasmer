@@ -147,6 +147,7 @@ tokio = { version = "1.28.1", features = ["macros", "rt-multi-thread"] }
 once_cell = "1.17.1"
 indicatif = "0.17.5"
 opener = "0.6.1"
+normpath = "=1.1.1"
 hyper = { version = "0.14.27", features = ["server"] }
 http = "0.2.9"
 futures = "0.3.29"
