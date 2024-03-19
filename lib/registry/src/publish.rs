@@ -432,7 +432,7 @@ async fn wait_for_package_version_to_become_ready(
     quiet: bool,
     mut conditions: PublishWait,
 ) -> Result<()> {
-    let (mut stream, _client) =
+    let mut stream =
         subscribe_package_version_ready(registry, token, package_version_id.as_ref()).await?;
 
     let state = PackageVersionReadySharedState::new();
