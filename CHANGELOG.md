@@ -11,6 +11,8 @@ Looking for changes that affect our C API? See the [C API Changelog](lib/c-api/C
 
 ## 4.2.7 - 19/03/2024
 
+This release adds the `wasmer domain` command for DNS records management, and also includes an important fix to the `stack_restore` WASIX syscall (used by the `longjmp` function).
+
 ## Added
 
   - [#4478](https://github.com/wasmerio/wasmer/pull/4478) chore(backend-api): Add size to PackageDistribution
