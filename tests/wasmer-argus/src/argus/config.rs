@@ -1,7 +1,6 @@
 use clap::ValueEnum;
 use serde::{Deserialize, Serialize};
-use std::{path::PathBuf, process::Command};
-use tracing::*;
+use std::path::PathBuf;
 
 fn get_default_out_path() -> PathBuf {
     let mut path = std::env::current_dir().unwrap();
@@ -58,48 +57,9 @@ pub struct ArgusConfig {
     #[arg(long)]
     pub cli_path: Option<String>,
 
+
     /// Whether or not this run should use the linked [`wasmer-api`] library instead of the CLI.
     #[cfg(feature = "wasmer_lib")]
     #[arg(long, conflicts_with = "cli_path")]
     pub use_lib: bool,
-}
-
-impl ArgusConfig {
-    pub fn is_compatible(&self, _other: &Self) -> bool {
-        // Ideally, in the future, we could add more features that could make us conclude that we
-        // need to run tests again.
-
-        // By default, no config is compatible with the other, that is, we re-run the tests.
-        false
-    }
-
-    pub fn wasmer_version(&self) -> String {
-        #[cfg(feature = "wasmer_lib")]
-        if self.use_lib {
-            return format!("wasmer_lib/{}", env!("CARGO_PKG_VERSION"));
-        }
-
-        let cli_path = match &self.cli_path {
-            Some(p) => p,
-            None => "wasmer",
-        };
-
-        let mut cmd = Command::new(cli_path);
-        let cmd = cmd.arg("-V");
-
-        info!("running cmd: {:?}", cmd);
-
-        let out = cmd.output();
-
-        info!("run cmd that gave result: {:?}", out);
-
-        match out {
-            Ok(v) => String::from_utf8(v.stdout)
-                .unwrap()
-                .replace(' ', "/")
-                .trim()
-                .to_string(),
-            Err(e) => panic!("failed to launch cli program {cli_path}: {e}"),
-        }
-    }
 }
