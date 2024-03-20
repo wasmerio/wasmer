@@ -58,13 +58,14 @@ impl CLIRunner {
         dir_path: &Path,
         atom_id: usize,
     ) -> anyhow::Result<Result<(), String>> {
-        if let Err(e) = Command::new(cli_path).spawn() {
+        if let Err(e) = Command::new(cli_path).arg("-V").output() {
             if let std::io::ErrorKind::NotFound = e.kind() {
                 anyhow::bail!("the command '{cli_path}' was not found");
             }
         }
 
         let atom_path = dir_path.join(format!("atom_{atom_id}.wasm"));
+        let output_path = dir_path.join(format!("atom_{atom_id}.wasmu"));
 
         tokio::fs::write(&atom_path, atom).await?;
 
@@ -75,10 +76,24 @@ impl CLIRunner {
         };
 
         Ok(
-            match std::panic::catch_unwind(|| {
-                Command::new(cli_path)
-                    .args(["compile", atom_path.to_str().unwrap(), backend])
-                    .output()
+            match std::panic::catch_unwind(move || {
+                let mut cmd = Command::new(cli_path);
+
+                let cmd = cmd.args([
+                    "compile",
+                    atom_path.to_str().unwrap(),
+                    backend,
+                    "-o",
+                    output_path.to_str().unwrap(),
+                ]);
+
+                info!("running cmd: {:?}", cmd);
+
+                let out = cmd.output();
+
+                info!("run cmd that gave result: {:?}", out);
+
+                out
             }) {
                 Ok(r) => match r {
                     Ok(_) => Ok(()),
@@ -126,6 +141,7 @@ impl Tester for CLIRunner {
         };
 
         for (i, atom) in webc.atoms().iter().enumerate() {
+            p.set_message(format!("testing atom #{i}"));
             if let Err(e) = runner
                 .test_atom(&cli_path, atom.1.as_slice(), &dir_path, i)
                 .await?
