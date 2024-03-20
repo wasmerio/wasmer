@@ -108,41 +108,41 @@ if (WAMR_BUILD_WASM_CACHE EQUAL 1)
 endif ()
 ################################################
 
-################  application related  ################
-## locate wat2wasm
-find_program(WAT2WASM
-  wat2wasm
-  PATHS /opt/wabt/bin
-  REQUIRED
-)
-
-if(NOT WAT2WASM)
-  message(SEND_ERROR "can not find wat2wasm")
-else ()
-  execute_process(COMMAND ${WAT2WASM} --version
-                  OUTPUT_VARIABLE WAT2WASM_VERSION_OUTPUT)
-  string(STRIP ${WAT2WASM_VERSION_OUTPUT} WAT2WASM_VERSION)
-  message("-- Found wat2wasm ${WAT2WASM_VERSION}")
-endif()
-
-if (${WAT2WASM_VERSION} VERSION_LESS 1.0.26)
-  set(WAT2WASM_FLAGS "--enable-reference-types")
-endif ()
-
-if(${WAMR_BUILD_AOT} EQUAL 1)
-  ## locate wamrc
-  find_program(WAMRC
-    wamrc
-    PATHS ${WAMR_ROOT_DIR}/wamr-compiler/build/
-  )
-
-  if(NOT WAMRC)
-    message(SEND_ERROR "can not find wamrc.  refer to \
-        https://github.com/bytecodealliance/wasm-micro-runtime#build-wamrc-aot-compiler"
-    )
-  endif()
-endif()
-#include (${SHARED_DIR}/utils/uncommon/shared_uncommon.cmake)
+#################  application related  ################
+### locate wat2wasm
+#find_program(WAT2WASM
+#  wat2wasm
+#  PATHS /opt/wabt/bin
+#  REQUIRED
+#)
+#
+#if(NOT WAT2WASM)
+#  message(SEND_ERROR "can not find wat2wasm")
+#else ()
+#  execute_process(COMMAND ${WAT2WASM} --version
+#                  OUTPUT_VARIABLE WAT2WASM_VERSION_OUTPUT)
+#  string(STRIP ${WAT2WASM_VERSION_OUTPUT} WAT2WASM_VERSION)
+#  message("-- Found wat2wasm ${WAT2WASM_VERSION}")
+#endif()
+#
+#if (${WAT2WASM_VERSION} VERSION_LESS 1.0.26)
+#  set(WAT2WASM_FLAGS "--enable-reference-types")
+#endif ()
+#
+#if(${WAMR_BUILD_AOT} EQUAL 1)
+#  ## locate wamrc
+#  find_program(WAMRC
+#    wamrc
+#    PATHS ${WAMR_ROOT_DIR}/wamr-compiler/build/
+#  )
+#
+#  if(NOT WAMRC)
+#    message(SEND_ERROR "can not find wamrc.  refer to \
+#        https://github.com/bytecodealliance/wasm-micro-runtime#build-wamrc-aot-compiler"
+#    )
+#  endif()
+#endif()
+##include (${SHARED_DIR}/utils/uncommon/shared_uncommon.cmake)
 
 set(MM_UTIL src/utils/multi_module_utils.c)
 
