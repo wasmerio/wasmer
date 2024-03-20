@@ -16,7 +16,7 @@ pub struct LibRunner;
 #[async_trait::async_trait]
 impl Tester for LibRunner {
     async fn run_test(
-        test_id: u64,
+        _test_id: u64,
         config: std::sync::Arc<crate::ArgusConfig>,
         p: &ProgressBar,
         webc_path: PathBuf,
