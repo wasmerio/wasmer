@@ -177,7 +177,7 @@ impl Argus {
             return false;
         }
 
-        return true;
+        true
     }
 
     #[tracing::instrument]
@@ -194,7 +194,7 @@ impl Argus {
             .write(true)
             .create(true)
             .truncate(true)
-            .open(&test_results_path)?;
+            .open(test_results_path)?;
 
         file.write_all(serde_json::to_string(&result).unwrap().as_bytes())?;
         Ok(())
