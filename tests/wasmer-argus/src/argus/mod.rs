@@ -153,7 +153,7 @@ impl Argus {
             tester::cli_tester::CLIRunner::run_test(test_id, config, &p, webc_path, &package_name)
                 .await?;
 
-        Argus::write_report(&path, report).await?;
+        Argus::write_report(&path, report, package_name.clone()).await?;
 
         p.finish_with_message(format!("test for package {package_name} done!"));
         p.finish_and_clear();
@@ -238,14 +238,14 @@ impl Argus {
         !prev_run.has(&self.config)
     }
 
-    async fn write_report(path: &Path, report: TestReport) -> anyhow::Result<()> {
+    async fn write_report(path: &Path, report: TestReport, pkg_id: String) -> anyhow::Result<()> {
         let test_results_path = path.join("results.json");
 
         let mut test_results = if test_results_path.exists() {
             let s = tokio::fs::read_to_string(&test_results_path).await?;
             serde_json::from_str(&s)?
         } else {
-            TestResults::default()
+            TestResults::from_package_id(pkg_id)
         };
 
         test_results.add(report);
