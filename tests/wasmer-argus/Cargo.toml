@@ -22,7 +22,7 @@ wasmer_lib = ["dep:wasmer"]
 indicatif = "0.17.8"
 # structopt = { version = "0.2", features = [ "paw" ] }
 # paw = "1.0"
-wasmer-api = { version = "0.0.23", path = "../../lib/backend-api"}
+wasmer-api = { path = "../../lib/backend-api"}
 anyhow = "1.0.80"
 log = "0.4.21"
 cynic = "3.4.3"
