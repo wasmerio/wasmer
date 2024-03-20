@@ -8,6 +8,7 @@ type EngineId = String;
 /// The result of a test run
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct TestResults {
+    package_id: String,
     results: HashMap<WasmerVersion, HashMap<EngineId, TestReport>>,
 }
 
@@ -37,6 +38,13 @@ impl TestResults {
                     HashMap::from_iter(vec![(engine_id, report)]),
                 )
             }
+        }
+    }
+
+    pub(crate) fn from_package_id(package_id: String) -> Self {
+        Self {
+            package_id,
+            ..Default::default()
         }
     }
 }
