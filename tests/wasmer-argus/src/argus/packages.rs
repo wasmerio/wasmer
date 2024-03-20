@@ -19,6 +19,7 @@ impl Argus {
         &self,
         s: UnboundedSender<PackageVersionWithPackage>,
         p: ProgressBar,
+        config: Arc<ArgusConfig>,
     ) -> anyhow::Result<()> {
         info!("starting to fetch packages..");
         let vars = AllPackageVersionsVars {
