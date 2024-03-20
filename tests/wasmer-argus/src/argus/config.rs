@@ -57,7 +57,6 @@ pub struct ArgusConfig {
     #[arg(long)]
     pub cli_path: Option<String>,
 
-
     /// Whether or not this run should use the linked [`wasmer-api`] library instead of the CLI.
     #[cfg(feature = "wasmer_lib")]
     #[arg(long, conflicts_with = "cli_path")]
