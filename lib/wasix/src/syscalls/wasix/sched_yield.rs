@@ -7,6 +7,8 @@ use crate::syscalls::*;
 pub fn sched_yield<M: MemorySize + 'static>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
 ) -> Result<Errno, WasiError> {
+    ctx = wasi_try_ok!(maybe_backoff::<M>(ctx)?);
+
     //trace!("wasi[{}:{}]::sched_yield", ctx.data().pid(), ctx.data().tid());
     thread_sleep_internal::<M>(ctx, 0)
 }

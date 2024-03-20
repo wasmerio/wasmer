@@ -1,6 +1,6 @@
 [package]
 name = "wasmer-api"
-version = "0.0.23"
+version = "0.0.24"
 description = "Client library for the Wasmer GraphQL API"
 readme = "README.md"
 documentation = "https://docs.rs/wasmer-api"
