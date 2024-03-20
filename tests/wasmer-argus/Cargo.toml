@@ -20,9 +20,6 @@ wasmer_lib = ["dep:wasmer"]
 
 [dependencies]
 indicatif = "0.17.8"
-# structopt = { version = "0.2", features = [ "paw" ] }
-# paw = "1.0"
-wasmer-api = { path = "../../lib/backend-api"}
 anyhow = "1.0.80"
 log = "0.4.21"
 cynic = "3.4.3"
@@ -39,3 +36,4 @@ reqwest = "0.11.24"
 derive_more = "0.99.17"
 webc.workspace = true
 async-trait = "0.1.77"
+wasmer-api = { path = "../../lib/backend-api" }
