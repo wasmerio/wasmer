@@ -42,10 +42,6 @@ pub struct ArgusConfig {
     #[arg(short = 'b', long = "backend", value_enum, default_value_t = Backend::Singlepass)]
     pub compiler_backend: Backend,
 
-    /// Whether or not to run packages during tests
-    #[arg(long = "run")]
-    pub run_packages: bool,
-
     /// The output directory
     #[arg(short = 'o', long, default_value = get_default_out_path().into_os_string())]
     pub outdir: std::path::PathBuf,
@@ -69,10 +65,12 @@ pub struct ArgusConfig {
 }
 
 impl ArgusConfig {
-    pub fn is_compatible(&self, other: &Self) -> bool {
+    pub fn is_compatible(&self, _other: &Self) -> bool {
         // Ideally, in the future, we could add more features that could make us conclude that we
         // need to run tests again.
-        self.run_packages == other.run_packages
+
+        // By default, no config is compatible with the other, that is, we re-run the tests.
+        false
     }
 
     pub fn wasmer_version(&self) -> String {
