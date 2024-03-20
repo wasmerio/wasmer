@@ -4,6 +4,7 @@ use std::{
         atomic::{AtomicUsize, Ordering},
         Arc, RwLock,
     },
+    time::Duration,
 };
 
 use crate::{runtime::module_cache::ModuleHash, WasiProcess, WasiProcessId};
@@ -41,6 +42,11 @@ pub struct ControlPlaneConfig {
     pub max_task_count: Option<usize>,
     /// Flag that indicates if asynchronous threading is enables (opt-in)
     pub enable_asynchronous_threading: bool,
+    /// Enables an exponential backoff of the process CPU usage when there
+    /// are no active run tokens (when set holds the maximum amount of
+    /// time that it will pause the CPU)
+    /// (default = off)
+    pub enable_exponential_cpu_backoff: Option<Duration>,
 }
 
 impl ControlPlaneConfig {
@@ -48,6 +54,7 @@ impl ControlPlaneConfig {
         Self {
             max_task_count: None,
             enable_asynchronous_threading: false,
+            enable_exponential_cpu_backoff: None,
         }
     }
 }
@@ -215,6 +222,7 @@ mod tests {
         let p = WasiControlPlane::new(ControlPlaneConfig {
             max_task_count: Some(2),
             enable_asynchronous_threading: false,
+            enable_exponential_cpu_backoff: None,
         });
 
         let p1 = p.new_process(ModuleHash::random()).unwrap();
@@ -237,6 +245,7 @@ mod tests {
         let p = WasiControlPlane::new(ControlPlaneConfig {
             max_task_count: Some(2),
             enable_asynchronous_threading: false,
+            enable_exponential_cpu_backoff: None,
         });
 
         let p1 = p.new_process(ModuleHash::random()).unwrap();

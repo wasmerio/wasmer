@@ -101,6 +101,13 @@ pub struct Wasi {
     #[clap(long = "enable-async-threads")]
     pub enable_async_threads: bool,
 
+    /// Enables an exponential backoff (measured in milli-seconds) of
+    /// the process CPU usage when there are no active run tokens (when set
+    /// holds the maximum amount of time that it will pause the CPU)
+    /// (default = off)
+    #[clap(long = "enable-cpu-backoff")]
+    pub enable_cpu_backoff: Option<u64>,
+
     /// Specifies one or more journal files that Wasmer will use to restore
     /// and save the state of the WASM process as it executes.
     ///
@@ -517,6 +524,8 @@ impl Wasi {
         }
 
         caps.threading.enable_asynchronous_threading = self.enable_async_threads;
+        caps.threading.enable_exponential_cpu_backoff =
+            self.enable_cpu_backoff.map(Duration::from_millis);
 
         caps
     }

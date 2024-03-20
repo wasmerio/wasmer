@@ -9,6 +9,30 @@ Looking for changes that affect our C API? See the [C API Changelog](lib/c-api/C
 
 ## **Unreleased**
 
+## 4.2.7 - 19/03/2024
+
+This release adds the `wasmer domain` command for DNS records management, and also includes an important fix to the `stack_restore` WASIX syscall (used by the `longjmp` function).
+
+## Added
+
+  - [#4478](https://github.com/wasmerio/wasmer/pull/4478) chore(backend-api): Add size to PackageDistribution
+
+## Changed
+
+  - [#4492](https://github.com/wasmerio/wasmer/pull/4492) No longer restoring the thread local memory when we longjmp
+  - [#4487](https://github.com/wasmerio/wasmer/pull/4487) Manage DNS records
+  - [#4220](https://github.com/wasmerio/wasmer/pull/4220) Ability to detect a tainted instance
+  - [#4455](https://github.com/wasmerio/wasmer/pull/4455) Implemented an exponential CPU backoff that kicks in when a run token is not held
+  - [#4470](https://github.com/wasmerio/wasmer/pull/4470) chore: Completely remove wasix_http_client
+
+## Fixed
+
+  - [#4490](https://github.com/wasmerio/wasmer/pull/4490) Fix for a panic in the sock_recv when a file handle is missing
+  - [#4335](https://github.com/wasmerio/wasmer/pull/4335) Fixed an issue where the package loader was blocking the tokio runtime
+  - [#4473](https://github.com/wasmerio/wasmer/pull/4473) fix: fix feature = "cargo-clippy" deprecation
+
+
+
 ## 4.2.6 - 03/03/2024
 
 This release includes a number of DX improvements for the Wasmer CLI, as well as fixes to WASI and its filesystem implementation.

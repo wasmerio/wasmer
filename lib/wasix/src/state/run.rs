@@ -90,7 +90,7 @@ fn run_with_deep_sleep(
         let errno = if rewind_state.is_64bit {
             crate::rewind_ext::<wasmer_types::Memory64>(
                 &mut ctx,
-                rewind_state.memory_stack,
+                Some(rewind_state.memory_stack),
                 rewind_state.rewind_stack,
                 rewind_state.store_data,
                 rewind_result,
@@ -98,7 +98,7 @@ fn run_with_deep_sleep(
         } else {
             crate::rewind_ext::<wasmer_types::Memory32>(
                 &mut ctx,
-                rewind_state.memory_stack,
+                Some(rewind_state.memory_stack),
                 rewind_state.rewind_stack,
                 rewind_state.store_data,
                 rewind_result,

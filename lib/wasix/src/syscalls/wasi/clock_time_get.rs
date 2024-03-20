@@ -13,21 +13,23 @@ use crate::syscalls::*;
 ///     The value of the clock in nanoseconds
 //#[instrument(level = "trace", skip_all, fields(?clock_id, %precision), ret)]
 pub fn clock_time_get<M: MemorySize>(
-    ctx: FunctionEnvMut<'_, WasiEnv>,
+    mut ctx: FunctionEnvMut<'_, WasiEnv>,
     clock_id: Snapshot0Clockid,
     precision: Timestamp,
     time: WasmPtr<Timestamp, M>,
-) -> Errno {
+) -> Result<Errno, WasiError> {
+    ctx = wasi_try_ok!(maybe_backoff::<M>(ctx)?);
+
     let env = ctx.data();
     let memory = unsafe { env.memory_view(&ctx) };
 
-    let mut t_out = wasi_try!(platform_clock_time_get(clock_id, precision));
+    let mut t_out = wasi_try_ok!(platform_clock_time_get(clock_id, precision));
     {
         let guard = env.state.clock_offset.lock().unwrap();
         if let Some(offset) = guard.get(&clock_id) {
             t_out += *offset;
         }
     };
-    wasi_try_mem!(time.write(&memory, t_out as Timestamp));
-    Errno::Success
+    wasi_try_mem_ok!(time.write(&memory, t_out as Timestamp));
+    Ok(Errno::Success)
 }

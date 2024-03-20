@@ -406,6 +406,42 @@ pub enum AsyncifyAction<'a, R> {
     Unwind,
 }
 
+/// Exponentially increasing backoff of CPU usage
+///
+/// Under certain conditions the process will exponentially backoff
+/// using waits that either put the thread into a low usage state
+/// or even underload the thread completely when deep sleep is enabled
+///
+/// The use-case for this is to handle rogue WASM processes that
+/// generate excessively high CPU usage and need to be artificially
+/// throttled
+///
+pub(crate) fn maybe_backoff<M: MemorySize>(
+    mut ctx: FunctionEnvMut<'_, WasiEnv>,
+) -> Result<Result<FunctionEnvMut<'_, WasiEnv>, Errno>, WasiError> {
+    let env = ctx.data();
+
+    // Fast path that exits this high volume call if we do not have
+    // exponential backoff enabled
+    if env.enable_exponential_cpu_backoff.is_none() {
+        return Ok(Ok(ctx));
+    }
+
+    // Determine if we need to do a backoff, if so lets do one
+    if let Some(backoff) = env.process.acquire_cpu_backoff_token(env.tasks()) {
+        tracing::trace!("exponential CPU backoff {:?}", backoff.backoff_time());
+        if let AsyncifyAction::Finish(mut ctx, _) =
+            __asyncify_with_deep_sleep::<M, _, _>(ctx, backoff)?
+        {
+            Ok(Ok(ctx))
+        } else {
+            Ok(Err(Errno::Success))
+        }
+    } else {
+        Ok(Ok(ctx))
+    }
+}
+
 /// Asyncify takes the current thread and blocks on the async runtime associated with it
 /// thus allowed for asynchronous operations to execute. It has built in functionality
 /// to (optionally) timeout the IO, force exit the process, callback signals and pump
@@ -1220,18 +1256,18 @@ where
     let rewind_result = bincode::serialize(&result).unwrap().into();
     rewind_ext::<M>(
         &mut ctx,
-        memory_stack,
+        Some(memory_stack),
         rewind_stack,
         store_data,
         RewindResultType::RewindWithResult(rewind_result),
     )
 }
 
-#[instrument(level = "debug", skip_all, fields(memory_stack_len = memory_stack.len(), rewind_stack_len = rewind_stack.len(), store_data_len = store_data.len()))]
+#[instrument(level = "debug", skip_all, fields(rewind_stack_len = rewind_stack.len(), store_data_len = store_data.len()))]
 #[must_use = "the action must be passed to the call loop"]
 pub fn rewind_ext<M: MemorySize>(
     ctx: &mut FunctionEnvMut<WasiEnv>,
-    memory_stack: Bytes,
+    memory_stack: Option<Bytes>,
     rewind_stack: Bytes,
     store_data: Bytes,
     rewind_result: RewindResultType,
@@ -1323,7 +1359,7 @@ pub fn rewind_ext2(
         let errno = if rewind_state.is_64bit {
             crate::rewind_ext::<wasmer_types::Memory64>(
                 ctx,
-                rewind_state.memory_stack,
+                Some(rewind_state.memory_stack),
                 rewind_state.rewind_stack,
                 rewind_state.store_data,
                 rewind_result,
@@ -1331,7 +1367,7 @@ pub fn rewind_ext2(
         } else {
             crate::rewind_ext::<wasmer_types::Memory32>(
                 ctx,
-                rewind_state.memory_stack,
+                Some(rewind_state.memory_stack),
                 rewind_state.rewind_stack,
                 rewind_state.store_data,
                 rewind_result,
@@ -1410,7 +1446,9 @@ where
 
         // Restore the memory stack
         let (env, mut store) = ctx.data_and_store_mut();
-        set_memory_stack::<M>(env, &mut store, memory_stack);
+        if let Some(memory_stack) = memory_stack {
+            set_memory_stack::<M>(env, &mut store, memory_stack);
+        }
 
         match result.rewind_result {
             RewindResultType::RewindRestart => {

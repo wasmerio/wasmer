@@ -772,3 +772,22 @@ pub(crate) fn block_in_place<Ret>(thunk: impl FnOnce() -> Ret) -> Ret {
         }
     }
 }
+
+/// Spawns a new blocking task that runs the provided closure.
+///
+/// The closure is executed on a separate thread, allowing it to perform blocking operations
+/// without blocking the main thread. The closure is wrapped in a `Future` that resolves to the
+/// result of the closure's execution.
+pub(crate) async fn spawn_blocking<F, R>(f: F) -> Result<R, tokio::task::JoinError>
+where
+    F: FnOnce() -> R + Send + 'static,
+    R: Send + 'static,
+{
+    cfg_if::cfg_if! {
+        if #[cfg(target_arch = "wasm32")] {
+            Ok(block_in_place(f))
+        } else {
+            tokio::task::spawn_blocking(f).await
+        }
+    }
+}

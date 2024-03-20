@@ -1,3 +1,5 @@
+use std::time::Duration;
+
 use crate::http::HttpClientCapabilityV1;
 
 /// Defines capabilities for a Wasi environment.
@@ -48,6 +50,12 @@ pub struct CapabilityThreadingV1 {
     /// Flag that indicates if asynchronous threading is disabled
     /// (default = false)
     pub enable_asynchronous_threading: bool,
+
+    /// Enables an exponential backoff of the process CPU usage when there
+    /// are no active run tokens (when set holds the maximum amount of
+    /// time that it will pause the CPU)
+    /// (default = off)
+    pub enable_exponential_cpu_backoff: Option<Duration>,
 }
 
 impl CapabilityThreadingV1 {
@@ -55,8 +63,12 @@ impl CapabilityThreadingV1 {
         let CapabilityThreadingV1 {
             max_threads,
             enable_asynchronous_threading,
+            enable_exponential_cpu_backoff,
         } = other;
         self.enable_asynchronous_threading |= enable_asynchronous_threading;
+        if let Some(val) = enable_exponential_cpu_backoff {
+            self.enable_exponential_cpu_backoff = Some(val);
+        }
         self.max_threads = max_threads.or(self.max_threads);
     }
 }

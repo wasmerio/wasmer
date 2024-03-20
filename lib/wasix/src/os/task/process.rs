@@ -31,6 +31,7 @@ use crate::{
 };
 
 use super::{
+    backoff::WasiProcessCpuBackoff,
     control_plane::{ControlPlaneError, WasiControlPlaneHandle},
     signal::{SignalDeliveryError, SignalHandlerAbi},
     task_join_handle::OwnedTaskStatus,
@@ -107,6 +108,10 @@ pub struct WasiProcess {
     pub(crate) finished: Arc<OwnedTaskStatus>,
     /// Number of threads waiting for children to exit
     pub(crate) waiting: Arc<AtomicU32>,
+    /// Number of tokens that are currently active and thus
+    /// the exponential backoff of CPU is halted (as in CPU
+    /// is allowed to run freely)
+    pub(crate) cpu_run_tokens: Arc<AtomicU32>,
 }
 
 /// Represents a freeze of all threads to perform some action
@@ -173,6 +178,10 @@ pub struct WasiProcessInner {
     /// duplicate entries in the journal for memory that has not changed
     #[cfg(feature = "journal")]
     pub snapshot_memory_hash: HashMap<MemorySnapshotRegion, u64>,
+    /// Represents all the backoff properties for this process
+    /// which will be used to determine if the CPU should be
+    /// throttled or not
+    pub(super) backoff: WasiProcessCpuBackoff,
 }
 
 pub enum MaybeCheckpointResult<'a> {
@@ -298,7 +307,7 @@ impl WasiProcessInner {
                 // Rewind the stack and carry on
                 return match rewind_ext::<M>(
                     &mut ctx,
-                    memory_stack,
+                    Some(memory_stack),
                     rewind_stack,
                     store_data,
                     RewindResultType::RewindWithoutResult,
@@ -388,6 +397,12 @@ impl Drop for WasiProcessWait {
 
 impl WasiProcess {
     pub fn new(pid: WasiProcessId, module_hash: ModuleHash, plane: WasiControlPlaneHandle) -> Self {
+        let max_cpu_backoff_time = plane
+            .upgrade()
+            .and_then(|p| p.config().enable_exponential_cpu_backoff)
+            .unwrap_or(Duration::from_secs(30));
+        let max_cpu_cool_off_time = Duration::from_millis(500);
+
         let waiting = Arc::new(AtomicU32::new(0));
         let inner = Arc::new((
             Mutex::new(WasiProcessInner {
@@ -403,6 +418,7 @@ impl WasiProcess {
                 snapshot_on: Default::default(),
                 #[cfg(feature = "journal")]
                 snapshot_memory_hash: Default::default(),
+                backoff: WasiProcessCpuBackoff::new(max_cpu_backoff_time, max_cpu_cool_off_time),
             }),
             Condvar::new(),
         ));
@@ -431,6 +447,7 @@ impl WasiProcess {
                     .with_signal_handler(Arc::new(SignalHandler(inner))),
             ),
             waiting,
+            cpu_run_tokens: Arc::new(AtomicU32::new(0)),
         }
     }
 

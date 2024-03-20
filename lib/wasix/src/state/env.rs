@@ -318,6 +318,11 @@ pub struct WasiEnv {
     /// Enables the snap shotting functionality
     pub enable_journal: bool,
 
+    /// Enables an exponential backoff of the process CPU usage when there
+    /// are no active run tokens (when set holds the maximum amount of
+    /// time that it will pause the CPU)
+    pub enable_exponential_cpu_backoff: Option<Duration>,
+
     /// Flag that indicatees if the environment is currently replaying the journal
     /// (and hence it should not record new events)
     pub replaying_journal: bool,
@@ -356,6 +361,7 @@ impl Clone for WasiEnv {
             capabilities: self.capabilities.clone(),
             enable_deep_sleep: self.enable_deep_sleep,
             enable_journal: self.enable_journal,
+            enable_exponential_cpu_backoff: self.enable_exponential_cpu_backoff,
             replaying_journal: self.replaying_journal,
             disable_fs_cleanup: self.disable_fs_cleanup,
         }
@@ -395,6 +401,7 @@ impl WasiEnv {
             capabilities: self.capabilities.clone(),
             enable_deep_sleep: self.enable_deep_sleep,
             enable_journal: self.enable_journal,
+            enable_exponential_cpu_backoff: self.enable_exponential_cpu_backoff,
             replaying_journal: false,
             disable_fs_cleanup: self.disable_fs_cleanup,
         };
@@ -518,6 +525,10 @@ impl WasiEnv {
             enable_journal: false,
             replaying_journal: false,
             enable_deep_sleep: init.capabilities.threading.enable_asynchronous_threading,
+            enable_exponential_cpu_backoff: init
+                .capabilities
+                .threading
+                .enable_exponential_cpu_backoff,
             runtime: init.runtime,
             bin_factory: init.bin_factory,
             capabilities: init.capabilities,
