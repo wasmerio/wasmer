@@ -8,13 +8,6 @@ repository.workspace = true
 rust-version.workspace = true
 version.workspace = true
 
-[lib]
-path = "src/lib.rs"
-
-[[bin]]
-name = "wasmer-argus"
-path = "src/main.rs"
-
 [features]
 wasmer_lib = ["dep:wasmer"]
 
