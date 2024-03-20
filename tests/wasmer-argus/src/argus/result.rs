@@ -2,31 +2,42 @@ use crate::ArgusConfig;
 use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, time::Duration};
 
+type WasmerVersion = String;
+type EngineId = String;
+
 /// The result of a test run
-// [todo] This must support multiple test runs, so fields shall be serializable collections
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct TestResults {
-    // In order to avoid having complex mechanisms to serialize and deserialize
-    // hashmaps with struct keys we use Engines' identifiers as keys
-    results: HashMap<String, TestReport>,
+    results: HashMap<WasmerVersion, HashMap<EngineId, TestReport>>,
 }
 
 impl TestResults {
     pub(crate) fn has(&self, config: &ArgusConfig) -> bool {
-        match self.results.get(&config.compiler_backend.to_string()) {
-            Some(prev_result) => {
-                // Ideally we should test more differences between runs,
-                // once this is the case this check can be moved to a function
-                // in ArgusConfig::is_compatible(&self, other: Self) -> bool
-                prev_result.config.is_compatible(config)
+        let wasmer_version = config.wasmer_version();
+        let engine_id = config.compiler_backend.to_string();
+
+        if let Some(v) = self.results.get(&wasmer_version) {
+            if let Some(v) = v.get(&engine_id) {
+                return v.config.is_compatible(config);
             }
-            None => false,
         }
+
+        false
     }
 
     pub(crate) fn add(&mut self, report: TestReport) {
-        self.results
-            .insert(report.config.compiler_backend.to_string(), report);
+        let wasmer_version = report.config.wasmer_version();
+        let engine_id = report.config.compiler_backend.to_string();
+
+        match self.results.get_mut(&wasmer_version) {
+            Some(v) => _ = v.insert(engine_id, report),
+            None => {
+                _ = self.results.insert(
+                    wasmer_version,
+                    HashMap::from_iter(vec![(engine_id, report)]),
+                )
+            }
+        }
     }
 }
 
