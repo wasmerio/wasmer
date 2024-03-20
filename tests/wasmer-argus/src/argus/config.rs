@@ -1,6 +1,7 @@
 use clap::ValueEnum;
 use serde::{Deserialize, Serialize};
 use std::{path::PathBuf, process::Command};
+use tracing::*;
 
 fn get_default_out_path() -> PathBuf {
     let mut path = std::env::current_dir().unwrap();
@@ -69,7 +70,9 @@ pub struct ArgusConfig {
 
 impl ArgusConfig {
     pub fn is_compatible(&self, other: &Self) -> bool {
-        self.run_packages == other.run_packages && self.wasmer_version() == other.wasmer_version()
+        // Ideally, in the future, we could add more features that could make us conclude that we
+        // need to run tests again.
+        self.run_packages == other.run_packages
     }
 
     pub fn wasmer_version(&self) -> String {
@@ -83,8 +86,21 @@ impl ArgusConfig {
             None => "wasmer",
         };
 
-        match Command::new(cli_path).arg("--version").output() {
-            Ok(v) => String::from_utf8(v.stdout).unwrap().replace(' ', "/"),
+        let mut cmd = Command::new(cli_path);
+        let cmd = cmd.arg("-V");
+
+        info!("running cmd: {:?}", cmd);
+
+        let out = cmd.output();
+
+        info!("run cmd that gave result: {:?}", out);
+
+        match out {
+            Ok(v) => String::from_utf8(v.stdout)
+                .unwrap()
+                .replace(' ', "/")
+                .trim()
+                .to_string(),
             Err(e) => panic!("failed to launch cli program {cli_path}: {e}"),
         }
     }
