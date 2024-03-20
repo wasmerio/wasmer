@@ -502,6 +502,7 @@ pub use jsc::*;
 #[cfg(feature = "wasm-c-api")]
 mod c_api;
 #[cfg(feature = "wasm-c-api")]
+#[allow(unused)]
 pub use c_api::*;
 
 pub use crate::externals::{
