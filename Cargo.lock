@@ -6218,7 +6218,7 @@ dependencies = [
  "derive_more",
  "futures 0.3.30",
  "indicatif",
- "log",
+ "log 0.4.21",
  "reqwest",
  "serde",
  "serde_json",
