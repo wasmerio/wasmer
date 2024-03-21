@@ -16,7 +16,7 @@ rust-version.workspace = true
 
 [dependencies]
 # Wasmer dependencies.
-edge-schema = "0.0.2"
+edge-schema.workspace = true
 webc = "5"
 
 # crates.io dependencies.

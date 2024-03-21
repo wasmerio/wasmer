@@ -730,6 +730,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f7144d30dcf0fafbce74250a3963025d8d52177934239851c917d29f1df280c2"
 
 [[package]]
+name = "convert_case"
+version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6245d59a3e82a7fc217c5828a6692dbc6dfb63a0c8c90495621f7b9d79704a0e"
+
+[[package]]
 name = "cooked-waker"
 version = "5.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1267,8 +1273,10 @@ version = "0.99.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4fb810d30a7c1953f91334de7244731fc3f3c10d7fe163338a35b9f640960321"
 dependencies = [
+ "convert_case",
  "proc-macro2",
  "quote",
+ "rustc_version 0.4.0",
  "syn 1.0.109",
 ]
 
@@ -1395,9 +1403,9 @@ dependencies = [
 
 [[package]]
 name = "edge-schema"
-version = "0.0.1"
+version = "0.0.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "37f4d009ae866a6010c28fc2590976fdc35c81544000604f0137277c0153d165"
+checksum = "183ddfb52c2441be9d8c3c870632135980ba98e0c4f688da11bcbebb4e26f128"
 dependencies = [
  "anyhow",
  "bytesize",
@@ -1419,9 +1427,9 @@ dependencies = [
 
 [[package]]
 name = "edge-schema"
-version = "0.0.2"
+version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f9be9b51f4fab3714afc1957b7b609211e428c897fb06df0f6aadb3405a424f3"
+checksum = "0966f1fd49610cc67a835124e6fb4d00a36104e1aa34383c5ef5a265ca00ea2a"
 dependencies = [
  "anyhow",
  "bytesize",
@@ -1443,14 +1451,14 @@ dependencies = [
 
 [[package]]
 name = "edge-util"
-version = "0.0.1"
+version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5d665cdd8fd34e6faf57815d007ec4d5853f2c79d8cb37b9293225f3555ed239"
+checksum = "60d06780ae676369e0a9ac2c75f7d1a6d22e157ef5b10cfeda0ee6a465cf7337"
 dependencies = [
- "edge-schema 0.0.1",
+ "edge-schema 0.0.3",
  "http",
  "serde",
- "wasmparser 0.95.0",
+ "wasmparser 0.121.2",
 ]
 
 [[package]]
@@ -6183,7 +6191,7 @@ dependencies = [
  "anyhow",
  "base64 0.13.1",
  "cynic",
- "edge-schema 0.0.2",
+ "edge-schema 0.1.0",
  "futures 0.3.30",
  "harsh",
  "pin-project-lite",
@@ -6196,6 +6204,30 @@ dependencies = [
  "tracing",
  "url",
  "uuid",
+ "webc",
+]
+
+[[package]]
+name = "wasmer-argus"
+version = "4.2.7"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "clap",
+ "cynic",
+ "derive_more",
+ "futures 0.3.30",
+ "indicatif",
+ "log 0.4.21",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "tokio 1.36.0",
+ "tracing",
+ "tracing-subscriber",
+ "url",
+ "wasmer",
+ "wasmer-api",
  "webc",
 ]
 
@@ -6299,7 +6331,7 @@ dependencies = [
  "comfy-table",
  "dialoguer",
  "dirs",
- "edge-schema 0.0.2",
+ "edge-schema 0.1.0",
  "edge-util",
  "flate2",
  "fuse",

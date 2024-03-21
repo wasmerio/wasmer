@@ -202,6 +202,9 @@ impl AppCreator {
             cli_args: None,
             env: Default::default(),
             volumes: None,
+            domains: None,
+            owner: None,
+            scaling: None,
             package: edge_schema::schema::StringWebcIdent(edge_schema::schema::WebcIdent {
                 repository: None,
                 namespace: self.owner,
@@ -211,6 +214,7 @@ impl AppCreator {
             capabilities: None,
             scheduled_tasks: None,
             debug: Some(false),
+            extra: Default::default(),
         };
 
         Ok(AppCreatorOutput {
@@ -336,9 +340,11 @@ impl AppCreator {
         // TODO: check if name already exists.
         let cfg = AppConfigV1 {
             app_id: None,
+            owner: None,
             volumes: None,
             name,
             env: Default::default(),
+            scaling: None,
             // CLI args are only set for JS and Py workers for now.
             cli_args,
             // TODO: allow setting the description.
@@ -347,6 +353,8 @@ impl AppCreator {
             capabilities: None,
             scheduled_tasks: None,
             debug: Some(false),
+            domains: None,
+            extra: Default::default(),
         };
 
         Ok(AppCreatorOutput {
