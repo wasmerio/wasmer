@@ -1403,33 +1403,9 @@ dependencies = [
 
 [[package]]
 name = "edge-schema"
-version = "0.0.1"
+version = "0.0.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "37f4d009ae866a6010c28fc2590976fdc35c81544000604f0137277c0153d165"
-dependencies = [
- "anyhow",
- "bytesize",
- "once_cell",
- "parking_lot 0.12.1",
- "rand_chacha",
- "rand_core",
- "schemars",
- "serde",
- "serde_json",
- "serde_path_to_error",
- "serde_yaml 0.8.26",
- "sparx",
- "time 0.3.34",
- "url",
- "uuid",
- "wcgi-host",
-]
-
-[[package]]
-name = "edge-schema"
-version = "0.0.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f9be9b51f4fab3714afc1957b7b609211e428c897fb06df0f6aadb3405a424f3"
+checksum = "183ddfb52c2441be9d8c3c870632135980ba98e0c4f688da11bcbebb4e26f128"
 dependencies = [
  "anyhow",
  "bytesize",
@@ -1451,14 +1427,14 @@ dependencies = [
 
 [[package]]
 name = "edge-util"
-version = "0.0.1"
+version = "0.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5d665cdd8fd34e6faf57815d007ec4d5853f2c79d8cb37b9293225f3555ed239"
+checksum = "47d29c2fd3544d92e77002ed246751fa6f46aa46eab1e01d3f8ea2b5beeb2f39"
 dependencies = [
- "edge-schema 0.0.1",
+ "edge-schema",
  "http",
  "serde",
- "wasmparser 0.95.0",
+ "wasmparser 0.121.2",
 ]
 
 [[package]]
@@ -6191,7 +6167,7 @@ dependencies = [
  "anyhow",
  "base64 0.13.1",
  "cynic",
- "edge-schema 0.0.2",
+ "edge-schema",
  "futures 0.3.30",
  "harsh",
  "pin-project-lite",
@@ -6331,7 +6307,7 @@ dependencies = [
  "comfy-table",
  "dialoguer",
  "dirs",
- "edge-schema 0.0.2",
+ "edge-schema",
  "edge-util",
  "flate2",
  "fuse",
