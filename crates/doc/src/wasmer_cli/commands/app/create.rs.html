@@ -718,6 +718,8 @@
 <a href="#718" id="718">718</a>
 <a href="#719" id="719">719</a>
 <a href="#720" id="720">720</a>
+<a href="#721" id="721">721</a>
+<a href="#722" id="722">722</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Create a new Edge app.
 
 </span><span class="kw">use </span>std::path::PathBuf;
@@ -924,6 +926,7 @@
             volumes: <span class="prelude-val">None</span>,
             domains: <span class="prelude-val">None</span>,
             owner: <span class="prelude-val">None</span>,
+            scaling: <span class="prelude-val">None</span>,
             package: edge_schema::schema::StringWebcIdent(edge_schema::schema::WebcIdent {
                 repository: <span class="prelude-val">None</span>,
                 namespace: <span class="self">self</span>.owner,
@@ -1063,6 +1066,7 @@
             volumes: <span class="prelude-val">None</span>,
             name,
             env: Default::default(),
+            scaling: <span class="prelude-val">None</span>,
             <span class="comment">// CLI args are only set for JS and Py workers for now.
             </span>cli_args,
             <span class="comment">// TODO: allow setting the description.
