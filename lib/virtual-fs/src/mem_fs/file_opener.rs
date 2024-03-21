@@ -402,6 +402,22 @@ impl crate::FileOpener for FileSystem {
                         }
                     }
 
+                    Some(Node::OffloadedFile(OffloadedFileNode { metadata, file, .. })) => {
+                        // Update the accessed time.
+                        metadata.accessed = time();
+
+                        // Truncate if needed.
+                        if truncate {
+                            file.truncate();
+                            metadata.len = 0;
+                        }
+
+                        // Move the cursor to the end if needed.
+                        if append {
+                            cursor = file.len();
+                        }
+                    }
+
                     Some(Node::ReadOnlyFile(node)) => {
                         // Update the accessed time.
                         node.metadata.accessed = time();
@@ -470,29 +486,42 @@ impl crate::FileOpener for FileSystem {
                 // Write lock.
                 let mut fs = self.inner.write().map_err(|_| FsError::Lock)?;
 
-                let file = File::new(fs.limiter.clone());
+                let metadata = {
+                    let time = time();
+                    Metadata {
+                        ft: FileType {
+                            file: true,
+                            ..Default::default()
+                        },
+                        accessed: time,
+                        created: time,
+                        modified: time,
+                        len: 0,
+                    }
+                };
+                let inode_of_file = fs.storage.vacant_entry().key();
+
+                // We might be in optimized mode
+                let file = if let Some(offload) = fs.backing_offload.clone() {
+                    let file = OffloadedFile::new(fs.limiter.clone(), offload);
+                    Node::OffloadedFile(OffloadedFileNode {
+                        inode: inode_of_file,
+                        name: name_of_file,
+                        file,
+                        metadata,
+                    })
+                } else {
+                    let file = File::new(fs.limiter.clone());
+                    Node::File(FileNode {
+                        inode: inode_of_file,
+                        name: name_of_file,
+                        file,
+                        metadata,
+                    })
+                };
 
                 // Creating the file in the storage.
-                let inode_of_file = fs.storage.vacant_entry().key();
-                let real_inode_of_file = fs.storage.insert(Node::File(FileNode {
-                    inode: inode_of_file,
-                    name: name_of_file,
-                    file,
-                    metadata: {
-                        let time = time();
-
-                        Metadata {
-                            ft: FileType {
-                                file: true,
-                                ..Default::default()
-                            },
-                            accessed: time,
-                            created: time,
-                            modified: time,
-                            len: 0,
-                        }
-                    },
-                }));
+                let real_inode_of_file = fs.storage.insert(file);
 
                 assert_eq!(
                     inode_of_file, real_inode_of_file,

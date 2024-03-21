@@ -14,7 +14,7 @@ thiserror = "1"
 bytes = "1.1"
 async-trait = { version = "^0.1" }
 tracing = "0.1"
-tokio = { version = "1", default_features = false, optional = true }
+tokio = { version = "1", default_features = false, features = ["io-util"] }
 libc = { version = "0.2.139", optional = true }
 mio = { version = "0.8", optional = true }
 socket2 = { version = "0.4", optional = true }
@@ -31,8 +31,13 @@ tokio-util = { version = "0.7.8", features = ["codec"], optional = true }
 hyper-tungstenite = { version = "0.11", optional = true }
 hyper = { version = "0.14", optional = true }
 tokio-tungstenite = { version = "0.20", optional = true }
-rkyv = { version = "0.7.40", features = ["indexmap", "validation", "strict"], optional = true }
+rkyv = { workspace = true, optional = true }
 bytecheck = { version = "0.6.8", optional = true }
+
+[dependencies.smoltcp]
+version = "0.8"
+default-features = false
+features = ["proto-ipv4", "std", "alloc"]
 
 [dev-dependencies]
 tokio = { version = "1", default_features = false, features = [ "macros", "rt-multi-thread" ] }
@@ -41,8 +46,8 @@ serial_test = "2.0.0"
 
 [features]
 default = [ "host-net", "remote", "json", "messagepack", "cbor", "hyper", "tokio-tungstenite" ]
-host-net = [ "tokio", "libc", "tokio/io-util", "virtual-mio/sys", "tokio/net", "tokio/rt", "socket2", "mio" ]
-remote = [ "tokio", "libc", "tokio/io-util", "tokio/sync", "tokio-serde", "tokio-util" ]
+host-net = [ "libc", "tokio/io-util", "virtual-mio/sys", "tokio/net", "tokio/rt", "socket2", "mio" ]
+remote = [ "libc", "tokio/io-util", "tokio/sync", "tokio-serde", "tokio-util" ]
 json = [ "tokio-serde/json" ]
 messagepack = [ "tokio-serde/messagepack" ]
 cbor = [ "tokio-serde/cbor" ]

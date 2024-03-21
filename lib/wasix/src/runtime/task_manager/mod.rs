@@ -15,7 +15,7 @@ use wasmer_wasix_types::wasi::{Errno, ExitCode};
 
 use crate::os::task::thread::WasiThreadError;
 use crate::syscalls::AsyncifyFuture;
-use crate::{capture_instance_snapshot, InstanceSnapshot, WasiEnv, WasiFunctionEnv, WasiThread};
+use crate::{capture_store_snapshot, StoreSnapshot, WasiEnv, WasiFunctionEnv, WasiThread};
 
 pub use virtual_mio::waker::*;
 
@@ -76,7 +76,7 @@ pub struct TaskWasm<'a, 'b> {
     pub recycle: Option<Box<TaskWasmRecycle>>,
     pub env: WasiEnv,
     pub module: Module,
-    pub snapshot: Option<&'b InstanceSnapshot>,
+    pub globals: Option<&'b StoreSnapshot>,
     pub spawn_type: SpawnMemoryType<'a>,
     pub trigger: Option<Box<WasmResumeTrigger>>,
     pub update_layout: bool,
@@ -89,7 +89,7 @@ impl<'a, 'b> TaskWasm<'a, 'b> {
             run,
             env,
             module,
-            snapshot: None,
+            globals: None,
             spawn_type: match shared_memory {
                 Some(ty) => SpawnMemoryType::CreateMemoryOfType(ty),
                 None => SpawnMemoryType::CreateMemory,
@@ -112,8 +112,8 @@ impl<'a, 'b> TaskWasm<'a, 'b> {
         self
     }
 
-    pub fn with_snapshot(mut self, snapshot: &'b InstanceSnapshot) -> Self {
-        self.snapshot.replace(snapshot);
+    pub fn with_globals(mut self, snapshot: &'b StoreSnapshot) -> Self {
+        self.globals.replace(snapshot);
         self
     }
 
@@ -346,7 +346,7 @@ impl dyn VirtualTaskManager {
             }
         }
 
-        let snapshot = capture_instance_snapshot(&mut store.as_store_mut());
+        let snapshot = capture_store_snapshot(&mut store.as_store_mut());
         let env = ctx.data(&store);
         let module = env.inner().module_clone();
         let memory = env.inner().memory_clone();
@@ -374,7 +374,7 @@ impl dyn VirtualTaskManager {
                 false,
             )
             .with_memory(SpawnMemoryType::ShareMemory(memory, store.as_store_ref()))
-            .with_snapshot(&snapshot)
+            .with_globals(&snapshot)
             .with_trigger(Box::new(move || {
                 Box::pin(async move {
                     let mut poller = AsyncifyPollerOwned {
@@ -390,7 +390,7 @@ impl dyn VirtualTaskManager {
                         }
                     };
 
-                    tracing::trace!("deep sleep woken - {:?}", res);
+                    tracing::trace!("deep sleep woken - res.len={}", res.len());
                     Ok(res)
                 })
             })),

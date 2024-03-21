@@ -8,13 +8,13 @@ use crate::commands::CliCommand;
 /// Imports events into a journal file. Events are streamed as JSON
 /// objects into `stdin`
 #[derive(Debug, Parser)]
-pub struct CmdJournaImport {
+pub struct CmdJournalImport {
     /// Path to the journal that will be printed
     #[clap(index = 1)]
     journal_path: PathBuf,
 }
 
-impl CliCommand for CmdJournaImport {
+impl CliCommand for CmdJournalImport {
     type Output = ();
 
     fn run(self) -> Result<(), anyhow::Error> {

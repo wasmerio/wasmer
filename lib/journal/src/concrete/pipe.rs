@@ -14,12 +14,18 @@ pub struct PipeJournal {
 
 #[derive(Debug)]
 pub struct PipeJournalRx {
-    receiver: Arc<Mutex<mpsc::Receiver<JournalEntry<'static>>>>,
+    receiver: Arc<Mutex<mpsc::Receiver<LogReadResult<'static>>>>,
+}
+
+#[derive(Debug)]
+struct SenderState {
+    offset: u64,
+    sender: mpsc::Sender<LogReadResult<'static>>,
 }
 
 #[derive(Debug)]
 pub struct PipeJournalTx {
-    sender: Arc<Mutex<mpsc::Sender<JournalEntry<'static>>>>,
+    sender: Arc<Mutex<SenderState>>,
 }
 
 impl PipeJournal {
@@ -29,7 +35,10 @@ impl PipeJournal {
 
         let end1 = PipeJournal {
             tx: PipeJournalTx {
-                sender: Arc::new(Mutex::new(tx1)),
+                sender: Arc::new(Mutex::new(SenderState {
+                    offset: 0,
+                    sender: tx1,
+                })),
             },
             rx: PipeJournalRx {
                 receiver: Arc::new(Mutex::new(rx2)),
@@ -38,7 +47,10 @@ impl PipeJournal {
 
         let end2 = PipeJournal {
             tx: PipeJournalTx {
-                sender: Arc::new(Mutex::new(tx2)),
+                sender: Arc::new(Mutex::new(SenderState {
+                    offset: 0,
+                    sender: tx2,
+                })),
             },
             rx: PipeJournalRx {
                 receiver: Arc::new(Mutex::new(rx1)),
@@ -50,20 +62,31 @@ impl PipeJournal {
 }
 
 impl WritableJournal for PipeJournalTx {
-    fn write<'a>(&'a self, entry: JournalEntry<'a>) -> anyhow::Result<u64> {
+    fn write<'a>(&'a self, entry: JournalEntry<'a>) -> anyhow::Result<LogWriteResult> {
         let entry = entry.into_owned();
-        let entry_size = entry.estimate_size();
+        let entry_size = entry.estimate_size() as u64;
 
-        let sender = self.sender.lock().unwrap();
-        sender.send(entry).map_err(|err| {
-            anyhow::format_err!("failed to send journal event through the pipe - {}", err)
-        })?;
-        Ok(entry_size as u64)
+        let mut sender = self.sender.lock().unwrap();
+        sender
+            .sender
+            .send(LogReadResult {
+                record_start: sender.offset,
+                record_end: sender.offset + entry_size,
+                record: entry,
+            })
+            .map_err(|err| {
+                anyhow::format_err!("failed to send journal event through the pipe - {}", err)
+            })?;
+        sender.offset += entry_size;
+        Ok(LogWriteResult {
+            record_start: sender.offset,
+            record_end: sender.offset + entry_size,
+        })
     }
 }
 
 impl ReadableJournal for PipeJournalRx {
-    fn read(&self) -> anyhow::Result<Option<JournalEntry<'_>>> {
+    fn read(&self) -> anyhow::Result<Option<LogReadResult<'_>>> {
         let rx = self.receiver.lock().unwrap();
         match rx.try_recv() {
             Ok(e) => Ok(Some(e)),
@@ -82,13 +105,13 @@ impl ReadableJournal for PipeJournalRx {
 }
 
 impl WritableJournal for PipeJournal {
-    fn write<'a>(&'a self, entry: JournalEntry<'a>) -> anyhow::Result<u64> {
+    fn write<'a>(&'a self, entry: JournalEntry<'a>) -> anyhow::Result<LogWriteResult> {
         self.tx.write(entry)
     }
 }
 
 impl ReadableJournal for PipeJournal {
-    fn read(&self) -> anyhow::Result<Option<JournalEntry<'_>>> {
+    fn read(&self) -> anyhow::Result<Option<LogReadResult<'_>>> {
         self.rx.read()
     }
 

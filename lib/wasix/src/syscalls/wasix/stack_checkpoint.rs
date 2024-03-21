@@ -45,7 +45,7 @@ pub fn stack_checkpoint<M: MemorySize>(
     // Perform the unwind action
     unwind::<M, _>(ctx, move |mut ctx, mut memory_stack, rewind_stack| {
         // Grab all the globals and serialize them
-        let store_data = crate::utils::store::capture_instance_snapshot(&mut ctx.as_store_mut())
+        let store_data = crate::utils::store::capture_store_snapshot(&mut ctx.as_store_mut())
             .serialize()
             .unwrap();
         let env = ctx.data();

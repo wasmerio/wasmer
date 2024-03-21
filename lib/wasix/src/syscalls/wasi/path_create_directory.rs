@@ -60,10 +60,12 @@ pub(crate) fn path_create_directory_internal(
     {
         let guard = working_dir.inode.read();
         if let Kind::Root { .. } = guard.deref() {
+            trace!("root has no rights to create a directories");
             return Err(Errno::Access);
         }
     }
     if !working_dir.rights.contains(Rights::PATH_CREATE_DIRECTORY) {
+        trace!("working directory (fd={fd}) has no rights to create a directory");
         return Err(Errno::Access);
     }
 
@@ -78,6 +80,7 @@ pub(crate) fn path_create_directory_internal(
         })
         .collect::<Result<Vec<String>, Errno>>()?;
     if path_vec.is_empty() {
+        trace!("path vector is inva;id (its empty)");
         return Err(Errno::Inval);
     }
 
@@ -118,6 +121,7 @@ pub(crate) fn path_create_directory_internal(
                         &adjusted_path.to_string_lossy(),
                     ) {
                         if adjusted_path_stat.st_filetype != Filetype::Directory {
+                            trace!("path is not a directory");
                             return Err(Errno::Notdir);
                         }
                     } else {
@@ -145,8 +149,14 @@ pub(crate) fn path_create_directory_internal(
                     cur_dir_inode = new_inode;
                 }
             }
-            Kind::Root { .. } => return Err(Errno::Access),
-            _ => return Err(Errno::Notdir),
+            Kind::Root { .. } => {
+                trace!("the root node can no create a directory");
+                return Err(Errno::Access);
+            }
+            _ => {
+                trace!("path is not a directory");
+                return Err(Errno::Notdir);
+            }
         }
     }
 

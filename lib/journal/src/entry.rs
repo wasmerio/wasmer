@@ -10,6 +10,7 @@ use wasmer_wasix_types::wasi::{
     Filesize, Fstflags, LookupFlags, Oflags, Rights, SiFlags, Snapshot0Clockid, SockProto,
     Sockoption, Socktype, Timestamp, Tty, Whence,
 };
+use wasmer_wasix_types::wasix::{ThreadStartType, WasiMemoryLayout};
 
 use crate::{base64, SnapshotTrigger};
 
@@ -85,6 +86,7 @@ pub enum JournalEntry<'a> {
     InitModuleV1 {
         wasm_hash: [u8; 8],
     },
+    ClearEtherealV1,
     UpdateMemoryRegionV1 {
         region: Range<u64>,
         #[derivative(Debug = "ignore")]
@@ -105,6 +107,8 @@ pub enum JournalEntry<'a> {
         #[derivative(Debug = "ignore")]
         #[serde(with = "base64")]
         store_data: Cow<'a, [u8]>,
+        start: ThreadStartType,
+        layout: WasiMemoryLayout,
         is_64bit: bool,
     },
     CloseThreadV1 {
@@ -287,11 +291,13 @@ pub enum JournalEntry<'a> {
     },
     SocketConnectedV1 {
         fd: Fd,
-        addr: SocketAddr,
+        local_addr: SocketAddr,
+        peer_addr: SocketAddr,
     },
     SocketAcceptedV1 {
         listen_fd: Fd,
         fd: Fd,
+        local_addr: SocketAddr,
         peer_addr: SocketAddr,
         fd_flags: Fdflags,
         non_blocking: bool,
@@ -369,6 +375,7 @@ impl<'a> JournalEntry<'a> {
     pub fn into_owned(self) -> JournalEntry<'static> {
         match self {
             Self::InitModuleV1 { wasm_hash } => JournalEntry::InitModuleV1 { wasm_hash },
+            Self::ClearEtherealV1 => JournalEntry::ClearEtherealV1,
             Self::UpdateMemoryRegionV1 { region, data } => JournalEntry::UpdateMemoryRegionV1 {
                 region,
                 data: data.into_owned().into(),
@@ -380,11 +387,15 @@ impl<'a> JournalEntry<'a> {
                 memory_stack,
                 store_data,
                 is_64bit,
+                start,
+                layout,
             } => JournalEntry::SetThreadV1 {
                 id,
                 call_stack: call_stack.into_owned().into(),
                 memory_stack: memory_stack.into_owned().into(),
                 store_data: store_data.into_owned().into(),
+                start,
+                layout,
                 is_64bit,
             },
             Self::CloseThreadV1 { id, exit_code } => JournalEntry::CloseThreadV1 { id, exit_code },
@@ -592,16 +603,26 @@ impl<'a> JournalEntry<'a> {
             Self::SocketOpenV1 { af, ty, pt, fd } => JournalEntry::SocketOpenV1 { af, ty, pt, fd },
             Self::SocketListenV1 { fd, backlog } => JournalEntry::SocketListenV1 { fd, backlog },
             Self::SocketBindV1 { fd, addr } => JournalEntry::SocketBindV1 { fd, addr },
-            Self::SocketConnectedV1 { fd, addr } => JournalEntry::SocketConnectedV1 { fd, addr },
+            Self::SocketConnectedV1 {
+                fd,
+                local_addr,
+                peer_addr,
+            } => JournalEntry::SocketConnectedV1 {
+                fd,
+                local_addr,
+                peer_addr,
+            },
             Self::SocketAcceptedV1 {
                 listen_fd,
                 fd,
+                local_addr,
                 peer_addr,
                 fd_flags,
                 non_blocking: nonblocking,
             } => JournalEntry::SocketAcceptedV1 {
                 listen_fd,
                 fd,
+                local_addr,
                 peer_addr,
                 fd_flags,
                 non_blocking: nonblocking,
@@ -695,6 +716,7 @@ impl<'a> JournalEntry<'a> {
         let base_size = std::mem::size_of_val(self);
         match self {
             JournalEntry::InitModuleV1 { .. } => base_size,
+            JournalEntry::ClearEtherealV1 => base_size,
             JournalEntry::UpdateMemoryRegionV1 { data, .. } => base_size + data.len(),
             JournalEntry::ProcessExitV1 { .. } => base_size,
             JournalEntry::SetThreadV1 {

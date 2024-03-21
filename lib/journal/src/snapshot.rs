@@ -12,6 +12,8 @@ pub enum SnapshotTrigger {
     FirstEnviron,
     /// Triggered when the process reads stdin for the first time
     FirstStdin,
+    /// Issued on the first interrupt signal (Ctrl + C) the process receives, after that normal CTRL-C will apply.
+    FirstSigint,
     /// Triggered periodically based on a interval (default 10 seconds) which can be specified using the `snapshot-interval` option
     PeriodicInterval,
     /// Issued if the user sends an interrupt signal (Ctrl + C).
@@ -30,7 +32,7 @@ impl SnapshotTrigger {
     pub fn only_once(&self) -> bool {
         matches!(
             self,
-            Self::FirstListen | Self::FirstEnviron | Self::FirstStdin
+            Self::FirstListen | Self::FirstEnviron | Self::FirstStdin | Self::FirstSigint
         )
     }
 }
@@ -52,6 +54,7 @@ impl FromStr for SnapshotTrigger {
             "first-listen" => Self::FirstListen,
             "first-stdin" => Self::FirstStdin,
             "first-environ" => Self::FirstEnviron,
+            "first-intr" | "first-sigint" | "first-ctrlc" | "first-ctrl-c" => Self::FirstSigint,
             "periodic-interval" => Self::PeriodicInterval,
             "intr" | "sigint" | "ctrlc" | "ctrl-c" => Self::Sigint,
             "alarm" | "timer" | "sigalrm" => Self::Sigalrm,

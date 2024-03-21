@@ -3,7 +3,7 @@ use std::ops::Deref;
 use std::sync::Arc;
 
 impl ReadableJournal for Arc<DynReadableJournal> {
-    fn read(&self) -> anyhow::Result<Option<JournalEntry<'_>>> {
+    fn read(&self) -> anyhow::Result<Option<LogReadResult<'_>>> {
         self.deref().read()
     }
 
@@ -13,13 +13,13 @@ impl ReadableJournal for Arc<DynReadableJournal> {
 }
 
 impl WritableJournal for Arc<DynWritableJournal> {
-    fn write<'a>(&'a self, entry: JournalEntry<'a>) -> anyhow::Result<u64> {
+    fn write<'a>(&'a self, entry: JournalEntry<'a>) -> anyhow::Result<LogWriteResult> {
         self.deref().write(entry)
     }
 }
 
 impl ReadableJournal for Arc<DynJournal> {
-    fn read(&self) -> anyhow::Result<Option<JournalEntry<'_>>> {
+    fn read(&self) -> anyhow::Result<Option<LogReadResult<'_>>> {
         self.deref().read()
     }
 
@@ -29,7 +29,7 @@ impl ReadableJournal for Arc<DynJournal> {
 }
 
 impl WritableJournal for Arc<DynJournal> {
-    fn write<'a>(&'a self, entry: JournalEntry<'a>) -> anyhow::Result<u64> {
+    fn write<'a>(&'a self, entry: JournalEntry<'a>) -> anyhow::Result<LogWriteResult> {
         self.deref().write(entry)
     }
 }

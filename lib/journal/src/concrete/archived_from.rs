@@ -2,6 +2,7 @@ use lz4_flex::block::decompress_size_prepended;
 use std::borrow::Cow;
 use std::time::SystemTime;
 use wasmer_wasix_types::wasi;
+use wasmer_wasix_types::wasix::{ThreadStartType, WasiMemoryLayout};
 
 use super::*;
 
@@ -176,6 +177,7 @@ impl From<SnapshotTrigger> for JournalSnapshotTriggerV1 {
             SnapshotTrigger::FirstListen => JournalSnapshotTriggerV1::Listen,
             SnapshotTrigger::FirstEnviron => JournalSnapshotTriggerV1::Environ,
             SnapshotTrigger::FirstStdin => JournalSnapshotTriggerV1::Stdin,
+            SnapshotTrigger::FirstSigint => JournalSnapshotTriggerV1::Sigint,
             SnapshotTrigger::PeriodicInterval => JournalSnapshotTriggerV1::Timer,
             SnapshotTrigger::Sigint => JournalSnapshotTriggerV1::Sigint,
             SnapshotTrigger::Sigalrm => JournalSnapshotTriggerV1::Sigalrm,
@@ -569,6 +571,74 @@ impl From<&'_ ArchivedJournalSocketShutdownV1> for SocketShutdownHow {
     }
 }
 
+impl From<JournalThreadStartTypeV1> for ThreadStartType {
+    fn from(value: JournalThreadStartTypeV1) -> Self {
+        match value {
+            JournalThreadStartTypeV1::MainThread => ThreadStartType::MainThread,
+            JournalThreadStartTypeV1::ThreadSpawn { start_ptr } => {
+                ThreadStartType::ThreadSpawn { start_ptr }
+            }
+        }
+    }
+}
+
+impl From<&'_ ArchivedJournalThreadStartTypeV1> for ThreadStartType {
+    fn from(value: &'_ ArchivedJournalThreadStartTypeV1) -> Self {
+        match value {
+            ArchivedJournalThreadStartTypeV1::MainThread => ThreadStartType::MainThread,
+            ArchivedJournalThreadStartTypeV1::ThreadSpawn { start_ptr } => {
+                ThreadStartType::ThreadSpawn {
+                    start_ptr: *start_ptr,
+                }
+            }
+        }
+    }
+}
+
+impl From<ThreadStartType> for JournalThreadStartTypeV1 {
+    fn from(value: ThreadStartType) -> Self {
+        match value {
+            ThreadStartType::MainThread => JournalThreadStartTypeV1::MainThread,
+            ThreadStartType::ThreadSpawn { start_ptr } => {
+                JournalThreadStartTypeV1::ThreadSpawn { start_ptr }
+            }
+        }
+    }
+}
+
+impl From<JournalWasiMemoryLayout> for WasiMemoryLayout {
+    fn from(value: JournalWasiMemoryLayout) -> Self {
+        Self {
+            stack_upper: value.stack_upper,
+            stack_lower: value.stack_lower,
+            guard_size: value.guard_size,
+            stack_size: value.stack_size,
+        }
+    }
+}
+
+impl From<&'_ ArchivedJournalWasiMemoryLayout> for WasiMemoryLayout {
+    fn from(value: &'_ ArchivedJournalWasiMemoryLayout) -> Self {
+        Self {
+            stack_upper: value.stack_upper,
+            stack_lower: value.stack_lower,
+            guard_size: value.guard_size,
+            stack_size: value.stack_size,
+        }
+    }
+}
+
+impl From<WasiMemoryLayout> for JournalWasiMemoryLayout {
+    fn from(value: WasiMemoryLayout) -> Self {
+        Self {
+            stack_upper: value.stack_upper,
+            stack_lower: value.stack_lower,
+            guard_size: value.guard_size,
+            stack_size: value.stack_size,
+        }
+    }
+}
+
 impl<'a> TryFrom<ArchivedJournalEntry<'a>> for JournalEntry<'a> {
     type Error = anyhow::Error;
 
@@ -579,12 +649,14 @@ impl<'a> TryFrom<ArchivedJournalEntry<'a>> for JournalEntry<'a> {
                     wasm_hash: *wasm_hash,
                 }
             }
+            ArchivedJournalEntry::ClearEtherealV1(ArchivedJournalEntryClearEtherealV1 {
+                ..
+            }) => Self::ClearEtherealV1,
             ArchivedJournalEntry::UpdateMemoryRegionV1(
                 ArchivedJournalEntryUpdateMemoryRegionV1 {
                     start,
                     end,
                     compressed_data,
-                    _padding: _,
                 },
             ) => Self::UpdateMemoryRegionV1 {
                 region: (*start)..(*end),
@@ -592,7 +664,6 @@ impl<'a> TryFrom<ArchivedJournalEntry<'a>> for JournalEntry<'a> {
             },
             ArchivedJournalEntry::ProcessExitV1(ArchivedJournalEntryProcessExitV1 {
                 exit_code,
-                _padding: _,
             }) => Self::ProcessExitV1 {
                 exit_code: exit_code.as_ref().map(|code| code.into()),
             },
@@ -601,13 +672,16 @@ impl<'a> TryFrom<ArchivedJournalEntry<'a>> for JournalEntry<'a> {
                 call_stack,
                 memory_stack,
                 store_data,
-                _padding: _,
                 is_64bit,
+                start,
+                layout,
             }) => Self::SetThreadV1 {
                 id: *id,
                 call_stack: call_stack.as_ref().into(),
                 memory_stack: memory_stack.as_ref().into(),
                 store_data: store_data.as_ref().into(),
+                start: start.into(),
+                layout: layout.into(),
                 is_64bit: *is_64bit,
             },
             ArchivedJournalEntry::CloseThreadV1(ArchivedJournalEntryCloseThreadV1 {
@@ -623,7 +697,6 @@ impl<'a> TryFrom<ArchivedJournalEntry<'a>> for JournalEntry<'a> {
                     fd,
                     offset,
                     is_64bit,
-                    _padding: _,
                 },
             ) => Self::FileDescriptorWriteV1 {
                 data: data.as_ref().into(),
@@ -652,48 +725,43 @@ impl<'a> TryFrom<ArchivedJournalEntry<'a>> for JournalEntry<'a> {
                     fs_rights_base,
                     fs_rights_inheriting,
                     fs_flags,
-                    _padding: _,
                 },
             ) => Self::OpenFileDescriptorV1 {
                 fd: *fd,
                 dirfd: *dirfd,
                 dirflags: *dirflags,
-                path: path.as_ref().into(),
+                path: String::from_utf8_lossy(path.as_ref()),
                 o_flags: wasi::Oflags::from_bits_truncate(*o_flags),
                 fs_rights_base: wasi::Rights::from_bits_truncate(*fs_rights_base),
                 fs_rights_inheriting: wasi::Rights::from_bits_truncate(*fs_rights_inheriting),
                 fs_flags: wasi::Fdflags::from_bits_truncate(*fs_flags),
             },
             ArchivedJournalEntry::CloseFileDescriptorV1(
-                ArchivedJournalEntryCloseFileDescriptorV1 { fd, _padding: _ },
+                ArchivedJournalEntryCloseFileDescriptorV1 { fd },
             ) => Self::CloseFileDescriptorV1 { fd: *fd },
             ArchivedJournalEntry::RemoveDirectoryV1(ArchivedJournalEntryRemoveDirectoryV1 {
                 fd,
                 path,
-                _padding: _,
             }) => Self::RemoveDirectoryV1 {
                 fd: *fd,
-                path: path.as_ref().into(),
+                path: String::from_utf8_lossy(path.as_ref()),
             },
-            ArchivedJournalEntry::UnlinkFileV1(ArchivedJournalEntryUnlinkFileV1 {
-                fd,
-                path,
-                _padding: _,
-            }) => Self::UnlinkFileV1 {
-                fd: *fd,
-                path: path.as_ref().into(),
-            },
+            ArchivedJournalEntry::UnlinkFileV1(ArchivedJournalEntryUnlinkFileV1 { fd, path }) => {
+                Self::UnlinkFileV1 {
+                    fd: *fd,
+                    path: String::from_utf8_lossy(path.as_ref()),
+                }
+            }
             ArchivedJournalEntry::PathRenameV1(ArchivedJournalEntryPathRenameV1 {
                 old_fd,
                 old_path,
                 new_fd,
                 new_path,
-                _padding: _,
             }) => Self::PathRenameV1 {
                 old_fd: *old_fd,
-                old_path: old_path.as_ref().into(),
+                old_path: String::from_utf8_lossy(old_path.as_ref()),
                 new_fd: *new_fd,
-                new_path: new_path.as_ref().into(),
+                new_path: String::from_utf8_lossy(new_path.as_ref()),
             },
             ArchivedJournalEntry::SnapshotV1(ArchivedJournalEntrySnapshotV1 {
                 since_epoch,
@@ -729,10 +797,9 @@ impl<'a> TryFrom<ArchivedJournalEntry<'a>> for JournalEntry<'a> {
             ArchivedJournalEntry::CreateDirectoryV1(ArchivedJournalEntryCreateDirectoryV1 {
                 fd,
                 path,
-                _padding: _,
             }) => Self::CreateDirectoryV1 {
                 fd: *fd,
-                path: path.as_ref().into(),
+                path: String::from_utf8_lossy(path.as_ref()),
             },
             ArchivedJournalEntry::PathSetTimesV1(ArchivedJournalEntryPathSetTimesV1 {
                 fd,
@@ -741,10 +808,9 @@ impl<'a> TryFrom<ArchivedJournalEntry<'a>> for JournalEntry<'a> {
                 st_atim,
                 st_mtim,
                 fst_flags,
-                _padding: _,
             }) => Self::PathSetTimesV1 {
                 fd: *fd,
-                path: path.as_ref().into(),
+                path: String::from_utf8_lossy(path.as_ref()),
                 flags: *flags,
                 st_atim: *st_atim,
                 st_mtim: *st_mtim,
@@ -812,35 +878,32 @@ impl<'a> TryFrom<ArchivedJournalEntry<'a>> for JournalEntry<'a> {
                 old_flags,
                 new_fd,
                 new_path,
-                _padding: _,
             }) => Self::CreateHardLinkV1 {
                 old_fd: *old_fd,
-                old_path: old_path.as_ref().into(),
+                old_path: String::from_utf8_lossy(old_path.as_ref()),
                 old_flags: *old_flags,
                 new_fd: *new_fd,
-                new_path: new_path.as_ref().into(),
+                new_path: String::from_utf8_lossy(new_path.as_ref()),
             },
             ArchivedJournalEntry::CreateSymbolicLinkV1(
                 ArchivedJournalEntryCreateSymbolicLinkV1 {
                     old_path,
                     fd,
                     new_path,
-                    _padding: _,
                 },
             ) => Self::CreateSymbolicLinkV1 {
-                old_path: old_path.as_ref().into(),
+                old_path: String::from_utf8_lossy(old_path.as_ref()),
                 fd: *fd,
-                new_path: new_path.as_ref().into(),
+                new_path: String::from_utf8_lossy(new_path.as_ref()),
             },
             ArchivedJournalEntry::ChangeDirectoryV1(ArchivedJournalEntryChangeDirectoryV1 {
                 path,
             }) => Self::ChangeDirectoryV1 {
-                path: path.as_ref().into(),
+                path: String::from_utf8_lossy(path.as_ref()),
             },
-            ArchivedJournalEntry::EpollCreateV1(ArchivedJournalEntryEpollCreateV1 {
-                fd,
-                _padding: _,
-            }) => Self::EpollCreateV1 { fd: *fd },
+            ArchivedJournalEntry::EpollCreateV1(ArchivedJournalEntryEpollCreateV1 { fd }) => {
+                Self::EpollCreateV1 { fd: *fd }
+            }
             ArchivedJournalEntry::EpollCtlV1(ArchivedJournalEntryEpollCtlV1 {
                 epfd,
                 ref op,
@@ -902,10 +965,9 @@ impl<'a> TryFrom<ArchivedJournalEntry<'a>> for JournalEntry<'a> {
                 network,
                 token,
                 ref security,
-                _padding: _,
             }) => Self::PortBridgeV1 {
-                network: network.as_ref().into(),
-                token: token.as_ref().into(),
+                network: String::from_utf8_lossy(network.as_ref()),
+                token: String::from_utf8_lossy(token.as_ref()),
                 security: security.into(),
             },
             ArchivedJournalEntry::PortUnbridgeV1 => Self::PortUnbridgeV1,
@@ -960,20 +1022,24 @@ impl<'a> TryFrom<ArchivedJournalEntry<'a>> for JournalEntry<'a> {
             }
             ArchivedJournalEntry::SocketConnectedV1(ArchivedJournalEntrySocketConnectedV1 {
                 fd,
-                addr,
+                local_addr,
+                peer_addr,
             }) => Self::SocketConnectedV1 {
                 fd: *fd,
-                addr: addr.as_socket_addr(),
+                local_addr: local_addr.as_socket_addr(),
+                peer_addr: peer_addr.as_socket_addr(),
             },
             ArchivedJournalEntry::SocketAcceptedV1(ArchivedJournalEntrySocketAcceptedV1 {
                 listen_fd,
                 fd,
+                local_addr,
                 peer_addr,
                 fd_flags,
                 nonblocking,
             }) => Self::SocketAcceptedV1 {
                 listen_fd: *listen_fd,
                 fd: *fd,
+                local_addr: local_addr.as_socket_addr(),
                 peer_addr: peer_addr.as_socket_addr(),
                 fd_flags: wasi::Fdflags::from_bits_truncate(*fd_flags),
                 non_blocking: *nonblocking,
@@ -1039,7 +1105,6 @@ impl<'a> TryFrom<ArchivedJournalEntry<'a>> for JournalEntry<'a> {
                 flags,
                 addr,
                 is_64bit,
-                _padding: _,
             }) => Self::SocketSendToV1 {
                 fd: *fd,
                 data: data.as_ref().into(),
@@ -1052,7 +1117,6 @@ impl<'a> TryFrom<ArchivedJournalEntry<'a>> for JournalEntry<'a> {
                 data,
                 flags,
                 is_64bit,
-                _padding: _,
             }) => Self::SocketSendV1 {
                 fd: *fd,
                 data: data.as_ref().into(),

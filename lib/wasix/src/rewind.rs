@@ -2,7 +2,12 @@ use std::pin::Pin;
 
 use bytes::Bytes;
 use futures::Future;
-use wasmer_wasix_types::wasi::Errno;
+use wasmer_wasix_types::{
+    wasi::Errno,
+    wasix::{ThreadStartType, WasiMemoryLayout},
+};
+
+use crate::os::task::thread::RewindResultType;
 
 /// Future that will be polled by asyncify methods
 #[doc(hidden)]
@@ -24,11 +29,15 @@ pub struct RewindState {
     pub rewind_stack: Bytes,
     /// All the global data stored in the store
     pub store_data: Bytes,
+    /// Describes the type of thread start
+    pub start: ThreadStartType,
+    /// Layout of the memory,
+    pub layout: WasiMemoryLayout,
     /// Flag that indicates if this rewind is 64-bit or 32-bit memory based
     pub is_64bit: bool,
 }
 
-pub type RewindStateOption = Option<(RewindState, Option<Bytes>)>;
+pub type RewindStateOption = Option<(RewindState, RewindResultType)>;
 
 /// Represents the work that will be done when a thread goes to deep sleep and
 /// includes the things needed to restore it again

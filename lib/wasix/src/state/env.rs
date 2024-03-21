@@ -1,5 +1,3 @@
-#[cfg(feature = "journal")]
-use std::collections::HashSet;
 use std::{
     collections::HashMap,
     ops::Deref,
@@ -20,6 +18,7 @@ use wasmer::{
 use wasmer_wasix_types::{
     types::Signal,
     wasi::{Errno, ExitCode, Snapshot0Clockid},
+    wasix::ThreadStartType,
 };
 
 #[cfg(feature = "journal")]
@@ -332,10 +331,6 @@ pub struct WasiEnv {
     /// (this is normally used so that the instance can be reused later on)
     pub(crate) disable_fs_cleanup: bool,
 
-    /// List of situations that the process will checkpoint on
-    #[cfg(feature = "journal")]
-    snapshot_on: HashSet<SnapshotTrigger>,
-
     /// Inner functions and references that are loaded before the environment starts
     /// (inner is not safe to send between threads and so it is private and will
     ///  not be cloned when `WasiEnv` is cloned)
@@ -368,8 +363,6 @@ impl Clone for WasiEnv {
             enable_journal: self.enable_journal,
             enable_exponential_cpu_backoff: self.enable_exponential_cpu_backoff,
             replaying_journal: self.replaying_journal,
-            #[cfg(feature = "journal")]
-            snapshot_on: self.snapshot_on.clone(),
             disable_fs_cleanup: self.disable_fs_cleanup,
         }
     }
@@ -384,7 +377,7 @@ impl WasiEnv {
     /// Forking the WasiState is used when either fork or vfork is called
     pub fn fork(&self) -> Result<(Self, WasiThreadHandle), ControlPlaneError> {
         let process = self.control_plane.new_process(self.process.module_hash)?;
-        let handle = process.new_thread(self.layout.clone())?;
+        let handle = process.new_thread(self.layout.clone(), ThreadStartType::MainThread)?;
 
         let thread = handle.as_thread();
         thread.copy_stack_from(&self.thread);
@@ -410,8 +403,6 @@ impl WasiEnv {
             enable_journal: self.enable_journal,
             enable_exponential_cpu_backoff: self.enable_exponential_cpu_backoff,
             replaying_journal: false,
-            #[cfg(feature = "journal")]
-            snapshot_on: self.snapshot_on.clone(),
             disable_fs_cleanup: self.disable_fs_cleanup,
         };
         Ok((new_env, handle))
@@ -437,10 +428,7 @@ impl WasiEnv {
                 map.clear();
             }
             self.state.fs.preopen_fds.write().unwrap().clear();
-            self.state
-                .fs
-                .next_fd
-                .store(3, std::sync::atomic::Ordering::SeqCst);
+            self.state.fs.next_fd.set_val(3);
             *self.state.fs.current_dir.lock().unwrap() = "/".to_string();
 
             // We need to rebuild the basic file descriptors
@@ -470,6 +458,7 @@ impl WasiEnv {
             self.process.finished.clone(),
             self.process.compute.must_upgrade().register_task()?,
             self.thread.memory_layout().clone(),
+            self.thread.thread_start_type(),
         );
 
         Ok(())
@@ -508,11 +497,16 @@ impl WasiEnv {
             init.control_plane.new_process(module_hash)?
         };
 
+        #[cfg(feature = "journal")]
+        {
+            process.inner.0.lock().unwrap().snapshot_on = init.snapshot_on.into_iter().collect();
+        }
+
         let layout = WasiMemoryLayout::default();
         let thread = if let Some(t) = init.thread {
             t
         } else {
-            process.new_thread(layout.clone())?
+            process.new_thread(layout.clone(), ThreadStartType::MainThread)?
         };
 
         let mut env = Self {
@@ -538,8 +532,6 @@ impl WasiEnv {
             runtime: init.runtime,
             bin_factory: init.bin_factory,
             capabilities: init.capabilities,
-            #[cfg(feature = "journal")]
-            snapshot_on: init.snapshot_on.into_iter().collect(),
             disable_fs_cleanup: false,
         };
         env.owned_handles.push(thread);
@@ -692,7 +684,7 @@ impl WasiEnv {
     }
 
     /// Porcesses any signals that are batched up or any forced exit codes
-    pub(crate) fn process_signals_and_exit(ctx: &mut FunctionEnvMut<'_, Self>) -> WasiResult<bool> {
+    pub fn process_signals_and_exit(ctx: &mut FunctionEnvMut<'_, Self>) -> WasiResult<bool> {
         // If a signal handler has never been set then we need to handle signals
         // differently
         let env = ctx.data();
@@ -820,6 +812,7 @@ impl WasiEnv {
             }
             Ok(true)
         } else {
+            tracing::trace!("no signal handler");
             Ok(false)
         }
     }
@@ -977,16 +970,18 @@ impl WasiEnv {
     /// Returns true if a particular snapshot trigger is enabled
     #[cfg(feature = "journal")]
     pub fn has_snapshot_trigger(&self, trigger: SnapshotTrigger) -> bool {
-        self.snapshot_on.contains(&trigger)
+        let guard = self.process.inner.0.lock().unwrap();
+        guard.snapshot_on.contains(&trigger)
     }
 
     /// Returns true if a particular snapshot trigger is enabled
     #[cfg(feature = "journal")]
     pub fn pop_snapshot_trigger(&mut self, trigger: SnapshotTrigger) -> bool {
+        let mut guard = self.process.inner.0.lock().unwrap();
         if trigger.only_once() {
-            self.snapshot_on.remove(&trigger)
+            guard.snapshot_on.remove(&trigger)
         } else {
-            self.snapshot_on.contains(&trigger)
+            guard.snapshot_on.contains(&trigger)
         }
     }
 
