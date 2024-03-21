@@ -1,11 +1,11 @@
 use std::ptr;
 
-use crate::as_c::{param_from_c, result_to_value, type_to_c, valtype_to_type};
+use crate::as_c::{self, param_from_c, result_to_value, type_to_c, valtype_to_type};
 use crate::bindings::{
-    wasm_global_get, wasm_global_new, wasm_global_set, wasm_global_type, wasm_globaltype_content,
-    wasm_globaltype_mutability, wasm_globaltype_new, wasm_mutability_enum_WASM_CONST,
-    wasm_mutability_enum_WASM_VAR, wasm_mutability_t, wasm_val_t, wasm_val_t__bindgen_ty_1,
-    wasm_valtype_new,
+    wasm_frame_copy, wasm_global_get, wasm_global_new, wasm_global_set, wasm_global_type,
+    wasm_globaltype_content, wasm_globaltype_mutability, wasm_globaltype_new,
+    wasm_mutability_enum_WASM_CONST, wasm_mutability_enum_WASM_VAR, wasm_mutability_t, wasm_val_t,
+    wasm_val_t__bindgen_ty_1, wasm_valtype_new,
 };
 use crate::c_api::bindings::wasm_global_as_extern;
 use crate::c_api::vm::{VMExtern, VMGlobal};
@@ -43,26 +43,31 @@ impl Global {
         mutability: Mutability,
     ) -> Result<Self, RuntimeError> {
         let store = store.as_store_mut();
-        let c_value = result_to_value(&val);
-        let globaltype = unsafe {
-            let type_ = type_to_c(&val.ty());
-            let mutability: wasm_mutability_t = if mutability.is_mutable() {
-                wasm_mutability_enum_WASM_VAR as wasm_mutability_t
-            } else {
-                wasm_mutability_enum_WASM_CONST as wasm_mutability_t
-            };
-            let valtype = wasm_valtype_new(type_);
-            wasm_globaltype_new(valtype, mutability)
-        };
-        let handle = unsafe { wasm_global_new(store.inner.store.inner, globaltype, &c_value) };
-        Ok(Self { handle })
+
+        let wamr_value = result_to_value(&val);
+        let wamr_type = type_to_c(&val.ty());
+        let wamr_mutability = if mutability.is_mutable() {
+            wasm_mutability_enum_WASM_VAR
+        } else {
+            wasm_mutability_enum_WASM_CONST
+        } as wasm_mutability_t;
+
+        let wamr_global_type =
+            unsafe { wasm_globaltype_new(wasm_valtype_new(wamr_type), wamr_mutability) };
+
+        Ok(Self {
+            handle: unsafe {
+                wasm_global_new(store.inner.store.inner, wamr_global_type, &wamr_value)
+            },
+        })
     }
 
     pub fn ty(&self, _store: &impl AsStoreRef) -> GlobalType {
-        let type_ = unsafe { wasm_global_type(self.handle) };
-        let mutability = unsafe { wasm_globaltype_mutability(&*type_) };
-        let valtype = unsafe { wasm_globaltype_content(type_) };
+        let r#type = unsafe { wasm_global_type(self.handle) };
+        let mutability = unsafe { wasm_globaltype_mutability(&*r#type) };
+        let valtype = unsafe { wasm_globaltype_content(r#type) };
         let wasmer_type = valtype_to_type(valtype);
+
         GlobalType::new(
             wasmer_type,
             if mutability == wasm_mutability_enum_WASM_VAR as u8 {
@@ -74,17 +79,28 @@ impl Global {
     }
 
     pub fn get(&self, store: &mut impl AsStoreMut) -> Value {
-        let mut out = wasm_val_t {
-            kind: 0,
-            of: wasm_val_t__bindgen_ty_1 { i32_: 0 },
-        };
+        let mut out = unsafe { std::mem::zeroed() };
         unsafe { wasm_global_get(self.handle, &mut out) };
         param_from_c(&out)
     }
 
     pub fn set(&self, store: &mut impl AsStoreMut, val: Value) -> Result<(), RuntimeError> {
+        if val.ty() != self.ty(store).ty {
+            return Err(RuntimeError::new(format!(
+                "Incompatible types: {} != {}",
+                val.ty(),
+                self.ty(store)
+            )));
+        }
+
+        if self.ty(store).mutability == Mutability::Const {
+            return Err(RuntimeError::new("The global is immutable".to_owned()));
+        }
+
         let value = result_to_value(&val);
+
         unsafe { wasm_global_set(self.handle, &value) };
+
         Ok(())
     }
 
