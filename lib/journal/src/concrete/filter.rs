@@ -207,11 +207,14 @@ impl FilteredJournal {
 }
 
 impl WritableJournal for FilteredJournalTx {
-    fn write<'a>(&'a self, entry: JournalEntry<'a>) -> anyhow::Result<u64> {
+    fn write<'a>(&'a self, entry: JournalEntry<'a>) -> anyhow::Result<LogWriteResult> {
         let event_index = self.config.event_index.fetch_add(1, Ordering::SeqCst);
         if let Some(events) = self.config.filter_events.as_ref() {
             if !events.contains(&event_index) {
-                return Ok(0);
+                return Ok(LogWriteResult {
+                    record_start: 0,
+                    record_end: 0,
+                });
             }
         }
 
@@ -223,19 +226,29 @@ impl WritableJournal for FilteredJournalTx {
             | JournalEntry::EpollCtlV1 { .. }
             | JournalEntry::TtySetV1 { .. } => {
                 if self.config.filter_core {
-                    return Ok(0);
+                    return Ok(LogWriteResult {
+                        record_start: 0,
+                        record_end: 0,
+                    });
                 }
                 entry
             }
+            JournalEntry::ClearEtherealV1 => entry,
             JournalEntry::SetThreadV1 { .. } | JournalEntry::CloseThreadV1 { .. } => {
                 if self.config.filter_threads {
-                    return Ok(0);
+                    return Ok(LogWriteResult {
+                        record_start: 0,
+                        record_end: 0,
+                    });
                 }
                 entry
             }
             JournalEntry::UpdateMemoryRegionV1 { .. } => {
                 if self.config.filter_memory {
-                    return Ok(0);
+                    return Ok(LogWriteResult {
+                        record_start: 0,
+                        record_end: 0,
+                    });
                 }
                 entry
             }
@@ -254,10 +267,16 @@ impl WritableJournal for FilteredJournalTx {
             | JournalEntry::FileDescriptorSetTimesV1 { fd, .. }
             | JournalEntry::FileDescriptorSetSizeV1 { fd, .. } => {
                 if self.config.filter_stdio && fd <= 2 {
-                    return Ok(0);
+                    return Ok(LogWriteResult {
+                        record_start: 0,
+                        record_end: 0,
+                    });
                 }
                 if self.config.filter_fs {
-                    return Ok(0);
+                    return Ok(LogWriteResult {
+                        record_start: 0,
+                        record_end: 0,
+                    });
                 }
                 entry
             }
@@ -272,13 +291,19 @@ impl WritableJournal for FilteredJournalTx {
             | JournalEntry::CreatePipeV1 { .. }
             | JournalEntry::CreateEventV1 { .. } => {
                 if self.config.filter_fs {
-                    return Ok(0);
+                    return Ok(LogWriteResult {
+                        record_start: 0,
+                        record_end: 0,
+                    });
                 }
                 entry
             }
             JournalEntry::SnapshotV1 { .. } => {
                 if self.config.filter_snapshots {
-                    return Ok(0);
+                    return Ok(LogWriteResult {
+                        record_start: 0,
+                        record_end: 0,
+                    });
                 }
                 entry
             }
@@ -309,7 +334,10 @@ impl WritableJournal for FilteredJournalTx {
             | JournalEntry::SocketSetOptTimeV1 { .. }
             | JournalEntry::SocketShutdownV1 { .. } => {
                 if self.config.filter_net {
-                    return Ok(0);
+                    return Ok(LogWriteResult {
+                        record_start: 0,
+                        record_end: 0,
+                    });
                 }
                 entry
             }
@@ -319,7 +347,7 @@ impl WritableJournal for FilteredJournalTx {
 }
 
 impl ReadableJournal for FilteredJournalRx {
-    fn read(&self) -> anyhow::Result<Option<JournalEntry<'_>>> {
+    fn read(&self) -> anyhow::Result<Option<LogReadResult<'_>>> {
         self.inner.read()
     }
 
@@ -331,13 +359,13 @@ impl ReadableJournal for FilteredJournalRx {
 }
 
 impl WritableJournal for FilteredJournal {
-    fn write<'a>(&'a self, entry: JournalEntry<'a>) -> anyhow::Result<u64> {
+    fn write<'a>(&'a self, entry: JournalEntry<'a>) -> anyhow::Result<LogWriteResult> {
         self.tx.write(entry)
     }
 }
 
 impl ReadableJournal for FilteredJournal {
-    fn read(&self) -> anyhow::Result<Option<JournalEntry<'_>>> {
+    fn read(&self) -> anyhow::Result<Option<LogReadResult<'_>>> {
         self.rx.read()
     }
 

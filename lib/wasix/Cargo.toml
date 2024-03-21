@@ -47,6 +47,7 @@ tokio = { version = "1", features = [
     "time",
     "rt",
 ], default_features = false }
+tokio-stream = { version = "0.1", features = [ "sync" ] }
 futures = { version = "0.3" }
 # used by feature='os'
 async-trait = { version = "^0.1" }
@@ -78,9 +79,10 @@ tower-http = { version = "0.4.0", features = [
 ], optional = true }
 tower = { version = "0.4.13", features = ["make", "util"], optional = true }
 url = "2.3.1"
-rkyv = { version = "0.7.40", features = ["indexmap", "validation", "strict"] }
+rkyv = { workspace = true }
 bytecheck = "0.6.8"
-shared-buffer = "0.1"
+blake3 = "1.0"
+shared-buffer = { workspace = true }
 petgraph = "0.6.3"
 base64 = "0.21"
 lz4_flex = { version = "0.11" }
@@ -138,9 +140,11 @@ wasmer = { path = "../api", version = "=4.2.7", default-features = false, featur
 default = ["sys-default"]
 
 time = ["tokio/time"]
+ctrlc = ["tokio/signal"]
 
 webc_runner_rt_wcgi = ["hyper", "wcgi", "wcgi-host", "tower", "tower-http"]
 webc_runner_rt_dcgi = ["webc_runner_rt_wcgi", "journal"]
+webc_runner_rt_dproxy = ["hyper", "tower", "tower-http", "journal"]
 webc_runner_rt_emscripten = ["wasmer-emscripten"]
 
 sys = ["webc/mmap", "time", "virtual-mio/sys"]
@@ -154,6 +158,7 @@ sys-default = [
     "host-vnet",
     "host-threads",
     "host-reqwest",
+    "ctrlc"
 ]
 sys-poll = []
 sys-thread = ["tokio/rt", "tokio/time", "tokio/rt-multi-thread", "rusty_pool"]
@@ -193,6 +198,7 @@ features = [
     "wasmer/sys",
     "webc_runner_rt_wcgi",
     "webc_runner_rt_dcgi",
+    "webc_runner_rt_dproxy",
     "webc_runner_rt_emscripten",
     "sys-default",
 ]

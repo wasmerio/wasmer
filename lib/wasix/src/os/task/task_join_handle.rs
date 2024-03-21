@@ -8,6 +8,8 @@ use wasmer_wasix_types::wasi::{Errno, ExitCode};
 
 use crate::WasiRuntimeError;
 
+use super::signal::{default_signal_handler, DynSignalHandlerAbi};
+
 #[derive(Clone, Debug)]
 pub enum TaskStatus {
     Pending,
@@ -70,6 +72,9 @@ pub trait VirtualTaskHandle: std::fmt::Debug + Send + Sync + 'static {
 /// A handle that allows awaiting the termination of a task, and retrieving its exit code.
 #[derive(Debug)]
 pub struct OwnedTaskStatus {
+    // The signal handler that can be invoked for this owned task
+    signal_handler: Arc<DynSignalHandlerAbi>,
+
     watch_tx: tokio::sync::watch::Sender<TaskStatus>,
     // Even through unused, without this receive there is a race condition
     // where the previously sent values are lost.
@@ -81,9 +86,21 @@ impl OwnedTaskStatus {
     pub fn new(status: TaskStatus) -> Self {
         let (tx, rx) = tokio::sync::watch::channel(status);
         Self {
+            signal_handler: default_signal_handler(),
             watch_tx: tx,
             watch_rx: rx,
         }
+    }
+
+    /// Sets the signal handler used for this owned task
+    pub fn set_signal_handler(&mut self, handler: Arc<DynSignalHandlerAbi>) {
+        self.signal_handler = handler;
+    }
+
+    /// Attaches a signal handler
+    pub fn with_signal_handler(mut self, handler: Arc<DynSignalHandlerAbi>) -> Self {
+        self.set_signal_handler(handler);
+        self
     }
 
     pub fn new_finished_with_code(code: ExitCode) -> Self {
@@ -144,6 +161,7 @@ impl OwnedTaskStatus {
 
     pub fn handle(&self) -> TaskJoinHandle {
         TaskJoinHandle {
+            signal_handler: self.signal_handler.clone(),
             watch: self.watch_tx.subscribe(),
         }
     }
@@ -158,6 +176,8 @@ impl Default for OwnedTaskStatus {
 /// A handle that allows awaiting the termination of a task, and retrieving its exit code.
 #[derive(Clone, Debug)]
 pub struct TaskJoinHandle {
+    #[allow(unused)]
+    signal_handler: Arc<DynSignalHandlerAbi>,
     watch: tokio::sync::watch::Receiver<TaskStatus>,
 }
 
@@ -165,6 +185,24 @@ impl TaskJoinHandle {
     /// Retrieve the current status.
     pub fn status(&self) -> TaskStatus {
         self.watch.borrow().clone()
+    }
+
+    #[cfg(feature = "ctrlc")]
+    pub fn install_ctrlc_handler(&self) {
+        use wasmer::FromToNativeWasmType;
+        use wasmer_wasix_types::wasi::Signal;
+
+        let signal_handler = self.signal_handler.clone();
+
+        tokio::spawn(async move {
+            // Loop sending ctrl-c presses as signals to the signal handler
+            while tokio::signal::ctrl_c().await.is_ok() {
+                if let Err(err) = signal_handler.signal(Signal::Sigint.to_native() as u8) {
+                    tracing::error!("failed to process signal - {}", err);
+                    std::process::exit(1);
+                }
+            }
+        });
     }
 
     /// Wait until the task finishes.

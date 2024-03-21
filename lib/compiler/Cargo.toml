@@ -34,7 +34,7 @@ enum-iterator = "0.7.0"
 
 bytes = "1.0"
 self_cell = "1.0"
-rkyv = { version = "0.7.40", features = ["indexmap", "validation", "strict"] }
+rkyv = { workspace = true }
 shared-buffer = { workspace = true }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]

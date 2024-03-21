@@ -49,7 +49,7 @@ pub fn stack_restore<M: MemorySize>(
                 None, // we do not restore the thread memory as `longjmp`` is not meant to do this
                 rewind_stack,
                 store_data,
-                Some(rewind_result),
+                RewindResultType::RewindWithResult(rewind_result),
             );
             match ret {
                 Errno::Success => OnCalledAction::InvokeAgain,

@@ -1,6 +1,4 @@
-pub(super) use std::{
-    borrow::Cow, collections::LinkedList, ops::Range, sync::MutexGuard, time::SystemTime,
-};
+pub(super) use std::{borrow::Cow, ops::Range, sync::MutexGuard, time::SystemTime};
 
 pub(super) use anyhow::bail;
 pub(super) use bytes::Bytes;

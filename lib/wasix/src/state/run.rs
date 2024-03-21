@@ -2,7 +2,7 @@ use virtual_mio::InlineWaker;
 use wasmer::{RuntimeError, Store};
 use wasmer_wasix_types::wasi::ExitCode;
 
-use crate::{RewindStateOption, WasiError, WasiRuntimeError};
+use crate::{os::task::thread::RewindResultType, RewindStateOption, WasiError, WasiRuntimeError};
 
 use super::*;
 
@@ -42,6 +42,7 @@ impl WasiFunctionEnv {
                 match this.bootstrap(&mut store) {
                     Ok(a) => a,
                     Err(err) => {
+                        tracing::warn!("failed to bootstrap - {}", err);
                         this.on_exit(&mut store, None);
                         tx.send(Err(err)).ok();
                         return;
@@ -157,7 +158,12 @@ fn handle_result(
             let tasks = env.data(&store).tasks().clone();
             let rewind = work.rewind;
             let respawn = move |ctx, store, res| {
-                run_with_deep_sleep(store, Some((rewind, Some(res))), ctx, sender)
+                run_with_deep_sleep(
+                    store,
+                    Some((rewind, RewindResultType::RewindWithResult(res))),
+                    ctx,
+                    sender,
+                )
             };
 
             // Spawns the WASM process after a trigger

@@ -8,7 +8,7 @@ pub static UNSUPPORTED_JOURNAL: UnsupportedJournal = UnsupportedJournal {};
 pub struct UnsupportedJournal {}
 
 impl ReadableJournal for UnsupportedJournal {
-    fn read(&self) -> anyhow::Result<Option<JournalEntry<'_>>> {
+    fn read(&self) -> anyhow::Result<Option<LogReadResult<'_>>> {
         Ok(None)
     }
 
@@ -18,7 +18,7 @@ impl ReadableJournal for UnsupportedJournal {
 }
 
 impl WritableJournal for UnsupportedJournal {
-    fn write<'a>(&'a self, entry: JournalEntry<'a>) -> anyhow::Result<u64> {
+    fn write<'a>(&'a self, entry: JournalEntry<'a>) -> anyhow::Result<LogWriteResult> {
         tracing::debug!("journal event: {:?}", entry);
         Err(anyhow::format_err!("unsupported"))
     }

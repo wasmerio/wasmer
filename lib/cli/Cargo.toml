@@ -41,6 +41,7 @@ default = [
 # Tun-tap client for connecting to Wasmer Edge VPNs
 tun-tap = ["dep:tun-tap", "virtual-net/tokio-tungstenite", "tokio-tungstenite", "mio", "futures-util",  "mac_address", "dep:interfaces"]
 journal = ["wasmer-wasix/journal"]
+fuse = ["dep:fuse", "dep:time01", "dep:shared-buffer", "dep:rkyv"]
 backend = []
 coredump = ["wasm-coredump-builder"]
 sys = ["compiler", "wasmer-vm"]
@@ -79,6 +80,7 @@ wasmer-wasix = { version = "0.18.2", path = "../wasix", features = [
   "logging",
   "webc_runner_rt_wcgi",
   "webc_runner_rt_dcgi",
+  "webc_runner_rt_dproxy",
   "webc_runner_rt_emscripten",
   "host-fs",
 ] }
@@ -103,6 +105,14 @@ webc = { workspace = true }
 wasmer-api = { version = "=0.0.24", path = "../backend-api" }
 edge-schema = { version = "=0.0.2" }
 edge-util = { version = "=0.0.1" }
+
+# Used by the mount command
+
+shared-buffer = { workspace = true, optional = true }
+rkyv = { workspace = true, optional = true }
+fuse = { version = "0.3", optional = true }
+time01 = { package = "time", version = "0.1.45", optional = true }
+
 
 # Third-party dependencies.
 

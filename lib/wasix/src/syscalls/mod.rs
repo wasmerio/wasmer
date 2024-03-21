@@ -28,6 +28,8 @@ use futures::{
 use tracing::instrument;
 pub use wasi::*;
 pub use wasix::*;
+use wasmer_journal::SnapshotTrigger;
+use wasmer_wasix_types::wasix::ThreadStartType;
 
 pub mod legacy;
 
@@ -120,9 +122,12 @@ use crate::{
         MAX_SYMLINKS,
     },
     journal::{DynJournal, JournalEffector},
-    os::task::{process::MaybeCheckpointResult, thread::RewindResult},
+    os::task::{
+        process::{MaybeCheckpointResult, WasiProcessCheckpoint},
+        thread::{RewindResult, RewindResultType},
+    },
     runtime::task_manager::InlineWaker,
-    utils::store::InstanceSnapshot,
+    utils::store::StoreSnapshot,
     DeepSleepWork, RewindPostProcess, RewindState, RewindStateOption, SpawnError, WasiInodes,
     WasiResult, WasiRuntimeError,
 };
@@ -310,14 +315,14 @@ where
     }
 
     // This poller will process any signals when the main working function is idle
-    struct Poller<'a, 'b, Fut, T>
+    struct SignalPoller<'a, 'b, Fut, T>
     where
         Fut: Future<Output = Result<T, Errno>>,
     {
         ctx: &'a mut FunctionEnvMut<'b, WasiEnv>,
         pinned_work: Pin<Box<Fut>>,
     }
-    impl<'a, 'b, Fut, T> Future for Poller<'a, 'b, Fut, T>
+    impl<'a, 'b, Fut, T> Future for SignalPoller<'a, 'b, Fut, T>
     where
         Fut: Future<Output = Result<T, Errno>>,
     {
@@ -339,7 +344,7 @@ where
     // Block on the work
     let mut pinned_work = Box::pin(work);
     let tasks = env.tasks().clone();
-    let poller = Poller { ctx, pinned_work };
+    let poller = SignalPoller { ctx, pinned_work };
     block_on_with_timeout(&tasks, timeout, poller)
 }
 
@@ -426,7 +431,7 @@ pub(crate) fn maybe_backoff<M: MemorySize>(
     if let Some(backoff) = env.process.acquire_cpu_backoff_token(env.tasks()) {
         tracing::trace!("exponential CPU backoff {:?}", backoff.backoff_time());
         if let AsyncifyAction::Finish(mut ctx, _) =
-            __asyncify_with_deep_sleep::<M, _, _>(ctx, Duration::from_millis(50), backoff)?
+            __asyncify_with_deep_sleep::<M, _, _>(ctx, backoff)?
         {
             Ok(Ok(ctx))
         } else {
@@ -448,13 +453,18 @@ pub(crate) fn maybe_backoff<M: MemorySize>(
 ///
 pub(crate) fn __asyncify_with_deep_sleep<M: MemorySize, T, Fut>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
-    deep_sleep_time: Duration,
     work: Fut,
 ) -> Result<AsyncifyAction<'_, T>, WasiError>
 where
     T: serde::Serialize + serde::de::DeserializeOwned,
     Fut: Future<Output = T> + Send + Sync + 'static,
 {
+    // Determine the deep sleep time
+    let deep_sleep_time = match ctx.data().enable_journal {
+        true => Duration::from_micros(100),
+        false => Duration::from_millis(50),
+    };
+
     // Determine if we should process signals or now
     let process_signals = ctx
         .data()
@@ -476,6 +486,7 @@ where
         } else {
             None
         };
+
         let deep_sleep_wait = async {
             if let Some(tasks) = tasks_for_deep_sleep {
                 tasks.sleep_now(deep_sleep_time).await
@@ -498,9 +509,20 @@ where
             _ = deep_sleep_wait => {
                 let pid = ctx.data().pid();
                 let tid = ctx.data().tid();
+
+                // We put thread into a deep sleeping state and
+                // notify anyone who is waiting for that
+                let thread = ctx.data().thread.clone();
+                thread.set_deep_sleeping(true);
+                ctx.data().process.inner.1.notify_one();
+
                 tracing::trace!(%pid, %tid, "thread entering deep sleep");
                 deep_sleep::<M>(ctx, Box::pin(async move {
+                    // After this wakes the background work or waking
+                    // event has triggered and its time to result
                     let result = trigger.await;
+                    tracing::trace!(%pid, %tid, "thread leaving deep sleep");
+                    thread.set_deep_sleeping(false);
                     bincode::serialize(&result).unwrap().into()
                 }))?;
                 AsyncifyAction::Unwind
@@ -526,6 +548,8 @@ where
     T: 'static,
     Fut: Future<Output = Result<T, Errno>>,
 {
+    let snapshot_wait = wait_for_snapshot(env);
+
     // This poller will process any signals when the main working function is idle
     struct Poller<'a, Fut, T>
     where
@@ -533,6 +557,7 @@ where
     {
         env: &'a WasiEnv,
         pinned_work: Pin<Box<Fut>>,
+        pinned_snapshot: Pin<Box<dyn Future<Output = ()>>>,
     }
     impl<'a, Fut, T> Future for Poller<'a, Fut, T>
     where
@@ -542,6 +567,9 @@ where
         fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
             if let Poll::Ready(res) = Pin::new(&mut self.pinned_work).poll(cx) {
                 return Poll::Ready(Ok(res));
+            }
+            if let Poll::Ready(()) = Pin::new(&mut self.pinned_snapshot).poll(cx) {
+                return Poll::Ready(Ok(Err(Errno::Intr)));
             }
             if let Some(exit_code) = self.env.should_exit() {
                 return Poll::Ready(Err(WasiError::Exit(exit_code)));
@@ -989,21 +1017,87 @@ pub(crate) fn deep_sleep<M: MemorySize>(
     trigger: Pin<Box<AsyncifyFuture>>,
 ) -> Result<(), WasiError> {
     // Grab all the globals and serialize them
-    let store_data = crate::utils::store::capture_instance_snapshot(&mut ctx.as_store_mut())
+    let store_data = crate::utils::store::capture_store_snapshot(&mut ctx.as_store_mut())
         .serialize()
         .unwrap();
     let store_data = Bytes::from(store_data);
+    let thread_start = ctx.data().thread.thread_start_type();
 
     // Perform the unwind action
     let tasks = ctx.data().tasks().clone();
-    let res = unwind::<M, _>(ctx, move |_ctx, memory_stack, rewind_stack| {
+    let res = unwind::<M, _>(ctx, move |mut ctx, memory_stack, rewind_stack| {
+        let memory_stack = memory_stack.freeze();
+        let rewind_stack = rewind_stack.freeze();
+        let thread_layout = ctx.data().thread.memory_layout().clone();
+
+        // If journal'ing is enabled then we dump the stack into the journal
+        if ctx.data().enable_journal {
+            // Grab all the globals and serialize them
+            let store_data = crate::utils::store::capture_store_snapshot(&mut ctx.as_store_mut())
+                .serialize()
+                .unwrap();
+            let store_data = Bytes::from(store_data);
+
+            tracing::debug!(
+                "stack snapshot unwind (memory_stack={}, rewind_stack={}, store_data={})",
+                memory_stack.len(),
+                rewind_stack.len(),
+                store_data.len(),
+            );
+
+            #[cfg(feature = "journal")]
+            {
+                // Write our thread state to the snapshot
+                let tid = ctx.data().thread.tid();
+                let thread_start = ctx.data().thread.thread_start_type();
+                if let Err(err) = JournalEffector::save_thread_state::<M>(
+                    &mut ctx,
+                    tid,
+                    memory_stack.clone(),
+                    rewind_stack.clone(),
+                    store_data.clone(),
+                    thread_start,
+                    thread_layout.clone(),
+                ) {
+                    return wasmer_types::OnCalledAction::Trap(err.into());
+                }
+            }
+
+            // If all the threads are now in a deep sleep state
+            // then we can trigger the idle snapshot event
+            let inner = ctx.data().process.inner.clone();
+            let is_idle = {
+                let mut guard = inner.0.lock().unwrap();
+                guard.threads.values().all(WasiThread::is_deep_sleeping)
+            };
+
+            // When we idle the journal functionality may be set
+            // will take a snapshot of the memory and threads so
+            // that it can resumed.
+            #[cfg(feature = "journal")]
+            {
+                if is_idle && ctx.data_mut().has_snapshot_trigger(SnapshotTrigger::Idle) {
+                    let mut guard = inner.0.lock().unwrap();
+                    if let Err(err) = JournalEffector::save_memory_and_snapshot(
+                        &mut ctx,
+                        &mut guard,
+                        SnapshotTrigger::Idle,
+                    ) {
+                        return wasmer_types::OnCalledAction::Trap(err.into());
+                    }
+                }
+            }
+        }
+
         // Schedule the process on the stack so that it can be resumed
         OnCalledAction::Trap(Box::new(WasiError::DeepSleep(DeepSleepWork {
             trigger,
             rewind: RewindState {
-                memory_stack: memory_stack.freeze(),
-                rewind_stack: rewind_stack.freeze(),
+                memory_stack,
+                rewind_stack,
                 store_data,
+                start: thread_start,
+                layout: thread_layout,
                 is_64bit: M::is_64bit(),
             },
         })))
@@ -1165,7 +1259,7 @@ where
         Some(memory_stack),
         rewind_stack,
         store_data,
-        Some(rewind_result),
+        RewindResultType::RewindWithResult(rewind_result),
     )
 }
 
@@ -1176,7 +1270,7 @@ pub fn rewind_ext<M: MemorySize>(
     memory_stack: Option<Bytes>,
     rewind_stack: Bytes,
     store_data: Bytes,
-    rewind_result: Option<Bytes>,
+    rewind_result: RewindResultType,
 ) -> Errno {
     // Store the memory stack so that it can be restored later
     ctx.data_mut().thread.set_rewind(RewindResult {
@@ -1185,14 +1279,14 @@ pub fn rewind_ext<M: MemorySize>(
     });
 
     // Deserialize the store data back into a snapshot
-    let store_snapshot = match InstanceSnapshot::deserialize(&store_data[..]) {
+    let store_snapshot = match StoreSnapshot::deserialize(&store_data[..]) {
         Ok(a) => a,
         Err(err) => {
             warn!("snapshot restore failed - the store snapshot could not be deserialized");
             return Errno::Unknown;
         }
     };
-    crate::utils::store::restore_instance_snapshot(ctx, &store_snapshot);
+    crate::utils::store::restore_store_snapshot(ctx, &store_snapshot);
     let env = ctx.data();
     let memory = match env.try_memory_view(&ctx) {
         Some(v) => v,
@@ -1300,29 +1394,43 @@ pub(crate) unsafe fn handle_rewind<M: MemorySize, T>(
 where
     T: serde::de::DeserializeOwned,
 {
-    handle_rewind_ext::<M, T>(ctx, HandleRewindType::ResultDriven)
+    handle_rewind_ext::<M, T>(ctx, HandleRewindType::ResultDriven).flatten()
 }
 
 pub(crate) enum HandleRewindType {
     /// Handle rewind types that have a result to be processed
     ResultDriven,
-    /// Handle rewind types that are resultless (generally these
+    /// Handle rewind types that are result-less (generally these
     /// are caused by snapshot events)
-    Resultless,
+    ResultLess,
+}
+
+pub(crate) unsafe fn handle_rewind_ext_with_default<M: MemorySize, T>(
+    ctx: &mut FunctionEnvMut<'_, WasiEnv>,
+    type_: HandleRewindType,
+) -> Option<T>
+where
+    T: serde::de::DeserializeOwned + Default,
+{
+    let ret = handle_rewind_ext::<M, T>(ctx, type_);
+    ret.unwrap_or_default()
 }
 
 pub(crate) unsafe fn handle_rewind_ext<M: MemorySize, T>(
     ctx: &mut FunctionEnvMut<'_, WasiEnv>,
-    _type: HandleRewindType,
-) -> Option<T>
+    type_: HandleRewindType,
+) -> Option<Option<T>>
 where
     T: serde::de::DeserializeOwned,
 {
-    if !ctx.data().thread.has_rewind_of_type(_type) {
+    let env = ctx.data();
+    if !env.thread.has_rewind_of_type(type_) {
         return None;
     };
 
     // If the stack has been restored
+    let tid = env.tid();
+    let pid = env.pid();
     if let Some(result) = ctx.data_mut().thread.take_rewind() {
         // Deserialize the result
         let memory_stack = result.memory_stack;
@@ -1333,7 +1441,7 @@ where
             asyncify_stop_rewind.call(ctx);
         } else {
             warn!("failed to handle rewind because the asyncify_start_rewind export is missing or inaccessible");
-            return None;
+            return Some(None);
         }
 
         // Restore the memory stack
@@ -1342,15 +1450,25 @@ where
             set_memory_stack::<M>(env, &mut store, memory_stack);
         }
 
-        if let Some(rewind_result) = result.rewind_result {
-            let ret = bincode::deserialize(&rewind_result)
-                .expect("failed to deserialize the rewind result");
-            Some(ret)
-        } else {
-            None
+        match result.rewind_result {
+            RewindResultType::RewindRestart => {
+                debug!(%pid, %tid, "rewind for syscall restart");
+                None
+            }
+            RewindResultType::RewindWithoutResult => {
+                debug!(%pid, %tid, "rewind with no result");
+                Some(None)
+            }
+            RewindResultType::RewindWithResult(rewind_result) => {
+                debug!(%pid, %tid, "rewind with result (data={})", rewind_result.len());
+                let ret = bincode::deserialize(&rewind_result)
+                    .expect("failed to deserialize the rewind result");
+                Some(Some(ret))
+            }
         }
     } else {
-        None
+        debug!(%pid, %tid, "rewind miss");
+        Some(None)
     }
 }
 

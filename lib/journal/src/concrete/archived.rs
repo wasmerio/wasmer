@@ -83,6 +83,7 @@ pub enum JournalEntryRecordType {
     SocketSetOptTimeV1 = 57,
     SocketShutdownV1 = 58,
     SnapshotV1 = 59,
+    ClearEtherealV1 = 60,
 }
 
 impl JournalEntryRecordType {
@@ -96,6 +97,11 @@ impl JournalEntryRecordType {
             JournalEntryRecordType::InitModuleV1 => ArchivedJournalEntry::InitModuleV1(
                 rkyv::archived_root::<JournalEntryInitModuleV1>(data),
             ),
+            JournalEntryRecordType::ClearEtherealV1 => {
+                ArchivedJournalEntry::ClearEtherealV1(rkyv::archived_root::<
+                    JournalEntryClearEtherealV1,
+                >(data))
+            }
             JournalEntryRecordType::ProcessExitV1 => ArchivedJournalEntry::ProcessExitV1(
                 rkyv::archived_root::<JournalEntryProcessExitV1>(data),
             ),
@@ -342,6 +348,7 @@ impl<'a> JournalEntry<'a> {
     pub fn archive_record_type(&self) -> JournalEntryRecordType {
         match self {
             Self::InitModuleV1 { .. } => JournalEntryRecordType::InitModuleV1,
+            Self::ClearEtherealV1 { .. } => JournalEntryRecordType::ClearEtherealV1,
             Self::UpdateMemoryRegionV1 { .. } => JournalEntryRecordType::UpdateMemoryRegionV1,
             Self::ProcessExitV1 { .. } => JournalEntryRecordType::ProcessExitV1,
             Self::SetThreadV1 { .. } => JournalEntryRecordType::SetThreadV1,
@@ -425,34 +432,27 @@ impl<'a> JournalEntry<'a> {
     pub fn serialize_archive<T: Serializer + ScratchSpace>(
         self,
         serializer: &mut T,
-    ) -> anyhow::Result<()>
+    ) -> anyhow::Result<usize>
     where
         T::Error: std::fmt::Display,
     {
-        let padding = |size: usize| {
-            let padding = size % 16;
-            let padding = match padding {
-                0 => 0,
-                a => 16 - a,
-            };
-            vec![0u8; padding]
-        };
-        match self {
+        let amt = match self {
             JournalEntry::InitModuleV1 { wasm_hash } => {
                 serializer.serialize_value(&JournalEntryInitModuleV1 { wasm_hash })
+            }
+            JournalEntry::ClearEtherealV1 => {
+                serializer.serialize_value(&JournalEntryClearEtherealV1 {})
             }
             JournalEntry::UpdateMemoryRegionV1 { region, data } => {
                 serializer.serialize_value(&JournalEntryUpdateMemoryRegionV1 {
                     start: region.start,
                     end: region.end,
-                    _padding: padding(data.len()),
-                    compressed_data: compress_prepend_size(data.as_ref()),
+                    compressed_data: compress_prepend_size(data.as_ref()).into(),
                 })
             }
             JournalEntry::ProcessExitV1 { exit_code } => {
                 serializer.serialize_value(&JournalEntryProcessExitV1 {
                     exit_code: exit_code.map(|e| e.into()),
-                    _padding: 0,
                 })
             }
             JournalEntry::SetThreadV1 {
@@ -461,12 +461,15 @@ impl<'a> JournalEntry<'a> {
                 memory_stack,
                 store_data,
                 is_64bit,
+                start,
+                layout,
             } => serializer.serialize_value(&JournalEntrySetThreadV1 {
                 id,
-                _padding: padding(call_stack.len() + memory_stack.len() + store_data.len()),
-                call_stack: call_stack.into_owned(),
-                memory_stack: memory_stack.into_owned(),
-                store_data: store_data.into_owned(),
+                call_stack: call_stack.into(),
+                memory_stack: memory_stack.into(),
+                store_data: store_data.into(),
+                start: start.into(),
+                layout: layout.into(),
                 is_64bit,
             }),
             JournalEntry::CloseThreadV1 { id, exit_code } => {
@@ -489,8 +492,7 @@ impl<'a> JournalEntry<'a> {
             } => serializer.serialize_value(&JournalEntryFileDescriptorWriteV1 {
                 fd,
                 offset,
-                _padding: padding(data.len()),
-                data: data.into_owned(),
+                data: data.into(),
                 is_64bit,
             }),
             JournalEntry::SetClockTimeV1 { clock_id, time } => {
@@ -500,7 +502,7 @@ impl<'a> JournalEntry<'a> {
                 })
             }
             JournalEntry::CloseFileDescriptorV1 { fd } => {
-                serializer.serialize_value(&JournalEntryCloseFileDescriptorV1 { fd, _padding: 0 })
+                serializer.serialize_value(&JournalEntryCloseFileDescriptorV1 { fd })
             }
             JournalEntry::OpenFileDescriptorV1 {
                 fd,
@@ -515,8 +517,7 @@ impl<'a> JournalEntry<'a> {
                 fd,
                 dirfd,
                 dirflags,
-                _padding: padding(path.as_bytes().len()),
-                path: path.into_owned(),
+                path: path.into(),
                 o_flags: o_flags.bits(),
                 fs_rights_base: fs_rights_base.bits(),
                 fs_rights_inheriting: fs_rights_inheriting.bits(),
@@ -535,15 +536,13 @@ impl<'a> JournalEntry<'a> {
             JournalEntry::CreateDirectoryV1 { fd, path } => {
                 serializer.serialize_value(&JournalEntryCreateDirectoryV1 {
                     fd,
-                    _padding: padding(path.as_bytes().len()),
-                    path: path.into_owned(),
+                    path: path.into(),
                 })
             }
             JournalEntry::RemoveDirectoryV1 { fd, path } => {
                 serializer.serialize_value(&JournalEntryRemoveDirectoryV1 {
                     fd,
-                    _padding: padding(path.as_bytes().len()),
-                    path: path.into_owned(),
+                    path: path.into(),
                 })
             }
             JournalEntry::PathSetTimesV1 {
@@ -556,8 +555,7 @@ impl<'a> JournalEntry<'a> {
             } => serializer.serialize_value(&JournalEntryPathSetTimesV1 {
                 fd,
                 flags,
-                _padding: padding(path.as_bytes().len()),
-                path: path.into_owned(),
+                path: path.into(),
                 st_atim,
                 st_mtim,
                 fst_flags: fst_flags.bits(),
@@ -612,27 +610,24 @@ impl<'a> JournalEntry<'a> {
                 new_path,
             } => serializer.serialize_value(&JournalEntryCreateHardLinkV1 {
                 old_fd,
-                _padding: padding(old_path.as_bytes().len() + new_path.as_bytes().len()),
-                old_path: old_path.into_owned(),
+                old_path: old_path.into(),
                 old_flags,
                 new_fd,
-                new_path: new_path.into_owned(),
+                new_path: new_path.into(),
             }),
             JournalEntry::CreateSymbolicLinkV1 {
                 old_path,
                 fd,
                 new_path,
             } => serializer.serialize_value(&JournalEntryCreateSymbolicLinkV1 {
-                _padding: padding(old_path.as_bytes().len() + new_path.as_bytes().len()),
-                old_path: old_path.into_owned(),
+                old_path: old_path.into(),
                 fd,
-                new_path: new_path.into_owned(),
+                new_path: new_path.into(),
             }),
             JournalEntry::UnlinkFileV1 { fd, path } => {
                 serializer.serialize_value(&JournalEntryUnlinkFileV1 {
                     fd,
-                    _padding: padding(path.as_bytes().len()),
-                    path: path.into_owned(),
+                    path: path.into(),
                 })
             }
             JournalEntry::PathRenameV1 {
@@ -642,18 +637,15 @@ impl<'a> JournalEntry<'a> {
                 new_path,
             } => serializer.serialize_value(&JournalEntryPathRenameV1 {
                 old_fd,
-                _padding: padding(old_path.as_bytes().len() + new_path.as_bytes().len()),
-                old_path: old_path.into_owned(),
+                old_path: old_path.into(),
                 new_fd,
-                new_path: new_path.into_owned(),
+                new_path: new_path.into(),
             }),
             JournalEntry::ChangeDirectoryV1 { path } => {
-                serializer.serialize_value(&JournalEntryChangeDirectoryV1 {
-                    path: path.into_owned(),
-                })
+                serializer.serialize_value(&JournalEntryChangeDirectoryV1 { path: path.into() })
             }
             JournalEntry::EpollCreateV1 { fd } => {
-                serializer.serialize_value(&JournalEntryEpollCreateV1 { fd, _padding: 0 })
+                serializer.serialize_value(&JournalEntryEpollCreateV1 { fd })
             }
             JournalEntry::EpollCtlV1 {
                 epfd,
@@ -698,19 +690,18 @@ impl<'a> JournalEntry<'a> {
             JournalEntry::PortDelAddrV1 { addr } => {
                 serializer.serialize_value(&JournalEntryPortDelAddrV1 { addr })
             }
-            JournalEntry::PortAddrClearV1 => return Ok(()),
+            JournalEntry::PortAddrClearV1 => serializer.serialize_value(&()),
             JournalEntry::PortBridgeV1 {
                 network,
                 token,
                 security,
             } => serializer.serialize_value(&JournalEntryPortBridgeV1 {
-                _padding: padding(network.as_bytes().len() + token.as_bytes().len()),
-                network: network.into_owned(),
-                token: token.into_owned(),
+                network: network.into(),
+                token: token.into(),
                 security: security.into(),
             }),
-            JournalEntry::PortUnbridgeV1 => return Ok(()),
-            JournalEntry::PortDhcpAcquireV1 => return Ok(()),
+            JournalEntry::PortUnbridgeV1 => serializer.serialize_value(&()),
+            JournalEntry::PortDhcpAcquireV1 => serializer.serialize_value(&()),
             JournalEntry::PortGatewaySetV1 { ip } => {
                 serializer.serialize_value(&JournalEntryPortGatewaySetV1 { ip })
             }
@@ -725,7 +716,7 @@ impl<'a> JournalEntry<'a> {
                 preferred_until,
                 expires_at,
             }),
-            JournalEntry::PortRouteClearV1 => return Ok(()),
+            JournalEntry::PortRouteClearV1 => serializer.serialize_value(&()),
             JournalEntry::PortRouteDelV1 { ip } => {
                 serializer.serialize_value(&JournalEntryPortRouteDelV1 { ip })
             }
@@ -743,18 +734,26 @@ impl<'a> JournalEntry<'a> {
             JournalEntry::SocketBindV1 { fd, addr } => {
                 serializer.serialize_value(&JournalEntrySocketBindV1 { fd, addr })
             }
-            JournalEntry::SocketConnectedV1 { fd, addr } => {
-                serializer.serialize_value(&JournalEntrySocketConnectedV1 { fd, addr })
-            }
+            JournalEntry::SocketConnectedV1 {
+                fd,
+                local_addr,
+                peer_addr,
+            } => serializer.serialize_value(&JournalEntrySocketConnectedV1 {
+                fd,
+                local_addr,
+                peer_addr,
+            }),
             JournalEntry::SocketAcceptedV1 {
                 listen_fd,
                 fd,
+                local_addr: addr,
                 peer_addr,
                 fd_flags,
                 non_blocking: nonblocking,
             } => serializer.serialize_value(&JournalEntrySocketAcceptedV1 {
                 listen_fd,
                 fd,
+                local_addr: addr,
                 peer_addr,
                 fd_flags: fd_flags.bits(),
                 nonblocking,
@@ -814,8 +813,7 @@ impl<'a> JournalEntry<'a> {
                 is_64bit,
             } => serializer.serialize_value(&JournalEntrySocketSendToV1 {
                 fd,
-                _padding: padding(data.len()),
-                data: data.into_owned(),
+                data: data.into(),
                 flags,
                 addr,
                 is_64bit,
@@ -827,8 +825,7 @@ impl<'a> JournalEntry<'a> {
                 is_64bit,
             } => serializer.serialize_value(&JournalEntrySocketSendV1 {
                 fd,
-                _padding: padding(data.len()),
-                data: data.into_owned(),
+                data: data.into(),
                 flags,
                 is_64bit,
             }),
@@ -869,7 +866,7 @@ impl<'a> JournalEntry<'a> {
             }
         }
         .map_err(|err| anyhow::format_err!("failed to serialize journal record - {}", err))?;
-        Ok(())
+        Ok(amt)
     }
 }
 
@@ -888,31 +885,32 @@ pub(crate) struct JournalEntryHeader {
 
 pub enum ArchivedJournalEntry<'a> {
     InitModuleV1(&'a ArchivedJournalEntryInitModuleV1),
+    ClearEtherealV1(&'a ArchivedJournalEntryClearEtherealV1),
     ProcessExitV1(&'a ArchivedJournalEntryProcessExitV1),
-    SetThreadV1(&'a ArchivedJournalEntrySetThreadV1),
+    SetThreadV1(&'a ArchivedJournalEntrySetThreadV1<'a>),
     CloseThreadV1(&'a ArchivedJournalEntryCloseThreadV1),
     FileDescriptorSeekV1(&'a ArchivedJournalEntryFileDescriptorSeekV1),
-    FileDescriptorWriteV1(&'a ArchivedJournalEntryFileDescriptorWriteV1),
-    UpdateMemoryRegionV1(&'a ArchivedJournalEntryUpdateMemoryRegionV1),
+    FileDescriptorWriteV1(&'a ArchivedJournalEntryFileDescriptorWriteV1<'a>),
+    UpdateMemoryRegionV1(&'a ArchivedJournalEntryUpdateMemoryRegionV1<'a>),
     SetClockTimeV1(&'a ArchivedJournalEntrySetClockTimeV1),
-    OpenFileDescriptorV1(&'a ArchivedJournalEntryOpenFileDescriptorV1),
+    OpenFileDescriptorV1(&'a ArchivedJournalEntryOpenFileDescriptorV1<'a>),
     CloseFileDescriptorV1(&'a ArchivedJournalEntryCloseFileDescriptorV1),
     RenumberFileDescriptorV1(&'a ArchivedJournalEntryRenumberFileDescriptorV1),
     DuplicateFileDescriptorV1(&'a ArchivedJournalEntryDuplicateFileDescriptorV1),
-    CreateDirectoryV1(&'a ArchivedJournalEntryCreateDirectoryV1),
-    RemoveDirectoryV1(&'a ArchivedJournalEntryRemoveDirectoryV1),
-    PathSetTimesV1(&'a ArchivedJournalEntryPathSetTimesV1),
+    CreateDirectoryV1(&'a ArchivedJournalEntryCreateDirectoryV1<'a>),
+    RemoveDirectoryV1(&'a ArchivedJournalEntryRemoveDirectoryV1<'a>),
+    PathSetTimesV1(&'a ArchivedJournalEntryPathSetTimesV1<'a>),
     FileDescriptorSetTimesV1(&'a ArchivedJournalEntryFileDescriptorSetTimesV1),
     FileDescriptorSetSizeV1(&'a ArchivedJournalEntryFileDescriptorSetSizeV1),
     FileDescriptorSetFlagsV1(&'a ArchivedJournalEntryFileDescriptorSetFlagsV1),
     FileDescriptorSetRightsV1(&'a ArchivedJournalEntryFileDescriptorSetRightsV1),
     FileDescriptorAdviseV1(&'a ArchivedJournalEntryFileDescriptorAdviseV1),
     FileDescriptorAllocateV1(&'a ArchivedJournalEntryFileDescriptorAllocateV1),
-    CreateHardLinkV1(&'a ArchivedJournalEntryCreateHardLinkV1),
-    CreateSymbolicLinkV1(&'a ArchivedJournalEntryCreateSymbolicLinkV1),
-    UnlinkFileV1(&'a ArchivedJournalEntryUnlinkFileV1),
-    PathRenameV1(&'a ArchivedJournalEntryPathRenameV1),
-    ChangeDirectoryV1(&'a ArchivedJournalEntryChangeDirectoryV1),
+    CreateHardLinkV1(&'a ArchivedJournalEntryCreateHardLinkV1<'a>),
+    CreateSymbolicLinkV1(&'a ArchivedJournalEntryCreateSymbolicLinkV1<'a>),
+    UnlinkFileV1(&'a ArchivedJournalEntryUnlinkFileV1<'a>),
+    PathRenameV1(&'a ArchivedJournalEntryPathRenameV1<'a>),
+    ChangeDirectoryV1(&'a ArchivedJournalEntryChangeDirectoryV1<'a>),
     EpollCreateV1(&'a ArchivedJournalEntryEpollCreateV1),
     EpollCtlV1(&'a ArchivedJournalEntryEpollCtlV1),
     TtySetV1(&'a ArchivedJournalEntryTtySetV1),
@@ -921,7 +919,7 @@ pub enum ArchivedJournalEntry<'a> {
     PortAddAddrV1(&'a ArchivedJournalEntryPortAddAddrV1),
     PortDelAddrV1(&'a ArchivedJournalEntryPortDelAddrV1),
     PortAddrClearV1,
-    PortBridgeV1(&'a ArchivedJournalEntryPortBridgeV1),
+    PortBridgeV1(&'a ArchivedJournalEntryPortBridgeV1<'a>),
     PortUnbridgeV1,
     PortDhcpAcquireV1,
     PortGatewaySetV1(&'a ArchivedJournalEntryPortGatewaySetV1),
@@ -938,8 +936,8 @@ pub enum ArchivedJournalEntry<'a> {
     SocketLeaveIpv4MulticastV1(&'a ArchivedJournalEntrySocketLeaveIpv4MulticastV1),
     SocketLeaveIpv6MulticastV1(&'a ArchivedJournalEntrySocketLeaveIpv6MulticastV1),
     SocketSendFileV1(&'a ArchivedJournalEntrySocketSendFileV1),
-    SocketSendToV1(&'a ArchivedJournalEntrySocketSendToV1),
-    SocketSendV1(&'a ArchivedJournalEntrySocketSendV1),
+    SocketSendToV1(&'a ArchivedJournalEntrySocketSendToV1<'a>),
+    SocketSendV1(&'a ArchivedJournalEntrySocketSendV1<'a>),
     SocketSetOptFlagV1(&'a ArchivedJournalEntrySocketSetOptFlagV1),
     SocketSetOptSizeV1(&'a ArchivedJournalEntrySocketSetOptSizeV1),
     SocketSetOptTimeV1(&'a ArchivedJournalEntrySocketSetOptTimeV1),
@@ -950,7 +948,7 @@ pub enum ArchivedJournalEntry<'a> {
 #[repr(C)]
 #[repr(align(8))]
 #[derive(Debug, Clone, RkyvSerialize, RkyvDeserialize, Archive)]
-#[archive_attr(derive(CheckBytes))]
+#[archive_attr(derive(CheckBytes), repr(align(8)))]
 pub struct JournalEntryInitModuleV1 {
     pub wasm_hash: [u8; 8],
 }
@@ -958,29 +956,35 @@ pub struct JournalEntryInitModuleV1 {
 #[repr(C)]
 #[repr(align(8))]
 #[derive(Debug, Clone, RkyvSerialize, RkyvDeserialize, Archive)]
-#[archive_attr(derive(CheckBytes))]
+#[archive_attr(derive(CheckBytes), repr(align(8)))]
+pub struct JournalEntryClearEtherealV1 {}
+
+#[repr(C)]
+#[repr(align(8))]
+#[derive(Debug, Clone, RkyvSerialize, RkyvDeserialize, Archive)]
+#[archive_attr(derive(CheckBytes), repr(align(8)))]
 pub struct JournalEntryProcessExitV1 {
     pub exit_code: Option<JournalExitCodeV1>,
-    pub _padding: u32,
 }
 
 #[repr(C)]
 #[repr(align(8))]
 #[derive(Debug, Clone, RkyvSerialize, RkyvDeserialize, Archive)]
-#[archive_attr(derive(CheckBytes))]
-pub struct JournalEntrySetThreadV1 {
+#[archive_attr(derive(CheckBytes), repr(align(8)))]
+pub struct JournalEntrySetThreadV1<'a> {
     pub id: u32,
-    pub call_stack: Vec<u8>,
-    pub memory_stack: Vec<u8>,
-    pub store_data: Vec<u8>,
-    pub _padding: Vec<u8>,
+    pub call_stack: AlignedCowVec<'a, u8>,
+    pub memory_stack: AlignedCowVec<'a, u8>,
+    pub store_data: AlignedCowVec<'a, u8>,
+    pub start: JournalThreadStartTypeV1,
+    pub layout: JournalWasiMemoryLayout,
     pub is_64bit: bool,
 }
 
 #[repr(C)]
 #[repr(align(8))]
 #[derive(Debug, Clone, RkyvSerialize, RkyvDeserialize, Archive)]
-#[archive_attr(derive(CheckBytes))]
+#[archive_attr(derive(CheckBytes), repr(align(8)))]
 pub struct JournalEntryCloseThreadV1 {
     pub id: u32,
     pub exit_code: Option<JournalExitCodeV1>,
@@ -989,40 +993,44 @@ pub struct JournalEntryCloseThreadV1 {
 #[repr(C)]
 #[repr(align(8))]
 #[derive(Debug, Clone, RkyvSerialize, RkyvDeserialize, Archive)]
-#[archive_attr(derive(CheckBytes))]
+#[archive_attr(derive(CheckBytes), repr(align(8)))]
 pub struct JournalEntryFileDescriptorSeekV1 {
     pub fd: u32,
-    pub offset: i64,
     pub whence: JournalWhenceV1,
+    pub offset: i64,
 }
 
+/// WARNING!!!! Do not change this structure without updating
+/// "/lib/cli/src/commands/journal/mount/fs.rs"
+///
+/// The code over there assumes that the aligned vector is the
+/// first item in the serialized entry
 #[repr(C)]
 #[repr(align(8))]
 #[derive(Debug, Clone, RkyvSerialize, RkyvDeserialize, Archive)]
-#[archive_attr(derive(CheckBytes))]
-pub struct JournalEntryFileDescriptorWriteV1 {
-    pub fd: u32,
+#[archive_attr(derive(CheckBytes), repr(align(8)))]
+pub struct JournalEntryFileDescriptorWriteV1<'a> {
+    /// DO NOT MOVE!
+    pub data: AlignedCowVec<'a, u8>,
     pub offset: u64,
-    pub data: Vec<u8>,
-    pub _padding: Vec<u8>,
+    pub fd: u32,
     pub is_64bit: bool,
 }
 
 #[repr(C)]
 #[repr(align(8))]
 #[derive(Debug, Clone, RkyvSerialize, RkyvDeserialize, Archive)]
-#[archive_attr(derive(CheckBytes))]
-pub struct JournalEntryUpdateMemoryRegionV1 {
+#[archive_attr(derive(CheckBytes), repr(align(8)))]
+pub struct JournalEntryUpdateMemoryRegionV1<'a> {
+    pub compressed_data: AlignedCowVec<'a, u8>,
     pub start: u64,
     pub end: u64,
-    pub compressed_data: Vec<u8>,
-    pub _padding: Vec<u8>,
 }
 
 #[repr(C)]
 #[repr(align(8))]
 #[derive(Debug, Clone, RkyvSerialize, RkyvDeserialize, Archive)]
-#[archive_attr(derive(CheckBytes))]
+#[archive_attr(derive(CheckBytes), repr(align(8)))]
 pub struct JournalEntrySetClockTimeV1 {
     pub clock_id: JournalSnapshot0ClockidV1,
     pub time: u64,
@@ -1031,32 +1039,30 @@ pub struct JournalEntrySetClockTimeV1 {
 #[repr(C)]
 #[repr(align(8))]
 #[derive(Debug, Clone, RkyvSerialize, RkyvDeserialize, Archive)]
-#[archive_attr(derive(CheckBytes))]
-pub struct JournalEntryOpenFileDescriptorV1 {
+#[archive_attr(derive(CheckBytes), repr(align(8)))]
+pub struct JournalEntryOpenFileDescriptorV1<'a> {
     pub fd: u32,
     pub dirfd: u32,
     pub dirflags: u32,
-    pub path: String,
-    pub _padding: Vec<u8>,
+    pub fs_flags: u16,
     pub o_flags: u16,
     pub fs_rights_base: u64,
     pub fs_rights_inheriting: u64,
-    pub fs_flags: u16,
+    pub path: AlignedCowStr<'a>,
 }
 
 #[repr(C)]
 #[repr(align(8))]
 #[derive(Debug, Clone, RkyvSerialize, RkyvDeserialize, Archive)]
-#[archive_attr(derive(CheckBytes))]
+#[archive_attr(derive(CheckBytes), repr(align(8)))]
 pub struct JournalEntryCloseFileDescriptorV1 {
     pub fd: u32,
-    pub _padding: u32,
 }
 
 #[repr(C)]
 #[repr(align(8))]
 #[derive(Debug, Clone, RkyvSerialize, RkyvDeserialize, Archive)]
-#[archive_attr(derive(CheckBytes))]
+#[archive_attr(derive(CheckBytes), repr(align(8)))]
 pub struct JournalEntryRenumberFileDescriptorV1 {
     pub old_fd: u32,
     pub new_fd: u32,
@@ -1065,7 +1071,7 @@ pub struct JournalEntryRenumberFileDescriptorV1 {
 #[repr(C)]
 #[repr(align(8))]
 #[derive(Debug, Clone, RkyvSerialize, RkyvDeserialize, Archive)]
-#[archive_attr(derive(CheckBytes))]
+#[archive_attr(derive(CheckBytes), repr(align(8)))]
 pub struct JournalEntryDuplicateFileDescriptorV1 {
     pub original_fd: u32,
     pub copied_fd: u32,
@@ -1074,32 +1080,29 @@ pub struct JournalEntryDuplicateFileDescriptorV1 {
 #[repr(C)]
 #[repr(align(8))]
 #[derive(Debug, Clone, RkyvSerialize, RkyvDeserialize, Archive)]
-#[archive_attr(derive(CheckBytes))]
-pub struct JournalEntryCreateDirectoryV1 {
+#[archive_attr(derive(CheckBytes), repr(align(8)))]
+pub struct JournalEntryCreateDirectoryV1<'a> {
     pub fd: u32,
-    pub path: String,
-    pub _padding: Vec<u8>,
+    pub path: AlignedCowStr<'a>,
 }
 
 #[repr(C)]
 #[repr(align(8))]
 #[derive(Debug, Clone, RkyvSerialize, RkyvDeserialize, Archive)]
-#[archive_attr(derive(CheckBytes))]
-pub struct JournalEntryRemoveDirectoryV1 {
+#[archive_attr(derive(CheckBytes), repr(align(8)))]
+pub struct JournalEntryRemoveDirectoryV1<'a> {
     pub fd: u32,
-    pub path: String,
-    pub _padding: Vec<u8>,
+    pub path: AlignedCowStr<'a>,
 }
 
 #[repr(C)]
 #[repr(align(8))]
 #[derive(Debug, Clone, RkyvSerialize, RkyvDeserialize, Archive)]
-#[archive_attr(derive(CheckBytes))]
-pub struct JournalEntryPathSetTimesV1 {
+#[archive_attr(derive(CheckBytes), repr(align(8)))]
+pub struct JournalEntryPathSetTimesV1<'a> {
     pub fd: u32,
     pub flags: u32,
-    pub path: String,
-    pub _padding: Vec<u8>,
+    pub path: AlignedCowStr<'a>,
     pub st_atim: u64,
     pub st_mtim: u64,
     pub fst_flags: u16,
@@ -1108,18 +1111,18 @@ pub struct JournalEntryPathSetTimesV1 {
 #[repr(C)]
 #[repr(align(8))]
 #[derive(Debug, Clone, RkyvSerialize, RkyvDeserialize, Archive)]
-#[archive_attr(derive(CheckBytes))]
+#[archive_attr(derive(CheckBytes), repr(align(8)))]
 pub struct JournalEntryFileDescriptorSetTimesV1 {
     pub fd: u32,
+    pub fst_flags: u16,
     pub st_atim: u64,
     pub st_mtim: u64,
-    pub fst_flags: u16,
 }
 
 #[repr(C)]
 #[repr(align(8))]
 #[derive(Debug, Clone, RkyvSerialize, RkyvDeserialize, Archive)]
-#[archive_attr(derive(CheckBytes))]
+#[archive_attr(derive(CheckBytes), repr(align(8)))]
 pub struct JournalEntryFileDescriptorSetSizeV1 {
     pub fd: u32,
     pub st_size: u64,
@@ -1128,7 +1131,7 @@ pub struct JournalEntryFileDescriptorSetSizeV1 {
 #[repr(C)]
 #[repr(align(8))]
 #[derive(Debug, Clone, RkyvSerialize, RkyvDeserialize, Archive)]
-#[archive_attr(derive(CheckBytes))]
+#[archive_attr(derive(CheckBytes), repr(align(8)))]
 pub struct JournalEntryFileDescriptorSetFlagsV1 {
     pub fd: u32,
     pub flags: u16,
@@ -1137,7 +1140,7 @@ pub struct JournalEntryFileDescriptorSetFlagsV1 {
 #[repr(C)]
 #[repr(align(8))]
 #[derive(Debug, Clone, RkyvSerialize, RkyvDeserialize, Archive)]
-#[archive_attr(derive(CheckBytes))]
+#[archive_attr(derive(CheckBytes), repr(align(8)))]
 pub struct JournalEntryFileDescriptorSetRightsV1 {
     pub fd: u32,
     pub fs_rights_base: u64,
@@ -1147,7 +1150,7 @@ pub struct JournalEntryFileDescriptorSetRightsV1 {
 #[repr(C)]
 #[repr(align(8))]
 #[derive(Debug, Clone, RkyvSerialize, RkyvDeserialize, Archive)]
-#[archive_attr(derive(CheckBytes))]
+#[archive_attr(derive(CheckBytes), repr(align(8)))]
 pub struct JournalEntryFileDescriptorAdviseV1 {
     pub fd: u32,
     pub offset: u64,
@@ -1158,7 +1161,7 @@ pub struct JournalEntryFileDescriptorAdviseV1 {
 #[repr(C)]
 #[repr(align(8))]
 #[derive(Debug, Clone, RkyvSerialize, RkyvDeserialize, Archive)]
-#[archive_attr(derive(CheckBytes))]
+#[archive_attr(derive(CheckBytes), repr(align(8)))]
 pub struct JournalEntryFileDescriptorAllocateV1 {
     pub fd: u32,
     pub offset: u64,
@@ -1168,70 +1171,65 @@ pub struct JournalEntryFileDescriptorAllocateV1 {
 #[repr(C)]
 #[repr(align(8))]
 #[derive(Debug, Clone, RkyvSerialize, RkyvDeserialize, Archive)]
-#[archive_attr(derive(CheckBytes))]
-pub struct JournalEntryCreateHardLinkV1 {
+#[archive_attr(derive(CheckBytes), repr(align(8)))]
+pub struct JournalEntryCreateHardLinkV1<'a> {
     pub old_fd: u32,
-    pub old_path: String,
+    pub old_path: AlignedCowStr<'a>,
     pub old_flags: u32,
     pub new_fd: u32,
-    pub new_path: String,
-    pub _padding: Vec<u8>,
+    pub new_path: AlignedCowStr<'a>,
 }
 
 #[repr(C)]
 #[repr(align(8))]
 #[derive(Debug, Clone, RkyvSerialize, RkyvDeserialize, Archive)]
-#[archive_attr(derive(CheckBytes))]
-pub struct JournalEntryCreateSymbolicLinkV1 {
-    pub old_path: String,
+#[archive_attr(derive(CheckBytes), repr(align(8)))]
+pub struct JournalEntryCreateSymbolicLinkV1<'a> {
     pub fd: u32,
-    pub new_path: String,
-    pub _padding: Vec<u8>,
+    pub old_path: AlignedCowStr<'a>,
+    pub new_path: AlignedCowStr<'a>,
 }
 
 #[repr(C)]
 #[repr(align(8))]
 #[derive(Debug, Clone, RkyvSerialize, RkyvDeserialize, Archive)]
-#[archive_attr(derive(CheckBytes))]
-pub struct JournalEntryUnlinkFileV1 {
+#[archive_attr(derive(CheckBytes), repr(align(8)))]
+pub struct JournalEntryUnlinkFileV1<'a> {
     pub fd: u32,
-    pub path: String,
-    pub _padding: Vec<u8>,
+    pub path: AlignedCowStr<'a>,
 }
 
 #[repr(C)]
 #[repr(align(8))]
 #[derive(Debug, Clone, RkyvSerialize, RkyvDeserialize, Archive)]
-#[archive_attr(derive(CheckBytes))]
-pub struct JournalEntryPathRenameV1 {
+#[archive_attr(derive(CheckBytes), repr(align(8)))]
+pub struct JournalEntryPathRenameV1<'a> {
     pub old_fd: u32,
-    pub old_path: String,
+    pub old_path: AlignedCowStr<'a>,
     pub new_fd: u32,
-    pub new_path: String,
-    pub _padding: Vec<u8>,
+    pub new_path: AlignedCowStr<'a>,
 }
 
 #[repr(C)]
 #[repr(align(8))]
 #[derive(Debug, Clone, RkyvSerialize, RkyvDeserialize, Archive)]
-#[archive_attr(derive(CheckBytes))]
-pub struct JournalEntryChangeDirectoryV1 {
-    pub path: String,
+#[archive_attr(derive(CheckBytes), repr(align(8)))]
+pub struct JournalEntryChangeDirectoryV1<'a> {
+    pub path: AlignedCowStr<'a>,
 }
 
 #[repr(C)]
 #[repr(align(8))]
 #[derive(Debug, Clone, RkyvSerialize, RkyvDeserialize, Archive)]
-#[archive_attr(derive(CheckBytes))]
+#[archive_attr(derive(CheckBytes), repr(align(8)))]
 pub struct JournalEntryEpollCreateV1 {
     pub fd: u32,
-    pub _padding: u32,
 }
 
 #[repr(C)]
 #[repr(align(8))]
 #[derive(Debug, Clone, RkyvSerialize, RkyvDeserialize, Archive)]
-#[archive_attr(derive(CheckBytes))]
+#[archive_attr(derive(CheckBytes), repr(align(8)))]
 pub struct JournalEntryEpollCtlV1 {
     pub epfd: u32,
     pub op: JournalEpollCtlV1,
@@ -1242,7 +1240,7 @@ pub struct JournalEntryEpollCtlV1 {
 #[repr(C)]
 #[repr(align(8))]
 #[derive(Debug, Clone, RkyvSerialize, RkyvDeserialize, Archive)]
-#[archive_attr(derive(CheckBytes))]
+#[archive_attr(derive(CheckBytes), repr(align(8)))]
 pub struct JournalEntryTtySetV1 {
     pub cols: u32,
     pub rows: u32,
@@ -1259,7 +1257,7 @@ pub struct JournalEntryTtySetV1 {
 #[repr(C)]
 #[repr(align(8))]
 #[derive(Debug, Clone, RkyvSerialize, RkyvDeserialize, Archive)]
-#[archive_attr(derive(CheckBytes))]
+#[archive_attr(derive(CheckBytes), repr(align(8)))]
 pub struct JournalEntryCreatePipeV1 {
     pub fd1: u32,
     pub fd2: u32,
@@ -1268,7 +1266,7 @@ pub struct JournalEntryCreatePipeV1 {
 #[repr(C)]
 #[repr(align(8))]
 #[derive(Debug, Clone, RkyvSerialize, RkyvDeserialize, Archive)]
-#[archive_attr(derive(CheckBytes))]
+#[archive_attr(derive(CheckBytes), repr(align(8)))]
 pub struct JournalEntryCreateEventV1 {
     pub initial_val: u64,
     pub flags: u16,
@@ -1278,7 +1276,7 @@ pub struct JournalEntryCreateEventV1 {
 #[repr(C)]
 #[repr(align(8))]
 #[derive(Debug, Clone, RkyvSerialize, RkyvDeserialize, Archive)]
-#[archive_attr(derive(CheckBytes))]
+#[archive_attr(derive(CheckBytes), repr(align(8)))]
 pub struct JournalEntryPortAddAddrV1 {
     pub cidr: JournalIpCidrV1,
 }
@@ -1286,7 +1284,7 @@ pub struct JournalEntryPortAddAddrV1 {
 #[repr(C)]
 #[repr(align(8))]
 #[derive(Debug, Clone, RkyvSerialize, RkyvDeserialize, Archive)]
-#[archive_attr(derive(CheckBytes))]
+#[archive_attr(derive(CheckBytes), repr(align(8)))]
 pub struct JournalEntryPortDelAddrV1 {
     pub addr: IpAddr,
 }
@@ -1294,18 +1292,17 @@ pub struct JournalEntryPortDelAddrV1 {
 #[repr(C)]
 #[repr(align(8))]
 #[derive(Debug, Clone, RkyvSerialize, RkyvDeserialize, Archive)]
-#[archive_attr(derive(CheckBytes))]
-pub struct JournalEntryPortBridgeV1 {
-    pub network: String,
-    pub token: String,
-    pub _padding: Vec<u8>,
+#[archive_attr(derive(CheckBytes), repr(align(8)))]
+pub struct JournalEntryPortBridgeV1<'a> {
+    pub network: AlignedCowStr<'a>,
+    pub token: AlignedCowStr<'a>,
     pub security: JournalStreamSecurityV1,
 }
 
 #[repr(C)]
 #[repr(align(8))]
 #[derive(Debug, Clone, RkyvSerialize, RkyvDeserialize, Archive)]
-#[archive_attr(derive(CheckBytes))]
+#[archive_attr(derive(CheckBytes), repr(align(8)))]
 pub struct JournalEntryPortGatewaySetV1 {
     pub ip: IpAddr,
 }
@@ -1313,7 +1310,7 @@ pub struct JournalEntryPortGatewaySetV1 {
 #[repr(C)]
 #[repr(align(8))]
 #[derive(Debug, Clone, RkyvSerialize, RkyvDeserialize, Archive)]
-#[archive_attr(derive(CheckBytes))]
+#[archive_attr(derive(CheckBytes), repr(align(8)))]
 pub struct JournalEntryPortRouteAddV1 {
     pub cidr: JournalIpCidrV1,
     pub via_router: IpAddr,
@@ -1324,7 +1321,7 @@ pub struct JournalEntryPortRouteAddV1 {
 #[repr(C)]
 #[repr(align(8))]
 #[derive(Debug, Clone, RkyvSerialize, RkyvDeserialize, Archive)]
-#[archive_attr(derive(CheckBytes))]
+#[archive_attr(derive(CheckBytes), repr(align(8)))]
 pub struct JournalEntryPortRouteDelV1 {
     pub ip: IpAddr,
 }
@@ -1332,7 +1329,7 @@ pub struct JournalEntryPortRouteDelV1 {
 #[repr(C)]
 #[repr(align(8))]
 #[derive(Debug, Clone, RkyvSerialize, RkyvDeserialize, Archive)]
-#[archive_attr(derive(CheckBytes))]
+#[archive_attr(derive(CheckBytes), repr(align(8)))]
 pub struct JournalEntrySocketOpenV1 {
     pub af: JournalAddressfamilyV1,
     pub ty: JournalSocktypeV1,
@@ -1343,7 +1340,7 @@ pub struct JournalEntrySocketOpenV1 {
 #[repr(C)]
 #[repr(align(8))]
 #[derive(Debug, Clone, RkyvSerialize, RkyvDeserialize, Archive)]
-#[archive_attr(derive(CheckBytes))]
+#[archive_attr(derive(CheckBytes), repr(align(8)))]
 pub struct JournalEntrySocketListenV1 {
     pub fd: u32,
     pub backlog: u32,
@@ -1352,7 +1349,7 @@ pub struct JournalEntrySocketListenV1 {
 #[repr(C)]
 #[repr(align(8))]
 #[derive(Debug, Clone, RkyvSerialize, RkyvDeserialize, Archive)]
-#[archive_attr(derive(CheckBytes))]
+#[archive_attr(derive(CheckBytes), repr(align(8)))]
 pub struct JournalEntrySocketBindV1 {
     pub fd: u32,
     pub addr: SocketAddr,
@@ -1361,19 +1358,21 @@ pub struct JournalEntrySocketBindV1 {
 #[repr(C)]
 #[repr(align(8))]
 #[derive(Debug, Clone, RkyvSerialize, RkyvDeserialize, Archive)]
-#[archive_attr(derive(CheckBytes))]
+#[archive_attr(derive(CheckBytes), repr(align(8)))]
 pub struct JournalEntrySocketConnectedV1 {
     pub fd: u32,
-    pub addr: SocketAddr,
+    pub local_addr: SocketAddr,
+    pub peer_addr: SocketAddr,
 }
 
 #[repr(C)]
 #[repr(align(8))]
 #[derive(Debug, Clone, RkyvSerialize, RkyvDeserialize, Archive)]
-#[archive_attr(derive(CheckBytes))]
+#[archive_attr(derive(CheckBytes), repr(align(8)))]
 pub struct JournalEntrySocketAcceptedV1 {
     pub listen_fd: u32,
     pub fd: u32,
+    pub local_addr: SocketAddr,
     pub peer_addr: SocketAddr,
     pub fd_flags: u16,
     pub nonblocking: bool,
@@ -1382,7 +1381,7 @@ pub struct JournalEntrySocketAcceptedV1 {
 #[repr(C)]
 #[repr(align(8))]
 #[derive(Debug, Clone, RkyvSerialize, RkyvDeserialize, Archive)]
-#[archive_attr(derive(CheckBytes))]
+#[archive_attr(derive(CheckBytes), repr(align(8)))]
 pub struct JournalEntrySocketJoinIpv4MulticastV1 {
     pub fd: u32,
     pub multiaddr: Ipv4Addr,
@@ -1392,7 +1391,7 @@ pub struct JournalEntrySocketJoinIpv4MulticastV1 {
 #[repr(C)]
 #[repr(align(8))]
 #[derive(Debug, Clone, RkyvSerialize, RkyvDeserialize, Archive)]
-#[archive_attr(derive(CheckBytes))]
+#[archive_attr(derive(CheckBytes), repr(align(8)))]
 pub struct JournalEntrySocketJoinIpv6MulticastV1 {
     pub fd: u32,
     pub multiaddr: Ipv6Addr,
@@ -1402,7 +1401,7 @@ pub struct JournalEntrySocketJoinIpv6MulticastV1 {
 #[repr(C)]
 #[repr(align(8))]
 #[derive(Debug, Clone, RkyvSerialize, RkyvDeserialize, Archive)]
-#[archive_attr(derive(CheckBytes))]
+#[archive_attr(derive(CheckBytes), repr(align(8)))]
 pub struct JournalEntrySocketLeaveIpv4MulticastV1 {
     pub fd: u32,
     pub multiaddr: Ipv4Addr,
@@ -1412,7 +1411,7 @@ pub struct JournalEntrySocketLeaveIpv4MulticastV1 {
 #[repr(C)]
 #[repr(align(8))]
 #[derive(Debug, Clone, RkyvSerialize, RkyvDeserialize, Archive)]
-#[archive_attr(derive(CheckBytes))]
+#[archive_attr(derive(CheckBytes), repr(align(8)))]
 pub struct JournalEntrySocketLeaveIpv6MulticastV1 {
     pub fd: u32,
     pub multiaddr: Ipv6Addr,
@@ -1422,7 +1421,7 @@ pub struct JournalEntrySocketLeaveIpv6MulticastV1 {
 #[repr(C)]
 #[repr(align(8))]
 #[derive(Debug, Clone, RkyvSerialize, RkyvDeserialize, Archive)]
-#[archive_attr(derive(CheckBytes))]
+#[archive_attr(derive(CheckBytes), repr(align(8)))]
 pub struct JournalEntrySocketSendFileV1 {
     pub socket_fd: u32,
     pub file_fd: u32,
@@ -1433,11 +1432,10 @@ pub struct JournalEntrySocketSendFileV1 {
 #[repr(C)]
 #[repr(align(8))]
 #[derive(Debug, Clone, RkyvSerialize, RkyvDeserialize, Archive)]
-#[archive_attr(derive(CheckBytes))]
-pub struct JournalEntrySocketSendToV1 {
+#[archive_attr(derive(CheckBytes), repr(align(8)))]
+pub struct JournalEntrySocketSendToV1<'a> {
     pub fd: u32,
-    pub data: Vec<u8>,
-    pub _padding: Vec<u8>,
+    pub data: AlignedCowVec<'a, u8>,
     pub flags: u16,
     pub addr: SocketAddr,
     pub is_64bit: bool,
@@ -1446,11 +1444,10 @@ pub struct JournalEntrySocketSendToV1 {
 #[repr(C)]
 #[repr(align(8))]
 #[derive(Debug, Clone, RkyvSerialize, RkyvDeserialize, Archive)]
-#[archive_attr(derive(CheckBytes))]
-pub struct JournalEntrySocketSendV1 {
+#[archive_attr(derive(CheckBytes), repr(align(8)))]
+pub struct JournalEntrySocketSendV1<'a> {
     pub fd: u32,
-    pub data: Vec<u8>,
-    pub _padding: Vec<u8>,
+    pub data: AlignedCowVec<'a, u8>,
     pub flags: u16,
     pub is_64bit: bool,
 }
@@ -1458,7 +1455,7 @@ pub struct JournalEntrySocketSendV1 {
 #[repr(C)]
 #[repr(align(8))]
 #[derive(Debug, Clone, RkyvSerialize, RkyvDeserialize, Archive)]
-#[archive_attr(derive(CheckBytes))]
+#[archive_attr(derive(CheckBytes), repr(align(8)))]
 pub struct JournalEntrySocketSetOptFlagV1 {
     pub fd: u32,
     pub opt: JournalSockoptionV1,
@@ -1468,7 +1465,7 @@ pub struct JournalEntrySocketSetOptFlagV1 {
 #[repr(C)]
 #[repr(align(8))]
 #[derive(Debug, Clone, RkyvSerialize, RkyvDeserialize, Archive)]
-#[archive_attr(derive(CheckBytes))]
+#[archive_attr(derive(CheckBytes), repr(align(8)))]
 pub struct JournalEntrySocketSetOptSizeV1 {
     pub fd: u32,
     pub opt: JournalSockoptionV1,
@@ -1478,7 +1475,7 @@ pub struct JournalEntrySocketSetOptSizeV1 {
 #[repr(C)]
 #[repr(align(8))]
 #[derive(Debug, Clone, RkyvSerialize, RkyvDeserialize, Archive)]
-#[archive_attr(derive(CheckBytes))]
+#[archive_attr(derive(CheckBytes), repr(align(8)))]
 pub struct JournalEntrySocketSetOptTimeV1 {
     pub fd: u32,
     pub ty: JournalTimeTypeV1,
@@ -1488,7 +1485,7 @@ pub struct JournalEntrySocketSetOptTimeV1 {
 #[repr(C)]
 #[repr(align(8))]
 #[derive(Debug, Clone, RkyvSerialize, RkyvDeserialize, Archive)]
-#[archive_attr(derive(CheckBytes))]
+#[archive_attr(derive(CheckBytes), repr(align(8)))]
 pub struct JournalEntrySocketShutdownV1 {
     pub fd: u32,
     pub how: JournalSocketShutdownV1,
@@ -1497,7 +1494,7 @@ pub struct JournalEntrySocketShutdownV1 {
 #[repr(C)]
 #[repr(align(8))]
 #[derive(Debug, Clone, RkyvSerialize, RkyvDeserialize, Archive)]
-#[archive_attr(derive(CheckBytes))]
+#[archive_attr(derive(CheckBytes), repr(align(8)))]
 pub struct JournalEntrySnapshotV1 {
     pub since_epoch: Duration,
     pub trigger: JournalSnapshotTriggerV1,
@@ -1772,4 +1769,36 @@ pub enum JournalSocketShutdownV1 {
     Read,
     Write,
     Both,
+}
+
+#[repr(C)]
+#[repr(align(8))]
+#[derive(
+    Debug,
+    Clone,
+    Copy,
+    RkyvSerialize,
+    RkyvDeserialize,
+    Archive,
+    PartialOrd,
+    Ord,
+    PartialEq,
+    Eq,
+    Hash,
+)]
+#[archive_attr(derive(CheckBytes), repr(align(8)))]
+pub enum JournalThreadStartTypeV1 {
+    MainThread,
+    ThreadSpawn { start_ptr: u64 },
+}
+
+#[repr(C)]
+#[repr(align(8))]
+#[derive(Debug, Clone, Copy, RkyvSerialize, RkyvDeserialize, Archive, PartialEq, Eq, Hash)]
+#[archive_attr(derive(CheckBytes), repr(align(8)))]
+pub struct JournalWasiMemoryLayout {
+    pub stack_upper: u64,
+    pub stack_lower: u64,
+    pub guard_size: u64,
+    pub stack_size: u64,
 }

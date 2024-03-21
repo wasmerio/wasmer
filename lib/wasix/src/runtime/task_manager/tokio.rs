@@ -148,10 +148,10 @@ impl VirtualTaskManager for TokioTaskManager {
         // Create the context on a new store
         let run = task.run;
         let recycle = task.recycle;
-        let (ctx, store) = WasiFunctionEnv::new_with_store(
+        let (ctx, mut store) = WasiFunctionEnv::new_with_store(
             task.module,
             task.env,
-            task.snapshot,
+            task.globals,
             task.spawn_type,
             task.update_layout,
         )?;
@@ -161,10 +161,38 @@ impl VirtualTaskManager for TokioTaskManager {
         if let Some(trigger) = task.trigger {
             tracing::trace!("spawning task_wasm trigger in async pool");
 
-            let trigger = trigger();
+            let mut trigger = trigger();
             let pool = self.pool.clone();
             self.rt.handle().spawn(async move {
-                let result = trigger.await;
+                // We wait for either the trigger or for a snapshot to take place
+                let result = loop {
+                    let env = ctx.data(&store);
+                    break tokio::select! {
+                        r = &mut trigger => r,
+                        _ = env.thread.wait_for_signal() => {
+                            tracing::debug!("wait-for-signal(triggered)");
+                            let mut ctx = ctx.env.clone().into_mut(&mut store);
+                            if let Err(err) = crate::WasiEnv::process_signals_and_exit(&mut ctx) {
+                                match err {
+                                    crate::WasiError::Exit(code) => Err(code),
+                                    err => {
+                                        tracing::error!("failed to process signals - {}", err);
+                                        continue;
+                                    }
+                                }
+                            } else {
+                                continue;
+                            }
+                        }
+                        _ = crate::wait_for_snapshot(env) => {
+                            tracing::debug!("wait-for-snapshot(triggered)");
+                            let mut ctx = ctx.env.clone().into_mut(&mut store);
+                            crate::os::task::WasiProcessInner::do_checkpoints_from_outside(&mut ctx);
+                            continue;
+                        }
+                    };
+                };
+
                 // Build the task that will go on the callback
                 pool.execute(move || {
                     // Invoke the callback

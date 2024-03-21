@@ -22,17 +22,25 @@ pub fn sock_connect<M: MemorySize>(
     let env = ctx.data();
     let memory = unsafe { env.memory_view(&ctx) };
     let addr = wasi_try_ok!(crate::net::read_ip_port(&memory, addr));
-    let addr = SocketAddr::new(addr.0, addr.1);
-    Span::current().record("addr", &format!("{:?}", addr));
+    let peer_addr = SocketAddr::new(addr.0, addr.1);
+    Span::current().record("addr", &format!("{:?}", peer_addr));
 
-    wasi_try_ok!(sock_connect_internal(&mut ctx, sock, addr)?);
+    wasi_try_ok!(sock_connect_internal(&mut ctx, sock, peer_addr)?);
 
     #[cfg(feature = "journal")]
     if ctx.data().enable_journal {
-        JournalEffector::save_sock_connect(&mut ctx, sock, addr).map_err(|err| {
-            tracing::error!("failed to save sock_connected event - {}", err);
-            WasiError::Exit(ExitCode::Errno(Errno::Fault))
-        })?;
+        let local_addr = wasi_try_ok!(__sock_actor(
+            &mut ctx,
+            sock,
+            Rights::empty(),
+            |socket, _| socket.addr_local()
+        ));
+        JournalEffector::save_sock_connect(&mut ctx, sock, local_addr, peer_addr).map_err(
+            |err| {
+                tracing::error!("failed to save sock_connected event - {}", err);
+                WasiError::Exit(ExitCode::Errno(Errno::Fault))
+            },
+        )?;
     }
 
     Ok(Errno::Success)

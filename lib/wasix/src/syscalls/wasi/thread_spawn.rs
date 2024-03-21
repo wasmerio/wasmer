@@ -21,7 +21,7 @@ pub fn thread_spawn<M: MemorySize>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     start_ptr: WasmPtr<ThreadStart<M>, M>,
 ) -> i32 {
-    thread_spawn_internal(&mut ctx, start_ptr)
+    thread_spawn_internal_from_wasi(&mut ctx, start_ptr)
         .map(|tid| tid as i32)
         .map_err(|errno| errno as i32)
         .unwrap_or_else(|err| -err)
