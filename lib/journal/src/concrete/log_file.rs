@@ -44,7 +44,7 @@ pub struct LogFileJournalTx {
 
 #[derive(Debug)]
 pub struct LogFileJournalRx {
-    tx: LogFileJournalTx,
+    tx: Option<LogFileJournalTx>,
     buffer_pos: Mutex<usize>,
     buffer: OwnedBuffer,
     store: OffloadBackingStore,
@@ -87,7 +87,7 @@ impl LogFileJournalTx {
         }
 
         Ok(LogFileJournalRx {
-            tx: self.clone(),
+            tx: Some(self.clone()),
             buffer_pos: Mutex::new(buffer_pos),
             buffer,
             store,
@@ -113,6 +113,7 @@ impl LogFileJournal {
         self.rx.backing_store()
     }
 
+    /// Create a new journal from a file
     pub fn from_file(mut file: std::fs::File) -> anyhow::Result<Self> {
         // Move to the end of the file and write the
         // magic if one is needed
@@ -141,6 +142,23 @@ impl LogFileJournal {
         let rx = tx.as_rx()?;
 
         Ok(Self { rx, tx })
+    }
+
+    /// Create a new journal from a buffer
+    pub fn from_buffer(buffer: OwnedBuffer) -> Box<DynJournal> {
+        // Create the rx
+        let rx = LogFileJournalRx {
+            tx: None,
+            buffer_pos: Mutex::new(0),
+            buffer: buffer.clone(),
+            store: OffloadBackingStore::from_buffer(buffer),
+        };
+
+        // Create an unsupported write journal
+        let tx = UnsupportedJournal::default();
+
+        // Now recombine
+        Box::new(RecombinedJournal::new(Box::new(tx), Box::new(rx)))
     }
 }
 
@@ -252,8 +270,17 @@ impl ReadableJournal for LogFileJournalRx {
     }
 
     fn as_restarted(&self) -> anyhow::Result<Box<DynReadableJournal>> {
-        let ret = self.tx.as_rx()?;
-        Ok(Box::new(ret))
+        if let Some(tx) = &self.tx {
+            let ret = tx.as_rx()?;
+            Ok(Box::new(ret))
+        } else {
+            Ok(Box::new(LogFileJournalRx {
+                tx: None,
+                buffer_pos: Mutex::new(0),
+                buffer: self.buffer.clone(),
+                store: self.store.clone(),
+            }))
+        }
     }
 }
 
