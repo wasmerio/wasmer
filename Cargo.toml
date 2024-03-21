@@ -91,6 +91,7 @@ webc = { version = "5.8.0", default-features = false, features = ["package"] }
 shared-buffer = "0.1.4"
 rkyv = { version = "0.7.40", features = ["indexmap", "validation", "strict"] }
 memmap2 = { version = "0.6.2" }
+edge-schema = { version = "=0.0.3" }
 
 [build-dependencies]
 test-generator = { path = "tests/lib/test-generator" }
