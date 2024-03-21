@@ -145,7 +145,7 @@ impl LogFileJournal {
     }
 
     /// Create a new journal from a buffer
-    pub fn from_buffer(buffer: OwnedBuffer) -> Box<DynJournal> {
+    pub fn from_buffer(buffer: OwnedBuffer) -> RecombinedJournal {
         // Create the rx
         let rx = LogFileJournalRx {
             tx: None,
@@ -158,7 +158,7 @@ impl LogFileJournal {
         let tx = UnsupportedJournal::default();
 
         // Now recombine
-        Box::new(RecombinedJournal::new(Box::new(tx), Box::new(rx)))
+        RecombinedJournal::new(Box::new(tx), Box::new(rx))
     }
 }
 
