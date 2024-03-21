@@ -1,7 +1,8 @@
 use crate::bindings::{
-    wasm_val_t, wasm_val_t__bindgen_ty_1, wasm_valkind_enum_WASM_F32, wasm_valkind_enum_WASM_F64,
-    wasm_valkind_enum_WASM_I32, wasm_valkind_enum_WASM_I64, wasm_valkind_t, wasm_valtype_kind,
-    wasm_valtype_t,
+    wasm_extern_as_ref, wasm_func_as_ref, wasm_val_t, wasm_val_t__bindgen_ty_1,
+    wasm_valkind_enum_WASM_ANYREF, wasm_valkind_enum_WASM_F32, wasm_valkind_enum_WASM_F64,
+    wasm_valkind_enum_WASM_FUNCREF, wasm_valkind_enum_WASM_I32, wasm_valkind_enum_WASM_I64,
+    wasm_valkind_t, wasm_valtype_kind, wasm_valtype_t,
 };
 //use crate::js::externals::Function;
 // use crate::store::{Store, StoreObject};
@@ -11,7 +12,7 @@ use crate::instance::Instance;
 use crate::store::{AsStoreMut, AsStoreRef};
 use crate::trap::Trap;
 use crate::value::Value;
-use crate::Type;
+use crate::{externals, Type};
 use crate::{Extern, Function, Global, Memory, Table};
 use std::collections::HashMap;
 use std::convert::TryInto;
@@ -39,7 +40,7 @@ pub fn param_from_c(value: &wasm_val_t) -> Value {
         wasm_valkind_enum_WASM_I64 => Value::I64(unsafe { value.of.i64_ }),
         wasm_valkind_enum_WASM_F32 => Value::F32(unsafe { value.of.f32_ }),
         wasm_valkind_enum_WASM_F64 => Value::F64(unsafe { value.of.f64_ }),
-        _ => unimplemented!(),
+        _ => unimplemented!("FuncRef and AnyRef aren't implemented as of now"),
     }
 }
 
@@ -62,7 +63,19 @@ pub fn result_to_value(param: &Value) -> wasm_val_t {
             kind: wasm_valkind_enum_WASM_F64 as _,
             of: wasm_val_t__bindgen_ty_1 { f64_: *val },
         },
-        _ => unimplemented!(),
+        Value::FuncRef(val) => wasm_val_t {
+            kind: wasm_valkind_enum_WASM_FUNCREF as _,
+            of: wasm_val_t__bindgen_ty_1 {
+                ref_: unsafe { wasm_func_as_ref(val.as_ref().unwrap().0.handle) },
+            },
+        },
+        Value::ExternRef(val) => wasm_val_t {
+            kind: wasm_valkind_enum_WASM_FUNCREF as _,
+            of: wasm_val_t__bindgen_ty_1 {
+                ref_: unsafe { wasm_extern_as_ref(todo!()) },
+            },
+        },
+        Value::V128(_) => todo!(),
     }
 }
 
@@ -73,7 +86,9 @@ pub fn type_to_c(type_: &Type) -> wasm_valkind_t {
         Type::I64 => wasm_valkind_enum_WASM_I64 as _,
         Type::F32 => wasm_valkind_enum_WASM_F32 as _,
         Type::F64 => wasm_valkind_enum_WASM_F64 as _,
-        _ => unimplemented!(),
+        Type::FuncRef => wasm_valkind_enum_WASM_FUNCREF as _,
+        Type::ExternRef => wasm_valkind_enum_WASM_ANYREF as _,
+        Type::V128 => todo!(),
     }
 }
 
@@ -88,7 +103,7 @@ pub fn valtype_to_type(type_: *const wasm_valtype_t) -> Type {
         wasm_valkind_enum_WASM_ANYREF => Type::ExternRef,
         wasm_valkind_enum_WASM_FUNCREF => Type::FuncRef,
         _ => unreachable!(
-            "valtype {:?} has no matching kind, therefore no matching wasmer_types::Type",
+            "valtype {:?} has no matching valkind and therefore no matching wasmer_types::Type",
             type_
         ),
     }
