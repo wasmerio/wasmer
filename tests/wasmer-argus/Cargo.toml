@@ -25,8 +25,23 @@ tracing-subscriber = { version = "0.3.18", features = ["env-filter"] }
 serde = { version = "1.0.197", features = ["derive"] }
 serde_json = "1.0.114"
 wasmer = { version = "4.2.6", path = "../../lib/api", features = ["engine", "core", "singlepass", "cranelift", "llvm"], optional = true }
-reqwest = { version = "0.11.24", features = ["rustls-tls"], default-features = false }
 derive_more = "0.99.17"
 webc.workspace = true
 async-trait = "0.1.77"
 wasmer-api = { path = "../../lib/backend-api" }
+
+
+[target.'cfg(not(target_arch = "riscv64"))'.dependencies]
+reqwest = { version = "^0.11", default-features = false, features = [
+  "rustls-tls",
+  "json",
+  "multipart",
+  "gzip",
+] }
+
+[target.'cfg(target_arch = "riscv64")'.dependencies]
+reqwest = { version = "^0.11", default-features = false, features = [
+  "native-tls",
+  "json",
+  "multipart",
+] }
