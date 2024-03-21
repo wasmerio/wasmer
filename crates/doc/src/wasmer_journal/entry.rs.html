@@ -768,6 +768,28 @@
 <a href="#768" id="768">768</a>
 <a href="#769" id="769">769</a>
 <a href="#770" id="770">770</a>
+<a href="#771" id="771">771</a>
+<a href="#772" id="772">772</a>
+<a href="#773" id="773">773</a>
+<a href="#774" id="774">774</a>
+<a href="#775" id="775">775</a>
+<a href="#776" id="776">776</a>
+<a href="#777" id="777">777</a>
+<a href="#778" id="778">778</a>
+<a href="#779" id="779">779</a>
+<a href="#780" id="780">780</a>
+<a href="#781" id="781">781</a>
+<a href="#782" id="782">782</a>
+<a href="#783" id="783">783</a>
+<a href="#784" id="784">784</a>
+<a href="#785" id="785">785</a>
+<a href="#786" id="786">786</a>
+<a href="#787" id="787">787</a>
+<a href="#788" id="788">788</a>
+<a href="#789" id="789">789</a>
+<a href="#790" id="790">790</a>
+<a href="#791" id="791">791</a>
+<a href="#792" id="792">792</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>derivative::Derivative;
 <span class="kw">use </span>serde::{Deserialize, Serialize};
 <span class="kw">use </span>std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
@@ -780,6 +802,7 @@
     Filesize, Fstflags, LookupFlags, Oflags, Rights, SiFlags, Snapshot0Clockid, SockProto,
     Sockoption, Socktype, Timestamp, Tty, Whence,
 };
+<span class="kw">use </span>wasmer_wasix_types::wasix::{ThreadStartType, WasiMemoryLayout};
 
 <span class="kw">use crate</span>::{base64, SnapshotTrigger};
 
@@ -855,6 +878,7 @@
     InitModuleV1 {
         wasm_hash: [u8; <span class="number">8</span>],
     },
+    ClearEtherealV1,
     UpdateMemoryRegionV1 {
         region: Range&lt;u64&gt;,
         <span class="attr">#[derivative(Debug = <span class="string">&quot;ignore&quot;</span>)]
@@ -875,6 +899,8 @@
         <span class="attr">#[derivative(Debug = <span class="string">&quot;ignore&quot;</span>)]
         #[serde(with = <span class="string">&quot;base64&quot;</span>)]
         </span>store_data: Cow&lt;<span class="lifetime">&#39;a</span>, [u8]&gt;,
+        start: ThreadStartType,
+        layout: WasiMemoryLayout,
         is_64bit: bool,
     },
     CloseThreadV1 {
@@ -1057,11 +1083,13 @@
     },
     SocketConnectedV1 {
         fd: Fd,
-        addr: SocketAddr,
+        local_addr: SocketAddr,
+        peer_addr: SocketAddr,
     },
     SocketAcceptedV1 {
         listen_fd: Fd,
         fd: Fd,
+        local_addr: SocketAddr,
         peer_addr: SocketAddr,
         fd_flags: Fdflags,
         non_blocking: bool,
@@ -1139,6 +1167,7 @@
     <span class="kw">pub fn </span>into_owned(<span class="self">self</span>) -&gt; JournalEntry&lt;<span class="lifetime">&#39;static</span>&gt; {
         <span class="kw">match </span><span class="self">self </span>{
             <span class="self">Self</span>::InitModuleV1 { wasm_hash } =&gt; JournalEntry::InitModuleV1 { wasm_hash },
+            <span class="self">Self</span>::ClearEtherealV1 =&gt; JournalEntry::ClearEtherealV1,
             <span class="self">Self</span>::UpdateMemoryRegionV1 { region, data } =&gt; JournalEntry::UpdateMemoryRegionV1 {
                 region,
                 data: data.into_owned().into(),
@@ -1150,11 +1179,15 @@
                 memory_stack,
                 store_data,
                 is_64bit,
+                start,
+                layout,
             } =&gt; JournalEntry::SetThreadV1 {
                 id,
                 call_stack: call_stack.into_owned().into(),
                 memory_stack: memory_stack.into_owned().into(),
                 store_data: store_data.into_owned().into(),
+                start,
+                layout,
                 is_64bit,
             },
             <span class="self">Self</span>::CloseThreadV1 { id, exit_code } =&gt; JournalEntry::CloseThreadV1 { id, exit_code },
@@ -1362,16 +1395,26 @@
             <span class="self">Self</span>::SocketOpenV1 { af, ty, pt, fd } =&gt; JournalEntry::SocketOpenV1 { af, ty, pt, fd },
             <span class="self">Self</span>::SocketListenV1 { fd, backlog } =&gt; JournalEntry::SocketListenV1 { fd, backlog },
             <span class="self">Self</span>::SocketBindV1 { fd, addr } =&gt; JournalEntry::SocketBindV1 { fd, addr },
-            <span class="self">Self</span>::SocketConnectedV1 { fd, addr } =&gt; JournalEntry::SocketConnectedV1 { fd, addr },
+            <span class="self">Self</span>::SocketConnectedV1 {
+                fd,
+                local_addr,
+                peer_addr,
+            } =&gt; JournalEntry::SocketConnectedV1 {
+                fd,
+                local_addr,
+                peer_addr,
+            },
             <span class="self">Self</span>::SocketAcceptedV1 {
                 listen_fd,
                 fd,
+                local_addr,
                 peer_addr,
                 fd_flags,
                 non_blocking: nonblocking,
             } =&gt; JournalEntry::SocketAcceptedV1 {
                 listen_fd,
                 fd,
+                local_addr,
                 peer_addr,
                 fd_flags,
                 non_blocking: nonblocking,
@@ -1465,6 +1508,7 @@
         <span class="kw">let </span>base_size = std::mem::size_of_val(<span class="self">self</span>);
         <span class="kw">match </span><span class="self">self </span>{
             JournalEntry::InitModuleV1 { .. } =&gt; base_size,
+            JournalEntry::ClearEtherealV1 =&gt; base_size,
             JournalEntry::UpdateMemoryRegionV1 { data, .. } =&gt; base_size + data.len(),
             JournalEntry::ProcessExitV1 { .. } =&gt; base_size,
             JournalEntry::SetThreadV1 {

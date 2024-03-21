@@ -1424,6 +1424,98 @@
 <a href="#1424" id="1424">1424</a>
 <a href="#1425" id="1425">1425</a>
 <a href="#1426" id="1426">1426</a>
+<a href="#1427" id="1427">1427</a>
+<a href="#1428" id="1428">1428</a>
+<a href="#1429" id="1429">1429</a>
+<a href="#1430" id="1430">1430</a>
+<a href="#1431" id="1431">1431</a>
+<a href="#1432" id="1432">1432</a>
+<a href="#1433" id="1433">1433</a>
+<a href="#1434" id="1434">1434</a>
+<a href="#1435" id="1435">1435</a>
+<a href="#1436" id="1436">1436</a>
+<a href="#1437" id="1437">1437</a>
+<a href="#1438" id="1438">1438</a>
+<a href="#1439" id="1439">1439</a>
+<a href="#1440" id="1440">1440</a>
+<a href="#1441" id="1441">1441</a>
+<a href="#1442" id="1442">1442</a>
+<a href="#1443" id="1443">1443</a>
+<a href="#1444" id="1444">1444</a>
+<a href="#1445" id="1445">1445</a>
+<a href="#1446" id="1446">1446</a>
+<a href="#1447" id="1447">1447</a>
+<a href="#1448" id="1448">1448</a>
+<a href="#1449" id="1449">1449</a>
+<a href="#1450" id="1450">1450</a>
+<a href="#1451" id="1451">1451</a>
+<a href="#1452" id="1452">1452</a>
+<a href="#1453" id="1453">1453</a>
+<a href="#1454" id="1454">1454</a>
+<a href="#1455" id="1455">1455</a>
+<a href="#1456" id="1456">1456</a>
+<a href="#1457" id="1457">1457</a>
+<a href="#1458" id="1458">1458</a>
+<a href="#1459" id="1459">1459</a>
+<a href="#1460" id="1460">1460</a>
+<a href="#1461" id="1461">1461</a>
+<a href="#1462" id="1462">1462</a>
+<a href="#1463" id="1463">1463</a>
+<a href="#1464" id="1464">1464</a>
+<a href="#1465" id="1465">1465</a>
+<a href="#1466" id="1466">1466</a>
+<a href="#1467" id="1467">1467</a>
+<a href="#1468" id="1468">1468</a>
+<a href="#1469" id="1469">1469</a>
+<a href="#1470" id="1470">1470</a>
+<a href="#1471" id="1471">1471</a>
+<a href="#1472" id="1472">1472</a>
+<a href="#1473" id="1473">1473</a>
+<a href="#1474" id="1474">1474</a>
+<a href="#1475" id="1475">1475</a>
+<a href="#1476" id="1476">1476</a>
+<a href="#1477" id="1477">1477</a>
+<a href="#1478" id="1478">1478</a>
+<a href="#1479" id="1479">1479</a>
+<a href="#1480" id="1480">1480</a>
+<a href="#1481" id="1481">1481</a>
+<a href="#1482" id="1482">1482</a>
+<a href="#1483" id="1483">1483</a>
+<a href="#1484" id="1484">1484</a>
+<a href="#1485" id="1485">1485</a>
+<a href="#1486" id="1486">1486</a>
+<a href="#1487" id="1487">1487</a>
+<a href="#1488" id="1488">1488</a>
+<a href="#1489" id="1489">1489</a>
+<a href="#1490" id="1490">1490</a>
+<a href="#1491" id="1491">1491</a>
+<a href="#1492" id="1492">1492</a>
+<a href="#1493" id="1493">1493</a>
+<a href="#1494" id="1494">1494</a>
+<a href="#1495" id="1495">1495</a>
+<a href="#1496" id="1496">1496</a>
+<a href="#1497" id="1497">1497</a>
+<a href="#1498" id="1498">1498</a>
+<a href="#1499" id="1499">1499</a>
+<a href="#1500" id="1500">1500</a>
+<a href="#1501" id="1501">1501</a>
+<a href="#1502" id="1502">1502</a>
+<a href="#1503" id="1503">1503</a>
+<a href="#1504" id="1504">1504</a>
+<a href="#1505" id="1505">1505</a>
+<a href="#1506" id="1506">1506</a>
+<a href="#1507" id="1507">1507</a>
+<a href="#1508" id="1508">1508</a>
+<a href="#1509" id="1509">1509</a>
+<a href="#1510" id="1510">1510</a>
+<a href="#1511" id="1511">1511</a>
+<a href="#1512" id="1512">1512</a>
+<a href="#1513" id="1513">1513</a>
+<a href="#1514" id="1514">1514</a>
+<a href="#1515" id="1515">1515</a>
+<a href="#1516" id="1516">1516</a>
+<a href="#1517" id="1517">1517</a>
+<a href="#1518" id="1518">1518</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{
     future::Future,
     io,
@@ -1461,27 +1553,32 @@
 
 <span class="attr">#[derive(Derivative)]
 #[derivative(Debug)]
+</span><span class="kw">pub struct </span>SocketProperties {
+    <span class="kw">pub </span>family: Addressfamily,
+    <span class="kw">pub </span>ty: Socktype,
+    <span class="kw">pub </span>pt: SockProto,
+    <span class="kw">pub </span>only_v6: bool,
+    <span class="kw">pub </span>reuse_port: bool,
+    <span class="kw">pub </span>reuse_addr: bool,
+    <span class="kw">pub </span>no_delay: <span class="prelude-ty">Option</span>&lt;bool&gt;,
+    <span class="kw">pub </span>keep_alive: <span class="prelude-ty">Option</span>&lt;bool&gt;,
+    <span class="kw">pub </span>dont_route: <span class="prelude-ty">Option</span>&lt;bool&gt;,
+    <span class="kw">pub </span>send_buf_size: <span class="prelude-ty">Option</span>&lt;usize&gt;,
+    <span class="kw">pub </span>recv_buf_size: <span class="prelude-ty">Option</span>&lt;usize&gt;,
+    <span class="kw">pub </span>write_timeout: <span class="prelude-ty">Option</span>&lt;Duration&gt;,
+    <span class="kw">pub </span>read_timeout: <span class="prelude-ty">Option</span>&lt;Duration&gt;,
+    <span class="kw">pub </span>accept_timeout: <span class="prelude-ty">Option</span>&lt;Duration&gt;,
+    <span class="kw">pub </span>connect_timeout: <span class="prelude-ty">Option</span>&lt;Duration&gt;,
+    <span class="attr">#[derivative(Debug = <span class="string">&quot;ignore&quot;</span>)]
+    </span><span class="kw">pub </span>handler: <span class="prelude-ty">Option</span>&lt;Box&lt;<span class="kw">dyn </span>InterestHandler + Send + Sync&gt;&gt;,
+}
+
+<span class="attr">#[derive(Debug)]
 </span><span class="comment">//#[cfg_attr(feature = &quot;enable-serde&quot;, derive(Serialize, Deserialize))]
 </span><span class="kw">pub enum </span>InodeSocketKind {
     PreSocket {
-        family: Addressfamily,
-        ty: Socktype,
-        pt: SockProto,
+        props: SocketProperties,
         addr: <span class="prelude-ty">Option</span>&lt;SocketAddr&gt;,
-        only_v6: bool,
-        reuse_port: bool,
-        reuse_addr: bool,
-        no_delay: <span class="prelude-ty">Option</span>&lt;bool&gt;,
-        keep_alive: <span class="prelude-ty">Option</span>&lt;bool&gt;,
-        dont_route: <span class="prelude-ty">Option</span>&lt;bool&gt;,
-        send_buf_size: <span class="prelude-ty">Option</span>&lt;usize&gt;,
-        recv_buf_size: <span class="prelude-ty">Option</span>&lt;usize&gt;,
-        write_timeout: <span class="prelude-ty">Option</span>&lt;Duration&gt;,
-        read_timeout: <span class="prelude-ty">Option</span>&lt;Duration&gt;,
-        accept_timeout: <span class="prelude-ty">Option</span>&lt;Duration&gt;,
-        connect_timeout: <span class="prelude-ty">Option</span>&lt;Duration&gt;,
-        <span class="attr">#[derivative(Debug = <span class="string">&quot;ignore&quot;</span>)]
-        </span>handler: <span class="prelude-ty">Option</span>&lt;Box&lt;<span class="kw">dyn </span>InterestHandler + Send + Sync&gt;&gt;,
     },
     Icmp(Box&lt;<span class="kw">dyn </span>VirtualIcmpSocket + Sync&gt;),
     Raw(Box&lt;<span class="kw">dyn </span>VirtualRawSocket + Sync&gt;),
@@ -1498,8 +1595,12 @@
         socket: Box&lt;<span class="kw">dyn </span>VirtualUdpSocket + Sync&gt;,
         peer: <span class="prelude-ty">Option</span>&lt;SocketAddr&gt;,
     },
-    RemoteTcpStream {
+    RemoteSocket {
+        props: SocketProperties,
+        local_addr: SocketAddr,
         peer_addr: SocketAddr,
+        ttl: u32,
+        multicast_ttl: u32,
     },
 }
 
@@ -1667,15 +1768,8 @@
         <span class="kw">let </span>socket = {
             <span class="kw">let </span><span class="kw-2">mut </span>inner = <span class="self">self</span>.inner.protected.write().unwrap();
             <span class="kw">match </span><span class="kw-2">&amp;mut </span>inner.kind {
-                InodeSocketKind::PreSocket {
-                    family,
-                    ty,
-                    addr,
-                    reuse_port,
-                    reuse_addr,
-                    ..
-                } =&gt; {
-                    <span class="kw">match </span><span class="kw-2">*</span>family {
+                InodeSocketKind::PreSocket { props, addr, .. } =&gt; {
+                    <span class="kw">match </span>props.family {
                         Addressfamily::Inet4 =&gt; {
                             <span class="kw">if </span>!set_addr.is_ipv4() {
                                 <span class="macro">tracing::debug!</span>(
@@ -1700,15 +1794,61 @@
                     addr.replace(set_addr);
                     <span class="kw">let </span>addr = (<span class="kw-2">*</span>addr).unwrap();
 
-                    <span class="kw">match </span><span class="kw-2">*</span>ty {
+                    <span class="kw">match </span>props.ty {
                         Socktype::Stream =&gt; {
                             <span class="comment">// we already set the socket address - next we need a listen or connect so nothing
                             // more to do at this time
                             </span><span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>);
                         }
                         Socktype::Dgram =&gt; {
-                            <span class="kw">let </span>reuse_port = <span class="kw-2">*</span>reuse_port;
-                            <span class="kw">let </span>reuse_addr = <span class="kw-2">*</span>reuse_addr;
+                            <span class="kw">let </span>reuse_port = props.reuse_port;
+                            <span class="kw">let </span>reuse_addr = props.reuse_addr;
+                            drop(inner);
+
+                            net.bind_udp(addr, reuse_port, reuse_addr)
+                        }
+                        <span class="kw">_ </span>=&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(Errno::Inval),
+                    }
+                }
+                InodeSocketKind::RemoteSocket {
+                    props,
+                    local_addr: addr,
+                    ..
+                } =&gt; {
+                    <span class="kw">match </span>props.family {
+                        Addressfamily::Inet4 =&gt; {
+                            <span class="kw">if </span>!set_addr.is_ipv4() {
+                                <span class="macro">tracing::debug!</span>(
+                                    <span class="string">&quot;IP address is the wrong type IPv4 ({set_addr}) vs IPv6 family&quot;
+                                </span>);
+                                <span class="kw">return </span><span class="prelude-val">Err</span>(Errno::Inval);
+                            }
+                        }
+                        Addressfamily::Inet6 =&gt; {
+                            <span class="kw">if </span>!set_addr.is_ipv6() {
+                                <span class="macro">tracing::debug!</span>(
+                                    <span class="string">&quot;IP address is the wrong type IPv6 ({set_addr}) vs IPv4 family&quot;
+                                </span>);
+                                <span class="kw">return </span><span class="prelude-val">Err</span>(Errno::Inval);
+                            }
+                        }
+                        <span class="kw">_ </span>=&gt; {
+                            <span class="kw">return </span><span class="prelude-val">Err</span>(Errno::Notsup);
+                        }
+                    }
+
+                    <span class="kw-2">*</span>addr = set_addr;
+                    <span class="kw">let </span>addr = <span class="kw-2">*</span>addr;
+
+                    <span class="kw">match </span>props.ty {
+                        Socktype::Stream =&gt; {
+                            <span class="comment">// we already set the socket address - next we need a listen or connect so nothing
+                            // more to do at this time
+                            </span><span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>);
+                        }
+                        Socktype::Dgram =&gt; {
+                            <span class="kw">let </span>reuse_port = props.reuse_port;
+                            <span class="kw">let </span>reuse_addr = props.reuse_addr;
                             drop(inner);
 
                             net.bind_udp(addr, reuse_port, reuse_addr)
@@ -1744,34 +1884,70 @@
         <span class="kw">let </span>socket = {
             <span class="kw">let </span>inner = <span class="self">self</span>.inner.protected.read().unwrap();
             <span class="kw">match </span><span class="kw-2">&amp;</span>inner.kind {
-                InodeSocketKind::PreSocket {
-                    ty,
-                    addr,
-                    only_v6,
-                    reuse_port,
-                    reuse_addr,
-                    ..
-                } =&gt; <span class="kw">match </span><span class="kw-2">*</span>ty {
+                InodeSocketKind::PreSocket { props, addr, .. } =&gt; <span class="kw">match </span>props.ty {
                     Socktype::Stream =&gt; {
                         <span class="kw">if </span>addr.is_none() {
                             <span class="macro">tracing::warn!</span>(<span class="string">&quot;wasi[?]::sock_listen - failed - address not set&quot;</span>);
                             <span class="kw">return </span><span class="prelude-val">Err</span>(Errno::Inval);
                         }
                         <span class="kw">let </span>addr = <span class="kw-2">*</span>addr.as_ref().unwrap();
-                        <span class="kw">let </span>only_v6 = <span class="kw-2">*</span>only_v6;
-                        <span class="kw">let </span>reuse_port = <span class="kw-2">*</span>reuse_port;
-                        <span class="kw">let </span>reuse_addr = <span class="kw-2">*</span>reuse_addr;
+                        <span class="kw">let </span>only_v6 = props.only_v6;
+                        <span class="kw">let </span>reuse_port = props.reuse_port;
+                        <span class="kw">let </span>reuse_addr = props.reuse_addr;
                         drop(inner);
 
                         net.listen_tcp(addr, only_v6, reuse_port, reuse_addr)
                     }
-                    <span class="kw">_ </span>=&gt; {
-                        <span class="macro">tracing::warn!</span>(<span class="string">&quot;wasi[?]::sock_listen - failed - not supported(1)&quot;</span>);
+                    ty =&gt; {
+                        <span class="macro">tracing::warn!</span>(
+                            <span class="string">&quot;wasi[?]::sock_listen - failed - not supported(pre-socket:{:?})&quot;</span>,
+                            ty
+                        );
                         <span class="kw">return </span><span class="prelude-val">Err</span>(Errno::Notsup);
                     }
                 },
-                <span class="kw">_ </span>=&gt; {
-                    <span class="macro">tracing::warn!</span>(<span class="string">&quot;wasi[?]::sock_listen - failed - not supported(2)&quot;</span>);
+                InodeSocketKind::RemoteSocket {
+                    props,
+                    local_addr: addr,
+                    ..
+                } =&gt; <span class="kw">match </span>props.ty {
+                    Socktype::Stream =&gt; {
+                        <span class="kw">let </span>addr = <span class="kw-2">*</span>addr;
+                        <span class="kw">let </span>only_v6 = props.only_v6;
+                        <span class="kw">let </span>reuse_port = props.reuse_port;
+                        <span class="kw">let </span>reuse_addr = props.reuse_addr;
+                        drop(inner);
+
+                        net.listen_tcp(addr, only_v6, reuse_port, reuse_addr)
+                    }
+                    ty =&gt; {
+                        <span class="macro">tracing::warn!</span>(
+                            <span class="string">&quot;wasi[?]::sock_listen - failed - not supported(remote-socket:{:?})&quot;</span>,
+                            ty
+                        );
+                        <span class="kw">return </span><span class="prelude-val">Err</span>(Errno::Notsup);
+                    }
+                },
+                InodeSocketKind::Icmp(<span class="kw">_</span>) =&gt; {
+                    <span class="macro">tracing::warn!</span>(<span class="string">&quot;wasi[?]::sock_listen - failed - not supported(icmp)&quot;</span>);
+                    <span class="kw">return </span><span class="prelude-val">Err</span>(Errno::Notsup);
+                }
+                InodeSocketKind::Raw(<span class="kw">_</span>) =&gt; {
+                    <span class="macro">tracing::warn!</span>(<span class="string">&quot;wasi[?]::sock_listen - failed - not supported(raw)&quot;</span>);
+                    <span class="kw">return </span><span class="prelude-val">Err</span>(Errno::Notsup);
+                }
+                InodeSocketKind::TcpListener { .. } =&gt; {
+                    <span class="macro">tracing::warn!</span>(
+                        <span class="string">&quot;wasi[?]::sock_listen - failed - already listening (tcp-listener)&quot;
+                    </span>);
+                    <span class="kw">return </span><span class="prelude-val">Err</span>(Errno::Notsup);
+                }
+                InodeSocketKind::TcpStream { .. } =&gt; {
+                    <span class="macro">tracing::warn!</span>(<span class="string">&quot;wasi[?]::sock_listen - failed - not supported(tcp-stream)&quot;</span>);
+                    <span class="kw">return </span><span class="prelude-val">Err</span>(Errno::Notsup);
+                }
+                InodeSocketKind::UdpSocket { .. } =&gt; {
+                    <span class="macro">tracing::warn!</span>(<span class="string">&quot;wasi[?]::sock_listen - failed - not supported(udp-socket)&quot;</span>);
                     <span class="kw">return </span><span class="prelude-val">Err</span>(Errno::Notsup);
                 }
             }
@@ -1867,7 +2043,7 @@
             InodeSocketKind::UdpSocket { .. } =&gt; {}
             InodeSocketKind::Raw(<span class="kw">_</span>) =&gt; {}
             InodeSocketKind::PreSocket { .. } =&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(Errno::Notconn),
-            InodeSocketKind::RemoteTcpStream { .. } =&gt; {}
+            InodeSocketKind::RemoteSocket { .. } =&gt; {}
         };
         <span class="prelude-val">Ok</span>(())
     }
@@ -1888,25 +2064,15 @@
         <span class="kw">let </span>connect = {
             <span class="kw">let </span><span class="kw-2">mut </span>inner = <span class="self">self</span>.inner.protected.write().unwrap();
             <span class="kw">match </span><span class="kw-2">&amp;mut </span>inner.kind {
-                InodeSocketKind::PreSocket {
-                    ty,
-                    addr,
-                    write_timeout,
-                    read_timeout,
-                    no_delay,
-                    keep_alive,
-                    dont_route,
-                    handler: h,
-                    ..
-                } =&gt; {
-                    handler = h.take();
-                    new_write_timeout = <span class="kw-2">*</span>write_timeout;
-                    new_read_timeout = <span class="kw-2">*</span>read_timeout;
-                    <span class="kw">match </span><span class="kw-2">*</span>ty {
+                InodeSocketKind::PreSocket { props, addr, .. } =&gt; {
+                    handler = props.handler.take();
+                    new_write_timeout = props.write_timeout;
+                    new_read_timeout = props.read_timeout;
+                    <span class="kw">match </span>props.ty {
                         Socktype::Stream =&gt; {
-                            <span class="kw">let </span>no_delay = <span class="kw-2">*</span>no_delay;
-                            <span class="kw">let </span>keep_alive = <span class="kw-2">*</span>keep_alive;
-                            <span class="kw">let </span>dont_route = <span class="kw-2">*</span>dont_route;
+                            <span class="kw">let </span>no_delay = props.no_delay;
+                            <span class="kw">let </span>keep_alive = props.keep_alive;
+                            <span class="kw">let </span>dont_route = props.dont_route;
                             <span class="kw">let </span>addr = <span class="kw">match </span>addr {
                                 <span class="prelude-val">Some</span>(a) =&gt; <span class="kw-2">*</span>a,
                                 <span class="prelude-val">None </span>=&gt; {
@@ -1941,6 +2107,10 @@
                     target_peer.replace(peer);
                     <span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>);
                 }
+                InodeSocketKind::RemoteSocket { peer_addr, .. } =&gt; {
+                    <span class="kw-2">*</span>peer_addr = peer;
+                    <span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>);
+                }
                 <span class="kw">_ </span>=&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(Errno::Notsup),
             }
         };
@@ -1972,6 +2142,7 @@
             InodeSocketKind::TcpListener { .. } =&gt; WasiSocketStatus::Opened,
             InodeSocketKind::TcpStream { .. } =&gt; WasiSocketStatus::Opened,
             InodeSocketKind::UdpSocket { .. } =&gt; WasiSocketStatus::Opened,
+            InodeSocketKind::RemoteSocket { .. } =&gt; WasiSocketStatus::Opened,
             <span class="kw">_ </span>=&gt; WasiSocketStatus::Failed,
         })
     }
@@ -1979,12 +2150,12 @@
     <span class="kw">pub fn </span>addr_local(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;SocketAddr, Errno&gt; {
         <span class="kw">let </span>inner = <span class="self">self</span>.inner.protected.read().unwrap();
         <span class="prelude-val">Ok</span>(<span class="kw">match </span><span class="kw-2">&amp;</span>inner.kind {
-            InodeSocketKind::PreSocket { family, addr, .. } =&gt; {
+            InodeSocketKind::PreSocket { props, addr, .. } =&gt; {
                 <span class="kw">if let </span><span class="prelude-val">Some</span>(addr) = addr {
                     <span class="kw-2">*</span>addr
                 } <span class="kw">else </span>{
                     SocketAddr::new(
-                        <span class="kw">match </span><span class="kw-2">*</span>family {
+                        <span class="kw">match </span>props.family {
                             Addressfamily::Inet4 =&gt; IpAddr::V4(Ipv4Addr::UNSPECIFIED),
                             Addressfamily::Inet6 =&gt; IpAddr::V6(Ipv6Addr::UNSPECIFIED),
                             <span class="kw">_ </span>=&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(Errno::Inval),
@@ -2003,6 +2174,9 @@
             InodeSocketKind::UdpSocket { socket, .. } =&gt; {
                 socket.addr_local().map_err(net_error_into_wasi_err)<span class="question-mark">?
             </span>}
+            InodeSocketKind::RemoteSocket {
+                local_addr: addr, ..
+            } =&gt; <span class="kw-2">*</span>addr,
             <span class="kw">_ </span>=&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(Errno::Notsup),
         })
     }
@@ -2010,8 +2184,8 @@
     <span class="kw">pub fn </span>addr_peer(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;SocketAddr, Errno&gt; {
         <span class="kw">let </span>inner = <span class="self">self</span>.inner.protected.read().unwrap();
         <span class="prelude-val">Ok</span>(<span class="kw">match </span><span class="kw-2">&amp;</span>inner.kind {
-            InodeSocketKind::PreSocket { family, .. } =&gt; SocketAddr::new(
-                <span class="kw">match </span><span class="kw-2">*</span>family {
+            InodeSocketKind::PreSocket { props, .. } =&gt; SocketAddr::new(
+                <span class="kw">match </span>props.family {
                     Addressfamily::Inet4 =&gt; IpAddr::V4(Ipv4Addr::UNSPECIFIED),
                     Addressfamily::Inet6 =&gt; IpAddr::V6(Ipv6Addr::UNSPECIFIED),
                     <span class="kw">_ </span>=&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(Errno::Inval),
@@ -2039,6 +2213,7 @@
                             )
                         })
                 })<span class="question-mark">?</span>,
+            InodeSocketKind::RemoteSocket { peer_addr, .. } =&gt; <span class="kw-2">*</span>peer_addr,
             <span class="kw">_ </span>=&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(Errno::Notsup),
         })
     }
@@ -2046,22 +2221,15 @@
     <span class="kw">pub fn </span>set_opt_flag(<span class="kw-2">&amp;mut </span><span class="self">self</span>, option: WasiSocketOption, val: bool) -&gt; <span class="prelude-ty">Result</span>&lt;(), Errno&gt; {
         <span class="kw">let </span><span class="kw-2">mut </span>inner = <span class="self">self</span>.inner.protected.write().unwrap();
         <span class="kw">match </span><span class="kw-2">&amp;mut </span>inner.kind {
-            InodeSocketKind::PreSocket {
-                only_v6,
-                reuse_port,
-                reuse_addr,
-                no_delay,
-                keep_alive,
-                dont_route,
-                ..
-            } =&gt; {
+            InodeSocketKind::PreSocket { props, .. }
+            | InodeSocketKind::RemoteSocket { props, .. } =&gt; {
                 <span class="kw">match </span>option {
-                    WasiSocketOption::OnlyV6 =&gt; <span class="kw-2">*</span>only_v6 = val,
-                    WasiSocketOption::ReusePort =&gt; <span class="kw-2">*</span>reuse_port = val,
-                    WasiSocketOption::ReuseAddr =&gt; <span class="kw-2">*</span>reuse_addr = val,
-                    WasiSocketOption::NoDelay =&gt; <span class="kw-2">*</span>no_delay = <span class="prelude-val">Some</span>(val),
-                    WasiSocketOption::KeepAlive =&gt; <span class="kw-2">*</span>keep_alive = <span class="prelude-val">Some</span>(val),
-                    WasiSocketOption::DontRoute =&gt; <span class="kw-2">*</span>dont_route = <span class="prelude-val">Some</span>(val),
+                    WasiSocketOption::OnlyV6 =&gt; props.only_v6 = val,
+                    WasiSocketOption::ReusePort =&gt; props.reuse_port = val,
+                    WasiSocketOption::ReuseAddr =&gt; props.reuse_addr = val,
+                    WasiSocketOption::NoDelay =&gt; props.no_delay = <span class="prelude-val">Some</span>(val),
+                    WasiSocketOption::KeepAlive =&gt; props.keep_alive = <span class="prelude-val">Some</span>(val),
+                    WasiSocketOption::DontRoute =&gt; props.dont_route = <span class="prelude-val">Some</span>(val),
                     <span class="kw">_ </span>=&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(Errno::Inval),
                 };
             }
@@ -2104,19 +2272,13 @@
     <span class="kw">pub fn </span>get_opt_flag(<span class="kw-2">&amp;</span><span class="self">self</span>, option: WasiSocketOption) -&gt; <span class="prelude-ty">Result</span>&lt;bool, Errno&gt; {
         <span class="kw">let </span><span class="kw-2">mut </span>inner = <span class="self">self</span>.inner.protected.write().unwrap();
         <span class="prelude-val">Ok</span>(<span class="kw">match </span><span class="kw-2">&amp;mut </span>inner.kind {
-            InodeSocketKind::PreSocket {
-                only_v6,
-                reuse_port,
-                reuse_addr,
-                no_delay,
-                keep_alive,
-                ..
-            } =&gt; <span class="kw">match </span>option {
-                WasiSocketOption::OnlyV6 =&gt; <span class="kw-2">*</span>only_v6,
-                WasiSocketOption::ReusePort =&gt; <span class="kw-2">*</span>reuse_port,
-                WasiSocketOption::ReuseAddr =&gt; <span class="kw-2">*</span>reuse_addr,
-                WasiSocketOption::NoDelay =&gt; no_delay.unwrap_or_default(),
-                WasiSocketOption::KeepAlive =&gt; keep_alive.unwrap_or_default(),
+            InodeSocketKind::PreSocket { props, .. }
+            | InodeSocketKind::RemoteSocket { props, .. } =&gt; <span class="kw">match </span>option {
+                WasiSocketOption::OnlyV6 =&gt; props.only_v6,
+                WasiSocketOption::ReusePort =&gt; props.reuse_port,
+                WasiSocketOption::ReuseAddr =&gt; props.reuse_addr,
+                WasiSocketOption::NoDelay =&gt; props.no_delay.unwrap_or_default(),
+                WasiSocketOption::KeepAlive =&gt; props.keep_alive.unwrap_or_default(),
                 <span class="kw">_ </span>=&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(Errno::Inval),
             },
             InodeSocketKind::Raw(sock) =&gt; <span class="kw">match </span>option {
@@ -2154,8 +2316,9 @@
     <span class="kw">pub fn </span>set_send_buf_size(<span class="kw-2">&amp;mut </span><span class="self">self</span>, size: usize) -&gt; <span class="prelude-ty">Result</span>&lt;(), Errno&gt; {
         <span class="kw">let </span><span class="kw-2">mut </span>inner = <span class="self">self</span>.inner.protected.write().unwrap();
         <span class="kw">match </span><span class="kw-2">&amp;mut </span>inner.kind {
-            InodeSocketKind::PreSocket { send_buf_size, .. } =&gt; {
-                <span class="kw-2">*</span>send_buf_size = <span class="prelude-val">Some</span>(size);
+            InodeSocketKind::PreSocket { props, .. }
+            | InodeSocketKind::RemoteSocket { props, .. } =&gt; {
+                props.send_buf_size = <span class="prelude-val">Some</span>(size);
             }
             InodeSocketKind::TcpStream { socket, .. } =&gt; {
                 socket
@@ -2170,8 +2333,9 @@
     <span class="kw">pub fn </span>send_buf_size(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;usize, Errno&gt; {
         <span class="kw">let </span>inner = <span class="self">self</span>.inner.protected.read().unwrap();
         <span class="kw">match </span><span class="kw-2">&amp;</span>inner.kind {
-            InodeSocketKind::PreSocket { send_buf_size, .. } =&gt; {
-                <span class="prelude-val">Ok</span>((<span class="kw-2">*</span>send_buf_size).unwrap_or_default())
+            InodeSocketKind::PreSocket { props, .. }
+            | InodeSocketKind::RemoteSocket { props, .. } =&gt; {
+                <span class="prelude-val">Ok</span>(props.send_buf_size.unwrap_or_default())
             }
             InodeSocketKind::TcpStream { socket, .. } =&gt; {
                 socket.send_buf_size().map_err(net_error_into_wasi_err)
@@ -2183,8 +2347,9 @@
     <span class="kw">pub fn </span>set_recv_buf_size(<span class="kw-2">&amp;mut </span><span class="self">self</span>, size: usize) -&gt; <span class="prelude-ty">Result</span>&lt;(), Errno&gt; {
         <span class="kw">let </span><span class="kw-2">mut </span>inner = <span class="self">self</span>.inner.protected.write().unwrap();
         <span class="kw">match </span><span class="kw-2">&amp;mut </span>inner.kind {
-            InodeSocketKind::PreSocket { recv_buf_size, .. } =&gt; {
-                <span class="kw-2">*</span>recv_buf_size = <span class="prelude-val">Some</span>(size);
+            InodeSocketKind::PreSocket { props, .. }
+            | InodeSocketKind::RemoteSocket { props, .. } =&gt; {
+                props.recv_buf_size = <span class="prelude-val">Some</span>(size);
             }
             InodeSocketKind::TcpStream { socket, .. } =&gt; {
                 socket
@@ -2199,8 +2364,9 @@
     <span class="kw">pub fn </span>recv_buf_size(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;usize, Errno&gt; {
         <span class="kw">let </span>inner = <span class="self">self</span>.inner.protected.read().unwrap();
         <span class="kw">match </span><span class="kw-2">&amp;</span>inner.kind {
-            InodeSocketKind::PreSocket { recv_buf_size, .. } =&gt; {
-                <span class="prelude-val">Ok</span>((<span class="kw-2">*</span>recv_buf_size).unwrap_or_default())
+            InodeSocketKind::PreSocket { props, .. }
+            | InodeSocketKind::RemoteSocket { props, .. } =&gt; {
+                <span class="prelude-val">Ok</span>(props.recv_buf_size.unwrap_or_default())
             }
             InodeSocketKind::TcpStream { socket, .. } =&gt; {
                 socket.recv_buf_size().map_err(net_error_into_wasi_err)
@@ -2215,6 +2381,7 @@
             InodeSocketKind::TcpStream { socket, .. } =&gt; {
                 socket.set_linger(linger).map_err(net_error_into_wasi_err)
             }
+            InodeSocketKind::RemoteSocket { .. } =&gt; <span class="prelude-val">Ok</span>(()),
             InodeSocketKind::PreSocket { .. } =&gt; <span class="prelude-val">Err</span>(Errno::Io),
             <span class="kw">_ </span>=&gt; <span class="prelude-val">Err</span>(Errno::Notsup),
         }
@@ -2257,18 +2424,13 @@
                 }
                 <span class="prelude-val">Ok</span>(())
             }
-            InodeSocketKind::PreSocket {
-                read_timeout,
-                write_timeout,
-                connect_timeout,
-                accept_timeout,
-                ..
-            } =&gt; {
+            InodeSocketKind::PreSocket { props, .. }
+            | InodeSocketKind::RemoteSocket { props, .. } =&gt; {
                 <span class="kw">match </span>ty {
-                    TimeType::ConnectTimeout =&gt; <span class="kw-2">*</span>connect_timeout = timeout,
-                    TimeType::AcceptTimeout =&gt; <span class="kw-2">*</span>accept_timeout = timeout,
-                    TimeType::ReadTimeout =&gt; <span class="kw-2">*</span>read_timeout = timeout,
-                    TimeType::WriteTimeout =&gt; <span class="kw-2">*</span>write_timeout = timeout,
+                    TimeType::ConnectTimeout =&gt; props.connect_timeout = timeout,
+                    TimeType::AcceptTimeout =&gt; props.accept_timeout = timeout,
+                    TimeType::ReadTimeout =&gt; props.read_timeout = timeout,
+                    TimeType::WriteTimeout =&gt; props.write_timeout = timeout,
                     <span class="kw">_ </span>=&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(Errno::Io),
                 }
                 <span class="prelude-val">Ok</span>(())
@@ -2293,17 +2455,12 @@
                 TimeType::AcceptTimeout =&gt; <span class="kw-2">*</span>accept_timeout,
                 <span class="kw">_ </span>=&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(Errno::Inval),
             }),
-            InodeSocketKind::PreSocket {
-                read_timeout,
-                write_timeout,
-                connect_timeout,
-                accept_timeout,
-                ..
-            } =&gt; <span class="kw">match </span>ty {
-                TimeType::ConnectTimeout =&gt; <span class="prelude-val">Ok</span>(<span class="kw-2">*</span>connect_timeout),
-                TimeType::AcceptTimeout =&gt; <span class="prelude-val">Ok</span>(<span class="kw-2">*</span>accept_timeout),
-                TimeType::ReadTimeout =&gt; <span class="prelude-val">Ok</span>(<span class="kw-2">*</span>read_timeout),
-                TimeType::WriteTimeout =&gt; <span class="prelude-val">Ok</span>(<span class="kw-2">*</span>write_timeout),
+            InodeSocketKind::PreSocket { props, .. }
+            | InodeSocketKind::RemoteSocket { props, .. } =&gt; <span class="kw">match </span>ty {
+                TimeType::ConnectTimeout =&gt; <span class="prelude-val">Ok</span>(props.connect_timeout),
+                TimeType::AcceptTimeout =&gt; <span class="prelude-val">Ok</span>(props.accept_timeout),
+                TimeType::ReadTimeout =&gt; <span class="prelude-val">Ok</span>(props.read_timeout),
+                TimeType::WriteTimeout =&gt; <span class="prelude-val">Ok</span>(props.write_timeout),
                 <span class="kw">_ </span>=&gt; <span class="prelude-val">Err</span>(Errno::Inval),
             },
             <span class="kw">_ </span>=&gt; <span class="prelude-val">Err</span>(Errno::Notsup),
@@ -2319,6 +2476,10 @@
             InodeSocketKind::UdpSocket { socket, .. } =&gt; {
                 socket.set_ttl(ttl).map_err(net_error_into_wasi_err)
             }
+            InodeSocketKind::RemoteSocket { ttl: set_ttl, .. } =&gt; {
+                <span class="kw-2">*</span>set_ttl = ttl;
+                <span class="prelude-val">Ok</span>(())
+            }
             InodeSocketKind::PreSocket { .. } =&gt; <span class="prelude-val">Err</span>(Errno::Io),
             <span class="kw">_ </span>=&gt; <span class="prelude-val">Err</span>(Errno::Notsup),
         }
@@ -2333,6 +2494,7 @@
             InodeSocketKind::UdpSocket { socket, .. } =&gt; {
                 socket.ttl().map_err(net_error_into_wasi_err)
             }
+            InodeSocketKind::RemoteSocket { ttl, .. } =&gt; <span class="prelude-val">Ok</span>(<span class="kw-2">*</span>ttl),
             InodeSocketKind::PreSocket { .. } =&gt; <span class="prelude-val">Err</span>(Errno::Io),
             <span class="kw">_ </span>=&gt; <span class="prelude-val">Err</span>(Errno::Notsup),
         }
@@ -2344,6 +2506,13 @@
             InodeSocketKind::UdpSocket { socket, .. } =&gt; socket
                 .set_multicast_ttl_v4(ttl)
                 .map_err(net_error_into_wasi_err),
+            InodeSocketKind::RemoteSocket {
+                multicast_ttl: set_ttl,
+                ..
+            } =&gt; {
+                <span class="kw-2">*</span>set_ttl = ttl;
+                <span class="prelude-val">Ok</span>(())
+            }
             InodeSocketKind::PreSocket { .. } =&gt; <span class="prelude-val">Err</span>(Errno::Io),
             <span class="kw">_ </span>=&gt; <span class="prelude-val">Err</span>(Errno::Notsup),
         }
@@ -2355,6 +2524,7 @@
             InodeSocketKind::UdpSocket { socket, .. } =&gt; {
                 socket.multicast_ttl_v4().map_err(net_error_into_wasi_err)
             }
+            InodeSocketKind::RemoteSocket { multicast_ttl, .. } =&gt; <span class="prelude-val">Ok</span>(<span class="kw-2">*</span>multicast_ttl),
             InodeSocketKind::PreSocket { .. } =&gt; <span class="prelude-val">Err</span>(Errno::Io),
             <span class="kw">_ </span>=&gt; <span class="prelude-val">Err</span>(Errno::Notsup),
         }
@@ -2366,6 +2536,7 @@
             InodeSocketKind::UdpSocket { socket, .. } =&gt; socket
                 .join_multicast_v4(multiaddr, iface)
                 .map_err(net_error_into_wasi_err),
+            InodeSocketKind::RemoteSocket { .. } =&gt; <span class="prelude-val">Ok</span>(()),
             InodeSocketKind::PreSocket { .. } =&gt; <span class="prelude-val">Err</span>(Errno::Io),
             <span class="kw">_ </span>=&gt; <span class="prelude-val">Err</span>(Errno::Notsup),
         }
@@ -2377,6 +2548,7 @@
             InodeSocketKind::UdpSocket { socket, .. } =&gt; socket
                 .leave_multicast_v4(multiaddr, iface)
                 .map_err(net_error_into_wasi_err),
+            InodeSocketKind::RemoteSocket { .. } =&gt; <span class="prelude-val">Ok</span>(()),
             InodeSocketKind::PreSocket { .. } =&gt; <span class="prelude-val">Err</span>(Errno::Io),
             <span class="kw">_ </span>=&gt; <span class="prelude-val">Err</span>(Errno::Notsup),
         }
@@ -2388,6 +2560,7 @@
             InodeSocketKind::UdpSocket { socket, .. } =&gt; socket
                 .join_multicast_v6(multiaddr, iface)
                 .map_err(net_error_into_wasi_err),
+            InodeSocketKind::RemoteSocket { .. } =&gt; <span class="prelude-val">Ok</span>(()),
             InodeSocketKind::PreSocket { .. } =&gt; <span class="prelude-val">Err</span>(Errno::Io),
             <span class="kw">_ </span>=&gt; <span class="prelude-val">Err</span>(Errno::Notsup),
         }
@@ -2399,6 +2572,7 @@
             InodeSocketKind::UdpSocket { socket, .. } =&gt; socket
                 .leave_multicast_v6(multiaddr, iface)
                 .map_err(net_error_into_wasi_err),
+            InodeSocketKind::RemoteSocket { .. } =&gt; <span class="prelude-val">Ok</span>(()),
             InodeSocketKind::PreSocket { .. } =&gt; <span class="prelude-val">Err</span>(Errno::Io),
             <span class="kw">_ </span>=&gt; <span class="prelude-val">Err</span>(Errno::Notsup),
         }
@@ -2446,7 +2620,7 @@
                         InodeSocketKind::PreSocket { .. } =&gt; {
                             <span class="kw">return </span>Poll::Ready(<span class="prelude-val">Err</span>(Errno::Notconn))
                         }
-                        InodeSocketKind::RemoteTcpStream { .. } =&gt; {
+                        InodeSocketKind::RemoteSocket { .. } =&gt; {
                             <span class="kw">return </span>Poll::Ready(<span class="prelude-val">Ok</span>(<span class="self">self</span>.data.len()))
                         }
                         <span class="kw">_ </span>=&gt; <span class="kw">return </span>Poll::Ready(<span class="prelude-val">Err</span>(Errno::Notsup)),
@@ -2526,7 +2700,7 @@
                         InodeSocketKind::PreSocket { .. } =&gt; {
                             <span class="kw">return </span>Poll::Ready(<span class="prelude-val">Err</span>(Errno::Notconn))
                         }
-                        InodeSocketKind::RemoteTcpStream { .. } =&gt; {
+                        InodeSocketKind::RemoteSocket { .. } =&gt; {
                             <span class="kw">return </span>Poll::Ready(<span class="prelude-val">Ok</span>(<span class="self">self</span>.data.len()))
                         }
                         <span class="kw">_ </span>=&gt; <span class="kw">return </span>Poll::Ready(<span class="prelude-val">Err</span>(Errno::Notsup)),
@@ -2614,6 +2788,9 @@
                                 }
                             }
                         }
+                        InodeSocketKind::RemoteSocket { .. } =&gt; {
+                            <span class="kw">return </span>Poll::Pending;
+                        }
                         InodeSocketKind::PreSocket { .. } =&gt; {
                             <span class="kw">return </span>Poll::Ready(<span class="prelude-val">Err</span>(Errno::Notconn))
                         }
@@ -2690,6 +2867,9 @@
                         InodeSocketKind::UdpSocket { socket, .. } =&gt; {
                             socket.try_recv_from(<span class="self">self</span>.data)
                         }
+                        InodeSocketKind::RemoteSocket { .. } =&gt; {
+                            <span class="kw">return </span>Poll::Pending;
+                        }
                         InodeSocketKind::PreSocket { .. } =&gt; {
                             <span class="kw">return </span>Poll::Ready(<span class="prelude-val">Err</span>(Errno::Notconn))
                         }
@@ -2736,6 +2916,7 @@
             InodeSocketKind::TcpStream { socket, .. } =&gt; {
                 socket.shutdown(how).map_err(net_error_into_wasi_err)<span class="question-mark">?</span>;
             }
+            InodeSocketKind::RemoteSocket { .. } =&gt; <span class="kw">return </span><span class="prelude-val">Ok</span>(()),
             InodeSocketKind::PreSocket { .. } =&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(Errno::Notconn),
             <span class="kw">_ </span>=&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(Errno::Notsup),
         }
@@ -2747,6 +2928,7 @@
             <span class="attr">#[allow(clippy::match_like_matches_macro)]
             </span><span class="kw">match </span><span class="kw-2">&amp;mut </span>guard.kind {
                 InodeSocketKind::TcpStream { .. }
+                | InodeSocketKind::RemoteSocket { .. }
                 | InodeSocketKind::UdpSocket { .. }
                 | InodeSocketKind::Raw(..) =&gt; <span class="bool-val">true</span>,
                 <span class="kw">_ </span>=&gt; <span class="bool-val">false</span>,
@@ -2765,10 +2947,12 @@
             InodeSocketKind::UdpSocket { socket, .. } =&gt; socket.remove_handler(),
             InodeSocketKind::Raw(socket) =&gt; socket.remove_handler(),
             InodeSocketKind::Icmp(socket) =&gt; socket.remove_handler(),
-            InodeSocketKind::PreSocket { handler, .. } =&gt; {
-                handler.take();
+            InodeSocketKind::PreSocket { props, .. } =&gt; {
+                props.handler.take();
             }
-            InodeSocketKind::RemoteTcpStream { .. } =&gt; {}
+            InodeSocketKind::RemoteSocket { props, .. } =&gt; {
+                props.handler.take();
+            }
         }
     }
 
@@ -2780,7 +2964,7 @@
             InodeSocketKind::Raw(socket) =&gt; socket.poll_read_ready(cx),
             InodeSocketKind::Icmp(socket) =&gt; socket.poll_read_ready(cx),
             InodeSocketKind::PreSocket { .. } =&gt; Poll::Pending,
-            InodeSocketKind::RemoteTcpStream { .. } =&gt; Poll::Pending,
+            InodeSocketKind::RemoteSocket { .. } =&gt; Poll::Pending,
         }
         .map_err(net_error_into_io_err)
     }
@@ -2793,7 +2977,7 @@
             InodeSocketKind::Raw(socket) =&gt; socket.poll_write_ready(cx),
             InodeSocketKind::Icmp(socket) =&gt; socket.poll_write_ready(cx),
             InodeSocketKind::PreSocket { .. } =&gt; Poll::Pending,
-            InodeSocketKind::RemoteTcpStream { .. } =&gt; Poll::Pending,
+            InodeSocketKind::RemoteSocket { .. } =&gt; Poll::Pending,
         }
         .map_err(net_error_into_io_err)
     }
@@ -2808,11 +2992,11 @@
             InodeSocketKind::UdpSocket { socket, .. } =&gt; socket.set_handler(handler),
             InodeSocketKind::Raw(socket) =&gt; socket.set_handler(handler),
             InodeSocketKind::Icmp(socket) =&gt; socket.set_handler(handler),
-            InodeSocketKind::PreSocket { handler: h, .. } =&gt; {
-                h.replace(handler);
+            InodeSocketKind::PreSocket { props, .. }
+            | InodeSocketKind::RemoteSocket { props, .. } =&gt; {
+                props.handler.replace(handler);
                 <span class="prelude-val">Ok</span>(())
             }
-            InodeSocketKind::RemoteTcpStream { .. } =&gt; <span class="prelude-val">Ok</span>(()),
         }
     }
 }

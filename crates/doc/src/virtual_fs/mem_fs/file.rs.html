@@ -1461,6 +1461,86 @@
 <a href="#1461" id="1461">1461</a>
 <a href="#1462" id="1462">1462</a>
 <a href="#1463" id="1463">1463</a>
+<a href="#1464" id="1464">1464</a>
+<a href="#1465" id="1465">1465</a>
+<a href="#1466" id="1466">1466</a>
+<a href="#1467" id="1467">1467</a>
+<a href="#1468" id="1468">1468</a>
+<a href="#1469" id="1469">1469</a>
+<a href="#1470" id="1470">1470</a>
+<a href="#1471" id="1471">1471</a>
+<a href="#1472" id="1472">1472</a>
+<a href="#1473" id="1473">1473</a>
+<a href="#1474" id="1474">1474</a>
+<a href="#1475" id="1475">1475</a>
+<a href="#1476" id="1476">1476</a>
+<a href="#1477" id="1477">1477</a>
+<a href="#1478" id="1478">1478</a>
+<a href="#1479" id="1479">1479</a>
+<a href="#1480" id="1480">1480</a>
+<a href="#1481" id="1481">1481</a>
+<a href="#1482" id="1482">1482</a>
+<a href="#1483" id="1483">1483</a>
+<a href="#1484" id="1484">1484</a>
+<a href="#1485" id="1485">1485</a>
+<a href="#1486" id="1486">1486</a>
+<a href="#1487" id="1487">1487</a>
+<a href="#1488" id="1488">1488</a>
+<a href="#1489" id="1489">1489</a>
+<a href="#1490" id="1490">1490</a>
+<a href="#1491" id="1491">1491</a>
+<a href="#1492" id="1492">1492</a>
+<a href="#1493" id="1493">1493</a>
+<a href="#1494" id="1494">1494</a>
+<a href="#1495" id="1495">1495</a>
+<a href="#1496" id="1496">1496</a>
+<a href="#1497" id="1497">1497</a>
+<a href="#1498" id="1498">1498</a>
+<a href="#1499" id="1499">1499</a>
+<a href="#1500" id="1500">1500</a>
+<a href="#1501" id="1501">1501</a>
+<a href="#1502" id="1502">1502</a>
+<a href="#1503" id="1503">1503</a>
+<a href="#1504" id="1504">1504</a>
+<a href="#1505" id="1505">1505</a>
+<a href="#1506" id="1506">1506</a>
+<a href="#1507" id="1507">1507</a>
+<a href="#1508" id="1508">1508</a>
+<a href="#1509" id="1509">1509</a>
+<a href="#1510" id="1510">1510</a>
+<a href="#1511" id="1511">1511</a>
+<a href="#1512" id="1512">1512</a>
+<a href="#1513" id="1513">1513</a>
+<a href="#1514" id="1514">1514</a>
+<a href="#1515" id="1515">1515</a>
+<a href="#1516" id="1516">1516</a>
+<a href="#1517" id="1517">1517</a>
+<a href="#1518" id="1518">1518</a>
+<a href="#1519" id="1519">1519</a>
+<a href="#1520" id="1520">1520</a>
+<a href="#1521" id="1521">1521</a>
+<a href="#1522" id="1522">1522</a>
+<a href="#1523" id="1523">1523</a>
+<a href="#1524" id="1524">1524</a>
+<a href="#1525" id="1525">1525</a>
+<a href="#1526" id="1526">1526</a>
+<a href="#1527" id="1527">1527</a>
+<a href="#1528" id="1528">1528</a>
+<a href="#1529" id="1529">1529</a>
+<a href="#1530" id="1530">1530</a>
+<a href="#1531" id="1531">1531</a>
+<a href="#1532" id="1532">1532</a>
+<a href="#1533" id="1533">1533</a>
+<a href="#1534" id="1534">1534</a>
+<a href="#1535" id="1535">1535</a>
+<a href="#1536" id="1536">1536</a>
+<a href="#1537" id="1537">1537</a>
+<a href="#1538" id="1538">1538</a>
+<a href="#1539" id="1539">1539</a>
+<a href="#1540" id="1540">1540</a>
+<a href="#1541" id="1541">1541</a>
+<a href="#1542" id="1542">1542</a>
+<a href="#1543" id="1543">1543</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! This module contains the `FileHandle` and `File`
 //! implementations. They aren&#39;t exposed to the public API. Only
 //! `FileHandle` can be used through the `VirtualFile` trait object.
@@ -1468,6 +1548,8 @@
 </span><span class="kw">use </span>futures::future::BoxFuture;
 <span class="kw">use </span>tokio::io::AsyncRead;
 <span class="kw">use </span>tokio::io::{AsyncSeek, AsyncWrite};
+
+<span class="kw">use </span><span class="self">self</span>::offloaded_file::OffloadWrite;
 
 <span class="kw">use super</span>::<span class="kw-2">*</span>;
 <span class="kw">use </span><span class="kw">crate</span>::limiter::TrackedVec;
@@ -1614,6 +1696,7 @@
         <span class="kw">let </span>inode = fs.storage.get(<span class="self">self</span>.inode);
         <span class="kw">match </span>inode {
             <span class="prelude-val">Some</span>(Node::File(node)) =&gt; node.file.len().try_into().unwrap_or(<span class="number">0</span>),
+            <span class="prelude-val">Some</span>(Node::OffloadedFile(node)) =&gt; node.file.len(),
             <span class="prelude-val">Some</span>(Node::ReadOnlyFile(node)) =&gt; node.file.len().try_into().unwrap_or(<span class="number">0</span>),
             <span class="prelude-val">Some</span>(Node::CustomFile(node)) =&gt; {
                 <span class="kw">let </span>file = node.file.lock().unwrap();
@@ -1643,6 +1726,10 @@
             <span class="prelude-val">Some</span>(Node::File(FileNode { file, metadata, .. })) =&gt; {
                 file.buffer
                     .resize(new_size.try_into().map_err(|<span class="kw">_</span>| FsError::UnknownError)<span class="question-mark">?</span>, <span class="number">0</span>)<span class="question-mark">?</span>;
+                metadata.len = new_size;
+            }
+            <span class="prelude-val">Some</span>(Node::OffloadedFile(OffloadedFileNode { file, metadata, .. })) =&gt; {
+                file.resize(new_size, <span class="number">0</span>);
                 metadata.len = new_size;
             }
             <span class="prelude-val">Some</span>(Node::CustomFile(node)) =&gt; {
@@ -1800,6 +1887,10 @@
                 <span class="kw">let </span>remaining = node.file.buffer.len() - (<span class="self">self</span>.cursor <span class="kw">as </span>usize);
                 Poll::Ready(<span class="prelude-val">Ok</span>(remaining))
             }
+            <span class="prelude-val">Some</span>(Node::OffloadedFile(node)) =&gt; {
+                <span class="kw">let </span>remaining = node.file.len() <span class="kw">as </span>usize - (<span class="self">self</span>.cursor <span class="kw">as </span>usize);
+                Poll::Ready(<span class="prelude-val">Ok</span>(remaining))
+            }
             <span class="prelude-val">Some</span>(Node::ReadOnlyFile(node)) =&gt; {
                 <span class="kw">let </span>remaining = node.file.buffer.len() - (<span class="self">self</span>.cursor <span class="kw">as </span>usize);
                 Poll::Ready(<span class="prelude-val">Ok</span>(remaining))
@@ -1848,6 +1939,7 @@
         <span class="kw">let </span>inode = fs.storage.get_mut(<span class="self">self</span>.inode);
         <span class="kw">match </span>inode {
             <span class="prelude-val">Some</span>(Node::File(<span class="kw">_</span>)) =&gt; Poll::Ready(<span class="prelude-val">Ok</span>(<span class="number">8192</span>)),
+            <span class="prelude-val">Some</span>(Node::OffloadedFile(<span class="kw">_</span>)) =&gt; Poll::Ready(<span class="prelude-val">Ok</span>(<span class="number">8192</span>)),
             <span class="prelude-val">Some</span>(Node::ReadOnlyFile(<span class="kw">_</span>)) =&gt; Poll::Ready(<span class="prelude-val">Ok</span>(<span class="number">0</span>)),
             <span class="prelude-val">Some</span>(Node::CustomFile(node)) =&gt; {
                 <span class="kw">let </span><span class="kw-2">mut </span>file = node.file.lock().unwrap();
@@ -1872,6 +1964,39 @@
                 <span class="macro">format!</span>(<span class="string">&quot;inode `{}` doesn&#39;t match a file&quot;</span>, <span class="self">self</span>.inode),
             ))),
         }
+    }
+
+    <span class="kw">fn </span>write_from_mmap(<span class="kw-2">&amp;mut </span><span class="self">self</span>, offset: u64, size: u64) -&gt; std::io::Result&lt;()&gt; {
+        <span class="kw">if </span>!<span class="self">self</span>.writable {
+            <span class="kw">return </span><span class="prelude-val">Err</span>(io::Error::new(
+                io::ErrorKind::PermissionDenied,
+                <span class="macro">format!</span>(
+                    <span class="string">&quot;the file (inode `{}) doesn&#39;t have the `write` permission&quot;</span>,
+                    <span class="self">self</span>.inode
+                ),
+            ));
+        }
+
+        <span class="kw">let </span><span class="kw-2">mut </span>cursor = <span class="self">self</span>.cursor;
+        {
+            <span class="kw">let </span><span class="kw-2">mut </span>fs = <span class="self">self</span>.filesystem.inner.write().map_err(|<span class="kw">_</span>| {
+                io::Error::new(io::ErrorKind::Other, <span class="string">&quot;failed to acquire a write lock&quot;</span>)
+            })<span class="question-mark">?</span>;
+
+            <span class="kw">let </span>inode = fs.storage.get_mut(<span class="self">self</span>.inode);
+            <span class="kw">match </span>inode {
+                <span class="prelude-val">Some</span>(Node::OffloadedFile(node)) =&gt; {
+                    node.file
+                        .write(OffloadWrite::MmapOffset { offset, size }, <span class="kw-2">&amp;mut </span>cursor)<span class="question-mark">?</span>;
+                    node.metadata.len = node.file.len();
+                }
+                <span class="kw">_ </span>=&gt; {
+                    <span class="kw">return </span><span class="prelude-val">Err</span>(io::ErrorKind::Unsupported.into());
+                }
+            }
+        }
+        <span class="self">self</span>.cursor = cursor;
+        <span class="prelude-val">Ok</span>(())
     }
 }
 
@@ -2087,6 +2212,17 @@
                     }
                     Poll::Ready(read.map(|<span class="kw">_</span>| ()))
                 }
+                <span class="prelude-val">Some</span>(Node::OffloadedFile(node)) =&gt; {
+                    <span class="kw">let </span>read = <span class="kw">unsafe </span>{
+                        node.file
+                            .read(std::mem::transmute(buf.unfilled_mut()), <span class="kw-2">&amp;mut </span>cursor)
+                    };
+                    <span class="kw">if let </span><span class="prelude-val">Ok</span>(read) = <span class="kw-2">&amp;</span>read {
+                        <span class="kw">unsafe </span>{ buf.assume_init(<span class="kw-2">*</span>read) };
+                        buf.advance(<span class="kw-2">*</span>read);
+                    }
+                    Poll::Ready(read.map(|<span class="kw">_</span>| ()))
+                }
                 <span class="prelude-val">Some</span>(Node::ReadOnlyFile(node)) =&gt; {
                     <span class="kw">let </span>read = <span class="kw">unsafe </span>{
                         node.file
@@ -2146,6 +2282,10 @@
             <span class="kw">let </span>inode = fs.storage.get_mut(<span class="self">self</span>.inode);
             <span class="kw">match </span>inode {
                 <span class="prelude-val">Some</span>(Node::File(node)) =&gt; {
+                    node.file.seek(position, <span class="kw-2">&amp;mut </span>cursor)<span class="question-mark">?</span>;
+                    <span class="prelude-val">Ok</span>(())
+                }
+                <span class="prelude-val">Some</span>(Node::OffloadedFile(node)) =&gt; {
                     node.file.seek(position, <span class="kw-2">&amp;mut </span>cursor)<span class="question-mark">?</span>;
                     <span class="prelude-val">Ok</span>(())
                 }
@@ -2212,6 +2352,7 @@
         <span class="kw">let </span>inode = fs.storage.get_mut(<span class="self">self</span>.inode);
         <span class="kw">match </span>inode {
             <span class="prelude-val">Some</span>(Node::File { .. }) =&gt; Poll::Ready(<span class="prelude-val">Ok</span>(<span class="self">self</span>.cursor)),
+            <span class="prelude-val">Some</span>(Node::OffloadedFile { .. }) =&gt; Poll::Ready(<span class="prelude-val">Ok</span>(<span class="self">self</span>.cursor)),
             <span class="prelude-val">Some</span>(Node::ReadOnlyFile { .. }) =&gt; Poll::Ready(<span class="prelude-val">Ok</span>(<span class="self">self</span>.cursor)),
             <span class="prelude-val">Some</span>(Node::CustomFile(node)) =&gt; {
                 <span class="kw">let </span><span class="kw-2">mut </span>file = node.file.lock().unwrap();
@@ -2266,6 +2407,11 @@
                 <span class="prelude-val">Some</span>(Node::File(node)) =&gt; {
                     <span class="kw">let </span>bytes_written = node.file.write(buf, <span class="kw-2">&amp;mut </span>cursor)<span class="question-mark">?</span>;
                     node.metadata.len = node.file.len().try_into().unwrap();
+                    bytes_written
+                }
+                <span class="prelude-val">Some</span>(Node::OffloadedFile(node)) =&gt; {
+                    <span class="kw">let </span>bytes_written = node.file.write(OffloadWrite::Buffer(buf), <span class="kw-2">&amp;mut </span>cursor)<span class="question-mark">?</span>;
+                    node.metadata.len = node.file.len();
                     bytes_written
                 }
                 <span class="prelude-val">Some</span>(Node::ReadOnlyFile(node)) =&gt; {
@@ -2343,6 +2489,15 @@
                     node.metadata.len = node.file.buffer.len() <span class="kw">as </span>u64;
                     Poll::Ready(<span class="prelude-val">Ok</span>(bytes_written))
                 }
+                <span class="prelude-val">Some</span>(Node::OffloadedFile(node)) =&gt; {
+                    <span class="kw">let </span>buf = bufs
+                        .iter()
+                        .find(|b| !b.is_empty())
+                        .map_or(<span class="kw-2">&amp;</span>[][..], |b| <span class="kw-2">&amp;**</span>b);
+                    <span class="kw">let </span>bytes_written = node.file.write(OffloadWrite::Buffer(buf), <span class="kw-2">&amp;mut </span>cursor)<span class="question-mark">?</span>;
+                    node.metadata.len = node.file.len();
+                    Poll::Ready(<span class="prelude-val">Ok</span>(bytes_written))
+                }
                 <span class="prelude-val">Some</span>(Node::ReadOnlyFile(node)) =&gt; {
                     <span class="kw">let </span>buf = bufs
                         .iter()
@@ -2389,6 +2544,7 @@
         <span class="kw">let </span>inode = fs.storage.get_mut(<span class="self">self</span>.inode);
         <span class="kw">match </span>inode {
             <span class="prelude-val">Some</span>(Node::File(node)) =&gt; Poll::Ready(node.file.flush()),
+            <span class="prelude-val">Some</span>(Node::OffloadedFile(node)) =&gt; Poll::Ready(node.file.flush()),
             <span class="prelude-val">Some</span>(Node::ReadOnlyFile(node)) =&gt; Poll::Ready(node.file.flush()),
             <span class="prelude-val">Some</span>(Node::CustomFile(node)) =&gt; {
                 <span class="kw">let </span><span class="kw-2">mut </span>file = node.file.lock().unwrap();
@@ -2424,6 +2580,7 @@
         <span class="kw">let </span>inode = fs.storage.get_mut(<span class="self">self</span>.inode);
         <span class="kw">match </span>inode {
             <span class="prelude-val">Some</span>(Node::File { .. }) =&gt; Poll::Ready(<span class="prelude-val">Ok</span>(())),
+            <span class="prelude-val">Some</span>(Node::OffloadedFile { .. }) =&gt; Poll::Ready(<span class="prelude-val">Ok</span>(())),
             <span class="prelude-val">Some</span>(Node::ReadOnlyFile { .. }) =&gt; Poll::Ready(<span class="prelude-val">Ok</span>(())),
             <span class="prelude-val">Some</span>(Node::CustomFile(node)) =&gt; {
                 <span class="kw">let </span><span class="kw-2">mut </span>file = node.file.lock().unwrap();
@@ -2459,6 +2616,7 @@
         <span class="kw">let </span>inode = fs.storage.get_mut(<span class="self">self</span>.inode);
         <span class="kw">match </span>inode {
             <span class="prelude-val">Some</span>(Node::File { .. }) =&gt; <span class="bool-val">false</span>,
+            <span class="prelude-val">Some</span>(Node::OffloadedFile { .. }) =&gt; <span class="bool-val">false</span>,
             <span class="prelude-val">Some</span>(Node::ReadOnlyFile { .. }) =&gt; <span class="bool-val">false</span>,
             <span class="prelude-val">Some</span>(Node::CustomFile(node)) =&gt; {
                 <span class="kw">let </span>file = node.file.lock().unwrap();
@@ -2766,6 +2924,8 @@
         formatter
             .debug_struct(<span class="string">&quot;FileHandle&quot;</span>)
             .field(<span class="string">&quot;inode&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.inode)
+            .field(<span class="string">&quot;readable&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.readable)
+            .field(<span class="string">&quot;writable&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.writable)
             .finish()
     }
 }

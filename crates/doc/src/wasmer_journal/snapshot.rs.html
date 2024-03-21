@@ -62,6 +62,9 @@
 <a href="#62" id="62">62</a>
 <a href="#63" id="63">63</a>
 <a href="#64" id="64">64</a>
+<a href="#65" id="65">65</a>
+<a href="#66" id="66">66</a>
+<a href="#67" id="67">67</a>
 </pre></div><pre class="rust"><code><span class="kw">use super</span>::<span class="kw-2">*</span>;
 
 <span class="doccomment">/// Various triggers that will cause the runtime to take snapshot
@@ -76,6 +79,8 @@
     </span>FirstEnviron,
     <span class="doccomment">/// Triggered when the process reads stdin for the first time
     </span>FirstStdin,
+    <span class="doccomment">/// Issued on the first interrupt signal (Ctrl + C) the process receives, after that normal CTRL-C will apply.
+    </span>FirstSigint,
     <span class="doccomment">/// Triggered periodically based on a interval (default 10 seconds) which can be specified using the `snapshot-interval` option
     </span>PeriodicInterval,
     <span class="doccomment">/// Issued if the user sends an interrupt signal (Ctrl + C).
@@ -94,7 +99,7 @@
     <span class="kw">pub fn </span>only_once(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
         <span class="macro">matches!</span>(
             <span class="self">self</span>,
-            <span class="self">Self</span>::FirstListen | <span class="self">Self</span>::FirstEnviron | <span class="self">Self</span>::FirstStdin
+            <span class="self">Self</span>::FirstListen | <span class="self">Self</span>::FirstEnviron | <span class="self">Self</span>::FirstStdin | <span class="self">Self</span>::FirstSigint
         )
     }
 }
@@ -116,6 +121,7 @@
             <span class="string">&quot;first-listen&quot; </span>=&gt; <span class="self">Self</span>::FirstListen,
             <span class="string">&quot;first-stdin&quot; </span>=&gt; <span class="self">Self</span>::FirstStdin,
             <span class="string">&quot;first-environ&quot; </span>=&gt; <span class="self">Self</span>::FirstEnviron,
+            <span class="string">&quot;first-intr&quot; </span>| <span class="string">&quot;first-sigint&quot; </span>| <span class="string">&quot;first-ctrlc&quot; </span>| <span class="string">&quot;first-ctrl-c&quot; </span>=&gt; <span class="self">Self</span>::FirstSigint,
             <span class="string">&quot;periodic-interval&quot; </span>=&gt; <span class="self">Self</span>::PeriodicInterval,
             <span class="string">&quot;intr&quot; </span>| <span class="string">&quot;sigint&quot; </span>| <span class="string">&quot;ctrlc&quot; </span>| <span class="string">&quot;ctrl-c&quot; </span>=&gt; <span class="self">Self</span>::Sigint,
             <span class="string">&quot;alarm&quot; </span>| <span class="string">&quot;timer&quot; </span>| <span class="string">&quot;sigalrm&quot; </span>=&gt; <span class="self">Self</span>::Sigalrm,

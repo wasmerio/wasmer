@@ -203,14 +203,6 @@
 <a href="#203" id="203">203</a>
 <a href="#204" id="204">204</a>
 <a href="#205" id="205">205</a>
-<a href="#206" id="206">206</a>
-<a href="#207" id="207">207</a>
-<a href="#208" id="208">208</a>
-<a href="#209" id="209">209</a>
-<a href="#210" id="210">210</a>
-<a href="#211" id="211">211</a>
-<a href="#212" id="212">212</a>
-<a href="#213" id="213">213</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::task::Waker;
 
 <span class="kw">use </span>serde::{Deserialize, Serialize};
@@ -332,28 +324,24 @@
 
             <span class="comment">// We wait for any process to exit (if it takes too long
             // then we go into a deep sleep)
-            </span><span class="kw">let </span>res = __asyncify_with_deep_sleep::&lt;M, <span class="kw">_</span>, <span class="kw">_</span>&gt;(
-                ctx,
-                Duration::from_millis(<span class="number">50</span>),
-                <span class="kw">async move </span>{
-                    <span class="kw">let </span>child_exit = process.join_any_child().<span class="kw">await</span>;
-                    <span class="kw">match </span>child_exit {
-                        <span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>((pid, exit_code))) =&gt; {
-                            <span class="macro">tracing::trace!</span>(%pid, %exit_code, <span class="string">&quot;triggered child join&quot;</span>);
-                            <span class="macro">trace!</span>(ret_id = pid.raw(), exit_code = exit_code.raw());
-                            JoinStatusResult::ExitNormal(pid, exit_code)
-                        }
-                        <span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>) =&gt; {
-                            <span class="macro">tracing::trace!</span>(<span class="string">&quot;triggered child join (no child)&quot;</span>);
-                            JoinStatusResult::Err(Errno::Child)
-                        }
-                        <span class="prelude-val">Err</span>(err) =&gt; {
-                            <span class="macro">tracing::trace!</span>(%err, <span class="string">&quot;error triggered on child join&quot;</span>);
-                            JoinStatusResult::Err(err)
-                        }
+            </span><span class="kw">let </span>res = __asyncify_with_deep_sleep::&lt;M, <span class="kw">_</span>, <span class="kw">_</span>&gt;(ctx, <span class="kw">async move </span>{
+                <span class="kw">let </span>child_exit = process.join_any_child().<span class="kw">await</span>;
+                <span class="kw">match </span>child_exit {
+                    <span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>((pid, exit_code))) =&gt; {
+                        <span class="macro">tracing::trace!</span>(%pid, %exit_code, <span class="string">&quot;triggered child join&quot;</span>);
+                        <span class="macro">trace!</span>(ret_id = pid.raw(), exit_code = exit_code.raw());
+                        JoinStatusResult::ExitNormal(pid, exit_code)
                     }
-                },
-            )<span class="question-mark">?</span>;
+                    <span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>) =&gt; {
+                        <span class="macro">tracing::trace!</span>(<span class="string">&quot;triggered child join (no child)&quot;</span>);
+                        JoinStatusResult::Err(Errno::Child)
+                    }
+                    <span class="prelude-val">Err</span>(err) =&gt; {
+                        <span class="macro">tracing::trace!</span>(%err, <span class="string">&quot;error triggered on child join&quot;</span>);
+                        JoinStatusResult::Err(err)
+                    }
+                }
+            })<span class="question-mark">?</span>;
             <span class="kw">return match </span>res {
                 AsyncifyAction::Finish(ctx, result) =&gt; ret_result(ctx, result),
                 AsyncifyAction::Unwind =&gt; <span class="prelude-val">Ok</span>(Errno::Success),
@@ -405,15 +393,11 @@
         } <span class="kw">else </span>{
             <span class="comment">// Wait for the process to finish
             </span><span class="kw">let </span>process2 = process.clone();
-            <span class="kw">let </span>res = __asyncify_with_deep_sleep::&lt;M, <span class="kw">_</span>, <span class="kw">_</span>&gt;(
-                ctx,
-                Duration::from_millis(<span class="number">50</span>),
-                <span class="kw">async move </span>{
-                    <span class="kw">let </span>exit_code = process.join().<span class="kw">await</span>.unwrap_or_else(|<span class="kw">_</span>| Errno::Child.into());
-                    <span class="macro">tracing::trace!</span>(%exit_code, <span class="string">&quot;triggered child join&quot;</span>);
-                    JoinStatusResult::ExitNormal(pid, exit_code)
-                },
-            )<span class="question-mark">?</span>;
+            <span class="kw">let </span>res = __asyncify_with_deep_sleep::&lt;M, <span class="kw">_</span>, <span class="kw">_</span>&gt;(ctx, <span class="kw">async move </span>{
+                <span class="kw">let </span>exit_code = process.join().<span class="kw">await</span>.unwrap_or_else(|<span class="kw">_</span>| Errno::Child.into());
+                <span class="macro">tracing::trace!</span>(%exit_code, <span class="string">&quot;triggered child join&quot;</span>);
+                JoinStatusResult::ExitNormal(pid, exit_code)
+            })<span class="question-mark">?</span>;
             <span class="kw">match </span>res {
                 AsyncifyAction::Finish(ctx, result) =&gt; ret_result(ctx, result),
                 AsyncifyAction::Unwind =&gt; <span class="prelude-val">Ok</span>(Errno::Success),

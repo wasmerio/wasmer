@@ -55,6 +55,14 @@
 <a href="#55" id="55">55</a>
 <a href="#56" id="56">56</a>
 <a href="#57" id="57">57</a>
+<a href="#58" id="58">58</a>
+<a href="#59" id="59">59</a>
+<a href="#60" id="60">60</a>
+<a href="#61" id="61">61</a>
+<a href="#62" id="62">62</a>
+<a href="#63" id="63">63</a>
+<a href="#64" id="64">64</a>
+<a href="#65" id="65">65</a>
 </pre></div><pre class="rust"><code><span class="kw">use super</span>::<span class="kw-2">*</span>;
 <span class="kw">use </span><span class="kw">crate</span>::syscalls::<span class="kw-2">*</span>;
 
@@ -79,17 +87,25 @@
     <span class="kw">let </span>env = ctx.data();
     <span class="kw">let </span>memory = <span class="kw">unsafe </span>{ env.memory_view(<span class="kw-2">&amp;</span>ctx) };
     <span class="kw">let </span>addr = <span class="macro">wasi_try_ok!</span>(<span class="kw">crate</span>::net::read_ip_port(<span class="kw-2">&amp;</span>memory, addr));
-    <span class="kw">let </span>addr = SocketAddr::new(addr.<span class="number">0</span>, addr.<span class="number">1</span>);
-    Span::current().record(<span class="string">&quot;addr&quot;</span>, <span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;{:?}&quot;</span>, addr));
+    <span class="kw">let </span>peer_addr = SocketAddr::new(addr.<span class="number">0</span>, addr.<span class="number">1</span>);
+    Span::current().record(<span class="string">&quot;addr&quot;</span>, <span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;{:?}&quot;</span>, peer_addr));
 
-    <span class="macro">wasi_try_ok!</span>(sock_connect_internal(<span class="kw-2">&amp;mut </span>ctx, sock, addr)<span class="question-mark">?</span>);
+    <span class="macro">wasi_try_ok!</span>(sock_connect_internal(<span class="kw-2">&amp;mut </span>ctx, sock, peer_addr)<span class="question-mark">?</span>);
 
     <span class="attr">#[cfg(feature = <span class="string">&quot;journal&quot;</span>)]
     </span><span class="kw">if </span>ctx.data().enable_journal {
-        JournalEffector::save_sock_connect(<span class="kw-2">&amp;mut </span>ctx, sock, addr).map_err(|err| {
-            <span class="macro">tracing::error!</span>(<span class="string">&quot;failed to save sock_connected event - {}&quot;</span>, err);
-            WasiError::Exit(ExitCode::Errno(Errno::Fault))
-        })<span class="question-mark">?</span>;
+        <span class="kw">let </span>local_addr = <span class="macro">wasi_try_ok!</span>(__sock_actor(
+            <span class="kw-2">&amp;mut </span>ctx,
+            sock,
+            Rights::empty(),
+            |socket, <span class="kw">_</span>| socket.addr_local()
+        ));
+        JournalEffector::save_sock_connect(<span class="kw-2">&amp;mut </span>ctx, sock, local_addr, peer_addr).map_err(
+            |err| {
+                <span class="macro">tracing::error!</span>(<span class="string">&quot;failed to save sock_connected event - {}&quot;</span>, err);
+                WasiError::Exit(ExitCode::Errno(Errno::Fault))
+            },
+        )<span class="question-mark">?</span>;
     }
 
     <span class="prelude-val">Ok</span>(Errno::Success)

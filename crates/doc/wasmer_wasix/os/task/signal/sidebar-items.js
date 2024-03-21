@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":["SignalDeliveryError","WasiSignalInterval"],"trait":["SignalHandlerAbi"]};
+window.SIDEBAR_ITEMS = {"fn":["default_signal_handler"],"struct":["SignalDeliveryError","WasiSignalInterval"],"trait":["SignalHandlerAbi"],"type":["DynSignalHandlerAbi"]};

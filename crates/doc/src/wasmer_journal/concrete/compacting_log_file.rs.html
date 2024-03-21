@@ -451,7 +451,7 @@
 }
 
 <span class="kw">impl </span>ReadableJournal <span class="kw">for </span>CompactingLogFileJournalRx {
-    <span class="kw">fn </span>read(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; anyhow::Result&lt;<span class="prelude-ty">Option</span>&lt;JournalEntry&lt;<span class="lifetime">&#39;_</span>&gt;&gt;&gt; {
+    <span class="kw">fn </span>read(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; anyhow::Result&lt;<span class="prelude-ty">Option</span>&lt;LogReadResult&lt;<span class="lifetime">&#39;_</span>&gt;&gt;&gt; {
         <span class="self">self</span>.inner.read()
     }
 
@@ -461,14 +461,14 @@
 }
 
 <span class="kw">impl </span>WritableJournal <span class="kw">for </span>CompactingLogFileJournalTx {
-    <span class="kw">fn </span>write&lt;<span class="lifetime">&#39;a</span>&gt;(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="self">self</span>, entry: JournalEntry&lt;<span class="lifetime">&#39;a</span>&gt;) -&gt; anyhow::Result&lt;u64&gt; {
-        <span class="kw">let </span>amt = <span class="self">self</span>.inner.write(entry)<span class="question-mark">?</span>;
+    <span class="kw">fn </span>write&lt;<span class="lifetime">&#39;a</span>&gt;(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="self">self</span>, entry: JournalEntry&lt;<span class="lifetime">&#39;a</span>&gt;) -&gt; anyhow::Result&lt;LogWriteResult&gt; {
+        <span class="kw">let </span>res = <span class="self">self</span>.inner.write(entry)<span class="question-mark">?</span>;
 
         <span class="kw">let </span>triggered = {
             <span class="kw">let </span><span class="kw-2">mut </span>state = <span class="self">self</span>.state.lock().unwrap();
-            <span class="kw">if </span>amt &gt; <span class="number">0 </span>{
+            <span class="kw">if </span>res.record_size() &gt; <span class="number">0 </span>{
                 state.cnt_records += <span class="number">1</span>;
-                state.cnt_size += amt;
+                state.cnt_size += res.record_size();
             }
 
             <span class="kw">let </span><span class="kw-2">mut </span>triggered = <span class="bool-val">false</span>;
@@ -497,12 +497,12 @@
             <span class="self">self</span>.compact_now()<span class="question-mark">?</span>;
         }
 
-        <span class="prelude-val">Ok</span>(amt)
+        <span class="prelude-val">Ok</span>(res)
     }
 }
 
 <span class="kw">impl </span>ReadableJournal <span class="kw">for </span>CompactingLogFileJournal {
-    <span class="kw">fn </span>read(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; anyhow::Result&lt;<span class="prelude-ty">Option</span>&lt;JournalEntry&lt;<span class="lifetime">&#39;_</span>&gt;&gt;&gt; {
+    <span class="kw">fn </span>read(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; anyhow::Result&lt;<span class="prelude-ty">Option</span>&lt;LogReadResult&lt;<span class="lifetime">&#39;_</span>&gt;&gt;&gt; {
         <span class="self">self</span>.rx.read()
     }
 
@@ -512,7 +512,7 @@
 }
 
 <span class="kw">impl </span>WritableJournal <span class="kw">for </span>CompactingLogFileJournal {
-    <span class="kw">fn </span>write&lt;<span class="lifetime">&#39;a</span>&gt;(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="self">self</span>, entry: JournalEntry&lt;<span class="lifetime">&#39;a</span>&gt;) -&gt; anyhow::Result&lt;u64&gt; {
+    <span class="kw">fn </span>write&lt;<span class="lifetime">&#39;a</span>&gt;(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="self">self</span>, entry: JournalEntry&lt;<span class="lifetime">&#39;a</span>&gt;) -&gt; anyhow::Result&lt;LogWriteResult&gt; {
         <span class="self">self</span>.tx.write(entry)
     }
 }

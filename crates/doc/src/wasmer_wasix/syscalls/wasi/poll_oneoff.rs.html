@@ -450,7 +450,6 @@
 <a href="#450" id="450">450</a>
 <a href="#451" id="451">451</a>
 <a href="#452" id="452">452</a>
-<a href="#453" id="453">453</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>serde::{Deserialize, Serialize};
 <span class="kw">use </span>wasmer_wasix_types::wasi::{SubscriptionClock, Userdata};
 
@@ -895,7 +894,6 @@
     <span class="comment">// We use asyncify with a deep sleep to wait on new IO events
     </span><span class="kw">let </span>res = __asyncify_with_deep_sleep::&lt;M, <span class="prelude-ty">Result</span>&lt;Vec&lt;EventResult&gt;, Errno&gt;, <span class="kw">_</span>&gt;(
         ctx,
-        Duration::from_millis(<span class="number">50</span>),
         Box::pin(trigger),
     )<span class="question-mark">?</span>;
     <span class="kw">if let </span>AsyncifyAction::Finish(<span class="kw-2">mut </span>ctx, events) = res {

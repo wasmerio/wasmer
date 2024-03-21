@@ -32,13 +32,13 @@
 
 <span class="doccomment">/// Prints a summarized version of contents of a journal to stdout
 </span><span class="attr">#[derive(Debug, Parser)]
-</span><span class="kw">pub struct </span>CmdJournaInspect {
+</span><span class="kw">pub struct </span>CmdJournalInspect {
     <span class="doccomment">/// Path to the journal that will be printed
     </span><span class="attr">#[clap(index = <span class="number">1</span>)]
     </span>journal_path: PathBuf,
 }
 
-<span class="kw">impl </span>CliCommand <span class="kw">for </span>CmdJournaInspect {
+<span class="kw">impl </span>CliCommand <span class="kw">for </span>CmdJournalInspect {
     <span class="kw">type </span>Output = ();
 
     <span class="kw">fn </span>run(<span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;(), anyhow::Error&gt; {

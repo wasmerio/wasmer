@@ -768,6 +768,35 @@
 <a href="#768" id="768">768</a>
 <a href="#769" id="769">769</a>
 <a href="#770" id="770">770</a>
+<a href="#771" id="771">771</a>
+<a href="#772" id="772">772</a>
+<a href="#773" id="773">773</a>
+<a href="#774" id="774">774</a>
+<a href="#775" id="775">775</a>
+<a href="#776" id="776">776</a>
+<a href="#777" id="777">777</a>
+<a href="#778" id="778">778</a>
+<a href="#779" id="779">779</a>
+<a href="#780" id="780">780</a>
+<a href="#781" id="781">781</a>
+<a href="#782" id="782">782</a>
+<a href="#783" id="783">783</a>
+<a href="#784" id="784">784</a>
+<a href="#785" id="785">785</a>
+<a href="#786" id="786">786</a>
+<a href="#787" id="787">787</a>
+<a href="#788" id="788">788</a>
+<a href="#789" id="789">789</a>
+<a href="#790" id="790">790</a>
+<a href="#791" id="791">791</a>
+<a href="#792" id="792">792</a>
+<a href="#793" id="793">793</a>
+<a href="#794" id="794">794</a>
+<a href="#795" id="795">795</a>
+<a href="#796" id="796">796</a>
+<a href="#797" id="797">797</a>
+<a href="#798" id="798">798</a>
+<a href="#799" id="799">799</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">super</span>::filesystem::InodeResolution;
 <span class="kw">use super</span>::<span class="kw-2">*</span>;
 <span class="kw">use crate</span>::{FileType, FsError, Metadata, OpenOptionsConfig, <span class="prelude-ty">Result</span>, VirtualFile};
@@ -1172,6 +1201,22 @@
                         }
                     }
 
+                    <span class="prelude-val">Some</span>(Node::OffloadedFile(OffloadedFileNode { metadata, file, .. })) =&gt; {
+                        <span class="comment">// Update the accessed time.
+                        </span>metadata.accessed = time();
+
+                        <span class="comment">// Truncate if needed.
+                        </span><span class="kw">if </span>truncate {
+                            file.truncate();
+                            metadata.len = <span class="number">0</span>;
+                        }
+
+                        <span class="comment">// Move the cursor to the end if needed.
+                        </span><span class="kw">if </span>append {
+                            cursor = file.len();
+                        }
+                    }
+
                     <span class="prelude-val">Some</span>(Node::ReadOnlyFile(node)) =&gt; {
                         <span class="comment">// Update the accessed time.
                         </span>node.metadata.accessed = time();
@@ -1240,29 +1285,42 @@
                 <span class="comment">// Write lock.
                 </span><span class="kw">let </span><span class="kw-2">mut </span>fs = <span class="self">self</span>.inner.write().map_err(|<span class="kw">_</span>| FsError::Lock)<span class="question-mark">?</span>;
 
-                <span class="kw">let </span>file = File::new(fs.limiter.clone());
+                <span class="kw">let </span>metadata = {
+                    <span class="kw">let </span>time = time();
+                    Metadata {
+                        ft: FileType {
+                            file: <span class="bool-val">true</span>,
+                            ..Default::default()
+                        },
+                        accessed: time,
+                        created: time,
+                        modified: time,
+                        len: <span class="number">0</span>,
+                    }
+                };
+                <span class="kw">let </span>inode_of_file = fs.storage.vacant_entry().key();
+
+                <span class="comment">// We might be in optimized mode
+                </span><span class="kw">let </span>file = <span class="kw">if let </span><span class="prelude-val">Some</span>(offload) = fs.backing_offload.clone() {
+                    <span class="kw">let </span>file = OffloadedFile::new(fs.limiter.clone(), offload);
+                    Node::OffloadedFile(OffloadedFileNode {
+                        inode: inode_of_file,
+                        name: name_of_file,
+                        file,
+                        metadata,
+                    })
+                } <span class="kw">else </span>{
+                    <span class="kw">let </span>file = File::new(fs.limiter.clone());
+                    Node::File(FileNode {
+                        inode: inode_of_file,
+                        name: name_of_file,
+                        file,
+                        metadata,
+                    })
+                };
 
                 <span class="comment">// Creating the file in the storage.
-                </span><span class="kw">let </span>inode_of_file = fs.storage.vacant_entry().key();
-                <span class="kw">let </span>real_inode_of_file = fs.storage.insert(Node::File(FileNode {
-                    inode: inode_of_file,
-                    name: name_of_file,
-                    file,
-                    metadata: {
-                        <span class="kw">let </span>time = time();
-
-                        Metadata {
-                            ft: FileType {
-                                file: <span class="bool-val">true</span>,
-                                ..Default::default()
-                            },
-                            accessed: time,
-                            created: time,
-                            modified: time,
-                            len: <span class="number">0</span>,
-                        }
-                    },
-                }));
+                </span><span class="kw">let </span>real_inode_of_file = fs.storage.insert(file);
 
                 <span class="macro">assert_eq!</span>(
                     inode_of_file, real_inode_of_file,

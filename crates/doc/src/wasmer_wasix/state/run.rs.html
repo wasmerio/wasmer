@@ -203,11 +203,17 @@
 <a href="#203" id="203">203</a>
 <a href="#204" id="204">204</a>
 <a href="#205" id="205">205</a>
+<a href="#206" id="206">206</a>
+<a href="#207" id="207">207</a>
+<a href="#208" id="208">208</a>
+<a href="#209" id="209">209</a>
+<a href="#210" id="210">210</a>
+<a href="#211" id="211">211</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>virtual_mio::InlineWaker;
 <span class="kw">use </span>wasmer::{RuntimeError, Store};
 <span class="kw">use </span>wasmer_wasix_types::wasi::ExitCode;
 
-<span class="kw">use crate</span>::{RewindStateOption, WasiError, WasiRuntimeError};
+<span class="kw">use crate</span>::{os::task::thread::RewindResultType, RewindStateOption, WasiError, WasiRuntimeError};
 
 <span class="kw">use super</span>::<span class="kw-2">*</span>;
 
@@ -247,6 +253,7 @@
                 <span class="kw">match </span>this.bootstrap(<span class="kw-2">&amp;mut </span>store) {
                     <span class="prelude-val">Ok</span>(a) =&gt; a,
                     <span class="prelude-val">Err</span>(err) =&gt; {
+                        <span class="macro">tracing::warn!</span>(<span class="string">&quot;failed to bootstrap - {}&quot;</span>, err);
                         this.on_exit(<span class="kw-2">&amp;mut </span>store, <span class="prelude-val">None</span>);
                         tx.send(<span class="prelude-val">Err</span>(err)).ok();
                         <span class="kw">return</span>;
@@ -362,7 +369,12 @@
             <span class="kw">let </span>tasks = env.data(<span class="kw-2">&amp;</span>store).tasks().clone();
             <span class="kw">let </span>rewind = work.rewind;
             <span class="kw">let </span>respawn = <span class="kw">move </span>|ctx, store, res| {
-                run_with_deep_sleep(store, <span class="prelude-val">Some</span>((rewind, <span class="prelude-val">Some</span>(res))), ctx, sender)
+                run_with_deep_sleep(
+                    store,
+                    <span class="prelude-val">Some</span>((rewind, RewindResultType::RewindWithResult(res))),
+                    ctx,
+                    sender,
+                )
             };
 
             <span class="comment">// Spawns the WASM process after a trigger

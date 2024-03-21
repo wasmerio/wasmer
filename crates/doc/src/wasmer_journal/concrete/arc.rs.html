@@ -44,7 +44,7 @@
 <span class="kw">use </span>std::sync::Arc;
 
 <span class="kw">impl </span>ReadableJournal <span class="kw">for </span>Arc&lt;DynReadableJournal&gt; {
-    <span class="kw">fn </span>read(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; anyhow::Result&lt;<span class="prelude-ty">Option</span>&lt;JournalEntry&lt;<span class="lifetime">&#39;_</span>&gt;&gt;&gt; {
+    <span class="kw">fn </span>read(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; anyhow::Result&lt;<span class="prelude-ty">Option</span>&lt;LogReadResult&lt;<span class="lifetime">&#39;_</span>&gt;&gt;&gt; {
         <span class="self">self</span>.deref().read()
     }
 
@@ -54,13 +54,13 @@
 }
 
 <span class="kw">impl </span>WritableJournal <span class="kw">for </span>Arc&lt;DynWritableJournal&gt; {
-    <span class="kw">fn </span>write&lt;<span class="lifetime">&#39;a</span>&gt;(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="self">self</span>, entry: JournalEntry&lt;<span class="lifetime">&#39;a</span>&gt;) -&gt; anyhow::Result&lt;u64&gt; {
+    <span class="kw">fn </span>write&lt;<span class="lifetime">&#39;a</span>&gt;(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="self">self</span>, entry: JournalEntry&lt;<span class="lifetime">&#39;a</span>&gt;) -&gt; anyhow::Result&lt;LogWriteResult&gt; {
         <span class="self">self</span>.deref().write(entry)
     }
 }
 
 <span class="kw">impl </span>ReadableJournal <span class="kw">for </span>Arc&lt;DynJournal&gt; {
-    <span class="kw">fn </span>read(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; anyhow::Result&lt;<span class="prelude-ty">Option</span>&lt;JournalEntry&lt;<span class="lifetime">&#39;_</span>&gt;&gt;&gt; {
+    <span class="kw">fn </span>read(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; anyhow::Result&lt;<span class="prelude-ty">Option</span>&lt;LogReadResult&lt;<span class="lifetime">&#39;_</span>&gt;&gt;&gt; {
         <span class="self">self</span>.deref().read()
     }
 
@@ -70,7 +70,7 @@
 }
 
 <span class="kw">impl </span>WritableJournal <span class="kw">for </span>Arc&lt;DynJournal&gt; {
-    <span class="kw">fn </span>write&lt;<span class="lifetime">&#39;a</span>&gt;(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="self">self</span>, entry: JournalEntry&lt;<span class="lifetime">&#39;a</span>&gt;) -&gt; anyhow::Result&lt;u64&gt; {
+    <span class="kw">fn </span>write&lt;<span class="lifetime">&#39;a</span>&gt;(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="self">self</span>, entry: JournalEntry&lt;<span class="lifetime">&#39;a</span>&gt;) -&gt; anyhow::Result&lt;LogWriteResult&gt; {
         <span class="self">self</span>.deref().write(entry)
     }
 }

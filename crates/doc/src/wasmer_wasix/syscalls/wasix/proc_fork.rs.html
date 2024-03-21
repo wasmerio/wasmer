@@ -313,9 +313,11 @@
 <a href="#313" id="313">313</a>
 <a href="#314" id="314">314</a>
 <a href="#315" id="315">315</a>
+<a href="#316" id="316">316</a>
+<a href="#317" id="317">317</a>
 </pre></div><pre class="rust"><code><span class="kw">use super</span>::<span class="kw-2">*</span>;
 <span class="kw">use crate</span>::{
-    capture_instance_snapshot,
+    capture_store_snapshot,
     os::task::OwnedTaskStatus,
     runtime::task_manager::{TaskWasm, TaskWasmRunProperties},
     syscalls::<span class="kw-2">*</span>,
@@ -399,10 +401,9 @@
         <span class="comment">// Perform the unwind action
         </span><span class="kw">return </span>unwind::&lt;M, <span class="kw">_</span>&gt;(ctx, <span class="kw">move </span>|<span class="kw-2">mut </span>ctx, <span class="kw-2">mut </span>memory_stack, rewind_stack| {
             <span class="comment">// Grab all the globals and serialize them
-            </span><span class="kw">let </span>store_data =
-                <span class="kw">crate</span>::utils::store::capture_instance_snapshot(<span class="kw-2">&amp;mut </span>ctx.as_store_mut())
-                    .serialize()
-                    .unwrap();
+            </span><span class="kw">let </span>store_data = <span class="kw">crate</span>::utils::store::capture_store_snapshot(<span class="kw-2">&amp;mut </span>ctx.as_store_mut())
+                .serialize()
+                .unwrap();
             <span class="kw">let </span>store_data = Bytes::from(store_data);
 
             <span class="comment">// We first fork the environment and replace the current environment
@@ -445,7 +446,7 @@
     <span class="kw">let </span>bin_factory = env.bin_factory.clone();
 
     <span class="comment">// Perform the unwind action
-    </span><span class="kw">let </span>snapshot = capture_instance_snapshot(<span class="kw-2">&amp;mut </span>ctx.as_store_mut());
+    </span><span class="kw">let </span>snapshot = capture_store_snapshot(<span class="kw-2">&amp;mut </span>ctx.as_store_mut());
     unwind::&lt;M, <span class="kw">_</span>&gt;(ctx, <span class="kw">move </span>|<span class="kw-2">mut </span>ctx, <span class="kw-2">mut </span>memory_stack, rewind_stack| {
         <span class="kw">let </span>tasks = ctx.data().tasks().clone();
         <span class="kw">let </span>span = <span class="macro">debug_span!</span>(
@@ -516,7 +517,7 @@
             tasks_outer
                 .task_wasm(
                     TaskWasm::new(Box::new(run), child_env, module, <span class="bool-val">false</span>)
-                        .with_snapshot(<span class="kw-2">&amp;</span>snapshot)
+                        .with_globals(<span class="kw-2">&amp;</span>snapshot)
                         .with_memory(spawn_type),
                 )
                 .map_err(|err| {
@@ -553,7 +554,7 @@
     ctx: WasiFunctionEnv,
     <span class="kw-2">mut </span>store: Store,
     child_handle: WasiThreadHandle,
-    rewind_state: <span class="prelude-ty">Option</span>&lt;(RewindState, Bytes)&gt;,
+    rewind_state: <span class="prelude-ty">Option</span>&lt;(RewindState, RewindResultType)&gt;,
 ) -&gt; ExitCode {
     <span class="kw">let </span>env = ctx.data(<span class="kw-2">&amp;</span>store);
     <span class="kw">let </span>tasks = env.tasks().clone();
@@ -568,7 +569,7 @@
             <span class="prelude-val">Some</span>(rewind_state.memory_stack),
             rewind_state.rewind_stack,
             rewind_state.store_data,
-            <span class="prelude-val">Some</span>(rewind_result),
+            rewind_result,
         );
         <span class="kw">if </span>res != Errno::Success {
             <span class="kw">return </span>res.into();
@@ -605,7 +606,10 @@
                             ctx,
                             store,
                             child_handle,
-                            <span class="prelude-val">Some</span>((rewind_state, rewind_result)),
+                            <span class="prelude-val">Some</span>((
+                                rewind_state,
+                                RewindResultType::RewindWithResult(rewind_result),
+                            )),
                         );
                     }
                 };

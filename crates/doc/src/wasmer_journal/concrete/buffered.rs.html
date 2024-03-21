@@ -89,6 +89,15 @@
 <a href="#89" id="89">89</a>
 <a href="#90" id="90">90</a>
 <a href="#91" id="91">91</a>
+<a href="#92" id="92">92</a>
+<a href="#93" id="93">93</a>
+<a href="#94" id="94">94</a>
+<a href="#95" id="95">95</a>
+<a href="#96" id="96">96</a>
+<a href="#97" id="97">97</a>
+<a href="#98" id="98">98</a>
+<a href="#99" id="99">99</a>
+<a href="#100" id="100">100</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::sync::Arc;
 <span class="kw">use </span>std::sync::Mutex;
 
@@ -131,23 +140,32 @@
 }
 
 <span class="kw">impl </span>WritableJournal <span class="kw">for </span>BufferedJournalTx {
-    <span class="kw">fn </span>write&lt;<span class="lifetime">&#39;a</span>&gt;(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="self">self</span>, entry: JournalEntry&lt;<span class="lifetime">&#39;a</span>&gt;) -&gt; anyhow::Result&lt;u64&gt; {
+    <span class="kw">fn </span>write&lt;<span class="lifetime">&#39;a</span>&gt;(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="self">self</span>, entry: JournalEntry&lt;<span class="lifetime">&#39;a</span>&gt;) -&gt; anyhow::Result&lt;LogWriteResult&gt; {
         <span class="kw">let </span>entry = entry.into_owned();
         <span class="kw">let </span>state = <span class="self">self</span>.state.lock().unwrap();
         <span class="kw">let </span>estimate_size = entry.estimate_size();
         state.records.lock().unwrap().push(entry);
-        <span class="prelude-val">Ok</span>(estimate_size <span class="kw">as </span>u64)
+        <span class="prelude-val">Ok</span>(LogWriteResult {
+            record_start: state.offset <span class="kw">as </span>u64,
+            record_end: state.offset <span class="kw">as </span>u64 + estimate_size <span class="kw">as </span>u64,
+        })
     }
 }
 
 <span class="kw">impl </span>ReadableJournal <span class="kw">for </span>BufferedJournalRx {
-    <span class="kw">fn </span>read(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; anyhow::Result&lt;<span class="prelude-ty">Option</span>&lt;JournalEntry&lt;<span class="lifetime">&#39;_</span>&gt;&gt;&gt; {
+    <span class="kw">fn </span>read(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; anyhow::Result&lt;<span class="prelude-ty">Option</span>&lt;LogReadResult&lt;<span class="lifetime">&#39;_</span>&gt;&gt;&gt; {
         <span class="kw">let </span><span class="kw-2">mut </span>state = <span class="self">self</span>.state.lock().unwrap();
         <span class="kw">let </span>ret = state.records.lock().unwrap().get(state.offset).cloned();
+
+        <span class="kw">let </span>record_start = state.offset <span class="kw">as </span>u64;
         <span class="kw">if </span>ret.is_some() {
             state.offset += <span class="number">1</span>;
         }
-        <span class="prelude-val">Ok</span>(ret)
+        <span class="prelude-val">Ok</span>(ret.map(|r| LogReadResult {
+            record_start,
+            record_end: state.offset <span class="kw">as </span>u64,
+            record: r,
+        }))
     }
 
     <span class="kw">fn </span>as_restarted(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; anyhow::Result&lt;Box&lt;DynReadableJournal&gt;&gt; {
@@ -160,13 +178,13 @@
 }
 
 <span class="kw">impl </span>WritableJournal <span class="kw">for </span>BufferedJournal {
-    <span class="kw">fn </span>write&lt;<span class="lifetime">&#39;a</span>&gt;(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="self">self</span>, entry: JournalEntry&lt;<span class="lifetime">&#39;a</span>&gt;) -&gt; anyhow::Result&lt;u64&gt; {
+    <span class="kw">fn </span>write&lt;<span class="lifetime">&#39;a</span>&gt;(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="self">self</span>, entry: JournalEntry&lt;<span class="lifetime">&#39;a</span>&gt;) -&gt; anyhow::Result&lt;LogWriteResult&gt; {
         <span class="self">self</span>.tx.write(entry)
     }
 }
 
 <span class="kw">impl </span>ReadableJournal <span class="kw">for </span>BufferedJournal {
-    <span class="kw">fn </span>read(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; anyhow::Result&lt;<span class="prelude-ty">Option</span>&lt;JournalEntry&lt;<span class="lifetime">&#39;_</span>&gt;&gt;&gt; {
+    <span class="kw">fn </span>read(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; anyhow::Result&lt;<span class="prelude-ty">Option</span>&lt;LogReadResult&lt;<span class="lifetime">&#39;_</span>&gt;&gt;&gt; {
         <span class="self">self</span>.rx.read()
     }
 

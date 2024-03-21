@@ -2042,6 +2042,85 @@
 <a href="#2042" id="2042">2042</a>
 <a href="#2043" id="2043">2043</a>
 <a href="#2044" id="2044">2044</a>
+<a href="#2045" id="2045">2045</a>
+<a href="#2046" id="2046">2046</a>
+<a href="#2047" id="2047">2047</a>
+<a href="#2048" id="2048">2048</a>
+<a href="#2049" id="2049">2049</a>
+<a href="#2050" id="2050">2050</a>
+<a href="#2051" id="2051">2051</a>
+<a href="#2052" id="2052">2052</a>
+<a href="#2053" id="2053">2053</a>
+<a href="#2054" id="2054">2054</a>
+<a href="#2055" id="2055">2055</a>
+<a href="#2056" id="2056">2056</a>
+<a href="#2057" id="2057">2057</a>
+<a href="#2058" id="2058">2058</a>
+<a href="#2059" id="2059">2059</a>
+<a href="#2060" id="2060">2060</a>
+<a href="#2061" id="2061">2061</a>
+<a href="#2062" id="2062">2062</a>
+<a href="#2063" id="2063">2063</a>
+<a href="#2064" id="2064">2064</a>
+<a href="#2065" id="2065">2065</a>
+<a href="#2066" id="2066">2066</a>
+<a href="#2067" id="2067">2067</a>
+<a href="#2068" id="2068">2068</a>
+<a href="#2069" id="2069">2069</a>
+<a href="#2070" id="2070">2070</a>
+<a href="#2071" id="2071">2071</a>
+<a href="#2072" id="2072">2072</a>
+<a href="#2073" id="2073">2073</a>
+<a href="#2074" id="2074">2074</a>
+<a href="#2075" id="2075">2075</a>
+<a href="#2076" id="2076">2076</a>
+<a href="#2077" id="2077">2077</a>
+<a href="#2078" id="2078">2078</a>
+<a href="#2079" id="2079">2079</a>
+<a href="#2080" id="2080">2080</a>
+<a href="#2081" id="2081">2081</a>
+<a href="#2082" id="2082">2082</a>
+<a href="#2083" id="2083">2083</a>
+<a href="#2084" id="2084">2084</a>
+<a href="#2085" id="2085">2085</a>
+<a href="#2086" id="2086">2086</a>
+<a href="#2087" id="2087">2087</a>
+<a href="#2088" id="2088">2088</a>
+<a href="#2089" id="2089">2089</a>
+<a href="#2090" id="2090">2090</a>
+<a href="#2091" id="2091">2091</a>
+<a href="#2092" id="2092">2092</a>
+<a href="#2093" id="2093">2093</a>
+<a href="#2094" id="2094">2094</a>
+<a href="#2095" id="2095">2095</a>
+<a href="#2096" id="2096">2096</a>
+<a href="#2097" id="2097">2097</a>
+<a href="#2098" id="2098">2098</a>
+<a href="#2099" id="2099">2099</a>
+<a href="#2100" id="2100">2100</a>
+<a href="#2101" id="2101">2101</a>
+<a href="#2102" id="2102">2102</a>
+<a href="#2103" id="2103">2103</a>
+<a href="#2104" id="2104">2104</a>
+<a href="#2105" id="2105">2105</a>
+<a href="#2106" id="2106">2106</a>
+<a href="#2107" id="2107">2107</a>
+<a href="#2108" id="2108">2108</a>
+<a href="#2109" id="2109">2109</a>
+<a href="#2110" id="2110">2110</a>
+<a href="#2111" id="2111">2111</a>
+<a href="#2112" id="2112">2112</a>
+<a href="#2113" id="2113">2113</a>
+<a href="#2114" id="2114">2114</a>
+<a href="#2115" id="2115">2115</a>
+<a href="#2116" id="2116">2116</a>
+<a href="#2117" id="2117">2117</a>
+<a href="#2118" id="2118">2118</a>
+<a href="#2119" id="2119">2119</a>
+<a href="#2120" id="2120">2120</a>
+<a href="#2121" id="2121">2121</a>
+<a href="#2122" id="2122">2122</a>
+<a href="#2123" id="2123">2123</a>
 </pre></div><pre class="rust"><code><span class="kw">mod </span>fd;
 <span class="kw">mod </span>inode_guard;
 <span class="kw">mod </span>notification;
@@ -2087,6 +2166,18 @@
 <span class="kw">use crate</span>::{bin_factory::BinaryPackage, state::PreopenedDir, ALL_RIGHTS};
 
 <span class="doccomment">/// the fd value of the virtual root
+///
+/// Used for interacting with the file system when it has no
+/// pre-opened file descriptors at the root level. Normally
+/// a WASM process will do this in the libc initialization stage
+/// however that does not happen when the WASM process has never
+/// been run. Further that logic could change at any time in libc
+/// which would then break functionality. Instead we use this fixed
+/// file descriptor
+///
+/// This is especially important for fuse mounting journals which
+/// use the same syscalls as a normal WASI application but do not
+/// run the libc initialization logic
 </span><span class="kw">pub const </span>VIRTUAL_ROOT_FD: WasiFd = <span class="number">3</span>;
 
 <span class="kw">const </span>STDIN_DEFAULT_RIGHTS: Rights = {
@@ -2455,6 +2546,63 @@
     <span class="prelude-val">Ok</span>(())
 }
 
+<span class="doccomment">/// This needs to be exposed so that the multiple use-cases are able
+/// to generated unique file descriptors and update the seed during
+/// journal restoration
+</span><span class="attr">#[derive(Debug, Clone)]
+#[cfg_attr(feature = <span class="string">&quot;enable-serde&quot;</span>, derive(Serialize, Deserialize))]
+</span><span class="kw">pub struct </span>WasiFdSeed {
+    next_fd: Arc&lt;AtomicU32&gt;,
+}
+
+<span class="kw">impl </span>Default <span class="kw">for </span>WasiFdSeed {
+    <span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
+        <span class="self">Self</span>::new(<span class="number">3</span>)
+    }
+}
+
+<span class="kw">impl </span>WasiFdSeed {
+    <span class="kw">pub fn </span>new(initial_val: u32) -&gt; <span class="self">Self </span>{
+        <span class="self">Self </span>{
+            next_fd: Arc::new(AtomicU32::new(initial_val)),
+        }
+    }
+
+    <span class="kw">pub fn </span>fork(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="self">Self </span>{
+        <span class="self">Self </span>{
+            next_fd: Arc::new(AtomicU32::new(<span class="self">self</span>.next_fd.load(Ordering::SeqCst))),
+        }
+    }
+
+    <span class="kw">pub fn </span>next_val(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; WasiFd {
+        <span class="self">self</span>.next_fd.fetch_add(<span class="number">1</span>, Ordering::SeqCst)
+    }
+
+    <span class="kw">pub fn </span>set_val(<span class="kw-2">&amp;</span><span class="self">self</span>, val: WasiFd) {
+        <span class="self">self</span>.next_fd.store(val, std::sync::atomic::Ordering::SeqCst)
+    }
+
+    <span class="kw">pub fn </span>cur_val(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; WasiFd {
+        <span class="self">self</span>.next_fd.load(Ordering::SeqCst)
+    }
+
+    <span class="kw">pub fn </span>clip_val(<span class="kw-2">&amp;</span><span class="self">self</span>, fd: WasiFd) {
+        <span class="kw">loop </span>{
+            <span class="kw">let </span>existing = <span class="self">self</span>.next_fd.load(Ordering::SeqCst);
+            <span class="kw">if </span>existing &gt;= fd {
+                <span class="kw">return</span>;
+            }
+            <span class="kw">if </span><span class="self">self
+                </span>.next_fd
+                .compare_exchange(existing, fd, Ordering::SeqCst, Ordering::Relaxed)
+                .is_ok()
+            {
+                <span class="kw">break</span>;
+            }
+        }
+    }
+}
+
 <span class="doccomment">/// Warning, modifying these fields directly may cause invariants to break and
 /// should be considered unsafe.  These fields may be made private in a future release
 </span><span class="attr">#[cfg_attr(feature = <span class="string">&quot;enable-serde&quot;</span>, derive(Serialize, Deserialize))]
@@ -2462,7 +2610,7 @@
     <span class="comment">//pub repo: Repo,
     </span><span class="kw">pub </span>preopen_fds: RwLock&lt;Vec&lt;u32&gt;&gt;,
     <span class="kw">pub </span>fd_map: Arc&lt;RwLock&lt;HashMap&lt;WasiFd, Fd&gt;&gt;&gt;,
-    <span class="kw">pub </span>next_fd: AtomicU32,
+    <span class="kw">pub </span>next_fd: WasiFdSeed,
     <span class="kw">pub </span>current_dir: Mutex&lt;String&gt;,
     <span class="attr">#[cfg_attr(feature = <span class="string">&quot;enable-serde&quot;</span>, serde(skip, default))]
     </span><span class="kw">pub </span>root_fs: WasiFsRoot,
@@ -2498,7 +2646,7 @@
         <span class="self">Self </span>{
             preopen_fds: RwLock::new(<span class="self">self</span>.preopen_fds.read().unwrap().clone()),
             fd_map: Arc::new(RwLock::new(fd_map)),
-            next_fd: AtomicU32::new(<span class="self">self</span>.next_fd.load(Ordering::SeqCst)),
+            next_fd: <span class="self">self</span>.next_fd.fork(),
             current_dir: Mutex::new(<span class="self">self</span>.current_dir.lock().unwrap().clone()),
             is_wasix: AtomicBool::new(<span class="self">self</span>.is_wasix.load(Ordering::Acquire)),
             root_fs: <span class="self">self</span>.root_fs.clone(),
@@ -2601,7 +2749,7 @@
         <span class="kw">let </span>wasi_fs = <span class="self">Self </span>{
             preopen_fds: RwLock::new(<span class="macro">vec!</span>[]),
             fd_map: Arc::new(RwLock::new(HashMap::new())),
-            next_fd: AtomicU32::new(<span class="number">3</span>),
+            next_fd: WasiFdSeed::default(),
             current_dir: Mutex::new(<span class="string">&quot;/&quot;</span>.to_string()),
             is_wasix: AtomicBool::new(<span class="bool-val">false</span>),
             root_fs: fs_backing,
@@ -2727,7 +2875,7 @@
                 <span class="kw">let </span>kind = Kind::File {
                     handle: <span class="prelude-val">Some</span>(Arc::new(RwLock::new(file))),
                     path: PathBuf::from(<span class="string">&quot;&quot;</span>),
-                    fd: <span class="prelude-val">Some</span>(<span class="self">self</span>.next_fd.fetch_add(<span class="number">1</span>, Ordering::SeqCst)),
+                    fd: <span class="prelude-val">Some</span>(<span class="self">self</span>.next_fd.next_val()),
                 };
 
                 drop(guard);
@@ -3081,6 +3229,9 @@
 
                         <span class="kw">if let </span><span class="prelude-val">Some</span>(entry) = entries.get(component.as_ref()) {
                             cur_inode = entry.clone();
+                        } <span class="kw">else if let </span><span class="prelude-val">Some</span>(root) = entries.get(<span class="kw-2">&amp;</span><span class="string">&quot;/&quot;</span>.to_string()) {
+                            cur_inode = root.clone();
+                            <span class="kw">continue </span><span class="lifetime">&#39;symlink_resolution</span>;
                         } <span class="kw">else </span>{
                             <span class="comment">// Root is not capable of having something other then preopenned folders
                             </span><span class="kw">return </span><span class="prelude-val">Err</span>(Errno::Notcapable);
@@ -3280,15 +3431,34 @@
     }
 
     <span class="kw">pub fn </span>get_fd(<span class="kw-2">&amp;</span><span class="self">self</span>, fd: WasiFd) -&gt; <span class="prelude-ty">Result</span>&lt;Fd, Errno&gt; {
-        <span class="self">self</span>.fd_map
+        <span class="kw">let </span>ret = <span class="self">self
+            </span>.fd_map
             .read()
             .unwrap()
             .get(<span class="kw-2">&amp;</span>fd)
             .ok_or(Errno::Badf)
-            .map(|a| a.clone())
+            .map(|a| a.clone());
+
+        <span class="kw">if </span>ret.is_err() &amp;&amp; fd == VIRTUAL_ROOT_FD {
+            <span class="prelude-val">Ok</span>(Fd {
+                rights: ALL_RIGHTS,
+                rights_inheriting: ALL_RIGHTS,
+                flags: Fdflags::empty(),
+                offset: Arc::new(AtomicU64::new(<span class="number">0</span>)),
+                open_flags: <span class="number">0</span>,
+                inode: <span class="self">self</span>.root_inode.clone(),
+                is_stdio: <span class="bool-val">false</span>,
+            })
+        } <span class="kw">else </span>{
+            ret
+        }
     }
 
     <span class="kw">pub fn </span>get_fd_inode(<span class="kw-2">&amp;</span><span class="self">self</span>, fd: WasiFd) -&gt; <span class="prelude-ty">Result</span>&lt;InodeGuard, Errno&gt; {
+        <span class="comment">// see `VIRTUAL_ROOT_FD` for details as to why this exists
+        </span><span class="kw">if </span>fd == VIRTUAL_ROOT_FD {
+            <span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="self">self</span>.root_inode.clone());
+        }
         <span class="self">self</span>.fd_map
             .read()
             .unwrap()
@@ -3349,10 +3519,10 @@
                 Kind::File { .. } =&gt; Filetype::RegularFile,
                 Kind::Dir { .. } =&gt; Filetype::Directory,
                 Kind::Symlink { .. } =&gt; Filetype::SymbolicLink,
-                Kind::Socket { socket } =&gt; <span class="kw">match </span>socket.inner.protected.read().unwrap().kind {
+                Kind::Socket { socket } =&gt; <span class="kw">match </span><span class="kw-2">&amp;</span>socket.inner.protected.read().unwrap().kind {
                     InodeSocketKind::TcpStream { .. } =&gt; Filetype::SocketStream,
                     InodeSocketKind::Raw { .. } =&gt; Filetype::SocketRaw,
-                    InodeSocketKind::PreSocket { ty, .. } =&gt; <span class="kw">match </span>ty {
+                    InodeSocketKind::PreSocket { props, .. } =&gt; <span class="kw">match </span>props.ty {
                         Socktype::Stream =&gt; Filetype::SocketStream,
                         Socktype::Dgram =&gt; Filetype::SocketDgram,
                         Socktype::Raw =&gt; Filetype::SocketRaw,
@@ -3510,25 +3680,13 @@
         open_flags: u16,
         inode: InodeGuard,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;WasiFd, Errno&gt; {
-        <span class="kw">let </span>idx = <span class="self">self</span>.next_fd.fetch_add(<span class="number">1</span>, Ordering::SeqCst);
+        <span class="kw">let </span>idx = <span class="self">self</span>.next_fd.next_val();
         <span class="self">self</span>.create_fd_ext(rights, rights_inheriting, flags, open_flags, inode, idx)<span class="question-mark">?</span>;
         <span class="prelude-val">Ok</span>(idx)
     }
 
     <span class="kw">pub fn </span>make_max_fd(<span class="kw-2">&amp;</span><span class="self">self</span>, fd: u32) {
-        <span class="kw">loop </span>{
-            <span class="kw">let </span>existing = <span class="self">self</span>.next_fd.load(Ordering::SeqCst);
-            <span class="kw">if </span>existing &gt;= fd {
-                <span class="kw">return</span>;
-            }
-            <span class="kw">if </span><span class="self">self
-                </span>.next_fd
-                .compare_exchange(existing, fd, Ordering::SeqCst, Ordering::Relaxed)
-                .is_ok()
-            {
-                <span class="kw">break</span>;
-            }
-        }
+        <span class="self">self</span>.next_fd.clip_val(fd);
     }
 
     <span class="kw">pub fn </span>create_fd_ext(
@@ -3561,7 +3719,7 @@
 
     <span class="kw">pub fn </span>clone_fd(<span class="kw-2">&amp;</span><span class="self">self</span>, fd: WasiFd) -&gt; <span class="prelude-ty">Result</span>&lt;WasiFd, Errno&gt; {
         <span class="kw">let </span>fd = <span class="self">self</span>.get_fd(fd)<span class="question-mark">?</span>;
-        <span class="kw">let </span>idx = <span class="self">self</span>.next_fd.fetch_add(<span class="number">1</span>, Ordering::SeqCst);
+        <span class="kw">let </span>idx = <span class="self">self</span>.next_fd.next_val();
         <span class="self">self</span>.fd_map.write().unwrap().insert(
             idx,
             Fd {
@@ -3964,7 +4122,7 @@
         } <span class="kw">else </span>{
             <span class="macro">write!</span>(f, <span class="string">&quot;current_dir=(locked) &quot;</span>)<span class="question-mark">?</span>;
         }
-        <span class="macro">write!</span>(f, <span class="string">&quot;next_fd={} &quot;</span>, <span class="self">self</span>.next_fd.load(Ordering::Relaxed))<span class="question-mark">?</span>;
+        <span class="macro">write!</span>(f, <span class="string">&quot;next_fd={} &quot;</span>, <span class="self">self</span>.next_fd.cur_val())<span class="question-mark">?</span>;
         <span class="macro">write!</span>(f, <span class="string">&quot;{:?}&quot;</span>, <span class="self">self</span>.root_fs)
     }
 }

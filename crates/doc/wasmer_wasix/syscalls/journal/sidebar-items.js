@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["maybe_snapshot","maybe_snapshot_once","restore_snapshot"]};
+window.SIDEBAR_ITEMS = {"mod":["actions","clear_ethereal","do_checkpoint_from_outside","maybe_snapshot","maybe_snapshot_many","maybe_snapshot_once","play_event","restore_snapshot","wait_for_snapshot"],"struct":["JournalSyscallPlayer"]};

@@ -150,13 +150,33 @@
 <a href="#150" id="150">150</a>
 <a href="#151" id="151">151</a>
 <a href="#152" id="152">152</a>
+<a href="#153" id="153">153</a>
+<a href="#154" id="154">154</a>
+<a href="#155" id="155">155</a>
+<a href="#156" id="156">156</a>
+<a href="#157" id="157">157</a>
+<a href="#158" id="158">158</a>
+<a href="#159" id="159">159</a>
+<a href="#160" id="160">160</a>
+<a href="#161" id="161">161</a>
+<a href="#162" id="162">162</a>
+<a href="#163" id="163">163</a>
+<a href="#164" id="164">164</a>
+<a href="#165" id="165">165</a>
+<a href="#166" id="166">166</a>
+<a href="#167" id="167">167</a>
+<a href="#168" id="168">168</a>
+<a href="#169" id="169">169</a>
+<a href="#170" id="170">170</a>
 </pre></div><pre class="rust"><code><span class="kw">mod </span>file;
 <span class="kw">mod </span>file_opener;
 <span class="kw">mod </span>filesystem;
+<span class="kw">mod </span>offloaded_file;
 <span class="kw">mod </span>stdio;
 
 <span class="kw">use </span>file::{File, FileHandle, ReadOnlyFile};
 <span class="kw">pub use </span>filesystem::FileSystem;
+<span class="kw">pub use </span>offloaded_file::OffloadBackingStore;
 <span class="kw">pub use </span>stdio::{Stderr, Stdin, Stdout};
 
 <span class="kw">use </span><span class="kw">crate</span>::Metadata;
@@ -165,6 +185,8 @@
     path::PathBuf,
     sync::{Arc, Mutex},
 };
+
+<span class="kw">use </span><span class="self">self</span>::offloaded_file::OffloadedFile;
 
 <span class="kw">type </span>Inode = usize;
 <span class="kw">const </span>ROOT_INODE: Inode = <span class="number">0</span>;
@@ -182,6 +204,14 @@
     inode: Inode,
     name: OsString,
     file: ReadOnlyFile,
+    metadata: Metadata,
+}
+
+<span class="attr">#[derive(Debug)]
+</span><span class="kw">struct </span>OffloadedFileNode {
+    inode: Inode,
+    name: OsString,
+    file: OffloadedFile,
     metadata: Metadata,
 }
 
@@ -222,6 +252,7 @@
 <span class="attr">#[derive(Debug)]
 </span><span class="kw">enum </span>Node {
     File(FileNode),
+    OffloadedFile(OffloadedFileNode),
     ReadOnlyFile(ReadOnlyFileNode),
     ArcFile(ArcFileNode),
     CustomFile(CustomFileNode),
@@ -233,6 +264,7 @@
     <span class="kw">fn </span>inode(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Inode {
         <span class="kw-2">*</span><span class="kw">match </span><span class="self">self </span>{
             <span class="self">Self</span>::File(FileNode { inode, .. }) =&gt; inode,
+            <span class="self">Self</span>::OffloadedFile(OffloadedFileNode { inode, .. }) =&gt; inode,
             <span class="self">Self</span>::ReadOnlyFile(ReadOnlyFileNode { inode, .. }) =&gt; inode,
             <span class="self">Self</span>::ArcFile(ArcFileNode { inode, .. }) =&gt; inode,
             <span class="self">Self</span>::CustomFile(CustomFileNode { inode, .. }) =&gt; inode,
@@ -244,6 +276,7 @@
     <span class="kw">fn </span>name(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>OsStr {
         <span class="kw">match </span><span class="self">self </span>{
             <span class="self">Self</span>::File(FileNode { name, .. }) =&gt; name.as_os_str(),
+            <span class="self">Self</span>::OffloadedFile(OffloadedFileNode { name, .. }) =&gt; name.as_os_str(),
             <span class="self">Self</span>::ReadOnlyFile(ReadOnlyFileNode { name, .. }) =&gt; name.as_os_str(),
             <span class="self">Self</span>::ArcFile(ArcFileNode { name, .. }) =&gt; name.as_os_str(),
             <span class="self">Self</span>::CustomFile(CustomFileNode { name, .. }) =&gt; name.as_os_str(),
@@ -255,6 +288,7 @@
     <span class="kw">fn </span>metadata(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>Metadata {
         <span class="kw">match </span><span class="self">self </span>{
             <span class="self">Self</span>::File(FileNode { metadata, .. }) =&gt; metadata,
+            <span class="self">Self</span>::OffloadedFile(OffloadedFileNode { metadata, .. }) =&gt; metadata,
             <span class="self">Self</span>::ReadOnlyFile(ReadOnlyFileNode { metadata, .. }) =&gt; metadata,
             <span class="self">Self</span>::ArcFile(ArcFileNode { metadata, .. }) =&gt; metadata,
             <span class="self">Self</span>::CustomFile(CustomFileNode { metadata, .. }) =&gt; metadata,
@@ -266,6 +300,7 @@
     <span class="kw">fn </span>metadata_mut(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;mut </span>Metadata {
         <span class="kw">match </span><span class="self">self </span>{
             <span class="self">Self</span>::File(FileNode { metadata, .. }) =&gt; metadata,
+            <span class="self">Self</span>::OffloadedFile(OffloadedFileNode { metadata, .. }) =&gt; metadata,
             <span class="self">Self</span>::ReadOnlyFile(ReadOnlyFileNode { metadata, .. }) =&gt; metadata,
             <span class="self">Self</span>::ArcFile(ArcFileNode { metadata, .. }) =&gt; metadata,
             <span class="self">Self</span>::CustomFile(CustomFileNode { metadata, .. }) =&gt; metadata,
@@ -277,6 +312,7 @@
     <span class="kw">fn </span>set_name(<span class="kw-2">&amp;mut </span><span class="self">self</span>, new_name: OsString) {
         <span class="kw">match </span><span class="self">self </span>{
             <span class="self">Self</span>::File(FileNode { name, .. }) =&gt; <span class="kw-2">*</span>name = new_name,
+            <span class="self">Self</span>::OffloadedFile(OffloadedFileNode { name, .. }) =&gt; <span class="kw-2">*</span>name = new_name,
             <span class="self">Self</span>::ReadOnlyFile(ReadOnlyFileNode { name, .. }) =&gt; <span class="kw-2">*</span>name = new_name,
             <span class="self">Self</span>::ArcFile(ArcFileNode { name, .. }) =&gt; <span class="kw-2">*</span>name = new_name,
             <span class="self">Self</span>::CustomFile(CustomFileNode { name, .. }) =&gt; <span class="kw-2">*</span>name = new_name,

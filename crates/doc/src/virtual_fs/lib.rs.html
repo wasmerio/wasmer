@@ -717,6 +717,12 @@
 <a href="#717" id="717">717</a>
 <a href="#718" id="718">718</a>
 <a href="#719" id="719">719</a>
+<a href="#720" id="720">720</a>
+<a href="#721" id="721">721</a>
+<a href="#722" id="722">722</a>
+<a href="#723" id="723">723</a>
+<a href="#724" id="724">724</a>
+<a href="#725" id="725">725</a>
 </pre></div><pre class="rust"><code><span class="attr">#![cfg_attr(docsrs, feature(doc_cfg, doc_auto_cfg))]
 
 #[cfg(test)]
@@ -1077,6 +1083,12 @@
     </span><span class="kw">fn </span>get_special_fd(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;u32&gt; {
         <span class="prelude-val">None
     </span>}
+
+    <span class="doccomment">/// Writes to this file using an mmap offset and reference
+    /// (this method only works for mmap optimized file systems)
+    </span><span class="kw">fn </span>write_from_mmap(<span class="kw-2">&amp;mut </span><span class="self">self</span>, _offset: u64, _len: u64) -&gt; std::io::Result&lt;()&gt; {
+        <span class="prelude-val">Err</span>(std::io::ErrorKind::Unsupported.into())
+    }
 
     <span class="doccomment">/// This method will copy a file from a source to this destination where
     /// the default is to do a straight byte copy however file system implementors

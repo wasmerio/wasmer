@@ -10,6 +10,8 @@
 <a href="#10" id="10">10</a>
 <a href="#11" id="11">11</a>
 <a href="#12" id="12">12</a>
+<a href="#13" id="13">13</a>
+<a href="#14" id="14">14</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! OS task management for processes and threads.
 
 </span><span class="kw">pub mod </span>backoff;
@@ -19,6 +21,8 @@
 <span class="kw">mod </span>task_join_handle;
 <span class="kw">pub mod </span>thread;
 
+<span class="attr">#[allow(unused_imports)]
+</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">use </span>process::WasiProcessInner;
 <span class="kw">pub use </span>task_join_handle::{
     OwnedTaskStatus, TaskJoinHandle, TaskStatus, TaskTerminatedError, VirtualTaskHandle,
 };

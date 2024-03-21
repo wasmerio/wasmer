@@ -257,6 +257,18 @@
 <a href="#257" id="257">257</a>
 <a href="#258" id="258">258</a>
 <a href="#259" id="259">259</a>
+<a href="#260" id="260">260</a>
+<a href="#261" id="261">261</a>
+<a href="#262" id="262">262</a>
+<a href="#263" id="263">263</a>
+<a href="#264" id="264">264</a>
+<a href="#265" id="265">265</a>
+<a href="#266" id="266">266</a>
+<a href="#267" id="267">267</a>
+<a href="#268" id="268">268</a>
+<a href="#269" id="269">269</a>
+<a href="#270" id="270">270</a>
+<a href="#271" id="271">271</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{
     collections::HashMap,
     sync::{
@@ -469,6 +481,8 @@
 
 <span class="attr">#[cfg(test)]
 </span><span class="kw">mod </span>tests {
+    <span class="kw">use </span>wasmer_wasix_types::wasix::ThreadStartType;
+
     <span class="kw">use </span><span class="kw">crate</span>::os::task::thread::WasiMemoryLayout;
 
     <span class="kw">use super</span>::<span class="kw-2">*</span>;
@@ -483,8 +497,12 @@
         });
 
         <span class="kw">let </span>p1 = p.new_process(ModuleHash::random()).unwrap();
-        <span class="kw">let </span>_t1 = p1.new_thread(WasiMemoryLayout::default()).unwrap();
-        <span class="kw">let </span>_t2 = p1.new_thread(WasiMemoryLayout::default()).unwrap();
+        <span class="kw">let </span>_t1 = p1
+            .new_thread(WasiMemoryLayout::default(), ThreadStartType::MainThread)
+            .unwrap();
+        <span class="kw">let </span>_t2 = p1
+            .new_thread(WasiMemoryLayout::default(), ThreadStartType::MainThread)
+            .unwrap();
 
         <span class="macro">assert_eq!</span>(
             p.new_process(ModuleHash::random()).unwrap_err(),
@@ -504,11 +522,17 @@
         <span class="kw">let </span>p1 = p.new_process(ModuleHash::random()).unwrap();
 
         <span class="kw">for _ in </span><span class="number">0</span>..<span class="number">10 </span>{
-            <span class="kw">let </span>_thread = p1.new_thread(WasiMemoryLayout::default()).unwrap();
+            <span class="kw">let </span>_thread = p1
+                .new_thread(WasiMemoryLayout::default(), ThreadStartType::MainThread)
+                .unwrap();
         }
 
-        <span class="kw">let </span>_t1 = p1.new_thread(WasiMemoryLayout::default()).unwrap();
-        <span class="kw">let </span>_t2 = p1.new_thread(WasiMemoryLayout::default()).unwrap();
+        <span class="kw">let </span>_t1 = p1
+            .new_thread(WasiMemoryLayout::default(), ThreadStartType::MainThread)
+            .unwrap();
+        <span class="kw">let </span>_t2 = p1
+            .new_thread(WasiMemoryLayout::default(), ThreadStartType::MainThread)
+            .unwrap();
 
         <span class="macro">assert_eq!</span>(
             p.new_process(ModuleHash::random()).unwrap_err(),

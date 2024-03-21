@@ -49,7 +49,6 @@
 <a href="#49" id="49">49</a>
 <a href="#50" id="50">50</a>
 <a href="#51" id="51">51</a>
-<a href="#52" id="52">52</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::task::Waker;
 
 <span class="kw">use super</span>::<span class="kw-2">*</span>;
@@ -85,18 +84,17 @@
     <span class="kw">let </span>tid: WasiThreadId = join_tid.into();
     <span class="kw">let </span>other_thread = env.process.get_thread(<span class="kw-2">&amp;</span>tid);
     <span class="kw">if let </span><span class="prelude-val">Some</span>(other_thread) = other_thread {
-        <span class="kw">let </span>res =
-            __asyncify_with_deep_sleep::&lt;M, <span class="kw">_</span>, <span class="kw">_</span>&gt;(ctx, Duration::from_millis(<span class="number">50</span>), <span class="kw">async move </span>{
-                other_thread
-                    .join()
-                    .<span class="kw">await
-                    </span>.map_err(|err| {
-                        err.as_exit_code()
-                            .unwrap_or(ExitCode::Errno(Errno::Unknown))
-                    })
-                    .unwrap_or_else(|a| a)
-                    .raw()
-            })<span class="question-mark">?</span>;
+        <span class="kw">let </span>res = __asyncify_with_deep_sleep::&lt;M, <span class="kw">_</span>, <span class="kw">_</span>&gt;(ctx, <span class="kw">async move </span>{
+            other_thread
+                .join()
+                .<span class="kw">await
+                </span>.map_err(|err| {
+                    err.as_exit_code()
+                        .unwrap_or(ExitCode::Errno(Errno::Unknown))
+                })
+                .unwrap_or_else(|a| a)
+                .raw()
+        })<span class="question-mark">?</span>;
         <span class="prelude-val">Ok</span>(Errno::Success)
     } <span class="kw">else </span>{
         <span class="prelude-val">Ok</span>(Errno::Success)

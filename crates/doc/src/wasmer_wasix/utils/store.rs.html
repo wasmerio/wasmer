@@ -30,12 +30,12 @@
 <a href="#30" id="30">30</a>
 </pre></div><pre class="rust"><code><span class="doccomment">/// A snapshot that captures the runtime state of an instance.
 </span><span class="attr">#[derive(Default, serde::Serialize, serde::Deserialize, Clone, Debug)]
-</span><span class="kw">pub struct </span>InstanceSnapshot {
+</span><span class="kw">pub struct </span>StoreSnapshot {
     <span class="doccomment">/// Values of all globals, indexed by the same index used in Webassembly.
     </span><span class="kw">pub </span>globals: Vec&lt;u128&gt;,
 }
 
-<span class="kw">impl </span>InstanceSnapshot {
+<span class="kw">impl </span>StoreSnapshot {
     <span class="kw">pub fn </span>serialize(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;u8&gt;, bincode::Error&gt; {
         bincode::serialize(<span class="self">self</span>)
     }
@@ -45,13 +45,13 @@
     }
 }
 
-<span class="kw">pub fn </span>capture_instance_snapshot(store: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>wasmer::AsStoreMut) -&gt; InstanceSnapshot {
+<span class="kw">pub fn </span>capture_store_snapshot(store: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>wasmer::AsStoreMut) -&gt; StoreSnapshot {
     <span class="kw">let </span>objs = store.objects_mut();
     <span class="kw">let </span>globals = objs.as_u128_globals();
-    InstanceSnapshot { globals }
+    StoreSnapshot { globals }
 }
 
-<span class="kw">pub fn </span>restore_instance_snapshot(store: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>wasmer::AsStoreMut, snapshot: <span class="kw-2">&amp;</span>InstanceSnapshot) {
+<span class="kw">pub fn </span>restore_store_snapshot(store: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>wasmer::AsStoreMut, snapshot: <span class="kw-2">&amp;</span>StoreSnapshot) {
     <span class="kw">let </span>objs = store.objects_mut();
 
     <span class="kw">for </span>(index, value) <span class="kw">in </span>snapshot.globals.iter().enumerate() {

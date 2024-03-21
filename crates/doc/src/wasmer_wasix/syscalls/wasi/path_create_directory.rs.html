@@ -152,6 +152,16 @@
 <a href="#152" id="152">152</a>
 <a href="#153" id="153">153</a>
 <a href="#154" id="154">154</a>
+<a href="#155" id="155">155</a>
+<a href="#156" id="156">156</a>
+<a href="#157" id="157">157</a>
+<a href="#158" id="158">158</a>
+<a href="#159" id="159">159</a>
+<a href="#160" id="160">160</a>
+<a href="#161" id="161">161</a>
+<a href="#162" id="162">162</a>
+<a href="#163" id="163">163</a>
+<a href="#164" id="164">164</a>
 </pre></div><pre class="rust"><code><span class="kw">use super</span>::<span class="kw-2">*</span>;
 <span class="kw">use </span><span class="kw">crate</span>::syscalls::<span class="kw-2">*</span>;
 
@@ -214,10 +224,12 @@
     {
         <span class="kw">let </span>guard = working_dir.inode.read();
         <span class="kw">if let </span>Kind::Root { .. } = guard.deref() {
+            <span class="macro">trace!</span>(<span class="string">&quot;root has no rights to create a directories&quot;</span>);
             <span class="kw">return </span><span class="prelude-val">Err</span>(Errno::Access);
         }
     }
     <span class="kw">if </span>!working_dir.rights.contains(Rights::PATH_CREATE_DIRECTORY) {
+        <span class="macro">trace!</span>(<span class="string">&quot;working directory (fd={fd}) has no rights to create a directory&quot;</span>);
         <span class="kw">return </span><span class="prelude-val">Err</span>(Errno::Access);
     }
 
@@ -232,6 +244,7 @@
         })
         .collect::&lt;<span class="prelude-ty">Result</span>&lt;Vec&lt;String&gt;, Errno&gt;&gt;()<span class="question-mark">?</span>;
     <span class="kw">if </span>path_vec.is_empty() {
+        <span class="macro">trace!</span>(<span class="string">&quot;path vector is inva;id (its empty)&quot;</span>);
         <span class="kw">return </span><span class="prelude-val">Err</span>(Errno::Inval);
     }
 
@@ -272,6 +285,7 @@
                         <span class="kw-2">&amp;</span>adjusted_path.to_string_lossy(),
                     ) {
                         <span class="kw">if </span>adjusted_path_stat.st_filetype != Filetype::Directory {
+                            <span class="macro">trace!</span>(<span class="string">&quot;path is not a directory&quot;</span>);
                             <span class="kw">return </span><span class="prelude-val">Err</span>(Errno::Notdir);
                         }
                     } <span class="kw">else </span>{
@@ -299,8 +313,14 @@
                     cur_dir_inode = new_inode;
                 }
             }
-            Kind::Root { .. } =&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(Errno::Access),
-            <span class="kw">_ </span>=&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(Errno::Notdir),
+            Kind::Root { .. } =&gt; {
+                <span class="macro">trace!</span>(<span class="string">&quot;the root node can no create a directory&quot;</span>);
+                <span class="kw">return </span><span class="prelude-val">Err</span>(Errno::Access);
+            }
+            <span class="kw">_ </span>=&gt; {
+                <span class="macro">trace!</span>(<span class="string">&quot;path is not a directory&quot;</span>);
+                <span class="kw">return </span><span class="prelude-val">Err</span>(Errno::Notdir);
+            }
         }
     }
 

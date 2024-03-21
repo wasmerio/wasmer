@@ -955,6 +955,20 @@
 <a href="#955" id="955">955</a>
 <a href="#956" id="956">956</a>
 <a href="#957" id="957">957</a>
+<a href="#958" id="958">958</a>
+<a href="#959" id="959">959</a>
+<a href="#960" id="960">960</a>
+<a href="#961" id="961">961</a>
+<a href="#962" id="962">962</a>
+<a href="#963" id="963">963</a>
+<a href="#964" id="964">964</a>
+<a href="#965" id="965">965</a>
+<a href="#966" id="966">966</a>
+<a href="#967" id="967">967</a>
+<a href="#968" id="968">968</a>
+<a href="#969" id="969">969</a>
+<a href="#970" id="970">970</a>
+<a href="#971" id="971">971</a>
 </pre></div><pre class="rust"><code><span class="attr">#![allow(missing_docs, unused)]
 
 </span><span class="kw">mod </span>wasi;
@@ -992,6 +1006,7 @@
     journal::CompactingLogFileJournal,
     runners::{
         dcgi::{DcgiInstanceFactory, DcgiRunner},
+        dproxy::DProxyRunner,
         emscripten::EmscriptenRunner,
         wasi::WasiRunner,
         wcgi::{<span class="self">self</span>, AbortHandle, NoOpWcgiCallbacks, WcgiRunner},
@@ -1142,6 +1157,8 @@
 
         <span class="kw">if </span>DcgiRunner::can_run_command(cmd.metadata())<span class="question-mark">? </span>{
             <span class="self">self</span>.run_dcgi(id, pkg, uses, runtime)
+        } <span class="kw">else if </span>DProxyRunner::can_run_command(cmd.metadata())<span class="question-mark">? </span>{
+            <span class="self">self</span>.run_dproxy(id, pkg, runtime)
         } <span class="kw">else if </span>WcgiRunner::can_run_command(cmd.metadata())<span class="question-mark">? </span>{
             <span class="self">self</span>.run_wcgi(id, pkg, uses, runtime)
         } <span class="kw">else if </span>WasiRunner::can_run_command(cmd.metadata())<span class="question-mark">? </span>{
@@ -1256,6 +1273,17 @@
         <span class="kw">let </span>factory = DcgiInstanceFactory::new();
         <span class="kw">let </span><span class="kw-2">mut </span>runner = wasmer_wasix::runners::dcgi::DcgiRunner::new(factory);
         <span class="self">self</span>.config_wcgi(runner.config().inner(), uses);
+        runner.run_command(command_name, pkg, runtime)
+    }
+
+    <span class="kw">fn </span>run_dproxy(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        command_name: <span class="kw-2">&amp;</span>str,
+        pkg: <span class="kw-2">&amp;</span>BinaryPackage,
+        runtime: Arc&lt;<span class="kw">dyn </span>Runtime + Send + Sync&gt;,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt; {
+        <span class="kw">let </span><span class="kw-2">mut </span>inner = <span class="self">self</span>.build_wasi_runner(<span class="kw-2">&amp;</span>runtime)<span class="question-mark">?</span>;
+        <span class="kw">let </span><span class="kw-2">mut </span>runner = wasmer_wasix::runners::dproxy::DProxyRunner::new(inner, pkg);
         runner.run_command(command_name, pkg, runtime)
     }
 

@@ -400,6 +400,9 @@
 <a href="#400" id="400">400</a>
 <a href="#401" id="401">401</a>
 <a href="#402" id="402">402</a>
+<a href="#403" id="403">403</a>
+<a href="#404" id="404">404</a>
+<a href="#405" id="405">405</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! WebC container support for running WASI modules
 
 </span><span class="kw">use </span>std::{path::PathBuf, sync::Arc};
@@ -727,6 +730,9 @@
                     <span class="kw">crate</span>::bin_factory::spawn_exec(pkg, <span class="kw-2">&amp;</span>command_name, store, env, <span class="kw-2">&amp;</span>runtime)
                         .<span class="kw">await
                         </span>.context(<span class="string">&quot;Spawn failed&quot;</span>)<span class="question-mark">?</span>;
+
+                <span class="attr">#[cfg(feature = <span class="string">&quot;ctrlc&quot;</span>)]
+                </span>task_handle.install_ctrlc_handler();
 
                 task_handle
                     .wait_finished()

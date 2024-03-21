@@ -122,7 +122,7 @@
                 <span class="prelude-val">None</span>, <span class="comment">// we do not restore the thread memory as `longjmp`` is not meant to do this
                 </span>rewind_stack,
                 store_data,
-                <span class="prelude-val">Some</span>(rewind_result),
+                RewindResultType::RewindWithResult(rewind_result),
             );
             <span class="kw">match </span>ret {
                 Errno::Success =&gt; OnCalledAction::InvokeAgain,

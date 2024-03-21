@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"mod":["dcgi","emscripten","runner","wasi","wasi_common","wcgi"],"struct":["MappedCommand","MappedDirectory","MountedDirectory"],"trait":["Runner"]};
+window.SIDEBAR_ITEMS = {"mod":["dcgi","dproxy","emscripten","runner","wasi","wasi_common","wcgi"],"struct":["MappedCommand","MappedDirectory","MountedDirectory"],"trait":["Runner"]};

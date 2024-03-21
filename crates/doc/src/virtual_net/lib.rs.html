@@ -914,23 +914,33 @@
 <a href="#914" id="914">914</a>
 <a href="#915" id="915">915</a>
 <a href="#916" id="916">916</a>
+<a href="#917" id="917">917</a>
+<a href="#918" id="918">918</a>
+<a href="#919" id="919">919</a>
+<a href="#920" id="920">920</a>
+<a href="#921" id="921">921</a>
 </pre></div><pre class="rust"><code><span class="attr">#![cfg_attr(docsrs, feature(doc_cfg, doc_auto_cfg))]
 
 #[cfg(feature = <span class="string">&quot;remote&quot;</span>)]
 </span><span class="kw">pub mod </span>client;
+<span class="kw">pub mod </span>composite;
 <span class="attr">#[cfg(feature = <span class="string">&quot;host-net&quot;</span>)]
 </span><span class="kw">pub mod </span>host;
+<span class="kw">pub mod </span>loopback;
 <span class="kw">pub mod </span>meta;
 <span class="attr">#[cfg(feature = <span class="string">&quot;remote&quot;</span>)]
 </span><span class="kw">pub mod </span>rx_tx;
 <span class="attr">#[cfg(feature = <span class="string">&quot;remote&quot;</span>)]
 </span><span class="kw">pub mod </span>server;
+<span class="kw">pub mod </span>tcp_pair;
 <span class="attr">#[cfg(feature = <span class="string">&quot;tokio&quot;</span>)]
 #[cfg(test)]
 </span><span class="kw">mod </span>tests;
 
 <span class="attr">#[cfg(feature = <span class="string">&quot;remote&quot;</span>)]
 </span><span class="kw">pub use </span>client::{RemoteNetworkingClient, RemoteNetworkingClientDriver};
+<span class="kw">pub use </span>composite::CompositeTcpListener;
+<span class="kw">pub use </span>loopback::LoopbackNetworking;
 <span class="kw">use </span>pin_project_lite::pin_project;
 <span class="attr">#[cfg(feature = <span class="string">&quot;rkyv&quot;</span>)]
 </span><span class="kw">use </span>rkyv::{Archive, CheckBytes, Deserialize <span class="kw">as </span>RkyvDeserialize, Serialize <span class="kw">as </span>RkyvSerialize};

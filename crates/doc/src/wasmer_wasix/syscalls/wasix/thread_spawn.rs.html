@@ -265,13 +265,32 @@
 <a href="#265" id="265">265</a>
 <a href="#266" id="266">266</a>
 <a href="#267" id="267">267</a>
+<a href="#268" id="268">268</a>
+<a href="#269" id="269">269</a>
+<a href="#270" id="270">270</a>
+<a href="#271" id="271">271</a>
+<a href="#272" id="272">272</a>
+<a href="#273" id="273">273</a>
+<a href="#274" id="274">274</a>
+<a href="#275" id="275">275</a>
+<a href="#276" id="276">276</a>
+<a href="#277" id="277">277</a>
+<a href="#278" id="278">278</a>
+<a href="#279" id="279">279</a>
+<a href="#280" id="280">280</a>
+<a href="#281" id="281">281</a>
+<a href="#282" id="282">282</a>
+<a href="#283" id="283">283</a>
+<a href="#284" id="284">284</a>
+<a href="#285" id="285">285</a>
+<a href="#286" id="286">286</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::f32::consts::E;
 
 <span class="kw">use super</span>::<span class="kw-2">*</span>;
 <span class="attr">#[cfg(feature = <span class="string">&quot;journal&quot;</span>)]
 </span><span class="kw">use </span><span class="kw">crate</span>::journal::JournalEffector;
 <span class="kw">use crate</span>::{
-    capture_instance_snapshot,
+    capture_store_snapshot,
     os::task::thread::WasiMemoryLayout,
     runtime::{
         task_manager::{TaskWasm, TaskWasmRunProperties},
@@ -304,7 +323,7 @@
     ret_tid: WasmPtr&lt;Tid, M&gt;,
 ) -&gt; Errno {
     <span class="comment">// Create the thread
-    </span><span class="kw">let </span>tid = <span class="macro">wasi_try!</span>(thread_spawn_internal(<span class="kw-2">&amp;mut </span>ctx, start_ptr));
+    </span><span class="kw">let </span>tid = <span class="macro">wasi_try!</span>(thread_spawn_internal_from_wasi(<span class="kw-2">&amp;mut </span>ctx, start_ptr));
 
     <span class="comment">// Success
     </span><span class="kw">let </span>memory = <span class="kw">unsafe </span>{ ctx.data().memory_view(<span class="kw-2">&amp;</span>ctx) };
@@ -312,7 +331,7 @@
     Errno::Success
 }
 
-<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>thread_spawn_internal&lt;M: MemorySize&gt;(
+<span class="kw">pub fn </span>thread_spawn_internal_from_wasi&lt;M: MemorySize&gt;(
     ctx: <span class="kw-2">&amp;mut </span>FunctionEnvMut&lt;<span class="lifetime">&#39;_</span>, WasiEnv&gt;,
     start_ptr: WasmPtr&lt;ThreadStart&lt;M&gt;, M&gt;,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;Tid, Errno&gt; {
@@ -322,9 +341,6 @@
     <span class="kw">let </span>runtime = env.runtime.clone();
     <span class="kw">let </span>tasks = env.tasks().clone();
     <span class="kw">let </span>start_ptr_offset = start_ptr.offset();
-
-    <span class="comment">// We extract the memory which will be passed to the thread
-    </span><span class="kw">let </span>thread_memory = <span class="kw">unsafe </span>{ env.inner() }.memory_clone();
 
     <span class="comment">// Read the properties about the stack which we will use for asyncify
     </span><span class="kw">let </span>layout = {
@@ -345,7 +361,10 @@
     <span class="macro">tracing::trace!</span>(<span class="string">&quot;spawn with layout {:?}&quot;</span>, layout);
 
     <span class="comment">// Create the handle that represents this thread
-    </span><span class="kw">let </span><span class="kw-2">mut </span>thread_handle = <span class="kw">match </span>env.process.new_thread(layout.clone()) {
+    </span><span class="kw">let </span>thread_start = ThreadStartType::ThreadSpawn {
+        start_ptr: start_ptr_offset.into(),
+    };
+    <span class="kw">let </span><span class="kw-2">mut </span>thread_handle = <span class="kw">match </span>env.process.new_thread(layout.clone(), thread_start) {
         <span class="prelude-val">Ok</span>(h) =&gt; Arc::new(h),
         <span class="prelude-val">Err</span>(err) =&gt; {
             <span class="macro">error!</span>(
@@ -359,6 +378,25 @@
     <span class="kw">let </span>thread_id: Tid = thread_handle.id().into();
     Span::current().record(<span class="string">&quot;tid&quot;</span>, thread_id);
 
+    <span class="comment">// Spawn the thread
+    </span>thread_spawn_internal_using_layout::&lt;M&gt;(ctx, thread_handle, layout, start_ptr_offset, <span class="prelude-val">None</span>)<span class="question-mark">?</span>;
+
+    <span class="comment">// Success
+    </span><span class="prelude-val">Ok</span>(thread_id)
+}
+
+<span class="kw">pub fn </span>thread_spawn_internal_using_layout&lt;M: MemorySize&gt;(
+    ctx: <span class="kw-2">&amp;mut </span>FunctionEnvMut&lt;<span class="lifetime">&#39;_</span>, WasiEnv&gt;,
+    thread_handle: Arc&lt;WasiThreadHandle&gt;,
+    layout: WasiMemoryLayout,
+    start_ptr_offset: M::Offset,
+    rewind_state: <span class="prelude-ty">Option</span>&lt;(RewindState, RewindResultType)&gt;,
+) -&gt; <span class="prelude-ty">Result</span>&lt;(), Errno&gt; {
+    <span class="comment">// We extract the memory which will be passed to the thread
+    </span><span class="kw">let </span>env = ctx.data();
+    <span class="kw">let </span>tasks = env.tasks().clone();
+    <span class="kw">let </span>thread_memory = <span class="kw">unsafe </span>{ env.inner() }.memory_clone();
+
     <span class="comment">// We capture some local variables
     </span><span class="kw">let </span>state = env.state.clone();
     <span class="kw">let </span><span class="kw-2">mut </span>thread_env = env.clone();
@@ -366,7 +404,7 @@
     thread_env.layout = layout;
 
     <span class="comment">// TODO: Currently asynchronous threading does not work with multi
-    //       threading but it does work for the main thread. This will
+    //       threading in JS but it does work for the main thread. This will
     //       require more work to find out why.
     </span>thread_env.enable_deep_sleep = <span class="kw">if </span><span class="macro">cfg!</span>(feature = <span class="string">&quot;js&quot;</span>) {
         <span class="bool-val">false
@@ -380,7 +418,7 @@
         <span class="kw">let </span>thread_handle = thread_handle;
         <span class="kw">move </span>|ctx: WasiFunctionEnv, <span class="kw-2">mut </span>store: Store| {
             <span class="comment">// Call the thread
-            </span>call_module::&lt;M&gt;(ctx, store, start_ptr_offset, thread_handle, <span class="prelude-val">None</span>)
+            </span>call_module::&lt;M&gt;(ctx, store, start_ptr_offset, thread_handle, rewind_state)
         }
     };
 
@@ -391,7 +429,7 @@
         <span class="kw">return </span><span class="prelude-val">Err</span>(Errno::Notcapable);
     }
     <span class="kw">let </span>thread_module = <span class="kw">unsafe </span>{ env.inner() }.module_clone();
-    <span class="kw">let </span>snapshot = capture_instance_snapshot(<span class="kw-2">&amp;mut </span>ctx.as_store_mut());
+    <span class="kw">let </span>globals = capture_store_snapshot(<span class="kw-2">&amp;mut </span>ctx.as_store_mut());
     <span class="kw">let </span>spawn_type =
         <span class="kw">crate</span>::runtime::SpawnMemoryType::ShareMemory(thread_memory, ctx.as_store_ref());
 
@@ -403,13 +441,13 @@
     tasks
         .task_wasm(
             TaskWasm::new(Box::new(run), thread_env, thread_module, <span class="bool-val">false</span>)
-                .with_snapshot(<span class="kw-2">&amp;</span>snapshot)
+                .with_globals(<span class="kw-2">&amp;</span>globals)
                 .with_memory(spawn_type),
         )
         .map_err(Into::&lt;Errno&gt;::into)<span class="question-mark">?</span>;
 
     <span class="comment">// Success
-    </span><span class="prelude-val">Ok</span>(thread_id)
+    </span><span class="prelude-val">Ok</span>(())
 }
 
 <span class="doccomment">/// Calls the module
@@ -418,7 +456,7 @@
     <span class="kw-2">mut </span>store: Store,
     start_ptr_offset: M::Offset,
     thread_handle: Arc&lt;WasiThreadHandle&gt;,
-    rewind_state: <span class="prelude-ty">Option</span>&lt;(RewindState, Bytes)&gt;,
+    rewind_state: <span class="prelude-ty">Option</span>&lt;(RewindState, RewindResultType)&gt;,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;Tid, Errno&gt; {
     <span class="kw">let </span>env = ctx.data(<span class="kw-2">&amp;</span>store);
     <span class="kw">let </span>tasks = env.tasks().clone();
@@ -490,7 +528,7 @@
             <span class="prelude-val">Some</span>(rewind_state.memory_stack),
             rewind_state.rewind_stack,
             rewind_state.store_data,
-            <span class="prelude-val">Some</span>(rewind_result),
+            rewind_result,
         );
         <span class="kw">if </span>res != Errno::Success {
             <span class="kw">return </span><span class="prelude-val">Err</span>(res);
@@ -519,7 +557,7 @@
                         store,
                         start_ptr_offset,
                         thread_handle,
-                        <span class="prelude-val">Some</span>((rewind, trigger_res)),
+                        <span class="prelude-val">Some</span>((rewind, RewindResultType::RewindWithResult(trigger_res))),
                     );
                 }
             };

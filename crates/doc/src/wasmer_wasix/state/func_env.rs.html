@@ -295,6 +295,27 @@
 <a href="#295" id="295">295</a>
 <a href="#296" id="296">296</a>
 <a href="#297" id="297">297</a>
+<a href="#298" id="298">298</a>
+<a href="#299" id="299">299</a>
+<a href="#300" id="300">300</a>
+<a href="#301" id="301">301</a>
+<a href="#302" id="302">302</a>
+<a href="#303" id="303">303</a>
+<a href="#304" id="304">304</a>
+<a href="#305" id="305">305</a>
+<a href="#306" id="306">306</a>
+<a href="#307" id="307">307</a>
+<a href="#308" id="308">308</a>
+<a href="#309" id="309">309</a>
+<a href="#310" id="310">310</a>
+<a href="#311" id="311">311</a>
+<a href="#312" id="312">312</a>
+<a href="#313" id="313">313</a>
+<a href="#314" id="314">314</a>
+<a href="#315" id="315">315</a>
+<a href="#316" id="316">316</a>
+<a href="#317" id="317">317</a>
+<a href="#318" id="318">318</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::sync::Arc;
 
 <span class="kw">use </span>tracing::trace;
@@ -303,14 +324,16 @@
 };
 <span class="kw">use </span>wasmer_wasix_types::wasi::ExitCode;
 
+<span class="attr">#[allow(unused_imports)]
+</span><span class="kw">use </span><span class="kw">crate</span>::os::task::thread::RewindResultType;
 <span class="attr">#[cfg(feature = <span class="string">&quot;journal&quot;</span>)]
 </span><span class="kw">use </span><span class="kw">crate</span>::syscalls::restore_snapshot;
 <span class="kw">use crate</span>::{
     import_object_for_all_wasi_versions,
     runtime::SpawnMemoryType,
     state::WasiInstanceHandles,
-    utils::{get_wasi_version, get_wasi_versions, store::restore_instance_snapshot},
-    InstanceSnapshot, RewindStateOption, WasiEnv, WasiError, WasiRuntimeError, WasiThreadError,
+    utils::{get_wasi_version, get_wasi_versions, store::restore_store_snapshot},
+    RewindStateOption, StoreSnapshot, WasiEnv, WasiError, WasiRuntimeError, WasiThreadError,
 };
 
 <span class="doccomment">/// The default stack size for WASIX - the number itself is the default that compilers
@@ -336,7 +359,7 @@
     </span><span class="kw">pub fn </span>new_with_store(
         module: Module,
         env: WasiEnv,
-        snapshot: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>InstanceSnapshot&gt;,
+        store_snapshot: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>StoreSnapshot&gt;,
         spawn_type: SpawnMemoryType,
         update_layout: bool,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(<span class="self">Self</span>, Store), WasiThreadError&gt; {
@@ -373,9 +396,8 @@
             })<span class="question-mark">?</span>;
 
         <span class="comment">// Set all the globals
-        </span><span class="kw">if let </span><span class="prelude-val">Some</span>(snapshot) = snapshot {
-            <span class="macro">tracing::trace!</span>(<span class="string">&quot;restoring snapshot for new thread&quot;</span>);
-            restore_instance_snapshot(<span class="kw-2">&amp;mut </span>store, snapshot);
+        </span><span class="kw">if let </span><span class="prelude-val">Some</span>(snapshot) = store_snapshot {
+            restore_store_snapshot(<span class="kw-2">&amp;mut </span>store, snapshot);
         }
 
         <span class="prelude-val">Ok</span>((ctx, store))
@@ -566,27 +588,47 @@
                             <span class="kw">return </span><span class="prelude-val">Err</span>(err);
                         }
                     };
-                    rewind_state = rewind.map(|rewind| (rewind, <span class="prelude-val">None</span>));
+                    rewind_state = rewind.map(|rewind| (rewind, RewindResultType::RewindRestart));
                 }
 
                 <span class="self">self</span>.data_mut(<span class="kw-2">&amp;mut </span>store).replaying_journal = <span class="bool-val">false</span>;
             }
 
-            <span class="comment">// The first event we save is an event that records the module hash.
-            // Note: This is used to detect if an incorrect journal is used on the wrong
-            // process or if a process has been recompiled
-            </span><span class="kw">let </span>wasm_hash = <span class="self">self</span>.data(<span class="kw-2">&amp;</span>store).process.module_hash.as_bytes();
-            <span class="kw">let </span><span class="kw-2">mut </span>ctx = <span class="self">self</span>.env.clone().into_mut(<span class="kw-2">&amp;mut </span>store);
-            <span class="kw">crate</span>::journal::JournalEffector::save_event(
-                <span class="kw-2">&amp;mut </span>ctx,
-                <span class="kw">crate</span>::journal::JournalEntry::InitModuleV1 { wasm_hash },
-            )
-            .map_err(|err| {
-                WasiRuntimeError::Runtime(wasmer::RuntimeError::new(<span class="macro">format!</span>(
-                    <span class="string">&quot;journal failied to save the module initialization event - {}&quot;</span>,
-                    err
-                )))
-            })<span class="question-mark">?</span>;
+            <span class="comment">// If there is no rewind state then the journal is being replayed
+            // and hence we do not need to write an init module event
+            //
+            // But otherwise we need to notify the journal of the module hash
+            // so that recompiled modules will restart
+            </span><span class="kw">if </span>rewind_state.is_none() {
+                <span class="comment">// The first event we save is an event that records the module hash.
+                // Note: This is used to detect if an incorrect journal is used on the wrong
+                // process or if a process has been recompiled
+                </span><span class="kw">let </span>wasm_hash = <span class="self">self</span>.data(<span class="kw-2">&amp;</span>store).process.module_hash.as_bytes();
+                <span class="kw">let </span><span class="kw-2">mut </span>ctx = <span class="self">self</span>.env.clone().into_mut(<span class="kw-2">&amp;mut </span>store);
+                <span class="kw">crate</span>::journal::JournalEffector::save_event(
+                    <span class="kw-2">&amp;mut </span>ctx,
+                    <span class="kw">crate</span>::journal::JournalEntry::InitModuleV1 { wasm_hash },
+                )
+                .map_err(|err| {
+                    WasiRuntimeError::Runtime(wasmer::RuntimeError::new(<span class="macro">format!</span>(
+                        <span class="string">&quot;journal failed to save the module initialization event - {}&quot;</span>,
+                        err
+                    )))
+                })<span class="question-mark">?</span>;
+            } <span class="kw">else </span>{
+                <span class="comment">// Otherwise we should emit a clear ethereal event
+                </span><span class="kw">let </span><span class="kw-2">mut </span>ctx = <span class="self">self</span>.env.clone().into_mut(<span class="kw-2">&amp;mut </span>store);
+                <span class="kw">crate</span>::journal::JournalEffector::save_event(
+                    <span class="kw-2">&amp;mut </span>ctx,
+                    <span class="kw">crate</span>::journal::JournalEntry::ClearEtherealV1,
+                )
+                .map_err(|err| {
+                    WasiRuntimeError::Runtime(wasmer::RuntimeError::new(<span class="macro">format!</span>(
+                        <span class="string">&quot;journal failed to save clear ethereal event - {}&quot;</span>,
+                        err
+                    )))
+                })<span class="question-mark">?</span>;
+            }
         }
 
         <span class="prelude-val">Ok</span>(rewind_state)

@@ -18,6 +18,7 @@
 <a href="#18" id="18">18</a>
 <a href="#19" id="19">19</a>
 <a href="#20" id="20">20</a>
+<a href="#21" id="21">21</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::borrow::Cow;
 
 <span class="kw">use </span>lz4_flex::block::{compress_prepend_size, decompress_size_prepended};
@@ -34,7 +35,8 @@
 <span class="kw">pub fn </span>deserialize&lt;<span class="lifetime">&#39;de</span>, D: Deserializer&lt;<span class="lifetime">&#39;de</span>&gt;&gt;(d: D) -&gt; <span class="prelude-ty">Result</span>&lt;Cow&lt;<span class="lifetime">&#39;static</span>, [u8]&gt;, D::Error&gt; {
     <span class="kw">let </span>base64 = String::deserialize(d)<span class="question-mark">?</span>;
     <span class="attr">#[allow(deprecated)]
-    </span>base64::decode(decompress_size_prepended(base64.as_bytes()).map_err(serde::de::Error::custom)<span class="question-mark">?</span>)
+    </span><span class="kw">let </span>bytes = base64::decode(base64).map_err(serde::de::Error::custom)<span class="question-mark">?</span>;
+    decompress_size_prepended(<span class="kw-2">&amp;</span>bytes)
         .map_err(serde::de::Error::custom)
         .map(|d| d.into())
 }

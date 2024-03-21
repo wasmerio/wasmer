@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":["PipeJournal","PipeJournalRx","PipeJournalTx"]};
+window.SIDEBAR_ITEMS = {"struct":["PipeJournal","PipeJournalRx","PipeJournalTx","SenderState"]};

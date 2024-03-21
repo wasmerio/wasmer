@@ -252,10 +252,6 @@
 <a href="#252" id="252">252</a>
 <a href="#253" id="253">253</a>
 <a href="#254" id="254">254</a>
-<a href="#255" id="255">255</a>
-<a href="#256" id="256">256</a>
-<a href="#257" id="257">257</a>
-<a href="#258" id="258">258</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>wasmer::FromToNativeWasmType;
 
 <span class="kw">use super</span>::<span class="kw-2">*</span>;
@@ -482,17 +478,13 @@
                 <span class="kw">let </span>thread = env.thread.clone();
 
                 <span class="comment">// The poller will wait for the process to actually finish
-                </span><span class="kw">let </span>res = __asyncify_with_deep_sleep::&lt;M, <span class="kw">_</span>, <span class="kw">_</span>&gt;(
-                    ctx,
-                    Duration::from_millis(<span class="number">50</span>),
-                    <span class="kw">async move </span>{
-                        process
-                            .wait_finished()
-                            .<span class="kw">await
-                            </span>.unwrap_or_else(|<span class="kw">_</span>| Errno::Child.into())
-                            .to_native()
-                    },
-                )<span class="question-mark">?</span>;
+                </span><span class="kw">let </span>res = __asyncify_with_deep_sleep::&lt;M, <span class="kw">_</span>, <span class="kw">_</span>&gt;(ctx, <span class="kw">async move </span>{
+                    process
+                        .wait_finished()
+                        .<span class="kw">await
+                        </span>.unwrap_or_else(|<span class="kw">_</span>| Errno::Child.into())
+                        .to_native()
+                })<span class="question-mark">?</span>;
                 <span class="kw">match </span>res {
                     AsyncifyAction::Finish(<span class="kw-2">mut </span>ctx, result) =&gt; {
                         <span class="comment">// When we arrive here the process should already be terminated

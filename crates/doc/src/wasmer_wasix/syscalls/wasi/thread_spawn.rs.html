@@ -49,7 +49,7 @@
     <span class="kw-2">mut </span>ctx: FunctionEnvMut&lt;<span class="lifetime">&#39;_</span>, WasiEnv&gt;,
     start_ptr: WasmPtr&lt;ThreadStart&lt;M&gt;, M&gt;,
 ) -&gt; i32 {
-    thread_spawn_internal(<span class="kw-2">&amp;mut </span>ctx, start_ptr)
+    thread_spawn_internal_from_wasi(<span class="kw-2">&amp;mut </span>ctx, start_ptr)
         .map(|tid| tid <span class="kw">as </span>i32)
         .map_err(|errno| errno <span class="kw">as </span>i32)
         .unwrap_or_else(|err| -err)

@@ -62,13 +62,13 @@
 <span class="doccomment">/// Imports events into a journal file. Events are streamed as JSON
 /// objects into `stdin`
 </span><span class="attr">#[derive(Debug, Parser)]
-</span><span class="kw">pub struct </span>CmdJournaImport {
+</span><span class="kw">pub struct </span>CmdJournalImport {
     <span class="doccomment">/// Path to the journal that will be printed
     </span><span class="attr">#[clap(index = <span class="number">1</span>)]
     </span>journal_path: PathBuf,
 }
 
-<span class="kw">impl </span>CliCommand <span class="kw">for </span>CmdJournaImport {
+<span class="kw">impl </span>CliCommand <span class="kw">for </span>CmdJournalImport {
     <span class="kw">type </span>Output = ();
 
     <span class="kw">fn </span>run(<span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;(), anyhow::Error&gt; {

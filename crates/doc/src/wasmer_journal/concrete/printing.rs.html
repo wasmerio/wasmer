@@ -333,6 +333,21 @@
 <a href="#333" id="333">333</a>
 <a href="#334" id="334">334</a>
 <a href="#335" id="335">335</a>
+<a href="#336" id="336">336</a>
+<a href="#337" id="337">337</a>
+<a href="#338" id="338">338</a>
+<a href="#339" id="339">339</a>
+<a href="#340" id="340">340</a>
+<a href="#341" id="341">341</a>
+<a href="#342" id="342">342</a>
+<a href="#343" id="343">343</a>
+<a href="#344" id="344">344</a>
+<a href="#345" id="345">345</a>
+<a href="#346" id="346">346</a>
+<a href="#347" id="347">347</a>
+<a href="#348" id="348">348</a>
+<a href="#349" id="349">349</a>
+<a href="#350" id="350">350</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::fmt;
 
 <span class="kw">use super</span>::<span class="kw-2">*</span>;
@@ -364,7 +379,7 @@
 }
 
 <span class="kw">impl </span>ReadableJournal <span class="kw">for </span>PrintingJournal {
-    <span class="kw">fn </span>read(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; anyhow::Result&lt;<span class="prelude-ty">Option</span>&lt;JournalEntry&lt;<span class="lifetime">&#39;_</span>&gt;&gt;&gt; {
+    <span class="kw">fn </span>read(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; anyhow::Result&lt;<span class="prelude-ty">Option</span>&lt;LogReadResult&lt;<span class="lifetime">&#39;_</span>&gt;&gt;&gt; {
         <span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>)
     }
 
@@ -374,14 +389,17 @@
 }
 
 <span class="kw">impl </span>WritableJournal <span class="kw">for </span>PrintingJournal {
-    <span class="kw">fn </span>write&lt;<span class="lifetime">&#39;a</span>&gt;(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="self">self</span>, entry: JournalEntry&lt;<span class="lifetime">&#39;a</span>&gt;) -&gt; anyhow::Result&lt;u64&gt; {
+    <span class="kw">fn </span>write&lt;<span class="lifetime">&#39;a</span>&gt;(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="self">self</span>, entry: JournalEntry&lt;<span class="lifetime">&#39;a</span>&gt;) -&gt; anyhow::Result&lt;LogWriteResult&gt; {
         <span class="kw">match </span><span class="self">self</span>.mode {
             JournalPrintingMode::Text =&gt; <span class="macro">println!</span>(<span class="string">&quot;{}&quot;</span>, entry),
             JournalPrintingMode::Json =&gt; {
                 <span class="macro">println!</span>(<span class="string">&quot;{}&quot;</span>, serde_json::to_string_pretty(<span class="kw-2">&amp;</span>entry)<span class="question-mark">?</span>)
             }
         }
-        <span class="prelude-val">Ok</span>(entry.estimate_size() <span class="kw">as </span>u64)
+        <span class="prelude-val">Ok</span>(LogWriteResult {
+            record_start: <span class="number">0</span>,
+            record_end: entry.estimate_size() <span class="kw">as </span>u64,
+        })
     }
 }
 
@@ -399,6 +417,9 @@
         <span class="kw">match </span><span class="self">self </span>{
             JournalEntry::InitModuleV1 { wasm_hash } =&gt; {
                 <span class="macro">write!</span>(f, <span class="string">&quot;init-module (hash={:x?})&quot;</span>, wasm_hash)
+            }
+            JournalEntry::ClearEtherealV1 =&gt; {
+                <span class="macro">write!</span>(f, <span class="string">&quot;clear-ethereal&quot;</span>)
             }
             JournalEntry::UpdateMemoryRegionV1 { region, data } =&gt; <span class="macro">write!</span>(
                 f,
@@ -471,11 +492,11 @@
                 <span class="string">&quot;fd-duplicate (original={}, copied={})&quot;</span>,
                 original_fd, copied_fd
             ),
-            JournalEntry::CreateDirectoryV1 { path, .. } =&gt; {
-                <span class="macro">write!</span>(f, <span class="string">&quot;path-create-dir (path={})&quot;</span>, path)
+            JournalEntry::CreateDirectoryV1 { fd, path } =&gt; {
+                <span class="macro">write!</span>(f, <span class="string">&quot;path-create-dir (fd={}, path={})&quot;</span>, fd, path)
             }
-            JournalEntry::RemoveDirectoryV1 { path, .. } =&gt; {
-                <span class="macro">write!</span>(f, <span class="string">&quot;path-remove-dir (path={})&quot;</span>, path)
+            JournalEntry::RemoveDirectoryV1 { fd, path } =&gt; {
+                <span class="macro">write!</span>(f, <span class="string">&quot;path-remove-dir (fd={}, path={})&quot;</span>, fd, path)
             }
             JournalEntry::PathSetTimesV1 {
                 path,
@@ -581,18 +602,27 @@
             JournalEntry::SocketBindV1 { fd, addr } =&gt; {
                 <span class="macro">write!</span>(f, <span class="string">&quot;sock-bind (fd={}, addr={})&quot;</span>, fd, addr)
             }
-            JournalEntry::SocketConnectedV1 { fd, addr } =&gt; {
-                <span class="macro">write!</span>(f, <span class="string">&quot;sock-connect (fd={}, addr={})&quot;</span>, fd, addr)
+            JournalEntry::SocketConnectedV1 {
+                fd,
+                local_addr,
+                peer_addr,
+            } =&gt; {
+                <span class="macro">write!</span>(
+                    f,
+                    <span class="string">&quot;sock-connect (fd={}, addr={}, peer={})&quot;</span>,
+                    fd, local_addr, peer_addr
+                )
             }
             JournalEntry::SocketAcceptedV1 {
                 listen_fd,
                 fd,
+                local_addr,
                 peer_addr,
                 ..
             } =&gt; <span class="macro">write!</span>(
                 f,
-                <span class="string">&quot;sock-accept (listen-fd={}, sock_fd={}, peer={})&quot;</span>,
-                listen_fd, fd, peer_addr
+                <span class="string">&quot;sock-accept (listen-fd={}, sock_fd={}, addr={}, peer={})&quot;</span>,
+                listen_fd, fd, local_addr, peer_addr
             ),
             JournalEntry::SocketJoinIpv4MulticastV1 {
                 fd,

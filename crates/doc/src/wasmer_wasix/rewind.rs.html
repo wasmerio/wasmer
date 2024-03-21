@@ -49,11 +49,25 @@
 <a href="#49" id="49">49</a>
 <a href="#50" id="50">50</a>
 <a href="#51" id="51">51</a>
+<a href="#52" id="52">52</a>
+<a href="#53" id="53">53</a>
+<a href="#54" id="54">54</a>
+<a href="#55" id="55">55</a>
+<a href="#56" id="56">56</a>
+<a href="#57" id="57">57</a>
+<a href="#58" id="58">58</a>
+<a href="#59" id="59">59</a>
+<a href="#60" id="60">60</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::pin::Pin;
 
 <span class="kw">use </span>bytes::Bytes;
 <span class="kw">use </span>futures::Future;
-<span class="kw">use </span>wasmer_wasix_types::wasi::Errno;
+<span class="kw">use </span>wasmer_wasix_types::{
+    wasi::Errno,
+    wasix::{ThreadStartType, WasiMemoryLayout},
+};
+
+<span class="kw">use </span><span class="kw">crate</span>::os::task::thread::RewindResultType;
 
 <span class="doccomment">/// Future that will be polled by asyncify methods
 </span><span class="attr">#[doc(hidden)]
@@ -75,11 +89,15 @@
     </span><span class="kw">pub </span>rewind_stack: Bytes,
     <span class="doccomment">/// All the global data stored in the store
     </span><span class="kw">pub </span>store_data: Bytes,
+    <span class="doccomment">/// Describes the type of thread start
+    </span><span class="kw">pub </span>start: ThreadStartType,
+    <span class="doccomment">/// Layout of the memory,
+    </span><span class="kw">pub </span>layout: WasiMemoryLayout,
     <span class="doccomment">/// Flag that indicates if this rewind is 64-bit or 32-bit memory based
     </span><span class="kw">pub </span>is_64bit: bool,
 }
 
-<span class="kw">pub type </span>RewindStateOption = <span class="prelude-ty">Option</span>&lt;(RewindState, <span class="prelude-ty">Option</span>&lt;Bytes&gt;)&gt;;
+<span class="kw">pub type </span>RewindStateOption = <span class="prelude-ty">Option</span>&lt;(RewindState, RewindResultType)&gt;;
 
 <span class="doccomment">/// Represents the work that will be done when a thread goes to deep sleep and
 /// includes the things needed to restore it again

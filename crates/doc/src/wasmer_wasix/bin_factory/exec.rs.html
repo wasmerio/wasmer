@@ -341,10 +341,16 @@
 <a href="#341" id="341">341</a>
 <a href="#342" id="342">342</a>
 <a href="#343" id="343">343</a>
+<a href="#344" id="344">344</a>
+<a href="#345" id="345">345</a>
+<a href="#346" id="346">346</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{pin::Pin, sync::Arc};
 
 <span class="kw">use crate</span>::{
-    os::task::{thread::WasiThreadRunGuard, TaskJoinHandle},
+    os::task::{
+        thread::{RewindResultType, WasiThreadRunGuard},
+        TaskJoinHandle,
+    },
     runtime::{
         task_manager::{
             TaskWasm, TaskWasmRecycle, TaskWasmRecycleProperties, TaskWasmRunProperties,
@@ -354,7 +360,6 @@
     syscalls::rewind_ext,
     RewindState, SpawnError, WasiError, WasiRuntimeError,
 };
-<span class="kw">use </span>bytes::Bytes;
 <span class="kw">use </span>futures::Future;
 <span class="kw">use </span>tracing::<span class="kw-2">*</span>;
 <span class="kw">use </span>wasmer::{Function, FunctionEnvMut, Memory32, Memory64, Module, Store};
@@ -497,6 +502,7 @@
     </span><span class="kw">let </span>rewind_state = <span class="kw">match unsafe </span>{ ctx.bootstrap(<span class="kw-2">&amp;mut </span>store) } {
         <span class="prelude-val">Ok</span>(r) =&gt; r,
         <span class="prelude-val">Err</span>(err) =&gt; {
+            <span class="macro">tracing::warn!</span>(<span class="string">&quot;failed to bootstrap - {}&quot;</span>, err);
             thread.thread.set_status_finished(<span class="prelude-val">Err</span>(err));
             ctx.data(<span class="kw-2">&amp;</span>store)
                 .blocking_on_exit(<span class="prelude-val">Some</span>(Errno::Noexec.into()));
@@ -527,7 +533,7 @@
     ctx: WasiFunctionEnv,
     <span class="kw-2">mut </span>store: Store,
     handle: WasiThreadRunGuard,
-    rewind_state: <span class="prelude-ty">Option</span>&lt;(RewindState, <span class="prelude-ty">Option</span>&lt;Bytes&gt;)&gt;,
+    rewind_state: <span class="prelude-ty">Option</span>&lt;(RewindState, RewindResultType)&gt;,
     recycle: <span class="prelude-ty">Option</span>&lt;Box&lt;TaskWasmRecycle&gt;&gt;,
 ) {
     <span class="kw">let </span>env = ctx.data(<span class="kw-2">&amp;</span>store);
@@ -598,7 +604,7 @@
                                 ctx,
                                 store,
                                 handle,
-                                <span class="prelude-val">Some</span>((rewind, <span class="prelude-val">Some</span>(rewind_result))),
+                                <span class="prelude-val">Some</span>((rewind, RewindResultType::RewindWithResult(rewind_result))),
                                 recycle,
                             );
                         }

@@ -29,7 +29,22 @@
 <a href="#29" id="29">29</a>
 <a href="#30" id="30">30</a>
 <a href="#31" id="31">31</a>
-</pre></div><pre class="rust"><code><span class="kw">use super</span>::<span class="kw-2">*</span>;
+<a href="#32" id="32">32</a>
+<a href="#33" id="33">33</a>
+<a href="#34" id="34">34</a>
+<a href="#35" id="35">35</a>
+<a href="#36" id="36">36</a>
+<a href="#37" id="37">37</a>
+<a href="#38" id="38">38</a>
+<a href="#39" id="39">39</a>
+<a href="#40" id="40">40</a>
+</pre></div><pre class="rust"><code><span class="kw">use </span>std::path::Path;
+
+<span class="kw">use </span>virtual_fs::FileSystem;
+
+<span class="kw">use </span><span class="kw">crate</span>::VIRTUAL_ROOT_FD;
+
+<span class="kw">use super</span>::<span class="kw-2">*</span>;
 
 <span class="kw">impl </span>JournalEffector {
     <span class="kw">pub fn </span>save_path_remove_directory(
@@ -51,7 +66,10 @@
         fd: Fd,
         path: <span class="kw-2">&amp;</span>str,
     ) -&gt; anyhow::Result&lt;()&gt; {
-        <span class="kw">if let </span><span class="prelude-val">Err</span>(err) = <span class="kw">crate</span>::syscalls::path_remove_directory_internal(ctx, fd, path) {
+        <span class="comment">// see `VIRTUAL_ROOT_FD` for details as to why this exists
+        </span><span class="kw">if </span>fd == VIRTUAL_ROOT_FD {
+            ctx.data().state.fs.root_fs.remove_dir(Path::new(path))<span class="question-mark">?</span>;
+        } <span class="kw">else if let </span><span class="prelude-val">Err</span>(err) = <span class="kw">crate</span>::syscalls::path_remove_directory_internal(ctx, fd, path) {
             <span class="macro">bail!</span>(
                 <span class="string">&quot;journal restore error: failed to remove directory - {}&quot;</span>,
                 err

@@ -106,8 +106,10 @@
 <a href="#106" id="106">106</a>
 <a href="#107" id="107">107</a>
 <a href="#108" id="108">108</a>
+<a href="#109" id="109">109</a>
+<a href="#110" id="110">110</a>
 </pre></div><pre class="rust"><code><span class="kw">use super</span>::<span class="kw-2">*</span>;
-<span class="kw">use </span><span class="kw">crate</span>::syscalls::<span class="kw-2">*</span>;
+<span class="kw">use crate</span>::{net::socket::SocketProperties, syscalls::<span class="kw-2">*</span>};
 
 <span class="doccomment">/// ### `sock_open()`
 /// Create an endpoint for communication.
@@ -180,23 +182,25 @@
     <span class="kw">let </span>kind = <span class="kw">match </span>ty {
         Socktype::Stream | Socktype::Dgram =&gt; Kind::Socket {
             socket: InodeSocket::new(InodeSocketKind::PreSocket {
-                family: af,
-                ty,
-                pt,
+                props: SocketProperties {
+                    family: af,
+                    ty,
+                    pt,
+                    only_v6: <span class="bool-val">false</span>,
+                    reuse_port: <span class="bool-val">false</span>,
+                    reuse_addr: <span class="bool-val">false</span>,
+                    no_delay: <span class="prelude-val">None</span>,
+                    keep_alive: <span class="prelude-val">None</span>,
+                    dont_route: <span class="prelude-val">None</span>,
+                    send_buf_size: <span class="prelude-val">None</span>,
+                    recv_buf_size: <span class="prelude-val">None</span>,
+                    write_timeout: <span class="prelude-val">None</span>,
+                    read_timeout: <span class="prelude-val">None</span>,
+                    accept_timeout: <span class="prelude-val">None</span>,
+                    connect_timeout: <span class="prelude-val">None</span>,
+                    handler: <span class="prelude-val">None</span>,
+                },
                 addr: <span class="prelude-val">None</span>,
-                only_v6: <span class="bool-val">false</span>,
-                reuse_port: <span class="bool-val">false</span>,
-                reuse_addr: <span class="bool-val">false</span>,
-                no_delay: <span class="prelude-val">None</span>,
-                keep_alive: <span class="prelude-val">None</span>,
-                dont_route: <span class="prelude-val">None</span>,
-                send_buf_size: <span class="prelude-val">None</span>,
-                recv_buf_size: <span class="prelude-val">None</span>,
-                write_timeout: <span class="prelude-val">None</span>,
-                read_timeout: <span class="prelude-val">None</span>,
-                accept_timeout: <span class="prelude-val">None</span>,
-                connect_timeout: <span class="prelude-val">None</span>,
-                handler: <span class="prelude-val">None</span>,
             }),
         },
         <span class="kw">_ </span>=&gt; <span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="prelude-val">Err</span>(Errno::Notsup)),

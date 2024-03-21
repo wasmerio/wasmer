@@ -1105,10 +1105,75 @@
 <a href="#1105" id="1105">1105</a>
 <a href="#1106" id="1106">1106</a>
 <a href="#1107" id="1107">1107</a>
+<a href="#1108" id="1108">1108</a>
+<a href="#1109" id="1109">1109</a>
+<a href="#1110" id="1110">1110</a>
+<a href="#1111" id="1111">1111</a>
+<a href="#1112" id="1112">1112</a>
+<a href="#1113" id="1113">1113</a>
+<a href="#1114" id="1114">1114</a>
+<a href="#1115" id="1115">1115</a>
+<a href="#1116" id="1116">1116</a>
+<a href="#1117" id="1117">1117</a>
+<a href="#1118" id="1118">1118</a>
+<a href="#1119" id="1119">1119</a>
+<a href="#1120" id="1120">1120</a>
+<a href="#1121" id="1121">1121</a>
+<a href="#1122" id="1122">1122</a>
+<a href="#1123" id="1123">1123</a>
+<a href="#1124" id="1124">1124</a>
+<a href="#1125" id="1125">1125</a>
+<a href="#1126" id="1126">1126</a>
+<a href="#1127" id="1127">1127</a>
+<a href="#1128" id="1128">1128</a>
+<a href="#1129" id="1129">1129</a>
+<a href="#1130" id="1130">1130</a>
+<a href="#1131" id="1131">1131</a>
+<a href="#1132" id="1132">1132</a>
+<a href="#1133" id="1133">1133</a>
+<a href="#1134" id="1134">1134</a>
+<a href="#1135" id="1135">1135</a>
+<a href="#1136" id="1136">1136</a>
+<a href="#1137" id="1137">1137</a>
+<a href="#1138" id="1138">1138</a>
+<a href="#1139" id="1139">1139</a>
+<a href="#1140" id="1140">1140</a>
+<a href="#1141" id="1141">1141</a>
+<a href="#1142" id="1142">1142</a>
+<a href="#1143" id="1143">1143</a>
+<a href="#1144" id="1144">1144</a>
+<a href="#1145" id="1145">1145</a>
+<a href="#1146" id="1146">1146</a>
+<a href="#1147" id="1147">1147</a>
+<a href="#1148" id="1148">1148</a>
+<a href="#1149" id="1149">1149</a>
+<a href="#1150" id="1150">1150</a>
+<a href="#1151" id="1151">1151</a>
+<a href="#1152" id="1152">1152</a>
+<a href="#1153" id="1153">1153</a>
+<a href="#1154" id="1154">1154</a>
+<a href="#1155" id="1155">1155</a>
+<a href="#1156" id="1156">1156</a>
+<a href="#1157" id="1157">1157</a>
+<a href="#1158" id="1158">1158</a>
+<a href="#1159" id="1159">1159</a>
+<a href="#1160" id="1160">1160</a>
+<a href="#1161" id="1161">1161</a>
+<a href="#1162" id="1162">1162</a>
+<a href="#1163" id="1163">1163</a>
+<a href="#1164" id="1164">1164</a>
+<a href="#1165" id="1165">1165</a>
+<a href="#1166" id="1166">1166</a>
+<a href="#1167" id="1167">1167</a>
+<a href="#1168" id="1168">1168</a>
+<a href="#1169" id="1169">1169</a>
+<a href="#1170" id="1170">1170</a>
+<a href="#1171" id="1171">1171</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>lz4_flex::block::decompress_size_prepended;
 <span class="kw">use </span>std::borrow::Cow;
 <span class="kw">use </span>std::time::SystemTime;
 <span class="kw">use </span>wasmer_wasix_types::wasi;
+<span class="kw">use </span>wasmer_wasix_types::wasix::{ThreadStartType, WasiMemoryLayout};
 
 <span class="kw">use super</span>::<span class="kw-2">*</span>;
 
@@ -1283,6 +1348,7 @@
             SnapshotTrigger::FirstListen =&gt; JournalSnapshotTriggerV1::Listen,
             SnapshotTrigger::FirstEnviron =&gt; JournalSnapshotTriggerV1::Environ,
             SnapshotTrigger::FirstStdin =&gt; JournalSnapshotTriggerV1::Stdin,
+            SnapshotTrigger::FirstSigint =&gt; JournalSnapshotTriggerV1::Sigint,
             SnapshotTrigger::PeriodicInterval =&gt; JournalSnapshotTriggerV1::Timer,
             SnapshotTrigger::Sigint =&gt; JournalSnapshotTriggerV1::Sigint,
             SnapshotTrigger::Sigalrm =&gt; JournalSnapshotTriggerV1::Sigalrm,
@@ -1676,6 +1742,74 @@
     }
 }
 
+<span class="kw">impl </span>From&lt;JournalThreadStartTypeV1&gt; <span class="kw">for </span>ThreadStartType {
+    <span class="kw">fn </span>from(value: JournalThreadStartTypeV1) -&gt; <span class="self">Self </span>{
+        <span class="kw">match </span>value {
+            JournalThreadStartTypeV1::MainThread =&gt; ThreadStartType::MainThread,
+            JournalThreadStartTypeV1::ThreadSpawn { start_ptr } =&gt; {
+                ThreadStartType::ThreadSpawn { start_ptr }
+            }
+        }
+    }
+}
+
+<span class="kw">impl </span>From&lt;<span class="kw-2">&amp;</span><span class="lifetime">&#39;_ </span>ArchivedJournalThreadStartTypeV1&gt; <span class="kw">for </span>ThreadStartType {
+    <span class="kw">fn </span>from(value: <span class="kw-2">&amp;</span><span class="lifetime">&#39;_ </span>ArchivedJournalThreadStartTypeV1) -&gt; <span class="self">Self </span>{
+        <span class="kw">match </span>value {
+            ArchivedJournalThreadStartTypeV1::MainThread =&gt; ThreadStartType::MainThread,
+            ArchivedJournalThreadStartTypeV1::ThreadSpawn { start_ptr } =&gt; {
+                ThreadStartType::ThreadSpawn {
+                    start_ptr: <span class="kw-2">*</span>start_ptr,
+                }
+            }
+        }
+    }
+}
+
+<span class="kw">impl </span>From&lt;ThreadStartType&gt; <span class="kw">for </span>JournalThreadStartTypeV1 {
+    <span class="kw">fn </span>from(value: ThreadStartType) -&gt; <span class="self">Self </span>{
+        <span class="kw">match </span>value {
+            ThreadStartType::MainThread =&gt; JournalThreadStartTypeV1::MainThread,
+            ThreadStartType::ThreadSpawn { start_ptr } =&gt; {
+                JournalThreadStartTypeV1::ThreadSpawn { start_ptr }
+            }
+        }
+    }
+}
+
+<span class="kw">impl </span>From&lt;JournalWasiMemoryLayout&gt; <span class="kw">for </span>WasiMemoryLayout {
+    <span class="kw">fn </span>from(value: JournalWasiMemoryLayout) -&gt; <span class="self">Self </span>{
+        <span class="self">Self </span>{
+            stack_upper: value.stack_upper,
+            stack_lower: value.stack_lower,
+            guard_size: value.guard_size,
+            stack_size: value.stack_size,
+        }
+    }
+}
+
+<span class="kw">impl </span>From&lt;<span class="kw-2">&amp;</span><span class="lifetime">&#39;_ </span>ArchivedJournalWasiMemoryLayout&gt; <span class="kw">for </span>WasiMemoryLayout {
+    <span class="kw">fn </span>from(value: <span class="kw-2">&amp;</span><span class="lifetime">&#39;_ </span>ArchivedJournalWasiMemoryLayout) -&gt; <span class="self">Self </span>{
+        <span class="self">Self </span>{
+            stack_upper: value.stack_upper,
+            stack_lower: value.stack_lower,
+            guard_size: value.guard_size,
+            stack_size: value.stack_size,
+        }
+    }
+}
+
+<span class="kw">impl </span>From&lt;WasiMemoryLayout&gt; <span class="kw">for </span>JournalWasiMemoryLayout {
+    <span class="kw">fn </span>from(value: WasiMemoryLayout) -&gt; <span class="self">Self </span>{
+        <span class="self">Self </span>{
+            stack_upper: value.stack_upper,
+            stack_lower: value.stack_lower,
+            guard_size: value.guard_size,
+            stack_size: value.stack_size,
+        }
+    }
+}
+
 <span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>&gt; TryFrom&lt;ArchivedJournalEntry&lt;<span class="lifetime">&#39;a</span>&gt;&gt; <span class="kw">for </span>JournalEntry&lt;<span class="lifetime">&#39;a</span>&gt; {
     <span class="kw">type </span>Error = anyhow::Error;
 
@@ -1686,12 +1820,14 @@
                     wasm_hash: <span class="kw-2">*</span>wasm_hash,
                 }
             }
+            ArchivedJournalEntry::ClearEtherealV1(ArchivedJournalEntryClearEtherealV1 {
+                ..
+            }) =&gt; <span class="self">Self</span>::ClearEtherealV1,
             ArchivedJournalEntry::UpdateMemoryRegionV1(
                 ArchivedJournalEntryUpdateMemoryRegionV1 {
                     start,
                     end,
                     compressed_data,
-                    _padding: <span class="kw">_</span>,
                 },
             ) =&gt; <span class="self">Self</span>::UpdateMemoryRegionV1 {
                 region: (<span class="kw-2">*</span>start)..(<span class="kw-2">*</span>end),
@@ -1699,7 +1835,6 @@
             },
             ArchivedJournalEntry::ProcessExitV1(ArchivedJournalEntryProcessExitV1 {
                 exit_code,
-                _padding: <span class="kw">_</span>,
             }) =&gt; <span class="self">Self</span>::ProcessExitV1 {
                 exit_code: exit_code.as_ref().map(|code| code.into()),
             },
@@ -1708,13 +1843,16 @@
                 call_stack,
                 memory_stack,
                 store_data,
-                _padding: <span class="kw">_</span>,
                 is_64bit,
+                start,
+                layout,
             }) =&gt; <span class="self">Self</span>::SetThreadV1 {
                 id: <span class="kw-2">*</span>id,
                 call_stack: call_stack.as_ref().into(),
                 memory_stack: memory_stack.as_ref().into(),
                 store_data: store_data.as_ref().into(),
+                start: start.into(),
+                layout: layout.into(),
                 is_64bit: <span class="kw-2">*</span>is_64bit,
             },
             ArchivedJournalEntry::CloseThreadV1(ArchivedJournalEntryCloseThreadV1 {
@@ -1730,7 +1868,6 @@
                     fd,
                     offset,
                     is_64bit,
-                    _padding: <span class="kw">_</span>,
                 },
             ) =&gt; <span class="self">Self</span>::FileDescriptorWriteV1 {
                 data: data.as_ref().into(),
@@ -1759,48 +1896,43 @@
                     fs_rights_base,
                     fs_rights_inheriting,
                     fs_flags,
-                    _padding: <span class="kw">_</span>,
                 },
             ) =&gt; <span class="self">Self</span>::OpenFileDescriptorV1 {
                 fd: <span class="kw-2">*</span>fd,
                 dirfd: <span class="kw-2">*</span>dirfd,
                 dirflags: <span class="kw-2">*</span>dirflags,
-                path: path.as_ref().into(),
+                path: String::from_utf8_lossy(path.as_ref()),
                 o_flags: wasi::Oflags::from_bits_truncate(<span class="kw-2">*</span>o_flags),
                 fs_rights_base: wasi::Rights::from_bits_truncate(<span class="kw-2">*</span>fs_rights_base),
                 fs_rights_inheriting: wasi::Rights::from_bits_truncate(<span class="kw-2">*</span>fs_rights_inheriting),
                 fs_flags: wasi::Fdflags::from_bits_truncate(<span class="kw-2">*</span>fs_flags),
             },
             ArchivedJournalEntry::CloseFileDescriptorV1(
-                ArchivedJournalEntryCloseFileDescriptorV1 { fd, _padding: <span class="kw">_ </span>},
+                ArchivedJournalEntryCloseFileDescriptorV1 { fd },
             ) =&gt; <span class="self">Self</span>::CloseFileDescriptorV1 { fd: <span class="kw-2">*</span>fd },
             ArchivedJournalEntry::RemoveDirectoryV1(ArchivedJournalEntryRemoveDirectoryV1 {
                 fd,
                 path,
-                _padding: <span class="kw">_</span>,
             }) =&gt; <span class="self">Self</span>::RemoveDirectoryV1 {
                 fd: <span class="kw-2">*</span>fd,
-                path: path.as_ref().into(),
+                path: String::from_utf8_lossy(path.as_ref()),
             },
-            ArchivedJournalEntry::UnlinkFileV1(ArchivedJournalEntryUnlinkFileV1 {
-                fd,
-                path,
-                _padding: <span class="kw">_</span>,
-            }) =&gt; <span class="self">Self</span>::UnlinkFileV1 {
-                fd: <span class="kw-2">*</span>fd,
-                path: path.as_ref().into(),
-            },
+            ArchivedJournalEntry::UnlinkFileV1(ArchivedJournalEntryUnlinkFileV1 { fd, path }) =&gt; {
+                <span class="self">Self</span>::UnlinkFileV1 {
+                    fd: <span class="kw-2">*</span>fd,
+                    path: String::from_utf8_lossy(path.as_ref()),
+                }
+            }
             ArchivedJournalEntry::PathRenameV1(ArchivedJournalEntryPathRenameV1 {
                 old_fd,
                 old_path,
                 new_fd,
                 new_path,
-                _padding: <span class="kw">_</span>,
             }) =&gt; <span class="self">Self</span>::PathRenameV1 {
                 old_fd: <span class="kw-2">*</span>old_fd,
-                old_path: old_path.as_ref().into(),
+                old_path: String::from_utf8_lossy(old_path.as_ref()),
                 new_fd: <span class="kw-2">*</span>new_fd,
-                new_path: new_path.as_ref().into(),
+                new_path: String::from_utf8_lossy(new_path.as_ref()),
             },
             ArchivedJournalEntry::SnapshotV1(ArchivedJournalEntrySnapshotV1 {
                 since_epoch,
@@ -1836,10 +1968,9 @@
             ArchivedJournalEntry::CreateDirectoryV1(ArchivedJournalEntryCreateDirectoryV1 {
                 fd,
                 path,
-                _padding: <span class="kw">_</span>,
             }) =&gt; <span class="self">Self</span>::CreateDirectoryV1 {
                 fd: <span class="kw-2">*</span>fd,
-                path: path.as_ref().into(),
+                path: String::from_utf8_lossy(path.as_ref()),
             },
             ArchivedJournalEntry::PathSetTimesV1(ArchivedJournalEntryPathSetTimesV1 {
                 fd,
@@ -1848,10 +1979,9 @@
                 st_atim,
                 st_mtim,
                 fst_flags,
-                _padding: <span class="kw">_</span>,
             }) =&gt; <span class="self">Self</span>::PathSetTimesV1 {
                 fd: <span class="kw-2">*</span>fd,
-                path: path.as_ref().into(),
+                path: String::from_utf8_lossy(path.as_ref()),
                 flags: <span class="kw-2">*</span>flags,
                 st_atim: <span class="kw-2">*</span>st_atim,
                 st_mtim: <span class="kw-2">*</span>st_mtim,
@@ -1919,35 +2049,32 @@
                 old_flags,
                 new_fd,
                 new_path,
-                _padding: <span class="kw">_</span>,
             }) =&gt; <span class="self">Self</span>::CreateHardLinkV1 {
                 old_fd: <span class="kw-2">*</span>old_fd,
-                old_path: old_path.as_ref().into(),
+                old_path: String::from_utf8_lossy(old_path.as_ref()),
                 old_flags: <span class="kw-2">*</span>old_flags,
                 new_fd: <span class="kw-2">*</span>new_fd,
-                new_path: new_path.as_ref().into(),
+                new_path: String::from_utf8_lossy(new_path.as_ref()),
             },
             ArchivedJournalEntry::CreateSymbolicLinkV1(
                 ArchivedJournalEntryCreateSymbolicLinkV1 {
                     old_path,
                     fd,
                     new_path,
-                    _padding: <span class="kw">_</span>,
                 },
             ) =&gt; <span class="self">Self</span>::CreateSymbolicLinkV1 {
-                old_path: old_path.as_ref().into(),
+                old_path: String::from_utf8_lossy(old_path.as_ref()),
                 fd: <span class="kw-2">*</span>fd,
-                new_path: new_path.as_ref().into(),
+                new_path: String::from_utf8_lossy(new_path.as_ref()),
             },
             ArchivedJournalEntry::ChangeDirectoryV1(ArchivedJournalEntryChangeDirectoryV1 {
                 path,
             }) =&gt; <span class="self">Self</span>::ChangeDirectoryV1 {
-                path: path.as_ref().into(),
+                path: String::from_utf8_lossy(path.as_ref()),
             },
-            ArchivedJournalEntry::EpollCreateV1(ArchivedJournalEntryEpollCreateV1 {
-                fd,
-                _padding: <span class="kw">_</span>,
-            }) =&gt; <span class="self">Self</span>::EpollCreateV1 { fd: <span class="kw-2">*</span>fd },
+            ArchivedJournalEntry::EpollCreateV1(ArchivedJournalEntryEpollCreateV1 { fd }) =&gt; {
+                <span class="self">Self</span>::EpollCreateV1 { fd: <span class="kw-2">*</span>fd }
+            }
             ArchivedJournalEntry::EpollCtlV1(ArchivedJournalEntryEpollCtlV1 {
                 epfd,
                 <span class="kw-2">ref </span>op,
@@ -2009,10 +2136,9 @@
                 network,
                 token,
                 <span class="kw-2">ref </span>security,
-                _padding: <span class="kw">_</span>,
             }) =&gt; <span class="self">Self</span>::PortBridgeV1 {
-                network: network.as_ref().into(),
-                token: token.as_ref().into(),
+                network: String::from_utf8_lossy(network.as_ref()),
+                token: String::from_utf8_lossy(token.as_ref()),
                 security: security.into(),
             },
             ArchivedJournalEntry::PortUnbridgeV1 =&gt; <span class="self">Self</span>::PortUnbridgeV1,
@@ -2067,20 +2193,24 @@
             }
             ArchivedJournalEntry::SocketConnectedV1(ArchivedJournalEntrySocketConnectedV1 {
                 fd,
-                addr,
+                local_addr,
+                peer_addr,
             }) =&gt; <span class="self">Self</span>::SocketConnectedV1 {
                 fd: <span class="kw-2">*</span>fd,
-                addr: addr.as_socket_addr(),
+                local_addr: local_addr.as_socket_addr(),
+                peer_addr: peer_addr.as_socket_addr(),
             },
             ArchivedJournalEntry::SocketAcceptedV1(ArchivedJournalEntrySocketAcceptedV1 {
                 listen_fd,
                 fd,
+                local_addr,
                 peer_addr,
                 fd_flags,
                 nonblocking,
             }) =&gt; <span class="self">Self</span>::SocketAcceptedV1 {
                 listen_fd: <span class="kw-2">*</span>listen_fd,
                 fd: <span class="kw-2">*</span>fd,
+                local_addr: local_addr.as_socket_addr(),
                 peer_addr: peer_addr.as_socket_addr(),
                 fd_flags: wasi::Fdflags::from_bits_truncate(<span class="kw-2">*</span>fd_flags),
                 non_blocking: <span class="kw-2">*</span>nonblocking,
@@ -2146,7 +2276,6 @@
                 flags,
                 addr,
                 is_64bit,
-                _padding: <span class="kw">_</span>,
             }) =&gt; <span class="self">Self</span>::SocketSendToV1 {
                 fd: <span class="kw-2">*</span>fd,
                 data: data.as_ref().into(),
@@ -2159,7 +2288,6 @@
                 data,
                 flags,
                 is_64bit,
-                _padding: <span class="kw">_</span>,
             }) =&gt; <span class="self">Self</span>::SocketSendV1 {
                 fd: <span class="kw-2">*</span>fd,
                 data: data.as_ref().into(),

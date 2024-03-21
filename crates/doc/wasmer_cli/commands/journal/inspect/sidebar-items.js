@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":["CmdJournaInspect"]};
+window.SIDEBAR_ITEMS = {"struct":["CmdJournalInspect"]};

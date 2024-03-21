@@ -212,7 +212,6 @@
 <a href="#212" id="212">212</a>
 <a href="#213" id="213">213</a>
 <a href="#214" id="214">214</a>
-<a href="#215" id="215">215</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>serde::{Deserialize, Serialize};
 <span class="kw">use </span>wasmer_wasix_types::wasi::{
     EpollCtl, EpollData, EpollEvent, EpollType, SubscriptionClock, Userdata,
@@ -419,7 +418,6 @@
     <span class="comment">// We use asyncify with a deep sleep to wait on new IO events
     </span><span class="kw">let </span>res = __asyncify_with_deep_sleep::&lt;M, <span class="prelude-ty">Result</span>&lt;Vec&lt;(EpollFd, EpollType)&gt;, Errno&gt;, <span class="kw">_</span>&gt;(
         ctx,
-        Duration::from_millis(<span class="number">50</span>),
         Box::pin(trigger),
     )<span class="question-mark">?</span>;
     <span class="kw">if let </span>AsyncifyAction::Finish(<span class="kw-2">mut </span>ctx, events) = res {

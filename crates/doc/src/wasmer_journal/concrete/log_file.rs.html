@@ -403,9 +403,65 @@
 <a href="#403" id="403">403</a>
 <a href="#404" id="404">404</a>
 <a href="#405" id="405">405</a>
+<a href="#406" id="406">406</a>
+<a href="#407" id="407">407</a>
+<a href="#408" id="408">408</a>
+<a href="#409" id="409">409</a>
+<a href="#410" id="410">410</a>
+<a href="#411" id="411">411</a>
+<a href="#412" id="412">412</a>
+<a href="#413" id="413">413</a>
+<a href="#414" id="414">414</a>
+<a href="#415" id="415">415</a>
+<a href="#416" id="416">416</a>
+<a href="#417" id="417">417</a>
+<a href="#418" id="418">418</a>
+<a href="#419" id="419">419</a>
+<a href="#420" id="420">420</a>
+<a href="#421" id="421">421</a>
+<a href="#422" id="422">422</a>
+<a href="#423" id="423">423</a>
+<a href="#424" id="424">424</a>
+<a href="#425" id="425">425</a>
+<a href="#426" id="426">426</a>
+<a href="#427" id="427">427</a>
+<a href="#428" id="428">428</a>
+<a href="#429" id="429">429</a>
+<a href="#430" id="430">430</a>
+<a href="#431" id="431">431</a>
+<a href="#432" id="432">432</a>
+<a href="#433" id="433">433</a>
+<a href="#434" id="434">434</a>
+<a href="#435" id="435">435</a>
+<a href="#436" id="436">436</a>
+<a href="#437" id="437">437</a>
+<a href="#438" id="438">438</a>
+<a href="#439" id="439">439</a>
+<a href="#440" id="440">440</a>
+<a href="#441" id="441">441</a>
+<a href="#442" id="442">442</a>
+<a href="#443" id="443">443</a>
+<a href="#444" id="444">444</a>
+<a href="#445" id="445">445</a>
+<a href="#446" id="446">446</a>
+<a href="#447" id="447">447</a>
+<a href="#448" id="448">448</a>
+<a href="#449" id="449">449</a>
+<a href="#450" id="450">450</a>
+<a href="#451" id="451">451</a>
+<a href="#452" id="452">452</a>
+<a href="#453" id="453">453</a>
+<a href="#454" id="454">454</a>
+<a href="#455" id="455">455</a>
+<a href="#456" id="456">456</a>
+<a href="#457" id="457">457</a>
+<a href="#458" id="458">458</a>
+<a href="#459" id="459">459</a>
+<a href="#460" id="460">460</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>bytes::Buf;
-<span class="kw">use </span>rkyv::ser::serializers::{
-    AllocScratch, CompositeSerializer, SharedSerializeMap, WriteSerializer,
+<span class="kw">use </span>rkyv::ser::{
+    serializers::{AllocScratch, CompositeSerializer, SharedSerializeMap, WriteSerializer},
+    Serializer,
 };
 <span class="kw">use </span>shared_buffer::OwnedBuffer;
 <span class="kw">use </span>std::{
@@ -414,6 +470,7 @@
     path::Path,
     sync::{Arc, Mutex},
 };
+<span class="kw">use </span>virtual_fs::mem_fs::OffloadBackingStore;
 
 <span class="kw">use super</span>::<span class="kw-2">*</span>;
 
@@ -428,6 +485,7 @@
 ///
 /// The logfile snapshot capturer uses a 64bit number as a entry encoding
 /// delimiter.
+</span><span class="attr">#[derive(Debug)]
 </span><span class="kw">pub struct </span>LogFileJournal {
     tx: LogFileJournalTx,
     rx: LogFileJournalRx,
@@ -449,6 +507,17 @@
     tx: LogFileJournalTx,
     buffer_pos: Mutex&lt;usize&gt;,
     buffer: OwnedBuffer,
+    store: OffloadBackingStore,
+}
+
+<span class="kw">impl </span>LogFileJournalRx {
+    <span class="kw">pub fn </span>owned_buffer(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; OwnedBuffer {
+        <span class="self">self</span>.store.owned_buffer().clone()
+    }
+
+    <span class="kw">pub fn </span>backing_store(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; OffloadBackingStore {
+        <span class="self">self</span>.store.clone()
+    }
 }
 
 <span class="kw">impl </span>LogFileJournalTx {
@@ -456,7 +525,8 @@
         <span class="kw">let </span>state = <span class="self">self</span>.state.lock().unwrap();
         <span class="kw">let </span>file = state.file.try_clone()<span class="question-mark">?</span>;
 
-        <span class="kw">let </span>buffer = OwnedBuffer::from_file(<span class="kw-2">&amp;</span>file)<span class="question-mark">?</span>;
+        <span class="kw">let </span>store = OffloadBackingStore::from_file(<span class="kw-2">&amp;</span>file);
+        <span class="kw">let </span>buffer = store.owned_buffer();
 
         <span class="comment">// If the buffer exists we valid the magic number
         </span><span class="kw">let </span><span class="kw-2">mut </span>buffer_pos = <span class="number">0</span>;
@@ -480,6 +550,7 @@
             tx: <span class="self">self</span>.clone(),
             buffer_pos: Mutex::new(buffer_pos),
             buffer,
+            store,
         })
     }
 }
@@ -494,21 +565,32 @@
         <span class="self">Self</span>::from_file(file)
     }
 
+    <span class="kw">pub fn </span>owned_buffer(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; OwnedBuffer {
+        <span class="self">self</span>.rx.owned_buffer()
+    }
+
+    <span class="kw">pub fn </span>backing_store(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; OffloadBackingStore {
+        <span class="self">self</span>.rx.backing_store()
+    }
+
     <span class="kw">pub fn </span>from_file(<span class="kw-2">mut </span>file: std::fs::File) -&gt; anyhow::Result&lt;<span class="self">Self</span>&gt; {
         <span class="comment">// Move to the end of the file and write the
         // magic if one is needed
-        </span><span class="kw">if </span>file.seek(SeekFrom::End(<span class="number">0</span>)).unwrap() == <span class="number">0 </span>{
+        </span><span class="kw">let </span>underlying_file = file.try_clone()<span class="question-mark">?</span>;
+        <span class="kw">let </span>end_pos = file.seek(SeekFrom::End(<span class="number">0</span>))<span class="question-mark">?</span>;
+        <span class="kw">let </span><span class="kw-2">mut </span>serializer = WriteSerializer::with_pos(file, end_pos <span class="kw">as </span>usize);
+        <span class="kw">if </span>serializer.pos() == <span class="number">0 </span>{
             <span class="kw">let </span>magic = JOURNAL_MAGIC_NUMBER;
             <span class="kw">let </span>magic = magic.to_be_bytes();
-            file.write_all(<span class="kw-2">&amp;</span>magic)<span class="question-mark">?</span>;
+            serializer.write(<span class="kw-2">&amp;</span>magic)<span class="question-mark">?</span>;
         }
 
         <span class="comment">// Create the tx
         </span><span class="kw">let </span>tx = LogFileJournalTx {
             state: Arc::new(Mutex::new(TxState {
-                file: file.try_clone()<span class="question-mark">?</span>,
+                file: underlying_file,
                 serializer: CompositeSerializer::new(
-                    WriteSerializer::new(file),
+                    serializer,
                     AllocScratch::default(),
                     SharedSerializeMap::default(),
                 ),
@@ -523,47 +605,47 @@
 }
 
 <span class="kw">impl </span>WritableJournal <span class="kw">for </span>LogFileJournalTx {
-    <span class="kw">fn </span>write&lt;<span class="lifetime">&#39;a</span>&gt;(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="self">self</span>, entry: JournalEntry&lt;<span class="lifetime">&#39;a</span>&gt;) -&gt; anyhow::Result&lt;u64&gt; {
+    <span class="kw">fn </span>write&lt;<span class="lifetime">&#39;a</span>&gt;(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="self">self</span>, entry: JournalEntry&lt;<span class="lifetime">&#39;a</span>&gt;) -&gt; anyhow::Result&lt;LogWriteResult&gt; {
         <span class="macro">tracing::debug!</span>(<span class="string">&quot;journal event: {:?}&quot;</span>, entry);
 
         <span class="kw">let </span><span class="kw-2">mut </span>state = <span class="self">self</span>.state.lock().unwrap();
 
         <span class="comment">// Write the header (with a record size of zero)
         </span><span class="kw">let </span>record_type: JournalEntryRecordType = entry.archive_record_type();
-        state.file.write_all(<span class="kw-2">&amp;</span>(record_type <span class="kw">as </span>u16).to_be_bytes())<span class="question-mark">?</span>;
-        <span class="kw">let </span>offset_size = state.file.stream_position()<span class="question-mark">?</span>;
-        state.file.write_all(<span class="kw-2">&amp;</span>[<span class="number">0u8</span>; <span class="number">6</span>])<span class="question-mark">?</span>; <span class="comment">// record and pad size (48 bits)
+        <span class="kw">let </span>offset_header = state.serializer.pos() <span class="kw">as </span>u64;
+        state.serializer.write(<span class="kw-2">&amp;</span>[<span class="number">0u8</span>; <span class="number">8</span>])<span class="question-mark">?</span>;
 
-        // Now serialize the actual data to the log
-        </span><span class="kw">let </span>offset_start = state.file.stream_position()<span class="question-mark">?</span>;
+        <span class="comment">// Now serialize the actual data to the log
+        </span><span class="kw">let </span>offset_start = state.serializer.pos() <span class="kw">as </span>u64;
         entry.serialize_archive(<span class="kw-2">&amp;mut </span>state.serializer)<span class="question-mark">?</span>;
-        <span class="kw">let </span>offset_end = state.file.stream_position()<span class="question-mark">?</span>;
+        <span class="kw">let </span>offset_end = state.serializer.pos() <span class="kw">as </span>u64;
         <span class="kw">let </span>record_size = offset_end - offset_start;
-
-        <span class="comment">// If the alightment is out then fail
-        </span><span class="kw">if </span>record_size % <span class="number">8 </span>!= <span class="number">0 </span>{
-            <span class="macro">tracing::error!</span>(
-                <span class="string">&quot;alignment is out for journal event (type={:?}, record_size={}, alignment={})&quot;</span>,
-                record_type,
-                record_size,
-                record_size % <span class="number">8
-            </span>);
-        }
+        <span class="macro">tracing::trace!</span>(
+            <span class="string">&quot;delimiter header={offset_header},start={offset_start},record_size={record_size}&quot;
+        </span>);
 
         <span class="comment">// Write the record and then move back to the end again
-        </span>state.file.seek(SeekFrom::Start(offset_size))<span class="question-mark">?</span>;
-        state.file.write_all(<span class="kw-2">&amp;</span>record_size.to_be_bytes()[<span class="number">2</span>..<span class="number">8</span>])<span class="question-mark">?</span>;
+        </span>state.file.seek(SeekFrom::Start(offset_header))<span class="question-mark">?</span>;
+        <span class="kw">let </span>header_bytes = {
+            <span class="kw">let </span>a = (record_type <span class="kw">as </span>u16).to_be_bytes();
+            <span class="kw">let </span>b = <span class="kw-2">&amp;</span>record_size.to_be_bytes()[<span class="number">2</span>..<span class="number">8</span>];
+            [a[<span class="number">0</span>], a[<span class="number">1</span>], b[<span class="number">0</span>], b[<span class="number">1</span>], b[<span class="number">2</span>], b[<span class="number">3</span>], b[<span class="number">4</span>], b[<span class="number">5</span>]]
+        };
+        state.file.write_all(<span class="kw-2">&amp;</span>header_bytes)<span class="question-mark">?</span>;
         state.file.seek(SeekFrom::Start(offset_end))<span class="question-mark">?</span>;
 
         <span class="comment">// Now write the actual data and update the offsets
-        </span><span class="prelude-val">Ok</span>(record_size)
+        </span><span class="prelude-val">Ok</span>(LogWriteResult {
+            record_start: offset_start,
+            record_end: offset_end,
+        })
     }
 }
 
 <span class="kw">impl </span>ReadableJournal <span class="kw">for </span>LogFileJournalRx {
     <span class="doccomment">/// UNSAFE: This method uses unsafe operations to remove the need to zero
     /// the buffer before its read the log entries into it
-    </span><span class="kw">fn </span>read(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; anyhow::Result&lt;<span class="prelude-ty">Option</span>&lt;JournalEntry&lt;<span class="lifetime">&#39;_</span>&gt;&gt;&gt; {
+    </span><span class="kw">fn </span>read(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; anyhow::Result&lt;<span class="prelude-ty">Option</span>&lt;LogReadResult&lt;<span class="lifetime">&#39;_</span>&gt;&gt;&gt; {
         <span class="kw">let </span><span class="kw-2">mut </span>buffer_pos = <span class="self">self</span>.buffer_pos.lock().unwrap();
 
         <span class="comment">// Get a memory reference to the data on the disk at
@@ -575,6 +657,8 @@
             </span><span class="kw">if </span>buffer_ptr.len() &lt; <span class="number">8 </span>{
                 <span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>);
             }
+
+            <span class="kw">let </span>record_type: JournalEntryRecordType;
             <span class="kw">let </span>header = {
                 <span class="kw">let </span>b = buffer_ptr;
 
@@ -594,40 +678,36 @@
                     record_type: u16::from_be_bytes([b[<span class="number">0</span>], b[<span class="number">1</span>]]),
                     record_size: u64::from_be_bytes([<span class="number">0u8</span>, <span class="number">0u8</span>, b[<span class="number">2</span>], b[<span class="number">3</span>], b[<span class="number">4</span>], b[<span class="number">5</span>], b[<span class="number">6</span>], b[<span class="number">7</span>]]),
                 };
+
+                <span class="comment">// Now we read the entry
+                </span>record_type = <span class="kw">match </span>header.record_type.try_into() {
+                    <span class="prelude-val">Ok</span>(t) =&gt; t,
+                    <span class="prelude-val">Err</span>(<span class="kw">_</span>) =&gt; {
+                        <span class="macro">tracing::debug!</span>(
+                            <span class="string">&quot;unknown journal entry type ({}) - the journal stops here&quot;</span>,
+                            header.record_type
+                        );
+                        <span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>);
+                    }
+                };
+
                 buffer_ptr.advance(<span class="number">8</span>);
                 <span class="kw-2">*</span>buffer_pos += <span class="number">8</span>;
                 header
             };
-
-            <span class="kw">if </span>header.record_size <span class="kw">as </span>usize &gt; buffer_ptr.len() {
-                <span class="kw-2">*</span>buffer_pos += buffer_ptr.len();
-                <span class="macro">tracing::trace!</span>(
-                    <span class="string">&quot;journal is corrupt (record_size={} vs remaining={})&quot;</span>,
-                    header.record_size,
-                    buffer_ptr.len()
-                );
-                <span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>);
-            }
+            <span class="kw">let </span>record_start = <span class="kw-2">*</span>buffer_pos <span class="kw">as </span>u64;
 
             <span class="comment">// Move the buffer position forward past the record
             </span><span class="kw">let </span>entry = <span class="kw-2">&amp;</span>buffer_ptr[..(header.record_size <span class="kw">as </span>usize)];
             buffer_ptr.advance(header.record_size <span class="kw">as </span>usize);
             <span class="kw-2">*</span>buffer_pos += header.record_size <span class="kw">as </span>usize;
 
-            <span class="comment">// Now we read the entry
-            </span><span class="kw">let </span>record_type: JournalEntryRecordType = <span class="kw">match </span>header.record_type.try_into() {
-                <span class="prelude-val">Ok</span>(t) =&gt; t,
-                <span class="prelude-val">Err</span>(<span class="kw">_</span>) =&gt; {
-                    <span class="macro">tracing::debug!</span>(
-                        <span class="string">&quot;unknown journal entry type ({}) - skipping&quot;</span>,
-                        header.record_type
-                    );
-                    <span class="kw">continue</span>;
-                }
-            };
-
             <span class="kw">let </span>record = <span class="kw">unsafe </span>{ record_type.deserialize_archive(entry)<span class="question-mark">? </span>};
-            <span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(record));
+            <span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(LogReadResult {
+                record_start,
+                record_end: <span class="kw-2">*</span>buffer_pos <span class="kw">as </span>u64,
+                record,
+            }));
         }
     }
 
@@ -638,13 +718,13 @@
 }
 
 <span class="kw">impl </span>WritableJournal <span class="kw">for </span>LogFileJournal {
-    <span class="kw">fn </span>write&lt;<span class="lifetime">&#39;a</span>&gt;(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="self">self</span>, entry: JournalEntry&lt;<span class="lifetime">&#39;a</span>&gt;) -&gt; anyhow::Result&lt;u64&gt; {
+    <span class="kw">fn </span>write&lt;<span class="lifetime">&#39;a</span>&gt;(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="self">self</span>, entry: JournalEntry&lt;<span class="lifetime">&#39;a</span>&gt;) -&gt; anyhow::Result&lt;LogWriteResult&gt; {
         <span class="self">self</span>.tx.write(entry)
     }
 }
 
 <span class="kw">impl </span>ReadableJournal <span class="kw">for </span>LogFileJournal {
-    <span class="kw">fn </span>read(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; anyhow::Result&lt;<span class="prelude-ty">Option</span>&lt;JournalEntry&lt;<span class="lifetime">&#39;_</span>&gt;&gt;&gt; {
+    <span class="kw">fn </span>read(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; anyhow::Result&lt;<span class="prelude-ty">Option</span>&lt;LogReadResult&lt;<span class="lifetime">&#39;_</span>&gt;&gt;&gt; {
         <span class="self">self</span>.rx.read()
     }
 
@@ -661,6 +741,8 @@
 
 <span class="attr">#[cfg(test)]
 </span><span class="kw">mod </span>tests {
+    <span class="kw">use </span>wasmer_wasix_types::wasix::WasiMemoryLayout;
+
     <span class="kw">use super</span>::<span class="kw-2">*</span>;
 
     <span class="attr">#[tracing_test::traced_test]
@@ -681,6 +763,13 @@
                 memory_stack: <span class="macro">vec!</span>[<span class="number">22</span>; <span class="number">16</span>].into(),
                 store_data: <span class="macro">vec!</span>[<span class="number">33</span>; <span class="number">136</span>].into(),
                 is_64bit: <span class="bool-val">false</span>,
+                layout: WasiMemoryLayout {
+                    stack_upper: <span class="number">0</span>,
+                    stack_lower: <span class="number">1024</span>,
+                    guard_size: <span class="number">16</span>,
+                    stack_size: <span class="number">1024</span>,
+                },
+                start: wasmer_wasix_types::wasix::ThreadStartType::MainThread,
             })
             .unwrap();
         journal.write(JournalEntry::PortAddrClearV1).unwrap();
@@ -688,10 +777,10 @@
 
         <span class="comment">// Read the events and validate
         </span><span class="kw">let </span>journal = LogFileJournal::new(file.path()).unwrap();
-        <span class="kw">let </span>event1 = journal.read().unwrap();
-        <span class="kw">let </span>event2 = journal.read().unwrap();
-        <span class="kw">let </span>event3 = journal.read().unwrap();
-        <span class="kw">let </span>event4 = journal.read().unwrap();
+        <span class="kw">let </span>event1 = journal.read().unwrap().map(LogReadResult::into_inner);
+        <span class="kw">let </span>event2 = journal.read().unwrap().map(LogReadResult::into_inner);
+        <span class="kw">let </span>event3 = journal.read().unwrap().map(LogReadResult::into_inner);
+        <span class="kw">let </span>event4 = journal.read().unwrap().map(LogReadResult::into_inner);
 
         <span class="comment">// Check the events
         </span><span class="macro">assert_eq!</span>(event1, <span class="prelude-val">Some</span>(JournalEntry::CreatePipeV1 { fd1: <span class="number">1</span>, fd2: <span class="number">2 </span>}));
@@ -703,6 +792,13 @@
                 memory_stack: <span class="macro">vec!</span>[<span class="number">22</span>; <span class="number">16</span>].into(),
                 store_data: <span class="macro">vec!</span>[<span class="number">33</span>; <span class="number">136</span>].into(),
                 is_64bit: <span class="bool-val">false</span>,
+                layout: WasiMemoryLayout {
+                    stack_upper: <span class="number">0</span>,
+                    stack_lower: <span class="number">1024</span>,
+                    guard_size: <span class="number">16</span>,
+                    stack_size: <span class="number">1024</span>,
+                },
+                start: wasmer_wasix_types::wasix::ThreadStartType::MainThread,
             })
         );
         <span class="macro">assert_eq!</span>(event3, <span class="prelude-val">Some</span>(JournalEntry::PortAddrClearV1));
@@ -719,7 +815,7 @@
             .unwrap();
 
         <span class="comment">// The event should not be visible yet unless we reload the log file
-        </span><span class="macro">assert_eq!</span>(journal.read().unwrap(), <span class="prelude-val">None</span>);
+        </span><span class="macro">assert_eq!</span>(journal.read().unwrap().map(LogReadResult::into_inner), <span class="prelude-val">None</span>);
 
         <span class="comment">// Reload the load file
         </span><span class="kw">let </span>journal = LogFileJournal::new(file.path()).unwrap();
@@ -732,11 +828,11 @@
             })
             .unwrap();
 
-        <span class="kw">let </span>event1 = journal.read().unwrap();
-        <span class="kw">let </span>event2 = journal.read().unwrap();
-        <span class="kw">let </span>event3 = journal.read().unwrap();
-        <span class="kw">let </span>event4 = journal.read().unwrap();
-        <span class="kw">let </span>event5 = journal.read().unwrap();
+        <span class="kw">let </span>event1 = journal.read().unwrap().map(LogReadResult::into_inner);
+        <span class="kw">let </span>event2 = journal.read().unwrap().map(LogReadResult::into_inner);
+        <span class="kw">let </span>event3 = journal.read().unwrap().map(LogReadResult::into_inner);
+        <span class="kw">let </span>event4 = journal.read().unwrap().map(LogReadResult::into_inner);
+        <span class="kw">let </span>event5 = journal.read().unwrap().map(LogReadResult::into_inner);
         <span class="macro">assert_eq!</span>(event1, <span class="prelude-val">Some</span>(JournalEntry::CreatePipeV1 { fd1: <span class="number">1</span>, fd2: <span class="number">2 </span>}));
         <span class="macro">assert_eq!</span>(
             event2,
@@ -746,6 +842,13 @@
                 memory_stack: <span class="macro">vec!</span>[<span class="number">22</span>; <span class="number">16</span>].into(),
                 store_data: <span class="macro">vec!</span>[<span class="number">33</span>; <span class="number">136</span>].into(),
                 is_64bit: <span class="bool-val">false</span>,
+                layout: WasiMemoryLayout {
+                    stack_upper: <span class="number">0</span>,
+                    stack_lower: <span class="number">1024</span>,
+                    guard_size: <span class="number">16</span>,
+                    stack_size: <span class="number">1024</span>,
+                },
+                start: wasmer_wasix_types::wasix::ThreadStartType::MainThread,
             })
         );
         <span class="macro">assert_eq!</span>(event3, <span class="prelude-val">Some</span>(JournalEntry::PortAddrClearV1));
@@ -763,12 +866,12 @@
         <span class="comment">// Load it again
         </span><span class="kw">let </span>journal = LogFileJournal::new(file.path()).unwrap();
 
-        <span class="kw">let </span>event1 = journal.read().unwrap();
-        <span class="kw">let </span>event2 = journal.read().unwrap();
-        <span class="kw">let </span>event3 = journal.read().unwrap();
-        <span class="kw">let </span>event4 = journal.read().unwrap();
-        <span class="kw">let </span>event5 = journal.read().unwrap();
-        <span class="kw">let </span>event6 = journal.read().unwrap();
+        <span class="kw">let </span>event1 = journal.read().unwrap().map(LogReadResult::into_inner);
+        <span class="kw">let </span>event2 = journal.read().unwrap().map(LogReadResult::into_inner);
+        <span class="kw">let </span>event3 = journal.read().unwrap().map(LogReadResult::into_inner);
+        <span class="kw">let </span>event4 = journal.read().unwrap().map(LogReadResult::into_inner);
+        <span class="kw">let </span>event5 = journal.read().unwrap().map(LogReadResult::into_inner);
+        <span class="kw">let </span>event6 = journal.read().unwrap().map(LogReadResult::into_inner);
 
         <span class="macro">tracing::info!</span>(<span class="string">&quot;event1 {:?}&quot;</span>, event1);
         <span class="macro">tracing::info!</span>(<span class="string">&quot;event2 {:?}&quot;</span>, event2);
@@ -786,6 +889,13 @@
                 memory_stack: <span class="macro">vec!</span>[<span class="number">22</span>; <span class="number">16</span>].into(),
                 store_data: <span class="macro">vec!</span>[<span class="number">33</span>; <span class="number">136</span>].into(),
                 is_64bit: <span class="bool-val">false</span>,
+                layout: WasiMemoryLayout {
+                    stack_upper: <span class="number">0</span>,
+                    stack_lower: <span class="number">1024</span>,
+                    guard_size: <span class="number">16</span>,
+                    stack_size: <span class="number">1024</span>,
+                },
+                start: wasmer_wasix_types::wasix::ThreadStartType::MainThread,
             })
         );
         <span class="macro">assert_eq!</span>(event3, <span class="prelude-val">Some</span>(JournalEntry::PortAddrClearV1));

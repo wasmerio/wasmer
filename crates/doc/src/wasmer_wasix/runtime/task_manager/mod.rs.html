@@ -478,7 +478,7 @@
 
 <span class="kw">use </span><span class="kw">crate</span>::os::task::thread::WasiThreadError;
 <span class="kw">use </span><span class="kw">crate</span>::syscalls::AsyncifyFuture;
-<span class="kw">use crate</span>::{capture_instance_snapshot, InstanceSnapshot, WasiEnv, WasiFunctionEnv, WasiThread};
+<span class="kw">use crate</span>::{capture_store_snapshot, StoreSnapshot, WasiEnv, WasiFunctionEnv, WasiThread};
 
 <span class="kw">pub use </span>virtual_mio::waker::<span class="kw-2">*</span>;
 
@@ -539,7 +539,7 @@
     <span class="kw">pub </span>recycle: <span class="prelude-ty">Option</span>&lt;Box&lt;TaskWasmRecycle&gt;&gt;,
     <span class="kw">pub </span>env: WasiEnv,
     <span class="kw">pub </span>module: Module,
-    <span class="kw">pub </span>snapshot: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span><span class="lifetime">&#39;b </span>InstanceSnapshot&gt;,
+    <span class="kw">pub </span>globals: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span><span class="lifetime">&#39;b </span>StoreSnapshot&gt;,
     <span class="kw">pub </span>spawn_type: SpawnMemoryType&lt;<span class="lifetime">&#39;a</span>&gt;,
     <span class="kw">pub </span>trigger: <span class="prelude-ty">Option</span>&lt;Box&lt;WasmResumeTrigger&gt;&gt;,
     <span class="kw">pub </span>update_layout: bool,
@@ -552,7 +552,7 @@
             run,
             env,
             module,
-            snapshot: <span class="prelude-val">None</span>,
+            globals: <span class="prelude-val">None</span>,
             spawn_type: <span class="kw">match </span>shared_memory {
                 <span class="prelude-val">Some</span>(ty) =&gt; SpawnMemoryType::CreateMemoryOfType(ty),
                 <span class="prelude-val">None </span>=&gt; SpawnMemoryType::CreateMemory,
@@ -575,8 +575,8 @@
         <span class="self">self
     </span>}
 
-    <span class="kw">pub fn </span>with_snapshot(<span class="kw-2">mut </span><span class="self">self</span>, snapshot: <span class="kw-2">&amp;</span><span class="lifetime">&#39;b </span>InstanceSnapshot) -&gt; <span class="self">Self </span>{
-        <span class="self">self</span>.snapshot.replace(snapshot);
+    <span class="kw">pub fn </span>with_globals(<span class="kw-2">mut </span><span class="self">self</span>, snapshot: <span class="kw-2">&amp;</span><span class="lifetime">&#39;b </span>StoreSnapshot) -&gt; <span class="self">Self </span>{
+        <span class="self">self</span>.globals.replace(snapshot);
         <span class="self">self
     </span>}
 
@@ -809,7 +809,7 @@
             }
         }
 
-        <span class="kw">let </span>snapshot = capture_instance_snapshot(<span class="kw-2">&amp;mut </span>store.as_store_mut());
+        <span class="kw">let </span>snapshot = capture_store_snapshot(<span class="kw-2">&amp;mut </span>store.as_store_mut());
         <span class="kw">let </span>env = ctx.data(<span class="kw-2">&amp;</span>store);
         <span class="kw">let </span>module = env.inner().module_clone();
         <span class="kw">let </span>memory = env.inner().memory_clone();
@@ -837,7 +837,7 @@
                 <span class="bool-val">false</span>,
             )
             .with_memory(SpawnMemoryType::ShareMemory(memory, store.as_store_ref()))
-            .with_snapshot(<span class="kw-2">&amp;</span>snapshot)
+            .with_globals(<span class="kw-2">&amp;</span>snapshot)
             .with_trigger(Box::new(<span class="kw">move </span>|| {
                 Box::pin(<span class="kw">async move </span>{
                     <span class="kw">let </span><span class="kw-2">mut </span>poller = AsyncifyPollerOwned {
@@ -853,7 +853,7 @@
                         }
                     };
 
-                    <span class="macro">tracing::trace!</span>(<span class="string">&quot;deep sleep woken - {:?}&quot;</span>, res);
+                    <span class="macro">tracing::trace!</span>(<span class="string">&quot;deep sleep woken - res.len={}&quot;</span>, res.len());
                     <span class="prelude-val">Ok</span>(res)
                 })
             })),

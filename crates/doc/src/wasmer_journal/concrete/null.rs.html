@@ -32,6 +32,9 @@
 <a href="#32" id="32">32</a>
 <a href="#33" id="33">33</a>
 <a href="#34" id="34">34</a>
+<a href="#35" id="35">35</a>
+<a href="#36" id="36">36</a>
+<a href="#37" id="37">37</a>
 </pre></div><pre class="rust"><code><span class="kw">use super</span>::<span class="kw-2">*</span>;
 
 <span class="kw">pub static </span>NULL_JOURNAL: NullJournal = NullJournal { debug_print: <span class="bool-val">false </span>};
@@ -43,7 +46,7 @@
 }
 
 <span class="kw">impl </span>ReadableJournal <span class="kw">for </span>NullJournal {
-    <span class="kw">fn </span>read(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; anyhow::Result&lt;<span class="prelude-ty">Option</span>&lt;JournalEntry&lt;<span class="lifetime">&#39;_</span>&gt;&gt;&gt; {
+    <span class="kw">fn </span>read(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; anyhow::Result&lt;<span class="prelude-ty">Option</span>&lt;LogReadResult&lt;<span class="lifetime">&#39;_</span>&gt;&gt;&gt; {
         <span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>)
     }
 
@@ -53,11 +56,14 @@
 }
 
 <span class="kw">impl </span>WritableJournal <span class="kw">for </span>NullJournal {
-    <span class="kw">fn </span>write&lt;<span class="lifetime">&#39;a</span>&gt;(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="self">self</span>, entry: JournalEntry&lt;<span class="lifetime">&#39;a</span>&gt;) -&gt; anyhow::Result&lt;u64&gt; {
+    <span class="kw">fn </span>write&lt;<span class="lifetime">&#39;a</span>&gt;(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="self">self</span>, entry: JournalEntry&lt;<span class="lifetime">&#39;a</span>&gt;) -&gt; anyhow::Result&lt;LogWriteResult&gt; {
         <span class="kw">if </span><span class="self">self</span>.debug_print {
             <span class="macro">tracing::debug!</span>(<span class="string">&quot;journal event: {:?}&quot;</span>, entry);
         }
-        <span class="prelude-val">Ok</span>(entry.estimate_size() <span class="kw">as </span>u64)
+        <span class="prelude-val">Ok</span>(LogWriteResult {
+            record_start: <span class="number">0</span>,
+            record_end: entry.estimate_size() <span class="kw">as </span>u64,
+        })
     }
 }
 
