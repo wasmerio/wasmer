@@ -204,6 +204,7 @@ impl AppCreator {
             volumes: None,
             domains: None,
             owner: None,
+            scaling: None,
             package: edge_schema::schema::StringWebcIdent(edge_schema::schema::WebcIdent {
                 repository: None,
                 namespace: self.owner,
@@ -343,6 +344,7 @@ impl AppCreator {
             volumes: None,
             name,
             env: Default::default(),
+            scaling: None,
             // CLI args are only set for JS and Py workers for now.
             cli_args,
             // TODO: allow setting the description.
