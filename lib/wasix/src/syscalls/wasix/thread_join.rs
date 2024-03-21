@@ -33,18 +33,17 @@ pub(super) fn thread_join_internal<M: MemorySize + 'static>(
     let tid: WasiThreadId = join_tid.into();
     let other_thread = env.process.get_thread(&tid);
     if let Some(other_thread) = other_thread {
-        let res =
-            __asyncify_with_deep_sleep::<M, _, _>(ctx, Duration::from_millis(50), async move {
-                other_thread
-                    .join()
-                    .await
-                    .map_err(|err| {
-                        err.as_exit_code()
-                            .unwrap_or(ExitCode::Errno(Errno::Unknown))
-                    })
-                    .unwrap_or_else(|a| a)
-                    .raw()
-            })?;
+        let res = __asyncify_with_deep_sleep::<M, _, _>(ctx, async move {
+            other_thread
+                .join()
+                .await
+                .map_err(|err| {
+                    err.as_exit_code()
+                        .unwrap_or(ExitCode::Errno(Errno::Unknown))
+                })
+                .unwrap_or_else(|a| a)
+                .raw()
+        })?;
         Ok(Errno::Success)
     } else {
         Ok(Errno::Success)

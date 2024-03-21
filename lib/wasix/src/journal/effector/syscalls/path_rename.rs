@@ -1,3 +1,5 @@
+use crate::{syscalls::__asyncify_light, VIRTUAL_ROOT_FD};
+
 use super::*;
 
 impl JournalEffector {
@@ -26,16 +28,27 @@ impl JournalEffector {
         new_fd: Fd,
         new_path: &str,
     ) -> anyhow::Result<()> {
-        let ret = crate::syscalls::path_rename_internal(ctx, old_fd, old_path, new_fd, new_path)?;
-        if ret != Errno::Success {
-            bail!(
-                "journal restore error: failed to rename path (old_fd={}, old_path={}, new_fd={}, new_path={}) - {}",
-                old_fd,
-                old_path,
-                new_fd,
-                new_path,
-                ret
-            );
+        // see `VIRTUAL_ROOT_FD` for details as to why this exists
+        if old_fd == VIRTUAL_ROOT_FD && new_fd == VIRTUAL_ROOT_FD {
+            let state = ctx.data().state.clone();
+            let old_path = old_path.to_string();
+            let new_path = new_path.to_string();
+            __asyncify_light(ctx.data(), None, async move {
+                state.fs_rename(old_path, new_path).await
+            })??;
+        } else {
+            let ret =
+                crate::syscalls::path_rename_internal(ctx, old_fd, old_path, new_fd, new_path)?;
+            if ret != Errno::Success {
+                bail!(
+                    "journal restore error: failed to rename path (old_fd={}, old_path={}, new_fd={}, new_path={}) - {}",
+                    old_fd,
+                    old_path,
+                    new_fd,
+                    new_path,
+                    ret
+                );
+            }
         }
         Ok(())
     }

@@ -23,7 +23,7 @@ impl CountingJournal {
 }
 
 impl ReadableJournal for CountingJournal {
-    fn read(&self) -> anyhow::Result<Option<JournalEntry<'_>>> {
+    fn read(&self) -> anyhow::Result<Option<LogReadResult<'_>>> {
         Ok(None)
     }
 
@@ -33,11 +33,14 @@ impl ReadableJournal for CountingJournal {
 }
 
 impl WritableJournal for CountingJournal {
-    fn write<'a>(&'a self, entry: JournalEntry<'a>) -> anyhow::Result<u64> {
+    fn write<'a>(&'a self, entry: JournalEntry<'a>) -> anyhow::Result<LogWriteResult> {
         let size = entry.estimate_size() as u64;
-        self.n_cnt.fetch_add(1, Ordering::SeqCst);
+        let offset = self.n_cnt.fetch_add(1, Ordering::SeqCst);
         self.n_size.fetch_add(size, Ordering::SeqCst);
-        Ok(size)
+        Ok(LogWriteResult {
+            record_start: offset as u64,
+            record_end: offset as u64 + size,
+        })
     }
 }
 

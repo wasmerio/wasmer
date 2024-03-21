@@ -224,17 +224,13 @@ pub fn proc_exec<M: MemorySize>(
                 let thread = env.thread.clone();
 
                 // The poller will wait for the process to actually finish
-                let res = __asyncify_with_deep_sleep::<M, _, _>(
-                    ctx,
-                    Duration::from_millis(50),
-                    async move {
-                        process
-                            .wait_finished()
-                            .await
-                            .unwrap_or_else(|_| Errno::Child.into())
-                            .to_native()
-                    },
-                )?;
+                let res = __asyncify_with_deep_sleep::<M, _, _>(ctx, async move {
+                    process
+                        .wait_finished()
+                        .await
+                        .unwrap_or_else(|_| Errno::Child.into())
+                        .to_native()
+                })?;
                 match res {
                     AsyncifyAction::Finish(mut ctx, result) => {
                         // When we arrive here the process should already be terminated

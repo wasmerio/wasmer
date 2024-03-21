@@ -1255,7 +1255,7 @@ mod queries {
     }
 
     #[derive(cynic::Scalar, Debug, Clone)]
-    pub struct BigInt(pub u64);
+    pub struct BigInt(pub i64);
 
     #[derive(cynic::InlineFragments, Debug)]
     pub enum Node {

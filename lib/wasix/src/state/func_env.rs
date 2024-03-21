@@ -6,14 +6,16 @@ use wasmer::{
 };
 use wasmer_wasix_types::wasi::ExitCode;
 
+#[allow(unused_imports)]
+use crate::os::task::thread::RewindResultType;
 #[cfg(feature = "journal")]
 use crate::syscalls::restore_snapshot;
 use crate::{
     import_object_for_all_wasi_versions,
     runtime::SpawnMemoryType,
     state::WasiInstanceHandles,
-    utils::{get_wasi_version, get_wasi_versions, store::restore_instance_snapshot},
-    InstanceSnapshot, RewindStateOption, WasiEnv, WasiError, WasiRuntimeError, WasiThreadError,
+    utils::{get_wasi_version, get_wasi_versions, store::restore_store_snapshot},
+    RewindStateOption, StoreSnapshot, WasiEnv, WasiError, WasiRuntimeError, WasiThreadError,
 };
 
 /// The default stack size for WASIX - the number itself is the default that compilers
@@ -39,7 +41,7 @@ impl WasiFunctionEnv {
     pub fn new_with_store(
         module: Module,
         env: WasiEnv,
-        snapshot: Option<&InstanceSnapshot>,
+        store_snapshot: Option<&StoreSnapshot>,
         spawn_type: SpawnMemoryType,
         update_layout: bool,
     ) -> Result<(Self, Store), WasiThreadError> {
@@ -76,9 +78,8 @@ impl WasiFunctionEnv {
             })?;
 
         // Set all the globals
-        if let Some(snapshot) = snapshot {
-            tracing::trace!("restoring snapshot for new thread");
-            restore_instance_snapshot(&mut store, snapshot);
+        if let Some(snapshot) = store_snapshot {
+            restore_store_snapshot(&mut store, snapshot);
         }
 
         Ok((ctx, store))
@@ -269,27 +270,47 @@ impl WasiFunctionEnv {
                             return Err(err);
                         }
                     };
-                    rewind_state = rewind.map(|rewind| (rewind, None));
+                    rewind_state = rewind.map(|rewind| (rewind, RewindResultType::RewindRestart));
                 }
 
                 self.data_mut(&mut store).replaying_journal = false;
             }
 
-            // The first event we save is an event that records the module hash.
-            // Note: This is used to detect if an incorrect journal is used on the wrong
-            // process or if a process has been recompiled
-            let wasm_hash = self.data(&store).process.module_hash.as_bytes();
-            let mut ctx = self.env.clone().into_mut(&mut store);
-            crate::journal::JournalEffector::save_event(
-                &mut ctx,
-                crate::journal::JournalEntry::InitModuleV1 { wasm_hash },
-            )
-            .map_err(|err| {
-                WasiRuntimeError::Runtime(wasmer::RuntimeError::new(format!(
-                    "journal failied to save the module initialization event - {}",
-                    err
-                )))
-            })?;
+            // If there is no rewind state then the journal is being replayed
+            // and hence we do not need to write an init module event
+            //
+            // But otherwise we need to notify the journal of the module hash
+            // so that recompiled modules will restart
+            if rewind_state.is_none() {
+                // The first event we save is an event that records the module hash.
+                // Note: This is used to detect if an incorrect journal is used on the wrong
+                // process or if a process has been recompiled
+                let wasm_hash = self.data(&store).process.module_hash.as_bytes();
+                let mut ctx = self.env.clone().into_mut(&mut store);
+                crate::journal::JournalEffector::save_event(
+                    &mut ctx,
+                    crate::journal::JournalEntry::InitModuleV1 { wasm_hash },
+                )
+                .map_err(|err| {
+                    WasiRuntimeError::Runtime(wasmer::RuntimeError::new(format!(
+                        "journal failed to save the module initialization event - {}",
+                        err
+                    )))
+                })?;
+            } else {
+                // Otherwise we should emit a clear ethereal event
+                let mut ctx = self.env.clone().into_mut(&mut store);
+                crate::journal::JournalEffector::save_event(
+                    &mut ctx,
+                    crate::journal::JournalEntry::ClearEtherealV1,
+                )
+                .map_err(|err| {
+                    WasiRuntimeError::Runtime(wasmer::RuntimeError::new(format!(
+                        "journal failed to save clear ethereal event - {}",
+                        err
+                    )))
+                })?;
+            }
         }
 
         Ok(rewind_state)

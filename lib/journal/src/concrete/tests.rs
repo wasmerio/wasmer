@@ -70,6 +70,13 @@ pub fn test_record_set_thread() {
         memory_stack: vec![4, 5, 6, 7].into(),
         store_data: vec![10, 11].into(),
         is_64bit: true,
+        layout: wasmer_wasix_types::wasix::WasiMemoryLayout {
+            stack_upper: 0,
+            stack_lower: 1024,
+            guard_size: 16,
+            stack_size: 1024,
+        },
+        start: wasmer_wasix_types::wasix::ThreadStartType::MainThread,
     });
 }
 
@@ -481,7 +488,8 @@ pub fn test_record_socket_bind() {
 pub fn test_record_socket_connected() {
     run_test(JournalEntry::SocketConnectedV1 {
         fd: 12341,
-        addr: SocketAddr::new(Ipv6Addr::UNSPECIFIED.into(), 1234),
+        local_addr: SocketAddr::new(Ipv6Addr::UNSPECIFIED.into(), 1234),
+        peer_addr: SocketAddr::new(Ipv6Addr::UNSPECIFIED.into(), 1234),
     });
 }
 
@@ -491,6 +499,7 @@ pub fn test_record_socket_accepted() {
     run_test(JournalEntry::SocketAcceptedV1 {
         listen_fd: 21234,
         fd: 1,
+        local_addr: SocketAddr::new(Ipv6Addr::UNSPECIFIED.into(), 3452),
         peer_addr: SocketAddr::new(Ipv6Addr::UNSPECIFIED.into(), 3452),
         fd_flags: wasi::Fdflags::all(),
         non_blocking: true,

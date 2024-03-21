@@ -1,7 +1,7 @@
 #!/usr/bin/python
 
-PREVIOUS_VERSION='4.2.5'
-NEXT_VERSION='4.2.6'
+PREVIOUS_VERSION='4.2.6'
+NEXT_VERSION='4.2.7'
 
 import os
 import re

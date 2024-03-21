@@ -326,6 +326,9 @@ impl crate::runners::Runner for WasiRunner {
                         .await
                         .context("Spawn failed")?;
 
+                #[cfg(feature = "ctrlc")]
+                task_handle.install_ctrlc_handler();
+
                 task_handle
                     .wait_finished()
                     .await

@@ -359,6 +359,12 @@ pub trait VirtualFile:
         None
     }
 
+    /// Writes to this file using an mmap offset and reference
+    /// (this method only works for mmap optimized file systems)
+    fn write_from_mmap(&mut self, _offset: u64, _len: u64) -> std::io::Result<()> {
+        Err(std::io::ErrorKind::Unsupported.into())
+    }
+
     /// This method will copy a file from a source to this destination where
     /// the default is to do a straight byte copy however file system implementors
     /// may optimize this to do a zero copy

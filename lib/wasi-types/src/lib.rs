@@ -5,3 +5,4 @@
 pub mod asyncify;
 pub mod types;
 pub mod wasi;
+pub mod wasix;

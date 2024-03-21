@@ -43,6 +43,18 @@ use crate::syscalls::map_io_err;
 use crate::{bin_factory::BinaryPackage, state::PreopenedDir, ALL_RIGHTS};
 
 /// the fd value of the virtual root
+///
+/// Used for interacting with the file system when it has no
+/// pre-opened file descriptors at the root level. Normally
+/// a WASM process will do this in the libc initialization stage
+/// however that does not happen when the WASM process has never
+/// been run. Further that logic could change at any time in libc
+/// which would then break functionality. Instead we use this fixed
+/// file descriptor
+///
+/// This is especially important for fuse mounting journals which
+/// use the same syscalls as a normal WASI application but do not
+/// run the libc initialization logic
 pub const VIRTUAL_ROOT_FD: WasiFd = 3;
 
 const STDIN_DEFAULT_RIGHTS: Rights = {
@@ -411,6 +423,63 @@ fn create_dir_all(fs: &dyn FileSystem, path: &Path) -> Result<(), virtual_fs::Fs
     Ok(())
 }
 
+/// This needs to be exposed so that the multiple use-cases are able
+/// to generated unique file descriptors and update the seed during
+/// journal restoration
+#[derive(Debug, Clone)]
+#[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
+pub struct WasiFdSeed {
+    next_fd: Arc<AtomicU32>,
+}
+
+impl Default for WasiFdSeed {
+    fn default() -> Self {
+        Self::new(3)
+    }
+}
+
+impl WasiFdSeed {
+    pub fn new(initial_val: u32) -> Self {
+        Self {
+            next_fd: Arc::new(AtomicU32::new(initial_val)),
+        }
+    }
+
+    pub fn fork(&self) -> Self {
+        Self {
+            next_fd: Arc::new(AtomicU32::new(self.next_fd.load(Ordering::SeqCst))),
+        }
+    }
+
+    pub fn next_val(&self) -> WasiFd {
+        self.next_fd.fetch_add(1, Ordering::SeqCst)
+    }
+
+    pub fn set_val(&self, val: WasiFd) {
+        self.next_fd.store(val, std::sync::atomic::Ordering::SeqCst)
+    }
+
+    pub fn cur_val(&self) -> WasiFd {
+        self.next_fd.load(Ordering::SeqCst)
+    }
+
+    pub fn clip_val(&self, fd: WasiFd) {
+        loop {
+            let existing = self.next_fd.load(Ordering::SeqCst);
+            if existing >= fd {
+                return;
+            }
+            if self
+                .next_fd
+                .compare_exchange(existing, fd, Ordering::SeqCst, Ordering::Relaxed)
+                .is_ok()
+            {
+                break;
+            }
+        }
+    }
+}
+
 /// Warning, modifying these fields directly may cause invariants to break and
 /// should be considered unsafe.  These fields may be made private in a future release
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
@@ -418,7 +487,7 @@ pub struct WasiFs {
     //pub repo: Repo,
     pub preopen_fds: RwLock<Vec<u32>>,
     pub fd_map: Arc<RwLock<HashMap<WasiFd, Fd>>>,
-    pub next_fd: AtomicU32,
+    pub next_fd: WasiFdSeed,
     pub current_dir: Mutex<String>,
     #[cfg_attr(feature = "enable-serde", serde(skip, default))]
     pub root_fs: WasiFsRoot,
@@ -454,7 +523,7 @@ impl WasiFs {
         Self {
             preopen_fds: RwLock::new(self.preopen_fds.read().unwrap().clone()),
             fd_map: Arc::new(RwLock::new(fd_map)),
-            next_fd: AtomicU32::new(self.next_fd.load(Ordering::SeqCst)),
+            next_fd: self.next_fd.fork(),
             current_dir: Mutex::new(self.current_dir.lock().unwrap().clone()),
             is_wasix: AtomicBool::new(self.is_wasix.load(Ordering::Acquire)),
             root_fs: self.root_fs.clone(),
@@ -557,7 +626,7 @@ impl WasiFs {
         let wasi_fs = Self {
             preopen_fds: RwLock::new(vec![]),
             fd_map: Arc::new(RwLock::new(HashMap::new())),
-            next_fd: AtomicU32::new(3),
+            next_fd: WasiFdSeed::default(),
             current_dir: Mutex::new("/".to_string()),
             is_wasix: AtomicBool::new(false),
             root_fs: fs_backing,
@@ -683,7 +752,7 @@ impl WasiFs {
                 let kind = Kind::File {
                     handle: Some(Arc::new(RwLock::new(file))),
                     path: PathBuf::from(""),
-                    fd: Some(self.next_fd.fetch_add(1, Ordering::SeqCst)),
+                    fd: Some(self.next_fd.next_val()),
                 };
 
                 drop(guard);
@@ -1037,6 +1106,9 @@ impl WasiFs {
 
                         if let Some(entry) = entries.get(component.as_ref()) {
                             cur_inode = entry.clone();
+                        } else if let Some(root) = entries.get(&"/".to_string()) {
+                            cur_inode = root.clone();
+                            continue 'symlink_resolution;
                         } else {
                             // Root is not capable of having something other then preopenned folders
                             return Err(Errno::Notcapable);
@@ -1236,15 +1308,34 @@ impl WasiFs {
     }
 
     pub fn get_fd(&self, fd: WasiFd) -> Result<Fd, Errno> {
-        self.fd_map
+        let ret = self
+            .fd_map
             .read()
             .unwrap()
             .get(&fd)
             .ok_or(Errno::Badf)
-            .map(|a| a.clone())
+            .map(|a| a.clone());
+
+        if ret.is_err() && fd == VIRTUAL_ROOT_FD {
+            Ok(Fd {
+                rights: ALL_RIGHTS,
+                rights_inheriting: ALL_RIGHTS,
+                flags: Fdflags::empty(),
+                offset: Arc::new(AtomicU64::new(0)),
+                open_flags: 0,
+                inode: self.root_inode.clone(),
+                is_stdio: false,
+            })
+        } else {
+            ret
+        }
     }
 
     pub fn get_fd_inode(&self, fd: WasiFd) -> Result<InodeGuard, Errno> {
+        // see `VIRTUAL_ROOT_FD` for details as to why this exists
+        if fd == VIRTUAL_ROOT_FD {
+            return Ok(self.root_inode.clone());
+        }
         self.fd_map
             .read()
             .unwrap()
@@ -1305,10 +1396,10 @@ impl WasiFs {
                 Kind::File { .. } => Filetype::RegularFile,
                 Kind::Dir { .. } => Filetype::Directory,
                 Kind::Symlink { .. } => Filetype::SymbolicLink,
-                Kind::Socket { socket } => match socket.inner.protected.read().unwrap().kind {
+                Kind::Socket { socket } => match &socket.inner.protected.read().unwrap().kind {
                     InodeSocketKind::TcpStream { .. } => Filetype::SocketStream,
                     InodeSocketKind::Raw { .. } => Filetype::SocketRaw,
-                    InodeSocketKind::PreSocket { ty, .. } => match ty {
+                    InodeSocketKind::PreSocket { props, .. } => match props.ty {
                         Socktype::Stream => Filetype::SocketStream,
                         Socktype::Dgram => Filetype::SocketDgram,
                         Socktype::Raw => Filetype::SocketRaw,
@@ -1466,25 +1557,13 @@ impl WasiFs {
         open_flags: u16,
         inode: InodeGuard,
     ) -> Result<WasiFd, Errno> {
-        let idx = self.next_fd.fetch_add(1, Ordering::SeqCst);
+        let idx = self.next_fd.next_val();
         self.create_fd_ext(rights, rights_inheriting, flags, open_flags, inode, idx)?;
         Ok(idx)
     }
 
     pub fn make_max_fd(&self, fd: u32) {
-        loop {
-            let existing = self.next_fd.load(Ordering::SeqCst);
-            if existing >= fd {
-                return;
-            }
-            if self
-                .next_fd
-                .compare_exchange(existing, fd, Ordering::SeqCst, Ordering::Relaxed)
-                .is_ok()
-            {
-                break;
-            }
-        }
+        self.next_fd.clip_val(fd);
     }
 
     pub fn create_fd_ext(
@@ -1517,7 +1596,7 @@ impl WasiFs {
 
     pub fn clone_fd(&self, fd: WasiFd) -> Result<WasiFd, Errno> {
         let fd = self.get_fd(fd)?;
-        let idx = self.next_fd.fetch_add(1, Ordering::SeqCst);
+        let idx = self.next_fd.next_val();
         self.fd_map.write().unwrap().insert(
             idx,
             Fd {
@@ -1920,7 +1999,7 @@ impl std::fmt::Debug for WasiFs {
         } else {
             write!(f, "current_dir=(locked) ")?;
         }
-        write!(f, "next_fd={} ", self.next_fd.load(Ordering::Relaxed))?;
+        write!(f, "next_fd={} ", self.next_fd.cur_val())?;
         write!(f, "{:?}", self.root_fs)
     }
 }

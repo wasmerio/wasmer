@@ -29,7 +29,7 @@ impl PrintingJournal {
 }
 
 impl ReadableJournal for PrintingJournal {
-    fn read(&self) -> anyhow::Result<Option<JournalEntry<'_>>> {
+    fn read(&self) -> anyhow::Result<Option<LogReadResult<'_>>> {
         Ok(None)
     }
 
@@ -39,14 +39,17 @@ impl ReadableJournal for PrintingJournal {
 }
 
 impl WritableJournal for PrintingJournal {
-    fn write<'a>(&'a self, entry: JournalEntry<'a>) -> anyhow::Result<u64> {
+    fn write<'a>(&'a self, entry: JournalEntry<'a>) -> anyhow::Result<LogWriteResult> {
         match self.mode {
             JournalPrintingMode::Text => println!("{}", entry),
             JournalPrintingMode::Json => {
                 println!("{}", serde_json::to_string_pretty(&entry)?)
             }
         }
-        Ok(entry.estimate_size() as u64)
+        Ok(LogWriteResult {
+            record_start: 0,
+            record_end: entry.estimate_size() as u64,
+        })
     }
 }
 
@@ -64,6 +67,9 @@ impl<'a> fmt::Display for JournalEntry<'a> {
         match self {
             JournalEntry::InitModuleV1 { wasm_hash } => {
                 write!(f, "init-module (hash={:x?})", wasm_hash)
+            }
+            JournalEntry::ClearEtherealV1 => {
+                write!(f, "clear-ethereal")
             }
             JournalEntry::UpdateMemoryRegionV1 { region, data } => write!(
                 f,
@@ -136,11 +142,11 @@ impl<'a> fmt::Display for JournalEntry<'a> {
                 "fd-duplicate (original={}, copied={})",
                 original_fd, copied_fd
             ),
-            JournalEntry::CreateDirectoryV1 { path, .. } => {
-                write!(f, "path-create-dir (path={})", path)
+            JournalEntry::CreateDirectoryV1 { fd, path } => {
+                write!(f, "path-create-dir (fd={}, path={})", fd, path)
             }
-            JournalEntry::RemoveDirectoryV1 { path, .. } => {
-                write!(f, "path-remove-dir (path={})", path)
+            JournalEntry::RemoveDirectoryV1 { fd, path } => {
+                write!(f, "path-remove-dir (fd={}, path={})", fd, path)
             }
             JournalEntry::PathSetTimesV1 {
                 path,
@@ -246,18 +252,27 @@ impl<'a> fmt::Display for JournalEntry<'a> {
             JournalEntry::SocketBindV1 { fd, addr } => {
                 write!(f, "sock-bind (fd={}, addr={})", fd, addr)
             }
-            JournalEntry::SocketConnectedV1 { fd, addr } => {
-                write!(f, "sock-connect (fd={}, addr={})", fd, addr)
+            JournalEntry::SocketConnectedV1 {
+                fd,
+                local_addr,
+                peer_addr,
+            } => {
+                write!(
+                    f,
+                    "sock-connect (fd={}, addr={}, peer={})",
+                    fd, local_addr, peer_addr
+                )
             }
             JournalEntry::SocketAcceptedV1 {
                 listen_fd,
                 fd,
+                local_addr,
                 peer_addr,
                 ..
             } => write!(
                 f,
-                "sock-accept (listen-fd={}, sock_fd={}, peer={})",
-                listen_fd, fd, peer_addr
+                "sock-accept (listen-fd={}, sock_fd={}, addr={}, peer={})",
+                listen_fd, fd, local_addr, peer_addr
             ),
             JournalEntry::SocketJoinIpv4MulticastV1 {
                 fd,
