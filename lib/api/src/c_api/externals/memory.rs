@@ -1,5 +1,7 @@
 use crate::bindings::{
-    wasm_limits_t, wasm_memory_t, wasm_memory_type, wasm_memorytype_limits, wasm_memorytype_t,
+    wasm_limits_max_default, wasm_limits_t, wasm_memory_grow, wasm_memory_new, wasm_memory_size,
+    wasm_memory_t, wasm_memory_type, wasm_memorytype_limits, wasm_memorytype_new,
+    wasm_memorytype_t,
 };
 use crate::c_api::bindings::wasm_memory_as_extern;
 use crate::c_api::vm::{VMExtern, VMMemory};
@@ -24,26 +26,26 @@ pub struct Memory {
     pub(crate) handle: VMMemory,
 }
 
-// Only SharedMemories can be Send in js, becuase they support `structuredClone`.
-// Normal memories will fail while doing structuredClone.
-// In this case, we implement Send just in case as it can be a shared memory.
-// https://developer.mozilla.org/en-US/docs/Web/API/structuredClone
-// ```js
-// const memory = new WebAssembly.Memory({
-//   initial: 10,
-//   maximum: 100,
-//   shared: true // <--- It must be shared, otherwise structuredClone will fail
-// });
-// structuredClone(memory)
-// ```
 unsafe impl Send for Memory {}
 unsafe impl Sync for Memory {}
 
 impl Memory {
     pub fn new(store: &mut impl AsStoreMut, ty: MemoryType) -> Result<Self, MemoryError> {
-        unimplemented!();
-        // let vm_memory = VMMemory::new(Self::js_memory_from_type(store, &ty)?, ty);
-        // Ok(Self::from_vm_extern(store, vm_memory))
+        let limits = Box::into_raw(Box::new(wasm_limits_t {
+            min: ty.minimum.0,
+            max: match ty.maximum {
+                Some(v) => v.0,
+                None => wasm_limits_max_default,
+            },
+        }));
+
+        let memorytype = unsafe { wasm_memorytype_new(limits) };
+
+        let mut store = store.as_store_mut();
+        let inner = store.inner.store.inner;
+        let c_memory = unsafe { wasm_memory_new(store.inner.store.inner, memorytype) };
+
+        Ok(Self { handle: c_memory })
     }
 
     pub fn new_from_existing(new_store: &mut impl AsStoreMut, memory: VMMemory) -> Self {
@@ -58,17 +60,15 @@ impl Memory {
         let wamr_memory_type: *mut wasm_memorytype_t = unsafe { wasm_memory_type(self.handle) };
         let limits: *const wasm_limits_t = unsafe { wasm_memorytype_limits(wamr_memory_type) };
 
-        // [todo]
         MemoryType {
-            shared: true,
+            shared: false,
             minimum: unsafe { wasmer_types::Pages((*limits).min) },
             maximum: unsafe { Some(wasmer_types::Pages((*limits).max)) },
         }
     }
 
     pub fn view<'a>(&self, store: &'a impl AsStoreRef) -> MemoryView<'a> {
-        unimplemented!();
-        // MemoryView::new(self, store)
+        MemoryView::new(self, store)
     }
 
     pub fn grow<IntoPages>(
@@ -79,45 +79,9 @@ impl Memory {
     where
         IntoPages: Into<Pages>,
     {
-        unimplemented!();
-        // let pages = delta.into();
-
-        // let store_mut = store.as_store_mut();
-        // let engine = store_mut.engine();
-        // let context = engine.0.context();
-        // let func = self
-        //     .handle
-        //     .memory
-        //     .get_property(&context, "grow".to_string())
-        //     .to_object(&context)
-        //     .unwrap();
-        // match func.call(
-        //     &context,
-        //     Some(&self.handle.memory),
-        //     &[JSValue::number(&context, pages.0 as _)],
-        // ) {
-        //     Ok(val) => Ok(Pages(val.to_number(&context).unwrap() as _)),
-        //     Err(e) => {
-        //         let old_pages = pages;
-        //         Err(MemoryError::CouldNotGrow {
-        //             current: old_pages,
-        //             attempted_delta: pages,
-        //         })
-        //     }
-        // }
-        // // let js_memory = &self.handle.memory;
-        // // let our_js_memory: &JSMemory = JsCast::unchecked_from_js_ref(js_memory);
-        // // let new_pages = our_js_memory.grow(pages.0).map_err(|err| {
-        // //     if err.is_instance_of::<js_sys::RangeError>() {
-        // //         MemoryError::CouldNotGrow {
-        // //             current: self.view(&store.as_store_ref()).size(),
-        // //             attempted_delta: pages,
-        // //         }
-        // //     } else {
-        // //         MemoryError::Generic(err.as_string().unwrap())
-        // //     }
-        // // })?;
-        // // Ok(Pages(new_pages))
+        unimplemented!(
+            "calling grow from host is not supported! Use the memory.grow opcode instead."
+        );
     }
 
     pub fn grow_at_least(
@@ -269,7 +233,7 @@ impl<'a> MemoryBuffer<'a> {
             .ok_or(MemoryAccessError::Overflow)?;
         if end > self.len.try_into().unwrap() {
             warn!(
-                "attempted to write ({} bytes) beyond the bounds of the memory view ({} > {})",
+                "ttempted to write ({} bytes) beyond the bounds of the memory view ({} > {})",
                 data.len(),
                 end,
                 self.len
@@ -316,6 +280,7 @@ unsafe fn volatile_memcpy_read(mut src: *const u8, mut dst: *mut u8, mut len: us
         copy_one::<u8>(&mut src, &mut dst, &mut len);
     }
 }
+
 #[inline]
 unsafe fn volatile_memcpy_write(mut src: *const u8, mut dst: *mut u8, mut len: usize) {
     #[inline]

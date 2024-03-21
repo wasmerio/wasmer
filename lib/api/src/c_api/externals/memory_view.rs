@@ -1,3 +1,7 @@
+use crate::bindings::{
+    wasm_memory_data, wasm_memory_data_size, wasm_memory_size, wasm_memory_type,
+    wasm_memorytype_limits,
+};
 use crate::store::AsStoreRef;
 use crate::MemoryAccessError;
 use std::convert::TryFrom;
@@ -23,30 +27,20 @@ pub struct MemoryView<'a> {
 
 impl<'a> MemoryView<'a> {
     pub(crate) fn new(memory: &Memory, store: &'a (impl AsStoreRef + ?Sized)) -> Self {
-        unimplemented!();
-        // let store_ref = store.as_store_ref();
-        // let engine = store_ref.engine();
-        // let context = engine.0.context();
+        let c_memory = memory.handle;
 
-        // let buffer = memory
-        //     .get_property(&context, "buffer".to_string())
-        //     .to_object(&context)
-        //     .unwrap();
-        // let typed_buffer = JSObject::create_typed_array_from_buffer(&context, buffer).unwrap();
+        let base: *mut u8 = unsafe { wasm_memory_data(c_memory) } as _;
+        let limits = unsafe { *wasm_memorytype_limits(wasm_memory_type(c_memory)) };
 
-        // let mut buffer_data = typed_buffer.get_typed_array_buffer(&context).unwrap();
-        // // println!("BUFFER DATA {}", buffer_data.to_string(&context));
+        // println!("creating memory_view::new limits: {:?}", limits);
 
-        // // let definition = memory.handle.get(store.as_store_ref().objects()).vmmemory();
-        // // let def = unsafe { definition.as_ref() };
-        // Self {
-        //     buffer: MemoryBuffer {
-        //         base: buffer_data.as_mut_ptr(),
-        //         len: buffer_data.len(),
-        //         marker: PhantomData,
-        //     },
-        //     // size,
-        // }
+        Self {
+            buffer: MemoryBuffer {
+                base,
+                len: limits.min.try_into().unwrap(),
+                marker: PhantomData,
+            },
+        }
     }
 
     /// Returns the pointer to the raw bytes of the `Memory`.
@@ -103,7 +97,7 @@ impl<'a> MemoryView<'a> {
     /// assert_eq!(m.view(&mut store).size(), Pages(1));
     /// ```
     pub fn size(&self) -> Pages {
-        Bytes(self.buffer.len).try_into().unwrap()
+        Pages(self.buffer.len.try_into().unwrap())
     }
 
     #[inline]
