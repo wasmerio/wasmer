@@ -1162,6 +1162,60 @@ mod queries {
                 DnsRecord::Unknown => None,
             }
         }
+
+        pub fn created_at(&self) -> Option<&DateTime> {
+            match self {
+                DnsRecord::A(record) => Some(&record.created_at),
+                DnsRecord::AAAA(record) => Some(&record.created_at),
+                DnsRecord::CName(record) => Some(&record.created_at),
+                DnsRecord::Txt(record) => Some(&record.created_at),
+                DnsRecord::Mx(record) => Some(&record.created_at),
+                DnsRecord::Ns(record) => Some(&record.created_at),
+                DnsRecord::CAA(record) => Some(&record.created_at),
+                DnsRecord::DName(record) => Some(&record.created_at),
+                DnsRecord::Ptr(record) => Some(&record.created_at),
+                DnsRecord::Soa(record) => Some(&record.created_at),
+                DnsRecord::Srv(record) => Some(&record.created_at),
+                DnsRecord::Sshfp(record) => Some(&record.created_at),
+                DnsRecord::Unknown => None,
+            }
+        }
+
+        pub fn updated_at(&self) -> Option<&DateTime> {
+            match self {
+                Self::A(record) => Some(&record.updated_at),
+                Self::AAAA(record) => Some(&record.updated_at),
+                Self::CName(record) => Some(&record.updated_at),
+                Self::Txt(record) => Some(&record.updated_at),
+                Self::Mx(record) => Some(&record.updated_at),
+                Self::Ns(record) => Some(&record.updated_at),
+                Self::CAA(record) => Some(&record.updated_at),
+                Self::DName(record) => Some(&record.updated_at),
+                Self::Ptr(record) => Some(&record.updated_at),
+                Self::Soa(record) => Some(&record.updated_at),
+                Self::Srv(record) => Some(&record.updated_at),
+                Self::Sshfp(record) => Some(&record.updated_at),
+                Self::Unknown => None,
+            }
+        }
+
+        pub fn deleted_at(&self) -> Option<&DateTime> {
+            match self {
+                Self::A(record) => record.deleted_at.as_ref(),
+                Self::AAAA(record) => record.deleted_at.as_ref(),
+                Self::CName(record) => record.deleted_at.as_ref(),
+                Self::Txt(record) => record.deleted_at.as_ref(),
+                Self::Mx(record) => record.deleted_at.as_ref(),
+                Self::Ns(record) => record.deleted_at.as_ref(),
+                Self::CAA(record) => record.deleted_at.as_ref(),
+                Self::DName(record) => record.deleted_at.as_ref(),
+                Self::Ptr(record) => record.deleted_at.as_ref(),
+                Self::Soa(record) => record.deleted_at.as_ref(),
+                Self::Srv(record) => record.deleted_at.as_ref(),
+                Self::Sshfp(record) => record.deleted_at.as_ref(),
+                Self::Unknown => None,
+            }
+        }
     }
 
     #[derive(cynic::Enum, Clone, Copy, Debug)]
