@@ -1,9 +1,9 @@
-use cmake::Config;
-use std::{env, path::PathBuf};
-
 fn main() {
     #[cfg(feature = "wasm-c-api")]
     {
+        use cmake::Config;
+        use std::{env, path::PathBuf};
+
         let crate_root = env::var("CARGO_MANIFEST_DIR").unwrap();
         let wamr_dir = PathBuf::from(&crate_root).join("third_party").join("wamr");
 

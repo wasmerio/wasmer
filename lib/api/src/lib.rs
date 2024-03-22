@@ -417,6 +417,16 @@ compile_error!(
     "Cannot have both `js` and `jsc` features enabled at the same time. Please, pick one."
 );
 
+#[cfg(all(feature = "js", feature = "wasm-c-api"))]
+compile_error!(
+    "Cannot have both `js` and `wasm-c-api` features enabled at the same time. Please, pick one."
+);
+
+#[cfg(all(feature = "jsc", feature = "wasm-c-api"))]
+compile_error!(
+    "Cannot have both `jsc` and `wasm-c-api` features enabled at the same time. Please, pick one."
+);
+
 #[cfg(all(feature = "sys", feature = "jsc"))]
 compile_error!(
     "Cannot have both `sys` and `jsc` features enabled at the same time. Please, pick one."
@@ -461,8 +471,10 @@ pub mod vm;
 mod module_info_polyfill;
 
 #[cfg(feature = "sys")]
+#[allow(missing_docs)]
 pub mod sys;
 #[cfg(feature = "sys")]
+#[allow(missing_docs)]
 pub use sys::*;
 
 #[cfg(feature = "sys")]
@@ -490,19 +502,25 @@ pub type BaseTunables = sys::BaseTunables;
 pub type VMConfig = sys::VMConfig;
 
 #[cfg(feature = "js")]
+#[allow(missing_docs)]
 mod js;
 #[cfg(feature = "js")]
+#[allow(missing_docs)]
 pub use js::*;
 
 #[cfg(feature = "jsc")]
+#[allow(missing_docs)]
 mod jsc;
 #[cfg(feature = "jsc")]
+#[allow(missing_docs)]
 pub use jsc::*;
 
 #[cfg(feature = "wasm-c-api")]
+#[allow(missing_docs)]
 mod c_api;
 #[cfg(feature = "wasm-c-api")]
 #[allow(unused)]
+#[allow(missing_docs)]
 pub use c_api::*;
 
 pub use crate::externals::{

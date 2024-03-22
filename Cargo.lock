@@ -2791,9 +2791,8 @@ name = "macro-wasmer-universal-test"
 version = "4.2.5"
 dependencies = [
  "proc-macro2",
- "proc-quote",
  "quote",
- "syn 1.0.109",
+ "syn 2.0.48",
 ]
 
 [[package]]
@@ -3660,42 +3659,12 @@ dependencies = [
 ]
 
 [[package]]
-name = "proc-macro-hack"
-version = "0.5.20+deprecated"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dc375e1527247fe1a97d8b7156678dfe7c1af2fc075c9a4db3690ecd2a148068"
-
-[[package]]
 name = "proc-macro2"
 version = "1.0.78"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e2422ad645d89c99f8f3e6b88a9fdeca7fabeac836b1002371c4367c8f984aae"
 dependencies = [
  "unicode-ident",
-]
-
-[[package]]
-name = "proc-quote"
-version = "0.4.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5e84ab161de78c915302ca325a19bee6df272800e2ae1a43fe3ef430bab2a100"
-dependencies = [
- "proc-macro-hack",
- "proc-macro2",
- "proc-quote-impl",
- "quote",
- "syn 1.0.109",
-]
-
-[[package]]
-name = "proc-quote-impl"
-version = "0.3.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7fb3ec628b063cdbcf316e06a8b8c1a541d28fa6c0a8eacd2bfb2b7f49e88aa0"
-dependencies = [
- "proc-macro-hack",
- "proc-macro2",
- "quote",
 ]
 
 [[package]]

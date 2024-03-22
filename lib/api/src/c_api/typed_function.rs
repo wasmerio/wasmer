@@ -9,8 +9,8 @@
 //! ```
 use crate::as_c::result_to_value;
 use crate::bindings::{
-    wasm_extern_as_func, wasm_func_call, wasm_func_t, wasm_global_set, wasm_global_t,
-    wasm_val_vec_new, wasm_val_vec_new_uninitialized,
+    wasm_byte_vec_t, wasm_extern_as_func, wasm_func_call, wasm_func_t, wasm_global_set,
+    wasm_global_t, wasm_trap_message, wasm_val_vec_new, wasm_val_vec_new_uninitialized,
 };
 
 use crate::as_c::param_from_c;
@@ -37,6 +37,7 @@ macro_rules! impl_native_traits {
              pub fn call(&self, mut store: &mut impl AsStoreMut, $( $x: $x, )* ) -> Result<Rets, RuntimeError> where
              $( $x: FromToNativeWasmType + NativeWasmTypeInto, )*
              {
+
                  // // let store_ptr = Value::I64(store.as_store_mut().as_raw() as _).as_jsvalue(store);
                  #[allow(unused_unsafe)]
                  let params_list: Vec<_> = unsafe {
@@ -61,7 +62,27 @@ macro_rules! impl_native_traits {
 
                  let func = unsafe { wasm_extern_as_func(self.func.to_vm_extern()) };
 
-                 unsafe { wasm_func_call(func, &params, &mut results); }
+                 let trap = unsafe { wasm_func_call(func, &params, &mut results) };
+
+                 if !trap.is_null() {
+                     unsafe {
+                        let mut msg = std::mem::zeroed();
+                        unsafe { wasm_trap_message(trap, &mut msg) };
+                        //let mut user_err_box: *mut Box<&(dyn std::error::Error + Sync + Send + 'static)> = msg.data as _;
+                        //            println!("{:p}", user_err_box);
+                        //let  user_err: Box<&(dyn std::error::Error + Sync + Send + 'static)> = Box::from_raw(user_err_box as _);
+                        //            println!("{:p}", *user_err);
+                        //return Err(RuntimeError::user(user_err));
+
+                        pub struct FunctionErrMessage {
+                            pub msg: Box<dyn std::error::Error + Sync + Send + 'static>,
+                        }
+
+                        let back: FunctionErrMessage = unsafe {std::ptr::read(msg.data as *const _)};
+
+                        return Err(RuntimeError::user(back.msg));
+                     }
+                }
 
                 let mut rets_list_array = Rets::empty_array();
                 let mut_rets = rets_list_array.as_mut() as *mut [RawValue] as *mut RawValue;

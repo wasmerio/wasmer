@@ -4,7 +4,7 @@ use wasm_bindgen_test::*;
 
 use wasmer::*;
 
-#[universal_test]
+#[universal_test(skip("wasm-c-api"))]
 fn data_and_store_mut() -> Result<(), String> {
     let mut store = Store::default();
     let global_mut = Global::new_mut(&mut store, Value::I32(10));

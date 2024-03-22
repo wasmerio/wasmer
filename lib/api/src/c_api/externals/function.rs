@@ -1,10 +1,10 @@
 use crate::as_c::{param_from_c, result_to_value, type_to_c, valtype_to_type};
 use crate::bindings::{
-    wasm_byte_vec_new_empty, wasm_byte_vec_t, wasm_extern_as_func, wasm_func_call, wasm_func_new,
-    wasm_func_new_with_env, wasm_func_param_arity, wasm_func_result_arity, wasm_func_t,
-    wasm_func_type, wasm_functype_copy, wasm_functype_new, wasm_functype_params,
-    wasm_functype_results, wasm_functype_t, wasm_trap_message, wasm_trap_new, wasm_trap_t,
-    wasm_val_t, wasm_val_t__bindgen_ty_1, wasm_val_vec_copy, wasm_val_vec_new,
+    wasm_byte_vec_new, wasm_byte_vec_new_empty, wasm_byte_vec_t, wasm_extern_as_func,
+    wasm_func_call, wasm_func_new, wasm_func_new_with_env, wasm_func_param_arity,
+    wasm_func_result_arity, wasm_func_t, wasm_func_type, wasm_functype_copy, wasm_functype_new,
+    wasm_functype_params, wasm_functype_results, wasm_functype_t, wasm_trap_message, wasm_trap_new,
+    wasm_trap_t, wasm_val_t, wasm_val_t__bindgen_ty_1, wasm_val_vec_copy, wasm_val_vec_new,
     wasm_val_vec_new_uninitialized, wasm_val_vec_t, wasm_valkind_enum_WASM_F32,
     wasm_valkind_enum_WASM_F64, wasm_valkind_enum_WASM_I32, wasm_valkind_enum_WASM_I64,
     wasm_valtype_new, wasm_valtype_t, wasm_valtype_vec_new, wasm_valtype_vec_t,
@@ -50,6 +50,10 @@ pub(crate) struct FunctionCallbackEnv<'a, T> {
     store: Option<StoreMut<'a>>,
     env: Option<FunctionEnvMut<'a, T>>,
 }
+
+
+
+
 
 unsafe extern "C" fn closure_callback_with_env(
     env: *mut std::os::raw::c_void,
@@ -411,6 +415,7 @@ impl Function {
             size: wasm_params.len(),
             data: wasm_params.as_mut_ptr(),
         };
+
         // std::mem::forget(wasm_params);
         let size = unsafe { wasm_func_result_arity(self.handle) };
         let mut results = wasm_val_vec_t {
@@ -593,13 +598,13 @@ macro_rules! impl_host_function {
                         let store = &mut (*env).store.as_mut().unwrap().as_store_mut();
                         let mut i = 0;
 
-                       $(
-                           let c_arg = (*(*args).data.wrapping_add(i)).clone();
-                           let wasmer_arg = crate::as_c::param_from_c(&c_arg);
-                           let raw_arg : RawValue = wasmer_arg.as_raw(store);
-                           let $x : $x = FromToNativeWasmType::from_native($x::Native::from_raw(store, raw_arg));
+                        $(
+                            let c_arg = (*(*args).data.wrapping_add(i)).clone();
+                            let wasmer_arg = crate::as_c::param_from_c(&c_arg);
+                            let raw_arg : RawValue = wasmer_arg.as_raw(store);
+                            let $x : $x = FromToNativeWasmType::from_native($x::Native::from_raw(store, raw_arg));
 
-                           i += 1;
+                            i += 1;
                         )*
 
                         let result = panic::catch_unwind(AssertUnwindSafe(|| unsafe {
@@ -607,11 +612,10 @@ macro_rules! impl_host_function {
                             func( $( $x, )* ).into_result()
                         }));
 
+                        match result {
+                            Ok(Ok(result)) => {
 
-                       match result {
-                           Ok(Ok(result)) => {
-
-                               let types = Rets::wasm_types();
+                                let types = Rets::wasm_types();
                                 let mut native_results = result.into_array(store);
                                 let native_results = native_results.as_mut();
 
@@ -629,18 +633,63 @@ macro_rules! impl_host_function {
                                     for i in 0..(*results).size {
                                         *((*results).data.wrapping_add(i)) = c_results[i]
                                     }
-
                                 }
 
-                                unsafe { std::ptr::null_mut() }
-                           },
-                           Ok(Err(e)) => {
-                               unimplemented!("host function returns an error");
-                           },
-                           Err(e) => {
-                               unimplemented!("host function panicked");
-                           }
-                       }
+                                 unsafe { std::ptr::null_mut() }
+                            },
+
+                            Ok(Err(e)) => {
+
+                                unsafe {
+                                    pub struct FunctionErrMessage {
+                                        pub msg: Box<dyn std::error::Error + Sync + Send + 'static>,
+                                    }
+
+                                    impl FunctionErrMessage {
+                                        pub(crate) fn new(msg: Box<dyn std::error::Error + Sync + Send + 'static>) -> Self {
+                                            Self { msg }
+                                        }
+                                    
+                                        unsafe fn as_i8_slice(&self) -> &[i8] {
+                                            ::core::slice::from_raw_parts(
+                                                (self as *const Self) as *const i8,
+                                                ::core::mem::size_of::<Self>(),
+                                            )
+                                        }
+                                    }
+
+
+                                    //
+                                    // let user_err: *const (dyn std::error::Error + Send + Sync + 'static) = &e as _;
+                                    // println!("user_err_ptr = {:p}", user_err);
+                                    // println!("size of user_err_ptr = {}", std::mem::size_of_val(&user_err));
+
+                                    let msg: FunctionErrMessage = FunctionErrMessage::new(Box::new(e));
+                                    let slice = msg.as_i8_slice();
+
+                                    let mut bytevec: wasm_byte_vec_t = std::mem::zeroed();
+                                    // //wasm_byte_vec_new(&mut bytevec, std::mem::size_of_val(&user_err), user_err as _);
+                                    wasm_byte_vec_new(&mut bytevec, std::mem::size_of_val(&slice), slice.as_ptr());
+
+                                    let back: FunctionErrMessage = unsafe {std::ptr::read(bytevec.data as *const _)};
+
+                                    // std::mem::forget(bytevec);
+
+                                    let trap = wasm_trap_new(store.inner.store.inner, &bytevec);
+
+                                    std::mem::forget(msg);
+                                    std::mem::forget(bytevec);
+                                    // std::mem::forget(e);
+
+                                    trap
+                                }
+
+                            },
+
+                            Err(e) => {
+                                unimplemented!("host function panicked");
+                            }
+                        }
 
 
                     }
