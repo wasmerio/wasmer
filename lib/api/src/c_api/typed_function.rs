@@ -66,7 +66,7 @@ macro_rules! impl_native_traits {
 
                  if !trap.is_null() {
                      unsafe {
-                        let trap: Trap = Trap::deserialize_from_wasm_trap(trap);
+                        let trap: Trap = trap.into();
                         return Err(RuntimeError::from(trap));
                      }
                 }

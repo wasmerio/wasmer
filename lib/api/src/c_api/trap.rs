@@ -55,29 +55,37 @@ impl Trap {
     }
 
     pub unsafe fn into_wasm_trap(self, store: &mut impl AsStoreMut) -> *mut wasm_trap_t {
-        let mut data = std::mem::zeroed();
-        let self_as_slice = {
-            ::core::slice::from_raw_parts(
-                (&self as *const Self) as *const i8,
-                ::core::mem::size_of::<Self>(),
-            )
-        };
-        // let slice = "hello";
-        wasm_byte_vec_new(
-            &mut data,
-            size_of::<Self>(),
-            self_as_slice.as_ptr() as *const i8,
-        );
-        let store = store.as_store_mut();
-        wasm_trap_new(store.inner.store.inner, &mut data)
+        match self.inner {
+            InnerTrap::CApi(t) => t,
+            InnerTrap::User(u) => {
+                let mut data = std::mem::zeroed();
+                let u_as_slice = {
+                    ::core::slice::from_raw_parts(
+                        (&self as *const Self) as *const i8,
+                        ::core::mem::size_of::<Self>(),
+                    )
+                };
+                // let slice = "hello";
+                wasm_byte_vec_new(
+                    &mut data,
+                    size_of::<Self>(),
+                    self_as_slice.as_ptr() as *const i8,
+                );
+                let store = store.as_store_mut();
+
+                println!("data: {:p}", data);
+                wasm_trap_new(store.inner.store.inner, &mut data)
+            }
+        }
     }
 
-    pub unsafe fn deserialize_from_wasm_trap(trap: *mut wasm_trap_t) -> Self {
-        let mut data = std::mem::zeroed();
-        wasm_trap_message(trap, data);
+    // pub unsafe fn deserialize_from_wasm_trap(trap: *mut wasm_trap_t) -> Self {
+    //     let mut data = std::mem::zeroed();
+    //     wasm_trap_message(trap, data);
+    //     println!("data: {:p}", data);
 
-        std::ptr::read(data as *const _)
-    }
+    //     std::ptr::read(data as *const _)
+    // }
 }
 
 impl From<*mut wasm_trap_t> for Trap {
