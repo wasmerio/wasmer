@@ -262,7 +262,9 @@ impl WasiRunner {
     ) -> Result<(), Error> {
         let wasi = webc::metadata::annotations::Wasi::new(program_name);
         let mut store = runtime.new_store();
-        let env = self.prepare_webc_env(program_name, &wasi, None, runtime, None)?;
+        let env = self
+            .prepare_webc_env(program_name, &wasi, None, runtime, None)?
+            .attach_ctrl_c();
 
         if asyncify {
             env.run_with_store_async(module.clone(), module_hash, store)?;
