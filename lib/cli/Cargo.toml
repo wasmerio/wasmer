@@ -83,6 +83,7 @@ wasmer-wasix = { version = "0.18.2", path = "../wasix", features = [
   "webc_runner_rt_dproxy",
   "webc_runner_rt_emscripten",
   "host-fs",
+  "ctrlc"
 ] }
 wasmer-wast = { version = "=4.2.7", path = "../../tests/lib/wast", optional = true }
 wasmer-types = { version = "=4.2.7", path = "../types", features = [
