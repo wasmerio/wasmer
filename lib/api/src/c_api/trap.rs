@@ -57,23 +57,15 @@ impl Trap {
     pub unsafe fn into_wasm_trap(self, store: &mut impl AsStoreMut) -> *mut wasm_trap_t {
         match self.inner {
             InnerTrap::CApi(t) => t,
-            InnerTrap::User(u) => {
+            InnerTrap::User(err) => {
+                let err_ptr = Box::leak(Box::new(err));
                 let mut data = std::mem::zeroed();
-                let u_as_slice = {
-                    ::core::slice::from_raw_parts(
-                        (&self as *const Self) as *const i8,
-                        ::core::mem::size_of::<Self>(),
-                    )
-                };
-                // let slice = "hello";
-                wasm_byte_vec_new(
-                    &mut data,
-                    size_of::<Self>(),
-                    self_as_slice.as_ptr() as *const i8,
-                );
+                // let x = format!("")
+                let s1 = format!("🐛{:p}", err_ptr);
+                let _s = s1.into_bytes().into_boxed_slice();
+                wasm_byte_vec_new(&mut data, _s.len(), _s.as_ptr() as _);
+                std::mem::forget(_s);
                 let store = store.as_store_mut();
-
-                println!("data: {:p}", data);
                 wasm_trap_new(store.inner.store.inner, &mut data)
             }
         }
@@ -90,6 +82,12 @@ impl Trap {
 
 impl From<*mut wasm_trap_t> for Trap {
     fn from(value: *mut wasm_trap_t) -> Self {
+        let message = unsafe {
+            let mut message = std::mem::zeroed();
+            wasm_trap_message(value, &mut message);
+            message
+        };
+        println!("TRAP IS {:?}", message.data);
         Self {
             inner: InnerTrap::CApi(value),
         }
