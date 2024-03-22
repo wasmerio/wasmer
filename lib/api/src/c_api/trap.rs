@@ -2,7 +2,7 @@ use crate::bindings::{wasm_byte_vec_new, wasm_byte_vec_t, wasm_trap_message};
 use crate::c_api::bindings::{wasm_message_t, wasm_trap_new, wasm_trap_t};
 use crate::{AsStoreMut, RuntimeError};
 use std::error::Error;
-use std::ffi::CStr;
+use std::ffi::{c_char, CStr};
 use std::fmt;
 use std::mem::size_of;
 
@@ -85,12 +85,29 @@ impl From<*mut wasm_trap_t> for Trap {
         let message = unsafe {
             let mut message = std::mem::zeroed();
             wasm_trap_message(value, &mut message);
-            message
+
+            CStr::from_ptr(message.data as *const c_char)
+                .to_str()
+                .unwrap()
         };
-        println!("TRAP IS {:?}", message.data);
-        // If data starts with 🐛 => We need to return InnerTrap::User(err)
-        Self {
-            inner: InnerTrap::CApi(value),
+
+        if message.starts_with("Exception: 🐛") {
+            let ptr_str = message.replace("Exception: 🐛", "");
+            let ptr: Box<dyn Error + Send + Sync + 'static> = unsafe {
+                let r = ptr_str.trim_start_matches("0x");
+                std::ptr::read(
+                    (usize::from_str_radix(&r, 16).unwrap()
+                        as *const Box<dyn Error + Send + Sync + 'static>),
+                )
+            };
+
+            Self {
+                inner: InnerTrap::User(ptr),
+            }
+        } else {
+            Self {
+                inner: InnerTrap::CApi(value),
+            }
         }
     }
 }
