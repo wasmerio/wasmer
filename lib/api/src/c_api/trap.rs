@@ -88,6 +88,7 @@ impl From<*mut wasm_trap_t> for Trap {
             message
         };
         println!("TRAP IS {:?}", message.data);
+        // If data starts with 🐛 => We need to return InnerTrap::User(err)
         Self {
             inner: InnerTrap::CApi(value),
         }
