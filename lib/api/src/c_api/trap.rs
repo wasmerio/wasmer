@@ -1,6 +1,6 @@
-use crate::bindings::{wasm_byte_vec_t, wasm_trap_message};
+use crate::bindings::{wasm_byte_vec_new, wasm_byte_vec_t, wasm_trap_message};
 use crate::c_api::bindings::{wasm_message_t, wasm_trap_new, wasm_trap_t};
-use crate::RuntimeError;
+use crate::{AsStoreMut, RuntimeError};
 use std::error::Error;
 use std::ffi::CStr;
 use std::fmt;
@@ -50,6 +50,25 @@ impl Trap {
         match &self.inner {
             InnerTrap::User(err) => err.is::<T>(),
             _ => false,
+        }
+    }
+
+    pub unsafe fn into_wasm_trap(self, store: &mut impl AsStoreMut) -> *mut wasm_trap_t {
+        unsafe {
+            let mut data = std::mem::zeroed();
+            let self_as_slice = {
+                ::core::slice::from_raw_parts(
+                    (&self as *const Self) as *const i8,
+                    ::core::mem::size_of::<Self>(),
+                )
+            };
+            // let slice = "hello";
+            wasm_byte_vec_new(&mut data, 5, self_as_slice.as_ptr() as *const i8);
+            let store = store.as_store_mut();
+            std::mem::forget(data);
+            // std::mem::forget(slice);
+
+            wasm_trap_new(store.inner.store.inner, &mut data)
         }
     }
 }

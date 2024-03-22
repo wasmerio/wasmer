@@ -66,21 +66,8 @@ macro_rules! impl_native_traits {
 
                  if !trap.is_null() {
                      unsafe {
-                        let mut msg = std::mem::zeroed();
-                        unsafe { wasm_trap_message(trap, &mut msg) };
-                        //let mut user_err_box: *mut Box<&(dyn std::error::Error + Sync + Send + 'static)> = msg.data as _;
-                        //            println!("{:p}", user_err_box);
-                        //let  user_err: Box<&(dyn std::error::Error + Sync + Send + 'static)> = Box::from_raw(user_err_box as _);
-                        //            println!("{:p}", *user_err);
-                        //return Err(RuntimeError::user(user_err));
-
-                        pub struct FunctionErrMessage {
-                            pub msg: Box<dyn std::error::Error + Sync + Send + 'static>,
-                        }
-
-                        let back: FunctionErrMessage = unsafe {std::ptr::read(msg.data as *const _)};
-
-                        return Err(RuntimeError::user(back.msg));
+                        let trap: Trap = trap.into();
+                        return Err(RuntimeError::from(trap));
                      }
                 }
 

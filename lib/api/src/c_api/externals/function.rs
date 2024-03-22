@@ -51,10 +51,6 @@ pub(crate) struct FunctionCallbackEnv<'a, T> {
     env: Option<FunctionEnvMut<'a, T>>,
 }
 
-
-
-
-
 unsafe extern "C" fn closure_callback_with_env(
     env: *mut std::os::raw::c_void,
     args: *const wasm_val_vec_t,
@@ -639,51 +635,9 @@ macro_rules! impl_host_function {
                             },
 
                             Ok(Err(e)) => {
-
-                                unsafe {
-                                    pub struct FunctionErrMessage {
-                                        pub msg: Box<dyn std::error::Error + Sync + Send + 'static>,
-                                    }
-
-                                    impl FunctionErrMessage {
-                                        pub(crate) fn new(msg: Box<dyn std::error::Error + Sync + Send + 'static>) -> Self {
-                                            Self { msg }
-                                        }
-                                    
-                                        unsafe fn as_i8_slice(&self) -> &[i8] {
-                                            ::core::slice::from_raw_parts(
-                                                (self as *const Self) as *const i8,
-                                                ::core::mem::size_of::<Self>(),
-                                            )
-                                        }
-                                    }
-
-
-                                    //
-                                    // let user_err: *const (dyn std::error::Error + Send + Sync + 'static) = &e as _;
-                                    // println!("user_err_ptr = {:p}", user_err);
-                                    // println!("size of user_err_ptr = {}", std::mem::size_of_val(&user_err));
-
-                                    let msg: FunctionErrMessage = FunctionErrMessage::new(Box::new(e));
-                                    let slice = msg.as_i8_slice();
-
-                                    let mut bytevec: wasm_byte_vec_t = std::mem::zeroed();
-                                    // //wasm_byte_vec_new(&mut bytevec, std::mem::size_of_val(&user_err), user_err as _);
-                                    wasm_byte_vec_new(&mut bytevec, std::mem::size_of_val(&slice), slice.as_ptr());
-
-                                    let back: FunctionErrMessage = unsafe {std::ptr::read(bytevec.data as *const _)};
-
-                                    // std::mem::forget(bytevec);
-
-                                    let trap = wasm_trap_new(store.inner.store.inner, &bytevec);
-
-                                    std::mem::forget(msg);
-                                    std::mem::forget(bytevec);
-                                    // std::mem::forget(e);
-
-                                    trap
-                                }
-
+                                let trap: Trap =  Trap::user(Box::new(e));
+                                unsafe { trap.into_wasm_trap(store) }
+                                // unimplemented!("host function panicked");
                             },
 
                             Err(e) => {
