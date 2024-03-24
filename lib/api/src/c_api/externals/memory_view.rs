@@ -22,6 +22,7 @@ use super::memory::{Memory, MemoryBuffer};
 #[derive(Debug)]
 pub struct MemoryView<'a> {
     pub(crate) buffer: MemoryBuffer<'a>,
+    pub(crate) size: u32,
 }
 
 impl<'a> MemoryView<'a> {
@@ -30,6 +31,7 @@ impl<'a> MemoryView<'a> {
 
         let len = unsafe { wasm_memory_data_size(c_memory as _).try_into().unwrap() };
         let base: *mut u8 = unsafe { wasm_memory_data(c_memory as _) as _ };
+        let size = unsafe { wasm_memory_size(c_memory as _) };
 
         Self {
             buffer: MemoryBuffer {
@@ -37,6 +39,7 @@ impl<'a> MemoryView<'a> {
                 len,
                 marker: PhantomData,
             },
+            size,
         }
     }
 
@@ -94,7 +97,7 @@ impl<'a> MemoryView<'a> {
     /// assert_eq!(m.view(&mut store).size(), Pages(1));
     /// ```
     pub fn size(&self) -> Pages {
-        Pages(self.buffer.len.try_into().unwrap())
+        Pages(self.size)
     }
 
     #[inline]
