@@ -51,22 +51,6 @@ pub(crate) struct FunctionCallbackEnv<'a, T> {
     env: Option<FunctionEnvMut<'a, T>>,
 }
 
-unsafe extern "C" fn closure_callback_with_env(
-    env: *mut std::os::raw::c_void,
-    args: *const wasm_val_vec_t,
-    results: *mut wasm_val_vec_t,
-) -> *mut wasm_trap_t {
-    unimplemented!("closure_callback_with_env")
-}
-
-unsafe extern "C" fn closure_callback(
-    // env: *mut std::os::raw::c_void,
-    args: *const wasm_val_vec_t,
-    results: *mut wasm_val_vec_t,
-) -> *mut wasm_trap_t {
-    unimplemented!("closure_callback")
-}
-
 impl Function {
     /// To `VMExtern`.
     pub fn to_vm_extern(&self) -> VMExtern {
@@ -148,18 +132,18 @@ impl Function {
         let mut store = store.as_store_mut();
         let inner = store.inner.store.inner;
 
-        let mut callback_env: *mut FunctionCallbackEnv<'_, T> =
-            Box::into_raw(Box::new(FunctionCallbackEnv {
-                store: None,
-                env: Some(env.clone().into_mut(&mut store)),
-            }));
+        //let callback_env: *mut (FunctionEnvMut<'_, T>, &F) =
+        //    Box::into_raw(Box::new((env.clone().into_mut(&mut store), &func)));
+        let mut callback_env = (env.clone().into_mut(&mut store), &func);
+
+        let callback = make_fn_callback(&func);
 
         let wasm_function = unsafe {
             wasm_func_new_with_env(
                 inner,
                 wasm_functype,
-                Some(closure_callback_with_env),
-                callback_env as _,
+                Some(callback),
+                &mut callback_env as *mut _ as _,
                 None,
             )
         };
@@ -459,6 +443,81 @@ impl Function {
     }
 }
 
+fn make_fn_callback<F, T: Send + 'static>(
+    func: &F,
+) -> unsafe extern "C" fn(*mut c_void, *const wasm_val_vec_t, *mut wasm_val_vec_t) -> *mut wasm_trap_t
+where
+    F: Fn(FunctionEnvMut<'_, T>, &[Value]) -> Result<Vec<Value>, RuntimeError>
+        + 'static
+        + Send
+        + Sync,
+{
+    unsafe extern "C" fn fn_callback<F, T: Send + 'static>(
+        env: *mut c_void,
+        args: *const wasm_val_vec_t,
+        rets: *mut wasm_val_vec_t,
+    ) -> *mut wasm_trap_t
+    where
+        F: Fn(FunctionEnvMut<'_, T>, &[Value]) -> Result<Vec<Value>, RuntimeError>
+            + 'static
+            + Send
+            + Sync,
+    {
+        let r: *mut (FunctionEnvMut<'_, T>, &F) = env as _;
+        //(*r).
+        //let b: Box<(FunctionEnvMut<'_, T>, &F)> = Box::from_raw(r);
+        let mut fn_env: FunctionEnvMut<'_, T> = (&mut (*r).0).as_mut();
+        let func: &F = (*r).1;
+
+        let mut wasmer_args = vec![];
+
+        for i in 0..(*args).size {
+            wasmer_args.push(param_from_c(&(*(*args).data.wrapping_add(i)).clone()));
+        }
+
+        let result = panic::catch_unwind(AssertUnwindSafe(|| unsafe {
+            func(fn_env, wasmer_args.as_slice())
+        }));
+
+        match result {
+            Ok(Ok(native_results)) => {
+                let mut c_results: Vec<wasm_val_t> = native_results
+                    .iter()
+                    .map(|r| crate::as_c::result_to_value(r))
+                    .collect();
+
+                if c_results.len() != (*rets).size {
+                    panic!("when calling host function: number of observed results differ from wanted results")
+                }
+
+                unsafe {
+                    for i in 0..(*rets).size {
+                        *((*rets).data.wrapping_add(i)) = c_results[i]
+                    }
+                }
+
+                unsafe { std::ptr::null_mut() }
+            }
+
+            Ok(Err(e)) => {
+                let trap: Trap = Trap::user(Box::new(e));
+
+                let r: *mut (FunctionEnvMut<'_, T>, &F) = env as _;
+                let mut fn_env: FunctionEnvMut<'_, T> = (&mut (*r).0).as_mut();
+                let (_, store) = &mut fn_env.data_and_store_mut();
+                unsafe { trap.into_wasm_trap(store) }
+
+            }
+
+            Err(e) => {
+                unimplemented!("host function panicked");
+            }
+        }
+    }
+
+    fn_callback::<F, T>
+}
+
 impl fmt::Debug for Function {
     fn fmt(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
         formatter.debug_struct("Function").finish()
@@ -550,7 +609,8 @@ macro_rules! impl_host_function {
                                 unsafe { std::ptr::null_mut() }
                            },
                            Ok(Err(e)) => {
-                               unimplemented!("host function returns an error");
+                                let trap: Trap =  Trap::user(Box::new(e));
+                                unsafe { trap.into_wasm_trap(store) }
                            },
                            Err(e) => {
                                unimplemented!("host function panicked");

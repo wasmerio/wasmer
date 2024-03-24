@@ -89,15 +89,9 @@ impl Memory {
         store: &mut impl AsStoreMut,
         min_size: u64,
     ) -> Result<(), MemoryError> {
-        unimplemented!();
-        // let cur_size = self.view(store).data_size();
-        // if min_size > cur_size {
-        //     let delta = min_size - cur_size;
-        //     let pages = ((delta - 1) / wasmer_types::WASM_PAGE_SIZE as u64) + 1;
-
-        //     self.grow(store, Pages(pages as u32))?;
-        // }
-        // Ok(())
+        unimplemented!(
+            "calling grow from host is not supported! Use the memory.grow opcode instead."
+        );
     }
 
     pub fn reset(&self, _store: &mut impl AsStoreMut) -> Result<(), MemoryError> {

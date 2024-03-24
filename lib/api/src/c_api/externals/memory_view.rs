@@ -1,5 +1,5 @@
 use crate::bindings::{
-    wasm_memory_data, wasm_memory_data_size, wasm_memory_size, wasm_memory_type,
+    wasm_memory_data, wasm_memory_data_size, wasm_memory_size, wasm_memory_t, wasm_memory_type,
     wasm_memorytype_limits,
 };
 use crate::store::AsStoreRef;
@@ -22,22 +22,19 @@ use super::memory::{Memory, MemoryBuffer};
 #[derive(Debug)]
 pub struct MemoryView<'a> {
     pub(crate) buffer: MemoryBuffer<'a>,
-    // pub(crate) size: Pages,
 }
 
 impl<'a> MemoryView<'a> {
     pub(crate) fn new(memory: &Memory, store: &'a (impl AsStoreRef + ?Sized)) -> Self {
-        let c_memory = memory.handle;
+        let c_memory: *mut wasm_memory_t = memory.handle;
 
-        let base: *mut u8 = unsafe { wasm_memory_data(c_memory) } as _;
-        let limits = unsafe { *wasm_memorytype_limits(wasm_memory_type(c_memory)) };
-
-        // println!("creating memory_view::new limits: {:?}", limits);
+        let len = unsafe { wasm_memory_data_size(c_memory as _).try_into().unwrap() };
+        let base: *mut u8 = unsafe { wasm_memory_data(c_memory as _) as _ };
 
         Self {
             buffer: MemoryBuffer {
                 base,
-                len: limits.min.try_into().unwrap(),
+                len,
                 marker: PhantomData,
             },
         }
