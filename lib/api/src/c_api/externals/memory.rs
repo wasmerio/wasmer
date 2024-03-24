@@ -1,6 +1,6 @@
 use crate::bindings::{
-    wasm_limits_max_default, wasm_limits_t, wasm_memory_grow, wasm_memory_new, wasm_memory_size,
-    wasm_memory_t, wasm_memory_type, wasm_memorytype_limits, wasm_memorytype_new,
+    wasm_limits_max_default, wasm_limits_t, wasm_memory_copy, wasm_memory_grow, wasm_memory_new,
+    wasm_memory_size, wasm_memory_t, wasm_memory_type, wasm_memorytype_limits, wasm_memorytype_new,
     wasm_memorytype_t,
 };
 use crate::c_api::bindings::wasm_memory_as_extern;
@@ -132,16 +132,18 @@ impl Memory {
     /// Cloning memory will create another reference to the same memory that
     /// can be put into a new store
     pub fn try_clone(&self, _store: &impl AsStoreRef) -> Result<VMMemory, MemoryError> {
-        unimplemented!();
-        // self.handle.try_clone()
+        Ok(self.handle.clone())
     }
 
     /// Copying the memory will actually copy all the bytes in the memory to
     /// a identical byte copy of the original that can be put into a new store
     pub fn try_copy(&self, store: &impl AsStoreRef) -> Result<VMMemory, MemoryError> {
-        unimplemented!();
-        // let mut cloned = self.try_clone(store)?;
-        // cloned.copy(store)
+        let res = unsafe { wasm_memory_copy(self.handle) };
+        if res.is_null() {
+            Err(MemoryError::Generic("memory copy failed".to_owned()))
+        } else {
+            Ok(res)
+        }
     }
 
     pub fn is_from_store(&self, _store: &impl AsStoreRef) -> bool {
