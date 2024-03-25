@@ -6681,7 +6681,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         let address_map =
             get_function_address_map(self.machine.instructions_address_map(), data, body_len);
         let traps = self.machine.collect_trap_information();
-        let mut body = self.machine.assembler_finalize();
+        let mut body = self.machine.assembler_finalize()?;
         body.shrink_to_fit();
 
         Ok((

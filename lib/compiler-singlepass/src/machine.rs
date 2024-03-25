@@ -233,7 +233,7 @@ pub trait Machine {
     fn new_machine_state(&self) -> MachineState;
 
     /// Finalize the assembler
-    fn assembler_finalize(self) -> Vec<u8>;
+    fn assembler_finalize(self) -> Result<Vec<u8>, CompileError>;
 
     /// get_offset of Assembler
     fn get_offset(&self) -> Offset;
