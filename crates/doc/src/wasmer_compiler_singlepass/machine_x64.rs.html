@@ -8707,6 +8707,8 @@
 <a href="#8707" id="8707">8707</a>
 <a href="#8708" id="8708">8708</a>
 <a href="#8709" id="8709">8709</a>
+<a href="#8710" id="8710">8710</a>
+<a href="#8711" id="8711">8711</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::codegen_error;
 <span class="kw">use </span><span class="kw">crate</span>::common_decl::<span class="kw-2">*</span>;
 <span class="kw">use </span><span class="kw">crate</span>::emitter_x64::<span class="kw-2">*</span>;
@@ -11208,8 +11210,10 @@
     }
 
     <span class="comment">// assembler finalize
-    </span><span class="kw">fn </span>assembler_finalize(<span class="self">self</span>) -&gt; Vec&lt;u8&gt; {
-        <span class="self">self</span>.assembler.finalize().unwrap()
+    </span><span class="kw">fn </span>assembler_finalize(<span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;u8&gt;, CompileError&gt; {
+        <span class="self">self</span>.assembler.finalize().map_err(|e| {
+            CompileError::Codegen(<span class="macro">format!</span>(<span class="string">&quot;Assembler failed finalization with: {:?}&quot;</span>, e))
+        })
     }
 
     <span class="kw">fn </span>get_offset(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Offset {

@@ -8812,6 +8812,8 @@
 <a href="#8812" id="8812">8812</a>
 <a href="#8813" id="8813">8813</a>
 <a href="#8814" id="8814">8814</a>
+<a href="#8815" id="8815">8815</a>
+<a href="#8816" id="8816">8816</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>dynasmrt::{aarch64::Aarch64Relocation, VecAssembler};
 <span class="attr">#[cfg(feature = <span class="string">&quot;unwind&quot;</span>)]
 </span><span class="kw">use </span>gimli::{write::CallFrameInstruction, AArch64};
@@ -11104,8 +11106,10 @@
     }
 
     <span class="comment">// assembler finalize
-    </span><span class="kw">fn </span>assembler_finalize(<span class="self">self</span>) -&gt; Vec&lt;u8&gt; {
-        <span class="self">self</span>.assembler.finalize().unwrap()
+    </span><span class="kw">fn </span>assembler_finalize(<span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;u8&gt;, CompileError&gt; {
+        <span class="self">self</span>.assembler.finalize().map_err(|e| {
+            CompileError::Codegen(<span class="macro">format!</span>(<span class="string">&quot;Assembler failed finalization with: {:?}&quot;</span>, e))
+        })
     }
 
     <span class="kw">fn </span>get_offset(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Offset {

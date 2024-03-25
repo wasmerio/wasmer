@@ -2737,7 +2737,7 @@
     </span><span class="kw">fn </span>new_machine_state(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; MachineState;
 
     <span class="doccomment">/// Finalize the assembler
-    </span><span class="kw">fn </span>assembler_finalize(<span class="self">self</span>) -&gt; Vec&lt;u8&gt;;
+    </span><span class="kw">fn </span>assembler_finalize(<span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;u8&gt;, CompileError&gt;;
 
     <span class="doccomment">/// get_offset of Assembler
     </span><span class="kw">fn </span>get_offset(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Offset;

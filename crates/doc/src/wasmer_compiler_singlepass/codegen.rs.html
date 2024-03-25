@@ -13426,7 +13426,7 @@
         <span class="kw">let </span>address_map =
             get_function_address_map(<span class="self">self</span>.machine.instructions_address_map(), data, body_len);
         <span class="kw">let </span>traps = <span class="self">self</span>.machine.collect_trap_information();
-        <span class="kw">let </span><span class="kw-2">mut </span>body = <span class="self">self</span>.machine.assembler_finalize();
+        <span class="kw">let </span><span class="kw-2">mut </span>body = <span class="self">self</span>.machine.assembler_finalize()<span class="question-mark">?</span>;
         body.shrink_to_fit();
 
         <span class="prelude-val">Ok</span>((
