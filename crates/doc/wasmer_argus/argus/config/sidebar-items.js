@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["Backend"],"fn":["get_default_jobs","get_default_out_path","get_default_token"],"struct":["ArgusConfig"]};

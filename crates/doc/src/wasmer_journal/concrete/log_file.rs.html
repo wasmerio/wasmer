@@ -458,6 +458,33 @@
 <a href="#458" id="458">458</a>
 <a href="#459" id="459">459</a>
 <a href="#460" id="460">460</a>
+<a href="#461" id="461">461</a>
+<a href="#462" id="462">462</a>
+<a href="#463" id="463">463</a>
+<a href="#464" id="464">464</a>
+<a href="#465" id="465">465</a>
+<a href="#466" id="466">466</a>
+<a href="#467" id="467">467</a>
+<a href="#468" id="468">468</a>
+<a href="#469" id="469">469</a>
+<a href="#470" id="470">470</a>
+<a href="#471" id="471">471</a>
+<a href="#472" id="472">472</a>
+<a href="#473" id="473">473</a>
+<a href="#474" id="474">474</a>
+<a href="#475" id="475">475</a>
+<a href="#476" id="476">476</a>
+<a href="#477" id="477">477</a>
+<a href="#478" id="478">478</a>
+<a href="#479" id="479">479</a>
+<a href="#480" id="480">480</a>
+<a href="#481" id="481">481</a>
+<a href="#482" id="482">482</a>
+<a href="#483" id="483">483</a>
+<a href="#484" id="484">484</a>
+<a href="#485" id="485">485</a>
+<a href="#486" id="486">486</a>
+<a href="#487" id="487">487</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>bytes::Buf;
 <span class="kw">use </span>rkyv::ser::{
     serializers::{AllocScratch, CompositeSerializer, SharedSerializeMap, WriteSerializer},
@@ -504,7 +531,7 @@
 
 <span class="attr">#[derive(Debug)]
 </span><span class="kw">pub struct </span>LogFileJournalRx {
-    tx: LogFileJournalTx,
+    tx: <span class="prelude-ty">Option</span>&lt;LogFileJournalTx&gt;,
     buffer_pos: Mutex&lt;usize&gt;,
     buffer: OwnedBuffer,
     store: OffloadBackingStore,
@@ -547,7 +574,7 @@
         }
 
         <span class="prelude-val">Ok</span>(LogFileJournalRx {
-            tx: <span class="self">self</span>.clone(),
+            tx: <span class="prelude-val">Some</span>(<span class="self">self</span>.clone()),
             buffer_pos: Mutex::new(buffer_pos),
             buffer,
             store,
@@ -573,7 +600,8 @@
         <span class="self">self</span>.rx.backing_store()
     }
 
-    <span class="kw">pub fn </span>from_file(<span class="kw-2">mut </span>file: std::fs::File) -&gt; anyhow::Result&lt;<span class="self">Self</span>&gt; {
+    <span class="doccomment">/// Create a new journal from a file
+    </span><span class="kw">pub fn </span>from_file(<span class="kw-2">mut </span>file: std::fs::File) -&gt; anyhow::Result&lt;<span class="self">Self</span>&gt; {
         <span class="comment">// Move to the end of the file and write the
         // magic if one is needed
         </span><span class="kw">let </span>underlying_file = file.try_clone()<span class="question-mark">?</span>;
@@ -601,6 +629,23 @@
         </span><span class="kw">let </span>rx = tx.as_rx()<span class="question-mark">?</span>;
 
         <span class="prelude-val">Ok</span>(<span class="self">Self </span>{ rx, tx })
+    }
+
+    <span class="doccomment">/// Create a new journal from a buffer
+    </span><span class="kw">pub fn </span>from_buffer(buffer: OwnedBuffer) -&gt; RecombinedJournal {
+        <span class="comment">// Create the rx
+        </span><span class="kw">let </span>rx = LogFileJournalRx {
+            tx: <span class="prelude-val">None</span>,
+            buffer_pos: Mutex::new(<span class="number">0</span>),
+            buffer: buffer.clone(),
+            store: OffloadBackingStore::from_buffer(buffer),
+        };
+
+        <span class="comment">// Create an unsupported write journal
+        </span><span class="kw">let </span>tx = UnsupportedJournal::default();
+
+        <span class="comment">// Now recombine
+        </span>RecombinedJournal::new(Box::new(tx), Box::new(rx))
     }
 }
 
@@ -712,8 +757,17 @@
     }
 
     <span class="kw">fn </span>as_restarted(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; anyhow::Result&lt;Box&lt;DynReadableJournal&gt;&gt; {
-        <span class="kw">let </span>ret = <span class="self">self</span>.tx.as_rx()<span class="question-mark">?</span>;
-        <span class="prelude-val">Ok</span>(Box::new(ret))
+        <span class="kw">if let </span><span class="prelude-val">Some</span>(tx) = <span class="kw-2">&amp;</span><span class="self">self</span>.tx {
+            <span class="kw">let </span>ret = tx.as_rx()<span class="question-mark">?</span>;
+            <span class="prelude-val">Ok</span>(Box::new(ret))
+        } <span class="kw">else </span>{
+            <span class="prelude-val">Ok</span>(Box::new(LogFileJournalRx {
+                tx: <span class="prelude-val">None</span>,
+                buffer_pos: Mutex::new(<span class="number">0</span>),
+                buffer: <span class="self">self</span>.buffer.clone(),
+                store: <span class="self">self</span>.store.clone(),
+            }))
+        }
     }
 }
 

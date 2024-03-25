@@ -479,6 +479,10 @@
 <a href="#479" id="479">479</a>
 <a href="#480" id="480">480</a>
 <a href="#481" id="481">481</a>
+<a href="#482" id="482">482</a>
+<a href="#483" id="483">483</a>
+<a href="#484" id="484">484</a>
+<a href="#485" id="485">485</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>bytes::Bytes;
 <span class="kw">use </span>shared_buffer::OwnedBuffer;
 <span class="kw">use </span>std::{
@@ -587,6 +591,10 @@
         <span class="kw">let </span>file = file.try_clone().unwrap();
         <span class="kw">let </span>buffer = OwnedBuffer::from_file(<span class="kw-2">&amp;</span>file).unwrap();
         <span class="self">Self</span>::new(buffer, <span class="prelude-val">Some</span>(file))
+    }
+
+    <span class="kw">pub fn </span>from_buffer(buffer: OwnedBuffer) -&gt; <span class="self">Self </span>{
+        <span class="self">Self</span>::new(buffer, <span class="prelude-val">None</span>)
     }
 
     <span class="kw">pub fn </span>owned_buffer(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; OwnedBuffer {
