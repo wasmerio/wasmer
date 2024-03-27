@@ -4,9 +4,9 @@ use gimli::{write::CallFrameInstruction, AArch64};
 
 use wasmer_compiler::wasmparser::ValType as WpType;
 use wasmer_types::{
-    CallingConvention, CompileError, CustomSection, FunctionBody, FunctionIndex, FunctionType,
-    InstructionAddressMap, Relocation, RelocationKind, RelocationTarget, SourceLoc, TrapCode,
-    TrapInformation, VMOffsets,
+    CallingConvention, CompileError, CpuFeature, CustomSection, FunctionBody, FunctionIndex,
+    FunctionType, InstructionAddressMap, Relocation, RelocationKind, RelocationTarget, SourceLoc,
+    Target, TrapCode, TrapInformation, VMOffsets,
 };
 
 use crate::arm64_decl::new_machine_state;
@@ -114,6 +114,8 @@ pub struct MachineARM64 {
     pushed: bool,
     /// Vector of unwind operations with offset
     unwind_ops: Vec<(usize, UnwindOps)>,
+    /// The actual compilation target.  
+    target: Option<Target>,
 }
 
 #[allow(dead_code)]
@@ -138,7 +140,7 @@ enum ImmType {
 
 #[allow(dead_code)]
 impl MachineARM64 {
-    pub fn new() -> Self {
+    pub fn new(target: Option<Target>) -> Self {
         MachineARM64 {
             assembler: Assembler::new(0),
             used_gprs: 0,
@@ -148,6 +150,7 @@ impl MachineARM64 {
             src_loc: 0,
             pushed: false,
             unwind_ops: vec![],
+            target,
         }
     }
     fn compatible_imm(&self, imm: i64, ty: ImmType) -> bool {
@@ -3072,38 +3075,90 @@ impl Machine for MachineARM64 {
         Ok(())
     }
     fn i32_popcnt(&mut self, loc: Location, ret: Location) -> Result<(), CompileError> {
-        let mut temps = vec![];
+        if self.target.is_some()
+            && self
+                .target
+                .as_ref()
+                .unwrap()
+                .cpu_features()
+                .contains(CpuFeature::NEON)
+        {
+            let mut temps = vec![];
 
-        let src_gpr =
-            self.location_to_reg(Size::S32, loc, &mut temps, ImmType::None, true, None)?;
-        let dst_gpr =
-            self.location_to_reg(Size::S32, ret, &mut temps, ImmType::None, false, None)?;
+            let src_gpr =
+                self.location_to_reg(Size::S32, loc, &mut temps, ImmType::None, true, None)?;
+            let dst_gpr =
+                self.location_to_reg(Size::S32, ret, &mut temps, ImmType::None, false, None)?;
 
-        let mut neon_temps = vec![];
-        let neon_temp = self.acquire_temp_simd().ok_or_else(|| {
-            CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
-        })?;
-        neon_temps.push(neon_temp);
+            let mut neon_temps = vec![];
+            let neon_temp = self.acquire_temp_simd().ok_or_else(|| {
+                CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
+            })?;
+            neon_temps.push(neon_temp);
 
-        self.assembler
-            .emit_fmov(Size::S32, src_gpr, Size::S32, Location::SIMD(neon_temp))?;
-        self.assembler.emit_cnt(neon_temp, neon_temp)?;
-        self.assembler.emit_addv(neon_temp, neon_temp)?;
-        self.assembler
-            .emit_fmov(Size::S32, Location::SIMD(neon_temp), Size::S32, dst_gpr)?;
+            self.assembler
+                .emit_fmov(Size::S32, src_gpr, Size::S32, Location::SIMD(neon_temp))?;
+            self.assembler.emit_cnt(neon_temp, neon_temp)?;
+            self.assembler.emit_addv(neon_temp, neon_temp)?;
+            self.assembler
+                .emit_fmov(Size::S32, Location::SIMD(neon_temp), Size::S32, dst_gpr)?;
 
-        if ret != dst_gpr {
-            self.move_location(Size::S32, dst_gpr, ret)?;
+            if ret != dst_gpr {
+                self.move_location(Size::S32, dst_gpr, ret)?;
+            }
+
+            for r in temps {
+                self.release_gpr(r);
+            }
+
+            for r in neon_temps {
+                self.release_simd(r);
+            }
+        } else {
+            let mut temps = vec![];
+            let src =
+                self.location_to_reg(Size::S32, loc, &mut temps, ImmType::None, true, None)?;
+            let dest =
+                self.location_to_reg(Size::S32, ret, &mut temps, ImmType::None, false, None)?;
+            let src = if src == loc {
+                let tmp = self.acquire_temp_gpr().ok_or_else(|| {
+                    CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
+                })?;
+                temps.push(tmp);
+                self.assembler
+                    .emit_mov(Size::S32, src, Location::GPR(tmp))?;
+                Location::GPR(tmp)
+            } else {
+                src
+            };
+            let tmp = {
+                let tmp = self.acquire_temp_gpr().ok_or_else(|| {
+                    CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
+                })?;
+                temps.push(tmp);
+                Location::GPR(tmp)
+            };
+            let label_loop = self.assembler.get_label();
+            let label_exit = self.assembler.get_label();
+            self.assembler
+                .emit_mov(Size::S32, Location::GPR(GPR::XzrSp), dest)?; // 0 => dest
+            self.assembler.emit_cbz_label(Size::S32, src, label_exit)?; // src==0, exit
+            self.assembler.emit_label(label_loop)?; // loop:
+            self.assembler
+                .emit_add(Size::S32, dest, Location::Imm8(1), dest)?; // dest += 1
+            self.assembler.emit_clz(Size::S32, src, tmp)?; // clz src => tmp
+            self.assembler.emit_lsl(Size::S32, src, tmp, src)?; // src << tmp => src
+            self.assembler
+                .emit_lsl(Size::S32, src, Location::Imm8(1), src)?; // src << 1 => src
+            self.assembler.emit_cbnz_label(Size::S32, src, label_loop)?; // if src!=0 goto loop
+            self.assembler.emit_label(label_exit)?;
+            if ret != dest {
+                self.move_location(Size::S32, dest, ret)?;
+            }
+            for r in temps {
+                self.release_gpr(r);
+            }
         }
-
-        for r in temps {
-            self.release_gpr(r);
-        }
-
-        for r in neon_temps {
-            self.release_simd(r);
-        }
-
         Ok(())
     }
     fn i32_shl(
@@ -5173,36 +5228,89 @@ impl Machine for MachineARM64 {
         Ok(())
     }
     fn i64_popcnt(&mut self, loc: Location, ret: Location) -> Result<(), CompileError> {
-        let mut temps = vec![];
+        if self.target.is_some()
+            && self
+                .target
+                .as_ref()
+                .unwrap()
+                .cpu_features()
+                .contains(CpuFeature::NEON)
+        {
+            let mut temps = vec![];
 
-        let src_gpr =
-            self.location_to_reg(Size::S64, loc, &mut temps, ImmType::None, true, None)?;
-        let dst_gpr =
-            self.location_to_reg(Size::S64, ret, &mut temps, ImmType::None, false, None)?;
+            let src_gpr =
+                self.location_to_reg(Size::S64, loc, &mut temps, ImmType::None, true, None)?;
+            let dst_gpr =
+                self.location_to_reg(Size::S64, ret, &mut temps, ImmType::None, false, None)?;
 
-        let mut neon_temps = vec![];
-        let neon_temp = self.acquire_temp_simd().ok_or_else(|| {
-            CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
-        })?;
-        neon_temps.push(neon_temp);
+            let mut neon_temps = vec![];
+            let neon_temp = self.acquire_temp_simd().ok_or_else(|| {
+                CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
+            })?;
+            neon_temps.push(neon_temp);
 
-        self.assembler
-            .emit_fmov(Size::S64, src_gpr, Size::S64, Location::SIMD(neon_temp))?;
-        self.assembler.emit_cnt(neon_temp, neon_temp)?;
-        self.assembler.emit_addv(neon_temp, neon_temp)?;
-        self.assembler
-            .emit_fmov(Size::S64, Location::SIMD(neon_temp), Size::S64, dst_gpr)?;
+            self.assembler
+                .emit_fmov(Size::S64, src_gpr, Size::S64, Location::SIMD(neon_temp))?;
+            self.assembler.emit_cnt(neon_temp, neon_temp)?;
+            self.assembler.emit_addv(neon_temp, neon_temp)?;
+            self.assembler
+                .emit_fmov(Size::S64, Location::SIMD(neon_temp), Size::S64, dst_gpr)?;
 
-        if ret != dst_gpr {
-            self.move_location(Size::S64, dst_gpr, ret)?;
-        }
+            if ret != dst_gpr {
+                self.move_location(Size::S64, dst_gpr, ret)?;
+            }
 
-        for r in temps {
-            self.release_gpr(r);
-        }
+            for r in temps {
+                self.release_gpr(r);
+            }
 
-        for r in neon_temps {
-            self.release_simd(r);
+            for r in neon_temps {
+                self.release_simd(r);
+            }
+        } else {
+            let mut temps = vec![];
+            let src =
+                self.location_to_reg(Size::S64, loc, &mut temps, ImmType::None, true, None)?;
+            let dest =
+                self.location_to_reg(Size::S64, ret, &mut temps, ImmType::None, false, None)?;
+            let src = if src == loc {
+                let tmp = self.acquire_temp_gpr().ok_or_else(|| {
+                    CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
+                })?;
+                temps.push(tmp);
+                self.assembler
+                    .emit_mov(Size::S64, src, Location::GPR(tmp))?;
+                Location::GPR(tmp)
+            } else {
+                src
+            };
+            let tmp = {
+                let tmp = self.acquire_temp_gpr().ok_or_else(|| {
+                    CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
+                })?;
+                temps.push(tmp);
+                Location::GPR(tmp)
+            };
+            let label_loop = self.assembler.get_label();
+            let label_exit = self.assembler.get_label();
+            self.assembler
+                .emit_mov(Size::S32, Location::GPR(GPR::XzrSp), dest)?; // dest <= 0
+            self.assembler.emit_cbz_label(Size::S64, src, label_exit)?; // src == 0, then goto label_exit
+            self.assembler.emit_label(label_loop)?;
+            self.assembler
+                .emit_add(Size::S32, dest, Location::Imm8(1), dest)?; // dest += 1
+            self.assembler.emit_clz(Size::S64, src, tmp)?; // clz src => tmp
+            self.assembler.emit_lsl(Size::S64, src, tmp, src)?; // src << tmp => src
+            self.assembler
+                .emit_lsl(Size::S64, src, Location::Imm8(1), src)?; // src << 1 => src
+            self.assembler.emit_cbnz_label(Size::S64, src, label_loop)?; // src != 0, then goto label_loop
+            self.assembler.emit_label(label_exit)?;
+            if ret != dest {
+                self.move_location(Size::S64, dest, ret)?;
+            }
+            for r in temps {
+                self.release_gpr(r);
+            }
         }
 
         Ok(())
@@ -8761,7 +8869,7 @@ mod test {
 
     #[test]
     fn tests_arm64() -> Result<(), CompileError> {
-        let mut machine = MachineARM64::new();
+        let mut machine = MachineARM64::new(None);
 
         test_move_location(&mut machine, Size::S32)?;
         test_move_location(&mut machine, Size::S64)?;
