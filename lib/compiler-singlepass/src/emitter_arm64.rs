@@ -466,6 +466,15 @@ pub trait EmitterARM64 {
         dst: Location,
     ) -> Result<(), CompileError>;
 
+    fn emit_fmov(
+        &mut self,
+        src_size: Size,
+        src: Location,
+        dst_size: Size,
+        dst: Location,
+    ) -> Result<(), CompileError>;
+    fn emit_cnt(&mut self, src: NEON, dst: NEON) -> Result<(), CompileError>;
+    fn emit_addv(&mut self, src: NEON, dst: NEON) -> Result<(), CompileError>;
     fn emit_read_fpcr(&mut self, reg: GPR) -> Result<(), CompileError>;
     fn emit_write_fpcr(&mut self, reg: GPR) -> Result<(), CompileError>;
     fn emit_read_fpsr(&mut self, reg: GPR) -> Result<(), CompileError>;
@@ -3216,6 +3225,56 @@ impl EmitterARM64 for Assembler {
     fn emit_write_fpsr(&mut self, reg: GPR) -> Result<(), CompileError> {
         dynasm!(self ; msr 0b1_011_0100_0100_001, X(reg as u32));
         Ok(())
+    }
+
+    fn emit_cnt(&mut self, src: NEON, dst: NEON) -> Result<(), CompileError> {
+        dynasm!(self ; cnt V(dst.into_index() as u32).B8, V(src.into_index() as u32).B8);
+        Ok(())
+    }
+
+    fn emit_addv(&mut self, src: NEON, dst: NEON) -> Result<(), CompileError> {
+        dynasm!(self ; addv B(dst.into_index() as u32), V(src.into_index() as u32).B8);
+        Ok(())
+    }
+
+    fn emit_fmov(
+        &mut self,
+        src_size: Size,
+        src: Location,
+        dst_size: Size,
+        dst: Location,
+    ) -> Result<(), CompileError> {
+        let res = match (src, dst) {
+            (AbstractLocation::GPR(src), AbstractLocation::SIMD(dst)) => {
+                match (src_size, dst_size) {
+                    (Size::S32, Size::S32) => Ok(dynasm!(self ; fmov S(dst as u32), W(src as u32))),
+                    (Size::S64, Size::S64) => Ok(dynasm!(self ; fmov D(dst as u32), X(src as u32))),
+                    _ => Err(()),
+                }
+            }
+            (AbstractLocation::SIMD(src), AbstractLocation::GPR(dst)) => {
+                match (src_size, dst_size) {
+                    (Size::S32, Size::S32) => Ok(dynasm!(self ; fmov W(dst as u32), S(src as u32))),
+                    (Size::S64, Size::S64) => Ok(dynasm!(self ; fmov X(dst as u32), D(src as u32))),
+                    _ => Err(()),
+                }
+            }
+            // (AbstractLocation::SIMD(src), AbstractLocation::SIMD(dst)) => todo!(),
+            // (AbstractLocation::SIMD(src), AbstractLocation::Imm32(dst)) => todo!(),
+            // (AbstractLocation::SIMD(src), AbstractLocation::Imm64(dst)) => todo!(),
+            _ => Err(()),
+        };
+
+        match res {
+            Ok(_) => Ok(()),
+            Err(_) => codegen_error!(
+                "singlepass can't generate fmov instruction for src_size: {:?}, src: {:?}, dst_size: {:?}, dst: {:?}",
+                src_size,
+                src,
+                dst_size,
+                dst,
+            ),
+        }
     }
 }
 
