@@ -113,8 +113,6 @@ pub struct MachineARM64 {
     pushed: bool,
     /// Vector of unwind operations with offset
     unwind_ops: Vec<(usize, UnwindOps)>,
-    /// The actual compilation target.  
-    target: Option<Target>,
     /// A boolean flag signaling if this machine supports NEON.
     has_neon: bool,
 }
@@ -142,6 +140,9 @@ enum ImmType {
 #[allow(dead_code)]
 impl MachineARM64 {
     pub fn new(target: Option<Target>) -> Self {
+        // If and when needed, checks for other supported features should be
+        // added as boolean fields in the struct to make checking if such
+        // features are available as cheap as possible.
         let has_neon = match target {
             Some(ref target) => target.cpu_features().contains(CpuFeature::NEON),
             None => false,
@@ -156,7 +157,6 @@ impl MachineARM64 {
             src_loc: 0,
             pushed: false,
             unwind_ops: vec![],
-            target,
             has_neon,
         }
     }
