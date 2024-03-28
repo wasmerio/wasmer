@@ -49,6 +49,7 @@ impl WasiFunctionEnv {
                     }
                 }
             };
+
             run_with_deep_sleep(store, rewind_state, this, tx);
         }))?;
 

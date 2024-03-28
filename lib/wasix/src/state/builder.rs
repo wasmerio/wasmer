@@ -84,6 +84,9 @@ pub struct WasiEnvBuilder {
 
     #[cfg(feature = "journal")]
     pub(super) journals: Vec<Arc<DynJournal>>,
+
+    #[cfg(feature = "ctrlc")]
+    pub(super) attach_ctrl_c: bool,
 }
 
 impl std::fmt::Debug for WasiEnvBuilder {
@@ -164,6 +167,13 @@ impl WasiEnvBuilder {
         Value: AsRef<[u8]>,
     {
         self.add_env(key, value);
+        self
+    }
+
+    /// Attaches a ctrl-c handler which will send signals to the
+    /// process rather than immediately termiante it
+    pub fn attach_ctrl_c(mut self) -> Self {
+        self.attach_ctrl_c = true;
         self
     }
 
@@ -1032,7 +1042,23 @@ impl WasiEnvBuilder {
         module_hash: ModuleHash,
         mut store: Store,
     ) -> Result<(), WasiRuntimeError> {
+        let attach_ctrl_c = self.attach_ctrl_c;
+
         let (_, env) = self.instantiate_ext(module, module_hash, &mut store)?;
+
+        // Install the ctrl-c handler
+        #[cfg(feature = "ctrlc")]
+        if attach_ctrl_c {
+            tokio::spawn({
+                let process = env.data(&store).process.clone();
+                async move {
+                    while tokio::signal::ctrl_c().await.is_ok() {
+                        process.signal_process(wasmer_wasix_types::wasi::Signal::Sigint);
+                    }
+                }
+            });
+        }
+
         env.run_async(store)?;
         Ok(())
     }
