@@ -3679,6 +3679,65 @@
 <a href="#3679" id="3679">3679</a>
 <a href="#3680" id="3680">3680</a>
 <a href="#3681" id="3681">3681</a>
+<a href="#3682" id="3682">3682</a>
+<a href="#3683" id="3683">3683</a>
+<a href="#3684" id="3684">3684</a>
+<a href="#3685" id="3685">3685</a>
+<a href="#3686" id="3686">3686</a>
+<a href="#3687" id="3687">3687</a>
+<a href="#3688" id="3688">3688</a>
+<a href="#3689" id="3689">3689</a>
+<a href="#3690" id="3690">3690</a>
+<a href="#3691" id="3691">3691</a>
+<a href="#3692" id="3692">3692</a>
+<a href="#3693" id="3693">3693</a>
+<a href="#3694" id="3694">3694</a>
+<a href="#3695" id="3695">3695</a>
+<a href="#3696" id="3696">3696</a>
+<a href="#3697" id="3697">3697</a>
+<a href="#3698" id="3698">3698</a>
+<a href="#3699" id="3699">3699</a>
+<a href="#3700" id="3700">3700</a>
+<a href="#3701" id="3701">3701</a>
+<a href="#3702" id="3702">3702</a>
+<a href="#3703" id="3703">3703</a>
+<a href="#3704" id="3704">3704</a>
+<a href="#3705" id="3705">3705</a>
+<a href="#3706" id="3706">3706</a>
+<a href="#3707" id="3707">3707</a>
+<a href="#3708" id="3708">3708</a>
+<a href="#3709" id="3709">3709</a>
+<a href="#3710" id="3710">3710</a>
+<a href="#3711" id="3711">3711</a>
+<a href="#3712" id="3712">3712</a>
+<a href="#3713" id="3713">3713</a>
+<a href="#3714" id="3714">3714</a>
+<a href="#3715" id="3715">3715</a>
+<a href="#3716" id="3716">3716</a>
+<a href="#3717" id="3717">3717</a>
+<a href="#3718" id="3718">3718</a>
+<a href="#3719" id="3719">3719</a>
+<a href="#3720" id="3720">3720</a>
+<a href="#3721" id="3721">3721</a>
+<a href="#3722" id="3722">3722</a>
+<a href="#3723" id="3723">3723</a>
+<a href="#3724" id="3724">3724</a>
+<a href="#3725" id="3725">3725</a>
+<a href="#3726" id="3726">3726</a>
+<a href="#3727" id="3727">3727</a>
+<a href="#3728" id="3728">3728</a>
+<a href="#3729" id="3729">3729</a>
+<a href="#3730" id="3730">3730</a>
+<a href="#3731" id="3731">3731</a>
+<a href="#3732" id="3732">3732</a>
+<a href="#3733" id="3733">3733</a>
+<a href="#3734" id="3734">3734</a>
+<a href="#3735" id="3735">3735</a>
+<a href="#3736" id="3736">3736</a>
+<a href="#3737" id="3737">3737</a>
+<a href="#3738" id="3738">3738</a>
+<a href="#3739" id="3739">3739</a>
+<a href="#3740" id="3740">3740</a>
 </pre></div><pre class="rust"><code><span class="kw">pub use </span><span class="kw">crate</span>::arm64_decl::{ARM64Register, ArgumentRegisterAllocator, GPR, NEON};
 <span class="kw">use </span><span class="kw">crate</span>::codegen_error;
 <span class="kw">use </span><span class="kw">crate</span>::common_decl::Size;
@@ -4147,6 +4206,15 @@
         dst: Location,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt;;
 
+    <span class="kw">fn </span>emit_fmov(
+        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
+        src_size: Size,
+        src: Location,
+        dst_size: Size,
+        dst: Location,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt;;
+    <span class="kw">fn </span>emit_cnt(<span class="kw-2">&amp;mut </span><span class="self">self</span>, src: NEON, dst: NEON) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt;;
+    <span class="kw">fn </span>emit_addv(<span class="kw-2">&amp;mut </span><span class="self">self</span>, src: NEON, dst: NEON) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt;;
     <span class="kw">fn </span>emit_read_fpcr(<span class="kw-2">&amp;mut </span><span class="self">self</span>, reg: GPR) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt;;
     <span class="kw">fn </span>emit_write_fpcr(<span class="kw-2">&amp;mut </span><span class="self">self</span>, reg: GPR) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt;;
     <span class="kw">fn </span>emit_read_fpsr(<span class="kw-2">&amp;mut </span><span class="self">self</span>, reg: GPR) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt;;
@@ -6897,6 +6965,56 @@
     <span class="kw">fn </span>emit_write_fpsr(<span class="kw-2">&amp;mut </span><span class="self">self</span>, reg: GPR) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
         <span class="macro">dynasm!</span>(<span class="self">self </span>; msr <span class="number">0b1_011_0100_0100_001</span>, X(reg <span class="kw">as </span>u32));
         <span class="prelude-val">Ok</span>(())
+    }
+
+    <span class="kw">fn </span>emit_cnt(<span class="kw-2">&amp;mut </span><span class="self">self</span>, src: NEON, dst: NEON) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
+        <span class="macro">dynasm!</span>(<span class="self">self </span>; cnt V(dst.into_index() <span class="kw">as </span>u32).B8, V(src.into_index() <span class="kw">as </span>u32).B8);
+        <span class="prelude-val">Ok</span>(())
+    }
+
+    <span class="kw">fn </span>emit_addv(<span class="kw-2">&amp;mut </span><span class="self">self</span>, src: NEON, dst: NEON) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
+        <span class="macro">dynasm!</span>(<span class="self">self </span>; addv B(dst.into_index() <span class="kw">as </span>u32), V(src.into_index() <span class="kw">as </span>u32).B8);
+        <span class="prelude-val">Ok</span>(())
+    }
+
+    <span class="kw">fn </span>emit_fmov(
+        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
+        src_size: Size,
+        src: Location,
+        dst_size: Size,
+        dst: Location,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
+        <span class="kw">let </span>res = <span class="kw">match </span>(src, dst) {
+            (AbstractLocation::GPR(src), AbstractLocation::SIMD(dst)) =&gt; {
+                <span class="kw">match </span>(src_size, dst_size) {
+                    (Size::S32, Size::S32) =&gt; <span class="prelude-val">Ok</span>(<span class="macro">dynasm!</span>(<span class="self">self </span>; fmov S(dst <span class="kw">as </span>u32), W(src <span class="kw">as </span>u32))),
+                    (Size::S64, Size::S64) =&gt; <span class="prelude-val">Ok</span>(<span class="macro">dynasm!</span>(<span class="self">self </span>; fmov D(dst <span class="kw">as </span>u32), X(src <span class="kw">as </span>u32))),
+                    <span class="kw">_ </span>=&gt; <span class="prelude-val">Err</span>(()),
+                }
+            }
+            (AbstractLocation::SIMD(src), AbstractLocation::GPR(dst)) =&gt; {
+                <span class="kw">match </span>(src_size, dst_size) {
+                    (Size::S32, Size::S32) =&gt; <span class="prelude-val">Ok</span>(<span class="macro">dynasm!</span>(<span class="self">self </span>; fmov W(dst <span class="kw">as </span>u32), S(src <span class="kw">as </span>u32))),
+                    (Size::S64, Size::S64) =&gt; <span class="prelude-val">Ok</span>(<span class="macro">dynasm!</span>(<span class="self">self </span>; fmov X(dst <span class="kw">as </span>u32), D(src <span class="kw">as </span>u32))),
+                    <span class="kw">_ </span>=&gt; <span class="prelude-val">Err</span>(()),
+                }
+            }
+            <span class="comment">// (AbstractLocation::SIMD(src), AbstractLocation::SIMD(dst)) =&gt; todo!(),
+            // (AbstractLocation::SIMD(src), AbstractLocation::Imm32(dst)) =&gt; todo!(),
+            // (AbstractLocation::SIMD(src), AbstractLocation::Imm64(dst)) =&gt; todo!(),
+            </span><span class="kw">_ </span>=&gt; <span class="prelude-val">Err</span>(()),
+        };
+
+        <span class="kw">match </span>res {
+            <span class="prelude-val">Ok</span>(<span class="kw">_</span>) =&gt; <span class="prelude-val">Ok</span>(()),
+            <span class="prelude-val">Err</span>(<span class="kw">_</span>) =&gt; <span class="macro">codegen_error!</span>(
+                <span class="string">&quot;singlepass can&#39;t generate fmov instruction for src_size: {:?}, src: {:?}, dst_size: {:?}, dst: {:?}&quot;</span>,
+                src_size,
+                src,
+                dst_size,
+                dst,
+            ),
+        }
     }
 }
 

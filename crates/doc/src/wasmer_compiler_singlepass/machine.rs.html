@@ -4915,7 +4915,7 @@
             machine.gen_std_trampoline(sig, calling_convention)
         }
         Architecture::Aarch64(<span class="kw">_</span>) =&gt; {
-            <span class="kw">let </span>machine = MachineARM64::new();
+            <span class="kw">let </span>machine = MachineARM64::new(<span class="prelude-val">Some</span>(target.clone()));
             machine.gen_std_trampoline(sig, calling_convention)
         }
         <span class="kw">_ </span>=&gt; <span class="prelude-val">Err</span>(CompileError::UnsupportedTarget(
@@ -4937,7 +4937,7 @@
             machine.gen_std_dynamic_import_trampoline(vmoffsets, sig, calling_convention)
         }
         Architecture::Aarch64(<span class="kw">_</span>) =&gt; {
-            <span class="kw">let </span>machine = MachineARM64::new();
+            <span class="kw">let </span>machine = MachineARM64::new(<span class="prelude-val">Some</span>(target.clone()));
             machine.gen_std_dynamic_import_trampoline(vmoffsets, sig, calling_convention)
         }
         <span class="kw">_ </span>=&gt; <span class="prelude-val">Err</span>(CompileError::UnsupportedTarget(
@@ -4959,7 +4959,7 @@
             machine.gen_import_call_trampoline(vmoffsets, index, sig, calling_convention)
         }
         Architecture::Aarch64(<span class="kw">_</span>) =&gt; {
-            <span class="kw">let </span>machine = MachineARM64::new();
+            <span class="kw">let </span>machine = MachineARM64::new(<span class="prelude-val">Some</span>(target.clone()));
             machine.gen_import_call_trampoline(vmoffsets, index, sig, calling_convention)
         }
         <span class="kw">_ </span>=&gt; <span class="prelude-val">Err</span>(CompileError::UnsupportedTarget(

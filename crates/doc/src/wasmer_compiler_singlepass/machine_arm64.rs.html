@@ -8814,15 +8814,96 @@
 <a href="#8814" id="8814">8814</a>
 <a href="#8815" id="8815">8815</a>
 <a href="#8816" id="8816">8816</a>
+<a href="#8817" id="8817">8817</a>
+<a href="#8818" id="8818">8818</a>
+<a href="#8819" id="8819">8819</a>
+<a href="#8820" id="8820">8820</a>
+<a href="#8821" id="8821">8821</a>
+<a href="#8822" id="8822">8822</a>
+<a href="#8823" id="8823">8823</a>
+<a href="#8824" id="8824">8824</a>
+<a href="#8825" id="8825">8825</a>
+<a href="#8826" id="8826">8826</a>
+<a href="#8827" id="8827">8827</a>
+<a href="#8828" id="8828">8828</a>
+<a href="#8829" id="8829">8829</a>
+<a href="#8830" id="8830">8830</a>
+<a href="#8831" id="8831">8831</a>
+<a href="#8832" id="8832">8832</a>
+<a href="#8833" id="8833">8833</a>
+<a href="#8834" id="8834">8834</a>
+<a href="#8835" id="8835">8835</a>
+<a href="#8836" id="8836">8836</a>
+<a href="#8837" id="8837">8837</a>
+<a href="#8838" id="8838">8838</a>
+<a href="#8839" id="8839">8839</a>
+<a href="#8840" id="8840">8840</a>
+<a href="#8841" id="8841">8841</a>
+<a href="#8842" id="8842">8842</a>
+<a href="#8843" id="8843">8843</a>
+<a href="#8844" id="8844">8844</a>
+<a href="#8845" id="8845">8845</a>
+<a href="#8846" id="8846">8846</a>
+<a href="#8847" id="8847">8847</a>
+<a href="#8848" id="8848">8848</a>
+<a href="#8849" id="8849">8849</a>
+<a href="#8850" id="8850">8850</a>
+<a href="#8851" id="8851">8851</a>
+<a href="#8852" id="8852">8852</a>
+<a href="#8853" id="8853">8853</a>
+<a href="#8854" id="8854">8854</a>
+<a href="#8855" id="8855">8855</a>
+<a href="#8856" id="8856">8856</a>
+<a href="#8857" id="8857">8857</a>
+<a href="#8858" id="8858">8858</a>
+<a href="#8859" id="8859">8859</a>
+<a href="#8860" id="8860">8860</a>
+<a href="#8861" id="8861">8861</a>
+<a href="#8862" id="8862">8862</a>
+<a href="#8863" id="8863">8863</a>
+<a href="#8864" id="8864">8864</a>
+<a href="#8865" id="8865">8865</a>
+<a href="#8866" id="8866">8866</a>
+<a href="#8867" id="8867">8867</a>
+<a href="#8868" id="8868">8868</a>
+<a href="#8869" id="8869">8869</a>
+<a href="#8870" id="8870">8870</a>
+<a href="#8871" id="8871">8871</a>
+<a href="#8872" id="8872">8872</a>
+<a href="#8873" id="8873">8873</a>
+<a href="#8874" id="8874">8874</a>
+<a href="#8875" id="8875">8875</a>
+<a href="#8876" id="8876">8876</a>
+<a href="#8877" id="8877">8877</a>
+<a href="#8878" id="8878">8878</a>
+<a href="#8879" id="8879">8879</a>
+<a href="#8880" id="8880">8880</a>
+<a href="#8881" id="8881">8881</a>
+<a href="#8882" id="8882">8882</a>
+<a href="#8883" id="8883">8883</a>
+<a href="#8884" id="8884">8884</a>
+<a href="#8885" id="8885">8885</a>
+<a href="#8886" id="8886">8886</a>
+<a href="#8887" id="8887">8887</a>
+<a href="#8888" id="8888">8888</a>
+<a href="#8889" id="8889">8889</a>
+<a href="#8890" id="8890">8890</a>
+<a href="#8891" id="8891">8891</a>
+<a href="#8892" id="8892">8892</a>
+<a href="#8893" id="8893">8893</a>
+<a href="#8894" id="8894">8894</a>
+<a href="#8895" id="8895">8895</a>
+<a href="#8896" id="8896">8896</a>
+<a href="#8897" id="8897">8897</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>dynasmrt::{aarch64::Aarch64Relocation, VecAssembler};
 <span class="attr">#[cfg(feature = <span class="string">&quot;unwind&quot;</span>)]
 </span><span class="kw">use </span>gimli::{write::CallFrameInstruction, AArch64};
 
 <span class="kw">use </span>wasmer_compiler::wasmparser::ValType <span class="kw">as </span>WpType;
 <span class="kw">use </span>wasmer_types::{
-    CallingConvention, CompileError, CustomSection, FunctionBody, FunctionIndex, FunctionType,
-    InstructionAddressMap, Relocation, RelocationKind, RelocationTarget, SourceLoc, TrapCode,
-    TrapInformation, VMOffsets,
+    CallingConvention, CompileError, CpuFeature, CustomSection, FunctionBody, FunctionIndex,
+    FunctionType, InstructionAddressMap, Relocation, RelocationKind, RelocationTarget, SourceLoc,
+    Target, TrapCode, TrapInformation, VMOffsets,
 };
 
 <span class="kw">use </span><span class="kw">crate</span>::arm64_decl::new_machine_state;
@@ -8921,7 +9002,6 @@
     used_simd: u32,
     trap_table: TrapTable,
     <span class="doccomment">/// Map from byte offset into wasm function to range of native instructions.
-    ///
     </span><span class="comment">// Ordered by increasing InstructionAddressMap::srcloc.
     </span>instructions_address_map: Vec&lt;InstructionAddressMap&gt;,
     <span class="doccomment">/// The source location for the current operator.
@@ -8930,6 +9010,8 @@
     </span>pushed: bool,
     <span class="doccomment">/// Vector of unwind operations with offset
     </span>unwind_ops: Vec&lt;(usize, UnwindOps)&gt;,
+    <span class="doccomment">/// A boolean flag signaling if this machine supports NEON.
+    </span>has_neon: bool,
 }
 
 <span class="attr">#[allow(dead_code)]
@@ -8954,7 +9036,15 @@
 
 <span class="attr">#[allow(dead_code)]
 </span><span class="kw">impl </span>MachineARM64 {
-    <span class="kw">pub fn </span>new() -&gt; <span class="self">Self </span>{
+    <span class="kw">pub fn </span>new(target: <span class="prelude-ty">Option</span>&lt;Target&gt;) -&gt; <span class="self">Self </span>{
+        <span class="comment">// If and when needed, checks for other supported features should be
+        // added as boolean fields in the struct to make checking if such
+        // features are available as cheap as possible.
+        </span><span class="kw">let </span>has_neon = <span class="kw">match </span>target {
+            <span class="prelude-val">Some</span>(<span class="kw-2">ref </span>target) =&gt; target.cpu_features().contains(CpuFeature::NEON),
+            <span class="prelude-val">None </span>=&gt; <span class="bool-val">false</span>,
+        };
+
         MachineARM64 {
             assembler: Assembler::new(<span class="number">0</span>),
             used_gprs: <span class="number">0</span>,
@@ -8964,6 +9054,7 @@
             src_loc: <span class="number">0</span>,
             pushed: <span class="bool-val">false</span>,
             unwind_ops: <span class="macro">vec!</span>[],
+            has_neon,
         }
     }
     <span class="kw">fn </span>compatible_imm(<span class="kw-2">&amp;</span><span class="self">self</span>, imm: i64, ty: ImmType) -&gt; bool {
@@ -11888,48 +11979,82 @@
         <span class="prelude-val">Ok</span>(())
     }
     <span class="kw">fn </span>i32_popcnt(<span class="kw-2">&amp;mut </span><span class="self">self</span>, loc: Location, ret: Location) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
-        <span class="comment">// no opcode for that.
-        // 2 solutions: using NEON CNT, that count bits per Byte, or using clz with some shift and loop
-        </span><span class="kw">let </span><span class="kw-2">mut </span>temps = <span class="macro">vec!</span>[];
-        <span class="kw">let </span>src = <span class="self">self</span>.location_to_reg(Size::S32, loc, <span class="kw-2">&amp;mut </span>temps, ImmType::None, <span class="bool-val">true</span>, <span class="prelude-val">None</span>)<span class="question-mark">?</span>;
-        <span class="kw">let </span>dest = <span class="self">self</span>.location_to_reg(Size::S32, ret, <span class="kw-2">&amp;mut </span>temps, ImmType::None, <span class="bool-val">false</span>, <span class="prelude-val">None</span>)<span class="question-mark">?</span>;
-        <span class="kw">let </span>src = <span class="kw">if </span>src == loc {
-            <span class="kw">let </span>tmp = <span class="self">self</span>.acquire_temp_gpr().ok_or_else(|| {
+        <span class="kw">if </span><span class="self">self</span>.has_neon {
+            <span class="kw">let </span><span class="kw-2">mut </span>temps = <span class="macro">vec!</span>[];
+
+            <span class="kw">let </span>src_gpr =
+                <span class="self">self</span>.location_to_reg(Size::S32, loc, <span class="kw-2">&amp;mut </span>temps, ImmType::None, <span class="bool-val">true</span>, <span class="prelude-val">None</span>)<span class="question-mark">?</span>;
+            <span class="kw">let </span>dst_gpr =
+                <span class="self">self</span>.location_to_reg(Size::S32, ret, <span class="kw-2">&amp;mut </span>temps, ImmType::None, <span class="bool-val">false</span>, <span class="prelude-val">None</span>)<span class="question-mark">?</span>;
+
+            <span class="kw">let </span><span class="kw-2">mut </span>neon_temps = <span class="macro">vec!</span>[];
+            <span class="kw">let </span>neon_temp = <span class="self">self</span>.acquire_temp_simd().ok_or_else(|| {
                 CompileError::Codegen(<span class="string">&quot;singlepass cannot acquire temp gpr&quot;</span>.to_owned())
             })<span class="question-mark">?</span>;
-            temps.push(tmp);
+            neon_temps.push(neon_temp);
+
             <span class="self">self</span>.assembler
-                .emit_mov(Size::S32, src, Location::GPR(tmp))<span class="question-mark">?</span>;
-            Location::GPR(tmp)
+                .emit_fmov(Size::S32, src_gpr, Size::S32, Location::SIMD(neon_temp))<span class="question-mark">?</span>;
+            <span class="self">self</span>.assembler.emit_cnt(neon_temp, neon_temp)<span class="question-mark">?</span>;
+            <span class="self">self</span>.assembler.emit_addv(neon_temp, neon_temp)<span class="question-mark">?</span>;
+            <span class="self">self</span>.assembler
+                .emit_fmov(Size::S32, Location::SIMD(neon_temp), Size::S32, dst_gpr)<span class="question-mark">?</span>;
+
+            <span class="kw">if </span>ret != dst_gpr {
+                <span class="self">self</span>.move_location(Size::S32, dst_gpr, ret)<span class="question-mark">?</span>;
+            }
+
+            <span class="kw">for </span>r <span class="kw">in </span>temps {
+                <span class="self">self</span>.release_gpr(r);
+            }
+
+            <span class="kw">for </span>r <span class="kw">in </span>neon_temps {
+                <span class="self">self</span>.release_simd(r);
+            }
         } <span class="kw">else </span>{
-            src
-        };
-        <span class="kw">let </span>tmp = {
-            <span class="kw">let </span>tmp = <span class="self">self</span>.acquire_temp_gpr().ok_or_else(|| {
-                CompileError::Codegen(<span class="string">&quot;singlepass cannot acquire temp gpr&quot;</span>.to_owned())
-            })<span class="question-mark">?</span>;
-            temps.push(tmp);
-            Location::GPR(tmp)
-        };
-        <span class="kw">let </span>label_loop = <span class="self">self</span>.assembler.get_label();
-        <span class="kw">let </span>label_exit = <span class="self">self</span>.assembler.get_label();
-        <span class="self">self</span>.assembler
-            .emit_mov(Size::S32, Location::GPR(GPR::XzrSp), dest)<span class="question-mark">?</span>; <span class="comment">// 0 =&gt; dest
-        </span><span class="self">self</span>.assembler.emit_cbz_label(Size::S32, src, label_exit)<span class="question-mark">?</span>; <span class="comment">// src==0, exit
-        </span><span class="self">self</span>.assembler.emit_label(label_loop)<span class="question-mark">?</span>; <span class="comment">// loop:
-        </span><span class="self">self</span>.assembler
-            .emit_add(Size::S32, dest, Location::Imm8(<span class="number">1</span>), dest)<span class="question-mark">?</span>; <span class="comment">// dest += 1
-        </span><span class="self">self</span>.assembler.emit_clz(Size::S32, src, tmp)<span class="question-mark">?</span>; <span class="comment">// clz src =&gt; tmp
-        </span><span class="self">self</span>.assembler.emit_lsl(Size::S32, src, tmp, src)<span class="question-mark">?</span>; <span class="comment">// src &lt;&lt; tmp =&gt; src
-        </span><span class="self">self</span>.assembler
-            .emit_lsl(Size::S32, src, Location::Imm8(<span class="number">1</span>), src)<span class="question-mark">?</span>; <span class="comment">// src &lt;&lt; 1 =&gt; src
-        </span><span class="self">self</span>.assembler.emit_cbnz_label(Size::S32, src, label_loop)<span class="question-mark">?</span>; <span class="comment">// if src!=0 goto loop
-        </span><span class="self">self</span>.assembler.emit_label(label_exit)<span class="question-mark">?</span>;
-        <span class="kw">if </span>ret != dest {
-            <span class="self">self</span>.move_location(Size::S32, dest, ret)<span class="question-mark">?</span>;
-        }
-        <span class="kw">for </span>r <span class="kw">in </span>temps {
-            <span class="self">self</span>.release_gpr(r);
+            <span class="kw">let </span><span class="kw-2">mut </span>temps = <span class="macro">vec!</span>[];
+            <span class="kw">let </span>src =
+                <span class="self">self</span>.location_to_reg(Size::S32, loc, <span class="kw-2">&amp;mut </span>temps, ImmType::None, <span class="bool-val">true</span>, <span class="prelude-val">None</span>)<span class="question-mark">?</span>;
+            <span class="kw">let </span>dest =
+                <span class="self">self</span>.location_to_reg(Size::S32, ret, <span class="kw-2">&amp;mut </span>temps, ImmType::None, <span class="bool-val">false</span>, <span class="prelude-val">None</span>)<span class="question-mark">?</span>;
+            <span class="kw">let </span>src = <span class="kw">if </span>src == loc {
+                <span class="kw">let </span>tmp = <span class="self">self</span>.acquire_temp_gpr().ok_or_else(|| {
+                    CompileError::Codegen(<span class="string">&quot;singlepass cannot acquire temp gpr&quot;</span>.to_owned())
+                })<span class="question-mark">?</span>;
+                temps.push(tmp);
+                <span class="self">self</span>.assembler
+                    .emit_mov(Size::S32, src, Location::GPR(tmp))<span class="question-mark">?</span>;
+                Location::GPR(tmp)
+            } <span class="kw">else </span>{
+                src
+            };
+            <span class="kw">let </span>tmp = {
+                <span class="kw">let </span>tmp = <span class="self">self</span>.acquire_temp_gpr().ok_or_else(|| {
+                    CompileError::Codegen(<span class="string">&quot;singlepass cannot acquire temp gpr&quot;</span>.to_owned())
+                })<span class="question-mark">?</span>;
+                temps.push(tmp);
+                Location::GPR(tmp)
+            };
+            <span class="kw">let </span>label_loop = <span class="self">self</span>.assembler.get_label();
+            <span class="kw">let </span>label_exit = <span class="self">self</span>.assembler.get_label();
+            <span class="self">self</span>.assembler
+                .emit_mov(Size::S32, Location::GPR(GPR::XzrSp), dest)<span class="question-mark">?</span>; <span class="comment">// 0 =&gt; dest
+            </span><span class="self">self</span>.assembler.emit_cbz_label(Size::S32, src, label_exit)<span class="question-mark">?</span>; <span class="comment">// src==0, exit
+            </span><span class="self">self</span>.assembler.emit_label(label_loop)<span class="question-mark">?</span>; <span class="comment">// loop:
+            </span><span class="self">self</span>.assembler
+                .emit_add(Size::S32, dest, Location::Imm8(<span class="number">1</span>), dest)<span class="question-mark">?</span>; <span class="comment">// dest += 1
+            </span><span class="self">self</span>.assembler.emit_clz(Size::S32, src, tmp)<span class="question-mark">?</span>; <span class="comment">// clz src =&gt; tmp
+            </span><span class="self">self</span>.assembler.emit_lsl(Size::S32, src, tmp, src)<span class="question-mark">?</span>; <span class="comment">// src &lt;&lt; tmp =&gt; src
+            </span><span class="self">self</span>.assembler
+                .emit_lsl(Size::S32, src, Location::Imm8(<span class="number">1</span>), src)<span class="question-mark">?</span>; <span class="comment">// src &lt;&lt; 1 =&gt; src
+            </span><span class="self">self</span>.assembler.emit_cbnz_label(Size::S32, src, label_loop)<span class="question-mark">?</span>; <span class="comment">// if src!=0 goto loop
+            </span><span class="self">self</span>.assembler.emit_label(label_exit)<span class="question-mark">?</span>;
+            <span class="kw">if </span>ret != dest {
+                <span class="self">self</span>.move_location(Size::S32, dest, ret)<span class="question-mark">?</span>;
+            }
+            <span class="kw">for </span>r <span class="kw">in </span>temps {
+                <span class="self">self</span>.release_gpr(r);
+            }
         }
         <span class="prelude-val">Ok</span>(())
     }
@@ -14000,47 +14125,84 @@
         <span class="prelude-val">Ok</span>(())
     }
     <span class="kw">fn </span>i64_popcnt(<span class="kw-2">&amp;mut </span><span class="self">self</span>, loc: Location, ret: Location) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
-        <span class="kw">let </span><span class="kw-2">mut </span>temps = <span class="macro">vec!</span>[];
-        <span class="kw">let </span>src = <span class="self">self</span>.location_to_reg(Size::S64, loc, <span class="kw-2">&amp;mut </span>temps, ImmType::None, <span class="bool-val">true</span>, <span class="prelude-val">None</span>)<span class="question-mark">?</span>;
-        <span class="kw">let </span>dest = <span class="self">self</span>.location_to_reg(Size::S64, ret, <span class="kw-2">&amp;mut </span>temps, ImmType::None, <span class="bool-val">false</span>, <span class="prelude-val">None</span>)<span class="question-mark">?</span>;
-        <span class="kw">let </span>src = <span class="kw">if </span>src == loc {
-            <span class="kw">let </span>tmp = <span class="self">self</span>.acquire_temp_gpr().ok_or_else(|| {
+        <span class="kw">if </span><span class="self">self</span>.has_neon {
+            <span class="kw">let </span><span class="kw-2">mut </span>temps = <span class="macro">vec!</span>[];
+
+            <span class="kw">let </span>src_gpr =
+                <span class="self">self</span>.location_to_reg(Size::S64, loc, <span class="kw-2">&amp;mut </span>temps, ImmType::None, <span class="bool-val">true</span>, <span class="prelude-val">None</span>)<span class="question-mark">?</span>;
+            <span class="kw">let </span>dst_gpr =
+                <span class="self">self</span>.location_to_reg(Size::S64, ret, <span class="kw-2">&amp;mut </span>temps, ImmType::None, <span class="bool-val">false</span>, <span class="prelude-val">None</span>)<span class="question-mark">?</span>;
+
+            <span class="kw">let </span><span class="kw-2">mut </span>neon_temps = <span class="macro">vec!</span>[];
+            <span class="kw">let </span>neon_temp = <span class="self">self</span>.acquire_temp_simd().ok_or_else(|| {
                 CompileError::Codegen(<span class="string">&quot;singlepass cannot acquire temp gpr&quot;</span>.to_owned())
             })<span class="question-mark">?</span>;
-            temps.push(tmp);
+            neon_temps.push(neon_temp);
+
             <span class="self">self</span>.assembler
-                .emit_mov(Size::S64, src, Location::GPR(tmp))<span class="question-mark">?</span>;
-            Location::GPR(tmp)
+                .emit_fmov(Size::S64, src_gpr, Size::S64, Location::SIMD(neon_temp))<span class="question-mark">?</span>;
+            <span class="self">self</span>.assembler.emit_cnt(neon_temp, neon_temp)<span class="question-mark">?</span>;
+            <span class="self">self</span>.assembler.emit_addv(neon_temp, neon_temp)<span class="question-mark">?</span>;
+            <span class="self">self</span>.assembler
+                .emit_fmov(Size::S64, Location::SIMD(neon_temp), Size::S64, dst_gpr)<span class="question-mark">?</span>;
+
+            <span class="kw">if </span>ret != dst_gpr {
+                <span class="self">self</span>.move_location(Size::S64, dst_gpr, ret)<span class="question-mark">?</span>;
+            }
+
+            <span class="kw">for </span>r <span class="kw">in </span>temps {
+                <span class="self">self</span>.release_gpr(r);
+            }
+
+            <span class="kw">for </span>r <span class="kw">in </span>neon_temps {
+                <span class="self">self</span>.release_simd(r);
+            }
         } <span class="kw">else </span>{
-            src
-        };
-        <span class="kw">let </span>tmp = {
-            <span class="kw">let </span>tmp = <span class="self">self</span>.acquire_temp_gpr().ok_or_else(|| {
-                CompileError::Codegen(<span class="string">&quot;singlepass cannot acquire temp gpr&quot;</span>.to_owned())
-            })<span class="question-mark">?</span>;
-            temps.push(tmp);
-            Location::GPR(tmp)
-        };
-        <span class="kw">let </span>label_loop = <span class="self">self</span>.assembler.get_label();
-        <span class="kw">let </span>label_exit = <span class="self">self</span>.assembler.get_label();
-        <span class="self">self</span>.assembler
-            .emit_mov(Size::S32, Location::GPR(GPR::XzrSp), dest)<span class="question-mark">?</span>; <span class="comment">// dest &lt;= 0
-        </span><span class="self">self</span>.assembler.emit_cbz_label(Size::S64, src, label_exit)<span class="question-mark">?</span>; <span class="comment">// src == 0, then goto label_exit
-        </span><span class="self">self</span>.assembler.emit_label(label_loop)<span class="question-mark">?</span>;
-        <span class="self">self</span>.assembler
-            .emit_add(Size::S32, dest, Location::Imm8(<span class="number">1</span>), dest)<span class="question-mark">?</span>; <span class="comment">// dest += 1
-        </span><span class="self">self</span>.assembler.emit_clz(Size::S64, src, tmp)<span class="question-mark">?</span>; <span class="comment">// clz src =&gt; tmp
-        </span><span class="self">self</span>.assembler.emit_lsl(Size::S64, src, tmp, src)<span class="question-mark">?</span>; <span class="comment">// src &lt;&lt; tmp =&gt; src
-        </span><span class="self">self</span>.assembler
-            .emit_lsl(Size::S64, src, Location::Imm8(<span class="number">1</span>), src)<span class="question-mark">?</span>; <span class="comment">// src &lt;&lt; 1 =&gt; src
-        </span><span class="self">self</span>.assembler.emit_cbnz_label(Size::S64, src, label_loop)<span class="question-mark">?</span>; <span class="comment">// src != 0, then goto label_loop
-        </span><span class="self">self</span>.assembler.emit_label(label_exit)<span class="question-mark">?</span>;
-        <span class="kw">if </span>ret != dest {
-            <span class="self">self</span>.move_location(Size::S64, dest, ret)<span class="question-mark">?</span>;
+            <span class="kw">let </span><span class="kw-2">mut </span>temps = <span class="macro">vec!</span>[];
+            <span class="kw">let </span>src =
+                <span class="self">self</span>.location_to_reg(Size::S64, loc, <span class="kw-2">&amp;mut </span>temps, ImmType::None, <span class="bool-val">true</span>, <span class="prelude-val">None</span>)<span class="question-mark">?</span>;
+            <span class="kw">let </span>dest =
+                <span class="self">self</span>.location_to_reg(Size::S64, ret, <span class="kw-2">&amp;mut </span>temps, ImmType::None, <span class="bool-val">false</span>, <span class="prelude-val">None</span>)<span class="question-mark">?</span>;
+            <span class="kw">let </span>src = <span class="kw">if </span>src == loc {
+                <span class="kw">let </span>tmp = <span class="self">self</span>.acquire_temp_gpr().ok_or_else(|| {
+                    CompileError::Codegen(<span class="string">&quot;singlepass cannot acquire temp gpr&quot;</span>.to_owned())
+                })<span class="question-mark">?</span>;
+                temps.push(tmp);
+                <span class="self">self</span>.assembler
+                    .emit_mov(Size::S64, src, Location::GPR(tmp))<span class="question-mark">?</span>;
+                Location::GPR(tmp)
+            } <span class="kw">else </span>{
+                src
+            };
+            <span class="kw">let </span>tmp = {
+                <span class="kw">let </span>tmp = <span class="self">self</span>.acquire_temp_gpr().ok_or_else(|| {
+                    CompileError::Codegen(<span class="string">&quot;singlepass cannot acquire temp gpr&quot;</span>.to_owned())
+                })<span class="question-mark">?</span>;
+                temps.push(tmp);
+                Location::GPR(tmp)
+            };
+            <span class="kw">let </span>label_loop = <span class="self">self</span>.assembler.get_label();
+            <span class="kw">let </span>label_exit = <span class="self">self</span>.assembler.get_label();
+            <span class="self">self</span>.assembler
+                .emit_mov(Size::S32, Location::GPR(GPR::XzrSp), dest)<span class="question-mark">?</span>; <span class="comment">// dest &lt;= 0
+            </span><span class="self">self</span>.assembler.emit_cbz_label(Size::S64, src, label_exit)<span class="question-mark">?</span>; <span class="comment">// src == 0, then goto label_exit
+            </span><span class="self">self</span>.assembler.emit_label(label_loop)<span class="question-mark">?</span>;
+            <span class="self">self</span>.assembler
+                .emit_add(Size::S32, dest, Location::Imm8(<span class="number">1</span>), dest)<span class="question-mark">?</span>; <span class="comment">// dest += 1
+            </span><span class="self">self</span>.assembler.emit_clz(Size::S64, src, tmp)<span class="question-mark">?</span>; <span class="comment">// clz src =&gt; tmp
+            </span><span class="self">self</span>.assembler.emit_lsl(Size::S64, src, tmp, src)<span class="question-mark">?</span>; <span class="comment">// src &lt;&lt; tmp =&gt; src
+            </span><span class="self">self</span>.assembler
+                .emit_lsl(Size::S64, src, Location::Imm8(<span class="number">1</span>), src)<span class="question-mark">?</span>; <span class="comment">// src &lt;&lt; 1 =&gt; src
+            </span><span class="self">self</span>.assembler.emit_cbnz_label(Size::S64, src, label_loop)<span class="question-mark">?</span>; <span class="comment">// src != 0, then goto label_loop
+            </span><span class="self">self</span>.assembler.emit_label(label_exit)<span class="question-mark">?</span>;
+            <span class="kw">if </span>ret != dest {
+                <span class="self">self</span>.move_location(Size::S64, dest, ret)<span class="question-mark">?</span>;
+            }
+            <span class="kw">for </span>r <span class="kw">in </span>temps {
+                <span class="self">self</span>.release_gpr(r);
+            }
         }
-        <span class="kw">for </span>r <span class="kw">in </span>temps {
-            <span class="self">self</span>.release_gpr(r);
-        }
+
         <span class="prelude-val">Ok</span>(())
     }
     <span class="kw">fn </span>i64_shl(
@@ -17597,7 +17759,7 @@
 
     <span class="attr">#[test]
     </span><span class="kw">fn </span>tests_arm64() -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
-        <span class="kw">let </span><span class="kw-2">mut </span>machine = MachineARM64::new();
+        <span class="kw">let </span><span class="kw-2">mut </span>machine = MachineARM64::new(<span class="prelude-val">None</span>);
 
         test_move_location(<span class="kw-2">&amp;mut </span>machine, Size::S32)<span class="question-mark">?</span>;
         test_move_location(<span class="kw-2">&amp;mut </span>machine, Size::S64)<span class="question-mark">?</span>;

@@ -536,7 +536,7 @@
                         generator.finalize(input)
                     }
                     Architecture::Aarch64(<span class="kw">_</span>) =&gt; {
-                        <span class="kw">let </span>machine = MachineARM64::new();
+                        <span class="kw">let </span>machine = MachineARM64::new(<span class="prelude-val">Some</span>(target.clone()));
                         <span class="kw">let </span><span class="kw-2">mut </span>generator = FuncGen::new(
                             module,
                             <span class="kw-2">&amp;</span><span class="self">self</span>.config,

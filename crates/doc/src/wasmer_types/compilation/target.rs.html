@@ -211,6 +211,22 @@
 <a href="#211" id="211">211</a>
 <a href="#212" id="212">212</a>
 <a href="#213" id="213">213</a>
+<a href="#214" id="214">214</a>
+<a href="#215" id="215">215</a>
+<a href="#216" id="216">216</a>
+<a href="#217" id="217">217</a>
+<a href="#218" id="218">218</a>
+<a href="#219" id="219">219</a>
+<a href="#220" id="220">220</a>
+<a href="#221" id="221">221</a>
+<a href="#222" id="222">222</a>
+<a href="#223" id="223">223</a>
+<a href="#224" id="224">224</a>
+<a href="#225" id="225">225</a>
+<a href="#226" id="226">226</a>
+<a href="#227" id="227">227</a>
+<a href="#228" id="228">228</a>
+<a href="#229" id="229">229</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Target configuration
 
 </span><span class="comment">// The clippy::use_self exception is due to a false positive indicating that
@@ -261,7 +277,8 @@
     AVX512F,
     LZCNT,
     <span class="comment">// ARM features
-    // Risc-V features
+    </span>NEON,
+    <span class="comment">// Risc-V features
 </span>}
 
 <span class="kw">impl </span>CpuFeature {
@@ -314,7 +331,20 @@
         }
         features
     }
-    <span class="attr">#[cfg(not(any(target_arch = <span class="string">&quot;x86&quot;</span>, target_arch = <span class="string">&quot;x86_64&quot;</span>)))]
+
+    <span class="attr">#[cfg(target_arch = <span class="string">&quot;aarch64&quot;</span>)]
+    </span><span class="doccomment">/// Retrieves the features for the current Host
+    </span><span class="kw">pub fn </span>for_host() -&gt; EnumSet&lt;<span class="self">Self</span>&gt; {
+        <span class="kw">let </span><span class="kw-2">mut </span>features = EnumSet::new();
+
+        <span class="kw">if </span><span class="macro">std::arch::is_aarch64_feature_detected!</span>(<span class="string">&quot;neon&quot;</span>) {
+            features.insert(<span class="self">Self</span>::NEON);
+        }
+
+        features
+    }
+
+    <span class="attr">#[cfg(not(any(target_arch = <span class="string">&quot;x86&quot;</span>, target_arch = <span class="string">&quot;x86_64&quot;</span>, target_arch = <span class="string">&quot;aarch64&quot;</span>)))]
     </span><span class="doccomment">/// Retrieves the features for the current Host
     </span><span class="kw">pub fn </span>for_host() -&gt; EnumSet&lt;<span class="self">Self</span>&gt; {
         <span class="comment">// We default to an empty hash set
@@ -353,6 +383,7 @@
             <span class="string">&quot;avx512vl&quot; </span>=&gt; <span class="prelude-val">Ok</span>(<span class="self">Self</span>::AVX512VL),
             <span class="string">&quot;avx512f&quot; </span>=&gt; <span class="prelude-val">Ok</span>(<span class="self">Self</span>::AVX512F),
             <span class="string">&quot;lzcnt&quot; </span>=&gt; <span class="prelude-val">Ok</span>(<span class="self">Self</span>::LZCNT),
+            <span class="string">&quot;neon&quot; </span>=&gt; <span class="prelude-val">Ok</span>(<span class="self">Self</span>::NEON),
             <span class="kw">_ </span>=&gt; <span class="prelude-val">Err</span>(ParseCpuFeatureError::Missing(s.to_string())),
         }
     }
@@ -375,6 +406,7 @@
             <span class="self">Self</span>::AVX512VL =&gt; <span class="string">&quot;avx512vl&quot;</span>,
             <span class="self">Self</span>::AVX512F =&gt; <span class="string">&quot;avx512f&quot;</span>,
             <span class="self">Self</span>::LZCNT =&gt; <span class="string">&quot;lzcnt&quot;</span>,
+            <span class="self">Self</span>::NEON =&gt; <span class="string">&quot;neon&quot;</span>,
         }
         .to_string()
     }
