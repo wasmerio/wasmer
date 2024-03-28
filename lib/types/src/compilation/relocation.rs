@@ -59,6 +59,14 @@ pub enum RelocationKind {
     RiscvPCRelLo12I,
     /// RISC-V call target
     RiscvCall,
+    /// LoongArch absolute high 20bit
+    LArchAbsHi20,
+    /// LoongArch absolute low 12bit
+    LArchAbsLo12,
+    /// LoongArch absolute high 12bit
+    LArchAbs64Hi12,
+    /// LoongArch absolute low 20bit
+    LArchAbs64Lo20,
     /// Elf x86_64 32 bit signed PC relative offset to two GOT entries for GD symbol.
     ElfX86_64TlsGd,
     // /// Mach-O x86_64 32 bit signed PC relative offset to a `__thread_vars` entry.
@@ -85,6 +93,10 @@ impl fmt::Display for RelocationKind {
             Self::ElfX86_64TlsGd => write!(f, "ElfX86_64TlsGd"),
             Self::RiscvPCRelHi20 => write!(f, "RiscvPCRelHi20"),
             Self::RiscvPCRelLo12I => write!(f, "RiscvPCRelLo12I"),
+            Self::LArchAbsHi20 => write!(f, "LArchAbsHi20"),
+            Self::LArchAbsLo12 => write!(f, "LArchAbsLo12"),
+            Self::LArchAbs64Hi12 => write!(f, "LArchAbs64Hi12"),
+            Self::LArchAbs64Lo20 => write!(f, "LArchAbs64Lo20"),
             // Self::MachOX86_64Tlv => write!(f, "MachOX86_64Tlv"),
         }
     }
