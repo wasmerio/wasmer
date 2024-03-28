@@ -117,7 +117,7 @@ pub async fn deploy_app_verbose(
     client: &WasmerClient,
     opts: DeployAppOpts<'_>,
 ) -> Result<(DeployApp, DeployAppVersion), anyhow::Error> {
-    let owner = &opts.owner.or_else(|| opts.app.owner.clone());
+    let owner = &opts.owner.clone().or_else(|| opts.app.owner.clone());
     let app = &opts.app;
 
     let pretty_name = if let Some(owner) = &owner {
