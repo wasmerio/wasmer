@@ -303,52 +303,20 @@ impl FileSystem for UnionFileSystem {
     }
     fn metadata(&self, path: &Path) -> Result<Metadata> {
         debug!("metadata: path={}", path.display());
-        let mut ret_error = FsError::EntryNotFound;
-        let path = path.to_string_lossy();
-        for (path, mount) in filter_mounts(&self.mounts, path.as_ref()) {
-            match mount.fs.metadata(Path::new(path.as_str())) {
-                Ok(ret) => {
-                    return Ok(ret);
-                }
-                Err(err) => {
-                    // This fixes a bug when attempting to create the directory /usr when it does not exist
-                    // on the x86 version of memfs
-                    // TODO: patch virtual-fs and remove
-                    if let FsError::NotAFile = &err {
-                        ret_error = FsError::EntryNotFound;
-                    } else {
-                        debug!("metadata failed: (path={}) - {}", path, err);
-                        ret_error = err;
-                    }
-                }
-            }
-        }
-        Err(ret_error)
+        self.get_metadata(
+            path,
+            #[cfg(feature = "symlink")]
+            true,
+        )
     }
+    #[cfg(feature = "symlink")]
     fn symlink_metadata(&self, path: &Path) -> Result<Metadata> {
         debug!("symlink_metadata: path={}", path.display());
-        let mut ret_error = FsError::EntryNotFound;
-        let path = path.to_string_lossy();
-        for (path_inner, mount) in filter_mounts(&self.mounts, path.as_ref()) {
-            match mount.fs.symlink_metadata(Path::new(path_inner.as_str())) {
-                Ok(ret) => {
-                    return Ok(ret);
-                }
-                Err(err) => {
-                    // This fixes a bug when attempting to create the directory /usr when it does not exist
-                    // on the x86 version of memfs
-                    // TODO: patch virtual-fs and remove
-                    if let FsError::NotAFile = &err {
-                        ret_error = FsError::EntryNotFound;
-                    } else {
-                        debug!("metadata failed: (path={}) - {}", path, err);
-                        ret_error = err;
-                    }
-                }
-            }
-        }
-        debug!("symlink_metadata: failed={}", ret_error);
-        Err(ret_error)
+        self.get_metadata(path, false)
+    }
+    #[cfg(feature = "symlink")]
+    fn symlink(&self, _original: &Path, _link: &Path) -> Result<()> {
+        todo!()
     }
     fn remove_file(&self, path: &Path) -> Result<()> {
         println!("remove_file: path={}", path.display());
@@ -369,6 +337,47 @@ impl FileSystem for UnionFileSystem {
     }
     fn new_open_options(&self) -> OpenOptions {
         OpenOptions::new(self)
+    }
+}
+
+impl UnionFileSystem {
+    fn get_metadata(
+        &self,
+        path: &Path,
+        #[cfg(feature = "symlink")] follow_symlink: bool,
+    ) -> Result<Metadata> {
+        debug!("metadata: path={}", path.display());
+        let mut ret_error = FsError::EntryNotFound;
+        let path = path.to_string_lossy();
+        for (path, mount) in filter_mounts(&self.mounts, path.as_ref()) {
+            #[cfg(feature = "symlink")]
+            let maybe_metadata = if follow_symlink {
+                mount.fs.metadata(Path::new(path.as_str()))
+            } else {
+                mount.fs.symlink_metadata(Path::new(path.as_str()))
+            };
+
+            #[cfg(not(feature = "symlink"))]
+            let maybe_metadata = mount.fs.metadata(Path::new(path.as_str()));
+
+            match maybe_metadata {
+                Ok(ret) => {
+                    return Ok(ret);
+                }
+                Err(err) => {
+                    // This fixes a bug when attempting to create the directory /usr when it does not exist
+                    // on the x86 version of memfs
+                    // TODO: patch virtual-fs and remove
+                    if let FsError::NotAFile = &err {
+                        ret_error = FsError::EntryNotFound;
+                    } else {
+                        debug!("metadata failed: (path={}) - {}", path, err);
+                        ret_error = err;
+                    }
+                }
+            }
+        }
+        Err(ret_error)
     }
 }
 

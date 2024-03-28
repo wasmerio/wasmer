@@ -381,6 +381,21 @@ impl crate::FileOpener for FileSystem {
                     }
                 };
 
+                // If node is a symlink, follow it.
+                #[cfg(feature = "symlink")]
+                {
+                    // Read lock.
+                    let fs = self.inner.read().map_err(|_| FsError::Lock)?;
+
+                    if let Some(Node::Symlink(SymlinkNode { link, .. })) =
+                        fs.storage.get(inode_of_file)
+                    {
+                        let link = link.clone();
+                        drop(fs);
+                        return self.open(&link, conf);
+                    }
+                }
+
                 // Write lock.
                 let mut fs = self.inner.write().map_err(|_| FsError::Lock)?;
 
@@ -470,6 +485,11 @@ impl crate::FileOpener for FileSystem {
                         if append {
                             cursor = file.size();
                         }
+                    }
+
+                    #[cfg(feature = "symlink")]
+                    Some(Node::Symlink(SymlinkNode { link, .. })) => {
+                        return self.open(dbg!(link), conf);
                     }
 
                     None => return Err(FsError::EntryNotFound),

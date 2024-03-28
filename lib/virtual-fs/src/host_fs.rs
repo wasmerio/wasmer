@@ -153,6 +153,28 @@ impl crate::FileSystem for FileSystem {
             .and_then(TryInto::try_into)
             .map_err(Into::into)
     }
+
+    #[cfg(feature = "symlink")]
+    fn symlink(&self, original: &Path, link: &Path) -> Result<()> {
+        #[cfg(taget_os = "windows")]
+        if original.is_dir() {
+            std::os::windows::fs::symlink_dir(original, link)?;
+        } else {
+            std::os::windows::fs::symlink_file(original, link)?;
+        }
+
+        #[cfg(not(taget_os = "windows"))]
+        std::os::unix::fs::symlink(original, link)?;
+
+        Ok(())
+    }
+
+    #[cfg(feature = "symlink")]
+    fn symlink_metadata(&self, path: &Path) -> Result<Metadata> {
+        fs::symlink_metadata(path)
+            .and_then(TryInto::try_into)
+            .map_err(Into::into)
+    }
 }
 
 impl TryInto<Metadata> for std::fs::Metadata {

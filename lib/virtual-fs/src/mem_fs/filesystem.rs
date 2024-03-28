@@ -254,6 +254,33 @@ impl FileSystem {
 
         Ok(())
     }
+
+    fn get_metadata(
+        &self,
+        path: &Path,
+
+        #[cfg(feature = "symlink")] follow_symlink: bool,
+    ) -> Result<Metadata> {
+        // Read lock.
+        let guard = self.inner.read().map_err(|_| FsError::Lock)?;
+
+        match guard.inode_of(
+            path,
+            #[cfg(feature = "symlink")]
+            follow_symlink,
+        )? {
+            InodeResolution::Found(inode) => Ok(guard
+                .storage
+                .get(inode)
+                .ok_or(FsError::UnknownError)?
+                .metadata()
+                .clone()),
+            InodeResolution::Redirect(fs, path) => {
+                drop(guard);
+                fs.metadata(path.as_path())
+            }
+        }
+    }
 }
 
 impl crate::FileSystem for FileSystem {
@@ -545,20 +572,20 @@ impl crate::FileSystem for FileSystem {
     }
 
     fn metadata(&self, path: &Path) -> Result<Metadata> {
-        // Read lock.
-        let guard = self.inner.read().map_err(|_| FsError::Lock)?;
-        match guard.inode_of(path)? {
-            InodeResolution::Found(inode) => Ok(guard
-                .storage
-                .get(inode)
-                .ok_or(FsError::UnknownError)?
-                .metadata()
-                .clone()),
-            InodeResolution::Redirect(fs, path) => {
-                drop(guard);
-                fs.metadata(path.as_path())
-            }
-        }
+        self.get_metadata(
+            path,
+            #[cfg(feature = "symlink")]
+            true,
+        )
+    }
+
+    #[cfg(feature = "symlink")]
+    fn symlink_metadata(&self, path: &Path) -> Result<Metadata> {
+        self.get_metadata(
+            path,
+            #[cfg(feature = "symlink")]
+            false,
+        )
     }
 
     fn remove_file(&self, path: &Path) -> Result<()> {
@@ -621,6 +648,84 @@ impl crate::FileSystem for FileSystem {
     fn new_open_options(&self) -> OpenOptions {
         OpenOptions::new(self)
     }
+
+    #[cfg(feature = "symlink")]
+    fn symlink(&self, original: &Path, link: &Path) -> Result<()> {
+        if self.metadata(link).is_ok() {
+            return Err(FsError::AlreadyExists);
+        }
+
+        let (inode_of_parent, name_of_symlink) = {
+            // Read lock.
+            let guard = self.inner.read().map_err(|_| FsError::Lock)?;
+
+            // Canonicalize the link path without checking the path exists,
+            // because it's about to be created.
+            let link = guard.canonicalize_without_inode(link)?;
+
+            // Check the path has a parent.
+            let parent_of_path = link.parent().ok_or(FsError::BaseNotDirectory)?;
+
+            // Check the directory name.
+            let name_of_directory = link
+                .file_name()
+                .ok_or(FsError::InvalidInput)?
+                .to_os_string();
+
+            // Find the parent inode.
+            let inode_of_parent = match guard.inode_of_parent(parent_of_path)? {
+                InodeResolution::Found(a) => a,
+                InodeResolution::Redirect(fs, mut path) => {
+                    drop(guard);
+                    path.push(name_of_directory);
+                    return fs.create_dir(path.as_path());
+                }
+            };
+
+            (inode_of_parent, name_of_directory)
+        };
+
+        if self.metadata(link).is_ok() {
+            return Err(FsError::AlreadyExists);
+        }
+
+        {
+            // Write lock.
+            let mut fs = self.inner.write().map_err(|_| FsError::Lock)?;
+
+            // Creating the directory in the storage.
+            let inode_of_symlink = fs.storage.vacant_entry().key();
+            let real_inode_of_symlink = fs.storage.insert(Node::Symlink(SymlinkNode {
+                inode: inode_of_symlink,
+                name: name_of_symlink,
+                link: original.to_path_buf(),
+                metadata: {
+                    let time = time();
+
+                    Metadata {
+                        ft: FileType {
+                            symlink: true,
+                            ..Default::default()
+                        },
+                        accessed: time,
+                        created: time,
+                        modified: time,
+                        len: 0,
+                    }
+                },
+            }));
+
+            assert_eq!(
+                inode_of_symlink, real_inode_of_symlink,
+                "new symlink inode should have been correctly calculated",
+            );
+
+            // Adding the new directory to its parent.
+            fs.add_child_to_node(inode_of_parent, inode_of_symlink)?;
+        }
+
+        Ok(())
+    }
 }
 
 impl fmt::Debug for FileSystem {
@@ -659,23 +764,37 @@ impl InodeResolution {
 
 impl FileSystemInner {
     /// Get the inode associated to a path if it exists.
-    pub(super) fn inode_of(&self, path: &Path) -> Result<InodeResolution> {
+    pub(super) fn inode_of(
+        &self,
+        path: &Path,
+        #[cfg(feature = "symlink")] follow_symlink: bool,
+    ) -> Result<InodeResolution> {
         // SAFETY: The root node always exists, so it's safe to unwrap here.
         let mut node = self.storage.get(ROOT_INODE).unwrap();
         let mut components = path.components();
 
         match components.next() {
             Some(Component::RootDir) => {}
-            _ => return Err(FsError::BaseNotDirectory),
+            _ => return dbg!(Err(FsError::BaseNotDirectory)),
         }
 
         while let Some(component) = components.next() {
             node = match node {
-                Node::Directory(DirectoryNode { children, .. }) => children
-                    .iter()
-                    .filter_map(|inode| self.storage.get(*inode))
-                    .find(|node| node.name() == component.as_os_str())
-                    .ok_or(FsError::EntryNotFound)?,
+                Node::Directory(DirectoryNode { children, .. }) => {
+                    let found = children
+                        .iter()
+                        .filter_map(|inode| self.storage.get(*inode))
+                        .find(|node| node.name() == component.as_os_str())
+                        .ok_or(FsError::EntryNotFound)?;
+
+                    match found {
+                        #[cfg(feature = "symlink")]
+                        Node::Symlink(SymlinkNode { link, .. }) if follow_symlink => {
+                            return self.inode_of(link, true)
+                        }
+                        _ => found,
+                    }
+                }
                 Node::ArcDirectory(ArcDirectoryNode {
                     fs, path: fs_path, ..
                 }) => {
@@ -685,6 +804,11 @@ impl FileSystemInner {
                         path.push(PathBuf::from(component.as_os_str()));
                     }
                     return Ok(InodeResolution::Redirect(fs.clone(), path));
+                }
+                // Symlink appears to be a directory, so we'll follow it despite `follow_symlink`.
+                #[cfg(feature = "symlink")]
+                Node::Symlink(SymlinkNode { link, .. }) => {
+                    return self.inode_of(link, follow_symlink)
                 }
                 _ => return Err(FsError::BaseNotDirectory),
             };
@@ -696,7 +820,11 @@ impl FileSystemInner {
     /// Get the inode associated to a “parent path”. The returned
     /// inode necessarily represents a directory.
     pub(super) fn inode_of_parent(&self, parent_path: &Path) -> Result<InodeResolution> {
-        match self.inode_of(parent_path)? {
+        match self.inode_of(
+            parent_path,
+            #[cfg(feature = "symlink")]
+            true,
+        )? {
             InodeResolution::Found(inode_of_parent) => {
                 // Ensure it is a directory.
                 match self.storage.get(inode_of_parent) {
@@ -779,6 +907,14 @@ impl FileSystemInner {
                     {
                         Some(Some((nth, InodeResolution::Found(*inode))))
                     }
+                    // NOTE: this is the same as above but you can't disable a single case in an or
+                    // match arm.
+                    #[cfg(feature = "symlink")]
+                    Node::Symlink(SymlinkNode { inode, name, .. })
+                        if name.as_os_str() == name_of_file =>
+                    {
+                        Some(Some((nth, InodeResolution::Found(*inode))))
+                    }
                     _ => None,
                 })
                 .or(Some(None))
@@ -816,6 +952,14 @@ impl FileSystemInner {
                     | Node::ReadOnlyFile(ReadOnlyFileNode { inode, name, .. })
                     | Node::CustomFile(CustomFileNode { inode, name, .. })
                     | Node::ArcFile(ArcFileNode { inode, name, .. })
+                        if name.as_os_str() == name_of =>
+                    {
+                        Some(Some((nth, InodeResolution::Found(*inode))))
+                    }
+                    // NOTE: this is the same as above but you can't disable a single case in an or
+                    // match arm.
+                    #[cfg(feature = "symlink")]
+                    Node::Symlink(SymlinkNode { inode, name, .. })
                         if name.as_os_str() == name_of =>
                     {
                         Some(Some((nth, InodeResolution::Found(*inode))))
@@ -904,7 +1048,11 @@ impl FileSystemInner {
     /// * A normalized path exists in the file system.
     pub(super) fn canonicalize(&self, path: &Path) -> Result<(PathBuf, InodeResolution)> {
         let new_path = self.canonicalize_without_inode(path)?;
-        let inode = self.inode_of(&new_path)?;
+        let inode = self.inode_of(
+            &new_path,
+            #[cfg(feature = "symlink")]
+            true,
+        )?;
 
         Ok((new_path, inode))
     }
@@ -981,6 +1129,8 @@ impl fmt::Debug for FileSystemInner {
                         Node::CustomFile { .. } => "custom-file",
                         Node::Directory { .. } => "dir",
                         Node::ArcDirectory { .. } => "arc-dir",
+                        #[cfg(feature = "symlink")]
+                        Node::Symlink { .. } => "symlink",
                     },
                     name = node.name().to_string_lossy(),
                     indentation_symbol = " ",
@@ -1061,7 +1211,7 @@ impl DirectoryMustBeEmpty {
 mod test_filesystem {
     use std::{borrow::Cow, path::Path};
 
-    use tokio::io::AsyncReadExt;
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
     use crate::{mem_fs::*, ops, DirEntry, FileSystem as FS, FileType, FsError};
 
@@ -1871,5 +2021,152 @@ mod test_filesystem {
         f.read_to_end(&mut buf).await.unwrap();
 
         assert_eq!(buf, b"a");
+    }
+
+    #[cfg(feature = "symlink")]
+    #[tokio::test]
+    async fn test_symlink() {
+        let fs = FileSystem::default();
+
+        macro_rules! path {
+            ($path:expr) => {
+                &std::path::PathBuf::from("/").join($path)
+            };
+        }
+
+        macro_rules! create_file_with_contents {
+            ($path:expr, $contents:expr) => {
+                fs.insert_ro_file(path!($path), Cow::Borrowed($contents))
+                    .unwrap();
+            };
+        }
+
+        macro_rules! read_to_string {
+            ($path:expr) => {{
+                let mut a = String::new();
+
+                fs.new_open_options()
+                    .read(true)
+                    .open(path!($path))
+                    .unwrap()
+                    .read_to_string(&mut a)
+                    .await
+                    .unwrap();
+
+                a
+            }};
+        }
+
+        macro_rules! symlink {
+            ($original:expr, $link:expr) => {
+                fs.symlink(path!($original), path!($link))
+            };
+        }
+
+        macro_rules! rename {
+            ($from:expr, $to:expr) => {
+                fs.rename(path!($from), path!($to)).await.unwrap()
+            };
+        }
+
+        macro_rules! metadata {
+            ($path:expr) => {
+                fs.metadata(path!($path))
+            };
+        }
+
+        macro_rules! symlink_metadata {
+            ($path:expr) => {
+                fs.symlink_metadata(path!($path))
+            };
+        }
+
+        macro_rules! assert_file_contents_eq {
+            ($a:expr, $b:expr) => {
+                assert_eq!(read_to_string!($a), read_to_string!($b));
+            };
+        }
+
+        fs.create_dir(path!("a")).unwrap();
+
+        create_file_with_contents!("a/a", b"aa");
+
+        symlink!("a/a", "b").unwrap();
+        symlink!("b", "aa_b").unwrap();
+
+        assert!(matches!(
+            metadata!("b"),
+            Ok(Metadata { ft, .. }) if ft.file && !ft.symlink
+        ));
+
+        assert!(matches!(
+            symlink_metadata!("b"),
+            Ok(Metadata { ft, .. }) if !ft.file && ft.symlink
+        ));
+
+        assert_file_contents_eq!("a/a", "b");
+        assert_file_contents_eq!("a/a", "aa_b");
+
+        rename!("b", "bb");
+
+        assert_file_contents_eq!("a/a", "bb");
+
+        assert!(matches!(metadata!("ab__aa_b"), Err(FsError::EntryNotFound)));
+
+        assert!(symlink!("a/b", "ab__aa_b").is_ok());
+
+        assert!(matches!(metadata!("ab__aa_b"), Err(FsError::EntryNotFound)));
+
+        rename!("a/a", "a/b");
+
+        assert!(matches!(
+            symlink!("a/b", "ab__aa_b"),
+            Err(FsError::AlreadyExists)
+        ));
+
+        assert!(matches!(metadata!("aa_b"), Err(FsError::EntryNotFound)));
+
+        fs.create_dir(path!("b")).unwrap();
+
+        assert!(matches!(
+            metadata!("aa_b"),
+            Ok(Metadata { ft, .. }) if ft.dir && !ft.symlink
+        ));
+
+        assert!(matches!(
+            symlink_metadata!("aa_b"),
+            Ok(Metadata { ft, .. }) if !ft.dir && ft.symlink
+        ));
+
+        create_file_with_contents!("aa_b/foo", b"foo");
+
+        assert_file_contents_eq!("b/foo", "aa_b/foo");
+
+        rename!("b", "bbb");
+
+        assert!(matches!(metadata!("aa_b/foo"), Err(FsError::EntryNotFound)));
+
+        assert!(matches!(
+            symlink_metadata!("aa_b/foo"),
+            Err(FsError::EntryNotFound)
+        ));
+
+        symlink!("bbb", "bbbb").unwrap();
+
+        let mut file = fs
+            .new_open_options()
+            .create(true)
+            .write(true)
+            .open(path!("bbbb/bar"))
+            .unwrap();
+
+        file.write(b"foobarbazqux").await.unwrap();
+
+        assert_file_contents_eq!("bbb/bar", "bbbb/bar");
+
+        fs.insert_ro_file(path!("bbbb/baz"), Cow::Borrowed(b"baz"))
+            .unwrap();
+
+        assert_file_contents_eq!("bbb/baz", "bbbb/baz");
     }
 }

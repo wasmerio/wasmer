@@ -96,15 +96,27 @@ pub trait FileSystem: fmt::Debug + Send + Sync + 'static + Upcastable {
     fn remove_dir(&self, path: &Path) -> Result<()>;
     fn rename<'a>(&'a self, from: &'a Path, to: &'a Path) -> BoxFuture<'a, Result<()>>;
     fn metadata(&self, path: &Path) -> Result<Metadata>;
+
+    #[cfg(not(feature = "symlink"))]
     /// This method gets metadata without following symlinks in the path.
     /// Currently identical to `metadata` because symlinks aren't implemented
     /// yet.
     fn symlink_metadata(&self, path: &Path) -> Result<Metadata> {
         self.metadata(path)
     }
+    #[cfg(feature = "symlink")]
+    fn symlink_metadata(&self, _path: &Path) -> Result<Metadata> {
+        unimplemented!()
+    }
+
     fn remove_file(&self, path: &Path) -> Result<()>;
 
     fn new_open_options(&self) -> OpenOptions;
+
+    #[cfg(feature = "symlink")]
+    fn symlink(&self, _original: &Path, _link: &Path) -> Result<()> {
+        unimplemented!()
+    }
 }
 
 impl dyn FileSystem + 'static {
@@ -142,6 +154,16 @@ where
 
     fn metadata(&self, path: &Path) -> Result<Metadata> {
         (**self).metadata(path)
+    }
+
+    #[cfg(feature = "symlink")]
+    fn symlink(&self, original: &Path, link: &Path) -> Result<()> {
+        (**self).symlink(original, link)
+    }
+
+    #[cfg(feature = "symlink")]
+    fn symlink_metadata(&self, path: &Path) -> Result<Metadata> {
+        (**self).symlink_metadata(path)
     }
 
     fn remove_file(&self, path: &Path) -> Result<()> {

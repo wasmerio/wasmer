@@ -346,37 +346,15 @@ where
         })
     }
     fn metadata(&self, path: &Path) -> Result<Metadata, FsError> {
-        let path = normalizes_path(path);
-        if let Some(fs_entry) = self
-            .volumes
-            .iter()
-            .filter_map(|v| v.get_file_entry(&path).ok())
-            .next()
-        {
-            Ok(Metadata {
-                ft: translate_file_type(FsEntryType::File),
-                accessed: 0,
-                created: 0,
-                modified: 0,
-                len: fs_entry.get_len(),
-            })
-        } else if self
-            .volumes
-            .iter()
-            .filter_map(|v| v.read_dir(&path).ok())
-            .next()
-            .is_some()
-        {
-            Ok(Metadata {
-                ft: translate_file_type(FsEntryType::Dir),
-                accessed: 0,
-                created: 0,
-                modified: 0,
-                len: 0,
-            })
-        } else {
-            self.memory.metadata(Path::new(&path))
-        }
+        self.get_metadata(path, true)
+    }
+    #[cfg(feature = "symlink")]
+    fn symlink_metadata(&self, path: &Path) -> Result<Metadata, FsError> {
+        self.get_metadata(path, false)
+    }
+    #[cfg(feature = "symlink")]
+    fn symlink(&self, original: &Path, link: &Path) -> Result<(), FsError> {
+        self.memory.symlink(original, link)
     }
     fn remove_file(&self, path: &Path) -> Result<(), FsError> {
         let path = normalizes_path(path);
@@ -396,13 +374,19 @@ where
     fn new_open_options(&self) -> OpenOptions {
         OpenOptions::new(self)
     }
-    fn symlink_metadata(&self, path: &Path) -> Result<Metadata, FsError> {
+}
+
+impl<T> WebcFileSystem<T>
+where
+    T: std::fmt::Debug + Send + Sync + 'static,
+    T: Deref<Target = WebC<'static>>,
+{
+    fn get_metadata(&self, path: &Path, follow_symlink: bool) -> Result<Metadata, FsError> {
         let path = normalizes_path(path);
         if let Some(fs_entry) = self
             .volumes
             .iter()
-            .filter_map(|v| v.get_file_entry(&path).ok())
-            .next()
+            .find_map(|v| v.get_file_entry(&path).ok())
         {
             Ok(Metadata {
                 ft: translate_file_type(FsEntryType::File),
@@ -414,8 +398,7 @@ where
         } else if self
             .volumes
             .iter()
-            .filter_map(|v| v.read_dir(&path).ok())
-            .next()
+            .find_map(|v| v.read_dir(&path).ok())
             .is_some()
         {
             Ok(Metadata {
@@ -425,8 +408,10 @@ where
                 modified: 0,
                 len: 0,
             })
-        } else {
+        } else if !follow_symlink {
             self.memory.symlink_metadata(Path::new(&path))
+        } else {
+            self.memory.metadata(Path::new(&path))
         }
     }
 }

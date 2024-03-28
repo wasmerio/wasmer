@@ -77,6 +77,18 @@ where
     fn new_open_options(&self) -> crate::OpenOptions {
         crate::OpenOptions::new(self)
     }
+
+    #[cfg(feature = "symlink")]
+    #[tracing::instrument(level = "trace", skip(self), err)]
+    fn symlink(&self, original: &std::path::Path, link: &std::path::Path) -> crate::Result<()> {
+        self.0.symlink(original, link)
+    }
+
+    #[cfg(feature = "symlink")]
+    #[tracing::instrument(level = "trace", skip(self), err)]
+    fn symlink_metadata(&self, path: &std::path::Path) -> crate::Result<crate::Metadata> {
+        self.0.symlink_metadata(path)
+    }
 }
 
 impl<F> FileOpener for TraceFileSystem<F>

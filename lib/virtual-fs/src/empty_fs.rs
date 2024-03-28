@@ -52,6 +52,12 @@ impl FileSystem for EmptyFileSystem {
         }
     }
 
+    #[cfg(feature = "symlink")]
+    fn symlink(&self, original: &Path, link: &Path) -> Result<()> {
+        Err(FsError::EntryNotFound)
+    }
+
+    #[cfg(feature = "symlink")]
     fn symlink_metadata(&self, path: &Path) -> Result<Metadata> {
         Err(FsError::EntryNotFound)
     }

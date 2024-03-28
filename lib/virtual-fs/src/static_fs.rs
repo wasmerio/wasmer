@@ -337,37 +337,6 @@ impl FileSystem for StaticFileSystem {
     fn new_open_options(&self) -> OpenOptions {
         OpenOptions::new(self)
     }
-    fn symlink_metadata(&self, path: &Path) -> Result<Metadata, FsError> {
-        let path = normalizes_path(path);
-        if let Some(fs_entry) = self
-            .volumes
-            .values()
-            .find_map(|v| v.get_file_entry(&path).ok())
-        {
-            Ok(Metadata {
-                ft: translate_file_type(FsEntryType::File),
-                accessed: 0,
-                created: 0,
-                modified: 0,
-                len: fs_entry.get_len(),
-            })
-        } else if self
-            .volumes
-            .values()
-            .find_map(|v| v.read_dir(&path).ok())
-            .is_some()
-        {
-            Ok(Metadata {
-                ft: translate_file_type(FsEntryType::Dir),
-                accessed: 0,
-                created: 0,
-                modified: 0,
-                len: 0,
-            })
-        } else {
-            self.memory.symlink_metadata(Path::new(&path))
-        }
-    }
 }
 
 fn normalizes_path(path: &Path) -> String {
