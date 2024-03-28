@@ -199,11 +199,11 @@ impl AppCreator {
         let app_cfg = AppConfigV1 {
             app_id: None,
             name: app_name,
+            owner: Some(self.owner.clone()),
             cli_args: None,
             env: Default::default(),
             volumes: None,
             domains: None,
-            owner: None,
             scaling: None,
             package: edge_schema::schema::StringWebcIdent(edge_schema::schema::WebcIdent {
                 repository: None,
