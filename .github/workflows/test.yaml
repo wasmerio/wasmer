@@ -129,7 +129,7 @@ jobs:
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
         with:
-          toolchain: nightly
+          toolchain: ${{ env.MSRV }}
           targets: "wasm32-wasi"
       - name: Install wasm-pack
         run: |

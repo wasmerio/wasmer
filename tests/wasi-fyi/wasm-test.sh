@@ -2,6 +2,16 @@
 
 set -e
 
+DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+# get absolute path of the root dir
+ROOT_DIR="$( cd "${DIR}/../../" && pwd )"
+TEST_RUNNER="${TEST_RUNNER:-$ROOT_DIR/target/release/wasmer}"
+
+if [ ! -e "$TEST_RUNNER" ]; then
+  echo "Test runner not found at '$TEST_RUNNER' - set TEST_RUNNER env var to the correct path."
+  exit 1
+fi
+
 input=$1
 
 input_dir=$(dirname $input)
@@ -40,7 +50,7 @@ fi
 
 status=0
 
-"../../target/release/wasmer" --mapdir /hamlet:./test_fs/hamlet --mapdir /fyi:./test_fs/fyi "$input_base.wasm" $dir $env -- $arg \
+$TEST_RUNNER --mapdir /hamlet:./test_fs/hamlet --mapdir /fyi:./test_fs/fyi "$input_base.wasm" $dir $env -- $arg \
     < "$stdin" \
     > "$stdout_actual" \
     2> "$stderr_actual" \
