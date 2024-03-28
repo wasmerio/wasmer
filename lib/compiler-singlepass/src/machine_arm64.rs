@@ -143,7 +143,7 @@ enum ImmType {
 impl MachineARM64 {
     pub fn new(target: Option<Target>) -> Self {
         let has_neon = match target {
-            Some(target) => target.cpu_features().contains(CpuFeature::NEON),
+            Some(ref target) => target.cpu_features().contains(CpuFeature::NEON),
             None => false,
         };
 
