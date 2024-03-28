@@ -105,7 +105,6 @@ pub struct MachineARM64 {
     used_simd: u32,
     trap_table: TrapTable,
     /// Map from byte offset into wasm function to range of native instructions.
-    ///
     // Ordered by increasing InstructionAddressMap::srcloc.
     instructions_address_map: Vec<InstructionAddressMap>,
     /// The source location for the current operator.
@@ -116,6 +115,8 @@ pub struct MachineARM64 {
     unwind_ops: Vec<(usize, UnwindOps)>,
     /// The actual compilation target.  
     target: Option<Target>,
+    /// A boolean flag signaling if this machine supports NEON.
+    has_neon: bool,
 }
 
 #[allow(dead_code)]
@@ -141,6 +142,11 @@ enum ImmType {
 #[allow(dead_code)]
 impl MachineARM64 {
     pub fn new(target: Option<Target>) -> Self {
+        let has_neon = match target {
+            Some(target) => target.cpu_features().contains(CpuFeature::NEON),
+            None => false,
+        };
+
         MachineARM64 {
             assembler: Assembler::new(0),
             used_gprs: 0,
@@ -151,6 +157,7 @@ impl MachineARM64 {
             pushed: false,
             unwind_ops: vec![],
             target,
+            has_neon,
         }
     }
     fn compatible_imm(&self, imm: i64, ty: ImmType) -> bool {
@@ -3075,14 +3082,7 @@ impl Machine for MachineARM64 {
         Ok(())
     }
     fn i32_popcnt(&mut self, loc: Location, ret: Location) -> Result<(), CompileError> {
-        if self.target.is_some()
-            && self
-                .target
-                .as_ref()
-                .unwrap()
-                .cpu_features()
-                .contains(CpuFeature::NEON)
-        {
+        if self.has_neon {
             let mut temps = vec![];
 
             let src_gpr =
@@ -5228,14 +5228,7 @@ impl Machine for MachineARM64 {
         Ok(())
     }
     fn i64_popcnt(&mut self, loc: Location, ret: Location) -> Result<(), CompileError> {
-        if self.target.is_some()
-            && self
-                .target
-                .as_ref()
-                .unwrap()
-                .cpu_features()
-                .contains(CpuFeature::NEON)
-        {
+        if self.has_neon {
             let mut temps = vec![];
 
             let src_gpr =
