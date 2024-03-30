@@ -360,7 +360,7 @@
     client: <span class="kw-2">&amp;</span>WasmerClient,
     opts: DeployAppOpts&lt;<span class="lifetime">&#39;_</span>&gt;,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;(DeployApp, DeployAppVersion), anyhow::Error&gt; {
-    <span class="kw">let </span>owner = <span class="kw-2">&amp;</span>opts.owner;
+    <span class="kw">let </span>owner = <span class="kw-2">&amp;</span>opts.owner.clone().or_else(|| opts.app.owner.clone());
     <span class="kw">let </span>app = <span class="kw-2">&amp;</span>opts.app;
 
     <span class="kw">let </span>pretty_name = <span class="kw">if let </span><span class="prelude-val">Some</span>(owner) = <span class="kw-2">&amp;</span>owner {

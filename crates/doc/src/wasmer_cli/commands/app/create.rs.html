@@ -921,11 +921,11 @@
         <span class="kw">let </span>app_cfg = AppConfigV1 {
             app_id: <span class="prelude-val">None</span>,
             name: app_name,
+            owner: <span class="prelude-val">Some</span>(<span class="self">self</span>.owner.clone()),
             cli_args: <span class="prelude-val">None</span>,
             env: Default::default(),
             volumes: <span class="prelude-val">None</span>,
             domains: <span class="prelude-val">None</span>,
-            owner: <span class="prelude-val">None</span>,
             scaling: <span class="prelude-val">None</span>,
             package: edge_schema::schema::StringWebcIdent(edge_schema::schema::WebcIdent {
                 repository: <span class="prelude-val">None</span>,
