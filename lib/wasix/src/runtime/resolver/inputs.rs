@@ -180,7 +180,7 @@ impl PackageSummary {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PackageInfo {
     /// The package's full name (i.e. `wasmer/wapm2pirita`).
-    pub name: String,
+    pub name: Option<String>,
     /// The package version.
     pub version: Version,
     /// Commands this package exposes to the outside world.
@@ -195,9 +195,22 @@ pub struct PackageInfo {
 
 impl PackageInfo {
     pub fn from_manifest(manifest: &Manifest) -> Result<Self, Error> {
-        let WapmAnnotations { name, version, .. } = manifest
-            .wapm()?
-            .context("Unable to find the \"wapm\" annotations")?;
+        let wapm_annotations = manifest.wapm()?;
+
+        let name = wapm_annotations.as_ref().map_or_else(
+            || String::from(""),
+            |annotations| annotations.name.clone().unwrap_or_else(|| String::from("")),
+        );
+
+        let version = wapm_annotations.as_ref().map_or_else(
+            || String::from("0.0.0"),
+            |annotations| {
+                annotations
+                    .version
+                    .clone()
+                    .unwrap_or_else(|| String::from("0.0.0"))
+            },
+        );
 
         let dependencies = manifest
             .use_map
@@ -221,7 +234,7 @@ impl PackageInfo {
         let filesystem = filesystem_mapping_from_manifest(manifest)?;
 
         Ok(PackageInfo {
-            name,
+            name: Some(name),
             version: version.parse()?,
             dependencies,
             commands,
@@ -296,9 +309,9 @@ fn url_or_manifest_to_specifier(value: &UrlOrManifest) -> Result<PackageSpecifie
             if let Ok(Some(WapmAnnotations { name, version, .. })) =
                 manifest.package_annotation("wapm")
             {
-                let version = version.parse()?;
+                let version = version.unwrap().parse()?;
                 return Ok(PackageSpecifier::Registry {
-                    full_name: name,
+                    full_name: name.unwrap(),
                     version,
                 });
             }

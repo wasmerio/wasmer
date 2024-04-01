@@ -62,10 +62,12 @@ impl InMemorySource {
 
     /// Add a new [`PackageSummary`] to the [`InMemorySource`].
     pub fn add(&mut self, summary: PackageSummary) {
-        let summaries = self.packages.entry(summary.pkg.name.clone()).or_default();
-        summaries.push(summary);
-        summaries.sort_by(|left, right| left.pkg.version.cmp(&right.pkg.version));
-        summaries.dedup_by(|left, right| left.pkg.version == right.pkg.version);
+        if let Some(ref package_name) = summary.pkg.name {
+            let summaries = self.packages.entry(package_name.clone()).or_default();
+            summaries.push(summary);
+            summaries.sort_by(|left, right| left.pkg.version.cmp(&right.pkg.version));
+            summaries.dedup_by(|left, right| left.pkg.version == right.pkg.version);
+        }
     }
 
     pub fn add_webc(&mut self, path: impl AsRef<Path>) -> Result<(), Error> {

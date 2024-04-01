@@ -30,7 +30,7 @@ pub struct ItemLocation {
 /// An identifier for a package within a dependency graph.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct PackageId {
-    pub package_name: String,
+    pub package_name: Option<String>,
     pub version: Version,
 }
 
@@ -40,7 +40,10 @@ impl Display for PackageId {
             package_name,
             version,
         } = self;
-        write!(f, "{package_name}@{version}")
+        if let Some(package_name) = &self.package_name {
+            write!(f, "{package_name}@{version}")?;
+        }
+        write!(f, "@{version}")
     }
 }
 

@@ -3,6 +3,7 @@ use std::{
     path::PathBuf,
 };
 
+use anyhow::Context;
 use petgraph::{
     graph::{DiGraph, NodeIndex},
     visit::EdgeRef,
@@ -84,7 +85,10 @@ fn print_cycle(packages: &[PackageId]) -> String {
                 version,
                 ..
             } = pkg_id;
-            format!("{package_name}@{version}")
+            if let Some(name) = package_name {
+                return format!("{name}@{version}");
+            }
+            format!("@{version}")
         })
         .collect::<Vec<_>>()
         .join(" → ")
@@ -262,10 +266,12 @@ where
         version,
     } in package_ids
     {
-        package_versions
-            .entry(package_name)
-            .or_default()
-            .insert(version);
+        if let Some(package_name) = package_name {
+            package_versions
+                .entry(package_name.as_str())
+                .or_default()
+                .insert(version);
+        }
     }
 
     for (package_name, versions) in package_versions {
@@ -304,7 +310,7 @@ fn resolve_package(dependency_graph: &DependencyGraph) -> Result<ResolvedPackage
             if let Some(entry) = &pkg.entrypoint {
                 tracing::trace!(
                     entrypoint = entry.as_str(),
-                    parent.name=id.package_name.as_str(),
+                    parent.name=id.package_name,
                     parent.version=%id.version,
                     "Inheriting the entrypoint",
                 );
@@ -327,7 +333,7 @@ fn resolve_package(dependency_graph: &DependencyGraph) -> Result<ResolvedPackage
                     entry.insert(resolved);
                     tracing::trace!(
                         command.name=cmd.name.as_str(),
-                        pkg.name=id.package_name.as_str(),
+                        pkg.name=id.package_name,
                         pkg.version=%id.version,
                         "Discovered command",
                     );
@@ -335,7 +341,7 @@ fn resolve_package(dependency_graph: &DependencyGraph) -> Result<ResolvedPackage
                 std::collections::btree_map::Entry::Occupied(_) => {
                     tracing::trace!(
                         command.name=cmd.name.as_str(),
-                        pkg.name=id.package_name.as_str(),
+                        pkg.name=id.package_name,
                         pkg.version=%id.version,
                         "Ignoring duplicate command",
                     );

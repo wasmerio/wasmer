@@ -47,7 +47,10 @@ pub async fn load_package_tree(
     let file_system_memory_footprint = count_file_system(&fs, Path::new("/"));
 
     let loaded = BinaryPackage {
-        package_name: root.package_name.clone(),
+        package_name: root
+            .package_name
+            .clone()
+            .context("Unnamed packages are not supported yet.")?,
         version: root.version.clone(),
         when_cached: crate::syscalls::platform_clock_time_get(
             wasmer_wasix_types::wasi::Snapshot0Clockid::Monotonic,

@@ -205,7 +205,7 @@ impl PackageLoader for BuiltinPackageLoader {
         level="debug",
         skip_all,
         fields(
-            pkg.name=summary.pkg.name.as_str(),
+            pkg.name=summary.pkg.name,
             pkg.version=%summary.pkg.version,
         ),
     )]
@@ -239,7 +239,7 @@ impl PackageLoader for BuiltinPackageLoader {
                 Err(e) => {
                     tracing::warn!(
                         error=&*e,
-                        pkg.name=%summary.pkg.name,
+                        pkg.name=summary.pkg.name,
                         pkg.version=%summary.pkg.version,
                         pkg.hash=%summary.dist.webc_sha256,
                         pkg.url=%summary.dist.webc,

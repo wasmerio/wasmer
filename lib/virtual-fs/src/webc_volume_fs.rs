@@ -60,7 +60,7 @@ impl FileSystem for WebcVolumeFileSystem {
 
         let mut entries = Vec::new();
 
-        for (name, meta) in self
+        for (name, _, meta) in self
             .volume()
             .read_dir(&path)
             .ok_or(FsError::EntryNotFound)?
@@ -173,7 +173,7 @@ impl FileOpener for WebcVolumeFileSystem {
         }
 
         match self.volume().read_file(path) {
-            Some(bytes) => Ok(Box::new(File(Cursor::new(bytes)))),
+            Some((bytes, _)) => Ok(Box::new(File(Cursor::new(bytes)))),
             None => {
                 // The metadata() call should guarantee this, so something
                 // probably went wrong internally
@@ -276,14 +276,14 @@ impl AsyncWrite for File {
 
 fn compat_meta(meta: webc::compat::Metadata) -> Metadata {
     match meta {
-        webc::compat::Metadata::Dir => Metadata {
+        webc::compat::Metadata::Dir { .. } => Metadata {
             ft: FileType {
                 dir: true,
                 ..Default::default()
             },
             ..Default::default()
         },
-        webc::compat::Metadata::File { length } => Metadata {
+        webc::compat::Metadata::File { length, .. } => Metadata {
             ft: FileType {
                 file: true,
                 ..Default::default()

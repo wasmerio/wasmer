@@ -383,9 +383,8 @@ check-capi:
 	RUSTFLAGS="${RUSTFLAGS}" $(CARGO_BINARY) check $(CARGO_TARGET_FLAG) --manifest-path lib/c-api/Cargo.toml  \
 		--no-default-features --features wat,compiler,wasi,middlewares $(capi_compiler_features)
 
-
 build-wasmer:
-	$(CARGO_BINARY) build $(CARGO_TARGET_FLAG) --release --manifest-path lib/cli/Cargo.toml $(compiler_features) --bin wasmer --locked
+	$(CARGO_BINARY) build -j 24 $(CARGO_TARGET_FLAG) --release --manifest-path lib/cli/Cargo.toml $(compiler_features) --bin wasmer --locked
 
 build-wasmer-jsc:
 	$(CARGO_BINARY) build $(CARGO_TARGET_FLAG) --release --manifest-path lib/cli/Cargo.toml --no-default-features --features="jsc,wat" --bin wasmer --locked
