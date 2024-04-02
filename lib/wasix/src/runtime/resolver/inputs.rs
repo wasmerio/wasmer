@@ -197,10 +197,9 @@ impl PackageInfo {
     pub fn from_manifest(manifest: &Manifest) -> Result<Self, Error> {
         let wapm_annotations = manifest.wapm()?;
 
-        let name = wapm_annotations.as_ref().map_or_else(
-            || String::from(""),
-            |annotations| annotations.name.clone().unwrap_or_else(|| String::from("")),
-        );
+        let name = wapm_annotations
+            .as_ref()
+            .map_or_else(|| None, |annotations| annotations.name.clone());
 
         let version = wapm_annotations.as_ref().map_or_else(
             || String::from("0.0.0"),
@@ -234,7 +233,7 @@ impl PackageInfo {
         let filesystem = filesystem_mapping_from_manifest(manifest)?;
 
         Ok(PackageInfo {
-            name: Some(name),
+            name,
             version: version.parse()?,
             dependencies,
             commands,
@@ -262,7 +261,7 @@ fn filesystem_mapping_from_manifest(
                     volume_name: mapping.volume_name,
                     mount_path: mapping.mount_path,
                     dependency_name: mapping.from,
-                    original_path: mapping.original_path,
+                    original_path: mapping.host_path,
                 })
                 .collect();
 
