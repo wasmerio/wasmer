@@ -84,9 +84,9 @@ impl BinaryPackage {
         let source = rt.source();
         let root = PackageInfo::from_manifest(container.manifest())?;
         let hash = if let Some(hash) = container.webc_hash() {
-            WebcHash::from_bytes(hash)
+            Some(WebcHash::from_bytes(hash))
         } else {
-            return Err(anyhow::anyhow!("No hash found in the container"));
+            None
         };
         let root_id = PackageId {
             package_name: root.name.clone(),

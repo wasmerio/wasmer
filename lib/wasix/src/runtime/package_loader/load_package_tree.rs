@@ -47,14 +47,20 @@ pub async fn load_package_tree(
     let file_system_memory_footprint = count_file_system(&fs, Path::new("/"));
 
     let package_name = if let Some(name) = &root.package_name {
-        name.clone()
+        Ok(name.clone())
+    } else if let Some(hash) = &root.hash {
+        tracing::warn!(
+            "The root package doesn't have a name. Falling back to the package webc hash"
+        );
+        Ok(hash.as_hex())
     } else {
-        tracing::warn!("The root package doesn't have a name. Falling back to the package ID");
-        root.hash.as_hex()
+        Err(anyhow::format_err!(
+            "The root package doesn't have a name, or a webc hash"
+        ))
     };
 
     let loaded = BinaryPackage {
-        package_name,
+        package_name: package_name.context("Trying to get the package name")?,
         version: root.version.clone(),
         when_cached: crate::syscalls::platform_clock_time_get(
             wasmer_wasix_types::wasi::Snapshot0Clockid::Monotonic,
