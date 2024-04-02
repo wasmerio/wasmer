@@ -10,7 +10,7 @@ use webc::{compat::SharedBytes, Container};
 use crate::{
     runtime::{
         module_cache::ModuleHash,
-        resolver::{PackageId, PackageInfo, PackageSpecifier, ResolveError},
+        resolver::{PackageId, PackageInfo, PackageSpecifier, ResolveError, WebcHash},
     },
     Runtime,
 };
@@ -83,9 +83,15 @@ impl BinaryPackage {
     ) -> Result<Self, anyhow::Error> {
         let source = rt.source();
         let root = PackageInfo::from_manifest(container.manifest())?;
+        let hash = if let Some(hash) = container.webc_hash() {
+            WebcHash::from_bytes(hash)
+        } else {
+            return Err(anyhow::anyhow!("No hash found in the container"));
+        };
         let root_id = PackageId {
             package_name: root.name.clone(),
             version: root.version.clone(),
+            hash,
         };
 
         let resolution = crate::runtime::resolver::resolve(&root_id, &root, &*source).await?;

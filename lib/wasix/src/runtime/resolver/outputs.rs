@@ -13,6 +13,8 @@ use semver::Version;
 
 use crate::runtime::resolver::{DistributionInfo, PackageInfo};
 
+use super::WebcHash;
+
 #[derive(Debug, Clone)]
 pub struct Resolution {
     pub package: ResolvedPackage,
@@ -32,6 +34,7 @@ pub struct ItemLocation {
 pub struct PackageId {
     pub package_name: Option<String>,
     pub version: Version,
+    pub hash: WebcHash,
 }
 
 impl Display for PackageId {
@@ -39,11 +42,12 @@ impl Display for PackageId {
         let PackageId {
             package_name,
             version,
+            hash,
         } = self;
-        if let Some(package_name) = &self.package_name {
-            write!(f, "{package_name}@{version}")?;
+        if let Some(package_name) = &package_name {
+            return write!(f, "{package_name}@{version}");
         }
-        write!(f, "@{version}")
+        write!(f, "{hash}")
     }
 }
 
@@ -84,6 +88,11 @@ impl DependencyGraph {
     pub fn root_info(&self) -> &PackageInfo {
         let Node { pkg, .. } = &self.graph[self.root];
         pkg
+    }
+
+    pub fn id(&self) -> &PackageId {
+        let Node { id, .. } = &self.graph[self.root];
+        id
     }
 
     pub fn root(&self) -> NodeIndex {
