@@ -344,6 +344,10 @@ impl WritableJournal for FilteredJournalTx {
         };
         self.inner.write(evt)
     }
+
+    fn flush(&self) -> anyhow::Result<()> {
+        self.inner.flush()
+    }
 }
 
 impl ReadableJournal for FilteredJournalRx {
@@ -361,6 +365,10 @@ impl ReadableJournal for FilteredJournalRx {
 impl WritableJournal for FilteredJournal {
     fn write<'a>(&'a self, entry: JournalEntry<'a>) -> anyhow::Result<LogWriteResult> {
         self.tx.write(entry)
+    }
+
+    fn flush(&self) -> anyhow::Result<()> {
+        self.tx.flush()
     }
 }
 

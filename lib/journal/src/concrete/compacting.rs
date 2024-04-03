@@ -485,6 +485,10 @@ impl WritableJournal for CompactingJournalTx {
         }
         state.inner_tx.write(entry)
     }
+
+    fn flush(&self) -> anyhow::Result<()> {
+        self.state.lock().unwrap().inner_tx.flush()
+    }
 }
 
 impl CompactingJournal {
@@ -523,6 +527,10 @@ impl ReadableJournal for CompactingJournalRx {
 impl WritableJournal for CompactingJournal {
     fn write<'a>(&'a self, entry: JournalEntry<'a>) -> anyhow::Result<LogWriteResult> {
         self.tx.write(entry)
+    }
+
+    fn flush(&self) -> anyhow::Result<()> {
+        self.tx.flush()
     }
 }
 

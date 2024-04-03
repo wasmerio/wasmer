@@ -42,6 +42,10 @@ impl WritableJournal for CountingJournal {
             record_end: offset as u64 + size,
         })
     }
+
+    fn flush(&self) -> anyhow::Result<()> {
+        Ok(())
+    }
 }
 
 impl Journal for CountingJournal {

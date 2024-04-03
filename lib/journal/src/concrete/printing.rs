@@ -51,6 +51,10 @@ impl WritableJournal for PrintingJournal {
             record_end: entry.estimate_size() as u64,
         })
     }
+
+    fn flush(&self) -> anyhow::Result<()> {
+        Ok(())
+    }
 }
 
 impl Journal for PrintingJournal {
