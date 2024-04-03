@@ -233,7 +233,7 @@ pub trait Machine {
     fn new_machine_state(&self) -> MachineState;
 
     /// Finalize the assembler
-    fn assembler_finalize(self) -> Vec<u8>;
+    fn assembler_finalize(self) -> Result<Vec<u8>, CompileError>;
 
     /// get_offset of Assembler
     fn get_offset(&self) -> Offset;
@@ -2411,7 +2411,7 @@ pub fn gen_std_trampoline(
             machine.gen_std_trampoline(sig, calling_convention)
         }
         Architecture::Aarch64(_) => {
-            let machine = MachineARM64::new();
+            let machine = MachineARM64::new(Some(target.clone()));
             machine.gen_std_trampoline(sig, calling_convention)
         }
         _ => Err(CompileError::UnsupportedTarget(
@@ -2433,7 +2433,7 @@ pub fn gen_std_dynamic_import_trampoline(
             machine.gen_std_dynamic_import_trampoline(vmoffsets, sig, calling_convention)
         }
         Architecture::Aarch64(_) => {
-            let machine = MachineARM64::new();
+            let machine = MachineARM64::new(Some(target.clone()));
             machine.gen_std_dynamic_import_trampoline(vmoffsets, sig, calling_convention)
         }
         _ => Err(CompileError::UnsupportedTarget(
@@ -2455,7 +2455,7 @@ pub fn gen_import_call_trampoline(
             machine.gen_import_call_trampoline(vmoffsets, index, sig, calling_convention)
         }
         Architecture::Aarch64(_) => {
-            let machine = MachineARM64::new();
+            let machine = MachineARM64::new(Some(target.clone()));
             machine.gen_import_call_trampoline(vmoffsets, index, sig, calling_convention)
         }
         _ => Err(CompileError::UnsupportedTarget(

@@ -108,6 +108,10 @@ impl OffloadBackingStore {
         Self::new(buffer, Some(file))
     }
 
+    pub fn from_buffer(buffer: OwnedBuffer) -> Self {
+        Self::new(buffer, None)
+    }
+
     pub fn owned_buffer(&self) -> OwnedBuffer {
         let guard = self.state.lock().unwrap();
         guard.mmap_offload.clone()
