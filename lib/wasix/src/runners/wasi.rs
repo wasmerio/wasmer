@@ -263,9 +263,12 @@ impl WasiRunner {
         let wasi = webc::metadata::annotations::Wasi::new(program_name);
         let mut store = runtime.new_store();
 
-        let mut builder = self
-            .prepare_webc_env(program_name, &wasi, None, runtime, None)?
-            .attach_ctrl_c();
+        let mut builder = self.prepare_webc_env(program_name, &wasi, None, runtime, None)?;
+
+        #[cfg(feature = "ctrlc")]
+        {
+            builder = builder.attach_ctrl_c();
+        }
 
         #[cfg(feature = "journal")]
         {
