@@ -443,8 +443,7 @@ impl VirtualFile for File {
     }
 
     fn unlink(&mut self) -> Result<()> {
-        let path = self.host_path.clone();
-        fs::remove_file(&path).map_err(Into::into)
+        fs::remove_file(&self.host_path).map_err(Into::into)
     }
 
     fn get_special_fd(&self) -> Option<u32> {

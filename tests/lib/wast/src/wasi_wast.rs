@@ -652,7 +652,7 @@ impl VirtualFile for OutputCapturerer {
     fn set_len(&mut self, _new_size: Filesize) -> Result<(), FsError> {
         Ok(())
     }
-    fn unlink(&mut self) -> BoxFuture<'static, Result<(), FsError>> {
+    fn unlink(&mut self) -> Result<(), FsError> {
         Ok(())
     }
     fn poll_read_ready(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<io::Result<usize>> {
