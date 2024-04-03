@@ -97,12 +97,7 @@ pub(crate) fn path_unlink_file_internal(
                 Kind::File { handle, path, .. } => {
                     if let Some(h) = handle {
                         let mut h = h.write().unwrap();
-                        let state = state;
-                        let fut = h.unlink();
-                        drop(h);
-                        wasi_try_ok!(__asyncify_light(env, None, async move {
-                            fut.await.map_err(fs_error_into_wasi_err)
-                        })?)
+                        wasi_try_ok!(h.unlink().map_err(fs_error_into_wasi_err));
                     } else {
                         // File is closed
                         // problem with the abstraction, we can't call unlink because there's no handle

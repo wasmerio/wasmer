@@ -653,7 +653,7 @@ impl VirtualFile for OutputCapturerer {
         Ok(())
     }
     fn unlink(&mut self) -> BoxFuture<'static, Result<(), FsError>> {
-        Box::pin(async { Ok(()) })
+        Ok(())
     }
     fn poll_read_ready(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<io::Result<usize>> {
         Poll::Ready(Ok(0))
