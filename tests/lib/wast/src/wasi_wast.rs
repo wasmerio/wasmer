@@ -8,7 +8,6 @@ use std::{
     task::{Context, Poll},
 };
 
-use futures::future::BoxFuture;
 use virtual_fs::{
     host_fs, mem_fs, passthru_fs, tmp_fs, union_fs, AsyncRead, AsyncSeek, AsyncWrite,
     AsyncWriteExt, FileSystem, Pipe, ReadBuf, RootFileSystemBuilder,
