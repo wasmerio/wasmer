@@ -287,30 +287,28 @@ fn initialize_js_worker(
     let raw_js_worker_toml = format!(
         r#"
 [package]
-name = "{}"
+name = "{name}"
 version = "0.1.0"
-description = "{} js worker"
+description = "{name} js worker"
 
 [dependencies]
-"{}" = "{}"
+"{winterjs_pkg}" = "{winterjs_version}"
 
 [fs]
 "/src" = "./src"
 
 [[command]]
 name = "script"
-module = "{}:wasmer-winter"
+module = "{winterjs_pkg}:winterjs"
 runner = "https://webc.org/runner/wasi"
 
 [command.annotations.wasi]
 main-args = ["/src/index.js"]
 env = ["JS_PATH=/src/index.js"]
 "#,
-        full_name.clone(),
-        full_name,
-        WASMER_WINTER_JS_PACKAGE,
-        WASMER_WINTER_JS_VERSION,
-        WASMER_WINTER_JS_PACKAGE
+        name = full_name,
+        winterjs_pkg = WASMER_WINTER_JS_PACKAGE,
+        winterjs_version = WASMER_WINTER_JS_VERSION,
     );
 
     let manifest = wasmer_toml::Manifest::parse(raw_js_worker_toml.as_str())
@@ -456,7 +454,7 @@ description = "christoph/js-worker-test js worker"
 
 [[command]]
 name = "script"
-module = "wasmer/winterjs:wasmer-winter"
+module = "wasmer/winterjs:winterjs"
 runner = "https://webc.org/runner/wasi"
 
 [command.annotations.wasi]
