@@ -1577,6 +1577,7 @@ pub enum JournalSnapshotTriggerV1 {
     Sigtstp,
     Sigstop,
     NonDeterministicCall,
+    Bootstrap,
 }
 
 #[repr(C)]

@@ -26,6 +26,8 @@ pub enum SnapshotTrigger {
     Sigstop,
     /// When a non-determinstic call is made
     NonDeterministicCall,
+    /// Bootstrapping process
+    Bootstrap,
 }
 
 impl SnapshotTrigger {
@@ -61,6 +63,7 @@ impl FromStr for SnapshotTrigger {
             "sigtstp" | "ctrlz" | "ctrl-z" => Self::Sigtstp,
             "stop" | "sigstop" => Self::Sigstop,
             "non-deterministic-call" => Self::NonDeterministicCall,
+            "bootstrap" => Self::Bootstrap,
             a => return Err(anyhow::format_err!("invalid or unknown trigger ({a})")),
         })
     }
