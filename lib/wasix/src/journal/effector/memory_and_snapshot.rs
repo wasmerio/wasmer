@@ -167,6 +167,10 @@ impl JournalEffector {
         journal
             .write(JournalEntry::SnapshotV1 { when, trigger })
             .map_err(map_snapshot_err)?;
+
+        // When writing snapshots we also flush the journal so that
+        // its guaranteed to be on the disk or network pipe
+        journal.flush().map_err(map_snapshot_err)?;
         Ok(())
     }
 

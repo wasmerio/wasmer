@@ -35,6 +35,9 @@ pub trait WritableJournal {
     /// Takes in a stream of snapshot log entries and saves them so that they
     /// may be restored at a later moment
     fn write<'a>(&'a self, entry: JournalEntry<'a>) -> anyhow::Result<LogWriteResult>;
+
+    /// Flushes the data to disk or network
+    fn flush(&self) -> anyhow::Result<()>;
 }
 
 /// The results of an operation to read a log entry from the log

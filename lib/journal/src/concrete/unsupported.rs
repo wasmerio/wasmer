@@ -22,6 +22,10 @@ impl WritableJournal for UnsupportedJournal {
         tracing::debug!("journal event: {:?}", entry);
         Err(anyhow::format_err!("unsupported"))
     }
+
+    fn flush(&self) -> anyhow::Result<()> {
+        Ok(())
+    }
 }
 
 impl Journal for UnsupportedJournal {

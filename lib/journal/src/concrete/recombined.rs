@@ -15,6 +15,10 @@ impl WritableJournal for RecombinedJournal {
     fn write<'a>(&'a self, entry: JournalEntry<'a>) -> anyhow::Result<LogWriteResult> {
         self.tx.write(entry)
     }
+
+    fn flush(&self) -> anyhow::Result<()> {
+        self.tx.flush()
+    }
 }
 
 impl ReadableJournal for RecombinedJournal {

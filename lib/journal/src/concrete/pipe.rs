@@ -83,6 +83,10 @@ impl WritableJournal for PipeJournalTx {
             record_end: sender.offset + entry_size,
         })
     }
+
+    fn flush(&self) -> anyhow::Result<()> {
+        Ok(())
+    }
 }
 
 impl ReadableJournal for PipeJournalRx {
@@ -107,6 +111,10 @@ impl ReadableJournal for PipeJournalRx {
 impl WritableJournal for PipeJournal {
     fn write<'a>(&'a self, entry: JournalEntry<'a>) -> anyhow::Result<LogWriteResult> {
         self.tx.write(entry)
+    }
+
+    fn flush(&self) -> anyhow::Result<()> {
+        self.tx.flush()
     }
 }
 

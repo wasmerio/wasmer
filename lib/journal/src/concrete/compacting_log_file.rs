@@ -237,6 +237,10 @@ impl WritableJournal for CompactingLogFileJournalTx {
 
         Ok(res)
     }
+
+    fn flush(&self) -> anyhow::Result<()> {
+        self.inner.flush()
+    }
 }
 
 impl ReadableJournal for CompactingLogFileJournal {
@@ -252,6 +256,10 @@ impl ReadableJournal for CompactingLogFileJournal {
 impl WritableJournal for CompactingLogFileJournal {
     fn write<'a>(&'a self, entry: JournalEntry<'a>) -> anyhow::Result<LogWriteResult> {
         self.tx.write(entry)
+    }
+
+    fn flush(&self) -> anyhow::Result<()> {
+        self.tx.flush()
     }
 }
 
