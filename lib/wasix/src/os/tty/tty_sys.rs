@@ -18,10 +18,12 @@ impl TtyBridge for SysTty {
         let stdout_tty = sys::is_stdout_tty();
         let stderr_tty = sys::is_stderr_tty();
 
-        if let Some((w, h)) = term_size::dimensions() {
+        if let Some((terminal_size::Width(width), terminal_size::Height(height))) =
+            terminal_size::terminal_size()
+        {
             WasiTtyState {
-                cols: w as u32,
-                rows: h as u32,
+                cols: width.into(),
+                rows: height.into(),
                 width: 800,
                 height: 600,
                 stdin_tty,

@@ -57,7 +57,7 @@ serde_json = { version = "^1" }
 serde_yaml = { version = "^0.9" }
 weezl = { version = "^0.1" }
 hex = { version = "^0.4" }
-term_size = { version = "0.3" }
+terminal_size = { version = "0.3.0" }
 linked_hash_set = { version = "0.1" }
 http = "0.2.8"
 heapless = "0.7.16"
