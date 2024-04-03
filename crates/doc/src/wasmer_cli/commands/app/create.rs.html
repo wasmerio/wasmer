@@ -715,11 +715,6 @@
 <a href="#715" id="715">715</a>
 <a href="#716" id="716">716</a>
 <a href="#717" id="717">717</a>
-<a href="#718" id="718">718</a>
-<a href="#719" id="719">719</a>
-<a href="#720" id="720">720</a>
-<a href="#721" id="721">721</a>
-<a href="#722" id="722">722</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Create a new Edge app.
 
 </span><span class="kw">use </span>std::path::PathBuf;
@@ -833,7 +828,6 @@
 
 <span class="kw">struct </span>AppCreatorOutput {
     app: AppConfigV1,
-    pkg: StringWebcIdent,
     api_pkg: <span class="prelude-ty">Option</span>&lt;Package&gt;,
     local_package: <span class="prelude-ty">Option</span>&lt;(PathBuf, wasmer_toml::Manifest)&gt;,
 }
@@ -860,12 +854,6 @@
         <span class="kw">let </span>outer_pkg_name =
             <span class="kw">crate</span>::utils::prompts::prompt_for_ident(<span class="string">&quot;Package name&quot;</span>, <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span>default_name))<span class="question-mark">?</span>;
         <span class="kw">let </span>outer_pkg_full_name = <span class="macro">format!</span>(<span class="string">&quot;{}/{}&quot;</span>, <span class="self">self</span>.owner, outer_pkg_name);
-        <span class="kw">let </span>outer_pkg = StringWebcIdent(edge_schema::schema::WebcIdent {
-            repository: <span class="prelude-val">None</span>,
-            namespace: <span class="self">self</span>.owner.clone(),
-            name: outer_pkg_name.clone(),
-            tag: <span class="prelude-val">None</span>,
-        });
 
         <span class="macro">eprintln!</span>(<span class="string">&quot;What should be the name of the app?&quot;</span>);
 
@@ -941,7 +929,6 @@
 
         <span class="prelude-val">Ok</span>(AppCreatorOutput {
             app: app_cfg,
-            pkg: outer_pkg,
             api_pkg: <span class="prelude-val">None</span>,
             local_package: <span class="prelude-val">Some</span>((<span class="self">self</span>.dir, manifest)),
         })
@@ -1062,7 +1049,7 @@
         <span class="comment">// TODO: check if name already exists.
         </span><span class="kw">let </span>cfg = AppConfigV1 {
             app_id: <span class="prelude-val">None</span>,
-            owner: <span class="prelude-val">None</span>,
+            owner: <span class="prelude-val">Some</span>(<span class="self">self</span>.owner.clone()),
             volumes: <span class="prelude-val">None</span>,
             name,
             env: Default::default(),
@@ -1082,7 +1069,6 @@
         <span class="prelude-val">Ok</span>(AppCreatorOutput {
             app: cfg,
             api_pkg,
-            pkg,
             local_package,
         })
     }
@@ -1212,7 +1198,7 @@
             type_,
             interactive,
             dir: base_dir,
-            owner,
+            owner: owner.clone(),
             api,
             user,
             local_package,
@@ -1229,8 +1215,8 @@
         <span class="kw">let </span>AppCreatorOutput {
             app: cfg,
             api_pkg,
-            pkg,
             local_package,
+            ..
         } = output;
 
         <span class="kw">let </span>deploy_now = <span class="kw">if </span><span class="self">self</span>.offline {
@@ -1281,7 +1267,7 @@
                 original_config: <span class="prelude-val">None</span>,
                 allow_create: <span class="bool-val">true</span>,
                 make_default: <span class="bool-val">true</span>,
-                owner: <span class="prelude-val">Some</span>(pkg.<span class="number">0</span>.namespace.clone()),
+                owner: <span class="prelude-val">Some</span>(owner.clone()),
                 wait: wait_mode,
             };
             <span class="kw">let </span>(_app, app_version) = deploy_app_verbose(<span class="kw-2">&amp;</span>api, opts).<span class="kw">await</span><span class="question-mark">?</span>;
@@ -1334,6 +1320,7 @@
             <span class="string">r#&quot;---
 kind: wasmer.io/App.v0
 name: static-site-1
+owner: testuser
 package: testuser/static-site-1@0.1.0
 debug: false
 &quot;#</span>,
@@ -1367,6 +1354,7 @@ debug: false
             <span class="string">r#&quot;---
 kind: wasmer.io/App.v0
 name: testapp
+owner: wasmer
 package: wasmer/testpkg
 debug: false
 &quot;#</span>,
@@ -1399,6 +1387,7 @@ debug: false
             <span class="string">r#&quot;---
 kind: wasmer.io/App.v0
 name: test-js-worker
+owner: wasmer
 package: wasmer/test-js-worker
 cli_args:
   - /src/index.js
@@ -1434,6 +1423,7 @@ debug: false
             <span class="string">r#&quot;---
 kind: wasmer.io/App.v0
 name: test-py-worker
+owner: wasmer
 package: wasmer/test-py-worker
 cli_args:
   - /src/main.py
