@@ -603,6 +603,7 @@ mod tests {
             r#"---
 kind: wasmer.io/App.v0
 name: static-site-1
+owner: testuser
 package: testuser/static-site-1@0.1.0
 debug: false
 "#,
@@ -636,6 +637,7 @@ debug: false
             r#"---
 kind: wasmer.io/App.v0
 name: testapp
+owner: wasmer
 package: wasmer/testpkg
 debug: false
 "#,
@@ -668,6 +670,7 @@ debug: false
             r#"---
 kind: wasmer.io/App.v0
 name: test-js-worker
+owner: wasmer
 package: wasmer/test-js-worker
 cli_args:
   - /src/index.js
@@ -703,6 +706,7 @@ debug: false
             r#"---
 kind: wasmer.io/App.v0
 name: test-py-worker
+owner: wasmer
 package: wasmer/test-py-worker
 cli_args:
   - /src/main.py
