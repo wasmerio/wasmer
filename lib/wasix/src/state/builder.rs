@@ -172,6 +172,7 @@ impl WasiEnvBuilder {
 
     /// Attaches a ctrl-c handler which will send signals to the
     /// process rather than immediately termiante it
+    #[cfg(feature = "ctrlc")]
     pub fn attach_ctrl_c(mut self) -> Self {
         self.attach_ctrl_c = true;
         self
@@ -1042,6 +1043,7 @@ impl WasiEnvBuilder {
         module_hash: ModuleHash,
         mut store: Store,
     ) -> Result<(), WasiRuntimeError> {
+        #[cfg(feature = "ctrlc")]
         let attach_ctrl_c = self.attach_ctrl_c;
 
         let (_, env) = self.instantiate_ext(module, module_hash, &mut store)?;
