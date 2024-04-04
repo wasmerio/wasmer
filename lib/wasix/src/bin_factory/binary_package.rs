@@ -83,15 +83,11 @@ impl BinaryPackage {
     ) -> Result<Self, anyhow::Error> {
         let source = rt.source();
         let root = PackageInfo::from_manifest(container.manifest())?;
-        let hash = if let Some(hash) = container.webc_hash() {
-            Some(WebcHash::from_bytes(hash))
-        } else {
-            None
-        };
+        let hash = container.webc_hash();
         let root_id = PackageId {
             package_name: root.name.clone(),
             version: root.version.clone(),
-            hash,
+            hash: WebcHash::from_bytes(hash),
         };
 
         let resolution = crate::runtime::resolver::resolve(&root_id, &root, &*source).await?;

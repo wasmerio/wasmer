@@ -34,7 +34,7 @@ pub struct ItemLocation {
 pub struct PackageId {
     pub package_name: Option<String>,
     pub version: Version,
-    pub hash: Option<WebcHash>,
+    pub hash: WebcHash,
 }
 
 impl Display for PackageId {
@@ -47,10 +47,7 @@ impl Display for PackageId {
         if let Some(package_name) = &package_name {
             return write!(f, "{package_name}@{version}");
         }
-        if let Some(hash) = hash {
-            return write!(f, "{hash}");
-        }
-        Err(fmt::Error)
+        write!(f, "{hash}")
     }
 }
 

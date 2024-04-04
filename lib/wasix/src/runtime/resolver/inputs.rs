@@ -155,7 +155,7 @@ pub struct PackageSummary {
 
 impl PackageSummary {
     pub fn package_id(&self) -> PackageId {
-        self.pkg.id(Some(self.dist.webc_sha256))
+        self.pkg.id(self.dist.webc_sha256)
     }
 
     pub fn from_webc_file(path: impl AsRef<Path>) -> Result<PackageSummary, Error> {
@@ -242,7 +242,7 @@ impl PackageInfo {
         })
     }
 
-    pub fn id(&self, hash: Option<WebcHash>) -> PackageId {
+    pub fn id(&self, hash: WebcHash) -> PackageId {
         PackageId {
             package_name: self.name.clone(),
             version: self.version.clone(),
