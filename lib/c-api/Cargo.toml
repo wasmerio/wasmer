@@ -24,17 +24,17 @@ crate-type = ["staticlib", "cdylib"] #"cdylib", "rlib", "staticlib"]
 [dependencies]
 # We rename `wasmer` to `wasmer-api` to avoid the conflict with this
 # library name (see `[lib]`).
-wasmer-api = { version = "=4.2.7", path = "../api", default-features = false, package = "wasmer" }
-wasmer-compiler = { version = "=4.2.7", path = "../compiler", optional = true }
-wasmer-compiler-cranelift = { version = "=4.2.7", path = "../compiler-cranelift", optional = true }
-wasmer-compiler-llvm = { version = "=4.2.7", path = "../compiler-llvm", optional = true }
-wasmer-compiler-singlepass = { version = "=4.2.7", path = "../compiler-singlepass", optional = true }
-wasmer-emscripten = { version = "=4.2.7", path = "../emscripten", optional = true }
-wasmer-middlewares = { version = "=4.2.7", path = "../middlewares", optional = true }
-wasmer-types = { version = "=4.2.7", path = "../types" }
-wasmer-wasix = { version = "0.18.2", path = "../wasix", features = ["host-fs", "host-vnet"], optional = true }
+wasmer-api = { version = "=4.2.8", path = "../api", default-features = false, package = "wasmer" }
+wasmer-compiler = { version = "=4.2.8", path = "../compiler", optional = true }
+wasmer-compiler-cranelift = { version = "=4.2.8", path = "../compiler-cranelift", optional = true }
+wasmer-compiler-llvm = { version = "=4.2.8", path = "../compiler-llvm", optional = true }
+wasmer-compiler-singlepass = { version = "=4.2.8", path = "../compiler-singlepass", optional = true }
+wasmer-emscripten = { version = "=4.2.8", path = "../emscripten", optional = true }
+wasmer-middlewares = { version = "=4.2.8", path = "../middlewares", optional = true }
+wasmer-types = { version = "=4.2.8", path = "../types" }
+wasmer-wasix = { version = "0.18.3", path = "../wasix", features = ["host-fs", "host-vnet"], optional = true }
 webc = { version = "5.0", optional = true }
-virtual-fs = { version = "0.11.1", path = "../virtual-fs", optional = true, default-features = false, features = ["static-fs"] }
+virtual-fs = { version = "0.11.2", path = "../virtual-fs", optional = true, default-features = false, features = ["static-fs"] }
 enumset.workspace = true
 cfg-if = "1.0"
 lazy_static = "1.4"
