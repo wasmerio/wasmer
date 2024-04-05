@@ -840,8 +840,8 @@
 }
 
 <span class="kw">impl </span>WapmSource {
-    <span class="kw">pub const </span>WASMER_DEV_ENDPOINT: <span class="kw-2">&amp;</span>str = <span class="string">&quot;https://registry.wasmer.wtf/graphql&quot;</span>;
-    <span class="kw">pub const </span>WASMER_PROD_ENDPOINT: <span class="kw-2">&amp;</span>str = <span class="string">&quot;https://registry.wasmer.io/graphql&quot;</span>;
+    <span class="kw">pub const </span>WASMER_DEV_ENDPOINT: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str = <span class="string">&quot;https://registry.wasmer.wtf/graphql&quot;</span>;
+    <span class="kw">pub const </span>WASMER_PROD_ENDPOINT: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str = <span class="string">&quot;https://registry.wasmer.io/graphql&quot;</span>;
 
     <span class="kw">pub fn </span>new(registry_endpoint: Url, client: Arc&lt;<span class="kw">dyn </span>HttpClient + Send + Sync&gt;) -&gt; <span class="self">Self </span>{
         WapmSource {

@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["pretty_error"],"mod":["dynamic_function","function_call"],"struct":["Context","FunctionBuilder","FunctionBuilderContext"]};
+window.SIDEBAR_ITEMS = {"mod":["dynamic_function","function_call"],"struct":["FunctionBuilderContext"]};

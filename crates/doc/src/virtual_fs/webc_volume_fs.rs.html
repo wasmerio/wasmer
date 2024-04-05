@@ -856,8 +856,8 @@
         <span class="prelude-val">Err</span>(FsError::PermissionDenied)
     }
 
-    <span class="kw">fn </span>unlink(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; BoxFuture&lt;<span class="lifetime">&#39;static</span>, <span class="kw">crate</span>::Result&lt;()&gt;&gt; {
-        Box::pin(<span class="kw">async </span>{ <span class="prelude-val">Err</span>(FsError::PermissionDenied) })
+    <span class="kw">fn </span>unlink(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="kw">crate</span>::Result&lt;()&gt; {
+        <span class="prelude-val">Err</span>(FsError::PermissionDenied)
     }
 
     <span class="kw">fn </span>poll_read_ready(

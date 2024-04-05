@@ -671,13 +671,6 @@
 <a href="#671" id="671">671</a>
 <a href="#672" id="672">672</a>
 <a href="#673" id="673">673</a>
-<a href="#674" id="674">674</a>
-<a href="#675" id="675">675</a>
-<a href="#676" id="676">676</a>
-<a href="#677" id="677">677</a>
-<a href="#678" id="678">678</a>
-<a href="#679" id="679">679</a>
-<a href="#680" id="680">680</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{
     future::Future,
     io::{IoSlice, SeekFrom},
@@ -687,7 +680,6 @@
     task::{Context, Poll},
 };
 
-<span class="kw">use </span>futures::future::BoxFuture;
 <span class="kw">use </span>tokio::io::{AsyncRead, AsyncSeek, AsyncWrite};
 <span class="kw">use </span>virtual_fs::{FsError, Pipe <span class="kw">as </span>VirtualPipe, VirtualFile};
 <span class="kw">use </span>wasmer_wasix_types::{
@@ -1209,19 +1201,13 @@
         }
     }
 
-    <span class="kw">fn </span>unlink(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; BoxFuture&lt;<span class="lifetime">&#39;static</span>, <span class="prelude-ty">Result</span>&lt;(), FsError&gt;&gt; {
+    <span class="kw">fn </span>unlink(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;(), FsError&gt; {
         <span class="kw">let </span><span class="kw-2">mut </span>guard = <span class="self">self</span>.lock_write();
-        <span class="kw">let </span>fut = <span class="kw">if let </span><span class="prelude-val">Some</span>(file) = guard.as_mut() {
-            <span class="prelude-val">Ok</span>(file.unlink())
+        <span class="kw">if let </span><span class="prelude-val">Some</span>(file) = guard.as_mut() {
+            file.unlink()
         } <span class="kw">else </span>{
             <span class="prelude-val">Err</span>(FsError::IOError)
-        };
-        Box::pin(<span class="kw">async move </span>{
-            <span class="kw">match </span>fut {
-                <span class="prelude-val">Ok</span>(fut) =&gt; fut.<span class="kw">await</span>,
-                <span class="prelude-val">Err</span>(err) =&gt; <span class="prelude-val">Err</span>(err),
-            }
-        })
+        }
     }
 
     <span class="kw">fn </span>is_open(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {

@@ -167,6 +167,7 @@
 <a href="#167" id="167">167</a>
 <a href="#168" id="168">168</a>
 <a href="#169" id="169">169</a>
+<a href="#170" id="170">170</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>core::ops::Deref;
 
 <span class="attr">#[cfg(feature = <span class="string">&quot;sys&quot;</span>)]
@@ -182,6 +183,7 @@
 <span class="attr">#[cfg(feature = <span class="string">&quot;sys&quot;</span>)]
 </span><span class="kw">use </span>std::sync::Arc;
 <span class="attr">#[cfg(feature = <span class="string">&quot;sys&quot;</span>)]
+#[allow(unused_imports)]
 </span><span class="kw">pub use </span>wasmer_compiler::{Artifact, CompilerConfig, EngineInner, Features, Tunables};
 <span class="attr">#[cfg(feature = <span class="string">&quot;sys&quot;</span>)]
 </span><span class="kw">use </span>wasmer_types::DeserializeError;

@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":["DeserializeError","ImportError","InstantiationError","LinkError","SerializeError"]};
+window.SIDEBAR_ITEMS = {"enum":["ImportError","InstantiationError","LinkError"]};

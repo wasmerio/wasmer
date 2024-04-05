@@ -1628,7 +1628,6 @@
 <a href="#1628" id="1628">1628</a>
 <a href="#1629" id="1629">1629</a>
 <a href="#1630" id="1630">1630</a>
-<a href="#1631" id="1631">1631</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{
     collections::HashSet,
     fmt::Debug,
@@ -2450,27 +2449,26 @@
             <span class="prelude-val">Ok</span>(())
         }
 
-        <span class="kw">fn </span>unlink(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; BoxFuture&lt;<span class="lifetime">&#39;static</span>, <span class="kw">crate</span>::Result&lt;()&gt;&gt; {
+        <span class="kw">fn </span>unlink(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="kw">crate</span>::Result&lt;()&gt; {
             <span class="kw">let </span>primary = <span class="self">self</span>.primary.clone();
             <span class="kw">let </span>path = <span class="self">self</span>.path.clone();
-            Box::pin(<span class="kw">async move </span>{
-                <span class="comment">// Create the whiteout file in the primary
-                </span><span class="kw">let </span><span class="kw-2">mut </span>had_at_least_one_success = <span class="bool-val">false</span>;
-                <span class="kw">if </span>ops::create_white_out(<span class="kw-2">&amp;</span>primary, <span class="kw-2">&amp;</span>path).is_ok() {
-                    had_at_least_one_success = <span class="bool-val">true</span>;
-                }
 
-                <span class="comment">// Attempt to remove it from the primary first
-                </span><span class="kw">match </span>primary.remove_file(<span class="kw-2">&amp;</span>path) {
-                    <span class="prelude-val">Err</span>(e) <span class="kw">if </span>should_continue(e) =&gt; {}
-                    other =&gt; <span class="kw">return </span>other,
-                }
+            <span class="comment">// Create the whiteout file in the primary
+            </span><span class="kw">let </span><span class="kw-2">mut </span>had_at_least_one_success = <span class="bool-val">false</span>;
+            <span class="kw">if </span>ops::create_white_out(<span class="kw-2">&amp;</span>primary, <span class="kw-2">&amp;</span>path).is_ok() {
+                had_at_least_one_success = <span class="bool-val">true</span>;
+            }
 
-                <span class="kw">if </span>had_at_least_one_success {
-                    <span class="kw">return </span><span class="prelude-val">Ok</span>(());
-                }
-                <span class="prelude-val">Err</span>(FsError::PermissionDenied)
-            })
+            <span class="comment">// Attempt to remove it from the primary first
+            </span><span class="kw">match </span>primary.remove_file(<span class="kw-2">&amp;</span>path) {
+                <span class="prelude-val">Err</span>(e) <span class="kw">if </span>should_continue(e) =&gt; {}
+                other =&gt; <span class="kw">return </span>other,
+            }
+
+            <span class="kw">if </span>had_at_least_one_success {
+                <span class="kw">return </span><span class="prelude-val">Ok</span>(());
+            }
+            <span class="prelude-val">Err</span>(FsError::PermissionDenied)
         }
 
         <span class="kw">fn </span>poll_read_ready(

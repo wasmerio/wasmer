@@ -81,6 +81,7 @@
 <a href="#81" id="81">81</a>
 <a href="#82" id="82">82</a>
 <a href="#83" id="83">83</a>
+<a href="#84" id="84">84</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! The `wasmer-compiler` crate provides the necessary abstractions
 //! to create a compiler.
 //!
@@ -114,7 +115,8 @@
 <span class="attr">#[cfg(feature = <span class="string">&quot;core&quot;</span>)]
 </span><span class="kw">extern crate </span>alloc;
 
-<span class="kw">mod </span>lib {
+<span class="attr">#[allow(unused_imports)]
+</span><span class="kw">mod </span>lib {
     <span class="attr">#[cfg(feature = <span class="string">&quot;core&quot;</span>)]
     </span><span class="kw">pub mod </span>std {
         <span class="kw">pub use </span>alloc::{borrow, boxed, str, string, sync, vec};

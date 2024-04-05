@@ -506,9 +506,7 @@
 <a href="#506" id="506">506</a>
 <a href="#507" id="507">507</a>
 <a href="#508" id="508">508</a>
-<a href="#509" id="509">509</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>bytes::{Buf, Bytes};
-<span class="kw">use </span>futures::future::BoxFuture;
 <span class="attr">#[cfg(feature = <span class="string">&quot;futures&quot;</span>)]
 </span><span class="kw">use </span>futures::Future;
 <span class="kw">use </span>std::io::IoSlice;
@@ -904,8 +902,8 @@
     }
 
     <span class="doccomment">/// Request deletion of the file
-    </span><span class="kw">fn </span>unlink(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; BoxFuture&lt;<span class="lifetime">&#39;static</span>, <span class="prelude-ty">Result</span>&lt;(), FsError&gt;&gt; {
-        Box::pin(<span class="kw">async </span>{ <span class="prelude-val">Ok</span>(()) })
+    </span><span class="kw">fn </span>unlink(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;(), FsError&gt; {
+        <span class="prelude-val">Ok</span>(())
     }
 
     <span class="doccomment">/// Indicates if the file is opened or closed. This function must not block

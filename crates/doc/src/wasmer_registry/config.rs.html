@@ -502,8 +502,8 @@
 }
 
 <span class="kw">impl </span>WasmerConfig {
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">const </span>ENV_VAR_WASMER_REGISTRY_TOKEN: <span class="kw-2">&amp;</span>str = <span class="string">&quot;WASMER_TOKEN&quot;</span>;
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">const </span>ENV_VAR_WASMER_REGISTRY_TOKEN_LEGACY: <span class="kw-2">&amp;</span>str = <span class="string">&quot;WAPM_REGISTRY_TOKEN&quot;</span>;
+    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">const </span>ENV_VAR_WASMER_REGISTRY_TOKEN: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str = <span class="string">&quot;WASMER_TOKEN&quot;</span>;
+    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">const </span>ENV_VAR_WASMER_REGISTRY_TOKEN_LEGACY: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str = <span class="string">&quot;WAPM_REGISTRY_TOKEN&quot;</span>;
 
     <span class="doccomment">/// Save the config to a file
     </span><span class="kw">pub fn </span>save&lt;P: AsRef&lt;Path&gt;&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, to: P) -&gt; anyhow::Result&lt;()&gt; {

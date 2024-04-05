@@ -1551,7 +1551,7 @@
                     .open(path)
                 {
                     <span class="kw">if </span>conf.create_new() {
-                        ret.unlink();
+                        ret.unlink().ok();
                         <span class="kw">continue</span>;
                     }
                     <span class="kw">return </span><span class="prelude-val">Ok</span>(ret);

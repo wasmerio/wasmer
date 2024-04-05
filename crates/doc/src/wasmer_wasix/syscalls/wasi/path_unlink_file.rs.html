@@ -118,11 +118,6 @@
 <a href="#118" id="118">118</a>
 <a href="#119" id="119">119</a>
 <a href="#120" id="120">120</a>
-<a href="#121" id="121">121</a>
-<a href="#122" id="122">122</a>
-<a href="#123" id="123">123</a>
-<a href="#124" id="124">124</a>
-<a href="#125" id="125">125</a>
 </pre></div><pre class="rust"><code><span class="kw">use super</span>::<span class="kw-2">*</span>;
 <span class="kw">use </span><span class="kw">crate</span>::syscalls::<span class="kw-2">*</span>;
 
@@ -222,12 +217,7 @@
                 Kind::File { handle, path, .. } =&gt; {
                     <span class="kw">if let </span><span class="prelude-val">Some</span>(h) = handle {
                         <span class="kw">let </span><span class="kw-2">mut </span>h = h.write().unwrap();
-                        <span class="kw">let </span>state = state;
-                        <span class="kw">let </span>fut = h.unlink();
-                        drop(h);
-                        <span class="macro">wasi_try_ok!</span>(__asyncify_light(env, <span class="prelude-val">None</span>, <span class="kw">async move </span>{
-                            fut.<span class="kw">await</span>.map_err(fs_error_into_wasi_err)
-                        })<span class="question-mark">?</span>)
+                        <span class="macro">wasi_try_ok!</span>(h.unlink().map_err(fs_error_into_wasi_err));
                     } <span class="kw">else </span>{
                         <span class="comment">// File is closed
                         // problem with the abstraction, we can&#39;t call unlink because there&#39;s no handle

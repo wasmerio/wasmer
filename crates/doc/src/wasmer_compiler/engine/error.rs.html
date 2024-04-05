@@ -52,7 +52,7 @@
 <a href="#52" id="52">52</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! The WebAssembly possible errors
 </span><span class="kw">use </span>thiserror::Error;
-<span class="kw">pub use </span>wasmer_types::{DeserializeError, ImportError, SerializeError};
+<span class="kw">pub use </span>wasmer_types::ImportError;
 <span class="attr">#[cfg(not(target_arch = <span class="string">&quot;wasm32&quot;</span>))]
 </span><span class="kw">use </span>wasmer_vm::Trap;
 

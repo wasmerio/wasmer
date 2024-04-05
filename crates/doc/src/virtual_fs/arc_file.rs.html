@@ -179,15 +179,11 @@
 <a href="#179" id="179">179</a>
 <a href="#180" id="180">180</a>
 <a href="#181" id="181">181</a>
-<a href="#182" id="182">182</a>
-<a href="#183" id="183">183</a>
-<a href="#184" id="184">184</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Used for sharing references to the same file across multiple file systems,
 //! effectively this is a symbolic link without all the complex path redirection
 
 </span><span class="kw">use crate</span>::{ClonableVirtualFile, VirtualFile};
 <span class="kw">use </span>derivative::Derivative;
-<span class="kw">use </span>futures::future::BoxFuture;
 <span class="kw">use </span>std::pin::Pin;
 <span class="kw">use </span>std::task::{Context, Poll};
 <span class="kw">use </span>std::{
@@ -311,11 +307,9 @@
         <span class="kw">let </span><span class="kw-2">mut </span>inner = <span class="self">self</span>.inner.lock().unwrap();
         inner.set_len(new_size)
     }
-    <span class="kw">fn </span>unlink(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; BoxFuture&lt;<span class="lifetime">&#39;static</span>, <span class="kw">crate</span>::Result&lt;()&gt;&gt; {
+    <span class="kw">fn </span>unlink(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="kw">crate</span>::Result&lt;()&gt; {
         <span class="kw">let </span><span class="kw-2">mut </span>inner = <span class="self">self</span>.inner.lock().unwrap();
-        <span class="kw">let </span>fut = inner.unlink();
-        drop(inner);
-        Box::pin(fut)
+        inner.unlink()
     }
     <span class="kw">fn </span>is_open(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
         <span class="kw">let </span>inner = <span class="self">self</span>.inner.lock().unwrap();
