@@ -11,6 +11,9 @@ Looking for changes that affect our C API? See the [C API Changelog](lib/c-api/C
 
 ## 4.2.8 - 05/04/2024
 
+This release improves journal support and improves the performance of the singlepass backend.
+Also contains fixes to the Edge CLI.
+
 ## Added
 
   - [#4510](https://github.com/wasmerio/wasmer/pull/4510) Added support for creating log file journals directly from buffers
@@ -23,8 +26,6 @@ Looking for changes that affect our C API? See the [C API Changelog](lib/c-api/C
   - [#4539](https://github.com/wasmerio/wasmer/pull/4539) deps: Upgrade h2 due to RUSTSEC advisory
   - [#4527](https://github.com/wasmerio/wasmer/pull/4527) allow owner field in app.yaml
   - [#4526](https://github.com/wasmerio/wasmer/pull/4526) feat(singlepass): use SIMD insts for popcount
-  - [#4501](https://github.com/wasmerio/wasmer/pull/4501) Support interpreted host functions
-  - [#4492](https://github.com/wasmerio/wasmer/pull/4492) No longer restoring the thread local memory when we longjmp
   - [#4507](https://github.com/wasmerio/wasmer/pull/4507) deps: Upgrade edge-schema to 0.0.3
   - [#4462](https://github.com/wasmerio/wasmer/pull/4462) DProxy
 
