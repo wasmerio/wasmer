@@ -1,7 +1,6 @@
 //! Used for /dev/zero - infinitely returns zero
 //! which is useful for commands like `dd if=/dev/zero of=bigfile.img size=1G`
 
-use futures::future::BoxFuture;
 use replace_with::replace_with_or_abort;
 use std::io::{self, *};
 use std::pin::Pin;
@@ -205,9 +204,8 @@ impl VirtualFile for CopyOnWriteFile {
     fn set_len(&mut self, new_size: u64) -> crate::Result<()> {
         self.buf.set_len(new_size)
     }
-    fn unlink(&mut self) -> BoxFuture<'static, crate::Result<()>> {
-        let ret = self.buf.set_len(0);
-        Box::pin(async move { ret })
+    fn unlink(&mut self) -> crate::Result<()> {
+        self.buf.set_len(0)
     }
     fn poll_read_ready(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<usize>> {
         match self.poll_copy_progress(cx) {

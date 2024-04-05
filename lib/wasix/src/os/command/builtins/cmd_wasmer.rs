@@ -40,7 +40,7 @@ pub struct CmdWasmer {
 }
 
 impl CmdWasmer {
-    const NAME: &str = "wasmer";
+    const NAME: &'static str = "wasmer";
 
     pub fn new(runtime: Arc<dyn Runtime + Send + Sync + 'static>) -> Self {
         Self { runtime }
