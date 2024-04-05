@@ -2575,17 +2575,28 @@ impl EmitterARM64 for Assembler {
         reg: Location,
         label: Label,
     ) -> Result<(), CompileError> {
+        let near_label: Label = self.get_label();
+        let continue_label: Label = self.get_label();
+
         match (sz, reg) {
             (Size::S32, Location::GPR(reg)) => {
                 let reg = reg.into_index() as u32;
-                dynasm!(self ; cbz W(reg), =>label);
+
+                dynasm!(self ; cbz W(reg), => near_label);
+                dynasm!(self ; b => continue_label);
             }
             (Size::S64, Location::GPR(reg)) => {
                 let reg = reg.into_index() as u32;
-                dynasm!(self ; cbz X(reg), =>label);
+                dynasm!(self ; cbz W(reg), => label);
+                dynasm!(self ; b => continue_label);
             }
             _ => codegen_error!("singlepass can't emit CBZ {:?} {:?} {:?}", sz, reg, label),
         }
+        self.emit_label(near_label)?;
+        dynasm!(self ; b => label );
+
+        self.emit_label(continue_label)?;
+
         Ok(())
     }
     fn emit_cbnz_label(
@@ -2594,17 +2605,28 @@ impl EmitterARM64 for Assembler {
         reg: Location,
         label: Label,
     ) -> Result<(), CompileError> {
+        let near_label: Label = self.get_label();
+        let continue_label: Label = self.get_label();
+
         match (sz, reg) {
             (Size::S32, Location::GPR(reg)) => {
                 let reg = reg.into_index() as u32;
-                dynasm!(self ; cbnz W(reg), =>label);
+                dynasm!(self ; cbnz W(reg), => near_label);
+                dynasm!(self ; b => continue_label);
             }
             (Size::S64, Location::GPR(reg)) => {
                 let reg = reg.into_index() as u32;
-                dynasm!(self ; cbnz X(reg), =>label);
+                dynasm!(self ; cbnz W(reg), => label);
+                dynasm!(self ; b => continue_label);
             }
             _ => codegen_error!("singlepass can't emit CBNZ {:?} {:?} {:?}", sz, reg, label),
         }
+
+        self.emit_label(near_label)?;
+        dynasm!(self ; b => label );
+
+        self.emit_label(continue_label)?;
+
         Ok(())
     }
     fn emit_tbz_label(
