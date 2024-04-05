@@ -347,6 +347,8 @@ that takes a [<code>Captures</code>] and returns the replaced string.</p>
 <p>If no match is found, then the haystack is returned unchanged. In that
 case, this implementation will likely return a <code>Cow::Borrowed</code> value
 such that no allocation is performed.</p>
+<p>When a <code>Cow::Borrowed</code> is returned, the value returned is guaranteed
+to be equivalent to the <code>haystack</code> given.</p>
 <h5 id="replacement-string-syntax"><a href="#replacement-string-syntax">Replacement string syntax</a></h5>
 <p>All instances of <code>$ref</code> in the replacement string are replaced with
 the substring corresponding to the capture group identified by <code>ref</code>.</p>
@@ -420,6 +422,11 @@ need to be parsed for the <code>$</code> syntax.</p>
     R: Replacer,</span></h4></section></summary><div class="docblock"><p>Replaces all non-overlapping matches in the haystack with the
 replacement provided. This is the same as calling <code>replacen</code> with
 <code>limit</code> set to <code>0</code>.</p>
+<p>If no match is found, then the haystack is returned unchanged. In that
+case, this implementation will likely return a <code>Cow::Borrowed</code> value
+such that no allocation is performed.</p>
+<p>When a <code>Cow::Borrowed</code> is returned, the value returned is guaranteed
+to be equivalent to the <code>haystack</code> given.</p>
 <p>The documentation for [<code>Regex::replace</code>] goes into more detail about
 what kinds of replacement strings are supported.</p>
 <h5 id="time-complexity-4"><a href="#time-complexity-4">Time complexity</a></h5>
@@ -500,6 +507,11 @@ TheRiver 1980
 the replacement provided. If <code>limit</code> is <code>0</code>, then all non-overlapping
 matches are replaced. That is, <code>Regex::replace_all(hay, rep)</code> is
 equivalent to <code>Regex::replacen(hay, 0, rep)</code>.</p>
+<p>If no match is found, then the haystack is returned unchanged. In that
+case, this implementation will likely return a <code>Cow::Borrowed</code> value
+such that no allocation is performed.</p>
+<p>When a <code>Cow::Borrowed</code> is returned, the value returned is guaranteed
+to be equivalent to the <code>haystack</code> given.</p>
 <p>The documentation for [<code>Regex::replace</code>] goes into more detail about
 what kinds of replacement strings are supported.</p>
 <h5 id="time-complexity-5"><a href="#time-complexity-5">Time complexity</a></h5>

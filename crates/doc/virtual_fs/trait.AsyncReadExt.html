@@ -268,6 +268,10 @@ read into <code>buf</code>.</p>
 syscalls.</p>
 <h5 id="errors-3"><a href="#errors-3">Errors</a></h5>
 <p>This method returns the same errors as <a href="trait.AsyncReadExt.html#method.read_exact" title="method virtual_fs::AsyncReadExt::read_exact"><code>AsyncReadExt::read_exact</code></a>.</p>
+<h5 id="cancel-safety-3"><a href="#cancel-safety-3">Cancel safety</a></h5>
+<p>This method is cancel safe. If this method is used as an event in a
+<a href="crate::select"><code>tokio::select!</code></a> statement and some other branch
+completes first, it is guaranteed that no data were read.</p>
 <h5 id="examples-4"><a href="#examples-4">Examples</a></h5>
 <p>Read unsigned 8 bit integers from an <code>AsyncRead</code>:</p>
 
@@ -293,6 +297,10 @@ syscalls.</p>
 syscalls.</p>
 <h5 id="errors-4"><a href="#errors-4">Errors</a></h5>
 <p>This method returns the same errors as <a href="trait.AsyncReadExt.html#method.read_exact" title="method virtual_fs::AsyncReadExt::read_exact"><code>AsyncReadExt::read_exact</code></a>.</p>
+<h5 id="cancel-safety-4"><a href="#cancel-safety-4">Cancel safety</a></h5>
+<p>This method is cancel safe. If this method is used as an event in a
+<a href="crate::select"><code>tokio::select!</code></a> statement and some other branch
+completes first, it is guaranteed that no data were read.</p>
 <h5 id="examples-5"><a href="#examples-5">Examples</a></h5>
 <p>Read unsigned 8 bit integers from an <code>AsyncRead</code>:</p>
 
@@ -319,6 +327,10 @@ underlying reader.</p>
 syscalls.</p>
 <h5 id="errors-5"><a href="#errors-5">Errors</a></h5>
 <p>This method returns the same errors as <a href="trait.AsyncReadExt.html#method.read_exact" title="method virtual_fs::AsyncReadExt::read_exact"><code>AsyncReadExt::read_exact</code></a>.</p>
+<h5 id="cancel-safety-5"><a href="#cancel-safety-5">Cancel safety</a></h5>
+<p>This method is not cancellation safe. If the method is used as the
+event in a <a href="crate::select"><code>tokio::select!</code></a> statement and some
+other branch completes first, then some data may be lost.</p>
 <h5 id="examples-6"><a href="#examples-6">Examples</a></h5>
 <p>Read unsigned 16 bit big-endian integers from a <code>AsyncRead</code>:</p>
 
@@ -344,6 +356,10 @@ underlying reader.</p>
 syscalls.</p>
 <h5 id="errors-6"><a href="#errors-6">Errors</a></h5>
 <p>This method returns the same errors as <a href="trait.AsyncReadExt.html#method.read_exact" title="method virtual_fs::AsyncReadExt::read_exact"><code>AsyncReadExt::read_exact</code></a>.</p>
+<h5 id="cancel-safety-6"><a href="#cancel-safety-6">Cancel safety</a></h5>
+<p>This method is not cancellation safe. If the method is used as the
+event in a <a href="crate::select"><code>tokio::select!</code></a> statement and some
+other branch completes first, then some data may be lost.</p>
 <h5 id="examples-7"><a href="#examples-7">Examples</a></h5>
 <p>Read signed 16 bit big-endian integers from a <code>AsyncRead</code>:</p>
 
@@ -369,6 +385,10 @@ underlying reader.</p>
 syscalls.</p>
 <h5 id="errors-7"><a href="#errors-7">Errors</a></h5>
 <p>This method returns the same errors as <a href="trait.AsyncReadExt.html#method.read_exact" title="method virtual_fs::AsyncReadExt::read_exact"><code>AsyncReadExt::read_exact</code></a>.</p>
+<h5 id="cancel-safety-7"><a href="#cancel-safety-7">Cancel safety</a></h5>
+<p>This method is not cancellation safe. If the method is used as the
+event in a <a href="crate::select"><code>tokio::select!</code></a> statement and some
+other branch completes first, then some data may be lost.</p>
 <h5 id="examples-8"><a href="#examples-8">Examples</a></h5>
 <p>Read unsigned 32-bit big-endian integers from a <code>AsyncRead</code>:</p>
 
@@ -393,6 +413,10 @@ underlying reader.</p>
 syscalls.</p>
 <h5 id="errors-8"><a href="#errors-8">Errors</a></h5>
 <p>This method returns the same errors as <a href="trait.AsyncReadExt.html#method.read_exact" title="method virtual_fs::AsyncReadExt::read_exact"><code>AsyncReadExt::read_exact</code></a>.</p>
+<h5 id="cancel-safety-8"><a href="#cancel-safety-8">Cancel safety</a></h5>
+<p>This method is not cancellation safe. If the method is used as the
+event in a <a href="crate::select"><code>tokio::select!</code></a> statement and some
+other branch completes first, then some data may be lost.</p>
 <h5 id="examples-9"><a href="#examples-9">Examples</a></h5>
 <p>Read signed 32-bit big-endian integers from a <code>AsyncRead</code>:</p>
 
@@ -417,6 +441,10 @@ underlying reader.</p>
 syscalls.</p>
 <h5 id="errors-9"><a href="#errors-9">Errors</a></h5>
 <p>This method returns the same errors as <a href="trait.AsyncReadExt.html#method.read_exact" title="method virtual_fs::AsyncReadExt::read_exact"><code>AsyncReadExt::read_exact</code></a>.</p>
+<h5 id="cancel-safety-9"><a href="#cancel-safety-9">Cancel safety</a></h5>
+<p>This method is not cancellation safe. If the method is used as the
+event in a <a href="crate::select"><code>tokio::select!</code></a> statement and some
+other branch completes first, then some data may be lost.</p>
 <h5 id="examples-10"><a href="#examples-10">Examples</a></h5>
 <p>Read unsigned 64-bit big-endian integers from a <code>AsyncRead</code>:</p>
 
@@ -443,6 +471,10 @@ underlying reader.</p>
 syscalls.</p>
 <h5 id="errors-10"><a href="#errors-10">Errors</a></h5>
 <p>This method returns the same errors as <a href="trait.AsyncReadExt.html#method.read_exact" title="method virtual_fs::AsyncReadExt::read_exact"><code>AsyncReadExt::read_exact</code></a>.</p>
+<h5 id="cancel-safety-10"><a href="#cancel-safety-10">Cancel safety</a></h5>
+<p>This method is not cancellation safe. If the method is used as the
+event in a <a href="crate::select"><code>tokio::select!</code></a> statement and some
+other branch completes first, then some data may be lost.</p>
 <h5 id="examples-11"><a href="#examples-11">Examples</a></h5>
 <p>Read signed 64-bit big-endian integers from a <code>AsyncRead</code>:</p>
 
@@ -467,6 +499,10 @@ underlying reader.</p>
 syscalls.</p>
 <h5 id="errors-11"><a href="#errors-11">Errors</a></h5>
 <p>This method returns the same errors as <a href="trait.AsyncReadExt.html#method.read_exact" title="method virtual_fs::AsyncReadExt::read_exact"><code>AsyncReadExt::read_exact</code></a>.</p>
+<h5 id="cancel-safety-11"><a href="#cancel-safety-11">Cancel safety</a></h5>
+<p>This method is not cancellation safe. If the method is used as the
+event in a <a href="crate::select"><code>tokio::select!</code></a> statement and some
+other branch completes first, then some data may be lost.</p>
 <h5 id="examples-12"><a href="#examples-12">Examples</a></h5>
 <p>Read unsigned 128-bit big-endian integers from a <code>AsyncRead</code>:</p>
 
@@ -494,6 +530,10 @@ underlying reader.</p>
 syscalls.</p>
 <h5 id="errors-12"><a href="#errors-12">Errors</a></h5>
 <p>This method returns the same errors as <a href="trait.AsyncReadExt.html#method.read_exact" title="method virtual_fs::AsyncReadExt::read_exact"><code>AsyncReadExt::read_exact</code></a>.</p>
+<h5 id="cancel-safety-12"><a href="#cancel-safety-12">Cancel safety</a></h5>
+<p>This method is not cancellation safe. If the method is used as the
+event in a <a href="crate::select"><code>tokio::select!</code></a> statement and some
+other branch completes first, then some data may be lost.</p>
 <h5 id="examples-13"><a href="#examples-13">Examples</a></h5>
 <p>Read signed 128-bit big-endian integers from a <code>AsyncRead</code>:</p>
 
@@ -521,6 +561,10 @@ underlying reader.</p>
 syscalls.</p>
 <h5 id="errors-13"><a href="#errors-13">Errors</a></h5>
 <p>This method returns the same errors as <a href="trait.AsyncReadExt.html#method.read_exact" title="method virtual_fs::AsyncReadExt::read_exact"><code>AsyncReadExt::read_exact</code></a>.</p>
+<h5 id="cancel-safety-13"><a href="#cancel-safety-13">Cancel safety</a></h5>
+<p>This method is not cancellation safe. If the method is used as the
+event in a <a href="crate::select"><code>tokio::select!</code></a> statement and some
+other branch completes first, then some data may be lost.</p>
 <h5 id="examples-14"><a href="#examples-14">Examples</a></h5>
 <p>Read 32-bit floating point type from a <code>AsyncRead</code>:</p>
 
@@ -545,6 +589,10 @@ underlying reader.</p>
 syscalls.</p>
 <h5 id="errors-14"><a href="#errors-14">Errors</a></h5>
 <p>This method returns the same errors as <a href="trait.AsyncReadExt.html#method.read_exact" title="method virtual_fs::AsyncReadExt::read_exact"><code>AsyncReadExt::read_exact</code></a>.</p>
+<h5 id="cancel-safety-14"><a href="#cancel-safety-14">Cancel safety</a></h5>
+<p>This method is not cancellation safe. If the method is used as the
+event in a <a href="crate::select"><code>tokio::select!</code></a> statement and some
+other branch completes first, then some data may be lost.</p>
 <h5 id="examples-15"><a href="#examples-15">Examples</a></h5>
 <p>Read 64-bit floating point type from a <code>AsyncRead</code>:</p>
 
@@ -571,6 +619,10 @@ underlying reader.</p>
 syscalls.</p>
 <h5 id="errors-15"><a href="#errors-15">Errors</a></h5>
 <p>This method returns the same errors as <a href="trait.AsyncReadExt.html#method.read_exact" title="method virtual_fs::AsyncReadExt::read_exact"><code>AsyncReadExt::read_exact</code></a>.</p>
+<h5 id="cancel-safety-15"><a href="#cancel-safety-15">Cancel safety</a></h5>
+<p>This method is not cancellation safe. If the method is used as the
+event in a <a href="crate::select"><code>tokio::select!</code></a> statement and some
+other branch completes first, then some data may be lost.</p>
 <h5 id="examples-16"><a href="#examples-16">Examples</a></h5>
 <p>Read unsigned 16 bit little-endian integers from a <code>AsyncRead</code>:</p>
 
@@ -596,6 +648,10 @@ underlying reader.</p>
 syscalls.</p>
 <h5 id="errors-16"><a href="#errors-16">Errors</a></h5>
 <p>This method returns the same errors as <a href="trait.AsyncReadExt.html#method.read_exact" title="method virtual_fs::AsyncReadExt::read_exact"><code>AsyncReadExt::read_exact</code></a>.</p>
+<h5 id="cancel-safety-16"><a href="#cancel-safety-16">Cancel safety</a></h5>
+<p>This method is not cancellation safe. If the method is used as the
+event in a <a href="crate::select"><code>tokio::select!</code></a> statement and some
+other branch completes first, then some data may be lost.</p>
 <h5 id="examples-17"><a href="#examples-17">Examples</a></h5>
 <p>Read signed 16 bit little-endian integers from a <code>AsyncRead</code>:</p>
 
@@ -621,6 +677,10 @@ underlying reader.</p>
 syscalls.</p>
 <h5 id="errors-17"><a href="#errors-17">Errors</a></h5>
 <p>This method returns the same errors as <a href="trait.AsyncReadExt.html#method.read_exact" title="method virtual_fs::AsyncReadExt::read_exact"><code>AsyncReadExt::read_exact</code></a>.</p>
+<h5 id="cancel-safety-17"><a href="#cancel-safety-17">Cancel safety</a></h5>
+<p>This method is not cancellation safe. If the method is used as the
+event in a <a href="crate::select"><code>tokio::select!</code></a> statement and some
+other branch completes first, then some data may be lost.</p>
 <h5 id="examples-18"><a href="#examples-18">Examples</a></h5>
 <p>Read unsigned 32-bit little-endian integers from a <code>AsyncRead</code>:</p>
 
@@ -645,6 +705,10 @@ underlying reader.</p>
 syscalls.</p>
 <h5 id="errors-18"><a href="#errors-18">Errors</a></h5>
 <p>This method returns the same errors as <a href="trait.AsyncReadExt.html#method.read_exact" title="method virtual_fs::AsyncReadExt::read_exact"><code>AsyncReadExt::read_exact</code></a>.</p>
+<h5 id="cancel-safety-18"><a href="#cancel-safety-18">Cancel safety</a></h5>
+<p>This method is not cancellation safe. If the method is used as the
+event in a <a href="crate::select"><code>tokio::select!</code></a> statement and some
+other branch completes first, then some data may be lost.</p>
 <h5 id="examples-19"><a href="#examples-19">Examples</a></h5>
 <p>Read signed 32-bit little-endian integers from a <code>AsyncRead</code>:</p>
 
@@ -669,6 +733,10 @@ underlying reader.</p>
 syscalls.</p>
 <h5 id="errors-19"><a href="#errors-19">Errors</a></h5>
 <p>This method returns the same errors as <a href="trait.AsyncReadExt.html#method.read_exact" title="method virtual_fs::AsyncReadExt::read_exact"><code>AsyncReadExt::read_exact</code></a>.</p>
+<h5 id="cancel-safety-19"><a href="#cancel-safety-19">Cancel safety</a></h5>
+<p>This method is not cancellation safe. If the method is used as the
+event in a <a href="crate::select"><code>tokio::select!</code></a> statement and some
+other branch completes first, then some data may be lost.</p>
 <h5 id="examples-20"><a href="#examples-20">Examples</a></h5>
 <p>Read unsigned 64-bit little-endian integers from a <code>AsyncRead</code>:</p>
 
@@ -695,6 +763,10 @@ underlying reader.</p>
 syscalls.</p>
 <h5 id="errors-20"><a href="#errors-20">Errors</a></h5>
 <p>This method returns the same errors as <a href="trait.AsyncReadExt.html#method.read_exact" title="method virtual_fs::AsyncReadExt::read_exact"><code>AsyncReadExt::read_exact</code></a>.</p>
+<h5 id="cancel-safety-20"><a href="#cancel-safety-20">Cancel safety</a></h5>
+<p>This method is not cancellation safe. If the method is used as the
+event in a <a href="crate::select"><code>tokio::select!</code></a> statement and some
+other branch completes first, then some data may be lost.</p>
 <h5 id="examples-21"><a href="#examples-21">Examples</a></h5>
 <p>Read signed 64-bit little-endian integers from a <code>AsyncRead</code>:</p>
 
@@ -719,6 +791,10 @@ underlying reader.</p>
 syscalls.</p>
 <h5 id="errors-21"><a href="#errors-21">Errors</a></h5>
 <p>This method returns the same errors as <a href="trait.AsyncReadExt.html#method.read_exact" title="method virtual_fs::AsyncReadExt::read_exact"><code>AsyncReadExt::read_exact</code></a>.</p>
+<h5 id="cancel-safety-21"><a href="#cancel-safety-21">Cancel safety</a></h5>
+<p>This method is not cancellation safe. If the method is used as the
+event in a <a href="crate::select"><code>tokio::select!</code></a> statement and some
+other branch completes first, then some data may be lost.</p>
 <h5 id="examples-22"><a href="#examples-22">Examples</a></h5>
 <p>Read unsigned 128-bit little-endian integers from a <code>AsyncRead</code>:</p>
 
@@ -746,6 +822,10 @@ underlying reader.</p>
 syscalls.</p>
 <h5 id="errors-22"><a href="#errors-22">Errors</a></h5>
 <p>This method returns the same errors as <a href="trait.AsyncReadExt.html#method.read_exact" title="method virtual_fs::AsyncReadExt::read_exact"><code>AsyncReadExt::read_exact</code></a>.</p>
+<h5 id="cancel-safety-22"><a href="#cancel-safety-22">Cancel safety</a></h5>
+<p>This method is not cancellation safe. If the method is used as the
+event in a <a href="crate::select"><code>tokio::select!</code></a> statement and some
+other branch completes first, then some data may be lost.</p>
 <h5 id="examples-23"><a href="#examples-23">Examples</a></h5>
 <p>Read signed 128-bit little-endian integers from a <code>AsyncRead</code>:</p>
 
@@ -773,6 +853,10 @@ underlying reader.</p>
 syscalls.</p>
 <h5 id="errors-23"><a href="#errors-23">Errors</a></h5>
 <p>This method returns the same errors as <a href="trait.AsyncReadExt.html#method.read_exact" title="method virtual_fs::AsyncReadExt::read_exact"><code>AsyncReadExt::read_exact</code></a>.</p>
+<h5 id="cancel-safety-23"><a href="#cancel-safety-23">Cancel safety</a></h5>
+<p>This method is not cancellation safe. If the method is used as the
+event in a <a href="crate::select"><code>tokio::select!</code></a> statement and some
+other branch completes first, then some data may be lost.</p>
 <h5 id="examples-24"><a href="#examples-24">Examples</a></h5>
 <p>Read 32-bit floating point type from a <code>AsyncRead</code>:</p>
 
@@ -797,6 +881,10 @@ underlying reader.</p>
 syscalls.</p>
 <h5 id="errors-24"><a href="#errors-24">Errors</a></h5>
 <p>This method returns the same errors as <a href="trait.AsyncReadExt.html#method.read_exact" title="method virtual_fs::AsyncReadExt::read_exact"><code>AsyncReadExt::read_exact</code></a>.</p>
+<h5 id="cancel-safety-24"><a href="#cancel-safety-24">Cancel safety</a></h5>
+<p>This method is not cancellation safe. If the method is used as the
+event in a <a href="crate::select"><code>tokio::select!</code></a> statement and some
+other branch completes first, then some data may be lost.</p>
 <h5 id="examples-25"><a href="#examples-25">Examples</a></h5>
 <p>Read 64-bit floating point type from a <code>AsyncRead</code>:</p>
 
