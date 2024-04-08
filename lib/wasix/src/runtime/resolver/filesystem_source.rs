@@ -31,7 +31,7 @@ impl Source for FileSystemSource {
         let url = crate::runtime::resolver::utils::url_from_file_path(&path)
             .ok_or_else(|| anyhow::anyhow!("Unable to turn \"{}\" into a URL", path.display()))?;
 
-        let pkg = PackageInfo::from_manifest(container.manifest())
+        let pkg = PackageInfo::from_manifest(container.manifest(), container.webc_version())
             .context("Unable to determine the package's metadata")?;
         let summary = PackageSummary {
             pkg,

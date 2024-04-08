@@ -336,24 +336,23 @@ fn filesystem(
         // Note: We want to reuse existing Volume instances if we can. That way
         // we can keep the memory usage down. A webc::compat::Volume is
         // reference-counted, anyway.
+        // looks like we need to insert it
+        let container = packages.get(package).with_context(|| {
+            format!(
+                "\"{}\" wants to use the \"{}\" package, but it isn't in the dependency tree",
+                pkg.root_package, package,
+            )
+        })?;
         let container_volumes = match volumes.entry(package) {
             std::collections::hash_map::Entry::Occupied(entry) => &*entry.into_mut(),
-            std::collections::hash_map::Entry::Vacant(entry) => {
-                // looks like we need to insert it
-                let container = packages.get(package)
-                    .with_context(|| format!(
-                        "\"{}\" wants to use the \"{}\" package, but it isn't in the dependency tree",
-                        pkg.root_package,
-                        package,
-                    ))?;
-                &*entry.insert(container.volumes())
-            }
+            std::collections::hash_map::Entry::Vacant(entry) => &*entry.insert(container.volumes()),
         };
 
         let volume = container_volumes.get(volume_name).with_context(|| {
             format!("The \"{package}\" package doesn't have a \"{volume_name}\" volume")
         })?;
 
+        let webc_version = container.webc_version();
         let original_path = PathBuf::from(original_path);
         let mount_path = mount_path.clone();
         // Get a filesystem which will map "$mount_dir/some-path" to
@@ -363,8 +362,14 @@ fn filesystem(
                 let without_mount_dir = path
                     .strip_prefix(&mount_path)
                     .map_err(|_| virtual_fs::FsError::BaseNotDirectory)?;
-                let path_on_original_volume = original_path.join(without_mount_dir);
-                Ok(path_on_original_volume)
+
+                let path_in_volume = if webc_version == webc::Version::V2 {
+                    original_path.join(without_mount_dir)
+                } else {
+                    without_mount_dir.to_path_buf()
+                };
+
+                Ok(path_in_volume)
             });
 
         filesystems.push(fs);

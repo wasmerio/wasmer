@@ -166,7 +166,7 @@ impl PackageSummary {
             anyhow::anyhow!("Unable to turn \"{}\" into a file:// URL", path.display())
         })?;
 
-        let pkg = PackageInfo::from_manifest(container.manifest())?;
+        let pkg = PackageInfo::from_manifest(container.manifest(), container.webc_version())?;
         let dist = DistributionInfo {
             webc: url,
             webc_sha256,
@@ -194,7 +194,7 @@ pub struct PackageInfo {
 }
 
 impl PackageInfo {
-    pub fn from_manifest(manifest: &Manifest) -> Result<Self, Error> {
+    pub fn from_manifest(manifest: &Manifest, webc_version: webc::Version) -> Result<Self, Error> {
         let wapm_annotations = manifest.wapm()?;
 
         let name = wapm_annotations
@@ -230,7 +230,7 @@ impl PackageInfo {
             })
             .collect();
 
-        let filesystem = filesystem_mapping_from_manifest(manifest)?;
+        let filesystem = filesystem_mapping_from_manifest(manifest, webc_version)?;
 
         Ok(PackageInfo {
             name,
@@ -253,6 +253,7 @@ impl PackageInfo {
 
 fn filesystem_mapping_from_manifest(
     manifest: &Manifest,
+    webc_version: webc::Version,
 ) -> Result<Vec<FileSystemMapping>, serde_cbor::Error> {
     match manifest.filesystem()? {
         Some(webc::metadata::annotations::FileSystemMappings(mappings)) => {
@@ -269,10 +270,20 @@ fn filesystem_mapping_from_manifest(
             Ok(mappings)
         }
         None => {
-            tracing::debug!(
-                "No \"fs\" package annotations found. Mounting the \"atom\" volume to \"/\" for compatibility."
-            );
-            Ok(vec![])
+            if webc_version == webc::Version::V2 {
+                tracing::debug!(
+                    "No \"fs\" package annotations found. Mounting the \"atom\" volume to \"/\" for compatibility."
+                );
+                Ok(vec![FileSystemMapping {
+                    volume_name: "atom".to_string(),
+                    mount_path: "/".to_string(),
+                    original_path: "/".to_string(),
+                    dependency_name: None,
+                }])
+            } else {
+                // There is no atom volume in v3 by default, so we return an empty Vec.
+                Ok(vec![])
+            }
         }
     }
 }

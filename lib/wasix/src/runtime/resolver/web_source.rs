@@ -247,7 +247,7 @@ impl Source for WebSource {
         // our HTTP client gave us because then we can use memory-mapped files
         let container = crate::block_in_place(|| Container::from_disk(&local_path))
             .with_context(|| format!("Unable to load \"{}\"", local_path.display()))?;
-        let pkg = PackageInfo::from_manifest(container.manifest())
+        let pkg = PackageInfo::from_manifest(container.manifest(), container.webc_version())
             .context("Unable to determine the package's metadata")?;
 
         let dist = DistributionInfo {

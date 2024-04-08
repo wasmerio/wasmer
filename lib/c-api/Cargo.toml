@@ -33,7 +33,7 @@ wasmer-emscripten = { version = "=4.2.7", path = "../emscripten", optional = tru
 wasmer-middlewares = { version = "=4.2.7", path = "../middlewares", optional = true }
 wasmer-types = { version = "=4.2.7", path = "../types" }
 wasmer-wasix = { version = "0.18.2", path = "../wasix", features = ["host-fs", "host-vnet"], optional = true }
-webc = { path="/home/ayush/git/pirita/crates/webc/", optional = true }
+webc = { path="/home/amin/projects/pirita/crates/webc/", optional = true }
 virtual-fs = { version = "0.11.1", path = "../virtual-fs", optional = true, default-features = false, features = ["static-fs"] }
 enumset.workspace = true
 cfg-if = "1.0"

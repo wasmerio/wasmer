@@ -1,4 +1,5 @@
 use std::{
+    io::Read,
     path::PathBuf,
     sync::Arc,
     time::{Duration, SystemTime},
@@ -261,8 +262,19 @@ fn decode_summary(pkg_version: WapmWebQueryGetPackageVersion) -> Result<PackageS
 
     let webc_sha256 = WebcHash::parse_hex(&hash).context("invalid webc sha256 hash in manifest")?;
 
+    // Read the first 8 bytes of the webc file to determine its version
+    let client = reqwest::blocking::Client::new();
+    let mut response = client
+        .get(webc.clone())
+        .header("Range", "bytes=0-7")
+        .send()?;
+    let mut buffer = [0u8; 8];
+    response.copy_to(&mut buffer.as_mut_slice())?;
+    let raw_version = <[u8; 3]>::try_from(&buffer[5..8]).unwrap();
+    let version = webc::Version::from(&raw_version);
+
     Ok(PackageSummary {
-        pkg: PackageInfo::from_manifest(&manifest)?,
+        pkg: PackageInfo::from_manifest(&manifest, version)?,
         dist: DistributionInfo { webc, webc_sha256 },
     })
 }
