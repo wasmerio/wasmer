@@ -31,6 +31,7 @@ compile_error!("Both the `std` and `core` features are disabled. Please enable o
 #[cfg(feature = "core")]
 extern crate alloc;
 
+#[allow(unused_imports)]
 mod lib {
     #[cfg(feature = "core")]
     pub mod std {

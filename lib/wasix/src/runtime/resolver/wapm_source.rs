@@ -29,8 +29,8 @@ pub struct WapmSource {
 }
 
 impl WapmSource {
-    pub const WASMER_DEV_ENDPOINT: &str = "https://registry.wasmer.wtf/graphql";
-    pub const WASMER_PROD_ENDPOINT: &str = "https://registry.wasmer.io/graphql";
+    pub const WASMER_DEV_ENDPOINT: &'static str = "https://registry.wasmer.wtf/graphql";
+    pub const WASMER_PROD_ENDPOINT: &'static str = "https://registry.wasmer.io/graphql";
 
     pub fn new(registry_endpoint: Url, client: Arc<dyn HttpClient + Send + Sync>) -> Self {
         WapmSource {
