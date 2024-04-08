@@ -5782,7 +5782,7 @@ dependencies = [
 
 [[package]]
 name = "virtual-net"
-version = "0.6.3"
+version = "0.6.4"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -6610,7 +6610,7 @@ version = "4.2.8"
 
 [[package]]
 name = "wasmer-journal"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "anyhow",
  "async-trait",
