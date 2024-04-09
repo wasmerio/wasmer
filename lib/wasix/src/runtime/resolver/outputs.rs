@@ -217,7 +217,7 @@ pub struct ResolvedFileSystemMapping {
     // TODO: Change this to a new type that isn't coupled to the OS
     pub mount_path: PathBuf,
     pub volume_name: String,
-    pub original_path: String,
+    pub original_path: Option<String>,
     pub package: PackageId,
 }
 

@@ -341,8 +341,8 @@ fn filesystem(
             )
         })?;
 
-        found_v2 |= container.webc_version() == webc::Version::V2;
-        found_v3 |= container.webc_version() == webc::Version::V3;
+        found_v2 |= container.version() == webc::Version::V2;
+        found_v3 |= container.version() == webc::Version::V3;
     }
 
     if found_v2 && !found_v3 {
@@ -444,7 +444,7 @@ fn filesystem_v2(
             format!("The \"{package}\" package doesn't have a \"{volume_name}\" volume")
         })?;
 
-        let original_path = PathBuf::from(original_path);
+        let original_path = PathBuf::from(original_path.clone().unwrap());
         let mount_path = mount_path.clone();
         // Get a filesystem which will map "$mount_dir/some-path" to
         // "$original_path/some-path" on the original volume

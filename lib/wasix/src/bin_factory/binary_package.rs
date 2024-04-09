@@ -82,7 +82,7 @@ impl BinaryPackage {
         rt: &(dyn Runtime + Send + Sync),
     ) -> Result<Self, anyhow::Error> {
         let source = rt.source();
-        let root = PackageInfo::from_manifest(container.manifest(), container.webc_version())?;
+        let root = PackageInfo::from_manifest(container.manifest(), container.version())?;
         let hash = container.webc_hash();
         let root_id = PackageId {
             package_name: root.name.clone(),

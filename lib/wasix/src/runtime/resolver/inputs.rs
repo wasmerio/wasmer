@@ -166,7 +166,7 @@ impl PackageSummary {
             anyhow::anyhow!("Unable to turn \"{}\" into a file:// URL", path.display())
         })?;
 
-        let pkg = PackageInfo::from_manifest(container.manifest(), container.webc_version())?;
+        let pkg = PackageInfo::from_manifest(container.manifest(), container.version())?;
         let dist = DistributionInfo {
             webc: url,
             webc_sha256,
@@ -277,7 +277,7 @@ fn filesystem_mapping_from_manifest(
                 Ok(vec![FileSystemMapping {
                     volume_name: "atom".to_string(),
                     mount_path: "/".to_string(),
-                    original_path: "/".to_string(),
+                    original_path: Some("/".to_string()),
                     dependency_name: None,
                 }])
             } else {
@@ -295,7 +295,7 @@ pub struct FileSystemMapping {
     /// Where the volume should be mounted within the resulting filesystem.
     pub mount_path: String,
     /// The path of the mapped item within its original volume.
-    pub original_path: String,
+    pub original_path: Option<String>,
     /// The name of the package this volume comes from (current package if
     /// `None`).
     pub dependency_name: Option<String>,
