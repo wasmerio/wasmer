@@ -27,20 +27,55 @@ pub struct ItemLocation {
     pub package: PackageId,
 }
 
-/// An identifier for a package within a dependency graph.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct PackageId {
-    pub package_name: String,
+pub struct PackageIdent {
+    pub name: String,
     pub version: Version,
+}
+
+impl Display for PackageIdent {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(f, "{}@{}", self.name, self.version)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub enum PackageId {
+    Named(PackageIdent),
+    HashSha256(String),
+}
+
+impl PackageId {
+    pub fn new_named(name: impl Into<String>, version: Version) -> Self {
+        Self::Named(PackageIdent {
+            name: name.into(),
+            version,
+        })
+    }
+
+    pub fn as_named(&self) -> Option<&PackageIdent> {
+        if let Self::Named(v) = self {
+            Some(v)
+        } else {
+            None
+        }
+    }
+
+    pub fn as_hash_sha256(&self) -> Option<&String> {
+        if let Self::HashSha256(v) = self {
+            Some(v)
+        } else {
+            None
+        }
+    }
 }
 
 impl Display for PackageId {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        let PackageId {
-            package_name,
-            version,
-        } = self;
-        write!(f, "{package_name}@{version}")
+        match self {
+            Self::Named(ident) => ident.fmt(f),
+            Self::HashSha256(hash) => write!(f, "sha256:{}", hash),
+        }
     }
 }
 

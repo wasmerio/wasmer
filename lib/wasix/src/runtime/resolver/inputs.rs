@@ -6,7 +6,7 @@ use std::{
     str::FromStr,
 };
 
-use anyhow::{Context, Error};
+use anyhow::{bail, Context, Error};
 use semver::{Version, VersionReq};
 use sha2::{Digest, Sha256};
 use url::Url;
@@ -16,6 +16,8 @@ use webc::{
 };
 
 use crate::runtime::resolver::PackageId;
+
+use super::outputs::PackageIdent;
 
 /// A reference to *some* package somewhere that the user wants to run.
 ///
@@ -32,6 +34,7 @@ pub enum PackageSpecifier {
         full_name: String,
         version: VersionReq,
     },
+    HashSha256(String),
     Url(Url),
     /// A `*.webc` file on disk.
     Path(PathBuf),
@@ -47,6 +50,14 @@ impl FromStr for PackageSpecifier {
     type Err = anyhow::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
+        if s.starts_with("sha256:") {
+            let rest = &s[7..];
+            if rest.len() != 64 {
+                bail!("Invalid sha256:{rest} package hash: not a valid sha256 hash, expected 64 characters");
+            }
+            return Ok(Self::HashSha256(rest.to_string()));
+        }
+
         // There is no function in std for checking if a string is a valid path
         // and we can't do Path::new(s).exists() because that assumes the
         // package being specified is on the local filesystem, so let's make a
@@ -112,6 +123,7 @@ impl Display for PackageSpecifier {
             }
             PackageSpecifier::Url(url) => Display::fmt(url, f),
             PackageSpecifier::Path(path) => write!(f, "{}", path.display()),
+            PackageSpecifier::HashSha256(hash) => write!(f, "sha256:{hash}"),
         }
     }
 }
@@ -231,10 +243,10 @@ impl PackageInfo {
     }
 
     pub fn id(&self) -> PackageId {
-        PackageId {
-            package_name: self.name.clone(),
+        PackageId::Named(PackageIdent {
+            name: self.name.clone(),
             version: self.version.clone(),
-        }
+        })
     }
 }
 

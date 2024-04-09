@@ -21,7 +21,7 @@ fn data_and_store_mut() -> Result<(), String> {
     );
     let mut envmut = env.into_mut(&mut store);
 
-    let (mut data, mut storemut) = envmut.data_and_store_mut();
+    let (data, mut storemut) = envmut.data_and_store_mut();
 
     assert_eq!(
         data.global.ty(&storemut),

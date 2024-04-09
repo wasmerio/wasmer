@@ -18,7 +18,7 @@ pub use self::{
     },
     multi_source::{MultiSource, MultiSourceStrategy},
     outputs::{
-        DependencyGraph, Edge, ItemLocation, Node, PackageId, Resolution,
+        DependencyGraph, Edge, ItemLocation, Node, PackageId, PackageIdent, Resolution,
         ResolvedFileSystemMapping, ResolvedPackage,
     },
     resolve::{resolve, ResolveError},

@@ -1,20 +1,22 @@
 use std::{
-    collections::{BTreeMap, VecDeque},
+    collections::{BTreeMap, HashMap, VecDeque},
     fs::File,
     path::{Path, PathBuf},
 };
 
 use anyhow::{Context, Error};
-use semver::Version;
 
 use crate::runtime::resolver::{PackageSpecifier, PackageSummary, QueryError, Source};
+
+use super::PackageId;
 
 /// A [`Source`] that tracks packages in memory.
 ///
 /// Primarily used during testing.
 #[derive(Debug, Default, Clone, PartialEq, Eq)]
 pub struct InMemorySource {
-    packages: BTreeMap<String, Vec<PackageSummary>>,
+    named_packages: BTreeMap<String, Vec<PackageSummary>>,
+    hash_packages: HashMap<String, PackageSummary>,
 }
 
 impl InMemorySource {
@@ -62,7 +64,10 @@ impl InMemorySource {
 
     /// Add a new [`PackageSummary`] to the [`InMemorySource`].
     pub fn add(&mut self, summary: PackageSummary) {
-        let summaries = self.packages.entry(summary.pkg.name.clone()).or_default();
+        let summaries = self
+            .named_packages
+            .entry(summary.pkg.name.clone())
+            .or_default();
         summaries.push(summary);
         summaries.sort_by(|left, right| left.pkg.version.cmp(&right.pkg.version));
         summaries.dedup_by(|left, right| left.pkg.version == right.pkg.version);
@@ -76,12 +81,13 @@ impl InMemorySource {
     }
 
     pub fn packages(&self) -> &BTreeMap<String, Vec<PackageSummary>> {
-        &self.packages
+        &self.named_packages
     }
 
-    pub fn get(&self, package_name: &str, version: &Version) -> Option<&PackageSummary> {
-        let summaries = self.packages.get(package_name)?;
-        summaries.iter().find(|s| s.pkg.version == *version)
+    pub fn get(&self, id: &PackageId) -> Option<&PackageSummary> {
+        let ident = id.as_named()?;
+        let summaries = self.named_packages.get(&ident.name)?;
+        summaries.iter().find(|s| s.pkg.version == ident.version)
     }
 }
 
@@ -91,7 +97,7 @@ impl Source for InMemorySource {
     async fn query(&self, package: &PackageSpecifier) -> Result<Vec<PackageSummary>, QueryError> {
         match package {
             PackageSpecifier::Registry { full_name, version } => {
-                match self.packages.get(full_name) {
+                match self.named_packages.get(full_name) {
                     Some(summaries) => {
                         let matches: Vec<_> = summaries
                             .iter()
@@ -117,6 +123,13 @@ impl Source for InMemorySource {
                     None => Err(QueryError::NotFound),
                 }
             }
+            PackageSpecifier::HashSha256(hash) => self
+                .hash_packages
+                .get(hash)
+                .map(|x| vec![x.clone()])
+                .ok_or_else(|| QueryError::NoMatches {
+                    archived_versions: Vec::new(),
+                }),
             PackageSpecifier::Url(_) | PackageSpecifier::Path(_) => Err(QueryError::Unsupported),
         }
     }
@@ -153,15 +166,15 @@ mod tests {
 
         assert_eq!(
             source
-                .packages
+                .named_packages
                 .keys()
                 .map(|k| k.as_str())
                 .collect::<Vec<_>>(),
             ["python", "sharrattj/bash", "sharrattj/coreutils"]
         );
-        assert_eq!(source.packages["sharrattj/coreutils"].len(), 2);
+        assert_eq!(source.named_packages["sharrattj/coreutils"].len(), 2);
         assert_eq!(
-            source.packages["sharrattj/bash"][0],
+            source.named_packages["sharrattj/bash"][0],
             PackageSummary {
                 pkg: PackageInfo {
                     name: "sharrattj/bash".to_string(),

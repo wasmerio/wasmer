@@ -17,6 +17,7 @@ use std::{
 
 use crate::{
     net::socket::InodeSocketKind,
+    runtime::resolver::PackageId,
     state::{Stderr, Stdin, Stdout},
 };
 use futures::{future::BoxFuture, Future, TryStreamExt};
@@ -492,7 +493,7 @@ pub struct WasiFs {
     #[cfg_attr(feature = "enable-serde", serde(skip, default))]
     pub root_fs: WasiFsRoot,
     pub root_inode: InodeGuard,
-    pub has_unioned: Arc<Mutex<HashSet<String>>>,
+    pub has_unioned: Arc<Mutex<HashSet<PackageId>>>,
 
     // TODO: remove
     // using an atomic is a hack to enable customization after construction,
@@ -565,9 +566,7 @@ impl WasiFs {
         &self,
         binary: &BinaryPackage,
     ) -> Result<(), virtual_fs::FsError> {
-        let package_name = binary.package_name.clone();
-
-        let needs_to_be_unioned = self.has_unioned.lock().unwrap().insert(package_name);
+        let needs_to_be_unioned = self.has_unioned.lock().unwrap().insert(binary.id.clone());
 
         if !needs_to_be_unioned {
             return Ok(());

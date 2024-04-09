@@ -3,14 +3,13 @@ use std::sync::Arc;
 use anyhow::Context;
 use derivative::*;
 use once_cell::sync::OnceCell;
-use semver::Version;
 use virtual_fs::FileSystem;
 use webc::{compat::SharedBytes, Container};
 
 use crate::{
     runtime::{
         module_cache::ModuleHash,
-        resolver::{PackageId, PackageInfo, PackageSpecifier, ResolveError},
+        resolver::{PackageId, PackageIdent, PackageInfo, PackageSpecifier, ResolveError},
     },
     Runtime,
 };
@@ -60,7 +59,8 @@ impl BinaryPackageCommand {
 #[derive(Derivative, Clone)]
 #[derivative(Debug)]
 pub struct BinaryPackage {
-    pub package_name: String,
+    pub id: PackageId,
+
     pub when_cached: Option<u128>,
     /// The name of the [`BinaryPackageCommand`] which is this package's
     /// entrypoint.
@@ -69,7 +69,6 @@ pub struct BinaryPackage {
     pub webc_fs: Arc<dyn FileSystem + Send + Sync>,
     pub commands: Vec<BinaryPackageCommand>,
     pub uses: Vec<String>,
-    pub version: Version,
     pub file_system_memory_footprint: u64,
 }
 
@@ -83,10 +82,10 @@ impl BinaryPackage {
     ) -> Result<Self, anyhow::Error> {
         let source = rt.source();
         let root = PackageInfo::from_manifest(container.manifest())?;
-        let root_id = PackageId {
-            package_name: root.name.clone(),
+        let root_id = PackageId::Named(PackageIdent {
+            name: root.name.clone(),
             version: root.version.clone(),
-        };
+        });
 
         let resolution = crate::runtime::resolver::resolve(&root_id, &root, &*source).await?;
         let pkg = rt
@@ -145,7 +144,7 @@ impl BinaryPackage {
             if let Some(entry) = self.entrypoint_bytes() {
                 ModuleHash::hash(entry)
             } else {
-                ModuleHash::hash(self.package_name.as_bytes())
+                ModuleHash::hash(self.id.to_string())
             }
         })
     }

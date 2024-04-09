@@ -59,6 +59,9 @@ fn registry_error_message(specifier: &PackageSpecifier) -> String {
         PackageSpecifier::Registry { full_name, version } => {
             format!("Unable to find \"{full_name}@{version}\" in the registry")
         }
+        PackageSpecifier::HashSha256(hash) => {
+            format!("Unable to find package \"{hash}\" in the registry")
+        }
         PackageSpecifier::Url(url) => format!("Unable to resolve \"{url}\""),
         PackageSpecifier::Path(path) => {
             format!("Unable to load \"{}\" from disk", path.display())
@@ -78,14 +81,7 @@ impl ResolveError {
 fn print_cycle(packages: &[PackageId]) -> String {
     packages
         .iter()
-        .map(|pkg_id| {
-            let PackageId {
-                package_name,
-                version,
-                ..
-            } = pkg_id;
-            format!("{package_name}@{version}")
-        })
+        .map(|pkg_id| pkg_id.to_string())
         .collect::<Vec<_>>()
         .join(" → ")
 }
@@ -257,15 +253,14 @@ where
 {
     let mut package_versions: BTreeMap<&str, HashSet<&Version>> = BTreeMap::new();
 
-    for PackageId {
-        package_name,
-        version,
-    } in package_ids
-    {
+    for id in package_ids {
+        let Some(id) = id.as_named() else {
+            continue;
+        };
         package_versions
-            .entry(package_name)
+            .entry(&id.name)
             .or_default()
-            .insert(version);
+            .insert(&id.version);
     }
 
     for (package_name, versions) in package_versions {
@@ -304,8 +299,7 @@ fn resolve_package(dependency_graph: &DependencyGraph) -> Result<ResolvedPackage
             if let Some(entry) = &pkg.entrypoint {
                 tracing::trace!(
                     entrypoint = entry.as_str(),
-                    parent.name=id.package_name.as_str(),
-                    parent.version=%id.version,
+                    parent=%id,
                     "Inheriting the entrypoint",
                 );
 
@@ -327,16 +321,14 @@ fn resolve_package(dependency_graph: &DependencyGraph) -> Result<ResolvedPackage
                     entry.insert(resolved);
                     tracing::trace!(
                         command.name=cmd.name.as_str(),
-                        pkg.name=id.package_name.as_str(),
-                        pkg.version=%id.version,
+                        pkg=%id,
                         "Discovered command",
                     );
                 }
                 std::collections::btree_map::Entry::Occupied(_) => {
                     tracing::trace!(
                         command.name=cmd.name.as_str(),
-                        pkg.name=id.package_name.as_str(),
-                        pkg.version=%id.version,
+                        pkg=%id,
                         "Ignoring duplicate command",
                     );
                 }
@@ -438,10 +430,14 @@ mod tests {
             registry
         }
 
-        fn get(&self, package: &str, version: &str) -> &PackageSummary {
-            let version = version.parse().unwrap();
-            self.0.get(package, &version).unwrap()
+        fn get(&self, id: &PackageId) -> &PackageSummary {
+            self.0.get(id).unwrap()
         }
+
+        // fn get_named(&self, name: &str, version: &str) -> &PackageSummary {
+        //     let id = PackageId::new_named(name, version.parse().unwrap());
+        //     self.get(&id)
+        // }
 
         fn start_dependency_graph(&self) -> DependencyGraphBuilder<'_> {
             DependencyGraphBuilder {
@@ -542,16 +538,11 @@ mod tests {
     }
 
     impl<'source> DependencyGraphBuilder<'source> {
-        fn insert(
-            &mut self,
-            package: &str,
-            version: &str,
-        ) -> DependencyGraphEntryBuilder<'source, '_> {
-            let version = version.parse().unwrap();
-            let pkg_id = self.source.get(package, &version).unwrap().package_id();
+        fn insert(&mut self, id: PackageId) -> DependencyGraphEntryBuilder<'source, '_> {
+            let _ = self.source.get(&id).unwrap();
             DependencyGraphEntryBuilder {
                 builder: self,
-                pkg_id,
+                pkg_id: id,
                 dependencies: BTreeMap::new(),
             }
         }
@@ -562,16 +553,14 @@ mod tests {
 
         /// Using the dependency mapping that we've been building up, construct
         /// a dependency graph using the specified root package.
-        fn graph(self, root_name: &str, version: &str) -> DependencyGraph {
-            let version = version.parse().unwrap();
-            let root_id = self.source.get(root_name, &version).unwrap().package_id();
+        fn graph(self, root_id: PackageId) -> DependencyGraph {
+            let _ = self.source.get(&root_id).unwrap();
 
             let mut graph = DiGraph::new();
             let mut nodes = BTreeMap::new();
 
             for id in self.dependencies.keys() {
-                let PackageSummary { pkg, dist } =
-                    self.source.get(&id.package_name, &id.version).unwrap();
+                let PackageSummary { pkg, dist } = self.source.get(id).unwrap();
                 let index = graph.add_node(Node {
                     id: pkg.id(),
                     pkg: pkg.clone(),
@@ -608,18 +597,13 @@ mod tests {
     }
 
     impl<'source, 'builder> DependencyGraphEntryBuilder<'source, 'builder> {
-        fn with_dependency(&mut self, name: &str, version: &str) -> &mut Self {
-            self.with_aliased_dependency(name, name, version)
+        fn with_dependency(&mut self, id: &PackageId) -> &mut Self {
+            let name = &id.as_named().unwrap().name;
+            self.with_aliased_dependency(name, id)
         }
 
-        fn with_aliased_dependency(&mut self, alias: &str, name: &str, version: &str) -> &mut Self {
-            let version = version.parse().unwrap();
-            let dep_id = self
-                .builder
-                .source
-                .get(name, &version)
-                .unwrap()
-                .package_id();
+        fn with_aliased_dependency(&mut self, alias: &str, id: &PackageId) -> &mut Self {
+            let dep_id = self.builder.source.get(id).unwrap().package_id();
             self.dependencies.insert(alias.to_string(), dep_id);
             self
         }
@@ -667,14 +651,15 @@ mod tests {
         let mut builder = RegistryBuilder::new();
         builder.register("root", "1.0.0");
         let registry = builder.finish();
-        let root = builder.get("root", "1.0.0");
+        let id = PackageId::new_named("root", Version::parse("1.0.0").unwrap());
+        let root = builder.get(&id);
 
         let resolution = resolve(&root.package_id(), &root.pkg, &registry)
             .await
             .unwrap();
 
         let mut dependency_graph = builder.start_dependency_graph();
-        dependency_graph.insert("root", "1.0.0");
+        dependency_graph.insert(id);
         assert_eq!(deps(&resolution), dependency_graph.finish());
         assert_eq!(
             resolution.package,
@@ -692,14 +677,15 @@ mod tests {
         let mut builder = RegistryBuilder::new();
         builder.register("root", "1.0.0").with_command("asdf");
         let registry = builder.finish();
-        let root = builder.get("root", "1.0.0");
+        let id = PackageId::new_named("root", "1.0.0".parse().unwrap());
+        let root = builder.get(&id);
 
         let resolution = resolve(&root.package_id(), &root.pkg, &registry)
             .await
             .unwrap();
 
         let mut dependency_graph = builder.start_dependency_graph();
-        dependency_graph.insert("root", "1.0.0");
+        dependency_graph.insert(id.clone());
         assert_eq!(deps(&resolution), dependency_graph.finish());
         assert_eq!(
             resolution.package,
@@ -725,17 +711,17 @@ mod tests {
             .with_dependency("dep", "=1.0.0");
         builder.register("dep", "1.0.0");
         let registry = builder.finish();
-        let root = builder.get("root", "1.0.0");
+        let id = PackageId::new_named("root", "1.0.0".parse().unwrap());
+        let root = builder.get(&id);
 
         let resolution = resolve(&root.package_id(), &root.pkg, &registry)
             .await
             .unwrap();
+        let dep_id = PackageId::new_named("dep", "1.0.0".parse().unwrap());
 
         let mut dependency_graph = builder.start_dependency_graph();
-        dependency_graph
-            .insert("root", "1.0.0")
-            .with_dependency("dep", "1.0.0");
-        dependency_graph.insert("dep", "1.0.0");
+        dependency_graph.insert(id.clone()).with_dependency(&dep_id);
+        dependency_graph.insert(dep_id.clone());
         assert_eq!(deps(&resolution), dependency_graph.finish());
         assert_eq!(
             resolution.package,
@@ -750,6 +736,10 @@ mod tests {
 
     #[tokio::test]
     async fn linear_dependency_chain() {
+        let first_id = PackageId::new_named("first", "1.0.0".parse().unwrap());
+        let second_id = PackageId::new_named("second", "1.0.0".parse().unwrap());
+        let third_id = PackageId::new_named("third", "1.0.0".parse().unwrap());
+
         let mut builder = RegistryBuilder::new();
         builder
             .register("first", "1.0.0")
@@ -759,7 +749,7 @@ mod tests {
             .with_dependency("third", "=1.0.0");
         builder.register("third", "1.0.0");
         let registry = builder.finish();
-        let root = builder.get("first", "1.0.0");
+        let root = builder.get(&first_id);
 
         let resolution = resolve(&root.package_id(), &root.pkg, &registry)
             .await
@@ -767,12 +757,12 @@ mod tests {
 
         let mut dependency_graph = builder.start_dependency_graph();
         dependency_graph
-            .insert("first", "1.0.0")
-            .with_dependency("second", "1.0.0");
+            .insert(first_id.clone())
+            .with_dependency(&second_id);
         dependency_graph
-            .insert("second", "1.0.0")
-            .with_dependency("third", "1.0.0");
-        dependency_graph.insert("third", "1.0.0");
+            .insert(second_id.clone())
+            .with_dependency(&third_id);
+        dependency_graph.insert(third_id.clone());
         assert_eq!(deps(&resolution), dependency_graph.finish());
         assert_eq!(
             resolution.package,
@@ -787,6 +777,7 @@ mod tests {
 
     #[tokio::test]
     async fn pick_the_latest_dependency_when_multiple_are_possible() {
+        let root_id = PackageId::new_named("root", "1.0.0".parse().unwrap());
         let mut builder = RegistryBuilder::new();
         builder
             .register("root", "1.0.0")
@@ -795,17 +786,18 @@ mod tests {
         builder.register("dep", "1.0.1");
         builder.register("dep", "1.0.2");
         let registry = builder.finish();
-        let root = builder.get("root", "1.0.0");
+        let root = builder.get(&root_id);
 
         let resolution = resolve(&root.package_id(), &root.pkg, &registry)
             .await
             .unwrap();
+        let dep_id = PackageId::new_named("dep", "1.0.2".parse().unwrap());
 
         let mut dependency_graph = builder.start_dependency_graph();
         dependency_graph
-            .insert("root", "1.0.0")
-            .with_dependency("dep", "1.0.2");
-        dependency_graph.insert("dep", "1.0.2");
+            .insert(root_id.clone())
+            .with_dependency(&dep_id);
+        dependency_graph.insert(dep_id.clone());
         assert_eq!(deps(&resolution), dependency_graph.finish());
         assert_eq!(
             resolution.package,
@@ -820,6 +812,7 @@ mod tests {
 
     #[tokio::test]
     async fn version_merging_isnt_implemented_yet() {
+        let root_id = PackageId::new_named("root", "1.0.0".parse().unwrap());
         let mut builder = RegistryBuilder::new();
         builder
             .register("root", "1.0.0")
@@ -836,7 +829,7 @@ mod tests {
         builder.register("common", "1.2.0");
         builder.register("common", "1.5.0");
         let registry = builder.finish();
-        let root = builder.get("root", "1.0.0");
+        let root = builder.get(&root_id);
 
         let result = resolve(&root.package_id(), &root.pkg, &registry).await;
 
@@ -861,6 +854,11 @@ mod tests {
     #[tokio::test]
     #[ignore = "Version merging isn't implemented"]
     async fn merge_compatible_versions() {
+        let root_id = PackageId::new_named("root", "1.0.0".parse().unwrap());
+        let first_id = PackageId::new_named("first", "1.0.0".parse().unwrap());
+        let second_id = PackageId::new_named("second", "1.0.0".parse().unwrap());
+        let common_id = PackageId::new_named("common", "1.2.0".parse().unwrap());
+
         let mut builder = RegistryBuilder::new();
         builder
             .register("root", "1.0.0")
@@ -877,7 +875,7 @@ mod tests {
         builder.register("common", "1.2.0");
         builder.register("common", "1.5.0");
         let registry = builder.finish();
-        let root = builder.get("root", "1.0.0");
+        let root = builder.get(&root_id);
 
         let resolution = resolve(&root.package_id(), &root.pkg, &registry)
             .await
@@ -885,16 +883,16 @@ mod tests {
 
         let mut dependency_graph = builder.start_dependency_graph();
         dependency_graph
-            .insert("root", "1.0.0")
-            .with_dependency("first", "1.0.0")
-            .with_dependency("second", "1.0.0");
+            .insert(root_id.clone())
+            .with_dependency(&first_id)
+            .with_dependency(&second_id);
         dependency_graph
-            .insert("first", "1.0.0")
-            .with_dependency("common", "1.2.0");
+            .insert(first_id.clone())
+            .with_dependency(&common_id);
         dependency_graph
-            .insert("second", "1.0.0")
-            .with_dependency("common", "1.2.0");
-        dependency_graph.insert("common", "1.2.0");
+            .insert(second_id.clone())
+            .with_dependency(&common_id);
+        dependency_graph.insert(common_id.clone());
         assert_eq!(deps(&resolution), dependency_graph.finish());
         assert_eq!(
             resolution.package,
@@ -909,6 +907,9 @@ mod tests {
 
     #[tokio::test]
     async fn commands_from_dependencies_end_up_in_the_package() {
+        let root_id = PackageId::new_named("root", "1.0.0".parse().unwrap());
+        let first_id = PackageId::new_named("first", "1.0.0".parse().unwrap());
+        let second_id = PackageId::new_named("second", "1.0.0".parse().unwrap());
         let mut builder = RegistryBuilder::new();
         builder
             .register("root", "1.0.0")
@@ -921,7 +922,7 @@ mod tests {
             .register("second", "1.0.0")
             .with_command("second-command");
         let registry = builder.finish();
-        let root = builder.get("root", "1.0.0");
+        let root = builder.get(&root_id);
 
         let resolution = resolve(&root.package_id(), &root.pkg, &registry)
             .await
@@ -929,11 +930,11 @@ mod tests {
 
         let mut dependency_graph = builder.start_dependency_graph();
         dependency_graph
-            .insert("root", "1.0.0")
-            .with_dependency("first", "1.0.0")
-            .with_dependency("second", "1.0.0");
-        dependency_graph.insert("first", "1.0.0");
-        dependency_graph.insert("second", "1.0.0");
+            .insert(root_id.clone())
+            .with_dependency(&first_id)
+            .with_dependency(&second_id);
+        dependency_graph.insert(first_id.clone());
+        dependency_graph.insert(second_id.clone());
         assert_eq!(deps(&resolution), dependency_graph.finish());
         assert_eq!(
             resolution.package,
@@ -942,11 +943,11 @@ mod tests {
                 commands: map! {
                     "first-command" => ItemLocation {
                         name: "first-command".to_string(),
-                        package: builder.get("first", "1.0.0").package_id(),
+                        package: builder.get(&first_id).package_id(),
                      },
                     "second-command" => ItemLocation {
                         name: "second-command".to_string(),
-                        package: builder.get("second", "1.0.0").package_id(),
+                        package: builder.get(&second_id).package_id(),
                      },
                 },
                 entrypoint: None,
@@ -958,6 +959,8 @@ mod tests {
     #[tokio::test]
     #[ignore = "TODO: Re-order the way commands are resolved"]
     async fn commands_in_root_shadow_their_dependencies() {
+        let root_id = PackageId::new_named("root", "1.0.0".parse().unwrap());
+        let dep_id = PackageId::new_named("dep", "1.0.0".parse().unwrap());
         let mut builder = RegistryBuilder::new();
         builder
             .register("root", "1.0.0")
@@ -965,7 +968,7 @@ mod tests {
             .with_command("command");
         builder.register("dep", "1.0.0").with_command("command");
         let registry = builder.finish();
-        let root = builder.get("root", "1.0.0");
+        let root = builder.get(&root_id);
 
         let resolution = resolve(&root.package_id(), &root.pkg, &registry)
             .await
@@ -973,9 +976,9 @@ mod tests {
 
         let mut dependency_graph = builder.start_dependency_graph();
         dependency_graph
-            .insert("root", "1.0.0")
-            .with_dependency("dep", "1.0.0");
-        dependency_graph.insert("dep", "1.0.0");
+            .insert(root_id.clone())
+            .with_dependency(&dep_id);
+        dependency_graph.insert(dep_id.clone());
         assert_eq!(deps(&resolution), dependency_graph.finish());
         assert_eq!(
             resolution.package,
@@ -984,7 +987,7 @@ mod tests {
                 commands: map! {
                     "command" => ItemLocation {
                         name: "command".to_string(),
-                        package: builder.get("root", "1.0.0").package_id(),
+                        package: builder.get(&root_id).package_id(),
                      },
                 },
                 entrypoint: None,
@@ -995,6 +998,9 @@ mod tests {
 
     #[tokio::test]
     async fn cyclic_dependencies() {
+        let root_id = PackageId::new_named("root", "1.0.0".parse().unwrap());
+        let dep_id = PackageId::new_named("dep", "1.0.0".parse().unwrap());
+
         let mut builder = RegistryBuilder::new();
         builder
             .register("root", "1.0.0")
@@ -1003,7 +1009,7 @@ mod tests {
             .register("dep", "1.0.0")
             .with_dependency("root", "=1.0.0");
         let registry = builder.finish();
-        let root = builder.get("root", "1.0.0");
+        let root = builder.get(&root_id);
 
         let err = resolve(&root.package_id(), &root.pkg, &registry)
             .await
@@ -1013,15 +1019,18 @@ mod tests {
         assert_eq!(
             cycle,
             [
-                builder.get("root", "1.0.0").package_id(),
-                builder.get("dep", "1.0.0").package_id(),
-                builder.get("root", "1.0.0").package_id(),
+                builder.get(&root_id).package_id(),
+                builder.get(&dep_id).package_id(),
+                builder.get(&root_id).package_id(),
             ]
         );
     }
 
     #[tokio::test]
     async fn entrypoint_is_inherited() {
+        let root_id = PackageId::new_named("root", "1.0.0".parse().unwrap());
+        let dep_id = PackageId::new_named("dep", "1.0.0".parse().unwrap());
+
         let mut builder = RegistryBuilder::new();
         builder
             .register("root", "1.0.0")
@@ -1031,7 +1040,7 @@ mod tests {
             .with_command("entry")
             .with_entrypoint("entry");
         let registry = builder.finish();
-        let root = builder.get("root", "1.0.0");
+        let root = builder.get(&root_id);
 
         let resolution = resolve(&root.package_id(), &root.pkg, &registry)
             .await
@@ -1044,7 +1053,7 @@ mod tests {
                 commands: map! {
                     "entry" => ItemLocation {
                         name: "entry".to_string(),
-                        package: builder.get("dep", "1.0.0").package_id(),
+                        package: builder.get(&dep_id).package_id(),
                      },
                 },
                 entrypoint: Some("entry".to_string()),
@@ -1055,6 +1064,7 @@ mod tests {
 
     #[tokio::test]
     async fn infer_entrypoint_if_unspecified_and_only_one_command_in_root_package() {
+        let root_id = PackageId::new_named("root", "1.0.0".parse().unwrap());
         let mut builder = RegistryBuilder::new();
         builder
             .register("root", "1.0.0")
@@ -1062,7 +1072,7 @@ mod tests {
             .with_dependency("dep", "=1.0.0");
         builder.register("dep", "1.0.0").with_command("entry");
         let registry = builder.finish();
-        let root = builder.get("root", "1.0.0");
+        let root = builder.get(&root_id);
 
         let resolution = resolve(&root.package_id(), &root.pkg, &registry)
             .await
@@ -1074,18 +1084,9 @@ mod tests {
     #[test]
     fn cyclic_error_message() {
         let cycle = [
-            PackageId {
-                package_name: "root".to_string(),
-                version: "1.0.0".parse().unwrap(),
-            },
-            PackageId {
-                package_name: "dep".to_string(),
-                version: "1.0.0".parse().unwrap(),
-            },
-            PackageId {
-                package_name: "root".to_string(),
-                version: "1.0.0".parse().unwrap(),
-            },
+            PackageId::new_named("root", "1.0.0".parse().unwrap()),
+            PackageId::new_named("dep", "1.0.0".parse().unwrap()),
+            PackageId::new_named("root", "1.0.0".parse().unwrap()),
         ];
 
         let message = print_cycle(&cycle);
@@ -1095,11 +1096,12 @@ mod tests {
 
     #[test]
     fn filesystem_with_one_package_and_no_fs_tables() {
+        let root_id = PackageId::new_named("root", "1.0.0".parse().unwrap());
         let mut builder = RegistryBuilder::new();
         builder.register("root", "1.0.0");
         let mut dep_builder = builder.start_dependency_graph();
-        dep_builder.insert("root", "1.0.0");
-        let graph = dep_builder.graph("root", "1.0.0");
+        dep_builder.insert(root_id.clone());
+        let graph = dep_builder.graph(root_id.clone());
 
         let pkg = resolve_package(&graph).unwrap();
 
@@ -1108,13 +1110,14 @@ mod tests {
 
     #[test]
     fn filesystem_with_one_package_and_one_fs_tables() {
+        let root_id = PackageId::new_named("root", "1.0.0".parse().unwrap());
         let mut builder = RegistryBuilder::new();
         builder
             .register("root", "1.0.0")
             .with_fs_mapping("atom", "/publisher/lib", "/lib");
         let mut dep_builder = builder.start_dependency_graph();
-        dep_builder.insert("root", "1.0.0");
-        let graph = dep_builder.graph("root", "1.0.0");
+        dep_builder.insert(root_id.clone());
+        let graph = dep_builder.graph(root_id.clone());
 
         let pkg = resolve_package(&graph).unwrap();
 
@@ -1124,13 +1127,17 @@ mod tests {
                 mount_path: PathBuf::from("/lib"),
                 original_path: "/publisher/lib".to_string(),
                 volume_name: "atom".to_string(),
-                package: builder.get("root", "1.0.0").package_id(),
+                package: builder.get(&root_id).package_id(),
             }]
         );
     }
 
     #[test]
     fn merge_fs_mappings_from_multiple_packages() {
+        let root_id = PackageId::new_named("root", "1.0.0".parse().unwrap());
+        let first_id = PackageId::new_named("first", "1.0.0".parse().unwrap());
+        let second_id = PackageId::new_named("second", "1.0.0".parse().unwrap());
+
         let mut builder = RegistryBuilder::new();
         builder
             .register("root", "1.0.0")
@@ -1149,12 +1156,12 @@ mod tests {
         );
         let mut dep_builder = builder.start_dependency_graph();
         dep_builder
-            .insert("root", "1.0.0")
-            .with_dependency("first", "1.0.0")
-            .with_dependency("second", "1.0.0");
-        dep_builder.insert("first", "1.0.0");
-        dep_builder.insert("second", "1.0.0");
-        let graph = dep_builder.graph("root", "1.0.0");
+            .insert(root_id.clone())
+            .with_dependency(&first_id)
+            .with_dependency(&second_id);
+        dep_builder.insert(first_id.clone());
+        dep_builder.insert(second_id.clone());
+        let graph = dep_builder.graph(root_id.clone());
 
         let pkg = resolve_package(&graph).unwrap();
 
@@ -1165,19 +1172,19 @@ mod tests {
                     mount_path: PathBuf::from("/root"),
                     original_path: "/root".to_string(),
                     volume_name: "atom".to_string(),
-                    package: builder.get("root", "1.0.0").package_id(),
+                    package: builder.get(&root_id).package_id(),
                 },
                 ResolvedFileSystemMapping {
                     mount_path: PathBuf::from("/usr/local/lib/second"),
                     original_path: "/usr/local/lib/second".to_string(),
                     volume_name: "atom".to_string(),
-                    package: builder.get("second", "1.0.0").package_id(),
+                    package: builder.get(&second_id).package_id(),
                 },
                 ResolvedFileSystemMapping {
                     mount_path: PathBuf::from("/usr/local/lib/first"),
                     volume_name: "atom".to_string(),
                     original_path: "/usr/local/lib/first".to_string(),
-                    package: builder.get("first", "1.0.0").package_id(),
+                    package: builder.get(&first_id).package_id(),
                 }
             ]
         );
@@ -1185,6 +1192,8 @@ mod tests {
 
     #[test]
     fn use_fs_mapping_from_dependency() {
+        let root_id = PackageId::new_named("root", "1.0.0".parse().unwrap());
+        let dep_id = PackageId::new_named("dep", "1.0.0".parse().unwrap());
         let mut builder = RegistryBuilder::new();
         builder
             .register("root", "1.0.0")
@@ -1192,11 +1201,9 @@ mod tests {
             .with_fs_mapping_from_dependency("dep-volume", "/root", "/root", "dep");
         builder.register("dep", "1.0.0");
         let mut dep_builder = builder.start_dependency_graph();
-        dep_builder
-            .insert("root", "1.0.0")
-            .with_dependency("dep", "1.0.0");
-        dep_builder.insert("dep", "1.0.0");
-        let graph = dep_builder.graph("root", "1.0.0");
+        dep_builder.insert(root_id.clone()).with_dependency(&dep_id);
+        dep_builder.insert(dep_id.clone());
+        let graph = dep_builder.graph(root_id.clone());
 
         let pkg = resolve_package(&graph).unwrap();
 
@@ -1206,7 +1213,7 @@ mod tests {
                 mount_path: PathBuf::from("/root"),
                 original_path: "/root".to_string(),
                 volume_name: "dep-volume".to_string(),
-                package: builder.get("dep", "1.0.0").package_id(),
+                package: builder.get(&dep_id).package_id(),
             }]
         );
     }

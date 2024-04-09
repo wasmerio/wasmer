@@ -47,8 +47,7 @@ pub async fn load_package_tree(
     let file_system_memory_footprint = count_file_system(&fs, Path::new("/"));
 
     let loaded = BinaryPackage {
-        package_name: root.package_name.clone(),
-        version: root.version.clone(),
+        id: root.clone(),
         when_cached: crate::syscalls::platform_clock_time_get(
             wasmer_wasix_types::wasi::Snapshot0Clockid::Monotonic,
             1_000_000,

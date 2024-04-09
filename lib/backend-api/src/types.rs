@@ -92,6 +92,7 @@ mod queries {
         pub updated_at: DateTime,
         pub tag: String,
         pub is_archived: bool,
+        pub webc_url: String,
     }
 
     #[derive(cynic::QueryFragment, Debug, Clone, Serialize)]
