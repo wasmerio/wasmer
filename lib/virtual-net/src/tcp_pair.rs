@@ -114,7 +114,7 @@ impl SocketBuffer {
         }
         match state.state {
             State::Alive => {
-                if state.wakers.iter().any(|w| w.will_wake(cx.waker())) == false {
+                if !state.wakers.iter().any(|w| w.will_wake(cx.waker())) {
                     state.wakers.push(cx.waker().clone());
                 }
                 Poll::Pending
@@ -134,11 +134,11 @@ impl SocketBuffer {
         let mut state = self.state.lock().unwrap();
         match state.state {
             State::Alive => {
-                if !state.buffer.is_full() && state.halt_immediate_poll_write == false {
+                if !state.buffer.is_full() && !state.halt_immediate_poll_write {
                     state.halt_immediate_poll_write = true;
                     return Poll::Ready(Ok(state.buffer.window()));
                 }
-                if state.wakers.iter().any(|w| w.will_wake(cx.waker())) == false {
+                if !state.wakers.iter().any(|w| w.will_wake(cx.waker())) {
                     state.wakers.push(cx.waker().clone());
                 }
                 Poll::Pending
