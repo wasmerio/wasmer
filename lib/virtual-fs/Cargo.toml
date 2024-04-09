@@ -28,7 +28,7 @@ thiserror = "1"
 tokio = { version = "1", features = ["io-util", "sync", "macros"], default_features = false }
 tracing = { version = "0.1" }
 typetag = { version = "0.1", optional = true }
-webc = { path="/home/amin/projects/pirita/crates/webc", optional = true }
+webc = { workspace = true, optional = true }
 serde = { version = "1.0", default-features = false, features = ["derive"], optional = true }
 
 [target.'cfg(not(all(target_arch = "wasm32", target_os = "unknown")))'.dependencies]
