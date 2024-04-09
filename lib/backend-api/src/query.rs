@@ -612,6 +612,22 @@ pub async fn get_package_versions(
     Ok(res.all_package_versions)
 }
 
+/// Retrieve a package release by hash.
+pub async fn get_package_release(
+    client: &WasmerClient,
+    hash: &str,
+) -> Result<Option<types::PackageWebc>, anyhow::Error> {
+    let hash = hash.trim_start_matches("sha256:");
+    client
+        .run_graphql_strict(types::GetPackageRelease::build(
+            types::GetPackageReleaseVars {
+                hash: hash.to_string(),
+            },
+        ))
+        .await
+        .map(|x| x.get_package_release)
+}
+
 /// Retrieve all versions of a package as a stream that auto-paginates.
 pub fn get_package_versions_stream(
     client: &WasmerClient,

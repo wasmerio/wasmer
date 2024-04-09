@@ -77,6 +77,24 @@ mod queries {
     }
 
     #[derive(cynic::QueryFragment, Debug, Clone, Serialize)]
+    pub struct WebcImage {
+        pub created_at: DateTime,
+        pub updated_at: DateTime,
+        pub webc_url: String,
+        pub webc_sha256: String,
+        pub file_size: BigInt,
+    }
+
+    #[derive(cynic::QueryFragment, Debug, Clone, Serialize)]
+    pub struct PackageWebc {
+        pub id: cynic::Id,
+        pub created_at: DateTime,
+        pub updated_at: DateTime,
+        pub tag: String,
+        pub is_archived: bool,
+    }
+
+    #[derive(cynic::QueryFragment, Debug, Clone, Serialize)]
     pub struct PackageVersion {
         pub id: cynic::Id,
         pub version: String,
@@ -94,6 +112,18 @@ mod queries {
         pub distribution: PackageDistribution,
 
         pub package: Package,
+    }
+
+    #[derive(cynic::QueryVariables, Debug)]
+    pub struct GetPackageReleaseVars {
+        pub hash: String,
+    }
+
+    #[derive(cynic::QueryFragment, Debug)]
+    #[cynic(graphql_type = "Query", variables = "GetPackageReleaseVars")]
+    pub struct GetPackageRelease {
+        #[arguments(hash: $hash)]
+        pub get_package_release: Option<PackageWebc>,
     }
 
     #[derive(cynic::QueryVariables, Debug)]
