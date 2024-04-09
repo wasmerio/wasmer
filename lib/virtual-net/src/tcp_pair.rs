@@ -121,11 +121,11 @@ impl SocketBuffer {
             }
             State::Dead => {
                 tracing::trace!("poll_read_ready: socket is dead");
-                return Poll::Ready(Err(NetworkError::ConnectionReset));
+                Poll::Ready(Err(NetworkError::ConnectionReset))
             }
             State::Closed | State::Shutdown => {
                 tracing::trace!("poll_read_ready: socket is closed or shutdown");
-                return Poll::Ready(Ok(0));
+                Poll::Ready(Ok(0))
             }
         }
     }
@@ -145,11 +145,11 @@ impl SocketBuffer {
             }
             State::Dead => {
                 tracing::trace!("poll_write_ready: socket is dead");
-                return Poll::Ready(Err(NetworkError::ConnectionReset));
+                Poll::Ready(Err(NetworkError::ConnectionReset))
             }
             State::Closed | State::Shutdown => {
                 tracing::trace!("poll_write_ready: socket is closed or shutdown");
-                return Poll::Ready(Ok(0));
+                Poll::Ready(Ok(0))
             }
         }
     }
