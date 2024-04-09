@@ -528,6 +528,8 @@
 <a href="#528" id="528">528</a>
 <a href="#529" id="529">529</a>
 <a href="#530" id="530">530</a>
+<a href="#531" id="531">531</a>
+<a href="#532" id="532">532</a>
 </pre></div><pre class="rust"><code><span class="attr">#![doc(
     html_logo_url = <span class="string">&quot;https://github.com/wasmerio.png?size=200&quot;</span>,
     html_favicon_url = <span class="string">&quot;https://wasmer.io/images/icons/favicon-32x32.png&quot;
@@ -1031,7 +1033,9 @@
 <span class="kw">pub use </span>module::{IoCompileError, Module};
 <span class="kw">pub use </span>native_type::{FromToNativeWasmType, NativeWasmTypeInto, WasmTypeList};
 <span class="kw">pub use </span>ptr::{Memory32, Memory64, MemorySize, WasmPtr, WasmPtr64};
-<span class="kw">pub use </span>store::{AsStoreMut, AsStoreRef, OnCalledHandler, Store, StoreId, StoreMut, StoreRef};
+<span class="kw">pub use </span>store::{
+    AsStoreMut, AsStoreRef, OnCalledHandler, Store, StoreId, StoreMut, StoreObjects, StoreRef,
+};
 <span class="attr">#[cfg(feature = <span class="string">&quot;sys&quot;</span>)]
 </span><span class="kw">pub use </span>store::{TrapHandlerFn, Tunables};
 <span class="attr">#[cfg(any(feature = <span class="string">&quot;sys&quot;</span>, feature = <span class="string">&quot;jsc&quot;</span>))]
