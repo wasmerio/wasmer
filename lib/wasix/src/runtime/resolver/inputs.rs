@@ -167,7 +167,7 @@ pub struct PackageSummary {
 
 impl PackageSummary {
     pub fn package_id(&self) -> PackageId {
-        self.pkg.id(self.dist.webc_sha256)
+        self.pkg.id.clone()
     }
 
     pub fn from_webc_file(path: impl AsRef<Path>) -> Result<PackageSummary, Error> {
@@ -203,6 +203,7 @@ pub struct PackageInfo {
 }
 
 impl PackageInfo {
+
     pub fn from_manifest(manifest: &Manifest, webc_version: webc::Version) -> Result<Self, Error> {
         let wapm_annotations = manifest.wapm()?;
 
@@ -241,10 +242,14 @@ impl PackageInfo {
 
         let filesystem = filesystem_mapping_from_manifest(manifest, webc_version)?;
 
-        let id = PackageId::Named(PackageIdent {
+        let id = if let Some(name) = name {
+            PackageId::Named(PackageIdent {
             name: name.clone(),
             version: version.parse()?,
-        });
+        })
+        } else {
+
+        };
 
         Ok(PackageInfo {
             id,

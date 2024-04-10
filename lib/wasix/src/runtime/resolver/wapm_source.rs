@@ -392,7 +392,10 @@ fn decode_summary(pkg_version: WapmWebQueryGetPackageVersion) -> Result<PackageS
         .send()?;
     let mut buffer = [0u8; 8];
     response.copy_to(&mut buffer.as_mut_slice())?;
-    let raw_version = <[u8; 3]>::try_from(&buffer[5..8]).unwrap();
+    let slice = buffer
+        .get(5..8)
+        .context("response did not return enough data")?;
+    let raw_version = <[u8; 3]>::try_from(slice).context("invalid version in webc file")?;
     let version = webc::Version::from(&raw_version);
 
     Ok(PackageSummary {
@@ -607,8 +610,8 @@ impl PackageWebc {
     fn try_into_summary(self, hash: &str) -> Result<PackageSummary, anyhow::Error> {
         let manifest: Manifest = serde_json::from_str(&self.pirita_manifest)
             .context("Unable to deserialize the manifest")?;
-        let info =
-            PackageInfo::from_manifest(&manifest).context("could not convert the manifest ")?;
+        let info = PackageInfo::from_manifest(&manifest, webc::Version::V3)
+            .context("could not convert the manifest ")?;
 
         Ok(PackageSummary {
             pkg: info,

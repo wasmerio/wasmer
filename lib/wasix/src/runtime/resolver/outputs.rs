@@ -14,7 +14,6 @@ use semver::Version;
 use crate::runtime::resolver::{DistributionInfo, PackageInfo};
 
 use super::PackageSpecifier;
-use super::WebcHash;
 
 #[derive(Debug, Clone)]
 pub struct Resolution {
@@ -34,7 +33,6 @@ pub struct ItemLocation {
 pub struct PackageIdent {
     pub name: String,
     pub version: Version,
-    pub hash: WebcHash,
 }
 
 impl Display for PackageIdent {

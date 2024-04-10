@@ -1413,35 +1413,10 @@ dependencies = [
 [[package]]
 name = "edge-schema"
 version = "0.0.3"
-source = "git+https://github.com/wasmerio/edge?branch=main#f9f3e514b314cfe288e7c54caf76a80df7fcd605"
 dependencies = [
  "anyhow",
  "bytesize",
  "hex",
- "once_cell",
- "parking_lot 0.12.1",
- "rand_chacha",
- "rand_core",
- "schemars",
- "serde",
- "serde_json",
- "serde_path_to_error",
- "serde_yaml 0.8.26",
- "sparx",
- "time 0.3.34",
- "url",
- "uuid",
- "wcgi-host",
-]
-
-[[package]]
-name = "edge-schema"
-version = "0.0.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "183ddfb52c2441be9d8c3c870632135980ba98e0c4f688da11bcbebb4e26f128"
-dependencies = [
- "anyhow",
- "bytesize",
  "once_cell",
  "parking_lot 0.12.1",
  "rand_chacha",
@@ -1464,7 +1439,7 @@ version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "60d06780ae676369e0a9ac2c75f7d1a6d22e157ef5b10cfeda0ee6a465cf7337"
 dependencies = [
- "edge-schema 0.0.3 (registry+https://github.com/rust-lang/crates.io-index)",
+ "edge-schema",
  "http",
  "serde",
  "wasmparser 0.121.2",
@@ -1908,7 +1883,7 @@ dependencies = [
  "bstr 1.9.1",
  "log 0.4.21",
  "regex-automata 0.4.6",
- "regex-syntax 0.8.2",
+ "regex-syntax 0.8.3",
 ]
 
 [[package]]
@@ -6242,7 +6217,7 @@ dependencies = [
  "anyhow",
  "base64 0.13.1",
  "cynic",
- "edge-schema 0.0.3",
+ "edge-schema",
  "futures 0.3.30",
  "harsh",
  "pin-project-lite",
@@ -6382,7 +6357,7 @@ dependencies = [
  "comfy-table",
  "dialoguer",
  "dirs",
- "edge-schema 0.0.3",
+ "edge-schema",
  "edge-util",
  "flate2",
  "fuse",
@@ -7106,11 +7081,10 @@ source = "git+https://github.com/wasmerio/pirita?branch=prepare-v3#4a5f50f233859
 dependencies = [
  "anyhow",
  "base64 0.21.7",
+ "bytes 1.6.0",
  "cfg-if 1.0.0",
  "clap",
  "document-features",
- "byteorder",
- "bytes 1.6.0",
  "flate2",
  "ignore",
  "indexmap 1.9.3",

@@ -81,7 +81,7 @@ impl BinaryPackage {
         rt: &(dyn Runtime + Send + Sync),
     ) -> Result<Self, anyhow::Error> {
         let source = rt.source();
-        let root = PackageInfo::from_manifest(container.manifest())?;
+        let root = PackageInfo::from_manifest(container.manifest(), container.version())?;
         let root_id = root.id.clone();
 
         let resolution = crate::runtime::resolver::resolve(&root_id, &root, &*source).await?;

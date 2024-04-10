@@ -332,4 +332,5 @@ required-features = ["cranelift"]
 
 [patch.crates-io]
 webc = {git = "https://github.com/wasmerio/pirita", branch = "prepare-v3"}
-edge-schema = {git = "https://github.com/wasmerio/edge", branch = "main"}
+# edge-schema = {git = "https://github.com/wasmerio/edge", branch = "main"}
+edge-schema = {path = "../edge/crates/schema"}
