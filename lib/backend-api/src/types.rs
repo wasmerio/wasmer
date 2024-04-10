@@ -187,6 +187,47 @@ mod queries {
         pub all_package_versions: PackageVersionConnection,
     }
 
+    #[derive(cynic::QueryVariables, Debug, Clone, Default)]
+    pub struct AllPackageReleasesVars {
+        pub offset: Option<i32>,
+        pub before: Option<String>,
+        pub after: Option<String>,
+        pub first: Option<i32>,
+        pub last: Option<i32>,
+
+        pub created_after: Option<DateTime>,
+        pub updated_after: Option<DateTime>,
+        pub sort_by: Option<PackageVersionSortBy>,
+    }
+
+    #[derive(cynic::QueryFragment, Debug)]
+    #[cynic(graphql_type = "Query", variables = "AllPackageReleasesVars")]
+    pub struct GetAllPackageReleases {
+        pub all_package_releases: PackageWebcConnection,
+    }
+
+    impl GetAllPackageReleases {
+        pub fn into_packages(self) -> Vec<PackageWebc> {
+            self.all_package_releases
+                .edges
+                .into_iter()
+                .filter_map(|x| x)
+                .filter_map(|x| x.node)
+                .collect()
+        }
+    }
+
+    #[derive(cynic::QueryFragment, Debug)]
+    pub struct PackageWebcConnection {
+        pub page_info: PageInfo,
+        pub edges: Vec<Option<PackageWebcEdge>>,
+    }
+
+    #[derive(cynic::QueryFragment, Debug)]
+    pub struct PackageWebcEdge {
+        pub node: Option<PackageWebc>,
+    }
+
     #[derive(cynic::QueryFragment, Debug)]
     pub struct PackageVersionConnection {
         pub page_info: PageInfo,

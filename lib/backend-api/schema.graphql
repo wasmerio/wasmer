@@ -417,6 +417,7 @@ type PackageVersion implements Node & PackageReleaseInterface & PackageInstance 
   deletedAt: DateTime
   package: Package!
   webc: WebcImage
+  webcV3: WebcImage
 
   """List of direct dependencies of this package version"""
   dependencies(offset: Int, before: String, after: String, first: Int, last: Int): PackageVersionConnection!
@@ -457,7 +458,7 @@ type PackageVersion implements Node & PackageReleaseInterface & PackageInstance 
   piritaFile: String @deprecated(reason: "Please use distribution.piritaDownloadUrl instead.")
   piritaFileSize: Int @deprecated(reason: "Please use distribution.piritaSize instead.")
   pirita256hash: String @deprecated(reason: "Please use distribution.piritaSha256Hash instead.")
-  distribution: PackageDistribution!
+  distribution(version: WebcVersion): PackageDistribution!
   filesystem: [PackageVersionFilesystem]!
   isLastVersion: Boolean!
   witFile: String
@@ -1040,6 +1041,11 @@ type PackageDistribution {
   webcSha256Hash: String
 }
 
+enum WebcVersion {
+  V2
+  V3
+}
+
 type PackageVersionFilesystem {
   wasm: String!
   host: String!
@@ -1218,7 +1224,7 @@ type PackageWebcEdge {
   cursor: String!
 }
 
-type PackageWebc implements Node & PackageReleaseInterface {
+type PackageWebc implements Node & PackageReleaseInterface & PackageInstance {
   """The ID of the object"""
   id: ID!
   createdAt: DateTime!
@@ -2284,7 +2290,7 @@ type Query {
   getCommands(names: [String!]!): [Command]
   getCollections(before: String, after: String, first: Int, last: Int): CollectionConnection
   getSignedUrlForPackageUpload(name: String!, version: String = "latest", expiresAfterSeconds: Int = 60): SignedUrl
-  getPackageHash(hash: String!): PackageWebc
+  getPackageHash(name: String, hash: String!): PackageWebc
   getPackageRelease(hash: String!): PackageWebc
   categories(offset: Int, before: String, after: String, first: Int, last: Int): CategoryConnection!
   blogposts(tags: [String!], before: String, after: String, first: Int, last: Int): BlogPostConnection!

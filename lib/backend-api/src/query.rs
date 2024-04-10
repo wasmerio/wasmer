@@ -628,6 +628,16 @@ pub async fn get_package_release(
         .map(|x| x.get_package_release)
 }
 
+pub async fn get_package_releases(
+    client: &WasmerClient,
+    vars: types::AllPackageReleasesVars,
+) -> Result<types::PackageWebcConnection, anyhow::Error> {
+    let res = client
+        .run_graphql(types::GetAllPackageReleases::build(vars))
+        .await?;
+    Ok(res.all_package_releases)
+}
+
 /// Retrieve all versions of a package as a stream that auto-paginates.
 pub fn get_package_versions_stream(
     client: &WasmerClient,
