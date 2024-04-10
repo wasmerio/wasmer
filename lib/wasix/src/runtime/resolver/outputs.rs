@@ -13,6 +13,8 @@ use semver::Version;
 
 use crate::runtime::resolver::{DistributionInfo, PackageInfo};
 
+use super::PackageSpecifier;
+
 #[derive(Debug, Clone)]
 pub struct Resolution {
     pub package: ResolvedPackage,
@@ -75,6 +77,26 @@ impl Display for PackageId {
         match self {
             Self::Named(ident) => ident.fmt(f),
             Self::HashSha256(hash) => write!(f, "sha256:{}", hash),
+        }
+    }
+}
+
+impl From<PackageId> for PackageSpecifier {
+    fn from(id: PackageId) -> Self {
+        match id {
+            PackageId::Named(id) => PackageSpecifier::Registry {
+                full_name: id.name,
+                version: semver::VersionReq {
+                    comparators: vec![semver::Comparator {
+                        op: semver::Op::Exact,
+                        major: id.version.major,
+                        minor: Some(id.version.minor),
+                        patch: Some(id.version.patch),
+                        pre: id.version.pre,
+                    }],
+                },
+            },
+            PackageId::HashSha256(hash) => PackageSpecifier::HashSha256(hash),
         }
     }
 }

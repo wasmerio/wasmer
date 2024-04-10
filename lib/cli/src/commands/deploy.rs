@@ -92,14 +92,16 @@ impl AsyncCliCommand for CmdDeploy {
         let orig_config = AppConfigV1::parse_yaml(&raw_config)?;
         eprintln!("Loaded app from: {}", file_path.display());
 
+        let ident = orig_config
+            .package
+            .as_ident()
+            .context("unnamed packages not supported")?;
+
         // Parse a raw value - will be used later for patching.
         let orig_config_value: serde_yaml::Value =
             serde_yaml::from_str(&raw_config).context("Could not parse app.yaml")?;
 
-        let pkg_name = format!(
-            "{}/{}",
-            orig_config.package.0.namespace, orig_config.package.0.name
-        );
+        let pkg_name = format!("{}/{}", ident.namespace, ident.name,);
 
         // Check for a wasmer.toml
 

@@ -487,7 +487,10 @@ mod tests {
 
     use crate::{
         http::HttpResponse,
-        runtime::resolver::inputs::{DistributionInfo, FileSystemMapping, PackageInfo},
+        runtime::resolver::{
+            inputs::{DistributionInfo, FileSystemMapping, PackageInfo},
+            outputs::PackageId,
+        },
     };
 
     use super::*;
@@ -552,8 +555,7 @@ mod tests {
             summaries,
             [PackageSummary {
                 pkg: PackageInfo {
-                    name: "wasmer/wasmer-pack-cli".to_string(),
-                    version: Version::new(0, 6, 0),
+                    id: PackageId::new_named("wasmer/wasmer-pack-cli", Version::new(0, 6, 0)),
                     dependencies: Vec::new(),
                     commands: vec![crate::runtime::resolver::Command {
                         name: "wasmer-pack".to_string(),
@@ -662,7 +664,10 @@ mod tests {
         let summaries = source.query(&request).await.unwrap();
 
         assert_eq!(summaries.len(), 1);
-        assert_eq!(summaries[0].pkg.version.to_string(), "0.2.0");
+        assert_eq!(
+            summaries[0].pkg.id.as_named().unwrap().version.to_string(),
+            "0.2.0"
+        );
     }
 
     #[tokio::test]
@@ -726,7 +731,10 @@ mod tests {
         let summaries = source.query(&request).await.unwrap();
 
         assert_eq!(summaries.len(), 1);
-        assert_eq!(summaries[0].pkg.version.to_string(), "3.12.1");
+        assert_eq!(
+            summaries[0].pkg.id.as_named().unwrap().version.to_string(),
+            "3.12.1"
+        );
     }
 
     #[tokio::test]
@@ -810,6 +818,9 @@ mod tests {
         let summaries = source.query(&request).await.unwrap();
 
         assert_eq!(summaries.len(), 1);
-        assert_eq!(summaries[0].pkg.version.to_string(), "4.0.0");
+        assert_eq!(
+            summaries[0].pkg.id.as_named().unwrap().version.to_string(),
+            "4.0.0"
+        );
     }
 }

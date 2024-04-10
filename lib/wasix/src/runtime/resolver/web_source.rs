@@ -460,7 +460,7 @@ mod tests {
 
         // We got the right response, as expected
         assert_eq!(summaries.len(), 1);
-        assert_eq!(summaries[0].pkg.name, "python");
+        assert_eq!(summaries[0].pkg.id.as_named().unwrap().name, "python");
         // But we should have also cached the file and etag
         let path = temp.path().join(DUMMY_URL_HASH);
         assert!(path.exists());
@@ -493,7 +493,7 @@ mod tests {
 
         // We got the right response, as expected
         assert_eq!(summaries.len(), 1);
-        assert_eq!(summaries[0].pkg.name, "python");
+        assert_eq!(summaries[0].pkg.id.as_named().unwrap().name, "python");
         // And no requests were sent
         assert_eq!(client.requests.lock().unwrap().len(), 0);
     }
@@ -523,7 +523,7 @@ mod tests {
 
         // We got the right response, as expected
         assert_eq!(summaries.len(), 1);
-        assert_eq!(summaries[0].pkg.name, "python");
+        assert_eq!(summaries[0].pkg.id.as_named().unwrap().name, "python");
         // And one request was sent
         assert_eq!(client.requests.lock().unwrap().len(), 1);
         // The etag file wasn't written
@@ -562,7 +562,10 @@ mod tests {
 
         // Instead of Python (the originally cached item), we should get coreutils
         assert_eq!(summaries.len(), 1);
-        assert_eq!(summaries[0].pkg.name, "sharrattj/coreutils");
+        assert_eq!(
+            summaries[0].pkg.id.as_named().unwrap().name,
+            "sharrattj/coreutils"
+        );
         // both a HEAD and GET request were sent
         let requests = client.requests.lock().unwrap();
         assert_eq!(requests.len(), 2);

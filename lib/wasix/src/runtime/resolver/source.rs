@@ -21,12 +21,21 @@ pub trait Source: Sync + Debug {
     /// version.
     async fn latest(&self, pkg: &PackageSpecifier) -> Result<PackageSummary, QueryError> {
         let candidates = self.query(pkg).await?;
-        candidates
-            .into_iter()
-            .max_by(|left, right| left.pkg.version.cmp(&right.pkg.version))
-            .ok_or(QueryError::NoMatches {
-                archived_versions: Vec::new(),
-            })
+
+        match pkg {
+            PackageSpecifier::Registry { .. } => candidates
+                .into_iter()
+                .max_by(|left, right| {
+                    let left_version = left.pkg.id.as_named().map(|x| &x.version);
+                    let right_version = right.pkg.id.as_named().map(|x| &x.version);
+
+                    left_version.cmp(&right_version)
+                })
+                .ok_or(QueryError::NoMatches {
+                    archived_versions: Vec::new(),
+                }),
+            _ => candidates.into_iter().next().ok_or(QueryError::NotFound),
+        }
     }
 }
 

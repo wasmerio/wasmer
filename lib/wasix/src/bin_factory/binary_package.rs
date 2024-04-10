@@ -9,7 +9,7 @@ use webc::{compat::SharedBytes, Container};
 use crate::{
     runtime::{
         module_cache::ModuleHash,
-        resolver::{PackageId, PackageIdent, PackageInfo, PackageSpecifier, ResolveError},
+        resolver::{PackageId, PackageInfo, PackageSpecifier, ResolveError},
     },
     Runtime,
 };
@@ -82,10 +82,7 @@ impl BinaryPackage {
     ) -> Result<Self, anyhow::Error> {
         let source = rt.source();
         let root = PackageInfo::from_manifest(container.manifest())?;
-        let root_id = PackageId::Named(PackageIdent {
-            name: root.name.clone(),
-            version: root.version.clone(),
-        });
+        let root_id = root.id.clone();
 
         let resolution = crate::runtime::resolver::resolve(&root_id, &root, &*source).await?;
         let pkg = rt

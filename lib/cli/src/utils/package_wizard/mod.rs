@@ -2,7 +2,7 @@ use std::path::{Path, PathBuf};
 
 use anyhow::Context;
 use dialoguer::Select;
-use edge_schema::schema::{StringWebcIdent, WebcIdent};
+use edge_schema::schema::{PackageIdentifier, PackageSpecifier};
 use wasmer_api::{types::UserWithNamespaces, WasmerClient};
 
 use super::prompts::PackageCheckMode;
@@ -77,7 +77,7 @@ pub struct PackageWizard {
 }
 
 pub struct PackageWizardOutput {
-    pub ident: StringWebcIdent,
+    pub ident: PackageSpecifier,
     pub api: Option<wasmer_api::types::Package>,
     pub local_path: Option<PathBuf>,
     pub local_manifest: Option<wasmer_toml::Manifest>,
@@ -121,7 +121,7 @@ impl PackageWizard {
             })?;
         }
 
-        let ident = WebcIdent {
+        let ident = PackageIdentifier {
             repository: None,
             namespace: owner,
             name,
@@ -163,7 +163,7 @@ impl PackageWizard {
         eprintln!("Enter the name of an existing package:");
         let (ident, api) = super::prompts::prompt_for_package("Package", None, check, api).await?;
         Ok(PackageWizardOutput {
-            ident,
+            ident: ident.into(),
             api,
             local_path: None,
             local_manifest: None,
@@ -198,7 +198,7 @@ impl PackageWizard {
 
 fn initialize_static_site(
     path: &Path,
-    ident: &WebcIdent,
+    ident: &PackageIdentifier,
 ) -> Result<wasmer_toml::Manifest, anyhow::Error> {
     let full_name = format!("{}/{}", ident.namespace, ident.name);
 
@@ -255,7 +255,7 @@ public = "{}"
 
 fn initialize_js_worker(
     path: &Path,
-    ident: &WebcIdent,
+    ident: &PackageIdentifier,
 ) -> Result<wasmer_toml::Manifest, anyhow::Error> {
     let full_name = format!("{}/{}", ident.namespace, ident.name);
 
@@ -319,7 +319,7 @@ env = ["JS_PATH=/src/index.js"]
 
 fn initialize_py_worker(
     path: &Path,
-    ident: &WebcIdent,
+    ident: &PackageIdentifier,
 ) -> Result<wasmer_toml::Manifest, anyhow::Error> {
     let full_name = format!("{}/{}", ident.namespace, ident.name);
 

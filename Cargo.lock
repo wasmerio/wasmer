@@ -1404,11 +1404,10 @@ dependencies = [
 [[package]]
 name = "edge-schema"
 version = "0.0.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "183ddfb52c2441be9d8c3c870632135980ba98e0c4f688da11bcbebb4e26f128"
 dependencies = [
  "anyhow",
  "bytesize",
+ "hex",
  "once_cell",
  "parking_lot 0.12.1",
  "rand_chacha",
@@ -1427,9 +1426,9 @@ dependencies = [
 
 [[package]]
 name = "edge-schema"
-version = "0.1.0"
+version = "0.0.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0966f1fd49610cc67a835124e6fb4d00a36104e1aa34383c5ef5a265ca00ea2a"
+checksum = "183ddfb52c2441be9d8c3c870632135980ba98e0c4f688da11bcbebb4e26f128"
 dependencies = [
  "anyhow",
  "bytesize",
@@ -1455,7 +1454,7 @@ version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "60d06780ae676369e0a9ac2c75f7d1a6d22e157ef5b10cfeda0ee6a465cf7337"
 dependencies = [
- "edge-schema 0.0.3",
+ "edge-schema 0.0.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "http",
  "serde",
  "wasmparser 0.121.2",
@@ -5545,7 +5544,7 @@ version = "1.6.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "97fee6b57c6a41524a810daee9286c02d7752c4253064d0b05472833a438f675"
 dependencies = [
- "cfg-if 1.0.0",
+ "cfg-if 0.1.10",
  "static_assertions",
 ]
 
@@ -6198,7 +6197,7 @@ dependencies = [
  "anyhow",
  "base64 0.13.1",
  "cynic",
- "edge-schema 0.1.0",
+ "edge-schema 0.0.3",
  "futures 0.3.30",
  "harsh",
  "pin-project-lite",
@@ -6338,7 +6337,7 @@ dependencies = [
  "comfy-table",
  "dialoguer",
  "dirs",
- "edge-schema 0.1.0",
+ "edge-schema 0.0.3",
  "edge-util",
  "flate2",
  "fuse",

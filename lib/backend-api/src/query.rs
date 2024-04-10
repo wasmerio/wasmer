@@ -2,7 +2,7 @@ use std::{collections::HashSet, pin::Pin, time::Duration};
 
 use anyhow::{bail, Context};
 use cynic::{MutationBuilder, QueryBuilder};
-use edge_schema::schema::{NetworkTokenV1, WebcIdent};
+use edge_schema::schema::{NetworkTokenV1, PackageIdentifier};
 use futures::{Stream, StreamExt};
 use time::OffsetDateTime;
 use tracing::Instrument;
@@ -24,7 +24,7 @@ use crate::{
 /// the API, and should not be used where possible.
 pub async fn fetch_webc_package(
     client: &WasmerClient,
-    ident: &WebcIdent,
+    ident: &PackageIdentifier,
     default_registry: &Url,
 ) -> Result<webc::compat::Container, anyhow::Error> {
     let url = ident.build_download_url_with_default_registry(default_registry);

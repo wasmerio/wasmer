@@ -1,11 +1,11 @@
 //! Create a new Edge app.
 
-use std::path::PathBuf;
+use std::{path::PathBuf, str::FromStr};
 
 use anyhow::{bail, Context};
 use colored::Colorize;
 use dialoguer::Confirm;
-use edge_schema::schema::StringWebcIdent;
+use edge_schema::schema::PackageIdentifier;
 use is_terminal::IsTerminal;
 use wasmer_api::{
     types::{DeployAppVersion, Package, UserWithNamespaces},
@@ -133,7 +133,7 @@ impl AppCreator {
 
         eprintln!("What should be the name of the wrapper package?");
 
-        let default_name = format!("{}-webshell", inner_pkg.0.name);
+        let default_name = format!("{}-webshell", inner_pkg.name);
         let outer_pkg_name =
             crate::utils::prompts::prompt_for_ident("Package name", Some(&default_name))?;
         let outer_pkg_full_name = format!("{}/{}", self.owner, outer_pkg_name);
@@ -155,8 +155,8 @@ impl AppCreator {
         }
 
         let init = serde_json::json!({
-            "init": format!("{}/{}", inner_pkg.0.namespace, inner_pkg.0.name),
-            "prompt": inner_pkg.0.name,
+            "init": format!("{}/{}", inner_pkg.namespace, inner_pkg.name),
+            "prompt": inner_pkg.name,
             "no_welcome": true,
             "connect": format!("wss://{app_name}.wasmer.app/.well-known/edge-vpn"),
         });
@@ -167,7 +167,7 @@ impl AppCreator {
         let package = wasmer_toml::PackageBuilder::new(
             outer_pkg_full_name,
             "0.1.0".parse().unwrap(),
-            format!("{} web shell", inner_pkg.0.name),
+            format!("{} web shell", inner_pkg.name),
         )
         .rename_commands_to_raw_command_name(false)
         .build()?;
@@ -198,16 +198,18 @@ impl AppCreator {
             volumes: None,
             domains: None,
             scaling: None,
-            package: edge_schema::schema::StringWebcIdent(edge_schema::schema::WebcIdent {
+            package: edge_schema::schema::PackageIdentifier {
                 repository: None,
                 namespace: self.owner,
                 name: outer_pkg_name,
                 tag: None,
-            }),
+            }
+            .into(),
             capabilities: None,
             scheduled_tasks: None,
             debug: Some(false),
             extra: Default::default(),
+            health_checks: None,
         };
 
         Ok(AppCreatorOutput {
@@ -218,15 +220,15 @@ impl AppCreator {
     }
 
     async fn build_app(self) -> Result<AppCreatorOutput, anyhow::Error> {
-        let package_opt: Option<StringWebcIdent> = if let Some(package) = self.package {
+        let package_opt: Option<PackageIdentifier> = if let Some(package) = self.package {
             Some(package.parse()?)
         } else if let Some((_, local)) = self.local_package.as_ref() {
             let full = format!("{}@{}", local.package.name, local.package.version);
-            let mut pkg_ident = StringWebcIdent::parse(&local.package.name)
+            let mut pkg_ident = PackageIdentifier::from_str(&local.package.name)
                 .with_context(|| format!("local package manifest has invalid name: '{full}'"))?;
 
             // Pin the version.
-            pkg_ident.0.tag = Some(local.package.version.to_string());
+            pkg_ident.tag = Some(local.package.version.to_string());
 
             if self.interactive {
                 eprintln!("Found local package: '{}'", full.green());
@@ -252,15 +254,13 @@ impl AppCreator {
 
         let (pkg, api_pkg, local_package) = if let Some(pkg) = package_opt {
             if let Some(api) = &self.api {
-                let p2 = wasmer_api::query::get_package(
-                    api,
-                    format!("{}/{}", pkg.0.namespace, pkg.0.name),
-                )
-                .await?;
+                let p2 =
+                    wasmer_api::query::get_package(api, format!("{}/{}", pkg.namespace, pkg.name))
+                        .await?;
 
-                (pkg, p2, self.local_package)
+                (pkg.into(), p2, self.local_package)
             } else {
-                (pkg, None, self.local_package)
+                (pkg.into(), None, self.local_package)
             }
         } else {
             eprintln!("No package found or specified.");
@@ -301,18 +301,20 @@ impl AppCreator {
             )
         };
 
+        let ident = pkg.as_ident().context("unnamed packages not supported")?;
+
         let name = if let Some(name) = self.app_name {
             name
         } else {
             let default = match self.type_ {
                 AppType::HttpServer | AppType::StaticWebsite => {
-                    format!("{}-{}", pkg.0.namespace, pkg.0.name)
+                    format!("{}-{}", ident.namespace, ident.name)
                 }
                 AppType::JsWorker | AppType::PyApplication => {
-                    format!("{}-{}-worker", pkg.0.namespace, pkg.0.name)
+                    format!("{}-{}-worker", ident.namespace, ident.name)
                 }
                 AppType::BrowserShell => {
-                    format!("{}-{}-webshell", pkg.0.namespace, pkg.0.name)
+                    format!("{}-{}-webshell", ident.namespace, ident.name)
                 }
             };
 
@@ -347,6 +349,7 @@ impl AppCreator {
             debug: Some(false),
             domains: None,
             extra: Default::default(),
+            health_checks: None,
         };
 
         Ok(AppCreatorOutput {

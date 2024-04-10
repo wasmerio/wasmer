@@ -7,7 +7,7 @@ use std::{
 };
 
 use anyhow::{bail, Context, Error};
-use semver::{Version, VersionReq};
+use semver::VersionReq;
 use sha2::{Digest, Sha256};
 use url::Url;
 use webc::{
@@ -191,10 +191,7 @@ impl PackageSummary {
 /// Information about a package's contents.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PackageInfo {
-    /// The package's full name (i.e. `wasmer/wapm2pirita`).
-    pub name: String,
-    /// The package version.
-    pub version: Version,
+    pub id: PackageId,
     /// Commands this package exposes to the outside world.
     pub commands: Vec<Command>,
     /// The name of a [`Command`] that should be used as this package's
@@ -232,9 +229,13 @@ impl PackageInfo {
 
         let filesystem = filesystem_mapping_from_manifest(manifest)?;
 
-        Ok(PackageInfo {
-            name,
+        let id = PackageId::Named(PackageIdent {
+            name: name.clone(),
             version: version.parse()?,
+        });
+
+        Ok(PackageInfo {
+            id,
             dependencies,
             commands,
             entrypoint: manifest.entrypoint.clone(),
@@ -243,10 +244,7 @@ impl PackageInfo {
     }
 
     pub fn id(&self) -> PackageId {
-        PackageId::Named(PackageIdent {
-            name: self.name.clone(),
-            version: self.version.clone(),
-        })
+        self.id.clone()
     }
 }
 

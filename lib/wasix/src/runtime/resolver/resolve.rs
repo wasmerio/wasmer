@@ -140,13 +140,13 @@ async fn discover_dependencies(
                         package: dep.pkg.clone(),
                         error,
                     })?;
-            let dep_id = dep_summary.package_id();
+            let dep_id = dep_summary.package_id().clone();
 
             let PackageSummary { pkg, dist } = dep_summary;
 
             let alias = dep.alias().to_string();
             let node = Node {
-                id: dep_id,
+                id: dep_id.clone(),
                 pkg,
                 dist: Some(dist),
             };
@@ -403,8 +403,7 @@ mod tests {
 
         fn register(&mut self, name: &str, version: &str) -> AddPackageVersion<'_> {
             let pkg = PackageInfo {
-                name: name.to_string(),
-                version: version.parse().unwrap(),
+                id: PackageId::new_named(name, version.parse().unwrap()),
                 dependencies: Vec::new(),
                 commands: Vec::new(),
                 entrypoint: None,
