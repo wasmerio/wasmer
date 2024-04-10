@@ -223,12 +223,18 @@ impl AppCreator {
         let package_opt: Option<PackageIdentifier> = if let Some(package) = self.package {
             Some(package.parse()?)
         } else if let Some((_, local)) = self.local_package.as_ref() {
-            let full = format!("{}@{}", local.package.name, local.package.version);
-            let mut pkg_ident = PackageIdentifier::from_str(&local.package.name)
-                .with_context(|| format!("local package manifest has invalid name: '{full}'"))?;
+            let full = format!(
+                "{}@{}",
+                local.package.clone().unwrap().name,
+                local.package.clone().unwrap().version
+            );
+            let mut pkg_ident = PackageIdentifier::from_str(&local.package.clone().unwrap().name)
+                .with_context(|| {
+                format!("local package manifest has invalid name: '{full}'")
+            })?;
 
             // Pin the version.
-            pkg_ident.tag = Some(local.package.version.to_string());
+            pkg_ident.tag = Some(local.package.clone().unwrap().version.to_string());
 
             if self.interactive {
                 eprintln!("Found local package: '{}'", full.green());
@@ -532,8 +538,7 @@ impl AsyncCliCommand for CmdAppCreate {
                 if let Some((path, manifest)) = &local_package {
                     eprintln!("Publishing package...");
                     let manifest = manifest.clone();
-                    crate::utils::republish_package_with_bumped_version(&api, path, manifest)
-                        .await?;
+                    crate::utils::republish_package(&api, path, manifest).await?;
                 }
             }
 

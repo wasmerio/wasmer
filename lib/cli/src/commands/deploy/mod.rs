@@ -1,13 +1,15 @@
 use super::AsyncCliCommand;
-use crate::opts::{ApiOpts, ItemFormatOpts};
+use crate::{
+    commands::deploy::deploy::DeployApp,
+    opts::{ApiOpts, ItemFormatOpts},
+};
 use anyhow::Context;
-use edge_schema::schema::{AppConfigV1, PackageSpecifier};
+use edge_schema::schema::AppConfigV1;
 use std::path::PathBuf;
 use wasmer_api::types::DeployAppVersion;
 
 // [todo]: deploy inside deploy? Let's think of a better name.
 mod deploy;
-use deploy::Deployable;
 
 /// Deploy an app to Wasmer Edge.
 #[derive(clap::Parser, Debug)]
@@ -62,7 +64,7 @@ impl AsyncCliCommand for CmdDeploy {
 
     async fn run_async(self) -> Result<DeployAppVersion, anyhow::Error> {
         let app_path = {
-            let base_path = self.path.unwrap_or(std::env::current_dir()?);
+            let base_path = self.path.clone().unwrap_or(std::env::current_dir()?);
             if base_path.is_file() {
                 base_path
             } else if base_path.is_dir() {
@@ -83,14 +85,6 @@ impl AsyncCliCommand for CmdDeploy {
         let config: AppConfigV1 = AppConfigV1::parse_yaml(&config_str)?;
         eprintln!("Loaded app from: '{}'", app_path.display());
 
-        match config.package {
-            PackageSpecifier::Ident(webc_id) => webc_id.deploy(app_path, &config, &self).await,
-            PackageSpecifier::Path(pkg_manifest_path) => {
-                PathBuf::from(pkg_manifest_path)
-                    .deploy(app_path, &config, &self)
-                    .await
-            }
-            PackageSpecifier::Sha256Hash(hash) => hash.deploy(app_path, &config, &self).await,
-        }
+        Into::<DeployApp>::into(config).deploy(app_path, &self).await
     }
 }
