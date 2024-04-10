@@ -14,6 +14,7 @@ use semver::Version;
 use crate::runtime::resolver::{DistributionInfo, PackageInfo};
 
 use super::PackageSpecifier;
+use super::WebcHash;
 
 #[derive(Debug, Clone)]
 pub struct Resolution {
@@ -33,6 +34,7 @@ pub struct ItemLocation {
 pub struct PackageIdent {
     pub name: String,
     pub version: Version,
+    pub hash: WebcHash,
 }
 
 impl Display for PackageIdent {
@@ -138,6 +140,11 @@ impl DependencyGraph {
     pub fn root_info(&self) -> &PackageInfo {
         let Node { pkg, .. } = &self.graph[self.root];
         pkg
+    }
+
+    pub fn id(&self) -> &PackageId {
+        let Node { id, .. } = &self.graph[self.root];
+        id
     }
 
     pub fn root(&self) -> NodeIndex {
@@ -262,7 +269,7 @@ pub struct ResolvedFileSystemMapping {
     // TODO: Change this to a new type that isn't coupled to the OS
     pub mount_path: PathBuf,
     pub volume_name: String,
-    pub original_path: String,
+    pub original_path: Option<String>,
     pub package: PackageId,
 }
 

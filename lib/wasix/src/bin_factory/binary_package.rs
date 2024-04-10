@@ -9,7 +9,7 @@ use webc::{compat::SharedBytes, Container};
 use crate::{
     runtime::{
         module_cache::ModuleHash,
-        resolver::{PackageId, PackageInfo, PackageSpecifier, ResolveError},
+        resolver::{PackageId, PackageInfo, PackageSpecifier, ResolveError, WebcHash},
     },
     Runtime,
 };

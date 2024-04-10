@@ -9,7 +9,7 @@ use anyhow::{Context, Error};
 use futures::{future::BoxFuture, StreamExt, TryStreamExt};
 use once_cell::sync::OnceCell;
 use petgraph::visit::EdgeRef;
-use virtual_fs::{FileSystem, OverlayFileSystem, WebcVolumeFileSystem};
+use virtual_fs::{FileSystem, OverlayFileSystem, UnionFileSystem, WebcVolumeFileSystem};
 use webc::{
     compat::{Container, Volume},
     metadata::annotations::Atom as AtomAnnotation,
@@ -45,6 +45,15 @@ pub async fn load_package_tree(
         commands(&resolution.package.commands, &containers, resolution)?;
 
     let file_system_memory_footprint = count_file_system(&fs, Path::new("/"));
+
+    let package_name = if let Some(name) = &root.package_name {
+        name.clone()
+    } else {
+        tracing::warn!(
+            "The root package doesn't have a name. Falling back to the package webc hash"
+        );
+        root.hash.as_hex()
+    };
 
     let loaded = BinaryPackage {
         id: root.clone(),
@@ -306,10 +315,100 @@ fn count_file_system(fs: &dyn FileSystem, path: &Path) -> u64 {
 /// exists.
 ///
 /// As a result, we'll duct-tape things together and hope for the best 🤞
+///
 fn filesystem(
     packages: &HashMap<PackageId, Container>,
     pkg: &ResolvedPackage,
-) -> Result<impl FileSystem + Send + Sync, Error> {
+) -> Result<Box<dyn FileSystem + Send + Sync>, Error> {
+    if pkg.filesystem.is_empty() {
+        return Ok(Box::new(OverlayFileSystem::<
+            virtual_fs::EmptyFileSystem,
+            Vec<WebcVolumeFileSystem>,
+        >::new(
+            virtual_fs::EmptyFileSystem::default(), vec![]
+        )));
+    }
+
+    let mut found_v2 = false;
+    let mut found_v3 = false;
+
+    for ResolvedFileSystemMapping { package, .. } in &pkg.filesystem {
+        let container = packages.get(package).with_context(|| {
+            format!(
+                "\"{}\" wants to use the \"{}\" package, but it isn't in the dependency tree",
+                pkg.root_package, package,
+            )
+        })?;
+
+        found_v2 |= container.version() == webc::Version::V2;
+        found_v3 |= container.version() == webc::Version::V3;
+    }
+
+    if found_v2 && !found_v3 {
+        filesystem_v2(packages, pkg)
+    } else if found_v3 && !found_v2 {
+        filesystem_v3(packages, pkg)
+    } else {
+        anyhow::bail!("All packages must be either webc V2 or webc V3")
+    }
+}
+
+fn filesystem_v3(
+    packages: &HashMap<PackageId, Container>,
+    pkg: &ResolvedPackage,
+) -> Result<Box<dyn FileSystem + Send + Sync>, Error> {
+    let mut volumes: HashMap<&PackageId, BTreeMap<String, Volume>> = HashMap::new();
+
+    let mut mountings: Vec<_> = pkg.filesystem.iter().collect();
+    mountings.sort_by_key(|m| std::cmp::Reverse(m.mount_path.as_path()));
+
+    let mut union_fs = UnionFileSystem::new();
+
+    for ResolvedFileSystemMapping {
+        mount_path,
+        volume_name,
+        package,
+        ..
+    } in &pkg.filesystem
+    {
+        // Note: We want to reuse existing Volume instances if we can. That way
+        // we can keep the memory usage down. A webc::compat::Volume is
+        // reference-counted, anyway.
+        // looks like we need to insert it
+        let container = packages.get(package).with_context(|| {
+            format!(
+                "\"{}\" wants to use the \"{}\" package, but it isn't in the dependency tree",
+                pkg.root_package, package,
+            )
+        })?;
+        let container_volumes = match volumes.entry(package) {
+            std::collections::hash_map::Entry::Occupied(entry) => &*entry.into_mut(),
+            std::collections::hash_map::Entry::Vacant(entry) => &*entry.insert(container.volumes()),
+        };
+
+        let volume = container_volumes.get(volume_name).with_context(|| {
+            format!("The \"{package}\" package doesn't have a \"{volume_name}\" volume")
+        })?;
+
+        let webc_vol = WebcVolumeFileSystem::new(volume.clone());
+        union_fs.mount(
+            &volume_name,
+            mount_path.to_str().unwrap(),
+            false,
+            Box::new(webc_vol),
+            None,
+        );
+    }
+
+    let fs = OverlayFileSystem::new(virtual_fs::EmptyFileSystem::default(), [union_fs]);
+
+    Ok(Box::new(fs))
+}
+
+fn filesystem_v2(
+    packages: &HashMap<PackageId, Container>,
+    pkg: &ResolvedPackage,
+) -> Result<Box<dyn FileSystem + Send + Sync>, Error> {
     let mut filesystems = Vec::new();
     let mut volumes: HashMap<&PackageId, BTreeMap<String, Volume>> = HashMap::new();
 
@@ -344,7 +443,7 @@ fn filesystem(
             format!("The \"{package}\" package doesn't have a \"{volume_name}\" volume")
         })?;
 
-        let original_path = PathBuf::from(original_path);
+        let original_path = PathBuf::from(original_path.clone().unwrap());
         let mount_path = mount_path.clone();
         // Get a filesystem which will map "$mount_dir/some-path" to
         // "$original_path/some-path" on the original volume
@@ -362,7 +461,7 @@ fn filesystem(
 
     let fs = OverlayFileSystem::new(virtual_fs::EmptyFileSystem::default(), filesystems);
 
-    Ok(fs)
+    Ok(Box::new(fs))
 }
 
 /// A [`FileSystem`] implementation that lets you map the [`Path`] to something

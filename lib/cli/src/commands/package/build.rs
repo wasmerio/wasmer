@@ -70,8 +70,8 @@ impl PackageBuild {
             return Ok(());
         }
 
-        let pkgname = manifest.name.replace('/', "-");
-        let name = format!("{}-{}.webc", pkgname, manifest.version,);
+        let pkgname = manifest.name.unwrap().replace('/', "-");
+        let name = format!("{}-{}.webc", pkgname, manifest.version.unwrap(),);
 
         pb.println(format!(
             "{} {}Creating output directory...",

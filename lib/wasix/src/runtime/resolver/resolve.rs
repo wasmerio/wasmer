@@ -3,6 +3,7 @@ use std::{
     path::PathBuf,
 };
 
+use anyhow::Context;
 use petgraph::{
     graph::{DiGraph, NodeIndex},
     visit::EdgeRef,
@@ -207,7 +208,7 @@ fn cycle_error(graph: &petgraph::Graph<Node, Edge>) -> ResolveError {
     // Don't forget to make the cycle start and end with the same node
     cycle.push(lowest_index_node);
 
-    let package_ids = cycle.into_iter().map(|ix| graph[ix].pkg.id()).collect();
+    let package_ids = cycle.into_iter().map(|ix| graph[ix].id.clone()).collect();
     ResolveError::Cycle(package_ids)
 }
 
@@ -376,7 +377,7 @@ fn resolve_package(dependency_graph: &DependencyGraph) -> Result<ResolvedPackage
     tracing::debug!("resolved filesystem: {:?}", &filesystem);
 
     Ok(ResolvedPackage {
-        root_package: dependency_graph.root_info().id(),
+        root_package: dependency_graph.id().clone(),
         commands,
         entrypoint,
         filesystem,

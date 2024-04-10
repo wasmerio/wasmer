@@ -1370,6 +1370,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fea41bba32d969b513997752735605054bc0dfa92b4c56bf1189f2e174be7a10"
 
 [[package]]
+name = "document-features"
+version = "0.2.8"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ef5282ad69563b5fc40319526ba27e0e7363d552a896f0297d54f767717f9b95"
+dependencies = [
+ "litrs",
+]
+
+[[package]]
 name = "dyn-clone"
 version = "1.0.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1404,6 +1413,7 @@ dependencies = [
 [[package]]
 name = "edge-schema"
 version = "0.0.3"
+source = "git+https://github.com/wasmerio/edge?branch=main#f9f3e514b314cfe288e7c54caf76a80df7fcd605"
 dependencies = [
  "anyhow",
  "bytesize",
@@ -1889,6 +1899,19 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d2fabcfbdc87f4758337ca535fb41a6d701b65693ce38287d856d1674551ec9b"
 
 [[package]]
+name = "globset"
+version = "0.4.14"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "57da3b9b5b85bd66f31093f8c408b90a74431672542466497dcbdfdc02034be1"
+dependencies = [
+ "aho-corasick",
+ "bstr 1.9.1",
+ "log 0.4.21",
+ "regex-automata 0.4.6",
+ "regex-syntax 0.8.2",
+]
+
+[[package]]
 name = "graphql-introspection-query"
 version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2310,6 +2333,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "ignore"
+version = "0.4.22"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b46810df39e66e925525d6e38ce1e7f6e1d208f72dc39757880fcb66e2c58af1"
+dependencies = [
+ "crossbeam-deque 0.8.5",
+ "globset",
+ "log 0.4.21",
+ "memchr",
+ "regex-automata 0.4.6",
+ "same-file",
+ "walkdir",
+ "winapi-util",
+]
+
+[[package]]
 name = "indexmap"
 version = "1.9.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2624,6 +2663,12 @@ name = "linux-raw-sys"
 version = "0.4.13"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "01cda141df6706de531b6c46c3a33ecca755538219bd484262fa09410c13539c"
+
+[[package]]
+name = "litrs"
+version = "0.4.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b4ce301924b7887e9d637144fdade93f9dfff9b60981d4ac161db09720d39aa5"
 
 [[package]]
 name = "llvm-sys"
@@ -6675,6 +6720,7 @@ dependencies = [
  "lzma-rs",
  "minisign",
  "pretty_assertions",
+ "rand",
  "regex",
  "reqwest",
  "rpassword",
@@ -6714,9 +6760,9 @@ dependencies = [
 
 [[package]]
 name = "wasmer-toml"
-version = "0.9.2"
+version = "0.10.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d21472954ee9443235ca32522b17fc8f0fe58e2174556266a0d9766db055cc52"
+checksum = "ae96ca9a048baeb57bd5a715a81eae3bcaa71b89afca812163cc28a6da3c9d8a"
 dependencies = [
  "anyhow",
  "derive_builder",
@@ -7055,15 +7101,18 @@ dependencies = [
 
 [[package]]
 name = "webc"
-version = "5.8.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "973ca5a91b4fb3e4bb37cfebe03ef9364d0aff2765256abefdb7e79dc9188483"
+version = "5.9.0"
+source = "git+https://github.com/wasmerio/pirita?branch=prepare-v3#4a5f50f23385966f17e031b753e366ddc594ef0a"
 dependencies = [
  "anyhow",
  "base64 0.21.7",
+ "cfg-if 1.0.0",
+ "clap",
+ "document-features",
  "byteorder",
  "bytes 1.6.0",
  "flate2",
+ "ignore",
  "indexmap 1.9.3",
  "leb128",
  "lexical-sort",
@@ -7081,7 +7130,6 @@ dependencies = [
  "thiserror",
  "toml 0.7.8",
  "url",
- "walkdir",
  "wasmer-toml",
 ]
 
