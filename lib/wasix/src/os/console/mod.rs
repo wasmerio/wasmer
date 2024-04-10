@@ -200,7 +200,7 @@ impl Console {
                         .await
                         .ok();
                 });
-                tracing::debug!("failed to get webc dependency - {}", webc);
+                tracing::debug!(error=?e, %webc, "failed to get webc dependency");
                 return Err(SpawnError::NotFound);
             }
         };
