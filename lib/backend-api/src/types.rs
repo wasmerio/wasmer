@@ -74,6 +74,13 @@ mod queries {
         pub download_url: Option<String>,
         pub size: Option<i32>,
         pub pirita_size: Option<i32>,
+        pub webc_version: Option<WebcVersion>,
+    }
+
+    #[derive(cynic::Enum, Clone, Copy, Debug)]
+    pub enum WebcVersion {
+        V2,
+        V3,
     }
 
     #[derive(cynic::QueryFragment, Debug, Clone, Serialize)]
