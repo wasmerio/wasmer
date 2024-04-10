@@ -150,6 +150,10 @@ impl Source for WapmSource {
     async fn query(&self, package: &PackageSpecifier) -> Result<Vec<PackageSummary>, QueryError> {
         let (package_name, version_constraint) = match package {
             PackageSpecifier::Registry { full_name, version } => (full_name, version),
+            PackageSpecifier::HashSha256(hash) => {
+                // FIXME: implement fetching
+                todo!("fetching of packages by hash")
+            }
             _ => return Err(QueryError::Unsupported),
         };
 
