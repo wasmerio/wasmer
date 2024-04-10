@@ -21,6 +21,8 @@ use crate::{
     },
 };
 
+use super::PackageId;
+
 /// A [`Source`] which can query arbitrary packages on the internet.
 ///
 /// # Implementation Notes
@@ -247,7 +249,11 @@ impl Source for WebSource {
         // our HTTP client gave us because then we can use memory-mapped files
         let container = crate::block_in_place(|| Container::from_disk(&local_path))
             .with_context(|| format!("Unable to load \"{}\"", local_path.display()))?;
-        let pkg = PackageInfo::from_manifest(container.manifest())
+
+        let id = PackageInfo::package_id_from_manifest(container.manifest())?
+            .unwrap_or_else(|| PackageId::HashSha256(webc_sha256.as_hex()));
+
+        let pkg = PackageInfo::from_manifest(id, container.manifest(), container.version())
             .context("Unable to determine the package's metadata")?;
 
         let dist = DistributionInfo {
@@ -460,7 +466,7 @@ mod tests {
 
         // We got the right response, as expected
         assert_eq!(summaries.len(), 1);
-        assert_eq!(summaries[0].pkg.name, "python");
+        assert_eq!(summaries[0].pkg.id.as_named().unwrap().name, "python");
         // But we should have also cached the file and etag
         let path = temp.path().join(DUMMY_URL_HASH);
         assert!(path.exists());
@@ -493,7 +499,7 @@ mod tests {
 
         // We got the right response, as expected
         assert_eq!(summaries.len(), 1);
-        assert_eq!(summaries[0].pkg.name, "python");
+        assert_eq!(summaries[0].pkg.id.as_named().unwrap().name, "python");
         // And no requests were sent
         assert_eq!(client.requests.lock().unwrap().len(), 0);
     }
@@ -523,7 +529,7 @@ mod tests {
 
         // We got the right response, as expected
         assert_eq!(summaries.len(), 1);
-        assert_eq!(summaries[0].pkg.name, "python");
+        assert_eq!(summaries[0].pkg.id.as_named().unwrap().name, "python");
         // And one request was sent
         assert_eq!(client.requests.lock().unwrap().len(), 1);
         // The etag file wasn't written
@@ -562,7 +568,10 @@ mod tests {
 
         // Instead of Python (the originally cached item), we should get coreutils
         assert_eq!(summaries.len(), 1);
-        assert_eq!(summaries[0].pkg.name, "sharrattj/coreutils");
+        assert_eq!(
+            summaries[0].pkg.id.as_named().unwrap().name,
+            "sharrattj/coreutils"
+        );
         // both a HEAD and GET request were sent
         let requests = client.requests.lock().unwrap();
         assert_eq!(requests.len(), 2);

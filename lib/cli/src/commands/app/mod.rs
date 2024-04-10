@@ -115,9 +115,9 @@ pub enum WaitMode {
 /// Same as [Self::deploy], but also prints verbose information.
 pub async fn deploy_app_verbose(
     client: &WasmerClient,
-    mut opts: DeployAppOpts<'_>,
+    opts: DeployAppOpts<'_>,
 ) -> Result<(DeployApp, DeployAppVersion), anyhow::Error> {
-    let owner = &opts.owner;
+    let owner = &opts.owner.clone().or_else(|| opts.app.owner.clone());
     let app = &opts.app;
 
     let pretty_name = if let Some(owner) = &owner {
@@ -130,20 +130,6 @@ pub async fn deploy_app_verbose(
 
     eprintln!("Deploying app {pretty_name}...\n");
 
-    let (owner, app_opt) = if let Some(owner) = owner {
-        (Some(owner.clone()), None)
-    } else if let Some(id) = &app.app_id {
-        let app = wasmer_api::query::get_app_by_id(client, id.clone())
-            .await
-            .context("could not fetch app from backend")?;
-
-        (Some(app.owner.global_name.clone()), Some(app))
-    } else {
-        (None, None)
-    };
-
-    opts.owner = owner;
-
     let wait = opts.wait;
     let version = deploy_app(client, opts).await?;
 
@@ -155,13 +141,9 @@ pub async fn deploy_app_verbose(
         .inner()
         .to_string();
 
-    let app = if let Some(app) = app_opt {
-        app
-    } else {
-        wasmer_api::query::get_app_by_id(client, app_id.clone())
-            .await
-            .context("could not fetch app from backend")?
-    };
+    let app = wasmer_api::query::get_app_by_id(client, app_id.clone())
+        .await
+        .context("could not fetch app from backend")?;
 
     let full_name = format!("{}/{}", app.owner.global_name, app.name);
 

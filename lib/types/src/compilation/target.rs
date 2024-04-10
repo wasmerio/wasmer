@@ -48,6 +48,7 @@ pub enum CpuFeature {
     AVX512F,
     LZCNT,
     // ARM features
+    NEON,
     // Risc-V features
 }
 
@@ -101,7 +102,20 @@ impl CpuFeature {
         }
         features
     }
-    #[cfg(not(any(target_arch = "x86", target_arch = "x86_64")))]
+
+    #[cfg(target_arch = "aarch64")]
+    /// Retrieves the features for the current Host
+    pub fn for_host() -> EnumSet<Self> {
+        let mut features = EnumSet::new();
+
+        if std::arch::is_aarch64_feature_detected!("neon") {
+            features.insert(Self::NEON);
+        }
+
+        features
+    }
+
+    #[cfg(not(any(target_arch = "x86", target_arch = "x86_64", target_arch = "aarch64")))]
     /// Retrieves the features for the current Host
     pub fn for_host() -> EnumSet<Self> {
         // We default to an empty hash set
@@ -140,6 +154,7 @@ impl FromStr for CpuFeature {
             "avx512vl" => Ok(Self::AVX512VL),
             "avx512f" => Ok(Self::AVX512F),
             "lzcnt" => Ok(Self::LZCNT),
+            "neon" => Ok(Self::NEON),
             _ => Err(ParseCpuFeatureError::Missing(s.to_string())),
         }
     }
@@ -162,6 +177,7 @@ impl ToString for CpuFeature {
             Self::AVX512VL => "avx512vl",
             Self::AVX512F => "avx512f",
             Self::LZCNT => "lzcnt",
+            Self::NEON => "neon",
         }
         .to_string()
     }

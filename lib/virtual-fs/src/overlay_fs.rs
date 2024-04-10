@@ -819,27 +819,26 @@ where
             Ok(())
         }
 
-        fn unlink(&mut self) -> BoxFuture<'static, crate::Result<()>> {
+        fn unlink(&mut self) -> crate::Result<()> {
             let primary = self.primary.clone();
             let path = self.path.clone();
-            Box::pin(async move {
-                // Create the whiteout file in the primary
-                let mut had_at_least_one_success = false;
-                if ops::create_white_out(&primary, &path).is_ok() {
-                    had_at_least_one_success = true;
-                }
 
-                // Attempt to remove it from the primary first
-                match primary.remove_file(&path) {
-                    Err(e) if should_continue(e) => {}
-                    other => return other,
-                }
+            // Create the whiteout file in the primary
+            let mut had_at_least_one_success = false;
+            if ops::create_white_out(&primary, &path).is_ok() {
+                had_at_least_one_success = true;
+            }
 
-                if had_at_least_one_success {
-                    return Ok(());
-                }
-                Err(FsError::PermissionDenied)
-            })
+            // Attempt to remove it from the primary first
+            match primary.remove_file(&path) {
+                Err(e) if should_continue(e) => {}
+                other => return other,
+            }
+
+            if had_at_least_one_success {
+                return Ok(());
+            }
+            Err(FsError::PermissionDenied)
         }
 
         fn poll_read_ready(

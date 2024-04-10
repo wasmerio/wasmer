@@ -409,10 +409,21 @@ interface Likeable {
   viewerHasLiked: Boolean!
 }
 
-type PackageVersion implements Node & PackageInstance {
+type PackageVersion implements Node & PackageReleaseInterface & PackageInstance {
   """The ID of the object"""
   id: ID!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+  deletedAt: DateTime
   package: Package!
+  webc: WebcImage
+  webcV3: WebcImage
+
+  """List of direct dependencies of this package version"""
+  dependencies(offset: Int, before: String, after: String, first: Int, last: Int): PackageVersionConnection!
+  publishedBy: User!
+  tag: String!
+  clientName: String
   webcGenerationErrors: String
   version: String!
   description: String!
@@ -423,25 +434,17 @@ type PackageVersion implements Node & PackageInstance {
   witMd: String
   repository: String
   homepage: String
-  createdAt: DateTime!
-  updatedAt: DateTime!
   staticObjectsCompiled: Boolean!
   nativeExecutablesCompiled: Boolean!
-  publishedBy: User!
-  clientName: String
   signature: Signature
   isArchived: Boolean!
   file: String!
 
   """"""
   fileSize: BigInt!
-  webc: WebcImage
   totalDownloads: Int!
   bindingsState: RegistryPackageVersionBindingsStateChoices!
   nativeExecutablesState: RegistryPackageVersionNativeExecutablesStateChoices!
-
-  """List of direct dependencies of this package version"""
-  dependencies(offset: Int, before: String, after: String, first: Int, last: Int): PackageVersionConnection!
   deployappversionSet(offset: Int, before: String, after: String, first: Int, last: Int): DeployAppVersionConnection!
   lastversionPackage(offset: Int, before: String, after: String, first: Int, last: Int): PackageConnection!
   commands: [Command!]!
@@ -455,7 +458,7 @@ type PackageVersion implements Node & PackageInstance {
   piritaFile: String @deprecated(reason: "Please use distribution.piritaDownloadUrl instead.")
   piritaFileSize: Int @deprecated(reason: "Please use distribution.piritaSize instead.")
   pirita256hash: String @deprecated(reason: "Please use distribution.piritaSha256Hash instead.")
-  distribution: PackageDistribution!
+  distribution(version: WebcVersion): PackageDistribution!
   filesystem: [PackageVersionFilesystem]!
   isLastVersion: Boolean!
   witFile: String
@@ -475,7 +478,7 @@ type PackageVersion implements Node & PackageInstance {
   isCorrupt: Boolean!
 }
 
-interface PackageInstance {
+interface PackageReleaseInterface {
   piritaManifest: JSONString
   piritaOffsets: JSONString
   piritaVolumes: JSONString
@@ -486,6 +489,7 @@ interface PackageInstance {
   updatedAt: DateTime!
   package: Package!
   webc: WebcImage
+  tag: String!
 }
 
 """
@@ -499,6 +503,7 @@ scalar JSONString
 type WebcImage implements Node {
   """The ID of the object"""
   id: ID!
+  version: RegistryWebcImageVersionChoices!
 
   """"""
   fileSize: BigInt!
@@ -512,12 +517,40 @@ type WebcImage implements Node {
   webcUrl: String!
 }
 
+enum RegistryWebcImageVersionChoices {
+  """v2"""
+  V2
+
+  """v3"""
+  V3
+}
+
 """
 The `BigInt` scalar type represents non-fractional whole numeric values.
 `BigInt` is not constrained to 32-bit like the `Int` type and thus is a less
 compatible type.
 """
 scalar BigInt
+
+type PackageVersionConnection {
+  """Pagination data for this connection."""
+  pageInfo: PageInfo!
+
+  """Contains the nodes in this connection."""
+  edges: [PackageVersionEdge]!
+
+  """Total number of items in the connection."""
+  totalCount: Int
+}
+
+"""A Relay edge containing a `PackageVersion` and its cursor."""
+type PackageVersionEdge {
+  """The item at the end of the edge"""
+  node: PackageVersion
+
+  """A cursor for use in pagination"""
+  cursor: String!
+}
 
 enum RegistryPackageVersionBindingsStateChoices {
   """Bindings are not detected"""
@@ -547,26 +580,6 @@ enum RegistryPackageVersionNativeExecutablesStateChoices {
   GENERATED_AND_PRESENT
 }
 
-type PackageVersionConnection {
-  """Pagination data for this connection."""
-  pageInfo: PageInfo!
-
-  """Contains the nodes in this connection."""
-  edges: [PackageVersionEdge]!
-
-  """Total number of items in the connection."""
-  totalCount: Int
-}
-
-"""A Relay edge containing a `PackageVersion` and its cursor."""
-type PackageVersionEdge {
-  """The item at the end of the edge"""
-  node: PackageVersion
-
-  """A cursor for use in pagination"""
-  cursor: String!
-}
-
 type DeployAppVersionConnection {
   """Pagination data for this connection."""
   pageInfo: PageInfo!
@@ -593,7 +606,7 @@ type DeployAppVersion implements Node {
   app: DeployApp!
   yamlConfig: String!
   userYamlConfig: String!
-  clientName: String
+  clientName: String!
   signature: String
   description: String
   publishedBy: User!
@@ -702,10 +715,21 @@ type AppAlias implements Node {
   name: String!
   app: DeployApp!
   isDefault: Boolean!
+  hostname: String!
+  text: String!
+  kind: DeployAppAliasKindChoices!
 
   """The ID of the object"""
   id: ID!
   url: String!
+}
+
+enum DeployAppAliasKindChoices {
+  """Deployment"""
+  DEPLOYMENT
+
+  """Domain"""
+  DOMAIN
 }
 
 type UsageMetric {
@@ -1024,6 +1048,12 @@ type PackageDistribution {
   webcExpiresInSeconds: Int
   webcSize: Int
   webcSha256Hash: String
+  webcVersion: WebcVersion
+}
+
+enum WebcVersion {
+  V2
+  V3
 }
 
 type PackageVersionFilesystem {
@@ -1204,19 +1234,20 @@ type PackageWebcEdge {
   cursor: String!
 }
 
-type PackageWebc implements Node & PackageInstance {
+type PackageWebc implements Node & PackageReleaseInterface & PackageInstance {
   """The ID of the object"""
   id: ID!
-  package: Package!
-  webc: WebcImage
   createdAt: DateTime!
   updatedAt: DateTime!
+  package: Package!
+  webc: WebcImage
   piritaManifest: JSONString
   piritaOffsets: JSONString
   piritaVolumes: JSONString
   isArchived: Boolean!
   clientName: String
   publishedBy: User!
+  tag: String!
   webcUrl: String!
 }
 
@@ -1921,7 +1952,7 @@ type UserNotificationKindValidateEmail {
 
     Enum of ways a user can login. One user can have many login methods
     associated with their account.
-
+    
 """
 enum LoginMethod {
   GOOGLE
@@ -2061,6 +2092,20 @@ type Log {
 
   """Log stream"""
   stream: LogStream
+}
+
+interface PackageInstance {
+  piritaManifest: JSONString
+  piritaOffsets: JSONString
+  piritaVolumes: JSONString
+  isArchived: Boolean!
+  clientName: String
+  publishedBy: User!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+  package: Package!
+  webc: WebcImage
+  tag: String!
 }
 
 type UserNotificationKindIncomingPackageTransfer {
@@ -2237,6 +2282,7 @@ type Query {
   packages(offset: Int, before: String, after: String, first: Int, last: Int): PackageConnection
   recentPackageVersions(curated: Boolean, offset: Int, before: String, after: String, first: Int, last: Int): PackageVersionConnection!
   allPackageVersions(sortBy: PackageVersionSortBy, createdAfter: DateTime, updatedAfter: DateTime, offset: Int, before: String, after: String, first: Int, last: Int): PackageVersionConnection!
+  allPackageReleases(sortBy: PackageVersionSortBy, createdAfter: DateTime, updatedAfter: DateTime, offset: Int, before: String, after: String, first: Int, last: Int): PackageWebcConnection!
   getWebcImage(hash: String!): WebcImage
   getNamespace(name: String!): Namespace
   getPackage(name: String!): Package
@@ -2253,8 +2299,9 @@ type Query {
   getCommand(name: String!): Command
   getCommands(names: [String!]!): [Command]
   getCollections(before: String, after: String, first: Int, last: Int): CollectionConnection
-  getSignedUrlForPackageUpload(name: String!, version: String = "latest", expiresAfterSeconds: Int = 60): SignedUrl
-  getPackageHash(name: String!, hash: String!): PackageWebc!
+  getSignedUrlForPackageUpload(name: String, version: String = "latest", filename: String, expiresAfterSeconds: Int = 60): SignedUrl
+  getPackageHash(name: String, hash: String!): PackageWebc
+  getPackageRelease(hash: String!): PackageWebc
   categories(offset: Int, before: String, after: String, first: Int, last: Int): CategoryConnection!
   blogposts(tags: [String!], before: String, after: String, first: Int, last: Int): BlogPostConnection!
   getBlogpost(slug: String, featured: Boolean): BlogPost
@@ -2749,7 +2796,7 @@ type Mutation {
   createRepoForAppTemplate(input: CreateRepoForAppTemplateInput!): CreateRepoForAppTemplatePayload
   registerDomain(input: RegisterDomainInput!): RegisterDomainPayload
   upsertDNSRecord(input: UpsertDNSRecordInput!): UpsertDNSRecordPayload
-  deleteDnsRecord(input: DeleteDNSRecordInput!): DeleteDNSRecordPayload
+  deleteDNSRecord(input: DeleteDNSRecordInput!): DeleteDNSRecordPayload
   upsertDomainFromZoneFile(input: UpsertDomainFromZoneFileInput!): UpsertDomainFromZoneFilePayload
   deleteDomain(input: DeleteDomainInput!): DeleteDomainPayload
   tokenAuth(input: ObtainJSONWebTokenInput!): ObtainJSONWebTokenPayload
@@ -2852,11 +2899,11 @@ input PublishDeployAppInput {
 }
 
 input Configuration {
-  deployment: AppV0
+  deployment: AppConfigV1
   yamlConfig: String
 }
 
-input AppV0 {
+input AppConfigV1 {
   kind: String = "wasmer.io/App.v0"
   appId: ID
   name: String!
@@ -3495,10 +3542,11 @@ type PublishPackagePayload {
 }
 
 input PublishPackageInput {
-  name: String!
-  version: String!
-  description: String!
   manifest: String!
+  name: String
+  namespace: String
+  version: String
+  description: String
   license: String
   licenseFile: String
   readme: String
@@ -3530,6 +3578,7 @@ input InputSignature {
 enum UploadFormat {
   targz
   webcv2
+  webcv3
 }
 
 type UpdatePackagePayload {

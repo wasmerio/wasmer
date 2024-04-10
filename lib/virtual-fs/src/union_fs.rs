@@ -440,7 +440,7 @@ impl FileOpener for UnionFileSystem {
                     .open(path)
                 {
                     if conf.create_new() {
-                        ret.unlink();
+                        ret.unlink().ok();
                         continue;
                     }
                     return Ok(ret);

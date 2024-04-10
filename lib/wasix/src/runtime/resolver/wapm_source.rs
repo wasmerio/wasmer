@@ -1,4 +1,5 @@
 use std::{
+    io::Read,
     path::PathBuf,
     sync::Arc,
     time::{Duration, SystemTime},
@@ -18,6 +19,8 @@ use crate::{
     },
 };
 
+use super::PackageId;
+
 /// A [`Source`] which will resolve dependencies by pinging a Wasmer-like GraphQL
 /// endpoint.
 #[derive(Debug, Clone)]
@@ -29,8 +32,8 @@ pub struct WapmSource {
 }
 
 impl WapmSource {
-    pub const WASMER_DEV_ENDPOINT: &str = "https://registry.wasmer.wtf/graphql";
-    pub const WASMER_PROD_ENDPOINT: &str = "https://registry.wasmer.io/graphql";
+    pub const WASMER_DEV_ENDPOINT: &'static str = "https://registry.wasmer.wtf/graphql";
+    pub const WASMER_PROD_ENDPOINT: &'static str = "https://registry.wasmer.io/graphql";
 
     pub fn new(registry_endpoint: Url, client: Arc<dyn HttpClient + Send + Sync>) -> Self {
         WapmSource {
@@ -61,7 +64,7 @@ impl WapmSource {
     }
 
     #[tracing::instrument(level = "debug", skip_all)]
-    async fn query_graphql(&self, package_name: &str) -> Result<WapmWebQuery, Error> {
+    async fn query_graphql_named(&self, package_name: &str) -> Result<WapmWebQuery, Error> {
         #[derive(serde::Serialize)]
         struct Body {
             query: String,
@@ -119,6 +122,65 @@ impl WapmSource {
         Ok(response)
     }
 
+    #[tracing::instrument(level = "debug", skip_all)]
+    async fn query_graphql_by_hash(&self, hash: &str) -> Result<Option<PackageWebc>, Error> {
+        #[derive(serde::Serialize)]
+        struct Body {
+            query: String,
+        }
+
+        let body = Body {
+            query: WASMER_WEBC_QUERY_BY_HASH.replace("$HASH", hash),
+        };
+
+        let request = HttpRequest {
+            url: self.registry_endpoint.clone(),
+            method: Method::POST,
+            body: Some(serde_json::to_string(&body)?.into_bytes()),
+            headers: self.headers(),
+            options: Default::default(),
+        };
+
+        tracing::debug!(%request.url, %request.method, "Querying the GraphQL API");
+        tracing::trace!(?request.headers, request.body=body.query.as_str());
+
+        let response = self.client.request(request).await?;
+
+        if !response.is_ok() {
+            let url = &self.registry_endpoint;
+            let status = response.status;
+
+            let body = if let Some(body) = &response.body {
+                String::from_utf8_lossy(body).into_owned()
+            } else {
+                "<no body>".to_string()
+            };
+
+            tracing::warn!(
+                %url,
+                %status,
+                %hash,
+                %body,
+                "failed to query package info from registry"
+            );
+
+            anyhow::bail!("\"{url}\" replied with {status}");
+        }
+
+        let body = response.body.unwrap_or_default();
+        tracing::trace!(
+            %response.status,
+            %response.redirected,
+            ?response.headers,
+            "Received a response from GraphQL",
+        );
+
+        let response: Reply<GetPackageRelease> =
+            serde_json::from_slice(&body).context("Unable to deserialize the response")?;
+
+        Ok(response.data.get_package_release)
+    }
+
     fn headers(&self) -> HeaderMap {
         let mut headers = HeaderMap::new();
         headers.insert("Content-Type", "application/json".parse().unwrap());
@@ -142,6 +204,57 @@ impl WapmSource {
 
         headers
     }
+
+    async fn query_named(
+        &self,
+        package_name: &str,
+        version_constraint: &VersionReq,
+    ) -> Result<Vec<PackageSummary>, QueryError> {
+        if let Some(cache) = &self.cache {
+            match cache.lookup_cached_query(package_name) {
+                Ok(Some(cached)) => {
+                    if let Ok(cached) = matching_package_summaries(cached, version_constraint) {
+                        tracing::debug!("Cache hit!");
+                        return Ok(cached);
+                    }
+                }
+                Ok(None) => {}
+                Err(e) => {
+                    tracing::warn!(
+                        package_name,
+                        error = &*e,
+                        "An unexpected error occurred while checking the local query cache",
+                    );
+                }
+            }
+        }
+
+        let response = self.query_graphql_named(package_name).await?;
+
+        if let Some(cache) = &self.cache {
+            if let Err(e) = cache.update(package_name, &response) {
+                tracing::warn!(
+                    package_name,
+                    error = &*e,
+                    "An error occurred while caching the GraphQL response",
+                );
+            }
+        }
+
+        matching_package_summaries(response, version_constraint)
+    }
+
+    async fn query_by_hash(&self, hash: &str) -> Result<Option<PackageSummary>, QueryError> {
+        // FIXME: implementing caching!
+
+        let Some(data) = self.query_graphql_by_hash(hash).await? else {
+            return Ok(None);
+        };
+
+        let summary = data.try_into_summary(hash)?;
+
+        Ok(Some(summary))
+    }
 }
 
 #[async_trait::async_trait]
@@ -150,6 +263,18 @@ impl Source for WapmSource {
     async fn query(&self, package: &PackageSpecifier) -> Result<Vec<PackageSummary>, QueryError> {
         let (package_name, version_constraint) = match package {
             PackageSpecifier::Registry { full_name, version } => (full_name, version),
+            PackageSpecifier::HashSha256(hash) => {
+                let hash = hash.trim_start_matches("sha256:");
+                // TODO: implement caching!
+                match self.query_by_hash(hash).await? {
+                    Some(summary) => return Ok(vec![summary]),
+                    None => {
+                        return Err(QueryError::NoMatches {
+                            archived_versions: Vec::new(),
+                        });
+                    }
+                }
+            }
             _ => return Err(QueryError::Unsupported),
         };
 
@@ -172,7 +297,7 @@ impl Source for WapmSource {
             }
         }
 
-        let response = self.query_graphql(package_name).await?;
+        let response = self.query_graphql_named(package_name).await?;
 
         if let Some(cache) = &self.cache {
             if let Err(e) = cache.update(package_name, &response) {
@@ -194,8 +319,12 @@ fn matching_package_summaries(
 ) -> Result<Vec<PackageSummary>, QueryError> {
     let mut summaries = Vec::new();
 
-    let WapmWebQueryGetPackage { versions, .. } =
-        response.data.get_package.ok_or(QueryError::NotFound)?;
+    let WapmWebQueryGetPackage {
+        namespace,
+        package_name,
+        versions,
+        ..
+    } = response.data.get_package.ok_or(QueryError::NotFound)?;
     let mut archived_versions = Vec::new();
 
     for pkg_version in versions {
@@ -221,7 +350,7 @@ fn matching_package_summaries(
         }
 
         if version_constraint.matches(&version) {
-            match decode_summary(pkg_version) {
+            match decode_summary(&namespace, &package_name, pkg_version) {
                 Ok(summary) => summaries.push(summary),
                 Err(e) => {
                     tracing::debug!(
@@ -241,16 +370,29 @@ fn matching_package_summaries(
     }
 }
 
-fn decode_summary(pkg_version: WapmWebQueryGetPackageVersion) -> Result<PackageSummary, Error> {
+fn decode_summary(
+    namespace: &str,
+    package_name: &str,
+    pkg_version: WapmWebQueryGetPackageVersion,
+) -> Result<PackageSummary, Error> {
     let WapmWebQueryGetPackageVersion {
         manifest,
         distribution:
             WapmWebQueryGetPackageVersionDistribution {
+                webc_version,
                 pirita_sha256_hash,
                 pirita_download_url,
             },
         ..
     } = pkg_version;
+
+    let id = PackageId::Named(super::PackageIdent {
+        name: format!("{}/{}", namespace, package_name),
+        version: pkg_version
+            .version
+            .parse()
+            .context("could not parse package version")?,
+    });
 
     let manifest = manifest.context("missing Manifest")?;
     let hash = pirita_sha256_hash.context("missing sha256")?;
@@ -261,8 +403,10 @@ fn decode_summary(pkg_version: WapmWebQueryGetPackageVersion) -> Result<PackageS
 
     let webc_sha256 = WebcHash::parse_hex(&hash).context("invalid webc sha256 hash in manifest")?;
 
+    let version: webc::Version = webc_version.unwrap_or_default().into();
+
     Ok(PackageSummary {
-        pkg: PackageInfo::from_manifest(&manifest)?,
+        pkg: PackageInfo::from_manifest(id, &manifest, version)?,
         dist: DistributionInfo { webc, webc_sha256 },
     })
 }
@@ -284,6 +428,11 @@ impl FileSystemCache {
 
     fn path(&self, package_name: &str) -> PathBuf {
         self.cache_dir.join(package_name)
+    }
+
+    /// Path for hashed package caches.
+    fn path_hashed(&self, hash: &str) -> PathBuf {
+        self.cache_dir.join(format!("__hashed__{hash}"))
     }
 
     fn lookup_cached_query(&self, package_name: &str) -> Result<Option<WapmWebQuery>, Error> {
@@ -388,6 +537,14 @@ struct CacheEntry {
     response: WapmWebQuery,
 }
 
+/// Cache entry for a webc lookup by hash.
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+struct HashCacheEntry {
+    unix_timestamp: u64,
+    hash: String,
+    response: WapmWebQuery,
+}
+
 impl CacheEntry {
     fn is_still_valid(&self, timeout: Duration) -> bool {
         let timestamp = SystemTime::UNIX_EPOCH + Duration::from_secs(self.unix_timestamp);
@@ -418,6 +575,7 @@ pub const WASMER_WEBC_QUERY_ALL: &str = r#"{
         piritaManifest
         isArchived
         distribution {
+            webcVersion
             piritaDownloadUrl
             piritaSha256Hash
         }
@@ -427,6 +585,55 @@ pub const WASMER_WEBC_QUERY_ALL: &str = r#"{
         defaultFrontend
     }
 }"#;
+
+pub const WASMER_WEBC_QUERY_BY_HASH: &str = r#"{
+    getPackageRelease(hash: "$HASH") {
+        piritaManifest
+        isArchived
+        webcUrl
+    }
+}"#;
+
+#[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
+pub struct Reply<T> {
+    pub data: T,
+}
+
+#[derive(Debug, serde::Serialize, serde::Deserialize, Clone)]
+struct GetPackageRelease {
+    #[serde(rename = "getPackageRelease")]
+    get_package_release: Option<PackageWebc>,
+}
+
+#[derive(Debug, serde::Serialize, serde::Deserialize, Clone)]
+struct PackageWebc {
+    #[serde(rename = "piritaManifest")]
+    pub pirita_manifest: String,
+    #[serde(rename = "isArchived")]
+    pub is_archived: bool,
+    #[serde(rename = "webcUrl")]
+    pub webc_url: url::Url,
+}
+
+impl PackageWebc {
+    fn try_into_summary(self, hash: &str) -> Result<PackageSummary, anyhow::Error> {
+        let manifest: Manifest = serde_json::from_str(&self.pirita_manifest)
+            .context("Unable to deserialize the manifest")?;
+
+        let id = PackageId::HashSha256(hash.to_string());
+
+        let info = PackageInfo::from_manifest(id, &manifest, webc::Version::V3)
+            .context("could not convert the manifest ")?;
+
+        Ok(PackageSummary {
+            pkg: info,
+            dist: DistributionInfo {
+                webc: self.webc_url,
+                webc_sha256: WebcHash::parse_hex(hash).context("invalid hash")?,
+            },
+        })
+    }
+}
 
 #[derive(Debug, serde::Serialize, serde::Deserialize, Clone)]
 pub struct WapmWebQuery {
@@ -468,7 +675,30 @@ pub struct WapmWebQueryGetPackageVersion {
 }
 
 #[derive(Debug, serde::Serialize, serde::Deserialize, Clone)]
+pub enum WebCVersion {
+    V2,
+    V3,
+}
+
+impl Default for WebCVersion {
+    fn default() -> Self {
+        Self::V2
+    }
+}
+
+impl Into<webc::Version> for WebCVersion {
+    fn into(self) -> webc::Version {
+        match self {
+            Self::V2 => webc::Version::V2,
+            Self::V3 => webc::Version::V3,
+        }
+    }
+}
+
+#[derive(Debug, serde::Serialize, serde::Deserialize, Clone)]
 pub struct WapmWebQueryGetPackageVersionDistribution {
+    #[serde(rename = "webcVersion")]
+    pub webc_version: Option<WebCVersion>,
     #[serde(rename = "piritaDownloadUrl")]
     pub pirita_download_url: Option<Url>,
     #[serde(rename = "piritaSha256Hash")]
@@ -483,7 +713,10 @@ mod tests {
 
     use crate::{
         http::HttpResponse,
-        runtime::resolver::inputs::{DistributionInfo, FileSystemMapping, PackageInfo},
+        runtime::resolver::{
+            inputs::{DistributionInfo, FileSystemMapping, PackageInfo},
+            outputs::PackageId,
+        },
     };
 
     use super::*;
@@ -548,8 +781,7 @@ mod tests {
             summaries,
             [PackageSummary {
                 pkg: PackageInfo {
-                    name: "wasmer/wasmer-pack-cli".to_string(),
-                    version: Version::new(0, 6, 0),
+                    id: PackageId::new_named("wasmer/wasmer-pack-cli", Version::new(0, 6, 0)),
                     dependencies: Vec::new(),
                     commands: vec![crate::runtime::resolver::Command {
                         name: "wasmer-pack".to_string(),
@@ -558,7 +790,7 @@ mod tests {
                     filesystem: vec![FileSystemMapping {
                         volume_name: "atom".to_string(),
                         mount_path: "/".to_string(),
-                        original_path: "/".to_string(),
+                        original_path: Some("/".to_string()),
                         dependency_name: None,
                     }],
                 },
@@ -658,7 +890,10 @@ mod tests {
         let summaries = source.query(&request).await.unwrap();
 
         assert_eq!(summaries.len(), 1);
-        assert_eq!(summaries[0].pkg.version.to_string(), "0.2.0");
+        assert_eq!(
+            summaries[0].pkg.id.as_named().unwrap().version.to_string(),
+            "0.2.0"
+        );
     }
 
     #[tokio::test]
@@ -722,7 +957,10 @@ mod tests {
         let summaries = source.query(&request).await.unwrap();
 
         assert_eq!(summaries.len(), 1);
-        assert_eq!(summaries[0].pkg.version.to_string(), "3.12.1");
+        assert_eq!(
+            summaries[0].pkg.id.as_named().unwrap().version.to_string(),
+            "3.12.1"
+        );
     }
 
     #[tokio::test]
@@ -806,6 +1044,9 @@ mod tests {
         let summaries = source.query(&request).await.unwrap();
 
         assert_eq!(summaries.len(), 1);
-        assert_eq!(summaries[0].pkg.version.to_string(), "4.0.0");
+        assert_eq!(
+            summaries[0].pkg.id.as_named().unwrap().version.to_string(),
+            "4.0.0"
+        );
     }
 }

@@ -118,7 +118,7 @@ class Publisher:
             data = tomllib.load(file)
 
         if version is None:
-            version = data["package"]["version"]
+            version = data["workspace"]["package"]["version"]
         self.version: str = version
 
         if self.verbose and not self.dry_run:
@@ -203,7 +203,18 @@ class Publisher:
         if found_string is None:
             return False
 
-        return self.version == found_string
+        if self.version == found_string:
+            return True
+        
+        crate = self.crate_index[crate_name]
+        with open(crate.path + "/Cargo.toml", "rb") as file:
+            data = tomllib.load(file)
+        crate_version = data["package"]["version"]
+
+        if crate_version is None:
+            return False
+
+        return crate_version == found_string
 
     def publish_crate(self, crate_name: str):
         # pylint: disable=broad-except

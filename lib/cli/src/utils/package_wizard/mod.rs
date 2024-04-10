@@ -2,7 +2,7 @@ use std::path::{Path, PathBuf};
 
 use anyhow::Context;
 use dialoguer::Select;
-use edge_schema::schema::{StringWebcIdent, WebcIdent};
+use edge_schema::schema::{PackageIdentifier, PackageSpecifier};
 use wasmer_api::{types::UserWithNamespaces, WasmerClient};
 
 use super::prompts::PackageCheckMode;
@@ -77,7 +77,7 @@ pub struct PackageWizard {
 }
 
 pub struct PackageWizardOutput {
-    pub ident: StringWebcIdent,
+    pub ident: PackageSpecifier,
     pub api: Option<wasmer_api::types::Package>,
     pub local_path: Option<PathBuf>,
     pub local_manifest: Option<wasmer_toml::Manifest>,
@@ -121,7 +121,7 @@ impl PackageWizard {
             })?;
         }
 
-        let ident = WebcIdent {
+        let ident = PackageIdentifier {
             repository: None,
             namespace: owner,
             name,
@@ -163,7 +163,7 @@ impl PackageWizard {
         eprintln!("Enter the name of an existing package:");
         let (ident, api) = super::prompts::prompt_for_package("Package", None, check, api).await?;
         Ok(PackageWizardOutput {
-            ident,
+            ident: ident.into(),
             api,
             local_path: None,
             local_manifest: None,
@@ -198,7 +198,7 @@ impl PackageWizard {
 
 fn initialize_static_site(
     path: &Path,
-    ident: &WebcIdent,
+    ident: &PackageIdentifier,
 ) -> Result<wasmer_toml::Manifest, anyhow::Error> {
     let full_name = format!("{}/{}", ident.namespace, ident.name);
 
@@ -255,7 +255,7 @@ public = "{}"
 
 fn initialize_js_worker(
     path: &Path,
-    ident: &WebcIdent,
+    ident: &PackageIdentifier,
 ) -> Result<wasmer_toml::Manifest, anyhow::Error> {
     let full_name = format!("{}/{}", ident.namespace, ident.name);
 
@@ -287,30 +287,28 @@ fn initialize_js_worker(
     let raw_js_worker_toml = format!(
         r#"
 [package]
-name = "{}"
+name = "{name}"
 version = "0.1.0"
-description = "{} js worker"
+description = "{name} js worker"
 
 [dependencies]
-"{}" = "{}"
+"{winterjs_pkg}" = "{winterjs_version}"
 
 [fs]
 "/src" = "./src"
 
 [[command]]
 name = "script"
-module = "{}:wasmer-winter"
+module = "{winterjs_pkg}:winterjs"
 runner = "https://webc.org/runner/wasi"
 
 [command.annotations.wasi]
 main-args = ["/src/index.js"]
 env = ["JS_PATH=/src/index.js"]
 "#,
-        full_name.clone(),
-        full_name,
-        WASMER_WINTER_JS_PACKAGE,
-        WASMER_WINTER_JS_VERSION,
-        WASMER_WINTER_JS_PACKAGE
+        name = full_name,
+        winterjs_pkg = WASMER_WINTER_JS_PACKAGE,
+        winterjs_version = WASMER_WINTER_JS_VERSION,
     );
 
     let manifest = wasmer_toml::Manifest::parse(raw_js_worker_toml.as_str())
@@ -321,7 +319,7 @@ env = ["JS_PATH=/src/index.js"]
 
 fn initialize_py_worker(
     path: &Path,
-    ident: &WebcIdent,
+    ident: &PackageIdentifier,
 ) -> Result<wasmer_toml::Manifest, anyhow::Error> {
     let full_name = format!("{}/{}", ident.namespace, ident.name);
 
@@ -456,7 +454,7 @@ description = "christoph/js-worker-test js worker"
 
 [[command]]
 name = "script"
-module = "wasmer/winterjs:wasmer-winter"
+module = "wasmer/winterjs:winterjs"
 runner = "https://webc.org/runner/wasi"
 
 [command.annotations.wasi]

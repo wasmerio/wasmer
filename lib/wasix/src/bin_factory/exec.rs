@@ -22,7 +22,7 @@ use wasmer_wasix_types::wasi::Errno;
 use super::{BinFactory, BinaryPackage};
 use crate::{Runtime, WasiEnv, WasiFunctionEnv};
 
-#[tracing::instrument(level = "trace", skip_all, fields(%name, %binary.package_name))]
+#[tracing::instrument(level = "trace", skip_all, fields(%name, package_id=%binary.id))]
 pub async fn spawn_exec(
     binary: BinaryPackage,
     name: &str,
@@ -37,8 +37,7 @@ pub async fn spawn_exec(
     } else {
         tracing::error!(
           command=name,
-          pkg.name=%binary.package_name,
-          pkg.version=%binary.version,
+          pkg=%binary.id,
           "Unable to spawn a command because its package has no entrypoint",
         );
         env.on_exit(Some(Errno::Noexec.into())).await;

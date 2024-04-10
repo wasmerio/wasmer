@@ -41,8 +41,8 @@ impl VirtualFile for CombineFile {
         self.tx.set_len(new_size)
     }
 
-    fn unlink(&mut self) -> BoxFuture<'static, Result<()>> {
-        Box::pin(self.tx.unlink())
+    fn unlink(&mut self) -> Result<()> {
+        self.tx.unlink()
     }
 
     fn poll_read_ready(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<usize>> {

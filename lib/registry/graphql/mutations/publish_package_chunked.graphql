@@ -1,7 +1,7 @@
 mutation PublishPackageMutationChunked(
-  $name: String!
-  $version: String!
-  $description: String!
+  $name: String
+  $version: String
+  $description: String
   $manifest: String!
   $license: String
   $licenseFile: String

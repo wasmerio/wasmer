@@ -1,20 +1,28 @@
 use std::{
-    collections::{BTreeMap, VecDeque},
+    collections::{BTreeMap, HashMap, VecDeque},
     fs::File,
     path::{Path, PathBuf},
 };
 
 use anyhow::{Context, Error};
-use semver::Version;
 
 use crate::runtime::resolver::{PackageSpecifier, PackageSummary, QueryError, Source};
+
+use super::{PackageId, PackageIdent};
 
 /// A [`Source`] that tracks packages in memory.
 ///
 /// Primarily used during testing.
 #[derive(Debug, Default, Clone, PartialEq, Eq)]
 pub struct InMemorySource {
-    packages: BTreeMap<String, Vec<PackageSummary>>,
+    named_packages: BTreeMap<String, Vec<NamedPackageSummary>>,
+    hash_packages: HashMap<String, PackageSummary>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct NamedPackageSummary {
+    ident: PackageIdent,
+    summary: PackageSummary,
 }
 
 impl InMemorySource {
@@ -62,10 +70,17 @@ impl InMemorySource {
 
     /// Add a new [`PackageSummary`] to the [`InMemorySource`].
     pub fn add(&mut self, summary: PackageSummary) {
-        let summaries = self.packages.entry(summary.pkg.name.clone()).or_default();
-        summaries.push(summary);
-        summaries.sort_by(|left, right| left.pkg.version.cmp(&right.pkg.version));
-        summaries.dedup_by(|left, right| left.pkg.version == right.pkg.version);
+        match summary.pkg.id.clone() {
+            PackageId::Named(ident) => {
+                let summaries = self.named_packages.entry(ident.name.clone()).or_default();
+                summaries.push(NamedPackageSummary { ident, summary });
+                summaries.sort_by(|left, right| left.ident.version.cmp(&right.ident.version));
+                summaries.dedup_by(|left, right| left.ident.version == right.ident.version);
+            }
+            PackageId::HashSha256(hash) => {
+                self.hash_packages.insert(hash, summary);
+            }
+        }
     }
 
     pub fn add_webc(&mut self, path: impl AsRef<Path>) -> Result<(), Error> {
@@ -75,13 +90,16 @@ impl InMemorySource {
         Ok(())
     }
 
-    pub fn packages(&self) -> &BTreeMap<String, Vec<PackageSummary>> {
-        &self.packages
-    }
-
-    pub fn get(&self, package_name: &str, version: &Version) -> Option<&PackageSummary> {
-        let summaries = self.packages.get(package_name)?;
-        summaries.iter().find(|s| s.pkg.version == *version)
+    pub fn get(&self, id: &PackageId) -> Option<&PackageSummary> {
+        match id {
+            PackageId::Named(ident) => self.named_packages.get(&ident.name).and_then(|summaries| {
+                summaries
+                    .iter()
+                    .find(|s| s.ident.version == ident.version)
+                    .map(|s| &s.summary)
+            }),
+            PackageId::HashSha256(hash) => self.hash_packages.get(hash),
+        }
     }
 }
 
@@ -91,19 +109,20 @@ impl Source for InMemorySource {
     async fn query(&self, package: &PackageSpecifier) -> Result<Vec<PackageSummary>, QueryError> {
         match package {
             PackageSpecifier::Registry { full_name, version } => {
-                match self.packages.get(full_name) {
+                match self.named_packages.get(full_name) {
                     Some(summaries) => {
                         let matches: Vec<_> = summaries
                             .iter()
-                            .filter(|summary| version.matches(&summary.pkg.version))
-                            .cloned()
+                            .filter(|summary| version.matches(&summary.ident.version))
+                            .map(|n| n.summary.clone())
                             .collect();
 
-                        tracing::debug!(
+                        tracing::trace!(
                             matches = ?matches
                                 .iter()
-                                .map(|summary| summary.package_id().to_string())
+                                .map(|summary| summary.pkg.id.to_string())
                                 .collect::<Vec<_>>(),
+                            "package resolution matches",
                         );
 
                         if matches.is_empty() {
@@ -117,6 +136,13 @@ impl Source for InMemorySource {
                     None => Err(QueryError::NotFound),
                 }
             }
+            PackageSpecifier::HashSha256(hash) => self
+                .hash_packages
+                .get(hash)
+                .map(|x| vec![x.clone()])
+                .ok_or_else(|| QueryError::NoMatches {
+                    archived_versions: Vec::new(),
+                }),
             PackageSpecifier::Url(_) | PackageSpecifier::Path(_) => Err(QueryError::Unsupported),
         }
     }
@@ -153,19 +179,21 @@ mod tests {
 
         assert_eq!(
             source
-                .packages
+                .named_packages
                 .keys()
                 .map(|k| k.as_str())
                 .collect::<Vec<_>>(),
             ["python", "sharrattj/bash", "sharrattj/coreutils"]
         );
-        assert_eq!(source.packages["sharrattj/coreutils"].len(), 2);
+        assert_eq!(source.named_packages["sharrattj/coreutils"].len(), 2);
         assert_eq!(
-            source.packages["sharrattj/bash"][0],
+            source.named_packages["sharrattj/bash"][0].summary,
             PackageSummary {
                 pkg: PackageInfo {
-                    name: "sharrattj/bash".to_string(),
-                    version: "1.0.16".parse().unwrap(),
+                    id: PackageId::Named(PackageIdent {
+                        name: "sharrattj/bash".to_string(),
+                        version: "1.0.16".parse().unwrap()
+                    }),
                     dependencies: vec![Dependency {
                         alias: "coreutils".to_string(),
                         pkg: "sharrattj/coreutils@^1.0.16".parse().unwrap()
@@ -177,7 +205,7 @@ mod tests {
                     filesystem: vec![FileSystemMapping {
                         volume_name: "atom".to_string(),
                         mount_path: "/".to_string(),
-                        original_path: "/".to_string(),
+                        original_path: Some("/".to_string()),
                         dependency_name: None,
                     }],
                 },

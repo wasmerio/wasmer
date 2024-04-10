@@ -6,8 +6,8 @@ use std::{
     str::FromStr,
 };
 
-use anyhow::{Context, Error};
-use semver::{Version, VersionReq};
+use anyhow::{bail, Context, Error};
+use semver::VersionReq;
 use sha2::{Digest, Sha256};
 use url::Url;
 use webc::{
@@ -16,6 +16,8 @@ use webc::{
 };
 
 use crate::runtime::resolver::PackageId;
+
+use super::outputs::PackageIdent;
 
 /// A reference to *some* package somewhere that the user wants to run.
 ///
@@ -32,6 +34,7 @@ pub enum PackageSpecifier {
         full_name: String,
         version: VersionReq,
     },
+    HashSha256(String),
     Url(Url),
     /// A `*.webc` file on disk.
     Path(PathBuf),
@@ -47,6 +50,14 @@ impl FromStr for PackageSpecifier {
     type Err = anyhow::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
+        if s.starts_with("sha256:") {
+            let rest = &s[7..];
+            if rest.len() != 64 {
+                bail!("Invalid sha256:{rest} package hash: not a valid sha256 hash, expected 64 characters");
+            }
+            return Ok(Self::HashSha256(rest.to_string()));
+        }
+
         // There is no function in std for checking if a string is a valid path
         // and we can't do Path::new(s).exists() because that assumes the
         // package being specified is on the local filesystem, so let's make a
@@ -112,6 +123,7 @@ impl Display for PackageSpecifier {
             }
             PackageSpecifier::Url(url) => Display::fmt(url, f),
             PackageSpecifier::Path(path) => write!(f, "{}", path.display()),
+            PackageSpecifier::HashSha256(hash) => write!(f, "sha256:{hash}"),
         }
     }
 }
@@ -155,7 +167,7 @@ pub struct PackageSummary {
 
 impl PackageSummary {
     pub fn package_id(&self) -> PackageId {
-        self.pkg.id()
+        self.pkg.id.clone()
     }
 
     pub fn from_webc_file(path: impl AsRef<Path>) -> Result<PackageSummary, Error> {
@@ -166,7 +178,11 @@ impl PackageSummary {
             anyhow::anyhow!("Unable to turn \"{}\" into a file:// URL", path.display())
         })?;
 
-        let pkg = PackageInfo::from_manifest(container.manifest())?;
+        let manifest = container.manifest();
+        let id = PackageInfo::package_id_from_manifest(manifest)?
+            .unwrap_or_else(|| PackageId::HashSha256(webc_sha256.as_hex()));
+
+        let pkg = PackageInfo::from_manifest(id, manifest, container.version())?;
         let dist = DistributionInfo {
             webc: url,
             webc_sha256,
@@ -179,10 +195,7 @@ impl PackageSummary {
 /// Information about a package's contents.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PackageInfo {
-    /// The package's full name (i.e. `wasmer/wapm2pirita`).
-    pub name: String,
-    /// The package version.
-    pub version: Version,
+    pub id: PackageId,
     /// Commands this package exposes to the outside world.
     pub commands: Vec<Command>,
     /// The name of a [`Command`] that should be used as this package's
@@ -194,10 +207,61 @@ pub struct PackageInfo {
 }
 
 impl PackageInfo {
-    pub fn from_manifest(manifest: &Manifest) -> Result<Self, Error> {
-        let WapmAnnotations { name, version, .. } = manifest
-            .wapm()?
-            .context("Unable to find the \"wapm\" annotations")?;
+    pub fn package_ident_from_manifest(manifest: &Manifest) -> Result<Option<PackageIdent>, Error> {
+        let wapm_annotations = manifest.wapm()?;
+
+        let name = wapm_annotations
+            .as_ref()
+            .map_or_else(|| None, |annotations| annotations.name.clone());
+
+        let version = wapm_annotations.as_ref().map_or_else(
+            || String::from("0.0.0"),
+            |annotations| {
+                annotations
+                    .version
+                    .clone()
+                    .unwrap_or_else(|| String::from("0.0.0"))
+            },
+        );
+
+        if let Some(name) = name {
+            Ok(Some(PackageIdent {
+                name,
+                version: version.parse()?,
+            }))
+        } else {
+            Ok(None)
+        }
+    }
+
+    pub fn package_id_from_manifest(
+        manifest: &Manifest,
+    ) -> Result<Option<PackageId>, anyhow::Error> {
+        let ident = Self::package_ident_from_manifest(manifest)?;
+
+        Ok(ident.map(PackageId::Named))
+    }
+
+    pub fn from_manifest(
+        id: PackageId,
+        manifest: &Manifest,
+        webc_version: webc::Version,
+    ) -> Result<Self, Error> {
+        let wapm_annotations = manifest.wapm()?;
+
+        let name = wapm_annotations
+            .as_ref()
+            .map_or_else(|| None, |annotations| annotations.name.clone());
+
+        let version = wapm_annotations.as_ref().map_or_else(
+            || String::from("0.0.0"),
+            |annotations| {
+                annotations
+                    .version
+                    .clone()
+                    .unwrap_or_else(|| String::from("0.0.0"))
+            },
+        );
 
         let dependencies = manifest
             .use_map
@@ -218,11 +282,10 @@ impl PackageInfo {
             })
             .collect();
 
-        let filesystem = filesystem_mapping_from_manifest(manifest)?;
+        let filesystem = filesystem_mapping_from_manifest(manifest, webc_version)?;
 
         Ok(PackageInfo {
-            name,
-            version: version.parse()?,
+            id,
             dependencies,
             commands,
             entrypoint: manifest.entrypoint.clone(),
@@ -231,15 +294,13 @@ impl PackageInfo {
     }
 
     pub fn id(&self) -> PackageId {
-        PackageId {
-            package_name: self.name.clone(),
-            version: self.version.clone(),
-        }
+        self.id.clone()
     }
 }
 
 fn filesystem_mapping_from_manifest(
     manifest: &Manifest,
+    webc_version: webc::Version,
 ) -> Result<Vec<FileSystemMapping>, serde_cbor::Error> {
     match manifest.filesystem()? {
         Some(webc::metadata::annotations::FileSystemMappings(mappings)) => {
@@ -249,29 +310,27 @@ fn filesystem_mapping_from_manifest(
                     volume_name: mapping.volume_name,
                     mount_path: mapping.mount_path,
                     dependency_name: mapping.from,
-                    original_path: mapping.original_path,
+                    original_path: mapping.host_path,
                 })
                 .collect();
 
             Ok(mappings)
         }
         None => {
-            // A "fs" annotation hasn't been attached to this package. This was
-            // the case when *.webc files were generated by wapm2pirita version
-            // 1.0.29 and earlier.
-            //
-            // To maintain compatibility with those older packages, we'll say
-            // that the "atom" volume from the current package is mounted to "/"
-            // and contains all files in the package.
-            tracing::debug!(
-                "No \"fs\" package annotations found. Mounting the \"atom\" volume to \"/\" for compatibility."
-            );
-            Ok(vec![FileSystemMapping {
-                volume_name: "atom".to_string(),
-                mount_path: "/".to_string(),
-                original_path: "/".to_string(),
-                dependency_name: None,
-            }])
+            if webc_version == webc::Version::V2 {
+                tracing::debug!(
+                    "No \"fs\" package annotations found. Mounting the \"atom\" volume to \"/\" for compatibility."
+                );
+                Ok(vec![FileSystemMapping {
+                    volume_name: "atom".to_string(),
+                    mount_path: "/".to_string(),
+                    original_path: Some("/".to_string()),
+                    dependency_name: None,
+                }])
+            } else {
+                // There is no atom volume in v3 by default, so we return an empty Vec.
+                Ok(vec![])
+            }
         }
     }
 }
@@ -283,7 +342,7 @@ pub struct FileSystemMapping {
     /// Where the volume should be mounted within the resulting filesystem.
     pub mount_path: String,
     /// The path of the mapped item within its original volume.
-    pub original_path: String,
+    pub original_path: Option<String>,
     /// The name of the package this volume comes from (current package if
     /// `None`).
     pub dependency_name: Option<String>,
@@ -296,9 +355,9 @@ fn url_or_manifest_to_specifier(value: &UrlOrManifest) -> Result<PackageSpecifie
             if let Ok(Some(WapmAnnotations { name, version, .. })) =
                 manifest.package_annotation("wapm")
             {
-                let version = version.parse()?;
+                let version = version.unwrap().parse()?;
                 return Ok(PackageSpecifier::Registry {
-                    full_name: name,
+                    full_name: name.unwrap(),
                     version,
                 });
             }
@@ -390,6 +449,10 @@ impl WebcHash {
 
     pub fn as_bytes(self) -> [u8; 32] {
         self.0
+    }
+
+    pub fn as_hex(&self) -> String {
+        hex::encode(&self.0)
     }
 }
 

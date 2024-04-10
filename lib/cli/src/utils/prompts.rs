@@ -1,7 +1,7 @@
 use anyhow::Context;
 use colored::Colorize;
 use dialoguer::Select;
-use edge_schema::schema::StringWebcIdent;
+use edge_schema::schema::PackageIdentifier;
 use wasmer_api::WasmerClient;
 
 pub fn prompt_for_ident(message: &str, default: Option<&str>) -> Result<String, anyhow::Error> {
@@ -28,7 +28,7 @@ pub fn prompt_for_ident(message: &str, default: Option<&str>) -> Result<String, 
 pub fn prompt_for_package_ident(
     message: &str,
     default: Option<&str>,
-) -> Result<StringWebcIdent, anyhow::Error> {
+) -> Result<PackageIdentifier, anyhow::Error> {
     loop {
         let raw: String = dialoguer::Input::new()
             .with_prompt(message)
@@ -36,7 +36,7 @@ pub fn prompt_for_package_ident(
             .interact_text()
             .context("could not read user input")?;
 
-        match raw.parse::<StringWebcIdent>() {
+        match raw.parse::<PackageIdentifier>() {
             Ok(p) => break Ok(p),
             Err(err) => {
                 eprintln!("invalid package name: {err}");
@@ -64,7 +64,7 @@ pub async fn prompt_for_package(
     default: Option<&str>,
     check: Option<PackageCheckMode>,
     client: Option<&WasmerClient>,
-) -> Result<(StringWebcIdent, Option<wasmer_api::types::Package>), anyhow::Error> {
+) -> Result<(PackageIdentifier, Option<wasmer_api::types::Package>), anyhow::Error> {
     loop {
         let ident = prompt_for_package_ident(message, default)?;
 
@@ -80,7 +80,7 @@ pub async fn prompt_for_package(
                     if let Some(pkg) = pkg {
                         let mut ident = ident;
                         if let Some(v) = &pkg.last_version {
-                            ident.0.tag = Some(v.version.clone());
+                            ident.tag = Some(v.version.clone());
                         }
                         break Ok((ident, Some(pkg)));
                     } else {

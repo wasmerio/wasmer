@@ -1043,7 +1043,7 @@ impl WasiEnv {
     /// [cmd-atom]: crate::bin_factory::BinaryPackageCommand::atom()
     /// [pkg-fs]: crate::bin_factory::BinaryPackage::webc_fs
     pub fn use_package(&self, pkg: &BinaryPackage) -> Result<(), WasiStateCreationError> {
-        tracing::trace!(packagae=%pkg.package_name, "merging package dependency into wasi environment");
+        tracing::trace!(package=%pkg.id, "merging package dependency into wasi environment");
         let root_fs = &self.state.fs.root_fs;
 
         // We first need to copy any files in the package over to the
@@ -1089,7 +1089,7 @@ impl WasiEnv {
                         {
                             tracing::debug!(
                                 "failed to add package [{}] command [{}] - {}",
-                                pkg.package_name,
+                                pkg.id,
                                 command.name(),
                                 err
                             );
@@ -1098,7 +1098,14 @@ impl WasiEnv {
                     }
                     WasiFsRoot::Backing(fs) => {
                         let mut f = fs.new_open_options().create(true).write(true).open(path)?;
-                        f.copy_reference(Box::new(StaticFile::new(atom)));
+                        if let Err(e) =
+                            InlineWaker::block_on(f.copy_reference(Box::new(StaticFile::new(atom))))
+                        {
+                            tracing::warn!(
+                                error = &e as &dyn std::error::Error,
+                                "Unable to copy file reference",
+                            );
+                        }
                     }
                 }
 
@@ -1108,7 +1115,7 @@ impl WasiEnv {
                     .set_binary(path.as_os_str().to_string_lossy().as_ref(), package);
 
                 tracing::debug!(
-                    package=%pkg.package_name,
+                    package=%pkg.id,
                     command_name=command.name(),
                     path=%path.display(),
                     "Injected a command into the filesystem",

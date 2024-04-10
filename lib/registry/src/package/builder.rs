@@ -114,11 +114,15 @@ impl Publish {
             .to_owned();
 
         if let Some(package_name) = self.package_name.as_ref() {
-            manifest.package.name = package_name.to_string();
+            if let Some(ref mut package) = manifest.package {
+                package.name = package_name.clone();
+            }
         }
 
         if let Some(version) = self.version.as_ref() {
-            manifest.package.version = version.clone();
+            if let Some(ref mut package) = manifest.package {
+                package.version = version.clone();
+            }
         }
 
         let archive_dir = tempfile::TempDir::new()?;
@@ -159,10 +163,18 @@ impl Publish {
         if self.dry_run {
             // dry run: publish is done here
 
-            println!(
-                "🚀 Successfully published package `{}@{}`",
-                manifest.package.name, manifest.package.version
-            );
+            match manifest.package {
+                Some(pkg) => {
+                    println!(
+                        "🚀 Successfully published package `{}@{}`",
+                        pkg.name, pkg.version
+                    );
+                }
+                None => println!(
+                    "🚀 Successfully published unnamed package from `{}`",
+                    manifest_path.display()
+                ),
+            }
 
             let path = archive_dir.into_path();
             eprintln!("Archive persisted at: {}", path.display());
@@ -232,27 +244,36 @@ fn construct_tar_gz(
 
     let manifest_string = toml::to_string(&manifest)?;
 
-    let package = &manifest.package;
     let modules = &manifest.modules;
 
-    let readme = match package.readme.as_ref() {
-        None => None,
-        Some(s) => {
-            let path = append_path_to_tar_gz(&mut builder, manifest_dir, s).map_err(|(p, e)| {
-                PackageBuildError::ErrorBuildingPackage(format!("{}", p.display()), e)
-            })?;
-            Some(std::fs::read_to_string(path)?)
+    let readme = if let Some(ref package) = manifest.package {
+        match package.readme.as_ref() {
+            None => None,
+            Some(s) => {
+                let path =
+                    append_path_to_tar_gz(&mut builder, manifest_dir, s).map_err(|(p, e)| {
+                        PackageBuildError::ErrorBuildingPackage(format!("{}", p.display()), e)
+                    })?;
+                Some(std::fs::read_to_string(path)?)
+            }
         }
+    } else {
+        None
     };
 
-    let license = match package.license_file.as_ref() {
-        None => None,
-        Some(s) => {
-            let path = append_path_to_tar_gz(&mut builder, manifest_dir, s).map_err(|(p, e)| {
-                PackageBuildError::ErrorBuildingPackage(format!("{}", p.display()), e)
-            })?;
-            Some(std::fs::read_to_string(path)?)
+    let license = if let Some(ref package) = manifest.package {
+        match package.license_file.as_ref() {
+            None => None,
+            Some(s) => {
+                let path =
+                    append_path_to_tar_gz(&mut builder, manifest_dir, s).map_err(|(p, e)| {
+                        PackageBuildError::ErrorBuildingPackage(format!("{}", p.display()), e)
+                    })?;
+                Some(std::fs::read_to_string(path)?)
+            }
         }
+    } else {
+        None
     };
 
     for module in modules {
@@ -630,10 +651,12 @@ mod validate {
         if would_change_package_privacy(manifest, registry, auth_token)?
             && callbacks.on_package_privacy_changed(manifest).is_break()
         {
-            if manifest.package.private {
-                return Err(ValidationError::WouldBecomePrivate.into());
-            } else {
-                return Err(ValidationError::WouldBecomePublic.into());
+            if let Some(package) = &manifest.package {
+                if package.private {
+                    return Err(ValidationError::WouldBecomePrivate.into());
+                } else {
+                    return Err(ValidationError::WouldBecomePublic.into());
+                }
             }
         }
 
@@ -648,20 +671,24 @@ mod validate {
         registry: &str,
         auth_token: &str,
     ) -> Result<bool, ValidationError> {
-        let result = crate::query_package_from_registry(
-            registry,
-            &manifest.package.name,
-            None,
-            Some(auth_token),
-        );
+        match &manifest.package {
+            Some(pkg) => {
+                let result =
+                    crate::query_package_from_registry(registry, &pkg.name, None, Some(auth_token));
 
-        match result {
-            Ok(package_version) => Ok(package_version.is_private != manifest.package.private),
-            Err(QueryPackageError::NoPackageFound { .. }) => {
-                // The package hasn't been published yet
-                Ok(false)
+                match result {
+                    Ok(package_version) => Ok(package_version.is_private != pkg.private),
+                    Err(QueryPackageError::NoPackageFound { .. }) => {
+                        // The package hasn't been published yet
+                        Ok(false)
+                    }
+                    Err(e) => Err(e.into()),
+                }
             }
-            Err(e) => Err(e.into()),
+
+            // This manifest refers to an unnamed package:
+            // as of now, unnamed packages are private by default.
+            None => Ok(false),
         }
     }
 
@@ -886,28 +913,28 @@ mod validate {
             &mut self,
             manifest: &wasmer_toml::Manifest,
         ) -> ControlFlow<(), ()> {
-            let privacy = if manifest.package.private {
-                "private"
-            } else {
-                "public"
-            };
-            let prompt =
-                format!("This will make the package {privacy}. Would you like to continue?");
+            if let Some(pkg) = &manifest.package {
+                let privacy = if pkg.private { "private" } else { "public" };
+                let prompt =
+                    format!("This will make the package {privacy}. Would you like to continue?");
 
-            match dialoguer::Confirm::new()
-                .with_prompt(prompt)
-                .default(false)
-                .interact()
-            {
-                Ok(true) => ControlFlow::Continue(()),
-                Ok(false) => ControlFlow::Break(()),
-                Err(e) => {
-                    tracing::error!(
+                match dialoguer::Confirm::new()
+                    .with_prompt(prompt)
+                    .default(false)
+                    .interact()
+                {
+                    Ok(true) => ControlFlow::Continue(()),
+                    Ok(false) => ControlFlow::Break(()),
+                    Err(e) => {
+                        tracing::error!(
                         error = &e as &dyn std::error::Error,
                         "Unable to check whether the user wants to change the package's privacy",
                     );
-                    ControlFlow::Break(())
+                        ControlFlow::Break(())
+                    }
                 }
+            } else {
+                ControlFlow::Continue(())
             }
         }
     }

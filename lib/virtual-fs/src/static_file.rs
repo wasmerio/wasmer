@@ -5,7 +5,6 @@ use std::{
     task::{Context, Poll},
 };
 
-use futures::future::BoxFuture;
 use shared_buffer::OwnedBuffer;
 use tokio::io::{AsyncRead, AsyncSeek, AsyncWrite};
 
@@ -48,8 +47,8 @@ impl VirtualFile for StaticFile {
         Err(FsError::PermissionDenied)
     }
 
-    fn unlink(&mut self) -> BoxFuture<'static, Result<(), FsError>> {
-        Box::pin(async { Err(FsError::PermissionDenied) })
+    fn unlink(&mut self) -> Result<(), FsError> {
+        Err(FsError::PermissionDenied)
     }
 
     fn poll_read_ready(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<io::Result<usize>> {

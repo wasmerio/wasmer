@@ -93,18 +93,48 @@ impl PackageDownload {
 
         step_num += 1;
 
-        let (full_name, version, api_endpoint, token) = match &self.package {
+        let (download_url, token) = match &self.package {
             PackageSpecifier::Registry { full_name, version } => {
                 let endpoint = self.env.registry_endpoint()?;
                 let version = version.to_string();
                 let version = if version == "*" { None } else { Some(version) };
+                let token = self.env.get_token_opt().map(|x| x.to_string());
 
-                (
-                    full_name,
-                    version,
-                    endpoint,
-                    self.env.get_token_opt().map(|x| x.to_string()),
+                let package = wasmer_registry::query_package_from_registry(
+                    endpoint.as_str(),
+                    &full_name,
+                    version.as_deref(),
+                    token.as_deref(),
                 )
+                .with_context(|| {
+                    format!(
+                "could not retrieve package information for package '{}' from registry '{}'",
+                full_name, endpoint,
+            )
+                })?;
+
+                let download_url = package
+                    .pirita_url
+                    .context("registry does provide a container download container download URL")?;
+
+                (download_url, token)
+            }
+            PackageSpecifier::HashSha256(hash) => {
+                let endpoint = self.env.registry_endpoint()?;
+                let token = self.env.get_token_opt().map(|x| x.to_string());
+
+                let client = wasmer_api::WasmerClient::new(endpoint, "wasmer-cli")?;
+                let client = if let Some(token) = &token {
+                    client.with_auth_token(token.clone())
+                } else {
+                    client
+                };
+
+                let rt = tokio::runtime::Runtime::new()?;
+                let pkg = rt.block_on(wasmer_api::query::get_package_release(&client, &hash))?
+                    .with_context(|| format!("Package with sha256:{hash} does not exist in the registry, or is not accessible"))?;
+
+                (pkg.webc_url, token)
             }
             PackageSpecifier::Url(url) => {
                 bail!("cannot download a package from a URL: '{}'", url);
@@ -113,23 +143,6 @@ impl PackageDownload {
                 bail!("cannot download a package from a local path");
             }
         };
-
-        let package = wasmer_registry::query_package_from_registry(
-            api_endpoint.as_str(),
-            full_name,
-            version.as_deref(),
-            token.as_deref(),
-        )
-        .with_context(|| {
-            format!(
-                "could not retrieve package information for package '{}' from registry '{}'",
-                full_name, api_endpoint,
-            )
-        })?;
-
-        let download_url = package
-            .pirita_url
-            .context("registry does provide a container download container download URL")?;
 
         let client = reqwest::blocking::Client::new();
         let mut b = client
