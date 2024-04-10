@@ -914,11 +914,7 @@ mod validate {
             manifest: &wasmer_toml::Manifest,
         ) -> ControlFlow<(), ()> {
             if let Some(pkg) = &manifest.package {
-                let privacy = if pkg.private {
-                    "private"
-                } else {
-                    "public"
-                };
+                let privacy = if pkg.private { "private" } else { "public" };
                 let prompt =
                     format!("This will make the package {privacy}. Would you like to continue?");
 

@@ -21,6 +21,8 @@ use crate::{
     },
 };
 
+use super::PackageId;
+
 /// A [`Source`] which can query arbitrary packages on the internet.
 ///
 /// # Implementation Notes
@@ -247,7 +249,11 @@ impl Source for WebSource {
         // our HTTP client gave us because then we can use memory-mapped files
         let container = crate::block_in_place(|| Container::from_disk(&local_path))
             .with_context(|| format!("Unable to load \"{}\"", local_path.display()))?;
-        let pkg = PackageInfo::from_manifest(container.manifest(), container.version())
+
+        let id = PackageInfo::package_id_from_manifest(container.manifest())?
+            .unwrap_or_else(|| PackageId::HashSha256(webc_sha256.as_hex()));
+
+        let pkg = PackageInfo::from_manifest(id, container.manifest(), container.version())
             .context("Unable to determine the package's metadata")?;
 
         let dist = DistributionInfo {

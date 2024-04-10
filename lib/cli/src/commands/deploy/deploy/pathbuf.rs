@@ -13,6 +13,5 @@ impl Deployable for PathBuf {
     ) -> anyhow::Result<DeployAppVersion> {
         let interactive = std::io::stdin().is_terminal() && !cmd.non_interactive;
         let dir_path = app_config_path.canonicalize()?.parent().unwrap().to_owned();
-
     }
 }

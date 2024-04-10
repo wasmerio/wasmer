@@ -178,7 +178,11 @@ impl PackageSummary {
             anyhow::anyhow!("Unable to turn \"{}\" into a file:// URL", path.display())
         })?;
 
-        let pkg = PackageInfo::from_manifest(container.manifest(), container.version())?;
+        let manifest = container.manifest();
+        let id = PackageInfo::package_id_from_manifest(manifest)?
+            .unwrap_or_else(|| PackageId::HashSha256(webc_sha256.as_hex()));
+
+        let pkg = PackageInfo::from_manifest(id, manifest, container.version())?;
         let dist = DistributionInfo {
             webc: url,
             webc_sha256,
@@ -203,8 +207,46 @@ pub struct PackageInfo {
 }
 
 impl PackageInfo {
+    pub fn package_ident_from_manifest(manifest: &Manifest) -> Result<Option<PackageIdent>, Error> {
+        let wapm_annotations = manifest.wapm()?;
 
-    pub fn from_manifest(manifest: &Manifest, webc_version: webc::Version) -> Result<Self, Error> {
+        let name = wapm_annotations
+            .as_ref()
+            .map_or_else(|| None, |annotations| annotations.name.clone());
+
+        let version = wapm_annotations.as_ref().map_or_else(
+            || String::from("0.0.0"),
+            |annotations| {
+                annotations
+                    .version
+                    .clone()
+                    .unwrap_or_else(|| String::from("0.0.0"))
+            },
+        );
+
+        if let Some(name) = name {
+            Ok(Some(PackageIdent {
+                name,
+                version: version.parse()?,
+            }))
+        } else {
+            Ok(None)
+        }
+    }
+
+    pub fn package_id_from_manifest(
+        manifest: &Manifest,
+    ) -> Result<Option<PackageId>, anyhow::Error> {
+        let ident = Self::package_ident_from_manifest(manifest)?;
+
+        Ok(ident.map(PackageId::Named))
+    }
+
+    pub fn from_manifest(
+        id: PackageId,
+        manifest: &Manifest,
+        webc_version: webc::Version,
+    ) -> Result<Self, Error> {
         let wapm_annotations = manifest.wapm()?;
 
         let name = wapm_annotations
@@ -241,15 +283,6 @@ impl PackageInfo {
             .collect();
 
         let filesystem = filesystem_mapping_from_manifest(manifest, webc_version)?;
-
-        let id = if let Some(name) = name {
-            PackageId::Named(PackageIdent {
-            name: name.clone(),
-            version: version.parse()?,
-        })
-        } else {
-
-        };
 
         Ok(PackageInfo {
             id,

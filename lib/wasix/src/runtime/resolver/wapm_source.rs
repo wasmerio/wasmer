@@ -19,6 +19,8 @@ use crate::{
     },
 };
 
+use super::PackageId;
+
 /// A [`Source`] which will resolve dependencies by pinging a Wasmer-like GraphQL
 /// endpoint.
 #[derive(Debug, Clone)]
@@ -317,8 +319,12 @@ fn matching_package_summaries(
 ) -> Result<Vec<PackageSummary>, QueryError> {
     let mut summaries = Vec::new();
 
-    let WapmWebQueryGetPackage { versions, .. } =
-        response.data.get_package.ok_or(QueryError::NotFound)?;
+    let WapmWebQueryGetPackage {
+        namespace,
+        package_name,
+        versions,
+        ..
+    } = response.data.get_package.ok_or(QueryError::NotFound)?;
     let mut archived_versions = Vec::new();
 
     for pkg_version in versions {
@@ -344,7 +350,7 @@ fn matching_package_summaries(
         }
 
         if version_constraint.matches(&version) {
-            match decode_summary(pkg_version) {
+            match decode_summary(&namespace, &package_name, pkg_version) {
                 Ok(summary) => summaries.push(summary),
                 Err(e) => {
                     tracing::debug!(
@@ -364,7 +370,11 @@ fn matching_package_summaries(
     }
 }
 
-fn decode_summary(pkg_version: WapmWebQueryGetPackageVersion) -> Result<PackageSummary, Error> {
+fn decode_summary(
+    namespace: &str,
+    package_name: &str,
+    pkg_version: WapmWebQueryGetPackageVersion,
+) -> Result<PackageSummary, Error> {
     let WapmWebQueryGetPackageVersion {
         manifest,
         distribution:
@@ -374,6 +384,14 @@ fn decode_summary(pkg_version: WapmWebQueryGetPackageVersion) -> Result<PackageS
             },
         ..
     } = pkg_version;
+
+    let id = PackageId::Named(super::PackageIdent {
+        name: format!("{}/{}", namespace, package_name),
+        version: pkg_version
+            .version
+            .parse()
+            .context("could not parse package version")?,
+    });
 
     let manifest = manifest.context("missing Manifest")?;
     let hash = pirita_sha256_hash.context("missing sha256")?;
@@ -399,7 +417,7 @@ fn decode_summary(pkg_version: WapmWebQueryGetPackageVersion) -> Result<PackageS
     let version = webc::Version::from(&raw_version);
 
     Ok(PackageSummary {
-        pkg: PackageInfo::from_manifest(&manifest, version)?,
+        pkg: PackageInfo::from_manifest(id, &manifest, version)?,
         dist: DistributionInfo { webc, webc_sha256 },
     })
 }
@@ -610,7 +628,10 @@ impl PackageWebc {
     fn try_into_summary(self, hash: &str) -> Result<PackageSummary, anyhow::Error> {
         let manifest: Manifest = serde_json::from_str(&self.pirita_manifest)
             .context("Unable to deserialize the manifest")?;
-        let info = PackageInfo::from_manifest(&manifest, webc::Version::V3)
+
+        let id = PackageId::HashSha256(hash.to_string());
+
+        let info = PackageInfo::from_manifest(id, &manifest, webc::Version::V3)
             .context("could not convert the manifest ")?;
 
         Ok(PackageSummary {

@@ -21,6 +21,5 @@ impl Deployable for Sha256Hash {
         // [todo] DeployAppOpts will change as a consequence of
         // the new graphql schema, ideally taking into account the
         // use of
-
     }
 }
