@@ -61,7 +61,7 @@ impl WapmSource {
     }
 
     #[tracing::instrument(level = "debug", skip_all)]
-    async fn query_graphql(&self, package_name: &str) -> Result<WapmWebQuery, Error> {
+    async fn query_graphql_named(&self, package_name: &str) -> Result<WapmWebQuery, Error> {
         #[derive(serde::Serialize)]
         struct Body {
             query: String,
@@ -119,6 +119,65 @@ impl WapmSource {
         Ok(response)
     }
 
+    #[tracing::instrument(level = "debug", skip_all)]
+    async fn query_graphql_by_hash(&self, hash: &str) -> Result<Option<PackageWebc>, Error> {
+        #[derive(serde::Serialize)]
+        struct Body {
+            query: String,
+        }
+
+        let body = Body {
+            query: WASMER_WEBC_QUERY_BY_HASH.replace("$HASH", hash),
+        };
+
+        let request = HttpRequest {
+            url: self.registry_endpoint.clone(),
+            method: Method::POST,
+            body: Some(serde_json::to_string(&body)?.into_bytes()),
+            headers: self.headers(),
+            options: Default::default(),
+        };
+
+        tracing::debug!(%request.url, %request.method, "Querying the GraphQL API");
+        tracing::trace!(?request.headers, request.body=body.query.as_str());
+
+        let response = self.client.request(request).await?;
+
+        if !response.is_ok() {
+            let url = &self.registry_endpoint;
+            let status = response.status;
+
+            let body = if let Some(body) = &response.body {
+                String::from_utf8_lossy(body).into_owned()
+            } else {
+                "<no body>".to_string()
+            };
+
+            tracing::warn!(
+                %url,
+                %status,
+                %hash,
+                %body,
+                "failed to query package info from registry"
+            );
+
+            anyhow::bail!("\"{url}\" replied with {status}");
+        }
+
+        let body = response.body.unwrap_or_default();
+        tracing::trace!(
+            %response.status,
+            %response.redirected,
+            ?response.headers,
+            "Received a response from GraphQL",
+        );
+
+        let response: Reply<GetPackageRelease> =
+            serde_json::from_slice(&body).context("Unable to deserialize the response")?;
+
+        Ok(response.data.get_package_release)
+    }
+
     fn headers(&self) -> HeaderMap {
         let mut headers = HeaderMap::new();
         headers.insert("Content-Type", "application/json".parse().unwrap());
@@ -142,6 +201,57 @@ impl WapmSource {
 
         headers
     }
+
+    async fn query_named(
+        &self,
+        package_name: &str,
+        version_constraint: &VersionReq,
+    ) -> Result<Vec<PackageSummary>, QueryError> {
+        if let Some(cache) = &self.cache {
+            match cache.lookup_cached_query(package_name) {
+                Ok(Some(cached)) => {
+                    if let Ok(cached) = matching_package_summaries(cached, version_constraint) {
+                        tracing::debug!("Cache hit!");
+                        return Ok(cached);
+                    }
+                }
+                Ok(None) => {}
+                Err(e) => {
+                    tracing::warn!(
+                        package_name,
+                        error = &*e,
+                        "An unexpected error occurred while checking the local query cache",
+                    );
+                }
+            }
+        }
+
+        let response = self.query_graphql_named(package_name).await?;
+
+        if let Some(cache) = &self.cache {
+            if let Err(e) = cache.update(package_name, &response) {
+                tracing::warn!(
+                    package_name,
+                    error = &*e,
+                    "An error occurred while caching the GraphQL response",
+                );
+            }
+        }
+
+        matching_package_summaries(response, version_constraint)
+    }
+
+    async fn query_by_hash(&self, hash: &str) -> Result<Option<PackageSummary>, QueryError> {
+        // FIXME: implementing caching!
+
+        let Some(data) = self.query_graphql_by_hash(hash).await? else {
+            return Ok(None);
+        };
+
+        let summary = data.try_into_summary(hash)?;
+
+        Ok(Some(summary))
+    }
 }
 
 #[async_trait::async_trait]
@@ -151,8 +261,16 @@ impl Source for WapmSource {
         let (package_name, version_constraint) = match package {
             PackageSpecifier::Registry { full_name, version } => (full_name, version),
             PackageSpecifier::HashSha256(hash) => {
-                // FIXME: implement fetching
-                todo!("fetching of packages by hash")
+                let hash = hash.trim_start_matches("sha256:");
+                // TODO: implement caching!
+                match self.query_by_hash(hash).await? {
+                    Some(summary) => return Ok(vec![summary]),
+                    None => {
+                        return Err(QueryError::NoMatches {
+                            archived_versions: Vec::new(),
+                        });
+                    }
+                }
             }
             _ => return Err(QueryError::Unsupported),
         };
@@ -176,7 +294,7 @@ impl Source for WapmSource {
             }
         }
 
-        let response = self.query_graphql(package_name).await?;
+        let response = self.query_graphql_named(package_name).await?;
 
         if let Some(cache) = &self.cache {
             if let Err(e) = cache.update(package_name, &response) {
@@ -290,6 +408,11 @@ impl FileSystemCache {
         self.cache_dir.join(package_name)
     }
 
+    /// Path for hashed package caches.
+    fn path_hashed(&self, hash: &str) -> PathBuf {
+        self.cache_dir.join(format!("__hashed__{hash}"))
+    }
+
     fn lookup_cached_query(&self, package_name: &str) -> Result<Option<WapmWebQuery>, Error> {
         let filename = self.path(package_name);
 
@@ -392,6 +515,14 @@ struct CacheEntry {
     response: WapmWebQuery,
 }
 
+/// Cache entry for a webc lookup by hash.
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+struct HashCacheEntry {
+    unix_timestamp: u64,
+    hash: String,
+    response: WapmWebQuery,
+}
+
 impl CacheEntry {
     fn is_still_valid(&self, timeout: Duration) -> bool {
         let timestamp = SystemTime::UNIX_EPOCH + Duration::from_secs(self.unix_timestamp);
@@ -431,6 +562,51 @@ pub const WASMER_WEBC_QUERY_ALL: &str = r#"{
         defaultFrontend
     }
 }"#;
+
+pub const WASMER_WEBC_QUERY_BY_HASH: &str = r#"{
+    getPackageRelease(hash: "$HASH") {
+        piritaManifest
+        isArchived
+        webcUrl
+    }
+}"#;
+
+#[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
+pub struct Reply<T> {
+    pub data: T,
+}
+
+#[derive(Debug, serde::Serialize, serde::Deserialize, Clone)]
+struct GetPackageRelease {
+    get_package_release: Option<PackageWebc>,
+}
+
+#[derive(Debug, serde::Serialize, serde::Deserialize, Clone)]
+struct PackageWebc {
+    #[serde(rename = "piritaManifest")]
+    pub pirita_manifest: String,
+    #[serde(rename = "isArchived")]
+    pub is_archived: bool,
+    #[serde(rename = "webcUrl")]
+    pub webc_url: url::Url,
+}
+
+impl PackageWebc {
+    fn try_into_summary(self, hash: &str) -> Result<PackageSummary, anyhow::Error> {
+        let manifest: Manifest = serde_json::from_str(&self.pirita_manifest)
+            .context("Unable to deserialize the manifest")?;
+        let info =
+            PackageInfo::from_manifest(&manifest).context("could not convert the manifest ")?;
+
+        Ok(PackageSummary {
+            pkg: info,
+            dist: DistributionInfo {
+                webc: self.webc_url,
+                webc_sha256: WebcHash::parse_hex(hash).context("invalid hash")?,
+            },
+        })
+    }
+}
 
 #[derive(Debug, serde::Serialize, serde::Deserialize, Clone)]
 pub struct WapmWebQuery {

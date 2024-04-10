@@ -77,7 +77,9 @@ impl InMemorySource {
                 summaries.sort_by(|left, right| left.ident.version.cmp(&right.ident.version));
                 summaries.dedup_by(|left, right| left.ident.version == right.ident.version);
             }
-            PackageId::HashSha256(hash) => {}
+            PackageId::HashSha256(hash) => {
+                self.hash_packages.insert(hash, summary);
+            }
         }
     }
 
