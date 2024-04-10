@@ -538,7 +538,7 @@ impl AsyncCliCommand for CmdAppCreate {
                 if let Some((path, manifest)) = &local_package {
                     eprintln!("Publishing package...");
                     let manifest = manifest.clone();
-                    crate::utils::republish_package(&api, path, manifest).await?;
+                    crate::utils::republish_package(&api, path, manifest, None).await?;
                 }
             }
 

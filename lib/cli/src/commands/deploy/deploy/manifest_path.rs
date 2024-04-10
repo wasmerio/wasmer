@@ -15,6 +15,12 @@ pub struct DeployFromPackageManifestPath {
 impl DeployFromPackageManifestPath {
     pub async fn deploy(&self, cmd: &CmdDeploy) -> Result<DeployAppVersion, anyhow::Error> {
         let client = cmd.api.client()?;
+        let owner = match (&self.config.owner, &cmd.owner) {
+            (None, None) => anyhow::bail!("Unnamed packages must have an owner!"),
+            (None, Some(o)) => o.clone(),
+            (Some(o), None) => o.clone(),
+            (Some(_), Some(o)) => o.clone(),
+        };
 
         let manifest =
             match crate::utils::load_package_manifest(&self.pkg_manifest_path)?.map(|x| x.1) {
@@ -30,7 +36,13 @@ impl DeployFromPackageManifestPath {
         }
 
         eprintln!("Publishing package...");
-        crate::utils::republish_package(&client, &self.pkg_manifest_path, manifest.clone()).await?;
+        crate::utils::republish_package(
+            &client,
+            &self.pkg_manifest_path,
+            manifest.clone(),
+            Some(owner),
+        )
+        .await?;
 
         eprintln!(
             "Unnamed package from manifest '{}' published successfully!",

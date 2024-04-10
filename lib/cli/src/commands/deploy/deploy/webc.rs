@@ -57,7 +57,7 @@ impl DeployFromWebc {
             if should_publish {
                 eprintln!("Publishing package...");
                 let new_manifest =
-                    crate::utils::republish_package(&client, &local_manifest_path, manifest)
+                    crate::utils::republish_package(&client, &local_manifest_path, manifest, None)
                         .await?;
 
                 eprint!("Waiting for package to become available...");
@@ -113,9 +113,19 @@ impl DeployFromWebc {
         };
 
         let config = if let Some(manifest) = new_package_manifest {
-            let _package = manifest.package.unwrap();
+            let package = manifest.package.unwrap();
+            let mut package_splits = package.name.split("/");
+            let package_name = package_splits.next().unwrap();
+            let package_namespace = package_splits.next().unwrap();
+            let package_spec = PackageSpecifier::Ident(PackageIdentifier {
+                repository: package.repository.map(|s| Url::parse(&s).unwrap()),
+                namespace: package_namespace.to_string(),
+                name: package_name.to_string(),
+                tag: Some(package.version.to_string()),
+            });
+
             AppConfigV1 {
-                package: todo!(), // [todo]: Implement From<Package> for PackageSpecifier
+                package: package_spec,
                 ..self.config.clone()
             }
         } else {

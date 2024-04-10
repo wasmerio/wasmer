@@ -191,6 +191,7 @@ pub async fn republish_package(
     client: &WasmerClient,
     manifest_path: &Path,
     manifest: wasmer_toml::Manifest,
+    patch_owner: Option<String>,
 ) -> Result<wasmer_toml::Manifest, anyhow::Error> {
     let manifest_path = if manifest_path.is_file() {
         manifest_path.to_owned()
@@ -284,6 +285,7 @@ pub async fn republish_package(
         // Use a high timeout to prevent interrupting uploads of
         // large packages.
         timeout: std::time::Duration::from_secs(60 * 60 * 12),
+        package_namespace: patch_owner,
     };
 
     // Publish uses a blocking http client internally, which leads to a

@@ -44,6 +44,8 @@ pub struct Publish {
     pub wait: PublishWait,
     /// Timeout (in seconds) for the publish query to the registry
     pub timeout: Duration,
+
+    pub package_namespace: Option<String>,
 }
 
 #[derive(Debug, Error)]
@@ -206,6 +208,7 @@ impl Publish {
             self.quiet,
             self.wait,
             self.timeout,
+            self.package_namespace.clone(),
         )
     }
 

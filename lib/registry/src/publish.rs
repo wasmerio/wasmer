@@ -90,6 +90,7 @@ pub fn try_chunked_uploading(
     quiet: bool,
     wait: PublishWait,
     timeout: Duration,
+    patch_namespace: Option<String>,
 ) -> Result<(), anyhow::Error> {
     let (registry, token) = initialize_registry_and_token(registry, token)?;
 
@@ -112,6 +113,7 @@ pub fn try_chunked_uploading(
     let q =
         PublishPackageMutationChunked::build_query(publish_package_mutation_chunked::Variables {
             name: package.as_ref().map(|p| p.name.to_string()),
+            namespace: patch_namespace,
             version: package.as_ref().map(|p| p.version.to_string()),
             description: package.as_ref().map(|p| p.description.clone()),
             manifest: manifest_string.to_string(),
@@ -123,7 +125,7 @@ pub fn try_chunked_uploading(
             file_name: Some(archive_name.to_string()),
             signature: maybe_signature_data,
             signed_url: Some(signed_url.url),
-            private: package.as_ref().map(|p| p.private),
+            private: Some(true),
             wait: Some(wait.is_any()),
         });
 
