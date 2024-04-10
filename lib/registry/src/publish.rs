@@ -125,7 +125,10 @@ pub fn try_chunked_uploading(
             file_name: Some(archive_name.to_string()),
             signature: maybe_signature_data,
             signed_url: Some(signed_url.url),
-            private: Some(true),
+            private: Some(match package {
+                Some(p) => p.private,
+                None => true,
+            }),
             wait: Some(wait.is_any()),
         });
 
