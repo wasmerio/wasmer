@@ -8,7 +8,6 @@ use std::{
     task::{Context, Poll},
 };
 
-use futures::future::BoxFuture;
 use tokio::io::{AsyncRead, AsyncSeek, AsyncWrite};
 
 use crate::VirtualFile;
@@ -79,8 +78,8 @@ impl VirtualFile for ZeroFile {
     fn set_len(&mut self, _new_size: u64) -> crate::Result<()> {
         Ok(())
     }
-    fn unlink(&mut self) -> BoxFuture<'static, crate::Result<()>> {
-        Box::pin(async { Ok(()) })
+    fn unlink(&mut self) -> crate::Result<()> {
+        Ok(())
     }
     fn poll_read_ready(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<io::Result<usize>> {
         Poll::Ready(Ok(0))

@@ -5,7 +5,7 @@ use std::path::PathBuf;
 use anyhow::{bail, Context};
 use colored::Colorize;
 use dialoguer::Confirm;
-use edge_schema::schema::{StringWebcIdent, PackageSpecifier};
+use edge_schema::schema::{PackageSpecifier, StringWebcIdent};
 use is_terminal::IsTerminal;
 use wasmer_api::{
     types::{DeployAppVersion, Package, UserWithNamespaces},
@@ -111,7 +111,6 @@ struct AppCreator {
 
 struct AppCreatorOutput {
     app: AppConfigV1,
-    pkg: PackageSpecifier,
     api_pkg: Option<Package>,
     local_package: Option<(PathBuf, wasmer_toml::Manifest)>,
 }
@@ -138,12 +137,6 @@ impl AppCreator {
         let outer_pkg_name =
             crate::utils::prompts::prompt_for_ident("Package name", Some(&default_name))?;
         let outer_pkg_full_name = format!("{}/{}", self.owner, outer_pkg_name);
-        let outer_pkg = StringWebcIdent(edge_schema::schema::WebcIdent {
-            repository: None,
-            namespace: self.owner.clone(),
-            name: outer_pkg_name.clone(),
-            tag: None,
-        });
 
         eprintln!("What should be the name of the app?");
 
@@ -199,11 +192,11 @@ impl AppCreator {
         let app_cfg = AppConfigV1 {
             app_id: None,
             name: app_name,
+            owner: Some(self.owner.clone()),
             cli_args: None,
             env: Default::default(),
             volumes: None,
             domains: None,
-            owner: None,
             scaling: None,
             package: edge_schema::schema::PackageSpecifier::Ident(
                 edge_schema::schema::StringWebcIdent(edge_schema::schema::WebcIdent {
@@ -222,7 +215,6 @@ impl AppCreator {
 
         Ok(AppCreatorOutput {
             app: app_cfg,
-            pkg: outer_pkg,
             api_pkg: None,
             local_package: Some((self.dir, manifest)),
         })
@@ -343,7 +335,7 @@ impl AppCreator {
         // TODO: check if name already exists.
         let cfg = AppConfigV1 {
             app_id: None,
-            owner: None,
+            owner: Some(self.owner.clone()),
             volumes: None,
             name,
             env: Default::default(),
@@ -364,7 +356,6 @@ impl AppCreator {
         Ok(AppCreatorOutput {
             app: cfg,
             api_pkg,
-            pkg,
             local_package,
         })
     }
@@ -494,7 +485,7 @@ impl AsyncCliCommand for CmdAppCreate {
             type_,
             interactive,
             dir: base_dir,
-            owner,
+            owner: owner.clone(),
             api,
             user,
             local_package,
@@ -511,8 +502,8 @@ impl AsyncCliCommand for CmdAppCreate {
         let AppCreatorOutput {
             app: cfg,
             api_pkg,
-            pkg,
             local_package,
+            ..
         } = output;
 
         let deploy_now = if self.offline {
@@ -563,7 +554,7 @@ impl AsyncCliCommand for CmdAppCreate {
                 original_config: None,
                 allow_create: true,
                 make_default: true,
-                owner: Some(pkg.0.namespace.clone()),
+                owner: Some(owner.clone()),
                 wait: wait_mode,
             };
             let (_app, app_version) = deploy_app_verbose(&api, opts).await?;
@@ -616,6 +607,7 @@ mod tests {
             r#"---
 kind: wasmer.io/App.v0
 name: static-site-1
+owner: testuser
 package: testuser/static-site-1@0.1.0
 debug: false
 "#,
@@ -649,6 +641,7 @@ debug: false
             r#"---
 kind: wasmer.io/App.v0
 name: testapp
+owner: wasmer
 package: wasmer/testpkg
 debug: false
 "#,
@@ -681,6 +674,7 @@ debug: false
             r#"---
 kind: wasmer.io/App.v0
 name: test-js-worker
+owner: wasmer
 package: wasmer/test-js-worker
 cli_args:
   - /src/index.js
@@ -716,6 +710,7 @@ debug: false
             r#"---
 kind: wasmer.io/App.v0
 name: test-py-worker
+owner: wasmer
 package: wasmer/test-py-worker
 cli_args:
   - /src/main.py
