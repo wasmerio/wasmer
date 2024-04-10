@@ -85,6 +85,8 @@ impl AsyncCliCommand for CmdDeploy {
         let config: AppConfigV1 = AppConfigV1::parse_yaml(&config_str)?;
         eprintln!("Loaded app from: '{}'", app_path.display());
 
-        Into::<DeployApp>::into(config).deploy(app_path, &self).await
+        Into::<DeployApp>::into(config)
+            .deploy(app_path, &self)
+            .await
     }
 }
