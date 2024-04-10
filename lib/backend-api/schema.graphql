@@ -503,6 +503,7 @@ scalar JSONString
 type WebcImage implements Node {
   """The ID of the object"""
   id: ID!
+  version: RegistryWebcImageVersionChoices!
 
   """"""
   fileSize: BigInt!
@@ -514,6 +515,14 @@ type WebcImage implements Node {
   createdAt: DateTime!
   updatedAt: DateTime!
   webcUrl: String!
+}
+
+enum RegistryWebcImageVersionChoices {
+  """v2"""
+  V2
+
+  """v3"""
+  V3
 }
 
 """
@@ -1039,6 +1048,7 @@ type PackageDistribution {
   webcExpiresInSeconds: Int
   webcSize: Int
   webcSha256Hash: String
+  webcVersion: WebcVersion
 }
 
 enum WebcVersion {
@@ -2289,7 +2299,7 @@ type Query {
   getCommand(name: String!): Command
   getCommands(names: [String!]!): [Command]
   getCollections(before: String, after: String, first: Int, last: Int): CollectionConnection
-  getSignedUrlForPackageUpload(name: String!, version: String = "latest", expiresAfterSeconds: Int = 60): SignedUrl
+  getSignedUrlForPackageUpload(name: String, version: String = "latest", filename: String, expiresAfterSeconds: Int = 60): SignedUrl
   getPackageHash(name: String, hash: String!): PackageWebc
   getPackageRelease(hash: String!): PackageWebc
   categories(offset: Int, before: String, after: String, first: Int, last: Int): CategoryConnection!
@@ -3532,10 +3542,11 @@ type PublishPackagePayload {
 }
 
 input PublishPackageInput {
-  name: String!
-  version: String!
-  description: String!
   manifest: String!
+  name: String
+  namespace: String
+  version: String
+  description: String
   license: String
   licenseFile: String
   readme: String
@@ -3567,6 +3578,7 @@ input InputSignature {
 enum UploadFormat {
   targz
   webcv2
+  webcv3
 }
 
 type UpdatePackagePayload {
