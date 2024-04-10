@@ -612,6 +612,7 @@ pub struct Reply<T> {
 
 #[derive(Debug, serde::Serialize, serde::Deserialize, Clone)]
 struct GetPackageRelease {
+    #[serde(rename = "getPackageRelease")]
     get_package_release: Option<PackageWebc>,
 }
 
