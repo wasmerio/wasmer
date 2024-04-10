@@ -379,6 +379,7 @@ fn decode_summary(
         manifest,
         distribution:
             WapmWebQueryGetPackageVersionDistribution {
+                webc_version,
                 pirita_sha256_hash,
                 pirita_download_url,
             },
@@ -402,20 +403,7 @@ fn decode_summary(
 
     let webc_sha256 = WebcHash::parse_hex(&hash).context("invalid webc sha256 hash in manifest")?;
 
-    // Read the first 8 bytes of the webc file to determine its version
-    // FIXME: we can not do this here!
-    let client = reqwest::blocking::Client::new();
-    let mut response = client
-        .get(webc.clone())
-        .header("Range", "bytes=0-7")
-        .send()?;
-    let mut buffer = [0u8; 8];
-    response.copy_to(&mut buffer.as_mut_slice())?;
-    let slice = buffer
-        .get(5..8)
-        .context("response did not return enough data")?;
-    let raw_version = <[u8; 3]>::try_from(slice).context("invalid version in webc file")?;
-    let version = webc::Version::from(&raw_version);
+    let version: webc::Version = webc_version.unwrap_or_default().into();
 
     Ok(PackageSummary {
         pkg: PackageInfo::from_manifest(id, &manifest, version)?,
@@ -587,6 +575,7 @@ pub const WASMER_WEBC_QUERY_ALL: &str = r#"{
         piritaManifest
         isArchived
         distribution {
+            webcVersion
             piritaDownloadUrl
             piritaSha256Hash
         }
@@ -686,7 +675,30 @@ pub struct WapmWebQueryGetPackageVersion {
 }
 
 #[derive(Debug, serde::Serialize, serde::Deserialize, Clone)]
+pub enum WebCVersion {
+    V2,
+    V3,
+}
+
+impl Default for WebCVersion {
+    fn default() -> Self {
+        Self::V2
+    }
+}
+
+impl Into<webc::Version> for WebCVersion {
+    fn into(self) -> webc::Version {
+        match self {
+            Self::V2 => webc::Version::V2,
+            Self::V3 => webc::Version::V3,
+        }
+    }
+}
+
+#[derive(Debug, serde::Serialize, serde::Deserialize, Clone)]
 pub struct WapmWebQueryGetPackageVersionDistribution {
+    #[serde(rename = "webcVersion")]
+    pub webc_version: Option<WebCVersion>,
     #[serde(rename = "piritaDownloadUrl")]
     pub pirita_download_url: Option<Url>,
     #[serde(rename = "piritaSha256Hash")]
