@@ -180,6 +180,115 @@ pub async fn prompt_for_package(
     }
 }
 
+/// Republish the package described by the [`wasmer_toml::Manifest`] given as argument and return a
+/// [`Result<wasmer_toml::Manifest>`].
+///
+/// If the package described is named (i.e. has name, namespace and version), the returned manifest
+/// will have its minor version bumped. If the package is unnamed, the returned manifest will be
+/// equal to the one given as input.
+pub async fn republish_package(
+    client: &WasmerClient,
+    manifest_path: &Path,
+    mut manifest: wasmer_toml::Manifest,
+) -> Result<wasmer_toml::Manifest, anyhow::Error> {
+    let manifest_path = if manifest_path.is_file() {
+        manifest_path.to_owned()
+    } else {
+        manifest_path.join(DEFAULT_PACKAGE_MANIFEST_FILE)
+    };
+
+    let dir = manifest_path
+        .parent()
+        .context("could not determine wasmer.toml parent directory")?
+        .to_owned();
+
+    let new_manifest = match manifest.package {
+        None => manifest.clone(),
+        Some(ref mut pkg) => {
+            let current_opt = wasmer_api::query::get_package(client, pkg.name.clone())
+                .await
+                .context("could not load package info from backend")?
+                .and_then(|x| x.last_version);
+
+            let new_version = if let Some(current) = &current_opt {
+                let mut v = semver::Version::parse(&current.version).with_context(|| {
+                    format!("Could not parse package version: '{}'", current.version)
+                })?;
+
+                v.patch += 1;
+
+                // The backend does not have a reliable way to return the latest version,
+                // so we have to check each version in a loop.
+                loop {
+                    let version = format!("={}", v);
+                    let version = wasmer_api::query::get_package_version(
+                        client,
+                        pkg.name.clone(),
+                        version.clone(),
+                    )
+                    .await
+                    .context("could not load package info from backend")?;
+
+                    if version.is_some() {
+                        v.patch += 1;
+                    } else {
+                        break;
+                    }
+                }
+
+                v
+            } else {
+                pkg.version
+            };
+
+            pkg.version = new_version;
+
+            let contents = toml::to_string(&manifest).with_context(|| {
+                format!(
+                    "could not persist manifest to '{}'",
+                    manifest_path.display()
+                )
+            })?;
+
+            std::fs::write(manifest_path.clone(), contents).with_context(|| {
+                format!("could not write manifest to '{}'", manifest_path.display())
+            })?;
+
+            manifest.clone()
+        }
+    };
+
+    let registry = client.graphql_endpoint().to_string();
+    let token = client
+        .auth_token()
+        .context("no auth token configured - run 'wasmer login'")?
+        .to_string();
+
+    let publish = wasmer_registry::package::builder::Publish {
+        registry: Some(registry),
+        dry_run: false,
+        quiet: false,
+        package_name: None,
+        version: None,
+        wait: wasmer_registry::publish::PublishWait::new_none(),
+        token,
+        no_validate: true,
+        package_path: Some(dir.to_str().unwrap().to_string()),
+        // Use a high timeout to prevent interrupting uploads of
+        // large packages.
+        timeout: std::time::Duration::from_secs(60 * 60 * 12),
+    };
+
+    // Publish uses a blocking http client internally, which leads to a
+    // "can't drop a runtime within an async context" error, so this has
+    // to be run in a separate thread.
+    std::thread::spawn(move || publish.execute())
+        .join()
+        .map_err(|e| anyhow::format_err!("failed to publish package: {:?}", e))??;
+
+    Ok(new_manifest)
+}
+
 /// Re-publish a package with an increased minor version.
 pub async fn republish_package_with_bumped_version(
     client: &WasmerClient,

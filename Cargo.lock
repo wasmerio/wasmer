@@ -1413,11 +1413,11 @@ dependencies = [
 [[package]]
 name = "edge-schema"
 version = "0.0.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "183ddfb52c2441be9d8c3c870632135980ba98e0c4f688da11bcbebb4e26f128"
+source = "git+https://github.com/wasmerio/edge?branch=main#f9f3e514b314cfe288e7c54caf76a80df7fcd605"
 dependencies = [
  "anyhow",
  "bytesize",
+ "hex",
  "once_cell",
  "parking_lot 0.12.1",
  "rand_chacha",
@@ -5799,7 +5799,7 @@ dependencies = [
  "tracing",
  "tracing-test",
  "typetag",
- "webc 5.9.0",
+ "webc",
 ]
 
 [[package]]
@@ -6248,7 +6248,7 @@ dependencies = [
  "tracing",
  "url",
  "uuid",
- "webc 5.8.1",
+ "webc",
 ]
 
 [[package]]
@@ -6272,7 +6272,7 @@ dependencies = [
  "url",
  "wasmer",
  "wasmer-api",
- "webc 5.9.0",
+ "webc",
 ]
 
 [[package]]
@@ -6317,7 +6317,7 @@ dependencies = [
  "wasmer-middlewares",
  "wasmer-types",
  "wasmer-wasix",
- "webc 5.9.0",
+ "webc",
 ]
 
 [[package]]
@@ -6375,7 +6375,7 @@ dependencies = [
  "comfy-table",
  "dialoguer",
  "dirs",
- "edge-schema 0.1.0",
+ "edge-schema 0.0.3",
  "edge-util",
  "flate2",
  "fuse",
@@ -6440,12 +6440,12 @@ dependencies = [
  "wasmer-emscripten",
  "wasmer-object",
  "wasmer-registry",
- "wasmer-toml 0.9.2",
+ "wasmer-toml",
  "wasmer-types",
  "wasmer-vm",
  "wasmer-wasix",
  "wasmer-wast",
- "webc 5.9.0",
+ "webc",
 ]
 
 [[package]]
@@ -6713,6 +6713,7 @@ dependencies = [
  "lzma-rs",
  "minisign",
  "pretty_assertions",
+ "rand",
  "regex",
  "reqwest",
  "rpassword",
@@ -6730,7 +6731,7 @@ dependencies = [
  "toml 0.5.11",
  "tracing",
  "url",
- "wasmer-toml 0.9.2",
+ "wasmer-toml",
  "wasmer-wasm-interface",
  "wasmparser 0.121.2",
  "whoami",
@@ -6748,24 +6749,6 @@ dependencies = [
  "wasmer-types",
  "wasmer-vm",
  "wasmer-wasix",
-]
-
-[[package]]
-name = "wasmer-toml"
-version = "0.9.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d21472954ee9443235ca32522b17fc8f0fe58e2174556266a0d9766db055cc52"
-dependencies = [
- "anyhow",
- "derive_builder",
- "indexmap 2.2.5",
- "semver 1.0.22",
- "serde",
- "serde_cbor",
- "serde_json",
- "serde_yaml 0.9.33",
- "thiserror",
- "toml 0.8.12",
 ]
 
 [[package]]
@@ -6906,7 +6889,7 @@ dependencies = [
  "wcgi",
  "wcgi-host",
  "web-sys",
- "webc 5.9.0",
+ "webc",
  "weezl",
  "winapi 0.3.9",
  "xxhash-rust",
@@ -7111,39 +7094,8 @@ dependencies = [
 
 [[package]]
 name = "webc"
-version = "5.8.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "973ca5a91b4fb3e4bb37cfebe03ef9364d0aff2765256abefdb7e79dc9188483"
-dependencies = [
- "anyhow",
- "base64 0.21.7",
- "byteorder",
- "bytes 1.5.0",
- "flate2",
- "indexmap 1.9.3",
- "leb128",
- "lexical-sort",
- "once_cell",
- "path-clean",
- "rand",
- "semver 1.0.22",
- "serde",
- "serde_cbor",
- "serde_json",
- "sha2",
- "shared-buffer",
- "tar",
- "tempfile",
- "thiserror",
- "toml 0.7.8",
- "url",
- "walkdir",
- "wasmer-toml 0.9.2",
-]
-
-[[package]]
-name = "webc"
 version = "5.9.0"
+source = "git+https://github.com/wasmerio/pirita?branch=prepare-v3#4a5f50f23385966f17e031b753e366ddc594ef0a"
 dependencies = [
  "anyhow",
  "base64 0.21.7",
@@ -7170,7 +7122,7 @@ dependencies = [
  "thiserror",
  "toml 0.7.8",
  "url",
- "wasmer-toml 0.10.0",
+ "wasmer-toml",
 ]
 
 [[package]]

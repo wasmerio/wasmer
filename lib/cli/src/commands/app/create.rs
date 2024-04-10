@@ -5,7 +5,7 @@ use std::path::PathBuf;
 use anyhow::{bail, Context};
 use colored::Colorize;
 use dialoguer::Confirm;
-use edge_schema::schema::StringWebcIdent;
+use edge_schema::schema::{StringWebcIdent, PackageSpecifier};
 use is_terminal::IsTerminal;
 use wasmer_api::{
     types::{DeployAppVersion, Package, UserWithNamespaces},
@@ -111,7 +111,7 @@ struct AppCreator {
 
 struct AppCreatorOutput {
     app: AppConfigV1,
-    pkg: StringWebcIdent,
+    pkg: PackageSpecifier,
     api_pkg: Option<Package>,
     local_package: Option<(PathBuf, wasmer_toml::Manifest)>,
 }
@@ -205,16 +205,19 @@ impl AppCreator {
             domains: None,
             owner: None,
             scaling: None,
-            package: edge_schema::schema::StringWebcIdent(edge_schema::schema::WebcIdent {
-                repository: None,
-                namespace: self.owner,
-                name: outer_pkg_name,
-                tag: None,
-            }),
+            package: edge_schema::schema::PackageSpecifier::Ident(
+                edge_schema::schema::StringWebcIdent(edge_schema::schema::WebcIdent {
+                    repository: None,
+                    namespace: self.owner,
+                    name: outer_pkg_name,
+                    tag: None,
+                }),
+            ),
             capabilities: None,
             scheduled_tasks: None,
             debug: Some(false),
             extra: Default::default(),
+            health_checks: None,
         };
 
         Ok(AppCreatorOutput {
@@ -355,6 +358,7 @@ impl AppCreator {
             debug: Some(false),
             domains: None,
             extra: Default::default(),
+            health_checks: Default::default(),
         };
 
         Ok(AppCreatorOutput {

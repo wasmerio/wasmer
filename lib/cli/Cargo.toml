@@ -103,7 +103,7 @@ virtual-mio = { version = "0.3.0", path = "../virtual-io" }
 
 webc = { workspace = true }
 wasmer-api = { version = "=0.0.24", path = "../backend-api" }
-edge-schema.workspace = true
+edge-schema = { version = "0.0.3" }
 edge-util = { version = "=0.1.0" }
 
 # Used by the mount command

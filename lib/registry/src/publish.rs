@@ -79,7 +79,7 @@ pub enum SignArchiveResult {
 pub fn try_chunked_uploading(
     registry: Option<String>,
     token: Option<String>,
-    package: &wasmer_toml::Package,
+    package: &Option<wasmer_toml::Package>,
     manifest_string: &String,
     license_file: &Option<String>,
     readme: &Option<String>,
@@ -111,19 +111,19 @@ pub fn try_chunked_uploading(
 
     let q =
         PublishPackageMutationChunked::build_query(publish_package_mutation_chunked::Variables {
-            name: package.name.to_string(),
-            version: package.version.to_string(),
-            description: package.description.clone(),
+            name: package.as_ref().map(|p| p.name.to_string()),
+            version: package.as_ref().map(|p| p.version.to_string()),
+            description: package.as_ref().map(|p| p.description.clone()),
             manifest: manifest_string.to_string(),
-            license: package.license.clone(),
+            license: package.as_ref().map(|p| p.license.clone()).flatten(),
             license_file: license_file.to_owned(),
             readme: readme.to_owned(),
-            repository: package.repository.clone(),
-            homepage: package.homepage.clone(),
+            repository: package.as_ref().map(|p| p.repository.clone()).flatten(),
+            homepage: package.as_ref().map(|p| p.homepage.clone()).flatten(),
             file_name: Some(archive_name.to_string()),
             signature: maybe_signature_data,
             signed_url: Some(signed_url.url),
-            private: Some(package.private),
+            private: package.as_ref().map(|p| p.private),
             wait: Some(wait.is_any()),
         });
 
@@ -151,10 +151,14 @@ pub fn try_chunked_uploading(
         }
     }
 
-    println!(
-        "🚀 Successfully published package `{}@{}`",
-        package.name, package.version,
-    );
+    if let Some(pkg) = package {
+        println!(
+            "🚀 Successfully published package `{}@{}`",
+            pkg.name, pkg.version,
+        );
+    } else {
+        println!("🚀 Successfully published unnamed package",);
+    }
 
     Ok(())
 }
@@ -225,12 +229,16 @@ fn sign_package(
 fn google_signed_url(
     registry: &str,
     token: &str,
-    package: &wasmer_toml::Package,
+    package: &Option<wasmer_toml::Package>,
     timeout: Duration,
 ) -> Result<GetSignedUrlUrl, anyhow::Error> {
     let get_google_signed_url = GetSignedUrl::build_query(get_signed_url::Variables {
-        name: package.name.to_string(),
-        version: package.version.to_string(),
+        name: package.as_ref().map(|p| p.name.to_string()),
+        version: package.as_ref().map(|p| p.version.to_string()),
+        filename: match package {
+            Some(_) => None,
+            None => Some(format!("unnamed_package_{}", rand::random::<usize>())),
+        },
         expires_after_seconds: Some(60 * 30),
     });
 
@@ -241,12 +249,17 @@ fn google_signed_url(
         &get_google_signed_url,
     )?;
 
-    let url = _response.url.ok_or_else(|| {
-        anyhow::anyhow!(
-            "could not get signed url for package {}@{}",
-            package.name,
-            package.version
-        )
+    let url = _response.url.ok_or_else(|| match package {
+        Some(pkg) => {
+            anyhow::anyhow!(
+                "could not get signed url for package {}@{}",
+                pkg.name,
+                pkg.version
+            )
+        }
+        None => {
+            anyhow::anyhow!("could not get signed url for unnamed package",)
+        }
     })?;
     Ok(url)
 }
