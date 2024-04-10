@@ -1,25 +1,30 @@
-use super::Deployable;
 use crate::commands::{
     app::{DeployAppOpts, WaitMode},
     deploy::CmdDeploy,
 };
 use anyhow::Context;
-use edge_schema::schema::{AppConfigV1, StringWebcIdent};
+use edge_schema::schema::{AppConfigV1, PackageIdentifier, PackageSpecifier};
 use is_terminal::IsTerminal;
 use std::{io::Write, path::PathBuf};
+use url::Url;
 use wasmer_api::types::DeployAppVersion;
 
-#[async_trait::async_trait]
-impl Deployable for StringWebcIdent {
-    async fn deploy(
+/// Deploy an unnamed package from its Webc identifier.
+#[derive(Debug)]
+pub struct DeployFromWebc {
+    pub webc_id: PackageIdentifier,
+    pub config: AppConfigV1,
+}
+
+impl DeployFromWebc {
+    pub async fn deploy(
         &self,
         app_config_path: PathBuf,
-        config: &AppConfigV1,
         cmd: &CmdDeploy,
-    ) -> anyhow::Result<DeployAppVersion> {
-        let webc_id = self.0;
+    ) -> Result<DeployAppVersion, anyhow::Error> {
+        let webc_id = &self.webc_id;
         let client = cmd.api.client()?;
-        let pkg_name = format!("{}/{}", webc_id.namespace, webc_id.name);
+        let pkg_name = webc_id.to_string();
         let interactive = std::io::stdin().is_terminal() && !cmd.non_interactive;
         let dir_path = app_config_path.canonicalize()?.parent().unwrap().to_owned();
 
@@ -28,7 +33,13 @@ impl Deployable for StringWebcIdent {
         let local_manifest = crate::utils::load_package_manifest(&local_manifest_path)?
             .map(|x| x.1)
             // Ignore local package if it is not referenced by the app.
-            .filter(|m| m.package.name == pkg_name);
+            .filter(|m| {
+                if let Some(pkg) = &m.package {
+                    pkg.name == pkg_name
+                } else {
+                    false
+                }
+            });
 
         let new_package_manifest = if let Some(manifest) = local_manifest {
             let should_publish = if cmd.publish_package {
@@ -45,12 +56,9 @@ impl Deployable for StringWebcIdent {
 
             if should_publish {
                 eprintln!("Publishing package...");
-                let new_manifest = crate::utils::republish_package_with_bumped_version(
-                    &client,
-                    &local_manifest_path,
-                    manifest,
-                )
-                .await?;
+                let new_manifest =
+                    crate::utils::republish_package(&client, &local_manifest_path, manifest)
+                        .await?;
 
                 eprint!("Waiting for package to become available...");
                 std::io::stderr().flush().unwrap();
@@ -66,8 +74,8 @@ impl Deployable for StringWebcIdent {
 
                     let new_version_opt = wasmer_api::query::get_package_version(
                         &client,
-                        new_manifest.package.name.clone(),
-                        new_manifest.package.version.to_string(),
+                        self.webc_id.name.clone(),
+                        self.webc_id.namespace.clone(),
                     )
                     .await;
 
@@ -91,10 +99,7 @@ impl Deployable for StringWebcIdent {
                     tokio::time::sleep(std::time::Duration::from_secs(3)).await;
                 }
 
-                eprintln!(
-                    "Package '{}@{}' published successfully!",
-                    new_manifest.package.name, new_manifest.package.version
-                );
+                eprintln!("Package '{pkg_name}' published successfully!",);
                 eprintln!();
                 Some(new_manifest)
             } else {
@@ -108,13 +113,13 @@ impl Deployable for StringWebcIdent {
         };
 
         let config = if let Some(manifest) = new_package_manifest {
-            let pkg = format!("{}@{}", manifest.package.name, manifest.package.version);
+            let _package = manifest.package.unwrap();
             AppConfigV1 {
-                package: pkg.parse()?,
-                ..config.clone()
+                package: todo!(), // [todo]: Implement From<Package> for PackageSpecifier
+                ..self.config.clone()
             }
         } else {
-            config.clone()
+            self.config.clone()
         };
 
         let wait_mode = if cmd.no_wait {
@@ -128,7 +133,7 @@ impl Deployable for StringWebcIdent {
             original_config: Some(config.clone().to_yaml_value().unwrap()),
             allow_create: true,
             make_default: !cmd.no_default,
-            owner: cmd.owner,
+            owner: cmd.owner.clone(),
             wait: wait_mode,
         };
         let (_app, app_version) = crate::commands::app::deploy_app_verbose(&client, opts).await?;
