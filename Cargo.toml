@@ -44,6 +44,7 @@ members = [
     "lib/c-api/examples/wasmer-capi-examples-runner",
     "lib/c-api/tests/wasmer-c-api-test-runner",
     "lib/cache",
+    "lib/config",
     "lib/cli-compiler",
     "lib/cli",
     "lib/compiler-cranelift",
@@ -84,9 +85,10 @@ rust-version = "1.73"
 version = "4.2.8"
 
 [workspace.dependencies]
+wasmer-config = { path = "./lib/config" }
+
 enumset = "1.1.0"
 memoffset = "0.9.0"
-wasmer-toml = "0.10.0"
 wasmparser = { version = "0.121.0", default-features = false }
 webc = { version = "5.9.0", default-features = false, features = ["package"] }
 shared-buffer = "0.1.4"

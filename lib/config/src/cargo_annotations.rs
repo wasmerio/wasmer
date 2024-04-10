@@ -1,14 +1,14 @@
-//! Rust-specific annotations used to interoperate with external tools.
+//! Rust and cargo specific annotations used to interoperate with external tools.
 
-use crate::{Abi, Bindings};
-use std::collections::HashMap;
-use std::path::PathBuf;
+use std::{collections::HashMap, path::PathBuf};
+
+use crate::package::{Abi, Bindings};
 
 /// The annotation used by `cargo wapm` when it parses the
 /// `[package.metadata.wapm]` table in your `Cargo.toml`.
-#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, PartialEq, Eq)]
 #[serde(rename_all = "kebab-case")]
-pub struct Wasmer {
+pub struct CargoWasmerPackageAnnotation {
     /// The namespace this package should be published under.
     pub namespace: String,
     /// The name the package should be published under, if it differs from the

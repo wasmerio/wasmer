@@ -1,12 +1,12 @@
 [package]
-name = "wasmer-toml"
-version = "0.10.0"
-description = "A parser for the wasmer.toml format used by Wasmer"
-edition = "2021"
-license = "MIT"
-authors = ["The Wasmer Engineering Team <engineering@wasmer.io>"]
-homepage = "https://wasmer.io/"
-repository = "https://github.com/wasmerio/wasmer-toml"
+name = "wasmer-config"
+version = "0.1.0"
+description = "Configuration types for Wasmer."
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+homepage.workspace = true
+repository.workspace = true
 keywords = ["wasm", "wasmer", "toml"]
 categories = ["parser-implementations", "wasm"]
 

@@ -1,10 +1,10 @@
-# The `wasmer.toml` Format
+# wasmer-config
 
 [![Continuous Integration](https://github.com/wasmerio/wasmer-toml/actions/workflows/ci.yml/badge.svg)](https://github.com/wasmerio/wasmer-toml/actions/workflows/ci.yml)
 
 ([API Docs](https://wasmerio.github.io/wasmer-toml))
 
-A parser for the `wasmer.toml` file used by [Wasmer][wasmer].
+Provides configuration types for Wasmer.
 
 ## For Developers
 

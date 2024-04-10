@@ -1,14 +1,8 @@
-//! The `wasmer.toml` file format.
+//! Wasmer package definitions.
 //!
-//! You'll typically start by deserializing into a [`Manifest`] and inspecting
-//! its properties.
+//! Describes the contents of a `wasmer.toml` file.
 
 #![allow(deprecated)]
-
-pub extern crate serde_cbor;
-pub extern crate toml;
-
-pub mod rust;
 
 use std::{
     borrow::Cow,
@@ -96,7 +90,9 @@ const README_PATHS: &[&str; 5] = &[
 
 const LICENSE_PATHS: &[&str; 3] = &["LICENSE", "LICENSE.md", "COPYING"];
 
-/// Metadata about the package.
+/// Package definition for a Wasmer package.
+///
+/// Usually stored in a `wasmer.toml` file.
 #[derive(Clone, Debug, Deserialize, Serialize, derive_builder::Builder)]
 #[non_exhaustive]
 pub struct Package {
@@ -742,7 +738,7 @@ impl Manifest {
             .map_err(|_e| ManifestError::MissingManifest(manifest_path_buf))?;
         let mut manifest: Self = toml::from_str(contents.as_str())?;
 
-        if let Some(mut package) = manifest.package.as_mut() {
+        if let Some(package) = manifest.package.as_mut() {
             if package.readme.is_none() {
                 package.readme = locate_file(path, README_PATHS);
             }
