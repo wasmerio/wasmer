@@ -1,0 +1,28 @@
+[package]
+name = "wasmer-toml"
+version = "0.10.0"
+description = "A parser for the wasmer.toml format used by Wasmer"
+edition = "2021"
+license = "MIT"
+authors = ["The Wasmer Engineering Team <engineering@wasmer.io>"]
+homepage = "https://wasmer.io/"
+repository = "https://github.com/wasmerio/wasmer-toml"
+keywords = ["wasm", "wasmer", "toml"]
+categories = ["parser-implementations", "wasm"]
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+serde = { version = "1.0", features = ["derive"] }
+anyhow = "1"
+toml = "0.8"
+thiserror = "1"
+semver = { version = "1", features = ["serde"] }
+serde_json = "1"
+serde_yaml = "0.9.0"
+serde_cbor = "0.11.2"
+indexmap = { version = "2", features = ["serde"] }
+derive_builder = "0.12.0"
+
+[dev-dependencies]
+tempfile = "3.3.0"
