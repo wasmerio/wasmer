@@ -403,6 +403,7 @@ fn decode_summary(
     let webc_sha256 = WebcHash::parse_hex(&hash).context("invalid webc sha256 hash in manifest")?;
 
     // Read the first 8 bytes of the webc file to determine its version
+    // FIXME: we can not do this here!
     let client = reqwest::blocking::Client::new();
     let mut response = client
         .get(webc.clone())
@@ -776,7 +777,7 @@ mod tests {
                     filesystem: vec![FileSystemMapping {
                         volume_name: "atom".to_string(),
                         mount_path: "/".to_string(),
-                        original_path: "/".to_string(),
+                        original_path: Some("/".to_string()),
                         dependency_name: None,
                     }],
                 },

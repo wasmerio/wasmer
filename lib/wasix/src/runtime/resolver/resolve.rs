@@ -3,7 +3,6 @@ use std::{
     path::PathBuf,
 };
 
-use anyhow::Context;
 use petgraph::{
     graph::{DiGraph, NodeIndex},
     visit::EdgeRef,
@@ -501,7 +500,7 @@ mod tests {
             self.summary.pkg.filesystem.push(FileSystemMapping {
                 volume_name: volume_name.to_string(),
                 mount_path: mount_path.to_string(),
-                original_path: original_path.to_string(),
+                original_path: Some(original_path.to_string()),
                 dependency_name: None,
             });
             self
@@ -517,7 +516,7 @@ mod tests {
             self.summary.pkg.filesystem.push(FileSystemMapping {
                 volume_name: volume_name.to_string(),
                 mount_path: mount_path.to_string(),
-                original_path: original_path.to_string(),
+                original_path: Some(original_path.to_string()),
                 dependency_name: Some(dependency.to_string()),
             });
             self
@@ -1125,7 +1124,7 @@ mod tests {
             pkg.filesystem,
             vec![ResolvedFileSystemMapping {
                 mount_path: PathBuf::from("/lib"),
-                original_path: "/publisher/lib".to_string(),
+                original_path: Some("/publisher/lib".to_string()),
                 volume_name: "atom".to_string(),
                 package: builder.get(&root_id).package_id(),
             }]
@@ -1170,20 +1169,20 @@ mod tests {
             vec![
                 ResolvedFileSystemMapping {
                     mount_path: PathBuf::from("/root"),
-                    original_path: "/root".to_string(),
+                    original_path: Some("/root".to_string()),
                     volume_name: "atom".to_string(),
                     package: builder.get(&root_id).package_id(),
                 },
                 ResolvedFileSystemMapping {
                     mount_path: PathBuf::from("/usr/local/lib/second"),
-                    original_path: "/usr/local/lib/second".to_string(),
+                    original_path: Some("/usr/local/lib/second".to_string()),
                     volume_name: "atom".to_string(),
                     package: builder.get(&second_id).package_id(),
                 },
                 ResolvedFileSystemMapping {
                     mount_path: PathBuf::from("/usr/local/lib/first"),
                     volume_name: "atom".to_string(),
-                    original_path: "/usr/local/lib/first".to_string(),
+                    original_path: Some("/usr/local/lib/first".to_string()),
                     package: builder.get(&first_id).package_id(),
                 }
             ]
@@ -1211,7 +1210,7 @@ mod tests {
             pkg.filesystem,
             vec![ResolvedFileSystemMapping {
                 mount_path: PathBuf::from("/root"),
-                original_path: "/root".to_string(),
+                original_path: Some("/root".to_string()),
                 volume_name: "dep-volume".to_string(),
                 package: builder.get(&dep_id).package_id(),
             }]

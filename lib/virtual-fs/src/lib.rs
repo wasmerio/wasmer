@@ -47,8 +47,6 @@ mod static_file;
 pub mod static_fs;
 mod trace_fs;
 #[cfg(feature = "webc-fs")]
-pub mod webc_fs;
-#[cfg(feature = "webc-fs")]
 mod webc_volume_fs;
 
 pub mod limiter;
