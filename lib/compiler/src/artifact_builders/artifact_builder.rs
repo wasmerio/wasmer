@@ -126,7 +126,7 @@ impl ArtifactBuild {
         };
         let serializable = SerializableModule {
             compilation: serializable_compilation,
-            compile_info,
+            compile_info: compile_info,
             data_initializers,
             cpu_features: cpu_features.as_u64(),
         };
@@ -250,6 +250,7 @@ impl<'a> ArtifactCreate<'a> for ArtifactBuild {
 
 /// Module loaded from an archive. Since `CompileModuleInfo` is part of the public
 /// interface of this crate and has to be mutable, it has to be deserialized completely.
+#[derive(Debug)]
 pub struct ModuleFromArchive<'a> {
     /// The main serializable compilation object
     pub compilation: &'a ArchivedSerializableCompilation,
@@ -283,11 +284,14 @@ self_cell!(
         #[covariant]
         dependent: ModuleFromArchive,
     }
+
+    impl {Debug}
 );
 
 /// A compiled wasm module that was loaded from a serialized archive.
+#[derive(Clone, Debug)]
 pub struct ArtifactBuildFromArchive {
-    cell: ArtifactBuildFromArchiveCell,
+    cell: Arc<ArtifactBuildFromArchiveCell>,
 
     /// Compilation informations
     compile_info: CompileModuleInfo,
@@ -314,7 +318,15 @@ impl ArtifactBuildFromArchive {
 
         // Safety: we know the lambda will execute before getting here and assign both values
         let compile_info = unsafe { compile_info.assume_init() };
-        Ok(Self { cell, compile_info })
+        Ok(Self {
+            cell: Arc::new(cell),
+            compile_info,
+        })
+    }
+
+    /// Gets the owned buffer
+    pub fn owned_buffer(&self) -> &OwnedBuffer {
+        self.cell.borrow_owner()
     }
 
     /// Get Functions Bodies ref
@@ -390,6 +402,13 @@ impl ArtifactBuildFromArchive {
             ArchivedOption::Some(ref x) => Some(x),
             ArchivedOption::None => None,
         }
+    }
+
+    /// Get Function Relocations ref
+    pub fn get_frame_info_ref(
+        &self,
+    ) -> &ArchivedPrimaryMap<LocalFunctionIndex, CompiledFunctionFrameInfo> {
+        &self.cell.borrow_dependent().compilation.function_frame_info
     }
 
     /// Get Function Relocations ref

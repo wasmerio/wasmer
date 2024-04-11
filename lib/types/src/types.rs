@@ -242,7 +242,7 @@ impl ExternType {
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 #[derive(RkyvSerialize, RkyvDeserialize, Archive)]
-#[archive_attr(derive(CheckBytes))]
+#[archive_attr(derive(CheckBytes, Debug))]
 pub struct FunctionType {
     /// The parameters of the function
     params: Box<[Type]>,
@@ -447,7 +447,7 @@ pub enum GlobalInit {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 #[derive(RkyvSerialize, RkyvDeserialize, Archive)]
-#[archive_attr(derive(CheckBytes))]
+#[archive_attr(derive(CheckBytes, Debug))]
 pub struct TableType {
     /// The type of data stored in elements of the table.
     pub ty: Type,
@@ -488,7 +488,7 @@ impl fmt::Display for TableType {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 #[derive(RkyvSerialize, RkyvDeserialize, Archive)]
-#[archive_attr(derive(CheckBytes))]
+#[archive_attr(derive(CheckBytes, Debug))]
 pub struct MemoryType {
     /// The minimum number of pages in the memory.
     pub minimum: Pages,
