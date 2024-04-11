@@ -2,8 +2,8 @@ use crate::commands::{
     app::{DeployAppOpts, WaitMode},
     deploy::{CmdDeploy, DeployAppVersion},
 };
-use edge_schema::schema::AppConfigV1;
-use std::path::PathBuf;
+use edge_schema::schema::{AppConfigV1, PackageSpecifier};
+use std::{path::PathBuf, str::FromStr};
 
 #[derive(Debug)]
 /// Deploy an unnamed package from its manifest's path.
@@ -15,11 +15,9 @@ pub struct DeployFromPackageManifestPath {
 impl DeployFromPackageManifestPath {
     pub async fn deploy(&self, cmd: &CmdDeploy) -> Result<DeployAppVersion, anyhow::Error> {
         let client = cmd.api.client()?;
-        let owner = match (&self.config.owner, &cmd.owner) {
-            (None, None) => anyhow::bail!("Unnamed packages must have an owner!"),
-            (None, Some(o)) => o.clone(),
-            (Some(o), None) => o.clone(),
-            (Some(_), Some(o)) => o.clone(),
+        let owner = match &self.config.owner {
+            Some(owner) => Some(owner.clone()),
+            None => cmd.owner.clone(),
         };
 
         let manifest =
@@ -36,11 +34,11 @@ impl DeployFromPackageManifestPath {
         }
 
         eprintln!("Publishing package...");
-        crate::utils::republish_package(
+        let (_, maybe_hash) = crate::utils::republish_package(
             &client,
             &self.pkg_manifest_path,
             manifest.clone(),
-            Some(owner),
+            owner.clone(),
         )
         .await?;
 
@@ -56,20 +54,34 @@ impl DeployFromPackageManifestPath {
             WaitMode::Reachable
         };
 
-        let opts = DeployAppOpts {
-            app: &self.config,
-            original_config: Some(self.config.clone().to_yaml_value().unwrap()),
-            allow_create: true,
-            make_default: !cmd.no_default,
-            owner: cmd.owner.as_ref().cloned(),
-            wait: wait_mode,
-        };
-        let (_app, app_version) = crate::commands::app::deploy_app_verbose(&client, opts).await?;
+        match maybe_hash {
+            Some(hash) => {
+                let package_spec = PackageSpecifier::from_str(&format!("sha256:{}", hash))?;
+                let new_config = AppConfigV1 {
+                    package: package_spec,
+                    ..self.config.clone()
+                };
 
-        if cmd.fmt.format == crate::utils::render::ItemFormat::Json {
-            println!("{}", serde_json::to_string_pretty(&app_version)?);
+                let opts = DeployAppOpts {
+                    app: &new_config,
+                    original_config: Some(self.config.clone().to_yaml_value().unwrap()),
+                    allow_create: true,
+                    make_default: !cmd.no_default,
+                    owner,
+                    wait: wait_mode,
+                };
+                let (_app, app_version) =
+                    crate::commands::app::deploy_app_verbose(&client, opts).await?;
+
+                if cmd.fmt.format == crate::utils::render::ItemFormat::Json {
+                    println!("{}", serde_json::to_string_pretty(&app_version)?);
+                }
+
+                Ok(app_version)
+            }
+            None => {
+                anyhow::bail!("Backend did not return a hash for the published unnamed package")
+            }
         }
-
-        Ok(app_version)
     }
 }

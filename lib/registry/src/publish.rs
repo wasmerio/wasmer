@@ -91,7 +91,7 @@ pub fn try_chunked_uploading(
     wait: PublishWait,
     timeout: Duration,
     patch_namespace: Option<String>,
-) -> Result<(), anyhow::Error> {
+) -> Result<Option<String>, anyhow::Error> {
     let (registry, token) = initialize_registry_and_token(registry, token)?;
 
     let maybe_signature_data = sign_package(maybe_signature_data);
@@ -135,24 +135,30 @@ pub fn try_chunked_uploading(
     let response: publish_package_mutation_chunked::ResponseData =
         crate::graphql::execute_query_with_timeout(&registry, &token, timeout, &q)?;
 
+    let mut package_hash = None;
     if let Some(pkg) = response.publish_package {
         if !pkg.success {
             return Err(anyhow::anyhow!("Could not publish package"));
         }
-        if wait.is_any() {
-            let f = wait_for_package_version_to_become_ready(
-                &registry,
-                &token,
-                pkg.package_version.id,
-                quiet,
-                wait,
-            );
+        if let Some(pkg_version) = pkg.package_version {
+            if wait.is_any() {
+                let f = wait_for_package_version_to_become_ready(
+                    &registry,
+                    &token,
+                    pkg_version.id,
+                    quiet,
+                    wait,
+                );
 
-            if let Ok(handle) = tokio::runtime::Handle::try_current() {
-                handle.block_on(f)?
-            } else {
-                tokio::runtime::Runtime::new().unwrap().block_on(f)?;
+                if let Ok(handle) = tokio::runtime::Handle::try_current() {
+                    handle.block_on(f)?
+                } else {
+                    tokio::runtime::Runtime::new().unwrap().block_on(f)?;
+                }
             }
+        }
+        if let Some(pkg_hash) = pkg.package_webc {
+            package_hash = Some(pkg_hash.webc.unwrap().webc_sha256);
         }
     }
 
@@ -165,7 +171,7 @@ pub fn try_chunked_uploading(
         println!("🚀 Successfully published unnamed package",);
     }
 
-    Ok(())
+    Ok(package_hash)
 }
 
 fn initialize_registry_and_token(

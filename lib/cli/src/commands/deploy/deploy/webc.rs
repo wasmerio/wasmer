@@ -9,7 +9,7 @@ use std::{io::Write, path::PathBuf};
 use url::Url;
 use wasmer_api::types::DeployAppVersion;
 
-/// Deploy an unnamed package from its Webc identifier.
+/// Deploy a named package from its Webc identifier.
 #[derive(Debug)]
 pub struct DeployFromWebc {
     pub webc_id: PackageIdentifier,
@@ -35,7 +35,7 @@ impl DeployFromWebc {
             // Ignore local package if it is not referenced by the app.
             .filter(|m| {
                 if let Some(pkg) = &m.package {
-                    pkg.name == pkg_name
+                    pkg.name == format!("{}/{}", webc_id.namespace, webc_id.name)
                 } else {
                     false
                 }
@@ -56,7 +56,7 @@ impl DeployFromWebc {
 
             if should_publish {
                 eprintln!("Publishing package...");
-                let new_manifest =
+                let (new_manifest, _maybe_hash) =
                     crate::utils::republish_package(&client, &local_manifest_path, manifest, None)
                         .await?;
 
@@ -74,8 +74,8 @@ impl DeployFromWebc {
 
                     let new_version_opt = wasmer_api::query::get_package_version(
                         &client,
-                        self.webc_id.name.clone(),
-                        self.webc_id.namespace.clone(),
+                        new_manifest.package.as_ref().unwrap().name.clone(),
+                        new_manifest.package.as_ref().unwrap().version.to_string(),
                     )
                     .await;
 
@@ -95,7 +95,6 @@ impl DeployFromWebc {
                             anyhow::bail!("Error - could not query package info: {e}");
                         }
                     }
-
                     tokio::time::sleep(std::time::Duration::from_secs(3)).await;
                 }
 
@@ -115,8 +114,8 @@ impl DeployFromWebc {
         let config = if let Some(manifest) = new_package_manifest {
             let package = manifest.package.unwrap();
             let mut package_splits = package.name.split("/");
-            let package_name = package_splits.next().unwrap();
             let package_namespace = package_splits.next().unwrap();
+            let package_name = package_splits.next().unwrap();
             let package_spec = PackageSpecifier::Ident(PackageIdentifier {
                 repository: package.repository.map(|s| Url::parse(&s).unwrap()),
                 namespace: package_namespace.to_string(),
@@ -143,7 +142,10 @@ impl DeployFromWebc {
             original_config: Some(config.clone().to_yaml_value().unwrap()),
             allow_create: true,
             make_default: !cmd.no_default,
-            owner: cmd.owner.clone(),
+            owner: match &config.owner {
+                Some(owner) => Some(owner.clone()),
+                None => cmd.owner.clone(),
+            },
             wait: wait_mode,
         };
         let (_app, app_version) = crate::commands::app::deploy_app_verbose(&client, opts).await?;

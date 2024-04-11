@@ -40,11 +40,5 @@ mutation PublishPackageMutationChunked(
       id
       version
     }
-
-   packageWebc {
-	  webc {
-		webcSha256
-	  }	
-   }
   }
 }

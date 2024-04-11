@@ -192,7 +192,7 @@ pub async fn republish_package(
     manifest_path: &Path,
     manifest: wasmer_toml::Manifest,
     patch_owner: Option<String>,
-) -> Result<wasmer_toml::Manifest, anyhow::Error> {
+) -> Result<(wasmer_toml::Manifest, Option<String>), anyhow::Error> {
     let manifest_path = if manifest_path.is_file() {
         manifest_path.to_owned()
     } else {
@@ -291,11 +291,11 @@ pub async fn republish_package(
     // Publish uses a blocking http client internally, which leads to a
     // "can't drop a runtime within an async context" error, so this has
     // to be run in a separate thread.
-    std::thread::spawn(move || publish.execute())
+    let maybe_hash = std::thread::spawn(move || publish.execute())
         .join()
         .map_err(|e| anyhow::format_err!("failed to publish package: {:?}", e))??;
 
-    Ok(new_manifest.clone())
+    Ok((new_manifest.clone(), maybe_hash))
 }
 
 ///// Re-publish a package with an increased minor version.
