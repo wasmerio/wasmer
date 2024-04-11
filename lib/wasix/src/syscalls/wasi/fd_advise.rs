@@ -41,7 +41,19 @@ pub(crate) fn fd_advise_internal(
     len: Filesize,
     advice: Advice,
 ) -> Result<(), Errno> {
-    // this is used for our own benefit, so just returning success is a valid
-    // implementation for now
+    // Instead of unconditionally returning OK.  This barebones implementation
+    // only performs basic fd and rights checks.
+
+    let env = ctx.data();
+    let (_, mut state) = unsafe { env.get_memory_and_wasi_state(&ctx, 0) };
+    let fd_entry = state.fs.get_fd(fd)?;
+    let inode = fd_entry.inode;
+
+    if !fd_entry.rights.contains(Rights::FD_ADVISE) {
+        return Err(Errno::Access);
+    }
+
+    let _end = offset.checked_add(len).ok_or(Errno::Inval)?;
+
     Ok(())
 }
