@@ -4,8 +4,10 @@
 #[cfg(feature = "compiler")]
 use super::trampoline::{libcall_trampoline_len, make_libcall_trampolines};
 use crate::ArtifactCreate;
+#[cfg(feature = "compiler")]
 use crate::EngineInner;
 use crate::Features;
+#[cfg(feature = "compiler")]
 use crate::{ModuleEnvironment, ModuleMiddlewareChain};
 use core::mem::MaybeUninit;
 use enumset::EnumSet;
@@ -18,7 +20,6 @@ use wasmer_types::entity::{ArchivedPrimaryMap, PrimaryMap};
 use wasmer_types::ArchivedOwnedDataInitializer;
 use wasmer_types::ArchivedSerializableCompilation;
 use wasmer_types::ArchivedSerializableModule;
-#[cfg(feature = "compiler")]
 use wasmer_types::CompileModuleInfo;
 use wasmer_types::DeserializeError;
 use wasmer_types::{
@@ -126,7 +127,7 @@ impl ArtifactBuild {
         };
         let serializable = SerializableModule {
             compilation: serializable_compilation,
-            compile_info: compile_info,
+            compile_info,
             data_initializers,
             cpu_features: cpu_features.as_u64(),
         };
@@ -134,19 +135,18 @@ impl ArtifactBuild {
     }
 
     /// Compile a data buffer into a `ArtifactBuild`, which may then be instantiated.
-    #[cfg(not(feature = "compiler"))]
-    #[cfg(not(target_arch = "wasm32"))]
-    pub fn new(
-        _inner_engine: &mut EngineInner,
-        _data: &[u8],
-        _target: &Target,
-        _memory_styles: PrimaryMap<MemoryIndex, MemoryStyle>,
-        _table_styles: PrimaryMap<TableIndex, TableStyle>,
-    ) -> Result<Self, CompileError> {
-        Err(CompileError::Codegen(
-            "Compilation is not enabled in the engine".to_string(),
-        ))
-    }
+    // #[cfg(not(feature = "compiler"))]
+    // pub fn new(
+    //     _inner_engine: &mut EngineInner,
+    //     _data: &[u8],
+    //     _target: &Target,
+    //     _memory_styles: PrimaryMap<MemoryIndex, MemoryStyle>,
+    //     _table_styles: PrimaryMap<TableIndex, TableStyle>,
+    // ) -> Result<Self, CompileError> {
+    //     Err(CompileError::Codegen(
+    //         "Compilation is not enabled in the engine".to_string(),
+    //     ))
+    // }
 
     /// Create a new ArtifactBuild from a SerializableModule
     pub fn from_serializable(serializable: SerializableModule) -> Self {

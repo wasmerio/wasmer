@@ -90,7 +90,7 @@ pub async fn spawn_union_fs(env: &WasiEnv, binary: &BinaryPackage) -> Result<(),
     // If the file system has not already been union'ed then do so
     env.state
         .fs
-        .conditional_union(&binary)
+        .conditional_union(binary)
         .await
         .map_err(|err| {
             tracing::warn!("failed to union file system - {err}");
