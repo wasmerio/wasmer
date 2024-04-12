@@ -142,6 +142,8 @@
 <a href="#142" id="142">142</a>
 <a href="#143" id="143">143</a>
 <a href="#144" id="144">144</a>
+<a href="#145" id="145">145</a>
+<a href="#146" id="146">146</a>
 </pre></div><pre class="rust"><code><span class="kw">use super</span>::<span class="kw-2">*</span>;
 <span class="kw">use </span><span class="kw">crate</span>::syscalls::<span class="kw-2">*</span>;
 
@@ -278,8 +280,10 @@
         Whence::Set =&gt; {
             <span class="kw">let </span><span class="kw-2">mut </span>fd_map = state.fs.fd_map.write().unwrap();
             <span class="kw">let </span>fd_entry = <span class="macro">wasi_try_ok_ok!</span>(fd_map.get_mut(<span class="kw-2">&amp;</span>fd).ok_or(Errno::Badf));
-            fd_entry.offset.store(offset <span class="kw">as </span>u64, Ordering::Release);
-            offset <span class="kw">as </span>u64
+            <span class="kw">let </span>offset: u64 = <span class="macro">wasi_try_ok_ok!</span>(u64::try_from(offset).map_err(|<span class="kw">_</span>| Errno::Inval));
+
+            fd_entry.offset.store(offset, Ordering::Release);
+            offset
         }
         <span class="kw">_ </span>=&gt; <span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="prelude-val">Err</span>(Errno::Inval)),
     };
