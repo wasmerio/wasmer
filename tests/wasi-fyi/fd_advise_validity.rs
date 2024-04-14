@@ -2,7 +2,7 @@ use std::os::fd::AsRawFd;
 
 #[link(wasm_import_module = "wasi_snapshot_preview1")]
 extern "C" {
-    pub fn fd_advise(arg0: i32, arg1: i64, arg2: i64, arg3: i32) -> i32;
+    pub fn fd_advise(arg0: i32, arg1: u64, arg2: u64, arg3: i32) -> i32;
 }
 
 const ERRNO_BADF: i32 = 8;
@@ -20,12 +20,7 @@ fn main() {
 
         let f = std::fs::File::create("test.sh").unwrap();
 
-        let errno = fd_advise(
-            f.as_raw_fd(),
-            i64::MAX,
-            i64::MAX,
-            ADVISE_WILLNEED,
-        );
+        let errno = fd_advise(f.as_raw_fd(), u64::MAX, u64::MAX, ADVISE_WILLNEED);
         assert_eq!(
             errno, ERRNO_INVAL,
             "fd_advise with invalid overflowing offset + length should fail with errno 28 (INVAL)"
