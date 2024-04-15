@@ -1340,6 +1340,7 @@
 <a href="#1340" id="1340">1340</a>
 <a href="#1341" id="1341">1341</a>
 <a href="#1342" id="1342">1342</a>
+<a href="#1343" id="1343">1343</a>
 </pre></div><pre class="rust"><code><span class="kw">pub use </span>queries::<span class="kw-2">*</span>;
 
 <span class="kw">pub use </span>cynic::Id;
@@ -1782,6 +1783,7 @@
     <span class="attr">#[derive(cynic::QueryFragment, Serialize, Debug, Clone)]
     </span><span class="kw">pub struct </span>AppAlias {
         <span class="kw">pub </span>name: String,
+        <span class="kw">pub </span>hostname: String,
     }
 
     <span class="attr">#[derive(cynic::QueryVariables, Debug, Clone)]

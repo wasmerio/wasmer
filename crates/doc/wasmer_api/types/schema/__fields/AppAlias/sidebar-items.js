@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":["__typename","app","id","isDefault","name","url"]};
+window.SIDEBAR_ITEMS = {"struct":["__typename","app","hostname","id","isDefault","kind","name","text","url"]};
