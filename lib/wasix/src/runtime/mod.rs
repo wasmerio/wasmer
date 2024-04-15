@@ -104,8 +104,9 @@ where
     fn load_module<'a>(&'a self, wasm: &'a [u8]) -> BoxFuture<'a, anyhow::Result<Module>> {
         let engine = self.engine();
         let module_cache = self.module_cache();
+        let hash = ModuleHash::hash(wasm);
 
-        let task = async move { load_module(&engine, &module_cache, wasm).await };
+        let task = async move { load_module(&engine, &module_cache, wasm, hash).await };
 
         Box::pin(task)
     }
@@ -150,16 +151,16 @@ pub async fn load_module(
     engine: &wasmer::Engine,
     module_cache: &(dyn ModuleCache + Send + Sync),
     wasm: &[u8],
+    wasm_hash: ModuleHash,
 ) -> Result<Module, anyhow::Error> {
-    let hash = ModuleHash::hash(wasm);
-    let result = module_cache.load(hash, engine).await;
+    let result = module_cache.load(wasm_hash, engine).await;
 
     match result {
         Ok(module) => return Ok(module),
         Err(CacheError::NotFound) => {}
         Err(other) => {
             tracing::warn!(
-                %hash,
+                %wasm_hash,
                 error=&other as &dyn std::error::Error,
                 "Unable to load the cached module",
             );
@@ -168,9 +169,9 @@ pub async fn load_module(
 
     let module = Module::new(&engine, wasm)?;
 
-    if let Err(e) = module_cache.save(hash, engine, &module).await {
+    if let Err(e) = module_cache.save(wasm_hash, engine, &module).await {
         tracing::warn!(
-            %hash,
+            %wasm_hash,
             error=&e as &dyn std::error::Error,
             "Unable to cache the compiled module",
         );
@@ -549,7 +550,9 @@ impl Runtime for OverriddenRuntime {
         if self.engine.is_some() || self.module_cache.is_some() {
             let engine = self.engine();
             let module_cache = self.module_cache();
-            let task = async move { load_module(&engine, &module_cache, wasm).await };
+            let hash = ModuleHash::hash(wasm);
+
+            let task = async move { load_module(&engine, &module_cache, wasm, hash).await };
             Box::pin(task)
         } else {
             self.inner.load_module(wasm)

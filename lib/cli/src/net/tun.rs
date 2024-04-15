@@ -306,7 +306,7 @@ impl Future for TunTapDriver {
             Poll::Pending => {}
         }
 
-        // Add the waker before we drain all the the events
+        // Add the waker before we drain all the events
         // we need to read and send
         self.handler
             .add(virtual_mio::InterestType::Readable, cx.waker());

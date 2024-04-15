@@ -1098,7 +1098,14 @@ impl WasiEnv {
                     }
                     WasiFsRoot::Backing(fs) => {
                         let mut f = fs.new_open_options().create(true).write(true).open(path)?;
-                        f.copy_reference(Box::new(StaticFile::new(atom)));
+                        if let Err(e) =
+                            InlineWaker::block_on(f.copy_reference(Box::new(StaticFile::new(atom))))
+                        {
+                            tracing::warn!(
+                                error = &e as &dyn std::error::Error,
+                                "Unable to copy file reference",
+                            );
+                        }
                     }
                 }
 

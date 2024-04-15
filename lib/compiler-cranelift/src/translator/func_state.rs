@@ -343,7 +343,7 @@ impl FuncTranslationState {
         (v1, v2, v3)
     }
 
-    /// Helper to ensure the the stack size is at least as big as `n`; note that due to
+    /// Helper to ensure the stack size is at least as big as `n`; note that due to
     /// `debug_assert` this will not execute in non-optimized builds.
     #[inline]
     fn ensure_length_is_at_least(&self, n: usize) {

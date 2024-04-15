@@ -31,6 +31,7 @@ compile_error!("Both the `std` and `core` features are disabled. Please enable o
 #[cfg(feature = "core")]
 extern crate alloc;
 
+#[allow(unused_imports)]
 mod lib {
     #[cfg(feature = "core")]
     pub mod std {
@@ -51,10 +52,8 @@ mod traits;
 pub use crate::engine::*;
 pub use crate::traits::*;
 
-#[cfg(feature = "translator")]
 mod artifact_builders;
 
-#[cfg(feature = "translator")]
 pub use self::artifact_builders::*;
 
 #[cfg(feature = "translator")]

@@ -1,6 +1,6 @@
 [package]
 name = "wasmer-registry"
-version = "5.10.3"
+version = "5.10.4"
 description = "Crate to interact with the wasmer registry, download packages, etc."
 authors.workspace = true
 edition.workspace = true
@@ -43,13 +43,13 @@ tempfile = "3.6.0"
 thiserror = "1.0.37"
 time = { version = "0.3.17", default-features = false, features = ["parsing", "std", "formatting"], optional = true }
 tldextract = "0.6.0"
-tokio = {version = "1"}
+tokio = {version = "1", features = ["rt-multi-thread"]}
 tokio-tungstenite = {version = "0.20", features = ["rustls-tls-native-roots"]}
 toml = "0.5.9"
 tracing = "0.1.40"
 url = "2.3.1"
 wasmer-toml = { workspace = true }
-wasmer-wasm-interface = { version = "4.2.7", path = "../wasm-interface", optional = true }
+wasmer-wasm-interface = { version = "4.2.8", path = "../wasm-interface", optional = true }
 wasmparser = { workspace = true, optional = true }
 whoami = "1.2.3"
 

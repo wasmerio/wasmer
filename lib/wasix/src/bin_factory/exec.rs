@@ -30,6 +30,24 @@ pub async fn spawn_exec(
     env: WasiEnv,
     runtime: &Arc<dyn Runtime + Send + Sync + 'static>,
 ) -> Result<TaskJoinHandle, SpawnError> {
+    // Load the WASM
+    let wasm = spawn_load_wasm(&env, &binary, name).await?;
+
+    // Load the module
+    let module = spawn_load_module(&env, name, wasm, runtime).await?;
+
+    // Spawn union the file system
+    spawn_union_fs(&env, &binary).await?;
+
+    // Now run the module
+    spawn_exec_module(module, env, runtime)
+}
+
+pub async fn spawn_load_wasm<'a>(
+    env: &WasiEnv,
+    binary: &'a BinaryPackage,
+    name: &str,
+) -> Result<&'a [u8], SpawnError> {
     let wasm = if let Some(cmd) = binary.get_command(name) {
         cmd.atom.as_ref()
     } else if let Some(wasm) = binary.entrypoint_bytes() {
@@ -44,7 +62,15 @@ pub async fn spawn_exec(
         env.on_exit(Some(Errno::Noexec.into())).await;
         return Err(SpawnError::CompileError);
     };
+    Ok(wasm)
+}
 
+pub async fn spawn_load_module(
+    env: &WasiEnv,
+    name: &str,
+    wasm: &[u8],
+    runtime: &Arc<dyn Runtime + Send + Sync + 'static>,
+) -> Result<Module, SpawnError> {
     let module = match runtime.load_module(wasm).await {
         Ok(module) => module,
         Err(err) => {
@@ -57,20 +83,21 @@ pub async fn spawn_exec(
             return Err(SpawnError::CompileError);
         }
     };
+    Ok(module)
+}
 
+pub async fn spawn_union_fs(env: &WasiEnv, binary: &BinaryPackage) -> Result<(), SpawnError> {
     // If the file system has not already been union'ed then do so
     env.state
         .fs
-        .conditional_union(&binary)
+        .conditional_union(binary)
         .await
         .map_err(|err| {
             tracing::warn!("failed to union file system - {err}");
             SpawnError::FileSystemError
         })?;
     tracing::debug!("{:?}", env.state.fs);
-
-    // Now run the module
-    spawn_exec_module(module, env, runtime)
+    Ok(())
 }
 
 pub fn spawn_exec_module(

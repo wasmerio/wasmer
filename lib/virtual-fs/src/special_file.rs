@@ -6,7 +6,6 @@ use std::pin::Pin;
 use std::task::{Context, Poll};
 
 use crate::VirtualFile;
-use futures::future::BoxFuture;
 use tokio::io::{AsyncRead, AsyncSeek, AsyncWrite};
 
 pub type Fd = u32;
@@ -94,8 +93,8 @@ impl VirtualFile for DeviceFile {
     fn set_len(&mut self, _new_size: u64) -> crate::Result<()> {
         Ok(())
     }
-    fn unlink(&mut self) -> BoxFuture<'static, crate::Result<()>> {
-        Box::pin(async { Ok(()) })
+    fn unlink(&mut self) -> crate::Result<()> {
+        Ok(())
     }
     fn get_special_fd(&self) -> Option<u32> {
         Some(self.fd)

@@ -1,5 +1,4 @@
 use bytes::{Buf, Bytes};
-use futures::future::BoxFuture;
 #[cfg(feature = "futures")]
 use futures::Future;
 use std::io::IoSlice;
@@ -395,8 +394,8 @@ impl VirtualFile for Pipe {
     }
 
     /// Request deletion of the file
-    fn unlink(&mut self) -> BoxFuture<'static, Result<(), FsError>> {
-        Box::pin(async { Ok(()) })
+    fn unlink(&mut self) -> Result<(), FsError> {
+        Ok(())
     }
 
     /// Indicates if the file is opened or closed. This function must not block

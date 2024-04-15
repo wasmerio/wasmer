@@ -7,7 +7,6 @@ use std::{
     task::{Context, Poll},
 };
 
-use futures::future::BoxFuture;
 use tokio::io::{AsyncRead, AsyncSeek, AsyncWrite};
 use virtual_fs::{FsError, Pipe as VirtualPipe, VirtualFile};
 use wasmer_wasix_types::{
@@ -529,19 +528,13 @@ impl VirtualFile for WasiStateFileGuard {
         }
     }
 
-    fn unlink(&mut self) -> BoxFuture<'static, Result<(), FsError>> {
+    fn unlink(&mut self) -> Result<(), FsError> {
         let mut guard = self.lock_write();
-        let fut = if let Some(file) = guard.as_mut() {
-            Ok(file.unlink())
+        if let Some(file) = guard.as_mut() {
+            file.unlink()
         } else {
             Err(FsError::IOError)
-        };
-        Box::pin(async move {
-            match fut {
-                Ok(fut) => fut.await,
-                Err(err) => Err(err),
-            }
-        })
+        }
     }
 
     fn is_open(&self) -> bool {

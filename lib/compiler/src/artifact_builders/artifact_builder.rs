@@ -4,8 +4,10 @@
 #[cfg(feature = "compiler")]
 use super::trampoline::{libcall_trampoline_len, make_libcall_trampolines};
 use crate::ArtifactCreate;
+#[cfg(feature = "compiler")]
 use crate::EngineInner;
 use crate::Features;
+#[cfg(feature = "compiler")]
 use crate::{ModuleEnvironment, ModuleMiddlewareChain};
 use core::mem::MaybeUninit;
 use enumset::EnumSet;
@@ -18,7 +20,6 @@ use wasmer_types::entity::{ArchivedPrimaryMap, PrimaryMap};
 use wasmer_types::ArchivedOwnedDataInitializer;
 use wasmer_types::ArchivedSerializableCompilation;
 use wasmer_types::ArchivedSerializableModule;
-#[cfg(feature = "compiler")]
 use wasmer_types::CompileModuleInfo;
 use wasmer_types::DeserializeError;
 use wasmer_types::{
@@ -133,21 +134,6 @@ impl ArtifactBuild {
         Ok(Self { serializable })
     }
 
-    /// Compile a data buffer into a `ArtifactBuild`, which may then be instantiated.
-    #[cfg(not(feature = "compiler"))]
-    #[cfg(not(target_arch = "wasm32"))]
-    pub fn new(
-        _inner_engine: &mut EngineInner,
-        _data: &[u8],
-        _target: &Target,
-        _memory_styles: PrimaryMap<MemoryIndex, MemoryStyle>,
-        _table_styles: PrimaryMap<TableIndex, TableStyle>,
-    ) -> Result<Self, CompileError> {
-        Err(CompileError::Codegen(
-            "Compilation is not enabled in the engine".to_string(),
-        ))
-    }
-
     /// Create a new ArtifactBuild from a SerializableModule
     pub fn from_serializable(serializable: SerializableModule) -> Self {
         Self { serializable }
@@ -250,6 +236,7 @@ impl<'a> ArtifactCreate<'a> for ArtifactBuild {
 
 /// Module loaded from an archive. Since `CompileModuleInfo` is part of the public
 /// interface of this crate and has to be mutable, it has to be deserialized completely.
+#[derive(Debug)]
 pub struct ModuleFromArchive<'a> {
     /// The main serializable compilation object
     pub compilation: &'a ArchivedSerializableCompilation,
@@ -283,11 +270,14 @@ self_cell!(
         #[covariant]
         dependent: ModuleFromArchive,
     }
+
+    impl {Debug}
 );
 
 /// A compiled wasm module that was loaded from a serialized archive.
+#[derive(Clone, Debug)]
 pub struct ArtifactBuildFromArchive {
-    cell: ArtifactBuildFromArchiveCell,
+    cell: Arc<ArtifactBuildFromArchiveCell>,
 
     /// Compilation informations
     compile_info: CompileModuleInfo,
@@ -314,7 +304,15 @@ impl ArtifactBuildFromArchive {
 
         // Safety: we know the lambda will execute before getting here and assign both values
         let compile_info = unsafe { compile_info.assume_init() };
-        Ok(Self { cell, compile_info })
+        Ok(Self {
+            cell: Arc::new(cell),
+            compile_info,
+        })
+    }
+
+    /// Gets the owned buffer
+    pub fn owned_buffer(&self) -> &OwnedBuffer {
+        self.cell.borrow_owner()
     }
 
     /// Get Functions Bodies ref
@@ -390,6 +388,13 @@ impl ArtifactBuildFromArchive {
             ArchivedOption::Some(ref x) => Some(x),
             ArchivedOption::None => None,
         }
+    }
+
+    /// Get Function Relocations ref
+    pub fn get_frame_info_ref(
+        &self,
+    ) -> &ArchivedPrimaryMap<LocalFunctionIndex, CompiledFunctionFrameInfo> {
+        &self.cell.borrow_dependent().compilation.function_frame_info
     }
 
     /// Get Function Relocations ref

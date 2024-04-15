@@ -128,8 +128,12 @@ impl NativeEngineExt for crate::engine::Engine {
         &self,
         file_ref: &Path,
     ) -> Result<crate::Module, DeserializeError> {
-        let bytes = std::fs::read(file_ref)?;
-        let artifact = Arc::new(Artifact::deserialize_unchecked(&self.0, bytes.into())?);
+        let file = std::fs::File::open(file_ref)?;
+        let artifact = Arc::new(Artifact::deserialize_unchecked(
+            &self.0,
+            OwnedBuffer::from_file(&file)
+                .map_err(|e| DeserializeError::Generic(format!("{e:?}")))?,
+        )?);
         Ok(crate::Module(super::module::Module::from_artifact(
             artifact,
         )))
