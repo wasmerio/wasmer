@@ -92,7 +92,7 @@ impl crate::runners::Runner for DcgiRunner {
         let runtime = OverriddenRuntime::new(runtime).with_journals(journals);
         let runtime = Arc::new(runtime) as Arc<DynRuntime>;
 
-        //We now pass the runtime to the the handlers
+        //We now pass the runtime to the handlers
         let handler = self.prepare_handler(command_name, pkg, Arc::clone(&runtime))?;
         self.inner.run_command_with_handler(handler, runtime)
     }
