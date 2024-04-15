@@ -631,6 +631,45 @@
 <a href="#631" id="631">631</a>
 <a href="#632" id="632">632</a>
 <a href="#633" id="633">633</a>
+<a href="#634" id="634">634</a>
+<a href="#635" id="635">635</a>
+<a href="#636" id="636">636</a>
+<a href="#637" id="637">637</a>
+<a href="#638" id="638">638</a>
+<a href="#639" id="639">639</a>
+<a href="#640" id="640">640</a>
+<a href="#641" id="641">641</a>
+<a href="#642" id="642">642</a>
+<a href="#643" id="643">643</a>
+<a href="#644" id="644">644</a>
+<a href="#645" id="645">645</a>
+<a href="#646" id="646">646</a>
+<a href="#647" id="647">647</a>
+<a href="#648" id="648">648</a>
+<a href="#649" id="649">649</a>
+<a href="#650" id="650">650</a>
+<a href="#651" id="651">651</a>
+<a href="#652" id="652">652</a>
+<a href="#653" id="653">653</a>
+<a href="#654" id="654">654</a>
+<a href="#655" id="655">655</a>
+<a href="#656" id="656">656</a>
+<a href="#657" id="657">657</a>
+<a href="#658" id="658">658</a>
+<a href="#659" id="659">659</a>
+<a href="#660" id="660">660</a>
+<a href="#661" id="661">661</a>
+<a href="#662" id="662">662</a>
+<a href="#663" id="663">663</a>
+<a href="#664" id="664">664</a>
+<a href="#665" id="665">665</a>
+<a href="#666" id="666">666</a>
+<a href="#667" id="667">667</a>
+<a href="#668" id="668">668</a>
+<a href="#669" id="669">669</a>
+<a href="#670" id="670">670</a>
+<a href="#671" id="671">671</a>
+<a href="#672" id="672">672</a>
 </pre></div><pre class="rust"><code><span class="kw">use crate</span>::{
     net_error_into_io_err, InterestHandler, NetworkError, SocketStatus, VirtualConnectedSocket,
     VirtualIoSource, VirtualSocket, VirtualTcpSocket,
@@ -648,13 +687,21 @@
 <span class="kw">use </span>tokio::io::{AsyncBufRead, AsyncRead, AsyncWrite, BufReader};
 <span class="kw">use </span>virtual_mio::{ArcInterestHandler, InterestType};
 
+<span class="attr">#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+</span><span class="kw">enum </span>State {
+    Alive,
+    Dead,
+    Closed,
+    Shutdown,
+}
+
 <span class="attr">#[derive(Debug)]
 </span><span class="kw">struct </span>SocketBufferState {
     buffer: RingBuffer&lt;<span class="lifetime">&#39;static</span>, u8&gt;,
     push_handler: <span class="prelude-ty">Option</span>&lt;ArcInterestHandler&gt;,
     pull_handler: <span class="prelude-ty">Option</span>&lt;ArcInterestHandler&gt;,
     wakers: Vec&lt;Waker&gt;,
-    dead: bool,
+    state: State,
     <span class="comment">// This flag prevents a poll write ready storm
     </span>halt_immediate_poll_write: bool,
 }
@@ -675,8 +722,12 @@
 
 <span class="kw">impl </span>Drop <span class="kw">for </span>SocketBuffer {
     <span class="kw">fn </span>drop(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
-        <span class="kw">if </span><span class="self">self</span>.dead_on_drop {
-            <span class="self">self</span>.set_dead();
+        <span class="kw">if </span><span class="self">self</span>.state() == State::Alive {
+            <span class="kw">if </span><span class="self">self</span>.dead_on_drop {
+                <span class="self">self</span>.set_state(State::Dead);
+            } <span class="kw">else </span>{
+                <span class="self">self</span>.set_state(State::Closed);
+            }
         }
     }
 }
@@ -689,7 +740,7 @@
                 push_handler: <span class="prelude-val">None</span>,
                 pull_handler: <span class="prelude-val">None</span>,
                 wakers: Vec::new(),
-                dead: <span class="bool-val">false</span>,
+                state: State::Alive,
                 halt_immediate_poll_write: <span class="bool-val">false</span>,
             })),
             dead_on_drop: <span class="bool-val">false</span>,
@@ -698,7 +749,7 @@
 
     <span class="kw">pub fn </span>set_push_handler(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="kw-2">mut </span>handler: ArcInterestHandler) {
         <span class="kw">let </span><span class="kw-2">mut </span>state = <span class="self">self</span>.state.lock().unwrap();
-        <span class="kw">if </span>state.dead {
+        <span class="kw">if </span>state.state != State::Alive {
             handler.push_interest(InterestType::Closed);
         }
         <span class="kw">if </span>!state.buffer.is_empty() {
@@ -709,7 +760,7 @@
 
     <span class="kw">pub fn </span>set_pull_handler(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="kw-2">mut </span>handler: ArcInterestHandler) {
         <span class="kw">let </span><span class="kw-2">mut </span>state = <span class="self">self</span>.state.lock().unwrap();
-        <span class="kw">if </span>state.dead {
+        <span class="kw">if </span>state.state != State::Alive {
             handler.push_interest(InterestType::Closed);
         }
         <span class="kw">if </span>!state.buffer.is_full() &amp;&amp; state.pull_handler.is_none() {
@@ -733,33 +784,51 @@
         <span class="kw">if </span>!state.buffer.is_empty() {
             <span class="kw">return </span>Poll::Ready(<span class="prelude-val">Ok</span>(state.buffer.len()));
         }
-        <span class="kw">if </span>state.dead {
-            <span class="kw">return </span>Poll::Ready(<span class="prelude-val">Ok</span>(<span class="number">0</span>));
+        <span class="kw">match </span>state.state {
+            State::Alive =&gt; {
+                <span class="kw">if </span>!state.wakers.iter().any(|w| w.will_wake(cx.waker())) {
+                    state.wakers.push(cx.waker().clone());
+                }
+                Poll::Pending
+            }
+            State::Dead =&gt; {
+                <span class="macro">tracing::trace!</span>(<span class="string">&quot;poll_read_ready: socket is dead&quot;</span>);
+                Poll::Ready(<span class="prelude-val">Err</span>(NetworkError::ConnectionReset))
+            }
+            State::Closed | State::Shutdown =&gt; {
+                <span class="macro">tracing::trace!</span>(<span class="string">&quot;poll_read_ready: socket is closed or shutdown&quot;</span>);
+                Poll::Ready(<span class="prelude-val">Ok</span>(<span class="number">0</span>))
+            }
         }
-        <span class="kw">if </span>!state.wakers.iter().any(|w| w.will_wake(cx.waker())) {
-            state.wakers.push(cx.waker().clone());
-        }
-        Poll::Pending
     }
 
     <span class="kw">pub fn </span>poll_write_ready(<span class="kw-2">&amp;</span><span class="self">self</span>, cx: <span class="kw-2">&amp;mut </span>Context&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; Poll&lt;<span class="kw">crate</span>::Result&lt;usize&gt;&gt; {
         <span class="kw">let </span><span class="kw-2">mut </span>state = <span class="self">self</span>.state.lock().unwrap();
-        <span class="kw">if </span>state.dead {
-            <span class="kw">return </span>Poll::Ready(<span class="prelude-val">Ok</span>(<span class="number">0</span>));
+        <span class="kw">match </span>state.state {
+            State::Alive =&gt; {
+                <span class="kw">if </span>!state.buffer.is_full() &amp;&amp; !state.halt_immediate_poll_write {
+                    state.halt_immediate_poll_write = <span class="bool-val">true</span>;
+                    <span class="kw">return </span>Poll::Ready(<span class="prelude-val">Ok</span>(state.buffer.window()));
+                }
+                <span class="kw">if </span>!state.wakers.iter().any(|w| w.will_wake(cx.waker())) {
+                    state.wakers.push(cx.waker().clone());
+                }
+                Poll::Pending
+            }
+            State::Dead =&gt; {
+                <span class="macro">tracing::trace!</span>(<span class="string">&quot;poll_write_ready: socket is dead&quot;</span>);
+                Poll::Ready(<span class="prelude-val">Err</span>(NetworkError::ConnectionReset))
+            }
+            State::Closed | State::Shutdown =&gt; {
+                <span class="macro">tracing::trace!</span>(<span class="string">&quot;poll_write_ready: socket is closed or shutdown&quot;</span>);
+                Poll::Ready(<span class="prelude-val">Ok</span>(<span class="number">0</span>))
+            }
         }
-        <span class="kw">if </span>!state.buffer.is_full() &amp;&amp; !state.halt_immediate_poll_write {
-            state.halt_immediate_poll_write = <span class="bool-val">true</span>;
-            <span class="kw">return </span>Poll::Ready(<span class="prelude-val">Ok</span>(state.buffer.window()));
-        }
-        <span class="kw">if </span>!state.wakers.iter().any(|w| w.will_wake(cx.waker())) {
-            state.wakers.push(cx.waker().clone());
-        }
-        Poll::Pending
     }
 
-    <span class="kw">pub fn </span>set_dead(<span class="kw-2">&amp;</span><span class="self">self</span>) {
+    <span class="kw">fn </span>set_state(<span class="kw-2">&amp;</span><span class="self">self</span>, new_state: State) {
         <span class="kw">let </span><span class="kw-2">mut </span>state = <span class="self">self</span>.state.lock().unwrap();
-        state.dead = <span class="bool-val">true</span>;
+        state.state = new_state;
         <span class="kw">if let </span><span class="prelude-val">Some</span>(handler) = state.pull_handler.as_mut() {
             handler.push_interest(InterestType::Closed);
         }
@@ -769,9 +838,9 @@
         state.wakers.drain(..).for_each(|w| w.wake());
     }
 
-    <span class="kw">pub fn </span>is_dead(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
+    <span class="kw">fn </span>state(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; State {
         <span class="kw">let </span>state = <span class="self">self</span>.state.lock().unwrap();
-        state.dead
+        state.state
     }
 
     <span class="kw">pub fn </span>try_send(
@@ -781,7 +850,7 @@
         waker: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>Waker&gt;,
     ) -&gt; <span class="kw">crate</span>::Result&lt;usize&gt; {
         <span class="kw">let </span><span class="kw-2">mut </span>state = <span class="self">self</span>.state.lock().unwrap();
-        <span class="kw">if </span>state.dead {
+        <span class="kw">if </span>state.state != State::Alive {
             <span class="kw">return </span><span class="prelude-val">Err</span>(NetworkError::ConnectionReset);
         }
         state.halt_immediate_poll_write = <span class="bool-val">false</span>;
@@ -844,14 +913,22 @@
     ) -&gt; <span class="kw">crate</span>::Result&lt;usize&gt; {
         <span class="kw">let </span><span class="kw-2">mut </span>state = <span class="self">self</span>.state.lock().unwrap();
         <span class="kw">if </span>state.buffer.is_empty() {
-            <span class="kw">if </span>state.dead {
-                <span class="kw">return </span><span class="prelude-val">Err</span>(NetworkError::ConnectionReset);
-            }
-
-            <span class="kw">if let </span><span class="prelude-val">Some</span>(waker) = waker {
-                state.add_waker(waker)
-            }
-            <span class="kw">return </span><span class="prelude-val">Err</span>(NetworkError::WouldBlock);
+            <span class="kw">return match </span>state.state {
+                State::Alive =&gt; {
+                    <span class="kw">if let </span><span class="prelude-val">Some</span>(waker) = waker {
+                        state.add_waker(waker)
+                    }
+                    <span class="prelude-val">Err</span>(NetworkError::WouldBlock)
+                }
+                State::Dead =&gt; {
+                    <span class="macro">tracing::trace!</span>(<span class="string">&quot;try_read: socket is dead&quot;</span>);
+                    <span class="kw">return </span><span class="prelude-val">Err</span>(NetworkError::ConnectionReset);
+                }
+                State::Closed | State::Shutdown =&gt; {
+                    <span class="macro">tracing::trace!</span>(<span class="string">&quot;try_read: socket is closed or shutdown&quot;</span>);
+                    <span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="number">0</span>);
+                }
+            };
         }
 
         <span class="kw">let </span>buf: <span class="kw-2">&amp;mut </span>[u8] = <span class="kw">unsafe </span>{ std::mem::transmute(buf) };
@@ -905,7 +982,7 @@
     }
 
     <span class="kw">fn </span>poll_shutdown(<span class="self">self</span>: Pin&lt;<span class="kw-2">&amp;mut </span><span class="self">Self</span>&gt;, _cx: <span class="kw-2">&amp;mut </span>Context&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; Poll&lt;<span class="prelude-ty">Result</span>&lt;(), io::Error&gt;&gt; {
-        <span class="self">self</span>.set_dead();
+        <span class="self">self</span>.set_state(State::Shutdown);
         Poll::Ready(<span class="prelude-val">Ok</span>(()))
     }
 }
@@ -967,12 +1044,12 @@
     }
 
     <span class="kw">pub fn </span>is_active(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
-        !<span class="self">self</span>.tx.is_dead()
+        <span class="self">self</span>.tx.state() == State::Alive
     }
 
     <span class="kw">pub fn </span>close(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw">crate</span>::Result&lt;()&gt; {
-        <span class="self">self</span>.tx.set_dead();
-        <span class="self">self</span>.rx.set_dead();
+        <span class="self">self</span>.tx.set_state(State::Closed);
+        <span class="self">self</span>.rx.set_state(State::Closed);
         <span class="prelude-val">Ok</span>(())
     }
 }
@@ -1007,10 +1084,11 @@
     }
 
     <span class="kw">fn </span>status(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw">crate</span>::Result&lt;SocketStatus&gt; {
-        <span class="prelude-val">Ok</span>(<span class="kw">if </span><span class="self">self</span>.tx.is_dead() {
-            SocketStatus::Closed
-        } <span class="kw">else </span>{
-            SocketStatus::Opened
+        <span class="prelude-val">Ok</span>(<span class="kw">match </span><span class="self">self</span>.tx.state() {
+            State::Alive =&gt; SocketStatus::Opened,
+            State::Dead =&gt; SocketStatus::Failed,
+            State::Closed =&gt; SocketStatus::Closed,
+            State::Shutdown =&gt; SocketStatus::Closed,
         })
     }
 
@@ -1043,8 +1121,8 @@
     }
 
     <span class="kw">fn </span>close(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="kw">crate</span>::Result&lt;()&gt; {
-        <span class="self">self</span>.tx.set_dead();
-        <span class="self">self</span>.rx.set_dead();
+        <span class="self">self</span>.tx.set_state(State::Closed);
+        <span class="self">self</span>.rx.set_state(State::Closed);
         <span class="prelude-val">Ok</span>(())
     }
 
@@ -1103,21 +1181,21 @@
     <span class="kw">fn </span>shutdown(<span class="kw-2">&amp;mut </span><span class="self">self</span>, how: std::net::Shutdown) -&gt; <span class="kw">crate</span>::Result&lt;()&gt; {
         <span class="kw">match </span>how {
             std::net::Shutdown::Both =&gt; {
-                <span class="self">self</span>.tx.set_dead();
-                <span class="self">self</span>.rx.set_dead();
+                <span class="self">self</span>.tx.set_state(State::Shutdown);
+                <span class="self">self</span>.rx.set_state(State::Shutdown);
             }
             std::net::Shutdown::Read =&gt; {
-                <span class="self">self</span>.rx.set_dead();
+                <span class="self">self</span>.rx.set_state(State::Shutdown);
             }
             std::net::Shutdown::Write =&gt; {
-                <span class="self">self</span>.tx.set_dead();
+                <span class="self">self</span>.tx.set_state(State::Shutdown);
             }
         }
         <span class="prelude-val">Ok</span>(())
     }
 
     <span class="kw">fn </span>is_closed(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
-        <span class="self">self</span>.tx.is_dead()
+        <span class="self">self</span>.tx.state() != State::Alive
     }
 }
 
@@ -1161,7 +1239,7 @@
     </span>}
 
     <span class="kw">pub fn </span>close(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw">crate</span>::Result&lt;()&gt; {
-        <span class="self">self</span>.tx.set_dead();
+        <span class="self">self</span>.tx.set_state(State::Closed);
         <span class="prelude-val">Ok</span>(())
     }
 }
@@ -1202,7 +1280,7 @@
     }
 
     <span class="kw">pub fn </span>close(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="kw">crate</span>::Result&lt;()&gt; {
-        <span class="self">self</span>.rx.get_mut().set_dead();
+        <span class="self">self</span>.rx.get_mut().set_state(State::Closed);
         <span class="prelude-val">Ok</span>(())
     }
 

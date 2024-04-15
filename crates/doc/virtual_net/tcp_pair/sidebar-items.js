@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":["SocketBuffer","SocketBufferState","TcpSocketHalf","TcpSocketHalfRx","TcpSocketHalfTx"]};
+window.SIDEBAR_ITEMS = {"enum":["State"],"struct":["SocketBuffer","SocketBufferState","TcpSocketHalf","TcpSocketHalfRx","TcpSocketHalfTx"]};
