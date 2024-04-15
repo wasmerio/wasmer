@@ -2342,7 +2342,7 @@
                             };
                         }
                     }
-                    <span class="comment">// Now once the the restoration of the seek position completes we set the copied state
+                    <span class="comment">// Now once the restoration of the seek position completes we set the copied state
                     </span>CowState::SeekingRestore { <span class="kw-2">mut </span>dst } =&gt; {
                         <span class="kw">match </span>Pin::new(dst.as_mut()).poll_complete(cx) {
                             Poll::Ready(<span class="kw">_</span>) =&gt; {

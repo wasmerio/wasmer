@@ -325,7 +325,7 @@
         <span class="kw">let </span>runtime = OverriddenRuntime::new(runtime).with_journals(journals);
         <span class="kw">let </span>runtime = Arc::new(runtime) <span class="kw">as </span>Arc&lt;DynRuntime&gt;;
 
-        <span class="comment">//We now pass the runtime to the the handlers
+        <span class="comment">//We now pass the runtime to the handlers
         </span><span class="kw">let </span>handler = <span class="self">self</span>.prepare_handler(command_name, pkg, Arc::clone(<span class="kw-2">&amp;</span>runtime))<span class="question-mark">?</span>;
         <span class="self">self</span>.inner.run_command_with_handler(handler, runtime)
     }
