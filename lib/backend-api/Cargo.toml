@@ -1,6 +1,6 @@
 [package]
 name = "wasmer-api"
-version = "0.0.24"
+version = "0.0.25"
 description = "Client library for the Wasmer GraphQL API"
 readme = "README.md"
 documentation = "https://docs.rs/wasmer-api"
@@ -28,7 +28,7 @@ serde_json = "1"
 url = "2"
 futures = "0.3"
 tracing = "0.1"
-cynic = { version = "3.2.2", features = ["http-reqwest"] }
+cynic = { version = "=3.4.3", features = ["http-reqwest"] }
 pin-project-lite = "0.2.10"
 serde_path_to_error = "0.1.14"
 harsh = "0.2.2"

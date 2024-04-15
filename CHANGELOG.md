@@ -9,6 +9,36 @@ Looking for changes that affect our C API? See the [C API Changelog](lib/c-api/C
 
 ## **Unreleased**
 
+## 4.2.8 - 05/04/2024
+
+This release improves journal support and improves the performance of the singlepass backend.
+Also contains fixes to the Edge CLI.
+
+## Added
+
+  - [#4510](https://github.com/wasmerio/wasmer/pull/4510) Added support for creating log file journals directly from buffers
+  - [#4506](https://github.com/wasmerio/wasmer/pull/4506) feat: add wasmer-argus
+  - [#4508](https://github.com/wasmerio/wasmer/pull/4508) Upgrade edge-{schema,util} crates + add some helper methdos
+
+## Changed
+
+  - [#4541](https://github.com/wasmerio/wasmer/pull/4541) Removed some dead code
+  - [#4539](https://github.com/wasmerio/wasmer/pull/4539) deps: Upgrade h2 due to RUSTSEC advisory
+  - [#4527](https://github.com/wasmerio/wasmer/pull/4527) allow owner field in app.yaml
+  - [#4526](https://github.com/wasmerio/wasmer/pull/4526) feat(singlepass): use SIMD insts for popcount
+  - [#4507](https://github.com/wasmerio/wasmer/pull/4507) deps: Upgrade edge-schema to 0.0.3
+  - [#4462](https://github.com/wasmerio/wasmer/pull/4462) DProxy
+
+## Fixed
+
+  - [#4542](https://github.com/wasmerio/wasmer/pull/4542) Various fixes detected in the build
+  - [#4537](https://github.com/wasmerio/wasmer/pull/4537) Fix owner issues with app create
+  - [#4535](https://github.com/wasmerio/wasmer/pull/4535) fix(cli): Fix Edge WinterJS template
+  - [#4525](https://github.com/wasmerio/wasmer/pull/4525) Fix bug with `app deploy`: app URL is stale
+  - [#4520](https://github.com/wasmerio/wasmer/pull/4520) Fix singlepass panic
+
+
+
 ## 4.2.7 - 19/03/2024
 
 This release adds the `wasmer domain` command for DNS records management, and also includes an important fix to the `stack_restore` WASIX syscall (used by the `longjmp` function).
