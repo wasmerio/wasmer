@@ -57,7 +57,6 @@ serde_json = { version = "^1" }
 serde_yaml = { version = "^0.9" }
 weezl = { version = "^0.1" }
 hex = { version = "^0.4" }
-term_size = { version = "0.3" }
 linked_hash_set = { version = "0.1" }
 http = "0.2.8"
 heapless = "0.7.16"
@@ -120,6 +119,9 @@ termios = { version = "0.3" }
 
 [target.'cfg(windows)'.dependencies]
 winapi = "0.3"
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+terminal_size = { version = "0.3.0" }
 
 [dev-dependencies]
 wasmer = { path = "../api", version = "=4.2.8", default-features = false, features = ["wat", "js-serializable-module"] }

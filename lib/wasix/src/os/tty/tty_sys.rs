@@ -17,33 +17,19 @@ impl TtyBridge for SysTty {
         let stdin_tty = sys::is_stdin_tty();
         let stdout_tty = sys::is_stdout_tty();
         let stderr_tty = sys::is_stderr_tty();
+        let (cols, rows) = sys_terminal_size::get_terminal_size();
 
-        if let Some((w, h)) = term_size::dimensions() {
-            WasiTtyState {
-                cols: w as u32,
-                rows: h as u32,
-                width: 800,
-                height: 600,
-                stdin_tty,
-                stdout_tty,
-                stderr_tty,
-                echo,
-                line_buffered,
-                line_feeds,
-            }
-        } else {
-            WasiTtyState {
-                rows: 80,
-                cols: 25,
-                width: 800,
-                height: 600,
-                stdin_tty,
-                stdout_tty,
-                stderr_tty,
-                echo,
-                line_buffered,
-                line_feeds,
-            }
+        WasiTtyState {
+            cols,
+            rows,
+            width: 800,
+            height: 600,
+            stdin_tty,
+            stdout_tty,
+            stderr_tty,
+            echo,
+            line_buffered,
+            line_feeds,
         }
     }
 
@@ -63,6 +49,26 @@ impl TtyBridge for SysTty {
         } else {
             sys::set_mode_no_line_feeds().ok();
         }
+    }
+}
+
+mod sys_terminal_size {
+    static DEFAULT_SIZE: (u32, u32) = (80, 25);
+
+    #[cfg(not(target_arch = "wasm32"))]
+    pub fn get_terminal_size() -> (u32, u32) {
+        if let Some((terminal_size::Width(width), terminal_size::Height(height))) =
+            terminal_size::terminal_size()
+        {
+            (width.into(), height.into())
+        } else {
+            DEFAULT_SIZE
+        }
+    }
+
+    #[cfg(target_arch = "wasm32")]
+    pub fn get_terminal_size() -> (u32, u32) {
+        DEFAULT_SIZE
     }
 }
 
