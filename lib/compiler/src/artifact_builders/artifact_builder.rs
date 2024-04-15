@@ -134,20 +134,6 @@ impl ArtifactBuild {
         Ok(Self { serializable })
     }
 
-    /// Compile a data buffer into a `ArtifactBuild`, which may then be instantiated.
-    // #[cfg(not(feature = "compiler"))]
-    // pub fn new(
-    //     _inner_engine: &mut EngineInner,
-    //     _data: &[u8],
-    //     _target: &Target,
-    //     _memory_styles: PrimaryMap<MemoryIndex, MemoryStyle>,
-    //     _table_styles: PrimaryMap<TableIndex, TableStyle>,
-    // ) -> Result<Self, CompileError> {
-    //     Err(CompileError::Codegen(
-    //         "Compilation is not enabled in the engine".to_string(),
-    //     ))
-    // }
-
     /// Create a new ArtifactBuild from a SerializableModule
     pub fn from_serializable(serializable: SerializableModule) -> Self {
         Self { serializable }
