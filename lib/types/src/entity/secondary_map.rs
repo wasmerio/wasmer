@@ -11,7 +11,7 @@ use crate::lib::std::marker::PhantomData;
 use crate::lib::std::ops::{Index, IndexMut};
 use crate::lib::std::slice;
 use crate::lib::std::vec::Vec;
-use rkyv::{Archive, Deserialize as RkyvDeserialize, Serialize as RkyvSerialize};
+use rkyv::{Archive, Archived, Deserialize as RkyvDeserialize, Serialize as RkyvSerialize};
 #[cfg(feature = "enable-serde")]
 use serde::{
     de::{Deserializer, SeqAccess, Visitor},
@@ -133,6 +133,38 @@ where
     /// Resize the map to have `n` entries by adding default entries as needed.
     pub fn resize(&mut self, n: usize) {
         self.elems.resize(n, self.default.clone());
+    }
+}
+
+impl<K, V> ArchivedSecondaryMap<K, V>
+where
+    K: EntityRef,
+    V: Archive + Clone,
+{
+    /// Get the element at `k` if it exists.
+    pub fn get(&self, k: K) -> Option<&V::Archived> {
+        self.elems.get(k.index())
+    }
+
+    /// Iterator over all values in the `ArchivedPrimaryMap`
+    pub fn values(&self) -> slice::Iter<Archived<V>> {
+        self.elems.iter()
+    }
+
+    /// Iterate over all the keys and values in this map.
+    pub fn iter(&self) -> Iter<K, Archived<V>> {
+        Iter::new(self.elems.iter())
+    }
+}
+
+impl<K, V> std::fmt::Debug for ArchivedSecondaryMap<K, V>
+where
+    K: EntityRef + std::fmt::Debug,
+    V: Archive + Clone,
+    V::Archived: std::fmt::Debug,
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_map().entries(self.iter()).finish()
     }
 }
 
