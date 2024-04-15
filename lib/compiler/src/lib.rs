@@ -52,10 +52,8 @@ mod traits;
 pub use crate::engine::*;
 pub use crate::traits::*;
 
-#[cfg(feature = "translator")]
 mod artifact_builders;
 
-#[cfg(feature = "translator")]
 pub use self::artifact_builders::*;
 
 #[cfg(feature = "translator")]
