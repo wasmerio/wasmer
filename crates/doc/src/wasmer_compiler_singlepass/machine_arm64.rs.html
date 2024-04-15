@@ -11707,7 +11707,7 @@
         <span class="kw">let </span>dest = <span class="self">self</span>.location_to_reg(Size::S32, ret, <span class="kw-2">&amp;mut </span>temps, ImmType::None, <span class="bool-val">false</span>, <span class="prelude-val">None</span>)<span class="question-mark">?</span>;
 
         <span class="self">self</span>.assembler
-            .emit_cbz_label(Size::S32, src2, integer_division_by_zero)<span class="question-mark">?</span>;
+            .emit_cbz_label_far(Size::S32, src2, integer_division_by_zero)<span class="question-mark">?</span>;
         <span class="kw">let </span>offset = <span class="self">self</span>.mark_instruction_with_trap_code(TrapCode::IntegerOverflow);
         <span class="self">self</span>.assembler.emit_udiv(Size::S32, src1, src2, dest)<span class="question-mark">?</span>;
         <span class="kw">if </span>ret != dest {
@@ -11732,7 +11732,7 @@
         <span class="kw">let </span>dest = <span class="self">self</span>.location_to_reg(Size::S32, ret, <span class="kw-2">&amp;mut </span>temps, ImmType::None, <span class="bool-val">false</span>, <span class="prelude-val">None</span>)<span class="question-mark">?</span>;
 
         <span class="self">self</span>.assembler
-            .emit_cbz_label(Size::S32, src2, integer_division_by_zero)<span class="question-mark">?</span>;
+            .emit_cbz_label_far(Size::S32, src2, integer_division_by_zero)<span class="question-mark">?</span>;
         <span class="kw">let </span>label_nooverflow = <span class="self">self</span>.assembler.get_label();
         <span class="kw">let </span>tmp = <span class="self">self</span>.location_to_reg(
             Size::S32,
@@ -11784,7 +11784,7 @@
             dest
         };
         <span class="self">self</span>.assembler
-            .emit_cbz_label(Size::S32, src2, integer_division_by_zero)<span class="question-mark">?</span>;
+            .emit_cbz_label_far(Size::S32, src2, integer_division_by_zero)<span class="question-mark">?</span>;
         <span class="kw">let </span>offset = <span class="self">self</span>.mark_instruction_with_trap_code(TrapCode::IntegerOverflow);
         <span class="self">self</span>.assembler.emit_udiv(Size::S32, src1, src2, dest)<span class="question-mark">?</span>;
         <span class="comment">// unsigned remainder : src1 - (src1/src2)*src2
@@ -11822,7 +11822,7 @@
             dest
         };
         <span class="self">self</span>.assembler
-            .emit_cbz_label(Size::S32, src2, integer_division_by_zero)<span class="question-mark">?</span>;
+            .emit_cbz_label_far(Size::S32, src2, integer_division_by_zero)<span class="question-mark">?</span>;
         <span class="kw">let </span>offset = <span class="self">self</span>.mark_instruction_with_trap_code(TrapCode::IntegerOverflow);
         <span class="self">self</span>.assembler.emit_sdiv(Size::S32, src1, src2, dest)<span class="question-mark">?</span>;
         <span class="comment">// unsigned remainder : src1 - (src1/src2)*src2
