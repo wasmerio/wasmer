@@ -20,8 +20,8 @@ impl TtyBridge for SysTty {
         let (cols, rows) = sys_terminal_size::get_terminal_size();
 
         WasiTtyState {
-            cols: cols,
-            rows: rows,
+            cols,
+            rows,
             width: 800,
             height: 600,
             stdin_tty,
