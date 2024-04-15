@@ -274,6 +274,12 @@
 <a href="#274" id="274">274</a>
 <a href="#275" id="275">275</a>
 <a href="#276" id="276">276</a>
+<a href="#277" id="277">277</a>
+<a href="#278" id="278">278</a>
+<a href="#279" id="279">279</a>
+<a href="#280" id="280">280</a>
+<a href="#281" id="281">281</a>
+<a href="#282" id="282">282</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">super</span>::TtyBridge;
 <span class="kw">use </span><span class="kw">crate</span>::WasiTtyState;
 
@@ -293,33 +299,19 @@
         <span class="kw">let </span>stdin_tty = sys::is_stdin_tty();
         <span class="kw">let </span>stdout_tty = sys::is_stdout_tty();
         <span class="kw">let </span>stderr_tty = sys::is_stderr_tty();
+        <span class="kw">let </span>(cols, rows) = sys_terminal_size::get_terminal_size();
 
-        <span class="kw">if let </span><span class="prelude-val">Some</span>((w, h)) = term_size::dimensions() {
-            WasiTtyState {
-                cols: w <span class="kw">as </span>u32,
-                rows: h <span class="kw">as </span>u32,
-                width: <span class="number">800</span>,
-                height: <span class="number">600</span>,
-                stdin_tty,
-                stdout_tty,
-                stderr_tty,
-                echo,
-                line_buffered,
-                line_feeds,
-            }
-        } <span class="kw">else </span>{
-            WasiTtyState {
-                rows: <span class="number">80</span>,
-                cols: <span class="number">25</span>,
-                width: <span class="number">800</span>,
-                height: <span class="number">600</span>,
-                stdin_tty,
-                stdout_tty,
-                stderr_tty,
-                echo,
-                line_buffered,
-                line_feeds,
-            }
+        WasiTtyState {
+            cols,
+            rows,
+            width: <span class="number">800</span>,
+            height: <span class="number">600</span>,
+            stdin_tty,
+            stdout_tty,
+            stderr_tty,
+            echo,
+            line_buffered,
+            line_feeds,
         }
     }
 
@@ -339,6 +331,26 @@
         } <span class="kw">else </span>{
             sys::set_mode_no_line_feeds().ok();
         }
+    }
+}
+
+<span class="kw">mod </span>sys_terminal_size {
+    <span class="kw">static </span>DEFAULT_SIZE: (u32, u32) = (<span class="number">80</span>, <span class="number">25</span>);
+
+    <span class="attr">#[cfg(not(target_arch = <span class="string">&quot;wasm32&quot;</span>))]
+    </span><span class="kw">pub fn </span>get_terminal_size() -&gt; (u32, u32) {
+        <span class="kw">if let </span><span class="prelude-val">Some</span>((terminal_size::Width(width), terminal_size::Height(height))) =
+            terminal_size::terminal_size()
+        {
+            (width.into(), height.into())
+        } <span class="kw">else </span>{
+            DEFAULT_SIZE
+        }
+    }
+
+    <span class="attr">#[cfg(target_arch = <span class="string">&quot;wasm32&quot;</span>)]
+    </span><span class="kw">pub fn </span>get_terminal_size() -&gt; (u32, u32) {
+        DEFAULT_SIZE
     }
 }
 

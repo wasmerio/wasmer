@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["get_terminal_size"],"static":["DEFAULT_SIZE"]};

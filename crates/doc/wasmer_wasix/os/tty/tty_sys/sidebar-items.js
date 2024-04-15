@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"mod":["sys"],"struct":["SysTty"]};
+window.SIDEBAR_ITEMS = {"mod":["sys","sys_terminal_size"],"struct":["SysTty"]};
