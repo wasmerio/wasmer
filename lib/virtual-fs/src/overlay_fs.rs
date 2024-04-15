@@ -712,7 +712,7 @@ where
                             };
                         }
                     }
-                    // Now once the the restoration of the seek position completes we set the copied state
+                    // Now once the restoration of the seek position completes we set the copied state
                     CowState::SeekingRestore { mut dst } => {
                         match Pin::new(dst.as_mut()).poll_complete(cx) {
                             Poll::Ready(_) => {

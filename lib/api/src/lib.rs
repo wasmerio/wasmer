@@ -469,7 +469,7 @@ pub type Features = sys::Features;
 pub type BaseTunables = sys::BaseTunables;
 #[cfg(feature = "sys")]
 #[deprecated(note = "wasmer::VMConfig is deprecated, use wasmer::sys::VMConfig instead")]
-/// Configuration for the the runtime VM
+/// Configuration for the runtime VM
 /// Currently only the stack size is configurable
 pub type VMConfig = sys::VMConfig;
 
