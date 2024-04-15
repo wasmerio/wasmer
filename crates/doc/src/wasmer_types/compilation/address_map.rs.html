@@ -54,8 +54,8 @@
 
 <span class="doccomment">/// Single source location to generated address mapping.
 </span><span class="attr">#[cfg_attr(feature = <span class="string">&quot;enable-serde&quot;</span>, derive(Serialize, Deserialize))]
-#[derive(RkyvSerialize, RkyvDeserialize, Archive, Debug, Clone, PartialEq, Eq)]
-#[archive_attr(derive(rkyv::CheckBytes))]
+#[derive(RkyvSerialize, RkyvDeserialize, Archive, Debug, Clone, Copy, PartialEq, Eq)]
+#[archive_attr(derive(rkyv::CheckBytes, Debug))]
 </span><span class="kw">pub struct </span>InstructionAddressMap {
     <span class="doccomment">/// Original source location.
     </span><span class="kw">pub </span>srcloc: SourceLoc,
@@ -70,7 +70,7 @@
 <span class="doccomment">/// Function and its instructions addresses mappings.
 </span><span class="attr">#[cfg_attr(feature = <span class="string">&quot;enable-serde&quot;</span>, derive(Serialize, Deserialize))]
 #[derive(RkyvSerialize, RkyvDeserialize, Archive, Debug, Clone, PartialEq, Eq, Default)]
-#[archive_attr(derive(rkyv::CheckBytes))]
+#[archive_attr(derive(rkyv::CheckBytes, Debug))]
 </span><span class="kw">pub struct </span>FunctionAddressMap {
     <span class="doccomment">/// Instructions maps.
     /// The array is sorted by the InstructionAddressMap::code_offset field.

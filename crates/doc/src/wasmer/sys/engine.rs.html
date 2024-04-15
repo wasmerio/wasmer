@@ -150,6 +150,10 @@
 <a href="#150" id="150">150</a>
 <a href="#151" id="151">151</a>
 <a href="#152" id="152">152</a>
+<a href="#153" id="153">153</a>
+<a href="#154" id="154">154</a>
+<a href="#155" id="155">155</a>
+<a href="#156" id="156">156</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{path::Path, sync::Arc};
 
 <span class="kw">use </span>shared_buffer::OwnedBuffer;
@@ -280,8 +284,12 @@
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         file_ref: <span class="kw-2">&amp;</span>Path,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="kw">crate</span>::Module, DeserializeError&gt; {
-        <span class="kw">let </span>bytes = std::fs::read(file_ref)<span class="question-mark">?</span>;
-        <span class="kw">let </span>artifact = Arc::new(Artifact::deserialize_unchecked(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="number">0</span>, bytes.into())<span class="question-mark">?</span>);
+        <span class="kw">let </span>file = std::fs::File::open(file_ref)<span class="question-mark">?</span>;
+        <span class="kw">let </span>artifact = Arc::new(Artifact::deserialize_unchecked(
+            <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="number">0</span>,
+            OwnedBuffer::from_file(<span class="kw-2">&amp;</span>file)
+                .map_err(|e| DeserializeError::Generic(<span class="macro">format!</span>(<span class="string">&quot;{e:?}&quot;</span>)))<span class="question-mark">?</span>,
+        )<span class="question-mark">?</span>);
         <span class="prelude-val">Ok</span>(<span class="kw">crate</span>::Module(<span class="kw">super</span>::module::Module::from_artifact(
             artifact,
         )))

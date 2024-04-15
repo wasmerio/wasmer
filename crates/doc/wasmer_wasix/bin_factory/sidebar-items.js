@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["load_package_from_filesystem","run_exec","spawn_exec","spawn_exec_module"],"mod":["binary_package","exec"],"struct":["BinFactory","BinaryPackage","BinaryPackageCommand"]};
+window.SIDEBAR_ITEMS = {"fn":["load_package_from_filesystem","run_exec","spawn_exec","spawn_exec_module","spawn_load_module","spawn_load_wasm","spawn_union_fs"],"mod":["binary_package","exec"],"struct":["BinFactory","BinaryPackage","BinaryPackageCommand"]};

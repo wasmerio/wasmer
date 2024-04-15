@@ -42,7 +42,7 @@
 /// or the `MemoryStyle` and `TableStyle`).
 </span><span class="attr">#[cfg_attr(feature = <span class="string">&quot;enable-serde&quot;</span>, derive(Deserialize, Serialize))]
 #[derive(Debug, Clone, PartialEq, Eq, RkyvSerialize, RkyvDeserialize, Archive)]
-#[archive_attr(derive(rkyv::CheckBytes))]
+#[archive_attr(derive(rkyv::CheckBytes, Debug))]
 </span><span class="kw">pub struct </span>CompileModuleInfo {
     <span class="doccomment">/// The features used for compiling the module
     </span><span class="kw">pub </span>features: Features,

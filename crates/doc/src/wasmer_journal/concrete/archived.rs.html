@@ -1827,7 +1827,7 @@
     RkyvDeserialize,
     Archive,
 )]
-#[archive_attr(derive(CheckBytes))]
+#[archive_attr(derive(CheckBytes, Debug))]
 </span><span class="kw">pub enum </span>JournalEntryRecordType {
     InitModuleV1 = <span class="number">1</span>,
     ProcessExitV1 = <span class="number">2</span>,
@@ -2681,7 +2681,7 @@
 /// changes to the journal entry types without having to
 /// worry about backward and forward compatibility
 </span><span class="attr">#[derive(Debug, Clone, RkyvSerialize, RkyvDeserialize, Archive)]
-#[archive_attr(derive(CheckBytes))]
+#[archive_attr(derive(CheckBytes, Debug))]
 </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct </span>JournalEntryHeader {
     <span class="kw">pub </span>record_type: u16,
     <span class="kw">pub </span>record_size: u64,
@@ -3306,7 +3306,7 @@
 
 <span class="attr">#[repr(C)]
 #[derive(Debug, Clone, RkyvSerialize, RkyvDeserialize, Archive)]
-#[archive_attr(derive(CheckBytes))]
+#[archive_attr(derive(CheckBytes, Debug))]
 </span><span class="kw">pub enum </span>JournalSnapshot0ClockidV1 {
     Realtime,
     Monotonic,
@@ -3317,7 +3317,7 @@
 
 <span class="attr">#[repr(C)]
 #[derive(Debug, Clone, RkyvSerialize, RkyvDeserialize, Archive)]
-#[archive_attr(derive(CheckBytes))]
+#[archive_attr(derive(CheckBytes, Debug))]
 </span><span class="kw">pub enum </span>JournalWhenceV1 {
     Set,
     Cur,
@@ -3327,7 +3327,7 @@
 
 <span class="attr">#[repr(C)]
 #[derive(Debug, Clone, RkyvSerialize, RkyvDeserialize, Archive)]
-#[archive_attr(derive(CheckBytes))]
+#[archive_attr(derive(CheckBytes, Debug))]
 </span><span class="kw">pub enum </span>JournalAdviceV1 {
     Normal,
     Sequential,
@@ -3341,7 +3341,7 @@
 <span class="attr">#[repr(C)]
 #[repr(align(<span class="number">8</span>))]
 #[derive(Debug, Clone, RkyvSerialize, RkyvDeserialize, Archive)]
-#[archive_attr(derive(CheckBytes))]
+#[archive_attr(derive(CheckBytes, Debug))]
 </span><span class="kw">pub struct </span>JournalIpCidrV1 {
     <span class="kw">pub </span>ip: IpAddr,
     <span class="kw">pub </span>prefix: u8,
@@ -3349,7 +3349,7 @@
 
 <span class="attr">#[repr(C)]
 #[derive(Debug, Clone, RkyvSerialize, RkyvDeserialize, Archive)]
-#[archive_attr(derive(CheckBytes))]
+#[archive_attr(derive(CheckBytes, Debug))]
 </span><span class="kw">pub enum </span>JournalExitCodeV1 {
     Errno(u16),
     Other(i32),
@@ -3369,7 +3369,7 @@
     RkyvDeserialize,
     Archive,
 )]
-#[archive_attr(derive(CheckBytes))]
+#[archive_attr(derive(CheckBytes, Debug))]
 </span><span class="kw">pub enum </span>JournalSnapshotTriggerV1 {
     Idle,
     Listen,
@@ -3397,7 +3397,7 @@
     RkyvDeserialize,
     Archive,
 )]
-#[archive_attr(derive(CheckBytes))]
+#[archive_attr(derive(CheckBytes, Debug))]
 </span><span class="kw">pub enum </span>JournalEpollCtlV1 {
     Add,
     Mod,
@@ -3408,7 +3408,7 @@
 <span class="attr">#[repr(C)]
 #[repr(align(<span class="number">8</span>))]
 #[derive(Debug, Clone, RkyvSerialize, RkyvDeserialize, Archive)]
-#[archive_attr(derive(CheckBytes))]
+#[archive_attr(derive(CheckBytes, Debug))]
 </span><span class="kw">pub struct </span>JournalEpollEventCtlV1 {
     <span class="kw">pub </span>events: u32,
     <span class="kw">pub </span>ptr: u64,
@@ -3431,7 +3431,7 @@
     RkyvDeserialize,
     Archive,
 )]
-#[archive_attr(derive(CheckBytes))]
+#[archive_attr(derive(CheckBytes, Debug))]
 </span><span class="kw">pub enum </span>JournalStreamSecurityV1 {
     Unencrypted,
     AnyEncryption,
@@ -3454,7 +3454,7 @@
     RkyvDeserialize,
     Archive,
 )]
-#[archive_attr(derive(CheckBytes))]
+#[archive_attr(derive(CheckBytes, Debug))]
 </span><span class="kw">pub enum </span>JournalAddressfamilyV1 {
     Unspec,
     Inet4,
@@ -3476,7 +3476,7 @@
     RkyvDeserialize,
     Archive,
 )]
-#[archive_attr(derive(CheckBytes))]
+#[archive_attr(derive(CheckBytes, Debug))]
 </span><span class="kw">pub enum </span>JournalSocktypeV1 {
     Unknown,
     Stream,
@@ -3499,7 +3499,7 @@
     RkyvDeserialize,
     Archive,
 )]
-#[archive_attr(derive(CheckBytes))]
+#[archive_attr(derive(CheckBytes, Debug))]
 </span><span class="kw">pub enum </span>JournalSockoptionV1 {
     Noop,
     ReusePort,
@@ -3544,7 +3544,7 @@
     RkyvDeserialize,
     Archive,
 )]
-#[archive_attr(derive(CheckBytes))]
+#[archive_attr(derive(CheckBytes, Debug))]
 </span><span class="kw">pub enum </span>JournalTimeTypeV1 {
     ReadTimeout,
     WriteTimeout,
@@ -3568,7 +3568,7 @@
     RkyvDeserialize,
     Archive,
 )]
-#[archive_attr(derive(CheckBytes))]
+#[archive_attr(derive(CheckBytes, Debug))]
 </span><span class="kw">pub enum </span>JournalSocketShutdownV1 {
     Read,
     Write,

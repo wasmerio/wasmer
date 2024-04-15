@@ -285,7 +285,7 @@
 <span class="doccomment">/// The compilation related data for a serialized modules
 </span><span class="attr">#[derive(Archive, Default, RkyvDeserialize, RkyvSerialize)]
 #[allow(missing_docs)]
-#[archive_attr(derive(CheckBytes))]
+#[archive_attr(derive(CheckBytes, Debug))]
 </span><span class="kw">pub struct </span>SerializableCompilation {
     <span class="kw">pub </span>function_bodies: PrimaryMap&lt;LocalFunctionIndex, FunctionBody&gt;,
     <span class="kw">pub </span>function_relocations: PrimaryMap&lt;LocalFunctionIndex, Vec&lt;Relocation&gt;&gt;,
@@ -320,7 +320,7 @@
 <span class="doccomment">/// Serializable struct that is able to serialize from and to a `ArtifactInfo`.
 </span><span class="attr">#[derive(Archive, RkyvDeserialize, RkyvSerialize)]
 #[allow(missing_docs)]
-#[archive_attr(derive(CheckBytes))]
+#[archive_attr(derive(CheckBytes, Debug))]
 </span><span class="kw">pub struct </span>SerializableModule {
     <span class="doccomment">/// The main serializable compilation object
     </span><span class="kw">pub </span>compilation: SerializableCompilation,

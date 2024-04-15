@@ -564,6 +564,9 @@
 <a href="#564" id="564">564</a>
 <a href="#565" id="565">565</a>
 <a href="#566" id="566">566</a>
+<a href="#567" id="567">567</a>
+<a href="#568" id="568">568</a>
+<a href="#569" id="569">569</a>
 </pre></div><pre class="rust"><code><span class="kw">pub mod </span>module_cache;
 <span class="kw">pub mod </span>package_loader;
 <span class="kw">pub mod </span>resolver;
@@ -670,8 +673,9 @@
     </span><span class="kw">fn </span>load_module&lt;<span class="lifetime">&#39;a</span>&gt;(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="self">self</span>, wasm: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>[u8]) -&gt; BoxFuture&lt;<span class="lifetime">&#39;a</span>, anyhow::Result&lt;Module&gt;&gt; {
         <span class="kw">let </span>engine = <span class="self">self</span>.engine();
         <span class="kw">let </span>module_cache = <span class="self">self</span>.module_cache();
+        <span class="kw">let </span>hash = ModuleHash::hash(wasm);
 
-        <span class="kw">let </span>task = <span class="kw">async move </span>{ load_module(<span class="kw-2">&amp;</span>engine, <span class="kw-2">&amp;</span>module_cache, wasm).<span class="kw">await </span>};
+        <span class="kw">let </span>task = <span class="kw">async move </span>{ load_module(<span class="kw-2">&amp;</span>engine, <span class="kw-2">&amp;</span>module_cache, wasm, hash).<span class="kw">await </span>};
 
         Box::pin(task)
     }
@@ -716,16 +720,16 @@
     engine: <span class="kw-2">&amp;</span>wasmer::Engine,
     module_cache: <span class="kw-2">&amp;</span>(<span class="kw">dyn </span>ModuleCache + Send + Sync),
     wasm: <span class="kw-2">&amp;</span>[u8],
+    wasm_hash: ModuleHash,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;Module, anyhow::Error&gt; {
-    <span class="kw">let </span>hash = ModuleHash::hash(wasm);
-    <span class="kw">let </span>result = module_cache.load(hash, engine).<span class="kw">await</span>;
+    <span class="kw">let </span>result = module_cache.load(wasm_hash, engine).<span class="kw">await</span>;
 
     <span class="kw">match </span>result {
         <span class="prelude-val">Ok</span>(module) =&gt; <span class="kw">return </span><span class="prelude-val">Ok</span>(module),
         <span class="prelude-val">Err</span>(CacheError::NotFound) =&gt; {}
         <span class="prelude-val">Err</span>(other) =&gt; {
             <span class="macro">tracing::warn!</span>(
-                %hash,
+                %wasm_hash,
                 error=<span class="kw-2">&amp;</span>other <span class="kw">as </span><span class="kw-2">&amp;</span><span class="kw">dyn </span>std::error::Error,
                 <span class="string">&quot;Unable to load the cached module&quot;</span>,
             );
@@ -734,9 +738,9 @@
 
     <span class="kw">let </span>module = Module::new(<span class="kw-2">&amp;</span>engine, wasm)<span class="question-mark">?</span>;
 
-    <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = module_cache.save(hash, engine, <span class="kw-2">&amp;</span>module).<span class="kw">await </span>{
+    <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = module_cache.save(wasm_hash, engine, <span class="kw-2">&amp;</span>module).<span class="kw">await </span>{
         <span class="macro">tracing::warn!</span>(
-            %hash,
+            %wasm_hash,
             error=<span class="kw-2">&amp;</span>e <span class="kw">as </span><span class="kw-2">&amp;</span><span class="kw">dyn </span>std::error::Error,
             <span class="string">&quot;Unable to cache the compiled module&quot;</span>,
         );
@@ -1115,7 +1119,9 @@
         <span class="kw">if </span><span class="self">self</span>.engine.is_some() || <span class="self">self</span>.module_cache.is_some() {
             <span class="kw">let </span>engine = <span class="self">self</span>.engine();
             <span class="kw">let </span>module_cache = <span class="self">self</span>.module_cache();
-            <span class="kw">let </span>task = <span class="kw">async move </span>{ load_module(<span class="kw-2">&amp;</span>engine, <span class="kw-2">&amp;</span>module_cache, wasm).<span class="kw">await </span>};
+            <span class="kw">let </span>hash = ModuleHash::hash(wasm);
+
+            <span class="kw">let </span>task = <span class="kw">async move </span>{ load_module(<span class="kw-2">&amp;</span>engine, <span class="kw-2">&amp;</span>module_cache, wasm, hash).<span class="kw">await </span>};
             Box::pin(task)
         } <span class="kw">else </span>{
             <span class="self">self</span>.inner.load_module(wasm)

@@ -473,15 +473,22 @@
 <a href="#473" id="473">473</a>
 <a href="#474" id="474">474</a>
 <a href="#475" id="475">475</a>
+<a href="#476" id="476">476</a>
+<a href="#477" id="477">477</a>
+<a href="#478" id="478">478</a>
+<a href="#479" id="479">479</a>
+<a href="#480" id="480">480</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Define `ArtifactBuild` to allow compiling and instantiating to be
 //! done as separate steps.
 
 </span><span class="attr">#[cfg(feature = <span class="string">&quot;compiler&quot;</span>)]
 </span><span class="kw">use </span><span class="kw">super</span>::trampoline::{libcall_trampoline_len, make_libcall_trampolines};
 <span class="kw">use </span><span class="kw">crate</span>::ArtifactCreate;
-<span class="kw">use </span><span class="kw">crate</span>::EngineInner;
+<span class="attr">#[cfg(feature = <span class="string">&quot;compiler&quot;</span>)]
+</span><span class="kw">use </span><span class="kw">crate</span>::EngineInner;
 <span class="kw">use </span><span class="kw">crate</span>::Features;
-<span class="kw">use crate</span>::{ModuleEnvironment, ModuleMiddlewareChain};
+<span class="attr">#[cfg(feature = <span class="string">&quot;compiler&quot;</span>)]
+</span><span class="kw">use crate</span>::{ModuleEnvironment, ModuleMiddlewareChain};
 <span class="kw">use </span>core::mem::MaybeUninit;
 <span class="kw">use </span>enumset::EnumSet;
 <span class="kw">use </span>rkyv::de::deserializers::SharedDeserializeMap;
@@ -493,8 +500,7 @@
 <span class="kw">use </span>wasmer_types::ArchivedOwnedDataInitializer;
 <span class="kw">use </span>wasmer_types::ArchivedSerializableCompilation;
 <span class="kw">use </span>wasmer_types::ArchivedSerializableModule;
-<span class="attr">#[cfg(feature = <span class="string">&quot;compiler&quot;</span>)]
-</span><span class="kw">use </span>wasmer_types::CompileModuleInfo;
+<span class="kw">use </span>wasmer_types::CompileModuleInfo;
 <span class="kw">use </span>wasmer_types::DeserializeError;
 <span class="kw">use </span>wasmer_types::{
     CompileError, CpuFeature, CustomSection, Dwarf, FunctionIndex, LocalFunctionIndex, MemoryIndex,
@@ -608,21 +614,6 @@
         <span class="prelude-val">Ok</span>(<span class="self">Self </span>{ serializable })
     }
 
-    <span class="doccomment">/// Compile a data buffer into a `ArtifactBuild`, which may then be instantiated.
-    </span><span class="attr">#[cfg(not(feature = <span class="string">&quot;compiler&quot;</span>))]
-    #[cfg(not(target_arch = <span class="string">&quot;wasm32&quot;</span>))]
-    </span><span class="kw">pub fn </span>new(
-        _inner_engine: <span class="kw-2">&amp;mut </span>EngineInner,
-        _data: <span class="kw-2">&amp;</span>[u8],
-        _target: <span class="kw-2">&amp;</span>Target,
-        _memory_styles: PrimaryMap&lt;MemoryIndex, MemoryStyle&gt;,
-        _table_styles: PrimaryMap&lt;TableIndex, TableStyle&gt;,
-    ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, CompileError&gt; {
-        <span class="prelude-val">Err</span>(CompileError::Codegen(
-            <span class="string">&quot;Compilation is not enabled in the engine&quot;</span>.to_string(),
-        ))
-    }
-
     <span class="doccomment">/// Create a new ArtifactBuild from a SerializableModule
     </span><span class="kw">pub fn </span>from_serializable(serializable: SerializableModule) -&gt; <span class="self">Self </span>{
         <span class="self">Self </span>{ serializable }
@@ -725,6 +716,7 @@
 
 <span class="doccomment">/// Module loaded from an archive. Since `CompileModuleInfo` is part of the public
 /// interface of this crate and has to be mutable, it has to be deserialized completely.
+</span><span class="attr">#[derive(Debug)]
 </span><span class="kw">pub struct </span>ModuleFromArchive&lt;<span class="lifetime">&#39;a</span>&gt; {
     <span class="doccomment">/// The main serializable compilation object
     </span><span class="kw">pub </span>compilation: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>ArchivedSerializableCompilation,
@@ -758,11 +750,14 @@
         <span class="attr">#[covariant]
         </span>dependent: ModuleFromArchive,
     }
+
+    <span class="kw">impl </span>{Debug}
 );
 
 <span class="doccomment">/// A compiled wasm module that was loaded from a serialized archive.
+</span><span class="attr">#[derive(Clone, Debug)]
 </span><span class="kw">pub struct </span>ArtifactBuildFromArchive {
-    cell: ArtifactBuildFromArchiveCell,
+    cell: Arc&lt;ArtifactBuildFromArchiveCell&gt;,
 
     <span class="doccomment">/// Compilation informations
     </span>compile_info: CompileModuleInfo,
@@ -789,7 +784,15 @@
 
         <span class="comment">// Safety: we know the lambda will execute before getting here and assign both values
         </span><span class="kw">let </span>compile_info = <span class="kw">unsafe </span>{ compile_info.assume_init() };
-        <span class="prelude-val">Ok</span>(<span class="self">Self </span>{ cell, compile_info })
+        <span class="prelude-val">Ok</span>(<span class="self">Self </span>{
+            cell: Arc::new(cell),
+            compile_info,
+        })
+    }
+
+    <span class="doccomment">/// Gets the owned buffer
+    </span><span class="kw">pub fn </span>owned_buffer(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>OwnedBuffer {
+        <span class="self">self</span>.cell.borrow_owner()
     }
 
     <span class="doccomment">/// Get Functions Bodies ref
@@ -865,6 +868,13 @@
             ArchivedOption::Some(<span class="kw-2">ref </span>x) =&gt; <span class="prelude-val">Some</span>(x),
             ArchivedOption::None =&gt; <span class="prelude-val">None</span>,
         }
+    }
+
+    <span class="doccomment">/// Get Function Relocations ref
+    </span><span class="kw">pub fn </span>get_frame_info_ref(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+    ) -&gt; <span class="kw-2">&amp;</span>ArchivedPrimaryMap&lt;LocalFunctionIndex, CompiledFunctionFrameInfo&gt; {
+        <span class="kw-2">&amp;</span><span class="self">self</span>.cell.borrow_dependent().compilation.function_frame_info
     }
 
     <span class="doccomment">/// Get Function Relocations ref

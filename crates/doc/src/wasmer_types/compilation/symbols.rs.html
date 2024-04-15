@@ -286,7 +286,7 @@
 <span class="doccomment">/// Serializable struct that represents the compiled metadata.
 </span><span class="attr">#[derive(Debug, RkyvSerialize, RkyvDeserialize, Archive)]
 #[cfg_attr(feature = <span class="string">&quot;enable-serde&quot;</span>, derive(Serialize, Deserialize))]
-#[archive_attr(derive(rkyv::CheckBytes))]
+#[archive_attr(derive(rkyv::CheckBytes, Debug))]
 </span><span class="kw">pub struct </span>ModuleMetadata {
     <span class="doccomment">/// Compile info
     </span><span class="kw">pub </span>compile_info: CompileModuleInfo,

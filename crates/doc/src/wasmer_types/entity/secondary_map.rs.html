@@ -323,6 +323,38 @@
 <a href="#323" id="323">323</a>
 <a href="#324" id="324">324</a>
 <a href="#325" id="325">325</a>
+<a href="#326" id="326">326</a>
+<a href="#327" id="327">327</a>
+<a href="#328" id="328">328</a>
+<a href="#329" id="329">329</a>
+<a href="#330" id="330">330</a>
+<a href="#331" id="331">331</a>
+<a href="#332" id="332">332</a>
+<a href="#333" id="333">333</a>
+<a href="#334" id="334">334</a>
+<a href="#335" id="335">335</a>
+<a href="#336" id="336">336</a>
+<a href="#337" id="337">337</a>
+<a href="#338" id="338">338</a>
+<a href="#339" id="339">339</a>
+<a href="#340" id="340">340</a>
+<a href="#341" id="341">341</a>
+<a href="#342" id="342">342</a>
+<a href="#343" id="343">343</a>
+<a href="#344" id="344">344</a>
+<a href="#345" id="345">345</a>
+<a href="#346" id="346">346</a>
+<a href="#347" id="347">347</a>
+<a href="#348" id="348">348</a>
+<a href="#349" id="349">349</a>
+<a href="#350" id="350">350</a>
+<a href="#351" id="351">351</a>
+<a href="#352" id="352">352</a>
+<a href="#353" id="353">353</a>
+<a href="#354" id="354">354</a>
+<a href="#355" id="355">355</a>
+<a href="#356" id="356">356</a>
+<a href="#357" id="357">357</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file contains code from external sources.
 // Attributions: https://github.com/wasmerio/wasmer/blob/master/ATTRIBUTIONS.md
 
@@ -336,7 +368,7 @@
 <span class="kw">use </span><span class="kw">crate</span>::lib::std::ops::{Index, IndexMut};
 <span class="kw">use </span><span class="kw">crate</span>::lib::std::slice;
 <span class="kw">use </span><span class="kw">crate</span>::lib::std::vec::Vec;
-<span class="kw">use </span>rkyv::{Archive, Deserialize <span class="kw">as </span>RkyvDeserialize, Serialize <span class="kw">as </span>RkyvSerialize};
+<span class="kw">use </span>rkyv::{Archive, Archived, Deserialize <span class="kw">as </span>RkyvDeserialize, Serialize <span class="kw">as </span>RkyvSerialize};
 <span class="attr">#[cfg(feature = <span class="string">&quot;enable-serde&quot;</span>)]
 </span><span class="kw">use </span>serde::{
     de::{Deserializer, SeqAccess, Visitor},
@@ -458,6 +490,38 @@
     <span class="doccomment">/// Resize the map to have `n` entries by adding default entries as needed.
     </span><span class="kw">pub fn </span>resize(<span class="kw-2">&amp;mut </span><span class="self">self</span>, n: usize) {
         <span class="self">self</span>.elems.resize(n, <span class="self">self</span>.default.clone());
+    }
+}
+
+<span class="kw">impl</span>&lt;K, V&gt; ArchivedSecondaryMap&lt;K, V&gt;
+<span class="kw">where
+    </span>K: EntityRef,
+    V: Archive + Clone,
+{
+    <span class="doccomment">/// Get the element at `k` if it exists.
+    </span><span class="kw">pub fn </span>get(<span class="kw-2">&amp;</span><span class="self">self</span>, k: K) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>V::Archived&gt; {
+        <span class="self">self</span>.elems.get(k.index())
+    }
+
+    <span class="doccomment">/// Iterator over all values in the `ArchivedPrimaryMap`
+    </span><span class="kw">pub fn </span>values(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; slice::Iter&lt;Archived&lt;V&gt;&gt; {
+        <span class="self">self</span>.elems.iter()
+    }
+
+    <span class="doccomment">/// Iterate over all the keys and values in this map.
+    </span><span class="kw">pub fn </span>iter(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Iter&lt;K, Archived&lt;V&gt;&gt; {
+        Iter::new(<span class="self">self</span>.elems.iter())
+    }
+}
+
+<span class="kw">impl</span>&lt;K, V&gt; std::fmt::Debug <span class="kw">for </span>ArchivedSecondaryMap&lt;K, V&gt;
+<span class="kw">where
+    </span>K: EntityRef + std::fmt::Debug,
+    V: Archive + Clone,
+    V::Archived: std::fmt::Debug,
+{
+    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>std::fmt::Formatter&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; std::fmt::Result {
+        f.debug_map().entries(<span class="self">self</span>.iter()).finish()
     }
 }
 

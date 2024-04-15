@@ -1193,6 +1193,9 @@
 <a href="#1193" id="1193">1193</a>
 <a href="#1194" id="1194">1194</a>
 <a href="#1195" id="1195">1195</a>
+<a href="#1196" id="1196">1196</a>
+<a href="#1197" id="1197">1197</a>
+<a href="#1198" id="1198">1198</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Define `Artifact`, based on `ArtifactBuild`
 //! to allow compiling and instantiating to be done as separate steps.
 
@@ -1202,6 +1205,7 @@
 <span class="kw">use </span><span class="kw">crate</span>::ArtifactBuildFromArchive;
 <span class="kw">use </span><span class="kw">crate</span>::ArtifactCreate;
 <span class="kw">use </span><span class="kw">crate</span>::Features;
+<span class="kw">use </span><span class="kw">crate</span>::FrameInfosVariant;
 <span class="kw">use </span><span class="kw">crate</span>::ModuleEnvironment;
 <span class="kw">use crate</span>::{
     register_frame_info, resolve_imports, FunctionExtent, GlobalFrameInfoRegistration,
@@ -1875,8 +1879,10 @@
             <span class="self">self</span>.artifact.create_module_info(),
             <span class="kw-2">&amp;</span>finished_function_extents,
             <span class="kw">match </span><span class="kw-2">&amp;</span><span class="self">self</span>.artifact {
-                ArtifactBuildVariant::Plain(p) =&gt; p.get_frame_info_ref().clone(),
-                ArtifactBuildVariant::Archived(a) =&gt; a.deserialize_frame_info_ref()<span class="question-mark">?</span>,
+                ArtifactBuildVariant::Plain(p) =&gt; {
+                    FrameInfosVariant::Owned(p.get_frame_info_ref().clone())
+                }
+                ArtifactBuildVariant::Archived(a) =&gt; FrameInfosVariant::Archived(a.clone()),
             },
         );
 

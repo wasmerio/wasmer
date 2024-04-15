@@ -80,8 +80,6 @@
 <a href="#80" id="80">80</a>
 <a href="#81" id="81">81</a>
 <a href="#82" id="82">82</a>
-<a href="#83" id="83">83</a>
-<a href="#84" id="84">84</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! The `wasmer-compiler` crate provides the necessary abstractions
 //! to create a compiler.
 //!
@@ -136,11 +134,9 @@
 <span class="kw">pub use </span><span class="kw">crate</span>::engine::<span class="kw-2">*</span>;
 <span class="kw">pub use </span><span class="kw">crate</span>::traits::<span class="kw-2">*</span>;
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;translator&quot;</span>)]
-</span><span class="kw">mod </span>artifact_builders;
+<span class="kw">mod </span>artifact_builders;
 
-<span class="attr">#[cfg(feature = <span class="string">&quot;translator&quot;</span>)]
-</span><span class="kw">pub use </span><span class="self">self</span>::artifact_builders::<span class="kw-2">*</span>;
+<span class="kw">pub use </span><span class="self">self</span>::artifact_builders::<span class="kw-2">*</span>;
 
 <span class="attr">#[cfg(feature = <span class="string">&quot;translator&quot;</span>)]
 </span><span class="kw">mod </span>compiler;

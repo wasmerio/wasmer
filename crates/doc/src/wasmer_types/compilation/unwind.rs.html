@@ -80,7 +80,7 @@
 /// [unwind info]: https://docs.microsoft.com/en-us/cpp/build/exception-handling-x64?view=vs-2019
 </span><span class="attr">#[cfg_attr(feature = <span class="string">&quot;enable-serde&quot;</span>, derive(Serialize, Deserialize))]
 #[derive(RkyvSerialize, RkyvDeserialize, Archive, Debug, Clone, PartialEq, Eq)]
-#[archive_attr(derive(rkyv::CheckBytes))]
+#[archive_attr(derive(rkyv::CheckBytes, Debug))]
 </span><span class="kw">pub enum </span>CompiledFunctionUnwindInfo {
     <span class="doccomment">/// Windows UNWIND_INFO.
     </span>WindowsX64(Vec&lt;u8&gt;),

@@ -884,7 +884,7 @@
 </span><span class="attr">#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = <span class="string">&quot;enable-serde&quot;</span>, derive(Serialize, Deserialize))]
 #[derive(RkyvSerialize, RkyvDeserialize, Archive)]
-#[archive_attr(derive(CheckBytes))]
+#[archive_attr(derive(CheckBytes, Debug))]
 </span><span class="kw">pub struct </span>FunctionType {
     <span class="doccomment">/// The parameters of the function
     </span>params: Box&lt;[Type]&gt;,
@@ -1089,7 +1089,7 @@
 </span><span class="attr">#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = <span class="string">&quot;enable-serde&quot;</span>, derive(Serialize, Deserialize))]
 #[derive(RkyvSerialize, RkyvDeserialize, Archive)]
-#[archive_attr(derive(CheckBytes))]
+#[archive_attr(derive(CheckBytes, Debug))]
 </span><span class="kw">pub struct </span>TableType {
     <span class="doccomment">/// The type of data stored in elements of the table.
     </span><span class="kw">pub </span>ty: Type,
@@ -1130,7 +1130,7 @@
 </span><span class="attr">#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = <span class="string">&quot;enable-serde&quot;</span>, derive(Serialize, Deserialize))]
 #[derive(RkyvSerialize, RkyvDeserialize, Archive)]
-#[archive_attr(derive(CheckBytes))]
+#[archive_attr(derive(CheckBytes, Debug))]
 </span><span class="kw">pub struct </span>MemoryType {
     <span class="doccomment">/// The minimum number of pages in the memory.
     </span><span class="kw">pub </span>minimum: Pages,

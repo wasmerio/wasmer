@@ -322,7 +322,7 @@
 <span class="doccomment">/// A record of a relocation to perform.
 </span><span class="attr">#[cfg_attr(feature = <span class="string">&quot;enable-serde&quot;</span>, derive(Serialize, Deserialize))]
 #[derive(RkyvSerialize, RkyvDeserialize, Archive, Debug, Clone, PartialEq, Eq)]
-#[archive_attr(derive(rkyv::CheckBytes))]
+#[archive_attr(derive(rkyv::CheckBytes, Debug))]
 </span><span class="kw">pub struct </span>Relocation {
     <span class="doccomment">/// The relocation kind.
     </span><span class="kw">pub </span>kind: RelocationKind,

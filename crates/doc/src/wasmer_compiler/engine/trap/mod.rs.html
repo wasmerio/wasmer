@@ -4,10 +4,12 @@
 <a href="#4" id="4">4</a>
 <a href="#5" id="5">5</a>
 <a href="#6" id="6">6</a>
+<a href="#7" id="7">7</a>
 </pre></div><pre class="rust"><code><span class="kw">mod </span>frame_info;
 <span class="kw">mod </span>stack;
 <span class="kw">pub use </span>frame_info::{
-    register <span class="kw">as </span>register_frame_info, FunctionExtent, GlobalFrameInfoRegistration, FRAME_INFO,
+    register <span class="kw">as </span>register_frame_info, CompiledFunctionFrameInfoVariant, FrameInfosVariant,
+    FunctionExtent, GlobalFrameInfoRegistration, FRAME_INFO,
 };
 <span class="kw">pub use </span>stack::get_trace_and_trapcode;
 </code></pre></div></section></main></body></html>

@@ -27,7 +27,7 @@
 <span class="doccomment">/// Information about trap.
 </span><span class="attr">#[cfg_attr(feature = <span class="string">&quot;enable-serde&quot;</span>, derive(Deserialize, Serialize))]
 #[derive(
-    RkyvSerialize, RkyvDeserialize, Archive, rkyv::CheckBytes, Clone, Debug, PartialEq, Eq,
+    RkyvSerialize, RkyvDeserialize, Archive, rkyv::CheckBytes, Clone, Copy, Debug, PartialEq, Eq,
 )]
 #[archive(<span class="kw">as </span>= <span class="string">&quot;Self&quot;</span>)]
 </span><span class="kw">pub struct </span>TrapInformation {

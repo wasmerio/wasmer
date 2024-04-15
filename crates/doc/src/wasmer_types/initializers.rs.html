@@ -153,7 +153,7 @@
 <span class="doccomment">/// A WebAssembly table initializer.
 </span><span class="attr">#[derive(Clone, Debug, Hash, PartialEq, Eq, RkyvSerialize, RkyvDeserialize, Archive)]
 #[cfg_attr(feature = <span class="string">&quot;enable-serde&quot;</span>, derive(Serialize, Deserialize))]
-#[archive_attr(derive(CheckBytes))]
+#[archive_attr(derive(CheckBytes, Debug))]
 </span><span class="kw">pub struct </span>TableInitializer {
     <span class="doccomment">/// The index of a table to initialize.
     </span><span class="kw">pub </span>table_index: TableIndex,
@@ -169,7 +169,7 @@
 /// should be performed.
 </span><span class="attr">#[derive(Clone, Debug, PartialEq, Eq, RkyvSerialize, RkyvDeserialize, Archive)]
 #[cfg_attr(feature = <span class="string">&quot;enable-serde&quot;</span>, derive(Serialize, Deserialize))]
-#[archive_attr(derive(CheckBytes))]
+#[archive_attr(derive(CheckBytes, Debug))]
 </span><span class="kw">pub struct </span>DataInitializerLocation {
     <span class="doccomment">/// The index of the memory to initialize.
     </span><span class="kw">pub </span>memory_index: MemoryIndex,
@@ -235,7 +235,7 @@
 /// holding a reference to it
 </span><span class="attr">#[derive(Debug, Clone, PartialEq, Eq, RkyvSerialize, RkyvDeserialize, Archive)]
 #[cfg_attr(feature = <span class="string">&quot;enable-serde&quot;</span>, derive(Serialize, Deserialize))]
-#[archive_attr(derive(CheckBytes))]
+#[archive_attr(derive(CheckBytes, Debug))]
 </span><span class="kw">pub struct </span>OwnedDataInitializer {
     <span class="doccomment">/// The location where the initialization is to be performed.
     </span><span class="kw">pub </span>location: DataInitializerLocation,

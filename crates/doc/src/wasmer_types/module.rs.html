@@ -664,7 +664,7 @@
 <span class="kw">use </span>std::sync::atomic::{AtomicUsize, Ordering::SeqCst};
 
 <span class="attr">#[derive(Debug, Clone, RkyvSerialize, RkyvDeserialize, Archive)]
-#[archive_attr(derive(CheckBytes))]
+#[archive_attr(derive(CheckBytes, Debug))]
 </span><span class="kw">pub struct </span>ModuleId {
     id: usize,
 }
@@ -687,7 +687,7 @@
 <span class="doccomment">/// Hash key of an import
 </span><span class="attr">#[derive(Debug, Hash, Eq, PartialEq, Clone, Default, RkyvSerialize, RkyvDeserialize, Archive)]
 #[cfg_attr(feature = <span class="string">&quot;enable-serde&quot;</span>, derive(Serialize, Deserialize))]
-#[archive_attr(derive(CheckBytes, PartialEq, Eq, Hash))]
+#[archive_attr(derive(CheckBytes, PartialEq, Eq, Hash, Debug))]
 </span><span class="kw">pub struct </span>ImportKey {
     <span class="doccomment">/// Module name
     </span><span class="kw">pub </span>module: String,
@@ -816,8 +816,8 @@
 }
 
 <span class="doccomment">/// Mirror version of ModuleInfo that can derive rkyv traits
-</span><span class="attr">#[derive(RkyvSerialize, RkyvDeserialize, Archive)]
-#[archive_attr(derive(CheckBytes))]
+</span><span class="attr">#[derive(Debug, RkyvSerialize, RkyvDeserialize, Archive)]
+#[archive_attr(derive(CheckBytes, Debug))]
 </span><span class="kw">pub struct </span>ArchivableModuleInfo {
     name: <span class="prelude-ty">Option</span>&lt;String&gt;,
     imports: IndexMap&lt;ImportKey, ImportIndex&gt;,

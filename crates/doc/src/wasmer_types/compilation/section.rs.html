@@ -219,7 +219,7 @@
 /// in the emitted module.
 </span><span class="attr">#[cfg_attr(feature = <span class="string">&quot;enable-serde&quot;</span>, derive(Serialize, Deserialize))]
 #[derive(RkyvSerialize, RkyvDeserialize, Archive, Debug, Clone, PartialEq, Eq)]
-#[archive_attr(derive(rkyv::CheckBytes))]
+#[archive_attr(derive(rkyv::CheckBytes, Debug))]
 </span><span class="kw">pub struct </span>CustomSection {
     <span class="doccomment">/// Memory protection that applies to this section.
     </span><span class="kw">pub </span>protection: CustomSectionProtection,
@@ -281,7 +281,7 @@
 <span class="doccomment">/// The bytes in the section.
 </span><span class="attr">#[cfg_attr(feature = <span class="string">&quot;enable-serde&quot;</span>, derive(Serialize, Deserialize))]
 #[derive(RkyvSerialize, RkyvDeserialize, Archive, Debug, Clone, PartialEq, Eq, Default)]
-#[archive_attr(derive(rkyv::CheckBytes))]
+#[archive_attr(derive(rkyv::CheckBytes, Debug))]
 </span><span class="kw">pub struct </span>SectionBody(<span class="attr">#[cfg_attr(feature = <span class="string">&quot;enable-serde&quot;</span>, serde(with = <span class="string">&quot;serde_bytes&quot;</span>))] </span>Vec&lt;u8&gt;);
 
 <span class="kw">impl </span>SectionBody {

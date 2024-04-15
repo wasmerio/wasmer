@@ -457,6 +457,30 @@
 <a href="#457" id="457">457</a>
 <a href="#458" id="458">458</a>
 <a href="#459" id="459">459</a>
+<a href="#460" id="460">460</a>
+<a href="#461" id="461">461</a>
+<a href="#462" id="462">462</a>
+<a href="#463" id="463">463</a>
+<a href="#464" id="464">464</a>
+<a href="#465" id="465">465</a>
+<a href="#466" id="466">466</a>
+<a href="#467" id="467">467</a>
+<a href="#468" id="468">468</a>
+<a href="#469" id="469">469</a>
+<a href="#470" id="470">470</a>
+<a href="#471" id="471">471</a>
+<a href="#472" id="472">472</a>
+<a href="#473" id="473">473</a>
+<a href="#474" id="474">474</a>
+<a href="#475" id="475">475</a>
+<a href="#476" id="476">476</a>
+<a href="#477" id="477">477</a>
+<a href="#478" id="478">478</a>
+<a href="#479" id="479">479</a>
+<a href="#480" id="480">480</a>
+<a href="#481" id="481">481</a>
+<a href="#482" id="482">482</a>
+<a href="#483" id="483">483</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file contains code from external sources.
 // Attributions: https://github.com/wasmerio/wasmer/blob/master/ATTRIBUTIONS.md
 
@@ -615,6 +639,28 @@
     }
 }
 
+<span class="kw">impl</span>&lt;K, V&gt; ArchivedPrimaryMap&lt;K, V&gt;
+<span class="kw">where
+    </span>K: EntityRef,
+    V: Archive,
+{
+    <span class="doccomment">/// Get the element at `k` if it exists.
+    </span><span class="kw">pub fn </span>get(<span class="kw-2">&amp;</span><span class="self">self</span>, k: K) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>V::Archived&gt; {
+        <span class="self">self</span>.elems.get(k.index())
+    }
+}
+
+<span class="kw">impl</span>&lt;K, V&gt; std::fmt::Debug <span class="kw">for </span>ArchivedPrimaryMap&lt;K, V&gt;
+<span class="kw">where
+    </span>K: EntityRef + std::fmt::Debug,
+    V: Archive,
+    V::Archived: std::fmt::Debug,
+{
+    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>std::fmt::Formatter&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; std::fmt::Result {
+        f.debug_map().entries(<span class="self">self</span>.iter()).finish()
+    }
+}
+
 <span class="kw">impl</span>&lt;K, V&gt; Default <span class="kw">for </span>PrimaryMap&lt;K, V&gt;
 <span class="kw">where
     </span>K: EntityRef,
@@ -702,6 +748,7 @@
 <span class="kw">where
     </span>K: EntityRef,
     V: Archive,
+    V::Archived: std::fmt::Debug,
 {
     <span class="doccomment">/// Iterator over all values in the `ArchivedPrimaryMap`
     </span><span class="kw">pub fn </span>values(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; slice::Iter&lt;Archived&lt;V&gt;&gt; {
@@ -720,6 +767,7 @@
 <span class="kw">where
     </span>K: EntityRef,
     V: Archive,
+    V::Archived: std::fmt::Debug,
 {
     <span class="kw">type </span>Output = Archived&lt;V&gt;;
 
