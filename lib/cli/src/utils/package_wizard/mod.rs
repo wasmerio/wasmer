@@ -80,7 +80,7 @@ pub struct PackageWizardOutput {
     pub ident: PackageSpecifier,
     pub api: Option<wasmer_api::types::Package>,
     pub local_path: Option<PathBuf>,
-    pub local_manifest: Option<wasmer_toml::Manifest>,
+    pub local_manifest: Option<wasmer_config::package::Manifest>,
 }
 
 impl PackageWizard {
@@ -199,7 +199,7 @@ impl PackageWizard {
 fn initialize_static_site(
     path: &Path,
     ident: &PackageIdentifier,
-) -> Result<wasmer_toml::Manifest, anyhow::Error> {
+) -> Result<wasmer_config::package::Manifest, anyhow::Error> {
     let full_name = format!("{}/{}", ident.namespace, ident.name);
 
     let pubdir_name = "public";
@@ -247,7 +247,7 @@ public = "{}"
         pubdir_name
     );
 
-    let manifest = wasmer_toml::Manifest::parse(raw_static_site_toml.as_str())
+    let manifest = wasmer_config::package::Manifest::parse(raw_static_site_toml.as_str())
         .map_err(|e| anyhow::anyhow!("Could not parse js worker manifest: {}", e))?;
 
     Ok(manifest)
@@ -256,7 +256,7 @@ public = "{}"
 fn initialize_js_worker(
     path: &Path,
     ident: &PackageIdentifier,
-) -> Result<wasmer_toml::Manifest, anyhow::Error> {
+) -> Result<wasmer_config::package::Manifest, anyhow::Error> {
     let full_name = format!("{}/{}", ident.namespace, ident.name);
 
     let srcdir_name = "src";
@@ -311,7 +311,7 @@ env = ["JS_PATH=/src/index.js"]
         winterjs_version = WASMER_WINTER_JS_VERSION,
     );
 
-    let manifest = wasmer_toml::Manifest::parse(raw_js_worker_toml.as_str())
+    let manifest = wasmer_config::package::Manifest::parse(raw_js_worker_toml.as_str())
         .map_err(|e| anyhow::anyhow!("Could not parse js worker manifest: {}", e))?;
 
     Ok(manifest)
@@ -320,7 +320,7 @@ env = ["JS_PATH=/src/index.js"]
 fn initialize_py_worker(
     path: &Path,
     ident: &PackageIdentifier,
-) -> Result<wasmer_toml::Manifest, anyhow::Error> {
+) -> Result<wasmer_config::package::Manifest, anyhow::Error> {
     let full_name = format!("{}/{}", ident.namespace, ident.name);
 
     let appdir_name = "src";
@@ -376,7 +376,7 @@ main-args = ["/src/main.py"]
         WASM_PYTHON_PACKAGE
     );
 
-    let manifest = wasmer_toml::Manifest::parse(raw_py_worker_toml.as_str())
+    let manifest = wasmer_config::package::Manifest::parse(raw_py_worker_toml.as_str())
         .map_err(|e| anyhow::anyhow!("Could not parse py worker manifest: {}", e))?;
 
     Ok(manifest)

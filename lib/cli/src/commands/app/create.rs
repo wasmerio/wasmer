@@ -106,13 +106,13 @@ struct AppCreator {
     owner: String,
     api: Option<WasmerClient>,
     user: Option<UserWithNamespaces>,
-    local_package: Option<(PathBuf, wasmer_toml::Manifest)>,
+    local_package: Option<(PathBuf, wasmer_config::package::Manifest)>,
 }
 
 struct AppCreatorOutput {
     app: AppConfigV1,
     api_pkg: Option<Package>,
-    local_package: Option<(PathBuf, wasmer_toml::Manifest)>,
+    local_package: Option<(PathBuf, wasmer_config::package::Manifest)>,
 }
 
 impl AppCreator {
@@ -164,7 +164,7 @@ impl AppCreator {
         std::fs::write(&init_path, init.to_string())
             .with_context(|| format!("Failed to write to '{}'", init_path.display()))?;
 
-        let package = wasmer_toml::PackageBuilder::new(
+        let package = wasmer_config::package::PackageBuilder::new(
             outer_pkg_full_name,
             "0.1.0".parse().unwrap(),
             format!("{} web shell", inner_pkg.name),
@@ -172,7 +172,7 @@ impl AppCreator {
         .rename_commands_to_raw_command_name(false)
         .build()?;
 
-        let manifest = wasmer_toml::ManifestBuilder::new(package)
+        let manifest = wasmer_config::package::ManifestBuilder::new(package)
             .with_dependency(
                 WASM_BROWSER_CONTAINER_PACKAGE,
                 WASM_BROWSER_CONTAINER_VERSION.to_string().parse().unwrap(),

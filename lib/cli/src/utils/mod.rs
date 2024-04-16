@@ -14,7 +14,7 @@ use edge_schema::schema::PackageIdentifier;
 use once_cell::sync::Lazy;
 use regex::Regex;
 use wasmer_api::WasmerClient;
-use wasmer_toml::Manifest;
+use wasmer_config::package::Manifest;
 use wasmer_wasix::runners::MappedDirectory;
 
 fn retrieve_alias_pathbuf(alias: &str, real_dir: &str) -> Result<MappedDirectory> {
@@ -80,7 +80,7 @@ pub(crate) const DEFAULT_PACKAGE_MANIFEST_FILE: &str = "wasmer.toml";
 /// Path can either be a directory, or a concrete file path.
 pub fn load_package_manifest(
     path: &Path,
-) -> Result<Option<(PathBuf, wasmer_toml::Manifest)>, anyhow::Error> {
+) -> Result<Option<(PathBuf, wasmer_config::package::Manifest)>, anyhow::Error> {
     let file_path = if path.is_file() {
         path.to_owned()
     } else {
@@ -99,7 +99,7 @@ pub fn load_package_manifest(
             })
         }
     };
-    let manifest = wasmer_toml::Manifest::parse(&contents).with_context(|| {
+    let manifest = wasmer_config::package::Manifest::parse(&contents).with_context(|| {
         format!(
             "Could not parse package config at: '{}'",
             file_path.display()
@@ -181,8 +181,8 @@ pub async fn prompt_for_package(
     }
 }
 
-/// Republish the package described by the [`wasmer_toml::Manifest`] given as argument and return a
-/// [`Result<wasmer_toml::Manifest>`].
+/// Republish the package described by the [`wasmer_config::package::Manifest`] given as argument and return a
+/// [`Result<wasmer_config::package::Manifest>`].
 ///
 /// If the package described is named (i.e. has name, namespace and version), the returned manifest
 /// will have its minor version bumped. If the package is unnamed, the returned manifest will be
@@ -190,9 +190,9 @@ pub async fn prompt_for_package(
 pub async fn republish_package(
     client: &WasmerClient,
     manifest_path: &Path,
-    manifest: wasmer_toml::Manifest,
+    manifest: wasmer_config::package::Manifest,
     patch_owner: Option<String>,
-) -> Result<(wasmer_toml::Manifest, Option<String>), anyhow::Error> {
+) -> Result<(wasmer_config::package::Manifest, Option<String>), anyhow::Error> {
     let manifest_path = if manifest_path.is_file() {
         manifest_path.to_owned()
     } else {
@@ -302,8 +302,8 @@ pub async fn republish_package(
 //pub async fn republish_package_with_bumped_version(
 //    client: &WasmerClient,
 //    manifest_path: &Path,
-//    mut manifest: wasmer_toml::Manifest,
-//) -> Result<wasmer_toml::Manifest, anyhow::Error> {
+//    mut manifest: wasmer_config::package::Manifest,
+//) -> Result<wasmer_config::package::Manifest, anyhow::Error> {
 //    // Try to load existing version.
 //    // If it does not exist yet, we don't need to increment.
 //

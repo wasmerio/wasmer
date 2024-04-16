@@ -6419,10 +6419,10 @@ dependencies = [
  "wasmer-compiler-cranelift",
  "wasmer-compiler-llvm",
  "wasmer-compiler-singlepass",
+ "wasmer-config",
  "wasmer-emscripten",
  "wasmer-object",
  "wasmer-registry",
- "wasmer-toml",
  "wasmer-types",
  "wasmer-vm",
  "wasmer-wasix",
@@ -6538,6 +6538,23 @@ dependencies = [
  "target-lexicon 0.12.14",
  "wasmer-compiler",
  "wasmer-types",
+]
+
+[[package]]
+name = "wasmer-config"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "derive_builder",
+ "indexmap 2.2.6",
+ "semver 1.0.22",
+ "serde",
+ "serde_cbor",
+ "serde_json",
+ "serde_yaml 0.9.34+deprecated",
+ "tempfile",
+ "thiserror",
+ "toml 0.8.12",
 ]
 
 [[package]]
@@ -6713,7 +6730,7 @@ dependencies = [
  "toml 0.5.11",
  "tracing",
  "url",
- "wasmer-toml",
+ "wasmer-config",
  "wasmer-wasm-interface",
  "wasmparser 0.121.2",
  "whoami",

@@ -79,7 +79,7 @@ pub enum SignArchiveResult {
 pub fn try_chunked_uploading(
     registry: Option<String>,
     token: Option<String>,
-    package: &Option<wasmer_toml::Package>,
+    package: &Option<wasmer_config::package::Package>,
     manifest_string: &String,
     license_file: &Option<String>,
     readme: &Option<String>,
@@ -240,7 +240,7 @@ fn sign_package(
 fn google_signed_url(
     registry: &str,
     token: &str,
-    package: &Option<wasmer_toml::Package>,
+    package: &Option<wasmer_config::package::Package>,
     timeout: Duration,
 ) -> Result<GetSignedUrlUrl, anyhow::Error> {
     let get_google_signed_url = GetSignedUrl::build_query(get_signed_url::Variables {
