@@ -422,6 +422,7 @@ mod queries {
         pub admin_url: String,
         pub owner: Owner,
         pub url: String,
+        pub permalink: String,
         pub deleted: bool,
         pub aliases: AppAliasConnection,
     }
