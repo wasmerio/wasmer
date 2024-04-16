@@ -4,6 +4,17 @@
 
 #![allow(deprecated)]
 
+pub(crate) mod error;
+pub(crate) mod named_package_ident;
+pub(crate) mod package_hash;
+pub(crate) mod package_ident;
+pub(crate) mod package_source;
+
+pub use self::{
+    error::PackageParseError, named_package_ident::NamedPackageIdent, package_hash::PackageHash,
+    package_ident::PackageIdent, package_source::PackageSource,
+};
+
 use std::{
     borrow::Cow,
     collections::{hash_map::HashMap, BTreeMap, BTreeSet},

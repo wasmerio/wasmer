@@ -2204,7 +2204,7 @@ dependencies = [
  "httpdate",
  "itoa",
  "pin-project-lite",
- "socket2 0.4.10",
+ "socket2 0.5.6",
  "tokio 1.37.0",
  "tower-service",
  "tracing",
@@ -4395,9 +4395,9 @@ dependencies = [
 
 [[package]]
 name = "serde_json"
-version = "1.0.115"
+version = "1.0.116"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "12dc5c46daa8e9fdf4f5e71b6cf9a53f2487da0e86e55808e2d35539666497dd"
+checksum = "3e17db7126d17feb94eb3fad46bf1a96b034e8aacbc2e775fe81505f8b0b2813"
 dependencies = [
  "itoa",
  "ryu",
@@ -6545,8 +6545,12 @@ name = "wasmer-config"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "bytesize",
  "derive_builder",
+ "hex",
  "indexmap 2.2.6",
+ "pretty_assertions",
+ "schemars",
  "semver 1.0.22",
  "serde",
  "serde_cbor",
@@ -6555,6 +6559,7 @@ dependencies = [
  "tempfile",
  "thiserror",
  "toml 0.8.12",
+ "url",
 ]
 
 [[package]]
