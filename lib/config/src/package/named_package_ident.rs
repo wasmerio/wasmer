@@ -1,6 +1,34 @@
 use std::{fmt::Write, str::FromStr};
 
+use semver::VersionReq;
+
 use super::PackageParseError;
+
+#[derive(PartialEq, Eq, Clone, Debug, Hash)]
+pub enum Tag {
+    Named(String),
+    VersionReq(semver::VersionReq),
+}
+
+impl std::fmt::Display for Tag {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Tag::Named(n) => n.fmt(f),
+            Tag::VersionReq(v) => v.fmt(f),
+        }
+    }
+}
+
+impl std::str::FromStr for Tag {
+    type Err = PackageParseError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match semver::VersionReq::from_str(s) {
+            Ok(v) => Ok(Self::VersionReq(v)),
+            Err(_) => Ok(Self::Named(s.to_string())),
+        }
+    }
+}
 
 /// Parsed representation of a package identifier.
 ///
@@ -11,10 +39,28 @@ pub struct NamedPackageIdent {
     pub registry: Option<url::Url>,
     pub namespace: Option<String>,
     pub name: String,
-    pub tag: Option<String>,
+    pub tag: Option<Tag>,
 }
 
 impl NamedPackageIdent {
+    /// Namespaced name.
+    ///
+    /// Eg: "namespace/name"
+    pub fn full_name(&self) -> String {
+        if let Some(ns) = &self.namespace {
+            format!("{}/{}", ns, self.name)
+        } else {
+            self.name.clone()
+        }
+    }
+
+    pub fn version(&self) -> Option<&VersionReq> {
+        match &self.tag {
+            Some(Tag::VersionReq(v)) => Some(v),
+            Some(Tag::Named(_)) | None => None,
+        }
+    }
+
     /// Build the ident for a package.
     ///
     /// Format: [NAMESPACE/]NAME[@tag]
@@ -27,7 +73,8 @@ impl NamedPackageIdent {
 
         if let Some(tag) = &self.tag {
             ident.push('@');
-            ident.push_str(tag);
+            // Writing to a string only fails on memory allocation errors.
+            write!(&mut ident, "{}", tag).unwrap();
         }
         ident
     }
@@ -49,7 +96,8 @@ impl NamedPackageIdent {
         out.push_str(&self.name);
         if let Some(tag) = &self.tag {
             out.push('@');
-            out.push_str(tag);
+            // Writing to a string only fails on memory allocation errors.
+            write!(&mut out, "{}", tag).unwrap();
         }
 
         out
@@ -65,6 +113,12 @@ impl std::str::FromStr for NamedPackageIdent {
             .rsplit_once('@')
             .map(|(x, y)| (x, if y.is_empty() { None } else { Some(y) }))
             .unwrap_or((value, None));
+
+        let tag = if let Some(v) = tag_opt.filter(|x| !x.is_empty()) {
+            Some(Tag::from_str(v)?)
+        } else {
+            None
+        };
 
         let (rest, name) = if let Some((r, n)) = rest.rsplit_once('/') {
             (r, n)
@@ -112,7 +166,7 @@ impl std::str::FromStr for NamedPackageIdent {
             registry,
             namespace,
             name: name.to_string(),
-            tag: tag_opt.map(|x| x.to_string()),
+            tag,
         })
     }
 }
@@ -191,7 +245,7 @@ mod tests {
                 registry: None,
                 namespace: Some("ns".to_string()),
                 name: "name".to_string(),
-                tag: Some("tag".to_string()),
+                tag: Some(Tag::Named("tag".to_string())),
             }
         );
 
@@ -211,7 +265,7 @@ mod tests {
                 registry: Some(url::Url::parse("https://reg.com").unwrap()),
                 namespace: Some("ns".to_string()),
                 name: "name".to_string(),
-                tag: Some("tag".to_string()),
+                tag: Some(Tag::Named("tag".to_string())),
             }
         );
 
@@ -231,7 +285,7 @@ mod tests {
                 registry: Some(url::Url::parse("https://reg.com").unwrap()),
                 namespace: Some("ns".to_string()),
                 name: "name".to_string(),
-                tag: Some("tag".to_string()),
+                tag: Some(Tag::Named("tag".to_string())),
             }
         );
 
@@ -251,7 +305,7 @@ mod tests {
                 registry: Some(url::Url::parse("http://reg.com").unwrap()),
                 namespace: Some("ns".to_string()),
                 name: "name".to_string(),
-                tag: Some("tag".to_string()),
+                tag: Some(Tag::Named("tag".to_string())),
             }
         );
 

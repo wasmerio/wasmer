@@ -12,6 +12,16 @@ impl PackageHash {
     pub fn as_sha256(&self) -> Option<&Sha256Hash> {
         Some(&self.0)
     }
+
+    pub fn from_sha256_bytes(bytes: [u8; 32]) -> Self {
+        Self(Sha256Hash(bytes))
+    }
+}
+
+impl From<Sha256Hash> for PackageHash {
+    fn from(value: Sha256Hash) -> Self {
+        Self(value)
+    }
 }
 
 impl std::fmt::Display for PackageHash {
