@@ -67,23 +67,6 @@ impl From<PackageHash> for PackageId {
     }
 }
 
-// impl std::str::FromStr for PackageId {
-//     type Err = PackageParseError;
-//
-//     fn from_str(s: &str) -> Result<Self, Self::Err> {
-//         if let Ok(hash) = PackageHash::from_str(s) {
-//             Ok(Self::Hash(hash))
-//         } else if let Ok(named) = NamedPackageId::from_str(s) {
-//             Ok(Self::Named(named))
-//         } else {
-//             Err(PackageParseError::new(
-//                 s,
-//                 "invalid package ident: expected a hash or a valid named package identifier",
-//             ))
-//         }
-//     }
-// }
-
 impl std::fmt::Display for PackageId {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
@@ -92,25 +75,6 @@ impl std::fmt::Display for PackageId {
         }
     }
 }
-
-// impl serde::Serialize for PackageId {
-//     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-//     where
-//         S: serde::ser::Serializer,
-//     {
-//         self.to_string().serialize(serializer)
-//     }
-// }
-//
-// impl<'de> serde::Deserialize<'de> for PackageId {
-//     fn deserialize<D>(deserializer: D) -> Result<PackageId, D::Error>
-//     where
-//         D: serde::de::Deserializer<'de>,
-//     {
-//         let s = String::deserialize(deserializer)?;
-//         Self::from_str(&s).map_err(serde::de::Error::custom)
-//     }
-// }
 
 impl schemars::JsonSchema for PackageId {
     fn schema_name() -> String {
