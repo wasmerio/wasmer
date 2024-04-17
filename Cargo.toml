@@ -12,6 +12,7 @@ rust-version.workspace = true
 version.workspace = true
 
 [dependencies]
+wasmer-config = { path = "./lib/config" }
 wasmer = { version = "=4.2.8", path = "lib/api", default-features = false }
 wasmer-compiler = { version = "=4.2.8", path = "lib/compiler", features = [
     "compiler",
@@ -50,6 +51,7 @@ members = [
     "lib/compiler-llvm",
     "lib/compiler-singlepass",
     "lib/compiler",
+    "lib/config",
     "lib/derive",
     "lib/emscripten",
     "lib/object",
