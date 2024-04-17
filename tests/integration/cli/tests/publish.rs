@@ -154,7 +154,6 @@ fn wasmer_publish_and_run() {
     cmd.arg("publish")
         .arg("--quiet")
         .arg("--wait")
-        .arg("--timeout=60s")
         .arg("--registry=wasmer.wtf")
         .arg(path);
 
