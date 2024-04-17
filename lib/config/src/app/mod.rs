@@ -11,6 +11,14 @@ use bytesize::ByteSize;
 
 use crate::package::PackageSource;
 
+/// Header added to Edge app HTTP responses.
+/// The value contains the app version ID that generated the response.
+///
+// This is used by the CLI to determine when a new version was successfully
+// released.
+#[allow(clippy::declare_interior_mutable_const)]
+pub const HEADER_APP_VERSION_ID: &str = "x-edge-app-version-id";
+
 /// User-facing app.yaml config file for apps.
 ///
 /// NOTE: only used by the backend, Edge itself does not use this format, and
