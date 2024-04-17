@@ -8,7 +8,7 @@ use petgraph::{
     visit::EdgeRef,
 };
 use semver::Version;
-use wasmer_config::package::{PackageId, PackageIdent, PackageSource};
+use wasmer_config::package::{PackageId, PackageSource};
 
 use crate::runtime::resolver::{
     outputs::{Edge, Node},
@@ -382,7 +382,7 @@ fn resolve_package(dependency_graph: &DependencyGraph) -> Result<ResolvedPackage
 mod tests {
     use std::path::PathBuf;
 
-    use wasmer_config::package::{NamedPackageId, NamedPackageIdent};
+    use wasmer_config::package::NamedPackageIdent;
 
     use crate::runtime::resolver::{
         inputs::{DistributionInfo, FileSystemMapping, PackageInfo},
