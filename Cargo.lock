@@ -6529,7 +6529,7 @@ dependencies = [
  "bytesize",
  "derive_builder",
  "hex",
- "indexmap 2.2.6",
+ "indexmap 1.9.3",
  "pretty_assertions",
  "schemars",
  "semver 1.0.22",
