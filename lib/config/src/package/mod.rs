@@ -4,15 +4,20 @@
 
 #![allow(deprecated)]
 
-pub(crate) mod error;
-pub(crate) mod named_package_ident;
-pub(crate) mod package_hash;
-pub(crate) mod package_ident;
-pub(crate) mod package_source;
+mod error;
+mod named_package_ident;
+mod package_hash;
+mod package_id;
+mod package_ident;
+mod package_source;
 
 pub use self::{
-    error::PackageParseError, named_package_ident::NamedPackageIdent, package_hash::PackageHash,
-    package_ident::PackageIdent, package_source::PackageSource,
+    error::PackageParseError,
+    named_package_ident::{NamedPackageIdent, Tag},
+    package_hash::PackageHash,
+    package_id::{NamedPackageId, PackageId},
+    package_ident::PackageIdent,
+    package_source::PackageSource,
 };
 
 use std::{

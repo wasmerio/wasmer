@@ -15,6 +15,7 @@ use wasmer::{
     AsStoreMut, AsStoreRef, FunctionEnvMut, Global, Imports, Instance, Memory, MemoryType,
     MemoryView, Module, TypedFunction,
 };
+use wasmer_config::package::PackageSource;
 use wasmer_wasix_types::{
     types::Signal,
     wasi::{Errno, ExitCode, Snapshot0Clockid},
@@ -33,10 +34,7 @@ use crate::{
         process::{WasiProcess, WasiProcessId},
         thread::{WasiMemoryLayout, WasiThread, WasiThreadHandle, WasiThreadId},
     },
-    runtime::{
-        module_cache::ModuleHash, resolver::PackageSpecifier, task_manager::InlineWaker,
-        SpawnMemoryType,
-    },
+    runtime::{module_cache::ModuleHash, task_manager::InlineWaker, SpawnMemoryType},
     syscalls::platform_clock_time_get,
     Runtime, VirtualTaskManager, WasiControlPlane, WasiEnvBuilder, WasiError, WasiFunctionEnv,
     WasiResult, WasiRuntimeError, WasiStateCreationError, WasiVFork,
@@ -1135,7 +1133,7 @@ impl WasiEnv {
         let rt = self.runtime();
 
         for package_name in uses {
-            let specifier = package_name.parse::<PackageSpecifier>().map_err(|e| {
+            let specifier = package_name.parse::<PackageSource>().map_err(|e| {
                 WasiStateCreationError::WasiIncludePackageError(format!(
                     "package_name={package_name}, {}",
                     e

@@ -1,6 +1,8 @@
 use std::str::FromStr;
 
-use super::{NamedPackageIdent, PackageHash, PackageIdent, PackageParseError};
+use super::{
+    NamedPackageId, NamedPackageIdent, PackageHash, PackageId, PackageIdent, PackageParseError,
+};
 
 /// Source location of a package.
 #[derive(PartialEq, Eq, Clone, Debug)]
@@ -9,6 +11,7 @@ pub enum PackageSource {
     Ident(PackageIdent),
     /// An absolute or relative (dot-leading) path.
     Path(String),
+    Url(url::Url),
 }
 
 impl PackageSource {
@@ -35,6 +38,14 @@ impl PackageSource {
             None
         }
     }
+
+    pub fn as_url(&self) -> Option<&url::Url> {
+        if let Self::Url(v) = self {
+            Some(v)
+        } else {
+            None
+        }
+    }
 }
 
 impl From<PackageIdent> for PackageSource {
@@ -49,17 +60,33 @@ impl From<NamedPackageIdent> for PackageSource {
     }
 }
 
+impl From<NamedPackageId> for PackageSource {
+    fn from(value: NamedPackageId) -> Self {
+        Self::Ident(PackageIdent::Named(NamedPackageIdent::from(value)))
+    }
+}
+
 impl From<PackageHash> for PackageSource {
     fn from(value: PackageHash) -> Self {
         Self::Ident(PackageIdent::Hash(value))
     }
 }
 
+impl From<PackageId> for PackageSource {
+    fn from(value: PackageId) -> Self {
+        match value {
+            PackageId::Hash(hash) => Self::from(hash),
+            PackageId::Named(named) => Self::Ident(PackageIdent::Named(named.into())),
+        }
+    }
+}
+
 impl std::fmt::Display for PackageSource {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            PackageSource::Ident(id) => id.fmt(f),
-            PackageSource::Path(path) => path.fmt(f),
+            Self::Ident(id) => id.fmt(f),
+            Self::Path(path) => path.fmt(f),
+            Self::Url(url) => url.fmt(f),
         }
     }
 }
@@ -68,19 +95,23 @@ impl std::str::FromStr for PackageSource {
     type Err = PackageParseError;
 
     fn from_str(value: &str) -> Result<Self, Self::Err> {
-        let value_len = value.len();
-
-        if value_len == 0 {
+        let Some(first_char) = value.chars().next() else {
             return Err(PackageParseError::new(
                 value,
                 "An empty string is not a valid package source",
             ));
+        };
+
+        if value.contains("://") {
+            let url = value
+                .parse::<url::Url>()
+                .map_err(|e| PackageParseError::new(value, e.to_string()))?;
+            return Ok(Self::Url(url));
         }
 
-        if let Ok(ident) = PackageIdent::from_str(value) {
-            Ok(Self::Ident(ident))
-        } else {
-            Ok(Self::Path(value.to_string()))
+        match first_char {
+            '.' | '/' => Ok(Self::Path(value.to_string())),
+            _ => PackageIdent::from_str(value).map(Self::Ident),
         }
     }
 }
@@ -91,8 +122,9 @@ impl serde::Serialize for PackageSource {
         S: serde::Serializer,
     {
         match self {
-            PackageSource::Ident(id) => id.serialize(serializer),
-            PackageSource::Path(path) => path.serialize(serializer),
+            Self::Ident(id) => id.serialize(serializer),
+            Self::Path(path) => path.serialize(serializer),
+            Self::Url(url) => url.serialize(serializer),
         }
     }
 }
@@ -119,6 +151,8 @@ impl schemars::JsonSchema for PackageSource {
 
 #[cfg(test)]
 mod tests {
+    use crate::package::Tag;
+
     use super::*;
 
     #[test]
@@ -151,14 +185,14 @@ mod tests {
                 registry: None,
                 namespace: Some("ns".to_string()),
                 name: "name".to_string(),
-                tag: Some("tag".to_string()),
+                tag: Some(Tag::Named("tag".to_string())),
             })
         );
 
         assert_eq!(
-            PackageSource::from_str("reg.com/ns/name").unwrap(),
+            PackageSource::from_str("reg.com:ns/name").unwrap(),
             PackageSource::from(NamedPackageIdent {
-                registry: Some(url::Url::parse("https://reg.com").unwrap()),
+                registry: Some("reg.com".to_string()),
                 namespace: Some("ns".to_string()),
                 name: "name".to_string(),
                 tag: None,
@@ -166,19 +200,19 @@ mod tests {
         );
 
         assert_eq!(
-            PackageSource::from_str("reg.com/ns/name@tag").unwrap(),
+            PackageSource::from_str("reg.com:ns/name@tag").unwrap(),
             PackageSource::from(NamedPackageIdent {
-                registry: Some(url::Url::parse("https://reg.com").unwrap()),
+                registry: Some("reg.com".to_string()),
                 namespace: Some("ns".to_string()),
                 name: "name".to_string(),
-                tag: Some("tag".to_string()),
+                tag: Some(Tag::Named("tag".to_string())),
             })
         );
 
         assert_eq!(
-            PackageSource::from_str("https://reg.com/ns/name").unwrap(),
+            PackageSource::from_str("reg.com:ns/name").unwrap(),
             PackageSource::from(NamedPackageIdent {
-                registry: Some(url::Url::parse("https://reg.com").unwrap()),
+                registry: Some("reg.com".to_string()),
                 namespace: Some("ns".to_string()),
                 name: "name".to_string(),
                 tag: None,
@@ -186,19 +220,19 @@ mod tests {
         );
 
         assert_eq!(
-            PackageSource::from_str("https://reg.com/ns/name@tag").unwrap(),
+            PackageSource::from_str("reg.com:ns/name@tag").unwrap(),
             PackageSource::from(NamedPackageIdent {
-                registry: Some(url::Url::parse("https://reg.com").unwrap()),
+                registry: Some("reg.com".to_string()),
                 namespace: Some("ns".to_string()),
                 name: "name".to_string(),
-                tag: Some("tag".to_string()),
+                tag: Some(Tag::Named("tag".to_string())),
             })
         );
 
         assert_eq!(
-            PackageSource::from_str("http://reg.com/ns/name").unwrap(),
+            PackageSource::from_str("reg.com:ns/name").unwrap(),
             PackageSource::from(NamedPackageIdent {
-                registry: Some(url::Url::parse("http://reg.com").unwrap()),
+                registry: Some("reg.com".to_string()),
                 namespace: Some("ns".to_string()),
                 name: "name".to_string(),
                 tag: None,
@@ -206,12 +240,12 @@ mod tests {
         );
 
         assert_eq!(
-            PackageSource::from_str("http://reg.com/ns/name@tag").unwrap(),
+            PackageSource::from_str("reg.com:ns/name@tag").unwrap(),
             PackageSource::from(NamedPackageIdent {
-                registry: Some(url::Url::parse("http://reg.com").unwrap()),
+                registry: Some("reg.com".to_string()),
                 namespace: Some("ns".to_string()),
                 name: "name".to_string(),
-                tag: Some("tag".to_string()),
+                tag: Some(Tag::Named("tag".to_string())),
             })
         );
 
@@ -266,6 +300,68 @@ mod tests {
         for want in wants {
             let spec = PackageSource::from_str(want).unwrap();
             assert_eq!(spec, PackageSource::from_str(&spec.to_string()).unwrap());
+        }
+    }
+
+    #[test]
+    fn parse_package_sources() {
+        let inputs = [
+            (
+                "first",
+                PackageSource::from(NamedPackageIdent {
+                    registry: None,
+                    namespace: None,
+                    name: "first".to_string(),
+                    tag: None,
+                }),
+            ),
+            (
+                "namespace/package",
+                PackageSource::from(NamedPackageIdent {
+                    registry: None,
+                    namespace: Some("namespace".to_string()),
+                    name: "package".to_string(),
+                    tag: None,
+                }),
+            ),
+            (
+                "namespace/package@1.0.0",
+                PackageSource::from(NamedPackageIdent {
+                    registry: None,
+                    namespace: Some("namespace".to_string()),
+                    name: "package".to_string(),
+                    tag: Some(Tag::VersionReq("1.0.0".parse().unwrap())),
+                }),
+            ),
+            (
+                "namespace/package@latest",
+                PackageSource::from(NamedPackageIdent {
+                    registry: None,
+                    namespace: Some("namespace".to_string()),
+                    name: "package".to_string(),
+                    tag: Some(Tag::VersionReq(semver::VersionReq::STAR)),
+                }),
+            ),
+            (
+                "https://wapm/io/namespace/package@1.0.0",
+                PackageSource::Url("https://wapm/io/namespace/package@1.0.0".parse().unwrap()),
+            ),
+            (
+                "/path/to/some/file.webc",
+                PackageSource::Path("/path/to/some/file.webc".into()),
+            ),
+            ("./file.webc", PackageSource::Path("./file.webc".into())),
+            #[cfg(windows)]
+            (
+                r"C:\Path\to\some\file.webc",
+                PackageSource::Path(r"C:\Path\to\some\file.webc".into()),
+            ),
+        ];
+
+        for (index, (src, expected)) in inputs.into_iter().enumerate() {
+            eprintln!("testing pattern {}", index + 1);
+            let parsed = PackageSource::from_str(src).unwrap();
+            assert_eq!(parsed, expected);
         }
     }
 }

@@ -3,7 +3,7 @@ use crate::{hash::Sha256Hash, package::PackageParseError};
 /// Hash for a package.
 ///
 /// Currently only supports the format: `sha256:<hash>`.
-#[derive(PartialEq, Eq, Clone, Debug, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct PackageHash(Sha256Hash);
 
 impl PackageHash {

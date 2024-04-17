@@ -308,16 +308,20 @@ impl Init {
                         let is_wit = e.path().extension().and_then(|s| s.to_str()) == Some(".wit");
                         let is_wai = e.path().extension().and_then(|s| s.to_str()) == Some(".wai");
                         if is_wit {
-                            Some(wasmer_config::package::Bindings::Wit(wasmer_config::package::WitBindings {
-                                wit_exports: e.path().to_path_buf(),
-                                wit_bindgen: semver::Version::parse("0.1.0").unwrap(),
-                            }))
+                            Some(wasmer_config::package::Bindings::Wit(
+                                wasmer_config::package::WitBindings {
+                                    wit_exports: e.path().to_path_buf(),
+                                    wit_bindgen: semver::Version::parse("0.1.0").unwrap(),
+                                },
+                            ))
                         } else if is_wai {
-                            Some(wasmer_config::package::Bindings::Wai(wasmer_config::package::WaiBindings {
-                                exports: None,
-                                imports: vec![e.path().to_path_buf()],
-                                wai_version: semver::Version::parse("0.2.0").unwrap(),
-                            }))
+                            Some(wasmer_config::package::Bindings::Wai(
+                                wasmer_config::package::WaiBindings {
+                                    exports: None,
+                                    imports: vec![e.path().to_path_buf()],
+                                    wai_version: semver::Version::parse("0.2.0").unwrap(),
+                                },
+                            ))
                         } else {
                             None
                         }

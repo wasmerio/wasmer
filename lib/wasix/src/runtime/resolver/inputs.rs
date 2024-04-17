@@ -3,144 +3,28 @@ use std::{
     fs::File,
     io::{BufRead, BufReader, Read},
     path::{Path, PathBuf},
-    str::FromStr,
 };
 
-use anyhow::{bail, Context, Error};
+use anyhow::Error;
 use semver::VersionReq;
 use sha2::{Digest, Sha256};
 use url::Url;
+use wasmer_config::package::{NamedPackageId, PackageHash, PackageId, PackageSource};
 use webc::{
     metadata::{annotations::Wapm as WapmAnnotations, Manifest, UrlOrManifest},
     Container,
 };
 
-use crate::runtime::resolver::PackageId;
-
-use super::outputs::PackageIdent;
-
-/// A reference to *some* package somewhere that the user wants to run.
-///
-/// # Security Considerations
-///
-/// The [`PackageSpecifier::Path`] variant doesn't specify which filesystem a
-/// [`Source`][source] will eventually query. Consumers of [`PackageSpecifier`]
-/// should be wary of sandbox escapes.
-///
-/// [source]: crate::runtime::resolver::Source
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub enum PackageSpecifier {
-    Registry {
-        full_name: String,
-        version: VersionReq,
-    },
-    HashSha256(String),
-    Url(Url),
-    /// A `*.webc` file on disk.
-    Path(PathBuf),
-}
-
-impl PackageSpecifier {
-    pub fn parse(s: &str) -> Result<Self, anyhow::Error> {
-        s.parse()
-    }
-}
-
-impl FromStr for PackageSpecifier {
-    type Err = anyhow::Error;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        if s.starts_with("sha256:") {
-            let rest = &s[7..];
-            if rest.len() != 64 {
-                bail!("Invalid sha256:{rest} package hash: not a valid sha256 hash, expected 64 characters");
-            }
-            return Ok(Self::HashSha256(rest.to_string()));
-        }
-
-        // There is no function in std for checking if a string is a valid path
-        // and we can't do Path::new(s).exists() because that assumes the
-        // package being specified is on the local filesystem, so let's make a
-        // best-effort guess.
-        if s.starts_with('.') || s.starts_with('/') {
-            return Ok(PackageSpecifier::Path(s.into()));
-        }
-        #[cfg(windows)]
-        if s.contains('\\') {
-            return Ok(PackageSpecifier::Path(s.into()));
-        }
-        if Path::new(s).exists() {
-            return Ok(PackageSpecifier::Path(s.into()));
-        }
-
-        if let Ok(url) = Url::parse(s) {
-            if url.has_host() {
-                return Ok(PackageSpecifier::Url(url));
-            }
-        }
-
-        // TODO: Replace this with something more rigorous that can also handle
-        // the locator field
-        let (full_name, version) = match s.split_once('@') {
-            Some((n, v)) => (n, v),
-            None => (s, "*"),
-        };
-
-        let invalid_character = full_name
-            .char_indices()
-            .find(|(_, c)| !matches!(c, 'a'..='z' | 'A'..='Z' | '0'..='9' | '.'| '-'|'_' | '/'));
-        if let Some((index, c)) = invalid_character {
-            anyhow::bail!("Invalid character, {c:?}, at offset {index}");
-        }
-
-        let version = if version == "latest" {
-            // let people write "some/package@latest"
-            VersionReq::STAR
-        } else {
-            version
-                .parse()
-                .with_context(|| format!("Invalid version number, \"{version}\""))?
-        };
-
-        Ok(PackageSpecifier::Registry {
-            full_name: full_name.to_string(),
-            version,
-        })
-    }
-}
-
-impl Display for PackageSpecifier {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            PackageSpecifier::Registry { full_name, version } => {
-                write!(f, "{full_name}")?;
-
-                if !version.comparators.is_empty() {
-                    write!(f, "@{version}")?;
-                }
-
-                Ok(())
-            }
-            PackageSpecifier::Url(url) => Display::fmt(url, f),
-            PackageSpecifier::Path(path) => write!(f, "{}", path.display()),
-            PackageSpecifier::HashSha256(hash) => write!(f, "sha256:{hash}"),
-        }
-    }
-}
-
 /// A dependency constraint.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Dependency {
     pub alias: String,
-    pub pkg: PackageSpecifier,
+    pub pkg: PackageSource,
 }
 
 impl Dependency {
-    pub fn package_name(&self) -> Option<&str> {
-        match &self.pkg {
-            PackageSpecifier::Registry { full_name, .. } => Some(full_name),
-            _ => None,
-        }
+    pub fn package_name(&self) -> Option<String> {
+        self.pkg.as_named().map(|x| x.full_name())
     }
 
     pub fn alias(&self) -> &str {
@@ -148,10 +32,7 @@ impl Dependency {
     }
 
     pub fn version(&self) -> Option<&VersionReq> {
-        match &self.pkg {
-            PackageSpecifier::Registry { version, .. } => Some(version),
-            _ => None,
-        }
+        self.pkg.as_named().and_then(|n| n.version_opt())
     }
 }
 
@@ -180,7 +61,7 @@ impl PackageSummary {
 
         let manifest = container.manifest();
         let id = PackageInfo::package_id_from_manifest(manifest)?
-            .unwrap_or_else(|| PackageId::HashSha256(webc_sha256.as_hex()));
+            .unwrap_or_else(|| PackageId::Hash(PackageHash::from_sha256_bytes(webc_sha256.0)));
 
         let pkg = PackageInfo::from_manifest(id, manifest, container.version())?;
         let dist = DistributionInfo {
@@ -207,7 +88,9 @@ pub struct PackageInfo {
 }
 
 impl PackageInfo {
-    pub fn package_ident_from_manifest(manifest: &Manifest) -> Result<Option<PackageIdent>, Error> {
+    pub fn package_ident_from_manifest(
+        manifest: &Manifest,
+    ) -> Result<Option<NamedPackageId>, Error> {
         let wapm_annotations = manifest.wapm()?;
 
         let name = wapm_annotations
@@ -225,8 +108,8 @@ impl PackageInfo {
         );
 
         if let Some(name) = name {
-            Ok(Some(PackageIdent {
-                name,
+            Ok(Some(NamedPackageId {
+                full_name: name,
                 version: version.parse()?,
             }))
         } else {
@@ -247,21 +130,21 @@ impl PackageInfo {
         manifest: &Manifest,
         webc_version: webc::Version,
     ) -> Result<Self, Error> {
-        let wapm_annotations = manifest.wapm()?;
-
-        let name = wapm_annotations
-            .as_ref()
-            .map_or_else(|| None, |annotations| annotations.name.clone());
-
-        let version = wapm_annotations.as_ref().map_or_else(
-            || String::from("0.0.0"),
-            |annotations| {
-                annotations
-                    .version
-                    .clone()
-                    .unwrap_or_else(|| String::from("0.0.0"))
-            },
-        );
+        // FIXME: is this still needed?
+        // let wapm_annotations = manifest.wapm()?;
+        // let name = wapm_annotations
+        //     .as_ref()
+        //     .map_or_else(|| None, |annotations| annotations.name.clone());
+        //
+        // let version = wapm_annotations.as_ref().map_or_else(
+        //     || String::from("0.0.0"),
+        //     |annotations| {
+        //         annotations
+        //             .version
+        //             .clone()
+        //             .unwrap_or_else(|| String::from("0.0.0"))
+        //     },
+        // );
 
         let dependencies = manifest
             .use_map
@@ -348,18 +231,20 @@ pub struct FileSystemMapping {
     pub dependency_name: Option<String>,
 }
 
-fn url_or_manifest_to_specifier(value: &UrlOrManifest) -> Result<PackageSpecifier, Error> {
+fn url_or_manifest_to_specifier(value: &UrlOrManifest) -> Result<PackageSource, Error> {
     match value {
-        UrlOrManifest::Url(url) => Ok(PackageSpecifier::Url(url.clone())),
+        UrlOrManifest::Url(url) => Ok(PackageSource::Url(url.clone())),
         UrlOrManifest::Manifest(manifest) => {
             if let Ok(Some(WapmAnnotations { name, version, .. })) =
                 manifest.package_annotation("wapm")
             {
                 let version = version.unwrap().parse()?;
-                return Ok(PackageSpecifier::Registry {
+                let id = NamedPackageId {
                     full_name: name.unwrap(),
                     version,
-                });
+                };
+
+                return Ok(PackageSource::from(id));
             }
 
             if let Some(origin) = manifest
@@ -367,14 +252,16 @@ fn url_or_manifest_to_specifier(value: &UrlOrManifest) -> Result<PackageSpecifie
                 .as_deref()
                 .and_then(|origin| Url::parse(origin).ok())
             {
-                return Ok(PackageSpecifier::Url(origin));
+                return Ok(PackageSource::Url(origin));
             }
 
             Err(Error::msg(
                 "Unable to determine a package specifier for a vendored dependency",
             ))
         }
-        UrlOrManifest::RegistryDependentUrl(specifier) => specifier.parse(),
+        UrlOrManifest::RegistryDependentUrl(specifier) => {
+            specifier.parse().map_err(anyhow::Error::from)
+        }
     }
 }
 
@@ -389,7 +276,7 @@ pub struct DistributionInfo {
 
 /// The SHA-256 hash of a `*.webc` file.
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct WebcHash([u8; 32]);
+pub struct WebcHash(pub(crate) [u8; 32]);
 
 impl WebcHash {
     pub fn from_bytes(bytes: [u8; 32]) -> Self {
@@ -475,62 +362,4 @@ impl Display for WebcHash {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Command {
     pub name: String,
-}
-
-#[cfg(test)]
-pub(crate) mod tests {
-    use super::*;
-
-    #[test]
-    fn parse_some_package_specifiers() {
-        let inputs = [
-            (
-                "first",
-                PackageSpecifier::Registry {
-                    full_name: "first".to_string(),
-                    version: VersionReq::STAR,
-                },
-            ),
-            (
-                "namespace/package",
-                PackageSpecifier::Registry {
-                    full_name: "namespace/package".to_string(),
-                    version: VersionReq::STAR,
-                },
-            ),
-            (
-                "namespace/package@1.0.0",
-                PackageSpecifier::Registry {
-                    full_name: "namespace/package".to_string(),
-                    version: "1.0.0".parse().unwrap(),
-                },
-            ),
-            (
-                "namespace/package@latest",
-                PackageSpecifier::Registry {
-                    full_name: "namespace/package".to_string(),
-                    version: VersionReq::STAR,
-                },
-            ),
-            (
-                "https://wapm/io/namespace/package@1.0.0",
-                PackageSpecifier::Url("https://wapm/io/namespace/package@1.0.0".parse().unwrap()),
-            ),
-            (
-                "/path/to/some/file.webc",
-                PackageSpecifier::Path("/path/to/some/file.webc".into()),
-            ),
-            ("./file.webc", PackageSpecifier::Path("./file.webc".into())),
-            #[cfg(windows)]
-            (
-                r"C:\Path\to\some\file.webc",
-                PackageSpecifier::Path(r"C:\Path\to\some\file.webc".into()),
-            ),
-        ];
-
-        for (src, expected) in inputs {
-            let parsed = PackageSpecifier::from_str(src).unwrap();
-            assert_eq!(parsed, expected);
-        }
-    }
 }

@@ -381,10 +381,11 @@ mod tests {
     use futures::future::BoxFuture;
     use http::{HeaderMap, StatusCode};
     use tempfile::TempDir;
+    use wasmer_config::package::PackageId;
 
     use crate::{
         http::{HttpRequest, HttpResponse},
-        runtime::resolver::{PackageId, PackageInfo},
+        runtime::resolver::PackageInfo,
     };
 
     use super::*;

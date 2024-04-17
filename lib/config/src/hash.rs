@@ -1,5 +1,5 @@
 /// Sha256 hash, represented as bytes.
-#[derive(schemars::JsonSchema, Hash, PartialEq, Eq, Clone, Debug)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Sha256Hash(pub [u8; 32]);
 
 impl Sha256Hash {
@@ -35,6 +35,16 @@ impl std::str::FromStr for Sha256Hash {
 impl std::fmt::Display for Sha256Hash {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", hex::encode(self.0))
+    }
+}
+
+impl schemars::JsonSchema for Sha256Hash {
+    fn schema_name() -> String {
+        "Sha256Hash".to_string()
+    }
+
+    fn json_schema(gen: &mut schemars::gen::SchemaGenerator) -> schemars::schema::Schema {
+        String::json_schema(gen)
     }
 }
 

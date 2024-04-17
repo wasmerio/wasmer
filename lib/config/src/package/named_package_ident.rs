@@ -2,7 +2,7 @@ use std::{fmt::Write, str::FromStr};
 
 use semver::VersionReq;
 
-use super::PackageParseError;
+use super::{NamedPackageId, PackageParseError};
 
 #[derive(PartialEq, Eq, Clone, Debug, Hash)]
 pub enum Tag {
@@ -23,9 +23,13 @@ impl std::str::FromStr for Tag {
     type Err = PackageParseError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match semver::VersionReq::from_str(s) {
-            Ok(v) => Ok(Self::VersionReq(v)),
-            Err(_) => Ok(Self::Named(s.to_string())),
+        if s == "latest" {
+            Ok(Self::VersionReq(semver::VersionReq::STAR))
+        } else {
+            match semver::VersionReq::from_str(s) {
+                Ok(v) => Ok(Self::VersionReq(v)),
+                Err(_) => Ok(Self::Named(s.to_string())),
+            }
         }
     }
 }
@@ -36,13 +40,38 @@ impl std::str::FromStr for Tag {
 /// [https?://<domain>/][namespace/]name[@version]
 #[derive(PartialEq, Eq, Clone, Debug, Hash)]
 pub struct NamedPackageIdent {
-    pub registry: Option<url::Url>,
+    pub registry: Option<String>,
     pub namespace: Option<String>,
     pub name: String,
     pub tag: Option<Tag>,
 }
 
 impl NamedPackageIdent {
+    pub fn try_from_full_name_and_version(
+        full_name: &str,
+        version: &str,
+    ) -> Result<Self, PackageParseError> {
+        let (namespace, name) = match full_name.split_once('/') {
+            Some((ns, name)) => (Some(ns.to_owned()), name.to_owned()),
+            None => (None, full_name.to_owned()),
+        };
+
+        let version = version
+            .parse::<VersionReq>()
+            .map_err(|e| PackageParseError::new(version, e.to_string()))?;
+
+        Ok(Self {
+            registry: None,
+            namespace,
+            name,
+            tag: Some(Tag::VersionReq(version)),
+        })
+    }
+
+    pub fn tag_str(&self) -> Option<String> {
+        self.tag.as_ref().map(|x| x.to_string())
+    }
+
     /// Namespaced name.
     ///
     /// Eg: "namespace/name"
@@ -54,10 +83,17 @@ impl NamedPackageIdent {
         }
     }
 
-    pub fn version(&self) -> Option<&VersionReq> {
+    pub fn version_opt(&self) -> Option<&VersionReq> {
         match &self.tag {
             Some(Tag::VersionReq(v)) => Some(v),
             Some(Tag::Named(_)) | None => None,
+        }
+    }
+
+    pub fn version_or_default(&self) -> VersionReq {
+        match &self.tag {
+            Some(Tag::VersionReq(v)) => v.clone(),
+            Some(Tag::Named(_)) | None => semver::VersionReq::STAR,
         }
     }
 
@@ -86,7 +122,7 @@ impl NamedPackageIdent {
             write!(&mut out, "{}", url).unwrap();
 
             if !out.ends_with('/') {
-                out.push('/');
+                out.push(':');
             }
         }
         if let Some(ns) = &self.namespace {
@@ -101,6 +137,30 @@ impl NamedPackageIdent {
         }
 
         out
+    }
+}
+
+impl From<NamedPackageId> for NamedPackageIdent {
+    fn from(value: NamedPackageId) -> Self {
+        let (namespace, name) = match value.full_name.split_once('/') {
+            Some((ns, name)) => (Some(ns.to_owned()), name.to_owned()),
+            None => (None, value.full_name),
+        };
+
+        Self {
+            registry: None,
+            namespace,
+            name,
+            tag: Some(Tag::VersionReq(semver::VersionReq {
+                comparators: vec![semver::Comparator {
+                    op: semver::Op::Exact,
+                    major: value.version.major,
+                    minor: Some(value.version.minor),
+                    patch: Some(value.version.patch),
+                    pre: value.version.pre,
+                }],
+            })),
+        }
     }
 }
 
@@ -134,7 +194,7 @@ impl std::str::FromStr for NamedPackageIdent {
         let (rest, namespace) = if rest.is_empty() {
             ("", None)
         } else {
-            let (rest, ns) = rest.rsplit_once('/').unwrap_or(("", rest));
+            let (rest, ns) = rest.rsplit_once(':').unwrap_or(("", rest));
 
             let ns = ns.trim();
 
@@ -148,18 +208,7 @@ impl std::str::FromStr for NamedPackageIdent {
         let registry = if rest.is_empty() {
             None
         } else {
-            let registry = rest;
-            let full_registry =
-                if registry.starts_with("http://") || registry.starts_with("https://") {
-                    registry.to_string()
-                } else {
-                    format!("https://{}", registry)
-                };
-
-            let registry_url = url::Url::parse(&full_registry).map_err(|e| {
-                PackageParseError::new(value, format!("invalid registry url: {}", e))
-            })?;
-            Some(registry_url)
+            Some(rest.to_string())
         };
 
         Ok(Self {
@@ -250,9 +299,9 @@ mod tests {
         );
 
         assert_eq!(
-            NamedPackageIdent::from_str("reg.com/ns/name").unwrap(),
+            NamedPackageIdent::from_str("reg.com:ns/name").unwrap(),
             NamedPackageIdent {
-                registry: Some(url::Url::parse("https://reg.com").unwrap()),
+                registry: Some("reg.com".to_string()),
                 namespace: Some("ns".to_string()),
                 name: "name".to_string(),
                 tag: None,
@@ -260,9 +309,9 @@ mod tests {
         );
 
         assert_eq!(
-            NamedPackageIdent::from_str("reg.com/ns/name@tag").unwrap(),
+            NamedPackageIdent::from_str("reg.com:ns/name@tag").unwrap(),
             NamedPackageIdent {
-                registry: Some(url::Url::parse("https://reg.com").unwrap()),
+                registry: Some("reg.com".to_string()),
                 namespace: Some("ns".to_string()),
                 name: "name".to_string(),
                 tag: Some(Tag::Named("tag".to_string())),
@@ -270,9 +319,9 @@ mod tests {
         );
 
         assert_eq!(
-            NamedPackageIdent::from_str("https://reg.com/ns/name").unwrap(),
+            NamedPackageIdent::from_str("reg.com:ns/name").unwrap(),
             NamedPackageIdent {
-                registry: Some(url::Url::parse("https://reg.com").unwrap()),
+                registry: Some("reg.com".to_string()),
                 namespace: Some("ns".to_string()),
                 name: "name".to_string(),
                 tag: None,
@@ -280,9 +329,9 @@ mod tests {
         );
 
         assert_eq!(
-            NamedPackageIdent::from_str("https://reg.com/ns/name@tag").unwrap(),
+            NamedPackageIdent::from_str("reg.com:ns/name@tag").unwrap(),
             NamedPackageIdent {
-                registry: Some(url::Url::parse("https://reg.com").unwrap()),
+                registry: Some("reg.com".to_string()),
                 namespace: Some("ns".to_string()),
                 name: "name".to_string(),
                 tag: Some(Tag::Named("tag".to_string())),
@@ -290,9 +339,9 @@ mod tests {
         );
 
         assert_eq!(
-            NamedPackageIdent::from_str("http://reg.com/ns/name").unwrap(),
+            NamedPackageIdent::from_str("reg.com:ns/name").unwrap(),
             NamedPackageIdent {
-                registry: Some(url::Url::parse("http://reg.com").unwrap()),
+                registry: Some("reg.com".to_string()),
                 namespace: Some("ns".to_string()),
                 name: "name".to_string(),
                 tag: None,
@@ -300,9 +349,9 @@ mod tests {
         );
 
         assert_eq!(
-            NamedPackageIdent::from_str("http://reg.com/ns/name@tag").unwrap(),
+            NamedPackageIdent::from_str("reg.com:ns/name@tag").unwrap(),
             NamedPackageIdent {
-                registry: Some(url::Url::parse("http://reg.com").unwrap()),
+                registry: Some("reg.com".to_string()),
                 namespace: Some("ns".to_string()),
                 name: "name".to_string(),
                 tag: Some(Tag::Named("tag".to_string())),
@@ -331,14 +380,14 @@ mod tests {
     fn test_serde_serialize_package_ident_with_repo() {
         // Serialize
         let ident = NamedPackageIdent {
-            registry: Some(url::Url::parse("https://wapm.io").unwrap()),
+            registry: Some("wapm.io".to_string()),
             namespace: Some("ns".to_string()),
             name: "name".to_string(),
             tag: None,
         };
 
         let raw = serde_json::to_string(&ident).unwrap();
-        assert_eq!(raw, "\"https://wapm.io/ns/name\"");
+        assert_eq!(raw, "\"wapm.io:ns/name\"");
 
         let ident2 = serde_json::from_str::<NamedPackageIdent>(&raw).unwrap();
         assert_eq!(ident, ident2);

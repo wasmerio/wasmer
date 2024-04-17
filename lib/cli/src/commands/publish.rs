@@ -80,7 +80,7 @@ impl Publish {
             package_path: self.package_path.clone(),
             wait,
             timeout: self.timeout.into(),
-            package_namespace: None
+            package_namespace: None,
         };
         publish.execute().map_err(on_error)?;
 

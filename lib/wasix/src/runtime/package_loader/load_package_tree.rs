@@ -10,6 +10,7 @@ use futures::{future::BoxFuture, StreamExt, TryStreamExt};
 use once_cell::sync::OnceCell;
 use petgraph::visit::EdgeRef;
 use virtual_fs::{FileSystem, OverlayFileSystem, UnionFileSystem, WebcVolumeFileSystem};
+use wasmer_config::package::PackageId;
 use webc::{
     compat::{Container, Volume},
     metadata::annotations::Atom as AtomAnnotation,
@@ -20,8 +21,8 @@ use crate::{
     runtime::{
         package_loader::PackageLoader,
         resolver::{
-            DependencyGraph, ItemLocation, PackageId, PackageSummary, Resolution,
-            ResolvedFileSystemMapping, ResolvedPackage,
+            DependencyGraph, ItemLocation, PackageSummary, Resolution, ResolvedFileSystemMapping,
+            ResolvedPackage,
         },
     },
 };
