@@ -19,7 +19,8 @@ impl std::str::FromStr for Sha256Hash {
         if s.len() != 64 {
             return Err(Sha256HashParseError {
                 value: s.to_string(),
-                message: format!("invalid hash length - hash must have 64 hex-encoded characters ",),
+                message: "invalid hash length - hash must have 64 hex-encoded characters "
+                    .to_string(),
             });
         }
 

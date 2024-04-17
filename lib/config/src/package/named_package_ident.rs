@@ -126,7 +126,7 @@ impl NamedPackageIdent {
             }
         }
         if let Some(ns) = &self.namespace {
-            out.push_str(&ns);
+            out.push_str(ns);
             out.push('/');
         }
         out.push_str(&self.name);

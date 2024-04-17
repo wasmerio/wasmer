@@ -519,6 +519,7 @@ mod queries {
     #[derive(cynic::QueryFragment, Serialize, Debug, Clone)]
     pub struct AppAlias {
         pub name: String,
+        pub hostname: String,
     }
 
     #[derive(cynic::QueryVariables, Debug, Clone)]
