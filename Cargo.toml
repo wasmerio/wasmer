@@ -1,322 +1,61 @@
 [package]
-name = "wasmer-workspace"
-description = "Wasmer workspace"
-publish = false
-autoexamples = false
-authors.workspace = true
-edition.workspace = true
-homepage.workspace = true
-license.workspace = true
-repository.workspace = true
-rust-version.workspace = true
-version.workspace = true
+name = "wasmer"
+version = "0.1.0"
+authors = ["Syrus Akbary <me@syrusakbary.com>"]
+# edition = "2018"
+repository = "https://github.com/wasmerio/wasmer"
+publish = true
+description = "High-Performance WebAssembly JIT interpreter"
+license = "MIT"
+build = "src/build_spectests.rs"
+include = [
+    "examples/**/*",
+    "src/**/*",
+    "Cargo.lock",
+    "Cargo.toml",
+    "LICENSE",
+    "Makefile",
+    "README.md",
+    "rustfmt.toml"
+]
 
 [dependencies]
-wasmer = { version = "=4.2.6", path = "lib/api", default-features = false }
-wasmer-compiler = { version = "=4.2.6", path = "lib/compiler", features = [
-    "compiler",
-], optional = true }
-wasmer-compiler-cranelift = { version = "=4.2.6", path = "lib/compiler-cranelift", optional = true }
-wasmer-compiler-singlepass = { version = "=4.2.6", path = "lib/compiler-singlepass", optional = true }
-wasmer-compiler-llvm = { version = "=4.2.6", path = "lib/compiler-llvm", optional = true }
-wasmer-emscripten = { version = "=4.2.6", path = "lib/emscripten", optional = true }
-wasmer-wasix = { version = "0.18.0", path = "lib/wasix", optional = true }
-wasmer-wast = { version = "=4.2.6", path = "tests/lib/wast", optional = true }
-wasi-test-generator = { version = "=4.2.6", path = "tests/wasi-wast", optional = true }
-wasmer-cache = { version = "=4.2.6", path = "lib/cache", optional = true }
-wasmer-types = { version = "=4.2.6", path = "lib/types" }
-wasmer-middlewares = { version = "=4.2.6", path = "lib/middlewares", optional = true }
-cfg-if = "1.0"
-tokio = { version = "1", features = [
-    "rt",
-    "rt-multi-thread",
-    "macros",
-], optional = true }
-crossbeam-queue = "0.3.8"
-
-[workspace]
-members = [
-    "fuzz",
-    "lib/api",
-    "lib/api/macro-wasmer-universal-test",
-    "lib/backend-api",
-    "lib/c-api",
-    "lib/c-api/examples/wasmer-capi-examples-runner",
-    "lib/c-api/tests/wasmer-c-api-test-runner",
-    "lib/cache",
-    "lib/cli-compiler",
-    "lib/cli",
-    "lib/compiler-cranelift",
-    "lib/compiler-llvm",
-    "lib/compiler-singlepass",
-    "lib/compiler",
-    "lib/derive",
-    "lib/emscripten",
-    "lib/object",
-    "lib/registry",
-    "lib/sys-utils",
-    "lib/types",
-    "lib/virtual-io",
-    "lib/virtual-fs",
-    "lib/virtual-net",
-    "lib/vm",
-    "lib/wai-bindgen-wasmer",
-    "lib/wasi-types",
-    "lib/wasix",
-    "lib/wasm-interface",
-    "lib/journal",
-    "tests/integration/cli",
-    "tests/integration/ios",
-    "tests/lib/compiler-test-derive",
-    "tests/lib/wast",
-    "tests/wasi-wast",
-]
-resolver = "2"
-
-[workspace.package]
-authors = ["Wasmer Engineering Team <engineering@wasmer.io>"]
-edition = "2021"
-homepage = "https://wasmer.io/"
-license = "MIT"
-repository = "https://github.com/wasmerio/wasmer"
-rust-version = "1.73"
-version = "4.2.6"
-
-[workspace.dependencies]
-enumset = "1.1.0"
-memoffset = "0.9.0"
-wasmer-toml = "0.9.2"
-wasmparser = { version = "0.121.0", default-features = false }
-webc = { version = "5.8.0", default-features = false, features = ["package"] }
-shared-buffer = "0.1.4"
+# cranelift-native = "0.23.0"
+cranelift-native = { path = "cranelift/lib/native" }
+# cranelift-codegen = "0.23.0"
+cranelift-codegen = { path = "cranelift/lib/codegen" }
+# cranelift-entity = "0.23.0"
+cranelift-entity = { path = "cranelift/lib/entity" }
+# cranelift-wasm = "0.23.0"
+cranelift-wasm = { path = "cranelift/lib/wasm" }
+docopt = "1.0.0"
+serde = "1.0.55"
+serde_derive = "1.0.55"
+tempdir = "0.3.7"
+error-chain = "0.12.0"
+structopt = "0.2.11"
+wabt = "0.7.1"
+wasmparser = "0.20.0"
+region = "0.3.0"
+memmap = "0.6.2"
+# spin = "0.4.10"
+log = "0.4.5"
+target-lexicon = "0.2.0"
+# libc = "0.2"
+libc = { git = "https://github.com/rust-lang/libc" }
+nix = "0.11"
+rayon = "1.0.3"
 
 [build-dependencies]
-test-generator = { path = "tests/lib/test-generator" }
-build-deps = "0.1.4"
-anyhow = "1.0"
-glob = "0.3"
-rustc_version = "0.4"
+wabt = "0.7.1"
 
-[dev-dependencies]
-wasmer = { version = "=4.2.6", path = "lib/api", features = [
-    "compiler",
-    "singlepass",
-    "sys",
-] }
-anyhow = "1.0"
-criterion = { version = "0.5", default-features = false }
-lazy_static = "1.4"
-serial_test = { version = "2.0", default-features = false }
-compiler-test-derive = { path = "tests/lib/compiler-test-derive" }
-tempfile = "3.6.0"
-ureq = "2.6"
-# For logging tests using the `RUST_LOG=debug` when testing
-test-log = { version = "0.2", default-features = false, features = ["trace"] }
-tracing = { version = "0.1", default-features = false, features = ["log"] }
-tracing-subscriber = { version = "0.3", default-features = false, features = [
-    "env-filter",
-    "fmt",
-] }
+# [dev-dependencies]
+# libffi = "0.6.4"
+# maplit = "1.0.1"
 
 [features]
-# Don't add the compiler features in default, please add them on the Makefile
-# since we might want to autoconfigure them depending on the availability on the host.
-default = ["wat", "wast", "cache", "wasi", "engine", "emscripten", "middlewares"]
-# backend means that the `wasmer` crate will be compiled with the `wasmer-compiler` or the `jsc`.
-# That means: that is able to execute modules
-backend = []
-jsc = ["wasmer/jsc", "backend", "wat", "wasmer/std"]
-engine = ["universal"]
-universal = []
-cache = ["wasmer-cache"]
-wast = ["wasmer-wast"]
-wasi = ["wasmer-wasix"]
-emscripten = ["wasmer-emscripten"]
-wat = ["wasmer/wat"]
-compiler = ["wasmer/compiler", "backend", "wasmer-compiler/translator"]
-singlepass = ["compiler", "wasmer-compiler-singlepass", "wasmer/singlepass"]
-cranelift = ["compiler", "wasmer-compiler-cranelift", "wasmer/cranelift"]
-llvm = ["compiler", "wasmer-compiler-llvm", "wasmer/llvm"]
-middlewares = ["wasmer-middlewares"]
-wasmer-artifact-load = ["wasmer-compiler/wasmer-artifact-load"]
-wasmer-artifact-create = ["wasmer-compiler/wasmer-artifact-create"]
-static-artifact-load = ["wasmer-compiler/static-artifact-load"]
-static-artifact-create = ["wasmer-compiler/static-artifact-create"]
+default = ["fast-tests"]
 
-# Testing features
-test-singlepass = ["singlepass"]
-test-cranelift = ["cranelift"]
-test-llvm = ["llvm"]
-
-test-universal = ["test-generator/test-universal"]
-
-# Specifies that we're running in coverage testing mode. This disables tests
-# that raise signals because that interferes with tarpaulin.
-coverage = []
-
-#[profile.release]
-#debug = true
-
-# Enable optimizations for a few crates, even for debug builds.
-# This greatly speeds up using debug builds, because these crates are extremely
-# slow without optimizations.
-[profile.dev.package.cranelift-codegen]
-opt-level = 3
-[profile.dev.package.regalloc2]
-opt-level = 3
-[profile.dev.package.wasmparser]
-opt-level = 3
-[profile.dev.package.rkyv]
-opt-level = 3
-[profile.dev.package.wasmer-types]
-opt-level = 3
-[profile.dev.package.weezl]
-opt-level = 3
-[profile.dev.package.sha2]
-opt-level = 3
-[profile.dev.package.digest]
-opt-level = 3
-
-[[bench]]
-name = "static_and_dynamic_functions"
-harness = false
-
-[[example]]
-name = "early-exit"
-path = "examples/early_exit.rs"
-required-features = ["backend"]
-
-[[example]]
-name = "engine"
-path = "examples/engine.rs"
-required-features = ["cranelift"]
-
-[[example]]
-name = "engine-headless"
-path = "examples/engine_headless.rs"
-required-features = ["cranelift"]
-
-[[example]]
-name = "platform-headless-ios"
-path = "examples/platform_ios_headless.rs"
-required-features = ["cranelift"]
-
-[[example]]
-name = "cross-compilation"
-path = "examples/engine_cross_compilation.rs"
-required-features = ["cranelift"]
-
-[[example]]
-name = "compiler-singlepass"
-path = "examples/compiler_singlepass.rs"
-required-features = ["singlepass"]
-
-[[example]]
-name = "compiler-cranelift"
-path = "examples/compiler_cranelift.rs"
-required-features = ["cranelift"]
-
-[[example]]
-name = "compiler-llvm"
-path = "examples/compiler_llvm.rs"
-required-features = ["llvm"]
-
-[[example]]
-name = "exported-function"
-path = "examples/exports_function.rs"
-required-features = ["backend"]
-
-[[example]]
-name = "exported-global"
-path = "examples/exports_global.rs"
-required-features = ["backend"]
-
-[[example]]
-name = "exported-memory"
-path = "examples/exports_memory.rs"
-required-features = ["backend"]
-
-[[example]]
-name = "imported-function"
-path = "examples/imports_function.rs"
-required-features = ["backend"]
-
-[[example]]
-name = "imported-global"
-path = "examples/imports_global.rs"
-required-features = ["backend"]
-
-[[example]]
-name = "tunables-limit-memory"
-path = "examples/tunables_limit_memory.rs"
-required-features = ["cranelift"]
-
-[[example]]
-name = "wasi"
-path = "examples/wasi.rs"
-required-features = ["backend", "wasi"]
-
-[[example]]
-name = "wasi-manual-setup"
-path = "examples/wasi_manual_setup.rs"
-required-features = ["tokio", "backend", "wasi"]
-
-[[example]]
-name = "wasi-pipes"
-path = "examples/wasi_pipes.rs"
-required-features = ["tokio", "backend", "wasi"]
-
-[[example]]
-name = "table"
-path = "examples/table.rs"
-required-features = ["backend"]
-
-[[example]]
-name = "memory"
-path = "examples/memory.rs"
-required-features = ["backend"]
-
-[[example]]
-name = "instance"
-path = "examples/instance.rs"
-required-features = ["backend"]
-
-[[example]]
-name = "errors"
-path = "examples/errors.rs"
-required-features = ["backend"]
-
-[[example]]
-name = "imported-function-env"
-path = "examples/imports_function_env.rs"
-required-features = ["backend"]
-
-[[example]]
-name = "imported-function-env-global"
-path = "examples/imports_function_env_global.rs"
-required-features = ["backend"]
-
-[[example]]
-name = "hello-world"
-path = "examples/hello_world.rs"
-required-features = ["backend"]
-
-[[example]]
-name = "metering"
-path = "examples/metering.rs"
-required-features = ["cranelift"]
-
-[[example]]
-name = "imports-exports"
-path = "examples/imports_exports.rs"
-required-features = ["backend"]
-
-[[example]]
-name = "features"
-path = "examples/features.rs"
-required-features = ["cranelift"]
-
-[[example]]
-name = "http-dynamic-size"
-path = "examples/http_dynamic_size.rs"
-required-features = ["cranelift"]
+debug = []
+# This feature will allow cargo test to run much faster
+fast-tests = []

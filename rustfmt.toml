@@ -1,6 +1,3 @@
-# Nightly only, sadly.
-# Need to wait until they are stabilised.
-# imports_granularity = "Crate"
-# group_imports = "StdExternalCrate"
-# reorder_imports = true
-
+ignore = [
+    "src/spectests",
+]
