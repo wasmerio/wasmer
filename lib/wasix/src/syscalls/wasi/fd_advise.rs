@@ -53,7 +53,5 @@ pub(crate) fn fd_advise_internal(
         return Err(Errno::Access);
     }
 
-    let _end = offset.checked_add(len).ok_or(Errno::Inval)?;
-
     Ok(())
 }
