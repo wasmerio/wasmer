@@ -1,21 +1,29 @@
 use anyhow::Context as _;
 use clap::Parser;
+use dialoguer::Confirm;
+use is_terminal::IsTerminal;
+use wasmer_config::package::PackageIdent;
 use wasmer_registry::{publish::PublishWait, wasmer_env::WasmerEnv};
 
-use super::PackageBuild;
+use crate::{opts::ApiOpts, utils::load_package_manifest};
+
+use super::{AsyncCliCommand, PackageBuild};
 
 /// Publish a package to the package registry.
 #[derive(Debug, Parser)]
 pub struct Publish {
     #[clap(flatten)]
-    env: WasmerEnv,
+    pub env: WasmerEnv,
     /// Run the publish logic without sending anything to the registry server
     #[clap(long, name = "dry-run")]
     pub dry_run: bool,
     /// Run the publish command without any output
     #[clap(long)]
     pub quiet: bool,
-    /// Override the package of the uploaded package in the wasmer.toml
+    /// Override the namespace of the package to upload
+    #[clap(long)]
+    pub package_namespace: Option<String>,
+    /// Override the name of the package to upload
     #[clap(long)]
     pub package_name: Option<String>,
     /// Override the package version of the uploaded package in the wasmer.toml
@@ -44,17 +52,67 @@ pub struct Publish {
     /// for each individual query to the registry during the publish flow.
     #[clap(long, default_value = "2m")]
     pub timeout: humantime::Duration,
+
+    /// Do not prompt for user input.
+    #[clap(long)]
+    pub non_interactive: bool,
 }
 
-impl Publish {
-    /// Executes `wasmer publish`
-    pub fn execute(&self) -> Result<(), anyhow::Error> {
-        // first check if the package could be built successfuly
-        let package_path = match self.package_path.as_ref() {
+#[async_trait::async_trait]
+impl AsyncCliCommand for Publish {
+    type Output = Option<PackageIdent>;
+
+    async fn run_async(self) -> Result<Self::Output, anyhow::Error> {
+        let manifest_dir_path = match self.package_path.as_ref() {
             Some(s) => std::env::current_dir()?.join(s),
             None => std::env::current_dir()?,
         };
-        PackageBuild::check(package_path).execute()?;
+
+        let (_, manifest) = match load_package_manifest(&manifest_dir_path)? {
+            Some(r) => r,
+            None => anyhow::bail!(
+                "Path '{}' does not contain a valid `wasmer.toml` manifest.",
+                manifest_dir_path.display()
+            ),
+        };
+
+        let hash = PackageBuild::check(manifest_dir_path).execute()?;
+
+        let api = ApiOpts {
+            token: self.env.token().clone(),
+            registry: Some(self.env.registry_endpoint()?),
+        };
+        let client = api.client()?;
+
+        let maybe_already_published =
+            wasmer_api::query::get_package_release(&client, &hash.to_string())
+                .await
+                .is_ok();
+
+        if maybe_already_published.is_some() {
+            eprintln!("Package with hash {hash} already present on registry");
+            return Ok(Some(PackageIdent::Hash(hash)));
+        }
+
+        let mut version = self.version.clone();
+
+        if let Some(pkg) = manifest.package {
+            if std::io::stdin().is_terminal() && !self.non_interactive {
+                eprintln!("Current package version is {}.", pkg.version);
+                let mut next_version = pkg.version.clone();
+                next_version.patch += 1;
+                if Confirm::new()
+                    .with_prompt(format!(
+                        "Do you want to bump it to a new version ({} -> {})?",
+                        pkg.version, next_version
+                    ))
+                    .interact()
+                    .unwrap_or_default()
+                {
+                    version = Some(next_version);
+                }
+            }
+        }
 
         let token = self
             .env
@@ -80,9 +138,9 @@ impl Publish {
             package_path: self.package_path.clone(),
             wait,
             timeout: self.timeout.into(),
-            package_namespace: None,
+            package_namespace: self.package_namespace,
         };
-        publish.execute().map_err(on_error)?;
+        let res = publish.execute().map_err(on_error)?;
 
         if let Err(e) = invalidate_graphql_query_cache(&self.env) {
             tracing::warn!(
@@ -91,7 +149,7 @@ impl Publish {
             );
         }
 
-        Ok(())
+        Ok(res)
     }
 }
 

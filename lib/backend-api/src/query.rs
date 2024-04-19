@@ -2,11 +2,12 @@ use std::{collections::HashSet, pin::Pin, time::Duration};
 
 use anyhow::{bail, Context};
 use cynic::{MutationBuilder, QueryBuilder};
-use edge_schema::schema::{NetworkTokenV1, PackageIdentifier};
+use edge_schema::schema::NetworkTokenV1;
 use futures::{Stream, StreamExt};
 use time::OffsetDateTime;
 use tracing::Instrument;
 use url::Url;
+use wasmer_config::package::PackageIdent;
 
 use crate::{
     types::{
@@ -24,10 +25,21 @@ use crate::{
 /// the API, and should not be used where possible.
 pub async fn fetch_webc_package(
     client: &WasmerClient,
-    ident: &PackageIdentifier,
+    ident: &PackageIdent,
     default_registry: &Url,
 ) -> Result<webc::compat::Container, anyhow::Error> {
-    let url = ident.build_download_url_with_default_registry(default_registry);
+    let url = match ident {
+        PackageIdent::Named(n) => Url::parse(&format!(
+            "{default_registry}/{}:{}",
+            n.full_name(),
+            n.version_or_default()
+        ))?,
+        PackageIdent::Hash(h) => match get_package_release(client, &h.to_string()).await? {
+            Some(webc) => Url::parse(&webc.webc_url)?,
+            None => anyhow::bail!("Could not find package with hash '{}'", h),
+        },
+    };
+
     let data = client
         .client
         .get(url)

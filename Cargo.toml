@@ -98,6 +98,7 @@ rkyv = { version = "0.7.40", features = ["indexmap", "validation", "strict"] }
 memmap2 = { version = "0.6.2" }
 edge-schema = { version = "=0.1.0" }
 indexmap = "1"
+serde_yaml = "0.9.0"
 
 [build-dependencies]
 test-generator = { path = "tests/lib/test-generator" }

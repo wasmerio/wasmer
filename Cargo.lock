@@ -1413,10 +1413,11 @@ dependencies = [
 [[package]]
 name = "edge-schema"
 version = "0.0.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "183ddfb52c2441be9d8c3c870632135980ba98e0c4f688da11bcbebb4e26f128"
 dependencies = [
  "anyhow",
  "bytesize",
- "hex",
  "once_cell",
  "parking_lot 0.12.1",
  "rand_chacha",
@@ -1436,11 +1437,10 @@ dependencies = [
 [[package]]
 name = "edge-schema"
 version = "0.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0966f1fd49610cc67a835124e6fb4d00a36104e1aa34383c5ef5a265ca00ea2a"
 dependencies = [
  "anyhow",
  "bytesize",
+ "hex",
  "once_cell",
  "parking_lot 0.12.1",
  "rand_chacha",
@@ -2228,7 +2228,7 @@ dependencies = [
  "httpdate",
  "itoa",
  "pin-project-lite",
- "socket2 0.5.6",
+ "socket2 0.4.10",
  "tokio 1.37.0",
  "tower-service",
  "tracing",
@@ -5587,7 +5587,7 @@ version = "1.6.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "97fee6b57c6a41524a810daee9286c02d7752c4253064d0b05472833a438f675"
 dependencies = [
- "cfg-if 1.0.0",
+ "cfg-if 0.1.10",
  "static_assertions",
 ]
 
@@ -6253,6 +6253,7 @@ dependencies = [
  "tracing",
  "url",
  "uuid",
+ "wasmer-config 0.1.0",
  "webc",
 ]
 
@@ -6412,7 +6413,7 @@ dependencies = [
  "semver 1.0.22",
  "serde",
  "serde_json",
- "serde_yaml 0.8.26",
+ "serde_yaml 0.9.34+deprecated",
  "sha2",
  "shared-buffer",
  "tar",
@@ -6783,6 +6784,7 @@ dependencies = [
  "wasmer-config 0.1.0",
  "wasmer-wasm-interface",
  "wasmparser 0.121.2",
+ "webc",
  "whoami",
 ]
 

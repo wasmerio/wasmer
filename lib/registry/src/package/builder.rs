@@ -9,6 +9,7 @@ use rusqlite::{params, Connection, OpenFlags, TransactionBehavior};
 use tar::Builder;
 use thiserror::Error;
 use time::{self, OffsetDateTime};
+use wasmer_config::package::PackageIdent;
 
 use crate::publish::PublishWait;
 use crate::{package::builder::validate::ValidationPolicy, publish::SignArchiveResult};
@@ -22,7 +23,7 @@ const MIGRATIONS: &[(i32, &str)] = &[
 
 const CURRENT_DATA_VERSION: usize = MIGRATIONS.len();
 
-/// CLI options for the `wasmer publish` command
+/// An abstraction for the action of publishing a named or unnamed package.
 pub struct Publish {
     /// Registry to publish to
     pub registry: Option<String>,
@@ -30,7 +31,9 @@ pub struct Publish {
     pub dry_run: bool,
     /// Run the publish command without any output
     pub quiet: bool,
-    /// Override the package of the uploaded package in the wasmer.toml
+    /// Override the namespace of the package to upload
+    pub package_namespace: Option<String>,
+    /// Override the name of the package to upload
     pub package_name: Option<String>,
     /// Override the package version of the uploaded package in the wasmer.toml
     pub version: Option<semver::Version>,
@@ -44,8 +47,6 @@ pub struct Publish {
     pub wait: PublishWait,
     /// Timeout (in seconds) for the publish query to the registry
     pub timeout: Duration,
-
-    pub package_namespace: Option<String>,
 }
 
 #[derive(Debug, Error)]
@@ -65,8 +66,8 @@ enum PackageBuildError {
 }
 
 impl Publish {
-    /// Executes `wasmer publish`
-    pub fn execute(&self) -> Result<Option<String>, anyhow::Error> {
+    /// Publish the package to the selected (or default) registry.
+    pub fn execute(&self) -> Result<Option<PackageIdent>, anyhow::Error> {
         let input_path = match self.package_path.as_ref() {
             Some(s) => std::env::current_dir()?.join(s),
             None => std::env::current_dir()?,
@@ -164,19 +165,7 @@ impl Publish {
 
         if self.dry_run {
             // dry run: publish is done here
-
-            match manifest.package {
-                Some(pkg) => {
-                    println!(
-                        "🚀 Successfully published package `{}@{}`",
-                        pkg.name, pkg.version
-                    );
-                }
-                None => println!(
-                    "🚀 Successfully published unnamed package from `{}`",
-                    manifest_path.display()
-                ),
-            }
+            println!("🚀 Package published successfully!");
 
             let path = archive_dir.into_path();
             eprintln!("Archive persisted at: {}", path.display());

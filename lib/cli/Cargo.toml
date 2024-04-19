@@ -166,7 +166,7 @@ interfaces = { version = "0.0.9", optional = true }
 
 uuid = { version = "1.3.0", features = ["v4"] }
 time = { version = "0.3.17", features = ["macros"] }
-serde_yaml = "0.8.26"
+serde_yaml = {workspace = true}
 comfy-table = "7.0.1"
 
 

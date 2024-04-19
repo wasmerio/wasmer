@@ -16,9 +16,11 @@ use std::collections::BTreeMap;
 use std::fmt::Write;
 use std::io::BufRead;
 use std::path::PathBuf;
+use std::str::FromStr;
 use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::Duration;
+use wasmer_config::package::{NamedPackageIdent, PackageHash, PackageIdent};
 
 static UPLOAD: Emoji<'_, '_> = Emoji("⬆️ ", "");
 static PACKAGE: Emoji<'_, '_> = Emoji("📦", "");
@@ -91,7 +93,7 @@ pub fn try_chunked_uploading(
     wait: PublishWait,
     timeout: Duration,
     patch_namespace: Option<String>,
-) -> Result<Option<String>, anyhow::Error> {
+) -> Result<Option<PackageIdent>, anyhow::Error> {
     let (registry, token) = initialize_registry_and_token(registry, token)?;
 
     let maybe_signature_data = sign_package(maybe_signature_data);
@@ -117,11 +119,11 @@ pub fn try_chunked_uploading(
             version: package.as_ref().map(|p| p.version.to_string()),
             description: package.as_ref().map(|p| p.description.clone()),
             manifest: manifest_string.to_string(),
-            license: package.as_ref().map(|p| p.license.clone()).flatten(),
+            license: package.as_ref().and_then(|p| p.license.clone()),
             license_file: license_file.to_owned(),
             readme: readme.to_owned(),
-            repository: package.as_ref().map(|p| p.repository.clone()).flatten(),
-            homepage: package.as_ref().map(|p| p.homepage.clone()).flatten(),
+            repository: package.as_ref().and_then(|p| p.repository.clone()),
+            homepage: package.as_ref().and_then(|p| p.homepage.clone()),
             file_name: Some(archive_name.to_string()),
             signature: maybe_signature_data,
             signed_url: Some(signed_url.url),
@@ -135,12 +137,15 @@ pub fn try_chunked_uploading(
     let response: publish_package_mutation_chunked::ResponseData =
         crate::graphql::execute_query_with_timeout(&registry, &token, timeout, &q)?;
 
-    let mut package_hash = None;
-    if let Some(pkg) = response.publish_package {
-        if !pkg.success {
+    if let Some(payload) = response.publish_package {
+        if !payload.success {
             return Err(anyhow::anyhow!("Could not publish package"));
         }
-        if let Some(pkg_version) = pkg.package_version {
+
+        if let Some(pkg_version) = payload.package_version {
+            // Here we can assume that the package is *Some*.
+            let package = package.clone().unwrap();
+
             if wait.is_any() {
                 let f = wait_for_package_version_to_become_ready(
                     &registry,
@@ -156,22 +161,28 @@ pub fn try_chunked_uploading(
                     tokio::runtime::Runtime::new().unwrap().block_on(f)?;
                 }
             }
-        }
-        if let Some(pkg_hash) = pkg.package_webc {
-            package_hash = Some(pkg_hash.webc.unwrap().webc_sha256);
-        }
-    }
 
-    if let Some(pkg) = package {
-        println!(
-            "🚀 Successfully published package `{}@{}`",
-            pkg.name, pkg.version,
-        );
+            let package_ident = PackageIdent::Named(NamedPackageIdent::from_str(&format!(
+                "{}@{}",
+                package.name, package.version
+            ))?);
+
+            println!("🚀 Successfully published package `{}`", package_ident);
+            return Ok(Some(package_ident));
+        }
+
+        if let Some(pkg_hash) = payload.package_webc {
+            let package_ident = PackageIdent::Hash(
+                PackageHash::from_str(&pkg_hash.webc.unwrap().webc_sha256).unwrap(),
+            );
+            println!("🚀 Successfully published package `{}`", package_ident);
+            return Ok(Some(package_ident));
+        }
+
+        unreachable!();
     } else {
-        println!("🚀 Successfully published unnamed package",);
+        unreachable!();
     }
-
-    Ok(package_hash)
 }
 
 fn initialize_registry_and_token(
