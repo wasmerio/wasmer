@@ -1,6 +1,5 @@
 //! Edge app commands.
 
-#![allow(unused, dead_code)]
 pub mod create;
 pub mod delete;
 pub mod deploy;

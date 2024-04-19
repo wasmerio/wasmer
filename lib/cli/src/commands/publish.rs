@@ -89,7 +89,7 @@ impl AsyncCliCommand for Publish {
                 .await
                 .is_ok();
 
-        if maybe_already_published.is_some() {
+        if maybe_already_published {
             eprintln!("Package with hash {hash} already present on registry");
             return Ok(Some(PackageIdent::Hash(hash)));
         }
