@@ -68,7 +68,7 @@ enum PackageBuildError {
 
 impl Publish {
     /// Publish the package to the selected (or default) registry.
-    pub fn execute(&self) -> Result<Option<PackageIdent>, anyhow::Error> {
+    pub async fn execute(&self) -> Result<Option<PackageIdent>, anyhow::Error> {
         let input_path = match self.package_path.as_ref() {
             Some(s) => std::env::current_dir()?.join(s),
             None => std::env::current_dir()?,
@@ -199,7 +199,7 @@ impl Publish {
             self.wait,
             self.timeout,
             self.package_namespace.clone(),
-        )
+        ).await
     }
 
     fn validation_policy(&self) -> Box<dyn ValidationPolicy> {

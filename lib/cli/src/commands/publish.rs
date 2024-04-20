@@ -119,31 +119,33 @@ impl AsyncCliCommand for Publish {
                     })
                     .unwrap_or(pkg.version.clone());
 
-            if self.autobump {
-                latest_version.patch += 1;
-                version = Some(latest_version);
-            } else if std::io::stdin().is_terminal() && !self.non_interactive {
-                eprintln!(
-                    "Current package version (from manifest or registry) is {}.",
-                    latest_version
-                );
-                latest_version.patch += 1;
-                if Confirm::new()
-                    .with_prompt(format!(
-                        "Do you want to bump it to a new version ((local: {}) -> {})?",
-                        pkg.version, latest_version
-                    ))
-                    .interact()
-                    .unwrap_or_default()
-                {
+            if pkg.version <= latest_version {
+                if self.autobump {
+                    latest_version.patch += 1;
                     version = Some(latest_version);
+                } else if std::io::stdin().is_terminal() && !self.non_interactive {
+                    eprintln!(
+                        "Current package version (from manifest or registry) is {}.",
+                        latest_version
+                    );
+                    latest_version.patch += 1;
+                    if Confirm::new()
+                        .with_prompt(format!(
+                            "Do you want to bump it to a new version ((local: {}) -> {})?",
+                            pkg.version, latest_version
+                        ))
+                        .interact()
+                        .unwrap_or_default()
+                    {
+                        version = Some(latest_version);
+                    }
+                } else if latest_version > pkg.version {
+                    eprintln!("Registry has a newer version of this package.");
+                    eprintln!(
+                        "If a package with version {} already exists, publishing will fail.",
+                        pkg.version
+                    );
                 }
-            } else if latest_version > pkg.version {
-                eprintln!("Registry has a newer version of this package.");
-                eprintln!(
-                    "If a package with version {} already exists, publishing will fail.",
-                    pkg.version
-                );
             }
 
             // If necessary, update the manifest.
@@ -194,9 +196,7 @@ impl AsyncCliCommand for Publish {
             package_namespace: self.package_namespace,
         };
 
-        let res = tokio::task::spawn_blocking(move || publish.execute().map_err(on_error))
-            .await
-            .expect("Task panicked")?;
+        let res = publish.execute().await.map_err(on_error)?;
 
         if let Err(e) = invalidate_graphql_query_cache(&self.env) {
             tracing::warn!(

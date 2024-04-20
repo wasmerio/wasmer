@@ -14,16 +14,19 @@ use graphql_client::GraphQLQuery;
 use indicatif::{MultiProgress, ProgressBar, ProgressState, ProgressStyle};
 use std::collections::BTreeMap;
 use std::fmt::Write;
-use std::io::BufRead;
+use std::io::Write as _;
 use std::path::PathBuf;
 use std::str::FromStr;
 use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::Duration;
+use tokio::io::{AsyncBufReadExt, AsyncWriteExt};
+use tokio::sync::oneshot::Receiver;
 use wasmer_config::package::{NamedPackageIdent, PackageHash, PackageIdent};
 
-static UPLOAD: Emoji<'_, '_> = Emoji("⬆️ ", "");
+static UPLOAD: Emoji<'_, '_> = Emoji("⬆️", "");
 static PACKAGE: Emoji<'_, '_> = Emoji("📦", "");
+static FIRE: Emoji<'_, '_> = Emoji("🔥", "");
 
 /// Different conditions that can be "awaited" when publishing a package.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -77,8 +80,23 @@ pub enum SignArchiveResult {
     NoKeyRegistered,
 }
 
+async fn wait_on(mut recv: Receiver<()>) {
+    loop {
+
+        _ = std::io::stdout().flush();
+        _ = tokio::io::stdout().flush().await;
+        if recv.try_recv().is_ok() {
+            println!(".");
+            break;
+        } else {
+            tokio::time::sleep(Duration::from_secs(1)).await;
+            print!(".");
+        }
+    }
+}
+
 #[allow(clippy::too_many_arguments)]
-pub fn try_chunked_uploading(
+pub async fn try_chunked_uploading(
     registry: Option<String>,
     token: Option<String>,
     package: &Option<wasmer_config::package::Package>,
@@ -96,6 +114,8 @@ pub fn try_chunked_uploading(
 ) -> Result<Option<PackageIdent>, anyhow::Error> {
     let (registry, token) = initialize_registry_and_token(registry, token)?;
 
+    let steps = if wait.is_any() { 3 } else { 2 };
+
     let maybe_signature_data = sign_package(maybe_signature_data);
 
     // fetch this before showing the `Uploading...` message
@@ -104,13 +124,14 @@ pub fn try_chunked_uploading(
     let signed_url = google_signed_url(&registry, &token, package, timeout)?;
 
     if !quiet {
-        println!("{} {} Uploading...", style("[1/2]").bold().dim(), UPLOAD);
+        println!(
+            "{} {} Uploading",
+            style(format!("[1/{steps}]")).bold().dim(),
+            UPLOAD
+        );
     }
-    upload_package(&signed_url.url, archive_path, archived_data_size, timeout)?;
 
-    if !quiet {
-        println!("{} {} Publishing...", style("[2/2]").bold().dim(), PACKAGE);
-    }
+    upload_package(&signed_url.url, archive_path, archived_data_size, timeout).await?;
 
     let q =
         PublishPackageMutationChunked::build_query(publish_package_mutation_chunked::Variables {
@@ -134,8 +155,35 @@ pub fn try_chunked_uploading(
             wait: Some(wait.is_any()),
         });
 
-    let response: publish_package_mutation_chunked::ResponseData =
-        crate::graphql::execute_query_with_timeout(&registry, &token, timeout, &q)?;
+    let (send, recv) = tokio::sync::oneshot::channel();
+    let mut wait_t = None;
+
+    if !quiet {
+        print!(
+            "{} {} Publishing package",
+            style(format!("[2/{steps}]")).bold().dim(),
+            PACKAGE
+        );
+
+        _ = std::io::stdout().flush();
+        _ = tokio::io::stdout().flush().await;
+        wait_t = Some(tokio::spawn(wait_on(recv)))
+    }
+
+    let response: publish_package_mutation_chunked::ResponseData = {
+        let registry = registry.clone();
+        let token = token.clone();
+        tokio::spawn(async move {
+            crate::graphql::execute_query_with_timeout(&registry, &token, timeout, &q)
+        })
+        .await??
+    };
+
+    _ = send.send(());
+
+    if let Some(wait_t) = wait_t {
+        _ = wait_t.await;
+    };
 
     if let Some(payload) = response.publish_package {
         if !payload.success {
@@ -147,19 +195,15 @@ pub fn try_chunked_uploading(
             let package = package.clone().unwrap();
 
             if wait.is_any() {
-                let f = wait_for_package_version_to_become_ready(
+                wait_for_package_version_to_become_ready(
                     &registry,
                     &token,
                     pkg_version.id,
                     quiet,
                     wait,
-                );
-
-                if let Ok(handle) = tokio::runtime::Handle::try_current() {
-                    handle.block_on(f)?
-                } else {
-                    tokio::runtime::Runtime::new().unwrap().block_on(f)?;
-                }
+                    steps,
+                )
+                .await?;
             }
 
             let package_ident = PackageIdent::Named(NamedPackageIdent::from_str(&format!(
@@ -286,14 +330,14 @@ fn google_signed_url(
     Ok(url)
 }
 
-fn upload_package(
+async fn upload_package(
     signed_url: &str,
     archive_path: &PathBuf,
     archived_data_size: u64,
     timeout: Duration,
 ) -> Result<(), anyhow::Error> {
     let url = url::Url::parse(signed_url).context("cannot parse signed url")?;
-    let client = reqwest::blocking::Client::builder()
+    let client = reqwest::Client::builder()
         .default_headers(reqwest::header::HeaderMap::default())
         .timeout(timeout)
         .build()
@@ -305,7 +349,7 @@ fn upload_package(
         .header(reqwest::header::CONTENT_TYPE, "application/octet-stream")
         .header("x-goog-resumable", "start");
 
-    let result = res.send().unwrap();
+    let result = res.send().await.unwrap();
 
     if result.status() != reqwest::StatusCode::from_u16(201).unwrap() {
         return Err(anyhow::anyhow!(
@@ -329,9 +373,10 @@ fn upload_package(
     let total = archived_data_size;
 
     // archive_path
-    let mut file = std::fs::OpenOptions::new()
+    let mut file = tokio::fs::OpenOptions::new()
         .read(true)
         .open(archive_path)
+        .await
         .map_err(|e| anyhow::anyhow!("cannot open archive {}: {e}", archive_path.display()))?;
 
     let pb = ProgressBar::new(archived_data_size);
@@ -345,14 +390,14 @@ fn upload_package(
     let chunk_size = 1_048_576; // 1MB - 315s / 100MB
     let mut file_pointer = 0;
 
-    let mut reader = std::io::BufReader::with_capacity(chunk_size, &mut file);
+    let mut reader = tokio::io::BufReader::with_capacity(chunk_size, &mut file);
 
-    let client = reqwest::blocking::Client::builder()
+    let client = reqwest::Client::builder()
         .default_headers(reqwest::header::HeaderMap::default())
         .build()
         .unwrap();
 
-    while let Some(chunk) = reader.fill_buf().ok().map(|s| s.to_vec()) {
+    while let Some(chunk) = reader.fill_buf().await.ok().map(|s| s.to_vec()) {
         let n = chunk.len();
 
         if chunk.is_empty() {
@@ -373,6 +418,7 @@ fn upload_package(
         pb.set_position(file_pointer as u64);
 
         res.send()
+            .await
             .map(|response| response.error_for_status())
             .map_err(|e| {
                 anyhow::anyhow!(
@@ -436,7 +482,8 @@ fn show_spinners_while_waiting(state: &PackageVersionReadySharedState) {
             match state.lock() {
                 Ok(lock) => {
                     if lock.is_some() {
-                        spinner.finish_with_message(format!("✅ {} generation complete", name));
+                        // spinner.finish_with_message(format!("✅ {} generation complete", name));
+                        spinner.finish_and_clear();
                         break;
                     }
                 }
@@ -466,14 +513,24 @@ async fn wait_for_package_version_to_become_ready(
     package_version_id: impl AsRef<str>,
     quiet: bool,
     mut conditions: PublishWait,
+    steps: usize,
 ) -> Result<()> {
     let (mut stream, _client) =
         subscribe_package_version_ready(registry, token, package_version_id.as_ref()).await?;
 
     let state = PackageVersionReadySharedState::new();
 
+    let (send, recv) = tokio::sync::oneshot::channel();
+    let mut wait_t = None;
+
     if !quiet {
-        show_spinners_while_waiting(&state);
+        print!(
+            "{} {} Waiting for package to be available",
+            style(format!("[3/{steps}]")).bold().dim(),
+            FIRE
+        );
+        _ = tokio::io::stdout().flush().await;
+        wait_t = Some(tokio::spawn(wait_on(recv)));
     }
 
     if !conditions.is_any() {
@@ -490,6 +547,7 @@ async fn wait_for_package_version_to_become_ready(
             break;
         }
         if std::time::Instant::now() > deadline {
+            _ = send.send(());
             return Err(anyhow::anyhow!(
                 "Timed out waiting for package version to become ready"
             ));
@@ -497,9 +555,10 @@ async fn wait_for_package_version_to_become_ready(
 
         let data = match tokio::time::timeout_at(deadline.into(), stream.next()).await {
             Err(_) => {
+                _ = send.send(());
                 return Err(anyhow::anyhow!(
                     "Timed out waiting for package version to become ready"
-                ))
+                ));
             }
             Ok(None) => {
                 break;
@@ -530,6 +589,12 @@ async fn wait_for_package_version_to_become_ready(
                 PackageVersionState::Other(_) => {}
             }
         }
+    }
+
+    _ = send.send(());
+
+    if let Some(wait_t) = wait_t {
+        _ = wait_t.await;
     }
 
     Ok(())
