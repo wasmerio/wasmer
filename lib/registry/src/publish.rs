@@ -427,7 +427,7 @@ fn show_spinners_while_waiting(state: &PackageVersionReadySharedState) {
     );
     let m = MultiProgress::new();
 
-    let webc_spinner = create_spinner(&m, String::from("Generating WEBC..."));
+    let webc_spinner = create_spinner(&m, String::from("Generating package..."));
     let bindings_spinner = create_spinner(&m, String::from("Generating language bindings..."));
     let exe_spinner = create_spinner(&m, String::from("Generating native executables..."));
 
@@ -447,7 +447,7 @@ fn show_spinners_while_waiting(state: &PackageVersionReadySharedState) {
             thread::sleep(Duration::from_millis(100));
         });
     };
-    check_and_finish(webc_spinner, state_webc, String::from("WEBC"));
+    check_and_finish(webc_spinner, state_webc, String::from("package"));
     check_and_finish(
         bindings_spinner,
         state_bindings,

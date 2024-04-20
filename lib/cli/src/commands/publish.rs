@@ -53,6 +53,10 @@ pub struct Publish {
     #[clap(long, default_value = "2m")]
     pub timeout: humantime::Duration,
 
+    /// Whether or not the patch field of the version of the package - if any - should be bumped.
+    #[clap(long)]
+    pub autobump: bool,
+
     /// Do not prompt for user input.
     #[clap(long)]
     pub non_interactive: bool,
@@ -68,7 +72,7 @@ impl AsyncCliCommand for Publish {
             None => std::env::current_dir()?,
         };
 
-        let (_, manifest) = match load_package_manifest(&manifest_dir_path)? {
+        let (manifest_path, mut manifest) = match load_package_manifest(&manifest_dir_path)? {
             Some(r) => r,
             None => anyhow::bail!(
                 "Path '{}' does not contain a valid `wasmer.toml` manifest.",
@@ -94,22 +98,71 @@ impl AsyncCliCommand for Publish {
             return Ok(Some(PackageIdent::Hash(hash)));
         }
 
+        if manifest.package.is_none() && (self.version.is_some() || self.package_name.is_some()) {
+            eprintln!("Warning: overrides for package version or package name were specified.");
+            eprintln!(
+                "The manifest in path {}, however, specifies an unnamed package,",
+                manifest_path.display()
+            );
+            eprintln!("that is, a package without name and version.");
+        }
+
         let mut version = self.version.clone();
 
-        if let Some(pkg) = manifest.package {
-            if std::io::stdin().is_terminal() && !self.non_interactive {
-                eprintln!("Current package version is {}.", pkg.version);
-                let mut next_version = pkg.version.clone();
-                next_version.patch += 1;
+        if let Some(ref mut pkg) = manifest.package {
+            let mut latest_version =
+                wasmer_api::query::get_package_version(&client, pkg.name.clone(), "latest".into())
+                    .await
+                    .and_then(|v| {
+                        semver::Version::parse(&v.unwrap().version)
+                            .with_context(|| "While parsing registry version of package")
+                    })
+                    .unwrap_or(pkg.version.clone());
+
+            if self.autobump {
+                latest_version.patch += 1;
+                version = Some(latest_version);
+            } else if std::io::stdin().is_terminal() && !self.non_interactive {
+                eprintln!(
+                    "Current package version (from manifest or registry) is {}.",
+                    latest_version
+                );
+                latest_version.patch += 1;
                 if Confirm::new()
                     .with_prompt(format!(
-                        "Do you want to bump it to a new version ({} -> {})?",
-                        pkg.version, next_version
+                        "Do you want to bump it to a new version ((local: {}) -> {})?",
+                        pkg.version, latest_version
                     ))
                     .interact()
                     .unwrap_or_default()
                 {
-                    version = Some(next_version);
+                    version = Some(latest_version);
+                }
+            } else if latest_version > pkg.version {
+                eprintln!("Registry has a newer version of this package.");
+                eprintln!(
+                    "If a package with version {} already exists, publishing will fail.",
+                    pkg.version
+                );
+            }
+
+            // If necessary, update the manifest.
+            if let Some(version) = version.clone() {
+                if version != pkg.version {
+                    pkg.version = version;
+
+                    let contents = toml::to_string(&manifest).with_context(|| {
+                        format!(
+                            "could not serialize manifest from path '{}'",
+                            manifest_path.display()
+                        )
+                    })?;
+
+                    tokio::fs::write(&manifest_path, contents)
+                        .await
+                        .with_context(|| {
+                            format!("could not write manifest to '{}'", manifest_path.display())
+                        })?;
                 }
             }
         }
@@ -132,7 +185,7 @@ impl AsyncCliCommand for Publish {
             dry_run: self.dry_run,
             quiet: self.quiet,
             package_name: self.package_name.clone(),
-            version: self.version.clone(),
+            version,
             token,
             no_validate: self.no_validate,
             package_path: self.package_path.clone(),
@@ -140,7 +193,10 @@ impl AsyncCliCommand for Publish {
             timeout: self.timeout.into(),
             package_namespace: self.package_namespace,
         };
-        let res = publish.execute().map_err(on_error)?;
+
+        let res = tokio::task::spawn_blocking(move || publish.execute().map_err(on_error))
+            .await
+            .expect("Task panicked")?;
 
         if let Err(e) = invalidate_graphql_query_cache(&self.env) {
             tracing::warn!(

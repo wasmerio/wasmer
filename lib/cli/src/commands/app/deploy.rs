@@ -95,6 +95,7 @@ impl CmdAppDeploy {
                 None => Some(owner),
             },
             non_interactive: self.non_interactive,
+            autobump: false,
         };
 
         match publish_cmd.run_async().await? {
@@ -192,7 +193,7 @@ impl AsyncCliCommand for CmdAppDeploy {
             .with_context(|| format!("Could not read file '{}'", app_config_path.display()))?;
 
         let mut app_config: AppConfigV1 = AppConfigV1::parse_yaml(&config_str)?;
-        eprintln!("Loaded app from: '{}'", app_config_path.display());
+        eprintln!("Loaded app from path '{}'", app_config_path.display());
 
         let owner = self.get_owner(&app_config).await?;
 
@@ -204,7 +205,7 @@ impl AsyncCliCommand for CmdAppDeploy {
 
         let opts = match app_config.package {
             PackageSource::Path(ref path) => {
-                eprintln!("Checking local package at path '{}'...", path);
+                eprintln!("Inspecting local manifest from path '{}'", path);
                 let package =
                     PackageSource::from(self.publish(owner.clone(), PathBuf::from(path)).await?);
 
@@ -296,12 +297,12 @@ pub async fn deploy_app(
 
     let version = wasmer_api::query::publish_deploy_app(
         client,
-        dbg!(wasmer_api::types::PublishDeployAppVars {
+        wasmer_api::types::PublishDeployAppVars {
             config: raw_config,
             name: app.name.clone().into(),
             owner: opts.owner.map(|o| o.into()),
             make_default: Some(opts.make_default),
-        }),
+        },
     )
     .await
     .context("could not create app in the backend")?;

@@ -24,6 +24,7 @@ const MIGRATIONS: &[(i32, &str)] = &[
 const CURRENT_DATA_VERSION: usize = MIGRATIONS.len();
 
 /// An abstraction for the action of publishing a named or unnamed package.
+#[derive(Debug)]
 pub struct Publish {
     /// Registry to publish to
     pub registry: Option<String>,
