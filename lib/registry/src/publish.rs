@@ -82,7 +82,6 @@ pub enum SignArchiveResult {
 
 async fn wait_on(mut recv: Receiver<()>) {
     loop {
-
         _ = std::io::stdout().flush();
         _ = tokio::io::stdout().flush().await;
         if recv.try_recv().is_ok() {
@@ -186,11 +185,10 @@ pub async fn try_chunked_uploading(
     };
 
     if let Some(payload) = response.publish_package {
+        dbg!(&payload);
         if !payload.success {
             return Err(anyhow::anyhow!("Could not publish package"));
-        }
-
-        if let Some(pkg_version) = payload.package_version {
+        } else if let Some(pkg_version) = payload.package_version {
             // Here we can assume that the package is *Some*.
             let package = package.clone().unwrap();
 
@@ -213,9 +211,7 @@ pub async fn try_chunked_uploading(
 
             println!("🚀 Successfully published package `{}`", package_ident);
             return Ok(Some(package_ident));
-        }
-
-        if let Some(pkg_hash) = payload.package_webc {
+        } else if let Some(pkg_hash) = payload.package_webc {
             let package_ident = PackageIdent::Hash(
                 PackageHash::from_str(&pkg_hash.webc.unwrap().webc_sha256).unwrap(),
             );
