@@ -199,7 +199,8 @@ impl Publish {
             self.wait,
             self.timeout,
             self.package_namespace.clone(),
-        ).await
+        )
+        .await
     }
 
     fn validation_policy(&self) -> Box<dyn ValidationPolicy> {
