@@ -83,6 +83,21 @@ mod queries {
         V3,
     }
 
+    #[derive(cynic::Enum, Clone, Copy, Debug)]
+    pub enum RegistryWebcImageVersionChoices {
+        V2,
+        V3,
+    }
+
+    impl From<RegistryWebcImageVersionChoices> for WebcVersion {
+        fn from(v: RegistryWebcImageVersionChoices) -> Self {
+            match v {
+                RegistryWebcImageVersionChoices::V2 => WebcVersion::V2,
+                RegistryWebcImageVersionChoices::V3 => WebcVersion::V3,
+            }
+        }
+    }
+
     #[derive(cynic::QueryFragment, Debug, Clone, Serialize)]
     pub struct WebcImage {
         pub created_at: DateTime,
@@ -90,6 +105,8 @@ mod queries {
         pub webc_url: String,
         pub webc_sha256: String,
         pub file_size: BigInt,
+        pub manifest: JSONString,
+        pub version: RegistryWebcImageVersionChoices,
     }
 
     #[derive(cynic::QueryFragment, Debug, Clone, Serialize)]
@@ -100,6 +117,7 @@ mod queries {
         pub tag: String,
         pub is_archived: bool,
         pub webc_url: String,
+        pub webc: Option<WebcImage>,
     }
 
     #[derive(cynic::QueryFragment, Debug, Clone, Serialize)]
