@@ -118,6 +118,7 @@ mod queries {
         pub is_archived: bool,
         pub webc_url: String,
         pub webc: Option<WebcImage>,
+        pub webc_v3: Option<WebcImage>,
     }
 
     #[derive(cynic::QueryFragment, Debug, Clone, Serialize)]
