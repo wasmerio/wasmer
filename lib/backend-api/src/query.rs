@@ -684,6 +684,39 @@ pub fn get_package_versions_stream(
     )
 }
 
+/// Retrieve all package releases as a stream.
+pub fn get_package_releases_stream(
+    client: &WasmerClient,
+    vars: types::AllPackageReleasesVars,
+) -> impl futures::Stream<Item = Result<Vec<types::PackageWebc>, anyhow::Error>> + '_ {
+    futures::stream::try_unfold(
+        Some(vars),
+        move |vars: Option<types::AllPackageReleasesVars>| async move {
+            let vars = match vars {
+                Some(vars) => vars,
+                None => return Ok(None),
+            };
+
+            let page = get_package_releases(client, vars.clone()).await?;
+
+            let end_cursor = page.page_info.end_cursor;
+
+            let items = page
+                .edges
+                .into_iter()
+                .filter_map(|x| x.and_then(|x| x.node))
+                .collect::<Vec<_>>();
+
+            let new_vars = end_cursor.map(|cursor| types::AllPackageReleasesVars {
+                after: Some(cursor),
+                ..vars
+            });
+
+            Ok(Some((items, new_vars)))
+        },
+    )
+}
+
 /// Generate a new Edge token.
 pub async fn generate_deploy_token_raw(
     client: &WasmerClient,

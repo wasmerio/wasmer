@@ -1,6 +1,5 @@
 //! Create a new Edge app.
 
-
 use anyhow::{bail, Context};
 use clap::Parser;
 use colored::Colorize;

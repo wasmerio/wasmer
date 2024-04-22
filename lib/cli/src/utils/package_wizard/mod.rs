@@ -2,8 +2,8 @@ use std::path::{Path, PathBuf};
 
 use anyhow::Context;
 use dialoguer::Select;
-use edge_schema::schema::{PackageIdentifier, PackageSpecifier};
 use wasmer_api::{types::UserWithNamespaces, WasmerClient};
+use wasmer_config::package::NamedPackageIdent;
 
 use super::prompts::PackageCheckMode;
 
@@ -77,7 +77,7 @@ pub struct PackageWizard {
 }
 
 pub struct PackageWizardOutput {
-    pub ident: PackageSpecifier,
+    pub ident: NamedPackageIdent,
     pub api: Option<wasmer_api::types::Package>,
     pub local_path: Option<PathBuf>,
     pub local_manifest: Option<wasmer_config::package::Manifest>,
@@ -121,11 +121,11 @@ impl PackageWizard {
             })?;
         }
 
-        let ident = PackageIdentifier {
-            repository: None,
-            namespace: owner,
+        let ident = NamedPackageIdent {
+            registry: None,
+            namespace: Some(owner),
             name,
-            tag: Some("0.1.0".to_string()),
+            tag: Some("0.1.0".parse().unwrap()),
         };
         let manifest = match ty {
             PackageType::Regular => todo!(),
@@ -198,9 +198,9 @@ impl PackageWizard {
 
 fn initialize_static_site(
     path: &Path,
-    ident: &PackageIdentifier,
+    ident: &NamedPackageIdent,
 ) -> Result<wasmer_config::package::Manifest, anyhow::Error> {
-    let full_name = format!("{}/{}", ident.namespace, ident.name);
+    let full_name = ident.full_name();
 
     let pubdir_name = "public";
     let pubdir = path.join(pubdir_name);
@@ -255,9 +255,9 @@ public = "{}"
 
 fn initialize_js_worker(
     path: &Path,
-    ident: &PackageIdentifier,
+    ident: &NamedPackageIdent,
 ) -> Result<wasmer_config::package::Manifest, anyhow::Error> {
-    let full_name = format!("{}/{}", ident.namespace, ident.name);
+    let full_name = ident.full_name();
 
     let srcdir_name = "src";
     let srcdir = path.join(srcdir_name);
@@ -319,9 +319,9 @@ env = ["JS_PATH=/src/index.js"]
 
 fn initialize_py_worker(
     path: &Path,
-    ident: &PackageIdentifier,
+    ident: &NamedPackageIdent,
 ) -> Result<wasmer_config::package::Manifest, anyhow::Error> {
-    let full_name = format!("{}/{}", ident.namespace, ident.name);
+    let full_name = ident.full_name();
 
     let appdir_name = "src";
     let appdir = path.join(appdir_name);
