@@ -185,7 +185,6 @@ pub async fn try_chunked_uploading(
     };
 
     if let Some(payload) = response.publish_package {
-        dbg!(&payload);
         if !payload.success {
             return Err(anyhow::anyhow!("Could not publish package"));
         } else if let Some(pkg_version) = payload.package_version {
