@@ -16,7 +16,7 @@ use wasmer_config::{
     app::AppConfigV1,
     package::{PackageIdent, PackageSource},
 };
-use wasmer_registry::wasmer_env::WasmerEnv;
+use wasmer_registry::wasmer_env::{Registry, WasmerEnv, WASMER_DIR};
 
 /// Deploy an app to Wasmer Edge.
 #[derive(clap::Parser, Debug)]
@@ -80,8 +80,12 @@ impl CmdAppDeploy {
         };
 
         let env = WasmerEnv::new(
-            None,
-            self.api.registry.clone(),
+            if let Ok(dir) = std::env::var("WASMER_DIR") {
+                PathBuf::from(dir)
+            } else {
+                WASMER_DIR.clone()
+            },
+            self.api.registry.clone().map(|u| u.to_string().into()),
             self.api.token.clone(),
             None,
         );
