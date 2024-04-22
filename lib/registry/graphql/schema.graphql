@@ -489,6 +489,7 @@ interface PackageReleaseInterface {
   updatedAt: DateTime!
   package: Package!
   webc: WebcImage
+  webcV3: WebcImage
   tag: String!
 }
 
@@ -1247,6 +1248,7 @@ type PackageWebc implements Node & PackageReleaseInterface & PackageInstance {
   isArchived: Boolean!
   clientName: String
   publishedBy: User!
+  webcV3: WebcImage
   tag: String!
   webcUrl: String!
 }
@@ -2094,6 +2096,7 @@ type Log {
   stream: LogStream
 }
 
+"""This is for backwards compatibility with the old PackageInstance type."""
 interface PackageInstance {
   piritaManifest: JSONString
   piritaOffsets: JSONString
@@ -2105,6 +2108,7 @@ interface PackageInstance {
   updatedAt: DateTime!
   package: Package!
   webc: WebcImage
+  webcV3: WebcImage
   tag: String!
 }
 

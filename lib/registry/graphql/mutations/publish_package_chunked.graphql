@@ -42,7 +42,7 @@ mutation PublishPackageMutationChunked(
     }
 
    packageWebc {
-	  webc {
+	  webcV3 {
 		webcSha256
 	  }	
    }

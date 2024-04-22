@@ -124,14 +124,10 @@ impl AsyncCliCommand for Publish {
                     latest_version.patch += 1;
                     version = Some(latest_version);
                 } else if std::io::stdin().is_terminal() && !self.non_interactive {
-                    eprintln!(
-                        "Current package version (from manifest or registry) is {}.",
-                        latest_version
-                    );
                     latest_version.patch += 1;
                     if Confirm::new()
                         .with_prompt(format!(
-                            "Do you want to bump it to a new version ((local: {}) -> {})?",
+                            "Do you want to bump it to a new version ({} -> {})?",
                             pkg.version, latest_version
                         ))
                         .interact()
