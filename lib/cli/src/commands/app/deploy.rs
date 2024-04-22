@@ -79,8 +79,15 @@ impl CmdAppDeploy {
             ),
         };
 
+        let env = WasmerEnv::new(
+            None,
+            self.api.registry.clone(),
+            self.api.token.clone(),
+            None,
+        );
+
         let publish_cmd = Publish {
-            env: WasmerEnv::default(),
+            env,
             dry_run: false,
             quiet: false,
             package_name: None,
