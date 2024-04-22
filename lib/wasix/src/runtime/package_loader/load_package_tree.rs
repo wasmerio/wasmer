@@ -285,29 +285,6 @@ fn count_file_system(fs: &dyn FileSystem, path: &Path) -> u64 {
 
 /// Given a set of [`ResolvedFileSystemMapping`]s and the [`Container`] for each
 /// package in a dependency tree, construct the resulting filesystem.
-///
-/// # Note to future readers
-///
-/// Sooo... this code is a bit convoluted because we're constrained by the
-/// filesystem implementations we've got available.
-///
-/// Ideally, we would create a WebcVolumeFileSystem for each volume we're
-/// using, then we'd have a single "union" filesystem which lets you mount
-/// filesystem objects under various paths and can deal with conflicts.
-///
-/// The OverlayFileSystem lets us make files from multiple filesystem
-/// implementations available at the same time, however all of the
-/// filesystems will be mounted at "/", when the user wants to mount volumes
-/// at arbitrary locations.
-///
-/// The TmpFileSystem *does* allow mounting at non-root paths, however it can't
-/// handle nested paths (e.g. mounting to "/lib" and "/lib/python3.10" - see
-/// <https://github.com/wasmerio/wasmer/issues/3678> for more) and you aren't
-/// allowed to mount to "/" because it's a special directory that already
-/// exists.
-///
-/// As a result, we'll duct-tape things together and hope for the best 🤞
-///
 fn filesystem(
     packages: &HashMap<PackageId, Container>,
     pkg: &ResolvedPackage,
@@ -336,15 +313,14 @@ fn filesystem(
         found_v3 |= container.version() == webc::Version::V3;
     }
 
-    if found_v2 && !found_v3 {
-        filesystem_v2(packages, pkg)
-    } else if found_v3 && !found_v2 {
+    if found_v3 && !found_v2 {
         filesystem_v3(packages, pkg)
     } else {
-        anyhow::bail!("All packages must be either webc V2 or webc V3")
+        filesystem_v2(packages, pkg)
     }
 }
 
+/// Build the filesystem for webc v3 packages.
 fn filesystem_v3(
     packages: &HashMap<PackageId, Container>,
     pkg: &ResolvedPackage,
@@ -397,6 +373,29 @@ fn filesystem_v3(
     Ok(Box::new(fs))
 }
 
+/// Build the filesystem for webc v2 packages.
+///
+// # Note to future readers
+//
+// Sooo... this code is a bit convoluted because we're constrained by the
+// filesystem implementations we've got available.
+//
+// Ideally, we would create a WebcVolumeFileSystem for each volume we're
+// using, then we'd have a single "union" filesystem which lets you mount
+// filesystem objects under various paths and can deal with conflicts.
+//
+// The OverlayFileSystem lets us make files from multiple filesystem
+// implementations available at the same time, however all of the
+// filesystems will be mounted at "/", when the user wants to mount volumes
+// at arbitrary locations.
+//
+// The TmpFileSystem *does* allow mounting at non-root paths, however it can't
+// handle nested paths (e.g. mounting to "/lib" and "/lib/python3.10" - see
+// <https://github.com/wasmerio/wasmer/issues/3678> for more) and you aren't
+// allowed to mount to "/" because it's a special directory that already
+// exists.
+//
+// As a result, we'll duct-tape things together and hope for the best 🤞
 fn filesystem_v2(
     packages: &HashMap<PackageId, Container>,
     pkg: &ResolvedPackage,
@@ -435,18 +434,32 @@ fn filesystem_v2(
             format!("The \"{package}\" package doesn't have a \"{volume_name}\" volume")
         })?;
 
-        let original_path = PathBuf::from(original_path.clone().unwrap());
         let mount_path = mount_path.clone();
         // Get a filesystem which will map "$mount_dir/some-path" to
         // "$original_path/some-path" on the original volume
-        let fs =
-            MappedPathFileSystem::new(WebcVolumeFileSystem::new(volume.clone()), move |path| {
-                let without_mount_dir = path
-                    .strip_prefix(&mount_path)
-                    .map_err(|_| virtual_fs::FsError::BaseNotDirectory)?;
-                let path_on_original_volume = original_path.join(without_mount_dir);
-                Ok(path_on_original_volume)
-            });
+        let fs = if let Some(original) = original_path {
+            let original = PathBuf::from(original);
+
+            MappedPathFileSystem::new(
+                WebcVolumeFileSystem::new(volume.clone()),
+                Box::new(move |path: &Path| {
+                    let without_mount_dir = path
+                        .strip_prefix(&mount_path)
+                        .map_err(|_| virtual_fs::FsError::BaseNotDirectory)?;
+                    Ok(original.join(without_mount_dir))
+                }) as DynPathMapper,
+            )
+        } else {
+            MappedPathFileSystem::new(
+                WebcVolumeFileSystem::new(volume.clone()),
+                Box::new(move |path: &Path| {
+                    let without_mount_dir = path
+                        .strip_prefix(&mount_path)
+                        .map_err(|_| virtual_fs::FsError::BaseNotDirectory)?;
+                    Ok(without_mount_dir.to_owned())
+                }) as DynPathMapper,
+            )
+        };
 
         filesystems.push(fs);
     }
@@ -455,6 +468,8 @@ fn filesystem_v2(
 
     Ok(Box::new(fs))
 }
+
+type DynPathMapper = Box<dyn Fn(&Path) -> Result<PathBuf, virtual_fs::FsError> + Send + Sync>;
 
 /// A [`FileSystem`] implementation that lets you map the [`Path`] to something
 /// else.
