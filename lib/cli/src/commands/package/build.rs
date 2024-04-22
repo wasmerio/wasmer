@@ -83,8 +83,6 @@ impl PackageBuild {
             return Ok(pkg_hash);
         }
 
-        let manifest = pkg.manifest();
-
         pb.println(format!(
             "{} {}Creating output directory...",
             style("[2/3]").bold().dim(),

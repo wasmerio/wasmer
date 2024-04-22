@@ -110,14 +110,20 @@ impl AsyncCliCommand for Publish {
         let mut version = self.version.clone();
 
         if let Some(ref mut pkg) = manifest.package {
-            let mut latest_version =
-                wasmer_api::query::get_package_version(&client, pkg.name.clone(), "latest".into())
-                    .await
-                    .and_then(|v| {
-                        semver::Version::parse(&v.unwrap().version)
-                            .with_context(|| "While parsing registry version of package")
-                    })
-                    .unwrap_or(pkg.version.clone());
+            let mut latest_version = {
+                let v = wasmer_api::query::get_package_version(
+                    &client,
+                    pkg.name.clone(),
+                    "latest".into(),
+                )
+                .await?;
+                if let Some(v) = v {
+                    semver::Version::parse(&v.version)
+                        .with_context(|| "While parsing registry version of package")?
+                } else {
+                    pkg.version.clone()
+                }
+            };
 
             if pkg.version <= latest_version {
                 if self.autobump {

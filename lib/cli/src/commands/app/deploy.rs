@@ -1,6 +1,6 @@
 use super::AsyncCliCommand;
 use crate::{
-    commands::{app::create::CmdAppCreate, package, Publish},
+    commands::{app::create::CmdAppCreate, Publish},
     opts::{ApiOpts, ItemFormatOpts},
     utils::load_package_manifest,
 };
@@ -16,7 +16,7 @@ use wasmer_config::{
     app::AppConfigV1,
     package::{PackageIdent, PackageSource},
 };
-use wasmer_registry::wasmer_env::{Registry, WasmerEnv, WASMER_DIR};
+use wasmer_registry::wasmer_env::{WasmerEnv, WASMER_DIR};
 
 /// Deploy an app to Wasmer Edge.
 #[derive(clap::Parser, Debug)]
@@ -158,9 +158,6 @@ impl AsyncCliCommand for CmdAppDeploy {
                 base_path
             } else if base_path.is_dir() {
                 let f = base_path.join(AppConfigV1::CANONICAL_FILE_NAME);
-                if !f.is_file() {
-                    anyhow::bail!("Could not find app.yaml at path '{}'", f.display());
-                }
 
                 f
             } else {
@@ -174,19 +171,21 @@ impl AsyncCliCommand for CmdAppDeploy {
 
                 let create_cmd = CmdAppCreate {
                     template: None,
-                    publish_package: false,
+                    deploy_app: false,
                     no_validate: false,
                     non_interactive: false,
                     offline: false,
                     owner: None,
-                    name: None,
-                    path: None,
+                    app_name: None,
                     no_wait: false,
                     api: self.api.clone(),
                     fmt: ItemFormatOpts {
                         format: self.fmt.format.clone(),
                     },
                     package: None,
+                    app_dir_path: None,
+                    use_local_manifest: false,
+                    new_package_name: None,
                 };
 
                 create_cmd.run_async().await?;
@@ -204,7 +203,6 @@ impl AsyncCliCommand for CmdAppDeploy {
             .with_context(|| format!("Could not read file '{}'", app_config_path.display()))?;
 
         let mut app_config: AppConfigV1 = AppConfigV1::parse_yaml(&config_str)?;
-        eprintln!("Loaded app from path '{}'", app_config_path.display());
 
         let owner = self.get_owner(&app_config).await?;
 
@@ -216,7 +214,7 @@ impl AsyncCliCommand for CmdAppDeploy {
 
         let opts = match app_config.package {
             PackageSource::Path(ref path) => {
-                eprintln!("Inspecting local manifest from path '{}'", path);
+                eprintln!("Loading local package (manifest path: {})", path);
                 let package =
                     PackageSource::from(self.publish(owner.clone(), PathBuf::from(path)).await?);
 

@@ -1,45 +1,37 @@
 //! Create a new Edge app.
 
-use anyhow::{bail, Context};
-use clap::Parser;
-use colored::Colorize;
-use dialoguer::Confirm;
-use indicatif::ProgressBar;
-use is_terminal::IsTerminal;
-use std::{path::PathBuf, str::FromStr, time::Duration};
-use wasmer_api::{
-    query::current_user_with_namespaces,
-    types::{DeployAppVersion, Package, UserWithNamespaces},
-    WasmerClient,
-};
-use wasmer_config::{
-    app::AppConfigV1,
-    package::{Manifest, NamedPackageIdent, PackageIdent, PackageSource, MANIFEST_FILE_NAME},
-};
-use wasmer_registry::wasmer_env::WasmerEnv;
-
-const TICK: Duration = Duration::from_millis(250);
-
 use crate::{
-    commands::{
-        app::deploy::{deploy_app_verbose, DeployAppOpts, WaitMode},
-        AsyncCliCommand, Login,
-    },
+    commands::AsyncCliCommand,
     opts::{ApiOpts, ItemFormatOpts},
     utils::{
+        load_package_manifest,
         package_wizard::{CreateMode, PackageType, PackageWizard},
-        prompts::prompt_for_namespace,
     },
 };
+use anyhow::Context;
+use colored::Colorize;
+use dialoguer::Confirm;
+use is_terminal::IsTerminal;
+use std::{collections::HashMap, path::PathBuf, str::FromStr};
+use wasmer_api::{types::UserWithNamespaces, WasmerClient};
+use wasmer_config::{
+    app::AppConfigV1,
+    package::{NamedPackageIdent, PackageSource, Tag},
+};
+
+use super::deploy::CmdAppDeploy;
 
 /// Create a new Edge app.
 #[derive(clap::Parser, Debug)]
 pub struct CmdAppCreate {
     #[clap(name = "type", short = 't', long)]
     pub template: Option<AppType>,
-
+    /// Whether or not to deploy the application once it is created.
+    ///
+    /// If selected, this might entail the step of publishing the package related to the
+    /// application. By default, the application is not deployed and the package is not published.
     #[clap(long)]
-    pub publish_package: bool,
+    pub deploy_app: bool,
 
     /// Skip local schema validation.
     #[clap(long)]
@@ -58,14 +50,14 @@ pub struct CmdAppCreate {
     pub owner: Option<String>,
 
     /// The name of the app (can be changed later)
-    #[clap(long)]
-    pub name: Option<String>,
+    #[clap(long = "name")]
+    pub app_name: Option<String>,
 
-    /// The path to a YAML file the app config.
-    #[clap(long)]
-    pub path: Option<PathBuf>,
+    /// The path to the directory where the config file for the application will be written to.
+    #[clap(long = "path")]
+    pub app_dir_path: Option<PathBuf>,
 
-    /// Do not wait for the app to become reachable.
+    /// Do not wait for the app to become reachable if deployed.
     #[clap(long)]
     pub no_wait: bool,
 
@@ -81,6 +73,319 @@ pub struct CmdAppCreate {
     /// Name of the package to use.
     #[clap(long, short = 'p')]
     pub package: Option<String>,
+
+    /// Whether or not to search (and use) a local manifest.
+    #[clap(long)]
+    pub use_local_manifest: bool,
+
+    /// Name to use when creating a new package from a template.
+    #[clap(long)]
+    pub new_package_name: Option<String>,
+}
+
+impl CmdAppCreate {
+    #[inline]
+    fn get_app_config(&self, owner: &str, name: &str, package: &str) -> AppConfigV1 {
+        AppConfigV1 {
+            name: String::from(name),
+            owner: Some(String::from(owner)),
+            package: PackageSource::from_str(package).unwrap(),
+            app_id: None,
+            domains: None,
+            env: HashMap::new(),
+            cli_args: None,
+            capabilities: None,
+            scheduled_tasks: None,
+            volumes: None,
+            health_checks: None,
+            debug: None,
+            scaling: None,
+            extra: HashMap::new(),
+        }
+    }
+
+    async fn get_app_name(&self) -> anyhow::Result<String> {
+        if let Some(name) = &self.app_name {
+            return Ok(name.clone());
+        }
+
+        if !(std::io::stdin().is_terminal() && !self.non_interactive) {
+            // if not interactive we can't prompt the user to choose the owner of the app.
+            anyhow::bail!("No app name specified: use --name <app_name>");
+        }
+
+        eprintln!("What should be the name of the app?");
+        crate::utils::prompts::prompt_for_ident("App name", None)
+    }
+
+    async fn get_owner(&self) -> anyhow::Result<String> {
+        if let Some(owner) = &self.owner {
+            return Ok(owner.clone());
+        }
+
+        if !(std::io::stdin().is_terminal() && !self.non_interactive) {
+            // if not interactive we can't prompt the user to choose the owner of the app.
+            anyhow::bail!("No owner specified: use --owner <owner>");
+        }
+
+        match self.api.client() {
+            Ok(client) => {
+                let user = wasmer_api::query::current_user_with_namespaces(&client, None).await?;
+                crate::utils::prompts::prompt_for_namespace(
+                    "Who should own this package?",
+                    None,
+                    Some(&user),
+                )
+            }
+            Err(e) => anyhow::bail!(
+                "Can't determine user info: {e}. Please, user `wasmer login` before deploying an
+                app or use the --owner <owner> flag to specify the owner of the app to deploy."
+            ),
+        }
+    }
+
+    async fn create_from_local_manifest(
+        &self,
+        owner: &str,
+        app_name: &str,
+    ) -> anyhow::Result<bool> {
+        let interactive = std::io::stdin().is_terminal() && !self.non_interactive;
+
+        if !self.use_local_manifest && !interactive {
+            return Ok(false);
+        }
+
+        let app_dir = match &self.app_dir_path {
+            Some(dir) => PathBuf::from(dir),
+            None => std::env::current_dir()?,
+        };
+
+        let (manifest_path, _) = if let Some(res) = load_package_manifest(&app_dir)? {
+            res
+        } else {
+            if self.use_local_manifest {
+                anyhow::bail!("The --use_local_manifest flag was passed, but path {} does not contain a valid package manifest.", app_dir.display())
+            } else {
+                return Ok(false);
+            }
+        };
+
+        let ask_confirmation = || {
+            eprintln!(
+                "A package manifest was found in path {}.",
+                &manifest_path.display()
+            );
+            Confirm::new().with_prompt("Use it for the app?").interact()
+        };
+
+        if self.use_local_manifest || ask_confirmation()? {
+            let app_config = self.get_app_config(
+                owner,
+                app_name,
+                &manifest_path.to_string_lossy().to_string(),
+            );
+            self.write_app_config(&app_config).await?;
+            self.try_deploy(owner).await?;
+            return Ok(true);
+        }
+
+        Ok(false)
+    }
+
+    async fn create_from_package(&self, owner: &str, app_name: &str) -> anyhow::Result<bool> {
+        let interactive = std::io::stdin().is_terminal() && !self.non_interactive;
+
+        if self.template.is_some() {
+            return Ok(false);
+        }
+
+        if let Some(pkg) = &self.package {
+            let app_config = self.get_app_config(owner, app_name, &pkg);
+            self.write_app_config(&app_config).await?;
+            self.try_deploy(owner).await?;
+            return Ok(true);
+        }
+
+        if interactive
+            && Confirm::new()
+                .with_prompt("Do you want to use a package from the registry?")
+                .interact()?
+        {
+            let package_name: String = dialoguer::Input::new()
+                .with_prompt("What is the name of the package?")
+                .interact()?;
+
+            let app_config = self.get_app_config(owner, app_name, &package_name);
+            self.write_app_config(&app_config).await?;
+            self.try_deploy(owner).await?;
+            return Ok(true);
+        }
+
+        Ok(false)
+    }
+
+    async fn create_from_template(&self, owner: &str, app_name: &str) -> anyhow::Result<bool> {
+        let interactive = std::io::stdin().is_terminal() && !self.non_interactive;
+        let app_dir = match &self.app_dir_path {
+            Some(dir) => PathBuf::from(dir),
+            None => std::env::current_dir()?,
+        };
+
+        let template = match self.template {
+            Some(t) => t,
+            None => {
+                if interactive {
+                    let index = dialoguer::Select::new()
+                        .with_prompt("App type")
+                        .default(0)
+                        .items(&[
+                            "Static website",
+                            "HTTP server",
+                            "Browser shell",
+                            "JS Worker (WinterJS)",
+                            "Python Application",
+                        ])
+                        .interact()?;
+                    match index {
+                        0 => AppType::StaticWebsite,
+                        1 => AppType::HttpServer,
+                        2 => AppType::BrowserShell,
+                        3 => AppType::JsWorker,
+                        4 => AppType::PyApplication,
+                        x => panic!("unhandled app type index '{x}'"),
+                    }
+                } else {
+                    return Ok(false);
+                }
+            }
+        };
+
+        let allow_local_package = match template {
+            AppType::HttpServer => true,
+            AppType::StaticWebsite => true,
+            AppType::BrowserShell => false,
+            AppType::JsWorker => true,
+            AppType::PyApplication => true,
+        };
+
+        let local_package = if allow_local_package {
+            match crate::utils::load_package_manifest(&app_dir) {
+                Ok(Some(p)) => Some(p),
+                Ok(None) => None,
+                Err(err) => {
+                    eprintln!(
+                        "{warning}: could not load package manifest: {err}",
+                        warning = "Warning".yellow(),
+                    );
+                    None
+                }
+            }
+        } else {
+            None
+        };
+
+        let creator = AppCreator {
+            app_name: Some(String::from(app_name)),
+            new_package_name: self.new_package_name.clone(),
+            package: self.package.clone(),
+            template,
+            interactive,
+            dir: app_dir.clone(),
+            owner: String::from(owner),
+            api: self.api.client().ok(),
+            user: if let Ok(client) = &self.api.client() {
+                let u = wasmer_api::query::current_user_with_namespaces(
+                    client,
+                    Some(wasmer_api::types::GrapheneRole::Admin),
+                )
+                .await?;
+                Some(u)
+            } else {
+                None
+            },
+            local_package,
+        };
+
+        match template {
+            AppType::HttpServer
+            | AppType::StaticWebsite
+            | AppType::JsWorker
+            | AppType::PyApplication => creator.build_app().await?,
+            AppType::BrowserShell => creator.build_browser_shell_app().await?,
+        };
+
+        self.try_deploy(owner).await?;
+
+        Ok(true)
+    }
+
+    async fn write_app_config(&self, app_config: &AppConfigV1) -> anyhow::Result<()> {
+        let raw_app_config = app_config.clone().to_yaml()?;
+
+        let app_dir = match &self.app_dir_path {
+            Some(dir) => PathBuf::from(dir),
+            None => std::env::current_dir()?,
+        };
+
+        let app_config_path = app_dir.join(AppConfigV1::CANONICAL_FILE_NAME);
+        std::fs::write(&app_config_path, raw_app_config).with_context(|| {
+            format!(
+                "could not write app config to '{}'",
+                app_config_path.display()
+            )
+        })
+    }
+
+    async fn try_deploy(&self, owner: &str) -> anyhow::Result<()> {
+        let interactive = std::io::stdin().is_terminal() && !self.non_interactive;
+
+        if self.deploy_app
+            || (interactive
+                && Confirm::new()
+                    .with_prompt("Do you want to deploy the app now?")
+                    .interact()?)
+        {
+            let cmd_deploy = CmdAppDeploy {
+                api: self.api.clone(),
+                fmt: ItemFormatOpts {
+                    format: self.fmt.format.clone(),
+                },
+                no_validate: false,
+                non_interactive: self.non_interactive,
+                publish_package: true,
+                path: self.app_dir_path.clone(),
+                no_wait: false,
+                no_default: false,
+                no_persist_id: false,
+                owner: Some(String::from(owner)),
+            };
+            cmd_deploy.run_async().await?;
+        }
+
+        Ok(())
+    }
+}
+
+#[async_trait::async_trait]
+impl AsyncCliCommand for CmdAppCreate {
+    type Output = ();
+
+    async fn run_async(self) -> Result<Self::Output, anyhow::Error> {
+        // Get the future owner of the app.
+        let owner = self.get_owner().await?;
+
+        // Get the name of the app.
+        let app_name = self.get_app_name().await?;
+
+        if !self.create_from_local_manifest(&owner, &app_name).await?
+            && !self.create_from_package(&owner, &app_name).await?
+            && self.create_from_template(&owner, &app_name).await?
+        {
+            eprintln!("Warning: the creation process did not produce any result.");
+        }
+
+        Ok(())
+    }
 }
 
 /// App type.
@@ -107,7 +412,7 @@ struct AppCreator {
     package: Option<String>,
     new_package_name: Option<String>,
     app_name: Option<String>,
-    type_: AppType,
+    template: AppType,
     interactive: bool,
     dir: PathBuf,
     owner: String,
@@ -116,273 +421,241 @@ struct AppCreator {
     local_package: Option<(PathBuf, wasmer_config::package::Manifest)>,
 }
 
-struct AppCreatorOutput {
-    app: AppConfigV1,
-    api_pkg: Option<Package>,
-    local_package: Option<(PathBuf, wasmer_config::package::Manifest)>,
-}
-
 impl AppCreator {
-    async fn build_browser_shell_app(self) -> Result<AppCreatorOutput, anyhow::Error> {
-        todo!()
-        // const WASM_BROWSER_CONTAINER_PACKAGE: &str = "wasmer/wasmer-sh";
-        // const WASM_BROWSER_CONTAINER_VERSION: &str = "0.2";
+    async fn build_browser_shell_app(self) -> Result<(), anyhow::Error> {
+        const WASM_BROWSER_CONTAINER_PACKAGE: &str = "wasmer/wasmer-sh";
+        const WASM_BROWSER_CONTAINER_VERSION: &str = "0.2";
 
-        // eprintln!("A browser web shell wraps another package and runs it in the browser");
-        // eprintln!("Select the package to wrap.");
+        eprintln!("A browser web shell wraps another package and runs it in the browser");
+        eprintln!("Select the package to wrap.");
 
-        // let (inner_pkg, _inner_pkg_api) = crate::utils::prompt_for_package(
-        //     "Package",
-        //     None,
-        //     Some(crate::utils::PackageCheckMode::MustExist),
-        //     self.api.as_ref(),
-        // )
-        // .await?;
+        let (inner_pkg, _inner_pkg_api) = crate::utils::prompt_for_package(
+            "Package",
+            None,
+            Some(crate::utils::PackageCheckMode::MustExist),
+            self.api.as_ref(),
+        )
+        .await?;
 
-        // eprintln!("What should be the name of the wrapper package?");
+        eprintln!("What should be the name of the wrapper package?");
 
-        // let default_name = format!("{}-webshell", inner_pkg.name);
-        // let outer_pkg_name =
-        //     crate::utils::prompts::prompt_for_ident("Package name", Some(&default_name))?;
-        // let outer_pkg_full_name = format!("{}/{}", self.owner, outer_pkg_name);
+        let default_name = format!("{}-webshell", inner_pkg.name);
+        let outer_pkg_name =
+            crate::utils::prompts::prompt_for_ident("Package name", Some(&default_name))?;
+        let outer_pkg_full_name = format!("{}/{}", self.owner, outer_pkg_name);
 
-        // eprintln!("What should be the name of the app?");
+        eprintln!("What should be the name of the app?");
 
-        // let default_name = if outer_pkg_name.ends_with("webshell") {
-        //     format!("{}-{}", self.owner, outer_pkg_name)
-        // } else {
-        //     format!("{}-{}-webshell", self.owner, outer_pkg_name)
-        // };
-        // let app_name = crate::utils::prompts::prompt_for_ident("App name", Some(&default_name))?;
+        let default_name = if outer_pkg_name.ends_with("webshell") {
+            format!("{}-{}", self.owner, outer_pkg_name)
+        } else {
+            format!("{}-{}-webshell", self.owner, outer_pkg_name)
+        };
+        let app_name = crate::utils::prompts::prompt_for_ident("App name", Some(&default_name))?;
 
-        // // Build the package.
+        // Build the package.
 
-        // let public_dir = self.dir.join("public");
-        // if !public_dir.exists() {
-        //     std::fs::create_dir_all(&public_dir)?;
-        // }
+        let public_dir = self.dir.join("public");
+        if !public_dir.exists() {
+            std::fs::create_dir_all(&public_dir)?;
+        }
 
-        // let init = serde_json::json!({
-        //     "init": format!("{}/{}", inner_pkg.namespace.unwrap(), inner_pkg.name),
-        //     "prompt": inner_pkg.name,
-        //     "no_welcome": true,
-        //     "connect": format!("wss://{app_name}.wasmer.app/.well-known/edge-vpn"),
-        // });
-        // let init_path = public_dir.join("init.json");
-        // std::fs::write(&init_path, init.to_string())
-        //     .with_context(|| format!("Failed to write to '{}'", init_path.display()))?;
+        let init = serde_json::json!({
+            "init": format!("{}/{}", inner_pkg.namespace.as_ref().unwrap(), inner_pkg.name),
+            "prompt": inner_pkg.name,
+            "no_welcome": true,
+            "connect": format!("wss://{app_name}.wasmer.app/.well-known/edge-vpn"),
+        });
+        let init_path = public_dir.join("init.json");
+        std::fs::write(&init_path, init.to_string())
+            .with_context(|| format!("Failed to write to '{}'", init_path.display()))?;
 
-        // let package = wasmer_config::package::PackageBuilder::new(
-        //     outer_pkg_full_name,
-        //     "0.1.0".parse().unwrap(),
-        //     format!("{} web shell", inner_pkg.name),
-        // )
-        // .rename_commands_to_raw_command_name(false)
-        // .build()?;
+        let package = wasmer_config::package::PackageBuilder::new(
+            outer_pkg_full_name,
+            "0.1.0".parse().unwrap(),
+            format!("{} web shell", inner_pkg.name),
+        )
+        .rename_commands_to_raw_command_name(false)
+        .build()?;
 
-        // let manifest = wasmer_config::package::ManifestBuilder::new(package)
-        //     .with_dependency(
-        //         WASM_BROWSER_CONTAINER_PACKAGE,
-        //         WASM_BROWSER_CONTAINER_VERSION.to_string().parse().unwrap(),
-        //     )
-        //     .map_fs("public", PathBuf::from("public"))
-        //     .build()?;
+        let manifest = wasmer_config::package::ManifestBuilder::new(package)
+            .with_dependency(
+                WASM_BROWSER_CONTAINER_PACKAGE,
+                WASM_BROWSER_CONTAINER_VERSION.to_string().parse().unwrap(),
+            )
+            .map_fs("public", PathBuf::from("public"))
+            .build()?;
 
-        // let manifest_path = self.dir.join("wasmer.toml");
+        let manifest_path = self.dir.join("wasmer.toml");
 
-        // let raw = manifest.to_string()?;
-        // eprintln!(
-        //     "Writing wasmer.toml package to '{}'",
-        //     manifest_path.display()
-        // );
-        // std::fs::write(&manifest_path, raw)?;
+        let raw = manifest.to_string()?;
+        eprintln!(
+            "Writing wasmer.toml package to '{}'",
+            manifest_path.display()
+        );
+        std::fs::write(&manifest_path, raw)?;
 
-        // let app_cfg = AppConfigV1 {
-        //     app_id: None,
-        //     name: app_name,
-        //     owner: Some(self.owner.clone()),
-        //     cli_args: None,
-        //     env: Default::default(),
-        //     volumes: None,
-        //     domains: None,
-        //     scaling: None,
-        //     package: NamedPackageIdent {
-        //         registry: None,
-        //         namespace: Some(self.owner),
-        //         name: outer_pkg_name,
-        //         tag: None,
-        //     }
-        //     .into(),
-        //     capabilities: None,
-        //     scheduled_tasks: None,
-        //     debug: Some(false),
-        //     extra: Default::default(),
-        //     health_checks: None,
-        // };
+        let app_cfg = AppConfigV1 {
+            name: app_name,
+            app_id: None,
+            owner: Some(self.owner.clone()),
+            package: PackageSource::Path(".".into()),
+            domains: None,
+            env: Default::default(),
+            cli_args: None,
+            capabilities: None,
+            scheduled_tasks: None,
+            volumes: None,
+            health_checks: None,
+            debug: Some(false),
+            scaling: None,
+            extra: Default::default(),
+        };
 
-        // Ok(AppCreatorOutput {
-        //     app: app_cfg,
-        //     api_pkg: None,
-        //     local_package: Some((self.dir, manifest)),
-        // })
+        Ok(())
     }
 
-    async fn build_app(self) -> Result<AppCreatorOutput, anyhow::Error> {
-        todo!()
-        // let package_opt: Option<PackageIdent> = if let Some(package) = self.package {
-        //     Some(package.parse()?)
-        // } else if let Some((_, local)) = self.local_package.as_ref() {
-        //     let full = format!(
-        //         "{}@{}",
-        //         local.package.clone().unwrap().name,
-        //         local.package.clone().unwrap().version
-        //     );
-        //     let mut pkg_ident = NamedPackageIdent::from_str(&local.package.clone().unwrap().name)
-        //         .with_context(|| {
-        //         format!("local package manifest has invalid name: '{full}'")
-        //     })?;
-        //     // pkg
-        //     // Pin the version.
-        //     pkg_ident.tag = Some(wasmer_config::package::Tag::VersionReq(
-        //         local.package.clone().unwrap().version.,
-        //     ));
+    async fn build_app(self) -> Result<(), anyhow::Error> {
+        let package_opt: Option<NamedPackageIdent> = if let Some(package) = self.package {
+            Some(NamedPackageIdent::from_str(&package)?)
+        } else if let Some((_, local)) = self.local_package.as_ref() {
+            let pkg = match &local.package {
+                Some(pkg) => pkg.clone(),
+                None => anyhow::bail!(
+                    "Error while building app: template manifest has no package field!"
+                ),
+            };
 
-        //     if self.interactive {
-        //         eprintln!("Found local package: '{}'", full.green());
+            let full = format!("{}@{}", pkg.name, pkg.version);
+            let mut pkg_ident = NamedPackageIdent::from_str(&pkg.name)
+                .with_context(|| format!("local package manifest has invalid name: '{full}'"))?;
 
-        //         let msg = format!("Use package '{pkg_ident}'");
+            // Pin the version.
+            pkg_ident.tag = Some(Tag::from_str(&pkg.version.to_string()).unwrap());
 
-        //         let should_use = Confirm::new()
-        //             .with_prompt(&msg)
-        //             .interact_opt()?
-        //             .unwrap_or_default();
+            if self.interactive {
+                eprintln!("Found local package: '{}'", full.green());
 
-        //         if should_use {
-        //             Some(pkg_ident)
-        //         } else {
-        //             None
-        //         }
-        //     } else {
-        //         Some(pkg_ident)
-        //     }
-        // } else {
-        //     None
-        // };
+                let msg = format!("Use package '{pkg_ident}'");
 
-        // let (pkg, api_pkg, local_package) = if let Some(pkg) = package_opt {
-        //     if let Some(api) = &self.api {
-        //         let p2 =
-        //             wasmer_api::query::get_package(api, format!("{}/{}", pkg.namespace, pkg.name))
-        //                 .await?;
+                let should_use = Confirm::new()
+                    .with_prompt(&msg)
+                    .interact_opt()?
+                    .unwrap_or_default();
 
-        //         (pkg.into(), p2, self.local_package)
-        //     } else {
-        //         (pkg.into(), None, self.local_package)
-        //     }
-        // } else {
-        //     eprintln!("No package found or specified.");
+                if should_use {
+                    Some(pkg_ident)
+                } else {
+                    None
+                }
+            } else {
+                Some(pkg_ident)
+            }
+        } else {
+            None
+        };
 
-        //     let ty = match self.type_ {
-        //         AppType::HttpServer => None,
-        //         AppType::StaticWebsite => Some(PackageType::StaticWebsite),
-        //         AppType::BrowserShell => None,
-        //         AppType::JsWorker => Some(PackageType::JsWorker),
-        //         AppType::PyApplication => Some(PackageType::PyApplication),
-        //     };
+        let (pkg, api_pkg, local_package) = if let Some(pkg) = package_opt {
+            if let Some(api) = &self.api {
+                let p2 = wasmer_api::query::get_package(
+                    api,
+                    format!("{}/{}", pkg.namespace.as_ref().unwrap(), pkg.name),
+                )
+                .await?;
 
-        //     let create_mode = match ty {
-        //         Some(PackageType::StaticWebsite)
-        //         | Some(PackageType::JsWorker)
-        //         | Some(PackageType::PyApplication) => CreateMode::Create,
-        //         // Only static website creation is currently supported.
-        //         _ => CreateMode::SelectExisting,
-        //     };
+                (pkg, p2, self.local_package)
+            } else {
+                (pkg, None, self.local_package)
+            }
+        } else {
+            eprintln!("No package found or specified.");
 
-        //     let w = PackageWizard {
-        //         path: self.dir.clone(),
-        //         name: self.new_package_name.clone(),
-        //         type_: ty,
-        //         create_mode,
-        //         namespace: Some(self.owner.clone()),
-        //         namespace_default: self.user.as_ref().map(|u| u.username.clone()),
-        //         user: self.user.clone(),
-        //     };
+            let ty = match self.template {
+                AppType::HttpServer => None,
+                AppType::StaticWebsite => Some(PackageType::StaticWebsite),
+                AppType::BrowserShell => None,
+                AppType::JsWorker => Some(PackageType::JsWorker),
+                AppType::PyApplication => Some(PackageType::PyApplication),
+            };
 
-        //     let output = w.run(self.api.as_ref()).await?;
-        //     (
-        //         output.ident,
-        //         output.api,
-        //         output
-        //             .local_path
-        //             .and_then(move |x| Some((x, output.local_manifest?))),
-        //     )
-        // };
+            let create_mode = match ty {
+                Some(PackageType::StaticWebsite)
+                | Some(PackageType::JsWorker)
+                | Some(PackageType::PyApplication) => CreateMode::Create,
+                // Only static website creation is currently supported.
+                _ => CreateMode::SelectExisting,
+            };
 
-        // let ident = pkg.as_ident().context("unnamed packages not supported")?;
+            let w = PackageWizard {
+                path: self.dir.clone(),
+                name: self.new_package_name.clone(),
+                type_: ty,
+                create_mode,
+                namespace: Some(self.owner.clone()),
+                namespace_default: self.user.as_ref().map(|u| u.username.clone()),
+                user: self.user.clone(),
+            };
 
-        // let name = if let Some(name) = self.app_name {
-        //     name
-        // } else {
-        //     let default = match self.type_ {
-        //         AppType::HttpServer | AppType::StaticWebsite => {
-        //             format!("{}-{}", ident.namespace, ident.name)
-        //         }
-        //         AppType::JsWorker | AppType::PyApplication => {
-        //             format!("{}-{}-worker", ident.namespace, ident.name)
-        //         }
-        //         AppType::BrowserShell => {
-        //             format!("{}-{}-webshell", ident.namespace, ident.name)
-        //         }
-        //     };
+            let output = w.run(self.api.as_ref()).await?;
+            (
+                output.ident,
+                output.api,
+                output
+                    .local_path
+                    .and_then(move |x| Some((x, output.local_manifest?))),
+            )
+        };
 
-        //     dialoguer::Input::new()
-        //         .with_prompt("What should be the name of the app? <NAME>.wasmer.app")
-        //         .with_initial_text(default)
-        //         .interact_text()
-        //         .unwrap()
-        // };
+        let name = if let Some(name) = self.app_name {
+            name
+        } else {
+            let default = match self.template {
+                AppType::HttpServer | AppType::StaticWebsite => {
+                    format!("{}-{}", pkg.namespace.as_ref().unwrap(), pkg.name)
+                }
+                AppType::JsWorker | AppType::PyApplication => {
+                    format!("{}-{}-worker", pkg.namespace.as_ref().unwrap(), pkg.name)
+                }
+                AppType::BrowserShell => {
+                    format!("{}-{}-webshell", pkg.namespace.as_ref().unwrap(), pkg.name)
+                }
+            };
 
-        // let cli_args = match self.type_ {
-        //     AppType::PyApplication => Some(vec!["/src/main.py".to_string()]),
-        //     AppType::JsWorker => Some(vec!["/src/index.js".to_string()]),
-        //     _ => None,
-        // };
+            dialoguer::Input::new()
+                .with_prompt("What should be the name of the app? <NAME>.wasmer.app")
+                .with_initial_text(default)
+                .interact_text()
+                .unwrap()
+        };
 
-        // // TODO: check if name already exists.
-        // let cfg = AppConfigV1 {
-        //     app_id: None,
-        //     owner: Some(self.owner.clone()),
-        //     volumes: None,
-        //     name,
-        //     env: Default::default(),
-        //     scaling: None,
-        //     // CLI args are only set for JS and Py workers for now.
-        //     cli_args,
-        //     // TODO: allow setting the description.
-        //     // description: Some("".to_string()),
-        //     package: pkg.clone(),
-        //     capabilities: None,
-        //     scheduled_tasks: None,
-        //     debug: Some(false),
-        //     domains: None,
-        //     extra: Default::default(),
-        //     health_checks: None,
-        // };
+        let cli_args = match self.template {
+            AppType::PyApplication => Some(vec!["/src/main.py".to_string()]),
+            AppType::JsWorker => Some(vec!["/src/index.js".to_string()]),
+            _ => None,
+        };
 
-        // Ok(AppCreatorOutput {
-        //     app: cfg,
-        //     api_pkg,
-        //     local_package,
-        // })
-    }
-}
+        // TODO: check if name already exists.
+        let cfg = AppConfigV1 {
+            name,
+            app_id: None,
+            owner: Some(self.owner.clone()),
+            package: PackageSource::Ident(wasmer_config::package::PackageIdent::Named(pkg)),
+            domains: None,
+            env: Default::default(),
+            // CLI args are only set for JS and Py workers for now.
+            cli_args,
+            // TODO: allow setting the description.
+            // description: Some("".to_string()),
+            capabilities: None,
+            scheduled_tasks: None,
+            volumes: None,
+            health_checks: None,
+            debug: Some(false),
+            scaling: None,
+            extra: Default::default(),
+        };
 
-#[async_trait::async_trait]
-impl AsyncCliCommand for CmdAppCreate {
-    type Output = (AppConfigV1, Option<DeployAppVersion>);
-
-    async fn run_async(self) -> Result<(AppConfigV1, Option<DeployAppVersion>), anyhow::Error> {
-        todo!()
+        Ok(())
     }
 }
 
@@ -396,17 +669,19 @@ mod tests {
 
         let cmd = CmdAppCreate {
             template: Some(AppType::StaticWebsite),
-            publish_package: false,
+            deploy_app: false,
             no_validate: false,
             non_interactive: true,
             offline: true,
             owner: Some("testuser".to_string()),
-            name: Some("static-site-1".to_string()),
-            path: Some(dir.path().to_owned()),
+            app_name: Some("static-site-1".to_string()),
+            app_dir_path: Some(dir.path().to_owned()),
             no_wait: true,
             api: ApiOpts::default(),
             fmt: ItemFormatOpts::default(),
             package: Some("testuser/static-site1@0.1.0".to_string()),
+            use_local_manifest: false,
+            new_package_name: None,
         };
         cmd.run_async().await.unwrap();
 
@@ -429,17 +704,19 @@ debug: false
 
         let cmd = CmdAppCreate {
             template: Some(AppType::HttpServer),
-            publish_package: false,
+            deploy_app: false,
             no_validate: false,
             non_interactive: true,
             offline: true,
             owner: Some("wasmer".to_string()),
-            name: Some("testapp".to_string()),
-            path: Some(dir.path().to_owned()),
+            app_name: Some("testapp".to_string()),
+            app_dir_path: Some(dir.path().to_owned()),
             no_wait: true,
             api: ApiOpts::default(),
             fmt: ItemFormatOpts::default(),
             package: Some("wasmer/testpkg".to_string()),
+            use_local_manifest: false,
+            new_package_name: None,
         };
         cmd.run_async().await.unwrap();
 
@@ -461,17 +738,19 @@ debug: false
 
         let cmd = CmdAppCreate {
             template: Some(AppType::JsWorker),
-            publish_package: false,
+            deploy_app: false,
             no_validate: false,
             non_interactive: true,
             offline: true,
             owner: Some("wasmer".to_string()),
-            name: Some("test-js-worker".to_string()),
-            path: Some(dir.path().to_owned()),
+            app_name: Some("test-js-worker".to_string()),
+            app_dir_path: Some(dir.path().to_owned()),
             no_wait: true,
             api: ApiOpts::default(),
             fmt: ItemFormatOpts::default(),
             package: Some("wasmer/test-js-worker".to_string()),
+            use_local_manifest: todo!(),
+            new_package_name: None,
         };
         cmd.run_async().await.unwrap();
 
@@ -496,17 +775,19 @@ debug: false
 
         let cmd = CmdAppCreate {
             template: Some(AppType::PyApplication),
-            publish_package: false,
+            deploy_app: false,
             no_validate: false,
             non_interactive: true,
             offline: true,
             owner: Some("wasmer".to_string()),
-            name: Some("test-py-worker".to_string()),
-            path: Some(dir.path().to_owned()),
+            app_name: Some("test-py-worker".to_string()),
+            app_dir_path: Some(dir.path().to_owned()),
             no_wait: true,
             api: ApiOpts::default(),
             fmt: ItemFormatOpts::default(),
             package: Some("wasmer/test-py-worker".to_string()),
+            use_local_manifest: false,
+            new_package_name: None,
         };
         cmd.run_async().await.unwrap();
 

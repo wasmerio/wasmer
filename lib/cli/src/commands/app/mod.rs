@@ -12,7 +12,6 @@ pub mod version;
 mod util;
 
 use crate::commands::AsyncCliCommand;
-use edge_schema::schema::AppConfigV1;
 
 /// Manage Wasmer Deploy apps.
 #[derive(clap::Subcommand, Debug)]

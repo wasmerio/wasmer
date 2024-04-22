@@ -11,16 +11,15 @@ use anyhow::{Context, Result};
 use console::{style, Emoji};
 use futures_util::StreamExt;
 use graphql_client::GraphQLQuery;
-use indicatif::{MultiProgress, ProgressBar, ProgressState, ProgressStyle};
+use indicatif::{ProgressBar, ProgressState, ProgressStyle};
 use std::collections::BTreeMap;
 use std::fmt::Write;
 use std::io::Write as _;
 use std::path::PathBuf;
 use std::str::FromStr;
 use std::sync::{Arc, Mutex};
-use std::thread;
 use std::time::Duration;
-use tokio::io::{AsyncBufReadExt, AsyncWriteExt};
+use tokio::io::AsyncBufReadExt;
 use tokio::sync::oneshot::Receiver;
 use wasmer_config::package::{NamedPackageIdent, PackageHash, PackageIdent};
 
@@ -83,7 +82,6 @@ pub enum SignArchiveResult {
 async fn wait_on(mut recv: Receiver<()>) {
     loop {
         _ = std::io::stdout().flush();
-        _ = tokio::io::stdout().flush().await;
         if recv.try_recv().is_ok() {
             println!(".");
             break;
@@ -165,7 +163,6 @@ pub async fn try_chunked_uploading(
         );
 
         _ = std::io::stdout().flush();
-        _ = tokio::io::stdout().flush().await;
         wait_t = Some(tokio::spawn(wait_on(recv)))
     }
 
@@ -452,56 +449,56 @@ impl PackageVersionReadySharedState {
     }
 }
 
-fn create_spinner(m: &MultiProgress, message: String) -> ProgressBar {
-    let spinner = m.add(ProgressBar::new_spinner());
-    spinner.set_message(message);
-    spinner.set_style(ProgressStyle::default_spinner());
-    spinner.enable_steady_tick(Duration::from_millis(100));
-    spinner
-}
-
-fn show_spinners_while_waiting(state: &PackageVersionReadySharedState) {
-    // Clone shared state for threads
-    let (state_webc, state_bindings, state_native) = (
-        Arc::clone(&state.webc_generated),
-        Arc::clone(&state.bindings_generated),
-        Arc::clone(&state.native_exes_generated),
-    );
-    let m = MultiProgress::new();
-
-    let webc_spinner = create_spinner(&m, String::from("Generating package..."));
-    let bindings_spinner = create_spinner(&m, String::from("Generating language bindings..."));
-    let exe_spinner = create_spinner(&m, String::from("Generating native executables..."));
-
-    let check_and_finish = |spinner: ProgressBar, state: Arc<Mutex<Option<bool>>>, name: String| {
-        thread::spawn(move || loop {
-            match state.lock() {
-                Ok(lock) => {
-                    if lock.is_some() {
-                        // spinner.finish_with_message(format!("✅ {} generation complete", name));
-                        spinner.finish_and_clear();
-                        break;
-                    }
-                }
-                Err(_) => {
-                    break;
-                }
-            }
-            thread::sleep(Duration::from_millis(100));
-        });
-    };
-    check_and_finish(webc_spinner, state_webc, String::from("package"));
-    check_and_finish(
-        bindings_spinner,
-        state_bindings,
-        String::from("Language bindings"),
-    );
-    check_and_finish(
-        exe_spinner,
-        state_native,
-        String::from("Native executables"),
-    );
-}
+// fn create_spinner(m: &MultiProgress, message: String) -> ProgressBar {
+//     let spinner = m.add(ProgressBar::new_spinner());
+//     spinner.set_message(message);
+//     spinner.set_style(ProgressStyle::default_spinner());
+//     spinner.enable_steady_tick(Duration::from_millis(100));
+//     spinner
+// }
+//
+// fn show_spinners_while_waiting(state: &PackageVersionReadySharedState) {
+//     // Clone shared state for threads
+//     let (state_webc, state_bindings, state_native) = (
+//         Arc::clone(&state.webc_generated),
+//         Arc::clone(&state.bindings_generated),
+//         Arc::clone(&state.native_exes_generated),
+//     );
+//     let m = MultiProgress::new();
+//
+//     let webc_spinner = create_spinner(&m, String::from("Generating package..."));
+//     let bindings_spinner = create_spinner(&m, String::from("Generating language bindings..."));
+//     let exe_spinner = create_spinner(&m, String::from("Generating native executables..."));
+//
+//     let check_and_finish = |spinner: ProgressBar, state: Arc<Mutex<Option<bool>>>, name: String| {
+//         thread::spawn(move || loop {
+//             match state.lock() {
+//                 Ok(lock) => {
+//                     if lock.is_some() {
+//                         // spinner.finish_with_message(format!("✅ {} generation complete", name));
+//                         spinner.finish_and_clear();
+//                         break;
+//                     }
+//                 }
+//                 Err(_) => {
+//                     break;
+//                 }
+//             }
+//             thread::sleep(Duration::from_millis(100));
+//         });
+//     };
+//     check_and_finish(webc_spinner, state_webc, String::from("package"));
+//     check_and_finish(
+//         bindings_spinner,
+//         state_bindings,
+//         String::from("Language bindings"),
+//     );
+//     check_and_finish(
+//         exe_spinner,
+//         state_native,
+//         String::from("Native executables"),
+//     );
+// }
 
 async fn wait_for_package_version_to_become_ready(
     registry: &str,
@@ -525,7 +522,7 @@ async fn wait_for_package_version_to_become_ready(
             style(format!("[3/{steps}]")).bold().dim(),
             FIRE
         );
-        _ = tokio::io::stdout().flush().await;
+        _ = std::io::stdout().flush();
         wait_t = Some(tokio::spawn(wait_on(recv)));
     }
 
