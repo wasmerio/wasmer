@@ -210,6 +210,16 @@ mod queries {
     #[derive(cynic::QueryFragment, Debug)]
     #[cynic(graphql_type = "Query", variables = "AllPackageReleasesVars")]
     pub struct GetAllPackageReleases {
+        #[arguments(
+            first: $first,
+            last: $last,
+            after: $after,
+            before: $before,
+            offset: $offset,
+            updatedAfter: $updated_after,
+            createdAfter: $created_after,
+            sortBy: $sort_by,
+        )]
         pub all_package_releases: PackageWebcConnection,
     }
 
