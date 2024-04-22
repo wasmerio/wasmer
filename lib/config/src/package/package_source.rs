@@ -5,7 +5,7 @@ use super::{
 };
 
 /// Source location of a package.
-#[derive(PartialEq, Eq, Clone, Debug)]
+#[derive(PartialEq, Eq, Clone, Debug, Hash)]
 pub enum PackageSource {
     /// An identifier in the format prescribed by [`WebcIdent`].
     Ident(PackageIdent),
