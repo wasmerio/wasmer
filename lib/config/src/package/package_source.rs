@@ -109,6 +109,12 @@ impl std::str::FromStr for PackageSource {
             return Ok(Self::Url(url));
         }
 
+        #[cfg(windows)]
+        // Detect windows absolute paths
+        if value.contains('\\') {
+            return Ok(Self::Path(value.to_string()));
+        }
+
         match first_char {
             '.' | '/' => Ok(Self::Path(value.to_string())),
             _ => PackageIdent::from_str(value).map(Self::Ident),
