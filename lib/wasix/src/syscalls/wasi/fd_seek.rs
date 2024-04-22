@@ -75,8 +75,12 @@ pub(crate) fn fd_seek_internal(
                 fd_entry.offset.fetch_add(offset, Ordering::AcqRel) + offset
             } else if offset < 0 {
                 let offset = offset.unsigned_abs();
-                // FIXME: need to handle underflow!
-                fd_entry.offset.fetch_sub(offset, Ordering::AcqRel) - offset
+
+                wasi_try_ok_ok!(fd_entry
+                    .offset
+                    .fetch_sub(offset, Ordering::AcqRel)
+                    .checked_sub(offset)
+                    .ok_or(Errno::Inval))
             } else {
                 fd_entry.offset.load(Ordering::Acquire)
             }
