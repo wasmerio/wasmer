@@ -149,7 +149,7 @@ impl CmdAppCreate {
             Ok(client) => {
                 let user = wasmer_api::query::current_user_with_namespaces(&client, None).await?;
                 crate::utils::prompts::prompt_for_namespace(
-                    "Who should own this package?",
+                    "Who should own this app?",
                     None,
                     Some(&user),
                 )
