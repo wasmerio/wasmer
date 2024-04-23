@@ -511,14 +511,14 @@ pub async fn deploy_app_verbose(
     let app = &opts.app;
 
     let pretty_name = if let Some(owner) = &owner {
-        format!("{}/{}", owner, app.name)
+        format!("{} ({owner})", app.name)
     } else {
         app.name.clone()
     };
 
     let make_default = opts.make_default;
 
-    eprintln!("Deploying app {pretty_name}...\n");
+    eprintln!("Deploying app {pretty_name} to Wasmer Edge...\n");
 
     let wait = opts.wait;
     let version = deploy_app(client, opts).await?;
