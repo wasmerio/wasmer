@@ -5,6 +5,7 @@ use crate::{
     utils::load_package_manifest,
 };
 use anyhow::Context;
+use colored::Colorize;
 use dialoguer::Confirm;
 use is_terminal::IsTerminal;
 use std::io::Write;
@@ -116,7 +117,11 @@ impl CmdAppDeploy {
         }
     }
 
-    async fn get_owner(&self, app: &AppConfigV1) -> anyhow::Result<String> {
+    async fn get_owner(
+        &self,
+        app: &mut AppConfigV1,
+        app_config_path: PathBuf,
+    ) -> anyhow::Result<String> {
         if let Some(owner) = &app.owner {
             return Ok(owner.clone());
         }
@@ -129,11 +134,22 @@ impl CmdAppDeploy {
         match self.api.client() {
             Ok(client) => {
                 let user = wasmer_api::query::current_user_with_namespaces(&client, None).await?;
-                crate::utils::prompts::prompt_for_namespace(
+                let owner = crate::utils::prompts::prompt_for_namespace(
                     "Who should own this package?",
                     None,
                     Some(&user),
-                )
+                )?;
+
+                app.owner = Some(owner.clone());
+
+                let new_config_raw = serde_yaml::to_string(app)?;
+                std::fs::write(&app_config_path, new_config_raw).with_context(|| {
+                    format!("Could not write file: '{}'", app_config_path.display())
+                })?;
+
+                Ok(owner)
+
+
             }
             Err(e) => anyhow::bail!(
                 "Can't determine user info: {e}. Please, user `wasmer login` before deploying an app or use the --owner <owner> flag to signal the owner of the app to deploy."
@@ -195,7 +211,8 @@ impl AsyncCliCommand for CmdAppDeploy {
 
         if !app_config_path.is_file() {
             if interactive {
-                self.create().await?;
+                // Create already points back to deploy.
+                return self.create().await;
             } else {
                 anyhow::bail!(
                     "Cannot deploy app as no app.yaml was found in path '{}'",
@@ -206,12 +223,48 @@ impl AsyncCliCommand for CmdAppDeploy {
 
         assert!(app_config_path.is_file());
 
-        let config_str = std::fs::read_to_string(&app_config_path)
-            .with_context(|| format!("Could not read file '{}'", app_config_path.display()))?;
+        let mut config_str = std::fs::read_to_string(&app_config_path)
+            .with_context(|| format!("Could not read file '{}'", &app_config_path.display()))?;
+
+        // We want to allow the user to specify the app name interactively.
+        let app_yaml: serde_yaml::Value = serde_yaml::from_str(&config_str)?;
+
+        if app_yaml.get("name").is_none() {
+            if interactive {
+                eprintln!(
+                    "The app.yaml (from path {}) does not specify any app name.",
+                    app_config_path.display()
+                );
+
+                let app_name = crate::utils::prompts::prompt_new_app_name(
+                    "Enter the name of the app",
+                    None,
+                    "",
+                    self.api.client().ok().as_ref(),
+                )
+                .await?;
+
+                std::fs::write(
+                    &app_config_path,
+                    format!("{}name: {}", config_str, app_name),
+                )?;
+
+                config_str = std::fs::read_to_string(&app_config_path).with_context(|| {
+                    format!("Could not read file '{}'", &app_config_path.display())
+                })?;
+            } else {
+                // Let it fail?
+                // anyhow::bail!(
+                //     "Cannot proceed with the deployment as the app spec in path {} does not have
+                //     a 'name' field.", app_config_path.display()
+                // )
+            }
+        }
 
         let mut app_config: AppConfigV1 = AppConfigV1::parse_yaml(&config_str)?;
-
-        let owner = self.get_owner(&app_config).await?;
+        let owner = self
+            .get_owner(&mut app_config, app_config_path.clone())
+            .await?;
 
         let wait = if self.no_wait {
             WaitMode::Deployed
@@ -219,11 +272,16 @@ impl AsyncCliCommand for CmdAppDeploy {
             WaitMode::Reachable
         };
 
-
         let app_cfg_new = app_config.clone();
         let opts = match &app_cfg_new.package {
             PackageSource::Path(ref path) => {
-                eprintln!("Loading local package (manifest path: {})", path);
+                eprintln!(
+                    "Loading local package (manifest path: {}",
+                    PathBuf::from(path)
+                        .canonicalize()?
+                        .join("wasmer.toml")
+                        .display()
+                );
 
                 let package_id = self.publish(owner.clone(), PathBuf::from(path)).await?;
 
@@ -280,6 +338,11 @@ impl AsyncCliCommand for CmdAppDeploy {
                                         n.full_name()
                                     );
 
+                                    let package_id =
+                                        self.publish(owner.clone(), manifest_path).await?;
+
+                                    app_config.package = package_id.into();
+
                                     DeployAppOpts {
                                         app: &app_config,
                                         original_config: Some(
@@ -292,7 +355,8 @@ impl AsyncCliCommand for CmdAppDeploy {
                                     }
                                 } else {
                                     eprintln!(
-                                        "Warning: this won't publish the package and the deployment will fail if the package does not already exist."
+                                        "{}: the package will not be published and the deployment will fail if the package does not already exist.",
+                                        "Warning".yellow().bold()
                                     );
                                     DeployAppOpts {
                                         app: &app_config,

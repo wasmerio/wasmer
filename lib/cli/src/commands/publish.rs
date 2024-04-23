@@ -88,6 +88,8 @@ impl AsyncCliCommand for Publish {
         };
         let client = api.client()?;
 
+        tracing::info!("checking if package with hash {hash} already exists");
+
         let maybe_already_published =
             wasmer_api::query::get_package_release(&client, &hash.to_string())
                 .await

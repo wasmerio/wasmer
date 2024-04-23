@@ -23,7 +23,7 @@ use tokio::io::AsyncBufReadExt;
 use tokio::sync::oneshot::Receiver;
 use wasmer_config::package::{NamedPackageIdent, PackageHash, PackageIdent};
 
-static UPLOAD: Emoji<'_, '_> = Emoji("⬆️", "");
+static UPLOAD: Emoji<'_, '_> = Emoji("📤", "");
 static PACKAGE: Emoji<'_, '_> = Emoji("📦", "");
 static FIRE: Emoji<'_, '_> = Emoji("🔥", "");
 
@@ -130,10 +130,19 @@ pub async fn try_chunked_uploading(
 
     upload_package(&signed_url.url, archive_path, archived_data_size, timeout).await?;
 
+    let name = package.as_ref().map(|p| p.name.clone());
+
+    let namespace = match patch_namespace {
+        Some(n) => Some(n),
+        None => package
+            .as_ref()
+            .map(|p| String::from(p.name.split_once('/').unwrap().0)),
+    };
+
     let q =
         PublishPackageMutationChunked::build_query(publish_package_mutation_chunked::Variables {
-            name: package.as_ref().map(|p| p.name.to_string()),
-            namespace: patch_namespace,
+            name,
+            namespace,
             version: package.as_ref().map(|p| p.version.to_string()),
             description: package.as_ref().map(|p| p.description.clone()),
             manifest: manifest_string.to_string(),
@@ -151,6 +160,8 @@ pub async fn try_chunked_uploading(
             }),
             wait: Some(wait.is_any()),
         });
+
+    tracing::debug!("{:#?}", q);
 
     let (send, recv) = tokio::sync::oneshot::channel();
     let mut wait_t = None;
@@ -180,6 +191,8 @@ pub async fn try_chunked_uploading(
     if let Some(wait_t) = wait_t {
         _ = wait_t.await;
     };
+
+    tracing::debug!("{:#?}", response);
 
     if let Some(payload) = response.publish_package {
         if !payload.success {

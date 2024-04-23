@@ -10,7 +10,7 @@ use crate::{
 };
 use anyhow::Context;
 use colored::Colorize;
-use dialoguer::Confirm;
+use dialoguer::{Confirm, Select};
 use is_terminal::IsTerminal;
 use std::{collections::HashMap, path::PathBuf, str::FromStr};
 use wasmer_api::{types::UserWithNamespaces, WasmerClient};
@@ -20,6 +20,23 @@ use wasmer_config::{
 };
 
 use super::deploy::CmdAppDeploy;
+
+async fn write_app_config(app_config: &AppConfigV1, dir: Option<PathBuf>) -> anyhow::Result<()> {
+    let raw_app_config = app_config.clone().to_yaml()?;
+
+    let app_dir = match dir {
+        Some(dir) => PathBuf::from(dir),
+        None => std::env::current_dir()?,
+    };
+
+    let app_config_path = app_dir.join(AppConfigV1::CANONICAL_FILE_NAME);
+    std::fs::write(&app_config_path, raw_app_config).with_context(|| {
+        format!(
+            "could not write app config to '{}'",
+            app_config_path.display()
+        )
+    })
+}
 
 /// Create a new Edge app.
 #[derive(clap::Parser, Debug)]
@@ -184,7 +201,7 @@ impl CmdAppCreate {
                 app_name,
                 &manifest_path.to_string_lossy().to_string(),
             );
-            self.write_app_config(&app_config).await?;
+            write_app_config(&app_config, self.app_dir_path.clone()).await?;
             self.try_deploy(owner).await?;
             return Ok(true);
         }
@@ -201,24 +218,23 @@ impl CmdAppCreate {
 
         if let Some(pkg) = &self.package {
             let app_config = self.get_app_config(owner, app_name, &pkg);
-            self.write_app_config(&app_config).await?;
+            write_app_config(&app_config, self.app_dir_path.clone()).await?;
             self.try_deploy(owner).await?;
             return Ok(true);
-        }
-
-        if interactive
-            && Confirm::new()
-                .with_prompt("Do you want to use a package from the registry?")
-                .interact()?
-        {
+        } else if interactive {
             let package_name: String = dialoguer::Input::new()
                 .with_prompt("What is the name of the package?")
                 .interact()?;
 
             let app_config = self.get_app_config(owner, app_name, &package_name);
-            self.write_app_config(&app_config).await?;
+            write_app_config(&app_config, self.app_dir_path.clone()).await?;
             self.try_deploy(owner).await?;
             return Ok(true);
+        } else {
+            eprintln!(
+                "{}: the app creation process did not produce any local change.",
+                "Warning".bold().yellow()
+            );
         }
 
         Ok(false)
@@ -226,10 +242,6 @@ impl CmdAppCreate {
 
     async fn create_from_template(&self, owner: &str, app_name: &str) -> anyhow::Result<bool> {
         let interactive = std::io::stdin().is_terminal() && !self.non_interactive;
-        let app_dir = match &self.app_dir_path {
-            Some(dir) => PathBuf::from(dir),
-            None => std::env::current_dir()?,
-        };
 
         let template = match self.template {
             Some(t) => t,
@@ -268,8 +280,13 @@ impl CmdAppCreate {
             AppType::PyApplication => true,
         };
 
+        let app_dir_path = match &self.app_dir_path {
+            Some(dir) => dir.clone(),
+            None => std::env::current_dir()?,
+        };
+
         let local_package = if allow_local_package {
-            match crate::utils::load_package_manifest(&app_dir) {
+            match crate::utils::load_package_manifest(&app_dir_path) {
                 Ok(Some(p)) => Some(p),
                 Ok(None) => None,
                 Err(err) => {
@@ -285,12 +302,12 @@ impl CmdAppCreate {
         };
 
         let creator = AppCreator {
-            app_name: Some(String::from(app_name)),
+            app_name: String::from(app_name),
             new_package_name: self.new_package_name.clone(),
             package: self.package.clone(),
             template,
             interactive,
-            dir: app_dir.clone(),
+            app_dir_path,
             owner: String::from(owner),
             api: self.api.client().ok(),
             user: if let Ok(client) = &self.api.client() {
@@ -317,23 +334,6 @@ impl CmdAppCreate {
         self.try_deploy(owner).await?;
 
         Ok(true)
-    }
-
-    async fn write_app_config(&self, app_config: &AppConfigV1) -> anyhow::Result<()> {
-        let raw_app_config = app_config.clone().to_yaml()?;
-
-        let app_dir = match &self.app_dir_path {
-            Some(dir) => PathBuf::from(dir),
-            None => std::env::current_dir()?,
-        };
-
-        let app_config_path = app_dir.join(AppConfigV1::CANONICAL_FILE_NAME);
-        std::fs::write(&app_config_path, raw_app_config).with_context(|| {
-            format!(
-                "could not write app config to '{}'",
-                app_config_path.display()
-            )
-        })
     }
 
     async fn try_deploy(&self, owner: &str) -> anyhow::Result<()> {
@@ -377,11 +377,27 @@ impl AsyncCliCommand for CmdAppCreate {
         // Get the name of the app.
         let app_name = self.get_app_name().await?;
 
-        if !self.create_from_local_manifest(&owner, &app_name).await?
-            && !self.create_from_package(&owner, &app_name).await?
-            && self.create_from_template(&owner, &app_name).await?
-        {
-            eprintln!("Warning: the creation process did not produce any result.");
+        let interactive = std::io::stdin().is_terminal() && !self.non_interactive;
+
+        if !self.create_from_local_manifest(&owner, &app_name).await? {
+            if self.template.is_some() {
+                self.create_from_template(&owner, &app_name).await?;
+            } else if self.package.is_some() {
+                self.create_from_package(&owner, &app_name).await?;
+            } else if interactive {
+                let choice = Select::new()
+                    .with_prompt("What would you like to create the app from?")
+                    .items(&vec!["template", "registry package"])
+                    .default(0)
+                    .interact()?;
+                match choice {
+                    0 => self.create_from_template(&owner, &app_name).await?,
+                    1 => self.create_from_package(&owner, &app_name).await?,
+                    x => panic!("unhandled selection {x}"),
+                };
+            } else {
+                eprintln!("Warning: the creation process did not produce any result.");
+            }
         }
 
         Ok(())
@@ -411,10 +427,10 @@ pub enum AppType {
 struct AppCreator {
     package: Option<String>,
     new_package_name: Option<String>,
-    app_name: Option<String>,
+    app_name: String,
     template: AppType,
     interactive: bool,
-    dir: PathBuf,
+    app_dir_path: PathBuf,
     owner: String,
     api: Option<WasmerClient>,
     user: Option<UserWithNamespaces>,
@@ -437,25 +453,22 @@ impl AppCreator {
         )
         .await?;
 
-        eprintln!("What should be the name of the wrapper package?");
+        let app_name = self.app_name;
+        eprintln!("What should be the name of the package?");
 
-        let default_name = format!("{}-webshell", inner_pkg.name);
+        let default_name = format!(
+            "{}-{}-webshell",
+            self.owner,
+            inner_pkg.to_string().replace('/', "-")
+        );
+
         let outer_pkg_name =
             crate::utils::prompts::prompt_for_ident("Package name", Some(&default_name))?;
         let outer_pkg_full_name = format!("{}/{}", self.owner, outer_pkg_name);
 
-        eprintln!("What should be the name of the app?");
-
-        let default_name = if outer_pkg_name.ends_with("webshell") {
-            format!("{}-{}", self.owner, outer_pkg_name)
-        } else {
-            format!("{}-{}-webshell", self.owner, outer_pkg_name)
-        };
-        let app_name = crate::utils::prompts::prompt_for_ident("App name", Some(&default_name))?;
-
         // Build the package.
 
-        let public_dir = self.dir.join("public");
+        let public_dir = self.app_dir_path.join("public");
         if !public_dir.exists() {
             std::fs::create_dir_all(&public_dir)?;
         }
@@ -486,7 +499,7 @@ impl AppCreator {
             .map_fs("public", PathBuf::from("public"))
             .build()?;
 
-        let manifest_path = self.dir.join("wasmer.toml");
+        let manifest_path = self.app_dir_path.join("wasmer.toml");
 
         let raw = manifest.to_string()?;
         eprintln!(
@@ -495,7 +508,7 @@ impl AppCreator {
         );
         std::fs::write(&manifest_path, raw)?;
 
-        let app_cfg = AppConfigV1 {
+        let app_config = AppConfigV1 {
             name: app_name,
             app_id: None,
             owner: Some(self.owner.clone()),
@@ -511,6 +524,8 @@ impl AppCreator {
             scaling: None,
             extra: Default::default(),
         };
+
+        write_app_config(&app_config, Some(self.app_dir_path.clone())).await?;
 
         Ok(())
     }
@@ -555,7 +570,7 @@ impl AppCreator {
             None
         };
 
-        let (pkg, api_pkg, local_package) = if let Some(pkg) = package_opt {
+        let (package, api_pkg, local_package) = if let Some(pkg) = package_opt {
             if let Some(api) = &self.api {
                 let p2 = wasmer_api::query::get_package(
                     api,
@@ -563,13 +578,19 @@ impl AppCreator {
                 )
                 .await?;
 
-                (pkg, p2, self.local_package)
+                (
+                    PackageSource::Ident(wasmer_config::package::PackageIdent::Named(pkg)),
+                    p2,
+                    self.local_package,
+                )
             } else {
-                (pkg, None, self.local_package)
+                (
+                    PackageSource::Ident(wasmer_config::package::PackageIdent::Named(pkg)),
+                    None,
+                    self.local_package,
+                )
             }
         } else {
-            eprintln!("No package found or specified.");
-
             let ty = match self.template {
                 AppType::HttpServer => None,
                 AppType::StaticWebsite => Some(PackageType::StaticWebsite),
@@ -587,7 +608,7 @@ impl AppCreator {
             };
 
             let w = PackageWizard {
-                path: self.dir.clone(),
+                path: self.app_dir_path.clone(),
                 name: self.new_package_name.clone(),
                 type_: ty,
                 create_mode,
@@ -598,7 +619,7 @@ impl AppCreator {
 
             let output = w.run(self.api.as_ref()).await?;
             (
-                output.ident,
+                PackageSource::Path(".".into()),
                 output.api,
                 output
                     .local_path
@@ -606,27 +627,7 @@ impl AppCreator {
             )
         };
 
-        let name = if let Some(name) = self.app_name {
-            name
-        } else {
-            let default = match self.template {
-                AppType::HttpServer | AppType::StaticWebsite => {
-                    format!("{}-{}", pkg.namespace.as_ref().unwrap(), pkg.name)
-                }
-                AppType::JsWorker | AppType::PyApplication => {
-                    format!("{}-{}-worker", pkg.namespace.as_ref().unwrap(), pkg.name)
-                }
-                AppType::BrowserShell => {
-                    format!("{}-{}-webshell", pkg.namespace.as_ref().unwrap(), pkg.name)
-                }
-            };
-
-            dialoguer::Input::new()
-                .with_prompt("What should be the name of the app? <NAME>.wasmer.app")
-                .with_initial_text(default)
-                .interact_text()
-                .unwrap()
-        };
+        let name = self.app_name;
 
         let cli_args = match self.template {
             AppType::PyApplication => Some(vec!["/src/main.py".to_string()]),
@@ -635,11 +636,11 @@ impl AppCreator {
         };
 
         // TODO: check if name already exists.
-        let cfg = AppConfigV1 {
+        let app_config = AppConfigV1 {
             name,
             app_id: None,
             owner: Some(self.owner.clone()),
-            package: PackageSource::Ident(wasmer_config::package::PackageIdent::Named(pkg)),
+            package,
             domains: None,
             env: Default::default(),
             // CLI args are only set for JS and Py workers for now.
@@ -654,6 +655,8 @@ impl AppCreator {
             scaling: None,
             extra: Default::default(),
         };
+
+        write_app_config(&app_config, Some(self.app_dir_path.clone())).await?;
 
         Ok(())
     }

@@ -14,7 +14,7 @@ pub fn prompt_for_ident(message: &str, default: Option<&str>) -> Result<String, 
         //     diag.validate_with(val);
         // }
 
-        let raw: String = diag.interact()?;
+        let raw: String = diag.interact_text()?;
         let val = raw.trim();
         if !val.is_empty() {
             break Ok(val.to_string());

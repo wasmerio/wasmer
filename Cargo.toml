@@ -92,7 +92,7 @@ wasmer-config = { path = "./lib/config" }
 enumset = "1.1.0"
 memoffset = "0.9.0"
 wasmparser = { version = "0.121.0", default-features = false }
-webc = { version = "6.0.0-alpha1", default-features = false, features = ["package"] }
+webc = { version = "6.0.0-alpha2", default-features = false, features = ["package"] }
 shared-buffer = "0.1.4"
 rkyv = { version = "0.7.40", features = ["indexmap", "validation", "strict"] }
 memmap2 = { version = "0.6.2" }
