@@ -7,6 +7,7 @@ use crate::ArtifactBuild;
 use crate::ArtifactBuildFromArchive;
 use crate::ArtifactCreate;
 use crate::Features;
+use crate::FrameInfosVariant;
 use crate::ModuleEnvironment;
 use crate::{
     register_frame_info, resolve_imports, FunctionExtent, GlobalFrameInfoRegistration,
@@ -680,8 +681,10 @@ impl Artifact {
             self.artifact.create_module_info(),
             &finished_function_extents,
             match &self.artifact {
-                ArtifactBuildVariant::Plain(p) => p.get_frame_info_ref().clone(),
-                ArtifactBuildVariant::Archived(a) => a.deserialize_frame_info_ref()?,
+                ArtifactBuildVariant::Plain(p) => {
+                    FrameInfosVariant::Owned(p.get_frame_info_ref().clone())
+                }
+                ArtifactBuildVariant::Archived(a) => FrameInfosVariant::Archived(a.clone()),
             },
         );
 

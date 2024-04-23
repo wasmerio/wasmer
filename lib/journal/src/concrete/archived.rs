@@ -23,7 +23,7 @@ pub const JOURNAL_MAGIC_NUMBER_BYTES: [u8; 8] = JOURNAL_MAGIC_NUMBER.to_be_bytes
     RkyvDeserialize,
     Archive,
 )]
-#[archive_attr(derive(CheckBytes))]
+#[archive_attr(derive(CheckBytes, Debug))]
 pub enum JournalEntryRecordType {
     InitModuleV1 = 1,
     ProcessExitV1 = 2,
@@ -877,7 +877,7 @@ impl<'a> JournalEntry<'a> {
 /// changes to the journal entry types without having to
 /// worry about backward and forward compatibility
 #[derive(Debug, Clone, RkyvSerialize, RkyvDeserialize, Archive)]
-#[archive_attr(derive(CheckBytes))]
+#[archive_attr(derive(CheckBytes, Debug))]
 pub(crate) struct JournalEntryHeader {
     pub record_type: u16,
     pub record_size: u64,
@@ -1502,7 +1502,7 @@ pub struct JournalEntrySnapshotV1 {
 
 #[repr(C)]
 #[derive(Debug, Clone, RkyvSerialize, RkyvDeserialize, Archive)]
-#[archive_attr(derive(CheckBytes))]
+#[archive_attr(derive(CheckBytes, Debug))]
 pub enum JournalSnapshot0ClockidV1 {
     Realtime,
     Monotonic,
@@ -1513,7 +1513,7 @@ pub enum JournalSnapshot0ClockidV1 {
 
 #[repr(C)]
 #[derive(Debug, Clone, RkyvSerialize, RkyvDeserialize, Archive)]
-#[archive_attr(derive(CheckBytes))]
+#[archive_attr(derive(CheckBytes, Debug))]
 pub enum JournalWhenceV1 {
     Set,
     Cur,
@@ -1523,7 +1523,7 @@ pub enum JournalWhenceV1 {
 
 #[repr(C)]
 #[derive(Debug, Clone, RkyvSerialize, RkyvDeserialize, Archive)]
-#[archive_attr(derive(CheckBytes))]
+#[archive_attr(derive(CheckBytes, Debug))]
 pub enum JournalAdviceV1 {
     Normal,
     Sequential,
@@ -1537,7 +1537,7 @@ pub enum JournalAdviceV1 {
 #[repr(C)]
 #[repr(align(8))]
 #[derive(Debug, Clone, RkyvSerialize, RkyvDeserialize, Archive)]
-#[archive_attr(derive(CheckBytes))]
+#[archive_attr(derive(CheckBytes, Debug))]
 pub struct JournalIpCidrV1 {
     pub ip: IpAddr,
     pub prefix: u8,
@@ -1545,7 +1545,7 @@ pub struct JournalIpCidrV1 {
 
 #[repr(C)]
 #[derive(Debug, Clone, RkyvSerialize, RkyvDeserialize, Archive)]
-#[archive_attr(derive(CheckBytes))]
+#[archive_attr(derive(CheckBytes, Debug))]
 pub enum JournalExitCodeV1 {
     Errno(u16),
     Other(i32),
@@ -1565,7 +1565,7 @@ pub enum JournalExitCodeV1 {
     RkyvDeserialize,
     Archive,
 )]
-#[archive_attr(derive(CheckBytes))]
+#[archive_attr(derive(CheckBytes, Debug))]
 pub enum JournalSnapshotTriggerV1 {
     Idle,
     Listen,
@@ -1594,7 +1594,7 @@ pub enum JournalSnapshotTriggerV1 {
     RkyvDeserialize,
     Archive,
 )]
-#[archive_attr(derive(CheckBytes))]
+#[archive_attr(derive(CheckBytes, Debug))]
 pub enum JournalEpollCtlV1 {
     Add,
     Mod,
@@ -1605,7 +1605,7 @@ pub enum JournalEpollCtlV1 {
 #[repr(C)]
 #[repr(align(8))]
 #[derive(Debug, Clone, RkyvSerialize, RkyvDeserialize, Archive)]
-#[archive_attr(derive(CheckBytes))]
+#[archive_attr(derive(CheckBytes, Debug))]
 pub struct JournalEpollEventCtlV1 {
     pub events: u32,
     pub ptr: u64,
@@ -1628,7 +1628,7 @@ pub struct JournalEpollEventCtlV1 {
     RkyvDeserialize,
     Archive,
 )]
-#[archive_attr(derive(CheckBytes))]
+#[archive_attr(derive(CheckBytes, Debug))]
 pub enum JournalStreamSecurityV1 {
     Unencrypted,
     AnyEncryption,
@@ -1651,7 +1651,7 @@ pub enum JournalStreamSecurityV1 {
     RkyvDeserialize,
     Archive,
 )]
-#[archive_attr(derive(CheckBytes))]
+#[archive_attr(derive(CheckBytes, Debug))]
 pub enum JournalAddressfamilyV1 {
     Unspec,
     Inet4,
@@ -1673,7 +1673,7 @@ pub enum JournalAddressfamilyV1 {
     RkyvDeserialize,
     Archive,
 )]
-#[archive_attr(derive(CheckBytes))]
+#[archive_attr(derive(CheckBytes, Debug))]
 pub enum JournalSocktypeV1 {
     Unknown,
     Stream,
@@ -1696,7 +1696,7 @@ pub enum JournalSocktypeV1 {
     RkyvDeserialize,
     Archive,
 )]
-#[archive_attr(derive(CheckBytes))]
+#[archive_attr(derive(CheckBytes, Debug))]
 pub enum JournalSockoptionV1 {
     Noop,
     ReusePort,
@@ -1741,7 +1741,7 @@ pub enum JournalSockoptionV1 {
     RkyvDeserialize,
     Archive,
 )]
-#[archive_attr(derive(CheckBytes))]
+#[archive_attr(derive(CheckBytes, Debug))]
 pub enum JournalTimeTypeV1 {
     ReadTimeout,
     WriteTimeout,
@@ -1765,7 +1765,7 @@ pub enum JournalTimeTypeV1 {
     RkyvDeserialize,
     Archive,
 )]
-#[archive_attr(derive(CheckBytes))]
+#[archive_attr(derive(CheckBytes, Debug))]
 pub enum JournalSocketShutdownV1 {
     Read,
     Write,

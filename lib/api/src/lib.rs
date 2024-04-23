@@ -469,7 +469,7 @@ pub type Features = sys::Features;
 pub type BaseTunables = sys::BaseTunables;
 #[cfg(feature = "sys")]
 #[deprecated(note = "wasmer::VMConfig is deprecated, use wasmer::sys::VMConfig instead")]
-/// Configuration for the the runtime VM
+/// Configuration for the runtime VM
 /// Currently only the stack size is configurable
 pub type VMConfig = sys::VMConfig;
 
@@ -501,7 +501,9 @@ pub use mem_access::{MemoryAccessError, WasmRef, WasmSlice, WasmSliceIter};
 pub use module::{IoCompileError, Module};
 pub use native_type::{FromToNativeWasmType, NativeWasmTypeInto, WasmTypeList};
 pub use ptr::{Memory32, Memory64, MemorySize, WasmPtr, WasmPtr64};
-pub use store::{AsStoreMut, AsStoreRef, OnCalledHandler, Store, StoreId, StoreMut, StoreRef};
+pub use store::{
+    AsStoreMut, AsStoreRef, OnCalledHandler, Store, StoreId, StoreMut, StoreObjects, StoreRef,
+};
 #[cfg(feature = "sys")]
 pub use store::{TrapHandlerFn, Tunables};
 #[cfg(any(feature = "sys", feature = "jsc"))]

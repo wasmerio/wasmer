@@ -97,7 +97,7 @@ wasmer-object = { version = "=4.2.8", path = "../object", optional = true }
 virtual-fs = { version = "0.11.2", path = "../virtual-fs", default-features = false, features = [
   "host-fs",
 ] }
-virtual-net = { version = "0.6.3", path = "../virtual-net" }
+virtual-net = { version = "0.6.4", path = "../virtual-net" }
 virtual-mio = { version = "0.3.1", path = "../virtual-io" }
 
 # Wasmer-owned dependencies.

@@ -14,7 +14,9 @@ mod exec;
 
 pub use self::{
     binary_package::*,
-    exec::{run_exec, spawn_exec, spawn_exec_module},
+    exec::{
+        run_exec, spawn_exec, spawn_exec_module, spawn_load_module, spawn_load_wasm, spawn_union_fs,
+    },
 };
 use crate::{os::command::Commands, Runtime};
 

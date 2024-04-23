@@ -354,6 +354,12 @@ pub trait EmitterARM64 {
         reg: Location,
         label: Label,
     ) -> Result<(), CompileError>;
+    fn emit_cbz_label_far(
+        &mut self,
+        sz: Size,
+        reg: Location,
+        label: Label,
+    ) -> Result<(), CompileError>;
     fn emit_tbz_label(
         &mut self,
         sz: Size,
@@ -2605,6 +2611,36 @@ impl EmitterARM64 for Assembler {
             }
             _ => codegen_error!("singlepass can't emit CBNZ {:?} {:?} {:?}", sz, reg, label),
         }
+        Ok(())
+    }
+    fn emit_cbz_label_far(
+        &mut self,
+        sz: Size,
+        reg: Location,
+        label: Label,
+    ) -> Result<(), CompileError> {
+        let near_label: Label = self.get_label();
+        let continue_label: Label = self.get_label();
+
+        match (sz, reg) {
+            (Size::S32, Location::GPR(reg)) => {
+                let reg = reg.into_index() as u32;
+
+                dynasm!(self ; cbz W(reg), => near_label);
+                dynasm!(self ; b => continue_label);
+            }
+            (Size::S64, Location::GPR(reg)) => {
+                let reg = reg.into_index() as u32;
+                dynasm!(self ; cbz W(reg), => label);
+                dynasm!(self ; b => continue_label);
+            }
+            _ => codegen_error!("singlepass can't emit CBZ {:?} {:?} {:?}", sz, reg, label),
+        }
+        self.emit_label(near_label)?;
+        dynasm!(self ; b => label );
+
+        self.emit_label(continue_label)?;
+
         Ok(())
     }
     fn emit_tbz_label(
