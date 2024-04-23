@@ -133,7 +133,7 @@ impl AsyncCliCommand for Publish {
                     latest_version.patch += 1;
                     if Confirm::new()
                         .with_prompt(format!(
-                            "Do you want to bump it to a new version ({} -> {})?",
+                            "Do you want to bump the package to a new version? ({} -> {})",
                             pkg.version, latest_version
                         ))
                         .interact()
