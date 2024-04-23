@@ -219,7 +219,9 @@ impl AsyncCliCommand for CmdAppDeploy {
             WaitMode::Reachable
         };
 
-        let opts = match app_config.package {
+
+        let app_cfg_new = app_config.clone();
+        let opts = match &app_cfg_new.package {
             PackageSource::Path(ref path) => {
                 eprintln!("Loading local package (manifest path: {})", path);
 
