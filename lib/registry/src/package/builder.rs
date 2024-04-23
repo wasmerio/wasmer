@@ -9,6 +9,7 @@ use rusqlite::{params, Connection, OpenFlags, TransactionBehavior};
 use tar::Builder;
 use thiserror::Error;
 use time::{self, OffsetDateTime};
+use wasmer_config::package::PackageIdent;
 
 use crate::publish::PublishWait;
 use crate::{package::builder::validate::ValidationPolicy, publish::SignArchiveResult};
@@ -22,7 +23,8 @@ const MIGRATIONS: &[(i32, &str)] = &[
 
 const CURRENT_DATA_VERSION: usize = MIGRATIONS.len();
 
-/// CLI options for the `wasmer publish` command
+/// An abstraction for the action of publishing a named or unnamed package.
+#[derive(Debug)]
 pub struct Publish {
     /// Registry to publish to
     pub registry: Option<String>,
@@ -30,7 +32,9 @@ pub struct Publish {
     pub dry_run: bool,
     /// Run the publish command without any output
     pub quiet: bool,
-    /// Override the package of the uploaded package in the wasmer.toml
+    /// Override the namespace of the package to upload
+    pub package_namespace: Option<String>,
+    /// Override the name of the package to upload
     pub package_name: Option<String>,
     /// Override the package version of the uploaded package in the wasmer.toml
     pub version: Option<semver::Version>,
@@ -63,8 +67,8 @@ enum PackageBuildError {
 }
 
 impl Publish {
-    /// Executes `wasmer publish`
-    pub fn execute(&self) -> Result<(), anyhow::Error> {
+    /// Publish the package to the selected (or default) registry.
+    pub async fn execute(&self) -> Result<Option<PackageIdent>, anyhow::Error> {
         let input_path = match self.package_path.as_ref() {
             Some(s) => std::env::current_dir()?.join(s),
             None => std::env::current_dir()?,
@@ -105,7 +109,7 @@ impl Publish {
         let manifest = std::fs::read_to_string(&manifest_path)
             .map_err(|e| anyhow::anyhow!("could not find manifest: {e}"))
             .with_context(|| anyhow::anyhow!("{}", manifest_path.display()))?;
-        let mut manifest = wasmer_toml::Manifest::parse(&manifest)?;
+        let mut manifest = wasmer_config::package::Manifest::parse(&manifest)?;
 
         let manifest_path_canon = manifest_path.canonicalize()?;
         let manifest_dir = manifest_path_canon
@@ -162,19 +166,7 @@ impl Publish {
 
         if self.dry_run {
             // dry run: publish is done here
-
-            match manifest.package {
-                Some(pkg) => {
-                    println!(
-                        "🚀 Successfully published package `{}@{}`",
-                        pkg.name, pkg.version
-                    );
-                }
-                None => println!(
-                    "🚀 Successfully published unnamed package from `{}`",
-                    manifest_path.display()
-                ),
-            }
+            println!("🚀 Package published successfully!");
 
             let path = archive_dir.into_path();
             eprintln!("Archive persisted at: {}", path.display());
@@ -183,7 +175,7 @@ impl Publish {
                 "Publish succeeded, but package was not published because it was run in dry-run mode"
             );
 
-            return Ok(());
+            return Ok(None);
         }
 
         crate::publish::try_chunked_uploading(
@@ -206,7 +198,9 @@ impl Publish {
             self.quiet,
             self.wait,
             self.timeout,
+            self.package_namespace.clone(),
         )
+        .await
     }
 
     fn validation_policy(&self) -> Box<dyn ValidationPolicy> {
@@ -229,7 +223,7 @@ struct ConstructedPackageArchive {
 
 fn construct_tar_gz(
     archive_dir: &Path,
-    manifest: &wasmer_toml::Manifest,
+    manifest: &wasmer_config::package::Manifest,
     manifest_path: &Path,
 ) -> Result<ConstructedPackageArchive, anyhow::Error> {
     // This is an assert instead of returned error because this is a programmer error.
@@ -633,7 +627,7 @@ mod validate {
     };
 
     pub(crate) fn validate_directory(
-        manifest: &wasmer_toml::Manifest,
+        manifest: &wasmer_config::package::Manifest,
         registry: &str,
         pkg_path: PathBuf,
         callbacks: &mut dyn ValidationPolicy,
@@ -667,7 +661,7 @@ mod validate {
 
     /// Check if publishing this manifest would change the package's privacy.
     fn would_change_package_privacy(
-        manifest: &wasmer_toml::Manifest,
+        manifest: &wasmer_config::package::Manifest,
         registry: &str,
         auth_token: &str,
     ) -> Result<bool, ValidationError> {
@@ -693,7 +687,7 @@ mod validate {
     }
 
     fn validate_module(
-        module: &wasmer_toml::Module,
+        module: &wasmer_config::package::Module,
         registry: &str,
         pkg_path: &Path,
     ) -> Result<(), ValidationError> {
@@ -778,7 +772,7 @@ mod validate {
     }
 
     fn validate_bindings(
-        bindings: &wasmer_toml::Bindings,
+        bindings: &wasmer_config::package::Bindings,
         base_directory_path: &Path,
     ) -> Result<(), ValidationError> {
         // Note: checking for referenced files will make sure they all exist.
@@ -797,7 +791,7 @@ mod validate {
         #[error("Failed to read file {file}; {error}")]
         MiscCannotRead { file: String, error: String },
         #[error(transparent)]
-        Imports(#[from] wasmer_toml::ImportsError),
+        Imports(#[from] wasmer_config::package::ImportsError),
         #[error("Unable to update the interfaces database")]
         UpdatingInterfaces(#[source] anyhow::Error),
         #[error("Aborting because publishing the package would make it public")]
@@ -839,7 +833,7 @@ mod validate {
         /// How should publishing proceed when a module is invalid?
         fn on_invalid_module(
             &mut self,
-            module: &wasmer_toml::Module,
+            module: &wasmer_config::package::Module,
             error: &ValidationError,
         ) -> ControlFlow<(), ()>;
 
@@ -847,7 +841,7 @@ mod validate {
         /// privacy? (i.e. by making a private package publicly available).
         fn on_package_privacy_changed(
             &mut self,
-            manifest: &wasmer_toml::Manifest,
+            manifest: &wasmer_config::package::Manifest,
         ) -> ControlFlow<(), ()>;
     }
 
@@ -861,7 +855,7 @@ mod validate {
 
         fn on_invalid_module(
             &mut self,
-            _module: &wasmer_toml::Module,
+            _module: &wasmer_config::package::Module,
             _error: &ValidationError,
         ) -> ControlFlow<(), ()> {
             unreachable!()
@@ -869,7 +863,7 @@ mod validate {
 
         fn on_package_privacy_changed(
             &mut self,
-            _manifest: &wasmer_toml::Manifest,
+            _manifest: &wasmer_config::package::Manifest,
         ) -> ControlFlow<(), ()> {
             unreachable!()
         }
@@ -885,7 +879,7 @@ mod validate {
 
         fn on_invalid_module(
             &mut self,
-            module: &wasmer_toml::Module,
+            module: &wasmer_config::package::Module,
             error: &ValidationError,
         ) -> ControlFlow<(), ()> {
             let module_name = &module.name;
@@ -911,7 +905,7 @@ mod validate {
 
         fn on_package_privacy_changed(
             &mut self,
-            manifest: &wasmer_toml::Manifest,
+            manifest: &wasmer_config::package::Manifest,
         ) -> ControlFlow<(), ()> {
             if let Some(pkg) = &manifest.package {
                 let privacy = if pkg.private { "private" } else { "public" };
@@ -949,7 +943,7 @@ mod validate {
 
         fn on_invalid_module(
             &mut self,
-            _module: &wasmer_toml::Module,
+            _module: &wasmer_config::package::Module,
             _error: &ValidationError,
         ) -> ControlFlow<(), ()> {
             ControlFlow::Break(())
@@ -957,7 +951,7 @@ mod validate {
 
         fn on_package_privacy_changed(
             &mut self,
-            _manifest: &wasmer_toml::Manifest,
+            _manifest: &wasmer_config::package::Manifest,
         ) -> ControlFlow<(), ()> {
             ControlFlow::Break(())
         }
@@ -998,7 +992,7 @@ runner = "https://webc.org/runner/wcgi"
         std::fs::write(&manifest_path, manifest_str).unwrap();
         std::fs::write(mp.join("module.wasm"), "()").unwrap();
 
-        let manifest = wasmer_toml::Manifest::parse(manifest_str).unwrap();
+        let manifest = wasmer_config::package::Manifest::parse(manifest_str).unwrap();
 
         let meta = construct_tar_gz(archive_dir.path(), &manifest, &manifest_path).unwrap();
 
@@ -1057,7 +1051,7 @@ exports = "crum-sort.wai"
         std::fs::write(mp.join("crumsort_wasm.wasm"), "()").unwrap();
         std::fs::write(mp.join("crum-sort.wai"), "/// crum-sort.wai").unwrap();
 
-        let manifest = wasmer_toml::Manifest::parse(manifest_str).unwrap();
+        let manifest = wasmer_config::package::Manifest::parse(manifest_str).unwrap();
         let meta = construct_tar_gz(archive_dir.path(), &manifest, &manifest_path).unwrap();
 
         let mut data = std::io::Cursor::new(std::fs::read(meta.archive_path).unwrap());

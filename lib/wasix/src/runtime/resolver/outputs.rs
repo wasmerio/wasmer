@@ -1,19 +1,12 @@
-use std::{
-    collections::BTreeMap,
-    fmt::{self, Display, Formatter},
-    ops::Index,
-    path::PathBuf,
-};
+use std::{collections::BTreeMap, ops::Index, path::PathBuf};
 
 use petgraph::{
     graph::{DiGraph, NodeIndex},
     visit::EdgeRef,
 };
-use semver::Version;
+use wasmer_config::package::PackageId;
 
 use crate::runtime::resolver::{DistributionInfo, PackageInfo};
-
-use super::PackageSpecifier;
 
 #[derive(Debug, Clone)]
 pub struct Resolution {
@@ -27,78 +20,6 @@ pub struct ItemLocation {
     pub name: String,
     /// The package this item comes from.
     pub package: PackageId,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct PackageIdent {
-    pub name: String,
-    pub version: Version,
-}
-
-impl Display for PackageIdent {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(f, "{}@{}", self.name, self.version)
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub enum PackageId {
-    Named(PackageIdent),
-    HashSha256(String),
-}
-
-impl PackageId {
-    pub fn new_named(name: impl Into<String>, version: Version) -> Self {
-        Self::Named(PackageIdent {
-            name: name.into(),
-            version,
-        })
-    }
-
-    pub fn as_named(&self) -> Option<&PackageIdent> {
-        if let Self::Named(v) = self {
-            Some(v)
-        } else {
-            None
-        }
-    }
-
-    pub fn as_hash_sha256(&self) -> Option<&String> {
-        if let Self::HashSha256(v) = self {
-            Some(v)
-        } else {
-            None
-        }
-    }
-}
-
-impl Display for PackageId {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::Named(ident) => ident.fmt(f),
-            Self::HashSha256(hash) => write!(f, "sha256:{}", hash),
-        }
-    }
-}
-
-impl From<PackageId> for PackageSpecifier {
-    fn from(id: PackageId) -> Self {
-        match id {
-            PackageId::Named(id) => PackageSpecifier::Registry {
-                full_name: id.name,
-                version: semver::VersionReq {
-                    comparators: vec![semver::Comparator {
-                        op: semver::Op::Exact,
-                        major: id.version.major,
-                        minor: Some(id.version.minor),
-                        patch: Some(id.version.patch),
-                        pre: id.version.pre,
-                    }],
-                },
-            },
-            PackageId::HashSha256(hash) => PackageSpecifier::HashSha256(hash),
-        }
-    }
 }
 
 /// An acyclic, directed dependency graph.

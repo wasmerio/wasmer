@@ -13,6 +13,7 @@ use tokio::runtime::Handle;
 use url::Url;
 use virtual_fs::{DeviceFile, FileSystem, PassthruFileSystem, RootFileSystemBuilder};
 use wasmer::{Engine, Function, Instance, Memory32, Memory64, Module, RuntimeError, Store, Value};
+use wasmer_config::package::PackageSource as PackageSpecifier;
 use wasmer_registry::wasmer_env::WasmerEnv;
 #[cfg(feature = "journal")]
 use wasmer_wasix::journal::{LogFileJournal, SnapshotTrigger};
@@ -28,10 +29,7 @@ use wasmer_wasix::{
     runtime::{
         module_cache::{FileSystemCache, ModuleCache, ModuleHash},
         package_loader::{BuiltinPackageLoader, PackageLoader},
-        resolver::{
-            FileSystemSource, InMemorySource, MultiSource, PackageSpecifier, Source, WapmSource,
-            WebSource,
-        },
+        resolver::{FileSystemSource, InMemorySource, MultiSource, Source, WapmSource, WebSource},
         task_manager::{
             tokio::{RuntimeOrHandle, TokioTaskManager},
             VirtualTaskManagerExt,
@@ -228,7 +226,7 @@ impl Wasi {
 
         let mut uses = Vec::new();
         for name in &self.uses {
-            let specifier = PackageSpecifier::parse(name)
+            let specifier = PackageSpecifier::from_str(name)
                 .with_context(|| format!("Unable to parse \"{name}\" as a package specifier"))?;
             let pkg = {
                 let inner_rt = rt.clone();

@@ -12,6 +12,7 @@ rust-version.workspace = true
 version.workspace = true
 
 [dependencies]
+wasmer-config = { path = "./lib/config" }
 wasmer = { version = "=4.2.8", path = "lib/api", default-features = false }
 wasmer-compiler = { version = "=4.2.8", path = "lib/compiler", features = [
     "compiler",
@@ -44,12 +45,14 @@ members = [
     "lib/c-api/examples/wasmer-capi-examples-runner",
     "lib/c-api/tests/wasmer-c-api-test-runner",
     "lib/cache",
+    "lib/config",
     "lib/cli-compiler",
     "lib/cli",
     "lib/compiler-cranelift",
     "lib/compiler-llvm",
     "lib/compiler-singlepass",
     "lib/compiler",
+    "lib/config",
     "lib/derive",
     "lib/emscripten",
     "lib/object",
@@ -84,16 +87,18 @@ rust-version = "1.73"
 version = "4.2.8"
 
 [workspace.dependencies]
+wasmer-config = { path = "./lib/config" }
+
 enumset = "1.1.0"
 memoffset = "0.9.0"
-wasmer-toml = "0.10.0"
 wasmparser = { version = "0.121.0", default-features = false }
-webc = { version = "5.9.0", default-features = false, features = ["package"] }
+webc = { version = "6.0.0-alpha1", default-features = false, features = ["package"] }
 shared-buffer = "0.1.4"
 rkyv = { version = "0.7.40", features = ["indexmap", "validation", "strict"] }
 memmap2 = { version = "0.6.2" }
-# edge-schema = { version = "=0.1.0" }
-edge-schema = { path = "../edge/crates/schema" }
+edge-schema = { version = "=0.1.0" }
+indexmap = "1"
+serde_yaml = "0.9.0"
 
 [build-dependencies]
 test-generator = { path = "tests/lib/test-generator" }
@@ -329,8 +334,3 @@ required-features = ["cranelift"]
 name = "http-dynamic-size"
 path = "examples/http_dynamic_size.rs"
 required-features = ["cranelift"]
-
-[patch.crates-io]
-webc = {git = "https://github.com/wasmerio/pirita", branch = "prepare-v3"}
-# edge-schema = {git = "https://github.com/wasmerio/edge", branch = "main"}
-edge-schema = {path = "../edge/crates/schema"}

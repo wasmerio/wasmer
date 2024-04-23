@@ -8,11 +8,12 @@ use petgraph::{
     visit::EdgeRef,
 };
 use semver::Version;
+use wasmer_config::package::{PackageId, PackageSource};
 
 use crate::runtime::resolver::{
     outputs::{Edge, Node},
-    DependencyGraph, ItemLocation, PackageId, PackageInfo, PackageSpecifier, PackageSummary,
-    QueryError, Resolution, ResolvedPackage, Source,
+    DependencyGraph, ItemLocation, PackageInfo, PackageSummary, QueryError, Resolution,
+    ResolvedPackage, Source,
 };
 
 use super::ResolvedFileSystemMapping;
@@ -35,7 +36,7 @@ pub async fn resolve(
 pub enum ResolveError {
     #[error("{}", registry_error_message(.package))]
     Registry {
-        package: PackageSpecifier,
+        package: PackageSource,
         #[source]
         error: QueryError,
     },
@@ -51,20 +52,14 @@ pub enum ResolveError {
     },
 }
 
-fn registry_error_message(specifier: &PackageSpecifier) -> String {
+fn registry_error_message(specifier: &PackageSource) -> String {
     match specifier {
-        PackageSpecifier::Registry { full_name, version } if version.comparators.is_empty() => {
-            format!("Unable to find \"{full_name}\" in the registry")
+        PackageSource::Ident(id) => {
+            format!("Unable to find \"{id}\" in the registry")
         }
-        PackageSpecifier::Registry { full_name, version } => {
-            format!("Unable to find \"{full_name}@{version}\" in the registry")
-        }
-        PackageSpecifier::HashSha256(hash) => {
-            format!("Unable to find package \"{hash}\" in the registry")
-        }
-        PackageSpecifier::Url(url) => format!("Unable to resolve \"{url}\""),
-        PackageSpecifier::Path(path) => {
-            format!("Unable to load \"{}\" from disk", path.display())
+        PackageSource::Url(url) => format!("Unable to resolve \"{url}\""),
+        PackageSource::Path(path) => {
+            format!("Unable to load \"{}\" from disk", path)
         }
     }
 }
@@ -258,7 +253,7 @@ where
             continue;
         };
         package_versions
-            .entry(&id.name)
+            .entry(&id.full_name)
             .or_default()
             .insert(&id.version);
     }
@@ -387,9 +382,11 @@ fn resolve_package(dependency_graph: &DependencyGraph) -> Result<ResolvedPackage
 mod tests {
     use std::path::PathBuf;
 
+    use wasmer_config::package::NamedPackageIdent;
+
     use crate::runtime::resolver::{
         inputs::{DistributionInfo, FileSystemMapping, PackageInfo},
-        Dependency, InMemorySource, MultiSource, PackageSpecifier,
+        Dependency, InMemorySource, MultiSource,
     };
 
     use super::*;
@@ -463,10 +460,10 @@ mod tests {
             name: &str,
             version_constraint: &str,
         ) -> &mut Self {
-            let pkg = PackageSpecifier::Registry {
-                full_name: name.to_string(),
-                version: version_constraint.parse().unwrap(),
-            };
+            let pkg = PackageSource::from(
+                NamedPackageIdent::try_from_full_name_and_version(name, version_constraint)
+                    .unwrap(),
+            );
 
             self.summary.pkg.dependencies.push(Dependency {
                 alias: alias.to_string(),
@@ -597,7 +594,7 @@ mod tests {
 
     impl<'source, 'builder> DependencyGraphEntryBuilder<'source, 'builder> {
         fn with_dependency(&mut self, id: &PackageId) -> &mut Self {
-            let name = &id.as_named().unwrap().name;
+            let name = &id.as_named().unwrap().full_name;
             self.with_aliased_dependency(name, id)
         }
 

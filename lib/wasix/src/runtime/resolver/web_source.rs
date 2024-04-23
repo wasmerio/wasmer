@@ -11,24 +11,22 @@ use http::Method;
 use sha2::{Digest, Sha256};
 use tempfile::NamedTempFile;
 use url::Url;
+use wasmer_config::package::{PackageHash, PackageId, PackageSource};
 use webc::compat::Container;
 
 use crate::{
     http::{HttpClient, HttpRequest},
     runtime::resolver::{
-        DistributionInfo, PackageInfo, PackageSpecifier, PackageSummary, QueryError, Source,
-        WebcHash,
+        DistributionInfo, PackageInfo, PackageSummary, QueryError, Source, WebcHash,
     },
 };
-
-use super::PackageId;
 
 /// A [`Source`] which can query arbitrary packages on the internet.
 ///
 /// # Implementation Notes
 ///
 /// Unlike other [`Source`] implementations, this will need to download
-/// a package if it is a [`PackageSpecifier::Url`]. Optionally, these downloaded
+/// a package if it is a [`PackageSource::Url`]. Optionally, these downloaded
 /// packages can be cached in a local directory.
 ///
 /// After a certain period ([`WebSource::with_retry_period()`]), the
@@ -231,9 +229,9 @@ impl WebSource {
 #[async_trait::async_trait]
 impl Source for WebSource {
     #[tracing::instrument(level = "debug", skip_all, fields(%package))]
-    async fn query(&self, package: &PackageSpecifier) -> Result<Vec<PackageSummary>, QueryError> {
+    async fn query(&self, package: &PackageSource) -> Result<Vec<PackageSummary>, QueryError> {
         let url = match package {
-            PackageSpecifier::Url(url) => url,
+            PackageSource::Url(url) => url,
             _ => return Err(QueryError::Unsupported),
         };
 
@@ -251,7 +249,7 @@ impl Source for WebSource {
             .with_context(|| format!("Unable to load \"{}\"", local_path.display()))?;
 
         let id = PackageInfo::package_id_from_manifest(container.manifest())?
-            .unwrap_or_else(|| PackageId::HashSha256(webc_sha256.as_hex()));
+            .unwrap_or_else(|| PackageId::Hash(PackageHash::from_sha256_bytes(webc_sha256.0)));
 
         let pkg = PackageInfo::from_manifest(id, container.manifest(), container.version())
             .context("Unable to determine the package's metadata")?;
@@ -460,13 +458,13 @@ mod tests {
             .with_etag(dummy_etag)
             .build()]);
         let source = WebSource::new(temp.path(), Arc::new(client));
-        let spec = PackageSpecifier::Url(DUMMY_URL.parse().unwrap());
+        let spec = PackageSource::Url(DUMMY_URL.parse().unwrap());
 
         let summaries = source.query(&spec).await.unwrap();
 
         // We got the right response, as expected
         assert_eq!(summaries.len(), 1);
-        assert_eq!(summaries[0].pkg.id.as_named().unwrap().name, "python");
+        assert_eq!(summaries[0].pkg.id.as_named().unwrap().full_name, "python");
         // But we should have also cached the file and etag
         let path = temp.path().join(DUMMY_URL_HASH);
         assert!(path.exists());
@@ -491,7 +489,7 @@ mod tests {
         let temp = TempDir::new().unwrap();
         let client = Arc::new(DummyClient::with_responses([]));
         let source = WebSource::new(temp.path(), client.clone());
-        let spec = PackageSpecifier::Url(DUMMY_URL.parse().unwrap());
+        let spec = PackageSource::Url(DUMMY_URL.parse().unwrap());
         // Prime the cache
         std::fs::write(temp.path().join(DUMMY_URL_HASH), PYTHON).unwrap();
 
@@ -499,7 +497,7 @@ mod tests {
 
         // We got the right response, as expected
         assert_eq!(summaries.len(), 1);
-        assert_eq!(summaries[0].pkg.id.as_named().unwrap().name, "python");
+        assert_eq!(summaries[0].pkg.id.as_named().unwrap().full_name, "python");
         // And no requests were sent
         assert_eq!(client.requests.lock().unwrap().len(), 0);
     }
@@ -523,13 +521,13 @@ mod tests {
         let python_path = temp.path().join(DUMMY_URL_HASH);
         std::fs::write(&python_path, PYTHON).unwrap();
         let source = WebSource::new(temp.path(), client.clone()).with_retry_period(Duration::ZERO);
-        let spec = PackageSpecifier::Url(DUMMY_URL.parse().unwrap());
+        let spec = PackageSource::Url(DUMMY_URL.parse().unwrap());
 
         let summaries = source.query(&spec).await.unwrap();
 
         // We got the right response, as expected
         assert_eq!(summaries.len(), 1);
-        assert_eq!(summaries[0].pkg.id.as_named().unwrap().name, "python");
+        assert_eq!(summaries[0].pkg.id.as_named().unwrap().full_name, "python");
         // And one request was sent
         assert_eq!(client.requests.lock().unwrap().len(), 1);
         // The etag file wasn't written
@@ -562,14 +560,14 @@ mod tests {
         // but create a source that will always want to re-check the etags
         let source =
             WebSource::new(temp.path(), client.clone()).with_retry_period(Duration::new(0, 0));
-        let spec = PackageSpecifier::Url(DUMMY_URL.parse().unwrap());
+        let spec = PackageSource::Url(DUMMY_URL.parse().unwrap());
 
         let summaries = source.query(&spec).await.unwrap();
 
         // Instead of Python (the originally cached item), we should get coreutils
         assert_eq!(summaries.len(), 1);
         assert_eq!(
-            summaries[0].pkg.id.as_named().unwrap().name,
+            summaries[0].pkg.id.as_named().unwrap().full_name,
             "sharrattj/coreutils"
         );
         // both a HEAD and GET request were sent

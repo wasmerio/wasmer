@@ -4,12 +4,13 @@ use anyhow::Context;
 use derivative::*;
 use once_cell::sync::OnceCell;
 use virtual_fs::FileSystem;
+use wasmer_config::package::{PackageHash, PackageId, PackageSource};
 use webc::{compat::SharedBytes, Container};
 
 use crate::{
     runtime::{
         module_cache::ModuleHash,
-        resolver::{PackageId, PackageInfo, PackageSpecifier, ResolveError, WebcHash},
+        resolver::{PackageInfo, ResolveError},
     },
     Runtime,
 };
@@ -84,7 +85,7 @@ impl BinaryPackage {
 
         let manifest = container.manifest();
         let id = PackageInfo::package_id_from_manifest(manifest)?.unwrap_or_else(|| {
-            PackageId::HashSha256(WebcHash::from_bytes(container.webc_hash()).as_hex())
+            PackageId::Hash(PackageHash::from_sha256_bytes(container.webc_hash()))
         });
 
         let root = PackageInfo::from_manifest(id, manifest, container.version())?;
@@ -103,7 +104,7 @@ impl BinaryPackage {
     /// Load a [`BinaryPackage`] and all its dependencies from a registry.
     #[tracing::instrument(level = "debug", skip_all)]
     pub async fn from_registry(
-        specifier: &PackageSpecifier,
+        specifier: &PackageSource,
         runtime: &(dyn Runtime + Send + Sync),
     ) -> Result<Self, anyhow::Error> {
         let source = runtime.source();

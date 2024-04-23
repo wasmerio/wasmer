@@ -313,7 +313,7 @@ where
 }
 
 impl dyn VirtualTaskManager {
-    /// Starts an WebAssembly task will will run on a dedicated thread
+    /// Starts an WebAssembly task will run on a dedicated thread
     /// pulled from the worker pool that has a stateful thread local variable
     /// After the poller has succeeded
     #[doc(hidden)]

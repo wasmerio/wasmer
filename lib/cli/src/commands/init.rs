@@ -156,7 +156,7 @@ impl Init {
     /// [`NOTE`] so people get a link to the registry docs.
     fn write_wasmer_toml(
         path: &PathBuf,
-        toml: &wasmer_toml::Manifest,
+        toml: &wasmer_config::package::Manifest,
     ) -> Result<(), anyhow::Error> {
         let toml_string = toml::to_string_pretty(&toml)?;
 
@@ -243,16 +243,16 @@ impl Init {
     }
 
     fn get_command(
-        modules: &[wasmer_toml::Module],
+        modules: &[wasmer_config::package::Module],
         bin_or_lib: BinOrLib,
-    ) -> Vec<wasmer_toml::Command> {
+    ) -> Vec<wasmer_config::package::Command> {
         match bin_or_lib {
             BinOrLib::Bin => modules
                 .iter()
                 .map(|m| {
-                    wasmer_toml::Command::V2(wasmer_toml::CommandV2 {
+                    wasmer_config::package::Command::V2(wasmer_config::package::CommandV2 {
                         name: m.name.clone(),
-                        module: wasmer_toml::ModuleReference::CurrentPackage {
+                        module: wasmer_config::package::ModuleReference::CurrentPackage {
                             module: m.name.clone(),
                         },
                         runner: "wasi".to_string(),
@@ -308,16 +308,20 @@ impl Init {
                         let is_wit = e.path().extension().and_then(|s| s.to_str()) == Some(".wit");
                         let is_wai = e.path().extension().and_then(|s| s.to_str()) == Some(".wai");
                         if is_wit {
-                            Some(wasmer_toml::Bindings::Wit(wasmer_toml::WitBindings {
-                                wit_exports: e.path().to_path_buf(),
-                                wit_bindgen: semver::Version::parse("0.1.0").unwrap(),
-                            }))
+                            Some(wasmer_config::package::Bindings::Wit(
+                                wasmer_config::package::WitBindings {
+                                    wit_exports: e.path().to_path_buf(),
+                                    wit_bindgen: semver::Version::parse("0.1.0").unwrap(),
+                                },
+                            ))
                         } else if is_wai {
-                            Some(wasmer_toml::Bindings::Wai(wasmer_toml::WaiBindings {
-                                exports: None,
-                                imports: vec![e.path().to_path_buf()],
-                                wai_version: semver::Version::parse("0.2.0").unwrap(),
-                            }))
+                            Some(wasmer_config::package::Bindings::Wai(
+                                wasmer_config::package::WaiBindings {
+                                    exports: None,
+                                    imports: vec![e.path().to_path_buf()],
+                                    wai_version: semver::Version::parse("0.2.0").unwrap(),
+                                },
+                            ))
                         } else {
                             None
                         }
@@ -337,12 +341,12 @@ impl Init {
 }
 
 enum GetBindingsResult {
-    OneBinding(wasmer_toml::Bindings),
-    MultiBindings(Vec<wasmer_toml::Bindings>),
+    OneBinding(wasmer_config::package::Bindings),
+    MultiBindings(Vec<wasmer_config::package::Bindings>),
 }
 
 impl GetBindingsResult {
-    fn first_binding(&self) -> Option<wasmer_toml::Bindings> {
+    fn first_binding(&self) -> Option<wasmer_config::package::Bindings> {
         match self {
             Self::OneBinding(s) => Some(s.clone()),
             Self::MultiBindings(s) => s.get(0).cloned(),
@@ -364,7 +368,7 @@ fn construct_manifest(
     include_fs: &[String],
     quiet: bool,
     wasmer_dir: &Path,
-) -> Result<wasmer_toml::Manifest, anyhow::Error> {
+) -> Result<wasmer_config::package::Manifest, anyhow::Error> {
     if let Some(ct) = cargo_toml.as_ref() {
         let msg = format!(
             "NOTE: Initializing wasmer.toml file with metadata from Cargo.toml{NEWLINE}  -> {}",
@@ -403,17 +407,17 @@ fn construct_manifest(
         .and_then(|t| t.description.clone())
         .unwrap_or_else(|| format!("Description for package {package_name}"));
 
-    let default_abi = wasmer_toml::Abi::Wasi;
+    let default_abi = wasmer_config::package::Abi::Wasi;
     let bindings = Init::get_bindings(target_file, bin_or_lib);
 
     if let Some(GetBindingsResult::MultiBindings(m)) = bindings.as_ref() {
         let found = m
             .iter()
             .map(|m| match m {
-                wasmer_toml::Bindings::Wit(wb) => {
+                wasmer_config::package::Bindings::Wit(wb) => {
                     format!("found: {}", serde_json::to_string(wb).unwrap_or_default())
                 }
-                wasmer_toml::Bindings::Wai(wb) => {
+                wasmer_config::package::Bindings::Wai(wb) => {
                     format!("found: {}", serde_json::to_string(wb).unwrap_or_default())
                 }
             })
@@ -463,7 +467,7 @@ fn construct_manifest(
         })
         .unwrap_or_else(|| Path::new(&format!("{package_name}.wasm")).to_path_buf());
 
-    let modules = vec![wasmer_toml::Module {
+    let modules = vec![wasmer_config::package::Module {
         name: package_name.to_string(),
         source: module_source,
         kind: None,
@@ -476,7 +480,7 @@ fn construct_manifest(
         }),
     }];
 
-    let mut pkg = wasmer_toml::Package::builder(
+    let mut pkg = wasmer_config::package::Package::builder(
         if let Some(s) = namespace {
             format!("{s}/{package_name}")
         } else {
@@ -503,7 +507,7 @@ fn construct_manifest(
     }
     let pkg = pkg.build()?;
 
-    let mut manifest = wasmer_toml::Manifest::builder(pkg);
+    let mut manifest = wasmer_config::package::Manifest::builder(pkg);
     manifest
         .dependencies(Init::get_dependencies(template))
         .commands(Init::get_command(&modules, bin_or_lib))

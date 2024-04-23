@@ -17,7 +17,6 @@ use std::{
 
 use crate::{
     net::socket::InodeSocketKind,
-    runtime::resolver::PackageId,
     state::{Stderr, Stdin, Stdout},
 };
 use futures::{future::BoxFuture, Future, TryStreamExt};
@@ -26,6 +25,7 @@ use serde_derive::{Deserialize, Serialize};
 use tokio::io::AsyncWriteExt;
 use tracing::{debug, trace};
 use virtual_fs::{copy_reference, FileSystem, FsError, OpenOptions, VirtualFile};
+use wasmer_config::package::PackageId;
 use wasmer_wasix_types::{
     types::{__WASI_STDERR_FILENO, __WASI_STDIN_FILENO, __WASI_STDOUT_FILENO},
     wasi::{

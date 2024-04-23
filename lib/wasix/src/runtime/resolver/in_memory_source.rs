@@ -5,10 +5,9 @@ use std::{
 };
 
 use anyhow::{Context, Error};
+use wasmer_config::package::{NamedPackageId, PackageHash, PackageId, PackageIdent, PackageSource};
 
-use crate::runtime::resolver::{PackageSpecifier, PackageSummary, QueryError, Source};
-
-use super::{PackageId, PackageIdent};
+use crate::runtime::resolver::{PackageSummary, QueryError, Source};
 
 /// A [`Source`] that tracks packages in memory.
 ///
@@ -16,12 +15,12 @@ use super::{PackageId, PackageIdent};
 #[derive(Debug, Default, Clone, PartialEq, Eq)]
 pub struct InMemorySource {
     named_packages: BTreeMap<String, Vec<NamedPackageSummary>>,
-    hash_packages: HashMap<String, PackageSummary>,
+    hash_packages: HashMap<PackageHash, PackageSummary>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct NamedPackageSummary {
-    ident: PackageIdent,
+    ident: NamedPackageId,
     summary: PackageSummary,
 }
 
@@ -72,12 +71,15 @@ impl InMemorySource {
     pub fn add(&mut self, summary: PackageSummary) {
         match summary.pkg.id.clone() {
             PackageId::Named(ident) => {
-                let summaries = self.named_packages.entry(ident.name.clone()).or_default();
+                let summaries = self
+                    .named_packages
+                    .entry(ident.full_name.clone())
+                    .or_default();
                 summaries.push(NamedPackageSummary { ident, summary });
                 summaries.sort_by(|left, right| left.ident.version.cmp(&right.ident.version));
                 summaries.dedup_by(|left, right| left.ident.version == right.ident.version);
             }
-            PackageId::HashSha256(hash) => {
+            PackageId::Hash(hash) => {
                 self.hash_packages.insert(hash, summary);
             }
         }
@@ -92,13 +94,17 @@ impl InMemorySource {
 
     pub fn get(&self, id: &PackageId) -> Option<&PackageSummary> {
         match id {
-            PackageId::Named(ident) => self.named_packages.get(&ident.name).and_then(|summaries| {
-                summaries
-                    .iter()
-                    .find(|s| s.ident.version == ident.version)
-                    .map(|s| &s.summary)
-            }),
-            PackageId::HashSha256(hash) => self.hash_packages.get(hash),
+            PackageId::Named(ident) => {
+                self.named_packages
+                    .get(&ident.full_name)
+                    .and_then(|summaries| {
+                        summaries
+                            .iter()
+                            .find(|s| s.ident.version == ident.version)
+                            .map(|s| &s.summary)
+                    })
+            }
+            PackageId::Hash(hash) => self.hash_packages.get(hash),
         }
     }
 }
@@ -106,14 +112,16 @@ impl InMemorySource {
 #[async_trait::async_trait]
 impl Source for InMemorySource {
     #[tracing::instrument(level = "debug", skip_all, fields(%package))]
-    async fn query(&self, package: &PackageSpecifier) -> Result<Vec<PackageSummary>, QueryError> {
+    async fn query(&self, package: &PackageSource) -> Result<Vec<PackageSummary>, QueryError> {
         match package {
-            PackageSpecifier::Registry { full_name, version } => {
-                match self.named_packages.get(full_name) {
+            PackageSource::Ident(PackageIdent::Named(named)) => {
+                match self.named_packages.get(&named.full_name()) {
                     Some(summaries) => {
                         let matches: Vec<_> = summaries
                             .iter()
-                            .filter(|summary| version.matches(&summary.ident.version))
+                            .filter(|summary| {
+                                named.version_or_default().matches(&summary.ident.version)
+                            })
                             .map(|n| n.summary.clone())
                             .collect();
 
@@ -136,14 +144,14 @@ impl Source for InMemorySource {
                     None => Err(QueryError::NotFound),
                 }
             }
-            PackageSpecifier::HashSha256(hash) => self
+            PackageSource::Ident(PackageIdent::Hash(hash)) => self
                 .hash_packages
                 .get(hash)
                 .map(|x| vec![x.clone()])
                 .ok_or_else(|| QueryError::NoMatches {
                     archived_versions: Vec::new(),
                 }),
-            PackageSpecifier::Url(_) | PackageSpecifier::Path(_) => Err(QueryError::Unsupported),
+            PackageSource::Url(_) | PackageSource::Path(_) => Err(QueryError::Unsupported),
         }
     }
 }
@@ -190,10 +198,9 @@ mod tests {
             source.named_packages["sharrattj/bash"][0].summary,
             PackageSummary {
                 pkg: PackageInfo {
-                    id: PackageId::Named(PackageIdent {
-                        name: "sharrattj/bash".to_string(),
-                        version: "1.0.16".parse().unwrap()
-                    }),
+                    id: PackageId::Named(
+                        NamedPackageId::try_new("sharrattj/bash", "1.0.16").unwrap()
+                    ),
                     dependencies: vec![Dependency {
                         alias: "coreutils".to_string(),
                         pkg: "sharrattj/coreutils@^1.0.16".parse().unwrap()

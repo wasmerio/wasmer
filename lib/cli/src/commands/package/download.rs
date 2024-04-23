@@ -4,8 +4,8 @@ use anyhow::{bail, Context};
 use dialoguer::console::{style, Emoji};
 use indicatif::{ProgressBar, ProgressStyle};
 use tempfile::NamedTempFile;
+use wasmer_config::package::{PackageIdent, PackageSource};
 use wasmer_registry::wasmer_env::WasmerEnv;
-use wasmer_wasix::runtime::resolver::PackageSpecifier;
 
 /// Download a package from the registry.
 #[derive(clap::Parser, Debug)]
@@ -27,10 +27,7 @@ pub struct PackageDownload {
     pub quiet: bool,
 
     /// The package to download.
-    /// Can be:
-    /// * a pakage specifier: `namespace/package[@vesion]`
-    /// * a URL
-    package: PackageSpecifier,
+    package: PackageSource,
 }
 
 static CREATING_OUTPUT_DIRECTORY_EMOJI: Emoji<'_, '_> = Emoji("📁 ", "");
@@ -94,10 +91,11 @@ impl PackageDownload {
         step_num += 1;
 
         let (download_url, token) = match &self.package {
-            PackageSpecifier::Registry { full_name, version } => {
+            PackageSource::Ident(PackageIdent::Named(id)) => {
                 let endpoint = self.env.registry_endpoint()?;
-                let version = version.to_string();
+                let version = id.version_or_default().to_string();
                 let version = if version == "*" { None } else { Some(version) };
+                let full_name = id.full_name();
                 let token = self.env.get_token_opt().map(|x| x.to_string());
 
                 let package = wasmer_registry::query_package_from_registry(
@@ -119,7 +117,7 @@ impl PackageDownload {
 
                 (download_url, token)
             }
-            PackageSpecifier::HashSha256(hash) => {
+            PackageSource::Ident(PackageIdent::Hash(hash)) => {
                 let endpoint = self.env.registry_endpoint()?;
                 let token = self.env.get_token_opt().map(|x| x.to_string());
 
@@ -131,17 +129,13 @@ impl PackageDownload {
                 };
 
                 let rt = tokio::runtime::Runtime::new()?;
-                let pkg = rt.block_on(wasmer_api::query::get_package_release(&client, &hash))?
-                    .with_context(|| format!("Package with sha256:{hash} does not exist in the registry, or is not accessible"))?;
+                let pkg = rt.block_on(wasmer_api::query::get_package_release(&client, &hash.to_string()))?
+                    .with_context(|| format!("Package with {hash} does not exist in the registry, or is not accessible"))?;
 
                 (pkg.webc_url, token)
             }
-            PackageSpecifier::Url(url) => {
-                bail!("cannot download a package from a URL: '{}'", url);
-            }
-            PackageSpecifier::Path(_) => {
-                bail!("cannot download a package from a local path");
-            }
+            PackageSource::Path(p) => bail!("cannot download a package from a local path: '{p}'"),
+            PackageSource::Url(url) => bail!("cannot download a package from a URL: '{}'", url),
         };
 
         let client = reqwest::blocking::Client::new();

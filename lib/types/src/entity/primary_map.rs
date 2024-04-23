@@ -156,6 +156,28 @@ where
     }
 }
 
+impl<K, V> ArchivedPrimaryMap<K, V>
+where
+    K: EntityRef,
+    V: Archive,
+{
+    /// Get the element at `k` if it exists.
+    pub fn get(&self, k: K) -> Option<&V::Archived> {
+        self.elems.get(k.index())
+    }
+}
+
+impl<K, V> std::fmt::Debug for ArchivedPrimaryMap<K, V>
+where
+    K: EntityRef + std::fmt::Debug,
+    V: Archive,
+    V::Archived: std::fmt::Debug,
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_map().entries(self.iter()).finish()
+    }
+}
+
 impl<K, V> Default for PrimaryMap<K, V>
 where
     K: EntityRef,
@@ -243,6 +265,7 @@ impl<K, V> ArchivedPrimaryMap<K, V>
 where
     K: EntityRef,
     V: Archive,
+    V::Archived: std::fmt::Debug,
 {
     /// Iterator over all values in the `ArchivedPrimaryMap`
     pub fn values(&self) -> slice::Iter<Archived<V>> {
@@ -261,6 +284,7 @@ impl<K, V> Index<K> for ArchivedPrimaryMap<K, V>
 where
     K: EntityRef,
     V: Archive,
+    V::Archived: std::fmt::Debug,
 {
     type Output = Archived<V>;
 

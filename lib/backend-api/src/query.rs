@@ -2,11 +2,12 @@ use std::{collections::HashSet, pin::Pin, time::Duration};
 
 use anyhow::{bail, Context};
 use cynic::{MutationBuilder, QueryBuilder};
-use edge_schema::schema::{NetworkTokenV1, PackageIdentifier};
+use edge_schema::schema::NetworkTokenV1;
 use futures::{Stream, StreamExt};
 use time::OffsetDateTime;
 use tracing::Instrument;
 use url::Url;
+use wasmer_config::package::PackageIdent;
 
 use crate::{
     types::{
@@ -24,10 +25,21 @@ use crate::{
 /// the API, and should not be used where possible.
 pub async fn fetch_webc_package(
     client: &WasmerClient,
-    ident: &PackageIdentifier,
+    ident: &PackageIdent,
     default_registry: &Url,
 ) -> Result<webc::compat::Container, anyhow::Error> {
-    let url = ident.build_download_url_with_default_registry(default_registry);
+    let url = match ident {
+        PackageIdent::Named(n) => Url::parse(&format!(
+            "{default_registry}/{}:{}",
+            n.full_name(),
+            n.version_or_default()
+        ))?,
+        PackageIdent::Hash(h) => match get_package_release(client, &h.to_string()).await? {
+            Some(webc) => Url::parse(&webc.webc_url)?,
+            None => anyhow::bail!("Could not find package with hash '{}'", h),
+        },
+    };
+
     let data = client
         .client
         .get(url)
@@ -663,6 +675,39 @@ pub fn get_package_versions_stream(
                 .collect::<Vec<_>>();
 
             let new_vars = end_cursor.map(|cursor| types::AllPackageVersionsVars {
+                after: Some(cursor),
+                ..vars
+            });
+
+            Ok(Some((items, new_vars)))
+        },
+    )
+}
+
+/// Retrieve all package releases as a stream.
+pub fn get_package_releases_stream(
+    client: &WasmerClient,
+    vars: types::AllPackageReleasesVars,
+) -> impl futures::Stream<Item = Result<Vec<types::PackageWebc>, anyhow::Error>> + '_ {
+    futures::stream::try_unfold(
+        Some(vars),
+        move |vars: Option<types::AllPackageReleasesVars>| async move {
+            let vars = match vars {
+                Some(vars) => vars,
+                None => return Ok(None),
+            };
+
+            let page = get_package_releases(client, vars.clone()).await?;
+
+            let end_cursor = page.page_info.end_cursor;
+
+            let items = page
+                .edges
+                .into_iter()
+                .filter_map(|x| x.and_then(|x| x.node))
+                .collect::<Vec<_>>();
+
+            let new_vars = end_cursor.map(|cursor| types::AllPackageReleasesVars {
                 after: Some(cursor),
                 ..vars
             });
