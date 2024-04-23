@@ -260,6 +260,14 @@
 <a href="#260" id="260">260</a>
 <a href="#261" id="261">261</a>
 <a href="#262" id="262">262</a>
+<a href="#263" id="263">263</a>
+<a href="#264" id="264">264</a>
+<a href="#265" id="265">265</a>
+<a href="#266" id="266">266</a>
+<a href="#267" id="267">267</a>
+<a href="#268" id="268">268</a>
+<a href="#269" id="269">269</a>
+<a href="#270" id="270">270</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{
     path::{Path, PathBuf},
     sync::{Arc, Mutex},
@@ -499,6 +507,10 @@
 
         <span class="prelude-val">Ok</span>(res)
     }
+
+    <span class="kw">fn </span>flush(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; anyhow::Result&lt;()&gt; {
+        <span class="self">self</span>.inner.flush()
+    }
 }
 
 <span class="kw">impl </span>ReadableJournal <span class="kw">for </span>CompactingLogFileJournal {
@@ -514,6 +526,10 @@
 <span class="kw">impl </span>WritableJournal <span class="kw">for </span>CompactingLogFileJournal {
     <span class="kw">fn </span>write&lt;<span class="lifetime">&#39;a</span>&gt;(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="self">self</span>, entry: JournalEntry&lt;<span class="lifetime">&#39;a</span>&gt;) -&gt; anyhow::Result&lt;LogWriteResult&gt; {
         <span class="self">self</span>.tx.write(entry)
+    }
+
+    <span class="kw">fn </span>flush(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; anyhow::Result&lt;()&gt; {
+        <span class="self">self</span>.tx.flush()
     }
 }
 

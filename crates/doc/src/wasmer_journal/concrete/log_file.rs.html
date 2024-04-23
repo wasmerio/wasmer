@@ -485,6 +485,16 @@
 <a href="#485" id="485">485</a>
 <a href="#486" id="486">486</a>
 <a href="#487" id="487">487</a>
+<a href="#488" id="488">488</a>
+<a href="#489" id="489">489</a>
+<a href="#490" id="490">490</a>
+<a href="#491" id="491">491</a>
+<a href="#492" id="492">492</a>
+<a href="#493" id="493">493</a>
+<a href="#494" id="494">494</a>
+<a href="#495" id="495">495</a>
+<a href="#496" id="496">496</a>
+<a href="#497" id="497">497</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>bytes::Buf;
 <span class="kw">use </span>rkyv::ser::{
     serializers::{AllocScratch, CompositeSerializer, SharedSerializeMap, WriteSerializer},
@@ -685,6 +695,12 @@
             record_end: offset_end,
         })
     }
+
+    <span class="kw">fn </span>flush(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; anyhow::Result&lt;()&gt; {
+        <span class="kw">let </span><span class="kw-2">mut </span>state = <span class="self">self</span>.state.lock().unwrap();
+        state.file.flush()<span class="question-mark">?</span>;
+        <span class="prelude-val">Ok</span>(())
+    }
 }
 
 <span class="kw">impl </span>ReadableJournal <span class="kw">for </span>LogFileJournalRx {
@@ -774,6 +790,10 @@
 <span class="kw">impl </span>WritableJournal <span class="kw">for </span>LogFileJournal {
     <span class="kw">fn </span>write&lt;<span class="lifetime">&#39;a</span>&gt;(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="self">self</span>, entry: JournalEntry&lt;<span class="lifetime">&#39;a</span>&gt;) -&gt; anyhow::Result&lt;LogWriteResult&gt; {
         <span class="self">self</span>.tx.write(entry)
+    }
+
+    <span class="kw">fn </span>flush(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; anyhow::Result&lt;()&gt; {
+        <span class="self">self</span>.tx.flush()
     }
 }
 

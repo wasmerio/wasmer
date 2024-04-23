@@ -742,6 +742,117 @@
 <a href="#742" id="742">742</a>
 <a href="#743" id="743">743</a>
 <a href="#744" id="744">744</a>
+<a href="#745" id="745">745</a>
+<a href="#746" id="746">746</a>
+<a href="#747" id="747">747</a>
+<a href="#748" id="748">748</a>
+<a href="#749" id="749">749</a>
+<a href="#750" id="750">750</a>
+<a href="#751" id="751">751</a>
+<a href="#752" id="752">752</a>
+<a href="#753" id="753">753</a>
+<a href="#754" id="754">754</a>
+<a href="#755" id="755">755</a>
+<a href="#756" id="756">756</a>
+<a href="#757" id="757">757</a>
+<a href="#758" id="758">758</a>
+<a href="#759" id="759">759</a>
+<a href="#760" id="760">760</a>
+<a href="#761" id="761">761</a>
+<a href="#762" id="762">762</a>
+<a href="#763" id="763">763</a>
+<a href="#764" id="764">764</a>
+<a href="#765" id="765">765</a>
+<a href="#766" id="766">766</a>
+<a href="#767" id="767">767</a>
+<a href="#768" id="768">768</a>
+<a href="#769" id="769">769</a>
+<a href="#770" id="770">770</a>
+<a href="#771" id="771">771</a>
+<a href="#772" id="772">772</a>
+<a href="#773" id="773">773</a>
+<a href="#774" id="774">774</a>
+<a href="#775" id="775">775</a>
+<a href="#776" id="776">776</a>
+<a href="#777" id="777">777</a>
+<a href="#778" id="778">778</a>
+<a href="#779" id="779">779</a>
+<a href="#780" id="780">780</a>
+<a href="#781" id="781">781</a>
+<a href="#782" id="782">782</a>
+<a href="#783" id="783">783</a>
+<a href="#784" id="784">784</a>
+<a href="#785" id="785">785</a>
+<a href="#786" id="786">786</a>
+<a href="#787" id="787">787</a>
+<a href="#788" id="788">788</a>
+<a href="#789" id="789">789</a>
+<a href="#790" id="790">790</a>
+<a href="#791" id="791">791</a>
+<a href="#792" id="792">792</a>
+<a href="#793" id="793">793</a>
+<a href="#794" id="794">794</a>
+<a href="#795" id="795">795</a>
+<a href="#796" id="796">796</a>
+<a href="#797" id="797">797</a>
+<a href="#798" id="798">798</a>
+<a href="#799" id="799">799</a>
+<a href="#800" id="800">800</a>
+<a href="#801" id="801">801</a>
+<a href="#802" id="802">802</a>
+<a href="#803" id="803">803</a>
+<a href="#804" id="804">804</a>
+<a href="#805" id="805">805</a>
+<a href="#806" id="806">806</a>
+<a href="#807" id="807">807</a>
+<a href="#808" id="808">808</a>
+<a href="#809" id="809">809</a>
+<a href="#810" id="810">810</a>
+<a href="#811" id="811">811</a>
+<a href="#812" id="812">812</a>
+<a href="#813" id="813">813</a>
+<a href="#814" id="814">814</a>
+<a href="#815" id="815">815</a>
+<a href="#816" id="816">816</a>
+<a href="#817" id="817">817</a>
+<a href="#818" id="818">818</a>
+<a href="#819" id="819">819</a>
+<a href="#820" id="820">820</a>
+<a href="#821" id="821">821</a>
+<a href="#822" id="822">822</a>
+<a href="#823" id="823">823</a>
+<a href="#824" id="824">824</a>
+<a href="#825" id="825">825</a>
+<a href="#826" id="826">826</a>
+<a href="#827" id="827">827</a>
+<a href="#828" id="828">828</a>
+<a href="#829" id="829">829</a>
+<a href="#830" id="830">830</a>
+<a href="#831" id="831">831</a>
+<a href="#832" id="832">832</a>
+<a href="#833" id="833">833</a>
+<a href="#834" id="834">834</a>
+<a href="#835" id="835">835</a>
+<a href="#836" id="836">836</a>
+<a href="#837" id="837">837</a>
+<a href="#838" id="838">838</a>
+<a href="#839" id="839">839</a>
+<a href="#840" id="840">840</a>
+<a href="#841" id="841">841</a>
+<a href="#842" id="842">842</a>
+<a href="#843" id="843">843</a>
+<a href="#844" id="844">844</a>
+<a href="#845" id="845">845</a>
+<a href="#846" id="846">846</a>
+<a href="#847" id="847">847</a>
+<a href="#848" id="848">848</a>
+<a href="#849" id="849">849</a>
+<a href="#850" id="850">850</a>
+<a href="#851" id="851">851</a>
+<a href="#852" id="852">852</a>
+<a href="#853" id="853">853</a>
+<a href="#854" id="854">854</a>
+<a href="#855" id="855">855</a>
 </pre></div><pre class="rust"><code><span class="attr">#[cfg(feature = <span class="string">&quot;journal&quot;</span>)]
 </span><span class="kw">use crate</span>::{journal::JournalEffector, syscalls::do_checkpoint_from_outside, unwind, WasiResult};
 <span class="kw">use crate</span>::{
@@ -913,6 +1024,9 @@
     <span class="doccomment">/// Represents a checkpoint which blocks all the threads
     /// and then executes some maintenance action
     </span><span class="kw">pub </span>checkpoint: WasiProcessCheckpoint,
+    <span class="doccomment">/// If true then the journaling will be disabled after the
+    /// next snapshot is taken
+    </span><span class="kw">pub </span>disable_journaling_after_checkpoint: bool,
     <span class="doccomment">/// List of situations that the process will checkpoint on
     </span><span class="attr">#[cfg(feature = <span class="string">&quot;journal&quot;</span>)]
     </span><span class="kw">pub </span>snapshot_on: HashSet&lt;SnapshotTrigger&gt;,
@@ -1034,6 +1148,9 @@
                         <span class="comment">// Clear the checkpointing flag and notify everyone to wake up
                         </span>ctx.data().thread.set_checkpointing(<span class="bool-val">false</span>);
                         <span class="macro">trace!</span>(<span class="string">&quot;checkpoint complete&quot;</span>);
+                        <span class="kw">if </span>guard.disable_journaling_after_checkpoint {
+                            ctx.data_mut().enable_journal = <span class="bool-val">false</span>;
+                        }
                         guard.checkpoint = WasiProcessCheckpoint::Execute;
                         <span class="kw">for </span>waker <span class="kw">in </span>guard.wakers.drain(..) {
                             waker.wake();
@@ -1103,6 +1220,9 @@
                 <span class="comment">// Clear the checkpointing flag and notify everyone to wake up
                 </span>ctx.data().thread.set_checkpointing(<span class="bool-val">false</span>);
                 <span class="macro">trace!</span>(<span class="string">&quot;checkpoint complete&quot;</span>);
+                <span class="kw">if </span>guard.disable_journaling_after_checkpoint {
+                    ctx.data_mut().enable_journal = <span class="bool-val">false</span>;
+                }
                 guard.checkpoint = WasiProcessCheckpoint::Execute;
                 <span class="kw">for </span>waker <span class="kw">in </span>guard.wakers.drain(..) {
                     waker.wake();
@@ -1162,6 +1282,7 @@
                 </span>snapshot_on: Default::default(),
                 <span class="attr">#[cfg(feature = <span class="string">&quot;journal&quot;</span>)]
                 </span>snapshot_memory_hash: Default::default(),
+                disable_journaling_after_checkpoint: <span class="bool-val">false</span>,
                 backoff: WasiProcessCpuBackoff::new(max_cpu_backoff_time, max_cpu_cool_off_time),
             }),
             Condvar::new(),
@@ -1313,6 +1434,107 @@
     <span class="doccomment">/// Signals all the threads in this process
     </span><span class="kw">pub fn </span>signal_process(<span class="kw-2">&amp;</span><span class="self">self</span>, signal: Signal) {
         signal_process_internal(<span class="kw-2">&amp;</span><span class="self">self</span>.inner, signal);
+    }
+
+    <span class="doccomment">/// Takes a snapshot of the process and disables journaling returning
+    /// a future that can be waited on for the snapshot to complete
+    ///
+    /// Note: If you ignore the returned future the checkpoint will still
+    /// occur but it will execute asynchronously
+    </span><span class="kw">pub fn </span>snapshot_and_disable_journaling(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        trigger: SnapshotTrigger,
+    ) -&gt; std::pin::Pin&lt;Box&lt;<span class="kw">dyn </span>futures::Future&lt;Output = ()&gt; + Send + Sync&gt;&gt; {
+        <span class="kw">let </span><span class="kw-2">mut </span>guard = <span class="self">self</span>.inner.<span class="number">0</span>.lock().unwrap();
+        guard.disable_journaling_after_checkpoint = <span class="bool-val">true</span>;
+        guard.checkpoint = WasiProcessCheckpoint::Snapshot { trigger };
+        <span class="self">self</span>.wait_for_checkpoint_finish()
+    }
+
+    <span class="doccomment">/// Disables the journaling functionality
+    </span><span class="kw">pub fn </span>disable_journaling_after_checkpoint(<span class="kw-2">&amp;</span><span class="self">self</span>) {
+        <span class="kw">let </span><span class="kw-2">mut </span>guard = <span class="self">self</span>.inner.<span class="number">0</span>.lock().unwrap();
+        guard.disable_journaling_after_checkpoint = <span class="bool-val">true</span>;
+    }
+
+    <span class="doccomment">/// Wait for the checkout process to finish
+    </span><span class="attr">#[cfg(not(feature = <span class="string">&quot;journal&quot;</span>))]
+    </span><span class="kw">pub fn </span>wait_for_checkpoint(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+    ) -&gt; std::pin::Pin&lt;Box&lt;<span class="kw">dyn </span>futures::Future&lt;Output = ()&gt; + Send + Sync&gt;&gt; {
+        Box::pin(std::future::pending())
+    }
+
+    <span class="doccomment">/// Wait for the checkout process to finish
+    </span><span class="attr">#[cfg(feature = <span class="string">&quot;journal&quot;</span>)]
+    </span><span class="kw">pub fn </span>wait_for_checkpoint(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+    ) -&gt; std::pin::Pin&lt;Box&lt;<span class="kw">dyn </span>futures::Future&lt;Output = ()&gt; + Send + Sync&gt;&gt; {
+        <span class="kw">use </span>futures::Future;
+        <span class="kw">use </span>std::{
+            pin::Pin,
+            task::{Context, Poll},
+        };
+
+        <span class="kw">struct </span>Poller {
+            inner: LockableWasiProcessInner,
+        }
+        <span class="kw">impl </span>Future <span class="kw">for </span>Poller {
+            <span class="kw">type </span>Output = ();
+            <span class="kw">fn </span>poll(<span class="self">self</span>: Pin&lt;<span class="kw-2">&amp;mut </span><span class="self">Self</span>&gt;, cx: <span class="kw-2">&amp;mut </span>Context&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; Poll&lt;<span class="self">Self</span>::Output&gt; {
+                <span class="kw">let </span><span class="kw-2">mut </span>guard = <span class="self">self</span>.inner.<span class="number">0</span>.lock().unwrap();
+                <span class="kw">if </span>!<span class="macro">matches!</span>(guard.checkpoint, WasiProcessCheckpoint::Execute) {
+                    <span class="kw">return </span>Poll::Ready(());
+                }
+                <span class="kw">if </span>!guard.wakers.iter().any(|w| w.will_wake(cx.waker())) {
+                    guard.wakers.push(cx.waker().clone());
+                }
+                Poll::Pending
+            }
+        }
+        Box::pin(Poller {
+            inner: <span class="self">self</span>.inner.clone(),
+        })
+    }
+
+    <span class="doccomment">/// Wait for the checkout process to finish
+    </span><span class="attr">#[cfg(not(feature = <span class="string">&quot;journal&quot;</span>))]
+    </span><span class="kw">pub fn </span>wait_for_checkpoint_finish(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+    ) -&gt; std::pin::Pin&lt;Box&lt;<span class="kw">dyn </span>futures::Future&lt;Output = ()&gt; + Send + Sync&gt;&gt; {
+        Box::pin(std::future::pending())
+    }
+
+    <span class="doccomment">/// Wait for the checkout process to finish
+    </span><span class="attr">#[cfg(feature = <span class="string">&quot;journal&quot;</span>)]
+    </span><span class="kw">pub fn </span>wait_for_checkpoint_finish(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+    ) -&gt; std::pin::Pin&lt;Box&lt;<span class="kw">dyn </span>futures::Future&lt;Output = ()&gt; + Send + Sync&gt;&gt; {
+        <span class="kw">use </span>futures::Future;
+        <span class="kw">use </span>std::{
+            pin::Pin,
+            task::{Context, Poll},
+        };
+
+        <span class="kw">struct </span>Poller {
+            inner: LockableWasiProcessInner,
+        }
+        <span class="kw">impl </span>Future <span class="kw">for </span>Poller {
+            <span class="kw">type </span>Output = ();
+            <span class="kw">fn </span>poll(<span class="self">self</span>: Pin&lt;<span class="kw-2">&amp;mut </span><span class="self">Self</span>&gt;, cx: <span class="kw-2">&amp;mut </span>Context&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; Poll&lt;<span class="self">Self</span>::Output&gt; {
+                <span class="kw">let </span><span class="kw-2">mut </span>guard = <span class="self">self</span>.inner.<span class="number">0</span>.lock().unwrap();
+                <span class="kw">if </span><span class="macro">matches!</span>(guard.checkpoint, WasiProcessCheckpoint::Execute) {
+                    <span class="kw">return </span>Poll::Ready(());
+                }
+                <span class="kw">if </span>!guard.wakers.iter().any(|w| w.will_wake(cx.waker())) {
+                    guard.wakers.push(cx.waker().clone());
+                }
+                Poll::Pending
+            }
+        }
+        Box::pin(Poller {
+            inner: <span class="self">self</span>.inner.clone(),
+        })
     }
 
     <span class="doccomment">/// Signals one of the threads every interval

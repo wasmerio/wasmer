@@ -98,6 +98,14 @@
 <a href="#98" id="98">98</a>
 <a href="#99" id="99">99</a>
 <a href="#100" id="100">100</a>
+<a href="#101" id="101">101</a>
+<a href="#102" id="102">102</a>
+<a href="#103" id="103">103</a>
+<a href="#104" id="104">104</a>
+<a href="#105" id="105">105</a>
+<a href="#106" id="106">106</a>
+<a href="#107" id="107">107</a>
+<a href="#108" id="108">108</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::sync::Arc;
 <span class="kw">use </span>std::sync::Mutex;
 
@@ -150,6 +158,10 @@
             record_end: state.offset <span class="kw">as </span>u64 + estimate_size <span class="kw">as </span>u64,
         })
     }
+
+    <span class="kw">fn </span>flush(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; anyhow::Result&lt;()&gt; {
+        <span class="prelude-val">Ok</span>(())
+    }
 }
 
 <span class="kw">impl </span>ReadableJournal <span class="kw">for </span>BufferedJournalRx {
@@ -180,6 +192,10 @@
 <span class="kw">impl </span>WritableJournal <span class="kw">for </span>BufferedJournal {
     <span class="kw">fn </span>write&lt;<span class="lifetime">&#39;a</span>&gt;(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="self">self</span>, entry: JournalEntry&lt;<span class="lifetime">&#39;a</span>&gt;) -&gt; anyhow::Result&lt;LogWriteResult&gt; {
         <span class="self">self</span>.tx.write(entry)
+    }
+
+    <span class="kw">fn </span>flush(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; anyhow::Result&lt;()&gt; {
+        <span class="self">self</span>.tx.flush()
     }
 }
 

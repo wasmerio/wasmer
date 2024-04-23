@@ -65,6 +65,9 @@
 <a href="#65" id="65">65</a>
 <a href="#66" id="66">66</a>
 <a href="#67" id="67">67</a>
+<a href="#68" id="68">68</a>
+<a href="#69" id="69">69</a>
+<a href="#70" id="70">70</a>
 </pre></div><pre class="rust"><code><span class="kw">use super</span>::<span class="kw-2">*</span>;
 
 <span class="doccomment">/// Various triggers that will cause the runtime to take snapshot
@@ -93,6 +96,8 @@
     </span>Sigstop,
     <span class="doccomment">/// When a non-determinstic call is made
     </span>NonDeterministicCall,
+    <span class="doccomment">/// Bootstrapping process
+    </span>Bootstrap,
 }
 
 <span class="kw">impl </span>SnapshotTrigger {
@@ -128,6 +133,7 @@
             <span class="string">&quot;sigtstp&quot; </span>| <span class="string">&quot;ctrlz&quot; </span>| <span class="string">&quot;ctrl-z&quot; </span>=&gt; <span class="self">Self</span>::Sigtstp,
             <span class="string">&quot;stop&quot; </span>| <span class="string">&quot;sigstop&quot; </span>=&gt; <span class="self">Self</span>::Sigstop,
             <span class="string">&quot;non-deterministic-call&quot; </span>=&gt; <span class="self">Self</span>::NonDeterministicCall,
+            <span class="string">&quot;bootstrap&quot; </span>=&gt; <span class="self">Self</span>::Bootstrap,
             a =&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">anyhow::format_err!</span>(<span class="string">&quot;invalid or unknown trigger ({a})&quot;</span>)),
         })
     }

@@ -1802,6 +1802,7 @@
 <a href="#1802" id="1802">1802</a>
 <a href="#1803" id="1803">1803</a>
 <a href="#1804" id="1804">1804</a>
+<a href="#1805" id="1805">1805</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>lz4_flex::block::compress_prepend_size;
 <span class="kw">use </span>num_enum::{IntoPrimitive, TryFromPrimitive};
 <span class="kw">use </span>rkyv::ser::{ScratchSpace, Serializer};
@@ -3381,6 +3382,7 @@
     Sigtstp,
     Sigstop,
     NonDeterministicCall,
+    Bootstrap,
 }
 
 <span class="attr">#[repr(C)]

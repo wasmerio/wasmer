@@ -1167,6 +1167,14 @@
 <a href="#1167" id="1167">1167</a>
 <a href="#1168" id="1168">1168</a>
 <a href="#1169" id="1169">1169</a>
+<a href="#1170" id="1170">1170</a>
+<a href="#1171" id="1171">1171</a>
+<a href="#1172" id="1172">1172</a>
+<a href="#1173" id="1173">1173</a>
+<a href="#1174" id="1174">1174</a>
+<a href="#1175" id="1175">1175</a>
+<a href="#1176" id="1176">1176</a>
+<a href="#1177" id="1177">1177</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>derivative::Derivative;
 <span class="kw">use </span>std::{
     collections::{HashMap, HashSet},
@@ -1654,6 +1662,10 @@
         }
         state.inner_tx.write(entry)
     }
+
+    <span class="kw">fn </span>flush(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; anyhow::Result&lt;()&gt; {
+        <span class="self">self</span>.state.lock().unwrap().inner_tx.flush()
+    }
 }
 
 <span class="kw">impl </span>CompactingJournal {
@@ -1692,6 +1704,10 @@
 <span class="kw">impl </span>WritableJournal <span class="kw">for </span>CompactingJournal {
     <span class="kw">fn </span>write&lt;<span class="lifetime">&#39;a</span>&gt;(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="self">self</span>, entry: JournalEntry&lt;<span class="lifetime">&#39;a</span>&gt;) -&gt; anyhow::Result&lt;LogWriteResult&gt; {
         <span class="self">self</span>.tx.write(entry)
+    }
+
+    <span class="kw">fn </span>flush(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; anyhow::Result&lt;()&gt; {
+        <span class="self">self</span>.tx.flush()
     }
 }
 

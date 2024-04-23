@@ -32,6 +32,10 @@
 <a href="#32" id="32">32</a>
 <a href="#33" id="33">33</a>
 <a href="#34" id="34">34</a>
+<a href="#35" id="35">35</a>
+<a href="#36" id="36">36</a>
+<a href="#37" id="37">37</a>
+<a href="#38" id="38">38</a>
 </pre></div><pre class="rust"><code><span class="kw">use super</span>::<span class="kw-2">*</span>;
 
 <span class="kw">pub static </span>UNSUPPORTED_JOURNAL: UnsupportedJournal = UnsupportedJournal {};
@@ -55,6 +59,10 @@
     <span class="kw">fn </span>write&lt;<span class="lifetime">&#39;a</span>&gt;(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="self">self</span>, entry: JournalEntry&lt;<span class="lifetime">&#39;a</span>&gt;) -&gt; anyhow::Result&lt;LogWriteResult&gt; {
         <span class="macro">tracing::debug!</span>(<span class="string">&quot;journal event: {:?}&quot;</span>, entry);
         <span class="prelude-val">Err</span>(<span class="macro">anyhow::format_err!</span>(<span class="string">&quot;unsupported&quot;</span>))
+    }
+
+    <span class="kw">fn </span>flush(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; anyhow::Result&lt;()&gt; {
+        <span class="prelude-val">Ok</span>(())
     }
 }
 

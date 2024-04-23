@@ -209,6 +209,7 @@
 <a href="#209" id="209">209</a>
 <a href="#210" id="210">210</a>
 <a href="#211" id="211">211</a>
+<a href="#212" id="212">212</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>virtual_mio::InlineWaker;
 <span class="kw">use </span>wasmer::{RuntimeError, Store};
 <span class="kw">use </span>wasmer_wasix_types::wasi::ExitCode;
@@ -260,6 +261,7 @@
                     }
                 }
             };
+
             run_with_deep_sleep(store, rewind_state, this, tx);
         }))<span class="question-mark">?</span>;
 

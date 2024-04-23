@@ -1169,6 +1169,9 @@
 <a href="#1169" id="1169">1169</a>
 <a href="#1170" id="1170">1170</a>
 <a href="#1171" id="1171">1171</a>
+<a href="#1172" id="1172">1172</a>
+<a href="#1173" id="1173">1173</a>
+<a href="#1174" id="1174">1174</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>lz4_flex::block::decompress_size_prepended;
 <span class="kw">use </span>std::borrow::Cow;
 <span class="kw">use </span>std::time::SystemTime;
@@ -1355,6 +1358,7 @@
             SnapshotTrigger::Sigtstp =&gt; JournalSnapshotTriggerV1::Sigtstp,
             SnapshotTrigger::Sigstop =&gt; JournalSnapshotTriggerV1::Sigstop,
             SnapshotTrigger::NonDeterministicCall =&gt; JournalSnapshotTriggerV1::NonDeterministicCall,
+            SnapshotTrigger::Bootstrap =&gt; JournalSnapshotTriggerV1::Bootstrap,
         }
     }
 }
@@ -1372,6 +1376,7 @@
             JournalSnapshotTriggerV1::Sigtstp =&gt; SnapshotTrigger::Sigtstp,
             JournalSnapshotTriggerV1::Sigstop =&gt; SnapshotTrigger::Sigstop,
             JournalSnapshotTriggerV1::NonDeterministicCall =&gt; SnapshotTrigger::NonDeterministicCall,
+            JournalSnapshotTriggerV1::Bootstrap =&gt; SnapshotTrigger::Bootstrap,
         }
     }
 }
@@ -1391,6 +1396,7 @@
             ArchivedJournalSnapshotTriggerV1::NonDeterministicCall =&gt; {
                 SnapshotTrigger::NonDeterministicCall
             }
+            ArchivedJournalSnapshotTriggerV1::Bootstrap =&gt; SnapshotTrigger::Bootstrap,
         }
     }
 }

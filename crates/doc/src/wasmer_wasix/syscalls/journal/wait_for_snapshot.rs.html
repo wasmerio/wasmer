@@ -3,61 +3,9 @@
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
 <a href="#5" id="5">5</a>
-<a href="#6" id="6">6</a>
-<a href="#7" id="7">7</a>
-<a href="#8" id="8">8</a>
-<a href="#9" id="9">9</a>
-<a href="#10" id="10">10</a>
-<a href="#11" id="11">11</a>
-<a href="#12" id="12">12</a>
-<a href="#13" id="13">13</a>
-<a href="#14" id="14">14</a>
-<a href="#15" id="15">15</a>
-<a href="#16" id="16">16</a>
-<a href="#17" id="17">17</a>
-<a href="#18" id="18">18</a>
-<a href="#19" id="19">19</a>
-<a href="#20" id="20">20</a>
-<a href="#21" id="21">21</a>
-<a href="#22" id="22">22</a>
-<a href="#23" id="23">23</a>
-<a href="#24" id="24">24</a>
-<a href="#25" id="25">25</a>
-<a href="#26" id="26">26</a>
-<a href="#27" id="27">27</a>
-<a href="#28" id="28">28</a>
-<a href="#29" id="29">29</a>
-<a href="#30" id="30">30</a>
-<a href="#31" id="31">31</a>
 </pre></div><pre class="rust"><code><span class="kw">use super</span>::<span class="kw-2">*</span>;
 
-<span class="attr">#[cfg(not(feature = <span class="string">&quot;journal&quot;</span>))]
-</span><span class="kw">pub fn </span>wait_for_snapshot(_env: <span class="kw-2">&amp;</span>WasiEnv) -&gt; Pin&lt;Box&lt;<span class="kw">dyn </span>Future&lt;Output = ()&gt; + Send + Sync&gt;&gt; {
-    Box::pin(std::future::pending())
-}
-
-<span class="attr">#[cfg(feature = <span class="string">&quot;journal&quot;</span>)]
-</span><span class="kw">pub fn </span>wait_for_snapshot(env: <span class="kw-2">&amp;</span>WasiEnv) -&gt; Pin&lt;Box&lt;<span class="kw">dyn </span>Future&lt;Output = ()&gt; + Send + Sync&gt;&gt; {
-    <span class="kw">use </span><span class="kw">crate</span>::os::task::process::{LockableWasiProcessInner, WasiProcessCheckpoint};
-
-    <span class="kw">struct </span>Poller {
-        inner: LockableWasiProcessInner,
-    }
-    <span class="kw">impl </span>Future <span class="kw">for </span>Poller {
-        <span class="kw">type </span>Output = ();
-        <span class="kw">fn </span>poll(<span class="self">self</span>: Pin&lt;<span class="kw-2">&amp;mut </span><span class="self">Self</span>&gt;, cx: <span class="kw-2">&amp;mut </span>Context&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; Poll&lt;<span class="self">Self</span>::Output&gt; {
-            <span class="kw">let </span><span class="kw-2">mut </span>guard = <span class="self">self</span>.inner.<span class="number">0</span>.lock().unwrap();
-            <span class="kw">if </span>!<span class="macro">matches!</span>(guard.checkpoint, WasiProcessCheckpoint::Execute) {
-                <span class="kw">return </span>Poll::Ready(());
-            }
-            <span class="kw">if </span>!guard.wakers.iter().any(|w| w.will_wake(cx.waker())) {
-                guard.wakers.push(cx.waker().clone());
-            }
-            Poll::Pending
-        }
-    }
-    Box::pin(Poller {
-        inner: env.process.inner.clone(),
-    })
+<span class="kw">pub fn </span>wait_for_snapshot(env: <span class="kw-2">&amp;</span>WasiEnv) -&gt; Pin&lt;Box&lt;<span class="kw">dyn </span>Future&lt;Output = ()&gt; + Send + Sync&gt;&gt; {
+    env.process.wait_for_checkpoint()
 }
 </code></pre></div></section></main></body></html>
