@@ -1,10 +1,10 @@
 use anyhow::{bail, Context};
-use edge_schema::schema::AppConfigV1;
 use wasmer_api::{
     global_id::{GlobalId, NodeKind},
     types::DeployApp,
     WasmerClient,
 };
+use wasmer_config::app::AppConfigV1;
 
 /// App identifier.
 ///

@@ -18,7 +18,7 @@ rust-version.workspace = true
 # Wasmer dependencies.
 edge-schema.workspace = true
 wasmer-config.workspace = true
-webc = "5"
+webc.workspace = true
 
 # crates.io dependencies.
 anyhow = "1"

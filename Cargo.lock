@@ -5805,7 +5805,7 @@ dependencies = [
  "tracing",
  "tracing-test",
  "typetag",
- "webc 6.0.0-alpha1",
+ "webc",
 ]
 
 [[package]]
@@ -6255,7 +6255,7 @@ dependencies = [
  "url",
  "uuid",
  "wasmer-config 0.1.0",
- "webc 5.9.0",
+ "webc",
 ]
 
 [[package]]
@@ -6279,7 +6279,7 @@ dependencies = [
  "url",
  "wasmer",
  "wasmer-api",
- "webc 6.0.0-alpha1",
+ "webc",
 ]
 
 [[package]]
@@ -6324,7 +6324,7 @@ dependencies = [
  "wasmer-middlewares",
  "wasmer-types",
  "wasmer-wasix",
- "webc 5.9.0",
+ "webc",
 ]
 
 [[package]]
@@ -6452,7 +6452,7 @@ dependencies = [
  "wasmer-vm",
  "wasmer-wasix",
  "wasmer-wast",
- "webc 6.0.0-alpha1",
+ "webc",
 ]
 
 [[package]]
@@ -6785,7 +6785,7 @@ dependencies = [
  "wasmer-config 0.1.0",
  "wasmer-wasm-interface",
  "wasmparser 0.121.2",
- "webc 6.0.0-alpha1",
+ "webc",
  "whoami",
 ]
 
@@ -6924,7 +6924,7 @@ dependencies = [
  "wcgi",
  "wcgi-host",
  "web-sys",
- "webc 6.0.0-alpha1",
+ "webc",
  "weezl",
  "winapi 0.3.9",
  "xxhash-rust",
@@ -7126,39 +7126,6 @@ checksum = "77afa9a11836342370f4817622a2f0f418b134426d91a82dfb48f532d2ec13ef"
 dependencies = [
  "js-sys",
  "wasm-bindgen",
-]
-
-[[package]]
-name = "webc"
-version = "5.9.0"
-source = "git+https://github.com/wasmerio/pirita?branch=main#ce67d5733ed1951088d7ddb5922d1586fa15f297"
-dependencies = [
- "anyhow",
- "base64 0.21.7",
- "bytes 1.6.0",
- "cfg-if 1.0.0",
- "clap",
- "document-features",
- "flate2",
- "ignore",
- "indexmap 1.9.3",
- "leb128",
- "lexical-sort",
- "once_cell",
- "path-clean",
- "rand",
- "semver 1.0.22",
- "serde",
- "serde_cbor",
- "serde_json",
- "sha2",
- "shared-buffer",
- "tar",
- "tempfile",
- "thiserror",
- "toml 0.7.8",
- "url",
- "wasmer-config 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]

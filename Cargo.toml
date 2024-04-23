@@ -334,6 +334,3 @@ required-features = ["cranelift"]
 name = "http-dynamic-size"
 path = "examples/http_dynamic_size.rs"
 required-features = ["cranelift"]
-
-[patch.crates-io]
-webc = {git = "https://github.com/wasmerio/pirita", branch = "main"}
