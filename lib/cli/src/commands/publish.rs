@@ -58,7 +58,7 @@ pub struct Publish {
     pub autobump: bool,
 
     /// Do not prompt for user input.
-    #[clap(long)]
+    #[clap(long, default_value_t = !std::io::stdin().is_terminal())]
     pub non_interactive: bool,
 }
 
@@ -67,7 +67,7 @@ impl AsyncCliCommand for Publish {
     type Output = Option<PackageIdent>;
 
     async fn run_async(self) -> Result<Self::Output, anyhow::Error> {
-        let interactive = std::io::stdin().is_terminal() && !self.non_interactive;
+        let interactive = !self.non_interactive;
         let manifest_dir_path = match self.package_path.as_ref() {
             Some(s) => std::env::current_dir()?.join(s),
             None => std::env::current_dir()?,

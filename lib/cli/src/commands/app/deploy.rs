@@ -34,7 +34,7 @@ pub struct CmdAppDeploy {
     pub no_validate: bool,
 
     /// Do not prompt for user input.
-    #[clap(long, default_value_t = std::io::stdin().is_terminal())]
+    #[clap(long, default_value_t = !std::io::stdin().is_terminal())]
     pub non_interactive: bool,
 
     /// Automatically publish the package referenced by this app.
@@ -557,11 +557,11 @@ pub async fn deploy_app_verbose(
         .context("could not fetch app from backend")?;
 
     eprintln!(
-        "🚀 App {} ({}) was successfully deployed!",
+        "App {} ({}) was successfully deployed 🚀",
         app.name.bold(),
         app.owner.global_name.bold()
     );
-    eprintln!("{}", app.url.blue().bold());
+    eprintln!("{}", app.url.blue().bold().underline());
     eprintln!("");
     eprintln!("→ Unique URL: {}", version.url);
     eprintln!("→ Dashboard:  {}", app.admin_url);

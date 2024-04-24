@@ -55,7 +55,7 @@ pub struct CmdAppCreate {
     pub no_validate: bool,
 
     /// Do not prompt for user input.
-    #[clap(long, default_value_t = std::io::stdin().is_terminal())]
+    #[clap(long, default_value_t = !std::io::stdin().is_terminal())]
     pub non_interactive: bool,
 
     /// Do not interact with any APIs.
