@@ -481,8 +481,6 @@
 <a href="#481" id="481">481</a>
 <a href="#482" id="482">482</a>
 <a href="#483" id="483">483</a>
-<a href="#484" id="484">484</a>
-<a href="#485" id="485">485</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{
     collections::HashMap,
     fmt::Write <span class="kw">as _</span>,
@@ -690,8 +688,7 @@
         level=<span class="string">&quot;debug&quot;</span>,
         skip_all,
         fields(
-            pkg.name=summary.pkg.name.as_str(),
-            pkg.version=%summary.pkg.version,
+            pkg=%summary.pkg.id,
         ),
     )]
     </span><span class="kw">async fn </span>load(<span class="kw-2">&amp;</span><span class="self">self</span>, summary: <span class="kw-2">&amp;</span>PackageSummary) -&gt; <span class="prelude-ty">Result</span>&lt;Container, Error&gt; {
@@ -724,8 +721,7 @@
                 <span class="prelude-val">Err</span>(e) =&gt; {
                     <span class="macro">tracing::warn!</span>(
                         error=<span class="kw-2">&amp;*</span>e,
-                        pkg.name=%summary.pkg.name,
-                        pkg.version=%summary.pkg.version,
+                        pkg=%summary.pkg.id,
                         pkg.hash=%summary.dist.webc_sha256,
                         pkg.url=%summary.dist.webc,
                         <span class="string">&quot;Unable to save the downloaded package to disk&quot;</span>,
@@ -868,6 +864,7 @@
     <span class="kw">use </span>futures::future::BoxFuture;
     <span class="kw">use </span>http::{HeaderMap, StatusCode};
     <span class="kw">use </span>tempfile::TempDir;
+    <span class="kw">use </span>wasmer_config::package::PackageId;
 
     <span class="kw">use crate</span>::{
         http::{HttpRequest, HttpResponse},
@@ -917,8 +914,7 @@
             .with_shared_http_client(client.clone());
         <span class="kw">let </span>summary = PackageSummary {
             pkg: PackageInfo {
-                name: <span class="string">&quot;python/python&quot;</span>.to_string(),
-                version: <span class="string">&quot;0.1.0&quot;</span>.parse().unwrap(),
+                id: PackageId::new_named(<span class="string">&quot;python/python&quot;</span>, <span class="string">&quot;0.1.0&quot;</span>.parse().unwrap()),
                 dependencies: Vec::new(),
                 commands: Vec::new(),
                 entrypoint: <span class="prelude-val">Some</span>(<span class="string">&quot;asdf&quot;</span>.to_string()),

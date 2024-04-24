@@ -988,15 +988,87 @@
 <a href="#988" id="988">988</a>
 <a href="#989" id="989">989</a>
 <a href="#990" id="990">990</a>
+<a href="#991" id="991">991</a>
+<a href="#992" id="992">992</a>
+<a href="#993" id="993">993</a>
+<a href="#994" id="994">994</a>
+<a href="#995" id="995">995</a>
+<a href="#996" id="996">996</a>
+<a href="#997" id="997">997</a>
+<a href="#998" id="998">998</a>
+<a href="#999" id="999">999</a>
+<a href="#1000" id="1000">1000</a>
+<a href="#1001" id="1001">1001</a>
+<a href="#1002" id="1002">1002</a>
+<a href="#1003" id="1003">1003</a>
+<a href="#1004" id="1004">1004</a>
+<a href="#1005" id="1005">1005</a>
+<a href="#1006" id="1006">1006</a>
+<a href="#1007" id="1007">1007</a>
+<a href="#1008" id="1008">1008</a>
+<a href="#1009" id="1009">1009</a>
+<a href="#1010" id="1010">1010</a>
+<a href="#1011" id="1011">1011</a>
+<a href="#1012" id="1012">1012</a>
+<a href="#1013" id="1013">1013</a>
+<a href="#1014" id="1014">1014</a>
+<a href="#1015" id="1015">1015</a>
+<a href="#1016" id="1016">1016</a>
+<a href="#1017" id="1017">1017</a>
+<a href="#1018" id="1018">1018</a>
+<a href="#1019" id="1019">1019</a>
+<a href="#1020" id="1020">1020</a>
+<a href="#1021" id="1021">1021</a>
+<a href="#1022" id="1022">1022</a>
+<a href="#1023" id="1023">1023</a>
+<a href="#1024" id="1024">1024</a>
+<a href="#1025" id="1025">1025</a>
+<a href="#1026" id="1026">1026</a>
+<a href="#1027" id="1027">1027</a>
+<a href="#1028" id="1028">1028</a>
+<a href="#1029" id="1029">1029</a>
+<a href="#1030" id="1030">1030</a>
+<a href="#1031" id="1031">1031</a>
+<a href="#1032" id="1032">1032</a>
+<a href="#1033" id="1033">1033</a>
+<a href="#1034" id="1034">1034</a>
+<a href="#1035" id="1035">1035</a>
+<a href="#1036" id="1036">1036</a>
+<a href="#1037" id="1037">1037</a>
+<a href="#1038" id="1038">1038</a>
+<a href="#1039" id="1039">1039</a>
+<a href="#1040" id="1040">1040</a>
+<a href="#1041" id="1041">1041</a>
+<a href="#1042" id="1042">1042</a>
+<a href="#1043" id="1043">1043</a>
+<a href="#1044" id="1044">1044</a>
+<a href="#1045" id="1045">1045</a>
+<a href="#1046" id="1046">1046</a>
+<a href="#1047" id="1047">1047</a>
+<a href="#1048" id="1048">1048</a>
+<a href="#1049" id="1049">1049</a>
+<a href="#1050" id="1050">1050</a>
+<a href="#1051" id="1051">1051</a>
+<a href="#1052" id="1052">1052</a>
+<a href="#1053" id="1053">1053</a>
+<a href="#1054" id="1054">1054</a>
+<a href="#1055" id="1055">1055</a>
+<a href="#1056" id="1056">1056</a>
+<a href="#1057" id="1057">1057</a>
+<a href="#1058" id="1058">1058</a>
+<a href="#1059" id="1059">1059</a>
+<a href="#1060" id="1060">1060</a>
+<a href="#1061" id="1061">1061</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{collections::HashSet, pin::Pin, time::Duration};
 
 <span class="kw">use </span>anyhow::{bail, Context};
 <span class="kw">use </span>cynic::{MutationBuilder, QueryBuilder};
-<span class="kw">use </span>edge_schema::schema::{NetworkTokenV1, WebcIdent};
+<span class="kw">use </span>edge_schema::schema::NetworkTokenV1;
 <span class="kw">use </span>futures::{Stream, StreamExt};
 <span class="kw">use </span>time::OffsetDateTime;
 <span class="kw">use </span>tracing::Instrument;
 <span class="kw">use </span>url::Url;
+<span class="kw">use </span>wasmer_config::package::PackageIdent;
 
 <span class="kw">use crate</span>::{
     types::{
@@ -1014,10 +1086,21 @@
 /// the API, and should not be used where possible.
 </span><span class="kw">pub async fn </span>fetch_webc_package(
     client: <span class="kw-2">&amp;</span>WasmerClient,
-    ident: <span class="kw-2">&amp;</span>WebcIdent,
+    ident: <span class="kw-2">&amp;</span>PackageIdent,
     default_registry: <span class="kw-2">&amp;</span>Url,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;webc::compat::Container, anyhow::Error&gt; {
-    <span class="kw">let </span>url = ident.build_download_url_with_default_registry(default_registry);
+    <span class="kw">let </span>url = <span class="kw">match </span>ident {
+        PackageIdent::Named(n) =&gt; Url::parse(<span class="kw-2">&amp;</span><span class="macro">format!</span>(
+            <span class="string">&quot;{default_registry}/{}:{}&quot;</span>,
+            n.full_name(),
+            n.version_or_default()
+        ))<span class="question-mark">?</span>,
+        PackageIdent::Hash(h) =&gt; <span class="kw">match </span>get_package_release(client, <span class="kw-2">&amp;</span>h.to_string()).<span class="kw">await</span><span class="question-mark">? </span>{
+            <span class="prelude-val">Some</span>(webc) =&gt; Url::parse(<span class="kw-2">&amp;</span>webc.webc_url)<span class="question-mark">?</span>,
+            <span class="prelude-val">None </span>=&gt; <span class="macro">anyhow::bail!</span>(<span class="string">&quot;Could not find package with hash &#39;{}&#39;&quot;</span>, h),
+        },
+    };
+
     <span class="kw">let </span>data = client
         .client
         .get(url)
@@ -1602,6 +1685,32 @@
     <span class="prelude-val">Ok</span>(res.all_package_versions)
 }
 
+<span class="doccomment">/// Retrieve a package release by hash.
+</span><span class="kw">pub async fn </span>get_package_release(
+    client: <span class="kw-2">&amp;</span>WasmerClient,
+    hash: <span class="kw-2">&amp;</span>str,
+) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;types::PackageWebc&gt;, anyhow::Error&gt; {
+    <span class="kw">let </span>hash = hash.trim_start_matches(<span class="string">&quot;sha256:&quot;</span>);
+    client
+        .run_graphql_strict(types::GetPackageRelease::build(
+            types::GetPackageReleaseVars {
+                hash: hash.to_string(),
+            },
+        ))
+        .<span class="kw">await
+        </span>.map(|x| x.get_package_release)
+}
+
+<span class="kw">pub async fn </span>get_package_releases(
+    client: <span class="kw-2">&amp;</span>WasmerClient,
+    vars: types::AllPackageReleasesVars,
+) -&gt; <span class="prelude-ty">Result</span>&lt;types::PackageWebcConnection, anyhow::Error&gt; {
+    <span class="kw">let </span>res = client
+        .run_graphql(types::GetAllPackageReleases::build(vars))
+        .<span class="kw">await</span><span class="question-mark">?</span>;
+    <span class="prelude-val">Ok</span>(res.all_package_releases)
+}
+
 <span class="doccomment">/// Retrieve all versions of a package as a stream that auto-paginates.
 </span><span class="kw">pub fn </span>get_package_versions_stream(
     client: <span class="kw-2">&amp;</span>WasmerClient,
@@ -1627,6 +1736,39 @@
                 .collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
 
             <span class="kw">let </span>new_vars = end_cursor.map(|cursor| types::AllPackageVersionsVars {
+                after: <span class="prelude-val">Some</span>(cursor),
+                ..vars
+            });
+
+            <span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>((items, new_vars)))
+        },
+    )
+}
+
+<span class="doccomment">/// Retrieve all package releases as a stream.
+</span><span class="kw">pub fn </span>get_package_releases_stream(
+    client: <span class="kw-2">&amp;</span>WasmerClient,
+    vars: types::AllPackageReleasesVars,
+) -&gt; <span class="kw">impl </span>futures::Stream&lt;Item = <span class="prelude-ty">Result</span>&lt;Vec&lt;types::PackageWebc&gt;, anyhow::Error&gt;&gt; + <span class="lifetime">&#39;_ </span>{
+    futures::stream::try_unfold(
+        <span class="prelude-val">Some</span>(vars),
+        <span class="kw">move </span>|vars: <span class="prelude-ty">Option</span>&lt;types::AllPackageReleasesVars&gt;| <span class="kw">async move </span>{
+            <span class="kw">let </span>vars = <span class="kw">match </span>vars {
+                <span class="prelude-val">Some</span>(vars) =&gt; vars,
+                <span class="prelude-val">None </span>=&gt; <span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>),
+            };
+
+            <span class="kw">let </span>page = get_package_releases(client, vars.clone()).<span class="kw">await</span><span class="question-mark">?</span>;
+
+            <span class="kw">let </span>end_cursor = page.page_info.end_cursor;
+
+            <span class="kw">let </span>items = page
+                .edges
+                .into_iter()
+                .filter_map(|x| x.and_then(|x| x.node))
+                .collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
+
+            <span class="kw">let </span>new_vars = end_cursor.map(|cursor| types::AllPackageReleasesVars {
                 after: <span class="prelude-val">Some</span>(cursor),
                 ..vars
             });

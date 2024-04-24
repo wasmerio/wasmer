@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":["AppType"],"struct":["AppCreator","AppCreatorOutput","CmdAppCreate"]};
+window.SIDEBAR_ITEMS = {"enum":["AppType"],"fn":["write_app_config"],"struct":["AppCreator","CmdAppCreate"]};

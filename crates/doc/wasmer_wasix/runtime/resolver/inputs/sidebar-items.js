@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":["PackageSpecifier"],"fn":["filesystem_mapping_from_manifest","url_or_manifest_to_specifier"],"struct":["Command","Dependency","DistributionInfo","FileSystemMapping","PackageInfo","PackageSummary","WebcHash"]};
+window.SIDEBAR_ITEMS = {"fn":["filesystem_mapping_from_manifest","url_or_manifest_to_specifier"],"struct":["Command","Dependency","DistributionInfo","FileSystemMapping","PackageInfo","PackageSummary","WebcHash"]};

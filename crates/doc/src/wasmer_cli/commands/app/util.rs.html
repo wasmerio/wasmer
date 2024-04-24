@@ -185,12 +185,12 @@
 <a href="#185" id="185">185</a>
 <a href="#186" id="186">186</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>anyhow::{bail, Context};
-<span class="kw">use </span>edge_schema::schema::AppConfigV1;
 <span class="kw">use </span>wasmer_api::{
     global_id::{GlobalId, NodeKind},
     types::DeployApp,
     WasmerClient,
 };
+<span class="kw">use </span>wasmer_config::app::AppConfigV1;
 
 <span class="doccomment">/// App identifier.
 ///

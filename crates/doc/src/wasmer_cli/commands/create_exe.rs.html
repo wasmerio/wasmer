@@ -2805,11 +2805,11 @@
         path: <span class="kw-2">&amp;mut </span>PathSegments,
         files: <span class="kw-2">&amp;mut </span>BTreeMap&lt;webc::v1::DirOrFile, Vec&lt;u8&gt;&gt;,
     ) {
-        <span class="kw">for </span>(segment, meta) <span class="kw">in </span>volume.read_dir(<span class="kw-2">&amp;*</span>path).unwrap_or_default() {
+        <span class="kw">for </span>(segment, <span class="kw">_</span>, meta) <span class="kw">in </span>volume.read_dir(<span class="kw-2">&amp;*</span>path).unwrap_or_default() {
             path.push(segment);
 
             <span class="kw">match </span>meta {
-                webc::compat::Metadata::Dir =&gt; {
+                webc::compat::Metadata::Dir { .. } =&gt; {
                     files.insert(
                         webc::v1::DirOrFile::Dir(path.to_string().into()),
                         Vec::new(),
@@ -2817,7 +2817,7 @@
                     read_dir(volume, path, files);
                 }
                 webc::compat::Metadata::File { .. } =&gt; {
-                    <span class="kw">if let </span><span class="prelude-val">Some</span>(contents) = volume.read_file(<span class="kw-2">&amp;*</span>path) {
+                    <span class="kw">if let </span><span class="prelude-val">Some</span>((contents, <span class="kw">_</span>)) = volume.read_file(<span class="kw-2">&amp;*</span>path) {
                         files.insert(
                             webc::v1::DirOrFile::File(path.to_string().into()),
                             contents.to_vec(),

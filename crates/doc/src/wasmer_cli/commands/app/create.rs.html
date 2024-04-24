@@ -715,44 +715,173 @@
 <a href="#715" id="715">715</a>
 <a href="#716" id="716">716</a>
 <a href="#717" id="717">717</a>
+<a href="#718" id="718">718</a>
+<a href="#719" id="719">719</a>
+<a href="#720" id="720">720</a>
+<a href="#721" id="721">721</a>
+<a href="#722" id="722">722</a>
+<a href="#723" id="723">723</a>
+<a href="#724" id="724">724</a>
+<a href="#725" id="725">725</a>
+<a href="#726" id="726">726</a>
+<a href="#727" id="727">727</a>
+<a href="#728" id="728">728</a>
+<a href="#729" id="729">729</a>
+<a href="#730" id="730">730</a>
+<a href="#731" id="731">731</a>
+<a href="#732" id="732">732</a>
+<a href="#733" id="733">733</a>
+<a href="#734" id="734">734</a>
+<a href="#735" id="735">735</a>
+<a href="#736" id="736">736</a>
+<a href="#737" id="737">737</a>
+<a href="#738" id="738">738</a>
+<a href="#739" id="739">739</a>
+<a href="#740" id="740">740</a>
+<a href="#741" id="741">741</a>
+<a href="#742" id="742">742</a>
+<a href="#743" id="743">743</a>
+<a href="#744" id="744">744</a>
+<a href="#745" id="745">745</a>
+<a href="#746" id="746">746</a>
+<a href="#747" id="747">747</a>
+<a href="#748" id="748">748</a>
+<a href="#749" id="749">749</a>
+<a href="#750" id="750">750</a>
+<a href="#751" id="751">751</a>
+<a href="#752" id="752">752</a>
+<a href="#753" id="753">753</a>
+<a href="#754" id="754">754</a>
+<a href="#755" id="755">755</a>
+<a href="#756" id="756">756</a>
+<a href="#757" id="757">757</a>
+<a href="#758" id="758">758</a>
+<a href="#759" id="759">759</a>
+<a href="#760" id="760">760</a>
+<a href="#761" id="761">761</a>
+<a href="#762" id="762">762</a>
+<a href="#763" id="763">763</a>
+<a href="#764" id="764">764</a>
+<a href="#765" id="765">765</a>
+<a href="#766" id="766">766</a>
+<a href="#767" id="767">767</a>
+<a href="#768" id="768">768</a>
+<a href="#769" id="769">769</a>
+<a href="#770" id="770">770</a>
+<a href="#771" id="771">771</a>
+<a href="#772" id="772">772</a>
+<a href="#773" id="773">773</a>
+<a href="#774" id="774">774</a>
+<a href="#775" id="775">775</a>
+<a href="#776" id="776">776</a>
+<a href="#777" id="777">777</a>
+<a href="#778" id="778">778</a>
+<a href="#779" id="779">779</a>
+<a href="#780" id="780">780</a>
+<a href="#781" id="781">781</a>
+<a href="#782" id="782">782</a>
+<a href="#783" id="783">783</a>
+<a href="#784" id="784">784</a>
+<a href="#785" id="785">785</a>
+<a href="#786" id="786">786</a>
+<a href="#787" id="787">787</a>
+<a href="#788" id="788">788</a>
+<a href="#789" id="789">789</a>
+<a href="#790" id="790">790</a>
+<a href="#791" id="791">791</a>
+<a href="#792" id="792">792</a>
+<a href="#793" id="793">793</a>
+<a href="#794" id="794">794</a>
+<a href="#795" id="795">795</a>
+<a href="#796" id="796">796</a>
+<a href="#797" id="797">797</a>
+<a href="#798" id="798">798</a>
+<a href="#799" id="799">799</a>
+<a href="#800" id="800">800</a>
+<a href="#801" id="801">801</a>
+<a href="#802" id="802">802</a>
+<a href="#803" id="803">803</a>
+<a href="#804" id="804">804</a>
+<a href="#805" id="805">805</a>
+<a href="#806" id="806">806</a>
+<a href="#807" id="807">807</a>
+<a href="#808" id="808">808</a>
+<a href="#809" id="809">809</a>
+<a href="#810" id="810">810</a>
+<a href="#811" id="811">811</a>
+<a href="#812" id="812">812</a>
+<a href="#813" id="813">813</a>
+<a href="#814" id="814">814</a>
+<a href="#815" id="815">815</a>
+<a href="#816" id="816">816</a>
+<a href="#817" id="817">817</a>
+<a href="#818" id="818">818</a>
+<a href="#819" id="819">819</a>
+<a href="#820" id="820">820</a>
+<a href="#821" id="821">821</a>
+<a href="#822" id="822">822</a>
+<a href="#823" id="823">823</a>
+<a href="#824" id="824">824</a>
+<a href="#825" id="825">825</a>
+<a href="#826" id="826">826</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Create a new Edge app.
 
-</span><span class="kw">use </span>std::path::PathBuf;
-
-<span class="kw">use </span>anyhow::{bail, Context};
-<span class="kw">use </span>colored::Colorize;
-<span class="kw">use </span>dialoguer::Confirm;
-<span class="kw">use </span>edge_schema::schema::StringWebcIdent;
-<span class="kw">use </span>is_terminal::IsTerminal;
-<span class="kw">use </span>wasmer_api::{
-    types::{DeployAppVersion, Package, UserWithNamespaces},
-    WasmerClient,
-};
-
-<span class="kw">use crate</span>::{
-    commands::{
-        app::{deploy_app_verbose, AppConfigV1, DeployAppOpts, WaitMode},
-        AsyncCliCommand,
-    },
+</span><span class="kw">use crate</span>::{
+    commands::AsyncCliCommand,
     opts::{ApiOpts, ItemFormatOpts},
-    utils::package_wizard::{CreateMode, PackageType, PackageWizard},
+    utils::{
+        load_package_manifest,
+        package_wizard::{CreateMode, PackageType, PackageWizard},
+    },
 };
+<span class="kw">use </span>anyhow::Context;
+<span class="kw">use </span>colored::Colorize;
+<span class="kw">use </span>dialoguer::{theme::ColorfulTheme, Confirm, Select};
+<span class="kw">use </span>is_terminal::IsTerminal;
+<span class="kw">use </span>std::{collections::HashMap, env, path::PathBuf, str::FromStr};
+<span class="kw">use </span>wasmer_api::{types::UserWithNamespaces, WasmerClient};
+<span class="kw">use </span>wasmer_config::{
+    app::AppConfigV1,
+    package::{NamedPackageIdent, PackageSource, Tag},
+};
+
+<span class="kw">use </span><span class="kw">super</span>::deploy::CmdAppDeploy;
+
+<span class="kw">async fn </span>write_app_config(app_config: <span class="kw-2">&amp;</span>AppConfigV1, dir: <span class="prelude-ty">Option</span>&lt;PathBuf&gt;) -&gt; anyhow::Result&lt;()&gt; {
+    <span class="kw">let </span>raw_app_config = app_config.clone().to_yaml()<span class="question-mark">?</span>;
+
+    <span class="kw">let </span>app_dir = <span class="kw">match </span>dir {
+        <span class="prelude-val">Some</span>(dir) =&gt; dir,
+        <span class="prelude-val">None </span>=&gt; std::env::current_dir()<span class="question-mark">?</span>,
+    };
+
+    <span class="kw">let </span>app_config_path = app_dir.join(AppConfigV1::CANONICAL_FILE_NAME);
+    std::fs::write(<span class="kw-2">&amp;</span>app_config_path, raw_app_config).with_context(|| {
+        <span class="macro">format!</span>(
+            <span class="string">&quot;could not write app config to &#39;{}&#39;&quot;</span>,
+            app_config_path.display()
+        )
+    })
+}
 
 <span class="doccomment">/// Create a new Edge app.
 </span><span class="attr">#[derive(clap::Parser, Debug)]
 </span><span class="kw">pub struct </span>CmdAppCreate {
     <span class="attr">#[clap(name = <span class="string">&quot;type&quot;</span>, short = <span class="string">&#39;t&#39;</span>, long)]
-    </span>template: <span class="prelude-ty">Option</span>&lt;AppType&gt;,
-
-    <span class="attr">#[clap(long)]
-    </span>publish_package: bool,
+    </span><span class="kw">pub </span>template: <span class="prelude-ty">Option</span>&lt;AppType&gt;,
+    <span class="doccomment">/// Whether or not to deploy the application once it is created.
+    ///
+    /// If selected, this might entail the step of publishing the package related to the
+    /// application. By default, the application is not deployed and the package is not published.
+    </span><span class="attr">#[clap(long)]
+    </span><span class="kw">pub </span>deploy_app: bool,
 
     <span class="doccomment">/// Skip local schema validation.
     </span><span class="attr">#[clap(long)]
     </span><span class="kw">pub </span>no_validate: bool,
 
     <span class="doccomment">/// Do not prompt for user input.
-    </span><span class="attr">#[clap(long)]
+    </span><span class="attr">#[clap(long, default_value_t = !std::io::stdin().is_terminal())]
     </span><span class="kw">pub </span>non_interactive: bool,
 
     <span class="doccomment">/// Do not interact with any APIs.
@@ -763,19 +892,15 @@
     </span><span class="attr">#[clap(long)]
     </span><span class="kw">pub </span>owner: <span class="prelude-ty">Option</span>&lt;String&gt;,
 
-    <span class="doccomment">/// Name to use when creating a new package.
-    </span><span class="attr">#[clap(long)]
-    </span><span class="kw">pub </span>new_package_name: <span class="prelude-ty">Option</span>&lt;String&gt;,
-
     <span class="doccomment">/// The name of the app (can be changed later)
-    </span><span class="attr">#[clap(long)]
-    </span><span class="kw">pub </span>name: <span class="prelude-ty">Option</span>&lt;String&gt;,
+    </span><span class="attr">#[clap(long = <span class="string">&quot;name&quot;</span>)]
+    </span><span class="kw">pub </span>app_name: <span class="prelude-ty">Option</span>&lt;String&gt;,
 
-    <span class="doccomment">/// The path to a YAML file the app config.
-    </span><span class="attr">#[clap(long)]
-    </span><span class="kw">pub </span>path: <span class="prelude-ty">Option</span>&lt;PathBuf&gt;,
+    <span class="doccomment">/// The path to the directory where the config file for the application will be written to.
+    </span><span class="attr">#[clap(long = <span class="string">&quot;path&quot;</span>)]
+    </span><span class="kw">pub </span>app_dir_path: <span class="prelude-ty">Option</span>&lt;PathBuf&gt;,
 
-    <span class="doccomment">/// Do not wait for the app to become reachable.
+    <span class="doccomment">/// Do not wait for the app to become reachable if deployed.
     </span><span class="attr">#[clap(long)]
     </span><span class="kw">pub </span>no_wait: bool,
 
@@ -791,6 +916,336 @@
     <span class="doccomment">/// Name of the package to use.
     </span><span class="attr">#[clap(long, short = <span class="string">&#39;p&#39;</span>)]
     </span><span class="kw">pub </span>package: <span class="prelude-ty">Option</span>&lt;String&gt;,
+
+    <span class="doccomment">/// Whether or not to search (and use) a local manifest.
+    </span><span class="attr">#[clap(long)]
+    </span><span class="kw">pub </span>use_local_manifest: bool,
+
+    <span class="doccomment">/// Name to use when creating a new package from a template.
+    </span><span class="attr">#[clap(long)]
+    </span><span class="kw">pub </span>new_package_name: <span class="prelude-ty">Option</span>&lt;String&gt;,
+}
+
+<span class="kw">impl </span>CmdAppCreate {
+    <span class="attr">#[inline]
+    </span><span class="kw">fn </span>get_app_config(<span class="kw-2">&amp;</span><span class="self">self</span>, owner: <span class="kw-2">&amp;</span>str, name: <span class="kw-2">&amp;</span>str, package: <span class="kw-2">&amp;</span>str) -&gt; AppConfigV1 {
+        AppConfigV1 {
+            name: String::from(name),
+            owner: <span class="prelude-val">Some</span>(String::from(owner)),
+            package: PackageSource::from_str(package).unwrap(),
+            app_id: <span class="prelude-val">None</span>,
+            domains: <span class="prelude-val">None</span>,
+            env: HashMap::new(),
+            cli_args: <span class="prelude-val">None</span>,
+            capabilities: <span class="prelude-val">None</span>,
+            scheduled_tasks: <span class="prelude-val">None</span>,
+            volumes: <span class="prelude-val">None</span>,
+            health_checks: <span class="prelude-val">None</span>,
+            debug: <span class="prelude-val">None</span>,
+            scaling: <span class="prelude-val">None</span>,
+            extra: HashMap::new(),
+        }
+    }
+
+    <span class="kw">async fn </span>get_app_name(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; anyhow::Result&lt;String&gt; {
+        <span class="kw">if let </span><span class="prelude-val">Some</span>(name) = <span class="kw-2">&amp;</span><span class="self">self</span>.app_name {
+            <span class="kw">return </span><span class="prelude-val">Ok</span>(name.clone());
+        }
+
+        <span class="kw">if </span><span class="self">self</span>.non_interactive {
+            <span class="comment">// if not interactive we can&#39;t prompt the user to choose the owner of the app.
+            </span><span class="macro">anyhow::bail!</span>(<span class="string">&quot;No app name specified: use --name &lt;app_name&gt;&quot;</span>);
+        }
+
+        <span class="kw">let </span>default_name = env::current_dir().ok().and_then(|dir| {
+            dir.file_name()
+                .and_then(|f| f.to_str())
+                .map(|s| s.to_owned())
+        });
+        <span class="kw">crate</span>::utils::prompts::prompt_for_ident(
+            <span class="string">&quot;What should be the name of the app?&quot;</span>,
+            default_name.as_deref(),
+        )
+    }
+
+    <span class="kw">async fn </span>get_owner(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; anyhow::Result&lt;String&gt; {
+        <span class="kw">if let </span><span class="prelude-val">Some</span>(owner) = <span class="kw-2">&amp;</span><span class="self">self</span>.owner {
+            <span class="kw">return </span><span class="prelude-val">Ok</span>(owner.clone());
+        }
+
+        <span class="kw">if </span><span class="self">self</span>.non_interactive {
+            <span class="comment">// if not interactive we can&#39;t prompt the user to choose the owner of the app.
+            </span><span class="macro">anyhow::bail!</span>(<span class="string">&quot;No owner specified: use --owner &lt;owner&gt;&quot;</span>);
+        }
+
+        <span class="kw">if </span>!<span class="self">self</span>.offline {
+            <span class="kw">match </span><span class="self">self</span>.api.client() {
+                <span class="prelude-val">Ok</span>(client) =&gt; {
+                    <span class="kw">let </span>user =
+                        wasmer_api::query::current_user_with_namespaces(<span class="kw-2">&amp;</span>client, <span class="prelude-val">None</span>).<span class="kw">await</span><span class="question-mark">?</span>;
+                    <span class="kw">crate</span>::utils::prompts::prompt_for_namespace(
+                        <span class="string">&quot;Who should own this app?&quot;</span>,
+                        <span class="prelude-val">None</span>,
+                        <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span>user),
+                    )
+                }
+                <span class="prelude-val">Err</span>(e) =&gt; <span class="macro">anyhow::bail!</span>(
+                <span class="string">&quot;Can&#39;t determine user info: {e}. Please, user `wasmer login` before deploying an
+                app or use the --owner &lt;owner&gt; flag to specify the owner of the app to deploy.&quot;
+            </span>),
+            }
+        } <span class="kw">else </span>{
+            <span class="macro">anyhow::bail!</span>(
+                <span class="string">&quot;Please, user `wasmer login` before deploying an app or use the --owner &lt;owner&gt;
+                flag to specify the owner of the app to deploy.&quot;
+            </span>)
+        }
+    }
+
+    <span class="kw">async fn </span>create_from_local_manifest(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        owner: <span class="kw-2">&amp;</span>str,
+        app_name: <span class="kw-2">&amp;</span>str,
+    ) -&gt; anyhow::Result&lt;bool&gt; {
+        <span class="kw">if </span>!<span class="self">self</span>.use_local_manifest &amp;&amp; <span class="self">self</span>.non_interactive {
+            <span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="bool-val">false</span>);
+        }
+
+        <span class="kw">let </span>app_dir = <span class="kw">match </span><span class="kw-2">&amp;</span><span class="self">self</span>.app_dir_path {
+            <span class="prelude-val">Some</span>(dir) =&gt; PathBuf::from(dir),
+            <span class="prelude-val">None </span>=&gt; std::env::current_dir()<span class="question-mark">?</span>,
+        };
+
+        <span class="kw">let </span>(manifest_path, <span class="kw">_</span>) = <span class="kw">if let </span><span class="prelude-val">Some</span>(res) = load_package_manifest(<span class="kw-2">&amp;</span>app_dir)<span class="question-mark">? </span>{
+            res
+        } <span class="kw">else if </span><span class="self">self</span>.use_local_manifest {
+            <span class="macro">anyhow::bail!</span>(<span class="string">&quot;The --use_local_manifest flag was passed, but path {} does not contain a valid package manifest.&quot;</span>, app_dir.display())
+        } <span class="kw">else </span>{
+            <span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="bool-val">false</span>);
+        };
+
+        <span class="kw">let </span>ask_confirmation = || {
+            <span class="macro">eprintln!</span>(
+                <span class="string">&quot;A package manifest was found in path {}.&quot;</span>,
+                <span class="kw-2">&amp;</span>manifest_path.display()
+            );
+            <span class="kw">let </span>theme = dialoguer::theme::ColorfulTheme::default();
+            Confirm::with_theme(<span class="kw-2">&amp;</span>theme)
+                .with_prompt(<span class="string">&quot;Use it for the app?&quot;</span>)
+                .interact()
+        };
+
+        <span class="kw">if </span><span class="self">self</span>.use_local_manifest || ask_confirmation()<span class="question-mark">? </span>{
+            <span class="kw">let </span>app_config =
+                <span class="self">self</span>.get_app_config(owner, app_name, manifest_path.to_string_lossy().as_ref());
+            write_app_config(<span class="kw-2">&amp;</span>app_config, <span class="self">self</span>.app_dir_path.clone()).<span class="kw">await</span><span class="question-mark">?</span>;
+            <span class="self">self</span>.try_deploy(owner).<span class="kw">await</span><span class="question-mark">?</span>;
+            <span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="bool-val">true</span>);
+        }
+
+        <span class="prelude-val">Ok</span>(<span class="bool-val">false</span>)
+    }
+
+    <span class="kw">async fn </span>create_from_package(<span class="kw-2">&amp;</span><span class="self">self</span>, owner: <span class="kw-2">&amp;</span>str, app_name: <span class="kw-2">&amp;</span>str) -&gt; anyhow::Result&lt;bool&gt; {
+        <span class="kw">if </span><span class="self">self</span>.template.is_some() {
+            <span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="bool-val">false</span>);
+        }
+
+        <span class="kw">if let </span><span class="prelude-val">Some</span>(pkg) = <span class="kw-2">&amp;</span><span class="self">self</span>.package {
+            <span class="kw">let </span>app_config = <span class="self">self</span>.get_app_config(owner, app_name, pkg);
+            write_app_config(<span class="kw-2">&amp;</span>app_config, <span class="self">self</span>.app_dir_path.clone()).<span class="kw">await</span><span class="question-mark">?</span>;
+            <span class="self">self</span>.try_deploy(owner).<span class="kw">await</span><span class="question-mark">?</span>;
+            <span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="bool-val">true</span>);
+        } <span class="kw">else if </span>!<span class="self">self</span>.non_interactive {
+            <span class="kw">let </span>theme = ColorfulTheme::default();
+            <span class="kw">let </span>package_name: String = dialoguer::Input::with_theme(<span class="kw-2">&amp;</span>theme)
+                .with_prompt(<span class="string">&quot;What is the name of the package?&quot;</span>)
+                .interact()<span class="question-mark">?</span>;
+
+            <span class="kw">let </span>app_config = <span class="self">self</span>.get_app_config(owner, app_name, <span class="kw-2">&amp;</span>package_name);
+            write_app_config(<span class="kw-2">&amp;</span>app_config, <span class="self">self</span>.app_dir_path.clone()).<span class="kw">await</span><span class="question-mark">?</span>;
+            <span class="self">self</span>.try_deploy(owner).<span class="kw">await</span><span class="question-mark">?</span>;
+            <span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="bool-val">true</span>);
+        } <span class="kw">else </span>{
+            <span class="macro">eprintln!</span>(
+                <span class="string">&quot;{}: the app creation process did not produce any local change.&quot;</span>,
+                <span class="string">&quot;Warning&quot;</span>.bold().yellow()
+            );
+        }
+
+        <span class="prelude-val">Ok</span>(<span class="bool-val">false</span>)
+    }
+
+    <span class="kw">async fn </span>create_from_template(<span class="kw-2">&amp;</span><span class="self">self</span>, owner: <span class="kw-2">&amp;</span>str, app_name: <span class="kw-2">&amp;</span>str) -&gt; anyhow::Result&lt;bool&gt; {
+        <span class="kw">let </span>template = <span class="kw">match </span><span class="self">self</span>.template {
+            <span class="prelude-val">Some</span>(t) =&gt; t,
+            <span class="prelude-val">None </span>=&gt; {
+                <span class="kw">if </span>!<span class="self">self</span>.non_interactive {
+                    <span class="kw">let </span>theme = ColorfulTheme::default();
+                    <span class="kw">let </span>index = dialoguer::Select::with_theme(<span class="kw-2">&amp;</span>theme)
+                        .with_prompt(<span class="string">&quot;App type&quot;</span>)
+                        .default(<span class="number">0</span>)
+                        .items(<span class="kw-2">&amp;</span>[
+                            <span class="string">&quot;Static website&quot;</span>,
+                            <span class="string">&quot;HTTP server&quot;</span>,
+                            <span class="string">&quot;Browser shell&quot;</span>,
+                            <span class="string">&quot;JS Worker (WinterJS)&quot;</span>,
+                            <span class="string">&quot;Python Application&quot;</span>,
+                        ])
+                        .interact()<span class="question-mark">?</span>;
+                    <span class="kw">match </span>index {
+                        <span class="number">0 </span>=&gt; AppType::StaticWebsite,
+                        <span class="number">1 </span>=&gt; AppType::HttpServer,
+                        <span class="number">2 </span>=&gt; AppType::BrowserShell,
+                        <span class="number">3 </span>=&gt; AppType::JsWorker,
+                        <span class="number">4 </span>=&gt; AppType::PyApplication,
+                        x =&gt; <span class="macro">panic!</span>(<span class="string">&quot;unhandled app type index &#39;{x}&#39;&quot;</span>),
+                    }
+                } <span class="kw">else </span>{
+                    <span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="bool-val">false</span>);
+                }
+            }
+        };
+
+        <span class="kw">let </span>allow_local_package = <span class="kw">match </span>template {
+            AppType::HttpServer =&gt; <span class="bool-val">true</span>,
+            AppType::StaticWebsite =&gt; <span class="bool-val">true</span>,
+            AppType::BrowserShell =&gt; <span class="bool-val">false</span>,
+            AppType::JsWorker =&gt; <span class="bool-val">true</span>,
+            AppType::PyApplication =&gt; <span class="bool-val">true</span>,
+        };
+
+        <span class="kw">let </span>app_dir_path = <span class="kw">match </span><span class="kw-2">&amp;</span><span class="self">self</span>.app_dir_path {
+            <span class="prelude-val">Some</span>(dir) =&gt; dir.clone(),
+            <span class="prelude-val">None </span>=&gt; std::env::current_dir()<span class="question-mark">?</span>,
+        };
+
+        <span class="kw">let </span>local_package = <span class="kw">if </span>allow_local_package {
+            <span class="kw">match </span><span class="kw">crate</span>::utils::load_package_manifest(<span class="kw-2">&amp;</span>app_dir_path) {
+                <span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(p)) =&gt; <span class="prelude-val">Some</span>(p),
+                <span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>) =&gt; <span class="prelude-val">None</span>,
+                <span class="prelude-val">Err</span>(err) =&gt; {
+                    <span class="macro">eprintln!</span>(
+                        <span class="string">&quot;{warning}: could not load package manifest: {err}&quot;</span>,
+                        warning = <span class="string">&quot;Warning&quot;</span>.yellow(),
+                    );
+                    <span class="prelude-val">None
+                </span>}
+            }
+        } <span class="kw">else </span>{
+            <span class="prelude-val">None
+        </span>};
+
+        <span class="kw">let </span>user = <span class="kw">if </span><span class="self">self</span>.offline {
+            <span class="prelude-val">None
+        </span>} <span class="kw">else if let </span><span class="prelude-val">Ok</span>(client) = <span class="kw-2">&amp;</span><span class="self">self</span>.api.client() {
+            <span class="kw">let </span>u = wasmer_api::query::current_user_with_namespaces(
+                client,
+                <span class="prelude-val">Some</span>(wasmer_api::types::GrapheneRole::Admin),
+            )
+            .<span class="kw">await</span><span class="question-mark">?</span>;
+            <span class="prelude-val">Some</span>(u)
+        } <span class="kw">else </span>{
+            <span class="prelude-val">None
+        </span>};
+        <span class="kw">let </span>creator = AppCreator {
+            app_name: String::from(app_name),
+            new_package_name: <span class="self">self</span>.new_package_name.clone(),
+            package: <span class="self">self</span>.package.clone(),
+            template,
+            interactive: !<span class="self">self</span>.non_interactive,
+            app_dir_path,
+            owner: String::from(owner),
+            api: <span class="kw">if </span><span class="self">self</span>.offline {
+                <span class="prelude-val">None
+            </span>} <span class="kw">else </span>{
+                <span class="self">self</span>.api.client().ok()
+            },
+            user,
+            local_package,
+        };
+
+        <span class="kw">match </span>template {
+            AppType::HttpServer
+            | AppType::StaticWebsite
+            | AppType::JsWorker
+            | AppType::PyApplication =&gt; creator.build_app().<span class="kw">await</span><span class="question-mark">?</span>,
+            AppType::BrowserShell =&gt; creator.build_browser_shell_app().<span class="kw">await</span><span class="question-mark">?</span>,
+        };
+
+        <span class="self">self</span>.try_deploy(owner).<span class="kw">await</span><span class="question-mark">?</span>;
+
+        <span class="prelude-val">Ok</span>(<span class="bool-val">true</span>)
+    }
+
+    <span class="kw">async fn </span>try_deploy(<span class="kw-2">&amp;</span><span class="self">self</span>, owner: <span class="kw-2">&amp;</span>str) -&gt; anyhow::Result&lt;()&gt; {
+        <span class="kw">let </span>interactive = !<span class="self">self</span>.non_interactive;
+        <span class="kw">let </span>theme = dialoguer::theme::ColorfulTheme::default();
+
+        <span class="kw">if </span><span class="self">self</span>.deploy_app
+            || (interactive
+                &amp;&amp; Confirm::with_theme(<span class="kw-2">&amp;</span>theme)
+                    .with_prompt(<span class="string">&quot;Do you want to deploy the app now?&quot;</span>)
+                    .interact()<span class="question-mark">?</span>)
+        {
+            <span class="kw">let </span>cmd_deploy = CmdAppDeploy {
+                api: <span class="self">self</span>.api.clone(),
+                fmt: ItemFormatOpts {
+                    format: <span class="self">self</span>.fmt.format,
+                },
+                no_validate: <span class="bool-val">false</span>,
+                non_interactive: <span class="self">self</span>.non_interactive,
+                publish_package: <span class="bool-val">true</span>,
+                path: <span class="self">self</span>.app_dir_path.clone(),
+                no_wait: <span class="bool-val">false</span>,
+                no_default: <span class="bool-val">false</span>,
+                no_persist_id: <span class="bool-val">false</span>,
+                owner: <span class="prelude-val">Some</span>(String::from(owner)),
+                app_name: <span class="prelude-val">None</span>,
+                autobump: <span class="bool-val">false</span>,
+            };
+            cmd_deploy.run_async().<span class="kw">await</span><span class="question-mark">?</span>;
+        }
+
+        <span class="prelude-val">Ok</span>(())
+    }
+}
+
+<span class="attr">#[async_trait::async_trait]
+</span><span class="kw">impl </span>AsyncCliCommand <span class="kw">for </span>CmdAppCreate {
+    <span class="kw">type </span>Output = ();
+
+    <span class="kw">async fn </span>run_async(<span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>::Output, anyhow::Error&gt; {
+        <span class="comment">// Get the future owner of the app.
+        </span><span class="kw">let </span>owner = <span class="self">self</span>.get_owner().<span class="kw">await</span><span class="question-mark">?</span>;
+
+        <span class="comment">// Get the name of the app.
+        </span><span class="kw">let </span>app_name = <span class="self">self</span>.get_app_name().<span class="kw">await</span><span class="question-mark">?</span>;
+
+        <span class="kw">if </span>!<span class="self">self</span>.create_from_local_manifest(<span class="kw-2">&amp;</span>owner, <span class="kw-2">&amp;</span>app_name).<span class="kw">await</span><span class="question-mark">? </span>{
+            <span class="kw">if </span><span class="self">self</span>.template.is_some() {
+                <span class="self">self</span>.create_from_template(<span class="kw-2">&amp;</span>owner, <span class="kw-2">&amp;</span>app_name).<span class="kw">await</span><span class="question-mark">?</span>;
+            } <span class="kw">else if </span><span class="self">self</span>.package.is_some() {
+                <span class="self">self</span>.create_from_package(<span class="kw-2">&amp;</span>owner, <span class="kw-2">&amp;</span>app_name).<span class="kw">await</span><span class="question-mark">?</span>;
+            } <span class="kw">else if </span>!<span class="self">self</span>.non_interactive {
+                <span class="kw">let </span>theme = ColorfulTheme::default();
+                <span class="kw">let </span>choice = Select::with_theme(<span class="kw-2">&amp;</span>theme)
+                    .with_prompt(<span class="string">&quot;What would you like to deploy?&quot;</span>)
+                    .items(<span class="kw-2">&amp;</span>[<span class="string">&quot;Start with a template&quot;</span>, <span class="string">&quot;Choose an existing package&quot;</span>])
+                    .default(<span class="number">0</span>)
+                    .interact()<span class="question-mark">?</span>;
+                <span class="kw">match </span>choice {
+                    <span class="number">0 </span>=&gt; <span class="self">self</span>.create_from_template(<span class="kw-2">&amp;</span>owner, <span class="kw-2">&amp;</span>app_name).<span class="kw">await</span><span class="question-mark">?</span>,
+                    <span class="number">1 </span>=&gt; <span class="self">self</span>.create_from_package(<span class="kw-2">&amp;</span>owner, <span class="kw-2">&amp;</span>app_name).<span class="kw">await</span><span class="question-mark">?</span>,
+                    x =&gt; <span class="macro">panic!</span>(<span class="string">&quot;unhandled selection {x}&quot;</span>),
+                };
+            } <span class="kw">else </span>{
+                <span class="macro">eprintln!</span>(<span class="string">&quot;Warning: the creation process did not produce any result.&quot;</span>);
+            }
+        }
+
+        <span class="prelude-val">Ok</span>(())
+    }
 }
 
 <span class="doccomment">/// App type.
@@ -816,24 +1271,18 @@
 <span class="kw">struct </span>AppCreator {
     package: <span class="prelude-ty">Option</span>&lt;String&gt;,
     new_package_name: <span class="prelude-ty">Option</span>&lt;String&gt;,
-    app_name: <span class="prelude-ty">Option</span>&lt;String&gt;,
-    type_: AppType,
+    app_name: String,
+    template: AppType,
     interactive: bool,
-    dir: PathBuf,
+    app_dir_path: PathBuf,
     owner: String,
     api: <span class="prelude-ty">Option</span>&lt;WasmerClient&gt;,
     user: <span class="prelude-ty">Option</span>&lt;UserWithNamespaces&gt;,
-    local_package: <span class="prelude-ty">Option</span>&lt;(PathBuf, wasmer_toml::Manifest)&gt;,
-}
-
-<span class="kw">struct </span>AppCreatorOutput {
-    app: AppConfigV1,
-    api_pkg: <span class="prelude-ty">Option</span>&lt;Package&gt;,
-    local_package: <span class="prelude-ty">Option</span>&lt;(PathBuf, wasmer_toml::Manifest)&gt;,
+    local_package: <span class="prelude-ty">Option</span>&lt;(PathBuf, wasmer_config::package::Manifest)&gt;,
 }
 
 <span class="kw">impl </span>AppCreator {
-    <span class="kw">async fn </span>build_browser_shell_app(<span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;AppCreatorOutput, anyhow::Error&gt; {
+    <span class="kw">async fn </span>build_browser_shell_app(<span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;(), anyhow::Error&gt; {
         <span class="kw">const </span>WASM_BROWSER_CONTAINER_PACKAGE: <span class="kw-2">&amp;</span>str = <span class="string">&quot;wasmer/wasmer-sh&quot;</span>;
         <span class="kw">const </span>WASM_BROWSER_CONTAINER_VERSION: <span class="kw-2">&amp;</span>str = <span class="string">&quot;0.2&quot;</span>;
 
@@ -848,32 +1297,29 @@
         )
         .<span class="kw">await</span><span class="question-mark">?</span>;
 
-        <span class="macro">eprintln!</span>(<span class="string">&quot;What should be the name of the wrapper package?&quot;</span>);
+        <span class="kw">let </span>app_name = <span class="self">self</span>.app_name;
+        <span class="macro">eprintln!</span>(<span class="string">&quot;What should be the name of the package?&quot;</span>);
 
-        <span class="kw">let </span>default_name = <span class="macro">format!</span>(<span class="string">&quot;{}-webshell&quot;</span>, inner_pkg.<span class="number">0</span>.name);
+        <span class="kw">let </span>default_name = <span class="macro">format!</span>(
+            <span class="string">&quot;{}-{}-webshell&quot;</span>,
+            <span class="self">self</span>.owner,
+            inner_pkg.to_string().replace(<span class="string">&#39;/&#39;</span>, <span class="string">&quot;-&quot;</span>)
+        );
+
         <span class="kw">let </span>outer_pkg_name =
             <span class="kw">crate</span>::utils::prompts::prompt_for_ident(<span class="string">&quot;Package name&quot;</span>, <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span>default_name))<span class="question-mark">?</span>;
         <span class="kw">let </span>outer_pkg_full_name = <span class="macro">format!</span>(<span class="string">&quot;{}/{}&quot;</span>, <span class="self">self</span>.owner, outer_pkg_name);
 
-        <span class="macro">eprintln!</span>(<span class="string">&quot;What should be the name of the app?&quot;</span>);
-
-        <span class="kw">let </span>default_name = <span class="kw">if </span>outer_pkg_name.ends_with(<span class="string">&quot;webshell&quot;</span>) {
-            <span class="macro">format!</span>(<span class="string">&quot;{}-{}&quot;</span>, <span class="self">self</span>.owner, outer_pkg_name)
-        } <span class="kw">else </span>{
-            <span class="macro">format!</span>(<span class="string">&quot;{}-{}-webshell&quot;</span>, <span class="self">self</span>.owner, outer_pkg_name)
-        };
-        <span class="kw">let </span>app_name = <span class="kw">crate</span>::utils::prompts::prompt_for_ident(<span class="string">&quot;App name&quot;</span>, <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span>default_name))<span class="question-mark">?</span>;
-
         <span class="comment">// Build the package.
 
-        </span><span class="kw">let </span>public_dir = <span class="self">self</span>.dir.join(<span class="string">&quot;public&quot;</span>);
+        </span><span class="kw">let </span>public_dir = <span class="self">self</span>.app_dir_path.join(<span class="string">&quot;public&quot;</span>);
         <span class="kw">if </span>!public_dir.exists() {
             std::fs::create_dir_all(<span class="kw-2">&amp;</span>public_dir)<span class="question-mark">?</span>;
         }
 
         <span class="kw">let </span>init = <span class="macro">serde_json::json!</span>({
-            <span class="string">&quot;init&quot;</span>: <span class="macro">format!</span>(<span class="string">&quot;{}/{}&quot;</span>, inner_pkg.<span class="number">0</span>.namespace, inner_pkg.<span class="number">0</span>.name),
-            <span class="string">&quot;prompt&quot;</span>: inner_pkg.<span class="number">0</span>.name,
+            <span class="string">&quot;init&quot;</span>: <span class="macro">format!</span>(<span class="string">&quot;{}/{}&quot;</span>, inner_pkg.namespace.as_ref().unwrap(), inner_pkg.name),
+            <span class="string">&quot;prompt&quot;</span>: inner_pkg.name,
             <span class="string">&quot;no_welcome&quot;</span>: <span class="bool-val">true</span>,
             <span class="string">&quot;connect&quot;</span>: <span class="macro">format!</span>(<span class="string">&quot;wss://{app_name}.wasmer.app/.well-known/edge-vpn&quot;</span>),
         });
@@ -881,15 +1327,15 @@
         std::fs::write(<span class="kw-2">&amp;</span>init_path, init.to_string())
             .with_context(|| <span class="macro">format!</span>(<span class="string">&quot;Failed to write to &#39;{}&#39;&quot;</span>, init_path.display()))<span class="question-mark">?</span>;
 
-        <span class="kw">let </span>package = wasmer_toml::PackageBuilder::new(
+        <span class="kw">let </span>package = wasmer_config::package::PackageBuilder::new(
             outer_pkg_full_name,
             <span class="string">&quot;0.1.0&quot;</span>.parse().unwrap(),
-            <span class="macro">format!</span>(<span class="string">&quot;{} web shell&quot;</span>, inner_pkg.<span class="number">0</span>.name),
+            <span class="macro">format!</span>(<span class="string">&quot;{} web shell&quot;</span>, inner_pkg.name),
         )
         .rename_commands_to_raw_command_name(<span class="bool-val">false</span>)
         .build()<span class="question-mark">?</span>;
 
-        <span class="kw">let </span>manifest = wasmer_toml::ManifestBuilder::new(package)
+        <span class="kw">let </span>manifest = wasmer_config::package::ManifestBuilder::new(package)
             .with_dependency(
                 WASM_BROWSER_CONTAINER_PACKAGE,
                 WASM_BROWSER_CONTAINER_VERSION.to_string().parse().unwrap(),
@@ -897,7 +1343,7 @@
             .map_fs(<span class="string">&quot;public&quot;</span>, PathBuf::from(<span class="string">&quot;public&quot;</span>))
             .build()<span class="question-mark">?</span>;
 
-        <span class="kw">let </span>manifest_path = <span class="self">self</span>.dir.join(<span class="string">&quot;wasmer.toml&quot;</span>);
+        <span class="kw">let </span>manifest_path = <span class="self">self</span>.app_dir_path.join(<span class="string">&quot;wasmer.toml&quot;</span>);
 
         <span class="kw">let </span>raw = manifest.to_string()<span class="question-mark">?</span>;
         <span class="macro">eprintln!</span>(
@@ -906,51 +1352,53 @@
         );
         std::fs::write(<span class="kw-2">&amp;</span>manifest_path, raw)<span class="question-mark">?</span>;
 
-        <span class="kw">let </span>app_cfg = AppConfigV1 {
-            app_id: <span class="prelude-val">None</span>,
+        <span class="kw">let </span>app_config = AppConfigV1 {
             name: app_name,
+            app_id: <span class="prelude-val">None</span>,
             owner: <span class="prelude-val">Some</span>(<span class="self">self</span>.owner.clone()),
-            cli_args: <span class="prelude-val">None</span>,
-            env: Default::default(),
-            volumes: <span class="prelude-val">None</span>,
+            package: PackageSource::Path(<span class="string">&quot;.&quot;</span>.into()),
             domains: <span class="prelude-val">None</span>,
-            scaling: <span class="prelude-val">None</span>,
-            package: edge_schema::schema::StringWebcIdent(edge_schema::schema::WebcIdent {
-                repository: <span class="prelude-val">None</span>,
-                namespace: <span class="self">self</span>.owner,
-                name: outer_pkg_name,
-                tag: <span class="prelude-val">None</span>,
-            }),
+            env: Default::default(),
+            cli_args: <span class="prelude-val">None</span>,
             capabilities: <span class="prelude-val">None</span>,
             scheduled_tasks: <span class="prelude-val">None</span>,
+            volumes: <span class="prelude-val">None</span>,
+            health_checks: <span class="prelude-val">None</span>,
             debug: <span class="prelude-val">Some</span>(<span class="bool-val">false</span>),
+            scaling: <span class="prelude-val">None</span>,
             extra: Default::default(),
         };
 
-        <span class="prelude-val">Ok</span>(AppCreatorOutput {
-            app: app_cfg,
-            api_pkg: <span class="prelude-val">None</span>,
-            local_package: <span class="prelude-val">Some</span>((<span class="self">self</span>.dir, manifest)),
-        })
+        write_app_config(<span class="kw-2">&amp;</span>app_config, <span class="prelude-val">Some</span>(<span class="self">self</span>.app_dir_path.clone())).<span class="kw">await</span><span class="question-mark">?</span>;
+
+        <span class="prelude-val">Ok</span>(())
     }
 
-    <span class="kw">async fn </span>build_app(<span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;AppCreatorOutput, anyhow::Error&gt; {
-        <span class="kw">let </span>package_opt: <span class="prelude-ty">Option</span>&lt;StringWebcIdent&gt; = <span class="kw">if let </span><span class="prelude-val">Some</span>(package) = <span class="self">self</span>.package {
-            <span class="prelude-val">Some</span>(package.parse()<span class="question-mark">?</span>)
+    <span class="kw">async fn </span>build_app(<span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;(), anyhow::Error&gt; {
+        <span class="kw">let </span>package_opt: <span class="prelude-ty">Option</span>&lt;NamedPackageIdent&gt; = <span class="kw">if let </span><span class="prelude-val">Some</span>(package) = <span class="self">self</span>.package {
+            <span class="prelude-val">Some</span>(NamedPackageIdent::from_str(<span class="kw-2">&amp;</span>package)<span class="question-mark">?</span>)
         } <span class="kw">else if let </span><span class="prelude-val">Some</span>((<span class="kw">_</span>, local)) = <span class="self">self</span>.local_package.as_ref() {
-            <span class="kw">let </span>full = <span class="macro">format!</span>(<span class="string">&quot;{}@{}&quot;</span>, local.package.name, local.package.version);
-            <span class="kw">let </span><span class="kw-2">mut </span>pkg_ident = StringWebcIdent::parse(<span class="kw-2">&amp;</span>local.package.name)
+            <span class="kw">let </span>pkg = <span class="kw">match </span><span class="kw-2">&amp;</span>local.package {
+                <span class="prelude-val">Some</span>(pkg) =&gt; pkg.clone(),
+                <span class="prelude-val">None </span>=&gt; <span class="macro">anyhow::bail!</span>(
+                    <span class="string">&quot;Error while building app: template manifest has no package field!&quot;
+                </span>),
+            };
+
+            <span class="kw">let </span>full = <span class="macro">format!</span>(<span class="string">&quot;{}@{}&quot;</span>, pkg.name, pkg.version);
+            <span class="kw">let </span><span class="kw-2">mut </span>pkg_ident = NamedPackageIdent::from_str(<span class="kw-2">&amp;</span>pkg.name)
                 .with_context(|| <span class="macro">format!</span>(<span class="string">&quot;local package manifest has invalid name: &#39;{full}&#39;&quot;</span>))<span class="question-mark">?</span>;
 
             <span class="comment">// Pin the version.
-            </span>pkg_ident.<span class="number">0</span>.tag = <span class="prelude-val">Some</span>(local.package.version.to_string());
+            </span>pkg_ident.tag = <span class="prelude-val">Some</span>(Tag::from_str(<span class="kw-2">&amp;</span>pkg.version.to_string()).unwrap());
 
             <span class="kw">if </span><span class="self">self</span>.interactive {
                 <span class="macro">eprintln!</span>(<span class="string">&quot;Found local package: &#39;{}&#39;&quot;</span>, full.green());
 
                 <span class="kw">let </span>msg = <span class="macro">format!</span>(<span class="string">&quot;Use package &#39;{pkg_ident}&#39;&quot;</span>);
 
-                <span class="kw">let </span>should_use = Confirm::new()
+                <span class="kw">let </span>theme = dialoguer::theme::ColorfulTheme::default();
+                <span class="kw">let </span>should_use = Confirm::with_theme(<span class="kw-2">&amp;</span>theme)
                     .with_prompt(<span class="kw-2">&amp;</span>msg)
                     .interact_opt()<span class="question-mark">?
                     </span>.unwrap_or_default();
@@ -967,22 +1415,28 @@
             <span class="prelude-val">None
         </span>};
 
-        <span class="kw">let </span>(pkg, api_pkg, local_package) = <span class="kw">if let </span><span class="prelude-val">Some</span>(pkg) = package_opt {
+        <span class="kw">let </span>(package, _api_pkg, _local_package) = <span class="kw">if let </span><span class="prelude-val">Some</span>(pkg) = package_opt {
             <span class="kw">if let </span><span class="prelude-val">Some</span>(api) = <span class="kw-2">&amp;</span><span class="self">self</span>.api {
                 <span class="kw">let </span>p2 = wasmer_api::query::get_package(
                     api,
-                    <span class="macro">format!</span>(<span class="string">&quot;{}/{}&quot;</span>, pkg.<span class="number">0</span>.namespace, pkg.<span class="number">0</span>.name),
+                    <span class="macro">format!</span>(<span class="string">&quot;{}/{}&quot;</span>, pkg.namespace.as_ref().unwrap(), pkg.name),
                 )
                 .<span class="kw">await</span><span class="question-mark">?</span>;
 
-                (pkg, p2, <span class="self">self</span>.local_package)
+                (
+                    PackageSource::Ident(wasmer_config::package::PackageIdent::Named(pkg)),
+                    p2,
+                    <span class="self">self</span>.local_package,
+                )
             } <span class="kw">else </span>{
-                (pkg, <span class="prelude-val">None</span>, <span class="self">self</span>.local_package)
+                (
+                    PackageSource::Ident(wasmer_config::package::PackageIdent::Named(pkg)),
+                    <span class="prelude-val">None</span>,
+                    <span class="self">self</span>.local_package,
+                )
             }
         } <span class="kw">else </span>{
-            <span class="macro">eprintln!</span>(<span class="string">&quot;No package found or specified.&quot;</span>);
-
-            <span class="kw">let </span>ty = <span class="kw">match </span><span class="self">self</span>.type_ {
+            <span class="kw">let </span>ty = <span class="kw">match </span><span class="self">self</span>.template {
                 AppType::HttpServer =&gt; <span class="prelude-val">None</span>,
                 AppType::StaticWebsite =&gt; <span class="prelude-val">Some</span>(PackageType::StaticWebsite),
                 AppType::BrowserShell =&gt; <span class="prelude-val">None</span>,
@@ -999,7 +1453,7 @@
             };
 
             <span class="kw">let </span>w = PackageWizard {
-                path: <span class="self">self</span>.dir.clone(),
+                path: <span class="self">self</span>.app_dir_path.clone(),
                 name: <span class="self">self</span>.new_package_name.clone(),
                 type_: ty,
                 create_mode,
@@ -1010,7 +1464,7 @@
 
             <span class="kw">let </span>output = w.run(<span class="self">self</span>.api.as_ref()).<span class="kw">await</span><span class="question-mark">?</span>;
             (
-                output.ident,
+                PackageSource::Path(<span class="string">&quot;.&quot;</span>.into()),
                 output.api,
                 output
                     .local_path
@@ -1018,274 +1472,38 @@
             )
         };
 
-        <span class="kw">let </span>name = <span class="kw">if let </span><span class="prelude-val">Some</span>(name) = <span class="self">self</span>.app_name {
-            name
-        } <span class="kw">else </span>{
-            <span class="kw">let </span>default = <span class="kw">match </span><span class="self">self</span>.type_ {
-                AppType::HttpServer | AppType::StaticWebsite =&gt; {
-                    <span class="macro">format!</span>(<span class="string">&quot;{}-{}&quot;</span>, pkg.<span class="number">0</span>.namespace, pkg.<span class="number">0</span>.name)
-                }
-                AppType::JsWorker | AppType::PyApplication =&gt; {
-                    <span class="macro">format!</span>(<span class="string">&quot;{}-{}-worker&quot;</span>, pkg.<span class="number">0</span>.namespace, pkg.<span class="number">0</span>.name)
-                }
-                AppType::BrowserShell =&gt; {
-                    <span class="macro">format!</span>(<span class="string">&quot;{}-{}-webshell&quot;</span>, pkg.<span class="number">0</span>.namespace, pkg.<span class="number">0</span>.name)
-                }
-            };
+        <span class="kw">let </span>name = <span class="self">self</span>.app_name;
 
-            dialoguer::Input::new()
-                .with_prompt(<span class="string">&quot;What should be the name of the app? &lt;NAME&gt;.wasmer.app&quot;</span>)
-                .with_initial_text(default)
-                .interact_text()
-                .unwrap()
-        };
-
-        <span class="kw">let </span>cli_args = <span class="kw">match </span><span class="self">self</span>.type_ {
+        <span class="kw">let </span>cli_args = <span class="kw">match </span><span class="self">self</span>.template {
             AppType::PyApplication =&gt; <span class="prelude-val">Some</span>(<span class="macro">vec!</span>[<span class="string">&quot;/src/main.py&quot;</span>.to_string()]),
             AppType::JsWorker =&gt; <span class="prelude-val">Some</span>(<span class="macro">vec!</span>[<span class="string">&quot;/src/index.js&quot;</span>.to_string()]),
             <span class="kw">_ </span>=&gt; <span class="prelude-val">None</span>,
         };
 
         <span class="comment">// TODO: check if name already exists.
-        </span><span class="kw">let </span>cfg = AppConfigV1 {
+        </span><span class="kw">let </span>app_config = AppConfigV1 {
+            name,
             app_id: <span class="prelude-val">None</span>,
             owner: <span class="prelude-val">Some</span>(<span class="self">self</span>.owner.clone()),
-            volumes: <span class="prelude-val">None</span>,
-            name,
+            package,
+            domains: <span class="prelude-val">None</span>,
             env: Default::default(),
-            scaling: <span class="prelude-val">None</span>,
             <span class="comment">// CLI args are only set for JS and Py workers for now.
             </span>cli_args,
             <span class="comment">// TODO: allow setting the description.
             // description: Some(&quot;&quot;.to_string()),
-            </span>package: pkg.clone(),
-            capabilities: <span class="prelude-val">None</span>,
+            </span>capabilities: <span class="prelude-val">None</span>,
             scheduled_tasks: <span class="prelude-val">None</span>,
+            volumes: <span class="prelude-val">None</span>,
+            health_checks: <span class="prelude-val">None</span>,
             debug: <span class="prelude-val">Some</span>(<span class="bool-val">false</span>),
-            domains: <span class="prelude-val">None</span>,
+            scaling: <span class="prelude-val">None</span>,
             extra: Default::default(),
         };
 
-        <span class="prelude-val">Ok</span>(AppCreatorOutput {
-            app: cfg,
-            api_pkg,
-            local_package,
-        })
-    }
-}
+        write_app_config(<span class="kw-2">&amp;</span>app_config, <span class="prelude-val">Some</span>(<span class="self">self</span>.app_dir_path.clone())).<span class="kw">await</span><span class="question-mark">?</span>;
 
-<span class="attr">#[async_trait::async_trait]
-</span><span class="kw">impl </span>AsyncCliCommand <span class="kw">for </span>CmdAppCreate {
-    <span class="kw">type </span>Output = (AppConfigV1, <span class="prelude-ty">Option</span>&lt;DeployAppVersion&gt;);
-
-    <span class="kw">async fn </span>run_async(<span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;(AppConfigV1, <span class="prelude-ty">Option</span>&lt;DeployAppVersion&gt;), anyhow::Error&gt; {
-        <span class="kw">let </span>interactive = <span class="self">self</span>.non_interactive == <span class="bool-val">false </span>&amp;&amp; std::io::stdin().is_terminal();
-
-        <span class="kw">let </span>base_path = <span class="kw">if let </span><span class="prelude-val">Some</span>(p) = <span class="self">self</span>.path {
-            p
-        } <span class="kw">else </span>{
-            std::env::current_dir()<span class="question-mark">?
-        </span>};
-
-        <span class="kw">let </span>(base_dir, appcfg_path) = <span class="kw">if </span>base_path.is_file() {
-            <span class="kw">let </span>dir = base_path
-                .canonicalize()<span class="question-mark">?
-                </span>.parent()
-                .context(<span class="string">&quot;could not determine parent directory&quot;</span>)<span class="question-mark">?
-                </span>.to_owned();
-
-            (dir, base_path)
-        } <span class="kw">else if </span>base_path.is_dir() {
-            <span class="kw">let </span>full = base_path.join(AppConfigV1::CANONICAL_FILE_NAME);
-            (base_path, full)
-        } <span class="kw">else </span>{
-            <span class="macro">bail!</span>(<span class="string">&quot;No such file or directory: &#39;{}&#39;&quot;</span>, base_path.display());
-        };
-
-        <span class="kw">if </span>appcfg_path.is_file() {
-            <span class="macro">bail!</span>(
-                <span class="string">&quot;App configuration file already exists at &#39;{}&#39;&quot;</span>,
-                appcfg_path.display()
-            );
-        }
-
-        <span class="kw">let </span>api = <span class="kw">if </span><span class="self">self</span>.offline {
-            <span class="prelude-val">None
-        </span>} <span class="kw">else </span>{
-            <span class="prelude-val">Some</span>(<span class="self">self</span>.api.client()<span class="question-mark">?</span>)
-        };
-
-        <span class="kw">let </span>user = <span class="kw">if let </span><span class="prelude-val">Some</span>(api) = <span class="kw-2">&amp;</span>api {
-            <span class="kw">let </span>u = wasmer_api::query::current_user_with_namespaces(
-                api,
-                <span class="prelude-val">Some</span>(wasmer_api::types::GrapheneRole::Admin),
-            )
-            .<span class="kw">await</span><span class="question-mark">?</span>;
-            <span class="prelude-val">Some</span>(u)
-        } <span class="kw">else </span>{
-            <span class="prelude-val">None
-        </span>};
-
-        <span class="kw">let </span>type_ = <span class="kw">match </span><span class="self">self</span>.template {
-            <span class="prelude-val">Some</span>(t) =&gt; t,
-            <span class="prelude-val">None </span>=&gt; {
-                <span class="kw">if </span>interactive {
-                    <span class="kw">let </span>index = dialoguer::Select::new()
-                        .with_prompt(<span class="string">&quot;App type&quot;</span>)
-                        .default(<span class="number">0</span>)
-                        .items(<span class="kw-2">&amp;</span>[
-                            <span class="string">&quot;Static website&quot;</span>,
-                            <span class="string">&quot;HTTP server&quot;</span>,
-                            <span class="string">&quot;Browser shell&quot;</span>,
-                            <span class="string">&quot;JS Worker (WinterJS)&quot;</span>,
-                            <span class="string">&quot;Python Application&quot;</span>,
-                        ])
-                        .interact()<span class="question-mark">?</span>;
-                    <span class="kw">match </span>index {
-                        <span class="number">0 </span>=&gt; AppType::StaticWebsite,
-                        <span class="number">1 </span>=&gt; AppType::HttpServer,
-                        <span class="number">2 </span>=&gt; AppType::BrowserShell,
-                        <span class="number">3 </span>=&gt; AppType::JsWorker,
-                        <span class="number">4 </span>=&gt; AppType::PyApplication,
-                        x =&gt; <span class="macro">panic!</span>(<span class="string">&quot;unhandled app type index &#39;{x}&#39;&quot;</span>),
-                    }
-                } <span class="kw">else </span>{
-                    <span class="macro">bail!</span>(<span class="string">&quot;No app type specified: use --type XXX&quot;</span>);
-                }
-            }
-        };
-
-        <span class="kw">let </span>owner = <span class="kw">if let </span><span class="prelude-val">Some</span>(owner) = <span class="self">self</span>.owner {
-            owner
-        } <span class="kw">else if </span>interactive {
-            <span class="kw">crate</span>::utils::prompts::prompt_for_namespace(
-                <span class="string">&quot;Who should own this package?&quot;</span>,
-                <span class="prelude-val">None</span>,
-                user.as_ref(),
-            )<span class="question-mark">?
-        </span>} <span class="kw">else </span>{
-            <span class="macro">bail!</span>(<span class="string">&quot;No owner specified: use --owner XXX&quot;</span>);
-        };
-
-        <span class="kw">let </span>allow_local_package = <span class="kw">match </span>type_ {
-            AppType::HttpServer =&gt; <span class="bool-val">true</span>,
-            AppType::StaticWebsite =&gt; <span class="bool-val">true</span>,
-            AppType::BrowserShell =&gt; <span class="bool-val">false</span>,
-            AppType::JsWorker =&gt; <span class="bool-val">true</span>,
-            AppType::PyApplication =&gt; <span class="bool-val">true</span>,
-        };
-
-        <span class="kw">let </span>local_package = <span class="kw">if </span>allow_local_package {
-            <span class="kw">match </span><span class="kw">crate</span>::utils::load_package_manifest(<span class="kw-2">&amp;</span>base_dir) {
-                <span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(p)) =&gt; <span class="prelude-val">Some</span>(p),
-                <span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>) =&gt; <span class="prelude-val">None</span>,
-                <span class="prelude-val">Err</span>(err) =&gt; {
-                    <span class="macro">eprintln!</span>(
-                        <span class="string">&quot;{warning}: could not load package manifest: {err}&quot;</span>,
-                        warning = <span class="string">&quot;Warning&quot;</span>.yellow(),
-                    );
-                    <span class="prelude-val">None
-                </span>}
-            }
-        } <span class="kw">else </span>{
-            <span class="prelude-val">None
-        </span>};
-
-        <span class="kw">let </span>creator = AppCreator {
-            app_name: <span class="self">self</span>.name,
-            new_package_name: <span class="self">self</span>.new_package_name,
-            package: <span class="self">self</span>.package,
-            type_,
-            interactive,
-            dir: base_dir,
-            owner: owner.clone(),
-            api,
-            user,
-            local_package,
-        };
-
-        <span class="kw">let </span>output = <span class="kw">match </span>type_ {
-            AppType::HttpServer
-            | AppType::StaticWebsite
-            | AppType::JsWorker
-            | AppType::PyApplication =&gt; creator.build_app().<span class="kw">await</span><span class="question-mark">?</span>,
-            AppType::BrowserShell =&gt; creator.build_browser_shell_app().<span class="kw">await</span><span class="question-mark">?</span>,
-        };
-
-        <span class="kw">let </span>AppCreatorOutput {
-            app: cfg,
-            api_pkg,
-            local_package,
-            ..
-        } = output;
-
-        <span class="kw">let </span>deploy_now = <span class="kw">if </span><span class="self">self</span>.offline {
-            <span class="bool-val">false
-        </span>} <span class="kw">else if </span><span class="self">self</span>.non_interactive {
-            <span class="bool-val">true
-        </span>} <span class="kw">else </span>{
-            Confirm::new()
-                .with_prompt(<span class="string">&quot;Would you like to publish the app now?&quot;</span>.to_string())
-                .interact()<span class="question-mark">?
-        </span>};
-
-        <span class="comment">// Make sure to write out the app.yaml to avoid not creating it when the
-        // publish or deploy step fails.
-        // (the later flow only writes a new app.yaml after a success)
-        </span><span class="kw">let </span>raw_app_config = cfg.clone().to_yaml()<span class="question-mark">?</span>;
-        std::fs::write(<span class="kw-2">&amp;</span>appcfg_path, raw_app_config).with_context(|| {
-            <span class="macro">format!</span>(<span class="string">&quot;could not write app config to &#39;{}&#39;&quot;</span>, appcfg_path.display())
-        })<span class="question-mark">?</span>;
-
-        <span class="kw">let </span>(final_config, app_version) = <span class="kw">if </span>deploy_now {
-            <span class="macro">eprintln!</span>(<span class="string">&quot;Creating the app...&quot;</span>);
-
-            <span class="kw">let </span>api = <span class="self">self</span>.api.client()<span class="question-mark">?</span>;
-
-            <span class="kw">if </span>api_pkg.is_none() {
-                <span class="kw">if let </span><span class="prelude-val">Some</span>((path, manifest)) = <span class="kw-2">&amp;</span>local_package {
-                    <span class="macro">eprintln!</span>(<span class="string">&quot;Publishing package...&quot;</span>);
-                    <span class="kw">let </span>manifest = manifest.clone();
-                    <span class="kw">crate</span>::utils::republish_package_with_bumped_version(<span class="kw-2">&amp;</span>api, path, manifest)
-                        .<span class="kw">await</span><span class="question-mark">?</span>;
-                }
-            }
-
-            <span class="kw">let </span>raw_config = cfg.clone().to_yaml()<span class="question-mark">?</span>;
-            std::fs::write(<span class="kw-2">&amp;</span>appcfg_path, raw_config).with_context(|| {
-                <span class="macro">format!</span>(<span class="string">&quot;could not write config to &#39;{}&#39;&quot;</span>, appcfg_path.display())
-            })<span class="question-mark">?</span>;
-
-            <span class="kw">let </span>wait_mode = <span class="kw">if </span><span class="self">self</span>.no_wait {
-                WaitMode::Deployed
-            } <span class="kw">else </span>{
-                WaitMode::Reachable
-            };
-
-            <span class="kw">let </span>opts = DeployAppOpts {
-                app: <span class="kw-2">&amp;</span>cfg,
-                original_config: <span class="prelude-val">None</span>,
-                allow_create: <span class="bool-val">true</span>,
-                make_default: <span class="bool-val">true</span>,
-                owner: <span class="prelude-val">Some</span>(owner.clone()),
-                wait: wait_mode,
-            };
-            <span class="kw">let </span>(_app, app_version) = deploy_app_verbose(<span class="kw-2">&amp;</span>api, opts).<span class="kw">await</span><span class="question-mark">?</span>;
-
-            <span class="kw">let </span>new_cfg = <span class="kw">super</span>::app_config_from_api(<span class="kw-2">&amp;</span>app_version)<span class="question-mark">?</span>;
-            (new_cfg, <span class="prelude-val">Some</span>(app_version))
-        } <span class="kw">else </span>{
-            (cfg, <span class="prelude-val">None</span>)
-        };
-
-        <span class="macro">eprintln!</span>(<span class="string">&quot;Writing app config to &#39;{}&#39;&quot;</span>, appcfg_path.display());
-        <span class="kw">let </span>raw_final_config = final_config.clone().to_yaml()<span class="question-mark">?</span>;
-        std::fs::write(<span class="kw-2">&amp;</span>appcfg_path, raw_final_config)
-            .with_context(|| <span class="macro">format!</span>(<span class="string">&quot;could not write config to &#39;{}&#39;&quot;</span>, appcfg_path.display()))<span class="question-mark">?</span>;
-
-        <span class="macro">eprintln!</span>(<span class="string">&quot;To (re)deploy your app, run &#39;wasmer deploy&#39;&quot;</span>);
-
-        <span class="prelude-val">Ok</span>((final_config, app_version))
+        <span class="prelude-val">Ok</span>(())
     }
 }
 
@@ -1299,29 +1517,29 @@
 
         <span class="kw">let </span>cmd = CmdAppCreate {
             template: <span class="prelude-val">Some</span>(AppType::StaticWebsite),
-            publish_package: <span class="bool-val">false</span>,
+            deploy_app: <span class="bool-val">false</span>,
             no_validate: <span class="bool-val">false</span>,
             non_interactive: <span class="bool-val">true</span>,
             offline: <span class="bool-val">true</span>,
             owner: <span class="prelude-val">Some</span>(<span class="string">&quot;testuser&quot;</span>.to_string()),
-            new_package_name: <span class="prelude-val">Some</span>(<span class="string">&quot;static-site-1&quot;</span>.to_string()),
-            name: <span class="prelude-val">Some</span>(<span class="string">&quot;static-site-1&quot;</span>.to_string()),
-            path: <span class="prelude-val">Some</span>(dir.path().to_owned()),
+            app_name: <span class="prelude-val">Some</span>(<span class="string">&quot;static-site-1&quot;</span>.to_string()),
+            app_dir_path: <span class="prelude-val">Some</span>(dir.path().to_owned()),
             no_wait: <span class="bool-val">true</span>,
             api: ApiOpts::default(),
             fmt: ItemFormatOpts::default(),
-            package: <span class="prelude-val">None</span>,
+            package: <span class="prelude-val">Some</span>(<span class="string">&quot;testuser/static-site-1@0.1.0&quot;</span>.to_string()),
+            use_local_manifest: <span class="bool-val">false</span>,
+            new_package_name: <span class="prelude-val">None</span>,
         };
         cmd.run_async().<span class="kw">await</span>.unwrap();
 
         <span class="kw">let </span>app = std::fs::read_to_string(dir.path().join(<span class="string">&quot;app.yaml&quot;</span>)).unwrap();
         <span class="macro">assert_eq!</span>(
             app,
-            <span class="string">r#&quot;---
-kind: wasmer.io/App.v0
+            <span class="string">r#&quot;kind: wasmer.io/App.v0
 name: static-site-1
 owner: testuser
-package: testuser/static-site-1@0.1.0
+package: testuser/static-site-1@^0.1.0
 debug: false
 &quot;#</span>,
         );
@@ -1333,26 +1551,26 @@ debug: false
 
         <span class="kw">let </span>cmd = CmdAppCreate {
             template: <span class="prelude-val">Some</span>(AppType::HttpServer),
-            publish_package: <span class="bool-val">false</span>,
+            deploy_app: <span class="bool-val">false</span>,
             no_validate: <span class="bool-val">false</span>,
             non_interactive: <span class="bool-val">true</span>,
             offline: <span class="bool-val">true</span>,
             owner: <span class="prelude-val">Some</span>(<span class="string">&quot;wasmer&quot;</span>.to_string()),
-            new_package_name: <span class="prelude-val">None</span>,
-            name: <span class="prelude-val">Some</span>(<span class="string">&quot;testapp&quot;</span>.to_string()),
-            path: <span class="prelude-val">Some</span>(dir.path().to_owned()),
+            app_name: <span class="prelude-val">Some</span>(<span class="string">&quot;testapp&quot;</span>.to_string()),
+            app_dir_path: <span class="prelude-val">Some</span>(dir.path().to_owned()),
             no_wait: <span class="bool-val">true</span>,
             api: ApiOpts::default(),
             fmt: ItemFormatOpts::default(),
             package: <span class="prelude-val">Some</span>(<span class="string">&quot;wasmer/testpkg&quot;</span>.to_string()),
+            use_local_manifest: <span class="bool-val">false</span>,
+            new_package_name: <span class="prelude-val">None</span>,
         };
         cmd.run_async().<span class="kw">await</span>.unwrap();
 
         <span class="kw">let </span>app = std::fs::read_to_string(dir.path().join(<span class="string">&quot;app.yaml&quot;</span>)).unwrap();
         <span class="macro">assert_eq!</span>(
             app,
-            <span class="string">r#&quot;---
-kind: wasmer.io/App.v0
+            <span class="string">r#&quot;kind: wasmer.io/App.v0
 name: testapp
 owner: wasmer
 package: wasmer/testpkg
@@ -1366,31 +1584,31 @@ debug: false
 
         <span class="kw">let </span>cmd = CmdAppCreate {
             template: <span class="prelude-val">Some</span>(AppType::JsWorker),
-            publish_package: <span class="bool-val">false</span>,
+            deploy_app: <span class="bool-val">false</span>,
             no_validate: <span class="bool-val">false</span>,
             non_interactive: <span class="bool-val">true</span>,
             offline: <span class="bool-val">true</span>,
             owner: <span class="prelude-val">Some</span>(<span class="string">&quot;wasmer&quot;</span>.to_string()),
-            new_package_name: <span class="prelude-val">None</span>,
-            name: <span class="prelude-val">Some</span>(<span class="string">&quot;test-js-worker&quot;</span>.to_string()),
-            path: <span class="prelude-val">Some</span>(dir.path().to_owned()),
+            app_name: <span class="prelude-val">Some</span>(<span class="string">&quot;test-js-worker&quot;</span>.to_string()),
+            app_dir_path: <span class="prelude-val">Some</span>(dir.path().to_owned()),
             no_wait: <span class="bool-val">true</span>,
             api: ApiOpts::default(),
             fmt: ItemFormatOpts::default(),
             package: <span class="prelude-val">Some</span>(<span class="string">&quot;wasmer/test-js-worker&quot;</span>.to_string()),
+            use_local_manifest: <span class="bool-val">false</span>,
+            new_package_name: <span class="prelude-val">None</span>,
         };
         cmd.run_async().<span class="kw">await</span>.unwrap();
 
         <span class="kw">let </span>app = std::fs::read_to_string(dir.path().join(<span class="string">&quot;app.yaml&quot;</span>)).unwrap();
         <span class="macro">assert_eq!</span>(
             app,
-            <span class="string">r#&quot;---
-kind: wasmer.io/App.v0
+            <span class="string">r#&quot;kind: wasmer.io/App.v0
 name: test-js-worker
 owner: wasmer
 package: wasmer/test-js-worker
 cli_args:
-  - /src/index.js
+- /src/index.js
 debug: false
 &quot;#</span>,
         );
@@ -1402,31 +1620,31 @@ debug: false
 
         <span class="kw">let </span>cmd = CmdAppCreate {
             template: <span class="prelude-val">Some</span>(AppType::PyApplication),
-            publish_package: <span class="bool-val">false</span>,
+            deploy_app: <span class="bool-val">false</span>,
             no_validate: <span class="bool-val">false</span>,
             non_interactive: <span class="bool-val">true</span>,
             offline: <span class="bool-val">true</span>,
             owner: <span class="prelude-val">Some</span>(<span class="string">&quot;wasmer&quot;</span>.to_string()),
-            new_package_name: <span class="prelude-val">None</span>,
-            name: <span class="prelude-val">Some</span>(<span class="string">&quot;test-py-worker&quot;</span>.to_string()),
-            path: <span class="prelude-val">Some</span>(dir.path().to_owned()),
+            app_name: <span class="prelude-val">Some</span>(<span class="string">&quot;test-py-worker&quot;</span>.to_string()),
+            app_dir_path: <span class="prelude-val">Some</span>(dir.path().to_owned()),
             no_wait: <span class="bool-val">true</span>,
             api: ApiOpts::default(),
             fmt: ItemFormatOpts::default(),
             package: <span class="prelude-val">Some</span>(<span class="string">&quot;wasmer/test-py-worker&quot;</span>.to_string()),
+            use_local_manifest: <span class="bool-val">false</span>,
+            new_package_name: <span class="prelude-val">None</span>,
         };
         cmd.run_async().<span class="kw">await</span>.unwrap();
 
         <span class="kw">let </span>app = std::fs::read_to_string(dir.path().join(<span class="string">&quot;app.yaml&quot;</span>)).unwrap();
         <span class="macro">assert_eq!</span>(
             app,
-            <span class="string">r#&quot;---
-kind: wasmer.io/App.v0
+            <span class="string">r#&quot;kind: wasmer.io/App.v0
 name: test-py-worker
 owner: wasmer
 package: wasmer/test-py-worker
 cli_args:
-  - /src/main.py
+- /src/main.py
 debug: false
 &quot;#</span>,
         );

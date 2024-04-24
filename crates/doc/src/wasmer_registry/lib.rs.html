@@ -522,6 +522,9 @@
 <a href="#522" id="522">522</a>
 <a href="#523" id="523">523</a>
 <a href="#524" id="524">524</a>
+<a href="#525" id="525">525</a>
+<a href="#526" id="526">526</a>
+<a href="#527" id="527">527</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! High-level interactions with the Wasmer backend.
 //!
 //! The GraphQL schema can be updated by running `make` in the Wasmer repo&#39;s
@@ -709,9 +712,12 @@
             version: <span class="prelude-val">None</span>,
         })<span class="question-mark">?</span>;
 
-    <span class="kw">let </span>manifest = toml::from_str::&lt;wasmer_toml::Manifest&gt;(<span class="kw-2">&amp;</span>v.manifest).map_err(|e| {
-        QueryPackageError::ErrorSendingQuery(<span class="macro">format!</span>(<span class="string">&quot;Invalid manifest for crate {name:?}: {e}&quot;</span>))
-    })<span class="question-mark">?</span>;
+    <span class="kw">let </span>manifest =
+        toml::from_str::&lt;wasmer_config::package::Manifest&gt;(<span class="kw-2">&amp;</span>v.manifest).map_err(|e| {
+            QueryPackageError::ErrorSendingQuery(<span class="macro">format!</span>(
+                <span class="string">&quot;Invalid manifest for crate {name:?}: {e}&quot;
+            </span>))
+        })<span class="question-mark">?</span>;
 
     <span class="prelude-val">Ok</span>(PackageDownloadInfo {
         registry: registry_url.to_string(),

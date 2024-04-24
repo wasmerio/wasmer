@@ -203,35 +203,13 @@
 <a href="#203" id="203">203</a>
 <a href="#204" id="204">204</a>
 <a href="#205" id="205">205</a>
-<a href="#206" id="206">206</a>
-<a href="#207" id="207">207</a>
-<a href="#208" id="208">208</a>
-<a href="#209" id="209">209</a>
-<a href="#210" id="210">210</a>
-<a href="#211" id="211">211</a>
-<a href="#212" id="212">212</a>
-<a href="#213" id="213">213</a>
-<a href="#214" id="214">214</a>
-<a href="#215" id="215">215</a>
-<a href="#216" id="216">216</a>
-<a href="#217" id="217">217</a>
-<a href="#218" id="218">218</a>
-<a href="#219" id="219">219</a>
-<a href="#220" id="220">220</a>
-<a href="#221" id="221">221</a>
-<a href="#222" id="222">222</a>
-</pre></div><pre class="rust"><code><span class="kw">use </span>std::{
-    collections::BTreeMap,
-    fmt::{<span class="self">self</span>, Display, Formatter},
-    ops::Index,
-    path::PathBuf,
-};
+</pre></div><pre class="rust"><code><span class="kw">use </span>std::{collections::BTreeMap, ops::Index, path::PathBuf};
 
 <span class="kw">use </span>petgraph::{
     graph::{DiGraph, NodeIndex},
     visit::EdgeRef,
 };
-<span class="kw">use </span>semver::Version;
+<span class="kw">use </span>wasmer_config::package::PackageId;
 
 <span class="kw">use </span><span class="kw">crate</span>::runtime::resolver::{DistributionInfo, PackageInfo};
 
@@ -247,23 +225,6 @@
     </span><span class="kw">pub </span>name: String,
     <span class="doccomment">/// The package this item comes from.
     </span><span class="kw">pub </span>package: PackageId,
-}
-
-<span class="doccomment">/// An identifier for a package within a dependency graph.
-</span><span class="attr">#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
-</span><span class="kw">pub struct </span>PackageId {
-    <span class="kw">pub </span>package_name: String,
-    <span class="kw">pub </span>version: Version,
-}
-
-<span class="kw">impl </span>Display <span class="kw">for </span>PackageId {
-    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>Formatter&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; fmt::Result {
-        <span class="kw">let </span>PackageId {
-            package_name,
-            version,
-        } = <span class="self">self</span>;
-        <span class="macro">write!</span>(f, <span class="string">&quot;{package_name}@{version}&quot;</span>)
-    }
 }
 
 <span class="doccomment">/// An acyclic, directed dependency graph.
@@ -303,6 +264,11 @@
     <span class="kw">pub fn </span>root_info(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>PackageInfo {
         <span class="kw">let </span>Node { pkg, .. } = <span class="kw-2">&amp;</span><span class="self">self</span>.graph[<span class="self">self</span>.root];
         pkg
+    }
+
+    <span class="kw">pub fn </span>id(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>PackageId {
+        <span class="kw">let </span>Node { id, .. } = <span class="kw-2">&amp;</span><span class="self">self</span>.graph[<span class="self">self</span>.root];
+        id
     }
 
     <span class="kw">pub fn </span>root(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; NodeIndex {
@@ -427,7 +393,7 @@
     <span class="comment">// TODO: Change this to a new type that isn&#39;t coupled to the OS
     </span><span class="kw">pub </span>mount_path: PathBuf,
     <span class="kw">pub </span>volume_name: String,
-    <span class="kw">pub </span>original_path: String,
+    <span class="kw">pub </span>original_path: <span class="prelude-ty">Option</span>&lt;String&gt;,
     <span class="kw">pub </span>package: PackageId,
 }
 

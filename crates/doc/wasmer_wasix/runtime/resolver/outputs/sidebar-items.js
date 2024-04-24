@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":["DependencyGraph","Edge","ItemLocation","Node","PackageId","Resolution","ResolvedFileSystemMapping","ResolvedPackage"]};
+window.SIDEBAR_ITEMS = {"struct":["DependencyGraph","Edge","ItemLocation","Node","Resolution","ResolvedFileSystemMapping","ResolvedPackage"]};

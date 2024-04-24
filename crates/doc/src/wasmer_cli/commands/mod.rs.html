@@ -409,7 +409,6 @@
 <a href="#409" id="409">409</a>
 <a href="#410" id="410">410</a>
 <a href="#411" id="411">411</a>
-<a href="#412" id="412">412</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! The commands available in the Wasmer binary.
 </span><span class="kw">mod </span>add;
 <span class="kw">mod </span>app;
@@ -425,7 +424,6 @@
 </span><span class="kw">mod </span>create_exe;
 <span class="attr">#[cfg(feature = <span class="string">&quot;static-artifact-create&quot;</span>)]
 </span><span class="kw">mod </span>create_obj;
-<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">mod </span>deploy;
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">mod </span>domain;
 <span class="attr">#[cfg(feature = <span class="string">&quot;static-artifact-create&quot;</span>)]
 </span><span class="kw">mod </span>gen_c_header;
@@ -543,10 +541,10 @@
             <span class="prelude-val">Some</span>(Cmd::Inspect(inspect)) =&gt; inspect.execute(),
             <span class="prelude-val">Some</span>(Cmd::Init(init)) =&gt; init.execute(),
             <span class="prelude-val">Some</span>(Cmd::Login(login)) =&gt; login.execute(),
-            <span class="prelude-val">Some</span>(Cmd::Publish(publish)) =&gt; publish.execute(),
+            <span class="prelude-val">Some</span>(Cmd::Publish(publish)) =&gt; publish.run().map(|<span class="kw">_</span>| ()),
             <span class="prelude-val">Some</span>(Cmd::Package(cmd)) =&gt; <span class="kw">match </span>cmd {
                 Package::Download(cmd) =&gt; cmd.execute(),
-                Package::Build(cmd) =&gt; cmd.execute(),
+                Package::Build(cmd) =&gt; cmd.execute().map(|<span class="kw">_</span>| ()),
             },
             <span class="prelude-val">Some</span>(Cmd::Container(cmd)) =&gt; <span class="kw">match </span>cmd {
                 <span class="kw">crate</span>::commands::Container::Unpack(cmd) =&gt; cmd.execute(),
@@ -757,8 +755,8 @@
     </span>Container(<span class="kw">crate</span>::commands::Container),
 
     <span class="comment">// Edge commands
-    </span><span class="doccomment">/// Deploy apps to Wasmer Edge.
-    </span>Deploy(<span class="kw">crate</span>::commands::deploy::CmdDeploy),
+    </span><span class="doccomment">/// Deploy apps to Wasmer Edge. [alias: app deploy]
+    </span>Deploy(<span class="kw">crate</span>::commands::app::deploy::CmdAppDeploy),
 
     <span class="doccomment">/// Manage deployed Edge apps.
     </span><span class="attr">#[clap(subcommand, alias = <span class="string">&quot;apps&quot;</span>)]

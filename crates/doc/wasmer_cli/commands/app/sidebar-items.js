@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":["CmdApp","WaitMode"],"fn":["app_config_from_api","deploy_app","deploy_app_verbose"],"mod":["create","delete","get","info","list","logs","util","version"],"struct":["DeployAppOpts"]};
+window.SIDEBAR_ITEMS = {"enum":["CmdApp"],"mod":["create","delete","deploy","get","info","list","logs","util","version"]};

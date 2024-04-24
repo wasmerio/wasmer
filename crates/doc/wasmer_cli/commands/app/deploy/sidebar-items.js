@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["WaitMode"],"fn":["app_config_from_api","deploy_app","deploy_app_verbose"],"struct":["CmdAppDeploy","DeployAppOpts"]};

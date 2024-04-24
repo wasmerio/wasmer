@@ -1211,6 +1211,9 @@
 <a href="#1211" id="1211">1211</a>
 <a href="#1212" id="1212">1212</a>
 <a href="#1213" id="1213">1213</a>
+<a href="#1214" id="1214">1214</a>
+<a href="#1215" id="1215">1215</a>
+<a href="#1216" id="1216">1216</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{
     collections::{BTreeMap, HashSet, VecDeque},
     path::PathBuf,
@@ -1221,11 +1224,12 @@
     visit::EdgeRef,
 };
 <span class="kw">use </span>semver::Version;
+<span class="kw">use </span>wasmer_config::package::{PackageId, PackageSource};
 
 <span class="kw">use </span><span class="kw">crate</span>::runtime::resolver::{
     outputs::{Edge, Node},
-    DependencyGraph, ItemLocation, PackageId, PackageInfo, PackageSpecifier, PackageSummary,
-    QueryError, Resolution, ResolvedPackage, Source,
+    DependencyGraph, ItemLocation, PackageInfo, PackageSummary, QueryError, Resolution,
+    ResolvedPackage, Source,
 };
 
 <span class="kw">use </span><span class="kw">super</span>::ResolvedFileSystemMapping;
@@ -1248,7 +1252,7 @@
 </span><span class="kw">pub enum </span>ResolveError {
     <span class="attr">#[error(<span class="string">&quot;{}&quot;</span>, registry_error_message(.package))]
     </span>Registry {
-        package: PackageSpecifier,
+        package: PackageSource,
         <span class="attr">#[source]
         </span>error: QueryError,
     },
@@ -1264,17 +1268,14 @@
     },
 }
 
-<span class="kw">fn </span>registry_error_message(specifier: <span class="kw-2">&amp;</span>PackageSpecifier) -&gt; String {
+<span class="kw">fn </span>registry_error_message(specifier: <span class="kw-2">&amp;</span>PackageSource) -&gt; String {
     <span class="kw">match </span>specifier {
-        PackageSpecifier::Registry { full_name, version } <span class="kw">if </span>version.comparators.is_empty() =&gt; {
-            <span class="macro">format!</span>(<span class="string">&quot;Unable to find \&quot;{full_name}\&quot; in the registry&quot;</span>)
+        PackageSource::Ident(id) =&gt; {
+            <span class="macro">format!</span>(<span class="string">&quot;Unable to find \&quot;{id}\&quot; in the registry&quot;</span>)
         }
-        PackageSpecifier::Registry { full_name, version } =&gt; {
-            <span class="macro">format!</span>(<span class="string">&quot;Unable to find \&quot;{full_name}@{version}\&quot; in the registry&quot;</span>)
-        }
-        PackageSpecifier::Url(url) =&gt; <span class="macro">format!</span>(<span class="string">&quot;Unable to resolve \&quot;{url}\&quot;&quot;</span>),
-        PackageSpecifier::Path(path) =&gt; {
-            <span class="macro">format!</span>(<span class="string">&quot;Unable to load \&quot;{}\&quot; from disk&quot;</span>, path.display())
+        PackageSource::Url(url) =&gt; <span class="macro">format!</span>(<span class="string">&quot;Unable to resolve \&quot;{url}\&quot;&quot;</span>),
+        PackageSource::Path(path) =&gt; {
+            <span class="macro">format!</span>(<span class="string">&quot;Unable to load \&quot;{}\&quot; from disk&quot;</span>, path)
         }
     }
 }
@@ -1291,14 +1292,7 @@
 <span class="kw">fn </span>print_cycle(packages: <span class="kw-2">&amp;</span>[PackageId]) -&gt; String {
     packages
         .iter()
-        .map(|pkg_id| {
-            <span class="kw">let </span>PackageId {
-                package_name,
-                version,
-                ..
-            } = pkg_id;
-            <span class="macro">format!</span>(<span class="string">&quot;{package_name}@{version}&quot;</span>)
-        })
+        .map(|pkg_id| pkg_id.to_string())
         .collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;()
         .join(<span class="string">&quot; → &quot;</span>)
 }
@@ -1357,13 +1351,13 @@
                         package: dep.pkg.clone(),
                         error,
                     })<span class="question-mark">?</span>;
-            <span class="kw">let </span>dep_id = dep_summary.package_id();
+            <span class="kw">let </span>dep_id = dep_summary.package_id().clone();
 
             <span class="kw">let </span>PackageSummary { pkg, dist } = dep_summary;
 
             <span class="kw">let </span>alias = dep.alias().to_string();
             <span class="kw">let </span>node = Node {
-                id: dep_id,
+                id: dep_id.clone(),
                 pkg,
                 dist: <span class="prelude-val">Some</span>(dist),
             };
@@ -1424,7 +1418,7 @@
     <span class="comment">// Don&#39;t forget to make the cycle start and end with the same node
     </span>cycle.push(lowest_index_node);
 
-    <span class="kw">let </span>package_ids = cycle.into_iter().map(|ix| graph[ix].pkg.id()).collect();
+    <span class="kw">let </span>package_ids = cycle.into_iter().map(|ix| graph[ix].id.clone()).collect();
     ResolveError::Cycle(package_ids)
 }
 
@@ -1470,15 +1464,14 @@
 {
     <span class="kw">let </span><span class="kw-2">mut </span>package_versions: BTreeMap&lt;<span class="kw-2">&amp;</span>str, HashSet&lt;<span class="kw-2">&amp;</span>Version&gt;&gt; = BTreeMap::new();
 
-    <span class="kw">for </span>PackageId {
-        package_name,
-        version,
-    } <span class="kw">in </span>package_ids
-    {
+    <span class="kw">for </span>id <span class="kw">in </span>package_ids {
+        <span class="kw">let </span><span class="prelude-val">Some</span>(id) = id.as_named() <span class="kw">else </span>{
+            <span class="kw">continue</span>;
+        };
         package_versions
-            .entry(package_name)
+            .entry(<span class="kw-2">&amp;</span>id.full_name)
             .or_default()
-            .insert(version);
+            .insert(<span class="kw-2">&amp;</span>id.version);
     }
 
     <span class="kw">for </span>(package_name, versions) <span class="kw">in </span>package_versions {
@@ -1517,8 +1510,7 @@
             <span class="kw">if let </span><span class="prelude-val">Some</span>(entry) = <span class="kw-2">&amp;</span>pkg.entrypoint {
                 <span class="macro">tracing::trace!</span>(
                     entrypoint = entry.as_str(),
-                    parent.name=id.package_name.as_str(),
-                    parent.version=%id.version,
+                    parent=%id,
                     <span class="string">&quot;Inheriting the entrypoint&quot;</span>,
                 );
 
@@ -1540,16 +1532,14 @@
                     entry.insert(resolved);
                     <span class="macro">tracing::trace!</span>(
                         command.name=cmd.name.as_str(),
-                        pkg.name=id.package_name.as_str(),
-                        pkg.version=%id.version,
+                        pkg=%id,
                         <span class="string">&quot;Discovered command&quot;</span>,
                     );
                 }
                 std::collections::btree_map::Entry::Occupied(<span class="kw">_</span>) =&gt; {
                     <span class="macro">tracing::trace!</span>(
                         command.name=cmd.name.as_str(),
-                        pkg.name=id.package_name.as_str(),
-                        pkg.version=%id.version,
+                        pkg=%id,
                         <span class="string">&quot;Ignoring duplicate command&quot;</span>,
                     );
                 }
@@ -1597,7 +1587,7 @@
     <span class="macro">tracing::debug!</span>(<span class="string">&quot;resolved filesystem: {:?}&quot;</span>, <span class="kw-2">&amp;</span>filesystem);
 
     <span class="prelude-val">Ok</span>(ResolvedPackage {
-        root_package: dependency_graph.root_info().id(),
+        root_package: dependency_graph.id().clone(),
         commands,
         entrypoint,
         filesystem,
@@ -1608,9 +1598,11 @@
 </span><span class="kw">mod </span>tests {
     <span class="kw">use </span>std::path::PathBuf;
 
+    <span class="kw">use </span>wasmer_config::package::NamedPackageIdent;
+
     <span class="kw">use </span><span class="kw">crate</span>::runtime::resolver::{
         inputs::{DistributionInfo, FileSystemMapping, PackageInfo},
-        Dependency, InMemorySource, MultiSource, PackageSpecifier,
+        Dependency, InMemorySource, MultiSource,
     };
 
     <span class="kw">use super</span>::<span class="kw-2">*</span>;
@@ -1624,8 +1616,7 @@
 
         <span class="kw">fn </span>register(<span class="kw-2">&amp;mut </span><span class="self">self</span>, name: <span class="kw-2">&amp;</span>str, version: <span class="kw-2">&amp;</span>str) -&gt; AddPackageVersion&lt;<span class="lifetime">&#39;_</span>&gt; {
             <span class="kw">let </span>pkg = PackageInfo {
-                name: name.to_string(),
-                version: version.parse().unwrap(),
+                id: PackageId::new_named(name, version.parse().unwrap()),
                 dependencies: Vec::new(),
                 commands: Vec::new(),
                 entrypoint: <span class="prelude-val">None</span>,
@@ -1651,12 +1642,16 @@
             registry
         }
 
-        <span class="kw">fn </span>get(<span class="kw-2">&amp;</span><span class="self">self</span>, package: <span class="kw-2">&amp;</span>str, version: <span class="kw-2">&amp;</span>str) -&gt; <span class="kw-2">&amp;</span>PackageSummary {
-            <span class="kw">let </span>version = version.parse().unwrap();
-            <span class="self">self</span>.<span class="number">0</span>.get(package, <span class="kw-2">&amp;</span>version).unwrap()
+        <span class="kw">fn </span>get(<span class="kw-2">&amp;</span><span class="self">self</span>, id: <span class="kw-2">&amp;</span>PackageId) -&gt; <span class="kw-2">&amp;</span>PackageSummary {
+            <span class="self">self</span>.<span class="number">0</span>.get(id).unwrap()
         }
 
-        <span class="kw">fn </span>start_dependency_graph(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; DependencyGraphBuilder&lt;<span class="lifetime">&#39;_</span>&gt; {
+        <span class="comment">// fn get_named(&amp;self, name: &amp;str, version: &amp;str) -&gt; &amp;PackageSummary {
+        //     let id = PackageId::new_named(name, version.parse().unwrap());
+        //     self.get(&amp;id)
+        // }
+
+        </span><span class="kw">fn </span>start_dependency_graph(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; DependencyGraphBuilder&lt;<span class="lifetime">&#39;_</span>&gt; {
             DependencyGraphBuilder {
                 dependencies: BTreeMap::new(),
                 source: <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="number">0</span>,
@@ -1681,10 +1676,10 @@
             name: <span class="kw-2">&amp;</span>str,
             version_constraint: <span class="kw-2">&amp;</span>str,
         ) -&gt; <span class="kw-2">&amp;mut </span><span class="self">Self </span>{
-            <span class="kw">let </span>pkg = PackageSpecifier::Registry {
-                full_name: name.to_string(),
-                version: version_constraint.parse().unwrap(),
-            };
+            <span class="kw">let </span>pkg = PackageSource::from(
+                NamedPackageIdent::try_from_full_name_and_version(name, version_constraint)
+                    .unwrap(),
+            );
 
             <span class="self">self</span>.summary.pkg.dependencies.push(Dependency {
                 alias: alias.to_string(),
@@ -1718,7 +1713,7 @@
             <span class="self">self</span>.summary.pkg.filesystem.push(FileSystemMapping {
                 volume_name: volume_name.to_string(),
                 mount_path: mount_path.to_string(),
-                original_path: original_path.to_string(),
+                original_path: <span class="prelude-val">Some</span>(original_path.to_string()),
                 dependency_name: <span class="prelude-val">None</span>,
             });
             <span class="self">self
@@ -1734,7 +1729,7 @@
             <span class="self">self</span>.summary.pkg.filesystem.push(FileSystemMapping {
                 volume_name: volume_name.to_string(),
                 mount_path: mount_path.to_string(),
-                original_path: original_path.to_string(),
+                original_path: <span class="prelude-val">Some</span>(original_path.to_string()),
                 dependency_name: <span class="prelude-val">Some</span>(dependency.to_string()),
             });
             <span class="self">self
@@ -1755,16 +1750,11 @@
     }
 
     <span class="kw">impl</span>&lt;<span class="lifetime">&#39;source</span>&gt; DependencyGraphBuilder&lt;<span class="lifetime">&#39;source</span>&gt; {
-        <span class="kw">fn </span>insert(
-            <span class="kw-2">&amp;mut </span><span class="self">self</span>,
-            package: <span class="kw-2">&amp;</span>str,
-            version: <span class="kw-2">&amp;</span>str,
-        ) -&gt; DependencyGraphEntryBuilder&lt;<span class="lifetime">&#39;source</span>, <span class="lifetime">&#39;_</span>&gt; {
-            <span class="kw">let </span>version = version.parse().unwrap();
-            <span class="kw">let </span>pkg_id = <span class="self">self</span>.source.get(package, <span class="kw-2">&amp;</span>version).unwrap().package_id();
+        <span class="kw">fn </span>insert(<span class="kw-2">&amp;mut </span><span class="self">self</span>, id: PackageId) -&gt; DependencyGraphEntryBuilder&lt;<span class="lifetime">&#39;source</span>, <span class="lifetime">&#39;_</span>&gt; {
+            <span class="kw">let _ </span>= <span class="self">self</span>.source.get(<span class="kw-2">&amp;</span>id).unwrap();
             DependencyGraphEntryBuilder {
                 builder: <span class="self">self</span>,
-                pkg_id,
+                pkg_id: id,
                 dependencies: BTreeMap::new(),
             }
         }
@@ -1775,16 +1765,14 @@
 
         <span class="doccomment">/// Using the dependency mapping that we&#39;ve been building up, construct
         /// a dependency graph using the specified root package.
-        </span><span class="kw">fn </span>graph(<span class="self">self</span>, root_name: <span class="kw-2">&amp;</span>str, version: <span class="kw-2">&amp;</span>str) -&gt; DependencyGraph {
-            <span class="kw">let </span>version = version.parse().unwrap();
-            <span class="kw">let </span>root_id = <span class="self">self</span>.source.get(root_name, <span class="kw-2">&amp;</span>version).unwrap().package_id();
+        </span><span class="kw">fn </span>graph(<span class="self">self</span>, root_id: PackageId) -&gt; DependencyGraph {
+            <span class="kw">let _ </span>= <span class="self">self</span>.source.get(<span class="kw-2">&amp;</span>root_id).unwrap();
 
             <span class="kw">let </span><span class="kw-2">mut </span>graph = DiGraph::new();
             <span class="kw">let </span><span class="kw-2">mut </span>nodes = BTreeMap::new();
 
             <span class="kw">for </span>id <span class="kw">in </span><span class="self">self</span>.dependencies.keys() {
-                <span class="kw">let </span>PackageSummary { pkg, dist } =
-                    <span class="self">self</span>.source.get(<span class="kw-2">&amp;</span>id.package_name, <span class="kw-2">&amp;</span>id.version).unwrap();
+                <span class="kw">let </span>PackageSummary { pkg, dist } = <span class="self">self</span>.source.get(id).unwrap();
                 <span class="kw">let </span>index = graph.add_node(Node {
                     id: pkg.id(),
                     pkg: pkg.clone(),
@@ -1821,18 +1809,13 @@
     }
 
     <span class="kw">impl</span>&lt;<span class="lifetime">&#39;source</span>, <span class="lifetime">&#39;builder</span>&gt; DependencyGraphEntryBuilder&lt;<span class="lifetime">&#39;source</span>, <span class="lifetime">&#39;builder</span>&gt; {
-        <span class="kw">fn </span>with_dependency(<span class="kw-2">&amp;mut </span><span class="self">self</span>, name: <span class="kw-2">&amp;</span>str, version: <span class="kw-2">&amp;</span>str) -&gt; <span class="kw-2">&amp;mut </span><span class="self">Self </span>{
-            <span class="self">self</span>.with_aliased_dependency(name, name, version)
+        <span class="kw">fn </span>with_dependency(<span class="kw-2">&amp;mut </span><span class="self">self</span>, id: <span class="kw-2">&amp;</span>PackageId) -&gt; <span class="kw-2">&amp;mut </span><span class="self">Self </span>{
+            <span class="kw">let </span>name = <span class="kw-2">&amp;</span>id.as_named().unwrap().full_name;
+            <span class="self">self</span>.with_aliased_dependency(name, id)
         }
 
-        <span class="kw">fn </span>with_aliased_dependency(<span class="kw-2">&amp;mut </span><span class="self">self</span>, alias: <span class="kw-2">&amp;</span>str, name: <span class="kw-2">&amp;</span>str, version: <span class="kw-2">&amp;</span>str) -&gt; <span class="kw-2">&amp;mut </span><span class="self">Self </span>{
-            <span class="kw">let </span>version = version.parse().unwrap();
-            <span class="kw">let </span>dep_id = <span class="self">self
-                </span>.builder
-                .source
-                .get(name, <span class="kw-2">&amp;</span>version)
-                .unwrap()
-                .package_id();
+        <span class="kw">fn </span>with_aliased_dependency(<span class="kw-2">&amp;mut </span><span class="self">self</span>, alias: <span class="kw-2">&amp;</span>str, id: <span class="kw-2">&amp;</span>PackageId) -&gt; <span class="kw-2">&amp;mut </span><span class="self">Self </span>{
+            <span class="kw">let </span>dep_id = <span class="self">self</span>.builder.source.get(id).unwrap().package_id();
             <span class="self">self</span>.dependencies.insert(alias.to_string(), dep_id);
             <span class="self">self
         </span>}
@@ -1880,14 +1863,15 @@
         <span class="kw">let </span><span class="kw-2">mut </span>builder = RegistryBuilder::new();
         builder.register(<span class="string">&quot;root&quot;</span>, <span class="string">&quot;1.0.0&quot;</span>);
         <span class="kw">let </span>registry = builder.finish();
-        <span class="kw">let </span>root = builder.get(<span class="string">&quot;root&quot;</span>, <span class="string">&quot;1.0.0&quot;</span>);
+        <span class="kw">let </span>id = PackageId::new_named(<span class="string">&quot;root&quot;</span>, Version::parse(<span class="string">&quot;1.0.0&quot;</span>).unwrap());
+        <span class="kw">let </span>root = builder.get(<span class="kw-2">&amp;</span>id);
 
         <span class="kw">let </span>resolution = resolve(<span class="kw-2">&amp;</span>root.package_id(), <span class="kw-2">&amp;</span>root.pkg, <span class="kw-2">&amp;</span>registry)
             .<span class="kw">await
             </span>.unwrap();
 
         <span class="kw">let </span><span class="kw-2">mut </span>dependency_graph = builder.start_dependency_graph();
-        dependency_graph.insert(<span class="string">&quot;root&quot;</span>, <span class="string">&quot;1.0.0&quot;</span>);
+        dependency_graph.insert(id);
         <span class="macro">assert_eq!</span>(deps(<span class="kw-2">&amp;</span>resolution), dependency_graph.finish());
         <span class="macro">assert_eq!</span>(
             resolution.package,
@@ -1905,14 +1889,15 @@
         <span class="kw">let </span><span class="kw-2">mut </span>builder = RegistryBuilder::new();
         builder.register(<span class="string">&quot;root&quot;</span>, <span class="string">&quot;1.0.0&quot;</span>).with_command(<span class="string">&quot;asdf&quot;</span>);
         <span class="kw">let </span>registry = builder.finish();
-        <span class="kw">let </span>root = builder.get(<span class="string">&quot;root&quot;</span>, <span class="string">&quot;1.0.0&quot;</span>);
+        <span class="kw">let </span>id = PackageId::new_named(<span class="string">&quot;root&quot;</span>, <span class="string">&quot;1.0.0&quot;</span>.parse().unwrap());
+        <span class="kw">let </span>root = builder.get(<span class="kw-2">&amp;</span>id);
 
         <span class="kw">let </span>resolution = resolve(<span class="kw-2">&amp;</span>root.package_id(), <span class="kw-2">&amp;</span>root.pkg, <span class="kw-2">&amp;</span>registry)
             .<span class="kw">await
             </span>.unwrap();
 
         <span class="kw">let </span><span class="kw-2">mut </span>dependency_graph = builder.start_dependency_graph();
-        dependency_graph.insert(<span class="string">&quot;root&quot;</span>, <span class="string">&quot;1.0.0&quot;</span>);
+        dependency_graph.insert(id.clone());
         <span class="macro">assert_eq!</span>(deps(<span class="kw-2">&amp;</span>resolution), dependency_graph.finish());
         <span class="macro">assert_eq!</span>(
             resolution.package,
@@ -1938,17 +1923,17 @@
             .with_dependency(<span class="string">&quot;dep&quot;</span>, <span class="string">&quot;=1.0.0&quot;</span>);
         builder.register(<span class="string">&quot;dep&quot;</span>, <span class="string">&quot;1.0.0&quot;</span>);
         <span class="kw">let </span>registry = builder.finish();
-        <span class="kw">let </span>root = builder.get(<span class="string">&quot;root&quot;</span>, <span class="string">&quot;1.0.0&quot;</span>);
+        <span class="kw">let </span>id = PackageId::new_named(<span class="string">&quot;root&quot;</span>, <span class="string">&quot;1.0.0&quot;</span>.parse().unwrap());
+        <span class="kw">let </span>root = builder.get(<span class="kw-2">&amp;</span>id);
 
         <span class="kw">let </span>resolution = resolve(<span class="kw-2">&amp;</span>root.package_id(), <span class="kw-2">&amp;</span>root.pkg, <span class="kw-2">&amp;</span>registry)
             .<span class="kw">await
             </span>.unwrap();
+        <span class="kw">let </span>dep_id = PackageId::new_named(<span class="string">&quot;dep&quot;</span>, <span class="string">&quot;1.0.0&quot;</span>.parse().unwrap());
 
         <span class="kw">let </span><span class="kw-2">mut </span>dependency_graph = builder.start_dependency_graph();
-        dependency_graph
-            .insert(<span class="string">&quot;root&quot;</span>, <span class="string">&quot;1.0.0&quot;</span>)
-            .with_dependency(<span class="string">&quot;dep&quot;</span>, <span class="string">&quot;1.0.0&quot;</span>);
-        dependency_graph.insert(<span class="string">&quot;dep&quot;</span>, <span class="string">&quot;1.0.0&quot;</span>);
+        dependency_graph.insert(id.clone()).with_dependency(<span class="kw-2">&amp;</span>dep_id);
+        dependency_graph.insert(dep_id.clone());
         <span class="macro">assert_eq!</span>(deps(<span class="kw-2">&amp;</span>resolution), dependency_graph.finish());
         <span class="macro">assert_eq!</span>(
             resolution.package,
@@ -1963,6 +1948,10 @@
 
     <span class="attr">#[tokio::test]
     </span><span class="kw">async fn </span>linear_dependency_chain() {
+        <span class="kw">let </span>first_id = PackageId::new_named(<span class="string">&quot;first&quot;</span>, <span class="string">&quot;1.0.0&quot;</span>.parse().unwrap());
+        <span class="kw">let </span>second_id = PackageId::new_named(<span class="string">&quot;second&quot;</span>, <span class="string">&quot;1.0.0&quot;</span>.parse().unwrap());
+        <span class="kw">let </span>third_id = PackageId::new_named(<span class="string">&quot;third&quot;</span>, <span class="string">&quot;1.0.0&quot;</span>.parse().unwrap());
+
         <span class="kw">let </span><span class="kw-2">mut </span>builder = RegistryBuilder::new();
         builder
             .register(<span class="string">&quot;first&quot;</span>, <span class="string">&quot;1.0.0&quot;</span>)
@@ -1972,7 +1961,7 @@
             .with_dependency(<span class="string">&quot;third&quot;</span>, <span class="string">&quot;=1.0.0&quot;</span>);
         builder.register(<span class="string">&quot;third&quot;</span>, <span class="string">&quot;1.0.0&quot;</span>);
         <span class="kw">let </span>registry = builder.finish();
-        <span class="kw">let </span>root = builder.get(<span class="string">&quot;first&quot;</span>, <span class="string">&quot;1.0.0&quot;</span>);
+        <span class="kw">let </span>root = builder.get(<span class="kw-2">&amp;</span>first_id);
 
         <span class="kw">let </span>resolution = resolve(<span class="kw-2">&amp;</span>root.package_id(), <span class="kw-2">&amp;</span>root.pkg, <span class="kw-2">&amp;</span>registry)
             .<span class="kw">await
@@ -1980,12 +1969,12 @@
 
         <span class="kw">let </span><span class="kw-2">mut </span>dependency_graph = builder.start_dependency_graph();
         dependency_graph
-            .insert(<span class="string">&quot;first&quot;</span>, <span class="string">&quot;1.0.0&quot;</span>)
-            .with_dependency(<span class="string">&quot;second&quot;</span>, <span class="string">&quot;1.0.0&quot;</span>);
+            .insert(first_id.clone())
+            .with_dependency(<span class="kw-2">&amp;</span>second_id);
         dependency_graph
-            .insert(<span class="string">&quot;second&quot;</span>, <span class="string">&quot;1.0.0&quot;</span>)
-            .with_dependency(<span class="string">&quot;third&quot;</span>, <span class="string">&quot;1.0.0&quot;</span>);
-        dependency_graph.insert(<span class="string">&quot;third&quot;</span>, <span class="string">&quot;1.0.0&quot;</span>);
+            .insert(second_id.clone())
+            .with_dependency(<span class="kw-2">&amp;</span>third_id);
+        dependency_graph.insert(third_id.clone());
         <span class="macro">assert_eq!</span>(deps(<span class="kw-2">&amp;</span>resolution), dependency_graph.finish());
         <span class="macro">assert_eq!</span>(
             resolution.package,
@@ -2000,6 +1989,7 @@
 
     <span class="attr">#[tokio::test]
     </span><span class="kw">async fn </span>pick_the_latest_dependency_when_multiple_are_possible() {
+        <span class="kw">let </span>root_id = PackageId::new_named(<span class="string">&quot;root&quot;</span>, <span class="string">&quot;1.0.0&quot;</span>.parse().unwrap());
         <span class="kw">let </span><span class="kw-2">mut </span>builder = RegistryBuilder::new();
         builder
             .register(<span class="string">&quot;root&quot;</span>, <span class="string">&quot;1.0.0&quot;</span>)
@@ -2008,17 +1998,18 @@
         builder.register(<span class="string">&quot;dep&quot;</span>, <span class="string">&quot;1.0.1&quot;</span>);
         builder.register(<span class="string">&quot;dep&quot;</span>, <span class="string">&quot;1.0.2&quot;</span>);
         <span class="kw">let </span>registry = builder.finish();
-        <span class="kw">let </span>root = builder.get(<span class="string">&quot;root&quot;</span>, <span class="string">&quot;1.0.0&quot;</span>);
+        <span class="kw">let </span>root = builder.get(<span class="kw-2">&amp;</span>root_id);
 
         <span class="kw">let </span>resolution = resolve(<span class="kw-2">&amp;</span>root.package_id(), <span class="kw-2">&amp;</span>root.pkg, <span class="kw-2">&amp;</span>registry)
             .<span class="kw">await
             </span>.unwrap();
+        <span class="kw">let </span>dep_id = PackageId::new_named(<span class="string">&quot;dep&quot;</span>, <span class="string">&quot;1.0.2&quot;</span>.parse().unwrap());
 
         <span class="kw">let </span><span class="kw-2">mut </span>dependency_graph = builder.start_dependency_graph();
         dependency_graph
-            .insert(<span class="string">&quot;root&quot;</span>, <span class="string">&quot;1.0.0&quot;</span>)
-            .with_dependency(<span class="string">&quot;dep&quot;</span>, <span class="string">&quot;1.0.2&quot;</span>);
-        dependency_graph.insert(<span class="string">&quot;dep&quot;</span>, <span class="string">&quot;1.0.2&quot;</span>);
+            .insert(root_id.clone())
+            .with_dependency(<span class="kw-2">&amp;</span>dep_id);
+        dependency_graph.insert(dep_id.clone());
         <span class="macro">assert_eq!</span>(deps(<span class="kw-2">&amp;</span>resolution), dependency_graph.finish());
         <span class="macro">assert_eq!</span>(
             resolution.package,
@@ -2033,6 +2024,7 @@
 
     <span class="attr">#[tokio::test]
     </span><span class="kw">async fn </span>version_merging_isnt_implemented_yet() {
+        <span class="kw">let </span>root_id = PackageId::new_named(<span class="string">&quot;root&quot;</span>, <span class="string">&quot;1.0.0&quot;</span>.parse().unwrap());
         <span class="kw">let </span><span class="kw-2">mut </span>builder = RegistryBuilder::new();
         builder
             .register(<span class="string">&quot;root&quot;</span>, <span class="string">&quot;1.0.0&quot;</span>)
@@ -2049,7 +2041,7 @@
         builder.register(<span class="string">&quot;common&quot;</span>, <span class="string">&quot;1.2.0&quot;</span>);
         builder.register(<span class="string">&quot;common&quot;</span>, <span class="string">&quot;1.5.0&quot;</span>);
         <span class="kw">let </span>registry = builder.finish();
-        <span class="kw">let </span>root = builder.get(<span class="string">&quot;root&quot;</span>, <span class="string">&quot;1.0.0&quot;</span>);
+        <span class="kw">let </span>root = builder.get(<span class="kw-2">&amp;</span>root_id);
 
         <span class="kw">let </span>result = resolve(<span class="kw-2">&amp;</span>root.package_id(), <span class="kw-2">&amp;</span>root.pkg, <span class="kw-2">&amp;</span>registry).<span class="kw">await</span>;
 
@@ -2074,6 +2066,11 @@
     <span class="attr">#[tokio::test]
     #[ignore = <span class="string">&quot;Version merging isn&#39;t implemented&quot;</span>]
     </span><span class="kw">async fn </span>merge_compatible_versions() {
+        <span class="kw">let </span>root_id = PackageId::new_named(<span class="string">&quot;root&quot;</span>, <span class="string">&quot;1.0.0&quot;</span>.parse().unwrap());
+        <span class="kw">let </span>first_id = PackageId::new_named(<span class="string">&quot;first&quot;</span>, <span class="string">&quot;1.0.0&quot;</span>.parse().unwrap());
+        <span class="kw">let </span>second_id = PackageId::new_named(<span class="string">&quot;second&quot;</span>, <span class="string">&quot;1.0.0&quot;</span>.parse().unwrap());
+        <span class="kw">let </span>common_id = PackageId::new_named(<span class="string">&quot;common&quot;</span>, <span class="string">&quot;1.2.0&quot;</span>.parse().unwrap());
+
         <span class="kw">let </span><span class="kw-2">mut </span>builder = RegistryBuilder::new();
         builder
             .register(<span class="string">&quot;root&quot;</span>, <span class="string">&quot;1.0.0&quot;</span>)
@@ -2090,7 +2087,7 @@
         builder.register(<span class="string">&quot;common&quot;</span>, <span class="string">&quot;1.2.0&quot;</span>);
         builder.register(<span class="string">&quot;common&quot;</span>, <span class="string">&quot;1.5.0&quot;</span>);
         <span class="kw">let </span>registry = builder.finish();
-        <span class="kw">let </span>root = builder.get(<span class="string">&quot;root&quot;</span>, <span class="string">&quot;1.0.0&quot;</span>);
+        <span class="kw">let </span>root = builder.get(<span class="kw-2">&amp;</span>root_id);
 
         <span class="kw">let </span>resolution = resolve(<span class="kw-2">&amp;</span>root.package_id(), <span class="kw-2">&amp;</span>root.pkg, <span class="kw-2">&amp;</span>registry)
             .<span class="kw">await
@@ -2098,16 +2095,16 @@
 
         <span class="kw">let </span><span class="kw-2">mut </span>dependency_graph = builder.start_dependency_graph();
         dependency_graph
-            .insert(<span class="string">&quot;root&quot;</span>, <span class="string">&quot;1.0.0&quot;</span>)
-            .with_dependency(<span class="string">&quot;first&quot;</span>, <span class="string">&quot;1.0.0&quot;</span>)
-            .with_dependency(<span class="string">&quot;second&quot;</span>, <span class="string">&quot;1.0.0&quot;</span>);
+            .insert(root_id.clone())
+            .with_dependency(<span class="kw-2">&amp;</span>first_id)
+            .with_dependency(<span class="kw-2">&amp;</span>second_id);
         dependency_graph
-            .insert(<span class="string">&quot;first&quot;</span>, <span class="string">&quot;1.0.0&quot;</span>)
-            .with_dependency(<span class="string">&quot;common&quot;</span>, <span class="string">&quot;1.2.0&quot;</span>);
+            .insert(first_id.clone())
+            .with_dependency(<span class="kw-2">&amp;</span>common_id);
         dependency_graph
-            .insert(<span class="string">&quot;second&quot;</span>, <span class="string">&quot;1.0.0&quot;</span>)
-            .with_dependency(<span class="string">&quot;common&quot;</span>, <span class="string">&quot;1.2.0&quot;</span>);
-        dependency_graph.insert(<span class="string">&quot;common&quot;</span>, <span class="string">&quot;1.2.0&quot;</span>);
+            .insert(second_id.clone())
+            .with_dependency(<span class="kw-2">&amp;</span>common_id);
+        dependency_graph.insert(common_id.clone());
         <span class="macro">assert_eq!</span>(deps(<span class="kw-2">&amp;</span>resolution), dependency_graph.finish());
         <span class="macro">assert_eq!</span>(
             resolution.package,
@@ -2122,6 +2119,9 @@
 
     <span class="attr">#[tokio::test]
     </span><span class="kw">async fn </span>commands_from_dependencies_end_up_in_the_package() {
+        <span class="kw">let </span>root_id = PackageId::new_named(<span class="string">&quot;root&quot;</span>, <span class="string">&quot;1.0.0&quot;</span>.parse().unwrap());
+        <span class="kw">let </span>first_id = PackageId::new_named(<span class="string">&quot;first&quot;</span>, <span class="string">&quot;1.0.0&quot;</span>.parse().unwrap());
+        <span class="kw">let </span>second_id = PackageId::new_named(<span class="string">&quot;second&quot;</span>, <span class="string">&quot;1.0.0&quot;</span>.parse().unwrap());
         <span class="kw">let </span><span class="kw-2">mut </span>builder = RegistryBuilder::new();
         builder
             .register(<span class="string">&quot;root&quot;</span>, <span class="string">&quot;1.0.0&quot;</span>)
@@ -2134,7 +2134,7 @@
             .register(<span class="string">&quot;second&quot;</span>, <span class="string">&quot;1.0.0&quot;</span>)
             .with_command(<span class="string">&quot;second-command&quot;</span>);
         <span class="kw">let </span>registry = builder.finish();
-        <span class="kw">let </span>root = builder.get(<span class="string">&quot;root&quot;</span>, <span class="string">&quot;1.0.0&quot;</span>);
+        <span class="kw">let </span>root = builder.get(<span class="kw-2">&amp;</span>root_id);
 
         <span class="kw">let </span>resolution = resolve(<span class="kw-2">&amp;</span>root.package_id(), <span class="kw-2">&amp;</span>root.pkg, <span class="kw-2">&amp;</span>registry)
             .<span class="kw">await
@@ -2142,11 +2142,11 @@
 
         <span class="kw">let </span><span class="kw-2">mut </span>dependency_graph = builder.start_dependency_graph();
         dependency_graph
-            .insert(<span class="string">&quot;root&quot;</span>, <span class="string">&quot;1.0.0&quot;</span>)
-            .with_dependency(<span class="string">&quot;first&quot;</span>, <span class="string">&quot;1.0.0&quot;</span>)
-            .with_dependency(<span class="string">&quot;second&quot;</span>, <span class="string">&quot;1.0.0&quot;</span>);
-        dependency_graph.insert(<span class="string">&quot;first&quot;</span>, <span class="string">&quot;1.0.0&quot;</span>);
-        dependency_graph.insert(<span class="string">&quot;second&quot;</span>, <span class="string">&quot;1.0.0&quot;</span>);
+            .insert(root_id.clone())
+            .with_dependency(<span class="kw-2">&amp;</span>first_id)
+            .with_dependency(<span class="kw-2">&amp;</span>second_id);
+        dependency_graph.insert(first_id.clone());
+        dependency_graph.insert(second_id.clone());
         <span class="macro">assert_eq!</span>(deps(<span class="kw-2">&amp;</span>resolution), dependency_graph.finish());
         <span class="macro">assert_eq!</span>(
             resolution.package,
@@ -2155,11 +2155,11 @@
                 commands: <span class="macro">map! </span>{
                     <span class="string">&quot;first-command&quot; </span>=&gt; ItemLocation {
                         name: <span class="string">&quot;first-command&quot;</span>.to_string(),
-                        package: builder.get(<span class="string">&quot;first&quot;</span>, <span class="string">&quot;1.0.0&quot;</span>).package_id(),
+                        package: builder.get(<span class="kw-2">&amp;</span>first_id).package_id(),
                      },
                     <span class="string">&quot;second-command&quot; </span>=&gt; ItemLocation {
                         name: <span class="string">&quot;second-command&quot;</span>.to_string(),
-                        package: builder.get(<span class="string">&quot;second&quot;</span>, <span class="string">&quot;1.0.0&quot;</span>).package_id(),
+                        package: builder.get(<span class="kw-2">&amp;</span>second_id).package_id(),
                      },
                 },
                 entrypoint: <span class="prelude-val">None</span>,
@@ -2171,6 +2171,8 @@
     <span class="attr">#[tokio::test]
     #[ignore = <span class="string">&quot;TODO: Re-order the way commands are resolved&quot;</span>]
     </span><span class="kw">async fn </span>commands_in_root_shadow_their_dependencies() {
+        <span class="kw">let </span>root_id = PackageId::new_named(<span class="string">&quot;root&quot;</span>, <span class="string">&quot;1.0.0&quot;</span>.parse().unwrap());
+        <span class="kw">let </span>dep_id = PackageId::new_named(<span class="string">&quot;dep&quot;</span>, <span class="string">&quot;1.0.0&quot;</span>.parse().unwrap());
         <span class="kw">let </span><span class="kw-2">mut </span>builder = RegistryBuilder::new();
         builder
             .register(<span class="string">&quot;root&quot;</span>, <span class="string">&quot;1.0.0&quot;</span>)
@@ -2178,7 +2180,7 @@
             .with_command(<span class="string">&quot;command&quot;</span>);
         builder.register(<span class="string">&quot;dep&quot;</span>, <span class="string">&quot;1.0.0&quot;</span>).with_command(<span class="string">&quot;command&quot;</span>);
         <span class="kw">let </span>registry = builder.finish();
-        <span class="kw">let </span>root = builder.get(<span class="string">&quot;root&quot;</span>, <span class="string">&quot;1.0.0&quot;</span>);
+        <span class="kw">let </span>root = builder.get(<span class="kw-2">&amp;</span>root_id);
 
         <span class="kw">let </span>resolution = resolve(<span class="kw-2">&amp;</span>root.package_id(), <span class="kw-2">&amp;</span>root.pkg, <span class="kw-2">&amp;</span>registry)
             .<span class="kw">await
@@ -2186,9 +2188,9 @@
 
         <span class="kw">let </span><span class="kw-2">mut </span>dependency_graph = builder.start_dependency_graph();
         dependency_graph
-            .insert(<span class="string">&quot;root&quot;</span>, <span class="string">&quot;1.0.0&quot;</span>)
-            .with_dependency(<span class="string">&quot;dep&quot;</span>, <span class="string">&quot;1.0.0&quot;</span>);
-        dependency_graph.insert(<span class="string">&quot;dep&quot;</span>, <span class="string">&quot;1.0.0&quot;</span>);
+            .insert(root_id.clone())
+            .with_dependency(<span class="kw-2">&amp;</span>dep_id);
+        dependency_graph.insert(dep_id.clone());
         <span class="macro">assert_eq!</span>(deps(<span class="kw-2">&amp;</span>resolution), dependency_graph.finish());
         <span class="macro">assert_eq!</span>(
             resolution.package,
@@ -2197,7 +2199,7 @@
                 commands: <span class="macro">map! </span>{
                     <span class="string">&quot;command&quot; </span>=&gt; ItemLocation {
                         name: <span class="string">&quot;command&quot;</span>.to_string(),
-                        package: builder.get(<span class="string">&quot;root&quot;</span>, <span class="string">&quot;1.0.0&quot;</span>).package_id(),
+                        package: builder.get(<span class="kw-2">&amp;</span>root_id).package_id(),
                      },
                 },
                 entrypoint: <span class="prelude-val">None</span>,
@@ -2208,6 +2210,9 @@
 
     <span class="attr">#[tokio::test]
     </span><span class="kw">async fn </span>cyclic_dependencies() {
+        <span class="kw">let </span>root_id = PackageId::new_named(<span class="string">&quot;root&quot;</span>, <span class="string">&quot;1.0.0&quot;</span>.parse().unwrap());
+        <span class="kw">let </span>dep_id = PackageId::new_named(<span class="string">&quot;dep&quot;</span>, <span class="string">&quot;1.0.0&quot;</span>.parse().unwrap());
+
         <span class="kw">let </span><span class="kw-2">mut </span>builder = RegistryBuilder::new();
         builder
             .register(<span class="string">&quot;root&quot;</span>, <span class="string">&quot;1.0.0&quot;</span>)
@@ -2216,7 +2221,7 @@
             .register(<span class="string">&quot;dep&quot;</span>, <span class="string">&quot;1.0.0&quot;</span>)
             .with_dependency(<span class="string">&quot;root&quot;</span>, <span class="string">&quot;=1.0.0&quot;</span>);
         <span class="kw">let </span>registry = builder.finish();
-        <span class="kw">let </span>root = builder.get(<span class="string">&quot;root&quot;</span>, <span class="string">&quot;1.0.0&quot;</span>);
+        <span class="kw">let </span>root = builder.get(<span class="kw-2">&amp;</span>root_id);
 
         <span class="kw">let </span>err = resolve(<span class="kw-2">&amp;</span>root.package_id(), <span class="kw-2">&amp;</span>root.pkg, <span class="kw-2">&amp;</span>registry)
             .<span class="kw">await
@@ -2226,15 +2231,18 @@
         <span class="macro">assert_eq!</span>(
             cycle,
             [
-                builder.get(<span class="string">&quot;root&quot;</span>, <span class="string">&quot;1.0.0&quot;</span>).package_id(),
-                builder.get(<span class="string">&quot;dep&quot;</span>, <span class="string">&quot;1.0.0&quot;</span>).package_id(),
-                builder.get(<span class="string">&quot;root&quot;</span>, <span class="string">&quot;1.0.0&quot;</span>).package_id(),
+                builder.get(<span class="kw-2">&amp;</span>root_id).package_id(),
+                builder.get(<span class="kw-2">&amp;</span>dep_id).package_id(),
+                builder.get(<span class="kw-2">&amp;</span>root_id).package_id(),
             ]
         );
     }
 
     <span class="attr">#[tokio::test]
     </span><span class="kw">async fn </span>entrypoint_is_inherited() {
+        <span class="kw">let </span>root_id = PackageId::new_named(<span class="string">&quot;root&quot;</span>, <span class="string">&quot;1.0.0&quot;</span>.parse().unwrap());
+        <span class="kw">let </span>dep_id = PackageId::new_named(<span class="string">&quot;dep&quot;</span>, <span class="string">&quot;1.0.0&quot;</span>.parse().unwrap());
+
         <span class="kw">let </span><span class="kw-2">mut </span>builder = RegistryBuilder::new();
         builder
             .register(<span class="string">&quot;root&quot;</span>, <span class="string">&quot;1.0.0&quot;</span>)
@@ -2244,7 +2252,7 @@
             .with_command(<span class="string">&quot;entry&quot;</span>)
             .with_entrypoint(<span class="string">&quot;entry&quot;</span>);
         <span class="kw">let </span>registry = builder.finish();
-        <span class="kw">let </span>root = builder.get(<span class="string">&quot;root&quot;</span>, <span class="string">&quot;1.0.0&quot;</span>);
+        <span class="kw">let </span>root = builder.get(<span class="kw-2">&amp;</span>root_id);
 
         <span class="kw">let </span>resolution = resolve(<span class="kw-2">&amp;</span>root.package_id(), <span class="kw-2">&amp;</span>root.pkg, <span class="kw-2">&amp;</span>registry)
             .<span class="kw">await
@@ -2257,7 +2265,7 @@
                 commands: <span class="macro">map! </span>{
                     <span class="string">&quot;entry&quot; </span>=&gt; ItemLocation {
                         name: <span class="string">&quot;entry&quot;</span>.to_string(),
-                        package: builder.get(<span class="string">&quot;dep&quot;</span>, <span class="string">&quot;1.0.0&quot;</span>).package_id(),
+                        package: builder.get(<span class="kw-2">&amp;</span>dep_id).package_id(),
                      },
                 },
                 entrypoint: <span class="prelude-val">Some</span>(<span class="string">&quot;entry&quot;</span>.to_string()),
@@ -2268,6 +2276,7 @@
 
     <span class="attr">#[tokio::test]
     </span><span class="kw">async fn </span>infer_entrypoint_if_unspecified_and_only_one_command_in_root_package() {
+        <span class="kw">let </span>root_id = PackageId::new_named(<span class="string">&quot;root&quot;</span>, <span class="string">&quot;1.0.0&quot;</span>.parse().unwrap());
         <span class="kw">let </span><span class="kw-2">mut </span>builder = RegistryBuilder::new();
         builder
             .register(<span class="string">&quot;root&quot;</span>, <span class="string">&quot;1.0.0&quot;</span>)
@@ -2275,7 +2284,7 @@
             .with_dependency(<span class="string">&quot;dep&quot;</span>, <span class="string">&quot;=1.0.0&quot;</span>);
         builder.register(<span class="string">&quot;dep&quot;</span>, <span class="string">&quot;1.0.0&quot;</span>).with_command(<span class="string">&quot;entry&quot;</span>);
         <span class="kw">let </span>registry = builder.finish();
-        <span class="kw">let </span>root = builder.get(<span class="string">&quot;root&quot;</span>, <span class="string">&quot;1.0.0&quot;</span>);
+        <span class="kw">let </span>root = builder.get(<span class="kw-2">&amp;</span>root_id);
 
         <span class="kw">let </span>resolution = resolve(<span class="kw-2">&amp;</span>root.package_id(), <span class="kw-2">&amp;</span>root.pkg, <span class="kw-2">&amp;</span>registry)
             .<span class="kw">await
@@ -2287,18 +2296,9 @@
     <span class="attr">#[test]
     </span><span class="kw">fn </span>cyclic_error_message() {
         <span class="kw">let </span>cycle = [
-            PackageId {
-                package_name: <span class="string">&quot;root&quot;</span>.to_string(),
-                version: <span class="string">&quot;1.0.0&quot;</span>.parse().unwrap(),
-            },
-            PackageId {
-                package_name: <span class="string">&quot;dep&quot;</span>.to_string(),
-                version: <span class="string">&quot;1.0.0&quot;</span>.parse().unwrap(),
-            },
-            PackageId {
-                package_name: <span class="string">&quot;root&quot;</span>.to_string(),
-                version: <span class="string">&quot;1.0.0&quot;</span>.parse().unwrap(),
-            },
+            PackageId::new_named(<span class="string">&quot;root&quot;</span>, <span class="string">&quot;1.0.0&quot;</span>.parse().unwrap()),
+            PackageId::new_named(<span class="string">&quot;dep&quot;</span>, <span class="string">&quot;1.0.0&quot;</span>.parse().unwrap()),
+            PackageId::new_named(<span class="string">&quot;root&quot;</span>, <span class="string">&quot;1.0.0&quot;</span>.parse().unwrap()),
         ];
 
         <span class="kw">let </span>message = print_cycle(<span class="kw-2">&amp;</span>cycle);
@@ -2308,11 +2308,12 @@
 
     <span class="attr">#[test]
     </span><span class="kw">fn </span>filesystem_with_one_package_and_no_fs_tables() {
+        <span class="kw">let </span>root_id = PackageId::new_named(<span class="string">&quot;root&quot;</span>, <span class="string">&quot;1.0.0&quot;</span>.parse().unwrap());
         <span class="kw">let </span><span class="kw-2">mut </span>builder = RegistryBuilder::new();
         builder.register(<span class="string">&quot;root&quot;</span>, <span class="string">&quot;1.0.0&quot;</span>);
         <span class="kw">let </span><span class="kw-2">mut </span>dep_builder = builder.start_dependency_graph();
-        dep_builder.insert(<span class="string">&quot;root&quot;</span>, <span class="string">&quot;1.0.0&quot;</span>);
-        <span class="kw">let </span>graph = dep_builder.graph(<span class="string">&quot;root&quot;</span>, <span class="string">&quot;1.0.0&quot;</span>);
+        dep_builder.insert(root_id.clone());
+        <span class="kw">let </span>graph = dep_builder.graph(root_id.clone());
 
         <span class="kw">let </span>pkg = resolve_package(<span class="kw-2">&amp;</span>graph).unwrap();
 
@@ -2321,13 +2322,14 @@
 
     <span class="attr">#[test]
     </span><span class="kw">fn </span>filesystem_with_one_package_and_one_fs_tables() {
+        <span class="kw">let </span>root_id = PackageId::new_named(<span class="string">&quot;root&quot;</span>, <span class="string">&quot;1.0.0&quot;</span>.parse().unwrap());
         <span class="kw">let </span><span class="kw-2">mut </span>builder = RegistryBuilder::new();
         builder
             .register(<span class="string">&quot;root&quot;</span>, <span class="string">&quot;1.0.0&quot;</span>)
             .with_fs_mapping(<span class="string">&quot;atom&quot;</span>, <span class="string">&quot;/publisher/lib&quot;</span>, <span class="string">&quot;/lib&quot;</span>);
         <span class="kw">let </span><span class="kw-2">mut </span>dep_builder = builder.start_dependency_graph();
-        dep_builder.insert(<span class="string">&quot;root&quot;</span>, <span class="string">&quot;1.0.0&quot;</span>);
-        <span class="kw">let </span>graph = dep_builder.graph(<span class="string">&quot;root&quot;</span>, <span class="string">&quot;1.0.0&quot;</span>);
+        dep_builder.insert(root_id.clone());
+        <span class="kw">let </span>graph = dep_builder.graph(root_id.clone());
 
         <span class="kw">let </span>pkg = resolve_package(<span class="kw-2">&amp;</span>graph).unwrap();
 
@@ -2335,15 +2337,19 @@
             pkg.filesystem,
             <span class="macro">vec!</span>[ResolvedFileSystemMapping {
                 mount_path: PathBuf::from(<span class="string">&quot;/lib&quot;</span>),
-                original_path: <span class="string">&quot;/publisher/lib&quot;</span>.to_string(),
+                original_path: <span class="prelude-val">Some</span>(<span class="string">&quot;/publisher/lib&quot;</span>.to_string()),
                 volume_name: <span class="string">&quot;atom&quot;</span>.to_string(),
-                package: builder.get(<span class="string">&quot;root&quot;</span>, <span class="string">&quot;1.0.0&quot;</span>).package_id(),
+                package: builder.get(<span class="kw-2">&amp;</span>root_id).package_id(),
             }]
         );
     }
 
     <span class="attr">#[test]
     </span><span class="kw">fn </span>merge_fs_mappings_from_multiple_packages() {
+        <span class="kw">let </span>root_id = PackageId::new_named(<span class="string">&quot;root&quot;</span>, <span class="string">&quot;1.0.0&quot;</span>.parse().unwrap());
+        <span class="kw">let </span>first_id = PackageId::new_named(<span class="string">&quot;first&quot;</span>, <span class="string">&quot;1.0.0&quot;</span>.parse().unwrap());
+        <span class="kw">let </span>second_id = PackageId::new_named(<span class="string">&quot;second&quot;</span>, <span class="string">&quot;1.0.0&quot;</span>.parse().unwrap());
+
         <span class="kw">let </span><span class="kw-2">mut </span>builder = RegistryBuilder::new();
         builder
             .register(<span class="string">&quot;root&quot;</span>, <span class="string">&quot;1.0.0&quot;</span>)
@@ -2362,12 +2368,12 @@
         );
         <span class="kw">let </span><span class="kw-2">mut </span>dep_builder = builder.start_dependency_graph();
         dep_builder
-            .insert(<span class="string">&quot;root&quot;</span>, <span class="string">&quot;1.0.0&quot;</span>)
-            .with_dependency(<span class="string">&quot;first&quot;</span>, <span class="string">&quot;1.0.0&quot;</span>)
-            .with_dependency(<span class="string">&quot;second&quot;</span>, <span class="string">&quot;1.0.0&quot;</span>);
-        dep_builder.insert(<span class="string">&quot;first&quot;</span>, <span class="string">&quot;1.0.0&quot;</span>);
-        dep_builder.insert(<span class="string">&quot;second&quot;</span>, <span class="string">&quot;1.0.0&quot;</span>);
-        <span class="kw">let </span>graph = dep_builder.graph(<span class="string">&quot;root&quot;</span>, <span class="string">&quot;1.0.0&quot;</span>);
+            .insert(root_id.clone())
+            .with_dependency(<span class="kw-2">&amp;</span>first_id)
+            .with_dependency(<span class="kw-2">&amp;</span>second_id);
+        dep_builder.insert(first_id.clone());
+        dep_builder.insert(second_id.clone());
+        <span class="kw">let </span>graph = dep_builder.graph(root_id.clone());
 
         <span class="kw">let </span>pkg = resolve_package(<span class="kw-2">&amp;</span>graph).unwrap();
 
@@ -2376,21 +2382,21 @@
             <span class="macro">vec!</span>[
                 ResolvedFileSystemMapping {
                     mount_path: PathBuf::from(<span class="string">&quot;/root&quot;</span>),
-                    original_path: <span class="string">&quot;/root&quot;</span>.to_string(),
+                    original_path: <span class="prelude-val">Some</span>(<span class="string">&quot;/root&quot;</span>.to_string()),
                     volume_name: <span class="string">&quot;atom&quot;</span>.to_string(),
-                    package: builder.get(<span class="string">&quot;root&quot;</span>, <span class="string">&quot;1.0.0&quot;</span>).package_id(),
+                    package: builder.get(<span class="kw-2">&amp;</span>root_id).package_id(),
                 },
                 ResolvedFileSystemMapping {
                     mount_path: PathBuf::from(<span class="string">&quot;/usr/local/lib/second&quot;</span>),
-                    original_path: <span class="string">&quot;/usr/local/lib/second&quot;</span>.to_string(),
+                    original_path: <span class="prelude-val">Some</span>(<span class="string">&quot;/usr/local/lib/second&quot;</span>.to_string()),
                     volume_name: <span class="string">&quot;atom&quot;</span>.to_string(),
-                    package: builder.get(<span class="string">&quot;second&quot;</span>, <span class="string">&quot;1.0.0&quot;</span>).package_id(),
+                    package: builder.get(<span class="kw-2">&amp;</span>second_id).package_id(),
                 },
                 ResolvedFileSystemMapping {
                     mount_path: PathBuf::from(<span class="string">&quot;/usr/local/lib/first&quot;</span>),
                     volume_name: <span class="string">&quot;atom&quot;</span>.to_string(),
-                    original_path: <span class="string">&quot;/usr/local/lib/first&quot;</span>.to_string(),
-                    package: builder.get(<span class="string">&quot;first&quot;</span>, <span class="string">&quot;1.0.0&quot;</span>).package_id(),
+                    original_path: <span class="prelude-val">Some</span>(<span class="string">&quot;/usr/local/lib/first&quot;</span>.to_string()),
+                    package: builder.get(<span class="kw-2">&amp;</span>first_id).package_id(),
                 }
             ]
         );
@@ -2398,6 +2404,8 @@
 
     <span class="attr">#[test]
     </span><span class="kw">fn </span>use_fs_mapping_from_dependency() {
+        <span class="kw">let </span>root_id = PackageId::new_named(<span class="string">&quot;root&quot;</span>, <span class="string">&quot;1.0.0&quot;</span>.parse().unwrap());
+        <span class="kw">let </span>dep_id = PackageId::new_named(<span class="string">&quot;dep&quot;</span>, <span class="string">&quot;1.0.0&quot;</span>.parse().unwrap());
         <span class="kw">let </span><span class="kw-2">mut </span>builder = RegistryBuilder::new();
         builder
             .register(<span class="string">&quot;root&quot;</span>, <span class="string">&quot;1.0.0&quot;</span>)
@@ -2405,11 +2413,9 @@
             .with_fs_mapping_from_dependency(<span class="string">&quot;dep-volume&quot;</span>, <span class="string">&quot;/root&quot;</span>, <span class="string">&quot;/root&quot;</span>, <span class="string">&quot;dep&quot;</span>);
         builder.register(<span class="string">&quot;dep&quot;</span>, <span class="string">&quot;1.0.0&quot;</span>);
         <span class="kw">let </span><span class="kw-2">mut </span>dep_builder = builder.start_dependency_graph();
-        dep_builder
-            .insert(<span class="string">&quot;root&quot;</span>, <span class="string">&quot;1.0.0&quot;</span>)
-            .with_dependency(<span class="string">&quot;dep&quot;</span>, <span class="string">&quot;1.0.0&quot;</span>);
-        dep_builder.insert(<span class="string">&quot;dep&quot;</span>, <span class="string">&quot;1.0.0&quot;</span>);
-        <span class="kw">let </span>graph = dep_builder.graph(<span class="string">&quot;root&quot;</span>, <span class="string">&quot;1.0.0&quot;</span>);
+        dep_builder.insert(root_id.clone()).with_dependency(<span class="kw-2">&amp;</span>dep_id);
+        dep_builder.insert(dep_id.clone());
+        <span class="kw">let </span>graph = dep_builder.graph(root_id.clone());
 
         <span class="kw">let </span>pkg = resolve_package(<span class="kw-2">&amp;</span>graph).unwrap();
 
@@ -2417,9 +2423,9 @@
             pkg.filesystem,
             <span class="macro">vec!</span>[ResolvedFileSystemMapping {
                 mount_path: PathBuf::from(<span class="string">&quot;/root&quot;</span>),
-                original_path: <span class="string">&quot;/root&quot;</span>.to_string(),
+                original_path: <span class="prelude-val">Some</span>(<span class="string">&quot;/root&quot;</span>.to_string()),
                 volume_name: <span class="string">&quot;dep-volume&quot;</span>.to_string(),
-                package: builder.get(<span class="string">&quot;dep&quot;</span>, <span class="string">&quot;1.0.0&quot;</span>).package_id(),
+                package: builder.get(<span class="kw-2">&amp;</span>dep_id).package_id(),
             }]
         );
     }

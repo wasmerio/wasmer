@@ -723,8 +723,6 @@
 <a href="#723" id="723">723</a>
 <a href="#724" id="724">724</a>
 <a href="#725" id="725">725</a>
-<a href="#726" id="726">726</a>
-<a href="#727" id="727">727</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{
     collections::{BTreeSet, HashMap},
     path::{Path, PathBuf},
@@ -740,6 +738,7 @@
 <span class="kw">use </span>url::Url;
 <span class="kw">use </span>virtual_fs::{DeviceFile, FileSystem, PassthruFileSystem, RootFileSystemBuilder};
 <span class="kw">use </span>wasmer::{Engine, Function, Instance, Memory32, Memory64, Module, RuntimeError, Store, Value};
+<span class="kw">use </span>wasmer_config::package::PackageSource <span class="kw">as </span>PackageSpecifier;
 <span class="kw">use </span>wasmer_registry::wasmer_env::WasmerEnv;
 <span class="attr">#[cfg(feature = <span class="string">&quot;journal&quot;</span>)]
 </span><span class="kw">use </span>wasmer_wasix::journal::{LogFileJournal, SnapshotTrigger};
@@ -755,10 +754,7 @@
     runtime::{
         module_cache::{FileSystemCache, ModuleCache, ModuleHash},
         package_loader::{BuiltinPackageLoader, PackageLoader},
-        resolver::{
-            FileSystemSource, InMemorySource, MultiSource, PackageSpecifier, Source, WapmSource,
-            WebSource,
-        },
+        resolver::{FileSystemSource, InMemorySource, MultiSource, Source, WapmSource, WebSource},
         task_manager::{
             tokio::{RuntimeOrHandle, TokioTaskManager},
             VirtualTaskManagerExt,
@@ -955,7 +951,7 @@
 
         <span class="kw">let </span><span class="kw-2">mut </span>uses = Vec::new();
         <span class="kw">for </span>name <span class="kw">in </span><span class="kw-2">&amp;</span><span class="self">self</span>.uses {
-            <span class="kw">let </span>specifier = PackageSpecifier::parse(name)
+            <span class="kw">let </span>specifier = PackageSpecifier::from_str(name)
                 .with_context(|| <span class="macro">format!</span>(<span class="string">&quot;Unable to parse \&quot;{name}\&quot; as a package specifier&quot;</span>))<span class="question-mark">?</span>;
             <span class="kw">let </span>pkg = {
                 <span class="kw">let </span>inner_rt = rt.clone();

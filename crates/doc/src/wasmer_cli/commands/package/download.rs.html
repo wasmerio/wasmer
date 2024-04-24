@@ -259,14 +259,21 @@
 <a href="#259" id="259">259</a>
 <a href="#260" id="260">260</a>
 <a href="#261" id="261">261</a>
+<a href="#262" id="262">262</a>
+<a href="#263" id="263">263</a>
+<a href="#264" id="264">264</a>
+<a href="#265" id="265">265</a>
+<a href="#266" id="266">266</a>
+<a href="#267" id="267">267</a>
+<a href="#268" id="268">268</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::path::PathBuf;
 
 <span class="kw">use </span>anyhow::{bail, Context};
 <span class="kw">use </span>dialoguer::console::{style, Emoji};
 <span class="kw">use </span>indicatif::{ProgressBar, ProgressStyle};
 <span class="kw">use </span>tempfile::NamedTempFile;
+<span class="kw">use </span>wasmer_config::package::{PackageIdent, PackageSource};
 <span class="kw">use </span>wasmer_registry::wasmer_env::WasmerEnv;
-<span class="kw">use </span>wasmer_wasix::runtime::resolver::PackageSpecifier;
 
 <span class="doccomment">/// Download a package from the registry.
 </span><span class="attr">#[derive(clap::Parser, Debug)]
@@ -288,10 +295,7 @@
     </span><span class="kw">pub </span>quiet: bool,
 
     <span class="doccomment">/// The package to download.
-    /// Can be:
-    /// * a pakage specifier: `namespace/package[@vesion]`
-    /// * a URL
-    </span>package: PackageSpecifier,
+    </span>package: PackageSource,
 }
 
 <span class="kw">static </span>CREATING_OUTPUT_DIRECTORY_EMOJI: Emoji&lt;<span class="lifetime">&#39;_</span>, <span class="lifetime">&#39;_</span>&gt; = Emoji(<span class="string">&quot;📁 &quot;</span>, <span class="string">&quot;&quot;</span>);
@@ -354,43 +358,53 @@
 
         step_num += <span class="number">1</span>;
 
-        <span class="kw">let </span>(full_name, version, api_endpoint, token) = <span class="kw">match </span><span class="kw-2">&amp;</span><span class="self">self</span>.package {
-            PackageSpecifier::Registry { full_name, version } =&gt; {
+        <span class="kw">let </span>(download_url, token) = <span class="kw">match </span><span class="kw-2">&amp;</span><span class="self">self</span>.package {
+            PackageSource::Ident(PackageIdent::Named(id)) =&gt; {
                 <span class="kw">let </span>endpoint = <span class="self">self</span>.env.registry_endpoint()<span class="question-mark">?</span>;
-                <span class="kw">let </span>version = version.to_string();
+                <span class="kw">let </span>version = id.version_or_default().to_string();
                 <span class="kw">let </span>version = <span class="kw">if </span>version == <span class="string">&quot;*&quot; </span>{ <span class="prelude-val">None </span>} <span class="kw">else </span>{ <span class="prelude-val">Some</span>(version) };
+                <span class="kw">let </span>full_name = id.full_name();
+                <span class="kw">let </span>token = <span class="self">self</span>.env.get_token_opt().map(|x| x.to_string());
 
-                (
-                    full_name,
-                    version,
-                    endpoint,
-                    <span class="self">self</span>.env.get_token_opt().map(|x| x.to_string()),
+                <span class="kw">let </span>package = wasmer_registry::query_package_from_registry(
+                    endpoint.as_str(),
+                    <span class="kw-2">&amp;</span>full_name,
+                    version.as_deref(),
+                    token.as_deref(),
                 )
-            }
-            PackageSpecifier::Url(url) =&gt; {
-                <span class="macro">bail!</span>(<span class="string">&quot;cannot download a package from a URL: &#39;{}&#39;&quot;</span>, url);
-            }
-            PackageSpecifier::Path(<span class="kw">_</span>) =&gt; {
-                <span class="macro">bail!</span>(<span class="string">&quot;cannot download a package from a local path&quot;</span>);
-            }
-        };
-
-        <span class="kw">let </span>package = wasmer_registry::query_package_from_registry(
-            api_endpoint.as_str(),
-            full_name,
-            version.as_deref(),
-            token.as_deref(),
-        )
-        .with_context(|| {
-            <span class="macro">format!</span>(
+                .with_context(|| {
+                    <span class="macro">format!</span>(
                 <span class="string">&quot;could not retrieve package information for package &#39;{}&#39; from registry &#39;{}&#39;&quot;</span>,
-                full_name, api_endpoint,
+                full_name, endpoint,
             )
-        })<span class="question-mark">?</span>;
+                })<span class="question-mark">?</span>;
 
-        <span class="kw">let </span>download_url = package
-            .pirita_url
-            .context(<span class="string">&quot;registry does provide a container download container download URL&quot;</span>)<span class="question-mark">?</span>;
+                <span class="kw">let </span>download_url = package
+                    .pirita_url
+                    .context(<span class="string">&quot;registry does provide a container download container download URL&quot;</span>)<span class="question-mark">?</span>;
+
+                (download_url, token)
+            }
+            PackageSource::Ident(PackageIdent::Hash(hash)) =&gt; {
+                <span class="kw">let </span>endpoint = <span class="self">self</span>.env.registry_endpoint()<span class="question-mark">?</span>;
+                <span class="kw">let </span>token = <span class="self">self</span>.env.get_token_opt().map(|x| x.to_string());
+
+                <span class="kw">let </span>client = wasmer_api::WasmerClient::new(endpoint, <span class="string">&quot;wasmer-cli&quot;</span>)<span class="question-mark">?</span>;
+                <span class="kw">let </span>client = <span class="kw">if let </span><span class="prelude-val">Some</span>(token) = <span class="kw-2">&amp;</span>token {
+                    client.with_auth_token(token.clone())
+                } <span class="kw">else </span>{
+                    client
+                };
+
+                <span class="kw">let </span>rt = tokio::runtime::Runtime::new()<span class="question-mark">?</span>;
+                <span class="kw">let </span>pkg = rt.block_on(wasmer_api::query::get_package_release(<span class="kw-2">&amp;</span>client, <span class="kw-2">&amp;</span>hash.to_string()))<span class="question-mark">?
+                    </span>.with_context(|| <span class="macro">format!</span>(<span class="string">&quot;Package with {hash} does not exist in the registry, or is not accessible&quot;</span>))<span class="question-mark">?</span>;
+
+                (pkg.webc_url, token)
+            }
+            PackageSource::Path(p) =&gt; <span class="macro">bail!</span>(<span class="string">&quot;cannot download a package from a local path: &#39;{p}&#39;&quot;</span>),
+            PackageSource::Url(url) =&gt; <span class="macro">bail!</span>(<span class="string">&quot;cannot download a package from a URL: &#39;{}&#39;&quot;</span>, url),
+        };
 
         <span class="kw">let </span>client = reqwest::blocking::Client::new();
         <span class="kw">let </span><span class="kw-2">mut </span>b = client

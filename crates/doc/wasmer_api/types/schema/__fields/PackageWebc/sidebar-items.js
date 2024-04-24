@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":["__typename","clientName","createdAt","id","isArchived","package","piritaManifest","piritaOffsets","piritaVolumes","publishedBy","tag","updatedAt","webc","webcUrl"]};
+window.SIDEBAR_ITEMS = {"struct":["__typename","clientName","createdAt","id","isArchived","package","piritaManifest","piritaOffsets","piritaVolumes","publishedBy","tag","updatedAt","webc","webcUrl","webcV3"]};

@@ -195,23 +195,65 @@
 <a href="#195" id="195">195</a>
 <a href="#196" id="196">196</a>
 <a href="#197" id="197">197</a>
+<a href="#198" id="198">198</a>
+<a href="#199" id="199">199</a>
+<a href="#200" id="200">200</a>
+<a href="#201" id="201">201</a>
+<a href="#202" id="202">202</a>
+<a href="#203" id="203">203</a>
+<a href="#204" id="204">204</a>
+<a href="#205" id="205">205</a>
+<a href="#206" id="206">206</a>
+<a href="#207" id="207">207</a>
+<a href="#208" id="208">208</a>
+<a href="#209" id="209">209</a>
+<a href="#210" id="210">210</a>
+<a href="#211" id="211">211</a>
+<a href="#212" id="212">212</a>
+<a href="#213" id="213">213</a>
+<a href="#214" id="214">214</a>
+<a href="#215" id="215">215</a>
+<a href="#216" id="216">216</a>
+<a href="#217" id="217">217</a>
+<a href="#218" id="218">218</a>
+<a href="#219" id="219">219</a>
+<a href="#220" id="220">220</a>
+<a href="#221" id="221">221</a>
+<a href="#222" id="222">222</a>
+<a href="#223" id="223">223</a>
+<a href="#224" id="224">224</a>
+<a href="#225" id="225">225</a>
+<a href="#226" id="226">226</a>
+<a href="#227" id="227">227</a>
+<a href="#228" id="228">228</a>
+<a href="#229" id="229">229</a>
+<a href="#230" id="230">230</a>
+<a href="#231" id="231">231</a>
+<a href="#232" id="232">232</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{
-    collections::{BTreeMap, VecDeque},
+    collections::{BTreeMap, HashMap, VecDeque},
     fs::File,
     path::{Path, PathBuf},
 };
 
 <span class="kw">use </span>anyhow::{Context, Error};
-<span class="kw">use </span>semver::Version;
+<span class="kw">use </span>wasmer_config::package::{NamedPackageId, PackageHash, PackageId, PackageIdent, PackageSource};
 
-<span class="kw">use </span><span class="kw">crate</span>::runtime::resolver::{PackageSpecifier, PackageSummary, QueryError, Source};
+<span class="kw">use </span><span class="kw">crate</span>::runtime::resolver::{PackageSummary, QueryError, Source};
 
 <span class="doccomment">/// A [`Source`] that tracks packages in memory.
 ///
 /// Primarily used during testing.
 </span><span class="attr">#[derive(Debug, Default, Clone, PartialEq, Eq)]
 </span><span class="kw">pub struct </span>InMemorySource {
-    packages: BTreeMap&lt;String, Vec&lt;PackageSummary&gt;&gt;,
+    named_packages: BTreeMap&lt;String, Vec&lt;NamedPackageSummary&gt;&gt;,
+    hash_packages: HashMap&lt;PackageHash, PackageSummary&gt;,
+}
+
+<span class="attr">#[derive(Debug, Clone, PartialEq, Eq)]
+</span><span class="kw">struct </span>NamedPackageSummary {
+    ident: NamedPackageId,
+    summary: PackageSummary,
 }
 
 <span class="kw">impl </span>InMemorySource {
@@ -259,10 +301,20 @@
 
     <span class="doccomment">/// Add a new [`PackageSummary`] to the [`InMemorySource`].
     </span><span class="kw">pub fn </span>add(<span class="kw-2">&amp;mut </span><span class="self">self</span>, summary: PackageSummary) {
-        <span class="kw">let </span>summaries = <span class="self">self</span>.packages.entry(summary.pkg.name.clone()).or_default();
-        summaries.push(summary);
-        summaries.sort_by(|left, right| left.pkg.version.cmp(<span class="kw-2">&amp;</span>right.pkg.version));
-        summaries.dedup_by(|left, right| left.pkg.version == right.pkg.version);
+        <span class="kw">match </span>summary.pkg.id.clone() {
+            PackageId::Named(ident) =&gt; {
+                <span class="kw">let </span>summaries = <span class="self">self
+                    </span>.named_packages
+                    .entry(ident.full_name.clone())
+                    .or_default();
+                summaries.push(NamedPackageSummary { ident, summary });
+                summaries.sort_by(|left, right| left.ident.version.cmp(<span class="kw-2">&amp;</span>right.ident.version));
+                summaries.dedup_by(|left, right| left.ident.version == right.ident.version);
+            }
+            PackageId::Hash(hash) =&gt; {
+                <span class="self">self</span>.hash_packages.insert(hash, summary);
+            }
+        }
     }
 
     <span class="kw">pub fn </span>add_webc(<span class="kw-2">&amp;mut </span><span class="self">self</span>, path: <span class="kw">impl </span>AsRef&lt;Path&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt; {
@@ -272,35 +324,45 @@
         <span class="prelude-val">Ok</span>(())
     }
 
-    <span class="kw">pub fn </span>packages(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>BTreeMap&lt;String, Vec&lt;PackageSummary&gt;&gt; {
-        <span class="kw-2">&amp;</span><span class="self">self</span>.packages
-    }
-
-    <span class="kw">pub fn </span>get(<span class="kw-2">&amp;</span><span class="self">self</span>, package_name: <span class="kw-2">&amp;</span>str, version: <span class="kw-2">&amp;</span>Version) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>PackageSummary&gt; {
-        <span class="kw">let </span>summaries = <span class="self">self</span>.packages.get(package_name)<span class="question-mark">?</span>;
-        summaries.iter().find(|s| s.pkg.version == <span class="kw-2">*</span>version)
+    <span class="kw">pub fn </span>get(<span class="kw-2">&amp;</span><span class="self">self</span>, id: <span class="kw-2">&amp;</span>PackageId) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>PackageSummary&gt; {
+        <span class="kw">match </span>id {
+            PackageId::Named(ident) =&gt; {
+                <span class="self">self</span>.named_packages
+                    .get(<span class="kw-2">&amp;</span>ident.full_name)
+                    .and_then(|summaries| {
+                        summaries
+                            .iter()
+                            .find(|s| s.ident.version == ident.version)
+                            .map(|s| <span class="kw-2">&amp;</span>s.summary)
+                    })
+            }
+            PackageId::Hash(hash) =&gt; <span class="self">self</span>.hash_packages.get(hash),
+        }
     }
 }
 
 <span class="attr">#[async_trait::async_trait]
 </span><span class="kw">impl </span>Source <span class="kw">for </span>InMemorySource {
     <span class="attr">#[tracing::instrument(level = <span class="string">&quot;debug&quot;</span>, skip_all, fields(%package))]
-    </span><span class="kw">async fn </span>query(<span class="kw-2">&amp;</span><span class="self">self</span>, package: <span class="kw-2">&amp;</span>PackageSpecifier) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;PackageSummary&gt;, QueryError&gt; {
+    </span><span class="kw">async fn </span>query(<span class="kw-2">&amp;</span><span class="self">self</span>, package: <span class="kw-2">&amp;</span>PackageSource) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;PackageSummary&gt;, QueryError&gt; {
         <span class="kw">match </span>package {
-            PackageSpecifier::Registry { full_name, version } =&gt; {
-                <span class="kw">match </span><span class="self">self</span>.packages.get(full_name) {
+            PackageSource::Ident(PackageIdent::Named(named)) =&gt; {
+                <span class="kw">match </span><span class="self">self</span>.named_packages.get(<span class="kw-2">&amp;</span>named.full_name()) {
                     <span class="prelude-val">Some</span>(summaries) =&gt; {
                         <span class="kw">let </span>matches: Vec&lt;<span class="kw">_</span>&gt; = summaries
                             .iter()
-                            .filter(|summary| version.matches(<span class="kw-2">&amp;</span>summary.pkg.version))
-                            .cloned()
+                            .filter(|summary| {
+                                named.version_or_default().matches(<span class="kw-2">&amp;</span>summary.ident.version)
+                            })
+                            .map(|n| n.summary.clone())
                             .collect();
 
-                        <span class="macro">tracing::debug!</span>(
+                        <span class="macro">tracing::trace!</span>(
                             matches = <span class="question-mark">?</span>matches
                                 .iter()
-                                .map(|summary| summary.package_id().to_string())
+                                .map(|summary| summary.pkg.id.to_string())
                                 .collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;(),
+                            <span class="string">&quot;package resolution matches&quot;</span>,
                         );
 
                         <span class="kw">if </span>matches.is_empty() {
@@ -314,7 +376,14 @@
                     <span class="prelude-val">None </span>=&gt; <span class="prelude-val">Err</span>(QueryError::NotFound),
                 }
             }
-            PackageSpecifier::Url(<span class="kw">_</span>) | PackageSpecifier::Path(<span class="kw">_</span>) =&gt; <span class="prelude-val">Err</span>(QueryError::Unsupported),
+            PackageSource::Ident(PackageIdent::Hash(hash)) =&gt; <span class="self">self
+                </span>.hash_packages
+                .get(hash)
+                .map(|x| <span class="macro">vec!</span>[x.clone()])
+                .ok_or_else(|| QueryError::NoMatches {
+                    archived_versions: Vec::new(),
+                }),
+            PackageSource::Url(<span class="kw">_</span>) | PackageSource::Path(<span class="kw">_</span>) =&gt; <span class="prelude-val">Err</span>(QueryError::Unsupported),
         }
     }
 }
@@ -350,19 +419,20 @@
 
         <span class="macro">assert_eq!</span>(
             source
-                .packages
+                .named_packages
                 .keys()
                 .map(|k| k.as_str())
                 .collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;(),
             [<span class="string">&quot;python&quot;</span>, <span class="string">&quot;sharrattj/bash&quot;</span>, <span class="string">&quot;sharrattj/coreutils&quot;</span>]
         );
-        <span class="macro">assert_eq!</span>(source.packages[<span class="string">&quot;sharrattj/coreutils&quot;</span>].len(), <span class="number">2</span>);
+        <span class="macro">assert_eq!</span>(source.named_packages[<span class="string">&quot;sharrattj/coreutils&quot;</span>].len(), <span class="number">2</span>);
         <span class="macro">assert_eq!</span>(
-            source.packages[<span class="string">&quot;sharrattj/bash&quot;</span>][<span class="number">0</span>],
+            source.named_packages[<span class="string">&quot;sharrattj/bash&quot;</span>][<span class="number">0</span>].summary,
             PackageSummary {
                 pkg: PackageInfo {
-                    name: <span class="string">&quot;sharrattj/bash&quot;</span>.to_string(),
-                    version: <span class="string">&quot;1.0.16&quot;</span>.parse().unwrap(),
+                    id: PackageId::Named(
+                        NamedPackageId::try_new(<span class="string">&quot;sharrattj/bash&quot;</span>, <span class="string">&quot;1.0.16&quot;</span>).unwrap()
+                    ),
                     dependencies: <span class="macro">vec!</span>[Dependency {
                         alias: <span class="string">&quot;coreutils&quot;</span>.to_string(),
                         pkg: <span class="string">&quot;sharrattj/coreutils@^1.0.16&quot;</span>.parse().unwrap()
@@ -374,7 +444,7 @@
                     filesystem: <span class="macro">vec!</span>[FileSystemMapping {
                         volume_name: <span class="string">&quot;atom&quot;</span>.to_string(),
                         mount_path: <span class="string">&quot;/&quot;</span>.to_string(),
-                        original_path: <span class="string">&quot;/&quot;</span>.to_string(),
+                        original_path: <span class="prelude-val">Some</span>(<span class="string">&quot;/&quot;</span>.to_string()),
                         dependency_name: <span class="prelude-val">None</span>,
                     }],
                 },

@@ -499,6 +499,113 @@
 <a href="#499" id="499">499</a>
 <a href="#500" id="500">500</a>
 <a href="#501" id="501">501</a>
+<a href="#502" id="502">502</a>
+<a href="#503" id="503">503</a>
+<a href="#504" id="504">504</a>
+<a href="#505" id="505">505</a>
+<a href="#506" id="506">506</a>
+<a href="#507" id="507">507</a>
+<a href="#508" id="508">508</a>
+<a href="#509" id="509">509</a>
+<a href="#510" id="510">510</a>
+<a href="#511" id="511">511</a>
+<a href="#512" id="512">512</a>
+<a href="#513" id="513">513</a>
+<a href="#514" id="514">514</a>
+<a href="#515" id="515">515</a>
+<a href="#516" id="516">516</a>
+<a href="#517" id="517">517</a>
+<a href="#518" id="518">518</a>
+<a href="#519" id="519">519</a>
+<a href="#520" id="520">520</a>
+<a href="#521" id="521">521</a>
+<a href="#522" id="522">522</a>
+<a href="#523" id="523">523</a>
+<a href="#524" id="524">524</a>
+<a href="#525" id="525">525</a>
+<a href="#526" id="526">526</a>
+<a href="#527" id="527">527</a>
+<a href="#528" id="528">528</a>
+<a href="#529" id="529">529</a>
+<a href="#530" id="530">530</a>
+<a href="#531" id="531">531</a>
+<a href="#532" id="532">532</a>
+<a href="#533" id="533">533</a>
+<a href="#534" id="534">534</a>
+<a href="#535" id="535">535</a>
+<a href="#536" id="536">536</a>
+<a href="#537" id="537">537</a>
+<a href="#538" id="538">538</a>
+<a href="#539" id="539">539</a>
+<a href="#540" id="540">540</a>
+<a href="#541" id="541">541</a>
+<a href="#542" id="542">542</a>
+<a href="#543" id="543">543</a>
+<a href="#544" id="544">544</a>
+<a href="#545" id="545">545</a>
+<a href="#546" id="546">546</a>
+<a href="#547" id="547">547</a>
+<a href="#548" id="548">548</a>
+<a href="#549" id="549">549</a>
+<a href="#550" id="550">550</a>
+<a href="#551" id="551">551</a>
+<a href="#552" id="552">552</a>
+<a href="#553" id="553">553</a>
+<a href="#554" id="554">554</a>
+<a href="#555" id="555">555</a>
+<a href="#556" id="556">556</a>
+<a href="#557" id="557">557</a>
+<a href="#558" id="558">558</a>
+<a href="#559" id="559">559</a>
+<a href="#560" id="560">560</a>
+<a href="#561" id="561">561</a>
+<a href="#562" id="562">562</a>
+<a href="#563" id="563">563</a>
+<a href="#564" id="564">564</a>
+<a href="#565" id="565">565</a>
+<a href="#566" id="566">566</a>
+<a href="#567" id="567">567</a>
+<a href="#568" id="568">568</a>
+<a href="#569" id="569">569</a>
+<a href="#570" id="570">570</a>
+<a href="#571" id="571">571</a>
+<a href="#572" id="572">572</a>
+<a href="#573" id="573">573</a>
+<a href="#574" id="574">574</a>
+<a href="#575" id="575">575</a>
+<a href="#576" id="576">576</a>
+<a href="#577" id="577">577</a>
+<a href="#578" id="578">578</a>
+<a href="#579" id="579">579</a>
+<a href="#580" id="580">580</a>
+<a href="#581" id="581">581</a>
+<a href="#582" id="582">582</a>
+<a href="#583" id="583">583</a>
+<a href="#584" id="584">584</a>
+<a href="#585" id="585">585</a>
+<a href="#586" id="586">586</a>
+<a href="#587" id="587">587</a>
+<a href="#588" id="588">588</a>
+<a href="#589" id="589">589</a>
+<a href="#590" id="590">590</a>
+<a href="#591" id="591">591</a>
+<a href="#592" id="592">592</a>
+<a href="#593" id="593">593</a>
+<a href="#594" id="594">594</a>
+<a href="#595" id="595">595</a>
+<a href="#596" id="596">596</a>
+<a href="#597" id="597">597</a>
+<a href="#598" id="598">598</a>
+<a href="#599" id="599">599</a>
+<a href="#600" id="600">600</a>
+<a href="#601" id="601">601</a>
+<a href="#602" id="602">602</a>
+<a href="#603" id="603">603</a>
+<a href="#604" id="604">604</a>
+<a href="#605" id="605">605</a>
+<a href="#606" id="606">606</a>
+<a href="#607" id="607">607</a>
+<a href="#608" id="608">608</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::graphql::queries::get_signed_url::GetSignedUrlUrl;
 
 <span class="kw">use </span><span class="kw">crate</span>::graphql::subscriptions::package_version_ready::PackageVersionState;
@@ -512,17 +619,21 @@
 <span class="kw">use </span>console::{style, Emoji};
 <span class="kw">use </span>futures_util::StreamExt;
 <span class="kw">use </span>graphql_client::GraphQLQuery;
-<span class="kw">use </span>indicatif::{MultiProgress, ProgressBar, ProgressState, ProgressStyle};
+<span class="kw">use </span>indicatif::{ProgressBar, ProgressState, ProgressStyle};
 <span class="kw">use </span>std::collections::BTreeMap;
 <span class="kw">use </span>std::fmt::Write;
-<span class="kw">use </span>std::io::BufRead;
+<span class="kw">use </span>std::io::Write <span class="kw">as _</span>;
 <span class="kw">use </span>std::path::PathBuf;
+<span class="kw">use </span>std::str::FromStr;
 <span class="kw">use </span>std::sync::{Arc, Mutex};
-<span class="kw">use </span>std::thread;
 <span class="kw">use </span>std::time::Duration;
+<span class="kw">use </span>tokio::io::AsyncBufReadExt;
+<span class="kw">use </span>tokio::sync::oneshot::Receiver;
+<span class="kw">use </span>wasmer_config::package::{NamedPackageIdent, PackageHash, PackageIdent};
 
-<span class="kw">static </span>UPLOAD: Emoji&lt;<span class="lifetime">&#39;_</span>, <span class="lifetime">&#39;_</span>&gt; = Emoji(<span class="string">&quot;⬆️ &quot;</span>, <span class="string">&quot;&quot;</span>);
+<span class="kw">static </span>UPLOAD: Emoji&lt;<span class="lifetime">&#39;_</span>, <span class="lifetime">&#39;_</span>&gt; = Emoji(<span class="string">&quot;📤&quot;</span>, <span class="string">&quot;&quot;</span>);
 <span class="kw">static </span>PACKAGE: Emoji&lt;<span class="lifetime">&#39;_</span>, <span class="lifetime">&#39;_</span>&gt; = Emoji(<span class="string">&quot;📦&quot;</span>, <span class="string">&quot;&quot;</span>);
+<span class="kw">static </span>FIRE: Emoji&lt;<span class="lifetime">&#39;_</span>, <span class="lifetime">&#39;_</span>&gt; = Emoji(<span class="string">&quot;🔥&quot;</span>, <span class="string">&quot;&quot;</span>);
 
 <span class="doccomment">/// Different conditions that can be &quot;awaited&quot; when publishing a package.
 </span><span class="attr">#[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -576,11 +687,24 @@
     NoKeyRegistered,
 }
 
+<span class="kw">async fn </span>wait_on(<span class="kw-2">mut </span>recv: Receiver&lt;()&gt;) {
+    <span class="kw">loop </span>{
+        <span class="kw">_ </span>= std::io::stdout().flush();
+        <span class="kw">if </span>recv.try_recv().is_ok() {
+            <span class="macro">println!</span>(<span class="string">&quot;.&quot;</span>);
+            <span class="kw">break</span>;
+        } <span class="kw">else </span>{
+            tokio::time::sleep(Duration::from_secs(<span class="number">1</span>)).<span class="kw">await</span>;
+            <span class="macro">print!</span>(<span class="string">&quot;.&quot;</span>);
+        }
+    }
+}
+
 <span class="attr">#[allow(clippy::too_many_arguments)]
-</span><span class="kw">pub fn </span>try_chunked_uploading(
+</span><span class="kw">pub async fn </span>try_chunked_uploading(
     registry: <span class="prelude-ty">Option</span>&lt;String&gt;,
     token: <span class="prelude-ty">Option</span>&lt;String&gt;,
-    package: <span class="kw-2">&amp;</span>wasmer_toml::Package,
+    package: <span class="kw-2">&amp;</span><span class="prelude-ty">Option</span>&lt;wasmer_config::package::Package&gt;,
     manifest_string: <span class="kw-2">&amp;</span>String,
     license_file: <span class="kw-2">&amp;</span><span class="prelude-ty">Option</span>&lt;String&gt;,
     readme: <span class="kw-2">&amp;</span><span class="prelude-ty">Option</span>&lt;String&gt;,
@@ -591,8 +715,11 @@
     quiet: bool,
     wait: PublishWait,
     timeout: Duration,
-) -&gt; <span class="prelude-ty">Result</span>&lt;(), anyhow::Error&gt; {
+    patch_namespace: <span class="prelude-ty">Option</span>&lt;String&gt;,
+) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;PackageIdent&gt;, anyhow::Error&gt; {
     <span class="kw">let </span>(registry, token) = initialize_registry_and_token(registry, token)<span class="question-mark">?</span>;
+
+    <span class="kw">let </span>steps = <span class="kw">if </span>wait.is_any() { <span class="number">3 </span>} <span class="kw">else </span>{ <span class="number">2 </span>};
 
     <span class="kw">let </span>maybe_signature_data = sign_package(maybe_signature_data);
 
@@ -602,62 +729,119 @@
     </span><span class="kw">let </span>signed_url = google_signed_url(<span class="kw-2">&amp;</span>registry, <span class="kw-2">&amp;</span>token, package, timeout)<span class="question-mark">?</span>;
 
     <span class="kw">if </span>!quiet {
-        <span class="macro">println!</span>(<span class="string">&quot;{} {} Uploading...&quot;</span>, style(<span class="string">&quot;[1/2]&quot;</span>).bold().dim(), UPLOAD);
+        <span class="macro">println!</span>(
+            <span class="string">&quot;{} {} Uploading&quot;</span>,
+            style(<span class="macro">format!</span>(<span class="string">&quot;[1/{steps}]&quot;</span>)).bold().dim(),
+            UPLOAD
+        );
     }
-    upload_package(<span class="kw-2">&amp;</span>signed_url.url, archive_path, archived_data_size, timeout)<span class="question-mark">?</span>;
 
-    <span class="kw">if </span>!quiet {
-        <span class="macro">println!</span>(<span class="string">&quot;{} {} Publishing...&quot;</span>, style(<span class="string">&quot;[2/2]&quot;</span>).bold().dim(), PACKAGE);
-    }
+    upload_package(<span class="kw-2">&amp;</span>signed_url.url, archive_path, archived_data_size, timeout).<span class="kw">await</span><span class="question-mark">?</span>;
+
+    <span class="kw">let </span>name = package.as_ref().map(|p| p.name.clone());
+
+    <span class="kw">let </span>namespace = <span class="kw">match </span>patch_namespace {
+        <span class="prelude-val">Some</span>(n) =&gt; <span class="prelude-val">Some</span>(n),
+        <span class="prelude-val">None </span>=&gt; package
+            .as_ref()
+            .map(|p| String::from(p.name.split_once(<span class="string">&#39;/&#39;</span>).unwrap().<span class="number">0</span>)),
+    };
 
     <span class="kw">let </span>q =
         PublishPackageMutationChunked::build_query(publish_package_mutation_chunked::Variables {
-            name: package.name.to_string(),
-            version: package.version.to_string(),
-            description: package.description.clone(),
+            name,
+            namespace,
+            version: package.as_ref().map(|p| p.version.to_string()),
+            description: package.as_ref().map(|p| p.description.clone()),
             manifest: manifest_string.to_string(),
-            license: package.license.clone(),
+            license: package.as_ref().and_then(|p| p.license.clone()),
             license_file: license_file.to_owned(),
             readme: readme.to_owned(),
-            repository: package.repository.clone(),
-            homepage: package.homepage.clone(),
+            repository: package.as_ref().and_then(|p| p.repository.clone()),
+            homepage: package.as_ref().and_then(|p| p.homepage.clone()),
             file_name: <span class="prelude-val">Some</span>(archive_name.to_string()),
             signature: maybe_signature_data,
             signed_url: <span class="prelude-val">Some</span>(signed_url.url),
-            private: <span class="prelude-val">Some</span>(package.private),
+            private: <span class="prelude-val">Some</span>(<span class="kw">match </span>package {
+                <span class="prelude-val">Some</span>(p) =&gt; p.private,
+                <span class="prelude-val">None </span>=&gt; <span class="bool-val">true</span>,
+            }),
             wait: <span class="prelude-val">Some</span>(wait.is_any()),
         });
 
-    <span class="kw">let </span>response: publish_package_mutation_chunked::ResponseData =
-        <span class="kw">crate</span>::graphql::execute_query_with_timeout(<span class="kw-2">&amp;</span>registry, <span class="kw-2">&amp;</span>token, timeout, <span class="kw-2">&amp;</span>q)<span class="question-mark">?</span>;
+    <span class="macro">tracing::debug!</span>(<span class="string">&quot;{:#?}&quot;</span>, q);
 
-    <span class="kw">if let </span><span class="prelude-val">Some</span>(pkg) = response.publish_package {
-        <span class="kw">if </span>!pkg.success {
-            <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;Could not publish package&quot;</span>));
-        }
-        <span class="kw">if </span>wait.is_any() {
-            <span class="kw">let </span>f = wait_for_package_version_to_become_ready(
-                <span class="kw-2">&amp;</span>registry,
-                <span class="kw-2">&amp;</span>token,
-                pkg.package_version.id,
-                quiet,
-                wait,
-            );
+    <span class="kw">let </span>(send, recv) = tokio::sync::oneshot::channel();
+    <span class="kw">let </span><span class="kw-2">mut </span>wait_t = <span class="prelude-val">None</span>;
 
-            <span class="kw">if let </span><span class="prelude-val">Ok</span>(handle) = tokio::runtime::Handle::try_current() {
-                handle.block_on(f)<span class="question-mark">?
-            </span>} <span class="kw">else </span>{
-                tokio::runtime::Runtime::new().unwrap().block_on(f)<span class="question-mark">?</span>;
-            }
-        }
+    <span class="kw">if </span>!quiet {
+        <span class="macro">print!</span>(
+            <span class="string">&quot;{} {} Publishing package&quot;</span>,
+            style(<span class="macro">format!</span>(<span class="string">&quot;[2/{steps}]&quot;</span>)).bold().dim(),
+            PACKAGE
+        );
+
+        <span class="kw">_ </span>= std::io::stdout().flush();
+        wait_t = <span class="prelude-val">Some</span>(tokio::spawn(wait_on(recv)))
     }
 
-    <span class="macro">println!</span>(
-        <span class="string">&quot;🚀 Successfully published package `{}@{}`&quot;</span>,
-        package.name, package.version,
-    );
+    <span class="kw">let </span>response: publish_package_mutation_chunked::ResponseData = {
+        <span class="kw">let </span>registry = registry.clone();
+        <span class="kw">let </span>token = token.clone();
+        tokio::spawn(<span class="kw">async move </span>{
+            <span class="kw">crate</span>::graphql::execute_query_with_timeout(<span class="kw-2">&amp;</span>registry, <span class="kw-2">&amp;</span>token, timeout, <span class="kw-2">&amp;</span>q)
+        })
+        .<span class="kw">await</span><span class="question-mark">??
+    </span>};
 
-    <span class="prelude-val">Ok</span>(())
+    <span class="kw">_ </span>= send.send(());
+
+    <span class="kw">if let </span><span class="prelude-val">Some</span>(wait_t) = wait_t {
+        <span class="kw">_ </span>= wait_t.<span class="kw">await</span>;
+    };
+
+    <span class="macro">tracing::debug!</span>(<span class="string">&quot;{:#?}&quot;</span>, response);
+
+    <span class="kw">if let </span><span class="prelude-val">Some</span>(payload) = response.publish_package {
+        <span class="kw">if </span>!payload.success {
+            <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;Could not publish package&quot;</span>));
+        } <span class="kw">else if let </span><span class="prelude-val">Some</span>(pkg_version) = payload.package_version {
+            <span class="comment">// Here we can assume that the package is *Some*.
+            </span><span class="kw">let </span>package = package.clone().unwrap();
+
+            <span class="kw">if </span>wait.is_any() {
+                wait_for_package_version_to_become_ready(
+                    <span class="kw-2">&amp;</span>registry,
+                    <span class="kw-2">&amp;</span>token,
+                    pkg_version.id,
+                    quiet,
+                    wait,
+                    steps,
+                )
+                .<span class="kw">await</span><span class="question-mark">?</span>;
+            }
+
+            <span class="kw">let </span>package_ident = PackageIdent::Named(NamedPackageIdent::from_str(<span class="kw-2">&amp;</span><span class="macro">format!</span>(
+                <span class="string">&quot;{}@{}&quot;</span>,
+                package.name, package.version
+            ))<span class="question-mark">?</span>);
+            <span class="macro">eprintln!</span>(<span class="string">&quot;Package published successfully&quot;</span>);
+            <span class="comment">// println!(&quot;🚀 Successfully published package `{}`&quot;, package_ident);
+            </span><span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(package_ident));
+        } <span class="kw">else if let </span><span class="prelude-val">Some</span>(pkg_hash) = payload.package_webc {
+            <span class="kw">let </span>package_ident = PackageIdent::Hash(
+                PackageHash::from_str(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;sha256:{}&quot;</span>, pkg_hash.webc_v3.unwrap().webc_sha256))
+                    .unwrap(),
+            );
+            <span class="macro">eprintln!</span>(<span class="string">&quot;Package published successfully&quot;</span>);
+            <span class="comment">// println!(&quot;🚀 Successfully published package `{}`&quot;, package_ident);
+            </span><span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(package_ident));
+        }
+
+        <span class="macro">unreachable!</span>();
+    } <span class="kw">else </span>{
+        <span class="macro">unreachable!</span>();
+    }
 }
 
 <span class="kw">fn </span>initialize_registry_and_token(
@@ -726,12 +910,16 @@
 <span class="kw">fn </span>google_signed_url(
     registry: <span class="kw-2">&amp;</span>str,
     token: <span class="kw-2">&amp;</span>str,
-    package: <span class="kw-2">&amp;</span>wasmer_toml::Package,
+    package: <span class="kw-2">&amp;</span><span class="prelude-ty">Option</span>&lt;wasmer_config::package::Package&gt;,
     timeout: Duration,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;GetSignedUrlUrl, anyhow::Error&gt; {
     <span class="kw">let </span>get_google_signed_url = GetSignedUrl::build_query(get_signed_url::Variables {
-        name: package.name.to_string(),
-        version: package.version.to_string(),
+        name: package.as_ref().map(|p| p.name.to_string()),
+        version: package.as_ref().map(|p| p.version.to_string()),
+        filename: <span class="kw">match </span>package {
+            <span class="prelude-val">Some</span>(<span class="kw">_</span>) =&gt; <span class="prelude-val">None</span>,
+            <span class="prelude-val">None </span>=&gt; <span class="prelude-val">Some</span>(<span class="macro">format!</span>(<span class="string">&quot;unnamed_package_{}&quot;</span>, rand::random::&lt;usize&gt;())),
+        },
         expires_after_seconds: <span class="prelude-val">Some</span>(<span class="number">60 </span>* <span class="number">30</span>),
     });
 
@@ -742,24 +930,29 @@
         <span class="kw-2">&amp;</span>get_google_signed_url,
     )<span class="question-mark">?</span>;
 
-    <span class="kw">let </span>url = _response.url.ok_or_else(|| {
-        <span class="macro">anyhow::anyhow!</span>(
-            <span class="string">&quot;could not get signed url for package {}@{}&quot;</span>,
-            package.name,
-            package.version
-        )
+    <span class="kw">let </span>url = _response.url.ok_or_else(|| <span class="kw">match </span>package {
+        <span class="prelude-val">Some</span>(pkg) =&gt; {
+            <span class="macro">anyhow::anyhow!</span>(
+                <span class="string">&quot;could not get signed url for package {}@{}&quot;</span>,
+                pkg.name,
+                pkg.version
+            )
+        }
+        <span class="prelude-val">None </span>=&gt; {
+            <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;could not get signed url for unnamed package&quot;</span>,)
+        }
     })<span class="question-mark">?</span>;
     <span class="prelude-val">Ok</span>(url)
 }
 
-<span class="kw">fn </span>upload_package(
+<span class="kw">async fn </span>upload_package(
     signed_url: <span class="kw-2">&amp;</span>str,
     archive_path: <span class="kw-2">&amp;</span>PathBuf,
     archived_data_size: u64,
     timeout: Duration,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;(), anyhow::Error&gt; {
     <span class="kw">let </span>url = url::Url::parse(signed_url).context(<span class="string">&quot;cannot parse signed url&quot;</span>)<span class="question-mark">?</span>;
-    <span class="kw">let </span>client = reqwest::blocking::Client::builder()
+    <span class="kw">let </span>client = reqwest::Client::builder()
         .default_headers(reqwest::header::HeaderMap::default())
         .timeout(timeout)
         .build()
@@ -771,7 +964,7 @@
         .header(reqwest::header::CONTENT_TYPE, <span class="string">&quot;application/octet-stream&quot;</span>)
         .header(<span class="string">&quot;x-goog-resumable&quot;</span>, <span class="string">&quot;start&quot;</span>);
 
-    <span class="kw">let </span>result = res.send().unwrap();
+    <span class="kw">let </span>result = res.send().<span class="kw">await</span>.unwrap();
 
     <span class="kw">if </span>result.status() != reqwest::StatusCode::from_u16(<span class="number">201</span>).unwrap() {
         <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">anyhow::anyhow!</span>(
@@ -795,10 +988,11 @@
     <span class="kw">let </span>total = archived_data_size;
 
     <span class="comment">// archive_path
-    </span><span class="kw">let </span><span class="kw-2">mut </span>file = std::fs::OpenOptions::new()
+    </span><span class="kw">let </span><span class="kw-2">mut </span>file = tokio::fs::OpenOptions::new()
         .read(<span class="bool-val">true</span>)
         .open(archive_path)
-        .map_err(|e| <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;cannot open archive {}: {e}&quot;</span>, archive_path.display()))<span class="question-mark">?</span>;
+        .<span class="kw">await
+        </span>.map_err(|e| <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;cannot open archive {}: {e}&quot;</span>, archive_path.display()))<span class="question-mark">?</span>;
 
     <span class="kw">let </span>pb = ProgressBar::new(archived_data_size);
     pb.set_style(ProgressStyle::with_template(<span class="string">&quot;{spinner:.green} [{elapsed_precise}] [{wide_bar:.cyan/blue}] {bytes}/{total_bytes} ({eta})&quot;</span>)
@@ -811,14 +1005,14 @@
     <span class="kw">let </span>chunk_size = <span class="number">1_048_576</span>; <span class="comment">// 1MB - 315s / 100MB
     </span><span class="kw">let </span><span class="kw-2">mut </span>file_pointer = <span class="number">0</span>;
 
-    <span class="kw">let </span><span class="kw-2">mut </span>reader = std::io::BufReader::with_capacity(chunk_size, <span class="kw-2">&amp;mut </span>file);
+    <span class="kw">let </span><span class="kw-2">mut </span>reader = tokio::io::BufReader::with_capacity(chunk_size, <span class="kw-2">&amp;mut </span>file);
 
-    <span class="kw">let </span>client = reqwest::blocking::Client::builder()
+    <span class="kw">let </span>client = reqwest::Client::builder()
         .default_headers(reqwest::header::HeaderMap::default())
         .build()
         .unwrap();
 
-    <span class="kw">while let </span><span class="prelude-val">Some</span>(chunk) = reader.fill_buf().ok().map(|s| s.to_vec()) {
+    <span class="kw">while let </span><span class="prelude-val">Some</span>(chunk) = reader.fill_buf().<span class="kw">await</span>.ok().map(|s| s.to_vec()) {
         <span class="kw">let </span>n = chunk.len();
 
         <span class="kw">if </span>chunk.is_empty() {
@@ -839,7 +1033,8 @@
         pb.set_position(file_pointer <span class="kw">as </span>u64);
 
         res.send()
-            .map(|response| response.error_for_status())
+            .<span class="kw">await
+            </span>.map(|response| response.error_for_status())
             .map_err(|e| {
                 <span class="macro">anyhow::anyhow!</span>(
                     <span class="string">&quot;cannot send request to {session_uri} (chunk {}..{}): {e}&quot;</span>,
@@ -876,70 +1071,81 @@
     }
 }
 
-<span class="kw">fn </span>create_spinner(m: <span class="kw-2">&amp;</span>MultiProgress, message: String) -&gt; ProgressBar {
-    <span class="kw">let </span>spinner = m.add(ProgressBar::new_spinner());
-    spinner.set_message(message);
-    spinner.set_style(ProgressStyle::default_spinner());
-    spinner.enable_steady_tick(Duration::from_millis(<span class="number">100</span>));
-    spinner
-}
+<span class="comment">// fn create_spinner(m: &amp;MultiProgress, message: String) -&gt; ProgressBar {
+//     let spinner = m.add(ProgressBar::new_spinner());
+//     spinner.set_message(message);
+//     spinner.set_style(ProgressStyle::default_spinner());
+//     spinner.enable_steady_tick(Duration::from_millis(100));
+//     spinner
+// }
+//
+// fn show_spinners_while_waiting(state: &amp;PackageVersionReadySharedState) {
+//     // Clone shared state for threads
+//     let (state_webc, state_bindings, state_native) = (
+//         Arc::clone(&amp;state.webc_generated),
+//         Arc::clone(&amp;state.bindings_generated),
+//         Arc::clone(&amp;state.native_exes_generated),
+//     );
+//     let m = MultiProgress::new();
+//
+//     let webc_spinner = create_spinner(&amp;m, String::from(&quot;Generating package...&quot;));
+//     let bindings_spinner = create_spinner(&amp;m, String::from(&quot;Generating language bindings...&quot;));
+//     let exe_spinner = create_spinner(&amp;m, String::from(&quot;Generating native executables...&quot;));
+//
+//     let check_and_finish = |spinner: ProgressBar, state: Arc&lt;Mutex&lt;Option&lt;bool&gt;&gt;&gt;, name: String| {
+//         thread::spawn(move || loop {
+//             match state.lock() {
+//                 Ok(lock) =&gt; {
+//                     if lock.is_some() {
+//                         // spinner.finish_with_message(format!(&quot;✅ {} generation complete&quot;, name));
+//                         spinner.finish_and_clear();
+//                         break;
+//                     }
+//                 }
+//                 Err(_) =&gt; {
+//                     break;
+//                 }
+//             }
+//             thread::sleep(Duration::from_millis(100));
+//         });
+//     };
+//     check_and_finish(webc_spinner, state_webc, String::from(&quot;package&quot;));
+//     check_and_finish(
+//         bindings_spinner,
+//         state_bindings,
+//         String::from(&quot;Language bindings&quot;),
+//     );
+//     check_and_finish(
+//         exe_spinner,
+//         state_native,
+//         String::from(&quot;Native executables&quot;),
+//     );
+// }
 
-<span class="kw">fn </span>show_spinners_while_waiting(state: <span class="kw-2">&amp;</span>PackageVersionReadySharedState) {
-    <span class="comment">// Clone shared state for threads
-    </span><span class="kw">let </span>(state_webc, state_bindings, state_native) = (
-        Arc::clone(<span class="kw-2">&amp;</span>state.webc_generated),
-        Arc::clone(<span class="kw-2">&amp;</span>state.bindings_generated),
-        Arc::clone(<span class="kw-2">&amp;</span>state.native_exes_generated),
-    );
-    <span class="kw">let </span>m = MultiProgress::new();
-
-    <span class="kw">let </span>webc_spinner = create_spinner(<span class="kw-2">&amp;</span>m, String::from(<span class="string">&quot;Generating WEBC...&quot;</span>));
-    <span class="kw">let </span>bindings_spinner = create_spinner(<span class="kw-2">&amp;</span>m, String::from(<span class="string">&quot;Generating language bindings...&quot;</span>));
-    <span class="kw">let </span>exe_spinner = create_spinner(<span class="kw-2">&amp;</span>m, String::from(<span class="string">&quot;Generating native executables...&quot;</span>));
-
-    <span class="kw">let </span>check_and_finish = |spinner: ProgressBar, state: Arc&lt;Mutex&lt;<span class="prelude-ty">Option</span>&lt;bool&gt;&gt;&gt;, name: String| {
-        thread::spawn(<span class="kw">move </span>|| <span class="kw">loop </span>{
-            <span class="kw">match </span>state.lock() {
-                <span class="prelude-val">Ok</span>(lock) =&gt; {
-                    <span class="kw">if </span>lock.is_some() {
-                        spinner.finish_with_message(<span class="macro">format!</span>(<span class="string">&quot;✅ {} generation complete&quot;</span>, name));
-                        <span class="kw">break</span>;
-                    }
-                }
-                <span class="prelude-val">Err</span>(<span class="kw">_</span>) =&gt; {
-                    <span class="kw">break</span>;
-                }
-            }
-            thread::sleep(Duration::from_millis(<span class="number">100</span>));
-        });
-    };
-    check_and_finish(webc_spinner, state_webc, String::from(<span class="string">&quot;WEBC&quot;</span>));
-    check_and_finish(
-        bindings_spinner,
-        state_bindings,
-        String::from(<span class="string">&quot;Language bindings&quot;</span>),
-    );
-    check_and_finish(
-        exe_spinner,
-        state_native,
-        String::from(<span class="string">&quot;Native executables&quot;</span>),
-    );
-}
-
-<span class="kw">async fn </span>wait_for_package_version_to_become_ready(
+</span><span class="kw">async fn </span>wait_for_package_version_to_become_ready(
     registry: <span class="kw-2">&amp;</span>str,
     token: <span class="kw-2">&amp;</span>str,
     package_version_id: <span class="kw">impl </span>AsRef&lt;str&gt;,
     quiet: bool,
     <span class="kw-2">mut </span>conditions: PublishWait,
+    steps: usize,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
     <span class="kw">let </span>(<span class="kw-2">mut </span>stream, _client) =
         subscribe_package_version_ready(registry, token, package_version_id.as_ref()).<span class="kw">await</span><span class="question-mark">?</span>;
 
     <span class="kw">let </span>state = PackageVersionReadySharedState::new();
 
+    <span class="kw">let </span>(send, recv) = tokio::sync::oneshot::channel();
+    <span class="kw">let </span><span class="kw-2">mut </span>wait_t = <span class="prelude-val">None</span>;
+
     <span class="kw">if </span>!quiet {
-        show_spinners_while_waiting(<span class="kw-2">&amp;</span>state);
+        <span class="macro">print!</span>(
+            <span class="string">&quot;{} {} Waiting for package to be available&quot;</span>,
+            style(<span class="macro">format!</span>(<span class="string">&quot;[3/{steps}]&quot;</span>)).bold().dim(),
+            FIRE
+        );
+        <span class="kw">_ </span>= std::io::stdout().flush();
+        wait_t = <span class="prelude-val">Some</span>(tokio::spawn(wait_on(recv)));
     }
 
     <span class="kw">if </span>!conditions.is_any() {
@@ -956,6 +1162,7 @@
             <span class="kw">break</span>;
         }
         <span class="kw">if </span>std::time::Instant::now() &gt; deadline {
+            <span class="kw">_ </span>= send.send(());
             <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">anyhow::anyhow!</span>(
                 <span class="string">&quot;Timed out waiting for package version to become ready&quot;
             </span>));
@@ -963,9 +1170,10 @@
 
         <span class="kw">let </span>data = <span class="kw">match </span>tokio::time::timeout_at(deadline.into(), stream.next()).<span class="kw">await </span>{
             <span class="prelude-val">Err</span>(<span class="kw">_</span>) =&gt; {
+                <span class="kw">_ </span>= send.send(());
                 <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">anyhow::anyhow!</span>(
                     <span class="string">&quot;Timed out waiting for package version to become ready&quot;
-                </span>))
+                </span>));
             }
             <span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>) =&gt; {
                 <span class="kw">break</span>;
@@ -996,6 +1204,12 @@
                 PackageVersionState::Other(<span class="kw">_</span>) =&gt; {}
             }
         }
+    }
+
+    <span class="kw">_ </span>= send.send(());
+
+    <span class="kw">if let </span><span class="prelude-val">Some</span>(wait_t) = wait_t {
+        <span class="kw">_ </span>= wait_t.<span class="kw">await</span>;
     }
 
     <span class="prelude-val">Ok</span>(())

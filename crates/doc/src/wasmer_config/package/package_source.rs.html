@@ -365,6 +365,12 @@
 <a href="#365" id="365">365</a>
 <a href="#366" id="366">366</a>
 <a href="#367" id="367">367</a>
+<a href="#368" id="368">368</a>
+<a href="#369" id="369">369</a>
+<a href="#370" id="370">370</a>
+<a href="#371" id="371">371</a>
+<a href="#372" id="372">372</a>
+<a href="#373" id="373">373</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::str::FromStr;
 
 <span class="kw">use super</span>::{
@@ -372,7 +378,7 @@
 };
 
 <span class="doccomment">/// Source location of a package.
-</span><span class="attr">#[derive(PartialEq, Eq, Clone, Debug)]
+</span><span class="attr">#[derive(PartialEq, Eq, Clone, Debug, Hash)]
 </span><span class="kw">pub enum </span>PackageSource {
     <span class="doccomment">/// An identifier in the format prescribed by [`WebcIdent`].
     </span>Ident(PackageIdent),
@@ -474,6 +480,12 @@
                 .parse::&lt;url::Url&gt;()
                 .map_err(|e| PackageParseError::new(value, e.to_string()))<span class="question-mark">?</span>;
             <span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="self">Self</span>::Url(url));
+        }
+
+        <span class="attr">#[cfg(windows)]
+        </span><span class="comment">// Detect windows absolute paths
+        </span><span class="kw">if </span>value.contains(<span class="string">&#39;\\&#39;</span>) {
+            <span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="self">Self</span>::Path(value.to_string()));
         }
 
         <span class="kw">match </span>first_char {

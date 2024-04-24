@@ -1062,6 +1062,33 @@
 <a href="#1062" id="1062">1062</a>
 <a href="#1063" id="1063">1063</a>
 <a href="#1064" id="1064">1064</a>
+<a href="#1065" id="1065">1065</a>
+<a href="#1066" id="1066">1066</a>
+<a href="#1067" id="1067">1067</a>
+<a href="#1068" id="1068">1068</a>
+<a href="#1069" id="1069">1069</a>
+<a href="#1070" id="1070">1070</a>
+<a href="#1071" id="1071">1071</a>
+<a href="#1072" id="1072">1072</a>
+<a href="#1073" id="1073">1073</a>
+<a href="#1074" id="1074">1074</a>
+<a href="#1075" id="1075">1075</a>
+<a href="#1076" id="1076">1076</a>
+<a href="#1077" id="1077">1077</a>
+<a href="#1078" id="1078">1078</a>
+<a href="#1079" id="1079">1079</a>
+<a href="#1080" id="1080">1080</a>
+<a href="#1081" id="1081">1081</a>
+<a href="#1082" id="1082">1082</a>
+<a href="#1083" id="1083">1083</a>
+<a href="#1084" id="1084">1084</a>
+<a href="#1085" id="1085">1085</a>
+<a href="#1086" id="1086">1086</a>
+<a href="#1087" id="1087">1087</a>
+<a href="#1088" id="1088">1088</a>
+<a href="#1089" id="1089">1089</a>
+<a href="#1090" id="1090">1090</a>
+<a href="#1091" id="1091">1091</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::io::{<span class="self">self</span>, Write};
 <span class="kw">use </span>std::path::{Path, PathBuf};
 <span class="kw">use </span>std::time::Duration;
@@ -1073,10 +1100,11 @@
 <span class="kw">use </span>tar::Builder;
 <span class="kw">use </span>thiserror::Error;
 <span class="kw">use </span>time::{<span class="self">self</span>, OffsetDateTime};
+<span class="kw">use </span>wasmer_config::package::{PackageIdent, MANIFEST_FILE_NAME};
 
 <span class="kw">use </span><span class="kw">crate</span>::publish::PublishWait;
+<span class="kw">use </span><span class="kw">crate</span>::WasmerConfig;
 <span class="kw">use crate</span>::{package::builder::validate::ValidationPolicy, publish::SignArchiveResult};
-<span class="kw">use crate</span>::{WasmerConfig, PACKAGE_TOML_FALLBACK_NAME};
 
 <span class="kw">const </span>MIGRATIONS: <span class="kw-2">&amp;</span>[(i32, <span class="kw-2">&amp;</span>str)] = <span class="kw-2">&amp;</span>[
     (<span class="number">0</span>, <span class="macro">include_str!</span>(<span class="string">&quot;./sql/migrations/0000.sql&quot;</span>)),
@@ -1086,7 +1114,8 @@
 
 <span class="kw">const </span>CURRENT_DATA_VERSION: usize = MIGRATIONS.len();
 
-<span class="doccomment">/// CLI options for the `wasmer publish` command
+<span class="doccomment">/// An abstraction for the action of publishing a named or unnamed package.
+</span><span class="attr">#[derive(Debug)]
 </span><span class="kw">pub struct </span>Publish {
     <span class="doccomment">/// Registry to publish to
     </span><span class="kw">pub </span>registry: <span class="prelude-ty">Option</span>&lt;String&gt;,
@@ -1094,7 +1123,9 @@
     </span><span class="kw">pub </span>dry_run: bool,
     <span class="doccomment">/// Run the publish command without any output
     </span><span class="kw">pub </span>quiet: bool,
-    <span class="doccomment">/// Override the package of the uploaded package in the wasmer.toml
+    <span class="doccomment">/// Override the namespace of the package to upload
+    </span><span class="kw">pub </span>package_namespace: <span class="prelude-ty">Option</span>&lt;String&gt;,
+    <span class="doccomment">/// Override the name of the package to upload
     </span><span class="kw">pub </span>package_name: <span class="prelude-ty">Option</span>&lt;String&gt;,
     <span class="doccomment">/// Override the package version of the uploaded package in the wasmer.toml
     </span><span class="kw">pub </span>version: <span class="prelude-ty">Option</span>&lt;semver::Version&gt;,
@@ -1127,8 +1158,8 @@
 }
 
 <span class="kw">impl </span>Publish {
-    <span class="doccomment">/// Executes `wasmer publish`
-    </span><span class="kw">pub fn </span>execute(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;(), anyhow::Error&gt; {
+    <span class="doccomment">/// Publish the package to the selected (or default) registry.
+    </span><span class="kw">pub async fn </span>execute(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;PackageIdent&gt;, anyhow::Error&gt; {
         <span class="kw">let </span>input_path = <span class="kw">match </span><span class="self">self</span>.package_path.as_ref() {
             <span class="prelude-val">Some</span>(s) =&gt; std::env::current_dir()<span class="question-mark">?</span>.join(s),
             <span class="prelude-val">None </span>=&gt; std::env::current_dir()<span class="question-mark">?</span>,
@@ -1169,7 +1200,7 @@
         <span class="kw">let </span>manifest = std::fs::read_to_string(<span class="kw-2">&amp;</span>manifest_path)
             .map_err(|e| <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;could not find manifest: {e}&quot;</span>))
             .with_context(|| <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;{}&quot;</span>, manifest_path.display()))<span class="question-mark">?</span>;
-        <span class="kw">let </span><span class="kw-2">mut </span>manifest = wasmer_toml::Manifest::parse(<span class="kw-2">&amp;</span>manifest)<span class="question-mark">?</span>;
+        <span class="kw">let </span><span class="kw-2">mut </span>manifest = wasmer_config::package::Manifest::parse(<span class="kw-2">&amp;</span>manifest)<span class="question-mark">?</span>;
 
         <span class="kw">let </span>manifest_path_canon = manifest_path.canonicalize()<span class="question-mark">?</span>;
         <span class="kw">let </span>manifest_dir = manifest_path_canon
@@ -1178,11 +1209,15 @@
             </span>.to_owned();
 
         <span class="kw">if let </span><span class="prelude-val">Some</span>(package_name) = <span class="self">self</span>.package_name.as_ref() {
-            manifest.package.name = package_name.to_string();
+            <span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">ref mut </span>package) = manifest.package {
+                package.name = package_name.clone();
+            }
         }
 
         <span class="kw">if let </span><span class="prelude-val">Some</span>(version) = <span class="self">self</span>.version.as_ref() {
-            manifest.package.version = version.clone();
+            <span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">ref mut </span>package) = manifest.package {
+                package.version = version.clone();
+            }
         }
 
         <span class="kw">let </span>archive_dir = tempfile::TempDir::new()<span class="question-mark">?</span>;
@@ -1222,11 +1257,7 @@
 
         <span class="kw">if </span><span class="self">self</span>.dry_run {
             <span class="comment">// dry run: publish is done here
-
-            </span><span class="macro">println!</span>(
-                <span class="string">&quot;🚀 Successfully published package `{}@{}`&quot;</span>,
-                manifest.package.name, manifest.package.version
-            );
+            </span><span class="macro">println!</span>(<span class="string">&quot;🚀 Package published successfully!&quot;</span>);
 
             <span class="kw">let </span>path = archive_dir.into_path();
             <span class="macro">eprintln!</span>(<span class="string">&quot;Archive persisted at: {}&quot;</span>, path.display());
@@ -1235,7 +1266,7 @@
                 <span class="string">&quot;Publish succeeded, but package was not published because it was run in dry-run mode&quot;
             </span>);
 
-            <span class="kw">return </span><span class="prelude-val">Ok</span>(());
+            <span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>);
         }
 
         <span class="kw">crate</span>::publish::try_chunked_uploading(
@@ -1258,8 +1289,10 @@
             <span class="self">self</span>.quiet,
             <span class="self">self</span>.wait,
             <span class="self">self</span>.timeout,
+            <span class="self">self</span>.package_namespace.clone(),
         )
-    }
+        .<span class="kw">await
+    </span>}
 
     <span class="kw">fn </span>validation_policy(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Box&lt;<span class="kw">dyn </span>ValidationPolicy&gt; {
         <span class="kw">if </span><span class="self">self</span>.no_validate {
@@ -1281,7 +1314,7 @@
 
 <span class="kw">fn </span>construct_tar_gz(
     archive_dir: <span class="kw-2">&amp;</span>Path,
-    manifest: <span class="kw-2">&amp;</span>wasmer_toml::Manifest,
+    manifest: <span class="kw-2">&amp;</span>wasmer_config::package::Manifest,
     manifest_path: <span class="kw-2">&amp;</span>Path,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;ConstructedPackageArchive, anyhow::Error&gt; {
     <span class="comment">// This is an assert instead of returned error because this is a programmer error.
@@ -1292,32 +1325,47 @@
         .context(<span class="string">&quot;manifest path has no parent directory&quot;</span>)<span class="question-mark">?</span>;
 
     <span class="kw">let </span><span class="kw-2">mut </span>builder = Builder::new(Vec::new());
-    builder.append_path_with_name(manifest_path, PACKAGE_TOML_FALLBACK_NAME)<span class="question-mark">?</span>;
+    builder.append_path_with_name(
+        manifest_path,
+        manifest_path
+            .file_name()
+            .map(|s| s.to_str().unwrap_or_default())
+            .unwrap_or(MANIFEST_FILE_NAME),
+    )<span class="question-mark">?</span>;
 
     <span class="kw">let </span>manifest_string = toml::to_string(<span class="kw-2">&amp;</span>manifest)<span class="question-mark">?</span>;
 
-    <span class="kw">let </span>package = <span class="kw-2">&amp;</span>manifest.package;
     <span class="kw">let </span>modules = <span class="kw-2">&amp;</span>manifest.modules;
 
-    <span class="kw">let </span>readme = <span class="kw">match </span>package.readme.as_ref() {
-        <span class="prelude-val">None </span>=&gt; <span class="prelude-val">None</span>,
-        <span class="prelude-val">Some</span>(s) =&gt; {
-            <span class="kw">let </span>path = append_path_to_tar_gz(<span class="kw-2">&amp;mut </span>builder, manifest_dir, s).map_err(|(p, e)| {
-                PackageBuildError::ErrorBuildingPackage(<span class="macro">format!</span>(<span class="string">&quot;{}&quot;</span>, p.display()), e)
-            })<span class="question-mark">?</span>;
-            <span class="prelude-val">Some</span>(std::fs::read_to_string(path)<span class="question-mark">?</span>)
+    <span class="kw">let </span>readme = <span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">ref </span>package) = manifest.package {
+        <span class="kw">match </span>package.readme.as_ref() {
+            <span class="prelude-val">None </span>=&gt; <span class="prelude-val">None</span>,
+            <span class="prelude-val">Some</span>(s) =&gt; {
+                <span class="kw">let </span>path =
+                    append_path_to_tar_gz(<span class="kw-2">&amp;mut </span>builder, manifest_dir, s).map_err(|(p, e)| {
+                        PackageBuildError::ErrorBuildingPackage(<span class="macro">format!</span>(<span class="string">&quot;{}&quot;</span>, p.display()), e)
+                    })<span class="question-mark">?</span>;
+                <span class="prelude-val">Some</span>(std::fs::read_to_string(path)<span class="question-mark">?</span>)
+            }
         }
-    };
+    } <span class="kw">else </span>{
+        <span class="prelude-val">None
+    </span>};
 
-    <span class="kw">let </span>license = <span class="kw">match </span>package.license_file.as_ref() {
-        <span class="prelude-val">None </span>=&gt; <span class="prelude-val">None</span>,
-        <span class="prelude-val">Some</span>(s) =&gt; {
-            <span class="kw">let </span>path = append_path_to_tar_gz(<span class="kw-2">&amp;mut </span>builder, manifest_dir, s).map_err(|(p, e)| {
-                PackageBuildError::ErrorBuildingPackage(<span class="macro">format!</span>(<span class="string">&quot;{}&quot;</span>, p.display()), e)
-            })<span class="question-mark">?</span>;
-            <span class="prelude-val">Some</span>(std::fs::read_to_string(path)<span class="question-mark">?</span>)
+    <span class="kw">let </span>license = <span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">ref </span>package) = manifest.package {
+        <span class="kw">match </span>package.license_file.as_ref() {
+            <span class="prelude-val">None </span>=&gt; <span class="prelude-val">None</span>,
+            <span class="prelude-val">Some</span>(s) =&gt; {
+                <span class="kw">let </span>path =
+                    append_path_to_tar_gz(<span class="kw-2">&amp;mut </span>builder, manifest_dir, s).map_err(|(p, e)| {
+                        PackageBuildError::ErrorBuildingPackage(<span class="macro">format!</span>(<span class="string">&quot;{}&quot;</span>, p.display()), e)
+                    })<span class="question-mark">?</span>;
+                <span class="prelude-val">Some</span>(std::fs::read_to_string(path)<span class="question-mark">?</span>)
+            }
         }
-    };
+    } <span class="kw">else </span>{
+        <span class="prelude-val">None
+    </span>};
 
     <span class="kw">for </span>module <span class="kw">in </span>modules {
         append_path_to_tar_gz(<span class="kw-2">&amp;mut </span>builder, manifest_dir, <span class="kw-2">&amp;</span>module.source).map_err(
@@ -1676,7 +1724,7 @@
     };
 
     <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>validate_directory(
-        manifest: <span class="kw-2">&amp;</span>wasmer_toml::Manifest,
+        manifest: <span class="kw-2">&amp;</span>wasmer_config::package::Manifest,
         registry: <span class="kw-2">&amp;</span>str,
         pkg_path: PathBuf,
         callbacks: <span class="kw-2">&amp;mut </span><span class="kw">dyn </span>ValidationPolicy,
@@ -1694,10 +1742,12 @@
         <span class="kw">if </span>would_change_package_privacy(manifest, registry, auth_token)<span class="question-mark">?
             </span>&amp;&amp; callbacks.on_package_privacy_changed(manifest).is_break()
         {
-            <span class="kw">if </span>manifest.package.private {
-                <span class="kw">return </span><span class="prelude-val">Err</span>(ValidationError::WouldBecomePrivate.into());
-            } <span class="kw">else </span>{
-                <span class="kw">return </span><span class="prelude-val">Err</span>(ValidationError::WouldBecomePublic.into());
+            <span class="kw">if let </span><span class="prelude-val">Some</span>(package) = <span class="kw-2">&amp;</span>manifest.package {
+                <span class="kw">if </span>package.private {
+                    <span class="kw">return </span><span class="prelude-val">Err</span>(ValidationError::WouldBecomePrivate.into());
+                } <span class="kw">else </span>{
+                    <span class="kw">return </span><span class="prelude-val">Err</span>(ValidationError::WouldBecomePublic.into());
+                }
             }
         }
 
@@ -1708,29 +1758,33 @@
 
     <span class="doccomment">/// Check if publishing this manifest would change the package&#39;s privacy.
     </span><span class="kw">fn </span>would_change_package_privacy(
-        manifest: <span class="kw-2">&amp;</span>wasmer_toml::Manifest,
+        manifest: <span class="kw-2">&amp;</span>wasmer_config::package::Manifest,
         registry: <span class="kw-2">&amp;</span>str,
         auth_token: <span class="kw-2">&amp;</span>str,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;bool, ValidationError&gt; {
-        <span class="kw">let </span>result = <span class="kw">crate</span>::query_package_from_registry(
-            registry,
-            <span class="kw-2">&amp;</span>manifest.package.name,
-            <span class="prelude-val">None</span>,
-            <span class="prelude-val">Some</span>(auth_token),
-        );
+        <span class="kw">match </span><span class="kw-2">&amp;</span>manifest.package {
+            <span class="prelude-val">Some</span>(pkg) =&gt; {
+                <span class="kw">let </span>result =
+                    <span class="kw">crate</span>::query_package_from_registry(registry, <span class="kw-2">&amp;</span>pkg.name, <span class="prelude-val">None</span>, <span class="prelude-val">Some</span>(auth_token));
 
-        <span class="kw">match </span>result {
-            <span class="prelude-val">Ok</span>(package_version) =&gt; <span class="prelude-val">Ok</span>(package_version.is_private != manifest.package.private),
-            <span class="prelude-val">Err</span>(QueryPackageError::NoPackageFound { .. }) =&gt; {
-                <span class="comment">// The package hasn&#39;t been published yet
-                </span><span class="prelude-val">Ok</span>(<span class="bool-val">false</span>)
+                <span class="kw">match </span>result {
+                    <span class="prelude-val">Ok</span>(package_version) =&gt; <span class="prelude-val">Ok</span>(package_version.is_private != pkg.private),
+                    <span class="prelude-val">Err</span>(QueryPackageError::NoPackageFound { .. }) =&gt; {
+                        <span class="comment">// The package hasn&#39;t been published yet
+                        </span><span class="prelude-val">Ok</span>(<span class="bool-val">false</span>)
+                    }
+                    <span class="prelude-val">Err</span>(e) =&gt; <span class="prelude-val">Err</span>(e.into()),
+                }
             }
-            <span class="prelude-val">Err</span>(e) =&gt; <span class="prelude-val">Err</span>(e.into()),
+
+            <span class="comment">// This manifest refers to an unnamed package:
+            // as of now, unnamed packages are private by default.
+            </span><span class="prelude-val">None </span>=&gt; <span class="prelude-val">Ok</span>(<span class="bool-val">false</span>),
         }
     }
 
     <span class="kw">fn </span>validate_module(
-        module: <span class="kw-2">&amp;</span>wasmer_toml::Module,
+        module: <span class="kw-2">&amp;</span>wasmer_config::package::Module,
         registry: <span class="kw-2">&amp;</span>str,
         pkg_path: <span class="kw-2">&amp;</span>Path,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), ValidationError&gt; {
@@ -1815,7 +1869,7 @@
     }
 
     <span class="kw">fn </span>validate_bindings(
-        bindings: <span class="kw-2">&amp;</span>wasmer_toml::Bindings,
+        bindings: <span class="kw-2">&amp;</span>wasmer_config::package::Bindings,
         base_directory_path: <span class="kw-2">&amp;</span>Path,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), ValidationError&gt; {
         <span class="comment">// Note: checking for referenced files will make sure they all exist.
@@ -1834,7 +1888,7 @@
         <span class="attr">#[error(<span class="string">&quot;Failed to read file {file}; {error}&quot;</span>)]
         </span>MiscCannotRead { file: String, error: String },
         <span class="attr">#[error(transparent)]
-        </span>Imports(<span class="attr">#[from] </span>wasmer_toml::ImportsError),
+        </span>Imports(<span class="attr">#[from] </span>wasmer_config::package::ImportsError),
         <span class="attr">#[error(<span class="string">&quot;Unable to update the interfaces database&quot;</span>)]
         </span>UpdatingInterfaces(<span class="attr">#[source] </span>anyhow::Error),
         <span class="attr">#[error(<span class="string">&quot;Aborting because publishing the package would make it public&quot;</span>)]
@@ -1876,7 +1930,7 @@
         <span class="doccomment">/// How should publishing proceed when a module is invalid?
         </span><span class="kw">fn </span>on_invalid_module(
             <span class="kw-2">&amp;mut </span><span class="self">self</span>,
-            module: <span class="kw-2">&amp;</span>wasmer_toml::Module,
+            module: <span class="kw-2">&amp;</span>wasmer_config::package::Module,
             error: <span class="kw-2">&amp;</span>ValidationError,
         ) -&gt; ControlFlow&lt;(), ()&gt;;
 
@@ -1884,7 +1938,7 @@
         /// privacy? (i.e. by making a private package publicly available).
         </span><span class="kw">fn </span>on_package_privacy_changed(
             <span class="kw-2">&amp;mut </span><span class="self">self</span>,
-            manifest: <span class="kw-2">&amp;</span>wasmer_toml::Manifest,
+            manifest: <span class="kw-2">&amp;</span>wasmer_config::package::Manifest,
         ) -&gt; ControlFlow&lt;(), ()&gt;;
     }
 
@@ -1898,7 +1952,7 @@
 
         <span class="kw">fn </span>on_invalid_module(
             <span class="kw-2">&amp;mut </span><span class="self">self</span>,
-            _module: <span class="kw-2">&amp;</span>wasmer_toml::Module,
+            _module: <span class="kw-2">&amp;</span>wasmer_config::package::Module,
             _error: <span class="kw-2">&amp;</span>ValidationError,
         ) -&gt; ControlFlow&lt;(), ()&gt; {
             <span class="macro">unreachable!</span>()
@@ -1906,7 +1960,7 @@
 
         <span class="kw">fn </span>on_package_privacy_changed(
             <span class="kw-2">&amp;mut </span><span class="self">self</span>,
-            _manifest: <span class="kw-2">&amp;</span>wasmer_toml::Manifest,
+            _manifest: <span class="kw-2">&amp;</span>wasmer_config::package::Manifest,
         ) -&gt; ControlFlow&lt;(), ()&gt; {
             <span class="macro">unreachable!</span>()
         }
@@ -1922,7 +1976,7 @@
 
         <span class="kw">fn </span>on_invalid_module(
             <span class="kw-2">&amp;mut </span><span class="self">self</span>,
-            module: <span class="kw-2">&amp;</span>wasmer_toml::Module,
+            module: <span class="kw-2">&amp;</span>wasmer_config::package::Module,
             error: <span class="kw-2">&amp;</span>ValidationError,
         ) -&gt; ControlFlow&lt;(), ()&gt; {
             <span class="kw">let </span>module_name = <span class="kw-2">&amp;</span>module.name;
@@ -1948,30 +2002,30 @@
 
         <span class="kw">fn </span>on_package_privacy_changed(
             <span class="kw-2">&amp;mut </span><span class="self">self</span>,
-            manifest: <span class="kw-2">&amp;</span>wasmer_toml::Manifest,
+            manifest: <span class="kw-2">&amp;</span>wasmer_config::package::Manifest,
         ) -&gt; ControlFlow&lt;(), ()&gt; {
-            <span class="kw">let </span>privacy = <span class="kw">if </span>manifest.package.private {
-                <span class="string">&quot;private&quot;
-            </span>} <span class="kw">else </span>{
-                <span class="string">&quot;public&quot;
-            </span>};
-            <span class="kw">let </span>prompt =
-                <span class="macro">format!</span>(<span class="string">&quot;This will make the package {privacy}. Would you like to continue?&quot;</span>);
+            <span class="kw">if let </span><span class="prelude-val">Some</span>(pkg) = <span class="kw-2">&amp;</span>manifest.package {
+                <span class="kw">let </span>privacy = <span class="kw">if </span>pkg.private { <span class="string">&quot;private&quot; </span>} <span class="kw">else </span>{ <span class="string">&quot;public&quot; </span>};
+                <span class="kw">let </span>prompt =
+                    <span class="macro">format!</span>(<span class="string">&quot;This will make the package {privacy}. Would you like to continue?&quot;</span>);
 
-            <span class="kw">match </span>dialoguer::Confirm::new()
-                .with_prompt(prompt)
-                .default(<span class="bool-val">false</span>)
-                .interact()
-            {
-                <span class="prelude-val">Ok</span>(<span class="bool-val">true</span>) =&gt; ControlFlow::Continue(()),
-                <span class="prelude-val">Ok</span>(<span class="bool-val">false</span>) =&gt; ControlFlow::Break(()),
-                <span class="prelude-val">Err</span>(e) =&gt; {
-                    <span class="macro">tracing::error!</span>(
+                <span class="kw">match </span>dialoguer::Confirm::new()
+                    .with_prompt(prompt)
+                    .default(<span class="bool-val">false</span>)
+                    .interact()
+                {
+                    <span class="prelude-val">Ok</span>(<span class="bool-val">true</span>) =&gt; ControlFlow::Continue(()),
+                    <span class="prelude-val">Ok</span>(<span class="bool-val">false</span>) =&gt; ControlFlow::Break(()),
+                    <span class="prelude-val">Err</span>(e) =&gt; {
+                        <span class="macro">tracing::error!</span>(
                         error = <span class="kw-2">&amp;</span>e <span class="kw">as </span><span class="kw-2">&amp;</span><span class="kw">dyn </span>std::error::Error,
                         <span class="string">&quot;Unable to check whether the user wants to change the package&#39;s privacy&quot;</span>,
                     );
-                    ControlFlow::Break(())
+                        ControlFlow::Break(())
+                    }
                 }
+            } <span class="kw">else </span>{
+                ControlFlow::Continue(())
             }
         }
     }
@@ -1986,7 +2040,7 @@
 
         <span class="kw">fn </span>on_invalid_module(
             <span class="kw-2">&amp;mut </span><span class="self">self</span>,
-            _module: <span class="kw-2">&amp;</span>wasmer_toml::Module,
+            _module: <span class="kw-2">&amp;</span>wasmer_config::package::Module,
             _error: <span class="kw-2">&amp;</span>ValidationError,
         ) -&gt; ControlFlow&lt;(), ()&gt; {
             ControlFlow::Break(())
@@ -1994,7 +2048,7 @@
 
         <span class="kw">fn </span>on_package_privacy_changed(
             <span class="kw-2">&amp;mut </span><span class="self">self</span>,
-            _manifest: <span class="kw-2">&amp;</span>wasmer_toml::Manifest,
+            _manifest: <span class="kw-2">&amp;</span>wasmer_config::package::Manifest,
         ) -&gt; ControlFlow&lt;(), ()&gt; {
             ControlFlow::Break(())
         }
@@ -2035,7 +2089,7 @@ runner = &quot;https://webc.org/runner/wcgi&quot;
         std::fs::write(<span class="kw-2">&amp;</span>manifest_path, manifest_str).unwrap();
         std::fs::write(mp.join(<span class="string">&quot;module.wasm&quot;</span>), <span class="string">&quot;()&quot;</span>).unwrap();
 
-        <span class="kw">let </span>manifest = wasmer_toml::Manifest::parse(manifest_str).unwrap();
+        <span class="kw">let </span>manifest = wasmer_config::package::Manifest::parse(manifest_str).unwrap();
 
         <span class="kw">let </span>meta = construct_tar_gz(archive_dir.path(), <span class="kw-2">&amp;</span>manifest, <span class="kw-2">&amp;</span>manifest_path).unwrap();
 
@@ -2094,7 +2148,7 @@ exports = &quot;crum-sort.wai&quot;
         std::fs::write(mp.join(<span class="string">&quot;crumsort_wasm.wasm&quot;</span>), <span class="string">&quot;()&quot;</span>).unwrap();
         std::fs::write(mp.join(<span class="string">&quot;crum-sort.wai&quot;</span>), <span class="string">&quot;/// crum-sort.wai&quot;</span>).unwrap();
 
-        <span class="kw">let </span>manifest = wasmer_toml::Manifest::parse(manifest_str).unwrap();
+        <span class="kw">let </span>manifest = wasmer_config::package::Manifest::parse(manifest_str).unwrap();
         <span class="kw">let </span>meta = construct_tar_gz(archive_dir.path(), <span class="kw-2">&amp;</span>manifest, <span class="kw-2">&amp;</span>manifest_path).unwrap();
 
         <span class="kw">let </span><span class="kw-2">mut </span>data = std::io::Cursor::new(std::fs::read(meta.archive_path).unwrap());

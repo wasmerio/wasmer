@@ -585,6 +585,13 @@
 <a href="#585" id="585">585</a>
 <a href="#586" id="586">586</a>
 <a href="#587" id="587">587</a>
+<a href="#588" id="588">588</a>
+<a href="#589" id="589">589</a>
+<a href="#590" id="590">590</a>
+<a href="#591" id="591">591</a>
+<a href="#592" id="592">592</a>
+<a href="#593" id="593">593</a>
+<a href="#594" id="594">594</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{
     fmt::Write <span class="kw">as _</span>,
     io::Write,
@@ -598,13 +605,13 @@
 <span class="kw">use </span>sha2::{Digest, Sha256};
 <span class="kw">use </span>tempfile::NamedTempFile;
 <span class="kw">use </span>url::Url;
+<span class="kw">use </span>wasmer_config::package::{PackageHash, PackageId, PackageSource};
 <span class="kw">use </span>webc::compat::Container;
 
 <span class="kw">use crate</span>::{
     http::{HttpClient, HttpRequest},
     runtime::resolver::{
-        DistributionInfo, PackageInfo, PackageSpecifier, PackageSummary, QueryError, Source,
-        WebcHash,
+        DistributionInfo, PackageInfo, PackageSummary, QueryError, Source, WebcHash,
     },
 };
 
@@ -613,7 +620,7 @@
 /// # Implementation Notes
 ///
 /// Unlike other [`Source`] implementations, this will need to download
-/// a package if it is a [`PackageSpecifier::Url`]. Optionally, these downloaded
+/// a package if it is a [`PackageSource::Url`]. Optionally, these downloaded
 /// packages can be cached in a local directory.
 ///
 /// After a certain period ([`WebSource::with_retry_period()`]), the
@@ -816,9 +823,9 @@
 <span class="attr">#[async_trait::async_trait]
 </span><span class="kw">impl </span>Source <span class="kw">for </span>WebSource {
     <span class="attr">#[tracing::instrument(level = <span class="string">&quot;debug&quot;</span>, skip_all, fields(%package))]
-    </span><span class="kw">async fn </span>query(<span class="kw-2">&amp;</span><span class="self">self</span>, package: <span class="kw-2">&amp;</span>PackageSpecifier) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;PackageSummary&gt;, QueryError&gt; {
+    </span><span class="kw">async fn </span>query(<span class="kw-2">&amp;</span><span class="self">self</span>, package: <span class="kw-2">&amp;</span>PackageSource) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;PackageSummary&gt;, QueryError&gt; {
         <span class="kw">let </span>url = <span class="kw">match </span>package {
-            PackageSpecifier::Url(url) =&gt; url,
+            PackageSource::Url(url) =&gt; url,
             <span class="kw">_ </span>=&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(QueryError::Unsupported),
         };
 
@@ -834,7 +841,11 @@
         // our HTTP client gave us because then we can use memory-mapped files
         </span><span class="kw">let </span>container = <span class="kw">crate</span>::block_in_place(|| Container::from_disk(<span class="kw-2">&amp;</span>local_path))
             .with_context(|| <span class="macro">format!</span>(<span class="string">&quot;Unable to load \&quot;{}\&quot;&quot;</span>, local_path.display()))<span class="question-mark">?</span>;
-        <span class="kw">let </span>pkg = PackageInfo::from_manifest(container.manifest())
+
+        <span class="kw">let </span>id = PackageInfo::package_id_from_manifest(container.manifest())<span class="question-mark">?
+            </span>.unwrap_or_else(|| PackageId::Hash(PackageHash::from_sha256_bytes(webc_sha256.<span class="number">0</span>)));
+
+        <span class="kw">let </span>pkg = PackageInfo::from_manifest(id, container.manifest(), container.version())
             .context(<span class="string">&quot;Unable to determine the package&#39;s metadata&quot;</span>)<span class="question-mark">?</span>;
 
         <span class="kw">let </span>dist = DistributionInfo {
@@ -1041,13 +1052,13 @@
             .with_etag(dummy_etag)
             .build()]);
         <span class="kw">let </span>source = WebSource::new(temp.path(), Arc::new(client));
-        <span class="kw">let </span>spec = PackageSpecifier::Url(DUMMY_URL.parse().unwrap());
+        <span class="kw">let </span>spec = PackageSource::Url(DUMMY_URL.parse().unwrap());
 
         <span class="kw">let </span>summaries = source.query(<span class="kw-2">&amp;</span>spec).<span class="kw">await</span>.unwrap();
 
         <span class="comment">// We got the right response, as expected
         </span><span class="macro">assert_eq!</span>(summaries.len(), <span class="number">1</span>);
-        <span class="macro">assert_eq!</span>(summaries[<span class="number">0</span>].pkg.name, <span class="string">&quot;python&quot;</span>);
+        <span class="macro">assert_eq!</span>(summaries[<span class="number">0</span>].pkg.id.as_named().unwrap().full_name, <span class="string">&quot;python&quot;</span>);
         <span class="comment">// But we should have also cached the file and etag
         </span><span class="kw">let </span>path = temp.path().join(DUMMY_URL_HASH);
         <span class="macro">assert!</span>(path.exists());
@@ -1072,7 +1083,7 @@
         <span class="kw">let </span>temp = TempDir::new().unwrap();
         <span class="kw">let </span>client = Arc::new(DummyClient::with_responses([]));
         <span class="kw">let </span>source = WebSource::new(temp.path(), client.clone());
-        <span class="kw">let </span>spec = PackageSpecifier::Url(DUMMY_URL.parse().unwrap());
+        <span class="kw">let </span>spec = PackageSource::Url(DUMMY_URL.parse().unwrap());
         <span class="comment">// Prime the cache
         </span>std::fs::write(temp.path().join(DUMMY_URL_HASH), PYTHON).unwrap();
 
@@ -1080,7 +1091,7 @@
 
         <span class="comment">// We got the right response, as expected
         </span><span class="macro">assert_eq!</span>(summaries.len(), <span class="number">1</span>);
-        <span class="macro">assert_eq!</span>(summaries[<span class="number">0</span>].pkg.name, <span class="string">&quot;python&quot;</span>);
+        <span class="macro">assert_eq!</span>(summaries[<span class="number">0</span>].pkg.id.as_named().unwrap().full_name, <span class="string">&quot;python&quot;</span>);
         <span class="comment">// And no requests were sent
         </span><span class="macro">assert_eq!</span>(client.requests.lock().unwrap().len(), <span class="number">0</span>);
     }
@@ -1104,13 +1115,13 @@
         </span><span class="kw">let </span>python_path = temp.path().join(DUMMY_URL_HASH);
         std::fs::write(<span class="kw-2">&amp;</span>python_path, PYTHON).unwrap();
         <span class="kw">let </span>source = WebSource::new(temp.path(), client.clone()).with_retry_period(Duration::ZERO);
-        <span class="kw">let </span>spec = PackageSpecifier::Url(DUMMY_URL.parse().unwrap());
+        <span class="kw">let </span>spec = PackageSource::Url(DUMMY_URL.parse().unwrap());
 
         <span class="kw">let </span>summaries = source.query(<span class="kw-2">&amp;</span>spec).<span class="kw">await</span>.unwrap();
 
         <span class="comment">// We got the right response, as expected
         </span><span class="macro">assert_eq!</span>(summaries.len(), <span class="number">1</span>);
-        <span class="macro">assert_eq!</span>(summaries[<span class="number">0</span>].pkg.name, <span class="string">&quot;python&quot;</span>);
+        <span class="macro">assert_eq!</span>(summaries[<span class="number">0</span>].pkg.id.as_named().unwrap().full_name, <span class="string">&quot;python&quot;</span>);
         <span class="comment">// And one request was sent
         </span><span class="macro">assert_eq!</span>(client.requests.lock().unwrap().len(), <span class="number">1</span>);
         <span class="comment">// The etag file wasn&#39;t written
@@ -1143,13 +1154,16 @@
         <span class="comment">// but create a source that will always want to re-check the etags
         </span><span class="kw">let </span>source =
             WebSource::new(temp.path(), client.clone()).with_retry_period(Duration::new(<span class="number">0</span>, <span class="number">0</span>));
-        <span class="kw">let </span>spec = PackageSpecifier::Url(DUMMY_URL.parse().unwrap());
+        <span class="kw">let </span>spec = PackageSource::Url(DUMMY_URL.parse().unwrap());
 
         <span class="kw">let </span>summaries = source.query(<span class="kw-2">&amp;</span>spec).<span class="kw">await</span>.unwrap();
 
         <span class="comment">// Instead of Python (the originally cached item), we should get coreutils
         </span><span class="macro">assert_eq!</span>(summaries.len(), <span class="number">1</span>);
-        <span class="macro">assert_eq!</span>(summaries[<span class="number">0</span>].pkg.name, <span class="string">&quot;sharrattj/coreutils&quot;</span>);
+        <span class="macro">assert_eq!</span>(
+            summaries[<span class="number">0</span>].pkg.id.as_named().unwrap().full_name,
+            <span class="string">&quot;sharrattj/coreutils&quot;
+        </span>);
         <span class="comment">// both a HEAD and GET request were sent
         </span><span class="kw">let </span>requests = client.requests.lock().unwrap();
         <span class="macro">assert_eq!</span>(requests.len(), <span class="number">2</span>);

@@ -196,11 +196,24 @@
 <a href="#196" id="196">196</a>
 <a href="#197" id="197">197</a>
 <a href="#198" id="198">198</a>
+<a href="#199" id="199">199</a>
+<a href="#200" id="200">200</a>
+<a href="#201" id="201">201</a>
+<a href="#202" id="202">202</a>
+<a href="#203" id="203">203</a>
+<a href="#204" id="204">204</a>
+<a href="#205" id="205">205</a>
+<a href="#206" id="206">206</a>
+<a href="#207" id="207">207</a>
+<a href="#208" id="208">208</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::path::PathBuf;
 
 <span class="kw">use </span>anyhow::Context;
 <span class="kw">use </span>dialoguer::console::{style, Emoji};
 <span class="kw">use </span>indicatif::ProgressBar;
+<span class="kw">use </span>wasmer_config::package::PackageHash;
+
+<span class="kw">use </span><span class="kw">crate</span>::utils::load_package_manifest;
 
 <span class="doccomment">/// Build a container from a package manifest.
 </span><span class="attr">#[derive(clap::Parser, Debug)]
@@ -239,9 +252,25 @@
         }
     }
 
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>execute(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;(), anyhow::Error&gt; {
+    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>execute(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;PackageHash, anyhow::Error&gt; {
         <span class="kw">let </span>manifest_path = <span class="self">self</span>.manifest_path()<span class="question-mark">?</span>;
+        <span class="kw">let </span><span class="prelude-val">Some</span>((<span class="kw">_</span>, manifest)) = load_package_manifest(<span class="kw-2">&amp;</span>manifest_path)<span class="question-mark">? </span><span class="kw">else </span>{
+            <span class="macro">anyhow::bail!</span>(
+                <span class="string">&quot;Could not locate manifest in path &#39;{}&#39;&quot;</span>,
+                manifest_path.display()
+            )
+        };
         <span class="kw">let </span>pkg = webc::wasmer_package::Package::from_manifest(manifest_path)<span class="question-mark">?</span>;
+        <span class="kw">let </span>pkg_hash = PackageHash::from_sha256_bytes(pkg.webc_hash());
+        <span class="kw">let </span>name = <span class="kw">if let </span><span class="prelude-val">Some</span>(manifest_pkg) = manifest.package {
+            <span class="macro">format!</span>(
+                <span class="string">&quot;{}-{}.webc&quot;</span>,
+                manifest_pkg.name.replace(<span class="string">&#39;/&#39;</span>, <span class="string">&quot;-&quot;</span>),
+                manifest_pkg.version
+            )
+        } <span class="kw">else </span>{
+            <span class="macro">format!</span>(<span class="string">&quot;{}.webc&quot;</span>, pkg_hash)
+        };
 
         <span class="comment">// Setup the progress bar
         </span><span class="kw">let </span>pb = <span class="kw">if </span><span class="self">self</span>.quiet {
@@ -256,20 +285,11 @@
             READING_MANIFEST_EMOJI
         ));
 
-        <span class="kw">let </span>manifest = pkg
-            .manifest()
-            .wapm()
-            .context(<span class="string">&quot;could not load package manifest&quot;</span>)<span class="question-mark">?
-            </span>.context(<span class="string">&quot;package does not contain a Wasmer manifest&quot;</span>)<span class="question-mark">?</span>;
-
         <span class="comment">// rest of the code writes the package to disk and is irrelevant
         // to checking.
         </span><span class="kw">if </span><span class="self">self</span>.check {
-            <span class="kw">return </span><span class="prelude-val">Ok</span>(());
+            <span class="kw">return </span><span class="prelude-val">Ok</span>(pkg_hash);
         }
-
-        <span class="kw">let </span>pkgname = manifest.name.replace(<span class="string">&#39;/&#39;</span>, <span class="string">&quot;-&quot;</span>);
-        <span class="kw">let </span>name = <span class="macro">format!</span>(<span class="string">&quot;{}-{}.webc&quot;</span>, pkgname, manifest.version,);
 
         pb.println(<span class="macro">format!</span>(
             <span class="string">&quot;{} {}Creating output directory...&quot;</span>,
@@ -317,7 +337,7 @@
             out_path.display()
         ));
 
-        <span class="prelude-val">Ok</span>(())
+        <span class="prelude-val">Ok</span>(pkg_hash)
     }
 
     <span class="kw">fn </span>manifest_path(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;PathBuf, anyhow::Error&gt; {

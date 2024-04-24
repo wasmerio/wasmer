@@ -59,6 +59,7 @@
 <a href="#59" id="59">59</a>
 <a href="#60" id="60">60</a>
 <a href="#61" id="61">61</a>
+<a href="#62" id="62">62</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Delete an Edge app.
 
 </span><span class="kw">use </span>dialoguer::Confirm;
@@ -73,7 +74,7 @@
     <span class="attr">#[clap(flatten)]
     </span>api: ApiOpts,
 
-    <span class="attr">#[clap(long)]
+    <span class="attr">#[clap(long, default_value_t = !std::io::stdin().is_terminal())]
     </span>non_interactive: bool,
 
     <span class="attr">#[clap(flatten)]
@@ -85,14 +86,15 @@
     <span class="kw">type </span>Output = ();
 
     <span class="kw">async fn </span>run_async(<span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;(), anyhow::Error&gt; {
-        <span class="kw">let </span>interactive = std::io::stdin().is_terminal() &amp;&amp; !<span class="self">self</span>.non_interactive;
+        <span class="kw">let </span>interactive = !<span class="self">self</span>.non_interactive;
         <span class="kw">let </span>client = <span class="self">self</span>.api.client()<span class="question-mark">?</span>;
 
         <span class="macro">eprintln!</span>(<span class="string">&quot;Looking up the app...&quot;</span>);
         <span class="kw">let </span>(_ident, app) = <span class="self">self</span>.ident.load_app(<span class="kw-2">&amp;</span>client).<span class="kw">await</span><span class="question-mark">?</span>;
 
         <span class="kw">if </span>interactive {
-            <span class="kw">let </span>should_use = Confirm::new()
+            <span class="kw">let </span>theme = dialoguer::theme::ColorfulTheme::default();
+            <span class="kw">let </span>should_use = Confirm::with_theme(<span class="kw-2">&amp;</span>theme)
                 .with_prompt(<span class="kw-2">&amp;</span><span class="macro">format!</span>(
                     <span class="string">&quot;Really delete the app &#39;{}/{}&#39;? (id: {})&quot;</span>,
                     app.owner.global_name,

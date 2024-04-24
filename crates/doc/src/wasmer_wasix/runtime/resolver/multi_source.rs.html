@@ -101,9 +101,13 @@
 <a href="#101" id="101">101</a>
 <a href="#102" id="102">102</a>
 <a href="#103" id="103">103</a>
+<a href="#104" id="104">104</a>
+<a href="#105" id="105">105</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::sync::Arc;
 
-<span class="kw">use </span><span class="kw">crate</span>::runtime::resolver::{PackageSpecifier, PackageSummary, QueryError, Source};
+<span class="kw">use </span>wasmer_config::package::PackageSource;
+
+<span class="kw">use </span><span class="kw">crate</span>::runtime::resolver::{PackageSummary, QueryError, Source};
 
 <span class="doccomment">/// A [`Source`] that works by querying multiple [`Source`]s in succession.
 ///
@@ -151,7 +155,7 @@
 <span class="attr">#[async_trait::async_trait]
 </span><span class="kw">impl </span>Source <span class="kw">for </span>MultiSource {
     <span class="attr">#[tracing::instrument(level = <span class="string">&quot;debug&quot;</span>, skip_all, fields(%package))]
-    </span><span class="kw">async fn </span>query(<span class="kw-2">&amp;</span><span class="self">self</span>, package: <span class="kw-2">&amp;</span>PackageSpecifier) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;PackageSummary&gt;, QueryError&gt; {
+    </span><span class="kw">async fn </span>query(<span class="kw-2">&amp;</span><span class="self">self</span>, package: <span class="kw-2">&amp;</span>PackageSource) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;PackageSummary&gt;, QueryError&gt; {
         <span class="kw">for </span>source <span class="kw">in </span><span class="kw-2">&amp;</span><span class="self">self</span>.sources {
             <span class="kw">match </span>source.query(package).<span class="kw">await </span>{
                 <span class="prelude-val">Ok</span>(summaries) =&gt; <span class="kw">return </span><span class="prelude-val">Ok</span>(summaries),

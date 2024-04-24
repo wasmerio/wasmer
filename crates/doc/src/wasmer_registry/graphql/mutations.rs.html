@@ -33,13 +33,17 @@
 <a href="#33" id="33">33</a>
 <a href="#34" id="34">34</a>
 <a href="#35" id="35">35</a>
+<a href="#36" id="36">36</a>
+<a href="#37" id="37">37</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>graphql_client::GraphQLQuery;
 
 <span class="attr">#[derive(GraphQLQuery)]
 #[graphql(
     schema_path = <span class="string">&quot;graphql/schema.graphql&quot;</span>,
     query_path = <span class="string">&quot;graphql/mutations/publish_package_chunked.graphql&quot;</span>,
-    response_derives = <span class="string">&quot;Debug&quot;
+    response_derives = <span class="string">&quot;Debug&quot;</span>,
+    variables_derives = <span class="string">&quot;Debug&quot;
+    </span><span class="comment">// additional_derives = &quot;Debug&quot;
 </span>)]
 </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct </span>PublishPackageMutationChunked;
 

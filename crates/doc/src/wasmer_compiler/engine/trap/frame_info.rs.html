@@ -408,8 +408,6 @@
 <a href="#408" id="408">408</a>
 <a href="#409" id="409">409</a>
 <a href="#410" id="410">410</a>
-<a href="#411" id="411">411</a>
-<a href="#412" id="412">412</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! This module is used for having backtraces in the Wasm runtime.
 //! Once the Compiler has compiled the ModuleInfo, and we have a set of
 //! compiled functions (addresses and function index) and a module,
@@ -618,10 +616,8 @@
     <span class="doccomment">/// Gets the frame info for a given local function index
     </span><span class="kw">pub fn </span>get(<span class="kw-2">&amp;</span><span class="self">self</span>, index: LocalFunctionIndex) -&gt; <span class="prelude-ty">Option</span>&lt;CompiledFunctionFrameInfoVariant&gt; {
         <span class="kw">match </span><span class="self">self </span>{
-            FrameInfosVariant::Owned(map) =&gt; {
-                map.get(index).map(CompiledFunctionFrameInfoVariant::Ref)
-            }
-            FrameInfosVariant::Archived(archive) =&gt; archive
+            <span class="self">Self</span>::Owned(map) =&gt; map.get(index).map(CompiledFunctionFrameInfoVariant::Ref),
+            <span class="self">Self</span>::Archived(archive) =&gt; archive
                 .get_frame_info_ref()
                 .get(index)
                 .map(CompiledFunctionFrameInfoVariant::Archived),

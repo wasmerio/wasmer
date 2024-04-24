@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":["InMemorySource"]};
+window.SIDEBAR_ITEMS = {"struct":["InMemorySource","NamedPackageSummary"]};

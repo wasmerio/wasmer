@@ -553,6 +553,10 @@
 <a href="#553" id="553">553</a>
 <a href="#554" id="554">554</a>
 <a href="#555" id="555">555</a>
+<a href="#556" id="556">556</a>
+<a href="#557" id="557">557</a>
+<a href="#558" id="558">558</a>
+<a href="#559" id="559">559</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{
     collections::HashMap,
     path::{Path, PathBuf},
@@ -711,7 +715,7 @@
     /// [`NOTE`] so people get a link to the registry docs.
     </span><span class="kw">fn </span>write_wasmer_toml(
         path: <span class="kw-2">&amp;</span>PathBuf,
-        toml: <span class="kw-2">&amp;</span>wasmer_toml::Manifest,
+        toml: <span class="kw-2">&amp;</span>wasmer_config::package::Manifest,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), anyhow::Error&gt; {
         <span class="kw">let </span>toml_string = toml::to_string_pretty(<span class="kw-2">&amp;</span>toml)<span class="question-mark">?</span>;
 
@@ -798,16 +802,16 @@
     }
 
     <span class="kw">fn </span>get_command(
-        modules: <span class="kw-2">&amp;</span>[wasmer_toml::Module],
+        modules: <span class="kw-2">&amp;</span>[wasmer_config::package::Module],
         bin_or_lib: BinOrLib,
-    ) -&gt; Vec&lt;wasmer_toml::Command&gt; {
+    ) -&gt; Vec&lt;wasmer_config::package::Command&gt; {
         <span class="kw">match </span>bin_or_lib {
             BinOrLib::Bin =&gt; modules
                 .iter()
                 .map(|m| {
-                    wasmer_toml::Command::V2(wasmer_toml::CommandV2 {
+                    wasmer_config::package::Command::V2(wasmer_config::package::CommandV2 {
                         name: m.name.clone(),
-                        module: wasmer_toml::ModuleReference::CurrentPackage {
+                        module: wasmer_config::package::ModuleReference::CurrentPackage {
                             module: m.name.clone(),
                         },
                         runner: <span class="string">&quot;wasi&quot;</span>.to_string(),
@@ -863,16 +867,20 @@
                         <span class="kw">let </span>is_wit = e.path().extension().and_then(|s| s.to_str()) == <span class="prelude-val">Some</span>(<span class="string">&quot;.wit&quot;</span>);
                         <span class="kw">let </span>is_wai = e.path().extension().and_then(|s| s.to_str()) == <span class="prelude-val">Some</span>(<span class="string">&quot;.wai&quot;</span>);
                         <span class="kw">if </span>is_wit {
-                            <span class="prelude-val">Some</span>(wasmer_toml::Bindings::Wit(wasmer_toml::WitBindings {
-                                wit_exports: e.path().to_path_buf(),
-                                wit_bindgen: semver::Version::parse(<span class="string">&quot;0.1.0&quot;</span>).unwrap(),
-                            }))
+                            <span class="prelude-val">Some</span>(wasmer_config::package::Bindings::Wit(
+                                wasmer_config::package::WitBindings {
+                                    wit_exports: e.path().to_path_buf(),
+                                    wit_bindgen: semver::Version::parse(<span class="string">&quot;0.1.0&quot;</span>).unwrap(),
+                                },
+                            ))
                         } <span class="kw">else if </span>is_wai {
-                            <span class="prelude-val">Some</span>(wasmer_toml::Bindings::Wai(wasmer_toml::WaiBindings {
-                                exports: <span class="prelude-val">None</span>,
-                                imports: <span class="macro">vec!</span>[e.path().to_path_buf()],
-                                wai_version: semver::Version::parse(<span class="string">&quot;0.2.0&quot;</span>).unwrap(),
-                            }))
+                            <span class="prelude-val">Some</span>(wasmer_config::package::Bindings::Wai(
+                                wasmer_config::package::WaiBindings {
+                                    exports: <span class="prelude-val">None</span>,
+                                    imports: <span class="macro">vec!</span>[e.path().to_path_buf()],
+                                    wai_version: semver::Version::parse(<span class="string">&quot;0.2.0&quot;</span>).unwrap(),
+                                },
+                            ))
                         } <span class="kw">else </span>{
                             <span class="prelude-val">None
                         </span>}
@@ -892,12 +900,12 @@
 }
 
 <span class="kw">enum </span>GetBindingsResult {
-    OneBinding(wasmer_toml::Bindings),
-    MultiBindings(Vec&lt;wasmer_toml::Bindings&gt;),
+    OneBinding(wasmer_config::package::Bindings),
+    MultiBindings(Vec&lt;wasmer_config::package::Bindings&gt;),
 }
 
 <span class="kw">impl </span>GetBindingsResult {
-    <span class="kw">fn </span>first_binding(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;wasmer_toml::Bindings&gt; {
+    <span class="kw">fn </span>first_binding(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;wasmer_config::package::Bindings&gt; {
         <span class="kw">match </span><span class="self">self </span>{
             <span class="self">Self</span>::OneBinding(s) =&gt; <span class="prelude-val">Some</span>(s.clone()),
             <span class="self">Self</span>::MultiBindings(s) =&gt; s.get(<span class="number">0</span>).cloned(),
@@ -919,7 +927,7 @@
     include_fs: <span class="kw-2">&amp;</span>[String],
     quiet: bool,
     wasmer_dir: <span class="kw-2">&amp;</span>Path,
-) -&gt; <span class="prelude-ty">Result</span>&lt;wasmer_toml::Manifest, anyhow::Error&gt; {
+) -&gt; <span class="prelude-ty">Result</span>&lt;wasmer_config::package::Manifest, anyhow::Error&gt; {
     <span class="kw">if let </span><span class="prelude-val">Some</span>(ct) = cargo_toml.as_ref() {
         <span class="kw">let </span>msg = <span class="macro">format!</span>(
             <span class="string">&quot;NOTE: Initializing wasmer.toml file with metadata from Cargo.toml{NEWLINE}  -&gt; {}&quot;</span>,
@@ -958,17 +966,17 @@
         .and_then(|t| t.description.clone())
         .unwrap_or_else(|| <span class="macro">format!</span>(<span class="string">&quot;Description for package {package_name}&quot;</span>));
 
-    <span class="kw">let </span>default_abi = wasmer_toml::Abi::Wasi;
+    <span class="kw">let </span>default_abi = wasmer_config::package::Abi::Wasi;
     <span class="kw">let </span>bindings = Init::get_bindings(target_file, bin_or_lib);
 
     <span class="kw">if let </span><span class="prelude-val">Some</span>(GetBindingsResult::MultiBindings(m)) = bindings.as_ref() {
         <span class="kw">let </span>found = m
             .iter()
             .map(|m| <span class="kw">match </span>m {
-                wasmer_toml::Bindings::Wit(wb) =&gt; {
+                wasmer_config::package::Bindings::Wit(wb) =&gt; {
                     <span class="macro">format!</span>(<span class="string">&quot;found: {}&quot;</span>, serde_json::to_string(wb).unwrap_or_default())
                 }
-                wasmer_toml::Bindings::Wai(wb) =&gt; {
+                wasmer_config::package::Bindings::Wai(wb) =&gt; {
                     <span class="macro">format!</span>(<span class="string">&quot;found: {}&quot;</span>, serde_json::to_string(wb).unwrap_or_default())
                 }
             })
@@ -1018,7 +1026,7 @@
         })
         .unwrap_or_else(|| Path::new(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;{package_name}.wasm&quot;</span>)).to_path_buf());
 
-    <span class="kw">let </span>modules = <span class="macro">vec!</span>[wasmer_toml::Module {
+    <span class="kw">let </span>modules = <span class="macro">vec!</span>[wasmer_config::package::Module {
         name: package_name.to_string(),
         source: module_source,
         kind: <span class="prelude-val">None</span>,
@@ -1031,7 +1039,7 @@
         }),
     }];
 
-    <span class="kw">let </span><span class="kw-2">mut </span>pkg = wasmer_toml::Package::builder(
+    <span class="kw">let </span><span class="kw-2">mut </span>pkg = wasmer_config::package::Package::builder(
         <span class="kw">if let </span><span class="prelude-val">Some</span>(s) = namespace {
             <span class="macro">format!</span>(<span class="string">&quot;{s}/{package_name}&quot;</span>)
         } <span class="kw">else </span>{
@@ -1058,7 +1066,7 @@
     }
     <span class="kw">let </span>pkg = pkg.build()<span class="question-mark">?</span>;
 
-    <span class="kw">let </span><span class="kw-2">mut </span>manifest = wasmer_toml::Manifest::builder(pkg);
+    <span class="kw">let </span><span class="kw-2">mut </span>manifest = wasmer_config::package::Manifest::builder(pkg);
     manifest
         .dependencies(Init::get_dependencies(template))
         .commands(Init::get_command(<span class="kw-2">&amp;</span>modules, bin_or_lib))

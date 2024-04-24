@@ -2120,7 +2120,6 @@
 <a href="#2120" id="2120">2120</a>
 <a href="#2121" id="2121">2121</a>
 <a href="#2122" id="2122">2122</a>
-<a href="#2123" id="2123">2123</a>
 </pre></div><pre class="rust"><code><span class="kw">mod </span>fd;
 <span class="kw">mod </span>inode_guard;
 <span class="kw">mod </span>notification;
@@ -2148,6 +2147,7 @@
 <span class="kw">use </span>tokio::io::AsyncWriteExt;
 <span class="kw">use </span>tracing::{debug, trace};
 <span class="kw">use </span>virtual_fs::{copy_reference, FileSystem, FsError, OpenOptions, VirtualFile};
+<span class="kw">use </span>wasmer_config::package::PackageId;
 <span class="kw">use </span>wasmer_wasix_types::{
     types::{__WASI_STDERR_FILENO, __WASI_STDIN_FILENO, __WASI_STDOUT_FILENO},
     wasi::{
@@ -2615,7 +2615,7 @@
     <span class="attr">#[cfg_attr(feature = <span class="string">&quot;enable-serde&quot;</span>, serde(skip, default))]
     </span><span class="kw">pub </span>root_fs: WasiFsRoot,
     <span class="kw">pub </span>root_inode: InodeGuard,
-    <span class="kw">pub </span>has_unioned: Arc&lt;Mutex&lt;HashSet&lt;String&gt;&gt;&gt;,
+    <span class="kw">pub </span>has_unioned: Arc&lt;Mutex&lt;HashSet&lt;PackageId&gt;&gt;&gt;,
 
     <span class="comment">// TODO: remove
     // using an atomic is a hack to enable customization after construction,
@@ -2688,9 +2688,7 @@
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         binary: <span class="kw-2">&amp;</span>BinaryPackage,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), virtual_fs::FsError&gt; {
-        <span class="kw">let </span>package_name = binary.package_name.clone();
-
-        <span class="kw">let </span>needs_to_be_unioned = <span class="self">self</span>.has_unioned.lock().unwrap().insert(package_name);
+        <span class="kw">let </span>needs_to_be_unioned = <span class="self">self</span>.has_unioned.lock().unwrap().insert(binary.id.clone());
 
         <span class="kw">if </span>!needs_to_be_unioned {
             <span class="kw">return </span><span class="prelude-val">Ok</span>(());

@@ -406,6 +406,8 @@
 <a href="#406" id="406">406</a>
 <a href="#407" id="407">407</a>
 <a href="#408" id="408">408</a>
+<a href="#409" id="409">409</a>
+<a href="#410" id="410">410</a>
 </pre></div><pre class="rust"><code><span class="attr">#![allow(unused_imports)]
 #![allow(dead_code)]
 
@@ -431,6 +433,7 @@
 };
 <span class="attr">#[cfg(feature = <span class="string">&quot;sys&quot;</span>)]
 </span><span class="kw">use </span>wasmer::Engine;
+<span class="kw">use </span>wasmer_config::package::PackageSource;
 <span class="kw">use </span>wasmer_wasix_types::{types::__WASI_STDIN_FILENO, wasi::Errno};
 
 <span class="kw">use super</span>::{cconst::ConsoleConst, common::<span class="kw-2">*</span>, task::TaskJoinHandle};
@@ -438,7 +441,7 @@
     bin_factory::{spawn_exec, BinFactory, BinaryPackage},
     capabilities::Capabilities,
     os::task::{control_plane::WasiControlPlane, process::WasiProcess},
-    runtime::{resolver::PackageSpecifier, task_manager::InlineWaker},
+    runtime::task_manager::InlineWaker,
     Runtime, SpawnError, WasiEnv, WasiEnvBuilder, WasiRuntimeError,
 };
 
@@ -578,10 +581,10 @@
             ),
         };
 
-        <span class="kw">let </span>webc_ident: PackageSpecifier = <span class="kw">match </span>webc.parse() {
+        <span class="kw">let </span>webc_ident: PackageSource = <span class="kw">match </span>webc.parse() {
             <span class="prelude-val">Ok</span>(ident) =&gt; ident,
             <span class="prelude-val">Err</span>(e) =&gt; {
-                <span class="macro">tracing::debug!</span>(webc, error = <span class="kw-2">&amp;*</span>e, <span class="string">&quot;Unable to parse the WEBC identifier&quot;</span>);
+                <span class="macro">tracing::debug!</span>(webc, error = <span class="question-mark">?</span>e, <span class="string">&quot;Unable to parse the WEBC identifier&quot;</span>);
                 <span class="kw">return </span><span class="prelude-val">Err</span>(SpawnError::BadRequest);
             }
         };
@@ -608,7 +611,7 @@
                         .<span class="kw">await
                         </span>.ok();
                 });
-                <span class="macro">tracing::debug!</span>(<span class="string">&quot;failed to get webc dependency - {}&quot;</span>, webc);
+                <span class="macro">tracing::debug!</span>(error=<span class="question-mark">?</span>e, %webc, <span class="string">&quot;failed to get webc dependency&quot;</span>);
                 <span class="kw">return </span><span class="prelude-val">Err</span>(SpawnError::NotFound);
             }
         };
@@ -789,6 +792,7 @@
 
     <span class="doccomment">/// Regression test to ensure merging of multiple packages works correctly.
     </span><span class="attr">#[test]
+    #[ignore = <span class="string">&quot;must be re-enabled after backend is deployed&quot;</span>]
     </span><span class="kw">fn </span>test_console_python_merge() {
         <span class="kw">let </span>tokio_rt = tokio::runtime::Runtime::new().unwrap();
         <span class="kw">let </span>rt_handle = tokio_rt.handle().clone();

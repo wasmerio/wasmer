@@ -220,19 +220,22 @@
 <a href="#220" id="220">220</a>
 <a href="#221" id="221">221</a>
 <a href="#222" id="222">222</a>
+<a href="#223" id="223">223</a>
+<a href="#224" id="224">224</a>
+<a href="#225" id="225">225</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::sync::Arc;
 
 <span class="kw">use </span>anyhow::Context;
 <span class="kw">use </span>derivative::<span class="kw-2">*</span>;
 <span class="kw">use </span>once_cell::sync::OnceCell;
-<span class="kw">use </span>semver::Version;
 <span class="kw">use </span>virtual_fs::FileSystem;
+<span class="kw">use </span>wasmer_config::package::{PackageHash, PackageId, PackageSource};
 <span class="kw">use </span>webc::{compat::SharedBytes, Container};
 
 <span class="kw">use crate</span>::{
     runtime::{
         module_cache::ModuleHash,
-        resolver::{PackageId, PackageInfo, PackageSpecifier, ResolveError},
+        resolver::{PackageInfo, ResolveError},
     },
     Runtime,
 };
@@ -282,7 +285,8 @@
 </span><span class="attr">#[derive(Derivative, Clone)]
 #[derivative(Debug)]
 </span><span class="kw">pub struct </span>BinaryPackage {
-    <span class="kw">pub </span>package_name: String,
+    <span class="kw">pub </span>id: PackageId,
+
     <span class="kw">pub </span>when_cached: <span class="prelude-ty">Option</span>&lt;u128&gt;,
     <span class="doccomment">/// The name of the [`BinaryPackageCommand`] which is this package&#39;s
     /// entrypoint.
@@ -291,7 +295,6 @@
     <span class="kw">pub </span>webc_fs: Arc&lt;<span class="kw">dyn </span>FileSystem + Send + Sync&gt;,
     <span class="kw">pub </span>commands: Vec&lt;BinaryPackageCommand&gt;,
     <span class="kw">pub </span>uses: Vec&lt;String&gt;,
-    <span class="kw">pub </span>version: Version,
     <span class="kw">pub </span>file_system_memory_footprint: u64,
 }
 
@@ -304,11 +307,14 @@
         rt: <span class="kw-2">&amp;</span>(<span class="kw">dyn </span>Runtime + Send + Sync),
     ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, anyhow::Error&gt; {
         <span class="kw">let </span>source = rt.source();
-        <span class="kw">let </span>root = PackageInfo::from_manifest(container.manifest())<span class="question-mark">?</span>;
-        <span class="kw">let </span>root_id = PackageId {
-            package_name: root.name.clone(),
-            version: root.version.clone(),
-        };
+
+        <span class="kw">let </span>manifest = container.manifest();
+        <span class="kw">let </span>id = PackageInfo::package_id_from_manifest(manifest)<span class="question-mark">?</span>.unwrap_or_else(|| {
+            PackageId::Hash(PackageHash::from_sha256_bytes(container.webc_hash()))
+        });
+
+        <span class="kw">let </span>root = PackageInfo::from_manifest(id, manifest, container.version())<span class="question-mark">?</span>;
+        <span class="kw">let </span>root_id = root.id.clone();
 
         <span class="kw">let </span>resolution = <span class="kw">crate</span>::runtime::resolver::resolve(<span class="kw-2">&amp;</span>root_id, <span class="kw-2">&amp;</span>root, <span class="kw-2">&amp;*</span>source).<span class="kw">await</span><span class="question-mark">?</span>;
         <span class="kw">let </span>pkg = rt
@@ -323,7 +329,7 @@
     <span class="doccomment">/// Load a [`BinaryPackage`] and all its dependencies from a registry.
     </span><span class="attr">#[tracing::instrument(level = <span class="string">&quot;debug&quot;</span>, skip_all)]
     </span><span class="kw">pub async fn </span>from_registry(
-        specifier: <span class="kw-2">&amp;</span>PackageSpecifier,
+        specifier: <span class="kw-2">&amp;</span>PackageSource,
         runtime: <span class="kw-2">&amp;</span>(<span class="kw">dyn </span>Runtime + Send + Sync),
     ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, anyhow::Error&gt; {
         <span class="kw">let </span>source = runtime.source();
@@ -367,7 +373,7 @@
             <span class="kw">if let </span><span class="prelude-val">Some</span>(entry) = <span class="self">self</span>.entrypoint_bytes() {
                 ModuleHash::hash(entry)
             } <span class="kw">else </span>{
-                ModuleHash::hash(<span class="self">self</span>.package_name.as_bytes())
+                ModuleHash::hash(<span class="self">self</span>.id.to_string())
             }
         })
     }

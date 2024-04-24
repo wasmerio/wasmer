@@ -65,11 +65,11 @@
         <span class="kw">let </span>dashboard_url = app.admin_url;
 
         <span class="macro">println!</span>(<span class="string">&quot;  App Info  &quot;</span>);
-        <span class="macro">println!</span>(<span class="string">&quot;&gt; App Name: {}&quot;</span>, app.name);
-        <span class="macro">println!</span>(<span class="string">&quot;&gt; Namespace: {}&quot;</span>, app.owner.global_name);
-        <span class="macro">println!</span>(<span class="string">&quot;&gt; App URL: {}&quot;</span>, app_url);
-        <span class="macro">println!</span>(<span class="string">&quot;&gt; Versioned URL: {}&quot;</span>, versioned_url);
-        <span class="macro">println!</span>(<span class="string">&quot;&gt; Admin dashboard: {}&quot;</span>, dashboard_url);
+        <span class="macro">println!</span>(<span class="string">&quot;→ Name: {}&quot;</span>, app.name);
+        <span class="macro">println!</span>(<span class="string">&quot;→ Owner: {}&quot;</span>, app.owner.global_name);
+        <span class="macro">println!</span>(<span class="string">&quot;→ URL: {}&quot;</span>, app_url);
+        <span class="macro">println!</span>(<span class="string">&quot;→ Unique URL: {}&quot;</span>, versioned_url);
+        <span class="macro">println!</span>(<span class="string">&quot;→ Dashboard: {}&quot;</span>, dashboard_url);
 
         <span class="prelude-val">Ok</span>(())
     }

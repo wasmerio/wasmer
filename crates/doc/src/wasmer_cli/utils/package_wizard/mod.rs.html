@@ -424,97 +424,10 @@
 <a href="#424" id="424">424</a>
 <a href="#425" id="425">425</a>
 <a href="#426" id="426">426</a>
-<a href="#427" id="427">427</a>
-<a href="#428" id="428">428</a>
-<a href="#429" id="429">429</a>
-<a href="#430" id="430">430</a>
-<a href="#431" id="431">431</a>
-<a href="#432" id="432">432</a>
-<a href="#433" id="433">433</a>
-<a href="#434" id="434">434</a>
-<a href="#435" id="435">435</a>
-<a href="#436" id="436">436</a>
-<a href="#437" id="437">437</a>
-<a href="#438" id="438">438</a>
-<a href="#439" id="439">439</a>
-<a href="#440" id="440">440</a>
-<a href="#441" id="441">441</a>
-<a href="#442" id="442">442</a>
-<a href="#443" id="443">443</a>
-<a href="#444" id="444">444</a>
-<a href="#445" id="445">445</a>
-<a href="#446" id="446">446</a>
-<a href="#447" id="447">447</a>
-<a href="#448" id="448">448</a>
-<a href="#449" id="449">449</a>
-<a href="#450" id="450">450</a>
-<a href="#451" id="451">451</a>
-<a href="#452" id="452">452</a>
-<a href="#453" id="453">453</a>
-<a href="#454" id="454">454</a>
-<a href="#455" id="455">455</a>
-<a href="#456" id="456">456</a>
-<a href="#457" id="457">457</a>
-<a href="#458" id="458">458</a>
-<a href="#459" id="459">459</a>
-<a href="#460" id="460">460</a>
-<a href="#461" id="461">461</a>
-<a href="#462" id="462">462</a>
-<a href="#463" id="463">463</a>
-<a href="#464" id="464">464</a>
-<a href="#465" id="465">465</a>
-<a href="#466" id="466">466</a>
-<a href="#467" id="467">467</a>
-<a href="#468" id="468">468</a>
-<a href="#469" id="469">469</a>
-<a href="#470" id="470">470</a>
-<a href="#471" id="471">471</a>
-<a href="#472" id="472">472</a>
-<a href="#473" id="473">473</a>
-<a href="#474" id="474">474</a>
-<a href="#475" id="475">475</a>
-<a href="#476" id="476">476</a>
-<a href="#477" id="477">477</a>
-<a href="#478" id="478">478</a>
-<a href="#479" id="479">479</a>
-<a href="#480" id="480">480</a>
-<a href="#481" id="481">481</a>
-<a href="#482" id="482">482</a>
-<a href="#483" id="483">483</a>
-<a href="#484" id="484">484</a>
-<a href="#485" id="485">485</a>
-<a href="#486" id="486">486</a>
-<a href="#487" id="487">487</a>
-<a href="#488" id="488">488</a>
-<a href="#489" id="489">489</a>
-<a href="#490" id="490">490</a>
-<a href="#491" id="491">491</a>
-<a href="#492" id="492">492</a>
-<a href="#493" id="493">493</a>
-<a href="#494" id="494">494</a>
-<a href="#495" id="495">495</a>
-<a href="#496" id="496">496</a>
-<a href="#497" id="497">497</a>
-<a href="#498" id="498">498</a>
-<a href="#499" id="499">499</a>
-<a href="#500" id="500">500</a>
-<a href="#501" id="501">501</a>
-<a href="#502" id="502">502</a>
-<a href="#503" id="503">503</a>
-<a href="#504" id="504">504</a>
-<a href="#505" id="505">505</a>
-<a href="#506" id="506">506</a>
-<a href="#507" id="507">507</a>
-<a href="#508" id="508">508</a>
-<a href="#509" id="509">509</a>
-<a href="#510" id="510">510</a>
-<a href="#511" id="511">511</a>
-<a href="#512" id="512">512</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::path::{Path, PathBuf};
 
 <span class="kw">use </span>anyhow::Context;
-<span class="kw">use </span>dialoguer::Select;
-<span class="kw">use </span>edge_schema::schema::{StringWebcIdent, WebcIdent};
+<span class="kw">use </span>dialoguer::{theme::ColorfulTheme, Select};
 <span class="kw">use </span>wasmer_api::{types::UserWithNamespaces, WasmerClient};
 
 <span class="kw">use </span><span class="kw">super</span>::prompts::PackageCheckMode;
@@ -555,8 +468,9 @@
     </span>CreateOrSelect,
 }
 
-<span class="kw">fn </span>prompt_for_pacakge_type() -&gt; <span class="prelude-ty">Result</span>&lt;PackageType, anyhow::Error&gt; {
-    Select::new()
+<span class="kw">fn </span>prompt_for_package_type() -&gt; <span class="prelude-ty">Result</span>&lt;PackageType, anyhow::Error&gt; {
+    <span class="kw">let </span>theme = ColorfulTheme::default();
+    Select::with_theme(<span class="kw-2">&amp;</span>theme)
         .with_prompt(<span class="string">&quot;What type of package do you want to create?&quot;</span>)
         .items(<span class="kw-2">&amp;</span>[<span class="string">&quot;Basic pacakge&quot;</span>, <span class="string">&quot;Static website&quot;</span>])
         .interact()
@@ -589,43 +503,17 @@
 }
 
 <span class="kw">pub struct </span>PackageWizardOutput {
-    <span class="kw">pub </span>ident: StringWebcIdent,
     <span class="kw">pub </span>api: <span class="prelude-ty">Option</span>&lt;wasmer_api::types::Package&gt;,
     <span class="kw">pub </span>local_path: <span class="prelude-ty">Option</span>&lt;PathBuf&gt;,
-    <span class="kw">pub </span>local_manifest: <span class="prelude-ty">Option</span>&lt;wasmer_toml::Manifest&gt;,
+    <span class="kw">pub </span>local_manifest: <span class="prelude-ty">Option</span>&lt;wasmer_config::package::Manifest&gt;,
 }
 
 <span class="kw">impl </span>PackageWizard {
     <span class="kw">fn </span>build_new_package(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;PackageWizardOutput, anyhow::Error&gt; {
-        <span class="comment">// New package
-
-        </span><span class="kw">let </span>owner = <span class="kw">if let </span><span class="prelude-val">Some</span>(namespace) = <span class="kw-2">&amp;</span><span class="self">self</span>.namespace {
-            namespace.clone()
-        } <span class="kw">else </span>{
-            <span class="kw">super</span>::prompts::prompt_for_namespace(
-                <span class="string">&quot;Who should own this package?&quot;</span>,
-                <span class="prelude-val">None</span>,
-                <span class="self">self</span>.user.as_ref(),
-            )<span class="question-mark">?
-        </span>};
-
         <span class="kw">let </span>ty = <span class="kw">match </span><span class="self">self</span>.type_ {
             <span class="prelude-val">Some</span>(t) =&gt; t,
-            <span class="prelude-val">None </span>=&gt; prompt_for_pacakge_type()<span class="question-mark">?</span>,
+            <span class="prelude-val">None </span>=&gt; prompt_for_package_type()<span class="question-mark">?</span>,
         };
-
-        <span class="kw">let </span>name = <span class="kw">if let </span><span class="prelude-val">Some</span>(name) = <span class="kw-2">&amp;</span><span class="self">self</span>.name {
-            name.clone()
-        } <span class="kw">else </span>{
-            <span class="kw">super</span>::prompts::prompt_for_ident(
-                <span class="macro">format!</span>(
-                    <span class="string">&quot;What should the package be called? It will be published under {}&quot;</span>,
-                    owner
-                )
-                .as_str(),
-                <span class="prelude-val">None</span>,
-            )<span class="question-mark">?
-        </span>};
 
         <span class="kw">if </span>!<span class="self">self</span>.path.is_dir() {
             std::fs::create_dir_all(<span class="kw-2">&amp;</span><span class="self">self</span>.path).with_context(|| {
@@ -633,17 +521,11 @@
             })<span class="question-mark">?</span>;
         }
 
-        <span class="kw">let </span>ident = WebcIdent {
-            repository: <span class="prelude-val">None</span>,
-            namespace: owner,
-            name,
-            tag: <span class="prelude-val">Some</span>(<span class="string">&quot;0.1.0&quot;</span>.to_string()),
-        };
         <span class="kw">let </span>manifest = <span class="kw">match </span>ty {
             PackageType::Regular =&gt; <span class="macro">todo!</span>(),
-            PackageType::StaticWebsite =&gt; initialize_static_site(<span class="kw-2">&amp;</span><span class="self">self</span>.path, <span class="kw-2">&amp;</span>ident)<span class="question-mark">?</span>,
-            PackageType::JsWorker =&gt; initialize_js_worker(<span class="kw-2">&amp;</span><span class="self">self</span>.path, <span class="kw-2">&amp;</span>ident)<span class="question-mark">?</span>,
-            PackageType::PyApplication =&gt; initialize_py_worker(<span class="kw-2">&amp;</span><span class="self">self</span>.path, <span class="kw-2">&amp;</span>ident)<span class="question-mark">?</span>,
+            PackageType::StaticWebsite =&gt; initialize_static_site(<span class="kw-2">&amp;</span><span class="self">self</span>.path)<span class="question-mark">?</span>,
+            PackageType::JsWorker =&gt; initialize_js_worker(<span class="kw-2">&amp;</span><span class="self">self</span>.path)<span class="question-mark">?</span>,
+            PackageType::PyApplication =&gt; initialize_py_worker(<span class="kw-2">&amp;</span><span class="self">self</span>.path)<span class="question-mark">?</span>,
         };
 
         <span class="kw">let </span>manifest_path = <span class="self">self</span>.path.join(<span class="string">&quot;wasmer.toml&quot;</span>);
@@ -654,7 +536,6 @@
             .with_context(|| <span class="macro">format!</span>(<span class="string">&quot;Failed to write manifest to &#39;{}&#39;&quot;</span>, <span class="self">self</span>.path.display()))<span class="question-mark">?</span>;
 
         <span class="prelude-val">Ok</span>(PackageWizardOutput {
-            ident: ident.into(),
             api: <span class="prelude-val">None</span>,
             local_path: <span class="prelude-val">Some</span>(<span class="self">self</span>.path.clone()),
             local_manifest: <span class="prelude-val">Some</span>(manifest),
@@ -673,9 +554,8 @@
         </span>};
 
         <span class="macro">eprintln!</span>(<span class="string">&quot;Enter the name of an existing package:&quot;</span>);
-        <span class="kw">let </span>(ident, api) = <span class="kw">super</span>::prompts::prompt_for_package(<span class="string">&quot;Package&quot;</span>, <span class="prelude-val">None</span>, check, api).<span class="kw">await</span><span class="question-mark">?</span>;
+        <span class="kw">let </span>(_ident, api) = <span class="kw">super</span>::prompts::prompt_for_package(<span class="string">&quot;Package&quot;</span>, <span class="prelude-val">None</span>, check, api).<span class="kw">await</span><span class="question-mark">?</span>;
         <span class="prelude-val">Ok</span>(PackageWizardOutput {
-            ident,
             api,
             local_path: <span class="prelude-val">None</span>,
             local_manifest: <span class="prelude-val">None</span>,
@@ -690,7 +570,8 @@
             CreateMode::Create =&gt; <span class="self">self</span>.build_new_package(),
             CreateMode::SelectExisting =&gt; <span class="self">self</span>.prompt_existing_package(api).<span class="kw">await</span>,
             CreateMode::CreateOrSelect =&gt; {
-                <span class="kw">let </span>index = Select::new()
+                <span class="kw">let </span>theme = ColorfulTheme::default();
+                <span class="kw">let </span>index = Select::with_theme(<span class="kw-2">&amp;</span>theme)
                     .with_prompt(<span class="string">&quot;What package do you want to use?&quot;</span>)
                     .items(<span class="kw-2">&amp;</span>[<span class="string">&quot;Create new package&quot;</span>, <span class="string">&quot;Use existing package&quot;</span>])
                     .default(<span class="number">0</span>)
@@ -708,12 +589,7 @@
     }
 }
 
-<span class="kw">fn </span>initialize_static_site(
-    path: <span class="kw-2">&amp;</span>Path,
-    ident: <span class="kw-2">&amp;</span>WebcIdent,
-) -&gt; <span class="prelude-ty">Result</span>&lt;wasmer_toml::Manifest, anyhow::Error&gt; {
-    <span class="kw">let </span>full_name = <span class="macro">format!</span>(<span class="string">&quot;{}/{}&quot;</span>, ident.namespace, ident.name);
-
+<span class="kw">fn </span>initialize_static_site(path: <span class="kw-2">&amp;</span>Path) -&gt; <span class="prelude-ty">Result</span>&lt;wasmer_config::package::Manifest, anyhow::Error&gt; {
     <span class="kw">let </span>pubdir_name = <span class="string">&quot;public&quot;</span>;
     <span class="kw">let </span>pubdir = path.join(pubdir_name);
     <span class="kw">if </span>!pubdir.is_dir() {
@@ -722,14 +598,15 @@
     }
     <span class="kw">let </span>index = pubdir.join(<span class="string">&quot;index.html&quot;</span>);
 
-    <span class="kw">let </span>static_html = SAMPLE_INDEX_HTML.replace(<span class="string">&quot;{{title}}&quot;</span>, <span class="kw-2">&amp;</span>full_name);
+    <span class="kw">let </span>static_html = SAMPLE_INDEX_HTML.replace(<span class="string">&quot;{{title}}&quot;</span>, <span class="string">&quot;My static website&quot;</span>);
 
     <span class="kw">if </span>!index.is_file() {
         std::fs::write(<span class="kw-2">&amp;</span>index, static_html.as_str())
             .with_context(|| <span class="string">&quot;Could not write index.html file&quot;</span>.to_string())<span class="question-mark">?</span>;
     } <span class="kw">else </span>{
         <span class="comment">// The index.js file already exists, so we can ask the user if they want to overwrite it
-        </span><span class="kw">let </span>should_overwrite = dialoguer::Confirm::new()
+        </span><span class="kw">let </span>theme = dialoguer::theme::ColorfulTheme::default();
+        <span class="kw">let </span>should_overwrite = dialoguer::Confirm::with_theme(<span class="kw-2">&amp;</span>theme)
             .with_prompt(<span class="string">&quot;index.html already exists. Do you want to overwrite it?&quot;</span>)
             .interact()
             .unwrap();
@@ -741,36 +618,22 @@
 
     <span class="kw">let </span>raw_static_site_toml = <span class="macro">format!</span>(
         <span class="string">r#&quot;
-[package]
-name = &quot;{}&quot;
-version = &quot;0.1.0&quot;
-description = &quot;{} website&quot;
-
 [dependencies]
 &quot;{}&quot; = &quot;{}&quot;
 
 [fs]
 public = &quot;{}&quot;
 &quot;#</span>,
-        full_name.clone(),
-        full_name,
-        WASM_STATIC_SERVER_PACKAGE,
-        WASM_STATIC_SERVER_VERSION,
-        pubdir_name
+        WASM_STATIC_SERVER_PACKAGE, WASM_STATIC_SERVER_VERSION, pubdir_name
     );
 
-    <span class="kw">let </span>manifest = wasmer_toml::Manifest::parse(raw_static_site_toml.as_str())
+    <span class="kw">let </span>manifest = wasmer_config::package::Manifest::parse(raw_static_site_toml.as_str())
         .map_err(|e| <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;Could not parse js worker manifest: {}&quot;</span>, e))<span class="question-mark">?</span>;
 
     <span class="prelude-val">Ok</span>(manifest)
 }
 
-<span class="kw">fn </span>initialize_js_worker(
-    path: <span class="kw-2">&amp;</span>Path,
-    ident: <span class="kw-2">&amp;</span>WebcIdent,
-) -&gt; <span class="prelude-ty">Result</span>&lt;wasmer_toml::Manifest, anyhow::Error&gt; {
-    <span class="kw">let </span>full_name = <span class="macro">format!</span>(<span class="string">&quot;{}/{}&quot;</span>, ident.namespace, ident.name);
-
+<span class="kw">fn </span>initialize_js_worker(path: <span class="kw-2">&amp;</span>Path) -&gt; <span class="prelude-ty">Result</span>&lt;wasmer_config::package::Manifest, anyhow::Error&gt; {
     <span class="kw">let </span>srcdir_name = <span class="string">&quot;src&quot;</span>;
     <span class="kw">let </span>srcdir = path.join(srcdir_name);
     <span class="kw">if </span>!srcdir.is_dir() {
@@ -780,7 +643,7 @@ public = &quot;{}&quot;
 
     <span class="kw">let </span>index_js = srcdir.join(<span class="string">&quot;index.js&quot;</span>);
 
-    <span class="kw">let </span>sample_js = SAMPLE_JS_WORKER.replace(<span class="string">&quot;{{package}}&quot;</span>, <span class="kw-2">&amp;</span>full_name);
+    <span class="kw">let </span>sample_js = SAMPLE_JS_WORKER.replace(<span class="string">&quot;{{package}}&quot;</span>, <span class="string">&quot;My JS worker&quot;</span>);
 
     <span class="kw">if </span>!index_js.is_file() {
         std::fs::write(<span class="kw-2">&amp;</span>index_js, sample_js.as_str())
@@ -798,11 +661,6 @@ public = &quot;{}&quot;
 
     </span><span class="kw">let </span>raw_js_worker_toml = <span class="macro">format!</span>(
         <span class="string">r#&quot;
-[package]
-name = &quot;{name}&quot;
-version = &quot;0.1.0&quot;
-description = &quot;{name} js worker&quot;
-
 [dependencies]
 &quot;{winterjs_pkg}&quot; = &quot;{winterjs_version}&quot;
 
@@ -818,23 +676,17 @@ runner = &quot;https://webc.org/runner/wasi&quot;
 main-args = [&quot;/src/index.js&quot;]
 env = [&quot;JS_PATH=/src/index.js&quot;]
 &quot;#</span>,
-        name = full_name,
         winterjs_pkg = WASMER_WINTER_JS_PACKAGE,
         winterjs_version = WASMER_WINTER_JS_VERSION,
     );
 
-    <span class="kw">let </span>manifest = wasmer_toml::Manifest::parse(raw_js_worker_toml.as_str())
+    <span class="kw">let </span>manifest = wasmer_config::package::Manifest::parse(raw_js_worker_toml.as_str())
         .map_err(|e| <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;Could not parse js worker manifest: {}&quot;</span>, e))<span class="question-mark">?</span>;
 
     <span class="prelude-val">Ok</span>(manifest)
 }
 
-<span class="kw">fn </span>initialize_py_worker(
-    path: <span class="kw-2">&amp;</span>Path,
-    ident: <span class="kw-2">&amp;</span>WebcIdent,
-) -&gt; <span class="prelude-ty">Result</span>&lt;wasmer_toml::Manifest, anyhow::Error&gt; {
-    <span class="kw">let </span>full_name = <span class="macro">format!</span>(<span class="string">&quot;{}/{}&quot;</span>, ident.namespace, ident.name);
-
+<span class="kw">fn </span>initialize_py_worker(path: <span class="kw-2">&amp;</span>Path) -&gt; <span class="prelude-ty">Result</span>&lt;wasmer_config::package::Manifest, anyhow::Error&gt; {
     <span class="kw">let </span>appdir_name = <span class="string">&quot;src&quot;</span>;
     <span class="kw">let </span>appdir = path.join(appdir_name);
     <span class="kw">if </span>!appdir.is_dir() {
@@ -843,7 +695,7 @@ env = [&quot;JS_PATH=/src/index.js&quot;]
     }
     <span class="kw">let </span>main_py = appdir.join(<span class="string">&quot;main.py&quot;</span>);
 
-    <span class="kw">let </span>sample_main = SAMPLE_PY_APPLICATION.replace(<span class="string">&quot;{{package}}&quot;</span>, <span class="kw-2">&amp;</span>full_name);
+    <span class="kw">let </span>sample_main = SAMPLE_PY_APPLICATION.replace(<span class="string">&quot;{{package}}&quot;</span>, <span class="string">&quot;My Python Worker&quot;</span>);
 
     <span class="kw">if </span>!main_py.is_file() {
         std::fs::write(<span class="kw-2">&amp;</span>main_py, sample_main.as_str())
@@ -860,11 +712,6 @@ env = [&quot;JS_PATH=/src/index.js&quot;]
 
     </span><span class="kw">let </span>raw_py_worker_toml = <span class="macro">format!</span>(
         <span class="string">r#&quot;
-[package]
-name = &quot;{}&quot;
-version = &quot;0.1.0&quot;
-description = &quot;{} py worker&quot;
-
 [dependencies]
 &quot;{}&quot; = &quot;{}&quot;
 
@@ -881,14 +728,10 @@ runner = &quot;wasi&quot;
 main-args = [&quot;/src/main.py&quot;]
 # env = [&quot;PYTHON_PATH=/app/.env:/etc/python3.12/site-packages&quot;] # Make our virtualenv accessible    
 &quot;#</span>,
-        full_name.clone(),
-        full_name,
-        WASM_PYTHON_PACKAGE,
-        WASM_PYTHON_VERSION,
-        WASM_PYTHON_PACKAGE
+        WASM_PYTHON_PACKAGE, WASM_PYTHON_VERSION, WASM_PYTHON_PACKAGE
     );
 
-    <span class="kw">let </span>manifest = wasmer_toml::Manifest::parse(raw_py_worker_toml.as_str())
+    <span class="kw">let </span>manifest = wasmer_config::package::Manifest::parse(raw_py_worker_toml.as_str())
         .map_err(|e| <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;Could not parse py worker manifest: {}&quot;</span>, e))<span class="question-mark">?</span>;
 
     <span class="prelude-val">Ok</span>(manifest)
@@ -905,9 +748,9 @@ main-args = [&quot;/src/main.py&quot;]
             path: dir.path().to_owned(),
             type_: <span class="prelude-val">Some</span>(PackageType::StaticWebsite),
             create_mode: CreateMode::Create,
-            namespace: <span class="prelude-val">Some</span>(<span class="string">&quot;christoph&quot;</span>.to_string()),
+            namespace: <span class="prelude-val">None</span>,
             namespace_default: <span class="prelude-val">None</span>,
-            name: <span class="prelude-val">Some</span>(<span class="string">&quot;test123&quot;</span>.to_string()),
+            name: <span class="prelude-val">None</span>,
             user: <span class="prelude-val">None</span>,
         }
         .run(<span class="prelude-val">None</span>)
@@ -917,12 +760,7 @@ main-args = [&quot;/src/main.py&quot;]
         <span class="kw">let </span>manifest = std::fs::read_to_string(dir.path().join(<span class="string">&quot;wasmer.toml&quot;</span>)).unwrap();
         <span class="macro">pretty_assertions::assert_eq!</span>(
             manifest,
-            <span class="string">r#&quot;[package]
-name = &quot;christoph/test123&quot;
-version = &quot;0.1.0&quot;
-description = &quot;christoph/test123 website&quot;
-
-[dependencies]
+            <span class="string">r#&quot;[dependencies]
 &quot;wasmer/static-web-server&quot; = &quot;^1&quot;
 
 [fs]
@@ -941,9 +779,9 @@ public = &quot;public&quot;
             path: dir.path().to_owned(),
             type_: <span class="prelude-val">Some</span>(PackageType::JsWorker),
             create_mode: CreateMode::Create,
-            namespace: <span class="prelude-val">Some</span>(<span class="string">&quot;christoph&quot;</span>.to_string()),
+            namespace: <span class="prelude-val">None</span>,
             namespace_default: <span class="prelude-val">None</span>,
-            name: <span class="prelude-val">Some</span>(<span class="string">&quot;js-worker-test&quot;</span>.to_string()),
+            name: <span class="prelude-val">None</span>,
             user: <span class="prelude-val">None</span>,
         }
         .run(<span class="prelude-val">None</span>)
@@ -953,12 +791,7 @@ public = &quot;public&quot;
 
         <span class="macro">pretty_assertions::assert_eq!</span>(
             manifest,
-            <span class="string">r#&quot;[package]
-name = &quot;christoph/js-worker-test&quot;
-version = &quot;0.1.0&quot;
-description = &quot;christoph/js-worker-test js worker&quot;
-
-[dependencies]
+            <span class="string">r#&quot;[dependencies]
 &quot;wasmer/winterjs&quot; = &quot;*&quot;
 
 [fs]
@@ -986,9 +819,9 @@ main-args = [&quot;/src/index.js&quot;]
             path: dir.path().to_owned(),
             type_: <span class="prelude-val">Some</span>(PackageType::PyApplication),
             create_mode: CreateMode::Create,
-            namespace: <span class="prelude-val">Some</span>(<span class="string">&quot;christoph&quot;</span>.to_string()),
+            namespace: <span class="prelude-val">None</span>,
             namespace_default: <span class="prelude-val">None</span>,
-            name: <span class="prelude-val">Some</span>(<span class="string">&quot;py-worker-test&quot;</span>.to_string()),
+            name: <span class="prelude-val">None</span>,
             user: <span class="prelude-val">None</span>,
         }
         .run(<span class="prelude-val">None</span>)
@@ -998,12 +831,7 @@ main-args = [&quot;/src/index.js&quot;]
 
         <span class="macro">pretty_assertions::assert_eq!</span>(
             manifest,
-            <span class="string">r#&quot;[package]
-name = &quot;christoph/py-worker-test&quot;
-version = &quot;0.1.0&quot;
-description = &quot;christoph/py-worker-test py worker&quot;
-
-[dependencies]
+            <span class="string">r#&quot;[dependencies]
 &quot;wasmer/python&quot; = &quot;^3.12.6&quot;
 
 [fs]

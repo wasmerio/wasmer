@@ -205,15 +205,29 @@
 <a href="#205" id="205">205</a>
 <a href="#206" id="206">206</a>
 <a href="#207" id="207">207</a>
+<a href="#208" id="208">208</a>
+<a href="#209" id="209">209</a>
+<a href="#210" id="210">210</a>
+<a href="#211" id="211">211</a>
+<a href="#212" id="212">212</a>
+<a href="#213" id="213">213</a>
+<a href="#214" id="214">214</a>
+<a href="#215" id="215">215</a>
+<a href="#216" id="216">216</a>
+<a href="#217" id="217">217</a>
+<a href="#218" id="218">218</a>
+<a href="#219" id="219">219</a>
+<a href="#220" id="220">220</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>anyhow::Context;
 <span class="kw">use </span>colored::Colorize;
-<span class="kw">use </span>dialoguer::Select;
-<span class="kw">use </span>edge_schema::schema::StringWebcIdent;
+<span class="kw">use </span>dialoguer::{theme::ColorfulTheme, Select};
 <span class="kw">use </span>wasmer_api::WasmerClient;
+<span class="kw">use </span>wasmer_config::package::NamedPackageIdent;
 
 <span class="kw">pub fn </span>prompt_for_ident(message: <span class="kw-2">&amp;</span>str, default: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>str&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;String, anyhow::Error&gt; {
     <span class="kw">loop </span>{
-        <span class="kw">let </span>diag = dialoguer::Input::new()
+        <span class="kw">let </span>theme = ColorfulTheme::default();
+        <span class="kw">let </span>diag = dialoguer::Input::with_theme(<span class="kw-2">&amp;</span>theme)
             .with_prompt(message)
             .with_initial_text(default.unwrap_or_default());
 
@@ -221,7 +235,7 @@
         //     diag.validate_with(val);
         // }
 
-        </span><span class="kw">let </span>raw: String = diag.interact()<span class="question-mark">?</span>;
+        </span><span class="kw">let </span>raw: String = diag.interact_text()<span class="question-mark">?</span>;
         <span class="kw">let </span>val = raw.trim();
         <span class="kw">if </span>!val.is_empty() {
             <span class="kw">break </span><span class="prelude-val">Ok</span>(val.to_string());
@@ -235,15 +249,16 @@
 </span><span class="kw">pub fn </span>prompt_for_package_ident(
     message: <span class="kw-2">&amp;</span>str,
     default: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>str&gt;,
-) -&gt; <span class="prelude-ty">Result</span>&lt;StringWebcIdent, anyhow::Error&gt; {
+) -&gt; <span class="prelude-ty">Result</span>&lt;NamedPackageIdent, anyhow::Error&gt; {
     <span class="kw">loop </span>{
-        <span class="kw">let </span>raw: String = dialoguer::Input::new()
+        <span class="kw">let </span>theme = ColorfulTheme::default();
+        <span class="kw">let </span>raw: String = dialoguer::Input::with_theme(<span class="kw-2">&amp;</span>theme)
             .with_prompt(message)
             .with_initial_text(default.unwrap_or_default())
             .interact_text()
             .context(<span class="string">&quot;could not read user input&quot;</span>)<span class="question-mark">?</span>;
 
-        <span class="kw">match </span>raw.parse::&lt;StringWebcIdent&gt;() {
+        <span class="kw">match </span>raw.parse::&lt;NamedPackageIdent&gt;() {
             <span class="prelude-val">Ok</span>(p) =&gt; <span class="kw">break </span><span class="prelude-val">Ok</span>(p),
             <span class="prelude-val">Err</span>(err) =&gt; {
                 <span class="macro">eprintln!</span>(<span class="string">&quot;invalid package name: {err}&quot;</span>);
@@ -271,7 +286,7 @@
     default: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>str&gt;,
     check: <span class="prelude-ty">Option</span>&lt;PackageCheckMode&gt;,
     client: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>WasmerClient&gt;,
-) -&gt; <span class="prelude-ty">Result</span>&lt;(StringWebcIdent, <span class="prelude-ty">Option</span>&lt;wasmer_api::types::Package&gt;), anyhow::Error&gt; {
+) -&gt; <span class="prelude-ty">Result</span>&lt;(NamedPackageIdent, <span class="prelude-ty">Option</span>&lt;wasmer_api::types::Package&gt;), anyhow::Error&gt; {
     <span class="kw">loop </span>{
         <span class="kw">let </span>ident = prompt_for_package_ident(message, default)<span class="question-mark">?</span>;
 
@@ -287,7 +302,8 @@
                     <span class="kw">if let </span><span class="prelude-val">Some</span>(pkg) = pkg {
                         <span class="kw">let </span><span class="kw-2">mut </span>ident = ident;
                         <span class="kw">if let </span><span class="prelude-val">Some</span>(v) = <span class="kw-2">&amp;</span>pkg.last_version {
-                            ident.<span class="number">0</span>.tag = <span class="prelude-val">Some</span>(v.version.clone());
+                            ident.tag =
+                                <span class="prelude-val">Some</span>(wasmer_config::package::Tag::VersionReq(v.version.parse()<span class="question-mark">?</span>));
                         }
                         <span class="kw">break </span><span class="prelude-val">Ok</span>((ident, <span class="prelude-val">Some</span>(pkg)));
                     } <span class="kw">else </span>{
@@ -332,7 +348,7 @@
             .chain(namespaces.iter().map(|ns| ns.global_name.clone()))
             .collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
 
-        <span class="kw">let </span>selection_index = Select::new()
+        <span class="kw">let </span>selection_index = Select::with_theme(<span class="kw-2">&amp;</span>ColorfulTheme::default())
             .with_prompt(message)
             .default(<span class="number">0</span>)
             .items(<span class="kw-2">&amp;</span>labels)
@@ -342,7 +358,8 @@
         <span class="prelude-val">Ok</span>(labels[selection_index].clone())
     } <span class="kw">else </span>{
         <span class="kw">loop </span>{
-            <span class="kw">let </span>value = dialoguer::Input::&lt;String&gt;::new()
+            <span class="kw">let </span>theme = ColorfulTheme::default();
+            <span class="kw">let </span>value = dialoguer::Input::&lt;String&gt;::with_theme(<span class="kw-2">&amp;</span>theme)
                 .with_prompt(message)
                 .with_initial_text(default.map(|x| x.trim().to_string()).unwrap_or_default())
                 .interact_text()
@@ -369,17 +386,26 @@
     <span class="kw">loop </span>{
         <span class="kw">let </span>ident = prompt_for_ident(message, default)<span class="question-mark">?</span>;
 
-        <span class="kw">if let </span><span class="prelude-val">Some</span>(api) = <span class="kw-2">&amp;</span>api {
+        <span class="kw">if </span>ident.len() &lt; <span class="number">5 </span>{
+            <span class="macro">eprintln!</span>(
+                <span class="string">&quot;{}: Name is too short. It must be longer than 5 characters.&quot;</span>,
+                <span class="string">&quot;WARN&quot;</span>.bold().yellow()
+            )
+        } <span class="kw">else if let </span><span class="prelude-val">Some</span>(api) = <span class="kw-2">&amp;</span>api {
             <span class="kw">let </span>app = wasmer_api::query::get_app(api, namespace.to_string(), ident.clone()).<span class="kw">await</span><span class="question-mark">?</span>;
-            <span class="macro">eprintln!</span>(<span class="string">&quot;Checking name availability...&quot;</span>);
+            <span class="macro">eprint!</span>(<span class="string">&quot;Checking name availability... &quot;</span>);
             <span class="kw">if </span>app.is_some() {
                 <span class="macro">eprintln!</span>(
-                    <span class="string">&quot;{}: app &#39;{}/{}&#39; already exists - pick a different name&quot;</span>,
-                    <span class="string">&quot;WARN:&quot;</span>.yellow(),
-                    namespace,
-                    ident
+                    <span class="string">&quot;{}&quot;</span>,
+                    <span class="macro">format!</span>(
+                        <span class="string">&quot;app {} already exists in namespace {}&quot;</span>,
+                        ident.bold(),
+                        namespace.bold()
+                    )
+                    .yellow()
                 );
             } <span class="kw">else </span>{
+                <span class="macro">eprintln!</span>(<span class="string">&quot;{}&quot;</span>, <span class="string">&quot;available!&quot;</span>.bold().green());
                 <span class="kw">break </span><span class="prelude-val">Ok</span>(ident);
             }
         }

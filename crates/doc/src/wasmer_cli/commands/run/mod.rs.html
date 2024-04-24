@@ -969,6 +969,7 @@
 <a href="#969" id="969">969</a>
 <a href="#970" id="970">970</a>
 <a href="#971" id="971">971</a>
+<a href="#972" id="972">972</a>
 </pre></div><pre class="rust"><code><span class="attr">#![allow(missing_docs, unused)]
 
 </span><span class="kw">mod </span>wasi;
@@ -998,6 +999,7 @@
 };
 <span class="attr">#[cfg(feature = <span class="string">&quot;compiler&quot;</span>)]
 </span><span class="kw">use </span>wasmer_compiler::ArtifactBuild;
+<span class="kw">use </span>wasmer_config::package::PackageSource <span class="kw">as </span>PackageSpecifier;
 <span class="kw">use </span>wasmer_registry::{wasmer_env::WasmerEnv, Package};
 <span class="attr">#[cfg(feature = <span class="string">&quot;journal&quot;</span>)]
 </span><span class="kw">use </span>wasmer_wasix::journal::{LogFileJournal, SnapshotTrigger};
@@ -1015,7 +1017,7 @@
     runtime::{
         module_cache::{CacheError, ModuleHash},
         package_loader::PackageLoader,
-        resolver::{PackageSpecifier, QueryError},
+        resolver::QueryError,
         task_manager::VirtualTaskManagerExt,
     },
     Runtime, WasiError,
@@ -1181,7 +1183,7 @@
         <span class="kw">let </span><span class="kw-2">mut </span>dependencies = Vec::new();
 
         <span class="kw">for </span>name <span class="kw">in </span><span class="kw-2">&amp;</span><span class="self">self</span>.wasi.uses {
-            <span class="kw">let </span>specifier = PackageSpecifier::parse(name)
+            <span class="kw">let </span>specifier = PackageSpecifier::from_str(name)
                 .with_context(|| <span class="macro">format!</span>(<span class="string">&quot;Unable to parse \&quot;{name}\&quot; as a package specifier&quot;</span>))<span class="question-mark">?</span>;
             <span class="kw">let </span>pkg = {
                 <span class="kw">let </span>specifier = specifier.clone();
@@ -1531,7 +1533,7 @@
             <span class="kw">return </span><span class="prelude-val">Ok</span>(PackageSource::Dir(path.to_path_buf()));
         }
 
-        <span class="kw">if let </span><span class="prelude-val">Ok</span>(pkg) = PackageSpecifier::parse(s) {
+        <span class="kw">if let </span><span class="prelude-val">Ok</span>(pkg) = PackageSpecifier::from_str(s) {
             <span class="kw">return </span><span class="prelude-val">Ok</span>(PackageSource::Package(pkg));
         }
 

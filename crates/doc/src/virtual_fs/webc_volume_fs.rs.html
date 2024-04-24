@@ -709,7 +709,7 @@
 
         <span class="kw">let </span><span class="kw-2">mut </span>entries = Vec::new();
 
-        <span class="kw">for </span>(name, meta) <span class="kw">in </span><span class="self">self
+        <span class="kw">for </span>(name, <span class="kw">_</span>, meta) <span class="kw">in </span><span class="self">self
             </span>.volume()
             .read_dir(<span class="kw-2">&amp;</span>path)
             .ok_or(FsError::EntryNotFound)<span class="question-mark">?
@@ -822,7 +822,7 @@
         }
 
         <span class="kw">match </span><span class="self">self</span>.volume().read_file(path) {
-            <span class="prelude-val">Some</span>(bytes) =&gt; <span class="prelude-val">Ok</span>(Box::new(File(Cursor::new(bytes)))),
+            <span class="prelude-val">Some</span>((bytes, <span class="kw">_</span>)) =&gt; <span class="prelude-val">Ok</span>(Box::new(File(Cursor::new(bytes)))),
             <span class="prelude-val">None </span>=&gt; {
                 <span class="comment">// The metadata() call should guarantee this, so something
                 // probably went wrong internally
@@ -925,14 +925,14 @@
 
 <span class="kw">fn </span>compat_meta(meta: webc::compat::Metadata) -&gt; Metadata {
     <span class="kw">match </span>meta {
-        webc::compat::Metadata::Dir =&gt; Metadata {
+        webc::compat::Metadata::Dir { .. } =&gt; Metadata {
             ft: FileType {
                 dir: <span class="bool-val">true</span>,
                 ..Default::default()
             },
             ..Default::default()
         },
-        webc::compat::Metadata::File { length } =&gt; Metadata {
+        webc::compat::Metadata::File { length, .. } =&gt; Metadata {
             ft: FileType {
                 file: <span class="bool-val">true</span>,
                 ..Default::default()
