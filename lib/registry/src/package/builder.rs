@@ -9,11 +9,11 @@ use rusqlite::{params, Connection, OpenFlags, TransactionBehavior};
 use tar::Builder;
 use thiserror::Error;
 use time::{self, OffsetDateTime};
-use wasmer_config::package::PackageIdent;
+use wasmer_config::package::{PackageIdent, MANIFEST_FILE_NAME};
 
 use crate::publish::PublishWait;
 use crate::{package::builder::validate::ValidationPolicy, publish::SignArchiveResult};
-use crate::{WasmerConfig, PACKAGE_TOML_FALLBACK_NAME};
+use crate::WasmerConfig;
 
 const MIGRATIONS: &[(i32, &str)] = &[
     (0, include_str!("./sql/migrations/0000.sql")),
@@ -234,7 +234,13 @@ fn construct_tar_gz(
         .context("manifest path has no parent directory")?;
 
     let mut builder = Builder::new(Vec::new());
-    builder.append_path_with_name(manifest_path, PACKAGE_TOML_FALLBACK_NAME)?;
+    builder.append_path_with_name(
+        manifest_path,
+        manifest_path
+            .file_name()
+            .map(|s| s.to_str().unwrap_or_default())
+            .unwrap_or(MANIFEST_FILE_NAME),
+    )?;
 
     let manifest_string = toml::to_string(&manifest)?;
 

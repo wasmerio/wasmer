@@ -359,6 +359,7 @@ impl CmdAppCreate {
                 no_persist_id: false,
                 owner: Some(String::from(owner)),
                 app_name: None,
+                autobump: false,
             };
             cmd_deploy.run_async().await?;
         }

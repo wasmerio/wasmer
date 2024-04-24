@@ -67,6 +67,7 @@ impl AsyncCliCommand for Publish {
     type Output = Option<PackageIdent>;
 
     async fn run_async(self) -> Result<Self::Output, anyhow::Error> {
+        let interactive = std::io::stdin().is_terminal() && !self.non_interactive;
         let manifest_dir_path = match self.package_path.as_ref() {
             Some(s) => std::env::current_dir()?.join(s),
             None => std::env::current_dir()?,
@@ -91,12 +92,16 @@ impl AsyncCliCommand for Publish {
         tracing::info!("checking if package with hash {hash} already exists");
 
         // [TODO]: Add a simpler query to simply retrieve a boolean value if the package with the
-        // given hash exists. 
+        // given hash exists.
         let maybe_already_published =
-            wasmer_api::query::get_package_release(&client, &hash.to_string())
-                .await
-                .is_ok_and(|u| u.is_some());
+            wasmer_api::query::get_package_release(&client, &hash.to_string()).await;
 
+        tracing::info!(
+            "received response: {:#?} from registry",
+            maybe_already_published
+        );
+
+        let maybe_already_published = maybe_already_published.is_ok_and(|u| u.is_some());
 
         if maybe_already_published {
             eprintln!("Package with hash {hash} already present on registry");
@@ -134,7 +139,7 @@ impl AsyncCliCommand for Publish {
                 if self.autobump {
                     latest_version.patch += 1;
                     version = Some(latest_version);
-                } else if std::io::stdin().is_terminal() && !self.non_interactive {
+                } else if interactive {
                     latest_version.patch += 1;
                     if Confirm::new()
                         .with_prompt(format!(

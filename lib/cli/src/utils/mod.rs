@@ -86,7 +86,7 @@ pub fn load_package_manifest(
         path.join(DEFAULT_PACKAGE_MANIFEST_FILE)
     };
 
-    let contents = match std::fs::read_to_string(&file_path) {
+    let mut contents = match std::fs::read_to_string(&file_path) {
         Ok(c) => c,
         Err(err) if err.kind() == std::io::ErrorKind::NotFound => return Ok(None),
         Err(err) => {
@@ -98,12 +98,35 @@ pub fn load_package_manifest(
             })
         }
     };
+
+    // [XXX]: Discuss...
+    let manifest_value: toml::Value = toml::from_str(&contents)?;
+
+    match manifest_value {
+        toml::Value::Table(mut t) => {
+            if let Some(p) = t.get("package") {
+                match p {
+                    toml::Value::Table(p) => {
+                        if p.get("version").is_none() {
+                            t.remove("package");
+                            contents = toml::Value::Table(t).to_string();
+                        }
+                    }
+                    _ => {}
+                }
+            }
+        }
+        _ => {}
+    }
+
     let manifest = wasmer_config::package::Manifest::parse(&contents).with_context(|| {
         format!(
-            "Could not parse package config at: '{}'",
-            file_path.display()
+            "Could not parse package config at: '{}' - full config: {}",
+            file_path.display(),
+            contents
         )
     })?;
+
     Ok(Some((file_path, manifest)))
 }
 

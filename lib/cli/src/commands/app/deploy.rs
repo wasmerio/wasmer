@@ -76,6 +76,10 @@ pub struct CmdAppDeploy {
     /// user will be prompted to insert an app name, otherwise the deployment will fail.
     #[clap(long)]
     pub app_name: Option<String>,
+
+    /// Whether or not to autobump the package version if publishing.
+    #[clap(long)]
+    pub autobump: bool,
 }
 
 impl CmdAppDeploy {
@@ -119,7 +123,7 @@ impl CmdAppDeploy {
                 None => Some(owner),
             },
             non_interactive: self.non_interactive,
-            autobump: false,
+            autobump: self.autobump,
         };
 
         match publish_cmd.run_async().await? {
