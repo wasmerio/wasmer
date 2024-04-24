@@ -334,10 +334,11 @@ impl AsyncCliCommand for CmdAppDeploy {
                             );
                             eprintln!("The `package` field in `app.yaml` specified the same named package ({}).", package.name);
                             eprintln!("This behaviour is deprecated.");
+                            let theme = dialoguer::theme::ColorfulTheme::default();
                             if self.non_interactive {
                                 eprintln!("Hint: replace `package: {}` with `package: .` to replicate the intended behaviour.", n);
                                 anyhow::bail!("deprecated deploy behaviour")
-                            } else if Confirm::new()
+                            } else if Confirm::with_theme(&theme)
                                 .with_prompt("Change package to '.' in app.yaml?")
                                 .interact()?
                             {

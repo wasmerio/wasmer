@@ -144,7 +144,8 @@ impl AsyncCliCommand for Publish {
                     version = Some(latest_version);
                 } else if interactive {
                     latest_version.patch += 1;
-                    if Confirm::new()
+                    let theme = dialoguer::theme::ColorfulTheme::default();
+                    if Confirm::with_theme(&theme)
                         .with_prompt(format!(
                             "Do you want to bump the package to a new version? ({} -> {})",
                             pkg.version, latest_version

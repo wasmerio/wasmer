@@ -195,7 +195,10 @@ impl CmdAppCreate {
                 "A package manifest was found in path {}.",
                 &manifest_path.display()
             );
-            Confirm::new().with_prompt("Use it for the app?").interact()
+            let theme = dialoguer::theme::ColorfulTheme::default();
+            Confirm::with_theme(&theme)
+                .with_prompt("Use it for the app?")
+                .interact()
         };
 
         if self.use_local_manifest || ask_confirmation()? {
@@ -343,10 +346,11 @@ impl CmdAppCreate {
 
     async fn try_deploy(&self, owner: &str) -> anyhow::Result<()> {
         let interactive = std::io::stdin().is_terminal() && !self.non_interactive;
+        let theme = dialoguer::theme::ColorfulTheme::default();
 
         if self.deploy_app
             || (interactive
-                && Confirm::new()
+                && Confirm::with_theme(&theme)
                     .with_prompt("Do you want to deploy the app now?")
                     .interact()?)
         {
@@ -559,7 +563,8 @@ impl AppCreator {
 
                 let msg = format!("Use package '{pkg_ident}'");
 
-                let should_use = Confirm::new()
+                let theme = dialoguer::theme::ColorfulTheme::default();
+                let should_use = Confirm::with_theme(&theme)
                     .with_prompt(&msg)
                     .interact_opt()?
                     .unwrap_or_default();

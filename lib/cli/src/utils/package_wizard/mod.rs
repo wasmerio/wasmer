@@ -179,7 +179,8 @@ fn initialize_static_site(path: &Path) -> Result<wasmer_config::package::Manifes
             .with_context(|| "Could not write index.html file".to_string())?;
     } else {
         // The index.js file already exists, so we can ask the user if they want to overwrite it
-        let should_overwrite = dialoguer::Confirm::new()
+        let theme = dialoguer::theme::ColorfulTheme::default();
+        let should_overwrite = dialoguer::Confirm::with_theme(&theme)
             .with_prompt("index.html already exists. Do you want to overwrite it?")
             .interact()
             .unwrap();
