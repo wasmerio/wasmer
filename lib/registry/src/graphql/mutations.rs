@@ -4,7 +4,9 @@ use graphql_client::GraphQLQuery;
 #[graphql(
     schema_path = "graphql/schema.graphql",
     query_path = "graphql/mutations/publish_package_chunked.graphql",
-    response_derives = "Debug"
+    response_derives = "Debug",
+    variables_derives = "Debug"
+    // additional_derives = "Debug"
 )]
 pub(crate) struct PublishPackageMutationChunked;
 

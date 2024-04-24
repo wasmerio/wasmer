@@ -11,17 +11,21 @@ use anyhow::{Context, Result};
 use console::{style, Emoji};
 use futures_util::StreamExt;
 use graphql_client::GraphQLQuery;
-use indicatif::{MultiProgress, ProgressBar, ProgressState, ProgressStyle};
+use indicatif::{ProgressBar, ProgressState, ProgressStyle};
 use std::collections::BTreeMap;
 use std::fmt::Write;
-use std::io::BufRead;
+use std::io::Write as _;
 use std::path::PathBuf;
+use std::str::FromStr;
 use std::sync::{Arc, Mutex};
-use std::thread;
 use std::time::Duration;
+use tokio::io::AsyncBufReadExt;
+use tokio::sync::oneshot::Receiver;
+use wasmer_config::package::{NamedPackageIdent, PackageHash, PackageIdent};
 
-static UPLOAD: Emoji<'_, '_> = Emoji("⬆️ ", "");
+static UPLOAD: Emoji<'_, '_> = Emoji("📤", "");
 static PACKAGE: Emoji<'_, '_> = Emoji("📦", "");
+static FIRE: Emoji<'_, '_> = Emoji("🔥", "");
 
 /// Different conditions that can be "awaited" when publishing a package.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -75,11 +79,24 @@ pub enum SignArchiveResult {
     NoKeyRegistered,
 }
 
+async fn wait_on(mut recv: Receiver<()>) {
+    loop {
+        _ = std::io::stdout().flush();
+        if recv.try_recv().is_ok() {
+            println!(".");
+            break;
+        } else {
+            tokio::time::sleep(Duration::from_secs(1)).await;
+            print!(".");
+        }
+    }
+}
+
 #[allow(clippy::too_many_arguments)]
-pub fn try_chunked_uploading(
+pub async fn try_chunked_uploading(
     registry: Option<String>,
     token: Option<String>,
-    package: &wasmer_toml::Package,
+    package: &Option<wasmer_config::package::Package>,
     manifest_string: &String,
     license_file: &Option<String>,
     readme: &Option<String>,
@@ -90,8 +107,11 @@ pub fn try_chunked_uploading(
     quiet: bool,
     wait: PublishWait,
     timeout: Duration,
-) -> Result<(), anyhow::Error> {
+    patch_namespace: Option<String>,
+) -> Result<Option<PackageIdent>, anyhow::Error> {
     let (registry, token) = initialize_registry_and_token(registry, token)?;
+
+    let steps = if wait.is_any() { 3 } else { 2 };
 
     let maybe_signature_data = sign_package(maybe_signature_data);
 
@@ -101,62 +121,119 @@ pub fn try_chunked_uploading(
     let signed_url = google_signed_url(&registry, &token, package, timeout)?;
 
     if !quiet {
-        println!("{} {} Uploading...", style("[1/2]").bold().dim(), UPLOAD);
+        println!(
+            "{} {} Uploading",
+            style(format!("[1/{steps}]")).bold().dim(),
+            UPLOAD
+        );
     }
-    upload_package(&signed_url.url, archive_path, archived_data_size, timeout)?;
 
-    if !quiet {
-        println!("{} {} Publishing...", style("[2/2]").bold().dim(), PACKAGE);
-    }
+    upload_package(&signed_url.url, archive_path, archived_data_size, timeout).await?;
+
+    let name = package.as_ref().map(|p| p.name.clone());
+
+    let namespace = match patch_namespace {
+        Some(n) => Some(n),
+        None => package
+            .as_ref()
+            .map(|p| String::from(p.name.split_once('/').unwrap().0)),
+    };
 
     let q =
         PublishPackageMutationChunked::build_query(publish_package_mutation_chunked::Variables {
-            name: package.name.to_string(),
-            version: package.version.to_string(),
-            description: package.description.clone(),
+            name,
+            namespace,
+            version: package.as_ref().map(|p| p.version.to_string()),
+            description: package.as_ref().map(|p| p.description.clone()),
             manifest: manifest_string.to_string(),
-            license: package.license.clone(),
+            license: package.as_ref().and_then(|p| p.license.clone()),
             license_file: license_file.to_owned(),
             readme: readme.to_owned(),
-            repository: package.repository.clone(),
-            homepage: package.homepage.clone(),
+            repository: package.as_ref().and_then(|p| p.repository.clone()),
+            homepage: package.as_ref().and_then(|p| p.homepage.clone()),
             file_name: Some(archive_name.to_string()),
             signature: maybe_signature_data,
             signed_url: Some(signed_url.url),
-            private: Some(package.private),
+            private: Some(match package {
+                Some(p) => p.private,
+                None => true,
+            }),
             wait: Some(wait.is_any()),
         });
 
-    let response: publish_package_mutation_chunked::ResponseData =
-        crate::graphql::execute_query_with_timeout(&registry, &token, timeout, &q)?;
+    tracing::debug!("{:#?}", q);
 
-    if let Some(pkg) = response.publish_package {
-        if !pkg.success {
-            return Err(anyhow::anyhow!("Could not publish package"));
-        }
-        if wait.is_any() {
-            let f = wait_for_package_version_to_become_ready(
-                &registry,
-                &token,
-                pkg.package_version.id,
-                quiet,
-                wait,
-            );
+    let (send, recv) = tokio::sync::oneshot::channel();
+    let mut wait_t = None;
 
-            if let Ok(handle) = tokio::runtime::Handle::try_current() {
-                handle.block_on(f)?
-            } else {
-                tokio::runtime::Runtime::new().unwrap().block_on(f)?;
-            }
-        }
+    if !quiet {
+        print!(
+            "{} {} Publishing package",
+            style(format!("[2/{steps}]")).bold().dim(),
+            PACKAGE
+        );
+
+        _ = std::io::stdout().flush();
+        wait_t = Some(tokio::spawn(wait_on(recv)))
     }
 
-    println!(
-        "🚀 Successfully published package `{}@{}`",
-        package.name, package.version,
-    );
+    let response: publish_package_mutation_chunked::ResponseData = {
+        let registry = registry.clone();
+        let token = token.clone();
+        tokio::spawn(async move {
+            crate::graphql::execute_query_with_timeout(&registry, &token, timeout, &q)
+        })
+        .await??
+    };
 
-    Ok(())
+    _ = send.send(());
+
+    if let Some(wait_t) = wait_t {
+        _ = wait_t.await;
+    };
+
+    tracing::debug!("{:#?}", response);
+
+    if let Some(payload) = response.publish_package {
+        if !payload.success {
+            return Err(anyhow::anyhow!("Could not publish package"));
+        } else if let Some(pkg_version) = payload.package_version {
+            // Here we can assume that the package is *Some*.
+            let package = package.clone().unwrap();
+
+            if wait.is_any() {
+                wait_for_package_version_to_become_ready(
+                    &registry,
+                    &token,
+                    pkg_version.id,
+                    quiet,
+                    wait,
+                    steps,
+                )
+                .await?;
+            }
+
+            let package_ident = PackageIdent::Named(NamedPackageIdent::from_str(&format!(
+                "{}@{}",
+                package.name, package.version
+            ))?);
+            eprintln!("Package published successfully");
+            // println!("🚀 Successfully published package `{}`", package_ident);
+            return Ok(Some(package_ident));
+        } else if let Some(pkg_hash) = payload.package_webc {
+            let package_ident = PackageIdent::Hash(
+                PackageHash::from_str(&format!("sha256:{}", pkg_hash.webc_v3.unwrap().webc_sha256))
+                    .unwrap(),
+            );
+            eprintln!("Package published successfully");
+            // println!("🚀 Successfully published package `{}`", package_ident);
+            return Ok(Some(package_ident));
+        }
+
+        unreachable!();
+    } else {
+        unreachable!();
+    }
 }
 
 fn initialize_registry_and_token(
@@ -225,12 +302,16 @@ fn sign_package(
 fn google_signed_url(
     registry: &str,
     token: &str,
-    package: &wasmer_toml::Package,
+    package: &Option<wasmer_config::package::Package>,
     timeout: Duration,
 ) -> Result<GetSignedUrlUrl, anyhow::Error> {
     let get_google_signed_url = GetSignedUrl::build_query(get_signed_url::Variables {
-        name: package.name.to_string(),
-        version: package.version.to_string(),
+        name: package.as_ref().map(|p| p.name.to_string()),
+        version: package.as_ref().map(|p| p.version.to_string()),
+        filename: match package {
+            Some(_) => None,
+            None => Some(format!("unnamed_package_{}", rand::random::<usize>())),
+        },
         expires_after_seconds: Some(60 * 30),
     });
 
@@ -241,24 +322,29 @@ fn google_signed_url(
         &get_google_signed_url,
     )?;
 
-    let url = _response.url.ok_or_else(|| {
-        anyhow::anyhow!(
-            "could not get signed url for package {}@{}",
-            package.name,
-            package.version
-        )
+    let url = _response.url.ok_or_else(|| match package {
+        Some(pkg) => {
+            anyhow::anyhow!(
+                "could not get signed url for package {}@{}",
+                pkg.name,
+                pkg.version
+            )
+        }
+        None => {
+            anyhow::anyhow!("could not get signed url for unnamed package",)
+        }
     })?;
     Ok(url)
 }
 
-fn upload_package(
+async fn upload_package(
     signed_url: &str,
     archive_path: &PathBuf,
     archived_data_size: u64,
     timeout: Duration,
 ) -> Result<(), anyhow::Error> {
     let url = url::Url::parse(signed_url).context("cannot parse signed url")?;
-    let client = reqwest::blocking::Client::builder()
+    let client = reqwest::Client::builder()
         .default_headers(reqwest::header::HeaderMap::default())
         .timeout(timeout)
         .build()
@@ -270,7 +356,7 @@ fn upload_package(
         .header(reqwest::header::CONTENT_TYPE, "application/octet-stream")
         .header("x-goog-resumable", "start");
 
-    let result = res.send().unwrap();
+    let result = res.send().await.unwrap();
 
     if result.status() != reqwest::StatusCode::from_u16(201).unwrap() {
         return Err(anyhow::anyhow!(
@@ -294,9 +380,10 @@ fn upload_package(
     let total = archived_data_size;
 
     // archive_path
-    let mut file = std::fs::OpenOptions::new()
+    let mut file = tokio::fs::OpenOptions::new()
         .read(true)
         .open(archive_path)
+        .await
         .map_err(|e| anyhow::anyhow!("cannot open archive {}: {e}", archive_path.display()))?;
 
     let pb = ProgressBar::new(archived_data_size);
@@ -310,14 +397,14 @@ fn upload_package(
     let chunk_size = 1_048_576; // 1MB - 315s / 100MB
     let mut file_pointer = 0;
 
-    let mut reader = std::io::BufReader::with_capacity(chunk_size, &mut file);
+    let mut reader = tokio::io::BufReader::with_capacity(chunk_size, &mut file);
 
-    let client = reqwest::blocking::Client::builder()
+    let client = reqwest::Client::builder()
         .default_headers(reqwest::header::HeaderMap::default())
         .build()
         .unwrap();
 
-    while let Some(chunk) = reader.fill_buf().ok().map(|s| s.to_vec()) {
+    while let Some(chunk) = reader.fill_buf().await.ok().map(|s| s.to_vec()) {
         let n = chunk.len();
 
         if chunk.is_empty() {
@@ -338,6 +425,7 @@ fn upload_package(
         pb.set_position(file_pointer as u64);
 
         res.send()
+            .await
             .map(|response| response.error_for_status())
             .map_err(|e| {
                 anyhow::anyhow!(
@@ -375,55 +463,56 @@ impl PackageVersionReadySharedState {
     }
 }
 
-fn create_spinner(m: &MultiProgress, message: String) -> ProgressBar {
-    let spinner = m.add(ProgressBar::new_spinner());
-    spinner.set_message(message);
-    spinner.set_style(ProgressStyle::default_spinner());
-    spinner.enable_steady_tick(Duration::from_millis(100));
-    spinner
-}
-
-fn show_spinners_while_waiting(state: &PackageVersionReadySharedState) {
-    // Clone shared state for threads
-    let (state_webc, state_bindings, state_native) = (
-        Arc::clone(&state.webc_generated),
-        Arc::clone(&state.bindings_generated),
-        Arc::clone(&state.native_exes_generated),
-    );
-    let m = MultiProgress::new();
-
-    let webc_spinner = create_spinner(&m, String::from("Generating WEBC..."));
-    let bindings_spinner = create_spinner(&m, String::from("Generating language bindings..."));
-    let exe_spinner = create_spinner(&m, String::from("Generating native executables..."));
-
-    let check_and_finish = |spinner: ProgressBar, state: Arc<Mutex<Option<bool>>>, name: String| {
-        thread::spawn(move || loop {
-            match state.lock() {
-                Ok(lock) => {
-                    if lock.is_some() {
-                        spinner.finish_with_message(format!("✅ {} generation complete", name));
-                        break;
-                    }
-                }
-                Err(_) => {
-                    break;
-                }
-            }
-            thread::sleep(Duration::from_millis(100));
-        });
-    };
-    check_and_finish(webc_spinner, state_webc, String::from("WEBC"));
-    check_and_finish(
-        bindings_spinner,
-        state_bindings,
-        String::from("Language bindings"),
-    );
-    check_and_finish(
-        exe_spinner,
-        state_native,
-        String::from("Native executables"),
-    );
-}
+// fn create_spinner(m: &MultiProgress, message: String) -> ProgressBar {
+//     let spinner = m.add(ProgressBar::new_spinner());
+//     spinner.set_message(message);
+//     spinner.set_style(ProgressStyle::default_spinner());
+//     spinner.enable_steady_tick(Duration::from_millis(100));
+//     spinner
+// }
+//
+// fn show_spinners_while_waiting(state: &PackageVersionReadySharedState) {
+//     // Clone shared state for threads
+//     let (state_webc, state_bindings, state_native) = (
+//         Arc::clone(&state.webc_generated),
+//         Arc::clone(&state.bindings_generated),
+//         Arc::clone(&state.native_exes_generated),
+//     );
+//     let m = MultiProgress::new();
+//
+//     let webc_spinner = create_spinner(&m, String::from("Generating package..."));
+//     let bindings_spinner = create_spinner(&m, String::from("Generating language bindings..."));
+//     let exe_spinner = create_spinner(&m, String::from("Generating native executables..."));
+//
+//     let check_and_finish = |spinner: ProgressBar, state: Arc<Mutex<Option<bool>>>, name: String| {
+//         thread::spawn(move || loop {
+//             match state.lock() {
+//                 Ok(lock) => {
+//                     if lock.is_some() {
+//                         // spinner.finish_with_message(format!("✅ {} generation complete", name));
+//                         spinner.finish_and_clear();
+//                         break;
+//                     }
+//                 }
+//                 Err(_) => {
+//                     break;
+//                 }
+//             }
+//             thread::sleep(Duration::from_millis(100));
+//         });
+//     };
+//     check_and_finish(webc_spinner, state_webc, String::from("package"));
+//     check_and_finish(
+//         bindings_spinner,
+//         state_bindings,
+//         String::from("Language bindings"),
+//     );
+//     check_and_finish(
+//         exe_spinner,
+//         state_native,
+//         String::from("Native executables"),
+//     );
+// }
 
 async fn wait_for_package_version_to_become_ready(
     registry: &str,
@@ -431,14 +520,24 @@ async fn wait_for_package_version_to_become_ready(
     package_version_id: impl AsRef<str>,
     quiet: bool,
     mut conditions: PublishWait,
+    steps: usize,
 ) -> Result<()> {
     let (mut stream, _client) =
         subscribe_package_version_ready(registry, token, package_version_id.as_ref()).await?;
 
     let state = PackageVersionReadySharedState::new();
 
+    let (send, recv) = tokio::sync::oneshot::channel();
+    let mut wait_t = None;
+
     if !quiet {
-        show_spinners_while_waiting(&state);
+        print!(
+            "{} {} Waiting for package to be available",
+            style(format!("[3/{steps}]")).bold().dim(),
+            FIRE
+        );
+        _ = std::io::stdout().flush();
+        wait_t = Some(tokio::spawn(wait_on(recv)));
     }
 
     if !conditions.is_any() {
@@ -455,6 +554,7 @@ async fn wait_for_package_version_to_become_ready(
             break;
         }
         if std::time::Instant::now() > deadline {
+            _ = send.send(());
             return Err(anyhow::anyhow!(
                 "Timed out waiting for package version to become ready"
             ));
@@ -462,9 +562,10 @@ async fn wait_for_package_version_to_become_ready(
 
         let data = match tokio::time::timeout_at(deadline.into(), stream.next()).await {
             Err(_) => {
+                _ = send.send(());
                 return Err(anyhow::anyhow!(
                     "Timed out waiting for package version to become ready"
-                ))
+                ));
             }
             Ok(None) => {
                 break;
@@ -495,6 +596,12 @@ async fn wait_for_package_version_to_become_ready(
                 PackageVersionState::Other(_) => {}
             }
         }
+    }
+
+    _ = send.send(());
+
+    if let Some(wait_t) = wait_t {
+        _ = wait_t.await;
     }
 
     Ok(())

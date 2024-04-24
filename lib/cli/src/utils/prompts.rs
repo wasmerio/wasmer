@@ -1,12 +1,13 @@
 use anyhow::Context;
 use colored::Colorize;
-use dialoguer::Select;
-use edge_schema::schema::StringWebcIdent;
+use dialoguer::{theme::ColorfulTheme, Select};
 use wasmer_api::WasmerClient;
+use wasmer_config::package::NamedPackageIdent;
 
 pub fn prompt_for_ident(message: &str, default: Option<&str>) -> Result<String, anyhow::Error> {
     loop {
-        let diag = dialoguer::Input::new()
+        let theme = ColorfulTheme::default();
+        let diag = dialoguer::Input::with_theme(&theme)
             .with_prompt(message)
             .with_initial_text(default.unwrap_or_default());
 
@@ -14,7 +15,7 @@ pub fn prompt_for_ident(message: &str, default: Option<&str>) -> Result<String, 
         //     diag.validate_with(val);
         // }
 
-        let raw: String = diag.interact()?;
+        let raw: String = diag.interact_text()?;
         let val = raw.trim();
         if !val.is_empty() {
             break Ok(val.to_string());
@@ -28,15 +29,16 @@ pub fn prompt_for_ident(message: &str, default: Option<&str>) -> Result<String, 
 pub fn prompt_for_package_ident(
     message: &str,
     default: Option<&str>,
-) -> Result<StringWebcIdent, anyhow::Error> {
+) -> Result<NamedPackageIdent, anyhow::Error> {
     loop {
-        let raw: String = dialoguer::Input::new()
+        let theme = ColorfulTheme::default();
+        let raw: String = dialoguer::Input::with_theme(&theme)
             .with_prompt(message)
             .with_initial_text(default.unwrap_or_default())
             .interact_text()
             .context("could not read user input")?;
 
-        match raw.parse::<StringWebcIdent>() {
+        match raw.parse::<NamedPackageIdent>() {
             Ok(p) => break Ok(p),
             Err(err) => {
                 eprintln!("invalid package name: {err}");
@@ -64,7 +66,7 @@ pub async fn prompt_for_package(
     default: Option<&str>,
     check: Option<PackageCheckMode>,
     client: Option<&WasmerClient>,
-) -> Result<(StringWebcIdent, Option<wasmer_api::types::Package>), anyhow::Error> {
+) -> Result<(NamedPackageIdent, Option<wasmer_api::types::Package>), anyhow::Error> {
     loop {
         let ident = prompt_for_package_ident(message, default)?;
 
@@ -80,7 +82,8 @@ pub async fn prompt_for_package(
                     if let Some(pkg) = pkg {
                         let mut ident = ident;
                         if let Some(v) = &pkg.last_version {
-                            ident.0.tag = Some(v.version.clone());
+                            ident.tag =
+                                Some(wasmer_config::package::Tag::VersionReq(v.version.parse()?));
                         }
                         break Ok((ident, Some(pkg)));
                     } else {
@@ -125,7 +128,7 @@ pub fn prompt_for_namespace(
             .chain(namespaces.iter().map(|ns| ns.global_name.clone()))
             .collect::<Vec<_>>();
 
-        let selection_index = Select::new()
+        let selection_index = Select::with_theme(&ColorfulTheme::default())
             .with_prompt(message)
             .default(0)
             .items(&labels)
@@ -135,7 +138,8 @@ pub fn prompt_for_namespace(
         Ok(labels[selection_index].clone())
     } else {
         loop {
-            let value = dialoguer::Input::<String>::new()
+            let theme = ColorfulTheme::default();
+            let value = dialoguer::Input::<String>::with_theme(&theme)
                 .with_prompt(message)
                 .with_initial_text(default.map(|x| x.trim().to_string()).unwrap_or_default())
                 .interact_text()
@@ -162,17 +166,26 @@ pub async fn prompt_new_app_name(
     loop {
         let ident = prompt_for_ident(message, default)?;
 
-        if let Some(api) = &api {
+        if ident.len() < 5 {
+            eprintln!(
+                "{}: Name is too short. It must be longer than 5 characters.",
+                "WARN".bold().yellow()
+            )
+        } else if let Some(api) = &api {
             let app = wasmer_api::query::get_app(api, namespace.to_string(), ident.clone()).await?;
-            eprintln!("Checking name availability...");
+            eprint!("Checking name availability... ");
             if app.is_some() {
                 eprintln!(
-                    "{}: app '{}/{}' already exists - pick a different name",
-                    "WARN:".yellow(),
-                    namespace,
-                    ident
+                    "{}",
+                    format!(
+                        "app {} already exists in namespace {}",
+                        ident.bold(),
+                        namespace.bold()
+                    )
+                    .yellow()
                 );
             } else {
+                eprintln!("{}", "available!".bold().green());
                 break Ok(ident);
             }
         }

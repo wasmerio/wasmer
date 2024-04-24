@@ -27,11 +27,11 @@ impl AsyncCliCommand for CmdAppInfo {
         let dashboard_url = app.admin_url;
 
         println!("  App Info  ");
-        println!("> App Name: {}", app.name);
-        println!("> Namespace: {}", app.owner.global_name);
-        println!("> App URL: {}", app_url);
-        println!("> Versioned URL: {}", versioned_url);
-        println!("> Admin dashboard: {}", dashboard_url);
+        println!("→ Name: {}", app.name);
+        println!("→ Owner: {}", app.owner.global_name);
+        println!("→ URL: {}", app_url);
+        println!("→ Unique URL: {}", versioned_url);
+        println!("→ Dashboard: {}", dashboard_url);
 
         Ok(())
     }

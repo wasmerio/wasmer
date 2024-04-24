@@ -86,16 +86,23 @@ rust-version = "1.73"
 version = "4.2.8"
 
 [workspace.dependencies]
+# Repo-local crates
+wasmer-config = { path = "./lib/config" }
+
+# Wasmer-owned crates
+webc = { version = "6.0.0-alpha3", default-features = false, features = ["package"] }
+edge-schema = { version = "=0.1.0" }
+shared-buffer = "0.1.4"
+
+# Third-party crates
 enumset = "1.1.0"
 memoffset = "0.9.0"
-wasmer-toml = "0.9.2"
 wasmparser = { version = "0.121.0", default-features = false }
-webc = { version = "5.8.0", default-features = false, features = ["package"] }
-shared-buffer = "0.1.4"
 rkyv = { version = "0.7.40", features = ["indexmap", "validation", "strict"] }
 memmap2 = { version = "0.6.2" }
-edge-schema = { version = "=0.1.0" }
-indexmap = "1"
+toml = {version = "0.5.9", features = ["preserve_order"]}
+indexmap = "2"
+serde_yaml = "0.9.34"
 
 [build-dependencies]
 test-generator = { path = "tests/lib/test-generator" }

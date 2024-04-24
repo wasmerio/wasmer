@@ -501,11 +501,11 @@ fn serialize_volume_to_webc_v1(volume: &WebcVolume) -> Vec<u8> {
         path: &mut PathSegments,
         files: &mut BTreeMap<webc::v1::DirOrFile, Vec<u8>>,
     ) {
-        for (segment, meta) in volume.read_dir(&*path).unwrap_or_default() {
+        for (segment, _, meta) in volume.read_dir(&*path).unwrap_or_default() {
             path.push(segment);
 
             match meta {
-                webc::compat::Metadata::Dir => {
+                webc::compat::Metadata::Dir { .. } => {
                     files.insert(
                         webc::v1::DirOrFile::Dir(path.to_string().into()),
                         Vec::new(),
@@ -513,7 +513,7 @@ fn serialize_volume_to_webc_v1(volume: &WebcVolume) -> Vec<u8> {
                     read_dir(volume, path, files);
                 }
                 webc::compat::Metadata::File { .. } => {
-                    if let Some(contents) = volume.read_file(&*path) {
+                    if let Some((contents, _)) = volume.read_file(&*path) {
                         files.insert(
                             webc::v1::DirOrFile::File(path.to_string().into()),
                             contents.to_vec(),

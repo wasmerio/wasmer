@@ -5,7 +5,7 @@ use super::{
 };
 
 /// Source location of a package.
-#[derive(PartialEq, Eq, Clone, Debug)]
+#[derive(PartialEq, Eq, Clone, Debug, Hash)]
 pub enum PackageSource {
     /// An identifier in the format prescribed by [`WebcIdent`].
     Ident(PackageIdent),
@@ -107,6 +107,12 @@ impl std::str::FromStr for PackageSource {
                 .parse::<url::Url>()
                 .map_err(|e| PackageParseError::new(value, e.to_string()))?;
             return Ok(Self::Url(url));
+        }
+
+        #[cfg(windows)]
+        // Detect windows absolute paths
+        if value.contains('\\') {
+            return Ok(Self::Path(value.to_string()));
         }
 
         match first_char {

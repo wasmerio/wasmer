@@ -10,10 +10,11 @@ use std::{
 };
 
 use anyhow::{bail, Context as _, Result};
-use edge_schema::schema::StringWebcIdent;
+use dialoguer::theme::ColorfulTheme;
 use once_cell::sync::Lazy;
 use regex::Regex;
 use wasmer_api::WasmerClient;
+use wasmer_config::package::NamedPackageIdent;
 use wasmer_wasix::runners::MappedDirectory;
 
 fn retrieve_alias_pathbuf(alias: &str, real_dir: &str) -> Result<MappedDirectory> {
@@ -79,7 +80,7 @@ pub(crate) const DEFAULT_PACKAGE_MANIFEST_FILE: &str = "wasmer.toml";
 /// Path can either be a directory, or a concrete file path.
 pub fn load_package_manifest(
     path: &Path,
-) -> Result<Option<(PathBuf, wasmer_toml::Manifest)>, anyhow::Error> {
+) -> Result<Option<(PathBuf, wasmer_config::package::Manifest)>, anyhow::Error> {
     let file_path = if path.is_file() {
         path.to_owned()
     } else {
@@ -98,12 +99,15 @@ pub fn load_package_manifest(
             })
         }
     };
-    let manifest = wasmer_toml::Manifest::parse(&contents).with_context(|| {
+
+    let manifest = wasmer_config::package::Manifest::parse(&contents).with_context(|| {
         format!(
-            "Could not parse package config at: '{}'",
-            file_path.display()
+            "Could not parse package config at: '{}' - full config: {}",
+            file_path.display(),
+            contents
         )
     })?;
+
     Ok(Some((file_path, manifest)))
 }
 
@@ -113,15 +117,16 @@ pub fn load_package_manifest(
 pub fn prompt_for_package_name(
     message: &str,
     default: Option<&str>,
-) -> Result<StringWebcIdent, anyhow::Error> {
+) -> Result<NamedPackageIdent, anyhow::Error> {
     loop {
-        let raw: String = dialoguer::Input::new()
+        let theme = ColorfulTheme::default();
+        let raw: String = dialoguer::Input::with_theme(&theme)
             .with_prompt(message)
             .with_initial_text(default.unwrap_or_default())
             .interact_text()
             .context("could not read user input")?;
 
-        match raw.parse::<StringWebcIdent>() {
+        match raw.parse::<NamedPackageIdent>() {
             Ok(p) => break Ok(p),
             Err(err) => {
                 eprintln!("invalid package name: {err}");
@@ -149,7 +154,7 @@ pub async fn prompt_for_package(
     default: Option<&str>,
     check: Option<PackageCheckMode>,
     client: Option<&WasmerClient>,
-) -> Result<(StringWebcIdent, Option<wasmer_api::types::Package>), anyhow::Error> {
+) -> Result<(NamedPackageIdent, Option<wasmer_api::types::Package>), anyhow::Error> {
     loop {
         let name = prompt_for_package_name(message, default)?;
 
@@ -180,102 +185,219 @@ pub async fn prompt_for_package(
     }
 }
 
-/// Re-publish a package with an increased minor version.
-pub async fn republish_package_with_bumped_version(
-    client: &WasmerClient,
-    manifest_path: &Path,
-    mut manifest: wasmer_toml::Manifest,
-) -> Result<wasmer_toml::Manifest, anyhow::Error> {
-    // Try to load existing version.
-    // If it does not exist yet, we don't need to increment.
+// /// Republish the package described by the [`wasmer_config::package::Manifest`] given as argument and return a
+// /// [`Result<wasmer_config::package::Manifest>`].
+// ///
+// /// If the package described is named (i.e. has name, namespace and version), the returned manifest
+// /// will have its minor version bumped. If the package is unnamed, the returned manifest will be
+// /// equal to the one given as input.
+// pub async fn republish_package(
+//     client: &WasmerClient,
+//     manifest_path: &Path,
+//     manifest: wasmer_config::package::Manifest,
+//     patch_owner: Option<String>,
+// ) -> Result<(wasmer_config::package::Manifest, Option<PackageIdent>), anyhow::Error> {
+//     let manifest_path = if manifest_path.is_file() {
+//         manifest_path.to_owned()
+//     } else {
+//         manifest_path.join(DEFAULT_PACKAGE_MANIFEST_FILE)
+//     };
+//
+//     let dir = manifest_path
+//         .parent()
+//         .context("could not determine wasmer.toml parent directory")?
+//         .to_owned();
+//
+//     let new_manifest = match &manifest.package {
+//         None => manifest.clone(),
+//         Some(pkg) => {
+//             let mut pkg = pkg.clone();
+//             let name = pkg.name.clone();
+//
+//             let current_opt = wasmer_api::query::get_package(client, pkg.name.clone())
+//                 .await
+//                 .context("could not load package info from backend")?
+//                 .and_then(|x| x.last_version);
+//
+//             let new_version = if let Some(current) = &current_opt {
+//                 let mut v = semver::Version::parse(&current.version).with_context(|| {
+//                     format!("Could not parse package version: '{}'", current.version)
+//                 })?;
+//
+//                 v.patch += 1;
+//
+//                 // The backend does not have a reliable way to return the latest version,
+//                 // so we have to check each version in a loop.
+//                 loop {
+//                     let version = format!("={}", v);
+//                     let version = wasmer_api::query::get_package_version(
+//                         client,
+//                         name.clone(),
+//                         version.clone(),
+//                     )
+//                     .await
+//                     .context("could not load package info from backend")?;
+//
+//                     if version.is_some() {
+//                         v.patch += 1;
+//                     } else {
+//                         break;
+//                     }
+//                 }
+//
+//                 v
+//             } else {
+//                 pkg.version
+//             };
+//
+//             pkg.version = new_version;
+//
+//             let mut manifest = manifest.clone();
+//             manifest.package = Some(pkg);
+//
+//             let contents = toml::to_string(&manifest).with_context(|| {
+//                 format!(
+//                     "could not persist manifest to '{}'",
+//                     manifest_path.display()
+//                 )
+//             })?;
+//
+//             std::fs::write(manifest_path.clone(), contents).with_context(|| {
+//                 format!("could not write manifest to '{}'", manifest_path.display())
+//             })?;
+//
+//             manifest
+//         }
+//     };
+//
+//     let registry = client.graphql_endpoint().to_string();
+//     let token = client
+//         .auth_token()
+//         .context("no auth token configured - run 'wasmer login'")?
+//         .to_string();
+//
+//     let publish = wasmer_registry::package::builder::Publish {
+//         registry: Some(registry),
+//         dry_run: false,
+//         quiet: false,
+//         package_name: None,
+//         version: None,
+//         wait: wasmer_registry::publish::PublishWait::new_none(),
+//         token,
+//         no_validate: true,
+//         package_path: Some(dir.to_str().unwrap().to_string()),
+//         // Use a high timeout to prevent interrupting uploads of
+//         // large packages.
+//         timeout: std::time::Duration::from_secs(60 * 60 * 12),
+//         package_namespace: patch_owner,
+//     };
+//
+//     // Publish uses a blocking http client internally, which leads to a
+//     // "can't drop a runtime within an async context" error, so this has
+//     // to be run in a separate thread.
+//     let maybe_hash = std::thread::spawn(move || publish.execute())
+//         .join()
+//         .map_err(|e| anyhow::format_err!("failed to publish package: {:?}", e))??;
+//
+//     Ok((new_manifest.clone(), maybe_hash))
+// }
 
-    let current_opt = wasmer_api::query::get_package(client, manifest.package.name.clone())
-        .await
-        .context("could not load package info from backend")?
-        .and_then(|x| x.last_version);
-
-    let new_version = if let Some(current) = &current_opt {
-        let mut v = semver::Version::parse(&current.version)
-            .with_context(|| format!("Could not parse package version: '{}'", current.version))?;
-
-        v.patch += 1;
-
-        // The backend does not have a reliable way to return the latest version,
-        // so we have to check each version in a loop.
-        loop {
-            let version = format!("={}", v);
-            let version = wasmer_api::query::get_package_version(
-                client,
-                manifest.package.name.clone(),
-                version.clone(),
-            )
-            .await
-            .context("could not load package info from backend")?;
-
-            if version.is_some() {
-                v.patch += 1;
-            } else {
-                break;
-            }
-        }
-
-        v
-    } else {
-        manifest.package.version
-    };
-
-    manifest.package.version = new_version;
-    let contents = toml::to_string(&manifest).with_context(|| {
-        format!(
-            "could not persist manifest to '{}'",
-            manifest_path.display()
-        )
-    })?;
-
-    let manifest_path = if manifest_path.is_file() {
-        manifest_path.to_owned()
-    } else {
-        manifest_path.join(DEFAULT_PACKAGE_MANIFEST_FILE)
-    };
-
-    std::fs::write(manifest_path.clone(), contents)
-        .with_context(|| format!("could not write manifest to '{}'", manifest_path.display()))?;
-
-    let dir = manifest_path
-        .parent()
-        .context("could not determine wasmer.toml parent directory")?
-        .to_owned();
-
-    let registry = client.graphql_endpoint().to_string();
-    let token = client
-        .auth_token()
-        .context("no auth token configured - run 'wasmer login'")?
-        .to_string();
-
-    let publish = wasmer_registry::package::builder::Publish {
-        registry: Some(registry),
-        dry_run: false,
-        quiet: false,
-        package_name: None,
-        version: None,
-        wait: wasmer_registry::publish::PublishWait::new_none(),
-        token,
-        no_validate: true,
-        package_path: Some(dir.to_str().unwrap().to_string()),
-        // Use a high timeout to prevent interrupting uploads of
-        // large packages.
-        timeout: std::time::Duration::from_secs(60 * 60 * 12),
-    };
-
-    // Publish uses a blocking http client internally, which leads to a
-    // "can't drop a runtime within an async context" error, so this has
-    // to be run in a separate thread.
-    std::thread::spawn(move || publish.execute())
-        .join()
-        .map_err(|e| anyhow::format_err!("failed to publish package: {:?}", e))??;
-
-    Ok(manifest)
-}
+///// Re-publish a package with an increased minor version.
+//pub async fn republish_package_with_bumped_version(
+//    client: &WasmerClient,
+//    manifest_path: &Path,
+//    mut manifest: wasmer_config::package::Manifest,
+//) -> Result<wasmer_config::package::Manifest, anyhow::Error> {
+//    // Try to load existing version.
+//    // If it does not exist yet, we don't need to increment.
+//
+//    let current_opt = wasmer_api::query::get_package(client, manifest.package.name.clone())
+//        .await
+//        .context("could not load package info from backend")?
+//        .and_then(|x| x.last_version);
+//
+//    let new_version = if let Some(current) = &current_opt {
+//        let mut v = semver::Version::parse(&current.version)
+//            .with_context(|| format!("Could not parse package version: '{}'", current.version))?;
+//
+//        v.patch += 1;
+//
+//        // The backend does not have a reliable way to return the latest version,
+//        // so we have to check each version in a loop.
+//        loop {
+//            let version = format!("={}", v);
+//            let version = wasmer_api::query::get_package_version(
+//                client,
+//                manifest.package.name.clone(),
+//                version.clone(),
+//            )
+//            .await
+//            .context("could not load package info from backend")?;
+//
+//            if version.is_some() {
+//                v.patch += 1;
+//            } else {
+//                break;
+//            }
+//        }
+//
+//        v
+//    } else {
+//        manifest.package.version
+//    };
+//
+//    manifest.package.version = new_version;
+//    let contents = toml::to_string(&manifest).with_context(|| {
+//        format!(
+//            "could not persist manifest to '{}'",
+//            manifest_path.display()
+//        )
+//    })?;
+//
+//    let manifest_path = if manifest_path.is_file() {
+//        manifest_path.to_owned()
+//    } else {
+//        manifest_path.join(DEFAULT_PACKAGE_MANIFEST_FILE)
+//    };
+//
+//    std::fs::write(manifest_path.clone(), contents)
+//        .with_context(|| format!("could not write manifest to '{}'", manifest_path.display()))?;
+//
+//    let dir = manifest_path
+//        .parent()
+//        .context("could not determine wasmer.toml parent directory")?
+//        .to_owned();
+//
+//    let registry = client.graphql_endpoint().to_string();
+//    let token = client
+//        .auth_token()
+//        .context("no auth token configured - run 'wasmer login'")?
+//        .to_string();
+//
+//    let publish = wasmer_registry::package::builder::Publish {
+//        registry: Some(registry),
+//        dry_run: false,
+//        quiet: false,
+//        package_name: None,
+//        version: None,
+//        wait: wasmer_registry::publish::PublishWait::new_none(),
+//        token,
+//        no_validate: true,
+//        package_path: Some(dir.to_str().unwrap().to_string()),
+//        // Use a high timeout to prevent interrupting uploads of
+//        // large packages.
+//        timeout: std::time::Duration::from_secs(60 * 60 * 12),
+//    };
+//
+//    // Publish uses a blocking http client internally, which leads to a
+//    // "can't drop a runtime within an async context" error, so this has
+//    // to be run in a separate thread.
+//    std::thread::spawn(move || publish.execute())
+//        .join()
+//        .map_err(|e| anyhow::format_err!("failed to publish package: {:?}", e))??;
+//
+//    Ok(manifest)
+//}
 
 /// The identifier for an app or package in the form, `owner/package@version`,
 /// where the `owner` and `version` are optional.

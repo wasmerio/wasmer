@@ -74,6 +74,51 @@ mod queries {
         pub download_url: Option<String>,
         pub size: Option<i32>,
         pub pirita_size: Option<i32>,
+        pub webc_version: Option<WebcVersion>,
+    }
+
+    #[derive(cynic::Enum, Clone, Copy, Debug)]
+    pub enum WebcVersion {
+        V2,
+        V3,
+    }
+
+    #[derive(cynic::Enum, Clone, Copy, Debug)]
+    pub enum RegistryWebcImageVersionChoices {
+        V2,
+        V3,
+    }
+
+    impl From<RegistryWebcImageVersionChoices> for WebcVersion {
+        fn from(v: RegistryWebcImageVersionChoices) -> Self {
+            match v {
+                RegistryWebcImageVersionChoices::V2 => WebcVersion::V2,
+                RegistryWebcImageVersionChoices::V3 => WebcVersion::V3,
+            }
+        }
+    }
+
+    #[derive(cynic::QueryFragment, Debug, Clone, Serialize)]
+    pub struct WebcImage {
+        pub created_at: DateTime,
+        pub updated_at: DateTime,
+        pub webc_url: String,
+        pub webc_sha256: String,
+        pub file_size: BigInt,
+        pub manifest: JSONString,
+        pub version: RegistryWebcImageVersionChoices,
+    }
+
+    #[derive(cynic::QueryFragment, Debug, Clone, Serialize)]
+    pub struct PackageWebc {
+        pub id: cynic::Id,
+        pub created_at: DateTime,
+        pub updated_at: DateTime,
+        pub tag: String,
+        pub is_archived: bool,
+        pub webc_url: String,
+        pub webc: Option<WebcImage>,
+        pub webc_v3: Option<WebcImage>,
     }
 
     #[derive(cynic::QueryFragment, Debug, Clone, Serialize)]
@@ -94,6 +139,18 @@ mod queries {
         pub distribution: PackageDistribution,
 
         pub package: Package,
+    }
+
+    #[derive(cynic::QueryVariables, Debug)]
+    pub struct GetPackageReleaseVars {
+        pub hash: String,
+    }
+
+    #[derive(cynic::QueryFragment, Debug)]
+    #[cynic(graphql_type = "Query", variables = "GetPackageReleaseVars")]
+    pub struct GetPackageRelease {
+        #[arguments(hash: $hash)]
+        pub get_package_release: Option<PackageWebc>,
     }
 
     #[derive(cynic::QueryVariables, Debug)]
@@ -154,6 +211,57 @@ mod queries {
             sortBy: $sort_by,
         )]
         pub all_package_versions: PackageVersionConnection,
+    }
+
+    #[derive(cynic::QueryVariables, Debug, Clone, Default)]
+    pub struct AllPackageReleasesVars {
+        pub offset: Option<i32>,
+        pub before: Option<String>,
+        pub after: Option<String>,
+        pub first: Option<i32>,
+        pub last: Option<i32>,
+
+        pub created_after: Option<DateTime>,
+        pub updated_after: Option<DateTime>,
+        pub sort_by: Option<PackageVersionSortBy>,
+    }
+
+    #[derive(cynic::QueryFragment, Debug)]
+    #[cynic(graphql_type = "Query", variables = "AllPackageReleasesVars")]
+    pub struct GetAllPackageReleases {
+        #[arguments(
+            first: $first,
+            last: $last,
+            after: $after,
+            before: $before,
+            offset: $offset,
+            updatedAfter: $updated_after,
+            createdAfter: $created_after,
+            sortBy: $sort_by,
+        )]
+        pub all_package_releases: PackageWebcConnection,
+    }
+
+    impl GetAllPackageReleases {
+        pub fn into_packages(self) -> Vec<PackageWebc> {
+            self.all_package_releases
+                .edges
+                .into_iter()
+                .flatten()
+                .filter_map(|x| x.node)
+                .collect()
+        }
+    }
+
+    #[derive(cynic::QueryFragment, Debug)]
+    pub struct PackageWebcConnection {
+        pub page_info: PageInfo,
+        pub edges: Vec<Option<PackageWebcEdge>>,
+    }
+
+    #[derive(cynic::QueryFragment, Debug)]
+    pub struct PackageWebcEdge {
+        pub node: Option<PackageWebc>,
     }
 
     #[derive(cynic::QueryFragment, Debug)]

@@ -1370,6 +1370,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fea41bba32d969b513997752735605054bc0dfa92b4c56bf1189f2e174be7a10"
 
 [[package]]
+name = "document-features"
+version = "0.2.8"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ef5282ad69563b5fc40319526ba27e0e7363d552a896f0297d54f767717f9b95"
+dependencies = [
+ "litrs",
+]
+
+[[package]]
 name = "dyn-clone"
 version = "1.0.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1890,6 +1899,19 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d2fabcfbdc87f4758337ca535fb41a6d701b65693ce38287d856d1674551ec9b"
 
 [[package]]
+name = "globset"
+version = "0.4.14"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "57da3b9b5b85bd66f31093f8c408b90a74431672542466497dcbdfdc02034be1"
+dependencies = [
+ "aho-corasick",
+ "bstr 1.9.1",
+ "log 0.4.21",
+ "regex-automata 0.4.6",
+ "regex-syntax 0.8.3",
+]
+
+[[package]]
 name = "graphql-introspection-query"
 version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2311,6 +2333,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "ignore"
+version = "0.4.22"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b46810df39e66e925525d6e38ce1e7f6e1d208f72dc39757880fcb66e2c58af1"
+dependencies = [
+ "crossbeam-deque 0.8.5",
+ "globset",
+ "log 0.4.21",
+ "memchr",
+ "regex-automata 0.4.6",
+ "same-file",
+ "walkdir",
+ "winapi-util",
+]
+
+[[package]]
 name = "indexmap"
 version = "1.9.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2625,6 +2663,12 @@ name = "linux-raw-sys"
 version = "0.4.13"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "01cda141df6706de531b6c46c3a33ecca755538219bd484262fa09410c13539c"
+
+[[package]]
+name = "litrs"
+version = "0.4.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b4ce301924b7887e9d637144fdade93f9dfff9b60981d4ac161db09720d39aa5"
 
 [[package]]
 name = "llvm-sys"
@@ -5266,6 +5310,7 @@ version = "0.5.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f4f7f0dd8d50a853a531c426359045b1998f04219d88799810762cd4ad314234"
 dependencies = [
+ "indexmap 1.9.3",
  "serde",
 ]
 
@@ -6211,6 +6256,7 @@ dependencies = [
  "tracing",
  "url",
  "uuid",
+ "wasmer-config 0.1.0",
  "webc",
 ]
 
@@ -6370,7 +6416,7 @@ dependencies = [
  "semver 1.0.22",
  "serde",
  "serde_json",
- "serde_yaml 0.8.26",
+ "serde_yaml 0.9.34+deprecated",
  "sha2",
  "shared-buffer",
  "tar",
@@ -6400,10 +6446,10 @@ dependencies = [
  "wasmer-compiler-cranelift",
  "wasmer-compiler-llvm",
  "wasmer-compiler-singlepass",
+ "wasmer-config 0.1.0",
  "wasmer-emscripten",
  "wasmer-object",
  "wasmer-registry",
- "wasmer-toml",
  "wasmer-types",
  "wasmer-vm",
  "wasmer-wasix",
@@ -6529,7 +6575,7 @@ dependencies = [
  "bytesize",
  "derive_builder",
  "hex",
- "indexmap 1.9.3",
+ "indexmap 2.2.6",
  "pretty_assertions",
  "schemars",
  "semver 1.0.22",
@@ -6538,6 +6584,28 @@ dependencies = [
  "serde_json",
  "serde_yaml 0.9.34+deprecated",
  "tempfile",
+ "thiserror",
+ "toml 0.8.12",
+ "url",
+]
+
+[[package]]
+name = "wasmer-config"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0b405c9856adaf65ee91eeeeaac6fcc6b127188648c60ae4e89de63f506c74e6"
+dependencies = [
+ "anyhow",
+ "bytesize",
+ "derive_builder",
+ "hex",
+ "indexmap 1.9.3",
+ "schemars",
+ "semver 1.0.22",
+ "serde",
+ "serde_cbor",
+ "serde_json",
+ "serde_yaml 0.9.34+deprecated",
  "thiserror",
  "toml 0.8.12",
  "url",
@@ -6698,6 +6766,7 @@ dependencies = [
  "lzma-rs",
  "minisign",
  "pretty_assertions",
+ "rand",
  "regex",
  "reqwest",
  "rpassword",
@@ -6715,9 +6784,10 @@ dependencies = [
  "toml 0.5.11",
  "tracing",
  "url",
- "wasmer-toml",
+ "wasmer-config 0.1.0",
  "wasmer-wasm-interface",
  "wasmparser 0.121.2",
+ "webc",
  "whoami",
 ]
 
@@ -6733,24 +6803,6 @@ dependencies = [
  "wasmer-types",
  "wasmer-vm",
  "wasmer-wasix",
-]
-
-[[package]]
-name = "wasmer-toml"
-version = "0.9.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d21472954ee9443235ca32522b17fc8f0fe58e2174556266a0d9766db055cc52"
-dependencies = [
- "anyhow",
- "derive_builder",
- "indexmap 2.2.6",
- "semver 1.0.22",
- "serde",
- "serde_cbor",
- "serde_json",
- "serde_yaml 0.9.34+deprecated",
- "thiserror",
- "toml 0.8.12",
 ]
 
 [[package]]
@@ -6866,6 +6918,7 @@ dependencies = [
  "wasm-bindgen-futures",
  "wasm-bindgen-test",
  "wasmer",
+ "wasmer-config 0.1.0",
  "wasmer-emscripten",
  "wasmer-journal",
  "wasmer-types",
@@ -6962,7 +7015,7 @@ dependencies = [
  "wasmer-compiler-cranelift",
  "wasmer-compiler-llvm",
  "wasmer-compiler-singlepass",
- "wasmer-config",
+ "wasmer-config 0.1.0",
  "wasmer-emscripten",
  "wasmer-middlewares",
  "wasmer-types",
@@ -7079,15 +7132,18 @@ dependencies = [
 
 [[package]]
 name = "webc"
-version = "5.8.1"
+version = "6.0.0-alpha3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "973ca5a91b4fb3e4bb37cfebe03ef9364d0aff2765256abefdb7e79dc9188483"
+checksum = "c544aa307af3ad0326ae962a1715400c6c456e91e45bb2c2d860fdccc128be3c"
 dependencies = [
  "anyhow",
  "base64 0.21.7",
- "byteorder",
  "bytes 1.6.0",
+ "cfg-if 1.0.0",
+ "clap",
+ "document-features",
  "flate2",
+ "ignore",
  "indexmap 1.9.3",
  "leb128",
  "lexical-sort",
@@ -7105,8 +7161,7 @@ dependencies = [
  "thiserror",
  "toml 0.7.8",
  "url",
- "walkdir",
- "wasmer-toml",
+ "wasmer-config 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
