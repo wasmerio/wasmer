@@ -133,7 +133,7 @@ wasmer-config = { workspace = true }
 indexmap = "1.9.2"
 walkdir = "2.3.2"
 regex = "1.6.0"
-toml = "0.5.9"
+toml.workspace = true
 url = "2.3.1"
 libc = { version = "^0.2", default-features = false }
 parking_lot = "0.12"

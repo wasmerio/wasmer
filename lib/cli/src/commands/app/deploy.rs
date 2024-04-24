@@ -251,7 +251,6 @@ impl AsyncCliCommand for CmdAppDeploy {
         if app_yaml.get("name").is_none() && self.app_name.is_some() {
             config_str = format!("{}\nname: {}", config_str, self.app_name.as_ref().unwrap());
         } else if app_yaml.get("name").is_none() {
-            eprintln!("The app.yaml does not specify any app name.");
             if interactive {
                 let app_name = crate::utils::prompts::prompt_new_app_name(
                     "Enter the name of the app",
@@ -270,9 +269,9 @@ impl AsyncCliCommand for CmdAppDeploy {
                     format!("Could not read file '{}'", &app_config_path.display())
                 })?;
             } else {
+                eprintln!("The app.yaml does not specify any app name.");
                 eprintln!("Please, use the --app_name <app_name> to specify the name of the app.");
 
-                // Let it fail?
                 anyhow::bail!(
                     "Cannot proceed with the deployment as the app spec in path {} does not have
                     a 'name' field.",

@@ -131,8 +131,7 @@ impl CmdAppCreate {
             anyhow::bail!("No app name specified: use --name <app_name>");
         }
 
-        eprintln!("What should be the name of the app?");
-        crate::utils::prompts::prompt_for_ident("App name", None)
+        crate::utils::prompts::prompt_for_ident("What should be the name of the app?", None)
     }
 
     async fn get_owner(&self) -> anyhow::Result<String> {
@@ -388,8 +387,8 @@ impl AsyncCliCommand for CmdAppCreate {
                 self.create_from_package(&owner, &app_name).await?;
             } else if interactive {
                 let choice = Select::new()
-                    .with_prompt("What would you like to create the app from?")
-                    .items(&vec!["template", "registry package"])
+                    .with_prompt("What would you like to deploy?")
+                    .items(&vec!["Start with a template", "Choose an existing package"])
                     .default(0)
                     .interact()?;
                 match choice {
