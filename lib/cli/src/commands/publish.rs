@@ -106,7 +106,7 @@ impl AsyncCliCommand for Publish {
         if maybe_already_published {
             eprintln!(
                 "Package already present on registry (hash: {})",
-                hash.to_string().trim_start_matches("sha256:")[..7].to_string()
+                &hash.to_string().trim_start_matches("sha256:")[..7]
             );
             return Ok(Some(PackageIdent::Hash(hash)));
         }

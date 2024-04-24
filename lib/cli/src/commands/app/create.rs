@@ -25,7 +25,7 @@ async fn write_app_config(app_config: &AppConfigV1, dir: Option<PathBuf>) -> any
     let raw_app_config = app_config.clone().to_yaml()?;
 
     let app_dir = match dir {
-        Some(dir) => PathBuf::from(dir),
+        Some(dir) => dir,
         None => std::env::current_dir()?,
     };
 
@@ -126,7 +126,7 @@ impl CmdAppCreate {
             return Ok(name.clone());
         }
 
-        if !(std::io::stdin().is_terminal() && !self.non_interactive) {
+        if !std::io::stdin().is_terminal() || self.non_interactive {
             // if not interactive we can't prompt the user to choose the owner of the app.
             anyhow::bail!("No app name specified: use --name <app_name>");
         }
@@ -139,7 +139,7 @@ impl CmdAppCreate {
             return Ok(owner.clone());
         }
 
-        if !(std::io::stdin().is_terminal() && !self.non_interactive) {
+        if !std::io::stdin().is_terminal() || self.non_interactive {
             // if not interactive we can't prompt the user to choose the owner of the app.
             anyhow::bail!("No owner specified: use --owner <owner>");
         }
@@ -178,12 +178,10 @@ impl CmdAppCreate {
 
         let (manifest_path, _) = if let Some(res) = load_package_manifest(&app_dir)? {
             res
+        } else if self.use_local_manifest {
+            anyhow::bail!("The --use_local_manifest flag was passed, but path {} does not contain a valid package manifest.", app_dir.display())
         } else {
-            if self.use_local_manifest {
-                anyhow::bail!("The --use_local_manifest flag was passed, but path {} does not contain a valid package manifest.", app_dir.display())
-            } else {
-                return Ok(false);
-            }
+            return Ok(false);
         };
 
         let ask_confirmation = || {
@@ -195,11 +193,8 @@ impl CmdAppCreate {
         };
 
         if self.use_local_manifest || ask_confirmation()? {
-            let app_config = self.get_app_config(
-                owner,
-                app_name,
-                &manifest_path.to_string_lossy().to_string(),
-            );
+            let app_config =
+                self.get_app_config(owner, app_name, manifest_path.to_string_lossy().as_ref());
             write_app_config(&app_config, self.app_dir_path.clone()).await?;
             self.try_deploy(owner).await?;
             return Ok(true);
@@ -216,7 +211,7 @@ impl CmdAppCreate {
         }
 
         if let Some(pkg) = &self.package {
-            let app_config = self.get_app_config(owner, app_name, &pkg);
+            let app_config = self.get_app_config(owner, app_name, pkg);
             write_app_config(&app_config, self.app_dir_path.clone()).await?;
             self.try_deploy(owner).await?;
             return Ok(true);
@@ -347,7 +342,7 @@ impl CmdAppCreate {
             let cmd_deploy = CmdAppDeploy {
                 api: self.api.clone(),
                 fmt: ItemFormatOpts {
-                    format: self.fmt.format.clone(),
+                    format: self.fmt.format,
                 },
                 no_validate: false,
                 non_interactive: self.non_interactive,
@@ -388,7 +383,7 @@ impl AsyncCliCommand for CmdAppCreate {
             } else if interactive {
                 let choice = Select::new()
                     .with_prompt("What would you like to deploy?")
-                    .items(&vec!["Start with a template", "Choose an existing package"])
+                    .items(&["Start with a template", "Choose an existing package"])
                     .default(0)
                     .interact()?;
                 match choice {
