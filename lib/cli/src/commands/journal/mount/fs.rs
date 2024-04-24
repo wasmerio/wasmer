@@ -338,6 +338,12 @@ impl WritableJournal for MutexState {
         }
         Ok(ret)
     }
+
+    fn flush(&self) -> anyhow::Result<()> {
+        let mut state = self.inner.lock().unwrap();
+        state.mem_fs.flush()?;
+        Ok(())
+    }
 }
 
 impl JournalFileSystem {

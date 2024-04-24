@@ -28,6 +28,10 @@ impl WritableJournal for NullJournal {
             record_end: entry.estimate_size() as u64,
         })
     }
+
+    fn flush(&self) -> anyhow::Result<()> {
+        Ok(())
+    }
 }
 
 impl Journal for NullJournal {
