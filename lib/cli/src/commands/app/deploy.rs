@@ -354,8 +354,8 @@ impl AsyncCliCommand for CmdAppDeploy {
                                     },
                                 )?;
 
-                                eprintln!(
-                                    "Using package {} (-> {})",
+                                log::info!(
+                                    "Using package {} ({})",
                                     app_config.package,
                                     n.full_name()
                                 );
