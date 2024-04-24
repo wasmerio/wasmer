@@ -206,10 +206,8 @@ impl FrameInfosVariant {
     /// Gets the frame info for a given local function index
     pub fn get(&self, index: LocalFunctionIndex) -> Option<CompiledFunctionFrameInfoVariant> {
         match self {
-            FrameInfosVariant::Owned(map) => {
-                map.get(index).map(CompiledFunctionFrameInfoVariant::Ref)
-            }
-            FrameInfosVariant::Archived(archive) => archive
+            Self::Owned(map) => map.get(index).map(CompiledFunctionFrameInfoVariant::Ref),
+            Self::Archived(archive) => archive
                 .get_frame_info_ref()
                 .get(index)
                 .map(CompiledFunctionFrameInfoVariant::Archived),

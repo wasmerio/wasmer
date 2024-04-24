@@ -200,7 +200,7 @@ fn filesystem_mapping_from_manifest(
             Ok(mappings)
         }
         None => {
-            if webc_version == webc::Version::V2 {
+            if webc_version == webc::Version::V2 || webc_version == webc::Version::V1 {
                 tracing::debug!(
                     "No \"fs\" package annotations found. Mounting the \"atom\" volume to \"/\" for compatibility."
                 );
@@ -339,7 +339,7 @@ impl WebcHash {
     }
 
     pub fn as_hex(&self) -> String {
-        hex::encode(&self.0)
+        hex::encode(self.0)
     }
 }
 

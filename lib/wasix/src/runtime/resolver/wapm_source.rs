@@ -205,45 +205,6 @@ impl WapmSource {
         headers
     }
 
-    async fn query_named(
-        &self,
-        package_name: &str,
-        version_constraint: &VersionReq,
-    ) -> Result<Vec<PackageSummary>, QueryError> {
-        if let Some(cache) = &self.cache {
-            match cache.lookup_cached_query(package_name) {
-                Ok(Some(cached)) => {
-                    if let Ok(cached) = matching_package_summaries(cached, version_constraint) {
-                        tracing::debug!("Cache hit!");
-                        return Ok(cached);
-                    }
-                }
-                Ok(None) => {}
-                Err(e) => {
-                    tracing::warn!(
-                        package_name,
-                        error = &*e,
-                        "An unexpected error occurred while checking the local query cache",
-                    );
-                }
-            }
-        }
-
-        let response = self.query_graphql_named(package_name).await?;
-
-        if let Some(cache) = &self.cache {
-            if let Err(e) = cache.update(package_name, &response) {
-                tracing::warn!(
-                    package_name,
-                    error = &*e,
-                    "An error occurred while caching the GraphQL response",
-                );
-            }
-        }
-
-        matching_package_summaries(response, version_constraint)
-    }
-
     async fn query_by_hash(
         &self,
         hash: &PackageHash,
@@ -433,11 +394,6 @@ impl FileSystemCache {
 
     fn path(&self, package_name: &str) -> PathBuf {
         self.cache_dir.join(package_name)
-    }
-
-    /// Path for hashed package caches.
-    fn path_hashed(&self, hash: &str) -> PathBuf {
-        self.cache_dir.join(format!("__hashed__{hash}"))
     }
 
     fn lookup_cached_query(&self, package_name: &str) -> Result<Option<WapmWebQuery>, Error> {
@@ -692,11 +648,11 @@ impl Default for WebCVersion {
     }
 }
 
-impl Into<webc::Version> for WebCVersion {
-    fn into(self) -> webc::Version {
-        match self {
-            Self::V2 => webc::Version::V2,
-            Self::V3 => webc::Version::V3,
+impl From<WebCVersion> for webc::Version {
+    fn from(val: WebCVersion) -> Self {
+        match val {
+            WebCVersion::V2 => webc::Version::V2,
+            WebCVersion::V3 => webc::Version::V3,
         }
     }
 }
