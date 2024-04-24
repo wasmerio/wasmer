@@ -138,7 +138,7 @@ impl CmdAppCreate {
         });
         crate::utils::prompts::prompt_for_ident(
             "What should be the name of the app?",
-            default_name.as_ref().map(|x| x.as_str()),
+            default_name.as_deref(),
         )
     }
 
