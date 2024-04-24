@@ -99,25 +99,6 @@ pub fn load_package_manifest(
         }
     };
 
-    // [XXX]: Discuss...
-    let manifest_value: toml::Value = toml::from_str(&contents)?;
-
-    match manifest_value {
-        toml::Value::Table(mut t) => {
-            if let Some(p) = t.get("package") {
-                match p {
-                    toml::Value::Table(p) => {
-                        if p.get("version").is_none() {
-                            t.remove("package");
-                            contents = toml::Value::Table(t).to_string();
-                        }
-                    }
-                    _ => {}
-                }
-            }
-        }
-        _ => {}
-    }
 
     let manifest = wasmer_config::package::Manifest::parse(&contents).with_context(|| {
         format!(
