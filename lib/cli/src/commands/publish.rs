@@ -90,10 +90,13 @@ impl AsyncCliCommand for Publish {
 
         tracing::info!("checking if package with hash {hash} already exists");
 
+        // [TODO]: Add a simpler query to simply retrieve a boolean value if the package with the
+        // given hash exists. 
         let maybe_already_published =
             wasmer_api::query::get_package_release(&client, &hash.to_string())
                 .await
-                .is_ok();
+                .is_ok_and(|u| u.is_some());
+
 
         if maybe_already_published {
             eprintln!("Package with hash {hash} already present on registry");

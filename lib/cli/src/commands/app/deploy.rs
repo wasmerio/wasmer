@@ -61,10 +61,21 @@ pub struct CmdAppDeploy {
     pub no_persist_id: bool,
 
     /// Specify the owner (user or namespace) of the app.
-    /// Will default to the currently logged in user, or the existing one
-    /// if the app can be found.
+    ///
+    /// If specified via this flag, the owner will be overridden.  Otherwise, the `app.yaml` is
+    /// inspected and, if there is no `owner` field in the spec file, the user will be prompted to
+    /// select the correct owner. If no owner is found in non-interactive mode the deployment will
+    /// fail.
     #[clap(long)]
     pub owner: Option<String>,
+
+    /// Specify the name (user or namespace) of the app to be deployed.
+    ///
+    /// If specified via this flag, the app_name will be overridden. Otherwise, the `app.yaml` is
+    /// inspected and, if there is no `name` field in the spec file, if running interactive the
+    /// user will be prompted to insert an app name, otherwise the deployment will fail.
+    #[clap(long)]
+    pub app_name: Option<String>,
 }
 
 impl CmdAppDeploy {
@@ -101,7 +112,7 @@ impl CmdAppDeploy {
             no_validate: false,
             package_path: Some(manifest_dir_path.to_str().unwrap().to_string()),
             wait: !self.no_wait,
-            wait_all: false,
+            wait_all: !self.no_wait,
             timeout: humantime::Duration::from_str("2m").unwrap(),
             package_namespace: match manifest.package {
                 Some(_) => None,
@@ -122,6 +133,10 @@ impl CmdAppDeploy {
         app: &mut AppConfigV1,
         app_config_path: PathBuf,
     ) -> anyhow::Result<String> {
+        if let Some(owner) = &self.owner {
+            return Ok(owner.clone());
+        }
+
         if let Some(owner) = &app.owner {
             return Ok(owner.clone());
         }
@@ -229,13 +244,11 @@ impl AsyncCliCommand for CmdAppDeploy {
         // We want to allow the user to specify the app name interactively.
         let app_yaml: serde_yaml::Value = serde_yaml::from_str(&config_str)?;
 
-        if app_yaml.get("name").is_none() {
+        if app_yaml.get("name").is_none() && self.app_name.is_some() {
+            config_str = format!("{}\nname: {}", config_str, self.app_name.as_ref().unwrap());
+        } else if app_yaml.get("name").is_none() {
+            eprintln!("The app.yaml does not specify any app name.");
             if interactive {
-                eprintln!(
-                    "The app.yaml (from path {}) does not specify any app name.",
-                    app_config_path.display()
-                );
-
                 let app_name = crate::utils::prompts::prompt_new_app_name(
                     "Enter the name of the app",
                     None,
@@ -253,11 +266,14 @@ impl AsyncCliCommand for CmdAppDeploy {
                     format!("Could not read file '{}'", &app_config_path.display())
                 })?;
             } else {
+                eprintln!("Please, use the --app_name <app_name> to specify the name of the app.");
+
                 // Let it fail?
-                // anyhow::bail!(
-                //     "Cannot proceed with the deployment as the app spec in path {} does not have
-                //     a 'name' field.", app_config_path.display()
-                // )
+                anyhow::bail!(
+                    "Cannot proceed with the deployment as the app spec in path {} does not have
+                    a 'name' field.",
+                    app_config_path.display()
+                )
             }
         }
 
@@ -272,11 +288,11 @@ impl AsyncCliCommand for CmdAppDeploy {
             WaitMode::Reachable
         };
 
-        let app_cfg_new = app_config.clone();
+        let mut app_cfg_new = app_config.clone();
         let opts = match &app_cfg_new.package {
             PackageSource::Path(ref path) => {
                 eprintln!(
-                    "Loading local package (manifest path: {}",
+                    "Loading local package (manifest path: {})",
                     PathBuf::from(path)
                         .canonicalize()?
                         .join("wasmer.toml")
@@ -285,16 +301,18 @@ impl AsyncCliCommand for CmdAppDeploy {
 
                 let package_id = self.publish(owner.clone(), PathBuf::from(path)).await?;
 
-                app_config.package = package_id.into();
+                app_cfg_new.package = package_id.into();
 
-                DeployAppOpts {
-                    app: &app_config,
+                let res = DeployAppOpts {
+                    app: &app_cfg_new,
                     original_config: Some(app_config.clone().to_yaml_value().unwrap()),
                     allow_create: true,
                     make_default: !self.no_default,
                     owner: Some(owner),
                     wait,
-                }
+                };
+
+                res
             }
             PackageSource::Ident(PackageIdent::Named(n)) => {
                 // We need to check if we have a manifest with the same name in the
@@ -425,6 +443,7 @@ impl AsyncCliCommand for CmdAppDeploy {
 
         // Don't override the package field.
         new_app_config.package = app_config.package.clone();
+        // [TODO]: check if name was added...
 
         // If the config changed, write it back.
         if new_app_config != app_config {

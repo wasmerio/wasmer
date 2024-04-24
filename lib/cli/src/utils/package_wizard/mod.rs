@@ -127,7 +127,7 @@ impl PackageWizard {
         };
 
         eprintln!("Enter the name of an existing package:");
-        let (ident, api) = super::prompts::prompt_for_package("Package", None, check, api).await?;
+        let (_ident, api) = super::prompts::prompt_for_package("Package", None, check, api).await?;
         Ok(PackageWizardOutput {
             api,
             local_path: None,

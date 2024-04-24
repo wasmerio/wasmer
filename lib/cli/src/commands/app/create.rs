@@ -358,6 +358,7 @@ impl CmdAppCreate {
                 no_default: false,
                 no_persist_id: false,
                 owner: Some(String::from(owner)),
+                app_name: None,
             };
             cmd_deploy.run_async().await?;
         }
@@ -570,7 +571,7 @@ impl AppCreator {
             None
         };
 
-        let (package, api_pkg, local_package) = if let Some(pkg) = package_opt {
+        let (package, _api_pkg, _local_package) = if let Some(pkg) = package_opt {
             if let Some(api) = &self.api {
                 let p2 = wasmer_api::query::get_package(
                     api,
