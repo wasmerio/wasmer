@@ -50,6 +50,10 @@ impl WritableJournal for BufferedJournalTx {
             record_end: state.offset as u64 + estimate_size as u64,
         })
     }
+
+    fn flush(&self) -> anyhow::Result<()> {
+        Ok(())
+    }
 }
 
 impl ReadableJournal for BufferedJournalRx {
@@ -80,6 +84,10 @@ impl ReadableJournal for BufferedJournalRx {
 impl WritableJournal for BufferedJournal {
     fn write<'a>(&'a self, entry: JournalEntry<'a>) -> anyhow::Result<LogWriteResult> {
         self.tx.write(entry)
+    }
+
+    fn flush(&self) -> anyhow::Result<()> {
+        self.tx.flush()
     }
 }
 

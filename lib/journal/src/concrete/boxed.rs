@@ -16,6 +16,10 @@ impl WritableJournal for Box<DynWritableJournal> {
     fn write<'a>(&'a self, entry: JournalEntry<'a>) -> anyhow::Result<LogWriteResult> {
         self.deref().write(entry)
     }
+
+    fn flush(&self) -> anyhow::Result<()> {
+        self.deref().flush()
+    }
 }
 
 impl ReadableJournal for Box<DynJournal> {
@@ -31,5 +35,9 @@ impl ReadableJournal for Box<DynJournal> {
 impl WritableJournal for Box<DynJournal> {
     fn write<'a>(&'a self, entry: JournalEntry<'a>) -> anyhow::Result<LogWriteResult> {
         self.deref().write(entry)
+    }
+
+    fn flush(&self) -> anyhow::Result<()> {
+        self.deref().flush()
     }
 }

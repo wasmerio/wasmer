@@ -12,6 +12,7 @@ rust-version.workspace = true
 version.workspace = true
 
 [dependencies]
+wasmer-config = { path = "./lib/config" }
 wasmer = { version = "=4.2.8", path = "lib/api", default-features = false }
 wasmer-compiler = { version = "=4.2.8", path = "lib/compiler", features = [
     "compiler",
@@ -50,6 +51,7 @@ members = [
     "lib/compiler-llvm",
     "lib/compiler-singlepass",
     "lib/compiler",
+    "lib/config",
     "lib/derive",
     "lib/emscripten",
     "lib/object",
@@ -93,6 +95,7 @@ shared-buffer = "0.1.4"
 rkyv = { version = "0.7.40", features = ["indexmap", "validation", "strict"] }
 memmap2 = { version = "0.6.2" }
 edge-schema = { version = "=0.1.0" }
+indexmap = "1"
 
 [build-dependencies]
 test-generator = { path = "tests/lib/test-generator" }
