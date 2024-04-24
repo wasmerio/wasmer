@@ -169,6 +169,9 @@ pub struct WasiProcessInner {
     /// Represents a checkpoint which blocks all the threads
     /// and then executes some maintenance action
     pub checkpoint: WasiProcessCheckpoint,
+    /// If true then the journaling will be disabled after the
+    /// next snapshot is taken
+    pub disable_journaling_after_checkpoint: bool,
     /// List of situations that the process will checkpoint on
     #[cfg(feature = "journal")]
     pub snapshot_on: HashSet<SnapshotTrigger>,
@@ -290,6 +293,9 @@ impl WasiProcessInner {
                         // Clear the checkpointing flag and notify everyone to wake up
                         ctx.data().thread.set_checkpointing(false);
                         trace!("checkpoint complete");
+                        if guard.disable_journaling_after_checkpoint {
+                            ctx.data_mut().enable_journal = false;
+                        }
                         guard.checkpoint = WasiProcessCheckpoint::Execute;
                         for waker in guard.wakers.drain(..) {
                             waker.wake();
@@ -359,6 +365,9 @@ impl WasiProcessInner {
                 // Clear the checkpointing flag and notify everyone to wake up
                 ctx.data().thread.set_checkpointing(false);
                 trace!("checkpoint complete");
+                if guard.disable_journaling_after_checkpoint {
+                    ctx.data_mut().enable_journal = false;
+                }
                 guard.checkpoint = WasiProcessCheckpoint::Execute;
                 for waker in guard.wakers.drain(..) {
                     waker.wake();
@@ -418,6 +427,7 @@ impl WasiProcess {
                 snapshot_on: Default::default(),
                 #[cfg(feature = "journal")]
                 snapshot_memory_hash: Default::default(),
+                disable_journaling_after_checkpoint: false,
                 backoff: WasiProcessCpuBackoff::new(max_cpu_backoff_time, max_cpu_cool_off_time),
             }),
             Condvar::new(),
@@ -569,6 +579,107 @@ impl WasiProcess {
     /// Signals all the threads in this process
     pub fn signal_process(&self, signal: Signal) {
         signal_process_internal(&self.inner, signal);
+    }
+
+    /// Takes a snapshot of the process and disables journaling returning
+    /// a future that can be waited on for the snapshot to complete
+    ///
+    /// Note: If you ignore the returned future the checkpoint will still
+    /// occur but it will execute asynchronously
+    pub fn snapshot_and_disable_journaling(
+        &self,
+        trigger: SnapshotTrigger,
+    ) -> std::pin::Pin<Box<dyn futures::Future<Output = ()> + Send + Sync>> {
+        let mut guard = self.inner.0.lock().unwrap();
+        guard.disable_journaling_after_checkpoint = true;
+        guard.checkpoint = WasiProcessCheckpoint::Snapshot { trigger };
+        self.wait_for_checkpoint_finish()
+    }
+
+    /// Disables the journaling functionality
+    pub fn disable_journaling_after_checkpoint(&self) {
+        let mut guard = self.inner.0.lock().unwrap();
+        guard.disable_journaling_after_checkpoint = true;
+    }
+
+    /// Wait for the checkout process to finish
+    #[cfg(not(feature = "journal"))]
+    pub fn wait_for_checkpoint(
+        &self,
+    ) -> std::pin::Pin<Box<dyn futures::Future<Output = ()> + Send + Sync>> {
+        Box::pin(std::future::pending())
+    }
+
+    /// Wait for the checkout process to finish
+    #[cfg(feature = "journal")]
+    pub fn wait_for_checkpoint(
+        &self,
+    ) -> std::pin::Pin<Box<dyn futures::Future<Output = ()> + Send + Sync>> {
+        use futures::Future;
+        use std::{
+            pin::Pin,
+            task::{Context, Poll},
+        };
+
+        struct Poller {
+            inner: LockableWasiProcessInner,
+        }
+        impl Future for Poller {
+            type Output = ();
+            fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+                let mut guard = self.inner.0.lock().unwrap();
+                if !matches!(guard.checkpoint, WasiProcessCheckpoint::Execute) {
+                    return Poll::Ready(());
+                }
+                if !guard.wakers.iter().any(|w| w.will_wake(cx.waker())) {
+                    guard.wakers.push(cx.waker().clone());
+                }
+                Poll::Pending
+            }
+        }
+        Box::pin(Poller {
+            inner: self.inner.clone(),
+        })
+    }
+
+    /// Wait for the checkout process to finish
+    #[cfg(not(feature = "journal"))]
+    pub fn wait_for_checkpoint_finish(
+        &self,
+    ) -> std::pin::Pin<Box<dyn futures::Future<Output = ()> + Send + Sync>> {
+        Box::pin(std::future::pending())
+    }
+
+    /// Wait for the checkout process to finish
+    #[cfg(feature = "journal")]
+    pub fn wait_for_checkpoint_finish(
+        &self,
+    ) -> std::pin::Pin<Box<dyn futures::Future<Output = ()> + Send + Sync>> {
+        use futures::Future;
+        use std::{
+            pin::Pin,
+            task::{Context, Poll},
+        };
+
+        struct Poller {
+            inner: LockableWasiProcessInner,
+        }
+        impl Future for Poller {
+            type Output = ();
+            fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+                let mut guard = self.inner.0.lock().unwrap();
+                if matches!(guard.checkpoint, WasiProcessCheckpoint::Execute) {
+                    return Poll::Ready(());
+                }
+                if !guard.wakers.iter().any(|w| w.will_wake(cx.waker())) {
+                    guard.wakers.push(cx.waker().clone());
+                }
+                Poll::Pending
+            }
+        }
+        Box::pin(Poller {
+            inner: self.inner.clone(),
+        })
     }
 
     /// Signals one of the threads every interval

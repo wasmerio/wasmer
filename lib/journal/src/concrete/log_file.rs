@@ -198,6 +198,12 @@ impl WritableJournal for LogFileJournalTx {
             record_end: offset_end,
         })
     }
+
+    fn flush(&self) -> anyhow::Result<()> {
+        let mut state = self.state.lock().unwrap();
+        state.file.flush()?;
+        Ok(())
+    }
 }
 
 impl ReadableJournal for LogFileJournalRx {
@@ -287,6 +293,10 @@ impl ReadableJournal for LogFileJournalRx {
 impl WritableJournal for LogFileJournal {
     fn write<'a>(&'a self, entry: JournalEntry<'a>) -> anyhow::Result<LogWriteResult> {
         self.tx.write(entry)
+    }
+
+    fn flush(&self) -> anyhow::Result<()> {
+        self.tx.flush()
     }
 }
 
