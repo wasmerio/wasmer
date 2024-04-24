@@ -222,7 +222,7 @@ impl CmdAppCreate {
             write_app_config(&app_config, self.app_dir_path.clone()).await?;
             self.try_deploy(owner).await?;
             return Ok(true);
-        } else if self.non_interactive {
+        } else if !self.non_interactive {
             let theme = ColorfulTheme::default();
             let package_name: String = dialoguer::Input::with_theme(&theme)
                 .with_prompt("What is the name of the package?")
@@ -345,7 +345,7 @@ impl CmdAppCreate {
     }
 
     async fn try_deploy(&self, owner: &str) -> anyhow::Result<()> {
-        let interactive = std::io::stdin().is_terminal() && !self.non_interactive;
+        let interactive = !self.non_interactive;
         let theme = dialoguer::theme::ColorfulTheme::default();
 
         if self.deploy_app
