@@ -12,7 +12,7 @@ use anyhow::Context;
 use colored::Colorize;
 use dialoguer::{theme::ColorfulTheme, Confirm, Select};
 use is_terminal::IsTerminal;
-use std::{collections::HashMap, path::PathBuf, str::FromStr};
+use std::{collections::HashMap, env, path::PathBuf, str::FromStr};
 use wasmer_api::{types::UserWithNamespaces, WasmerClient};
 use wasmer_config::{
     app::AppConfigV1,
@@ -131,7 +131,15 @@ impl CmdAppCreate {
             anyhow::bail!("No app name specified: use --name <app_name>");
         }
 
-        crate::utils::prompts::prompt_for_ident("What should be the name of the app?", None)
+        let default_name = env::current_dir().ok().and_then(|dir| {
+            dir.file_name()
+                .and_then(|f| f.to_str())
+                .map(|s| s.to_owned())
+        });
+        crate::utils::prompts::prompt_for_ident(
+            "What should be the name of the app?",
+            default_name.as_ref().map(|x| x.as_str()),
+        )
     }
 
     async fn get_owner(&self) -> anyhow::Result<String> {
