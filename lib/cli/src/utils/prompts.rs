@@ -163,17 +163,23 @@ pub async fn prompt_new_app_name(
     loop {
         let ident = prompt_for_ident(message, default)?;
 
-        if let Some(api) = &api {
+        if ident.len() < 5 {
+            eprintln!(
+                "{}: Name is too short. It must be longer than 5 characters.",
+                "WARN".bold().yellow()
+            )
+        } else if let Some(api) = &api {
             let app = wasmer_api::query::get_app(api, namespace.to_string(), ident.clone()).await?;
             eprintln!("Checking name availability...");
             if app.is_some() {
                 eprintln!(
-                    "{}: app '{}/{}' already exists - pick a different name",
-                    "WARN:".yellow(),
-                    namespace,
-                    ident
+                    "{}: App {} already exists in namespace {} - pick a different name",
+                    "WARN".yellow(),
+                    ident,
+                    namespace
                 );
             } else {
+                eprintln!("App name available!");
                 break Ok(ident);
             }
         }

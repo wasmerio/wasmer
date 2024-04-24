@@ -12,8 +12,8 @@ use time::{self, OffsetDateTime};
 use wasmer_config::package::{PackageIdent, MANIFEST_FILE_NAME};
 
 use crate::publish::PublishWait;
-use crate::{package::builder::validate::ValidationPolicy, publish::SignArchiveResult};
 use crate::WasmerConfig;
+use crate::{package::builder::validate::ValidationPolicy, publish::SignArchiveResult};
 
 const MIGRATIONS: &[(i32, &str)] = &[
     (0, include_str!("./sql/migrations/0000.sql")),

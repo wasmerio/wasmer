@@ -50,7 +50,7 @@ pub struct Publish {
     ///
     /// Note that this is not the timeout for the entire publish process, but
     /// for each individual query to the registry during the publish flow.
-    #[clap(long, default_value = "2m")]
+    #[clap(long, default_value = "5m")]
     pub timeout: humantime::Duration,
 
     /// Whether or not the patch field of the version of the package - if any - should be bumped.
@@ -104,7 +104,10 @@ impl AsyncCliCommand for Publish {
         let maybe_already_published = maybe_already_published.is_ok_and(|u| u.is_some());
 
         if maybe_already_published {
-            eprintln!("Package with hash {hash} already present on registry");
+            eprintln!(
+                "Package already present on registry (hash: {})",
+                hash.to_string().trim_start_matches("sha256:")[..7].to_string()
+            );
             return Ok(Some(PackageIdent::Hash(hash)));
         }
 
@@ -135,7 +138,7 @@ impl AsyncCliCommand for Publish {
                 }
             };
 
-            if pkg.version <= latest_version {
+            if pkg.version < latest_version {
                 if self.autobump {
                     latest_version.patch += 1;
                     version = Some(latest_version);
@@ -194,6 +197,8 @@ impl AsyncCliCommand for Publish {
             PublishWait::new_none()
         };
 
+        tracing::trace!("wait mode is: {:?}", wait);
+
         let publish = wasmer_registry::package::builder::Publish {
             registry: self.env.registry_endpoint().map(|u| u.to_string()).ok(),
             dry_run: self.dry_run,
@@ -207,6 +212,8 @@ impl AsyncCliCommand for Publish {
             timeout: self.timeout.into(),
             package_namespace: self.package_namespace,
         };
+
+        tracing::trace!("Sending publish query: {:#?}", publish);
 
         let res = publish.execute().await.map_err(on_error)?;
 

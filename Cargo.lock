@@ -2367,6 +2367,7 @@ checksum = "168fb715dda47215e360912c096649d23d58bf392ac62f73919e831745e40f26"
 dependencies = [
  "equivalent",
  "hashbrown 0.14.3",
+ "serde",
 ]
 
 [[package]]
@@ -6574,7 +6575,7 @@ dependencies = [
  "bytesize",
  "derive_builder",
  "hex",
- "indexmap 1.9.3",
+ "indexmap 2.2.6",
  "pretty_assertions",
  "schemars",
  "semver 1.0.22",

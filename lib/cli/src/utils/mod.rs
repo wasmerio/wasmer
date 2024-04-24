@@ -99,7 +99,6 @@ pub fn load_package_manifest(
         }
     };
 
-
     let manifest = wasmer_config::package::Manifest::parse(&contents).with_context(|| {
         format!(
             "Could not parse package config at: '{}' - full config: {}",

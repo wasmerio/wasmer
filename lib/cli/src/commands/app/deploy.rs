@@ -134,15 +134,19 @@ impl CmdAppDeploy {
 
     async fn get_owner(
         &self,
-        app: &mut AppConfigV1,
-        app_config_path: PathBuf,
-    ) -> anyhow::Result<String> {
+        app: &serde_yaml::Value,
+        app_config_path: &PathBuf,
+    ) -> anyhow::Result<(String, String)> {
+        let r_ret = serde_yaml::to_string(&app)?;
+
         if let Some(owner) = &self.owner {
-            return Ok(owner.clone());
+            return Ok((owner.clone(), r_ret));
         }
 
-        if let Some(owner) = &app.owner {
-            return Ok(owner.clone());
+        if let Some(owner) = &app.get("owner") {
+            if let serde_yaml::Value::String(owner) = owner {
+                return Ok((owner.clone(), r_ret));
+            }
         }
 
         if !(std::io::stdin().is_terminal() && !self.non_interactive) {
@@ -159,15 +163,13 @@ impl CmdAppDeploy {
                     Some(&user),
                 )?;
 
-                app.owner = Some(owner.clone());
+                let new_raw_config = format!("owner: {owner}\n{r_ret}");
 
-                let new_config_raw = serde_yaml::to_string(app)?;
-                std::fs::write(&app_config_path, new_config_raw).with_context(|| {
+                std::fs::write(&app_config_path, &new_raw_config).with_context(|| {
                     format!("Could not write file: '{}'", app_config_path.display())
                 })?;
 
-                Ok(owner)
-
+                return Ok((owner.clone(), new_raw_config));
 
             }
             Err(e) => anyhow::bail!(
@@ -242,8 +244,12 @@ impl AsyncCliCommand for CmdAppDeploy {
 
         assert!(app_config_path.is_file());
 
-        let mut config_str = std::fs::read_to_string(&app_config_path)
+        let config_str = std::fs::read_to_string(&app_config_path)
             .with_context(|| format!("Could not read file '{}'", &app_config_path.display()))?;
+
+        // We want to allow the user to specify the app name interactively.
+        let app_yaml: serde_yaml::Value = serde_yaml::from_str(&config_str)?;
+        let (owner, mut config_str) = self.get_owner(&app_yaml, &app_config_path).await?;
 
         // We want to allow the user to specify the app name interactively.
         let app_yaml: serde_yaml::Value = serde_yaml::from_str(&config_str)?;
@@ -255,7 +261,7 @@ impl AsyncCliCommand for CmdAppDeploy {
                 let app_name = crate::utils::prompts::prompt_new_app_name(
                     "Enter the name of the app",
                     None,
-                    "",
+                    &owner,
                     self.api.client().ok().as_ref(),
                 )
                 .await?;
@@ -280,10 +286,10 @@ impl AsyncCliCommand for CmdAppDeploy {
             }
         }
 
-        let mut app_config: AppConfigV1 = AppConfigV1::parse_yaml(&config_str)?;
-        let owner = self
-            .get_owner(&mut app_config, app_config_path.clone())
-            .await?;
+        let original_app_config: AppConfigV1 = AppConfigV1::parse_yaml(&config_str)?;
+        let mut app_config = original_app_config.clone();
+
+        app_config.owner = Some(owner.clone());
 
         let wait = if self.no_wait {
             WaitMode::Deployed
@@ -559,7 +565,7 @@ pub async fn deploy_app_verbose(
 
     let full_name = format!("{}/{}", app.owner.global_name, app.name);
 
-    eprintln!(" ✅ App {full_name} was successfully deployed!");
+    eprintln!(" ✅ App {} ({}) was successfully deployed!", app.name, app.owner.global_name);
     eprintln!();
     eprintln!("> App URL: {}", app.url);
     eprintln!("> Versioned URL: {}", version.url);
