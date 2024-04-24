@@ -1,12 +1,13 @@
 use anyhow::Context;
 use colored::Colorize;
-use dialoguer::Select;
+use dialoguer::{theme::ColorfulTheme, Select};
 use wasmer_api::WasmerClient;
 use wasmer_config::package::NamedPackageIdent;
 
 pub fn prompt_for_ident(message: &str, default: Option<&str>) -> Result<String, anyhow::Error> {
     loop {
-        let diag = dialoguer::Input::new()
+        let theme = ColorfulTheme::default();
+        let diag = dialoguer::Input::with_theme(&theme)
             .with_prompt(message)
             .with_initial_text(default.unwrap_or_default());
 
@@ -30,7 +31,8 @@ pub fn prompt_for_package_ident(
     default: Option<&str>,
 ) -> Result<NamedPackageIdent, anyhow::Error> {
     loop {
-        let raw: String = dialoguer::Input::new()
+        let theme = ColorfulTheme::default();
+        let raw: String = dialoguer::Input::with_theme(&theme)
             .with_prompt(message)
             .with_initial_text(default.unwrap_or_default())
             .interact_text()
@@ -126,7 +128,7 @@ pub fn prompt_for_namespace(
             .chain(namespaces.iter().map(|ns| ns.global_name.clone()))
             .collect::<Vec<_>>();
 
-        let selection_index = Select::new()
+        let selection_index = Select::with_theme(&ColorfulTheme::default())
             .with_prompt(message)
             .default(0)
             .items(&labels)
@@ -136,7 +138,8 @@ pub fn prompt_for_namespace(
         Ok(labels[selection_index].clone())
     } else {
         loop {
-            let value = dialoguer::Input::<String>::new()
+            let theme = ColorfulTheme::default();
+            let value = dialoguer::Input::<String>::with_theme(&theme)
                 .with_prompt(message)
                 .with_initial_text(default.map(|x| x.trim().to_string()).unwrap_or_default())
                 .interact_text()
@@ -170,16 +173,15 @@ pub async fn prompt_new_app_name(
             )
         } else if let Some(api) = &api {
             let app = wasmer_api::query::get_app(api, namespace.to_string(), ident.clone()).await?;
-            eprintln!("Checking name availability...");
+            eprint!("Checking name availability... ");
             if app.is_some() {
-                eprintln!(
-                    "{}: App {} already exists in namespace {} - pick a different name",
-                    "WARN".yellow(),
-                    ident,
-                    namespace
+                eprintln!("{}",
+                    format!("app {} already exists in namespace {}",
+                    ident.bold(),
+                    namespace.bold()).yellow()
                 );
             } else {
-                eprintln!("App name available!");
+                eprintln!("{}", "available!".bold().green());
                 break Ok(ident);
             }
         }

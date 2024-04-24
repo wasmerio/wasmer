@@ -1,7 +1,7 @@
 use std::path::{Path, PathBuf};
 
 use anyhow::Context;
-use dialoguer::Select;
+use dialoguer::{theme::ColorfulTheme, Select};
 use wasmer_api::{types::UserWithNamespaces, WasmerClient};
 
 use super::prompts::PackageCheckMode;
@@ -43,7 +43,8 @@ pub enum CreateMode {
 }
 
 fn prompt_for_package_type() -> Result<PackageType, anyhow::Error> {
-    Select::new()
+    let theme = ColorfulTheme::default();
+    Select::with_theme(&theme)
         .with_prompt("What type of package do you want to create?")
         .items(&["Basic pacakge", "Static website"])
         .interact()
@@ -143,7 +144,8 @@ impl PackageWizard {
             CreateMode::Create => self.build_new_package(),
             CreateMode::SelectExisting => self.prompt_existing_package(api).await,
             CreateMode::CreateOrSelect => {
-                let index = Select::new()
+                let theme = ColorfulTheme::default();
+                let index = Select::with_theme(&theme)
                     .with_prompt("What package do you want to use?")
                     .items(&["Create new package", "Use existing package"])
                     .default(0)

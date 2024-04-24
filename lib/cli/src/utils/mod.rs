@@ -10,6 +10,7 @@ use std::{
 };
 
 use anyhow::{bail, Context as _, Result};
+use dialoguer::theme::ColorfulTheme;
 use once_cell::sync::Lazy;
 use regex::Regex;
 use wasmer_api::WasmerClient;
@@ -118,7 +119,8 @@ pub fn prompt_for_package_name(
     default: Option<&str>,
 ) -> Result<NamedPackageIdent, anyhow::Error> {
     loop {
-        let raw: String = dialoguer::Input::new()
+        let theme = ColorfulTheme::default();
+        let raw: String = dialoguer::Input::with_theme(&theme)
             .with_prompt(message)
             .with_initial_text(default.unwrap_or_default())
             .interact_text()

@@ -10,7 +10,7 @@ use crate::{
 };
 use anyhow::Context;
 use colored::Colorize;
-use dialoguer::{Confirm, Select};
+use dialoguer::{theme::ColorfulTheme, Confirm, Select};
 use is_terminal::IsTerminal;
 use std::{collections::HashMap, path::PathBuf, str::FromStr};
 use wasmer_api::{types::UserWithNamespaces, WasmerClient};
@@ -221,7 +221,8 @@ impl CmdAppCreate {
             self.try_deploy(owner).await?;
             return Ok(true);
         } else if interactive {
-            let package_name: String = dialoguer::Input::new()
+            let theme = ColorfulTheme::default();
+            let package_name: String = dialoguer::Input::with_theme(&theme)
                 .with_prompt("What is the name of the package?")
                 .interact()?;
 
@@ -246,7 +247,8 @@ impl CmdAppCreate {
             Some(t) => t,
             None => {
                 if interactive {
-                    let index = dialoguer::Select::new()
+                    let theme = ColorfulTheme::default();
+                    let index = dialoguer::Select::with_theme(&theme)
                         .with_prompt("App type")
                         .default(0)
                         .items(&[
@@ -386,7 +388,8 @@ impl AsyncCliCommand for CmdAppCreate {
             } else if self.package.is_some() {
                 self.create_from_package(&owner, &app_name).await?;
             } else if interactive {
-                let choice = Select::new()
+                let theme = ColorfulTheme::default();
+                let choice = Select::with_theme(&theme)
                     .with_prompt("What would you like to deploy?")
                     .items(&vec!["Start with a template", "Choose an existing package"])
                     .default(0)

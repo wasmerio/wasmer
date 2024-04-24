@@ -359,7 +359,7 @@ impl AsyncCliCommand for CmdAppDeploy {
                                         },
                                     )?;
 
-                                    eprintln!(
+                                    log::info!(
                                         "Using package {} (-> {})",
                                         app_config.package.to_string(),
                                         n.full_name()
@@ -418,7 +418,7 @@ impl AsyncCliCommand for CmdAppDeploy {
                         }
                     }
                 } else {
-                    eprintln!("Using package {}", app_config.package.to_string());
+                    log::info!("Using package {}", app_config.package.to_string());
                     DeployAppOpts {
                         app: &app_config,
                         original_config: Some(app_config.clone().to_yaml_value().unwrap()),
@@ -430,7 +430,7 @@ impl AsyncCliCommand for CmdAppDeploy {
                 }
             }
             _ => {
-                eprintln!("Using package {}", app_config.package.to_string());
+                log::info!("Using package {}", app_config.package.to_string());
                 DeployAppOpts {
                     app: &app_config,
                     original_config: Some(app_config.clone().to_yaml_value().unwrap()),
@@ -539,14 +539,14 @@ pub async fn deploy_app_verbose(
     let app = &opts.app;
 
     let pretty_name = if let Some(owner) = &owner {
-        format!("{} ({owner})", app.name)
+        format!("{} ({})", app.name.bold(), owner.bold())
     } else {
-        app.name.clone()
+        app.name.bold().to_string()
     };
 
     let make_default = opts.make_default;
 
-    eprintln!("Deploying app {pretty_name} to Wasmer Edge...\n");
+    eprintln!("Deploying app {} to Wasmer Edge...\n", pretty_name);
 
     let wait = opts.wait;
     let version = deploy_app(client, opts).await?;
@@ -565,11 +565,11 @@ pub async fn deploy_app_verbose(
 
     let full_name = format!("{}/{}", app.owner.global_name, app.name);
 
-    eprintln!(" ✅ App {} ({}) was successfully deployed!", app.name, app.owner.global_name);
-    eprintln!();
-    eprintln!("> App URL: {}", app.url);
-    eprintln!("> Versioned URL: {}", version.url);
-    eprintln!("> Admin dashboard: {}", app.admin_url);
+    eprintln!("🚀 App {} ({}) was successfully deployed!", app.name.bold(), app.owner.global_name.bold());
+    eprintln!("{}", app.url.blue().bold());
+    eprintln!("");
+    eprintln!("→ Unique URL: {}", version.url);
+    eprintln!("→ Dashboard:  {}", app.admin_url);
 
     match wait {
         WaitMode::Deployed => {}
@@ -613,7 +613,7 @@ pub async fn deploy_app_verbose(
 
                         if header == version.id.inner() {
                             eprintln!("\nNew version is now reachable at {check_url}");
-                            eprintln!("Deployment complete");
+                            eprintln!("✅ Deployment complete");
                             break;
                         }
 
