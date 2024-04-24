@@ -175,10 +175,14 @@ pub async fn prompt_new_app_name(
             let app = wasmer_api::query::get_app(api, namespace.to_string(), ident.clone()).await?;
             eprint!("Checking name availability... ");
             if app.is_some() {
-                eprintln!("{}",
-                    format!("app {} already exists in namespace {}",
-                    ident.bold(),
-                    namespace.bold()).yellow()
+                eprintln!(
+                    "{}",
+                    format!(
+                        "app {} already exists in namespace {}",
+                        ident.bold(),
+                        namespace.bold()
+                    )
+                    .yellow()
                 );
             } else {
                 eprintln!("{}", "available!".bold().green());

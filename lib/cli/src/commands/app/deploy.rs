@@ -34,7 +34,7 @@ pub struct CmdAppDeploy {
     pub no_validate: bool,
 
     /// Do not prompt for user input.
-    #[clap(long)]
+    #[clap(long, default_value_t = std::io::stdin().is_terminal())]
     pub non_interactive: bool,
 
     /// Automatically publish the package referenced by this app.
@@ -143,13 +143,11 @@ impl CmdAppDeploy {
             return Ok((owner.clone(), r_ret));
         }
 
-        if let Some(owner) = &app.get("owner") {
-            if let serde_yaml::Value::String(owner) = owner {
-                return Ok((owner.clone(), r_ret));
-            }
+        if let Some(serde_yaml::Value::String(owner)) = &app.get("owner") {
+            return Ok((owner.clone(), r_ret));
         }
 
-        if !(std::io::stdin().is_terminal() && !self.non_interactive) {
+        if self.non_interactive {
             // if not interactive we can't prompt the user to choose the owner of the app.
             anyhow::bail!("No owner specified: use --owner XXX");
         }
@@ -165,11 +163,11 @@ impl CmdAppDeploy {
 
                 let new_raw_config = format!("owner: {owner}\n{r_ret}");
 
-                std::fs::write(&app_config_path, &new_raw_config).with_context(|| {
+                std::fs::write(app_config_path, &new_raw_config).with_context(|| {
                     format!("Could not write file: '{}'", app_config_path.display())
                 })?;
 
-                return Ok((owner.clone(), new_raw_config));
+                Ok((owner.clone(), new_raw_config))
 
             }
             Err(e) => anyhow::bail!(
@@ -191,7 +189,7 @@ impl CmdAppDeploy {
             no_wait: false,
             api: self.api.clone(),
             fmt: ItemFormatOpts {
-                format: self.fmt.format.clone(),
+                format: self.fmt.format,
             },
             package: None,
             app_dir_path: None,
@@ -208,7 +206,6 @@ impl AsyncCliCommand for CmdAppDeploy {
     type Output = ();
 
     async fn run_async(self) -> Result<Self::Output, anyhow::Error> {
-        let interactive = std::io::stdin().is_terminal() && !self.non_interactive;
         let client = self
             .api
             .client()
@@ -231,7 +228,7 @@ impl AsyncCliCommand for CmdAppDeploy {
         };
 
         if !app_config_path.is_file() {
-            if interactive {
+            if !self.non_interactive {
                 // Create already points back to deploy.
                 return self.create().await;
             } else {
@@ -257,7 +254,7 @@ impl AsyncCliCommand for CmdAppDeploy {
         if app_yaml.get("name").is_none() && self.app_name.is_some() {
             config_str = format!("{}\nname: {}", config_str, self.app_name.as_ref().unwrap());
         } else if app_yaml.get("name").is_none() {
-            if interactive {
+            if !self.non_interactive {
                 let app_name = crate::utils::prompts::prompt_new_app_name(
                     "Enter the name of the app",
                     None,
@@ -312,16 +309,14 @@ impl AsyncCliCommand for CmdAppDeploy {
 
                 app_cfg_new.package = package_id.into();
 
-                let res = DeployAppOpts {
+                DeployAppOpts {
                     app: &app_cfg_new,
                     original_config: Some(app_config.clone().to_yaml_value().unwrap()),
                     allow_create: true,
                     make_default: !self.no_default,
                     owner: Some(owner),
                     wait,
-                };
-
-                res
+                }
             }
             PackageSource::Ident(PackageIdent::Named(n)) => {
                 // We need to check if we have a manifest with the same name in the
@@ -339,62 +334,59 @@ impl AsyncCliCommand for CmdAppDeploy {
                             );
                             eprintln!("The `package` field in `app.yaml` specified the same named package ({}).", package.name);
                             eprintln!("This behaviour is deprecated.");
-                            if !interactive {
+                            if self.non_interactive {
                                 eprintln!("Hint: replace `package: {}` with `package: .` to replicate the intended behaviour.", n);
                                 anyhow::bail!("deprecated deploy behaviour")
+                            } else if Confirm::new()
+                                .with_prompt("Change package to '.' in app.yaml?")
+                                .interact()?
+                            {
+                                app_config.package = PackageSource::Path(String::from("."));
+                                // We have to write it right now.
+                                let new_config_raw = serde_yaml::to_string(&app_config)?;
+                                std::fs::write(&app_config_path, new_config_raw).with_context(
+                                    || {
+                                        format!(
+                                            "Could not write file: '{}'",
+                                            app_config_path.display()
+                                        )
+                                    },
+                                )?;
+
+                                eprintln!(
+                                    "Using package {} (-> {})",
+                                    app_config.package,
+                                    n.full_name()
+                                );
+
+                                let package_id = self.publish(owner.clone(), manifest_path).await?;
+
+                                app_config.package = package_id.into();
+
+                                DeployAppOpts {
+                                    app: &app_config,
+                                    original_config: Some(
+                                        app_config.clone().to_yaml_value().unwrap(),
+                                    ),
+                                    allow_create: true,
+                                    make_default: !self.no_default,
+                                    owner: Some(owner),
+                                    wait,
+                                }
                             } else {
-                                if Confirm::new()
-                                    .with_prompt("Change package to '.' in app.yaml?")
-                                    .interact()?
-                                {
-                                    app_config.package = PackageSource::Path(String::from("."));
-                                    // We have to write it right now.
-                                    let new_config_raw = serde_yaml::to_string(&app_config)?;
-                                    std::fs::write(&app_config_path, new_config_raw).with_context(
-                                        || {
-                                            format!(
-                                                "Could not write file: '{}'",
-                                                app_config_path.display()
-                                            )
-                                        },
-                                    )?;
-
-                                    log::info!(
-                                        "Using package {} (-> {})",
-                                        app_config.package.to_string(),
-                                        n.full_name()
-                                    );
-
-                                    let package_id =
-                                        self.publish(owner.clone(), manifest_path).await?;
-
-                                    app_config.package = package_id.into();
-
-                                    DeployAppOpts {
-                                        app: &app_config,
-                                        original_config: Some(
-                                            app_config.clone().to_yaml_value().unwrap(),
-                                        ),
-                                        allow_create: true,
-                                        make_default: !self.no_default,
-                                        owner: Some(owner),
-                                        wait,
-                                    }
-                                } else {
-                                    eprintln!(
+                                eprintln!(
                                         "{}: the package will not be published and the deployment will fail if the package does not already exist.",
                                         "Warning".yellow().bold()
                                     );
-                                    DeployAppOpts {
-                                        app: &app_config,
-                                        original_config: Some(
-                                            app_config.clone().to_yaml_value().unwrap(),
-                                        ),
-                                        allow_create: true,
-                                        make_default: !self.no_default,
-                                        owner: Some(owner),
-                                        wait,
-                                    }
+                                DeployAppOpts {
+                                    app: &app_config,
+                                    original_config: Some(
+                                        app_config.clone().to_yaml_value().unwrap(),
+                                    ),
+                                    allow_create: true,
+                                    make_default: !self.no_default,
+                                    owner: Some(owner),
+                                    wait,
                                 }
                             }
                         } else {
@@ -563,9 +555,11 @@ pub async fn deploy_app_verbose(
         .await
         .context("could not fetch app from backend")?;
 
-    let full_name = format!("{}/{}", app.owner.global_name, app.name);
-
-    eprintln!("🚀 App {} ({}) was successfully deployed!", app.name.bold(), app.owner.global_name.bold());
+    eprintln!(
+        "🚀 App {} ({}) was successfully deployed!",
+        app.name.bold(),
+        app.owner.global_name.bold()
+    );
     eprintln!("{}", app.url.blue().bold());
     eprintln!("");
     eprintln!("→ Unique URL: {}", version.url);

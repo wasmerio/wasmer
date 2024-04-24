@@ -321,9 +321,9 @@ mod tests {
             path: dir.path().to_owned(),
             type_: Some(PackageType::StaticWebsite),
             create_mode: CreateMode::Create,
-            namespace: Some("christoph".to_string()),
+            namespace: None,
             namespace_default: None,
-            name: Some("test123".to_string()),
+            name: None,
             user: None,
         }
         .run(None)
@@ -333,12 +333,7 @@ mod tests {
         let manifest = std::fs::read_to_string(dir.path().join("wasmer.toml")).unwrap();
         pretty_assertions::assert_eq!(
             manifest,
-            r#"[package]
-name = "christoph/test123"
-version = "0.1.0"
-description = "christoph/test123 website"
-
-[dependencies]
+            r#"[dependencies]
 "wasmer/static-web-server" = "^1"
 
 [fs]
@@ -357,9 +352,9 @@ public = "public"
             path: dir.path().to_owned(),
             type_: Some(PackageType::JsWorker),
             create_mode: CreateMode::Create,
-            namespace: Some("christoph".to_string()),
+            namespace: None,
             namespace_default: None,
-            name: Some("js-worker-test".to_string()),
+            name: None,
             user: None,
         }
         .run(None)
@@ -369,12 +364,7 @@ public = "public"
 
         pretty_assertions::assert_eq!(
             manifest,
-            r#"[package]
-name = "christoph/js-worker-test"
-version = "0.1.0"
-description = "christoph/js-worker-test js worker"
-
-[dependencies]
+            r#"[dependencies]
 "wasmer/winterjs" = "*"
 
 [fs]
@@ -402,9 +392,9 @@ main-args = ["/src/index.js"]
             path: dir.path().to_owned(),
             type_: Some(PackageType::PyApplication),
             create_mode: CreateMode::Create,
-            namespace: Some("christoph".to_string()),
+            namespace: None,
             namespace_default: None,
-            name: Some("py-worker-test".to_string()),
+            name: None,
             user: None,
         }
         .run(None)
@@ -414,12 +404,7 @@ main-args = ["/src/index.js"]
 
         pretty_assertions::assert_eq!(
             manifest,
-            r#"[package]
-name = "christoph/py-worker-test"
-version = "0.1.0"
-description = "christoph/py-worker-test py worker"
-
-[dependencies]
+            r#"[dependencies]
 "wasmer/python" = "^3.12.6"
 
 [fs]
