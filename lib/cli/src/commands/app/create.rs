@@ -55,7 +55,7 @@ pub struct CmdAppCreate {
     pub no_validate: bool,
 
     /// Do not prompt for user input.
-    #[clap(long)]
+    #[clap(long, default_value_t = std::io::stdin().is_terminal())]
     pub non_interactive: bool,
 
     /// Do not interact with any APIs.
@@ -126,7 +126,7 @@ impl CmdAppCreate {
             return Ok(name.clone());
         }
 
-        if !(std::io::stdin().is_terminal() && !self.non_interactive) {
+        if self.non_interactive {
             // if not interactive we can't prompt the user to choose the owner of the app.
             anyhow::bail!("No app name specified: use --name <app_name>");
         }
@@ -139,24 +139,32 @@ impl CmdAppCreate {
             return Ok(owner.clone());
         }
 
-        if !(std::io::stdin().is_terminal() && !self.non_interactive) {
+        if self.non_interactive {
             // if not interactive we can't prompt the user to choose the owner of the app.
             anyhow::bail!("No owner specified: use --owner <owner>");
         }
 
-        match self.api.client() {
-            Ok(client) => {
-                let user = wasmer_api::query::current_user_with_namespaces(&client, None).await?;
-                crate::utils::prompts::prompt_for_namespace(
-                    "Who should own this app?",
-                    None,
-                    Some(&user),
-                )
-            }
-            Err(e) => anyhow::bail!(
+        if !self.offline {
+            match self.api.client() {
+                Ok(client) => {
+                    let user =
+                        wasmer_api::query::current_user_with_namespaces(&client, None).await?;
+                    crate::utils::prompts::prompt_for_namespace(
+                        "Who should own this app?",
+                        None,
+                        Some(&user),
+                    )
+                }
+                Err(e) => anyhow::bail!(
                 "Can't determine user info: {e}. Please, user `wasmer login` before deploying an
                 app or use the --owner <owner> flag to specify the owner of the app to deploy."
             ),
+            }
+        } else {
+            anyhow::bail!(
+                "Please, user `wasmer login` before deploying an app or use the --owner <owner>
+                flag to specify the owner of the app to deploy."
+            )
         }
     }
 
@@ -165,9 +173,7 @@ impl CmdAppCreate {
         owner: &str,
         app_name: &str,
     ) -> anyhow::Result<bool> {
-        let interactive = std::io::stdin().is_terminal() && !self.non_interactive;
-
-        if !self.use_local_manifest && !interactive {
+        if !self.use_local_manifest && self.non_interactive {
             return Ok(false);
         }
 
@@ -209,8 +215,6 @@ impl CmdAppCreate {
     }
 
     async fn create_from_package(&self, owner: &str, app_name: &str) -> anyhow::Result<bool> {
-        let interactive = std::io::stdin().is_terminal() && !self.non_interactive;
-
         if self.template.is_some() {
             return Ok(false);
         }
@@ -220,7 +224,7 @@ impl CmdAppCreate {
             write_app_config(&app_config, self.app_dir_path.clone()).await?;
             self.try_deploy(owner).await?;
             return Ok(true);
-        } else if interactive {
+        } else if self.non_interactive {
             let package_name: String = dialoguer::Input::new()
                 .with_prompt("What is the name of the package?")
                 .interact()?;
@@ -240,12 +244,10 @@ impl CmdAppCreate {
     }
 
     async fn create_from_template(&self, owner: &str, app_name: &str) -> anyhow::Result<bool> {
-        let interactive = std::io::stdin().is_terminal() && !self.non_interactive;
-
         let template = match self.template {
             Some(t) => t,
             None => {
-                if interactive {
+                if !self.non_interactive {
                     let index = dialoguer::Select::new()
                         .with_prompt("App type")
                         .default(0)
@@ -300,25 +302,32 @@ impl CmdAppCreate {
             None
         };
 
+        let user = if self.offline {
+            None
+        } else if let Ok(client) = &self.api.client() {
+            let u = wasmer_api::query::current_user_with_namespaces(
+                client,
+                Some(wasmer_api::types::GrapheneRole::Admin),
+            )
+            .await?;
+            Some(u)
+        } else {
+            None
+        };
         let creator = AppCreator {
             app_name: String::from(app_name),
             new_package_name: self.new_package_name.clone(),
             package: self.package.clone(),
             template,
-            interactive,
+            interactive: !self.non_interactive,
             app_dir_path,
             owner: String::from(owner),
-            api: self.api.client().ok(),
-            user: if let Ok(client) = &self.api.client() {
-                let u = wasmer_api::query::current_user_with_namespaces(
-                    client,
-                    Some(wasmer_api::types::GrapheneRole::Admin),
-                )
-                .await?;
-                Some(u)
-            } else {
+            api: if self.offline {
                 None
+            } else {
+                self.api.client().ok()
             },
+            user,
             local_package,
         };
 
@@ -378,14 +387,12 @@ impl AsyncCliCommand for CmdAppCreate {
         // Get the name of the app.
         let app_name = self.get_app_name().await?;
 
-        let interactive = std::io::stdin().is_terminal() && !self.non_interactive;
-
         if !self.create_from_local_manifest(&owner, &app_name).await? {
             if self.template.is_some() {
                 self.create_from_template(&owner, &app_name).await?;
             } else if self.package.is_some() {
                 self.create_from_package(&owner, &app_name).await?;
-            } else if interactive {
+            } else if !self.non_interactive {
                 let choice = Select::new()
                     .with_prompt("What would you like to deploy?")
                     .items(&vec!["Start with a template", "Choose an existing package"])
@@ -683,7 +690,7 @@ mod tests {
             no_wait: true,
             api: ApiOpts::default(),
             fmt: ItemFormatOpts::default(),
-            package: Some("testuser/static-site1@0.1.0".to_string()),
+            package: Some("testuser/static-site-1@0.1.0".to_string()),
             use_local_manifest: false,
             new_package_name: None,
         };
@@ -692,11 +699,10 @@ mod tests {
         let app = std::fs::read_to_string(dir.path().join("app.yaml")).unwrap();
         assert_eq!(
             app,
-            r#"---
-kind: wasmer.io/App.v0
+            r#"kind: wasmer.io/App.v0
 name: static-site-1
 owner: testuser
-package: testuser/static-site-1@0.1.0
+package: testuser/static-site-1@^0.1.0
 debug: false
 "#,
         );
@@ -727,8 +733,7 @@ debug: false
         let app = std::fs::read_to_string(dir.path().join("app.yaml")).unwrap();
         assert_eq!(
             app,
-            r#"---
-kind: wasmer.io/App.v0
+            r#"kind: wasmer.io/App.v0
 name: testapp
 owner: wasmer
 package: wasmer/testpkg
@@ -753,7 +758,7 @@ debug: false
             api: ApiOpts::default(),
             fmt: ItemFormatOpts::default(),
             package: Some("wasmer/test-js-worker".to_string()),
-            use_local_manifest: todo!(),
+            use_local_manifest: false,
             new_package_name: None,
         };
         cmd.run_async().await.unwrap();
@@ -761,13 +766,12 @@ debug: false
         let app = std::fs::read_to_string(dir.path().join("app.yaml")).unwrap();
         assert_eq!(
             app,
-            r#"---
-kind: wasmer.io/App.v0
+            r#"kind: wasmer.io/App.v0
 name: test-js-worker
 owner: wasmer
 package: wasmer/test-js-worker
 cli_args:
-  - /src/index.js
+- /src/index.js
 debug: false
 "#,
         );
@@ -798,13 +802,12 @@ debug: false
         let app = std::fs::read_to_string(dir.path().join("app.yaml")).unwrap();
         assert_eq!(
             app,
-            r#"---
-kind: wasmer.io/App.v0
+            r#"kind: wasmer.io/App.v0
 name: test-py-worker
 owner: wasmer
 package: wasmer/test-py-worker
 cli_args:
-  - /src/main.py
+- /src/main.py
 debug: false
 "#,
         );

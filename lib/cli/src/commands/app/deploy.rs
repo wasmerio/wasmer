@@ -34,7 +34,7 @@ pub struct CmdAppDeploy {
     pub no_validate: bool,
 
     /// Do not prompt for user input.
-    #[clap(long)]
+    #[clap(long, default_value_t = std::io::stdin().is_terminal())]
     pub non_interactive: bool,
 
     /// Automatically publish the package referenced by this app.
@@ -149,7 +149,7 @@ impl CmdAppDeploy {
             }
         }
 
-        if !(std::io::stdin().is_terminal() && !self.non_interactive) {
+        if self.non_interactive {
             // if not interactive we can't prompt the user to choose the owner of the app.
             anyhow::bail!("No owner specified: use --owner XXX");
         }
@@ -208,7 +208,6 @@ impl AsyncCliCommand for CmdAppDeploy {
     type Output = ();
 
     async fn run_async(self) -> Result<Self::Output, anyhow::Error> {
-        let interactive = std::io::stdin().is_terminal() && !self.non_interactive;
         let client = self
             .api
             .client()
@@ -231,7 +230,7 @@ impl AsyncCliCommand for CmdAppDeploy {
         };
 
         if !app_config_path.is_file() {
-            if interactive {
+            if !self.non_interactive {
                 // Create already points back to deploy.
                 return self.create().await;
             } else {
@@ -257,7 +256,7 @@ impl AsyncCliCommand for CmdAppDeploy {
         if app_yaml.get("name").is_none() && self.app_name.is_some() {
             config_str = format!("{}\nname: {}", config_str, self.app_name.as_ref().unwrap());
         } else if app_yaml.get("name").is_none() {
-            if interactive {
+            if !self.non_interactive {
                 let app_name = crate::utils::prompts::prompt_new_app_name(
                     "Enter the name of the app",
                     None,
@@ -339,7 +338,7 @@ impl AsyncCliCommand for CmdAppDeploy {
                             );
                             eprintln!("The `package` field in `app.yaml` specified the same named package ({}).", package.name);
                             eprintln!("This behaviour is deprecated.");
-                            if !interactive {
+                            if self.non_interactive {
                                 eprintln!("Hint: replace `package: {}` with `package: .` to replicate the intended behaviour.", n);
                                 anyhow::bail!("deprecated deploy behaviour")
                             } else {
@@ -563,9 +562,10 @@ pub async fn deploy_app_verbose(
         .await
         .context("could not fetch app from backend")?;
 
-    let full_name = format!("{}/{}", app.owner.global_name, app.name);
-
-    eprintln!(" ✅ App {} ({}) was successfully deployed!", app.name, app.owner.global_name);
+    eprintln!(
+        " ✅ App {} ({}) was successfully deployed!",
+        app.name, app.owner.global_name
+    );
     eprintln!();
     eprintln!("> App URL: {}", app.url);
     eprintln!("> Versioned URL: {}", version.url);
