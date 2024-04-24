@@ -562,7 +562,7 @@ pub async fn deploy_app_verbose(
         app.owner.global_name.bold()
     );
     eprintln!("{}", app.url.blue().bold().underline());
-    eprintln!("");
+    eprintln!();
     eprintln!("→ Unique URL: {}", version.url);
     eprintln!("→ Dashboard:  {}", app.admin_url);
 
