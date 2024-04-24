@@ -217,15 +217,16 @@ pub async fn try_chunked_uploading(
                 "{}@{}",
                 package.name, package.version
             ))?);
-
-            println!("🚀 Successfully published package `{}`", package_ident);
+            eprintln!("Package published successfully");
+            // println!("🚀 Successfully published package `{}`", package_ident);
             return Ok(Some(package_ident));
         } else if let Some(pkg_hash) = payload.package_webc {
             let package_ident = PackageIdent::Hash(
                 PackageHash::from_str(&format!("sha256:{}", pkg_hash.webc_v3.unwrap().webc_sha256))
                     .unwrap(),
             );
-            println!("🚀 Successfully published package `{}`", package_ident);
+            eprintln!("Package published successfully");
+            // println!("🚀 Successfully published package `{}`", package_ident);
             return Ok(Some(package_ident));
         }
 
