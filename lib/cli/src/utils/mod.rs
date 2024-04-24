@@ -86,7 +86,7 @@ pub fn load_package_manifest(
         path.join(DEFAULT_PACKAGE_MANIFEST_FILE)
     };
 
-    let mut contents = match std::fs::read_to_string(&file_path) {
+    let contents = match std::fs::read_to_string(&file_path) {
         Ok(c) => c,
         Err(err) if err.kind() == std::io::ErrorKind::NotFound => return Ok(None),
         Err(err) => {
