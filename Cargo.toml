@@ -12,7 +12,6 @@ rust-version.workspace = true
 version.workspace = true
 
 [dependencies]
-wasmer-config = { path = "./lib/config" }
 wasmer = { version = "=4.3.0-alpha.1", path = "lib/api", default-features = false }
 wasmer-compiler = { version = "=4.3.0-alpha.1", path = "lib/compiler", features = [
     "compiler",

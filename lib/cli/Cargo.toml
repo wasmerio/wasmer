@@ -129,7 +129,7 @@ serde = { version = "1.0.147", features = ["derive"] }
 dirs = { version = "4.0" }
 serde_json = { version = "1.0" }
 target-lexicon = { version = "0.12", features = ["std"] }
-wasmer-config = { workspace = true }
+wasmer-config = { version = "0.1.1", path = "../config" }
 indexmap = "1.9.2"
 walkdir = "2.3.2"
 regex = "1.6.0"
