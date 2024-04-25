@@ -567,6 +567,9 @@
 <a href="#567" id="567">567</a>
 <a href="#568" id="568">568</a>
 <a href="#569" id="569">569</a>
+<a href="#570" id="570">570</a>
+<a href="#571" id="571">571</a>
+<a href="#572" id="572">572</a>
 </pre></div><pre class="rust"><code><span class="kw">pub mod </span>module_cache;
 <span class="kw">pub mod </span>package_loader;
 <span class="kw">pub mod </span>resolver;
@@ -600,7 +603,7 @@
         package_loader::{PackageLoader, UnsupportedPackageLoader},
         resolver::{MultiSource, Source, WapmSource},
     },
-    WasiTtyState,
+    SpawnError, WasiTtyState,
 };
 
 <span class="attr">#[derive(Clone)]
@@ -670,7 +673,7 @@
     </span>}
 
     <span class="doccomment">/// Load a a Webassembly module, trying to use a pre-compiled version if possible.
-    </span><span class="kw">fn </span>load_module&lt;<span class="lifetime">&#39;a</span>&gt;(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="self">self</span>, wasm: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>[u8]) -&gt; BoxFuture&lt;<span class="lifetime">&#39;a</span>, anyhow::Result&lt;Module&gt;&gt; {
+    </span><span class="kw">fn </span>load_module&lt;<span class="lifetime">&#39;a</span>&gt;(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="self">self</span>, wasm: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>[u8]) -&gt; BoxFuture&lt;<span class="lifetime">&#39;a</span>, <span class="prelude-ty">Result</span>&lt;Module, SpawnError&gt;&gt; {
         <span class="kw">let </span>engine = <span class="self">self</span>.engine();
         <span class="kw">let </span>module_cache = <span class="self">self</span>.module_cache();
         <span class="kw">let </span>hash = ModuleHash::hash(wasm);
@@ -683,7 +686,7 @@
     <span class="doccomment">/// Load a a Webassembly module, trying to use a pre-compiled version if possible.
     ///
     /// Non-async version of [`Self::load_module`].
-    </span><span class="kw">fn </span>load_module_sync(<span class="kw-2">&amp;</span><span class="self">self</span>, wasm: <span class="kw-2">&amp;</span>[u8]) -&gt; <span class="prelude-ty">Result</span>&lt;Module, anyhow::Error&gt; {
+    </span><span class="kw">fn </span>load_module_sync(<span class="kw-2">&amp;</span><span class="self">self</span>, wasm: <span class="kw-2">&amp;</span>[u8]) -&gt; <span class="prelude-ty">Result</span>&lt;Module, SpawnError&gt; {
         InlineWaker::block_on(<span class="self">self</span>.load_module(wasm))
     }
 
@@ -721,7 +724,7 @@
     module_cache: <span class="kw-2">&amp;</span>(<span class="kw">dyn </span>ModuleCache + Send + Sync),
     wasm: <span class="kw-2">&amp;</span>[u8],
     wasm_hash: ModuleHash,
-) -&gt; <span class="prelude-ty">Result</span>&lt;Module, anyhow::Error&gt; {
+) -&gt; <span class="prelude-ty">Result</span>&lt;Module, <span class="kw">crate</span>::SpawnError&gt; {
     <span class="kw">let </span>result = module_cache.load(wasm_hash, engine).<span class="kw">await</span>;
 
     <span class="kw">match </span>result {
@@ -736,7 +739,10 @@
         }
     }
 
-    <span class="kw">let </span>module = Module::new(<span class="kw-2">&amp;</span>engine, wasm)<span class="question-mark">?</span>;
+    <span class="kw">let </span>module = Module::new(<span class="kw-2">&amp;</span>engine, wasm).map_err(|err| <span class="kw">crate</span>::SpawnError::CompileError {
+        module_hash: wasm_hash,
+        error: err,
+    })<span class="question-mark">?</span>;
 
     <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = module_cache.save(wasm_hash, engine, <span class="kw-2">&amp;</span>module).<span class="kw">await </span>{
         <span class="macro">tracing::warn!</span>(
@@ -1115,7 +1121,7 @@
         }
     }
 
-    <span class="kw">fn </span>load_module&lt;<span class="lifetime">&#39;a</span>&gt;(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="self">self</span>, wasm: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>[u8]) -&gt; BoxFuture&lt;<span class="lifetime">&#39;a</span>, anyhow::Result&lt;Module&gt;&gt; {
+    <span class="kw">fn </span>load_module&lt;<span class="lifetime">&#39;a</span>&gt;(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="self">self</span>, wasm: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>[u8]) -&gt; BoxFuture&lt;<span class="lifetime">&#39;a</span>, <span class="prelude-ty">Result</span>&lt;Module, SpawnError&gt;&gt; {
         <span class="kw">if </span><span class="self">self</span>.engine.is_some() || <span class="self">self</span>.module_cache.is_some() {
             <span class="kw">let </span>engine = <span class="self">self</span>.engine();
             <span class="kw">let </span>module_cache = <span class="self">self</span>.module_cache();
@@ -1128,7 +1134,7 @@
         }
     }
 
-    <span class="kw">fn </span>load_module_sync(<span class="kw-2">&amp;</span><span class="self">self</span>, wasm: <span class="kw-2">&amp;</span>[u8]) -&gt; <span class="prelude-ty">Result</span>&lt;Module, anyhow::Error&gt; {
+    <span class="kw">fn </span>load_module_sync(<span class="kw-2">&amp;</span><span class="self">self</span>, wasm: <span class="kw-2">&amp;</span>[u8]) -&gt; <span class="prelude-ty">Result</span>&lt;Module, SpawnError&gt; {
         <span class="kw">if </span><span class="self">self</span>.engine.is_some() || <span class="self">self</span>.module_cache.is_some() {
             InlineWaker::block_on(<span class="self">self</span>.load_module(wasm))
         } <span class="kw">else </span>{

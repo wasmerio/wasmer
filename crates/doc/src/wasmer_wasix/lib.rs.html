@@ -791,6 +791,61 @@
 <a href="#791" id="791">791</a>
 <a href="#792" id="792">792</a>
 <a href="#793" id="793">793</a>
+<a href="#794" id="794">794</a>
+<a href="#795" id="795">795</a>
+<a href="#796" id="796">796</a>
+<a href="#797" id="797">797</a>
+<a href="#798" id="798">798</a>
+<a href="#799" id="799">799</a>
+<a href="#800" id="800">800</a>
+<a href="#801" id="801">801</a>
+<a href="#802" id="802">802</a>
+<a href="#803" id="803">803</a>
+<a href="#804" id="804">804</a>
+<a href="#805" id="805">805</a>
+<a href="#806" id="806">806</a>
+<a href="#807" id="807">807</a>
+<a href="#808" id="808">808</a>
+<a href="#809" id="809">809</a>
+<a href="#810" id="810">810</a>
+<a href="#811" id="811">811</a>
+<a href="#812" id="812">812</a>
+<a href="#813" id="813">813</a>
+<a href="#814" id="814">814</a>
+<a href="#815" id="815">815</a>
+<a href="#816" id="816">816</a>
+<a href="#817" id="817">817</a>
+<a href="#818" id="818">818</a>
+<a href="#819" id="819">819</a>
+<a href="#820" id="820">820</a>
+<a href="#821" id="821">821</a>
+<a href="#822" id="822">822</a>
+<a href="#823" id="823">823</a>
+<a href="#824" id="824">824</a>
+<a href="#825" id="825">825</a>
+<a href="#826" id="826">826</a>
+<a href="#827" id="827">827</a>
+<a href="#828" id="828">828</a>
+<a href="#829" id="829">829</a>
+<a href="#830" id="830">830</a>
+<a href="#831" id="831">831</a>
+<a href="#832" id="832">832</a>
+<a href="#833" id="833">833</a>
+<a href="#834" id="834">834</a>
+<a href="#835" id="835">835</a>
+<a href="#836" id="836">836</a>
+<a href="#837" id="837">837</a>
+<a href="#838" id="838">838</a>
+<a href="#839" id="839">839</a>
+<a href="#840" id="840">840</a>
+<a href="#841" id="841">841</a>
+<a href="#842" id="842">842</a>
+<a href="#843" id="843">843</a>
+<a href="#844" id="844">844</a>
+<a href="#845" id="845">845</a>
+<a href="#846" id="846">846</a>
+<a href="#847" id="847">847</a>
+<a href="#848" id="848">848</a>
 </pre></div><pre class="rust"><code><span class="comment">// FIXME: merge with ./lib.rs_upstream
 
 </span><span class="attr">#![doc(html_favicon_url = <span class="string">&quot;https://wasmer.io/images/icons/favicon-32x32.png&quot;</span>)]
@@ -930,9 +985,14 @@
     <span class="doccomment">/// Failed to fetch the Wasmer process
     </span><span class="attr">#[error(<span class="string">&quot;fetch failed&quot;</span>)]
     </span>FetchFailed,
+    <span class="attr">#[error(transparent)]
+    </span>CacheError(<span class="kw">crate</span>::runtime::module_cache::CacheError),
     <span class="doccomment">/// Failed to compile the Wasmer process
     </span><span class="attr">#[error(<span class="string">&quot;compile error&quot;</span>)]
-    </span>CompileError,
+    </span>CompileError {
+        module_hash: <span class="kw">crate</span>::runtime::module_cache::ModuleHash,
+        error: wasmer::CompileError,
+    },
     <span class="doccomment">/// Invalid ABI
     </span><span class="attr">#[error(<span class="string">&quot;Wasmer process has an invalid ABI&quot;</span>)]
     </span>InvalidABI,
@@ -945,6 +1005,16 @@
     <span class="doccomment">/// Not found
     </span><span class="attr">#[error(<span class="string">&quot;not found&quot;</span>)]
     </span>NotFound,
+    <span class="doccomment">/// Tried to run the specified binary as a new WASI thread/process, but
+    /// the binary name was not found.
+    </span><span class="attr">#[error(<span class="string">&quot;could not find binary &#39;{binary}&#39;&quot;</span>)]
+    </span>BinaryNotFound { binary: String },
+    <span class="attr">#[error(<span class="string">&quot;could not find an entrypoint in the package &#39;{package_id}&#39;&quot;</span>)]
+    </span>MissingEntrypoint {
+        package_id: wasmer_config::package::PackageId,
+    },
+    <span class="attr">#[error(<span class="string">&quot;could not load &quot;</span>)]
+    </span>ModuleLoad { message: String },
     <span class="doccomment">/// Bad request
     </span><span class="attr">#[error(<span class="string">&quot;bad request&quot;</span>)]
     </span>BadRequest,
@@ -955,8 +1025,8 @@
     </span><span class="attr">#[error(<span class="string">&quot;internal error&quot;</span>)]
     </span>InternalError,
     <span class="doccomment">/// An error occurred while preparing the file system
-    </span><span class="attr">#[error(<span class="string">&quot;file system error&quot;</span>)]
-    </span>FileSystemError,
+    </span><span class="attr">#[error(transparent)]
+    </span>FileSystemError(ExtendedFsError),
     <span class="doccomment">/// Memory allocation failed
     </span><span class="attr">#[error(<span class="string">&quot;memory allocation failed&quot;</span>)]
     </span>MemoryAllocationFailed,
@@ -970,6 +1040,46 @@
     </span>Runtime(<span class="attr">#[from] </span>WasiRuntimeError),
     <span class="attr">#[error(transparent)]
     </span>Other(<span class="attr">#[from] </span>Box&lt;<span class="kw">dyn </span>std::error::Error + Send + Sync&gt;),
+}
+
+<span class="attr">#[derive(Debug)]
+</span><span class="kw">pub struct </span>ExtendedFsError {
+    <span class="kw">pub </span>error: virtual_fs::FsError,
+    <span class="kw">pub </span>message: <span class="prelude-ty">Option</span>&lt;String&gt;,
+}
+
+<span class="kw">impl </span>ExtendedFsError {
+    <span class="kw">pub fn </span>with_msg(error: virtual_fs::FsError, msg: <span class="kw">impl </span>Into&lt;String&gt;) -&gt; <span class="self">Self </span>{
+        <span class="self">Self </span>{
+            error,
+            message: <span class="prelude-val">Some</span>(msg.into()),
+        }
+    }
+
+    <span class="kw">pub fn </span>new(error: virtual_fs::FsError) -&gt; <span class="self">Self </span>{
+        <span class="self">Self </span>{
+            error,
+            message: <span class="prelude-val">None</span>,
+        }
+    }
+}
+
+<span class="kw">impl </span>std::fmt::Display <span class="kw">for </span>ExtendedFsError {
+    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>std::fmt::Formatter&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(), std::fmt::Error&gt; {
+        <span class="macro">write!</span>(f, <span class="string">&quot;fs error: {}&quot;</span>, <span class="self">self</span>.error)<span class="question-mark">?</span>;
+
+        <span class="kw">if let </span><span class="prelude-val">Some</span>(msg) = <span class="kw-2">&amp;</span><span class="self">self</span>.message {
+            <span class="macro">write!</span>(f, <span class="string">&quot; | {}&quot;</span>, msg)<span class="question-mark">?</span>;
+        }
+
+        <span class="prelude-val">Ok</span>(())
+    }
+}
+
+<span class="kw">impl </span>std::error::Error <span class="kw">for </span>ExtendedFsError {
+    <span class="kw">fn </span>cause(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span><span class="kw">dyn </span>std::error::Error&gt; {
+        <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span><span class="self">self</span>.error)
+    }
 }
 
 <span class="kw">impl </span>SpawnError {
