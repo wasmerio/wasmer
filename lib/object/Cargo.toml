@@ -13,7 +13,7 @@ rust-version.workspace = true
 version.workspace = true
 
 [dependencies]
-wasmer-types = { path = "../types", version = "=4.2.8" }
+wasmer-types = { path = "../types", version = "=4.3.0-alpha.1" }
 object = { version = "0.29.0", default-features = false, features = ["write"] }
 thiserror = "1.0"
 

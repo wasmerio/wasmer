@@ -20,8 +20,8 @@ path = "src/bin/wasmer_compiler.rs"
 doc = false
 
 [dependencies]
-wasmer-compiler = { version = "=4.2.8", path = "../compiler", features = ["compiler"] }
-wasmer-types = { version = "=4.2.8", path = "../types" }
+wasmer-compiler = { version = "=4.3.0-alpha.1", path = "../compiler", features = ["compiler"] }
+wasmer-types = { version = "=4.3.0-alpha.1", path = "../types" }
 is-terminal = "0.4.7"
 colored = "2.0"
 anyhow = "1.0"
@@ -36,16 +36,16 @@ log = { version = "0.4", optional = true }
 target-lexicon = { version = "0.12", features = ["std"] }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-wasmer-compiler-singlepass = { version = "=4.2.8", path = "../compiler-singlepass", optional = true }
-wasmer-compiler-cranelift = { version = "=4.2.8", path = "../compiler-cranelift", optional = true }
-clap = { version = "4.2.8", features = ["derive", "env"] }
+wasmer-compiler-singlepass = { version = "=4.3.0-alpha.1", path = "../compiler-singlepass", optional = true }
+wasmer-compiler-cranelift = { version = "=4.3.0-alpha.1", path = "../compiler-cranelift", optional = true }
+clap = { version = "4.3.0-alpha.1", features = ["derive", "env"] }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
-wasmer-compiler-singlepass = { version = "=4.2.8", path = "../compiler-singlepass", optional = true, default-features = false, features = ["wasm"] }
-wasmer-compiler-cranelift = { version = "=4.2.8", path = "../compiler-cranelift", optional = true, default-features = false, features = ["wasm"] }
+wasmer-compiler-singlepass = { version = "=4.3.0-alpha.1", path = "../compiler-singlepass", optional = true, default-features = false, features = ["wasm"] }
+wasmer-compiler-cranelift = { version = "=4.3.0-alpha.1", path = "../compiler-cranelift", optional = true, default-features = false, features = ["wasm"] }
 # NOTE: Must use different features for clap because the "color" feature does not
 # work on wasi, due to the anstream dependency not compiling.
-clap = { version = "4.2.8", default-features = false, features = [
+clap = { version = "4.3.0-alpha.1", default-features = false, features = [
   "std",
   "help",
   "usage",

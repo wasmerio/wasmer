@@ -14,10 +14,10 @@ default = [ "log-file", "wasmer/sys" ]
 log-file = [ "shared-buffer" ]
 
 [dependencies]
-wasmer = { default-features = false, path = "../api", version = "=4.2.8" }
-wasmer-wasix-types = { path = "../wasi-types", version = "0.18.3", features = [ "enable-serde" ] }
-virtual-net = { path = "../virtual-net", version = "0.6.4", default-features = false, features = ["rkyv"] }
-virtual-fs = { path = "../virtual-fs", version = "0.11.2", default-features = false }
+wasmer = { default-features = false, path = "../api", version = "=4.3.0-alpha.1" }
+wasmer-wasix-types = { path = "../wasi-types", version = "0.18.4", features = [ "enable-serde" ] }
+virtual-net = { path = "../virtual-net", version = "0.6.5", default-features = false, features = ["rkyv"] }
+virtual-fs = { path = "../virtual-fs", version = "0.11.3", default-features = false }
 
 shared-buffer = { workspace = true, optional = true }
 thiserror = "1"

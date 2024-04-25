@@ -1,6 +1,6 @@
 [package]
 name = "wasmer-registry"
-version = "5.10.4"
+version = "5.11.0"
 description = "Crate to interact with the wasmer registry, download packages, etc."
 authors.workspace = true
 edition.workspace = true
@@ -50,7 +50,7 @@ toml.workspace = true
 tracing = "0.1.40"
 url = "2.3.1"
 wasmer-config = { workspace = true }
-wasmer-wasm-interface = { version = "4.2.8", path = "../wasm-interface", optional = true }
+wasmer-wasm-interface = { version = "4.3.0-alpha.1", path = "../wasm-interface", optional = true }
 wasmparser = { workspace = true, optional = true }
 whoami = "1.2.3"
 webc.workspace = true
