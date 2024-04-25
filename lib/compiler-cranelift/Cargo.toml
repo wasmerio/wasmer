@@ -14,8 +14,8 @@ rust-version.workspace = true
 version.workspace = true
 
 [dependencies]
-wasmer-compiler = { path = "../compiler", version = "=4.2.8", features = ["translator", "compiler"], default-features = false }
-wasmer-types = { path = "../types", version = "=4.2.8", default-features = false, features = ["std"] }
+wasmer-compiler = { path = "../compiler", version = "=4.3.0-alpha.1", features = ["translator", "compiler"], default-features = false }
+wasmer-types = { path = "../types", version = "=4.3.0-alpha.1", default-features = false, features = ["std"] }
 cranelift-entity = { version = "0.91.1", default-features = false }
 cranelift-codegen = { version = "0.91.1", default-features = false, features = ["x86", "arm64", "riscv64"] }
 cranelift-frontend = { version = "0.91.1", default-features = false }

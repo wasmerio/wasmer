@@ -23,7 +23,7 @@ use tokio::io::AsyncBufReadExt;
 use tokio::sync::oneshot::Receiver;
 use wasmer_config::package::{NamedPackageIdent, PackageHash, PackageIdent};
 
-static UPLOAD: Emoji<'_, '_> = Emoji("⬆️", "");
+static UPLOAD: Emoji<'_, '_> = Emoji("📤", "");
 static PACKAGE: Emoji<'_, '_> = Emoji("📦", "");
 static FIRE: Emoji<'_, '_> = Emoji("🔥", "");
 
@@ -130,10 +130,19 @@ pub async fn try_chunked_uploading(
 
     upload_package(&signed_url.url, archive_path, archived_data_size, timeout).await?;
 
+    let name = package.as_ref().map(|p| p.name.clone());
+
+    let namespace = match patch_namespace {
+        Some(n) => Some(n),
+        None => package
+            .as_ref()
+            .map(|p| String::from(p.name.split_once('/').unwrap().0)),
+    };
+
     let q =
         PublishPackageMutationChunked::build_query(publish_package_mutation_chunked::Variables {
-            name: package.as_ref().map(|p| p.name.to_string()),
-            namespace: patch_namespace,
+            name,
+            namespace,
             version: package.as_ref().map(|p| p.version.to_string()),
             description: package.as_ref().map(|p| p.description.clone()),
             manifest: manifest_string.to_string(),
@@ -151,6 +160,8 @@ pub async fn try_chunked_uploading(
             }),
             wait: Some(wait.is_any()),
         });
+
+    tracing::debug!("{:#?}", q);
 
     let (send, recv) = tokio::sync::oneshot::channel();
     let mut wait_t = None;
@@ -181,6 +192,8 @@ pub async fn try_chunked_uploading(
         _ = wait_t.await;
     };
 
+    tracing::debug!("{:#?}", response);
+
     if let Some(payload) = response.publish_package {
         if !payload.success {
             return Err(anyhow::anyhow!("Could not publish package"));
@@ -204,15 +217,16 @@ pub async fn try_chunked_uploading(
                 "{}@{}",
                 package.name, package.version
             ))?);
-
-            println!("🚀 Successfully published package `{}`", package_ident);
+            eprintln!("Package published successfully");
+            // println!("🚀 Successfully published package `{}`", package_ident);
             return Ok(Some(package_ident));
         } else if let Some(pkg_hash) = payload.package_webc {
             let package_ident = PackageIdent::Hash(
                 PackageHash::from_str(&format!("sha256:{}", pkg_hash.webc_v3.unwrap().webc_sha256))
                     .unwrap(),
             );
-            println!("🚀 Successfully published package `{}`", package_ident);
+            eprintln!("Package published successfully");
+            // println!("🚀 Successfully published package `{}`", package_ident);
             return Ok(Some(package_ident));
         }
 

@@ -57,7 +57,7 @@ impl PackageBuild {
         let name = if let Some(manifest_pkg) = manifest.package {
             format!(
                 "{}-{}.webc",
-                manifest_pkg.name.replace("/", "-"),
+                manifest_pkg.name.replace('/', "-"),
                 manifest_pkg.version
             )
         } else {

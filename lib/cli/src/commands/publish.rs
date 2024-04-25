@@ -50,7 +50,7 @@ pub struct Publish {
     ///
     /// Note that this is not the timeout for the entire publish process, but
     /// for each individual query to the registry during the publish flow.
-    #[clap(long, default_value = "2m")]
+    #[clap(long, default_value = "5m")]
     pub timeout: humantime::Duration,
 
     /// Whether or not the patch field of the version of the package - if any - should be bumped.
@@ -58,7 +58,7 @@ pub struct Publish {
     pub autobump: bool,
 
     /// Do not prompt for user input.
-    #[clap(long)]
+    #[clap(long, default_value_t = !std::io::stdin().is_terminal())]
     pub non_interactive: bool,
 }
 
@@ -67,6 +67,7 @@ impl AsyncCliCommand for Publish {
     type Output = Option<PackageIdent>;
 
     async fn run_async(self) -> Result<Self::Output, anyhow::Error> {
+        let interactive = !self.non_interactive;
         let manifest_dir_path = match self.package_path.as_ref() {
             Some(s) => std::env::current_dir()?.join(s),
             None => std::env::current_dir()?,
@@ -88,13 +89,25 @@ impl AsyncCliCommand for Publish {
         };
         let client = api.client()?;
 
+        tracing::info!("checking if package with hash {hash} already exists");
+
+        // [TODO]: Add a simpler query to simply retrieve a boolean value if the package with the
+        // given hash exists.
         let maybe_already_published =
-            wasmer_api::query::get_package_release(&client, &hash.to_string())
-                .await
-                .is_ok();
+            wasmer_api::query::get_package_release(&client, &hash.to_string()).await;
+
+        tracing::info!(
+            "received response: {:#?} from registry",
+            maybe_already_published
+        );
+
+        let maybe_already_published = maybe_already_published.is_ok_and(|u| u.is_some());
 
         if maybe_already_published {
-            eprintln!("Package with hash {hash} already present on registry");
+            eprintln!(
+                "Package already present on registry (hash: {})",
+                &hash.to_string().trim_start_matches("sha256:")[..7]
+            );
             return Ok(Some(PackageIdent::Hash(hash)));
         }
 
@@ -125,15 +138,16 @@ impl AsyncCliCommand for Publish {
                 }
             };
 
-            if pkg.version <= latest_version {
+            if pkg.version < latest_version {
                 if self.autobump {
                     latest_version.patch += 1;
                     version = Some(latest_version);
-                } else if std::io::stdin().is_terminal() && !self.non_interactive {
+                } else if interactive {
                     latest_version.patch += 1;
-                    if Confirm::new()
+                    let theme = dialoguer::theme::ColorfulTheme::default();
+                    if Confirm::with_theme(&theme)
                         .with_prompt(format!(
-                            "Do you want to bump it to a new version ({} -> {})?",
+                            "Do you want to bump the package to a new version? ({} -> {})",
                             pkg.version, latest_version
                         ))
                         .interact()
@@ -184,6 +198,8 @@ impl AsyncCliCommand for Publish {
             PublishWait::new_none()
         };
 
+        tracing::trace!("wait mode is: {:?}", wait);
+
         let publish = wasmer_registry::package::builder::Publish {
             registry: self.env.registry_endpoint().map(|u| u.to_string()).ok(),
             dry_run: self.dry_run,
@@ -197,6 +213,8 @@ impl AsyncCliCommand for Publish {
             timeout: self.timeout.into(),
             package_namespace: self.package_namespace,
         };
+
+        tracing::trace!("Sending publish query: {:#?}", publish);
 
         let res = publish.execute().await.map_err(on_error)?;
 

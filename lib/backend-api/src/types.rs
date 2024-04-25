@@ -247,7 +247,7 @@ mod queries {
             self.all_package_releases
                 .edges
                 .into_iter()
-                .filter_map(|x| x)
+                .flatten()
                 .filter_map(|x| x.node)
                 .collect()
         }

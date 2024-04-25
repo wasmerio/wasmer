@@ -382,6 +382,7 @@ mod tests {
 
     /// Regression test to ensure merging of multiple packages works correctly.
     #[test]
+    #[ignore = "must be re-enabled after backend is deployed"]
     fn test_console_python_merge() {
         let tokio_rt = tokio::runtime::Runtime::new().unwrap();
         let rt_handle = tokio_rt.handle().clone();

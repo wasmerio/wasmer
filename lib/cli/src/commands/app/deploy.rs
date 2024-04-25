@@ -5,6 +5,8 @@ use crate::{
     utils::load_package_manifest,
 };
 use anyhow::Context;
+use colored::Colorize;
+use dialoguer::Confirm;
 use is_terminal::IsTerminal;
 use std::io::Write;
 use std::{path::PathBuf, str::FromStr, time::Duration};
@@ -32,7 +34,7 @@ pub struct CmdAppDeploy {
     pub no_validate: bool,
 
     /// Do not prompt for user input.
-    #[clap(long)]
+    #[clap(long, default_value_t = !std::io::stdin().is_terminal())]
     pub non_interactive: bool,
 
     /// Automatically publish the package referenced by this app.
@@ -59,10 +61,25 @@ pub struct CmdAppDeploy {
     pub no_persist_id: bool,
 
     /// Specify the owner (user or namespace) of the app.
-    /// Will default to the currently logged in user, or the existing one
-    /// if the app can be found.
+    ///
+    /// If specified via this flag, the owner will be overridden.  Otherwise, the `app.yaml` is
+    /// inspected and, if there is no `owner` field in the spec file, the user will be prompted to
+    /// select the correct owner. If no owner is found in non-interactive mode the deployment will
+    /// fail.
     #[clap(long)]
     pub owner: Option<String>,
+
+    /// Specify the name (user or namespace) of the app to be deployed.
+    ///
+    /// If specified via this flag, the app_name will be overridden. Otherwise, the `app.yaml` is
+    /// inspected and, if there is no `name` field in the spec file, if running interactive the
+    /// user will be prompted to insert an app name, otherwise the deployment will fail.
+    #[clap(long)]
+    pub app_name: Option<String>,
+
+    /// Whether or not to autobump the package version if publishing.
+    #[clap(long)]
+    pub autobump: bool,
 }
 
 impl CmdAppDeploy {
@@ -99,14 +116,14 @@ impl CmdAppDeploy {
             no_validate: false,
             package_path: Some(manifest_dir_path.to_str().unwrap().to_string()),
             wait: !self.no_wait,
-            wait_all: false,
+            wait_all: !self.no_wait,
             timeout: humantime::Duration::from_str("2m").unwrap(),
             package_namespace: match manifest.package {
                 Some(_) => None,
                 None => Some(owner),
             },
             non_interactive: self.non_interactive,
-            autobump: false,
+            autobump: self.autobump,
         };
 
         match publish_cmd.run_async().await? {
@@ -115,12 +132,22 @@ impl CmdAppDeploy {
         }
     }
 
-    async fn get_owner(&self, app: &AppConfigV1) -> anyhow::Result<String> {
-        if let Some(owner) = &app.owner {
-            return Ok(owner.clone());
+    async fn get_owner(
+        &self,
+        app: &serde_yaml::Value,
+        app_config_path: &PathBuf,
+    ) -> anyhow::Result<(String, String)> {
+        let r_ret = serde_yaml::to_string(&app)?;
+
+        if let Some(owner) = &self.owner {
+            return Ok((owner.clone(), r_ret));
         }
 
-        if !(std::io::stdin().is_terminal() && !self.non_interactive) {
+        if let Some(serde_yaml::Value::String(owner)) = &app.get("owner") {
+            return Ok((owner.clone(), r_ret));
+        }
+
+        if self.non_interactive {
             // if not interactive we can't prompt the user to choose the owner of the app.
             anyhow::bail!("No owner specified: use --owner XXX");
         }
@@ -128,16 +155,49 @@ impl CmdAppDeploy {
         match self.api.client() {
             Ok(client) => {
                 let user = wasmer_api::query::current_user_with_namespaces(&client, None).await?;
-                crate::utils::prompts::prompt_for_namespace(
-                    "Who should own this package?",
+                let owner = crate::utils::prompts::prompt_for_namespace(
+                    "Who should own this app?",
                     None,
                     Some(&user),
-                )
+                )?;
+
+                let new_raw_config = format!("owner: {owner}\n{r_ret}");
+
+                std::fs::write(app_config_path, &new_raw_config).with_context(|| {
+                    format!("Could not write file: '{}'", app_config_path.display())
+                })?;
+
+                Ok((owner.clone(), new_raw_config))
+
             }
             Err(e) => anyhow::bail!(
                 "Can't determine user info: {e}. Please, user `wasmer login` before deploying an app or use the --owner <owner> flag to signal the owner of the app to deploy."
             ),
         }
+    }
+    async fn create(&self) -> anyhow::Result<()> {
+        eprintln!("It seems you are trying to create a new app!");
+
+        let create_cmd = CmdAppCreate {
+            template: None,
+            deploy_app: false,
+            no_validate: false,
+            non_interactive: false,
+            offline: false,
+            owner: None,
+            app_name: None,
+            no_wait: false,
+            api: self.api.clone(),
+            fmt: ItemFormatOpts {
+                format: self.fmt.format,
+            },
+            package: None,
+            app_dir_path: None,
+            use_local_manifest: false,
+            new_package_name: None,
+        };
+
+        create_cmd.run_async().await
     }
 }
 
@@ -146,49 +206,31 @@ impl AsyncCliCommand for CmdAppDeploy {
     type Output = ();
 
     async fn run_async(self) -> Result<Self::Output, anyhow::Error> {
-        let interactive = std::io::stdin().is_terminal() && !self.non_interactive;
         let client = self
             .api
             .client()
             .with_context(|| "Can't begin deploy flow")?;
 
-        let app_config_path = {
-            let base_path = self.path.clone().unwrap_or(std::env::current_dir()?);
-            if base_path.is_file() {
-                base_path
-            } else if base_path.is_dir() {
-                let f = base_path.join(AppConfigV1::CANONICAL_FILE_NAME);
+        let base_dir_path = self.path.clone().unwrap_or(std::env::current_dir()?);
+        let (app_config_path, base_dir_path) = {
+            if base_dir_path.is_file() {
+                (
+                    base_dir_path.clone(),
+                    base_dir_path.clone().parent().unwrap().to_path_buf(),
+                )
+            } else if base_dir_path.is_dir() {
+                let f = base_dir_path.join(AppConfigV1::CANONICAL_FILE_NAME);
 
-                f
+                (f, base_dir_path.clone())
             } else {
-                anyhow::bail!("No such file or directory '{}'", base_path.display());
+                anyhow::bail!("No such file or directory '{}'", base_dir_path.display());
             }
         };
 
         if !app_config_path.is_file() {
-            if interactive {
-                eprintln!("It seems you are trying to create a new app!");
-
-                let create_cmd = CmdAppCreate {
-                    template: None,
-                    deploy_app: false,
-                    no_validate: false,
-                    non_interactive: false,
-                    offline: false,
-                    owner: None,
-                    app_name: None,
-                    no_wait: false,
-                    api: self.api.clone(),
-                    fmt: ItemFormatOpts {
-                        format: self.fmt.format.clone(),
-                    },
-                    package: None,
-                    app_dir_path: None,
-                    use_local_manifest: false,
-                    new_package_name: None,
-                };
-
-                create_cmd.run_async().await?;
+            if !self.non_interactive {
+                // Create already points back to deploy.
+                return self.create().await;
             } else {
                 anyhow::bail!(
                     "Cannot deploy app as no app.yaml was found in path '{}'",
@@ -200,11 +242,51 @@ impl AsyncCliCommand for CmdAppDeploy {
         assert!(app_config_path.is_file());
 
         let config_str = std::fs::read_to_string(&app_config_path)
-            .with_context(|| format!("Could not read file '{}'", app_config_path.display()))?;
+            .with_context(|| format!("Could not read file '{}'", &app_config_path.display()))?;
 
-        let mut app_config: AppConfigV1 = AppConfigV1::parse_yaml(&config_str)?;
+        // We want to allow the user to specify the app name interactively.
+        let app_yaml: serde_yaml::Value = serde_yaml::from_str(&config_str)?;
+        let (owner, mut config_str) = self.get_owner(&app_yaml, &app_config_path).await?;
 
-        let owner = self.get_owner(&app_config).await?;
+        // We want to allow the user to specify the app name interactively.
+        let app_yaml: serde_yaml::Value = serde_yaml::from_str(&config_str)?;
+
+        if app_yaml.get("name").is_none() && self.app_name.is_some() {
+            config_str = format!("{}\nname: {}", config_str, self.app_name.as_ref().unwrap());
+        } else if app_yaml.get("name").is_none() {
+            if !self.non_interactive {
+                let app_name = crate::utils::prompts::prompt_new_app_name(
+                    "Enter the name of the app",
+                    None,
+                    &owner,
+                    self.api.client().ok().as_ref(),
+                )
+                .await?;
+
+                std::fs::write(
+                    &app_config_path,
+                    format!("{}name: {}", config_str, app_name),
+                )?;
+
+                config_str = std::fs::read_to_string(&app_config_path).with_context(|| {
+                    format!("Could not read file '{}'", &app_config_path.display())
+                })?;
+            } else {
+                eprintln!("The app.yaml does not specify any app name.");
+                eprintln!("Please, use the --app_name <app_name> to specify the name of the app.");
+
+                anyhow::bail!(
+                    "Cannot proceed with the deployment as the app spec in path {} does not have
+                    a 'name' field.",
+                    app_config_path.display()
+                )
+            }
+        }
+
+        let original_app_config: AppConfigV1 = AppConfigV1::parse_yaml(&config_str)?;
+        let mut app_config = original_app_config.clone();
+
+        app_config.owner = Some(owner.clone());
 
         let wait = if self.no_wait {
             WaitMode::Deployed
@@ -212,19 +294,23 @@ impl AsyncCliCommand for CmdAppDeploy {
             WaitMode::Reachable
         };
 
-        let opts = match app_config.package {
+        let mut app_cfg_new = app_config.clone();
+        let opts = match &app_cfg_new.package {
             PackageSource::Path(ref path) => {
-                eprintln!("Loading local package (manifest path: {})", path);
-                let package =
-                    PackageSource::from(self.publish(owner.clone(), PathBuf::from(path)).await?);
+                eprintln!(
+                    "Loading local package (manifest path: {})",
+                    PathBuf::from(path)
+                        .canonicalize()?
+                        .join("wasmer.toml")
+                        .display()
+                );
 
-                // We should now assume that the package pointed to by the path is now published,
-                // and `package_spec` is either a hash or an identifier.
+                let package_id = self.publish(owner.clone(), PathBuf::from(path)).await?;
 
-                app_config.package = package;
+                app_cfg_new.package = package_id.into();
 
                 DeployAppOpts {
-                    app: &app_config,
+                    app: &app_cfg_new,
                     original_config: Some(app_config.clone().to_yaml_value().unwrap()),
                     allow_create: true,
                     make_default: !self.no_default,
@@ -232,8 +318,112 @@ impl AsyncCliCommand for CmdAppDeploy {
                     wait,
                 }
             }
+            PackageSource::Ident(PackageIdent::Named(n)) => {
+                // We need to check if we have a manifest with the same name in the
+                // same directory as the `app.yaml`.
+                //
+                // Release v<insert current version> introduced a breaking change on the
+                // deployment flow, and we want old CI to explicitly fail.
+
+                if let Ok(Some((manifest_path, manifest))) = load_package_manifest(&base_dir_path) {
+                    if let Some(package) = &manifest.package {
+                        if package.name == n.full_name() {
+                            eprintln!(
+                                "Found local package (manifest path: {}).",
+                                manifest_path.display()
+                            );
+                            eprintln!("The `package` field in `app.yaml` specified the same named package ({}).", package.name);
+                            eprintln!("This behaviour is deprecated.");
+                            let theme = dialoguer::theme::ColorfulTheme::default();
+                            if self.non_interactive {
+                                eprintln!("Hint: replace `package: {}` with `package: .` to replicate the intended behaviour.", n);
+                                anyhow::bail!("deprecated deploy behaviour")
+                            } else if Confirm::with_theme(&theme)
+                                .with_prompt("Change package to '.' in app.yaml?")
+                                .interact()?
+                            {
+                                app_config.package = PackageSource::Path(String::from("."));
+                                // We have to write it right now.
+                                let new_config_raw = serde_yaml::to_string(&app_config)?;
+                                std::fs::write(&app_config_path, new_config_raw).with_context(
+                                    || {
+                                        format!(
+                                            "Could not write file: '{}'",
+                                            app_config_path.display()
+                                        )
+                                    },
+                                )?;
+
+                                log::info!(
+                                    "Using package {} ({})",
+                                    app_config.package,
+                                    n.full_name()
+                                );
+
+                                let package_id = self.publish(owner.clone(), manifest_path).await?;
+
+                                app_config.package = package_id.into();
+
+                                DeployAppOpts {
+                                    app: &app_config,
+                                    original_config: Some(
+                                        app_config.clone().to_yaml_value().unwrap(),
+                                    ),
+                                    allow_create: true,
+                                    make_default: !self.no_default,
+                                    owner: Some(owner),
+                                    wait,
+                                }
+                            } else {
+                                eprintln!(
+                                        "{}: the package will not be published and the deployment will fail if the package does not already exist.",
+                                        "Warning".yellow().bold()
+                                    );
+                                DeployAppOpts {
+                                    app: &app_config,
+                                    original_config: Some(
+                                        app_config.clone().to_yaml_value().unwrap(),
+                                    ),
+                                    allow_create: true,
+                                    make_default: !self.no_default,
+                                    owner: Some(owner),
+                                    wait,
+                                }
+                            }
+                        } else {
+                            DeployAppOpts {
+                                app: &app_config,
+                                original_config: Some(app_config.clone().to_yaml_value().unwrap()),
+                                allow_create: true,
+                                make_default: !self.no_default,
+                                owner: Some(owner),
+                                wait,
+                            }
+                        }
+                    } else {
+                        DeployAppOpts {
+                            app: &app_config,
+                            original_config: Some(app_config.clone().to_yaml_value().unwrap()),
+                            allow_create: true,
+                            make_default: !self.no_default,
+                            owner: Some(owner),
+                            wait,
+                        }
+                    }
+                } else {
+                    log::info!("Using package {}", app_config.package.to_string());
+                    DeployAppOpts {
+                        app: &app_config,
+                        original_config: Some(app_config.clone().to_yaml_value().unwrap()),
+                        allow_create: true,
+                        make_default: !self.no_default,
+                        owner: Some(owner),
+                        wait,
+                    }
+                }
+            }
             _ => {
-                eprintln!("Using package {}", app_config.package.to_string());
+                log::info!("Using package {}", app_config.package.to_string());
                 DeployAppOpts {
                     app: &app_config,
                     original_config: Some(app_config.clone().to_yaml_value().unwrap()),
@@ -248,9 +438,15 @@ impl AsyncCliCommand for CmdAppDeploy {
         let (_app, app_version) = deploy_app_verbose(&client, opts).await?;
 
         let mut new_app_config = app_config_from_api(&app_version)?;
+
         if self.no_persist_id {
             new_app_config.app_id = None;
         }
+
+        // Don't override the package field.
+        new_app_config.package = app_config.package.clone();
+        // [TODO]: check if name was added...
+
         // If the config changed, write it back.
         if new_app_config != app_config {
             // We want to preserve unknown fields to allow for newer app.yaml
@@ -336,14 +532,14 @@ pub async fn deploy_app_verbose(
     let app = &opts.app;
 
     let pretty_name = if let Some(owner) = &owner {
-        format!("{}/{}", owner, app.name)
+        format!("{} ({})", app.name.bold(), owner.bold())
     } else {
-        app.name.clone()
+        app.name.bold().to_string()
     };
 
     let make_default = opts.make_default;
 
-    eprintln!("Deploying app {pretty_name}...\n");
+    eprintln!("Deploying app {} to Wasmer Edge...\n", pretty_name);
 
     let wait = opts.wait;
     let version = deploy_app(client, opts).await?;
@@ -360,13 +556,15 @@ pub async fn deploy_app_verbose(
         .await
         .context("could not fetch app from backend")?;
 
-    let full_name = format!("{}/{}", app.owner.global_name, app.name);
-
-    eprintln!(" ✅ App {full_name} was successfully deployed!");
+    eprintln!(
+        "App {} ({}) was successfully deployed 🚀",
+        app.name.bold(),
+        app.owner.global_name.bold()
+    );
+    eprintln!("{}", app.url.blue().bold().underline());
     eprintln!();
-    eprintln!("> App URL: {}", app.url);
-    eprintln!("> Versioned URL: {}", version.url);
-    eprintln!("> Admin dashboard: {}", app.admin_url);
+    eprintln!("→ Unique URL: {}", version.url);
+    eprintln!("→ Dashboard:  {}", app.admin_url);
 
     match wait {
         WaitMode::Deployed => {}
@@ -410,7 +608,7 @@ pub async fn deploy_app_verbose(
 
                         if header == version.id.inner() {
                             eprintln!("\nNew version is now reachable at {check_url}");
-                            eprintln!("Deployment complete");
+                            eprintln!("✅ Deployment complete");
                             break;
                         }
 

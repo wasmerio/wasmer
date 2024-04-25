@@ -360,7 +360,7 @@ fn filesystem_v3(
 
         let webc_vol = WebcVolumeFileSystem::new(volume.clone());
         union_fs.mount(
-            &volume_name,
+            volume_name,
             mount_path.to_str().unwrap(),
             false,
             Box::new(webc_vol),

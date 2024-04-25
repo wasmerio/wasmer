@@ -12,7 +12,7 @@ pub struct CmdAppDelete {
     #[clap(flatten)]
     api: ApiOpts,
 
-    #[clap(long)]
+    #[clap(long, default_value_t = !std::io::stdin().is_terminal())]
     non_interactive: bool,
 
     #[clap(flatten)]
@@ -24,14 +24,15 @@ impl AsyncCliCommand for CmdAppDelete {
     type Output = ();
 
     async fn run_async(self) -> Result<(), anyhow::Error> {
-        let interactive = std::io::stdin().is_terminal() && !self.non_interactive;
+        let interactive = !self.non_interactive;
         let client = self.api.client()?;
 
         eprintln!("Looking up the app...");
         let (_ident, app) = self.ident.load_app(&client).await?;
 
         if interactive {
-            let should_use = Confirm::new()
+            let theme = dialoguer::theme::ColorfulTheme::default();
+            let should_use = Confirm::with_theme(&theme)
                 .with_prompt(&format!(
                     "Really delete the app '{}/{}'? (id: {})",
                     app.owner.global_name,
