@@ -27,6 +27,7 @@ use wasmer::{
 };
 #[cfg(feature = "compiler")]
 use wasmer_compiler::ArtifactBuild;
+use wasmer_config::package::PackageSource as PackageSpecifier;
 use wasmer_registry::{wasmer_env::WasmerEnv, Package};
 #[cfg(feature = "journal")]
 use wasmer_wasix::journal::{LogFileJournal, SnapshotTrigger};
@@ -44,7 +45,7 @@ use wasmer_wasix::{
     runtime::{
         module_cache::{CacheError, ModuleHash},
         package_loader::PackageLoader,
-        resolver::{PackageSpecifier, QueryError},
+        resolver::QueryError,
         task_manager::VirtualTaskManagerExt,
     },
     Runtime, WasiError,
@@ -210,7 +211,7 @@ impl Run {
         let mut dependencies = Vec::new();
 
         for name in &self.wasi.uses {
-            let specifier = PackageSpecifier::parse(name)
+            let specifier = PackageSpecifier::from_str(name)
                 .with_context(|| format!("Unable to parse \"{name}\" as a package specifier"))?;
             let pkg = {
                 let specifier = specifier.clone();
@@ -560,7 +561,7 @@ impl PackageSource {
             return Ok(PackageSource::Dir(path.to_path_buf()));
         }
 
-        if let Ok(pkg) = PackageSpecifier::parse(s) {
+        if let Ok(pkg) = PackageSpecifier::from_str(s) {
             return Ok(PackageSource::Package(pkg));
         }
 

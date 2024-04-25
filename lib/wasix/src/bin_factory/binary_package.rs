@@ -3,14 +3,14 @@ use std::sync::Arc;
 use anyhow::Context;
 use derivative::*;
 use once_cell::sync::OnceCell;
-use semver::Version;
 use virtual_fs::FileSystem;
+use wasmer_config::package::{PackageHash, PackageId, PackageSource};
 use webc::{compat::SharedBytes, Container};
 
 use crate::{
     runtime::{
         module_cache::ModuleHash,
-        resolver::{PackageId, PackageInfo, PackageSpecifier, ResolveError},
+        resolver::{PackageInfo, ResolveError},
     },
     Runtime,
 };
@@ -60,7 +60,8 @@ impl BinaryPackageCommand {
 #[derive(Derivative, Clone)]
 #[derivative(Debug)]
 pub struct BinaryPackage {
-    pub package_name: String,
+    pub id: PackageId,
+
     pub when_cached: Option<u128>,
     /// The name of the [`BinaryPackageCommand`] which is this package's
     /// entrypoint.
@@ -69,7 +70,6 @@ pub struct BinaryPackage {
     pub webc_fs: Arc<dyn FileSystem + Send + Sync>,
     pub commands: Vec<BinaryPackageCommand>,
     pub uses: Vec<String>,
-    pub version: Version,
     pub file_system_memory_footprint: u64,
 }
 
@@ -82,11 +82,14 @@ impl BinaryPackage {
         rt: &(dyn Runtime + Send + Sync),
     ) -> Result<Self, anyhow::Error> {
         let source = rt.source();
-        let root = PackageInfo::from_manifest(container.manifest())?;
-        let root_id = PackageId {
-            package_name: root.name.clone(),
-            version: root.version.clone(),
-        };
+
+        let manifest = container.manifest();
+        let id = PackageInfo::package_id_from_manifest(manifest)?.unwrap_or_else(|| {
+            PackageId::Hash(PackageHash::from_sha256_bytes(container.webc_hash()))
+        });
+
+        let root = PackageInfo::from_manifest(id, manifest, container.version())?;
+        let root_id = root.id.clone();
 
         let resolution = crate::runtime::resolver::resolve(&root_id, &root, &*source).await?;
         let pkg = rt
@@ -101,7 +104,7 @@ impl BinaryPackage {
     /// Load a [`BinaryPackage`] and all its dependencies from a registry.
     #[tracing::instrument(level = "debug", skip_all)]
     pub async fn from_registry(
-        specifier: &PackageSpecifier,
+        specifier: &PackageSource,
         runtime: &(dyn Runtime + Send + Sync),
     ) -> Result<Self, anyhow::Error> {
         let source = runtime.source();
@@ -145,7 +148,7 @@ impl BinaryPackage {
             if let Some(entry) = self.entrypoint_bytes() {
                 ModuleHash::hash(entry)
             } else {
-                ModuleHash::hash(self.package_name.as_bytes())
+                ModuleHash::hash(self.id.to_string())
             }
         })
     }

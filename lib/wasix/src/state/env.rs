@@ -15,6 +15,7 @@ use wasmer::{
     AsStoreMut, AsStoreRef, FunctionEnvMut, Global, Imports, Instance, Memory, MemoryType,
     MemoryView, Module, TypedFunction,
 };
+use wasmer_config::package::PackageSource;
 use wasmer_wasix_types::{
     types::Signal,
     wasi::{Errno, ExitCode, Snapshot0Clockid},
@@ -33,10 +34,7 @@ use crate::{
         process::{WasiProcess, WasiProcessId},
         thread::{WasiMemoryLayout, WasiThread, WasiThreadHandle, WasiThreadId},
     },
-    runtime::{
-        module_cache::ModuleHash, resolver::PackageSpecifier, task_manager::InlineWaker,
-        SpawnMemoryType,
-    },
+    runtime::{module_cache::ModuleHash, task_manager::InlineWaker, SpawnMemoryType},
     syscalls::platform_clock_time_get,
     Runtime, VirtualTaskManager, WasiControlPlane, WasiEnvBuilder, WasiError, WasiFunctionEnv,
     WasiResult, WasiRuntimeError, WasiStateCreationError, WasiVFork,
@@ -1043,7 +1041,7 @@ impl WasiEnv {
     /// [cmd-atom]: crate::bin_factory::BinaryPackageCommand::atom()
     /// [pkg-fs]: crate::bin_factory::BinaryPackage::webc_fs
     pub fn use_package(&self, pkg: &BinaryPackage) -> Result<(), WasiStateCreationError> {
-        tracing::trace!(packagae=%pkg.package_name, "merging package dependency into wasi environment");
+        tracing::trace!(package=%pkg.id, "merging package dependency into wasi environment");
         let root_fs = &self.state.fs.root_fs;
 
         // We first need to copy any files in the package over to the
@@ -1089,7 +1087,7 @@ impl WasiEnv {
                         {
                             tracing::debug!(
                                 "failed to add package [{}] command [{}] - {}",
-                                pkg.package_name,
+                                pkg.id,
                                 command.name(),
                                 err
                             );
@@ -1115,7 +1113,7 @@ impl WasiEnv {
                     .set_binary(path.as_os_str().to_string_lossy().as_ref(), package);
 
                 tracing::debug!(
-                    package=%pkg.package_name,
+                    package=%pkg.id,
                     command_name=command.name(),
                     path=%path.display(),
                     "Injected a command into the filesystem",
@@ -1135,7 +1133,7 @@ impl WasiEnv {
         let rt = self.runtime();
 
         for package_name in uses {
-            let specifier = package_name.parse::<PackageSpecifier>().map_err(|e| {
+            let specifier = package_name.parse::<PackageSource>().map_err(|e| {
                 WasiStateCreationError::WasiIncludePackageError(format!(
                     "package_name={package_name}, {}",
                     e

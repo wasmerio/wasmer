@@ -25,6 +25,7 @@ use serde_derive::{Deserialize, Serialize};
 use tokio::io::AsyncWriteExt;
 use tracing::{debug, trace};
 use virtual_fs::{copy_reference, FileSystem, FsError, OpenOptions, VirtualFile};
+use wasmer_config::package::PackageId;
 use wasmer_wasix_types::{
     types::{__WASI_STDERR_FILENO, __WASI_STDIN_FILENO, __WASI_STDOUT_FILENO},
     wasi::{
@@ -492,7 +493,7 @@ pub struct WasiFs {
     #[cfg_attr(feature = "enable-serde", serde(skip, default))]
     pub root_fs: WasiFsRoot,
     pub root_inode: InodeGuard,
-    pub has_unioned: Arc<Mutex<HashSet<String>>>,
+    pub has_unioned: Arc<Mutex<HashSet<PackageId>>>,
 
     // TODO: remove
     // using an atomic is a hack to enable customization after construction,
@@ -565,9 +566,7 @@ impl WasiFs {
         &self,
         binary: &BinaryPackage,
     ) -> Result<(), virtual_fs::FsError> {
-        let package_name = binary.package_name.clone();
-
-        let needs_to_be_unioned = self.has_unioned.lock().unwrap().insert(package_name);
+        let needs_to_be_unioned = self.has_unioned.lock().unwrap().insert(binary.id.clone());
 
         if !needs_to_be_unioned {
             return Ok(());

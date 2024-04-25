@@ -10,6 +10,24 @@ pub enum Tag {
     VersionReq(semver::VersionReq),
 }
 
+impl Tag {
+    pub fn as_named(&self) -> Option<&String> {
+        if let Self::Named(v) = self {
+            Some(v)
+        } else {
+            None
+        }
+    }
+
+    pub fn as_version_req(&self) -> Option<&semver::VersionReq> {
+        if let Self::VersionReq(v) = self {
+            Some(v)
+        } else {
+            None
+        }
+    }
+}
+
 impl std::fmt::Display for Tag {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
@@ -95,6 +113,22 @@ impl NamedPackageIdent {
             Some(Tag::VersionReq(v)) => v.clone(),
             Some(Tag::Named(_)) | None => semver::VersionReq::STAR,
         }
+    }
+
+    pub fn registry_url(&self) -> Result<Option<url::Url>, PackageParseError> {
+        let Some(reg) = &self.registry else {
+            return Ok(None);
+        };
+
+        let reg = if !reg.starts_with("http://") && !reg.starts_with("https://") {
+            format!("https://{}", reg)
+        } else {
+            reg.clone()
+        };
+
+        url::Url::parse(&reg)
+            .map_err(|e| PackageParseError::new(reg, e.to_string()))
+            .map(Some)
     }
 
     /// Build the ident for a package.

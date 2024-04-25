@@ -205,8 +205,7 @@ impl PackageLoader for BuiltinPackageLoader {
         level="debug",
         skip_all,
         fields(
-            pkg.name=summary.pkg.name.as_str(),
-            pkg.version=%summary.pkg.version,
+            pkg=%summary.pkg.id,
         ),
     )]
     async fn load(&self, summary: &PackageSummary) -> Result<Container, Error> {
@@ -239,8 +238,7 @@ impl PackageLoader for BuiltinPackageLoader {
                 Err(e) => {
                     tracing::warn!(
                         error=&*e,
-                        pkg.name=%summary.pkg.name,
-                        pkg.version=%summary.pkg.version,
+                        pkg=%summary.pkg.id,
                         pkg.hash=%summary.dist.webc_sha256,
                         pkg.url=%summary.dist.webc,
                         "Unable to save the downloaded package to disk",
@@ -383,6 +381,7 @@ mod tests {
     use futures::future::BoxFuture;
     use http::{HeaderMap, StatusCode};
     use tempfile::TempDir;
+    use wasmer_config::package::PackageId;
 
     use crate::{
         http::{HttpRequest, HttpResponse},
@@ -432,8 +431,7 @@ mod tests {
             .with_shared_http_client(client.clone());
         let summary = PackageSummary {
             pkg: PackageInfo {
-                name: "python/python".to_string(),
-                version: "0.1.0".parse().unwrap(),
+                id: PackageId::new_named("python/python", "0.1.0".parse().unwrap()),
                 dependencies: Vec::new(),
                 commands: Vec::new(),
                 entrypoint: Some("asdf".to_string()),

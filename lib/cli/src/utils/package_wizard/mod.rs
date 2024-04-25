@@ -2,8 +2,8 @@ use std::path::{Path, PathBuf};
 
 use anyhow::Context;
 use dialoguer::Select;
-use edge_schema::schema::{StringWebcIdent, WebcIdent};
 use wasmer_api::{types::UserWithNamespaces, WasmerClient};
+use wasmer_config::package::NamedPackageIdent;
 
 use super::prompts::PackageCheckMode;
 
@@ -77,10 +77,10 @@ pub struct PackageWizard {
 }
 
 pub struct PackageWizardOutput {
-    pub ident: StringWebcIdent,
+    pub ident: NamedPackageIdent,
     pub api: Option<wasmer_api::types::Package>,
     pub local_path: Option<PathBuf>,
-    pub local_manifest: Option<wasmer_toml::Manifest>,
+    pub local_manifest: Option<wasmer_config::package::Manifest>,
 }
 
 impl PackageWizard {
@@ -121,11 +121,11 @@ impl PackageWizard {
             })?;
         }
 
-        let ident = WebcIdent {
-            repository: None,
-            namespace: owner,
+        let ident = NamedPackageIdent {
+            registry: None,
+            namespace: Some(owner),
             name,
-            tag: Some("0.1.0".to_string()),
+            tag: Some("0.1.0".parse().unwrap()),
         };
         let manifest = match ty {
             PackageType::Regular => todo!(),
@@ -163,7 +163,7 @@ impl PackageWizard {
         eprintln!("Enter the name of an existing package:");
         let (ident, api) = super::prompts::prompt_for_package("Package", None, check, api).await?;
         Ok(PackageWizardOutput {
-            ident,
+            ident: ident.into(),
             api,
             local_path: None,
             local_manifest: None,
@@ -198,9 +198,9 @@ impl PackageWizard {
 
 fn initialize_static_site(
     path: &Path,
-    ident: &WebcIdent,
-) -> Result<wasmer_toml::Manifest, anyhow::Error> {
-    let full_name = format!("{}/{}", ident.namespace, ident.name);
+    ident: &NamedPackageIdent,
+) -> Result<wasmer_config::package::Manifest, anyhow::Error> {
+    let full_name = ident.full_name();
 
     let pubdir_name = "public";
     let pubdir = path.join(pubdir_name);
@@ -247,7 +247,7 @@ public = "{}"
         pubdir_name
     );
 
-    let manifest = wasmer_toml::Manifest::parse(raw_static_site_toml.as_str())
+    let manifest = wasmer_config::package::Manifest::parse(raw_static_site_toml.as_str())
         .map_err(|e| anyhow::anyhow!("Could not parse js worker manifest: {}", e))?;
 
     Ok(manifest)
@@ -255,9 +255,9 @@ public = "{}"
 
 fn initialize_js_worker(
     path: &Path,
-    ident: &WebcIdent,
-) -> Result<wasmer_toml::Manifest, anyhow::Error> {
-    let full_name = format!("{}/{}", ident.namespace, ident.name);
+    ident: &NamedPackageIdent,
+) -> Result<wasmer_config::package::Manifest, anyhow::Error> {
+    let full_name = ident.full_name();
 
     let srcdir_name = "src";
     let srcdir = path.join(srcdir_name);
@@ -311,7 +311,7 @@ env = ["JS_PATH=/src/index.js"]
         winterjs_version = WASMER_WINTER_JS_VERSION,
     );
 
-    let manifest = wasmer_toml::Manifest::parse(raw_js_worker_toml.as_str())
+    let manifest = wasmer_config::package::Manifest::parse(raw_js_worker_toml.as_str())
         .map_err(|e| anyhow::anyhow!("Could not parse js worker manifest: {}", e))?;
 
     Ok(manifest)
@@ -319,9 +319,9 @@ env = ["JS_PATH=/src/index.js"]
 
 fn initialize_py_worker(
     path: &Path,
-    ident: &WebcIdent,
-) -> Result<wasmer_toml::Manifest, anyhow::Error> {
-    let full_name = format!("{}/{}", ident.namespace, ident.name);
+    ident: &NamedPackageIdent,
+) -> Result<wasmer_config::package::Manifest, anyhow::Error> {
+    let full_name = ident.full_name();
 
     let appdir_name = "src";
     let appdir = path.join(appdir_name);
@@ -376,7 +376,7 @@ main-args = ["/src/main.py"]
         WASM_PYTHON_PACKAGE
     );
 
-    let manifest = wasmer_toml::Manifest::parse(raw_py_worker_toml.as_str())
+    let manifest = wasmer_config::package::Manifest::parse(raw_py_worker_toml.as_str())
         .map_err(|e| anyhow::anyhow!("Could not parse py worker manifest: {}", e))?;
 
     Ok(manifest)
