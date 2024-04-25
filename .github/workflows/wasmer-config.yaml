@@ -4,7 +4,7 @@ name: wasmer-config
 on:
   push:
     branches:
-    - master
+    - main
   pull_request:
 
 # Automatically cancel previous workflow runs when a new commit is pushed.

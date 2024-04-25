@@ -61,7 +61,7 @@
 //! }
 //! ```
 //!
-//! [Discover the full collection of examples](https://github.com/wasmerio/wasmer/tree/master/examples).
+//! [Discover the full collection of examples](https://github.com/wasmerio/wasmer/tree/main/examples).
 //!
 //! # Overview of the Features
 //!
@@ -380,7 +380,7 @@
 //! or `js-default` Cargo features.
 //!
 //! [wasm]: https://webassembly.org/
-//! [wasmer-examples]: https://github.com/wasmerio/wasmer/tree/master/examples
+//! [wasmer-examples]: https://github.com/wasmerio/wasmer/tree/main/examples
 //! [`wasmer-cache`]: https://docs.rs/wasmer-cache/
 //! [wasmer-compiler]: https://docs.rs/wasmer-compiler/
 //! [`wasmer-emscripten`]: https://docs.rs/wasmer-emscripten/

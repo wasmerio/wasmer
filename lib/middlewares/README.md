@@ -8,5 +8,5 @@ middlewares:
   operators executed.
 
   [See the `metering`
-  example](https://github.com/wasmerio/wasmer/blob/master/examples/metering.rs)
+  example](https://github.com/wasmerio/wasmer/blob/main/examples/metering.rs)
   to get a concrete and complete example.

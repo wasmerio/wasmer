@@ -12,7 +12,7 @@ import re
 RELEASE_VERSION=""
 DATE = datetime.date.today().strftime("%d/%m/%Y")
 SIGNOFF_REVIEWER = "Arshia001"
-TAG = "master"
+TAG = "main"
 
 if len(sys.argv) > 1:
     RELEASE_VERSION = sys.argv[1]
@@ -271,7 +271,7 @@ def make_release(version):
     if last_commit == "":
         raise Exception("could not get last info")
 
-    proc = subprocess.Popen(['git','checkout', "master"], stdout = subprocess.PIPE, cwd = temp_dir.name)
+    proc = subprocess.Popen(['git','checkout', 'main'], stdout = subprocess.PIPE, cwd = temp_dir.name)
     proc.wait()
     if proc.returncode != 0:
         for line in proc.stdout:
@@ -424,7 +424,7 @@ def make_release(version):
     hash = hash.replace("/", "")
 
     release_notes.append("")
-    release_notes.append("See full list of changes in the [CHANGELOG](https://github.com/wasmerio/wasmer/blob/master/CHANGELOG.md#" + hash + ")")
+    release_notes.append("See full list of changes in the [CHANGELOG](https://github.com/wasmerio/wasmer/blob/main/CHANGELOG.md#" + hash + ")")
 
     proc = subprocess.Popen(['gh','release', "edit", RELEASE_VERSION_WITH_V, "--notes", "\r\n".join(release_notes)], stdout = subprocess.PIPE, cwd = temp_dir.name)
     proc.wait()

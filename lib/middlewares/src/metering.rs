@@ -6,7 +6,7 @@
 //! # Example
 //!
 //! [See the `metering` detailed and complete
-//! example](https://github.com/wasmerio/wasmer/blob/master/examples/metering.rs).
+//! example](https://github.com/wasmerio/wasmer/blob/main/examples/metering.rs).
 
 use std::convert::TryInto;
 use std::fmt;
