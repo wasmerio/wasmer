@@ -6569,28 +6569,6 @@ dependencies = [
 
 [[package]]
 name = "wasmer-config"
-version = "0.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0b405c9856adaf65ee91eeeeaac6fcc6b127188648c60ae4e89de63f506c74e6"
-dependencies = [
- "anyhow",
- "bytesize",
- "derive_builder",
- "hex",
- "indexmap 1.9.3",
- "schemars",
- "semver 1.0.22",
- "serde",
- "serde_cbor",
- "serde_json",
- "serde_yaml 0.9.34+deprecated",
- "thiserror",
- "toml 0.8.12",
- "url",
-]
-
-[[package]]
-name = "wasmer-config"
 version = "0.1.1"
 dependencies = [
  "anyhow",
@@ -6606,6 +6584,28 @@ dependencies = [
  "serde_json",
  "serde_yaml 0.9.34+deprecated",
  "tempfile",
+ "thiserror",
+ "toml 0.8.12",
+ "url",
+]
+
+[[package]]
+name = "wasmer-config"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7439f813ad16b3fc8cbf2be3b54192e2c4b0a4c213d1fb3d7cf82da249c39aea"
+dependencies = [
+ "anyhow",
+ "bytesize",
+ "derive_builder",
+ "hex",
+ "indexmap 2.2.6",
+ "schemars",
+ "semver 1.0.22",
+ "serde",
+ "serde_cbor",
+ "serde_json",
+ "serde_yaml 0.9.34+deprecated",
  "thiserror",
  "toml 0.8.12",
  "url",
@@ -7160,7 +7160,7 @@ dependencies = [
  "thiserror",
  "toml 0.7.8",
  "url",
- "wasmer-config 0.1.0",
+ "wasmer-config 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
