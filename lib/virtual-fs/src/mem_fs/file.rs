@@ -144,6 +144,30 @@ impl VirtualFile for FileHandle {
         node.metadata().created
     }
 
+    fn set_accessed(&mut self, atime: u64) {
+        let mut fs = match self.filesystem.inner.write() {
+            Ok(fs) => fs,
+            _ => return,
+        };
+
+        let inode = fs.storage.get_mut(self.inode);
+        if let Some(node) = inode {
+            node.metadata_mut().accessed = atime;
+        }
+    }
+
+    fn set_modified(&mut self, mtime: u64) {
+        let mut fs = match self.filesystem.inner.write() {
+            Ok(fs) => fs,
+            _ => return,
+        };
+
+        let inode = fs.storage.get_mut(self.inode);
+        if let Some(node) = inode {
+            node.metadata_mut().modified = mtime;
+        }
+    }
+
     fn size(&self) -> u64 {
         let fs = match self.filesystem.inner.read() {
             Ok(fs) => fs,
