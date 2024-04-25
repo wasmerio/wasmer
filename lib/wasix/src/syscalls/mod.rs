@@ -1507,8 +1507,8 @@ pub(crate) fn _prepare_wasi(wasi_env: &mut WasiEnv, args: Option<Vec<String>>) {
 pub(crate) fn conv_spawn_err_to_errno(err: &SpawnError) -> Errno {
     match err {
         SpawnError::AccessDenied => Errno::Access,
-        SpawnError::NotFound => Errno::Noent,
         SpawnError::Unsupported => Errno::Noexec,
+        _ if err.is_not_found() => Errno::Noent,
         _ => Errno::Inval,
     }
 }
