@@ -11,15 +11,17 @@ Looking for changes that affect our C API? See the [C API Changelog](lib/c-api/C
 
 ## 4.3.0-alpha.1 - 25/04/2024
 
+This release introduces support for publishing unnamed packages. It also fixes an issue with code generation when using Singlepass and contains fixes to WASIX.
+
 ## Added
 
+  - [#4532](https://github.com/wasmerio/wasmer/pull/4532) Unnamed packages
   - [#4548](https://github.com/wasmerio/wasmer/pull/4548) Added a fix so that closed sockets do not cause errors
   - [#4560](https://github.com/wasmerio/wasmer/pull/4560) chore(backend-api): Add hostname to AppAlias type
   - [#4543](https://github.com/wasmerio/wasmer/pull/4543) build: Add Wasmer CLI package definition to Nix flake
 
 ## Changed
 
-  - [#4532](https://github.com/wasmerio/wasmer/pull/4532) Unnamed packages
   - [#4582](https://github.com/wasmerio/wasmer/pull/4582) feat: wasmer-config
   - [#4359](https://github.com/wasmerio/wasmer/pull/4359) Use nanoseconds in `filestat` for directories
   - [#4557](https://github.com/wasmerio/wasmer/pull/4557) Safely handle offset in fd_seek
@@ -33,10 +35,9 @@ Looking for changes that affect our C API? See the [C API Changelog](lib/c-api/C
 
 ## Fixed
 
+  - [#4559](https://github.com/wasmerio/wasmer/pull/4559) Fix ImpossibleRelocation panics in singlepass/aarch64
   - [#4514](https://github.com/wasmerio/wasmer/pull/4514) Fix for snapshots in certain use cases
   - [#4590](https://github.com/wasmerio/wasmer/pull/4590) Fix fd_seek underflow
-  - [#4559](https://github.com/wasmerio/wasmer/pull/4559) Fix ImpossibleRelocation panics in singlepass/aarch64
-  - [#4547](https://github.com/wasmerio/wasmer/pull/4547) V4.2.8 leftover fixes
 
 
 
