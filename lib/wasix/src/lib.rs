@@ -155,8 +155,8 @@ pub enum SpawnError {
     #[error("unsupported")]
     Unsupported,
     /// Not found
-    #[error("not found")]
-    NotFound,
+    #[error("not found: {message}")]
+    NotFound { message: String },
     /// Tried to run the specified binary as a new WASI thread/process, but
     /// the binary name was not found.
     #[error("could not find binary '{binary}'")]
@@ -240,7 +240,10 @@ impl SpawnError {
     /// [`NotFound`]: SpawnError::NotFound
     #[must_use]
     pub fn is_not_found(&self) -> bool {
-        matches!(self, Self::NotFound)
+        match self {
+            Self::NotFound { .. } | Self::MissingEntrypoint { .. } => true,
+            _ => false,
+        }
     }
 }
 
