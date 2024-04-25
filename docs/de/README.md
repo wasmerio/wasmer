@@ -7,7 +7,7 @@
     <a href="https://github.com/wasmerio/wasmer/actions?query=workflow%3Abuild">
       <img src="https://github.com/wasmerio/wasmer/workflows/build/badge.svg?style=flat-square" alt="Build Status">
     </a>
-    <a href="https://github.com/wasmerio/wasmer/blob/master/LICENSE">
+    <a href="https://github.com/wasmerio/wasmer/blob/main/LICENSE">
       <img src="https://img.shields.io/github/license/wasmerio/wasmer.svg" alt="Lizenz">
     </a>
     <a href="https://docs.wasmer.io">
@@ -25,11 +25,11 @@ Wasmer ist eine _schnelle_ und _sichere_ [**WebAssembly**](https://webassembly.o
 _schlanken Containern_ überall ermöglicht: auf dem *Desktop* in der *Cloud*, so wie auf *Edge* und *IoT* Geräten.
 
 > _Die README ist auch in folgenden Sprachen verfügbar:
-[🇨🇳 中文-Chinesisch](https://github.com/wasmerio/wasmer/blob/master/docs/cn/README.md) • 
-[🇬🇧 English-Englisch](https://github.com/wasmerio/wasmer/blob/master/README.md) •
-[🇪🇸 Español-Spanisch](https://github.com/wasmerio/wasmer/blob/master/docs/es/README.md) • 
-[🇫🇷 Français-Französisch](https://github.com/wasmerio/wasmer/blob/master/docs/fr/README.md) • 
-[🇯🇵 日本語-Japanisch](https://github.com/wasmerio/wasmer/blob/master/docs/ja/README.md)_.
+[🇨🇳 中文-Chinesisch](https://github.com/wasmerio/wasmer/blob/main/docs/cn/README.md) • 
+[🇬🇧 English-Englisch](https://github.com/wasmerio/wasmer/blob/main/README.md) •
+[🇪🇸 Español-Spanisch](https://github.com/wasmerio/wasmer/blob/main/docs/es/README.md) • 
+[🇫🇷 Français-Französisch](https://github.com/wasmerio/wasmer/blob/main/docs/fr/README.md) • 
+[🇯🇵 日本語-Japanisch](https://github.com/wasmerio/wasmer/blob/main/docs/ja/README.md)_.
 
 ### Leistungsmerkmale
 
@@ -80,7 +80,7 @@ curl https://get.wasmer.io -sSfL | sh
 
     _Note: All the available
     features are described in the [`wasmer-cli`
-    crate docs](https://github.com/wasmerio/wasmer/tree/master/lib/cli/README.md)_
+    crate docs](https://github.com/wasmerio/wasmer/tree/main/lib/cli/README.md)_
 
     ```sh
     cargo install wasmer-cli
@@ -138,13 +138,13 @@ Sprachen** verwendet werden, so dass Sie WebAssembly _überall_ einsetzen könne
 [👋&nbsp;&nbsp;Fehlt eine Sprache?](https://github.com/wasmerio/wasmer/issues/new?assignees=&labels=%F0%9F%8E%89+enhancement&template=---feature-request.md&title=)
 
 [rust logo]: https://raw.githubusercontent.com/wasmerio/wasmer/master/assets/languages/rust.svg
-[rust integration]: https://github.com/wasmerio/wasmer/tree/master/lib/api
+[rust integration]: https://github.com/wasmerio/wasmer/tree/main/lib/api
 [`wasmer` rust crate]: https://crates.io/crates/wasmer/
 [rust docs]: https://wasmerio.github.io/wasmer/crates/wasmer
 
 [c logo]: https://raw.githubusercontent.com/wasmerio/wasmer/master/assets/languages/c.svg
-[c integration]: https://github.com/wasmerio/wasmer/tree/master/lib/c-api
-[`wasmer.h` header]: https://github.com/wasmerio/wasmer/blob/master/lib/c-api/wasmer.h
+[c integration]: https://github.com/wasmerio/wasmer/tree/main/lib/c-api
+[`wasmer.h` header]: https://github.com/wasmerio/wasmer/blob/main/lib/c-api/wasmer.h
 [c docs]: https://wasmerio.github.io/wasmer/crates/wasmer_c_api
 
 [c# logo]: https://raw.githubusercontent.com/wasmerio/wasmer/master/assets/languages/csharp.svg

@@ -1,4 +1,4 @@
-# `wasmer-cli-compiler` [![Build Status](https://github.com/wasmerio/wasmer/workflows/build/badge.svg?style=flat-square)](https://github.com/wasmerio/wasmer/actions?query=workflow%3Abuild) [![Join Wasmer Slack](https://img.shields.io/static/v1?label=Slack&message=join%20chat&color=brighgreen&style=flat-square)](https://slack.wasmer.io) [![MIT License](https://img.shields.io/github/license/wasmerio/wasmer.svg?style=flat-square)](https://github.com/wasmerio/wasmer/blob/master/LICENSE)
+# `wasmer-cli-compiler` [![Build Status](https://github.com/wasmerio/wasmer/workflows/build/badge.svg?style=flat-square)](https://github.com/wasmerio/wasmer/actions?query=workflow%3Abuild) [![Join Wasmer Slack](https://img.shields.io/static/v1?label=Slack&message=join%20chat&color=brighgreen&style=flat-square)](https://slack.wasmer.io) [![MIT License](https://img.shields.io/github/license/wasmerio/wasmer.svg?style=flat-square)](https://github.com/wasmerio/wasmer/blob/main/LICENSE)
 
 This crate is the Wasmer Compiler only CLI.
 
@@ -10,9 +10,9 @@ The Compiler only Wasmer supports the following features:
 * `emscripten` (default): support for [Emscripten].
 * `singlepass`: support for the [Singlepass compiler].
 
-[WASI]: https://github.com/wasmerio/wasmer/tree/master/lib/wasi/
-[Emscripten]: https://github.com/wasmerio/wasmer/tree/master/lib/emscripten/
-[Singlepass compiler]: https://github.com/wasmerio/wasmer/tree/master/lib/compiler-singlepass/
+[WASI]: https://github.com/wasmerio/wasmer/tree/main/lib/wasi/
+[Emscripten]: https://github.com/wasmerio/wasmer/tree/main/lib/emscripten/
+[Singlepass compiler]: https://github.com/wasmerio/wasmer/tree/main/lib/compiler-singlepass/
 
 ## CLI commands
 

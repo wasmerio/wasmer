@@ -1,4 +1,4 @@
-# `wasmer-cli` [![Build Status](https://github.com/wasmerio/wasmer/workflows/build/badge.svg?style=flat-square)](https://github.com/wasmerio/wasmer/actions?query=workflow%3Abuild) [![Join Wasmer Slack](https://img.shields.io/static/v1?label=Slack&message=join%20chat&color=brighgreen&style=flat-square)](https://slack.wasmer.io) [![MIT License](https://img.shields.io/github/license/wasmerio/wasmer.svg?style=flat-square)](https://github.com/wasmerio/wasmer/blob/master/LICENSE)
+# `wasmer-cli` [![Build Status](https://github.com/wasmerio/wasmer/workflows/build/badge.svg?style=flat-square)](https://github.com/wasmerio/wasmer/actions?query=workflow%3Abuild) [![Join Wasmer Slack](https://img.shields.io/static/v1?label=Slack&message=join%20chat&color=brighgreen&style=flat-square)](https://slack.wasmer.io) [![MIT License](https://img.shields.io/github/license/wasmerio/wasmer.svg?style=flat-square)](https://github.com/wasmerio/wasmer/blob/main/LICENSE)
 
 This crate is the Wasmer CLI.
 
@@ -28,11 +28,11 @@ The Wasmer supports the following features:
 * `cranelift`: support for the [Cranelift compiler].
 * `llvm`: support for the [LLVM compiler].
 
-[WASI]: https://github.com/wasmerio/wasmer/tree/master/lib/wasi/
-[Emscripten]: https://github.com/wasmerio/wasmer/tree/master/lib/emscripten/
-[Singlepass compiler]: https://github.com/wasmerio/wasmer/tree/master/lib/compiler-singlepass/
-[Cranelift compiler]: https://github.com/wasmerio/wasmer/tree/master/lib/compiler-cranelift/
-[LLVM compiler]: https://github.com/wasmerio/wasmer/tree/master/lib/compiler-llvm/
+[WASI]: https://github.com/wasmerio/wasmer/tree/main/lib/wasi/
+[Emscripten]: https://github.com/wasmerio/wasmer/tree/main/lib/emscripten/
+[Singlepass compiler]: https://github.com/wasmerio/wasmer/tree/main/lib/compiler-singlepass/
+[Cranelift compiler]: https://github.com/wasmerio/wasmer/tree/main/lib/compiler-cranelift/
+[LLVM compiler]: https://github.com/wasmerio/wasmer/tree/main/lib/compiler-llvm/
 
 ## CLI commands
 

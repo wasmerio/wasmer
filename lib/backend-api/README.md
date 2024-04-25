@@ -25,7 +25,7 @@ To update the schema, simply download the latest version and replace the local
 file.
 
 It can be retrieved from
-https://github.com/wasmerio/wapm.io-backend/blob/master/backend/graphql/schema.graphql.
+https://github.com/wasmerio/backend/blob/main/backend/graphql/schema.graphql.
 
 ### Writing/Updating Queries
 

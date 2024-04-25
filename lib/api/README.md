@@ -1,4 +1,4 @@
-# `wasmer` [![Build Status](https://github.com/wasmerio/wasmer/workflows/build/badge.svg?style=flat-square)](https://github.com/wasmerio/wasmer/actions?query=workflow%3Abuild) [![Join Wasmer Slack](https://img.shields.io/static/v1?label=Slack&message=join%20chat&color=brighgreen&style=flat-square)](https://slack.wasmer.io) [![MIT License](https://img.shields.io/github/license/wasmerio/wasmer.svg?style=flat-square)](https://github.com/wasmerio/wasmer/blob/master/LICENSE) [![crates.io](https://img.shields.io/crates/v/wasmer.svg)](https://crates.io/crates/wasmer)
+# `wasmer` [![Build Status](https://github.com/wasmerio/wasmer/workflows/build/badge.svg?style=flat-square)](https://github.com/wasmerio/wasmer/actions?query=workflow%3Abuild) [![Join Wasmer Slack](https://img.shields.io/static/v1?label=Slack&message=join%20chat&color=brighgreen&style=flat-square)](https://slack.wasmer.io) [![MIT License](https://img.shields.io/github/license/wasmerio/wasmer.svg?style=flat-square)](https://github.com/wasmerio/wasmer/blob/main/LICENSE) [![crates.io](https://img.shields.io/crates/v/wasmer.svg)](https://crates.io/crates/wasmer)
 
 [`Wasmer`](https://wasmer.io/) is the most popular
 [WebAssembly](https://webassembly.org/) runtime for Rust. It supports
@@ -39,7 +39,7 @@ fn main() -> anyhow::Result<()> {
 }
 ```
 
-[Discover the full collection of examples](https://github.com/wasmerio/wasmer/tree/master/examples).
+[Discover the full collection of examples](https://github.com/wasmerio/wasmer/tree/main/examples).
 
 ## Features
 
@@ -89,6 +89,6 @@ more](https://wasmerio.github.io/wasmer/crates/doc/wasmer/).
 
 Made with ❤️ by the Wasmer team, for the community
 
-[`wasmer-compiler-singlepass`]: https://github.com/wasmerio/wasmer/tree/master/lib/compiler-singlepass
-[`wasmer-compiler-cranelift`]: https://github.com/wasmerio/wasmer/tree/master/lib/compiler-cranelift
-[`wasmer-compiler-llvm`]: https://github.com/wasmerio/wasmer/tree/master/lib/compiler-llvm
+[`wasmer-compiler-singlepass`]: https://github.com/wasmerio/wasmer/tree/main/lib/compiler-singlepass
+[`wasmer-compiler-cranelift`]: https://github.com/wasmerio/wasmer/tree/main/lib/compiler-cranelift
+[`wasmer-compiler-llvm`]: https://github.com/wasmerio/wasmer/tree/main/lib/compiler-llvm

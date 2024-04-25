@@ -11,7 +11,7 @@
 //! Wasm functions.
 //!
 //! See `state` for the experimental WASI FS API.  Also see the
-//! [WASI plugin example](https://github.com/wasmerio/wasmer/blob/master/examples/plugin.rs)
+//! [WASI plugin example](https://github.com/wasmerio/wasmer/blob/main/examples/plugin.rs)
 //! for an example of how to extend WASI using the WASI FS API.
 
 #[cfg(all(not(feature = "sys"), not(feature = "js")))]
