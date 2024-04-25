@@ -378,8 +378,8 @@ example.
 [errors]: ./errors.rs
 [tunables-limit-memory]: ./tunables_limit_memory.rs
 [features]: ./features.rs
-[`wasmer-compiler-singlepass`]: https://github.com/wasmerio/wasmer/tree/master/lib/compiler-singlepass
-[`wasmer-compiler-cranelift`]: https://github.com/wasmerio/wasmer/tree/master/lib/compiler-cranelift
-[`wasmer-compiler-llvm`]: https://github.com/wasmerio/wasmer/tree/master/lib/compiler-llvm
-[`wasmer-wasi`]: https://github.com/wasmerio/wasmer/tree/master/lib/wasi
+[`wasmer-compiler-singlepass`]: https://github.com/wasmerio/wasmer/tree/main/lib/compiler-singlepass
+[`wasmer-compiler-cranelift`]: https://github.com/wasmerio/wasmer/tree/main/lib/compiler-cranelift
+[`wasmer-compiler-llvm`]: https://github.com/wasmerio/wasmer/tree/main/lib/compiler-llvm
+[`wasmer-wasi`]: https://github.com/wasmerio/wasmer/tree/main/lib/wasi
 [WASI]: https://github.com/WebAssembly/WASI

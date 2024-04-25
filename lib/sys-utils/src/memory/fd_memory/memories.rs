@@ -2,7 +2,7 @@
 //!
 //! `Memory` is to WebAssembly linear memories what `Table` is to WebAssembly tables.
 // This file contains code from external sources.
-// Attributions: https://github.com/wasmerio/wasmer/blob/master/ATTRIBUTIONS.md
+// Attributions: https://github.com/wasmerio/wasmer/blob/main/ATTRIBUTIONS.md
 
 use std::{cell::UnsafeCell, convert::TryInto, ptr::NonNull, rc::Rc, sync::RwLock};
 

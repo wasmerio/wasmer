@@ -11,7 +11,7 @@
 //! Wasm functions.
 //!
 //! See `state` for the experimental WASI FS API.  Also see the
-//! [WASI plugin example](https://github.com/wasmerio/wasmer/blob/master/examples/plugin.rs)
+//! [WASI plugin example](https://github.com/wasmerio/wasmer/blob/main/examples/plugin.rs)
 //! for an example of how to extend WASI using the WASI FS API.
 
 #[cfg(all(not(feature = "sys"), not(feature = "js")))]
@@ -137,9 +137,14 @@ pub enum SpawnError {
     /// Failed to fetch the Wasmer process
     #[error("fetch failed")]
     FetchFailed,
+    #[error(transparent)]
+    CacheError(crate::runtime::module_cache::CacheError),
     /// Failed to compile the Wasmer process
     #[error("compile error")]
-    CompileError,
+    CompileError {
+        module_hash: crate::runtime::module_cache::ModuleHash,
+        error: wasmer::CompileError,
+    },
     /// Invalid ABI
     #[error("Wasmer process has an invalid ABI")]
     InvalidABI,
@@ -152,6 +157,16 @@ pub enum SpawnError {
     /// Not found
     #[error("not found")]
     NotFound,
+    /// Tried to run the specified binary as a new WASI thread/process, but
+    /// the binary name was not found.
+    #[error("could not find binary '{binary}'")]
+    BinaryNotFound { binary: String },
+    #[error("could not find an entrypoint in the package '{package_id}'")]
+    MissingEntrypoint {
+        package_id: wasmer_config::package::PackageId,
+    },
+    #[error("could not load ")]
+    ModuleLoad { message: String },
     /// Bad request
     #[error("bad request")]
     BadRequest,
@@ -162,8 +177,8 @@ pub enum SpawnError {
     #[error("internal error")]
     InternalError,
     /// An error occurred while preparing the file system
-    #[error("file system error")]
-    FileSystemError,
+    #[error(transparent)]
+    FileSystemError(ExtendedFsError),
     /// Memory allocation failed
     #[error("memory allocation failed")]
     MemoryAllocationFailed,
@@ -177,6 +192,46 @@ pub enum SpawnError {
     Runtime(#[from] WasiRuntimeError),
     #[error(transparent)]
     Other(#[from] Box<dyn std::error::Error + Send + Sync>),
+}
+
+#[derive(Debug)]
+pub struct ExtendedFsError {
+    pub error: virtual_fs::FsError,
+    pub message: Option<String>,
+}
+
+impl ExtendedFsError {
+    pub fn with_msg(error: virtual_fs::FsError, msg: impl Into<String>) -> Self {
+        Self {
+            error,
+            message: Some(msg.into()),
+        }
+    }
+
+    pub fn new(error: virtual_fs::FsError) -> Self {
+        Self {
+            error,
+            message: None,
+        }
+    }
+}
+
+impl std::fmt::Display for ExtendedFsError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
+        write!(f, "fs error: {}", self.error)?;
+
+        if let Some(msg) = &self.message {
+            write!(f, " | {}", msg)?;
+        }
+
+        Ok(())
+    }
+}
+
+impl std::error::Error for ExtendedFsError {
+    fn cause(&self) -> Option<&dyn std::error::Error> {
+        Some(&self.error)
+    }
 }
 
 impl SpawnError {

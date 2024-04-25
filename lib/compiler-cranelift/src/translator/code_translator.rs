@@ -1,5 +1,5 @@
 // This file contains code from external sources.
-// Attributions: https://github.com/wasmerio/wasmer/blob/master/ATTRIBUTIONS.md
+// Attributions: https://github.com/wasmerio/wasmer/blob/main/ATTRIBUTIONS.md
 
 //! This module contains the bulk of the interesting code performing the translation between
 //! WebAssembly bytecode and Cranelift IR.

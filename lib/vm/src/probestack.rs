@@ -1,5 +1,5 @@
 // This file contains code from external sources.
-// Attributions: https://github.com/wasmerio/wasmer/blob/master/ATTRIBUTIONS.md
+// Attributions: https://github.com/wasmerio/wasmer/blob/main/ATTRIBUTIONS.md
 
 //! This section defines the `PROBESTACK` intrinsic which is used in the
 //! implementation of "stack probes" on certain platforms.

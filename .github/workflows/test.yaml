@@ -3,7 +3,7 @@ name: test-sys
 on:
   push:
     branches:
-      - master
+      - main
       - 'with-ci-.*'
       - 'v3.0.x'
       - 'v3.1.x'

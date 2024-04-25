@@ -1,4 +1,4 @@
-# `wasmer-types` [![Build Status](https://github.com/wasmerio/wasmer/workflows/build/badge.svg?style=flat-square)](https://github.com/wasmerio/wasmer/actions?query=workflow%3Abuild) [![Join Wasmer Slack](https://img.shields.io/static/v1?label=Slack&message=join%20chat&color=brighgreen&style=flat-square)](https://slack.wasmer.io) [![MIT License](https://img.shields.io/github/license/wasmerio/wasmer.svg?style=flat-square)](https://github.com/wasmerio/wasmer/blob/master/LICENSE)
+# `wasmer-types` [![Build Status](https://github.com/wasmerio/wasmer/workflows/build/badge.svg?style=flat-square)](https://github.com/wasmerio/wasmer/actions?query=workflow%3Abuild) [![Join Wasmer Slack](https://img.shields.io/static/v1?label=Slack&message=join%20chat&color=brighgreen&style=flat-square)](https://slack.wasmer.io) [![MIT License](https://img.shields.io/github/license/wasmerio/wasmer.svg?style=flat-square)](https://github.com/wasmerio/wasmer/blob/main/LICENSE)
 
 This library provides all the types and traits necessary to use
 WebAssembly easily anywhere.
@@ -25,4 +25,4 @@ Among other things, it defines the following _types_:
 This project borrowed some of the code for the entity structure from [cranelift-entity](https://crates.io/crates/cranelift-entity).
 We decided to move it here to help on serialization/deserialization.
 
-Please check [Wasmer ATTRIBUTIONS](https://github.com/wasmerio/wasmer/blob/master/ATTRIBUTIONS.md) to further see licenses and other attributions of the project. 
+Please check [Wasmer ATTRIBUTIONS](https://github.com/wasmerio/wasmer/blob/main/ATTRIBUTIONS.md) to further see licenses and other attributions of the project. 

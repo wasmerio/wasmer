@@ -7,7 +7,7 @@
     <a href="https://github.com/wasmerio/wasmer/actions?query=workflow%3Abuild">
       <img src="https://github.com/wasmerio/wasmer/workflows/build/badge.svg?style=flat-square" alt="État des tests">
     </a>
-    <a href="https://github.com/wasmerio/wasmer/blob/master/LICENSE">
+    <a href="https://github.com/wasmerio/wasmer/blob/main/LICENSE">
       <img src="https://img.shields.io/github/license/wasmerio/wasmer.svg?style=flat-square" alt="Licence">
     </a>
     <a href="https://slack.wasmer.io">
@@ -29,7 +29,7 @@
 
 [Wasmer](https://wasmer.io/) permet l'utilisation de conteneurs super légers basés sur [WebAssembly](https://webassembly.org/) qui peuvent fonctionner n'importe où : du bureau au cloud en passant par les appareils IoT, et également intégrés dans [*une multitude de langages de programmation*](https://github.com/wasmerio/wasmer#language-integrations).
 
-> This readme is also available in: [🇩🇪 Deutsch-Allemand](https://github.com/wasmerio/wasmer/blob/master/docs/de/README.md) • [🇬🇧 English-Anglaise](https://github.com/wasmerio/wasmer/blob/master/README.md) • [🇪🇸 Español-Espagnol](https://github.com/wasmerio/wasmer/blob/master/docs/es/README.md) • [🇨🇳 中文-Chinoise](https://github.com/wasmerio/wasmer/blob/master/docs/cn/README.md) • [🇯🇵 日本語-japonais](https://github.com/wasmerio/wasmer/blob/master/docs/ja/README.md)
+> This readme is also available in: [🇩🇪 Deutsch-Allemand](https://github.com/wasmerio/wasmer/blob/main/docs/de/README.md) • [🇬🇧 English-Anglaise](https://github.com/wasmerio/wasmer/blob/main/README.md) • [🇪🇸 Español-Espagnol](https://github.com/wasmerio/wasmer/blob/main/docs/es/README.md) • [🇨🇳 中文-Chinoise](https://github.com/wasmerio/wasmer/blob/main/docs/cn/README.md) • [🇯🇵 日本語-japonais](https://github.com/wasmerio/wasmer/blob/main/docs/ja/README.md)
 
 ## Fonctionnalités
 
@@ -107,12 +107,12 @@ qjs >
 [👋  Il manque un langage ?](https://github.com/wasmerio/wasmer/issues/new?assignees=&labels=%F0%9F%8E%89+enhancement&template=---feature-request.md&title=)
 
 [rust logo]: https://raw.githubusercontent.com/wasmerio/wasmer/master/assets/languages/rust.svg
-[rust integration]: https://github.com/wasmerio/wasmer/tree/master/lib/api
+[rust integration]: https://github.com/wasmerio/wasmer/tree/main/lib/api
 [`wasmer` rust crate]: https://crates.io/crates/wasmer/
 [rust docs]: https://wasmerio.github.io/wasmer/crates/wasmer
 
 [c logo]: https://raw.githubusercontent.com/wasmerio/wasmer/master/assets/languages/c.svg
-[c integration]: https://github.com/wasmerio/wasmer/tree/master/lib/c-api
+[c integration]: https://github.com/wasmerio/wasmer/tree/main/lib/c-api
 [`wasmer.h` headers]: https://wasmerio.github.io/wasmer/c/
 [c docs]: https://wasmerio.github.io/wasmer/c/
 

@@ -89,7 +89,7 @@ fn loop_twice(config: crate::Config) -> Result<()> {
     Ok(())
 }
 
-/// Ported from https://github.com/wasmerio/wasmer/blob/master/tests/middleware_common.rs
+/// Ported from https://github.com/wasmerio/wasmer/blob/main/tests/middleware_common.rs
 #[compiler_test(metering)]
 fn complex_loop(mut config: crate::Config) -> Result<()> {
     // Assemblyscript
