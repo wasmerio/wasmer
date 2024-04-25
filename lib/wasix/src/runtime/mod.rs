@@ -31,7 +31,7 @@ use crate::{
         package_loader::{PackageLoader, UnsupportedPackageLoader},
         resolver::{MultiSource, Source, WapmSource},
     },
-    WasiTtyState,
+    SpawnError, WasiTtyState,
 };
 
 #[derive(Clone)]
@@ -101,7 +101,7 @@ where
     }
 
     /// Load a a Webassembly module, trying to use a pre-compiled version if possible.
-    fn load_module<'a>(&'a self, wasm: &'a [u8]) -> BoxFuture<'a, anyhow::Result<Module>> {
+    fn load_module<'a>(&'a self, wasm: &'a [u8]) -> BoxFuture<'a, Result<Module, SpawnError>> {
         let engine = self.engine();
         let module_cache = self.module_cache();
         let hash = ModuleHash::hash(wasm);
@@ -114,7 +114,7 @@ where
     /// Load a a Webassembly module, trying to use a pre-compiled version if possible.
     ///
     /// Non-async version of [`Self::load_module`].
-    fn load_module_sync(&self, wasm: &[u8]) -> Result<Module, anyhow::Error> {
+    fn load_module_sync(&self, wasm: &[u8]) -> Result<Module, SpawnError> {
         InlineWaker::block_on(self.load_module(wasm))
     }
 
@@ -152,7 +152,7 @@ pub async fn load_module(
     module_cache: &(dyn ModuleCache + Send + Sync),
     wasm: &[u8],
     wasm_hash: ModuleHash,
-) -> Result<Module, anyhow::Error> {
+) -> Result<Module, crate::SpawnError> {
     let result = module_cache.load(wasm_hash, engine).await;
 
     match result {
@@ -167,7 +167,10 @@ pub async fn load_module(
         }
     }
 
-    let module = Module::new(&engine, wasm)?;
+    let module = Module::new(&engine, wasm).map_err(|err| crate::SpawnError::CompileError {
+        module_hash: wasm_hash,
+        error: err,
+    })?;
 
     if let Err(e) = module_cache.save(wasm_hash, engine, &module).await {
         tracing::warn!(
@@ -546,7 +549,7 @@ impl Runtime for OverriddenRuntime {
         }
     }
 
-    fn load_module<'a>(&'a self, wasm: &'a [u8]) -> BoxFuture<'a, anyhow::Result<Module>> {
+    fn load_module<'a>(&'a self, wasm: &'a [u8]) -> BoxFuture<'a, Result<Module, SpawnError>> {
         if self.engine.is_some() || self.module_cache.is_some() {
             let engine = self.engine();
             let module_cache = self.module_cache();
@@ -559,7 +562,7 @@ impl Runtime for OverriddenRuntime {
         }
     }
 
-    fn load_module_sync(&self, wasm: &[u8]) -> Result<Module, anyhow::Error> {
+    fn load_module_sync(&self, wasm: &[u8]) -> Result<Module, SpawnError> {
         if self.engine.is_some() || self.module_cache.is_some() {
             InlineWaker::block_on(self.load_module(wasm))
         } else {

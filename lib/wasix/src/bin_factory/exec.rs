@@ -1,4 +1,4 @@
-use std::{pin::Pin, sync::Arc};
+use std::sync::Arc;
 
 use crate::{
     os::task::{
@@ -14,12 +14,11 @@ use crate::{
     syscalls::rewind_ext,
     RewindState, SpawnError, WasiError, WasiRuntimeError,
 };
-use futures::Future;
 use tracing::*;
-use wasmer::{Function, FunctionEnvMut, Memory32, Memory64, Module, Store};
+use wasmer::{Function, Memory32, Memory64, Module, Store};
 use wasmer_wasix_types::wasi::Errno;
 
-use super::{BinFactory, BinaryPackage};
+use super::BinaryPackage;
 use crate::{Runtime, WasiEnv, WasiFunctionEnv};
 
 #[tracing::instrument(level = "trace", skip_all, fields(%name, package_id=%binary.id))]
@@ -59,7 +58,9 @@ pub async fn spawn_load_wasm<'a>(
           "Unable to spawn a command because its package has no entrypoint",
         );
         env.on_exit(Some(Errno::Noexec.into())).await;
-        return Err(SpawnError::CompileError);
+        return Err(SpawnError::MissingEntrypoint {
+            package_id: binary.id.clone(),
+        });
     };
     Ok(wasm)
 }
@@ -70,19 +71,18 @@ pub async fn spawn_load_module(
     wasm: &[u8],
     runtime: &Arc<dyn Runtime + Send + Sync + 'static>,
 ) -> Result<Module, SpawnError> {
-    let module = match runtime.load_module(wasm).await {
-        Ok(module) => module,
+    match runtime.load_module(wasm).await {
+        Ok(module) => Ok(module),
         Err(err) => {
             tracing::error!(
                 command = name,
-                error = &*err,
+                error = &err as &dyn std::error::Error,
                 "Failed to compile the module",
             );
             env.on_exit(Some(Errno::Noexec.into())).await;
-            return Err(SpawnError::CompileError);
+            Err(err)
         }
-    };
-    Ok(module)
+    }
 }
 
 pub async fn spawn_union_fs(env: &WasiEnv, binary: &BinaryPackage) -> Result<(), SpawnError> {
@@ -93,7 +93,10 @@ pub async fn spawn_union_fs(env: &WasiEnv, binary: &BinaryPackage) -> Result<(),
         .await
         .map_err(|err| {
             tracing::warn!("failed to union file system - {err}");
-            SpawnError::FileSystemError
+            SpawnError::FileSystemError(crate::ExtendedFsError::with_msg(
+                err,
+                "could not union filesystems",
+            ))
         })?;
     tracing::debug!("{:?}", env.state.fs);
     Ok(())
@@ -325,48 +328,4 @@ fn call_module(
 
     debug!("wasi[{pid}]::main() has exited with {code}");
     handle.thread.set_status_finished(ret.map(|a| a.into()));
-}
-
-impl BinFactory {
-    pub fn spawn<'a>(
-        &'a self,
-        name: String,
-        store: Store,
-        env: WasiEnv,
-    ) -> Pin<Box<dyn Future<Output = Result<TaskJoinHandle, SpawnError>> + 'a>> {
-        Box::pin(async move {
-            // Find the binary (or die trying) and make the spawn type
-            let binary = self
-                .get_binary(name.as_str(), Some(env.fs_root()))
-                .await
-                .ok_or(SpawnError::NotFound);
-            if binary.is_err() {
-                env.on_exit(Some(Errno::Noent.into())).await;
-            }
-            let binary = binary?;
-
-            // Execute
-            spawn_exec(binary, name.as_str(), store, env, &self.runtime).await
-        })
-    }
-
-    pub fn try_built_in(
-        &self,
-        name: String,
-        parent_ctx: Option<&FunctionEnvMut<'_, WasiEnv>>,
-        store: &mut Option<Store>,
-        builder: &mut Option<WasiEnv>,
-    ) -> Result<TaskJoinHandle, SpawnError> {
-        // We check for built in commands
-        if let Some(parent_ctx) = parent_ctx {
-            if self.commands.exists(name.as_str()) {
-                return self
-                    .commands
-                    .exec(parent_ctx, name.as_str(), store, builder);
-            }
-        } else if self.commands.exists(name.as_str()) {
-            tracing::warn!("builtin command without a parent ctx - {}", name);
-        }
-        Err(SpawnError::NotFound)
-    }
 }

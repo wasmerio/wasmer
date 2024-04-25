@@ -1,12 +1,16 @@
 use std::{
     collections::HashMap,
+    future::Future,
     ops::Deref,
     path::Path,
+    pin::Pin,
     sync::{Arc, RwLock},
 };
 
 use anyhow::Context;
 use virtual_fs::{AsyncReadExt, FileSystem};
+use wasmer::FunctionEnvMut;
+use wasmer_wasix_types::wasi::Errno;
 use webc::Container;
 
 mod binary_package;
@@ -18,7 +22,10 @@ pub use self::{
         run_exec, spawn_exec, spawn_exec_module, spawn_load_module, spawn_load_wasm, spawn_union_fs,
     },
 };
-use crate::{os::command::Commands, Runtime};
+use crate::{
+    os::{command::Commands, task::TaskJoinHandle},
+    Runtime, SpawnError, WasiEnv,
+};
 
 #[derive(Debug, Clone)]
 pub struct BinFactory {
@@ -93,6 +100,50 @@ impl BinFactory {
         // NAK
         cache.insert(name, None);
         None
+    }
+
+    pub fn spawn<'a>(
+        &'a self,
+        name: String,
+        store: wasmer::Store,
+        env: WasiEnv,
+    ) -> Pin<Box<dyn Future<Output = Result<TaskJoinHandle, SpawnError>> + 'a>> {
+        Box::pin(async move {
+            // Find the binary (or die trying) and make the spawn type
+            let res = self
+                .get_binary(name.as_str(), Some(env.fs_root()))
+                .await
+                .ok_or_else(|| SpawnError::BinaryNotFound {
+                    binary: name.clone(),
+                });
+            if res.is_err() {
+                env.on_exit(Some(Errno::Noent.into())).await;
+            }
+            let binary = res?;
+
+            // Execute
+            spawn_exec(binary, name.as_str(), store, env, &self.runtime).await
+        })
+    }
+
+    pub fn try_built_in(
+        &self,
+        name: String,
+        parent_ctx: Option<&FunctionEnvMut<'_, WasiEnv>>,
+        store: &mut Option<wasmer::Store>,
+        builder: &mut Option<WasiEnv>,
+    ) -> Result<TaskJoinHandle, SpawnError> {
+        // We check for built in commands
+        if let Some(parent_ctx) = parent_ctx {
+            if self.commands.exists(name.as_str()) {
+                return self
+                    .commands
+                    .exec(parent_ctx, name.as_str(), store, builder);
+            }
+        } else if self.commands.exists(name.as_str()) {
+            tracing::warn!("builtin command without a parent ctx - {}", name);
+        }
+        Err(SpawnError::BinaryNotFound { binary: name })
     }
 }
 
