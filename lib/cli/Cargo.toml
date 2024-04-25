@@ -76,7 +76,7 @@ wasmer-compiler-singlepass = { version = "=4.3.0-alpha.1", path = "../compiler-s
 wasmer-compiler-llvm = { version = "=4.3.0-alpha.1", path = "../compiler-llvm", optional = true }
 wasmer-emscripten = { version = "=4.3.0-alpha.1", path = "../emscripten" }
 wasmer-vm = { version = "=4.3.0-alpha.1", path = "../vm", optional = true }
-wasmer-wasix = { version = "0.18.4", path = "../wasix", features = [
+wasmer-wasix = { workspace = true, features = [
   "logging",
   "webc_runner_rt_wcgi",
   "webc_runner_rt_dcgi",
