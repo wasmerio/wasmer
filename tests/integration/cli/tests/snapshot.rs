@@ -1152,7 +1152,6 @@ fn test_snapshot_dash_dev_urandom() {
 
 #[cfg_attr(any(target_env = "musl", target_os = "windows"), ignore)]
 #[test]
-#[ignore = "must be re-enabled after backend deployment"]
 fn test_snapshot_dash_dash() {
     let snapshot = TestBuilder::new()
         .with_name(function!())
@@ -1164,7 +1163,6 @@ fn test_snapshot_dash_dash() {
 
 #[cfg_attr(any(target_env = "musl", target_os = "windows"), ignore)]
 #[test]
-#[ignore = "must be re-enabled after backend deployment"]
 fn test_snapshot_dash_bash() {
     let snapshot = TestBuilder::new()
         .with_name(function!())
@@ -1231,7 +1229,6 @@ fn test_snapshot_bash_python() {
 
 #[cfg_attr(any(target_env = "musl", target_os = "windows"), ignore)]
 #[test]
-#[ignore = "must be re-enabled after backend deployment"]
 fn test_snapshot_bash_bash() {
     let snapshot = TestBuilder::new()
         .with_name(function!())
@@ -1243,7 +1240,6 @@ fn test_snapshot_bash_bash() {
 
 #[cfg_attr(any(target_env = "musl", target_os = "windows"), ignore)]
 #[test]
-#[ignore = "must be re-enabled after backend deployment"]
 fn test_snapshot_bash_dash() {
     let snapshot = TestBuilder::new()
         .with_name(function!())
