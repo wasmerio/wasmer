@@ -240,10 +240,7 @@ impl SpawnError {
     /// [`NotFound`]: SpawnError::NotFound
     #[must_use]
     pub fn is_not_found(&self) -> bool {
-        match self {
-            Self::NotFound { .. } | Self::MissingEntrypoint { .. } => true,
-            _ => false,
-        }
+        matches!(self, Self::NotFound { .. } | Self::MissingEntrypoint { .. })
     }
 }
 
