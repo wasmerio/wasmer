@@ -336,8 +336,9 @@ pub trait VirtualFile:
     /// the time at which the file was created in nanoseconds as a UNIX timestamp
     fn created_time(&self) -> u64;
 
+    #[allow(unused_variables)]
     /// sets accessed and modified time
-    fn set_times(&mut self, _atime: Option<u64>, _mtime: Option<u64>) {}
+    fn set_times(&mut self, atime: Option<u64>, mtime: Option<u64>) {}
 
     /// the size of the file in bytes
     fn size(&self) -> u64;

@@ -434,6 +434,11 @@ impl VirtualFile for File {
             .unwrap_or(0)
     }
 
+    // FIXME: Need to think about this
+    fn set_times(&mut self, _atime: Option<u64>, _mtime: Option<u64>) {
+        todo!()
+    }
+
     fn size(&self) -> u64 {
         self.metadata().len()
     }
