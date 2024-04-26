@@ -120,7 +120,7 @@ impl VirtualFile for TraceFile {
     }
 
     #[tracing::instrument(level = "trace", skip(self), fields(path=%self.path.display()))]
-    fn set_times(&mut self, atime: Option<u64>, mtime: Option<u64>) {
+    fn set_times(&mut self, atime: Option<u64>, mtime: Option<u64>) -> crate::Result<()> {
         self.file.set_times(atime, mtime)
     }
 

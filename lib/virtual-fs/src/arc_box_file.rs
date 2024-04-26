@@ -102,9 +102,9 @@ impl VirtualFile for ArcBoxFile {
         let inner = self.inner.lock().unwrap();
         inner.created_time()
     }
-    fn set_times(&mut self, atime: Option<u64>, mtime: Option<u64>) {
+    fn set_times(&mut self, atime: Option<u64>, mtime: Option<u64>) -> crate::Result<()> {
         let mut inner = self.inner.lock().unwrap();
-        inner.set_times(atime, mtime);
+        inner.set_times(atime, mtime)
     }
     fn size(&self) -> u64 {
         let inner = self.inner.lock().unwrap();

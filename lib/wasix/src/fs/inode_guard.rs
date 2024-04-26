@@ -510,10 +510,16 @@ impl VirtualFile for WasiStateFileGuard {
         }
     }
 
-    fn set_times(&mut self, atime: Option<u64>, mtime: Option<u64>) {
+    fn set_times(
+        &mut self,
+        atime: Option<u64>,
+        mtime: Option<u64>,
+    ) -> Result<(), virtual_fs::FsError> {
         let mut guard = self.lock_write();
         if let Some(file) = guard.as_mut() {
             file.set_times(atime, mtime)
+        } else {
+            Err(crate::FsError::Lock)
         }
     }
 

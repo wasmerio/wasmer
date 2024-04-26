@@ -41,7 +41,7 @@ impl VirtualFile for DualWriteFile {
         self.inner.created_time()
     }
 
-    fn set_times(&mut self, atime: Option<u64>, mtime: Option<u64>) {
+    fn set_times(&mut self, atime: Option<u64>, mtime: Option<u64>) -> crate::Result<()> {
         self.inner.set_times(atime, mtime)
     }
 

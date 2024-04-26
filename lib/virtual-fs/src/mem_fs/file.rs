@@ -144,10 +144,10 @@ impl VirtualFile for FileHandle {
         node.metadata().created
     }
 
-    fn set_times(&mut self, atime: Option<u64>, mtime: Option<u64>) {
+    fn set_times(&mut self, atime: Option<u64>, mtime: Option<u64>) -> crate::Result<()> {
         let mut fs = match self.filesystem.inner.write() {
             Ok(fs) => fs,
-            _ => return,
+            _ => return Err(crate::FsError::Lock),
         };
 
         let inode = fs.storage.get_mut(self.inode);
@@ -158,7 +158,11 @@ impl VirtualFile for FileHandle {
             if let Some(mtime) = mtime {
                 node.metadata_mut().modified = mtime;
             }
+
+            return Ok(());
         }
+
+        return Err(crate::FsError::UnknownError);
     }
 
     fn size(&self) -> u64 {

@@ -434,9 +434,12 @@ impl VirtualFile for File {
             .unwrap_or(0)
     }
 
-    // FIXME: Need to think about this
-    fn set_times(&mut self, _atime: Option<u64>, _mtime: Option<u64>) {
-        todo!()
+    fn set_times(&mut self, atime: Option<u64>, mtime: Option<u64>) -> crate::Result<()> {
+        let atime = atime.map(|t| filetime::FileTime::from_unix_time(t as i64, 0));
+        let mtime = mtime.map(|t| filetime::FileTime::from_unix_time(t as i64, 0));
+
+        filetime::set_file_handle_times(&self.inner_std, atime, mtime)
+            .map_err(|_| crate::FsError::IOError)
     }
 
     fn size(&self) -> u64 {

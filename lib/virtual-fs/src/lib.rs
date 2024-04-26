@@ -338,7 +338,9 @@ pub trait VirtualFile:
 
     #[allow(unused_variables)]
     /// sets accessed and modified time
-    fn set_times(&mut self, atime: Option<u64>, mtime: Option<u64>) {}
+    fn set_times(&mut self, atime: Option<u64>, mtime: Option<u64>) -> crate::Result<()> {
+        Ok(())
+    }
 
     /// the size of the file in bytes
     fn size(&self) -> u64;
