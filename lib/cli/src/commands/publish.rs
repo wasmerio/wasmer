@@ -55,7 +55,7 @@ pub struct Publish {
 
     /// Whether or not the patch field of the version of the package - if any - should be bumped.
     #[clap(long)]
-    pub autobump: bool,
+    pub bump: bool,
 
     /// Do not prompt for user input.
     #[clap(long, default_value_t = !std::io::stdin().is_terminal())]
@@ -139,7 +139,7 @@ impl AsyncCliCommand for Publish {
             };
 
             if pkg.version < latest_version {
-                if self.autobump {
+                if self.bump {
                     latest_version.patch += 1;
                     version = Some(latest_version);
                 } else if interactive {

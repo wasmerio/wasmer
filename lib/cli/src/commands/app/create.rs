@@ -47,7 +47,7 @@ pub struct CmdAppCreate {
     ///
     /// If selected, this might entail the step of publishing the package related to the
     /// application. By default, the application is not deployed and the package is not published.
-    #[clap(long)]
+    #[clap(long = "deploy")]
     pub deploy_app: bool,
 
     /// Skip local schema validation.
@@ -371,12 +371,12 @@ impl CmdAppCreate {
                 non_interactive: self.non_interactive,
                 publish_package: true,
                 path: self.app_dir_path.clone(),
-                no_wait: false,
+                no_wait: self.no_wait,
                 no_default: false,
                 no_persist_id: false,
                 owner: Some(String::from(owner)),
                 app_name: None,
-                autobump: false,
+                bump: false,
             };
             cmd_deploy.run_async().await?;
         }
