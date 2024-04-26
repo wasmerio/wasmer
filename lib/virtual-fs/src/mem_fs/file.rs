@@ -162,7 +162,7 @@ impl VirtualFile for FileHandle {
             return Ok(());
         }
 
-        return Err(crate::FsError::UnknownError);
+        Err(crate::FsError::UnknownError)
     }
 
     fn size(&self) -> u64 {
