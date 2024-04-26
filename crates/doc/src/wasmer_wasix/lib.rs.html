@@ -1003,8 +1003,8 @@
     </span><span class="attr">#[error(<span class="string">&quot;unsupported&quot;</span>)]
     </span>Unsupported,
     <span class="doccomment">/// Not found
-    </span><span class="attr">#[error(<span class="string">&quot;not found&quot;</span>)]
-    </span>NotFound,
+    </span><span class="attr">#[error(<span class="string">&quot;not found: {message}&quot;</span>)]
+    </span>NotFound { message: String },
     <span class="doccomment">/// Tried to run the specified binary as a new WASI thread/process, but
     /// the binary name was not found.
     </span><span class="attr">#[error(<span class="string">&quot;could not find binary &#39;{binary}&#39;&quot;</span>)]
@@ -1088,7 +1088,7 @@
     /// [`NotFound`]: SpawnError::NotFound
     </span><span class="attr">#[must_use]
     </span><span class="kw">pub fn </span>is_not_found(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
-        <span class="macro">matches!</span>(<span class="self">self</span>, <span class="self">Self</span>::NotFound)
+        <span class="macro">matches!</span>(<span class="self">self</span>, <span class="self">Self</span>::NotFound { .. } | <span class="self">Self</span>::MissingEntrypoint { .. })
     }
 }
 

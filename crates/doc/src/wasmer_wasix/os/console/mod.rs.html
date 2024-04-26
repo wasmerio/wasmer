@@ -408,6 +408,8 @@
 <a href="#408" id="408">408</a>
 <a href="#409" id="409">409</a>
 <a href="#410" id="410">410</a>
+<a href="#411" id="411">411</a>
+<a href="#412" id="412">412</a>
 </pre></div><pre class="rust"><code><span class="attr">#![allow(unused_imports)]
 #![allow(dead_code)]
 
@@ -612,7 +614,9 @@
                         </span>.ok();
                 });
                 <span class="macro">tracing::debug!</span>(error=<span class="question-mark">?</span>e, %webc, <span class="string">&quot;failed to get webc dependency&quot;</span>);
-                <span class="kw">return </span><span class="prelude-val">Err</span>(SpawnError::NotFound);
+                <span class="kw">return </span><span class="prelude-val">Err</span>(SpawnError::NotFound {
+                    message: e.to_string(),
+                });
             }
         };
 

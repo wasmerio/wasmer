@@ -3025,8 +3025,8 @@
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>conv_spawn_err_to_errno(err: <span class="kw-2">&amp;</span>SpawnError) -&gt; Errno {
     <span class="kw">match </span>err {
         SpawnError::AccessDenied =&gt; Errno::Access,
-        SpawnError::NotFound =&gt; Errno::Noent,
         SpawnError::Unsupported =&gt; Errno::Noexec,
+        <span class="kw">_ if </span>err.is_not_found() =&gt; Errno::Noent,
         <span class="kw">_ </span>=&gt; Errno::Inval,
     }
 }
