@@ -150,7 +150,7 @@ fn load_binary_command(
 
     let atom = atom.with_context(|| {
         format!(
-            "The '{command_name}' command uses the '{atom_name}' atom, but it isn't present in the WEBC file"
+            "The '{command_name}' command uses the '{atom_name}' atom, but it isn't present in the package {package_id}"
         )
     })?;
 
