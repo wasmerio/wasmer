@@ -91,13 +91,7 @@ pub(crate) fn fd_filestat_set_times_internal(
     {
         let mut handle = handle.write().unwrap();
 
-        if let Some(time) = atime {
-            handle.set_accessed(time);
-        }
-
-        if let Some(time) = mtime {
-            handle.set_modified(time);
-        }
+        handle.set_times(atime, mtime);
     }
 
     Ok(())

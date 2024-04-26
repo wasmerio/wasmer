@@ -144,7 +144,7 @@ impl VirtualFile for FileHandle {
         node.metadata().created
     }
 
-    fn set_accessed(&mut self, atime: u64) {
+    fn set_times(&mut self, atime: Option<u64>, mtime: Option<u64>) {
         let mut fs = match self.filesystem.inner.write() {
             Ok(fs) => fs,
             _ => return,
@@ -152,19 +152,12 @@ impl VirtualFile for FileHandle {
 
         let inode = fs.storage.get_mut(self.inode);
         if let Some(node) = inode {
-            node.metadata_mut().accessed = atime;
-        }
-    }
-
-    fn set_modified(&mut self, mtime: u64) {
-        let mut fs = match self.filesystem.inner.write() {
-            Ok(fs) => fs,
-            _ => return,
-        };
-
-        let inode = fs.storage.get_mut(self.inode);
-        if let Some(node) = inode {
-            node.metadata_mut().modified = mtime;
+            if let Some(atime) = atime {
+                node.metadata_mut().accessed = atime;
+            }
+            if let Some(mtime) = mtime {
+                node.metadata_mut().modified = mtime;
+            }
         }
     }
 
