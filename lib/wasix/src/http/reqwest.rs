@@ -1,4 +1,4 @@
-use std::time::Duration;
+use std::{env, time::Duration};
 
 use anyhow::Context;
 use futures::{future::BoxFuture, TryStreamExt};
@@ -44,10 +44,14 @@ impl ReqwestHttpClient {
         // TODO: use persistent client?
         let client = {
             let _guard = Handle::try_current().map_err(|_| self.handle.enter());
-            reqwest::Client::builder()
-                .connect_timeout(self.connect_timeout)
-                .build()
-                .context("Could not create reqwest client")?
+            let mut builder = reqwest::Client::builder().connect_timeout(self.connect_timeout);
+
+            let proxy = env::var("http_proxy").or_else(|_| env::var("HTTP_PROXY"));
+            if let Ok(scheme) = proxy {
+                builder = builder.proxy(reqwest::Proxy::all(scheme)?);
+            }
+
+            builder.build().context("Could not create reqwest client")?
         };
 
         let mut builder = client.request(method, request.url.as_str());
