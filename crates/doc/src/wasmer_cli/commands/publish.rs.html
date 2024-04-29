@@ -304,7 +304,7 @@
 
     <span class="doccomment">/// Whether or not the patch field of the version of the package - if any - should be bumped.
     </span><span class="attr">#[clap(long)]
-    </span><span class="kw">pub </span>autobump: bool,
+    </span><span class="kw">pub </span>bump: bool,
 
     <span class="doccomment">/// Do not prompt for user input.
     </span><span class="attr">#[clap(long, default_value_t = !std::io::stdin().is_terminal())]
@@ -388,7 +388,7 @@
             };
 
             <span class="kw">if </span>pkg.version &lt; latest_version {
-                <span class="kw">if </span><span class="self">self</span>.autobump {
+                <span class="kw">if </span><span class="self">self</span>.bump {
                     latest_version.patch += <span class="number">1</span>;
                     version = <span class="prelude-val">Some</span>(latest_version);
                 } <span class="kw">else if </span>interactive {

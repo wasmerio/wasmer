@@ -873,7 +873,7 @@
     ///
     /// If selected, this might entail the step of publishing the package related to the
     /// application. By default, the application is not deployed and the package is not published.
-    </span><span class="attr">#[clap(long)]
+    </span><span class="attr">#[clap(long = <span class="string">&quot;deploy&quot;</span>)]
     </span><span class="kw">pub </span>deploy_app: bool,
 
     <span class="doccomment">/// Skip local schema validation.
@@ -1197,12 +1197,12 @@
                 non_interactive: <span class="self">self</span>.non_interactive,
                 publish_package: <span class="bool-val">true</span>,
                 path: <span class="self">self</span>.app_dir_path.clone(),
-                no_wait: <span class="bool-val">false</span>,
+                no_wait: <span class="self">self</span>.no_wait,
                 no_default: <span class="bool-val">false</span>,
                 no_persist_id: <span class="bool-val">false</span>,
                 owner: <span class="prelude-val">Some</span>(String::from(owner)),
                 app_name: <span class="prelude-val">None</span>,
-                autobump: <span class="bool-val">false</span>,
+                bump: <span class="bool-val">false</span>,
             };
             cmd_deploy.run_async().<span class="kw">await</span><span class="question-mark">?</span>;
         }

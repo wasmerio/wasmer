@@ -733,9 +733,9 @@
     </span><span class="attr">#[clap(long)]
     </span><span class="kw">pub </span>app_name: <span class="prelude-ty">Option</span>&lt;String&gt;,
 
-    <span class="doccomment">/// Whether or not to autobump the package version if publishing.
+    <span class="doccomment">/// Whether or not to automatically bump the package version if publishing.
     </span><span class="attr">#[clap(long)]
-    </span><span class="kw">pub </span>autobump: bool,
+    </span><span class="kw">pub </span>bump: bool,
 }
 
 <span class="kw">impl </span>CmdAppDeploy {
@@ -779,7 +779,7 @@
                 <span class="prelude-val">None </span>=&gt; <span class="prelude-val">Some</span>(owner),
             },
             non_interactive: <span class="self">self</span>.non_interactive,
-            autobump: <span class="self">self</span>.autobump,
+            bump: <span class="self">self</span>.bump,
         };
 
         <span class="kw">match </span>publish_cmd.run_async().<span class="kw">await</span><span class="question-mark">? </span>{
@@ -842,7 +842,7 @@
             offline: <span class="bool-val">false</span>,
             owner: <span class="prelude-val">None</span>,
             app_name: <span class="prelude-val">None</span>,
-            no_wait: <span class="bool-val">false</span>,
+            no_wait: <span class="self">self</span>.no_wait,
             api: <span class="self">self</span>.api.clone(),
             fmt: ItemFormatOpts {
                 format: <span class="self">self</span>.fmt.format,
