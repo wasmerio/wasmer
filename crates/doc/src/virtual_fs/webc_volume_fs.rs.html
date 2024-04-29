@@ -647,6 +647,13 @@
 <a href="#647" id="647">647</a>
 <a href="#648" id="648">648</a>
 <a href="#649" id="649">649</a>
+<a href="#650" id="650">650</a>
+<a href="#651" id="651">651</a>
+<a href="#652" id="652">652</a>
+<a href="#653" id="653">653</a>
+<a href="#654" id="654">654</a>
+<a href="#655" id="655">655</a>
+<a href="#656" id="656">656</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{
     convert::{TryFrom, TryInto},
     io::Cursor,
@@ -811,18 +818,21 @@
             }
         }
 
-        <span class="kw">match </span><span class="self">self</span>.volume().metadata(path) {
-            <span class="prelude-val">Some</span>(m) <span class="kw">if </span>m.is_file() =&gt; {}
+        <span class="kw">let </span>timestamps = <span class="kw">match </span><span class="self">self</span>.volume().metadata(path) {
+            <span class="prelude-val">Some</span>(m) <span class="kw">if </span>m.is_file() =&gt; m.timestamps(),
             <span class="prelude-val">Some</span>(<span class="kw">_</span>) =&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(FsError::NotAFile),
             <span class="prelude-val">None </span><span class="kw">if </span>conf.create() || conf.create_new() =&gt; {
                 <span class="comment">// The file would normally be created, but we are a readonly fs.
                 </span><span class="kw">return </span><span class="prelude-val">Err</span>(FsError::PermissionDenied);
             }
             <span class="prelude-val">None </span>=&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(FsError::EntryNotFound),
-        }
+        };
 
         <span class="kw">match </span><span class="self">self</span>.volume().read_file(path) {
-            <span class="prelude-val">Some</span>((bytes, <span class="kw">_</span>)) =&gt; <span class="prelude-val">Ok</span>(Box::new(File(Cursor::new(bytes)))),
+            <span class="prelude-val">Some</span>((bytes, <span class="kw">_</span>)) =&gt; <span class="prelude-val">Ok</span>(Box::new(File {
+                timestamps,
+                content: Cursor::new(bytes),
+            })),
             <span class="prelude-val">None </span>=&gt; {
                 <span class="comment">// The metadata() call should guarantee this, so something
                 // probably went wrong internally
@@ -833,7 +843,10 @@
 }
 
 <span class="attr">#[derive(Debug, Clone, PartialEq)]
-</span><span class="kw">struct </span>File(Cursor&lt;SharedBytes&gt;);
+</span><span class="kw">struct </span>File {
+    timestamps: <span class="prelude-ty">Option</span>&lt;webc::Timestamps&gt;,
+    content: Cursor&lt;SharedBytes&gt;,
+}
 
 <span class="kw">impl </span>VirtualFile <span class="kw">for </span>File {
     <span class="kw">fn </span>last_accessed(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; u64 {
@@ -841,15 +854,15 @@
     </span>}
 
     <span class="kw">fn </span>last_modified(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; u64 {
-        <span class="number">0
-    </span>}
+        <span class="self">self</span>.timestamps.map(|t| t.modified()).unwrap_or(<span class="number">0</span>)
+    }
 
     <span class="kw">fn </span>created_time(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; u64 {
         <span class="number">0
     </span>}
 
     <span class="kw">fn </span>size(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; u64 {
-        <span class="self">self</span>.<span class="number">0</span>.get_ref().len().try_into().unwrap()
+        <span class="self">self</span>.content.get_ref().len().try_into().unwrap()
     }
 
     <span class="kw">fn </span>set_len(<span class="kw-2">&amp;mut </span><span class="self">self</span>, _new_size: u64) -&gt; <span class="kw">crate</span>::Result&lt;()&gt; {
@@ -864,7 +877,8 @@
         <span class="self">self</span>: Pin&lt;<span class="kw-2">&amp;mut </span><span class="self">Self</span>&gt;,
         _cx: <span class="kw-2">&amp;mut </span>std::task::Context&lt;<span class="lifetime">&#39;_</span>&gt;,
     ) -&gt; Poll&lt;std::io::Result&lt;usize&gt;&gt; {
-        <span class="kw">let </span>bytes_remaining = <span class="self">self</span>.<span class="number">0</span>.get_ref().len() - usize::try_from(<span class="self">self</span>.<span class="number">0</span>.position()).unwrap();
+        <span class="kw">let </span>bytes_remaining =
+            <span class="self">self</span>.content.get_ref().len() - usize::try_from(<span class="self">self</span>.content.position()).unwrap();
         Poll::Ready(<span class="prelude-val">Ok</span>(bytes_remaining))
     }
 
@@ -882,20 +896,20 @@
         cx: <span class="kw-2">&amp;mut </span>std::task::Context&lt;<span class="lifetime">&#39;_</span>&gt;,
         buf: <span class="kw-2">&amp;mut </span>tokio::io::ReadBuf&lt;<span class="lifetime">&#39;_</span>&gt;,
     ) -&gt; Poll&lt;std::io::Result&lt;()&gt;&gt; {
-        AsyncRead::poll_read(Pin::new(<span class="kw-2">&amp;mut </span><span class="self">self</span>.<span class="number">0</span>), cx, buf)
+        AsyncRead::poll_read(Pin::new(<span class="kw-2">&amp;mut </span><span class="self">self</span>.content), cx, buf)
     }
 }
 
 <span class="kw">impl </span>AsyncSeek <span class="kw">for </span>File {
     <span class="kw">fn </span>start_seek(<span class="kw-2">mut </span><span class="self">self</span>: Pin&lt;<span class="kw-2">&amp;mut </span><span class="self">Self</span>&gt;, position: std::io::SeekFrom) -&gt; std::io::Result&lt;()&gt; {
-        AsyncSeek::start_seek(Pin::new(<span class="kw-2">&amp;mut </span><span class="self">self</span>.<span class="number">0</span>), position)
+        AsyncSeek::start_seek(Pin::new(<span class="kw-2">&amp;mut </span><span class="self">self</span>.content), position)
     }
 
     <span class="kw">fn </span>poll_complete(
         <span class="kw-2">mut </span><span class="self">self</span>: Pin&lt;<span class="kw-2">&amp;mut </span><span class="self">Self</span>&gt;,
         cx: <span class="kw-2">&amp;mut </span>std::task::Context&lt;<span class="lifetime">&#39;_</span>&gt;,
     ) -&gt; Poll&lt;std::io::Result&lt;u64&gt;&gt; {
-        AsyncSeek::poll_complete(Pin::new(<span class="kw-2">&amp;mut </span><span class="self">self</span>.<span class="number">0</span>), cx)
+        AsyncSeek::poll_complete(Pin::new(<span class="kw-2">&amp;mut </span><span class="self">self</span>.content), cx)
     }
 }
 
