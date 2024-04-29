@@ -77,9 +77,9 @@ pub struct CmdAppDeploy {
     #[clap(long)]
     pub app_name: Option<String>,
 
-    /// Whether or not to autobump the package version if publishing.
+    /// Whether or not to automatically bump the package version if publishing.
     #[clap(long)]
-    pub autobump: bool,
+    pub bump: bool,
 }
 
 impl CmdAppDeploy {
@@ -123,7 +123,7 @@ impl CmdAppDeploy {
                 None => Some(owner),
             },
             non_interactive: self.non_interactive,
-            autobump: self.autobump,
+            bump: self.bump,
         };
 
         match publish_cmd.run_async().await? {
@@ -186,7 +186,7 @@ impl CmdAppDeploy {
             offline: false,
             owner: None,
             app_name: None,
-            no_wait: false,
+            no_wait: self.no_wait,
             api: self.api.clone(),
             fmt: ItemFormatOpts {
                 format: self.fmt.format,

@@ -195,6 +195,16 @@ impl VirtualFile for CopyOnWriteFile {
     fn created_time(&self) -> u64 {
         self.created_time
     }
+    fn set_times(&mut self, atime: Option<u64>, mtime: Option<u64>) -> crate::Result<()> {
+        if let Some(atime) = atime {
+            self.last_accessed = atime;
+        }
+        if let Some(mtime) = mtime {
+            self.last_modified = mtime;
+        }
+
+        Ok(())
+    }
     fn size(&self) -> u64 {
         match self.state.as_ref() {
             Some(inner) => inner.size(),
