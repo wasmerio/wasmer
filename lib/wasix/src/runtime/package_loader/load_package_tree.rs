@@ -230,7 +230,7 @@ fn legacy_atom_hack(
 fn atom_hash(webc: &Container, atom_name: &str) -> ModuleHash {
     let base64_encoded = webc.manifest().atoms[atom_name]
         .signature
-        .strip_prefix("sha256")
+        .strip_prefix("sha256:")
         .expect("malformed atom signature: does not have sha256 prefix");
     let sha256 = base64::prelude::BASE64_STANDARD
         .decode(base64_encoded)
