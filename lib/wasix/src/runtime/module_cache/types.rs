@@ -6,6 +6,7 @@ use std::{
 };
 
 use rand::RngCore;
+use sha2::Digest;
 use wasmer::{Engine, Module};
 
 use crate::runtime::module_cache::FallbackCache;
@@ -127,50 +128,122 @@ impl CacheError {
     }
 }
 
-/// The XXHash hash of a WebAssembly module.
+/// The hash of a WebAssembly module.
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
-pub struct ModuleHash([u8; 8]);
+pub enum ModuleHash {
+    XXHash([u8; 8]),
+    Sha256([u8; 32]),
+}
 
 impl ModuleHash {
-    /// Create a new [`ModuleHash`] from the raw XXHash hash.
-    pub fn from_bytes(key: [u8; 8]) -> Self {
-        ModuleHash(key)
+    /// Create a new [`ModuleHash`] from the raw xxhash hash.
+    pub fn xxhash_from_bytes(key: [u8; 8]) -> Self {
+        Self::from_bytes(key)
+    }
+
+    /// Create a new [`ModuleHash`] from the raw sha256 hash.
+    pub fn sha256_from_bytes(key: [u8; 32]) -> Self {
+        Self::from_bytes(key)
+    }
+
+    fn from_bytes<const N: usize>(key: [u8; N]) -> Self {
+        if N == 8 {
+            let key = key.as_slice().try_into().unwrap();
+            ModuleHash::XXHash(key)
+        } else if N == 32 {
+            let key = key.as_slice().try_into().unwrap();
+            ModuleHash::Sha256(key)
+        } else {
+            panic!("Only keys with size 8 or 32 are accepted")
+        }
+    }
+
+    /// Creates a random xxhash for the module
+    pub fn xxhash_random() -> Self {
+        Self::random::<8>()
+    }
+
+    /// Creates a random sha256 hash for the module
+    pub fn sha256_random() -> Self {
+        Self::random::<32>()
     }
 
     // Creates a random hash for the module
-    pub fn random() -> Self {
+    fn random<const N: usize>() -> Self {
         let mut rand = rand::thread_rng();
-        let mut key = [0u8; 8];
+        let mut key = [0u8; N];
         rand.fill_bytes(&mut key);
-        Self(key)
+        Self::from_bytes(key)
     }
 
     /// Parse a XXHash hash from a hex-encoded string.
-    pub fn parse_hex(hex_str: &str) -> Result<Self, hex::FromHexError> {
-        let mut hash = [0_u8; 8];
+    pub fn xxhash_parse_hex(hex_str: &str) -> Result<Self, hex::FromHexError> {
+        Self::parse_hex::<8>(hex_str)
+    }
+
+    /// Parse a Sha256 hash from a hex-encoded string.
+    pub fn sha256_parse_hex(hex_str: &str) -> Result<Self, hex::FromHexError> {
+        Self::parse_hex::<32>(hex_str)
+    }
+
+    fn parse_hex<const N: usize>(hex_str: &str) -> Result<Self, hex::FromHexError> {
+        let mut hash = [0_u8; N];
         hex::decode_to_slice(hex_str, &mut hash)?;
-        Ok(Self(hash))
+        Ok(Self::from_bytes(hash))
     }
 
     /// Generate a new [`ModuleCache`] based on the XXHash hash of some bytes.
-    pub fn hash(wasm: impl AsRef<[u8]>) -> Self {
+    pub fn xxhash(wasm: impl AsRef<[u8]>) -> Self {
         let wasm = wasm.as_ref();
 
         let hash = xxhash_rust::xxh64::xxh64(wasm, 0);
 
-        Self(hash.to_ne_bytes())
+        Self::XXHash(hash.to_ne_bytes())
     }
 
-    /// Get the raw XXHash hash.
-    pub fn as_bytes(self) -> [u8; 8] {
-        self.0
+    /// Generate a new [`ModuleCache`] based on the Sha256 hash of some bytes.
+    pub fn sha256(wasm: impl AsRef<[u8]>) -> Self {
+        let wasm = wasm.as_ref();
+
+        let hash: [u8; 32] = sha2::Sha256::digest(wasm).into();
+
+        Self::Sha256(hash)
+    }
+
+    /// Get the raw hash.
+    pub fn as_bytes<const N: usize>(self) -> [u8; N] {
+        match self {
+            ModuleHash::XXHash(bytes) => {
+                if N == 8 {
+                    bytes.as_slice().try_into().unwrap()
+                } else {
+                    panic!("Requested for {N} bytes, byt XXHash is 8 bytes");
+                }
+            }
+            ModuleHash::Sha256(bytes) => {
+                if N == 32 {
+                    bytes.as_slice().try_into().unwrap()
+                } else {
+                    panic!("Requested for {N} bytes, but Sha256 is 32 bytes")
+                }
+            }
+        }
     }
 }
 
 impl Display for ModuleHash {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        for byte in self.0 {
-            write!(f, "{byte:02X}")?;
+        fn format<const N: usize>(f: &mut Formatter<'_>, bytes: &[u8; N]) -> fmt::Result {
+            for byte in bytes {
+                write!(f, "{byte:02X}")?;
+            }
+
+            Ok(())
+        }
+
+        match self {
+            ModuleHash::XXHash(bytes) => format(f, bytes)?,
+            ModuleHash::Sha256(bytes) => format(f, bytes)?,
         }
 
         Ok(())
@@ -200,7 +273,7 @@ mod tests {
         let wasm = b"\0asm...";
         let raw = [0x0c, 0xc7, 0x88, 0x60, 0xd4, 0x14, 0x71, 0x4c];
 
-        let hash = ModuleHash::hash(wasm);
+        let hash = ModuleHash::xxhash(wasm);
 
         assert_eq!(hash.as_bytes(), raw);
     }

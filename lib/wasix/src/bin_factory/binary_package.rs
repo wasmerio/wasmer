@@ -15,6 +15,7 @@ use crate::{
     Runtime,
 };
 
+// FIXME: Amin
 #[derive(Derivative, Clone)]
 #[derivative(Debug)]
 pub struct BinaryPackageCommand {
@@ -52,7 +53,7 @@ impl BinaryPackageCommand {
     }
 
     pub fn hash(&self) -> &ModuleHash {
-        self.hash.get_or_init(|| ModuleHash::hash(self.atom()))
+        self.hash.get_or_init(|| ModuleHash::xxhash(self.atom()))
     }
 }
 
@@ -146,9 +147,9 @@ impl BinaryPackage {
     pub fn hash(&self) -> ModuleHash {
         *self.hash.get_or_init(|| {
             if let Some(entry) = self.entrypoint_bytes() {
-                ModuleHash::hash(entry)
+                ModuleHash::xxhash(entry)
             } else {
-                ModuleHash::hash(self.id.to_string())
+                ModuleHash::xxhash(self.id.to_string())
             }
         })
     }
