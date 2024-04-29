@@ -569,6 +569,25 @@
 <a href="#569" id="569">569</a>
 <a href="#570" id="570">570</a>
 <a href="#571" id="571">571</a>
+<a href="#572" id="572">572</a>
+<a href="#573" id="573">573</a>
+<a href="#574" id="574">574</a>
+<a href="#575" id="575">575</a>
+<a href="#576" id="576">576</a>
+<a href="#577" id="577">577</a>
+<a href="#578" id="578">578</a>
+<a href="#579" id="579">579</a>
+<a href="#580" id="580">580</a>
+<a href="#581" id="581">581</a>
+<a href="#582" id="582">582</a>
+<a href="#583" id="583">583</a>
+<a href="#584" id="584">584</a>
+<a href="#585" id="585">585</a>
+<a href="#586" id="586">586</a>
+<a href="#587" id="587">587</a>
+<a href="#588" id="588">588</a>
+<a href="#589" id="589">589</a>
+<a href="#590" id="590">590</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{
     collections::{BTreeMap, HashMap, HashSet},
     fmt::Debug,
@@ -668,6 +687,7 @@
 
 <span class="doccomment">/// Given a [`webc::metadata::Command`], figure out which atom it uses and load
 /// that atom into a [`BinaryPackageCommand`].
+</span><span class="attr">#[tracing::instrument(skip_all, fields(%package_id, %command_name))]
 </span><span class="kw">fn </span>load_binary_command(
     package_id: <span class="kw-2">&amp;</span>PackageId,
     command_name: <span class="kw-2">&amp;</span>str,
@@ -693,7 +713,7 @@
 
     <span class="kw">let </span>package = <span class="kw-2">&amp;</span>containers[package_id];
 
-    <span class="kw">let </span>webc = <span class="kw">match </span>dependency {
+    <span class="kw">let </span>(webc, resolved_package_id) = <span class="kw">match </span>dependency {
         <span class="prelude-val">Some</span>(dep) =&gt; {
             <span class="kw">let </span>ix = resolution
                 .graph
@@ -708,20 +728,38 @@
                 .with_context(|| <span class="macro">format!</span>(<span class="string">&quot;Unable to find the \&quot;{dep}\&quot; dependency for the \&quot;{command_name}\&quot; command in \&quot;{package_id}\&quot;&quot;</span>))<span class="question-mark">?</span>;
 
             <span class="kw">let </span>other_package = graph.node_weight(edge_reference.target()).unwrap();
-            <span class="kw-2">&amp;</span>containers[<span class="kw-2">&amp;</span>other_package.id]
+            <span class="kw">let </span>id = <span class="kw-2">&amp;</span>other_package.id;
+
+            <span class="macro">tracing::debug!</span>(
+                dependency=%dep,
+                resolved_package_id=%id,
+                <span class="string">&quot;command atom resolution: resolved dependency&quot;</span>,
+            );
+            (<span class="kw-2">&amp;</span>containers[id], id)
         }
-        <span class="prelude-val">None </span>=&gt; package,
+        <span class="prelude-val">None </span>=&gt; (package, package_id),
     };
 
     <span class="kw">let </span>atom = webc.get_atom(<span class="kw-2">&amp;</span>atom_name);
 
     <span class="kw">if </span>atom.is_none() &amp;&amp; cmd.annotations.is_empty() {
+        <span class="macro">tracing::info!</span>(<span class="string">&quot;applying legacy atom hack&quot;</span>);
         <span class="kw">return </span><span class="prelude-val">Ok</span>(legacy_atom_hack(webc, command_name, cmd));
     }
 
     <span class="kw">let </span>atom = atom.with_context(|| {
+
+        <span class="kw">let </span>available_atoms = webc.atoms().keys().map(|x| x.as_str()).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;().join(<span class="string">&quot;,&quot;</span>);
+
+        <span class="macro">tracing::warn!</span>(
+            %atom_name,
+            %resolved_package_id,
+            %available_atoms,
+            <span class="string">&quot;invalid command: could not find atom in package&quot;</span>,
+        );
+
         <span class="macro">format!</span>(
-            <span class="string">&quot;The &#39;{command_name}&#39; command uses the &#39;{atom_name}&#39; atom, but it isn&#39;t present in the package {package_id}&quot;
+            <span class="string">&quot;The &#39;{command_name}&#39; command uses the &#39;{atom_name}&#39; atom, but it isn&#39;t present in the package: {resolved_package_id})&quot;
         </span>)
     })<span class="question-mark">?</span>;
 
