@@ -13,7 +13,7 @@ impl<'a, 'c> JournalSyscallPlayer<'a, 'c> {
         layout: WasiMemoryLayout,
         differ_ethereal: Option<&mut Vec<JournalEntry<'a>>>,
     ) -> Result<(), WasiRuntimeError> {
-        if Some(self.cur_module_hash) != self.journal_module_hash {
+        if Some(&self.cur_module_hash) != self.journal_module_hash.as_ref() {
             tracing::trace!(%id, "Skipping journal entry - SetThread call_stack={} bytes memory_stack={} bytes store_data={} bytes", call_stack.len(), memory_stack.len(), store_data.len());
             return Ok(());
         }

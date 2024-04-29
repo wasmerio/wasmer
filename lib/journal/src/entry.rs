@@ -84,7 +84,7 @@ pub enum SocketOptTimeType {
 #[serde(rename_all = "snake_case")]
 pub enum JournalEntry<'a> {
     InitModuleV1 {
-        wasm_hash: [u8; 8],
+        wasm_hash: Vec<u8>,
     },
     ClearEtherealV1,
     UpdateMemoryRegionV1 {

@@ -8,7 +8,7 @@ impl<'a, 'c> JournalSyscallPlayer<'a, 'c> {
         data: Cow<'a, [u8]>,
         differ_ethereal: Option<&mut Vec<JournalEntry<'a>>>,
     ) -> Result<(), WasiRuntimeError> {
-        if Some(self.cur_module_hash) != self.journal_module_hash {
+        if Some(&self.cur_module_hash) != self.journal_module_hash.as_ref() {
             tracing::trace!("Ignored journal - UpdateMemory");
             return Ok(());
         }

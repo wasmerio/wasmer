@@ -49,7 +49,7 @@ pub fn run_test<'a>(record: JournalEntry<'a>) {
 #[test]
 pub fn test_record_init_module() {
     run_test(JournalEntry::InitModuleV1 {
-        wasm_hash: [13u8; 8],
+        wasm_hash: vec![13u8; 8],
     });
 }
 
