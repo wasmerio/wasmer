@@ -1459,6 +1459,14 @@
 <a href="#1459" id="1459">1459</a>
 <a href="#1460" id="1460">1460</a>
 <a href="#1461" id="1461">1461</a>
+<a href="#1462" id="1462">1462</a>
+<a href="#1463" id="1463">1463</a>
+<a href="#1464" id="1464">1464</a>
+<a href="#1465" id="1465">1465</a>
+<a href="#1466" id="1466">1466</a>
+<a href="#1467" id="1467">1467</a>
+<a href="#1468" id="1468">1468</a>
+<a href="#1469" id="1469">1469</a>
 </pre></div><pre class="rust"><code><span class="kw">use crate</span>::{
     DirEntry, FileType, FsError, Metadata, OpenOptions, OpenOptionsConfig, ReadDir, <span class="prelude-ty">Result</span>,
     VirtualFile,
@@ -1893,6 +1901,14 @@
             .and_then(|ct| ct.duration_since(SystemTime::UNIX_EPOCH).ok())
             .map(|ct| ct.as_nanos() <span class="kw">as </span>u64)
             .unwrap_or(<span class="number">0</span>)
+    }
+
+    <span class="kw">fn </span>set_times(<span class="kw-2">&amp;mut </span><span class="self">self</span>, atime: <span class="prelude-ty">Option</span>&lt;u64&gt;, mtime: <span class="prelude-ty">Option</span>&lt;u64&gt;) -&gt; <span class="kw">crate</span>::Result&lt;()&gt; {
+        <span class="kw">let </span>atime = atime.map(|t| filetime::FileTime::from_unix_time(t <span class="kw">as </span>i64, <span class="number">0</span>));
+        <span class="kw">let </span>mtime = mtime.map(|t| filetime::FileTime::from_unix_time(t <span class="kw">as </span>i64, <span class="number">0</span>));
+
+        filetime::set_file_handle_times(<span class="kw-2">&amp;</span><span class="self">self</span>.inner_std, atime, mtime)
+            .map_err(|<span class="kw">_</span>| <span class="kw">crate</span>::FsError::IOError)
     }
 
     <span class="kw">fn </span>size(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; u64 {

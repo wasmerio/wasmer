@@ -671,6 +671,19 @@
 <a href="#671" id="671">671</a>
 <a href="#672" id="672">672</a>
 <a href="#673" id="673">673</a>
+<a href="#674" id="674">674</a>
+<a href="#675" id="675">675</a>
+<a href="#676" id="676">676</a>
+<a href="#677" id="677">677</a>
+<a href="#678" id="678">678</a>
+<a href="#679" id="679">679</a>
+<a href="#680" id="680">680</a>
+<a href="#681" id="681">681</a>
+<a href="#682" id="682">682</a>
+<a href="#683" id="683">683</a>
+<a href="#684" id="684">684</a>
+<a href="#685" id="685">685</a>
+<a href="#686" id="686">686</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{
     future::Future,
     io::{IoSlice, SeekFrom},
@@ -1181,6 +1194,19 @@
         } <span class="kw">else </span>{
             <span class="number">0
         </span>}
+    }
+
+    <span class="kw">fn </span>set_times(
+        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
+        atime: <span class="prelude-ty">Option</span>&lt;u64&gt;,
+        mtime: <span class="prelude-ty">Option</span>&lt;u64&gt;,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;(), virtual_fs::FsError&gt; {
+        <span class="kw">let </span><span class="kw-2">mut </span>guard = <span class="self">self</span>.lock_write();
+        <span class="kw">if let </span><span class="prelude-val">Some</span>(file) = guard.as_mut() {
+            file.set_times(atime, mtime)
+        } <span class="kw">else </span>{
+            <span class="prelude-val">Err</span>(<span class="kw">crate</span>::FsError::Lock)
+        }
     }
 
     <span class="kw">fn </span>size(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; u64 {

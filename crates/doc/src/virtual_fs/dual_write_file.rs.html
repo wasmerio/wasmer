@@ -110,6 +110,10 @@
 <a href="#110" id="110">110</a>
 <a href="#111" id="111">111</a>
 <a href="#112" id="112">112</a>
+<a href="#113" id="113">113</a>
+<a href="#114" id="114">114</a>
+<a href="#115" id="115">115</a>
+<a href="#116" id="116">116</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>derivative::Derivative;
 
 <span class="kw">use super</span>::<span class="kw-2">*</span>;
@@ -151,6 +155,10 @@
 
     <span class="kw">fn </span>created_time(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; u64 {
         <span class="self">self</span>.inner.created_time()
+    }
+
+    <span class="kw">fn </span>set_times(<span class="kw-2">&amp;mut </span><span class="self">self</span>, atime: <span class="prelude-ty">Option</span>&lt;u64&gt;, mtime: <span class="prelude-ty">Option</span>&lt;u64&gt;) -&gt; <span class="kw">crate</span>::Result&lt;()&gt; {
+        <span class="self">self</span>.inner.set_times(atime, mtime)
     }
 
     <span class="kw">fn </span>size(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; u64 {

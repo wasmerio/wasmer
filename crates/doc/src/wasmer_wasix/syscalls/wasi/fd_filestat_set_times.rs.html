@@ -79,7 +79,26 @@
 <a href="#79" id="79">79</a>
 <a href="#80" id="80">80</a>
 <a href="#81" id="81">81</a>
-</pre></div><pre class="rust"><code><span class="kw">use super</span>::<span class="kw-2">*</span>;
+<a href="#82" id="82">82</a>
+<a href="#83" id="83">83</a>
+<a href="#84" id="84">84</a>
+<a href="#85" id="85">85</a>
+<a href="#86" id="86">86</a>
+<a href="#87" id="87">87</a>
+<a href="#88" id="88">88</a>
+<a href="#89" id="89">89</a>
+<a href="#90" id="90">90</a>
+<a href="#91" id="91">91</a>
+<a href="#92" id="92">92</a>
+<a href="#93" id="93">93</a>
+<a href="#94" id="94">94</a>
+<a href="#95" id="95">95</a>
+<a href="#96" id="96">96</a>
+<a href="#97" id="97">97</a>
+<a href="#98" id="98">98</a>
+</pre></div><pre class="rust"><code><span class="kw">use </span>std::borrow::BorrowMut;
+
+<span class="kw">use super</span>::<span class="kw-2">*</span>;
 <span class="kw">use </span><span class="kw">crate</span>::syscalls::<span class="kw-2">*</span>;
 
 <span class="doccomment">/// ### `fd_filestat_set_times()`
@@ -140,6 +159,9 @@
 
     <span class="kw">let </span>inode = fd_entry.inode;
 
+    <span class="kw">let </span><span class="kw-2">mut </span>atime = <span class="prelude-val">None</span>;
+    <span class="kw">let </span><span class="kw-2">mut </span>mtime = <span class="prelude-val">None</span>;
+
     <span class="kw">if </span>fst_flags.contains(Fstflags::SET_ATIM) || fst_flags.contains(Fstflags::SET_ATIM_NOW) {
         <span class="kw">let </span>time_to_set = <span class="kw">if </span>fst_flags.contains(Fstflags::SET_ATIM) {
             st_atim
@@ -147,6 +169,7 @@
             get_current_time_in_nanos()<span class="question-mark">?
         </span>};
         inode.stat.write().unwrap().st_atim = time_to_set;
+        atime = <span class="prelude-val">Some</span>(time_to_set);
     }
 
     <span class="kw">if </span>fst_flags.contains(Fstflags::SET_MTIM) || fst_flags.contains(Fstflags::SET_MTIM_NOW) {
@@ -156,6 +179,17 @@
             get_current_time_in_nanos()<span class="question-mark">?
         </span>};
         inode.stat.write().unwrap().st_mtim = time_to_set;
+        mtime = <span class="prelude-val">Some</span>(time_to_set);
+    }
+
+    <span class="kw">if let </span>Kind::File {
+        handle: <span class="prelude-val">Some</span>(handle),
+        ..
+    } = inode.kind.write().unwrap().deref()
+    {
+        <span class="kw">let </span><span class="kw-2">mut </span>handle = handle.write().unwrap();
+
+        handle.set_times(atime, mtime);
     }
 
     <span class="prelude-val">Ok</span>(())

@@ -139,6 +139,10 @@
 <a href="#139" id="139">139</a>
 <a href="#140" id="140">140</a>
 <a href="#141" id="141">141</a>
+<a href="#142" id="142">142</a>
+<a href="#143" id="143">143</a>
+<a href="#144" id="144">144</a>
+<a href="#145" id="145">145</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Used for sharing references to the same file across multiple file systems,
 //! effectively this is a symbolic link without all the complex path redirection
 
@@ -242,6 +246,10 @@
     <span class="kw">fn </span>created_time(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; u64 {
         <span class="kw">let </span>inner = <span class="self">self</span>.inner.lock().unwrap();
         inner.created_time()
+    }
+    <span class="kw">fn </span>set_times(<span class="kw-2">&amp;mut </span><span class="self">self</span>, atime: <span class="prelude-ty">Option</span>&lt;u64&gt;, mtime: <span class="prelude-ty">Option</span>&lt;u64&gt;) -&gt; <span class="kw">crate</span>::Result&lt;()&gt; {
+        <span class="kw">let </span><span class="kw-2">mut </span>inner = <span class="self">self</span>.inner.lock().unwrap();
+        inner.set_times(atime, mtime)
     }
     <span class="kw">fn </span>size(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; u64 {
         <span class="kw">let </span>inner = <span class="self">self</span>.inner.lock().unwrap();
