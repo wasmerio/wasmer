@@ -336,6 +336,12 @@ pub trait VirtualFile:
     /// the time at which the file was created in nanoseconds as a UNIX timestamp
     fn created_time(&self) -> u64;
 
+    #[allow(unused_variables)]
+    /// sets accessed and modified time
+    fn set_times(&mut self, atime: Option<u64>, mtime: Option<u64>) -> crate::Result<()> {
+        Ok(())
+    }
+
     /// the size of the file in bytes
     fn size(&self) -> u64;
 
