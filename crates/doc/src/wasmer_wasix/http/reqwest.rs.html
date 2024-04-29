@@ -94,7 +94,11 @@
 <a href="#94" id="94">94</a>
 <a href="#95" id="95">95</a>
 <a href="#96" id="96">96</a>
-</pre></div><pre class="rust"><code><span class="kw">use </span>std::time::Duration;
+<a href="#97" id="97">97</a>
+<a href="#98" id="98">98</a>
+<a href="#99" id="99">99</a>
+<a href="#100" id="100">100</a>
+</pre></div><pre class="rust"><code><span class="kw">use </span>std::{env, time::Duration};
 
 <span class="kw">use </span>anyhow::Context;
 <span class="kw">use </span>futures::{future::BoxFuture, TryStreamExt};
@@ -140,10 +144,14 @@
         <span class="comment">// TODO: use persistent client?
         </span><span class="kw">let </span>client = {
             <span class="kw">let </span>_guard = Handle::try_current().map_err(|<span class="kw">_</span>| <span class="self">self</span>.handle.enter());
-            reqwest::Client::builder()
-                .connect_timeout(<span class="self">self</span>.connect_timeout)
-                .build()
-                .context(<span class="string">&quot;Could not create reqwest client&quot;</span>)<span class="question-mark">?
+            <span class="kw">let </span><span class="kw-2">mut </span>builder = reqwest::Client::builder().connect_timeout(<span class="self">self</span>.connect_timeout);
+
+            <span class="kw">let </span>proxy = env::var(<span class="string">&quot;http_proxy&quot;</span>).or_else(|<span class="kw">_</span>| env::var(<span class="string">&quot;HTTP_PROXY&quot;</span>));
+            <span class="kw">if let </span><span class="prelude-val">Ok</span>(scheme) = proxy {
+                builder = builder.proxy(reqwest::Proxy::all(scheme)<span class="question-mark">?</span>);
+            }
+
+            builder.build().context(<span class="string">&quot;Could not create reqwest client&quot;</span>)<span class="question-mark">?
         </span>};
 
         <span class="kw">let </span><span class="kw-2">mut </span>builder = client.request(method, request.url.as_str());
