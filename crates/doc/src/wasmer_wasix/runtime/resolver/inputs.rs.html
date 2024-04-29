@@ -363,6 +363,7 @@
 <a href="#363" id="363">363</a>
 <a href="#364" id="364">364</a>
 <a href="#365" id="365">365</a>
+<a href="#366" id="366">366</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{
     fmt::{<span class="self">self</span>, Display, Formatter},
     fs::File,
@@ -657,7 +658,8 @@
 
     <span class="kw">pub fn </span>for_file(path: <span class="kw-2">&amp;</span>PathBuf) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, std::io::Error&gt; {
         <span class="comment">// check for a hash at the file location
-        </span><span class="kw">let </span>path_hash = path.join(<span class="string">&quot;.sha256&quot;</span>);
+        </span><span class="kw">let </span><span class="kw-2">mut </span>path_hash = path.clone();
+        path_hash.set_extension(<span class="string">&quot;webc.sha256&quot;</span>);
         <span class="kw">if let </span><span class="prelude-val">Ok</span>(<span class="kw-2">mut </span>file) = File::open(<span class="kw-2">&amp;</span>path_hash) {
             <span class="kw">let </span><span class="kw-2">mut </span>hash = Vec::new();
             <span class="kw">if let </span><span class="prelude-val">Ok</span>(amt) = file.read_to_end(<span class="kw-2">&amp;mut </span>hash) {
