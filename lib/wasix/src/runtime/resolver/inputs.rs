@@ -292,7 +292,8 @@ impl WebcHash {
 
     pub fn for_file(path: &PathBuf) -> Result<Self, std::io::Error> {
         // check for a hash at the file location
-        let path_hash = path.join(".sha256");
+        let mut path_hash = path.clone();
+        path_hash.set_extension("webc.sha256");
         if let Ok(mut file) = File::open(&path_hash) {
             let mut hash = Vec::new();
             if let Ok(amt) = file.read_to_end(&mut hash) {
