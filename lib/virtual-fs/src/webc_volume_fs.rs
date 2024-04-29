@@ -162,18 +162,21 @@ impl FileOpener for WebcVolumeFileSystem {
             }
         }
 
-        match self.volume().metadata(path) {
-            Some(m) if m.is_file() => {}
+        let timestamps = match self.volume().metadata(path) {
+            Some(m) if m.is_file() => m.timestamps(),
             Some(_) => return Err(FsError::NotAFile),
             None if conf.create() || conf.create_new() => {
                 // The file would normally be created, but we are a readonly fs.
                 return Err(FsError::PermissionDenied);
             }
             None => return Err(FsError::EntryNotFound),
-        }
+        };
 
         match self.volume().read_file(path) {
-            Some((bytes, _)) => Ok(Box::new(File(Cursor::new(bytes)))),
+            Some((bytes, _)) => Ok(Box::new(File {
+                timestamps,
+                content: Cursor::new(bytes),
+            })),
             None => {
                 // The metadata() call should guarantee this, so something
                 // probably went wrong internally
@@ -184,7 +187,10 @@ impl FileOpener for WebcVolumeFileSystem {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-struct File(Cursor<SharedBytes>);
+struct File {
+    timestamps: Option<webc::Timestamps>,
+    content: Cursor<SharedBytes>,
+}
 
 impl VirtualFile for File {
     fn last_accessed(&self) -> u64 {
@@ -192,7 +198,7 @@ impl VirtualFile for File {
     }
 
     fn last_modified(&self) -> u64 {
-        0
+        self.timestamps.map(|t| t.modified()).unwrap_or(0)
     }
 
     fn created_time(&self) -> u64 {
@@ -200,7 +206,7 @@ impl VirtualFile for File {
     }
 
     fn size(&self) -> u64 {
-        self.0.get_ref().len().try_into().unwrap()
+        self.content.get_ref().len().try_into().unwrap()
     }
 
     fn set_len(&mut self, _new_size: u64) -> crate::Result<()> {
@@ -215,7 +221,8 @@ impl VirtualFile for File {
         self: Pin<&mut Self>,
         _cx: &mut std::task::Context<'_>,
     ) -> Poll<std::io::Result<usize>> {
-        let bytes_remaining = self.0.get_ref().len() - usize::try_from(self.0.position()).unwrap();
+        let bytes_remaining =
+            self.content.get_ref().len() - usize::try_from(self.content.position()).unwrap();
         Poll::Ready(Ok(bytes_remaining))
     }
 
@@ -233,20 +240,20 @@ impl AsyncRead for File {
         cx: &mut std::task::Context<'_>,
         buf: &mut tokio::io::ReadBuf<'_>,
     ) -> Poll<std::io::Result<()>> {
-        AsyncRead::poll_read(Pin::new(&mut self.0), cx, buf)
+        AsyncRead::poll_read(Pin::new(&mut self.content), cx, buf)
     }
 }
 
 impl AsyncSeek for File {
     fn start_seek(mut self: Pin<&mut Self>, position: std::io::SeekFrom) -> std::io::Result<()> {
-        AsyncSeek::start_seek(Pin::new(&mut self.0), position)
+        AsyncSeek::start_seek(Pin::new(&mut self.content), position)
     }
 
     fn poll_complete(
         mut self: Pin<&mut Self>,
         cx: &mut std::task::Context<'_>,
     ) -> Poll<std::io::Result<u64>> {
-        AsyncSeek::poll_complete(Pin::new(&mut self.0), cx)
+        AsyncSeek::poll_complete(Pin::new(&mut self.content), cx)
     }
 }
 
