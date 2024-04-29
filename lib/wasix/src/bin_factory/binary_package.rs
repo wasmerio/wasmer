@@ -23,16 +23,21 @@ pub struct BinaryPackageCommand {
     metadata: webc::metadata::Command,
     #[derivative(Debug = "ignore")]
     pub(crate) atom: SharedBytes,
-    hash: OnceCell<ModuleHash>,
+    hash: ModuleHash,
 }
 
 impl BinaryPackageCommand {
-    pub fn new(name: String, metadata: webc::metadata::Command, atom: SharedBytes) -> Self {
+    pub fn new(
+        name: String,
+        metadata: webc::metadata::Command,
+        atom: SharedBytes,
+        hash: ModuleHash,
+    ) -> Self {
         Self {
             name,
             metadata,
             atom,
-            hash: OnceCell::new(),
+            hash,
         }
     }
 
@@ -53,7 +58,7 @@ impl BinaryPackageCommand {
     }
 
     pub fn hash(&self) -> &ModuleHash {
-        self.hash.get_or_init(|| ModuleHash::xxhash(self.atom()))
+        &self.hash
     }
 }
 

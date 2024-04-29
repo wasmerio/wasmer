@@ -138,58 +138,42 @@ pub enum ModuleHash {
 impl ModuleHash {
     /// Create a new [`ModuleHash`] from the raw xxhash hash.
     pub fn xxhash_from_bytes(key: [u8; 8]) -> Self {
-        Self::from_bytes(key)
+        Self::XXHash(key)
     }
 
     /// Create a new [`ModuleHash`] from the raw sha256 hash.
     pub fn sha256_from_bytes(key: [u8; 32]) -> Self {
-        Self::from_bytes(key)
-    }
-
-    fn from_bytes<const N: usize>(key: [u8; N]) -> Self {
-        if N == 8 {
-            let key = key.as_slice().try_into().unwrap();
-            ModuleHash::XXHash(key)
-        } else if N == 32 {
-            let key = key.as_slice().try_into().unwrap();
-            ModuleHash::Sha256(key)
-        } else {
-            panic!("Only keys with size 8 or 32 are accepted")
-        }
+        Self::Sha256(key)
     }
 
     /// Creates a random xxhash for the module
     pub fn xxhash_random() -> Self {
-        Self::random::<8>()
+        let mut rand = rand::thread_rng();
+        let mut key = [0u8; 8];
+        rand.fill_bytes(&mut key);
+        Self::xxhash_from_bytes(key)
     }
 
     /// Creates a random sha256 hash for the module
     pub fn sha256_random() -> Self {
-        Self::random::<32>()
-    }
-
-    // Creates a random hash for the module
-    fn random<const N: usize>() -> Self {
         let mut rand = rand::thread_rng();
-        let mut key = [0u8; N];
+        let mut key = [0u8; 32];
         rand.fill_bytes(&mut key);
-        Self::from_bytes(key)
+        Self::sha256_from_bytes(key)
     }
 
     /// Parse a XXHash hash from a hex-encoded string.
     pub fn xxhash_parse_hex(hex_str: &str) -> Result<Self, hex::FromHexError> {
-        Self::parse_hex::<8>(hex_str)
+        let mut hash = [0_u8; 8];
+        hex::decode_to_slice(hex_str, &mut hash)?;
+        Ok(Self::xxhash_from_bytes(hash))
     }
 
     /// Parse a Sha256 hash from a hex-encoded string.
     pub fn sha256_parse_hex(hex_str: &str) -> Result<Self, hex::FromHexError> {
-        Self::parse_hex::<32>(hex_str)
-    }
-
-    fn parse_hex<const N: usize>(hex_str: &str) -> Result<Self, hex::FromHexError> {
-        let mut hash = [0_u8; N];
+        let mut hash = [0_u8; 32];
         hex::decode_to_slice(hex_str, &mut hash)?;
-        Ok(Self::from_bytes(hash))
+        Ok(Self::sha256_from_bytes(hash))
     }
 
     /// Generate a new [`ModuleCache`] based on the XXHash hash of some bytes.
@@ -211,22 +195,10 @@ impl ModuleHash {
     }
 
     /// Get the raw hash.
-    pub fn as_bytes<const N: usize>(self) -> [u8; N] {
+    pub fn as_bytes(&self) -> &[u8] {
         match self {
-            ModuleHash::XXHash(bytes) => {
-                if N == 8 {
-                    bytes.as_slice().try_into().unwrap()
-                } else {
-                    panic!("Requested for {N} bytes, byt XXHash is 8 bytes");
-                }
-            }
-            ModuleHash::Sha256(bytes) => {
-                if N == 32 {
-                    bytes.as_slice().try_into().unwrap()
-                } else {
-                    panic!("Requested for {N} bytes, but Sha256 is 32 bytes")
-                }
-            }
+            ModuleHash::XXHash(bytes) => bytes.as_slice(),
+            ModuleHash::Sha256(bytes) => bytes.as_slice(),
         }
     }
 }
@@ -261,7 +233,7 @@ mod tests {
 
     #[test]
     fn key_is_displayed_as_hex() {
-        let key = ModuleHash::from_bytes([0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07]);
+        let key = ModuleHash::xxhash_from_bytes([0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07]);
 
         let repr = key.to_string();
 
