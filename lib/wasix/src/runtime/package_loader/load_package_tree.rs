@@ -99,6 +99,7 @@ fn commands(
 
 /// Given a [`webc::metadata::Command`], figure out which atom it uses and load
 /// that atom into a [`BinaryPackageCommand`].
+#[tracing::instrument(skip_all, fields(%package_id, %command_name))]
 fn load_binary_command(
     package_id: &PackageId,
     command_name: &str,
@@ -124,7 +125,7 @@ fn load_binary_command(
 
     let package = &containers[package_id];
 
-    let webc = match dependency {
+    let (webc, resolved_package_id) = match dependency {
         Some(dep) => {
             let ix = resolution
                 .graph
@@ -139,22 +140,40 @@ fn load_binary_command(
                 .with_context(|| format!("Unable to find the \"{dep}\" dependency for the \"{command_name}\" command in \"{package_id}\""))?;
 
             let other_package = graph.node_weight(edge_reference.target()).unwrap();
-            &containers[&other_package.id]
+            let id = &other_package.id;
+
+            tracing::debug!(
+                dependency=%dep,
+                resolved_package_id=%id,
+                "command atom resolution: resolved dependency",
+            );
+            (&containers[id], id)
         }
-        None => package,
+        None => (package, package_id),
     };
 
     let atom = webc.get_atom(&atom_name);
 
     if atom.is_none() && cmd.annotations.is_empty() {
+        tracing::info!("applying legacy atom hack");
         return Ok(legacy_atom_hack(webc, command_name, cmd));
     }
 
     let hash = atom_hash(webc, &atom_name);
 
     let atom = atom.with_context(|| {
+
+        let available_atoms = webc.atoms().keys().map(|x| x.as_str()).collect::<Vec<_>>().join(",");
+
+        tracing::warn!(
+            %atom_name,
+            %resolved_package_id,
+            %available_atoms,
+            "invalid command: could not find atom in package",
+        );
+
         format!(
-            "The '{command_name}' command uses the '{atom_name}' atom, but it isn't present in the package {package_id}"
+            "The '{command_name}' command uses the '{atom_name}' atom, but it isn't present in the package: {resolved_package_id})"
         )
     })?;
 

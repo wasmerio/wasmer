@@ -1,3 +1,5 @@
+use std::borrow::BorrowMut;
+
 use super::*;
 use crate::syscalls::*;
 
@@ -59,6 +61,9 @@ pub(crate) fn fd_filestat_set_times_internal(
 
     let inode = fd_entry.inode;
 
+    let mut atime = None;
+    let mut mtime = None;
+
     if fst_flags.contains(Fstflags::SET_ATIM) || fst_flags.contains(Fstflags::SET_ATIM_NOW) {
         let time_to_set = if fst_flags.contains(Fstflags::SET_ATIM) {
             st_atim
@@ -66,6 +71,7 @@ pub(crate) fn fd_filestat_set_times_internal(
             get_current_time_in_nanos()?
         };
         inode.stat.write().unwrap().st_atim = time_to_set;
+        atime = Some(time_to_set);
     }
 
     if fst_flags.contains(Fstflags::SET_MTIM) || fst_flags.contains(Fstflags::SET_MTIM_NOW) {
@@ -75,6 +81,17 @@ pub(crate) fn fd_filestat_set_times_internal(
             get_current_time_in_nanos()?
         };
         inode.stat.write().unwrap().st_mtim = time_to_set;
+        mtime = Some(time_to_set);
+    }
+
+    if let Kind::File {
+        handle: Some(handle),
+        ..
+    } = inode.kind.write().unwrap().deref()
+    {
+        let mut handle = handle.write().unwrap();
+
+        handle.set_times(atime, mtime);
     }
 
     Ok(())
