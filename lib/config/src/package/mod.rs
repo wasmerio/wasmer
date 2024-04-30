@@ -976,9 +976,9 @@ mod tests {
     fn test_to_string() {
         Manifest {
             package: Some(Package {
-                name: "package/name".to_string(),
-                version: Version::parse("1.0.0").unwrap(),
-                description: "test".to_string(),
+                name: Some("package/name".to_string()),
+                version: Some(Version::parse("1.0.0").unwrap()),
+                description: Some("test".to_string()),
                 license: None,
                 license_file: None,
                 readme: None,
