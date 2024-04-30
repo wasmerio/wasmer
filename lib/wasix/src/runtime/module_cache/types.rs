@@ -5,6 +5,8 @@ use std::{
     path::PathBuf,
 };
 
+use anyhow::Context;
+use base64::Engine as Base64Engine;
 use rand::RngCore;
 use sha2::Digest;
 use wasmer::{Engine, Module};
@@ -200,6 +202,38 @@ impl ModuleHash {
             ModuleHash::XXHash(bytes) => bytes.as_slice(),
             ModuleHash::Sha256(bytes) => bytes.as_slice(),
         }
+    }
+}
+
+/// Loads the hash from an encoded string. This is not a public API since it relies on how we
+/// encode the atom signature in pirita.
+pub(crate) fn hash_from_signature(encoded: &str) -> Result<ModuleHash, anyhow::Error> {
+    if let Some(base64_encoded) = encoded.strip_prefix("xxhash:") {
+        let hash = base64::prelude::BASE64_STANDARD
+            .decode(base64_encoded)
+            .context("malformed base64 encoded hash")?;
+
+        let hash: [u8; 8] = hash
+            .as_slice()
+            .try_into()
+            .context("xxhash hash must be 8 bytes")?;
+
+        Ok(ModuleHash::xxhash_from_bytes(hash))
+    } else if let Some(base64_encoded) = encoded.strip_prefix("sha256:") {
+        let hash = base64::prelude::BASE64_STANDARD
+            .decode(base64_encoded)
+            .context("malformed base64 encoded hash")?;
+
+        let hash: [u8; 32] = hash
+            .as_slice()
+            .try_into()
+            .context("sha256 hash must be 32 bytes")?;
+
+        Ok(ModuleHash::sha256_from_bytes(hash))
+    } else {
+        return Err(anyhow::Error::msg(
+            "Only xxhash and sha256 encoded strings are accepted",
+        ));
     }
 }
 

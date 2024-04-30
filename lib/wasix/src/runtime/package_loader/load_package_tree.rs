@@ -6,7 +6,6 @@ use std::{
 };
 
 use anyhow::{Context, Error};
-use base64::Engine;
 use futures::{future::BoxFuture, StreamExt, TryStreamExt};
 use once_cell::sync::OnceCell;
 use petgraph::visit::EdgeRef;
@@ -20,7 +19,7 @@ use webc::{
 use crate::{
     bin_factory::{BinaryPackage, BinaryPackageCommand},
     runtime::{
-        module_cache::ModuleHash,
+        module_cache,
         package_loader::PackageLoader,
         resolver::{
             DependencyGraph, ItemLocation, PackageSummary, Resolution, ResolvedFileSystemMapping,
@@ -159,7 +158,7 @@ fn load_binary_command(
         return Ok(legacy_atom_hack(webc, command_name, cmd));
     }
 
-    let hash = atom_hash(webc, &atom_name);
+    let hash = module_cache::hash_from_signature(&webc.manifest().atoms[&atom_name].signature)?;
 
     let atom = atom.with_context(|| {
 
@@ -236,30 +235,26 @@ fn legacy_atom_hack(
         "(hack) The command metadata is malformed. Falling back to the first atom in the WEBC file",
     );
 
-    let hash = atom_hash(webc, &name);
+    let hash = module_cache::hash_from_signature(&webc.manifest().atoms[&name].signature);
 
-    Some(BinaryPackageCommand::new(
-        command_name.to_string(),
-        metadata.clone(),
-        atom,
-        hash,
-    ))
-}
+    match hash {
+        Ok(hash) => Some(BinaryPackageCommand::new(
+            command_name.to_string(),
+            metadata.clone(),
+            atom,
+            hash,
+        )),
+        Err(e) => {
+            tracing::debug!(
+                command_name,
+                atom.name = name.as_str(),
+                error = e.to_string(),
+                "Failed to get the atom hash from the manifest",
+            );
 
-fn atom_hash(webc: &Container, atom_name: &str) -> ModuleHash {
-    let base64_encoded = webc.manifest().atoms[atom_name]
-        .signature
-        .strip_prefix("sha256:")
-        .expect("malformed atom signature: does not have sha256 prefix");
-    let sha256 = base64::prelude::BASE64_STANDARD
-        .decode(base64_encoded)
-        .expect("malformed base64 encoded hash");
-    let hash: [u8; 32] = sha256
-        .as_slice()
-        .try_into()
-        .expect("sha256 hash is not 32 bytes");
-
-    ModuleHash::sha256_from_bytes(hash)
+            None
+        }
+    }
 }
 
 async fn fetch_dependencies(
