@@ -15,7 +15,6 @@ use crate::{
     Runtime,
 };
 
-// FIXME: Amin
 #[derive(Derivative, Clone)]
 #[derivative(Debug)]
 pub struct BinaryPackageCommand {
@@ -162,6 +161,7 @@ impl BinaryPackage {
 
 #[cfg(test)]
 mod tests {
+    use sha2::Digest;
     use tempfile::TempDir;
     use virtual_fs::AsyncReadExt;
 
@@ -227,5 +227,53 @@ mod tests {
         let mut buffer = String::new();
         f.read_to_string(&mut buffer).await.unwrap();
         assert_eq!(buffer, file_txt);
+    }
+
+    #[tokio::test]
+    #[cfg_attr(
+        not(feature = "sys-thread"),
+        ignore = "The tokio task manager isn't available on this platform"
+    )]
+    async fn commands_use_the_atom_signature() {
+        let temp = TempDir::new().unwrap();
+        let wasmer_toml = r#"
+            [package]
+            name = "some/package"
+            version = "0.0.0"
+            description = "a dummy package"
+
+            [[module]]
+            name = "foo"
+            source = "foo.wasm"
+            abi = "wasi"
+            
+            [[command]]
+            name = "cmd"
+            module = "foo"     
+        "#;
+        let manifest = temp.path().join("wasmer.toml");
+        std::fs::write(&manifest, wasmer_toml).unwrap();
+
+        let atom_path = temp.path().join("foo.wasm");
+        std::fs::write(&atom_path, b"").unwrap();
+
+        let webc: Container = webc::wasmer_package::Package::from_manifest(manifest)
+            .unwrap()
+            .into();
+
+        let tasks = task_manager();
+        let mut runtime = PluggableRuntime::new(tasks);
+        runtime.set_package_loader(
+            BuiltinPackageLoader::new()
+                .with_shared_http_client(runtime.http_client().unwrap().clone()),
+        );
+
+        let pkg = BinaryPackage::from_webc(&webc, &runtime).await.unwrap();
+
+        assert_eq!(pkg.commands.len(), 1);
+        let command = pkg.get_command("cmd").unwrap();
+        let atom_sha256_hash: [u8; 32] = sha2::Sha256::digest(webc.get_atom("foo").unwrap()).into();
+        let module_hash = ModuleHash::sha256_from_bytes(atom_sha256_hash);
+        assert_eq!(command.hash(), &module_hash);
     }
 }

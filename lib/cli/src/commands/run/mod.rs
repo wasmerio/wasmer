@@ -705,7 +705,6 @@ impl ExecutableTarget {
                     .load_module_sync(&wasm)
                     .with_context(|| format!("Unable to compile \"{}\"", path.display()))?;
 
-                // FIXME: Amin
                 Ok(ExecutableTarget::WebAssembly {
                     module,
                     module_hash: ModuleHash::xxhash(&wasm),
@@ -718,7 +717,6 @@ impl ExecutableTarget {
                 let module = unsafe { Module::deserialize_from_file(&engine, path)? };
                 let module_hash = {
                     let wasm = std::fs::read(path)?;
-                    // FIXME: Amin
                     ModuleHash::xxhash(wasm)
                 };
 

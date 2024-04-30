@@ -104,7 +104,6 @@ where
     fn load_module<'a>(&'a self, wasm: &'a [u8]) -> BoxFuture<'a, Result<Module, SpawnError>> {
         let engine = self.engine();
         let module_cache = self.module_cache();
-        // FIXME: Amin
         let hash = ModuleHash::xxhash(wasm);
 
         let task = async move { load_module(&engine, &module_cache, wasm, hash).await };
@@ -554,7 +553,6 @@ impl Runtime for OverriddenRuntime {
         if self.engine.is_some() || self.module_cache.is_some() {
             let engine = self.engine();
             let module_cache = self.module_cache();
-            // FIXME: Amin
             let hash = ModuleHash::xxhash(wasm);
 
             let task = async move { load_module(&engine, &module_cache, wasm, hash).await };
