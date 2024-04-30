@@ -1488,6 +1488,7 @@
 <a href="#1488" id="1488">1488</a>
 <a href="#1489" id="1489">1489</a>
 <a href="#1490" id="1490">1490</a>
+<a href="#1491" id="1491">1491</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Wasmer package definitions.
 //!
 //! Describes the contents of a `wasmer.toml` file.
@@ -1603,13 +1604,14 @@
 #[non_exhaustive]
 </span><span class="kw">pub struct </span>Package {
     <span class="doccomment">/// The package&#39;s name in the form `namespace/name`.
-    </span><span class="attr">#[builder(setter(into))]
-    </span><span class="kw">pub </span>name: String,
+    </span><span class="attr">#[builder(setter(into, strip_option), default)]
+    </span><span class="kw">pub </span>name: <span class="prelude-ty">Option</span>&lt;String&gt;,
     <span class="doccomment">/// The package&#39;s version number.
-    </span><span class="kw">pub </span>version: Version,
+    </span><span class="attr">#[builder(setter(into, strip_option), default)]
+    </span><span class="kw">pub </span>version: <span class="prelude-ty">Option</span>&lt;Version&gt;,
     <span class="doccomment">/// A brief description of the package.
-    </span><span class="attr">#[builder(setter(into))]
-    </span><span class="kw">pub </span>description: String,
+    </span><span class="attr">#[builder(setter(into, strip_option), default)]
+    </span><span class="kw">pub </span>description: <span class="prelude-ty">Option</span>&lt;String&gt;,
     <span class="doccomment">/// A SPDX license specifier for this package.
     </span><span class="attr">#[builder(setter(into, strip_option), default)]
     </span><span class="kw">pub </span>license: <span class="prelude-ty">Option</span>&lt;String&gt;,
@@ -2465,9 +2467,9 @@
     </span><span class="kw">fn </span>test_to_string() {
         Manifest {
             package: <span class="prelude-val">Some</span>(Package {
-                name: <span class="string">&quot;package/name&quot;</span>.to_string(),
-                version: Version::parse(<span class="string">&quot;1.0.0&quot;</span>).unwrap(),
-                description: <span class="string">&quot;test&quot;</span>.to_string(),
+                name: <span class="prelude-val">Some</span>(<span class="string">&quot;package/name&quot;</span>.to_string()),
+                version: <span class="prelude-val">Some</span>(Version::parse(<span class="string">&quot;1.0.0&quot;</span>).unwrap()),
+                description: <span class="prelude-val">Some</span>(<span class="string">&quot;test&quot;</span>.to_string()),
                 license: <span class="prelude-val">None</span>,
                 license_file: <span class="prelude-val">None</span>,
                 readme: <span class="prelude-val">None</span>,

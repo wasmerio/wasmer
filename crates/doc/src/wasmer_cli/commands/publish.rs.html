@@ -247,6 +247,9 @@
 <a href="#247" id="247">247</a>
 <a href="#248" id="248">248</a>
 <a href="#249" id="249">249</a>
+<a href="#250" id="250">250</a>
+<a href="#251" id="251">251</a>
+<a href="#252" id="252">252</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>anyhow::Context <span class="kw">as _</span>;
 <span class="kw">use </span>clap::Parser;
 <span class="kw">use </span>dialoguer::Confirm;
@@ -372,51 +375,54 @@
         <span class="kw">let </span><span class="kw-2">mut </span>version = <span class="self">self</span>.version.clone();
 
         <span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">ref mut </span>pkg) = manifest.package {
-            <span class="kw">let </span><span class="kw-2">mut </span>latest_version = {
-                <span class="kw">let </span>v = wasmer_api::query::get_package_version(
-                    <span class="kw-2">&amp;</span>client,
-                    pkg.name.clone(),
-                    <span class="string">&quot;latest&quot;</span>.into(),
-                )
-                .<span class="kw">await</span><span class="question-mark">?</span>;
-                <span class="kw">if let </span><span class="prelude-val">Some</span>(v) = v {
-                    semver::Version::parse(<span class="kw-2">&amp;</span>v.version)
-                        .with_context(|| <span class="string">&quot;While parsing registry version of package&quot;</span>)<span class="question-mark">?
-                </span>} <span class="kw">else </span>{
-                    pkg.version.clone()
-                }
-            };
+            <span class="kw">if let </span>(<span class="prelude-val">Some</span>(pkg_name), <span class="prelude-val">Some</span>(pkg_version)) = (<span class="kw-2">&amp;</span>pkg.name, <span class="kw-2">&amp;</span>pkg.version) {
+                <span class="kw">let </span>pkg_name = pkg_name.clone();
+                <span class="kw">let </span>pkg_version = pkg_version.clone();
 
-            <span class="kw">if </span>pkg.version &lt; latest_version {
-                <span class="kw">if </span><span class="self">self</span>.bump {
-                    latest_version.patch += <span class="number">1</span>;
-                    version = <span class="prelude-val">Some</span>(latest_version);
-                } <span class="kw">else if </span>interactive {
-                    latest_version.patch += <span class="number">1</span>;
-                    <span class="kw">let </span>theme = dialoguer::theme::ColorfulTheme::default();
-                    <span class="kw">if </span>Confirm::with_theme(<span class="kw-2">&amp;</span>theme)
-                        .with_prompt(<span class="macro">format!</span>(
-                            <span class="string">&quot;Do you want to bump the package to a new version? ({} -&gt; {})&quot;</span>,
-                            pkg.version, latest_version
-                        ))
-                        .interact()
-                        .unwrap_or_default()
-                    {
-                        version = <span class="prelude-val">Some</span>(latest_version);
+                <span class="kw">let </span><span class="kw-2">mut </span>latest_version = {
+                    <span class="kw">let </span>v = wasmer_api::query::get_package_version(
+                        <span class="kw-2">&amp;</span>client,
+                        pkg_name.clone(),
+                        <span class="string">&quot;latest&quot;</span>.into(),
+                    )
+                    .<span class="kw">await</span><span class="question-mark">?</span>;
+                    <span class="kw">if let </span><span class="prelude-val">Some</span>(v) = v {
+                        semver::Version::parse(<span class="kw-2">&amp;</span>v.version)
+                            .with_context(|| <span class="string">&quot;While parsing registry version of package&quot;</span>)<span class="question-mark">?
+                    </span>} <span class="kw">else </span>{
+                        pkg_version.clone()
                     }
-                } <span class="kw">else if </span>latest_version &gt; pkg.version {
-                    <span class="macro">eprintln!</span>(<span class="string">&quot;Registry has a newer version of this package.&quot;</span>);
-                    <span class="macro">eprintln!</span>(
-                        <span class="string">&quot;If a package with version {} already exists, publishing will fail.&quot;</span>,
-                        pkg.version
-                    );
-                }
-            }
+                };
 
-            <span class="comment">// If necessary, update the manifest.
-            </span><span class="kw">if let </span><span class="prelude-val">Some</span>(version) = version.clone() {
-                <span class="kw">if </span>version != pkg.version {
-                    pkg.version = version;
+                <span class="kw">if </span>pkg_version &lt; latest_version {
+                    <span class="kw">if </span><span class="self">self</span>.bump {
+                        latest_version.patch += <span class="number">1</span>;
+                        version = <span class="prelude-val">Some</span>(latest_version);
+                    } <span class="kw">else if </span>interactive {
+                        latest_version.patch += <span class="number">1</span>;
+                        <span class="kw">let </span>theme = dialoguer::theme::ColorfulTheme::default();
+                        <span class="kw">if </span>Confirm::with_theme(<span class="kw-2">&amp;</span>theme)
+                            .with_prompt(<span class="macro">format!</span>(
+                                <span class="string">&quot;Do you want to bump the package to a new version? ({} -&gt; {})&quot;</span>,
+                                pkg_version, latest_version
+                            ))
+                            .interact()
+                            .unwrap_or_default()
+                        {
+                            pkg.version = <span class="prelude-val">Some</span>(latest_version);
+                        }
+                    } <span class="kw">else if </span>latest_version &gt; pkg_version {
+                        <span class="macro">eprintln!</span>(<span class="string">&quot;Registry has a newer version of this package.&quot;</span>);
+                        <span class="macro">eprintln!</span>(
+                            <span class="string">&quot;If a package with version {} already exists, publishing will fail.&quot;</span>,
+                            pkg_version
+                        );
+                    }
+                }
+
+                <span class="comment">// If necessary, update the manifest.
+                </span><span class="kw">if </span>version != pkg.version {
+                    pkg.version = version.clone();
 
                     <span class="kw">let </span>contents = toml::to_string(<span class="kw-2">&amp;</span>manifest).with_context(|| {
                         <span class="macro">format!</span>(

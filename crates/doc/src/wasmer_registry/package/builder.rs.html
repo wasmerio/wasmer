@@ -1089,6 +1089,10 @@
 <a href="#1089" id="1089">1089</a>
 <a href="#1090" id="1090">1090</a>
 <a href="#1091" id="1091">1091</a>
+<a href="#1092" id="1092">1092</a>
+<a href="#1093" id="1093">1093</a>
+<a href="#1094" id="1094">1094</a>
+<a href="#1095" id="1095">1095</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::io::{<span class="self">self</span>, Write};
 <span class="kw">use </span>std::path::{Path, PathBuf};
 <span class="kw">use </span>std::time::Duration;
@@ -1210,13 +1214,13 @@
 
         <span class="kw">if let </span><span class="prelude-val">Some</span>(package_name) = <span class="self">self</span>.package_name.as_ref() {
             <span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">ref mut </span>package) = manifest.package {
-                package.name = package_name.clone();
+                package.name = <span class="prelude-val">Some</span>(package_name.clone());
             }
         }
 
         <span class="kw">if let </span><span class="prelude-val">Some</span>(version) = <span class="self">self</span>.version.as_ref() {
             <span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">ref mut </span>package) = manifest.package {
-                package.version = version.clone();
+                package.version = <span class="prelude-val">Some</span>(version.clone());
             }
         }
 
@@ -1764,16 +1768,20 @@
     ) -&gt; <span class="prelude-ty">Result</span>&lt;bool, ValidationError&gt; {
         <span class="kw">match </span><span class="kw-2">&amp;</span>manifest.package {
             <span class="prelude-val">Some</span>(pkg) =&gt; {
-                <span class="kw">let </span>result =
-                    <span class="kw">crate</span>::query_package_from_registry(registry, <span class="kw-2">&amp;</span>pkg.name, <span class="prelude-val">None</span>, <span class="prelude-val">Some</span>(auth_token));
+                <span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">ref </span>name) = pkg.name {
+                    <span class="kw">let </span>result =
+                        <span class="kw">crate</span>::query_package_from_registry(registry, name, <span class="prelude-val">None</span>, <span class="prelude-val">Some</span>(auth_token));
 
-                <span class="kw">match </span>result {
-                    <span class="prelude-val">Ok</span>(package_version) =&gt; <span class="prelude-val">Ok</span>(package_version.is_private != pkg.private),
-                    <span class="prelude-val">Err</span>(QueryPackageError::NoPackageFound { .. }) =&gt; {
-                        <span class="comment">// The package hasn&#39;t been published yet
-                        </span><span class="prelude-val">Ok</span>(<span class="bool-val">false</span>)
+                    <span class="kw">match </span>result {
+                        <span class="prelude-val">Ok</span>(package_version) =&gt; <span class="prelude-val">Ok</span>(package_version.is_private != pkg.private),
+                        <span class="prelude-val">Err</span>(QueryPackageError::NoPackageFound { .. }) =&gt; {
+                            <span class="comment">// The package hasn&#39;t been published yet
+                            </span><span class="prelude-val">Ok</span>(<span class="bool-val">false</span>)
+                        }
+                        <span class="prelude-val">Err</span>(e) =&gt; <span class="prelude-val">Err</span>(e.into()),
                     }
-                    <span class="prelude-val">Err</span>(e) =&gt; <span class="prelude-val">Err</span>(e.into()),
+                } <span class="kw">else </span>{
+                    <span class="prelude-val">Ok</span>(<span class="bool-val">false</span>)
                 }
             }
 

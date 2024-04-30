@@ -606,6 +606,19 @@
 <a href="#606" id="606">606</a>
 <a href="#607" id="607">607</a>
 <a href="#608" id="608">608</a>
+<a href="#609" id="609">609</a>
+<a href="#610" id="610">610</a>
+<a href="#611" id="611">611</a>
+<a href="#612" id="612">612</a>
+<a href="#613" id="613">613</a>
+<a href="#614" id="614">614</a>
+<a href="#615" id="615">615</a>
+<a href="#616" id="616">616</a>
+<a href="#617" id="617">617</a>
+<a href="#618" id="618">618</a>
+<a href="#619" id="619">619</a>
+<a href="#620" id="620">620</a>
+<a href="#621" id="621">621</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::graphql::queries::get_signed_url::GetSignedUrlUrl;
 
 <span class="kw">use </span><span class="kw">crate</span>::graphql::subscriptions::package_version_ready::PackageVersionState;
@@ -738,21 +751,25 @@
 
     upload_package(<span class="kw-2">&amp;</span>signed_url.url, archive_path, archived_data_size, timeout).<span class="kw">await</span><span class="question-mark">?</span>;
 
-    <span class="kw">let </span>name = package.as_ref().map(|p| p.name.clone());
+    <span class="kw">let </span>name = package.as_ref().and_then(|p| p.name.clone());
 
     <span class="kw">let </span>namespace = <span class="kw">match </span>patch_namespace {
         <span class="prelude-val">Some</span>(n) =&gt; <span class="prelude-val">Some</span>(n),
-        <span class="prelude-val">None </span>=&gt; package
-            .as_ref()
-            .map(|p| String::from(p.name.split_once(<span class="string">&#39;/&#39;</span>).unwrap().<span class="number">0</span>)),
+        <span class="prelude-val">None </span>=&gt; package.as_ref().and_then(|p| {
+            p.name
+                .as_ref()
+                .map(|p| String::from(p.split_once(<span class="string">&#39;/&#39;</span>).unwrap().<span class="number">0</span>))
+        }),
     };
 
     <span class="kw">let </span>q =
         PublishPackageMutationChunked::build_query(publish_package_mutation_chunked::Variables {
             name,
             namespace,
-            version: package.as_ref().map(|p| p.version.to_string()),
-            description: package.as_ref().map(|p| p.description.clone()),
+            version: package
+                .as_ref()
+                .and_then(|p| p.version.as_ref().map(|v| v.to_string())),
+            description: package.as_ref().and_then(|p| p.description.clone()),
             manifest: manifest_string.to_string(),
             license: package.as_ref().and_then(|p| p.license.clone()),
             license_file: license_file.to_owned(),
@@ -823,7 +840,12 @@
 
             <span class="kw">let </span>package_ident = PackageIdent::Named(NamedPackageIdent::from_str(<span class="kw-2">&amp;</span><span class="macro">format!</span>(
                 <span class="string">&quot;{}@{}&quot;</span>,
-                package.name, package.version
+                package
+                    .name
+                    .expect(<span class="string">&quot;Unnamed package was published as named&quot;</span>),
+                package
+                    .version
+                    .expect(<span class="string">&quot;Unversioned package was published as versioned&quot;</span>)
             ))<span class="question-mark">?</span>);
             <span class="macro">eprintln!</span>(<span class="string">&quot;Package published successfully&quot;</span>);
             <span class="comment">// println!(&quot;🚀 Successfully published package `{}`&quot;, package_ident);
@@ -914,8 +936,12 @@
     timeout: Duration,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;GetSignedUrlUrl, anyhow::Error&gt; {
     <span class="kw">let </span>get_google_signed_url = GetSignedUrl::build_query(get_signed_url::Variables {
-        name: package.as_ref().map(|p| p.name.to_string()),
-        version: package.as_ref().map(|p| p.version.to_string()),
+        name: package
+            .as_ref()
+            .and_then(|p| p.name.as_ref().map(|n| n.to_string())),
+        version: package
+            .as_ref()
+            .and_then(|p| p.version.as_ref().map(|v| v.to_string())),
         filename: <span class="kw">match </span>package {
             <span class="prelude-val">Some</span>(<span class="kw">_</span>) =&gt; <span class="prelude-val">None</span>,
             <span class="prelude-val">None </span>=&gt; <span class="prelude-val">Some</span>(<span class="macro">format!</span>(<span class="string">&quot;unnamed_package_{}&quot;</span>, rand::random::&lt;usize&gt;())),
@@ -933,7 +959,7 @@
     <span class="kw">let </span>url = _response.url.ok_or_else(|| <span class="kw">match </span>package {
         <span class="prelude-val">Some</span>(pkg) =&gt; {
             <span class="macro">anyhow::anyhow!</span>(
-                <span class="string">&quot;could not get signed url for package {}@{}&quot;</span>,
+                <span class="string">&quot;could not get signed url for package {:?}@{:?}&quot;</span>,
                 pkg.name,
                 pkg.version
             )

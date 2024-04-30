@@ -206,6 +206,10 @@
 <a href="#206" id="206">206</a>
 <a href="#207" id="207">207</a>
 <a href="#208" id="208">208</a>
+<a href="#209" id="209">209</a>
+<a href="#210" id="210">210</a>
+<a href="#211" id="211">211</a>
+<a href="#212" id="212">212</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::path::PathBuf;
 
 <span class="kw">use </span>anyhow::Context;
@@ -263,11 +267,15 @@
         <span class="kw">let </span>pkg = webc::wasmer_package::Package::from_manifest(manifest_path)<span class="question-mark">?</span>;
         <span class="kw">let </span>pkg_hash = PackageHash::from_sha256_bytes(pkg.webc_hash());
         <span class="kw">let </span>name = <span class="kw">if let </span><span class="prelude-val">Some</span>(manifest_pkg) = manifest.package {
-            <span class="macro">format!</span>(
-                <span class="string">&quot;{}-{}.webc&quot;</span>,
-                manifest_pkg.name.replace(<span class="string">&#39;/&#39;</span>, <span class="string">&quot;-&quot;</span>),
-                manifest_pkg.version
-            )
+            <span class="kw">if let </span><span class="prelude-val">Some</span>(name) = manifest_pkg.name {
+                <span class="kw">if let </span><span class="prelude-val">Some</span>(version) = manifest_pkg.version {
+                    <span class="macro">format!</span>(<span class="string">&quot;{}-{}.webc&quot;</span>, name.replace(<span class="string">&#39;/&#39;</span>, <span class="string">&quot;-&quot;</span>), version)
+                } <span class="kw">else </span>{
+                    <span class="macro">format!</span>(<span class="string">&quot;{}-{}.webc&quot;</span>, name.replace(<span class="string">&#39;/&#39;</span>, <span class="string">&quot;-&quot;</span>), pkg_hash)
+                }
+            } <span class="kw">else </span>{
+                <span class="macro">format!</span>(<span class="string">&quot;{}.webc&quot;</span>, pkg_hash)
+            }
         } <span class="kw">else </span>{
             <span class="macro">format!</span>(<span class="string">&quot;{}.webc&quot;</span>, pkg_hash)
         };

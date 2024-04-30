@@ -824,6 +824,11 @@
 <a href="#824" id="824">824</a>
 <a href="#825" id="825">825</a>
 <a href="#826" id="826">826</a>
+<a href="#827" id="827">827</a>
+<a href="#828" id="828">828</a>
+<a href="#829" id="829">829</a>
+<a href="#830" id="830">830</a>
+<a href="#831" id="831">831</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Create a new Edge app.
 
 </span><span class="kw">use crate</span>::{
@@ -1385,32 +1390,37 @@
                 </span>),
             };
 
-            <span class="kw">let </span>full = <span class="macro">format!</span>(<span class="string">&quot;{}@{}&quot;</span>, pkg.name, pkg.version);
-            <span class="kw">let </span><span class="kw-2">mut </span>pkg_ident = NamedPackageIdent::from_str(<span class="kw-2">&amp;</span>pkg.name)
-                .with_context(|| <span class="macro">format!</span>(<span class="string">&quot;local package manifest has invalid name: &#39;{full}&#39;&quot;</span>))<span class="question-mark">?</span>;
+            <span class="kw">if let </span>(<span class="prelude-val">Some</span>(name), <span class="prelude-val">Some</span>(version)) = (pkg.name, pkg.version) {
+                <span class="kw">let </span>full = <span class="macro">format!</span>(<span class="string">&quot;{}@{}&quot;</span>, name, version);
+                <span class="kw">let </span><span class="kw-2">mut </span>pkg_ident = NamedPackageIdent::from_str(<span class="kw-2">&amp;</span>name).with_context(|| {
+                    <span class="macro">format!</span>(<span class="string">&quot;local package manifest has invalid name: &#39;{full}&#39;&quot;</span>)
+                })<span class="question-mark">?</span>;
 
-            <span class="comment">// Pin the version.
-            </span>pkg_ident.tag = <span class="prelude-val">Some</span>(Tag::from_str(<span class="kw-2">&amp;</span>pkg.version.to_string()).unwrap());
+                <span class="comment">// Pin the version.
+                </span>pkg_ident.tag = <span class="prelude-val">Some</span>(Tag::from_str(<span class="kw-2">&amp;</span>version.to_string()).unwrap());
 
-            <span class="kw">if </span><span class="self">self</span>.interactive {
-                <span class="macro">eprintln!</span>(<span class="string">&quot;Found local package: &#39;{}&#39;&quot;</span>, full.green());
+                <span class="kw">if </span><span class="self">self</span>.interactive {
+                    <span class="macro">eprintln!</span>(<span class="string">&quot;Found local package: &#39;{}&#39;&quot;</span>, full.green());
 
-                <span class="kw">let </span>msg = <span class="macro">format!</span>(<span class="string">&quot;Use package &#39;{pkg_ident}&#39;&quot;</span>);
+                    <span class="kw">let </span>msg = <span class="macro">format!</span>(<span class="string">&quot;Use package &#39;{pkg_ident}&#39;&quot;</span>);
 
-                <span class="kw">let </span>theme = dialoguer::theme::ColorfulTheme::default();
-                <span class="kw">let </span>should_use = Confirm::with_theme(<span class="kw-2">&amp;</span>theme)
-                    .with_prompt(<span class="kw-2">&amp;</span>msg)
-                    .interact_opt()<span class="question-mark">?
-                    </span>.unwrap_or_default();
+                    <span class="kw">let </span>theme = dialoguer::theme::ColorfulTheme::default();
+                    <span class="kw">let </span>should_use = Confirm::with_theme(<span class="kw-2">&amp;</span>theme)
+                        .with_prompt(<span class="kw-2">&amp;</span>msg)
+                        .interact_opt()<span class="question-mark">?
+                        </span>.unwrap_or_default();
 
-                <span class="kw">if </span>should_use {
-                    <span class="prelude-val">Some</span>(pkg_ident)
+                    <span class="kw">if </span>should_use {
+                        <span class="prelude-val">Some</span>(pkg_ident)
+                    } <span class="kw">else </span>{
+                        <span class="prelude-val">None
+                    </span>}
                 } <span class="kw">else </span>{
-                    <span class="prelude-val">None
-                </span>}
+                    <span class="prelude-val">Some</span>(pkg_ident)
+                }
             } <span class="kw">else </span>{
-                <span class="prelude-val">Some</span>(pkg_ident)
-            }
+                <span class="prelude-val">None
+            </span>}
         } <span class="kw">else </span>{
             <span class="prelude-val">None
         </span>};
