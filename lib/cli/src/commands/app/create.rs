@@ -559,31 +559,36 @@ impl AppCreator {
                 ),
             };
 
-            let full = format!("{}@{}", pkg.name, pkg.version);
-            let mut pkg_ident = NamedPackageIdent::from_str(&pkg.name)
-                .with_context(|| format!("local package manifest has invalid name: '{full}'"))?;
+            if let (Some(name), Some(version)) = (pkg.name, pkg.version) {
+                let full = format!("{}@{}", name, version);
+                let mut pkg_ident = NamedPackageIdent::from_str(&name).with_context(|| {
+                    format!("local package manifest has invalid name: '{full}'")
+                })?;
 
-            // Pin the version.
-            pkg_ident.tag = Some(Tag::from_str(&pkg.version.to_string()).unwrap());
+                // Pin the version.
+                pkg_ident.tag = Some(Tag::from_str(&version.to_string()).unwrap());
 
-            if self.interactive {
-                eprintln!("Found local package: '{}'", full.green());
+                if self.interactive {
+                    eprintln!("Found local package: '{}'", full.green());
 
-                let msg = format!("Use package '{pkg_ident}'");
+                    let msg = format!("Use package '{pkg_ident}'");
 
-                let theme = dialoguer::theme::ColorfulTheme::default();
-                let should_use = Confirm::with_theme(&theme)
-                    .with_prompt(&msg)
-                    .interact_opt()?
-                    .unwrap_or_default();
+                    let theme = dialoguer::theme::ColorfulTheme::default();
+                    let should_use = Confirm::with_theme(&theme)
+                        .with_prompt(&msg)
+                        .interact_opt()?
+                        .unwrap_or_default();
 
-                if should_use {
-                    Some(pkg_ident)
+                    if should_use {
+                        Some(pkg_ident)
+                    } else {
+                        None
+                    }
                 } else {
-                    None
+                    Some(pkg_ident)
                 }
             } else {
-                Some(pkg_ident)
+                None
             }
         } else {
             None

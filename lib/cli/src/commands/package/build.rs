@@ -55,11 +55,15 @@ impl PackageBuild {
         let pkg = webc::wasmer_package::Package::from_manifest(manifest_path)?;
         let pkg_hash = PackageHash::from_sha256_bytes(pkg.webc_hash());
         let name = if let Some(manifest_pkg) = manifest.package {
-            format!(
-                "{}-{}.webc",
-                manifest_pkg.name.replace('/', "-"),
-                manifest_pkg.version
-            )
+            if let Some(name) = manifest_pkg.name {
+                if let Some(version) = manifest_pkg.version {
+                    format!("{}-{}.webc", name.replace('/', "-"), version)
+                } else {
+                    format!("{}-{}.webc", name.replace('/', "-"), pkg_hash)
+                }
+            } else {
+                format!("{}.webc", pkg_hash)
+            }
         } else {
             format!("{}.webc", pkg_hash)
         };

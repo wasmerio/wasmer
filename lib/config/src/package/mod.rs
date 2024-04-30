@@ -113,13 +113,14 @@ const LICENSE_PATHS: &[&str; 3] = &["LICENSE", "LICENSE.md", "COPYING"];
 #[non_exhaustive]
 pub struct Package {
     /// The package's name in the form `namespace/name`.
-    #[builder(setter(into))]
-    pub name: String,
+    #[builder(setter(into, strip_option), default)]
+    pub name: Option<String>,
     /// The package's version number.
-    pub version: Version,
+    #[builder(setter(into, strip_option), default)]
+    pub version: Option<Version>,
     /// A brief description of the package.
-    #[builder(setter(into))]
-    pub description: String,
+    #[builder(setter(into, strip_option), default)]
+    pub description: Option<String>,
     /// A SPDX license specifier for this package.
     #[builder(setter(into, strip_option), default)]
     pub license: Option<String>,
@@ -975,9 +976,9 @@ mod tests {
     fn test_to_string() {
         Manifest {
             package: Some(Package {
-                name: "package/name".to_string(),
-                version: Version::parse("1.0.0").unwrap(),
-                description: "test".to_string(),
+                name: Some("package/name".to_string()),
+                version: Some(Version::parse("1.0.0").unwrap()),
+                description: Some("test".to_string()),
                 license: None,
                 license_file: None,
                 readme: None,
