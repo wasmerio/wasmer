@@ -121,7 +121,6 @@ impl<'a> WasiTest<'a> {
             wasm_module.read_to_end(&mut out)?;
             out
         };
-        // FIXME: Amin?
         let module_hash = ModuleHash::xxhash(&wasm_bytes);
 
         let module = Module::new(store, wasm_bytes)?;
