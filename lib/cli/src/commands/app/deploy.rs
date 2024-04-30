@@ -327,58 +327,73 @@ impl AsyncCliCommand for CmdAppDeploy {
 
                 if let Ok(Some((manifest_path, manifest))) = load_package_manifest(&base_dir_path) {
                     if let Some(package) = &manifest.package {
-                        if package.name == n.full_name() {
-                            eprintln!(
-                                "Found local package (manifest path: {}).",
-                                manifest_path.display()
-                            );
-                            eprintln!("The `package` field in `app.yaml` specified the same named package ({}).", package.name);
-                            eprintln!("This behaviour is deprecated.");
-                            let theme = dialoguer::theme::ColorfulTheme::default();
-                            if self.non_interactive {
-                                eprintln!("Hint: replace `package: {}` with `package: .` to replicate the intended behaviour.", n);
-                                anyhow::bail!("deprecated deploy behaviour")
-                            } else if Confirm::with_theme(&theme)
-                                .with_prompt("Change package to '.' in app.yaml?")
-                                .interact()?
-                            {
-                                app_config.package = PackageSource::Path(String::from("."));
-                                // We have to write it right now.
-                                let new_config_raw = serde_yaml::to_string(&app_config)?;
-                                std::fs::write(&app_config_path, new_config_raw).with_context(
-                                    || {
-                                        format!(
-                                            "Could not write file: '{}'",
-                                            app_config_path.display()
-                                        )
-                                    },
-                                )?;
-
-                                log::info!(
-                                    "Using package {} ({})",
-                                    app_config.package,
-                                    n.full_name()
-                                );
-
-                                let package_id = self.publish(owner.clone(), manifest_path).await?;
-
-                                app_config.package = package_id.into();
-
-                                DeployAppOpts {
-                                    app: &app_config,
-                                    original_config: Some(
-                                        app_config.clone().to_yaml_value().unwrap(),
-                                    ),
-                                    allow_create: true,
-                                    make_default: !self.no_default,
-                                    owner: Some(owner),
-                                    wait,
-                                }
-                            } else {
+                        if let Some(name) = &package.name {
+                            if name == &n.full_name() {
                                 eprintln!(
+                                    "Found local package (manifest path: {}).",
+                                    manifest_path.display()
+                                );
+                                eprintln!("The `package` field in `app.yaml` specified the same named package ({}).", name);
+                                eprintln!("This behaviour is deprecated.");
+
+                                let theme = dialoguer::theme::ColorfulTheme::default();
+                                if self.non_interactive {
+                                    eprintln!("Hint: replace `package: {}` with `package: .` to replicate the intended behaviour.", n);
+                                    anyhow::bail!("deprecated deploy behaviour")
+                                } else if Confirm::with_theme(&theme)
+                                    .with_prompt("Change package to '.' in app.yaml?")
+                                    .interact()?
+                                {
+                                    app_config.package = PackageSource::Path(String::from("."));
+                                    // We have to write it right now.
+                                    let new_config_raw = serde_yaml::to_string(&app_config)?;
+                                    std::fs::write(&app_config_path, new_config_raw).with_context(
+                                        || {
+                                            format!(
+                                                "Could not write file: '{}'",
+                                                app_config_path.display()
+                                            )
+                                        },
+                                    )?;
+
+                                    log::info!(
+                                        "Using package {} ({})",
+                                        app_config.package,
+                                        n.full_name()
+                                    );
+
+                                    let package_id =
+                                        self.publish(owner.clone(), manifest_path).await?;
+
+                                    app_config.package = package_id.into();
+
+                                    DeployAppOpts {
+                                        app: &app_config,
+                                        original_config: Some(
+                                            app_config.clone().to_yaml_value().unwrap(),
+                                        ),
+                                        allow_create: true,
+                                        make_default: !self.no_default,
+                                        owner: Some(owner),
+                                        wait,
+                                    }
+                                } else {
+                                    eprintln!(
                                         "{}: the package will not be published and the deployment will fail if the package does not already exist.",
                                         "Warning".yellow().bold()
                                     );
+                                    DeployAppOpts {
+                                        app: &app_config,
+                                        original_config: Some(
+                                            app_config.clone().to_yaml_value().unwrap(),
+                                        ),
+                                        allow_create: true,
+                                        make_default: !self.no_default,
+                                        owner: Some(owner),
+                                        wait,
+                                    }
+                                }
+                            } else {
                                 DeployAppOpts {
                                     app: &app_config,
                                     original_config: Some(

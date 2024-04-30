@@ -123,51 +123,54 @@ impl AsyncCliCommand for Publish {
         let mut version = self.version.clone();
 
         if let Some(ref mut pkg) = manifest.package {
-            let mut latest_version = {
-                let v = wasmer_api::query::get_package_version(
-                    &client,
-                    pkg.name.clone(),
-                    "latest".into(),
-                )
-                .await?;
-                if let Some(v) = v {
-                    semver::Version::parse(&v.version)
-                        .with_context(|| "While parsing registry version of package")?
-                } else {
-                    pkg.version.clone()
-                }
-            };
+            if let (Some(pkg_name), Some(pkg_version)) = (&pkg.name, &pkg.version) {
+                let pkg_name = pkg_name.clone();
+                let pkg_version = pkg_version.clone();
 
-            if pkg.version < latest_version {
-                if self.bump {
-                    latest_version.patch += 1;
-                    version = Some(latest_version);
-                } else if interactive {
-                    latest_version.patch += 1;
-                    let theme = dialoguer::theme::ColorfulTheme::default();
-                    if Confirm::with_theme(&theme)
-                        .with_prompt(format!(
-                            "Do you want to bump the package to a new version? ({} -> {})",
-                            pkg.version, latest_version
-                        ))
-                        .interact()
-                        .unwrap_or_default()
-                    {
-                        version = Some(latest_version);
+                let mut latest_version = {
+                    let v = wasmer_api::query::get_package_version(
+                        &client,
+                        pkg_name.clone(),
+                        "latest".into(),
+                    )
+                    .await?;
+                    if let Some(v) = v {
+                        semver::Version::parse(&v.version)
+                            .with_context(|| "While parsing registry version of package")?
+                    } else {
+                        pkg_version.clone()
                     }
-                } else if latest_version > pkg.version {
-                    eprintln!("Registry has a newer version of this package.");
-                    eprintln!(
-                        "If a package with version {} already exists, publishing will fail.",
-                        pkg.version
-                    );
-                }
-            }
+                };
 
-            // If necessary, update the manifest.
-            if let Some(version) = version.clone() {
+                if pkg_version < latest_version {
+                    if self.bump {
+                        latest_version.patch += 1;
+                        version = Some(latest_version);
+                    } else if interactive {
+                        latest_version.patch += 1;
+                        let theme = dialoguer::theme::ColorfulTheme::default();
+                        if Confirm::with_theme(&theme)
+                            .with_prompt(format!(
+                                "Do you want to bump the package to a new version? ({} -> {})",
+                                pkg_version, latest_version
+                            ))
+                            .interact()
+                            .unwrap_or_default()
+                        {
+                            pkg.version = Some(latest_version);
+                        }
+                    } else if latest_version > pkg_version {
+                        eprintln!("Registry has a newer version of this package.");
+                        eprintln!(
+                            "If a package with version {} already exists, publishing will fail.",
+                            pkg_version
+                        );
+                    }
+                }
+
+                // If necessary, update the manifest.
                 if version != pkg.version {
-                    pkg.version = version;
+                    pkg.version = version.clone();
 
                     let contents = toml::to_string(&manifest).with_context(|| {
                         format!(
