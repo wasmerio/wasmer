@@ -45,8 +45,6 @@ pub use self::{
     types::{CacheError, ModuleCache, ModuleHash},
 };
 
-pub(crate) use self::types::hash_from_signature;
-
 #[cfg(feature = "sys-thread")]
 pub use self::filesystem::FileSystemCache;
 
