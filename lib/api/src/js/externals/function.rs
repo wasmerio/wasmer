@@ -60,7 +60,7 @@ impl Function {
     }
 
     #[allow(clippy::cast_ptr_alignment)]
-    pub fn new_with_env<FT, F, T: Send + 'static>(
+    pub fn new_with_env<FT, F, T: 'static>(
         store: &mut impl AsStoreMut,
         env: &FunctionEnv<T>,
         ty: FT,
@@ -312,8 +312,6 @@ pub struct WasmFunction<Args = (), Rets = ()> {
     _phantom: PhantomData<(Args, Rets)>,
 }
 
-unsafe impl<Args, Rets> Send for WasmFunction<Args, Rets> {}
-
 impl<Args, Rets> WasmFunction<Args, Rets>
 where
     Args: WasmTypeList,
@@ -361,7 +359,7 @@ macro_rules! impl_host_function {
                 $( $x: FromToNativeWasmType, )*
                 Rets: WasmTypeList,
                 RetsAsResult: IntoResult<Rets>,
-                T: Send + 'static,
+                T: 'static,
                 Func: Fn(FunctionEnvMut<'_, T>, $( $x , )*) -> RetsAsResult + 'static,
             {
                 #[allow(non_snake_case)]
@@ -374,7 +372,7 @@ macro_rules! impl_host_function {
                         $( $x: FromToNativeWasmType, )*
                         Rets: WasmTypeList,
                         RetsAsResult: IntoResult<Rets>,
-                        T: Send + 'static,
+                        T: 'static,
                         Func: Fn(FunctionEnvMut<'_, T>, $( $x , )*) -> RetsAsResult + 'static,
                     {
                         let mut store = StoreMut::from_raw(store_ptr as *mut _);
