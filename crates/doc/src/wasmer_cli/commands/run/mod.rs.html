@@ -1679,7 +1679,7 @@
 
                 <span class="prelude-val">Ok</span>(ExecutableTarget::WebAssembly {
                     module,
-                    module_hash: ModuleHash::hash(<span class="kw-2">&amp;</span>wasm),
+                    module_hash: ModuleHash::xxhash(<span class="kw-2">&amp;</span>wasm),
                     path: path.to_path_buf(),
                 })
             }
@@ -1689,7 +1689,7 @@
                 <span class="kw">let </span>module = <span class="kw">unsafe </span>{ Module::deserialize_from_file(<span class="kw-2">&amp;</span>engine, path)<span class="question-mark">? </span>};
                 <span class="kw">let </span>module_hash = {
                     <span class="kw">let </span>wasm = std::fs::read(path)<span class="question-mark">?</span>;
-                    ModuleHash::hash(wasm)
+                    ModuleHash::xxhash(wasm)
                 };
 
                 <span class="prelude-val">Ok</span>(ExecutableTarget::WebAssembly {

@@ -496,7 +496,7 @@
             enable_exponential_cpu_backoff: <span class="prelude-val">None</span>,
         });
 
-        <span class="kw">let </span>p1 = p.new_process(ModuleHash::random()).unwrap();
+        <span class="kw">let </span>p1 = p.new_process(ModuleHash::xxhash_random()).unwrap();
         <span class="kw">let </span>_t1 = p1
             .new_thread(WasiMemoryLayout::default(), ThreadStartType::MainThread)
             .unwrap();
@@ -505,7 +505,7 @@
             .unwrap();
 
         <span class="macro">assert_eq!</span>(
-            p.new_process(ModuleHash::random()).unwrap_err(),
+            p.new_process(ModuleHash::xxhash_random()).unwrap_err(),
             ControlPlaneError::TaskLimitReached { max: <span class="number">2 </span>}
         );
     }
@@ -519,7 +519,7 @@
             enable_exponential_cpu_backoff: <span class="prelude-val">None</span>,
         });
 
-        <span class="kw">let </span>p1 = p.new_process(ModuleHash::random()).unwrap();
+        <span class="kw">let </span>p1 = p.new_process(ModuleHash::xxhash_random()).unwrap();
 
         <span class="kw">for _ in </span><span class="number">0</span>..<span class="number">10 </span>{
             <span class="kw">let </span>_thread = p1
@@ -535,7 +535,7 @@
             .unwrap();
 
         <span class="macro">assert_eq!</span>(
-            p.new_process(ModuleHash::random()).unwrap_err(),
+            p.new_process(ModuleHash::xxhash_random()).unwrap_err(),
             ControlPlaneError::TaskLimitReached { max: <span class="number">2 </span>}
         );
     }

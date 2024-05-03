@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":["CacheError"],"struct":["ModuleHash"],"trait":["ModuleCache"]};
+window.SIDEBAR_ITEMS = {"enum":["CacheError","ModuleHash"],"trait":["ModuleCache"]};

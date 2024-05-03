@@ -1823,7 +1823,7 @@
         <span class="prelude-val">Ok</span>(<span class="kw">match </span>value {
             ArchivedJournalEntry::InitModuleV1(ArchivedJournalEntryInitModuleV1 { wasm_hash }) =&gt; {
                 <span class="self">Self</span>::InitModuleV1 {
-                    wasm_hash: <span class="kw-2">*</span>wasm_hash,
+                    wasm_hash: Box::from(wasm_hash.get()),
                 }
             }
             ArchivedJournalEntry::ClearEtherealV1(ArchivedJournalEntryClearEtherealV1 {

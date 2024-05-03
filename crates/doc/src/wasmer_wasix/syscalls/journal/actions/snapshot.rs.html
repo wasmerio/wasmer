@@ -63,11 +63,11 @@
         // in a clean state)
         </span><span class="kw">let </span><span class="kw-2">mut </span>clear_ethereal = <span class="bool-val">false</span>;
         <span class="kw">if </span><span class="self">self</span>.journal_module_hash.is_some()
-            &amp;&amp; <span class="prelude-val">Some</span>(<span class="self">self</span>.cur_module_hash) != <span class="self">self</span>.journal_module_hash
+            &amp;&amp; <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span><span class="self">self</span>.cur_module_hash) != <span class="self">self</span>.journal_module_hash.as_ref()
         {
             <span class="macro">tracing::error!</span>(
                 <span class="string">&quot;The WASM module hash does not match the journal module hash (journal_hash={:x?} vs module_hash{:x?}) - forcing a restart&quot;</span>,
-                <span class="self">self</span>.journal_module_hash.unwrap(),
+                <span class="self">self</span>.journal_module_hash.as_ref().unwrap(),
                 <span class="self">self</span>.cur_module_hash
             );
             <span class="self">self</span>.clear_ethereal(differ_ethereal);

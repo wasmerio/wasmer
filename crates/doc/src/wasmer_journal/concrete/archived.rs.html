@@ -2755,7 +2755,7 @@
 #[derive(Debug, Clone, RkyvSerialize, RkyvDeserialize, Archive)]
 #[archive_attr(derive(CheckBytes), repr(align(<span class="number">8</span>)))]
 </span><span class="kw">pub struct </span>JournalEntryInitModuleV1 {
-    <span class="kw">pub </span>wasm_hash: [u8; <span class="number">8</span>],
+    <span class="kw">pub </span>wasm_hash: Box&lt;[u8]&gt;,
 }
 
 <span class="attr">#[repr(C)]

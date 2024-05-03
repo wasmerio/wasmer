@@ -109,9 +109,9 @@
     <span class="kw">pub </span>ctx: FunctionEnvMut&lt;<span class="lifetime">&#39;c</span>, WasiEnv&gt;,
     <span class="kw">pub </span>bootstrapping: bool,
 
-    <span class="kw">pub </span>journal_module_hash: <span class="prelude-ty">Option</span>&lt;[u8; <span class="number">8</span>]&gt;,
+    <span class="kw">pub </span>journal_module_hash: <span class="prelude-ty">Option</span>&lt;Box&lt;[u8]&gt;&gt;,
     <span class="kw">pub </span>rewind: <span class="prelude-ty">Option</span>&lt;RewindState&gt;,
-    <span class="kw">pub </span>cur_module_hash: [u8; <span class="number">8</span>],
+    <span class="kw">pub </span>cur_module_hash: Box&lt;[u8]&gt;,
     <span class="kw">pub </span>real_fd: HashSet&lt;WasiFd&gt;,
 
     <span class="comment">// We delay the spawning of threads until the end as its
@@ -130,7 +130,7 @@
 
 <span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>, <span class="lifetime">&#39;c</span>&gt; JournalSyscallPlayer&lt;<span class="lifetime">&#39;a</span>, <span class="lifetime">&#39;c</span>&gt; {
     <span class="kw">pub fn </span>new(<span class="kw-2">mut </span>ctx: FunctionEnvMut&lt;<span class="lifetime">&#39;c</span>, WasiEnv&gt;, bootstrapping: bool) -&gt; <span class="self">Self </span>{
-        <span class="kw">let </span>cur_module_hash: [u8; <span class="number">8</span>] = ctx.data().process.module_hash.as_bytes();
+        <span class="kw">let </span>cur_module_hash: Box&lt;[u8]&gt; = Box::from(ctx.data().process.module_hash.as_bytes());
         <span class="kw">let </span><span class="kw-2">mut </span>ret = JournalSyscallPlayer {
             ctx,
             bootstrapping,

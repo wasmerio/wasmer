@@ -603,7 +603,7 @@
                 <span class="comment">// The first event we save is an event that records the module hash.
                 // Note: This is used to detect if an incorrect journal is used on the wrong
                 // process or if a process has been recompiled
-                </span><span class="kw">let </span>wasm_hash = <span class="self">self</span>.data(<span class="kw-2">&amp;</span>store).process.module_hash.as_bytes();
+                </span><span class="kw">let </span>wasm_hash = Box::from(<span class="self">self</span>.data(<span class="kw-2">&amp;</span>store).process.module_hash.as_bytes());
                 <span class="kw">let </span><span class="kw-2">mut </span>ctx = <span class="self">self</span>.env.clone().into_mut(<span class="kw-2">&amp;mut </span>store);
                 <span class="kw">crate</span>::journal::JournalEffector::save_event(
                     <span class="kw-2">&amp;mut </span>ctx,

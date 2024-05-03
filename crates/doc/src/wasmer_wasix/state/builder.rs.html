@@ -2171,7 +2171,7 @@
 
     <span class="attr">#[allow(clippy::result_large_err)]
     </span><span class="kw">pub fn </span>build(<span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;WasiEnv, WasiRuntimeError&gt; {
-        <span class="kw">let </span>module_hash = <span class="self">self</span>.module_hash.unwrap_or_else(ModuleHash::random);
+        <span class="kw">let </span>module_hash = <span class="self">self</span>.module_hash.unwrap_or_else(ModuleHash::xxhash_random);
         <span class="kw">let </span>init = <span class="self">self</span>.build_init()<span class="question-mark">?</span>;
         WasiEnv::from_init(init, module_hash)
     }
@@ -2186,7 +2186,7 @@
         <span class="self">self</span>,
         store: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>AsStoreMut,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;WasiFunctionEnv, WasiRuntimeError&gt; {
-        <span class="kw">let </span>module_hash = <span class="self">self</span>.module_hash.unwrap_or_else(ModuleHash::random);
+        <span class="kw">let </span>module_hash = <span class="self">self</span>.module_hash.unwrap_or_else(ModuleHash::xxhash_random);
         <span class="kw">let </span>init = <span class="self">self</span>.build_init()<span class="question-mark">?</span>;
         <span class="kw">let </span>env = WasiEnv::from_init(init, module_hash)<span class="question-mark">?</span>;
         <span class="kw">let </span>func_env = WasiFunctionEnv::new(store, env);
@@ -2204,7 +2204,7 @@
         module: Module,
         store: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>AsStoreMut,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(Instance, WasiFunctionEnv), WasiRuntimeError&gt; {
-        <span class="self">self</span>.instantiate_ext(module, ModuleHash::random(), store)
+        <span class="self">self</span>.instantiate_ext(module, ModuleHash::xxhash_random(), store)
     }
 
     <span class="attr">#[allow(clippy::result_large_err)]
@@ -2220,7 +2220,7 @@
 
     <span class="attr">#[allow(clippy::result_large_err)]
     </span><span class="kw">pub fn </span>run(<span class="self">self</span>, module: Module) -&gt; <span class="prelude-ty">Result</span>&lt;(), WasiRuntimeError&gt; {
-        <span class="self">self</span>.run_ext(module, ModuleHash::random())
+        <span class="self">self</span>.run_ext(module, ModuleHash::xxhash_random())
     }
 
     <span class="attr">#[allow(clippy::result_large_err)]
@@ -2232,7 +2232,7 @@
     <span class="attr">#[allow(clippy::result_large_err)]
     #[tracing::instrument(level = <span class="string">&quot;debug&quot;</span>, skip_all)]
     </span><span class="kw">pub fn </span>run_with_store(<span class="self">self</span>, module: Module, store: <span class="kw-2">&amp;mut </span>Store) -&gt; <span class="prelude-ty">Result</span>&lt;(), WasiRuntimeError&gt; {
-        <span class="self">self</span>.run_with_store_ext(module, ModuleHash::random(), store)
+        <span class="self">self</span>.run_with_store_ext(module, ModuleHash::xxhash_random(), store)
     }
 
     <span class="attr">#[allow(clippy::result_large_err)]

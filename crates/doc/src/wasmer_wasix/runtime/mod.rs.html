@@ -676,7 +676,7 @@
     </span><span class="kw">fn </span>load_module&lt;<span class="lifetime">&#39;a</span>&gt;(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="self">self</span>, wasm: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>[u8]) -&gt; BoxFuture&lt;<span class="lifetime">&#39;a</span>, <span class="prelude-ty">Result</span>&lt;Module, SpawnError&gt;&gt; {
         <span class="kw">let </span>engine = <span class="self">self</span>.engine();
         <span class="kw">let </span>module_cache = <span class="self">self</span>.module_cache();
-        <span class="kw">let </span>hash = ModuleHash::hash(wasm);
+        <span class="kw">let </span>hash = ModuleHash::xxhash(wasm);
 
         <span class="kw">let </span>task = <span class="kw">async move </span>{ load_module(<span class="kw-2">&amp;</span>engine, <span class="kw-2">&amp;</span>module_cache, wasm, hash).<span class="kw">await </span>};
 
@@ -1125,7 +1125,7 @@
         <span class="kw">if </span><span class="self">self</span>.engine.is_some() || <span class="self">self</span>.module_cache.is_some() {
             <span class="kw">let </span>engine = <span class="self">self</span>.engine();
             <span class="kw">let </span>module_cache = <span class="self">self</span>.module_cache();
-            <span class="kw">let </span>hash = ModuleHash::hash(wasm);
+            <span class="kw">let </span>hash = ModuleHash::xxhash(wasm);
 
             <span class="kw">let </span>task = <span class="kw">async move </span>{ load_module(<span class="kw-2">&amp;</span>engine, <span class="kw-2">&amp;</span>module_cache, wasm, hash).<span class="kw">await </span>};
             Box::pin(task)

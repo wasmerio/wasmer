@@ -876,7 +876,7 @@
 #[serde(rename_all = <span class="string">&quot;snake_case&quot;</span>)]
 </span><span class="kw">pub enum </span>JournalEntry&lt;<span class="lifetime">&#39;a</span>&gt; {
     InitModuleV1 {
-        wasm_hash: [u8; <span class="number">8</span>],
+        wasm_hash: Box&lt;[u8]&gt;,
     },
     ClearEtherealV1,
     UpdateMemoryRegionV1 {

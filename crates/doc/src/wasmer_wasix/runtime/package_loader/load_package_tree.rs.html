@@ -588,6 +588,15 @@
 <a href="#588" id="588">588</a>
 <a href="#589" id="589">589</a>
 <a href="#590" id="590">590</a>
+<a href="#591" id="591">591</a>
+<a href="#592" id="592">592</a>
+<a href="#593" id="593">593</a>
+<a href="#594" id="594">594</a>
+<a href="#595" id="595">595</a>
+<a href="#596" id="596">596</a>
+<a href="#597" id="597">597</a>
+<a href="#598" id="598">598</a>
+<a href="#599" id="599">599</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{
     collections::{BTreeMap, HashMap, HashSet},
     fmt::Debug,
@@ -744,8 +753,10 @@
 
     <span class="kw">if </span>atom.is_none() &amp;&amp; cmd.annotations.is_empty() {
         <span class="macro">tracing::info!</span>(<span class="string">&quot;applying legacy atom hack&quot;</span>);
-        <span class="kw">return </span><span class="prelude-val">Ok</span>(legacy_atom_hack(webc, command_name, cmd));
+        <span class="kw">return </span>legacy_atom_hack(webc, command_name, cmd);
     }
+
+    <span class="kw">let </span>hash = webc.manifest().atom_signature(<span class="kw-2">&amp;</span>atom_name)<span class="question-mark">?</span>.into();
 
     <span class="kw">let </span>atom = atom.with_context(|| {
 
@@ -763,7 +774,7 @@
         </span>)
     })<span class="question-mark">?</span>;
 
-    <span class="kw">let </span>cmd = BinaryPackageCommand::new(command_name.to_string(), cmd.clone(), atom);
+    <span class="kw">let </span>cmd = BinaryPackageCommand::new(command_name.to_string(), cmd.clone(), atom, hash);
 
     <span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(cmd))
 }
@@ -812,8 +823,12 @@
     webc: <span class="kw-2">&amp;</span>Container,
     command_name: <span class="kw-2">&amp;</span>str,
     metadata: <span class="kw-2">&amp;</span>webc::metadata::Command,
-) -&gt; <span class="prelude-ty">Option</span>&lt;BinaryPackageCommand&gt; {
-    <span class="kw">let </span>(name, atom) = webc.atoms().into_iter().next()<span class="question-mark">?</span>;
+) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;BinaryPackageCommand&gt;, anyhow::Error&gt; {
+    <span class="kw">let </span>(name, atom) = webc
+        .atoms()
+        .into_iter()
+        .next()
+        .ok_or_else(|| anyhow::Error::msg(<span class="string">&quot;container does not have any atom&quot;</span>))<span class="question-mark">?</span>;
 
     <span class="macro">tracing::debug!</span>(
         command_name,
@@ -822,11 +837,14 @@
         <span class="string">&quot;(hack) The command metadata is malformed. Falling back to the first atom in the WEBC file&quot;</span>,
     );
 
-    <span class="prelude-val">Some</span>(BinaryPackageCommand::new(
+    <span class="kw">let </span>hash = webc.manifest().atom_signature(<span class="kw-2">&amp;</span>name)<span class="question-mark">?</span>.into();
+
+    <span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(BinaryPackageCommand::new(
         command_name.to_string(),
         metadata.clone(),
         atom,
-    ))
+        hash,
+    )))
 }
 
 <span class="kw">async fn </span>fetch_dependencies(
