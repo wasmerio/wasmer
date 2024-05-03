@@ -5603,7 +5603,7 @@ version = "1.6.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "97fee6b57c6a41524a810daee9286c02d7752c4253064d0b05472833a438f675"
 dependencies = [
- "cfg-if 0.1.10",
+ "cfg-if 1.0.0",
  "static_assertions",
 ]
 
@@ -7145,9 +7145,9 @@ dependencies = [
 
 [[package]]
 name = "webc"
-version = "6.0.0-alpha3"
+version = "6.0.0-alpha5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c544aa307af3ad0326ae962a1715400c6c456e91e45bb2c2d860fdccc128be3c"
+checksum = "c10e8cca5fe3a8f85803e8cf67bb4f166c9fb326d4581c26a1a48e22f7922762"
 dependencies = [
  "anyhow",
  "base64 0.21.7",
@@ -7160,6 +7160,7 @@ dependencies = [
  "indexmap 1.9.3",
  "leb128",
  "lexical-sort",
+ "libc",
  "once_cell",
  "path-clean",
  "rand",
