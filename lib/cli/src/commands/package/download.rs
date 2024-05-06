@@ -138,7 +138,17 @@ impl PackageDownload {
             PackageSource::Url(url) => bail!("cannot download a package from a URL: '{}'", url),
         };
 
-        let client = reqwest::blocking::Client::new();
+        let client = {
+            let mut builder = reqwest::blocking::ClientBuilder::new();
+
+            let proxy = std::env::var("http_proxy").or_else(|_| std::env::var("HTTP_PROXY"));
+            if let Ok(scheme) = proxy {
+                builder = builder.proxy(reqwest::Proxy::all(scheme)?);
+            }
+
+            builder.build().context("Could not create reqwest client")?
+        };
+
         let mut b = client
             .get(download_url)
             .header(http::header::ACCEPT, "application/webc");
