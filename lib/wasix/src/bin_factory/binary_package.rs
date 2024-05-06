@@ -1,8 +1,9 @@
-use std::sync::Arc;
+use std::{os::unix::ffi::OsStrExt, path::Path, sync::Arc};
 
 use anyhow::Context;
 use derivative::*;
 use once_cell::sync::OnceCell;
+use sha2::Digest;
 use virtual_fs::FileSystem;
 use wasmer_config::package::{PackageHash, PackageId, PackageSource};
 use webc::{compat::SharedBytes, Container};
@@ -79,6 +80,36 @@ pub struct BinaryPackage {
 }
 
 impl BinaryPackage {
+    #[tracing::instrument(level = "debug", skip_all)]
+    pub async fn from_dir(
+        dir: &Path,
+        rt: &(dyn Runtime + Send + Sync),
+    ) -> Result<Self, anyhow::Error> {
+        let source = rt.source();
+
+        // since each package must be in its own directory, hash of the `dir` should provide a good enough
+        // unique identifier for the package
+        let hash = sha2::Sha256::digest(dir.as_os_str().as_bytes()).into();
+        let id = PackageId::Hash(PackageHash::from_sha256_bytes(hash));
+
+        let manifest_path = dir.join("wasmer.toml");
+        let webc = webc::wasmer_package::Package::from_manifest(manifest_path)?;
+        let container = Container::from(webc);
+        let manifest = container.manifest();
+
+        let root = PackageInfo::from_manifest(id, manifest, container.version())?;
+        let root_id = root.id.clone();
+
+        let resolution = crate::runtime::resolver::resolve(&root_id, &root, &*source).await?;
+        let pkg = rt
+            .package_loader()
+            .load_package_tree(&container, &resolution)
+            .await
+            .map_err(|e| anyhow::anyhow!(e))?;
+
+        Ok(pkg)
+    }
+
     /// Load a [`webc::Container`] and all its dependencies into a
     /// [`BinaryPackage`].
     #[tracing::instrument(level = "debug", skip_all)]
