@@ -120,11 +120,13 @@ impl BinaryPackage {
         let source = rt.source();
 
         let manifest = container.manifest();
-        let id = PackageInfo::package_id_from_manifest(manifest)?.unwrap_or_else(|| {
-            PackageId::Hash(PackageHash::from_sha256_bytes(
-                container.webc_hash().unwrap(),
-            ))
-        });
+        let id = PackageInfo::package_id_from_manifest(manifest)?
+            .or_else(|| {
+                container
+                    .webc_hash()
+                    .map(|hash| PackageId::Hash(PackageHash::from_sha256_bytes(hash)))
+            })
+            .ok_or_else(|| anyhow::Error::msg("webc file did not provide its hash"))?;
 
         let root = PackageInfo::from_manifest(id, manifest, container.version())?;
         let root_id = root.id.clone();
