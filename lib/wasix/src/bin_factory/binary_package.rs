@@ -237,9 +237,6 @@ mod tests {
         std::fs::create_dir_all(&out).unwrap();
         let file_txt = "Hello, World!";
         std::fs::write(out.join("file.txt"), file_txt).unwrap();
-        let webc: Container = webc::wasmer_package::Package::from_manifest(manifest)
-            .unwrap()
-            .into();
         let tasks = task_manager();
         let mut runtime = PluggableRuntime::new(tasks);
         runtime.set_package_loader(
@@ -247,7 +244,9 @@ mod tests {
                 .with_shared_http_client(runtime.http_client().unwrap().clone()),
         );
 
-        let pkg = BinaryPackage::from_webc(&webc, &runtime).await.unwrap();
+        let pkg = BinaryPackage::from_dir(&temp.path(), &runtime)
+            .await
+            .unwrap();
 
         // We should have mapped "./out/file.txt" on the host to
         // "/public/file.txt" on the guest.
@@ -290,7 +289,7 @@ mod tests {
         let atom_path = temp.path().join("foo.wasm");
         std::fs::write(&atom_path, b"").unwrap();
 
-        let webc: Container = webc::wasmer_package::Package::from_manifest(manifest)
+        let webc: Container = webc::wasmer_package::Package::from_manifest(&manifest)
             .unwrap()
             .into();
 
@@ -301,7 +300,9 @@ mod tests {
                 .with_shared_http_client(runtime.http_client().unwrap().clone()),
         );
 
-        let pkg = BinaryPackage::from_webc(&webc, &runtime).await.unwrap();
+        let pkg = BinaryPackage::from_dir(&temp.path(), &runtime)
+            .await
+            .unwrap();
 
         assert_eq!(pkg.commands.len(), 1);
         let command = pkg.get_command("cmd").unwrap();
