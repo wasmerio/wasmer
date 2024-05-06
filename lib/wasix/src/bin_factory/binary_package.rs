@@ -121,7 +121,9 @@ impl BinaryPackage {
 
         let manifest = container.manifest();
         let id = PackageInfo::package_id_from_manifest(manifest)?.unwrap_or_else(|| {
-            PackageId::Hash(PackageHash::from_sha256_bytes(container.webc_hash()))
+            PackageId::Hash(PackageHash::from_sha256_bytes(
+                container.webc_hash().unwrap(),
+            ))
         });
 
         let root = PackageInfo::from_manifest(id, manifest, container.version())?;
