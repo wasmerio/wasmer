@@ -154,8 +154,10 @@ fn load_binary_command(
 
     if atom.is_none() && cmd.annotations.is_empty() {
         tracing::info!("applying legacy atom hack");
-        return Ok(legacy_atom_hack(webc, command_name, cmd));
+        return legacy_atom_hack(webc, command_name, cmd);
     }
+
+    let hash = webc.manifest().atom_signature(&atom_name)?.into();
 
     let atom = atom.with_context(|| {
 
@@ -173,7 +175,7 @@ fn load_binary_command(
         )
     })?;
 
-    let cmd = BinaryPackageCommand::new(command_name.to_string(), cmd.clone(), atom);
+    let cmd = BinaryPackageCommand::new(command_name.to_string(), cmd.clone(), atom, hash);
 
     Ok(Some(cmd))
 }
@@ -222,8 +224,12 @@ fn legacy_atom_hack(
     webc: &Container,
     command_name: &str,
     metadata: &webc::metadata::Command,
-) -> Option<BinaryPackageCommand> {
-    let (name, atom) = webc.atoms().into_iter().next()?;
+) -> Result<Option<BinaryPackageCommand>, anyhow::Error> {
+    let (name, atom) = webc
+        .atoms()
+        .into_iter()
+        .next()
+        .ok_or_else(|| anyhow::Error::msg("container does not have any atom"))?;
 
     tracing::debug!(
         command_name,
@@ -232,11 +238,14 @@ fn legacy_atom_hack(
         "(hack) The command metadata is malformed. Falling back to the first atom in the WEBC file",
     );
 
-    Some(BinaryPackageCommand::new(
+    let hash = webc.manifest().atom_signature(&name)?.into();
+
+    Ok(Some(BinaryPackageCommand::new(
         command_name.to_string(),
         metadata.clone(),
         atom,
-    ))
+        hash,
+    )))
 }
 
 async fn fetch_dependencies(

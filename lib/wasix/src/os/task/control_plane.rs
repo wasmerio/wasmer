@@ -225,7 +225,7 @@ mod tests {
             enable_exponential_cpu_backoff: None,
         });
 
-        let p1 = p.new_process(ModuleHash::random()).unwrap();
+        let p1 = p.new_process(ModuleHash::xxhash_random()).unwrap();
         let _t1 = p1
             .new_thread(WasiMemoryLayout::default(), ThreadStartType::MainThread)
             .unwrap();
@@ -234,7 +234,7 @@ mod tests {
             .unwrap();
 
         assert_eq!(
-            p.new_process(ModuleHash::random()).unwrap_err(),
+            p.new_process(ModuleHash::xxhash_random()).unwrap_err(),
             ControlPlaneError::TaskLimitReached { max: 2 }
         );
     }
@@ -248,7 +248,7 @@ mod tests {
             enable_exponential_cpu_backoff: None,
         });
 
-        let p1 = p.new_process(ModuleHash::random()).unwrap();
+        let p1 = p.new_process(ModuleHash::xxhash_random()).unwrap();
 
         for _ in 0..10 {
             let _thread = p1
@@ -264,7 +264,7 @@ mod tests {
             .unwrap();
 
         assert_eq!(
-            p.new_process(ModuleHash::random()).unwrap_err(),
+            p.new_process(ModuleHash::xxhash_random()).unwrap_err(),
             ControlPlaneError::TaskLimitReached { max: 2 }
         );
     }
