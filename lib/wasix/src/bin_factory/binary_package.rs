@@ -1,4 +1,4 @@
-use std::{os::unix::ffi::OsStrExt, path::Path, sync::Arc};
+use std::{path::Path, sync::Arc};
 
 use anyhow::Context;
 use derivative::*;
@@ -89,7 +89,7 @@ impl BinaryPackage {
 
         // since each package must be in its own directory, hash of the `dir` should provide a good enough
         // unique identifier for the package
-        let hash = sha2::Sha256::digest(dir.as_os_str().as_bytes()).into();
+        let hash = sha2::Sha256::digest(dir.display().to_string().as_bytes()).into();
         let id = PackageId::Hash(PackageHash::from_sha256_bytes(hash));
 
         let manifest_path = dir.join("wasmer.toml");
