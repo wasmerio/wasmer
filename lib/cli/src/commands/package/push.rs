@@ -136,7 +136,16 @@ impl PackagePush {
         {
             Some(r) => {
                 if r.success {
-                    spinner_ok!(pb, "Succesfully pushed the package to the registry!");
+                    let msg = format!(
+                        "Succesfully pushed package {} to the registry!",
+                        package_hash
+                            .to_string()
+                            .trim_start_matches("sha256:")
+                            .chars()
+                            .take(7)
+                            .collect::<String>()
+                    );
+                    spinner_ok!(pb, msg);
                     r.package_webc.unwrap().id
                 } else {
                     anyhow::bail!("An unidentified error occurred while publishing the package. (response had success: false)")
@@ -220,7 +229,17 @@ impl AsyncCliCommand for PackagePush {
         let (manifest_path, manifest) = get_manifest(&self.package_path)?;
         tracing::info!("Got manifest at path {}", manifest_path.display());
 
-        self.push(&client, &manifest, &manifest_path).await?;
+        let (_, hash) = self.push(&client, &manifest, &manifest_path).await?;
+
+        let pb = make_spinner!(self.quiet, "");
+        spinner_ok!(
+            pb,
+            format!(
+                "Correctly pushed package {} to the registry",
+                hash.to_string()
+            )
+        );
+
         Ok(())
     }
 }
