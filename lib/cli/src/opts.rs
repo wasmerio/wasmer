@@ -33,7 +33,7 @@ lazy_static::lazy_static! {
 ///
 /// This is where you access `$WASMER_DIR`, the `$WASMER_DIR/wasmer.toml` config
 /// file, and specify the current registry.
-#[derive(Debug, Clone, PartialEq, clap::Parser)]
+#[derive(Debug, Clone, PartialEq, clap::Parser, Default)]
 pub struct WasmerEnv {
     /// Set Wasmer's home directory
     #[clap(long, env = "WASMER_DIR", default_value = WASMER_DIR.as_os_str())]
