@@ -284,6 +284,11 @@
 <a href="#284" id="284">284</a>
 <a href="#285" id="285">285</a>
 <a href="#286" id="286">286</a>
+<a href="#287" id="287">287</a>
+<a href="#288" id="288">288</a>
+<a href="#289" id="289">289</a>
+<a href="#290" id="290">290</a>
+<a href="#291" id="291">291</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::f32::consts::E;
 
 <span class="kw">use super</span>::<span class="kw-2">*</span>;
@@ -351,11 +356,16 @@
         <span class="kw">let </span>tls_base: u64 = start.tls_base.try_into().map_err(|<span class="kw">_</span>| Errno::Overflow)<span class="question-mark">?</span>;
         <span class="kw">let </span>stack_lower = stack_upper - stack_size;
 
+        <span class="comment">// TLS size is constant
+        </span><span class="kw">let </span>tls_size = env.layout.tls_size;
+
         WasiMemoryLayout {
             stack_upper,
             stack_lower,
             guard_size,
             stack_size,
+            tls_base,
+            tls_size,
         }
     };
     <span class="macro">tracing::trace!</span>(<span class="string">&quot;spawn with layout {:?}&quot;</span>, layout);

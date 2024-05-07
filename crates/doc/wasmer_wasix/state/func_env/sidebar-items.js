@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"constant":["DEFAULT_STACK_BASE","DEFAULT_STACK_SIZE"],"struct":["WasiFunctionEnv"]};
+window.SIDEBAR_ITEMS = {"constant":["DEFAULT_STACK_BASE","DEFAULT_STACK_SIZE","DEFAULT_TLS_BASE","DEFAULT_TLS_SIZE"],"struct":["WasiFunctionEnv"]};
