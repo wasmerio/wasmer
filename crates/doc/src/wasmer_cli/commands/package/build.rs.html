@@ -210,11 +210,14 @@
 <a href="#210" id="210">210</a>
 <a href="#211" id="211">211</a>
 <a href="#212" id="212">212</a>
+<a href="#213" id="213">213</a>
+<a href="#214" id="214">214</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::path::PathBuf;
 
 <span class="kw">use </span>anyhow::Context;
 <span class="kw">use </span>dialoguer::console::{style, Emoji};
 <span class="kw">use </span>indicatif::ProgressBar;
+<span class="kw">use </span>sha2::Digest;
 <span class="kw">use </span>wasmer_config::package::PackageHash;
 
 <span class="kw">use </span><span class="kw">crate</span>::utils::load_package_manifest;
@@ -265,7 +268,10 @@
             )
         };
         <span class="kw">let </span>pkg = webc::wasmer_package::Package::from_manifest(manifest_path)<span class="question-mark">?</span>;
-        <span class="kw">let </span>pkg_hash = PackageHash::from_sha256_bytes(pkg.webc_hash());
+        <span class="kw">let </span>data = pkg.serialize()<span class="question-mark">?</span>;
+        <span class="kw">let </span>hash = sha2::Sha256::digest(<span class="kw-2">&amp;</span>data).into();
+
+        <span class="kw">let </span>pkg_hash = PackageHash::from_sha256_bytes(hash);
         <span class="kw">let </span>name = <span class="kw">if let </span><span class="prelude-val">Some</span>(manifest_pkg) = manifest.package {
             <span class="kw">if let </span><span class="prelude-val">Some</span>(name) = manifest_pkg.name {
                 <span class="kw">if let </span><span class="prelude-val">Some</span>(version) = manifest_pkg.version {
@@ -327,8 +333,6 @@
                 out_path.display()
             );
         }
-
-        <span class="kw">let </span>data = pkg.serialize()<span class="question-mark">?</span>;
 
         pb.println(<span class="macro">format!</span>(
             <span class="string">&quot;{} {}Writing package...&quot;</span>,
