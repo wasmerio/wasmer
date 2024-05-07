@@ -6680,9 +6680,9 @@ dependencies = [
 
 [[package]]
 name = "wasmer-config"
-version = "0.1.1"
+version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7439f813ad16b3fc8cbf2be3b54192e2c4b0a4c213d1fb3d7cf82da249c39aea"
+checksum = "54a0f70c177b1c5062cfe0f5308c3317751796fef9403c22a0cd7b4cacd4ccd8"
 dependencies = [
  "anyhow",
  "bytesize",
@@ -7221,9 +7221,9 @@ dependencies = [
 
 [[package]]
 name = "webc"
-version = "6.0.0-alpha6"
+version = "6.0.0-alpha8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f90e7ef808f844f15d1680a7cea4a0c5082ccaae0dc09621855a655f71989eb1"
+checksum = "bbf53893f8df356f1305446c1bc59c4082cb592f39ffcae0a2f10bd8ed100bb9"
 dependencies = [
  "anyhow",
  "base64 0.21.7",
@@ -7251,7 +7251,7 @@ dependencies = [
  "thiserror",
  "toml 0.7.8",
  "url",
- "wasmer-config 0.1.1",
+ "wasmer-config 0.2.0",
 ]
 
 [[package]]
