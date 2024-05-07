@@ -124,6 +124,7 @@ pub(super) async fn upload(
     package: &Package,
 ) -> anyhow::Result<String> {
     let hash_str = hash.to_string();
+    let hash_str = hash_str.trim_start_matches("sha256:");
 
     let url = {
         let default_timeout_secs = Some(60 * 30);
@@ -194,6 +195,8 @@ pub(super) async fn upload(
     let bytes = package.serialize()?;
 
     let total_bytes = bytes.len();
+    tracing::info!("webc is {total_bytes} bytes long");
+
     let chunk_size = 1_048_576; // 1MB - 315s / 100MB
     let mut chunks = bytes.chunks(chunk_size);
     let mut total_bytes_sent = 0;
