@@ -713,6 +713,7 @@ mod tests {
             package: Some("testuser/static-site-1@0.1.0".to_string()),
             use_local_manifest: false,
             new_package_name: None,
+            env: WasmerEnv::default(),
         };
         cmd.run_async().await.unwrap();
 
@@ -747,6 +748,7 @@ debug: false
             package: Some("wasmer/testpkg".to_string()),
             use_local_manifest: false,
             new_package_name: None,
+            env: WasmerEnv::default(),
         };
         cmd.run_async().await.unwrap();
 
@@ -780,6 +782,7 @@ debug: false
             package: Some("wasmer/test-js-worker".to_string()),
             use_local_manifest: false,
             new_package_name: None,
+            env: WasmerEnv::default(),
         };
         cmd.run_async().await.unwrap();
 
@@ -816,6 +819,7 @@ debug: false
             package: Some("wasmer/test-py-worker".to_string()),
             use_local_manifest: false,
             new_package_name: None,
+            env: WasmerEnv::default(),
         };
         cmd.run_async().await.unwrap();
 
