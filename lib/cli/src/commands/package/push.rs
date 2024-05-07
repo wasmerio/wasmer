@@ -121,7 +121,7 @@ impl PackagePush {
         package_hash: &PackageHash,
         private: bool,
     ) -> anyhow::Result<()> {
-        let pb = make_pb!(self, "Uploading the package to the registry..");
+        let pb = make_spinner!(self.quiet, "Uploading the package to the registry..");
 
         let signed_url = upload(client, package_hash, self.timeout.clone(), package).await?;
 
@@ -136,7 +136,7 @@ impl PackagePush {
         {
             Some(r) => {
                 if r.success {
-                    pb_ok!(pb, "Succesfully pushed the package to the registry!");
+                    spinner_ok!(pb, "Succesfully pushed the package to the registry!");
                     r.package_webc.unwrap().id
                 } else {
                     anyhow::bail!("An unidentified error occurred while publishing the package. (response had success: false)")
@@ -156,24 +156,10 @@ impl PackagePush {
         manifest_path: &PathBuf,
     ) -> anyhow::Result<(String, PackageHash)> {
         tracing::info!("Building package");
-        let pb = make_pb!(
-            self,
-            "Creating the package locally...",
-            ".",
-            "o",
-            "O",
-            "°",
-            "O",
-            "o",
-            "."
-        );
-        let package = PackageBuild::check(manifest_path.clone()).execute()?;
-        pb_ok!(pb, "Correctly built package locally");
+        let pb = make_spinner!(self.quiet, "Creating the package locally...");
+        let (package, hash) = PackageBuild::check(manifest_path.clone()).execute()?;
 
-        let hash_bytes = package
-            .webc_hash()
-            .ok_or(anyhow::anyhow!("No webc hash was provided"))?;
-        let hash = PackageHash::from_sha256_bytes(hash_bytes.clone());
+        spinner_ok!(pb, "Correctly built package locally");
         tracing::info!("Package has hash: {hash}",);
 
         let namespace = self.get_namespace(client, &manifest).await?;
@@ -181,22 +167,35 @@ impl PackagePush {
         let private = self.get_privacy(&manifest);
         tracing::info!("If published, package privacy is {private}");
 
-        let pb = make_pb!(self, "Checking if package is already in the registry..");
+        let pb = make_spinner!(
+            self.quiet,
+            "Checking if package is already in the registry.."
+        );
         if self.should_push(&client, &hash).await.map_err(on_error)? {
             if !self.dry_run {
                 tracing::info!("Package should be published");
-                pb_ok!(pb, "Package not in the registry yet!");
+                spinner_ok!(pb, "Package not in the registry yet!");
 
                 self.do_push(&client, &namespace, &package, &hash, private)
                     .await
                     .map_err(on_error)?;
             } else {
                 tracing::info!("Package should be published, but dry-run is set");
-                pb_ok!(pb, "Skipping push as dry-run is set");
+                spinner_ok!(pb, "Skipping push as dry-run is set");
             }
         } else {
             tracing::info!("Package should not be published");
-            pb_ok!(pb, "Package was already in the registry, no push needed");
+            spinner_ok!(pb, "Package was already in the registry, no push needed");
+        }
+
+        tracing::info!("Proceeding to invalidate query cache..");
+
+        // Prevent `wasmer run` from using stale (cached) package versions after wasmer publish.
+        if let Err(e) = invalidate_graphql_query_cache(&self.env.cache_dir) {
+            tracing::warn!(
+                error = &*e,
+                "Unable to invalidate the cache used for package version queries",
+            );
         }
 
         Ok((namespace, hash))

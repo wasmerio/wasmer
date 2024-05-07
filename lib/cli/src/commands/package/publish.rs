@@ -133,13 +133,6 @@ impl AsyncCliCommand for PackagePublish {
 
         tracing::info!("Proceeding to invalidate query cache..");
 
-        if let Err(e) = invalidate_graphql_query_cache(&self.env.cache_dir) {
-            tracing::warn!(
-                error = &*e,
-                "Unable to invalidate the cache used for package version queries",
-            );
-        }
-
         if !self.quiet && !self.non_interactive {
             eprintln!(
                 "{} You can now run your package with {}",

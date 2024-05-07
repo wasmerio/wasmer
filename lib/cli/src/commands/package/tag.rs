@@ -154,8 +154,8 @@ impl PackageTag {
         } = &mut new_ident
         {
             let full_pkg_name = format!("{namespace}/{name}");
-            let pb = make_pb!(
-                self,
+            let pb = make_spinner!(
+                self.quiet,
                 format!("Checking if a version of {full_pkg_name} already exists..")
             );
 
@@ -168,11 +168,11 @@ impl PackageTag {
             .map(|p| p.version)
             {
                 let registry_version = semver::Version::parse(&registry_version)?;
-                pb_ok!(
+                spinner_ok!(
                     pb,
                     format!("Found version {registry_version} of package {full_pkg_name}")
                 );
-                if user_version.clone() < registry_version {
+                if user_version.clone() <= registry_version {
                     if self.bump {
                         user_version.patch += 1;
                     } else if !self.non_interactive {
@@ -186,7 +186,7 @@ impl PackageTag {
                     }
                 }
             } else {
-                pb_ok!(pb, format!("No version of {full_pkg_name} in registry!"));
+                spinner_ok!(pb, format!("No version of {full_pkg_name} in registry!"));
             }
         }
 
@@ -208,10 +208,10 @@ impl PackageTag {
 
         let tagger = self.synthesize_tagger(client, ident).await?;
 
-        let pb = make_pb!(self, "Tagging package...");
+        let pb = make_spinner!(self.quiet, "Tagging package...");
 
         if let PackageSpecifier::Hash { .. } = &tagger {
-            pb_ok!(pb, "Package is unnamed, no need to tag it");
+            spinner_ok!(pb, "Package is unnamed, no need to tag it");
             return Ok(tagger);
         }
 
@@ -226,7 +226,7 @@ impl PackageTag {
 
         if self.dry_run {
             tracing::info!("No tagging to do here, dry-run is set");
-            pb_ok!(pb, "Skipping tag (dry-run)");
+            spinner_ok!(pb, "Skipping tag (dry-run)");
             return Ok(tagger);
         }
 
@@ -282,15 +282,15 @@ impl PackageTag {
         match r.await? {
             Some(r) => {
                 if r.success {
-                    pb_ok!(pb, "Successfully tagged package");
+                    spinner_ok!(pb, "Successfully tagged package");
                     Ok(tagger)
                 } else {
-                    pb_err!(pb, "Could not tag package!");
+                    spinner_err!(pb, "Could not tag package!");
                     anyhow::bail!("An unknown error occurred and the tagging failed.")
                 }
             }
             None => {
-                pb_err!(pb, "Could not tag package!");
+                spinner_err!(pb, "Could not tag package!");
                 anyhow::bail!("The registry returned an empty response.")
             }
         }
@@ -301,18 +301,21 @@ impl PackageTag {
         client: &WasmerClient,
         hash: &PackageHash,
     ) -> anyhow::Result<wasmer_api::types::Id> {
-        let pb = make_pb!(self, "Checking if the package exists..");
+        let pb = make_spinner!(self.quiet, "Checking if the package exists..");
 
         tracing::debug!("Searching for package with hash: {hash}");
 
         let pkg = match wasmer_api::query::get_package_release(client, &hash.to_string()).await? {
             Some(p) => p,
             None => {
-                pb_err!(pb, "The package is not in the registry!");
+                spinner_err!(pb, "The package is not in the registry!");
                 if !self.quiet {
                     eprintln!("\n\nThe package with the required hash does not exist in the selected registry.");
                     let bin_name = bin_name!();
-                    let cli = cli_line!();
+                    let cli = std::env::args()
+                        .filter(|s| !s.starts_with("-"))
+                        .collect::<Vec<String>>()
+                        .join(" ");
 
                     if cli.contains("publish") && self.dry_run {
                         eprintln!(
@@ -336,7 +339,7 @@ impl PackageTag {
             }
         };
 
-        pb_ok!(pb, "Found package in the registry!");
+        spinner_ok!(pb, "Found package in the registry!");
 
         Ok(pkg.id)
     }
@@ -381,8 +384,8 @@ impl AsyncCliCommand for PackageTag {
         tracing::info!("Got manifest at path {}", manifest_path.display());
 
         tracing::info!("Building package");
-        let pb = make_pb!(
-            self,
+        let pb = make_spinner!(
+            self.quiet,
             "Creating the package locally...",
             ".",
             "o",
@@ -392,13 +395,9 @@ impl AsyncCliCommand for PackageTag {
             "o",
             "."
         );
-        let package = PackageBuild::check(manifest_path.clone()).execute()?;
-        pb_ok!(pb, "Correctly built package locally");
+        let (_, hash) = PackageBuild::check(manifest_path.clone()).execute()?;
+        spinner_ok!(pb, "Correctly built package locally");
 
-        let hash_bytes = package
-            .webc_hash()
-            .ok_or(anyhow::anyhow!("No webc hash was provided"))?;
-        let hash = PackageHash::from_sha256_bytes(hash_bytes);
         tracing::info!("Package has hash: {hash}",);
 
         self.tag(&client, &manifest, hash).await?;

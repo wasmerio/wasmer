@@ -146,6 +146,6 @@ pub async fn wait_package(
         }
     }
 
-    pb_ok!(pb, "Package is available!");
+    spinner_ok!(pb, "Package is available!");
     Ok(())
 }

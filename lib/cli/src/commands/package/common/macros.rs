@@ -1,7 +1,7 @@
-macro_rules! make_pb {
-    ($self:ident, $msg:expr) => {{
+macro_rules! make_spinner {
+    ($quiet:expr, $msg:expr) => {{
         let pb = indicatif::ProgressBar::new_spinner();
-        if $self.quiet {
+        if $quiet {
             pb.set_draw_target(indicatif::ProgressDrawTarget::hidden());
         }
 
@@ -16,9 +16,9 @@ macro_rules! make_pb {
         pb
     }};
 
-    ($self:ident, $msg:expr, $($spinner:expr),+) => {{
+    ($quiet:expr, $msg:expr, $($spinner:expr),+) => {{
         let pb = indicatif::ProgressBar::new_spinner();
-        if $self.quiet {
+        if $quiet {
             pb.set_draw_target(indicatif::ProgressDrawTarget::hidden());
         }
 
@@ -34,7 +34,7 @@ macro_rules! make_pb {
     }};
 }
 
-macro_rules! pb_ok {
+macro_rules! spinner_ok {
     ($pb:expr, $msg: expr) => {
         $pb.set_style(
             indicatif::ProgressStyle::with_template(&format!("{} {{msg}}", "✔".green().bold()))
@@ -44,7 +44,7 @@ macro_rules! pb_ok {
     };
 }
 
-macro_rules! pb_err {
+macro_rules! spinner_err {
     ($pb:expr, $msg: expr) => {
         $pb.set_style(
             indicatif::ProgressStyle::with_template(&format!("{} {{msg}}", "✘".red().bold()))
@@ -63,17 +63,7 @@ macro_rules! bin_name {
     };
 }
 
-macro_rules! cli_line {
-    () => {
-        std::env::args()
-            .filter(|s| !s.starts_with("-"))
-            .collect::<Vec<String>>()
-            .join(" ")
-    };
-}
-
 pub(crate) use bin_name;
-pub(crate) use cli_line;
-pub(crate) use make_pb;
-pub(crate) use pb_err;
-pub(crate) use pb_ok;
+pub(crate) use make_spinner;
+pub(crate) use spinner_err;
+pub(crate) use spinner_ok;
