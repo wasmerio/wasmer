@@ -127,11 +127,10 @@ impl AsyncCliCommand for PackagePublish {
             bump: self.bump.clone(),
             non_interactive: self.non_interactive.clone(),
             package_path: self.package_path.clone(),
+            package_hash,
         }
-        .tag(&client, &manifest, package_hash)
+        .tag(&client, &manifest)
         .await?;
-
-        tracing::info!("Proceeding to invalidate query cache..");
 
         if !self.quiet && !self.non_interactive {
             eprintln!(

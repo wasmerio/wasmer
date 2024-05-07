@@ -2,7 +2,7 @@ use super::common::PackageSpecifier;
 use crate::{
     commands::{
         package::common::{macros::*, *},
-        AsyncCliCommand, PackageBuild,
+        AsyncCliCommand,
     },
     opts::{ApiOpts, WasmerEnv},
 };
@@ -57,6 +57,11 @@ pub struct PackageTag {
     #[clap(long, default_value_t = !std::io::stdin().is_terminal())]
     pub non_interactive: bool,
 
+    /// The hash of the package to tag
+    #[clap(name = "hash")]
+    pub package_hash: PackageHash,
+
+    ///
     /// Directory containing the `wasmer.toml`, or a custom *.toml manifest file.
     ///
     /// Defaults to current working directory.
@@ -348,14 +353,13 @@ impl PackageTag {
         &self,
         client: &WasmerClient,
         manifest: &Manifest,
-        hash: PackageHash,
     ) -> anyhow::Result<PackageIdent> {
         let namespace = self.get_namespace(client, &manifest).await?;
 
-        let ident = into_specifier(&manifest, &hash, namespace)?;
+        let ident = into_specifier(&manifest, &self.package_hash, namespace)?;
         tracing::info!("PackageIdent extracted from manifest is {:?}", ident);
 
-        let package_id = self.get_package_id(&client, &hash).await?;
+        let package_id = self.get_package_id(&client, &self.package_hash).await?;
         tracing::info!(
             "The package identifier returned from the registry is {:?}",
             package_id
@@ -383,24 +387,7 @@ impl AsyncCliCommand for PackageTag {
         let (manifest_path, manifest) = get_manifest(&self.package_path)?;
         tracing::info!("Got manifest at path {}", manifest_path.display());
 
-        tracing::info!("Building package");
-        let pb = make_spinner!(
-            self.quiet,
-            "Creating the package locally...",
-            ".",
-            "o",
-            "O",
-            "°",
-            "O",
-            "o",
-            "."
-        );
-        let (_, hash) = PackageBuild::check(manifest_path.clone()).execute()?;
-        spinner_ok!(pb, "Correctly built package locally");
-
-        tracing::info!("Package has hash: {hash}",);
-
-        self.tag(&client, &manifest, hash).await?;
+        self.tag(&client, &manifest).await?;
         Ok(())
     }
 }
