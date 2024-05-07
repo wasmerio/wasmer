@@ -1,7 +1,7 @@
 use super::AsyncCliCommand;
 use crate::{
-    commands::{app::create::CmdAppCreate, Publish},
-    opts::{ApiOpts, ItemFormatOpts},
+    commands::{app::create::CmdAppCreate, package::publish::PackagePublish, PublishWait},
+    opts::{ApiOpts, ItemFormatOpts, WasmerEnv},
     utils::load_package_manifest,
 };
 use anyhow::Context;
@@ -18,13 +18,15 @@ use wasmer_config::{
     app::AppConfigV1,
     package::{PackageIdent, PackageSource},
 };
-use wasmer_registry::wasmer_env::{WasmerEnv, WASMER_DIR};
 
 /// Deploy an app to Wasmer Edge.
 #[derive(clap::Parser, Debug)]
 pub struct CmdAppDeploy {
     #[clap(flatten)]
     pub api: ApiOpts,
+
+    #[clap(flatten)]
+    pub env: WasmerEnv,
 
     #[clap(flatten)]
     pub fmt: ItemFormatOpts,
@@ -96,27 +98,18 @@ impl CmdAppDeploy {
             ),
         };
 
-        let env = WasmerEnv::new(
-            if let Ok(dir) = std::env::var("WASMER_DIR") {
-                PathBuf::from(dir)
-            } else {
-                WASMER_DIR.clone()
-            },
-            self.api.registry.clone().map(|u| u.to_string().into()),
-            self.api.token.clone(),
-            None,
-        );
-
-        let publish_cmd = Publish {
-            env,
+        let publish_cmd = PackagePublish {
+            env: self.env.clone(),
             dry_run: false,
             quiet: false,
             package_name: None,
-            version: None,
+            package_version: None,
             no_validate: false,
-            package_path: Some(manifest_dir_path.to_str().unwrap().to_string()),
-            wait: !self.no_wait,
-            wait_all: !self.no_wait,
+            package_path: manifest_dir_path.clone(),
+            wait: match self.no_wait {
+                true => PublishWait::None,
+                false => PublishWait::Container,
+            },
             timeout: humantime::Duration::from_str("2m").unwrap(),
             package_namespace: match manifest.package {
                 Some(_) => None,
@@ -124,12 +117,10 @@ impl CmdAppDeploy {
             },
             non_interactive: self.non_interactive,
             bump: self.bump,
+            api: self.api.clone(),
         };
 
-        match publish_cmd.run_async().await? {
-            Some(id) => Ok(id),
-            None => anyhow::bail!("Error while publishing package. Stopping."),
-        }
+        publish_cmd.run_async().await
     }
 
     async fn get_owner(
@@ -188,6 +179,7 @@ impl CmdAppDeploy {
             app_name: None,
             no_wait: self.no_wait,
             api: self.api.clone(),
+            env: self.env.clone(),
             fmt: ItemFormatOpts {
                 format: self.fmt.format,
             },

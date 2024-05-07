@@ -84,9 +84,14 @@ impl BinaryPackage {
         let source = rt.source();
 
         let manifest = container.manifest();
-        let id = PackageInfo::package_id_from_manifest(manifest)?.unwrap_or_else(|| {
-            PackageId::Hash(PackageHash::from_sha256_bytes(container.webc_hash()))
-        });
+        let id = match PackageInfo::package_id_from_manifest(manifest)? {
+            Some(id) => id,
+            None => PackageId::Hash(PackageHash::from_sha256_bytes(
+                container
+                    .webc_hash()
+                    .ok_or(anyhow::anyhow!("No webc hash was provided"))?,
+            )),
+        };
 
         let root = PackageInfo::from_manifest(id, manifest, container.version())?;
         let root_id = root.id.clone();

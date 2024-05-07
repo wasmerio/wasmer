@@ -1,3 +1,5 @@
+use std::path::PathBuf;
+
 use anyhow::Context;
 use wasmer_api::WasmerClient;
 use wasmer_registry::WasmerConfig;
@@ -8,6 +10,37 @@ pub struct ApiOpts {
     pub token: Option<String>,
     #[clap(long)]
     pub registry: Option<url::Url>,
+}
+
+lazy_static::lazy_static! {
+    /// The default value for `$WASMER_DIR`.
+    pub static ref WASMER_DIR: PathBuf = match WasmerConfig::get_wasmer_dir() {
+        Ok(path) => path,
+        Err(e) => {
+            if let Some(install_prefix) = option_env!("WASMER_INSTALL_PREFIX") {
+                return PathBuf::from(install_prefix);
+            }
+
+            panic!("Unable to determine the wasmer dir: {e}");
+        }
+    };
+
+    /// The default value for `$WASMER_DIR`.
+    pub static ref WASMER_CACHE_DIR: PathBuf = WASMER_DIR.join("cache");
+}
+
+/// Command-line flags for determining the local "Wasmer Environment".
+///
+/// This is where you access `$WASMER_DIR`, the `$WASMER_DIR/wasmer.toml` config
+/// file, and specify the current registry.
+#[derive(Debug, Clone, PartialEq, clap::Parser)]
+pub struct WasmerEnv {
+    /// Set Wasmer's home directory
+    #[clap(long, env = "WASMER_DIR", default_value = WASMER_DIR.as_os_str())]
+    pub wasmer_dir: PathBuf,
+    /// The directory cached artefacts are saved to.
+    #[clap(long, env = "WASMER_CACHE_DIR", default_value = WASMER_CACHE_DIR.as_os_str())]
+    pub cache_dir: PathBuf,
 }
 
 struct Login {

@@ -7,3 +7,4 @@ use graphql_client::GraphQLQuery;
     response_derives = "Debug"
 )]
 pub struct PackageVersionReady;
+

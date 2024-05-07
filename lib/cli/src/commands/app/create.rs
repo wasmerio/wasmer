@@ -2,7 +2,7 @@
 
 use crate::{
     commands::AsyncCliCommand,
-    opts::{ApiOpts, ItemFormatOpts},
+    opts::{ApiOpts, ItemFormatOpts, WasmerEnv},
     utils::{
         load_package_manifest,
         package_wizard::{CreateMode, PackageType, PackageWizard},
@@ -82,6 +82,9 @@ pub struct CmdAppCreate {
     #[clap(flatten)]
     #[allow(missing_docs)]
     pub api: ApiOpts,
+
+    #[clap(flatten)]
+    pub env: WasmerEnv,
 
     #[clap(flatten)]
     #[allow(missing_docs)]
@@ -364,6 +367,7 @@ impl CmdAppCreate {
         {
             let cmd_deploy = CmdAppDeploy {
                 api: self.api.clone(),
+                env: self.env.clone(),
                 fmt: ItemFormatOpts {
                     format: self.fmt.format,
                 },

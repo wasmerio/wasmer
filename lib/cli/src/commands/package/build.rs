@@ -4,6 +4,7 @@ use anyhow::Context;
 use dialoguer::console::{style, Emoji};
 use indicatif::ProgressBar;
 use wasmer_config::package::PackageHash;
+use webc::wasmer_package::Package;
 
 use crate::utils::load_package_manifest;
 
@@ -44,7 +45,7 @@ impl PackageBuild {
         }
     }
 
-    pub(crate) fn execute(&self) -> Result<PackageHash, anyhow::Error> {
+    pub(crate) fn execute(&self) -> Result<Package, anyhow::Error> {
         let manifest_path = self.manifest_path()?;
         let Some((_, manifest)) = load_package_manifest(&manifest_path)? else {
             anyhow::bail!(
@@ -53,7 +54,9 @@ impl PackageBuild {
             )
         };
         let pkg = webc::wasmer_package::Package::from_manifest(manifest_path)?;
-        let pkg_hash = PackageHash::from_sha256_bytes(pkg.webc_hash());
+        let pkg_hash = PackageHash::from_sha256_bytes(pkg.webc_hash().ok_or(anyhow::anyhow!(
+            "No webc hash was provided while trying to build"
+        ))?);
         let name = if let Some(manifest_pkg) = manifest.package {
             if let Some(name) = manifest_pkg.name {
                 if let Some(version) = manifest_pkg.version {
@@ -84,7 +87,7 @@ impl PackageBuild {
         // rest of the code writes the package to disk and is irrelevant
         // to checking.
         if self.check {
-            return Ok(pkg_hash);
+            return Ok(pkg);
         }
 
         pb.println(format!(
@@ -133,7 +136,7 @@ impl PackageBuild {
             out_path.display()
         ));
 
-        Ok(pkg_hash)
+        Ok(pkg)
     }
 
     fn manifest_path(&self) -> Result<PathBuf, anyhow::Error> {
