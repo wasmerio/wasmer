@@ -6,6 +6,7 @@ use indicatif::{ProgressBar, ProgressStyle};
 use tempfile::NamedTempFile;
 use wasmer_config::package::{PackageIdent, PackageSource};
 use wasmer_registry::wasmer_env::WasmerEnv;
+use wasmer_wasix::http::reqwest::client_blocking_builder;
 
 /// Download a package from the registry.
 #[derive(clap::Parser, Debug)]
@@ -138,16 +139,9 @@ impl PackageDownload {
             PackageSource::Url(url) => bail!("cannot download a package from a URL: '{}'", url),
         };
 
-        let client = {
-            let mut builder = reqwest::blocking::ClientBuilder::new();
-
-            let proxy = std::env::var("http_proxy").or_else(|_| std::env::var("HTTP_PROXY"));
-            if let Ok(scheme) = proxy {
-                builder = builder.proxy(reqwest::Proxy::all(scheme)?);
-            }
-
-            builder.build().context("Could not create reqwest client")?
-        };
+        let client = client_blocking_builder()?
+            .build()
+            .context("failed to create reqwest client")?;
 
         let mut b = client
             .get(download_url)
