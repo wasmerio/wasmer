@@ -649,7 +649,7 @@ impl<'a> TryFrom<ArchivedJournalEntry<'a>> for JournalEntry<'a> {
         Ok(match value {
             ArchivedJournalEntry::InitModuleV1(ArchivedJournalEntryInitModuleV1 { wasm_hash }) => {
                 Self::InitModuleV1 {
-                    wasm_hash: *wasm_hash,
+                    wasm_hash: Box::from(wasm_hash.get()),
                 }
             }
             ArchivedJournalEntry::ClearEtherealV1(ArchivedJournalEntryClearEtherealV1 {

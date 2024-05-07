@@ -3,6 +3,7 @@ use std::path::PathBuf;
 use anyhow::Context;
 use dialoguer::console::{style, Emoji};
 use indicatif::ProgressBar;
+use sha2::Digest;
 use wasmer_config::package::PackageHash;
 use webc::wasmer_package::Package;
 
@@ -54,9 +55,10 @@ impl PackageBuild {
             )
         };
         let pkg = webc::wasmer_package::Package::from_manifest(manifest_path)?;
-        let pkg_hash = PackageHash::from_sha256_bytes(pkg.webc_hash().ok_or(anyhow::anyhow!(
-            "No webc hash was provided while trying to build"
-        ))?);
+        let data = pkg.serialize()?;
+        let hash = sha2::Sha256::digest(&data).into();
+        let pkg_hash = PackageHash::from_sha256_bytes(hash);
+      
         let name = if let Some(manifest_pkg) = manifest.package {
             if let Some(name) = manifest_pkg.name {
                 if let Some(version) = manifest_pkg.version {
@@ -118,8 +120,6 @@ impl PackageBuild {
                 out_path.display()
             );
         }
-
-        let data = pkg.serialize()?;
 
         pb.println(format!(
             "{} {}Writing package...",

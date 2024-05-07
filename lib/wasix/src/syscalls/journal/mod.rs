@@ -31,9 +31,9 @@ pub struct JournalSyscallPlayer<'a, 'c> {
     pub ctx: FunctionEnvMut<'c, WasiEnv>,
     pub bootstrapping: bool,
 
-    pub journal_module_hash: Option<[u8; 8]>,
+    pub journal_module_hash: Option<Box<[u8]>>,
     pub rewind: Option<RewindState>,
-    pub cur_module_hash: [u8; 8],
+    pub cur_module_hash: Box<[u8]>,
     pub real_fd: HashSet<WasiFd>,
 
     // We delay the spawning of threads until the end as its
@@ -52,7 +52,7 @@ pub struct JournalSyscallPlayer<'a, 'c> {
 
 impl<'a, 'c> JournalSyscallPlayer<'a, 'c> {
     pub fn new(mut ctx: FunctionEnvMut<'c, WasiEnv>, bootstrapping: bool) -> Self {
-        let cur_module_hash: [u8; 8] = ctx.data().process.module_hash.as_bytes();
+        let cur_module_hash: Box<[u8]> = Box::from(ctx.data().process.module_hash.as_bytes());
         let mut ret = JournalSyscallPlayer {
             ctx,
             bootstrapping,
