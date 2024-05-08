@@ -5,7 +5,7 @@ use crate::{
 };
 use colored::Colorize;
 use is_terminal::IsTerminal;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use wasmer_api::WasmerClient;
 use wasmer_config::package::{Manifest, PackageHash};
 use webc::wasmer_package::Package;
@@ -79,7 +79,7 @@ impl PackagePush {
 
         if let Some(pkg) = &manifest.package {
             if let Some(ns) = &pkg.name {
-                if let Some(first) = ns.split("/").next() {
+                if let Some(first) = ns.split('/').next() {
                     return Ok(first.to_string());
                 }
             }
@@ -90,7 +90,7 @@ impl PackagePush {
             anyhow::bail!("No package namespace specified: use --namespace XXX");
         }
 
-        let user = wasmer_api::query::current_user_with_namespaces(&client, None).await?;
+        let user = wasmer_api::query::current_user_with_namespaces(client, None).await?;
         let owner =
             crate::utils::prompts::prompt_for_namespace("Choose a namespace", None, Some(&user))?;
 
@@ -107,7 +107,7 @@ impl PackagePush {
     async fn should_push(&self, client: &WasmerClient, hash: &PackageHash) -> anyhow::Result<bool> {
         let res = wasmer_api::query::get_package_release(client, &hash.to_string()).await;
         tracing::info!("{:?}", res);
-        res.map(|p| !p.is_some())
+        res.map(|p| p.is_none())
     }
 
     async fn do_push(
@@ -120,7 +120,7 @@ impl PackagePush {
     ) -> anyhow::Result<()> {
         let pb = make_spinner!(self.quiet, "Uploading the package to the registry..");
 
-        let signed_url = upload(client, package_hash, self.timeout.clone(), package).await?;
+        let signed_url = upload(client, package_hash, self.timeout, package).await?;
 
         let id = match wasmer_api::query::push_package_release(
             client,
@@ -145,7 +145,7 @@ impl PackagePush {
             None => anyhow::bail!("An unidentified error occurred while publishing the package."), // <- This is extremely bad..
         };
 
-        wait_package(client, self.wait, id, &pb, self.timeout.clone()).await?;
+        wait_package(client, self.wait, id, &pb, self.timeout).await?;
         Ok(())
     }
 
@@ -153,31 +153,31 @@ impl PackagePush {
         &self,
         client: &WasmerClient,
         manifest: &Manifest,
-        manifest_path: &PathBuf,
+        manifest_path: &Path,
     ) -> anyhow::Result<(String, PackageHash)> {
         tracing::info!("Building package");
         let pb = make_spinner!(self.quiet, "Creating the package locally...");
-        let (package, hash) = PackageBuild::check(manifest_path.clone()).execute()?;
+        let (package, hash) = PackageBuild::check(manifest_path.to_path_buf()).execute()?;
 
         spinner_ok!(pb, "Correctly built package locally");
-        tracing::info!("Package has hash: {hash}",);
+        tracing::info!("Package has hash: {hash}");
 
-        let namespace = self.get_namespace(client, &manifest).await?;
+        let namespace = self.get_namespace(client, manifest).await?;
 
-        let private = self.get_privacy(&manifest);
+        let private = self.get_privacy(manifest);
         tracing::info!("If published, package privacy is {private}");
 
         let pb = make_spinner!(
             self.quiet,
             "Checking if package is already in the registry.."
         );
-        if self.should_push(&client, &hash).await.map_err(on_error)? {
+        if self.should_push(client, &hash).await.map_err(on_error)? {
             if !self.dry_run {
                 tracing::info!("Package should be published");
                 pb.finish_and_clear();
                 // spinner_ok!(pb, "Package not in the registry yet!");
 
-                self.do_push(&client, &namespace, &package, &hash, private)
+                self.do_push(client, &namespace, &package, &hash, private)
                     .await
                     .map_err(on_error)?;
             } else {
@@ -234,7 +234,7 @@ impl AsyncCliCommand for PackagePush {
                         "You can now tag your package with `{}`",
                         format!(
                             "{bin_name} package tag {}{}",
-                            hash.to_string(),
+                            hash,
                             if manifest_path_dir.canonicalize()? == std::env::current_dir()? {
                                 String::new()
                             } else {
@@ -246,13 +246,13 @@ impl AsyncCliCommand for PackagePush {
                 } else {
                     eprintln!(
                         "You can now run your package with `{}`",
-                        format!("{bin_name} run {}", hash.to_string()).bold()
+                        format!("{bin_name} run {}", hash).bold()
                     );
                 }
             } else {
                 eprintln!(
                     "You can now run your package with `{}`",
-                    format!("{bin_name} run {}", hash.to_string()).bold()
+                    format!("{bin_name} run {}", hash).bold()
                 );
             }
         }

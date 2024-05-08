@@ -121,9 +121,7 @@ impl CmdAppDeploy {
             api: self.api.clone(),
         };
 
-        publish_cmd
-            .publish(&client, &manifest_path, &manifest)
-            .await
+        publish_cmd.publish(client, &manifest_path, &manifest).await
     }
 
     async fn get_owner(

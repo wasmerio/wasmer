@@ -6,7 +6,11 @@ use crate::{
 use colored::Colorize;
 use dialoguer::Confirm;
 use semver::VersionReq;
-use std::{collections::BTreeMap, path::PathBuf, str::FromStr};
+use std::{
+    collections::BTreeMap,
+    path::{Path, PathBuf},
+    str::FromStr,
+};
 use wasmer_api::WasmerClient;
 use wasmer_config::package::{Manifest, NamedPackageIdent, PackageHash, PackageIdent};
 use webc::wasmer_package::Package;
@@ -35,9 +39,9 @@ pub(super) enum Tag {
     Hash(PackageHash),
 }
 
-impl Into<PackageIdent> for PackageSpecifier {
-    fn into(self) -> PackageIdent {
-        match self {
+impl From<PackageSpecifier> for PackageIdent {
+    fn from(value: PackageSpecifier) -> Self {
+        match value {
             PackageSpecifier::Hash { hash, .. } => PackageIdent::Hash(hash),
             PackageSpecifier::Named {
                 namespace,
@@ -75,7 +79,7 @@ pub(super) fn into_specifier(
         },
         Some(n) => match &n.name {
             Some(name) => {
-                let named = NamedPackageIdent::from_str(&name)?;
+                let named = NamedPackageIdent::from_str(name)?;
                 match &n.version {
                     Some(v) => PackageSpecifier::Named {
                         namespace,
@@ -109,7 +113,7 @@ pub(super) fn on_error(e: anyhow::Error) -> anyhow::Error {
 // are cleaner ways to achieve this, but for now we're just going to
 // clear out the whole GraphQL query cache.
 // See https://github.com/wasmerio/wasmer/pull/3983 for more
-pub(super) fn invalidate_graphql_query_cache(cache_dir: &PathBuf) -> Result<(), anyhow::Error> {
+pub(super) fn invalidate_graphql_query_cache(cache_dir: &Path) -> Result<(), anyhow::Error> {
     let cache_dir = cache_dir.join("queries");
     std::fs::remove_dir_all(cache_dir)?;
 
@@ -129,9 +133,9 @@ pub(super) async fn upload(
     let url = {
         let default_timeout_secs = Some(60 * 30);
         let q = wasmer_api::query::get_signed_url_for_package_upload(
-            &client,
+            client,
             default_timeout_secs,
-            Some(&hash_str),
+            Some(hash_str),
             None,
             None,
         );
@@ -198,14 +202,12 @@ pub(super) async fn upload(
     tracing::info!("webc is {total_bytes} bytes long");
 
     let chunk_size = 1_048_576; // 1MB - 315s / 100MB
-    let mut chunks = bytes.chunks(chunk_size);
+    let chunks = bytes.chunks(chunk_size);
     let mut total_bytes_sent = 0;
 
     let client = reqwest::Client::builder().build().unwrap();
 
-    while let Some(chunk) = chunks.next() {
-        // TODO: add upload pbar.
-
+    for chunk in chunks {
         let n = chunk.len();
 
         let start = total_bytes_sent;
@@ -236,8 +238,8 @@ pub(super) async fn upload(
 ///
 // The difference with the `load_package_manifest` is that
 // this function returns an error if no manifest is found.
-pub(super) fn get_manifest(path: &PathBuf) -> anyhow::Result<(PathBuf, Manifest)> {
-    load_package_manifest(&path).and_then(|j| {
+pub(super) fn get_manifest(path: &Path) -> anyhow::Result<(PathBuf, Manifest)> {
+    load_package_manifest(path).and_then(|j| {
         j.ok_or_else(|| anyhow::anyhow!("No valid manifest found in path '{}'", path.display()))
     })
 }

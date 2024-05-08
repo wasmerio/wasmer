@@ -82,7 +82,7 @@ impl PackageTag {
 
         if let Some(pkg) = &manifest.package {
             if let Some(ns) = &pkg.name {
-                if let Some(first) = ns.split("/").next() {
+                if let Some(first) = ns.split('/').next() {
                     return Ok(first.to_string());
                 }
             }
@@ -93,7 +93,7 @@ impl PackageTag {
             anyhow::bail!("No package namespace specified: use --namespace XXX");
         }
 
-        let user = wasmer_api::query::current_user_with_namespaces(&client, None).await?;
+        let user = wasmer_api::query::current_user_with_namespaces(client, None).await?;
         let owner =
             crate::utils::prompts::prompt_for_namespace("Choose a namespace", None, Some(&user))?;
 
@@ -344,7 +344,7 @@ impl PackageTag {
                     eprintln!("\n\nThe package with the required hash does not exist in the selected registry.");
                     let bin_name = bin_name!();
                     let cli = std::env::args()
-                        .filter(|s| !s.starts_with("-"))
+                        .filter(|s| !s.starts_with('-'))
                         .collect::<Vec<String>>()
                         .join(" ");
 
@@ -390,19 +390,19 @@ impl PackageTag {
         client: &WasmerClient,
         manifest: &Manifest,
     ) -> anyhow::Result<PackageIdent> {
-        let namespace = self.get_namespace(client, &manifest).await?;
+        let namespace = self.get_namespace(client, manifest).await?;
 
-        let ident = into_specifier(&manifest, &self.package_hash, namespace)?;
+        let ident = into_specifier(manifest, &self.package_hash, namespace)?;
         tracing::info!("PackageIdent extracted from manifest is {:?}", ident);
 
-        let package_id = self.get_package_id(&client, &self.package_hash).await?;
+        let package_id = self.get_package_id(client, &self.package_hash).await?;
         tracing::info!(
             "The package identifier returned from the registry is {:?}",
             package_id
         );
 
         let ident = self
-            .do_tag(&client, &ident, &manifest, &package_id)
+            .do_tag(client, &ident, manifest, &package_id)
             .await
             .map_err(on_error)?;
 

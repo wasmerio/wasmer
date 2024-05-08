@@ -11,7 +11,7 @@ use crate::{
 };
 use colored::Colorize;
 use is_terminal::IsTerminal;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use wasmer_api::WasmerClient;
 use wasmer_config::package::{Manifest, PackageIdent};
 
@@ -85,7 +85,7 @@ impl PackagePublish {
     pub async fn publish(
         &self,
         client: &WasmerClient,
-        manifest_path: &PathBuf,
+        manifest_path: &Path,
         manifest: &Manifest,
     ) -> anyhow::Result<PackageIdent> {
         let (package_namespace, package_hash) = {
@@ -95,31 +95,31 @@ impl PackagePublish {
                 dry_run: self.dry_run,
                 quiet: self.quiet,
                 package_namespace: self.package_namespace.clone(),
-                timeout: self.timeout.clone(),
-                bump: self.bump.clone(),
-                non_interactive: self.non_interactive.clone(),
-                wait: self.wait.clone(),
+                timeout: self.timeout,
+                bump: self.bump,
+                non_interactive: self.non_interactive,
+                wait: self.wait,
                 package_path: self.package_path.clone(),
             };
 
-            push_cmd.push(&client, &manifest, &manifest_path).await?
+            push_cmd.push(client, manifest, manifest_path).await?
         };
 
         PackageTag {
             api: self.api.clone(),
             env: self.env.clone(),
-            dry_run: self.dry_run.clone(),
+            dry_run: self.dry_run,
             quiet: self.quiet,
             package_namespace: Some(package_namespace),
             package_name: self.package_name.clone(),
             package_version: self.package_version.clone(),
-            timeout: self.timeout.clone(),
-            bump: self.bump.clone(),
-            non_interactive: self.non_interactive.clone(),
+            timeout: self.timeout,
+            bump: self.bump,
+            non_interactive: self.non_interactive,
             package_path: self.package_path.clone(),
             package_hash,
         }
-        .tag(&client, &manifest)
+        .tag(client, manifest)
         .await
     }
 }
