@@ -89,6 +89,9 @@ impl<'data> ModuleEnvironment<'data> {
         assert!(self.module_translation_state.is_none());
         let module_translation_state = translate_module(data, &mut self)?;
         self.module_translation_state = Some(module_translation_state);
+
+        self.module.hash = xxhash_rust::xxh64::xxh64(data, 0).to_ne_bytes();
+
         Ok(self)
     }
 

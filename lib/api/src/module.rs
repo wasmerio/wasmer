@@ -366,6 +366,11 @@ impl Module {
         self.0.name()
     }
 
+    /// Returns the xxhash module hash
+    pub fn hash(&self) -> [u8; 8] {
+        self.0.hash()
+    }
+
     /// Sets the name of the current module.
     /// This is normally useful for stacktraces and debugging.
     ///

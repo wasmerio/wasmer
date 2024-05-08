@@ -712,10 +712,7 @@ impl ExecutableTarget {
                 let engine = runtime.engine();
                 pb.set_message("Deserializing pre-compiled WebAssembly module");
                 let module = unsafe { Module::deserialize_from_file(&engine, path)? };
-                let module_hash = {
-                    let wasm = std::fs::read(path)?;
-                    ModuleHash::xxhash(wasm)
-                };
+                let module_hash = ModuleHash::xxhash_from_bytes(module.hash());
 
                 Ok(ExecutableTarget::WebAssembly {
                     module,

@@ -67,10 +67,13 @@ impl Module {
     ///
     pub(crate) unsafe fn from_js_module(module: JSObject, binary: impl IntoBytes) -> Self {
         let binary = binary.into_bytes();
+
         // The module is now validated, so we can safely parse it's types
-        let info = crate::module_info_polyfill::translate_module(&binary[..])
+        let mut info = crate::module_info_polyfill::translate_module(&binary[..])
             .unwrap()
             .info;
+
+        info.hash = xxhash_rust::xxh64::xxh64(binary.as_ref(), 0).to_ne_bytes();
 
         Self {
             module,
@@ -173,6 +176,10 @@ impl Module {
 
     pub fn name(&self) -> Option<&str> {
         self.name.as_ref().map(|s| s.as_ref())
+    }
+
+    pub fn hash(&self) -> [u8; 8] {
+        self.info.hash
     }
 
     pub fn serialize(&self) -> Result<Bytes, SerializeError> {

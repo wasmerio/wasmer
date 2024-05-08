@@ -42,6 +42,7 @@ pub struct Module {
     type_hints: Option<ModuleTypeHints>,
     #[cfg(feature = "js-serializable-module")]
     raw_bytes: Option<Bytes>,
+    hash: [u8; 8],
 }
 
 // Module implements `structuredClone` in js, so it's safe it to make it Send.
@@ -115,7 +116,8 @@ impl Module {
             type_hints,
             name,
             #[cfg(feature = "js-serializable-module")]
-            raw_bytes: Some(binary),
+            raw_bytes: Some(binary.clone()),
+            hash: xxhash_rust::xxh64::xxh64(binary.as_ref(), 0).to_ne_bytes(),
         }
     }
 
@@ -208,6 +210,10 @@ impl Module {
 
     pub fn name(&self) -> Option<&str> {
         self.name.as_ref().map(|s| s.as_ref())
+    }
+
+    pub fn hash(&self) -> [u8; 8] {
+        self.hash
     }
 
     pub fn serialize(&self) -> Result<Bytes, SerializeError> {
@@ -457,6 +463,7 @@ impl From<WebAssembly::Module> for Module {
             type_hints: None,
             #[cfg(feature = "js-serializable-module")]
             raw_bytes: None,
+            hash: [0u8; 8],
         }
     }
 }

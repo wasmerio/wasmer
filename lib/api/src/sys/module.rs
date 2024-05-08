@@ -174,6 +174,10 @@ impl Module {
         self.info().name.as_deref()
     }
 
+    pub(crate) fn hash(&self) -> [u8; 8] {
+        self.info().hash
+    }
+
     pub(crate) fn set_name(&mut self, name: &str) -> bool {
         Arc::get_mut(&mut self.artifact).map_or(false, |artifact| {
             artifact.set_module_info_name(name.to_string())

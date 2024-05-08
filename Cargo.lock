@@ -6322,6 +6322,7 @@ dependencies = [
  "wasmparser 0.121.2",
  "wat",
  "winapi 0.3.9",
+ "xxhash-rust",
 ]
 
 [[package]]
@@ -6573,6 +6574,7 @@ dependencies = [
  "wasmer-vm",
  "wasmparser 0.121.2",
  "winapi 0.3.9",
+ "xxhash-rust",
 ]
 
 [[package]]

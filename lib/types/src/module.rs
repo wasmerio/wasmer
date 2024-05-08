@@ -111,6 +111,10 @@ pub struct ModuleInfo {
     #[cfg_attr(feature = "enable-serde", serde(skip_serializing, skip_deserializing))]
     pub id: ModuleId,
 
+    // FIXME: We need ModuleHash here
+    /// hash of the module
+    pub hash: [u8; 8],
+
     /// The name of this wasm module, often found in the wasm file.
     pub name: Option<String>,
 
@@ -182,6 +186,8 @@ pub struct ModuleInfo {
 #[archive_attr(derive(CheckBytes, Debug))]
 pub struct ArchivableModuleInfo {
     name: Option<String>,
+    // FIXME: we need ModuleHash here
+    hash: [u8; 8],
     imports: IndexMap<ImportKey, ImportIndex>,
     exports: IndexMap<String, ExportIndex>,
     start_function: Option<FunctionIndex>,
@@ -207,6 +213,7 @@ impl From<ModuleInfo> for ArchivableModuleInfo {
     fn from(it: ModuleInfo) -> Self {
         Self {
             name: it.name,
+            hash: it.hash,
             imports: it.imports,
             exports: it.exports,
             start_function: it.start_function,
@@ -235,6 +242,7 @@ impl From<ArchivableModuleInfo> for ModuleInfo {
         Self {
             id: Default::default(),
             name: it.name,
+            hash: it.hash,
             imports: it.imports,
             exports: it.exports,
             start_function: it.start_function,
