@@ -91,11 +91,8 @@ impl PackagePush {
         }
 
         let user = wasmer_api::query::current_user_with_namespaces(&client, None).await?;
-        let owner = crate::utils::prompts::prompt_for_namespace(
-            "Who should own this package?",
-            None,
-            Some(&user),
-        )?;
+        let owner =
+            crate::utils::prompts::prompt_for_namespace("Choose a namespace", None, Some(&user))?;
 
         Ok(owner.clone())
     }
@@ -137,13 +134,7 @@ impl PackagePush {
             Some(r) => {
                 if r.success {
                     let msg = format!(
-                        "Succesfully pushed package {} to the registry!",
-                        package_hash
-                            .to_string()
-                            .trim_start_matches("sha256:")
-                            .chars()
-                            .take(7)
-                            .collect::<String>()
+                        "Succesfully pushed release to namespace {namespace} on the registry"
                     );
                     spinner_ok!(pb, msg);
                     r.package_webc.unwrap().id
@@ -183,7 +174,8 @@ impl PackagePush {
         if self.should_push(&client, &hash).await.map_err(on_error)? {
             if !self.dry_run {
                 tracing::info!("Package should be published");
-                spinner_ok!(pb, "Package not in the registry yet!");
+                pb.finish_and_clear();
+                // spinner_ok!(pb, "Package not in the registry yet!");
 
                 self.do_push(&client, &namespace, &package, &hash, private)
                     .await
@@ -231,14 +223,39 @@ impl AsyncCliCommand for PackagePush {
 
         let (_, hash) = self.push(&client, &manifest, &manifest_path).await?;
 
-        let pb = make_spinner!(self.quiet, "");
-        spinner_ok!(
-            pb,
-            format!(
-                "Correctly pushed package {} to the registry",
-                hash.to_string()
-            )
-        );
+        if !self.quiet {
+            let bin_name = bin_name!();
+            if let Some(package) = &manifest.package {
+                if package.name.is_some() {
+                    let mut manifest_path_dir = manifest_path.clone();
+                    manifest_path_dir.pop();
+
+                    eprintln!(
+                        "You can now tag your package with `{}`",
+                        format!(
+                            "{bin_name} package tag {}{}",
+                            hash.to_string(),
+                            if manifest_path_dir.canonicalize()? == std::env::current_dir()? {
+                                String::new()
+                            } else {
+                                format!(" {}", manifest_path_dir.display())
+                            }
+                        )
+                        .bold()
+                    )
+                } else {
+                    eprintln!(
+                        "You can now run your package with `{}`",
+                        format!("{bin_name} run {}", hash.to_string()).bold()
+                    );
+                }
+            } else {
+                eprintln!(
+                    "You can now run your package with `{}`",
+                    format!("{bin_name} run {}", hash.to_string()).bold()
+                );
+            }
+        }
 
         Ok(())
     }

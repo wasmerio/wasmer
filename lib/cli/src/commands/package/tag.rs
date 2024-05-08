@@ -5,6 +5,7 @@ use crate::{
         AsyncCliCommand,
     },
     opts::{ApiOpts, WasmerEnv},
+    utils::prompt_for_package_version,
 };
 use colored::Colorize;
 use dialoguer::{theme::ColorfulTheme, Confirm};
@@ -50,7 +51,7 @@ pub struct PackageTag {
     pub timeout: humantime::Duration,
 
     /// Whether or not the patch field of the version of the package - if any - should be bumped.
-    #[clap(long, conflicts_with = "version")]
+    #[clap(long, conflicts_with = "package_version")]
     pub bump: bool,
 
     /// Do not prompt for user input.
@@ -93,11 +94,8 @@ impl PackageTag {
         }
 
         let user = wasmer_api::query::current_user_with_namespaces(&client, None).await?;
-        let owner = crate::utils::prompts::prompt_for_namespace(
-            "Who should own this package?",
-            None,
-            Some(&user),
-        )?;
+        let owner =
+            crate::utils::prompts::prompt_for_namespace("Choose a namespace", None, Some(&user))?;
 
         Ok(owner.clone())
     }
@@ -106,6 +104,7 @@ impl PackageTag {
         &self,
         client: &WasmerClient,
         ident: &PackageSpecifier,
+        package_release_id: &wasmer_api::types::Id,
     ) -> anyhow::Result<PackageSpecifier> {
         let mut new_ident = ident.clone();
 
@@ -155,7 +154,7 @@ impl PackageTag {
         if let PackageSpecifier::Named {
             name,
             namespace,
-            tag: Tag::Version(user_version),
+            tag,
         } = &mut new_ident
         {
             let full_pkg_name = format!("{namespace}/{name}");
@@ -164,34 +163,53 @@ impl PackageTag {
                 format!("Checking if a version of {full_pkg_name} already exists..")
             );
 
-            if let Some(registry_version) = wasmer_api::query::get_package_version(
+            if let Some(p) = wasmer_api::query::get_package_version(
                 client,
                 full_pkg_name.clone(),
                 String::from("latest"),
             )
             .await?
-            .map(|p| p.version)
             {
-                let registry_version = semver::Version::parse(&registry_version)?;
+                let registry_version = semver::Version::parse(&p.version)?;
                 spinner_ok!(
                     pb,
                     format!("Found version {registry_version} of package {full_pkg_name}")
                 );
-                if user_version.clone() <= registry_version {
+
+                tracing::info!(
+                    "Package to tag has id = {}, while latest version has id = {}",
+                    package_release_id.inner(),
+                    p.id.inner()
+                );
+
+                if let Tag::Hash(_) = &tag {
+                    *tag = Tag::Version(registry_version.clone());
+                }
+
+                let user_version: &mut semver::Version = match tag {
+                    Tag::Version(v) => v,
+                    Tag::Hash(_) => unreachable!(),
+                };
+
+                if user_version.clone() <= registry_version && (&p.id != package_release_id) {
                     if self.bump {
-                        user_version.patch += 1;
+                        *user_version = registry_version.clone();
+                        user_version.patch = registry_version.patch + 1;
                     } else if !self.non_interactive {
-                        eprintln!("The registry has a newer version of the package.");
                         let theme = ColorfulTheme::default();
-                        let mut new_version = user_version.clone();
+                        let mut new_version = registry_version.clone();
                         new_version.patch += 1;
                         if Confirm::with_theme(&theme).with_prompt(format!("Do you want to bump the package's version ({user_version} -> {new_version})?")).interact()? {
-                            user_version.patch += 1;
+                            *user_version = new_version.clone();
+                            // TODO: serialize new version?
                        }
                     }
                 }
             } else {
                 spinner_ok!(pb, format!("No version of {full_pkg_name} in registry!"));
+                let version =
+                    prompt_for_package_version("Enter the package version", Some("0.1.0"))?;
+                *tag = Tag::Version(version);
             }
         }
 
@@ -211,7 +229,9 @@ impl PackageTag {
             ident
         );
 
-        let tagger = self.synthesize_tagger(client, ident).await?;
+        let tagger = self
+            .synthesize_tagger(client, ident, package_release_id)
+            .await?;
 
         let pb = make_spinner!(self.quiet, "Tagging package...");
 
@@ -287,7 +307,13 @@ impl PackageTag {
         match r.await? {
             Some(r) => {
                 if r.success {
-                    spinner_ok!(pb, "Successfully tagged package");
+                    spinner_ok!(
+                        pb,
+                        format!(
+                            "Successfully tagged package {}",
+                            Into::<PackageIdent>::into(tagger.clone())
+                        )
+                    );
                     Ok(tagger)
                 } else {
                     spinner_err!(pb, "Could not tag package!");
@@ -344,7 +370,17 @@ impl PackageTag {
             }
         };
 
-        spinner_ok!(pb, "Found package in the registry!");
+        spinner_ok!(
+            pb,
+            format!(
+                "Found package {} in the registry",
+                hash.to_string()
+                    .trim_start_matches("sha256:")
+                    .chars()
+                    .take(7)
+                    .collect::<String>()
+            )
+        );
 
         Ok(pkg.id)
     }
@@ -388,6 +424,7 @@ impl AsyncCliCommand for PackageTag {
         tracing::info!("Got manifest at path {}", manifest_path.display());
 
         self.tag(&client, &manifest).await?;
+
         Ok(())
     }
 }
