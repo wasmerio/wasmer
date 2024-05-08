@@ -360,14 +360,12 @@ fn decode_summary(
 
     let (webc_version, pirita_sha256_hash, pirita_download_url) = if std::env::var("USE_V3").is_ok()
     {
-        println!("using v3");
         (
             v3_webc_version,
             v3_pirita_sha256_hash,
             v3_pirita_download_url,
         )
     } else {
-        println!("using v2");
         (
             v2_webc_version,
             v2_pirita_sha256_hash,
