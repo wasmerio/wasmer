@@ -343,14 +343,37 @@ fn decode_summary(
 ) -> Result<PackageSummary, Error> {
     let WapmWebQueryGetPackageVersion {
         manifest,
-        distribution:
+        v2:
             WapmWebQueryGetPackageVersionDistribution {
-                webc_version,
-                pirita_sha256_hash,
-                pirita_download_url,
+                webc_version: webc_version_v2,
+                pirita_sha256_hash: pirita_sha256_hash_v2,
+                pirita_download_url: pirita_download_url_v2,
+            },
+        v3:
+            WapmWebQueryGetPackageVersionDistribution {
+                webc_version: webc_version_v3,
+                pirita_sha256_hash: pirita_sha256_hash_v3,
+                pirita_download_url: pirita_download_url_v3,
             },
         ..
     } = pkg_version;
+
+    let (webc_version, pirita_sha256_hash, pirita_download_url) = if std::env::var("USE_V3").is_ok()
+    {
+        println!("using v3");
+        (
+            webc_version_v3,
+            pirita_sha256_hash_v3,
+            pirita_download_url_v3,
+        )
+    } else {
+        println!("using v2");
+        (
+            webc_version_v2,
+            pirita_sha256_hash_v2,
+            pirita_download_url_v2,
+        )
+    };
 
     let id = PackageId::Named(NamedPackageId {
         full_name: format!("{}/{}", namespace, package_name),
@@ -529,17 +552,18 @@ impl CacheEntry {
 #[allow(dead_code)]
 pub const WASMER_WEBC_QUERY_ALL: &str = r#"{
     getPackage(name: "$NAME") {
-        packageName
-        namespace
         versions {
-        version
-        piritaManifest
-        isArchived
-        distribution {
-            webcVersion
-            piritaDownloadUrl
-            piritaSha256Hash
-        }
+          version
+          piritaManifest
+          manifest
+          v2: distribution(version: V2) {
+            webcSha256Hash
+            webcDownloadUrl
+          }
+          v3: distribution(version: V3) {
+            webcSha256Hash
+            webcDownloadUrl
+          }
         }
     }
     info {
@@ -633,7 +657,8 @@ pub struct WapmWebQueryGetPackageVersion {
     /// A JSON string containing a [`Manifest`] definition.
     #[serde(rename = "piritaManifest")]
     pub manifest: Option<String>,
-    pub distribution: WapmWebQueryGetPackageVersionDistribution,
+    pub v2: WapmWebQueryGetPackageVersionDistribution,
+    pub v3: WapmWebQueryGetPackageVersionDistribution,
 }
 
 #[derive(Debug, serde::Serialize, serde::Deserialize, Clone)]
