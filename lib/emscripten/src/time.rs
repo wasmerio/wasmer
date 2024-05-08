@@ -1,6 +1,7 @@
 use super::utils::{copy_cstr_into_wasm, write_to_buf};
 use crate::{allocate_on_stack, lazy_static, EmEnv};
 use libc::{c_char, c_int};
+use time::ext::InstantExt;
 // use libc::{c_char, c_int, clock_getres, clock_settime};
 use std::mem;
 use std::time::SystemTime;
@@ -100,10 +101,10 @@ pub fn _clock_gettime(ctx: FunctionEnvMut<EmEnv>, clk_id: clockid_t, tp: c_int) 
 
         CLOCK_MONOTONIC | CLOCK_MONOTONIC_COARSE => {
             lazy_static! {
-                static ref PRECISE0: time::Instant = time::Instant::now();
+                static ref PRECISE0: std::time::Instant = std::time::Instant::now();
             };
             let precise_ns = *PRECISE0;
-            (time::Instant::now() - precise_ns).whole_nanoseconds()
+            (std::time::Instant::now().signed_duration_since(precise_ns)).whole_nanoseconds()
         }
         _ => panic!("Clock with id \"{}\" is not supported.", clk_id),
     };
