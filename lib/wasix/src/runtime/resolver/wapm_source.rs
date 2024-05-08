@@ -113,6 +113,7 @@ impl WapmSource {
             "Received a response from GraphQL",
         );
 
+        println!("Got to here!");
         let response: WapmWebQuery =
             serde_json::from_slice(&body).context("Unable to deserialize the response")?;
 
@@ -263,6 +264,7 @@ impl Source for WapmSource {
             }
         }
 
+        println!("calling query_graphql_named");
         let response = self.query_graphql_named(&package_name).await?;
 
         if let Some(cache) = &self.cache {
@@ -552,10 +554,12 @@ impl CacheEntry {
 #[allow(dead_code)]
 pub const WASMER_WEBC_QUERY_ALL: &str = r#"{
     getPackage(name: "$NAME") {
+        packageName
+        namespace
         versions {
           version
           piritaManifest
-          manifest
+          isArchived
           v2: distribution(version: V2) {
             webcSha256Hash
             webcDownloadUrl
