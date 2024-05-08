@@ -120,7 +120,7 @@ libc = { version = "^0.2", default-features = false }
 termios = { version = "0.3" }
 
 [target.'cfg(windows)'.dependencies]
-winapi = "0.3"
+winapi = { version = "0.3", features = ["sysinfoapi"] }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 terminal_size = { version = "0.3.0" }
