@@ -1,6 +1,6 @@
 [package]
 name = "wasmer-wast"
-version = "4.3.0-alpha.1"
+version = "4.3.0-beta.1"
 authors = ["Wasmer Engineering Team <engineering@wasmer.io>"]
 description = "wast testing support for wasmer"
 license = "MIT OR Apache-2.0 WITH LLVM-exception"
@@ -12,7 +12,7 @@ edition = "2018"
 
 [dependencies]
 wasmer-wasix.workspace = true
-wasmer = { path = "../../../lib/api", version = "=4.3.0-alpha.1", default-features = false }
+wasmer = { path = "../../../lib/api", version = "=4.3.0-beta.1", default-features = false }
 virtual-fs = { path = "../../../lib/virtual-fs", version = "0.11.3" }
 
 anyhow = "1.0"
