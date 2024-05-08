@@ -381,6 +381,7 @@
 <a href="#381" id="381">381</a>
 <a href="#382" id="382">382</a>
 <a href="#383" id="383">383</a>
+<a href="#384" id="384">384</a>
 </pre></div><pre class="rust"><code><span class="kw">use super</span>::<span class="kw-2">*</span>;
 <span class="kw">use </span><span class="kw">crate</span>::syscalls::<span class="kw-2">*</span>;
 
@@ -631,6 +632,7 @@
 
                 <span class="kw">if let </span><span class="prelude-val">Some</span>(handle) = handle {
                     <span class="kw">let </span>handle = handle.read().unwrap();
+                    inode.stat.write().unwrap().st_mtim = handle.last_modified();
                     <span class="kw">if let </span><span class="prelude-val">Some</span>(fd) = handle.get_special_fd() {
                         <span class="comment">// We clone the file descriptor so that when its closed
                         // nothing bad happens
