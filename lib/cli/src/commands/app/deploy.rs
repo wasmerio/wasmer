@@ -87,10 +87,11 @@ pub struct CmdAppDeploy {
 impl CmdAppDeploy {
     async fn publish(
         &self,
+        client: &WasmerClient,
         owner: String,
         manifest_dir_path: PathBuf,
     ) -> anyhow::Result<PackageIdent> {
-        let (_, manifest) = match load_package_manifest(&manifest_dir_path)? {
+        let (manifest_path, manifest) = match load_package_manifest(&manifest_dir_path)? {
             Some(r) => r,
             None => anyhow::bail!(
                 "Could not read or find manifest in path '{}'!",
@@ -120,7 +121,9 @@ impl CmdAppDeploy {
             api: self.api.clone(),
         };
 
-        publish_cmd.run_async().await
+        publish_cmd
+            .publish(&client, &manifest_path, &manifest)
+            .await
     }
 
     async fn get_owner(
@@ -297,7 +300,9 @@ impl AsyncCliCommand for CmdAppDeploy {
                         .display()
                 );
 
-                let package_id = self.publish(owner.clone(), PathBuf::from(path)).await?;
+                let package_id = self
+                    .publish(&client, owner.clone(), PathBuf::from(path))
+                    .await?;
 
                 app_cfg_new.package = package_id.into();
 
@@ -355,7 +360,7 @@ impl AsyncCliCommand for CmdAppDeploy {
                                     );
 
                                     let package_id =
-                                        self.publish(owner.clone(), manifest_path).await?;
+                                        self.publish(&client, owner.clone(), manifest_path).await?;
 
                                     app_config.package = package_id.into();
 

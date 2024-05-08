@@ -11,8 +11,9 @@ use crate::{
 };
 use colored::Colorize;
 use is_terminal::IsTerminal;
+use wasmer_api::WasmerClient;
 use std::path::PathBuf;
-use wasmer_config::package::PackageIdent;
+use wasmer_config::package::{PackageIdent, Manifest};
 
 /// Publish (push and tag) a package to the registry.
 #[derive(Debug, clap::Parser)]
@@ -72,12 +73,55 @@ pub struct PackagePublish {
     pub timeout: humantime::Duration,
 
     /// Whether or not the patch field of the version of the package - if any - should be bumped.
-    #[clap(long, conflicts_with = "version")]
+    #[clap(long, conflicts_with = "package_version")]
     pub bump: bool,
 
     /// Do not prompt for user input.
     #[clap(long, default_value_t = !std::io::stdin().is_terminal())]
     pub non_interactive: bool,
+}
+
+impl PackagePublish {
+    pub async fn publish(
+        &self,
+        client: &WasmerClient,
+        manifest_path: &PathBuf,
+        manifest: &Manifest,
+    ) -> anyhow::Result<PackageIdent> {
+        let (package_namespace, package_hash) = {
+            let push_cmd = PackagePush {
+                api: self.api.clone(),
+                env: self.env.clone(),
+                dry_run: self.dry_run,
+                quiet: self.quiet,
+                package_namespace: self.package_namespace.clone(),
+                timeout: self.timeout.clone(),
+                bump: self.bump.clone(),
+                non_interactive: self.non_interactive.clone(),
+                wait: self.wait.clone(),
+                package_path: self.package_path.clone(),
+            };
+
+            push_cmd.push(&client, &manifest, &manifest_path).await?
+        };
+
+        PackageTag {
+            api: self.api.clone(),
+            env: self.env.clone(),
+            dry_run: self.dry_run.clone(),
+            quiet: self.quiet,
+            package_namespace: Some(package_namespace),
+            package_name: self.package_name.clone(),
+            package_version: self.package_version.clone(),
+            timeout: self.timeout.clone(),
+            bump: self.bump.clone(),
+            non_interactive: self.non_interactive.clone(),
+            package_path: self.package_path.clone(),
+            package_hash,
+        }
+        .tag(&client, &manifest)
+        .await
+    }
 }
 
 #[async_trait::async_trait]
@@ -98,39 +142,7 @@ impl AsyncCliCommand for PackagePublish {
         let (manifest_path, manifest) = get_manifest(&self.package_path)?;
         tracing::info!("Got manifest at path {}", manifest_path.display());
 
-        let (package_namespace, package_hash) = {
-            let push_cmd = PackagePush {
-                api: self.api.clone(),
-                env: self.env.clone(),
-                dry_run: self.dry_run,
-                quiet: self.quiet,
-                package_namespace: self.package_namespace.clone(),
-                timeout: self.timeout.clone(),
-                bump: self.bump.clone(),
-                non_interactive: self.non_interactive.clone(),
-                wait: self.wait.clone(),
-                package_path: self.package_path.clone(),
-            };
-
-            push_cmd.push(&client, &manifest, &manifest_path).await?
-        };
-
-        let ident = PackageTag {
-            api: self.api.clone(),
-            env: self.env.clone(),
-            dry_run: self.dry_run.clone(),
-            quiet: self.quiet,
-            package_namespace: Some(package_namespace),
-            package_name: self.package_name.clone(),
-            package_version: self.package_version.clone(),
-            timeout: self.timeout.clone(),
-            bump: self.bump.clone(),
-            non_interactive: self.non_interactive.clone(),
-            package_path: self.package_path.clone(),
-            package_hash,
-        }
-        .tag(&client, &manifest)
-        .await?;
+        let ident = self.publish(&client, &manifest_path, &manifest).await?;
 
         if !self.quiet && !self.non_interactive {
             eprintln!(
@@ -139,6 +151,7 @@ impl AsyncCliCommand for PackagePublish {
                 format!("`{} run {ident}`", bin_name!()).bold()
             );
         }
+
         Ok(ident)
     }
 }
