@@ -9,6 +9,40 @@ Looking for changes that affect our C API? See the [C API Changelog](lib/c-api/C
 
 ## **Unreleased**
 
+## 4.3.0-beta.1 - 08/05/2024
+
+## Added
+
+  - [#4633](https://github.com/wasmerio/wasmer/pull/4633) Added a fix so that try_read calls close the connection without returning errors and causing a panic
+  - [#4566](https://github.com/wasmerio/wasmer/pull/4566) feat(backend-api): Add permalink to DeployApp
+
+## Changed
+
+  - [#4643](https://github.com/wasmerio/wasmer/pull/4643) Adopt the push-tag publishing mechanism
+  - [#4645](https://github.com/wasmerio/wasmer/pull/4645) sync modified timestamp upon creating the inode
+  - [#4639](https://github.com/wasmerio/wasmer/pull/4639) Move rewind buffer to after TLS area if it's at the bottom of the stack
+  - [#4644](https://github.com/wasmerio/wasmer/pull/4644) prepare wasmer-config 0.2.0 release
+  - [#4638](https://github.com/wasmerio/wasmer/pull/4638) Handle local package resolution
+  - [#4627](https://github.com/wasmerio/wasmer/pull/4627) reuse atom signatures
+  - [#4630](https://github.com/wasmerio/wasmer/pull/4630) Support partial manifest fields
+  - [#4631](https://github.com/wasmerio/wasmer/pull/4631) enable socks support
+  - [#4624](https://github.com/wasmerio/wasmer/pull/4624) respect proxy env vars
+  - [#4629](https://github.com/wasmerio/wasmer/pull/4629) chore(wasix): More logging improvements
+  - [#4625](https://github.com/wasmerio/wasmer/pull/4625) expose modified time in `webc_volume_fs`
+  - [#4618](https://github.com/wasmerio/wasmer/pull/4618) propagate timestamps to virtual file handles
+  - [#4622](https://github.com/wasmerio/wasmer/pull/4622) Improve error message for unknown atoms
+  - [#4619](https://github.com/wasmerio/wasmer/pull/4619) feat(wasix): More improvements to spawn error propagation
+  - [#4616](https://github.com/wasmerio/wasmer/pull/4616) feat: Improve wasix SpawnError
+  - [#4614](https://github.com/wasmerio/wasmer/pull/4614) Renamed all master -> main
+
+## Fixed
+
+  - [#4617](https://github.com/wasmerio/wasmer/pull/4617) 4.3.0 alpha.1 leftover fixes
+  - [#4628](https://github.com/wasmerio/wasmer/pull/4628) Fix for the sha256 caching issue
+  - [#4623](https://github.com/wasmerio/wasmer/pull/4623) fix(CLI): Pass the `no_wait` flag to `Deploy`
+
+
+
 ## 4.3.0-alpha.1 - 25/04/2024
 
 This release introduces support for publishing unnamed packages. It also fixes an issue with code generation when using Singlepass and contains fixes to WASIX.
