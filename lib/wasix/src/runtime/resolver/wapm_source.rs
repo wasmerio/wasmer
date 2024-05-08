@@ -358,20 +358,20 @@ fn decode_summary(
         ..
     } = pkg_version;
 
-    let (webc_version, pirita_sha256_hash, pirita_download_url) = if std::env::var("USE_V3").is_ok()
-    {
-        (
-            v3_webc_version,
-            v3_pirita_sha256_hash,
-            v3_pirita_download_url,
-        )
-    } else {
-        (
-            v2_webc_version,
-            v2_pirita_sha256_hash,
-            v2_pirita_download_url,
-        )
-    };
+    let (webc_version, pirita_sha256_hash, pirita_download_url) =
+        if std::env::var("WASMER_USE_WEBCV3").is_ok() {
+            (
+                v3_webc_version,
+                v3_pirita_sha256_hash,
+                v3_pirita_download_url,
+            )
+        } else {
+            (
+                v2_webc_version,
+                v2_pirita_sha256_hash,
+                v2_pirita_download_url,
+            )
+        };
 
     let id = PackageId::Named(NamedPackageId {
         full_name: format!("{}/{}", namespace, package_name),
@@ -816,7 +816,11 @@ mod tests {
                             {
                                 "version": "0.2.0",
                                 "piritaManifest": "{\"atoms\": {\"cowsay\": {\"kind\": \"https://webc.org/kind/wasm\", \"signature\": \"sha256:DPmhiSNXCg5261eTUi3BIvAc/aJttGj+nD+bGhQkVQo=\"}}, \"package\": {\"wapm\": {\"name\": \"cowsay\", \"readme\": {\"path\": \"README.md\", \"volume\": \"metadata\"}, \"version\": \"0.2.0\", \"repository\": \"https://github.com/wapm-packages/cowsay\", \"description\": \"cowsay is a program that generates ASCII pictures of a cow with a message\"}}, \"commands\": {\"cowsay\": {\"runner\": \"https://webc.org/runner/wasi/command@unstable_\", \"annotations\": {\"wasi\": {\"atom\": \"cowsay\", \"package\": null, \"main_args\": null}}}, \"cowthink\": {\"runner\": \"https://webc.org/runner/wasi/command@unstable_\", \"annotations\": {\"wasi\": {\"atom\": \"cowsay\", \"package\": null, \"main_args\": null}}}}}",
-                                "distribution": {
+                                "v2": {
+                                    "piritaDownloadUrl": "https://storage.googleapis.com/wapm-registry-prod/packages/_/cowsay/cowsay-0.2.0.webc",
+                                    "piritaSha256Hash": "9586938a0a89219dafe4ae97a901c56d4b3e2a9941520d1309ae880c9a1868c9"
+                                },
+                                "v3": {
                                     "piritaDownloadUrl": "https://storage.googleapis.com/wapm-registry-prod/packages/_/cowsay/cowsay-0.2.0.webc",
                                     "piritaSha256Hash": "9586938a0a89219dafe4ae97a901c56d4b3e2a9941520d1309ae880c9a1868c9"
                                 }
@@ -824,7 +828,11 @@ mod tests {
                             {
                                 "version": "0.1.3",
                                 "piritaManifest": null,
-                                "distribution": {
+                                "v2": {
+                                    "piritaDownloadUrl": "https://example.com/",
+                                    "piritaSha256Hash": "1234asdf"
+                                },
+                                "v3": {
                                     "piritaDownloadUrl": "https://example.com/",
                                     "piritaSha256Hash": "1234asdf"
                                 }
@@ -832,17 +840,25 @@ mod tests {
                             {
                                 "version": "0.1.2",
                                 "piritaManifest": "{}",
-                                "distribution": {
-                                    "piritaDownloadUrl": null,
+                                "v2": {
+                                    "piritaDownloadUrl": "https://example.com/",
+                                    "piritaSha256Hash": "1234asdf"
+                                },
+                                "v3": {
+                                    "piritaDownloadUrl": "https://example.com/",
                                     "piritaSha256Hash": "1234asdf"
                                 }
                             },
                             {
                                 "version": "0.1.3",
                                 "piritaManifest": "{}",
-                                "distribution": {
+                                "v2": {
                                     "piritaDownloadUrl": "https://example.com/",
-                                    "piritaSha256Hash":null
+                                    "piritaSha256Hash": "1234asdf"
+                                },
+                                "v3": {
+                                    "piritaDownloadUrl": "https://example.com/",
+                                    "piritaSha256Hash": "1234asdf"
                                 }
                             }
                         ]
@@ -887,7 +903,11 @@ mod tests {
                                 "version": "3.12.2",
                                 "piritaManifest": "{\"atoms\": {\"python\": {\"kind\": \"https://webc.org/kind/wasm\", \"signature\": \"sha256:ibsq6QL4qB4GtCE8IA2yfHVwI4fLoIGXsALsAx16y5M=\"}}, \"package\": {\"wapm\": {\"name\": \"wasmer/python\", \"license\": \"ISC\", \"version\": \"3.12.2\", \"repository\": \"https://github.com/wapm-packages/python\", \"description\": \"Python is an interpreted, high-level, general-purpose programming language\"}}, \"commands\": {\"python\": {\"runner\": \"https://webc.org/runner/wasi/command@unstable_\", \"annotations\": {\"wasi\": {\"atom\": \"python\", \"package\": null, \"main_args\": null}}}}, \"entrypoint\": \"python\"}",
                                 "isArchived": true,
-                                "distribution": {
+                                "v2": {
+                                    "piritaDownloadUrl": "https://storage.googleapis.com/wapm-registry-prod/packages/wasmer/python/python-3.12.0-build.5-a11e0414-c68d-473c-958f-fc96ef7adb20.webc",
+                                    "piritaSha256Hash": "7771ed54376c16da86581736fad84fb761a049915902a7070e854965be0d5874"
+                                },
+                                "v3": {
                                     "piritaDownloadUrl": "https://storage.googleapis.com/wapm-registry-prod/packages/wasmer/python/python-3.12.0-build.5-a11e0414-c68d-473c-958f-fc96ef7adb20.webc",
                                     "piritaSha256Hash": "7771ed54376c16da86581736fad84fb761a049915902a7070e854965be0d5874"
                                 }
@@ -896,7 +916,11 @@ mod tests {
                                 "version": "3.12.1",
                                 "piritaManifest": "{\"atoms\": {\"python\": {\"kind\": \"https://webc.org/kind/wasm\", \"signature\": \"sha256:O36BXLHv3/80cABbAiF7gzuSHzzin1blTfJ42LDhT18=\"}}, \"package\": {\"wapm\": {\"name\": \"wasmer/python\", \"license\": \"ISC\", \"version\": \"3.12.1\", \"repository\": \"https://github.com/wapm-packages/python\", \"description\": \"Python is an interpreted, high-level, general-purpose programming language\"}}, \"commands\": {\"python\": {\"runner\": \"https://webc.org/runner/wasi/command@unstable_\", \"annotations\": {\"wasi\": {\"atom\": \"python\", \"package\": null, \"main_args\": null}}}}, \"entrypoint\": \"python\"}",
                                 "isArchived": false,
-                                "distribution": {
+                                "v2": {
+                                    "piritaDownloadUrl": "https://storage.googleapis.com/wapm-registry-prod/packages/wasmer/python/python-3.12.0-build.2-ed98c999-fcda-4f80-96dc-7c0f8be8baa6.webc",
+                                    "piritaSha256Hash": "7835401e3ca1977ba05b5e51541363783b8a7700da270dd851f10fe2e4f27f07"
+                                },
+                                "v3": {
                                     "piritaDownloadUrl": "https://storage.googleapis.com/wapm-registry-prod/packages/wasmer/python/python-3.12.0-build.2-ed98c999-fcda-4f80-96dc-7c0f8be8baa6.webc",
                                     "piritaSha256Hash": "7835401e3ca1977ba05b5e51541363783b8a7700da270dd851f10fe2e4f27f07"
                                 }
@@ -905,7 +929,11 @@ mod tests {
                                 "version": "3.12.0",
                                 "piritaManifest": "{\"atoms\": {\"python\": {\"kind\": \"https://webc.org/kind/wasm\", \"signature\": \"sha256:O36BXLHv3/80cABbAiF7gzuSHzzin1blTfJ42LDhT18=\"}}, \"package\": {\"wapm\": {\"name\": \"wasmer/python\", \"license\": \"ISC\", \"version\": \"3.12.0\", \"repository\": \"https://github.com/wapm-packages/python\", \"description\": \"Python is an interpreted, high-level, general-purpose programming language\"}}, \"commands\": {\"python\": {\"runner\": \"https://webc.org/runner/wasi/command@unstable_\", \"annotations\": {\"wasi\": {\"atom\": \"python\", \"package\": null, \"main_args\": null}}}}, \"entrypoint\": \"python\"}",
                                 "isArchived": true,
-                                "distribution": {
+                                "v2": {
+                                    "piritaDownloadUrl": "https://storage.googleapis.com/wapm-registry-prod/packages/wasmer/python/python-3.12.0-32065e5e-84fe-4483-a380-0aa750772a3a.webc",
+                                    "piritaSha256Hash": "e5d6e9d16db988eb323e34e2c152ebfb32dc7043d6b7ddc00ad57d3beae24adb"
+                                },
+                                "v3": {
                                     "piritaDownloadUrl": "https://storage.googleapis.com/wapm-registry-prod/packages/wasmer/python/python-3.12.0-32065e5e-84fe-4483-a380-0aa750772a3a.webc",
                                     "piritaSha256Hash": "e5d6e9d16db988eb323e34e2c152ebfb32dc7043d6b7ddc00ad57d3beae24adb"
                                 }
@@ -950,7 +978,11 @@ mod tests {
                             {
                                 "version": "3.12.0",
                                 "piritaManifest": "{\"package\": {\"wapm\": {\"name\": \"wasmer/python\", \"version\": \"3.12.0\", \"description\": \"Python\"}}}",
-                                "distribution": {
+                                "v2": {
+                                    "piritaDownloadUrl": "https://wasmer.io/wasmer/python@3.12.0",
+                                    "piritaSha256Hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+                                },
+                                "v3": {
                                     "piritaDownloadUrl": "https://wasmer.io/wasmer/python@3.12.0",
                                     "piritaSha256Hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
                                 }
@@ -973,7 +1005,11 @@ mod tests {
                             {
                                 "version": "4.0.0",
                                 "piritaManifest": "{\"package\": {\"wapm\": {\"name\": \"wasmer/python\", \"version\": \"4.0.0\", \"description\": \"Python\"}}}",
-                                "distribution": {
+                                "v2": {
+                                    "piritaDownloadUrl": "https://wasmer.io/wasmer/python@4.0.0",
+                                    "piritaSha256Hash": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+                                },
+                                "v3": {
                                     "piritaDownloadUrl": "https://wasmer.io/wasmer/python@4.0.0",
                                     "piritaSha256Hash": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
                                 }
@@ -981,7 +1017,11 @@ mod tests {
                             {
                                 "version": "3.12.0",
                                 "piritaManifest": "{\"package\": {\"wapm\": {\"name\": \"wasmer/python\", \"version\": \"3.12.0\", \"description\": \"Python\"}}}",
-                                "distribution": {
+                                "v2": {
+                                    "piritaDownloadUrl": "https://wasmer.io/wasmer/python@3.12.0",
+                                    "piritaSha256Hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+                                },
+                                "v3": {
                                     "piritaDownloadUrl": "https://wasmer.io/wasmer/python@3.12.0",
                                     "piritaSha256Hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
                                 }
