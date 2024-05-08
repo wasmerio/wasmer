@@ -671,8 +671,8 @@
 <a href="#671" id="671">671</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">super</span>::AsyncCliCommand;
 <span class="kw">use crate</span>::{
-    commands::{app::create::CmdAppCreate, Publish},
-    opts::{ApiOpts, ItemFormatOpts},
+    commands::{app::create::CmdAppCreate, package::publish::PackagePublish, PublishWait},
+    opts::{ApiOpts, ItemFormatOpts, WasmerEnv},
     utils::load_package_manifest,
 };
 <span class="kw">use </span>anyhow::Context;
@@ -689,13 +689,15 @@
     app::AppConfigV1,
     package::{PackageIdent, PackageSource},
 };
-<span class="kw">use </span>wasmer_registry::wasmer_env::{WasmerEnv, WASMER_DIR};
 
 <span class="doccomment">/// Deploy an app to Wasmer Edge.
 </span><span class="attr">#[derive(clap::Parser, Debug)]
 </span><span class="kw">pub struct </span>CmdAppDeploy {
     <span class="attr">#[clap(flatten)]
     </span><span class="kw">pub </span>api: ApiOpts,
+
+    <span class="attr">#[clap(flatten)]
+    </span><span class="kw">pub </span>env: WasmerEnv,
 
     <span class="attr">#[clap(flatten)]
     </span><span class="kw">pub </span>fmt: ItemFormatOpts,
@@ -756,10 +758,11 @@
 <span class="kw">impl </span>CmdAppDeploy {
     <span class="kw">async fn </span>publish(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
+        client: <span class="kw-2">&amp;</span>WasmerClient,
         owner: String,
         manifest_dir_path: PathBuf,
     ) -&gt; anyhow::Result&lt;PackageIdent&gt; {
-        <span class="kw">let </span>(<span class="kw">_</span>, manifest) = <span class="kw">match </span>load_package_manifest(<span class="kw-2">&amp;</span>manifest_dir_path)<span class="question-mark">? </span>{
+        <span class="kw">let </span>(manifest_path, manifest) = <span class="kw">match </span>load_package_manifest(<span class="kw-2">&amp;</span>manifest_dir_path)<span class="question-mark">? </span>{
             <span class="prelude-val">Some</span>(r) =&gt; r,
             <span class="prelude-val">None </span>=&gt; <span class="macro">anyhow::bail!</span>(
                 <span class="string">&quot;Could not read or find manifest in path &#39;{}&#39;!&quot;</span>,
@@ -767,27 +770,18 @@
             ),
         };
 
-        <span class="kw">let </span>env = WasmerEnv::new(
-            <span class="kw">if let </span><span class="prelude-val">Ok</span>(dir) = std::env::var(<span class="string">&quot;WASMER_DIR&quot;</span>) {
-                PathBuf::from(dir)
-            } <span class="kw">else </span>{
-                WASMER_DIR.clone()
-            },
-            <span class="self">self</span>.api.registry.clone().map(|u| u.to_string().into()),
-            <span class="self">self</span>.api.token.clone(),
-            <span class="prelude-val">None</span>,
-        );
-
-        <span class="kw">let </span>publish_cmd = Publish {
-            env,
+        <span class="kw">let </span>publish_cmd = PackagePublish {
+            env: <span class="self">self</span>.env.clone(),
             dry_run: <span class="bool-val">false</span>,
             quiet: <span class="bool-val">false</span>,
             package_name: <span class="prelude-val">None</span>,
-            version: <span class="prelude-val">None</span>,
+            package_version: <span class="prelude-val">None</span>,
             no_validate: <span class="bool-val">false</span>,
-            package_path: <span class="prelude-val">Some</span>(manifest_dir_path.to_str().unwrap().to_string()),
-            wait: !<span class="self">self</span>.no_wait,
-            wait_all: !<span class="self">self</span>.no_wait,
+            package_path: manifest_dir_path.clone(),
+            wait: <span class="kw">match </span><span class="self">self</span>.no_wait {
+                <span class="bool-val">true </span>=&gt; PublishWait::None,
+                <span class="bool-val">false </span>=&gt; PublishWait::Container,
+            },
             timeout: humantime::Duration::from_str(<span class="string">&quot;2m&quot;</span>).unwrap(),
             package_namespace: <span class="kw">match </span>manifest.package {
                 <span class="prelude-val">Some</span>(<span class="kw">_</span>) =&gt; <span class="prelude-val">None</span>,
@@ -795,13 +789,11 @@
             },
             non_interactive: <span class="self">self</span>.non_interactive,
             bump: <span class="self">self</span>.bump,
+            api: <span class="self">self</span>.api.clone(),
         };
 
-        <span class="kw">match </span>publish_cmd.run_async().<span class="kw">await</span><span class="question-mark">? </span>{
-            <span class="prelude-val">Some</span>(id) =&gt; <span class="prelude-val">Ok</span>(id),
-            <span class="prelude-val">None </span>=&gt; <span class="macro">anyhow::bail!</span>(<span class="string">&quot;Error while publishing package. Stopping.&quot;</span>),
-        }
-    }
+        publish_cmd.publish(client, <span class="kw-2">&amp;</span>manifest_path, <span class="kw-2">&amp;</span>manifest).<span class="kw">await
+    </span>}
 
     <span class="kw">async fn </span>get_owner(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
@@ -859,6 +851,7 @@
             app_name: <span class="prelude-val">None</span>,
             no_wait: <span class="self">self</span>.no_wait,
             api: <span class="self">self</span>.api.clone(),
+            env: <span class="self">self</span>.env.clone(),
             fmt: ItemFormatOpts {
                 format: <span class="self">self</span>.fmt.format,
             },
@@ -926,9 +919,14 @@
             config_str = <span class="macro">format!</span>(<span class="string">&quot;{}\nname: {}&quot;</span>, config_str, <span class="self">self</span>.app_name.as_ref().unwrap());
         } <span class="kw">else if </span>app_yaml.get(<span class="string">&quot;name&quot;</span>).is_none() {
             <span class="kw">if </span>!<span class="self">self</span>.non_interactive {
+                <span class="kw">let </span>default_name = std::env::current_dir().ok().and_then(|dir| {
+                    dir.file_name()
+                        .and_then(|f| f.to_str())
+                        .map(|s| s.to_owned())
+                });
                 <span class="kw">let </span>app_name = <span class="kw">crate</span>::utils::prompts::prompt_new_app_name(
                     <span class="string">&quot;Enter the name of the app&quot;</span>,
-                    <span class="prelude-val">None</span>,
+                    default_name.as_deref(),
                     <span class="kw-2">&amp;</span>owner,
                     <span class="self">self</span>.api.client().ok().as_ref(),
                 )
@@ -976,7 +974,9 @@
                         .display()
                 );
 
-                <span class="kw">let </span>package_id = <span class="self">self</span>.publish(owner.clone(), PathBuf::from(path)).<span class="kw">await</span><span class="question-mark">?</span>;
+                <span class="kw">let </span>package_id = <span class="self">self
+                    </span>.publish(<span class="kw-2">&amp;</span>client, owner.clone(), PathBuf::from(path))
+                    .<span class="kw">await</span><span class="question-mark">?</span>;
 
                 app_cfg_new.package = package_id.into();
 
@@ -1034,7 +1034,7 @@
                                     );
 
                                     <span class="kw">let </span>package_id =
-                                        <span class="self">self</span>.publish(owner.clone(), manifest_path).<span class="kw">await</span><span class="question-mark">?</span>;
+                                        <span class="self">self</span>.publish(<span class="kw-2">&amp;</span>client, owner.clone(), manifest_path).<span class="kw">await</span><span class="question-mark">?</span>;
 
                                     app_config.package = package_id.into();
 
@@ -1225,7 +1225,7 @@
 
     <span class="kw">let </span>make_default = opts.make_default;
 
-    <span class="macro">eprintln!</span>(<span class="string">&quot;Deploying app {} to Wasmer Edge...\n&quot;</span>, pretty_name);
+    <span class="macro">eprintln!</span>(<span class="string">&quot;\nDeploying app {} to Wasmer Edge...\n&quot;</span>, pretty_name);
 
     <span class="kw">let </span>wait = opts.wait;
     <span class="kw">let </span>version = deploy_app(client, opts).<span class="kw">await</span><span class="question-mark">?</span>;

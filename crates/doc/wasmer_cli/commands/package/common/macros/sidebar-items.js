@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"macro":["bin_name","make_spinner","spinner_err","spinner_ok"]};

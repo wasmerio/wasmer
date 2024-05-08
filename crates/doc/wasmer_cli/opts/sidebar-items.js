@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":["ApiOpts","ItemFormatOpts","ItemTableFormatOpts","ListFormatOpts","Login"]};
+window.SIDEBAR_ITEMS = {"struct":["ApiOpts","ItemFormatOpts","ItemTableFormatOpts","ListFormatOpts","Login","WASMER_CACHE_DIR","WASMER_DIR","WasmerEnv"]};

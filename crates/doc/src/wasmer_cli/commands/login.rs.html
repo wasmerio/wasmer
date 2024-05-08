@@ -539,6 +539,10 @@
 <a href="#539" id="539">539</a>
 <a href="#540" id="540">540</a>
 <a href="#541" id="541">541</a>
+<a href="#542" id="542">542</a>
+<a href="#543" id="543">543</a>
+<a href="#544" id="544">544</a>
+<a href="#545" id="545">545</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{net::TcpListener, path::PathBuf, str::FromStr, time::Duration};
 
 <span class="kw">use </span>anyhow::Ok;
@@ -646,7 +650,7 @@
     </span><span class="kw">pub </span>token: <span class="prelude-ty">Option</span>&lt;String&gt;,
     <span class="doccomment">/// The directory cached artefacts are saved to.
     </span><span class="attr">#[clap(long, env = <span class="string">&quot;WASMER_CACHE_DIR&quot;</span>)]
-    </span>cache_dir: <span class="prelude-ty">Option</span>&lt;PathBuf&gt;,
+    </span><span class="kw">pub </span>cache_dir: <span class="prelude-ty">Option</span>&lt;PathBuf&gt;,
 }
 
 <span class="kw">impl </span>Login {
@@ -766,9 +770,7 @@
         <span class="prelude-val">Ok</span>((listener, server_url))
     }
 
-    <span class="doccomment">/// execute [List]
-    </span><span class="attr">#[tokio::main]
-    </span><span class="kw">pub async fn </span>execute(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;(), anyhow::Error&gt; {
+    <span class="kw">pub async fn </span>run_async(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;(), anyhow::Error&gt; {
         <span class="kw">let </span>env = <span class="self">self</span>.wasmer_env();
         <span class="kw">let </span>registry = env.registry_endpoint()<span class="question-mark">?</span>;
 
@@ -865,6 +867,12 @@
         };
         <span class="prelude-val">Ok</span>(())
     }
+
+    <span class="doccomment">/// execute [List]
+    </span><span class="attr">#[tokio::main]
+    </span><span class="kw">pub async fn </span>execute(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;(), anyhow::Error&gt; {
+        <span class="self">self</span>.run_async().<span class="kw">await
+    </span>}
 }
 
 <span class="kw">async fn </span>preflight(req: Request&lt;Body&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;Response&lt;Body&gt;, anyhow::Error&gt; {

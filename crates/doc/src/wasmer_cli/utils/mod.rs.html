@@ -600,6 +600,30 @@
 <a href="#600" id="600">600</a>
 <a href="#601" id="601">601</a>
 <a href="#602" id="602">602</a>
+<a href="#603" id="603">603</a>
+<a href="#604" id="604">604</a>
+<a href="#605" id="605">605</a>
+<a href="#606" id="606">606</a>
+<a href="#607" id="607">607</a>
+<a href="#608" id="608">608</a>
+<a href="#609" id="609">609</a>
+<a href="#610" id="610">610</a>
+<a href="#611" id="611">611</a>
+<a href="#612" id="612">612</a>
+<a href="#613" id="613">613</a>
+<a href="#614" id="614">614</a>
+<a href="#615" id="615">615</a>
+<a href="#616" id="616">616</a>
+<a href="#617" id="617">617</a>
+<a href="#618" id="618">618</a>
+<a href="#619" id="619">619</a>
+<a href="#620" id="620">620</a>
+<a href="#621" id="621">621</a>
+<a href="#622" id="622">622</a>
+<a href="#623" id="623">623</a>
+<a href="#624" id="624">624</a>
+<a href="#625" id="625">625</a>
+<a href="#626" id="626">626</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Utility functions for the WebAssembly module
 
 </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">mod </span>package_wizard;
@@ -732,6 +756,30 @@
             <span class="prelude-val">Ok</span>(p) =&gt; <span class="kw">break </span><span class="prelude-val">Ok</span>(p),
             <span class="prelude-val">Err</span>(err) =&gt; {
                 <span class="macro">eprintln!</span>(<span class="string">&quot;invalid package name: {err}&quot;</span>);
+            }
+        }
+    }
+}
+
+<span class="doccomment">/// Ask a user for a package name.
+///
+/// Will continue looping until the user provides a valid name.
+</span><span class="kw">pub fn </span>prompt_for_package_version(
+    message: <span class="kw-2">&amp;</span>str,
+    default: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>str&gt;,
+) -&gt; <span class="prelude-ty">Result</span>&lt;semver::Version, anyhow::Error&gt; {
+    <span class="kw">loop </span>{
+        <span class="kw">let </span>theme = ColorfulTheme::default();
+        <span class="kw">let </span>raw: String = dialoguer::Input::with_theme(<span class="kw-2">&amp;</span>theme)
+            .with_prompt(message)
+            .with_initial_text(default.unwrap_or_default())
+            .interact_text()
+            .context(<span class="string">&quot;could not read user input&quot;</span>)<span class="question-mark">?</span>;
+
+        <span class="kw">match </span>raw.parse::&lt;semver::Version&gt;() {
+            <span class="prelude-val">Ok</span>(p) =&gt; <span class="kw">break </span><span class="prelude-val">Ok</span>(p),
+            <span class="prelude-val">Err</span>(err) =&gt; {
+                <span class="macro">eprintln!</span>(<span class="string">&quot;invalid package version: {err}&quot;</span>);
             }
         }
     }

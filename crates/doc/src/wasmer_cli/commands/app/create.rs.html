@@ -829,11 +829,19 @@
 <a href="#829" id="829">829</a>
 <a href="#830" id="830">830</a>
 <a href="#831" id="831">831</a>
+<a href="#832" id="832">832</a>
+<a href="#833" id="833">833</a>
+<a href="#834" id="834">834</a>
+<a href="#835" id="835">835</a>
+<a href="#836" id="836">836</a>
+<a href="#837" id="837">837</a>
+<a href="#838" id="838">838</a>
+<a href="#839" id="839">839</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Create a new Edge app.
 
 </span><span class="kw">use crate</span>::{
     commands::AsyncCliCommand,
-    opts::{ApiOpts, ItemFormatOpts},
+    opts::{ApiOpts, ItemFormatOpts, WasmerEnv},
     utils::{
         load_package_manifest,
         package_wizard::{CreateMode, PackageType, PackageWizard},
@@ -913,6 +921,9 @@
     </span><span class="attr">#[clap(flatten)]
     #[allow(missing_docs)]
     </span><span class="kw">pub </span>api: ApiOpts,
+
+    <span class="attr">#[clap(flatten)]
+    </span><span class="kw">pub </span>env: WasmerEnv,
 
     <span class="attr">#[clap(flatten)]
     #[allow(missing_docs)]
@@ -1195,6 +1206,7 @@
         {
             <span class="kw">let </span>cmd_deploy = CmdAppDeploy {
                 api: <span class="self">self</span>.api.clone(),
+                env: <span class="self">self</span>.env.clone(),
                 fmt: ItemFormatOpts {
                     format: <span class="self">self</span>.fmt.format,
                 },
@@ -1540,6 +1552,7 @@
             package: <span class="prelude-val">Some</span>(<span class="string">&quot;testuser/static-site-1@0.1.0&quot;</span>.to_string()),
             use_local_manifest: <span class="bool-val">false</span>,
             new_package_name: <span class="prelude-val">None</span>,
+            env: WasmerEnv::default(),
         };
         cmd.run_async().<span class="kw">await</span>.unwrap();
 
@@ -1574,6 +1587,7 @@ debug: false
             package: <span class="prelude-val">Some</span>(<span class="string">&quot;wasmer/testpkg&quot;</span>.to_string()),
             use_local_manifest: <span class="bool-val">false</span>,
             new_package_name: <span class="prelude-val">None</span>,
+            env: WasmerEnv::default(),
         };
         cmd.run_async().<span class="kw">await</span>.unwrap();
 
@@ -1607,6 +1621,7 @@ debug: false
             package: <span class="prelude-val">Some</span>(<span class="string">&quot;wasmer/test-js-worker&quot;</span>.to_string()),
             use_local_manifest: <span class="bool-val">false</span>,
             new_package_name: <span class="prelude-val">None</span>,
+            env: WasmerEnv::default(),
         };
         cmd.run_async().<span class="kw">await</span>.unwrap();
 
@@ -1643,6 +1658,7 @@ debug: false
             package: <span class="prelude-val">Some</span>(<span class="string">&quot;wasmer/test-py-worker&quot;</span>.to_string()),
             use_local_manifest: <span class="bool-val">false</span>,
             new_package_name: <span class="prelude-val">None</span>,
+            env: WasmerEnv::default(),
         };
         cmd.run_async().<span class="kw">await</span>.unwrap();
 

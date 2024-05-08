@@ -1059,6 +1059,85 @@
 <a href="#1059" id="1059">1059</a>
 <a href="#1060" id="1060">1060</a>
 <a href="#1061" id="1061">1061</a>
+<a href="#1062" id="1062">1062</a>
+<a href="#1063" id="1063">1063</a>
+<a href="#1064" id="1064">1064</a>
+<a href="#1065" id="1065">1065</a>
+<a href="#1066" id="1066">1066</a>
+<a href="#1067" id="1067">1067</a>
+<a href="#1068" id="1068">1068</a>
+<a href="#1069" id="1069">1069</a>
+<a href="#1070" id="1070">1070</a>
+<a href="#1071" id="1071">1071</a>
+<a href="#1072" id="1072">1072</a>
+<a href="#1073" id="1073">1073</a>
+<a href="#1074" id="1074">1074</a>
+<a href="#1075" id="1075">1075</a>
+<a href="#1076" id="1076">1076</a>
+<a href="#1077" id="1077">1077</a>
+<a href="#1078" id="1078">1078</a>
+<a href="#1079" id="1079">1079</a>
+<a href="#1080" id="1080">1080</a>
+<a href="#1081" id="1081">1081</a>
+<a href="#1082" id="1082">1082</a>
+<a href="#1083" id="1083">1083</a>
+<a href="#1084" id="1084">1084</a>
+<a href="#1085" id="1085">1085</a>
+<a href="#1086" id="1086">1086</a>
+<a href="#1087" id="1087">1087</a>
+<a href="#1088" id="1088">1088</a>
+<a href="#1089" id="1089">1089</a>
+<a href="#1090" id="1090">1090</a>
+<a href="#1091" id="1091">1091</a>
+<a href="#1092" id="1092">1092</a>
+<a href="#1093" id="1093">1093</a>
+<a href="#1094" id="1094">1094</a>
+<a href="#1095" id="1095">1095</a>
+<a href="#1096" id="1096">1096</a>
+<a href="#1097" id="1097">1097</a>
+<a href="#1098" id="1098">1098</a>
+<a href="#1099" id="1099">1099</a>
+<a href="#1100" id="1100">1100</a>
+<a href="#1101" id="1101">1101</a>
+<a href="#1102" id="1102">1102</a>
+<a href="#1103" id="1103">1103</a>
+<a href="#1104" id="1104">1104</a>
+<a href="#1105" id="1105">1105</a>
+<a href="#1106" id="1106">1106</a>
+<a href="#1107" id="1107">1107</a>
+<a href="#1108" id="1108">1108</a>
+<a href="#1109" id="1109">1109</a>
+<a href="#1110" id="1110">1110</a>
+<a href="#1111" id="1111">1111</a>
+<a href="#1112" id="1112">1112</a>
+<a href="#1113" id="1113">1113</a>
+<a href="#1114" id="1114">1114</a>
+<a href="#1115" id="1115">1115</a>
+<a href="#1116" id="1116">1116</a>
+<a href="#1117" id="1117">1117</a>
+<a href="#1118" id="1118">1118</a>
+<a href="#1119" id="1119">1119</a>
+<a href="#1120" id="1120">1120</a>
+<a href="#1121" id="1121">1121</a>
+<a href="#1122" id="1122">1122</a>
+<a href="#1123" id="1123">1123</a>
+<a href="#1124" id="1124">1124</a>
+<a href="#1125" id="1125">1125</a>
+<a href="#1126" id="1126">1126</a>
+<a href="#1127" id="1127">1127</a>
+<a href="#1128" id="1128">1128</a>
+<a href="#1129" id="1129">1129</a>
+<a href="#1130" id="1130">1130</a>
+<a href="#1131" id="1131">1131</a>
+<a href="#1132" id="1132">1132</a>
+<a href="#1133" id="1133">1133</a>
+<a href="#1134" id="1134">1134</a>
+<a href="#1135" id="1135">1135</a>
+<a href="#1136" id="1136">1136</a>
+<a href="#1137" id="1137">1137</a>
+<a href="#1138" id="1138">1138</a>
+<a href="#1139" id="1139">1139</a>
+<a href="#1140" id="1140">1140</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{collections::HashSet, pin::Pin, time::Duration};
 
 <span class="kw">use </span>anyhow::{bail, Context};
@@ -1074,8 +1153,9 @@
     types::{
         <span class="self">self</span>, CreateNamespaceVars, DeployApp, DeployAppConnection, DeployAppVersion,
         DeployAppVersionConnection, DnsDomain, GetCurrentUserWithAppsVars, GetDeployAppAndVersion,
-        GetDeployAppVersionsVars, GetNamespaceAppsVars, Log, LogStream, PackageVersionConnection,
-        PublishDeployAppVars, UpsertDomainFromZoneFileVars,
+        GetDeployAppVersionsVars, GetNamespaceAppsVars, GetSignedUrlForPackageUploadVariables, Log,
+        LogStream, PackageVersionConnection, PublishDeployAppVars, PushPackageReleasePayload,
+        SignedUrl, TagPackageReleasePayload, UpsertDomainFromZoneFileVars,
     },
     GraphQLApiFailure, WasmerClient,
 };
@@ -1113,6 +1193,84 @@
         .<span class="kw">await</span><span class="question-mark">?</span>;
 
     webc::compat::Container::from_bytes(data).context(<span class="string">&quot;failed to parse webc package&quot;</span>)
+}
+
+<span class="doccomment">/// Get a signed URL to upload packages.
+</span><span class="kw">pub async fn </span>get_signed_url_for_package_upload(
+    client: <span class="kw-2">&amp;</span>WasmerClient,
+    expires_after_seconds: <span class="prelude-ty">Option</span>&lt;i32&gt;,
+    filename: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>str&gt;,
+    name: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>str&gt;,
+    version: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>str&gt;,
+) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;SignedUrl&gt;, anyhow::Error&gt; {
+    client
+        .run_graphql(types::GetSignedUrlForPackageUpload::build(
+            GetSignedUrlForPackageUploadVariables {
+                expires_after_seconds,
+                filename,
+                name,
+                version,
+            },
+        ))
+        .<span class="kw">await
+        </span>.map(|r| r.get_signed_url_for_package_upload)
+}
+<span class="doccomment">/// Push a package to the registry.
+</span><span class="kw">pub async fn </span>push_package_release(
+    client: <span class="kw-2">&amp;</span>WasmerClient,
+    name: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>str&gt;,
+    namespace: <span class="kw-2">&amp;</span>str,
+    signed_url: <span class="kw-2">&amp;</span>str,
+    private: <span class="prelude-ty">Option</span>&lt;bool&gt;,
+) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;PushPackageReleasePayload&gt;, anyhow::Error&gt; {
+    client
+        .run_graphql_strict(types::PushPackageRelease::build(
+            types::PushPackageReleaseVariables {
+                name,
+                namespace,
+                private,
+                signed_url,
+            },
+        ))
+        .<span class="kw">await
+        </span>.map(|r| r.push_package_release)
+}
+
+<span class="attr">#[allow(clippy::too_many_arguments)]
+</span><span class="kw">pub async fn </span>tag_package_release(
+    client: <span class="kw-2">&amp;</span>WasmerClient,
+    description: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>str&gt;,
+    homepage: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>str&gt;,
+    license: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>str&gt;,
+    license_file: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>str&gt;,
+    manifest: <span class="kw-2">&amp;</span>str,
+    name: <span class="kw-2">&amp;</span>str,
+    namespace: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>str&gt;,
+    package_release_id: <span class="kw-2">&amp;</span>cynic::Id,
+    private: <span class="prelude-ty">Option</span>&lt;bool&gt;,
+    readme: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>str&gt;,
+    repository: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>str&gt;,
+    version: <span class="kw-2">&amp;</span>str,
+) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;TagPackageReleasePayload&gt;, anyhow::Error&gt; {
+    client
+        .run_graphql_strict(types::TagPackageRelease::build(
+            types::TagPackageReleaseVariables {
+                description,
+                homepage,
+                license,
+                license_file,
+                manifest,
+                name,
+                namespace,
+                package_release_id,
+                private,
+                readme,
+                repository,
+                version,
+            },
+        ))
+        .<span class="kw">await
+        </span>.map(|r| r.tag_package_release)
 }
 
 <span class="doccomment">/// Get the currently logged in used, together with all accessible namespaces.

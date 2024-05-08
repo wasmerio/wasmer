@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":["Package"],"mod":["build","download"]};
+window.SIDEBAR_ITEMS = {"enum":["Package"],"mod":["build","common","download","publish","push","tag"]};

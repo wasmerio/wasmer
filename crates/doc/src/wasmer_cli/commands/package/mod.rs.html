@@ -13,11 +13,22 @@
 <a href="#13" id="13">13</a>
 <a href="#14" id="14">14</a>
 <a href="#15" id="15">15</a>
+<a href="#16" id="16">16</a>
+<a href="#17" id="17">17</a>
+<a href="#18" id="18">18</a>
+<a href="#19" id="19">19</a>
+<a href="#20" id="20">20</a>
+<a href="#21" id="21">21</a>
+<a href="#22" id="22">22</a>
 </pre></div><pre class="rust"><code><span class="kw">mod </span>build;
+<span class="kw">mod </span>common;
 <span class="kw">mod </span>download;
+<span class="kw">pub mod </span>publish;
+<span class="kw">mod </span>push;
+<span class="kw">mod </span>tag;
 
 <span class="kw">pub use </span>build::PackageBuild;
-<span class="kw">pub use </span>download::PackageDownload;
+<span class="kw">pub use </span>common::wait::PublishWait;
 
 <span class="doccomment">/// Package related commands.
 </span><span class="attr">#[derive(clap::Subcommand, Debug)]
@@ -25,7 +36,10 @@
 // the command struct.
 </span><span class="attr">#[allow(missing_docs)]
 </span><span class="kw">pub enum </span>Package {
-    Download(PackageDownload),
+    Download(download::PackageDownload),
     Build(build::PackageBuild),
+    Tag(tag::PackageTag),
+    Push(push::PackagePush),
+    Publish(publish::PackagePublish),
 }
 </code></pre></div></section></main></body></html>

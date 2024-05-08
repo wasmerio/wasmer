@@ -84,6 +84,8 @@
 <a href="#84" id="84">84</a>
 <a href="#85" id="85">85</a>
 <a href="#86" id="86">86</a>
+<a href="#87" id="87">87</a>
+<a href="#88" id="88">88</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::env;
 
 <span class="kw">use crate</span>::{
@@ -103,6 +105,8 @@
     connect_async,
     tungstenite::{client::IntoClientRequest, http::HeaderValue, Message},
 };
+
+<span class="kw">pub use </span><span class="kw">crate</span>::graphql::subscriptions::package_version_ready::PackageVersionState;
 
 <span class="kw">async fn </span>subscribe_graphql&lt;Q: GraphQLQuery + Send + Sync + Unpin + <span class="lifetime">&#39;static</span>&gt;(
     registry_url: <span class="kw-2">&amp;</span>str,

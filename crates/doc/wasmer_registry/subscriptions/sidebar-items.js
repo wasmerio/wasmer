@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["subscribe_graphql","subscribe_package_version_ready"]};
+window.SIDEBAR_ITEMS = {"enum":["PackageVersionState"],"fn":["subscribe_graphql","subscribe_package_version_ready"]};

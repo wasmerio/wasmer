@@ -1450,6 +1450,69 @@
 <a href="#1450" id="1450">1450</a>
 <a href="#1451" id="1451">1451</a>
 <a href="#1452" id="1452">1452</a>
+<a href="#1453" id="1453">1453</a>
+<a href="#1454" id="1454">1454</a>
+<a href="#1455" id="1455">1455</a>
+<a href="#1456" id="1456">1456</a>
+<a href="#1457" id="1457">1457</a>
+<a href="#1458" id="1458">1458</a>
+<a href="#1459" id="1459">1459</a>
+<a href="#1460" id="1460">1460</a>
+<a href="#1461" id="1461">1461</a>
+<a href="#1462" id="1462">1462</a>
+<a href="#1463" id="1463">1463</a>
+<a href="#1464" id="1464">1464</a>
+<a href="#1465" id="1465">1465</a>
+<a href="#1466" id="1466">1466</a>
+<a href="#1467" id="1467">1467</a>
+<a href="#1468" id="1468">1468</a>
+<a href="#1469" id="1469">1469</a>
+<a href="#1470" id="1470">1470</a>
+<a href="#1471" id="1471">1471</a>
+<a href="#1472" id="1472">1472</a>
+<a href="#1473" id="1473">1473</a>
+<a href="#1474" id="1474">1474</a>
+<a href="#1475" id="1475">1475</a>
+<a href="#1476" id="1476">1476</a>
+<a href="#1477" id="1477">1477</a>
+<a href="#1478" id="1478">1478</a>
+<a href="#1479" id="1479">1479</a>
+<a href="#1480" id="1480">1480</a>
+<a href="#1481" id="1481">1481</a>
+<a href="#1482" id="1482">1482</a>
+<a href="#1483" id="1483">1483</a>
+<a href="#1484" id="1484">1484</a>
+<a href="#1485" id="1485">1485</a>
+<a href="#1486" id="1486">1486</a>
+<a href="#1487" id="1487">1487</a>
+<a href="#1488" id="1488">1488</a>
+<a href="#1489" id="1489">1489</a>
+<a href="#1490" id="1490">1490</a>
+<a href="#1491" id="1491">1491</a>
+<a href="#1492" id="1492">1492</a>
+<a href="#1493" id="1493">1493</a>
+<a href="#1494" id="1494">1494</a>
+<a href="#1495" id="1495">1495</a>
+<a href="#1496" id="1496">1496</a>
+<a href="#1497" id="1497">1497</a>
+<a href="#1498" id="1498">1498</a>
+<a href="#1499" id="1499">1499</a>
+<a href="#1500" id="1500">1500</a>
+<a href="#1501" id="1501">1501</a>
+<a href="#1502" id="1502">1502</a>
+<a href="#1503" id="1503">1503</a>
+<a href="#1504" id="1504">1504</a>
+<a href="#1505" id="1505">1505</a>
+<a href="#1506" id="1506">1506</a>
+<a href="#1507" id="1507">1507</a>
+<a href="#1508" id="1508">1508</a>
+<a href="#1509" id="1509">1509</a>
+<a href="#1510" id="1510">1510</a>
+<a href="#1511" id="1511">1511</a>
+<a href="#1512" id="1512">1512</a>
+<a href="#1513" id="1513">1513</a>
+<a href="#1514" id="1514">1514</a>
+<a href="#1515" id="1515">1515</a>
 </pre></div><pre class="rust"><code><span class="kw">pub use </span>queries::<span class="kw-2">*</span>;
 
 <span class="kw">pub use </span>cynic::Id;
@@ -1535,21 +1598,6 @@
         V3,
     }
 
-    <span class="attr">#[derive(cynic::Enum, Clone, Copy, Debug)]
-    </span><span class="kw">pub enum </span>RegistryWebcImageVersionChoices {
-        V2,
-        V3,
-    }
-
-    <span class="kw">impl </span>From&lt;RegistryWebcImageVersionChoices&gt; <span class="kw">for </span>WebcVersion {
-        <span class="kw">fn </span>from(v: RegistryWebcImageVersionChoices) -&gt; <span class="self">Self </span>{
-            <span class="kw">match </span>v {
-                RegistryWebcImageVersionChoices::V2 =&gt; WebcVersion::V2,
-                RegistryWebcImageVersionChoices::V3 =&gt; WebcVersion::V3,
-            }
-        }
-    }
-
     <span class="attr">#[derive(cynic::QueryFragment, Debug, Clone, Serialize)]
     </span><span class="kw">pub struct </span>WebcImage {
         <span class="kw">pub </span>created_at: DateTime,
@@ -1558,7 +1606,7 @@
         <span class="kw">pub </span>webc_sha256: String,
         <span class="kw">pub </span>file_size: BigInt,
         <span class="kw">pub </span>manifest: JSONString,
-        <span class="kw">pub </span>version: RegistryWebcImageVersionChoices,
+        <span class="kw">pub </span>version: <span class="prelude-ty">Option</span>&lt;WebcVersion&gt;,
     }
 
     <span class="attr">#[derive(cynic::QueryFragment, Debug, Clone, Serialize)]
@@ -1636,6 +1684,61 @@
         Oldest,
     }
 
+    <span class="attr">#[derive(cynic::QueryVariables, Debug)]
+    </span><span class="kw">pub struct </span>PushPackageReleaseVariables&lt;<span class="lifetime">&#39;a</span>&gt; {
+        <span class="kw">pub </span>name: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>str&gt;,
+        <span class="kw">pub </span>namespace: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>str,
+        <span class="kw">pub </span>private: <span class="prelude-ty">Option</span>&lt;bool&gt;,
+        <span class="kw">pub </span>signed_url: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>str,
+    }
+
+    <span class="attr">#[derive(cynic::QueryFragment, Debug)]
+    #[cynic(graphql_type = <span class="string">&quot;Mutation&quot;</span>, variables = <span class="string">&quot;PushPackageReleaseVariables&quot;</span>)]
+    </span><span class="kw">pub struct </span>PushPackageRelease {
+        <span class="attr">#[arguments(input: { name: <span class="macro-nonterminal">$name</span>, namespace: <span class="macro-nonterminal">$namespace</span>, private: <span class="macro-nonterminal">$private</span>, signedUrl: <span class="macro-nonterminal">$signed_url </span>})]
+        </span><span class="kw">pub </span>push_package_release: <span class="prelude-ty">Option</span>&lt;PushPackageReleasePayload&gt;,
+    }
+
+    <span class="attr">#[derive(cynic::QueryFragment, Debug)]
+    </span><span class="kw">pub struct </span>PushPackageReleasePayload {
+        <span class="kw">pub </span>package_webc: <span class="prelude-ty">Option</span>&lt;PackageWebc&gt;,
+        <span class="kw">pub </span>success: bool,
+    }
+
+    <span class="attr">#[derive(cynic::QueryVariables, Debug)]
+    </span><span class="kw">pub struct </span>TagPackageReleaseVariables&lt;<span class="lifetime">&#39;a</span>&gt; {
+        <span class="kw">pub </span>description: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>str&gt;,
+        <span class="kw">pub </span>homepage: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>str&gt;,
+        <span class="kw">pub </span>license: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>str&gt;,
+        <span class="kw">pub </span>license_file: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>str&gt;,
+        <span class="kw">pub </span>manifest: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>str,
+        <span class="kw">pub </span>name: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>str,
+        <span class="kw">pub </span>namespace: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>str&gt;,
+        <span class="kw">pub </span>package_release_id: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>cynic::Id,
+        <span class="kw">pub </span>private: <span class="prelude-ty">Option</span>&lt;bool&gt;,
+        <span class="kw">pub </span>readme: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>str&gt;,
+        <span class="kw">pub </span>repository: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>str&gt;,
+        <span class="kw">pub </span>version: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>str,
+    }
+
+    <span class="attr">#[derive(cynic::QueryFragment, Debug)]
+    #[cynic(graphql_type = <span class="string">&quot;Mutation&quot;</span>, variables = <span class="string">&quot;TagPackageReleaseVariables&quot;</span>)]
+    </span><span class="kw">pub struct </span>TagPackageRelease {
+        <span class="attr">#[arguments(input: { description: <span class="macro-nonterminal">$description</span>, homepage: <span class="macro-nonterminal">$homepage</span>, license: <span class="macro-nonterminal">$license</span>, licenseFile: <span class="macro-nonterminal">$license_file</span>, manifest: <span class="macro-nonterminal">$manifest</span>, name: <span class="macro-nonterminal">$name</span>, namespace: <span class="macro-nonterminal">$namespace</span>, packageReleaseId: <span class="macro-nonterminal">$package_release_id</span>, private: <span class="macro-nonterminal">$private</span>, readme: <span class="macro-nonterminal">$readme</span>, repository: <span class="macro-nonterminal">$repository</span>, version: <span class="macro-nonterminal">$version </span>})]
+        </span><span class="kw">pub </span>tag_package_release: <span class="prelude-ty">Option</span>&lt;TagPackageReleasePayload&gt;,
+    }
+
+    <span class="attr">#[derive(cynic::QueryFragment, Debug)]
+    </span><span class="kw">pub struct </span>TagPackageReleasePayload {
+        <span class="kw">pub </span>success: bool,
+    }
+
+    <span class="attr">#[derive(cynic::InputObject, Debug)]
+    </span><span class="kw">pub struct </span>InputSignature&lt;<span class="lifetime">&#39;a</span>&gt; {
+        <span class="kw">pub </span>public_key_key_id: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>str,
+        <span class="kw">pub </span>data: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>str,
+    }
+
     <span class="attr">#[derive(cynic::QueryVariables, Debug, Clone, Default)]
     </span><span class="kw">pub struct </span>AllPackageVersionsVars {
         <span class="kw">pub </span>offset: <span class="prelude-ty">Option</span>&lt;i32&gt;,
@@ -1703,6 +1806,29 @@
                 .filter_map(|x| x.node)
                 .collect()
         }
+    }
+
+    <span class="attr">#[derive(cynic::QueryVariables, Debug)]
+    </span><span class="kw">pub struct </span>GetSignedUrlForPackageUploadVariables&lt;<span class="lifetime">&#39;a</span>&gt; {
+        <span class="kw">pub </span>expires_after_seconds: <span class="prelude-ty">Option</span>&lt;i32&gt;,
+        <span class="kw">pub </span>filename: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>str&gt;,
+        <span class="kw">pub </span>name: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>str&gt;,
+        <span class="kw">pub </span>version: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>str&gt;,
+    }
+
+    <span class="attr">#[derive(cynic::QueryFragment, Debug)]
+    #[cynic(
+        graphql_type = <span class="string">&quot;Query&quot;</span>,
+        variables = <span class="string">&quot;GetSignedUrlForPackageUploadVariables&quot;
+    </span>)]
+    </span><span class="kw">pub struct </span>GetSignedUrlForPackageUpload {
+        <span class="attr">#[arguments(name: <span class="macro-nonterminal">$name</span>, version: <span class="macro-nonterminal">$version</span>, filename: <span class="macro-nonterminal">$filename</span>, expiresAfterSeconds: <span class="macro-nonterminal">$expires_after_seconds</span>)]
+        </span><span class="kw">pub </span>get_signed_url_for_package_upload: <span class="prelude-ty">Option</span>&lt;SignedUrl&gt;,
+    }
+
+    <span class="attr">#[derive(cynic::QueryFragment, Debug)]
+    </span><span class="kw">pub struct </span>SignedUrl {
+        <span class="kw">pub </span>url: String,
     }
 
     <span class="attr">#[derive(cynic::QueryFragment, Debug)]

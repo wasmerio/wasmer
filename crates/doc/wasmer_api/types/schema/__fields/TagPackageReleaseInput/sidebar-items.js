@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":["clientMutationId","description","homepage","icon","license","licenseFile","manifest","name","namespace","packageReleaseId","private","readme","repository","signature","version"]};
