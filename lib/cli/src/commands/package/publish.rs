@@ -11,9 +11,9 @@ use crate::{
 };
 use colored::Colorize;
 use is_terminal::IsTerminal;
-use wasmer_api::WasmerClient;
 use std::path::PathBuf;
-use wasmer_config::package::{PackageIdent, Manifest};
+use wasmer_api::WasmerClient;
+use wasmer_config::package::{Manifest, PackageIdent};
 
 /// Publish (push and tag) a package to the registry.
 #[derive(Debug, clap::Parser)]
