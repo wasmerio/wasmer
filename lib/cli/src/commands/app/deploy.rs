@@ -250,9 +250,14 @@ impl AsyncCliCommand for CmdAppDeploy {
             config_str = format!("{}\nname: {}", config_str, self.app_name.as_ref().unwrap());
         } else if app_yaml.get("name").is_none() {
             if !self.non_interactive {
+                let default_name = std::env::current_dir().ok().and_then(|dir| {
+                    dir.file_name()
+                        .and_then(|f| f.to_str())
+                        .map(|s| s.to_owned())
+                });
                 let app_name = crate::utils::prompts::prompt_new_app_name(
                     "Enter the name of the app",
-                    None,
+                    default_name.as_deref(),
                     &owner,
                     self.api.client().ok().as_ref(),
                 )
@@ -551,7 +556,7 @@ pub async fn deploy_app_verbose(
 
     let make_default = opts.make_default;
 
-    eprintln!("Deploying app {} to Wasmer Edge...\n", pretty_name);
+    eprintln!("\nDeploying app {} to Wasmer Edge...\n", pretty_name);
 
     let wait = opts.wait;
     let version = deploy_app(client, opts).await?;

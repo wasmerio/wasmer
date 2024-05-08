@@ -1,5 +1,3 @@
-use super::macros::*;
-use colored::Colorize;
 use futures_util::StreamExt;
 use indicatif::ProgressBar;
 use wasmer_api::WasmerClient;
@@ -146,6 +144,6 @@ pub async fn wait_package(
         }
     }
 
-    spinner_ok!(pb, "Package is available!");
+    pb.finish_and_clear();
     Ok(())
 }

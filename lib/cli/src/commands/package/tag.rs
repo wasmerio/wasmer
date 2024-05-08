@@ -373,7 +373,7 @@ impl PackageTag {
         spinner_ok!(
             pb,
             format!(
-                "Found package {} in the registry",
+                "Found package in the registry ({})",
                 hash.to_string()
                     .trim_start_matches("sha256:")
                     .chars()
