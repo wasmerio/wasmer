@@ -250,7 +250,10 @@ impl SocketBuffer {
                 }
                 State::Dead => {
                     tracing::trace!("try_read: socket is dead");
-                    return Err(NetworkError::ConnectionReset);
+                    // Note: Returning `ConnectionReset` here may seem logical as other functions return this
+                    // however this code path is not always handled properly. In particular `tokio` inside
+                    // WASIX will panic if it receives this code.
+                    return Ok(0);
                 }
                 State::Closed | State::Shutdown => {
                     tracing::trace!("try_read: socket is closed or shutdown");

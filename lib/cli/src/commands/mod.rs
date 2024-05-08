@@ -23,7 +23,6 @@ mod journal;
 mod login;
 pub(crate) mod namespace;
 mod package;
-mod publish;
 mod run;
 mod self_update;
 pub mod ssh;
@@ -134,6 +133,9 @@ impl WasmerCmd {
             Some(Cmd::Package(cmd)) => match cmd {
                 Package::Download(cmd) => cmd.execute(),
                 Package::Build(cmd) => cmd.execute().map(|_| ()),
+                Package::Tag(cmd) => cmd.run(),
+                Package::Push(cmd) => cmd.run(),
+                Package::Publish(cmd) => cmd.run().map(|_| ()),
             },
             Some(Cmd::Container(cmd)) => match cmd {
                 crate::commands::Container::Unpack(cmd) => cmd.execute(),
@@ -214,9 +216,9 @@ enum Cmd {
     /// Login into a wasmer.io-like registry
     Login(Login),
 
-    /// Login into a wasmer.io-like registry
+    /// Publish a package to a registry [alias: package publish]
     #[clap(name = "publish")]
-    Publish(Publish),
+    Publish(crate::commands::package::publish::PackagePublish),
 
     /// Wasmer cache
     Cache(Cache),
@@ -325,10 +327,10 @@ enum Cmd {
     /// Shows the current logged in user for the current active registry
     Whoami(Whoami),
 
-    /// Add a Wasmer package's bindings to your application.
+    /// Add a Wasmer package's bindings to your application
     Add(Add),
 
-    /// Run a WebAssembly file or Wasmer container.
+    /// Run a WebAssembly file or Wasmer container
     #[clap(alias = "run-unstable")]
     Run(Run),
 
@@ -344,17 +346,17 @@ enum Cmd {
     Container(crate::commands::Container),
 
     // Edge commands
-    /// Deploy apps to Wasmer Edge. [alias: app deploy]
+    /// Deploy apps to Wasmer Edge [alias: app deploy]
     Deploy(crate::commands::app::deploy::CmdAppDeploy),
 
-    /// Manage deployed Edge apps.
+    /// Manage deployed Edge apps
     #[clap(subcommand, alias = "apps")]
     App(crate::commands::app::CmdApp),
 
-    /// Run commands/packages on Wasmer Edge in an interactive shell session.
+    /// Run commands/packages on Wasmer Edge in an interactive shell session
     Ssh(crate::commands::ssh::CmdSsh),
 
-    /// Manage Wasmer namespaces.
+    /// Manage Wasmer namespaces
     #[clap(subcommand, alias = "namespaces")]
     Namespace(crate::commands::namespace::CmdNamespace),
 

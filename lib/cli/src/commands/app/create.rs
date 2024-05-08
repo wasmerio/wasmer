@@ -2,7 +2,7 @@
 
 use crate::{
     commands::AsyncCliCommand,
-    opts::{ApiOpts, ItemFormatOpts},
+    opts::{ApiOpts, ItemFormatOpts, WasmerEnv},
     utils::{
         load_package_manifest,
         package_wizard::{CreateMode, PackageType, PackageWizard},
@@ -47,7 +47,7 @@ pub struct CmdAppCreate {
     ///
     /// If selected, this might entail the step of publishing the package related to the
     /// application. By default, the application is not deployed and the package is not published.
-    #[clap(long)]
+    #[clap(long = "deploy")]
     pub deploy_app: bool,
 
     /// Skip local schema validation.
@@ -82,6 +82,9 @@ pub struct CmdAppCreate {
     #[clap(flatten)]
     #[allow(missing_docs)]
     pub api: ApiOpts,
+
+    #[clap(flatten)]
+    pub env: WasmerEnv,
 
     #[clap(flatten)]
     #[allow(missing_docs)]
@@ -364,6 +367,7 @@ impl CmdAppCreate {
         {
             let cmd_deploy = CmdAppDeploy {
                 api: self.api.clone(),
+                env: self.env.clone(),
                 fmt: ItemFormatOpts {
                     format: self.fmt.format,
                 },
@@ -371,12 +375,12 @@ impl CmdAppCreate {
                 non_interactive: self.non_interactive,
                 publish_package: true,
                 path: self.app_dir_path.clone(),
-                no_wait: false,
+                no_wait: self.no_wait,
                 no_default: false,
                 no_persist_id: false,
                 owner: Some(String::from(owner)),
                 app_name: None,
-                autobump: false,
+                bump: false,
             };
             cmd_deploy.run_async().await?;
         }
@@ -559,31 +563,36 @@ impl AppCreator {
                 ),
             };
 
-            let full = format!("{}@{}", pkg.name, pkg.version);
-            let mut pkg_ident = NamedPackageIdent::from_str(&pkg.name)
-                .with_context(|| format!("local package manifest has invalid name: '{full}'"))?;
+            if let (Some(name), Some(version)) = (pkg.name, pkg.version) {
+                let full = format!("{}@{}", name, version);
+                let mut pkg_ident = NamedPackageIdent::from_str(&name).with_context(|| {
+                    format!("local package manifest has invalid name: '{full}'")
+                })?;
 
-            // Pin the version.
-            pkg_ident.tag = Some(Tag::from_str(&pkg.version.to_string()).unwrap());
+                // Pin the version.
+                pkg_ident.tag = Some(Tag::from_str(&version.to_string()).unwrap());
 
-            if self.interactive {
-                eprintln!("Found local package: '{}'", full.green());
+                if self.interactive {
+                    eprintln!("Found local package: '{}'", full.green());
 
-                let msg = format!("Use package '{pkg_ident}'");
+                    let msg = format!("Use package '{pkg_ident}'");
 
-                let theme = dialoguer::theme::ColorfulTheme::default();
-                let should_use = Confirm::with_theme(&theme)
-                    .with_prompt(&msg)
-                    .interact_opt()?
-                    .unwrap_or_default();
+                    let theme = dialoguer::theme::ColorfulTheme::default();
+                    let should_use = Confirm::with_theme(&theme)
+                        .with_prompt(&msg)
+                        .interact_opt()?
+                        .unwrap_or_default();
 
-                if should_use {
-                    Some(pkg_ident)
+                    if should_use {
+                        Some(pkg_ident)
+                    } else {
+                        None
+                    }
                 } else {
-                    None
+                    Some(pkg_ident)
                 }
             } else {
-                Some(pkg_ident)
+                None
             }
         } else {
             None
@@ -704,6 +713,7 @@ mod tests {
             package: Some("testuser/static-site-1@0.1.0".to_string()),
             use_local_manifest: false,
             new_package_name: None,
+            env: WasmerEnv::default(),
         };
         cmd.run_async().await.unwrap();
 
@@ -738,6 +748,7 @@ debug: false
             package: Some("wasmer/testpkg".to_string()),
             use_local_manifest: false,
             new_package_name: None,
+            env: WasmerEnv::default(),
         };
         cmd.run_async().await.unwrap();
 
@@ -771,6 +782,7 @@ debug: false
             package: Some("wasmer/test-js-worker".to_string()),
             use_local_manifest: false,
             new_package_name: None,
+            env: WasmerEnv::default(),
         };
         cmd.run_async().await.unwrap();
 
@@ -807,6 +819,7 @@ debug: false
             package: Some("wasmer/test-py-worker".to_string()),
             use_local_manifest: false,
             new_package_name: None,
+            env: WasmerEnv::default(),
         };
         cmd.run_async().await.unwrap();
 

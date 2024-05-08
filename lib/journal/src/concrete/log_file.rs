@@ -345,6 +345,8 @@ mod tests {
                     stack_lower: 1024,
                     guard_size: 16,
                     stack_size: 1024,
+                    tls_base: 16,
+                    tls_size: 32,
                 },
                 start: wasmer_wasix_types::wasix::ThreadStartType::MainThread,
             })
@@ -374,6 +376,8 @@ mod tests {
                     stack_lower: 1024,
                     guard_size: 16,
                     stack_size: 1024,
+                    tls_base: 16,
+                    tls_size: 32,
                 },
                 start: wasmer_wasix_types::wasix::ThreadStartType::MainThread,
             })
@@ -424,6 +428,8 @@ mod tests {
                     stack_lower: 1024,
                     guard_size: 16,
                     stack_size: 1024,
+                    tls_base: 16,
+                    tls_size: 32,
                 },
                 start: wasmer_wasix_types::wasix::ThreadStartType::MainThread,
             })
@@ -471,6 +477,8 @@ mod tests {
                     stack_lower: 1024,
                     guard_size: 16,
                     stack_size: 1024,
+                    tls_base: 16,
+                    tls_size: 32,
                 },
                 start: wasmer_wasix_types::wasix::ThreadStartType::MainThread,
             })

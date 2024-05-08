@@ -119,13 +119,13 @@ impl Publish {
 
         if let Some(package_name) = self.package_name.as_ref() {
             if let Some(ref mut package) = manifest.package {
-                package.name = package_name.clone();
+                package.name = Some(package_name.clone());
             }
         }
 
         if let Some(version) = self.version.as_ref() {
             if let Some(ref mut package) = manifest.package {
-                package.version = version.clone();
+                package.version = Some(version.clone());
             }
         }
 
@@ -673,16 +673,20 @@ mod validate {
     ) -> Result<bool, ValidationError> {
         match &manifest.package {
             Some(pkg) => {
-                let result =
-                    crate::query_package_from_registry(registry, &pkg.name, None, Some(auth_token));
+                if let Some(ref name) = pkg.name {
+                    let result =
+                        crate::query_package_from_registry(registry, name, None, Some(auth_token));
 
-                match result {
-                    Ok(package_version) => Ok(package_version.is_private != pkg.private),
-                    Err(QueryPackageError::NoPackageFound { .. }) => {
-                        // The package hasn't been published yet
-                        Ok(false)
+                    match result {
+                        Ok(package_version) => Ok(package_version.is_private != pkg.private),
+                        Err(QueryPackageError::NoPackageFound { .. }) => {
+                            // The package hasn't been published yet
+                            Ok(false)
+                        }
+                        Err(e) => Err(e.into()),
                     }
-                    Err(e) => Err(e.into()),
+                } else {
+                    Ok(false)
                 }
             }
 

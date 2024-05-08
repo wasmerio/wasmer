@@ -1,7 +1,7 @@
 use super::AsyncCliCommand;
 use crate::{
-    commands::{app::create::CmdAppCreate, Publish},
-    opts::{ApiOpts, ItemFormatOpts},
+    commands::{app::create::CmdAppCreate, package::publish::PackagePublish, PublishWait},
+    opts::{ApiOpts, ItemFormatOpts, WasmerEnv},
     utils::load_package_manifest,
 };
 use anyhow::Context;
@@ -18,13 +18,15 @@ use wasmer_config::{
     app::AppConfigV1,
     package::{PackageIdent, PackageSource},
 };
-use wasmer_registry::wasmer_env::{WasmerEnv, WASMER_DIR};
 
 /// Deploy an app to Wasmer Edge.
 #[derive(clap::Parser, Debug)]
 pub struct CmdAppDeploy {
     #[clap(flatten)]
     pub api: ApiOpts,
+
+    #[clap(flatten)]
+    pub env: WasmerEnv,
 
     #[clap(flatten)]
     pub fmt: ItemFormatOpts,
@@ -77,18 +79,19 @@ pub struct CmdAppDeploy {
     #[clap(long)]
     pub app_name: Option<String>,
 
-    /// Whether or not to autobump the package version if publishing.
+    /// Whether or not to automatically bump the package version if publishing.
     #[clap(long)]
-    pub autobump: bool,
+    pub bump: bool,
 }
 
 impl CmdAppDeploy {
     async fn publish(
         &self,
+        client: &WasmerClient,
         owner: String,
         manifest_dir_path: PathBuf,
     ) -> anyhow::Result<PackageIdent> {
-        let (_, manifest) = match load_package_manifest(&manifest_dir_path)? {
+        let (manifest_path, manifest) = match load_package_manifest(&manifest_dir_path)? {
             Some(r) => r,
             None => anyhow::bail!(
                 "Could not read or find manifest in path '{}'!",
@@ -96,40 +99,29 @@ impl CmdAppDeploy {
             ),
         };
 
-        let env = WasmerEnv::new(
-            if let Ok(dir) = std::env::var("WASMER_DIR") {
-                PathBuf::from(dir)
-            } else {
-                WASMER_DIR.clone()
-            },
-            self.api.registry.clone().map(|u| u.to_string().into()),
-            self.api.token.clone(),
-            None,
-        );
-
-        let publish_cmd = Publish {
-            env,
+        let publish_cmd = PackagePublish {
+            env: self.env.clone(),
             dry_run: false,
             quiet: false,
             package_name: None,
-            version: None,
+            package_version: None,
             no_validate: false,
-            package_path: Some(manifest_dir_path.to_str().unwrap().to_string()),
-            wait: !self.no_wait,
-            wait_all: !self.no_wait,
+            package_path: manifest_dir_path.clone(),
+            wait: match self.no_wait {
+                true => PublishWait::None,
+                false => PublishWait::Container,
+            },
             timeout: humantime::Duration::from_str("2m").unwrap(),
             package_namespace: match manifest.package {
                 Some(_) => None,
                 None => Some(owner),
             },
             non_interactive: self.non_interactive,
-            autobump: self.autobump,
+            bump: self.bump,
+            api: self.api.clone(),
         };
 
-        match publish_cmd.run_async().await? {
-            Some(id) => Ok(id),
-            None => anyhow::bail!("Error while publishing package. Stopping."),
-        }
+        publish_cmd.publish(client, &manifest_path, &manifest).await
     }
 
     async fn get_owner(
@@ -186,8 +178,9 @@ impl CmdAppDeploy {
             offline: false,
             owner: None,
             app_name: None,
-            no_wait: false,
+            no_wait: self.no_wait,
             api: self.api.clone(),
+            env: self.env.clone(),
             fmt: ItemFormatOpts {
                 format: self.fmt.format,
             },
@@ -255,9 +248,14 @@ impl AsyncCliCommand for CmdAppDeploy {
             config_str = format!("{}\nname: {}", config_str, self.app_name.as_ref().unwrap());
         } else if app_yaml.get("name").is_none() {
             if !self.non_interactive {
+                let default_name = std::env::current_dir().ok().and_then(|dir| {
+                    dir.file_name()
+                        .and_then(|f| f.to_str())
+                        .map(|s| s.to_owned())
+                });
                 let app_name = crate::utils::prompts::prompt_new_app_name(
                     "Enter the name of the app",
-                    None,
+                    default_name.as_deref(),
                     &owner,
                     self.api.client().ok().as_ref(),
                 )
@@ -305,7 +303,9 @@ impl AsyncCliCommand for CmdAppDeploy {
                         .display()
                 );
 
-                let package_id = self.publish(owner.clone(), PathBuf::from(path)).await?;
+                let package_id = self
+                    .publish(&client, owner.clone(), PathBuf::from(path))
+                    .await?;
 
                 app_cfg_new.package = package_id.into();
 
@@ -327,58 +327,73 @@ impl AsyncCliCommand for CmdAppDeploy {
 
                 if let Ok(Some((manifest_path, manifest))) = load_package_manifest(&base_dir_path) {
                     if let Some(package) = &manifest.package {
-                        if package.name == n.full_name() {
-                            eprintln!(
-                                "Found local package (manifest path: {}).",
-                                manifest_path.display()
-                            );
-                            eprintln!("The `package` field in `app.yaml` specified the same named package ({}).", package.name);
-                            eprintln!("This behaviour is deprecated.");
-                            let theme = dialoguer::theme::ColorfulTheme::default();
-                            if self.non_interactive {
-                                eprintln!("Hint: replace `package: {}` with `package: .` to replicate the intended behaviour.", n);
-                                anyhow::bail!("deprecated deploy behaviour")
-                            } else if Confirm::with_theme(&theme)
-                                .with_prompt("Change package to '.' in app.yaml?")
-                                .interact()?
-                            {
-                                app_config.package = PackageSource::Path(String::from("."));
-                                // We have to write it right now.
-                                let new_config_raw = serde_yaml::to_string(&app_config)?;
-                                std::fs::write(&app_config_path, new_config_raw).with_context(
-                                    || {
-                                        format!(
-                                            "Could not write file: '{}'",
-                                            app_config_path.display()
-                                        )
-                                    },
-                                )?;
-
-                                log::info!(
-                                    "Using package {} ({})",
-                                    app_config.package,
-                                    n.full_name()
-                                );
-
-                                let package_id = self.publish(owner.clone(), manifest_path).await?;
-
-                                app_config.package = package_id.into();
-
-                                DeployAppOpts {
-                                    app: &app_config,
-                                    original_config: Some(
-                                        app_config.clone().to_yaml_value().unwrap(),
-                                    ),
-                                    allow_create: true,
-                                    make_default: !self.no_default,
-                                    owner: Some(owner),
-                                    wait,
-                                }
-                            } else {
+                        if let Some(name) = &package.name {
+                            if name == &n.full_name() {
                                 eprintln!(
+                                    "Found local package (manifest path: {}).",
+                                    manifest_path.display()
+                                );
+                                eprintln!("The `package` field in `app.yaml` specified the same named package ({}).", name);
+                                eprintln!("This behaviour is deprecated.");
+
+                                let theme = dialoguer::theme::ColorfulTheme::default();
+                                if self.non_interactive {
+                                    eprintln!("Hint: replace `package: {}` with `package: .` to replicate the intended behaviour.", n);
+                                    anyhow::bail!("deprecated deploy behaviour")
+                                } else if Confirm::with_theme(&theme)
+                                    .with_prompt("Change package to '.' in app.yaml?")
+                                    .interact()?
+                                {
+                                    app_config.package = PackageSource::Path(String::from("."));
+                                    // We have to write it right now.
+                                    let new_config_raw = serde_yaml::to_string(&app_config)?;
+                                    std::fs::write(&app_config_path, new_config_raw).with_context(
+                                        || {
+                                            format!(
+                                                "Could not write file: '{}'",
+                                                app_config_path.display()
+                                            )
+                                        },
+                                    )?;
+
+                                    log::info!(
+                                        "Using package {} ({})",
+                                        app_config.package,
+                                        n.full_name()
+                                    );
+
+                                    let package_id =
+                                        self.publish(&client, owner.clone(), manifest_path).await?;
+
+                                    app_config.package = package_id.into();
+
+                                    DeployAppOpts {
+                                        app: &app_config,
+                                        original_config: Some(
+                                            app_config.clone().to_yaml_value().unwrap(),
+                                        ),
+                                        allow_create: true,
+                                        make_default: !self.no_default,
+                                        owner: Some(owner),
+                                        wait,
+                                    }
+                                } else {
+                                    eprintln!(
                                         "{}: the package will not be published and the deployment will fail if the package does not already exist.",
                                         "Warning".yellow().bold()
                                     );
+                                    DeployAppOpts {
+                                        app: &app_config,
+                                        original_config: Some(
+                                            app_config.clone().to_yaml_value().unwrap(),
+                                        ),
+                                        allow_create: true,
+                                        make_default: !self.no_default,
+                                        owner: Some(owner),
+                                        wait,
+                                    }
+                                }
+                            } else {
                                 DeployAppOpts {
                                     app: &app_config,
                                     original_config: Some(
@@ -539,7 +554,7 @@ pub async fn deploy_app_verbose(
 
     let make_default = opts.make_default;
 
-    eprintln!("Deploying app {} to Wasmer Edge...\n", pretty_name);
+    eprintln!("\nDeploying app {} to Wasmer Edge...\n", pretty_name);
 
     let wait = opts.wait;
     let version = deploy_app(client, opts).await?;

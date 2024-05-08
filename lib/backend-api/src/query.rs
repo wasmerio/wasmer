@@ -13,8 +13,9 @@ use crate::{
     types::{
         self, CreateNamespaceVars, DeployApp, DeployAppConnection, DeployAppVersion,
         DeployAppVersionConnection, DnsDomain, GetCurrentUserWithAppsVars, GetDeployAppAndVersion,
-        GetDeployAppVersionsVars, GetNamespaceAppsVars, Log, LogStream, PackageVersionConnection,
-        PublishDeployAppVars, UpsertDomainFromZoneFileVars,
+        GetDeployAppVersionsVars, GetNamespaceAppsVars, GetSignedUrlForPackageUploadVariables, Log,
+        LogStream, PackageVersionConnection, PublishDeployAppVars, PushPackageReleasePayload,
+        SignedUrl, TagPackageReleasePayload, UpsertDomainFromZoneFileVars,
     },
     GraphQLApiFailure, WasmerClient,
 };
@@ -52,6 +53,84 @@ pub async fn fetch_webc_package(
         .await?;
 
     webc::compat::Container::from_bytes(data).context("failed to parse webc package")
+}
+
+/// Get a signed URL to upload packages.
+pub async fn get_signed_url_for_package_upload(
+    client: &WasmerClient,
+    expires_after_seconds: Option<i32>,
+    filename: Option<&str>,
+    name: Option<&str>,
+    version: Option<&str>,
+) -> Result<Option<SignedUrl>, anyhow::Error> {
+    client
+        .run_graphql(types::GetSignedUrlForPackageUpload::build(
+            GetSignedUrlForPackageUploadVariables {
+                expires_after_seconds,
+                filename,
+                name,
+                version,
+            },
+        ))
+        .await
+        .map(|r| r.get_signed_url_for_package_upload)
+}
+/// Push a package to the registry.
+pub async fn push_package_release(
+    client: &WasmerClient,
+    name: Option<&str>,
+    namespace: &str,
+    signed_url: &str,
+    private: Option<bool>,
+) -> Result<Option<PushPackageReleasePayload>, anyhow::Error> {
+    client
+        .run_graphql_strict(types::PushPackageRelease::build(
+            types::PushPackageReleaseVariables {
+                name,
+                namespace,
+                private,
+                signed_url,
+            },
+        ))
+        .await
+        .map(|r| r.push_package_release)
+}
+
+#[allow(clippy::too_many_arguments)]
+pub async fn tag_package_release(
+    client: &WasmerClient,
+    description: Option<&str>,
+    homepage: Option<&str>,
+    license: Option<&str>,
+    license_file: Option<&str>,
+    manifest: &str,
+    name: &str,
+    namespace: Option<&str>,
+    package_release_id: &cynic::Id,
+    private: Option<bool>,
+    readme: Option<&str>,
+    repository: Option<&str>,
+    version: &str,
+) -> Result<Option<TagPackageReleasePayload>, anyhow::Error> {
+    client
+        .run_graphql_strict(types::TagPackageRelease::build(
+            types::TagPackageReleaseVariables {
+                description,
+                homepage,
+                license,
+                license_file,
+                manifest,
+                name,
+                namespace,
+                package_release_id,
+                private,
+                readme,
+                repository,
+                version,
+            },
+        ))
+        .await
+        .map(|r| r.tag_package_release)
 }
 
 /// Get the currently logged in used, together with all accessible namespaces.

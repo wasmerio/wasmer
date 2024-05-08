@@ -25,6 +25,17 @@ use crate::{
 const DEFAULT_STACK_SIZE: u64 = 1_048_576u64;
 const DEFAULT_STACK_BASE: u64 = DEFAULT_STACK_SIZE;
 
+/// The default size and base address of the TLS area for modules that
+/// don't export __tls_base and __tls_size. This is the default value
+/// used by clang-15 at the time of writing this code.
+const DEFAULT_TLS_BASE: u64 = 1024u64;
+
+/// This is merely an attempt at a guess. We're avoiding the __pthread
+/// struct that each thread has (hoping it comes first), but there's
+/// no telling how many thread statics a module has and how much space
+/// they take.
+const DEFAULT_TLS_SIZE: u64 = 1024u64;
+
 #[derive(Clone, Debug)]
 pub struct WasiFunctionEnv {
     pub env: FunctionEnv<WasiEnv>,
@@ -147,6 +158,18 @@ impl WasiFunctionEnv {
             |v| Ok(v.clone()),
         )?;
 
+        let tls_base = instance
+            .exports
+            .get_global("__tls_base")
+            .map(|a| a.clone())
+            .ok();
+
+        let tls_size = instance
+            .exports
+            .get_global("__tls_size")
+            .map(|a| a.clone())
+            .ok();
+
         let new_inner = WasiInstanceHandles::new(memory, store, instance);
         let stack_pointer = new_inner.stack_pointer.clone();
 
@@ -173,12 +196,34 @@ impl WasiFunctionEnv {
                 ));
             }
 
+            let tls_base = if let Some(tls_base) = tls_base {
+                match tls_base.get(store) {
+                    wasmer::Value::I32(a) => a as u64,
+                    wasmer::Value::I64(a) => a as u64,
+                    _ => DEFAULT_TLS_BASE,
+                }
+            } else {
+                DEFAULT_TLS_BASE
+            };
+
+            let tls_size = if let Some(tls_size) = tls_size {
+                match tls_size.get(store) {
+                    wasmer::Value::I32(a) => a as u64,
+                    wasmer::Value::I64(a) => a as u64,
+                    _ => DEFAULT_TLS_SIZE,
+                }
+            } else {
+                DEFAULT_TLS_SIZE
+            };
+
             // Update the stack layout which is need for asyncify
             let env = self.data_mut(store);
             let tid = env.tid();
             let layout = &mut env.layout;
             layout.stack_upper = stack_base;
             layout.stack_size = layout.stack_upper - layout.stack_lower;
+            layout.tls_base = tls_base;
+            layout.tls_size = tls_size;
 
             // Replace the thread object itself
             env.thread.set_memory_layout(layout.clone());
@@ -285,7 +330,7 @@ impl WasiFunctionEnv {
                 // The first event we save is an event that records the module hash.
                 // Note: This is used to detect if an incorrect journal is used on the wrong
                 // process or if a process has been recompiled
-                let wasm_hash = self.data(&store).process.module_hash.as_bytes();
+                let wasm_hash = Box::from(self.data(&store).process.module_hash.as_bytes());
                 let mut ctx = self.env.clone().into_mut(&mut store);
                 crate::journal::JournalEffector::save_event(
                     &mut ctx,

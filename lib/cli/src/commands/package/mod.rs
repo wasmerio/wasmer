@@ -1,8 +1,12 @@
 mod build;
+mod common;
 mod download;
+pub mod publish;
+mod push;
+mod tag;
 
 pub use build::PackageBuild;
-pub use download::PackageDownload;
+pub use common::wait::PublishWait;
 
 /// Package related commands.
 #[derive(clap::Subcommand, Debug)]
@@ -10,6 +14,9 @@ pub use download::PackageDownload;
 // the command struct.
 #[allow(missing_docs)]
 pub enum Package {
-    Download(PackageDownload),
+    Download(download::PackageDownload),
     Build(build::PackageBuild),
+    Tag(tag::PackageTag),
+    Push(push::PackagePush),
+    Publish(publish::PackagePublish),
 }

@@ -130,21 +130,25 @@ pub async fn try_chunked_uploading(
 
     upload_package(&signed_url.url, archive_path, archived_data_size, timeout).await?;
 
-    let name = package.as_ref().map(|p| p.name.clone());
+    let name = package.as_ref().and_then(|p| p.name.clone());
 
     let namespace = match patch_namespace {
         Some(n) => Some(n),
-        None => package
-            .as_ref()
-            .map(|p| String::from(p.name.split_once('/').unwrap().0)),
+        None => package.as_ref().and_then(|p| {
+            p.name
+                .as_ref()
+                .map(|p| String::from(p.split_once('/').unwrap().0))
+        }),
     };
 
     let q =
         PublishPackageMutationChunked::build_query(publish_package_mutation_chunked::Variables {
             name,
             namespace,
-            version: package.as_ref().map(|p| p.version.to_string()),
-            description: package.as_ref().map(|p| p.description.clone()),
+            version: package
+                .as_ref()
+                .and_then(|p| p.version.as_ref().map(|v| v.to_string())),
+            description: package.as_ref().and_then(|p| p.description.clone()),
             manifest: manifest_string.to_string(),
             license: package.as_ref().and_then(|p| p.license.clone()),
             license_file: license_file.to_owned(),
@@ -215,7 +219,12 @@ pub async fn try_chunked_uploading(
 
             let package_ident = PackageIdent::Named(NamedPackageIdent::from_str(&format!(
                 "{}@{}",
-                package.name, package.version
+                package
+                    .name
+                    .expect("Unnamed package was published as named"),
+                package
+                    .version
+                    .expect("Unversioned package was published as versioned")
             ))?);
             eprintln!("Package published successfully");
             // println!("🚀 Successfully published package `{}`", package_ident);
@@ -306,8 +315,12 @@ fn google_signed_url(
     timeout: Duration,
 ) -> Result<GetSignedUrlUrl, anyhow::Error> {
     let get_google_signed_url = GetSignedUrl::build_query(get_signed_url::Variables {
-        name: package.as_ref().map(|p| p.name.to_string()),
-        version: package.as_ref().map(|p| p.version.to_string()),
+        name: package
+            .as_ref()
+            .and_then(|p| p.name.as_ref().map(|n| n.to_string())),
+        version: package
+            .as_ref()
+            .and_then(|p| p.version.as_ref().map(|v| v.to_string())),
         filename: match package {
             Some(_) => None,
             None => Some(format!("unnamed_package_{}", rand::random::<usize>())),
@@ -325,7 +338,7 @@ fn google_signed_url(
     let url = _response.url.ok_or_else(|| match package {
         Some(pkg) => {
             anyhow::anyhow!(
-                "could not get signed url for package {}@{}",
+                "could not get signed url for package {:?}@{:?}",
                 pkg.name,
                 pkg.version
             )
