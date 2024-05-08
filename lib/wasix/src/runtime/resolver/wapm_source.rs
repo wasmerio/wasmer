@@ -113,7 +113,6 @@ impl WapmSource {
             "Received a response from GraphQL",
         );
 
-        println!("Got to here!");
         let response: WapmWebQuery =
             serde_json::from_slice(&body).context("Unable to deserialize the response")?;
 
@@ -264,7 +263,6 @@ impl Source for WapmSource {
             }
         }
 
-        println!("calling query_graphql_named");
         let response = self.query_graphql_named(&package_name).await?;
 
         if let Some(cache) = &self.cache {
