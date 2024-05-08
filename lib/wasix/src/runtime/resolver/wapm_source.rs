@@ -345,15 +345,15 @@ fn decode_summary(
         manifest,
         v2:
             WapmWebQueryGetPackageVersionDistribution {
-                webc_version: webc_version_v2,
-                pirita_sha256_hash: pirita_sha256_hash_v2,
-                pirita_download_url: pirita_download_url_v2,
+                webc_version: v2_webc_version,
+                pirita_sha256_hash: v2_pirita_sha256_hash,
+                pirita_download_url: v2_pirita_download_url,
             },
         v3:
             WapmWebQueryGetPackageVersionDistribution {
-                webc_version: webc_version_v3,
-                pirita_sha256_hash: pirita_sha256_hash_v3,
-                pirita_download_url: pirita_download_url_v3,
+                webc_version: v3_webc_version,
+                pirita_sha256_hash: v3_pirita_sha256_hash,
+                pirita_download_url: v3_pirita_download_url,
             },
         ..
     } = pkg_version;
@@ -362,16 +362,16 @@ fn decode_summary(
     {
         println!("using v3");
         (
-            webc_version_v3,
-            pirita_sha256_hash_v3,
-            pirita_download_url_v3,
+            v3_webc_version,
+            v3_pirita_sha256_hash,
+            v3_pirita_download_url,
         )
     } else {
         println!("using v2");
         (
-            webc_version_v2,
-            pirita_sha256_hash_v2,
-            pirita_download_url_v2,
+            v2_webc_version,
+            v2_pirita_sha256_hash,
+            v2_pirita_download_url,
         )
     };
 
@@ -559,12 +559,12 @@ pub const WASMER_WEBC_QUERY_ALL: &str = r#"{
           piritaManifest
           isArchived
           v2: distribution(version: V2) {
-            webcSha256Hash
-            webcDownloadUrl
+            piritaDownloadUrl
+            piritaSha256Hash
           }
           v3: distribution(version: V3) {
-            webcSha256Hash
-            webcDownloadUrl
+            piritaDownloadUrl
+            piritaSha256Hash
           }
         }
     }
