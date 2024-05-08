@@ -18,6 +18,8 @@ use tokio_tungstenite::{
     tungstenite::{client::IntoClientRequest, http::HeaderValue, Message},
 };
 
+pub use crate::graphql::subscriptions::package_version_ready::PackageVersionState;
+
 async fn subscribe_graphql<Q: GraphQLQuery + Send + Sync + Unpin + 'static>(
     registry_url: &str,
     login_token: &str,

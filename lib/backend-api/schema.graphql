@@ -361,7 +361,7 @@ type Package implements Likeable & Node & PackageOwner {
   """List of app templates for this package"""
   appTemplates(offset: Int, before: String, after: String, first: Int, last: Int): AppTemplateConnection!
   packagewebcSet(offset: Int, before: String, after: String, first: Int, last: Int): PackageWebcConnection!
-  versions: [PackageVersion]!
+  versions: [PackageVersion]
   collectionSet: [Collection!]!
   categories(offset: Int, before: String, after: String, first: Int, last: Int): CategoryConnection!
   keywords(offset: Int, before: String, after: String, first: Int, last: Int): PackageKeywordConnection!
@@ -504,7 +504,7 @@ scalar JSONString
 type WebcImage implements Node {
   """The ID of the object"""
   id: ID!
-  version: RegistryWebcImageVersionChoices!
+  version: WebcVersion
 
   """"""
   fileSize: BigInt!
@@ -518,11 +518,8 @@ type WebcImage implements Node {
   webcUrl: String!
 }
 
-enum RegistryWebcImageVersionChoices {
-  """v2"""
+enum WebcVersion {
   V2
-
-  """v3"""
   V3
 }
 
@@ -645,7 +642,9 @@ type DeployAppVersion implements Node {
     last: Int
   ): LogConnection!
   usageMetrics(forRange: MetricRange!, variant: MetricType!): [UsageMetric]!
-  sourcePackageVersion: PackageVersion!
+  sourcePackageVersion: PackageVersion
+  sourcePackageRelease: PackageWebc
+  sourcePackage: Package!
   aggregateMetrics: AggregateMetrics!
   volumes: [AppVersionVolume]
   favicon: URL
@@ -804,6 +803,24 @@ enum LogStream {
   STDOUT
   STDERR
   RUNTIME
+}
+
+type PackageWebc implements Node & PackageReleaseInterface & PackageInstance {
+  """The ID of the object"""
+  id: ID!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+  package: Package!
+  webc: WebcImage
+  piritaManifest: JSONString
+  piritaOffsets: JSONString
+  piritaVolumes: JSONString
+  isArchived: Boolean!
+  clientName: String
+  publishedBy: User!
+  webcV3: WebcImage
+  tag: String!
+  webcUrl: String!
 }
 
 type AppVersionVolume {
@@ -1052,11 +1069,6 @@ type PackageDistribution {
   webcVersion: WebcVersion
 }
 
-enum WebcVersion {
-  V2
-  V3
-}
-
 type PackageVersionFilesystem {
   wasm: String!
   host: String!
@@ -1233,24 +1245,6 @@ type PackageWebcEdge {
 
   """A cursor for use in pagination"""
   cursor: String!
-}
-
-type PackageWebc implements Node & PackageReleaseInterface & PackageInstance {
-  """The ID of the object"""
-  id: ID!
-  createdAt: DateTime!
-  updatedAt: DateTime!
-  package: Package!
-  webc: WebcImage
-  piritaManifest: JSONString
-  piritaOffsets: JSONString
-  piritaVolumes: JSONString
-  isArchived: Boolean!
-  clientName: String
-  publishedBy: User!
-  webcV3: WebcImage
-  tag: String!
-  webcUrl: String!
 }
 
 type Collection {
@@ -2834,6 +2828,8 @@ type Mutation {
   mfa2EmailGetToken(input: MFAGenerateEmailOTPInput!): MFAEmailGenerationResponse
   publishPublicKey(input: PublishPublicKeyInput!): PublishPublicKeyPayload
   publishPackage(input: PublishPackageInput!): PublishPackagePayload
+  pushPackageRelease(input: PushPackageReleaseInput!): PushPackageReleasePayload
+  tagPackageRelease(input: TagPackageReleaseInput!): TagPackageReleasePayload
   updatePackage(input: UpdatePackageInput!): UpdatePackagePayload
   likePackage(input: LikePackageInput!): LikePackagePayload
   unlikePackage(input: UnlikePackageInput!): UnlikePackagePayload
@@ -3584,6 +3580,48 @@ enum UploadFormat {
   targz
   webcv2
   webcv3
+}
+
+type PushPackageReleasePayload {
+  success: Boolean!
+  packageWebc: PackageWebc
+  clientMutationId: String
+}
+
+input PushPackageReleaseInput {
+  namespace: String!
+  signedUrl: String!
+  name: String
+
+  """Whether the package is private"""
+  private: Boolean = false
+  clientMutationId: String
+}
+
+type TagPackageReleasePayload {
+  success: Boolean!
+  packageVersion: PackageVersion
+  clientMutationId: String
+}
+
+input TagPackageReleaseInput {
+  packageReleaseId: ID!
+  name: String!
+  version: String!
+  manifest: String!
+  namespace: String
+  description: String
+  license: String
+  licenseFile: String
+  readme: String
+  repository: String
+  homepage: String
+  signature: InputSignature
+
+  """The package icon"""
+  icon: String
+  private: Boolean = false
+  clientMutationId: String
 }
 
 type UpdatePackagePayload {

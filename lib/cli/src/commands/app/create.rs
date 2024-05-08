@@ -2,7 +2,7 @@
 
 use crate::{
     commands::AsyncCliCommand,
-    opts::{ApiOpts, ItemFormatOpts},
+    opts::{ApiOpts, ItemFormatOpts, WasmerEnv},
     utils::{
         load_package_manifest,
         package_wizard::{CreateMode, PackageType, PackageWizard},
@@ -82,6 +82,9 @@ pub struct CmdAppCreate {
     #[clap(flatten)]
     #[allow(missing_docs)]
     pub api: ApiOpts,
+
+    #[clap(flatten)]
+    pub env: WasmerEnv,
 
     #[clap(flatten)]
     #[allow(missing_docs)]
@@ -364,6 +367,7 @@ impl CmdAppCreate {
         {
             let cmd_deploy = CmdAppDeploy {
                 api: self.api.clone(),
+                env: self.env.clone(),
                 fmt: ItemFormatOpts {
                     format: self.fmt.format,
                 },
@@ -709,6 +713,7 @@ mod tests {
             package: Some("testuser/static-site-1@0.1.0".to_string()),
             use_local_manifest: false,
             new_package_name: None,
+            env: WasmerEnv::default(),
         };
         cmd.run_async().await.unwrap();
 
@@ -743,6 +748,7 @@ debug: false
             package: Some("wasmer/testpkg".to_string()),
             use_local_manifest: false,
             new_package_name: None,
+            env: WasmerEnv::default(),
         };
         cmd.run_async().await.unwrap();
 
@@ -776,6 +782,7 @@ debug: false
             package: Some("wasmer/test-js-worker".to_string()),
             use_local_manifest: false,
             new_package_name: None,
+            env: WasmerEnv::default(),
         };
         cmd.run_async().await.unwrap();
 
@@ -812,6 +819,7 @@ debug: false
             package: Some("wasmer/test-py-worker".to_string()),
             use_local_manifest: false,
             new_package_name: None,
+            env: WasmerEnv::default(),
         };
         cmd.run_async().await.unwrap();
 
