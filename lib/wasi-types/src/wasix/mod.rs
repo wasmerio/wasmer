@@ -26,4 +26,8 @@ pub struct WasiMemoryLayout {
     pub guard_size: u64,
     /// Total size of the stack
     pub stack_size: u64,
+    /// Base address of the TLS area
+    pub tls_base: u64,
+    /// Total size of the TLS area
+    pub tls_size: u64,
 }

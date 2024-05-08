@@ -1802,4 +1802,6 @@ pub struct JournalWasiMemoryLayout {
     pub stack_lower: u64,
     pub guard_size: u64,
     pub stack_size: u64,
+    pub tls_base: u64,
+    pub tls_size: u64,
 }

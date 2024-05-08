@@ -673,15 +673,12 @@ impl ExecutableTarget {
         pb: &ProgressBar,
     ) -> Result<Self, Error> {
         pb.set_message(format!("Loading \"{}\" into memory", dir.display()));
-
-        let manifest_path = dir.join("wasmer.toml");
-        let webc = webc::wasmer_package::Package::from_manifest(manifest_path)?;
-        let container = Container::from(webc);
-
         pb.set_message("Resolving dependencies");
         let inner_runtime = runtime.clone();
-        let pkg = runtime.task_manager().spawn_and_block_on(async move {
-            BinaryPackage::from_webc(&container, inner_runtime.as_ref()).await
+        let pkg = runtime.task_manager().spawn_and_block_on({
+            let path = dir.to_path_buf();
+
+            async move { BinaryPackage::from_dir(&path, inner_runtime.as_ref()).await }
         })??;
 
         Ok(ExecutableTarget::Package(pkg))
