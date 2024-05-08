@@ -6344,7 +6344,7 @@ dependencies = [
  "tracing",
  "url",
  "uuid",
- "wasmer-config 0.1.0",
+ "wasmer-config 0.2.0",
  "webc",
 ]
 
@@ -6535,7 +6535,7 @@ dependencies = [
  "wasmer-compiler-cranelift",
  "wasmer-compiler-llvm",
  "wasmer-compiler-singlepass",
- "wasmer-config 0.1.0",
+ "wasmer-config 0.2.0",
  "wasmer-emscripten",
  "wasmer-object",
  "wasmer-registry",
@@ -6659,20 +6659,20 @@ dependencies = [
 [[package]]
 name = "wasmer-config"
 version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0b405c9856adaf65ee91eeeeaac6fcc6b127188648c60ae4e89de63f506c74e6"
 dependencies = [
  "anyhow",
  "bytesize",
  "derive_builder",
  "hex",
- "indexmap 2.2.6",
- "pretty_assertions",
+ "indexmap 1.9.3",
  "schemars",
  "semver 1.0.23",
  "serde",
  "serde_cbor",
  "serde_json",
  "serde_yaml 0.9.34+deprecated",
- "tempfile",
  "thiserror",
  "toml 0.8.12",
  "url",
@@ -6695,6 +6695,7 @@ dependencies = [
  "serde_cbor",
  "serde_json",
  "serde_yaml 0.9.34+deprecated",
+ "tempfile",
  "thiserror",
  "toml 0.8.12",
  "url",
@@ -6873,7 +6874,7 @@ dependencies = [
  "toml 0.5.11",
  "tracing",
  "url",
- "wasmer-config 0.1.0",
+ "wasmer-config 0.2.0",
  "wasmer-wasm-interface",
  "wasmparser 0.121.2",
  "webc",
@@ -7007,7 +7008,7 @@ dependencies = [
  "wasm-bindgen-futures",
  "wasm-bindgen-test",
  "wasmer",
- "wasmer-config 0.1.0",
+ "wasmer-config 0.2.0",
  "wasmer-emscripten",
  "wasmer-journal",
  "wasmer-types",
@@ -7104,7 +7105,7 @@ dependencies = [
  "wasmer-compiler-cranelift",
  "wasmer-compiler-llvm",
  "wasmer-compiler-singlepass",
- "wasmer-config 0.1.0",
+ "wasmer-config 0.2.0",
  "wasmer-emscripten",
  "wasmer-middlewares",
  "wasmer-types",
