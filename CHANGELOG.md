@@ -11,6 +11,8 @@ Looking for changes that affect our C API? See the [C API Changelog](lib/c-api/C
 
 ## 4.3.0-beta.1 - 08/05/2024
 
+This release improves the deploy and publish flow. Also, it contains bug fixes to virtual fs, caching, and a memory corruption issue when unwinding the stack.
+
 ## Added
 
   - [#4633](https://github.com/wasmerio/wasmer/pull/4633) Added a fix so that try_read calls close the connection without returning errors and causing a panic
