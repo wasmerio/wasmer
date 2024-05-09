@@ -11,7 +11,7 @@ use super::sections::{
     parse_start_section, parse_table_section, parse_type_section,
 };
 use super::state::ModuleTranslationState;
-use wasmer_types::{ModuleHash, WasmResult};
+use wasmer_types::WasmResult;
 use wasmparser::{NameSectionReader, Parser, Payload};
 
 /// Translate a sequence of bytes forming a valid Wasm binary into a
@@ -21,8 +21,6 @@ pub fn translate_module<'data>(
     environ: &mut ModuleEnvironment<'data>,
 ) -> WasmResult<ModuleTranslationState> {
     let mut module_translation_state = ModuleTranslationState::new();
-
-    environ.module.hash = Some(ModuleHash::xxhash(data));
 
     for payload in Parser::new(0).parse_all(data) {
         match payload.map_err(from_binaryreadererror_wasmerror)? {

@@ -4,8 +4,7 @@ use std::sync::Arc;
 use bytes::Bytes;
 use wasmer_compiler::{Artifact, ArtifactCreate};
 use wasmer_types::{
-    CompileError, DeserializeError, ExportsIterator, ImportsIterator, ModuleHash, ModuleInfo,
-    SerializeError,
+    CompileError, DeserializeError, ExportsIterator, ImportsIterator, ModuleInfo, SerializeError,
 };
 use wasmer_types::{ExportType, ImportType};
 
@@ -173,10 +172,6 @@ impl Module {
 
     pub(crate) fn name(&self) -> Option<&str> {
         self.info().name.as_deref()
-    }
-
-    pub(crate) fn hash(&self) -> Option<ModuleHash> {
-        self.info().hash
     }
 
     pub(crate) fn set_name(&mut self, name: &str) -> bool {

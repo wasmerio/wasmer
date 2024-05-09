@@ -3,7 +3,6 @@ use std::fmt;
 use std::fs;
 use std::io;
 use std::path::Path;
-use wasmer_types::ModuleHash;
 
 use crate::engine::AsEngineRef;
 use thiserror::Error;
@@ -365,11 +364,6 @@ impl Module {
     /// ```
     pub fn name(&self) -> Option<&str> {
         self.0.name()
-    }
-
-    /// Returns the xxhash module hash
-    pub fn hash(&self) -> Option<ModuleHash> {
-        self.0.hash()
     }
 
     /// Sets the name of the current module.

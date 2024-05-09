@@ -458,6 +458,11 @@ impl ModuleInfo {
         Default::default()
     }
 
+    /// Returns the module hash if available
+    pub fn hash(&self) -> Option<ModuleHash> {
+        self.hash
+    }
+
     /// Get the given passive element, if it exists.
     pub fn get_passive_element(&self, index: ElemIndex) -> Option<&[FunctionIndex]> {
         self.passive_elements.get(&index).map(|es| &**es)

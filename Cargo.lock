@@ -6322,7 +6322,6 @@ dependencies = [
  "wasmparser 0.121.2",
  "wat",
  "winapi 0.3.9",
- "xxhash-rust",
 ]
 
 [[package]]

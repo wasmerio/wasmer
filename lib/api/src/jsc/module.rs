@@ -13,7 +13,6 @@ use bytes::Bytes;
 use rusty_jsc::{JSObject, JSString, JSValue};
 use std::path::Path;
 use tracing::{debug, warn};
-use wasmer_types::ModuleHash;
 use wasmer_types::{
     CompileError, DeserializeError, ExportsIterator, ExternType, FunctionType, GlobalType,
     ImportsIterator, MemoryType, ModuleInfo, Mutability, Pages, SerializeError, TableType, Type,
@@ -175,10 +174,6 @@ impl Module {
 
     pub fn name(&self) -> Option<&str> {
         self.name.as_ref().map(|s| s.as_ref())
-    }
-
-    pub fn hash(&self) -> Option<ModuleHash> {
-        self.info.hash
     }
 
     pub fn serialize(&self) -> Result<Bytes, SerializeError> {

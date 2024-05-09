@@ -14,8 +14,7 @@ use tracing::{debug, warn};
 use wasm_bindgen::JsValue;
 use wasmer_types::{
     CompileError, DeserializeError, ExportsIterator, ExternType, FunctionType, GlobalType,
-    ImportsIterator, MemoryType, ModuleHash, ModuleInfo, Mutability, Pages, SerializeError,
-    TableType, Type,
+    ImportsIterator, MemoryType, ModuleInfo, Mutability, Pages, SerializeError, TableType, Type,
 };
 
 /// WebAssembly in the browser doesn't yet output the descriptor/types
@@ -209,10 +208,6 @@ impl Module {
 
     pub fn name(&self) -> Option<&str> {
         self.name.as_ref().map(|s| s.as_ref())
-    }
-
-    pub fn hash(&self) -> Option<ModuleHash> {
-        None
     }
 
     pub fn serialize(&self) -> Result<Bytes, SerializeError> {

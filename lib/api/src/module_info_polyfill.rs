@@ -10,7 +10,7 @@ use std::vec::Vec;
 use wasmer_types::entity::EntityRef;
 use wasmer_types::{
     ExportIndex, FunctionIndex, FunctionType, GlobalIndex, GlobalType, ImportIndex, MemoryIndex,
-    MemoryType, ModuleHash, ModuleInfo, Pages, SignatureIndex, TableIndex, TableType, Type,
+    MemoryType, ModuleInfo, Pages, SignatureIndex, TableIndex, TableType, Type,
 };
 
 use wasmparser::{
@@ -252,8 +252,6 @@ fn transform_err(err: BinaryReaderError) -> String {
 /// parsed ModuleInfo `ModuleInfoPolyfill`.
 pub fn translate_module<'data>(data: &'data [u8]) -> WasmResult<ModuleInfoPolyfill> {
     let mut module_info: ModuleInfoPolyfill = Default::default();
-
-    module_info.info.hash = Some(ModuleHash::xxhash(data));
 
     for payload in Parser::new(0).parse_all(data) {
         match payload.map_err(transform_err)? {
