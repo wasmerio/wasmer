@@ -149,6 +149,9 @@ impl WasiFunctionEnv {
 
         let new_inner = WasiInstanceHandles::new(memory, store, instance);
         let stack_pointer = new_inner.stack_pointer.clone();
+        let data_end = new_inner.data_end.clone();
+        let stack_low = new_inner.stack_low.clone();
+        let stack_high = new_inner.stack_high.clone();
 
         let env = self.data_mut(store);
         env.set_inner(new_inner);
@@ -158,7 +161,13 @@ impl WasiFunctionEnv {
         // If the stack offset and size is not set then do so
         if update_layout {
             // Set the base stack
-            let stack_base = if let Some(stack_pointer) = stack_pointer {
+            let stack_base = if let Some(stack_high) = stack_high {
+                match stack_high.get(store) {
+                    wasmer::Value::I32(a) => a as u64,
+                    wasmer::Value::I64(a) => a as u64,
+                    _ => DEFAULT_STACK_BASE,
+                }
+            } else if let Some(stack_pointer) = stack_pointer {
                 match stack_pointer.get(store) {
                     wasmer::Value::I32(a) => a as u64,
                     wasmer::Value::I64(a) => a as u64,
@@ -167,17 +176,39 @@ impl WasiFunctionEnv {
             } else {
                 DEFAULT_STACK_BASE
             };
+
             if stack_base == 0 {
                 return Err(ExportError::Missing(
-                    "stack_pointer is not set to the upper stack range".to_string(),
+                    "stack_high or stack_pointer is not set to the upper stack range".to_string(),
                 ));
             }
+
+            let stack_lower = if let Some(stack_low) = stack_low {
+                match stack_low.get(store) {
+                    wasmer::Value::I32(a) => a as u64,
+                    wasmer::Value::I64(a) => a as u64,
+                    _ => 0,
+                }
+            } else if let Some(data_end) = data_end {
+                match data_end.get(store) {
+                    wasmer::Value::I32(a) => a as u64,
+                    wasmer::Value::I64(a) => a as u64,
+                    _ => 0,
+                }
+            } else {
+                // clang-16 and higher generate the `__stack_low` global, and it can be exported with
+                // `-Wl,--export=__stack_low`. clang-15 generates `__data_end`, which should be identical
+                // and can be exported if `__stack_low` is not available.
+                tracing::warn!("Missing both __stack_low and __data_end exports, unwinding may cause memory corruption");
+                0
+            };
 
             // Update the stack layout which is need for asyncify
             let env = self.data_mut(store);
             let tid = env.tid();
             let layout = &mut env.layout;
             layout.stack_upper = stack_base;
+            layout.stack_lower = stack_lower;
             layout.stack_size = layout.stack_upper - layout.stack_lower;
 
             // Replace the thread object itself
