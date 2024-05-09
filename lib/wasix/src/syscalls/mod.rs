@@ -28,6 +28,7 @@ use futures::{
 use tracing::instrument;
 pub use wasi::*;
 pub use wasix::*;
+use wasmer::WASM_PAGE_SIZE;
 use wasmer_journal::SnapshotTrigger;
 use wasmer_wasix_types::wasix::ThreadStartType;
 
@@ -1124,6 +1125,11 @@ where
     // Get the current stack pointer (this will be used to determine the
     // upper limit of stack space remaining to unwind into)
     let (env, mut store) = ctx.data_and_store_mut();
+
+    let rewind_buffer_start = wasi_try_ok!(env
+        .get_or_allocate_rewind_buffer(&mut store)
+        .map_err(|_| Errno::Fault));
+
     let memory_stack = match get_memory_stack::<M>(env, &mut store) {
         Ok(a) => a,
         Err(err) => {
@@ -1132,19 +1138,17 @@ where
         }
     };
 
-    // Perform a check to see if we have enough room
     let env = ctx.data();
+    // Perform a check to see if we have enough room
     let memory = unsafe { env.memory_view(&ctx) };
 
     // Write the addresses to the start of the stack space
-    let unwind_pointer = env.layout.stack_lower;
-    let unwind_data_start =
-        unwind_pointer + (std::mem::size_of::<__wasi_asyncify_t<M::Offset>>() as u64);
+    let asyncify_t_size = std::mem::size_of::<__wasi_asyncify_t<M::Offset>>() as u64;
+    let unwind_pointer = rewind_buffer_start;
+    let unwind_data_start = unwind_pointer + asyncify_t_size;
     let unwind_data = __wasi_asyncify_t::<M::Offset> {
         start: wasi_try_ok!(unwind_data_start.try_into().map_err(|_| Errno::Overflow)),
-        end: wasi_try_ok!(env
-            .layout
-            .stack_upper
+        end: wasi_try_ok!((WASM_PAGE_SIZE as u64 - asyncify_t_size)
             .try_into()
             .map_err(|_| Errno::Overflow)),
     };
@@ -1170,17 +1174,8 @@ where
     // Set callback that will be invoked when this process finishes
     let env = ctx.data();
     let unwind_stack_begin: u64 = unwind_data.start.into();
-    let total_stack_space = env.layout.stack_size;
     let func = ctx.as_ref();
-    trace!(
-        stack_upper = env.layout.stack_upper,
-        stack_lower = env.layout.stack_lower,
-        "wasi[{}:{}]::unwinding (used_stack_space={} total_stack_space={})",
-        ctx.data().pid(),
-        ctx.data().tid(),
-        memory_stack.len(),
-        total_stack_space
-    );
+    trace!("wasi[{}:{}]::unwinding", ctx.data().pid(), ctx.data().tid(),);
     ctx.as_store_mut().on_called(move |mut store| {
         let mut ctx = func.into_mut(&mut store);
         let env = ctx.data();
@@ -1198,10 +1193,9 @@ where
         let unwind_stack_finish: u64 = unwind_data_result.start.into();
         let unwind_size = unwind_stack_finish - unwind_stack_begin;
         trace!(
-            "wasi[{}:{}]::unwound (memory_stack_size={} unwind_size={})",
+            "wasi[{}:{}]::unwound (unwind_size={})",
             ctx.data().pid(),
             ctx.data().tid(),
-            memory_stack.len(),
             unwind_size
         );
 
@@ -1272,6 +1266,11 @@ pub fn rewind_ext<M: MemorySize>(
     store_data: Bytes,
     rewind_result: RewindResultType,
 ) -> Errno {
+    let (env, mut store) = ctx.data_and_store_mut();
+    let rewind_buffer_start = wasi_try!(env
+        .get_or_allocate_rewind_buffer(&mut store)
+        .map_err(|_| Errno::Fault));
+
     // Store the memory stack so that it can be restored later
     ctx.data_mut().thread.set_rewind(RewindResult {
         memory_stack,
@@ -1297,22 +1296,21 @@ pub fn rewind_ext<M: MemorySize>(
     };
 
     // Write the addresses to the start of the stack space
-    let rewind_pointer = env.layout.stack_lower;
-    let rewind_data_start =
-        rewind_pointer + (std::mem::size_of::<__wasi_asyncify_t<M::Offset>>() as u64);
+    let asyncify_t_size = std::mem::size_of::<__wasi_asyncify_t<M::Offset>>() as u64;
+    let rewind_pointer = rewind_buffer_start;
+    let rewind_data_start = rewind_pointer + asyncify_t_size;
     let rewind_data_end = rewind_data_start + (rewind_stack.len() as u64);
-    if rewind_data_end > env.layout.stack_upper {
+    if rewind_stack.len() as u64 > WASM_PAGE_SIZE as u64 - asyncify_t_size {
         warn!(
-            "attempting to rewind a stack bigger than the allocated stack space ({} > {})",
-            rewind_data_end, env.layout.stack_upper
+            "attempting to rewind a stack bigger than the allocated buffer space ({} > {})",
+            rewind_stack.len(),
+            WASM_PAGE_SIZE as u64 - asyncify_t_size
         );
         return Errno::Overflow;
     }
     let rewind_data = __wasi_asyncify_t::<M::Offset> {
         start: wasi_try!(rewind_data_end.try_into().map_err(|_| Errno::Overflow)),
-        end: wasi_try!(env
-            .layout
-            .stack_upper
+        end: wasi_try!((WASM_PAGE_SIZE as u64 - asyncify_t_size)
             .try_into()
             .map_err(|_| Errno::Overflow)),
     };

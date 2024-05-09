@@ -104,6 +104,9 @@ pub struct WasiThread {
 
     // This is used for stack rewinds
     rewind: Option<RewindResult>,
+    /// The location of the host-allocated rewind buffer for this thread,
+    /// if one has been allocated.
+    pub rewind_buffer: Option<u64>,
 }
 
 impl WasiThread {
@@ -276,6 +279,7 @@ impl WasiThread {
             layout,
             start,
             rewind: None,
+            rewind_buffer: None,
         }
     }
 

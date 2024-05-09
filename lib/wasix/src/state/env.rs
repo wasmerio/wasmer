@@ -12,8 +12,8 @@ use rand::Rng;
 use virtual_fs::{FileSystem, FsError, StaticFile, VirtualFile};
 use virtual_net::DynVirtualNetworking;
 use wasmer::{
-    AsStoreMut, AsStoreRef, FunctionEnvMut, Global, Imports, Instance, Memory, MemoryType,
-    MemoryView, Module, TypedFunction,
+    AsStoreMut, AsStoreRef, FunctionEnvMut, Global, Imports, Instance, Memory, MemoryError,
+    MemoryType, MemoryView, Module, TypedFunction, WASM_PAGE_SIZE,
 };
 use wasmer_config::package::PackageSource;
 use wasmer_wasix_types::{
@@ -929,6 +929,26 @@ impl WasiEnv {
     #[allow(dead_code)]
     pub(crate) fn try_memory_clone(&self) -> Option<Memory> {
         self.try_inner().map(|i| i.memory_clone())
+    }
+
+    pub(crate) fn get_or_allocate_rewind_buffer(
+        &mut self,
+        store: &mut impl AsStoreMut,
+    ) -> Result<u64, MemoryError> {
+        match self.thread.rewind_buffer {
+            Some(b) => Ok(b),
+            None => {
+                let old_pages = self
+                    .try_memory()
+                    .ok_or_else(|| MemoryError::InvalidMemory {
+                        reason: String::from("WasiEnv not initialized properly"),
+                    })?
+                    .grow(store, 1)?;
+                let ptr = old_pages.0 as u64 * WASM_PAGE_SIZE as u64;
+                self.thread.rewind_buffer = Some(ptr);
+                Ok(ptr)
+            }
+        }
     }
 
     /// Get the WASI state
