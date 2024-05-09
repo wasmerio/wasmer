@@ -654,6 +654,12 @@
 <a href="#654" id="654">654</a>
 <a href="#655" id="655">655</a>
 <a href="#656" id="656">656</a>
+<a href="#657" id="657">657</a>
+<a href="#658" id="658">658</a>
+<a href="#659" id="659">659</a>
+<a href="#660" id="660">660</a>
+<a href="#661" id="661">661</a>
+<a href="#662" id="662">662</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{
     convert::{TryFrom, TryInto},
     io::Cursor,
@@ -854,7 +860,13 @@
     </span>}
 
     <span class="kw">fn </span>last_modified(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; u64 {
-        <span class="self">self</span>.timestamps.map(|t| t.modified()).unwrap_or(<span class="number">0</span>)
+        <span class="self">self</span>.timestamps.map(|t| t.modified()).unwrap_or_else(|| {
+            <span class="comment">// HACK: timestamps are not present in webc v2, so we have to return
+            // a stub modified time. previously we used to just return 0, but that
+            // proved to cause problems with programs that interpret the value 0.
+            // to circumvent this problem, we decided to return a non-zero value.
+            </span>std::time::UNIX_EPOCH.elapsed().unwrap().as_secs()
+        })
     }
 
     <span class="kw">fn </span>created_time(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; u64 {
