@@ -500,7 +500,6 @@
 <a href="#500" id="500">500</a>
 <a href="#501" id="501">501</a>
 <a href="#502" id="502">502</a>
-<a href="#503" id="503">503</a>
 </pre></div><pre class="rust"><code><span class="kw">use crate</span>::{
     commands::{
         package::common::{macros::<span class="kw-2">*</span>, <span class="kw-2">*</span>},
@@ -930,7 +929,6 @@
             <span class="prelude-val">None </span>=&gt; <span class="bool-val">true</span>,
         };
 
-        <span class="macro">println!</span>(<span class="string">&quot;should update: {should_update_name}&quot;</span>);
         <span class="kw">let </span>manifest = <span class="kw">if </span>should_update_name {
             <span class="self">self</span>.update_manifest_name(manifest_path, manifest, <span class="kw-2">&amp;</span>full_name)
                 .<span class="kw">await</span><span class="question-mark">?
