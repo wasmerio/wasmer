@@ -87,6 +87,7 @@ impl PackagePublish {
         client: &WasmerClient,
         manifest_path: &Path,
         manifest: &Manifest,
+        allow_unnamed: bool,
     ) -> anyhow::Result<PackageIdent> {
         let (package_namespace, package_hash) = {
             let push_cmd = PackagePush {
@@ -119,7 +120,7 @@ impl PackagePublish {
             package_path: self.package_path.clone(),
             package_hash,
         }
-        .tag(client, manifest)
+        .tag(client, manifest, manifest_path, true, allow_unnamed)
         .await
     }
 }
@@ -142,7 +143,9 @@ impl AsyncCliCommand for PackagePublish {
         let (manifest_path, manifest) = get_manifest(&self.package_path)?;
         tracing::info!("Got manifest at path {}", manifest_path.display());
 
-        let ident = self.publish(&client, &manifest_path, &manifest).await?;
+        let ident = self
+            .publish(&client, &manifest_path, &manifest, false)
+            .await?;
 
         if !self.quiet && !self.non_interactive {
             eprintln!(

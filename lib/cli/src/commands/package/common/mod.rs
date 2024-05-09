@@ -5,101 +5,16 @@ use crate::{
 };
 use colored::Colorize;
 use dialoguer::Confirm;
-use semver::VersionReq;
 use std::{
     collections::BTreeMap,
     path::{Path, PathBuf},
-    str::FromStr,
 };
 use wasmer_api::WasmerClient;
-use wasmer_config::package::{Manifest, NamedPackageIdent, PackageHash, PackageIdent};
+use wasmer_config::package::{Manifest, PackageHash};
 use webc::wasmer_package::Package;
 
 pub mod macros;
 pub mod wait;
-
-// We have PackageId and PackageIdent.. Brace yourselves, here we have their intertransmutunion,
-// the PackageSpecifier.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub(super) enum PackageSpecifier {
-    Hash {
-        namespace: String,
-        hash: PackageHash,
-    },
-    Named {
-        namespace: String,
-        name: String,
-        tag: Tag,
-    },
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub(super) enum Tag {
-    Version(semver::Version), // <-- This is the reason..
-    Hash(PackageHash),
-}
-
-impl From<PackageSpecifier> for PackageIdent {
-    fn from(value: PackageSpecifier) -> Self {
-        match value {
-            PackageSpecifier::Hash { hash, .. } => PackageIdent::Hash(hash),
-            PackageSpecifier::Named {
-                namespace,
-                name,
-                tag,
-            } => match tag {
-                Tag::Version(v) => PackageIdent::Named(NamedPackageIdent {
-                    registry: None,
-                    namespace: Some(namespace),
-                    name,
-                    tag: Some(wasmer_config::package::Tag::VersionReq(
-                        VersionReq::parse(&v.to_string()).unwrap(),
-                    )),
-                }),
-                Tag::Hash(h) => PackageIdent::Named(NamedPackageIdent {
-                    registry: None,
-                    namespace: Some(namespace),
-                    name,
-                    tag: Some(wasmer_config::package::Tag::Named(h.to_string())),
-                }),
-            },
-        }
-    }
-}
-
-pub(super) fn into_specifier(
-    manifest: &Manifest,
-    hash: &PackageHash,
-    namespace: String,
-) -> anyhow::Result<PackageSpecifier> {
-    Ok(match &manifest.package {
-        None => PackageSpecifier::Hash {
-            namespace,
-            hash: hash.clone(),
-        },
-        Some(n) => match &n.name {
-            Some(name) => {
-                let named = NamedPackageIdent::from_str(name)?;
-                match &n.version {
-                    Some(v) => PackageSpecifier::Named {
-                        namespace,
-                        name: named.name.clone(),
-                        tag: Tag::Version(v.clone()),
-                    },
-                    None => PackageSpecifier::Named {
-                        namespace,
-                        name: named.name.clone(),
-                        tag: Tag::Hash(hash.clone()),
-                    },
-                }
-            }
-            None => PackageSpecifier::Hash {
-                namespace,
-                hash: hash.clone(),
-            },
-        },
-    })
-}
 
 pub(super) fn on_error(e: anyhow::Error) -> anyhow::Error {
     #[cfg(feature = "telemetry")]
