@@ -121,7 +121,9 @@ impl CmdAppDeploy {
             api: self.api.clone(),
         };
 
-        publish_cmd.publish(client, &manifest_path, &manifest).await
+        publish_cmd
+            .publish(client, &manifest_path, &manifest, true)
+            .await
     }
 
     async fn get_owner(
@@ -450,7 +452,18 @@ impl AsyncCliCommand for CmdAppDeploy {
             }
         };
 
-        let (_app, app_version) = deploy_app_verbose(&client, opts).await?;
+        let owner = &opts.owner.clone().or_else(|| opts.app.owner.clone());
+        let app = &opts.app;
+
+        let pretty_name = if let Some(owner) = &owner {
+            format!("{} ({})", app.name.bold(), owner.bold())
+        } else {
+            app.name.bold().to_string()
+        };
+
+        eprintln!("\nDeploying app {} to Wasmer Edge...\n", pretty_name);
+
+        let app_version = deploy_app(&client, opts.clone()).await?;
 
         let mut new_app_config = app_config_from_api(&app_version)?;
 
@@ -468,7 +481,7 @@ impl AsyncCliCommand for CmdAppDeploy {
             // settings without requring new CLI versions, so instead of just
             // serializing the new config, we merge it with the old one.
             let new_merged = crate::utils::merge_yaml_values(
-                &app_config.to_yaml_value()?,
+                &app_config.clone().to_yaml_value()?,
                 &new_app_config.to_yaml_value()?,
             );
             let new_config_raw = serde_yaml::to_string(&new_merged)?;
@@ -476,6 +489,8 @@ impl AsyncCliCommand for CmdAppDeploy {
                 format!("Could not write file: '{}'", app_config_path.display())
             })?;
         }
+
+        wait_app(&client, opts.clone(), app_version.clone()).await?;
 
         if self.fmt.format == crate::utils::render::ItemFormat::Json {
             println!("{}", serde_json::to_string_pretty(&app_version)?);
@@ -485,7 +500,7 @@ impl AsyncCliCommand for CmdAppDeploy {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct DeployAppOpts<'a> {
     pub app: &'a AppConfigV1,
     // Original raw yaml config.
@@ -539,25 +554,13 @@ pub enum WaitMode {
 }
 
 /// Same as [Self::deploy], but also prints verbose information.
-pub async fn deploy_app_verbose(
+pub async fn wait_app(
     client: &WasmerClient,
     opts: DeployAppOpts<'_>,
+    version: DeployAppVersion,
 ) -> Result<(DeployApp, DeployAppVersion), anyhow::Error> {
-    let owner = &opts.owner.clone().or_else(|| opts.app.owner.clone());
-    let app = &opts.app;
-
-    let pretty_name = if let Some(owner) = &owner {
-        format!("{} ({})", app.name.bold(), owner.bold())
-    } else {
-        app.name.bold().to_string()
-    };
-
-    let make_default = opts.make_default;
-
-    eprintln!("\nDeploying app {} to Wasmer Edge...\n", pretty_name);
-
     let wait = opts.wait;
-    let version = deploy_app(client, opts).await?;
+    let make_default = opts.make_default;
 
     let app_id = version
         .app
@@ -623,7 +626,7 @@ pub async fn deploy_app_verbose(
 
                         if header == version.id.inner() {
                             eprintln!("\nNew version is now reachable at {check_url}");
-                            eprintln!("✅ Deployment complete");
+                            eprintln!("{} Deployment complete", "✔".green().bold());
                             break;
                         }
 

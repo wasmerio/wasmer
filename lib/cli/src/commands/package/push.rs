@@ -91,8 +91,11 @@ impl PackagePush {
         }
 
         let user = wasmer_api::query::current_user_with_namespaces(client, None).await?;
-        let owner =
-            crate::utils::prompts::prompt_for_namespace("Choose a namespace", None, Some(&user))?;
+        let owner = crate::utils::prompts::prompt_for_namespace(
+            "Choose a namespace to push the package to",
+            None,
+            Some(&user),
+        )?;
 
         Ok(owner.clone())
     }
