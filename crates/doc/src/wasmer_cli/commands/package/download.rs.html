@@ -266,6 +266,15 @@
 <a href="#266" id="266">266</a>
 <a href="#267" id="267">267</a>
 <a href="#268" id="268">268</a>
+<a href="#269" id="269">269</a>
+<a href="#270" id="270">270</a>
+<a href="#271" id="271">271</a>
+<a href="#272" id="272">272</a>
+<a href="#273" id="273">273</a>
+<a href="#274" id="274">274</a>
+<a href="#275" id="275">275</a>
+<a href="#276" id="276">276</a>
+<a href="#277" id="277">277</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::path::PathBuf;
 
 <span class="kw">use </span>anyhow::{bail, Context};
@@ -274,6 +283,7 @@
 <span class="kw">use </span>tempfile::NamedTempFile;
 <span class="kw">use </span>wasmer_config::package::{PackageIdent, PackageSource};
 <span class="kw">use </span>wasmer_registry::wasmer_env::WasmerEnv;
+<span class="kw">use </span>wasmer_wasix::http::reqwest::get_proxy;
 
 <span class="doccomment">/// Download a package from the registry.
 </span><span class="attr">#[derive(clap::Parser, Debug)]
@@ -406,7 +416,15 @@
             PackageSource::Url(url) =&gt; <span class="macro">bail!</span>(<span class="string">&quot;cannot download a package from a URL: &#39;{}&#39;&quot;</span>, url),
         };
 
-        <span class="kw">let </span>client = reqwest::blocking::Client::new();
+        <span class="kw">let </span>builder = {
+            <span class="kw">let </span><span class="kw-2">mut </span>builder = reqwest::blocking::ClientBuilder::new();
+            <span class="kw">if let </span><span class="prelude-val">Some</span>(proxy) = get_proxy()<span class="question-mark">? </span>{
+                builder = builder.proxy(proxy);
+            }
+            builder
+        };
+        <span class="kw">let </span>client = builder.build().context(<span class="string">&quot;failed to create reqwest client&quot;</span>)<span class="question-mark">?</span>;
+
         <span class="kw">let </span><span class="kw-2">mut </span>b = client
             .get(download_url)
             .header(http::header::ACCEPT, <span class="string">&quot;application/webc&quot;</span>);

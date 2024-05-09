@@ -98,6 +98,14 @@
 <a href="#98" id="98">98</a>
 <a href="#99" id="99">99</a>
 <a href="#100" id="100">100</a>
+<a href="#101" id="101">101</a>
+<a href="#102" id="102">102</a>
+<a href="#103" id="103">103</a>
+<a href="#104" id="104">104</a>
+<a href="#105" id="105">105</a>
+<a href="#106" id="106">106</a>
+<a href="#107" id="107">107</a>
+<a href="#108" id="108">108</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{env, time::Duration};
 
 <span class="kw">use </span>anyhow::Context;
@@ -142,17 +150,15 @@
             .with_context(|| <span class="macro">format!</span>(<span class="string">&quot;Invalid http method {}&quot;</span>, request.method))<span class="question-mark">?</span>;
 
         <span class="comment">// TODO: use persistent client?
-        </span><span class="kw">let </span>client = {
+        </span><span class="kw">let </span>builder = {
             <span class="kw">let </span>_guard = Handle::try_current().map_err(|<span class="kw">_</span>| <span class="self">self</span>.handle.enter());
-            <span class="kw">let </span><span class="kw-2">mut </span>builder = reqwest::Client::builder().connect_timeout(<span class="self">self</span>.connect_timeout);
-
-            <span class="kw">let </span>proxy = env::var(<span class="string">&quot;http_proxy&quot;</span>).or_else(|<span class="kw">_</span>| env::var(<span class="string">&quot;HTTP_PROXY&quot;</span>));
-            <span class="kw">if let </span><span class="prelude-val">Ok</span>(scheme) = proxy {
-                builder = builder.proxy(reqwest::Proxy::all(scheme)<span class="question-mark">?</span>);
+            <span class="kw">let </span><span class="kw-2">mut </span>builder = reqwest::ClientBuilder::new().connect_timeout(<span class="self">self</span>.connect_timeout);
+            <span class="kw">if let </span><span class="prelude-val">Some</span>(proxy) = get_proxy()<span class="question-mark">? </span>{
+                builder = builder.proxy(proxy);
             }
-
-            builder.build().context(<span class="string">&quot;Could not create reqwest client&quot;</span>)<span class="question-mark">?
-        </span>};
+            builder
+        };
+        <span class="kw">let </span>client = builder.build().context(<span class="string">&quot;failed to create reqwest client&quot;</span>)<span class="question-mark">?</span>;
 
         <span class="kw">let </span><span class="kw-2">mut </span>builder = client.request(method, request.url.as_str());
         <span class="kw">for </span>(header, val) <span class="kw">in </span><span class="kw-2">&amp;</span>request.headers {
@@ -196,6 +202,16 @@
         <span class="kw">let </span>client = <span class="self">self</span>.clone();
         <span class="kw">let </span>f = <span class="kw">async move </span>{ client.request(request).<span class="kw">await </span>};
         Box::pin(f)
+    }
+}
+
+<span class="kw">pub fn </span>get_proxy() -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;reqwest::Proxy&gt;, anyhow::Error&gt; {
+    <span class="kw">if let </span><span class="prelude-val">Ok</span>(scheme) = env::var(<span class="string">&quot;http_proxy&quot;</span>).or_else(|<span class="kw">_</span>| env::var(<span class="string">&quot;HTTP_PROXY&quot;</span>)) {
+        <span class="kw">let </span>proxy = reqwest::Proxy::all(scheme)<span class="question-mark">?</span>;
+
+        <span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(proxy))
+    } <span class="kw">else </span>{
+        <span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>)
     }
 }
 </code></pre></div></section></main></body></html>
