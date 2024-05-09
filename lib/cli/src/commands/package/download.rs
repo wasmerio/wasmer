@@ -6,7 +6,7 @@ use indicatif::{ProgressBar, ProgressStyle};
 use tempfile::NamedTempFile;
 use wasmer_config::package::{PackageIdent, PackageSource};
 use wasmer_registry::wasmer_env::WasmerEnv;
-use wasmer_wasix::http::reqwest::client_blocking_builder;
+use wasmer_wasix::http::reqwest::get_proxy;
 
 /// Download a package from the registry.
 #[derive(clap::Parser, Debug)]
@@ -139,9 +139,14 @@ impl PackageDownload {
             PackageSource::Url(url) => bail!("cannot download a package from a URL: '{}'", url),
         };
 
-        let client = client_blocking_builder()?
-            .build()
-            .context("failed to create reqwest client")?;
+        let builder = {
+            let mut builder = reqwest::blocking::ClientBuilder::new();
+            if let Some(proxy) = get_proxy()? {
+                builder = builder.proxy(proxy);
+            }
+            builder
+        };
+        let client = builder.build().context("failed to create reqwest client")?;
 
         let mut b = client
             .get(download_url)

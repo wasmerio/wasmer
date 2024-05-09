@@ -44,7 +44,11 @@ impl ReqwestHttpClient {
         // TODO: use persistent client?
         let builder = {
             let _guard = Handle::try_current().map_err(|_| self.handle.enter());
-            client_builder()?.connect_timeout(self.connect_timeout)
+            let mut builder = reqwest::ClientBuilder::new().connect_timeout(self.connect_timeout);
+            if let Some(proxy) = get_proxy()? {
+                builder = builder.proxy(proxy);
+            }
+            builder
         };
         let client = builder.build().context("failed to create reqwest client")?;
 
@@ -93,24 +97,12 @@ impl super::HttpClient for ReqwestHttpClient {
     }
 }
 
-pub fn client_builder() -> Result<reqwest::ClientBuilder, anyhow::Error> {
-    let mut builder = reqwest::Client::builder();
+pub fn get_proxy() -> Result<Option<reqwest::Proxy>, anyhow::Error> {
+    if let Ok(scheme) = env::var("http_proxy").or_else(|_| env::var("HTTP_PROXY")) {
+        let proxy = reqwest::Proxy::all(scheme)?;
 
-    let proxy = env::var("http_proxy").or_else(|_| env::var("HTTP_PROXY"));
-    if let Ok(scheme) = proxy {
-        builder = builder.proxy(reqwest::Proxy::all(scheme)?);
+        Ok(Some(proxy))
+    } else {
+        Ok(None)
     }
-
-    Ok(builder)
-}
-
-pub fn client_blocking_builder() -> Result<reqwest::blocking::ClientBuilder, anyhow::Error> {
-    let mut builder = reqwest::blocking::Client::builder();
-
-    let proxy = env::var("http_proxy").or_else(|_| env::var("HTTP_PROXY"));
-    if let Ok(scheme) = proxy {
-        builder = builder.proxy(reqwest::Proxy::all(scheme)?);
-    }
-
-    Ok(builder)
 }
