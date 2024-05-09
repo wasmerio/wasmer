@@ -427,7 +427,6 @@ impl PackageTag {
             None => true,
         };
 
-        println!("should update: {should_update_name}");
         let manifest = if should_update_name {
             self.update_manifest_name(manifest_path, manifest, &full_name)
                 .await?
