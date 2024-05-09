@@ -107,7 +107,7 @@ impl Run {
             wasmer_vm::set_stack_size(self.stack_size.unwrap());
         }
 
-        // check for the preffered webc version
+        // check for the preferred webc version
         let preferred_webc_version = match std::env::var("WASMER_USE_WEBCV3") {
             Ok(val) if ["1", "yes", "true"].contains(&val.as_str()) => webc::Version::V3,
             _ => webc::Version::V2,
