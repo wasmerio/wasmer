@@ -73,12 +73,35 @@ pub struct PackageTag {
 }
 
 impl PackageTag {
+    async fn update_manifest_name(
+        &self,
+        manifest_path: &Path,
+        manifest: &Manifest,
+        full_name: &str,
+    ) -> anyhow::Result<Manifest> {
+        let mut new_manifest = manifest.clone();
+        if let Some(pkg) = &mut new_manifest.package {
+            pkg.name = Some(full_name.to_string());
+        } else {
+            let package = PackageBuilder::default().name(full_name).build()?;
+            new_manifest.package = Some(package);
+        }
+
+        let manifest_raw = toml::to_string(&new_manifest)?;
+
+        tokio::fs::write(manifest_path, manifest_raw)
+            .await
+            .context("while trying to serialize the manifest")?;
+
+        Ok(new_manifest)
+    }
+
     async fn update_manifest_version(
         &self,
         manifest_path: &Path,
         manifest: &Manifest,
         user_version: &semver::Version,
-    ) -> anyhow::Result<()> {
+    ) -> anyhow::Result<Manifest> {
         let mut new_manifest = manifest.clone();
         if let Some(pkg) = &mut new_manifest.package {
             pkg.version = Some(user_version.clone());
@@ -93,7 +116,9 @@ impl PackageTag {
 
         tokio::fs::write(manifest_path, manifest_raw)
             .await
-            .context("while trying to serialize the manifest")
+            .context("while trying to serialize the manifest")?;
+
+        Ok(new_manifest)
     }
 
     async fn do_tag(
@@ -147,7 +172,7 @@ impl PackageTag {
             maybe_license.as_deref(),
             maybe_license_file.as_deref(),
             &manifest_raw,
-            &full_name,
+            full_name,
             None,
             package_release_id,
             private,
@@ -264,7 +289,7 @@ impl PackageTag {
         });
 
         crate::utils::prompts::prompt_for_ident("Choose a package name", default_name.as_deref())
-            .map(|n| Some(n))
+            .map(Some)
     }
 
     async fn get_namespace(
@@ -394,8 +419,24 @@ impl PackageTag {
 
         let namespace = self.get_namespace(client, manifest).await?;
         let full_name = format!("{namespace}/{name}");
+        let should_update_name = match &manifest.package {
+            Some(pkg) => match &pkg.name {
+                Some(n) => n.as_str() != full_name.as_str(),
+                None => true,
+            },
+            None => true,
+        };
+
+        println!("should update: {should_update_name}");
+        let manifest = if should_update_name {
+            self.update_manifest_name(manifest_path, manifest, &full_name)
+                .await?
+        } else {
+            manifest.clone()
+        };
+
         let version = self
-            .get_version(client, manifest, manifest_path, &full_name)
+            .get_version(client, &manifest, manifest_path, &full_name)
             .await?;
 
         Ok(Some(NamedPackageId { full_name, version }))

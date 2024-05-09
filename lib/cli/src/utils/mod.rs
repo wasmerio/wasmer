@@ -135,8 +135,6 @@ pub fn prompt_for_package_name(
     }
 }
 
-
-
 /// Defines how to check for a package.
 pub enum PackageCheckMode {
     /// The package must exist in the registry.
