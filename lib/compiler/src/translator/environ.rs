@@ -8,7 +8,6 @@ use crate::wasmparser::{Operator, ValType};
 use std::convert::{TryFrom, TryInto};
 use std::ops::Range;
 use wasmer_types::entity::PrimaryMap;
-use wasmer_types::FunctionType;
 use wasmer_types::WasmResult;
 use wasmer_types::{
     CustomSectionIndex, DataIndex, DataInitializer, DataInitializerLocation, ElemIndex,
@@ -16,6 +15,7 @@ use wasmer_types::{
     LocalFunctionIndex, MemoryIndex, MemoryType, ModuleInfo, SignatureIndex, TableIndex,
     TableInitializer, TableType,
 };
+use wasmer_types::{FunctionType, ModuleHash};
 
 /// Contains function data: bytecode and its offset in the module.
 #[derive(Hash)]
@@ -90,7 +90,7 @@ impl<'data> ModuleEnvironment<'data> {
         let module_translation_state = translate_module(data, &mut self)?;
         self.module_translation_state = Some(module_translation_state);
 
-        self.module.hash = xxhash_rust::xxh64::xxh64(data, 0).to_ne_bytes();
+        self.module.hash = Some(ModuleHash::xxhash(data));
 
         Ok(self)
     }

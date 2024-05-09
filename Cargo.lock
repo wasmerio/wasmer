@@ -6903,14 +6903,20 @@ dependencies = [
  "bytecheck",
  "enum-iterator",
  "enumset",
+ "getrandom",
+ "hex",
  "indexmap 1.9.3",
  "memoffset 0.9.1",
  "more-asserts",
+ "rand",
  "rkyv",
  "serde",
  "serde_bytes",
+ "sha2",
  "target-lexicon 0.12.14",
  "thiserror",
+ "webc",
+ "xxhash-rust",
 ]
 
 [[package]]
@@ -7070,6 +7076,7 @@ dependencies = [
  "tokio 1.37.0",
  "virtual-fs",
  "wasmer",
+ "wasmer-types",
  "wasmer-wasix",
  "wast 38.0.1",
 ]

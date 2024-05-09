@@ -7,7 +7,8 @@ use std::{
     time::Duration,
 };
 
-use crate::{runtime::module_cache::ModuleHash, WasiProcess, WasiProcessId};
+use crate::{WasiProcess, WasiProcessId};
+use wasmer_types::ModuleHash;
 
 #[derive(Debug, Clone)]
 pub struct WasiControlPlane {

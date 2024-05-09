@@ -29,6 +29,7 @@ use wasmer::{
 use wasmer_compiler::ArtifactBuild;
 use wasmer_config::package::PackageSource as PackageSpecifier;
 use wasmer_registry::{wasmer_env::WasmerEnv, Package};
+use wasmer_types::ModuleHash;
 #[cfg(feature = "journal")]
 use wasmer_wasix::journal::{LogFileJournal, SnapshotTrigger};
 use wasmer_wasix::{
@@ -43,9 +44,7 @@ use wasmer_wasix::{
         MappedCommand, MappedDirectory, Runner,
     },
     runtime::{
-        module_cache::{CacheError, ModuleHash},
-        package_loader::PackageLoader,
-        resolver::QueryError,
+        module_cache::CacheError, package_loader::PackageLoader, resolver::QueryError,
         task_manager::VirtualTaskManagerExt,
     },
     Runtime, WasiError,
@@ -712,7 +711,9 @@ impl ExecutableTarget {
                 let engine = runtime.engine();
                 pb.set_message("Deserializing pre-compiled WebAssembly module");
                 let module = unsafe { Module::deserialize_from_file(&engine, path)? };
-                let module_hash = ModuleHash::xxhash_from_bytes(module.hash());
+
+                // FIXME: what if the artifact does not have the hash
+                let module_hash = module.hash().unwrap_or(ModuleHash::XXHash([0u8; 8]));
 
                 Ok(ExecutableTarget::WebAssembly {
                     module,

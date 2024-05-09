@@ -14,7 +14,8 @@ use tracing::{debug, warn};
 use wasm_bindgen::JsValue;
 use wasmer_types::{
     CompileError, DeserializeError, ExportsIterator, ExternType, FunctionType, GlobalType,
-    ImportsIterator, MemoryType, ModuleInfo, Mutability, Pages, SerializeError, TableType, Type,
+    ImportsIterator, MemoryType, ModuleHash, ModuleInfo, Mutability, Pages, SerializeError,
+    TableType, Type,
 };
 
 /// WebAssembly in the browser doesn't yet output the descriptor/types
@@ -42,7 +43,6 @@ pub struct Module {
     type_hints: Option<ModuleTypeHints>,
     #[cfg(feature = "js-serializable-module")]
     raw_bytes: Option<Bytes>,
-    hash: [u8; 8],
 }
 
 // Module implements `structuredClone` in js, so it's safe it to make it Send.
@@ -117,7 +117,6 @@ impl Module {
             name,
             #[cfg(feature = "js-serializable-module")]
             raw_bytes: Some(binary.clone()),
-            hash: xxhash_rust::xxh64::xxh64(binary.as_ref(), 0).to_ne_bytes(),
         }
     }
 
@@ -212,8 +211,8 @@ impl Module {
         self.name.as_ref().map(|s| s.as_ref())
     }
 
-    pub fn hash(&self) -> [u8; 8] {
-        self.hash
+    pub fn hash(&self) -> Option<ModuleHash> {
+        None
     }
 
     pub fn serialize(&self) -> Result<Bytes, SerializeError> {
@@ -463,7 +462,6 @@ impl From<WebAssembly::Module> for Module {
             type_hints: None,
             #[cfg(feature = "js-serializable-module")]
             raw_bytes: None,
-            hash: [0u8; 8],
         }
     }
 }

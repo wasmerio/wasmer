@@ -18,7 +18,6 @@ use crate::{
     capabilities::Capabilities,
     fs::{WasiFs, WasiFsRoot, WasiInodes},
     os::task::control_plane::{ControlPlaneConfig, ControlPlaneError, WasiControlPlane},
-    runtime::module_cache::ModuleHash,
     state::WasiState,
     syscalls::{
         rewind_ext2,
@@ -26,6 +25,7 @@ use crate::{
     },
     Runtime, WasiEnv, WasiError, WasiFunctionEnv, WasiRuntimeError,
 };
+use wasmer_types::ModuleHash;
 
 use super::env::WasiEnvInit;
 

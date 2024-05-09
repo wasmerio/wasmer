@@ -13,6 +13,7 @@ use bytes::Bytes;
 use rusty_jsc::{JSObject, JSString, JSValue};
 use std::path::Path;
 use tracing::{debug, warn};
+use wasmer_types::ModuleHash;
 use wasmer_types::{
     CompileError, DeserializeError, ExportsIterator, ExternType, FunctionType, GlobalType,
     ImportsIterator, MemoryType, ModuleInfo, Mutability, Pages, SerializeError, TableType, Type,
@@ -72,8 +73,6 @@ impl Module {
         let mut info = crate::module_info_polyfill::translate_module(&binary[..])
             .unwrap()
             .info;
-
-        info.hash = xxhash_rust::xxh64::xxh64(binary.as_ref(), 0).to_ne_bytes();
 
         Self {
             module,
@@ -178,7 +177,7 @@ impl Module {
         self.name.as_ref().map(|s| s.as_ref())
     }
 
-    pub fn hash(&self) -> [u8; 8] {
+    pub fn hash(&self) -> Option<ModuleHash> {
         self.info.hash
     }
 

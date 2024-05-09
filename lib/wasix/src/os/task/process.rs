@@ -1,8 +1,6 @@
 #[cfg(feature = "journal")]
 use crate::{journal::JournalEffector, syscalls::do_checkpoint_from_outside, unwind, WasiResult};
-use crate::{
-    journal::SnapshotTrigger, runtime::module_cache::ModuleHash, WasiEnv, WasiRuntimeError,
-};
+use crate::{journal::SnapshotTrigger, WasiEnv, WasiRuntimeError};
 use serde::{Deserialize, Serialize};
 #[cfg(feature = "journal")]
 use std::collections::HashSet;
@@ -19,6 +17,7 @@ use std::{
 };
 use tracing::trace;
 use wasmer::FunctionEnvMut;
+use wasmer_types::ModuleHash;
 use wasmer_wasix_types::{
     types::Signal,
     wasi::{Errno, ExitCode, Snapshot0Clockid},

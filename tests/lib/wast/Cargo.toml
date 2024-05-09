@@ -12,6 +12,7 @@ edition = "2018"
 
 [dependencies]
 wasmer-wasix.workspace = true
+wasmer-types = { path = "../../../lib/types" }
 wasmer = { path = "../../../lib/api", version = "=4.3.0-beta.1", default-features = false }
 virtual-fs = { path = "../../../lib/virtual-fs", version = "0.11.4" }
 
@@ -21,7 +22,10 @@ serde = "1"
 tempfile = "3.6.0"
 thiserror = "1.0"
 futures = "0.3"
-tokio = { version = "1", features = [ "io-util", "rt" ], default_features = false }
+tokio = { version = "1", features = [
+    "io-util",
+    "rt",
+], default_features = false }
 
 [features]
 default = ["wat"]
