@@ -723,6 +723,9 @@
 <a href="#723" id="723">723</a>
 <a href="#724" id="724">724</a>
 <a href="#725" id="725">725</a>
+<a href="#726" id="726">726</a>
+<a href="#727" id="727">727</a>
+<a href="#728" id="728">728</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{
     collections::{BTreeSet, HashMap},
     path::{Path, PathBuf},
@@ -1258,6 +1261,7 @@
         engine: Engine,
         env: <span class="kw-2">&amp;</span>WasmerEnv,
         rt_or_handle: I,
+        preferred_webc_version: webc::Version,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="kw">impl </span>Runtime + Send + Sync&gt;
     <span class="kw">where
         </span>I: Into&lt;RuntimeOrHandle&gt;,
@@ -1290,7 +1294,7 @@
             </span>.prepare_package_loader(env, client.clone())
             .context(<span class="string">&quot;Unable to prepare the package loader&quot;</span>)<span class="question-mark">?</span>;
 
-        <span class="kw">let </span>registry = <span class="self">self</span>.prepare_source(env, client)<span class="question-mark">?</span>;
+        <span class="kw">let </span>registry = <span class="self">self</span>.prepare_source(env, client, preferred_webc_version)<span class="question-mark">?</span>;
 
         <span class="kw">let </span>cache_dir = env.cache_dir().join(<span class="string">&quot;compiled&quot;</span>);
         <span class="kw">let </span>module_cache = wasmer_wasix::runtime::module_cache::in_memory()
@@ -1352,6 +1356,7 @@
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         env: <span class="kw-2">&amp;</span>WasmerEnv,
         client: Arc&lt;<span class="kw">dyn </span>HttpClient + Send + Sync&gt;,
+        preferred_webc_version: webc::Version,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="kw">impl </span>Source + Send + Sync&gt; {
         <span class="kw">let </span><span class="kw-2">mut </span>source = MultiSource::new();
 
@@ -1368,7 +1373,8 @@
         <span class="kw">let </span>graphql_endpoint = <span class="self">self</span>.graphql_endpoint(env)<span class="question-mark">?</span>;
         <span class="kw">let </span>cache_dir = env.cache_dir().join(<span class="string">&quot;queries&quot;</span>);
         <span class="kw">let </span><span class="kw-2">mut </span>wapm_source = WapmSource::new(graphql_endpoint, Arc::clone(<span class="kw-2">&amp;</span>client))
-            .with_local_cache(cache_dir, WAPM_SOURCE_CACHE_TIMEOUT);
+            .with_local_cache(cache_dir, WAPM_SOURCE_CACHE_TIMEOUT)
+            .with_preferred_webc_version(preferred_webc_version);
         <span class="kw">if let </span><span class="prelude-val">Some</span>(token) = env
             .config()<span class="question-mark">?
             </span>.registry

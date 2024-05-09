@@ -967,6 +967,15 @@
 <a href="#967" id="967">967</a>
 <a href="#968" id="968">968</a>
 <a href="#969" id="969">969</a>
+<a href="#970" id="970">970</a>
+<a href="#971" id="971">971</a>
+<a href="#972" id="972">972</a>
+<a href="#973" id="973">973</a>
+<a href="#974" id="974">974</a>
+<a href="#975" id="975">975</a>
+<a href="#976" id="976">976</a>
+<a href="#977" id="977">977</a>
+<a href="#978" id="978">978</a>
 </pre></div><pre class="rust"><code><span class="attr">#![allow(missing_docs, unused)]
 
 </span><span class="kw">mod </span>wasi;
@@ -984,7 +993,7 @@
 };
 
 <span class="kw">use </span>anyhow::{bail, Context, Error};
-<span class="kw">use </span>clap::Parser;
+<span class="kw">use </span>clap::{Parser, ValueEnum};
 <span class="kw">use </span>indicatif::{MultiProgress, ProgressBar};
 <span class="kw">use </span>once_cell::sync::Lazy;
 <span class="kw">use </span>sha2::{Digest, Sha256};
@@ -1076,11 +1085,20 @@
             wasmer_vm::set_stack_size(<span class="self">self</span>.stack_size.unwrap());
         }
 
+        <span class="comment">// check for the preferred webc version
+        </span><span class="kw">let </span>preferred_webc_version = <span class="kw">match </span>std::env::var(<span class="string">&quot;WASMER_USE_WEBCV3&quot;</span>) {
+            <span class="prelude-val">Ok</span>(val) <span class="kw">if </span>[<span class="string">&quot;1&quot;</span>, <span class="string">&quot;yes&quot;</span>, <span class="string">&quot;true&quot;</span>].contains(<span class="kw-2">&amp;</span>val.as_str()) =&gt; webc::Version::V3,
+            <span class="kw">_ </span>=&gt; webc::Version::V2,
+        };
+
         <span class="kw">let </span>_guard = handle.enter();
         <span class="kw">let </span>(store, <span class="kw">_</span>) = <span class="self">self</span>.store.get_store()<span class="question-mark">?</span>;
-        <span class="kw">let </span>runtime = <span class="self">self
-            </span>.wasi
-            .prepare_runtime(store.engine().clone(), <span class="kw-2">&amp;</span><span class="self">self</span>.env, runtime)<span class="question-mark">?</span>;
+        <span class="kw">let </span>runtime = <span class="self">self</span>.wasi.prepare_runtime(
+            store.engine().clone(),
+            <span class="kw-2">&amp;</span><span class="self">self</span>.env,
+            runtime,
+            preferred_webc_version,
+        )<span class="question-mark">?</span>;
 
         <span class="comment">// This is a slow operation, so let&#39;s temporarily wrap the runtime with
         // something that displays progress
