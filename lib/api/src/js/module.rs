@@ -115,7 +115,7 @@ impl Module {
             type_hints,
             name,
             #[cfg(feature = "js-serializable-module")]
-            raw_bytes: Some(binary.clone()),
+            raw_bytes: Some(binary),
         }
     }
 
