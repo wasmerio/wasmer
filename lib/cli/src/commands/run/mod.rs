@@ -15,7 +15,7 @@ use std::{
 };
 
 use anyhow::{bail, Context, Error};
-use clap::Parser;
+use clap::{Parser, ValueEnum};
 use indicatif::{MultiProgress, ProgressBar};
 use once_cell::sync::Lazy;
 use sha2::{Digest, Sha256};
@@ -107,11 +107,20 @@ impl Run {
             wasmer_vm::set_stack_size(self.stack_size.unwrap());
         }
 
+        // check for the preferred webc version
+        let preferred_webc_version = match std::env::var("WASMER_USE_WEBCV3") {
+            Ok(val) if ["1", "yes", "true"].contains(&val.as_str()) => webc::Version::V3,
+            _ => webc::Version::V2,
+        };
+
         let _guard = handle.enter();
         let (store, _) = self.store.get_store()?;
-        let runtime = self
-            .wasi
-            .prepare_runtime(store.engine().clone(), &self.env, runtime)?;
+        let runtime = self.wasi.prepare_runtime(
+            store.engine().clone(),
+            &self.env,
+            runtime,
+            preferred_webc_version,
+        )?;
 
         // This is a slow operation, so let's temporarily wrap the runtime with
         // something that displays progress
