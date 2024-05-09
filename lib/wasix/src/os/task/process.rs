@@ -773,7 +773,7 @@ impl WasiProcess {
                 })
             }
         }
-        let (child, res) = futures::future::select_all(waits.into_iter().map(|a| Box::pin(a)))
+        let (child, res) = futures::future::select_all(waits.into_iter().map(Box::pin))
             .await
             .0;
 

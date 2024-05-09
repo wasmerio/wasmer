@@ -118,6 +118,7 @@ pub(crate) enum FdWriteSource<'a, M: MemorySize> {
     Buffer(Cow<'a, [u8]>),
 }
 
+#[allow(clippy::await_holding_lock)]
 pub(crate) fn fd_write_internal<M: MemorySize>(
     ctx: &FunctionEnvMut<'_, WasiEnv>,
     fd: WasiFd,

@@ -380,7 +380,7 @@ pub(super) fn compile_pirita_into_directory(
     let volume_path = target_dir.join("volumes").join("volume.o");
     write_volume_obj(&volume_bytes, volume_name, &volume_path, target)?;
     let volume_path = volume_path.canonicalize()?;
-    let volume_path = pathdiff::diff_paths(&volume_path, &target_dir).unwrap();
+    let volume_path = pathdiff::diff_paths(volume_path, &target_dir).unwrap();
 
     std::fs::create_dir_all(target_dir.join("atoms")).map_err(|e| {
         anyhow::anyhow!("cannot create /atoms dir in {}: {e}", target_dir.display())
