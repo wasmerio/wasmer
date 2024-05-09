@@ -712,7 +712,6 @@ impl ExecutableTarget {
                 pb.set_message("Deserializing pre-compiled WebAssembly module");
                 let module = unsafe { Module::deserialize_from_file(&engine, path)? };
 
-                // FIXME: what if the artifact does not have the hash
                 let module_hash = module.info().hash.unwrap_or(ModuleHash::XXHash([0u8; 8]));
 
                 Ok(ExecutableTarget::WebAssembly {
