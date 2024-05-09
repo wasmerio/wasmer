@@ -1,3 +1,5 @@
+use super::macros::spinner_ok;
+use colored::Colorize;
 use futures_util::StreamExt;
 use indicatif::ProgressBar;
 use wasmer_api::WasmerClient;
@@ -144,6 +146,6 @@ pub async fn wait_package(
         }
     }
 
-    pb.finish_and_clear();
+    spinner_ok!(pb, "Package is available in the registry");
     Ok(())
 }
