@@ -183,7 +183,7 @@ impl WasiFunctionEnv {
                 ));
             }
 
-            let stack_lower = if let Some(stack_low) = stack_low {
+            let mut stack_lower = if let Some(stack_low) = stack_low {
                 match stack_low.get(store) {
                     wasmer::Value::I32(a) => a as u64,
                     wasmer::Value::I64(a) => a as u64,
@@ -202,6 +202,14 @@ impl WasiFunctionEnv {
                 tracing::warn!("Missing both __stack_low and __data_end exports, unwinding may cause memory corruption");
                 0
             };
+
+            if stack_lower >= stack_base {
+                tracing::warn!(
+                    "Detected lower end of stack to be above higher end, ignoring stack_lower; \
+                    unwinding may cause memory corruption"
+                );
+                stack_lower = 0;
+            }
 
             // Update the stack layout which is need for asyncify
             let env = self.data_mut(store);
