@@ -108,7 +108,7 @@ impl Run {
         }
 
         // check for the preffered webc version
-        let preffered_webc = match std::env::var("WASMER_USE_WEBCV3") {
+        let preferred_webc_version = match std::env::var("WASMER_USE_WEBCV3") {
             Ok(val) if ["1", "yes", "true"].contains(&val.as_str()) => webc::Version::V3,
             _ => webc::Version::V2,
         };
@@ -119,7 +119,7 @@ impl Run {
             store.engine().clone(),
             &self.env,
             runtime,
-            preffered_webc,
+            preferred_webc_version,
         )?;
 
         // This is a slow operation, so let's temporarily wrap the runtime with

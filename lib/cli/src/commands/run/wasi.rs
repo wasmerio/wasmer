@@ -533,7 +533,7 @@ impl Wasi {
         engine: Engine,
         env: &WasmerEnv,
         rt_or_handle: I,
-        preffered_webc: webc::Version,
+        preferred_webc_version: webc::Version,
     ) -> Result<impl Runtime + Send + Sync>
     where
         I: Into<RuntimeOrHandle>,
@@ -566,7 +566,7 @@ impl Wasi {
             .prepare_package_loader(env, client.clone())
             .context("Unable to prepare the package loader")?;
 
-        let registry = self.prepare_source(env, client, preffered_webc)?;
+        let registry = self.prepare_source(env, client, preferred_webc_version)?;
 
         let cache_dir = env.cache_dir().join("compiled");
         let module_cache = wasmer_wasix::runtime::module_cache::in_memory()
@@ -628,7 +628,7 @@ impl Wasi {
         &self,
         env: &WasmerEnv,
         client: Arc<dyn HttpClient + Send + Sync>,
-        preffered_webc: webc::Version,
+        preferred_webc_version: webc::Version,
     ) -> Result<impl Source + Send + Sync> {
         let mut source = MultiSource::new();
 
@@ -646,7 +646,7 @@ impl Wasi {
         let cache_dir = env.cache_dir().join("queries");
         let mut wapm_source = WapmSource::new(graphql_endpoint, Arc::clone(&client))
             .with_local_cache(cache_dir, WAPM_SOURCE_CACHE_TIMEOUT)
-            .with_prefferred_webc(preffered_webc);
+            .with_preferred_webc_version(preferred_webc_version);
         if let Some(token) = env
             .config()?
             .registry
