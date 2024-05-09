@@ -468,9 +468,11 @@
 <a href="#468" id="468">468</a>
 <a href="#469" id="469">469</a>
 <a href="#470" id="470">470</a>
+<a href="#471" id="471">471</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">super</span>::utils::{copy_cstr_into_wasm, write_to_buf};
 <span class="kw">use crate</span>::{allocate_on_stack, lazy_static, EmEnv};
 <span class="kw">use </span>libc::{c_char, c_int};
+<span class="kw">use </span>time::ext::InstantExt;
 <span class="comment">// use libc::{c_char, c_int, clock_getres, clock_settime};
 </span><span class="kw">use </span>std::mem;
 <span class="kw">use </span>std::time::SystemTime;
@@ -570,10 +572,10 @@
 
         CLOCK_MONOTONIC | CLOCK_MONOTONIC_COARSE =&gt; {
             <span class="macro">lazy_static! </span>{
-                <span class="kw">static </span><span class="kw-2">ref </span>PRECISE0: time::Instant = time::Instant::now();
+                <span class="kw">static </span><span class="kw-2">ref </span>PRECISE0: std::time::Instant = std::time::Instant::now();
             };
             <span class="kw">let </span>precise_ns = <span class="kw-2">*</span>PRECISE0;
-            (time::Instant::now() - precise_ns).whole_nanoseconds()
+            (std::time::Instant::now().signed_duration_since(precise_ns)).whole_nanoseconds()
         }
         <span class="kw">_ </span>=&gt; <span class="macro">panic!</span>(<span class="string">&quot;Clock with id \&quot;{}\&quot; is not supported.&quot;</span>, clk_id),
     };
