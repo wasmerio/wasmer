@@ -1142,9 +1142,7 @@ where
         unwind_pointer + (std::mem::size_of::<__wasi_asyncify_t<M::Offset>>() as u64);
     let unwind_data = __wasi_asyncify_t::<M::Offset> {
         start: wasi_try_ok!(unwind_data_start.try_into().map_err(|_| Errno::Overflow)),
-        end: wasi_try_ok!(env
-            .layout
-            .stack_upper
+        end: wasi_try_ok!((env.layout.stack_upper - memory_stack.len() as u64)
             .try_into()
             .map_err(|_| Errno::Overflow)),
     };
