@@ -26,6 +26,7 @@ pub struct WapmSource {
     client: Arc<dyn HttpClient + Send + Sync>,
     cache: Option<FileSystemCache>,
     token: Option<String>,
+    preffered_webc: webc::Version,
 }
 
 impl WapmSource {
@@ -38,6 +39,7 @@ impl WapmSource {
             client,
             cache: None,
             token: None,
+            preffered_webc: webc::Version::V2,
         }
     }
 
@@ -52,6 +54,13 @@ impl WapmSource {
     pub fn with_auth_token(self, token: impl Into<String>) -> Self {
         WapmSource {
             token: Some(token.into()),
+            ..self
+        }
+    }
+
+    pub fn with_prefferred_webc(self, version: webc::Version) -> Self {
+        WapmSource {
+            preffered_webc: version,
             ..self
         }
     }
@@ -247,7 +256,9 @@ impl Source for WapmSource {
         if let Some(cache) = &self.cache {
             match cache.lookup_cached_query(&package_name) {
                 Ok(Some(cached)) => {
-                    if let Ok(cached) = matching_package_summaries(cached, &version_constraint) {
+                    if let Ok(cached) =
+                        matching_package_summaries(cached, &version_constraint, self.preffered_webc)
+                    {
                         tracing::debug!("Cache hit!");
                         return Ok(cached);
                     }
@@ -275,13 +286,14 @@ impl Source for WapmSource {
             }
         }
 
-        matching_package_summaries(response, &version_constraint)
+        matching_package_summaries(response, &version_constraint, self.preffered_webc)
     }
 }
 
 fn matching_package_summaries(
     response: WapmWebQuery,
     version_constraint: &VersionReq,
+    preffered_webc: webc::Version,
 ) -> Result<Vec<PackageSummary>, QueryError> {
     let mut summaries = Vec::new();
 
@@ -316,7 +328,7 @@ fn matching_package_summaries(
         }
 
         if version_constraint.matches(&version) {
-            match decode_summary(&namespace, &package_name, pkg_version) {
+            match decode_summary(&namespace, &package_name, pkg_version, preffered_webc) {
                 Ok(summary) => summaries.push(summary),
                 Err(e) => {
                     tracing::debug!(
@@ -340,6 +352,7 @@ fn decode_summary(
     namespace: &str,
     package_name: &str,
     pkg_version: WapmWebQueryGetPackageVersion,
+    preffered_webc: webc::Version,
 ) -> Result<PackageSummary, Error> {
     let WapmWebQueryGetPackageVersion {
         manifest,
@@ -359,7 +372,7 @@ fn decode_summary(
     } = pkg_version;
 
     let (webc_version, pirita_sha256_hash, pirita_download_url) =
-        if std::env::var("WASMER_USE_WEBCV3").is_ok() {
+        if preffered_webc == webc::Version::V3 {
             (
                 v3_webc_version,
                 v3_pirita_sha256_hash,
