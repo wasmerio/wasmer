@@ -669,6 +669,9 @@
 <a href="#669" id="669">669</a>
 <a href="#670" id="670">670</a>
 <a href="#671" id="671">671</a>
+<a href="#672" id="672">672</a>
+<a href="#673" id="673">673</a>
+<a href="#674" id="674">674</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">super</span>::AsyncCliCommand;
 <span class="kw">use crate</span>::{
     commands::{app::create::CmdAppCreate, package::publish::PackagePublish, PublishWait},
@@ -792,7 +795,9 @@
             api: <span class="self">self</span>.api.clone(),
         };
 
-        publish_cmd.publish(client, <span class="kw-2">&amp;</span>manifest_path, <span class="kw-2">&amp;</span>manifest).<span class="kw">await
+        publish_cmd
+            .publish(client, <span class="kw-2">&amp;</span>manifest_path, <span class="kw-2">&amp;</span>manifest, <span class="bool-val">true</span>)
+            .<span class="kw">await
     </span>}
 
     <span class="kw">async fn </span>get_owner(
@@ -1121,7 +1126,18 @@
             }
         };
 
-        <span class="kw">let </span>(_app, app_version) = deploy_app_verbose(<span class="kw-2">&amp;</span>client, opts).<span class="kw">await</span><span class="question-mark">?</span>;
+        <span class="kw">let </span>owner = <span class="kw-2">&amp;</span>opts.owner.clone().or_else(|| opts.app.owner.clone());
+        <span class="kw">let </span>app = <span class="kw-2">&amp;</span>opts.app;
+
+        <span class="kw">let </span>pretty_name = <span class="kw">if let </span><span class="prelude-val">Some</span>(owner) = <span class="kw-2">&amp;</span>owner {
+            <span class="macro">format!</span>(<span class="string">&quot;{} ({})&quot;</span>, app.name.bold(), owner.bold())
+        } <span class="kw">else </span>{
+            app.name.bold().to_string()
+        };
+
+        <span class="macro">eprintln!</span>(<span class="string">&quot;\nDeploying app {} to Wasmer Edge...\n&quot;</span>, pretty_name);
+
+        <span class="kw">let </span>app_version = deploy_app(<span class="kw-2">&amp;</span>client, opts.clone()).<span class="kw">await</span><span class="question-mark">?</span>;
 
         <span class="kw">let </span><span class="kw-2">mut </span>new_app_config = app_config_from_api(<span class="kw-2">&amp;</span>app_version)<span class="question-mark">?</span>;
 
@@ -1139,7 +1155,7 @@
             // settings without requring new CLI versions, so instead of just
             // serializing the new config, we merge it with the old one.
             </span><span class="kw">let </span>new_merged = <span class="kw">crate</span>::utils::merge_yaml_values(
-                <span class="kw-2">&amp;</span>app_config.to_yaml_value()<span class="question-mark">?</span>,
+                <span class="kw-2">&amp;</span>app_config.clone().to_yaml_value()<span class="question-mark">?</span>,
                 <span class="kw-2">&amp;</span>new_app_config.to_yaml_value()<span class="question-mark">?</span>,
             );
             <span class="kw">let </span>new_config_raw = serde_yaml::to_string(<span class="kw-2">&amp;</span>new_merged)<span class="question-mark">?</span>;
@@ -1147,6 +1163,8 @@
                 <span class="macro">format!</span>(<span class="string">&quot;Could not write file: &#39;{}&#39;&quot;</span>, app_config_path.display())
             })<span class="question-mark">?</span>;
         }
+
+        wait_app(<span class="kw-2">&amp;</span>client, opts.clone(), app_version.clone()).<span class="kw">await</span><span class="question-mark">?</span>;
 
         <span class="kw">if </span><span class="self">self</span>.fmt.format == <span class="kw">crate</span>::utils::render::ItemFormat::Json {
             <span class="macro">println!</span>(<span class="string">&quot;{}&quot;</span>, serde_json::to_string_pretty(<span class="kw-2">&amp;</span>app_version)<span class="question-mark">?</span>);
@@ -1156,7 +1174,7 @@
     }
 }
 
-<span class="attr">#[derive(Debug)]
+<span class="attr">#[derive(Debug, Clone)]
 </span><span class="kw">pub struct </span>DeployAppOpts&lt;<span class="lifetime">&#39;a</span>&gt; {
     <span class="kw">pub </span>app: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>AppConfigV1,
     <span class="comment">// Original raw yaml config.
@@ -1210,25 +1228,13 @@
 }
 
 <span class="doccomment">/// Same as [Self::deploy], but also prints verbose information.
-</span><span class="kw">pub async fn </span>deploy_app_verbose(
+</span><span class="kw">pub async fn </span>wait_app(
     client: <span class="kw-2">&amp;</span>WasmerClient,
     opts: DeployAppOpts&lt;<span class="lifetime">&#39;_</span>&gt;,
+    version: DeployAppVersion,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;(DeployApp, DeployAppVersion), anyhow::Error&gt; {
-    <span class="kw">let </span>owner = <span class="kw-2">&amp;</span>opts.owner.clone().or_else(|| opts.app.owner.clone());
-    <span class="kw">let </span>app = <span class="kw-2">&amp;</span>opts.app;
-
-    <span class="kw">let </span>pretty_name = <span class="kw">if let </span><span class="prelude-val">Some</span>(owner) = <span class="kw-2">&amp;</span>owner {
-        <span class="macro">format!</span>(<span class="string">&quot;{} ({})&quot;</span>, app.name.bold(), owner.bold())
-    } <span class="kw">else </span>{
-        app.name.bold().to_string()
-    };
-
-    <span class="kw">let </span>make_default = opts.make_default;
-
-    <span class="macro">eprintln!</span>(<span class="string">&quot;\nDeploying app {} to Wasmer Edge...\n&quot;</span>, pretty_name);
-
     <span class="kw">let </span>wait = opts.wait;
-    <span class="kw">let </span>version = deploy_app(client, opts).<span class="kw">await</span><span class="question-mark">?</span>;
+    <span class="kw">let </span>make_default = opts.make_default;
 
     <span class="kw">let </span>app_id = version
         .app
@@ -1294,7 +1300,7 @@
 
                         <span class="kw">if </span>header == version.id.inner() {
                             <span class="macro">eprintln!</span>(<span class="string">&quot;\nNew version is now reachable at {check_url}&quot;</span>);
-                            <span class="macro">eprintln!</span>(<span class="string">&quot;✅ Deployment complete&quot;</span>);
+                            <span class="macro">eprintln!</span>(<span class="string">&quot;{} Deployment complete&quot;</span>, <span class="string">&quot;✔&quot;</span>.green().bold());
                             <span class="kw">break</span>;
                         }
 

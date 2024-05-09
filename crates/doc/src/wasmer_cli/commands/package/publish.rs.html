@@ -155,6 +155,9 @@
 <a href="#155" id="155">155</a>
 <a href="#156" id="156">156</a>
 <a href="#157" id="157">157</a>
+<a href="#158" id="158">158</a>
+<a href="#159" id="159">159</a>
+<a href="#160" id="160">160</a>
 </pre></div><pre class="rust"><code><span class="kw">use crate</span>::{
     commands::{
         package::{
@@ -244,6 +247,7 @@
         client: <span class="kw-2">&amp;</span>WasmerClient,
         manifest_path: <span class="kw-2">&amp;</span>Path,
         manifest: <span class="kw-2">&amp;</span>Manifest,
+        allow_unnamed: bool,
     ) -&gt; anyhow::Result&lt;PackageIdent&gt; {
         <span class="kw">let </span>(package_namespace, package_hash) = {
             <span class="kw">let </span>push_cmd = PackagePush {
@@ -276,7 +280,7 @@
             package_path: <span class="self">self</span>.package_path.clone(),
             package_hash,
         }
-        .tag(client, manifest)
+        .tag(client, manifest, manifest_path, <span class="bool-val">true</span>, allow_unnamed)
         .<span class="kw">await
     </span>}
 }
@@ -299,7 +303,9 @@
         <span class="kw">let </span>(manifest_path, manifest) = get_manifest(<span class="kw-2">&amp;</span><span class="self">self</span>.package_path)<span class="question-mark">?</span>;
         <span class="macro">tracing::info!</span>(<span class="string">&quot;Got manifest at path {}&quot;</span>, manifest_path.display());
 
-        <span class="kw">let </span>ident = <span class="self">self</span>.publish(<span class="kw-2">&amp;</span>client, <span class="kw-2">&amp;</span>manifest_path, <span class="kw-2">&amp;</span>manifest).<span class="kw">await</span><span class="question-mark">?</span>;
+        <span class="kw">let </span>ident = <span class="self">self
+            </span>.publish(<span class="kw-2">&amp;</span>client, <span class="kw-2">&amp;</span>manifest_path, <span class="kw-2">&amp;</span>manifest, <span class="bool-val">false</span>)
+            .<span class="kw">await</span><span class="question-mark">?</span>;
 
         <span class="kw">if </span>!<span class="self">self</span>.quiet &amp;&amp; !<span class="self">self</span>.non_interactive {
             <span class="macro">eprintln!</span>(

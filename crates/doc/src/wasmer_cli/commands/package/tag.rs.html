@@ -428,21 +428,96 @@
 <a href="#428" id="428">428</a>
 <a href="#429" id="429">429</a>
 <a href="#430" id="430">430</a>
-</pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">super</span>::common::PackageSpecifier;
-<span class="kw">use crate</span>::{
+<a href="#431" id="431">431</a>
+<a href="#432" id="432">432</a>
+<a href="#433" id="433">433</a>
+<a href="#434" id="434">434</a>
+<a href="#435" id="435">435</a>
+<a href="#436" id="436">436</a>
+<a href="#437" id="437">437</a>
+<a href="#438" id="438">438</a>
+<a href="#439" id="439">439</a>
+<a href="#440" id="440">440</a>
+<a href="#441" id="441">441</a>
+<a href="#442" id="442">442</a>
+<a href="#443" id="443">443</a>
+<a href="#444" id="444">444</a>
+<a href="#445" id="445">445</a>
+<a href="#446" id="446">446</a>
+<a href="#447" id="447">447</a>
+<a href="#448" id="448">448</a>
+<a href="#449" id="449">449</a>
+<a href="#450" id="450">450</a>
+<a href="#451" id="451">451</a>
+<a href="#452" id="452">452</a>
+<a href="#453" id="453">453</a>
+<a href="#454" id="454">454</a>
+<a href="#455" id="455">455</a>
+<a href="#456" id="456">456</a>
+<a href="#457" id="457">457</a>
+<a href="#458" id="458">458</a>
+<a href="#459" id="459">459</a>
+<a href="#460" id="460">460</a>
+<a href="#461" id="461">461</a>
+<a href="#462" id="462">462</a>
+<a href="#463" id="463">463</a>
+<a href="#464" id="464">464</a>
+<a href="#465" id="465">465</a>
+<a href="#466" id="466">466</a>
+<a href="#467" id="467">467</a>
+<a href="#468" id="468">468</a>
+<a href="#469" id="469">469</a>
+<a href="#470" id="470">470</a>
+<a href="#471" id="471">471</a>
+<a href="#472" id="472">472</a>
+<a href="#473" id="473">473</a>
+<a href="#474" id="474">474</a>
+<a href="#475" id="475">475</a>
+<a href="#476" id="476">476</a>
+<a href="#477" id="477">477</a>
+<a href="#478" id="478">478</a>
+<a href="#479" id="479">479</a>
+<a href="#480" id="480">480</a>
+<a href="#481" id="481">481</a>
+<a href="#482" id="482">482</a>
+<a href="#483" id="483">483</a>
+<a href="#484" id="484">484</a>
+<a href="#485" id="485">485</a>
+<a href="#486" id="486">486</a>
+<a href="#487" id="487">487</a>
+<a href="#488" id="488">488</a>
+<a href="#489" id="489">489</a>
+<a href="#490" id="490">490</a>
+<a href="#491" id="491">491</a>
+<a href="#492" id="492">492</a>
+<a href="#493" id="493">493</a>
+<a href="#494" id="494">494</a>
+<a href="#495" id="495">495</a>
+<a href="#496" id="496">496</a>
+<a href="#497" id="497">497</a>
+<a href="#498" id="498">498</a>
+<a href="#499" id="499">499</a>
+<a href="#500" id="500">500</a>
+<a href="#501" id="501">501</a>
+<a href="#502" id="502">502</a>
+<a href="#503" id="503">503</a>
+</pre></div><pre class="rust"><code><span class="kw">use crate</span>::{
     commands::{
         package::common::{macros::<span class="kw-2">*</span>, <span class="kw-2">*</span>},
         AsyncCliCommand,
     },
     opts::{ApiOpts, WasmerEnv},
-    utils::prompt_for_package_version,
 };
+<span class="kw">use </span>anyhow::Context;
 <span class="kw">use </span>colored::Colorize;
 <span class="kw">use </span>dialoguer::{theme::ColorfulTheme, Confirm};
 <span class="kw">use </span>is_terminal::IsTerminal;
-<span class="kw">use </span>std::path::PathBuf;
+<span class="kw">use </span>std::{
+    path::{Path, PathBuf},
+    str::FromStr,
+};
 <span class="kw">use </span>wasmer_api::WasmerClient;
-<span class="kw">use </span>wasmer_config::package::{Manifest, PackageHash, PackageIdent};
+<span class="kw">use </span>wasmer_config::package::{Manifest, NamedPackageId, PackageBuilder, PackageHash, PackageIdent};
 
 <span class="doccomment">/// Tag an existing package.
 </span><span class="attr">#[derive(Debug, clap::Parser)]
@@ -501,190 +576,70 @@
 }
 
 <span class="kw">impl </span>PackageTag {
-    <span class="kw">async fn </span>get_namespace(
+    <span class="kw">async fn </span>update_manifest_name(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        client: <span class="kw-2">&amp;</span>WasmerClient,
+        manifest_path: <span class="kw-2">&amp;</span>Path,
         manifest: <span class="kw-2">&amp;</span>Manifest,
-    ) -&gt; anyhow::Result&lt;String&gt; {
-        <span class="kw">if let </span><span class="prelude-val">Some</span>(owner) = <span class="kw-2">&amp;</span><span class="self">self</span>.package_namespace {
-            <span class="kw">return </span><span class="prelude-val">Ok</span>(owner.clone());
+        full_name: <span class="kw-2">&amp;</span>str,
+    ) -&gt; anyhow::Result&lt;Manifest&gt; {
+        <span class="kw">let </span><span class="kw-2">mut </span>new_manifest = manifest.clone();
+        <span class="kw">if let </span><span class="prelude-val">Some</span>(pkg) = <span class="kw-2">&amp;mut </span>new_manifest.package {
+            pkg.name = <span class="prelude-val">Some</span>(full_name.to_string());
+        } <span class="kw">else </span>{
+            <span class="kw">let </span>package = PackageBuilder::default().name(full_name).build()<span class="question-mark">?</span>;
+            new_manifest.package = <span class="prelude-val">Some</span>(package);
         }
 
-        <span class="kw">if let </span><span class="prelude-val">Some</span>(pkg) = <span class="kw-2">&amp;</span>manifest.package {
-            <span class="kw">if let </span><span class="prelude-val">Some</span>(ns) = <span class="kw-2">&amp;</span>pkg.name {
-                <span class="kw">if let </span><span class="prelude-val">Some</span>(first) = ns.split(<span class="string">&#39;/&#39;</span>).next() {
-                    <span class="kw">return </span><span class="prelude-val">Ok</span>(first.to_string());
-                }
-            }
-        }
+        <span class="kw">let </span>manifest_raw = toml::to_string(<span class="kw-2">&amp;</span>new_manifest)<span class="question-mark">?</span>;
 
-        <span class="kw">if </span><span class="self">self</span>.non_interactive {
-            <span class="comment">// if not interactive we can&#39;t prompt the user to choose the owner of the app.
-            </span><span class="macro">anyhow::bail!</span>(<span class="string">&quot;No package namespace specified: use --namespace XXX&quot;</span>);
-        }
+        tokio::fs::write(manifest_path, manifest_raw)
+            .<span class="kw">await
+            </span>.context(<span class="string">&quot;while trying to serialize the manifest&quot;</span>)<span class="question-mark">?</span>;
 
-        <span class="kw">let </span>user = wasmer_api::query::current_user_with_namespaces(client, <span class="prelude-val">None</span>).<span class="kw">await</span><span class="question-mark">?</span>;
-        <span class="kw">let </span>owner =
-            <span class="kw">crate</span>::utils::prompts::prompt_for_namespace(<span class="string">&quot;Choose a namespace&quot;</span>, <span class="prelude-val">None</span>, <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span>user))<span class="question-mark">?</span>;
-
-        <span class="prelude-val">Ok</span>(owner.clone())
+        <span class="prelude-val">Ok</span>(new_manifest)
     }
 
-    <span class="kw">async fn </span>synthesize_tagger(
+    <span class="kw">async fn </span>update_manifest_version(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        client: <span class="kw-2">&amp;</span>WasmerClient,
-        ident: <span class="kw-2">&amp;</span>PackageSpecifier,
-        package_release_id: <span class="kw-2">&amp;</span>wasmer_api::types::Id,
-    ) -&gt; anyhow::Result&lt;PackageSpecifier&gt; {
-        <span class="kw">let </span><span class="kw-2">mut </span>new_ident = ident.clone();
-
-        <span class="kw">if let </span><span class="prelude-val">Some</span>(user_version) = <span class="kw-2">&amp;</span><span class="self">self</span>.package_version {
-            <span class="kw">match </span><span class="kw-2">&amp;mut </span>new_ident {
-                PackageSpecifier::Hash { .. } =&gt; {
-                    <span class="kw">match </span>(<span class="kw-2">&amp;</span><span class="self">self</span>.package_name, <span class="kw-2">&amp;</span><span class="self">self</span>.package_namespace) {
-                        (<span class="prelude-val">Some</span>(name), <span class="prelude-val">Some</span>(namespace)) =&gt; {
-                            new_ident = PackageSpecifier::Named {
-                                namespace: namespace.clone(),
-                                name: name.clone(),
-                                tag: Tag::Version(user_version.clone()),
-                            }
-                        }
-                        <span class="kw">_ </span>=&gt; <span class="macro">anyhow::bail!</span>(
-                            <span class="string">&quot;The flag `--version` was specified, but no namespace and name were given.&quot;
-                        </span>),
-                    }
-                }
-                PackageSpecifier::Named { tag, .. } =&gt; <span class="kw-2">*</span>tag = Tag::Version(user_version.clone()),
-            }
-        } <span class="kw">else if let </span><span class="prelude-val">Some</span>(user_namespace) = <span class="kw-2">&amp;</span><span class="self">self</span>.package_namespace {
-            <span class="kw">match </span><span class="kw-2">&amp;mut </span>new_ident {
-                PackageSpecifier::Hash { hash, namespace } =&gt; <span class="kw">match </span><span class="kw-2">&amp;</span><span class="self">self</span>.package_name {
-                    <span class="prelude-val">Some</span>(name) =&gt; {
-                        new_ident = PackageSpecifier::Named {
-                            namespace: user_namespace.clone(),
-                            name: name.clone(),
-                            tag: Tag::Hash(hash.clone()),
-                        }
-                    }
-                    <span class="kw">_ </span>=&gt; <span class="kw-2">*</span>namespace = user_namespace.clone(),
-                },
-                PackageSpecifier::Named { namespace, .. } =&gt; <span class="kw-2">*</span>namespace = user_namespace.clone(),
-            }
-        } <span class="kw">else if let </span><span class="prelude-val">Some</span>(user_name) = <span class="kw-2">&amp;</span><span class="self">self</span>.package_name {
-            <span class="kw">match </span><span class="kw-2">&amp;mut </span>new_ident {
-                PackageSpecifier::Hash { .. } =&gt; {
-                    <span class="macro">anyhow::bail!</span>(<span class="string">&quot;The flag `--name` was specified, but no namespace was given.&quot;</span>)
-                }
-                PackageSpecifier::Named { name, .. } =&gt; <span class="kw-2">*</span>name = user_name.clone(),
-            }
+        manifest_path: <span class="kw-2">&amp;</span>Path,
+        manifest: <span class="kw-2">&amp;</span>Manifest,
+        user_version: <span class="kw-2">&amp;</span>semver::Version,
+    ) -&gt; anyhow::Result&lt;Manifest&gt; {
+        <span class="kw">let </span><span class="kw-2">mut </span>new_manifest = manifest.clone();
+        <span class="kw">if let </span><span class="prelude-val">Some</span>(pkg) = <span class="kw-2">&amp;mut </span>new_manifest.package {
+            pkg.version = <span class="prelude-val">Some</span>(user_version.clone());
+        } <span class="kw">else </span>{
+            <span class="kw">let </span>package = PackageBuilder::default()
+                .version(user_version.clone())
+                .build()<span class="question-mark">?</span>;
+            new_manifest.package = <span class="prelude-val">Some</span>(package);
         }
 
-        <span class="comment">// At this point, we can resolve the version from the registry if any and if necessary bump
-        // the version.
-        </span><span class="kw">if let </span>PackageSpecifier::Named {
-            name,
-            namespace,
-            tag,
-        } = <span class="kw-2">&amp;mut </span>new_ident
-        {
-            <span class="kw">let </span>full_pkg_name = <span class="macro">format!</span>(<span class="string">&quot;{namespace}/{name}&quot;</span>);
-            <span class="kw">let </span>pb = <span class="macro">make_spinner!</span>(
-                <span class="self">self</span>.quiet,
-                <span class="macro">format!</span>(<span class="string">&quot;Checking if a version of {full_pkg_name} already exists..&quot;</span>)
-            );
+        <span class="kw">let </span>manifest_raw = toml::to_string(<span class="kw-2">&amp;</span>new_manifest)<span class="question-mark">?</span>;
 
-            <span class="kw">if let </span><span class="prelude-val">Some</span>(p) = wasmer_api::query::get_package_version(
-                client,
-                full_pkg_name.clone(),
-                String::from(<span class="string">&quot;latest&quot;</span>),
-            )
-            .<span class="kw">await</span><span class="question-mark">?
-            </span>{
-                <span class="kw">let </span>registry_version = semver::Version::parse(<span class="kw-2">&amp;</span>p.version)<span class="question-mark">?</span>;
-                <span class="macro">spinner_ok!</span>(
-                    pb,
-                    <span class="macro">format!</span>(<span class="string">&quot;Found version {registry_version} of package {full_pkg_name}&quot;</span>)
-                );
+        tokio::fs::write(manifest_path, manifest_raw)
+            .<span class="kw">await
+            </span>.context(<span class="string">&quot;while trying to serialize the manifest&quot;</span>)<span class="question-mark">?</span>;
 
-                <span class="macro">tracing::info!</span>(
-                    <span class="string">&quot;Package to tag has id = {}, while latest version has id = {}&quot;</span>,
-                    package_release_id.inner(),
-                    p.id.inner()
-                );
-
-                <span class="kw">if let </span>Tag::Hash(<span class="kw">_</span>) = <span class="kw-2">&amp;</span>tag {
-                    <span class="kw-2">*</span>tag = Tag::Version(registry_version.clone());
-                }
-
-                <span class="kw">let </span>user_version: <span class="kw-2">&amp;mut </span>semver::Version = <span class="kw">match </span>tag {
-                    Tag::Version(v) =&gt; v,
-                    Tag::Hash(<span class="kw">_</span>) =&gt; <span class="macro">unreachable!</span>(),
-                };
-
-                <span class="kw">if </span>user_version.clone() &lt;= registry_version &amp;&amp; (<span class="kw-2">&amp;</span>p.id != package_release_id) {
-                    <span class="kw">if </span><span class="self">self</span>.bump {
-                        <span class="kw-2">*</span>user_version = registry_version.clone();
-                        user_version.patch = registry_version.patch + <span class="number">1</span>;
-                    } <span class="kw">else if </span>!<span class="self">self</span>.non_interactive {
-                        <span class="kw">let </span>theme = ColorfulTheme::default();
-                        <span class="kw">let </span><span class="kw-2">mut </span>new_version = registry_version.clone();
-                        new_version.patch += <span class="number">1</span>;
-                        <span class="kw">if </span>Confirm::with_theme(<span class="kw-2">&amp;</span>theme).with_prompt(<span class="macro">format!</span>(<span class="string">&quot;Do you want to bump the package&#39;s version ({user_version} -&gt; {new_version})?&quot;</span>)).interact()<span class="question-mark">? </span>{
-                            <span class="kw-2">*</span>user_version = new_version.clone();
-                            <span class="comment">// TODO: serialize new version?
-                       </span>}
-                    }
-                }
-            } <span class="kw">else </span>{
-                <span class="macro">spinner_ok!</span>(pb, <span class="macro">format!</span>(<span class="string">&quot;No version of {full_pkg_name} in registry!&quot;</span>));
-                <span class="kw">let </span>version =
-                    prompt_for_package_version(<span class="string">&quot;Enter the package version&quot;</span>, <span class="prelude-val">Some</span>(<span class="string">&quot;0.1.0&quot;</span>))<span class="question-mark">?</span>;
-                <span class="kw-2">*</span>tag = Tag::Version(version);
-            }
-        }
-
-        <span class="prelude-val">Ok</span>(new_ident)
+        <span class="prelude-val">Ok</span>(new_manifest)
     }
 
     <span class="kw">async fn </span>do_tag(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         client: <span class="kw-2">&amp;</span>WasmerClient,
-        ident: <span class="kw-2">&amp;</span>PackageSpecifier,
+        id: <span class="kw-2">&amp;</span>NamedPackageId,
         manifest: <span class="kw-2">&amp;</span>Manifest,
         package_release_id: <span class="kw-2">&amp;</span>wasmer_api::types::Id,
-    ) -&gt; anyhow::Result&lt;PackageSpecifier&gt; {
+    ) -&gt; anyhow::Result&lt;()&gt; {
         <span class="macro">tracing::info!</span>(
             <span class="string">&quot;Tagging package with registry id {:?} and specifier {:?}&quot;</span>,
             package_release_id,
-            ident
+            id
         );
-
-        <span class="kw">let </span>tagger = <span class="self">self
-            </span>.synthesize_tagger(client, ident, package_release_id)
-            .<span class="kw">await</span><span class="question-mark">?</span>;
 
         <span class="kw">let </span>pb = <span class="macro">make_spinner!</span>(<span class="self">self</span>.quiet, <span class="string">&quot;Tagging package...&quot;</span>);
 
-        <span class="kw">if let </span>PackageSpecifier::Hash { .. } = <span class="kw-2">&amp;</span>tagger {
-            <span class="macro">spinner_ok!</span>(pb, <span class="string">&quot;Package is unnamed, no need to tag it&quot;</span>);
-            <span class="kw">return </span><span class="prelude-val">Ok</span>(tagger);
-        }
-
-        <span class="kw">let </span>PackageSpecifier::Named {
-            namespace,
-            name,
-            tag,
-        } = tagger.clone()
-        <span class="kw">else </span>{
-            <span class="macro">unreachable!</span>()
-        };
-
-        <span class="kw">if </span><span class="self">self</span>.dry_run {
-            <span class="macro">tracing::info!</span>(<span class="string">&quot;No tagging to do here, dry-run is set&quot;</span>);
-            <span class="macro">spinner_ok!</span>(pb, <span class="string">&quot;Skipping tag (dry-run)&quot;</span>);
-            <span class="kw">return </span><span class="prelude-val">Ok</span>(tagger);
-        }
-
+        <span class="kw">let </span>NamedPackageId { full_name, version } = id;
         <span class="kw">let </span>maybe_description = manifest
             .package
             .as_ref()
@@ -702,19 +657,14 @@
             .and_then(|p| p.readme.clone())
             .map(|f| f.to_string_lossy().to_string());
         <span class="kw">let </span>maybe_repository = manifest.package.as_ref().and_then(|p| p.repository.clone());
-        <span class="kw">let </span>(version, full_name) = (
-            <span class="kw">match </span><span class="kw-2">&amp;</span>tag {
-                Tag::Version(v) =&gt; v.to_string(),
-                Tag::Hash(h) =&gt; h.to_string(),
-            },
-            <span class="macro">format!</span>(<span class="string">&quot;{namespace}/{name}&quot;</span>),
-        );
 
         <span class="kw">let </span>private = <span class="kw">if let </span><span class="prelude-val">Some</span>(pkg) = <span class="kw-2">&amp;</span>manifest.package {
             <span class="prelude-val">Some</span>(pkg.private)
         } <span class="kw">else </span>{
             <span class="prelude-val">Some</span>(<span class="bool-val">false</span>)
         };
+
+        <span class="kw">let </span>version = version.to_string();
 
         <span class="kw">let </span>manifest_raw = toml::to_string(<span class="kw-2">&amp;</span>manifest)<span class="question-mark">?</span>;
 
@@ -725,7 +675,7 @@
             maybe_license.as_deref(),
             maybe_license_file.as_deref(),
             <span class="kw-2">&amp;</span>manifest_raw,
-            <span class="kw-2">&amp;</span>full_name,
+            full_name,
             <span class="prelude-val">None</span>,
             package_release_id,
             private,
@@ -737,14 +687,8 @@
         <span class="kw">match </span>r.<span class="kw">await</span><span class="question-mark">? </span>{
             <span class="prelude-val">Some</span>(r) =&gt; {
                 <span class="kw">if </span>r.success {
-                    <span class="macro">spinner_ok!</span>(
-                        pb,
-                        <span class="macro">format!</span>(
-                            <span class="string">&quot;Successfully tagged package {}&quot;</span>,
-                            Into::&lt;PackageIdent&gt;::into(tagger.clone())
-                        )
-                    );
-                    <span class="prelude-val">Ok</span>(tagger)
+                    <span class="macro">spinner_ok!</span>(pb, <span class="macro">format!</span>(<span class="string">&quot;Successfully tagged package {id}&quot;</span>,));
+                    <span class="prelude-val">Ok</span>(())
                 } <span class="kw">else </span>{
                     <span class="macro">spinner_err!</span>(pb, <span class="string">&quot;Could not tag package!&quot;</span>);
                     <span class="macro">anyhow::bail!</span>(<span class="string">&quot;An unknown error occurred and the tagging failed.&quot;</span>)
@@ -761,8 +705,12 @@
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         client: <span class="kw-2">&amp;</span>WasmerClient,
         hash: <span class="kw-2">&amp;</span>PackageHash,
+        check_package_exists: bool,
     ) -&gt; anyhow::Result&lt;wasmer_api::types::Id&gt; {
-        <span class="kw">let </span>pb = <span class="macro">make_spinner!</span>(<span class="self">self</span>.quiet, <span class="string">&quot;Checking if the package exists..&quot;</span>);
+        <span class="kw">let </span>pb = <span class="macro">make_spinner!</span>(
+            <span class="self">self</span>.quiet || check_package_exists,
+            <span class="string">&quot;Checking if the package exists..&quot;
+        </span>);
 
         <span class="macro">tracing::debug!</span>(<span class="string">&quot;Searching for package with hash: {hash}&quot;</span>);
 
@@ -815,28 +763,217 @@
         <span class="prelude-val">Ok</span>(pkg.id)
     }
 
+    <span class="kw">fn </span>get_name(<span class="kw-2">&amp;</span><span class="self">self</span>, manifest: <span class="kw-2">&amp;</span>Manifest, allow_unnamed: bool) -&gt; anyhow::Result&lt;<span class="prelude-ty">Option</span>&lt;String&gt;&gt; {
+        <span class="kw">if let </span><span class="prelude-val">Some</span>(name) = <span class="kw-2">&amp;</span><span class="self">self</span>.package_name {
+            <span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(name.clone()));
+        }
+
+        <span class="kw">if let </span><span class="prelude-val">Some</span>(pkg) = <span class="kw-2">&amp;</span>manifest.package {
+            <span class="kw">if let </span><span class="prelude-val">Some</span>(ns) = <span class="kw-2">&amp;</span>pkg.name {
+                <span class="kw">if let </span><span class="prelude-val">Some</span>(name) = ns.split(<span class="string">&#39;/&#39;</span>).nth(<span class="number">1</span>) {
+                    <span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(name.to_string()));
+                }
+            }
+        }
+
+        <span class="kw">if </span>allow_unnamed {
+            <span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>);
+        }
+
+        <span class="kw">if </span><span class="self">self</span>.non_interactive {
+            <span class="comment">// if not interactive we can&#39;t prompt the user to choose the owner of the app.
+            </span><span class="macro">anyhow::bail!</span>(<span class="string">&quot;No package name specified: use --name &lt;package_name&gt;&quot;</span>);
+        }
+
+        <span class="kw">let </span>default_name = std::env::current_dir().ok().and_then(|dir| {
+            dir.file_name()
+                .and_then(|f| f.to_str())
+                .map(|s| s.to_owned())
+        });
+
+        <span class="kw">crate</span>::utils::prompts::prompt_for_ident(<span class="string">&quot;Choose a package name&quot;</span>, default_name.as_deref())
+            .map(<span class="prelude-val">Some</span>)
+    }
+
+    <span class="kw">async fn </span>get_namespace(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        client: <span class="kw-2">&amp;</span>WasmerClient,
+        manifest: <span class="kw-2">&amp;</span>Manifest,
+    ) -&gt; anyhow::Result&lt;String&gt; {
+        <span class="kw">if let </span><span class="prelude-val">Some</span>(namespace) = <span class="kw-2">&amp;</span><span class="self">self</span>.package_namespace {
+            <span class="kw">return </span><span class="prelude-val">Ok</span>(namespace.clone());
+        }
+
+        <span class="kw">if let </span><span class="prelude-val">Some</span>(pkg) = <span class="kw-2">&amp;</span>manifest.package {
+            <span class="kw">if let </span><span class="prelude-val">Some</span>(name) = <span class="kw-2">&amp;</span>pkg.name {
+                <span class="kw">if let </span><span class="prelude-val">Some</span>(ns) = name.split(<span class="string">&#39;/&#39;</span>).next() {
+                    <span class="kw">return </span><span class="prelude-val">Ok</span>(ns.to_string());
+                }
+            }
+        }
+
+        <span class="kw">if </span><span class="self">self</span>.non_interactive {
+            <span class="comment">// if not interactive we can&#39;t prompt the user to choose the owner of the app.
+            </span><span class="macro">anyhow::bail!</span>(<span class="string">&quot;No package namespace specified: use --namespace &lt;package_namespace&gt;&quot;</span>);
+        }
+
+        <span class="kw">let </span>user = wasmer_api::query::current_user_with_namespaces(client, <span class="prelude-val">None</span>).<span class="kw">await</span><span class="question-mark">?</span>;
+        <span class="kw">crate</span>::utils::prompts::prompt_for_namespace(<span class="string">&quot;Choose a namespace&quot;</span>, <span class="prelude-val">None</span>, <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span>user))
+    }
+
+    <span class="kw">async fn </span>get_version(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        client: <span class="kw-2">&amp;</span>WasmerClient,
+        manifest: <span class="kw-2">&amp;</span>Manifest,
+        manifest_path: <span class="kw-2">&amp;</span>Path,
+        full_pkg_name: <span class="kw-2">&amp;</span>str,
+    ) -&gt; anyhow::Result&lt;semver::Version&gt; {
+        <span class="kw">if let </span><span class="prelude-val">Some</span>(version) = <span class="kw-2">&amp;</span><span class="self">self</span>.package_version {
+            <span class="comment">// If a user specified a version, then they meant it.
+            </span><span class="kw">return </span><span class="prelude-val">Ok</span>(version.clone());
+        }
+
+        <span class="kw">let </span>user_version = <span class="kw">if let </span><span class="prelude-val">Some</span>(pkg) = <span class="kw-2">&amp;</span>manifest.package {
+            pkg.version.clone()
+        } <span class="kw">else </span>{
+            <span class="prelude-val">None
+        </span>};
+
+        <span class="kw">let </span>pb = <span class="macro">make_spinner!</span>(
+            <span class="self">self</span>.quiet,
+            <span class="macro">format!</span>(<span class="string">&quot;Checking if a version of {full_pkg_name} already exists..&quot;</span>)
+        );
+
+        <span class="kw">if let </span><span class="prelude-val">Some</span>(registry_version) = wasmer_api::query::get_package_version(
+            client,
+            full_pkg_name.to_string(),
+            String::from(<span class="string">&quot;latest&quot;</span>),
+        )
+        .<span class="kw">await</span><span class="question-mark">?
+        </span>.map(|p| p.version)
+        .and_then(|v| semver::Version::from_str(<span class="kw-2">&amp;</span>v).ok())
+        {
+            <span class="macro">spinner_ok!</span>(
+                pb,
+                <span class="macro">format!</span>(<span class="string">&quot;Found version {registry_version} of {full_pkg_name}&quot;</span>)
+            );
+
+            <span class="kw">let </span><span class="kw-2">mut </span>user_version = <span class="kw">if let </span><span class="prelude-val">Some</span>(v) = user_version {
+                v
+            } <span class="kw">else </span>{
+                registry_version.clone()
+            };
+
+            <span class="kw">if </span>user_version &lt;= registry_version {
+                <span class="kw">if </span><span class="self">self</span>.bump {
+                    user_version = registry_version.clone();
+                    user_version.patch = registry_version.patch + <span class="number">1</span>;
+                } <span class="kw">else if </span>!<span class="self">self</span>.non_interactive {
+                    <span class="kw">let </span>theme = ColorfulTheme::default();
+                    <span class="kw">let </span><span class="kw-2">mut </span>new_version = registry_version.clone();
+                    new_version.patch += <span class="number">1</span>;
+                    <span class="kw">if </span>Confirm::with_theme(<span class="kw-2">&amp;</span>theme)
+                        .with_prompt(<span class="macro">format!</span>(<span class="string">&quot;Do you want to bump the package&#39;s version ({user_version} -&gt; {new_version})?&quot;</span>))
+                            .interact()<span class="question-mark">? </span>{
+                            user_version = new_version.clone();
+                            <span class="self">self</span>.update_manifest_version(manifest_path, manifest, <span class="kw-2">&amp;</span>user_version).<span class="kw">await</span><span class="question-mark">?</span>;
+                       } <span class="kw">else </span>{
+                           <span class="macro">eprintln!</span>(<span class="string">&quot;{}: if version {user_version} of {full_pkg_name} already exists tagging will fail.&quot;</span>, <span class="string">&quot;WARN&quot;</span>.bold().yellow());
+                       }
+                }
+            }
+
+            <span class="prelude-val">Ok</span>(user_version)
+        } <span class="kw">else </span>{
+            pb.finish_and_clear();
+
+            <span class="kw">match </span>user_version {
+                <span class="prelude-val">Some</span>(v) =&gt; <span class="prelude-val">Ok</span>(v),
+                <span class="prelude-val">None </span>=&gt; {
+                    <span class="kw">if </span><span class="self">self</span>.non_interactive {
+                        <span class="macro">anyhow::bail!</span>(<span class="string">&quot;No package name specified: use --version &lt;package_version&gt;&quot;</span>)
+                    } <span class="kw">else </span>{
+                        <span class="kw">let </span>version = <span class="kw">crate</span>::utils::prompts::prompt_for_package_version(
+                            <span class="string">&quot;Enter the package version&quot;</span>,
+                            <span class="prelude-val">Some</span>(<span class="string">&quot;0.1.0&quot;</span>),
+                        )<span class="question-mark">?</span>;
+
+                        <span class="self">self</span>.update_manifest_version(manifest_path, manifest, <span class="kw-2">&amp;</span>version)
+                            .<span class="kw">await</span><span class="question-mark">?</span>;
+
+                        <span class="prelude-val">Ok</span>(version)
+                    }
+                }
+            }
+        }
+    }
+
+    <span class="kw">async fn </span>synthesize_id(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        client: <span class="kw-2">&amp;</span>WasmerClient,
+        manifest: <span class="kw-2">&amp;</span>Manifest,
+        manifest_path: <span class="kw-2">&amp;</span>Path,
+        allow_unnamed: bool,
+    ) -&gt; anyhow::Result&lt;<span class="prelude-ty">Option</span>&lt;NamedPackageId&gt;&gt; {
+        <span class="kw">let </span>name = <span class="kw">match </span><span class="self">self</span>.get_name(manifest, allow_unnamed)<span class="question-mark">? </span>{
+            <span class="prelude-val">Some</span>(name) =&gt; name,
+            <span class="prelude-val">None </span>=&gt; <span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>),
+        };
+
+        <span class="kw">let </span>namespace = <span class="self">self</span>.get_namespace(client, manifest).<span class="kw">await</span><span class="question-mark">?</span>;
+        <span class="kw">let </span>full_name = <span class="macro">format!</span>(<span class="string">&quot;{namespace}/{name}&quot;</span>);
+        <span class="kw">let </span>should_update_name = <span class="kw">match </span><span class="kw-2">&amp;</span>manifest.package {
+            <span class="prelude-val">Some</span>(pkg) =&gt; <span class="kw">match </span><span class="kw-2">&amp;</span>pkg.name {
+                <span class="prelude-val">Some</span>(n) =&gt; n.as_str() != full_name.as_str(),
+                <span class="prelude-val">None </span>=&gt; <span class="bool-val">true</span>,
+            },
+            <span class="prelude-val">None </span>=&gt; <span class="bool-val">true</span>,
+        };
+
+        <span class="macro">println!</span>(<span class="string">&quot;should update: {should_update_name}&quot;</span>);
+        <span class="kw">let </span>manifest = <span class="kw">if </span>should_update_name {
+            <span class="self">self</span>.update_manifest_name(manifest_path, manifest, <span class="kw-2">&amp;</span>full_name)
+                .<span class="kw">await</span><span class="question-mark">?
+        </span>} <span class="kw">else </span>{
+            manifest.clone()
+        };
+
+        <span class="kw">let </span>version = <span class="self">self
+            </span>.get_version(client, <span class="kw-2">&amp;</span>manifest, manifest_path, <span class="kw-2">&amp;</span>full_name)
+            .<span class="kw">await</span><span class="question-mark">?</span>;
+
+        <span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(NamedPackageId { full_name, version }))
+    }
+
     <span class="kw">pub async fn </span>tag(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         client: <span class="kw-2">&amp;</span>WasmerClient,
         manifest: <span class="kw-2">&amp;</span>Manifest,
+        manifest_path: <span class="kw-2">&amp;</span>Path,
+        after_push: bool,
+        allow_unnamed: bool,
     ) -&gt; anyhow::Result&lt;PackageIdent&gt; {
-        <span class="kw">let </span>namespace = <span class="self">self</span>.get_namespace(client, manifest).<span class="kw">await</span><span class="question-mark">?</span>;
-
-        <span class="kw">let </span>ident = into_specifier(manifest, <span class="kw-2">&amp;</span><span class="self">self</span>.package_hash, namespace)<span class="question-mark">?</span>;
-        <span class="macro">tracing::info!</span>(<span class="string">&quot;PackageIdent extracted from manifest is {:?}&quot;</span>, ident);
-
-        <span class="kw">let </span>package_id = <span class="self">self</span>.get_package_id(client, <span class="kw-2">&amp;</span><span class="self">self</span>.package_hash).<span class="kw">await</span><span class="question-mark">?</span>;
+        <span class="kw">let </span>package_id = <span class="self">self
+            </span>.get_package_id(client, <span class="kw-2">&amp;</span><span class="self">self</span>.package_hash, after_push)
+            .<span class="kw">await</span><span class="question-mark">?</span>;
         <span class="macro">tracing::info!</span>(
             <span class="string">&quot;The package identifier returned from the registry is {:?}&quot;</span>,
             package_id
         );
 
-        <span class="kw">let </span>ident = <span class="self">self
-            </span>.do_tag(client, <span class="kw-2">&amp;</span>ident, manifest, <span class="kw-2">&amp;</span>package_id)
+        <span class="kw">let </span>id = <span class="kw">match </span><span class="self">self
+            </span>.synthesize_id(client, manifest, manifest_path, allow_unnamed)
+            .<span class="kw">await</span><span class="question-mark">?
+        </span>{
+            <span class="prelude-val">Some</span>(id) =&gt; id,
+            <span class="prelude-val">None </span>=&gt; <span class="kw">return </span><span class="prelude-val">Ok</span>(PackageIdent::Hash(<span class="self">self</span>.package_hash.clone())),
+        };
+
+        <span class="self">self</span>.do_tag(client, <span class="kw-2">&amp;</span>id, manifest, <span class="kw-2">&amp;</span>package_id)
             .<span class="kw">await
             </span>.map_err(on_error)<span class="question-mark">?</span>;
 
-        <span class="prelude-val">Ok</span>(ident.into())
+        <span class="prelude-val">Ok</span>(PackageIdent::Named(id.into()))
     }
 }
 
@@ -853,7 +990,16 @@
         <span class="kw">let </span>(manifest_path, manifest) = get_manifest(<span class="kw-2">&amp;</span><span class="self">self</span>.package_path)<span class="question-mark">?</span>;
         <span class="macro">tracing::info!</span>(<span class="string">&quot;Got manifest at path {}&quot;</span>, manifest_path.display());
 
-        <span class="self">self</span>.tag(<span class="kw-2">&amp;</span>client, <span class="kw-2">&amp;</span>manifest).<span class="kw">await</span><span class="question-mark">?</span>;
+        <span class="kw">let </span>id = <span class="self">self
+            </span>.tag(<span class="kw-2">&amp;</span>client, <span class="kw-2">&amp;</span>manifest, <span class="kw-2">&amp;</span>manifest_path, <span class="bool-val">false</span>, <span class="bool-val">false</span>)
+            .<span class="kw">await</span><span class="question-mark">?</span>;
+
+        <span class="kw">if </span>!<span class="self">self</span>.quiet {
+            <span class="macro">eprintln!</span>(
+                <span class="string">&quot;You can now run your package with `{}`&quot;</span>,
+                <span class="macro">format!</span>(<span class="string">&quot;{} run {id}&quot;</span>, <span class="macro">bin_name!</span>()).bold()
+            );
+        }
 
         <span class="prelude-val">Ok</span>(())
     }

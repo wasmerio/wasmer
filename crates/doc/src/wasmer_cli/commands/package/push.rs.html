@@ -260,6 +260,9 @@
 <a href="#260" id="260">260</a>
 <a href="#261" id="261">261</a>
 <a href="#262" id="262">262</a>
+<a href="#263" id="263">263</a>
+<a href="#264" id="264">264</a>
+<a href="#265" id="265">265</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">super</span>::common::{macros::<span class="kw-2">*</span>, wait::<span class="kw-2">*</span>, <span class="kw-2">*</span>};
 <span class="kw">use crate</span>::{
     commands::{AsyncCliCommand, PackageBuild},
@@ -353,8 +356,11 @@
         }
 
         <span class="kw">let </span>user = wasmer_api::query::current_user_with_namespaces(client, <span class="prelude-val">None</span>).<span class="kw">await</span><span class="question-mark">?</span>;
-        <span class="kw">let </span>owner =
-            <span class="kw">crate</span>::utils::prompts::prompt_for_namespace(<span class="string">&quot;Choose a namespace&quot;</span>, <span class="prelude-val">None</span>, <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span>user))<span class="question-mark">?</span>;
+        <span class="kw">let </span>owner = <span class="kw">crate</span>::utils::prompts::prompt_for_namespace(
+            <span class="string">&quot;Choose a namespace to push the package to&quot;</span>,
+            <span class="prelude-val">None</span>,
+            <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span>user),
+        )<span class="question-mark">?</span>;
 
         <span class="prelude-val">Ok</span>(owner.clone())
     }

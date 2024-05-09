@@ -147,7 +147,11 @@
 <a href="#147" id="147">147</a>
 <a href="#148" id="148">148</a>
 <a href="#149" id="149">149</a>
-</pre></div><pre class="rust"><code><span class="kw">use </span>futures_util::StreamExt;
+<a href="#150" id="150">150</a>
+<a href="#151" id="151">151</a>
+</pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">super</span>::macros::spinner_ok;
+<span class="kw">use </span>colored::Colorize;
+<span class="kw">use </span>futures_util::StreamExt;
 <span class="kw">use </span>indicatif::ProgressBar;
 <span class="kw">use </span>wasmer_api::WasmerClient;
 
@@ -293,7 +297,7 @@
         }
     }
 
-    pb.finish_and_clear();
+    <span class="macro">spinner_ok!</span>(pb, <span class="string">&quot;Package is available in the registry&quot;</span>);
     <span class="prelude-val">Ok</span>(())
 }
 </code></pre></div></section></main></body></html>
