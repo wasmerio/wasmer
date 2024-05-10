@@ -4,7 +4,7 @@ use self::offloaded_file::OffloadBackingStore;
 
 use super::*;
 use crate::{DirEntry, FileSystem as _, FileType, FsError, Metadata, OpenOptions, ReadDir, Result};
-use futures::future::BoxFuture;
+use futures::future::{BoxFuture, Either};
 use slab::Slab;
 use std::collections::VecDeque;
 use std::convert::identity;
@@ -438,16 +438,12 @@ impl crate::FileSystem for FileSystem {
         Box::pin(async {
             let name_of_to;
 
-            let (
-                (position_of_from, inode, inode_of_from_parent),
-                (inode_of_to_parent, name_of_to),
-                inode_dest,
-            ) = {
+            match {
                 // Read lock.
-                let fs = self.inner.read().map_err(|_| FsError::Lock)?;
+                let inner = self.inner.read().map_err(|_| FsError::Lock)?;
 
-                let from = fs.canonicalize_without_inode(from)?;
-                let to = fs.canonicalize_without_inode(to)?;
+                let from = inner.canonicalize_without_inode(from)?;
+                let to = inner.canonicalize_without_inode(to)?;
 
                 // Check the paths have parents.
                 let parent_of_from = from.parent().ok_or(FsError::BaseNotDirectory)?;
@@ -461,86 +457,90 @@ impl crate::FileSystem for FileSystem {
                 name_of_to = to.file_name().ok_or(FsError::InvalidInput)?.to_os_string();
 
                 // Find the parent inodes.
-                let inode_of_from_parent = match fs.inode_of_parent(parent_of_from)? {
-                    InodeResolution::Found(a) => a,
-                    InodeResolution::Redirect(..) => {
-                        return Err(FsError::InvalidInput);
+                let resolution = inner.inode_of_parents([parent_of_from, parent_of_to])?;
+                match resolution {
+                    InodePairResolution::Found(inode_of_from_parent, inode_of_to_parent) => {
+                        // Find the inode of the dest file if it exists
+                        let maybe_position_and_inode_of_file = inner
+                            .as_parent_get_position_and_inode_of_file(
+                                inode_of_to_parent,
+                                &name_of_to,
+                            )?;
+
+                        // Get the child indexes to update in the parent nodes, in
+                        // addition to the inode of the directory to update.
+                        let (position_of_from, inode) = inner
+                            .as_parent_get_position_and_inode(inode_of_from_parent, &name_of_from)?
+                            .ok_or(FsError::EntryNotFound)?;
+
+                        Either::Left((
+                            (position_of_from, inode, inode_of_from_parent),
+                            (inode_of_to_parent, name_of_to),
+                            maybe_position_and_inode_of_file,
+                        ))
                     }
-                };
-                let inode_of_to_parent = match fs.inode_of_parent(parent_of_to)? {
-                    InodeResolution::Found(a) => a,
-                    InodeResolution::Redirect(..) => {
-                        return Err(FsError::InvalidInput);
-                    }
-                };
-
-                // Find the inode of the dest file if it exists
-                let maybe_position_and_inode_of_file =
-                    fs.as_parent_get_position_and_inode_of_file(inode_of_to_parent, &name_of_to)?;
-
-                // Get the child indexes to update in the parent nodes, in
-                // addition to the inode of the directory to update.
-                let (position_of_from, inode) = fs
-                    .as_parent_get_position_and_inode(inode_of_from_parent, &name_of_from)?
-                    .ok_or(FsError::EntryNotFound)?;
-
-                (
+                    InodePairResolution::SameFs(fs, p1, p2) => Either::Right((fs, p1, p2)),
+                    InodePairResolution::DifferentFs => return Err(FsError::InvalidInput),
+                }
+            } {
+                Either::Right((fs, p1, p2)) => fs.rename(&p1, &p2).await,
+                Either::Left((
                     (position_of_from, inode, inode_of_from_parent),
                     (inode_of_to_parent, name_of_to),
-                    maybe_position_and_inode_of_file,
-                )
-            };
-
-            let inode = match inode {
-                InodeResolution::Found(a) => a,
-                InodeResolution::Redirect(..) => {
-                    return Err(FsError::InvalidInput);
-                }
-            };
-
-            {
-                // Write lock.
-                let mut fs = self.inner.write().map_err(|_| FsError::Lock)?;
-
-                if let Some((position, inode_of_file)) = inode_dest {
-                    // Remove the file from the storage.
-                    match inode_of_file {
-                        InodeResolution::Found(inode_of_file) => {
-                            fs.storage.remove(inode_of_file);
-                        }
+                    inode_dest,
+                )) => {
+                    let inode = match inode {
+                        InodeResolution::Found(a) => a,
                         InodeResolution::Redirect(..) => {
                             return Err(FsError::InvalidInput);
                         }
+                    };
+
+                    {
+                        // Write lock.
+                        let mut fs = self.inner.write().map_err(|_| FsError::Lock)?;
+
+                        if let Some((position, inode_of_file)) = inode_dest {
+                            // Remove the file from the storage.
+                            match inode_of_file {
+                                InodeResolution::Found(inode_of_file) => {
+                                    fs.storage.remove(inode_of_file);
+                                }
+                                InodeResolution::Redirect(..) => {
+                                    return Err(FsError::InvalidInput);
+                                }
+                            }
+
+                            fs.remove_child_from_node(inode_of_to_parent, position)?;
+                        }
+
+                        // Update the file name, and update the modified time.
+                        fs.update_node_name(inode, name_of_to)?;
+
+                        // The parents are different. Let's update them.
+                        if inode_of_from_parent != inode_of_to_parent {
+                            // Remove the file from its parent, and update the
+                            // modified time.
+                            fs.remove_child_from_node(inode_of_from_parent, position_of_from)?;
+
+                            // Add the file to its new parent, and update the modified
+                            // time.
+                            fs.add_child_to_node(inode_of_to_parent, inode)?;
+                        }
+                        // Otherwise, we need to at least update the modified time of the parent.
+                        else {
+                            let mut inode = fs.storage.get_mut(inode_of_from_parent);
+                            match inode.as_mut() {
+                                Some(Node::Directory(node)) => node.metadata.modified = time(),
+                                Some(Node::ArcDirectory(node)) => node.metadata.modified = time(),
+                                _ => return Err(FsError::UnknownError),
+                            }
+                        }
                     }
 
-                    fs.remove_child_from_node(inode_of_to_parent, position)?;
-                }
-
-                // Update the file name, and update the modified time.
-                fs.update_node_name(inode, name_of_to)?;
-
-                // The parents are different. Let's update them.
-                if inode_of_from_parent != inode_of_to_parent {
-                    // Remove the file from its parent, and update the
-                    // modified time.
-                    fs.remove_child_from_node(inode_of_from_parent, position_of_from)?;
-
-                    // Add the file to its new parent, and update the modified
-                    // time.
-                    fs.add_child_to_node(inode_of_to_parent, inode)?;
-                }
-                // Otherwise, we need to at least update the modified time of the parent.
-                else {
-                    let mut inode = fs.storage.get_mut(inode_of_from_parent);
-                    match inode.as_mut() {
-                        Some(Node::Directory(node)) => node.metadata.modified = time(),
-                        Some(Node::ArcDirectory(node)) => node.metadata.modified = time(),
-                        _ => return Err(FsError::UnknownError),
-                    }
+                    Ok(())
                 }
             }
-
-            Ok(())
         })
     }
 
@@ -645,6 +645,18 @@ pub(super) enum InodeResolution {
     Redirect(Arc<dyn crate::FileSystem + Send + Sync + 'static>, PathBuf),
 }
 
+// Hack used to rename files residing in the same non-root FS, see inode_of_parents
+#[derive(Debug)]
+pub(super) enum InodePairResolution {
+    Found(Inode, Inode),
+    SameFs(
+        Arc<dyn crate::FileSystem + Send + Sync + 'static>,
+        PathBuf,
+        PathBuf,
+    ),
+    DifferentFs, // This is an error case, so no data needed
+}
+
 impl InodeResolution {
     #[allow(dead_code)]
     pub fn unwrap(&self) -> Inode {
@@ -710,6 +722,60 @@ impl FileSystemInner {
                 }
             }
             InodeResolution::Redirect(fs, path) => Ok(InodeResolution::Redirect(fs, path)),
+        }
+    }
+
+    /// Hack: Follow both paths at the same time to discover if they're on the same
+    /// FS, which allows renaming without crossing FS boundaries.
+    pub(super) fn inode_of_parents(&self, parent_path: [&Path; 2]) -> Result<InodePairResolution> {
+        let mut node = self.storage.get(ROOT_INODE).unwrap();
+        let mut components = parent_path.map(Path::components);
+
+        match (components[0].next(), components[1].next()) {
+            (Some(Component::RootDir), Some(Component::RootDir)) => {}
+            _ => return Err(FsError::BaseNotDirectory),
+        }
+
+        // Step 1: follow both paths as long as they're the same, report if other FS is found
+        loop {
+            match (components[0].next(), components[1].next()) {
+                (Some(comp1), Some(comp2)) if comp1 == comp2 => {
+                    node = match node {
+                        Node::Directory(DirectoryNode { children, .. }) => children
+                            .iter()
+                            .filter_map(|inode| self.storage.get(*inode))
+                            .find(|node| node.name() == comp1.as_os_str())
+                            .ok_or(FsError::EntryNotFound)?,
+                        Node::ArcDirectory(ArcDirectoryNode {
+                            fs, path: fs_path, ..
+                        }) => {
+                            let mut path1 = fs_path.clone();
+                            path1.push(PathBuf::from(comp1.as_os_str()));
+                            let mut path2 = path1.clone();
+                            for component in components[0].by_ref() {
+                                path1.push(PathBuf::from(component.as_os_str()));
+                            }
+                            for component in components[1].by_ref() {
+                                path2.push(PathBuf::from(component.as_os_str()));
+                            }
+                            return Ok(InodePairResolution::SameFs(fs.clone(), path1, path2));
+                        }
+                        _ => return Err(FsError::BaseNotDirectory),
+                    };
+                }
+                _ => break,
+            };
+        }
+
+        // Step2: fall back to old behavior
+        match (
+            self.inode_of_parent(parent_path[0])?,
+            self.inode_of_parent(parent_path[1])?,
+        ) {
+            (InodeResolution::Found(n1), InodeResolution::Found(n2)) => {
+                Ok(InodePairResolution::Found(n1, n2))
+            }
+            _ => Ok(InodePairResolution::DifferentFs),
         }
     }
 
