@@ -148,17 +148,71 @@
 <a href="#148" id="148">148</a>
 <a href="#149" id="149">149</a>
 <a href="#150" id="150">150</a>
+<a href="#151" id="151">151</a>
+<a href="#152" id="152">152</a>
+<a href="#153" id="153">153</a>
+<a href="#154" id="154">154</a>
+<a href="#155" id="155">155</a>
+<a href="#156" id="156">156</a>
+<a href="#157" id="157">157</a>
+<a href="#158" id="158">158</a>
+<a href="#159" id="159">159</a>
+<a href="#160" id="160">160</a>
+<a href="#161" id="161">161</a>
+<a href="#162" id="162">162</a>
+<a href="#163" id="163">163</a>
+<a href="#164" id="164">164</a>
+<a href="#165" id="165">165</a>
+<a href="#166" id="166">166</a>
+<a href="#167" id="167">167</a>
+<a href="#168" id="168">168</a>
+<a href="#169" id="169">169</a>
+<a href="#170" id="170">170</a>
+<a href="#171" id="171">171</a>
+<a href="#172" id="172">172</a>
+<a href="#173" id="173">173</a>
+<a href="#174" id="174">174</a>
+<a href="#175" id="175">175</a>
+<a href="#176" id="176">176</a>
+<a href="#177" id="177">177</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::path::PathBuf;
 
 <span class="kw">use </span>anyhow::Context;
 <span class="kw">use </span>wasmer_api::WasmerClient;
 <span class="kw">use </span>wasmer_registry::WasmerConfig;
 
+<span class="kw">fn </span>parse_registry_url(registry: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Result</span>&lt;url::Url, String&gt; {
+    <span class="kw">if let </span><span class="prelude-val">Ok</span>(<span class="kw-2">mut </span>url) = url::Url::parse(registry) {
+        <span class="comment">// Looks like we&#39;ve got a valid URL. Let&#39;s try to use it as-is.
+        </span><span class="kw">if </span>url.has_host() {
+            <span class="kw">if </span>url.path() == <span class="string">&quot;/&quot; </span>{
+                <span class="comment">// make sure we convert http://registry.wasmer.io/ to
+                // http://registry.wasmer.io/graphql
+                </span>url.set_path(<span class="string">&quot;/graphql&quot;</span>);
+            }
+
+            <span class="kw">return </span><span class="prelude-val">Ok</span>(url);
+        }
+    }
+
+    <span class="kw">let </span>raw_registry = <span class="kw">if </span>!registry.contains(<span class="string">&quot;://&quot;</span>) &amp;&amp; !registry.contains(<span class="string">&#39;/&#39;</span>) {
+        <span class="kw">if </span>registry.contains(<span class="string">&quot;localhost&quot;</span>) {
+            <span class="macro">format!</span>(<span class="string">&quot;http://{registry}/graphql&quot;</span>)
+        } <span class="kw">else </span>{
+            <span class="macro">format!</span>(<span class="string">&quot;https://registry.{registry}/graphql&quot;</span>)
+        }
+    } <span class="kw">else </span>{
+        registry.to_string()
+    };
+
+    url::Url::parse(<span class="kw-2">&amp;</span>raw_registry).map_err(|e| e.to_string())
+}
+
 <span class="attr">#[derive(clap::Parser, Debug, Clone, Default)]
 </span><span class="kw">pub struct </span>ApiOpts {
     <span class="attr">#[clap(long, env = <span class="string">&quot;WASMER_TOKEN&quot;</span>)]
     </span><span class="kw">pub </span>token: <span class="prelude-ty">Option</span>&lt;String&gt;,
-    <span class="attr">#[clap(long)]
+    <span class="attr">#[clap(long, value_parser = parse_registry_url)]
     </span><span class="kw">pub </span>registry: <span class="prelude-ty">Option</span>&lt;url::Url&gt;,
 }
 
