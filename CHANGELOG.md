@@ -11,6 +11,9 @@ Looking for changes that affect our C API? See the [C API Changelog](lib/c-api/C
 
 ## 4.3.0 - 10/05/2024
 
+This release stabilizes the new and improved publish and deploy flow. Also, wasmer is 25% faster (on cold startups) and more stable since
+various fixes and stability improvements are included.
+
 ## Added
 
   - [#4666](https://github.com/wasmerio/wasmer/pull/4666) Add integration tests for deploy
