@@ -94,7 +94,7 @@ fn wasmer_deploy_php() -> anyhow::Result<()> {
 
 #[test]
 fn wasmer_deploy_static_website() -> anyhow::Result<()> {
-     Only run this test in the CI
+    // Only run this test in the CI
     if std::env::var("GITHUB_TOKEN").is_err() {
         return Ok(());
     }

@@ -232,7 +232,7 @@ pub(super) async fn login_user(
                 anyhow::bail!("Stopping the flow as the user is not logged in.")
             }
         } else {
-            let bin_name = match std::env::args().nth(0) {
+            let bin_name = match std::env::args().next() {
                 Some(n) => n,
                 None => String::from("wasmer"),
             };
