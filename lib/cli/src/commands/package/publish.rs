@@ -150,10 +150,7 @@ impl AsyncCliCommand for PackagePublish {
         match ident {
             PackageIdent::Named(ref n) => {
                 let url = make_package_url(&client, n);
-                eprintln!(
-                    "{} Package URL: {url}",
-                    "𖥔".yellow().bold()
-                );
+                eprintln!("{} Package URL: {url}", "𖥔".yellow().bold());
             }
             PackageIdent::Hash(ref h) => {
                 eprintln!("{} Succesfully published package ({h})", "✔".green().bold());
