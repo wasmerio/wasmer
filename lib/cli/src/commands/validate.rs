@@ -4,7 +4,7 @@ use anyhow::{bail, Context, Result};
 use clap::Parser;
 use wasmer::*;
 
-use crate::store::StoreOptions;
+use crate::{common::HashAlgorithm, store::StoreOptions};
 
 #[derive(Debug, Parser)]
 /// The options for the `wasmer validate` subcommand
@@ -15,6 +15,10 @@ pub struct Validate {
 
     #[clap(flatten)]
     store: StoreOptions,
+
+    /// Hashing algorithm to be used for module hash
+    #[clap(long, value_enum)]
+    hash_algorithm: Option<HashAlgorithm>,
 }
 
 impl Validate {
@@ -25,6 +29,11 @@ impl Validate {
     }
     fn inner_execute(&self) -> Result<()> {
         let (store, _compiler_type) = self.store.get_store()?;
+
+        let mut engine = store.engine().clone();
+        let hash_algorithm = self.hash_algorithm.unwrap_or_default().into();
+        engine.set_hash_algorithm(Some(hash_algorithm));
+
         let module_contents = std::fs::read(&self.path)?;
         if !is_wasm(&module_contents) {
             bail!("`wasmer validate` only validates WebAssembly files");

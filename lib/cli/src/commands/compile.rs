@@ -4,7 +4,7 @@ use anyhow::{Context, Result};
 use clap::Parser;
 use wasmer::*;
 
-use crate::{store::StoreOptions, warning};
+use crate::{common::HashAlgorithm, store::StoreOptions, warning};
 
 #[derive(Debug, Parser)]
 /// The options for the `wasmer compile` subcommand
@@ -26,6 +26,10 @@ pub struct Compile {
 
     #[clap(short = 'm')]
     cpu_features: Vec<CpuFeature>,
+
+    /// Hashing algorithm to be used for module hash
+    #[clap(long, value_enum)]
+    hash_algorithm: Option<HashAlgorithm>,
 }
 
 impl Compile {
@@ -54,6 +58,11 @@ impl Compile {
             })
             .unwrap_or_default();
         let (store, compiler_type) = self.store.get_store_for_target(target.clone())?;
+
+        let mut engine = store.engine().clone();
+        let hash_algorithm = self.hash_algorithm.unwrap_or_default().into();
+        engine.set_hash_algorithm(Some(hash_algorithm));
+
         let output_filename = self
             .output
             .file_stem()

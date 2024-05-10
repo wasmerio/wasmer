@@ -6,6 +6,15 @@ use rkyv::{Archive, CheckBytes, Deserialize as RkyvDeserialize, Serialize as Rky
 use serde::{Deserialize, Serialize};
 use sha2::Digest;
 
+/// Hashing algorithm to be used for the module info
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum HashAlgorithm {
+    /// Sha256
+    Sha256,
+    /// XXHash
+    XXHash,
+}
+
 /// The hash of a WebAssembly module.
 #[derive(
     Debug,

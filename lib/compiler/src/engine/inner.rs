@@ -19,6 +19,7 @@ use shared_buffer::OwnedBuffer;
 use std::path::Path;
 use std::sync::atomic::{AtomicUsize, Ordering::SeqCst};
 use std::sync::{Arc, Mutex};
+use wasmer_types::HashAlgorithm;
 #[cfg(not(target_arch = "wasm32"))]
 use wasmer_types::{
     entity::PrimaryMap, DeserializeError, FunctionBodyLike, FunctionIndex, FunctionType,
@@ -43,6 +44,7 @@ pub struct Engine {
     #[cfg(not(target_arch = "wasm32"))]
     tunables: Arc<dyn Tunables + Send + Sync>,
     name: String,
+    hash_algorithm: Option<HashAlgorithm>,
 }
 
 impl Engine {
@@ -52,6 +54,7 @@ impl Engine {
         compiler_config: Box<dyn CompilerConfig>,
         target: Target,
         features: Features,
+        hash_algorithm: Option<HashAlgorithm>,
     ) -> Self {
         #[cfg(not(target_arch = "wasm32"))]
         let tunables = BaseTunables::for_target(&target);
@@ -71,6 +74,7 @@ impl Engine {
             #[cfg(not(target_arch = "wasm32"))]
             tunables: Arc::new(tunables),
             name,
+            hash_algorithm,
         }
     }
 
@@ -86,6 +90,16 @@ impl Engine {
     /// Returns the name of this engine
     pub fn name(&self) -> &str {
         self.name.as_str()
+    }
+
+    /// Sets the hash algorithm
+    pub fn set_hash_algorithm(&mut self, hash_algorithm: Option<HashAlgorithm>) {
+        self.hash_algorithm = hash_algorithm;
+    }
+
+    /// Returns the hash algorithm
+    pub fn hash_algorithm(&self) -> Option<HashAlgorithm> {
+        self.hash_algorithm
     }
 
     /// Returns the deterministic id of this engine
@@ -130,6 +144,7 @@ impl Engine {
             #[cfg(not(target_arch = "wasm32"))]
             tunables: Arc::new(tunables),
             name: "engine-headless".to_string(),
+            hash_algorithm: None,
         }
     }
 
@@ -176,6 +191,7 @@ impl Engine {
             self,
             binary,
             self.tunables.as_ref(),
+            self.hash_algorithm,
         )?))
     }
 

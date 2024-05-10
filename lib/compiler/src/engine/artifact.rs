@@ -36,8 +36,9 @@ use wasmer_types::DataInitializerLocation;
 use wasmer_types::DataInitializerLocationLike;
 use wasmer_types::MetadataHeader;
 use wasmer_types::{
-    CompileError, CpuFeature, DataInitializer, DeserializeError, FunctionIndex, LocalFunctionIndex,
-    MemoryIndex, ModuleInfo, OwnedDataInitializer, SignatureIndex, TableIndex, Target,
+    CompileError, CpuFeature, DataInitializer, DeserializeError, FunctionIndex, HashAlgorithm,
+    LocalFunctionIndex, MemoryIndex, ModuleInfo, OwnedDataInitializer, SignatureIndex, TableIndex,
+    Target,
 };
 use wasmer_types::{SerializableModule, SerializeError};
 use wasmer_vm::{FunctionBodyPtr, MemoryStyle, TableStyle, VMSharedSignatureIndex, VMTrampoline};
@@ -113,6 +114,7 @@ impl Artifact {
         engine: &Engine,
         data: &[u8],
         tunables: &dyn Tunables,
+        hash_algorithm: Option<HashAlgorithm>,
     ) -> Result<Self, CompileError> {
         let mut inner_engine = engine.inner_mut();
         let environ = ModuleEnvironment::new();
@@ -135,6 +137,7 @@ impl Artifact {
             engine.target(),
             memory_styles,
             table_styles,
+            hash_algorithm,
         )?;
 
         Self::from_parts(

@@ -16,7 +16,7 @@ use std::sync::Arc;
 #[allow(unused_imports)]
 pub use wasmer_compiler::{Artifact, CompilerConfig, EngineInner, Features, Tunables};
 #[cfg(feature = "sys")]
-use wasmer_types::DeserializeError;
+use wasmer_types::{DeserializeError, HashAlgorithm};
 
 #[cfg(feature = "js")]
 use crate::js::engine as engine_imp;
@@ -36,6 +36,12 @@ impl Engine {
     /// Returns the deterministic id of this engine
     pub fn deterministic_id(&self) -> &str {
         self.0.deterministic_id()
+    }
+
+    /// Sets the hash algorithm
+    #[cfg(all(feature = "sys", not(target_arch = "wasm32")))]
+    pub fn set_hash_algorithm(&mut self, hash_algorithm: Option<HashAlgorithm>) {
+        self.0.set_hash_algorithm(hash_algorithm)
     }
 
     #[cfg(all(feature = "sys", not(target_arch = "wasm32")))]

@@ -51,7 +51,10 @@ use wasmer_wasix::{
 };
 use webc::{metadata::Manifest, Container};
 
-use crate::{commands::run::wasi::Wasi, error::PrettyError, logging::Output, store::StoreOptions};
+use crate::{
+    commands::run::wasi::Wasi, common::HashAlgorithm, error::PrettyError, logging::Output,
+    store::StoreOptions,
+};
 
 const TICK: Duration = Duration::from_millis(250);
 
@@ -80,6 +83,9 @@ pub struct Run {
     input: PackageSource,
     /// Command-line arguments passed to the package
     args: Vec<String>,
+    /// Hashing algorithm to be used for module hash
+    #[clap(long, value_enum)]
+    hash_algorithm: Option<HashAlgorithm>,
 }
 
 impl Run {
@@ -108,9 +114,12 @@ impl Run {
 
         let _guard = handle.enter();
         let (store, _) = self.store.get_store()?;
-        let runtime = self
-            .wasi
-            .prepare_runtime(store.engine().clone(), &self.env, runtime)?;
+
+        let mut engine = store.engine().clone();
+        let hash_algorithm = self.hash_algorithm.unwrap_or_default().into();
+        engine.set_hash_algorithm(Some(hash_algorithm));
+
+        let runtime = self.wasi.prepare_runtime(engine, &self.env, runtime)?;
 
         // This is a slow operation, so let's temporarily wrap the runtime with
         // something that displays progress
@@ -474,6 +483,7 @@ impl Run {
             coredump_on_trap: None,
             input: PackageSource::infer(executable)?,
             args: args.to_vec(),
+            hash_algorithm: None,
         })
     }
 }
@@ -712,7 +722,9 @@ impl ExecutableTarget {
                 pb.set_message("Deserializing pre-compiled WebAssembly module");
                 let module = unsafe { Module::deserialize_from_file(&engine, path)? };
 
-                let module_hash = module.info().hash.unwrap_or(ModuleHash::XXHash([0u8; 8]));
+                let module_hash = module.info().hash.ok_or_else(|| {
+                    anyhow::Error::msg("module hash is not present in the artifact")
+                })?;
 
                 Ok(ExecutableTarget::WebAssembly {
                     module,

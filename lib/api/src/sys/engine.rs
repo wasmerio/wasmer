@@ -6,7 +6,7 @@ pub use wasmer_compiler::{
 };
 #[cfg(feature = "compiler")]
 use wasmer_types::Features;
-use wasmer_types::{DeserializeError, Target};
+use wasmer_types::{DeserializeError, HashAlgorithm, Target};
 
 /// Get the default config for the sys Engine
 #[allow(unreachable_code)]
@@ -55,7 +55,12 @@ pub(crate) fn default_engine() -> Engine {
 pub trait NativeEngineExt {
     /// Create a new `Engine` with the given config
     #[cfg(feature = "compiler")]
-    fn new(compiler_config: Box<dyn CompilerConfig>, target: Target, features: Features) -> Self;
+    fn new(
+        compiler_config: Box<dyn CompilerConfig>,
+        target: Target,
+        features: Features,
+        hash_algorithm: Option<HashAlgorithm>,
+    ) -> Self;
 
     /// Create a headless `Engine`
     ///
@@ -104,8 +109,18 @@ pub trait NativeEngineExt {
 
 impl NativeEngineExt for crate::engine::Engine {
     #[cfg(feature = "compiler")]
-    fn new(compiler_config: Box<dyn CompilerConfig>, target: Target, features: Features) -> Self {
-        Self(Engine::new(compiler_config, target, features))
+    fn new(
+        compiler_config: Box<dyn CompilerConfig>,
+        target: Target,
+        features: Features,
+        hash_algorithm: Option<HashAlgorithm>,
+    ) -> Self {
+        Self(Engine::new(
+            compiler_config,
+            target,
+            features,
+            hash_algorithm,
+        ))
     }
 
     fn headless() -> Self {

@@ -21,7 +21,10 @@ use webc::{
 };
 
 use self::utils::normalize_atom_name;
-use crate::{common::normalize_path, store::CompilerOptions};
+use crate::{
+    common::{normalize_path, HashAlgorithm},
+    store::CompilerOptions,
+};
 
 const LINK_SYSTEM_LIBRARIES_WINDOWS: &[&str] = &["userenv", "Ws2_32", "advapi32", "bcrypt"];
 
@@ -91,6 +94,10 @@ pub struct CreateExe {
 
     #[clap(flatten)]
     compiler: CompilerOptions,
+
+    /// Hashing algorithm to be used for module hash
+    #[clap(long, value_enum)]
+    hash_algorithm: Option<HashAlgorithm>,
 }
 
 /// Url or version to download the release from
@@ -215,6 +222,10 @@ impl CreateExe {
         }
 
         let (store, compiler_type) = self.compiler.get_store_for_target(target.clone())?;
+
+        let mut engine = store.engine().clone();
+        let hash_algorithm = self.hash_algorithm.unwrap_or_default().into();
+        engine.set_hash_algorithm(Some(hash_algorithm));
 
         println!("Compiler: {}", compiler_type.to_string());
         println!("Target: {}", target.triple());
