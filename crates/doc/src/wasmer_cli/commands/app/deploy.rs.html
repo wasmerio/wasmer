@@ -672,7 +672,32 @@
 <a href="#672" id="672">672</a>
 <a href="#673" id="673">673</a>
 <a href="#674" id="674">674</a>
-</pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">super</span>::AsyncCliCommand;
+<a href="#675" id="675">675</a>
+<a href="#676" id="676">676</a>
+<a href="#677" id="677">677</a>
+<a href="#678" id="678">678</a>
+<a href="#679" id="679">679</a>
+<a href="#680" id="680">680</a>
+<a href="#681" id="681">681</a>
+<a href="#682" id="682">682</a>
+<a href="#683" id="683">683</a>
+<a href="#684" id="684">684</a>
+<a href="#685" id="685">685</a>
+<a href="#686" id="686">686</a>
+<a href="#687" id="687">687</a>
+<a href="#688" id="688">688</a>
+<a href="#689" id="689">689</a>
+<a href="#690" id="690">690</a>
+<a href="#691" id="691">691</a>
+<a href="#692" id="692">692</a>
+<a href="#693" id="693">693</a>
+<a href="#694" id="694">694</a>
+<a href="#695" id="695">695</a>
+<a href="#696" id="696">696</a>
+<a href="#697" id="697">697</a>
+<a href="#698" id="698">698</a>
+<a href="#699" id="699">699</a>
+</pre></div><pre class="rust"><code><span class="kw">use super</span>::{util::login_user, AsyncCliCommand};
 <span class="kw">use crate</span>::{
     commands::{app::create::CmdAppCreate, package::publish::PackagePublish, PublishWait},
     opts::{ApiOpts, ItemFormatOpts, WasmerEnv},
@@ -756,6 +781,13 @@
     <span class="doccomment">/// Whether or not to automatically bump the package version if publishing.
     </span><span class="attr">#[clap(long)]
     </span><span class="kw">pub </span>bump: bool,
+
+    <span class="doccomment">/// Don&#39;t print any message.
+    ///
+    /// The only message that will be printed is the one signaling the successfullness of the
+    /// operation.
+    </span><span class="attr">#[clap(long)]
+    </span><span class="kw">pub </span>quiet: bool,
 }
 
 <span class="kw">impl </span>CmdAppDeploy {
@@ -776,7 +808,7 @@
         <span class="kw">let </span>publish_cmd = PackagePublish {
             env: <span class="self">self</span>.env.clone(),
             dry_run: <span class="bool-val">false</span>,
-            quiet: <span class="bool-val">false</span>,
+            quiet: <span class="self">self</span>.quiet,
             package_name: <span class="prelude-val">None</span>,
             package_version: <span class="prelude-val">None</span>,
             no_validate: <span class="bool-val">false</span>,
@@ -802,6 +834,7 @@
 
     <span class="kw">async fn </span>get_owner(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
+        client: <span class="kw-2">&amp;</span>WasmerClient,
         app: <span class="kw-2">&amp;</span>serde_yaml::Value,
         app_config_path: <span class="kw-2">&amp;</span>PathBuf,
     ) -&gt; anyhow::Result&lt;(String, String)&gt; {
@@ -820,28 +853,19 @@
             </span><span class="macro">anyhow::bail!</span>(<span class="string">&quot;No owner specified: use --owner XXX&quot;</span>);
         }
 
-        <span class="kw">match </span><span class="self">self</span>.api.client() {
-            <span class="prelude-val">Ok</span>(client) =&gt; {
-                <span class="kw">let </span>user = wasmer_api::query::current_user_with_namespaces(<span class="kw-2">&amp;</span>client, <span class="prelude-val">None</span>).<span class="kw">await</span><span class="question-mark">?</span>;
-                <span class="kw">let </span>owner = <span class="kw">crate</span>::utils::prompts::prompt_for_namespace(
-                    <span class="string">&quot;Who should own this app?&quot;</span>,
-                    <span class="prelude-val">None</span>,
-                    <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span>user),
-                )<span class="question-mark">?</span>;
+        <span class="kw">let </span>user = wasmer_api::query::current_user_with_namespaces(client, <span class="prelude-val">None</span>).<span class="kw">await</span><span class="question-mark">?</span>;
+        <span class="kw">let </span>owner = <span class="kw">crate</span>::utils::prompts::prompt_for_namespace(
+            <span class="string">&quot;Who should own this app?&quot;</span>,
+            <span class="prelude-val">None</span>,
+            <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span>user),
+        )<span class="question-mark">?</span>;
 
-                <span class="kw">let </span>new_raw_config = <span class="macro">format!</span>(<span class="string">&quot;owner: {owner}\n{r_ret}&quot;</span>);
+        <span class="kw">let </span>new_raw_config = <span class="macro">format!</span>(<span class="string">&quot;owner: {owner}\n{r_ret}&quot;</span>);
 
-                std::fs::write(app_config_path, <span class="kw-2">&amp;</span>new_raw_config).with_context(|| {
-                    <span class="macro">format!</span>(<span class="string">&quot;Could not write file: &#39;{}&#39;&quot;</span>, app_config_path.display())
-                })<span class="question-mark">?</span>;
+        std::fs::write(app_config_path, <span class="kw-2">&amp;</span>new_raw_config)
+            .with_context(|| <span class="macro">format!</span>(<span class="string">&quot;Could not write file: &#39;{}&#39;&quot;</span>, app_config_path.display()))<span class="question-mark">?</span>;
 
-                <span class="prelude-val">Ok</span>((owner.clone(), new_raw_config))
-
-            }
-            <span class="prelude-val">Err</span>(e) =&gt; <span class="macro">anyhow::bail!</span>(
-                <span class="string">&quot;Can&#39;t determine user info: {e}. Please, user `wasmer login` before deploying an app or use the --owner &lt;owner&gt; flag to signal the owner of the app to deploy.&quot;
-            </span>),
-        }
+        <span class="prelude-val">Ok</span>((owner.clone(), new_raw_config))
     }
     <span class="kw">async fn </span>create(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; anyhow::Result&lt;()&gt; {
         <span class="macro">eprintln!</span>(<span class="string">&quot;It seems you are trying to create a new app!&quot;</span>);
@@ -875,10 +899,8 @@
     <span class="kw">type </span>Output = ();
 
     <span class="kw">async fn </span>run_async(<span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>::Output, anyhow::Error&gt; {
-        <span class="kw">let </span>client = <span class="self">self
-            </span>.api
-            .client()
-            .with_context(|| <span class="string">&quot;Can&#39;t begin deploy flow&quot;</span>)<span class="question-mark">?</span>;
+        <span class="kw">let </span>client =
+            login_user(<span class="kw-2">&amp;</span><span class="self">self</span>.api, <span class="kw-2">&amp;</span><span class="self">self</span>.env, !<span class="self">self</span>.non_interactive, <span class="string">&quot;deploy an app&quot;</span>).<span class="kw">await</span><span class="question-mark">?</span>;
 
         <span class="kw">let </span>base_dir_path = <span class="self">self</span>.path.clone().unwrap_or(std::env::current_dir()<span class="question-mark">?</span>);
         <span class="kw">let </span>(app_config_path, base_dir_path) = {
@@ -915,7 +937,7 @@
 
         <span class="comment">// We want to allow the user to specify the app name interactively.
         </span><span class="kw">let </span>app_yaml: serde_yaml::Value = serde_yaml::from_str(<span class="kw-2">&amp;</span>config_str)<span class="question-mark">?</span>;
-        <span class="kw">let </span>(owner, <span class="kw-2">mut </span>config_str) = <span class="self">self</span>.get_owner(<span class="kw-2">&amp;</span>app_yaml, <span class="kw-2">&amp;</span>app_config_path).<span class="kw">await</span><span class="question-mark">?</span>;
+        <span class="kw">let </span>(owner, <span class="kw-2">mut </span>config_str) = <span class="self">self</span>.get_owner(<span class="kw-2">&amp;</span>client, <span class="kw-2">&amp;</span>app_yaml, <span class="kw-2">&amp;</span>app_config_path).<span class="kw">await</span><span class="question-mark">?</span>;
 
         <span class="comment">// We want to allow the user to specify the app name interactively.
         </span><span class="kw">let </span>app_yaml: serde_yaml::Value = serde_yaml::from_str(<span class="kw-2">&amp;</span>config_str)<span class="question-mark">?</span>;
@@ -946,8 +968,12 @@
                     <span class="macro">format!</span>(<span class="string">&quot;Could not read file &#39;{}&#39;&quot;</span>, <span class="kw-2">&amp;</span>app_config_path.display())
                 })<span class="question-mark">?</span>;
             } <span class="kw">else </span>{
-                <span class="macro">eprintln!</span>(<span class="string">&quot;The app.yaml does not specify any app name.&quot;</span>);
-                <span class="macro">eprintln!</span>(<span class="string">&quot;Please, use the --app_name &lt;app_name&gt; to specify the name of the app.&quot;</span>);
+                <span class="kw">if </span>!<span class="self">self</span>.quiet {
+                    <span class="macro">eprintln!</span>(<span class="string">&quot;The app.yaml does not specify any app name.&quot;</span>);
+                    <span class="macro">eprintln!</span>(
+                        <span class="string">&quot;Please, use the --app_name &lt;app_name&gt; to specify the name of the app.&quot;
+                    </span>);
+                }
 
                 <span class="macro">anyhow::bail!</span>(
                     <span class="string">&quot;Cannot proceed with the deployment as the app spec in path {} does not have
@@ -971,17 +997,19 @@
         <span class="kw">let </span><span class="kw-2">mut </span>app_cfg_new = app_config.clone();
         <span class="kw">let </span>opts = <span class="kw">match </span><span class="kw-2">&amp;</span>app_cfg_new.package {
             PackageSource::Path(<span class="kw-2">ref </span>path) =&gt; {
-                <span class="macro">eprintln!</span>(
-                    <span class="string">&quot;Loading local package (manifest path: {})&quot;</span>,
-                    PathBuf::from(path)
-                        .canonicalize()<span class="question-mark">?
-                        </span>.join(<span class="string">&quot;wasmer.toml&quot;</span>)
-                        .display()
-                );
+                <span class="kw">let </span>path = PathBuf::from(path);
 
-                <span class="kw">let </span>package_id = <span class="self">self
-                    </span>.publish(<span class="kw-2">&amp;</span>client, owner.clone(), PathBuf::from(path))
-                    .<span class="kw">await</span><span class="question-mark">?</span>;
+                <span class="kw">let </span>path = <span class="kw">if </span>path.is_absolute() {
+                    path
+                } <span class="kw">else </span>{
+                    app_config_path.parent().unwrap().join(path)
+                };
+
+                <span class="kw">if </span>!<span class="self">self</span>.quiet {
+                    <span class="macro">eprintln!</span>(<span class="string">&quot;Loading local package (manifest path: {})&quot;</span>, path.display());
+                }
+
+                <span class="kw">let </span>package_id = <span class="self">self</span>.publish(<span class="kw-2">&amp;</span>client, owner.clone(), path).<span class="kw">await</span><span class="question-mark">?</span>;
 
                 app_cfg_new.package = package_id.into();
 
@@ -1005,16 +1033,20 @@
                     <span class="kw">if let </span><span class="prelude-val">Some</span>(package) = <span class="kw-2">&amp;</span>manifest.package {
                         <span class="kw">if let </span><span class="prelude-val">Some</span>(name) = <span class="kw-2">&amp;</span>package.name {
                             <span class="kw">if </span>name == <span class="kw-2">&amp;</span>n.full_name() {
-                                <span class="macro">eprintln!</span>(
-                                    <span class="string">&quot;Found local package (manifest path: {}).&quot;</span>,
-                                    manifest_path.display()
-                                );
-                                <span class="macro">eprintln!</span>(<span class="string">&quot;The `package` field in `app.yaml` specified the same named package ({}).&quot;</span>, name);
-                                <span class="macro">eprintln!</span>(<span class="string">&quot;This behaviour is deprecated.&quot;</span>);
+                                <span class="kw">if </span>!<span class="self">self</span>.quiet {
+                                    <span class="macro">eprintln!</span>(
+                                        <span class="string">&quot;Found local package (manifest path: {}).&quot;</span>,
+                                        manifest_path.display()
+                                    );
+                                    <span class="macro">eprintln!</span>(<span class="string">&quot;The `package` field in `app.yaml` specified the same named package ({}).&quot;</span>, name);
+                                    <span class="macro">eprintln!</span>(<span class="string">&quot;This behaviour is deprecated.&quot;</span>);
+                                }
 
                                 <span class="kw">let </span>theme = dialoguer::theme::ColorfulTheme::default();
                                 <span class="kw">if </span><span class="self">self</span>.non_interactive {
-                                    <span class="macro">eprintln!</span>(<span class="string">&quot;Hint: replace `package: {}` with `package: .` to replicate the intended behaviour.&quot;</span>, n);
+                                    <span class="kw">if </span>!<span class="self">self</span>.quiet {
+                                        <span class="macro">eprintln!</span>(<span class="string">&quot;Hint: replace `package: {}` with `package: .` to replicate the intended behaviour.&quot;</span>, n);
+                                    }
                                     <span class="macro">anyhow::bail!</span>(<span class="string">&quot;deprecated deploy behaviour&quot;</span>)
                                 } <span class="kw">else if </span>Confirm::with_theme(<span class="kw-2">&amp;</span>theme)
                                     .with_prompt(<span class="string">&quot;Change package to &#39;.&#39; in app.yaml?&quot;</span>)
@@ -1054,10 +1086,11 @@
                                         wait,
                                     }
                                 } <span class="kw">else </span>{
-                                    <span class="macro">eprintln!</span>(
+                                    <span class="kw">if </span>!<span class="self">self</span>.quiet {
+                                        <span class="macro">eprintln!</span>(
                                         <span class="string">&quot;{}: the package will not be published and the deployment will fail if the package does not already exist.&quot;</span>,
-                                        <span class="string">&quot;Warning&quot;</span>.yellow().bold()
-                                    );
+                                        <span class="string">&quot;Warning&quot;</span>.yellow().bold());
+                                    }
                                     DeployAppOpts {
                                         app: <span class="kw-2">&amp;</span>app_config,
                                         original_config: <span class="prelude-val">Some</span>(
@@ -1135,7 +1168,9 @@
             app.name.bold().to_string()
         };
 
-        <span class="macro">eprintln!</span>(<span class="string">&quot;\nDeploying app {} to Wasmer Edge...\n&quot;</span>, pretty_name);
+        <span class="kw">if </span>!<span class="self">self</span>.quiet {
+            <span class="macro">eprintln!</span>(<span class="string">&quot;\nDeploying app {} to Wasmer Edge...\n&quot;</span>, pretty_name);
+        }
 
         <span class="kw">let </span>app_version = deploy_app(<span class="kw-2">&amp;</span>client, opts.clone()).<span class="kw">await</span><span class="question-mark">?</span>;
 
@@ -1164,7 +1199,7 @@
             })<span class="question-mark">?</span>;
         }
 
-        wait_app(<span class="kw-2">&amp;</span>client, opts.clone(), app_version.clone()).<span class="kw">await</span><span class="question-mark">?</span>;
+        wait_app(<span class="kw-2">&amp;</span>client, opts.clone(), app_version.clone(), <span class="self">self</span>.quiet).<span class="kw">await</span><span class="question-mark">?</span>;
 
         <span class="kw">if </span><span class="self">self</span>.fmt.format == <span class="kw">crate</span>::utils::render::ItemFormat::Json {
             <span class="macro">println!</span>(<span class="string">&quot;{}&quot;</span>, serde_json::to_string_pretty(<span class="kw-2">&amp;</span>app_version)<span class="question-mark">?</span>);
@@ -1232,6 +1267,7 @@
     client: <span class="kw-2">&amp;</span>WasmerClient,
     opts: DeployAppOpts&lt;<span class="lifetime">&#39;_</span>&gt;,
     version: DeployAppVersion,
+    quiet: bool,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;(DeployApp, DeployAppVersion), anyhow::Error&gt; {
     <span class="kw">let </span>wait = opts.wait;
     <span class="kw">let </span>make_default = opts.make_default;
@@ -1248,22 +1284,26 @@
         .<span class="kw">await
         </span>.context(<span class="string">&quot;could not fetch app from backend&quot;</span>)<span class="question-mark">?</span>;
 
-    <span class="macro">eprintln!</span>(
-        <span class="string">&quot;App {} ({}) was successfully deployed 🚀&quot;</span>,
-        app.name.bold(),
-        app.owner.global_name.bold()
-    );
-    <span class="macro">eprintln!</span>(<span class="string">&quot;{}&quot;</span>, app.url.blue().bold().underline());
-    <span class="macro">eprintln!</span>();
-    <span class="macro">eprintln!</span>(<span class="string">&quot;→ Unique URL: {}&quot;</span>, version.url);
-    <span class="macro">eprintln!</span>(<span class="string">&quot;→ Dashboard:  {}&quot;</span>, app.admin_url);
+    <span class="kw">if </span>!quiet {
+        <span class="macro">eprintln!</span>(
+            <span class="string">&quot;App {} ({}) was successfully deployed 🚀&quot;</span>,
+            app.name.bold(),
+            app.owner.global_name.bold()
+        );
+        <span class="macro">eprintln!</span>(<span class="string">&quot;{}&quot;</span>, app.url.blue().bold().underline());
+        <span class="macro">eprintln!</span>();
+        <span class="macro">eprintln!</span>(<span class="string">&quot;→ Unique URL: {}&quot;</span>, version.url);
+        <span class="macro">eprintln!</span>(<span class="string">&quot;→ Dashboard:  {}&quot;</span>, app.admin_url);
+    }
 
     <span class="kw">match </span>wait {
         WaitMode::Deployed =&gt; {}
         WaitMode::Reachable =&gt; {
-            <span class="macro">eprintln!</span>();
-            <span class="macro">eprintln!</span>(<span class="string">&quot;Waiting for new deployment to become available...&quot;</span>);
-            <span class="macro">eprintln!</span>(<span class="string">&quot;(You can safely stop waiting now with CTRL-C)&quot;</span>);
+            <span class="kw">if </span>!quiet {
+                <span class="macro">eprintln!</span>();
+                <span class="macro">eprintln!</span>(<span class="string">&quot;Waiting for new deployment to become available...&quot;</span>);
+                <span class="macro">eprintln!</span>(<span class="string">&quot;(You can safely stop waiting now with CTRL-C)&quot;</span>);
+            }
 
             <span class="kw">let </span>stderr = std::io::stderr();
 
@@ -1278,13 +1318,18 @@
             <span class="kw">loop </span>{
                 <span class="kw">let </span>total_elapsed = start.elapsed();
                 <span class="kw">if </span>total_elapsed &gt; Duration::from_secs(<span class="number">60 </span>* <span class="number">5</span>) {
-                    <span class="macro">eprintln!</span>();
+                    <span class="kw">if </span>!quiet {
+                        <span class="macro">eprintln!</span>();
+                    }
                     <span class="macro">anyhow::bail!</span>(<span class="string">&quot;\nApp still not reachable after 5 minutes...&quot;</span>);
                 }
 
                 {
                     <span class="kw">let </span><span class="kw-2">mut </span>lock = stderr.lock();
-                    <span class="macro">write!</span>(<span class="kw-2">&amp;mut </span>lock, <span class="string">&quot;.&quot;</span>).unwrap();
+
+                    <span class="kw">if </span>!quiet {
+                        <span class="macro">write!</span>(<span class="kw-2">&amp;mut </span>lock, <span class="string">&quot;.&quot;</span>).unwrap();
+                    }
                     lock.flush().unwrap();
                 }
 
@@ -1299,8 +1344,13 @@
                             .unwrap_or_default();
 
                         <span class="kw">if </span>header == version.id.inner() {
-                            <span class="macro">eprintln!</span>(<span class="string">&quot;\nNew version is now reachable at {check_url}&quot;</span>);
-                            <span class="macro">eprintln!</span>(<span class="string">&quot;{} Deployment complete&quot;</span>, <span class="string">&quot;✔&quot;</span>.green().bold());
+                            <span class="kw">if </span>!quiet {
+                                <span class="macro">eprintln!</span>();
+                            }
+                            <span class="macro">eprintln!</span>(
+                                <span class="string">&quot;{} Deployment complete, new version reachable at {check_url}&quot;</span>,
+                                <span class="string">&quot;𖥔&quot;</span>.yellow().bold()
+                            );
                             <span class="kw">break</span>;
                         }
 

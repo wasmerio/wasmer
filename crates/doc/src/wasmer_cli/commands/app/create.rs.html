@@ -837,6 +837,7 @@
 <a href="#837" id="837">837</a>
 <a href="#838" id="838">838</a>
 <a href="#839" id="839">839</a>
+<a href="#840" id="840">840</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Create a new Edge app.
 
 </span><span class="kw">use crate</span>::{
@@ -1205,6 +1206,7 @@
                     .interact()<span class="question-mark">?</span>)
         {
             <span class="kw">let </span>cmd_deploy = CmdAppDeploy {
+                quiet: <span class="bool-val">false</span>,
                 api: <span class="self">self</span>.api.clone(),
                 env: <span class="self">self</span>.env.clone(),
                 fmt: ItemFormatOpts {
