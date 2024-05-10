@@ -2890,7 +2890,7 @@
 
         <span class="kw">if </span>errno != Errno::Success {
             <span class="kw">let </span>exit_code = ExitCode::from(errno);
-            ctx.data().on_exit(<span class="prelude-val">Some</span>(exit_code));
+            ctx.data().blocking_on_exit(<span class="prelude-val">Some</span>(exit_code));
             <span class="kw">return </span><span class="prelude-val">Err</span>(exit_code);
         }
     }
