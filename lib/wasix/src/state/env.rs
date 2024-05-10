@@ -60,6 +60,15 @@ pub struct WasiInstanceHandles {
     /// Points to the current location of the memory stack pointer
     pub(crate) stack_pointer: Option<Global>,
 
+    /// Points to the end of the data section
+    pub(crate) data_end: Option<Global>,
+
+    /// Points to the lower end of the stack
+    pub(crate) stack_low: Option<Global>,
+
+    /// Points to the higher end of the stack
+    pub(crate) stack_high: Option<Global>,
+
     /// Main function that will be invoked (name = "_start")
     #[derivative(Debug = "ignore")]
     pub(crate) start: Option<TypedFunction<(), ()>>,
@@ -139,6 +148,21 @@ impl WasiInstanceHandles {
             stack_pointer: instance
                 .exports
                 .get_global("__stack_pointer")
+                .map(|a| a.clone())
+                .ok(),
+            data_end: instance
+                .exports
+                .get_global("__data_end")
+                .map(|a| a.clone())
+                .ok(),
+            stack_low: instance
+                .exports
+                .get_global("__stack_low")
+                .map(|a| a.clone())
+                .ok(),
+            stack_high: instance
+                .exports
+                .get_global("__stack_high")
                 .map(|a| a.clone())
                 .ok(),
             start: instance.exports.get_typed_function(store, "_start").ok(),

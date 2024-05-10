@@ -56,6 +56,30 @@ pub enum PackageCheckMode {
     MustNotExist,
 }
 
+/// Ask a user for a package version.
+///
+/// Will continue looping until the user provides a valid version.
+pub fn prompt_for_package_version(
+    message: &str,
+    default: Option<&str>,
+) -> Result<semver::Version, anyhow::Error> {
+    loop {
+        let theme = ColorfulTheme::default();
+        let raw: String = dialoguer::Input::with_theme(&theme)
+            .with_prompt(message)
+            .with_initial_text(default.unwrap_or_default())
+            .interact_text()
+            .context("could not read user input")?;
+
+        match raw.parse::<semver::Version>() {
+            Ok(p) => break Ok(p),
+            Err(err) => {
+                eprintln!("invalid package version: {err}");
+            }
+        }
+    }
+}
+
 /// Ask for a package name.
 ///
 /// Will continue looping until the user provides a valid name.
