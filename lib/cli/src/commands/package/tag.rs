@@ -492,14 +492,11 @@ impl AsyncCliCommand for PackageTag {
 
         match id {
             PackageIdent::Named(ref n) => {
-                eprintln!(
-                    "{} Check out the package's page at {}",
-                    "✔".green().bold(),
-                    format!("https://wasmer.io/{}", n.build_identifier()).bold()
-                );
+                let url = make_package_url(&client, n);
+                eprintln!("{} Package URL: {url}", "𖥔".yellow().bold());
             }
             PackageIdent::Hash(ref h) => {
-                eprintln!("{} Succesfully tagget package {h}", "✔".green().bold(),);
+                eprintln!("{} Succesfully tagged package ({h})", "✔".green().bold());
             }
         }
 

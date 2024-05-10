@@ -10,7 +10,7 @@ use std::{
     path::{Path, PathBuf},
 };
 use wasmer_api::WasmerClient;
-use wasmer_config::package::{Manifest, PackageHash};
+use wasmer_config::package::{Manifest, NamedPackageIdent, PackageHash};
 use webc::wasmer_package::Package;
 
 pub mod macros;
@@ -206,4 +206,21 @@ pub(super) async fn login_user(
     }
 
     api.client()
+}
+
+pub(super) fn make_package_url(client: &WasmerClient, pkg: &NamedPackageIdent) -> String {
+    let host = client.graphql_endpoint().domain().unwrap_or("wasmer.io");
+
+    // Our special cases..
+    let host = match host {
+        _ if host.contains("wasmer.wtf") => "wasmer.wtf",
+        _ if host.contains("wasmer.io") => "wasmer.io",
+        _ => host,
+    };
+
+    format!(
+        "https://{host}/{}@{}",
+        pkg.full_name(),
+        pkg.version_or_default().to_string().replace('=', "")
+    )
 }

@@ -149,23 +149,14 @@ impl AsyncCliCommand for PackagePublish {
 
         match ident {
             PackageIdent::Named(ref n) => {
-                let host = client.graphql_endpoint().domain().unwrap_or("wasmer.io");
-
-                // Our special cases..
-                let host = match host {
-                    _ if host.contains("wasmer.wtf") => "wasmer.wtf",
-                    _ if host.contains("wasmer.io") => "wasmer.io",
-                    _ => host,
-                };
-
+                let url = make_package_url(&client, n);
                 eprintln!(
-                    "{} Check out the package's page at {}",
-                    "𖥔".green().bold(),
-                    format!("https://{host}/{}", n.build_identifier()).bold()
+                    "{} Check out the package's page at {url}",
+                    "𖥔".yellow().bold()
                 );
             }
             PackageIdent::Hash(ref h) => {
-                eprintln!("{} Succesfully published package {h}", "𖥔".green().bold(),);
+                eprintln!("{} Succesfully published package ({h})", "✔".green().bold());
             }
         }
 

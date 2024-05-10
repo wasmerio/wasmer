@@ -234,7 +234,7 @@ impl AsyncCliCommand for PackagePush {
 
                 eprintln!(
                     "{} You can now tag your package with `{}`",
-                    "✔".green().bold(),
+                    "𖥔".yellow().bold(),
                     format!(
                         "{bin_name} package tag {}{}",
                         hash,
@@ -247,10 +247,10 @@ impl AsyncCliCommand for PackagePush {
                     .bold()
                 )
             } else {
-                eprintln!("{} Succesfully pushed package {hash}", "✔".green().bold(),);
+                eprintln!("{} Succesfully pushed package ({hash})", "✔".green().bold());
             }
         } else {
-            eprintln!("{} Succesfully pushed package {hash}", "✔".green().bold(),);
+            eprintln!("{} Succesfully pushed package ({hash})", "✔".green().bold());
         }
 
         Ok(())
