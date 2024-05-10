@@ -135,6 +135,7 @@ impl CmdAppDeploy {
 
     async fn get_owner(
         &self,
+        client: &WasmerClient,
         app: &serde_yaml::Value,
         app_config_path: &PathBuf,
     ) -> anyhow::Result<(String, String)> {
@@ -153,28 +154,19 @@ impl CmdAppDeploy {
             anyhow::bail!("No owner specified: use --owner XXX");
         }
 
-        match login_user(&self.api, &self.env, !self.non_interactive, "deploy an app").await {
-            Ok(client) => {
-                let user = wasmer_api::query::current_user_with_namespaces(&client, None).await?;
-                let owner = crate::utils::prompts::prompt_for_namespace(
-                    "Who should own this app?",
-                    None,
-                    Some(&user),
-                )?;
+        let user = wasmer_api::query::current_user_with_namespaces(&client, None).await?;
+        let owner = crate::utils::prompts::prompt_for_namespace(
+            "Who should own this app?",
+            None,
+            Some(&user),
+        )?;
 
-                let new_raw_config = format!("owner: {owner}\n{r_ret}");
+        let new_raw_config = format!("owner: {owner}\n{r_ret}");
 
-                std::fs::write(app_config_path, &new_raw_config).with_context(|| {
-                    format!("Could not write file: '{}'", app_config_path.display())
-                })?;
+        std::fs::write(app_config_path, &new_raw_config)
+            .with_context(|| format!("Could not write file: '{}'", app_config_path.display()))?;
 
-                Ok((owner.clone(), new_raw_config))
-
-            }
-            Err(e) => anyhow::bail!(
-                "Can't determine user info: {e}. Please, user `wasmer login` before deploying an app or use the --owner <owner> flag to signal the owner of the app to deploy."
-            ),
-        }
+        Ok((owner.clone(), new_raw_config))
     }
     async fn create(&self) -> anyhow::Result<()> {
         eprintln!("It seems you are trying to create a new app!");
@@ -208,10 +200,8 @@ impl AsyncCliCommand for CmdAppDeploy {
     type Output = ();
 
     async fn run_async(self) -> Result<Self::Output, anyhow::Error> {
-        let client = self
-            .api
-            .client()
-            .with_context(|| "Can't begin deploy flow")?;
+        let client =
+            login_user(&self.api, &self.env, !self.non_interactive, "deploy an app").await?;
 
         let base_dir_path = self.path.clone().unwrap_or(std::env::current_dir()?);
         let (app_config_path, base_dir_path) = {
@@ -248,7 +238,7 @@ impl AsyncCliCommand for CmdAppDeploy {
 
         // We want to allow the user to specify the app name interactively.
         let app_yaml: serde_yaml::Value = serde_yaml::from_str(&config_str)?;
-        let (owner, mut config_str) = self.get_owner(&app_yaml, &app_config_path).await?;
+        let (owner, mut config_str) = self.get_owner(&client, &app_yaml, &app_config_path).await?;
 
         // We want to allow the user to specify the app name interactively.
         let app_yaml: serde_yaml::Value = serde_yaml::from_str(&config_str)?;
