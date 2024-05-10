@@ -69,7 +69,7 @@ impl Module {
         let binary = binary.into_bytes();
 
         // The module is now validated, so we can safely parse it's types
-        let mut info = crate::module_info_polyfill::translate_module(&binary[..])
+        let info = crate::module_info_polyfill::translate_module(&binary[..])
             .unwrap()
             .info;
 
