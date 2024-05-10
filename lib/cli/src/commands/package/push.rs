@@ -226,38 +226,31 @@ impl AsyncCliCommand for PackagePush {
 
         let (_, hash) = self.push(&client, &manifest, &manifest_path).await?;
 
-        if !self.quiet {
-            let bin_name = bin_name!();
-            if let Some(package) = &manifest.package {
-                if package.name.is_some() {
-                    let mut manifest_path_dir = manifest_path.clone();
-                    manifest_path_dir.pop();
+        let bin_name = bin_name!();
+        if let Some(package) = &manifest.package {
+            if package.name.is_some() {
+                let mut manifest_path_dir = manifest_path.clone();
+                manifest_path_dir.pop();
 
-                    eprintln!(
-                        "You can now tag your package with `{}`",
-                        format!(
-                            "{bin_name} package tag {}{}",
-                            hash,
-                            if manifest_path_dir.canonicalize()? == std::env::current_dir()? {
-                                String::new()
-                            } else {
-                                format!(" {}", manifest_path_dir.display())
-                            }
-                        )
-                        .bold()
-                    )
-                } else {
-                    eprintln!(
-                        "You can now run your package with `{}`",
-                        format!("{bin_name} run {}", hash).bold()
-                    );
-                }
-            } else {
                 eprintln!(
-                    "You can now run your package with `{}`",
-                    format!("{bin_name} run {}", hash).bold()
-                );
+                    "{} You can now tag your package with `{}`",
+                    "𖥔".yellow().bold(),
+                    format!(
+                        "{bin_name} package tag {}{}",
+                        hash,
+                        if manifest_path_dir.canonicalize()? == std::env::current_dir()? {
+                            String::new()
+                        } else {
+                            format!(" {}", manifest_path_dir.display())
+                        }
+                    )
+                    .bold()
+                )
+            } else {
+                eprintln!("{} Succesfully pushed package ({hash})", "✔".green().bold());
             }
+        } else {
+            eprintln!("{} Succesfully pushed package ({hash})", "✔".green().bold());
         }
 
         Ok(())

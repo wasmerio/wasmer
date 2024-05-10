@@ -490,11 +490,14 @@ impl AsyncCliCommand for PackageTag {
             .tag(&client, &manifest, &manifest_path, false, false)
             .await?;
 
-        if !self.quiet {
-            eprintln!(
-                "You can now run your package with `{}`",
-                format!("{} run {id}", bin_name!()).bold()
-            );
+        match id {
+            PackageIdent::Named(ref n) => {
+                let url = make_package_url(&client, n);
+                eprintln!("{} Package URL: {url}", "𖥔".yellow().bold());
+            }
+            PackageIdent::Hash(ref h) => {
+                eprintln!("{} Succesfully tagged package ({h})", "✔".green().bold());
+            }
         }
 
         Ok(())

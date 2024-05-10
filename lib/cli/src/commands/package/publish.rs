@@ -1,7 +1,7 @@
 use crate::{
     commands::{
         package::{
-            common::{macros::*, wait::*, *},
+            common::{wait::*, *},
             push::PackagePush,
             tag::PackageTag,
         },
@@ -147,12 +147,14 @@ impl AsyncCliCommand for PackagePublish {
             .publish(&client, &manifest_path, &manifest, false)
             .await?;
 
-        if !self.quiet && !self.non_interactive {
-            eprintln!(
-                "{} You can now run your package with {}",
-                "𖥔".green().bold(),
-                format!("`{} run {ident}`", bin_name!()).bold()
-            );
+        match ident {
+            PackageIdent::Named(ref n) => {
+                let url = make_package_url(&client, n);
+                eprintln!("{} Package URL: {url}", "𖥔".yellow().bold());
+            }
+            PackageIdent::Hash(ref h) => {
+                eprintln!("{} Succesfully published package ({h})", "✔".green().bold());
+            }
         }
 
         Ok(ident)
