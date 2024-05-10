@@ -256,13 +256,6 @@
 <a href="#256" id="256">256</a>
 <a href="#257" id="257">257</a>
 <a href="#258" id="258">258</a>
-<a href="#259" id="259">259</a>
-<a href="#260" id="260">260</a>
-<a href="#261" id="261">261</a>
-<a href="#262" id="262">262</a>
-<a href="#263" id="263">263</a>
-<a href="#264" id="264">264</a>
-<a href="#265" id="265">265</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">super</span>::common::{macros::<span class="kw-2">*</span>, wait::<span class="kw-2">*</span>, <span class="kw-2">*</span>};
 <span class="kw">use crate</span>::{
     commands::{AsyncCliCommand, PackageBuild},
@@ -491,38 +484,31 @@
 
         <span class="kw">let </span>(<span class="kw">_</span>, hash) = <span class="self">self</span>.push(<span class="kw-2">&amp;</span>client, <span class="kw-2">&amp;</span>manifest, <span class="kw-2">&amp;</span>manifest_path).<span class="kw">await</span><span class="question-mark">?</span>;
 
-        <span class="kw">if </span>!<span class="self">self</span>.quiet {
-            <span class="kw">let </span>bin_name = <span class="macro">bin_name!</span>();
-            <span class="kw">if let </span><span class="prelude-val">Some</span>(package) = <span class="kw-2">&amp;</span>manifest.package {
-                <span class="kw">if </span>package.name.is_some() {
-                    <span class="kw">let </span><span class="kw-2">mut </span>manifest_path_dir = manifest_path.clone();
-                    manifest_path_dir.pop();
+        <span class="kw">let </span>bin_name = <span class="macro">bin_name!</span>();
+        <span class="kw">if let </span><span class="prelude-val">Some</span>(package) = <span class="kw-2">&amp;</span>manifest.package {
+            <span class="kw">if </span>package.name.is_some() {
+                <span class="kw">let </span><span class="kw-2">mut </span>manifest_path_dir = manifest_path.clone();
+                manifest_path_dir.pop();
 
-                    <span class="macro">eprintln!</span>(
-                        <span class="string">&quot;You can now tag your package with `{}`&quot;</span>,
-                        <span class="macro">format!</span>(
-                            <span class="string">&quot;{bin_name} package tag {}{}&quot;</span>,
-                            hash,
-                            <span class="kw">if </span>manifest_path_dir.canonicalize()<span class="question-mark">? </span>== std::env::current_dir()<span class="question-mark">? </span>{
-                                String::new()
-                            } <span class="kw">else </span>{
-                                <span class="macro">format!</span>(<span class="string">&quot; {}&quot;</span>, manifest_path_dir.display())
-                            }
-                        )
-                        .bold()
-                    )
-                } <span class="kw">else </span>{
-                    <span class="macro">eprintln!</span>(
-                        <span class="string">&quot;You can now run your package with `{}`&quot;</span>,
-                        <span class="macro">format!</span>(<span class="string">&quot;{bin_name} run {}&quot;</span>, hash).bold()
-                    );
-                }
-            } <span class="kw">else </span>{
                 <span class="macro">eprintln!</span>(
-                    <span class="string">&quot;You can now run your package with `{}`&quot;</span>,
-                    <span class="macro">format!</span>(<span class="string">&quot;{bin_name} run {}&quot;</span>, hash).bold()
-                );
+                    <span class="string">&quot;{} You can now tag your package with `{}`&quot;</span>,
+                    <span class="string">&quot;𖥔&quot;</span>.yellow().bold(),
+                    <span class="macro">format!</span>(
+                        <span class="string">&quot;{bin_name} package tag {}{}&quot;</span>,
+                        hash,
+                        <span class="kw">if </span>manifest_path_dir.canonicalize()<span class="question-mark">? </span>== std::env::current_dir()<span class="question-mark">? </span>{
+                            String::new()
+                        } <span class="kw">else </span>{
+                            <span class="macro">format!</span>(<span class="string">&quot; {}&quot;</span>, manifest_path_dir.display())
+                        }
+                    )
+                    .bold()
+                )
+            } <span class="kw">else </span>{
+                <span class="macro">eprintln!</span>(<span class="string">&quot;{} Succesfully pushed package ({hash})&quot;</span>, <span class="string">&quot;✔&quot;</span>.green().bold());
             }
+        } <span class="kw">else </span>{
+            <span class="macro">eprintln!</span>(<span class="string">&quot;{} Succesfully pushed package ({hash})&quot;</span>, <span class="string">&quot;✔&quot;</span>.green().bold());
         }
 
         <span class="prelude-val">Ok</span>(())

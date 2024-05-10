@@ -500,6 +500,9 @@
 <a href="#500" id="500">500</a>
 <a href="#501" id="501">501</a>
 <a href="#502" id="502">502</a>
+<a href="#503" id="503">503</a>
+<a href="#504" id="504">504</a>
+<a href="#505" id="505">505</a>
 </pre></div><pre class="rust"><code><span class="kw">use crate</span>::{
     commands::{
         package::common::{macros::<span class="kw-2">*</span>, <span class="kw-2">*</span>},
@@ -992,11 +995,14 @@
             </span>.tag(<span class="kw-2">&amp;</span>client, <span class="kw-2">&amp;</span>manifest, <span class="kw-2">&amp;</span>manifest_path, <span class="bool-val">false</span>, <span class="bool-val">false</span>)
             .<span class="kw">await</span><span class="question-mark">?</span>;
 
-        <span class="kw">if </span>!<span class="self">self</span>.quiet {
-            <span class="macro">eprintln!</span>(
-                <span class="string">&quot;You can now run your package with `{}`&quot;</span>,
-                <span class="macro">format!</span>(<span class="string">&quot;{} run {id}&quot;</span>, <span class="macro">bin_name!</span>()).bold()
-            );
+        <span class="kw">match </span>id {
+            PackageIdent::Named(<span class="kw-2">ref </span>n) =&gt; {
+                <span class="kw">let </span>url = make_package_url(<span class="kw-2">&amp;</span>client, n);
+                <span class="macro">eprintln!</span>(<span class="string">&quot;{} Package URL: {url}&quot;</span>, <span class="string">&quot;𖥔&quot;</span>.yellow().bold());
+            }
+            PackageIdent::Hash(<span class="kw-2">ref </span>h) =&gt; {
+                <span class="macro">eprintln!</span>(<span class="string">&quot;{} Succesfully tagged package ({h})&quot;</span>, <span class="string">&quot;✔&quot;</span>.green().bold());
+            }
         }
 
         <span class="prelude-val">Ok</span>(())

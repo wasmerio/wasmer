@@ -207,6 +207,23 @@
 <a href="#207" id="207">207</a>
 <a href="#208" id="208">208</a>
 <a href="#209" id="209">209</a>
+<a href="#210" id="210">210</a>
+<a href="#211" id="211">211</a>
+<a href="#212" id="212">212</a>
+<a href="#213" id="213">213</a>
+<a href="#214" id="214">214</a>
+<a href="#215" id="215">215</a>
+<a href="#216" id="216">216</a>
+<a href="#217" id="217">217</a>
+<a href="#218" id="218">218</a>
+<a href="#219" id="219">219</a>
+<a href="#220" id="220">220</a>
+<a href="#221" id="221">221</a>
+<a href="#222" id="222">222</a>
+<a href="#223" id="223">223</a>
+<a href="#224" id="224">224</a>
+<a href="#225" id="225">225</a>
+<a href="#226" id="226">226</a>
 </pre></div><pre class="rust"><code><span class="kw">use crate</span>::{
     commands::Login,
     opts::{ApiOpts, WasmerEnv},
@@ -219,7 +236,7 @@
     path::{Path, PathBuf},
 };
 <span class="kw">use </span>wasmer_api::WasmerClient;
-<span class="kw">use </span>wasmer_config::package::{Manifest, PackageHash};
+<span class="kw">use </span>wasmer_config::package::{Manifest, NamedPackageIdent, PackageHash};
 <span class="kw">use </span>webc::wasmer_package::Package;
 
 <span class="kw">pub mod </span>macros;
@@ -415,5 +432,22 @@
     }
 
     api.client()
+}
+
+<span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">fn </span>make_package_url(client: <span class="kw-2">&amp;</span>WasmerClient, pkg: <span class="kw-2">&amp;</span>NamedPackageIdent) -&gt; String {
+    <span class="kw">let </span>host = client.graphql_endpoint().domain().unwrap_or(<span class="string">&quot;wasmer.io&quot;</span>);
+
+    <span class="comment">// Our special cases..
+    </span><span class="kw">let </span>host = <span class="kw">match </span>host {
+        <span class="kw">_ if </span>host.contains(<span class="string">&quot;wasmer.wtf&quot;</span>) =&gt; <span class="string">&quot;wasmer.wtf&quot;</span>,
+        <span class="kw">_ if </span>host.contains(<span class="string">&quot;wasmer.io&quot;</span>) =&gt; <span class="string">&quot;wasmer.io&quot;</span>,
+        <span class="kw">_ </span>=&gt; host,
+    };
+
+    <span class="macro">format!</span>(
+        <span class="string">&quot;https://{host}/{}@{}&quot;</span>,
+        pkg.full_name(),
+        pkg.version_or_default().to_string().replace(<span class="string">&#39;=&#39;</span>, <span class="string">&quot;&quot;</span>)
+    )
 }
 </code></pre></div></section></main></body></html>

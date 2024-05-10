@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["get_manifest","invalidate_graphql_query_cache","login_user","on_error","upload"],"mod":["macros","wait"]};
+window.SIDEBAR_ITEMS = {"fn":["get_manifest","invalidate_graphql_query_cache","login_user","make_package_url","on_error","upload"],"mod":["macros","wait"]};
