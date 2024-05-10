@@ -1,6 +1,5 @@
 use std::fmt::{self, Display, Formatter};
 
-use rand::RngCore;
 use rkyv::{Archive, CheckBytes, Deserialize as RkyvDeserialize, Serialize as RkyvSerialize};
 #[cfg(feature = "enable-serde")]
 use serde::{Deserialize, Serialize};
@@ -48,22 +47,6 @@ impl ModuleHash {
     /// Create a new [`ModuleHash`] from the raw sha256 hash.
     pub fn sha256_from_bytes(key: [u8; 32]) -> Self {
         Self::Sha256(key)
-    }
-
-    /// Creates a random xxhash for the module
-    pub fn xxhash_random() -> Self {
-        let mut rand = rand::thread_rng();
-        let mut key = [0u8; 8];
-        rand.fill_bytes(&mut key);
-        Self::xxhash_from_bytes(key)
-    }
-
-    /// Creates a random sha256 hash for the module
-    pub fn sha256_random() -> Self {
-        let mut rand = rand::thread_rng();
-        let mut key = [0u8; 32];
-        rand.fill_bytes(&mut key);
-        Self::sha256_from_bytes(key)
     }
 
     /// Parse a XXHash hash from a hex-encoded string.
