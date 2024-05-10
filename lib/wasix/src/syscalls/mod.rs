@@ -1374,7 +1374,7 @@ pub fn rewind_ext2(
 
         if errno != Errno::Success {
             let exit_code = ExitCode::from(errno);
-            ctx.data().on_exit(Some(exit_code));
+            ctx.data().blocking_on_exit(Some(exit_code));
             return Err(exit_code);
         }
     }
