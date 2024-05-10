@@ -1514,25 +1514,6 @@
 <a href="#1514" id="1514">1514</a>
 <a href="#1515" id="1515">1515</a>
 <a href="#1516" id="1516">1516</a>
-<a href="#1517" id="1517">1517</a>
-<a href="#1518" id="1518">1518</a>
-<a href="#1519" id="1519">1519</a>
-<a href="#1520" id="1520">1520</a>
-<a href="#1521" id="1521">1521</a>
-<a href="#1522" id="1522">1522</a>
-<a href="#1523" id="1523">1523</a>
-<a href="#1524" id="1524">1524</a>
-<a href="#1525" id="1525">1525</a>
-<a href="#1526" id="1526">1526</a>
-<a href="#1527" id="1527">1527</a>
-<a href="#1528" id="1528">1528</a>
-<a href="#1529" id="1529">1529</a>
-<a href="#1530" id="1530">1530</a>
-<a href="#1531" id="1531">1531</a>
-<a href="#1532" id="1532">1532</a>
-<a href="#1533" id="1533">1533</a>
-<a href="#1534" id="1534">1534</a>
-<a href="#1535" id="1535">1535</a>
 </pre></div><pre class="rust"><code><span class="attr">#![allow(unused, clippy::too_many_arguments, clippy::cognitive_complexity)]
 
 </span><span class="kw">pub mod </span>types {
@@ -2405,21 +2386,6 @@
     env.layout.stack_upper
 }
 
-<span class="kw">fn </span>get_unwind_buffer_start(env: <span class="kw-2">&amp;</span>WasiEnv) -&gt; u64 {
-    <span class="kw">let </span>stack_lower = env.layout.stack_lower;
-    <span class="kw">let </span>stack_upper = env.layout.stack_upper;
-    <span class="kw">let </span>tls_base = env.layout.tls_base;
-
-    <span class="kw">if </span>stack_upper.saturating_sub(tls_base) &lt; tls_base.saturating_sub(stack_lower) {
-        <span class="comment">// tls_base is closer to stack_upper, so we assume TLS lives at the top of the stack.
-        // This is the case for threads spawned by wasix-libc.
-        </span>stack_lower
-    } <span class="kw">else </span>{
-        <span class="comment">// Otherwise, we assume TLS lives on the bottom, in which case we have to &quot;skip&quot; it.
-        </span>tls_base + env.layout.tls_size
-    }
-}
-
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">unsafe fn </span>get_memory_stack_pointer(
     ctx: <span class="kw-2">&amp;mut </span>FunctionEnvMut&lt;<span class="lifetime">&#39;_</span>, WasiEnv&gt;,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;u64, String&gt; {
@@ -2687,7 +2653,7 @@
     <span class="kw">let </span>memory = <span class="kw">unsafe </span>{ env.memory_view(<span class="kw-2">&amp;</span>ctx) };
 
     <span class="comment">// Write the addresses to the start of the stack space
-    </span><span class="kw">let </span>unwind_pointer = get_unwind_buffer_start(env);
+    </span><span class="kw">let </span>unwind_pointer = env.layout.stack_lower;
     <span class="kw">let </span>unwind_data_start =
         unwind_pointer + (std::mem::size_of::&lt;__wasi_asyncify_t&lt;M::Offset&gt;&gt;() <span class="kw">as </span>u64);
     <span class="kw">let </span>unwind_data = __wasi_asyncify_t::&lt;M::Offset&gt; {
@@ -2723,9 +2689,6 @@
     <span class="macro">trace!</span>(
         stack_upper = env.layout.stack_upper,
         stack_lower = env.layout.stack_lower,
-        tls_base = env.layout.tls_base,
-        tls_size = env.layout.tls_size,
-        %unwind_pointer,
         <span class="string">&quot;wasi[{}:{}]::unwinding (used_stack_space={} total_stack_space={})&quot;</span>,
         ctx.data().pid(),
         ctx.data().tid(),
@@ -2749,7 +2712,6 @@
         <span class="kw">let </span>unwind_stack_finish: u64 = unwind_data_result.start.into();
         <span class="kw">let </span>unwind_size = unwind_stack_finish - unwind_stack_begin;
         <span class="macro">trace!</span>(
-            %unwind_pointer,
             <span class="string">&quot;wasi[{}:{}]::unwound (memory_stack_size={} unwind_size={})&quot;</span>,
             ctx.data().pid(),
             ctx.data().tid(),
@@ -2849,7 +2811,7 @@
     };
 
     <span class="comment">// Write the addresses to the start of the stack space
-    </span><span class="kw">let </span>rewind_pointer = get_unwind_buffer_start(env);
+    </span><span class="kw">let </span>rewind_pointer = env.layout.stack_lower;
     <span class="kw">let </span>rewind_data_start =
         rewind_pointer + (std::mem::size_of::&lt;__wasi_asyncify_t&lt;M::Offset&gt;&gt;() <span class="kw">as </span>u64);
     <span class="kw">let </span>rewind_data_end = rewind_data_start + (rewind_stack.len() <span class="kw">as </span>u64);

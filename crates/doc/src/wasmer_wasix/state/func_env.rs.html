@@ -355,12 +355,6 @@
 <a href="#355" id="355">355</a>
 <a href="#356" id="356">356</a>
 <a href="#357" id="357">357</a>
-<a href="#358" id="358">358</a>
-<a href="#359" id="359">359</a>
-<a href="#360" id="360">360</a>
-<a href="#361" id="361">361</a>
-<a href="#362" id="362">362</a>
-<a href="#363" id="363">363</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::sync::Arc;
 
 <span class="kw">use </span>tracing::trace;
@@ -387,17 +381,6 @@
 /// (this is only used for programs that have no stack pointer)
 </span><span class="kw">const </span>DEFAULT_STACK_SIZE: u64 = <span class="number">1_048_576u64</span>;
 <span class="kw">const </span>DEFAULT_STACK_BASE: u64 = DEFAULT_STACK_SIZE;
-
-<span class="doccomment">/// The default size and base address of the TLS area for modules that
-/// don&#39;t export __tls_base and __tls_size. This is the default value
-/// used by clang-15 at the time of writing this code.
-</span><span class="kw">const </span>DEFAULT_TLS_BASE: u64 = <span class="number">1024u64</span>;
-
-<span class="doccomment">/// This is merely an attempt at a guess. We&#39;re avoiding the __pthread
-/// struct that each thread has (hoping it comes first), but there&#39;s
-/// no telling how many thread statics a module has and how much space
-/// they take.
-</span><span class="kw">const </span>DEFAULT_TLS_SIZE: u64 = <span class="number">1024u64</span>;
 
 <span class="attr">#[derive(Clone, Debug)]
 </span><span class="kw">pub struct </span>WasiFunctionEnv {
@@ -521,20 +504,11 @@
             |v| <span class="prelude-val">Ok</span>(v.clone()),
         )<span class="question-mark">?</span>;
 
-        <span class="kw">let </span>tls_base = instance
-            .exports
-            .get_global(<span class="string">&quot;__tls_base&quot;</span>)
-            .map(|a| a.clone())
-            .ok();
-
-        <span class="kw">let </span>tls_size = instance
-            .exports
-            .get_global(<span class="string">&quot;__tls_size&quot;</span>)
-            .map(|a| a.clone())
-            .ok();
-
         <span class="kw">let </span>new_inner = WasiInstanceHandles::new(memory, store, instance);
         <span class="kw">let </span>stack_pointer = new_inner.stack_pointer.clone();
+        <span class="kw">let </span>data_end = new_inner.data_end.clone();
+        <span class="kw">let </span>stack_low = new_inner.stack_low.clone();
+        <span class="kw">let </span>stack_high = new_inner.stack_high.clone();
 
         <span class="kw">let </span>env = <span class="self">self</span>.data_mut(store);
         env.set_inner(new_inner);
@@ -544,7 +518,13 @@
         <span class="comment">// If the stack offset and size is not set then do so
         </span><span class="kw">if </span>update_layout {
             <span class="comment">// Set the base stack
-            </span><span class="kw">let </span>stack_base = <span class="kw">if let </span><span class="prelude-val">Some</span>(stack_pointer) = stack_pointer {
+            </span><span class="kw">let </span>stack_base = <span class="kw">if let </span><span class="prelude-val">Some</span>(stack_high) = stack_high {
+                <span class="kw">match </span>stack_high.get(store) {
+                    wasmer::Value::I32(a) =&gt; a <span class="kw">as </span>u64,
+                    wasmer::Value::I64(a) =&gt; a <span class="kw">as </span>u64,
+                    <span class="kw">_ </span>=&gt; DEFAULT_STACK_BASE,
+                }
+            } <span class="kw">else if let </span><span class="prelude-val">Some</span>(stack_pointer) = stack_pointer {
                 <span class="kw">match </span>stack_pointer.get(store) {
                     wasmer::Value::I32(a) =&gt; a <span class="kw">as </span>u64,
                     wasmer::Value::I64(a) =&gt; a <span class="kw">as </span>u64,
@@ -553,40 +533,48 @@
             } <span class="kw">else </span>{
                 DEFAULT_STACK_BASE
             };
+
             <span class="kw">if </span>stack_base == <span class="number">0 </span>{
                 <span class="kw">return </span><span class="prelude-val">Err</span>(ExportError::Missing(
-                    <span class="string">&quot;stack_pointer is not set to the upper stack range&quot;</span>.to_string(),
+                    <span class="string">&quot;stack_high or stack_pointer is not set to the upper stack range&quot;</span>.to_string(),
                 ));
             }
 
-            <span class="kw">let </span>tls_base = <span class="kw">if let </span><span class="prelude-val">Some</span>(tls_base) = tls_base {
-                <span class="kw">match </span>tls_base.get(store) {
+            <span class="kw">let </span><span class="kw-2">mut </span>stack_lower = <span class="kw">if let </span><span class="prelude-val">Some</span>(stack_low) = stack_low {
+                <span class="kw">match </span>stack_low.get(store) {
                     wasmer::Value::I32(a) =&gt; a <span class="kw">as </span>u64,
                     wasmer::Value::I64(a) =&gt; a <span class="kw">as </span>u64,
-                    <span class="kw">_ </span>=&gt; DEFAULT_TLS_BASE,
+                    <span class="kw">_ </span>=&gt; <span class="number">0</span>,
+                }
+            } <span class="kw">else if let </span><span class="prelude-val">Some</span>(data_end) = data_end {
+                <span class="kw">match </span>data_end.get(store) {
+                    wasmer::Value::I32(a) =&gt; a <span class="kw">as </span>u64,
+                    wasmer::Value::I64(a) =&gt; a <span class="kw">as </span>u64,
+                    <span class="kw">_ </span>=&gt; <span class="number">0</span>,
                 }
             } <span class="kw">else </span>{
-                DEFAULT_TLS_BASE
-            };
+                <span class="comment">// clang-16 and higher generate the `__stack_low` global, and it can be exported with
+                // `-Wl,--export=__stack_low`. clang-15 generates `__data_end`, which should be identical
+                // and can be exported if `__stack_low` is not available.
+                </span><span class="macro">tracing::warn!</span>(<span class="string">&quot;Missing both __stack_low and __data_end exports, unwinding may cause memory corruption&quot;</span>);
+                <span class="number">0
+            </span>};
 
-            <span class="kw">let </span>tls_size = <span class="kw">if let </span><span class="prelude-val">Some</span>(tls_size) = tls_size {
-                <span class="kw">match </span>tls_size.get(store) {
-                    wasmer::Value::I32(a) =&gt; a <span class="kw">as </span>u64,
-                    wasmer::Value::I64(a) =&gt; a <span class="kw">as </span>u64,
-                    <span class="kw">_ </span>=&gt; DEFAULT_TLS_SIZE,
-                }
-            } <span class="kw">else </span>{
-                DEFAULT_TLS_SIZE
-            };
+            <span class="kw">if </span>stack_lower &gt;= stack_base {
+                <span class="macro">tracing::warn!</span>(
+                    <span class="string">&quot;Detected lower end of stack to be above higher end, ignoring stack_lower; \
+                    unwinding may cause memory corruption&quot;
+                </span>);
+                stack_lower = <span class="number">0</span>;
+            }
 
             <span class="comment">// Update the stack layout which is need for asyncify
             </span><span class="kw">let </span>env = <span class="self">self</span>.data_mut(store);
             <span class="kw">let </span>tid = env.tid();
             <span class="kw">let </span>layout = <span class="kw-2">&amp;mut </span>env.layout;
             layout.stack_upper = stack_base;
+            layout.stack_lower = stack_lower;
             layout.stack_size = layout.stack_upper - layout.stack_lower;
-            layout.tls_base = tls_base;
-            layout.tls_size = tls_size;
 
             <span class="comment">// Replace the thread object itself
             </span>env.thread.set_memory_layout(layout.clone());
