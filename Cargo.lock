@@ -6017,7 +6017,7 @@ dependencies = [
 
 [[package]]
 name = "wai-bindgen-wasmer"
-version = "0.19.0"
+version = "0.20.0"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -6790,7 +6790,7 @@ version = "4.3.0"
 
 [[package]]
 name = "wasmer-journal"
-version = "0.1.3"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -6835,7 +6835,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-registry"
-version = "5.12.0"
+version = "5.13.0"
 dependencies = [
  "anyhow",
  "clap",
@@ -6883,7 +6883,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-sys-utils"
-version = "0.19.0"
+version = "0.20.0"
 dependencies = [
  "libc",
  "region",
@@ -6947,7 +6947,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-wasix"
-version = "0.19.0"
+version = "0.20.0"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -7029,7 +7029,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-wasix-types"
-version = "0.19.0"
+version = "0.20.0"
 dependencies = [
  "anyhow",
  "bitflags 1.3.2",
