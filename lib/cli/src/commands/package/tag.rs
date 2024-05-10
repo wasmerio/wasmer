@@ -490,11 +490,17 @@ impl AsyncCliCommand for PackageTag {
             .tag(&client, &manifest, &manifest_path, false, false)
             .await?;
 
-        if !self.quiet {
-            eprintln!(
-                "You can now run your package with `{}`",
-                format!("{} run {id}", bin_name!()).bold()
-            );
+        match id {
+            PackageIdent::Named(ref n) => {
+                eprintln!(
+                    "{} Check out the package's page at {}",
+                    "✔".green().bold(),
+                    format!("https://wasmer.io/{}", n.build_identifier()).bold()
+                );
+            }
+            PackageIdent::Hash(ref h) => {
+                eprintln!("{} Succesfully tagget package {h}", "✔".green().bold(),);
+            }
         }
 
         Ok(())

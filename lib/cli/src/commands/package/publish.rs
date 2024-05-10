@@ -1,7 +1,7 @@
 use crate::{
     commands::{
         package::{
-            common::{macros::*, wait::*, *},
+            common::{wait::*, *},
             push::PackagePush,
             tag::PackageTag,
         },
@@ -147,12 +147,26 @@ impl AsyncCliCommand for PackagePublish {
             .publish(&client, &manifest_path, &manifest, false)
             .await?;
 
-        if !self.quiet && !self.non_interactive {
-            eprintln!(
-                "{} You can now run your package with {}",
-                "𖥔".green().bold(),
-                format!("`{} run {ident}`", bin_name!()).bold()
-            );
+        match ident {
+            PackageIdent::Named(ref n) => {
+                let host = client.graphql_endpoint().domain().unwrap_or("wasmer.io");
+
+                // Our special cases..
+                let host = match host {
+                    _ if host.contains("wasmer.wtf") => "wasmer.wtf",
+                    _ if host.contains("wasmer.io") => "wasmer.io",
+                    _ => host,
+                };
+
+                eprintln!(
+                    "{} Check out the package's page at {}",
+                    "𖥔".green().bold(),
+                    format!("https://{host}/{}", n.build_identifier()).bold()
+                );
+            }
+            PackageIdent::Hash(ref h) => {
+                eprintln!("{} Succesfully published package {h}", "𖥔".green().bold(),);
+            }
         }
 
         Ok(ident)
