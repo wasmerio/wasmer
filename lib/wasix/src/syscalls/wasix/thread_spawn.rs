@@ -65,16 +65,11 @@ pub fn thread_spawn_internal_from_wasi<M: MemorySize>(
         let tls_base: u64 = start.tls_base.try_into().map_err(|_| Errno::Overflow)?;
         let stack_lower = stack_upper - stack_size;
 
-        // TLS size is constant
-        let tls_size = env.layout.tls_size;
-
         WasiMemoryLayout {
             stack_upper,
             stack_lower,
             guard_size,
             stack_size,
-            tls_base,
-            tls_size,
         }
     };
     tracing::trace!("spawn with layout {:?}", layout);

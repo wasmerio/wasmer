@@ -870,21 +870,6 @@ pub(crate) fn get_stack_upper(env: &WasiEnv) -> u64 {
     env.layout.stack_upper
 }
 
-fn get_unwind_buffer_start(env: &WasiEnv) -> u64 {
-    let stack_lower = env.layout.stack_lower;
-    let stack_upper = env.layout.stack_upper;
-    let tls_base = env.layout.tls_base;
-
-    if stack_upper.saturating_sub(tls_base) < tls_base.saturating_sub(stack_lower) {
-        // tls_base is closer to stack_upper, so we assume TLS lives at the top of the stack.
-        // This is the case for threads spawned by wasix-libc.
-        stack_lower
-    } else {
-        // Otherwise, we assume TLS lives on the bottom, in which case we have to "skip" it.
-        tls_base + env.layout.tls_size
-    }
-}
-
 pub(crate) unsafe fn get_memory_stack_pointer(
     ctx: &mut FunctionEnvMut<'_, WasiEnv>,
 ) -> Result<u64, String> {
@@ -1152,7 +1137,7 @@ where
     let memory = unsafe { env.memory_view(&ctx) };
 
     // Write the addresses to the start of the stack space
-    let unwind_pointer = get_unwind_buffer_start(env);
+    let unwind_pointer = env.layout.stack_lower;
     let unwind_data_start =
         unwind_pointer + (std::mem::size_of::<__wasi_asyncify_t<M::Offset>>() as u64);
     let unwind_data = __wasi_asyncify_t::<M::Offset> {
@@ -1188,9 +1173,6 @@ where
     trace!(
         stack_upper = env.layout.stack_upper,
         stack_lower = env.layout.stack_lower,
-        tls_base = env.layout.tls_base,
-        tls_size = env.layout.tls_size,
-        %unwind_pointer,
         "wasi[{}:{}]::unwinding (used_stack_space={} total_stack_space={})",
         ctx.data().pid(),
         ctx.data().tid(),
@@ -1214,7 +1196,6 @@ where
         let unwind_stack_finish: u64 = unwind_data_result.start.into();
         let unwind_size = unwind_stack_finish - unwind_stack_begin;
         trace!(
-            %unwind_pointer,
             "wasi[{}:{}]::unwound (memory_stack_size={} unwind_size={})",
             ctx.data().pid(),
             ctx.data().tid(),
@@ -1314,7 +1295,7 @@ pub fn rewind_ext<M: MemorySize>(
     };
 
     // Write the addresses to the start of the stack space
-    let rewind_pointer = get_unwind_buffer_start(env);
+    let rewind_pointer = env.layout.stack_lower;
     let rewind_data_start =
         rewind_pointer + (std::mem::size_of::<__wasi_asyncify_t<M::Offset>>() as u64);
     let rewind_data_end = rewind_data_start + (rewind_stack.len() as u64);
