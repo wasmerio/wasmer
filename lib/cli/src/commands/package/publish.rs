@@ -151,7 +151,7 @@ impl AsyncCliCommand for PackagePublish {
             PackageIdent::Named(ref n) => {
                 let url = make_package_url(&client, n);
                 eprintln!(
-                    "{} Check out the package's page at {url}",
+                    "{} Package URL: {url}",
                     "𖥔".yellow().bold()
                 );
             }
