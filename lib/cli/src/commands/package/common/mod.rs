@@ -196,7 +196,7 @@ pub(super) async fn login_user(
                 .await?;
                 // self.api = ApiOpts::default();
             } else {
-                anyhow::bail!("Stopping the push flow as the user is not logged in.")
+                anyhow::bail!("Stopping the flow as the user is not logged in.")
             }
         } else {
             let bin_name = self::macros::bin_name!();
