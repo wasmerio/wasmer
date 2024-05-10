@@ -48,6 +48,7 @@ pub fn sock_send_file<M: MemorySize>(
     Ok(Errno::Success)
 }
 
+#[allow(clippy::await_holding_lock)]
 pub(crate) fn sock_send_file_internal(
     ctx: &mut FunctionEnvMut<'_, WasiEnv>,
     sock: WasiFd,

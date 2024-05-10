@@ -117,6 +117,7 @@ pub(crate) fn fd_read_internal_handler<M: MemorySize>(
     Ok(ret)
 }
 
+#[allow(clippy::await_holding_lock)]
 pub(crate) fn fd_read_internal<M: MemorySize>(
     ctx: &mut FunctionEnvMut<'_, WasiEnv>,
     fd: WasiFd,

@@ -42,7 +42,9 @@ fn artifact_serialization_build() {
             let path = PathBuf::from("tests/integration/cli/tests/wasm").join(file_name);
             let wasm_module = fs::read(path).unwrap();
             let config = get_default_compiler_config().unwrap();
-            let engine = Engine::new(config, target.clone(), Features::default());
+            let mut engine = Engine::new(config, target.clone(), Features::default());
+
+            engine.set_hash_algorithm(Some(wasmer_types::HashAlgorithm::Sha256));
 
             let module = Module::new(&engine, wasm_module).unwrap();
             let serialized_bytes = module.serialize().unwrap();
