@@ -272,12 +272,7 @@ mod tests {
 
         let tunables = TinyTunables {};
         #[allow(deprecated)]
-        let mut engine = Engine::new(
-            compiler.into(),
-            Default::default(),
-            Default::default(),
-            None,
-        );
+        let mut engine = Engine::new(compiler.into(), Default::default(), Default::default());
         engine.set_tunables(tunables);
         let mut store = Store::new(engine);
         //let mut store = Store::new(compiler);
@@ -456,12 +451,7 @@ mod tests {
 
         let tunables = TinyTunables {};
         #[allow(deprecated)]
-        let mut engine = Engine::new(
-            compiler.into(),
-            Default::default(),
-            Default::default(),
-            None,
-        );
+        let mut engine = Engine::new(compiler.into(), Default::default(), Default::default());
         engine.set_tunables(tunables);
         let mut store = Store::new(engine);
         let module = Module::new(&store, wasm_bytes)?;

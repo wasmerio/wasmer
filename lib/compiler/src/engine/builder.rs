@@ -64,7 +64,11 @@ impl EngineBuilder {
             let features = self
                 .features
                 .unwrap_or_else(|| compiler_config.default_features_for_target(&target));
-            Engine::new(compiler_config, target, features, self.hash_algorithm)
+            let mut engine = Engine::new(compiler_config, target, features);
+
+            engine.set_hash_algorithm(self.hash_algorithm);
+
+            engine
         } else {
             Engine::headless()
         }

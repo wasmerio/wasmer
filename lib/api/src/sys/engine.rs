@@ -55,12 +55,7 @@ pub(crate) fn default_engine() -> Engine {
 pub trait NativeEngineExt {
     /// Create a new `Engine` with the given config
     #[cfg(feature = "compiler")]
-    fn new(
-        compiler_config: Box<dyn CompilerConfig>,
-        target: Target,
-        features: Features,
-        hash_algorithm: Option<HashAlgorithm>,
-    ) -> Self;
+    fn new(compiler_config: Box<dyn CompilerConfig>, target: Target, features: Features) -> Self;
 
     /// Sets the hash algorithm
     fn set_hash_algorithm(&mut self, hash_algorithm: Option<HashAlgorithm>);
@@ -112,18 +107,8 @@ pub trait NativeEngineExt {
 
 impl NativeEngineExt for crate::engine::Engine {
     #[cfg(feature = "compiler")]
-    fn new(
-        compiler_config: Box<dyn CompilerConfig>,
-        target: Target,
-        features: Features,
-        hash_algorithm: Option<HashAlgorithm>,
-    ) -> Self {
-        Self(Engine::new(
-            compiler_config,
-            target,
-            features,
-            hash_algorithm,
-        ))
+    fn new(compiler_config: Box<dyn CompilerConfig>, target: Target, features: Features) -> Self {
+        Self(Engine::new(compiler_config, target, features))
     }
 
     fn headless() -> Self {

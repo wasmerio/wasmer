@@ -54,7 +54,6 @@ impl Engine {
         compiler_config: Box<dyn CompilerConfig>,
         target: Target,
         features: Features,
-        hash_algorithm: Option<HashAlgorithm>,
     ) -> Self {
         #[cfg(not(target_arch = "wasm32"))]
         let tunables = BaseTunables::for_target(&target);
@@ -74,7 +73,7 @@ impl Engine {
             #[cfg(not(target_arch = "wasm32"))]
             tunables: Arc::new(tunables),
             name,
-            hash_algorithm,
+            hash_algorithm: None,
         }
     }
 

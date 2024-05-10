@@ -22,8 +22,8 @@ use sha2::{Digest, Sha256};
 use tempfile::NamedTempFile;
 use url::Url;
 use wasmer::{
-    DeserializeError, Engine, Function, Imports, Instance, Module, Store, Type, TypedFunction,
-    Value,
+    DeserializeError, Engine, Function, Imports, Instance, Module, NativeEngineExt, Store, Type,
+    TypedFunction, Value,
 };
 #[cfg(feature = "compiler")]
 use wasmer_compiler::ArtifactBuild;
@@ -125,12 +125,9 @@ impl Run {
         let hash_algorithm = self.hash_algorithm.unwrap_or_default().into();
         engine.set_hash_algorithm(Some(hash_algorithm));
 
-        let runtime = self.wasi.prepare_runtime(
-            engine,
-            &self.env,
-            runtime,
-            preferred_webc_version,
-        )?;
+        let runtime =
+            self.wasi
+                .prepare_runtime(engine, &self.env, runtime, preferred_webc_version)?;
 
         // This is a slow operation, so let's temporarily wrap the runtime with
         // something that displays progress
