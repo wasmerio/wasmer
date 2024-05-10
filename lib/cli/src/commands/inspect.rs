@@ -32,9 +32,12 @@ impl Inspect {
     fn inner_execute(&self) -> Result<()> {
         let (store, _compiler_type) = self.store.get_store()?;
 
-        let mut engine = store.engine().clone();
-        let hash_algorithm = self.hash_algorithm.unwrap_or_default().into();
-        engine.set_hash_algorithm(Some(hash_algorithm));
+        #[cfg(feature = "sys")]
+        {
+            let mut engine = store.engine().clone();
+            let hash_algorithm = self.hash_algorithm.unwrap_or_default().into();
+            engine.set_hash_algorithm(Some(hash_algorithm));
+        }
 
         let module_contents = std::fs::read(&self.path)?;
         let iswasm = is_wasm(&module_contents);

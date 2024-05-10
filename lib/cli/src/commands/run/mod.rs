@@ -21,10 +21,13 @@ use once_cell::sync::Lazy;
 use sha2::{Digest, Sha256};
 use tempfile::NamedTempFile;
 use url::Url;
+#[cfg(feature = "sys")]
+use wasmer::NativeEngineExt;
 use wasmer::{
-    DeserializeError, Engine, Function, Imports, Instance, Module, NativeEngineExt, Store, Type,
-    TypedFunction, Value,
+    DeserializeError, Engine, Function, Imports, Instance, Module, Store, Type, TypedFunction,
+    Value,
 };
+
 #[cfg(feature = "compiler")]
 use wasmer_compiler::ArtifactBuild;
 use wasmer_config::package::PackageSource as PackageSpecifier;
@@ -121,9 +124,16 @@ impl Run {
         let _guard = handle.enter();
         let (store, _) = self.store.get_store()?;
 
-        let mut engine = store.engine().clone();
-        let hash_algorithm = self.hash_algorithm.unwrap_or_default().into();
-        engine.set_hash_algorithm(Some(hash_algorithm));
+        #[cfg(feature = "sys")]
+        let engine = {
+            let mut engine = store.engine().clone();
+            let hash_algorithm = self.hash_algorithm.unwrap_or_default().into();
+            engine.set_hash_algorithm(Some(hash_algorithm));
+
+            engine
+        };
+        #[cfg(not(feature = "sys"))]
+        let engine = store.engine().clone();
 
         let runtime =
             self.wasi
