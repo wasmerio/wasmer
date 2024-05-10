@@ -29,9 +29,9 @@ fn copy_dir_all(src: impl AsRef<Path>, dst: impl AsRef<Path>) -> std::io::Result
 #[test]
 fn wasmer_deploy_php() -> anyhow::Result<()> {
     // Only run this test in the CI
-    // if std::env::var("GITHUB_TOKEN").is_err() {
-    //     return Ok(());
-    // }
+    if std::env::var("GITHUB_TOKEN").is_err() {
+        return Ok(());
+    }
 
     let wapm_dev_token = std::env::var("WAPM_DEV_TOKEN").ok();
 
@@ -94,10 +94,10 @@ fn wasmer_deploy_php() -> anyhow::Result<()> {
 
 #[test]
 fn wasmer_deploy_static_website() -> anyhow::Result<()> {
-    // Only run this test in the CI
-    //if std::env::var("GITHUB_TOKEN").is_err() {
-    //    return Ok(());
-    //}
+     Only run this test in the CI
+    if std::env::var("GITHUB_TOKEN").is_err() {
+        return Ok(());
+    }
 
     let wapm_dev_token = std::env::var("WAPM_DEV_TOKEN").ok();
 
