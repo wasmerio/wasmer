@@ -4,10 +4,8 @@ pub mod resolver;
 pub mod task_manager;
 
 pub use self::task_manager::{SpawnMemoryType, VirtualTaskManager};
-use self::{
-    module_cache::{CacheError, ModuleHash},
-    task_manager::InlineWaker,
-};
+use self::{module_cache::CacheError, task_manager::InlineWaker};
+use wasmer_types::ModuleHash;
 
 use std::{
     fmt,

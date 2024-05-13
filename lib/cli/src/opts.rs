@@ -4,11 +4,38 @@ use anyhow::Context;
 use wasmer_api::WasmerClient;
 use wasmer_registry::WasmerConfig;
 
+fn parse_registry_url(registry: &str) -> Result<url::Url, String> {
+    if let Ok(mut url) = url::Url::parse(registry) {
+        // Looks like we've got a valid URL. Let's try to use it as-is.
+        if url.has_host() {
+            if url.path() == "/" {
+                // make sure we convert http://registry.wasmer.io/ to
+                // http://registry.wasmer.io/graphql
+                url.set_path("/graphql");
+            }
+
+            return Ok(url);
+        }
+    }
+
+    let raw_registry = if !registry.contains("://") && !registry.contains('/') {
+        if registry.contains("localhost") {
+            format!("http://{registry}/graphql")
+        } else {
+            format!("https://registry.{registry}/graphql")
+        }
+    } else {
+        registry.to_string()
+    };
+
+    url::Url::parse(&raw_registry).map_err(|e| e.to_string())
+}
+
 #[derive(clap::Parser, Debug, Clone, Default)]
 pub struct ApiOpts {
     #[clap(long, env = "WASMER_TOKEN")]
     pub token: Option<String>,
-    #[clap(long)]
+    #[clap(long, value_parser = parse_registry_url)]
     pub registry: Option<url::Url>,
 }
 

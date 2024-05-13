@@ -34,11 +34,12 @@ use crate::{
         process::{WasiProcess, WasiProcessId},
         thread::{WasiMemoryLayout, WasiThread, WasiThreadHandle, WasiThreadId},
     },
-    runtime::{module_cache::ModuleHash, task_manager::InlineWaker, SpawnMemoryType},
+    runtime::{task_manager::InlineWaker, SpawnMemoryType},
     syscalls::platform_clock_time_get,
     Runtime, VirtualTaskManager, WasiControlPlane, WasiEnvBuilder, WasiError, WasiFunctionEnv,
     WasiResult, WasiRuntimeError, WasiStateCreationError, WasiVFork,
 };
+use wasmer_types::ModuleHash;
 
 pub(crate) use super::handles::*;
 use super::WasiState;

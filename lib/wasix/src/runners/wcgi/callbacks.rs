@@ -3,9 +3,9 @@ use std::{collections::HashMap, sync::Arc};
 use virtual_fs::Pipe;
 use wasmer::{Memory, Module, Store};
 
-use crate::{runtime::module_cache::ModuleHash, WasiEnv};
-
 use super::{create_env::default_recycle_env, handler::SetupBuilder, *};
+use crate::WasiEnv;
+use wasmer_types::ModuleHash;
 
 /// Configuration used for creating a new environment
 pub struct CreateEnvConfig {

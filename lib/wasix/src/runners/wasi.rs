@@ -13,9 +13,10 @@ use crate::{
     capabilities::Capabilities,
     journal::{DynJournal, SnapshotTrigger},
     runners::{wasi_common::CommonWasiOptions, MappedDirectory, MountedDirectory},
-    runtime::{module_cache::ModuleHash, task_manager::VirtualTaskManagerExt},
+    runtime::task_manager::VirtualTaskManagerExt,
     Runtime, WasiEnvBuilder, WasiError, WasiRuntimeError,
 };
+use wasmer_types::ModuleHash;
 
 use super::wasi_common::MappedCommand;
 

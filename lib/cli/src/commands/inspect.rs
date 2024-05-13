@@ -27,6 +27,7 @@ impl Inspect {
 
     fn inner_execute(&self) -> Result<()> {
         let (store, _compiler_type) = self.store.get_store()?;
+
         let module_contents = std::fs::read(&self.path)?;
         let iswasm = is_wasm(&module_contents);
         let module_len = module_contents.len();

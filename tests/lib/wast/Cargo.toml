@@ -1,6 +1,6 @@
 [package]
 name = "wasmer-wast"
-version = "4.3.0-beta.1"
+version = "4.3.0"
 authors = ["Wasmer Engineering Team <engineering@wasmer.io>"]
 description = "wast testing support for wasmer"
 license = "MIT OR Apache-2.0 WITH LLVM-exception"
@@ -11,8 +11,9 @@ readme = "README.md"
 edition = "2018"
 
 [dependencies]
-wasmer-wasix = { path = "../../../lib/wasix", version="=0.19.0" }
-wasmer = { path = "../../../lib/api", version = "=4.3.0-beta.1", default-features = false }
+wasmer-types = { path = "../../../lib/types", version="=4.3.0" }
+wasmer-wasix = { path = "../../../lib/wasix", version="=0.20.0" }
+wasmer = { path = "../../../lib/api", version = "=4.3.0", default-features = false }
 virtual-fs = { path = "../../../lib/virtual-fs", version = "0.11.4" }
 
 anyhow = "1.0"
@@ -21,7 +22,10 @@ serde = "1"
 tempfile = "3.6.0"
 thiserror = "1.0"
 futures = "0.3"
-tokio = { version = "1", features = [ "io-util", "rt" ], default_features = false }
+tokio = { version = "1", features = [
+    "io-util",
+    "rt",
+], default_features = false }
 
 [features]
 default = ["wat"]

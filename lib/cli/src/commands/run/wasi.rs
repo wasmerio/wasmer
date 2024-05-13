@@ -15,6 +15,7 @@ use virtual_fs::{DeviceFile, FileSystem, PassthruFileSystem, RootFileSystemBuild
 use wasmer::{Engine, Function, Instance, Memory32, Memory64, Module, RuntimeError, Store, Value};
 use wasmer_config::package::PackageSource as PackageSpecifier;
 use wasmer_registry::wasmer_env::WasmerEnv;
+use wasmer_types::ModuleHash;
 #[cfg(feature = "journal")]
 use wasmer_wasix::journal::{LogFileJournal, SnapshotTrigger};
 use wasmer_wasix::{
@@ -27,7 +28,7 @@ use wasmer_wasix::{
     rewind_ext,
     runners::{MappedCommand, MappedDirectory},
     runtime::{
-        module_cache::{FileSystemCache, ModuleCache, ModuleHash},
+        module_cache::{FileSystemCache, ModuleCache},
         package_loader::{BuiltinPackageLoader, PackageLoader},
         resolver::{FileSystemSource, InMemorySource, MultiSource, Source, WapmSource, WebSource},
         task_manager::{

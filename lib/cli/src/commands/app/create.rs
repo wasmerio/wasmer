@@ -366,6 +366,7 @@ impl CmdAppCreate {
                     .interact()?)
         {
             let cmd_deploy = CmdAppDeploy {
+                quiet: false,
                 api: self.api.clone(),
                 env: self.env.clone(),
                 fmt: ItemFormatOpts {

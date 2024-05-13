@@ -18,14 +18,15 @@ use crate::{
     capabilities::Capabilities,
     fs::{WasiFs, WasiFsRoot, WasiInodes},
     os::task::control_plane::{ControlPlaneConfig, ControlPlaneError, WasiControlPlane},
-    runtime::module_cache::ModuleHash,
     state::WasiState,
     syscalls::{
         rewind_ext2,
         types::{__WASI_STDERR_FILENO, __WASI_STDIN_FILENO, __WASI_STDOUT_FILENO},
     },
+    utils::xxhash_random,
     Runtime, WasiEnv, WasiError, WasiFunctionEnv, WasiRuntimeError,
 };
+use wasmer_types::ModuleHash;
 
 use super::env::WasiEnvInit;
 
@@ -910,7 +911,7 @@ impl WasiEnvBuilder {
 
     #[allow(clippy::result_large_err)]
     pub fn build(self) -> Result<WasiEnv, WasiRuntimeError> {
-        let module_hash = self.module_hash.unwrap_or_else(ModuleHash::xxhash_random);
+        let module_hash = self.module_hash.unwrap_or_else(xxhash_random);
         let init = self.build_init()?;
         WasiEnv::from_init(init, module_hash)
     }
@@ -925,7 +926,7 @@ impl WasiEnvBuilder {
         self,
         store: &mut impl AsStoreMut,
     ) -> Result<WasiFunctionEnv, WasiRuntimeError> {
-        let module_hash = self.module_hash.unwrap_or_else(ModuleHash::xxhash_random);
+        let module_hash = self.module_hash.unwrap_or_else(xxhash_random);
         let init = self.build_init()?;
         let env = WasiEnv::from_init(init, module_hash)?;
         let func_env = WasiFunctionEnv::new(store, env);
@@ -943,7 +944,7 @@ impl WasiEnvBuilder {
         module: Module,
         store: &mut impl AsStoreMut,
     ) -> Result<(Instance, WasiFunctionEnv), WasiRuntimeError> {
-        self.instantiate_ext(module, ModuleHash::xxhash_random(), store)
+        self.instantiate_ext(module, xxhash_random(), store)
     }
 
     #[allow(clippy::result_large_err)]
@@ -959,7 +960,7 @@ impl WasiEnvBuilder {
 
     #[allow(clippy::result_large_err)]
     pub fn run(self, module: Module) -> Result<(), WasiRuntimeError> {
-        self.run_ext(module, ModuleHash::xxhash_random())
+        self.run_ext(module, xxhash_random())
     }
 
     #[allow(clippy::result_large_err)]
@@ -971,7 +972,7 @@ impl WasiEnvBuilder {
     #[allow(clippy::result_large_err)]
     #[tracing::instrument(level = "debug", skip_all)]
     pub fn run_with_store(self, module: Module, store: &mut Store) -> Result<(), WasiRuntimeError> {
-        self.run_with_store_ext(module, ModuleHash::xxhash_random(), store)
+        self.run_with_store_ext(module, xxhash_random(), store)
     }
 
     #[allow(clippy::result_large_err)]

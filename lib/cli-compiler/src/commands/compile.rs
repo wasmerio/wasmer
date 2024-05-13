@@ -59,7 +59,9 @@ impl Compile {
             })
             .unwrap_or_default();
         let (engine_builder, compiler_type) = self.store.get_engine_for_target(target.clone())?;
-        let engine = engine_builder.engine();
+        let engine = engine_builder
+            .set_hash_algorithm(Some(wasmer_types::HashAlgorithm::Sha256))
+            .engine();
         let output_filename = self
             .output
             .file_stem()
@@ -105,6 +107,7 @@ impl Compile {
             &target,
             memory_styles,
             table_styles,
+            engine.hash_algorithm(),
         )?;
         let serialized = artifact.serialize()?;
         fs::write(output_filename, serialized)?;

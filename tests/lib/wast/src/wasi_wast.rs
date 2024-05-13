@@ -13,10 +13,8 @@ use virtual_fs::{
     AsyncWriteExt, FileSystem, Pipe, ReadBuf, RootFileSystemBuilder,
 };
 use wasmer::{FunctionEnv, Imports, Module, Store};
-use wasmer_wasix::runtime::{
-    module_cache::ModuleHash,
-    task_manager::{tokio::TokioTaskManager, InlineWaker},
-};
+use wasmer_types::ModuleHash;
+use wasmer_wasix::runtime::task_manager::{tokio::TokioTaskManager, InlineWaker};
 use wasmer_wasix::types::wasi::{Filesize, Timestamp};
 use wasmer_wasix::{
     generate_import_object_from_env, get_wasi_version, FsError, PluggableRuntime, VirtualFile,
