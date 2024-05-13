@@ -6402,6 +6402,8 @@ dependencies = [
  "paste",
  "thiserror",
  "tokio 1.37.0",
+ "tracing",
+ "tracing-subscriber",
  "typetag",
  "virtual-fs",
  "wasmer",
