@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["wasmer_setup_tracing"]};

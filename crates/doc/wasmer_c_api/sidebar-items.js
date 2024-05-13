@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"mod":["error","wasm_c_api"]};
+window.SIDEBAR_ITEMS = {"mod":["error","tracing","wasm_c_api"]};
