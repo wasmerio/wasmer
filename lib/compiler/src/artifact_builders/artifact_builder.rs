@@ -24,11 +24,12 @@ use wasmer_types::CompileModuleInfo;
 use wasmer_types::DeserializeError;
 use wasmer_types::{
     CompileError, CpuFeature, CustomSection, Dwarf, FunctionIndex, LocalFunctionIndex, MemoryIndex,
-    MemoryStyle, ModuleInfo, OwnedDataInitializer, Relocation, SectionIndex, SignatureIndex,
-    TableIndex, TableStyle, Target,
+    MemoryStyle, ModuleHash, ModuleInfo, OwnedDataInitializer, Relocation, SectionIndex,
+    SignatureIndex, TableIndex, TableStyle, Target,
 };
 use wasmer_types::{
-    CompiledFunctionFrameInfo, FunctionBody, SerializableCompilation, SerializableModule,
+    CompiledFunctionFrameInfo, FunctionBody, HashAlgorithm, SerializableCompilation,
+    SerializableModule,
 };
 use wasmer_types::{MetadataHeader, SerializeError};
 
@@ -54,6 +55,7 @@ impl ArtifactBuild {
         target: &Target,
         memory_styles: PrimaryMap<MemoryIndex, MemoryStyle>,
         table_styles: PrimaryMap<TableIndex, TableStyle>,
+        hash_algorithm: Option<HashAlgorithm>,
     ) -> Result<Self, CompileError> {
         let environ = ModuleEnvironment::new();
         let features = inner_engine.features().clone();
@@ -66,6 +68,15 @@ impl ArtifactBuild {
         let mut module = translation.module;
         let middlewares = compiler.get_middlewares();
         middlewares.apply_on_module_info(&mut module);
+
+        if let Some(hash_algorithm) = hash_algorithm {
+            let hash = match hash_algorithm {
+                HashAlgorithm::Sha256 => ModuleHash::sha256(data),
+                HashAlgorithm::XXHash => ModuleHash::xxhash(data),
+            };
+
+            module.hash = Some(hash);
+        }
 
         let compile_info = CompileModuleInfo {
             module: Arc::new(module),

@@ -169,6 +169,19 @@ class Publisher:
                                 )
                             )
                         )
+                    if "dev-dependencies" in toml:
+                        acc.update(
+                            list(
+                                map(
+                                    lambda dep: dep[1]["package"]
+                                    if "package" in dep[1]
+                                    else dep[0],
+                                    filter(
+                                        check_local_dep_fn, toml["dev-dependencies"].items()
+                                    ),
+                                )
+                            )
+                        )
                     if "target" in toml:
                         stack.append(toml["target"])
                     for key, value in toml.items():

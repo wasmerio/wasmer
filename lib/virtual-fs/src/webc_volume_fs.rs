@@ -198,7 +198,13 @@ impl VirtualFile for File {
     }
 
     fn last_modified(&self) -> u64 {
-        self.timestamps.map(|t| t.modified()).unwrap_or(0)
+        self.timestamps.map(|t| t.modified()).unwrap_or_else(|| {
+            // HACK: timestamps are not present in webc v2, so we have to return
+            // a stub modified time. previously we used to just return 0, but that
+            // proved to cause problems with programs that interpret the value 0.
+            // to circumvent this problem, we decided to return a non-zero value.
+            std::time::UNIX_EPOCH.elapsed().unwrap().as_secs()
+        })
     }
 
     fn created_time(&self) -> u64 {

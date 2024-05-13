@@ -1,10 +1,17 @@
 use anyhow::{bail, Context};
+use colored::Colorize;
+use dialoguer::Confirm;
 use wasmer_api::{
     global_id::{GlobalId, NodeKind},
     types::DeployApp,
     WasmerClient,
 };
 use wasmer_config::app::AppConfigV1;
+
+use crate::{
+    commands::Login,
+    opts::{ApiOpts, WasmerEnv},
+};
 
 /// App identifier.
 ///
@@ -183,4 +190,57 @@ mod tests {
             AppIdent::NamespacedName("alpha".to_string(), "beta".to_string()),
         );
     }
+}
+
+pub(super) async fn login_user(
+    api: &ApiOpts,
+    env: &WasmerEnv,
+    interactive: bool,
+    msg: &str,
+) -> anyhow::Result<WasmerClient> {
+    if let Ok(client) = api.client() {
+        return Ok(client);
+    }
+
+    let theme = dialoguer::theme::ColorfulTheme::default();
+
+    if api.token.is_none() {
+        if interactive {
+            eprintln!(
+                "{}: You need to be logged in to {msg}.",
+                "WARN".yellow().bold()
+            );
+
+            if Confirm::with_theme(&theme)
+                .with_prompt("Do you want to login now?")
+                .interact()?
+            {
+                Login {
+                    no_browser: false,
+                    wasmer_dir: env.wasmer_dir.clone(),
+                    registry: api
+                        .registry
+                        .clone()
+                        .map(|l| wasmer_registry::wasmer_env::Registry::from(l.to_string())),
+                    token: api.token.clone(),
+                    cache_dir: Some(env.cache_dir.clone()),
+                }
+                .run_async()
+                .await?;
+                // self.api = ApiOpts::default();
+            } else {
+                anyhow::bail!("Stopping the flow as the user is not logged in.")
+            }
+        } else {
+            let bin_name = match std::env::args().next() {
+                Some(n) => n,
+                None => String::from("wasmer"),
+            };
+            eprintln!("You are not logged in. Use the `--token` flag or log in (use `{bin_name} login`) to {msg}.");
+
+            anyhow::bail!("Stopping execution as the user is not logged in.")
+        }
+    }
+
+    api.client()
 }

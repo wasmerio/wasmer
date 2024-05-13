@@ -58,6 +58,7 @@ mod initializers;
 mod libcalls;
 mod memory;
 mod module;
+mod module_hash;
 mod serialize;
 mod stack;
 mod store_id;
@@ -97,6 +98,7 @@ pub use crate::initializers::{
 };
 pub use crate::memory::{Memory32, Memory64, MemorySize};
 pub use crate::module::{ExportsIterator, ImportKey, ImportsIterator, ModuleInfo};
+pub use crate::module_hash::{HashAlgorithm, ModuleHash};
 pub use crate::units::{
     Bytes, PageCountOutOfRange, Pages, WASM_MAX_PAGES, WASM_MIN_PAGES, WASM_PAGE_SIZE,
 };

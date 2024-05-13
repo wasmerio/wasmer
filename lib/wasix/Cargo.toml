@@ -1,6 +1,6 @@
 [package]
 name = "wasmer-wasix"
-version = "0.19.0"
+version = "0.20.0"
 description = "WASI and WASIX implementation library for Wasmer WebAssembly runtime"
 categories = ["wasm", "os"]
 keywords = ["wasm", "webassembly", "wasi", "sandbox", "ABI"]
@@ -13,15 +13,15 @@ repository.workspace = true
 rust-version.workspace = true
 
 [dependencies]
-wasmer-wasix-types = { path = "../wasi-types", version = "0.18.4", features = [ "enable-serde" ] }
-wasmer-types = { path = "../types", version = "=4.3.0-alpha.1", default-features = false }
-wasmer = { path = "../api", version = "=4.3.0-alpha.1", default-features = false, features = ["wat", "js-serializable-module"] }
+wasmer-wasix-types = { path = "../wasi-types", version = "0.20.0", features = [ "enable-serde" ] }
+wasmer-types = { path = "../types", version = "=4.3.0", default-features = false }
+wasmer = { path = "../api", version = "=4.3.0", default-features = false, features = ["wat", "js-serializable-module"] }
 virtual-mio  = { path = "../virtual-io", version = "0.3.1", default-features = false }
-virtual-fs = { path = "../virtual-fs", version = "0.11.3", default-features = false, features = ["webc-fs"] }
-virtual-net = { path = "../virtual-net", version = "0.6.5", default-features = false, features = ["rkyv"] }
-wasmer-journal = { path = "../journal", version = "0.1.0", default-features = false }
-wasmer-emscripten = { path = "../emscripten", version = "=4.3.0-alpha.1", optional = true }
-wasmer-config.workspace = true
+virtual-fs = { path = "../virtual-fs", version = "0.11.4", default-features = false, features = ["webc-fs"] }
+virtual-net = { path = "../virtual-net", version = "0.6.6", default-features = false, features = ["rkyv"] }
+wasmer-journal = { path = "../journal", version = "0.2.0", default-features = false }
+wasmer-emscripten = { path = "../emscripten", version = "=4.3.0", optional = true }
+wasmer-config = { version = "0.2.0", path = "../config" }
 
 xxhash-rust = { version = "0.8.8", features = ["xxh64"] }
 rusty_pool = { version = "0.7.0", optional = true }
@@ -104,13 +104,13 @@ web-sys = { version = "0.3.64", features = [
 [target.'cfg(not(target_arch = "riscv64"))'.dependencies.reqwest]
 version = "0.11"
 default-features = false
-features = ["rustls-tls", "json", "stream", "socks"]
+features = ["rustls-tls", "json", "stream", "socks", "blocking"]
 optional = true
 
 [target.'cfg(target_arch = "riscv64")'.dependencies.reqwest]
 version = "0.11"
 default-features = false
-features = ["native-tls", "json", "stream", "socks"]
+features = ["native-tls", "json", "stream", "socks", "blocking"]
 optional = true
 
 [target.'cfg(unix)'.dependencies]
@@ -120,13 +120,13 @@ libc = { version = "^0.2", default-features = false }
 termios = { version = "0.3" }
 
 [target.'cfg(windows)'.dependencies]
-winapi = "0.3"
+winapi = { version = "0.3", features = ["sysinfoapi"] }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 terminal_size = { version = "0.3.0" }
 
 [dev-dependencies]
-wasmer = { path = "../api", version = "=4.3.0-alpha.1", default-features = false, features = ["wat", "js-serializable-module"] }
+wasmer = { path = "../api", version = "=4.3.0", default-features = false, features = ["wat", "js-serializable-module"] }
 tokio = { version = "1", features = [ "sync", "macros", "rt" ], default_features = false }
 pretty_assertions = "1.3.0"
 tracing-test = "0.2.4"
@@ -138,7 +138,7 @@ tracing-wasm = "0.2"
 
 [target.'cfg(not(target_arch = "wasm32"))'.dev-dependencies]
 tracing-subscriber = { version = "^0.3" }
-wasmer = { path = "../api", version = "=4.3.0-alpha.1", default-features = false, features = ["wat", "js-serializable-module", "cranelift"] }
+wasmer = { path = "../api", version = "=4.3.0", default-features = false, features = ["wat", "js-serializable-module", "cranelift"] }
 
 [features]
 default = ["sys-default"]

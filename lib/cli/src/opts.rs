@@ -1,13 +1,73 @@
+use std::path::PathBuf;
+
 use anyhow::Context;
 use wasmer_api::WasmerClient;
 use wasmer_registry::WasmerConfig;
+
+fn parse_registry_url(registry: &str) -> Result<url::Url, String> {
+    if let Ok(mut url) = url::Url::parse(registry) {
+        // Looks like we've got a valid URL. Let's try to use it as-is.
+        if url.has_host() {
+            if url.path() == "/" {
+                // make sure we convert http://registry.wasmer.io/ to
+                // http://registry.wasmer.io/graphql
+                url.set_path("/graphql");
+            }
+
+            return Ok(url);
+        }
+    }
+
+    let raw_registry = if !registry.contains("://") && !registry.contains('/') {
+        if registry.contains("localhost") {
+            format!("http://{registry}/graphql")
+        } else {
+            format!("https://registry.{registry}/graphql")
+        }
+    } else {
+        registry.to_string()
+    };
+
+    url::Url::parse(&raw_registry).map_err(|e| e.to_string())
+}
 
 #[derive(clap::Parser, Debug, Clone, Default)]
 pub struct ApiOpts {
     #[clap(long, env = "WASMER_TOKEN")]
     pub token: Option<String>,
-    #[clap(long)]
+    #[clap(long, value_parser = parse_registry_url)]
     pub registry: Option<url::Url>,
+}
+
+lazy_static::lazy_static! {
+    /// The default value for `$WASMER_DIR`.
+    pub static ref WASMER_DIR: PathBuf = match WasmerConfig::get_wasmer_dir() {
+        Ok(path) => path,
+        Err(e) => {
+            if let Some(install_prefix) = option_env!("WASMER_INSTALL_PREFIX") {
+                return PathBuf::from(install_prefix);
+            }
+
+            panic!("Unable to determine the wasmer dir: {e}");
+        }
+    };
+
+    /// The default value for `$WASMER_DIR`.
+    pub static ref WASMER_CACHE_DIR: PathBuf = WASMER_DIR.join("cache");
+}
+
+/// Command-line flags for determining the local "Wasmer Environment".
+///
+/// This is where you access `$WASMER_DIR`, the `$WASMER_DIR/wasmer.toml` config
+/// file, and specify the current registry.
+#[derive(Debug, Clone, PartialEq, clap::Parser, Default)]
+pub struct WasmerEnv {
+    /// Set Wasmer's home directory
+    #[clap(long, env = "WASMER_DIR", default_value = WASMER_DIR.as_os_str())]
+    pub wasmer_dir: PathBuf,
+    /// The directory cached artefacts are saved to.
+    #[clap(long, env = "WASMER_CACHE_DIR", default_value = WASMER_CACHE_DIR.as_os_str())]
+    pub cache_dir: PathBuf,
 }
 
 struct Login {

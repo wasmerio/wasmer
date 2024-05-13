@@ -142,7 +142,7 @@ pub enum SpawnError {
     /// Failed to compile the Wasmer process
     #[error("compile error")]
     CompileError {
-        module_hash: crate::runtime::module_cache::ModuleHash,
+        module_hash: wasmer_types::ModuleHash,
         error: wasmer::CompileError,
     },
     /// Invalid ABI

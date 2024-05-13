@@ -105,7 +105,7 @@ pub struct Login {
     pub token: Option<String>,
     /// The directory cached artefacts are saved to.
     #[clap(long, env = "WASMER_CACHE_DIR")]
-    cache_dir: Option<PathBuf>,
+    pub cache_dir: Option<PathBuf>,
 }
 
 impl Login {
@@ -225,9 +225,7 @@ impl Login {
         Ok((listener, server_url))
     }
 
-    /// execute [List]
-    #[tokio::main]
-    pub async fn execute(&self) -> Result<(), anyhow::Error> {
+    pub async fn run_async(&self) -> Result<(), anyhow::Error> {
         let env = self.wasmer_env();
         let registry = env.registry_endpoint()?;
 
@@ -323,6 +321,12 @@ impl Login {
             }
         };
         Ok(())
+    }
+
+    /// execute [List]
+    #[tokio::main]
+    pub async fn execute(&self) -> Result<(), anyhow::Error> {
+        self.run_async().await
     }
 }
 

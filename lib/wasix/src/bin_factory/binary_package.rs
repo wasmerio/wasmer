@@ -9,12 +9,10 @@ use wasmer_config::package::{PackageHash, PackageId, PackageSource};
 use webc::{compat::SharedBytes, Container};
 
 use crate::{
-    runtime::{
-        module_cache::ModuleHash,
-        resolver::{PackageInfo, ResolveError},
-    },
+    runtime::resolver::{PackageInfo, ResolveError},
     Runtime,
 };
+use wasmer_types::ModuleHash;
 
 #[derive(Derivative, Clone)]
 #[derivative(Debug)]
