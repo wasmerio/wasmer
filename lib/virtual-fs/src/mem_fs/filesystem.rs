@@ -479,7 +479,11 @@ impl crate::FileSystem for FileSystem {
                             maybe_position_and_inode_of_file,
                         ))
                     }
-                    InodePairResolution::SameFs(fs, p1, p2) => Either::Right((fs, p1, p2)),
+                    InodePairResolution::SameFs(fs, mut p1, mut p2) => {
+                        p1.push(name_of_from);
+                        p2.push(name_of_to);
+                        Either::Right((fs, p1, p2))
+                    }
                     InodePairResolution::DifferentFs => return Err(FsError::InvalidInput),
                 }
             } {
@@ -741,27 +745,30 @@ impl FileSystemInner {
             match (components[0].next(), components[1].next()) {
                 (Some(comp1), Some(comp2)) if comp1 == comp2 => {
                     node = match node {
+                        // The root node is alwasy a directory, so we always see a directory
+                        // before arriving at an ArcDirectory
                         Node::Directory(DirectoryNode { children, .. }) => children
                             .iter()
                             .filter_map(|inode| self.storage.get(*inode))
                             .find(|node| node.name() == comp1.as_os_str())
                             .ok_or(FsError::EntryNotFound)?,
-                        Node::ArcDirectory(ArcDirectoryNode {
-                            fs, path: fs_path, ..
-                        }) => {
-                            let mut path1 = fs_path.clone();
-                            path1.push(PathBuf::from(comp1.as_os_str()));
-                            let mut path2 = path1.clone();
-                            for component in components[0].by_ref() {
-                                path1.push(PathBuf::from(component.as_os_str()));
-                            }
-                            for component in components[1].by_ref() {
-                                path2.push(PathBuf::from(component.as_os_str()));
-                            }
-                            return Ok(InodePairResolution::SameFs(fs.clone(), path1, path2));
-                        }
                         _ => return Err(FsError::BaseNotDirectory),
                     };
+
+                    if let Node::ArcDirectory(ArcDirectoryNode {
+                        fs, path: fs_path, ..
+                    }) = node
+                    {
+                        let mut path1 = fs_path.clone();
+                        let mut path2 = path1.clone();
+                        for component in components[0].by_ref() {
+                            path1.push(PathBuf::from(component.as_os_str()));
+                        }
+                        for component in components[1].by_ref() {
+                            path2.push(PathBuf::from(component.as_os_str()));
+                        }
+                        return Ok(InodePairResolution::SameFs(fs.clone(), path1, path2));
+                    }
                 }
                 _ => break,
             };
