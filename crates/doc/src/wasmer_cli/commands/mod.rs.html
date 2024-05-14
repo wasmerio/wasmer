@@ -411,6 +411,18 @@
 <a href="#411" id="411">411</a>
 <a href="#412" id="412">412</a>
 <a href="#413" id="413">413</a>
+<a href="#414" id="414">414</a>
+<a href="#415" id="415">415</a>
+<a href="#416" id="416">416</a>
+<a href="#417" id="417">417</a>
+<a href="#418" id="418">418</a>
+<a href="#419" id="419">419</a>
+<a href="#420" id="420">420</a>
+<a href="#421" id="421">421</a>
+<a href="#422" id="422">422</a>
+<a href="#423" id="423">423</a>
+<a href="#424" id="424">424</a>
+<a href="#425" id="425">425</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! The commands available in the Wasmer binary.
 </span><span class="kw">mod </span>add;
 <span class="kw">mod </span>app;
@@ -429,6 +441,8 @@
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">mod </span>domain;
 <span class="attr">#[cfg(feature = <span class="string">&quot;static-artifact-create&quot;</span>)]
 </span><span class="kw">mod </span>gen_c_header;
+<span class="kw">mod </span>gen_completions;
+<span class="kw">mod </span>gen_manpage;
 <span class="kw">mod </span>init;
 <span class="kw">mod </span>inspect;
 <span class="attr">#[cfg(feature = <span class="string">&quot;journal&quot;</span>)]
@@ -528,6 +542,8 @@
         }
 
         <span class="kw">match </span>cmd {
+            <span class="prelude-val">Some</span>(Cmd::GenManPage(cmd)) =&gt; cmd.execute(),
+            <span class="prelude-val">Some</span>(Cmd::GenCompletions(cmd)) =&gt; cmd.execute(),
             <span class="prelude-val">Some</span>(Cmd::Run(options)) =&gt; options.execute(output),
             <span class="prelude-val">Some</span>(Cmd::SelfUpdate(options)) =&gt; options.execute(),
             <span class="prelude-val">Some</span>(Cmd::Cache(cache)) =&gt; cache.execute(),
@@ -633,7 +649,7 @@
     </span><span class="attr">#[clap(name = <span class="string">&quot;publish&quot;</span>)]
     </span>Publish(<span class="kw">crate</span>::commands::package::publish::PackagePublish),
 
-    <span class="doccomment">/// Wasmer cache
+    <span class="doccomment">/// Manage the local Wasmer cache
     </span>Cache(Cache),
 
     <span class="doccomment">/// Validate a WebAssembly binary
@@ -776,6 +792,14 @@
     <span class="doccomment">/// Manage DNS records
     </span><span class="attr">#[clap(subcommand, alias = <span class="string">&quot;domains&quot;</span>)]
     </span>Domain(<span class="kw">crate</span>::commands::domain::CmdDomain),
+
+    <span class="doccomment">/// Generate autocompletion for different shells
+    </span><span class="attr">#[clap(name = <span class="string">&quot;gen-completions&quot;</span>)]
+    </span>GenCompletions(<span class="kw">crate</span>::commands::gen_completions::CmdGenCompletions),
+
+    <span class="doccomment">/// Generate man pages
+    </span><span class="attr">#[clap(name = <span class="string">&quot;gen-man&quot;</span>, hide = <span class="bool-val">true</span>)]
+    </span>GenManPage(<span class="kw">crate</span>::commands::gen_manpage::CmdGenManPage),
 }
 
 <span class="kw">fn </span>is_binfmt_interpreter() -&gt; bool {

@@ -252,10 +252,6 @@
 <a href="#252" id="252">252</a>
 <a href="#253" id="253">253</a>
 <a href="#254" id="254">254</a>
-<a href="#255" id="255">255</a>
-<a href="#256" id="256">256</a>
-<a href="#257" id="257">257</a>
-<a href="#258" id="258">258</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">super</span>::common::{macros::<span class="kw-2">*</span>, wait::<span class="kw-2">*</span>, <span class="kw-2">*</span>};
 <span class="kw">use crate</span>::{
     commands::{AsyncCliCommand, PackageBuild},
@@ -298,10 +294,6 @@
     /// for each individual query to the registry during the publish flow.
     </span><span class="attr">#[clap(long, default_value = <span class="string">&quot;5m&quot;</span>)]
     </span><span class="kw">pub </span>timeout: humantime::Duration,
-
-    <span class="doccomment">/// Whether or not the patch field of the version of the package - if any - should be bumped.
-    </span><span class="attr">#[clap(long, conflicts_with = <span class="string">&quot;version&quot;</span>)]
-    </span><span class="kw">pub </span>bump: bool,
 
     <span class="doccomment">/// Do not prompt for user input.
     </span><span class="attr">#[clap(long, default_value_t = !std::io::stdin().is_terminal())]
