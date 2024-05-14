@@ -2024,7 +2024,7 @@
                     .run_graphql(types::GetDeployAppLogs::build(variables.clone()))
                     .<span class="kw">await</span><span class="question-mark">?
                     </span>.get_deploy_app_version
-                    .context(<span class="string">&quot;unknown package version&quot;</span>)<span class="question-mark">?</span>;
+                    .context(<span class="string">&quot;app version not found&quot;</span>)<span class="question-mark">?</span>;
 
                 <span class="kw">let </span>page: Vec&lt;<span class="kw">_</span>&gt; = deploy_app_version
                     .logs
