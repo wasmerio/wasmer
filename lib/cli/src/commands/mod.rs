@@ -16,6 +16,8 @@ mod create_obj;
 pub(crate) mod domain;
 #[cfg(feature = "static-artifact-create")]
 mod gen_c_header;
+mod gen_completions;
+mod gen_manpage;
 mod init;
 mod inspect;
 #[cfg(feature = "journal")]
@@ -115,6 +117,8 @@ impl WasmerCmd {
         }
 
         match cmd {
+            Some(Cmd::GenManPage(cmd)) => cmd.execute(),
+            Some(Cmd::GenCompletions(cmd)) => cmd.execute(),
             Some(Cmd::Run(options)) => options.execute(output),
             Some(Cmd::SelfUpdate(options)) => options.execute(),
             Some(Cmd::Cache(cache)) => cache.execute(),
@@ -220,7 +224,7 @@ enum Cmd {
     #[clap(name = "publish")]
     Publish(crate::commands::package::publish::PackagePublish),
 
-    /// Wasmer cache
+    /// Manage the local Wasmer cache
     Cache(Cache),
 
     /// Validate a WebAssembly binary
@@ -363,6 +367,14 @@ enum Cmd {
     /// Manage DNS records
     #[clap(subcommand, alias = "domains")]
     Domain(crate::commands::domain::CmdDomain),
+
+    /// Generate autocompletion for different shells
+    #[clap(name = "gen-completions")]
+    GenCompletions(crate::commands::gen_completions::CmdGenCompletions),
+
+    /// Generate man pages
+    #[clap(name = "gen-man")]
+    GenManPage(crate::commands::gen_manpage::CmdGenManPage),
 }
 
 fn is_binfmt_interpreter() -> bool {

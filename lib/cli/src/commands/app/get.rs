@@ -8,7 +8,7 @@ use crate::{
     opts::{ApiOpts, ItemFormatOpts},
 };
 
-/// Show an app.
+/// Retrieve detailed informations about an app
 #[derive(clap::Parser, Debug)]
 pub struct CmdAppGet {
     #[clap(flatten)]

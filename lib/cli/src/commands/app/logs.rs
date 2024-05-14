@@ -17,7 +17,7 @@ pub enum LogStreamArg {
     Stderr,
 }
 
-/// Show an app.
+/// Retrieve the logs of an app
 #[derive(clap::Parser, Debug)]
 pub struct CmdAppLogs {
     #[clap(flatten)]
