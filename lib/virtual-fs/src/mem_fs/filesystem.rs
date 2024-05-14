@@ -739,7 +739,11 @@ impl FileSystemInner {
                             Some(Err(FsError::DirectoryNotEmpty))
                         }
                     }
-
+                    Node::ArcDirectory(ArcDirectoryNode { name, fs, path, .. })
+                        if name.as_os_str() == name_of_directory =>
+                    {
+                        Some(Ok((0, InodeResolution::Redirect(fs.clone(), path.clone()))))
+                    }
                     _ => None,
                 })
                 .ok_or(FsError::InvalidInput)
