@@ -373,7 +373,7 @@
     ) -&gt; anyhow::Result&lt;()&gt; {
         <span class="kw">let </span>pb = <span class="macro">make_spinner!</span>(<span class="self">self</span>.quiet, <span class="string">&quot;Uploading the package to the registry..&quot;</span>);
 
-        <span class="kw">let </span>signed_url = upload(client, package_hash, <span class="self">self</span>.timeout, package).<span class="kw">await</span><span class="question-mark">?</span>;
+        <span class="kw">let </span>signed_url = upload(client, package_hash, <span class="self">self</span>.timeout, package, <span class="kw-2">&amp;</span>pb).<span class="kw">await</span><span class="question-mark">?</span>;
 
         <span class="kw">let </span>id = <span class="kw">match </span>wasmer_api::query::push_package_release(
             client,

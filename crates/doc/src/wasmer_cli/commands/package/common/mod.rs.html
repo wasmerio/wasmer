@@ -224,6 +224,14 @@
 <a href="#224" id="224">224</a>
 <a href="#225" id="225">225</a>
 <a href="#226" id="226">226</a>
+<a href="#227" id="227">227</a>
+<a href="#228" id="228">228</a>
+<a href="#229" id="229">229</a>
+<a href="#230" id="230">230</a>
+<a href="#231" id="231">231</a>
+<a href="#232" id="232">232</a>
+<a href="#233" id="233">233</a>
+<a href="#234" id="234">234</a>
 </pre></div><pre class="rust"><code><span class="kw">use crate</span>::{
     commands::Login,
     opts::{ApiOpts, WasmerEnv},
@@ -231,6 +239,7 @@
 };
 <span class="kw">use </span>colored::Colorize;
 <span class="kw">use </span>dialoguer::Confirm;
+<span class="kw">use </span>indicatif::{ProgressBar, ProgressStyle};
 <span class="kw">use </span>std::{
     collections::BTreeMap,
     path::{Path, PathBuf},
@@ -267,6 +276,7 @@
     hash: <span class="kw-2">&amp;</span>PackageHash,
     timeout: humantime::Duration,
     package: <span class="kw-2">&amp;</span>Package,
+    pb: <span class="kw-2">&amp;</span>ProgressBar,
 ) -&gt; anyhow::Result&lt;String&gt; {
     <span class="kw">let </span>hash_str = hash.to_string();
     <span class="kw">let </span>hash_str = hash_str.trim_start_matches(<span class="string">&quot;sha256:&quot;</span>);
@@ -340,6 +350,11 @@
     </span><span class="kw">let </span>bytes = package.serialize()<span class="question-mark">?</span>;
 
     <span class="kw">let </span>total_bytes = bytes.len();
+    pb.set_length(total_bytes.try_into().unwrap());
+    pb.set_style(ProgressStyle::with_template(<span class="string">&quot;{spinner:.green} [{elapsed_precise}] [{bar:.cyan/blue}] {bytes}/{total_bytes} ({bytes_per_sec}, {eta})&quot;</span>)
+                 .unwrap()
+                 .progress_chars(<span class="string">&quot;█▉▊▋▌▍▎▏  &quot;</span>)
+                 .tick_strings(<span class="kw-2">&amp;</span>[<span class="string">&quot;✶&quot;</span>, <span class="string">&quot;✸&quot;</span>, <span class="string">&quot;✹&quot;</span>, <span class="string">&quot;✺&quot;</span>, <span class="string">&quot;✹&quot;</span>, <span class="string">&quot;✷&quot;</span>]));
     <span class="macro">tracing::info!</span>(<span class="string">&quot;webc is {total_bytes} bytes long&quot;</span>);
 
     <span class="kw">let </span>chunk_size = <span class="number">1_048_576</span>; <span class="comment">// 1MB - 315s / 100MB
@@ -370,6 +385,7 @@
             })<span class="question-mark">??</span>;
 
         total_bytes_sent += n;
+        pb.set_position(total_bytes_sent.try_into().unwrap());
     }
 
     <span class="prelude-val">Ok</span>(url)
