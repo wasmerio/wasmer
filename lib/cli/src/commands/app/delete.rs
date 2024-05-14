@@ -6,7 +6,7 @@ use is_terminal::IsTerminal;
 use super::util::AppIdentOpts;
 use crate::{commands::AsyncCliCommand, opts::ApiOpts};
 
-/// Show an app.
+/// Delete an existing Edge app
 #[derive(clap::Parser, Debug)]
 pub struct CmdAppDelete {
     #[clap(flatten)]

@@ -41,10 +41,6 @@ pub struct PackagePush {
     #[clap(long, default_value = "5m")]
     pub timeout: humantime::Duration,
 
-    /// Whether or not the patch field of the version of the package - if any - should be bumped.
-    #[clap(long, conflicts_with = "version")]
-    pub bump: bool,
-
     /// Do not prompt for user input.
     #[clap(long, default_value_t = !std::io::stdin().is_terminal())]
     pub non_interactive: bool,

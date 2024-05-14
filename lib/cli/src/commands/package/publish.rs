@@ -97,7 +97,6 @@ impl PackagePublish {
                 quiet: self.quiet,
                 package_namespace: self.package_namespace.clone(),
                 timeout: self.timeout,
-                bump: self.bump,
                 non_interactive: self.non_interactive,
                 wait: self.wait,
                 package_path: self.package_path.clone(),

@@ -10,7 +10,7 @@ use crate::{
     opts::{ApiOpts, ListFormatOpts},
 };
 
-/// List apps.
+/// List apps belonging to a namespace
 #[derive(clap::Parser, Debug)]
 pub struct CmdAppList {
     #[clap(flatten)]
