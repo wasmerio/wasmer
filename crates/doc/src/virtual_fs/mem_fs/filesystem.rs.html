@@ -1873,6 +1873,10 @@
 <a href="#1873" id="1873">1873</a>
 <a href="#1874" id="1874">1874</a>
 <a href="#1875" id="1875">1875</a>
+<a href="#1876" id="1876">1876</a>
+<a href="#1877" id="1877">1877</a>
+<a href="#1878" id="1878">1878</a>
+<a href="#1879" id="1879">1879</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! This module contains the [`FileSystem`] type itself.
 
 </span><span class="kw">use </span><span class="self">self</span>::offloaded_file::OffloadBackingStore;
@@ -2614,7 +2618,11 @@
                             <span class="prelude-val">Some</span>(<span class="prelude-val">Err</span>(FsError::DirectoryNotEmpty))
                         }
                     }
-
+                    Node::ArcDirectory(ArcDirectoryNode { name, fs, path, .. })
+                        <span class="kw">if </span>name.as_os_str() == name_of_directory =&gt;
+                    {
+                        <span class="prelude-val">Some</span>(<span class="prelude-val">Ok</span>((<span class="number">0</span>, InodeResolution::Redirect(fs.clone(), path.clone()))))
+                    }
                     <span class="kw">_ </span>=&gt; <span class="prelude-val">None</span>,
                 })
                 .ok_or(FsError::InvalidInput)
