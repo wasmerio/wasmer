@@ -5,6 +5,7 @@ use crate::{
 };
 use colored::Colorize;
 use dialoguer::Confirm;
+use indicatif::{ProgressBar, ProgressStyle};
 use std::{
     collections::BTreeMap,
     path::{Path, PathBuf},
@@ -41,6 +42,7 @@ pub(super) async fn upload(
     hash: &PackageHash,
     timeout: humantime::Duration,
     package: &Package,
+    pb: &ProgressBar,
 ) -> anyhow::Result<String> {
     let hash_str = hash.to_string();
     let hash_str = hash_str.trim_start_matches("sha256:");
@@ -114,6 +116,11 @@ pub(super) async fn upload(
     let bytes = package.serialize()?;
 
     let total_bytes = bytes.len();
+    pb.set_length(total_bytes.try_into().unwrap());
+    pb.set_style(ProgressStyle::with_template("{spinner:.green} [{elapsed_precise}] [{wide_bar:.cyan/blue}] {bytes}/{total_bytes} ({bytes_per_sec}, {eta})")
+                 .unwrap()
+                 .progress_chars("█▓▒░  ")
+                 .tick_strings(&["✶", "✸", "✹", "✺", "✹", "✷"]));
     tracing::info!("webc is {total_bytes} bytes long");
 
     let chunk_size = 1_048_576; // 1MB - 315s / 100MB
@@ -144,6 +151,7 @@ pub(super) async fn upload(
             })??;
 
         total_bytes_sent += n;
+        pb.set_position(total_bytes_sent.try_into().unwrap());
     }
 
     Ok(url)
