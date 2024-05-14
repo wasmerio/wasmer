@@ -694,9 +694,6 @@
 <a href="#694" id="694">694</a>
 <a href="#695" id="695">695</a>
 <a href="#696" id="696">696</a>
-<a href="#697" id="697">697</a>
-<a href="#698" id="698">698</a>
-<a href="#699" id="699">699</a>
 </pre></div><pre class="rust"><code><span class="kw">use super</span>::{util::login_user, AsyncCliCommand};
 <span class="kw">use crate</span>::{
     commands::{app::create::CmdAppCreate, package::publish::PackagePublish, PublishWait},
@@ -818,10 +815,7 @@
                 <span class="bool-val">false </span>=&gt; PublishWait::Container,
             },
             timeout: humantime::Duration::from_str(<span class="string">&quot;2m&quot;</span>).unwrap(),
-            package_namespace: <span class="kw">match </span>manifest.package {
-                <span class="prelude-val">Some</span>(<span class="kw">_</span>) =&gt; <span class="prelude-val">None</span>,
-                <span class="prelude-val">None </span>=&gt; <span class="prelude-val">Some</span>(owner),
-            },
+            package_namespace: <span class="prelude-val">Some</span>(owner),
             non_interactive: <span class="self">self</span>.non_interactive,
             bump: <span class="self">self</span>.bump,
             api: <span class="self">self</span>.api.clone(),
