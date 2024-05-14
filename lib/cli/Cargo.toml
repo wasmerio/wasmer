@@ -169,7 +169,7 @@ bytesize = "1.0"
 cfg-if = "1.0"
 tempfile = "3.6.0"
 serde = { version = "1.0.147", features = ["derive"] }
-dirs = { version = "4.0" }
+dirs = "4.0"
 serde_json = { version = "1.0" }
 target-lexicon = { version = "0.12", features = ["std"] }
 wasmer-config = { version = "0.2.0", path = "../config" }

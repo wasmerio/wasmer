@@ -373,7 +373,7 @@ enum Cmd {
     GenCompletions(crate::commands::gen_completions::CmdGenCompletions),
 
     /// Generate man pages
-    #[clap(name = "gen-man")]
+    #[clap(name = "gen-man", hide = true)]
     GenManPage(crate::commands::gen_manpage::CmdGenManPage),
 }
 
