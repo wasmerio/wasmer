@@ -244,6 +244,18 @@
 <a href="#244" id="244">244</a>
 <a href="#245" id="245">245</a>
 <a href="#246" id="246">246</a>
+<a href="#247" id="247">247</a>
+<a href="#248" id="248">248</a>
+<a href="#249" id="249">249</a>
+<a href="#250" id="250">250</a>
+<a href="#251" id="251">251</a>
+<a href="#252" id="252">252</a>
+<a href="#253" id="253">253</a>
+<a href="#254" id="254">254</a>
+<a href="#255" id="255">255</a>
+<a href="#256" id="256">256</a>
+<a href="#257" id="257">257</a>
+<a href="#258" id="258">258</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>anyhow::{bail, Context};
 <span class="kw">use </span>colored::Colorize;
 <span class="kw">use </span>dialoguer::Confirm;
@@ -264,7 +276,10 @@
 /// Can be either a namespace/name a plain name or an app id.
 </span><span class="attr">#[derive(Debug, PartialEq, Eq, Clone)]
 </span><span class="kw">pub enum </span>AppIdent {
-    AppId(String),
+    <span class="doccomment">/// Backend app id like &quot;da_xxysw34234&quot;
+    </span>AppId(String),
+    <span class="doccomment">/// Backend app VERSION id like &quot;dav_xxysw34234&quot;
+    </span>AppVersionId(String),
     NamespacedName(String, String),
     Alias(String),
 }
@@ -276,6 +291,13 @@
             AppIdent::AppId(app_id) =&gt; wasmer_api::query::get_app_by_id(client, app_id.clone())
                 .<span class="kw">await
                 </span>.with_context(|| <span class="macro">format!</span>(<span class="string">&quot;Could not find app with id &#39;{}&#39;&quot;</span>, app_id)),
+            AppIdent::AppVersionId(id) =&gt; {
+                <span class="kw">let </span>(app, _version) =
+                    wasmer_api::query::get_app_version_by_id_with_app(client, id.clone())
+                        .<span class="kw">await
+                        </span>.with_context(|| <span class="macro">format!</span>(<span class="string">&quot;Could not query for app version id &#39;{}&#39;&quot;</span>, id))<span class="question-mark">?</span>;
+                <span class="prelude-val">Ok</span>(app)
+            }
             AppIdent::Alias(name) =&gt; wasmer_api::query::get_app_by_alias(client, name.clone())
                 .<span class="kw">await</span><span class="question-mark">?
                 </span>.with_context(|| <span class="macro">format!</span>(<span class="string">&quot;Could not find app with name &#39;{name}&#39;&quot;</span>)),
@@ -305,13 +327,15 @@
                 name.to_string(),
             ))
         } <span class="kw">else if let </span><span class="prelude-val">Ok</span>(id) = GlobalId::parse_prefixed(s) {
-            <span class="kw">if </span>id.kind() == NodeKind::DeployApp {
-                <span class="prelude-val">Ok</span>(<span class="self">Self</span>::AppId(s.to_string()))
-            } <span class="kw">else </span>{
-                <span class="macro">bail!</span>(
-                    <span class="string">&quot;invalid app identifier &#39;{s}&#39;: expected an app id, but id is of type {kind}&quot;</span>,
-                    kind = id.kind(),
-                );
+            <span class="kw">match </span>id.kind() {
+                NodeKind::DeployApp =&gt; <span class="prelude-val">Ok</span>(<span class="self">Self</span>::AppId(s.to_string())),
+                NodeKind::DeployAppVersion =&gt; <span class="prelude-val">Ok</span>(<span class="self">Self</span>::AppVersionId(s.to_string())),
+                <span class="kw">_ </span>=&gt; {
+                    <span class="macro">bail!</span>(
+                        <span class="string">&quot;invalid app identifier &#39;{s}&#39;: expected an app id, but id is of type {kind}&quot;</span>,
+                        kind = id.kind(),
+                    );
+                }
             }
         } <span class="kw">else </span>{
             <span class="prelude-val">Ok</span>(<span class="self">Self</span>::Alias(s.to_string()))
