@@ -817,7 +817,7 @@ mod queries {
         pub token: String,
     }
 
-    #[derive(cynic::Enum, Clone, Copy, Debug)]
+    #[derive(cynic::Enum, Clone, Copy, Debug, PartialEq)]
     pub enum LogStream {
         Stdout,
         Stderr,
@@ -871,6 +871,7 @@ mod queries {
         pub message: String,
         /// When the message was recorded, in nanoseconds since the Unix epoch.
         pub timestamp: f64,
+        pub stream: Option<LogStream>,
     }
 
     #[derive(cynic::QueryVariables, Debug)]
