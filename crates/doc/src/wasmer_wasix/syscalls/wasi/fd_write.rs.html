@@ -434,6 +434,19 @@
 <a href="#434" id="434">434</a>
 <a href="#435" id="435">435</a>
 <a href="#436" id="436">436</a>
+<a href="#437" id="437">437</a>
+<a href="#438" id="438">438</a>
+<a href="#439" id="439">439</a>
+<a href="#440" id="440">440</a>
+<a href="#441" id="441">441</a>
+<a href="#442" id="442">442</a>
+<a href="#443" id="443">443</a>
+<a href="#444" id="444">444</a>
+<a href="#445" id="445">445</a>
+<a href="#446" id="446">446</a>
+<a href="#447" id="447">447</a>
+<a href="#448" id="448">448</a>
+<a href="#449" id="449">449</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::task::Waker;
 
 <span class="kw">use super</span>::<span class="kw-2">*</span>;
@@ -577,7 +590,7 @@
         <span class="kw">let </span>fd_flags = fd_entry.flags;
         <span class="kw">let </span><span class="kw-2">mut </span>memory = <span class="kw">unsafe </span>{ env.memory_view(<span class="kw-2">&amp;</span>ctx) };
 
-        <span class="kw">let </span>(bytes_written, can_update_cursor, can_snapshot) = {
+        <span class="kw">let </span>(bytes_written, is_file, can_snapshot) = {
             <span class="kw">let </span>(<span class="kw-2">mut </span>memory, <span class="kw">_</span>) = <span class="kw">unsafe </span>{ env.get_memory_and_wasi_state(<span class="kw-2">&amp;</span>ctx, <span class="number">0</span>) };
             <span class="kw">let </span><span class="kw-2">mut </span>guard = fd_entry.inode.write();
             <span class="kw">match </span>guard.deref_mut() {
@@ -850,20 +863,33 @@
 
         <span class="comment">// reborrow and update the size
         </span><span class="kw">if </span>!is_stdio {
-            <span class="kw">if </span>can_update_cursor &amp;&amp; should_update_cursor {
+            <span class="kw">let </span>offset = <span class="kw">if </span>is_file &amp;&amp; should_update_cursor {
+                <span class="kw">let </span>bytes_written = bytes_written <span class="kw">as </span>u64;
                 <span class="kw">let </span><span class="kw-2">mut </span>fd_map = state.fs.fd_map.write().unwrap();
                 <span class="kw">let </span>fd_entry = <span class="macro">wasi_try_ok_ok!</span>(fd_map.get_mut(<span class="kw-2">&amp;</span>fd).ok_or(Errno::Badf));
                 fd_entry
                     .offset
-                    .fetch_add(bytes_written <span class="kw">as </span>u64, Ordering::AcqRel);
-            }
+                    .fetch_add(bytes_written, Ordering::AcqRel)
+                    <span class="comment">// fetch_add returns the previous value, we have to add bytes_written again here
+                    </span>+ bytes_written
+            } <span class="kw">else </span>{
+                fd_entry.offset.load(Ordering::Acquire)
+            };
 
             <span class="comment">// we set the size but we don&#39;t return any errors if it fails as
             // pipes and sockets will not do anything with this
             </span><span class="kw">let </span>(<span class="kw-2">mut </span>memory, <span class="kw">_</span>, inodes) =
                 <span class="kw">unsafe </span>{ env.get_memory_and_wasi_state_and_inodes(<span class="kw-2">&amp;</span>ctx, <span class="number">0</span>) };
-            <span class="comment">// Cast is valid because we don&#39;t support 128 bit systems...
-            </span>fd_entry.inode.stat.write().unwrap().st_size += bytes_written <span class="kw">as </span>u64;
+            <span class="kw">if </span>is_file {
+                <span class="kw">let </span><span class="kw-2">mut </span>stat = fd_entry.inode.stat.write().unwrap();
+                <span class="comment">// If we wrote before the end, the current size is still correct.
+                // Otherwise, we only got as far as the current cursor. So, the
+                // max of the two is the correct new size.
+                </span>stat.st_size = stat.st_size.max(offset);
+            } <span class="kw">else </span>{
+                <span class="comment">// Cast is valid because we don&#39;t support 128 bit systems...
+                </span>fd_entry.inode.stat.write().unwrap().st_size += bytes_written <span class="kw">as </span>u64;
+            }
         }
         bytes_written
     };

@@ -123,7 +123,7 @@
     fd: WasiFd,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;Filestat, Errno&gt; {
     <span class="kw">let </span>env = ctx.data();
-    <span class="kw">let </span>(<span class="kw">_</span>, <span class="kw-2">mut </span>state, inodes) = <span class="kw">unsafe </span>{ env.get_memory_and_wasi_state_and_inodes(<span class="kw-2">&amp;</span>ctx, <span class="number">0</span>) };
+    <span class="kw">let </span>(<span class="kw">_</span>, state, inodes) = <span class="kw">unsafe </span>{ env.get_memory_and_wasi_state_and_inodes(<span class="kw-2">&amp;</span>ctx, <span class="number">0</span>) };
     <span class="kw">let </span>fd_entry = state.fs.get_fd(fd)<span class="question-mark">?</span>;
     <span class="kw">if </span>!fd_entry.rights.contains(Rights::FD_FILESTAT_GET) {
         <span class="kw">return </span><span class="prelude-val">Err</span>(Errno::Access);
