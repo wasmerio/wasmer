@@ -140,7 +140,7 @@ pub fn load_package_manifest(
 //     #[allow(dead_code)]
 //     MustNotExist,
 // }
-// 
+//
 // /// Ask for a package name.
 // ///
 // /// Will continue looping until the user provides a valid name.
@@ -154,14 +154,14 @@ pub fn load_package_manifest(
 // ) -> Result<(NamedPackageIdent, Option<wasmer_api::types::Package>), anyhow::Error> {
 //     loop {
 //         let name = prompt_for_package_name(message, default)?;
-// 
+//
 //         if let Some(check) = &check {
 //             let api = client.expect("Check mode specified, but no API provided");
-// 
+//
 //             let pkg = wasmer_api::query::get_package(api, name.to_string())
 //                 .await
 //                 .context("could not query backend for package")?;
-// 
+//
 //             match check {
 //                 PackageCheckMode::MustExist => {
 //                     if let Some(pkg) = pkg {
