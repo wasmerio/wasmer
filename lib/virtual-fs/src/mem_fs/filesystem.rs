@@ -1326,6 +1326,10 @@ mod test_filesystem {
     async fn test_rename() {
         let fs = FileSystem::default();
 
+        let fs2 = FileSystem::default();
+        fs2.create_dir(path!("/boz")).unwrap();
+        let arc_fs2: Arc<dyn crate::FileSystem + Send + Sync> = Arc::new(fs2);
+
         assert_eq!(
             fs.rename(path!("/"), path!("/bar")).await,
             Err(FsError::BaseNotDirectory),
@@ -1349,30 +1353,29 @@ mod test_filesystem {
         assert_eq!(fs.create_dir(path!("/bar")), Ok(()));
 
         assert!(
-            matches!(
-                fs.new_open_options()
-                    .write(true)
-                    .create_new(true)
-                    .open(path!("/bar/hello1.txt")),
-                Ok(_),
-            ),
+            fs.new_open_options()
+                .write(true)
+                .create_new(true)
+                .open(path!("/bar/hello1.txt"))
+                .is_ok(),
             "creating a new file (`hello1.txt`)",
         );
         assert!(
-            matches!(
-                fs.new_open_options()
-                    .write(true)
-                    .create_new(true)
-                    .open(path!("/bar/hello2.txt")),
-                Ok(_),
-            ),
+            fs.new_open_options()
+                .write(true)
+                .create_new(true)
+                .open(path!("/bar/hello2.txt"))
+                .is_ok(),
             "creating a new file (`hello2.txt`)",
         );
+
+        fs.mount(path!(buf "/mnt"), &arc_fs2, path!(buf "/"))
+            .unwrap();
 
         {
             let fs_inner = fs.inner.read().unwrap();
 
-            assert_eq!(fs_inner.storage.len(), 6, "storage has all files");
+            assert_eq!(fs_inner.storage.len(), 7, "storage has all files");
             assert!(
                 matches!(
                     fs_inner.storage.get(ROOT_INODE),
@@ -1381,9 +1384,9 @@ mod test_filesystem {
                         name,
                         children,
                         ..
-                    })) if name == "/" && children == &[1, 3]
+                    })) if name == "/" && children == &[1, 3, 6]
                 ),
-                "`/` contains `foo` and `bar`",
+                "`/` contains `foo` and `bar` and `mnt`",
             );
             assert!(
                 matches!(
@@ -1459,6 +1462,17 @@ mod test_filesystem {
         );
 
         assert_eq!(
+            fs.rename(path!("/mnt/boz"), path!("/mnt/cat")).await,
+            Ok(()),
+            "renaming a directory within a mounted FS"
+        );
+
+        assert!(
+            arc_fs2.read_dir(path!("/cat")).is_ok(),
+            "The directory was renamed in the inner FS"
+        );
+
+        assert_eq!(
             fs.rename(path!("/bar/hello1.txt"), path!("/bar/world1.txt"))
                 .await,
             Ok(()),
@@ -1472,7 +1486,7 @@ mod test_filesystem {
 
             assert_eq!(
                 fs_inner.storage.len(),
-                6,
+                7,
                 "storage has still all directories"
             );
             assert!(
@@ -1483,9 +1497,9 @@ mod test_filesystem {
                         name,
                         children,
                         ..
-                    })) if name == "/" && children == &[3]
+                    })) if name == "/" && children == &[3, 6]
                 ),
-                "`/` contains `bar`",
+                "`/` contains `bar` and `mnt`",
             );
             assert!(
                 matches!(
