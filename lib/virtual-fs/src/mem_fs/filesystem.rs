@@ -459,11 +459,17 @@ impl crate::FileSystem for FileSystem {
                 // Find the parent inodes.
                 let inode_of_from_parent = match fs.inode_of_parent(parent_of_from)? {
                     InodeResolution::Found(a) => Either::Left(a),
-                    InodeResolution::Redirect(fs, path) => Either::Right((fs, path)),
+                    InodeResolution::Redirect(fs, mut path) => {
+                        path.push(&name_of_from);
+                        Either::Right((fs, path))
+                    }
                 };
                 let inode_of_to_parent = match fs.inode_of_parent(parent_of_to)? {
                     InodeResolution::Found(a) => Either::Left(a),
-                    InodeResolution::Redirect(fs, path) => Either::Right((fs, path)),
+                    InodeResolution::Redirect(fs, mut path) => {
+                        path.push(&name_of_to);
+                        Either::Right((fs, path))
+                    }
                 };
 
                 (
