@@ -144,10 +144,7 @@ impl CmdAppDeploy {
                 false => PublishWait::Container,
             },
             timeout: humantime::Duration::from_str("2m").unwrap(),
-            package_namespace: match manifest.package {
-                Some(_) => None,
-                None => Some(owner),
-            },
+            package_namespace: Some(owner),
             non_interactive: self.non_interactive,
             bump: self.bump,
             api: self.api.clone(),

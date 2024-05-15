@@ -915,7 +915,7 @@ fn get_app_logs(
                     .run_graphql(types::GetDeployAppLogs::build(variables.clone()))
                     .await?
                     .get_deploy_app_version
-                    .context("unknown package version")?;
+                    .context("app version not found")?;
 
                 let page: Vec<_> = deploy_app_version
                     .logs

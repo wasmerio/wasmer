@@ -117,9 +117,9 @@ pub(super) async fn upload(
 
     let total_bytes = bytes.len();
     pb.set_length(total_bytes.try_into().unwrap());
-    pb.set_style(ProgressStyle::with_template("{spinner:.green} [{elapsed_precise}] [{wide_bar:.cyan/blue}] {bytes}/{total_bytes} ({bytes_per_sec}, {eta})")
+    pb.set_style(ProgressStyle::with_template("{spinner:.green} [{elapsed_precise}] [{bar:.cyan/blue}] {bytes}/{total_bytes} ({bytes_per_sec}, {eta})")
                  .unwrap()
-                 .progress_chars("█▓▒░  ")
+                 .progress_chars("█▉▊▋▌▍▎▏  ")
                  .tick_strings(&["✶", "✸", "✹", "✺", "✹", "✷"]));
     tracing::info!("webc is {total_bytes} bytes long");
 
