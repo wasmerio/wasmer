@@ -41,10 +41,6 @@ pub struct PackagePush {
     #[clap(long, default_value = "5m")]
     pub timeout: humantime::Duration,
 
-    /// Whether or not the patch field of the version of the package - if any - should be bumped.
-    #[clap(long, conflicts_with = "version")]
-    pub bump: bool,
-
     /// Do not prompt for user input.
     #[clap(long, default_value_t = !std::io::stdin().is_terminal())]
     pub non_interactive: bool,
@@ -123,7 +119,7 @@ impl PackagePush {
     ) -> anyhow::Result<()> {
         let pb = make_spinner!(self.quiet, "Uploading the package to the registry..");
 
-        let signed_url = upload(client, package_hash, self.timeout, package).await?;
+        let signed_url = upload(client, package_hash, self.timeout, package, &pb).await?;
 
         let id = match wasmer_api::query::push_package_release(
             client,

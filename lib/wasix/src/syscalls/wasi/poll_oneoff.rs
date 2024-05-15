@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use wasmer_wasix_types::wasi::{SubscriptionClock, Userdata};
+use wasmer_wasix_types::wasi::{Subclockflags, SubscriptionClock, Userdata};
 
 use super::*;
 use crate::{
@@ -299,7 +299,24 @@ where
                         time_to_sleep = Duration::ZERO;
                         clock_subs.push((clock_info, s.userdata));
                     } else {
-                        time_to_sleep = Duration::from_nanos(clock_info.timeout);
+                        // if the timeout is specified as an absolute time in the future,
+                        // we should calculate the duration we need to sleep
+                        time_to_sleep = if clock_info
+                            .flags
+                            .contains(Subclockflags::SUBSCRIPTION_CLOCK_ABSTIME)
+                        {
+                            let now = wasi_try_ok!(platform_clock_time_get(
+                                Snapshot0Clockid::Monotonic,
+                                1
+                            )) as u64;
+
+                            Duration::from_nanos(clock_info.timeout)
+                                - Duration::from_nanos(now as u64)
+                        } else {
+                            // if the timeout is not absolute, just use it as duration
+                            Duration::from_nanos(clock_info.timeout)
+                        };
+
                         clock_subs.push((clock_info, s.userdata));
                     }
                     continue;
