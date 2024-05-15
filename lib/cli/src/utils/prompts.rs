@@ -2,7 +2,6 @@ use anyhow::Context;
 use colored::Colorize;
 use dialoguer::{theme::ColorfulTheme, Select};
 use wasmer_api::WasmerClient;
-use wasmer_config::package::NamedPackageIdent;
 
 pub fn prompt_for_ident(message: &str, default: Option<&str>) -> Result<String, anyhow::Error> {
     loop {
@@ -23,38 +22,38 @@ pub fn prompt_for_ident(message: &str, default: Option<&str>) -> Result<String, 
     }
 }
 
-/// Ask a user for a package name.
-///
-/// Will continue looping until the user provides a valid name.
-pub fn prompt_for_package_ident(
-    message: &str,
-    default: Option<&str>,
-) -> Result<NamedPackageIdent, anyhow::Error> {
-    loop {
-        let theme = ColorfulTheme::default();
-        let raw: String = dialoguer::Input::with_theme(&theme)
-            .with_prompt(message)
-            .with_initial_text(default.unwrap_or_default())
-            .interact_text()
-            .context("could not read user input")?;
+// /// Ask a user for a package name.
+// ///
+// /// Will continue looping until the user provides a valid name.
+// pub fn prompt_for_package_ident(
+//     message: &str,
+//     default: Option<&str>,
+// ) -> Result<NamedPackageIdent, anyhow::Error> {
+//     loop {
+//         let theme = ColorfulTheme::default();
+//         let raw: String = dialoguer::Input::with_theme(&theme)
+//             .with_prompt(message)
+//             .with_initial_text(default.unwrap_or_default())
+//             .interact_text()
+//             .context("could not read user input")?;
+// 
+//         match raw.parse::<NamedPackageIdent>() {
+//             Ok(p) => break Ok(p),
+//             Err(err) => {
+//                 eprintln!("invalid package name: {err}");
+//             }
+//         }
+//     }
+// }
 
-        match raw.parse::<NamedPackageIdent>() {
-            Ok(p) => break Ok(p),
-            Err(err) => {
-                eprintln!("invalid package name: {err}");
-            }
-        }
-    }
-}
-
-/// Defines how to check for a package.
-pub enum PackageCheckMode {
-    /// The package must exist in the registry.
-    MustExist,
-    /// The package must NOT exist in the registry.
-    #[allow(dead_code)]
-    MustNotExist,
-}
+// /// Defines how to check for a package.
+// pub enum PackageCheckMode {
+//     /// The package must exist in the registry.
+//     MustExist,
+//     /// The package must NOT exist in the registry.
+//     #[allow(dead_code)]
+//     MustNotExist,
+// }
 
 /// Ask a user for a package version.
 ///
@@ -80,51 +79,51 @@ pub fn prompt_for_package_version(
     }
 }
 
-/// Ask for a package name.
-///
-/// Will continue looping until the user provides a valid name.
-///
-/// If an API is provided, will check if the package exists.
-pub async fn prompt_for_package(
-    message: &str,
-    default: Option<&str>,
-    check: Option<PackageCheckMode>,
-    client: Option<&WasmerClient>,
-) -> Result<(NamedPackageIdent, Option<wasmer_api::types::Package>), anyhow::Error> {
-    loop {
-        let ident = prompt_for_package_ident(message, default)?;
-
-        if let Some(check) = &check {
-            let api = client.expect("Check mode specified, but no API provided");
-
-            let pkg = wasmer_api::query::get_package(api, ident.to_string())
-                .await
-                .context("could not query backend for package")?;
-
-            match check {
-                PackageCheckMode::MustExist => {
-                    if let Some(pkg) = pkg {
-                        let mut ident = ident;
-                        if let Some(v) = &pkg.last_version {
-                            ident.tag =
-                                Some(wasmer_config::package::Tag::VersionReq(v.version.parse()?));
-                        }
-                        break Ok((ident, Some(pkg)));
-                    } else {
-                        eprintln!("Package '{ident}' does not exist");
-                    }
-                }
-                PackageCheckMode::MustNotExist => {
-                    if pkg.is_none() {
-                        break Ok((ident, None));
-                    } else {
-                        eprintln!("Package '{ident}' already exists");
-                    }
-                }
-            }
-        }
-    }
-}
+// /// Ask for a package name.
+// ///
+// /// Will continue looping until the user provides a valid name.
+// ///
+// /// If an API is provided, will check if the package exists.
+// pub async fn prompt_for_package(
+//     message: &str,
+//     default: Option<&str>,
+//     check: Option<PackageCheckMode>,
+//     client: Option<&WasmerClient>,
+// ) -> Result<(NamedPackageIdent, Option<wasmer_api::types::Package>), anyhow::Error> {
+//     loop {
+//         let ident = prompt_for_package_ident(message, default)?;
+// 
+//         if let Some(check) = &check {
+//             let api = client.expect("Check mode specified, but no API provided");
+// 
+//             let pkg = wasmer_api::query::get_package(api, ident.to_string())
+//                 .await
+//                 .context("could not query backend for package")?;
+// 
+//             match check {
+//                 PackageCheckMode::MustExist => {
+//                     if let Some(pkg) = pkg {
+//                         let mut ident = ident;
+//                         if let Some(v) = &pkg.last_version {
+//                             ident.tag =
+//                                 Some(wasmer_config::package::Tag::VersionReq(v.version.parse()?));
+//                         }
+//                         break Ok((ident, Some(pkg)));
+//                     } else {
+//                         eprintln!("Package '{ident}' does not exist");
+//                     }
+//                 }
+//                 PackageCheckMode::MustNotExist => {
+//                     if pkg.is_none() {
+//                         break Ok((ident, None));
+//                     } else {
+//                         eprintln!("Package '{ident}' already exists");
+//                     }
+//                 }
+//             }
+//         }
+//     }
+// }
 
 /// Prompt for a namespace.
 ///

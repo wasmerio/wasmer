@@ -10,11 +10,8 @@ use std::{
 };
 
 use anyhow::{bail, Context as _, Result};
-use dialoguer::theme::ColorfulTheme;
 use once_cell::sync::Lazy;
 use regex::Regex;
-use wasmer_api::WasmerClient;
-use wasmer_config::package::NamedPackageIdent;
 use wasmer_wasix::runners::MappedDirectory;
 
 fn retrieve_alias_pathbuf(alias: &str, real_dir: &str) -> Result<MappedDirectory> {
@@ -111,79 +108,79 @@ pub fn load_package_manifest(
     Ok(Some((file_path, manifest)))
 }
 
-/// Ask a user for a package name.
-///
-/// Will continue looping until the user provides a valid name.
-pub fn prompt_for_package_name(
-    message: &str,
-    default: Option<&str>,
-) -> Result<NamedPackageIdent, anyhow::Error> {
-    loop {
-        let theme = ColorfulTheme::default();
-        let raw: String = dialoguer::Input::with_theme(&theme)
-            .with_prompt(message)
-            .with_initial_text(default.unwrap_or_default())
-            .interact_text()
-            .context("could not read user input")?;
+///// Ask a user for a package name.
+/////
+///// Will continue looping until the user provides a valid name.
+//pub fn prompt_for_package_name(
+//    message: &str,
+//    default: Option<&str>,
+//) -> Result<NamedPackageIdent, anyhow::Error> {
+//    loop {
+//        let theme = ColorfulTheme::default();
+//        let raw: String = dialoguer::Input::with_theme(&theme)
+//            .with_prompt(message)
+//            .with_initial_text(default.unwrap_or_default())
+//            .interact_text()
+//            .context("could not read user input")?;
+//
+//        match raw.parse::<NamedPackageIdent>() {
+//            Ok(p) => break Ok(p),
+//            Err(err) => {
+//                eprintln!("invalid package name: {err}");
+//            }
+//        }
+//    }
+//}
 
-        match raw.parse::<NamedPackageIdent>() {
-            Ok(p) => break Ok(p),
-            Err(err) => {
-                eprintln!("invalid package name: {err}");
-            }
-        }
-    }
-}
-
-/// Defines how to check for a package.
-pub enum PackageCheckMode {
-    /// The package must exist in the registry.
-    MustExist,
-    /// The package must NOT exist in the registry.
-    #[allow(dead_code)]
-    MustNotExist,
-}
-
-/// Ask for a package name.
-///
-/// Will continue looping until the user provides a valid name.
-///
-/// If an API is provided, will check if the package exists.
-pub async fn prompt_for_package(
-    message: &str,
-    default: Option<&str>,
-    check: Option<PackageCheckMode>,
-    client: Option<&WasmerClient>,
-) -> Result<(NamedPackageIdent, Option<wasmer_api::types::Package>), anyhow::Error> {
-    loop {
-        let name = prompt_for_package_name(message, default)?;
-
-        if let Some(check) = &check {
-            let api = client.expect("Check mode specified, but no API provided");
-
-            let pkg = wasmer_api::query::get_package(api, name.to_string())
-                .await
-                .context("could not query backend for package")?;
-
-            match check {
-                PackageCheckMode::MustExist => {
-                    if let Some(pkg) = pkg {
-                        break Ok((name, Some(pkg)));
-                    } else {
-                        eprintln!("Package '{name}' does not exist");
-                    }
-                }
-                PackageCheckMode::MustNotExist => {
-                    if pkg.is_none() {
-                        break Ok((name, None));
-                    } else {
-                        eprintln!("Package '{name}' already exists");
-                    }
-                }
-            }
-        }
-    }
-}
+// /// Defines how to check for a package.
+// pub enum PackageCheckMode {
+//     /// The package must exist in the registry.
+//     MustExist,
+//     /// The package must NOT exist in the registry.
+//     #[allow(dead_code)]
+//     MustNotExist,
+// }
+// 
+// /// Ask for a package name.
+// ///
+// /// Will continue looping until the user provides a valid name.
+// ///
+// /// If an API is provided, will check if the package exists.
+// pub async fn prompt_for_package(
+//     message: &str,
+//     default: Option<&str>,
+//     check: Option<PackageCheckMode>,
+//     client: Option<&WasmerClient>,
+// ) -> Result<(NamedPackageIdent, Option<wasmer_api::types::Package>), anyhow::Error> {
+//     loop {
+//         let name = prompt_for_package_name(message, default)?;
+// 
+//         if let Some(check) = &check {
+//             let api = client.expect("Check mode specified, but no API provided");
+// 
+//             let pkg = wasmer_api::query::get_package(api, name.to_string())
+//                 .await
+//                 .context("could not query backend for package")?;
+// 
+//             match check {
+//                 PackageCheckMode::MustExist => {
+//                     if let Some(pkg) = pkg {
+//                         break Ok((name, Some(pkg)));
+//                     } else {
+//                         eprintln!("Package '{name}' does not exist");
+//                     }
+//                 }
+//                 PackageCheckMode::MustNotExist => {
+//                     if pkg.is_none() {
+//                         break Ok((name, None));
+//                     } else {
+//                         eprintln!("Package '{name}' already exists");
+//                     }
+//                 }
+//             }
+//         }
+//     }
+// }
 
 // /// Republish the package described by the [`wasmer_config::package::Manifest`] given as argument and return a
 // /// [`Result<wasmer_config::package::Manifest>`].

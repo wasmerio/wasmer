@@ -12,7 +12,8 @@ use wasmer_config::package::PackageIdent;
 use crate::{
     types::{
         self, CreateNamespaceVars, DeployApp, DeployAppConnection, DeployAppVersion,
-        DeployAppVersionConnection, DnsDomain, GetCurrentUserWithAppsVars, GetDeployAppAndVersion,
+        DeployAppVersionConnection, DnsDomain, GetAppTemplateFromSlugVariables,
+        GetAppTemplatesQueryVariables, GetCurrentUserWithAppsVars, GetDeployAppAndVersion,
         GetDeployAppVersionsVars, GetNamespaceAppsVars, GetSignedUrlForPackageUploadVariables, Log,
         LogStream, PackageVersionConnection, PublishDeployAppVars, PushPackageReleasePayload,
         SignedUrl, TagPackageReleasePayload, UpsertDomainFromZoneFileVars,
@@ -53,6 +54,36 @@ pub async fn fetch_webc_package(
         .await?;
 
     webc::compat::Container::from_bytes(data).context("failed to parse webc package")
+}
+
+/// Fetch app templates.
+pub async fn fetch_app_template_from_slug(
+    client: &WasmerClient,
+    slug: String,
+) -> Result<Option<types::AppTemplate>, anyhow::Error> {
+    client
+        .run_graphql_strict(types::GetAppTemplateFromSlug::build(
+            GetAppTemplateFromSlugVariables { slug },
+        ))
+        .await
+        .map(|v| v.get_app_template)
+}
+
+/// Fetch app templates.
+pub async fn fetch_app_templates(
+    client: &WasmerClient,
+    category_slug: String,
+    first: i32,
+) -> Result<Option<types::AppTemplateConnection>, anyhow::Error> {
+    client
+        .run_graphql_strict(types::GetAppTemplatesQuery::build(
+            GetAppTemplatesQueryVariables {
+                category_slug,
+                first,
+            },
+        ))
+        .await
+        .map(|r| r.get_app_templates)
 }
 
 /// Get a signed URL to upload packages.

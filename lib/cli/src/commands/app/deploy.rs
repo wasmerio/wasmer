@@ -76,7 +76,7 @@ pub struct CmdAppDeploy {
     /// If specified via this flag, the app_name will be overridden. Otherwise, the `app.yaml` is
     /// inspected and, if there is no `name` field in the spec file, if running interactive the
     /// user will be prompted to insert an app name, otherwise the deployment will fail.
-    #[clap(long)]
+    #[clap(long, name = "name")]
     pub app_name: Option<String>,
 
     /// Whether or not to automatically bump the package version if publishing.
@@ -89,6 +89,31 @@ pub struct CmdAppDeploy {
     /// operation.
     #[clap(long)]
     pub quiet: bool,
+
+    // - App creation -
+    /// A reference to the template to use when creating an app to deploy.
+    ///
+    /// It can be either an URL to a github repository - like
+    /// `https://github.com/wasmer-examples/php-wasmer-starter` -  or the name of a template that
+    /// will be searched for in the selected registry, like `astro-starter`.
+    #[clap(
+        long,
+        conflicts_with = "package",
+        conflicts_with = "use_local_manifest"
+    )]
+    pub template: Option<String>,
+
+    /// Name of the package to use when creating an app to deploy.
+    #[clap(
+        long,
+        conflicts_with = "template",
+        conflicts_with = "use_local_manifest"
+    )]
+    pub package: Option<String>,
+
+    /// Whether or not to search (and use) a local manifest when creating an app to deploy.
+    #[clap(long, conflicts_with = "template", conflicts_with = "package")]
+    pub use_local_manifest: bool,
 }
 
 impl CmdAppDeploy {
@@ -172,7 +197,7 @@ impl CmdAppDeploy {
         eprintln!("It seems you are trying to create a new app!");
 
         let create_cmd = CmdAppCreate {
-            template: None,
+            quiet: self.quiet,
             deploy_app: false,
             no_validate: false,
             non_interactive: false,
@@ -185,9 +210,10 @@ impl CmdAppDeploy {
             fmt: ItemFormatOpts {
                 format: self.fmt.format,
             },
-            package: None,
+            package: self.package.clone(),
+            template: self.template.clone(),
             app_dir_path: None,
-            use_local_manifest: false,
+            use_local_manifest: self.use_local_manifest,
             new_package_name: None,
         };
 
