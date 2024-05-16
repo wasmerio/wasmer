@@ -3,6 +3,7 @@ use crate::{
     commands::{AsyncCliCommand, PackageBuild},
     opts::{ApiOpts, WasmerEnv},
 };
+use anyhow::Context;
 use colored::Colorize;
 use is_terminal::IsTerminal;
 use std::path::{Path, PathBuf};
@@ -156,7 +157,9 @@ impl PackagePush {
     ) -> anyhow::Result<(String, PackageHash)> {
         tracing::info!("Building package");
         let pb = make_spinner!(self.quiet, "Creating the package locally...");
-        let (package, hash) = PackageBuild::check(manifest_path.to_path_buf()).execute()?;
+        let (package, hash) = PackageBuild::check(manifest_path.to_path_buf())
+            .execute()
+            .context("While trying to build the package locally")?;
 
         spinner_ok!(pb, "Correctly built package locally");
         tracing::info!("Package has hash: {hash}");

@@ -117,17 +117,15 @@ pub(super) async fn upload(
 
     let total_bytes = bytes.len();
     pb.set_length(total_bytes.try_into().unwrap());
-    pb.set_style(ProgressStyle::with_template("{spinner:.green} [{elapsed_precise}] [{bar:.cyan/blue}] {bytes}/{total_bytes} ({bytes_per_sec}, {eta})")
+    pb.set_style(ProgressStyle::with_template("{spinner:.yellow} [{elapsed_precise}] [{bar:.cyan/blue}] {bytes}/{total_bytes} ({bytes_per_sec}, {eta})")
                  .unwrap()
                  .progress_chars("█▉▊▋▌▍▎▏  ")
                  .tick_strings(&["✶", "✸", "✹", "✺", "✹", "✷"]));
     tracing::info!("webc is {total_bytes} bytes long");
 
-    let chunk_size = 1_048_576; // 1MB - 315s / 100MB
+    let chunk_size = (total_bytes / 20).min(1_048_576);
     let chunks = bytes.chunks(chunk_size);
     let mut total_bytes_sent = 0;
-
-    let client = reqwest::Client::builder().build().unwrap();
 
     for chunk in chunks {
         let n = chunk.len();

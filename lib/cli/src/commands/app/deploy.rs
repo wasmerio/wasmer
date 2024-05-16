@@ -45,9 +45,9 @@ pub struct CmdAppDeploy {
     #[clap(long)]
     pub publish_package: bool,
 
-    /// The path to the app.yaml file.
+    /// The path to the directory containing the `app.yaml` file.
     #[clap(long)]
-    pub path: Option<PathBuf>,
+    pub dir: Option<PathBuf>,
 
     /// Do not wait for the app to become reachable.
     #[clap(long)]
@@ -199,8 +199,8 @@ impl CmdAppDeploy {
             no_validate: false,
             non_interactive: false,
             offline: false,
-            owner: None,
-            app_name: None,
+            owner: self.owner.clone(),
+            app_name: self.app_name.clone(),
             no_wait: self.no_wait,
             api: self.api.clone(),
             env: self.env.clone(),
@@ -209,7 +209,7 @@ impl CmdAppDeploy {
             },
             package: self.package.clone(),
             template: self.template.clone(),
-            app_dir_path: None,
+            app_dir_path: self.dir.clone(),
             use_local_manifest: self.use_local_manifest,
             new_package_name: None,
         };
@@ -226,7 +226,7 @@ impl AsyncCliCommand for CmdAppDeploy {
         let client =
             login_user(&self.api, &self.env, !self.non_interactive, "deploy an app").await?;
 
-        let base_dir_path = self.path.clone().unwrap_or(std::env::current_dir()?);
+        let base_dir_path = self.dir.clone().unwrap_or(std::env::current_dir()?);
         let (app_config_path, base_dir_path) = {
             if base_dir_path.is_file() {
                 (
@@ -242,16 +242,13 @@ impl AsyncCliCommand for CmdAppDeploy {
             }
         };
 
-        if !app_config_path.is_file() {
-            if !self.non_interactive {
-                // Create already points back to deploy.
-                return self.create().await;
-            } else {
-                anyhow::bail!(
-                    "Cannot deploy app as no app.yaml was found in path '{}'",
-                    app_config_path.display()
-                )
-            }
+        if !app_config_path.is_file()
+            || self.template.is_some()
+            || self.package.is_some()
+            || self.use_local_manifest
+        {
+            // Create already points back to deploy.
+            return self.create().await;
         }
 
         assert!(app_config_path.is_file());

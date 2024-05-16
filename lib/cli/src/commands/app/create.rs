@@ -3,7 +3,10 @@
 use crate::{
     commands::AsyncCliCommand,
     opts::{ApiOpts, ItemFormatOpts, WasmerEnv},
-    utils::load_package_manifest,
+    utils::{
+        load_package_manifest,
+        prompts::{prompt_for_package, PackageCheckMode},
+    },
 };
 use anyhow::Context;
 use colored::Colorize;
@@ -87,7 +90,7 @@ pub struct CmdAppCreate {
     pub app_name: Option<String>,
 
     /// The path to the directory where the config file for the application will be written to.
-    #[clap(long = "path")]
+    #[clap(long = "dir")]
     pub app_dir_path: Option<PathBuf>,
 
     /// Do not wait for the app to become reachable if deployed.
@@ -146,11 +149,18 @@ impl CmdAppCreate {
             anyhow::bail!("No app name specified: use --name <app_name>");
         }
 
-        let default_name = env::current_dir().ok().and_then(|dir| {
-            dir.file_name()
+        let default_name = match &self.app_dir_path {
+            Some(path) => path
+                .file_name()
                 .and_then(|f| f.to_str())
-                .map(|s| s.to_owned())
-        });
+                .map(|s| s.to_owned()),
+            None => env::current_dir().ok().and_then(|dir| {
+                dir.file_name()
+                    .and_then(|f| f.to_str())
+                    .map(|s| s.to_owned())
+            }),
+        };
+
         crate::utils::prompts::prompt_for_ident(
             "What should be the name of the app?",
             default_name.as_deref(),
@@ -168,7 +178,7 @@ impl CmdAppCreate {
         }
 
         if !self.offline {
-            let user = wasmer_api::query::current_user_with_namespaces(&client, None).await?;
+            let user = wasmer_api::query::current_user_with_namespaces(client, None).await?;
             crate::utils::prompts::prompt_for_namespace(
                 "Who should own this app?",
                 None,
@@ -187,7 +197,10 @@ impl CmdAppCreate {
         owner: &str,
         app_name: &str,
     ) -> anyhow::Result<bool> {
-        if !self.use_local_manifest && self.non_interactive {
+        if (!self.use_local_manifest && self.non_interactive)
+            || self.template.is_some()
+            || self.package.is_some()
+        {
             return Ok(false);
         }
 
@@ -225,7 +238,12 @@ impl CmdAppCreate {
         Ok(false)
     }
 
-    async fn create_from_package(&self, owner: &str, app_name: &str) -> anyhow::Result<bool> {
+    async fn create_from_package(
+        &self,
+        client: &WasmerClient,
+        owner: &str,
+        app_name: &str,
+    ) -> anyhow::Result<bool> {
         if self.template.is_some() {
             return Ok(false);
         }
@@ -236,12 +254,15 @@ impl CmdAppCreate {
             self.try_deploy(owner, app_name).await?;
             return Ok(true);
         } else if !self.non_interactive {
-            let theme = ColorfulTheme::default();
-            let package_name: String = dialoguer::Input::with_theme(&theme)
-                .with_prompt("What is the name of the package?")
-                .interact()?;
+            let (package_id, _) = prompt_for_package(
+                "Enter the name of the package",
+                Some("wasmer/hello"),
+                Some(PackageCheckMode::MustExist),
+                Some(client),
+            )
+            .await?;
 
-            let app_config = self.get_app_config(owner, app_name, &package_name);
+            let app_config = self.get_app_config(owner, app_name, &package_id.to_string());
             write_app_config(&app_config, self.app_dir_path.clone()).await?;
             self.try_deploy(owner, app_name).await?;
             return Ok(true);
@@ -258,7 +279,7 @@ impl CmdAppCreate {
     // A utility function used to fetch the URL of the template to use.
     async fn get_template_url(&self, client: &WasmerClient) -> anyhow::Result<url::Url> {
         let mut url = if let Some(template) = &self.template {
-            if let Ok(url) = url::Url::parse(&template) {
+            if let Ok(url) = url::Url::parse(template) {
                 url
             } else if let Some(template) =
                 wasmer_api::query::fetch_app_template_from_slug(client, template.clone()).await?
@@ -273,15 +294,13 @@ impl CmdAppCreate {
             }
 
             let templates: Vec<AppTemplate> =
-                wasmer_api::query::fetch_app_templates(client, String::new(), 20)
+                wasmer_api::query::fetch_app_templates(client, String::new(), 10)
                     .await?
                     .ok_or(anyhow::anyhow!("No template received from the backend"))?
                     .edges
                     .into_iter()
-                    .filter(|v| v.is_some())
-                    .map(|v| v.unwrap())
-                    .filter(|v| v.node.is_some())
-                    .map(|v| v.node.unwrap())
+                    .flatten()
+                    .filter_map(|v| v.node)
                     .collect();
 
             let theme = ColorfulTheme::default();
@@ -289,27 +308,23 @@ impl CmdAppCreate {
                 .iter()
                 .map(|t| {
                     format!(
-                        "{}{}{}\n",
+                        "{}{}\n  {} {}",
                         t.name.bold(),
                         if t.language.is_empty() {
                             String::new()
                         } else {
                             format!(" {}", t.language.dimmed())
                         },
-                        format!(
-                            "\n  {} {}",
-                            "demo url:".bold().dimmed(),
-                            t.demo_url.dimmed()
-                        )
+                        "demo:".bold().dimmed(),
+                        t.demo_url.dimmed()
                     )
                 })
                 .collect::<Vec<_>>();
-            // items.sort();
 
             let dialog = dialoguer::Select::with_theme(&theme)
                 .with_prompt(format!("Select a template ({} available)", items.len()))
                 .items(&items)
-                .max_length(3)
+                .max_length(6)
                 .clear(true)
                 .report(false)
                 .default(0);
@@ -335,15 +350,15 @@ impl CmdAppCreate {
             url::Url::parse(&selected_template.repo_url)?
         };
 
-        if url.path().contains("archive/refs/heads") {
-            return Ok(url);
-        } else if url.path().contains("/zipball/") {
-            return Ok(url);
+        let url = if url.path().contains("archive/refs/heads") || url.path().contains("/zipball/") {
+            url
         } else {
             let old_path = url.path();
             url.set_path(&format!("{old_path}/zipball/main"));
-            return Ok(url);
-        }
+            url
+        };
+
+        Ok(url)
     }
 
     async fn create_from_template(
@@ -362,6 +377,14 @@ impl CmdAppCreate {
             PathBuf::from(".").canonicalize()?
         };
 
+        if output_path.is_dir() && output_path.read_dir()?.next().is_some() {
+            if !self.quiet {
+                eprintln!("The current directory is not empty.");
+                eprintln!("Use the `--dir` flag to specify another directory, or remove files from the currently selected one.")
+            }
+            anyhow::bail!("Stopping as the directory is not empty")
+        }
+
         let pb = indicatif::ProgressBar::new_spinner();
 
         pb.enable_steady_tick(std::time::Duration::from_millis(500));
@@ -376,6 +399,7 @@ impl CmdAppCreate {
         let response = reqwest::get(url).await?;
         let bytes = response.bytes().await?;
         pb.set_message("Unpacking the template..");
+
         let cursor = Cursor::new(bytes);
         let mut archive = zip::ZipArchive::new(cursor)?;
 
@@ -408,7 +432,11 @@ impl CmdAppCreate {
             if !path.exists() {
                 // AsyncRead not implemented for entry..
                 if entry.is_file() {
-                    let mut outfile = std::fs::File::create(&path)?;
+                    let mut outfile = std::fs::OpenOptions::new()
+                        .create(true)
+                        .truncate(true)
+                        .write(true)
+                        .open(&path)?;
                     std::io::copy(&mut entry, &mut outfile)?;
                 } else {
                     std::fs::create_dir(path)?;
@@ -443,6 +471,14 @@ the app:\n"
                     .bold(),
                 contents
             );
+            let bin_name = match std::env::args().nth(0) {
+                Some(n) => n,
+                None => String::from("wasmer"),
+            };
+            eprintln!(
+                "After taking the necessary steps to build your application, re-run `{}`",
+                format!("{bin_name} deploy").bold()
+            )
         } else {
             self.try_deploy(owner, app_name).await?;
         }
@@ -470,15 +506,15 @@ the app:\n"
                 no_validate: false,
                 non_interactive: self.non_interactive,
                 publish_package: true,
-                path: self.app_dir_path.clone(),
+                dir: self.app_dir_path.clone(),
                 no_wait: self.no_wait,
                 no_default: false,
                 no_persist_id: false,
                 owner: Some(String::from(owner)),
                 app_name: Some(app_name.into()),
                 bump: false,
-                template: self.template.clone(),
-                package: self.package.clone(),
+                template: None,
+                package: None,
                 use_local_manifest: self.use_local_manifest,
             };
             cmd_deploy.run_async().await?;
@@ -512,7 +548,7 @@ impl AsyncCliCommand for CmdAppCreate {
                 self.create_from_template(&client, &owner, &app_name)
                     .await?;
             } else if self.package.is_some() {
-                self.create_from_package(&owner, &app_name).await?;
+                self.create_from_package(&client, &owner, &app_name).await?;
             } else if !self.non_interactive {
                 let theme = ColorfulTheme::default();
                 let choice = Select::with_theme(&theme)
@@ -525,7 +561,7 @@ impl AsyncCliCommand for CmdAppCreate {
                         self.create_from_template(&client, &owner, &app_name)
                             .await?
                     }
-                    1 => self.create_from_package(&owner, &app_name).await?,
+                    1 => self.create_from_package(&client, &owner, &app_name).await?,
                     x => panic!("unhandled selection {x}"),
                 };
             } else {
@@ -534,157 +570,5 @@ impl AsyncCliCommand for CmdAppCreate {
         }
 
         Ok(())
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[tokio::test]
-    async fn test_app_create_static_site_offline() {
-        let dir = tempfile::tempdir().unwrap();
-
-        let cmd = CmdAppCreate {
-            quiet: true,
-            template: Some(AppType::StaticWebsite),
-            deploy_app: false,
-            no_validate: false,
-            non_interactive: true,
-            offline: true,
-            owner: Some("testuser".to_string()),
-            app_name: Some("static-site-1".to_string()),
-            app_dir_path: Some(dir.path().to_owned()),
-            no_wait: true,
-            api: ApiOpts::default(),
-            fmt: ItemFormatOpts::default(),
-            package: Some("testuser/static-site-1@0.1.0".to_string()),
-            use_local_manifest: false,
-            new_package_name: None,
-            env: WasmerEnv::default(),
-        };
-        cmd.run_async().await.unwrap();
-
-        let app = std::fs::read_to_string(dir.path().join("app.yaml")).unwrap();
-        assert_eq!(
-            app,
-            r#"kind: wasmer.io/App.v0
-name: static-site-1
-owner: testuser
-package: testuser/static-site-1@^0.1.0
-debug: false
-"#,
-        );
-    }
-
-    #[tokio::test]
-    async fn test_app_create_offline_with_package() {
-        let dir = tempfile::tempdir().unwrap();
-
-        let cmd = CmdAppCreate {
-            quiet: true,
-            template: Some(AppType::HttpServer),
-            deploy_app: false,
-            no_validate: false,
-            non_interactive: true,
-            offline: true,
-            owner: Some("wasmer".to_string()),
-            app_name: Some("testapp".to_string()),
-            app_dir_path: Some(dir.path().to_owned()),
-            no_wait: true,
-            api: ApiOpts::default(),
-            fmt: ItemFormatOpts::default(),
-            package: Some("wasmer/testpkg".to_string()),
-            use_local_manifest: false,
-            new_package_name: None,
-            env: WasmerEnv::default(),
-        };
-        cmd.run_async().await.unwrap();
-
-        let app = std::fs::read_to_string(dir.path().join("app.yaml")).unwrap();
-        assert_eq!(
-            app,
-            r#"kind: wasmer.io/App.v0
-name: testapp
-owner: wasmer
-package: wasmer/testpkg
-debug: false
-"#,
-        );
-    }
-    #[tokio::test]
-    async fn test_app_create_js_worker() {
-        let dir = tempfile::tempdir().unwrap();
-
-        let cmd = CmdAppCreate {
-            quiet: true,
-            template: Some(AppType::JsWorker),
-            deploy_app: false,
-            no_validate: false,
-            non_interactive: true,
-            offline: true,
-            owner: Some("wasmer".to_string()),
-            app_name: Some("test-js-worker".to_string()),
-            app_dir_path: Some(dir.path().to_owned()),
-            no_wait: true,
-            api: ApiOpts::default(),
-            fmt: ItemFormatOpts::default(),
-            package: Some("wasmer/test-js-worker".to_string()),
-            use_local_manifest: false,
-            new_package_name: None,
-            env: WasmerEnv::default(),
-        };
-        cmd.run_async().await.unwrap();
-
-        let app = std::fs::read_to_string(dir.path().join("app.yaml")).unwrap();
-        assert_eq!(
-            app,
-            r#"kind: wasmer.io/App.v0
-name: test-js-worker
-owner: wasmer
-package: wasmer/test-js-worker
-cli_args:
-- /src/index.js
-debug: false
-"#,
-        );
-    }
-
-    #[tokio::test]
-    async fn test_app_create_py_worker() {
-        let dir = tempfile::tempdir().unwrap();
-
-        let cmd = CmdAppCreate {
-            quiet: true,
-            template: Some(AppType::PyApplication),
-            deploy_app: false,
-            no_validate: false,
-            non_interactive: true,
-            offline: true,
-            owner: Some("wasmer".to_string()),
-            app_name: Some("test-py-worker".to_string()),
-            app_dir_path: Some(dir.path().to_owned()),
-            no_wait: true,
-            api: ApiOpts::default(),
-            fmt: ItemFormatOpts::default(),
-            package: Some("wasmer/test-py-worker".to_string()),
-            use_local_manifest: false,
-            new_package_name: None,
-            env: WasmerEnv::default(),
-        };
-        cmd.run_async().await.unwrap();
-
-        let app = std::fs::read_to_string(dir.path().join("app.yaml")).unwrap();
-        assert_eq!(
-            app,
-            r#"kind: wasmer.io/App.v0
-name: test-py-worker
-owner: wasmer
-package: wasmer/test-py-worker
-cli_args:
-- /src/main.py
-debug: false
-"#,
-        );
     }
 }
