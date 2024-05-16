@@ -28,6 +28,12 @@ pub struct FdMmap {
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct FdGuard(pub i32);
 
+impl FdGuard {
+    pub fn dup_fd(fd: i32) -> Self {
+        unsafe { Self(libc::dup(fd)) }
+    }
+}
+
 impl Default for FdGuard {
     fn default() -> Self {
         Self(-1)
@@ -78,6 +84,8 @@ impl FdMmap {
     pub fn accessible_reserved(
         accessible_size: usize,
         mapping_size: usize,
+        memory_fd: i32,
+        memory_private: bool,
     ) -> Result<Self, String> {
         let page_size = region::page::size();
         assert!(accessible_size <= mapping_size);
@@ -91,26 +99,36 @@ impl FdMmap {
         }
 
         // Open a temporary file (which is used for swapping)
-        let fd = unsafe {
-            let file = libc::tmpfile();
-            if file.is_null() {
-                return Err(format!(
-                    "failed to create temporary file - {}",
-                    io::Error::last_os_error()
-                ));
+        let fd = if memory_fd < 0 {
+            let fd = unsafe {
+                let file = libc::tmpfile();
+                if file.is_null() {
+                    return Err(format!(
+                        "failed to create temporary file - {}",
+                        io::Error::last_os_error()
+                    ));
+                }
+                FdGuard(libc::fileno(file))
+            };
+
+            // First we initialize it with zeros
+            unsafe {
+                if libc::ftruncate(fd.0, mapping_size as libc::off_t) < 0 {
+                    return Err("could not truncate tmpfile".to_string());
+                }
             }
-            FdGuard(libc::fileno(file))
+
+            fd
+        } else {
+            FdGuard::dup_fd(memory_fd)
         };
 
-        // First we initialize it with zeros
-        unsafe {
-            if libc::ftruncate(fd.0, mapping_size as libc::off_t) < 0 {
-                return Err("could not truncate tmpfile".to_string());
-            }
-        }
-
         // Compute the flags
-        let flags = libc::MAP_FILE | libc::MAP_SHARED;
+        let mut flags = libc::MAP_FILE;
+        flags |= match memory_private {
+            true => libc::MAP_PRIVATE,
+            false => libc::MAP_SHARED,
+        };
 
         Ok(if accessible_size == mapping_size {
             // Allocate a single read-write region at once.

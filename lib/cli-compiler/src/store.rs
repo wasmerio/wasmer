@@ -22,6 +22,13 @@ pub struct SubsetTunables {
 
     /// The size in bytes of the offset guard for dynamic heaps.
     pub dynamic_memory_offset_guard_size: u64,
+
+    /// If the memory is backed by a file, this is the file descriptor.
+    pub backing_memory_file: Option<i32>,
+
+    /// Private memories do not share their backing memory with other processes.
+    /// This is only relevant if `backing_memory_file` is set.
+    pub backing_memory_private: bool,
 }
 
 impl SubsetTunables {
@@ -56,6 +63,8 @@ impl SubsetTunables {
             static_memory_bound,
             static_memory_offset_guard_size,
             dynamic_memory_offset_guard_size,
+            backing_memory_file: None,
+            backing_memory_private: true,
         }
     }
     /// Get a `MemoryStyle` for the provided `MemoryType`
@@ -70,6 +79,8 @@ impl SubsetTunables {
                 // Bound can be larger than the maximum for performance reasons
                 bound: self.static_memory_bound,
                 offset_guard_size: self.static_memory_offset_guard_size,
+                file_descriptor: self.backing_memory_file.unwrap_or(-1),
+                private: self.backing_memory_private,
             }
         } else {
             MemoryStyle::Dynamic {

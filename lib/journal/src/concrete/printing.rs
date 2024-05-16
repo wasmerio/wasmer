@@ -1,6 +1,7 @@
 use std::fmt;
 
 use super::*;
+use lz4_flex::block::uncompressed_size;
 use wasmer_wasix_types::wasi;
 
 /// Type of printing mode to use
@@ -75,12 +76,18 @@ impl<'a> fmt::Display for JournalEntry<'a> {
             JournalEntry::ClearEtherealV1 => {
                 write!(f, "clear-ethereal")
             }
-            JournalEntry::UpdateMemoryRegionV1 { region, data } => write!(
+            JournalEntry::UpdateMemoryRegionV1 {
+                region,
+                compressed_data,
+            } => write!(
                 f,
-                "memory-update (start={}, end={}, data.len={})",
+                "memory-update (start={}, end={}, data.len={}, compressed.len={})",
                 region.start,
                 region.end,
-                data.len()
+                uncompressed_size(compressed_data.as_ref())
+                    .map(|a| a.0)
+                    .unwrap_or_else(|_| compressed_data.as_ref().len()),
+                compressed_data.len()
             ),
             JournalEntry::ProcessExitV1 { exit_code } => {
                 write!(f, "process-exit (code={:?})", exit_code)
