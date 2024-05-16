@@ -202,9 +202,13 @@
 <a href="#202" id="202">202</a>
 <a href="#203" id="203">203</a>
 <a href="#204" id="204">204</a>
+<a href="#205" id="205">205</a>
+<a href="#206" id="206">206</a>
+<a href="#207" id="207">207</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Show logs for an Edge app.
 
-</span><span class="kw">use </span>comfy_table::Table;
+</span><span class="kw">use </span>colored::Colorize;
+<span class="kw">use </span>comfy_table::{Cell, Table};
 <span class="kw">use </span>edge_schema::pretty_duration::parse_timestamp_or_relative_time;
 <span class="kw">use </span>futures::StreamExt;
 <span class="kw">use </span>time::{format_description::well_known::Rfc3339, OffsetDateTime};
@@ -212,8 +216,10 @@
 
 <span class="kw">use crate</span>::{
     opts::{ApiOpts, ListFormatOpts},
-    utils::{render::CliRender, Identifier},
+    utils::render::CliRender,
 };
+
+<span class="kw">use </span><span class="kw">super</span>::util::AppIdentOpts;
 
 <span class="attr">#[derive(Debug, PartialEq, Eq, Clone, Copy, clap::ValueEnum)]
 </span><span class="kw">pub enum </span>LogStreamArg {
@@ -262,17 +268,13 @@
     <span class="attr">#[clap(long, default_value = <span class="string">&quot;false&quot;</span>)]
     </span>watch: bool,
 
-    <span class="doccomment">/// The name of the app.
-    ///
-    /// Eg:
-    /// - name (assumes current user)
-    /// - namespace/name
-    /// - namespace/name@version
-    </span>ident: Identifier,
-
     <span class="doccomment">/// Streams of logs to display
     </span><span class="attr">#[clap(long, value_delimiter = <span class="string">&#39;,&#39;</span>, value_enum)]
     </span>streams: <span class="prelude-ty">Option</span>&lt;Vec&lt;LogStreamArg&gt;&gt;,
+
+    <span class="attr">#[clap(flatten)]
+    #[allow(missing_docs)]
+    </span><span class="kw">pub </span>ident: AppIdentOpts,
 }
 
 <span class="attr">#[async_trait::async_trait]
@@ -282,28 +284,16 @@
     <span class="kw">async fn </span>run_async(<span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;(), anyhow::Error&gt; {
         <span class="kw">let </span>client = <span class="self">self</span>.api.client()<span class="question-mark">?</span>;
 
-        <span class="kw">let </span>Identifier {
-            name,
-            owner,
-            version,
-        } = <span class="kw-2">&amp;</span><span class="self">self</span>.ident;
-
-        <span class="kw">let </span>owner = <span class="kw">match </span>owner {
-            <span class="prelude-val">Some</span>(owner) =&gt; owner.to_string(),
-            <span class="prelude-val">None </span>=&gt; {
-                <span class="kw">let </span>user = wasmer_api::query::current_user_with_namespaces(<span class="kw-2">&amp;</span>client, <span class="prelude-val">None</span>).<span class="kw">await</span><span class="question-mark">?</span>;
-                user.username
-            }
-        };
+        <span class="kw">let </span>(_ident, app) = <span class="self">self</span>.ident.load_app(<span class="kw-2">&amp;</span>client).<span class="kw">await</span><span class="question-mark">?</span>;
 
         <span class="kw">let </span>from = <span class="self">self
             </span>.from
             .unwrap_or_else(|| OffsetDateTime::now_utc() - time::Duration::minutes(<span class="number">10</span>));
 
         <span class="macro">tracing::info!</span>(
-            package.name=%<span class="self">self</span>.ident.name,
-            package.owner=%owner,
-            package.version=<span class="self">self</span>.ident.version.as_deref(),
+            app.name=%app.name,
+            app.owner=%app.owner.global_name,
+            app.version=app.active_version.version,
             range.start=%from,
             range.end=<span class="self">self</span>.until.map(|ts| ts.to_string()),
             <span class="string">&quot;Fetching logs&quot;</span>,
@@ -335,10 +325,10 @@
 
         <span class="kw">let </span>logs_stream = wasmer_api::query::get_app_logs_paginated(
             <span class="kw-2">&amp;</span>client,
-            name.clone(),
-            owner.to_string(),
-            version.clone(),
-            from,
+            app.name.clone(),
+            app.owner.global_name.to_string(),
+            <span class="prelude-val">None</span>, <span class="comment">// keep version None since we want logs from all versions atm
+            </span>from,
             <span class="self">self</span>.until,
             <span class="self">self</span>.watch,
             <span class="prelude-val">Some</span>(streams),
@@ -375,8 +365,10 @@
 <span class="kw">impl </span>CliRender <span class="kw">for </span>Log {
     <span class="kw">fn </span>render_item_table(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; String {
         <span class="kw">let </span><span class="kw-2">mut </span>table = Table::new();
-
-        <span class="kw">let </span>Log { message, timestamp } = <span class="self">self</span>;
+        <span class="comment">// remove all borders from the table
+        </span><span class="kw">let </span>Log {
+            message, timestamp, ..
+        }: <span class="kw-2">&amp;</span>Log = <span class="self">self</span>;
 
         table.add_rows([
             <span class="macro">vec!</span>[
@@ -390,12 +382,26 @@
 
     <span class="kw">fn </span>render_list_table(items: <span class="kw-2">&amp;</span>[<span class="self">Self</span>]) -&gt; String {
         <span class="kw">let </span><span class="kw-2">mut </span>table = Table::new();
-        table.set_header(<span class="macro">vec!</span>[<span class="string">&quot;Timestamp&quot;</span>.to_string(), <span class="string">&quot;Message&quot;</span>.to_string()]);
+        <span class="comment">// table.set_header(vec![&quot;Timestamp&quot;.to_string(), &quot;Message&quot;.to_string()]);
+        </span>table.load_preset(comfy_table::presets::NOTHING);
+        table.set_content_arrangement(comfy_table::ContentArrangement::Dynamic);
 
         <span class="kw">for </span>item <span class="kw">in </span>items {
+            <span class="kw">let </span><span class="kw-2">mut </span>message = item.message.clone().bold();
+            <span class="kw">if let </span><span class="prelude-val">Some</span>(stream) = item.stream {
+                message = <span class="kw">match </span>stream {
+                    LogStream::Stdout =&gt; message,
+                    LogStream::Stderr =&gt; message.yellow(),
+                    LogStream::Runtime =&gt; message.cyan(),
+                };
+            }
             table.add_row([
-                datetime_from_unix(item.timestamp).format(<span class="kw-2">&amp;</span>Rfc3339).unwrap(),
-                item.message.clone(),
+                Cell::new(<span class="macro">format!</span>(
+                    <span class="string">&quot;[{}]&quot;</span>,
+                    datetime_from_unix(item.timestamp).format(<span class="kw-2">&amp;</span>Rfc3339).unwrap()
+                ))
+                .set_alignment(comfy_table::CellAlignment::Right),
+                Cell::new(message),
             ]);
         }
         table.to_string()

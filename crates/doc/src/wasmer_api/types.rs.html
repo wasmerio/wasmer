@@ -1513,6 +1513,7 @@
 <a href="#1513" id="1513">1513</a>
 <a href="#1514" id="1514">1514</a>
 <a href="#1515" id="1515">1515</a>
+<a href="#1516" id="1516">1516</a>
 </pre></div><pre class="rust"><code><span class="kw">pub use </span>queries::<span class="kw-2">*</span>;
 
 <span class="kw">pub use </span>cynic::Id;
@@ -2332,7 +2333,7 @@
         <span class="kw">pub </span>token: String,
     }
 
-    <span class="attr">#[derive(cynic::Enum, Clone, Copy, Debug)]
+    <span class="attr">#[derive(cynic::Enum, Clone, Copy, Debug, PartialEq)]
     </span><span class="kw">pub enum </span>LogStream {
         Stdout,
         Stderr,
@@ -2386,6 +2387,7 @@
         <span class="kw">pub </span>message: String,
         <span class="doccomment">/// When the message was recorded, in nanoseconds since the Unix epoch.
         </span><span class="kw">pub </span>timestamp: f64,
+        <span class="kw">pub </span>stream: <span class="prelude-ty">Option</span>&lt;LogStream&gt;,
     }
 
     <span class="attr">#[derive(cynic::QueryVariables, Debug)]
