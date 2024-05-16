@@ -302,6 +302,10 @@ impl<F: FileSystem> RelativeOrAbsolutePathHack<F> {
 }
 
 impl<F: FileSystem> virtual_fs::FileSystem for RelativeOrAbsolutePathHack<F> {
+    fn readlink(&self, path: &Path) -> virtual_fs::Result<PathBuf> {
+        self.execute(path, |fs, p| fs.readlink(p))
+    }
+
     fn read_dir(&self, path: &Path) -> virtual_fs::Result<virtual_fs::ReadDir> {
         self.execute(path, |fs, p| fs.read_dir(p))
     }
@@ -322,6 +326,10 @@ impl<F: FileSystem> virtual_fs::FileSystem for RelativeOrAbsolutePathHack<F> {
 
     fn metadata(&self, path: &Path) -> virtual_fs::Result<virtual_fs::Metadata> {
         self.execute(path, |fs, p| fs.metadata(p))
+    }
+
+    fn symlink_metadata(&self, path: &Path) -> virtual_fs::Result<virtual_fs::Metadata> {
+        self.execute(path, |fs, p| fs.symlink_metadata(p))
     }
 
     fn remove_file(&self, path: &Path) -> virtual_fs::Result<()> {
