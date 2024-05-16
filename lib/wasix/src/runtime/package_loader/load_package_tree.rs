@@ -528,6 +528,11 @@ where
     F: FileSystem,
     M: Fn(&Path) -> Result<PathBuf, virtual_fs::FsError> + Send + Sync + 'static,
 {
+    fn readlink(&self, path: &Path) -> virtual_fs::Result<PathBuf> {
+        let path = self.path(path)?;
+        self.inner.readlink(&path)
+    }
+
     fn read_dir(&self, path: &Path) -> virtual_fs::Result<virtual_fs::ReadDir> {
         let path = self.path(path)?;
         self.inner.read_dir(&path)
@@ -556,6 +561,11 @@ where
     fn metadata(&self, path: &Path) -> virtual_fs::Result<virtual_fs::Metadata> {
         let path = self.path(path)?;
         self.inner.metadata(&path)
+    }
+
+    fn symlink_metadata(&self, path: &Path) -> virtual_fs::Result<virtual_fs::Metadata> {
+        let path = self.path(path)?;
+        self.inner.symlink_metadata(&path)
     }
 
     fn remove_file(&self, path: &Path) -> virtual_fs::Result<()> {
