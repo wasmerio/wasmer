@@ -79,7 +79,7 @@ pub struct Run {
     #[clap(short, long, aliases = &["command", "invoke", "command-name"])]
     entrypoint: Option<String>,
     /// Generate a coredump at this path if a WebAssembly trap occurs
-    #[clap(name = "COREDUMP PATH", long)]
+    #[clap(name = "COREDUMP_PATH", long)]
     coredump_on_trap: Option<PathBuf>,
     /// The file, URL, or package to run.
     #[clap(value_parser = PackageSource::infer)]

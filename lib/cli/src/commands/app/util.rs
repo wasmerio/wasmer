@@ -18,7 +18,10 @@ use crate::{
 /// Can be either a namespace/name a plain name or an app id.
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub enum AppIdent {
+    /// Backend app id like "da_xxysw34234"
     AppId(String),
+    /// Backend app VERSION id like "dav_xxysw34234"
+    AppVersionId(String),
     NamespacedName(String, String),
     Alias(String),
 }
@@ -30,6 +33,13 @@ impl AppIdent {
             AppIdent::AppId(app_id) => wasmer_api::query::get_app_by_id(client, app_id.clone())
                 .await
                 .with_context(|| format!("Could not find app with id '{}'", app_id)),
+            AppIdent::AppVersionId(id) => {
+                let (app, _version) =
+                    wasmer_api::query::get_app_version_by_id_with_app(client, id.clone())
+                        .await
+                        .with_context(|| format!("Could not query for app version id '{}'", id))?;
+                Ok(app)
+            }
             AppIdent::Alias(name) => wasmer_api::query::get_app_by_alias(client, name.clone())
                 .await?
                 .with_context(|| format!("Could not find app with name '{name}'")),
@@ -59,13 +69,15 @@ impl std::str::FromStr for AppIdent {
                 name.to_string(),
             ))
         } else if let Ok(id) = GlobalId::parse_prefixed(s) {
-            if id.kind() == NodeKind::DeployApp {
-                Ok(Self::AppId(s.to_string()))
-            } else {
-                bail!(
-                    "invalid app identifier '{s}': expected an app id, but id is of type {kind}",
-                    kind = id.kind(),
-                );
+            match id.kind() {
+                NodeKind::DeployApp => Ok(Self::AppId(s.to_string())),
+                NodeKind::DeployAppVersion => Ok(Self::AppVersionId(s.to_string())),
+                _ => {
+                    bail!(
+                        "invalid app identifier '{s}': expected an app id, but id is of type {kind}",
+                        kind = id.kind(),
+                    );
+                }
             }
         } else {
             Ok(Self::Alias(s.to_string()))
