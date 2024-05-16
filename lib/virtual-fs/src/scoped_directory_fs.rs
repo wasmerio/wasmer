@@ -51,6 +51,11 @@ impl ScopedDirectoryFileSystem {
 }
 
 impl FileSystem for ScopedDirectoryFileSystem {
+    fn readlink(&self, path: &Path) -> crate::Result<PathBuf> {
+        let path = self.prepare_path(path);
+        self.inner.readlink(&path)
+    }
+
     fn read_dir(&self, path: &Path) -> Result<ReadDir, FsError> {
         let path = self.prepare_path(path);
 
@@ -92,6 +97,11 @@ impl FileSystem for ScopedDirectoryFileSystem {
     fn metadata(&self, path: &Path) -> Result<Metadata, FsError> {
         let path = self.prepare_path(path);
         self.inner.metadata(&path)
+    }
+
+    fn symlink_metadata(&self, path: &Path) -> crate::Result<Metadata> {
+        let path = self.prepare_path(path);
+        self.inner.symlink_metadata(&path)
     }
 
     fn remove_file(&self, path: &Path) -> Result<(), FsError> {
