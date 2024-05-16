@@ -120,7 +120,7 @@ impl PackagePush {
     ) -> anyhow::Result<()> {
         let pb = make_spinner!(self.quiet, "Uploading the package to the registry..");
 
-        let signed_url = upload(client, package_hash, self.timeout, package, &pb).await?;
+        let signed_url = upload(client, package_hash, self.timeout, package, pb.clone()).await?;
 
         let id = match wasmer_api::query::push_package_release(
             client,

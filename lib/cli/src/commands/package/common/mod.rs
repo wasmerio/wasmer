@@ -5,6 +5,7 @@ use crate::{
 };
 use colored::Colorize;
 use dialoguer::Confirm;
+use hyper::Body;
 use indicatif::{ProgressBar, ProgressStyle};
 use std::{
     collections::BTreeMap,
@@ -42,12 +43,12 @@ pub(super) async fn upload(
     hash: &PackageHash,
     timeout: humantime::Duration,
     package: &Package,
-    pb: &ProgressBar,
+    pb: ProgressBar,
 ) -> anyhow::Result<String> {
     let hash_str = hash.to_string();
     let hash_str = hash_str.trim_start_matches("sha256:");
 
-    let url = {
+    let session_uri = {
         let default_timeout_secs = Some(60 * 30);
         let q = wasmer_api::query::get_signed_url_for_package_upload(
             client,
@@ -65,7 +66,7 @@ pub(super) async fn upload(
         }
     };
 
-    tracing::info!("signed url is: {url}");
+    tracing::info!("signed url is: {session_uri}");
 
     let client = reqwest::Client::builder()
         .default_headers(reqwest::header::HeaderMap::default())
@@ -74,7 +75,7 @@ pub(super) async fn upload(
         .unwrap();
 
     let res = client
-        .post(&url)
+        .post(&session_uri)
         .header(reqwest::header::CONTENT_LENGTH, "0")
         .header(reqwest::header::CONTENT_TYPE, "application/octet-stream")
         .header("x-goog-resumable", "start");
@@ -123,36 +124,44 @@ pub(super) async fn upload(
                  .tick_strings(&["✶", "✸", "✹", "✺", "✹", "✷"]));
     tracing::info!("webc is {total_bytes} bytes long");
 
-    let chunk_size = (total_bytes / 20).min(1_048_576);
-    let chunks = bytes.chunks(chunk_size);
-    let mut total_bytes_sent = 0;
+    let chunk_size = (total_bytes / 20).min(10485760);
 
-    for chunk in chunks {
-        let n = chunk.len();
+    let stream = futures::stream::unfold(0, move |offset| {
+        let pb = pb.clone();
+        let bytes = bytes.clone();
+        async move {
+            if offset >= total_bytes {
+                return None;
+            }
 
-        let start = total_bytes_sent;
-        let end = start + chunk.len().saturating_sub(1);
-        let content_range = format!("bytes {start}-{end}/{total_bytes}");
+            let start = offset;
 
-        let res = client
-            .put(&session_uri)
-            .header(reqwest::header::CONTENT_TYPE, "application/octet-stream")
-            .header(reqwest::header::CONTENT_LENGTH, format!("{}", chunk.len()))
-            .header("Content-Range".to_string(), content_range)
-            .body(chunk.to_vec());
+            let end = if (start + chunk_size) >= total_bytes {
+                total_bytes
+            } else {
+                start + chunk_size
+            };
 
-        res.send()
-            .await
-            .map(|response| response.error_for_status())
-            .map_err(|e| {
-                anyhow::anyhow!("cannot send request to {session_uri} (chunk {start}..{end}): {e}",)
-            })??;
+            let n = end - start;
+            let next_chunk = bytes.slice(start..end);
+            pb.inc(n as u64);
 
-        total_bytes_sent += n;
-        pb.set_position(total_bytes_sent.try_into().unwrap());
-    }
+            Some((Ok::<_, std::io::Error>(next_chunk), offset + n))
+        }
+    });
 
-    Ok(url)
+    let res = client
+        .put(&session_uri)
+        .header(reqwest::header::CONTENT_TYPE, "application/octet-stream")
+        .header(reqwest::header::CONTENT_LENGTH, format!("{}", total_bytes))
+        .body(Body::wrap_stream(stream));
+
+    res.send()
+        .await
+        .map(|response| response.error_for_status())
+        .map_err(|e| anyhow::anyhow!("error uploading package to {session_uri}: {e}",))??;
+
+    Ok(session_uri)
 }
 
 /// Read and return a manifest given a path.
