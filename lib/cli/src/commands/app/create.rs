@@ -3,10 +3,7 @@
 use crate::{
     commands::AsyncCliCommand,
     opts::{ApiOpts, ItemFormatOpts, WasmerEnv},
-    utils::{
-        load_package_manifest,
-        prompts::{prompt_for_package, PackageCheckMode},
-    },
+    utils::{load_package_manifest, prompts::PackageCheckMode},
 };
 use anyhow::Context;
 use colored::Colorize;
@@ -254,7 +251,7 @@ impl CmdAppCreate {
             self.try_deploy(owner, app_name).await?;
             return Ok(true);
         } else if !self.non_interactive {
-            let (package_id, _) = prompt_for_package(
+            let (package_id, _) = crate::utils::prompts::prompt_for_package(
                 "Enter the name of the package",
                 Some("wasmer/hello"),
                 Some(PackageCheckMode::MustExist),
