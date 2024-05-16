@@ -440,6 +440,11 @@ impl CmdAppCreate {
                 }
             }
         }
+        pb.set_style(
+            indicatif::ProgressStyle::with_template(&format!("{} {{msg}}", "✔".green().bold()))
+                .unwrap(),
+        );
+        pb.finish_with_message(format!("{}", "Unpacked template".bold()));
 
         pb.finish();
 

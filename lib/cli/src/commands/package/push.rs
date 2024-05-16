@@ -118,10 +118,12 @@ impl PackagePush {
         package_hash: &PackageHash,
         private: bool,
     ) -> anyhow::Result<()> {
-        let pb = make_spinner!(self.quiet, "Uploading the package to the registry..");
+        let pb = make_spinner!(self.quiet, "Uploading the package..");
 
         let signed_url = upload(client, package_hash, self.timeout, package, pb.clone()).await?;
+        spinner_ok!(pb, "Package correctly uploaded");
 
+        let pb = make_spinner!(self.quiet, "Waiting for package to become available...");
         let id = match wasmer_api::query::push_package_release(
             client,
             None,
@@ -133,10 +135,6 @@ impl PackagePush {
         {
             Some(r) => {
                 if r.success {
-                    let msg = format!(
-                        "Succesfully pushed release to namespace {namespace} on the registry"
-                    );
-                    spinner_ok!(pb, msg);
                     r.package_webc.unwrap().id
                 } else {
                     anyhow::bail!("An unidentified error occurred while publishing the package. (response had success: false)")
@@ -145,7 +143,10 @@ impl PackagePush {
             None => anyhow::bail!("An unidentified error occurred while publishing the package."), // <- This is extremely bad..
         };
 
-        wait_package(client, self.wait, id, &pb, self.timeout).await?;
+        wait_package(client, self.wait, id, self.timeout).await?;
+        let msg = format!("Succesfully pushed release to namespace {namespace} on the registry");
+        spinner_ok!(pb, msg);
+
         Ok(())
     }
 
