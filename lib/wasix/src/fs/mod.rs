@@ -308,6 +308,13 @@ impl WasiFsRoot {
 }
 
 impl FileSystem for WasiFsRoot {
+    fn readlink(&self, path: &Path) -> virtual_fs::Result<PathBuf> {
+        match self {
+            WasiFsRoot::Sandbox(fs) => fs.readlink(path),
+            WasiFsRoot::Backing(fs) => fs.readlink(path),
+        }
+    }
+
     fn read_dir(&self, path: &Path) -> virtual_fs::Result<virtual_fs::ReadDir> {
         match self {
             WasiFsRoot::Sandbox(fs) => fs.read_dir(path),
@@ -992,7 +999,8 @@ impl WasiFs {
                                 }
                             } else if file_type.is_symlink() {
                                 should_insert = false;
-                                let link_value = file.read_link().map_err(map_io_err)?;
+                                let link_value =
+                                    self.root_fs.readlink(&file).ok().ok_or(Errno::Noent)?;
                                 debug!("attempting to decompose path {:?}", link_value);
 
                                 let (pre_open_dir_fd, relative_path) = if link_value.is_relative() {
@@ -2026,6 +2034,9 @@ impl FallbackFileSystem {
 }
 
 impl FileSystem for FallbackFileSystem {
+    fn readlink(&self, _path: &Path) -> virtual_fs::Result<PathBuf> {
+        Self::fail()
+    }
     fn read_dir(&self, _path: &Path) -> Result<virtual_fs::ReadDir, FsError> {
         Self::fail();
     }
