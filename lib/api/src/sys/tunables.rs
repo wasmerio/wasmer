@@ -24,6 +24,8 @@ mod tests {
             static_memory_bound: Pages(2048),
             static_memory_offset_guard_size: 128,
             dynamic_memory_offset_guard_size: 256,
+            backing_memory_file: None,
+            backing_memory_private: true,
         };
 
         // No maximum
@@ -49,6 +51,7 @@ mod tests {
             MemoryStyle::Static {
                 bound,
                 offset_guard_size,
+                ..
             } => {
                 assert_eq!(bound, Pages(2048));
                 assert_eq!(offset_guard_size, 128);
@@ -98,6 +101,8 @@ mod tests {
             MemoryStyle::Static {
                 bound: Pages::from(18u32),
                 offset_guard_size: 0,
+                file_descriptor: -1,
+                private: true,
             }
         }
         fn grow(&mut self, delta: Pages) -> Result<Pages, MemoryError> {
@@ -175,6 +180,8 @@ mod tests {
             MemoryStyle::Static {
                 bound: Pages::from(18u32),
                 offset_guard_size: 0,
+                file_descriptor: -1,
+                private: true,
             }
         }
 
@@ -241,6 +248,8 @@ mod tests {
             &MemoryStyle::Static {
                 bound: Pages::from(18u32),
                 offset_guard_size: 0u64,
+                file_descriptor: -1,
+                private: true,
             },
         );
         let mut vmmemory = vmmemory.unwrap();

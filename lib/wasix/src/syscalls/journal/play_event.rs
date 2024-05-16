@@ -49,8 +49,11 @@ impl<'a, 'c> JournalSyscallPlayer<'a, 'c> {
                     self.action_fd_seek(fd, offset, whence)?;
                 }
             }
-            JournalEntry::UpdateMemoryRegionV1 { region, data } => {
-                self.action_update_memory(region, data, differ_ethereal)?;
+            JournalEntry::UpdateMemoryRegionV1 {
+                region,
+                compressed_data,
+            } => {
+                self.action_update_compressed_memory(region, compressed_data, differ_ethereal)?;
             }
             JournalEntry::CloseThreadV1 { id, exit_code } => {
                 self.action_close_thread(id, exit_code, differ_ethereal)?;

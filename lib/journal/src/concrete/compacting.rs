@@ -54,6 +54,11 @@ struct State {
     // Thread events are only maintained while the thread and the
     // process are still running
     thread_map: HashMap<u32, usize>,
+    // Sockets that are open and not yet closed are kept here
+    open_sockets: HashMap<Fd, DescriptorLookup>,
+    // Open pipes have two file descriptors that are associated with
+    // them. We keep track of both of them
+    open_pipes: HashMap<Fd, DescriptorLookup>,
     // Any descriptors are assumed to be read only operations until
     // they actually do something that changes the system
     suspect_descriptors: HashMap<Fd, DescriptorLookup>,
@@ -123,6 +128,26 @@ impl State {
                 }
             }
         }
+        for (_, l) in self.open_sockets.iter() {
+            if let Some(d) = self.descriptors.get(l) {
+                for e in d.events.iter() {
+                    filter.add_event_to_whitelist(*e);
+                }
+                for e in d.write_map.values() {
+                    filter.add_event_to_whitelist(*e);
+                }
+            }
+        }
+        for (_, l) in self.open_pipes.iter() {
+            if let Some(d) = self.descriptors.get(l) {
+                for e in d.events.iter() {
+                    filter.add_event_to_whitelist(*e);
+                }
+                for e in d.write_map.values() {
+                    filter.add_event_to_whitelist(*e);
+                }
+            }
+        }
         if has_threads {
             for (_, l) in self.stdio_descriptors.iter() {
                 if let Some(d) = self.descriptors.get(l) {
@@ -181,6 +206,8 @@ impl CompactingJournal {
             snapshots: Default::default(),
             memory_map: Default::default(),
             thread_map: Default::default(),
+            open_sockets: Default::default(),
+            open_pipes: Default::default(),
             create_directory: Default::default(),
             remove_directory: Default::default(),
             create_trunc_file: Default::default(),
@@ -384,7 +411,14 @@ impl WritableJournal for CompactingJournalTx {
                 // Get the lookup
                 // (if its suspect then it will remove the entry and
                 //  thus the entire branch of events it represents is discarded)
+                let mut skip = false;
                 let lookup = if matches!(&entry, JournalEntry::CloseFileDescriptorV1 { .. }) {
+                    if state.open_sockets.remove(fd).is_some() {
+                        skip = true;
+                    }
+                    if state.open_pipes.remove(fd).is_some() {
+                        skip = true;
+                    }
                     state.suspect_descriptors.remove(fd)
                 } else {
                     state.suspect_descriptors.get(fd).cloned()
@@ -393,11 +427,13 @@ impl WritableJournal for CompactingJournalTx {
                     .or_else(|| state.keep_descriptors.get(fd).cloned())
                     .or_else(|| state.stdio_descriptors.get(fd).cloned());
 
-                if let Some(lookup) = lookup {
-                    let state = state.descriptors.entry(lookup).or_default();
-                    state.events.push(event_index);
-                } else {
-                    state.whitelist.insert(event_index);
+                if !skip {
+                    if let Some(lookup) = lookup {
+                        let state = state.descriptors.entry(lookup).or_default();
+                        state.events.push(event_index);
+                    } else {
+                        state.whitelist.insert(event_index);
+                    }
                 }
             }
             // Things that modify a file descriptor mean that it is
@@ -406,7 +442,15 @@ impl WritableJournal for CompactingJournalTx {
             | JournalEntry::FileDescriptorAllocateV1 { fd, .. }
             | JournalEntry::FileDescriptorSetFlagsV1 { fd, .. }
             | JournalEntry::FileDescriptorSetTimesV1 { fd, .. }
-            | JournalEntry::FileDescriptorWriteV1 { fd, .. } => {
+            | JournalEntry::FileDescriptorWriteV1 { fd, .. }
+            | JournalEntry::SocketBindV1 { fd, .. }
+            | JournalEntry::SocketSendFileV1 { socket_fd: fd, .. }
+            | JournalEntry::SocketSendToV1 { fd, .. }
+            | JournalEntry::SocketSendV1 { fd, .. }
+            | JournalEntry::SocketSetOptFlagV1 { fd, .. }
+            | JournalEntry::SocketSetOptSizeV1 { fd, .. }
+            | JournalEntry::SocketSetOptTimeV1 { fd, .. }
+            | JournalEntry::SocketShutdownV1 { fd, .. } => {
                 // Its no longer suspect
                 if let Some(lookup) = state.suspect_descriptors.remove(fd) {
                     state.keep_descriptors.insert(*fd, lookup);
@@ -417,6 +461,8 @@ impl WritableJournal for CompactingJournalTx {
                     .suspect_descriptors
                     .get(fd)
                     .cloned()
+                    .or_else(|| state.open_sockets.get(fd).cloned())
+                    .or_else(|| state.open_pipes.get(fd).cloned())
                     .or_else(|| state.keep_descriptors.get(fd).cloned())
                     .or_else(|| state.stdio_descriptors.get(fd).cloned());
 
@@ -476,6 +522,35 @@ impl WritableJournal for CompactingJournalTx {
                 let path = path.to_string();
                 state.create_directory.remove(&path);
                 state.remove_directory.entry(path).or_insert(event_index);
+            }
+            // Pipes that remain open at the end will be added
+            JournalEntry::CreatePipeV1 { fd1, fd2, .. } => {
+                let lookup = DescriptorLookup(state.descriptor_seed);
+                state.descriptor_seed += 1;
+                state.open_pipes.insert(*fd1, lookup);
+
+                state
+                    .descriptors
+                    .entry(lookup)
+                    .or_default()
+                    .events
+                    .push(event_index);
+
+                let lookup = DescriptorLookup(state.descriptor_seed);
+                state.descriptor_seed += 1;
+                state.open_pipes.insert(*fd2, lookup);
+            }
+            // Sockets that are accepted are suspect
+            JournalEntry::SocketAcceptedV1 { fd, .. } | JournalEntry::SocketOpenV1 { fd, .. } => {
+                let lookup = DescriptorLookup(state.descriptor_seed);
+                state.descriptor_seed += 1;
+                state.open_sockets.insert(*fd, lookup);
+                state
+                    .descriptors
+                    .entry(lookup)
+                    .or_default()
+                    .events
+                    .push(event_index);
             }
             _ => {
                 // The fallthrough is to whitelist the event so that it will

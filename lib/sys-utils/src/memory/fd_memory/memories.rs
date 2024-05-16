@@ -99,7 +99,7 @@ impl WasmMmap {
                         attempted_delta: Bytes(guard_bytes).try_into().unwrap(),
                     })?;
 
-            let mut new_mmap = FdMmap::accessible_reserved(new_bytes, request_bytes)
+            let mut new_mmap = FdMmap::accessible_reserved(new_bytes, request_bytes, -1, true)
                 .map_err(MemoryError::Region)?;
 
             let copy_len = self.alloc.len() - conf.offset_guard_size;
@@ -261,11 +261,16 @@ impl VMOwnedMemory {
 
         let offset_guard_bytes = style.offset_guard_size() as usize;
 
-        let minimum_pages = match style {
-            MemoryStyle::Dynamic { .. } => memory.minimum,
-            MemoryStyle::Static { bound, .. } => {
+        let (minimum_pages, memory_fd, memory_private) = match style {
+            MemoryStyle::Dynamic { .. } => (memory.minimum, -1, true),
+            MemoryStyle::Static {
+                bound,
+                file_descriptor,
+                private,
+                ..
+            } => {
                 assert!(*bound >= memory.minimum);
-                *bound
+                (*bound, *file_descriptor, *private)
             }
         };
         let minimum_bytes = minimum_pages.bytes().0;
@@ -273,8 +278,9 @@ impl VMOwnedMemory {
         let mapped_pages = memory.minimum;
         let mapped_bytes = mapped_pages.bytes();
 
-        let mut alloc = FdMmap::accessible_reserved(mapped_bytes.0, request_bytes)
-            .map_err(MemoryError::Region)?;
+        let mut alloc =
+            FdMmap::accessible_reserved(mapped_bytes.0, request_bytes, memory_fd, memory_private)
+                .map_err(MemoryError::Region)?;
         let base_ptr = alloc.as_mut_ptr();
         let mem_length = memory.minimum.bytes().0;
         let mmap = WasmMmap {

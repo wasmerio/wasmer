@@ -41,6 +41,12 @@ pub enum MemoryStyle {
         /// It represents the size in bytes of extra guard pages after the end
         /// to optimize loads and stores with constant offsets.
         offset_guard_size: u64,
+        /// If the memory is backed by a file, this is the file descriptor.
+        /// (if this is -1 then the memory is not backed by a file)
+        file_descriptor: i32,
+        /// Private memory is not shared with other processes or the underlying
+        /// backing file (if one exists)
+        private: bool,
     },
 }
 
