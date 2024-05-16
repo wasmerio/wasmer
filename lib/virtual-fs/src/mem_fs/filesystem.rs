@@ -257,6 +257,18 @@ impl FileSystem {
 }
 
 impl crate::FileSystem for FileSystem {
+    fn readlink(&self, path: &Path) -> Result<PathBuf> {
+        // Read lock.
+        let guard = self.inner.read().map_err(|_| FsError::Lock)?;
+
+        // Canonicalize the path.
+        let (_, inode_of_directory) = guard.canonicalize(path)?;
+        match inode_of_directory {
+            InodeResolution::Found(_) => Err(FsError::InvalidInput),
+            InodeResolution::Redirect(fs, path) => fs.readlink(path.as_path()),
+        }
+    }
+
     fn read_dir(&self, path: &Path) -> Result<ReadDir> {
         // Read lock.
         let guard = self.inner.read().map_err(|_| FsError::Lock)?;
@@ -587,6 +599,23 @@ impl crate::FileSystem for FileSystem {
             InodeResolution::Redirect(fs, path) => {
                 drop(guard);
                 fs.metadata(path.as_path())
+            }
+        }
+    }
+
+    fn symlink_metadata(&self, path: &Path) -> Result<Metadata> {
+        // Read lock.
+        let guard = self.inner.read().map_err(|_| FsError::Lock)?;
+        match guard.inode_of(path)? {
+            InodeResolution::Found(inode) => Ok(guard
+                .storage
+                .get(inode)
+                .ok_or(FsError::UnknownError)?
+                .metadata()
+                .clone()),
+            InodeResolution::Redirect(fs, path) => {
+                drop(guard);
+                fs.symlink_metadata(path.as_path())
             }
         }
     }
