@@ -97,29 +97,23 @@ impl FdMmap {
         }
 
         // Open a temporary file (which is used for swapping)
-        let fd = if memory_fd < 0 {
-            let fd = unsafe {
-                let file = libc::tmpfile();
-                if file.is_null() {
-                    return Err(format!(
-                        "failed to create temporary file - {}",
-                        io::Error::last_os_error()
-                    ));
-                }
-                FdGuard(libc::fileno(file))
-            };
-
-            // First we initialize it with zeros
-            unsafe {
-                if libc::ftruncate(fd.0, mapping_size as libc::off_t) < 0 {
-                    return Err("could not truncate tmpfile".to_string());
-                }
+        let fd = unsafe {
+            let file = libc::tmpfile();
+            if file.is_null() {
+                return Err(format!(
+                    "failed to create temporary file - {}",
+                    io::Error::last_os_error()
+                ));
             }
-
-            fd
-        } else {
-            FdGuard::dup_fd(memory_fd)
+            FdGuard(libc::fileno(file))
         };
+
+        // First we initialize it with zeros
+        unsafe {
+            if libc::ftruncate(fd.0, mapping_size as libc::off_t) < 0 {
+                return Err("could not truncate tmpfile".to_string());
+            }
+        }
 
         Ok(if accessible_size == mapping_size {
             // Allocate a single read-write region at once.
@@ -128,8 +122,8 @@ impl FdMmap {
                     ptr::null_mut(),
                     mapping_size,
                     libc::PROT_READ | libc::PROT_WRITE,
-                    libc::MAP_FILE | libc::MAP_PRIVATE,
-                    -1,
+                    libc::MAP_FILE | libc::MAP_SHARED,
+                    fd.0,
                     0,
                 )
             };
@@ -149,7 +143,7 @@ impl FdMmap {
                     ptr::null_mut(),
                     mapping_size,
                     libc::PROT_NONE,
-                    flags,
+                    libc::MAP_FILE | libc::MAP_SHARED,
                     fd.0,
                     0,
                 )
