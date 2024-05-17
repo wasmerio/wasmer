@@ -261,11 +261,11 @@ impl VMOwnedMemory {
 
         let offset_guard_bytes = style.offset_guard_size() as usize;
 
-        let (minimum_pages, memory_fd, memory_private) = match style {
-            MemoryStyle::Dynamic { .. } => (memory.minimum, -1, true),
+        let minimum_pages = match style {
+            MemoryStyle::Dynamic { .. } => memory.minimum,
             MemoryStyle::Static { bound, .. } => {
                 assert!(*bound >= memory.minimum);
-                (*bound, *file_descriptor, *private)
+                *bound
             }
         };
         let minimum_bytes = minimum_pages.bytes().0;
