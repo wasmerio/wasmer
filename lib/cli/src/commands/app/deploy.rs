@@ -668,10 +668,7 @@ pub async fn wait_app(
                             if !quiet {
                                 eprintln!();
                             }
-                            eprintln!(
-                                "{} Deployment complete",
-                                "𖥔".yellow().bold()
-                            );
+                            eprintln!("{} Deployment complete", "𖥔".yellow().bold());
                             break;
                         }
 
