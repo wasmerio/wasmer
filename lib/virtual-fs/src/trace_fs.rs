@@ -40,6 +40,11 @@ where
     F: FileSystem,
 {
     #[tracing::instrument(level = "trace", skip(self), err)]
+    fn readlink(&self, path: &std::path::Path) -> crate::Result<PathBuf> {
+        self.0.readlink(path)
+    }
+
+    #[tracing::instrument(level = "trace", skip(self), err)]
     fn read_dir(&self, path: &std::path::Path) -> crate::Result<crate::ReadDir> {
         self.0.read_dir(path)
     }
@@ -66,6 +71,11 @@ where
     #[tracing::instrument(level = "trace", skip(self), err)]
     fn metadata(&self, path: &std::path::Path) -> crate::Result<crate::Metadata> {
         self.0.metadata(path)
+    }
+
+    #[tracing::instrument(level = "trace", skip(self), err)]
+    fn symlink_metadata(&self, path: &std::path::Path) -> crate::Result<crate::Metadata> {
+        self.0.symlink_metadata(path)
     }
 
     #[tracing::instrument(level = "trace", skip(self), err)]

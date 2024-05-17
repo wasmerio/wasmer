@@ -304,6 +304,10 @@ where
     T: std::fmt::Debug + Send + Sync + 'static,
     T: Deref<Target = WebC<'static>>,
 {
+    fn readlink(&self, _path: &Path) -> crate::Result<PathBuf> {
+        Err(FsError::InvalidInput)
+    }
+
     fn read_dir(&self, path: &Path) -> Result<ReadDir, FsError> {
         let path = normalizes_path(path);
         let read_dir_result = self

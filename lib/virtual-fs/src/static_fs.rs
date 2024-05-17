@@ -238,6 +238,20 @@ fn transform_into_read_dir(path: &Path, fs_entries: &[FsEntry<'_>]) -> crate::Re
 }
 
 impl FileSystem for StaticFileSystem {
+    fn readlink(&self, path: &Path) -> crate::Result<PathBuf> {
+        let path = normalizes_path(path);
+        if self
+            .volumes
+            .values()
+            .find_map(|v| v.get_file_entry(&path).ok())
+            .is_some()
+        {
+            Err(FsError::InvalidInput)
+        } else {
+            self.memory.readlink(Path::new(&path))
+        }
+    }
+
     fn read_dir(&self, path: &Path) -> Result<ReadDir, FsError> {
         let path = normalizes_path(path);
         for volume in self.volumes.values() {

@@ -206,6 +206,32 @@ impl UnionFileSystem {
 }
 
 impl FileSystem for UnionFileSystem {
+    fn readlink(&self, path: &Path) -> Result<PathBuf> {
+        debug!("readlink: path={}", path.display());
+        let mut ret_error = FsError::EntryNotFound;
+        let path = path.to_string_lossy();
+        for (path_inner, mount) in filter_mounts(&self.mounts, path.as_ref()) {
+            match mount.fs.readlink(Path::new(path_inner.as_str())) {
+                Ok(ret) => {
+                    return Ok(ret);
+                }
+                Err(err) => {
+                    // This fixes a bug when attempting to create the directory /usr when it does not exist
+                    // on the x86 version of memfs
+                    // TODO: patch virtual-fs and remove
+                    if let FsError::NotAFile = &err {
+                        ret_error = FsError::EntryNotFound;
+                    } else {
+                        debug!("readlink failed: (path={}) - {}", path, err);
+                        ret_error = err;
+                    }
+                }
+            }
+        }
+        debug!("readlink: failed={}", ret_error);
+        Err(ret_error)
+    }
+
     fn read_dir(&self, path: &Path) -> Result<ReadDir> {
         debug!("read_dir: path={}", path.display());
         self.read_dir_internal(path)

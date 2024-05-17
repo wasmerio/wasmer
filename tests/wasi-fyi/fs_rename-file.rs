@@ -11,4 +11,6 @@ fn main() {
 
     let metadata = fs::metadata(new_path).unwrap();
     assert!(metadata.is_file());
+
+    assert!(fs::rename(new_path, old_path).is_ok());
 }

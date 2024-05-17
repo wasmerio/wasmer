@@ -49,6 +49,10 @@ impl WebcVolumeFileSystem {
 }
 
 impl FileSystem for WebcVolumeFileSystem {
+    fn readlink(&self, _path: &Path) -> crate::Result<PathBuf> {
+        Err(FsError::InvalidInput)
+    }
+
     fn read_dir(&self, path: &Path) -> Result<crate::ReadDir, FsError> {
         let meta = self.metadata(path)?;
 
@@ -132,6 +136,10 @@ impl FileSystem for WebcVolumeFileSystem {
             .metadata(path)
             .map(compat_meta)
             .ok_or(FsError::EntryNotFound)
+    }
+
+    fn symlink_metadata(&self, path: &Path) -> crate::Result<Metadata> {
+        self.metadata(path)
     }
 
     fn remove_file(&self, path: &Path) -> Result<(), FsError> {
