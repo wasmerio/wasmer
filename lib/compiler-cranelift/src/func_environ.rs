@@ -1122,7 +1122,6 @@ impl<'module_environment> BaseFuncEnvironment for FuncEnvironment<'module_enviro
             MemoryStyle::Static {
                 bound,
                 offset_guard_size,
-                ..
             } => (
                 Uimm64::new(offset_guard_size),
                 ir::HeapStyle::Static {

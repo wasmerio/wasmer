@@ -49,7 +49,6 @@ mod tests {
             MemoryStyle::Static {
                 bound,
                 offset_guard_size,
-                ..
             } => {
                 assert_eq!(bound, Pages(2048));
                 assert_eq!(offset_guard_size, 128);
