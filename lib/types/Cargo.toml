@@ -31,7 +31,7 @@ hex = { version = "^0.4" }
 # `rand` uses `getrandom` transitively, and to be able to
 # compile the project for `js`, we need to enable this feature
 [dependencies.getrandom]
-version = "0.2.15"
+version = "0.2.14"
 features = ["js"]
 
 [dev-dependencies]
