@@ -84,8 +84,6 @@ impl FdMmap {
     pub fn accessible_reserved(
         accessible_size: usize,
         mapping_size: usize,
-        memory_fd: i32,
-        memory_private: bool,
     ) -> Result<Self, String> {
         let page_size = region::page::size();
         assert!(accessible_size <= mapping_size);
@@ -123,13 +121,6 @@ impl FdMmap {
             FdGuard::dup_fd(memory_fd)
         };
 
-        // Compute the flags
-        let mut flags = libc::MAP_FILE;
-        flags |= match memory_private {
-            true => libc::MAP_PRIVATE,
-            false => libc::MAP_SHARED,
-        };
-
         Ok(if accessible_size == mapping_size {
             // Allocate a single read-write region at once.
             let ptr = unsafe {
@@ -137,8 +128,8 @@ impl FdMmap {
                     ptr::null_mut(),
                     mapping_size,
                     libc::PROT_READ | libc::PROT_WRITE,
-                    flags,
-                    fd.0,
+                    libc::MAP_FILE | libc::MAP_PRIVATE,
+                    -1,
                     0,
                 )
             };
