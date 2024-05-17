@@ -232,6 +232,13 @@
 <a href="#232" id="232">232</a>
 <a href="#233" id="233">233</a>
 <a href="#234" id="234">234</a>
+<a href="#235" id="235">235</a>
+<a href="#236" id="236">236</a>
+<a href="#237" id="237">237</a>
+<a href="#238" id="238">238</a>
+<a href="#239" id="239">239</a>
+<a href="#240" id="240">240</a>
+<a href="#241" id="241">241</a>
 </pre></div><pre class="rust"><code><span class="kw">use crate</span>::{
     commands::Login,
     opts::{ApiOpts, WasmerEnv},
@@ -239,6 +246,7 @@
 };
 <span class="kw">use </span>colored::Colorize;
 <span class="kw">use </span>dialoguer::Confirm;
+<span class="kw">use </span>hyper::Body;
 <span class="kw">use </span>indicatif::{ProgressBar, ProgressStyle};
 <span class="kw">use </span>std::{
     collections::BTreeMap,
@@ -276,12 +284,12 @@
     hash: <span class="kw-2">&amp;</span>PackageHash,
     timeout: humantime::Duration,
     package: <span class="kw-2">&amp;</span>Package,
-    pb: <span class="kw-2">&amp;</span>ProgressBar,
+    pb: ProgressBar,
 ) -&gt; anyhow::Result&lt;String&gt; {
     <span class="kw">let </span>hash_str = hash.to_string();
     <span class="kw">let </span>hash_str = hash_str.trim_start_matches(<span class="string">&quot;sha256:&quot;</span>);
 
-    <span class="kw">let </span>url = {
+    <span class="kw">let </span>session_uri = {
         <span class="kw">let </span>default_timeout_secs = <span class="prelude-val">Some</span>(<span class="number">60 </span>* <span class="number">30</span>);
         <span class="kw">let </span>q = wasmer_api::query::get_signed_url_for_package_upload(
             client,
@@ -299,7 +307,7 @@
         }
     };
 
-    <span class="macro">tracing::info!</span>(<span class="string">&quot;signed url is: {url}&quot;</span>);
+    <span class="macro">tracing::info!</span>(<span class="string">&quot;signed url is: {session_uri}&quot;</span>);
 
     <span class="kw">let </span>client = reqwest::Client::builder()
         .default_headers(reqwest::header::HeaderMap::default())
@@ -308,7 +316,7 @@
         .unwrap();
 
     <span class="kw">let </span>res = client
-        .post(<span class="kw-2">&amp;</span>url)
+        .post(<span class="kw-2">&amp;</span>session_uri)
         .header(reqwest::header::CONTENT_LENGTH, <span class="string">&quot;0&quot;</span>)
         .header(reqwest::header::CONTENT_TYPE, <span class="string">&quot;application/octet-stream&quot;</span>)
         .header(<span class="string">&quot;x-goog-resumable&quot;</span>, <span class="string">&quot;start&quot;</span>);
@@ -351,44 +359,50 @@
 
     <span class="kw">let </span>total_bytes = bytes.len();
     pb.set_length(total_bytes.try_into().unwrap());
-    pb.set_style(ProgressStyle::with_template(<span class="string">&quot;{spinner:.green} [{elapsed_precise}] [{bar:.cyan/blue}] {bytes}/{total_bytes} ({bytes_per_sec}, {eta})&quot;</span>)
+    pb.set_style(ProgressStyle::with_template(<span class="string">&quot;{spinner:.yellow} [{elapsed_precise}] [{bar:.white}] {bytes}/{total_bytes} ({bytes_per_sec}, {eta})&quot;</span>)
                  .unwrap()
                  .progress_chars(<span class="string">&quot;█▉▊▋▌▍▎▏  &quot;</span>)
                  .tick_strings(<span class="kw-2">&amp;</span>[<span class="string">&quot;✶&quot;</span>, <span class="string">&quot;✸&quot;</span>, <span class="string">&quot;✹&quot;</span>, <span class="string">&quot;✺&quot;</span>, <span class="string">&quot;✹&quot;</span>, <span class="string">&quot;✷&quot;</span>]));
     <span class="macro">tracing::info!</span>(<span class="string">&quot;webc is {total_bytes} bytes long&quot;</span>);
 
-    <span class="kw">let </span>chunk_size = <span class="number">1_048_576</span>; <span class="comment">// 1MB - 315s / 100MB
-    </span><span class="kw">let </span>chunks = bytes.chunks(chunk_size);
-    <span class="kw">let </span><span class="kw-2">mut </span>total_bytes_sent = <span class="number">0</span>;
+    <span class="kw">let </span>chunk_size = (total_bytes / <span class="number">20</span>).min(<span class="number">10485760</span>);
 
-    <span class="kw">let </span>client = reqwest::Client::builder().build().unwrap();
+    <span class="kw">let </span>stream = futures::stream::unfold(<span class="number">0</span>, <span class="kw">move </span>|offset| {
+        <span class="kw">let </span>pb = pb.clone();
+        <span class="kw">let </span>bytes = bytes.clone();
+        <span class="kw">async move </span>{
+            <span class="kw">if </span>offset &gt;= total_bytes {
+                <span class="kw">return </span><span class="prelude-val">None</span>;
+            }
 
-    <span class="kw">for </span>chunk <span class="kw">in </span>chunks {
-        <span class="kw">let </span>n = chunk.len();
+            <span class="kw">let </span>start = offset;
 
-        <span class="kw">let </span>start = total_bytes_sent;
-        <span class="kw">let </span>end = start + chunk.len().saturating_sub(<span class="number">1</span>);
-        <span class="kw">let </span>content_range = <span class="macro">format!</span>(<span class="string">&quot;bytes {start}-{end}/{total_bytes}&quot;</span>);
+            <span class="kw">let </span>end = <span class="kw">if </span>(start + chunk_size) &gt;= total_bytes {
+                total_bytes
+            } <span class="kw">else </span>{
+                start + chunk_size
+            };
 
-        <span class="kw">let </span>res = client
-            .put(<span class="kw-2">&amp;</span>session_uri)
-            .header(reqwest::header::CONTENT_TYPE, <span class="string">&quot;application/octet-stream&quot;</span>)
-            .header(reqwest::header::CONTENT_LENGTH, <span class="macro">format!</span>(<span class="string">&quot;{}&quot;</span>, chunk.len()))
-            .header(<span class="string">&quot;Content-Range&quot;</span>.to_string(), content_range)
-            .body(chunk.to_vec());
+            <span class="kw">let </span>n = end - start;
+            <span class="kw">let </span>next_chunk = bytes.slice(start..end);
+            pb.inc(n <span class="kw">as </span>u64);
 
-        res.send()
-            .<span class="kw">await
-            </span>.map(|response| response.error_for_status())
-            .map_err(|e| {
-                <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;cannot send request to {session_uri} (chunk {start}..{end}): {e}&quot;</span>,)
-            })<span class="question-mark">??</span>;
+            <span class="prelude-val">Some</span>((<span class="prelude-val">Ok</span>::&lt;<span class="kw">_</span>, std::io::Error&gt;(next_chunk), offset + n))
+        }
+    });
 
-        total_bytes_sent += n;
-        pb.set_position(total_bytes_sent.try_into().unwrap());
-    }
+    <span class="kw">let </span>res = client
+        .put(<span class="kw-2">&amp;</span>session_uri)
+        .header(reqwest::header::CONTENT_TYPE, <span class="string">&quot;application/octet-stream&quot;</span>)
+        .header(reqwest::header::CONTENT_LENGTH, <span class="macro">format!</span>(<span class="string">&quot;{}&quot;</span>, total_bytes))
+        .body(Body::wrap_stream(stream));
 
-    <span class="prelude-val">Ok</span>(url)
+    res.send()
+        .<span class="kw">await
+        </span>.map(|response| response.error_for_status())
+        .map_err(|e| <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;error uploading package to {session_uri}: {e}&quot;</span>,))<span class="question-mark">??</span>;
+
+    <span class="prelude-val">Ok</span>(session_uri)
 }
 
 <span class="doccomment">/// Read and return a manifest given a path.

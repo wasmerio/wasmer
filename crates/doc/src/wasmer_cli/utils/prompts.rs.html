@@ -242,6 +242,15 @@
 <a href="#242" id="242">242</a>
 <a href="#243" id="243">243</a>
 <a href="#244" id="244">244</a>
+<a href="#245" id="245">245</a>
+<a href="#246" id="246">246</a>
+<a href="#247" id="247">247</a>
+<a href="#248" id="248">248</a>
+<a href="#249" id="249">249</a>
+<a href="#250" id="250">250</a>
+<a href="#251" id="251">251</a>
+<a href="#252" id="252">252</a>
+<a href="#253" id="253">253</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>anyhow::Context;
 <span class="kw">use </span>colored::Colorize;
 <span class="kw">use </span>dialoguer::{theme::ColorfulTheme, Select};
@@ -341,9 +350,16 @@
         <span class="kw">if let </span><span class="prelude-val">Some</span>(check) = <span class="kw-2">&amp;</span>check {
             <span class="kw">let </span>api = client.expect(<span class="string">&quot;Check mode specified, but no API provided&quot;</span>);
 
-            <span class="kw">let </span>pkg = wasmer_api::query::get_package(api, ident.to_string())
-                .<span class="kw">await
-                </span>.context(<span class="string">&quot;could not query backend for package&quot;</span>)<span class="question-mark">?</span>;
+            <span class="kw">let </span>pkg = <span class="kw">if let </span><span class="prelude-val">Some</span>(v) = ident.version_opt() {
+                wasmer_api::query::get_package_version(api, ident.full_name(), v.to_string())
+                    .<span class="kw">await
+                    </span>.context(<span class="string">&quot;could not query backend for package&quot;</span>)<span class="question-mark">?
+                    </span>.map(|p| p.package)
+            } <span class="kw">else </span>{
+                wasmer_api::query::get_package(api, ident.to_string())
+                    .<span class="kw">await
+                    </span>.context(<span class="string">&quot;could not query backend for package&quot;</span>)<span class="question-mark">?
+            </span>};
 
             <span class="kw">match </span>check {
                 PackageCheckMode::MustExist =&gt; {
@@ -366,6 +382,8 @@
                     }
                 }
             }
+        } <span class="kw">else </span>{
+            <span class="kw">break </span><span class="prelude-val">Ok</span>((ident, <span class="prelude-val">None</span>));
         }
     }
 }

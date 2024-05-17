@@ -543,10 +543,12 @@
 <a href="#543" id="543">543</a>
 <a href="#544" id="544">544</a>
 <a href="#545" id="545">545</a>
+<a href="#546" id="546">546</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{net::TcpListener, path::PathBuf, str::FromStr, time::Duration};
 
 <span class="kw">use </span>anyhow::Ok;
 <span class="kw">use </span>clap::Parser;
+<span class="kw">use </span>colored::Colorize;
 <span class="attr">#[cfg(not(test))]
 </span><span class="kw">use </span>dialoguer::{console::style, Input};
 <span class="kw">use </span>hyper::{
@@ -847,7 +849,7 @@
                 <span class="kw">match </span>res {
                     <span class="prelude-val">Some</span>(s) =&gt; {
                         <span class="macro">print!</span>(<span class="string">&quot;Done!&quot;</span>);
-                        <span class="macro">println!</span>(<span class="string">&quot;\n✅ Login for Wasmer user {:?} saved&quot;</span>, s)
+                        <span class="macro">println!</span>(<span class="string">&quot;\n{} Login for Wasmer user {:?} saved&quot;</span>,<span class="string">&quot;✔&quot;</span>.green().bold(), s)
                     }
                     <span class="prelude-val">None </span>=&gt; <span class="macro">print!</span>(
                         <span class="string">&quot;Warning: no user found on {:?} with the provided token.\nToken saved regardless.&quot;</span>,

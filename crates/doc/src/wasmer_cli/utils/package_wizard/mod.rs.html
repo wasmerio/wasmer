@@ -424,430 +424,430 @@
 <a href="#424" id="424">424</a>
 <a href="#425" id="425">425</a>
 <a href="#426" id="426">426</a>
-</pre></div><pre class="rust"><code><span class="kw">use </span>std::path::{Path, PathBuf};
-
-<span class="kw">use </span>anyhow::Context;
-<span class="kw">use </span>dialoguer::{theme::ColorfulTheme, Select};
-<span class="kw">use </span>wasmer_api::{types::UserWithNamespaces, WasmerClient};
-
-<span class="kw">use </span><span class="kw">super</span>::prompts::PackageCheckMode;
-
-<span class="kw">const </span>WASM_STATIC_SERVER_PACKAGE: <span class="kw-2">&amp;</span>str = <span class="string">&quot;wasmer/static-web-server&quot;</span>;
-<span class="kw">const </span>WASM_STATIC_SERVER_VERSION: <span class="kw-2">&amp;</span>str = <span class="string">&quot;1&quot;</span>;
-
-<span class="kw">const </span>WASMER_WINTER_JS_PACKAGE: <span class="kw-2">&amp;</span>str = <span class="string">&quot;wasmer/winterjs&quot;</span>;
-<span class="kw">const </span>WASMER_WINTER_JS_VERSION: <span class="kw-2">&amp;</span>str = <span class="string">&quot;*&quot;</span>;
-
-<span class="kw">const </span>WASM_PYTHON_PACKAGE: <span class="kw-2">&amp;</span>str = <span class="string">&quot;wasmer/python&quot;</span>;
-<span class="kw">const </span>WASM_PYTHON_VERSION: <span class="kw-2">&amp;</span>str = <span class="string">&quot;3.12.6&quot;</span>;
-
-<span class="kw">const </span>SAMPLE_INDEX_HTML: <span class="kw-2">&amp;</span>str = <span class="macro">include_str!</span>(<span class="string">&quot;./templates/static-site/index.html&quot;</span>);
-<span class="kw">const </span>SAMPLE_JS_WORKER: <span class="kw-2">&amp;</span>str = <span class="macro">include_str!</span>(<span class="string">&quot;./templates/js-worker/index.js&quot;</span>);
-<span class="kw">const </span>SAMPLE_PY_APPLICATION: <span class="kw-2">&amp;</span>str = <span class="macro">include_str!</span>(<span class="string">&quot;./templates/py-application/main.py&quot;</span>);
-
-<span class="attr">#[derive(clap::ValueEnum, Clone, Copy, Debug)]
-</span><span class="kw">pub enum </span>PackageType {
-    <span class="attr">#[clap(name = <span class="string">&quot;regular&quot;</span>)]
-    </span>Regular,
-    <span class="doccomment">/// A static website.
-    </span><span class="attr">#[clap(name = <span class="string">&quot;static-website&quot;</span>)]
-    </span>StaticWebsite,
-    <span class="doccomment">/// A js-worker
-    </span><span class="attr">#[clap(name = <span class="string">&quot;js-worker&quot;</span>)]
-    </span>JsWorker,
-    <span class="doccomment">/// A py-worker
-    </span><span class="attr">#[clap(name = <span class="string">&quot;py-application&quot;</span>)]
-    </span>PyApplication,
-}
-
-<span class="attr">#[derive(Clone, Copy, Debug)]
-</span><span class="kw">pub enum </span>CreateMode {
-    Create,
-    SelectExisting,
-    <span class="attr">#[allow(dead_code)]
-    </span>CreateOrSelect,
-}
-
-<span class="kw">fn </span>prompt_for_package_type() -&gt; <span class="prelude-ty">Result</span>&lt;PackageType, anyhow::Error&gt; {
-    <span class="kw">let </span>theme = ColorfulTheme::default();
-    Select::with_theme(<span class="kw-2">&amp;</span>theme)
-        .with_prompt(<span class="string">&quot;What type of package do you want to create?&quot;</span>)
-        .items(<span class="kw-2">&amp;</span>[<span class="string">&quot;Basic pacakge&quot;</span>, <span class="string">&quot;Static website&quot;</span>])
-        .interact()
-        .map(|idx| <span class="kw">match </span>idx {
-            <span class="number">0 </span>=&gt; PackageType::Regular,
-            <span class="number">1 </span>=&gt; PackageType::StaticWebsite,
-            <span class="kw">_ </span>=&gt; <span class="macro">unreachable!</span>(),
-        })
-        .map_err(anyhow::Error::from)
-}
-
-<span class="attr">#[derive(Debug)]
-</span><span class="kw">pub struct </span>PackageWizard {
-    <span class="kw">pub </span>path: PathBuf,
-    <span class="kw">pub </span>type_: <span class="prelude-ty">Option</span>&lt;PackageType&gt;,
-
-    <span class="kw">pub </span>create_mode: CreateMode,
-
-    <span class="doccomment">/// Namespace to use.
-    </span><span class="kw">pub </span>namespace: <span class="prelude-ty">Option</span>&lt;String&gt;,
-    <span class="doccomment">/// Default namespace to use.
-    /// Will still show a prompt, with this as the default value.
-    /// Ignored if [`Self::namespace`] is set.
-    </span><span class="kw">pub </span>namespace_default: <span class="prelude-ty">Option</span>&lt;String&gt;,
-
-    <span class="doccomment">/// Pre-configured package name.
-    </span><span class="kw">pub </span>name: <span class="prelude-ty">Option</span>&lt;String&gt;,
-
-    <span class="kw">pub </span>user: <span class="prelude-ty">Option</span>&lt;UserWithNamespaces&gt;,
-}
-
-<span class="kw">pub struct </span>PackageWizardOutput {
-    <span class="kw">pub </span>api: <span class="prelude-ty">Option</span>&lt;wasmer_api::types::Package&gt;,
-    <span class="kw">pub </span>local_path: <span class="prelude-ty">Option</span>&lt;PathBuf&gt;,
-    <span class="kw">pub </span>local_manifest: <span class="prelude-ty">Option</span>&lt;wasmer_config::package::Manifest&gt;,
-}
-
-<span class="kw">impl </span>PackageWizard {
-    <span class="kw">fn </span>build_new_package(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;PackageWizardOutput, anyhow::Error&gt; {
-        <span class="kw">let </span>ty = <span class="kw">match </span><span class="self">self</span>.type_ {
-            <span class="prelude-val">Some</span>(t) =&gt; t,
-            <span class="prelude-val">None </span>=&gt; prompt_for_package_type()<span class="question-mark">?</span>,
-        };
-
-        <span class="kw">if </span>!<span class="self">self</span>.path.is_dir() {
-            std::fs::create_dir_all(<span class="kw-2">&amp;</span><span class="self">self</span>.path).with_context(|| {
-                <span class="macro">format!</span>(<span class="string">&quot;Failed to create directory: &#39;{}&#39;&quot;</span>, <span class="self">self</span>.path.display())
-            })<span class="question-mark">?</span>;
-        }
-
-        <span class="kw">let </span>manifest = <span class="kw">match </span>ty {
-            PackageType::Regular =&gt; <span class="macro">todo!</span>(),
-            PackageType::StaticWebsite =&gt; initialize_static_site(<span class="kw-2">&amp;</span><span class="self">self</span>.path)<span class="question-mark">?</span>,
-            PackageType::JsWorker =&gt; initialize_js_worker(<span class="kw-2">&amp;</span><span class="self">self</span>.path)<span class="question-mark">?</span>,
-            PackageType::PyApplication =&gt; initialize_py_worker(<span class="kw-2">&amp;</span><span class="self">self</span>.path)<span class="question-mark">?</span>,
-        };
-
-        <span class="kw">let </span>manifest_path = <span class="self">self</span>.path.join(<span class="string">&quot;wasmer.toml&quot;</span>);
-        <span class="kw">let </span>manifest_raw = manifest
-            .to_string()
-            .context(<span class="string">&quot;could not serialize package manifest&quot;</span>)<span class="question-mark">?</span>;
-        std::fs::write(manifest_path, manifest_raw)
-            .with_context(|| <span class="macro">format!</span>(<span class="string">&quot;Failed to write manifest to &#39;{}&#39;&quot;</span>, <span class="self">self</span>.path.display()))<span class="question-mark">?</span>;
-
-        <span class="prelude-val">Ok</span>(PackageWizardOutput {
-            api: <span class="prelude-val">None</span>,
-            local_path: <span class="prelude-val">Some</span>(<span class="self">self</span>.path.clone()),
-            local_manifest: <span class="prelude-val">Some</span>(manifest),
-        })
-    }
-
-    <span class="kw">async fn </span>prompt_existing_package(
-        <span class="kw-2">&amp;</span><span class="self">self</span>,
-        api: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>WasmerClient&gt;,
-    ) -&gt; <span class="prelude-ty">Result</span>&lt;PackageWizardOutput, anyhow::Error&gt; {
-        <span class="comment">// Existing package
-        </span><span class="kw">let </span>check = <span class="kw">if </span>api.is_some() {
-            <span class="prelude-val">Some</span>(PackageCheckMode::MustExist)
-        } <span class="kw">else </span>{
-            <span class="prelude-val">None
-        </span>};
-
-        <span class="macro">eprintln!</span>(<span class="string">&quot;Enter the name of an existing package:&quot;</span>);
-        <span class="kw">let </span>(_ident, api) = <span class="kw">super</span>::prompts::prompt_for_package(<span class="string">&quot;Package&quot;</span>, <span class="prelude-val">None</span>, check, api).<span class="kw">await</span><span class="question-mark">?</span>;
-        <span class="prelude-val">Ok</span>(PackageWizardOutput {
-            api,
-            local_path: <span class="prelude-val">None</span>,
-            local_manifest: <span class="prelude-val">None</span>,
-        })
-    }
-
-    <span class="kw">pub async fn </span>run(
-        <span class="self">self</span>,
-        api: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>WasmerClient&gt;,
-    ) -&gt; <span class="prelude-ty">Result</span>&lt;PackageWizardOutput, anyhow::Error&gt; {
-        <span class="kw">match </span><span class="self">self</span>.create_mode {
-            CreateMode::Create =&gt; <span class="self">self</span>.build_new_package(),
-            CreateMode::SelectExisting =&gt; <span class="self">self</span>.prompt_existing_package(api).<span class="kw">await</span>,
-            CreateMode::CreateOrSelect =&gt; {
-                <span class="kw">let </span>theme = ColorfulTheme::default();
-                <span class="kw">let </span>index = Select::with_theme(<span class="kw-2">&amp;</span>theme)
-                    .with_prompt(<span class="string">&quot;What package do you want to use?&quot;</span>)
-                    .items(<span class="kw-2">&amp;</span>[<span class="string">&quot;Create new package&quot;</span>, <span class="string">&quot;Use existing package&quot;</span>])
-                    .default(<span class="number">0</span>)
-                    .interact()<span class="question-mark">?</span>;
-
-                <span class="kw">match </span>index {
-                    <span class="number">0 </span>=&gt; <span class="self">self</span>.build_new_package(),
-                    <span class="number">1 </span>=&gt; <span class="self">self</span>.prompt_existing_package(api).<span class="kw">await</span>,
-                    other =&gt; {
-                        <span class="macro">unreachable!</span>(<span class="string">&quot;Unexpected index: {other}&quot;</span>);
-                    }
-                }
-            }
-        }
-    }
-}
-
-<span class="kw">fn </span>initialize_static_site(path: <span class="kw-2">&amp;</span>Path) -&gt; <span class="prelude-ty">Result</span>&lt;wasmer_config::package::Manifest, anyhow::Error&gt; {
-    <span class="kw">let </span>pubdir_name = <span class="string">&quot;public&quot;</span>;
-    <span class="kw">let </span>pubdir = path.join(pubdir_name);
-    <span class="kw">if </span>!pubdir.is_dir() {
-        std::fs::create_dir_all(<span class="kw-2">&amp;</span>pubdir)
-            .with_context(|| <span class="macro">format!</span>(<span class="string">&quot;Failed to create directory: &#39;{}&#39;&quot;</span>, pubdir.display()))<span class="question-mark">?</span>;
-    }
-    <span class="kw">let </span>index = pubdir.join(<span class="string">&quot;index.html&quot;</span>);
-
-    <span class="kw">let </span>static_html = SAMPLE_INDEX_HTML.replace(<span class="string">&quot;{{title}}&quot;</span>, <span class="string">&quot;My static website&quot;</span>);
-
-    <span class="kw">if </span>!index.is_file() {
-        std::fs::write(<span class="kw-2">&amp;</span>index, static_html.as_str())
-            .with_context(|| <span class="string">&quot;Could not write index.html file&quot;</span>.to_string())<span class="question-mark">?</span>;
-    } <span class="kw">else </span>{
-        <span class="comment">// The index.js file already exists, so we can ask the user if they want to overwrite it
-        </span><span class="kw">let </span>theme = dialoguer::theme::ColorfulTheme::default();
-        <span class="kw">let </span>should_overwrite = dialoguer::Confirm::with_theme(<span class="kw-2">&amp;</span>theme)
-            .with_prompt(<span class="string">&quot;index.html already exists. Do you want to overwrite it?&quot;</span>)
-            .interact()
-            .unwrap();
-        <span class="kw">if </span>should_overwrite {
-            std::fs::write(<span class="kw-2">&amp;</span>index, static_html.as_str())
-                .with_context(|| <span class="string">&quot;Could not write index.html file&quot;</span>.to_string())<span class="question-mark">?</span>;
-        }
-    }
-
-    <span class="kw">let </span>raw_static_site_toml = <span class="macro">format!</span>(
-        <span class="string">r#&quot;
-[dependencies]
-&quot;{}&quot; = &quot;{}&quot;
-
-[fs]
-public = &quot;{}&quot;
-&quot;#</span>,
-        WASM_STATIC_SERVER_PACKAGE, WASM_STATIC_SERVER_VERSION, pubdir_name
-    );
-
-    <span class="kw">let </span>manifest = wasmer_config::package::Manifest::parse(raw_static_site_toml.as_str())
-        .map_err(|e| <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;Could not parse js worker manifest: {}&quot;</span>, e))<span class="question-mark">?</span>;
-
-    <span class="prelude-val">Ok</span>(manifest)
-}
-
-<span class="kw">fn </span>initialize_js_worker(path: <span class="kw-2">&amp;</span>Path) -&gt; <span class="prelude-ty">Result</span>&lt;wasmer_config::package::Manifest, anyhow::Error&gt; {
-    <span class="kw">let </span>srcdir_name = <span class="string">&quot;src&quot;</span>;
-    <span class="kw">let </span>srcdir = path.join(srcdir_name);
-    <span class="kw">if </span>!srcdir.is_dir() {
-        std::fs::create_dir_all(<span class="kw-2">&amp;</span>srcdir)
-            .with_context(|| <span class="macro">format!</span>(<span class="string">&quot;Failed to create directory: &#39;{}&#39;&quot;</span>, srcdir.display()))<span class="question-mark">?</span>;
-    }
-
-    <span class="kw">let </span>index_js = srcdir.join(<span class="string">&quot;index.js&quot;</span>);
-
-    <span class="kw">let </span>sample_js = SAMPLE_JS_WORKER.replace(<span class="string">&quot;{{package}}&quot;</span>, <span class="string">&quot;My JS worker&quot;</span>);
-
-    <span class="kw">if </span>!index_js.is_file() {
-        std::fs::write(<span class="kw-2">&amp;</span>index_js, sample_js.as_str())
-            .with_context(|| <span class="string">&quot;Could not write index.js file&quot;</span>.to_string())<span class="question-mark">?</span>;
-    }
-
-    <span class="comment">// get the remote repository if it exists
-    // Todo: add this to the manifest
-    // let remote_repo_url = Command::new(&quot;git&quot;)
-    //     .arg(&quot;remote&quot;)
-    //     .arg(&quot;get-url&quot;)
-    //     .arg(&quot;origin&quot;)
-    //     .output()
-    //     .map_or(&quot;&quot;.to_string(), |f| String::from_utf8(f.stdout).unwrap());
-
-    </span><span class="kw">let </span>raw_js_worker_toml = <span class="macro">format!</span>(
-        <span class="string">r#&quot;
-[dependencies]
-&quot;{winterjs_pkg}&quot; = &quot;{winterjs_version}&quot;
-
-[fs]
-&quot;/src&quot; = &quot;./src&quot;
-
-[[command]]
-name = &quot;script&quot;
-module = &quot;{winterjs_pkg}:winterjs&quot;
-runner = &quot;https://webc.org/runner/wasi&quot;
-
-[command.annotations.wasi]
-main-args = [&quot;/src/index.js&quot;]
-env = [&quot;JS_PATH=/src/index.js&quot;]
-&quot;#</span>,
-        winterjs_pkg = WASMER_WINTER_JS_PACKAGE,
-        winterjs_version = WASMER_WINTER_JS_VERSION,
-    );
-
-    <span class="kw">let </span>manifest = wasmer_config::package::Manifest::parse(raw_js_worker_toml.as_str())
-        .map_err(|e| <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;Could not parse js worker manifest: {}&quot;</span>, e))<span class="question-mark">?</span>;
-
-    <span class="prelude-val">Ok</span>(manifest)
-}
-
-<span class="kw">fn </span>initialize_py_worker(path: <span class="kw-2">&amp;</span>Path) -&gt; <span class="prelude-ty">Result</span>&lt;wasmer_config::package::Manifest, anyhow::Error&gt; {
-    <span class="kw">let </span>appdir_name = <span class="string">&quot;src&quot;</span>;
-    <span class="kw">let </span>appdir = path.join(appdir_name);
-    <span class="kw">if </span>!appdir.is_dir() {
-        std::fs::create_dir_all(<span class="kw-2">&amp;</span>appdir)
-            .with_context(|| <span class="macro">format!</span>(<span class="string">&quot;Failed to create directory: &#39;{}&#39;&quot;</span>, appdir.display()))<span class="question-mark">?</span>;
-    }
-    <span class="kw">let </span>main_py = appdir.join(<span class="string">&quot;main.py&quot;</span>);
-
-    <span class="kw">let </span>sample_main = SAMPLE_PY_APPLICATION.replace(<span class="string">&quot;{{package}}&quot;</span>, <span class="string">&quot;My Python Worker&quot;</span>);
-
-    <span class="kw">if </span>!main_py.is_file() {
-        std::fs::write(<span class="kw-2">&amp;</span>main_py, sample_main.as_str())
-            .with_context(|| <span class="string">&quot;Could not write main.py file&quot;</span>.to_string())<span class="question-mark">?</span>;
-    }
-
-    <span class="comment">// Todo: add this to the manifest
-    // let remote_repo_url = Command::new(&quot;git&quot;)
-    //     .arg(&quot;remote&quot;)
-    //     .arg(&quot;get-url&quot;)
-    //     .arg(&quot;origin&quot;)
-    //     .output()
-    //     .map_or(&quot;&quot;.to_string(), |f| String::from_utf8(f.stdout).unwrap());
-
-    </span><span class="kw">let </span>raw_py_worker_toml = <span class="macro">format!</span>(
-        <span class="string">r#&quot;
-[dependencies]
-&quot;{}&quot; = &quot;{}&quot;
-
-[fs]
-&quot;/src&quot; = &quot;./src&quot;
-# &quot;/.env&quot; = &quot;./.env/&quot; # Bundle the virtualenv
-
-[[command]]
-name = &quot;script&quot;
-module = &quot;{}:python&quot; # The &quot;python&quot; atom from &quot;wasmer/python&quot;
-runner = &quot;wasi&quot;
-
-[command.annotations.wasi]
-main-args = [&quot;/src/main.py&quot;]
-# env = [&quot;PYTHON_PATH=/app/.env:/etc/python3.12/site-packages&quot;] # Make our virtualenv accessible    
-&quot;#</span>,
-        WASM_PYTHON_PACKAGE, WASM_PYTHON_VERSION, WASM_PYTHON_PACKAGE
-    );
-
-    <span class="kw">let </span>manifest = wasmer_config::package::Manifest::parse(raw_py_worker_toml.as_str())
-        .map_err(|e| <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;Could not parse py worker manifest: {}&quot;</span>, e))<span class="question-mark">?</span>;
-
-    <span class="prelude-val">Ok</span>(manifest)
-}
-<span class="attr">#[cfg(test)]
-</span><span class="kw">mod </span>tests {
-    <span class="kw">use super</span>::<span class="kw-2">*</span>;
-
-    <span class="attr">#[tokio::test]
-    </span><span class="kw">async fn </span>test_package_wizard_create_static_site() {
-        <span class="kw">let </span>dir = tempfile::tempdir().unwrap();
-
-        PackageWizard {
-            path: dir.path().to_owned(),
-            type_: <span class="prelude-val">Some</span>(PackageType::StaticWebsite),
-            create_mode: CreateMode::Create,
-            namespace: <span class="prelude-val">None</span>,
-            namespace_default: <span class="prelude-val">None</span>,
-            name: <span class="prelude-val">None</span>,
-            user: <span class="prelude-val">None</span>,
-        }
-        .run(<span class="prelude-val">None</span>)
-        .<span class="kw">await
-        </span>.unwrap();
-
-        <span class="kw">let </span>manifest = std::fs::read_to_string(dir.path().join(<span class="string">&quot;wasmer.toml&quot;</span>)).unwrap();
-        <span class="macro">pretty_assertions::assert_eq!</span>(
-            manifest,
-            <span class="string">r#&quot;[dependencies]
-&quot;wasmer/static-web-server&quot; = &quot;^1&quot;
-
-[fs]
-public = &quot;public&quot;
-&quot;#</span>,
-        );
-
-        <span class="macro">assert!</span>(dir.path().join(<span class="string">&quot;public&quot;</span>).join(<span class="string">&quot;index.html&quot;</span>).is_file());
-    }
-
-    <span class="attr">#[tokio::test]
-    </span><span class="kw">async fn </span>test_package_wizard_create_js_worker() {
-        <span class="kw">let </span>dir = tempfile::tempdir().unwrap();
-
-        PackageWizard {
-            path: dir.path().to_owned(),
-            type_: <span class="prelude-val">Some</span>(PackageType::JsWorker),
-            create_mode: CreateMode::Create,
-            namespace: <span class="prelude-val">None</span>,
-            namespace_default: <span class="prelude-val">None</span>,
-            name: <span class="prelude-val">None</span>,
-            user: <span class="prelude-val">None</span>,
-        }
-        .run(<span class="prelude-val">None</span>)
-        .<span class="kw">await
-        </span>.unwrap();
-        <span class="kw">let </span>manifest = std::fs::read_to_string(dir.path().join(<span class="string">&quot;wasmer.toml&quot;</span>)).unwrap();
-
-        <span class="macro">pretty_assertions::assert_eq!</span>(
-            manifest,
-            <span class="string">r#&quot;[dependencies]
-&quot;wasmer/winterjs&quot; = &quot;*&quot;
-
-[fs]
-&quot;/src&quot; = &quot;./src&quot;
-
-[[command]]
-name = &quot;script&quot;
-module = &quot;wasmer/winterjs:winterjs&quot;
-runner = &quot;https://webc.org/runner/wasi&quot;
-
-[command.annotations.wasi]
-env = [&quot;JS_PATH=/src/index.js&quot;]
-main-args = [&quot;/src/index.js&quot;]
-&quot;#</span>,
-        );
-
-        <span class="macro">assert!</span>(dir.path().join(<span class="string">&quot;src&quot;</span>).join(<span class="string">&quot;index.js&quot;</span>).is_file());
-    }
-
-    <span class="attr">#[tokio::test]
-    </span><span class="kw">async fn </span>test_package_wizard_create_py_worker() {
-        <span class="kw">let </span>dir = tempfile::tempdir().unwrap();
-
-        PackageWizard {
-            path: dir.path().to_owned(),
-            type_: <span class="prelude-val">Some</span>(PackageType::PyApplication),
-            create_mode: CreateMode::Create,
-            namespace: <span class="prelude-val">None</span>,
-            namespace_default: <span class="prelude-val">None</span>,
-            name: <span class="prelude-val">None</span>,
-            user: <span class="prelude-val">None</span>,
-        }
-        .run(<span class="prelude-val">None</span>)
-        .<span class="kw">await
-        </span>.unwrap();
-        <span class="kw">let </span>manifest = std::fs::read_to_string(dir.path().join(<span class="string">&quot;wasmer.toml&quot;</span>)).unwrap();
-
-        <span class="macro">pretty_assertions::assert_eq!</span>(
-            manifest,
-            <span class="string">r#&quot;[dependencies]
-&quot;wasmer/python&quot; = &quot;^3.12.6&quot;
-
-[fs]
-&quot;/src&quot; = &quot;./src&quot;
-
-[[command]]
-name = &quot;script&quot;
-module = &quot;wasmer/python:python&quot;
-runner = &quot;wasi&quot;
-
-[command.annotations.wasi]
-main-args = [&quot;/src/main.py&quot;]
-&quot;#</span>,
-        );
-
-        <span class="macro">assert!</span>(dir.path().join(<span class="string">&quot;src&quot;</span>).join(<span class="string">&quot;main.py&quot;</span>).is_file());
-    }
-}
-</code></pre></div></section></main></body></html>
+</pre></div><pre class="rust"><code><span class="comment">// use std::path::{Path, PathBuf};
+//
+// use anyhow::Context;
+// use dialoguer::{theme::ColorfulTheme, Select};
+// use wasmer_api::{types::UserWithNamespaces, WasmerClient};
+//
+// use super::prompts::PackageCheckMode;
+//
+// const WASM_STATIC_SERVER_PACKAGE: &amp;str = &quot;wasmer/static-web-server&quot;;
+// const WASM_STATIC_SERVER_VERSION: &amp;str = &quot;1&quot;;
+//
+// const WASMER_WINTER_JS_PACKAGE: &amp;str = &quot;wasmer/winterjs&quot;;
+// const WASMER_WINTER_JS_VERSION: &amp;str = &quot;*&quot;;
+//
+// const WASM_PYTHON_PACKAGE: &amp;str = &quot;wasmer/python&quot;;
+// const WASM_PYTHON_VERSION: &amp;str = &quot;3.12.6&quot;;
+//
+// const SAMPLE_INDEX_HTML: &amp;str = include_str!(&quot;./templates/static-site/index.html&quot;);
+// const SAMPLE_JS_WORKER: &amp;str = include_str!(&quot;./templates/js-worker/index.js&quot;);
+// const SAMPLE_PY_APPLICATION: &amp;str = include_str!(&quot;./templates/py-application/main.py&quot;);
+//
+// #[derive(clap::ValueEnum, Clone, Copy, Debug)]
+// pub enum PackageType {
+//     #[clap(name = &quot;regular&quot;)]
+//     Regular,
+//     /// A static website.
+//     #[clap(name = &quot;static-website&quot;)]
+//     StaticWebsite,
+//     /// A js-worker
+//     #[clap(name = &quot;js-worker&quot;)]
+//     JsWorker,
+//     /// A py-worker
+//     #[clap(name = &quot;py-application&quot;)]
+//     PyApplication,
+// }
+//
+// #[derive(Clone, Copy, Debug)]
+// pub enum CreateMode {
+//     Create,
+//     SelectExisting,
+//     #[allow(dead_code)]
+//     CreateOrSelect,
+// }
+//
+// fn prompt_for_package_type() -&gt; Result&lt;PackageType, anyhow::Error&gt; {
+//     let theme = ColorfulTheme::default();
+//     Select::with_theme(&amp;theme)
+//         .with_prompt(&quot;What type of package do you want to create?&quot;)
+//         .items(&amp;[&quot;Basic pacakge&quot;, &quot;Static website&quot;])
+//         .interact()
+//         .map(|idx| match idx {
+//             0 =&gt; PackageType::Regular,
+//             1 =&gt; PackageType::StaticWebsite,
+//             _ =&gt; unreachable!(),
+//         })
+//         .map_err(anyhow::Error::from)
+// }
+//
+// #[derive(Debug)]
+// pub struct PackageWizard {
+//     pub path: PathBuf,
+//     pub type_: Option&lt;PackageType&gt;,
+//
+//     pub create_mode: CreateMode,
+//
+//     /// Namespace to use.
+//     pub namespace: Option&lt;String&gt;,
+//     /// Default namespace to use.
+//     /// Will still show a prompt, with this as the default value.
+//     /// Ignored if [`Self::namespace`] is set.
+//     pub namespace_default: Option&lt;String&gt;,
+//
+//     /// Pre-configured package name.
+//     pub name: Option&lt;String&gt;,
+//
+//     pub user: Option&lt;UserWithNamespaces&gt;,
+// }
+//
+// pub struct PackageWizardOutput {
+//     pub api: Option&lt;wasmer_api::types::Package&gt;,
+//     pub local_path: Option&lt;PathBuf&gt;,
+//     pub local_manifest: Option&lt;wasmer_config::package::Manifest&gt;,
+// }
+//
+// impl PackageWizard {
+//     fn build_new_package(&amp;self) -&gt; Result&lt;PackageWizardOutput, anyhow::Error&gt; {
+//         let ty = match self.type_ {
+//             Some(t) =&gt; t,
+//             None =&gt; prompt_for_package_type()?,
+//         };
+//
+//         if !self.path.is_dir() {
+//             std::fs::create_dir_all(&amp;self.path).with_context(|| {
+//                 format!(&quot;Failed to create directory: &#39;{}&#39;&quot;, self.path.display())
+//             })?;
+//         }
+//
+//         let manifest = match ty {
+//             PackageType::Regular =&gt; todo!(),
+//             PackageType::StaticWebsite =&gt; initialize_static_site(&amp;self.path)?,
+//             PackageType::JsWorker =&gt; initialize_js_worker(&amp;self.path)?,
+//             PackageType::PyApplication =&gt; initialize_py_worker(&amp;self.path)?,
+//         };
+//
+//         let manifest_path = self.path.join(&quot;wasmer.toml&quot;);
+//         let manifest_raw = manifest
+//             .to_string()
+//             .context(&quot;could not serialize package manifest&quot;)?;
+//         std::fs::write(manifest_path, manifest_raw)
+//             .with_context(|| format!(&quot;Failed to write manifest to &#39;{}&#39;&quot;, self.path.display()))?;
+//
+//         Ok(PackageWizardOutput {
+//             api: None,
+//             local_path: Some(self.path.clone()),
+//             local_manifest: Some(manifest),
+//         })
+//     }
+//
+//     async fn prompt_existing_package(
+//         &amp;self,
+//         api: Option&lt;&amp;WasmerClient&gt;,
+//     ) -&gt; Result&lt;PackageWizardOutput, anyhow::Error&gt; {
+//         // Existing package
+//         let check = if api.is_some() {
+//             Some(PackageCheckMode::MustExist)
+//         } else {
+//             None
+//         };
+//
+//         eprintln!(&quot;Enter the name of an existing package:&quot;);
+//         let (_ident, api) = super::prompts::prompt_for_package(&quot;Package&quot;, None, check, api).await?;
+//         Ok(PackageWizardOutput {
+//             api,
+//             local_path: None,
+//             local_manifest: None,
+//         })
+//     }
+//
+//     pub async fn run(
+//         self,
+//         api: Option&lt;&amp;WasmerClient&gt;,
+//     ) -&gt; Result&lt;PackageWizardOutput, anyhow::Error&gt; {
+//         match self.create_mode {
+//             CreateMode::Create =&gt; self.build_new_package(),
+//             CreateMode::SelectExisting =&gt; self.prompt_existing_package(api).await,
+//             CreateMode::CreateOrSelect =&gt; {
+//                 let theme = ColorfulTheme::default();
+//                 let index = Select::with_theme(&amp;theme)
+//                     .with_prompt(&quot;What package do you want to use?&quot;)
+//                     .items(&amp;[&quot;Create new package&quot;, &quot;Use existing package&quot;])
+//                     .default(0)
+//                     .interact()?;
+//
+//                 match index {
+//                     0 =&gt; self.build_new_package(),
+//                     1 =&gt; self.prompt_existing_package(api).await,
+//                     other =&gt; {
+//                         unreachable!(&quot;Unexpected index: {other}&quot;);
+//                     }
+//                 }
+//             }
+//         }
+//     }
+// }
+//
+// fn initialize_static_site(path: &amp;Path) -&gt; Result&lt;wasmer_config::package::Manifest, anyhow::Error&gt; {
+//     let pubdir_name = &quot;public&quot;;
+//     let pubdir = path.join(pubdir_name);
+//     if !pubdir.is_dir() {
+//         std::fs::create_dir_all(&amp;pubdir)
+//             .with_context(|| format!(&quot;Failed to create directory: &#39;{}&#39;&quot;, pubdir.display()))?;
+//     }
+//     let index = pubdir.join(&quot;index.html&quot;);
+//
+//     let static_html = SAMPLE_INDEX_HTML.replace(&quot;{{title}}&quot;, &quot;My static website&quot;);
+//
+//     if !index.is_file() {
+//         std::fs::write(&amp;index, static_html.as_str())
+//             .with_context(|| &quot;Could not write index.html file&quot;.to_string())?;
+//     } else {
+//         // The index.js file already exists, so we can ask the user if they want to overwrite it
+//         let theme = dialoguer::theme::ColorfulTheme::default();
+//         let should_overwrite = dialoguer::Confirm::with_theme(&amp;theme)
+//             .with_prompt(&quot;index.html already exists. Do you want to overwrite it?&quot;)
+//             .interact()
+//             .unwrap();
+//         if should_overwrite {
+//             std::fs::write(&amp;index, static_html.as_str())
+//                 .with_context(|| &quot;Could not write index.html file&quot;.to_string())?;
+//         }
+//     }
+//
+//     let raw_static_site_toml = format!(
+//         r#&quot;
+// [dependencies]
+// &quot;{}&quot; = &quot;{}&quot;
+//
+// [fs]
+// public = &quot;{}&quot;
+// &quot;#,
+//         WASM_STATIC_SERVER_PACKAGE, WASM_STATIC_SERVER_VERSION, pubdir_name
+//     );
+//
+//     let manifest = wasmer_config::package::Manifest::parse(raw_static_site_toml.as_str())
+//         .map_err(|e| anyhow::anyhow!(&quot;Could not parse js worker manifest: {}&quot;, e))?;
+//
+//     Ok(manifest)
+// }
+//
+// fn initialize_js_worker(path: &amp;Path) -&gt; Result&lt;wasmer_config::package::Manifest, anyhow::Error&gt; {
+//     let srcdir_name = &quot;src&quot;;
+//     let srcdir = path.join(srcdir_name);
+//     if !srcdir.is_dir() {
+//         std::fs::create_dir_all(&amp;srcdir)
+//             .with_context(|| format!(&quot;Failed to create directory: &#39;{}&#39;&quot;, srcdir.display()))?;
+//     }
+//
+//     let index_js = srcdir.join(&quot;index.js&quot;);
+//
+//     let sample_js = SAMPLE_JS_WORKER.replace(&quot;{{package}}&quot;, &quot;My JS worker&quot;);
+//
+//     if !index_js.is_file() {
+//         std::fs::write(&amp;index_js, sample_js.as_str())
+//             .with_context(|| &quot;Could not write index.js file&quot;.to_string())?;
+//     }
+//
+//     // get the remote repository if it exists
+//     // Todo: add this to the manifest
+//     // let remote_repo_url = Command::new(&quot;git&quot;)
+//     //     .arg(&quot;remote&quot;)
+//     //     .arg(&quot;get-url&quot;)
+//     //     .arg(&quot;origin&quot;)
+//     //     .output()
+//     //     .map_or(&quot;&quot;.to_string(), |f| String::from_utf8(f.stdout).unwrap());
+//
+//     let raw_js_worker_toml = format!(
+//         r#&quot;
+// [dependencies]
+// &quot;{winterjs_pkg}&quot; = &quot;{winterjs_version}&quot;
+//
+// [fs]
+// &quot;/src&quot; = &quot;./src&quot;
+//
+// [[command]]
+// name = &quot;script&quot;
+// module = &quot;{winterjs_pkg}:winterjs&quot;
+// runner = &quot;https://webc.org/runner/wasi&quot;
+//
+// [command.annotations.wasi]
+// main-args = [&quot;/src/index.js&quot;]
+// env = [&quot;JS_PATH=/src/index.js&quot;]
+// &quot;#,
+//         winterjs_pkg = WASMER_WINTER_JS_PACKAGE,
+//         winterjs_version = WASMER_WINTER_JS_VERSION,
+//     );
+//
+//     let manifest = wasmer_config::package::Manifest::parse(raw_js_worker_toml.as_str())
+//         .map_err(|e| anyhow::anyhow!(&quot;Could not parse js worker manifest: {}&quot;, e))?;
+//
+//     Ok(manifest)
+// }
+//
+// fn initialize_py_worker(path: &amp;Path) -&gt; Result&lt;wasmer_config::package::Manifest, anyhow::Error&gt; {
+//     let appdir_name = &quot;src&quot;;
+//     let appdir = path.join(appdir_name);
+//     if !appdir.is_dir() {
+//         std::fs::create_dir_all(&amp;appdir)
+//             .with_context(|| format!(&quot;Failed to create directory: &#39;{}&#39;&quot;, appdir.display()))?;
+//     }
+//     let main_py = appdir.join(&quot;main.py&quot;);
+//
+//     let sample_main = SAMPLE_PY_APPLICATION.replace(&quot;{{package}}&quot;, &quot;My Python Worker&quot;);
+//
+//     if !main_py.is_file() {
+//         std::fs::write(&amp;main_py, sample_main.as_str())
+//             .with_context(|| &quot;Could not write main.py file&quot;.to_string())?;
+//     }
+//
+//     // Todo: add this to the manifest
+//     // let remote_repo_url = Command::new(&quot;git&quot;)
+//     //     .arg(&quot;remote&quot;)
+//     //     .arg(&quot;get-url&quot;)
+//     //     .arg(&quot;origin&quot;)
+//     //     .output()
+//     //     .map_or(&quot;&quot;.to_string(), |f| String::from_utf8(f.stdout).unwrap());
+//
+//     let raw_py_worker_toml = format!(
+//         r#&quot;
+// [dependencies]
+// &quot;{}&quot; = &quot;{}&quot;
+//
+// [fs]
+// &quot;/src&quot; = &quot;./src&quot;
+// # &quot;/.env&quot; = &quot;./.env/&quot; # Bundle the virtualenv
+//
+// [[command]]
+// name = &quot;script&quot;
+// module = &quot;{}:python&quot; # The &quot;python&quot; atom from &quot;wasmer/python&quot;
+// runner = &quot;wasi&quot;
+//
+// [command.annotations.wasi]
+// main-args = [&quot;/src/main.py&quot;]
+// # env = [&quot;PYTHON_PATH=/app/.env:/etc/python3.12/site-packages&quot;] # Make our virtualenv accessible
+// &quot;#,
+//         WASM_PYTHON_PACKAGE, WASM_PYTHON_VERSION, WASM_PYTHON_PACKAGE
+//     );
+//
+//     let manifest = wasmer_config::package::Manifest::parse(raw_py_worker_toml.as_str())
+//         .map_err(|e| anyhow::anyhow!(&quot;Could not parse py worker manifest: {}&quot;, e))?;
+//
+//     Ok(manifest)
+// }
+// #[cfg(test)]
+// mod tests {
+//     use super::*;
+//
+//     #[tokio::test]
+//     async fn test_package_wizard_create_static_site() {
+//         let dir = tempfile::tempdir().unwrap();
+//
+//         PackageWizard {
+//             path: dir.path().to_owned(),
+//             type_: Some(PackageType::StaticWebsite),
+//             create_mode: CreateMode::Create,
+//             namespace: None,
+//             namespace_default: None,
+//             name: None,
+//             user: None,
+//         }
+//         .run(None)
+//         .await
+//         .unwrap();
+//
+//         let manifest = std::fs::read_to_string(dir.path().join(&quot;wasmer.toml&quot;)).unwrap();
+//         pretty_assertions::assert_eq!(
+//             manifest,
+//             r#&quot;[dependencies]
+// &quot;wasmer/static-web-server&quot; = &quot;^1&quot;
+//
+// [fs]
+// public = &quot;public&quot;
+// &quot;#,
+//         );
+//
+//         assert!(dir.path().join(&quot;public&quot;).join(&quot;index.html&quot;).is_file());
+//     }
+//
+//     #[tokio::test]
+//     async fn test_package_wizard_create_js_worker() {
+//         let dir = tempfile::tempdir().unwrap();
+//
+//         PackageWizard {
+//             path: dir.path().to_owned(),
+//             type_: Some(PackageType::JsWorker),
+//             create_mode: CreateMode::Create,
+//             namespace: None,
+//             namespace_default: None,
+//             name: None,
+//             user: None,
+//         }
+//         .run(None)
+//         .await
+//         .unwrap();
+//         let manifest = std::fs::read_to_string(dir.path().join(&quot;wasmer.toml&quot;)).unwrap();
+//
+//         pretty_assertions::assert_eq!(
+//             manifest,
+//             r#&quot;[dependencies]
+// &quot;wasmer/winterjs&quot; = &quot;*&quot;
+//
+// [fs]
+// &quot;/src&quot; = &quot;./src&quot;
+//
+// [[command]]
+// name = &quot;script&quot;
+// module = &quot;wasmer/winterjs:winterjs&quot;
+// runner = &quot;https://webc.org/runner/wasi&quot;
+//
+// [command.annotations.wasi]
+// env = [&quot;JS_PATH=/src/index.js&quot;]
+// main-args = [&quot;/src/index.js&quot;]
+// &quot;#,
+//         );
+//
+//         assert!(dir.path().join(&quot;src&quot;).join(&quot;index.js&quot;).is_file());
+//     }
+//
+//     #[tokio::test]
+//     async fn test_package_wizard_create_py_worker() {
+//         let dir = tempfile::tempdir().unwrap();
+//
+//         PackageWizard {
+//             path: dir.path().to_owned(),
+//             type_: Some(PackageType::PyApplication),
+//             create_mode: CreateMode::Create,
+//             namespace: None,
+//             namespace_default: None,
+//             name: None,
+//             user: None,
+//         }
+//         .run(None)
+//         .await
+//         .unwrap();
+//         let manifest = std::fs::read_to_string(dir.path().join(&quot;wasmer.toml&quot;)).unwrap();
+//
+//         pretty_assertions::assert_eq!(
+//             manifest,
+//             r#&quot;[dependencies]
+// &quot;wasmer/python&quot; = &quot;^3.12.6&quot;
+//
+// [fs]
+// &quot;/src&quot; = &quot;./src&quot;
+//
+// [[command]]
+// name = &quot;script&quot;
+// module = &quot;wasmer/python:python&quot;
+// runner = &quot;wasi&quot;
+//
+// [command.annotations.wasi]
+// main-args = [&quot;/src/main.py&quot;]
+// &quot;#,
+//         );
+//
+//         assert!(dir.path().join(&quot;src&quot;).join(&quot;main.py&quot;).is_file());
+//     }
+// }
+</span></code></pre></div></section></main></body></html>

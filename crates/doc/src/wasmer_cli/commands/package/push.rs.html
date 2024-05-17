@@ -252,11 +252,16 @@
 <a href="#252" id="252">252</a>
 <a href="#253" id="253">253</a>
 <a href="#254" id="254">254</a>
+<a href="#255" id="255">255</a>
+<a href="#256" id="256">256</a>
+<a href="#257" id="257">257</a>
+<a href="#258" id="258">258</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">super</span>::common::{macros::<span class="kw-2">*</span>, wait::<span class="kw-2">*</span>, <span class="kw-2">*</span>};
 <span class="kw">use crate</span>::{
     commands::{AsyncCliCommand, PackageBuild},
     opts::{ApiOpts, WasmerEnv},
 };
+<span class="kw">use </span>anyhow::Context;
 <span class="kw">use </span>colored::Colorize;
 <span class="kw">use </span>is_terminal::IsTerminal;
 <span class="kw">use </span>std::path::{Path, PathBuf};
@@ -371,10 +376,12 @@
         package_hash: <span class="kw-2">&amp;</span>PackageHash,
         private: bool,
     ) -&gt; anyhow::Result&lt;()&gt; {
-        <span class="kw">let </span>pb = <span class="macro">make_spinner!</span>(<span class="self">self</span>.quiet, <span class="string">&quot;Uploading the package to the registry..&quot;</span>);
+        <span class="kw">let </span>pb = <span class="macro">make_spinner!</span>(<span class="self">self</span>.quiet, <span class="string">&quot;Uploading the package..&quot;</span>);
 
-        <span class="kw">let </span>signed_url = upload(client, package_hash, <span class="self">self</span>.timeout, package, <span class="kw-2">&amp;</span>pb).<span class="kw">await</span><span class="question-mark">?</span>;
+        <span class="kw">let </span>signed_url = upload(client, package_hash, <span class="self">self</span>.timeout, package, pb.clone()).<span class="kw">await</span><span class="question-mark">?</span>;
+        <span class="macro">spinner_ok!</span>(pb, <span class="string">&quot;Package correctly uploaded&quot;</span>);
 
+        <span class="kw">let </span>pb = <span class="macro">make_spinner!</span>(<span class="self">self</span>.quiet, <span class="string">&quot;Waiting for package to become available...&quot;</span>);
         <span class="kw">let </span>id = <span class="kw">match </span>wasmer_api::query::push_package_release(
             client,
             <span class="prelude-val">None</span>,
@@ -386,10 +393,6 @@
         </span>{
             <span class="prelude-val">Some</span>(r) =&gt; {
                 <span class="kw">if </span>r.success {
-                    <span class="kw">let </span>msg = <span class="macro">format!</span>(
-                        <span class="string">&quot;Succesfully pushed release to namespace {namespace} on the registry&quot;
-                    </span>);
-                    <span class="macro">spinner_ok!</span>(pb, msg);
                     r.package_webc.unwrap().id
                 } <span class="kw">else </span>{
                     <span class="macro">anyhow::bail!</span>(<span class="string">&quot;An unidentified error occurred while publishing the package. (response had success: false)&quot;</span>)
@@ -398,7 +401,10 @@
             <span class="prelude-val">None </span>=&gt; <span class="macro">anyhow::bail!</span>(<span class="string">&quot;An unidentified error occurred while publishing the package.&quot;</span>), <span class="comment">// &lt;- This is extremely bad..
         </span>};
 
-        wait_package(client, <span class="self">self</span>.wait, id, <span class="kw-2">&amp;</span>pb, <span class="self">self</span>.timeout).<span class="kw">await</span><span class="question-mark">?</span>;
+        wait_package(client, <span class="self">self</span>.wait, id, <span class="self">self</span>.timeout).<span class="kw">await</span><span class="question-mark">?</span>;
+        <span class="kw">let </span>msg = <span class="macro">format!</span>(<span class="string">&quot;Succesfully pushed release to namespace {namespace} on the registry&quot;</span>);
+        <span class="macro">spinner_ok!</span>(pb, msg);
+
         <span class="prelude-val">Ok</span>(())
     }
 
@@ -410,7 +416,9 @@
     ) -&gt; anyhow::Result&lt;(String, PackageHash)&gt; {
         <span class="macro">tracing::info!</span>(<span class="string">&quot;Building package&quot;</span>);
         <span class="kw">let </span>pb = <span class="macro">make_spinner!</span>(<span class="self">self</span>.quiet, <span class="string">&quot;Creating the package locally...&quot;</span>);
-        <span class="kw">let </span>(package, hash) = PackageBuild::check(manifest_path.to_path_buf()).execute()<span class="question-mark">?</span>;
+        <span class="kw">let </span>(package, hash) = PackageBuild::check(manifest_path.to_path_buf())
+            .execute()
+            .context(<span class="string">&quot;While trying to build the package locally&quot;</span>)<span class="question-mark">?</span>;
 
         <span class="macro">spinner_ok!</span>(pb, <span class="string">&quot;Correctly built package locally&quot;</span>);
         <span class="macro">tracing::info!</span>(<span class="string">&quot;Package has hash: {hash}&quot;</span>);

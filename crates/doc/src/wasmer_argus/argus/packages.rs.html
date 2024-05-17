@@ -406,7 +406,7 @@
     <span class="doccomment">/// Return the complete path to the folder of the test for the package, from the outdir to the
     /// hash
     </span><span class="kw">pub async fn </span>get_path(config: Arc&lt;ArgusConfig&gt;, pkg: <span class="kw-2">&amp;</span>PackageVersionWithPackage) -&gt; PathBuf {
-        <span class="kw">let </span>hash = <span class="kw">match </span><span class="kw-2">&amp;</span>pkg.distribution.pirita_sha256_hash {
+        <span class="kw">let </span>hash = <span class="kw">match </span><span class="kw-2">&amp;</span>pkg.distribution_v2.pirita_sha256_hash {
             <span class="prelude-val">Some</span>(hash) =&gt; hash,
             <span class="prelude-val">None </span>=&gt; {
                 <span class="macro">unreachable!</span>(<span class="string">&quot;no package without an hash should reach this function!&quot;</span>)

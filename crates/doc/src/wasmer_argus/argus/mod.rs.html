@@ -297,7 +297,7 @@
         p.enable_steady_tick(Duration::from_millis(<span class="number">100</span>));
 
         <span class="kw">let </span>package_name = Argus::get_package_id(package);
-        <span class="kw">let </span>webc_url: Url = <span class="kw">match </span><span class="kw-2">&amp;</span>package.distribution.pirita_download_url {
+        <span class="kw">let </span>webc_url: Url = <span class="kw">match </span><span class="kw-2">&amp;</span>package.distribution_v2.pirita_download_url {
             <span class="prelude-val">Some</span>(url) =&gt; url.parse().unwrap(),
             <span class="prelude-val">None </span>=&gt; {
                 <span class="macro">info!</span>(<span class="string">&quot;package {} has no download url, skipping&quot;</span>, package_name);
@@ -374,7 +374,7 @@
             <span class="kw">return </span><span class="bool-val">true</span>;
         }
 
-        <span class="kw">if </span>pkg.distribution.pirita_sha256_hash.is_none() {
+        <span class="kw">if </span>pkg.distribution_v2.pirita_sha256_hash.is_none() {
             <span class="macro">info!</span>(<span class="string">&quot;skipping test for {name} as it has no hash&quot;</span>);
             <span class="kw">return </span><span class="bool-val">false</span>;
         }

@@ -159,6 +159,9 @@
 <a href="#159" id="159">159</a>
 <a href="#160" id="160">160</a>
 <a href="#161" id="161">161</a>
+<a href="#162" id="162">162</a>
+<a href="#163" id="163">163</a>
+<a href="#164" id="164">164</a>
 </pre></div><pre class="rust"><code><span class="kw">use crate</span>::{
     commands::{
         package::{
@@ -310,10 +313,13 @@
         <span class="kw">match </span>ident {
             PackageIdent::Named(<span class="kw-2">ref </span>n) =&gt; {
                 <span class="kw">let </span>url = make_package_url(<span class="kw-2">&amp;</span>client, n);
-                <span class="macro">eprintln!</span>(<span class="string">&quot;{} Package URL: {url}&quot;</span>, <span class="string">&quot;𖥔&quot;</span>.yellow().bold());
+                <span class="macro">eprintln!</span>(<span class="string">&quot;\n{} Package URL: {url}&quot;</span>, <span class="string">&quot;𖥔&quot;</span>.yellow().bold());
             }
             PackageIdent::Hash(<span class="kw-2">ref </span>h) =&gt; {
-                <span class="macro">eprintln!</span>(<span class="string">&quot;{} Succesfully published package ({h})&quot;</span>, <span class="string">&quot;✔&quot;</span>.green().bold());
+                <span class="macro">eprintln!</span>(
+                    <span class="string">&quot;\n{} Succesfully published package ({h})&quot;</span>,
+                    <span class="string">&quot;✔&quot;</span>.green().bold()
+                );
             }
         }
 

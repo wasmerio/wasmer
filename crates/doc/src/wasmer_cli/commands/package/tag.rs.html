@@ -503,6 +503,26 @@
 <a href="#503" id="503">503</a>
 <a href="#504" id="504">504</a>
 <a href="#505" id="505">505</a>
+<a href="#506" id="506">506</a>
+<a href="#507" id="507">507</a>
+<a href="#508" id="508">508</a>
+<a href="#509" id="509">509</a>
+<a href="#510" id="510">510</a>
+<a href="#511" id="511">511</a>
+<a href="#512" id="512">512</a>
+<a href="#513" id="513">513</a>
+<a href="#514" id="514">514</a>
+<a href="#515" id="515">515</a>
+<a href="#516" id="516">516</a>
+<a href="#517" id="517">517</a>
+<a href="#518" id="518">518</a>
+<a href="#519" id="519">519</a>
+<a href="#520" id="520">520</a>
+<a href="#521" id="521">521</a>
+<a href="#522" id="522">522</a>
+<a href="#523" id="523">523</a>
+<a href="#524" id="524">524</a>
+<a href="#525" id="525">525</a>
 </pre></div><pre class="rust"><code><span class="kw">use crate</span>::{
     commands::{
         package::common::{macros::<span class="kw-2">*</span>, <span class="kw-2">*</span>},
@@ -879,8 +899,6 @@
                             .interact()<span class="question-mark">? </span>{
                             user_version = new_version.clone();
                             <span class="self">self</span>.update_manifest_version(manifest_path, manifest, <span class="kw-2">&amp;</span>user_version).<span class="kw">await</span><span class="question-mark">?</span>;
-                       } <span class="kw">else </span>{
-                           <span class="macro">eprintln!</span>(<span class="string">&quot;{}: if version {user_version} of {full_pkg_name} already exists tagging will fail.&quot;</span>, <span class="string">&quot;WARN&quot;</span>.bold().yellow());
                        }
                 }
             }
@@ -970,11 +988,33 @@
             <span class="prelude-val">None </span>=&gt; <span class="kw">return </span><span class="prelude-val">Ok</span>(PackageIdent::Hash(<span class="self">self</span>.package_hash.clone())),
         };
 
-        <span class="self">self</span>.do_tag(client, <span class="kw-2">&amp;</span>id, manifest, <span class="kw-2">&amp;</span>package_id)
-            .<span class="kw">await
-            </span>.map_err(on_error)<span class="question-mark">?</span>;
+        <span class="kw">if </span><span class="self">self</span>.should_tag(client, <span class="kw-2">&amp;</span>id).<span class="kw">await</span><span class="question-mark">? </span>{
+            <span class="self">self</span>.do_tag(client, <span class="kw-2">&amp;</span>id, manifest, <span class="kw-2">&amp;</span>package_id)
+                .<span class="kw">await
+                </span>.map_err(on_error)<span class="question-mark">?</span>;
+        }
 
         <span class="prelude-val">Ok</span>(PackageIdent::Named(id.into()))
+    }
+
+    <span class="comment">// Check if a package with the same hash, namespace, name and version already exists. In such a
+    // case, don&#39;t tag the package again.
+    </span><span class="kw">async fn </span>should_tag(<span class="kw-2">&amp;</span><span class="self">self</span>, client: <span class="kw-2">&amp;</span>WasmerClient, id: <span class="kw-2">&amp;</span>NamedPackageId) -&gt; anyhow::Result&lt;bool&gt; {
+        <span class="kw">if let </span><span class="prelude-val">Some</span>(pkg) = wasmer_api::query::get_package_version(
+            client,
+            id.full_name.clone(),
+            id.version.to_string(),
+        )
+        .<span class="kw">await</span><span class="question-mark">?
+        </span>{
+            <span class="kw">if let </span><span class="prelude-val">Some</span>(hash) = pkg.distribution_v3.pirita_sha256_hash {
+                <span class="kw">let </span>registry_package_hash = PackageHash::from_str(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;sha256:{hash}&quot;</span>))<span class="question-mark">?</span>;
+                <span class="kw">if </span>registry_package_hash == <span class="self">self</span>.package_hash {
+                    <span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="bool-val">false</span>);
+                }
+            }
+        }
+        <span class="prelude-val">Ok</span>(<span class="bool-val">true</span>)
     }
 }
 

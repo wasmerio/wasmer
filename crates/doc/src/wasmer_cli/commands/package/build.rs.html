@@ -213,6 +213,11 @@
 <a href="#213" id="213">213</a>
 <a href="#214" id="214">214</a>
 <a href="#215" id="215">215</a>
+<a href="#216" id="216">216</a>
+<a href="#217" id="217">217</a>
+<a href="#218" id="218">218</a>
+<a href="#219" id="219">219</a>
+<a href="#220" id="220">220</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::path::PathBuf;
 
 <span class="kw">use </span>anyhow::Context;
@@ -269,8 +274,13 @@
                 manifest_path.display()
             )
         };
-        <span class="kw">let </span>pkg = webc::wasmer_package::Package::from_manifest(manifest_path)<span class="question-mark">?</span>;
-        <span class="kw">let </span>data = pkg.serialize()<span class="question-mark">?</span>;
+        <span class="kw">let </span>pkg = webc::wasmer_package::Package::from_manifest(manifest_path.clone()).context(
+            <span class="macro">format!</span>(
+                <span class="string">&quot;While parsing the manifest (loaded from {})&quot;</span>,
+                manifest_path.canonicalize()<span class="question-mark">?</span>.display()
+            ),
+        )<span class="question-mark">?</span>;
+        <span class="kw">let </span>data = pkg.serialize().context(<span class="string">&quot;While validating the package&quot;</span>)<span class="question-mark">?</span>;
         <span class="kw">let </span>hash = sha2::Sha256::digest(<span class="kw-2">&amp;</span>data).into();
         <span class="kw">let </span>pkg_hash = PackageHash::from_sha256_bytes(hash);
 

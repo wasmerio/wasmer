@@ -143,16 +143,7 @@
 <a href="#143" id="143">143</a>
 <a href="#144" id="144">144</a>
 <a href="#145" id="145">145</a>
-<a href="#146" id="146">146</a>
-<a href="#147" id="147">147</a>
-<a href="#148" id="148">148</a>
-<a href="#149" id="149">149</a>
-<a href="#150" id="150">150</a>
-<a href="#151" id="151">151</a>
-</pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">super</span>::macros::spinner_ok;
-<span class="kw">use </span>colored::Colorize;
-<span class="kw">use </span>futures_util::StreamExt;
-<span class="kw">use </span>indicatif::ProgressBar;
+</pre></div><pre class="rust"><code><span class="kw">use </span>futures_util::StreamExt;
 <span class="kw">use </span>wasmer_api::WasmerClient;
 
 <span class="doccomment">/// Different conditions that can be &quot;awaited&quot; when publishing a package.
@@ -234,14 +225,12 @@
     client: <span class="kw-2">&amp;</span>WasmerClient,
     to_wait: PublishWait,
     package_version_id: wasmer_api::types::Id,
-    pb: <span class="kw-2">&amp;</span>ProgressBar,
     timeout: humantime::Duration,
 ) -&gt; anyhow::Result&lt;()&gt; {
     <span class="kw">if let </span>PublishWait::None = to_wait {
         <span class="kw">return </span><span class="prelude-val">Ok</span>(());
     }
 
-    pb.set_message(<span class="string">&quot;Waiting for package to become available...&quot;</span>);
     <span class="kw">let </span>registry_url = client.graphql_endpoint().to_string();
     <span class="kw">let </span>login_token = client.auth_token().unwrap_or_default().to_string();
     <span class="kw">let </span>package_version_id = package_version_id.into_inner();
@@ -297,7 +286,6 @@
         }
     }
 
-    <span class="macro">spinner_ok!</span>(pb, <span class="string">&quot;Package is available in the registry&quot;</span>);
     <span class="prelude-val">Ok</span>(())
 }
 </code></pre></div></section></main></body></html>
