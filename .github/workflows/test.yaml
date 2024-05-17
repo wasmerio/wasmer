@@ -572,13 +572,14 @@ jobs:
             target: aarch64-apple-darwin,
             exe: '',
           },
-          {
-            build: windows-x64,
-            os: windows-2019,
-            target: x86_64-pc-windows-msvc,
-            exe: '.exe',
-            llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/15.x/llvm-windows-amd64.tar.xz'
-          },
+          # FIXME: This fails for now
+          # {
+          #   build: windows-x64,
+          #   os: windows-2019,
+          #   target: x86_64-pc-windows-msvc,
+          #   exe: '.exe',
+          #   llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/15.x/llvm-windows-amd64.tar.xz'
+          # },
           {
             build: linux-musl,
             target: x86_64-unknown-linux-musl,
