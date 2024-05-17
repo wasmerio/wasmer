@@ -129,6 +129,8 @@ pub async fn prompt_for_package(
                     }
                 }
             }
+        } else {
+            break Ok((ident, None));
         }
     }
 }

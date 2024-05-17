@@ -164,7 +164,7 @@ impl CmdAppCreate {
         )
     }
 
-    async fn get_owner(&self, client: &WasmerClient) -> anyhow::Result<String> {
+    async fn get_owner(&self, client: Option<&WasmerClient>) -> anyhow::Result<String> {
         if let Some(owner) = &self.owner {
             return Ok(owner.clone());
         }
@@ -174,19 +174,12 @@ impl CmdAppCreate {
             anyhow::bail!("No owner specified: use --owner <owner>");
         }
 
-        if !self.offline {
-            let user = wasmer_api::query::current_user_with_namespaces(client, None).await?;
-            crate::utils::prompts::prompt_for_namespace(
-                "Who should own this app?",
-                None,
-                Some(&user),
-            )
+        let user = if let Some(client) = client {
+            Some(wasmer_api::query::current_user_with_namespaces(client, None).await?)
         } else {
-            anyhow::bail!(
-                "Please, user `wasmer login` before deploying an app or use the --owner <owner>
-                flag to specify the owner of the app to deploy."
-            )
-        }
+            None
+        };
+        crate::utils::prompts::prompt_for_namespace("Who should own this app?", None, user.as_ref())
     }
 
     async fn create_from_local_manifest(
@@ -237,7 +230,7 @@ impl CmdAppCreate {
 
     async fn create_from_package(
         &self,
-        client: &WasmerClient,
+        client: Option<&WasmerClient>,
         owner: &str,
         app_name: &str,
     ) -> anyhow::Result<bool> {
@@ -254,8 +247,12 @@ impl CmdAppCreate {
             let (package_id, _) = crate::utils::prompts::prompt_for_package(
                 "Enter the name of the package",
                 Some("wasmer/hello"),
-                Some(PackageCheckMode::MustExist),
-                Some(client),
+                if client.is_some() {
+                    Some(PackageCheckMode::MustExist)
+                } else {
+                    None
+                },
+                client,
             )
             .await?;
 
@@ -360,10 +357,15 @@ impl CmdAppCreate {
 
     async fn create_from_template(
         &self,
-        client: &WasmerClient,
+        client: Option<&WasmerClient>,
         owner: &str,
         app_name: &str,
     ) -> anyhow::Result<bool> {
+        let client = match client {
+            Some(client) => client,
+            None => anyhow::bail!("Cannot"),
+        };
+
         let url = self.get_template_url(client).await?;
 
         tracing::info!("Downloading template from url {url}");
@@ -531,41 +533,57 @@ impl AsyncCliCommand for CmdAppCreate {
     type Output = ();
 
     async fn run_async(self) -> Result<Self::Output, anyhow::Error> {
-        let client = login_user(
-            &self.api,
-            &self.env,
-            !self.non_interactive,
-            "retrieve informations about the owner of the app",
-        )
-        .await?;
+        let client = if self.offline {
+            None
+        } else {
+            Some(
+                login_user(
+                    &self.api,
+                    &self.env,
+                    !self.non_interactive,
+                    "retrieve informations about the owner of the app",
+                )
+                .await?,
+            )
+        };
 
         // Get the future owner of the app.
-        let owner = self.get_owner(&client).await?;
+        let owner = self.get_owner(client.as_ref()).await?;
 
         // Get the name of the app.
         let app_name = self.get_app_name().await?;
 
         if !self.create_from_local_manifest(&owner, &app_name).await? {
             if self.template.is_some() {
-                self.create_from_template(&client, &owner, &app_name)
+                self.create_from_template(client.as_ref(), &owner, &app_name)
                     .await?;
             } else if self.package.is_some() {
-                self.create_from_package(&client, &owner, &app_name).await?;
+                self.create_from_package(client.as_ref(), &owner, &app_name)
+                    .await?;
             } else if !self.non_interactive {
-                let theme = ColorfulTheme::default();
-                let choice = Select::with_theme(&theme)
-                    .with_prompt("What would you like to deploy?")
-                    .items(&["Start with a template", "Choose an existing package"])
-                    .default(0)
-                    .interact()?;
-                match choice {
-                    0 => {
-                        self.create_from_template(&client, &owner, &app_name)
-                            .await?
-                    }
-                    1 => self.create_from_package(&client, &owner, &app_name).await?,
-                    x => panic!("unhandled selection {x}"),
-                };
+                if self.offline {
+                    eprintln!("Creating app from a package name running in offline mode");
+                    self.create_from_package(client.as_ref(), &owner, &app_name)
+                        .await?;
+                } else {
+                    let theme = ColorfulTheme::default();
+                    let choice = Select::with_theme(&theme)
+                        .with_prompt("What would you like to deploy?")
+                        .items(&["Start with a template", "Choose an existing package"])
+                        .default(0)
+                        .interact()?;
+                    match choice {
+                        0 => {
+                            self.create_from_template(client.as_ref(), &owner, &app_name)
+                                .await?
+                        }
+                        1 => {
+                            self.create_from_package(client.as_ref(), &owner, &app_name)
+                                .await?
+                        }
+                        x => panic!("unhandled selection {x}"),
+                    };
+                }
             } else {
                 eprintln!("Warning: the creation process did not produce any result.");
             }
