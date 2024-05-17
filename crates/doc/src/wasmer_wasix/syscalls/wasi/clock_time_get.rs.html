@@ -34,10 +34,18 @@
 <a href="#34" id="34">34</a>
 <a href="#35" id="35">35</a>
 <a href="#36" id="36">36</a>
+<a href="#37" id="37">37</a>
+<a href="#38" id="38">38</a>
+<a href="#39" id="39">39</a>
+<a href="#40" id="40">40</a>
+<a href="#41" id="41">41</a>
 </pre></div><pre class="rust"><code><span class="kw">use super</span>::<span class="kw-2">*</span>;
 <span class="kw">use </span><span class="kw">crate</span>::syscalls::<span class="kw-2">*</span>;
 
-<span class="doccomment">/// ### `clock_time_get()`
+<span class="comment">// NOTE: This syscall is not instrumented since it will be logged too much,
+// hence introducing too much noise to the logs.
+
+</span><span class="doccomment">/// ### `clock_time_get()`
 /// Get the time of the specified clock
 /// Inputs:
 /// - `Clockid clock_id`
@@ -47,8 +55,10 @@
 /// Output:
 /// - `Timestamp *time`
 ///     The value of the clock in nanoseconds
-</span><span class="comment">//#[instrument(level = &quot;trace&quot;, skip_all, fields(?clock_id, %precision), ret)]
-</span><span class="attr">#[instrument(level = <span class="string">&quot;trace&quot;</span>, skip_all, ret)]
+</span><span class="attr">#[cfg_attr(
+    feature = <span class="string">&quot;extra-logging&quot;</span>,
+    tracing::instrument(level = <span class="string">&quot;trace&quot;</span>, skip_all, ret)
+)]
 </span><span class="kw">pub fn </span>clock_time_get&lt;M: MemorySize&gt;(
     <span class="kw-2">mut </span>ctx: FunctionEnvMut&lt;<span class="lifetime">&#39;_</span>, WasiEnv&gt;,
     clock_id: Snapshot0Clockid,
