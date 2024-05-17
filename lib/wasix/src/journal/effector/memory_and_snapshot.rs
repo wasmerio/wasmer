@@ -152,10 +152,6 @@ impl JournalEffector {
             // We grab this region of memory as a vector and hash
             // it, which allows us to make some logging efficiency
             // gains.
-            //let data = memory
-            //    .copy_range_to_vec(region.into())
-            //    .map_err(mem_error_to_wasi)?;
-
             #[cfg(not(feature = "sys"))]
             let compressed_data = compress_prepend_size(
                 &memory
