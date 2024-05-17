@@ -121,7 +121,7 @@ pub(super) async fn upload(
     pb.set_style(ProgressStyle::with_template("{spinner:.yellow} [{elapsed_precise}] [{bar:.white}] {bytes}/{total_bytes} ({bytes_per_sec}, {eta})")
                  .unwrap()
                  .progress_chars("█▉▊▋▌▍▎▏  ")
-                 .tick_strings(&["✶", "✸", "✹", "✺", "✹", "✷"]));
+                 .tick_strings(&["✶", "✸", "✹", "✺", "✹", "✷", "✶"]));
     tracing::info!("webc is {total_bytes} bytes long");
 
     let chunk_size = (total_bytes / 20).min(10485760);
