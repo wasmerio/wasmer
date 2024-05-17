@@ -1109,6 +1109,32 @@
 <a href="#1109" id="1109">1109</a>
 <a href="#1110" id="1110">1110</a>
 <a href="#1111" id="1111">1111</a>
+<a href="#1112" id="1112">1112</a>
+<a href="#1113" id="1113">1113</a>
+<a href="#1114" id="1114">1114</a>
+<a href="#1115" id="1115">1115</a>
+<a href="#1116" id="1116">1116</a>
+<a href="#1117" id="1117">1117</a>
+<a href="#1118" id="1118">1118</a>
+<a href="#1119" id="1119">1119</a>
+<a href="#1120" id="1120">1120</a>
+<a href="#1121" id="1121">1121</a>
+<a href="#1122" id="1122">1122</a>
+<a href="#1123" id="1123">1123</a>
+<a href="#1124" id="1124">1124</a>
+<a href="#1125" id="1125">1125</a>
+<a href="#1126" id="1126">1126</a>
+<a href="#1127" id="1127">1127</a>
+<a href="#1128" id="1128">1128</a>
+<a href="#1129" id="1129">1129</a>
+<a href="#1130" id="1130">1130</a>
+<a href="#1131" id="1131">1131</a>
+<a href="#1132" id="1132">1132</a>
+<a href="#1133" id="1133">1133</a>
+<a href="#1134" id="1134">1134</a>
+<a href="#1135" id="1135">1135</a>
+<a href="#1136" id="1136">1136</a>
+<a href="#1137" id="1137">1137</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Another implementation of the union that uses paths,
 //! its not as simple as TmpFs. not currently used but was used by
 //! the previoulsy implementation of Deploy - now using TmpFs
@@ -1317,6 +1343,32 @@
 }
 
 <span class="kw">impl </span>FileSystem <span class="kw">for </span>UnionFileSystem {
+    <span class="kw">fn </span>readlink(<span class="kw-2">&amp;</span><span class="self">self</span>, path: <span class="kw-2">&amp;</span>Path) -&gt; <span class="prelude-ty">Result</span>&lt;PathBuf&gt; {
+        <span class="macro">debug!</span>(<span class="string">&quot;readlink: path={}&quot;</span>, path.display());
+        <span class="kw">let </span><span class="kw-2">mut </span>ret_error = FsError::EntryNotFound;
+        <span class="kw">let </span>path = path.to_string_lossy();
+        <span class="kw">for </span>(path_inner, mount) <span class="kw">in </span>filter_mounts(<span class="kw-2">&amp;</span><span class="self">self</span>.mounts, path.as_ref()) {
+            <span class="kw">match </span>mount.fs.readlink(Path::new(path_inner.as_str())) {
+                <span class="prelude-val">Ok</span>(ret) =&gt; {
+                    <span class="kw">return </span><span class="prelude-val">Ok</span>(ret);
+                }
+                <span class="prelude-val">Err</span>(err) =&gt; {
+                    <span class="comment">// This fixes a bug when attempting to create the directory /usr when it does not exist
+                    // on the x86 version of memfs
+                    // TODO: patch virtual-fs and remove
+                    </span><span class="kw">if let </span>FsError::NotAFile = <span class="kw-2">&amp;</span>err {
+                        ret_error = FsError::EntryNotFound;
+                    } <span class="kw">else </span>{
+                        <span class="macro">debug!</span>(<span class="string">&quot;readlink failed: (path={}) - {}&quot;</span>, path, err);
+                        ret_error = err;
+                    }
+                }
+            }
+        }
+        <span class="macro">debug!</span>(<span class="string">&quot;readlink: failed={}&quot;</span>, ret_error);
+        <span class="prelude-val">Err</span>(ret_error)
+    }
+
     <span class="kw">fn </span>read_dir(<span class="kw-2">&amp;</span><span class="self">self</span>, path: <span class="kw-2">&amp;</span>Path) -&gt; <span class="prelude-ty">Result</span>&lt;ReadDir&gt; {
         <span class="macro">debug!</span>(<span class="string">&quot;read_dir: path={}&quot;</span>, path.display());
         <span class="self">self</span>.read_dir_internal(path)

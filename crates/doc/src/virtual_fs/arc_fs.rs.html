@@ -50,6 +50,10 @@
 <a href="#50" id="50">50</a>
 <a href="#51" id="51">51</a>
 <a href="#52" id="52">52</a>
+<a href="#53" id="53">53</a>
+<a href="#54" id="54">54</a>
+<a href="#55" id="55">55</a>
+<a href="#56" id="56">56</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Wraps a clonable Arc of a file system - in practice this is useful so you
 //! can pass clonable file systems with a `Box&lt;dyn FileSystem&gt;` to other
 //! interfaces
@@ -70,6 +74,10 @@
 }
 
 <span class="kw">impl </span>FileSystem <span class="kw">for </span>ArcFileSystem {
+    <span class="kw">fn </span>readlink(<span class="kw-2">&amp;</span><span class="self">self</span>, path: <span class="kw-2">&amp;</span>Path) -&gt; <span class="prelude-ty">Result</span>&lt;PathBuf&gt; {
+        <span class="self">self</span>.fs.readlink(path)
+    }
+
     <span class="kw">fn </span>read_dir(<span class="kw-2">&amp;</span><span class="self">self</span>, path: <span class="kw-2">&amp;</span>Path) -&gt; <span class="prelude-ty">Result</span>&lt;ReadDir&gt; {
         <span class="self">self</span>.fs.read_dir(path)
     }

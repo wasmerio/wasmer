@@ -390,6 +390,20 @@
 <a href="#390" id="390">390</a>
 <a href="#391" id="391">391</a>
 <a href="#392" id="392">392</a>
+<a href="#393" id="393">393</a>
+<a href="#394" id="394">394</a>
+<a href="#395" id="395">395</a>
+<a href="#396" id="396">396</a>
+<a href="#397" id="397">397</a>
+<a href="#398" id="398">398</a>
+<a href="#399" id="399">399</a>
+<a href="#400" id="400">400</a>
+<a href="#401" id="401">401</a>
+<a href="#402" id="402">402</a>
+<a href="#403" id="403">403</a>
+<a href="#404" id="404">404</a>
+<a href="#405" id="405">405</a>
+<a href="#406" id="406">406</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>anyhow::anyhow;
 <span class="kw">use </span>futures::future::BoxFuture;
 <span class="kw">use </span>tokio::io::{AsyncRead, AsyncSeek, AsyncWrite};
@@ -630,6 +644,20 @@
 }
 
 <span class="kw">impl </span>FileSystem <span class="kw">for </span>StaticFileSystem {
+    <span class="kw">fn </span>readlink(<span class="kw-2">&amp;</span><span class="self">self</span>, path: <span class="kw-2">&amp;</span>Path) -&gt; <span class="kw">crate</span>::Result&lt;PathBuf&gt; {
+        <span class="kw">let </span>path = normalizes_path(path);
+        <span class="kw">if </span><span class="self">self
+            </span>.volumes
+            .values()
+            .find_map(|v| v.get_file_entry(<span class="kw-2">&amp;</span>path).ok())
+            .is_some()
+        {
+            <span class="prelude-val">Err</span>(FsError::InvalidInput)
+        } <span class="kw">else </span>{
+            <span class="self">self</span>.memory.readlink(Path::new(<span class="kw-2">&amp;</span>path))
+        }
+    }
+
     <span class="kw">fn </span>read_dir(<span class="kw-2">&amp;</span><span class="self">self</span>, path: <span class="kw-2">&amp;</span>Path) -&gt; <span class="prelude-ty">Result</span>&lt;ReadDir, FsError&gt; {
         <span class="kw">let </span>path = normalizes_path(path);
         <span class="kw">for </span>volume <span class="kw">in </span><span class="self">self</span>.volumes.values() {

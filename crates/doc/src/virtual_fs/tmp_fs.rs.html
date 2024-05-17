@@ -93,6 +93,10 @@
 <a href="#93" id="93">93</a>
 <a href="#94" id="94">94</a>
 <a href="#95" id="95">95</a>
+<a href="#96" id="96">96</a>
+<a href="#97" id="97">97</a>
+<a href="#98" id="98">98</a>
+<a href="#99" id="99">99</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Wraps the memory file system implementation - this has been
 //! enhanced to support mounting file systems, shared static files,
 //! readonly files, etc...
@@ -156,6 +160,10 @@
 }
 
 <span class="kw">impl </span>FileSystem <span class="kw">for </span>TmpFileSystem {
+    <span class="kw">fn </span>readlink(<span class="kw-2">&amp;</span><span class="self">self</span>, path: <span class="kw-2">&amp;</span>Path) -&gt; <span class="prelude-ty">Result</span>&lt;PathBuf&gt; {
+        <span class="self">self</span>.fs.readlink(path)
+    }
+
     <span class="kw">fn </span>read_dir(<span class="kw-2">&amp;</span><span class="self">self</span>, path: <span class="kw-2">&amp;</span>Path) -&gt; <span class="prelude-ty">Result</span>&lt;ReadDir&gt; {
         <span class="self">self</span>.fs.read_dir(path)
     }

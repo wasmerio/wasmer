@@ -96,6 +96,10 @@
 <a href="#96" id="96">96</a>
 <a href="#97" id="97">97</a>
 <a href="#98" id="98">98</a>
+<a href="#99" id="99">99</a>
+<a href="#100" id="100">100</a>
+<a href="#101" id="101">101</a>
+<a href="#102" id="102">102</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Wraps a boxed file system with an implemented trait VirtualSystem - this is
 //! needed so that a `Box&lt;dyn VirtualFileSystem&gt;` can be wrapped in an Arc and
 //! shared - some of the interfaces pass around a `Box&lt;dyn VirtualFileSystem&gt;`
@@ -116,6 +120,10 @@
 }
 
 <span class="kw">impl </span>FileSystem <span class="kw">for </span>PassthruFileSystem {
+    <span class="kw">fn </span>readlink(<span class="kw-2">&amp;</span><span class="self">self</span>, path: <span class="kw-2">&amp;</span>Path) -&gt; <span class="prelude-ty">Result</span>&lt;PathBuf&gt; {
+        <span class="self">self</span>.fs.readlink(path)
+    }
+
     <span class="kw">fn </span>read_dir(<span class="kw-2">&amp;</span><span class="self">self</span>, path: <span class="kw-2">&amp;</span>Path) -&gt; <span class="prelude-ty">Result</span>&lt;ReadDir&gt; {
         <span class="self">self</span>.fs.read_dir(path)
     }

@@ -246,6 +246,16 @@
 <a href="#246" id="246">246</a>
 <a href="#247" id="247">247</a>
 <a href="#248" id="248">248</a>
+<a href="#249" id="249">249</a>
+<a href="#250" id="250">250</a>
+<a href="#251" id="251">251</a>
+<a href="#252" id="252">252</a>
+<a href="#253" id="253">253</a>
+<a href="#254" id="254">254</a>
+<a href="#255" id="255">255</a>
+<a href="#256" id="256">256</a>
+<a href="#257" id="257">257</a>
+<a href="#258" id="258">258</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{
     path::PathBuf,
     pin::Pin,
@@ -288,6 +298,11 @@
     </span>F: FileSystem,
 {
     <span class="attr">#[tracing::instrument(level = <span class="string">&quot;trace&quot;</span>, skip(<span class="self">self</span>), err)]
+    </span><span class="kw">fn </span>readlink(<span class="kw-2">&amp;</span><span class="self">self</span>, path: <span class="kw-2">&amp;</span>std::path::Path) -&gt; <span class="kw">crate</span>::Result&lt;PathBuf&gt; {
+        <span class="self">self</span>.<span class="number">0</span>.readlink(path)
+    }
+
+    <span class="attr">#[tracing::instrument(level = <span class="string">&quot;trace&quot;</span>, skip(<span class="self">self</span>), err)]
     </span><span class="kw">fn </span>read_dir(<span class="kw-2">&amp;</span><span class="self">self</span>, path: <span class="kw-2">&amp;</span>std::path::Path) -&gt; <span class="kw">crate</span>::Result&lt;<span class="kw">crate</span>::ReadDir&gt; {
         <span class="self">self</span>.<span class="number">0</span>.read_dir(path)
     }
@@ -314,6 +329,11 @@
     <span class="attr">#[tracing::instrument(level = <span class="string">&quot;trace&quot;</span>, skip(<span class="self">self</span>), err)]
     </span><span class="kw">fn </span>metadata(<span class="kw-2">&amp;</span><span class="self">self</span>, path: <span class="kw-2">&amp;</span>std::path::Path) -&gt; <span class="kw">crate</span>::Result&lt;<span class="kw">crate</span>::Metadata&gt; {
         <span class="self">self</span>.<span class="number">0</span>.metadata(path)
+    }
+
+    <span class="attr">#[tracing::instrument(level = <span class="string">&quot;trace&quot;</span>, skip(<span class="self">self</span>), err)]
+    </span><span class="kw">fn </span>symlink_metadata(<span class="kw-2">&amp;</span><span class="self">self</span>, path: <span class="kw-2">&amp;</span>std::path::Path) -&gt; <span class="kw">crate</span>::Result&lt;<span class="kw">crate</span>::Metadata&gt; {
+        <span class="self">self</span>.<span class="number">0</span>.symlink_metadata(path)
     }
 
     <span class="attr">#[tracing::instrument(level = <span class="string">&quot;trace&quot;</span>, skip(<span class="self">self</span>), err)]

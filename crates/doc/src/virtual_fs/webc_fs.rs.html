@@ -482,6 +482,10 @@
 <a href="#482" id="482">482</a>
 <a href="#483" id="483">483</a>
 <a href="#484" id="484">484</a>
+<a href="#485" id="485">485</a>
+<a href="#486" id="486">486</a>
+<a href="#487" id="487">487</a>
+<a href="#488" id="488">488</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{
     convert::{TryFrom, TryInto},
     io::{<span class="self">self</span>, Error <span class="kw">as </span>IoError, ErrorKind <span class="kw">as </span>IoErrorKind, SeekFrom},
@@ -788,6 +792,10 @@
     </span>T: std::fmt::Debug + Send + Sync + <span class="lifetime">&#39;static</span>,
     T: Deref&lt;Target = WebC&lt;<span class="lifetime">&#39;static</span>&gt;&gt;,
 {
+    <span class="kw">fn </span>readlink(<span class="kw-2">&amp;</span><span class="self">self</span>, _path: <span class="kw-2">&amp;</span>Path) -&gt; <span class="kw">crate</span>::Result&lt;PathBuf&gt; {
+        <span class="prelude-val">Err</span>(FsError::InvalidInput)
+    }
+
     <span class="kw">fn </span>read_dir(<span class="kw-2">&amp;</span><span class="self">self</span>, path: <span class="kw-2">&amp;</span>Path) -&gt; <span class="prelude-ty">Result</span>&lt;ReadDir, FsError&gt; {
         <span class="kw">let </span>path = normalizes_path(path);
         <span class="kw">let </span>read_dir_result = <span class="self">self

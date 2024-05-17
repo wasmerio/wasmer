@@ -2120,6 +2120,17 @@
 <a href="#2120" id="2120">2120</a>
 <a href="#2121" id="2121">2121</a>
 <a href="#2122" id="2122">2122</a>
+<a href="#2123" id="2123">2123</a>
+<a href="#2124" id="2124">2124</a>
+<a href="#2125" id="2125">2125</a>
+<a href="#2126" id="2126">2126</a>
+<a href="#2127" id="2127">2127</a>
+<a href="#2128" id="2128">2128</a>
+<a href="#2129" id="2129">2129</a>
+<a href="#2130" id="2130">2130</a>
+<a href="#2131" id="2131">2131</a>
+<a href="#2132" id="2132">2132</a>
+<a href="#2133" id="2133">2133</a>
 </pre></div><pre class="rust"><code><span class="kw">mod </span>fd;
 <span class="kw">mod </span>inode_guard;
 <span class="kw">mod </span>notification;
@@ -2430,6 +2441,13 @@
 }
 
 <span class="kw">impl </span>FileSystem <span class="kw">for </span>WasiFsRoot {
+    <span class="kw">fn </span>readlink(<span class="kw-2">&amp;</span><span class="self">self</span>, path: <span class="kw-2">&amp;</span>Path) -&gt; virtual_fs::Result&lt;PathBuf&gt; {
+        <span class="kw">match </span><span class="self">self </span>{
+            WasiFsRoot::Sandbox(fs) =&gt; fs.readlink(path),
+            WasiFsRoot::Backing(fs) =&gt; fs.readlink(path),
+        }
+    }
+
     <span class="kw">fn </span>read_dir(<span class="kw-2">&amp;</span><span class="self">self</span>, path: <span class="kw-2">&amp;</span>Path) -&gt; virtual_fs::Result&lt;virtual_fs::ReadDir&gt; {
         <span class="kw">match </span><span class="self">self </span>{
             WasiFsRoot::Sandbox(fs) =&gt; fs.read_dir(path),
@@ -3114,7 +3132,8 @@
                                 }
                             } <span class="kw">else if </span>file_type.is_symlink() {
                                 should_insert = <span class="bool-val">false</span>;
-                                <span class="kw">let </span>link_value = file.read_link().map_err(map_io_err)<span class="question-mark">?</span>;
+                                <span class="kw">let </span>link_value =
+                                    <span class="self">self</span>.root_fs.readlink(<span class="kw-2">&amp;</span>file).ok().ok_or(Errno::Noent)<span class="question-mark">?</span>;
                                 <span class="macro">debug!</span>(<span class="string">&quot;attempting to decompose path {:?}&quot;</span>, link_value);
 
                                 <span class="kw">let </span>(pre_open_dir_fd, relative_path) = <span class="kw">if </span>link_value.is_relative() {
@@ -4148,6 +4167,9 @@
 }
 
 <span class="kw">impl </span>FileSystem <span class="kw">for </span>FallbackFileSystem {
+    <span class="kw">fn </span>readlink(<span class="kw-2">&amp;</span><span class="self">self</span>, _path: <span class="kw-2">&amp;</span>Path) -&gt; virtual_fs::Result&lt;PathBuf&gt; {
+        <span class="self">Self</span>::fail()
+    }
     <span class="kw">fn </span>read_dir(<span class="kw-2">&amp;</span><span class="self">self</span>, _path: <span class="kw-2">&amp;</span>Path) -&gt; <span class="prelude-ty">Result</span>&lt;virtual_fs::ReadDir, FsError&gt; {
         <span class="self">Self</span>::fail();
     }

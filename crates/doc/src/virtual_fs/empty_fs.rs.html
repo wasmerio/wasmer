@@ -75,6 +75,10 @@
 <a href="#75" id="75">75</a>
 <a href="#76" id="76">76</a>
 <a href="#77" id="77">77</a>
+<a href="#78" id="78">78</a>
+<a href="#79" id="79">79</a>
+<a href="#80" id="80">80</a>
+<a href="#81" id="81">81</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! When no file system is used by a WebC then this is used as a placeholder -
 //! as the name suggests it always returns file not found.
 
@@ -89,6 +93,10 @@
 
 <span class="attr">#[allow(unused_variables)]
 </span><span class="kw">impl </span>FileSystem <span class="kw">for </span>EmptyFileSystem {
+    <span class="kw">fn </span>readlink(<span class="kw-2">&amp;</span><span class="self">self</span>, path: <span class="kw-2">&amp;</span>Path) -&gt; <span class="prelude-ty">Result</span>&lt;PathBuf&gt; {
+        <span class="prelude-val">Err</span>(FsError::EntryNotFound)
+    }
+
     <span class="kw">fn </span>read_dir(<span class="kw-2">&amp;</span><span class="self">self</span>, path: <span class="kw-2">&amp;</span>Path) -&gt; <span class="prelude-ty">Result</span>&lt;ReadDir&gt; {
         <span class="comment">// Special-case the root path by returning an empty iterator.
         // An empty file system should still be readable, just not contain

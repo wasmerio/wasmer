@@ -1921,6 +1921,35 @@
 <a href="#1921" id="1921">1921</a>
 <a href="#1922" id="1922">1922</a>
 <a href="#1923" id="1923">1923</a>
+<a href="#1924" id="1924">1924</a>
+<a href="#1925" id="1925">1925</a>
+<a href="#1926" id="1926">1926</a>
+<a href="#1927" id="1927">1927</a>
+<a href="#1928" id="1928">1928</a>
+<a href="#1929" id="1929">1929</a>
+<a href="#1930" id="1930">1930</a>
+<a href="#1931" id="1931">1931</a>
+<a href="#1932" id="1932">1932</a>
+<a href="#1933" id="1933">1933</a>
+<a href="#1934" id="1934">1934</a>
+<a href="#1935" id="1935">1935</a>
+<a href="#1936" id="1936">1936</a>
+<a href="#1937" id="1937">1937</a>
+<a href="#1938" id="1938">1938</a>
+<a href="#1939" id="1939">1939</a>
+<a href="#1940" id="1940">1940</a>
+<a href="#1941" id="1941">1941</a>
+<a href="#1942" id="1942">1942</a>
+<a href="#1943" id="1943">1943</a>
+<a href="#1944" id="1944">1944</a>
+<a href="#1945" id="1945">1945</a>
+<a href="#1946" id="1946">1946</a>
+<a href="#1947" id="1947">1947</a>
+<a href="#1948" id="1948">1948</a>
+<a href="#1949" id="1949">1949</a>
+<a href="#1950" id="1950">1950</a>
+<a href="#1951" id="1951">1951</a>
+<a href="#1952" id="1952">1952</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! This module contains the [`FileSystem`] type itself.
 
 </span><span class="kw">use </span><span class="self">self</span>::offloaded_file::OffloadBackingStore;
@@ -2180,6 +2209,18 @@
 }
 
 <span class="kw">impl </span><span class="kw">crate</span>::FileSystem <span class="kw">for </span>FileSystem {
+    <span class="kw">fn </span>readlink(<span class="kw-2">&amp;</span><span class="self">self</span>, path: <span class="kw-2">&amp;</span>Path) -&gt; <span class="prelude-ty">Result</span>&lt;PathBuf&gt; {
+        <span class="comment">// Read lock.
+        </span><span class="kw">let </span>guard = <span class="self">self</span>.inner.read().map_err(|<span class="kw">_</span>| FsError::Lock)<span class="question-mark">?</span>;
+
+        <span class="comment">// Canonicalize the path.
+        </span><span class="kw">let </span>(<span class="kw">_</span>, inode_of_directory) = guard.canonicalize(path)<span class="question-mark">?</span>;
+        <span class="kw">match </span>inode_of_directory {
+            InodeResolution::Found(<span class="kw">_</span>) =&gt; <span class="prelude-val">Err</span>(FsError::InvalidInput),
+            InodeResolution::Redirect(fs, path) =&gt; fs.readlink(path.as_path()),
+        }
+    }
+
     <span class="kw">fn </span>read_dir(<span class="kw-2">&amp;</span><span class="self">self</span>, path: <span class="kw-2">&amp;</span>Path) -&gt; <span class="prelude-ty">Result</span>&lt;ReadDir&gt; {
         <span class="comment">// Read lock.
         </span><span class="kw">let </span>guard = <span class="self">self</span>.inner.read().map_err(|<span class="kw">_</span>| FsError::Lock)<span class="question-mark">?</span>;
@@ -2510,6 +2551,23 @@
             InodeResolution::Redirect(fs, path) =&gt; {
                 drop(guard);
                 fs.metadata(path.as_path())
+            }
+        }
+    }
+
+    <span class="kw">fn </span>symlink_metadata(<span class="kw-2">&amp;</span><span class="self">self</span>, path: <span class="kw-2">&amp;</span>Path) -&gt; <span class="prelude-ty">Result</span>&lt;Metadata&gt; {
+        <span class="comment">// Read lock.
+        </span><span class="kw">let </span>guard = <span class="self">self</span>.inner.read().map_err(|<span class="kw">_</span>| FsError::Lock)<span class="question-mark">?</span>;
+        <span class="kw">match </span>guard.inode_of(path)<span class="question-mark">? </span>{
+            InodeResolution::Found(inode) =&gt; <span class="prelude-val">Ok</span>(guard
+                .storage
+                .get(inode)
+                .ok_or(FsError::UnknownError)<span class="question-mark">?
+                </span>.metadata()
+                .clone()),
+            InodeResolution::Redirect(fs, path) =&gt; {
+                drop(guard);
+                fs.symlink_metadata(path.as_path())
             }
         }
     }

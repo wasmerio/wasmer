@@ -162,6 +162,12 @@
 <a href="#162" id="162">162</a>
 <a href="#163" id="163">163</a>
 <a href="#164" id="164">164</a>
+<a href="#165" id="165">165</a>
+<a href="#166" id="166">166</a>
+<a href="#167" id="167">167</a>
+<a href="#168" id="168">168</a>
+<a href="#169" id="169">169</a>
+<a href="#170" id="170">170</a>
 </pre></div><pre class="rust"><code><span class="kw">use super</span>::<span class="kw-2">*</span>;
 <span class="kw">use </span><span class="kw">crate</span>::syscalls::<span class="kw-2">*</span>;
 
@@ -248,6 +254,7 @@
         <span class="kw">return </span><span class="prelude-val">Err</span>(Errno::Inval);
     }
 
+    <span class="kw">let </span><span class="kw-2">mut </span>created_dir = <span class="bool-val">false</span>;
     <span class="kw">let </span><span class="kw-2">mut </span>cur_dir_inode = working_dir.inode;
     <span class="kw">for </span>comp <span class="kw">in </span><span class="kw-2">&amp;</span>path_vec {
         <span class="kw">let </span>processing_cur_dir_inode = cur_dir_inode.clone();
@@ -289,6 +296,7 @@
                             <span class="kw">return </span><span class="prelude-val">Err</span>(Errno::Notdir);
                         }
                     } <span class="kw">else </span>{
+                        created_dir = <span class="bool-val">true</span>;
                         state.fs_create_dir(<span class="kw-2">&amp;</span>adjusted_path)<span class="question-mark">?</span>;
                     }
                     <span class="kw">let </span>kind = Kind::Dir {
@@ -324,6 +332,10 @@
         }
     }
 
-    <span class="prelude-val">Ok</span>(())
+    <span class="kw">if </span>created_dir {
+        <span class="prelude-val">Ok</span>(())
+    } <span class="kw">else </span>{
+        <span class="prelude-val">Err</span>(Errno::Exist)
+    }
 }
 </code></pre></div></section></main></body></html>
