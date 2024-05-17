@@ -669,7 +669,7 @@ pub async fn wait_app(
                                 eprintln!();
                             }
                             eprintln!(
-                                "{} Deployment complete, new version reachable at {check_url}",
+                                "{} Deployment complete",
                                 "𖥔".yellow().bold()
                             );
                             break;
