@@ -15,7 +15,7 @@ version.workspace = true
 [dependencies]
 memoffset.workspace = true
 wasmer-types = { path = "../types", version = "=4.3.0" }
-libc = { version = "^0.2", default-features = false }
+libc.workspace = true
 indexmap = { version = "1.6" }
 thiserror = "1.0"
 more-asserts = "0.2"

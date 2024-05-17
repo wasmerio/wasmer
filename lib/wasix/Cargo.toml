@@ -114,7 +114,7 @@ features = ["native-tls", "json", "stream", "socks", "blocking"]
 optional = true
 
 [target.'cfg(unix)'.dependencies]
-libc = { version = "^0.2", default-features = false }
+libc.workspace = true
 
 [target.'cfg(all(unix, not(target_os="ios")))'.dependencies]
 termios = { version = "0.3" }
