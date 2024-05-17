@@ -14,6 +14,10 @@ use crate::syscalls::*;
 /// Output:
 /// - `Timestamp *time`
 ///     The value of the clock in nanoseconds
+#[cfg_attr(
+    feature = "extra-logging",
+    tracing::instrument(level = "trace", skip_all, ret)
+)]
 pub fn clock_time_get<M: MemorySize>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     clock_id: Snapshot0Clockid,
