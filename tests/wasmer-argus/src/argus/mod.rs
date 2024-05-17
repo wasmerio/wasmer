@@ -95,7 +95,7 @@ impl Argus {
         p.enable_steady_tick(Duration::from_millis(100));
 
         let package_name = Argus::get_package_id(package);
-        let webc_url: Url = match &package.distribution.pirita_download_url {
+        let webc_url: Url = match &package.distribution_v2.pirita_download_url {
             Some(url) => url.parse().unwrap(),
             None => {
                 info!("package {} has no download url, skipping", package_name);
@@ -172,7 +172,7 @@ impl Argus {
             return true;
         }
 
-        if pkg.distribution.pirita_sha256_hash.is_none() {
+        if pkg.distribution_v2.pirita_sha256_hash.is_none() {
             info!("skipping test for {name} as it has no hash");
             return false;
         }

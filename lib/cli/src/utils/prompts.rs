@@ -97,9 +97,16 @@ pub async fn prompt_for_package(
         if let Some(check) = &check {
             let api = client.expect("Check mode specified, but no API provided");
 
-            let pkg = wasmer_api::query::get_package(api, ident.to_string())
-                .await
-                .context("could not query backend for package")?;
+            let pkg = if let Some(v) = ident.version_opt() {
+                wasmer_api::query::get_package_version(api, ident.full_name(), v.to_string())
+                    .await
+                    .context("could not query backend for package")?
+                    .map(|p| p.package)
+            } else {
+                wasmer_api::query::get_package(api, ident.to_string())
+                    .await
+                    .context("could not query backend for package")?
+            };
 
             match check {
                 PackageCheckMode::MustExist => {
@@ -122,6 +129,8 @@ pub async fn prompt_for_package(
                     }
                 }
             }
+        } else {
+            break Ok((ident, None));
         }
     }
 }

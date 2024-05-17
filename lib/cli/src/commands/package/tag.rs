@@ -374,8 +374,6 @@ impl PackageTag {
                             .interact()? {
                             user_version = new_version.clone();
                             self.update_manifest_version(manifest_path, manifest, &user_version).await?;
-                       } else {
-                           eprintln!("{}: if version {user_version} of {full_pkg_name} already exists tagging will fail.", "WARN".bold().yellow());
                        }
                 }
             }
@@ -465,11 +463,33 @@ impl PackageTag {
             None => return Ok(PackageIdent::Hash(self.package_hash.clone())),
         };
 
-        self.do_tag(client, &id, manifest, &package_id)
-            .await
-            .map_err(on_error)?;
+        if self.should_tag(client, &id).await? {
+            self.do_tag(client, &id, manifest, &package_id)
+                .await
+                .map_err(on_error)?;
+        }
 
         Ok(PackageIdent::Named(id.into()))
+    }
+
+    // Check if a package with the same hash, namespace, name and version already exists. In such a
+    // case, don't tag the package again.
+    async fn should_tag(&self, client: &WasmerClient, id: &NamedPackageId) -> anyhow::Result<bool> {
+        if let Some(pkg) = wasmer_api::query::get_package_version(
+            client,
+            id.full_name.clone(),
+            id.version.to_string(),
+        )
+        .await?
+        {
+            if let Some(hash) = pkg.distribution_v3.pirita_sha256_hash {
+                let registry_package_hash = PackageHash::from_str(&format!("sha256:{hash}"))?;
+                if registry_package_hash == self.package_hash {
+                    return Ok(false);
+                }
+            }
+        }
+        Ok(true)
     }
 }
 
