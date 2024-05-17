@@ -38,7 +38,7 @@ virtual-fs = { version = "0.11.4", path = "../virtual-fs", optional = true, defa
 enumset.workspace = true
 cfg-if = "1.0"
 lazy_static = "1.4"
-libc = { version = "^0.2", default-features = false }
+libc.workspace = true
 thiserror = "1"
 typetag = { version = "0.1", optional = true }
 paste = "1.0"
