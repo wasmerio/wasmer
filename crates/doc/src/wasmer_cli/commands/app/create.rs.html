@@ -592,6 +592,16 @@
 <a href="#592" id="592">592</a>
 <a href="#593" id="593">593</a>
 <a href="#594" id="594">594</a>
+<a href="#595" id="595">595</a>
+<a href="#596" id="596">596</a>
+<a href="#597" id="597">597</a>
+<a href="#598" id="598">598</a>
+<a href="#599" id="599">599</a>
+<a href="#600" id="600">600</a>
+<a href="#601" id="601">601</a>
+<a href="#602" id="602">602</a>
+<a href="#603" id="603">603</a>
+<a href="#604" id="604">604</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Create a new Edge app.
 
 </span><span class="kw">use crate</span>::{
@@ -1048,10 +1058,20 @@
 
         <span class="kw">if </span>app_yaml_path.exists() &amp;&amp; app_yaml_path.is_file() {
             <span class="kw">let </span>contents = tokio::fs::read_to_string(<span class="kw-2">&amp;</span>app_yaml_path).<span class="kw">await</span><span class="question-mark">?</span>;
-            <span class="kw">let </span>contents = <span class="macro">format!</span>(<span class="string">&quot;{contents}\nname: {app_name}&quot;</span>);
-            <span class="kw">let </span><span class="kw-2">mut </span>app_config = AppConfigV1::parse_yaml(<span class="kw-2">&amp;</span>contents)<span class="question-mark">?</span>;
-            app_config.owner = <span class="prelude-val">Some</span>(owner.to_string());
-            <span class="kw">let </span>raw_app = serde_yaml::to_string(<span class="kw-2">&amp;</span>app_config)<span class="question-mark">?</span>;
+            <span class="kw">let </span><span class="kw-2">mut </span>raw_yaml: serde_yaml::Value = serde_yaml::from_str(<span class="kw-2">&amp;</span>contents)<span class="question-mark">?</span>;
+
+            <span class="kw">if let </span>serde_yaml::Value::Mapping(m) = <span class="kw-2">&amp;mut </span>raw_yaml {
+                m.insert(<span class="string">&quot;name&quot;</span>.into(), app_name.into());
+                m.insert(<span class="string">&quot;owner&quot;</span>.into(), owner.into());
+                m.shift_remove(<span class="string">&quot;domains&quot;</span>);
+                m.shift_remove(<span class="string">&quot;app_id&quot;</span>);
+            };
+
+            <span class="kw">let </span>raw_app = serde_yaml::to_string(<span class="kw-2">&amp;</span>raw_yaml)<span class="question-mark">?</span>;
+
+            <span class="comment">// Validate..
+            </span>AppConfigV1::parse_yaml(<span class="kw-2">&amp;</span>raw_app)<span class="question-mark">?</span>;
+
             tokio::fs::write(<span class="kw-2">&amp;</span>app_yaml_path, raw_app).<span class="kw">await</span><span class="question-mark">?</span>;
         }
 
