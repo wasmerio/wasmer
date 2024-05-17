@@ -121,9 +121,15 @@ mod queries {
         pub version: String,
         pub created_at: DateTime,
         pub pirita_manifest: Option<JSONString>,
-        pub distribution: PackageDistribution,
-
         pub package: Package,
+
+        #[arguments(version: "V3")]
+        #[cynic(rename = "distribution")]
+        pub distribution_v3: PackageDistribution,
+
+        #[arguments(version: "V2")]
+        #[cynic(rename = "distribution")]
+        pub distribution_v2: PackageDistribution,
     }
 
     #[derive(cynic::QueryVariables, Debug)]
