@@ -19,7 +19,7 @@ region = { version = "3.0" }
 tracing = "0.1.37"
 
 [target.'cfg(unix)'.dependencies]
-libc = { version = "^0.2", default-features = false }
+libc.workspace = true
 
 [dev-dependencies]
 wasmer-wasix.workspace = true
