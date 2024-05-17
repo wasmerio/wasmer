@@ -4,29 +4,35 @@ use crate::{hash::Sha256Hash, package::PackageParseError};
 ///
 /// Currently only supports the format: `sha256:<hash>`.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct PackageHash(Sha256Hash);
+pub enum PackageHash {
+    Sha256(Sha256Hash),
+}
 
 impl PackageHash {
     const STR_PREFIX: &'static str = "sha256:";
 
     pub fn as_sha256(&self) -> Option<&Sha256Hash> {
-        Some(&self.0)
+        match self {
+            PackageHash::Sha256(hash) => Some(hash),
+        }
     }
 
     pub fn from_sha256_bytes(bytes: [u8; 32]) -> Self {
-        Self(Sha256Hash(bytes))
+        Self::Sha256(Sha256Hash(bytes))
     }
 }
 
 impl From<Sha256Hash> for PackageHash {
     fn from(value: Sha256Hash) -> Self {
-        Self(value)
+        Self::Sha256(value)
     }
 }
 
 impl std::fmt::Display for PackageHash {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "sha256:{}", self.0)
+        match self {
+            Self::Sha256(hash) => write!(f, "sha256:{}", hash),
+        }
     }
 }
 
@@ -43,7 +49,7 @@ impl std::str::FromStr for PackageHash {
         let hash = Sha256Hash::from_str(&s[Self::STR_PREFIX.len()..])
             .map_err(|e| PackageParseError::new(s, e.to_string()))?;
 
-        Ok(PackageHash(hash))
+        Ok(Self::Sha256(hash))
     }
 }
 
