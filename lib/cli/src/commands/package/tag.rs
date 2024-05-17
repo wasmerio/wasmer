@@ -484,7 +484,7 @@ impl PackageTag {
         {
             if let Some(hash) = pkg.distribution_v3.pirita_sha256_hash {
                 let registry_package_hash = PackageHash::from_str(&format!("sha256:{hash}"))?;
-                if &registry_package_hash == &self.package_hash {
+                if registry_package_hash == self.package_hash {
                     return Ok(false);
                 }
             }
