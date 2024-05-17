@@ -455,15 +455,14 @@ impl CmdAppCreate {
         if app_yaml_path.exists() && app_yaml_path.is_file() {
             let contents = tokio::fs::read_to_string(&app_yaml_path).await?;
             let mut raw_yaml: serde_yaml::Value = serde_yaml::from_str(&contents)?;
-            match &mut raw_yaml {
-                serde_yaml::Value::Mapping(m) => {
-                    m.insert("name".into(), app_name.into());
-                    m.insert("owner".into(), owner.into());
-                    m.shift_remove("domains");
-                    m.shift_remove("app_id");
-                }
-                _ => {}
+
+            if let serde_yaml::Value::Mapping(m) = &mut raw_yaml {
+                m.insert("name".into(), app_name.into());
+                m.insert("owner".into(), owner.into());
+                m.shift_remove("domains");
+                m.shift_remove("app_id");
             };
+
             let raw_app = serde_yaml::to_string(&raw_yaml)?;
 
             // Validate..
