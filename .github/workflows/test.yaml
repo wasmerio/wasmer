@@ -572,7 +572,6 @@ jobs:
             target: aarch64-apple-darwin,
             exe: '',
           },
-          FIXME: This fails for now
           {
             build: windows-x64,
             os: windows-2019,
