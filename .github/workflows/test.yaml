@@ -657,7 +657,7 @@ jobs:
           aws-s3-bucket-endpoint: false
           aws-s3-force-path-style: true
       - name: ${{ matrix.stage.description }}
-        if: "! (matrix.metadata.build == 'windows-x64' && matrix.stage.description == 'Run wast test suite for all compilers')"
+        if: ${{ ! (matrix.metadata.build == 'windows-x64' && matrix.stage.description == 'Run wast test suite for all compilers') }}
         run: make ${{ matrix.stage.make }}
         env:
           TARGET: ${{ matrix.metadata.target }}
