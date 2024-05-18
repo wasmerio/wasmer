@@ -89,7 +89,7 @@ impl Argus {
                 "[{test_id}] {{spinner:.blue}} {{msg}}"
             ))
             .unwrap()
-            .tick_strings(&["✶", "✸", "✹", "✺", "✹", "✷"]),
+            .tick_strings(&["✶", "✸", "✹", "✺", "✹", "✷", "✶"]),
         );
 
         p.enable_steady_tick(Duration::from_millis(100));
@@ -142,7 +142,7 @@ impl Argus {
                 "[{test_id}/{package_name}] {{spinner:.blue}} {{msg}}"
             ))
             .unwrap()
-            .tick_strings(&["✶", "✸", "✹", "✺", "✹", "✷"]),
+            .tick_strings(&["✶", "✸", "✹", "✺", "✹", "✷", "✶"]),
         );
 
         p.enable_steady_tick(Duration::from_millis(100));

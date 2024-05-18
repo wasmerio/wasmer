@@ -30,7 +30,7 @@ impl Argus {
         p.set_style(
             ProgressStyle::with_template("{spinner:.blue} {msg}")
                 .unwrap()
-                .tick_strings(&["✶", "✸", "✹", "✺", "✹", "✷"]),
+                .tick_strings(&["✶", "✸", "✹", "✺", "✹", "✷", "✶"]),
         );
         p.enable_steady_tick(Duration::from_millis(1000));
 
