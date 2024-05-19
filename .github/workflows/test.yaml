@@ -26,6 +26,7 @@ env:
   CARGO_REGISTRIES_CRATES_IO_PROTOCOL: git
   MSRV: "1.74"
   NEXTEST_PROFILE: "ci"
+  RUSTUP_WINDOWS_PATH_ADD_BIN: 1
 
 jobs:
 
@@ -656,7 +657,6 @@ jobs:
           aws-s3-bucket-endpoint: false
           aws-s3-force-path-style: true
       - name: ${{ matrix.stage.description }}
-        if: ${{ !((matrix.metadata.build == 'windows-x64') && (matrix.stage.description == 'Unit-test packages on std')) }}
         run: make ${{ matrix.stage.make }}
         env:
           TARGET: ${{ matrix.metadata.target }}
