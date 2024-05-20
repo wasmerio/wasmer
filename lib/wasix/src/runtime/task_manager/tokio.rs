@@ -110,6 +110,7 @@ impl Default for TokioTaskManager {
     }
 }
 
+#[allow(dead_code)]
 struct TokioRuntimeGuard<'g> {
     #[allow(unused)]
     inner: tokio::runtime::EnterGuard<'g>,
