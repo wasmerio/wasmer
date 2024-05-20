@@ -53,6 +53,7 @@ pub(crate) use handles::*;
 /// all the rights enabled
 pub const ALL_RIGHTS: Rights = Rights::all();
 
+#[allow(dead_code)]
 struct WasiStateOpener {
     root_fs: WasiFsRoot,
 }

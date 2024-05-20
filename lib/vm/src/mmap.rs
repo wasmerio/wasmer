@@ -26,6 +26,7 @@ pub struct Mmap {
     ptr: usize,
     total_size: usize,
     accessible_size: usize,
+    sync_on_drop: bool,
 }
 
 /// The type of mmap to create
@@ -49,6 +50,7 @@ impl Mmap {
             ptr: empty.as_ptr() as usize,
             total_size: 0,
             accessible_size: 0,
+            sync_on_drop: false,
         }
     }
 
@@ -113,6 +115,7 @@ impl Mmap {
                 ptr: ptr as usize,
                 total_size: mapping_size,
                 accessible_size,
+                sync_on_drop: memory_fd != -1 && memory_type == MmapType::Shared,
             }
         } else {
             // Reserve the mapping size.
@@ -121,8 +124,8 @@ impl Mmap {
                     ptr::null_mut(),
                     mapping_size,
                     libc::PROT_NONE,
-                    libc::MAP_PRIVATE | libc::MAP_ANON,
-                    -1,
+                    flags,
+                    memory_fd,
                     0,
                 )
             };
@@ -134,6 +137,7 @@ impl Mmap {
                 ptr: ptr as usize,
                 total_size: mapping_size,
                 accessible_size,
+                sync_on_drop: memory_fd != -1 && memory_type == MmapType::Shared,
             };
 
             if accessible_size != 0 {
@@ -187,6 +191,7 @@ impl Mmap {
                 ptr: ptr as usize,
                 total_size: mapping_size,
                 accessible_size,
+                sync_on_drop: false,
             }
         } else {
             // Reserve the mapping size.
@@ -200,6 +205,7 @@ impl Mmap {
                 ptr: ptr as usize,
                 total_size: mapping_size,
                 accessible_size,
+                sync_on_drop: false,
             };
 
             if accessible_size != 0 {
@@ -339,6 +345,16 @@ impl Drop for Mmap {
     #[cfg(not(target_os = "windows"))]
     fn drop(&mut self) {
         if self.total_size != 0 {
+            if self.sync_on_drop {
+                let r = unsafe {
+                    libc::msync(
+                        self.ptr as *mut libc::c_void,
+                        self.total_size,
+                        libc::MS_SYNC | libc::MS_INVALIDATE,
+                    )
+                };
+                assert_eq!(r, 0, "msync failed: {}", io::Error::last_os_error());
+            }
             let r = unsafe { libc::munmap(self.ptr as *mut libc::c_void, self.total_size) };
             assert_eq!(r, 0, "munmap failed: {}", io::Error::last_os_error());
         }
