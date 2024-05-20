@@ -29,6 +29,7 @@ pub struct Mmap {
 }
 
 /// The type of mmap to create
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum MmapType {
     /// The memory is private to the process and not shared with other processes.
     Private,
