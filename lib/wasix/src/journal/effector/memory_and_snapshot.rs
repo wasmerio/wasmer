@@ -1,6 +1,9 @@
 use std::collections::{hash_map, BTreeMap};
 
-use lz4_flex::{self, block, compress_prepend_size, decompress_into, decompress_size_prepended};
+#[allow(unused)]
+use lz4_flex::{
+    self, block, compress_prepend_size, decompress, decompress_into, decompress_size_prepended,
+};
 
 use crate::os::task::process::MemorySnapshotRegion;
 
@@ -203,7 +206,7 @@ impl JournalEffector {
     ) -> anyhow::Result<()> {
         let (env, mut store) = ctx.data_and_store_mut();
 
-        let (uncompressed_size, mut compressed_data) = block::uncompressed_size(compressed_data)
+        let (uncompressed_size, compressed_data) = block::uncompressed_size(compressed_data)
             .map_err(|err| anyhow::anyhow!("failed to decompress - {}", err))?;
 
         let memory = unsafe { env.memory() };
@@ -213,46 +216,70 @@ impl JournalEffector {
         let memory = unsafe { env.memory_view(&store) };
 
         #[cfg(not(feature = "sys"))]
-        memory
-            .write(
-                region.start,
-                &decompress(compressed_data, uncompressed_size)?,
-            )
-            .map_err(|err| WasiRuntimeError::Runtime(RuntimeError::user(err.into())))?;
+        {
+            let decompressed_data = decompress(compressed_data, uncompressed_size)?;
+            memory
+                .write(region.start, &decompressed_data)
+                .map_err(|err| WasiRuntimeError::Runtime(RuntimeError::user(err.into())))?;
+
+            // Break the region down into chunks that align with the resolution
+            let mut decompressed_data = &decompressed_data[..];
+            let mut offset = region.start;
+            while offset < region.end {
+                let next = region.end.min(offset + MEMORY_REGION_RESOLUTION);
+                let region = offset..next;
+                offset = next;
+
+                // Compute the hash and update it
+                let size = region.end - region.start;
+                let hash = {
+                    let h: [u8; 32] = blake3::hash(&decompressed_data[..size as usize]).into();
+                    u64::from_be_bytes([h[0], h[1], h[2], h[3], h[4], h[5], h[6], h[7]])
+                };
+                env.process
+                    .inner
+                    .0
+                    .lock()
+                    .unwrap()
+                    .snapshot_memory_hash
+                    .insert(region.into(), hash);
+
+                // Shift the data pointer
+                decompressed_data = &decompressed_data[size as usize..];
+            }
+        }
 
         #[cfg(feature = "sys")]
-        {
-            decompress_into(compressed_data, unsafe {
-                &mut memory.data_unchecked_mut()[..uncompressed_size]
-            })?;
-        }
-        memory
-            .write(region.start, &decompress_size_prepended(compressed_data)?)
-            .map_err(|err| WasiRuntimeError::Runtime(RuntimeError::user(err.into())))?;
+        unsafe {
+            let start = region.start as usize;
+            let end = start + uncompressed_size;
+            decompress_into(
+                compressed_data,
+                &mut memory.data_unchecked_mut()[start..end],
+            )?;
 
-        // Break the region down into chunks that align with the resolution
-        let mut offset = region.start;
-        while offset < region.end {
-            let next = region.end.min(offset + MEMORY_REGION_RESOLUTION);
-            let region = offset..next;
-            offset = next;
+            // Break the region down into chunks that align with the resolution
+            let data = &memory.data_unchecked()[start..end];
+            let mut offset = region.start;
+            while offset < region.end {
+                let next = region.end.min(offset + MEMORY_REGION_RESOLUTION);
+                let region = offset..next;
 
-            // Compute the hash and update it
-            let size = region.end - region.start;
-            let hash = {
-                let h: [u8; 32] = blake3::hash(&compressed_data[..size as usize]).into();
-                u64::from_be_bytes([h[0], h[1], h[2], h[3], h[4], h[5], h[6], h[7]])
-            };
-            env.process
-                .inner
-                .0
-                .lock()
-                .unwrap()
-                .snapshot_memory_hash
-                .insert(region.into(), hash);
+                // Compute the hash and update it
+                let hash = {
+                    let h: [u8; 32] = blake3::hash(&data[offset as usize..next as usize]).into();
+                    u64::from_be_bytes([h[0], h[1], h[2], h[3], h[4], h[5], h[6], h[7]])
+                };
+                env.process
+                    .inner
+                    .0
+                    .lock()
+                    .unwrap()
+                    .snapshot_memory_hash
+                    .insert(region.into(), hash);
 
-            // Shift the data pointer
-            compressed_data = &compressed_data[size as usize..];
+                offset = next;
+            }
         }
 
         Ok(())

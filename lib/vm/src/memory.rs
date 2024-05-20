@@ -212,6 +212,21 @@ impl VMOwnedMemory {
         unsafe { Self::new_internal(memory, style, None, None, MmapType::Private) }
     }
 
+    /// Create a new linear memory instance with specified minimum and maximum number of wasm pages
+    /// that is backed by a memory file. When set to private the file will be remaing in memory and
+    /// never flush to disk, when set to shared the memory will be flushed to disk.
+    ///
+    /// This creates a `Memory` with owned metadata: this can be used to create a memory
+    /// that will be imported into Wasm modules.
+    pub fn new_with_file(
+        memory: &MemoryType,
+        style: &MemoryStyle,
+        backing_file: std::fs::File,
+        memory_type: MmapType,
+    ) -> Result<Self, MemoryError> {
+        unsafe { Self::new_internal(memory, style, None, Some(backing_file), memory_type) }
+    }
+
     /// Create a new linear memory instance with specified minimum and maximum number of wasm pages.
     ///
     /// This creates a `Memory` with metadata owned by a VM, pointed to by
@@ -432,6 +447,21 @@ impl VMSharedMemory {
     /// that will be imported into Wasm modules.
     pub fn new(memory: &MemoryType, style: &MemoryStyle) -> Result<Self, MemoryError> {
         Ok(VMOwnedMemory::new(memory, style)?.to_shared())
+    }
+
+    /// Create a new linear memory instance with specified minimum and maximum number of wasm pages
+    /// that is backed by a file. When set to private the file will be remaing in memory and
+    /// never flush to disk, when set to shared the memory will be flushed to disk.
+    ///
+    /// This creates a `Memory` with owned metadata: this can be used to create a memory
+    /// that will be imported into Wasm modules.
+    pub fn new_with_file(
+        memory: &MemoryType,
+        style: &MemoryStyle,
+        backing_file: std::fs::File,
+        memory_type: MmapType,
+    ) -> Result<Self, MemoryError> {
+        Ok(VMOwnedMemory::new_with_file(memory, style, backing_file, memory_type)?.to_shared())
     }
 
     /// Create a new linear memory instance with specified minimum and maximum number of wasm pages.
