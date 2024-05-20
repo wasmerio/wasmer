@@ -168,11 +168,6 @@ impl Mmap {
             return Ok(Self::new());
         }
 
-        // Compute the flags
-        let mut flags = match memory_fd {
-            fd if fd < 0 => libc::MAP_ANON,
-            _ => libc::MAP_FILE,
-        };
         Ok(if accessible_size == mapping_size {
             // Allocate a single read-write region at once.
             let ptr = unsafe {
