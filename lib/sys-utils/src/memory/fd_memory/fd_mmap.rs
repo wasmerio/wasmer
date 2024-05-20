@@ -28,12 +28,6 @@ pub struct FdMmap {
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct FdGuard(pub i32);
 
-impl FdGuard {
-    pub fn dup_fd(fd: i32) -> Self {
-        unsafe { Self(libc::dup(fd)) }
-    }
-}
-
 impl Default for FdGuard {
     fn default() -> Self {
         Self(-1)
