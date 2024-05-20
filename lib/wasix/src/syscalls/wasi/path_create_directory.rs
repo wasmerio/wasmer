@@ -84,7 +84,6 @@ pub(crate) fn path_create_directory_internal(
         return Err(Errno::Inval);
     }
 
-    let mut created_dir = false;
     let mut cur_dir_inode = working_dir.inode;
     for comp in &path_vec {
         let processing_cur_dir_inode = cur_dir_inode.clone();
@@ -126,7 +125,6 @@ pub(crate) fn path_create_directory_internal(
                             return Err(Errno::Notdir);
                         }
                     } else {
-                        created_dir = true;
                         state.fs_create_dir(&adjusted_path)?;
                     }
                     let kind = Kind::Dir {
@@ -162,9 +160,5 @@ pub(crate) fn path_create_directory_internal(
         }
     }
 
-    if created_dir {
-        Ok(())
-    } else {
-        Err(Errno::Exist)
-    }
+    Ok(())
 }
