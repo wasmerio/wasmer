@@ -423,6 +423,23 @@
 <a href="#423" id="423">423</a>
 <a href="#424" id="424">424</a>
 <a href="#425" id="425">425</a>
+<a href="#426" id="426">426</a>
+<a href="#427" id="427">427</a>
+<a href="#428" id="428">428</a>
+<a href="#429" id="429">429</a>
+<a href="#430" id="430">430</a>
+<a href="#431" id="431">431</a>
+<a href="#432" id="432">432</a>
+<a href="#433" id="433">433</a>
+<a href="#434" id="434">434</a>
+<a href="#435" id="435">435</a>
+<a href="#436" id="436">436</a>
+<a href="#437" id="437">437</a>
+<a href="#438" id="438">438</a>
+<a href="#439" id="439">439</a>
+<a href="#440" id="440">440</a>
+<a href="#441" id="441">441</a>
+<a href="#442" id="442">442</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! The commands available in the Wasmer binary.
 </span><span class="kw">mod </span>add;
 <span class="kw">mod </span>app;
@@ -457,6 +474,7 @@
 <span class="attr">#[cfg(feature = <span class="string">&quot;wast&quot;</span>)]
 </span><span class="kw">mod </span>wast;
 <span class="kw">mod </span>whoami;
+<span class="kw">use </span>std::env::args;
 
 <span class="attr">#[cfg(target_os = <span class="string">&quot;linux&quot;</span>)]
 </span><span class="kw">pub use </span>binfmt::<span class="kw-2">*</span>;
@@ -614,11 +632,27 @@
         <span class="kw">match </span>WasmerCmd::try_parse() {
             <span class="prelude-val">Ok</span>(args) =&gt; args.execute(),
             <span class="prelude-val">Err</span>(e) =&gt; {
+                <span class="kw">let </span>first_arg_is_subcommand = <span class="kw">if let </span><span class="prelude-val">Some</span>(first_arg) = args().nth(<span class="number">1</span>) {
+                    <span class="kw">let </span><span class="kw-2">mut </span>ret = <span class="bool-val">false</span>;
+                    <span class="kw">let </span>cmd = WasmerCmd::command();
+
+                    <span class="kw">for </span>cmd <span class="kw">in </span>cmd.get_subcommands() {
+                        <span class="kw">if </span>cmd.get_name() == first_arg {
+                            ret = <span class="bool-val">true</span>;
+                            <span class="kw">break</span>;
+                        }
+                    }
+
+                    ret
+                } <span class="kw">else </span>{
+                    <span class="bool-val">false
+                </span>};
+
                 <span class="kw">let </span>might_be_wasmer_run = <span class="macro">matches!</span>(
                     e.kind(),
                     clap::error::ErrorKind::InvalidSubcommand
                         | clap::error::ErrorKind::UnknownArgument
-                );
+                ) &amp;&amp; !first_arg_is_subcommand;
 
                 <span class="kw">if </span>might_be_wasmer_run {
                     <span class="kw">if let </span><span class="prelude-val">Ok</span>(run) = Run::try_parse() {
