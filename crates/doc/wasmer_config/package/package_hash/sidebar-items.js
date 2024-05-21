@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":["PackageHash"]};
+window.SIDEBAR_ITEMS = {"enum":["PackageHash"]};
