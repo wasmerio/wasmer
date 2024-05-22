@@ -103,7 +103,7 @@
         ctx,
         sock,
         Rights::SOCK_BIND,
-        <span class="kw">move </span>|socket| <span class="kw">async move </span>{ socket.bind(tasks.deref(), net.deref(), addr).<span class="kw">await </span>}
+        <span class="kw">move </span>|socket, <span class="kw">_</span>| <span class="kw">async move </span>{ socket.bind(tasks.deref(), net.deref(), addr).<span class="kw">await </span>}
     ));
 
     <span class="prelude-val">Ok</span>(<span class="prelude-val">Ok</span>(()))

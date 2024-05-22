@@ -105,7 +105,7 @@
         ctx,
         sock,
         Rights::SOCK_LISTEN,
-        |socket| <span class="kw">async move </span>{ socket.listen(tasks.deref(), net.deref(), backlog).<span class="kw">await </span>}
+        |socket, <span class="kw">_</span>| <span class="kw">async move </span>{ socket.listen(tasks.deref(), net.deref(), backlog).<span class="kw">await </span>}
     ));
 
     <span class="prelude-val">Ok</span>(<span class="prelude-val">Ok</span>(()))

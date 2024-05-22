@@ -1516,6 +1516,10 @@
 <a href="#1516" id="1516">1516</a>
 <a href="#1517" id="1517">1517</a>
 <a href="#1518" id="1518">1518</a>
+<a href="#1519" id="1519">1519</a>
+<a href="#1520" id="1520">1520</a>
+<a href="#1521" id="1521">1521</a>
+<a href="#1522" id="1522">1522</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{
     future::Future,
     io,
@@ -2054,6 +2058,7 @@
         net: <span class="kw-2">&amp;</span><span class="kw">dyn </span>VirtualNetworking,
         peer: SocketAddr,
         timeout: <span class="prelude-ty">Option</span>&lt;std::time::Duration&gt;,
+        nonblocking: bool,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;InodeSocket&gt;, Errno&gt; {
         <span class="kw">let </span>new_write_timeout;
         <span class="kw">let </span>new_read_timeout;
@@ -2093,6 +2098,9 @@
                                 }
                                 <span class="kw">if let </span><span class="prelude-val">Some</span>(dont_route) = dont_route {
                                     ret.set_dontroute(dont_route).ok();
+                                }
+                                <span class="kw">if </span>!nonblocking {
+                                    futures::future::poll_fn(|cx| ret.poll_write_ready(cx)).<span class="kw">await</span><span class="question-mark">?</span>;
                                 }
                                 <span class="prelude-val">Ok</span>(ret)
                             })

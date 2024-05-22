@@ -2276,7 +2276,7 @@
     actor: F,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;(), Errno&gt;
 <span class="kw">where
-    </span>F: FnOnce(<span class="kw">crate</span>::net::socket::InodeSocket) -&gt; Fut,
+    </span>F: FnOnce(<span class="kw">crate</span>::net::socket::InodeSocket, Fdflags) -&gt; Fut,
     Fut: std::future::Future&lt;Output = <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;<span class="kw">crate</span>::net::socket::InodeSocket&gt;, Errno&gt;&gt; + <span class="lifetime">&#39;a</span>,
 {
     <span class="kw">let </span>env = ctx.data();
@@ -2302,7 +2302,7 @@
                 drop(guard);
 
                 <span class="comment">// Start the work using the socket
-                </span><span class="kw">let </span>work = actor(socket);
+                </span><span class="kw">let </span>work = actor(socket, fd_entry.flags);
 
                 <span class="comment">// Block on the work and process it
                 </span><span class="kw">let </span>res = InlineWaker::block_on(work);
