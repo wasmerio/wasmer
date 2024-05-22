@@ -1113,7 +1113,10 @@ mod tests {
     use webc::v1::{ParseOptions, WebCOwned};
 
     use super::*;
-    use crate::{mem_fs::FileSystem as MemFS, webc_fs::WebcFileSystem, RootFileSystemBuilder};
+    use crate::{
+        mem_fs::FileSystem as MemFS, webc_fs::WebcFileSystem, RootFileSystemBuilder,
+        ScopedDirectoryFileSystem,
+    };
 
     const PYTHON: &[u8] = include_bytes!("../../c-api/examples/assets/python-0.1.0.wasmer");
 
@@ -1267,12 +1270,12 @@ mod tests {
         // (initialized with a set of unix-like folders), but certain folders
         // are first to the host.
         let primary = RootFileSystemBuilder::new().build();
-        let host_fs: Arc<dyn FileSystem + Send + Sync> =
-            Arc::new(crate::host_fs::FileSystem::default());
         let first_dirs = [(&first, "/first"), (&second, "/second")];
         for (host, guest) in first_dirs {
+            let scoped_fs: Arc<dyn FileSystem + Send + Sync> =
+                Arc::new(ScopedDirectoryFileSystem::new_with_default_runtime(&guest));
             primary
-                .mount(PathBuf::from(guest), &host_fs, host.clone())
+                .mount(PathBuf::from(guest), &scoped_fs, host.clone())
                 .unwrap();
         }
         // Set up the secondary file systems

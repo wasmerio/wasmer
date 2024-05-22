@@ -39,11 +39,16 @@ pub struct wasi_config_t {
 #[no_mangle]
 pub unsafe extern "C" fn wasi_config_new(
     program_name: *const c_char,
+    mount_dir: *const c_char,
 ) -> Option<Box<wasi_config_t>> {
     debug_assert!(!program_name.is_null());
+    debug_assert!(!mount_dir.is_null());
 
     let name_c_str = CStr::from_ptr(program_name);
     let prog_name = c_try!(name_c_str.to_str());
+
+    let mount_dir = CStr::from_ptr(mount_dir);
+    let mount_dir = c_try!(mount_dir.to_str());
 
     let runtime = tokio::runtime::Builder::new_multi_thread()
         .enable_all()
@@ -55,7 +60,7 @@ pub unsafe extern "C" fn wasi_config_new(
         inherit_stdout: true,
         inherit_stderr: true,
         inherit_stdin: true,
-        builder: WasiEnv::builder(prog_name).fs(default_fs_backing()),
+        builder: WasiEnv::builder(prog_name).fs(default_fs_backing(mount_dir)),
         runtime: Some(runtime),
     }))
 }

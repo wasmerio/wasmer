@@ -1,3 +1,5 @@
+mod host_fs;
+
 use std::path::{Component, Path, PathBuf};
 
 use futures::future::BoxFuture;
@@ -7,16 +9,18 @@ use crate::{
     VirtualFile,
 };
 
+pub use host_fs::{Stderr, Stdin, Stdout};
+
 /// A [`FileSystem`] implementation that is scoped to a specific directory on
 /// the host.
 #[derive(Debug, Clone)]
 pub struct ScopedDirectoryFileSystem {
     root: PathBuf,
-    inner: crate::host_fs::FileSystem,
+    inner: host_fs::FileSystem,
 }
 
 impl ScopedDirectoryFileSystem {
-    pub fn new(root: impl Into<PathBuf>, inner: crate::host_fs::FileSystem) -> Self {
+    pub fn new(root: impl Into<PathBuf>, inner: host_fs::FileSystem) -> Self {
         ScopedDirectoryFileSystem {
             root: root.into(),
             inner,
@@ -31,7 +35,7 @@ impl ScopedDirectoryFileSystem {
     /// This will panic if called outside of a `tokio` context.
     pub fn new_with_default_runtime(root: impl Into<PathBuf>) -> Self {
         let handle = tokio::runtime::Handle::current();
-        let fs = crate::host_fs::FileSystem::new(handle);
+        let fs = host_fs::FileSystem::new(handle);
         ScopedDirectoryFileSystem::new(root, fs)
     }
 

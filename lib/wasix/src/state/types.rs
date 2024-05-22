@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 
 cfg_if! {
     if #[cfg(feature = "host-fs")] {
-        pub use virtual_fs::host_fs::{Stderr, Stdin, Stdout};
+        pub use virtual_fs::scoped_directory_fs::{Stderr, Stdin, Stdout};
     } else {
         pub use virtual_fs::mem_fs::{Stderr, Stdin, Stdout};
     }

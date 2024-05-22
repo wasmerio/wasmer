@@ -334,9 +334,10 @@ impl Wasi {
             }
 
             if !mapped_dirs.is_empty() {
-                let fs_backing: Arc<dyn FileSystem + Send + Sync> =
-                    Arc::new(PassthruFileSystem::new(default_fs_backing()));
                 for MappedDirectory { host, guest } in self.mapped_dirs.clone() {
+                    let fs_backing: Arc<dyn FileSystem + Send + Sync> =
+                        Arc::new(PassthruFileSystem::new(default_fs_backing(&guest)));
+
                     let host = if !host.is_absolute() {
                         Path::new("/").join(host)
                     } else {

@@ -976,7 +976,7 @@ impl VirtualFile for Stdin {
 mod tests {
     use tempfile::TempDir;
 
-    use crate::host_fs::FileSystem;
+    use super::FileSystem;
     use crate::FileSystem as FileSystemTrait;
     use crate::FsError;
     use std::path::Path;
