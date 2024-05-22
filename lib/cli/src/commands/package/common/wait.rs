@@ -134,7 +134,7 @@ pub async fn wait_package(
                     state.bindings = false
                 }
                 wasmer_registry::subscriptions::PackageVersionState::NATIVE_EXES_GENERATED => {
-                    state.native_executables = true
+                    state.native_executables = false
                 }
                 wasmer_registry::subscriptions::PackageVersionState::Other(_) => {}
             }

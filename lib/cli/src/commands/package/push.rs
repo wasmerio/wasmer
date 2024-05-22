@@ -1,4 +1,4 @@
-use super::common::{macros::*, wait::*, *};
+use super::common::{macros::*, *};
 use crate::{
     commands::{AsyncCliCommand, PackageBuild},
     opts::{ApiOpts, WasmerEnv},
@@ -45,17 +45,6 @@ pub struct PackagePush {
     /// Do not prompt for user input.
     #[clap(long, default_value_t = !std::io::stdin().is_terminal())]
     pub non_interactive: bool,
-
-    /// Wait for package to be available on the registry before exiting.
-    #[clap(
-            long,
-            require_equals = true,
-            num_args = 0..=1,
-            default_value_t = PublishWait::None,
-            default_missing_value = "container",
-            value_enum
-        )]
-    pub wait: PublishWait,
 
     /// Directory containing the `wasmer.toml`, or a custom *.toml manifest file.
     ///
@@ -124,7 +113,7 @@ impl PackagePush {
         spinner_ok!(pb, "Package correctly uploaded");
 
         let pb = make_spinner!(self.quiet, "Waiting for package to become available...");
-        let id = match wasmer_api::query::push_package_release(
+        match wasmer_api::query::push_package_release(
             client,
             None,
             namespace,
@@ -143,7 +132,6 @@ impl PackagePush {
             None => anyhow::bail!("An unidentified error occurred while publishing the package."), // <- This is extremely bad..
         };
 
-        wait_package(client, self.wait, id, self.timeout).await?;
         let msg = format!("Succesfully pushed release to namespace {namespace} on the registry");
         spinner_ok!(pb, msg);
 
