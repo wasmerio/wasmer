@@ -1,8 +1,5 @@
 use assert_cmd::prelude::OutputAssertExt;
-use std::{
-    fs::OpenOptions,
-    path::{Path, PathBuf},
-};
+use std::{fs::OpenOptions, path::Path};
 use wasmer_integration_tests_cli::get_wasmer_path;
 
 fn project_root() -> &'static Path {
@@ -10,20 +7,6 @@ fn project_root() -> &'static Path {
         .ancestors()
         .nth(3)
         .unwrap()
-}
-
-fn copy_dir_all(src: impl AsRef<Path>, dst: impl AsRef<Path>) -> std::io::Result<()> {
-    std::fs::create_dir_all(&dst)?;
-    for entry in std::fs::read_dir(src)? {
-        let entry = entry?;
-        let ty = entry.file_type()?;
-        if ty.is_dir() {
-            copy_dir_all(entry.path(), dst.as_ref().join(entry.file_name()))?;
-        } else {
-            std::fs::copy(entry.path(), dst.as_ref().join(entry.file_name()))?;
-        }
-    }
-    Ok(())
 }
 
 #[test]
