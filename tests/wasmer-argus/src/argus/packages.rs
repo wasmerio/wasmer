@@ -30,7 +30,7 @@ impl Argus {
         p.set_style(
             ProgressStyle::with_template("{spinner:.blue} {msg}")
                 .unwrap()
-                .tick_strings(&["✶", "✸", "✹", "✺", "✹", "✷"]),
+                .tick_strings(&["✶", "✸", "✹", "✺", "✹", "✷", "✶"]),
         );
         p.enable_steady_tick(Duration::from_millis(1000));
 
@@ -188,7 +188,7 @@ impl Argus {
     /// Return the complete path to the folder of the test for the package, from the outdir to the
     /// hash
     pub async fn get_path(config: Arc<ArgusConfig>, pkg: &PackageVersionWithPackage) -> PathBuf {
-        let hash = match &pkg.distribution.pirita_sha256_hash {
+        let hash = match &pkg.distribution_v2.pirita_sha256_hash {
             Some(hash) => hash,
             None => {
                 unreachable!("no package without an hash should reach this function!")

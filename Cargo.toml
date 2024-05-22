@@ -105,6 +105,7 @@ memmap2 = { version = "0.6.2" }
 toml = {version = "0.5.9", features = ["preserve_order"]}
 indexmap = "2"
 serde_yaml = "0.9.34"
+libc = { version = "^0.2", default-features = false }
 
 [build-dependencies]
 test-generator = { path = "tests/lib/test-generator" }

@@ -1,7 +1,4 @@
-use super::macros::spinner_ok;
-use colored::Colorize;
 use futures_util::StreamExt;
-use indicatif::ProgressBar;
 use wasmer_api::WasmerClient;
 
 /// Different conditions that can be "awaited" when publishing a package.
@@ -83,14 +80,12 @@ pub async fn wait_package(
     client: &WasmerClient,
     to_wait: PublishWait,
     package_version_id: wasmer_api::types::Id,
-    pb: &ProgressBar,
     timeout: humantime::Duration,
 ) -> anyhow::Result<()> {
     if let PublishWait::None = to_wait {
         return Ok(());
     }
 
-    pb.set_message("Waiting for package to become available...");
     let registry_url = client.graphql_endpoint().to_string();
     let login_token = client.auth_token().unwrap_or_default().to_string();
     let package_version_id = package_version_id.into_inner();
@@ -146,6 +141,5 @@ pub async fn wait_package(
         }
     }
 
-    spinner_ok!(pb, "Package is available in the registry");
     Ok(())
 }

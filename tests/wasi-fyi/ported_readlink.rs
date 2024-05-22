@@ -6,9 +6,6 @@ use std::io::Read;
 fn main() {
     let sym_link_path = "/hamlet/bookmarks/2019-07-16";
 
-    let p = std::path::Path::new(sym_link_path);
-    dbg!(&p);
-    println!("{}", p.exists());
     let link_path = std::fs::read_link(sym_link_path).expect("Could not read link");
     println!("{}", link_path.to_string_lossy());
 

@@ -9,7 +9,7 @@ macro_rules! make_spinner {
         pb.set_style(
             indicatif::ProgressStyle::with_template("{spinner:.magenta} {msg}")
                 .unwrap()
-                .tick_strings(&["✶", "✸", "✹", "✺", "✹", "✷"]),
+                .tick_strings(&["✶", "✸", "✹", "✺", "✹", "✷", "✶"]),
         );
 
         pb.set_message($msg);

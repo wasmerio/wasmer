@@ -22,7 +22,7 @@ wasmer-types = { path = "../types", version = "=4.3.0" }
 target-lexicon = { version = "0.12.2", default-features = false }
 smallvec = "1.6"
 object = { version = "0.28.3", default-features = false, features = ["read"] }
-libc = { version = "^0.2", default-features = false }
+libc.workspace = true
 byteorder = "1"
 itertools = "0.10"
 rayon = "1.5"

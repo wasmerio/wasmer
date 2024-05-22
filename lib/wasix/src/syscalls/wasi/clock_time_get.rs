@@ -1,6 +1,9 @@
 use super::*;
 use crate::syscalls::*;
 
+// NOTE: This syscall is not instrumented since it will be logged too much,
+// hence introducing too much noise to the logs.
+
 /// ### `clock_time_get()`
 /// Get the time of the specified clock
 /// Inputs:
@@ -11,8 +14,10 @@ use crate::syscalls::*;
 /// Output:
 /// - `Timestamp *time`
 ///     The value of the clock in nanoseconds
-//#[instrument(level = "trace", skip_all, fields(?clock_id, %precision), ret)]
-#[instrument(level = "trace", skip_all, ret)]
+#[cfg_attr(
+    feature = "extra-logging",
+    tracing::instrument(level = "trace", skip_all, ret)
+)]
 pub fn clock_time_get<M: MemorySize>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     clock_id: Snapshot0Clockid,

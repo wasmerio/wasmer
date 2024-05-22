@@ -536,6 +536,7 @@ impl InodeSocket {
         net: &dyn VirtualNetworking,
         peer: SocketAddr,
         timeout: Option<std::time::Duration>,
+        nonblocking: bool,
     ) -> Result<Option<InodeSocket>, Errno> {
         let new_write_timeout;
         let new_read_timeout;
@@ -575,6 +576,9 @@ impl InodeSocket {
                                 }
                                 if let Some(dont_route) = dont_route {
                                     ret.set_dontroute(dont_route).ok();
+                                }
+                                if !nonblocking {
+                                    futures::future::poll_fn(|cx| ret.poll_write_ready(cx)).await?;
                                 }
                                 Ok(ret)
                             })
