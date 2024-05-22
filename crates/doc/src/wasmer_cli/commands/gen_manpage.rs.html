@@ -31,7 +31,7 @@
 <span class="kw">use </span>std::path::PathBuf;
 
 <span class="macro">lazy_static::lazy_static! </span>{
-    <span class="kw">static </span><span class="kw-2">ref </span>DEFAULT_MAN_DIR_PATH: PathBuf = dirs::data_dir().unwrap_or_default().join(<span class="string">&quot;man&quot;</span>);
+    <span class="kw">static </span><span class="kw-2">ref </span>DEFAULT_MAN_DIR_PATH: PathBuf = dirs::data_dir().unwrap_or_default().join(<span class="string">&quot;man&quot;</span>).join(<span class="string">&quot;man1&quot;</span>);
 }
 
 <span class="attr">#[derive(Debug, Clone, clap::Parser)]
