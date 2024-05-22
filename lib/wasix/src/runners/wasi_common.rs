@@ -18,7 +18,7 @@ use crate::{
     WasiEnvBuilder,
 };
 
-pub const MAPPED_CURRENT_DIR_DEFAULT_PATH: &'static str = "/home";
+pub const MAPPED_CURRENT_DIR_DEFAULT_PATH: &str = "/home";
 
 #[derive(Debug, Clone)]
 pub struct MappedCommand {
