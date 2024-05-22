@@ -322,8 +322,13 @@ impl VMOwnedMemory {
         let mut alloc =
             Mmap::accessible_reserved(mapped_bytes.0, request_bytes, backing_file, memory_type)
                 .map_err(MemoryError::Region)?;
+
         let base_ptr = alloc.as_mut_ptr();
-        let mem_length = memory.minimum.bytes().0;
+        let mem_length = memory
+            .minimum
+            .bytes()
+            .0
+            .max(alloc.as_slice_accessible().len());
         let mmap = WasmMmap {
             vm_memory_definition: if let Some(mem_loc) = vm_memory_location {
                 {
@@ -340,7 +345,7 @@ impl VMOwnedMemory {
                 })))
             },
             alloc,
-            size: memory.minimum,
+            size: Bytes::from(mem_length).try_into().unwrap(),
         };
 
         Ok(Self {

@@ -16,8 +16,8 @@ impl Default for JournalPrintingMode {
     }
 }
 
-/// The default for runtime is to use the unsupported journal
-/// which will fail to write journal entries if one attempts to do so.
+/// The printing journal writes all the journal entries to the console
+/// as either text or json.
 #[derive(Debug, Default)]
 pub struct PrintingJournal {
     mode: JournalPrintingMode,
