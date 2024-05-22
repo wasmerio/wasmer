@@ -11,11 +11,6 @@ fn project_root() -> &'static Path {
 
 #[test]
 fn wasmer_deploy_php() -> anyhow::Result<()> {
-    // Only run this test in the CI
-    if std::env::var("GITHUB_TOKEN").is_err() {
-        return Ok(());
-    }
-
     let wapm_dev_token = std::env::var("WAPM_DEV_TOKEN").ok();
 
     let username = "ciuser";
@@ -75,11 +70,6 @@ fn wasmer_deploy_php() -> anyhow::Result<()> {
 
 #[test]
 fn wasmer_deploy_static_website() -> anyhow::Result<()> {
-    // Only run this test in the CI
-    if std::env::var("GITHUB_TOKEN").is_err() {
-        return Ok(());
-    }
-
     let wapm_dev_token = std::env::var("WAPM_DEV_TOKEN").ok();
 
     let username = "ciuser";
@@ -151,11 +141,6 @@ fn wasmer_deploy_static_website() -> anyhow::Result<()> {
 
 #[test]
 fn wasmer_deploy_js() -> anyhow::Result<()> {
-    // Only run this test in the CI
-    if std::env::var("GITHUB_TOKEN").is_err() {
-        return Ok(());
-    }
-
     let wapm_dev_token = std::env::var("WAPM_DEV_TOKEN").ok();
 
     let username = "ciuser";
@@ -215,12 +200,83 @@ fn wasmer_deploy_js() -> anyhow::Result<()> {
 }
 
 #[test]
-fn wasmer_deploy_axum() -> anyhow::Result<()> {
-    // Only run this test in the CI
-    if std::env::var("GITHUB_TOKEN").is_err() {
-        return Ok(());
-    }
+fn wasmer_deploy_fails_no_app_name() -> anyhow::Result<()> {
+    let username = "ciuser";
 
+    let php_app_dir = project_root()
+        .join("tests")
+        .join("integration")
+        .join("cli")
+        .join("tests")
+        .join("packages")
+        .join("php");
+
+    let tempdir = tempfile::tempdir()?;
+    let app_dir = tempdir.path();
+
+    let mut cmd = std::process::Command::new("cp");
+    cmd.arg("-r")
+        .arg(format!("{}", php_app_dir.display()))
+        .arg(format!("{}", app_dir.display()))
+        .output()?;
+
+    let app_dir = app_dir.join("php");
+
+    let mut cmd = std::process::Command::new(get_wasmer_path());
+    cmd.arg("deploy")
+        .arg("--non-interactive")
+        .arg("-vvvvvv")
+        .arg(format!("--owner={username}"))
+        .arg(format!("--dir={}", app_dir.display()))
+        .arg("--registry=wasmer.wtf");
+
+    cmd.assert().failure().stderr(predicates::str::contains(
+        "The app.yaml does not specify any app name.",
+    ));
+
+    Ok(())
+}
+
+#[test]
+fn wasmer_deploy_fails_no_owner() -> anyhow::Result<()> {
+    let app_name = format!("ci-{}", rand::random::<u32>());
+
+    let php_app_dir = project_root()
+        .join("tests")
+        .join("integration")
+        .join("cli")
+        .join("tests")
+        .join("packages")
+        .join("php");
+
+    let tempdir = tempfile::tempdir()?;
+    let app_dir = tempdir.path();
+
+    let mut cmd = std::process::Command::new("cp");
+    cmd.arg("-r")
+        .arg(format!("{}", php_app_dir.display()))
+        .arg(format!("{}", app_dir.display()))
+        .output()?;
+
+    let app_dir = app_dir.join("php");
+
+    let mut cmd = std::process::Command::new(get_wasmer_path());
+    cmd.arg("deploy")
+        .arg("--non-interactive")
+        .arg("-vvvvvv")
+        .arg(format!("--app-name={app_name}"))
+        .arg(format!("--dir={}", app_dir.display()))
+        .arg("--registry=wasmer.wtf");
+
+    cmd.assert()
+        .failure()
+        .stderr(predicates::str::contains("No owner specified"));
+
+    Ok(())
+}
+
+#[test]
+fn wasmer_deploy_axum() -> anyhow::Result<()> {
     let wapm_dev_token = std::env::var("WAPM_DEV_TOKEN").ok();
 
     let username = "ciuser";

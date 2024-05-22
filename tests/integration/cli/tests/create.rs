@@ -3,11 +3,6 @@ use wasmer_integration_tests_cli::get_wasmer_path;
 
 #[test]
 fn wasmer_create_package() -> anyhow::Result<()> {
-    // Only run this test in the CI
-    if std::env::var("GITHUB_TOKEN").is_err() {
-        return Ok(());
-    }
-
     let wapm_dev_token = std::env::var("WAPM_DEV_TOKEN").ok();
 
     let username = "ciuser";
@@ -52,11 +47,6 @@ package: wasmer/hello
 
 #[test]
 fn wasmer_create_template() -> anyhow::Result<()> {
-    // Only run this test in the CI
-    if std::env::var("GITHUB_TOKEN").is_err() {
-        return Ok(());
-    }
-
     let wapm_dev_token = std::env::var("WAPM_DEV_TOKEN").ok();
 
     let username = "ciuser";
