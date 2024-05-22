@@ -6405,6 +6405,7 @@ dependencies = [
  "reqwest",
  "serde",
  "serde_json",
+ "shared-buffer",
  "tokio 1.37.0",
  "tracing",
  "tracing-subscriber",
