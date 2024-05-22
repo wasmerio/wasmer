@@ -402,7 +402,7 @@ impl Wasi {
         Ok(Vec::new())
     }
 
-    pub fn build_mapped_directories(&self) -> Result<Vec<MappedDirectory>, anyhow::Error> {
+    pub fn build_mapped_directories(&self) -> Result<(bool, Vec<MappedDirectory>), anyhow::Error> {
         let mut mapped_dirs = Vec::new();
 
         // Process the --dirs flag and merge it with --mapdir.
@@ -493,9 +493,11 @@ impl Wasi {
             };
 
             mapped_dirs.push(mapping);
+
+            have_current_dir = true;
         }
 
-        Ok(mapped_dirs)
+        Ok((have_current_dir, mapped_dirs))
     }
 
     pub fn build_mapped_commands(&self) -> Result<Vec<MappedCommand>, anyhow::Error> {

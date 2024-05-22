@@ -80,6 +80,11 @@ impl WasiRunner {
         self.with_mounted_directories(dirs.into_iter().map(Into::into).map(MountedDirectory::from))
     }
 
+    pub fn with_home_mapped(&mut self, is_home_mapped: bool) -> &mut Self {
+        self.wasi.is_home_mapped = is_home_mapped;
+        self
+    }
+
     pub fn with_mounted_directories<I, D>(&mut self, dirs: I) -> &mut Self
     where
         I: IntoIterator<Item = D>,
@@ -328,7 +333,10 @@ impl crate::runners::Runner for WasiRunner {
             .prepare_webc_env(command_name, &wasi, Some(pkg), Arc::clone(&runtime), None)
             .context("Unable to prepare the WASI environment")?;
 
-        env.set_current_dir("/home");
+        // check whether
+        if self.wasi.is_home_mapped {
+            env.set_current_dir("/home");
+        }
 
         #[cfg(feature = "journal")]
         {

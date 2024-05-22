@@ -34,6 +34,7 @@ pub(crate) struct CommonWasiOptions {
     pub(crate) forward_host_env: bool,
     pub(crate) mapped_host_commands: Vec<MappedCommand>,
     pub(crate) mounts: Vec<MountedDirectory>,
+    pub(crate) is_home_mapped: bool,
     pub(crate) injected_packages: Vec<BinaryPackage>,
     pub(crate) capabilities: Capabilities,
     #[derivative(Debug = "ignore")]
