@@ -75,7 +75,7 @@ impl Argus {
 
             pool.spawn(async move {
                 let _permit = permit;
-                let ret = match Argus::test(count, c, &pkg, bar, successes_sx, failures_sx).await {
+                match Argus::test(count, c, &pkg, bar, successes_sx, failures_sx).await {
                     Err(e) => {
                         failures.lock().await.add_assign(1);
                         Err(e)
@@ -88,9 +88,7 @@ impl Argus {
                         failures.lock().await.add_assign(1);
                         Ok(())
                     }
-                };
-
-                ret
+                }
             });
 
             count += 1;
