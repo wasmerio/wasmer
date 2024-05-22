@@ -482,20 +482,6 @@ impl Wasi {
             mapped_dirs.push(mapping);
         }
 
-        if !have_current_dir {
-            let current_dir =
-                std::env::current_dir().context("could not determine current directory")?;
-
-            let mapping = MappedDirectory {
-                host: current_dir,
-                guest: MAPPED_CURRENT_DIR_DEFAULT_PATH.to_string(),
-            };
-
-            mapped_dirs.push(mapping);
-
-            have_current_dir = true;
-        }
-
         Ok((have_current_dir, mapped_dirs))
     }
 
