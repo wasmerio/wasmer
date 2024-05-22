@@ -328,6 +328,8 @@ impl crate::runners::Runner for WasiRunner {
             .prepare_webc_env(command_name, &wasi, Some(pkg), Arc::clone(&runtime), None)
             .context("Unable to prepare the WASI environment")?;
 
+        env.set_current_dir("/home");
+
         #[cfg(feature = "journal")]
         {
             for journal in self.wasi.journals.clone() {

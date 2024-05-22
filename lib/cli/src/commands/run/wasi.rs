@@ -180,7 +180,7 @@ pub struct RunProperties {
 
 #[allow(dead_code)]
 impl Wasi {
-    const MAPPED_CURRENT_DIR_DEFAULT_PATH: &'static str = "/mnt/host";
+    const MAPPED_CURRENT_DIR_DEFAULT_PATH: &'static str = "/home";
 
     pub fn map_dir(&mut self, alias: &str, target_on_disk: PathBuf) {
         self.mapped_dirs.push(MappedDirectory {
@@ -480,6 +480,18 @@ impl Wasi {
                     guest: guest.clone(),
                 }
             };
+            mapped_dirs.push(mapping);
+        }
+
+        if !have_current_dir {
+            let current_dir =
+                std::env::current_dir().context("could not determine current directory")?;
+
+            let mapping = MappedDirectory {
+                host: current_dir,
+                guest: Self::MAPPED_CURRENT_DIR_DEFAULT_PATH.to_string(),
+            };
+
             mapped_dirs.push(mapping);
         }
 
