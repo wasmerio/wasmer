@@ -333,7 +333,7 @@ impl crate::runners::Runner for WasiRunner {
             .prepare_webc_env(command_name, &wasi, Some(pkg), Arc::clone(&runtime), None)
             .context("Unable to prepare the WASI environment")?;
 
-        // check whether
+        // check whether home directory is mapped
         if self.wasi.is_home_mapped {
             env.set_current_dir("/home");
         }
