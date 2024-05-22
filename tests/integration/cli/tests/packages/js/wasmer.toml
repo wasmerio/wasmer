@@ -1,0 +1,14 @@
+[dependencies]
+"wasmer/winterjs" = "*"
+
+[fs]
+"/src" = "./src"
+
+[[command]]
+name = "script"
+module = "wasmer/winterjs:winterjs"
+runner = "https://webc.org/runner/wasi"
+
+[command.annotations.wasi]
+env = ["JS_PATH=/src/index.js"]
+main-args = ["/src/index.js"]
