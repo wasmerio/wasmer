@@ -18,7 +18,7 @@ use crate::{
 };
 use wasmer_types::ModuleHash;
 
-use super::wasi_common::MappedCommand;
+use super::wasi_common::{MappedCommand, MAPPED_CURRENT_DIR_DEFAULT_PATH};
 
 #[derive(Debug, Default, Clone)]
 pub struct WasiRunner {
@@ -335,7 +335,7 @@ impl crate::runners::Runner for WasiRunner {
 
         // check whether home directory is mapped
         if self.wasi.is_home_mapped {
-            env.set_current_dir("/home");
+            env.set_current_dir(MAPPED_CURRENT_DIR_DEFAULT_PATH);
         }
 
         #[cfg(feature = "journal")]

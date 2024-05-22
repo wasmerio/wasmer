@@ -18,6 +18,8 @@ use crate::{
     WasiEnvBuilder,
 };
 
+pub const MAPPED_CURRENT_DIR_DEFAULT_PATH: &'static str = "/home";
+
 #[derive(Debug, Clone)]
 pub struct MappedCommand {
     /// The new alias.
