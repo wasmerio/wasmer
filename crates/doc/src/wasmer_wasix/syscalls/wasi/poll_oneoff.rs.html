@@ -467,6 +467,28 @@
 <a href="#467" id="467">467</a>
 <a href="#468" id="468">468</a>
 <a href="#469" id="469">469</a>
+<a href="#470" id="470">470</a>
+<a href="#471" id="471">471</a>
+<a href="#472" id="472">472</a>
+<a href="#473" id="473">473</a>
+<a href="#474" id="474">474</a>
+<a href="#475" id="475">475</a>
+<a href="#476" id="476">476</a>
+<a href="#477" id="477">477</a>
+<a href="#478" id="478">478</a>
+<a href="#479" id="479">479</a>
+<a href="#480" id="480">480</a>
+<a href="#481" id="481">481</a>
+<a href="#482" id="482">482</a>
+<a href="#483" id="483">483</a>
+<a href="#484" id="484">484</a>
+<a href="#485" id="485">485</a>
+<a href="#486" id="486">486</a>
+<a href="#487" id="487">487</a>
+<a href="#488" id="488">488</a>
+<a href="#489" id="489">489</a>
+<a href="#490" id="490">490</a>
+<a href="#491" id="491">491</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>serde::{Deserialize, Serialize};
 <span class="kw">use </span>wasmer_wasix_types::wasi::{Subclockflags, SubscriptionClock, Userdata};
 
@@ -689,6 +711,7 @@
 
     <span class="kw">let </span>pid = ctx.data().pid();
     <span class="kw">let </span>tid = ctx.data().tid();
+    <span class="kw">let </span>subs_len = subs.len();
 
     <span class="comment">// Determine if we are in silent polling mode
     </span><span class="kw">let </span><span class="kw-2">mut </span>env = ctx.data();
@@ -848,6 +871,50 @@
             <span class="prelude-val">Some</span>(time)
         }
     };
+
+    <span class="comment">// Function to process a timeout
+    </span><span class="kw">let </span>process_timeout = {
+        <span class="kw">let </span>clock_subs = clock_subs.clone();
+        |ctx: <span class="kw-2">&amp;</span>FunctionEnvMut&lt;<span class="lifetime">&#39;a</span>, WasiEnv&gt;| {
+            <span class="comment">// The timeout has triggered so lets add that event
+            </span><span class="kw">if </span>clock_subs.is_empty() {
+                <span class="macro">tracing::warn!</span>(<span class="string">&quot;triggered_timeout (without any clock subscriptions)&quot;</span>,);
+            }
+            <span class="kw">let </span><span class="kw-2">mut </span>evts = Vec::new();
+            <span class="kw">for </span>(clock_info, userdata) <span class="kw">in </span>clock_subs {
+                <span class="kw">let </span>evt = Event {
+                    userdata,
+                    error: Errno::Success,
+                    type_: Eventtype::Clock,
+                    u: EventUnion { clock: <span class="number">0 </span>},
+                };
+                Span::current().record(
+                    <span class="string">&quot;seen&quot;</span>,
+                    <span class="kw-2">&amp;</span><span class="macro">format!</span>(
+                        <span class="string">&quot;clock(id={},userdata={})&quot;</span>,
+                        clock_info.clock_id <span class="kw">as </span>u32, evt.userdata
+                    ),
+                );
+                evts.push(evt);
+            }
+            evts
+        }
+    };
+
+    <span class="attr">#[cfg(feature = <span class="string">&quot;sys&quot;</span>)]
+    </span><span class="kw">if </span>env.capabilities.threading.enable_blocking_sleep &amp;&amp; subs_len == <span class="number">1 </span>{
+        <span class="comment">// Here, `poll_oneoff` is merely in a sleeping state
+        // due to a single relative timer event. This particular scenario was
+        // added following experimental findings indicating that std::thread::sleep
+        // yields more consistent sleep durations, allowing wasmer to meet
+        // real-time demands with greater precision.
+        </span><span class="kw">if let </span><span class="prelude-val">Some</span>(timeout) = timeout {
+            std::thread::sleep(timeout);
+            process_events(<span class="kw-2">&amp;</span>ctx, process_timeout(<span class="kw-2">&amp;</span>ctx));
+            <span class="kw">return </span><span class="prelude-val">Ok</span>(Errno::Success);
+        }
+    }
+
     <span class="kw">let </span>tasks = env.tasks().clone();
     <span class="kw">let </span>timeout = <span class="kw">async move </span>{
         <span class="kw">if let </span><span class="prelude-val">Some</span>(timeout) = timeout {
@@ -883,30 +950,7 @@
                     <span class="comment">// Process the events
                     </span>process_events(ctx, evts)
                 }
-                <span class="prelude-val">Err</span>(Errno::Timedout) =&gt; {
-                    <span class="comment">// The timeout has triggered so lets add that event
-                    </span><span class="kw">if </span>clock_subs.is_empty() {
-                        <span class="macro">tracing::warn!</span>(<span class="string">&quot;triggered_timeout (without any clock subscriptions)&quot;</span>,);
-                    }
-                    <span class="kw">let </span><span class="kw-2">mut </span>evts = Vec::new();
-                    <span class="kw">for </span>(clock_info, userdata) <span class="kw">in </span>clock_subs {
-                        <span class="kw">let </span>evt = Event {
-                            userdata,
-                            error: Errno::Success,
-                            type_: Eventtype::Clock,
-                            u: EventUnion { clock: <span class="number">0 </span>},
-                        };
-                        Span::current().record(
-                            <span class="string">&quot;seen&quot;</span>,
-                            <span class="kw-2">&amp;</span><span class="macro">format!</span>(
-                                <span class="string">&quot;clock(id={},userdata={})&quot;</span>,
-                                clock_info.clock_id <span class="kw">as </span>u32, evt.userdata
-                            ),
-                        );
-                        evts.push(evt);
-                    }
-                    process_events(ctx, evts)
-                }
+                <span class="prelude-val">Err</span>(Errno::Timedout) =&gt; process_events(ctx, process_timeout(ctx)),
                 <span class="comment">// If nonblocking the Errno::Again needs to be turned into an empty list
                 </span><span class="prelude-val">Err</span>(Errno::Again) =&gt; process_events(ctx, Default::default()),
                 <span class="comment">// Otherwise process the error
