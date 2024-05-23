@@ -459,7 +459,7 @@ where
                     // Process the events
                     process_events(ctx, evts)
                 }
-                Err(Errno::Timedout) => process_events(&ctx, process_timeout(&ctx)),
+                Err(Errno::Timedout) => process_events(ctx, process_timeout(ctx)),
                 // If nonblocking the Errno::Again needs to be turned into an empty list
                 Err(Errno::Again) => process_events(ctx, Default::default()),
                 // Otherwise process the error
