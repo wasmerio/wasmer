@@ -216,13 +216,43 @@
 <a href="#216" id="216">216</a>
 <a href="#217" id="217">217</a>
 <a href="#218" id="218">218</a>
+<a href="#219" id="219">219</a>
+<a href="#220" id="220">220</a>
+<a href="#221" id="221">221</a>
+<a href="#222" id="222">222</a>
+<a href="#223" id="223">223</a>
+<a href="#224" id="224">224</a>
+<a href="#225" id="225">225</a>
+<a href="#226" id="226">226</a>
+<a href="#227" id="227">227</a>
+<a href="#228" id="228">228</a>
+<a href="#229" id="229">229</a>
+<a href="#230" id="230">230</a>
+<a href="#231" id="231">231</a>
+<a href="#232" id="232">232</a>
+<a href="#233" id="233">233</a>
+<a href="#234" id="234">234</a>
+<a href="#235" id="235">235</a>
+<a href="#236" id="236">236</a>
+<a href="#237" id="237">237</a>
+<a href="#238" id="238">238</a>
+<a href="#239" id="239">239</a>
+<a href="#240" id="240">240</a>
+<a href="#241" id="241">241</a>
+<a href="#242" id="242">242</a>
+<a href="#243" id="243">243</a>
+<a href="#244" id="244">244</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">super</span>::Argus;
 <span class="kw">use </span><span class="kw">crate</span>::ArgusConfig;
 <span class="kw">use </span>futures::StreamExt;
 <span class="kw">use </span>indicatif::{ProgressBar, ProgressStyle};
 <span class="kw">use </span>reqwest::{header, Client};
 <span class="kw">use </span>std::{path::PathBuf, sync::Arc, time::Duration};
-<span class="kw">use </span>tokio::{fs::File, io::AsyncWriteExt, sync::mpsc::UnboundedSender};
+<span class="kw">use </span>tokio::{
+    fs::File,
+    io::AsyncWriteExt,
+    sync::mpsc::{UnboundedReceiver, UnboundedSender},
+};
 <span class="kw">use </span>tracing::<span class="kw-2">*</span>;
 <span class="kw">use </span>url::Url;
 <span class="kw">use </span>wasmer_api::{
@@ -238,6 +268,8 @@
         s: UnboundedSender&lt;PackageVersionWithPackage&gt;,
         p: ProgressBar,
         config: Arc&lt;ArgusConfig&gt;,
+        successes_rx: UnboundedReceiver&lt;()&gt;,
+        failures_rx: UnboundedReceiver&lt;()&gt;,
     ) -&gt; anyhow::Result&lt;()&gt; {
         <span class="macro">info!</span>(<span class="string">&quot;starting to fetch packages..&quot;</span>);
         <span class="kw">let </span>vars = AllPackageVersionsVars {
@@ -267,7 +299,12 @@
                     <span class="macro">anyhow::bail!</span>(<span class="string">&quot;failed to fetch packages: {e}&quot;</span>)
                 }
             };
-            p.set_message(<span class="macro">format!</span>(<span class="string">&quot;fetched {} packages&quot;</span>, count));
+            p.set_message(<span class="macro">format!</span>(
+                <span class="string">&quot;fetched {} packages [ok: {}, err: {}]&quot;</span>,
+                count,
+                successes_rx.len(),
+                failures_rx.len()
+            ));
             count += pkgs.len();
 
             <span class="kw">for </span>pkg <span class="kw">in </span>pkgs {
@@ -288,7 +325,19 @@
     }
 
     <span class="attr">#[tracing::instrument(skip(p))]
-    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">async fn </span>download_package&lt;<span class="lifetime">&#39;a</span>&gt;(
+    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">async fn </span>download_webcs&lt;<span class="lifetime">&#39;a</span>&gt;(
+        test_id: u64,
+        path: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>PathBuf,
+        webc_v2_url: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>Url,
+        webc_v3_url: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>Url,
+        p: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>ProgressBar,
+    ) -&gt; anyhow::Result&lt;()&gt; {
+        Argus::download_package(test_id, <span class="kw-2">&amp;</span>path.join(<span class="string">&quot;package_v2.webc&quot;</span>), webc_v2_url, p).<span class="kw">await</span><span class="question-mark">?</span>;
+        Argus::download_package(test_id, <span class="kw-2">&amp;</span>path.join(<span class="string">&quot;package_v3.webc&quot;</span>), webc_v3_url, p).<span class="kw">await</span><span class="question-mark">?</span>;
+        <span class="prelude-val">Ok</span>(())
+    }
+
+    <span class="kw">async fn </span>download_package&lt;<span class="lifetime">&#39;a</span>&gt;(
         test_id: u64,
         path: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>PathBuf,
         url: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>Url,
@@ -298,9 +347,12 @@
         <span class="kw">static </span>APP_USER_AGENT: <span class="kw-2">&amp;</span>str =
             <span class="macro">concat!</span>(<span class="macro">env!</span>(<span class="string">&quot;CARGO_PKG_NAME&quot;</span>), <span class="string">&quot;/&quot;</span>, <span class="macro">env!</span>(<span class="string">&quot;CARGO_PKG_VERSION&quot;</span>),);
 
-        <span class="kw">if </span>!path.exists() {
-            tokio::fs::create_dir_all(path).<span class="kw">await</span><span class="question-mark">?</span>;
-        } <span class="kw">else if </span>path.exists() &amp;&amp; !path.is_dir() {
+        <span class="kw">let </span><span class="kw-2">mut </span>dir_path = path.clone();
+        dir_path.pop();
+
+        <span class="kw">if </span>!dir_path.exists() {
+            tokio::fs::create_dir_all(dir_path).<span class="kw">await</span><span class="question-mark">?</span>;
+        } <span class="kw">else if </span>dir_path.exists() &amp;&amp; !dir_path.is_dir() {
             <span class="macro">anyhow::bail!</span>(<span class="string">&quot;path {:?} exists, but it is not a directory!&quot;</span>, path)
         }
 
@@ -338,19 +390,19 @@
 
         p.set_message(<span class="macro">format!</span>(<span class="string">&quot;downloading from {url}&quot;</span>));
 
-        <span class="kw">let </span><span class="kw-2">mut </span>outfile = <span class="kw">match </span>File::create(<span class="kw-2">&amp;</span>path.join(<span class="string">&quot;package.webc&quot;</span>)).<span class="kw">await </span>{
+        <span class="kw">let </span><span class="kw-2">mut </span>outfile = <span class="kw">match </span>File::create(<span class="kw-2">&amp;</span>path).<span class="kw">await </span>{
             <span class="prelude-val">Ok</span>(o) =&gt; o,
             <span class="prelude-val">Err</span>(e) =&gt; {
                 <span class="macro">error!</span>(
                     <span class="string">&quot;[{test_id}] failed to create file at {:?}. Error: {e}&quot;</span>,
-                    path.join(<span class="string">&quot;package.webc&quot;</span>)
+                    path.display()
                 );
 
                 p.finish_and_clear();
 
                 <span class="macro">anyhow::bail!</span>(
                     <span class="string">&quot;[{test_id}] failed to create file at {:?}. Error: {e}&quot;</span>,
-                    path.join(<span class="string">&quot;package.webc&quot;</span>)
+                    path.display()
                 );
             }
         };

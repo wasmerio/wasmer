@@ -200,6 +200,64 @@
 <a href="#200" id="200">200</a>
 <a href="#201" id="201">201</a>
 <a href="#202" id="202">202</a>
+<a href="#203" id="203">203</a>
+<a href="#204" id="204">204</a>
+<a href="#205" id="205">205</a>
+<a href="#206" id="206">206</a>
+<a href="#207" id="207">207</a>
+<a href="#208" id="208">208</a>
+<a href="#209" id="209">209</a>
+<a href="#210" id="210">210</a>
+<a href="#211" id="211">211</a>
+<a href="#212" id="212">212</a>
+<a href="#213" id="213">213</a>
+<a href="#214" id="214">214</a>
+<a href="#215" id="215">215</a>
+<a href="#216" id="216">216</a>
+<a href="#217" id="217">217</a>
+<a href="#218" id="218">218</a>
+<a href="#219" id="219">219</a>
+<a href="#220" id="220">220</a>
+<a href="#221" id="221">221</a>
+<a href="#222" id="222">222</a>
+<a href="#223" id="223">223</a>
+<a href="#224" id="224">224</a>
+<a href="#225" id="225">225</a>
+<a href="#226" id="226">226</a>
+<a href="#227" id="227">227</a>
+<a href="#228" id="228">228</a>
+<a href="#229" id="229">229</a>
+<a href="#230" id="230">230</a>
+<a href="#231" id="231">231</a>
+<a href="#232" id="232">232</a>
+<a href="#233" id="233">233</a>
+<a href="#234" id="234">234</a>
+<a href="#235" id="235">235</a>
+<a href="#236" id="236">236</a>
+<a href="#237" id="237">237</a>
+<a href="#238" id="238">238</a>
+<a href="#239" id="239">239</a>
+<a href="#240" id="240">240</a>
+<a href="#241" id="241">241</a>
+<a href="#242" id="242">242</a>
+<a href="#243" id="243">243</a>
+<a href="#244" id="244">244</a>
+<a href="#245" id="245">245</a>
+<a href="#246" id="246">246</a>
+<a href="#247" id="247">247</a>
+<a href="#248" id="248">248</a>
+<a href="#249" id="249">249</a>
+<a href="#250" id="250">250</a>
+<a href="#251" id="251">251</a>
+<a href="#252" id="252">252</a>
+<a href="#253" id="253">253</a>
+<a href="#254" id="254">254</a>
+<a href="#255" id="255">255</a>
+<a href="#256" id="256">256</a>
+<a href="#257" id="257">257</a>
+<a href="#258" id="258">258</a>
+<a href="#259" id="259">259</a>
+<a href="#260" id="260">260</a>
 </pre></div><pre class="rust"><code><span class="kw">mod </span>config;
 <span class="kw">mod </span>packages;
 <span class="kw">mod </span>tester;
@@ -207,9 +265,13 @@
 <span class="kw">use </span><span class="self">self</span>::tester::{TestReport, Tester};
 <span class="kw">pub use </span>config::<span class="kw-2">*</span>;
 <span class="kw">use </span>indicatif::{MultiProgress, ProgressBar};
-<span class="kw">use </span>std::{fs::OpenOptions, io::Write <span class="kw">as _</span>, path::Path, sync::Arc, time::Duration};
+<span class="kw">use </span>reqwest::header::CONTENT_TYPE;
+<span class="kw">use </span>std::{fs::OpenOptions, io::Write <span class="kw">as _</span>, ops::AddAssign, path::Path, sync::Arc, time::Duration};
 <span class="kw">use </span>tokio::{
-    sync::{mpsc, Semaphore},
+    sync::{
+        mpsc::{<span class="self">self</span>, UnboundedSender},
+        Mutex, Semaphore,
+    },
     task::JoinSet,
 };
 <span class="kw">use </span>tracing::<span class="kw-2">*</span>;
@@ -240,6 +302,8 @@
 
         <span class="kw">let </span>m = MultiProgress::new();
         <span class="kw">let </span>(s, <span class="kw-2">mut </span>r) = mpsc::unbounded_channel();
+        <span class="kw">let </span>(successes_sx, successes_rx) = mpsc::unbounded_channel();
+        <span class="kw">let </span>(failures_sx, failures_rx) = mpsc::unbounded_channel();
 
         <span class="kw">let </span><span class="kw-2">mut </span>pool = JoinSet::new();
         <span class="kw">let </span>c = Arc::new(<span class="self">self</span>.config.clone());
@@ -247,11 +311,15 @@
         {
             <span class="kw">let </span>this = <span class="self">self</span>.clone();
             <span class="kw">let </span>bar = m.add(ProgressBar::new(<span class="number">0</span>));
-
-            pool.spawn(<span class="kw">async move </span>{ this.fetch_packages(s, bar, c.clone()).<span class="kw">await </span>});
+            pool.spawn(<span class="kw">async move </span>{
+                this.fetch_packages(s, bar, c.clone(), successes_rx, failures_rx)
+                    .<span class="kw">await
+            </span>});
         }
 
         <span class="kw">let </span><span class="kw-2">mut </span>count = <span class="number">0</span>;
+        <span class="kw">let </span>successes = Arc::new(Mutex::new(<span class="number">0</span>));
+        <span class="kw">let </span>failures = Arc::new(Mutex::new(<span class="number">0</span>));
 
         <span class="kw">let </span>c = Arc::new(<span class="self">self</span>.config.clone());
         <span class="kw">let </span>sem = Arc::new(Semaphore::new(<span class="self">self</span>.config.jobs));
@@ -260,19 +328,50 @@
             <span class="kw">let </span>c = c.clone();
             <span class="kw">let </span>bar = m.add(ProgressBar::new(<span class="number">0</span>));
             <span class="kw">let </span>permit = Arc::clone(<span class="kw-2">&amp;</span>sem).acquire_owned().<span class="kw">await</span>;
+            <span class="kw">let </span>successes_sx = successes_sx.clone();
+            <span class="kw">let </span>failures_sx = failures_sx.clone();
+            <span class="kw">let </span>failures = failures.clone();
+            <span class="kw">let </span>successes = successes.clone();
 
             pool.spawn(<span class="kw">async move </span>{
                 <span class="kw">let </span>_permit = permit;
-                Argus::test(count, c, <span class="kw-2">&amp;</span>pkg, bar).<span class="kw">await
-            </span>});
+                <span class="kw">match </span>Argus::test(count, c, <span class="kw-2">&amp;</span>pkg, bar, successes_sx, failures_sx).<span class="kw">await </span>{
+                    <span class="prelude-val">Err</span>(e) =&gt; {
+                        failures.lock().<span class="kw">await</span>.add_assign(<span class="number">1</span>);
+                        <span class="prelude-val">Err</span>(e)
+                    }
+                    <span class="prelude-val">Ok</span>(<span class="bool-val">true</span>) =&gt; {
+                        successes.lock().<span class="kw">await</span>.add_assign(<span class="number">1</span>);
+                        <span class="prelude-val">Ok</span>(())
+                    }
+                    <span class="prelude-val">Ok</span>(<span class="bool-val">false</span>) =&gt; {
+                        failures.lock().<span class="kw">await</span>.add_assign(<span class="number">1</span>);
+                        <span class="prelude-val">Ok</span>(())
+                    }
+                }
+            });
 
             count += <span class="number">1</span>;
         }
 
         <span class="kw">while let </span><span class="prelude-val">Some</span>(t) = pool.join_next().<span class="kw">await </span>{
             <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = t {
-                <span class="macro">error!</span>(<span class="string">&quot;task failed: {e}&quot;</span>)
+                <span class="macro">error!</span>(<span class="string">&quot;{:?}&quot;</span>, e)
             }
+        }
+
+        <span class="kw">if let </span><span class="prelude-val">Some</span>(webhook_url) = <span class="self">self</span>.config.webhook_url {
+            <span class="kw">let </span>url = url::Url::parse(<span class="kw-2">&amp;</span>webhook_url)<span class="question-mark">?</span>;
+            reqwest::Client::new()
+                .post(url)
+                .header(CONTENT_TYPE, <span class="string">&quot;application/json&quot;</span>)
+                .body(<span class="macro">format!</span>(
+                    <span class="string">r#&quot;{{&quot;text&quot;:&quot;Argus run report: {} tests succeeded, {} failed&quot;}}&quot;#</span>,
+                    successes.lock().<span class="kw">await</span>,
+                    failures.lock().<span class="kw">await
+                </span>))
+                .send()
+                .<span class="kw">await</span><span class="question-mark">?</span>;
         }
 
         <span class="macro">info!</span>(<span class="string">&quot;done!&quot;</span>);
@@ -285,7 +384,9 @@
         config: Arc&lt;ArgusConfig&gt;,
         package: <span class="kw-2">&amp;</span>PackageVersionWithPackage,
         p: ProgressBar,
-    ) -&gt; anyhow::Result&lt;()&gt; {
+        successes_sx: UnboundedSender&lt;()&gt;,
+        failures_sx: UnboundedSender&lt;()&gt;,
+    ) -&gt; anyhow::Result&lt;bool&gt; {
         p.set_style(
             indicatif::ProgressStyle::with_template(<span class="kw-2">&amp;</span><span class="macro">format!</span>(
                 <span class="string">&quot;[{test_id}] {{spinner:.blue}} {{msg}}&quot;
@@ -297,12 +398,21 @@
         p.enable_steady_tick(Duration::from_millis(<span class="number">100</span>));
 
         <span class="kw">let </span>package_name = Argus::get_package_id(package);
-        <span class="kw">let </span>webc_url: Url = <span class="kw">match </span><span class="kw-2">&amp;</span>package.distribution_v2.pirita_download_url {
+        <span class="kw">let </span>webc_v2_url: Url = <span class="kw">match </span><span class="kw-2">&amp;</span>package.distribution_v2.pirita_download_url {
             <span class="prelude-val">Some</span>(url) =&gt; url.parse().unwrap(),
             <span class="prelude-val">None </span>=&gt; {
                 <span class="macro">info!</span>(<span class="string">&quot;package {} has no download url, skipping&quot;</span>, package_name);
                 p.finish_and_clear();
-                <span class="kw">return </span><span class="prelude-val">Ok</span>(());
+                <span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="bool-val">true</span>);
+            }
+        };
+
+        <span class="kw">let </span>webc_v3_url: Url = <span class="kw">match </span><span class="kw-2">&amp;</span>package.distribution_v3.pirita_download_url {
+            <span class="prelude-val">Some</span>(url) =&gt; url.parse().unwrap(),
+            <span class="prelude-val">None </span>=&gt; {
+                <span class="macro">info!</span>(<span class="string">&quot;package {} has no download url, skipping&quot;</span>, package_name);
+                p.finish_and_clear();
+                <span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="bool-val">true</span>);
             }
         };
 
@@ -331,10 +441,10 @@
         };
 
         <span class="kw">if </span>!runner.is_to_test().<span class="kw">await </span>{
-            <span class="kw">return </span><span class="prelude-val">Ok</span>(());
+            <span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="bool-val">true</span>);
         }
 
-        Argus::download_package(test_id, <span class="kw-2">&amp;</span>path, <span class="kw-2">&amp;</span>webc_url, <span class="kw-2">&amp;</span>p).<span class="kw">await</span><span class="question-mark">?</span>;
+        Argus::download_webcs(test_id, <span class="kw-2">&amp;</span>path, <span class="kw-2">&amp;</span>webc_v2_url, <span class="kw-2">&amp;</span>webc_v3_url, <span class="kw-2">&amp;</span>p).<span class="kw">await</span><span class="question-mark">?</span>;
 
         <span class="macro">info!</span>(<span class="string">&quot;package downloaded!&quot;</span>);
 
@@ -352,14 +462,20 @@
         p.set_message(<span class="string">&quot;package downloaded&quot;</span>);
 
         <span class="kw">let </span>report = runner.run_test().<span class="kw">await</span><span class="question-mark">?</span>;
-        <span class="macro">info!</span>(<span class="string">&quot;\n\n\n\ntest finished\n\n\n&quot;</span>);
 
+        <span class="kw">let </span>outcome = report.outcome.is_ok();
+
+        <span class="kw">if </span>outcome {
+            successes_sx.send(())<span class="question-mark">?</span>;
+        } <span class="kw">else </span>{
+            failures_sx.send(())<span class="question-mark">?</span>;
+        };
         Argus::write_report(<span class="kw-2">&amp;</span>path, report).<span class="kw">await</span><span class="question-mark">?</span>;
 
         p.finish_with_message(<span class="macro">format!</span>(<span class="string">&quot;test for package {package_name} done!&quot;</span>));
         p.finish_and_clear();
 
-        <span class="prelude-val">Ok</span>(())
+        <span class="prelude-val">Ok</span>(outcome)
     }
 
     <span class="doccomment">/// Checks whether or not the package should be tested
