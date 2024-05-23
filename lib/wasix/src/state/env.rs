@@ -359,8 +359,6 @@ pub struct WasiEnv {
     ///  not be cloned when `WasiEnv` is cloned)
     /// TODO: We should move this outside of `WasiEnv` with some refactoring
     inner: WasiInstanceHandlesPointer,
-
-    pub allow_blocking_current_thread: bool,
 }
 
 impl std::fmt::Debug for WasiEnv {
@@ -389,7 +387,6 @@ impl Clone for WasiEnv {
             enable_exponential_cpu_backoff: self.enable_exponential_cpu_backoff,
             replaying_journal: self.replaying_journal,
             disable_fs_cleanup: self.disable_fs_cleanup,
-            allow_blocking_current_thread: self.allow_blocking_current_thread,
         }
     }
 }
@@ -430,7 +427,6 @@ impl WasiEnv {
             enable_exponential_cpu_backoff: self.enable_exponential_cpu_backoff,
             replaying_journal: false,
             disable_fs_cleanup: self.disable_fs_cleanup,
-            allow_blocking_current_thread: false,
         };
         Ok((new_env, handle))
     }
@@ -560,7 +556,6 @@ impl WasiEnv {
             bin_factory: init.bin_factory,
             capabilities: init.capabilities,
             disable_fs_cleanup: false,
-            allow_blocking_current_thread: false,
         };
         env.owned_handles.push(thread);
 
@@ -1286,6 +1281,6 @@ impl WasiEnv {
     }
 
     pub fn allow_blocking_current_thread(&mut self, enable: bool) {
-        self.allow_blocking_current_thread = enable;
+        self.capabilities.threading.enable_blocking_sleep = enable;
     }
 }
