@@ -158,7 +158,7 @@ pub(crate) fn path_remove_directory_internal(
         let parent = parent.upgrade().ok_or(Errno::Noent)?;
 
         if let Kind::Dir { entries, .. } = parent.write().deref_mut() {
-            let child_inode = entries.remove(child).ok_or_else(|| Errno::Noent)?;
+            let child_inode = entries.remove(child).ok_or(Errno::Noent)?;
 
             if let Err(e) = state.fs_remove_dir(&child_path) {
                 tracing::warn!(path = ?child_path, error = ?e, "failed to remove directory");
