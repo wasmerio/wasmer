@@ -118,7 +118,7 @@ wasmer-compiler-singlepass = { version = "=4.3.0", path = "../compiler-singlepas
 wasmer-compiler-llvm = { version = "=4.3.0", path = "../compiler-llvm", optional = true }
 wasmer-emscripten = { version = "=4.3.0", path = "../emscripten" }
 wasmer-vm = { version = "=4.3.0", path = "../vm", optional = true }
-wasmer-wasix = { path = "../wasix", version="=0.20.0" , features = [
+wasmer-wasix = { path = "../wasix", version = "=0.20.0", features = [
 	"logging",
 	"webc_runner_rt_wcgi",
 	"webc_runner_rt_dcgi",
@@ -178,14 +178,14 @@ walkdir = "2.3.2"
 regex = "1.6.0"
 toml.workspace = true
 url = "2.3.1"
-libc = { version = "^0.2", default-features = false }
+libc.workspace = true
 parking_lot = "0.12"
 dialoguer = "0.11.0"
 tldextract = "0.6.0"
 hex = "0.4.3"
 flate2 = "1.0.25"
 cargo_metadata = "0.15.2"
-tar = "0.4.38"
+tar = "0.4.40"
 bytes = "1"
 thiserror = "1.0.37"
 log = "0.4.17"
@@ -229,6 +229,7 @@ tun-tap = { version = "0.1.3", features = ["tokio"], optional = true }
 
 clap_complete = "4.5.2"
 clap_mangen = "0.2.20"
+zip = { version = "1.2.3", default-features = false, features = ["deflate"] }
 
 # NOTE: Must use different features for clap because the "color" feature does not
 # work on wasi due to the anstream dependency not compiling.

@@ -30,13 +30,13 @@ You can install LLVM easily on your Debian-like system via this command:
 
 ```bash
 wget https://apt.llvm.org/llvm.sh -O /tmp/llvm.sh
-sudo bash /tmp/llvm.sh 14
+sudo bash /tmp/llvm.sh 15
 ```
 
 Or in macOS:
 
 ```bash
-brew install llvm@14
+brew install llvm@15
 ```
 
 Or via any of the [pre-built binaries that LLVM offers][llvm-pre-built].

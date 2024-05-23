@@ -121,10 +121,74 @@ mod queries {
         pub version: String,
         pub created_at: DateTime,
         pub pirita_manifest: Option<JSONString>,
-        pub distribution: PackageDistribution,
-
         pub package: Package,
+
+        #[arguments(version: "V3")]
+        #[cynic(rename = "distribution")]
+        pub distribution_v3: PackageDistribution,
+
+        #[arguments(version: "V2")]
+        #[cynic(rename = "distribution")]
+        pub distribution_v2: PackageDistribution,
     }
+
+    #[derive(cynic::QueryVariables, Debug)]
+    pub struct GetAppTemplateFromSlugVariables {
+        pub slug: String,
+    }
+
+    #[derive(cynic::QueryFragment, Debug)]
+    #[cynic(graphql_type = "Query", variables = "GetAppTemplateFromSlugVariables")]
+    pub struct GetAppTemplateFromSlug {
+        #[arguments(slug: $slug)]
+        pub get_app_template: Option<AppTemplate>,
+    }
+    #[derive(cynic::QueryVariables, Debug)]
+    pub struct GetAppTemplatesQueryVariables {
+        pub category_slug: String,
+        pub first: i32,
+    }
+
+    #[derive(cynic::QueryFragment, Debug)]
+    #[cynic(graphql_type = "Query", variables = "GetAppTemplatesQueryVariables")]
+    pub struct GetAppTemplatesQuery {
+        #[arguments(categorySlug: $category_slug, first: $first)]
+        pub get_app_templates: Option<AppTemplateConnection>,
+    }
+
+    #[derive(cynic::QueryFragment, Debug)]
+    pub struct AppTemplateConnection {
+        pub edges: Vec<Option<AppTemplateEdge>>,
+        pub page_info: PageInfo,
+    }
+
+    #[derive(cynic::QueryFragment, Debug)]
+    pub struct AppTemplateEdge {
+        pub node: Option<AppTemplate>,
+        pub cursor: String,
+    }
+
+    #[derive(cynic::QueryFragment, Debug)]
+    pub struct AppTemplate {
+        pub demo_url: String,
+        pub language: String,
+        pub name: String,
+        pub framework: String,
+        pub created_at: DateTime,
+        pub description: String,
+        pub id: cynic::Id,
+        pub is_public: bool,
+        pub repo_license: String,
+        pub readme: String,
+        pub repo_url: String,
+        pub slug: String,
+        pub updated_at: DateTime,
+        pub use_cases: Jsonstring,
+    }
+
+    #[derive(cynic::Scalar, Debug, Clone)]
+    #[cynic(graphql_type = "JSONString")]
+    pub struct Jsonstring(pub String);
 
     #[derive(cynic::QueryVariables, Debug)]
     pub struct GetPackageReleaseVars {
@@ -216,6 +280,7 @@ mod queries {
     #[derive(cynic::QueryFragment, Debug)]
     pub struct TagPackageReleasePayload {
         pub success: bool,
+        pub package_version: Option<PackageVersion>,
     }
 
     #[derive(cynic::InputObject, Debug)]
@@ -817,7 +882,7 @@ mod queries {
         pub token: String,
     }
 
-    #[derive(cynic::Enum, Clone, Copy, Debug)]
+    #[derive(cynic::Enum, Clone, Copy, Debug, PartialEq)]
     pub enum LogStream {
         Stdout,
         Stderr,
@@ -871,6 +936,7 @@ mod queries {
         pub message: String,
         /// When the message was recorded, in nanoseconds since the Unix epoch.
         pub timestamp: f64,
+        pub stream: Option<LogStream>,
     }
 
     #[derive(cynic::QueryVariables, Debug)]

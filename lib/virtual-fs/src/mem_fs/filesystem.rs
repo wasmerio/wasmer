@@ -4,7 +4,7 @@ use self::offloaded_file::OffloadBackingStore;
 
 use super::*;
 use crate::{DirEntry, FileSystem as _, FileType, FsError, Metadata, OpenOptions, ReadDir, Result};
-use futures::future::BoxFuture;
+use futures::future::{BoxFuture, Either};
 use slab::Slab;
 use std::collections::VecDeque;
 use std::convert::identity;
@@ -257,6 +257,18 @@ impl FileSystem {
 }
 
 impl crate::FileSystem for FileSystem {
+    fn readlink(&self, path: &Path) -> Result<PathBuf> {
+        // Read lock.
+        let guard = self.inner.read().map_err(|_| FsError::Lock)?;
+
+        // Canonicalize the path.
+        let (_, inode_of_directory) = guard.canonicalize(path)?;
+        match inode_of_directory {
+            InodeResolution::Found(_) => Err(FsError::InvalidInput),
+            InodeResolution::Redirect(fs, path) => fs.readlink(path.as_path()),
+        }
+    }
+
     fn read_dir(&self, path: &Path) -> Result<ReadDir> {
         // Read lock.
         let guard = self.inner.read().map_err(|_| FsError::Lock)?;
@@ -438,12 +450,8 @@ impl crate::FileSystem for FileSystem {
         Box::pin(async {
             let name_of_to;
 
-            let (
-                (position_of_from, inode, inode_of_from_parent),
-                (inode_of_to_parent, name_of_to),
-                inode_dest,
-            ) = {
-                // Read lock.
+            // Read lock.
+            let (name_of_from, inode_of_from_parent, name_of_to, inode_of_to_parent) = {
                 let fs = self.inner.read().map_err(|_| FsError::Lock)?;
 
                 let from = fs.canonicalize_without_inode(from)?;
@@ -462,85 +470,119 @@ impl crate::FileSystem for FileSystem {
 
                 // Find the parent inodes.
                 let inode_of_from_parent = match fs.inode_of_parent(parent_of_from)? {
-                    InodeResolution::Found(a) => a,
-                    InodeResolution::Redirect(..) => {
-                        return Err(FsError::InvalidInput);
+                    InodeResolution::Found(a) => Either::Left(a),
+                    InodeResolution::Redirect(fs, mut path) => {
+                        path.push(&name_of_from);
+                        Either::Right((fs, path))
                     }
                 };
                 let inode_of_to_parent = match fs.inode_of_parent(parent_of_to)? {
-                    InodeResolution::Found(a) => a,
-                    InodeResolution::Redirect(..) => {
-                        return Err(FsError::InvalidInput);
+                    InodeResolution::Found(a) => Either::Left(a),
+                    InodeResolution::Redirect(fs, mut path) => {
+                        path.push(&name_of_to);
+                        Either::Right((fs, path))
                     }
                 };
 
-                // Find the inode of the dest file if it exists
-                let maybe_position_and_inode_of_file =
-                    fs.as_parent_get_position_and_inode_of_file(inode_of_to_parent, &name_of_to)?;
-
-                // Get the child indexes to update in the parent nodes, in
-                // addition to the inode of the directory to update.
-                let (position_of_from, inode) = fs
-                    .as_parent_get_position_and_inode(inode_of_from_parent, &name_of_from)?
-                    .ok_or(FsError::EntryNotFound)?;
-
                 (
-                    (position_of_from, inode, inode_of_from_parent),
-                    (inode_of_to_parent, name_of_to),
-                    maybe_position_and_inode_of_file,
+                    name_of_from,
+                    inode_of_from_parent,
+                    name_of_to,
+                    inode_of_to_parent,
                 )
             };
 
-            let inode = match inode {
-                InodeResolution::Found(a) => a,
-                InodeResolution::Redirect(..) => {
-                    return Err(FsError::InvalidInput);
-                }
-            };
+            match (inode_of_from_parent, inode_of_to_parent) {
+                (Either::Left(inode_of_from_parent), Either::Left(inode_of_to_parent)) => {
+                    let fs = self.inner.read().map_err(|_| FsError::Lock)?;
 
-            {
-                // Write lock.
-                let mut fs = self.inner.write().map_err(|_| FsError::Lock)?;
+                    // Find the inode of the dest file if it exists
+                    let maybe_position_and_inode_of_file = fs
+                        .as_parent_get_position_and_inode_of_file(
+                            inode_of_to_parent,
+                            &name_of_to,
+                        )?;
 
-                if let Some((position, inode_of_file)) = inode_dest {
-                    // Remove the file from the storage.
-                    match inode_of_file {
-                        InodeResolution::Found(inode_of_file) => {
-                            fs.storage.remove(inode_of_file);
-                        }
+                    // Get the child indexes to update in the parent nodes, in
+                    // addition to the inode of the directory to update.
+                    let (position_of_from, inode) = fs
+                        .as_parent_get_position_and_inode(inode_of_from_parent, &name_of_from)?
+                        .ok_or(FsError::EntryNotFound)?;
+
+                    let (
+                        (position_of_from, inode, inode_of_from_parent),
+                        (inode_of_to_parent, name_of_to),
+                        inode_dest,
+                    ) = (
+                        (position_of_from, inode, inode_of_from_parent),
+                        (inode_of_to_parent, name_of_to),
+                        maybe_position_and_inode_of_file,
+                    );
+
+                    let inode = match inode {
+                        InodeResolution::Found(a) => a,
                         InodeResolution::Redirect(..) => {
                             return Err(FsError::InvalidInput);
                         }
+                    };
+
+                    drop(fs);
+
+                    {
+                        // Write lock.
+                        let mut fs = self.inner.write().map_err(|_| FsError::Lock)?;
+
+                        if let Some((position, inode_of_file)) = inode_dest {
+                            // Remove the file from the storage.
+                            match inode_of_file {
+                                InodeResolution::Found(inode_of_file) => {
+                                    fs.storage.remove(inode_of_file);
+                                }
+                                InodeResolution::Redirect(..) => {
+                                    return Err(FsError::InvalidInput);
+                                }
+                            }
+
+                            fs.remove_child_from_node(inode_of_to_parent, position)?;
+                        }
+
+                        // Update the file name, and update the modified time.
+                        fs.update_node_name(inode, name_of_to)?;
+
+                        // The parents are different. Let's update them.
+                        if inode_of_from_parent != inode_of_to_parent {
+                            // Remove the file from its parent, and update the
+                            // modified time.
+                            fs.remove_child_from_node(inode_of_from_parent, position_of_from)?;
+
+                            // Add the file to its new parent, and update the modified
+                            // time.
+                            fs.add_child_to_node(inode_of_to_parent, inode)?;
+                        }
+                        // Otherwise, we need to at least update the modified time of the parent.
+                        else {
+                            let mut inode = fs.storage.get_mut(inode_of_from_parent);
+                            match inode.as_mut() {
+                                Some(Node::Directory(node)) => node.metadata.modified = time(),
+                                Some(Node::ArcDirectory(node)) => node.metadata.modified = time(),
+                                _ => return Err(FsError::UnknownError),
+                            }
+                        }
                     }
 
-                    fs.remove_child_from_node(inode_of_to_parent, position)?;
+                    Ok(())
                 }
+                (Either::Right((from_fs, from_path)), Either::Right((to_fs, to_path))) => {
+                    if Arc::ptr_eq(&from_fs, &to_fs) {
+                        let same_fs = from_fs;
 
-                // Update the file name, and update the modified time.
-                fs.update_node_name(inode, name_of_to)?;
-
-                // The parents are different. Let's update them.
-                if inode_of_from_parent != inode_of_to_parent {
-                    // Remove the file from its parent, and update the
-                    // modified time.
-                    fs.remove_child_from_node(inode_of_from_parent, position_of_from)?;
-
-                    // Add the file to its new parent, and update the modified
-                    // time.
-                    fs.add_child_to_node(inode_of_to_parent, inode)?;
-                }
-                // Otherwise, we need to at least update the modified time of the parent.
-                else {
-                    let mut inode = fs.storage.get_mut(inode_of_from_parent);
-                    match inode.as_mut() {
-                        Some(Node::Directory(node)) => node.metadata.modified = time(),
-                        Some(Node::ArcDirectory(node)) => node.metadata.modified = time(),
-                        _ => return Err(FsError::UnknownError),
+                        same_fs.rename(&from_path, &to_path).await
+                    } else {
+                        Err(FsError::InvalidInput)
                     }
                 }
+                _ => Err(FsError::InvalidInput),
             }
-
-            Ok(())
         })
     }
 
@@ -557,6 +599,23 @@ impl crate::FileSystem for FileSystem {
             InodeResolution::Redirect(fs, path) => {
                 drop(guard);
                 fs.metadata(path.as_path())
+            }
+        }
+    }
+
+    fn symlink_metadata(&self, path: &Path) -> Result<Metadata> {
+        // Read lock.
+        let guard = self.inner.read().map_err(|_| FsError::Lock)?;
+        match guard.inode_of(path)? {
+            InodeResolution::Found(inode) => Ok(guard
+                .storage
+                .get(inode)
+                .ok_or(FsError::UnknownError)?
+                .metadata()
+                .clone()),
+            InodeResolution::Redirect(fs, path) => {
+                drop(guard);
+                fs.symlink_metadata(path.as_path())
             }
         }
     }
@@ -1257,6 +1316,10 @@ mod test_filesystem {
     async fn test_rename() {
         let fs = FileSystem::default();
 
+        let fs2 = FileSystem::default();
+        fs2.create_dir(path!("/boz")).unwrap();
+        let arc_fs2: Arc<dyn crate::FileSystem + Send + Sync> = Arc::new(fs2);
+
         assert_eq!(
             fs.rename(path!("/"), path!("/bar")).await,
             Err(FsError::BaseNotDirectory),
@@ -1280,30 +1343,29 @@ mod test_filesystem {
         assert_eq!(fs.create_dir(path!("/bar")), Ok(()));
 
         assert!(
-            matches!(
-                fs.new_open_options()
-                    .write(true)
-                    .create_new(true)
-                    .open(path!("/bar/hello1.txt")),
-                Ok(_),
-            ),
+            fs.new_open_options()
+                .write(true)
+                .create_new(true)
+                .open(path!("/bar/hello1.txt"))
+                .is_ok(),
             "creating a new file (`hello1.txt`)",
         );
         assert!(
-            matches!(
-                fs.new_open_options()
-                    .write(true)
-                    .create_new(true)
-                    .open(path!("/bar/hello2.txt")),
-                Ok(_),
-            ),
+            fs.new_open_options()
+                .write(true)
+                .create_new(true)
+                .open(path!("/bar/hello2.txt"))
+                .is_ok(),
             "creating a new file (`hello2.txt`)",
         );
+
+        fs.mount(path!(buf "/mnt"), &arc_fs2, path!(buf "/"))
+            .unwrap();
 
         {
             let fs_inner = fs.inner.read().unwrap();
 
-            assert_eq!(fs_inner.storage.len(), 6, "storage has all files");
+            assert_eq!(fs_inner.storage.len(), 7, "storage has all files");
             assert!(
                 matches!(
                     fs_inner.storage.get(ROOT_INODE),
@@ -1312,9 +1374,9 @@ mod test_filesystem {
                         name,
                         children,
                         ..
-                    })) if name == "/" && children == &[1, 3]
+                    })) if name == "/" && children == &[1, 3, 6]
                 ),
-                "`/` contains `foo` and `bar`",
+                "`/` contains `foo` and `bar` and `mnt`",
             );
             assert!(
                 matches!(
@@ -1390,6 +1452,17 @@ mod test_filesystem {
         );
 
         assert_eq!(
+            fs.rename(path!("/mnt/boz"), path!("/mnt/cat")).await,
+            Ok(()),
+            "renaming a directory within a mounted FS"
+        );
+
+        assert!(
+            arc_fs2.read_dir(path!("/cat")).is_ok(),
+            "The directory was renamed in the inner FS"
+        );
+
+        assert_eq!(
             fs.rename(path!("/bar/hello1.txt"), path!("/bar/world1.txt"))
                 .await,
             Ok(()),
@@ -1403,7 +1476,7 @@ mod test_filesystem {
 
             assert_eq!(
                 fs_inner.storage.len(),
-                6,
+                7,
                 "storage has still all directories"
             );
             assert!(
@@ -1414,9 +1487,9 @@ mod test_filesystem {
                         name,
                         children,
                         ..
-                    })) if name == "/" && children == &[3]
+                    })) if name == "/" && children == &[3, 6]
                 ),
-                "`/` contains `bar`",
+                "`/` contains `bar` and `mnt`",
             );
             assert!(
                 matches!(

@@ -49,7 +49,7 @@ pub(crate) fn sock_listen_internal(
         ctx,
         sock,
         Rights::SOCK_LISTEN,
-        |socket| async move { socket.listen(tasks.deref(), net.deref(), backlog).await }
+        |socket, _| async move { socket.listen(tasks.deref(), net.deref(), backlog).await }
     ));
 
     Ok(Ok(()))

@@ -98,7 +98,6 @@ impl PackagePublish {
                 package_namespace: self.package_namespace.clone(),
                 timeout: self.timeout,
                 non_interactive: self.non_interactive,
-                wait: self.wait,
                 package_path: self.package_path.clone(),
             };
 
@@ -106,6 +105,7 @@ impl PackagePublish {
         };
 
         PackageTag {
+            wait: self.wait,
             api: self.api.clone(),
             env: self.env.clone(),
             dry_run: self.dry_run,
@@ -149,10 +149,13 @@ impl AsyncCliCommand for PackagePublish {
         match ident {
             PackageIdent::Named(ref n) => {
                 let url = make_package_url(&client, n);
-                eprintln!("{} Package URL: {url}", "𖥔".yellow().bold());
+                eprintln!("\n{} Package URL: {url}", "𖥔".yellow().bold());
             }
             PackageIdent::Hash(ref h) => {
-                eprintln!("{} Succesfully published package ({h})", "✔".green().bold());
+                eprintln!(
+                    "\n{} Succesfully published package ({h})",
+                    "✔".green().bold()
+                );
             }
         }
 

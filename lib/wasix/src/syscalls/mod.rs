@@ -760,7 +760,7 @@ pub(crate) fn __sock_upgrade<'a, F, Fut>(
     actor: F,
 ) -> Result<(), Errno>
 where
-    F: FnOnce(crate::net::socket::InodeSocket) -> Fut,
+    F: FnOnce(crate::net::socket::InodeSocket, Fdflags) -> Fut,
     Fut: std::future::Future<Output = Result<Option<crate::net::socket::InodeSocket>, Errno>> + 'a,
 {
     let env = ctx.data();
@@ -786,7 +786,7 @@ where
                 drop(guard);
 
                 // Start the work using the socket
-                let work = actor(socket);
+                let work = actor(socket, fd_entry.flags);
 
                 // Block on the work and process it
                 let res = InlineWaker::block_on(work);

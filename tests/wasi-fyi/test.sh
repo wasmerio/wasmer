@@ -6,7 +6,7 @@ bash build.sh
 status=0
 
 # Define skip list as an array
-SKIP_LIST=("ported_readlink.wasm" "fs_create_dir-existing-directory.wasm" "fs_rename-directory.wasm" "fs_rename-file.wasm")
+SKIP_LIST=("fs_create_dir-existing-directory.wasm")
 
 # List and process .foo files
 for file in *.wasm; do

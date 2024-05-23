@@ -32,6 +32,7 @@ mod validate;
 #[cfg(feature = "wast")]
 mod wast;
 mod whoami;
+use std::env::args;
 
 #[cfg(target_os = "linux")]
 pub use binfmt::*;
@@ -189,11 +190,27 @@ impl WasmerCmd {
         match WasmerCmd::try_parse() {
             Ok(args) => args.execute(),
             Err(e) => {
+                let first_arg_is_subcommand = if let Some(first_arg) = args().nth(1) {
+                    let mut ret = false;
+                    let cmd = WasmerCmd::command();
+
+                    for cmd in cmd.get_subcommands() {
+                        if cmd.get_name() == first_arg {
+                            ret = true;
+                            break;
+                        }
+                    }
+
+                    ret
+                } else {
+                    false
+                };
+
                 let might_be_wasmer_run = matches!(
                     e.kind(),
                     clap::error::ErrorKind::InvalidSubcommand
                         | clap::error::ErrorKind::UnknownArgument
-                );
+                ) && !first_arg_is_subcommand;
 
                 if might_be_wasmer_run {
                     if let Ok(run) = Run::try_parse() {

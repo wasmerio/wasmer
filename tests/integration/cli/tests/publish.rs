@@ -3,12 +3,54 @@ use predicates::str::contains;
 use wasmer_integration_tests_cli::{fixtures, get_wasmer_path};
 
 #[test]
-fn wasmer_publish() {
-    // Only run this test in the CI
-    if std::env::var("GITHUB_TOKEN").is_err() {
-        return;
+fn wasmer_publish_bump() {
+    let wapm_dev_token = std::env::var("WAPM_DEV_TOKEN").ok();
+    let tempdir = tempfile::tempdir().unwrap();
+    let path = tempdir.path();
+    let username = "ciuser";
+
+    let random1 = format!("{}", rand::random::<u32>());
+    let random2 = format!("{}", rand::random::<u32>());
+    let random3 = format!("{}", rand::random::<u32>());
+
+    std::fs::copy(fixtures::qjs(), path.join("largewasmfile.wasm")).unwrap();
+    std::fs::write(
+        path.join("wasmer.toml"),
+        include_str!("./fixtures/init6.toml")
+            .replace("WAPMUSERNAME", username) // <-- TODO!
+            .replace("RANDOMVERSION1", &random1)
+            .replace("RANDOMVERSION2", &random2)
+            .replace("RANDOMVERSION3", &random3),
+    )
+    .unwrap();
+
+    let mut cmd = std::process::Command::new(get_wasmer_path());
+    cmd.arg("publish")
+        .arg("--quiet")
+        .arg("--bump")
+        .arg("--registry=wasmer.wtf")
+        .arg(path);
+
+    if let Some(token) = wapm_dev_token {
+        // Special case: GitHub secrets aren't visible to outside collaborators
+        if token.is_empty() {
+            return;
+        }
+        cmd.arg("--token").arg(token);
     }
 
+    // What comes to mind is that we should check that the actual published version is
+    // random1.random2.(random3 + 1), but if a higher version is already in the registry bumping
+    // will actually bump the *other* version..
+    cmd.assert()
+        .success()
+        .stderr(predicates::str::contains(format!(
+            "wasmer.wtf/{username}/largewasmfile"
+        )));
+}
+
+#[test]
+fn wasmer_publish() {
     let wapm_dev_token = std::env::var("WAPM_DEV_TOKEN").ok();
     let tempdir = tempfile::tempdir().unwrap();
     let path = tempdir.path();
@@ -43,20 +85,17 @@ fn wasmer_publish() {
         cmd.arg("--token").arg(token);
     }
 
-    cmd.assert().success().stdout(format!(
-        "🚀 Successfully published package `{username}/largewasmfile@{random1}.{random2}.{random3}`\n"
-    ));
+    cmd.assert()
+        .success()
+        .stderr(predicates::str::contains(format!(
+            "wasmer.wtf/{username}/largewasmfile@{random1}.{random2}.{random3}"
+        )));
 }
 
 // Runs a full integration test to test that the flow wasmer init - cargo build -
 // wasmer publish is working
 #[test]
 fn wasmer_init_publish() {
-    // Only run this test in the CI
-    if std::env::var("GITHUB_TOKEN").is_err() {
-        return;
-    }
-
     let wapm_dev_token = std::env::var("WAPM_DEV_TOKEN").ok();
     let tempdir = tempfile::tempdir().unwrap();
     let path = tempdir.path();
@@ -96,8 +135,6 @@ fn wasmer_init_publish() {
 
     let s = std::fs::read_to_string(path.join("randomversion").join("wasmer.toml")).unwrap();
 
-    println!("{s}");
-
     // publish
     let mut cmd = std::process::Command::new(get_wasmer_path());
     cmd.arg("publish")
@@ -115,18 +152,13 @@ fn wasmer_init_publish() {
 
     let assert = cmd.assert();
 
-    assert.success().stdout(format!(
-        "🚀 Successfully published package `{username}/randomversion@{random1}.{random2}.{random3}`\n"
-    ));
+    assert.success().stderr(predicates::str::contains(format!(
+        "wasmer.wtf/{username}/randomversion@{random1}.{random2}.{random3}"
+    )));
 }
 
 #[test]
 fn wasmer_publish_and_run() {
-    // Only run this test in the CI
-    if std::env::var("GITHUB_TOKEN").is_err() {
-        return;
-    }
-
     let wapm_dev_token = std::env::var("WAPM_DEV_TOKEN").ok();
     let tempdir = tempfile::tempdir().unwrap();
     let path = tempdir.path();
@@ -166,9 +198,11 @@ fn wasmer_publish_and_run() {
         cmd.arg("--token").arg(token);
     }
 
-    cmd.assert().success().stdout(format!(
-        "🚀 Successfully published package `{package_name}`\n"
-    ));
+    cmd.assert()
+        .success()
+        .stderr(predicates::str::contains(format!(
+            "wasmer.wtf/{package_name}"
+        )));
 
     let assert = std::process::Command::new(get_wasmer_path())
         .arg("run")

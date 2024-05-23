@@ -1,8 +1,9 @@
-use super::common::{macros::*, wait::*, *};
+use super::common::{macros::*, *};
 use crate::{
     commands::{AsyncCliCommand, PackageBuild},
     opts::{ApiOpts, WasmerEnv},
 };
+use anyhow::Context;
 use colored::Colorize;
 use is_terminal::IsTerminal;
 use std::path::{Path, PathBuf};
@@ -44,17 +45,6 @@ pub struct PackagePush {
     /// Do not prompt for user input.
     #[clap(long, default_value_t = !std::io::stdin().is_terminal())]
     pub non_interactive: bool,
-
-    /// Wait for package to be available on the registry before exiting.
-    #[clap(
-            long,
-            require_equals = true,
-            num_args = 0..=1,
-            default_value_t = PublishWait::None,
-            default_missing_value = "container",
-            value_enum
-        )]
-    pub wait: PublishWait,
 
     /// Directory containing the `wasmer.toml`, or a custom *.toml manifest file.
     ///
@@ -117,11 +107,13 @@ impl PackagePush {
         package_hash: &PackageHash,
         private: bool,
     ) -> anyhow::Result<()> {
-        let pb = make_spinner!(self.quiet, "Uploading the package to the registry..");
+        let pb = make_spinner!(self.quiet, "Uploading the package..");
 
-        let signed_url = upload(client, package_hash, self.timeout, package, &pb).await?;
+        let signed_url = upload(client, package_hash, self.timeout, package, pb.clone()).await?;
+        spinner_ok!(pb, "Package correctly uploaded");
 
-        let id = match wasmer_api::query::push_package_release(
+        let pb = make_spinner!(self.quiet, "Waiting for package to become available...");
+        match wasmer_api::query::push_package_release(
             client,
             None,
             namespace,
@@ -132,10 +124,6 @@ impl PackagePush {
         {
             Some(r) => {
                 if r.success {
-                    let msg = format!(
-                        "Succesfully pushed release to namespace {namespace} on the registry"
-                    );
-                    spinner_ok!(pb, msg);
                     r.package_webc.unwrap().id
                 } else {
                     anyhow::bail!("An unidentified error occurred while publishing the package. (response had success: false)")
@@ -144,7 +132,9 @@ impl PackagePush {
             None => anyhow::bail!("An unidentified error occurred while publishing the package."), // <- This is extremely bad..
         };
 
-        wait_package(client, self.wait, id, &pb, self.timeout).await?;
+        let msg = format!("Succesfully pushed release to namespace {namespace} on the registry");
+        spinner_ok!(pb, msg);
+
         Ok(())
     }
 
@@ -156,7 +146,9 @@ impl PackagePush {
     ) -> anyhow::Result<(String, PackageHash)> {
         tracing::info!("Building package");
         let pb = make_spinner!(self.quiet, "Creating the package locally...");
-        let (package, hash) = PackageBuild::check(manifest_path.to_path_buf()).execute()?;
+        let (package, hash) = PackageBuild::check(manifest_path.to_path_buf())
+            .execute()
+            .context("While trying to build the package locally")?;
 
         spinner_ok!(pb, "Correctly built package locally");
         tracing::info!("Package has hash: {hash}");

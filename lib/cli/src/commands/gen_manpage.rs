@@ -5,7 +5,7 @@ use clap_mangen::generate_to;
 use std::path::PathBuf;
 
 lazy_static::lazy_static! {
-    static ref DEFAULT_MAN_DIR_PATH: PathBuf = dirs::data_dir().unwrap_or_default().join("man");
+    static ref DEFAULT_MAN_DIR_PATH: PathBuf = dirs::data_dir().unwrap_or_default().join("man").join("man1");
 }
 
 #[derive(Debug, Clone, clap::Parser)]

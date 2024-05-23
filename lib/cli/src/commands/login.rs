@@ -2,6 +2,7 @@ use std::{net::TcpListener, path::PathBuf, str::FromStr, time::Duration};
 
 use anyhow::Ok;
 use clap::Parser;
+use colored::Colorize;
 #[cfg(not(test))]
 use dialoguer::{console::style, Input};
 use hyper::{
@@ -302,7 +303,7 @@ impl Login {
                 match res {
                     Some(s) => {
                         print!("Done!");
-                        println!("\n✅ Login for Wasmer user {:?} saved", s)
+                        println!("\n{} Login for Wasmer user {:?} saved","✔".green().bold(), s)
                     }
                     None => print!(
                         "Warning: no user found on {:?} with the provided token.\nToken saved regardless.",

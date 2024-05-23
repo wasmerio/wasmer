@@ -113,6 +113,35 @@ where
     S: for<'a> FileSystems<'a> + Send + Sync + 'static,
     for<'a> <<S as FileSystems<'a>>::Iter as IntoIterator>::IntoIter: Send,
 {
+    fn readlink(&self, path: &Path) -> crate::Result<PathBuf> {
+        // Whiteout files can not be read, they are just markers
+        if ops::is_white_out(path).is_some() {
+            return Err(FsError::EntryNotFound);
+        }
+
+        // Check if the file is in the primary
+        match self.primary.readlink(path) {
+            Ok(meta) => return Ok(meta),
+            Err(e) if should_continue(e) => {}
+            Err(e) => return Err(e),
+        }
+
+        // There might be a whiteout, search for this
+        if ops::has_white_out(&self.primary, path) {
+            return Err(FsError::EntryNotFound);
+        }
+
+        // Otherwise scan the secondaries
+        for fs in self.secondaries.filesystems() {
+            match fs.readlink(path) {
+                Err(e) if should_continue(e) => continue,
+                other => return other,
+            }
+        }
+
+        Err(FsError::EntryNotFound)
+    }
+
     fn read_dir(&self, path: &Path) -> Result<ReadDir, FsError> {
         let mut entries = Vec::new();
         let mut had_at_least_one_success = false;
@@ -320,6 +349,35 @@ where
         // Otherwise scan the secondaries
         for fs in self.secondaries.filesystems() {
             match fs.metadata(path) {
+                Err(e) if should_continue(e) => continue,
+                other => return other,
+            }
+        }
+
+        Err(FsError::EntryNotFound)
+    }
+
+    fn symlink_metadata(&self, path: &Path) -> crate::Result<Metadata> {
+        // Whiteout files can not be read, they are just markers
+        if ops::is_white_out(path).is_some() {
+            return Err(FsError::EntryNotFound);
+        }
+
+        // Check if the file is in the primary
+        match self.primary.symlink_metadata(path) {
+            Ok(meta) => return Ok(meta),
+            Err(e) if should_continue(e) => {}
+            Err(e) => return Err(e),
+        }
+
+        // There might be a whiteout, search for this
+        if ops::has_white_out(&self.primary, path) {
+            return Err(FsError::EntryNotFound);
+        }
+
+        // Otherwise scan the secondaries
+        for fs in self.secondaries.filesystems() {
+            match fs.symlink_metadata(path) {
                 Err(e) if should_continue(e) => continue,
                 other => return other,
             }
