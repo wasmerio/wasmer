@@ -280,6 +280,7 @@ mod queries {
     #[derive(cynic::QueryFragment, Debug)]
     pub struct TagPackageReleasePayload {
         pub success: bool,
+        pub package_version: Option<PackageVersion>,
     }
 
     #[derive(cynic::InputObject, Debug)]
