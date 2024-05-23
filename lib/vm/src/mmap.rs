@@ -67,7 +67,7 @@ impl Mmap {
     pub fn accessible_reserved(
         mut accessible_size: usize,
         mapping_size: usize,
-        backing_file: Option<std::fs::File>,
+        mut backing_file: Option<std::fs::File>,
         memory_type: MmapType,
     ) -> Result<Self, String> {
         use std::os::fd::IntoRawFd;
@@ -76,13 +76,26 @@ impl Mmap {
         assert_le!(accessible_size, mapping_size);
         assert_eq!(mapping_size & (page_size - 1), 0);
         assert_eq!(accessible_size & (page_size - 1), 0);
-        let memory_fd = backing_file.map_or(-1, |fd| fd.into_raw_fd());
 
         // Mmap may return EINVAL if the size is zero, so just
         // special-case that.
         if mapping_size == 0 {
             return Ok(Self::new());
         }
+
+        // If there is a backing file, reise the file so that its at least
+        // `mapping_size` bytes.
+        if let Some(backing_file) = &mut backing_file {
+            let len = backing_file.metadata().map_err(|e| e.to_string())?.len() as usize;
+            if len < mapping_size {
+                backing_file
+                    .set_len(mapping_size as u64)
+                    .map_err(|e| e.to_string())?;
+            }
+            accessible_size = accessible_size.max(len).min(mapping_size);
+        }
+
+        let memory_fd = backing_file.map_or(-1, |fd| fd.into_raw_fd());
 
         // Compute the flags
         let mut flags = match memory_fd {
@@ -93,18 +106,6 @@ impl Mmap {
             MmapType::Private => libc::MAP_PRIVATE,
             MmapType::Shared => libc::MAP_SHARED,
         };
-
-        // Resize the file so that its size is at least `mapping_size`.
-        if memory_fd != -1 {
-            let len = unsafe { libc::lseek(memory_fd, 0, libc::SEEK_END) };
-            if len < mapping_size as i64 {
-                let r = unsafe { libc::ftruncate64(memory_fd, mapping_size as libc::off64_t) };
-                if r != 0 {
-                    return Err(io::Error::last_os_error().to_string());
-                }
-            }
-            accessible_size = accessible_size.max(len as usize).min(mapping_size);
-        }
 
         Ok(if accessible_size == mapping_size {
             // Allocate a single read-write region at once.
