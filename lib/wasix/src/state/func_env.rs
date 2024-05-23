@@ -158,8 +158,6 @@ impl WasiFunctionEnv {
 
         env.state.fs.set_is_wasix(is_wasix_module);
 
-        env.allow_blocking_current_thread(true);
-
         // If the stack offset and size is not set then do so
         if update_layout {
             // Set the base stack
