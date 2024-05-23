@@ -29,6 +29,7 @@ derive_more = "0.99.17"
 webc.workspace = true
 async-trait = "0.1.77"
 wasmer-api = { path = "../../lib/backend-api" }
+shared-buffer.workspace = true
 
 
 [target.'cfg(not(target_arch = "riscv64"))'.dependencies]
