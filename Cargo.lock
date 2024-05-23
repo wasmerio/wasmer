@@ -6405,6 +6405,7 @@ dependencies = [
  "reqwest",
  "serde",
  "serde_json",
+ "shared-buffer",
  "tokio 1.37.0",
  "tracing",
  "tracing-subscriber",
@@ -7274,9 +7275,9 @@ dependencies = [
 
 [[package]]
 name = "webc"
-version = "6.0.0-alpha8"
+version = "6.0.0-alpha9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bbf53893f8df356f1305446c1bc59c4082cb592f39ffcae0a2f10bd8ed100bb9"
+checksum = "9e1b4e8dd987046eede4348d660404ff990412631b7d493f9e547adcf2862cd5"
 dependencies = [
  "anyhow",
  "base64 0.21.7",

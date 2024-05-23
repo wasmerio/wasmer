@@ -1,0 +1,10 @@
+[dependencies]
+"wasmer/static-web-server" = "^1"
+
+[fs]
+"/public" = "public"
+
+[[command]]
+name = "script"
+module = "wasmer/static-web-server:webserver"
+runner = "https://webc.org/runner/wasi"

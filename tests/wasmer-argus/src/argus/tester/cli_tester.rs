@@ -4,11 +4,7 @@ use std::{fs::File, io::BufReader, path::Path, process::Command, sync::Arc};
 use tokio::time::{self, Instant};
 use tracing::*;
 use wasmer_api::types::PackageVersionWithPackage;
-use webc::{
-    v1::{ParseOptions, WebCOwned},
-    v2::read::OwnedReader,
-    Container, Version,
-};
+use webc::{v2::read::OwnedReader, v3::read::OwnedReader as OwnedReaderV3, Container, Version};
 
 use super::{TestReport, Tester};
 
@@ -158,27 +154,22 @@ impl<'a> Tester for CLIRunner<'a> {
 
         info!("starting test using CLI at {cli_path}");
         let dir_path = Argus::get_path(self.config.clone(), self.package).await;
-        let webc_path = dir_path.join("package.webc");
+        let webc_v2_path = dir_path.join("package_v2.webc");
 
         self.p
-            .set_message(format!("unpacking webc at {:?}", webc_path));
+            .set_message(format!("unpacking webc at {:?}", webc_v2_path));
 
-        let bytes = std::fs::read(&webc_path)?;
+        let v2_bytes = std::fs::read(&webc_v2_path)?;
 
-        let webc = match webc::detect(bytes.as_slice()) {
-            Ok(Version::V1) => {
-                let options = ParseOptions::default();
-                let webc = WebCOwned::parse(bytes, &options)?;
-                Container::from(webc)
-            }
-            Ok(Version::V2) => Container::from(OwnedReader::parse(bytes)?),
+        let webc_v2 = match webc::detect(v2_bytes.as_slice()) {
+            Ok(Version::V2) => Container::from(OwnedReader::parse(v2_bytes)?),
             Ok(other) => {
                 return self.err(version, start_time, format!("Unsupported version, {other}"))
             }
             Err(e) => return self.err(version, start_time, format!("An error occurred: {e}")),
         };
 
-        for (i, atom) in webc.atoms().iter().enumerate() {
+        for (i, atom) in webc_v2.atoms().iter().enumerate() {
             self.p.set_message(format!("testing atom #{i}"));
             if let Err(e) = self
                 .test_atom(&cli_path, atom.1.as_slice(), &dir_path, i)
@@ -186,6 +177,40 @@ impl<'a> Tester for CLIRunner<'a> {
             {
                 return self.err(version, start_time, e);
             }
+        }
+
+        let webc_v3_path = dir_path.join("package_v3.webc");
+
+        self.p
+            .set_message(format!("unpacking webc at {:?}", webc_v3_path));
+
+        let v3_bytes = std::fs::read(&webc_v3_path)?;
+
+        let webc_v3 = match webc::detect(v3_bytes.as_slice()) {
+            Ok(Version::V3) => Container::from(OwnedReaderV3::parse(v3_bytes)?),
+            Ok(other) => {
+                return self.err(version, start_time, format!("Unsupported version, {other}"))
+            }
+            Err(e) => return self.err(version, start_time, format!("An error occurred: {e}")),
+        };
+
+        for (i, atom) in webc_v3.atoms().iter().enumerate() {
+            self.p.set_message(format!("testing atom #{i}"));
+            if let Err(e) = self
+                .test_atom(&cli_path, atom.1.as_slice(), &dir_path, i)
+                .await?
+            {
+                return self.err(version.clone(), start_time, e);
+            }
+        }
+
+        let v2_file = std::fs::File::open(&webc_v2_path)?;
+        let v3_file = std::fs::File::open(&webc_v3_path)?;
+        if let Err(e) = webc::migration::are_semantically_equivalent(
+            shared_buffer::OwnedBuffer::from_file(&v2_file)?,
+            shared_buffer::OwnedBuffer::from_file(&v3_file)?,
+        ) {
+            return self.err(version.clone(), start_time, e.to_string());
         }
 
         self.ok(version, start_time)

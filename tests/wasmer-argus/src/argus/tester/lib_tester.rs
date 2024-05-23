@@ -6,11 +6,7 @@ use tokio::time;
 use tracing::*;
 use wasmer::{sys::Features, Engine, NativeEngineExt, Target};
 use wasmer_api::types::PackageVersionWithPackage;
-use webc::{
-    v1::{ParseOptions, WebCOwned},
-    v2::read::OwnedReader,
-    Container, Version,
-};
+use webc::{v2::read::OwnedReader, v3::read::OwnedReader as OwnedReaderV3, Container, Version};
 
 pub struct LibRunner<'a> {
     pub test_id: u64,
@@ -70,20 +66,46 @@ impl<'a> Tester for LibRunner<'a> {
 
         let start = time::Instant::now();
         let dir_path = Argus::get_path(self.config.clone(), self.package).await;
-        let webc_path = dir_path.join("package.webc");
+        let webc_v2_path = dir_path.join("package_v2.webc");
+        let webc_v3_path = dir_path.join("package_v3.webc");
 
         let test_exec_result = std::panic::catch_unwind(|| {
             self.p.set_message("reading webc bytes from filesystem");
-            let bytes = std::fs::read(&webc_path)?;
+            let bytes = std::fs::read(&webc_v2_path)?;
             let store = wasmer::Store::new(Self::backend_to_engine(&self.config.compiler_backend));
 
             let webc = match webc::detect(bytes.as_slice()) {
-                Ok(Version::V1) => {
-                    let options = ParseOptions::default();
-                    let webc = WebCOwned::parse(bytes, &options)?;
-                    Container::from(webc)
-                }
                 Ok(Version::V2) => Container::from(OwnedReader::parse(bytes)?),
+                Ok(other) => anyhow::bail!("Unsupported version, {other}"),
+                Err(e) => anyhow::bail!("An error occurred: {e}"),
+            };
+
+            self.p.set_message("created webc");
+
+            for atom in webc.atoms().iter() {
+                info!(
+                    "creating module for atom {} with length {}",
+                    atom.0,
+                    atom.1.len()
+                );
+                self.p.set_message(format!(
+                    "[{package_id}] creating module for atom {} (has length {} bytes)",
+                    atom.0,
+                    atom.1.len()
+                ));
+                wasmer::Module::new(&store, atom.1.as_slice())?;
+            }
+
+            self.p.set_message("reading webc bytes from filesystem");
+            let bytes = std::fs::read(&webc_v3_path)?;
+            let store = wasmer::Store::new(Self::backend_to_engine(&self.config.compiler_backend));
+
+            let webc = match webc::detect(bytes.as_slice()) {
+                Ok(Version::V3) => {
+                    let c = Container::from(OwnedReaderV3::parse(bytes)?);
+                    println!("\n\n\n c: {:?} \n\n\n", c.version());
+                    c
+                }
                 Ok(other) => anyhow::bail!("Unsupported version, {other}"),
                 Err(e) => anyhow::bail!("An error occurred: {e}"),
             };
@@ -109,7 +131,19 @@ impl<'a> Tester for LibRunner<'a> {
 
         let outcome = match test_exec_result {
             Ok(r) => match r {
-                Ok(_) => Ok(String::from("test passed")),
+                Ok(_) => {
+                    let v2_file = std::fs::File::open(&webc_v2_path)?;
+                    let v3_file = std::fs::File::open(&webc_v3_path)?;
+
+                    if let Err(e) = webc::migration::are_semantically_equivalent(
+                        shared_buffer::OwnedBuffer::from_file(&v2_file)?,
+                        shared_buffer::OwnedBuffer::from_file(&v3_file)?,
+                    ) {
+                        Err(e.to_string())
+                    } else {
+                        Ok(String::from("test passed"))
+                    }
+                }
                 Err(e) => Err(format!("{e}")),
             },
             Err(e) => Err(format!("{:?}", e)),
