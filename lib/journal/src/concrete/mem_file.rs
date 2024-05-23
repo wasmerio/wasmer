@@ -1,4 +1,9 @@
-use std::{fs::File, io::Write, os::unix::fs::FileExt, path::Path, sync::RwLock};
+use std::{
+    fs::File,
+    io::{Seek, Write},
+    path::Path,
+    sync::RwLock,
+};
 
 use lz4_flex::{block, decompress};
 
@@ -62,8 +67,9 @@ impl WritableJournal for MemFileJournal {
                     block::uncompressed_size(&compressed_data)?;
                 let decompressed_data = decompress(compressed_data, uncompressed_size)?;
 
-                let file = self.file.read().unwrap();
-                file.write_all_at(&decompressed_data, region.start)?;
+                let mut file = self.file.write().unwrap();
+                file.seek(std::io::SeekFrom::Start(region.start))?;
+                file.write_all(&decompressed_data)?;
             }
             JournalEntry::ProcessExitV1 { .. } | JournalEntry::InitModuleV1 { .. } => {
                 let file = self.file.read().unwrap();
