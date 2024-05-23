@@ -11,6 +11,10 @@ Looking for changes that affect our C API? See the [C API Changelog](lib/c-api/C
 
 ## 4.3.1 - 23/05/2024
 
+This release adds support for subcommands to generate shell completions and manual pages. Also, number of fixes
+to the cli are included to further improve the developer experience. Various bug fixes and stability improvements 
+are also added to WASIX.
+
 ## Added
 
   - [#4736](https://github.com/wasmerio/wasmer/pull/4736) Argus: Compare v2 and v3 + add webhook message
