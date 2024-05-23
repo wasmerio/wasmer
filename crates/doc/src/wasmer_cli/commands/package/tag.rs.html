@@ -523,9 +523,25 @@
 <a href="#523" id="523">523</a>
 <a href="#524" id="524">524</a>
 <a href="#525" id="525">525</a>
+<a href="#526" id="526">526</a>
+<a href="#527" id="527">527</a>
+<a href="#528" id="528">528</a>
+<a href="#529" id="529">529</a>
+<a href="#530" id="530">530</a>
+<a href="#531" id="531">531</a>
+<a href="#532" id="532">532</a>
+<a href="#533" id="533">533</a>
+<a href="#534" id="534">534</a>
+<a href="#535" id="535">535</a>
+<a href="#536" id="536">536</a>
+<a href="#537" id="537">537</a>
+<a href="#538" id="538">538</a>
+<a href="#539" id="539">539</a>
+<a href="#540" id="540">540</a>
+<a href="#541" id="541">541</a>
 </pre></div><pre class="rust"><code><span class="kw">use crate</span>::{
     commands::{
-        package::common::{macros::<span class="kw-2">*</span>, <span class="kw-2">*</span>},
+        package::common::{macros::<span class="kw-2">*</span>, wait::wait_package, <span class="kw-2">*</span>},
         AsyncCliCommand,
     },
     opts::{ApiOpts, WasmerEnv},
@@ -540,6 +556,8 @@
 };
 <span class="kw">use </span>wasmer_api::WasmerClient;
 <span class="kw">use </span>wasmer_config::package::{Manifest, NamedPackageId, PackageBuilder, PackageHash, PackageIdent};
+
+<span class="kw">use </span><span class="kw">super</span>::PublishWait;
 
 <span class="doccomment">/// Tag an existing package.
 </span><span class="attr">#[derive(Debug, clap::Parser)]
@@ -595,6 +613,17 @@
     /// Defaults to current working directory.
     </span><span class="attr">#[clap(name = <span class="string">&quot;path&quot;</span>, default_value = <span class="string">&quot;.&quot;</span>)]
     </span><span class="kw">pub </span>package_path: PathBuf,
+
+    <span class="doccomment">/// Wait for package to be available on the registry before exiting.
+    </span><span class="attr">#[clap(
+            long,
+            require_equals = <span class="bool-val">true</span>,
+            num_args = <span class="number">0</span>..=<span class="number">1</span>,
+            default_value_t = PublishWait::None,
+            default_missing_value = <span class="string">&quot;container&quot;</span>,
+            value_enum
+        )]
+    </span><span class="kw">pub </span>wait: PublishWait,
 }
 
 <span class="kw">impl </span>PackageTag {
@@ -710,6 +739,9 @@
             <span class="prelude-val">Some</span>(r) =&gt; {
                 <span class="kw">if </span>r.success {
                     <span class="macro">spinner_ok!</span>(pb, <span class="macro">format!</span>(<span class="string">&quot;Successfully tagged package {id}&quot;</span>,));
+                    <span class="kw">if let </span><span class="prelude-val">Some</span>(package_version) = r.package_version {
+                        wait_package(client, <span class="self">self</span>.wait, package_version.id, <span class="self">self</span>.timeout).<span class="kw">await</span><span class="question-mark">?</span>;
+                    }
                     <span class="prelude-val">Ok</span>(())
                 } <span class="kw">else </span>{
                     <span class="macro">spinner_err!</span>(pb, <span class="string">&quot;Could not tag package!&quot;</span>);

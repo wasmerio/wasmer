@@ -262,7 +262,6 @@
                 package_namespace: <span class="self">self</span>.package_namespace.clone(),
                 timeout: <span class="self">self</span>.timeout,
                 non_interactive: <span class="self">self</span>.non_interactive,
-                wait: <span class="self">self</span>.wait,
                 package_path: <span class="self">self</span>.package_path.clone(),
             };
 
@@ -270,6 +269,7 @@
         </span>};
 
         PackageTag {
+            wait: <span class="self">self</span>.wait,
             api: <span class="self">self</span>.api.clone(),
             env: <span class="self">self</span>.env.clone(),
             dry_run: <span class="self">self</span>.dry_run,

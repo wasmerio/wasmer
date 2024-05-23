@@ -1578,6 +1578,7 @@
 <a href="#1578" id="1578">1578</a>
 <a href="#1579" id="1579">1579</a>
 <a href="#1580" id="1580">1580</a>
+<a href="#1581" id="1581">1581</a>
 </pre></div><pre class="rust"><code><span class="kw">pub use </span>queries::<span class="kw-2">*</span>;
 
 <span class="kw">pub use </span>cynic::Id;
@@ -1860,6 +1861,7 @@
     <span class="attr">#[derive(cynic::QueryFragment, Debug)]
     </span><span class="kw">pub struct </span>TagPackageReleasePayload {
         <span class="kw">pub </span>success: bool,
+        <span class="kw">pub </span>package_version: <span class="prelude-ty">Option</span>&lt;PackageVersion&gt;,
     }
 
     <span class="attr">#[derive(cynic::InputObject, Debug)]

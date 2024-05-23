@@ -244,19 +244,7 @@
 <a href="#244" id="244">244</a>
 <a href="#245" id="245">245</a>
 <a href="#246" id="246">246</a>
-<a href="#247" id="247">247</a>
-<a href="#248" id="248">248</a>
-<a href="#249" id="249">249</a>
-<a href="#250" id="250">250</a>
-<a href="#251" id="251">251</a>
-<a href="#252" id="252">252</a>
-<a href="#253" id="253">253</a>
-<a href="#254" id="254">254</a>
-<a href="#255" id="255">255</a>
-<a href="#256" id="256">256</a>
-<a href="#257" id="257">257</a>
-<a href="#258" id="258">258</a>
-</pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">super</span>::common::{macros::<span class="kw-2">*</span>, wait::<span class="kw-2">*</span>, <span class="kw-2">*</span>};
+</pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">super</span>::common::{macros::<span class="kw-2">*</span>, <span class="kw-2">*</span>};
 <span class="kw">use crate</span>::{
     commands::{AsyncCliCommand, PackageBuild},
     opts::{ApiOpts, WasmerEnv},
@@ -303,17 +291,6 @@
     <span class="doccomment">/// Do not prompt for user input.
     </span><span class="attr">#[clap(long, default_value_t = !std::io::stdin().is_terminal())]
     </span><span class="kw">pub </span>non_interactive: bool,
-
-    <span class="doccomment">/// Wait for package to be available on the registry before exiting.
-    </span><span class="attr">#[clap(
-            long,
-            require_equals = <span class="bool-val">true</span>,
-            num_args = <span class="number">0</span>..=<span class="number">1</span>,
-            default_value_t = PublishWait::None,
-            default_missing_value = <span class="string">&quot;container&quot;</span>,
-            value_enum
-        )]
-    </span><span class="kw">pub </span>wait: PublishWait,
 
     <span class="doccomment">/// Directory containing the `wasmer.toml`, or a custom *.toml manifest file.
     ///
@@ -382,7 +359,7 @@
         <span class="macro">spinner_ok!</span>(pb, <span class="string">&quot;Package correctly uploaded&quot;</span>);
 
         <span class="kw">let </span>pb = <span class="macro">make_spinner!</span>(<span class="self">self</span>.quiet, <span class="string">&quot;Waiting for package to become available...&quot;</span>);
-        <span class="kw">let </span>id = <span class="kw">match </span>wasmer_api::query::push_package_release(
+        <span class="kw">match </span>wasmer_api::query::push_package_release(
             client,
             <span class="prelude-val">None</span>,
             namespace,
@@ -401,7 +378,6 @@
             <span class="prelude-val">None </span>=&gt; <span class="macro">anyhow::bail!</span>(<span class="string">&quot;An unidentified error occurred while publishing the package.&quot;</span>), <span class="comment">// &lt;- This is extremely bad..
         </span>};
 
-        wait_package(client, <span class="self">self</span>.wait, id, <span class="self">self</span>.timeout).<span class="kw">await</span><span class="question-mark">?</span>;
         <span class="kw">let </span>msg = <span class="macro">format!</span>(<span class="string">&quot;Succesfully pushed release to namespace {namespace} on the registry&quot;</span>);
         <span class="macro">spinner_ok!</span>(pb, msg);
 
