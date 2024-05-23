@@ -1,6 +1,6 @@
 [package]
 name = "wasmer-journal"
-version = "0.2.0"
+version = "0.3.0"
 description = "Journaling functionality used by Wasmer to save and restore WASM state"
 authors.workspace = true
 edition.workspace = true
