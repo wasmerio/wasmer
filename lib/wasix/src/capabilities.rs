@@ -68,13 +68,13 @@ impl CapabilityThreadingV1 {
             max_threads,
             enable_asynchronous_threading,
             enable_exponential_cpu_backoff,
-            enable_blocking_sleep: _,
+            enable_blocking_sleep,
         } = other;
         self.enable_asynchronous_threading |= enable_asynchronous_threading;
         if let Some(val) = enable_exponential_cpu_backoff {
             self.enable_exponential_cpu_backoff = Some(val);
         }
         self.max_threads = max_threads.or(self.max_threads);
-        self.enable_blocking_sleep |= other.enable_blocking_sleep;
+        self.enable_blocking_sleep |= enable_blocking_sleep;
     }
 }
