@@ -1279,8 +1279,4 @@ impl WasiEnv {
             Box::pin(async {})
         }
     }
-
-    pub fn allow_blocking_current_thread(&mut self, enable: bool) {
-        self.capabilities.threading.enable_blocking_sleep = enable;
-    }
 }
