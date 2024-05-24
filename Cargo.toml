@@ -202,6 +202,10 @@ opt-level = 3
 name = "static_and_dynamic_functions"
 harness = false
 
+[[bench]]
+name = "import_functions"
+harness = false
+
 [[example]]
 name = "early-exit"
 path = "examples/early_exit.rs"
