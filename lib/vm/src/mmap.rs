@@ -83,7 +83,7 @@ impl Mmap {
             return Ok(Self::new());
         }
 
-        // If there is a backing file, reise the file so that its at least
+        // If there is a backing file, resize the file so that its at least
         // `mapping_size` bytes.
         if let Some(backing_file) = &mut backing_file {
             let len = backing_file.metadata().map_err(|e| e.to_string())?.len() as usize;
