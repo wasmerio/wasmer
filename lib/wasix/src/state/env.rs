@@ -1,5 +1,3 @@
-#[cfg(feature = "journal")]
-use std::collections::HashSet;
 use std::{
     collections::HashMap,
     ops::Deref,
@@ -17,9 +15,11 @@ use wasmer::{
     AsStoreMut, AsStoreRef, FunctionEnvMut, Global, Imports, Instance, Memory, MemoryType,
     MemoryView, Module, TypedFunction,
 };
+use wasmer_config::package::PackageSource;
 use wasmer_wasix_types::{
     types::Signal,
     wasi::{Errno, ExitCode, Snapshot0Clockid},
+    wasix::ThreadStartType,
 };
 
 #[cfg(feature = "journal")]
@@ -34,14 +34,12 @@ use crate::{
         process::{WasiProcess, WasiProcessId},
         thread::{WasiMemoryLayout, WasiThread, WasiThreadHandle, WasiThreadId},
     },
-    runtime::{
-        module_cache::ModuleHash, resolver::PackageSpecifier, task_manager::InlineWaker,
-        SpawnMemoryType,
-    },
+    runtime::{task_manager::InlineWaker, SpawnMemoryType},
     syscalls::platform_clock_time_get,
     Runtime, VirtualTaskManager, WasiControlPlane, WasiEnvBuilder, WasiError, WasiFunctionEnv,
     WasiResult, WasiRuntimeError, WasiStateCreationError, WasiVFork,
 };
+use wasmer_types::ModuleHash;
 
 pub(crate) use super::handles::*;
 use super::WasiState;
@@ -61,6 +59,15 @@ pub struct WasiInstanceHandles {
 
     /// Points to the current location of the memory stack pointer
     pub(crate) stack_pointer: Option<Global>,
+
+    /// Points to the end of the data section
+    pub(crate) data_end: Option<Global>,
+
+    /// Points to the lower end of the stack
+    pub(crate) stack_low: Option<Global>,
+
+    /// Points to the higher end of the stack
+    pub(crate) stack_high: Option<Global>,
 
     /// Main function that will be invoked (name = "_start")
     #[derivative(Debug = "ignore")]
@@ -141,6 +148,21 @@ impl WasiInstanceHandles {
             stack_pointer: instance
                 .exports
                 .get_global("__stack_pointer")
+                .map(|a| a.clone())
+                .ok(),
+            data_end: instance
+                .exports
+                .get_global("__data_end")
+                .map(|a| a.clone())
+                .ok(),
+            stack_low: instance
+                .exports
+                .get_global("__stack_low")
+                .map(|a| a.clone())
+                .ok(),
+            stack_high: instance
+                .exports
+                .get_global("__stack_high")
                 .map(|a| a.clone())
                 .ok(),
             start: instance.exports.get_typed_function(store, "_start").ok(),
@@ -319,6 +341,11 @@ pub struct WasiEnv {
     /// Enables the snap shotting functionality
     pub enable_journal: bool,
 
+    /// Enables an exponential backoff of the process CPU usage when there
+    /// are no active run tokens (when set holds the maximum amount of
+    /// time that it will pause the CPU)
+    pub enable_exponential_cpu_backoff: Option<Duration>,
+
     /// Flag that indicatees if the environment is currently replaying the journal
     /// (and hence it should not record new events)
     pub replaying_journal: bool,
@@ -326,10 +353,6 @@ pub struct WasiEnv {
     /// Flag that indicates the cleanup of the environment is to be disabled
     /// (this is normally used so that the instance can be reused later on)
     pub(crate) disable_fs_cleanup: bool,
-
-    /// List of situations that the process will checkpoint on
-    #[cfg(feature = "journal")]
-    snapshot_on: HashSet<SnapshotTrigger>,
 
     /// Inner functions and references that are loaded before the environment starts
     /// (inner is not safe to send between threads and so it is private and will
@@ -361,9 +384,8 @@ impl Clone for WasiEnv {
             capabilities: self.capabilities.clone(),
             enable_deep_sleep: self.enable_deep_sleep,
             enable_journal: self.enable_journal,
+            enable_exponential_cpu_backoff: self.enable_exponential_cpu_backoff,
             replaying_journal: self.replaying_journal,
-            #[cfg(feature = "journal")]
-            snapshot_on: self.snapshot_on.clone(),
             disable_fs_cleanup: self.disable_fs_cleanup,
         }
     }
@@ -378,7 +400,7 @@ impl WasiEnv {
     /// Forking the WasiState is used when either fork or vfork is called
     pub fn fork(&self) -> Result<(Self, WasiThreadHandle), ControlPlaneError> {
         let process = self.control_plane.new_process(self.process.module_hash)?;
-        let handle = process.new_thread(self.layout.clone())?;
+        let handle = process.new_thread(self.layout.clone(), ThreadStartType::MainThread)?;
 
         let thread = handle.as_thread();
         thread.copy_stack_from(&self.thread);
@@ -402,9 +424,8 @@ impl WasiEnv {
             capabilities: self.capabilities.clone(),
             enable_deep_sleep: self.enable_deep_sleep,
             enable_journal: self.enable_journal,
+            enable_exponential_cpu_backoff: self.enable_exponential_cpu_backoff,
             replaying_journal: false,
-            #[cfg(feature = "journal")]
-            snapshot_on: self.snapshot_on.clone(),
             disable_fs_cleanup: self.disable_fs_cleanup,
         };
         Ok((new_env, handle))
@@ -430,10 +451,7 @@ impl WasiEnv {
                 map.clear();
             }
             self.state.fs.preopen_fds.write().unwrap().clear();
-            self.state
-                .fs
-                .next_fd
-                .store(3, std::sync::atomic::Ordering::SeqCst);
+            self.state.fs.next_fd.set_val(3);
             *self.state.fs.current_dir.lock().unwrap() = "/".to_string();
 
             // We need to rebuild the basic file descriptors
@@ -463,6 +481,7 @@ impl WasiEnv {
             self.process.finished.clone(),
             self.process.compute.must_upgrade().register_task()?,
             self.thread.memory_layout().clone(),
+            self.thread.thread_start_type(),
         );
 
         Ok(())
@@ -501,11 +520,16 @@ impl WasiEnv {
             init.control_plane.new_process(module_hash)?
         };
 
+        #[cfg(feature = "journal")]
+        {
+            process.inner.0.lock().unwrap().snapshot_on = init.snapshot_on.into_iter().collect();
+        }
+
         let layout = WasiMemoryLayout::default();
         let thread = if let Some(t) = init.thread {
             t
         } else {
-            process.new_thread(layout.clone())?
+            process.new_thread(layout.clone(), ThreadStartType::MainThread)?
         };
 
         let mut env = Self {
@@ -524,11 +548,13 @@ impl WasiEnv {
             enable_journal: false,
             replaying_journal: false,
             enable_deep_sleep: init.capabilities.threading.enable_asynchronous_threading,
+            enable_exponential_cpu_backoff: init
+                .capabilities
+                .threading
+                .enable_exponential_cpu_backoff,
             runtime: init.runtime,
             bin_factory: init.bin_factory,
             capabilities: init.capabilities,
-            #[cfg(feature = "journal")]
-            snapshot_on: init.snapshot_on.into_iter().collect(),
             disable_fs_cleanup: false,
         };
         env.owned_handles.push(thread);
@@ -681,7 +707,7 @@ impl WasiEnv {
     }
 
     /// Porcesses any signals that are batched up or any forced exit codes
-    pub(crate) fn process_signals_and_exit(ctx: &mut FunctionEnvMut<'_, Self>) -> WasiResult<bool> {
+    pub fn process_signals_and_exit(ctx: &mut FunctionEnvMut<'_, Self>) -> WasiResult<bool> {
         // If a signal handler has never been set then we need to handle signals
         // differently
         let env = ctx.data();
@@ -809,6 +835,7 @@ impl WasiEnv {
             }
             Ok(true)
         } else {
+            tracing::trace!("no signal handler");
             Ok(false)
         }
     }
@@ -966,16 +993,18 @@ impl WasiEnv {
     /// Returns true if a particular snapshot trigger is enabled
     #[cfg(feature = "journal")]
     pub fn has_snapshot_trigger(&self, trigger: SnapshotTrigger) -> bool {
-        self.snapshot_on.contains(&trigger)
+        let guard = self.process.inner.0.lock().unwrap();
+        guard.snapshot_on.contains(&trigger)
     }
 
     /// Returns true if a particular snapshot trigger is enabled
     #[cfg(feature = "journal")]
     pub fn pop_snapshot_trigger(&mut self, trigger: SnapshotTrigger) -> bool {
+        let mut guard = self.process.inner.0.lock().unwrap();
         if trigger.only_once() {
-            self.snapshot_on.remove(&trigger)
+            guard.snapshot_on.remove(&trigger)
         } else {
-            self.snapshot_on.contains(&trigger)
+            guard.snapshot_on.contains(&trigger)
         }
     }
 
@@ -1037,7 +1066,7 @@ impl WasiEnv {
     /// [cmd-atom]: crate::bin_factory::BinaryPackageCommand::atom()
     /// [pkg-fs]: crate::bin_factory::BinaryPackage::webc_fs
     pub fn use_package(&self, pkg: &BinaryPackage) -> Result<(), WasiStateCreationError> {
-        tracing::trace!(packagae=%pkg.package_name, "merging package dependency into wasi environment");
+        tracing::trace!(package=%pkg.id, "merging package dependency into wasi environment");
         let root_fs = &self.state.fs.root_fs;
 
         // We first need to copy any files in the package over to the
@@ -1083,7 +1112,7 @@ impl WasiEnv {
                         {
                             tracing::debug!(
                                 "failed to add package [{}] command [{}] - {}",
-                                pkg.package_name,
+                                pkg.id,
                                 command.name(),
                                 err
                             );
@@ -1092,7 +1121,14 @@ impl WasiEnv {
                     }
                     WasiFsRoot::Backing(fs) => {
                         let mut f = fs.new_open_options().create(true).write(true).open(path)?;
-                        f.copy_reference(Box::new(StaticFile::new(atom)));
+                        if let Err(e) =
+                            InlineWaker::block_on(f.copy_reference(Box::new(StaticFile::new(atom))))
+                        {
+                            tracing::warn!(
+                                error = &e as &dyn std::error::Error,
+                                "Unable to copy file reference",
+                            );
+                        }
                     }
                 }
 
@@ -1102,7 +1138,7 @@ impl WasiEnv {
                     .set_binary(path.as_os_str().to_string_lossy().as_ref(), package);
 
                 tracing::debug!(
-                    package=%pkg.package_name,
+                    package=%pkg.id,
                     command_name=command.name(),
                     path=%path.display(),
                     "Injected a command into the filesystem",
@@ -1122,7 +1158,7 @@ impl WasiEnv {
         let rt = self.runtime();
 
         for package_name in uses {
-            let specifier = package_name.parse::<PackageSpecifier>().map_err(|e| {
+            let specifier = package_name.parse::<PackageSource>().map_err(|e| {
                 WasiStateCreationError::WasiIncludePackageError(format!(
                     "package_name={package_name}, {}",
                     e

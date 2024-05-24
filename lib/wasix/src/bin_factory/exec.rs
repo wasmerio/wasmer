@@ -1,23 +1,27 @@
-use std::{pin::Pin, sync::Arc};
+use std::sync::Arc;
 
 use crate::{
-    os::task::{thread::WasiThreadRunGuard, TaskJoinHandle},
-    runtime::task_manager::{
-        TaskWasm, TaskWasmRecycle, TaskWasmRecycleProperties, TaskWasmRunProperties,
+    os::task::{
+        thread::{RewindResultType, WasiThreadRunGuard},
+        TaskJoinHandle,
+    },
+    runtime::{
+        task_manager::{
+            TaskWasm, TaskWasmRecycle, TaskWasmRecycleProperties, TaskWasmRunProperties,
+        },
+        TaintReason,
     },
     syscalls::rewind_ext,
     RewindState, SpawnError, WasiError, WasiRuntimeError,
 };
-use bytes::Bytes;
-use futures::Future;
 use tracing::*;
-use wasmer::{Function, FunctionEnvMut, Memory32, Memory64, Module, Store};
+use wasmer::{Function, Memory32, Memory64, Module, Store};
 use wasmer_wasix_types::wasi::Errno;
 
-use super::{BinFactory, BinaryPackage};
+use super::BinaryPackage;
 use crate::{Runtime, WasiEnv, WasiFunctionEnv};
 
-#[tracing::instrument(level = "trace", skip_all, fields(%name, %binary.package_name))]
+#[tracing::instrument(level = "trace", skip_all, fields(%name, package_id=%binary.id))]
 pub async fn spawn_exec(
     binary: BinaryPackage,
     name: &str,
@@ -25,6 +29,24 @@ pub async fn spawn_exec(
     env: WasiEnv,
     runtime: &Arc<dyn Runtime + Send + Sync + 'static>,
 ) -> Result<TaskJoinHandle, SpawnError> {
+    // Load the WASM
+    let wasm = spawn_load_wasm(&env, &binary, name).await?;
+
+    // Load the module
+    let module = spawn_load_module(&env, name, wasm, runtime).await?;
+
+    // Spawn union the file system
+    spawn_union_fs(&env, &binary).await?;
+
+    // Now run the module
+    spawn_exec_module(module, env, runtime)
+}
+
+pub async fn spawn_load_wasm<'a>(
+    env: &WasiEnv,
+    binary: &'a BinaryPackage,
+    name: &str,
+) -> Result<&'a [u8], SpawnError> {
     let wasm = if let Some(cmd) = binary.get_command(name) {
         cmd.atom.as_ref()
     } else if let Some(wasm) = binary.entrypoint_bytes() {
@@ -32,40 +54,52 @@ pub async fn spawn_exec(
     } else {
         tracing::error!(
           command=name,
-          pkg.name=%binary.package_name,
-          pkg.version=%binary.version,
+          pkg=%binary.id,
           "Unable to spawn a command because its package has no entrypoint",
         );
         env.on_exit(Some(Errno::Noexec.into())).await;
-        return Err(SpawnError::CompileError);
+        return Err(SpawnError::MissingEntrypoint {
+            package_id: binary.id.clone(),
+        });
     };
+    Ok(wasm)
+}
 
-    let module = match runtime.load_module(wasm).await {
-        Ok(module) => module,
+pub async fn spawn_load_module(
+    env: &WasiEnv,
+    name: &str,
+    wasm: &[u8],
+    runtime: &Arc<dyn Runtime + Send + Sync + 'static>,
+) -> Result<Module, SpawnError> {
+    match runtime.load_module(wasm).await {
+        Ok(module) => Ok(module),
         Err(err) => {
             tracing::error!(
                 command = name,
-                error = &*err,
+                error = &err as &dyn std::error::Error,
                 "Failed to compile the module",
             );
             env.on_exit(Some(Errno::Noexec.into())).await;
-            return Err(SpawnError::CompileError);
+            Err(err)
         }
-    };
+    }
+}
 
+pub async fn spawn_union_fs(env: &WasiEnv, binary: &BinaryPackage) -> Result<(), SpawnError> {
     // If the file system has not already been union'ed then do so
     env.state
         .fs
-        .conditional_union(&binary)
+        .conditional_union(binary)
         .await
         .map_err(|err| {
             tracing::warn!("failed to union file system - {err}");
-            SpawnError::FileSystemError
+            SpawnError::FileSystemError(crate::ExtendedFsError::with_msg(
+                err,
+                "could not union filesystems",
+            ))
         })?;
     tracing::debug!("{:?}", env.state.fs);
-
-    // Now run the module
-    spawn_exec_module(module, env, runtime)
+    Ok(())
 }
 
 pub fn spawn_exec_module(
@@ -151,6 +185,7 @@ pub fn run_exec(props: TaskWasmRunProperties) {
     let rewind_state = match unsafe { ctx.bootstrap(&mut store) } {
         Ok(r) => r,
         Err(err) => {
+            tracing::warn!("failed to bootstrap - {}", err);
             thread.thread.set_status_finished(Err(err));
             ctx.data(&store)
                 .blocking_on_exit(Some(Errno::Noexec.into()));
@@ -181,13 +216,14 @@ fn call_module(
     ctx: WasiFunctionEnv,
     mut store: Store,
     handle: WasiThreadRunGuard,
-    rewind_state: Option<(RewindState, Option<Bytes>)>,
+    rewind_state: Option<(RewindState, RewindResultType)>,
     recycle: Option<Box<TaskWasmRecycle>>,
 ) {
     let env = ctx.data(&store);
     let pid = env.pid();
     let tasks = env.tasks().clone();
     handle.thread.set_status_running();
+    let runtime = env.runtime.clone();
 
     // If we need to rewind then do so
     if let Some((rewind_state, rewind_result)) = rewind_state {
@@ -195,7 +231,7 @@ fn call_module(
         if rewind_state.is_64bit {
             let res = rewind_ext::<Memory64>(
                 &mut ctx,
-                rewind_state.memory_stack,
+                Some(rewind_state.memory_stack),
                 rewind_state.rewind_stack,
                 rewind_state.store_data,
                 rewind_result,
@@ -208,7 +244,7 @@ fn call_module(
         } else {
             let res = rewind_ext::<Memory32>(
                 &mut ctx,
-                rewind_state.memory_stack,
+                Some(rewind_state.memory_stack),
                 rewind_state.rewind_stack,
                 rewind_state.store_data,
                 rewind_result,
@@ -237,7 +273,10 @@ fn call_module(
         if let Err(err) = call_ret {
             match err.downcast::<WasiError>() {
                 Ok(WasiError::Exit(code)) if code.is_success() => Ok(Errno::Success),
-                Ok(err @ WasiError::Exit(_)) => Err(err.into()),
+                Ok(WasiError::Exit(code)) => {
+                    runtime.on_taint(TaintReason::NonZeroExitCode(code));
+                    Err(WasiError::Exit(code).into())
+                }
                 Ok(WasiError::DeepSleep(deep)) => {
                     // Create the callback that will be invoked when the thread respawns after a deep sleep
                     let rewind = deep.rewind;
@@ -248,7 +287,7 @@ fn call_module(
                                 ctx,
                                 store,
                                 handle,
-                                Some((rewind, Some(rewind_result))),
+                                Some((rewind, RewindResultType::RewindWithResult(rewind_result))),
                                 recycle,
                             );
                         }
@@ -264,9 +303,13 @@ fn call_module(
                 }
                 Ok(WasiError::UnknownWasiVersion) => {
                     debug!("failed as wasi version is unknown",);
+                    runtime.on_taint(TaintReason::UnknownWasiVersion);
                     Ok(Errno::Noexec)
                 }
-                Err(err) => Err(WasiRuntimeError::from(err)),
+                Err(err) => {
+                    runtime.on_taint(TaintReason::RuntimeError(err.clone()));
+                    Err(WasiRuntimeError::from(err))
+                }
             }
         } else {
             Ok(Errno::Success)
@@ -285,48 +328,4 @@ fn call_module(
 
     debug!("wasi[{pid}]::main() has exited with {code}");
     handle.thread.set_status_finished(ret.map(|a| a.into()));
-}
-
-impl BinFactory {
-    pub fn spawn<'a>(
-        &'a self,
-        name: String,
-        store: Store,
-        env: WasiEnv,
-    ) -> Pin<Box<dyn Future<Output = Result<TaskJoinHandle, SpawnError>> + 'a>> {
-        Box::pin(async move {
-            // Find the binary (or die trying) and make the spawn type
-            let binary = self
-                .get_binary(name.as_str(), Some(env.fs_root()))
-                .await
-                .ok_or(SpawnError::NotFound);
-            if binary.is_err() {
-                env.on_exit(Some(Errno::Noent.into())).await;
-            }
-            let binary = binary?;
-
-            // Execute
-            spawn_exec(binary, name.as_str(), store, env, &self.runtime).await
-        })
-    }
-
-    pub fn try_built_in(
-        &self,
-        name: String,
-        parent_ctx: Option<&FunctionEnvMut<'_, WasiEnv>>,
-        store: &mut Option<Store>,
-        builder: &mut Option<WasiEnv>,
-    ) -> Result<TaskJoinHandle, SpawnError> {
-        // We check for built in commands
-        if let Some(parent_ctx) = parent_ctx {
-            if self.commands.exists(name.as_str()) {
-                return self
-                    .commands
-                    .exec(parent_ctx, name.as_str(), store, builder);
-            }
-        } else if self.commands.exists(name.as_str()) {
-            tracing::warn!("builtin command without a parent ctx - {}", name);
-        }
-        Err(SpawnError::NotFound)
-    }
 }

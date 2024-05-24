@@ -48,7 +48,6 @@ SETTINGS = {
         "wasmer-cli": "default,cranelift",
         "wasmer-wasix": "sys,wasmer/sys",
         "wasmer-wasix-types": "wasmer/sys",
-        "wasmer-wasix-experimental-io-devices": "wasmer-wasix/sys,wasmer/sys",
         "wasmer-wast": "wasmer/sys",
         "wai-bindgen-wasmer": "sys",
         "wasmer-cache": "wasmer/sys",
@@ -119,7 +118,7 @@ class Publisher:
             data = tomllib.load(file)
 
         if version is None:
-            version = data["package"]["version"]
+            version = data["workspace"]["package"]["version"]
         self.version: str = version
 
         if self.verbose and not self.dry_run:
@@ -170,6 +169,19 @@ class Publisher:
                                 )
                             )
                         )
+                    if "dev-dependencies" in toml:
+                        acc.update(
+                            list(
+                                map(
+                                    lambda dep: dep[1]["package"]
+                                    if "package" in dep[1]
+                                    else dep[0],
+                                    filter(
+                                        check_local_dep_fn, toml["dev-dependencies"].items()
+                                    ),
+                                )
+                            )
+                        )
                     if "target" in toml:
                         stack.append(toml["target"])
                     for key, value in toml.items():
@@ -204,7 +216,18 @@ class Publisher:
         if found_string is None:
             return False
 
-        return self.version == found_string
+        if self.version == found_string:
+            return True
+        
+        crate = self.crate_index[crate_name]
+        with open(crate.path + "/Cargo.toml", "rb") as file:
+            data = tomllib.load(file)
+        crate_version = data["package"]["version"]
+
+        if crate_version is None:
+            return False
+
+        return crate_version == found_string
 
     def publish_crate(self, crate_name: str):
         # pylint: disable=broad-except

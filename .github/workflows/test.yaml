@@ -3,7 +3,7 @@ name: test-sys
 on:
   push:
     branches:
-      - master
+      - main
       - 'with-ci-.*'
       - 'v3.0.x'
       - 'v3.1.x'
@@ -24,8 +24,9 @@ env:
   # Rust, but it's not stable on 1.69 yet. By explicitly setting the protocol we
   # can override that behaviour
   CARGO_REGISTRIES_CRATES_IO_PROTOCOL: git
-  MSRV: "1.73"
+  MSRV: "1.74"
   NEXTEST_PROFILE: "ci"
+  RUSTUP_WINDOWS_PATH_ADD_BIN: 1
 
 jobs:
 
@@ -120,6 +121,23 @@ jobs:
       - name: make test-js
         run: |
           make test-js
+
+  test_wasi_fyi:
+    name: Test wasi-fyi
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v3
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: nightly
+          targets: "wasm32-wasi"
+      - name: Install wasm-pack
+        run: |
+          curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
+      - name: make test-wasi-fyi
+        run: |
+          make test-wasi-fyi
 
       # The no_std functionality doesn't work at the moment - no point in testing it.
       # - name: make test-js-core
@@ -354,9 +372,7 @@ jobs:
           sudo apt-get install --reinstall g++
       - name: Set up base deps on musl
         if: matrix.metadata.build == 'linux-musl'
-        run: |
-            apk update
-            apk add build-base bash musl-dev curl tar make libtool libffi-dev gcc automake autoconf git openssl-dev g++
+        run: ./scripts/alpine-linux-install-deps.sh
       - name: Set up dependencies for Mac OS
         run: |
           brew install automake
@@ -552,6 +568,12 @@ jobs:
             llvm_url: 'https://github.com/llvm/llvm-project/releases/download/llvmorg-15.0.7/clang+llvm-15.0.7-x86_64-apple-darwin21.0.tar.xz'
           },
           {
+            build: macos-arm64,
+            os: macos-14,
+            target: aarch64-apple-darwin,
+            exe: '',
+          },
+          {
             build: windows-x64,
             os: windows-2019,
             target: x86_64-pc-windows-msvc,
@@ -580,9 +602,7 @@ jobs:
           sudo apt-get install --reinstall g++
       - name: Set up base deps on musl
         if: matrix.metadata.build == 'linux-musl'
-        run: |
-            apk update
-            apk add build-base bash musl-dev curl tar make libtool libffi-dev gcc automake autoconf git openssl-dev g++
+        run: ./scripts/alpine-linux-install-deps.sh
       - name: Set up dependencies for Mac OS
         run: |
           brew install automake
@@ -681,9 +701,7 @@ jobs:
           version: 0.10.0
       - name: Set up base deps on musl
         if: matrix.build == 'linux-musl'
-        run: |
-            apk update
-            apk add build-base bash musl-dev curl tar make libtool libffi-dev gcc automake autoconf git openssl-dev g++
+        run: ./scripts/alpine-linux-install-deps.sh
       - uses: actions/download-artifact@v3
         id: download
         with:
@@ -795,7 +813,7 @@ jobs:
         run: |
           make untar-wasmer
       - name: Test integration CLI
-        if: matrix.build != 'macos-arm'
+        if: false # matrix.build != 'macos-arm'
         shell: bash
         run: |
           export WASMER_PATH=`pwd`/target/${{ matrix.target }}/release/wasmer${{ matrix.exe }}

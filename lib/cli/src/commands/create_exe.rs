@@ -21,7 +21,10 @@ use webc::{
 };
 
 use self::utils::normalize_atom_name;
-use crate::{common::normalize_path, store::CompilerOptions};
+use crate::{
+    common::{normalize_path, HashAlgorithm},
+    store::CompilerOptions,
+};
 
 const LINK_SYSTEM_LIBRARIES_WINDOWS: &[&str] = &["userenv", "Ws2_32", "advapi32", "bcrypt"];
 
@@ -91,6 +94,10 @@ pub struct CreateExe {
 
     #[clap(flatten)]
     compiler: CompilerOptions,
+
+    /// Hashing algorithm to be used for module hash
+    #[clap(long, value_enum)]
+    hash_algorithm: Option<HashAlgorithm>,
 }
 
 /// Url or version to download the release from
@@ -215,6 +222,10 @@ impl CreateExe {
         }
 
         let (store, compiler_type) = self.compiler.get_store_for_target(target.clone())?;
+
+        let mut engine = store.engine().clone();
+        let hash_algorithm = self.hash_algorithm.unwrap_or_default().into();
+        engine.set_hash_algorithm(Some(hash_algorithm));
 
         println!("Compiler: {}", compiler_type.to_string());
         println!("Target: {}", target.triple());
@@ -380,7 +391,7 @@ pub(super) fn compile_pirita_into_directory(
     let volume_path = target_dir.join("volumes").join("volume.o");
     write_volume_obj(&volume_bytes, volume_name, &volume_path, target)?;
     let volume_path = volume_path.canonicalize()?;
-    let volume_path = pathdiff::diff_paths(&volume_path, &target_dir).unwrap();
+    let volume_path = pathdiff::diff_paths(volume_path, &target_dir).unwrap();
 
     std::fs::create_dir_all(target_dir.join("atoms")).map_err(|e| {
         anyhow::anyhow!("cannot create /atoms dir in {}: {e}", target_dir.display())
@@ -501,11 +512,11 @@ fn serialize_volume_to_webc_v1(volume: &WebcVolume) -> Vec<u8> {
         path: &mut PathSegments,
         files: &mut BTreeMap<webc::v1::DirOrFile, Vec<u8>>,
     ) {
-        for (segment, meta) in volume.read_dir(&*path).unwrap_or_default() {
+        for (segment, _, meta) in volume.read_dir(&*path).unwrap_or_default() {
             path.push(segment);
 
             match meta {
-                webc::compat::Metadata::Dir => {
+                webc::compat::Metadata::Dir { .. } => {
                     files.insert(
                         webc::v1::DirOrFile::Dir(path.to_string().into()),
                         Vec::new(),
@@ -513,7 +524,7 @@ fn serialize_volume_to_webc_v1(volume: &WebcVolume) -> Vec<u8> {
                     read_dir(volume, path, files);
                 }
                 webc::compat::Metadata::File { .. } => {
-                    if let Some(contents) = volume.read_file(&*path) {
+                    if let Some((contents, _)) = volume.read_file(&*path) {
                         files.insert(
                             webc::v1::DirOrFile::File(path.to_string().into()),
                             contents.to_vec(),
@@ -1958,7 +1969,7 @@ pub(super) mod utils {
     #[test]
     fn test_filter_tarball() {
         use std::str::FromStr;
-        let test_paths = vec![
+        let test_paths = [
             "/test/wasmer-darwin-amd64.tar.gz",
             "/test/wasmer-darwin-arm64.tar.gz",
             "/test/wasmer-linux-aarch64.tar.gz",

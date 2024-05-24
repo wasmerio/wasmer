@@ -2,7 +2,7 @@ use virtual_mio::InlineWaker;
 use wasmer::{RuntimeError, Store};
 use wasmer_wasix_types::wasi::ExitCode;
 
-use crate::{RewindStateOption, WasiError, WasiRuntimeError};
+use crate::{os::task::thread::RewindResultType, RewindStateOption, WasiError, WasiRuntimeError};
 
 use super::*;
 
@@ -42,12 +42,14 @@ impl WasiFunctionEnv {
                 match this.bootstrap(&mut store) {
                     Ok(a) => a,
                     Err(err) => {
+                        tracing::warn!("failed to bootstrap - {}", err);
                         this.on_exit(&mut store, None);
                         tx.send(Err(err)).ok();
                         return;
                     }
                 }
             };
+
             run_with_deep_sleep(store, rewind_state, this, tx);
         }))?;
 
@@ -89,7 +91,7 @@ fn run_with_deep_sleep(
         let errno = if rewind_state.is_64bit {
             crate::rewind_ext::<wasmer_types::Memory64>(
                 &mut ctx,
-                rewind_state.memory_stack,
+                Some(rewind_state.memory_stack),
                 rewind_state.rewind_stack,
                 rewind_state.store_data,
                 rewind_result,
@@ -97,7 +99,7 @@ fn run_with_deep_sleep(
         } else {
             crate::rewind_ext::<wasmer_types::Memory32>(
                 &mut ctx,
-                rewind_state.memory_stack,
+                Some(rewind_state.memory_stack),
                 rewind_state.rewind_stack,
                 rewind_state.store_data,
                 rewind_result,
@@ -157,7 +159,12 @@ fn handle_result(
             let tasks = env.data(&store).tasks().clone();
             let rewind = work.rewind;
             let respawn = move |ctx, store, res| {
-                run_with_deep_sleep(store, Some((rewind, Some(res))), ctx, sender)
+                run_with_deep_sleep(
+                    store,
+                    Some((rewind, RewindResultType::RewindWithResult(res))),
+                    ctx,
+                    sender,
+                )
             };
 
             // Spawns the WASM process after a trigger

@@ -113,6 +113,35 @@ where
     S: for<'a> FileSystems<'a> + Send + Sync + 'static,
     for<'a> <<S as FileSystems<'a>>::Iter as IntoIterator>::IntoIter: Send,
 {
+    fn readlink(&self, path: &Path) -> crate::Result<PathBuf> {
+        // Whiteout files can not be read, they are just markers
+        if ops::is_white_out(path).is_some() {
+            return Err(FsError::EntryNotFound);
+        }
+
+        // Check if the file is in the primary
+        match self.primary.readlink(path) {
+            Ok(meta) => return Ok(meta),
+            Err(e) if should_continue(e) => {}
+            Err(e) => return Err(e),
+        }
+
+        // There might be a whiteout, search for this
+        if ops::has_white_out(&self.primary, path) {
+            return Err(FsError::EntryNotFound);
+        }
+
+        // Otherwise scan the secondaries
+        for fs in self.secondaries.filesystems() {
+            match fs.readlink(path) {
+                Err(e) if should_continue(e) => continue,
+                other => return other,
+            }
+        }
+
+        Err(FsError::EntryNotFound)
+    }
+
     fn read_dir(&self, path: &Path) -> Result<ReadDir, FsError> {
         let mut entries = Vec::new();
         let mut had_at_least_one_success = false;
@@ -320,6 +349,35 @@ where
         // Otherwise scan the secondaries
         for fs in self.secondaries.filesystems() {
             match fs.metadata(path) {
+                Err(e) if should_continue(e) => continue,
+                other => return other,
+            }
+        }
+
+        Err(FsError::EntryNotFound)
+    }
+
+    fn symlink_metadata(&self, path: &Path) -> crate::Result<Metadata> {
+        // Whiteout files can not be read, they are just markers
+        if ops::is_white_out(path).is_some() {
+            return Err(FsError::EntryNotFound);
+        }
+
+        // Check if the file is in the primary
+        match self.primary.symlink_metadata(path) {
+            Ok(meta) => return Ok(meta),
+            Err(e) if should_continue(e) => {}
+            Err(e) => return Err(e),
+        }
+
+        // There might be a whiteout, search for this
+        if ops::has_white_out(&self.primary, path) {
+            return Err(FsError::EntryNotFound);
+        }
+
+        // Otherwise scan the secondaries
+        for fs in self.secondaries.filesystems() {
+            match fs.symlink_metadata(path) {
                 Err(e) if should_continue(e) => continue,
                 other => return other,
             }
@@ -712,7 +770,7 @@ where
                             };
                         }
                     }
-                    // Now once the the restoration of the seek position completes we set the copied state
+                    // Now once the restoration of the seek position completes we set the copied state
                     CowState::SeekingRestore { mut dst } => {
                         match Pin::new(dst.as_mut()).poll_complete(cx) {
                             Poll::Ready(_) => {
@@ -819,27 +877,26 @@ where
             Ok(())
         }
 
-        fn unlink(&mut self) -> BoxFuture<'static, crate::Result<()>> {
+        fn unlink(&mut self) -> crate::Result<()> {
             let primary = self.primary.clone();
             let path = self.path.clone();
-            Box::pin(async move {
-                // Create the whiteout file in the primary
-                let mut had_at_least_one_success = false;
-                if ops::create_white_out(&primary, &path).is_ok() {
-                    had_at_least_one_success = true;
-                }
 
-                // Attempt to remove it from the primary first
-                match primary.remove_file(&path) {
-                    Err(e) if should_continue(e) => {}
-                    other => return other,
-                }
+            // Create the whiteout file in the primary
+            let mut had_at_least_one_success = false;
+            if ops::create_white_out(&primary, &path).is_ok() {
+                had_at_least_one_success = true;
+            }
 
-                if had_at_least_one_success {
-                    return Ok(());
-                }
-                Err(FsError::PermissionDenied)
-            })
+            // Attempt to remove it from the primary first
+            match primary.remove_file(&path) {
+                Err(e) if should_continue(e) => {}
+                other => return other,
+            }
+
+            if had_at_least_one_success {
+                return Ok(());
+            }
+            Err(FsError::PermissionDenied)
         }
 
         fn poll_read_ready(

@@ -135,7 +135,7 @@ fn build_wasm_c_api_headers(crate_dir: &str, out_dir: &str) {
 // within the [`wasmer-c-api`] Rust crate.
 //
 // [`wasm-c-api`]: https://github.com/WebAssembly/wasm-c-api
-// [`wasmer-c-api`]: https://github.com/wasmerio/wasmer/tree/master/lib/c-api
+// [`wasmer-c-api`]: https://github.com/wasmerio/wasmer/tree/main/lib/c-api
 // [documentation]: https://wasmerio.github.io/wasmer/crates/wasmer_c_api/
 
 #if !defined(WASMER_H_PRELUDE)

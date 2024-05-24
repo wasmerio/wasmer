@@ -18,7 +18,7 @@ use std::mem;
 /// The compilation related data for a serialized modules
 #[derive(Archive, Default, RkyvDeserialize, RkyvSerialize)]
 #[allow(missing_docs)]
-#[archive_attr(derive(CheckBytes))]
+#[archive_attr(derive(CheckBytes, Debug))]
 pub struct SerializableCompilation {
     pub function_bodies: PrimaryMap<LocalFunctionIndex, FunctionBody>,
     pub function_relocations: PrimaryMap<LocalFunctionIndex, Vec<Relocation>>,
@@ -53,7 +53,7 @@ impl SerializableCompilation {
 /// Serializable struct that is able to serialize from and to a `ArtifactInfo`.
 #[derive(Archive, RkyvDeserialize, RkyvSerialize)]
 #[allow(missing_docs)]
-#[archive_attr(derive(CheckBytes))]
+#[archive_attr(derive(CheckBytes, Debug))]
 pub struct SerializableModule {
     /// The main serializable compilation object
     pub compilation: SerializableCompilation,
@@ -211,7 +211,7 @@ pub struct MetadataHeader {
 impl MetadataHeader {
     /// Current ABI version. Increment this any time breaking changes are made
     /// to the format of the serialized data.
-    pub const CURRENT_VERSION: u32 = 6;
+    pub const CURRENT_VERSION: u32 = 7;
 
     /// Magic number to identify wasmer metadata.
     const MAGIC: [u8; 8] = *b"WASMER\0\0";

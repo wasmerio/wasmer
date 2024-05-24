@@ -9,21 +9,15 @@
     rustdoc::broken_intra_doc_links
 )]
 #![warn(unused_import_braces)]
-#![cfg_attr(
-    feature = "cargo-clippy",
-    allow(clippy::new_without_default, clippy::vtable_address_comparisons)
-)]
-#![cfg_attr(
-    feature = "cargo-clippy",
-    warn(
-        clippy::float_arithmetic,
-        clippy::mut_mut,
-        clippy::nonminimal_bool,
-        clippy::map_unwrap_or,
-        clippy::print_stdout,
-        clippy::unicode_not_nfc,
-        clippy::use_self
-    )
+#![allow(clippy::new_without_default, clippy::vtable_address_comparisons)]
+#![warn(
+    clippy::float_arithmetic,
+    clippy::mut_mut,
+    clippy::nonminimal_bool,
+    clippy::map_unwrap_or,
+    clippy::print_stdout,
+    clippy::unicode_not_nfc,
+    clippy::use_self
 )]
 #![allow(deprecated_cfg_attr_crate_type_name)]
 #![cfg_attr(feature = "js", crate_type = "cdylib")]
@@ -67,7 +61,7 @@
 //! }
 //! ```
 //!
-//! [Discover the full collection of examples](https://github.com/wasmerio/wasmer/tree/master/examples).
+//! [Discover the full collection of examples](https://github.com/wasmerio/wasmer/tree/main/examples).
 //!
 //! # Overview of the Features
 //!
@@ -386,7 +380,7 @@
 //! or `js-default` Cargo features.
 //!
 //! [wasm]: https://webassembly.org/
-//! [wasmer-examples]: https://github.com/wasmerio/wasmer/tree/master/examples
+//! [wasmer-examples]: https://github.com/wasmerio/wasmer/tree/main/examples
 //! [`wasmer-cache`]: https://docs.rs/wasmer-cache/
 //! [wasmer-compiler]: https://docs.rs/wasmer-compiler/
 //! [`wasmer-emscripten`]: https://docs.rs/wasmer-emscripten/
@@ -497,7 +491,7 @@ pub type Features = sys::Features;
 pub type BaseTunables = sys::BaseTunables;
 #[cfg(feature = "sys")]
 #[deprecated(note = "wasmer::VMConfig is deprecated, use wasmer::sys::VMConfig instead")]
-/// Configuration for the the runtime VM
+/// Configuration for the runtime VM
 /// Currently only the stack size is configurable
 pub type VMConfig = sys::VMConfig;
 
@@ -539,7 +533,9 @@ pub use mem_access::{MemoryAccessError, WasmRef, WasmSlice, WasmSliceIter};
 pub use module::{IoCompileError, Module};
 pub use native_type::{FromToNativeWasmType, NativeWasmTypeInto, WasmTypeList};
 pub use ptr::{Memory32, Memory64, MemorySize, WasmPtr, WasmPtr64};
-pub use store::{AsStoreMut, AsStoreRef, OnCalledHandler, Store, StoreId, StoreMut, StoreRef};
+pub use store::{
+    AsStoreMut, AsStoreRef, OnCalledHandler, Store, StoreId, StoreMut, StoreObjects, StoreRef,
+};
 #[cfg(feature = "sys")]
 pub use store::{TrapHandlerFn, Tunables};
 #[cfg(any(feature = "sys", feature = "jsc"))]

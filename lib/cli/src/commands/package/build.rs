@@ -3,6 +3,11 @@ use std::path::PathBuf;
 use anyhow::Context;
 use dialoguer::console::{style, Emoji};
 use indicatif::ProgressBar;
+use sha2::Digest;
+use wasmer_config::package::PackageHash;
+use webc::wasmer_package::Package;
+
+use crate::utils::load_package_manifest;
 
 /// Build a container from a package manifest.
 #[derive(clap::Parser, Debug)]
@@ -41,9 +46,37 @@ impl PackageBuild {
         }
     }
 
-    pub(crate) fn execute(&self) -> Result<(), anyhow::Error> {
+    pub(crate) fn execute(&self) -> Result<(Package, PackageHash), anyhow::Error> {
         let manifest_path = self.manifest_path()?;
-        let pkg = webc::wasmer_package::Package::from_manifest(manifest_path)?;
+        let Some((_, manifest)) = load_package_manifest(&manifest_path)? else {
+            anyhow::bail!(
+                "Could not locate manifest in path '{}'",
+                manifest_path.display()
+            )
+        };
+        let pkg = webc::wasmer_package::Package::from_manifest(manifest_path.clone()).context(
+            format!(
+                "While parsing the manifest (loaded from {})",
+                manifest_path.canonicalize()?.display()
+            ),
+        )?;
+        let data = pkg.serialize().context("While validating the package")?;
+        let hash = sha2::Sha256::digest(&data).into();
+        let pkg_hash = PackageHash::from_sha256_bytes(hash);
+
+        let name = if let Some(manifest_pkg) = manifest.package {
+            if let Some(name) = manifest_pkg.name {
+                if let Some(version) = manifest_pkg.version {
+                    format!("{}-{}.webc", name.replace('/', "-"), version)
+                } else {
+                    format!("{}-{}.webc", name.replace('/', "-"), pkg_hash)
+                }
+            } else {
+                format!("{}.webc", pkg_hash)
+            }
+        } else {
+            format!("{}.webc", pkg_hash)
+        };
 
         // Setup the progress bar
         let pb = if self.quiet {
@@ -58,20 +91,11 @@ impl PackageBuild {
             READING_MANIFEST_EMOJI
         ));
 
-        let manifest = pkg
-            .manifest()
-            .wapm()
-            .context("could not load package manifest")?
-            .context("package does not contain a Wasmer manifest")?;
-
         // rest of the code writes the package to disk and is irrelevant
         // to checking.
         if self.check {
-            return Ok(());
+            return Ok((pkg, pkg_hash));
         }
-
-        let pkgname = manifest.name.replace('/', "-");
-        let name = format!("{}-{}.webc", pkgname, manifest.version,);
 
         pb.println(format!(
             "{} {}Creating output directory...",
@@ -102,8 +126,6 @@ impl PackageBuild {
             );
         }
 
-        let data = pkg.serialize()?;
-
         pb.println(format!(
             "{} {}Writing package...",
             style("[3/3]").bold().dim(),
@@ -119,7 +141,7 @@ impl PackageBuild {
             out_path.display()
         ));
 
-        Ok(())
+        Ok((pkg, pkg_hash))
     }
 
     fn manifest_path(&self) -> Result<PathBuf, anyhow::Error> {

@@ -50,7 +50,7 @@ pub trait SymbolRegistry: Send + Sync {
 /// Serializable struct that represents the compiled metadata.
 #[derive(Debug, RkyvSerialize, RkyvDeserialize, Archive)]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
-#[archive_attr(derive(rkyv::CheckBytes))]
+#[archive_attr(derive(rkyv::CheckBytes, Debug))]
 pub struct ModuleMetadata {
     /// Compile info
     pub compile_info: CompileModuleInfo,

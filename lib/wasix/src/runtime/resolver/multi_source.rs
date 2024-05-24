@@ -1,6 +1,8 @@
 use std::sync::Arc;
 
-use crate::runtime::resolver::{PackageSpecifier, PackageSummary, QueryError, Source};
+use wasmer_config::package::PackageSource;
+
+use crate::runtime::resolver::{PackageSummary, QueryError, Source};
 
 /// A [`Source`] that works by querying multiple [`Source`]s in succession.
 ///
@@ -48,7 +50,7 @@ impl MultiSource {
 #[async_trait::async_trait]
 impl Source for MultiSource {
     #[tracing::instrument(level = "debug", skip_all, fields(%package))]
-    async fn query(&self, package: &PackageSpecifier) -> Result<Vec<PackageSummary>, QueryError> {
+    async fn query(&self, package: &PackageSource) -> Result<Vec<PackageSummary>, QueryError> {
         for source in &self.sources {
             match source.query(package).await {
                 Ok(summaries) => return Ok(summaries),

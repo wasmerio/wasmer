@@ -7,7 +7,7 @@
     <a href="https://github.com/wasmerio/wasmer/actions?query=workflow%3Abuild">
       <img src="https://github.com/wasmerio/wasmer/workflows/build/badge.svg?style=flat-square" alt="Build Status">
     </a>
-    <a href="https://github.com/wasmerio/wasmer/blob/master/LICENSE">
+    <a href="https://github.com/wasmerio/wasmer/blob/main/LICENSE">
       <img src="https://img.shields.io/github/license/wasmerio/wasmer.svg" alt="License">
     </a>
     <a href="https://docs.wasmer.io">
@@ -24,12 +24,12 @@
 Wasmer는 _초경량 컨테이너_ 를 *Desktop*에서부터 *Cloud*, *Edge*, *IoT* 기기들까지 어디에서나 실행할 수 있는 _빠르고 안전한_ [**WebAssembly**](https://webassembly.org) 런타임 입니다.
 
 > _이 문서는 아래와 같은 언어들을 지원합니다.:
-[🇨🇳 中 文 -Chinese](https://github.com/wasmerio/wasmer/blob/master/docs/cn/README.md) • 
-[🇩🇪 Deutsch-German](https://github.com/wasmerio/wasmer/blob/master/docs/de/README.md) • 
-[🇪🇸 Español-Spanish](https://github.com/wasmerio/wasmer/blob/master/docs/es/README.md) • 
-[🇫🇷 Français-French](https://github.com/wasmerio/wasmer/blob/master/docs/fr/README.md) • 
-[🇯🇵 日本 語 -Japanese](https://github.com/wasmerio/wasmer/blob/master/docs/ja/README.md)_.
-[🇰🇷 한국어 -Korean](https://github.com/wasmerio/wasmer/blob/master/docs/ko/README.md)_.
+[🇨🇳 中 文 -Chinese](https://github.com/wasmerio/wasmer/blob/main/docs/cn/README.md) • 
+[🇩🇪 Deutsch-German](https://github.com/wasmerio/wasmer/blob/main/docs/de/README.md) • 
+[🇪🇸 Español-Spanish](https://github.com/wasmerio/wasmer/blob/main/docs/es/README.md) • 
+[🇫🇷 Français-French](https://github.com/wasmerio/wasmer/blob/main/docs/fr/README.md) • 
+[🇯🇵 日本 語 -Japanese](https://github.com/wasmerio/wasmer/blob/main/docs/ja/README.md)_.
+[🇰🇷 한국어 -Korean](https://github.com/wasmerio/wasmer/blob/main/docs/ko/README.md)_.
 
 ### 특징
 
@@ -79,7 +79,7 @@ curl https://get.wasmer.io -sSfL | sh
   * <a href="https://crates.io/crates/wasmer-cli/">Cargo</a>
 
     _Note: 사용 가능한 모든 기능은 [`wasmer-cli`
-    crate docs](https://github.com/wasmerio/wasmer/tree/master/lib/cli/README.md) 문서에 설명되어 있습니다._
+    crate docs](https://github.com/wasmerio/wasmer/tree/main/lib/cli/README.md) 문서에 설명되어 있습니다._
 
     ```sh
     cargo install wasmer-cli
@@ -136,13 +136,13 @@ Wasmer 런타임은 **다른 언어에 내장된** 라이브러리로 사용할 
 [👋&nbsp;&nbsp;없는 언어가 있습니까?](https://github.com/wasmerio/wasmer/issues/new?assignees=&labels=%F0%9F%8E%89+enhancement&template=---feature-request.md&title=)
 
 [rust logo]: https://raw.githubusercontent.com/wasmerio/wasmer/master/assets/languages/rust.svg
-[rust integration]: https://github.com/wasmerio/wasmer/tree/master/lib/api
+[rust integration]: https://github.com/wasmerio/wasmer/tree/main/lib/api
 [`wasmer` rust crate]: https://crates.io/crates/wasmer/
 [rust docs]: https://docs.rs/wasmer/
 
 [c logo]: https://raw.githubusercontent.com/wasmerio/wasmer/master/assets/languages/c.svg
-[c integration]: https://github.com/wasmerio/wasmer/tree/master/lib/c-api
-[`wasmer.h` header]: https://github.com/wasmerio/wasmer/blob/master/lib/c-api/wasmer.h
+[c integration]: https://github.com/wasmerio/wasmer/tree/main/lib/c-api
+[`wasmer.h` header]: https://github.com/wasmerio/wasmer/blob/main/lib/c-api/wasmer.h
 [c docs]: https://docs.rs/wasmer-c-api/*/wasmer_c_api/wasm_c_api/index.html
 
 [c# logo]: https://raw.githubusercontent.com/wasmerio/wasmer/master/assets/languages/csharp.svg

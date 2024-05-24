@@ -7,13 +7,13 @@ use crate::commands::CliCommand;
 
 /// Prints a summarized version of contents of a journal to stdout
 #[derive(Debug, Parser)]
-pub struct CmdJournaInspect {
+pub struct CmdJournalInspect {
     /// Path to the journal that will be printed
     #[clap(index = 1)]
     journal_path: PathBuf,
 }
 
-impl CliCommand for CmdJournaInspect {
+impl CliCommand for CmdJournalInspect {
     type Output = ();
 
     fn run(self) -> Result<(), anyhow::Error> {

@@ -2,7 +2,8 @@ use std::{cell::RefCell, collections::HashMap};
 
 use wasmer::{Engine, Module};
 
-use crate::runtime::module_cache::{CacheError, ModuleCache, ModuleHash};
+use crate::runtime::module_cache::{CacheError, ModuleCache};
+use wasmer_types::ModuleHash;
 
 std::thread_local! {
     static CACHED_MODULES: RefCell<HashMap<(ModuleHash, String), Module>>
@@ -70,7 +71,7 @@ mod tests {
         let engine = Engine::default();
         let module = Module::new(&engine, ADD_WAT).unwrap();
         let cache = ThreadLocalCache::default();
-        let key = ModuleHash::from_bytes([0; 8]);
+        let key = ModuleHash::xxhash_from_bytes([0; 8]);
 
         cache.save(key, &engine, &module).await.unwrap();
         let round_tripped = cache.load(key, &engine).await.unwrap();

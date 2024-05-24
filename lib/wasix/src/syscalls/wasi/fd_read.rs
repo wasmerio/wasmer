@@ -44,6 +44,7 @@ pub fn fd_read<M: MemorySize>(
         fd_entry.offset.load(Ordering::Acquire) as usize
     };
 
+    ctx = wasi_try_ok!(maybe_backoff::<M>(ctx)?);
     if fd == DeviceFile::STDIN {
         ctx = wasi_try_ok!(maybe_snapshot_once::<M>(ctx, SnapshotTrigger::FirstStdin)?);
     }
@@ -79,6 +80,7 @@ pub fn fd_pread<M: MemorySize>(
     let pid = ctx.data().pid();
     let tid = ctx.data().tid();
 
+    ctx = wasi_try_ok!(maybe_backoff::<M>(ctx)?);
     if fd == DeviceFile::STDIN {
         ctx = wasi_try_ok!(maybe_snapshot_once::<M>(ctx, SnapshotTrigger::FirstStdin)?);
     }
@@ -115,6 +117,7 @@ pub(crate) fn fd_read_internal_handler<M: MemorySize>(
     Ok(ret)
 }
 
+#[allow(clippy::await_holding_lock)]
 pub(crate) fn fd_read_internal<M: MemorySize>(
     ctx: &mut FunctionEnvMut<'_, WasiEnv>,
     fd: WasiFd,

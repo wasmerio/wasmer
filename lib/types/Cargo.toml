@@ -18,11 +18,21 @@ serde_bytes = { version = "0.11", optional = true }
 thiserror = "1.0"
 more-asserts = "0.2"
 indexmap = { version = "1.6" }
-rkyv = { version = "0.7.40", features = ["indexmap", "validation", "strict"] }
+rkyv = { workspace = true }
 enum-iterator = "0.7.0"
 target-lexicon = { version = "0.12.2", default-features = false }
 enumset.workspace = true
 bytecheck = "0.6.8"
+webc = { workspace = true, default-features = false }
+xxhash-rust = { version = "0.8.8", features = ["xxh64"] }
+sha2 = { version = "0.10" }
+hex = { version = "^0.4" }
+
+# `rand` uses `getrandom` transitively, and to be able to
+# compile the project for `js`, we need to enable this feature
+[dependencies.getrandom]
+version = "0.2.14"
+features = ["js"]
 
 [dev-dependencies]
 memoffset.workspace = true

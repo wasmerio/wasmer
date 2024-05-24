@@ -67,6 +67,7 @@ impl Module {
     ///
     pub(crate) unsafe fn from_js_module(module: JSObject, binary: impl IntoBytes) -> Self {
         let binary = binary.into_bytes();
+
         // The module is now validated, so we can safely parse it's types
         let info = crate::module_info_polyfill::translate_module(&binary[..])
             .unwrap()

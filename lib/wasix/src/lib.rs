@@ -11,7 +11,7 @@
 //! Wasm functions.
 //!
 //! See `state` for the experimental WASI FS API.  Also see the
-//! [WASI plugin example](https://github.com/wasmerio/wasmer/blob/master/examples/plugin.rs)
+//! [WASI plugin example](https://github.com/wasmerio/wasmer/blob/main/examples/plugin.rs)
 //! for an example of how to extend WASI using the WASI FS API.
 
 #[cfg(all(not(feature = "sys"), not(feature = "js")))]
@@ -54,9 +54,6 @@ pub mod runtime;
 mod state;
 mod syscalls;
 mod utils;
-
-/// WAI based bindings.
-mod bindings;
 
 use std::sync::Arc;
 
@@ -102,11 +99,11 @@ pub use crate::{
         WasiEnv, WasiEnvBuilder, WasiEnvInit, WasiFunctionEnv, WasiInstanceHandles,
         WasiStateCreationError, ALL_RIGHTS,
     },
-    syscalls::{rewind, rewind_ext, types, unwind},
+    syscalls::{journal::wait_for_snapshot, rewind, rewind_ext, types, unwind},
     utils::is_wasix_module,
     utils::{
         get_wasi_version, get_wasi_versions, is_wasi_module,
-        store::{capture_instance_snapshot, restore_instance_snapshot, InstanceSnapshot},
+        store::{capture_store_snapshot, restore_store_snapshot, StoreSnapshot},
         WasiVersion,
     },
 };
@@ -140,9 +137,14 @@ pub enum SpawnError {
     /// Failed to fetch the Wasmer process
     #[error("fetch failed")]
     FetchFailed,
+    #[error(transparent)]
+    CacheError(crate::runtime::module_cache::CacheError),
     /// Failed to compile the Wasmer process
     #[error("compile error")]
-    CompileError,
+    CompileError {
+        module_hash: wasmer_types::ModuleHash,
+        error: wasmer::CompileError,
+    },
     /// Invalid ABI
     #[error("Wasmer process has an invalid ABI")]
     InvalidABI,
@@ -153,8 +155,18 @@ pub enum SpawnError {
     #[error("unsupported")]
     Unsupported,
     /// Not found
-    #[error("not found")]
-    NotFound,
+    #[error("not found: {message}")]
+    NotFound { message: String },
+    /// Tried to run the specified binary as a new WASI thread/process, but
+    /// the binary name was not found.
+    #[error("could not find binary '{binary}'")]
+    BinaryNotFound { binary: String },
+    #[error("could not find an entrypoint in the package '{package_id}'")]
+    MissingEntrypoint {
+        package_id: wasmer_config::package::PackageId,
+    },
+    #[error("could not load ")]
+    ModuleLoad { message: String },
     /// Bad request
     #[error("bad request")]
     BadRequest,
@@ -165,8 +177,8 @@ pub enum SpawnError {
     #[error("internal error")]
     InternalError,
     /// An error occurred while preparing the file system
-    #[error("file system error")]
-    FileSystemError,
+    #[error(transparent)]
+    FileSystemError(ExtendedFsError),
     /// Memory allocation failed
     #[error("memory allocation failed")]
     MemoryAllocationFailed,
@@ -182,13 +194,53 @@ pub enum SpawnError {
     Other(#[from] Box<dyn std::error::Error + Send + Sync>),
 }
 
+#[derive(Debug)]
+pub struct ExtendedFsError {
+    pub error: virtual_fs::FsError,
+    pub message: Option<String>,
+}
+
+impl ExtendedFsError {
+    pub fn with_msg(error: virtual_fs::FsError, msg: impl Into<String>) -> Self {
+        Self {
+            error,
+            message: Some(msg.into()),
+        }
+    }
+
+    pub fn new(error: virtual_fs::FsError) -> Self {
+        Self {
+            error,
+            message: None,
+        }
+    }
+}
+
+impl std::fmt::Display for ExtendedFsError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
+        write!(f, "fs error: {}", self.error)?;
+
+        if let Some(msg) = &self.message {
+            write!(f, " | {}", msg)?;
+        }
+
+        Ok(())
+    }
+}
+
+impl std::error::Error for ExtendedFsError {
+    fn cause(&self) -> Option<&dyn std::error::Error> {
+        Some(&self.error)
+    }
+}
+
 impl SpawnError {
     /// Returns `true` if the spawn error is [`NotFound`].
     ///
     /// [`NotFound`]: SpawnError::NotFound
     #[must_use]
     pub fn is_not_found(&self) -> bool {
-        matches!(self, Self::NotFound)
+        matches!(self, Self::NotFound { .. } | Self::MissingEntrypoint { .. })
     }
 }
 
@@ -685,7 +737,7 @@ fn stub_initializer(
 // TODO: split function into two variants, one for JS and one for sys.
 // (this will make code less messy)
 fn import_object_for_all_wasi_versions(
-    module: &wasmer::Module,
+    _module: &wasmer::Module,
     store: &mut impl AsStoreMut,
     env: &FunctionEnv<WasiEnv>,
 ) -> (Imports, ModuleInitializer) {
@@ -705,31 +757,7 @@ fn import_object_for_all_wasi_versions(
         "wasix_64v1" => exports_wasix_64v1,
     };
 
-    // TODO: clean this up!
-    cfg_if::cfg_if! {
-        if #[cfg(feature = "sys")] {
-            // Check if the module needs http.
-
-            let has_canonical_realloc = module.exports().any(|t| t.name() == "canonical_abi_realloc");
-            let has_wasix_http_import = module.imports().any(|t| t.module() == "wasix_http_client_v1");
-
-            let init = if has_canonical_realloc && has_wasix_http_import {
-                let wenv = env.as_ref(store);
-                let http = crate::http::client_impl::WasixHttpClientImpl::new(wenv);
-                    crate::bindings::wasix_http_client_v1::add_to_imports(
-                        store,
-                        &mut imports,
-                        http,
-                    )
-            } else {
-                Box::new(stub_initializer) as ModuleInitializer
-            };
-        } else {
-            // Prevents unused warning.
-            let _ = module;
-            let init = Box::new(stub_initializer) as ModuleInitializer;
-        }
-    }
+    let init = Box::new(stub_initializer) as ModuleInitializer;
 
     (imports, init)
 }
@@ -796,6 +824,25 @@ pub(crate) fn block_in_place<Ret>(thunk: impl FnOnce() -> Ret) -> Ret {
             tokio::task::block_in_place(thunk)
         } else {
             thunk()
+        }
+    }
+}
+
+/// Spawns a new blocking task that runs the provided closure.
+///
+/// The closure is executed on a separate thread, allowing it to perform blocking operations
+/// without blocking the main thread. The closure is wrapped in a `Future` that resolves to the
+/// result of the closure's execution.
+pub(crate) async fn spawn_blocking<F, R>(f: F) -> Result<R, tokio::task::JoinError>
+where
+    F: FnOnce() -> R + Send + 'static,
+    R: Send + 'static,
+{
+    cfg_if::cfg_if! {
+        if #[cfg(target_arch = "wasm32")] {
+            Ok(block_in_place(f))
+        } else {
+            tokio::task::spawn_blocking(f).await
         }
     }
 }

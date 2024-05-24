@@ -180,7 +180,7 @@ impl Compiler for SinglepassCompiler {
                         generator.finalize(input)
                     }
                     Architecture::Aarch64(_) => {
-                        let machine = MachineARM64::new();
+                        let machine = MachineARM64::new(Some(target.clone()));
                         let mut generator = FuncGen::new(
                             module,
                             &self.config,

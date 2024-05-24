@@ -168,9 +168,6 @@ exclude_tests := --exclude wasmer-c-api --exclude wasmer-cli --exclude wasmer-co
 # We run integration tests separately (it requires building the c-api)
 exclude_tests += --exclude wasmer-integration-tests-cli
 exclude_tests += --exclude wasmer-integration-tests-ios
-# wasix_http_client is only for the WASM target, must be tested separately
-# FIXME: add separate test step!
-exclude_tests += --exclude wasix_http_client
 
 ifneq (, $(findstring llvm,$(compilers)))
 	ENABLE_LLVM := 1
@@ -385,7 +382,6 @@ check-wasmer-wasm:
 check-capi:
 	RUSTFLAGS="${RUSTFLAGS}" $(CARGO_BINARY) check $(CARGO_TARGET_FLAG) --manifest-path lib/c-api/Cargo.toml  \
 		--no-default-features --features wat,compiler,wasi,middlewares $(capi_compiler_features)
-
 
 build-wasmer:
 	$(CARGO_BINARY) build $(CARGO_TARGET_FLAG) --release --manifest-path lib/cli/Cargo.toml $(compiler_features) --bin wasmer --locked
@@ -631,6 +627,10 @@ test-wasi-unit:
 
 test-wasi:
 	$(CARGO_BINARY) test $(CARGO_TARGET_FLAG) --release --tests $(compiler_features) --locked -- wasi::wasitests
+
+test-wasi-fyi: build-wasmer
+	cd tests/wasi-fyi; \
+	./test.sh
 
 test-integration-cli: build-wasmer build-capi package-capi-headless package distribution
 	cp ./dist/wasmer.tar.gz ./link.tar.gz

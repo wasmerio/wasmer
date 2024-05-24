@@ -1,5 +1,5 @@
 // This file contains code from external sources.
-// Attributions: https://github.com/wasmerio/wasmer/blob/master/ATTRIBUTIONS.md
+// Attributions: https://github.com/wasmerio/wasmer/blob/main/ATTRIBUTIONS.md
 
 //! Module for Windows x64 ABI unwind registry.
 use std::collections::HashMap;

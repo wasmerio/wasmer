@@ -1,4 +1,4 @@
-# `wasmer-compiler` [![Build Status](https://github.com/wasmerio/wasmer/workflows/build/badge.svg?style=flat-square)](https://github.com/wasmerio/wasmer/actions?query=workflow%3Abuild) [![Join Wasmer Slack](https://img.shields.io/static/v1?label=Slack&message=join%20chat&color=brighgreen&style=flat-square)](https://slack.wasmer.io) [![MIT License](https://img.shields.io/github/license/wasmerio/wasmer.svg?style=flat-square)](https://github.com/wasmerio/wasmer/blob/master/LICENSE)
+# `wasmer-compiler` [![Build Status](https://github.com/wasmerio/wasmer/workflows/build/badge.svg?style=flat-square)](https://github.com/wasmerio/wasmer/actions?query=workflow%3Abuild) [![Join Wasmer Slack](https://img.shields.io/static/v1?label=Slack&message=join%20chat&color=brighgreen&style=flat-square)](https://slack.wasmer.io) [![MIT License](https://img.shields.io/github/license/wasmerio/wasmer.svg?style=flat-square)](https://github.com/wasmerio/wasmer/blob/main/LICENSE)
 
 This crate is the base for Compiler implementations.
 
@@ -8,9 +8,9 @@ compiler implementor.
 
 Here are some of the Compilers provided by Wasmer:
 
-* [Singlepass](https://github.com/wasmerio/wasmer/tree/master/lib/compiler-singlepass),
-* [Cranelift](https://github.com/wasmerio/wasmer/tree/master/lib/compiler-cranelift),
-* [LLVM](https://github.com/wasmerio/wasmer/tree/master/lib/compiler-llvm).
+* [Singlepass](https://github.com/wasmerio/wasmer/tree/main/lib/compiler-singlepass),
+* [Cranelift](https://github.com/wasmerio/wasmer/tree/main/lib/compiler-cranelift),
+* [LLVM](https://github.com/wasmerio/wasmer/tree/main/lib/compiler-llvm).
 
 ## How to create a compiler
 
@@ -53,4 +53,4 @@ attributions of the project.
 
 
 [`cranelift-wasm`]: https://crates.io/crates/cranelift-wasm
-[Wasmer `ATTRIBUTIONS`]: https://github.com/wasmerio/wasmer/blob/master/ATTRIBUTIONS.md
+[Wasmer `ATTRIBUTIONS`]: https://github.com/wasmerio/wasmer/blob/main/ATTRIBUTIONS.md

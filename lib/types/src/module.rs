@@ -1,5 +1,5 @@
 // This file contains code from external sources.
-// Attributions: https://github.com/wasmerio/wasmer/blob/master/ATTRIBUTIONS.md
+// Attributions: https://github.com/wasmerio/wasmer/blob/main/ATTRIBUTIONS.md
 
 //! Data structure for representing WebAssembly modules in a
 //! `wasmer::Module`.
@@ -8,9 +8,10 @@ use crate::entity::{EntityRef, PrimaryMap};
 use crate::{
     CustomSectionIndex, DataIndex, ElemIndex, ExportIndex, ExportType, ExternType, FunctionIndex,
     FunctionType, GlobalIndex, GlobalInit, GlobalType, ImportIndex, ImportType, LocalFunctionIndex,
-    LocalGlobalIndex, LocalMemoryIndex, LocalTableIndex, MemoryIndex, MemoryType, SignatureIndex,
-    TableIndex, TableInitializer, TableType,
+    LocalGlobalIndex, LocalMemoryIndex, LocalTableIndex, MemoryIndex, MemoryType, ModuleHash,
+    SignatureIndex, TableIndex, TableInitializer, TableType,
 };
+
 use indexmap::IndexMap;
 use rkyv::{
     de::SharedDeserializeRegistry, ser::ScratchSpace, ser::Serializer,
@@ -26,7 +27,7 @@ use std::iter::ExactSizeIterator;
 use std::sync::atomic::{AtomicUsize, Ordering::SeqCst};
 
 #[derive(Debug, Clone, RkyvSerialize, RkyvDeserialize, Archive)]
-#[archive_attr(derive(CheckBytes))]
+#[archive_attr(derive(CheckBytes, Debug))]
 pub struct ModuleId {
     id: usize,
 }
@@ -49,7 +50,7 @@ impl Default for ModuleId {
 /// Hash key of an import
 #[derive(Debug, Hash, Eq, PartialEq, Clone, Default, RkyvSerialize, RkyvDeserialize, Archive)]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
-#[archive_attr(derive(CheckBytes, PartialEq, Eq, Hash))]
+#[archive_attr(derive(CheckBytes, PartialEq, Eq, Hash, Debug))]
 pub struct ImportKey {
     /// Module name
     pub module: String,
@@ -99,6 +100,10 @@ mod serde_imports {
 
 /// A translated WebAssembly module, excluding the function bodies and
 /// memory initializers.
+///
+/// IMPORTANT: since this struct will be serialized as part of the compiled module artifact,
+/// if you change this struct, do not forget to update [`MetadataHeader::version`](crate::serialize::MetadataHeader)
+/// to make sure we don't break compatibility between versions.
 #[derive(Debug, Clone, Default)]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 pub struct ModuleInfo {
@@ -110,6 +115,9 @@ pub struct ModuleInfo {
     /// it's still deserialized back as a garbage number, and later override from computed by the process
     #[cfg_attr(feature = "enable-serde", serde(skip_serializing, skip_deserializing))]
     pub id: ModuleId,
+
+    /// hash of the module
+    pub hash: Option<ModuleHash>,
 
     /// The name of this wasm module, often found in the wasm file.
     pub name: Option<String>,
@@ -178,10 +186,11 @@ pub struct ModuleInfo {
 }
 
 /// Mirror version of ModuleInfo that can derive rkyv traits
-#[derive(RkyvSerialize, RkyvDeserialize, Archive)]
-#[archive_attr(derive(CheckBytes))]
+#[derive(Debug, RkyvSerialize, RkyvDeserialize, Archive)]
+#[archive_attr(derive(CheckBytes, Debug))]
 pub struct ArchivableModuleInfo {
     name: Option<String>,
+    hash: Option<ModuleHash>,
     imports: IndexMap<ImportKey, ImportIndex>,
     exports: IndexMap<String, ExportIndex>,
     start_function: Option<FunctionIndex>,
@@ -207,6 +216,7 @@ impl From<ModuleInfo> for ArchivableModuleInfo {
     fn from(it: ModuleInfo) -> Self {
         Self {
             name: it.name,
+            hash: it.hash,
             imports: it.imports,
             exports: it.exports,
             start_function: it.start_function,
@@ -235,6 +245,7 @@ impl From<ArchivableModuleInfo> for ModuleInfo {
         Self {
             id: Default::default(),
             name: it.name,
+            hash: it.hash,
             imports: it.imports,
             exports: it.exports,
             start_function: it.start_function,
@@ -323,6 +334,11 @@ impl ModuleInfo {
     /// Allocates the module data structures.
     pub fn new() -> Self {
         Default::default()
+    }
+
+    /// Returns the module hash if available
+    pub fn hash(&self) -> Option<ModuleHash> {
+        self.hash
     }
 
     /// Get the given passive element, if it exists.

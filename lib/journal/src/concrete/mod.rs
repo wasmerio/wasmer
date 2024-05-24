@@ -1,3 +1,5 @@
+mod aligned_cow_str;
+mod aligned_cow_vec;
 mod arc;
 mod archived;
 mod archived_from;
@@ -20,9 +22,9 @@ mod unsupported;
 
 pub(super) use super::*;
 
-pub use arc::*;
+pub use aligned_cow_str::*;
+pub use aligned_cow_vec::*;
 pub use archived::*;
-pub use boxed::*;
 pub use buffered::*;
 pub use compacting::*;
 #[cfg(feature = "log-file")]

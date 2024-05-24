@@ -61,6 +61,10 @@ impl TmpFileSystem {
 }
 
 impl FileSystem for TmpFileSystem {
+    fn readlink(&self, path: &Path) -> Result<PathBuf> {
+        self.fs.readlink(path)
+    }
+
     fn read_dir(&self, path: &Path) -> Result<ReadDir> {
         self.fs.read_dir(path)
     }

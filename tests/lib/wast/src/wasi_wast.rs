@@ -8,16 +8,13 @@ use std::{
     task::{Context, Poll},
 };
 
-use futures::future::BoxFuture;
 use virtual_fs::{
     host_fs, mem_fs, passthru_fs, tmp_fs, union_fs, AsyncRead, AsyncSeek, AsyncWrite,
     AsyncWriteExt, FileSystem, Pipe, ReadBuf, RootFileSystemBuilder,
 };
 use wasmer::{FunctionEnv, Imports, Module, Store};
-use wasmer_wasix::runtime::{
-    module_cache::ModuleHash,
-    task_manager::{tokio::TokioTaskManager, InlineWaker},
-};
+use wasmer_types::ModuleHash;
+use wasmer_wasix::runtime::task_manager::{tokio::TokioTaskManager, InlineWaker};
 use wasmer_wasix::types::wasi::{Filesize, Timestamp};
 use wasmer_wasix::{
     generate_import_object_from_env, get_wasi_version, FsError, PluggableRuntime, VirtualFile,
@@ -122,7 +119,7 @@ impl<'a> WasiTest<'a> {
             wasm_module.read_to_end(&mut out)?;
             out
         };
-        let module_hash = ModuleHash::hash(&wasm_bytes);
+        let module_hash = ModuleHash::xxhash(&wasm_bytes);
 
         let module = Module::new(store, wasm_bytes)?;
         let (builder, _tempdirs, mut stdin_tx, stdout_rx, stderr_rx) =
@@ -652,8 +649,8 @@ impl VirtualFile for OutputCapturerer {
     fn set_len(&mut self, _new_size: Filesize) -> Result<(), FsError> {
         Ok(())
     }
-    fn unlink(&mut self) -> BoxFuture<'static, Result<(), FsError>> {
-        Box::pin(async { Ok(()) })
+    fn unlink(&mut self) -> Result<(), FsError> {
+        Ok(())
     }
     fn poll_read_ready(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<io::Result<usize>> {
         Poll::Ready(Ok(0))

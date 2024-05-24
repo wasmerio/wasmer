@@ -118,6 +118,7 @@ pub(crate) enum FdWriteSource<'a, M: MemorySize> {
     Buffer(Cow<'a, [u8]>),
 }
 
+#[allow(clippy::await_holding_lock)]
 pub(crate) fn fd_write_internal<M: MemorySize>(
     ctx: &FunctionEnvMut<'_, WasiEnv>,
     fd: WasiFd,
@@ -140,7 +141,7 @@ pub(crate) fn fd_write_internal<M: MemorySize>(
         let fd_flags = fd_entry.flags;
         let mut memory = unsafe { env.memory_view(&ctx) };
 
-        let (bytes_written, can_update_cursor, can_snapshot) = {
+        let (bytes_written, is_file, can_snapshot) = {
             let (mut memory, _) = unsafe { env.get_memory_and_wasi_state(&ctx, 0) };
             let mut guard = fd_entry.inode.write();
             match guard.deref_mut() {
@@ -413,20 +414,33 @@ pub(crate) fn fd_write_internal<M: MemorySize>(
 
         // reborrow and update the size
         if !is_stdio {
-            if can_update_cursor && should_update_cursor {
+            let offset = if is_file && should_update_cursor {
+                let bytes_written = bytes_written as u64;
                 let mut fd_map = state.fs.fd_map.write().unwrap();
                 let fd_entry = wasi_try_ok_ok!(fd_map.get_mut(&fd).ok_or(Errno::Badf));
                 fd_entry
                     .offset
-                    .fetch_add(bytes_written as u64, Ordering::AcqRel);
-            }
+                    .fetch_add(bytes_written, Ordering::AcqRel)
+                    // fetch_add returns the previous value, we have to add bytes_written again here
+                    + bytes_written
+            } else {
+                fd_entry.offset.load(Ordering::Acquire)
+            };
 
             // we set the size but we don't return any errors if it fails as
             // pipes and sockets will not do anything with this
             let (mut memory, _, inodes) =
                 unsafe { env.get_memory_and_wasi_state_and_inodes(&ctx, 0) };
-            // Cast is valid because we don't support 128 bit systems...
-            fd_entry.inode.stat.write().unwrap().st_size += bytes_written as u64;
+            if is_file {
+                let mut stat = fd_entry.inode.stat.write().unwrap();
+                // If we wrote before the end, the current size is still correct.
+                // Otherwise, we only got as far as the current cursor. So, the
+                // max of the two is the correct new size.
+                stat.st_size = stat.st_size.max(offset);
+            } else {
+                // Cast is valid because we don't support 128 bit systems...
+                fd_entry.inode.stat.write().unwrap().st_size += bytes_written as u64;
+            }
         }
         bytes_written
     };

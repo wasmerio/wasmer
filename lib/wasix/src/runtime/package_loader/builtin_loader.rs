@@ -115,9 +115,12 @@ impl BuiltinPackageLoader {
         if dist.webc.scheme() == "file" {
             match crate::runtime::resolver::utils::file_path_from_url(&dist.webc) {
                 Ok(path) => {
-                    // FIXME: This will block the thread
-                    let bytes = std::fs::read(&path)
-                        .with_context(|| format!("Unable to read \"{}\"", path.display()))?;
+                    let bytes = crate::spawn_blocking({
+                        let path = path.clone();
+                        move || std::fs::read(path)
+                    })
+                    .await?
+                    .with_context(|| format!("Unable to read \"{}\"", path.display()))?;
                     return Ok(bytes.into());
                 }
                 Err(e) => {
@@ -202,8 +205,7 @@ impl PackageLoader for BuiltinPackageLoader {
         level="debug",
         skip_all,
         fields(
-            pkg.name=summary.pkg.name.as_str(),
-            pkg.version=%summary.pkg.version,
+            pkg=%summary.pkg.id,
         ),
     )]
     async fn load(&self, summary: &PackageSummary) -> Result<Container, Error> {
@@ -222,7 +224,10 @@ impl PackageLoader for BuiltinPackageLoader {
         // in a smart way to keep memory usage down.
 
         if let Some(cache) = &self.cache {
-            match cache.save_and_load_as_mmapped(&bytes, &summary.dist).await {
+            match cache
+                .save_and_load_as_mmapped(bytes.clone(), &summary.dist)
+                .await
+            {
                 Ok(container) => {
                     tracing::debug!("Cached to disk");
                     self.in_memory.save(&container, summary.dist.webc_sha256);
@@ -233,8 +238,7 @@ impl PackageLoader for BuiltinPackageLoader {
                 Err(e) => {
                     tracing::warn!(
                         error=&*e,
-                        pkg.name=%summary.pkg.name,
-                        pkg.version=%summary.pkg.version,
+                        pkg=%summary.pkg.id,
                         pkg.hash=%summary.dist.webc_sha256,
                         pkg.url=%summary.dist.webc,
                         "Unable to save the downloaded package to disk",
@@ -245,7 +249,7 @@ impl PackageLoader for BuiltinPackageLoader {
 
         // The sad path - looks like we don't have a filesystem cache so we'll
         // need to keep the whole thing in memory.
-        let container = Container::from_bytes(bytes)?;
+        let container = crate::spawn_blocking(move || Container::from_bytes(bytes)).await??;
         // We still want to cache it in memory, of course
         self.in_memory.save(&container, summary.dist.webc_sha256);
         Ok(container)
@@ -271,7 +275,11 @@ impl FileSystemCache {
     async fn lookup(&self, hash: &WebcHash) -> Result<Option<Container>, Error> {
         let path = self.path(hash);
 
-        let container = crate::block_in_place(|| Container::from_disk(&path));
+        let container = crate::spawn_blocking({
+            let path = path.clone();
+            move || Container::from_disk(path)
+        })
+        .await?;
         match container {
             Ok(c) => Ok(Some(c)),
             Err(ContainerError::Open { error, .. })
@@ -288,27 +296,32 @@ impl FileSystemCache {
         }
     }
 
-    async fn save(&self, webc: &[u8], dist: &DistributionInfo) -> Result<(), Error> {
+    async fn save(&self, webc: Bytes, dist: &DistributionInfo) -> Result<(), Error> {
         let path = self.path(&dist.webc_sha256);
+        let dist = dist.clone();
 
-        let parent = path.parent().expect("Always within cache_dir");
+        crate::spawn_blocking(move || {
+            let parent = path.parent().expect("Always within cache_dir");
 
-        std::fs::create_dir_all(parent)
-            .with_context(|| format!("Unable to create \"{}\"", parent.display()))?;
+            std::fs::create_dir_all(parent)
+                .with_context(|| format!("Unable to create \"{}\"", parent.display()))?;
 
-        let mut temp = NamedTempFile::new_in(parent)?;
-        temp.write_all(webc)?;
-        temp.flush()?;
-        temp.as_file_mut().sync_all()?;
-        temp.persist(&path)?;
+            let mut temp = NamedTempFile::new_in(parent)?;
+            temp.write_all(&webc)?;
+            temp.flush()?;
+            temp.as_file_mut().sync_all()?;
+            temp.persist(&path)?;
 
-        tracing::debug!(
-            pkg.hash=%dist.webc_sha256,
-            pkg.url=%dist.webc,
-            path=%path.display(),
-            num_bytes=webc.len(),
-            "Saved to disk",
-        );
+            tracing::debug!(
+                pkg.hash=%dist.webc_sha256,
+                pkg.url=%dist.webc,
+                path=%path.display(),
+                num_bytes=webc.len(),
+                "Saved to disk",
+            );
+            Result::<_, Error>::Ok(())
+        })
+        .await??;
 
         Ok(())
     }
@@ -316,7 +329,7 @@ impl FileSystemCache {
     #[tracing::instrument(level = "debug", skip_all)]
     async fn save_and_load_as_mmapped(
         &self,
-        webc: &[u8],
+        webc: Bytes,
         dist: &DistributionInfo,
     ) -> Result<Container, Error> {
         // First, save it to disk
@@ -368,6 +381,7 @@ mod tests {
     use futures::future::BoxFuture;
     use http::{HeaderMap, StatusCode};
     use tempfile::TempDir;
+    use wasmer_config::package::PackageId;
 
     use crate::{
         http::{HttpRequest, HttpResponse},
@@ -417,8 +431,7 @@ mod tests {
             .with_shared_http_client(client.clone());
         let summary = PackageSummary {
             pkg: PackageInfo {
-                name: "python/python".to_string(),
-                version: "0.1.0".parse().unwrap(),
+                id: PackageId::new_named("python/python", "0.1.0".parse().unwrap()),
                 dependencies: Vec::new(),
                 commands: Vec::new(),
                 entrypoint: Some("asdf".to_string()),

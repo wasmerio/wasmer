@@ -52,6 +52,10 @@ impl FileSystem {
 }
 
 impl crate::FileSystem for FileSystem {
+    fn readlink(&self, path: &Path) -> Result<PathBuf> {
+        fs::read_link(path).map_err(Into::into)
+    }
+
     fn read_dir(&self, path: &Path) -> Result<ReadDir> {
         let read_dir = fs::read_dir(path)?;
         let mut data = read_dir
@@ -150,6 +154,12 @@ impl crate::FileSystem for FileSystem {
 
     fn metadata(&self, path: &Path) -> Result<Metadata> {
         fs::metadata(path)
+            .and_then(TryInto::try_into)
+            .map_err(Into::into)
+    }
+
+    fn symlink_metadata(&self, path: &Path) -> Result<Metadata> {
+        fs::symlink_metadata(path)
             .and_then(TryInto::try_into)
             .map_err(Into::into)
     }
@@ -434,6 +444,14 @@ impl VirtualFile for File {
             .unwrap_or(0)
     }
 
+    fn set_times(&mut self, atime: Option<u64>, mtime: Option<u64>) -> crate::Result<()> {
+        let atime = atime.map(|t| filetime::FileTime::from_unix_time(t as i64, 0));
+        let mtime = mtime.map(|t| filetime::FileTime::from_unix_time(t as i64, 0));
+
+        filetime::set_file_handle_times(&self.inner_std, atime, mtime)
+            .map_err(|_| crate::FsError::IOError)
+    }
+
     fn size(&self) -> u64 {
         self.metadata().len()
     }
@@ -442,9 +460,8 @@ impl VirtualFile for File {
         fs::File::set_len(&self.inner_std, new_size).map_err(Into::into)
     }
 
-    fn unlink(&mut self) -> BoxFuture<'static, Result<()>> {
-        let path = self.host_path.clone();
-        Box::pin(async move { fs::remove_file(&path).map_err(Into::into) })
+    fn unlink(&mut self) -> Result<()> {
+        fs::remove_file(&self.host_path).map_err(Into::into)
     }
 
     fn get_special_fd(&self) -> Option<u32> {
@@ -589,8 +606,8 @@ impl VirtualFile for Stdout {
         Ok(())
     }
 
-    fn unlink(&mut self) -> BoxFuture<'static, Result<()>> {
-        Box::pin(async { Ok(()) })
+    fn unlink(&mut self) -> Result<()> {
+        Ok(())
     }
 
     fn get_special_fd(&self) -> Option<u32> {
@@ -779,8 +796,8 @@ impl VirtualFile for Stderr {
         Ok(())
     }
 
-    fn unlink(&mut self) -> BoxFuture<'static, Result<()>> {
-        Box::pin(async { Ok(()) })
+    fn unlink(&mut self) -> Result<()> {
+        Ok(())
     }
 
     fn get_special_fd(&self) -> Option<u32> {
@@ -915,8 +932,8 @@ impl VirtualFile for Stdin {
     fn set_len(&mut self, _new_size: u64) -> crate::Result<()> {
         Ok(())
     }
-    fn unlink(&mut self) -> BoxFuture<'static, Result<()>> {
-        Box::pin(async { Ok(()) })
+    fn unlink(&mut self) -> Result<()> {
+        Ok(())
     }
     fn get_special_fd(&self) -> Option<u32> {
         Some(0)

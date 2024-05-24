@@ -6,7 +6,7 @@ pub use wasmer_compiler::{
 };
 #[cfg(feature = "compiler")]
 use wasmer_types::Features;
-use wasmer_types::{DeserializeError, Target};
+use wasmer_types::{DeserializeError, HashAlgorithm, Target};
 
 /// Get the default config for the sys Engine
 #[allow(unreachable_code)]
@@ -56,6 +56,9 @@ pub trait NativeEngineExt {
     /// Create a new `Engine` with the given config
     #[cfg(feature = "compiler")]
     fn new(compiler_config: Box<dyn CompilerConfig>, target: Target, features: Features) -> Self;
+
+    /// Sets the hash algorithm
+    fn set_hash_algorithm(&mut self, hash_algorithm: Option<HashAlgorithm>);
 
     /// Create a headless `Engine`
     ///
@@ -128,8 +131,12 @@ impl NativeEngineExt for crate::engine::Engine {
         &self,
         file_ref: &Path,
     ) -> Result<crate::Module, DeserializeError> {
-        let bytes = std::fs::read(file_ref)?;
-        let artifact = Arc::new(Artifact::deserialize_unchecked(&self.0, bytes.into())?);
+        let file = std::fs::File::open(file_ref)?;
+        let artifact = Arc::new(Artifact::deserialize_unchecked(
+            &self.0,
+            OwnedBuffer::from_file(&file)
+                .map_err(|e| DeserializeError::Generic(format!("{e:?}")))?,
+        )?);
         Ok(crate::Module(super::module::Module::from_artifact(
             artifact,
         )))
@@ -148,5 +155,9 @@ impl NativeEngineExt for crate::engine::Engine {
         Ok(crate::Module(super::module::Module::from_artifact(
             artifact,
         )))
+    }
+
+    fn set_hash_algorithm(&mut self, hash_algorithm: Option<HashAlgorithm>) {
+        self.0.set_hash_algorithm(hash_algorithm)
     }
 }

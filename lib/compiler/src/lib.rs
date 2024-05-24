@@ -8,21 +8,15 @@
 #![deny(missing_docs, trivial_numeric_casts, unused_extern_crates)]
 #![warn(unused_import_braces)]
 #![cfg_attr(not(feature = "std"), no_std)]
-#![cfg_attr(
-    feature = "cargo-clippy",
-    allow(clippy::new_without_default, clippy::upper_case_acronyms)
-)]
-#![cfg_attr(
-    feature = "cargo-clippy",
-    warn(
-        clippy::float_arithmetic,
-        clippy::mut_mut,
-        clippy::nonminimal_bool,
-        clippy::map_unwrap_or,
-        clippy::print_stdout,
-        clippy::unicode_not_nfc,
-        clippy::use_self
-    )
+#![allow(clippy::new_without_default, clippy::upper_case_acronyms)]
+#![warn(
+    clippy::float_arithmetic,
+    clippy::mut_mut,
+    clippy::nonminimal_bool,
+    clippy::map_unwrap_or,
+    clippy::print_stdout,
+    clippy::unicode_not_nfc,
+    clippy::use_self
 )]
 #![cfg_attr(docsrs, feature(doc_cfg, doc_auto_cfg))]
 
@@ -37,6 +31,7 @@ compile_error!("Both the `std` and `core` features are disabled. Please enable o
 #[cfg(feature = "core")]
 extern crate alloc;
 
+#[allow(unused_imports)]
 mod lib {
     #[cfg(feature = "core")]
     pub mod std {
@@ -57,10 +52,8 @@ mod traits;
 pub use crate::engine::*;
 pub use crate::traits::*;
 
-#[cfg(feature = "translator")]
 mod artifact_builders;
 
-#[cfg(feature = "translator")]
 pub use self::artifact_builders::*;
 
 #[cfg(feature = "translator")]

@@ -93,7 +93,7 @@ impl fmt::Display for RelocationKind {
 /// A record of a relocation to perform.
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 #[derive(RkyvSerialize, RkyvDeserialize, Archive, Debug, Clone, PartialEq, Eq)]
-#[archive_attr(derive(rkyv::CheckBytes))]
+#[archive_attr(derive(rkyv::CheckBytes, Debug))]
 pub struct Relocation {
     /// The relocation kind.
     pub kind: RelocationKind,

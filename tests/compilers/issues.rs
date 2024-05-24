@@ -442,3 +442,20 @@ fn large_number_local(mut config: crate::Config) -> Result<()> {
     assert_eq!(&Value::I64(1_i64), result.get(0).unwrap());
     Ok(())
 }
+
+#[cfg(target_arch = "aarch64")]
+#[compiler_test(issues)]
+/// Singlepass panics on aarch64 for long relocations.
+///
+/// Note: this one is specific to Singlepass, but we want to test in all
+/// available compilers.
+///
+/// https://github.com/wasmerio/wasmer/issues/4519
+fn issue_4519(mut config: crate::Config) -> Result<()> {
+    let wasm = include_bytes!("./data/4519_singlepass_panic.wasm");
+
+    let mut store = config.store();
+    let module = Module::new(&store, wasm)?;
+
+    Ok(())
+}

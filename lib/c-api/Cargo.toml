@@ -24,25 +24,30 @@ crate-type = ["staticlib", "cdylib"] #"cdylib", "rlib", "staticlib"]
 [dependencies]
 # We rename `wasmer` to `wasmer-api` to avoid the conflict with this
 # library name (see `[lib]`).
-wasmer-api = { version = "=4.2.5", path = "../api", default-features = false, package = "wasmer" }
-wasmer-compiler = { version = "=4.2.5", path = "../compiler", optional = true }
-wasmer-compiler-cranelift = { version = "=4.2.5", path = "../compiler-cranelift", optional = true }
-wasmer-compiler-llvm = { version = "=4.2.5", path = "../compiler-llvm", optional = true }
-wasmer-compiler-singlepass = { version = "=4.2.5", path = "../compiler-singlepass", optional = true }
-wasmer-emscripten = { version = "=4.2.5", path = "../emscripten", optional = true }
-wasmer-middlewares = { version = "=4.2.5", path = "../middlewares", optional = true }
-wasmer-types = { version = "=4.2.5", path = "../types" }
-wasmer-wasix = { version = "0.18.0", path = "../wasix", features = ["host-fs", "host-vnet"], optional = true }
-webc = { version = "5.0", optional = true }
-virtual-fs = { version = "0.11.0", path = "../virtual-fs", optional = true, default-features = false, features = ["static-fs"] }
+wasmer-api = { version = "=4.3.0", path = "../api", default-features = false, package = "wasmer" }
+wasmer-compiler = { version = "=4.3.0", path = "../compiler", optional = true }
+wasmer-compiler-cranelift = { version = "=4.3.0", path = "../compiler-cranelift", optional = true }
+wasmer-compiler-llvm = { version = "=4.3.0", path = "../compiler-llvm", optional = true }
+wasmer-compiler-singlepass = { version = "=4.3.0", path = "../compiler-singlepass", optional = true }
+wasmer-emscripten = { version = "=4.3.0", path = "../emscripten", optional = true }
+wasmer-middlewares = { version = "=4.3.0", path = "../middlewares", optional = true }
+wasmer-types = { version = "=4.3.0", path = "../types" }
+wasmer-wasix = { path = "../wasix", version="=0.20.0", features = ["host-fs", "host-vnet"], optional = true }
+webc = { workspace = true, optional = true }
+virtual-fs = { version = "0.11.4", path = "../virtual-fs", optional = true, default-features = false, features = ["static-fs"] }
 enumset.workspace = true
 cfg-if = "1.0"
 lazy_static = "1.4"
-libc = { version = "^0.2", default-features = false }
+libc.workspace = true
 thiserror = "1"
 typetag = { version = "0.1", optional = true }
 paste = "1.0"
 tokio = { version = "1", features = [ "rt", "rt-multi-thread", "io-util", "sync", "macros"], default_features = false }
+tracing = { version = "0.1" }
+tracing-subscriber = { version = "0.3", features = [
+	"env-filter",
+	"fmt",
+] }
 
 [dev-dependencies]
 field-offset = "0.3.3"

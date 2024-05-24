@@ -3,12 +3,12 @@ name: Documentation
 on:
   push:
     branches:
-      - 'master'
+      - 'main'
     paths:
       - 'lib/**'
 
 env:
-  MSRV: "1.73"
+  MSRV: "1.74"
 
 jobs:
   documentation:

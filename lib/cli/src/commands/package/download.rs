@@ -4,8 +4,9 @@ use anyhow::{bail, Context};
 use dialoguer::console::{style, Emoji};
 use indicatif::{ProgressBar, ProgressStyle};
 use tempfile::NamedTempFile;
+use wasmer_config::package::{PackageIdent, PackageSource};
 use wasmer_registry::wasmer_env::WasmerEnv;
-use wasmer_wasix::runtime::resolver::PackageSpecifier;
+use wasmer_wasix::http::reqwest::get_proxy;
 
 /// Download a package from the registry.
 #[derive(clap::Parser, Debug)]
@@ -27,10 +28,7 @@ pub struct PackageDownload {
     pub quiet: bool,
 
     /// The package to download.
-    /// Can be:
-    /// * a pakage specifier: `namespace/package[@vesion]`
-    /// * a URL
-    package: PackageSpecifier,
+    package: PackageSource,
 }
 
 static CREATING_OUTPUT_DIRECTORY_EMOJI: Emoji<'_, '_> = Emoji("📁 ", "");
@@ -93,45 +91,63 @@ impl PackageDownload {
 
         step_num += 1;
 
-        let (full_name, version, api_endpoint, token) = match &self.package {
-            PackageSpecifier::Registry { full_name, version } => {
+        let (download_url, token) = match &self.package {
+            PackageSource::Ident(PackageIdent::Named(id)) => {
                 let endpoint = self.env.registry_endpoint()?;
-                let version = version.to_string();
+                let version = id.version_or_default().to_string();
                 let version = if version == "*" { None } else { Some(version) };
+                let full_name = id.full_name();
+                let token = self.env.get_token_opt().map(|x| x.to_string());
 
-                (
-                    full_name,
-                    version,
-                    endpoint,
-                    self.env.get_token_opt().map(|x| x.to_string()),
+                let package = wasmer_registry::query_package_from_registry(
+                    endpoint.as_str(),
+                    &full_name,
+                    version.as_deref(),
+                    token.as_deref(),
                 )
+                .with_context(|| {
+                    format!(
+                "could not retrieve package information for package '{}' from registry '{}'",
+                full_name, endpoint,
+            )
+                })?;
+
+                let download_url = package
+                    .pirita_url
+                    .context("registry does provide a container download container download URL")?;
+
+                (download_url, token)
             }
-            PackageSpecifier::Url(url) => {
-                bail!("cannot download a package from a URL: '{}'", url);
+            PackageSource::Ident(PackageIdent::Hash(hash)) => {
+                let endpoint = self.env.registry_endpoint()?;
+                let token = self.env.get_token_opt().map(|x| x.to_string());
+
+                let client = wasmer_api::WasmerClient::new(endpoint, "wasmer-cli")?;
+                let client = if let Some(token) = &token {
+                    client.with_auth_token(token.clone())
+                } else {
+                    client
+                };
+
+                let rt = tokio::runtime::Runtime::new()?;
+                let pkg = rt.block_on(wasmer_api::query::get_package_release(&client, &hash.to_string()))?
+                    .with_context(|| format!("Package with {hash} does not exist in the registry, or is not accessible"))?;
+
+                (pkg.webc_url, token)
             }
-            PackageSpecifier::Path(_) => {
-                bail!("cannot download a package from a local path");
-            }
+            PackageSource::Path(p) => bail!("cannot download a package from a local path: '{p}'"),
+            PackageSource::Url(url) => bail!("cannot download a package from a URL: '{}'", url),
         };
 
-        let package = wasmer_registry::query_package_from_registry(
-            api_endpoint.as_str(),
-            full_name,
-            version.as_deref(),
-            token.as_deref(),
-        )
-        .with_context(|| {
-            format!(
-                "could not retrieve package information for package '{}' from registry '{}'",
-                full_name, api_endpoint,
-            )
-        })?;
+        let builder = {
+            let mut builder = reqwest::blocking::ClientBuilder::new();
+            if let Some(proxy) = get_proxy()? {
+                builder = builder.proxy(proxy);
+            }
+            builder
+        };
+        let client = builder.build().context("failed to create reqwest client")?;
 
-        let download_url = package
-            .pirita_url
-            .context("registry does provide a container download container download URL")?;
-
-        let client = reqwest::blocking::Client::new();
         let mut b = client
             .get(download_url)
             .header(http::header::ACCEPT, "application/webc");

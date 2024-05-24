@@ -1,18 +1,22 @@
-use std::{collections::HashSet, time::Duration};
+use std::{collections::HashSet, pin::Pin, time::Duration};
 
 use anyhow::{bail, Context};
 use cynic::{MutationBuilder, QueryBuilder};
-use edge_schema::schema::{NetworkTokenV1, WebcIdent};
-use futures::StreamExt;
+use edge_schema::schema::NetworkTokenV1;
+use futures::{Stream, StreamExt};
 use time::OffsetDateTime;
 use tracing::Instrument;
 use url::Url;
+use wasmer_config::package::PackageIdent;
 
 use crate::{
     types::{
         self, CreateNamespaceVars, DeployApp, DeployAppConnection, DeployAppVersion,
-        DeployAppVersionConnection, GetDeployAppAndVersion, GetDeployAppVersionsVars,
-        GetNamespaceAppsVars, Log, PackageVersionConnection, PublishDeployAppVars,
+        DeployAppVersionConnection, DnsDomain, GetAppTemplateFromSlugVariables,
+        GetAppTemplatesQueryVariables, GetCurrentUserWithAppsVars, GetDeployAppAndVersion,
+        GetDeployAppVersionsVars, GetNamespaceAppsVars, GetSignedUrlForPackageUploadVariables, Log,
+        LogStream, PackageVersionConnection, PublishDeployAppVars, PushPackageReleasePayload,
+        SignedUrl, TagPackageReleasePayload, UpsertDomainFromZoneFileVars,
     },
     GraphQLApiFailure, WasmerClient,
 };
@@ -23,10 +27,21 @@ use crate::{
 /// the API, and should not be used where possible.
 pub async fn fetch_webc_package(
     client: &WasmerClient,
-    ident: &WebcIdent,
+    ident: &PackageIdent,
     default_registry: &Url,
 ) -> Result<webc::compat::Container, anyhow::Error> {
-    let url = ident.build_download_url_with_default_registry(default_registry);
+    let url = match ident {
+        PackageIdent::Named(n) => Url::parse(&format!(
+            "{default_registry}/{}:{}",
+            n.full_name(),
+            n.version_or_default()
+        ))?,
+        PackageIdent::Hash(h) => match get_package_release(client, &h.to_string()).await? {
+            Some(webc) => Url::parse(&webc.webc_url)?,
+            None => anyhow::bail!("Could not find package with hash '{}'", h),
+        },
+    };
+
     let data = client
         .client
         .get(url)
@@ -39,6 +54,114 @@ pub async fn fetch_webc_package(
         .await?;
 
     webc::compat::Container::from_bytes(data).context("failed to parse webc package")
+}
+
+/// Fetch app templates.
+pub async fn fetch_app_template_from_slug(
+    client: &WasmerClient,
+    slug: String,
+) -> Result<Option<types::AppTemplate>, anyhow::Error> {
+    client
+        .run_graphql_strict(types::GetAppTemplateFromSlug::build(
+            GetAppTemplateFromSlugVariables { slug },
+        ))
+        .await
+        .map(|v| v.get_app_template)
+}
+
+/// Fetch app templates.
+pub async fn fetch_app_templates(
+    client: &WasmerClient,
+    category_slug: String,
+    first: i32,
+) -> Result<Option<types::AppTemplateConnection>, anyhow::Error> {
+    client
+        .run_graphql_strict(types::GetAppTemplatesQuery::build(
+            GetAppTemplatesQueryVariables {
+                category_slug,
+                first,
+            },
+        ))
+        .await
+        .map(|r| r.get_app_templates)
+}
+
+/// Get a signed URL to upload packages.
+pub async fn get_signed_url_for_package_upload(
+    client: &WasmerClient,
+    expires_after_seconds: Option<i32>,
+    filename: Option<&str>,
+    name: Option<&str>,
+    version: Option<&str>,
+) -> Result<Option<SignedUrl>, anyhow::Error> {
+    client
+        .run_graphql(types::GetSignedUrlForPackageUpload::build(
+            GetSignedUrlForPackageUploadVariables {
+                expires_after_seconds,
+                filename,
+                name,
+                version,
+            },
+        ))
+        .await
+        .map(|r| r.get_signed_url_for_package_upload)
+}
+/// Push a package to the registry.
+pub async fn push_package_release(
+    client: &WasmerClient,
+    name: Option<&str>,
+    namespace: &str,
+    signed_url: &str,
+    private: Option<bool>,
+) -> Result<Option<PushPackageReleasePayload>, anyhow::Error> {
+    client
+        .run_graphql_strict(types::PushPackageRelease::build(
+            types::PushPackageReleaseVariables {
+                name,
+                namespace,
+                private,
+                signed_url,
+            },
+        ))
+        .await
+        .map(|r| r.push_package_release)
+}
+
+#[allow(clippy::too_many_arguments)]
+pub async fn tag_package_release(
+    client: &WasmerClient,
+    description: Option<&str>,
+    homepage: Option<&str>,
+    license: Option<&str>,
+    license_file: Option<&str>,
+    manifest: &str,
+    name: &str,
+    namespace: Option<&str>,
+    package_release_id: &cynic::Id,
+    private: Option<bool>,
+    readme: Option<&str>,
+    repository: Option<&str>,
+    version: &str,
+) -> Result<Option<TagPackageReleasePayload>, anyhow::Error> {
+    client
+        .run_graphql_strict(types::TagPackageRelease::build(
+            types::TagPackageReleaseVariables {
+                description,
+                homepage,
+                license,
+                license_file,
+                manifest,
+                name,
+                namespace,
+                package_release_id,
+                private,
+                readme,
+                repository,
+                version,
+            },
+        ))
+        .await
+        .map(|r| r.tag_package_release)
 }
 
 /// Get the currently logged in used, together with all accessible namespaces.
@@ -212,7 +335,6 @@ pub async fn all_app_versions(
 
     loop {
         let page = get_deploy_app_versions(client, vars.clone()).await?;
-        dbg!(&page);
         if page.edges.is_empty() {
             break;
         }
@@ -380,38 +502,45 @@ pub async fn get_app_version_by_id_with_app(
 /// List all apps that are accessible by the current user.
 ///
 /// NOTE: this will only include the first pages and does not provide pagination.
-pub async fn user_apps(client: &WasmerClient) -> Result<Vec<types::DeployApp>, anyhow::Error> {
-    let user = client
-        .run_graphql(types::GetCurrentUserWithApps::build(()))
-        .await?
-        .viewer
-        .context("not logged in")?;
+pub async fn user_apps(
+    client: &WasmerClient,
+) -> impl futures::Stream<Item = Result<Vec<types::DeployApp>, anyhow::Error>> + '_ {
+    futures::stream::try_unfold(None, move |cursor| async move {
+        let user = client
+            .run_graphql(types::GetCurrentUserWithApps::build(
+                GetCurrentUserWithAppsVars { after: cursor },
+            ))
+            .await?
+            .viewer
+            .context("not logged in")?;
 
-    let apps = user
-        .apps
-        .edges
-        .into_iter()
-        .flatten()
-        .filter_map(|x| x.node)
-        .collect();
+        let apps: Vec<_> = user
+            .apps
+            .edges
+            .into_iter()
+            .flatten()
+            .filter_map(|x| x.node)
+            .collect();
 
-    Ok(apps)
+        let cursor = user.apps.page_info.end_cursor;
+
+        if apps.is_empty() {
+            Ok(None)
+        } else {
+            Ok(Some((apps, cursor)))
+        }
+    })
 }
 
 /// List all apps that are accessible by the current user.
-///
-/// NOTE: this does not currently do full pagination properly.
-// TODO(theduke): fix pagination
 pub async fn user_accessible_apps(
     client: &WasmerClient,
-) -> Result<Vec<types::DeployApp>, anyhow::Error> {
-    let mut apps = Vec::new();
-
-    // Get user apps.
-
-    let user_apps = user_apps(client).await?;
-
-    apps.extend(user_apps);
+) -> Result<
+    impl futures::Stream<Item = Result<Vec<types::DeployApp>, anyhow::Error>> + '_,
+    anyhow::Error,
+> {
+    let apps: Pin<Box<dyn Stream<Item = Result<Vec<DeployApp>, anyhow::Error>> + Send + Sync>> =
+        Box::pin(user_apps(client).await);
 
     // Get all aps in user-accessible namespaces.
     let namespace_res = client
@@ -429,18 +558,16 @@ pub async fn user_accessible_apps(
         .map(|node| node.name.clone())
         .collect::<Vec<_>>();
 
-    for namespace in namespace_names {
-        let out = client
-            .run_graphql(types::GetNamespaceApps::build(GetNamespaceAppsVars {
-                name: namespace.to_string(),
-            }))
-            .await?;
+    let mut all_apps = vec![apps];
+    for ns in namespace_names {
+        let apps: Pin<Box<dyn Stream<Item = Result<Vec<DeployApp>, anyhow::Error>> + Send + Sync>> =
+            Box::pin(namespace_apps(client, ns).await);
 
-        if let Some(ns) = out.get_namespace {
-            let ns_apps = ns.apps.edges.into_iter().flatten().filter_map(|x| x.node);
-            apps.extend(ns_apps);
-        }
+        all_apps.push(apps);
     }
+
+    let apps = futures::stream::select_all(all_apps);
+
     Ok(apps)
 }
 
@@ -449,27 +576,38 @@ pub async fn user_accessible_apps(
 /// NOTE: only retrieves the first page and does not do pagination.
 pub async fn namespace_apps(
     client: &WasmerClient,
-    namespace: &str,
-) -> Result<Vec<types::DeployApp>, anyhow::Error> {
-    let res = client
-        .run_graphql(types::GetNamespaceApps::build(GetNamespaceAppsVars {
-            name: namespace.to_string(),
-        }))
-        .await?;
+    namespace: String,
+) -> impl futures::Stream<Item = Result<Vec<types::DeployApp>, anyhow::Error>> + '_ {
+    let namespace = namespace.clone();
 
-    let ns = res
-        .get_namespace
-        .with_context(|| format!("failed to get namespace '{}'", namespace))?;
+    futures::stream::try_unfold((None, namespace), move |(cursor, namespace)| async move {
+        let res = client
+            .run_graphql(types::GetNamespaceApps::build(GetNamespaceAppsVars {
+                name: namespace.to_string(),
+                after: cursor,
+            }))
+            .await?;
 
-    let apps = ns
-        .apps
-        .edges
-        .into_iter()
-        .flatten()
-        .filter_map(|x| x.node)
-        .collect();
+        let ns = res
+            .get_namespace
+            .with_context(|| format!("failed to get namespace '{}'", namespace))?;
 
-    Ok(apps)
+        let apps: Vec<_> = ns
+            .apps
+            .edges
+            .into_iter()
+            .flatten()
+            .filter_map(|x| x.node)
+            .collect();
+
+        let cursor = ns.apps.page_info.end_cursor;
+
+        if apps.is_empty() {
+            Ok(None)
+        } else {
+            Ok(Some((apps, (cursor, namespace))))
+        }
+    })
 }
 
 /// Publish a new app (version).
@@ -596,6 +734,32 @@ pub async fn get_package_versions(
     Ok(res.all_package_versions)
 }
 
+/// Retrieve a package release by hash.
+pub async fn get_package_release(
+    client: &WasmerClient,
+    hash: &str,
+) -> Result<Option<types::PackageWebc>, anyhow::Error> {
+    let hash = hash.trim_start_matches("sha256:");
+    client
+        .run_graphql_strict(types::GetPackageRelease::build(
+            types::GetPackageReleaseVars {
+                hash: hash.to_string(),
+            },
+        ))
+        .await
+        .map(|x| x.get_package_release)
+}
+
+pub async fn get_package_releases(
+    client: &WasmerClient,
+    vars: types::AllPackageReleasesVars,
+) -> Result<types::PackageWebcConnection, anyhow::Error> {
+    let res = client
+        .run_graphql(types::GetAllPackageReleases::build(vars))
+        .await?;
+    Ok(res.all_package_releases)
+}
+
 /// Retrieve all versions of a package as a stream that auto-paginates.
 pub fn get_package_versions_stream(
     client: &WasmerClient,
@@ -621,6 +785,39 @@ pub fn get_package_versions_stream(
                 .collect::<Vec<_>>();
 
             let new_vars = end_cursor.map(|cursor| types::AllPackageVersionsVars {
+                after: Some(cursor),
+                ..vars
+            });
+
+            Ok(Some((items, new_vars)))
+        },
+    )
+}
+
+/// Retrieve all package releases as a stream.
+pub fn get_package_releases_stream(
+    client: &WasmerClient,
+    vars: types::AllPackageReleasesVars,
+) -> impl futures::Stream<Item = Result<Vec<types::PackageWebc>, anyhow::Error>> + '_ {
+    futures::stream::try_unfold(
+        Some(vars),
+        move |vars: Option<types::AllPackageReleasesVars>| async move {
+            let vars = match vars {
+                Some(vars) => vars,
+                None => return Ok(None),
+            };
+
+            let page = get_package_releases(client, vars.clone()).await?;
+
+            let end_cursor = page.page_info.end_cursor;
+
+            let items = page
+                .edges
+                .into_iter()
+                .filter_map(|x| x.and_then(|x| x.node))
+                .collect::<Vec<_>>();
+
+            let new_vars = end_cursor.map(|cursor| types::AllPackageReleasesVars {
                 after: Some(cursor),
                 ..vars
             });
@@ -685,6 +882,7 @@ pub async fn generate_deploy_config_token_raw(
 // The stream can loop forever due to re-fetching the same logs over and over.
 #[tracing::instrument(skip_all, level = "debug")]
 #[allow(clippy::let_with_type_underscore)]
+#[allow(clippy::too_many_arguments)]
 fn get_app_logs(
     client: &WasmerClient,
     name: String,
@@ -693,6 +891,7 @@ fn get_app_logs(
     start: OffsetDateTime,
     end: Option<OffsetDateTime>,
     watch: bool,
+    streams: Option<Vec<LogStream>>,
 ) -> impl futures::Stream<Item = Result<Vec<Log>, anyhow::Error>> + '_ {
     // Note: the backend will limit responses to a certain number of log
     // messages, so we use try_unfold() to keep calling it until we stop getting
@@ -707,6 +906,7 @@ fn get_app_logs(
             first: Some(100),
             starting_from: unix_timestamp(start),
             until: end.map(unix_timestamp),
+            streams: streams.clone(),
         };
 
         let fut = async move {
@@ -715,7 +915,7 @@ fn get_app_logs(
                     .run_graphql(types::GetDeployAppLogs::build(variables.clone()))
                     .await?
                     .get_deploy_app_version
-                    .context("unknown package version")?;
+                    .context("app version not found")?;
 
                 let page: Vec<_> = deploy_app_version
                     .logs
@@ -769,6 +969,7 @@ fn get_app_logs(
 /// final vector.
 #[tracing::instrument(skip_all, level = "debug")]
 #[allow(clippy::let_with_type_underscore)]
+#[allow(clippy::too_many_arguments)]
 pub async fn get_app_logs_paginated(
     client: &WasmerClient,
     name: String,
@@ -777,8 +978,9 @@ pub async fn get_app_logs_paginated(
     start: OffsetDateTime,
     end: Option<OffsetDateTime>,
     watch: bool,
+    streams: Option<Vec<LogStream>>,
 ) -> impl futures::Stream<Item = Result<Vec<Log>, anyhow::Error>> + '_ {
-    let stream = get_app_logs(client, name, owner, tag, start, end, watch);
+    let stream = get_app_logs(client, name, owner, tag, start, end, watch, streams);
 
     stream.map(|res| {
         let mut logs = Vec::new();
@@ -795,6 +997,146 @@ pub async fn get_app_logs_paginated(
     })
 }
 
+/// Retrieve a domain by its name.
+///
+/// Specify with_records to also retrieve all records for the domain.
+pub async fn get_domain(
+    client: &WasmerClient,
+    domain: String,
+) -> Result<Option<types::DnsDomain>, anyhow::Error> {
+    let vars = types::GetDomainVars { domain };
+
+    let opt = client
+        .run_graphql(types::GetDomain::build(vars))
+        .await
+        .map_err(anyhow::Error::from)?
+        .get_domain;
+    Ok(opt)
+}
+
+/// Retrieve a domain by its name.
+///
+/// Specify with_records to also retrieve all records for the domain.
+pub async fn get_domain_zone_file(
+    client: &WasmerClient,
+    domain: String,
+) -> Result<Option<types::DnsDomainWithZoneFile>, anyhow::Error> {
+    let vars = types::GetDomainVars { domain };
+
+    let opt = client
+        .run_graphql(types::GetDomainWithZoneFile::build(vars))
+        .await
+        .map_err(anyhow::Error::from)?
+        .get_domain;
+    Ok(opt)
+}
+
+/// Retrieve a domain by its name, along with all it's records.
+pub async fn get_domain_with_records(
+    client: &WasmerClient,
+    domain: String,
+) -> Result<Option<types::DnsDomainWithRecords>, anyhow::Error> {
+    let vars = types::GetDomainVars { domain };
+
+    let opt = client
+        .run_graphql(types::GetDomainWithRecords::build(vars))
+        .await
+        .map_err(anyhow::Error::from)?
+        .get_domain;
+    Ok(opt)
+}
+
+/// Register a new domain
+pub async fn register_domain(
+    client: &WasmerClient,
+    name: String,
+    namespace: Option<String>,
+    import_records: Option<bool>,
+) -> Result<types::DnsDomain, anyhow::Error> {
+    let vars = types::RegisterDomainVars {
+        name,
+        namespace,
+        import_records,
+    };
+    let opt = client
+        .run_graphql_strict(types::RegisterDomain::build(vars))
+        .await
+        .map_err(anyhow::Error::from)?
+        .register_domain
+        .context("Domain registration failed")?
+        .domain
+        .context("Domain registration failed, no associatede domain found.")?;
+    Ok(opt)
+}
+
+/// Retrieve all DNS records.
+///
+/// NOTE: this is a privileged operation that requires extra permissions.
+pub async fn get_all_dns_records(
+    client: &WasmerClient,
+    vars: types::GetAllDnsRecordsVariables,
+) -> Result<types::DnsRecordConnection, anyhow::Error> {
+    client
+        .run_graphql_strict(types::GetAllDnsRecords::build(vars))
+        .await
+        .map_err(anyhow::Error::from)
+        .map(|x| x.get_all_dnsrecords)
+}
+
+/// Retrieve all DNS domains.
+pub async fn get_all_domains(
+    client: &WasmerClient,
+    vars: types::GetAllDomainsVariables,
+) -> Result<Vec<DnsDomain>, anyhow::Error> {
+    let connection = client
+        .run_graphql_strict(types::GetAllDomains::build(vars))
+        .await
+        .map_err(anyhow::Error::from)
+        .map(|x| x.get_all_domains)
+        .context("no domains returned")?;
+    Ok(connection
+        .edges
+        .into_iter()
+        .flatten()
+        .filter_map(|x| x.node)
+        .collect())
+}
+
+/// Retrieve a domain by its name.
+///
+/// Specify with_records to also retrieve all records for the domain.
+pub fn get_all_dns_records_stream(
+    client: &WasmerClient,
+    vars: types::GetAllDnsRecordsVariables,
+) -> impl futures::Stream<Item = Result<Vec<types::DnsRecord>, anyhow::Error>> + '_ {
+    futures::stream::try_unfold(
+        Some(vars),
+        move |vars: Option<types::GetAllDnsRecordsVariables>| async move {
+            let vars = match vars {
+                Some(vars) => vars,
+                None => return Ok(None),
+            };
+
+            let page = get_all_dns_records(client, vars.clone()).await?;
+
+            let end_cursor = page.page_info.end_cursor;
+
+            let items = page
+                .edges
+                .into_iter()
+                .filter_map(|x| x.and_then(|x| x.node))
+                .collect::<Vec<_>>();
+
+            let new_vars = end_cursor.map(|c| types::GetAllDnsRecordsVariables {
+                after: Some(c),
+                ..vars
+            });
+
+            Ok(Some((items, new_vars)))
+        },
+    )
+}
+
 /// Convert a [`OffsetDateTime`] to a unix timestamp that the WAPM backend
 /// understands.
 fn unix_timestamp(ts: OffsetDateTime) -> f64 {
@@ -804,4 +1146,26 @@ fn unix_timestamp(ts: OffsetDateTime) -> f64 {
     let secs = timestamp / nanos_per_second;
 
     (secs as f64) + (nanos as f64 / nanos_per_second as f64)
+}
+
+/// Publish a new app (version).
+pub async fn upsert_domain_from_zone_file(
+    client: &WasmerClient,
+    zone_file_contents: String,
+    delete_missing_records: bool,
+) -> Result<DnsDomain, anyhow::Error> {
+    let vars = UpsertDomainFromZoneFileVars {
+        zone_file: zone_file_contents,
+        delete_missing_records: Some(delete_missing_records),
+    };
+    let res = client
+        .run_graphql_strict(types::UpsertDomainFromZoneFile::build(vars))
+        .await?;
+
+    let domain = res
+        .upsert_domain_from_zone_file
+        .context("Upserting domain from zonefile failed")?
+        .domain;
+
+    Ok(domain)
 }

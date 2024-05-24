@@ -1,3 +1,9 @@
+use std::path::Path;
+
+use virtual_fs::FileSystem;
+
+use crate::VIRTUAL_ROOT_FD;
+
 use super::*;
 
 impl JournalEffector {
@@ -20,14 +26,19 @@ impl JournalEffector {
         fd: Fd,
         path: &str,
     ) -> anyhow::Result<()> {
-        crate::syscalls::path_create_directory_internal(ctx, fd, path).map_err(|err| {
-            anyhow::format_err!(
-                "journal restore error: failed to create directory path (fd={}, path={}) - {}",
-                fd,
-                path,
-                err
-            )
-        })?;
+        // see `VIRTUAL_ROOT_FD` for details as to why this exists
+        if fd == VIRTUAL_ROOT_FD {
+            ctx.data().state.fs.root_fs.create_dir(Path::new(path))?;
+        } else {
+            crate::syscalls::path_create_directory_internal(ctx, fd, path).map_err(|err| {
+                anyhow::format_err!(
+                    "journal restore error: failed to create directory path (fd={}, path={}) - {}",
+                    fd,
+                    path,
+                    err
+                )
+            })?;
+        }
         Ok(())
     }
 }

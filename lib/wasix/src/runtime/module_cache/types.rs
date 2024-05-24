@@ -1,12 +1,7 @@
-use std::hash::Hash;
-use std::{
-    fmt::{self, Debug, Display, Formatter},
-    ops::Deref,
-    path::PathBuf,
-};
+use std::{fmt::Debug, ops::Deref, path::PathBuf};
 
-use rand::RngCore;
 use wasmer::{Engine, Module};
+use wasmer_types::ModuleHash;
 
 use crate::runtime::module_cache::FallbackCache;
 
@@ -127,56 +122,6 @@ impl CacheError {
     }
 }
 
-/// The XXHash hash of a WebAssembly module.
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
-pub struct ModuleHash([u8; 8]);
-
-impl ModuleHash {
-    /// Create a new [`ModuleHash`] from the raw XXHash hash.
-    pub fn from_bytes(key: [u8; 8]) -> Self {
-        ModuleHash(key)
-    }
-
-    // Creates a random hash for the module
-    pub fn random() -> Self {
-        let mut rand = rand::thread_rng();
-        let mut key = [0u8; 8];
-        rand.fill_bytes(&mut key);
-        Self(key)
-    }
-
-    /// Parse a XXHash hash from a hex-encoded string.
-    pub fn parse_hex(hex_str: &str) -> Result<Self, hex::FromHexError> {
-        let mut hash = [0_u8; 8];
-        hex::decode_to_slice(hex_str, &mut hash)?;
-        Ok(Self(hash))
-    }
-
-    /// Generate a new [`ModuleCache`] based on the XXHash hash of some bytes.
-    pub fn hash(wasm: impl AsRef<[u8]>) -> Self {
-        let wasm = wasm.as_ref();
-
-        let hash = xxhash_rust::xxh64::xxh64(wasm, 0);
-
-        Self(hash.to_ne_bytes())
-    }
-
-    /// Get the raw XXHash hash.
-    pub fn as_bytes(self) -> [u8; 8] {
-        self.0
-    }
-}
-
-impl Display for ModuleHash {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        for byte in self.0 {
-            write!(f, "{byte:02X}")?;
-        }
-
-        Ok(())
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -188,7 +133,7 @@ mod tests {
 
     #[test]
     fn key_is_displayed_as_hex() {
-        let key = ModuleHash::from_bytes([0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07]);
+        let key = ModuleHash::xxhash_from_bytes([0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07]);
 
         let repr = key.to_string();
 
@@ -200,7 +145,7 @@ mod tests {
         let wasm = b"\0asm...";
         let raw = [0x0c, 0xc7, 0x88, 0x60, 0xd4, 0x14, 0x71, 0x4c];
 
-        let hash = ModuleHash::hash(wasm);
+        let hash = ModuleHash::xxhash(wasm);
 
         assert_eq!(hash.as_bytes(), raw);
     }

@@ -189,7 +189,7 @@ impl Drop for CompactingLogFileJournalTx {
 }
 
 impl ReadableJournal for CompactingLogFileJournalRx {
-    fn read(&self) -> anyhow::Result<Option<JournalEntry<'_>>> {
+    fn read(&self) -> anyhow::Result<Option<LogReadResult<'_>>> {
         self.inner.read()
     }
 
@@ -199,14 +199,14 @@ impl ReadableJournal for CompactingLogFileJournalRx {
 }
 
 impl WritableJournal for CompactingLogFileJournalTx {
-    fn write<'a>(&'a self, entry: JournalEntry<'a>) -> anyhow::Result<u64> {
-        let amt = self.inner.write(entry)?;
+    fn write<'a>(&'a self, entry: JournalEntry<'a>) -> anyhow::Result<LogWriteResult> {
+        let res = self.inner.write(entry)?;
 
         let triggered = {
             let mut state = self.state.lock().unwrap();
-            if amt > 0 {
+            if res.record_size() > 0 {
                 state.cnt_records += 1;
-                state.cnt_size += amt;
+                state.cnt_size += res.record_size();
             }
 
             let mut triggered = false;
@@ -235,12 +235,16 @@ impl WritableJournal for CompactingLogFileJournalTx {
             self.compact_now()?;
         }
 
-        Ok(amt)
+        Ok(res)
+    }
+
+    fn flush(&self) -> anyhow::Result<()> {
+        self.inner.flush()
     }
 }
 
 impl ReadableJournal for CompactingLogFileJournal {
-    fn read(&self) -> anyhow::Result<Option<JournalEntry<'_>>> {
+    fn read(&self) -> anyhow::Result<Option<LogReadResult<'_>>> {
         self.rx.read()
     }
 
@@ -250,8 +254,12 @@ impl ReadableJournal for CompactingLogFileJournal {
 }
 
 impl WritableJournal for CompactingLogFileJournal {
-    fn write<'a>(&'a self, entry: JournalEntry<'a>) -> anyhow::Result<u64> {
+    fn write<'a>(&'a self, entry: JournalEntry<'a>) -> anyhow::Result<LogWriteResult> {
         self.tx.write(entry)
+    }
+
+    fn flush(&self) -> anyhow::Result<()> {
+        self.tx.flush()
     }
 }
 

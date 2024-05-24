@@ -9,7 +9,6 @@ use std::{
 };
 
 use derivative::Derivative;
-use futures::future::BoxFuture;
 use tokio::io::{AsyncRead, AsyncSeek, AsyncWrite};
 
 use crate::VirtualFile;
@@ -103,6 +102,10 @@ impl VirtualFile for ArcBoxFile {
         let inner = self.inner.lock().unwrap();
         inner.created_time()
     }
+    fn set_times(&mut self, atime: Option<u64>, mtime: Option<u64>) -> crate::Result<()> {
+        let mut inner = self.inner.lock().unwrap();
+        inner.set_times(atime, mtime)
+    }
     fn size(&self) -> u64 {
         let inner = self.inner.lock().unwrap();
         inner.size()
@@ -111,11 +114,9 @@ impl VirtualFile for ArcBoxFile {
         let mut inner = self.inner.lock().unwrap();
         inner.set_len(new_size)
     }
-    fn unlink(&mut self) -> BoxFuture<'static, crate::Result<()>> {
+    fn unlink(&mut self) -> crate::Result<()> {
         let mut inner = self.inner.lock().unwrap();
-        let fut = inner.unlink();
-        drop(inner);
-        Box::pin(fut)
+        inner.unlink()
     }
     fn is_open(&self) -> bool {
         let inner = self.inner.lock().unwrap();

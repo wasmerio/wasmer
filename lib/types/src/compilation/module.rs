@@ -13,7 +13,7 @@ use std::sync::Arc;
 /// or the `MemoryStyle` and `TableStyle`).
 #[cfg_attr(feature = "enable-serde", derive(Deserialize, Serialize))]
 #[derive(Debug, Clone, PartialEq, Eq, RkyvSerialize, RkyvDeserialize, Archive)]
-#[archive_attr(derive(rkyv::CheckBytes))]
+#[archive_attr(derive(rkyv::CheckBytes, Debug))]
 pub struct CompileModuleInfo {
     /// The features used for compiling the module
     pub features: Features,

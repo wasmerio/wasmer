@@ -48,7 +48,7 @@ pub(crate) fn sock_bind_internal(
         ctx,
         sock,
         Rights::SOCK_BIND,
-        move |socket| async move { socket.bind(tasks.deref(), net.deref(), addr).await }
+        move |socket, _| async move { socket.bind(tasks.deref(), net.deref(), addr).await }
     ));
 
     Ok(Ok(()))

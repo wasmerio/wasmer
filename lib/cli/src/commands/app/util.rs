@@ -1,9 +1,16 @@
 use anyhow::{bail, Context};
-use edge_schema::schema::AppConfigV1;
+use colored::Colorize;
+use dialoguer::Confirm;
 use wasmer_api::{
     global_id::{GlobalId, NodeKind},
     types::DeployApp,
     WasmerClient,
+};
+use wasmer_config::app::AppConfigV1;
+
+use crate::{
+    commands::Login,
+    opts::{ApiOpts, WasmerEnv},
 };
 
 /// App identifier.
@@ -11,7 +18,10 @@ use wasmer_api::{
 /// Can be either a namespace/name a plain name or an app id.
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub enum AppIdent {
+    /// Backend app id like "da_xxysw34234"
     AppId(String),
+    /// Backend app VERSION id like "dav_xxysw34234"
+    AppVersionId(String),
     NamespacedName(String, String),
     Alias(String),
 }
@@ -23,6 +33,13 @@ impl AppIdent {
             AppIdent::AppId(app_id) => wasmer_api::query::get_app_by_id(client, app_id.clone())
                 .await
                 .with_context(|| format!("Could not find app with id '{}'", app_id)),
+            AppIdent::AppVersionId(id) => {
+                let (app, _version) =
+                    wasmer_api::query::get_app_version_by_id_with_app(client, id.clone())
+                        .await
+                        .with_context(|| format!("Could not query for app version id '{}'", id))?;
+                Ok(app)
+            }
             AppIdent::Alias(name) => wasmer_api::query::get_app_by_alias(client, name.clone())
                 .await?
                 .with_context(|| format!("Could not find app with name '{name}'")),
@@ -52,13 +69,15 @@ impl std::str::FromStr for AppIdent {
                 name.to_string(),
             ))
         } else if let Ok(id) = GlobalId::parse_prefixed(s) {
-            if id.kind() == NodeKind::DeployApp {
-                Ok(Self::AppId(s.to_string()))
-            } else {
-                bail!(
-                    "invalid app identifier '{s}': expected an app id, but id is of type {kind}",
-                    kind = id.kind(),
-                );
+            match id.kind() {
+                NodeKind::DeployApp => Ok(Self::AppId(s.to_string())),
+                NodeKind::DeployAppVersion => Ok(Self::AppVersionId(s.to_string())),
+                _ => {
+                    bail!(
+                        "invalid app identifier '{s}': expected an app id, but id is of type {kind}",
+                        kind = id.kind(),
+                    );
+                }
             }
         } else {
             Ok(Self::Alias(s.to_string()))
@@ -183,4 +202,57 @@ mod tests {
             AppIdent::NamespacedName("alpha".to_string(), "beta".to_string()),
         );
     }
+}
+
+pub(super) async fn login_user(
+    api: &ApiOpts,
+    env: &WasmerEnv,
+    interactive: bool,
+    msg: &str,
+) -> anyhow::Result<WasmerClient> {
+    if let Ok(client) = api.client() {
+        return Ok(client);
+    }
+
+    let theme = dialoguer::theme::ColorfulTheme::default();
+
+    if api.token.is_none() {
+        if interactive {
+            eprintln!(
+                "{}: You need to be logged in to {msg}.",
+                "WARN".yellow().bold()
+            );
+
+            if Confirm::with_theme(&theme)
+                .with_prompt("Do you want to login now?")
+                .interact()?
+            {
+                Login {
+                    no_browser: false,
+                    wasmer_dir: env.wasmer_dir.clone(),
+                    registry: api
+                        .registry
+                        .clone()
+                        .map(|l| wasmer_registry::wasmer_env::Registry::from(l.to_string())),
+                    token: api.token.clone(),
+                    cache_dir: Some(env.cache_dir.clone()),
+                }
+                .run_async()
+                .await?;
+                // self.api = ApiOpts::default();
+            } else {
+                anyhow::bail!("Stopping the flow as the user is not logged in.")
+            }
+        } else {
+            let bin_name = match std::env::args().next() {
+                Some(n) => n,
+                None => String::from("wasmer"),
+            };
+            eprintln!("You are not logged in. Use the `--token` flag or log in (use `{bin_name} login`) to {msg}.");
+
+            anyhow::bail!("Stopping execution as the user is not logged in.")
+        }
+    }
+
+    api.client()
 }

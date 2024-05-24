@@ -3,11 +3,11 @@ name: Run Benchmarks and upload results
 on:
   push:
     branches:
-    - benchmark  # TODO: change it back to master once we really track the results. We commented this as speed.wasmer.io is failing
+    - benchmark  # TODO: change it back to main once we really track the results. We commented this as speed.wasmer.io is failing
 
 env:
   CARGO_REGISTRIES_CRATES_IO_PROTOCOL: git
-  MSRV: "1.73"
+  MSRV: "1.74"
 
 jobs:
   run_benchmark:

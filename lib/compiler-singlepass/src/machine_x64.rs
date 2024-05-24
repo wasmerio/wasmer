@@ -2499,8 +2499,10 @@ impl Machine for MachineX86_64 {
     }
 
     // assembler finalize
-    fn assembler_finalize(self) -> Vec<u8> {
-        self.assembler.finalize().unwrap()
+    fn assembler_finalize(self) -> Result<Vec<u8>, CompileError> {
+        self.assembler.finalize().map_err(|e| {
+            CompileError::Codegen(format!("Assembler failed finalization with: {:?}", e))
+        })
     }
 
     fn get_offset(&self) -> Offset {

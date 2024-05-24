@@ -25,7 +25,7 @@ To update the schema, simply download the latest version and replace the local
 file.
 
 It can be retrieved from
-https://github.com/wasmerio/wapm.io-backend/blob/master/backend/graphql/schema.graphql.
+https://github.com/wasmerio/backend/blob/main/backend/graphql/schema.graphql.
 
 ### Writing/Updating Queries
 
@@ -42,5 +42,5 @@ This is not always sensible though, depending on which nested data you want to
 fetch.
 
 [cynic-api-docs]: https://docs.rs/cynic/latest/cynic/
-[cynic-web-ui]: https://docs.rs/cynic/latest/cynic/
+[cynic-web-ui]: https://generator.cynic-rs.dev/
 [cynic-website]: https://cynic-rs.dev

@@ -35,7 +35,7 @@ jobs:
           cargo install cargo-public-api
           CARGO_LATEST_VERSION = git tag --list | tail -n 1
           LATEST_VERSION=${INPUT_COMPAREMASTERWITHVERSION:=$CARGO_LATEST_VERSION}
-          cargo public-api --manifest-path=lib/api/Cargo.toml --diff-git-checkouts $LATEST_VERSION master > diff.txt
+          cargo public-api --manifest-path=lib/api/Cargo.toml --diff-git-checkouts $LATEST_VERSION main > diff.txt
       
       - name: Archive change report
         uses: actions/upload-artifact@v3

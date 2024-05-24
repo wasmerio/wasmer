@@ -1,5 +1,4 @@
 use serde::{Deserialize, Serialize};
-#[cfg(feature = "journal")]
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::{
     collections::HashMap,
@@ -13,6 +12,7 @@ use wasmer::{ExportError, InstantiationError, MemoryError};
 use wasmer_wasix_types::{
     types::Signal,
     wasi::{Errno, ExitCode},
+    wasix::ThreadStartType,
 };
 
 use crate::{
@@ -100,6 +100,7 @@ pub struct ThreadStack {
 pub struct WasiThread {
     state: Arc<WasiThreadState>,
     layout: WasiMemoryLayout,
+    start: ThreadStartType,
 
     // This is used for stack rewinds
     rewind: Option<RewindResult>,
@@ -116,23 +117,50 @@ impl WasiThread {
         self.rewind.take()
     }
 
-    pub(crate) fn has_rewind_of_type(&self, _type: HandleRewindType) -> bool {
-        match _type {
+    /// Gets the thread start type for this thread
+    pub fn thread_start_type(&self) -> ThreadStartType {
+        self.start
+    }
+
+    /// Returns true if a rewind of a particular type has been queued
+    /// for processed by a rewind operation
+    pub(crate) fn has_rewind_of_type(&self, type_: HandleRewindType) -> bool {
+        match type_ {
             HandleRewindType::ResultDriven => match &self.rewind {
-                Some(rewind) => rewind.rewind_result.is_some(),
+                Some(rewind) => match rewind.rewind_result {
+                    RewindResultType::RewindRestart => true,
+                    RewindResultType::RewindWithoutResult => false,
+                    RewindResultType::RewindWithResult(_) => true,
+                },
                 None => false,
             },
-            HandleRewindType::Resultless => match &self.rewind {
-                Some(rewind) => rewind.rewind_result.is_none(),
+            HandleRewindType::ResultLess => match &self.rewind {
+                Some(rewind) => match rewind.rewind_result {
+                    RewindResultType::RewindRestart => true,
+                    RewindResultType::RewindWithoutResult => true,
+                    RewindResultType::RewindWithResult(_) => false,
+                },
                 None => false,
             },
         }
     }
 
+    /// Sets a flag that tells others if this thread is currently
+    /// deep sleeping
+    pub(crate) fn set_deep_sleeping(&self, val: bool) {
+        self.state.deep_sleeping.store(val, Ordering::SeqCst);
+    }
+
+    /// Reads a flag that determines if this thread is currently
+    /// deep sleeping
+    pub(crate) fn is_deep_sleeping(&self) -> bool {
+        self.state.deep_sleeping.load(Ordering::SeqCst)
+    }
+
     /// Sets a flag that tells others that this thread is currently
     /// check pointing itself
     #[cfg(feature = "journal")]
-    pub(crate) fn set_check_pointing(&self, val: bool) {
+    pub(crate) fn set_checkpointing(&self, val: bool) {
         self.state.check_pointing.store(val, Ordering::SeqCst);
     }
 
@@ -181,28 +209,26 @@ impl Drop for WasiThreadRunGuard {
 }
 
 /// Represents the memory layout of the parts that the thread itself uses
-#[derive(Debug, Default, Clone)]
-pub struct WasiMemoryLayout {
-    /// This is the top part of the stack (stacks go backwards)
-    pub stack_upper: u64,
-    /// This is the bottom part of the stack (anything more below this is a stack overflow)
-    pub stack_lower: u64,
-    /// Piece of memory that is marked as none readable/writable so stack overflows cause an exception
-    /// TODO: This field will need to be used to mark the guard memory as inaccessible
-    #[allow(dead_code)]
-    pub guard_size: u64,
-    /// Total size of the stack
-    pub stack_size: u64,
+pub use wasmer_wasix_types::wasix::WasiMemoryLayout;
+
+#[derive(Clone, Debug)]
+pub enum RewindResultType {
+    // The rewind must restart the operation it had already started
+    RewindRestart,
+    // The rewind has been triggered and should be handled but has not result
+    RewindWithoutResult,
+    // The rewind has been triggered and should be handled with the supplied result
+    RewindWithResult(Bytes),
 }
 
 // Contains the result of a rewind operation
 #[derive(Clone, Debug)]
 pub(crate) struct RewindResult {
-    /// Memory stack used to restore the stack trace back to where it was
-    pub memory_stack: Bytes,
+    /// Memory stack used to restore the memory stack (thing that holds local variables) back to where it was
+    pub memory_stack: Option<Bytes>,
     /// Generic serialized object passed back to the rewind resumption code
     /// (uses the bincode serializer)
-    pub rewind_result: Option<Bytes>,
+    pub rewind_result: RewindResultType,
 }
 
 #[derive(Debug)]
@@ -215,6 +241,7 @@ struct WasiThreadState {
     status: Arc<OwnedTaskStatus>,
     #[cfg(feature = "journal")]
     check_pointing: AtomicBool,
+    deep_sleeping: AtomicBool,
 
     // Registers the task termination with the ControlPlane on drop.
     // Never accessed, since it's a drop guard.
@@ -231,6 +258,7 @@ impl WasiThread {
         status: Arc<OwnedTaskStatus>,
         guard: TaskCountGuard,
         layout: WasiMemoryLayout,
+        start: ThreadStartType,
     ) -> Self {
         Self {
             state: Arc::new(WasiThreadState {
@@ -242,9 +270,11 @@ impl WasiThread {
                 stack: Mutex::new(ThreadStack::default()),
                 #[cfg(feature = "journal")]
                 check_pointing: AtomicBool::new(false),
+                deep_sleeping: AtomicBool::new(false),
                 _task_count_guard: guard,
             }),
             layout,
+            start,
             rewind: None,
         }
     }
@@ -327,6 +357,27 @@ impl WasiThread {
             }
         }
         false
+    }
+
+    /// Waits for a signal to arrive
+    pub async fn wait_for_signal(&self) {
+        // This poller will process any signals when the main working function is idle
+        struct SignalPoller<'a> {
+            thread: &'a WasiThread,
+        }
+        impl<'a> std::future::Future for SignalPoller<'a> {
+            type Output = ();
+            fn poll(
+                self: std::pin::Pin<&mut Self>,
+                cx: &mut std::task::Context<'_>,
+            ) -> std::task::Poll<Self::Output> {
+                if self.thread.has_signals_or_subscribe(cx.waker()) {
+                    return std::task::Poll::Ready(());
+                }
+                std::task::Poll::Pending
+            }
+        }
+        SignalPoller { thread: self }.await
     }
 
     /// Returns all the signals that are waiting to be processed

@@ -179,8 +179,8 @@ impl MultiRegistry {
 }
 
 impl WasmerConfig {
-    pub(crate) const ENV_VAR_WASMER_REGISTRY_TOKEN: &str = "WASMER_TOKEN";
-    pub(crate) const ENV_VAR_WASMER_REGISTRY_TOKEN_LEGACY: &str = "WAPM_REGISTRY_TOKEN";
+    pub(crate) const ENV_VAR_WASMER_REGISTRY_TOKEN: &'static str = "WASMER_TOKEN";
+    pub(crate) const ENV_VAR_WASMER_REGISTRY_TOKEN_LEGACY: &'static str = "WAPM_REGISTRY_TOKEN";
 
     /// Save the config to a file
     pub fn save<P: AsRef<Path>>(&self, to: P) -> anyhow::Result<()> {

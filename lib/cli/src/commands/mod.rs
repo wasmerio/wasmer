@@ -13,9 +13,11 @@ mod container;
 mod create_exe;
 #[cfg(feature = "static-artifact-create")]
 mod create_obj;
-pub(crate) mod deploy;
+pub(crate) mod domain;
 #[cfg(feature = "static-artifact-create")]
 mod gen_c_header;
+mod gen_completions;
+mod gen_manpage;
 mod init;
 mod inspect;
 #[cfg(feature = "journal")]
@@ -23,7 +25,6 @@ mod journal;
 mod login;
 pub(crate) mod namespace;
 mod package;
-mod publish;
 mod run;
 mod self_update;
 pub mod ssh;
@@ -31,6 +32,7 @@ mod validate;
 #[cfg(feature = "wast")]
 mod wast;
 mod whoami;
+use std::env::args;
 
 #[cfg(target_os = "linux")]
 pub use binfmt::*;
@@ -116,6 +118,8 @@ impl WasmerCmd {
         }
 
         match cmd {
+            Some(Cmd::GenManPage(cmd)) => cmd.execute(),
+            Some(Cmd::GenCompletions(cmd)) => cmd.execute(),
             Some(Cmd::Run(options)) => options.execute(output),
             Some(Cmd::SelfUpdate(options)) => options.execute(),
             Some(Cmd::Cache(cache)) => cache.execute(),
@@ -130,10 +134,13 @@ impl WasmerCmd {
             Some(Cmd::Inspect(inspect)) => inspect.execute(),
             Some(Cmd::Init(init)) => init.execute(),
             Some(Cmd::Login(login)) => login.execute(),
-            Some(Cmd::Publish(publish)) => publish.execute(),
+            Some(Cmd::Publish(publish)) => publish.run().map(|_| ()),
             Some(Cmd::Package(cmd)) => match cmd {
                 Package::Download(cmd) => cmd.execute(),
-                Package::Build(cmd) => cmd.execute(),
+                Package::Build(cmd) => cmd.execute().map(|_| ()),
+                Package::Tag(cmd) => cmd.run(),
+                Package::Push(cmd) => cmd.run(),
+                Package::Publish(cmd) => cmd.run().map(|_| ()),
             },
             Some(Cmd::Container(cmd)) => match cmd {
                 crate::commands::Container::Unpack(cmd) => cmd.execute(),
@@ -157,6 +164,7 @@ impl WasmerCmd {
             Some(Cmd::Journal(journal)) => journal.run(),
             Some(Cmd::Ssh(ssh)) => ssh.run(),
             Some(Cmd::Namespace(namespace)) => namespace.run(),
+            Some(Cmd::Domain(namespace)) => namespace.run(),
             None => {
                 WasmerCmd::command().print_long_help()?;
                 // Note: clap uses an exit code of 2 when CLI parsing fails
@@ -182,11 +190,27 @@ impl WasmerCmd {
         match WasmerCmd::try_parse() {
             Ok(args) => args.execute(),
             Err(e) => {
+                let first_arg_is_subcommand = if let Some(first_arg) = args().nth(1) {
+                    let mut ret = false;
+                    let cmd = WasmerCmd::command();
+
+                    for cmd in cmd.get_subcommands() {
+                        if cmd.get_name() == first_arg {
+                            ret = true;
+                            break;
+                        }
+                    }
+
+                    ret
+                } else {
+                    false
+                };
+
                 let might_be_wasmer_run = matches!(
                     e.kind(),
                     clap::error::ErrorKind::InvalidSubcommand
                         | clap::error::ErrorKind::UnknownArgument
-                );
+                ) && !first_arg_is_subcommand;
 
                 if might_be_wasmer_run {
                     if let Ok(run) = Run::try_parse() {
@@ -213,11 +237,11 @@ enum Cmd {
     /// Login into a wasmer.io-like registry
     Login(Login),
 
-    /// Login into a wasmer.io-like registry
+    /// Publish a package to a registry [alias: package publish]
     #[clap(name = "publish")]
-    Publish(Publish),
+    Publish(crate::commands::package::publish::PackagePublish),
 
-    /// Wasmer cache
+    /// Manage the local Wasmer cache
     Cache(Cache),
 
     /// Validate a WebAssembly binary
@@ -324,10 +348,10 @@ enum Cmd {
     /// Shows the current logged in user for the current active registry
     Whoami(Whoami),
 
-    /// Add a Wasmer package's bindings to your application.
+    /// Add a Wasmer package's bindings to your application
     Add(Add),
 
-    /// Run a WebAssembly file or Wasmer container.
+    /// Run a WebAssembly file or Wasmer container
     #[clap(alias = "run-unstable")]
     Run(Run),
 
@@ -343,19 +367,31 @@ enum Cmd {
     Container(crate::commands::Container),
 
     // Edge commands
-    /// Deploy apps to Wasmer Edge.
-    Deploy(crate::commands::deploy::CmdDeploy),
+    /// Deploy apps to Wasmer Edge [alias: app deploy]
+    Deploy(crate::commands::app::deploy::CmdAppDeploy),
 
-    /// Manage deployed Edge apps.
+    /// Manage deployed Edge apps
     #[clap(subcommand, alias = "apps")]
     App(crate::commands::app::CmdApp),
 
-    /// Run commands/packages on Wasmer Edge in an interactive shell session.
+    /// Run commands/packages on Wasmer Edge in an interactive shell session
     Ssh(crate::commands::ssh::CmdSsh),
 
-    /// Manage Wasmer namespaces.
+    /// Manage Wasmer namespaces
     #[clap(subcommand, alias = "namespaces")]
     Namespace(crate::commands::namespace::CmdNamespace),
+
+    /// Manage DNS records
+    #[clap(subcommand, alias = "domains")]
+    Domain(crate::commands::domain::CmdDomain),
+
+    /// Generate autocompletion for different shells
+    #[clap(name = "gen-completions")]
+    GenCompletions(crate::commands::gen_completions::CmdGenCompletions),
+
+    /// Generate man pages
+    #[clap(name = "gen-man", hide = true)]
+    GenManPage(crate::commands::gen_manpage::CmdGenManPage),
 }
 
 fn is_binfmt_interpreter() -> bool {

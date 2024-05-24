@@ -4,10 +4,8 @@ pub mod resolver;
 pub mod task_manager;
 
 pub use self::task_manager::{SpawnMemoryType, VirtualTaskManager};
-use self::{
-    module_cache::{CacheError, ModuleHash},
-    task_manager::InlineWaker,
-};
+use self::{module_cache::CacheError, task_manager::InlineWaker};
+use wasmer_types::ModuleHash;
 
 use std::{
     fmt,
@@ -18,7 +16,8 @@ use std::{
 use derivative::Derivative;
 use futures::future::BoxFuture;
 use virtual_net::{DynVirtualNetworking, VirtualNetworking};
-use wasmer::Module;
+use wasmer::{Module, RuntimeError};
+use wasmer_wasix_types::wasi::ExitCode;
 
 #[cfg(feature = "journal")]
 use crate::journal::DynJournal;
@@ -30,8 +29,15 @@ use crate::{
         package_loader::{PackageLoader, UnsupportedPackageLoader},
         resolver::{MultiSource, Source, WapmSource},
     },
-    WasiTtyState,
+    SpawnError, WasiTtyState,
 };
+
+#[derive(Clone)]
+pub enum TaintReason {
+    UnknownWasiVersion,
+    NonZeroExitCode(ExitCode),
+    RuntimeError(RuntimeError),
+}
 
 /// Runtime components used when running WebAssembly programs.
 ///
@@ -93,11 +99,12 @@ where
     }
 
     /// Load a a Webassembly module, trying to use a pre-compiled version if possible.
-    fn load_module<'a>(&'a self, wasm: &'a [u8]) -> BoxFuture<'a, anyhow::Result<Module>> {
+    fn load_module<'a>(&'a self, wasm: &'a [u8]) -> BoxFuture<'a, Result<Module, SpawnError>> {
         let engine = self.engine();
         let module_cache = self.module_cache();
+        let hash = ModuleHash::xxhash(wasm);
 
-        let task = async move { load_module(&engine, &module_cache, wasm).await };
+        let task = async move { load_module(&engine, &module_cache, wasm, hash).await };
 
         Box::pin(task)
     }
@@ -105,9 +112,13 @@ where
     /// Load a a Webassembly module, trying to use a pre-compiled version if possible.
     ///
     /// Non-async version of [`Self::load_module`].
-    fn load_module_sync(&self, wasm: &[u8]) -> Result<Module, anyhow::Error> {
+    fn load_module_sync(&self, wasm: &[u8]) -> Result<Module, SpawnError> {
         InlineWaker::block_on(self.load_module(wasm))
     }
+
+    /// Callback thats invokes whenever the instance is tainted, tainting can occur
+    /// for multiple reasons however the most common is a panic within the process
+    fn on_taint(&self, _reason: TaintReason) {}
 
     /// The list of journals which will be used to restore the state of the
     /// runtime at a particular point in time
@@ -138,27 +149,30 @@ pub async fn load_module(
     engine: &wasmer::Engine,
     module_cache: &(dyn ModuleCache + Send + Sync),
     wasm: &[u8],
-) -> Result<Module, anyhow::Error> {
-    let hash = ModuleHash::hash(wasm);
-    let result = module_cache.load(hash, engine).await;
+    wasm_hash: ModuleHash,
+) -> Result<Module, crate::SpawnError> {
+    let result = module_cache.load(wasm_hash, engine).await;
 
     match result {
         Ok(module) => return Ok(module),
         Err(CacheError::NotFound) => {}
         Err(other) => {
             tracing::warn!(
-                %hash,
+                %wasm_hash,
                 error=&other as &dyn std::error::Error,
                 "Unable to load the cached module",
             );
         }
     }
 
-    let module = Module::new(&engine, wasm)?;
+    let module = Module::new(&engine, wasm).map_err(|err| crate::SpawnError::CompileError {
+        module_hash: wasm_hash,
+        error: err,
+    })?;
 
-    if let Err(e) = module_cache.save(hash, engine, &module).await {
+    if let Err(e) = module_cache.save(wasm_hash, engine, &module).await {
         tracing::warn!(
-            %hash,
+            %wasm_hash,
             error=&e as &dyn std::error::Error,
             "Unable to cache the compiled module",
         );
@@ -533,18 +547,20 @@ impl Runtime for OverriddenRuntime {
         }
     }
 
-    fn load_module<'a>(&'a self, wasm: &'a [u8]) -> BoxFuture<'a, anyhow::Result<Module>> {
+    fn load_module<'a>(&'a self, wasm: &'a [u8]) -> BoxFuture<'a, Result<Module, SpawnError>> {
         if self.engine.is_some() || self.module_cache.is_some() {
             let engine = self.engine();
             let module_cache = self.module_cache();
-            let task = async move { load_module(&engine, &module_cache, wasm).await };
+            let hash = ModuleHash::xxhash(wasm);
+
+            let task = async move { load_module(&engine, &module_cache, wasm, hash).await };
             Box::pin(task)
         } else {
             self.inner.load_module(wasm)
         }
     }
 
-    fn load_module_sync(&self, wasm: &[u8]) -> Result<Module, anyhow::Error> {
+    fn load_module_sync(&self, wasm: &[u8]) -> Result<Module, SpawnError> {
         if self.engine.is_some() || self.module_cache.is_some() {
             InlineWaker::block_on(self.load_module(wasm))
         } else {

@@ -41,6 +41,10 @@ impl VirtualFile for DualWriteFile {
         self.inner.created_time()
     }
 
+    fn set_times(&mut self, atime: Option<u64>, mtime: Option<u64>) -> crate::Result<()> {
+        self.inner.set_times(atime, mtime)
+    }
+
     fn size(&self) -> u64 {
         self.inner.size()
     }
@@ -49,8 +53,8 @@ impl VirtualFile for DualWriteFile {
         self.inner.set_len(new_size)
     }
 
-    fn unlink(&mut self) -> BoxFuture<'static, Result<()>> {
-        Box::pin(self.inner.unlink())
+    fn unlink(&mut self) -> Result<()> {
+        self.inner.unlink()
     }
 
     fn poll_read_ready(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<usize>> {

@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 /// Information about trap.
 #[cfg_attr(feature = "enable-serde", derive(Deserialize, Serialize))]
 #[derive(
-    RkyvSerialize, RkyvDeserialize, Archive, rkyv::CheckBytes, Clone, Debug, PartialEq, Eq,
+    RkyvSerialize, RkyvDeserialize, Archive, rkyv::CheckBytes, Clone, Copy, Debug, PartialEq, Eq,
 )]
 #[archive(as = "Self")]
 pub struct TrapInformation {

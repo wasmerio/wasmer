@@ -91,6 +91,7 @@ pub trait ClonableVirtualFile: VirtualFile + Clone {}
 pub use ops::{copy_reference, copy_reference_ext};
 
 pub trait FileSystem: fmt::Debug + Send + Sync + 'static + Upcastable {
+    fn readlink(&self, path: &Path) -> Result<PathBuf>;
     fn read_dir(&self, path: &Path) -> Result<ReadDir>;
     fn create_dir(&self, path: &Path) -> Result<()>;
     fn remove_dir(&self, path: &Path) -> Result<()>;
@@ -99,9 +100,7 @@ pub trait FileSystem: fmt::Debug + Send + Sync + 'static + Upcastable {
     /// This method gets metadata without following symlinks in the path.
     /// Currently identical to `metadata` because symlinks aren't implemented
     /// yet.
-    fn symlink_metadata(&self, path: &Path) -> Result<Metadata> {
-        self.metadata(path)
-    }
+    fn symlink_metadata(&self, path: &Path) -> Result<Metadata>;
     fn remove_file(&self, path: &Path) -> Result<()>;
 
     fn new_open_options(&self) -> OpenOptions;
@@ -128,6 +127,10 @@ where
         (**self).read_dir(path)
     }
 
+    fn readlink(&self, path: &Path) -> Result<PathBuf> {
+        (**self).readlink(path)
+    }
+
     fn create_dir(&self, path: &Path) -> Result<()> {
         (**self).create_dir(path)
     }
@@ -142,6 +145,10 @@ where
 
     fn metadata(&self, path: &Path) -> Result<Metadata> {
         (**self).metadata(path)
+    }
+
+    fn symlink_metadata(&self, path: &Path) -> Result<Metadata> {
+        (**self).symlink_metadata(path)
     }
 
     fn remove_file(&self, path: &Path) -> Result<()> {
@@ -336,6 +343,12 @@ pub trait VirtualFile:
     /// the time at which the file was created in nanoseconds as a UNIX timestamp
     fn created_time(&self) -> u64;
 
+    #[allow(unused_variables)]
+    /// sets accessed and modified time
+    fn set_times(&mut self, atime: Option<u64>, mtime: Option<u64>) -> crate::Result<()> {
+        Ok(())
+    }
+
     /// the size of the file in bytes
     fn size(&self) -> u64;
 
@@ -344,7 +357,7 @@ pub trait VirtualFile:
     fn set_len(&mut self, new_size: u64) -> Result<()>;
 
     /// Request deletion of the file
-    fn unlink(&mut self) -> BoxFuture<'static, Result<()>>;
+    fn unlink(&mut self) -> Result<()>;
 
     /// Indicates if the file is opened or closed. This function must not block
     /// Defaults to a status of being constantly open
@@ -357,6 +370,12 @@ pub trait VirtualFile:
     /// on normal files
     fn get_special_fd(&self) -> Option<u32> {
         None
+    }
+
+    /// Writes to this file using an mmap offset and reference
+    /// (this method only works for mmap optimized file systems)
+    fn write_from_mmap(&mut self, _offset: u64, _len: u64) -> std::io::Result<()> {
+        Err(std::io::ErrorKind::Unsupported.into())
     }
 
     /// This method will copy a file from a source to this destination where

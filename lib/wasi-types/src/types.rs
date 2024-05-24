@@ -4,7 +4,7 @@
 //! Wasmer's WASI types implementation.
 //!
 //! Those types aim at being used by [the `wasmer-wasi`
-//! crate](https://github.com/wasmerio/wasmer/blob/master/lib/wasi).
+//! crate](https://github.com/wasmerio/wasmer/blob/main/lib/wasi).
 
 // Needed for #[derive(ValueType)]
 extern crate wasmer_types as wasmer;

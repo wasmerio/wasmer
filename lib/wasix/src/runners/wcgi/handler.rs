@@ -18,12 +18,10 @@ use crate::{
         callbacks::{CreateEnvConfig, RecycleEnvConfig},
         Callbacks,
     },
-    runtime::{
-        module_cache::ModuleHash,
-        task_manager::{TaskWasm, TaskWasmRecycleProperties},
-    },
+    runtime::task_manager::{TaskWasm, TaskWasmRecycleProperties},
     Runtime, VirtualTaskManager, WasiEnvBuilder,
 };
+use wasmer_types::ModuleHash;
 
 /// The shared object that manages the instantiaion of WASI executables and
 /// communicating with them via the CGI protocol.

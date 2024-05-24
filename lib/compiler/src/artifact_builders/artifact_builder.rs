@@ -4,8 +4,10 @@
 #[cfg(feature = "compiler")]
 use super::trampoline::{libcall_trampoline_len, make_libcall_trampolines};
 use crate::ArtifactCreate;
+#[cfg(feature = "compiler")]
 use crate::EngineInner;
 use crate::Features;
+#[cfg(feature = "compiler")]
 use crate::{ModuleEnvironment, ModuleMiddlewareChain};
 use core::mem::MaybeUninit;
 use enumset::EnumSet;
@@ -18,16 +20,16 @@ use wasmer_types::entity::{ArchivedPrimaryMap, PrimaryMap};
 use wasmer_types::ArchivedOwnedDataInitializer;
 use wasmer_types::ArchivedSerializableCompilation;
 use wasmer_types::ArchivedSerializableModule;
-#[cfg(feature = "compiler")]
 use wasmer_types::CompileModuleInfo;
 use wasmer_types::DeserializeError;
 use wasmer_types::{
     CompileError, CpuFeature, CustomSection, Dwarf, FunctionIndex, LocalFunctionIndex, MemoryIndex,
-    MemoryStyle, ModuleInfo, OwnedDataInitializer, Relocation, SectionIndex, SignatureIndex,
-    TableIndex, TableStyle, Target,
+    MemoryStyle, ModuleHash, ModuleInfo, OwnedDataInitializer, Relocation, SectionIndex,
+    SignatureIndex, TableIndex, TableStyle, Target,
 };
 use wasmer_types::{
-    CompiledFunctionFrameInfo, FunctionBody, SerializableCompilation, SerializableModule,
+    CompiledFunctionFrameInfo, FunctionBody, HashAlgorithm, SerializableCompilation,
+    SerializableModule,
 };
 use wasmer_types::{MetadataHeader, SerializeError};
 
@@ -53,6 +55,7 @@ impl ArtifactBuild {
         target: &Target,
         memory_styles: PrimaryMap<MemoryIndex, MemoryStyle>,
         table_styles: PrimaryMap<TableIndex, TableStyle>,
+        hash_algorithm: Option<HashAlgorithm>,
     ) -> Result<Self, CompileError> {
         let environ = ModuleEnvironment::new();
         let features = inner_engine.features().clone();
@@ -65,6 +68,15 @@ impl ArtifactBuild {
         let mut module = translation.module;
         let middlewares = compiler.get_middlewares();
         middlewares.apply_on_module_info(&mut module);
+
+        if let Some(hash_algorithm) = hash_algorithm {
+            let hash = match hash_algorithm {
+                HashAlgorithm::Sha256 => ModuleHash::sha256(data),
+                HashAlgorithm::XXHash => ModuleHash::xxhash(data),
+            };
+
+            module.hash = Some(hash);
+        }
 
         let compile_info = CompileModuleInfo {
             module: Arc::new(module),
@@ -131,21 +143,6 @@ impl ArtifactBuild {
             cpu_features: cpu_features.as_u64(),
         };
         Ok(Self { serializable })
-    }
-
-    /// Compile a data buffer into a `ArtifactBuild`, which may then be instantiated.
-    #[cfg(not(feature = "compiler"))]
-    #[cfg(not(target_arch = "wasm32"))]
-    pub fn new(
-        _inner_engine: &mut EngineInner,
-        _data: &[u8],
-        _target: &Target,
-        _memory_styles: PrimaryMap<MemoryIndex, MemoryStyle>,
-        _table_styles: PrimaryMap<TableIndex, TableStyle>,
-    ) -> Result<Self, CompileError> {
-        Err(CompileError::Codegen(
-            "Compilation is not enabled in the engine".to_string(),
-        ))
     }
 
     /// Create a new ArtifactBuild from a SerializableModule
@@ -250,6 +247,7 @@ impl<'a> ArtifactCreate<'a> for ArtifactBuild {
 
 /// Module loaded from an archive. Since `CompileModuleInfo` is part of the public
 /// interface of this crate and has to be mutable, it has to be deserialized completely.
+#[derive(Debug)]
 pub struct ModuleFromArchive<'a> {
     /// The main serializable compilation object
     pub compilation: &'a ArchivedSerializableCompilation,
@@ -283,11 +281,14 @@ self_cell!(
         #[covariant]
         dependent: ModuleFromArchive,
     }
+
+    impl {Debug}
 );
 
 /// A compiled wasm module that was loaded from a serialized archive.
+#[derive(Clone, Debug)]
 pub struct ArtifactBuildFromArchive {
-    cell: ArtifactBuildFromArchiveCell,
+    cell: Arc<ArtifactBuildFromArchiveCell>,
 
     /// Compilation informations
     compile_info: CompileModuleInfo,
@@ -314,7 +315,15 @@ impl ArtifactBuildFromArchive {
 
         // Safety: we know the lambda will execute before getting here and assign both values
         let compile_info = unsafe { compile_info.assume_init() };
-        Ok(Self { cell, compile_info })
+        Ok(Self {
+            cell: Arc::new(cell),
+            compile_info,
+        })
+    }
+
+    /// Gets the owned buffer
+    pub fn owned_buffer(&self) -> &OwnedBuffer {
+        self.cell.borrow_owner()
     }
 
     /// Get Functions Bodies ref
@@ -390,6 +399,13 @@ impl ArtifactBuildFromArchive {
             ArchivedOption::Some(ref x) => Some(x),
             ArchivedOption::None => None,
         }
+    }
+
+    /// Get Function Relocations ref
+    pub fn get_frame_info_ref(
+        &self,
+    ) -> &ArchivedPrimaryMap<LocalFunctionIndex, CompiledFunctionFrameInfo> {
+        &self.cell.borrow_dependent().compilation.function_frame_info
     }
 
     /// Get Function Relocations ref

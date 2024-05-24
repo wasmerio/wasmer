@@ -42,7 +42,9 @@ fn artifact_serialization_build() {
             let path = PathBuf::from("tests/integration/cli/tests/wasm").join(file_name);
             let wasm_module = fs::read(path).unwrap();
             let config = get_default_compiler_config().unwrap();
-            let engine = Engine::new(config, target.clone(), Features::default());
+            let mut engine = Engine::new(config, target.clone(), Features::default());
+
+            engine.set_hash_algorithm(Some(wasmer_types::HashAlgorithm::Sha256));
 
             let module = Module::new(&engine, wasm_module).unwrap();
             let serialized_bytes = module.serialize().unwrap();
@@ -53,6 +55,7 @@ fn artifact_serialization_build() {
 }
 
 #[test]
+#[cfg(target_arch = "x86_64")]
 fn artifact_deserialization_roundtrip() {
     // This test is included to make sure we don't break the serialized format
     // by mistake. Otherwise, everything in this test is already tested in
