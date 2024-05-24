@@ -97,9 +97,7 @@ wasm-opt = false
 maintenance = { status = "actively-developed" }
 
 [features]
-# default = ["sys-default"]
-# default = ["js-default"]
-default = ["wasm-c-api"]
+default = ["sys-default"]
 std = []
 core = ["hashbrown"]
 
@@ -107,16 +105,17 @@ core = ["hashbrown"]
 sys = ["wasmer-compiler/translator", "wasmer-compiler/compiler", "std"]
 sys-default = ["sys", "wat", "cranelift"]
 
-# - Interpreters.
-wasm-c-api = ["std", "wasm-types-polyfill", "wat"]
-
 # - Compilers.
 compiler = ["sys"]
 singlepass = ["compiler", "wasmer-compiler-singlepass"]
 cranelift = ["compiler", "wasmer-compiler-cranelift"]
 llvm = ["compiler", "wasmer-compiler-llvm"]
+
 # - Engines.
 engine = ["sys"]
+
+wasm-c-api = ["std", "wasm-types-polyfill", "wat"]
+
 # - Deprecated features.
 jit = ["engine"]
 
