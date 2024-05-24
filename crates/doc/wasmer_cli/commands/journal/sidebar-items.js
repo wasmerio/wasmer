@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":["CmdJournal"],"mod":["compact","export","filter","import","inspect"]};
+window.SIDEBAR_ITEMS = {"enum":["CmdJournal"],"mod":["compact","export","extract","filter","import","inspect"]};

@@ -106,6 +106,7 @@
 <a href="#106" id="106">106</a>
 <a href="#107" id="107">107</a>
 <a href="#108" id="108">108</a>
+<a href="#109" id="109">109</a>
 </pre></div><pre class="rust"><code><span class="comment">// TODO: review allow..
 </span><span class="kw">use </span>cfg_if::cfg_if;
 
@@ -203,7 +204,8 @@
     }
 }
 
-<span class="kw">pub trait </span>WasiPath {}
+<span class="attr">#[allow(dead_code)]
+</span><span class="kw">pub trait </span>WasiPath {}
 
 <span class="comment">/*
 TODO: Think about using this

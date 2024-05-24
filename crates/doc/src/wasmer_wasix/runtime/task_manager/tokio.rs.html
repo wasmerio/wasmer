@@ -273,6 +273,7 @@
 <a href="#273" id="273">273</a>
 <a href="#274" id="274">274</a>
 <a href="#275" id="275">275</a>
+<a href="#276" id="276">276</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::sync::Mutex;
 <span class="kw">use </span>std::{num::NonZeroUsize, pin::Pin, sync::Arc, time::Duration};
 
@@ -385,7 +386,8 @@
     }
 }
 
-<span class="kw">struct </span>TokioRuntimeGuard&lt;<span class="lifetime">&#39;g</span>&gt; {
+<span class="attr">#[allow(dead_code)]
+</span><span class="kw">struct </span>TokioRuntimeGuard&lt;<span class="lifetime">&#39;g</span>&gt; {
     <span class="attr">#[allow(unused)]
     </span>inner: tokio::runtime::EnterGuard&lt;<span class="lifetime">&#39;g</span>&gt;,
 }

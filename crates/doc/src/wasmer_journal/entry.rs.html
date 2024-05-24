@@ -790,6 +790,11 @@
 <a href="#790" id="790">790</a>
 <a href="#791" id="791">791</a>
 <a href="#792" id="792">792</a>
+<a href="#793" id="793">793</a>
+<a href="#794" id="794">794</a>
+<a href="#795" id="795">795</a>
+<a href="#796" id="796">796</a>
+<a href="#797" id="797">797</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>derivative::Derivative;
 <span class="kw">use </span>serde::{Deserialize, Serialize};
 <span class="kw">use </span>std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
@@ -883,7 +888,7 @@
         region: Range&lt;u64&gt;,
         <span class="attr">#[derivative(Debug = <span class="string">&quot;ignore&quot;</span>)]
         #[serde(with = <span class="string">&quot;base64&quot;</span>)]
-        </span>data: Cow&lt;<span class="lifetime">&#39;a</span>, [u8]&gt;,
+        </span>compressed_data: Cow&lt;<span class="lifetime">&#39;a</span>, [u8]&gt;,
     },
     ProcessExitV1 {
         exit_code: <span class="prelude-ty">Option</span>&lt;ExitCode&gt;,
@@ -1168,9 +1173,12 @@
         <span class="kw">match </span><span class="self">self </span>{
             <span class="self">Self</span>::InitModuleV1 { wasm_hash } =&gt; JournalEntry::InitModuleV1 { wasm_hash },
             <span class="self">Self</span>::ClearEtherealV1 =&gt; JournalEntry::ClearEtherealV1,
-            <span class="self">Self</span>::UpdateMemoryRegionV1 { region, data } =&gt; JournalEntry::UpdateMemoryRegionV1 {
+            <span class="self">Self</span>::UpdateMemoryRegionV1 {
                 region,
-                data: data.into_owned().into(),
+                compressed_data,
+            } =&gt; JournalEntry::UpdateMemoryRegionV1 {
+                region,
+                compressed_data: compressed_data.into_owned().into(),
             },
             <span class="self">Self</span>::ProcessExitV1 { exit_code } =&gt; JournalEntry::ProcessExitV1 { exit_code },
             <span class="self">Self</span>::SetThreadV1 {
@@ -1509,7 +1517,9 @@
         <span class="kw">match </span><span class="self">self </span>{
             JournalEntry::InitModuleV1 { .. } =&gt; base_size,
             JournalEntry::ClearEtherealV1 =&gt; base_size,
-            JournalEntry::UpdateMemoryRegionV1 { data, .. } =&gt; base_size + data.len(),
+            JournalEntry::UpdateMemoryRegionV1 {
+                compressed_data, ..
+            } =&gt; base_size + compressed_data.len(),
             JournalEntry::ProcessExitV1 { .. } =&gt; base_size,
             JournalEntry::SetThreadV1 {
                 call_stack,

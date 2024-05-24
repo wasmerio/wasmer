@@ -1171,9 +1171,7 @@
 <a href="#1171" id="1171">1171</a>
 <a href="#1172" id="1172">1172</a>
 <a href="#1173" id="1173">1173</a>
-<a href="#1174" id="1174">1174</a>
-</pre></div><pre class="rust"><code><span class="kw">use </span>lz4_flex::block::decompress_size_prepended;
-<span class="kw">use </span>std::borrow::Cow;
+</pre></div><pre class="rust"><code><span class="kw">use </span>std::borrow::Cow;
 <span class="kw">use </span>std::time::SystemTime;
 <span class="kw">use </span>wasmer_wasix_types::wasi;
 <span class="kw">use </span>wasmer_wasix_types::wasix::{ThreadStartType, WasiMemoryLayout};
@@ -1837,7 +1835,7 @@
                 },
             ) =&gt; <span class="self">Self</span>::UpdateMemoryRegionV1 {
                 region: (<span class="kw-2">*</span>start)..(<span class="kw-2">*</span>end),
-                data: Cow::Owned(decompress_size_prepended(compressed_data.as_ref())<span class="question-mark">?</span>),
+                compressed_data: Cow::Borrowed(compressed_data.as_ref()),
             },
             ArchivedJournalEntry::ProcessExitV1(ArchivedJournalEntryProcessExitV1 {
                 exit_code,

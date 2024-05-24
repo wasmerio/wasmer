@@ -260,6 +260,7 @@
 <a href="#260" id="260">260</a>
 <a href="#261" id="261">261</a>
 <a href="#262" id="262">262</a>
+<a href="#263" id="263">263</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! WARNING: the API exposed here is unstable and very experimental.  Certain things are not ready
 //! yet and may be broken in patch releases.  If you&#39;re using this and have any specific needs,
 //! please [let us know here](https://github.com/wasmerio/wasmer/issues/583) or by filing an issue.
@@ -315,7 +316,8 @@
 <span class="doccomment">/// all the rights enabled
 </span><span class="kw">pub const </span>ALL_RIGHTS: Rights = Rights::all();
 
-<span class="kw">struct </span>WasiStateOpener {
+<span class="attr">#[allow(dead_code)]
+</span><span class="kw">struct </span>WasiStateOpener {
     root_fs: WasiFsRoot,
 }
 

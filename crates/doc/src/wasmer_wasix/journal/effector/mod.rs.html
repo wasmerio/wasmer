@@ -105,7 +105,7 @@
 
 <span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">use </span>anyhow::bail;
 <span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">use </span>bytes::Bytes;
-<span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">use </span>wasmer::{FunctionEnvMut, RuntimeError, WasmPtr};
+<span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">use </span>wasmer::{FunctionEnvMut, WasmPtr};
 <span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">use </span>wasmer_types::MemorySize;
 <span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">use </span>wasmer_wasix_types::{
     types::__wasi_ciovec_t,
@@ -120,7 +120,7 @@
     os::task::process::WasiProcessInner,
     syscalls::{fd_write_internal, FdWriteSource},
     utils::map_snapshot_err,
-    WasiEnv, WasiRuntimeError, WasiThreadId,
+    WasiEnv, WasiThreadId,
 };
 
 <span class="kw">use super</span>::<span class="kw-2">*</span>;

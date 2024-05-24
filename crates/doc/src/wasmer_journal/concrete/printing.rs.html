@@ -352,9 +352,17 @@
 <a href="#352" id="352">352</a>
 <a href="#353" id="353">353</a>
 <a href="#354" id="354">354</a>
+<a href="#355" id="355">355</a>
+<a href="#356" id="356">356</a>
+<a href="#357" id="357">357</a>
+<a href="#358" id="358">358</a>
+<a href="#359" id="359">359</a>
+<a href="#360" id="360">360</a>
+<a href="#361" id="361">361</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::fmt;
 
 <span class="kw">use super</span>::<span class="kw-2">*</span>;
+<span class="kw">use </span>lz4_flex::block::uncompressed_size;
 <span class="kw">use </span>wasmer_wasix_types::wasi;
 
 <span class="doccomment">/// Type of printing mode to use
@@ -369,8 +377,8 @@
     }
 }
 
-<span class="doccomment">/// The default for runtime is to use the unsupported journal
-/// which will fail to write journal entries if one attempts to do so.
+<span class="doccomment">/// The printing journal writes all the journal entries to the console
+/// as either text or json.
 </span><span class="attr">#[derive(Debug, Default)]
 </span><span class="kw">pub struct </span>PrintingJournal {
     mode: JournalPrintingMode,
@@ -429,12 +437,18 @@
             JournalEntry::ClearEtherealV1 =&gt; {
                 <span class="macro">write!</span>(f, <span class="string">&quot;clear-ethereal&quot;</span>)
             }
-            JournalEntry::UpdateMemoryRegionV1 { region, data } =&gt; <span class="macro">write!</span>(
+            JournalEntry::UpdateMemoryRegionV1 {
+                region,
+                compressed_data,
+            } =&gt; <span class="macro">write!</span>(
                 f,
-                <span class="string">&quot;memory-update (start={}, end={}, data.len={})&quot;</span>,
+                <span class="string">&quot;memory-update (start={}, end={}, data.len={}, compressed.len={})&quot;</span>,
                 region.start,
                 region.end,
-                data.len()
+                uncompressed_size(compressed_data.as_ref())
+                    .map(|a| a.<span class="number">0</span>)
+                    .unwrap_or_else(|<span class="kw">_</span>| compressed_data.as_ref().len()),
+                compressed_data.len()
             ),
             JournalEntry::ProcessExitV1 { exit_code } =&gt; {
                 <span class="macro">write!</span>(f, <span class="string">&quot;process-exit (code={:?})&quot;</span>, exit_code)

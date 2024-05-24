@@ -49,10 +49,16 @@
 <a href="#49" id="49">49</a>
 <a href="#50" id="50">50</a>
 <a href="#51" id="51">51</a>
+<a href="#52" id="52">52</a>
+<a href="#53" id="53">53</a>
+<a href="#54" id="54">54</a>
+<a href="#55" id="55">55</a>
+<a href="#56" id="56">56</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::commands::CliCommand;
 
 <span class="kw">mod </span>compact;
 <span class="kw">mod </span>export;
+<span class="kw">mod </span>extract;
 <span class="kw">mod </span>filter;
 <span class="kw">mod </span>import;
 <span class="kw">mod </span>inspect;
@@ -61,6 +67,7 @@
 
 <span class="kw">pub use </span>compact::<span class="kw-2">*</span>;
 <span class="kw">pub use </span>export::<span class="kw-2">*</span>;
+<span class="kw">pub use </span>extract::<span class="kw-2">*</span>;
 <span class="kw">pub use </span>filter::<span class="kw-2">*</span>;
 <span class="kw">pub use </span>import::<span class="kw-2">*</span>;
 <span class="kw">pub use </span>inspect::<span class="kw-2">*</span>;
@@ -83,6 +90,8 @@
     <span class="doccomment">/// Mounts the journal at a particular directory
     </span><span class="attr">#[cfg(feature = <span class="string">&quot;fuse&quot;</span>)]
     </span>Mount(CmdJournalMount),
+    <span class="doccomment">/// Extracts an element of a journal
+    </span>Extract(CmdJournalExtract),
 }
 
 <span class="kw">impl </span>CliCommand <span class="kw">for </span>CmdJournal {
@@ -97,6 +106,7 @@
             <span class="self">Self</span>::Filter(cmd) =&gt; cmd.run(),
             <span class="attr">#[cfg(feature = <span class="string">&quot;fuse&quot;</span>)]
             </span><span class="self">Self</span>::Mount(cmd) =&gt; cmd.run(),
+            <span class="self">Self</span>::Extract(cmd) =&gt; cmd.run(),
         }
     }
 }

@@ -490,6 +490,12 @@
 <a href="#490" id="490">490</a>
 <a href="#491" id="491">491</a>
 <a href="#492" id="492">492</a>
+<a href="#493" id="493">493</a>
+<a href="#494" id="494">494</a>
+<a href="#495" id="495">495</a>
+<a href="#496" id="496">496</a>
+<a href="#497" id="497">497</a>
+<a href="#498" id="498">498</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file contains code from external sources.
 // Attributions: https://github.com/wasmerio/wasmer/blob/main/ATTRIBUTIONS.md
 
@@ -553,6 +559,7 @@
     }
 
     <span class="doccomment">/// Get the size of a native pointer, in bytes.
+    </span><span class="attr">#[allow(dead_code)]
     </span><span class="kw">fn </span>pointer_bytes(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; u8 {
         <span class="self">self</span>.target_config().pointer_bytes()
     }
@@ -962,6 +969,7 @@
     }
 
     <span class="doccomment">/// Get the type of the global at the given index.
+    </span><span class="attr">#[allow(dead_code)]
     </span><span class="kw">fn </span>get_global_type(<span class="kw-2">&amp;</span><span class="self">self</span>, global_index: GlobalIndex) -&gt; <span class="prelude-ty">Option</span>&lt;WasmerType&gt;;
 
     <span class="doccomment">/// Push a local declaration on to the stack to track the type of locals.
@@ -971,15 +979,19 @@
     </span><span class="kw">fn </span>push_params_on_stack(<span class="kw-2">&amp;mut </span><span class="self">self</span>, function_index: LocalFunctionIndex);
 
     <span class="doccomment">/// Get the type of the local at the given index.
+    </span><span class="attr">#[allow(dead_code)]
     </span><span class="kw">fn </span>get_local_type(<span class="kw-2">&amp;</span><span class="self">self</span>, local_index: u32) -&gt; <span class="prelude-ty">Option</span>&lt;WasmerType&gt;;
 
     <span class="doccomment">/// Get the types of all the current locals.
+    </span><span class="attr">#[allow(dead_code)]
     </span><span class="kw">fn </span>get_local_types(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>[WasmerType];
 
     <span class="doccomment">/// Get the type of the local at the given index.
+    </span><span class="attr">#[allow(dead_code)]
     </span><span class="kw">fn </span>get_function_type(<span class="kw-2">&amp;</span><span class="self">self</span>, function_index: FunctionIndex) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>FunctionType&gt;;
 
     <span class="doccomment">/// Get the type of a function with the given signature index.
+    </span><span class="attr">#[allow(dead_code)]
     </span><span class="kw">fn </span>get_function_sig(<span class="kw-2">&amp;</span><span class="self">self</span>, sig_index: SignatureIndex) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>FunctionType&gt;;
 }
 </code></pre></div></section></main></body></html>

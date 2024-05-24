@@ -27,14 +27,17 @@
 <a href="#27" id="27">27</a>
 <a href="#28" id="28">28</a>
 <a href="#29" id="29">29</a>
+<a href="#30" id="30">30</a>
+<a href="#31" id="31">31</a>
+<a href="#32" id="32">32</a>
 </pre></div><pre class="rust"><code><span class="kw">use super</span>::<span class="kw-2">*</span>;
 
 <span class="kw">impl</span>&lt;<span class="lifetime">&#39;a</span>, <span class="lifetime">&#39;c</span>&gt; JournalSyscallPlayer&lt;<span class="lifetime">&#39;a</span>, <span class="lifetime">&#39;c</span>&gt; {
     <span class="attr">#[allow(clippy::result_large_err)]
-    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">unsafe fn </span>action_update_memory(
+    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">unsafe fn </span>action_update_compressed_memory(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
         region: Range&lt;u64&gt;,
-        data: Cow&lt;<span class="lifetime">&#39;a</span>, [u8]&gt;,
+        compressed_data: Cow&lt;<span class="lifetime">&#39;a</span>, [u8]&gt;,
         differ_ethereal: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;mut </span>Vec&lt;JournalEntry&lt;<span class="lifetime">&#39;a</span>&gt;&gt;&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), WasiRuntimeError&gt; {
         <span class="kw">if </span><span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span><span class="self">self</span>.cur_module_hash) != <span class="self">self</span>.journal_module_hash.as_ref() {
@@ -44,13 +47,16 @@
 
         <span class="kw">if </span><span class="self">self</span>.bootstrapping {
             <span class="macro">tracing::trace!</span>(<span class="string">&quot;Differ(stage) journal - UpdateMemory&quot;</span>);
-            <span class="self">self</span>.staged_differ_memory.push((region, data));
+            <span class="self">self</span>.staged_differ_memory.push((region, compressed_data));
         } <span class="kw">else if let </span><span class="prelude-val">Some</span>(differ_ethereal) = differ_ethereal {
             <span class="macro">tracing::trace!</span>(<span class="string">&quot;Differ(ether) journal - UpdateMemory&quot;</span>);
-            differ_ethereal.push(JournalEntry::UpdateMemoryRegionV1 { region, data });
+            differ_ethereal.push(JournalEntry::UpdateMemoryRegionV1 {
+                region,
+                compressed_data,
+            });
         } <span class="kw">else </span>{
             <span class="macro">tracing::trace!</span>(<span class="string">&quot;Replay journal - UpdateMemory&quot;</span>);
-            JournalEffector::apply_memory(<span class="kw-2">&amp;mut </span><span class="self">self</span>.ctx, region, <span class="kw-2">&amp;</span>data)
+            JournalEffector::apply_compressed_memory(<span class="kw-2">&amp;mut </span><span class="self">self</span>.ctx, region, <span class="kw-2">&amp;</span>compressed_data)
                 .map_err(anyhow_err_to_runtime_err)<span class="question-mark">?</span>;
         }
         <span class="prelude-val">Ok</span>(())

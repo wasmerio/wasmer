@@ -747,6 +747,9 @@
 <a href="#747" id="747">747</a>
 <a href="#748" id="748">748</a>
 <a href="#749" id="749">749</a>
+<a href="#750" id="750">750</a>
+<a href="#751" id="751">751</a>
+<a href="#752" id="752">752</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::ops::Range;
 
 <span class="kw">use super</span>::<span class="kw-2">*</span>;
@@ -798,8 +801,11 @@
                     <span class="self">self</span>.action_fd_seek(fd, offset, whence)<span class="question-mark">?</span>;
                 }
             }
-            JournalEntry::UpdateMemoryRegionV1 { region, data } =&gt; {
-                <span class="self">self</span>.action_update_memory(region, data, differ_ethereal)<span class="question-mark">?</span>;
+            JournalEntry::UpdateMemoryRegionV1 {
+                region,
+                compressed_data,
+            } =&gt; {
+                <span class="self">self</span>.action_update_compressed_memory(region, compressed_data, differ_ethereal)<span class="question-mark">?</span>;
             }
             JournalEntry::CloseThreadV1 { id, exit_code } =&gt; {
                 <span class="self">self</span>.action_close_thread(id, exit_code, differ_ethereal)<span class="question-mark">?</span>;

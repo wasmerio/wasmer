@@ -223,7 +223,74 @@
 <a href="#223" id="223">223</a>
 <a href="#224" id="224">224</a>
 <a href="#225" id="225">225</a>
+<a href="#226" id="226">226</a>
+<a href="#227" id="227">227</a>
+<a href="#228" id="228">228</a>
+<a href="#229" id="229">229</a>
+<a href="#230" id="230">230</a>
+<a href="#231" id="231">231</a>
+<a href="#232" id="232">232</a>
+<a href="#233" id="233">233</a>
+<a href="#234" id="234">234</a>
+<a href="#235" id="235">235</a>
+<a href="#236" id="236">236</a>
+<a href="#237" id="237">237</a>
+<a href="#238" id="238">238</a>
+<a href="#239" id="239">239</a>
+<a href="#240" id="240">240</a>
+<a href="#241" id="241">241</a>
+<a href="#242" id="242">242</a>
+<a href="#243" id="243">243</a>
+<a href="#244" id="244">244</a>
+<a href="#245" id="245">245</a>
+<a href="#246" id="246">246</a>
+<a href="#247" id="247">247</a>
+<a href="#248" id="248">248</a>
+<a href="#249" id="249">249</a>
+<a href="#250" id="250">250</a>
+<a href="#251" id="251">251</a>
+<a href="#252" id="252">252</a>
+<a href="#253" id="253">253</a>
+<a href="#254" id="254">254</a>
+<a href="#255" id="255">255</a>
+<a href="#256" id="256">256</a>
+<a href="#257" id="257">257</a>
+<a href="#258" id="258">258</a>
+<a href="#259" id="259">259</a>
+<a href="#260" id="260">260</a>
+<a href="#261" id="261">261</a>
+<a href="#262" id="262">262</a>
+<a href="#263" id="263">263</a>
+<a href="#264" id="264">264</a>
+<a href="#265" id="265">265</a>
+<a href="#266" id="266">266</a>
+<a href="#267" id="267">267</a>
+<a href="#268" id="268">268</a>
+<a href="#269" id="269">269</a>
+<a href="#270" id="270">270</a>
+<a href="#271" id="271">271</a>
+<a href="#272" id="272">272</a>
+<a href="#273" id="273">273</a>
+<a href="#274" id="274">274</a>
+<a href="#275" id="275">275</a>
+<a href="#276" id="276">276</a>
+<a href="#277" id="277">277</a>
+<a href="#278" id="278">278</a>
+<a href="#279" id="279">279</a>
+<a href="#280" id="280">280</a>
+<a href="#281" id="281">281</a>
+<a href="#282" id="282">282</a>
+<a href="#283" id="283">283</a>
+<a href="#284" id="284">284</a>
+<a href="#285" id="285">285</a>
+<a href="#286" id="286">286</a>
+<a href="#287" id="287">287</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::collections::{hash_map, BTreeMap};
+
+<span class="attr">#[allow(unused)]
+</span><span class="kw">use </span>lz4_flex::{
+    <span class="self">self</span>, block, compress_prepend_size, decompress, decompress_into, decompress_size_prepended,
+};
 
 <span class="kw">use </span><span class="kw">crate</span>::os::task::process::MemorySnapshotRegion;
 
@@ -272,26 +339,28 @@
         </span><span class="kw">let </span><span class="kw-2">mut </span>cur = <span class="number">0u64</span>;
         <span class="kw">let </span><span class="kw-2">mut </span>regions = Vec::&lt;MemorySnapshotRegion&gt;::new();
         <span class="kw">while </span>cur &lt; memory.data_size() {
-            <span class="kw">let </span><span class="kw-2">mut </span>again = <span class="bool-val">false</span>;
-            <span class="kw">let </span>next = ((cur + MEMORY_REGION_RESOLUTION) / MEMORY_REGION_RESOLUTION)
+            <span class="comment">//let mut again = false;
+            </span><span class="kw">let </span>next = ((cur + MEMORY_REGION_RESOLUTION) / MEMORY_REGION_RESOLUTION)
                 * MEMORY_REGION_RESOLUTION;
-            <span class="kw">let </span><span class="kw-2">mut </span>end = memory.data_size().min(next);
-            <span class="kw">for </span>(<span class="kw">_</span>, thread) <span class="kw">in </span>guard.threads.iter() {
-                <span class="kw">let </span>layout = thread.memory_layout();
-                <span class="kw">if </span>cur &gt;= layout.stack_lower &amp;&amp; cur &lt; layout.stack_upper {
+            <span class="kw">let </span>end = memory.data_size().min(next);
+            <span class="comment">/*
+            for (_, thread) in guard.threads.iter() {
+                let layout = thread.memory_layout();
+                if cur &gt;= layout.stack_lower &amp;&amp; cur &lt; layout.stack_upper {
                     cur = layout.stack_upper;
-                    again = <span class="bool-val">true</span>;
-                    <span class="kw">break</span>;
+                    again = true;
+                    break;
                 }
-                <span class="kw">if </span>end &gt; layout.stack_lower &amp;&amp; end &lt; layout.stack_upper {
+                if end &gt; layout.stack_lower &amp;&amp; end &lt; layout.stack_upper {
                     end = end.min(layout.stack_lower);
                 }
             }
-            <span class="kw">if </span>again {
-                <span class="kw">continue</span>;
+            if again {
+                continue;
             }
+            */
 
-            <span class="kw">let </span>region = cur..end;
+            </span><span class="kw">let </span>region = cur..end;
             regions.push(region.into());
             cur = end;
         }
@@ -373,15 +442,28 @@
             <span class="comment">// We grab this region of memory as a vector and hash
             // it, which allows us to make some logging efficiency
             // gains.
-            </span><span class="kw">let </span>data = memory
-                .copy_range_to_vec(region.into())
-                .map_err(mem_error_to_wasi)<span class="question-mark">?</span>;
+            </span><span class="attr">#[cfg(not(feature = <span class="string">&quot;sys&quot;</span>))]
+            </span><span class="kw">let </span>compressed_data = compress_prepend_size(
+                <span class="kw-2">&amp;</span>memory
+                    .copy_range_to_vec(region.into())
+                    .map_err(mem_error_to_wasi)<span class="question-mark">?</span>,
+            );
+
+            <span class="comment">// UNSAFE:
+            //
+            // This is only unsafe while the WASM process itself is running and using this
+            // method avoids a memory copy before its compressed, this also signficantly
+            // reduces the memory process
+            </span><span class="attr">#[cfg(feature = <span class="string">&quot;sys&quot;</span>)]
+            </span><span class="kw">let </span>compressed_data = compress_prepend_size(<span class="kw">unsafe </span>{
+                <span class="kw-2">&amp;</span>memory.data_unchecked()[region.start <span class="kw">as </span>usize..region.end <span class="kw">as </span>usize]
+            });
 
             <span class="comment">// Now we write it to the snap snapshot capturer
             </span>journal
                 .write(JournalEntry::UpdateMemoryRegionV1 {
                     region: region.into(),
-                    data: data.into(),
+                    compressed_data: compressed_data.into(),
                 })
                 .map_err(map_snapshot_err)<span class="question-mark">?</span>;
         }
@@ -404,45 +486,87 @@
     /// This function manipulates the memory of the process and thus must be executed
     /// by the WASM process thread itself.
     ///
-    </span><span class="kw">pub unsafe fn </span>apply_memory(
+    </span><span class="kw">pub unsafe fn </span>apply_compressed_memory(
         ctx: <span class="kw-2">&amp;mut </span>FunctionEnvMut&lt;<span class="lifetime">&#39;_</span>, WasiEnv&gt;,
         region: Range&lt;u64&gt;,
-        <span class="kw-2">mut </span>data: <span class="kw-2">&amp;</span>[u8],
+        compressed_data: <span class="kw-2">&amp;</span>[u8],
     ) -&gt; anyhow::Result&lt;()&gt; {
         <span class="kw">let </span>(env, <span class="kw-2">mut </span>store) = ctx.data_and_store_mut();
 
+        <span class="kw">let </span>(uncompressed_size, compressed_data) = block::uncompressed_size(compressed_data)
+            .map_err(|err| <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;failed to decompress - {}&quot;</span>, err))<span class="question-mark">?</span>;
+
         <span class="kw">let </span>memory = <span class="kw">unsafe </span>{ env.memory() };
-        memory.grow_at_least(<span class="kw-2">&amp;mut </span>store, region.end + data.len() <span class="kw">as </span>u64)<span class="question-mark">?</span>;
+        memory.grow_at_least(<span class="kw-2">&amp;mut </span>store, region.end + uncompressed_size <span class="kw">as </span>u64)<span class="question-mark">?</span>;
 
         <span class="comment">// Write the data to the memory
         </span><span class="kw">let </span>memory = <span class="kw">unsafe </span>{ env.memory_view(<span class="kw-2">&amp;</span>store) };
-        memory
-            .write(region.start, data)
-            .map_err(|err| WasiRuntimeError::Runtime(RuntimeError::user(err.into())))<span class="question-mark">?</span>;
 
-        <span class="comment">// Break the region down into chunks that align with the resolution
-        </span><span class="kw">let </span><span class="kw-2">mut </span>offset = region.start;
-        <span class="kw">while </span>offset &lt; region.end {
-            <span class="kw">let </span>next = region.end.min(offset + MEMORY_REGION_RESOLUTION);
-            <span class="kw">let </span>region = offset..next;
-            offset = next;
+        <span class="attr">#[cfg(not(feature = <span class="string">&quot;sys&quot;</span>))]
+        </span>{
+            <span class="kw">let </span>decompressed_data = decompress(compressed_data, uncompressed_size)<span class="question-mark">?</span>;
+            memory
+                .write(region.start, <span class="kw-2">&amp;</span>decompressed_data)
+                .map_err(|err| WasiRuntimeError::Runtime(RuntimeError::user(err.into())))<span class="question-mark">?</span>;
 
-            <span class="comment">// Compute the hash and update it
-            </span><span class="kw">let </span>size = region.end - region.start;
-            <span class="kw">let </span>hash = {
-                <span class="kw">let </span>h: [u8; <span class="number">32</span>] = blake3::hash(<span class="kw-2">&amp;</span>data[..size <span class="kw">as </span>usize]).into();
-                u64::from_be_bytes([h[<span class="number">0</span>], h[<span class="number">1</span>], h[<span class="number">2</span>], h[<span class="number">3</span>], h[<span class="number">4</span>], h[<span class="number">5</span>], h[<span class="number">6</span>], h[<span class="number">7</span>]])
-            };
-            env.process
-                .inner
-                .<span class="number">0
-                </span>.lock()
-                .unwrap()
-                .snapshot_memory_hash
-                .insert(region.into(), hash);
+            <span class="comment">// Break the region down into chunks that align with the resolution
+            </span><span class="kw">let </span><span class="kw-2">mut </span>decompressed_data = <span class="kw-2">&amp;</span>decompressed_data[..];
+            <span class="kw">let </span><span class="kw-2">mut </span>offset = region.start;
+            <span class="kw">while </span>offset &lt; region.end {
+                <span class="kw">let </span>next = region.end.min(offset + MEMORY_REGION_RESOLUTION);
+                <span class="kw">let </span>region = offset..next;
+                offset = next;
 
-            <span class="comment">// Shift the data pointer
-            </span>data = <span class="kw-2">&amp;</span>data[size <span class="kw">as </span>usize..];
+                <span class="comment">// Compute the hash and update it
+                </span><span class="kw">let </span>size = region.end - region.start;
+                <span class="kw">let </span>hash = {
+                    <span class="kw">let </span>h: [u8; <span class="number">32</span>] = blake3::hash(<span class="kw-2">&amp;</span>decompressed_data[..size <span class="kw">as </span>usize]).into();
+                    u64::from_be_bytes([h[<span class="number">0</span>], h[<span class="number">1</span>], h[<span class="number">2</span>], h[<span class="number">3</span>], h[<span class="number">4</span>], h[<span class="number">5</span>], h[<span class="number">6</span>], h[<span class="number">7</span>]])
+                };
+                env.process
+                    .inner
+                    .<span class="number">0
+                    </span>.lock()
+                    .unwrap()
+                    .snapshot_memory_hash
+                    .insert(region.into(), hash);
+
+                <span class="comment">// Shift the data pointer
+                </span>decompressed_data = <span class="kw-2">&amp;</span>decompressed_data[size <span class="kw">as </span>usize..];
+            }
+        }
+
+        <span class="attr">#[cfg(feature = <span class="string">&quot;sys&quot;</span>)]
+        </span><span class="kw">unsafe </span>{
+            <span class="kw">let </span>start = region.start <span class="kw">as </span>usize;
+            <span class="kw">let </span>end = start + uncompressed_size;
+            decompress_into(
+                compressed_data,
+                <span class="kw-2">&amp;mut </span>memory.data_unchecked_mut()[start..end],
+            )<span class="question-mark">?</span>;
+
+            <span class="comment">// Break the region down into chunks that align with the resolution
+            </span><span class="kw">let </span>data = <span class="kw-2">&amp;</span>memory.data_unchecked()[start..end];
+            <span class="kw">let </span><span class="kw-2">mut </span>offset = region.start;
+            <span class="kw">while </span>offset &lt; region.end {
+                <span class="kw">let </span>next = region.end.min(offset + MEMORY_REGION_RESOLUTION);
+                <span class="kw">let </span>region = offset..next;
+
+                <span class="comment">// Compute the hash and update it
+                </span><span class="kw">let </span>hash = {
+                    <span class="kw">let </span>h: [u8; <span class="number">32</span>] = blake3::hash(<span class="kw-2">&amp;</span>data[offset <span class="kw">as </span>usize..next <span class="kw">as </span>usize]).into();
+                    u64::from_be_bytes([h[<span class="number">0</span>], h[<span class="number">1</span>], h[<span class="number">2</span>], h[<span class="number">3</span>], h[<span class="number">4</span>], h[<span class="number">5</span>], h[<span class="number">6</span>], h[<span class="number">7</span>]])
+                };
+                env.process
+                    .inner
+                    .<span class="number">0
+                    </span>.lock()
+                    .unwrap()
+                    .snapshot_memory_hash
+                    .insert(region.into(), hash);
+
+                offset = next;
+            }
         }
 
         <span class="prelude-val">Ok</span>(())

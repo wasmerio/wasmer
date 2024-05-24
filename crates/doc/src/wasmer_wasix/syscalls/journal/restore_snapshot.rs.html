@@ -143,7 +143,7 @@
             region,
             data.len()
         );
-        JournalEffector::apply_memory(<span class="kw-2">&amp;mut </span>runner.ctx, region, <span class="kw-2">&amp;</span>data)
+        JournalEffector::apply_compressed_memory(<span class="kw-2">&amp;mut </span>runner.ctx, region, <span class="kw-2">&amp;</span>data)
             .map_err(anyhow_err_to_runtime_err)<span class="question-mark">?</span>;
     }
 

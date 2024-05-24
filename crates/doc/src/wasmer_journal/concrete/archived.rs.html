@@ -1803,8 +1803,7 @@
 <a href="#1803" id="1803">1803</a>
 <a href="#1804" id="1804">1804</a>
 <a href="#1805" id="1805">1805</a>
-</pre></div><pre class="rust"><code><span class="kw">use </span>lz4_flex::block::compress_prepend_size;
-<span class="kw">use </span>num_enum::{IntoPrimitive, TryFromPrimitive};
+</pre></div><pre class="rust"><code><span class="kw">use </span>num_enum::{IntoPrimitive, TryFromPrimitive};
 <span class="kw">use </span>rkyv::ser::{ScratchSpace, Serializer};
 <span class="kw">use </span>rkyv::{Archive, CheckBytes, Deserialize <span class="kw">as </span>RkyvDeserialize, Serialize <span class="kw">as </span>RkyvSerialize};
 <span class="kw">use </span>std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
@@ -2248,13 +2247,14 @@
             JournalEntry::ClearEtherealV1 =&gt; {
                 serializer.serialize_value(<span class="kw-2">&amp;</span>JournalEntryClearEtherealV1 {})
             }
-            JournalEntry::UpdateMemoryRegionV1 { region, data } =&gt; {
-                serializer.serialize_value(<span class="kw-2">&amp;</span>JournalEntryUpdateMemoryRegionV1 {
-                    start: region.start,
-                    end: region.end,
-                    compressed_data: compress_prepend_size(data.as_ref()).into(),
-                })
-            }
+            JournalEntry::UpdateMemoryRegionV1 {
+                region,
+                compressed_data,
+            } =&gt; serializer.serialize_value(<span class="kw-2">&amp;</span>JournalEntryUpdateMemoryRegionV1 {
+                start: region.start,
+                end: region.end,
+                compressed_data: compressed_data.into(),
+            }),
             JournalEntry::ProcessExitV1 { exit_code } =&gt; {
                 serializer.serialize_value(<span class="kw-2">&amp;</span>JournalEntryProcessExitV1 {
                     exit_code: exit_code.map(|e| e.into()),
