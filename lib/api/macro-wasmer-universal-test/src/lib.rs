@@ -17,13 +17,13 @@ pub fn universal_test(
         block,
     } = syn::parse_macro_input!(item as MaybeItemFn);
 
-    let fn_name = sig.ident.to_string();
-    let fn_name_js = Ident::new(&format!("{fn_name}_js"), Span::call_site());
+    let fn_call = Ident::new(&sig.ident.to_string(), Span::call_site());
+    let fn_js_call = Ident::new(&format!("{}_js", sig.ident), Span::call_site());
 
     let tokens = quote::quote! {
         #[cfg(feature = "js")]
         #[cfg_attr(feature = "js", wasm_bindgen_test)]
-        fn #fn_name_js() { #fn_name().unwrap(); }
+        fn #fn_js_call() { #fn_call().unwrap(); }
 
         #[cfg_attr(any(feature = "sys", feature = "jsc", feature = "wasm-c-api"), test)]
         #(#outer_attrs) *

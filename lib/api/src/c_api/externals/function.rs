@@ -506,7 +506,6 @@ where
                 let mut fn_env: FunctionEnvMut<'_, T> = (&mut (*r).0).as_mut();
                 let (_, store) = &mut fn_env.data_and_store_mut();
                 unsafe { trap.into_wasm_trap(store) }
-
             }
 
             Err(e) => {

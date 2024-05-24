@@ -465,10 +465,10 @@ pub mod vm;
 mod module_info_polyfill;
 
 #[cfg(feature = "sys")]
-#[allow(missing_docs)]
+/// The `sys` engine.
 pub mod sys;
 #[cfg(feature = "sys")]
-#[allow(missing_docs)]
+/// Re-export `sys` definitions.
 pub use sys::*;
 
 #[cfg(feature = "sys")]
@@ -496,25 +496,24 @@ pub type BaseTunables = sys::BaseTunables;
 pub type VMConfig = sys::VMConfig;
 
 #[cfg(feature = "js")]
-#[allow(missing_docs)]
+/// The `js` engine.
 mod js;
 #[cfg(feature = "js")]
-#[allow(missing_docs)]
+/// Re-export `js` definitions.
 pub use js::*;
 
 #[cfg(feature = "jsc")]
-#[allow(missing_docs)]
+/// The `jsc` engine.
 mod jsc;
 #[cfg(feature = "jsc")]
-#[allow(missing_docs)]
+/// Re-export `jsc` definitions.
 pub use jsc::*;
 
 #[cfg(feature = "wasm-c-api")]
-#[allow(missing_docs)]
+/// The `c-api` engine.
 mod c_api;
 #[cfg(feature = "wasm-c-api")]
-#[allow(unused)]
-#[allow(missing_docs)]
+/// Re-export `c-api` definitions.
 pub use c_api::*;
 
 pub use crate::externals::{
