@@ -220,6 +220,7 @@ where
 
     let pid = ctx.data().pid();
     let tid = ctx.data().tid();
+    let subs_len = subs.len();
 
     // Determine if we are in silent polling mode
     let mut env = ctx.data();
@@ -379,10 +380,20 @@ where
             Some(time)
         }
     };
+    let allow_blocking_current_thread = env.allow_blocking_current_thread;
     let tasks = env.tasks().clone();
     let timeout = async move {
         if let Some(timeout) = timeout {
-            tasks.sleep_now(timeout).await;
+            if subs_len == 1 && allow_blocking_current_thread {
+                // Here, `poll_oneoff` is merely in a sleeping state
+                // due to a single relative timer event. This particular scenario was
+                // added following experimental findings indicating that std::thread::sleep
+                // yields more consistent sleep durations, allowing wasmer to meet
+                // real-time demands with greater precision.
+                std::thread::sleep(timeout);
+            } else {
+                tasks.sleep_now(timeout).await;
+            }
         } else {
             InfiniteSleep::default().await
         }
