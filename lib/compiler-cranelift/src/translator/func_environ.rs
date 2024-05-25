@@ -61,6 +61,7 @@ pub trait TargetEnvironment {
     }
 
     /// Get the size of a native pointer, in bytes.
+    #[allow(dead_code)]
     fn pointer_bytes(&self) -> u8 {
         self.target_config().pointer_bytes()
     }
@@ -470,6 +471,7 @@ pub trait FuncEnvironment: TargetEnvironment {
     }
 
     /// Get the type of the global at the given index.
+    #[allow(dead_code)]
     fn get_global_type(&self, global_index: GlobalIndex) -> Option<WasmerType>;
 
     /// Push a local declaration on to the stack to track the type of locals.
@@ -479,14 +481,18 @@ pub trait FuncEnvironment: TargetEnvironment {
     fn push_params_on_stack(&mut self, function_index: LocalFunctionIndex);
 
     /// Get the type of the local at the given index.
+    #[allow(dead_code)]
     fn get_local_type(&self, local_index: u32) -> Option<WasmerType>;
 
     /// Get the types of all the current locals.
+    #[allow(dead_code)]
     fn get_local_types(&self) -> &[WasmerType];
 
     /// Get the type of the local at the given index.
+    #[allow(dead_code)]
     fn get_function_type(&self, function_index: FunctionIndex) -> Option<&FunctionType>;
 
     /// Get the type of a function with the given signature index.
+    #[allow(dead_code)]
     fn get_function_sig(&self, sig_index: SignatureIndex) -> Option<&FunctionType>;
 }

@@ -95,6 +95,7 @@ impl PollEventBuilder {
     }
 }
 
+#[allow(dead_code)]
 pub trait WasiPath {}
 
 /*
