@@ -341,6 +341,9 @@ impl WasiThread {
 
     /// Adds a signal for this thread to process
     pub fn signal(&self, signal: Signal) {
+        let tid = self.tid();
+        tracing::trace!(%tid, "signal-thread({:?})", signal);
+
         let mut guard = self.state.signals.lock().unwrap();
         if !guard.0.contains(&signal) {
             guard.0.push(signal);
