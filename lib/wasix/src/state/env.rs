@@ -95,6 +95,10 @@ pub struct WasiInstanceHandles {
     /// when a CTRL-C is pressed.
     pub(crate) signal_set: bool,
 
+    /// Flag that indicates if the stack capture exports are being used by
+    /// this WASM process which means that it will be using asyncify
+    pub(crate) has_stack_checkpoint: bool,
+
     /// asyncify_start_unwind(data : i32): call this to start unwinding the
     /// stack from the current location. "data" must point to a data
     /// structure as described above (with fields containing valid data).
@@ -143,6 +147,10 @@ pub struct WasiInstanceHandles {
 
 impl WasiInstanceHandles {
     pub fn new(memory: Memory, store: &impl AsStoreRef, instance: Instance) -> Self {
+        let has_stack_checkpoint = instance
+            .module()
+            .imports()
+            .any(|f| f.name() == "stack_checkpoint");
         WasiInstanceHandles {
             memory,
             stack_pointer: instance
@@ -178,6 +186,7 @@ impl WasiInstanceHandles {
                 .exports
                 .get_typed_function(&store, "__wasm_signal")
                 .ok(),
+            has_stack_checkpoint,
             signal_set: false,
             asyncify_start_unwind: instance
                 .exports
@@ -437,6 +446,12 @@ impl WasiEnv {
 
     pub fn tid(&self) -> WasiThreadId {
         self.thread.tid()
+    }
+
+    /// Returns true if this WASM process will need and try to use
+    /// asyncify while its running which normally means.
+    pub fn will_use_asyncify(&self) -> bool {
+        self.enable_deep_sleep || unsafe { self.inner().has_stack_checkpoint }
     }
 
     /// Re-initializes this environment so that it can be executed again
