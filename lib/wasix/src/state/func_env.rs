@@ -148,6 +148,7 @@ impl WasiFunctionEnv {
         )?;
 
         let new_inner = WasiInstanceHandles::new(memory, store, instance);
+
         let stack_pointer = new_inner.stack_pointer.clone();
         let data_end = new_inner.data_end.clone();
         let stack_low = new_inner.stack_low.clone();
@@ -199,15 +200,19 @@ impl WasiFunctionEnv {
                 // clang-16 and higher generate the `__stack_low` global, and it can be exported with
                 // `-Wl,--export=__stack_low`. clang-15 generates `__data_end`, which should be identical
                 // and can be exported if `__stack_low` is not available.
-                tracing::warn!("Missing both __stack_low and __data_end exports, unwinding may cause memory corruption");
+                if self.data(store).will_use_asyncify() {
+                    tracing::warn!("Missing both __stack_low and __data_end exports, unwinding may cause memory corruption");
+                }
                 0
             };
 
             if stack_lower >= stack_base {
-                tracing::warn!(
-                    "Detected lower end of stack to be above higher end, ignoring stack_lower; \
-                    unwinding may cause memory corruption"
-                );
+                if self.data(store).will_use_asyncify() {
+                    tracing::warn!(
+                        "Detected lower end of stack to be above higher end, ignoring stack_lower; \
+                        unwinding may cause memory corruption"
+                    );
+                }
                 stack_lower = 0;
             }
 
