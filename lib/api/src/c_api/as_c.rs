@@ -2,7 +2,7 @@ use crate::bindings::{
     wasm_extern_as_ref, wasm_func_as_ref, wasm_val_t, wasm_val_t__bindgen_ty_1,
     wasm_valkind_enum_WASM_EXTERNREF, wasm_valkind_enum_WASM_F32, wasm_valkind_enum_WASM_F64,
     wasm_valkind_enum_WASM_FUNCREF, wasm_valkind_enum_WASM_I32, wasm_valkind_enum_WASM_I64,
-    wasm_valkind_t, wasm_valtype_kind, wasm_valtype_t, wasm_valkind_enum_WASM_V128,
+    wasm_valkind_enum_WASM_V128, wasm_valkind_t, wasm_valtype_kind, wasm_valtype_t,
 };
 //use crate::js::externals::Function;
 // use crate::store::{Store, StoreObject};
