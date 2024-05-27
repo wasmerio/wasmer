@@ -28,7 +28,6 @@ pub fn proc_exec2<M: MemorySize>(
     envs: WasmPtr<u8, M>,
     envs_len: M::Offset,
 ) -> Result<(), WasiError> {
-    println!("proc_exec2");
     WasiEnv::process_signals_and_exit(&mut ctx)?;
 
     // If we were just restored the stack then we were woken after a deep sleep
