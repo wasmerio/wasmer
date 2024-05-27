@@ -1,4 +1,6 @@
 use super::bindings::wasm_module_t;
+use crate::bindings::wasm_byte_vec_new;
+use crate::bindings::wasm_byte_vec_new_empty;
 use crate::bindings::wasm_byte_vec_t;
 use crate::bindings::wasm_module_delete;
 use crate::bindings::wasm_module_new;
@@ -26,14 +28,22 @@ pub(crate) struct ModuleHandle(pub(crate) *mut wasm_module_t);
 
 impl ModuleHandle {
     fn new(store: *mut wasm_store_t, binary: &[u8]) -> Result<Self, CompileError> {
-        let bytes = wasm_byte_vec_t {
-            size: binary.len(),
-            data: binary.as_ptr() as _,
+        let bytes = unsafe {
+            let mut vec = wasm_byte_vec_t {
+                size: 0,
+                data: std::ptr::null_mut(),
+                num_elems: 0,
+                size_of_elem: 0,
+                lock: std::ptr::null_mut(),
+            };
+            wasm_byte_vec_new_empty(&mut vec);
+            wasm_byte_vec_new(&mut vec, binary.len(), binary.as_ptr() as _);
+            &mut vec as *const _
         };
-        let module = unsafe { wasm_module_new(store, &bytes) };
+
+        let module = unsafe { wasm_module_new(store, bytes) };
         if module.is_null() {
-            // return Err(CompileError::Validate(format!("{}", e.to_string(&context).unwrap()))
-            unimplemented!();
+            return Err(CompileError::Validate(format!("module is null")));
         }
         Ok(ModuleHandle(module))
     }

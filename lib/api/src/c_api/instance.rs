@@ -33,20 +33,27 @@ impl InstanceHandle {
     ) -> Result<Self, InstantiationError> {
         // let mut externs = externs.into_boxed_slice();
 
-        let mut imports = wasm_extern_vec_t {
-            size: externs.len(),
-            data: externs.clone().as_mut_ptr(),
+        let mut imports = unsafe {
+            let mut vec = wasm_extern_vec_t {
+                size: 0,
+                data: std::ptr::null_mut(),
+                num_elems: 0,
+                size_of_elem: 0,
+                lock: std::ptr::null_mut(),
+            };
+            wasm_extern_vec_new_empty(&mut vec);
+            wasm_extern_vec_new(&mut vec, externs.len(), externs.as_ptr());
+            &mut vec as *const _
         };
-
-        unsafe { wasm_extern_vec_new(&mut imports, externs.len(), externs.as_ptr()) };
 
         std::mem::forget(externs);
 
         // unsafe { wasm_extern_vec_new(&mut imports, , externs:) };
         let mut trap: *mut wasm_trap_t = std::ptr::null_mut() as _;
         // let mut trap_ptr: *mut wasm_trap_t = &mut trap as *mut _;
-        let instance = unsafe { wasm_instance_new(store, module, &mut imports, &mut trap) };
+        let instance = unsafe { wasm_instance_new(store, module, imports, &mut trap) };
         if instance.is_null() {
+            println!("Instance is null...");
             let trap = Trap::from(trap);
             return Err(InstantiationError::Start(trap.into()));
             // return Err(InstantiationError::Start(crate::RuntimeError::new(
@@ -56,17 +63,24 @@ impl InstanceHandle {
         Ok(InstanceHandle(instance))
     }
     fn get_exports(&self, mut store: &mut impl AsStoreMut, module: &Module) -> Exports {
-        let mut exports = wasm_extern_vec_t {
-            size: 0,
-            data: std::ptr::null_mut() as _,
+        let exports = unsafe {
+            let mut vec = wasm_extern_vec_t {
+                size: 0,
+                data: std::ptr::null_mut(),
+                num_elems: 0,
+                size_of_elem: 0,
+                lock: std::ptr::null_mut(),
+            };
+            wasm_extern_vec_new_empty(&mut vec);
+            &mut vec as *mut _
         };
-        // wasm_extern_vec_new_uninitialized(&mut exports, arg1)
+
         unsafe {
-            wasm_instance_exports(self.0, &mut exports);
+            wasm_instance_exports(self.0, exports);
         }
         // println!("SIZE {}", unsafe { exports.size });
         let wasm_exports: &[*mut wasm_extern_t] =
-            unsafe { std::slice::from_raw_parts(exports.data, exports.size) };
+            unsafe { std::slice::from_raw_parts((*exports).data, (*exports).size) };
 
         let exports_ty = module.exports().collect::<Vec<_>>();
         let exports = exports_ty

@@ -20,11 +20,15 @@ fn main() {
             panic!("fetching submodules failed: {e}");
         }
 
-        let dst = Config::new(wamr_dir)
+        let dst = Config::new(wamr_dir.clone())
             .always_configure(true)
             .generator("Unix Makefiles")
             .define("CMAKE_BUILD_TYPE", "Release")
-            .no_build_target(true)
+            .define("WAMR_BUILD_AOT", "0")
+            .define("WAMR_BUILD_LOAD_CUSTOM_SECTION", "1")
+            .define("WAMR_BUILD_CUSTOM_NAME_SECTION", "1")
+            //.define("WAMR_ENABLE_FAST_INTERP", "1")
+            .define("WAMR_BUILD_SHARED_MEMORY", "1")
             .build();
 
         // Check output of `cargo build --verbose`, should see something like:
@@ -37,7 +41,15 @@ fn main() {
         println!("cargo:rustc-link-lib=vmlib");
 
         let bindings = bindgen::Builder::default()
-            .header("wasm.h")
+            .header(
+                wamr_dir
+                    .join("core")
+                    .join("iwasm")
+                    .join("include")
+                    .join("wasm_c_api.h")
+                    .to_str()
+                    .unwrap(),
+            )
             // This is needed if use `#include <nng.h>` instead of `#include "path/nng.h"`
             //.clang_arg("-Inng/src/")
             .generate()

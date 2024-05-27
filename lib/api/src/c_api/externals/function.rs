@@ -1,13 +1,14 @@
 use crate::as_c::{param_from_c, result_to_value, type_to_c, valtype_to_type};
 use crate::bindings::{
-    wasm_byte_vec_new, wasm_byte_vec_new_empty, wasm_byte_vec_t, wasm_extern_as_func,
-    wasm_func_call, wasm_func_new, wasm_func_new_with_env, wasm_func_param_arity,
-    wasm_func_result_arity, wasm_func_t, wasm_func_type, wasm_functype_copy, wasm_functype_new,
-    wasm_functype_params, wasm_functype_results, wasm_functype_t, wasm_trap_message, wasm_trap_new,
-    wasm_trap_t, wasm_val_t, wasm_val_t__bindgen_ty_1, wasm_val_vec_copy, wasm_val_vec_new,
-    wasm_val_vec_new_uninitialized, wasm_val_vec_t, wasm_valkind_enum_WASM_F32,
-    wasm_valkind_enum_WASM_F64, wasm_valkind_enum_WASM_I32, wasm_valkind_enum_WASM_I64,
-    wasm_valtype_new, wasm_valtype_t, wasm_valtype_vec_new, wasm_valtype_vec_t,
+    wasm_byte_vec_new, wasm_byte_vec_new_empty, wasm_byte_vec_new_uninitialized, wasm_byte_vec_t,
+    wasm_extern_as_func, wasm_func_call, wasm_func_new, wasm_func_new_with_env,
+    wasm_func_param_arity, wasm_func_result_arity, wasm_func_t, wasm_func_type, wasm_functype_copy,
+    wasm_functype_new, wasm_functype_params, wasm_functype_results, wasm_functype_t,
+    wasm_trap_message, wasm_trap_new, wasm_trap_t, wasm_val_t, wasm_val_t__bindgen_ty_1,
+    wasm_val_vec_copy, wasm_val_vec_new, wasm_val_vec_new_empty, wasm_val_vec_new_uninitialized,
+    wasm_val_vec_t, wasm_valkind_enum_WASM_F32, wasm_valkind_enum_WASM_F64,
+    wasm_valkind_enum_WASM_I32, wasm_valkind_enum_WASM_I64, wasm_valtype_new, wasm_valtype_t,
+    wasm_valtype_vec_new, wasm_valtype_vec_new_empty, wasm_valtype_vec_t,
 };
 use crate::c_api::store::{InternalStoreHandle, StoreHandle};
 // use crate::c_api::trap::Trap;
@@ -87,18 +88,22 @@ impl Function {
             })
             .collect::<Vec<_>>();
 
-        let mut wasm_param_types = wasm_valtype_vec_t {
-            size: param_types.len(),
-            data: param_types.clone().as_mut_ptr(),
-        };
-
-        unsafe {
+        let mut wasm_param_types = unsafe {
+            let mut wasm_param_types = wasm_valtype_vec_t {
+                size: param_types.len(),
+                data: std::ptr::null_mut(),
+                num_elems: param_types.len(),
+                size_of_elem: 0,
+                lock: std::ptr::null_mut(),
+            };
+            wasm_valtype_vec_new_empty(&mut wasm_param_types);
             wasm_valtype_vec_new(
                 &mut wasm_param_types,
                 param_types.len(),
                 param_types.as_ptr(),
             );
-        }
+            wasm_param_types
+        };
 
         std::mem::forget(param_types);
 
@@ -111,23 +116,23 @@ impl Function {
             })
             .collect::<Vec<_>>();
 
-        let mut wasm_result_types = wasm_valtype_vec_t {
-            size: result_types.len(),
-            data: result_types.clone().as_mut_ptr(),
+        let mut wasm_result_types = unsafe {
+            let mut vec = wasm_valtype_vec_t {
+                size: result_types.len(),
+                data: std::ptr::null_mut(),
+                num_elems: result_types.len(),
+                size_of_elem: 0,
+                lock: std::ptr::null_mut(),
+            };
+
+            wasm_valtype_vec_new_empty(&mut vec);
+            wasm_valtype_vec_new(&mut vec, result_types.len(), result_types.as_ptr());
+            &mut vec as *mut _
         };
 
-        unsafe {
-            wasm_valtype_vec_new(
-                &mut wasm_result_types,
-                result_types.len(),
-                result_types.as_ptr(),
-            );
-        }
+        // std::mem::forget(result_types);
 
-        std::mem::forget(result_types);
-
-        let wasm_functype =
-            unsafe { wasm_functype_new(&mut wasm_param_types, &mut wasm_result_types) };
+        let wasm_functype = unsafe { wasm_functype_new(&mut wasm_param_types, wasm_result_types) };
 
         let mut store = store.as_store_mut();
         let inner = store.inner.store.inner;
@@ -172,18 +177,19 @@ impl Function {
             })
             .collect::<Vec<_>>();
 
-        let mut wasm_param_types = wasm_valtype_vec_t {
-            size: param_types.len(),
-            data: param_types.clone().as_mut_ptr(),
-        };
+        let mut wasm_param_types = unsafe {
+            let mut vec = wasm_valtype_vec_t {
+                size: param_types.len(),
+                data: std::ptr::null_mut(),
+                num_elems: param_types.len(),
+                size_of_elem: 0,
+                lock: std::ptr::null_mut(),
+            };
 
-        unsafe {
-            wasm_valtype_vec_new(
-                &mut wasm_param_types,
-                param_types.len(),
-                param_types.as_ptr(),
-            );
-        }
+            wasm_valtype_vec_new_empty(&mut vec);
+            wasm_valtype_vec_new(&mut vec, param_types.len(), param_types.as_ptr());
+            &mut vec as *mut _
+        };
 
         std::mem::forget(param_types);
 
@@ -195,23 +201,23 @@ impl Function {
             })
             .collect::<Vec<_>>();
 
-        let mut wasm_result_types = wasm_valtype_vec_t {
-            size: result_types.len(),
-            data: result_types.clone().as_mut_ptr(),
-        };
+        let mut wasm_result_types = unsafe {
+            let mut vec = wasm_valtype_vec_t {
+                size: result_types.len(),
+                data: std::ptr::null_mut(),
+                num_elems: result_types.len(),
+                size_of_elem: 0,
+                lock: std::ptr::null_mut(),
+            };
 
-        unsafe {
-            wasm_valtype_vec_new(
-                &mut wasm_result_types,
-                result_types.len(),
-                result_types.as_ptr(),
-            );
-        }
+            wasm_valtype_vec_new_empty(&mut vec);
+            wasm_valtype_vec_new(&mut vec, result_types.len(), result_types.as_ptr());
+            &mut vec as *mut _
+        };
 
         std::mem::forget(result_types);
 
-        let wasm_functype =
-            unsafe { wasm_functype_new(&mut wasm_param_types, &mut wasm_result_types) };
+        let wasm_functype = unsafe { wasm_functype_new(wasm_param_types, wasm_result_types) };
 
         let mut store = store.as_store_mut();
         let inner = store.inner.store.inner;
@@ -266,18 +272,19 @@ impl Function {
             })
             .collect::<Vec<_>>();
 
-        let mut wasm_param_types = wasm_valtype_vec_t {
-            size: param_types.len(),
-            data: param_types.clone().as_mut_ptr(),
-        };
+        let mut wasm_param_types = unsafe {
+            let mut vec = wasm_valtype_vec_t {
+                size: param_types.len(),
+                data: std::ptr::null_mut(),
+                num_elems: param_types.len(),
+                size_of_elem: 0,
+                lock: std::ptr::null_mut(),
+            };
 
-        unsafe {
-            wasm_valtype_vec_new(
-                &mut wasm_param_types,
-                param_types.len(),
-                param_types.as_ptr(),
-            );
-        }
+            wasm_valtype_vec_new_empty(&mut vec);
+            wasm_valtype_vec_new(&mut vec, param_types.len(), param_types.as_ptr());
+            &mut vec as *mut _
+        };
 
         std::mem::forget(param_types);
 
@@ -289,23 +296,23 @@ impl Function {
             })
             .collect::<Vec<_>>();
 
-        let mut wasm_result_types = wasm_valtype_vec_t {
-            size: result_types.len(),
-            data: result_types.clone().as_mut_ptr(),
-        };
+        let mut wasm_result_types = unsafe {
+            let mut vec = wasm_valtype_vec_t {
+                size: result_types.len(),
+                data: std::ptr::null_mut(),
+                num_elems: result_types.len(),
+                size_of_elem: 0,
+                lock: std::ptr::null_mut(),
+            };
 
-        unsafe {
-            wasm_valtype_vec_new(
-                &mut wasm_result_types,
-                result_types.len(),
-                result_types.as_ptr(),
-            );
-        }
+            wasm_valtype_vec_new_empty(&mut vec);
+            wasm_valtype_vec_new(&mut vec, result_types.len(), result_types.as_ptr());
+            &mut vec as *mut _
+        };
 
         std::mem::forget(result_types);
 
-        let wasm_functype =
-            unsafe { wasm_functype_new(&mut wasm_param_types, &mut wasm_result_types) };
+        let wasm_functype = unsafe { wasm_functype_new(wasm_param_types, wasm_result_types) };
 
         let mut store = store.as_store_mut();
         let inner = store.inner.store.inner;
@@ -383,6 +390,7 @@ impl Function {
         store: &mut impl AsStoreMut,
         params: &[Value],
     ) -> Result<Box<[Value]>, RuntimeError> {
+        println!("inner call..");
         // unimplemented!();
         let store_mut = store.as_store_mut();
         // let wasm_func_param_arity(self.handle)
@@ -391,27 +399,61 @@ impl Function {
             .map(result_to_value)
             .collect::<Vec<_>>()
             .into_boxed_slice();
-        let args = wasm_val_vec_t {
-            size: wasm_params.len(),
-            data: wasm_params.as_mut_ptr(),
+        let args = unsafe {
+            let mut vec = wasm_val_vec_t {
+                size: 0,
+                data: std::ptr::null_mut(),
+                num_elems: 0,
+                size_of_elem: 0,
+                lock: std::ptr::null_mut(),
+            };
+
+            wasm_val_vec_new_empty(&mut vec);
+            wasm_val_vec_new(&mut vec, wasm_params.len(), wasm_params.as_ptr());
+            &mut vec as *const _
         };
 
+        println!("Args built...{:?}", unsafe { *args });
         // std::mem::forget(wasm_params);
         let size = unsafe { wasm_func_result_arity(self.handle) };
-        let mut results = wasm_val_vec_t {
-            size: 0,
-            data: std::ptr::null_mut(),
+        let mut results = unsafe {
+            let mut vec = wasm_val_vec_t {
+                size: 0,
+                data: std::ptr::null_mut(),
+                num_elems: 1,
+                size_of_elem: 0,
+                lock: std::ptr::null_mut(),
+            };
+            wasm_val_vec_new_uninitialized(&mut vec, size);
+            &mut vec as *mut _
         };
 
-        unsafe {
-            wasm_val_vec_new_uninitialized(&mut results, size);
-        }
+        println!("params built...{:?}", unsafe { *results });
 
-        let trap = unsafe { wasm_func_call(self.handle, &args, &mut results) };
+        let trap = unsafe { wasm_func_call(self.handle, args, results) };
         if !trap.is_null() {
+            println!("Trap is not null :(");
+
+            unsafe {
+                let mut vec = wasm_byte_vec_t {
+                    size: 0,
+                    data: std::ptr::null_mut(),
+                    num_elems: 0,
+                    size_of_elem: 0,
+                    lock: std::ptr::null_mut(),
+                };
+
+                wasm_byte_vec_new_uninitialized(&mut vec, 100);
+                wasm_trap_message(trap, &mut vec);
+                for i in 0..vec.num_elems {
+                    print!("{}", *vec.data.wrapping_add(i) as u8 as char);
+                }
+                println!();
+            }
+
             return Err(Into::<Trap>::into(trap).into());
         }
-        let results = unsafe { std::ptr::slice_from_raw_parts(results.data, results.size) };
+        let results = unsafe { std::ptr::slice_from_raw_parts((*results).data, (*results).size) };
 
         Ok(unsafe {
             (*results)

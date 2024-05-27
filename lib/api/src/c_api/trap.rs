@@ -1,4 +1,6 @@
-use crate::bindings::{wasm_byte_vec_new, wasm_byte_vec_t, wasm_trap_message};
+use crate::bindings::{
+    wasm_byte_vec_new, wasm_byte_vec_new_empty, wasm_byte_vec_t, wasm_trap_message,
+};
 use crate::c_api::bindings::{wasm_message_t, wasm_trap_new, wasm_trap_t};
 use crate::{AsStoreMut, RuntimeError};
 use std::error::Error;
@@ -128,12 +130,19 @@ impl fmt::Display for Trap {
             InnerTrap::CApi(value) => {
                 // let message: wasm_message_t;
                 // wasm_trap_message(value, &mut message);
-                let mut out = wasm_byte_vec_t {
-                    size: 0,
-                    data: std::ptr::null_mut(),
+                let mut out = unsafe {
+                    let mut vec = wasm_byte_vec_t {
+                        size: 0,
+                        data: std::ptr::null_mut(),
+                        num_elems: 0,
+                        size_of_elem: 0,
+                        lock: std::ptr::null_mut(),
+                    };
+                    wasm_byte_vec_new_empty(&mut vec);
+                    &mut vec as *mut _
                 };
-                unsafe { wasm_trap_message(*value, &mut out) };
-                let cstr = unsafe { CStr::from_ptr(out.data) };
+                unsafe { wasm_trap_message(*value, out) };
+                let cstr = unsafe { CStr::from_ptr((*out).data) };
                 write!(f, "wasm-c-api trap: {}", cstr.to_str().unwrap())
             }
         }
