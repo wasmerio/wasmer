@@ -94,7 +94,10 @@ pub(crate) use self::types::{
     },
     *,
 };
-use self::{state::WasiInstanceGuardMemory, utils::WasiDummyWaker};
+use self::{
+    state::{conv_env_vars, WasiInstanceGuardMemory},
+    utils::WasiDummyWaker,
+};
 pub(crate) use crate::os::task::{
     process::{WasiProcessId, WasiProcessWait},
     thread::{WasiThread, WasiThreadId},
@@ -1471,12 +1474,56 @@ where
 }
 
 // Function to prepare the WASI environment
-pub(crate) fn _prepare_wasi(wasi_env: &mut WasiEnv, args: Option<Vec<String>>) {
+pub(crate) fn _prepare_wasi(
+    wasi_env: &mut WasiEnv,
+    args: Option<Vec<String>>,
+    envs: Option<Vec<(String, String)>>,
+) {
+    let mut state_is_forked = false;
+
     // Swap out the arguments with the new ones
     if let Some(args) = args {
         let mut wasi_state = wasi_env.state.fork();
         wasi_state.args = args;
         wasi_env.state = Arc::new(wasi_state);
+        state_is_forked = true;
+    }
+
+    // Append the new env vars to the old ones
+    if let Some(envs) = envs {
+        if !state_is_forked {
+            let mut wasi_state = wasi_env.state.fork();
+            wasi_env.state = Arc::new(wasi_state);
+            state_is_forked = true;
+        }
+
+        // append new env vars and replace old ones if they exist
+        let mut guard = wasi_env.state.envs.lock().unwrap();
+
+        let mut env_map = guard
+            .iter()
+            .map(|b| {
+                let string = String::from_utf8_lossy(b);
+                let (key, val) = string.split_once('=').expect("env var is malformed");
+
+                (key.to_string(), val.to_string())
+            })
+            .collect::<HashMap<_, _>>();
+
+        for (key, val) in envs {
+            env_map.insert(key, val);
+        }
+
+        let envs = env_map
+            .into_iter()
+            .map(|(k, v)| (k, v.as_bytes().to_vec()))
+            .collect();
+
+        let envs = conv_env_vars(envs);
+
+        *guard = envs;
+
+        drop(guard)
     }
 
     // Close any files after the STDERR that are not preopened

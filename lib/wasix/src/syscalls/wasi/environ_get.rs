@@ -24,5 +24,12 @@ pub fn environ_get<M: MemorySize>(
     let (memory, mut state) = unsafe { env.get_memory_and_wasi_state(&ctx, 0) };
 
     let envs = state.envs.lock().unwrap();
+    println!(
+        "environ_get: {:?}",
+        envs.deref()
+            .iter()
+            .map(|e| String::from_utf8_lossy(e.as_slice()))
+            .collect::<Vec<_>>()
+    );
     Ok(write_buffer_array(&memory, &envs, environ, environ_buf))
 }

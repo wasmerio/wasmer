@@ -13,19 +13,22 @@ use crate::{
 /// * `name` - Name of the process to be spawned
 /// * `args` - List of the arguments to pass the process
 ///   (entries are separated by line feeds)
+/// * `envs` - List of the environment variables to pass process
 ///
 /// ## Return
 ///
 /// Returns a bus process id that can be used to invoke calls
 #[instrument(level = "debug", skip_all, fields(name = field::Empty, %args_len), ret)]
-pub fn proc_exec<M: MemorySize>(
+pub fn proc_exec2<M: MemorySize>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     name: WasmPtr<u8, M>,
     name_len: M::Offset,
     args: WasmPtr<u8, M>,
     args_len: M::Offset,
+    envs: WasmPtr<u8, M>,
+    envs_len: M::Offset,
 ) -> Result<(), WasiError> {
-    println!("proc_exec");
+    println!("proc_exec2");
     WasiEnv::process_signals_and_exit(&mut ctx)?;
 
     // If we were just restored the stack then we were woken after a deep sleep
@@ -52,6 +55,29 @@ pub fn proc_exec<M: MemorySize>(
         .map(|a| a.to_string())
         .filter(|a| !a.is_empty())
         .collect();
+
+    let envs = if !envs.is_null() {
+        let envs = envs.read_utf8_string(&memory, envs_len).map_err(|err| {
+            warn!("failed to execve as the envs could not be read - {}", err);
+            WasiError::Exit(Errno::Inval.into())
+        })?;
+
+        let envs = envs
+            .split(&['\n', '\r'])
+            .map(|a| a.to_string())
+            .filter(|a| !a.is_empty());
+
+        let mut vec = vec![];
+        for env in envs {
+            let (key, value) = env.split_once(':').unwrap();
+
+            vec.push((key.to_string(), value.to_string()));
+        }
+
+        Some(vec)
+    } else {
+        None
+    };
 
     // Convert relative paths into absolute paths
     if name.starts_with("./") {
@@ -90,7 +116,7 @@ pub fn proc_exec<M: MemorySize>(
         std::mem::swap(vfork.env.as_mut(), ctx.data_mut());
         let mut wasi_env = *vfork.env;
         wasi_env.owned_handles.push(vfork.handle);
-        _prepare_wasi(&mut wasi_env, Some(args), None);
+        _prepare_wasi(&mut wasi_env, Some(args), envs);
 
         // Recrod the stack offsets before we give up ownership of the wasi_env
         let stack_lower = wasi_env.layout.stack_lower;
@@ -186,7 +212,7 @@ pub fn proc_exec<M: MemorySize>(
     else {
         // Prepare the environment
         let mut wasi_env = ctx.data().clone();
-        _prepare_wasi(&mut wasi_env, Some(args), None);
+        _prepare_wasi(&mut wasi_env, Some(args), envs);
 
         // Get a reference to the runtime
         let bin_factory = ctx.data().bin_factory.clone();
