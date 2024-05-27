@@ -1,11 +1,10 @@
-use macro_wasmer_universal_test::universal_test;
 use std::sync::{
     atomic::{AtomicBool, Ordering},
     Arc,
 };
 use wasmer::{imports, Instance, Memory, MemoryLocation, MemoryType, Module, Store};
 
-#[universal_test]
+#[test]
 fn test_shared_memory_atomics_notify_send() {
     let mut store = Store::default();
     let wat = r#"(module
