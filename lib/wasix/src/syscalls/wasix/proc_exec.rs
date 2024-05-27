@@ -25,7 +25,6 @@ pub fn proc_exec<M: MemorySize>(
     args: WasmPtr<u8, M>,
     args_len: M::Offset,
 ) -> Result<(), WasiError> {
-    println!("proc_exec");
     WasiEnv::process_signals_and_exit(&mut ctx)?;
 
     // If we were just restored the stack then we were woken after a deep sleep
