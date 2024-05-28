@@ -184,8 +184,8 @@ pub(crate) fn fd_read_internal<M: MemorySize>(
                                         .map_err(mem_error_to_wasi)?
                                         .access()
                                         .map_err(mem_error_to_wasi)?;
-                                    let local_read =
-                                        match handle.read(buf.as_mut()).await.map_err(|err| {
+                                    let read_result =
+                                        handle.read(buf.as_mut()).await.map_err(|err| {
                                             let err = From::<std::io::Error>::from(err);
                                             match err {
                                                 Errno::Again => {
@@ -197,11 +197,12 @@ pub(crate) fn fd_read_internal<M: MemorySize>(
                                                 }
                                                 a => a,
                                             }
-                                        }) {
-                                            Ok(s) => s,
-                                            Err(_) if total_read > 0 => break,
-                                            Err(err) => return Err(err),
-                                        };
+                                        });
+                                    let local_read = match read_result {
+                                        Ok(s) => s,
+                                        Err(_) if total_read > 0 => break,
+                                        Err(err) => return Err(err),
+                                    };
                                     total_read += local_read;
                                     if local_read != buf.len() {
                                         break;

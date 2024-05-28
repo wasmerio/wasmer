@@ -95,7 +95,7 @@ pub fn poll_oneoff<M: MemorySize + 'static>(
             wasi_try_mem!(event_array.index(events_seen as u64).write(event));
             events_seen += 1;
         }
-        let events_seen: M::Offset = wasi_try!(events_seen.try_into().map_err(|_| Errno::Overflow));
+        let events_seen: M::Offset = events_seen.into();
         let out_ptr = nevents.deref(&memory);
         wasi_try_mem!(out_ptr.write(events_seen));
         Errno::Success

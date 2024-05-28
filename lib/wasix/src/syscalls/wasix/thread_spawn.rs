@@ -59,10 +59,10 @@ pub fn thread_spawn_internal_from_wasi<M: MemorySize>(
     // Read the properties about the stack which we will use for asyncify
     let layout = {
         let start: ThreadStart<M> = start_ptr.read(&memory).map_err(mem_error_to_wasi)?;
-        let stack_upper: u64 = start.stack_upper.try_into().map_err(|_| Errno::Overflow)?;
-        let stack_size: u64 = start.stack_size.try_into().map_err(|_| Errno::Overflow)?;
-        let guard_size: u64 = start.guard_size.try_into().map_err(|_| Errno::Overflow)?;
-        let tls_base: u64 = start.tls_base.try_into().map_err(|_| Errno::Overflow)?;
+        let stack_upper: u64 = start.stack_upper.into();
+        let stack_size: u64 = start.stack_size.into();
+        let guard_size: u64 = start.guard_size.into();
+        let tls_base: u64 = start.tls_base.into();
         let stack_lower = stack_upper - stack_size;
 
         WasiMemoryLayout {

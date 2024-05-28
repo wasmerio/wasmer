@@ -49,8 +49,8 @@ pub use {create_obj::*, gen_c_header::*};
 #[cfg(feature = "journal")]
 pub use self::journal::*;
 pub use self::{
-    add::*, cache::*, config::*, container::*, init::*, inspect::*, login::*, package::*,
-    publish::*, run::Run, self_update::*, validate::*, whoami::*,
+    add::*, cache::*, config::*, container::*, init::*, inspect::*, login::*, package::*, run::Run,
+    self_update::*, validate::*, whoami::*,
 };
 use crate::error::PrettyError;
 

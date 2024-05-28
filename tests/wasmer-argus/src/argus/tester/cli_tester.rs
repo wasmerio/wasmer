@@ -55,33 +55,32 @@ impl<'a> CLIRunner<'a> {
             Backend::Cranelift => "--cranelift",
         };
 
-        Ok(
-            match std::panic::catch_unwind(move || {
-                let mut cmd = Command::new(cli_path);
+        let out_result = std::panic::catch_unwind(move || {
+            let mut cmd = Command::new(cli_path);
 
-                let cmd = cmd.args([
-                    "compile",
-                    atom_path.to_str().unwrap(),
-                    backend,
-                    "-o",
-                    output_path.to_str().unwrap(),
-                ]);
+            let cmd = cmd.args([
+                "compile",
+                atom_path.to_str().unwrap(),
+                backend,
+                "-o",
+                output_path.to_str().unwrap(),
+            ]);
 
-                info!("running cmd: {:?}", cmd);
+            info!("running cmd: {:?}", cmd);
 
-                let out = cmd.output();
+            let out = cmd.output();
 
-                info!("run cmd that gave result: {:#?}", out);
+            info!("run cmd that gave result: {:#?}", out);
 
-                out
-            }) {
-                Ok(r) => match r {
-                    Ok(_) => Ok(()),
-                    Err(e) => Err(e.to_string()),
-                },
-                Err(_) => Err(String::from("thread panicked")),
+            out
+        });
+        Ok(match out_result {
+            Ok(r) => match r {
+                Ok(_) => Ok(()),
+                Err(e) => Err(e.to_string()),
             },
-        )
+            Err(_) => Err(String::from("thread panicked")),
+        })
     }
 
     fn ok(&self, version: String, start_time: Instant) -> anyhow::Result<TestReport> {

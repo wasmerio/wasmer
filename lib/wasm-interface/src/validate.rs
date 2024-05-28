@@ -239,7 +239,7 @@ fn validate_imports(
 fn validate_export_fns(
     export_fns: &HashMap<String, u32>,
     type_defs: &[FuncType],
-    fn_sigs: &Vec<u32>,
+    fn_sigs: &[u32],
     interface: &Interface,
     errors: &mut Vec<String>,
 ) {
@@ -323,7 +323,7 @@ fn validate_export_fns(
 /// `Interface`
 fn validate_export_globals(
     export_globals: &HashMap<String, u32>,
-    global_types: &Vec<GlobalType>,
+    global_types: &[GlobalType],
     interface: &Interface,
     errors: &mut Vec<String>,
 ) {
