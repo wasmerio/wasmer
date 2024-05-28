@@ -4,7 +4,6 @@ use std::fmt::{self, Debug, Write};
 
 use anyhow::{Chain, Error};
 use colored::*;
-use wasmer::RuntimeError;
 
 /// A `PrettyError` for printing `anyhow::Error` nicely.
 pub struct PrettyError {
@@ -27,11 +26,12 @@ macro_rules! warning {
     })
 }
 
-#[cfg(not(feature = "jsc"))]
+#[cfg(not(any(feature = "jsc", feature = "wasm-c-api")))]
 impl PrettyError {
     /// Process a `Result` printing any errors and exiting
     /// the process after
     pub fn report<T>(result: Result<T, Error>) -> ! {
+        use wasmer::RuntimeError;
         std::process::exit(match result {
             Ok(_t) => 0,
             Err(error) => {
@@ -53,7 +53,7 @@ impl PrettyError {
     }
 }
 
-#[cfg(feature = "jsc")]
+#[cfg(any(feature = "jsc", feature = "wasm-c-api"))]
 impl PrettyError {
     /// Process a `Result` printing any errors and exiting
     /// the process after
