@@ -382,6 +382,10 @@
 <a href="#382" id="382">382</a>
 <a href="#383" id="383">383</a>
 <a href="#384" id="384">384</a>
+<a href="#385" id="385">385</a>
+<a href="#386" id="386">386</a>
+<a href="#387" id="387">387</a>
+<a href="#388" id="388">388</a>
 </pre></div><pre class="rust"><code><span class="kw">use super</span>::<span class="kw-2">*</span>;
 <span class="kw">use </span><span class="kw">crate</span>::syscalls::<span class="kw-2">*</span>;
 
@@ -432,6 +436,10 @@
     </span><span class="kw">let </span>path_len64: u64 = path_len.into();
     <span class="kw">if </span>path_len64 &gt; <span class="number">1024u64 </span>* <span class="number">1024u64 </span>{
         <span class="kw">return </span><span class="prelude-val">Ok</span>(Errno::Nametoolong);
+    }
+
+    <span class="kw">if </span>path_len64 == <span class="number">0 </span>{
+        <span class="kw">return </span><span class="prelude-val">Ok</span>(Errno::Noent);
     }
 
     <span class="comment">// o_flags:
