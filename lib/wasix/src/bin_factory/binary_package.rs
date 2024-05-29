@@ -191,7 +191,7 @@ impl BinaryPackage {
     pub fn hash(&self) -> ModuleHash {
         *self.hash.get_or_init(|| {
             if let Some(cmd) = self.get_entrypoint_cmd() {
-                cmd.hash.clone()
+                cmd.hash
             } else {
                 ModuleHash::xxhash(self.id.to_string())
             }
@@ -251,7 +251,7 @@ mod tests {
                 .with_shared_http_client(runtime.http_client().unwrap().clone()),
         );
 
-        let pkg = BinaryPackage::from_dir(&temp.path(), &runtime)
+        let pkg = BinaryPackage::from_dir(temp.path(), &runtime)
             .await
             .unwrap();
 
@@ -307,7 +307,7 @@ mod tests {
                 .with_shared_http_client(runtime.http_client().unwrap().clone()),
         );
 
-        let pkg = BinaryPackage::from_dir(&temp.path(), &runtime)
+        let pkg = BinaryPackage::from_dir(temp.path(), &runtime)
             .await
             .unwrap();
 
