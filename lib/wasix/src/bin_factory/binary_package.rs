@@ -173,18 +173,25 @@ impl BinaryPackage {
         self.commands.iter().find(|cmd| cmd.name() == name)
     }
 
-    /// Get the bytes for the entrypoint command.
-    pub fn entrypoint_bytes(&self) -> Option<&[u8]> {
+    /// Resolve the entrypoint command name to a [`BinaryPackageCommand`].
+    fn get_entrypoint_cmd(&self) -> Option<&BinaryPackageCommand> {
         self.entrypoint_cmd
             .as_deref()
             .and_then(|name| self.get_command(name))
-            .map(|entry| entry.atom())
     }
 
+    /// Get the bytes for the entrypoint command.
+    pub fn entrypoint_bytes(&self) -> Option<&[u8]> {
+        self.get_entrypoint_cmd().map(|entry| entry.atom())
+    }
+
+    /// Get a hash for this binary package.
+    ///
+    /// Usually the hash of the entrypoint.
     pub fn hash(&self) -> ModuleHash {
         *self.hash.get_or_init(|| {
-            if let Some(entry) = self.entrypoint_bytes() {
-                ModuleHash::xxhash(entry)
+            if let Some(cmd) = self.get_entrypoint_cmd() {
+                cmd.hash.clone()
             } else {
                 ModuleHash::xxhash(self.id.to_string())
             }
