@@ -44,16 +44,16 @@ mod wasi {
         let container = Container::from_bytes(webc).unwrap();
         let (rt, tasks) = runtime();
         let pkg = BinaryPackage::from_webc(&container, &rt).await.unwrap();
-        let mut stdout = virtual_fs::ArcFile::new(Box::new(virtual_fs::BufferFile::default()));
+        let mut stdout = virtual_fs::ArcFile::new(Box::<virtual_fs::BufferFile>::default());
 
         let stdout_2 = stdout.clone();
         let handle = std::thread::spawn(move || {
             let _guard = tasks.runtime_handle().enter();
             WasiRunner::new()
                 .with_args(["--version"])
-                .with_stdin(Box::new(virtual_fs::NullFile::default()))
+                .with_stdin(Box::<virtual_fs::NullFile>::default())
                 .with_stdout(Box::new(stdout_2) as Box<_>)
-                .with_stderr(Box::new(virtual_fs::NullFile::default()))
+                .with_stderr(Box::<virtual_fs::NullFile>::default())
                 .run_command("wat2wasm", &pkg, Arc::new(rt))
         });
 
@@ -79,9 +79,9 @@ mod wasi {
             let _guard = tasks.runtime_handle().enter();
             WasiRunner::new()
                 .with_args(["-c", "import sys; sys.exit(42)"])
-                .with_stdin(Box::new(virtual_fs::NullFile::default()))
-                .with_stdout(Box::new(virtual_fs::NullFile::default()))
-                .with_stderr(Box::new(virtual_fs::NullFile::default()))
+                .with_stdin(Box::<virtual_fs::NullFile>::default())
+                .with_stdout(Box::<virtual_fs::NullFile>::default())
+                .with_stderr(Box::<virtual_fs::NullFile>::default())
                 .run_command("python", &pkg, Arc::new(rt))
         });
 
