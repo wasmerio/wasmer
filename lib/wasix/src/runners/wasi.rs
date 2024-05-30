@@ -255,6 +255,10 @@ impl WasiRunner {
             builder.set_stderr(Box::new(stderr.clone()));
         }
 
+        if self.wasi.is_home_mapped {
+            builder.set_current_dir(MAPPED_CURRENT_DIR_DEFAULT_PATH);
+        }
+
         Ok(builder)
     }
 
@@ -332,11 +336,6 @@ impl crate::runners::Runner for WasiRunner {
         let mut env = self
             .prepare_webc_env(command_name, &wasi, Some(pkg), Arc::clone(&runtime), None)
             .context("Unable to prepare the WASI environment")?;
-
-        // check whether home directory is mapped
-        if self.wasi.is_home_mapped {
-            env.set_current_dir(MAPPED_CURRENT_DIR_DEFAULT_PATH);
-        }
 
         #[cfg(feature = "journal")]
         {
