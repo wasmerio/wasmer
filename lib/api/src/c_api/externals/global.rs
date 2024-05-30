@@ -20,7 +20,9 @@ use wasmer_types::{RawValue, Type};
 pub struct Global {
     pub(crate) handle: VMGlobal,
 }
+
 unsafe impl Send for Global {}
+unsafe impl Sync for Global {}
 
 // Global can't be Send in js because it dosen't support `structuredClone`
 // https://developer.mozilla.org/en-US/docs/Web/API/structuredClone

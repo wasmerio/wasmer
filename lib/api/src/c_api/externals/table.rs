@@ -15,6 +15,9 @@ pub struct Table {
     pub(crate) handle: VMTable,
 }
 
+unsafe impl Send for Table {}
+unsafe impl Sync for Table {}
+
 impl Table {
     pub(crate) fn type_to_wamr(ty: TableType) -> *mut wasm_tabletype_t {
         let valtype = unsafe { wasm_valtype_new(as_c::type_to_c(&ty.ty)) };

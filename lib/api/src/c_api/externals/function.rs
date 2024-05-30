@@ -40,6 +40,7 @@ pub struct Function {
 }
 
 unsafe impl Send for Function {}
+unsafe impl Sync for Function {}
 
 impl From<VMFunction> for Function {
     fn from(handle: VMFunction) -> Self {
@@ -390,7 +391,6 @@ impl Function {
         store: &mut impl AsStoreMut,
         params: &[Value],
     ) -> Result<Box<[Value]>, RuntimeError> {
-        println!("inner call..");
         // unimplemented!();
         let store_mut = store.as_store_mut();
         // let wasm_func_param_arity(self.handle)
@@ -413,7 +413,6 @@ impl Function {
             &mut vec as *const _
         };
 
-        println!("Args built...{:?}", unsafe { *args });
         // std::mem::forget(wasm_params);
         let size = unsafe { wasm_func_result_arity(self.handle) };
         let mut results = unsafe {
@@ -428,11 +427,9 @@ impl Function {
             &mut vec as *mut _
         };
 
-        println!("params built...{:?}", unsafe { *results });
 
         let trap = unsafe { wasm_func_call(self.handle, args, results) };
         if !trap.is_null() {
-            println!("Trap is not null :(");
 
             unsafe {
                 let mut vec = wasm_byte_vec_t {
@@ -445,6 +442,7 @@ impl Function {
 
                 wasm_byte_vec_new_uninitialized(&mut vec, 100);
                 wasm_trap_message(trap, &mut vec);
+                // [TODO] Remove me
                 for i in 0..vec.num_elems {
                     print!("{}", *vec.data.wrapping_add(i) as u8 as char);
                 }
