@@ -16,47 +16,39 @@ env:
   DEFAULT_CRATE_NAME: wasmer_toml
 
 jobs:
-  placeholder:
-    name: placeholder
+  check:
+    name: Compile and Test
     runs-on: ubuntu-latest
     steps:
-    - name: placeholder
-      run: |
-        echo "Placeholder"
+      - uses: actions/checkout@v2
+      - name: Rust Cache
+        uses: Swatinem/rust-cache@v2
+      - name: Setup Rust
+        uses: dsherret/rust-toolchain-file@v1
+      - name: Install Nextest
+        uses: taiki-e/install-action@nextest
+      - name: Type Checking
+        run: |
+          cd lib/config && cargo check --verbose --locked
+      - name: Build
+        run: |
+          cd lib/config && cargo build --verbose --locked
+      - name: Test
+        run: |
+          cd lib/config && cargo nextest run --verbose --locked
 
-  # check:
-  #   name: Compile and Test
-  #   runs-on: ubuntu-latest
-  #   steps:
-  #     - uses: actions/checkout@v2
-  #     - name: Rust Cache
-  #       uses: Swatinem/rust-cache@v2
-  #     - name: Setup Rust
-  #       uses: dsherret/rust-toolchain-file@v1
-  #     - name: Install Nextest
-  #       uses: taiki-e/install-action@nextest
-  #     - name: Type Checking
-  #       run: |
-  #         cd lib/config && cargo check --verbose --locked
-  #     - name: Build
-  #       run: |
-  #         cd lib/config && cargo build --verbose --locked
-  #     - name: Test
-  #       run: |
-  #         cd lib/config && cargo nextest run --verbose --locked
-
-  # lints:
-  #   name: Linting and Formatting
-  #   runs-on: ubuntu-latest
-  #   steps:
-  #     - uses: actions/checkout@v2
-  #     - name: Rust Cache
-  #       uses: Swatinem/rust-cache@v2
-  #     - name: Setup Rust
-  #       uses: dsherret/rust-toolchain-file@v1
-  #     - name: Check Formatting
-  #       run: |
-  #         cd lib/config && cargo fmt --verbose --check
-  #     - name: Clippy
-  #       run: |
-  #         cd lib/config && cargo clippy --verbose
+  lints:
+    name: Linting and Formatting
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Rust Cache
+        uses: Swatinem/rust-cache@v2
+      - name: Setup Rust
+        uses: dsherret/rust-toolchain-file@v1
+      - name: Check Formatting
+        run: |
+          cd lib/config && cargo fmt --verbose --check
+      - name: Clippy
+        run: |
+          cd lib/config && cargo clippy --verbose
