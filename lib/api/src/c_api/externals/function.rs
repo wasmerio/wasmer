@@ -427,10 +427,8 @@ impl Function {
             &mut vec as *mut _
         };
 
-
         let trap = unsafe { wasm_func_call(self.handle, args, results) };
         if !trap.is_null() {
-
             unsafe {
                 let mut vec = wasm_byte_vec_t {
                     size: 0,

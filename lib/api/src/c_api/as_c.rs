@@ -18,13 +18,15 @@ use std::collections::HashMap;
 use std::convert::TryInto;
 use wasmer_types::ExternType;
 
-/// Convert the given type to a [`JsValue`].
+/// Convert the given type to a c-api value.
 pub trait AsC: Sized {
-    /// The inner definition type from this Javascript object
+    /// The inner definition type from this c-api object
     type DefinitionType;
     type OutputType;
+
     /// Convert the given type to a [`Self::OutputType`].
     fn as_cvalue(&self, store: &impl AsStoreRef) -> Self::OutputType;
+
     /// Convert the given type to a [`Self::DefinitionType`].
     fn from_cvalue(
         store: &mut impl AsStoreMut,
