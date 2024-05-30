@@ -92,7 +92,7 @@ wasmer-config = { path = "./lib/config" }
 wasmer-wasix = { path = "./lib/wasix" }
 
 # Wasmer-owned crates
-webc = { version = "6.0.0-alpha9", default-features = false, features = ["package"] }
+webc = { version = "6.0.0-rc1", default-features = false, features = ["package"] }
 edge-schema = { version = "=0.1.0" }
 shared-buffer = "0.1.4"
 
