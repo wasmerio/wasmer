@@ -70,12 +70,16 @@ export WASMER=$(realpath "../../target/release/wasmer")
 
 printf "\n\nStarting WASIX Test Suite:\n"
 
+status=0
+
 find . -mindepth 1 -maxdepth 1 -type d | while read dir; do
     dir=$(basename $dir)
     printf "Testing $dir..."
     if bash -c "cd $dir && ./run.sh"; then
         printf "\rTesting $dir ✅\n"
     else
-        printf "\rTesting $dir ❌\n"
+        printf "\rTesting $dir ❌\n" || status=1
     fi
 done
+
+exit $status
