@@ -66,6 +66,8 @@ export LIBS="\
 -g \
 -flto"
 
+export WASMER=$(realpath "../../target/release/wasmer")
+
 printf "\n\nStarting WASIX Test Suite:\n"
 
 find . -mindepth 1 -maxdepth 1 -type d | while read dir; do
