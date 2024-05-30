@@ -27,7 +27,12 @@ fn main() {
             .define("WAMR_BUILD_AOT", "0")
             .define("WAMR_BUILD_LOAD_CUSTOM_SECTION", "1")
             .define("WAMR_BUILD_CUSTOM_NAME_SECTION", "1")
-            //.define("WAMR_ENABLE_FAST_INTERP", "1")
+            .define("WAMR_DISABLE_HW_BOUND_CHECK", "1")
+            .define("WAMR_BUILD_TAIL_CALL", "1")
+            .define("WAMR_ENABLE_FAST_INTERP", "0")
+            .define("WAMR_BUILD_LIB_PTHREAD", "1")
+            .define("WAMR_BUILD_LIB_WASI_THREADS", "0")
+            .define("WAMR_BUILD_LIBC_WASI", "0")
             .define("WAMR_BUILD_SHARED_MEMORY", "1")
             .build();
 

@@ -25,6 +25,9 @@ use super::vm::VMExtern;
 #[derive(PartialEq, Eq)]
 pub(crate) struct InstanceHandle(pub(crate) *mut wasm_instance_t);
 
+unsafe impl Send for InstanceHandle {}
+unsafe impl Sync for InstanceHandle {}
+
 impl InstanceHandle {
     fn new(
         store: *mut wasm_store_t,
@@ -62,6 +65,7 @@ impl InstanceHandle {
         }
         Ok(InstanceHandle(instance))
     }
+
     fn get_exports(&self, mut store: &mut impl AsStoreMut, module: &Module) -> Exports {
         let exports = unsafe {
             let mut vec = wasm_extern_vec_t {
@@ -118,7 +122,7 @@ pub struct Instance {
 
 impl Instance {
     pub(crate) fn new(
-        mut store: &mut impl AsStoreMut,
+        _store: &mut impl AsStoreMut,
         module: &Module,
         imports: &Imports,
     ) -> Result<(Self, Exports), InstantiationError> {
@@ -130,7 +134,10 @@ impl Instance {
                     .expect("Extern not found")
             })
             .collect::<Vec<_>>();
-        Self::new_by_index(store, module, &externs)
+        // Ugly hack..
+        let mut binding = module.0.handle.store.lock().unwrap();
+        let mut store = binding.as_store_mut();
+        Self::new_by_index(&mut store, module, &externs)
     }
 
     pub(crate) fn new_by_index(
@@ -148,7 +155,7 @@ impl Instance {
             })
             .collect::<Vec<_>>();
         let instance =
-            InstanceHandle::new(store_ref.inner.store.inner, module.0.handle.0, externs)?;
+            InstanceHandle::new(store_ref.inner.store.inner, module.0.handle.inner, externs)?;
         let exports = instance.get_exports(store, module);
         Ok((
             Self {

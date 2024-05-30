@@ -4,6 +4,7 @@ use crate::bindings::wasm_byte_vec_new_empty;
 use crate::bindings::wasm_byte_vec_t;
 use crate::bindings::wasm_module_delete;
 use crate::bindings::wasm_module_new;
+use crate::bindings::wasm_store_new;
 use crate::bindings::wasm_store_t;
 use crate::errors::InstantiationError;
 use crate::errors::RuntimeError;
@@ -23,34 +24,45 @@ use wasmer_types::{
     ImportsIterator, MemoryType, ModuleInfo, Mutability, Pages, SerializeError, TableType, Type,
 };
 
-#[derive(PartialEq, Eq)]
-pub(crate) struct ModuleHandle(pub(crate) *mut wasm_module_t);
+pub(crate) struct ModuleHandle {
+    pub(crate) inner: *mut wasm_module_t,
+    pub(crate) store: std::sync::Mutex<crate::store::Store>,
+}
+
+impl PartialEq for ModuleHandle {
+    fn eq(&self, other: &Self) -> bool {
+        self.inner == other.inner
+        // && self.store.lock() == other.store.lock()
+    }
+}
+
+impl Eq for ModuleHandle {}
 
 impl ModuleHandle {
-    fn new(store: *mut wasm_store_t, binary: &[u8]) -> Result<Self, CompileError> {
-        let bytes = unsafe {
-            let mut vec = wasm_byte_vec_t {
-                size: 0,
-                data: std::ptr::null_mut(),
-                num_elems: 0,
-                size_of_elem: 0,
-                lock: std::ptr::null_mut(),
-            };
-            wasm_byte_vec_new_empty(&mut vec);
-            wasm_byte_vec_new(&mut vec, binary.len(), binary.as_ptr() as _);
-            &mut vec as *const _
+    fn new(engine: &impl AsEngineRef, binary: &[u8]) -> Result<Self, CompileError> {
+        let bytes = wasm_byte_vec_t {
+            size: binary.len(),
+            data: binary.as_ptr() as _,
+            num_elems: binary.len(),
+            size_of_elem: 1,
+            lock: std::ptr::null_mut(),
         };
 
-        let module = unsafe { wasm_module_new(store, bytes) };
-        if module.is_null() {
+        let store = crate::store::Store::new(engine.as_engine_ref().engine().clone());
+
+        let inner = unsafe { wasm_module_new(store.inner.store.inner, &bytes as *const _) };
+        let store = std::sync::Mutex::new(store);
+
+        if inner.is_null() {
             return Err(CompileError::Validate(format!("module is null")));
         }
-        Ok(ModuleHandle(module))
+
+        Ok(ModuleHandle { inner, store })
     }
 }
 impl Drop for ModuleHandle {
     fn drop(&mut self) {
-        unsafe { wasm_module_delete(self.0) }
+        unsafe { wasm_module_delete(self.inner) }
     }
 }
 
@@ -78,18 +90,11 @@ impl Module {
         binary: &[u8],
     ) -> Result<Self, CompileError> {
         let mut binary = binary.to_vec();
-        let store = engine.maybe_as_store().expect(
-            "You need to pass a reference to a store (not an engine), to work with the wasm-c-api",
-        );
         let binary = binary.into_bytes();
-        let module = ModuleHandle::new(store.inner.store.inner, &binary)?;
-
-        // The module is now validated, so we can safely parse its types
+        let module = ModuleHandle::new(engine, &binary)?;
         let info = crate::module_info_polyfill::translate_module(&binary[..])
             .unwrap()
             .info;
-
-        // println!("created info: {:#?}", info);
 
         Ok(Self {
             handle: Arc::new(module),
@@ -109,21 +114,24 @@ impl Module {
     }
 
     pub fn serialize(&self) -> Result<Bytes, SerializeError> {
-        unimplemented!();
+        return self.raw_bytes.clone().ok_or(SerializeError::Generic(
+            "Not able to serialize module".to_string(),
+        ));
     }
 
     pub unsafe fn deserialize_unchecked(
         engine: &impl AsEngineRef,
         bytes: impl IntoBytes,
     ) -> Result<Self, DeserializeError> {
-        unimplemented!();
+        Self::deserialize(engine, bytes)
     }
 
     pub unsafe fn deserialize(
         engine: &impl AsEngineRef,
         bytes: impl IntoBytes,
     ) -> Result<Self, DeserializeError> {
-        unimplemented!();
+        return Self::from_binary(engine, &bytes.into_bytes())
+            .map_err(|e| DeserializeError::Compiler(e));
     }
 
     pub unsafe fn deserialize_from_file_unchecked(
