@@ -1,7 +1,0 @@
-[[module]]
-name = "main"
-source = "main.wasm"
-
-[[command]]
-name = "main"
-module = "main"

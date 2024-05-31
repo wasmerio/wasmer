@@ -74,7 +74,12 @@ status=0
 while read dir; do
     dir=$(basename "$dir")
     printf "Testing $dir..."
-    if bash -c "cd $dir && ./run.sh"; then
+
+    cmd="cd $dir; \
+        $CC $CFLAGS $LDFLAGS -o main.wasm main.c; \
+        ./run.sh"
+
+    if bash -c "$cmd"; then
         printf "\rTesting $dir ✅\n"
     else
         printf "\rTesting $dir ❌\n"
