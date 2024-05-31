@@ -10,7 +10,7 @@ SKIP_LIST=()
 
 # List and process .foo files
 for file in *.wasm; do
-    if [[ " ${SKIP_LIST[@]} " =~ " ${file} " ]]; then
+    if [[ " ${SKIP_LIST[0]+${SKIP_LIST[@]}} " =~ " ${file} " ]]; then
         echo "Skipping $file"
     else
         echo "Testing $file"
