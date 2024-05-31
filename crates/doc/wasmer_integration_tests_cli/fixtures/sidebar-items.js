@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["bash","coreutils","fib","hello","php","python","qjs","qjs_wasmer_toml","static_server","wabt","wat_no_start"]};
+window.SIDEBAR_ITEMS = {"fn":["bash","coreutils","fib","hello","php","python","qjs","qjs_wasmer_toml","resources","static_server","wabt","wat_no_start"]};

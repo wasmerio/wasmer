@@ -72,15 +72,23 @@
 <a href="#72" id="72">72</a>
 <a href="#73" id="73">73</a>
 <a href="#74" id="74">74</a>
+<a href="#75" id="75">75</a>
+<a href="#76" id="76">76</a>
+<a href="#77" id="77">77</a>
+<a href="#78" id="78">78</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Paths for commonly used test files.
 
 </span><span class="kw">use </span>std::path::{Path, PathBuf};
 
 <span class="kw">use crate</span>::{asset_path, c_asset_path};
 
+<span class="kw">pub fn </span>resources() -&gt; PathBuf {
+    Path::new(<span class="macro">env!</span>(<span class="string">&quot;CARGO_MANIFEST_DIR&quot;</span>)).join(<span class="string">&quot;resources&quot;</span>)
+}
+
 <span class="kw">pub fn </span>php() -&gt; (PathBuf, PathBuf, PathBuf) {
     <span class="kw">let </span>root = Path::new(<span class="macro">env!</span>(<span class="string">&quot;CARGO_MANIFEST_DIR&quot;</span>));
-    <span class="kw">let </span>resources = root.join(<span class="string">&quot;resources&quot;</span>).join(<span class="string">&quot;php&quot;</span>);
+    <span class="kw">let </span>resources = resources().join(<span class="string">&quot;php&quot;</span>);
     (
         root.join(<span class="string">&quot;tests&quot;</span>).join(<span class="string">&quot;wasm&quot;</span>).join(<span class="string">&quot;php.wasm&quot;</span>),
         resources.clone(),

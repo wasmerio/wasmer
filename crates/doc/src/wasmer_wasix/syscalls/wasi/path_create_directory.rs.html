@@ -168,7 +168,13 @@
 <a href="#168" id="168">168</a>
 <a href="#169" id="169">169</a>
 <a href="#170" id="170">170</a>
-</pre></div><pre class="rust"><code><span class="kw">use super</span>::<span class="kw-2">*</span>;
+<a href="#171" id="171">171</a>
+<a href="#172" id="172">172</a>
+<a href="#173" id="173">173</a>
+<a href="#174" id="174">174</a>
+</pre></div><pre class="rust"><code><span class="kw">use </span>std::{path::PathBuf, str::FromStr};
+
+<span class="kw">use super</span>::<span class="kw-2">*</span>;
 <span class="kw">use </span><span class="kw">crate</span>::syscalls::<span class="kw-2">*</span>;
 
 <span class="doccomment">/// ### `path_create_directory()`
@@ -227,13 +233,7 @@
     <span class="kw">let </span>env = ctx.data();
     <span class="kw">let </span>(memory, state, inodes) = <span class="kw">unsafe </span>{ env.get_memory_and_wasi_state_and_inodes(<span class="kw-2">&amp;</span>ctx, <span class="number">0</span>) };
     <span class="kw">let </span>working_dir = state.fs.get_fd(fd)<span class="question-mark">?</span>;
-    {
-        <span class="kw">let </span>guard = working_dir.inode.read();
-        <span class="kw">if let </span>Kind::Root { .. } = guard.deref() {
-            <span class="macro">trace!</span>(<span class="string">&quot;root has no rights to create a directories&quot;</span>);
-            <span class="kw">return </span><span class="prelude-val">Err</span>(Errno::Access);
-        }
-    }
+
     <span class="kw">if </span>!working_dir.rights.contains(Rights::PATH_CREATE_DIRECTORY) {
         <span class="macro">trace!</span>(<span class="string">&quot;working directory (fd={fd}) has no rights to create a directory&quot;</span>);
         <span class="kw">return </span><span class="prelude-val">Err</span>(Errno::Access);
@@ -321,9 +321,17 @@
                     cur_dir_inode = new_inode;
                 }
             }
-            Kind::Root { .. } =&gt; {
-                <span class="macro">trace!</span>(<span class="string">&quot;the root node can no create a directory&quot;</span>);
-                <span class="kw">return </span><span class="prelude-val">Err</span>(Errno::Access);
+            Kind::Root { entries } =&gt; {
+                <span class="kw">match </span>comp.borrow() {
+                    <span class="string">&quot;.&quot; </span>| <span class="string">&quot;..&quot; </span>=&gt; <span class="kw">continue</span>,
+                    <span class="kw">_ </span>=&gt; (),
+                }
+                <span class="kw">if let </span><span class="prelude-val">Some</span>(child) = entries.get(comp) {
+                    cur_dir_inode = child.clone();
+                } <span class="kw">else </span>{
+                    <span class="macro">trace!</span>(<span class="string">&quot;the root node can no create a directory&quot;</span>);
+                    <span class="kw">return </span><span class="prelude-val">Err</span>(Errno::Access);
+                }
             }
             <span class="kw">_ </span>=&gt; {
                 <span class="macro">trace!</span>(<span class="string">&quot;path is not a directory&quot;</span>);
