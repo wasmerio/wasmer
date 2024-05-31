@@ -95,7 +95,7 @@ pub async fn get_signed_url_for_package_upload(
     version: Option<&str>,
 ) -> Result<Option<SignedUrl>, anyhow::Error> {
     client
-        .run_graphql(types::GetSignedUrlForPackageUpload::build(
+        .run_graphql_strict(types::GetSignedUrlForPackageUpload::build(
             GetSignedUrlForPackageUploadVariables {
                 expires_after_seconds,
                 filename,
