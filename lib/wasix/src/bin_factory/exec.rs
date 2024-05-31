@@ -49,8 +49,8 @@ pub async fn spawn_load_wasm<'a>(
 ) -> Result<&'a [u8], SpawnError> {
     let wasm = if let Some(cmd) = binary.get_command(name) {
         cmd.atom.as_ref()
-    } else if let Some(wasm) = binary.entrypoint_bytes() {
-        wasm
+    } else if let Some(cmd) = binary.get_entrypoint_command() {
+        &cmd.atom
     } else {
         tracing::error!(
           command=name,
