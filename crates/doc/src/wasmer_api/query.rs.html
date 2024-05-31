@@ -1266,7 +1266,7 @@
     version: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>str&gt;,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;SignedUrl&gt;, anyhow::Error&gt; {
     client
-        .run_graphql(types::GetSignedUrlForPackageUpload::build(
+        .run_graphql_strict(types::GetSignedUrlForPackageUpload::build(
             GetSignedUrlForPackageUploadVariables {
                 expires_after_seconds,
                 filename,
