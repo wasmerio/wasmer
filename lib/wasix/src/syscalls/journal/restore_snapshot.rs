@@ -54,7 +54,7 @@ pub unsafe fn restore_snapshot(
             region,
             data.len()
         );
-        JournalEffector::apply_memory(&mut runner.ctx, region, &data)
+        JournalEffector::apply_compressed_memory(&mut runner.ctx, region, &data)
             .map_err(anyhow_err_to_runtime_err)?;
     }
 

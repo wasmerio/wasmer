@@ -26,6 +26,7 @@ use wasmer_wasix::{
     journal::{CompactingLogFileJournal, DynJournal},
     os::{tty_sys::SysTty, TtyBridge},
     rewind_ext,
+    runners::MAPPED_CURRENT_DIR_DEFAULT_PATH,
     runners::{MappedCommand, MappedDirectory},
     runtime::{
         module_cache::{FileSystemCache, ModuleCache},
@@ -180,8 +181,6 @@ pub struct RunProperties {
 
 #[allow(dead_code)]
 impl Wasi {
-    const MAPPED_CURRENT_DIR_DEFAULT_PATH: &'static str = "/mnt/host";
-
     pub fn map_dir(&mut self, alias: &str, target_on_disk: PathBuf) {
         self.mapped_dirs.push(MappedDirectory {
             guest: alias.to_string(),
@@ -269,7 +268,7 @@ impl Wasi {
 
                     MappedDirectory {
                         host: current_dir,
-                        guest: Self::MAPPED_CURRENT_DIR_DEFAULT_PATH.to_string(),
+                        guest: MAPPED_CURRENT_DIR_DEFAULT_PATH.to_string(),
                     }
                 } else {
                     let resolved = dir.canonicalize().with_context(|| {
@@ -322,7 +321,7 @@ impl Wasi {
 
                     MappedDirectory {
                         host: resolved_host,
-                        guest: Self::MAPPED_CURRENT_DIR_DEFAULT_PATH.to_string(),
+                        guest: MAPPED_CURRENT_DIR_DEFAULT_PATH.to_string(),
                     }
                 } else {
                     MappedDirectory {
@@ -353,7 +352,7 @@ impl Wasi {
                 .unwrap();
 
             if have_current_dir {
-                b.map_dir(".", Self::MAPPED_CURRENT_DIR_DEFAULT_PATH)?
+                b.map_dir(".", MAPPED_CURRENT_DIR_DEFAULT_PATH)?
             } else {
                 b.map_dir(".", "/")?
             }
@@ -402,7 +401,7 @@ impl Wasi {
         Ok(Vec::new())
     }
 
-    pub fn build_mapped_directories(&self) -> Result<Vec<MappedDirectory>, anyhow::Error> {
+    pub fn build_mapped_directories(&self) -> Result<(bool, Vec<MappedDirectory>), anyhow::Error> {
         let mut mapped_dirs = Vec::new();
 
         // Process the --dirs flag and merge it with --mapdir.
@@ -419,7 +418,7 @@ impl Wasi {
 
                 MappedDirectory {
                     host: current_dir,
-                    guest: Self::MAPPED_CURRENT_DIR_DEFAULT_PATH.to_string(),
+                    guest: MAPPED_CURRENT_DIR_DEFAULT_PATH.to_string(),
                 }
             } else {
                 let resolved = dir.canonicalize().with_context(|| {
@@ -472,7 +471,7 @@ impl Wasi {
 
                 MappedDirectory {
                     host: resolved_host,
-                    guest: Self::MAPPED_CURRENT_DIR_DEFAULT_PATH.to_string(),
+                    guest: MAPPED_CURRENT_DIR_DEFAULT_PATH.to_string(),
                 }
             } else {
                 MappedDirectory {
@@ -483,7 +482,7 @@ impl Wasi {
             mapped_dirs.push(mapping);
         }
 
-        Ok(mapped_dirs)
+        Ok((have_current_dir, mapped_dirs))
     }
 
     pub fn build_mapped_commands(&self) -> Result<Vec<MappedCommand>, anyhow::Error> {

@@ -18,7 +18,7 @@ use crate::{
 };
 use wasmer_types::ModuleHash;
 
-use super::wasi_common::MappedCommand;
+use super::wasi_common::{MappedCommand, MAPPED_CURRENT_DIR_DEFAULT_PATH};
 
 #[derive(Debug, Default, Clone)]
 pub struct WasiRunner {
@@ -78,6 +78,11 @@ impl WasiRunner {
         D: Into<MappedDirectory>,
     {
         self.with_mounted_directories(dirs.into_iter().map(Into::into).map(MountedDirectory::from))
+    }
+
+    pub fn with_home_mapped(&mut self, is_home_mapped: bool) -> &mut Self {
+        self.wasi.is_home_mapped = is_home_mapped;
+        self
     }
 
     pub fn with_mounted_directories<I, D>(&mut self, dirs: I) -> &mut Self
@@ -248,6 +253,10 @@ impl WasiRunner {
         }
         if let Some(stderr) = &self.stderr {
             builder.set_stderr(Box::new(stderr.clone()));
+        }
+
+        if self.wasi.is_home_mapped {
+            builder.set_current_dir(MAPPED_CURRENT_DIR_DEFAULT_PATH);
         }
 
         Ok(builder)

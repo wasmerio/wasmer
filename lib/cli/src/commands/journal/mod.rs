@@ -2,6 +2,7 @@ use crate::commands::CliCommand;
 
 mod compact;
 mod export;
+mod extract;
 mod filter;
 mod import;
 mod inspect;
@@ -10,6 +11,7 @@ mod mount;
 
 pub use compact::*;
 pub use export::*;
+pub use extract::*;
 pub use filter::*;
 pub use import::*;
 pub use inspect::*;
@@ -32,6 +34,8 @@ pub enum CmdJournal {
     /// Mounts the journal at a particular directory
     #[cfg(feature = "fuse")]
     Mount(CmdJournalMount),
+    /// Extracts an element of a journal
+    Extract(CmdJournalExtract),
 }
 
 impl CliCommand for CmdJournal {
@@ -46,6 +50,7 @@ impl CliCommand for CmdJournal {
             Self::Filter(cmd) => cmd.run(),
             #[cfg(feature = "fuse")]
             Self::Mount(cmd) => cmd.run(),
+            Self::Extract(cmd) => cmd.run(),
         }
     }
 }

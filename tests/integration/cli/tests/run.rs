@@ -13,7 +13,11 @@ use predicates::str::contains;
 use rand::Rng;
 use reqwest::{blocking::Client, IntoUrl};
 use tempfile::TempDir;
-use wasmer_integration_tests_cli::{asset_path, fixtures, get_wasmer_path};
+use wasmer_integration_tests_cli::{
+    asset_path,
+    fixtures::{self, php},
+    get_wasmer_path,
+};
 
 const HTTP_GET_TIMEOUT: Duration = Duration::from_secs(5);
 
@@ -42,6 +46,26 @@ static CACHE_RUST_LOG: Lazy<String> = Lazy::new(|| {
     ]
     .join(",")
 });
+
+#[test]
+fn run_php_with_sqlite() {
+    let (php_wasm, app_dir, db) = php();
+
+    let output = Command::new(get_wasmer_path())
+        .arg("-q")
+        .arg("run")
+        .arg(php_wasm)
+        .arg("--mapdir")
+        .arg(format!("/db:{}", db.display()))
+        .arg("--mapdir")
+        .arg(format!("/app:{}", app_dir.display()))
+        .arg("--")
+        .arg("/app/test.php")
+        .output()
+        .unwrap();
+
+    assert_eq!(output.stdout, "0".as_bytes().to_vec());
+}
 
 /// Ignored on Windows because running vendored packages does not work
 /// since Windows does not allow `::` characters in filenames (every other OS does)

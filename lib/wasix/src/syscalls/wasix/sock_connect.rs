@@ -58,7 +58,17 @@ pub(crate) fn sock_connect_internal(
         ctx,
         sock,
         Rights::SOCK_CONNECT,
-        move |mut socket| async move { socket.connect(tasks.deref(), net.deref(), addr, None).await }
+        move |mut socket, flags| async move {
+            socket
+                .connect(
+                    tasks.deref(),
+                    net.deref(),
+                    addr,
+                    None,
+                    flags.contains(Fdflags::NONBLOCK),
+                )
+                .await
+        }
     ));
 
     Ok(Ok(()))

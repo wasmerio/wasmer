@@ -109,9 +109,6 @@ impl FdMmap {
             }
         }
 
-        // Compute the flags
-        let flags = libc::MAP_FILE | libc::MAP_SHARED;
-
         Ok(if accessible_size == mapping_size {
             // Allocate a single read-write region at once.
             let ptr = unsafe {
@@ -119,7 +116,7 @@ impl FdMmap {
                     ptr::null_mut(),
                     mapping_size,
                     libc::PROT_READ | libc::PROT_WRITE,
-                    flags,
+                    libc::MAP_FILE | libc::MAP_SHARED,
                     fd.0,
                     0,
                 )
@@ -140,7 +137,7 @@ impl FdMmap {
                     ptr::null_mut(),
                     mapping_size,
                     libc::PROT_NONE,
-                    flags,
+                    libc::MAP_FILE | libc::MAP_SHARED,
                     fd.0,
                     0,
                 )
