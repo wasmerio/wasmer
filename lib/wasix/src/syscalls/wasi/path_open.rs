@@ -63,6 +63,10 @@ pub fn path_open<M: MemorySize>(
     let mut path_string = unsafe { get_input_str_ok!(&memory, path, path_len) };
     Span::current().record("path", path_string.as_str());
 
+    if path_string.starts_with('/') {
+        return Ok(Errno::Inval);
+    }
+
     // Convert relative paths into absolute paths
     if path_string.starts_with("./") {
         path_string = ctx.data().state.fs.relative_path_to_absolute(path_string);
