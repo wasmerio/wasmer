@@ -1,3 +1,5 @@
+use std::{path::PathBuf, str::FromStr};
+
 use super::*;
 use crate::syscalls::*;
 
@@ -57,13 +59,7 @@ pub(crate) fn path_create_directory_internal(
     let env = ctx.data();
     let (memory, state, inodes) = unsafe { env.get_memory_and_wasi_state_and_inodes(&ctx, 0) };
     let working_dir = state.fs.get_fd(fd)?;
-    {
-        let guard = working_dir.inode.read();
-        if let Kind::Root { .. } = guard.deref() {
-            trace!("root has no rights to create a directories");
-            return Err(Errno::Access);
-        }
-    }
+
     if !working_dir.rights.contains(Rights::PATH_CREATE_DIRECTORY) {
         trace!("working directory (fd={fd}) has no rights to create a directory");
         return Err(Errno::Access);
@@ -151,9 +147,17 @@ pub(crate) fn path_create_directory_internal(
                     cur_dir_inode = new_inode;
                 }
             }
-            Kind::Root { .. } => {
-                trace!("the root node can no create a directory");
-                return Err(Errno::Access);
+            Kind::Root { entries } => {
+                match comp.borrow() {
+                    "." | ".." => continue,
+                    _ => (),
+                }
+                if let Some(child) = entries.get(comp) {
+                    cur_dir_inode = child.clone();
+                } else {
+                    trace!("the root node can no create a directory");
+                    return Err(Errno::Access);
+                }
             }
             _ => {
                 trace!("path is not a directory");

@@ -4,9 +4,13 @@ use std::path::{Path, PathBuf};
 
 use crate::{asset_path, c_asset_path};
 
+pub fn resources() -> PathBuf {
+    Path::new(env!("CARGO_MANIFEST_DIR")).join("resources")
+}
+
 pub fn php() -> (PathBuf, PathBuf, PathBuf) {
     let root = Path::new(env!("CARGO_MANIFEST_DIR"));
-    let resources = root.join("resources").join("php");
+    let resources = resources().join("php");
     (
         root.join("tests").join("wasm").join("php.wasm"),
         resources.clone(),
