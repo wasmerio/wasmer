@@ -726,7 +726,6 @@
 <a href="#726" id="726">726</a>
 <a href="#727" id="727">727</a>
 <a href="#728" id="728">728</a>
-<a href="#729" id="729">729</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{
     collections::{BTreeSet, HashMap},
     path::{Path, PathBuf},
@@ -755,6 +754,7 @@
     journal::{CompactingLogFileJournal, DynJournal},
     os::{tty_sys::SysTty, TtyBridge},
     rewind_ext,
+    runners::MAPPED_CURRENT_DIR_DEFAULT_PATH,
     runners::{MappedCommand, MappedDirectory},
     runtime::{
         module_cache::{FileSystemCache, ModuleCache},
@@ -909,8 +909,6 @@
 
 <span class="attr">#[allow(dead_code)]
 </span><span class="kw">impl </span>Wasi {
-    <span class="kw">const </span>MAPPED_CURRENT_DIR_DEFAULT_PATH: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>str = <span class="string">&quot;/mnt/host&quot;</span>;
-
     <span class="kw">pub fn </span>map_dir(<span class="kw-2">&amp;mut </span><span class="self">self</span>, alias: <span class="kw-2">&amp;</span>str, target_on_disk: PathBuf) {
         <span class="self">self</span>.mapped_dirs.push(MappedDirectory {
             guest: alias.to_string(),
@@ -998,7 +996,7 @@
 
                     MappedDirectory {
                         host: current_dir,
-                        guest: <span class="self">Self</span>::MAPPED_CURRENT_DIR_DEFAULT_PATH.to_string(),
+                        guest: MAPPED_CURRENT_DIR_DEFAULT_PATH.to_string(),
                     }
                 } <span class="kw">else </span>{
                     <span class="kw">let </span>resolved = dir.canonicalize().with_context(|| {
@@ -1051,7 +1049,7 @@
 
                     MappedDirectory {
                         host: resolved_host,
-                        guest: <span class="self">Self</span>::MAPPED_CURRENT_DIR_DEFAULT_PATH.to_string(),
+                        guest: MAPPED_CURRENT_DIR_DEFAULT_PATH.to_string(),
                     }
                 } <span class="kw">else </span>{
                     MappedDirectory {
@@ -1082,7 +1080,7 @@
                 .unwrap();
 
             <span class="kw">if </span>have_current_dir {
-                b.map_dir(<span class="string">&quot;.&quot;</span>, <span class="self">Self</span>::MAPPED_CURRENT_DIR_DEFAULT_PATH)<span class="question-mark">?
+                b.map_dir(<span class="string">&quot;.&quot;</span>, MAPPED_CURRENT_DIR_DEFAULT_PATH)<span class="question-mark">?
             </span>} <span class="kw">else </span>{
                 b.map_dir(<span class="string">&quot;.&quot;</span>, <span class="string">&quot;/&quot;</span>)<span class="question-mark">?
             </span>}
@@ -1131,7 +1129,7 @@
         <span class="prelude-val">Ok</span>(Vec::new())
     }
 
-    <span class="kw">pub fn </span>build_mapped_directories(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;MappedDirectory&gt;, anyhow::Error&gt; {
+    <span class="kw">pub fn </span>build_mapped_directories(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;(bool, Vec&lt;MappedDirectory&gt;), anyhow::Error&gt; {
         <span class="kw">let </span><span class="kw-2">mut </span>mapped_dirs = Vec::new();
 
         <span class="comment">// Process the --dirs flag and merge it with --mapdir.
@@ -1148,7 +1146,7 @@
 
                 MappedDirectory {
                     host: current_dir,
-                    guest: <span class="self">Self</span>::MAPPED_CURRENT_DIR_DEFAULT_PATH.to_string(),
+                    guest: MAPPED_CURRENT_DIR_DEFAULT_PATH.to_string(),
                 }
             } <span class="kw">else </span>{
                 <span class="kw">let </span>resolved = dir.canonicalize().with_context(|| {
@@ -1201,7 +1199,7 @@
 
                 MappedDirectory {
                     host: resolved_host,
-                    guest: <span class="self">Self</span>::MAPPED_CURRENT_DIR_DEFAULT_PATH.to_string(),
+                    guest: MAPPED_CURRENT_DIR_DEFAULT_PATH.to_string(),
                 }
             } <span class="kw">else </span>{
                 MappedDirectory {
@@ -1212,7 +1210,7 @@
             mapped_dirs.push(mapping);
         }
 
-        <span class="prelude-val">Ok</span>(mapped_dirs)
+        <span class="prelude-val">Ok</span>((have_current_dir, mapped_dirs))
     }
 
     <span class="kw">pub fn </span>build_mapped_commands(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;MappedCommand&gt;, anyhow::Error&gt; {

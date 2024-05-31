@@ -15,6 +15,8 @@
 <a href="#15" id="15">15</a>
 <a href="#16" id="16">16</a>
 <a href="#17" id="17">17</a>
+<a href="#18" id="18">18</a>
+<a href="#19" id="19">19</a>
 </pre></div><pre class="rust"><code><span class="kw">mod </span>runner;
 
 <span class="attr">#[cfg(feature = <span class="string">&quot;webc_runner_rt_dcgi&quot;</span>)]
@@ -30,6 +32,8 @@
 
 <span class="kw">pub use </span><span class="self">self</span>::{
     runner::Runner,
-    wasi_common::{MappedCommand, MappedDirectory, MountedDirectory},
+    wasi_common::{
+        MappedCommand, MappedDirectory, MountedDirectory, MAPPED_CURRENT_DIR_DEFAULT_PATH,
+    },
 };
 </code></pre></div></section></main></body></html>

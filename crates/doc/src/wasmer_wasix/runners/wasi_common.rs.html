@@ -509,6 +509,9 @@
 <a href="#509" id="509">509</a>
 <a href="#510" id="510">510</a>
 <a href="#511" id="511">511</a>
+<a href="#512" id="512">512</a>
+<a href="#513" id="513">513</a>
+<a href="#514" id="514">514</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{
     collections::HashMap,
     path::{Path, PathBuf},
@@ -529,6 +532,8 @@
     WasiEnvBuilder,
 };
 
+<span class="kw">pub const </span>MAPPED_CURRENT_DIR_DEFAULT_PATH: <span class="kw-2">&amp;</span>str = <span class="string">&quot;/home&quot;</span>;
+
 <span class="attr">#[derive(Debug, Clone)]
 </span><span class="kw">pub struct </span>MappedCommand {
     <span class="doccomment">/// The new alias.
@@ -545,6 +550,7 @@
     <span class="kw">pub</span>(<span class="kw">crate</span>) forward_host_env: bool,
     <span class="kw">pub</span>(<span class="kw">crate</span>) mapped_host_commands: Vec&lt;MappedCommand&gt;,
     <span class="kw">pub</span>(<span class="kw">crate</span>) mounts: Vec&lt;MountedDirectory&gt;,
+    <span class="kw">pub</span>(<span class="kw">crate</span>) is_home_mapped: bool,
     <span class="kw">pub</span>(<span class="kw">crate</span>) injected_packages: Vec&lt;BinaryPackage&gt;,
     <span class="kw">pub</span>(<span class="kw">crate</span>) capabilities: Capabilities,
     <span class="attr">#[derivative(Debug = <span class="string">&quot;ignore&quot;</span>)]

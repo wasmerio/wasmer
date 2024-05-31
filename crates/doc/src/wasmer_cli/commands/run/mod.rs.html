@@ -994,6 +994,9 @@
 <a href="#994" id="994">994</a>
 <a href="#995" id="995">995</a>
 <a href="#996" id="996">996</a>
+<a href="#997" id="997">997</a>
+<a href="#998" id="998">998</a>
+<a href="#999" id="999">999</a>
 </pre></div><pre class="rust"><code><span class="attr">#![allow(missing_docs, unused)]
 
 </span><span class="kw">mod </span>wasi;
@@ -1391,12 +1394,15 @@
 
         <span class="kw">let </span><span class="kw-2">mut </span>runner = WasiRunner::new();
 
+        <span class="kw">let </span>(is_home_mapped, mapped_diretories) = <span class="self">self</span>.wasi.build_mapped_directories()<span class="question-mark">?</span>;
+
         runner
             .with_args(<span class="kw-2">&amp;</span><span class="self">self</span>.args)
             .with_injected_packages(packages)
             .with_envs(<span class="self">self</span>.wasi.env_vars.clone())
             .with_mapped_host_commands(<span class="self">self</span>.wasi.build_mapped_commands()<span class="question-mark">?</span>)
-            .with_mapped_directories(<span class="self">self</span>.wasi.build_mapped_directories()<span class="question-mark">?</span>)
+            .with_mapped_directories(mapped_diretories)
+            .with_home_mapped(is_home_mapped)
             .with_forward_host_env(<span class="self">self</span>.wasi.forward_host_env)
             .with_capabilities(<span class="self">self</span>.wasi.capabilities());
 

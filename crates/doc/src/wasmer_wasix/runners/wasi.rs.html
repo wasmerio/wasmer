@@ -430,6 +430,15 @@
 <a href="#430" id="430">430</a>
 <a href="#431" id="431">431</a>
 <a href="#432" id="432">432</a>
+<a href="#433" id="433">433</a>
+<a href="#434" id="434">434</a>
+<a href="#435" id="435">435</a>
+<a href="#436" id="436">436</a>
+<a href="#437" id="437">437</a>
+<a href="#438" id="438">438</a>
+<a href="#439" id="439">439</a>
+<a href="#440" id="440">440</a>
+<a href="#441" id="441">441</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! WebC container support for running WASI modules
 
 </span><span class="kw">use </span>std::{path::PathBuf, sync::Arc};
@@ -450,7 +459,7 @@
 };
 <span class="kw">use </span>wasmer_types::ModuleHash;
 
-<span class="kw">use </span><span class="kw">super</span>::wasi_common::MappedCommand;
+<span class="kw">use </span><span class="kw">super</span>::wasi_common::{MappedCommand, MAPPED_CURRENT_DIR_DEFAULT_PATH};
 
 <span class="attr">#[derive(Debug, Default, Clone)]
 </span><span class="kw">pub struct </span>WasiRunner {
@@ -511,6 +520,11 @@
     {
         <span class="self">self</span>.with_mounted_directories(dirs.into_iter().map(Into::into).map(MountedDirectory::from))
     }
+
+    <span class="kw">pub fn </span>with_home_mapped(<span class="kw-2">&amp;mut </span><span class="self">self</span>, is_home_mapped: bool) -&gt; <span class="kw-2">&amp;mut </span><span class="self">Self </span>{
+        <span class="self">self</span>.wasi.is_home_mapped = is_home_mapped;
+        <span class="self">self
+    </span>}
 
     <span class="kw">pub fn </span>with_mounted_directories&lt;I, D&gt;(<span class="kw-2">&amp;mut </span><span class="self">self</span>, dirs: I) -&gt; <span class="kw-2">&amp;mut </span><span class="self">Self
     </span><span class="kw">where
@@ -680,6 +694,10 @@
         }
         <span class="kw">if let </span><span class="prelude-val">Some</span>(stderr) = <span class="kw-2">&amp;</span><span class="self">self</span>.stderr {
             builder.set_stderr(Box::new(stderr.clone()));
+        }
+
+        <span class="kw">if </span><span class="self">self</span>.wasi.is_home_mapped {
+            builder.set_current_dir(MAPPED_CURRENT_DIR_DEFAULT_PATH);
         }
 
         <span class="prelude-val">Ok</span>(builder)
