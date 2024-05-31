@@ -365,7 +365,7 @@
                  .tick_strings(<span class="kw-2">&amp;</span>[<span class="string">&quot;✶&quot;</span>, <span class="string">&quot;✸&quot;</span>, <span class="string">&quot;✹&quot;</span>, <span class="string">&quot;✺&quot;</span>, <span class="string">&quot;✹&quot;</span>, <span class="string">&quot;✷&quot;</span>, <span class="string">&quot;✶&quot;</span>]));
     <span class="macro">tracing::info!</span>(<span class="string">&quot;webc is {total_bytes} bytes long&quot;</span>);
 
-    <span class="kw">let </span>chunk_size = (total_bytes / <span class="number">20</span>).min(<span class="number">10485760</span>);
+    <span class="kw">let </span>chunk_size = <span class="number">8 </span>* <span class="number">1024</span>;
 
     <span class="kw">let </span>stream = futures::stream::unfold(<span class="number">0</span>, <span class="kw">move </span>|offset| {
         <span class="kw">let </span>pb = pb.clone();
