@@ -47,58 +47,125 @@ pub(crate) fn path_remove_directory_internal(
     path: &str,
 ) -> Result<(), Errno> {
     let env = ctx.data();
-    let (memory, mut state, inodes) = unsafe { env.get_memory_and_wasi_state_and_inodes(&ctx, 0) };
+    let (memory, state, inodes) = unsafe { env.get_memory_and_wasi_state_and_inodes(&ctx, 0) };
+    let working_dir = state.fs.get_fd(fd)?;
 
-    let inode = state.fs.get_inode_at_path(inodes, fd, path, false)?;
-    let (parent_inode, childs_name) =
-        state
-            .fs
-            .get_parent_inode_at_path(inodes, fd, std::path::Path::new(&path), false)?;
+    let path = std::path::PathBuf::from(path);
+    let path_vec = path
+        .components()
+        .map(|comp| {
+            comp.as_os_str()
+                .to_str()
+                .map(|inner_str| inner_str.to_string())
+                .ok_or(Errno::Inval)
+        })
+        .collect::<Result<Vec<String>, Errno>>()?;
+    if path_vec.is_empty() {
+        trace!("path vector is invalid (its empty)");
+        return Err(Errno::Inval);
+    }
 
-    let host_path_to_remove = {
-        let guard = inode.read();
-        match guard.deref() {
-            Kind::Dir { entries, path, .. } => {
-                if !entries.is_empty() || state.fs_read_dir(path)?.count() != 0 {
-                    return Err(Errno::Notempty);
-                }
-                path.clone()
-            }
-            Kind::Root { .. } => return Err(Errno::Access),
-            _ => return Err(Errno::Notdir),
-        }
-    };
+    let (child, parent) = path_vec.split_last().unwrap();
 
-    {
-        let mut guard = parent_inode.write();
+    // if path only contains one component (the root), operation is not permitted
+    if child.is_empty() {
+        return Err(Errno::Access);
+    }
+
+    let mut cur_dir_inode = working_dir.inode;
+    for comp in path_vec.iter() {
+        let processing_cur_dir_inode = cur_dir_inode.clone();
+        let mut guard = processing_cur_dir_inode.write();
         match guard.deref_mut() {
             Kind::Dir {
-                ref mut entries, ..
+                ref mut entries,
+                path,
+                parent,
             } => {
-                let removed_inode = entries.remove(&childs_name).ok_or(Errno::Inval)?;
+                match comp.borrow() {
+                    ".." => {
+                        if let Some(p) = parent.upgrade() {
+                            cur_dir_inode = p;
+                            continue;
+                        }
+                    }
+                    "." => continue,
+                    _ => (),
+                }
+                if let Some(child) = entries.get(comp) {
+                    cur_dir_inode = child.clone();
+                } else {
+                    let parent_path = path.clone();
+                    let mut adjusted_path = path.clone();
+                    drop(guard);
 
-                // TODO: make this a debug assert in the future
-                assert!(inode.ino() == removed_inode.ino());
+                    // TODO: double check this doesn't risk breaking the sandbox
+                    adjusted_path.push(comp);
+                    if let Ok(adjusted_path_stat) = path_filestat_get_internal(
+                        &memory,
+                        state,
+                        inodes,
+                        fd,
+                        0,
+                        &adjusted_path.to_string_lossy(),
+                    ) {
+                        if adjusted_path_stat.st_filetype != Filetype::Directory {
+                            trace!("path is not a directory");
+                            return Err(Errno::Notdir);
+                        }
+                    } else {
+                        return Err(Errno::Noent);
+                    }
+                    let kind = Kind::Dir {
+                        parent: cur_dir_inode.downgrade(),
+                        path: adjusted_path,
+                        entries: Default::default(),
+                    };
+                    let new_inode = state
+                        .fs
+                        .create_inode(inodes, kind, false, comp.to_string())?;
+
+                    // reborrow to insert
+                    {
+                        let mut guard = cur_dir_inode.write();
+                        if let Kind::Dir {
+                            ref mut entries, ..
+                        } = guard.deref_mut()
+                        {
+                            entries.insert(comp.to_string(), new_inode.clone());
+                        }
+                    }
+                    cur_dir_inode = new_inode;
+                }
             }
-            Kind::Root { .. } => return Err(Errno::Access),
-            _ => unreachable!(
-                "Internal logic error in wasi::path_remove_directory, parent is not a directory"
-            ),
+            Kind::Root { .. } => {
+                trace!("the root node can no create a directory");
+                return Err(Errno::Access);
+            }
+            _ => {
+                trace!("path is not a directory");
+                return Err(Errno::Notdir);
+            }
         }
     }
 
-    let env = ctx.data();
-    let (memory, mut state, inodes) = unsafe { env.get_memory_and_wasi_state_and_inodes(&ctx, 0) };
-    if let Err(err) = state.fs_remove_dir(host_path_to_remove) {
-        // reinsert to prevent FS from being in bad state
-        let mut guard = parent_inode.write();
-        if let Kind::Dir {
-            ref mut entries, ..
-        } = guard.deref_mut()
-        {
-            entries.insert(childs_name, inode);
+    if let Kind::Dir {
+        parent,
+        path: child_path,
+        entries,
+    } = cur_dir_inode.write().deref_mut()
+    {
+        let parent = parent.upgrade().ok_or(Errno::Noent)?;
+
+        if let Kind::Dir { entries, .. } = parent.write().deref_mut() {
+            let child_inode = entries.remove(child).ok_or(Errno::Noent)?;
+
+            if let Err(e) = state.fs_remove_dir(&child_path) {
+                tracing::warn!(path = ?child_path, error = ?e, "failed to remove directory");
+            }
         }
-        return Err(err);
+
+        drop(parent)
     }
 
     Ok(())
