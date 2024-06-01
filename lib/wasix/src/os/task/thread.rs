@@ -467,15 +467,19 @@ impl WasiThread {
                         );
                     }
                 }
+                let mut total_forgotten = 0usize;
                 while let Some(disowned) = disown {
-                    for hash in disowned.snapshots.keys() {
-                        tracing::trace!(
-                            "wasi[{}]::stack has been forgotten (hash={})",
-                            self.pid(),
-                            hash
-                        );
+                    for _hash in disowned.snapshots.keys() {
+                        total_forgotten += 1;
                     }
                     disown = disowned.next;
+                }
+                if total_forgotten > 0 {
+                    tracing::trace!(
+                        "wasi[{}]::stack has been forgotten (cnt={})",
+                        self.pid(),
+                        total_forgotten
+                    );
                 }
             } else {
                 memory_stack = &memory_stack[pstack.memory_stack.len()..];
