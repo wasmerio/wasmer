@@ -60,10 +60,10 @@ pub const VIRTUAL_ROOT_FD: WasiFd = 3;
 
 /// The root inode and stdio inodes are the first inodes in the
 /// file system tree
-pub const FS_ROOT_INO: Inode = Inode(0);
-pub const FS_STDIN_INO: Inode = Inode(1);
-pub const FS_STDOUT_INO: Inode = Inode(2);
-pub const FS_STDERR_INO: Inode = Inode(3);
+pub const FS_STDIN_INO: Inode = Inode(10);
+pub const FS_STDOUT_INO: Inode = Inode(11);
+pub const FS_STDERR_INO: Inode = Inode(12);
+pub const FS_ROOT_INO: Inode = Inode(13);
 
 const STDIN_DEFAULT_RIGHTS: Rights = {
     // This might seem a bit overenineered, but it's the only way I
