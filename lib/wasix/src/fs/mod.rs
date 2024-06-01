@@ -22,7 +22,6 @@ use crate::{
 use futures::{future::BoxFuture, Future, TryStreamExt};
 #[cfg(feature = "enable-serde")]
 use serde_derive::{Deserialize, Serialize};
-use sha2::Digest;
 use tokio::io::AsyncWriteExt;
 use tracing::{debug, trace};
 use virtual_fs::{copy_reference, FileSystem, FsError, OpenOptions, VirtualFile};
@@ -105,10 +104,7 @@ impl Inode {
     }
 
     pub fn from_path(str: &str) -> Self {
-        let h: [u8; 32] = sha2::Sha256::digest(str.as_bytes()).into();
-        Inode(u64::from_be_bytes([
-            h[0], h[1], h[2], h[3], h[4], h[5], h[6], h[7],
-        ]))
+        Inode(xxhash_rust::xxh64::xxh64(str.as_bytes(), 0))
     }
 }
 
@@ -1570,7 +1566,6 @@ impl WasiFs {
             name,
             kind: RwLock::new(kind),
         });
-        stat.st_ino = ret.ino().as_u64();
         ret
     }
 
