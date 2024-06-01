@@ -22,6 +22,7 @@ use crate::{
 use futures::{future::BoxFuture, Future, TryStreamExt};
 #[cfg(feature = "enable-serde")]
 use serde_derive::{Deserialize, Serialize};
+use sha2::Digest;
 use tokio::io::AsyncWriteExt;
 use tracing::{debug, trace};
 use virtual_fs::{copy_reference, FileSystem, FsError, OpenOptions, VirtualFile};
@@ -57,6 +58,13 @@ use crate::{bin_factory::BinaryPackage, state::PreopenedDir, ALL_RIGHTS};
 /// use the same syscalls as a normal WASI application but do not
 /// run the libc initialization logic
 pub const VIRTUAL_ROOT_FD: WasiFd = 3;
+
+/// The root inode and stdio inodes are the first inodes in the
+/// file system tree
+pub const FS_ROOT_INO: Inode = Inode(0);
+pub const FS_STDIN_INO: Inode = Inode(1);
+pub const FS_STDOUT_INO: Inode = Inode(2);
+pub const FS_STDERR_INO: Inode = Inode(3);
 
 const STDIN_DEFAULT_RIGHTS: Rights = {
     // This might seem a bit overenineered, but it's the only way I
@@ -94,6 +102,13 @@ pub struct Inode(u64);
 impl Inode {
     pub fn as_u64(&self) -> u64 {
         self.0
+    }
+
+    pub fn from_path(str: &str) -> Self {
+        let h: [u8; 32] = sha2::Sha256::digest(str.as_bytes()).into();
+        Inode(u64::from_be_bytes([
+            h[0], h[1], h[2], h[3], h[4], h[5], h[6], h[7],
+        ]))
     }
 }
 
@@ -143,7 +158,6 @@ impl InodeWeakGuard {
 #[derive(Debug)]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 struct WasiInodesProtected {
-    seed: u64,
     lookup: HashMap<Inode, Weak<InodeVal>>,
 }
 
@@ -157,7 +171,6 @@ impl WasiInodes {
     pub fn new() -> Self {
         Self {
             protected: Arc::new(RwLock::new(WasiInodesProtected {
-                seed: 1,
                 lookup: Default::default(),
             })),
         }
@@ -166,20 +179,17 @@ impl WasiInodes {
     /// adds another value to the inodes
     pub fn add_inode_val(&self, val: InodeVal) -> InodeGuard {
         let val = Arc::new(val);
+        let st_ino = {
+            let guard = val.stat.read().unwrap();
+            guard.st_ino
+        };
 
         let mut guard = self.protected.write().unwrap();
-        let ino = Inode(guard.seed);
-        guard.seed += 1;
+        let ino = Inode(st_ino);
         guard.lookup.insert(ino, Arc::downgrade(&val));
 
-        // Set the inode value
-        {
-            let mut guard = val.stat.write().unwrap();
-            guard.st_ino = ino.0;
-        }
-
         // every 100 calls we clear out dead weaks
-        if guard.seed % 100 == 1 {
+        if guard.lookup.len() % 100 == 1 {
             guard.lookup.retain(|_, v| Weak::strong_count(v) > 0);
         }
 
@@ -591,7 +601,7 @@ impl WasiFs {
         vfs_preopens: &[String],
         fs_backing: WasiFsRoot,
     ) -> Result<Self, String> {
-        let mut wasi_fs = Self::new_init(fs_backing, inodes)?;
+        let mut wasi_fs = Self::new_init(fs_backing, inodes, FS_ROOT_INO)?;
         wasi_fs.init_preopens = preopens.to_vec();
         wasi_fs.init_vfs_preopens = vfs_preopens.to_vec();
         wasi_fs.create_preopens(inodes, false)?;
@@ -612,11 +622,16 @@ impl WasiFs {
 
     /// Private helper function to init the filesystem, called in `new` and
     /// `new_with_preopen`
-    fn new_init(fs_backing: WasiFsRoot, inodes: &WasiInodes) -> Result<Self, String> {
+    fn new_init(
+        fs_backing: WasiFsRoot,
+        inodes: &WasiInodes,
+        st_ino: Inode,
+    ) -> Result<Self, String> {
         debug!("Initializing WASI filesystem");
 
         let stat = Filestat {
             st_filetype: Filetype::Directory,
+            st_ino: st_ino.as_u64(),
             ..Filestat::default()
         };
         let root_kind = Kind::Root {
@@ -1546,6 +1561,9 @@ impl WasiFs {
             _ => {}
         }
 
+        let st_ino = Inode::from_path(&name);
+        stat.st_ino = st_ino.as_u64();
+
         let ret = inodes.add_inode_val(InodeVal {
             stat: RwLock::new(stat),
             is_preopened,
@@ -1677,6 +1695,7 @@ impl WasiFs {
             __WASI_STDOUT_FILENO,
             STDOUT_DEFAULT_RIGHTS,
             Fdflags::APPEND,
+            FS_STDOUT_INO,
         );
     }
 
@@ -1688,6 +1707,7 @@ impl WasiFs {
             __WASI_STDIN_FILENO,
             STDIN_DEFAULT_RIGHTS,
             Fdflags::empty(),
+            FS_STDIN_INO,
         );
     }
 
@@ -1699,6 +1719,7 @@ impl WasiFs {
             __WASI_STDERR_FILENO,
             STDERR_DEFAULT_RIGHTS,
             Fdflags::APPEND,
+            FS_STDERR_INO,
         );
     }
 
@@ -1918,10 +1939,12 @@ impl WasiFs {
         raw_fd: WasiFd,
         rights: Rights,
         fd_flags: Fdflags,
+        st_ino: Inode,
     ) {
         let inode = {
             let stat = Filestat {
                 st_filetype: Filetype::CharacterDevice,
+                st_ino: st_ino.as_u64(),
                 ..Filestat::default()
             };
             let kind = Kind::File {
