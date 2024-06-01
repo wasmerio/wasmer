@@ -1565,8 +1565,38 @@ impl WasiFs {
         inode: InodeGuard,
     ) -> Result<WasiFd, Errno> {
         let idx = self.next_fd.next_val();
-        self.create_fd_ext(rights, rights_inheriting, flags, open_flags, inode, idx)?;
+        self.create_fd_ext(
+            rights,
+            rights_inheriting,
+            flags,
+            open_flags,
+            inode,
+            idx,
+            false,
+        )?;
         Ok(idx)
+    }
+
+    pub fn with_fd(
+        &self,
+        rights: Rights,
+        rights_inheriting: Rights,
+        flags: Fdflags,
+        open_flags: u16,
+        inode: InodeGuard,
+        idx: WasiFd,
+    ) -> Result<(), Errno> {
+        self.make_max_fd(idx + 1);
+        self.create_fd_ext(
+            rights,
+            rights_inheriting,
+            flags,
+            open_flags,
+            inode,
+            idx,
+            true,
+        )?;
+        Ok(())
     }
 
     pub fn make_max_fd(&self, fd: u32) {
@@ -1581,12 +1611,19 @@ impl WasiFs {
         open_flags: u16,
         inode: InodeGuard,
         idx: WasiFd,
+        exclusive: bool,
     ) -> Result<(), Errno> {
         let is_stdio = matches!(
             idx,
             __WASI_STDIN_FILENO | __WASI_STDOUT_FILENO | __WASI_STDERR_FILENO
         );
-        self.fd_map.write().unwrap().insert(
+        let mut guard = self.fd_map.write().unwrap();
+        if exclusive {
+            if guard.contains_key(&idx) {
+                return Err(Errno::Exist);
+            }
+        }
+        guard.insert(
             idx,
             Fd {
                 rights,
