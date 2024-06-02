@@ -1,0 +1,13 @@
+[package]
+name = "main"
+version = "0.0.0"
+description = "This is a test package"
+license = "MIT"
+
+[[module]]
+name = "main"
+source = "main.wasm"
+
+[[command]]
+name = "main"
+module = "main"

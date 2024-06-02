@@ -68,7 +68,7 @@ pub fn proc_exec2<M: MemorySize>(
 
         let mut vec = vec![];
         for env in envs {
-            let (key, value) = env.split_once(':').unwrap();
+            let (key, value) = env.split_once('=').unwrap();
 
             vec.push((key.to_string(), value.to_string()));
         }
