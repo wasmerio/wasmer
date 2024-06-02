@@ -53,6 +53,10 @@ struct State {
     // When creating and truncating a file we have a special
     // lookup so that duplicates can be erased
     create_trunc_file: HashMap<String, Fd>,
+    // When modifying an existing file
+    modify_file: HashMap<String, Fd>,
+    // Events that unlink a file
+    unlink_file: HashMap<String, usize>,
     // Thread events are only maintained while the thread and the
     // process are still running
     thread_map: HashMap<u32, usize>,
@@ -114,6 +118,9 @@ impl State {
             filter.add_event_to_whitelist(*t.1);
         }
         for (_, e) in self.remove_directory.iter() {
+            filter.add_event_to_whitelist(*e);
+        }
+        for (_, e) in self.unlink_file.iter() {
             filter.add_event_to_whitelist(*e);
         }
         for (_, l) in self.create_directory.iter() {
@@ -224,6 +231,8 @@ impl CompactingJournal {
             create_directory: Default::default(),
             remove_directory: Default::default(),
             create_trunc_file: Default::default(),
+            modify_file: Default::default(),
+            unlink_file: Default::default(),
             suspect_descriptors: Default::default(),
             keep_descriptors: Default::default(),
             stdio_descriptors: Default::default(),
@@ -412,13 +421,44 @@ impl WritableJournal for CompactingJournalTx {
 
                 // Creating a file and erasing anything that was there before means
                 // the entire create branch that exists before this one can be ignored
-                if o_flags.contains(wasi::Oflags::CREATE) && o_flags.contains(wasi::Oflags::TRUNC) {
-                    let path = path.to_string();
+                let path = path.to_string();
+                if o_flags.contains(wasi::Oflags::CREATE)
+                    && (o_flags.contains(wasi::Oflags::TRUNC)
+                        || o_flags.contains(wasi::Oflags::EXCL))
+                {
                     if let Some(existing) = state.create_trunc_file.remove(&path) {
-                        state.suspect_descriptors.remove(&existing);
-                        state.keep_descriptors.remove(&existing);
+                        if let Some(remove) = state.suspect_descriptors.remove(&existing) {
+                            state.descriptors.remove(&remove);
+                        }
+                        if let Some(remove) = state.keep_descriptors.remove(&existing) {
+                            state.descriptors.remove(&remove);
+                        }
                     }
-                    state.create_trunc_file.insert(path, *fd);
+                    if let Some(existing) = state.modify_file.remove(&path) {
+                        if let Some(remove) = state.suspect_descriptors.remove(&existing) {
+                            state.descriptors.remove(&remove);
+                        }
+                        if let Some(remove) = state.keep_descriptors.remove(&existing) {
+                            state.descriptors.remove(&remove);
+                        }
+                    }
+                    if let Some(existing) = state.create_trunc_file.insert(path, *fd) {
+                        if let Some(remove) = state.suspect_descriptors.remove(&existing) {
+                            state.descriptors.remove(&remove);
+                        }
+                        if let Some(remove) = state.keep_descriptors.remove(&existing) {
+                            state.descriptors.remove(&remove);
+                        }
+                    }
+                } else {
+                    if let Some(existing) = state.modify_file.insert(path, *fd) {
+                        if let Some(remove) = state.suspect_descriptors.remove(&existing) {
+                            state.descriptors.remove(&remove);
+                        }
+                        if let Some(remove) = state.keep_descriptors.remove(&existing) {
+                            state.descriptors.remove(&remove);
+                        }
+                    }
                 }
             }
             // We keep non-mutable events for file descriptors that are suspect
@@ -427,15 +467,21 @@ impl WritableJournal for CompactingJournalTx {
                 // Get the lookup
                 // (if its suspect then it will remove the entry and
                 //  thus the entire branch of events it represents is discarded)
-                let mut skip = false;
+                let mut erase = false;
                 let lookup = if matches!(&entry, JournalEntry::CloseFileDescriptorV1 { .. }) {
                     if state.open_sockets.remove(fd).is_some() {
-                        skip = true;
+                        erase = true;
                     }
                     if state.open_pipes.remove(fd).is_some() {
-                        skip = true;
+                        erase = true;
                     }
-                    state.suspect_descriptors.remove(fd)
+                    match state.suspect_descriptors.remove(fd) {
+                        Some(a) => {
+                            erase = true;
+                            Some(a)
+                        }
+                        None => None,
+                    }
                 } else {
                     state.suspect_descriptors.get(fd).cloned()
                 };
@@ -443,7 +489,12 @@ impl WritableJournal for CompactingJournalTx {
                     .or_else(|| state.keep_descriptors.get(fd).cloned())
                     .or_else(|| state.stdio_descriptors.get(fd).cloned());
 
-                if !skip {
+                // If we are to erase all these events as if they never happened then do so
+                if erase {
+                    if let Some(lookup) = lookup {
+                        state.descriptors.remove(&lookup);
+                    }
+                } else {
                     if let Some(lookup) = lookup {
                         let state = state.descriptors.entry(lookup).or_default();
                         state.events.push(event_index);
@@ -555,6 +606,56 @@ impl WritableJournal for CompactingJournalTx {
                 let path = path.to_string();
                 state.create_directory.remove(&path);
                 state.remove_directory.insert(path, event_index);
+            }
+            // Unlinks the file from the file system
+            JournalEntry::UnlinkFileV1 { path, .. } => {
+                let path = path.to_string();
+                if let Some(existing) = state
+                    .create_trunc_file
+                    .remove(&path)
+                    .or_else(|| state.modify_file.remove(&path))
+                {
+                    if let Some(remove) = state.suspect_descriptors.remove(&existing) {
+                        state.descriptors.remove(&remove);
+                    }
+                    if let Some(remove) = state.keep_descriptors.remove(&existing) {
+                        state.descriptors.remove(&remove);
+                    }
+                }
+                state.unlink_file.insert(path, event_index);
+            }
+            // Renames may update some of the tracking functions
+            JournalEntry::PathRenameV1 {
+                old_path, new_path, ..
+            } => {
+                let old_path = old_path.to_string();
+                let new_path = new_path.to_string();
+
+                if let Some(existing) = state.create_trunc_file.remove(&old_path) {
+                    if let Some(replaces) = state.create_trunc_file.insert(new_path, existing) {
+                        if let Some(remove) = state.suspect_descriptors.remove(&replaces) {
+                            state.descriptors.remove(&remove);
+                        }
+                        if let Some(remove) = state.keep_descriptors.remove(&replaces) {
+                            state.descriptors.remove(&remove);
+                        }
+                    }
+                } else if let Some(existing) = state.modify_file.remove(&old_path) {
+                    if let Some(replaces) = state.modify_file.insert(new_path, existing) {
+                        if let Some(remove) = state.suspect_descriptors.remove(&replaces) {
+                            state.descriptors.remove(&remove);
+                        }
+                        if let Some(remove) = state.keep_descriptors.remove(&replaces) {
+                            state.descriptors.remove(&remove);
+                        }
+                    }
+                } else if let Some(existing) = state.create_directory.remove(&old_path) {
+                    if let Some(replaces) = state.create_directory.insert(new_path, existing) {
+                        state.descriptors.remove(&replaces);
+                    }
+                } else {
+                    state.whitelist.insert(event_index);
+                }
             }
             // Update all the directory operations
             JournalEntry::PathSetTimesV1 { path, .. } => {
