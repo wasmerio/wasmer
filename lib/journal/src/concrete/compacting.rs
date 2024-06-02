@@ -44,6 +44,8 @@ struct State {
     snapshots: Vec<usize>,
     // Last tty event thats been set
     tty: Option<usize>,
+    // The last change directory event
+    chdir: Option<usize>,
     // Events that create a particular directory
     create_directory: HashMap<String, DescriptorLookup>,
     // Events that remove a particular directory
@@ -97,6 +99,9 @@ impl State {
         let mut filter = FilteredJournalBuilder::new()
             .with_filter_events(self.whitelist.clone().into_iter().collect());
         if let Some(tty) = self.tty.as_ref() {
+            filter.add_event_to_whitelist(*tty);
+        }
+        if let Some(tty) = self.chdir.as_ref() {
             filter.add_event_to_whitelist(*tty);
         }
         for e in self.snapshots.iter() {
@@ -210,6 +215,7 @@ impl CompactingJournal {
             inner_tx: tx,
             inner_rx: rx.as_restarted()?,
             tty: None,
+            chdir: None,
             snapshots: Default::default(),
             memory_map: Default::default(),
             thread_map: Default::default(),
@@ -373,6 +379,9 @@ impl WritableJournal for CompactingJournalTx {
             }
             JournalEntry::TtySetV1 { .. } => {
                 state.tty.replace(event_index);
+            }
+            JournalEntry::ChangeDirectoryV1 { .. } => {
+                state.chdir.replace(event_index);
             }
             JournalEntry::OpenFileDescriptorV1 {
                 fd, o_flags, path, ..
