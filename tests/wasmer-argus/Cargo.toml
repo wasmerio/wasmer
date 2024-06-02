@@ -33,7 +33,7 @@ shared-buffer.workspace = true
 
 
 [target.'cfg(not(target_arch = "riscv64"))'.dependencies]
-reqwest = { version = "^0.11", default-features = false, features = [
+reqwest = { workspace = true, default-features = false, features = [
   "rustls-tls",
   "json",
   "multipart",
@@ -41,7 +41,7 @@ reqwest = { version = "^0.11", default-features = false, features = [
 ] }
 
 [target.'cfg(target_arch = "riscv64")'.dependencies]
-reqwest = { version = "^0.11", default-features = false, features = [
+reqwest = { workspace = true, default-features = false, features = [
   "native-tls",
   "json",
   "multipart",
