@@ -45,6 +45,10 @@ pub fn path_filestat_get<M: MemorySize>(
         &path_string
     ));
 
+    if path_string == "/app/wp-includes/blocks.php" {
+        tracing::error!("path_filestat_get({}): {:?}", path_string, stat);
+    }
+
     wasi_try_mem!(buf.deref(&memory).write(stat));
 
     Errno::Success

@@ -45,7 +45,7 @@ struct State {
     // Last tty event thats been set
     tty: Option<usize>,
     // Events that create a particular directory
-    create_directory: HashMap<String, usize>,
+    create_directory: HashMap<String, DescriptorLookup>,
     // Events that remove a particular directory
     remove_directory: HashMap<String, usize>,
     // When creating and truncating a file we have a special
@@ -108,11 +108,18 @@ impl State {
         for t in self.thread_map.iter() {
             filter.add_event_to_whitelist(*t.1);
         }
-        for (_, e) in self.create_directory.iter() {
-            filter.add_event_to_whitelist(*e);
-        }
         for (_, e) in self.remove_directory.iter() {
             filter.add_event_to_whitelist(*e);
+        }
+        for (_, l) in self.create_directory.iter() {
+            if let Some(d) = self.descriptors.get(l) {
+                for e in d.events.iter() {
+                    filter.add_event_to_whitelist(*e);
+                }
+                for e in d.write_map.values() {
+                    filter.add_event_to_whitelist(*e);
+                }
+            }
         }
         for (_, l) in self
             .suspect_descriptors
@@ -514,14 +521,46 @@ impl WritableJournal for CompactingJournalTx {
             // Creating a new directory only needs to be done once
             JournalEntry::CreateDirectoryV1 { path, .. } => {
                 let path = path.to_string();
-                state.remove_directory.remove(&path);
-                state.create_directory.entry(path).or_insert(event_index);
+
+                // Newly created directories are stored as a set of .
+                let lookup = match state.create_directory.get(&path) {
+                    Some(lookup) => lookup.clone(),
+                    None => {
+                        let lookup = DescriptorLookup(state.descriptor_seed);
+                        state.descriptor_seed += 1;
+                        state.create_directory.insert(path, lookup.clone());
+                        lookup
+                    }
+                };
+
+                // Add the event that creates the directory
+                state
+                    .descriptors
+                    .entry(lookup)
+                    .or_default()
+                    .events
+                    .push(event_index);
             }
             // Deleting a directory only needs to be done once
             JournalEntry::RemoveDirectoryV1 { path, .. } => {
                 let path = path.to_string();
                 state.create_directory.remove(&path);
-                state.remove_directory.entry(path).or_insert(event_index);
+                state.remove_directory.insert(path, event_index);
+            }
+            // Update all the directory operations
+            JournalEntry::PathSetTimesV1 { path, .. } => {
+                let path = path.to_string();
+                let lookup = state.create_directory.get(&path).cloned();
+                if let Some(lookup) = lookup {
+                    state
+                        .descriptors
+                        .entry(lookup)
+                        .or_default()
+                        .events
+                        .push(event_index);
+                } else {
+                    state.whitelist.insert(event_index);
+                }
             }
             // Pipes that remain open at the end will be added
             JournalEntry::CreatePipeV1 { fd1, fd2, .. } => {
