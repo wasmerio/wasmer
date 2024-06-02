@@ -930,7 +930,7 @@ impl WasiFs {
         &self,
         inodes: &WasiInodes,
         mut cur_inode: InodeGuard,
-        path: &str,
+        path_str: &str,
         mut symlink_count: u32,
         follow_symlinks: bool,
     ) -> Result<InodeGuard, Errno> {
@@ -938,7 +938,7 @@ impl WasiFs {
             return Err(Errno::Mlink);
         }
 
-        let path: &Path = Path::new(path);
+        let path: &Path = Path::new(path_str);
         let n_components = path.components().count();
 
         // TODO: rights checks
@@ -1059,6 +1059,11 @@ impl WasiFs {
                                         file.to_string_lossy().to_string().into(),
                                         Filestat {
                                             st_filetype: file_type,
+                                            st_ino: Inode::from_path(path_str).as_u64(),
+                                            st_size: metadata.len(),
+                                            st_ctim: metadata.created(),
+                                            st_mtim: metadata.modified(),
+                                            st_atim: metadata.accessed(),
                                             ..Filestat::default()
                                         },
                                     );
@@ -1976,6 +1981,7 @@ impl WasiFs {
                     let wf = wf.read().unwrap();
                     return Ok(Filestat {
                         st_filetype: Filetype::RegularFile,
+                        st_ino: Inode::from_path(path.to_string_lossy().as_ref()).as_u64(),
                         st_size: wf.size(),
                         st_atim: wf.last_accessed(),
                         st_mtim: wf.last_modified(),
