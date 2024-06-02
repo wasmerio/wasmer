@@ -1,6 +1,6 @@
 use crate::{
     commands::{
-        package::common::{macros::*, *},
+        package::common::{macros::*, wait::wait_package, *},
         AsyncCliCommand,
     },
     opts::{ApiOpts, WasmerEnv},
@@ -15,6 +15,8 @@ use std::{
 };
 use wasmer_api::WasmerClient;
 use wasmer_config::package::{Manifest, NamedPackageId, PackageBuilder, PackageHash, PackageIdent};
+
+use super::PublishWait;
 
 /// Tag an existing package.
 #[derive(Debug, clap::Parser)]
@@ -70,6 +72,17 @@ pub struct PackageTag {
     /// Defaults to current working directory.
     #[clap(name = "path", default_value = ".")]
     pub package_path: PathBuf,
+
+    /// Wait for package to be available on the registry before exiting.
+    #[clap(
+            long,
+            require_equals = true,
+            num_args = 0..=1,
+            default_value_t = PublishWait::None,
+            default_missing_value = "container",
+            value_enum
+        )]
+    pub wait: PublishWait,
 }
 
 impl PackageTag {
@@ -185,6 +198,9 @@ impl PackageTag {
             Some(r) => {
                 if r.success {
                     spinner_ok!(pb, format!("Successfully tagged package {id}",));
+                    if let Some(package_version) = r.package_version {
+                        wait_package(client, self.wait, package_version.id, self.timeout).await?;
+                    }
                     Ok(())
                 } else {
                     spinner_err!(pb, "Could not tag package!");

@@ -9,6 +9,53 @@ Looking for changes that affect our C API? See the [C API Changelog](lib/c-api/C
 
 ## **Unreleased**
 
+## 4.3.1 - 23/05/2024
+
+This release adds support for subcommands to generate shell completions and manual pages. Also, number of fixes
+to the cli are included to further improve the developer experience. Various bug fixes and stability improvements 
+are also added to WASIX.
+
+## Added
+
+  - [#4736](https://github.com/wasmerio/wasmer/pull/4736) Argus: Compare v2 and v3 + add webhook message
+  - [#4710](https://github.com/wasmerio/wasmer/pull/4710) Add libc dep to workspace dependency
+  - [#4683](https://github.com/wasmerio/wasmer/pull/4683) Add subcommands to generate shell completions and manual pages
+  - [#4673](https://github.com/wasmerio/wasmer/pull/4673) Add tracing setup support in C API
+
+## Changed
+
+  - [#4733](https://github.com/wasmerio/wasmer/pull/4733) New CLI integration tests
+  - [#4732](https://github.com/wasmerio/wasmer/pull/4732) Poll for write-readiness after connecting a blocking socket
+  - [#4731](https://github.com/wasmerio/wasmer/pull/4731) Change the default directory the manual pages are generated to
+  - [#4715](https://github.com/wasmerio/wasmer/pull/4715) Refactor `wasmer_config::package::PackageHash` to be an enum
+  - [#4726](https://github.com/wasmerio/wasmer/pull/4726) Update LLVM install instructions to use v15
+  - [#4720](https://github.com/wasmerio/wasmer/pull/4720) Revert "make path_create_directory return error if no dir was created"
+  - [#4719](https://github.com/wasmerio/wasmer/pull/4719) Enable windows in CI again
+  - [#4714](https://github.com/wasmerio/wasmer/pull/4714) Disable windows in Unit-test packages job
+  - [#4713](https://github.com/wasmerio/wasmer/pull/4713) Remove owner and spurious informations from templates
+  - [#4703](https://github.com/wasmerio/wasmer/pull/4703) Use registry templates to create new app
+  - [#4709](https://github.com/wasmerio/wasmer/pull/4709) Remove `clock_time_get` instrumentation
+  - [#4700](https://github.com/wasmerio/wasmer/pull/4700) `wasmer app logs`: support app IDs, improve output format
+  - [#4702](https://github.com/wasmerio/wasmer/pull/4702) Rename when redirect is to the same fs
+  - [#4693](https://github.com/wasmerio/wasmer/pull/4693) feat(cli): Reimplement the webc upload progress bar
+  - [#4695](https://github.com/wasmerio/wasmer/pull/4695) feat(cli): Allow "wasmer app get" with an app version id
+  - [#4689](https://github.com/wasmerio/wasmer/pull/4689) redirect to child node in a different fs
+  - [#4692](https://github.com/wasmerio/wasmer/pull/4692) Pass down owner from deploy to publish
+  - [#4682](https://github.com/wasmerio/wasmer/pull/4682) Calculate the duration when timeout is absolute
+  - [#4670](https://github.com/wasmerio/wasmer/pull/4670) V4.3.0 post release
+
+## Fixed
+
+  - [#4734](https://github.com/wasmerio/wasmer/pull/4734) fix(cli): Actively wait for packages only after tag
+  - [#4728](https://github.com/wasmerio/wasmer/pull/4728) feat(cli): Fix erroneous subcommand as a `run` tentative
+  - [#4716](https://github.com/wasmerio/wasmer/pull/4716) Fix progress bar tick chars
+  - [#4708](https://github.com/wasmerio/wasmer/pull/4708) Fix wasi-fyi tests
+  - [#4698](https://github.com/wasmerio/wasmer/pull/4698) Fix calculation of stat.st_size in the presence of combined seeks and writes
+  - [#4679](https://github.com/wasmerio/wasmer/pull/4679) [bugfix] correct error message when app version is not found
+  - [#4685](https://github.com/wasmerio/wasmer/pull/4685) Fix offset in append mode
+
+
+
 ## 4.3.0 - 10/05/2024
 
 This release stabilizes the new and improved publish and deploy flow. Also, wasmer is 25% faster (on cold startups) and more stable since

@@ -2,7 +2,7 @@ pub(super) use std::{borrow::Cow, ops::Range, sync::MutexGuard, time::SystemTime
 
 pub(super) use anyhow::bail;
 pub(super) use bytes::Bytes;
-pub(super) use wasmer::{FunctionEnvMut, RuntimeError, WasmPtr};
+pub(super) use wasmer::{FunctionEnvMut, WasmPtr};
 pub(super) use wasmer_types::MemorySize;
 pub(super) use wasmer_wasix_types::{
     types::__wasi_ciovec_t,
@@ -17,7 +17,7 @@ pub(super) use crate::{
     os::task::process::WasiProcessInner,
     syscalls::{fd_write_internal, FdWriteSource},
     utils::map_snapshot_err,
-    WasiEnv, WasiRuntimeError, WasiThreadId,
+    WasiEnv, WasiThreadId,
 };
 
 use super::*;

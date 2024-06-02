@@ -98,7 +98,6 @@ impl PackagePublish {
                 package_namespace: self.package_namespace.clone(),
                 timeout: self.timeout,
                 non_interactive: self.non_interactive,
-                wait: self.wait,
                 package_path: self.package_path.clone(),
             };
 
@@ -106,6 +105,7 @@ impl PackagePublish {
         };
 
         PackageTag {
+            wait: self.wait,
             api: self.api.clone(),
             env: self.env.clone(),
             dry_run: self.dry_run,

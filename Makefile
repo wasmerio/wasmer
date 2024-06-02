@@ -632,6 +632,10 @@ test-wasi-fyi: build-wasmer
 	cd tests/wasi-fyi; \
 	./test.sh
 
+test-wasix: build-wasmer
+	cd tests/wasix; \
+	./test.sh
+
 test-integration-cli: build-wasmer build-capi package-capi-headless package distribution
 	cp ./dist/wasmer.tar.gz ./link.tar.gz
 	rustup target add wasm32-wasi

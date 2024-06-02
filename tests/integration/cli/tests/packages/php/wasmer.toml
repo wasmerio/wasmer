@@ -1,0 +1,12 @@
+[dependencies]
+"php/php" = "=8.3.4-beta.1"
+
+[fs]
+"/app" = "app"
+
+[[command]]
+name = "run"
+module = "php/php:php"
+runner = "wasi"
+[command.annotations.wasi]
+main-args = ["-t", "/app", "-S", "localhost:8080"]

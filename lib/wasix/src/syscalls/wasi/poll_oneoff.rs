@@ -220,6 +220,7 @@ where
 
     let pid = ctx.data().pid();
     let tid = ctx.data().tid();
+    let subs_len = subs.len();
 
     // Determine if we are in silent polling mode
     let mut env = ctx.data();
@@ -379,6 +380,50 @@ where
             Some(time)
         }
     };
+
+    // Function to process a timeout
+    let process_timeout = {
+        let clock_subs = clock_subs.clone();
+        |ctx: &FunctionEnvMut<'a, WasiEnv>| {
+            // The timeout has triggered so lets add that event
+            if clock_subs.is_empty() {
+                tracing::warn!("triggered_timeout (without any clock subscriptions)",);
+            }
+            let mut evts = Vec::new();
+            for (clock_info, userdata) in clock_subs {
+                let evt = Event {
+                    userdata,
+                    error: Errno::Success,
+                    type_: Eventtype::Clock,
+                    u: EventUnion { clock: 0 },
+                };
+                Span::current().record(
+                    "seen",
+                    &format!(
+                        "clock(id={},userdata={})",
+                        clock_info.clock_id as u32, evt.userdata
+                    ),
+                );
+                evts.push(evt);
+            }
+            evts
+        }
+    };
+
+    #[cfg(feature = "sys")]
+    if env.capabilities.threading.enable_blocking_sleep && subs_len == 1 {
+        // Here, `poll_oneoff` is merely in a sleeping state
+        // due to a single relative timer event. This particular scenario was
+        // added following experimental findings indicating that std::thread::sleep
+        // yields more consistent sleep durations, allowing wasmer to meet
+        // real-time demands with greater precision.
+        if let Some(timeout) = timeout {
+            std::thread::sleep(timeout);
+            process_events(&ctx, process_timeout(&ctx));
+            return Ok(Errno::Success);
+        }
+    }
+
     let tasks = env.tasks().clone();
     let timeout = async move {
         if let Some(timeout) = timeout {
@@ -414,30 +459,7 @@ where
                     // Process the events
                     process_events(ctx, evts)
                 }
-                Err(Errno::Timedout) => {
-                    // The timeout has triggered so lets add that event
-                    if clock_subs.is_empty() {
-                        tracing::warn!("triggered_timeout (without any clock subscriptions)",);
-                    }
-                    let mut evts = Vec::new();
-                    for (clock_info, userdata) in clock_subs {
-                        let evt = Event {
-                            userdata,
-                            error: Errno::Success,
-                            type_: Eventtype::Clock,
-                            u: EventUnion { clock: 0 },
-                        };
-                        Span::current().record(
-                            "seen",
-                            &format!(
-                                "clock(id={},userdata={})",
-                                clock_info.clock_id as u32, evt.userdata
-                            ),
-                        );
-                        evts.push(evt);
-                    }
-                    process_events(ctx, evts)
-                }
+                Err(Errno::Timedout) => process_events(ctx, process_timeout(ctx)),
                 // If nonblocking the Errno::Again needs to be turned into an empty list
                 Err(Errno::Again) => process_events(ctx, Default::default()),
                 // Otherwise process the error

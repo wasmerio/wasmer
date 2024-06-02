@@ -61,4 +61,8 @@ pub struct ArgusConfig {
     #[cfg(feature = "wasmer_lib")]
     #[arg(long, conflicts_with = "cli_path")]
     pub use_lib: bool,
+
+    /// The webhook to use when sending the test outcome.
+    #[arg(long)]
+    pub webhook_url: Option<String>,
 }

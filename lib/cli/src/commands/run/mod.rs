@@ -395,12 +395,15 @@ impl Run {
 
         let mut runner = WasiRunner::new();
 
+        let (is_home_mapped, mapped_diretories) = self.wasi.build_mapped_directories()?;
+
         runner
             .with_args(&self.args)
             .with_injected_packages(packages)
             .with_envs(self.wasi.env_vars.clone())
             .with_mapped_host_commands(self.wasi.build_mapped_commands()?)
-            .with_mapped_directories(self.wasi.build_mapped_directories()?)
+            .with_mapped_directories(mapped_diretories)
+            .with_home_mapped(is_home_mapped)
             .with_forward_host_env(self.wasi.forward_host_env)
             .with_capabilities(self.wasi.capabilities());
 

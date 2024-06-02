@@ -1,5 +1,10 @@
 use std::collections::{hash_map, BTreeMap};
 
+#[allow(unused)]
+use lz4_flex::{
+    self, block, compress_prepend_size, decompress, decompress_into, decompress_size_prepended,
+};
+
 use crate::os::task::process::MemorySnapshotRegion;
 
 use super::*;
@@ -47,10 +52,11 @@ impl JournalEffector {
         let mut cur = 0u64;
         let mut regions = Vec::<MemorySnapshotRegion>::new();
         while cur < memory.data_size() {
-            let mut again = false;
+            //let mut again = false;
             let next = ((cur + MEMORY_REGION_RESOLUTION) / MEMORY_REGION_RESOLUTION)
                 * MEMORY_REGION_RESOLUTION;
-            let mut end = memory.data_size().min(next);
+            let end = memory.data_size().min(next);
+            /*
             for (_, thread) in guard.threads.iter() {
                 let layout = thread.memory_layout();
                 if cur >= layout.stack_lower && cur < layout.stack_upper {
@@ -65,6 +71,7 @@ impl JournalEffector {
             if again {
                 continue;
             }
+            */
 
             let region = cur..end;
             regions.push(region.into());
@@ -148,15 +155,28 @@ impl JournalEffector {
             // We grab this region of memory as a vector and hash
             // it, which allows us to make some logging efficiency
             // gains.
-            let data = memory
-                .copy_range_to_vec(region.into())
-                .map_err(mem_error_to_wasi)?;
+            #[cfg(not(feature = "sys"))]
+            let compressed_data = compress_prepend_size(
+                &memory
+                    .copy_range_to_vec(region.into())
+                    .map_err(mem_error_to_wasi)?,
+            );
+
+            // UNSAFE:
+            //
+            // This is only unsafe while the WASM process itself is running and using this
+            // method avoids a memory copy before its compressed, this also signficantly
+            // reduces the memory process
+            #[cfg(feature = "sys")]
+            let compressed_data = compress_prepend_size(unsafe {
+                &memory.data_unchecked()[region.start as usize..region.end as usize]
+            });
 
             // Now we write it to the snap snapshot capturer
             journal
                 .write(JournalEntry::UpdateMemoryRegionV1 {
                     region: region.into(),
-                    data: data.into(),
+                    compressed_data: compressed_data.into(),
                 })
                 .map_err(map_snapshot_err)?;
         }
@@ -179,45 +199,87 @@ impl JournalEffector {
     /// This function manipulates the memory of the process and thus must be executed
     /// by the WASM process thread itself.
     ///
-    pub unsafe fn apply_memory(
+    pub unsafe fn apply_compressed_memory(
         ctx: &mut FunctionEnvMut<'_, WasiEnv>,
         region: Range<u64>,
-        mut data: &[u8],
+        compressed_data: &[u8],
     ) -> anyhow::Result<()> {
         let (env, mut store) = ctx.data_and_store_mut();
 
+        let (uncompressed_size, compressed_data) = block::uncompressed_size(compressed_data)
+            .map_err(|err| anyhow::anyhow!("failed to decompress - {}", err))?;
+
         let memory = unsafe { env.memory() };
-        memory.grow_at_least(&mut store, region.end + data.len() as u64)?;
+        memory.grow_at_least(&mut store, region.end + uncompressed_size as u64)?;
 
         // Write the data to the memory
         let memory = unsafe { env.memory_view(&store) };
-        memory
-            .write(region.start, data)
-            .map_err(|err| WasiRuntimeError::Runtime(RuntimeError::user(err.into())))?;
 
-        // Break the region down into chunks that align with the resolution
-        let mut offset = region.start;
-        while offset < region.end {
-            let next = region.end.min(offset + MEMORY_REGION_RESOLUTION);
-            let region = offset..next;
-            offset = next;
+        #[cfg(not(feature = "sys"))]
+        {
+            let decompressed_data = decompress(compressed_data, uncompressed_size)?;
+            memory
+                .write(region.start, &decompressed_data)
+                .map_err(|err| WasiRuntimeError::Runtime(RuntimeError::user(err.into())))?;
 
-            // Compute the hash and update it
-            let size = region.end - region.start;
-            let hash = {
-                let h: [u8; 32] = blake3::hash(&data[..size as usize]).into();
-                u64::from_be_bytes([h[0], h[1], h[2], h[3], h[4], h[5], h[6], h[7]])
-            };
-            env.process
-                .inner
-                .0
-                .lock()
-                .unwrap()
-                .snapshot_memory_hash
-                .insert(region.into(), hash);
+            // Break the region down into chunks that align with the resolution
+            let mut decompressed_data = &decompressed_data[..];
+            let mut offset = region.start;
+            while offset < region.end {
+                let next = region.end.min(offset + MEMORY_REGION_RESOLUTION);
+                let region = offset..next;
+                offset = next;
 
-            // Shift the data pointer
-            data = &data[size as usize..];
+                // Compute the hash and update it
+                let size = region.end - region.start;
+                let hash = {
+                    let h: [u8; 32] = blake3::hash(&decompressed_data[..size as usize]).into();
+                    u64::from_be_bytes([h[0], h[1], h[2], h[3], h[4], h[5], h[6], h[7]])
+                };
+                env.process
+                    .inner
+                    .0
+                    .lock()
+                    .unwrap()
+                    .snapshot_memory_hash
+                    .insert(region.into(), hash);
+
+                // Shift the data pointer
+                decompressed_data = &decompressed_data[size as usize..];
+            }
+        }
+
+        #[cfg(feature = "sys")]
+        unsafe {
+            let start = region.start as usize;
+            let end = start + uncompressed_size;
+            decompress_into(
+                compressed_data,
+                &mut memory.data_unchecked_mut()[start..end],
+            )?;
+
+            // Break the region down into chunks that align with the resolution
+            let data = &memory.data_unchecked()[start..end];
+            let mut offset = region.start;
+            while offset < region.end {
+                let next = region.end.min(offset + MEMORY_REGION_RESOLUTION);
+                let region = offset..next;
+
+                // Compute the hash and update it
+                let hash = {
+                    let h: [u8; 32] = blake3::hash(&data[offset as usize..next as usize]).into();
+                    u64::from_be_bytes([h[0], h[1], h[2], h[3], h[4], h[5], h[6], h[7]])
+                };
+                env.process
+                    .inner
+                    .0
+                    .lock()
+                    .unwrap()
+                    .snapshot_memory_hash
+                    .insert(region.into(), hash);
+
+                offset = next;
+            }
         }
 
         Ok(())
