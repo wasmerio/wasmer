@@ -27,9 +27,9 @@ env:
   MSRV: "1.74"
   NEXTEST_PROFILE: "ci"
   RUSTUP_WINDOWS_PATH_ADD_BIN: 1
+  WASI_SDK_VERSION: "22"
 
 jobs:
-
   setup:
     name: Set up
     runs-on: ubuntu-22.04
@@ -143,6 +143,40 @@ jobs:
       # - name: make test-js-core
       #   run: |
       #     make test-js-core
+
+  test_wasix:
+    name: Test WASIX
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v3
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: ${{ env.MSRV }}
+      - name: Install Tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y git llvm clang make lld curl
+      - name: Build wasix sysroot
+        run: |
+          cd ~
+          git clone --recurse-submodules https://github.com/wasix-org/wasix-libc
+          cd wasix-libc
+          ./build32.sh
+          rm -rf /opt/wasix-sysroot
+          cp -r sysroot32 ~/wasix-sysroot
+      - name: Install wasi-sdk Tools
+        run: |
+          cd ~
+          curl -L "https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-${{ env.WASI_SDK_VERSION }}/wasi-sdk-${{ env.WASI_SDK_VERSION }}.0-linux.tar.gz" -o wasi-sdk.tar.gz
+          tar -xzf wasi-sdk.tar.gz
+          cp -r wasi-sdk-${{ env.WASI_SDK_VERSION }}.0 ~/wasi-sdk
+      - name: Install wasm-opt
+        run: |
+          sudo apt-get install -y binaryen
+      - name: make test-wasix
+        run: |
+          WASI_SDK=~/wasi-sdk WASIX_SYSROOT=~/wasix-sysroot make test-wasix
 
   test_wasm_build:
     name: Test wasm build

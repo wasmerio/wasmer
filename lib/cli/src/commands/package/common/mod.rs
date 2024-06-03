@@ -124,7 +124,7 @@ pub(super) async fn upload(
                  .tick_strings(&["✶", "✸", "✹", "✺", "✹", "✷", "✶"]));
     tracing::info!("webc is {total_bytes} bytes long");
 
-    let chunk_size = (total_bytes / 20).min(10485760);
+    let chunk_size = 8 * 1024;
 
     let stream = futures::stream::unfold(0, move |offset| {
         let pb = pb.clone();
