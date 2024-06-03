@@ -25,15 +25,27 @@ fn main() {
             .generator("Unix Makefiles")
             .define("CMAKE_BUILD_TYPE", "Release")
             .define("WAMR_BUILD_AOT", "0")
-            .define("WAMR_BUILD_LOAD_CUSTOM_SECTION", "1")
-            .define("WAMR_BUILD_CUSTOM_NAME_SECTION", "1")
-            .define("WAMR_DISABLE_HW_BOUND_CHECK", "1")
-            .define("WAMR_BUILD_TAIL_CALL", "1")
-            .define("WAMR_ENABLE_FAST_INTERP", "0")
+            //.define("WAMR_BUILD_LOAD_CUSTOM_SECTION", "1")
+            //.define("WAMR_BUILD_CUSTOM_NAME_SECTION", "1")
+            //.define("WAMR_BUILD_TAIL_CALL", "1")
+            .define("WAMR_BUILD_BULK_MEMORY", "1")
+            .define("WAMR_BUILD_REF_TYPES", "1")
+            .define("WAMR_BUILD_SIMD", "1")
+            .define("WAMR_ENABLE_FAST_INTERP", "1")
             .define("WAMR_BUILD_LIB_PTHREAD", "1")
             .define("WAMR_BUILD_LIB_WASI_THREADS", "0")
             .define("WAMR_BUILD_LIBC_WASI", "0")
+            .define("WAMR_BUILD_LIBC_BUILTIN", "1")
             .define("WAMR_BUILD_SHARED_MEMORY", "1")
+            //.define("WAMR_BUILD_MULTI_MODULE", "1")
+            .define(
+                "WAMR_DISABLE_HW_BOUND_CHECK",
+                if cfg!(target_os = "macos") && cfg!(target_arch = "aarch64") {
+                    "1"
+                } else {
+                    "0"
+                },
+            )
             .build();
 
         // Check output of `cargo build --verbose`, should see something like:
@@ -48,15 +60,24 @@ fn main() {
         let bindings = bindgen::Builder::default()
             .header(
                 wamr_dir
-                    .join("core")
-                    .join("iwasm")
-                    .join("include")
-                    .join("wasm_c_api.h")
+                    .join("core/iwasm/include/wasm_c_api.h")
                     .to_str()
                     .unwrap(),
             )
-            // This is needed if use `#include <nng.h>` instead of `#include "path/nng.h"`
-            //.clang_arg("-Inng/src/")
+            .header(
+                wamr_dir
+                    .join("core/iwasm/include/wasm_c_api.h")
+                    .to_str()
+                    .unwrap(),
+            )
+            .header(
+                wamr_dir
+                    .join("core/iwasm/include/wasm_export.h")
+                    .to_str()
+                    .unwrap(),
+            )
+            .derive_default(true)
+            .derive_debug(true)
             .generate()
             .expect("Unable to generate bindings");
         let out_path = PathBuf::from(env::var("OUT_DIR").unwrap());

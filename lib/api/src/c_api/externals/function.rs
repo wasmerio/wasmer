@@ -428,6 +428,7 @@ impl Function {
         };
 
         let trap = unsafe { wasm_func_call(self.handle, args, results) };
+
         if !trap.is_null() {
             unsafe {
                 let mut vec = wasm_byte_vec_t {
@@ -440,13 +441,7 @@ impl Function {
 
                 wasm_byte_vec_new_uninitialized(&mut vec, 100);
                 wasm_trap_message(trap, &mut vec);
-                // [TODO] Remove me
-                for i in 0..vec.num_elems {
-                    print!("{}", *vec.data.wrapping_add(i) as u8 as char);
-                }
-                println!();
             }
-
             return Err(Into::<Trap>::into(trap).into());
         }
         let results = unsafe { std::ptr::slice_from_raw_parts((*results).data, (*results).size) };

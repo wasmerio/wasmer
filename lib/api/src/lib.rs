@@ -537,7 +537,7 @@ pub use store::{
 };
 #[cfg(feature = "sys")]
 pub use store::{TrapHandlerFn, Tunables};
-#[cfg(any(feature = "sys", feature = "jsc"))]
+#[cfg(any(feature = "sys", feature = "jsc", feature = "wasm-c-api"))]
 pub use target_lexicon::{Architecture, CallingConvention, OperatingSystem, Triple, HOST};
 pub use typed_function::TypedFunction;
 pub use value::Value;

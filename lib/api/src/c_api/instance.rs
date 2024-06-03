@@ -8,8 +8,8 @@ use wasmer_types::CompileError;
 use crate::bindings::{
     wasm_extern_t, wasm_extern_vec_new, wasm_extern_vec_new_empty,
     wasm_extern_vec_new_uninitialized, wasm_extern_vec_t, wasm_instance_delete,
-    wasm_instance_exports, wasm_instance_new, wasm_instance_t, wasm_module_imports, wasm_module_t,
-    wasm_store_t, wasm_trap_t,
+    wasm_instance_exports, wasm_instance_new, wasm_instance_new_with_args, wasm_instance_t,
+    wasm_module_imports, wasm_module_t, wasm_store_t, wasm_trap_t,
 };
 use crate::c_api::vm::VMInstance;
 use crate::errors::InstantiationError;
@@ -18,7 +18,10 @@ use crate::imports::Imports;
 use crate::module::Module;
 use crate::store::AsStoreMut;
 use crate::trap::Trap;
-use crate::Extern;
+use crate::{
+    wasm_runtime_init_thread_env, wasm_runtime_instantiate, wasm_runtime_thread_env_inited, Extern,
+    InstantiationArgs,
+};
 
 use super::vm::VMExtern;
 
@@ -54,15 +57,30 @@ impl InstanceHandle {
         // unsafe { wasm_extern_vec_new(&mut imports, , externs:) };
         let mut trap: *mut wasm_trap_t = std::ptr::null_mut() as _;
         // let mut trap_ptr: *mut wasm_trap_t = &mut trap as *mut _;
-        let instance = unsafe { wasm_instance_new(store, module, imports, &mut trap) };
+        let instance = unsafe {
+            let stack_size = 2 * 1024 * 1024; // 2 MB default stack size
+            let heap_size = 2 * 1024 * 1024;
+
+            wasm_instance_new_with_args(store, module, imports, &mut trap, stack_size, heap_size)
+        };
         if instance.is_null() {
-            println!("Instance is null...");
             let trap = Trap::from(trap);
             return Err(InstantiationError::Start(trap.into()));
             // return Err(InstantiationError::Start(crate::RuntimeError::new(
             //     format!("Failed to instantiate"),
             // )));
         }
+
+        // Check if the thread env was already initialised.
+        unsafe {
+            if !wasm_runtime_thread_env_inited() {
+                crate::wasm_runtime_set_max_thread_num(10);
+                if !wasm_runtime_init_thread_env() {
+                    panic!("Failed to initialize the thread environment!");
+                }
+            }
+        }
+
         Ok(InstanceHandle(instance))
     }
 
@@ -157,6 +175,16 @@ impl Instance {
         let instance =
             InstanceHandle::new(store_ref.inner.store.inner, module.0.handle.inner, externs)?;
         let exports = instance.get_exports(store, module);
+
+        unsafe {
+            if !wasm_runtime_thread_env_inited() {
+                crate::wasm_runtime_set_max_thread_num(10);
+                if !wasm_runtime_init_thread_env() {
+                    panic!("Failed to initialize the thread environment!");
+                }
+            }
+        }
+
         Ok((
             Self {
                 handle: Arc::new(instance),
