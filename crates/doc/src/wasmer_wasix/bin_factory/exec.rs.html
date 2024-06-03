@@ -380,8 +380,8 @@
 ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>[u8], SpawnError&gt; {
     <span class="kw">let </span>wasm = <span class="kw">if let </span><span class="prelude-val">Some</span>(cmd) = binary.get_command(name) {
         cmd.atom.as_ref()
-    } <span class="kw">else if let </span><span class="prelude-val">Some</span>(wasm) = binary.entrypoint_bytes() {
-        wasm
+    } <span class="kw">else if let </span><span class="prelude-val">Some</span>(cmd) = binary.get_entrypoint_command() {
+        <span class="kw-2">&amp;</span>cmd.atom
     } <span class="kw">else </span>{
         <span class="macro">tracing::error!</span>(
           command=name,

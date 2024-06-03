@@ -311,6 +311,17 @@
 <a href="#311" id="311">311</a>
 <a href="#312" id="312">312</a>
 <a href="#313" id="313">313</a>
+<a href="#314" id="314">314</a>
+<a href="#315" id="315">315</a>
+<a href="#316" id="316">316</a>
+<a href="#317" id="317">317</a>
+<a href="#318" id="318">318</a>
+<a href="#319" id="319">319</a>
+<a href="#320" id="320">320</a>
+<a href="#321" id="321">321</a>
+<a href="#322" id="322">322</a>
+<a href="#323" id="323">323</a>
+<a href="#324" id="324">324</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{path::Path, sync::Arc};
 
 <span class="kw">use </span>anyhow::Context;
@@ -486,18 +497,29 @@
         <span class="self">self</span>.commands.iter().find(|cmd| cmd.name() == name)
     }
 
-    <span class="doccomment">/// Get the bytes for the entrypoint command.
-    </span><span class="kw">pub fn </span>entrypoint_bytes(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>[u8]&gt; {
+    <span class="doccomment">/// Resolve the entrypoint command name to a [`BinaryPackageCommand`].
+    </span><span class="kw">pub fn </span>get_entrypoint_command(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>BinaryPackageCommand&gt; {
         <span class="self">self</span>.entrypoint_cmd
             .as_deref()
             .and_then(|name| <span class="self">self</span>.get_command(name))
-            .map(|entry| entry.atom())
     }
 
-    <span class="kw">pub fn </span>hash(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; ModuleHash {
+    <span class="doccomment">/// Get the bytes for the entrypoint command.
+    </span><span class="attr">#[deprecated(
+        note = <span class="string">&quot;Use BinaryPackage::get_entrypoint_cmd instead&quot;</span>,
+        since = <span class="string">&quot;0.22.0&quot;
+    </span>)]
+    </span><span class="kw">pub fn </span>entrypoint_bytes(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>[u8]&gt; {
+        <span class="self">self</span>.get_entrypoint_command().map(|entry| entry.atom())
+    }
+
+    <span class="doccomment">/// Get a hash for this binary package.
+    ///
+    /// Usually the hash of the entrypoint.
+    </span><span class="kw">pub fn </span>hash(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; ModuleHash {
         <span class="kw-2">*</span><span class="self">self</span>.hash.get_or_init(|| {
-            <span class="kw">if let </span><span class="prelude-val">Some</span>(entry) = <span class="self">self</span>.entrypoint_bytes() {
-                ModuleHash::xxhash(entry)
+            <span class="kw">if let </span><span class="prelude-val">Some</span>(cmd) = <span class="self">self</span>.get_entrypoint_command() {
+                cmd.hash
             } <span class="kw">else </span>{
                 ModuleHash::xxhash(<span class="self">self</span>.id.to_string())
             }
@@ -557,7 +579,7 @@
                 .with_shared_http_client(runtime.http_client().unwrap().clone()),
         );
 
-        <span class="kw">let </span>pkg = BinaryPackage::from_dir(<span class="kw-2">&amp;</span>temp.path(), <span class="kw-2">&amp;</span>runtime)
+        <span class="kw">let </span>pkg = BinaryPackage::from_dir(temp.path(), <span class="kw-2">&amp;</span>runtime)
             .<span class="kw">await
             </span>.unwrap();
 
@@ -613,7 +635,7 @@
                 .with_shared_http_client(runtime.http_client().unwrap().clone()),
         );
 
-        <span class="kw">let </span>pkg = BinaryPackage::from_dir(<span class="kw-2">&amp;</span>temp.path(), <span class="kw-2">&amp;</span>runtime)
+        <span class="kw">let </span>pkg = BinaryPackage::from_dir(temp.path(), <span class="kw-2">&amp;</span>runtime)
             .<span class="kw">await
             </span>.unwrap();
 
