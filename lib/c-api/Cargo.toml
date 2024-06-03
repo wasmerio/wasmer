@@ -67,6 +67,7 @@ default = [
     "middlewares",
 ]
 sys = []
+wamr = ["wasmer-api/wasm-c-api"]
 jsc = ["wasmer-api/jsc", "wasmer-api/std"]
 wat = ["wasmer-api/wat"]
 wasi = ["wasmer-wasix"]
