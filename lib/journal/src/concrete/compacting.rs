@@ -450,14 +450,12 @@ impl WritableJournal for CompactingJournalTx {
                             state.descriptors.remove(&remove);
                         }
                     }
-                } else {
-                    if let Some(existing) = state.modify_file.insert(path, *fd) {
-                        if let Some(remove) = state.suspect_descriptors.remove(&existing) {
-                            state.descriptors.remove(&remove);
-                        }
-                        if let Some(remove) = state.keep_descriptors.remove(&existing) {
-                            state.descriptors.remove(&remove);
-                        }
+                } else if let Some(existing) = state.modify_file.insert(path, *fd) {
+                    if let Some(remove) = state.suspect_descriptors.remove(&existing) {
+                        state.descriptors.remove(&remove);
+                    }
+                    if let Some(remove) = state.keep_descriptors.remove(&existing) {
+                        state.descriptors.remove(&remove);
                     }
                 }
             }
@@ -494,13 +492,11 @@ impl WritableJournal for CompactingJournalTx {
                     if let Some(lookup) = lookup {
                         state.descriptors.remove(&lookup);
                     }
+                } else if let Some(lookup) = lookup {
+                    let state = state.descriptors.entry(lookup).or_default();
+                    state.events.push(event_index);
                 } else {
-                    if let Some(lookup) = lookup {
-                        let state = state.descriptors.entry(lookup).or_default();
-                        state.events.push(event_index);
-                    } else {
-                        state.whitelist.insert(event_index);
-                    }
+                    state.whitelist.insert(event_index);
                 }
             }
             // Things that modify a file descriptor mean that it is
@@ -584,11 +580,11 @@ impl WritableJournal for CompactingJournalTx {
 
                 // Newly created directories are stored as a set of .
                 let lookup = match state.create_directory.get(&path) {
-                    Some(lookup) => lookup.clone(),
+                    Some(lookup) => *lookup,
                     None => {
                         let lookup = DescriptorLookup(state.descriptor_seed);
                         state.descriptor_seed += 1;
-                        state.create_directory.insert(path, lookup.clone());
+                        state.create_directory.insert(path, *lookup);
                         lookup
                     }
                 };

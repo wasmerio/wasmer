@@ -189,7 +189,7 @@ impl Mmap {
     pub fn accessible_reserved(
         accessible_size: usize,
         mapping_size: usize,
-        _backing_file: Option<std::fs::File>,
+        _backing_file: Option<std::path::PathBuf>,
         _memory_type: MmapType,
     ) -> Result<Self, String> {
         use winapi::um::memoryapi::VirtualAlloc;
