@@ -13,6 +13,7 @@ pub struct HttpRequest {
     pub method: Option<String>,
 
     /// Request body as a string.
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub body: Option<String>,
 
     /// Request timeout.
@@ -21,6 +22,7 @@ pub struct HttpRequest {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub timeout: Option<String>,
 
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub expect: Option<HttpRequestExpect>,
 }
 
@@ -30,8 +32,8 @@ pub struct HttpRequest {
 )]
 pub struct HttpRequestExpect {
     /// Expected HTTP status codes.
-    #[serde(skip_serializing_if = "Vec::is_empty")]
-    pub status_codes: Vec<u16>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub status_codes: Option<Vec<u16>>,
 
     /// Text that must be present in the response body.
     #[serde(skip_serializing_if = "Option::is_none")]
