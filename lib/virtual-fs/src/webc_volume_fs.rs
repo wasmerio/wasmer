@@ -4,9 +4,7 @@ use std::{
     path::{Path, PathBuf},
     pin::Pin,
     result::Result,
-    sync::OnceLock,
     task::Poll,
-    time::UNIX_EPOCH,
 };
 
 use futures::future::BoxFuture;
@@ -298,11 +296,7 @@ impl AsyncWrite for File {
 // proved to cause problems with programs that interpret the value 0.
 // to circumvent this problem, we decided to return a non-zero value.
 fn get_modified(timestamps: Option<webc::Timestamps>) -> u64 {
-    static DEFAULT: OnceLock<u64> = OnceLock::new();
-
-    timestamps
-        .map(|t| t.modified())
-        .unwrap_or(*DEFAULT.get_or_init(|| UNIX_EPOCH.elapsed().unwrap().as_secs()))
+    timestamps.map(|t| t.modified()).unwrap_or(1)
 }
 
 fn compat_meta(meta: webc::compat::Metadata) -> Metadata {
