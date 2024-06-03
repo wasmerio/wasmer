@@ -1514,6 +1514,16 @@
 <a href="#1514" id="1514">1514</a>
 <a href="#1515" id="1515">1515</a>
 <a href="#1516" id="1516">1516</a>
+<a href="#1517" id="1517">1517</a>
+<a href="#1518" id="1518">1518</a>
+<a href="#1519" id="1519">1519</a>
+<a href="#1520" id="1520">1520</a>
+<a href="#1521" id="1521">1521</a>
+<a href="#1522" id="1522">1522</a>
+<a href="#1523" id="1523">1523</a>
+<a href="#1524" id="1524">1524</a>
+<a href="#1525" id="1525">1525</a>
+<a href="#1526" id="1526">1526</a>
 </pre></div><pre class="rust"><code><span class="attr">#![allow(unused, clippy::too_many_arguments, clippy::cognitive_complexity)]
 
 </span><span class="kw">pub mod </span>types {
@@ -1874,7 +1884,6 @@
 <span class="kw">where
     </span>Fut: Future&lt;Output = T&gt; + Send + Sync + <span class="lifetime">&#39;static</span>,
 {
-    process_signals: bool,
     ctx: <span class="kw-2">&amp;</span><span class="lifetime">&#39;b </span><span class="kw-2">mut </span>FunctionEnvMut&lt;<span class="lifetime">&#39;c</span>, WasiEnv&gt;,
     work: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="kw-2">mut </span>Pin&lt;Box&lt;Fut&gt;&gt;,
 }
@@ -1896,18 +1905,37 @@
                 Errno::Child.into()
             }))));
         }
-        <span class="kw">if </span><span class="self">self</span>.process_signals &amp;&amp; env.thread.has_signals_or_subscribe(cx.waker()) {
-            <span class="kw">let </span>signals = env.thread.signals().lock().unwrap();
-            <span class="kw">for </span>sig <span class="kw">in </span>signals.<span class="number">0</span>.iter() {
-                <span class="kw">if </span><span class="kw-2">*</span>sig == Signal::Sigint
-                    || <span class="kw-2">*</span>sig == Signal::Sigquit
-                    || <span class="kw-2">*</span>sig == Signal::Sigkill
-                    || <span class="kw-2">*</span>sig == Signal::Sigabrt
-                {
-                    <span class="kw">let </span>exit_code = env.thread.set_or_get_exit_code_for_signal(<span class="kw-2">*</span>sig);
-                    <span class="kw">return </span>Poll::Ready(<span class="prelude-val">Err</span>(WasiError::Exit(exit_code)));
+        <span class="kw">if </span>env.thread.has_signals_or_subscribe(cx.waker()) {
+            <span class="kw">let </span>has_exit = {
+                <span class="kw">let </span>signals = env.thread.signals().lock().unwrap();
+                signals
+                    .<span class="number">0
+                    </span>.iter()
+                    .filter_map(|sig| {
+                        <span class="kw">if </span><span class="kw-2">*</span>sig == Signal::Sigint
+                            || <span class="kw-2">*</span>sig == Signal::Sigquit
+                            || <span class="kw-2">*</span>sig == Signal::Sigkill
+                            || <span class="kw-2">*</span>sig == Signal::Sigabrt
+                        {
+                            <span class="prelude-val">Some</span>(env.thread.set_or_get_exit_code_for_signal(<span class="kw-2">*</span>sig))
+                        } <span class="kw">else </span>{
+                            <span class="prelude-val">None
+                        </span>}
+                    })
+                    .next()
+            };
+
+            <span class="kw">return match </span>WasiEnv::process_signals_and_exit(<span class="self">self</span>.ctx) {
+                <span class="prelude-val">Ok</span>(<span class="prelude-val">Ok</span>(<span class="kw">_</span>)) =&gt; {
+                    <span class="kw">if let </span><span class="prelude-val">Some</span>(exit_code) = has_exit {
+                        Poll::Ready(<span class="prelude-val">Err</span>(WasiError::Exit(exit_code)))
+                    } <span class="kw">else </span>{
+                        Poll::Pending
+                    }
                 }
-            }
+                <span class="prelude-val">Ok</span>(<span class="prelude-val">Err</span>(err)) =&gt; Poll::Ready(<span class="prelude-val">Err</span>(WasiError::Exit(ExitCode::Errno(err)))),
+                <span class="prelude-val">Err</span>(err) =&gt; Poll::Ready(<span class="prelude-val">Err</span>(err)),
+            };
         }
         Poll::Pending
     }
@@ -1981,13 +2009,6 @@
         <span class="bool-val">false </span>=&gt; Duration::from_millis(<span class="number">50</span>),
     };
 
-    <span class="comment">// Determine if we should process signals or now
-    </span><span class="kw">let </span>process_signals = ctx
-        .data()
-        .try_inner()
-        .map(|i| !i.signal_set)
-        .unwrap_or(<span class="bool-val">true</span>);
-
     <span class="comment">// Box up the trigger
     </span><span class="kw">let </span><span class="kw-2">mut </span>trigger = Box::pin(work);
 
@@ -2014,7 +2035,6 @@
         <span class="prelude-val">Ok</span>(<span class="macro">tokio::select! </span>{
             <span class="comment">// Inner wait with finializer
             </span>res = AsyncifyPoller {
-                process_signals,
                 ctx: <span class="kw-2">&amp;mut </span>ctx,
                 work: <span class="kw-2">&amp;mut </span>trigger,
             } =&gt; {

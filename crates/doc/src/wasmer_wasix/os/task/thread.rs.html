@@ -629,6 +629,9 @@
 <a href="#629" id="629">629</a>
 <a href="#630" id="630">630</a>
 <a href="#631" id="631">631</a>
+<a href="#632" id="632">632</a>
+<a href="#633" id="633">633</a>
+<a href="#634" id="634">634</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>serde::{Deserialize, Serialize};
 <span class="kw">use </span>std::sync::atomic::{AtomicBool, Ordering};
 <span class="kw">use </span>std::{
@@ -972,6 +975,9 @@
 
     <span class="doccomment">/// Adds a signal for this thread to process
     </span><span class="kw">pub fn </span>signal(<span class="kw-2">&amp;</span><span class="self">self</span>, signal: Signal) {
+        <span class="kw">let </span>tid = <span class="self">self</span>.tid();
+        <span class="macro">tracing::trace!</span>(%tid, <span class="string">&quot;signal-thread({:?})&quot;</span>, signal);
+
         <span class="kw">let </span><span class="kw-2">mut </span>guard = <span class="self">self</span>.state.signals.lock().unwrap();
         <span class="kw">if </span>!guard.<span class="number">0</span>.contains(<span class="kw-2">&amp;</span>signal) {
             guard.<span class="number">0</span>.push(signal);
