@@ -668,6 +668,17 @@
 <a href="#668" id="668">668</a>
 <a href="#669" id="669">669</a>
 <a href="#670" id="670">670</a>
+<a href="#671" id="671">671</a>
+<a href="#672" id="672">672</a>
+<a href="#673" id="673">673</a>
+<a href="#674" id="674">674</a>
+<a href="#675" id="675">675</a>
+<a href="#676" id="676">676</a>
+<a href="#677" id="677">677</a>
+<a href="#678" id="678">678</a>
+<a href="#679" id="679">679</a>
+<a href="#680" id="680">680</a>
+<a href="#681" id="681">681</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{
     convert::{TryFrom, TryInto},
     io::Cursor,
@@ -876,13 +887,9 @@
     </span>}
 
     <span class="kw">fn </span>last_modified(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; u64 {
-        <span class="self">self</span>.timestamps.map(|t| t.modified()).unwrap_or_else(|| {
-            <span class="comment">// HACK: timestamps are not present in webc v2, so we have to return
-            // a stub modified time. previously we used to just return 0, but that
-            // proved to cause problems with programs that interpret the value 0.
-            // to circumvent this problem, we decided to return a non-zero value.
-            </span>std::time::UNIX_EPOCH.elapsed().unwrap().as_secs()
-        })
+        <span class="self">self</span>.timestamps
+            .map(|t| t.modified())
+            .unwrap_or_else(|| get_modified(<span class="prelude-val">None</span>))
     }
 
     <span class="kw">fn </span>created_time(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; u64 {
@@ -965,21 +972,33 @@
     }
 }
 
+<span class="comment">// HACK: timestamps are not present in webc v2, so we have to return
+// a stub modified time. previously we used to just return 0, but that
+// proved to cause problems with programs that interpret the value 0.
+// to circumvent this problem, we decided to return a non-zero value.
+</span><span class="kw">fn </span>get_modified(timestamps: <span class="prelude-ty">Option</span>&lt;webc::Timestamps&gt;) -&gt; u64 {
+    timestamps.map(|t| t.modified()).unwrap_or(<span class="number">1</span>)
+}
+
 <span class="kw">fn </span>compat_meta(meta: webc::compat::Metadata) -&gt; Metadata {
     <span class="kw">match </span>meta {
-        webc::compat::Metadata::Dir { .. } =&gt; Metadata {
+        webc::compat::Metadata::Dir { timestamps } =&gt; Metadata {
             ft: FileType {
                 dir: <span class="bool-val">true</span>,
                 ..Default::default()
             },
+            modified: get_modified(timestamps),
             ..Default::default()
         },
-        webc::compat::Metadata::File { length, .. } =&gt; Metadata {
+        webc::compat::Metadata::File {
+            length, timestamps, ..
+        } =&gt; Metadata {
             ft: FileType {
                 file: <span class="bool-val">true</span>,
                 ..Default::default()
             },
             len: length.try_into().unwrap(),
+            modified: get_modified(timestamps),
             ..Default::default()
         },
     }
@@ -1093,6 +1112,8 @@
             .unwrap()
             .map(|r| r.unwrap())
             .collect();
+
+        <span class="kw">let </span>modified = get_modified(<span class="prelude-val">None</span>);
         <span class="kw">let </span>expected = <span class="macro">vec!</span>[
             DirEntry {
                 path: <span class="string">&quot;/lib/.DS_Store&quot;</span>.into(),
@@ -1103,7 +1124,7 @@
                     },
                     accessed: <span class="number">0</span>,
                     created: <span class="number">0</span>,
-                    modified: <span class="number">0</span>,
+                    modified,
                     len: <span class="number">6148</span>,
                 }),
             },
@@ -1116,7 +1137,7 @@
                     },
                     accessed: <span class="number">0</span>,
                     created: <span class="number">0</span>,
-                    modified: <span class="number">0</span>,
+                    modified,
                     len: <span class="number">0</span>,
                 }),
             },
@@ -1129,7 +1150,7 @@
                     },
                     accessed: <span class="number">0</span>,
                     created: <span class="number">0</span>,
-                    modified: <span class="number">0</span>,
+                    modified,
                     len: <span class="number">4694941</span>,
                 }),
             },
@@ -1142,7 +1163,7 @@
                     },
                     accessed: <span class="number">0</span>,
                     created: <span class="number">0</span>,
-                    modified: <span class="number">0</span>,
+                    modified,
                     len: <span class="number">0</span>,
                 }),
             },
@@ -1158,6 +1179,7 @@
 
         <span class="kw">let </span>fs = WebcVolumeFileSystem::new(volume);
 
+        <span class="kw">let </span>modified = get_modified(<span class="prelude-val">None</span>);
         <span class="kw">let </span>python_wasm = <span class="kw">crate</span>::Metadata {
             ft: <span class="kw">crate</span>::FileType {
                 file: <span class="bool-val">true</span>,
@@ -1165,7 +1187,7 @@
             },
             accessed: <span class="number">0</span>,
             created: <span class="number">0</span>,
-            modified: <span class="number">0</span>,
+            modified,
             len: <span class="number">4694941</span>,
         };
         <span class="macro">assert_eq!</span>(
@@ -1191,7 +1213,7 @@
                 },
                 accessed: <span class="number">0</span>,
                 created: <span class="number">0</span>,
-                modified: <span class="number">0</span>,
+                modified,
                 len: <span class="number">0</span>,
             },
         );
