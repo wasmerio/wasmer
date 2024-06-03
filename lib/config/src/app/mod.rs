@@ -193,6 +193,7 @@ pub struct AppConfigCapabilityMapV1 {
     pub memory: Option<AppConfigCapabilityMemoryV1>,
 
     /// Enables app bootstrapping with startup snapshots.
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub instaboot: Option<AppConfigCapabilityInstaBootV1>,
 }
 
