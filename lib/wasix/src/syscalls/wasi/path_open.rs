@@ -80,6 +80,7 @@ pub fn path_open<M: MemorySize>(
         fs_rights_base,
         fs_rights_inheriting,
         fs_flags,
+        None,
     )?);
     let env = ctx.data();
 
@@ -123,6 +124,7 @@ pub(crate) fn path_open_internal(
     fs_rights_base: Rights,
     fs_rights_inheriting: Rights,
     fs_flags: Fdflags,
+    with_fd: Option<WasiFd>,
 ) -> Result<Result<WasiFd, Errno>, WasiError> {
     let env = ctx.data();
     let (memory, mut state, mut inodes) =
@@ -252,7 +254,6 @@ pub(crate) fn path_open_internal(
 
                 if let Some(handle) = handle {
                     let handle = handle.read().unwrap();
-                    inode.stat.write().unwrap().st_mtim = handle.last_modified();
                     if let Some(fd) = handle.get_special_fd() {
                         // We clone the file descriptor so that when its closed
                         // nothing bad happens
@@ -376,13 +377,27 @@ pub(crate) fn path_open_internal(
 
     // TODO: check and reduce these
     // TODO: ensure a mutable fd to root can never be opened
-    let out_fd = wasi_try_ok_ok!(state.fs.create_fd(
-        adjusted_rights,
-        fs_rights_inheriting,
-        fs_flags,
-        open_flags,
-        inode
-    ));
+    let out_fd = wasi_try_ok_ok!(if let Some(fd) = with_fd {
+        state
+            .fs
+            .with_fd(
+                adjusted_rights,
+                fs_rights_inheriting,
+                fs_flags,
+                open_flags,
+                inode,
+                fd,
+            )
+            .map(|_| fd)
+    } else {
+        state.fs.create_fd(
+            adjusted_rights,
+            fs_rights_inheriting,
+            fs_flags,
+            open_flags,
+            inode,
+        )
+    });
 
     Ok(Ok(out_fd))
 }

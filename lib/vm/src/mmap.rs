@@ -67,7 +67,7 @@ impl Mmap {
     pub fn accessible_reserved(
         mut accessible_size: usize,
         mapping_size: usize,
-        mut backing_file: Option<std::fs::File>,
+        mut backing_file: Option<std::path::PathBuf>,
         memory_type: MmapType,
     ) -> Result<Self, String> {
         use std::os::fd::IntoRawFd;
@@ -85,17 +85,38 @@ impl Mmap {
 
         // If there is a backing file, resize the file so that its at least
         // `mapping_size` bytes.
-        if let Some(backing_file) = &mut backing_file {
-            let len = backing_file.metadata().map_err(|e| e.to_string())?.len() as usize;
+        let mut memory_fd = -1;
+        if let Some(backing_file_path) = &mut backing_file {
+            let file = std::fs::OpenOptions::new()
+                .read(true)
+                .write(true)
+                .open(&backing_file_path)
+                .map_err(|e| e.to_string())?;
+
+            let mut backing_file_accessible = backing_file_path.clone();
+            backing_file_accessible.set_extension("accessible");
+
+            let len = file.metadata().map_err(|e| e.to_string())?.len() as usize;
             if len < mapping_size {
-                backing_file
-                    .set_len(mapping_size as u64)
+                std::fs::write(&backing_file_accessible, format!("{}", len).as_bytes()).ok();
+
+                file.set_len(mapping_size as u64)
                     .map_err(|e| e.to_string())?;
             }
-            accessible_size = accessible_size.max(len).min(mapping_size);
-        }
 
-        let memory_fd = backing_file.map_or(-1, |fd| fd.into_raw_fd());
+            if backing_file_accessible.exists() {
+                let accessible = std::fs::read_to_string(&backing_file_accessible)
+                    .map_err(|e| e.to_string())?
+                    .parse::<usize>()
+                    .map_err(|e| e.to_string())?;
+                accessible_size = accessible_size.max(accessible);
+            } else {
+                accessible_size = accessible_size.max(len);
+            }
+
+            accessible_size = accessible_size.min(mapping_size);
+            memory_fd = file.into_raw_fd();
+        }
 
         // Compute the flags
         let mut flags = match memory_fd {
@@ -168,7 +189,7 @@ impl Mmap {
     pub fn accessible_reserved(
         accessible_size: usize,
         mapping_size: usize,
-        _backing_file: Option<std::fs::File>,
+        _backing_file: Option<std::path::PathBuf>,
         _memory_type: MmapType,
     ) -> Result<Self, String> {
         use winapi::um::memoryapi::VirtualAlloc;

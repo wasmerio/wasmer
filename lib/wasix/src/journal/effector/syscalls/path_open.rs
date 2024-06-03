@@ -49,8 +49,9 @@ impl JournalEffector {
             fs_rights_base,
             fs_rights_inheriting,
             fs_flags,
+            Some(fd),
         );
-        let ret_fd = match res? {
+        match res? {
             Ok(fd) => fd,
             Err(err) => {
                 bail!(
@@ -61,17 +62,6 @@ impl JournalEffector {
                 );
             }
         };
-
-        let ret = crate::syscalls::fd_renumber_internal(ctx, ret_fd, fd);
-        if ret != Errno::Success {
-            bail!(
-                "journal restore error: failed renumber file descriptor after open (from={}, to={}) - {}",
-                ret_fd,
-                fd,
-                ret
-            );
-        }
-
         Ok(())
     }
 }

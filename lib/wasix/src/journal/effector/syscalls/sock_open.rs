@@ -20,7 +20,7 @@ impl JournalEffector {
         pt: SockProto,
         fd: Fd,
     ) -> anyhow::Result<()> {
-        let ret_fd = crate::syscalls::sock_open_internal(ctx, af, ty, pt)
+        crate::syscalls::sock_open_internal(ctx, af, ty, pt, Some(fd))
             .map_err(|err| {
                 anyhow::format_err!(
                     "journal restore error: failed to open socket (af={:?}, ty={:?}, pt={:?}) - {}",
@@ -39,16 +39,6 @@ impl JournalEffector {
                     err
                 )
             })?;
-
-        let ret = crate::syscalls::fd_renumber_internal(ctx, ret_fd, fd);
-        if ret != Errno::Success {
-            bail!(
-                    "journal restore error: failed renumber file descriptor after opening socket (from={}, to={}) - {}",
-                    ret_fd,
-                    fd,
-                    ret
-                );
-        }
         Ok(())
     }
 }

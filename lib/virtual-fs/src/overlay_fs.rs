@@ -813,7 +813,10 @@ where
 
         fn poll_copy_start_and_progress(&mut self, cx: &mut Context) -> Poll<io::Result<()>> {
             replace_with_or_abort(&mut self.state, |state| match state {
-                CowState::ReadOnly(inner) => CowState::SeekingGet(inner),
+                CowState::ReadOnly(inner) => {
+                    tracing::trace!("COW file touched, starting file clone",);
+                    CowState::SeekingGet(inner)
+                }
                 state => state,
             });
             self.poll_copy_progress(cx)

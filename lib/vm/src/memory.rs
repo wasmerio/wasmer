@@ -221,7 +221,7 @@ impl VMOwnedMemory {
     pub fn new_with_file(
         memory: &MemoryType,
         style: &MemoryStyle,
-        backing_file: std::fs::File,
+        backing_file: std::path::PathBuf,
         memory_type: MmapType,
     ) -> Result<Self, MemoryError> {
         unsafe { Self::new_internal(memory, style, None, Some(backing_file), memory_type) }
@@ -261,7 +261,7 @@ impl VMOwnedMemory {
         memory: &MemoryType,
         style: &MemoryStyle,
         vm_memory_location: NonNull<VMMemoryDefinition>,
-        backing_file: Option<std::fs::File>,
+        backing_file: Option<std::path::PathBuf>,
         memory_type: MmapType,
     ) -> Result<Self, MemoryError> {
         Self::new_internal(
@@ -278,7 +278,7 @@ impl VMOwnedMemory {
         memory: &MemoryType,
         style: &MemoryStyle,
         vm_memory_location: Option<NonNull<VMMemoryDefinition>>,
-        backing_file: Option<std::fs::File>,
+        backing_file: Option<std::path::PathBuf>,
         memory_type: MmapType,
     ) -> Result<Self, MemoryError> {
         if memory.minimum > Pages::max_value() {
@@ -463,7 +463,7 @@ impl VMSharedMemory {
     pub fn new_with_file(
         memory: &MemoryType,
         style: &MemoryStyle,
-        backing_file: std::fs::File,
+        backing_file: std::path::PathBuf,
         memory_type: MmapType,
     ) -> Result<Self, MemoryError> {
         Ok(VMOwnedMemory::new_with_file(memory, style, backing_file, memory_type)?.to_shared())
@@ -497,7 +497,7 @@ impl VMSharedMemory {
         memory: &MemoryType,
         style: &MemoryStyle,
         vm_memory_location: NonNull<VMMemoryDefinition>,
-        backing_file: Option<std::fs::File>,
+        backing_file: Option<std::path::PathBuf>,
         memory_type: MmapType,
     ) -> Result<Self, MemoryError> {
         Ok(VMOwnedMemory::from_definition_with_file(
