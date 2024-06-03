@@ -1565,13 +1565,12 @@ impl WasiFs {
         let st_ino = Inode::from_path(&name);
         stat.st_ino = st_ino.as_u64();
 
-        let ret = inodes.add_inode_val(InodeVal {
+        inodes.add_inode_val(InodeVal {
             stat: RwLock::new(stat),
             is_preopened,
             name,
             kind: RwLock::new(kind),
-        });
-        ret
+        })
     }
 
     pub fn create_fd(
@@ -1621,6 +1620,7 @@ impl WasiFs {
         self.next_fd.clip_val(fd);
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub fn create_fd_ext(
         &self,
         rights: Rights,
@@ -1931,6 +1931,7 @@ impl WasiFs {
         Ok(())
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub(crate) fn create_std_dev_inner(
         &self,
         inodes: &WasiInodes,
