@@ -584,7 +584,7 @@ impl WritableJournal for CompactingJournalTx {
                     None => {
                         let lookup = DescriptorLookup(state.descriptor_seed);
                         state.descriptor_seed += 1;
-                        state.create_directory.insert(path, *lookup);
+                        state.create_directory.insert(path, lookup);
                         lookup
                     }
                 };
