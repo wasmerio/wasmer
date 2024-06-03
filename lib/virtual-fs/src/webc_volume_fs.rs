@@ -296,20 +296,34 @@ impl AsyncWrite for File {
 }
 
 fn compat_meta(meta: webc::compat::Metadata) -> Metadata {
+    // HACK: timestamps are not present in webc v2, so we have to return
+    // a stub modified time. previously we used to just return 0, but that
+    // proved to cause problems with programs that interpret the value 0.
+    // to circumvent this problem, we decided to return a non-zero value.
+    fn get_modified(timestamps: Option<webc::Timestamps>) -> u64 {
+        timestamps
+            .map(|t| t.modified())
+            .unwrap_or(std::time::UNIX_EPOCH.elapsed().unwrap().as_secs())
+    }
+
     match meta {
-        webc::compat::Metadata::Dir { .. } => Metadata {
+        webc::compat::Metadata::Dir { timestamps } => Metadata {
             ft: FileType {
                 dir: true,
                 ..Default::default()
             },
+            modified: get_modified(timestamps),
             ..Default::default()
         },
-        webc::compat::Metadata::File { length, .. } => Metadata {
+        webc::compat::Metadata::File {
+            length, timestamps, ..
+        } => Metadata {
             ft: FileType {
                 file: true,
                 ..Default::default()
             },
             len: length.try_into().unwrap(),
+            modified: get_modified(timestamps),
             ..Default::default()
         },
     }
