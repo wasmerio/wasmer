@@ -358,7 +358,6 @@ struct AsyncifyPoller<'a, 'b, 'c, T, Fut>
 where
     Fut: Future<Output = T> + Send + Sync + 'static,
 {
-    process_signals: bool,
     ctx: &'b mut FunctionEnvMut<'c, WasiEnv>,
     work: &'a mut Pin<Box<Fut>>,
 }
@@ -380,18 +379,37 @@ where
                 Errno::Child.into()
             }))));
         }
-        if self.process_signals && env.thread.has_signals_or_subscribe(cx.waker()) {
-            let signals = env.thread.signals().lock().unwrap();
-            for sig in signals.0.iter() {
-                if *sig == Signal::Sigint
-                    || *sig == Signal::Sigquit
-                    || *sig == Signal::Sigkill
-                    || *sig == Signal::Sigabrt
-                {
-                    let exit_code = env.thread.set_or_get_exit_code_for_signal(*sig);
-                    return Poll::Ready(Err(WasiError::Exit(exit_code)));
+        if env.thread.has_signals_or_subscribe(cx.waker()) {
+            let has_exit = {
+                let signals = env.thread.signals().lock().unwrap();
+                signals
+                    .0
+                    .iter()
+                    .filter_map(|sig| {
+                        if *sig == Signal::Sigint
+                            || *sig == Signal::Sigquit
+                            || *sig == Signal::Sigkill
+                            || *sig == Signal::Sigabrt
+                        {
+                            Some(env.thread.set_or_get_exit_code_for_signal(*sig))
+                        } else {
+                            None
+                        }
+                    })
+                    .next()
+            };
+
+            return match WasiEnv::process_signals_and_exit(self.ctx) {
+                Ok(Ok(_)) => {
+                    if let Some(exit_code) = has_exit {
+                        Poll::Ready(Err(WasiError::Exit(exit_code)))
+                    } else {
+                        Poll::Pending
+                    }
                 }
-            }
+                Ok(Err(err)) => Poll::Ready(Err(WasiError::Exit(ExitCode::Errno(err)))),
+                Err(err) => Poll::Ready(Err(err)),
+            };
         }
         Poll::Pending
     }
@@ -465,13 +483,6 @@ where
         false => Duration::from_millis(50),
     };
 
-    // Determine if we should process signals or now
-    let process_signals = ctx
-        .data()
-        .try_inner()
-        .map(|i| !i.signal_set)
-        .unwrap_or(true);
-
     // Box up the trigger
     let mut trigger = Box::pin(work);
 
@@ -498,7 +509,6 @@ where
         Ok(tokio::select! {
             // Inner wait with finializer
             res = AsyncifyPoller {
-                process_signals,
                 ctx: &mut ctx,
                 work: &mut trigger,
             } => {
