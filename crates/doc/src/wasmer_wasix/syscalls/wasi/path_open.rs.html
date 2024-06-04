@@ -386,6 +386,10 @@
 <a href="#386" id="386">386</a>
 <a href="#387" id="387">387</a>
 <a href="#388" id="388">388</a>
+<a href="#389" id="389">389</a>
+<a href="#390" id="390">390</a>
+<a href="#391" id="391">391</a>
+<a href="#392" id="392">392</a>
 </pre></div><pre class="rust"><code><span class="kw">use super</span>::<span class="kw-2">*</span>;
 <span class="kw">use </span><span class="kw">crate</span>::syscalls::<span class="kw-2">*</span>;
 
@@ -661,8 +665,12 @@
                     <span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="prelude-val">Err</span>(Errno::Notcapable));
                 }
             }
-            Kind::Dir { .. }
-            | Kind::Socket { .. }
+            Kind::Dir { .. } =&gt; {
+                <span class="kw">if </span>fs_rights_base.contains(Rights::FD_WRITE) {
+                    <span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="prelude-val">Err</span>(Errno::Isdir));
+                }
+            }
+            Kind::Socket { .. }
             | Kind::Pipe { .. }
             | Kind::EventNotifications { .. }
             | Kind::Epoll { .. } =&gt; {}
