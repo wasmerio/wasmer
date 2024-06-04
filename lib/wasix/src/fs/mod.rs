@@ -1636,10 +1636,8 @@ impl WasiFs {
             __WASI_STDIN_FILENO | __WASI_STDOUT_FILENO | __WASI_STDERR_FILENO
         );
         let mut guard = self.fd_map.write().unwrap();
-        if exclusive {
-            if guard.contains_key(&idx) {
-                return Err(Errno::Exist);
-            }
+        if exclusive && guard.contains_key(&idx) {
+            return Err(Errno::Exist);
         }
         guard.insert(
             idx,
