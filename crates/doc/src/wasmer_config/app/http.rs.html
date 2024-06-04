@@ -41,6 +41,8 @@
 <a href="#41" id="41">41</a>
 <a href="#42" id="42">42</a>
 <a href="#43" id="43">43</a>
+<a href="#44" id="44">44</a>
+<a href="#45" id="45">45</a>
 </pre></div><pre class="rust"><code><span class="doccomment">/// Defines an HTTP request.
 </span><span class="attr">#[derive(
     schemars::JsonSchema, serde::Serialize, serde::Deserialize, PartialEq, Eq, Clone, Debug,
@@ -56,6 +58,7 @@
     </span><span class="kw">pub </span>method: <span class="prelude-ty">Option</span>&lt;String&gt;,
 
     <span class="doccomment">/// Request body as a string.
+    </span><span class="attr">#[serde(skip_serializing_if = <span class="string">&quot;Option::is_none&quot;</span>)]
     </span><span class="kw">pub </span>body: <span class="prelude-ty">Option</span>&lt;String&gt;,
 
     <span class="doccomment">/// Request timeout.
@@ -64,7 +67,8 @@
     </span><span class="attr">#[serde(skip_serializing_if = <span class="string">&quot;Option::is_none&quot;</span>)]
     </span><span class="kw">pub </span>timeout: <span class="prelude-ty">Option</span>&lt;String&gt;,
 
-    <span class="kw">pub </span>expect: <span class="prelude-ty">Option</span>&lt;HttpRequestExpect&gt;,
+    <span class="attr">#[serde(skip_serializing_if = <span class="string">&quot;Option::is_none&quot;</span>)]
+    </span><span class="kw">pub </span>expect: <span class="prelude-ty">Option</span>&lt;HttpRequestExpect&gt;,
 }
 
 <span class="doccomment">/// Validation checks for an [`HttpRequest`].
@@ -73,8 +77,8 @@
 )]
 </span><span class="kw">pub struct </span>HttpRequestExpect {
     <span class="doccomment">/// Expected HTTP status codes.
-    </span><span class="attr">#[serde(skip_serializing_if = <span class="string">&quot;Vec::is_empty&quot;</span>)]
-    </span><span class="kw">pub </span>status_codes: Vec&lt;u16&gt;,
+    </span><span class="attr">#[serde(skip_serializing_if = <span class="string">&quot;Option::is_none&quot;</span>)]
+    </span><span class="kw">pub </span>status_codes: <span class="prelude-ty">Option</span>&lt;Vec&lt;u16&gt;&gt;,
 
     <span class="doccomment">/// Text that must be present in the response body.
     </span><span class="attr">#[serde(skip_serializing_if = <span class="string">&quot;Option::is_none&quot;</span>)]

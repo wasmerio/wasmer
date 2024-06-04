@@ -323,6 +323,7 @@
 <a href="#323" id="323">323</a>
 <a href="#324" id="324">324</a>
 <a href="#325" id="325">325</a>
+<a href="#326" id="326">326</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! User-facing app.yaml file config: [`AppConfigV1`].
 
 </span><span class="kw">mod </span>healthcheck;
@@ -518,6 +519,7 @@
     </span><span class="kw">pub </span>memory: <span class="prelude-ty">Option</span>&lt;AppConfigCapabilityMemoryV1&gt;,
 
     <span class="doccomment">/// Enables app bootstrapping with startup snapshots.
+    </span><span class="attr">#[serde(skip_serializing_if = <span class="string">&quot;Option::is_none&quot;</span>)]
     </span><span class="kw">pub </span>instaboot: <span class="prelude-ty">Option</span>&lt;AppConfigCapabilityInstaBootV1&gt;,
 }
 
