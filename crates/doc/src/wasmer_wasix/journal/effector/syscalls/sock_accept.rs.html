@@ -100,18 +100,6 @@
 <a href="#100" id="100">100</a>
 <a href="#101" id="101">101</a>
 <a href="#102" id="102">102</a>
-<a href="#103" id="103">103</a>
-<a href="#104" id="104">104</a>
-<a href="#105" id="105">105</a>
-<a href="#106" id="106">106</a>
-<a href="#107" id="107">107</a>
-<a href="#108" id="108">108</a>
-<a href="#109" id="109">109</a>
-<a href="#110" id="110">110</a>
-<a href="#111" id="111">111</a>
-<a href="#112" id="112">112</a>
-<a href="#113" id="113">113</a>
-<a href="#114" id="114">114</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::net::SocketAddr;
 
 <span class="kw">use </span>wasmer_wasix_types::wasi::{Addressfamily, SockProto, Socktype};
@@ -203,25 +191,13 @@
         }
 
         <span class="kw">let </span>rights = Rights::all_socket();
-        <span class="kw">let </span>ret_fd = state
-            .fs
-            .create_fd(rights, rights, new_flags, <span class="number">0</span>, inode)
-            .map_err(|err| {
-                <span class="macro">anyhow::format_err!</span>(
-                    <span class="string">&quot;journal restore error: failed to create remote accepted socket - {}&quot;</span>,
-                    err
-                )
-            })<span class="question-mark">?</span>;
-
-        <span class="kw">let </span>ret = <span class="kw">crate</span>::syscalls::fd_renumber_internal(ctx, ret_fd, fd);
-        <span class="kw">if </span>ret != Errno::Success {
-            <span class="macro">bail!</span>(
-                    <span class="string">&quot;journal restore error: failed renumber file descriptor after accepting socket (from={}, to={}) - {}&quot;</span>,
-                    ret_fd,
-                    fd,
-                    ret
-                );
-        }
+        <span class="kw">let </span>ret = state.fs.with_fd(rights, rights, new_flags, <span class="number">0</span>, inode, fd);
+        ret.map_err(|err| {
+            <span class="macro">anyhow::format_err!</span>(
+                <span class="string">&quot;journal restore error: failed to create remote accepted socket - {}&quot;</span>,
+                err
+            )
+        })<span class="question-mark">?</span>;
 
         <span class="prelude-val">Ok</span>(())
     }

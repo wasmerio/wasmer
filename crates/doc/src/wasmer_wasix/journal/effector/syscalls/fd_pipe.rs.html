@@ -21,26 +21,6 @@
 <a href="#21" id="21">21</a>
 <a href="#22" id="22">22</a>
 <a href="#23" id="23">23</a>
-<a href="#24" id="24">24</a>
-<a href="#25" id="25">25</a>
-<a href="#26" id="26">26</a>
-<a href="#27" id="27">27</a>
-<a href="#28" id="28">28</a>
-<a href="#29" id="29">29</a>
-<a href="#30" id="30">30</a>
-<a href="#31" id="31">31</a>
-<a href="#32" id="32">32</a>
-<a href="#33" id="33">33</a>
-<a href="#34" id="34">34</a>
-<a href="#35" id="35">35</a>
-<a href="#36" id="36">36</a>
-<a href="#37" id="37">37</a>
-<a href="#38" id="38">38</a>
-<a href="#39" id="39">39</a>
-<a href="#40" id="40">40</a>
-<a href="#41" id="41">41</a>
-<a href="#42" id="42">42</a>
-<a href="#43" id="43">43</a>
 </pre></div><pre class="rust"><code><span class="kw">use super</span>::<span class="kw-2">*</span>;
 
 <span class="kw">impl </span>JournalEffector {
@@ -57,29 +37,9 @@
         fd1: Fd,
         fd2: Fd,
     ) -&gt; anyhow::Result&lt;()&gt; {
-        <span class="kw">let </span>(ret_fd1, ret_fd2) = <span class="kw">crate</span>::syscalls::fd_pipe_internal(ctx).map_err(|err| {
+        <span class="kw">crate</span>::syscalls::fd_pipe_internal(ctx, <span class="prelude-val">Some</span>(fd1), <span class="prelude-val">Some</span>(fd2)).map_err(|err| {
             <span class="macro">anyhow::format_err!</span>(<span class="string">&quot;journal restore error: failed to create pipe - {}&quot;</span>, err)
         })<span class="question-mark">?</span>;
-
-        <span class="kw">let </span>ret = <span class="kw">crate</span>::syscalls::fd_renumber_internal(ctx, ret_fd1, fd1);
-        <span class="kw">if </span>ret != Errno::Success {
-            <span class="macro">bail!</span>(
-                <span class="string">&quot;journal restore error: failed renumber file descriptor after create pipe (from={}, to={}) - {}&quot;</span>,
-                ret_fd1,
-                fd1,
-                ret
-            );
-        }
-
-        <span class="kw">let </span>ret = <span class="kw">crate</span>::syscalls::fd_renumber_internal(ctx, ret_fd2, fd2);
-        <span class="kw">if </span>ret != Errno::Success {
-            <span class="macro">bail!</span>(
-                <span class="string">&quot;journal restore error: failed renumber file descriptor after create pipe (from={}, to={}) - {}&quot;</span>,
-                ret_fd2,
-                fd2,
-                ret
-            );
-        }
 
         <span class="prelude-val">Ok</span>(())
     }

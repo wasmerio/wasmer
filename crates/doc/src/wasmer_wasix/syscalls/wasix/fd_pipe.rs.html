@@ -72,6 +72,26 @@
 <a href="#72" id="72">72</a>
 <a href="#73" id="73">73</a>
 <a href="#74" id="74">74</a>
+<a href="#75" id="75">75</a>
+<a href="#76" id="76">76</a>
+<a href="#77" id="77">77</a>
+<a href="#78" id="78">78</a>
+<a href="#79" id="79">79</a>
+<a href="#80" id="80">80</a>
+<a href="#81" id="81">81</a>
+<a href="#82" id="82">82</a>
+<a href="#83" id="83">83</a>
+<a href="#84" id="84">84</a>
+<a href="#85" id="85">85</a>
+<a href="#86" id="86">86</a>
+<a href="#87" id="87">87</a>
+<a href="#88" id="88">88</a>
+<a href="#89" id="89">89</a>
+<a href="#90" id="90">90</a>
+<a href="#91" id="91">91</a>
+<a href="#92" id="92">92</a>
+<a href="#93" id="93">93</a>
+<a href="#94" id="94">94</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>virtual_fs::Pipe;
 
 <span class="kw">use super</span>::<span class="kw-2">*</span>;
@@ -90,7 +110,7 @@
     ro_fd1: WasmPtr&lt;WasiFd, M&gt;,
     ro_fd2: WasmPtr&lt;WasiFd, M&gt;,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;Errno, WasiError&gt; {
-    <span class="kw">let </span>(fd1, fd2) = <span class="macro">wasi_try_ok!</span>(fd_pipe_internal(<span class="kw-2">&amp;mut </span>ctx));
+    <span class="kw">let </span>(fd1, fd2) = <span class="macro">wasi_try_ok!</span>(fd_pipe_internal(<span class="kw-2">&amp;mut </span>ctx, <span class="prelude-val">None</span>, <span class="prelude-val">None</span>));
     <span class="kw">let </span>env = ctx.data();
 
     <span class="attr">#[cfg(feature = <span class="string">&quot;journal&quot;</span>)]
@@ -112,7 +132,11 @@
     <span class="prelude-val">Ok</span>(Errno::Success)
 }
 
-<span class="kw">pub fn </span>fd_pipe_internal(ctx: <span class="kw-2">&amp;mut </span>FunctionEnvMut&lt;<span class="lifetime">&#39;_</span>, WasiEnv&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(WasiFd, WasiFd), Errno&gt; {
+<span class="kw">pub fn </span>fd_pipe_internal(
+    ctx: <span class="kw-2">&amp;mut </span>FunctionEnvMut&lt;<span class="lifetime">&#39;_</span>, WasiEnv&gt;,
+    with_fd1: <span class="prelude-ty">Option</span>&lt;WasiFd&gt;,
+    with_fd2: <span class="prelude-ty">Option</span>&lt;WasiFd&gt;,
+) -&gt; <span class="prelude-ty">Result</span>&lt;(WasiFd, WasiFd), Errno&gt; {
     <span class="kw">let </span>env = ctx.data();
     <span class="kw">let </span>(memory, state, inodes) = <span class="kw">unsafe </span>{ env.get_memory_and_wasi_state_and_inodes(<span class="kw-2">&amp;</span>ctx, <span class="number">0</span>) };
     <span class="kw">let </span>(pipe1, pipe2) = Pipe::channel();
@@ -137,12 +161,28 @@
         | Rights::POLL_FD_READWRITE
         | Rights::SOCK_SEND
         | Rights::FD_FDSTAT_SET_FLAGS;
-    <span class="kw">let </span>fd1 = state
-        .fs
-        .create_fd(rights, rights, Fdflags::empty(), <span class="number">0</span>, inode1)<span class="question-mark">?</span>;
-    <span class="kw">let </span>fd2 = state
-        .fs
-        .create_fd(rights, rights, Fdflags::empty(), <span class="number">0</span>, inode2)<span class="question-mark">?</span>;
+
+    <span class="kw">let </span>fd1 = <span class="kw">if let </span><span class="prelude-val">Some</span>(fd) = with_fd1 {
+        state
+            .fs
+            .with_fd(rights, rights, Fdflags::empty(), <span class="number">0</span>, inode1, fd)
+            .map(|<span class="kw">_</span>| fd)<span class="question-mark">?
+    </span>} <span class="kw">else </span>{
+        state
+            .fs
+            .create_fd(rights, rights, Fdflags::empty(), <span class="number">0</span>, inode1)<span class="question-mark">?
+    </span>};
+
+    <span class="kw">let </span>fd2 = <span class="kw">if let </span><span class="prelude-val">Some</span>(fd) = with_fd2 {
+        state
+            .fs
+            .with_fd(rights, rights, Fdflags::empty(), <span class="number">0</span>, inode2, fd)
+            .map(|<span class="kw">_</span>| fd)<span class="question-mark">?
+    </span>} <span class="kw">else </span>{
+        state
+            .fs
+            .create_fd(rights, rights, Fdflags::empty(), <span class="number">0</span>, inode2)<span class="question-mark">?
+    </span>};
 
     <span class="prelude-val">Ok</span>((fd1, fd2))
 }

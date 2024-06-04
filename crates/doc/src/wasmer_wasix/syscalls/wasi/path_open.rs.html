@@ -392,6 +392,21 @@
 <a href="#392" id="392">392</a>
 <a href="#393" id="393">393</a>
 <a href="#394" id="394">394</a>
+<a href="#395" id="395">395</a>
+<a href="#396" id="396">396</a>
+<a href="#397" id="397">397</a>
+<a href="#398" id="398">398</a>
+<a href="#399" id="399">399</a>
+<a href="#400" id="400">400</a>
+<a href="#401" id="401">401</a>
+<a href="#402" id="402">402</a>
+<a href="#403" id="403">403</a>
+<a href="#404" id="404">404</a>
+<a href="#405" id="405">405</a>
+<a href="#406" id="406">406</a>
+<a href="#407" id="407">407</a>
+<a href="#408" id="408">408</a>
+<a href="#409" id="409">409</a>
 </pre></div><pre class="rust"><code><span class="kw">use super</span>::<span class="kw-2">*</span>;
 <span class="kw">use </span><span class="kw">crate</span>::syscalls::<span class="kw-2">*</span>;
 
@@ -474,6 +489,7 @@
         fs_rights_base,
         fs_rights_inheriting,
         fs_flags,
+        <span class="prelude-val">None</span>,
     )<span class="question-mark">?</span>);
     <span class="kw">let </span>env = ctx.data();
 
@@ -517,6 +533,7 @@
     fs_rights_base: Rights,
     fs_rights_inheriting: Rights,
     fs_flags: Fdflags,
+    with_fd: <span class="prelude-ty">Option</span>&lt;WasiFd&gt;,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Result</span>&lt;WasiFd, Errno&gt;, WasiError&gt; {
     <span class="kw">let </span>env = ctx.data();
     <span class="kw">let </span>(memory, <span class="kw-2">mut </span>state, <span class="kw-2">mut </span>inodes) =
@@ -648,7 +665,6 @@
 
                 <span class="kw">if let </span><span class="prelude-val">Some</span>(handle) = handle {
                     <span class="kw">let </span>handle = handle.read().unwrap();
-                    inode.stat.write().unwrap().st_mtim = handle.last_modified();
                     <span class="kw">if let </span><span class="prelude-val">Some</span>(fd) = handle.get_special_fd() {
                         <span class="comment">// We clone the file descriptor so that when its closed
                         // nothing bad happens
@@ -776,13 +792,27 @@
 
     <span class="comment">// TODO: check and reduce these
     // TODO: ensure a mutable fd to root can never be opened
-    </span><span class="kw">let </span>out_fd = <span class="macro">wasi_try_ok_ok!</span>(state.fs.create_fd(
-        adjusted_rights,
-        fs_rights_inheriting,
-        fs_flags,
-        open_flags,
-        inode
-    ));
+    </span><span class="kw">let </span>out_fd = <span class="macro">wasi_try_ok_ok!</span>(<span class="kw">if let </span><span class="prelude-val">Some</span>(fd) = with_fd {
+        state
+            .fs
+            .with_fd(
+                adjusted_rights,
+                fs_rights_inheriting,
+                fs_flags,
+                open_flags,
+                inode,
+                fd,
+            )
+            .map(|<span class="kw">_</span>| fd)
+    } <span class="kw">else </span>{
+        state.fs.create_fd(
+            adjusted_rights,
+            fs_rights_inheriting,
+            fs_flags,
+            open_flags,
+            inode,
+        )
+    });
 
     <span class="prelude-val">Ok</span>(<span class="prelude-val">Ok</span>(out_fd))
 }

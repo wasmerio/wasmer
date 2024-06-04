@@ -66,6 +66,14 @@
 <a href="#66" id="66">66</a>
 <a href="#67" id="67">67</a>
 <a href="#68" id="68">68</a>
+<a href="#69" id="69">69</a>
+<a href="#70" id="70">70</a>
+<a href="#71" id="71">71</a>
+<a href="#72" id="72">72</a>
+<a href="#73" id="73">73</a>
+<a href="#74" id="74">74</a>
+<a href="#75" id="75">75</a>
+<a href="#76" id="76">76</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>serde::{Deserialize, Serialize};
 <span class="kw">use </span>wasmer_wasix_types::wasi::{SubscriptionClock, Userdata};
 
@@ -86,7 +94,7 @@
     <span class="kw-2">mut </span>ctx: FunctionEnvMut&lt;<span class="lifetime">&#39;_</span>, WasiEnv&gt;,
     ret_fd: WasmPtr&lt;WasiFd, M&gt;,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;Errno, WasiError&gt; {
-    <span class="kw">let </span>fd = <span class="macro">wasi_try_ok!</span>(epoll_create_internal(<span class="kw-2">&amp;mut </span>ctx)<span class="question-mark">?</span>);
+    <span class="kw">let </span>fd = <span class="macro">wasi_try_ok!</span>(epoll_create_internal(<span class="kw-2">&amp;mut </span>ctx, <span class="prelude-val">None</span>)<span class="question-mark">?</span>);
     <span class="kw">let </span>env = ctx.data();
 
     <span class="attr">#[cfg(feature = <span class="string">&quot;journal&quot;</span>)]
@@ -108,6 +116,7 @@
 
 <span class="kw">pub fn </span>epoll_create_internal(
     ctx: <span class="kw-2">&amp;mut </span>FunctionEnvMut&lt;<span class="lifetime">&#39;_</span>, WasiEnv&gt;,
+    with_fd: <span class="prelude-ty">Option</span>&lt;WasiFd&gt;,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Result</span>&lt;WasiFd, Errno&gt;, WasiError&gt; {
     <span class="macro">wasi_try_ok_ok!</span>(WasiEnv::process_signals_and_exit(ctx)<span class="question-mark">?</span>);
 
@@ -128,9 +137,16 @@
     );
 
     <span class="kw">let </span>rights = Rights::POLL_FD_READWRITE | Rights::FD_FDSTAT_SET_FLAGS;
-    <span class="kw">let </span>fd = <span class="macro">wasi_try_ok_ok!</span>(state
-        .fs
-        .create_fd(rights, rights, Fdflags::empty(), <span class="number">0</span>, inode));
+    <span class="kw">let </span>fd = <span class="macro">wasi_try_ok_ok!</span>(<span class="kw">if let </span><span class="prelude-val">Some</span>(fd) = with_fd {
+        state
+            .fs
+            .with_fd(rights, rights, Fdflags::empty(), <span class="number">0</span>, inode, fd)
+            .map(|<span class="kw">_</span>| fd)
+    } <span class="kw">else </span>{
+        state
+            .fs
+            .create_fd(rights, rights, Fdflags::empty(), <span class="number">0</span>, inode)
+    });
 
     <span class="prelude-val">Ok</span>(<span class="prelude-val">Ok</span>(fd))
 }

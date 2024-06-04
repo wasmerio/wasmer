@@ -2131,6 +2131,66 @@
 <a href="#2131" id="2131">2131</a>
 <a href="#2132" id="2132">2132</a>
 <a href="#2133" id="2133">2133</a>
+<a href="#2134" id="2134">2134</a>
+<a href="#2135" id="2135">2135</a>
+<a href="#2136" id="2136">2136</a>
+<a href="#2137" id="2137">2137</a>
+<a href="#2138" id="2138">2138</a>
+<a href="#2139" id="2139">2139</a>
+<a href="#2140" id="2140">2140</a>
+<a href="#2141" id="2141">2141</a>
+<a href="#2142" id="2142">2142</a>
+<a href="#2143" id="2143">2143</a>
+<a href="#2144" id="2144">2144</a>
+<a href="#2145" id="2145">2145</a>
+<a href="#2146" id="2146">2146</a>
+<a href="#2147" id="2147">2147</a>
+<a href="#2148" id="2148">2148</a>
+<a href="#2149" id="2149">2149</a>
+<a href="#2150" id="2150">2150</a>
+<a href="#2151" id="2151">2151</a>
+<a href="#2152" id="2152">2152</a>
+<a href="#2153" id="2153">2153</a>
+<a href="#2154" id="2154">2154</a>
+<a href="#2155" id="2155">2155</a>
+<a href="#2156" id="2156">2156</a>
+<a href="#2157" id="2157">2157</a>
+<a href="#2158" id="2158">2158</a>
+<a href="#2159" id="2159">2159</a>
+<a href="#2160" id="2160">2160</a>
+<a href="#2161" id="2161">2161</a>
+<a href="#2162" id="2162">2162</a>
+<a href="#2163" id="2163">2163</a>
+<a href="#2164" id="2164">2164</a>
+<a href="#2165" id="2165">2165</a>
+<a href="#2166" id="2166">2166</a>
+<a href="#2167" id="2167">2167</a>
+<a href="#2168" id="2168">2168</a>
+<a href="#2169" id="2169">2169</a>
+<a href="#2170" id="2170">2170</a>
+<a href="#2171" id="2171">2171</a>
+<a href="#2172" id="2172">2172</a>
+<a href="#2173" id="2173">2173</a>
+<a href="#2174" id="2174">2174</a>
+<a href="#2175" id="2175">2175</a>
+<a href="#2176" id="2176">2176</a>
+<a href="#2177" id="2177">2177</a>
+<a href="#2178" id="2178">2178</a>
+<a href="#2179" id="2179">2179</a>
+<a href="#2180" id="2180">2180</a>
+<a href="#2181" id="2181">2181</a>
+<a href="#2182" id="2182">2182</a>
+<a href="#2183" id="2183">2183</a>
+<a href="#2184" id="2184">2184</a>
+<a href="#2185" id="2185">2185</a>
+<a href="#2186" id="2186">2186</a>
+<a href="#2187" id="2187">2187</a>
+<a href="#2188" id="2188">2188</a>
+<a href="#2189" id="2189">2189</a>
+<a href="#2190" id="2190">2190</a>
+<a href="#2191" id="2191">2191</a>
+<a href="#2192" id="2192">2192</a>
+<a href="#2193" id="2193">2193</a>
 </pre></div><pre class="rust"><code><span class="kw">mod </span>fd;
 <span class="kw">mod </span>inode_guard;
 <span class="kw">mod </span>notification;
@@ -2191,6 +2251,13 @@
 /// run the libc initialization logic
 </span><span class="kw">pub const </span>VIRTUAL_ROOT_FD: WasiFd = <span class="number">3</span>;
 
+<span class="doccomment">/// The root inode and stdio inodes are the first inodes in the
+/// file system tree
+</span><span class="kw">pub const </span>FS_STDIN_INO: Inode = Inode(<span class="number">10</span>);
+<span class="kw">pub const </span>FS_STDOUT_INO: Inode = Inode(<span class="number">11</span>);
+<span class="kw">pub const </span>FS_STDERR_INO: Inode = Inode(<span class="number">12</span>);
+<span class="kw">pub const </span>FS_ROOT_INO: Inode = Inode(<span class="number">13</span>);
+
 <span class="kw">const </span>STDIN_DEFAULT_RIGHTS: Rights = {
     <span class="comment">// This might seem a bit overenineered, but it&#39;s the only way I
     // discovered for getting the values in a const environment
@@ -2228,6 +2295,10 @@
     <span class="kw">pub fn </span>as_u64(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; u64 {
         <span class="self">self</span>.<span class="number">0
     </span>}
+
+    <span class="kw">pub fn </span>from_path(str: <span class="kw-2">&amp;</span>str) -&gt; <span class="self">Self </span>{
+        Inode(xxhash_rust::xxh64::xxh64(str.as_bytes(), <span class="number">0</span>))
+    }
 }
 
 <span class="attr">#[derive(Debug, Clone)]
@@ -2276,7 +2347,6 @@
 <span class="attr">#[derive(Debug)]
 #[cfg_attr(feature = <span class="string">&quot;enable-serde&quot;</span>, derive(Serialize, Deserialize))]
 </span><span class="kw">struct </span>WasiInodesProtected {
-    seed: u64,
     lookup: HashMap&lt;Inode, Weak&lt;InodeVal&gt;&gt;,
 }
 
@@ -2290,7 +2360,6 @@
     <span class="kw">pub fn </span>new() -&gt; <span class="self">Self </span>{
         <span class="self">Self </span>{
             protected: Arc::new(RwLock::new(WasiInodesProtected {
-                seed: <span class="number">1</span>,
                 lookup: Default::default(),
             })),
         }
@@ -2299,20 +2368,17 @@
     <span class="doccomment">/// adds another value to the inodes
     </span><span class="kw">pub fn </span>add_inode_val(<span class="kw-2">&amp;</span><span class="self">self</span>, val: InodeVal) -&gt; InodeGuard {
         <span class="kw">let </span>val = Arc::new(val);
+        <span class="kw">let </span>st_ino = {
+            <span class="kw">let </span>guard = val.stat.read().unwrap();
+            guard.st_ino
+        };
 
         <span class="kw">let </span><span class="kw-2">mut </span>guard = <span class="self">self</span>.protected.write().unwrap();
-        <span class="kw">let </span>ino = Inode(guard.seed);
-        guard.seed += <span class="number">1</span>;
+        <span class="kw">let </span>ino = Inode(st_ino);
         guard.lookup.insert(ino, Arc::downgrade(<span class="kw-2">&amp;</span>val));
 
-        <span class="comment">// Set the inode value
-        </span>{
-            <span class="kw">let </span><span class="kw-2">mut </span>guard = val.stat.write().unwrap();
-            guard.st_ino = ino.<span class="number">0</span>;
-        }
-
         <span class="comment">// every 100 calls we clear out dead weaks
-        </span><span class="kw">if </span>guard.seed % <span class="number">100 </span>== <span class="number">1 </span>{
+        </span><span class="kw">if </span>guard.lookup.len() % <span class="number">100 </span>== <span class="number">1 </span>{
             guard.lookup.retain(|<span class="kw">_</span>, v| Weak::strong_count(v) &gt; <span class="number">0</span>);
         }
 
@@ -2724,7 +2790,7 @@
         vfs_preopens: <span class="kw-2">&amp;</span>[String],
         fs_backing: WasiFsRoot,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, String&gt; {
-        <span class="kw">let </span><span class="kw-2">mut </span>wasi_fs = <span class="self">Self</span>::new_init(fs_backing, inodes)<span class="question-mark">?</span>;
+        <span class="kw">let </span><span class="kw-2">mut </span>wasi_fs = <span class="self">Self</span>::new_init(fs_backing, inodes, FS_ROOT_INO)<span class="question-mark">?</span>;
         wasi_fs.init_preopens = preopens.to_vec();
         wasi_fs.init_vfs_preopens = vfs_preopens.to_vec();
         wasi_fs.create_preopens(inodes, <span class="bool-val">false</span>)<span class="question-mark">?</span>;
@@ -2745,11 +2811,16 @@
 
     <span class="doccomment">/// Private helper function to init the filesystem, called in `new` and
     /// `new_with_preopen`
-    </span><span class="kw">fn </span>new_init(fs_backing: WasiFsRoot, inodes: <span class="kw-2">&amp;</span>WasiInodes) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, String&gt; {
+    </span><span class="kw">fn </span>new_init(
+        fs_backing: WasiFsRoot,
+        inodes: <span class="kw-2">&amp;</span>WasiInodes,
+        st_ino: Inode,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, String&gt; {
         <span class="macro">debug!</span>(<span class="string">&quot;Initializing WASI filesystem&quot;</span>);
 
         <span class="kw">let </span>stat = Filestat {
             st_filetype: Filetype::Directory,
+            st_ino: st_ino.as_u64(),
             ..Filestat::default()
         };
         <span class="kw">let </span>root_kind = Kind::Root {
@@ -3052,7 +3123,7 @@
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         inodes: <span class="kw-2">&amp;</span>WasiInodes,
         <span class="kw-2">mut </span>cur_inode: InodeGuard,
-        path: <span class="kw-2">&amp;</span>str,
+        path_str: <span class="kw-2">&amp;</span>str,
         <span class="kw-2">mut </span>symlink_count: u32,
         follow_symlinks: bool,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;InodeGuard, Errno&gt; {
@@ -3060,7 +3131,7 @@
             <span class="kw">return </span><span class="prelude-val">Err</span>(Errno::Mlink);
         }
 
-        <span class="kw">let </span>path: <span class="kw-2">&amp;</span>Path = Path::new(path);
+        <span class="kw">let </span>path: <span class="kw-2">&amp;</span>Path = Path::new(path_str);
         <span class="kw">let </span>n_components = path.components().count();
 
         <span class="comment">// TODO: rights checks
@@ -3181,6 +3252,11 @@
                                         file.to_string_lossy().to_string().into(),
                                         Filestat {
                                             st_filetype: file_type,
+                                            st_ino: Inode::from_path(path_str).as_u64(),
+                                            st_size: metadata.len(),
+                                            st_ctim: metadata.created(),
+                                            st_mtim: metadata.modified(),
+                                            st_atim: metadata.accessed(),
                                             ..Filestat::default()
                                         },
                                     );
@@ -3679,14 +3755,15 @@
             <span class="kw">_ </span>=&gt; {}
         }
 
-        <span class="kw">let </span>ret = inodes.add_inode_val(InodeVal {
+        <span class="kw">let </span>st_ino = Inode::from_path(<span class="kw-2">&amp;</span>name);
+        stat.st_ino = st_ino.as_u64();
+
+        inodes.add_inode_val(InodeVal {
             stat: RwLock::new(stat),
             is_preopened,
             name,
             kind: RwLock::new(kind),
-        });
-        stat.st_ino = ret.ino().as_u64();
-        ret
+        })
     }
 
     <span class="kw">pub fn </span>create_fd(
@@ -3698,15 +3775,19 @@
         inode: InodeGuard,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;WasiFd, Errno&gt; {
         <span class="kw">let </span>idx = <span class="self">self</span>.next_fd.next_val();
-        <span class="self">self</span>.create_fd_ext(rights, rights_inheriting, flags, open_flags, inode, idx)<span class="question-mark">?</span>;
+        <span class="self">self</span>.create_fd_ext(
+            rights,
+            rights_inheriting,
+            flags,
+            open_flags,
+            inode,
+            idx,
+            <span class="bool-val">false</span>,
+        )<span class="question-mark">?</span>;
         <span class="prelude-val">Ok</span>(idx)
     }
 
-    <span class="kw">pub fn </span>make_max_fd(<span class="kw-2">&amp;</span><span class="self">self</span>, fd: u32) {
-        <span class="self">self</span>.next_fd.clip_val(fd);
-    }
-
-    <span class="kw">pub fn </span>create_fd_ext(
+    <span class="kw">pub fn </span>with_fd(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         rights: Rights,
         rights_inheriting: Rights,
@@ -3715,11 +3796,43 @@
         inode: InodeGuard,
         idx: WasiFd,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), Errno&gt; {
+        <span class="self">self</span>.make_max_fd(idx + <span class="number">1</span>);
+        <span class="self">self</span>.create_fd_ext(
+            rights,
+            rights_inheriting,
+            flags,
+            open_flags,
+            inode,
+            idx,
+            <span class="bool-val">true</span>,
+        )<span class="question-mark">?</span>;
+        <span class="prelude-val">Ok</span>(())
+    }
+
+    <span class="kw">pub fn </span>make_max_fd(<span class="kw-2">&amp;</span><span class="self">self</span>, fd: u32) {
+        <span class="self">self</span>.next_fd.clip_val(fd);
+    }
+
+    <span class="attr">#[allow(clippy::too_many_arguments)]
+    </span><span class="kw">pub fn </span>create_fd_ext(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        rights: Rights,
+        rights_inheriting: Rights,
+        flags: Fdflags,
+        open_flags: u16,
+        inode: InodeGuard,
+        idx: WasiFd,
+        exclusive: bool,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;(), Errno&gt; {
         <span class="kw">let </span>is_stdio = <span class="macro">matches!</span>(
             idx,
             __WASI_STDIN_FILENO | __WASI_STDOUT_FILENO | __WASI_STDERR_FILENO
         );
-        <span class="self">self</span>.fd_map.write().unwrap().insert(
+        <span class="kw">let </span><span class="kw-2">mut </span>guard = <span class="self">self</span>.fd_map.write().unwrap();
+        <span class="kw">if </span>exclusive &amp;&amp; guard.contains_key(<span class="kw-2">&amp;</span>idx) {
+            <span class="kw">return </span><span class="prelude-val">Err</span>(Errno::Exist);
+        }
+        guard.insert(
             idx,
             Fd {
                 rights,
@@ -3773,6 +3886,7 @@
             __WASI_STDOUT_FILENO,
             STDOUT_DEFAULT_RIGHTS,
             Fdflags::APPEND,
+            FS_STDOUT_INO,
         );
     }
 
@@ -3784,6 +3898,7 @@
             __WASI_STDIN_FILENO,
             STDIN_DEFAULT_RIGHTS,
             Fdflags::empty(),
+            FS_STDIN_INO,
         );
     }
 
@@ -3795,6 +3910,7 @@
             __WASI_STDERR_FILENO,
             STDERR_DEFAULT_RIGHTS,
             Fdflags::APPEND,
+            FS_STDERR_INO,
         );
     }
 
@@ -4006,7 +4122,8 @@
         <span class="prelude-val">Ok</span>(())
     }
 
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>create_std_dev_inner(
+    <span class="attr">#[allow(clippy::too_many_arguments)]
+    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>create_std_dev_inner(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         inodes: <span class="kw-2">&amp;</span>WasiInodes,
         handle: Box&lt;<span class="kw">dyn </span>VirtualFile + Send + Sync + <span class="lifetime">&#39;static</span>&gt;,
@@ -4014,10 +4131,12 @@
         raw_fd: WasiFd,
         rights: Rights,
         fd_flags: Fdflags,
+        st_ino: Inode,
     ) {
         <span class="kw">let </span>inode = {
             <span class="kw">let </span>stat = Filestat {
                 st_filetype: Filetype::CharacterDevice,
+                st_ino: st_ino.as_u64(),
                 ..Filestat::default()
             };
             <span class="kw">let </span>kind = Kind::File {
@@ -4054,6 +4173,7 @@
                     <span class="kw">let </span>wf = wf.read().unwrap();
                     <span class="kw">return </span><span class="prelude-val">Ok</span>(Filestat {
                         st_filetype: Filetype::RegularFile,
+                        st_ino: Inode::from_path(path.to_string_lossy().as_ref()).as_u64(),
                         st_size: wf.size(),
                         st_atim: wf.last_accessed(),
                         st_mtim: wf.last_modified(),

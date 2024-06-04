@@ -632,6 +632,10 @@
 <a href="#632" id="632">632</a>
 <a href="#633" id="633">633</a>
 <a href="#634" id="634">634</a>
+<a href="#635" id="635">635</a>
+<a href="#636" id="636">636</a>
+<a href="#637" id="637">637</a>
+<a href="#638" id="638">638</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>serde::{Deserialize, Serialize};
 <span class="kw">use </span>std::sync::atomic::{AtomicBool, Ordering};
 <span class="kw">use </span>std::{
@@ -1101,15 +1105,19 @@
                         );
                     }
                 }
+                <span class="kw">let </span><span class="kw-2">mut </span>total_forgotten = <span class="number">0usize</span>;
                 <span class="kw">while let </span><span class="prelude-val">Some</span>(disowned) = disown {
-                    <span class="kw">for </span>hash <span class="kw">in </span>disowned.snapshots.keys() {
-                        <span class="macro">tracing::trace!</span>(
-                            <span class="string">&quot;wasi[{}]::stack has been forgotten (hash={})&quot;</span>,
-                            <span class="self">self</span>.pid(),
-                            hash
-                        );
+                    <span class="kw">for </span>_hash <span class="kw">in </span>disowned.snapshots.keys() {
+                        total_forgotten += <span class="number">1</span>;
                     }
                     disown = disowned.next;
+                }
+                <span class="kw">if </span>total_forgotten &gt; <span class="number">0 </span>{
+                    <span class="macro">tracing::trace!</span>(
+                        <span class="string">&quot;wasi[{}]::stack has been forgotten (cnt={})&quot;</span>,
+                        <span class="self">self</span>.pid(),
+                        total_forgotten
+                    );
                 }
             } <span class="kw">else </span>{
                 memory_stack = <span class="kw-2">&amp;</span>memory_stack[pstack.memory_stack.len()..];

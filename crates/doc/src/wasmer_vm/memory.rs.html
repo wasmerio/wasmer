@@ -1075,7 +1075,7 @@
     </span><span class="kw">pub fn </span>new_with_file(
         memory: <span class="kw-2">&amp;</span>MemoryType,
         style: <span class="kw-2">&amp;</span>MemoryStyle,
-        backing_file: std::fs::File,
+        backing_file: std::path::PathBuf,
         memory_type: MmapType,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, MemoryError&gt; {
         <span class="kw">unsafe </span>{ <span class="self">Self</span>::new_internal(memory, style, <span class="prelude-val">None</span>, <span class="prelude-val">Some</span>(backing_file), memory_type) }
@@ -1115,7 +1115,7 @@
         memory: <span class="kw-2">&amp;</span>MemoryType,
         style: <span class="kw-2">&amp;</span>MemoryStyle,
         vm_memory_location: NonNull&lt;VMMemoryDefinition&gt;,
-        backing_file: <span class="prelude-ty">Option</span>&lt;std::fs::File&gt;,
+        backing_file: <span class="prelude-ty">Option</span>&lt;std::path::PathBuf&gt;,
         memory_type: MmapType,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, MemoryError&gt; {
         <span class="self">Self</span>::new_internal(
@@ -1132,7 +1132,7 @@
         memory: <span class="kw-2">&amp;</span>MemoryType,
         style: <span class="kw-2">&amp;</span>MemoryStyle,
         vm_memory_location: <span class="prelude-ty">Option</span>&lt;NonNull&lt;VMMemoryDefinition&gt;&gt;,
-        backing_file: <span class="prelude-ty">Option</span>&lt;std::fs::File&gt;,
+        backing_file: <span class="prelude-ty">Option</span>&lt;std::path::PathBuf&gt;,
         memory_type: MmapType,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, MemoryError&gt; {
         <span class="kw">if </span>memory.minimum &gt; Pages::max_value() {
@@ -1317,7 +1317,7 @@
     </span><span class="kw">pub fn </span>new_with_file(
         memory: <span class="kw-2">&amp;</span>MemoryType,
         style: <span class="kw-2">&amp;</span>MemoryStyle,
-        backing_file: std::fs::File,
+        backing_file: std::path::PathBuf,
         memory_type: MmapType,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, MemoryError&gt; {
         <span class="prelude-val">Ok</span>(VMOwnedMemory::new_with_file(memory, style, backing_file, memory_type)<span class="question-mark">?</span>.to_shared())
@@ -1351,7 +1351,7 @@
         memory: <span class="kw-2">&amp;</span>MemoryType,
         style: <span class="kw-2">&amp;</span>MemoryStyle,
         vm_memory_location: NonNull&lt;VMMemoryDefinition&gt;,
-        backing_file: <span class="prelude-ty">Option</span>&lt;std::fs::File&gt;,
+        backing_file: <span class="prelude-ty">Option</span>&lt;std::path::PathBuf&gt;,
         memory_type: MmapType,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, MemoryError&gt; {
         <span class="prelude-val">Ok</span>(VMOwnedMemory::from_definition_with_file(

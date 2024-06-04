@@ -158,6 +158,25 @@
 <a href="#158" id="158">158</a>
 <a href="#159" id="159">159</a>
 <a href="#160" id="160">160</a>
+<a href="#161" id="161">161</a>
+<a href="#162" id="162">162</a>
+<a href="#163" id="163">163</a>
+<a href="#164" id="164">164</a>
+<a href="#165" id="165">165</a>
+<a href="#166" id="166">166</a>
+<a href="#167" id="167">167</a>
+<a href="#168" id="168">168</a>
+<a href="#169" id="169">169</a>
+<a href="#170" id="170">170</a>
+<a href="#171" id="171">171</a>
+<a href="#172" id="172">172</a>
+<a href="#173" id="173">173</a>
+<a href="#174" id="174">174</a>
+<a href="#175" id="175">175</a>
+<a href="#176" id="176">176</a>
+<a href="#177" id="177">177</a>
+<a href="#178" id="178">178</a>
+<a href="#179" id="179">179</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::task::Waker;
 
 <span class="kw">use super</span>::<span class="kw-2">*</span>;
@@ -191,7 +210,13 @@
 
     <span class="kw">let </span>nonblocking = fd_flags.contains(Fdflags::NONBLOCK);
 
-    <span class="kw">let </span>(fd, <span class="kw">_</span>, <span class="kw">_</span>) = <span class="macro">wasi_try_ok!</span>(sock_accept_internal(env, sock, fd_flags, nonblocking)<span class="question-mark">?</span>);
+    <span class="kw">let </span>(fd, <span class="kw">_</span>, <span class="kw">_</span>) = <span class="macro">wasi_try_ok!</span>(sock_accept_internal(
+        env,
+        sock,
+        fd_flags,
+        nonblocking,
+        <span class="prelude-val">None
+    </span>)<span class="question-mark">?</span>);
 
     <span class="macro">wasi_try_mem_ok!</span>(ro_fd.write(<span class="kw-2">&amp;</span>memory, fd));
 
@@ -226,8 +251,13 @@
 
     <span class="kw">let </span>nonblocking = fd_flags.contains(Fdflags::NONBLOCK);
 
-    <span class="kw">let </span>(fd, local_addr, peer_addr) =
-        <span class="macro">wasi_try_ok!</span>(sock_accept_internal(env, sock, fd_flags, nonblocking)<span class="question-mark">?</span>);
+    <span class="kw">let </span>(fd, local_addr, peer_addr) = <span class="macro">wasi_try_ok!</span>(sock_accept_internal(
+        env,
+        sock,
+        fd_flags,
+        nonblocking,
+        <span class="prelude-val">None
+    </span>)<span class="question-mark">?</span>);
 
     <span class="attr">#[cfg(feature = <span class="string">&quot;journal&quot;</span>)]
     </span><span class="kw">if </span>ctx.data().enable_journal {
@@ -264,6 +294,7 @@
     sock: WasiFd,
     <span class="kw-2">mut </span>fd_flags: Fdflags,
     <span class="kw-2">mut </span>nonblocking: bool,
+    with_fd: <span class="prelude-ty">Option</span>&lt;WasiFd&gt;,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Result</span>&lt;(WasiFd, SocketAddr, SocketAddr), Errno&gt;, WasiError&gt; {
     <span class="kw">let </span>state = env.state();
     <span class="kw">let </span>inodes = <span class="kw-2">&amp;</span>state.inodes;
@@ -313,7 +344,14 @@
     }
 
     <span class="kw">let </span>rights = Rights::all_socket();
-    <span class="kw">let </span>fd = <span class="macro">wasi_try_ok_ok!</span>(state.fs.create_fd(rights, rights, new_flags, <span class="number">0</span>, inode));
+    <span class="kw">let </span>fd = <span class="macro">wasi_try_ok_ok!</span>(<span class="kw">if let </span><span class="prelude-val">Some</span>(fd) = with_fd {
+        state
+            .fs
+            .with_fd(rights, rights, new_flags, <span class="number">0</span>, inode, fd)
+            .map(|<span class="kw">_</span>| fd)
+    } <span class="kw">else </span>{
+        state.fs.create_fd(rights, rights, new_flags, <span class="number">0</span>, inode)
+    });
     Span::current().record(<span class="string">&quot;fd&quot;</span>, fd);
 
     <span class="prelude-val">Ok</span>(<span class="prelude-val">Ok</span>((fd, local_addr, peer_addr)))

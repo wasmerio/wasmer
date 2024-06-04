@@ -12,7 +12,7 @@ that will be imported into Wasm modules.</p>
 </div></details><details class="toggle method-toggle" open><summary><section id="method.new_with_file" class="method"><a class="src rightside" href="../../src/wasmer_vm/memory.rs.html#463-470">source</a><h4 class="code-header">pub fn <a href="#method.new_with_file" class="fn">new_with_file</a>(
     memory: &amp;MemoryType,
     style: &amp;<a class="enum" href="../enum.MemoryStyle.html" title="enum wasmer_vm::MemoryStyle">MemoryStyle</a>,
-    backing_file: <a class="struct" href="https://doc.rust-lang.org/1.74.1/std/fs/struct.File.html" title="struct std::fs::File">File</a>,
+    backing_file: <a class="struct" href="https://doc.rust-lang.org/1.74.1/std/path/struct.PathBuf.html" title="struct std::path::PathBuf">PathBuf</a>,
     memory_type: <a class="enum" href="../mmap/enum.MmapType.html" title="enum wasmer_vm::mmap::MmapType">MmapType</a>
 ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.74.1/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;Self, <a class="enum" href="../enum.MemoryError.html" title="enum wasmer_vm::MemoryError">MemoryError</a>&gt;</h4></section></summary><div class="docblock"><p>Create a new linear memory instance with specified minimum and maximum number of wasm pages
 that is backed by a file. When set to private the file will be remaing in memory and
@@ -34,7 +34,7 @@ that will be imported into Wasm modules.</p>
     memory: &amp;MemoryType,
     style: &amp;<a class="enum" href="../enum.MemoryStyle.html" title="enum wasmer_vm::MemoryStyle">MemoryStyle</a>,
     vm_memory_location: <a class="struct" href="https://doc.rust-lang.org/1.74.1/core/ptr/non_null/struct.NonNull.html" title="struct core::ptr::non_null::NonNull">NonNull</a>&lt;<a class="struct" href="../vmcontext/struct.VMMemoryDefinition.html" title="struct wasmer_vm::vmcontext::VMMemoryDefinition">VMMemoryDefinition</a>&gt;,
-    backing_file: <a class="enum" href="https://doc.rust-lang.org/1.74.1/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.74.1/std/fs/struct.File.html" title="struct std::fs::File">File</a>&gt;,
+    backing_file: <a class="enum" href="https://doc.rust-lang.org/1.74.1/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.74.1/std/path/struct.PathBuf.html" title="struct std::path::PathBuf">PathBuf</a>&gt;,
     memory_type: <a class="enum" href="../mmap/enum.MmapType.html" title="enum wasmer_vm::mmap::MmapType">MmapType</a>
 ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.74.1/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;Self, <a class="enum" href="../enum.MemoryError.html" title="enum wasmer_vm::MemoryError">MemoryError</a>&gt;</h4></section></summary><div class="docblock"><p>Create a new linear memory instance with specified minimum and maximum number of wasm pages
 that is backed by a file. When set to private the file will be remaing in memory and

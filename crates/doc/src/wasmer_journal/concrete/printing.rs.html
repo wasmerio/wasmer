@@ -359,6 +359,8 @@
 <a href="#359" id="359">359</a>
 <a href="#360" id="360">360</a>
 <a href="#361" id="361">361</a>
+<a href="#362" id="362">362</a>
+<a href="#363" id="363">363</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::fmt;
 
 <span class="kw">use super</span>::<span class="kw-2">*</span>;
@@ -494,6 +496,8 @@
                 <span class="kw">if </span>o_flags.contains(wasi::Oflags::CREATE) {
                     <span class="kw">if </span>o_flags.contains(wasi::Oflags::TRUNC) {
                         <span class="macro">write!</span>(f, <span class="string">&quot;fd-create-new (fd={}, path={})&quot;</span>, fd, path)
+                    } <span class="kw">else if </span>o_flags.contains(wasi::Oflags::EXCL) {
+                        <span class="macro">write!</span>(f, <span class="string">&quot;fd-create-excl (fd={}, path={})&quot;</span>, fd, path)
                     } <span class="kw">else </span>{
                         <span class="macro">write!</span>(f, <span class="string">&quot;fd-create (fd={}, path={})&quot;</span>, fd, path)
                     }

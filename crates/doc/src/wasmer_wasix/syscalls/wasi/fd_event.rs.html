@@ -55,6 +55,14 @@
 <a href="#55" id="55">55</a>
 <a href="#56" id="56">56</a>
 <a href="#57" id="57">57</a>
+<a href="#58" id="58">58</a>
+<a href="#59" id="59">59</a>
+<a href="#60" id="60">60</a>
+<a href="#61" id="61">61</a>
+<a href="#62" id="62">62</a>
+<a href="#63" id="63">63</a>
+<a href="#64" id="64">64</a>
+<a href="#65" id="65">65</a>
 </pre></div><pre class="rust"><code><span class="kw">use super</span>::<span class="kw-2">*</span>;
 <span class="kw">use crate</span>::{fs::NotificationInner, syscalls::<span class="kw-2">*</span>};
 
@@ -67,7 +75,7 @@
     flags: EventFdFlags,
     ret_fd: WasmPtr&lt;WasiFd, M&gt;,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;Errno, WasiError&gt; {
-    <span class="kw">let </span>fd = <span class="macro">wasi_try_ok!</span>(fd_event_internal(<span class="kw-2">&amp;mut </span>ctx, initial_val, flags)<span class="question-mark">?</span>);
+    <span class="kw">let </span>fd = <span class="macro">wasi_try_ok!</span>(fd_event_internal(<span class="kw-2">&amp;mut </span>ctx, initial_val, flags, <span class="prelude-val">None</span>)<span class="question-mark">?</span>);
 
     <span class="kw">let </span>env = ctx.data();
     <span class="kw">let </span>(memory, state, <span class="kw">_</span>) = <span class="kw">unsafe </span>{ env.get_memory_and_wasi_state_and_inodes(<span class="kw-2">&amp;</span>ctx, <span class="number">0</span>) };
@@ -89,6 +97,7 @@
     ctx: <span class="kw-2">&amp;mut </span>FunctionEnvMut&lt;<span class="lifetime">&#39;_</span>, WasiEnv&gt;,
     initial_val: u64,
     flags: EventFdFlags,
+    with_fd: <span class="prelude-ty">Option</span>&lt;WasiFd&gt;,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Result</span>&lt;WasiFd, Errno&gt;, WasiError&gt; {
     <span class="kw">let </span>env = ctx.data();
     <span class="kw">let </span>(memory, state, <span class="kw-2">mut </span>inodes) = <span class="kw">unsafe </span>{ env.get_memory_and_wasi_state_and_inodes(<span class="kw-2">&amp;</span>ctx, <span class="number">0</span>) };
@@ -106,9 +115,16 @@
         | Rights::FD_WRITE
         | Rights::POLL_FD_READWRITE
         | Rights::FD_FDSTAT_SET_FLAGS;
-    <span class="kw">let </span>fd = <span class="macro">wasi_try_ok_ok!</span>(state
-        .fs
-        .create_fd(rights, rights, Fdflags::empty(), <span class="number">0</span>, inode));
+    <span class="kw">let </span>fd = <span class="macro">wasi_try_ok_ok!</span>(<span class="kw">if let </span><span class="prelude-val">Some</span>(fd) = with_fd {
+        state
+            .fs
+            .with_fd(rights, rights, Fdflags::empty(), <span class="number">0</span>, inode, fd)
+            .map(|<span class="kw">_</span>| fd)
+    } <span class="kw">else </span>{
+        state
+            .fs
+            .create_fd(rights, rights, Fdflags::empty(), <span class="number">0</span>, inode)
+    });
 
     <span class="prelude-val">Ok</span>(<span class="prelude-val">Ok</span>(fd))
 }

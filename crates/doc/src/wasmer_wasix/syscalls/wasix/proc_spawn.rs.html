@@ -259,6 +259,7 @@
 <a href="#259" id="259">259</a>
 <a href="#260" id="260">260</a>
 <a href="#261" id="261">261</a>
+<a href="#262" id="262">262</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>virtual_fs::Pipe;
 <span class="kw">use </span>wasmer_wasix_types::wasi::ProcessHandles;
 
@@ -439,6 +440,7 @@
                         <span class="number">0</span>,
                         inode2,
                         fd,
+                        <span class="bool-val">false</span>,
                     )<span class="question-mark">?</span>;
 
                     <span class="macro">trace!</span>(<span class="string">&quot;fd_pipe (fd1={}, fd2={})&quot;</span>, pipe, fd);
