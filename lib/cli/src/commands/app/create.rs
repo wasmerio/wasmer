@@ -9,7 +9,14 @@ use anyhow::Context;
 use colored::Colorize;
 use dialoguer::{theme::ColorfulTheme, Confirm, Select};
 use is_terminal::IsTerminal;
-use std::{collections::HashMap, env, io::Cursor, path::PathBuf, str::FromStr};
+use std::{
+    collections::HashMap,
+    env,
+    io::Cursor,
+    path::{Path, PathBuf},
+    str::FromStr,
+    time::Duration,
+};
 use wasmer_api::{types::AppTemplate, WasmerClient};
 use wasmer_config::{app::AppConfigV1, package::PackageSource};
 
@@ -270,6 +277,81 @@ impl CmdAppCreate {
         Ok(false)
     }
 
+    /// Load cached templates from a file.
+    ///
+    /// Returns an error if the cache file is older than the max age.
+    fn load_cached_templates(
+        path: &Path,
+        max_cache_age: std::time::Duration,
+    ) -> Result<Vec<AppTemplate>, anyhow::Error> {
+        let modified = path.metadata()?.modified()?;
+        let age = modified.elapsed()?;
+
+        if age > max_cache_age {
+            anyhow::bail!("cache has expired");
+        }
+
+        let data = std::fs::read_to_string(path)?;
+        match serde_json::from_str::<Vec<AppTemplate>>(&data) {
+            Ok(v) => Ok(v),
+            Err(err) => {
+                std::fs::remove_file(path).ok();
+                Err(err).context("could not deserialize cached file")
+            }
+        }
+    }
+
+    fn persist_template_cache(path: &Path, templates: &[AppTemplate]) -> Result<(), anyhow::Error> {
+        if let Some(parent) = path.parent() {
+            std::fs::create_dir_all(parent).context("could not create cache dir")?;
+        }
+
+        let data = serde_json::to_vec(templates)?;
+
+        std::fs::write(path, data)?;
+        tracing::trace!(path=%path.display(), "persisted app template cache");
+
+        Ok(())
+    }
+
+    /// Tries to retrieve templates from a local file cache.
+    /// Fetches the templates from the backend if the file doesn't exist,
+    /// can't be loaded, or is older then the max age,
+    async fn fetch_templates_cached(
+        client: &WasmerClient,
+        cache_dir: &Path,
+    ) -> Result<Vec<AppTemplate>, anyhow::Error> {
+        const MAX_CACHE_AGE: Duration = Duration::from_secs(60 * 15);
+        const MAX_COUNT: usize = 100;
+        const CACHE_FILENAME: &'static str = "app_templates.json";
+
+        let cache_path = cache_dir.join(CACHE_FILENAME);
+
+        match Self::load_cached_templates(&cache_path, MAX_CACHE_AGE) {
+            Ok(v) => {
+                return Ok(v);
+            }
+            Err(e) => {
+                tracing::trace!(error = &*e, "could not load templates from local cache");
+            }
+        }
+
+        let templates = wasmer_api::query::fetch_all_app_templates(
+            client,
+            10,
+            MAX_COUNT,
+            Some(wasmer_api::types::AppTemplatesSortBy::Popular),
+        )
+        .await?;
+
+        // Persist to cache.
+        if let Err(err) = Self::persist_template_cache(&cache_path, &templates) {
+            tracing::trace!(error = &*err, "could not persist template cache");
+        }
+
+        Ok(templates)
+    }
+
     // A utility function used to fetch the URL of the template to use.
     async fn get_template_url(&self, client: &WasmerClient) -> anyhow::Result<url::Url> {
         let mut url = if let Some(template) = &self.template {
@@ -287,17 +369,10 @@ impl CmdAppCreate {
                 anyhow::bail!("No template selected")
             }
 
-            let templates: Vec<AppTemplate> =
-                wasmer_api::query::fetch_app_templates(client, String::new(), 10)
-                    .await?
-                    .ok_or(anyhow::anyhow!("No template received from the backend"))?
-                    .edges
-                    .into_iter()
-                    .flatten()
-                    .filter_map(|v| v.node)
-                    .collect();
+            let templates = Self::fetch_templates_cached(client, &self.env.cache_dir).await?;
 
             let theme = ColorfulTheme::default();
+
             let items = templates
                 .iter()
                 .map(|t| {
@@ -315,10 +390,11 @@ impl CmdAppCreate {
                 })
                 .collect::<Vec<_>>();
 
+            // Note: this should really use `dialoger::FuzzySelect`, but that
+            // breaks the formatting.
             let dialog = dialoguer::Select::with_theme(&theme)
                 .with_prompt(format!("Select a template ({} available)", items.len()))
                 .items(&items)
-                .max_length(6)
                 .clear(true)
                 .report(false)
                 .default(0);
