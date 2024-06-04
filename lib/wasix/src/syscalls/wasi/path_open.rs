@@ -273,8 +273,12 @@ pub(crate) fn path_open_internal(
                     return Ok(Err(Errno::Notcapable));
                 }
             }
-            Kind::Dir { .. }
-            | Kind::Socket { .. }
+            Kind::Dir { .. } => {
+                if fs_rights_base.contains(Rights::FD_WRITE) {
+                    return Ok(Err(Errno::Isdir));
+                }
+            }
+            Kind::Socket { .. }
             | Kind::Pipe { .. }
             | Kind::EventNotifications { .. }
             | Kind::Epoll { .. } => {}
