@@ -74,16 +74,68 @@ pub async fn fetch_app_templates(
     client: &WasmerClient,
     category_slug: String,
     first: i32,
+    after: Option<String>,
+    sort_by: Option<types::AppTemplatesSortBy>,
 ) -> Result<Option<types::AppTemplateConnection>, anyhow::Error> {
     client
         .run_graphql_strict(types::GetAppTemplatesQuery::build(
             GetAppTemplatesQueryVariables {
                 category_slug,
                 first,
+                after,
+                sort_by,
             },
         ))
         .await
         .map(|r| r.get_app_templates)
+}
+
+/// Fetch all app templates by paginating through the responses.
+///
+/// Will fetch at most `max` templates.
+pub async fn fetch_all_app_templates(
+    client: &WasmerClient,
+    page_size: i32,
+    max: usize,
+    sort_by: Option<types::AppTemplatesSortBy>,
+) -> Result<Vec<types::AppTemplate>, anyhow::Error> {
+    let mut all = Vec::new();
+    let mut cursor = None;
+
+    loop {
+        let con = client
+            .run_graphql_strict(types::GetAppTemplatesQuery::build(
+                GetAppTemplatesQueryVariables {
+                    category_slug: String::new(),
+                    first: page_size,
+                    sort_by,
+                    after: cursor.take(),
+                },
+            ))
+            .await?
+            .get_app_templates
+            .context("backend did not return any data")?;
+
+        if con.edges.is_empty() {
+            break;
+        }
+
+        let new = con.edges.into_iter().flatten().filter_map(|edge| edge.node);
+        all.extend(new);
+
+        let next_cursor = con
+            .page_info
+            .end_cursor
+            .filter(|_| con.page_info.has_next_page && all.len() < max);
+
+        if let Some(next) = next_cursor {
+            cursor = Some(next);
+        } else {
+            break;
+        }
+    }
+
+    Ok(all)
 }
 
 /// Get a signed URL to upload packages.

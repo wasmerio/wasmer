@@ -6380,7 +6380,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-api"
-version = "0.0.28"
+version = "0.0.29"
 dependencies = [
  "anyhow",
  "base64 0.13.1",

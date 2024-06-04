@@ -149,16 +149,31 @@ mod queries {
         #[arguments(slug: $slug)]
         pub get_app_template: Option<AppTemplate>,
     }
+
+    #[derive(cynic::Enum, Clone, Copy, Debug)]
+    pub enum AppTemplatesSortBy {
+        Newest,
+        Oldest,
+        Popular,
+    }
+
     #[derive(cynic::QueryVariables, Debug)]
     pub struct GetAppTemplatesQueryVariables {
         pub category_slug: String,
         pub first: i32,
+        pub after: Option<String>,
+        pub sort_by: Option<AppTemplatesSortBy>,
     }
 
     #[derive(cynic::QueryFragment, Debug)]
     #[cynic(graphql_type = "Query", variables = "GetAppTemplatesQueryVariables")]
     pub struct GetAppTemplatesQuery {
-        #[arguments(categorySlug: $category_slug, first: $first)]
+        #[arguments(
+            categorySlug: $category_slug,
+            first: $first,
+            after: $after,
+            sortBy: $sort_by
+        )]
         pub get_app_templates: Option<AppTemplateConnection>,
     }
 
@@ -174,21 +189,28 @@ mod queries {
         pub cursor: String,
     }
 
-    #[derive(cynic::QueryFragment, Debug)]
+    #[derive(serde::Serialize, cynic::QueryFragment, Debug)]
     pub struct AppTemplate {
+        #[serde(rename = "demoUrl")]
         pub demo_url: String,
         pub language: String,
         pub name: String,
         pub framework: String,
+        #[serde(rename = "createdAt")]
         pub created_at: DateTime,
         pub description: String,
         pub id: cynic::Id,
+        #[serde(rename = "isPublic")]
         pub is_public: bool,
+        #[serde(rename = "repoLicense")]
         pub repo_license: String,
         pub readme: String,
+        #[serde(rename = "repoUrl")]
         pub repo_url: String,
         pub slug: String,
+        #[serde(rename = "updatedAt")]
         pub updated_at: DateTime,
+        #[serde(rename = "useCases")]
         pub use_cases: Jsonstring,
     }
 
