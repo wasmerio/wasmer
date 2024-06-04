@@ -390,6 +390,8 @@
 <a href="#390" id="390">390</a>
 <a href="#391" id="391">391</a>
 <a href="#392" id="392">392</a>
+<a href="#393" id="393">393</a>
+<a href="#394" id="394">394</a>
 </pre></div><pre class="rust"><code><span class="kw">use super</span>::<span class="kw-2">*</span>;
 <span class="kw">use </span><span class="kw">crate</span>::syscalls::<span class="kw-2">*</span>;
 
@@ -601,6 +603,11 @@
         <span class="kw">let </span><span class="kw-2">mut </span>guard = processing_inode.write();
 
         <span class="kw">let </span>deref_mut = guard.deref_mut();
+
+        <span class="kw">if </span>o_flags.contains(Oflags::EXCL) &amp;&amp; o_flags.contains(Oflags::CREATE) {
+            <span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="prelude-val">Err</span>(Errno::Exist));
+        }
+
         <span class="kw">match </span>deref_mut {
             Kind::File {
                 <span class="kw-2">ref mut </span>handle,
@@ -615,9 +622,6 @@
                 }
                 <span class="kw">if </span>o_flags.contains(Oflags::DIRECTORY) {
                     <span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="prelude-val">Err</span>(Errno::Notdir));
-                }
-                <span class="kw">if </span>o_flags.contains(Oflags::EXCL) {
-                    <span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="prelude-val">Err</span>(Errno::Exist));
                 }
 
                 <span class="kw">let </span>open_options = open_options
