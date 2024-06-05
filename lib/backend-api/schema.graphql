@@ -37,6 +37,7 @@ type User implements Node & PackageOwner & Owner {
   bio: String
   location: String
   websiteUrl: String
+  wasmerInternal: Boolean!
 
   """The ID of the object"""
   id: ID!
@@ -199,6 +200,7 @@ type Namespace implements Node & PackageOwner & Owner {
   websiteUrl: String
   createdAt: DateTime!
   updatedAt: DateTime!
+  wasmerInternal: Boolean!
   maintainerInvites(offset: Int, before: String, after: String, first: Int, last: Int): NamespaceCollaboratorInviteConnection!
   userSet(offset: Int, before: String, after: String, first: Int, last: Int): UserConnection!
   globalName: String!
@@ -446,6 +448,7 @@ type PackageVersion implements Node & PackageReleaseInterface & PackageInstance 
   bindingsState: RegistryPackageVersionBindingsStateChoices!
   nativeExecutablesState: RegistryPackageVersionNativeExecutablesStateChoices!
   deployappversionSet(offset: Int, before: String, after: String, first: Int, last: Int): DeployAppVersionConnection!
+  packagewebcSet(offset: Int, before: String, after: String, first: Int, last: Int): PackageWebcConnection!
   lastversionPackage(offset: Int, before: String, after: String, first: Int, last: Int): PackageConnection!
   commands: [Command!]!
   nativeexecutableSet(offset: Int, before: String, after: String, first: Int, last: Int): NativeExecutableConnection!
@@ -504,7 +507,9 @@ scalar JSONString
 type WebcImage implements Node {
   """The ID of the object"""
   id: ID!
-  version: WebcVersion
+
+  """The version of the webc image, defaults to v2."""
+  version: WebcVersion!
 
   """"""
   fileSize: BigInt!
@@ -833,6 +838,26 @@ type AppVersionVolume {
 type AppVersionVolumeMountPath {
   path: String!
   subpath: String!
+}
+
+type PackageWebcConnection {
+  """Pagination data for this connection."""
+  pageInfo: PageInfo!
+
+  """Contains the nodes in this connection."""
+  edges: [PackageWebcEdge]!
+
+  """Total number of items in the connection."""
+  totalCount: Int
+}
+
+"""A Relay edge containing a `PackageWebc` and its cursor."""
+type PackageWebcEdge {
+  """The item at the end of the edge"""
+  node: PackageWebc
+
+  """A cursor for use in pagination"""
+  cursor: String!
 }
 
 type Command {
@@ -1225,26 +1250,6 @@ type AppTemplateCategory implements Node {
   createdAt: DateTime!
   updatedAt: DateTime!
   appTemplates(offset: Int, before: String, after: String, first: Int, last: Int): AppTemplateConnection!
-}
-
-type PackageWebcConnection {
-  """Pagination data for this connection."""
-  pageInfo: PageInfo!
-
-  """Contains the nodes in this connection."""
-  edges: [PackageWebcEdge]!
-
-  """Total number of items in the connection."""
-  totalCount: Int
-}
-
-"""A Relay edge containing a `PackageWebc` and its cursor."""
-type PackageWebcEdge {
-  """The item at the end of the edge"""
-  node: PackageWebc
-
-  """A cursor for use in pagination"""
-  cursor: String!
 }
 
 type Collection {
@@ -2088,6 +2093,9 @@ type Log {
 
   """Log stream"""
   stream: LogStream
+
+  """ID of instance from which the log was generated"""
+  instanceId: String!
 }
 
 """This is for backwards compatibility with the old PackageInstance type."""
@@ -2249,7 +2257,7 @@ type Query {
   getAppByGlobalAlias(alias: String!): DeployApp
   getDeployApps(sortBy: DeployAppsSortBy, updatedAfter: DateTime, offset: Int, before: String, after: String, first: Int, last: Int): DeployAppConnection!
   getAppVersions(sortBy: DeployAppVersionsSortBy, updatedAfter: DateTime, offset: Int, before: String, after: String, first: Int, last: Int): DeployAppVersionConnection!
-  getAppTemplates(categorySlug: String, offset: Int, before: String, after: String, first: Int, last: Int): AppTemplateConnection
+  getAppTemplates(categorySlug: String, sortBy: AppTemplatesSortBy, offset: Int, before: String, after: String, first: Int, last: Int): AppTemplateConnection
   getAppTemplate(slug: String!): AppTemplate
   getAppTemplateCategories(offset: Int, before: String, after: String, first: Int, last: Int): AppTemplateCategoryConnection
   viewer: User
@@ -2346,6 +2354,12 @@ type DNSRecordEdge {
 enum DNSRecordsSortBy {
   NEWEST
   OLDEST
+}
+
+enum AppTemplatesSortBy {
+  NEWEST
+  OLDEST
+  POPULAR
 }
 
 type AppTemplateCategoryConnection {
@@ -2788,6 +2802,9 @@ type Mutation {
   generateDeployConfigToken(input: GenerateDeployConfigTokenInput!): GenerateDeployConfigTokenPayload
   renameApp(input: RenameAppInput!): RenameAppPayload
   renameAppAlias(input: RenameAppAliasInput!): RenameAppAliasPayload
+
+  """Purges all cache for this app version"""
+  purgeCacheForAppVersion(input: PurgeCacheForAppVersionInput!): PurgeCacheForAppVersionPayload
   requestAppTransfer(input: RequestAppTransferInput!): RequestAppTransferPayload
   acceptAppTransferRequest(input: AcceptAppTransferRequestInput!): AcceptAppTransferRequestPayload
   removeAppTransferRequest(input: RemoveAppTransferRequestInput!): RemoveAppTransferRequestPayload
@@ -3026,6 +3043,18 @@ input RenameAppAliasInput {
   clientMutationId: String
 }
 
+"""Purges all cache for this app version"""
+type PurgeCacheForAppVersionPayload {
+  appVersion: DeployAppVersion!
+  clientMutationId: String
+}
+
+input PurgeCacheForAppVersionInput {
+  """ID of the app version to purge cache for."""
+  id: ID!
+  clientMutationId: String
+}
+
 type RequestAppTransferPayload {
   appTransferRequest: AppTransferRequest
   wasInstantlyTransferred: Boolean!
@@ -3086,6 +3115,7 @@ input CreateRepoForAppTemplateInput {
   name: String!
   namespace: String!
   private: Boolean = false
+  domains: [String] = null
   clientMutationId: String
 }
 
@@ -3606,9 +3636,9 @@ type TagPackageReleasePayload {
 
 input TagPackageReleaseInput {
   packageReleaseId: ID!
-  name: String!
   version: String!
-  manifest: String!
+  name: String
+  manifest: String
   namespace: String
   description: String
   license: String
