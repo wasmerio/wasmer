@@ -112,6 +112,9 @@ pub fn get_app_config_from_current_dir() -> Result<(AppConfigV1, std::path::Path
 ///
 /// Provides convenience methods for resolving an app identifier or loading it
 /// from a local app.yaml.
+///
+/// NOTE: this is a separate struct to enfore keeping the documentation
+/// consistent.
 #[derive(clap::Parser, Debug)]
 pub struct AppIdentOpts {
     /// Identifier of the application.
