@@ -36,7 +36,7 @@ impl AsyncCliCommand for CmdAppPurgeCache {
 
         let version_id = app.active_version.id;
 
-        let name = format!("{}/{}", app.owner.global_name, app.name);
+        let name = format!("{} ({})", app.name, app.owner.global_name);
 
         println!(
             "Purging caches for {}, app version {}...",
