@@ -47,7 +47,7 @@ impl AsyncCliCommand for CmdAppPurgeCache {
         let vars = wasmer_api::types::PurgeCacheForAppVersionVars { id: version_id };
         wasmer_api::query::purge_cache_for_app_version(&client, vars).await?;
 
-        println!("Caches purged!");
+        println!("🚽 swirl! All caches have been purged!");
 
         Ok(())
     }
