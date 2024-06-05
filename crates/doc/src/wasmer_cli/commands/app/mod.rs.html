@@ -53,6 +53,9 @@
 <a href="#53" id="53">53</a>
 <a href="#54" id="54">54</a>
 <a href="#55" id="55">55</a>
+<a href="#56" id="56">56</a>
+<a href="#57" id="57">57</a>
+<a href="#58" id="58">58</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Edge app commands.
 
 </span><span class="kw">pub mod </span>create;
@@ -62,6 +65,7 @@
 <span class="kw">pub mod </span>info;
 <span class="kw">pub mod </span>list;
 <span class="kw">pub mod </span>logs;
+<span class="kw">pub mod </span>purge_cache;
 <span class="kw">pub mod </span>version;
 
 <span class="kw">mod </span>util;
@@ -71,15 +75,16 @@
 <span class="doccomment">/// Manage Wasmer Deploy apps.
 </span><span class="attr">#[derive(clap::Subcommand, Debug)]
 </span><span class="kw">pub enum </span>CmdApp {
+    Deploy(deploy::CmdAppDeploy),
+    Create(create::CmdAppCreate),
     Get(get::CmdAppGet),
     Info(info::CmdAppInfo),
     List(list::CmdAppList),
     Logs(logs::CmdAppLogs),
-    Create(create::CmdAppCreate),
+    PurgeCache(purge_cache::CmdAppPurgeCache),
     Delete(delete::CmdAppDelete),
     <span class="attr">#[clap(subcommand)]
     </span>Version(version::CmdAppVersion),
-    Deploy(deploy::CmdAppDeploy),
 }
 
 <span class="attr">#[async_trait::async_trait]
@@ -105,6 +110,7 @@
             <span class="self">Self</span>::Delete(cmd) =&gt; cmd.run_async().<span class="kw">await</span>,
             <span class="self">Self</span>::Version(cmd) =&gt; cmd.run_async().<span class="kw">await</span>,
             <span class="self">Self</span>::Deploy(cmd) =&gt; cmd.run_async().<span class="kw">await</span>,
+            <span class="self">Self</span>::PurgeCache(cmd) =&gt; cmd.run_async().<span class="kw">await</span>,
         }
     }
 }

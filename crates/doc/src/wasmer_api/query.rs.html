@@ -1169,6 +1169,20 @@
 <a href="#1169" id="1169">1169</a>
 <a href="#1170" id="1170">1170</a>
 <a href="#1171" id="1171">1171</a>
+<a href="#1172" id="1172">1172</a>
+<a href="#1173" id="1173">1173</a>
+<a href="#1174" id="1174">1174</a>
+<a href="#1175" id="1175">1175</a>
+<a href="#1176" id="1176">1176</a>
+<a href="#1177" id="1177">1177</a>
+<a href="#1178" id="1178">1178</a>
+<a href="#1179" id="1179">1179</a>
+<a href="#1180" id="1180">1180</a>
+<a href="#1181" id="1181">1181</a>
+<a href="#1182" id="1182">1182</a>
+<a href="#1183" id="1183">1183</a>
+<a href="#1184" id="1184">1184</a>
+<a href="#1185" id="1185">1185</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{collections::HashSet, pin::Pin, time::Duration};
 
 <span class="kw">use </span>anyhow::{bail, Context};
@@ -2306,6 +2320,20 @@
             <span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>((items, new_vars)))
         },
     )
+}
+
+<span class="kw">pub async fn </span>purge_cache_for_app_version(
+    client: <span class="kw-2">&amp;</span>WasmerClient,
+    vars: types::PurgeCacheForAppVersionVars,
+) -&gt; <span class="prelude-ty">Result</span>&lt;(), anyhow::Error&gt; {
+    client
+        .run_graphql_strict(types::PurgeCacheForAppVersion::build(vars))
+        .<span class="kw">await
+        </span>.map_err(anyhow::Error::from)
+        .map(|x| x.purge_cache_for_app_version)
+        .context(<span class="string">&quot;backend did not return data&quot;</span>)<span class="question-mark">?</span>;
+
+    <span class="prelude-val">Ok</span>(())
 }
 
 <span class="doccomment">/// Convert a [`OffsetDateTime`] to a unix timestamp that the WAPM backend

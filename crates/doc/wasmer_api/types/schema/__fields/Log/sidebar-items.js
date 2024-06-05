@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":["__typename","datetime","message","stream","timestamp"]};
+window.SIDEBAR_ITEMS = {"struct":["__typename","datetime","instanceId","message","stream","timestamp"]};

@@ -256,6 +256,9 @@
 <a href="#256" id="256">256</a>
 <a href="#257" id="257">257</a>
 <a href="#258" id="258">258</a>
+<a href="#259" id="259">259</a>
+<a href="#260" id="260">260</a>
+<a href="#261" id="261">261</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>anyhow::{bail, Context};
 <span class="kw">use </span>colored::Colorize;
 <span class="kw">use </span>dialoguer::Confirm;
@@ -370,6 +373,9 @@
 ///
 /// Provides convenience methods for resolving an app identifier or loading it
 /// from a local app.yaml.
+///
+/// NOTE: this is a separate struct to prevent the need for copy-pasting the
+/// field docs
 </span><span class="attr">#[derive(clap::Parser, Debug)]
 </span><span class="kw">pub struct </span>AppIdentOpts {
     <span class="doccomment">/// Identifier of the application.
@@ -381,7 +387,7 @@
     /// - namespace/app-name
     /// - app-alias
     /// - App ID
-    </span><span class="kw">pub </span>app_ident: <span class="prelude-ty">Option</span>&lt;AppIdent&gt;,
+    </span><span class="kw">pub </span>app: <span class="prelude-ty">Option</span>&lt;AppIdent&gt;,
 }
 
 <span class="comment">// Allowing because this is not performance-critical at all.
@@ -406,7 +412,7 @@
 
 <span class="kw">impl </span>AppIdentOpts {
     <span class="kw">pub fn </span>resolve_static(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;ResolvedAppIdent, anyhow::Error&gt; {
-        <span class="kw">if let </span><span class="prelude-val">Some</span>(id) = <span class="kw-2">&amp;</span><span class="self">self</span>.app_ident {
+        <span class="kw">if let </span><span class="prelude-val">Some</span>(id) = <span class="kw-2">&amp;</span><span class="self">self</span>.app {
             <span class="kw">return </span><span class="prelude-val">Ok</span>(ResolvedAppIdent::Ident(id.clone()));
         }
 

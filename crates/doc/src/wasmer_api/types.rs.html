@@ -1579,6 +1579,23 @@
 <a href="#1579" id="1579">1579</a>
 <a href="#1580" id="1580">1580</a>
 <a href="#1581" id="1581">1581</a>
+<a href="#1582" id="1582">1582</a>
+<a href="#1583" id="1583">1583</a>
+<a href="#1584" id="1584">1584</a>
+<a href="#1585" id="1585">1585</a>
+<a href="#1586" id="1586">1586</a>
+<a href="#1587" id="1587">1587</a>
+<a href="#1588" id="1588">1588</a>
+<a href="#1589" id="1589">1589</a>
+<a href="#1590" id="1590">1590</a>
+<a href="#1591" id="1591">1591</a>
+<a href="#1592" id="1592">1592</a>
+<a href="#1593" id="1593">1593</a>
+<a href="#1594" id="1594">1594</a>
+<a href="#1595" id="1595">1595</a>
+<a href="#1596" id="1596">1596</a>
+<a href="#1597" id="1597">1597</a>
+<a href="#1598" id="1598">1598</a>
 </pre></div><pre class="rust"><code><span class="kw">pub use </span>queries::<span class="kw-2">*</span>;
 
 <span class="kw">pub use </span>cynic::Id;
@@ -3126,6 +3143,23 @@
         <span class="kw">pub </span>name: String,
         <span class="kw">pub </span>slug: String,
         <span class="kw">pub </span>records: <span class="prelude-ty">Option</span>&lt;Vec&lt;<span class="prelude-ty">Option</span>&lt;DnsRecord&gt;&gt;&gt;,
+    }
+
+    <span class="attr">#[derive(cynic::QueryVariables, Debug)]
+    </span><span class="kw">pub struct </span>PurgeCacheForAppVersionVars {
+        <span class="kw">pub </span>id: cynic::Id,
+    }
+
+    <span class="attr">#[derive(cynic::QueryFragment, Debug)]
+    </span><span class="kw">pub struct </span>PurgeCacheForAppVersionPayload {
+        <span class="kw">pub </span>app_version: DeployAppVersion,
+    }
+
+    <span class="attr">#[derive(cynic::QueryFragment, Debug)]
+    #[cynic(graphql_type = <span class="string">&quot;Mutation&quot;</span>, variables = <span class="string">&quot;PurgeCacheForAppVersionVars&quot;</span>)]
+    </span><span class="kw">pub struct </span>PurgeCacheForAppVersion {
+        <span class="attr">#[arguments(input: {id: <span class="macro-nonterminal">$id</span>})]
+        </span><span class="kw">pub </span>purge_cache_for_app_version: <span class="prelude-ty">Option</span>&lt;PurgeCacheForAppVersionPayload&gt;,
     }
 
     <span class="attr">#[derive(cynic::Scalar, Debug, Clone)]
