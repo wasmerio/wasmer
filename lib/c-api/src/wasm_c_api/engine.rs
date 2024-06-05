@@ -311,20 +311,6 @@ cfg_if! {
             let engine: Engine = Engine::default();
             Box::new(wasm_engine_t { inner: engine })
         }
-    }
-     else if #[cfg(feature = "wamr")] {
-        /// Creates the WAMR Engine.
-        ///
-        /// # Example
-        ///
-        /// See [`wasm_engine_delete`].
-        ///
-        /// cbindgen:ignore
-        #[no_mangle]
-        pub extern "C" fn wasm_engine_new() -> Box<wasm_engine_t> {
-            let engine: Engine = Engine::default();
-            Box::new(wasm_engine_t { inner: engine })
-        }
     } else {
         /// Creates a new unknown engine, i.e. it will panic with an error message.
         ///
