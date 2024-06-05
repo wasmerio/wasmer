@@ -1547,6 +1547,23 @@ mod queries {
         pub records: Option<Vec<Option<DnsRecord>>>,
     }
 
+    #[derive(cynic::QueryVariables, Debug)]
+    pub struct PurgeCacheForAppVersionVars {
+        pub id: cynic::Id,
+    }
+
+    #[derive(cynic::QueryFragment, Debug)]
+    pub struct PurgeCacheForAppVersionPayload {
+        pub app_version: DeployAppVersion,
+    }
+
+    #[derive(cynic::QueryFragment, Debug)]
+    #[cynic(graphql_type = "Mutation", variables = "PurgeCacheForAppVersionVars")]
+    pub struct PurgeCacheForAppVersion {
+        #[arguments(input: {id: $id})]
+        pub purge_cache_for_app_version: Option<PurgeCacheForAppVersionPayload>,
+    }
+
     #[derive(cynic::Scalar, Debug, Clone)]
     pub struct BigInt(pub i64);
 

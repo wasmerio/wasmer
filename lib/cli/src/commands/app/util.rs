@@ -112,6 +112,9 @@ pub fn get_app_config_from_current_dir() -> Result<(AppConfigV1, std::path::Path
 ///
 /// Provides convenience methods for resolving an app identifier or loading it
 /// from a local app.yaml.
+///
+/// NOTE: this is a separate struct to prevent the need for copy-pasting the
+/// field docs
 #[derive(clap::Parser, Debug)]
 pub struct AppIdentOpts {
     /// Identifier of the application.
@@ -123,7 +126,7 @@ pub struct AppIdentOpts {
     /// - namespace/app-name
     /// - app-alias
     /// - App ID
-    pub app_ident: Option<AppIdent>,
+    pub app: Option<AppIdent>,
 }
 
 // Allowing because this is not performance-critical at all.
@@ -148,7 +151,7 @@ impl ResolvedAppIdent {
 
 impl AppIdentOpts {
     pub fn resolve_static(&self) -> Result<ResolvedAppIdent, anyhow::Error> {
-        if let Some(id) = &self.app_ident {
+        if let Some(id) = &self.app {
             return Ok(ResolvedAppIdent::Ident(id.clone()));
         }
 
