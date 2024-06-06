@@ -12,6 +12,10 @@ pub struct HttpRequest {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub method: Option<String>,
 
+    /// HTTP headers added to the request.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub headers: Option<Vec<HttpHeader>>,
+
     /// Request body as a string.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub body: Option<String>,
@@ -24,6 +28,15 @@ pub struct HttpRequest {
 
     #[serde(skip_serializing_if = "Option::is_none")]
     pub expect: Option<HttpRequestExpect>,
+}
+
+/// Definition for an HTTP header.
+#[derive(
+    schemars::JsonSchema, serde::Serialize, serde::Deserialize, PartialEq, Eq, Clone, Debug,
+)]
+pub struct HttpHeader {
+    pub name: String,
+    pub value: String,
 }
 
 /// Validation checks for an [`HttpRequest`].
