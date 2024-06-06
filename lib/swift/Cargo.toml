@@ -1,0 +1,42 @@
+[package]
+name = "wasmer-swift"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[lib]
+crate-type = ["staticlib", "lib"]
+name = "wasmer_swift"
+
+[dependencies]
+anyhow = "1.0.86"
+env_logger = "0.11.3"
+log = "0.4.21"
+reqwest = { version = "0.12.4", features = [
+	"blocking",
+	"macos-system-configuration",
+], default-features = false }
+thiserror = "1.0.61"
+tokio = { version = "1", features = [
+	"sync",
+	"macros",
+	"time",
+	"rt",
+], default_features = false }
+tracing = "0.1.40"
+uniffi = "0.27"
+url = "2.5.0"
+virtual-fs = { path = "../virtual-fs", version = "0.12.0", default-features = false, features = [
+	"webc-fs",
+] }
+wasmer = { version = "4.3.1", path = "../api", default-features = false, features = [
+	"wasm-c-api",
+] }
+wasmer-registry = { version = "5.13.0", path = "../registry" }
+wasmer-wasix.workspace = true
+webc.workspace = true
+
+
+[build-dependencies]
+uniffi = { version = "0.27", features = ["build"] }

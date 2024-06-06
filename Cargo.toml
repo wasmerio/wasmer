@@ -68,6 +68,7 @@ members = [
     "lib/wasix",
     "lib/wasm-interface",
     "lib/journal",
+	"lib/swift",
     "tests/integration/cli",
     "tests/integration/ios",
     "tests/lib/compiler-test-derive",
@@ -148,7 +149,8 @@ default = ["wat", "wast", "cache", "wasi", "engine", "emscripten", "middlewares"
 # That means: that is able to execute modules
 backend = []
 jsc = ["wasmer/jsc", "backend", "wat", "wasmer/std"]
-wasm-c-api = ["wasmer/wasm-c-api", "backend", "wat", "wasmer/std"]
+wamr = ["wasm-c-api"]
+wasm-c-api = ["wasmer/wasm-c-api", "wat"]
 engine = ["universal"]
 universal = []
 cache = ["wasmer-cache"]
@@ -281,7 +283,7 @@ required-features = ["cranelift"]
 [[example]]
 name = "wasi"
 path = "examples/wasi.rs"
-required-features = ["backend", "wasi"]
+required-features = ["wasi"]
 
 [[example]]
 name = "wasi-manual-setup"
