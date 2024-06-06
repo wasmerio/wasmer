@@ -195,6 +195,13 @@ pub struct AppConfigCapabilityMapV1 {
     /// Enables app bootstrapping with startup snapshots.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub instaboot: Option<AppConfigCapabilityInstaBootV1>,
+
+    /// Additional unknown capabilities.
+    ///
+    /// This provides a small bit of forwards compatibility for newly added
+    /// capabilities.
+    #[serde(flatten)]
+    pub other: HashMap<String, serde_json::Value>,
 }
 
 /// Memory capability settings.
