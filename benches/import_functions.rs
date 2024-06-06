@@ -56,6 +56,7 @@ pub fn run_import_inner(store: &mut Store, n_fn: u32, compiler_name: &str, c: &m
 }
 
 fn run_import_functions_benchmarks_small(_c: &mut Criterion) {
+    #[allow(unused_variables)]
     let size = 10;
 
     #[cfg(feature = "llvm")]
@@ -78,6 +79,7 @@ fn run_import_functions_benchmarks_small(_c: &mut Criterion) {
 }
 
 fn run_import_functions_benchmarks_medium(_c: &mut Criterion) {
+    #[allow(unused_variables)]
     let size = 100;
 
     #[cfg(feature = "llvm")]
@@ -100,6 +102,7 @@ fn run_import_functions_benchmarks_medium(_c: &mut Criterion) {
 }
 
 fn run_import_functions_benchmarks_large(_c: &mut Criterion) {
+    #[allow(unused_variables)]
     let size = 1000;
     #[cfg(feature = "llvm")]
     {

@@ -211,6 +211,11 @@ pub(crate) fn path_open_internal(
         let mut guard = processing_inode.write();
 
         let deref_mut = guard.deref_mut();
+
+        if o_flags.contains(Oflags::EXCL) && o_flags.contains(Oflags::CREATE) {
+            return Ok(Err(Errno::Exist));
+        }
+
         match deref_mut {
             Kind::File {
                 ref mut handle,
@@ -225,9 +230,6 @@ pub(crate) fn path_open_internal(
                 }
                 if o_flags.contains(Oflags::DIRECTORY) {
                     return Ok(Err(Errno::Notdir));
-                }
-                if o_flags.contains(Oflags::EXCL) {
-                    return Ok(Err(Errno::Exist));
                 }
 
                 let open_options = open_options
@@ -274,8 +276,12 @@ pub(crate) fn path_open_internal(
                     return Ok(Err(Errno::Notcapable));
                 }
             }
-            Kind::Dir { .. }
-            | Kind::Socket { .. }
+            Kind::Dir { .. } => {
+                if fs_rights_base.contains(Rights::FD_WRITE) {
+                    return Ok(Err(Errno::Isdir));
+                }
+            }
+            Kind::Socket { .. }
             | Kind::Pipe { .. }
             | Kind::EventNotifications { .. }
             | Kind::Epoll { .. } => {}
