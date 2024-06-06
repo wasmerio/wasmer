@@ -23,7 +23,14 @@ fn main() {
         let dst = Config::new(wamr_dir.clone())
             .always_configure(true)
             .generator("Unix Makefiles")
-            .define("CMAKE_BUILD_TYPE", "Release")
+            .define(
+                "CMAKE_BUILD_TYPE",
+                if cfg!(debug_assertions) {
+                    "RelWithDebInfo"
+                } else {
+                    "Release"
+                },
+            )
             .define("WAMR_BUILD_AOT", "0")
             //.define("WAMR_BUILD_LOAD_CUSTOM_SECTION", "1")
             //.define("WAMR_BUILD_CUSTOM_NAME_SECTION", "1")
