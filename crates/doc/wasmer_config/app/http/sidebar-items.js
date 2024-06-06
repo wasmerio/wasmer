@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":["HttpRequest","HttpRequestExpect"]};
+window.SIDEBAR_ITEMS = {"struct":["HttpHeader","HttpRequest","HttpRequestExpect"]};
