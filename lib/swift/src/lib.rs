@@ -43,11 +43,6 @@ pub enum WasmerError {
 
 #[uniffi::export]
 pub fn run_package(webc_bytes: Vec<u8>, args: Vec<String>) -> Result<String, WasmerError> {
-    env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("trace")).init();
-    log::warn!("[root] warn");
-    log::info!("[root] info");
-    log::debug!("[root] debug");
-
     let tokio_rt = tokio::runtime::Runtime::new().unwrap();
     let _enter = tokio_rt.enter();
     let container = err!(webc::Container::from_bytes(webc_bytes));
