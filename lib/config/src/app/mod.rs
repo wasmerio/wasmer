@@ -234,7 +234,16 @@ pub struct AppConfigCapabilityInstaBootV1 {
     ///
     /// NOTE: if no requests are configured, then a single HTTP
     /// request to '/' will be performed instead.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub requests: Vec<HttpRequest>,
+
+    /// Maximum age of snapshots.
+    ///
+    /// Format: 5m, 1h, 2d, ...
+    ///
+    /// Snapshots older than this value will be automatically purged.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub max_age: Option<String>,
 }
 
 #[cfg(test)]
