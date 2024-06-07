@@ -19,7 +19,7 @@ int main(int argc, char *argv[])
     {
         char *newargv[] = {argv[0], "child", NULL};
 
-        execv("/bin/main", newargv);
+        execv("/code/main.wasm", newargv);
 
         exit(EXIT_FAILURE);
     }

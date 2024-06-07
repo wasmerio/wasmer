@@ -22,7 +22,7 @@ int main(int argc, char *argv[])
         char *newargv[] = {argv[0], "child", NULL};
         char *newenviron[] = {"foo=bar", NULL};
 
-        execve("/bin/main", newargv, newenviron);
+        execve("/code/main.wasm", newargv, newenviron);
 
         exit(EXIT_FAILURE);
     }

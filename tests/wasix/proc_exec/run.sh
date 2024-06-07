@@ -1,9 +1,5 @@
 #!/bin/bash
 
-$WASMER -q package build -o main.webc . 2>/dev/null
-
-$WASMER -q run main.webc > output
-
-rm main.webc
+$WASMER -q run main.wasm --mapdir=/code:. > output
 
 printf "0" | diff -u output - 1>/dev/null
