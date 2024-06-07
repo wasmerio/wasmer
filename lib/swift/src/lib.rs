@@ -1,25 +1,10 @@
-use reqwest::Client;
-use std::{
-    path::{Path, PathBuf},
-    sync::Arc,
-    time::Duration,
-};
-use tokio::runtime::Handle;
-use virtual_fs::{AsyncReadExt, AsyncSeekExt};
-use wasmer::AsEngineRef;
-use wasmer::Engine;
-use wasmer_wasix::{bin_factory::BinaryPackage, runners::wasi::WasiRunner, WasiError};
+use tokio::runtime::Runtime;
+use virtual_fs::{AsyncSeekExt, AsyncReadExt};
+use std::sync::Arc;
 use wasmer_wasix::{
-    http::HttpClient,
-    runners::Runner,
-    runtime::{
-        module_cache::{FileSystemCache, ModuleCache, SharedCache},
-        package_loader::BuiltinPackageLoader,
-        task_manager::tokio::TokioTaskManager,
-    },
-    PluggableRuntime, Runtime,
+    runtime::{package_loader::BuiltinPackageLoader, task_manager::tokio::TokioTaskManager},
+    PluggableRuntime, bin_factory::BinaryPackage, runners::{wasi::WasiRunner, Runner},
 };
-use webc::Container;
 
 uniffi::setup_scaffolding!();
 
@@ -43,15 +28,14 @@ pub enum WasmerError {
 
 #[uniffi::export]
 pub fn run_package(webc_bytes: Vec<u8>, args: Vec<String>) -> Result<String, WasmerError> {
-    let tokio_rt = tokio::runtime::Runtime::new().unwrap();
+    let tokio_rt = Runtime::new().unwrap();
     let _enter = tokio_rt.enter();
     let container = err!(webc::Container::from_bytes(webc_bytes));
     let tasks = TokioTaskManager::new(tokio_rt.handle().clone());
     let tasks = Arc::new(tasks);
     let mut rt = PluggableRuntime::new(Arc::clone(&tasks) as Arc<_>);
-    rt.set_engine(Some(Engine::default()))
+    rt.set_engine(Some(wasmer::Engine::default()))
         .set_package_loader(BuiltinPackageLoader::new());
-    println!("Ready to take off...\n");
 
     let pkg = tokio_rt
         .handle()

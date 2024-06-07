@@ -10,14 +10,8 @@ crate-type = ["staticlib", "lib"]
 name = "wasmer_swift"
 
 [dependencies]
-anyhow = "1.0.86"
-thiserror = "1.0.61"
-tokio = { version = "1", features = [
-	"sync",
-	"macros",
-	"time",
-	"rt",
-], default_features = false }
+thiserror = "1"
+tokio = { version = "1.28.1", features = [ "rt" ], default_features = false }
 uniffi = "0.27"
 virtual-fs = { path = "../virtual-fs", version = "0.12.0", default-features = false, features = [
 	"webc-fs",
