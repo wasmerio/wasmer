@@ -1510,18 +1510,12 @@ pub(crate) fn _prepare_wasi(
             })
             .collect::<Vec<_>>();
 
-        'outer: for (key, val) in envs {
+        for (key, val) in envs {
             let val = val.as_bytes().to_vec();
-
-            for (existing_key, existing_val) in existing_envs.iter_mut() {
-                if existing_key == &key {
-                    *existing_val = val;
-
-                    continue 'outer;
-                }
+            match existing_envs.iter_mut().find(|(existing_key, existing_val)| existing_key == &key) {
+                Some((_, existing_val)) =>  *existing_val = val,
+                None => existing_envs.push((key, val))
             }
-
-            existing_envs.push((key, val));
         }
 
         let envs = conv_env_vars(existing_envs);
