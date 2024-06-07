@@ -1,9 +1,11 @@
-use tokio::runtime::Runtime;
-use virtual_fs::{AsyncSeekExt, AsyncReadExt};
 use std::sync::Arc;
+use tokio::runtime::Runtime;
+use virtual_fs::{AsyncReadExt, AsyncSeekExt};
 use wasmer_wasix::{
+    bin_factory::BinaryPackage,
+    runners::{wasi::WasiRunner, Runner},
     runtime::{package_loader::BuiltinPackageLoader, task_manager::tokio::TokioTaskManager},
-    PluggableRuntime, bin_factory::BinaryPackage, runners::{wasi::WasiRunner, Runner},
+    PluggableRuntime,
 };
 
 uniffi::setup_scaffolding!();
