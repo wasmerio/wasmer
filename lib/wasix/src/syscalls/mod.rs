@@ -1496,31 +1496,35 @@ pub(crate) fn _prepare_wasi(
         wasi_env.state = Arc::new(wasi_state);
     }
 
-    // Append the new env vars to the old ones
+    // Replace the env vars with the provided ones
     if let Some(envs) = envs {
-        // append new env vars and replace old ones if they exist
         let mut guard = wasi_env.state.envs.lock().unwrap();
 
-        let mut env_map = guard
+        let mut existing_envs = guard
             .iter()
             .map(|b| {
                 let string = String::from_utf8_lossy(b);
                 let (key, val) = string.split_once('=').expect("env var is malformed");
 
-                (key.to_string(), val.to_string())
+                (key.to_string(), val.to_string().as_bytes().to_vec())
             })
-            .collect::<HashMap<_, _>>();
+            .collect::<Vec<_>>();
 
-        for (key, val) in envs {
-            env_map.insert(key, val);
+        'outer: for (key, val) in envs {
+            let val = val.as_bytes().to_vec();
+
+            for (existing_key, existing_val) in existing_envs.iter_mut() {
+                if existing_key == &key {
+                    *existing_val = val;
+
+                    continue 'outer;
+                }
+            }
+
+            existing_envs.push((key, val));
         }
 
-        let envs = env_map
-            .into_iter()
-            .map(|(k, v)| (k, v.as_bytes().to_vec()))
-            .collect();
-
-        let envs = conv_env_vars(envs);
+        let envs = conv_env_vars(existing_envs);
 
         *guard = envs;
 
