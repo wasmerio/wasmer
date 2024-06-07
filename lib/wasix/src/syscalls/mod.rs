@@ -1512,9 +1512,12 @@ pub(crate) fn _prepare_wasi(
 
         for (key, val) in envs {
             let val = val.as_bytes().to_vec();
-            match existing_envs.iter_mut().find(|(existing_key, existing_val)| existing_key == &key) {
-                Some((_, existing_val)) =>  *existing_val = val,
-                None => existing_envs.push((key, val))
+            match existing_envs
+                .iter_mut()
+                .find(|(existing_key, _)| existing_key == &key)
+            {
+                Some((_, existing_val)) => *existing_val = val,
+                None => existing_envs.push((key, val)),
             }
         }
 
