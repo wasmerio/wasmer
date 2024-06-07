@@ -29,10 +29,8 @@ pub async fn spawn_exec(
     env: WasiEnv,
     runtime: &Arc<dyn Runtime + Send + Sync + 'static>,
 ) -> Result<TaskJoinHandle, SpawnError> {
-    // Spawn union the file system
     spawn_union_fs(&env, &binary).await?;
 
-    // Load the WASM
     let wasm = spawn_load_wasm(&env, &binary, name).await?;
 
     spawn_exec_wasm(wasm, name, env, runtime).await
@@ -45,10 +43,8 @@ pub async fn spawn_exec_wasm(
     env: WasiEnv,
     runtime: &Arc<dyn Runtime + Send + Sync + 'static>,
 ) -> Result<TaskJoinHandle, SpawnError> {
-    // Load the module
     let module = spawn_load_module(&env, name, wasm, runtime).await?;
 
-    // Now run the module
     spawn_exec_module(module, env, runtime)
 }
 

@@ -59,46 +59,12 @@ impl BinFactory {
         name: &str,
         fs: Option<&dyn FileSystem>,
     ) -> Option<BinaryPackage> {
-        let name = name.to_string();
-
-        // Fast path
-        {
-            let cache = self.local.read().unwrap();
-            if let Some(data) = cache.get(&name) {
-                return data.clone();
-            }
-        }
-
-        // Slow path
-        let mut cache = self.local.write().unwrap();
-
-        // Check the cache
-        if let Some(data) = cache.get(&name) {
-            return data.clone();
-        }
-
-        // Check the filesystem for the file
-        if name.starts_with('/') {
-            if let Some(fs) = fs {
-                match load_package_from_filesystem(fs, name.as_ref(), self.runtime()).await {
-                    Ok(pkg) => {
-                        cache.insert(name, Some(pkg.clone()));
-                        return Some(pkg);
-                    }
-                    Err(e) => {
-                        tracing::warn!(
-                            path = name,
-                            error = &*e,
-                            "Unable to load the package from disk"
-                        );
-                    }
-                }
-            }
-        }
-
-        // NAK
-        cache.insert(name, None);
-        None
+        self.get_executable(name, fs)
+            .await
+            .and_then(|executable| match executable {
+                Executable::Wasm(_) => None,
+                Executable::BinaryPackage(pkg) => Some(pkg),
+            })
     }
 
     pub fn spawn<'a>(
@@ -228,28 +194,6 @@ impl BinFactory {
         cache.insert(name, None);
         None
     }
-}
-
-async fn load_package_from_filesystem(
-    fs: &dyn FileSystem,
-    path: &Path,
-    rt: &(dyn Runtime + Send + Sync),
-) -> Result<BinaryPackage, anyhow::Error> {
-    let mut f = fs
-        .new_open_options()
-        .read(true)
-        .open(path)
-        .context("Unable to open the file")?;
-
-    let mut data = Vec::with_capacity(f.size() as usize);
-    f.read_to_end(&mut data).await.context("Read failed")?;
-
-    let container = Container::from_bytes(data).context("Unable to parse the WEBC file")?;
-    let pkg = BinaryPackage::from_webc(&container, rt)
-        .await
-        .context("Unable to load the package")?;
-
-    Ok(pkg)
 }
 
 pub enum Executable {
