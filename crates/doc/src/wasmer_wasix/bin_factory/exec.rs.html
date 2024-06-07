@@ -329,6 +329,12 @@
 <a href="#329" id="329">329</a>
 <a href="#330" id="330">330</a>
 <a href="#331" id="331">331</a>
+<a href="#332" id="332">332</a>
+<a href="#333" id="333">333</a>
+<a href="#334" id="334">334</a>
+<a href="#335" id="335">335</a>
+<a href="#336" id="336">336</a>
+<a href="#337" id="337">337</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::sync::Arc;
 
 <span class="kw">use crate</span>::{
@@ -360,17 +366,23 @@
     env: WasiEnv,
     runtime: <span class="kw-2">&amp;</span>Arc&lt;<span class="kw">dyn </span>Runtime + Send + Sync + <span class="lifetime">&#39;static</span>&gt;,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;TaskJoinHandle, SpawnError&gt; {
-    <span class="comment">// Load the WASM
-    </span><span class="kw">let </span>wasm = spawn_load_wasm(<span class="kw-2">&amp;</span>env, <span class="kw-2">&amp;</span>binary, name).<span class="kw">await</span><span class="question-mark">?</span>;
+    spawn_union_fs(<span class="kw-2">&amp;</span>env, <span class="kw-2">&amp;</span>binary).<span class="kw">await</span><span class="question-mark">?</span>;
 
-    <span class="comment">// Load the module
-    </span><span class="kw">let </span>module = spawn_load_module(<span class="kw-2">&amp;</span>env, name, wasm, runtime).<span class="kw">await</span><span class="question-mark">?</span>;
+    <span class="kw">let </span>wasm = spawn_load_wasm(<span class="kw-2">&amp;</span>env, <span class="kw-2">&amp;</span>binary, name).<span class="kw">await</span><span class="question-mark">?</span>;
 
-    <span class="comment">// Spawn union the file system
-    </span>spawn_union_fs(<span class="kw-2">&amp;</span>env, <span class="kw-2">&amp;</span>binary).<span class="kw">await</span><span class="question-mark">?</span>;
+    spawn_exec_wasm(wasm, name, env, runtime).<span class="kw">await
+</span>}
 
-    <span class="comment">// Now run the module
-    </span>spawn_exec_module(module, env, runtime)
+<span class="attr">#[tracing::instrument(level = <span class="string">&quot;trace&quot;</span>, skip_all, fields(%name))]
+</span><span class="kw">pub async fn </span>spawn_exec_wasm(
+    wasm: <span class="kw-2">&amp;</span>[u8],
+    name: <span class="kw-2">&amp;</span>str,
+    env: WasiEnv,
+    runtime: <span class="kw-2">&amp;</span>Arc&lt;<span class="kw">dyn </span>Runtime + Send + Sync + <span class="lifetime">&#39;static</span>&gt;,
+) -&gt; <span class="prelude-ty">Result</span>&lt;TaskJoinHandle, SpawnError&gt; {
+    <span class="kw">let </span>module = spawn_load_module(<span class="kw-2">&amp;</span>env, name, wasm, runtime).<span class="kw">await</span><span class="question-mark">?</span>;
+
+    spawn_exec_module(module, env, runtime)
 }
 
 <span class="kw">pub async fn </span>spawn_load_wasm&lt;<span class="lifetime">&#39;a</span>&gt;(

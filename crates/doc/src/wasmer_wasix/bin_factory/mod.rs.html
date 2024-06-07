@@ -168,6 +168,41 @@
 <a href="#168" id="168">168</a>
 <a href="#169" id="169">169</a>
 <a href="#170" id="170">170</a>
+<a href="#171" id="171">171</a>
+<a href="#172" id="172">172</a>
+<a href="#173" id="173">173</a>
+<a href="#174" id="174">174</a>
+<a href="#175" id="175">175</a>
+<a href="#176" id="176">176</a>
+<a href="#177" id="177">177</a>
+<a href="#178" id="178">178</a>
+<a href="#179" id="179">179</a>
+<a href="#180" id="180">180</a>
+<a href="#181" id="181">181</a>
+<a href="#182" id="182">182</a>
+<a href="#183" id="183">183</a>
+<a href="#184" id="184">184</a>
+<a href="#185" id="185">185</a>
+<a href="#186" id="186">186</a>
+<a href="#187" id="187">187</a>
+<a href="#188" id="188">188</a>
+<a href="#189" id="189">189</a>
+<a href="#190" id="190">190</a>
+<a href="#191" id="191">191</a>
+<a href="#192" id="192">192</a>
+<a href="#193" id="193">193</a>
+<a href="#194" id="194">194</a>
+<a href="#195" id="195">195</a>
+<a href="#196" id="196">196</a>
+<a href="#197" id="197">197</a>
+<a href="#198" id="198">198</a>
+<a href="#199" id="199">199</a>
+<a href="#200" id="200">200</a>
+<a href="#201" id="201">201</a>
+<a href="#202" id="202">202</a>
+<a href="#203" id="203">203</a>
+<a href="#204" id="204">204</a>
+<a href="#205" id="205">205</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{
     collections::HashMap,
     future::Future,
@@ -178,6 +213,7 @@
 };
 
 <span class="kw">use </span>anyhow::Context;
+<span class="kw">use </span>exec::spawn_exec_wasm;
 <span class="kw">use </span>virtual_fs::{AsyncReadExt, FileSystem};
 <span class="kw">use </span>wasmer::FunctionEnvMut;
 <span class="kw">use </span>wasmer_wasix_types::wasi::Errno;
@@ -222,55 +258,19 @@
         cache.insert(name.to_string(), <span class="prelude-val">Some</span>(binary));
     }
 
-    <span class="comment">// TODO: remove allow once BinFactory is refactored
-    // currently fine because a BinFactory is only used by a single process tree
-    </span><span class="attr">#[allow(clippy::await_holding_lock)]
+    <span class="attr">#[allow(clippy::await_holding_lock)]
     </span><span class="kw">pub async fn </span>get_binary(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         name: <span class="kw-2">&amp;</span>str,
         fs: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span><span class="kw">dyn </span>FileSystem&gt;,
     ) -&gt; <span class="prelude-ty">Option</span>&lt;BinaryPackage&gt; {
-        <span class="kw">let </span>name = name.to_string();
-
-        <span class="comment">// Fast path
-        </span>{
-            <span class="kw">let </span>cache = <span class="self">self</span>.local.read().unwrap();
-            <span class="kw">if let </span><span class="prelude-val">Some</span>(data) = cache.get(<span class="kw-2">&amp;</span>name) {
-                <span class="kw">return </span>data.clone();
-            }
-        }
-
-        <span class="comment">// Slow path
-        </span><span class="kw">let </span><span class="kw-2">mut </span>cache = <span class="self">self</span>.local.write().unwrap();
-
-        <span class="comment">// Check the cache
-        </span><span class="kw">if let </span><span class="prelude-val">Some</span>(data) = cache.get(<span class="kw-2">&amp;</span>name) {
-            <span class="kw">return </span>data.clone();
-        }
-
-        <span class="comment">// Check the filesystem for the file
-        </span><span class="kw">if </span>name.starts_with(<span class="string">&#39;/&#39;</span>) {
-            <span class="kw">if let </span><span class="prelude-val">Some</span>(fs) = fs {
-                <span class="kw">match </span>load_package_from_filesystem(fs, name.as_ref(), <span class="self">self</span>.runtime()).<span class="kw">await </span>{
-                    <span class="prelude-val">Ok</span>(pkg) =&gt; {
-                        cache.insert(name, <span class="prelude-val">Some</span>(pkg.clone()));
-                        <span class="kw">return </span><span class="prelude-val">Some</span>(pkg);
-                    }
-                    <span class="prelude-val">Err</span>(e) =&gt; {
-                        <span class="macro">tracing::warn!</span>(
-                            path = name,
-                            error = <span class="kw-2">&amp;*</span>e,
-                            <span class="string">&quot;Unable to load the package from disk&quot;
-                        </span>);
-                    }
-                }
-            }
-        }
-
-        <span class="comment">// NAK
-        </span>cache.insert(name, <span class="prelude-val">None</span>);
-        <span class="prelude-val">None
-    </span>}
+        <span class="self">self</span>.get_executable(name, fs)
+            .<span class="kw">await
+            </span>.and_then(|executable| <span class="kw">match </span>executable {
+                Executable::Wasm(<span class="kw">_</span>) =&gt; <span class="prelude-val">None</span>,
+                Executable::BinaryPackage(pkg) =&gt; <span class="prelude-val">Some</span>(pkg),
+            })
+    }
 
     <span class="kw">pub fn </span>spawn&lt;<span class="lifetime">&#39;a</span>&gt;(
         <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="self">self</span>,
@@ -281,7 +281,7 @@
         Box::pin(<span class="kw">async move </span>{
             <span class="comment">// Find the binary (or die trying) and make the spawn type
             </span><span class="kw">let </span>res = <span class="self">self
-                </span>.get_binary(name.as_str(), <span class="prelude-val">Some</span>(env.fs_root()))
+                </span>.get_executable(name.as_str(), <span class="prelude-val">Some</span>(env.fs_root()))
                 .<span class="kw">await
                 </span>.ok_or_else(|| SpawnError::BinaryNotFound {
                     binary: name.clone(),
@@ -289,11 +289,18 @@
             <span class="kw">if </span>res.is_err() {
                 env.on_exit(<span class="prelude-val">Some</span>(Errno::Noent.into())).<span class="kw">await</span>;
             }
-            <span class="kw">let </span>binary = res<span class="question-mark">?</span>;
+            <span class="kw">let </span>executable = res<span class="question-mark">?</span>;
 
             <span class="comment">// Execute
-            </span>spawn_exec(binary, name.as_str(), store, env, <span class="kw-2">&amp;</span><span class="self">self</span>.runtime).<span class="kw">await
-        </span>})
+            </span><span class="kw">match </span>executable {
+                Executable::Wasm(bytes) =&gt; {
+                    spawn_exec_wasm(<span class="kw-2">&amp;</span>bytes, name.as_str(), env, <span class="kw-2">&amp;</span><span class="self">self</span>.runtime).<span class="kw">await
+                </span>}
+                Executable::BinaryPackage(pkg) =&gt; {
+                    spawn_exec(pkg, name.as_str(), store, env, <span class="kw-2">&amp;</span><span class="self">self</span>.runtime).<span class="kw">await
+                </span>}
+            }
+        })
     }
 
     <span class="kw">pub fn </span>try_built_in(
@@ -315,13 +322,71 @@
         }
         <span class="prelude-val">Err</span>(SpawnError::BinaryNotFound { binary: name })
     }
+
+    <span class="comment">// TODO: remove allow once BinFactory is refactored
+    // currently fine because a BinFactory is only used by a single process tree
+    </span><span class="attr">#[allow(clippy::await_holding_lock)]
+    </span><span class="kw">pub async fn </span>get_executable(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        name: <span class="kw-2">&amp;</span>str,
+        fs: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span><span class="kw">dyn </span>FileSystem&gt;,
+    ) -&gt; <span class="prelude-ty">Option</span>&lt;Executable&gt; {
+        <span class="kw">let </span>name = name.to_string();
+
+        <span class="comment">// Fast path
+        </span>{
+            <span class="kw">let </span>cache = <span class="self">self</span>.local.read().unwrap();
+            <span class="kw">if let </span><span class="prelude-val">Some</span>(data) = cache.get(<span class="kw-2">&amp;</span>name) {
+                data.clone().map(Executable::BinaryPackage);
+            }
+        }
+
+        <span class="comment">// Slow path
+        </span><span class="kw">let </span><span class="kw-2">mut </span>cache = <span class="self">self</span>.local.write().unwrap();
+
+        <span class="comment">// Check the cache
+        </span><span class="kw">if let </span><span class="prelude-val">Some</span>(data) = cache.get(<span class="kw-2">&amp;</span>name) {
+            <span class="kw">return </span>data.clone().map(Executable::BinaryPackage);
+        }
+
+        <span class="comment">// Check the filesystem for the file
+        </span><span class="kw">if </span>name.starts_with(<span class="string">&#39;/&#39;</span>) {
+            <span class="kw">if let </span><span class="prelude-val">Some</span>(fs) = fs {
+                <span class="kw">match </span>load_executable_from_filesystem(fs, name.as_ref(), <span class="self">self</span>.runtime()).<span class="kw">await </span>{
+                    <span class="prelude-val">Ok</span>(executable) =&gt; {
+                        <span class="kw">if let </span>Executable::BinaryPackage(pkg) = <span class="kw-2">&amp;</span>executable {
+                            cache.insert(name, <span class="prelude-val">Some</span>(pkg.clone()));
+                        }
+
+                        <span class="kw">return </span><span class="prelude-val">Some</span>(executable);
+                    }
+                    <span class="prelude-val">Err</span>(e) =&gt; {
+                        <span class="macro">tracing::warn!</span>(
+                            path = name,
+                            error = <span class="kw-2">&amp;*</span>e,
+                            <span class="string">&quot;Unable to load the package from disk&quot;
+                        </span>);
+                    }
+                }
+            }
+        }
+
+        <span class="comment">// NAK
+        </span>cache.insert(name, <span class="prelude-val">None</span>);
+        <span class="prelude-val">None
+    </span>}
 }
 
-<span class="kw">async fn </span>load_package_from_filesystem(
+<span class="kw">pub enum </span>Executable {
+    Wasm(bytes::Bytes),
+    BinaryPackage(BinaryPackage),
+}
+
+<span class="kw">async fn </span>load_executable_from_filesystem(
     fs: <span class="kw-2">&amp;</span><span class="kw">dyn </span>FileSystem,
     path: <span class="kw-2">&amp;</span>Path,
     rt: <span class="kw-2">&amp;</span>(<span class="kw">dyn </span>Runtime + Send + Sync),
-) -&gt; <span class="prelude-ty">Result</span>&lt;BinaryPackage, anyhow::Error&gt; {
+) -&gt; <span class="prelude-ty">Result</span>&lt;Executable, anyhow::Error&gt; {
     <span class="kw">let </span><span class="kw-2">mut </span>f = fs
         .new_open_options()
         .read(<span class="bool-val">true</span>)
@@ -331,11 +396,16 @@
     <span class="kw">let </span><span class="kw-2">mut </span>data = Vec::with_capacity(f.size() <span class="kw">as </span>usize);
     f.read_to_end(<span class="kw-2">&amp;mut </span>data).<span class="kw">await</span>.context(<span class="string">&quot;Read failed&quot;</span>)<span class="question-mark">?</span>;
 
-    <span class="kw">let </span>container = Container::from_bytes(data).context(<span class="string">&quot;Unable to parse the WEBC file&quot;</span>)<span class="question-mark">?</span>;
-    <span class="kw">let </span>pkg = BinaryPackage::from_webc(<span class="kw-2">&amp;</span>container, rt)
-        .<span class="kw">await
-        </span>.context(<span class="string">&quot;Unable to load the package&quot;</span>)<span class="question-mark">?</span>;
+    <span class="kw">let </span>bytes: bytes::Bytes = data.into();
 
-    <span class="prelude-val">Ok</span>(pkg)
+    <span class="kw">if let </span><span class="prelude-val">Ok</span>(container) = Container::from_bytes(bytes.clone()) {
+        <span class="kw">let </span>pkg = BinaryPackage::from_webc(<span class="kw-2">&amp;</span>container, rt)
+            .<span class="kw">await
+            </span>.context(<span class="string">&quot;Unable to load the package&quot;</span>)<span class="question-mark">?</span>;
+
+        <span class="prelude-val">Ok</span>(Executable::BinaryPackage(pkg))
+    } <span class="kw">else </span>{
+        <span class="prelude-val">Ok</span>(Executable::Wasm(bytes))
+    }
 }
 </code></pre></div></section></main></body></html>
