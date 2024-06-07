@@ -394,10 +394,7 @@ impl StoreOptions {
     }
 }
 
-#[cfg(all(
-    not(feature = "compiler"),
-    any(feature = "jsc", feature = "wamr")
-))]
+#[cfg(all(not(feature = "compiler"), any(feature = "jsc", feature = "wamr")))]
 impl StoreOptions {
     /// Get the store (headless engine)
     pub fn get_store(&self) -> Result<(Store, CompilerType)> {
