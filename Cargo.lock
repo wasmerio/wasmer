@@ -7295,7 +7295,6 @@ dependencies = [
  "uniffi",
  "virtual-fs",
  "wasmer",
- "wasmer-registry",
  "wasmer-wasix",
  "webc",
 ]
