@@ -330,11 +330,13 @@ pub(crate) fn path_open_internal(
             // once we got the data we need from the parent, we lookup the host file
             // todo: extra check that opening with write access is okay
             let handle = {
+                // We set create_new because the path already didn't resolve to an existing file,
+                // so it must be created.
                 let open_options = open_options
                     .read(minimum_rights.read)
                     .append(minimum_rights.append)
                     .write(minimum_rights.write)
-                    .create_new(minimum_rights.create_new);
+                    .create_new(true);
 
                 if minimum_rights.read {
                     open_flags |= Fd::READ;
@@ -349,9 +351,19 @@ pub(crate) fn path_open_internal(
                     open_flags |= Fd::TRUNCATE;
                 }
 
-                Some(wasi_try_ok_ok!(open_options
-                    .open(&new_file_host_path)
-                    .map_err(|e| { fs_error_into_wasi_err(e) })))
+                match open_options.open(&new_file_host_path) {
+                    Ok(handle) => Some(handle),
+                    Err(err) => {
+                        // Even though the file does not exist, it still failed to create with
+                        // `AlreadyExists` error.  This can happen if the path resolves to a
+                        // symlink that points outside the FS sandbox.
+                        if err == FsError::AlreadyExists {
+                            return Ok(Err(Errno::Perm));
+                        }
+
+                        return Ok(Err(fs_error_into_wasi_err(err)));
+                    }
+                }
             };
 
             let new_inode = {
