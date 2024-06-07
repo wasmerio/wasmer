@@ -77,7 +77,7 @@ while read dir; do
 
     cmd="cd $dir; \
         $CC $CFLAGS $LDFLAGS -o main.wasm main.c; \
-        wasm-opt -O4 --asyncify -g --fpcast-emu main.wasm -o main.wasm -pa max-func-params@32; \
+        wasm-opt -O4 --asyncify -g main.wasm -o main.wasm; \
         ./run.sh"
 
     if bash -c "$cmd"; then

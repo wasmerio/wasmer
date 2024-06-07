@@ -1137,6 +1137,20 @@ pub fn get_all_dns_records_stream(
     )
 }
 
+pub async fn purge_cache_for_app_version(
+    client: &WasmerClient,
+    vars: types::PurgeCacheForAppVersionVars,
+) -> Result<(), anyhow::Error> {
+    client
+        .run_graphql_strict(types::PurgeCacheForAppVersion::build(vars))
+        .await
+        .map_err(anyhow::Error::from)
+        .map(|x| x.purge_cache_for_app_version)
+        .context("backend did not return data")?;
+
+    Ok(())
+}
+
 /// Convert a [`OffsetDateTime`] to a unix timestamp that the WAPM backend
 /// understands.
 fn unix_timestamp(ts: OffsetDateTime) -> f64 {

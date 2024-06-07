@@ -133,6 +133,8 @@ impl<'a> fmt::Display for JournalEntry<'a> {
                 if o_flags.contains(wasi::Oflags::CREATE) {
                     if o_flags.contains(wasi::Oflags::TRUNC) {
                         write!(f, "fd-create-new (fd={}, path={})", fd, path)
+                    } else if o_flags.contains(wasi::Oflags::EXCL) {
+                        write!(f, "fd-create-excl (fd={}, path={})", fd, path)
                     } else {
                         write!(f, "fd-create (fd={}, path={})", fd, path)
                     }

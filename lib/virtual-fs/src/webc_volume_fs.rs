@@ -206,13 +206,9 @@ impl VirtualFile for File {
     }
 
     fn last_modified(&self) -> u64 {
-        self.timestamps.map(|t| t.modified()).unwrap_or_else(|| {
-            // HACK: timestamps are not present in webc v2, so we have to return
-            // a stub modified time. previously we used to just return 0, but that
-            // proved to cause problems with programs that interpret the value 0.
-            // to circumvent this problem, we decided to return a non-zero value.
-            std::time::UNIX_EPOCH.elapsed().unwrap().as_secs()
-        })
+        self.timestamps
+            .map(|t| t.modified())
+            .unwrap_or_else(|| get_modified(None))
     }
 
     fn created_time(&self) -> u64 {
@@ -295,21 +291,33 @@ impl AsyncWrite for File {
     }
 }
 
+// HACK: timestamps are not present in webc v2, so we have to return
+// a stub modified time. previously we used to just return 0, but that
+// proved to cause problems with programs that interpret the value 0.
+// to circumvent this problem, we decided to return a non-zero value.
+fn get_modified(timestamps: Option<webc::Timestamps>) -> u64 {
+    timestamps.map(|t| t.modified()).unwrap_or(1)
+}
+
 fn compat_meta(meta: webc::compat::Metadata) -> Metadata {
     match meta {
-        webc::compat::Metadata::Dir { .. } => Metadata {
+        webc::compat::Metadata::Dir { timestamps } => Metadata {
             ft: FileType {
                 dir: true,
                 ..Default::default()
             },
+            modified: get_modified(timestamps),
             ..Default::default()
         },
-        webc::compat::Metadata::File { length, .. } => Metadata {
+        webc::compat::Metadata::File {
+            length, timestamps, ..
+        } => Metadata {
             ft: FileType {
                 file: true,
                 ..Default::default()
             },
             len: length.try_into().unwrap(),
+            modified: get_modified(timestamps),
             ..Default::default()
         },
     }
@@ -423,6 +431,8 @@ mod tests {
             .unwrap()
             .map(|r| r.unwrap())
             .collect();
+
+        let modified = get_modified(None);
         let expected = vec![
             DirEntry {
                 path: "/lib/.DS_Store".into(),
@@ -433,7 +443,7 @@ mod tests {
                     },
                     accessed: 0,
                     created: 0,
-                    modified: 0,
+                    modified,
                     len: 6148,
                 }),
             },
@@ -446,7 +456,7 @@ mod tests {
                     },
                     accessed: 0,
                     created: 0,
-                    modified: 0,
+                    modified,
                     len: 0,
                 }),
             },
@@ -459,7 +469,7 @@ mod tests {
                     },
                     accessed: 0,
                     created: 0,
-                    modified: 0,
+                    modified,
                     len: 4694941,
                 }),
             },
@@ -472,7 +482,7 @@ mod tests {
                     },
                     accessed: 0,
                     created: 0,
-                    modified: 0,
+                    modified,
                     len: 0,
                 }),
             },
@@ -488,6 +498,7 @@ mod tests {
 
         let fs = WebcVolumeFileSystem::new(volume);
 
+        let modified = get_modified(None);
         let python_wasm = crate::Metadata {
             ft: crate::FileType {
                 file: true,
@@ -495,7 +506,7 @@ mod tests {
             },
             accessed: 0,
             created: 0,
-            modified: 0,
+            modified,
             len: 4694941,
         };
         assert_eq!(
@@ -521,7 +532,7 @@ mod tests {
                 },
                 accessed: 0,
                 created: 0,
-                modified: 0,
+                modified,
                 len: 0,
             },
         );

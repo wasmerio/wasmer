@@ -80,6 +80,7 @@ pub fn path_open<M: MemorySize>(
         fs_rights_base,
         fs_rights_inheriting,
         fs_flags,
+        None,
     )?);
     let env = ctx.data();
 
@@ -123,6 +124,7 @@ pub(crate) fn path_open_internal(
     fs_rights_base: Rights,
     fs_rights_inheriting: Rights,
     fs_flags: Fdflags,
+    with_fd: Option<WasiFd>,
 ) -> Result<Result<WasiFd, Errno>, WasiError> {
     let env = ctx.data();
     let (memory, mut state, mut inodes) =
@@ -209,6 +211,11 @@ pub(crate) fn path_open_internal(
         let mut guard = processing_inode.write();
 
         let deref_mut = guard.deref_mut();
+
+        if o_flags.contains(Oflags::EXCL) && o_flags.contains(Oflags::CREATE) {
+            return Ok(Err(Errno::Exist));
+        }
+
         match deref_mut {
             Kind::File {
                 ref mut handle,
@@ -223,9 +230,6 @@ pub(crate) fn path_open_internal(
                 }
                 if o_flags.contains(Oflags::DIRECTORY) {
                     return Ok(Err(Errno::Notdir));
-                }
-                if o_flags.contains(Oflags::EXCL) {
-                    return Ok(Err(Errno::Exist));
                 }
 
                 let open_options = open_options
@@ -252,7 +256,6 @@ pub(crate) fn path_open_internal(
 
                 if let Some(handle) = handle {
                     let handle = handle.read().unwrap();
-                    inode.stat.write().unwrap().st_mtim = handle.last_modified();
                     if let Some(fd) = handle.get_special_fd() {
                         // We clone the file descriptor so that when its closed
                         // nothing bad happens
@@ -273,8 +276,12 @@ pub(crate) fn path_open_internal(
                     return Ok(Err(Errno::Notcapable));
                 }
             }
-            Kind::Dir { .. }
-            | Kind::Socket { .. }
+            Kind::Dir { .. } => {
+                if fs_rights_base.contains(Rights::FD_WRITE) {
+                    return Ok(Err(Errno::Isdir));
+                }
+            }
+            Kind::Socket { .. }
             | Kind::Pipe { .. }
             | Kind::EventNotifications { .. }
             | Kind::Epoll { .. } => {}
@@ -376,13 +383,27 @@ pub(crate) fn path_open_internal(
 
     // TODO: check and reduce these
     // TODO: ensure a mutable fd to root can never be opened
-    let out_fd = wasi_try_ok_ok!(state.fs.create_fd(
-        adjusted_rights,
-        fs_rights_inheriting,
-        fs_flags,
-        open_flags,
-        inode
-    ));
+    let out_fd = wasi_try_ok_ok!(if let Some(fd) = with_fd {
+        state
+            .fs
+            .with_fd(
+                adjusted_rights,
+                fs_rights_inheriting,
+                fs_flags,
+                open_flags,
+                inode,
+                fd,
+            )
+            .map(|_| fd)
+    } else {
+        state.fs.create_fd(
+            adjusted_rights,
+            fs_rights_inheriting,
+            fs_flags,
+            open_flags,
+            inode,
+        )
+    });
 
     Ok(Ok(out_fd))
 }

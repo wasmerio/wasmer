@@ -806,7 +806,7 @@ impl WasiEnv {
                 tracing::trace!(
                     pid=%ctx.data().pid(),
                     ?signal,
-                    "Processing signal",
+                    "processing signal via handler",
                 );
                 if let Err(err) = handler.call(ctx, signal as i32) {
                     match err.downcast::<WasiError>() {
@@ -832,6 +832,10 @@ impl WasiEnv {
                         }
                     }
                 }
+                tracing::trace!(
+                    pid=%ctx.data().pid(),
+                    "signal processed",
+                );
             }
             Ok(true)
         } else {
