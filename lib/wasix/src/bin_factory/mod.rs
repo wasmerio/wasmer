@@ -76,7 +76,7 @@ impl BinFactory {
         Box::pin(async move {
             // Find the binary (or die trying) and make the spawn type
             let res = self
-                .get_binary(name.as_str(), Some(env.fs_root()))
+                .get_executable(name.as_str(), Some(env.fs_root()))
                 .await
                 .ok_or_else(|| SpawnError::BinaryNotFound {
                     binary: name.clone(),
@@ -84,10 +84,17 @@ impl BinFactory {
             if res.is_err() {
                 env.on_exit(Some(Errno::Noent.into())).await;
             }
-            let binary = res?;
+            let executable = res?;
 
             // Execute
-            spawn_exec(binary, name.as_str(), store, env, &self.runtime).await
+            match executable {
+                Executable::Wasm(bytes) => {
+                    spawn_exec_wasm(&bytes, name.as_str(), env, &self.runtime).await
+                }
+                Executable::BinaryPackage(pkg) => {
+                    spawn_exec(pkg, name.as_str(), store, env, &self.runtime).await
+                }
+            }
         })
     }
 
@@ -109,37 +116,6 @@ impl BinFactory {
             tracing::warn!("builtin command without a parent ctx - {}", name);
         }
         Err(SpawnError::BinaryNotFound { binary: name })
-    }
-
-    pub fn spawn_executable<'a>(
-        &'a self,
-        name: String,
-        store: wasmer::Store,
-        env: WasiEnv,
-    ) -> Pin<Box<dyn Future<Output = Result<TaskJoinHandle, SpawnError>> + 'a>> {
-        Box::pin(async move {
-            // Find the binary (or die trying) and make the spawn type
-            let res = self
-                .get_executable(name.as_str(), Some(env.fs_root()))
-                .await
-                .ok_or_else(|| SpawnError::BinaryNotFound {
-                    binary: name.clone(),
-                });
-            if res.is_err() {
-                env.on_exit(Some(Errno::Noent.into())).await;
-            }
-            let executable = res?;
-
-            // Execute
-            match executable {
-                Executable::Wasm(bytes) => {
-                    spawn_exec_wasm(&bytes, name.as_str(), env, &self.runtime).await
-                }
-                Executable::BinaryPackage(pkg) => {
-                    spawn_exec(pkg, name.as_str(), store, env, &self.runtime).await
-                }
-            }
-        })
     }
 
     // TODO: remove allow once BinFactory is refactored

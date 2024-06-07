@@ -117,9 +117,7 @@ pub fn proc_exec<M: MemorySize>(
 
                     let name_inner = name.clone();
                     __asyncify_light(ctx.data(), None, async {
-                        let ret = bin_factory
-                            .spawn_executable(name_inner, new_store, env)
-                            .await;
+                        let ret = bin_factory.spawn(name_inner, new_store, env).await;
                         match ret {
                             Ok(ret) => {
                                 trace!(%child_pid, "spawned sub-process");
@@ -215,7 +213,7 @@ pub fn proc_exec<M: MemorySize>(
                 let env = builder.take().unwrap();
 
                 // Spawn a new process with this current execution environment
-                InlineWaker::block_on(bin_factory.spawn_executable(name, new_store, env))
+                InlineWaker::block_on(bin_factory.spawn(name, new_store, env))
             }
         };
 
