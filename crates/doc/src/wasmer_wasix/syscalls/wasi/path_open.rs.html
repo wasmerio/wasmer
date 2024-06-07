@@ -407,6 +407,18 @@
 <a href="#407" id="407">407</a>
 <a href="#408" id="408">408</a>
 <a href="#409" id="409">409</a>
+<a href="#410" id="410">410</a>
+<a href="#411" id="411">411</a>
+<a href="#412" id="412">412</a>
+<a href="#413" id="413">413</a>
+<a href="#414" id="414">414</a>
+<a href="#415" id="415">415</a>
+<a href="#416" id="416">416</a>
+<a href="#417" id="417">417</a>
+<a href="#418" id="418">418</a>
+<a href="#419" id="419">419</a>
+<a href="#420" id="420">420</a>
+<a href="#421" id="421">421</a>
 </pre></div><pre class="rust"><code><span class="kw">use super</span>::<span class="kw-2">*</span>;
 <span class="kw">use </span><span class="kw">crate</span>::syscalls::<span class="kw-2">*</span>;
 
@@ -739,11 +751,13 @@
             <span class="comment">// once we got the data we need from the parent, we lookup the host file
             // todo: extra check that opening with write access is okay
             </span><span class="kw">let </span>handle = {
-                <span class="kw">let </span>open_options = open_options
+                <span class="comment">// We set create_new because the path already didn&#39;t resolve to an existing file,
+                // so it must be created.
+                </span><span class="kw">let </span>open_options = open_options
                     .read(minimum_rights.read)
                     .append(minimum_rights.append)
                     .write(minimum_rights.write)
-                    .create_new(minimum_rights.create_new);
+                    .create_new(<span class="bool-val">true</span>);
 
                 <span class="kw">if </span>minimum_rights.read {
                     open_flags |= Fd::READ;
@@ -758,9 +772,19 @@
                     open_flags |= Fd::TRUNCATE;
                 }
 
-                <span class="prelude-val">Some</span>(<span class="macro">wasi_try_ok_ok!</span>(open_options
-                    .open(<span class="kw-2">&amp;</span>new_file_host_path)
-                    .map_err(|e| { fs_error_into_wasi_err(e) })))
+                <span class="kw">match </span>open_options.open(<span class="kw-2">&amp;</span>new_file_host_path) {
+                    <span class="prelude-val">Ok</span>(handle) =&gt; <span class="prelude-val">Some</span>(handle),
+                    <span class="prelude-val">Err</span>(err) =&gt; {
+                        <span class="comment">// Even though the file does not exist, it still failed to create with
+                        // `AlreadyExists` error.  This can happen if the path resolves to a
+                        // symlink that points outside the FS sandbox.
+                        </span><span class="kw">if </span>err == FsError::AlreadyExists {
+                            <span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="prelude-val">Err</span>(Errno::Perm));
+                        }
+
+                        <span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="prelude-val">Err</span>(fs_error_into_wasi_err(err)));
+                    }
+                }
             };
 
             <span class="kw">let </span>new_inode = {
