@@ -1496,7 +1496,7 @@ pub(crate) fn _prepare_wasi(
         wasi_env.state = Arc::new(wasi_state);
     }
 
-    // Replace the env vars with the provided ones
+    // Update the env vars
     if let Some(envs) = envs {
         let mut guard = wasi_env.state.envs.lock().unwrap();
 
