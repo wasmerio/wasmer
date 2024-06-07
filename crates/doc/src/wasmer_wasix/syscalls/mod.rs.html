@@ -1524,6 +1524,45 @@
 <a href="#1524" id="1524">1524</a>
 <a href="#1525" id="1525">1525</a>
 <a href="#1526" id="1526">1526</a>
+<a href="#1527" id="1527">1527</a>
+<a href="#1528" id="1528">1528</a>
+<a href="#1529" id="1529">1529</a>
+<a href="#1530" id="1530">1530</a>
+<a href="#1531" id="1531">1531</a>
+<a href="#1532" id="1532">1532</a>
+<a href="#1533" id="1533">1533</a>
+<a href="#1534" id="1534">1534</a>
+<a href="#1535" id="1535">1535</a>
+<a href="#1536" id="1536">1536</a>
+<a href="#1537" id="1537">1537</a>
+<a href="#1538" id="1538">1538</a>
+<a href="#1539" id="1539">1539</a>
+<a href="#1540" id="1540">1540</a>
+<a href="#1541" id="1541">1541</a>
+<a href="#1542" id="1542">1542</a>
+<a href="#1543" id="1543">1543</a>
+<a href="#1544" id="1544">1544</a>
+<a href="#1545" id="1545">1545</a>
+<a href="#1546" id="1546">1546</a>
+<a href="#1547" id="1547">1547</a>
+<a href="#1548" id="1548">1548</a>
+<a href="#1549" id="1549">1549</a>
+<a href="#1550" id="1550">1550</a>
+<a href="#1551" id="1551">1551</a>
+<a href="#1552" id="1552">1552</a>
+<a href="#1553" id="1553">1553</a>
+<a href="#1554" id="1554">1554</a>
+<a href="#1555" id="1555">1555</a>
+<a href="#1556" id="1556">1556</a>
+<a href="#1557" id="1557">1557</a>
+<a href="#1558" id="1558">1558</a>
+<a href="#1559" id="1559">1559</a>
+<a href="#1560" id="1560">1560</a>
+<a href="#1561" id="1561">1561</a>
+<a href="#1562" id="1562">1562</a>
+<a href="#1563" id="1563">1563</a>
+<a href="#1564" id="1564">1564</a>
+<a href="#1565" id="1565">1565</a>
 </pre></div><pre class="rust"><code><span class="attr">#![allow(unused, clippy::too_many_arguments, clippy::cognitive_complexity)]
 
 </span><span class="kw">pub mod </span>types {
@@ -1620,7 +1659,10 @@
     },
     <span class="kw-2">*</span>,
 };
-<span class="kw">use </span><span class="self">self</span>::{state::WasiInstanceGuardMemory, utils::WasiDummyWaker};
+<span class="kw">use </span><span class="self">self</span>::{
+    state::{conv_env_vars, WasiInstanceGuardMemory},
+    utils::WasiDummyWaker,
+};
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">use </span><span class="kw">crate</span>::os::task::{
     process::{WasiProcessId, WasiProcessWait},
     thread::{WasiThread, WasiThreadId},
@@ -3007,12 +3049,48 @@
 }
 
 <span class="comment">// Function to prepare the WASI environment
-</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>_prepare_wasi(wasi_env: <span class="kw-2">&amp;mut </span>WasiEnv, args: <span class="prelude-ty">Option</span>&lt;Vec&lt;String&gt;&gt;) {
+</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>_prepare_wasi(
+    wasi_env: <span class="kw-2">&amp;mut </span>WasiEnv,
+    args: <span class="prelude-ty">Option</span>&lt;Vec&lt;String&gt;&gt;,
+    envs: <span class="prelude-ty">Option</span>&lt;Vec&lt;(String, String)&gt;&gt;,
+) {
     <span class="comment">// Swap out the arguments with the new ones
     </span><span class="kw">if let </span><span class="prelude-val">Some</span>(args) = args {
         <span class="kw">let </span><span class="kw-2">mut </span>wasi_state = wasi_env.state.fork();
         wasi_state.args = args;
         wasi_env.state = Arc::new(wasi_state);
+    }
+
+    <span class="comment">// Update the env vars
+    </span><span class="kw">if let </span><span class="prelude-val">Some</span>(envs) = envs {
+        <span class="kw">let </span><span class="kw-2">mut </span>guard = wasi_env.state.envs.lock().unwrap();
+
+        <span class="kw">let </span><span class="kw-2">mut </span>existing_envs = guard
+            .iter()
+            .map(|b| {
+                <span class="kw">let </span>string = String::from_utf8_lossy(b);
+                <span class="kw">let </span>(key, val) = string.split_once(<span class="string">&#39;=&#39;</span>).expect(<span class="string">&quot;env var is malformed&quot;</span>);
+
+                (key.to_string(), val.to_string().as_bytes().to_vec())
+            })
+            .collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
+
+        <span class="kw">for </span>(key, val) <span class="kw">in </span>envs {
+            <span class="kw">let </span>val = val.as_bytes().to_vec();
+            <span class="kw">match </span>existing_envs
+                .iter_mut()
+                .find(|(existing_key, <span class="kw">_</span>)| existing_key == <span class="kw-2">&amp;</span>key)
+            {
+                <span class="prelude-val">Some</span>((<span class="kw">_</span>, existing_val)) =&gt; <span class="kw-2">*</span>existing_val = val,
+                <span class="prelude-val">None </span>=&gt; existing_envs.push((key, val)),
+            }
+        }
+
+        <span class="kw">let </span>envs = conv_env_vars(existing_envs);
+
+        <span class="kw-2">*</span>guard = envs;
+
+        drop(guard)
     }
 
     <span class="comment">// Close any files after the STDERR that are not preopened

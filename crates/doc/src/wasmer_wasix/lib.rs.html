@@ -846,6 +846,8 @@
 <a href="#846" id="846">846</a>
 <a href="#847" id="847">847</a>
 <a href="#848" id="848">848</a>
+<a href="#849" id="849">849</a>
+<a href="#850" id="850">850</a>
 </pre></div><pre class="rust"><code><span class="comment">// FIXME: merge with ./lib.rs_upstream
 
 </span><span class="attr">#![doc(html_favicon_url = <span class="string">&quot;https://wasmer.io/images/icons/favicon-32x32.png&quot;</span>)]
@@ -1379,6 +1381,7 @@
         <span class="string">&quot;proc_join&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, proc_join::&lt;Memory32&gt;),
         <span class="string">&quot;proc_signal&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, proc_signal::&lt;Memory32&gt;),
         <span class="string">&quot;proc_exec&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, proc_exec::&lt;Memory32&gt;),
+        <span class="string">&quot;proc_exec2&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, proc_exec2::&lt;Memory32&gt;),
         <span class="string">&quot;proc_raise&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, proc_raise),
         <span class="string">&quot;proc_raise_interval&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, proc_raise_interval),
         <span class="string">&quot;proc_spawn&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, proc_spawn::&lt;Memory32&gt;),
@@ -1500,6 +1503,7 @@
         <span class="string">&quot;proc_join&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, proc_join::&lt;Memory64&gt;),
         <span class="string">&quot;proc_signal&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, proc_signal::&lt;Memory64&gt;),
         <span class="string">&quot;proc_exec&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, proc_exec::&lt;Memory64&gt;),
+        <span class="string">&quot;proc_exec2&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, proc_exec2::&lt;Memory64&gt;),
         <span class="string">&quot;proc_raise&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, proc_raise),
         <span class="string">&quot;proc_raise_interval&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, proc_raise_interval),
         <span class="string">&quot;proc_spawn&quot; </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, proc_spawn::&lt;Memory64&gt;),
