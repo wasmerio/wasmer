@@ -1489,24 +1489,15 @@ pub(crate) fn _prepare_wasi(
     args: Option<Vec<String>>,
     envs: Option<Vec<(String, String)>>,
 ) {
-    let mut state_is_forked = false;
-
     // Swap out the arguments with the new ones
     if let Some(args) = args {
         let mut wasi_state = wasi_env.state.fork();
         wasi_state.args = args;
         wasi_env.state = Arc::new(wasi_state);
-        state_is_forked = true;
     }
 
     // Append the new env vars to the old ones
     if let Some(envs) = envs {
-        if !state_is_forked {
-            let mut wasi_state = wasi_env.state.fork();
-            wasi_env.state = Arc::new(wasi_state);
-            state_is_forked = true;
-        }
-
         // append new env vars and replace old ones if they exist
         let mut guard = wasi_env.state.envs.lock().unwrap();
 
