@@ -12,6 +12,7 @@ mod counting;
 mod filter;
 #[cfg(feature = "log-file")]
 mod log_file;
+mod mem_file;
 mod null;
 mod pipe;
 mod printing;
@@ -33,6 +34,7 @@ pub use counting::*;
 pub use filter::*;
 #[cfg(feature = "log-file")]
 pub use log_file::*;
+pub use mem_file::*;
 pub use null::*;
 pub use pipe::*;
 pub use printing::*;

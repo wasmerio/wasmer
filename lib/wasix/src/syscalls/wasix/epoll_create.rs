@@ -18,7 +18,7 @@ pub fn epoll_create<M: MemorySize + 'static>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     ret_fd: WasmPtr<WasiFd, M>,
 ) -> Result<Errno, WasiError> {
-    let fd = wasi_try_ok!(epoll_create_internal(&mut ctx)?);
+    let fd = wasi_try_ok!(epoll_create_internal(&mut ctx, None)?);
     let env = ctx.data();
 
     #[cfg(feature = "journal")]
@@ -40,6 +40,7 @@ pub fn epoll_create<M: MemorySize + 'static>(
 
 pub fn epoll_create_internal(
     ctx: &mut FunctionEnvMut<'_, WasiEnv>,
+    with_fd: Option<WasiFd>,
 ) -> Result<Result<WasiFd, Errno>, WasiError> {
     wasi_try_ok_ok!(WasiEnv::process_signals_and_exit(ctx)?);
 
@@ -60,9 +61,16 @@ pub fn epoll_create_internal(
     );
 
     let rights = Rights::POLL_FD_READWRITE | Rights::FD_FDSTAT_SET_FLAGS;
-    let fd = wasi_try_ok_ok!(state
-        .fs
-        .create_fd(rights, rights, Fdflags::empty(), 0, inode));
+    let fd = wasi_try_ok_ok!(if let Some(fd) = with_fd {
+        state
+            .fs
+            .with_fd(rights, rights, Fdflags::empty(), 0, inode, fd)
+            .map(|_| fd)
+    } else {
+        state
+            .fs
+            .create_fd(rights, rights, Fdflags::empty(), 0, inode)
+    });
 
     Ok(Ok(fd))
 }

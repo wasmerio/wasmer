@@ -341,6 +341,9 @@ impl WasiThread {
 
     /// Adds a signal for this thread to process
     pub fn signal(&self, signal: Signal) {
+        let tid = self.tid();
+        tracing::trace!(%tid, "signal-thread({:?})", signal);
+
         let mut guard = self.state.signals.lock().unwrap();
         if !guard.0.contains(&signal) {
             guard.0.push(signal);
@@ -464,15 +467,19 @@ impl WasiThread {
                         );
                     }
                 }
+                let mut total_forgotten = 0usize;
                 while let Some(disowned) = disown {
-                    for hash in disowned.snapshots.keys() {
-                        tracing::trace!(
-                            "wasi[{}]::stack has been forgotten (hash={})",
-                            self.pid(),
-                            hash
-                        );
+                    for _hash in disowned.snapshots.keys() {
+                        total_forgotten += 1;
                     }
                     disown = disowned.next;
+                }
+                if total_forgotten > 0 {
+                    tracing::trace!(
+                        "wasi[{}]::stack has been forgotten (cnt={})",
+                        self.pid(),
+                        total_forgotten
+                    );
                 }
             } else {
                 memory_stack = &memory_stack[pstack.memory_stack.len()..];

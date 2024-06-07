@@ -1,6 +1,7 @@
 use std::fmt;
 
 use super::*;
+use lz4_flex::block::uncompressed_size;
 use wasmer_wasix_types::wasi;
 
 /// Type of printing mode to use
@@ -15,8 +16,8 @@ impl Default for JournalPrintingMode {
     }
 }
 
-/// The default for runtime is to use the unsupported journal
-/// which will fail to write journal entries if one attempts to do so.
+/// The printing journal writes all the journal entries to the console
+/// as either text or json.
 #[derive(Debug, Default)]
 pub struct PrintingJournal {
     mode: JournalPrintingMode,
@@ -75,12 +76,18 @@ impl<'a> fmt::Display for JournalEntry<'a> {
             JournalEntry::ClearEtherealV1 => {
                 write!(f, "clear-ethereal")
             }
-            JournalEntry::UpdateMemoryRegionV1 { region, data } => write!(
+            JournalEntry::UpdateMemoryRegionV1 {
+                region,
+                compressed_data,
+            } => write!(
                 f,
-                "memory-update (start={}, end={}, data.len={})",
+                "memory-update (start={}, end={}, data.len={}, compressed.len={})",
                 region.start,
                 region.end,
-                data.len()
+                uncompressed_size(compressed_data.as_ref())
+                    .map(|a| a.0)
+                    .unwrap_or_else(|_| compressed_data.as_ref().len()),
+                compressed_data.len()
             ),
             JournalEntry::ProcessExitV1 { exit_code } => {
                 write!(f, "process-exit (code={:?})", exit_code)
@@ -126,6 +133,8 @@ impl<'a> fmt::Display for JournalEntry<'a> {
                 if o_flags.contains(wasi::Oflags::CREATE) {
                     if o_flags.contains(wasi::Oflags::TRUNC) {
                         write!(f, "fd-create-new (fd={}, path={})", fd, path)
+                    } else if o_flags.contains(wasi::Oflags::EXCL) {
+                        write!(f, "fd-create-excl (fd={}, path={})", fd, path)
                     } else {
                         write!(f, "fd-create (fd={}, path={})", fd, path)
                     }

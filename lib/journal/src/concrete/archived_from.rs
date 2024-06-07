@@ -1,4 +1,3 @@
-use lz4_flex::block::decompress_size_prepended;
 use std::borrow::Cow;
 use std::time::SystemTime;
 use wasmer_wasix_types::wasi;
@@ -663,7 +662,7 @@ impl<'a> TryFrom<ArchivedJournalEntry<'a>> for JournalEntry<'a> {
                 },
             ) => Self::UpdateMemoryRegionV1 {
                 region: (*start)..(*end),
-                data: Cow::Owned(decompress_size_prepended(compressed_data.as_ref())?),
+                compressed_data: Cow::Borrowed(compressed_data.as_ref()),
             },
             ArchivedJournalEntry::ProcessExitV1(ArchivedJournalEntryProcessExitV1 {
                 exit_code,

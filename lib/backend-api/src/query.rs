@@ -95,7 +95,7 @@ pub async fn get_signed_url_for_package_upload(
     version: Option<&str>,
 ) -> Result<Option<SignedUrl>, anyhow::Error> {
     client
-        .run_graphql(types::GetSignedUrlForPackageUpload::build(
+        .run_graphql_strict(types::GetSignedUrlForPackageUpload::build(
             GetSignedUrlForPackageUploadVariables {
                 expires_after_seconds,
                 filename,
@@ -1135,6 +1135,20 @@ pub fn get_all_dns_records_stream(
             Ok(Some((items, new_vars)))
         },
     )
+}
+
+pub async fn purge_cache_for_app_version(
+    client: &WasmerClient,
+    vars: types::PurgeCacheForAppVersionVars,
+) -> Result<(), anyhow::Error> {
+    client
+        .run_graphql_strict(types::PurgeCacheForAppVersion::build(vars))
+        .await
+        .map_err(anyhow::Error::from)
+        .map(|x| x.purge_cache_for_app_version)
+        .context("backend did not return data")?;
+
+    Ok(())
 }
 
 /// Convert a [`OffsetDateTime`] to a unix timestamp that the WAPM backend

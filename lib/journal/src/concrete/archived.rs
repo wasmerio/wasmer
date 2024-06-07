@@ -1,4 +1,3 @@
-use lz4_flex::block::compress_prepend_size;
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 use rkyv::ser::{ScratchSpace, Serializer};
 use rkyv::{Archive, CheckBytes, Deserialize as RkyvDeserialize, Serialize as RkyvSerialize};
@@ -443,13 +442,14 @@ impl<'a> JournalEntry<'a> {
             JournalEntry::ClearEtherealV1 => {
                 serializer.serialize_value(&JournalEntryClearEtherealV1 {})
             }
-            JournalEntry::UpdateMemoryRegionV1 { region, data } => {
-                serializer.serialize_value(&JournalEntryUpdateMemoryRegionV1 {
-                    start: region.start,
-                    end: region.end,
-                    compressed_data: compress_prepend_size(data.as_ref()).into(),
-                })
-            }
+            JournalEntry::UpdateMemoryRegionV1 {
+                region,
+                compressed_data,
+            } => serializer.serialize_value(&JournalEntryUpdateMemoryRegionV1 {
+                start: region.start,
+                end: region.end,
+                compressed_data: compressed_data.into(),
+            }),
             JournalEntry::ProcessExitV1 { exit_code } => {
                 serializer.serialize_value(&JournalEntryProcessExitV1 {
                     exit_code: exit_code.map(|e| e.into()),

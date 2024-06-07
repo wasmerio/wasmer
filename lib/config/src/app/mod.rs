@@ -1,8 +1,12 @@
 //! User-facing app.yaml file config: [`AppConfigV1`].
 
 mod healthcheck;
+mod http;
 
-pub use self::healthcheck::{HealthCheckHttpV1, HealthCheckV1};
+pub use self::{
+    healthcheck::{HealthCheckHttpV1, HealthCheckV1},
+    http::HttpRequest,
+};
 
 use std::collections::HashMap;
 
@@ -187,6 +191,17 @@ pub struct AppConfigCapabilityMapV1 {
     /// Instance memory settings.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub memory: Option<AppConfigCapabilityMemoryV1>,
+
+    /// Enables app bootstrapping with startup snapshots.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub instaboot: Option<AppConfigCapabilityInstaBootV1>,
+
+    /// Additional unknown capabilities.
+    ///
+    /// This provides a small bit of forwards compatibility for newly added
+    /// capabilities.
+    #[serde(flatten)]
+    pub other: HashMap<String, serde_json::Value>,
 }
 
 /// Memory capability settings.
@@ -204,6 +219,39 @@ pub struct AppConfigCapabilityMemoryV1 {
     #[schemars(with = "Option<String>")]
     #[serde(skip_serializing_if = "Option::is_none")]
     pub limit: Option<ByteSize>,
+}
+
+/// Enables accelerated instance boot times with startup snapshots.
+///
+/// How it works:
+/// The Edge runtime will create a pre-initialized snapshot of apps that is
+/// ready to serve requests
+/// Your app will then restore from the generated snapshot, which has the
+/// potential to significantly speed up cold starts.
+///
+/// To drive the initialization, multiple http requests can be specified.
+/// All the specified requests will be sent to the app before the snapshot is
+/// created, allowing the app to pre-load files, pre initialize caches, ...
+#[derive(
+    serde::Serialize, serde::Deserialize, schemars::JsonSchema, Clone, Debug, PartialEq, Eq,
+)]
+pub struct AppConfigCapabilityInstaBootV1 {
+    /// HTTP requests to perform during startup snapshot creation.
+    /// Apps can perform all the appropriate warmup logic in these requests.
+    ///
+    /// NOTE: if no requests are configured, then a single HTTP
+    /// request to '/' will be performed instead.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub requests: Vec<HttpRequest>,
+
+    /// Maximum age of snapshots.
+    ///
+    /// Format: 5m, 1h, 2d, ...
+    ///
+    /// After the specified time new snapshots will be created, and the old
+    /// ones discarded.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub max_age: Option<String>,
 }
 
 #[cfg(test)]

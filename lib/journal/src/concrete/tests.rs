@@ -4,6 +4,7 @@ use std::{
 };
 
 use super::*;
+use lz4_flex::compress_prepend_size;
 use rkyv::ser::serializers::{
     AllocScratch, CompositeSerializer, SharedSerializeMap, WriteSerializer,
 };
@@ -115,7 +116,7 @@ pub fn test_record_descriptor_write() {
 pub fn test_record_update_memory() {
     run_test(JournalEntry::UpdateMemoryRegionV1 {
         region: 76u64..8237453u64,
-        data: [74u8; 40960].to_vec().into(),
+        compressed_data: compress_prepend_size(&[74u8; 40960]).into(),
     });
 }
 

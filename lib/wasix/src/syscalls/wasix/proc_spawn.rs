@@ -178,6 +178,7 @@ pub fn proc_spawn_internal(
                         0,
                         inode2,
                         fd,
+                        false,
                     )?;
 
                     trace!("fd_pipe (fd1={}, fd2={})", pipe, fd);
