@@ -13,10 +13,12 @@ rust-version.workspace = true
 version.workspace = true
 
 #####
-# This crate comes in 2 major flavors:
+# This crate comes in 3 major flavors:
 #
 # - `sys`, where `wasmer` will be compiled to a native executable
 #    which provides compilers, engines, a full VM etc.
+# - `wamr`, where `wasmer` will be compiled to a native executable
+#    which provides an interpreter using WAMR as a backend.
 # - `js`, where `wasmer` will be compiled to WebAssembly to run in a
 #   JavaScript host.
 #####
@@ -113,6 +115,7 @@ llvm = ["compiler", "wasmer-compiler-llvm"]
 
 # - Engines.
 engine = ["sys"]
+wamr = ["wasm-c-api", "std", "wat"]
 wasm-c-api = ["wasm-types-polyfill"]
 
 # - Deprecated features.

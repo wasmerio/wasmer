@@ -14,7 +14,7 @@ version.workspace = true
 [dependencies]
 wasmer = { version = "=4.3.1", path = "lib/api", default-features = false }
 wasmer-compiler = { version = "=4.3.1", path = "lib/compiler", features = [
-    "compiler",
+	"compiler",
 ], optional = true }
 wasmer-compiler-cranelift = { version = "=4.3.1", path = "lib/compiler-cranelift", optional = true }
 wasmer-compiler-singlepass = { version = "=4.3.1", path = "lib/compiler-singlepass", optional = true }
@@ -30,51 +30,51 @@ wasmer-middlewares = { version = "=4.3.1", path = "lib/middlewares", optional = 
 # Third party dependencies
 cfg-if = "1.0"
 tokio = { version = "1", features = [
-    "rt",
-    "rt-multi-thread",
-    "macros",
+	"rt",
+	"rt-multi-thread",
+	"macros",
 ], optional = true }
 crossbeam-queue = "0.3.8"
 
 [workspace]
 members = [
-    "fuzz",
-    "lib/api",
-    "lib/api/macro-wasmer-universal-test",
-    "lib/backend-api",
-    "lib/c-api",
-    "lib/c-api/examples/wasmer-capi-examples-runner",
-    "lib/c-api/tests/wasmer-c-api-test-runner",
-    "lib/cache",
-    "lib/cli-compiler",
-    "lib/cli",
-    "lib/compiler-cranelift",
-    "lib/compiler-llvm",
-    "lib/compiler-singlepass",
-    "lib/compiler",
-    "lib/config",
-    "lib/derive",
-    "lib/emscripten",
-    "lib/object",
-    "lib/registry",
-    "lib/sys-utils",
-    "lib/types",
-    "lib/virtual-io",
-    "lib/virtual-fs",
-    "lib/virtual-net",
-    "lib/vm",
-    "lib/wai-bindgen-wasmer",
-    "lib/wasi-types",
-    "lib/wasix",
-    "lib/wasm-interface",
-    "lib/journal",
+	"fuzz",
+	"lib/api",
+	"lib/api/macro-wasmer-universal-test",
+	"lib/backend-api",
+	"lib/c-api",
+	"lib/c-api/examples/wasmer-capi-examples-runner",
+	"lib/c-api/tests/wasmer-c-api-test-runner",
+	"lib/cache",
+	"lib/cli-compiler",
+	"lib/cli",
+	"lib/compiler-cranelift",
+	"lib/compiler-llvm",
+	"lib/compiler-singlepass",
+	"lib/compiler",
+	"lib/config",
+	"lib/derive",
+	"lib/emscripten",
+	"lib/object",
+	"lib/registry",
+	"lib/sys-utils",
+	"lib/types",
+	"lib/virtual-io",
+	"lib/virtual-fs",
+	"lib/virtual-net",
+	"lib/vm",
+	"lib/wai-bindgen-wasmer",
+	"lib/wasi-types",
+	"lib/wasix",
+	"lib/wasm-interface",
+	"lib/journal",
 	"lib/swift",
-    "tests/integration/cli",
-    "tests/integration/ios",
-    "tests/lib/compiler-test-derive",
-    "tests/lib/wast",
-    "tests/wasi-wast",
-    "tests/wasmer-argus",
+	"tests/integration/cli",
+	"tests/integration/ios",
+	"tests/lib/compiler-test-derive",
+	"tests/lib/wast",
+	"tests/wasi-wast",
+	"tests/wasmer-argus",
 ]
 resolver = "2"
 
@@ -93,7 +93,9 @@ wasmer-config = { path = "./lib/config" }
 wasmer-wasix = { path = "./lib/wasix" }
 
 # Wasmer-owned crates
-webc = { version = "6.0.0-alpha9", default-features = false, features = ["package"] }
+webc = { version = "6.0.0-alpha9", default-features = false, features = [
+	"package",
+] }
 edge-schema = { version = "=0.1.0" }
 shared-buffer = "0.1.4"
 
@@ -103,7 +105,7 @@ memoffset = "0.9.0"
 wasmparser = { version = "0.121.0", default-features = false }
 rkyv = { version = "0.7.40", features = ["indexmap", "validation", "strict"] }
 memmap2 = { version = "0.6.2" }
-toml = {version = "0.5.9", features = ["preserve_order"]}
+toml = { version = "0.5.9", features = ["preserve_order"] }
 indexmap = "2"
 serde_yaml = "0.9.34"
 libc = { version = "^0.2", default-features = false }
@@ -118,9 +120,9 @@ rustc_version = "0.4"
 [dev-dependencies]
 
 wasmer = { version = "=4.3.1", path = "lib/api", features = [
-    "compiler",
-    "singlepass",
-    "sys",
+	"compiler",
+	"singlepass",
+	"sys",
 ] }
 anyhow = "1.0"
 criterion = { version = "0.5", default-features = false }
@@ -137,20 +139,27 @@ ureq = "2.6"
 test-log = { version = "0.2", default-features = false, features = ["trace"] }
 tracing = { version = "0.1", default-features = false, features = ["log"] }
 tracing-subscriber = { version = "0.3", default-features = false, features = [
-    "env-filter",
-    "fmt",
+	"env-filter",
+	"fmt",
 ] }
 
 [features]
 # Don't add the compiler features in default, please add them on the Makefile
 # since we might want to autoconfigure them depending on the availability on the host.
-default = ["wat", "wast", "cache", "wasi", "engine", "emscripten", "middlewares"]
+default = [
+	"wat",
+	"wast",
+	"cache",
+	"wasi",
+	"engine",
+	"emscripten",
+	"middlewares",
+]
 # backend means that the `wasmer` crate will be compiled with the `wasmer-compiler` or the `jsc`.
 # That means: that is able to execute modules
 backend = []
 jsc = ["wasmer/jsc", "backend", "wat", "wasmer/std"]
-wamr = ["wasm-c-api"]
-wasm-c-api = ["wasmer/wasm-c-api", "backend", "wat", "wasmer/std"]
+wamr = ["wasmer/wamr"]
 engine = ["universal"]
 universal = []
 cache = ["wasmer-cache"]

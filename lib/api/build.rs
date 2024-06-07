@@ -1,5 +1,5 @@
 fn main() {
-    #[cfg(feature = "wasm-c-api")]
+    #[cfg(feature = "wamr")]
     {
         use cmake::Config;
         use std::{env, path::PathBuf};
