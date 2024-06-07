@@ -27,8 +27,6 @@ pub struct Engine {
 
 impl Engine {
     pub(crate) fn deterministic_id(&self) -> &str {
-        // All js engines have the same id
-        // &format!("wasm-c-api()")
         "wasm-c-api"
     }
 }
@@ -38,7 +36,6 @@ unsafe impl Sync for Engine {}
 
 impl From<&crate::engine::Engine> for Engine {
     fn from(engine: &crate::engine::Engine) -> Self {
-        // engine.0.clone()
         unimplemented!();
     }
 }

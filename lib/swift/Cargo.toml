@@ -11,11 +11,6 @@ name = "wasmer_swift"
 
 [dependencies]
 anyhow = "1.0.86"
-log = "0.4.21"
-reqwest = { version = "0.12.4", features = [
-	"blocking",
-	"macos-system-configuration",
-], default-features = false }
 thiserror = "1.0.61"
 tokio = { version = "1", features = [
 	"sync",
@@ -23,9 +18,7 @@ tokio = { version = "1", features = [
 	"time",
 	"rt",
 ], default_features = false }
-tracing = "0.1.40"
 uniffi = "0.27"
-url = "2.5.0"
 virtual-fs = { path = "../virtual-fs", version = "0.12.0", default-features = false, features = [
 	"webc-fs",
 ] }
