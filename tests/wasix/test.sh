@@ -77,6 +77,7 @@ while read dir; do
 
     cmd="cd $dir; \
         $CC $CFLAGS $LDFLAGS -o main.wasm main.c; \
+        wasm-opt -O4 --asyncify -g main.wasm -o main.wasm; \
         ./run.sh"
 
     if bash -c "$cmd"; then
@@ -85,6 +86,6 @@ while read dir; do
         printf "\rTesting $dir ❌\n"
         status=1
     fi
-done < <(find . -mindepth 1 -maxdepth 1 -type d)
+done < <(find . -mindepth 1 -maxdepth 1 -type d | sort)
 
 exit $status
