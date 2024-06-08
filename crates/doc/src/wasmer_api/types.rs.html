@@ -1596,6 +1596,12 @@
 <a href="#1596" id="1596">1596</a>
 <a href="#1597" id="1597">1597</a>
 <a href="#1598" id="1598">1598</a>
+<a href="#1599" id="1599">1599</a>
+<a href="#1600" id="1600">1600</a>
+<a href="#1601" id="1601">1601</a>
+<a href="#1602" id="1602">1602</a>
+<a href="#1603" id="1603">1603</a>
+<a href="#1604" id="1604">1604</a>
 </pre></div><pre class="rust"><code><span class="kw">pub use </span>queries::<span class="kw-2">*</span>;
 
 <span class="kw">pub use </span>cynic::Id;
@@ -1639,14 +1645,20 @@
         Viewer,
     }
 
+    <span class="attr">#[derive(cynic::QueryFragment, Debug)]
+    #[cynic(graphql_type = <span class="string">&quot;Query&quot;</span>)]
+    </span><span class="kw">pub struct </span>GetCurrentUser {
+        <span class="kw">pub </span>viewer: <span class="prelude-ty">Option</span>&lt;User&gt;,
+    }
+
     <span class="attr">#[derive(cynic::QueryVariables, Debug)]
-    </span><span class="kw">pub struct </span>GetCurrentUserVars {
+    </span><span class="kw">pub struct </span>GetCurrentUserWithNamespacesVars {
         <span class="kw">pub </span>namespace_role: <span class="prelude-ty">Option</span>&lt;GrapheneRole&gt;,
     }
 
     <span class="attr">#[derive(cynic::QueryFragment, Debug)]
-    #[cynic(graphql_type = <span class="string">&quot;Query&quot;</span>, variables = <span class="string">&quot;GetCurrentUserVars&quot;</span>)]
-    </span><span class="kw">pub struct </span>GetCurrentUser {
+    #[cynic(graphql_type = <span class="string">&quot;Query&quot;</span>, variables = <span class="string">&quot;GetCurrentUserWithNamespacesVars&quot;</span>)]
+    </span><span class="kw">pub struct </span>GetCurrentUserWithNamespaces {
         <span class="kw">pub </span>viewer: <span class="prelude-ty">Option</span>&lt;UserWithNamespaces&gt;,
     }
 
@@ -2045,7 +2057,7 @@
     }
 
     <span class="attr">#[derive(cynic::QueryFragment, Debug, Clone, Serialize)]
-    #[cynic(graphql_type = <span class="string">&quot;User&quot;</span>, variables = <span class="string">&quot;GetCurrentUserVars&quot;</span>)]
+    #[cynic(graphql_type = <span class="string">&quot;User&quot;</span>, variables = <span class="string">&quot;GetCurrentUserWithNamespacesVars&quot;</span>)]
     </span><span class="kw">pub struct </span>UserWithNamespaces {
         <span class="kw">pub </span>id: cynic::Id,
         <span class="kw">pub </span>username: String,

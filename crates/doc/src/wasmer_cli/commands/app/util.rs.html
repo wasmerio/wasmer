@@ -259,6 +259,17 @@
 <a href="#259" id="259">259</a>
 <a href="#260" id="260">260</a>
 <a href="#261" id="261">261</a>
+<a href="#262" id="262">262</a>
+<a href="#263" id="263">263</a>
+<a href="#264" id="264">264</a>
+<a href="#265" id="265">265</a>
+<a href="#266" id="266">266</a>
+<a href="#267" id="267">267</a>
+<a href="#268" id="268">268</a>
+<a href="#269" id="269">269</a>
+<a href="#270" id="270">270</a>
+<a href="#271" id="271">271</a>
+<a href="#272" id="272">272</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>anyhow::{bail, Context};
 <span class="kw">use </span>colored::Colorize;
 <span class="kw">use </span>dialoguer::Confirm;
@@ -284,7 +295,7 @@
     <span class="doccomment">/// Backend app VERSION id like &quot;dav_xxysw34234&quot;
     </span>AppVersionId(String),
     NamespacedName(String, String),
-    Alias(String),
+    Name(String),
 }
 
 <span class="kw">impl </span>AppIdent {
@@ -301,9 +312,18 @@
                         </span>.with_context(|| <span class="macro">format!</span>(<span class="string">&quot;Could not query for app version id &#39;{}&#39;&quot;</span>, id))<span class="question-mark">?</span>;
                 <span class="prelude-val">Ok</span>(app)
             }
-            AppIdent::Alias(name) =&gt; wasmer_api::query::get_app_by_alias(client, name.clone())
-                .<span class="kw">await</span><span class="question-mark">?
-                </span>.with_context(|| <span class="macro">format!</span>(<span class="string">&quot;Could not find app with name &#39;{name}&#39;&quot;</span>)),
+            AppIdent::Name(name) =&gt; {
+                <span class="comment">// The API only allows to query by owner + name,
+                // so default to the current user as the owner.
+                // To to so the username must first be retrieved.
+                </span><span class="kw">let </span>user = wasmer_api::query::current_user(client)
+                    .<span class="kw">await</span><span class="question-mark">?
+                    </span>.context(<span class="string">&quot;not logged in&quot;</span>)<span class="question-mark">?</span>;
+
+                wasmer_api::query::get_app(client, user.username, name.clone())
+                    .<span class="kw">await</span><span class="question-mark">?
+                    </span>.with_context(|| <span class="macro">format!</span>(<span class="string">&quot;Could not find app with name &#39;{name}&#39;&quot;</span>))
+            }
             AppIdent::NamespacedName(owner, name) =&gt; {
                 wasmer_api::query::get_app(client, owner.clone(), name.clone())
                     .<span class="kw">await</span><span class="question-mark">?
@@ -341,7 +361,7 @@
                 }
             }
         } <span class="kw">else </span>{
-            <span class="prelude-val">Ok</span>(<span class="self">Self</span>::Alias(s.to_string()))
+            <span class="prelude-val">Ok</span>(<span class="self">Self</span>::Name(s.to_string()))
         }
     }
 }
@@ -421,8 +441,10 @@
 
         <span class="kw">let </span>ident = <span class="kw">if let </span><span class="prelude-val">Some</span>(id) = <span class="kw-2">&amp;</span>config.app_id {
             AppIdent::AppId(id.clone())
+        } <span class="kw">else if let </span><span class="prelude-val">Some</span>(owner) = <span class="kw-2">&amp;</span>config.owner {
+            AppIdent::NamespacedName(owner.clone(), config.name.clone())
         } <span class="kw">else </span>{
-            AppIdent::Alias(config.name.clone())
+            AppIdent::Name(config.name.clone())
         };
 
         <span class="prelude-val">Ok</span>(ResolvedAppIdent::Config {
@@ -458,7 +480,7 @@
         );
         <span class="macro">assert_eq!</span>(
             AppIdent::from_str(<span class="string">&quot;lala&quot;</span>).unwrap(),
-            AppIdent::Alias(<span class="string">&quot;lala&quot;</span>.to_string()),
+            AppIdent::Name(<span class="string">&quot;lala&quot;</span>.to_string()),
         );
 
         <span class="macro">assert_eq!</span>(

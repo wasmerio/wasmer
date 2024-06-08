@@ -1183,6 +1183,18 @@
 <a href="#1183" id="1183">1183</a>
 <a href="#1184" id="1184">1184</a>
 <a href="#1185" id="1185">1185</a>
+<a href="#1186" id="1186">1186</a>
+<a href="#1187" id="1187">1187</a>
+<a href="#1188" id="1188">1188</a>
+<a href="#1189" id="1189">1189</a>
+<a href="#1190" id="1190">1190</a>
+<a href="#1191" id="1191">1191</a>
+<a href="#1192" id="1192">1192</a>
+<a href="#1193" id="1193">1193</a>
+<a href="#1194" id="1194">1194</a>
+<a href="#1195" id="1195">1195</a>
+<a href="#1196" id="1196">1196</a>
+<a href="#1197" id="1197">1197</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{collections::HashSet, pin::Pin, time::Duration};
 
 <span class="kw">use </span>anyhow::{bail, Context};
@@ -1349,7 +1361,15 @@
         </span>.map(|r| r.tag_package_release)
 }
 
-<span class="doccomment">/// Get the currently logged in used, together with all accessible namespaces.
+<span class="doccomment">/// Get the currently logged in user.
+</span><span class="kw">pub async fn </span>current_user(client: <span class="kw-2">&amp;</span>WasmerClient) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;types::User&gt;, anyhow::Error&gt; {
+    client
+        .run_graphql(types::GetCurrentUser::build(()))
+        .<span class="kw">await
+        </span>.map(|x| x.viewer)
+}
+
+<span class="doccomment">/// Get the currently logged in user, together with all accessible namespaces.
 ///
 /// You can optionally filter the namespaces by the user role.
 </span><span class="kw">pub async fn </span>current_user_with_namespaces(
@@ -1357,9 +1377,9 @@
     namespace_role: <span class="prelude-ty">Option</span>&lt;types::GrapheneRole&gt;,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;types::UserWithNamespaces, anyhow::Error&gt; {
     client
-        .run_graphql(types::GetCurrentUser::build(types::GetCurrentUserVars {
-            namespace_role,
-        }))
+        .run_graphql(types::GetCurrentUserWithNamespaces::build(
+            types::GetCurrentUserWithNamespacesVars { namespace_role },
+        ))
         .<span class="kw">await</span><span class="question-mark">?
         </span>.viewer
         .context(<span class="string">&quot;not logged in&quot;</span>)
@@ -1729,9 +1749,11 @@
 
     <span class="comment">// Get all aps in user-accessible namespaces.
     </span><span class="kw">let </span>namespace_res = client
-        .run_graphql(types::GetCurrentUser::build(types::GetCurrentUserVars {
-            namespace_role: <span class="prelude-val">None</span>,
-        }))
+        .run_graphql(types::GetCurrentUserWithNamespaces::build(
+            types::GetCurrentUserWithNamespacesVars {
+                namespace_role: <span class="prelude-val">None</span>,
+            },
+        ))
         .<span class="kw">await</span><span class="question-mark">?</span>;
     <span class="kw">let </span>active_user = namespace_res.viewer.context(<span class="string">&quot;not logged in&quot;</span>)<span class="question-mark">?</span>;
     <span class="kw">let </span>namespace_names = active_user
@@ -1840,9 +1862,11 @@
     client: <span class="kw-2">&amp;</span>WasmerClient,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;types::Namespace&gt;, anyhow::Error&gt; {
     <span class="kw">let </span>user = client
-        .run_graphql(types::GetCurrentUser::build(types::GetCurrentUserVars {
-            namespace_role: <span class="prelude-val">None</span>,
-        }))
+        .run_graphql(types::GetCurrentUserWithNamespaces::build(
+            types::GetCurrentUserWithNamespacesVars {
+                namespace_role: <span class="prelude-val">None</span>,
+            },
+        ))
         .<span class="kw">await</span><span class="question-mark">?
         </span>.viewer
         .context(<span class="string">&quot;not logged in&quot;</span>)<span class="question-mark">?</span>;
