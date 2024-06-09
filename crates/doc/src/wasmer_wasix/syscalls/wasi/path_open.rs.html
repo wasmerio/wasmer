@@ -419,6 +419,8 @@
 <a href="#419" id="419">419</a>
 <a href="#420" id="420">420</a>
 <a href="#421" id="421">421</a>
+<a href="#422" id="422">422</a>
+<a href="#423" id="423">423</a>
 </pre></div><pre class="rust"><code><span class="kw">use super</span>::<span class="kw-2">*</span>;
 <span class="kw">use </span><span class="kw">crate</span>::syscalls::<span class="kw-2">*</span>;
 
@@ -626,6 +628,8 @@
 
     open_options.options(minimum_rights.clone());
 
+    <span class="kw">let </span>orig_path = path;
+
     <span class="kw">let </span>inode = <span class="kw">if let </span><span class="prelude-val">Ok</span>(inode) = maybe_inode {
         <span class="comment">// Happy path, we found the file we&#39;re trying to open
         </span><span class="kw">let </span>processing_inode = inode.clone();
@@ -649,7 +653,7 @@
                     </span><span class="macro">assert!</span>(handle.is_some());
                     <span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="prelude-val">Ok</span>(<span class="kw-2">*</span>special_fd));
                 }
-                <span class="kw">if </span>o_flags.contains(Oflags::DIRECTORY) {
+                <span class="kw">if </span>o_flags.contains(Oflags::DIRECTORY) || orig_path.ends_with(<span class="string">&#39;/&#39;</span>) {
                     <span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="prelude-val">Err</span>(Errno::Notdir));
                 }
 
