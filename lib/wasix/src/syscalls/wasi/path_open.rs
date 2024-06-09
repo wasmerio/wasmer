@@ -205,6 +205,8 @@ pub(crate) fn path_open_internal(
 
     open_options.options(minimum_rights.clone());
 
+    let orig_path = path;
+
     let inode = if let Ok(inode) = maybe_inode {
         // Happy path, we found the file we're trying to open
         let processing_inode = inode.clone();
@@ -228,7 +230,7 @@ pub(crate) fn path_open_internal(
                     assert!(handle.is_some());
                     return Ok(Ok(*special_fd));
                 }
-                if o_flags.contains(Oflags::DIRECTORY) {
+                if o_flags.contains(Oflags::DIRECTORY) || orig_path.ends_with('/') {
                     return Ok(Err(Errno::Notdir));
                 }
 
