@@ -2,36 +2,40 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <sys/wait.h>
+#include <sys/types.h>
+#include <sys/stat.h>
 
 int main(int argc, char *argv[])
 {
     if (argc > 1 && argv[1] != NULL)
     {
-        char *bar = getenv("foo");
+        return (access("/tmp/my_test_dir", F_OK) != 0);
+    }
 
-        return (bar == NULL);
+    int status = 1;
+
+    if (mkdir("/tmp/my_test_dir", 0777) == -1) {
+        goto end;
     }
 
     pid_t pid = fork();
     if (pid == -1)
     {
-        exit(EXIT_FAILURE);
+        goto end;
     }
     else if (pid == 0)
     {
         char *newargv[] = {argv[0], "child", NULL};
-        char *newenviron[] = {"foo=bar", NULL};
 
-        execve("/code/main.wasm", newargv, newenviron);
+        execv("/code/main.wasm", newargv);
 
         exit(EXIT_FAILURE);
     }
     else
     {
-        int status;
         waitpid(pid, &status, 0);
-        printf("%d", status);
     }
 
-    return 0;
+end:
+    printf("%d", status);
 }

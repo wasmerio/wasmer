@@ -9,6 +9,7 @@ use crate::tmp_fs::TmpFileSystem;
 
 pub struct RootFileSystemBuilder {
     default_root_dirs: bool,
+    create_tmp: bool,
     default_dev_files: bool,
     add_wasmer_command: bool,
     stdin: Option<Box<dyn VirtualFile + Send + Sync>>,
@@ -21,6 +22,7 @@ impl Default for RootFileSystemBuilder {
     fn default() -> Self {
         Self {
             default_root_dirs: true,
+            create_tmp: true,
             default_dev_files: true,
             add_wasmer_command: true,
             stdin: None,
@@ -61,10 +63,26 @@ impl RootFileSystemBuilder {
         self
     }
 
+    pub fn with_tmp(mut self, val: bool) -> Self {
+        self.create_tmp = val;
+        self
+    }
+
     pub fn build(self) -> TmpFileSystem {
         let tmp = TmpFileSystem::new();
+
         if self.default_root_dirs {
-            for root_dir in &["/.app", "/.private", "/bin", "/dev", "/etc", "/tmp"] {
+            let default_dirs = {
+                let mut dirs = vec!["/.app", "/.private", "/bin", "/dev", "/etc"];
+
+                if self.create_tmp {
+                    dirs.push("/tmp");
+                }
+
+                dirs
+            };
+
+            for root_dir in &default_dirs {
                 if let Err(err) = tmp.create_dir(Path::new(root_dir)) {
                     debug!("failed to create dir [{}] - {}", root_dir, err);
                 }
