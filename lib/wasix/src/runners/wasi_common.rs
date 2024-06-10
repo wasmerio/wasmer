@@ -7,6 +7,7 @@ use std::{
 use anyhow::{Context, Error};
 use derivative::Derivative;
 use futures::future::BoxFuture;
+use tokio::runtime::Handle;
 use virtual_fs::{FileSystem, FsError, OverlayFileSystem, RootFileSystemBuilder, TmpFileSystem};
 use wasmer::Imports;
 use webc::metadata::annotations::Wasi as WasiAnnotation;
@@ -272,7 +273,7 @@ impl From<MappedDirectory> for MountedDirectory {
             if #[cfg(feature = "host-fs")] {
                 let MappedDirectory { host, guest } = value;
                 let fs: Arc<dyn FileSystem + Send + Sync> =
-                    Arc::new(virtual_fs::ScopedDirectoryFileSystem::new_with_default_runtime(host));
+                    Arc::new(virtual_fs::host_fs::FileSystem::new(Handle::current(), host).unwrap());
 
                 MountedDirectory { guest, fs }
             } else {
