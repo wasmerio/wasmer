@@ -1,1 +1,0 @@
-FROM rust:1
