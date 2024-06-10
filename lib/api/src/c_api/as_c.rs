@@ -76,13 +76,7 @@ pub fn result_to_value(param: &Value) -> wasm_val_t {
                 ref_: unsafe { wasm_func_as_ref(val.as_ref().unwrap().0.handle) },
             },
         },
-        Value::ExternRef(val) => wasm_val_t {
-            kind: wasm_valkind_enum_WASM_EXTERNREF as _,
-            _paddings: Default::default(),
-            of: wasm_val_t__bindgen_ty_1 {
-                ref_: unsafe { wasm_extern_as_ref(todo!()) },
-            },
-        },
+        Value::ExternRef(val) => todo!(),
         Value::V128(_) => todo!(),
     }
 }

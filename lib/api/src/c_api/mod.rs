@@ -46,5 +46,3 @@ pub(crate) mod store;
 pub(crate) mod trap;
 pub(crate) mod typed_function;
 pub(crate) mod vm;
-
-pub use crate::bindings::*;
