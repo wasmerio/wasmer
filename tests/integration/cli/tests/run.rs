@@ -436,9 +436,7 @@ fn run_test_caching_works_for_urls() {
         // Got a cache hit downloading the *.webc file's metadata
         .stderr(contains("web_source: Cache hit"))
         // Cache hit downloading the *.webc file
-        .stderr(contains(
-                "builtin_loader: Cache hit! pkg=python@0.1.0"
-        ))
+        .stderr(contains("builtin_loader: Cache hit! pkg=python@0.1.0"))
         // Cache hit compiling the module
         .stderr(contains("module_cache::filesystem: Cache hit!"));
 }
