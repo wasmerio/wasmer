@@ -41,14 +41,20 @@ mod queries {
         Viewer,
     }
 
+    #[derive(cynic::QueryFragment, Debug)]
+    #[cynic(graphql_type = "Query")]
+    pub struct GetCurrentUser {
+        pub viewer: Option<User>,
+    }
+
     #[derive(cynic::QueryVariables, Debug)]
-    pub struct GetCurrentUserVars {
+    pub struct GetCurrentUserWithNamespacesVars {
         pub namespace_role: Option<GrapheneRole>,
     }
 
     #[derive(cynic::QueryFragment, Debug)]
-    #[cynic(graphql_type = "Query", variables = "GetCurrentUserVars")]
-    pub struct GetCurrentUser {
+    #[cynic(graphql_type = "Query", variables = "GetCurrentUserWithNamespacesVars")]
+    pub struct GetCurrentUserWithNamespaces {
         pub viewer: Option<UserWithNamespaces>,
     }
 
@@ -447,7 +453,7 @@ mod queries {
     }
 
     #[derive(cynic::QueryFragment, Debug, Clone, Serialize)]
-    #[cynic(graphql_type = "User", variables = "GetCurrentUserVars")]
+    #[cynic(graphql_type = "User", variables = "GetCurrentUserWithNamespacesVars")]
     pub struct UserWithNamespaces {
         pub id: cynic::Id,
         pub username: String,

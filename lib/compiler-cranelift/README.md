@@ -33,4 +33,4 @@ attributions of the project.
 [example]: https://github.com/wasmerio/wasmer/blob/main/examples/compiler_cranelift.rs
 [`wasmer-compiler-llvm`]: https://github.com/wasmerio/wasmer/tree/main/lib/compiler-llvm
 [`cranelift-wasm`]: https://crates.io/crates/cranelift-wasm
-[Wasmer `ATTRIBUTIONS`]: https://github.com/wasmerio/wasmer/blob/main/ATTRIBUTIONS.md
+[Wasmer `ATTRIBUTIONS`]: https://github.com/wasmerio/wasmer/blob/main/docs/ATTRIBUTIONS.md

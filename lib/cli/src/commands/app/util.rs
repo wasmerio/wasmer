@@ -23,7 +23,7 @@ pub enum AppIdent {
     /// Backend app VERSION id like "dav_xxysw34234"
     AppVersionId(String),
     NamespacedName(String, String),
-    Alias(String),
+    Name(String),
 }
 
 impl AppIdent {
@@ -40,9 +40,18 @@ impl AppIdent {
                         .with_context(|| format!("Could not query for app version id '{}'", id))?;
                 Ok(app)
             }
-            AppIdent::Alias(name) => wasmer_api::query::get_app_by_alias(client, name.clone())
-                .await?
-                .with_context(|| format!("Could not find app with name '{name}'")),
+            AppIdent::Name(name) => {
+                // The API only allows to query by owner + name,
+                // so default to the current user as the owner.
+                // To to so the username must first be retrieved.
+                let user = wasmer_api::query::current_user(client)
+                    .await?
+                    .context("not logged in")?;
+
+                wasmer_api::query::get_app(client, user.username, name.clone())
+                    .await?
+                    .with_context(|| format!("Could not find app with name '{name}'"))
+            }
             AppIdent::NamespacedName(owner, name) => {
                 wasmer_api::query::get_app(client, owner.clone(), name.clone())
                     .await?
@@ -80,7 +89,7 @@ impl std::str::FromStr for AppIdent {
                 }
             }
         } else {
-            Ok(Self::Alias(s.to_string()))
+            Ok(Self::Name(s.to_string()))
         }
     }
 }
@@ -160,8 +169,10 @@ impl AppIdentOpts {
 
         let ident = if let Some(id) = &config.app_id {
             AppIdent::AppId(id.clone())
+        } else if let Some(owner) = &config.owner {
+            AppIdent::NamespacedName(owner.clone(), config.name.clone())
         } else {
-            AppIdent::Alias(config.name.clone())
+            AppIdent::Name(config.name.clone())
         };
 
         Ok(ResolvedAppIdent::Config {
@@ -197,7 +208,7 @@ mod tests {
         );
         assert_eq!(
             AppIdent::from_str("lala").unwrap(),
-            AppIdent::Alias("lala".to_string()),
+            AppIdent::Name("lala".to_string()),
         );
 
         assert_eq!(

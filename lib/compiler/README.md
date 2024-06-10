@@ -53,4 +53,4 @@ attributions of the project.
 
 
 [`cranelift-wasm`]: https://crates.io/crates/cranelift-wasm
-[Wasmer `ATTRIBUTIONS`]: https://github.com/wasmerio/wasmer/blob/main/ATTRIBUTIONS.md
+[Wasmer `ATTRIBUTIONS`]: https://github.com/wasmerio/wasmer/blob/main/docs/ATTRIBUTIONS.md
