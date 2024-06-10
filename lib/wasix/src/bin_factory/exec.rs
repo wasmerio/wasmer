@@ -29,16 +29,22 @@ pub async fn spawn_exec(
     env: WasiEnv,
     runtime: &Arc<dyn Runtime + Send + Sync + 'static>,
 ) -> Result<TaskJoinHandle, SpawnError> {
-    // Load the WASM
-    let wasm = spawn_load_wasm(&env, &binary, name).await?;
-
-    // Load the module
-    let module = spawn_load_module(&env, name, wasm, runtime).await?;
-
-    // Spawn union the file system
     spawn_union_fs(&env, &binary).await?;
 
-    // Now run the module
+    let wasm = spawn_load_wasm(&env, &binary, name).await?;
+
+    spawn_exec_wasm(wasm, name, env, runtime).await
+}
+
+#[tracing::instrument(level = "trace", skip_all, fields(%name))]
+pub async fn spawn_exec_wasm(
+    wasm: &[u8],
+    name: &str,
+    env: WasiEnv,
+    runtime: &Arc<dyn Runtime + Send + Sync + 'static>,
+) -> Result<TaskJoinHandle, SpawnError> {
+    let module = spawn_load_module(&env, name, wasm, runtime).await?;
+
     spawn_exec_module(module, env, runtime)
 }
 

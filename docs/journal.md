@@ -146,3 +146,6 @@ in line as the events are generated
 Filters out a specific set of log events and drops the rest, this
 capturer can be useful for restoring to a previous call point but
 retaining the memory changes (e.g. WCGI runner).
+
+## Improvements
+https://codesandbox.io/blog/how-we-scale-our-microvm-infrastructure-using-low-latency-memory-decompression
