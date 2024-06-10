@@ -650,6 +650,11 @@ test-integration-cli-ci: require-nextest
 	rustup target add wasm32-wasi
 	$(CARGO_BINARY) nextest run $(CARGO_TARGET_FLAG) --features webc_runner -p wasmer-integration-tests-cli --locked
 
+test-integration-cli-wamr-ci: require-nextest build-wasmer-wamr
+	rustup target add wasm32-wasi
+	$(CARGO_BINARY) nextest run $(CARGO_TARGET_FLAG) --features webc_runner,wamr -p wasmer-integration-tests-cli --locked --no-fail-fast -- run
+
+
 test-integration-ios:
 	$(CARGO_BINARY) test $(CARGO_TARGET_FLAG) --features webc_runner -p wasmer-integration-tests-ios --locked
 

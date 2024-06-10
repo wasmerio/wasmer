@@ -148,10 +148,6 @@ fn main() -> anyhow::Result<()> {
 }
 
 #[test]
-#[cfg_attr(
-    feature = "wasm-c-api",
-    ignore = "wasm-c-api has a different memory testuite"
-)]
 fn test_memory() -> anyhow::Result<()> {
     main()
 }
