@@ -1,4 +1,6 @@
+use std::alloc::Layout;
 use std::borrow::BorrowMut;
+use std::mem::{size_of, size_of_val};
 use std::ops::DerefMut;
 use std::sync::Arc;
 use std::{mem, ptr};
@@ -9,7 +11,8 @@ use crate::bindings::{
     wasm_extern_t, wasm_extern_vec_new, wasm_extern_vec_new_empty,
     wasm_extern_vec_new_uninitialized, wasm_extern_vec_t, wasm_instance_delete,
     wasm_instance_exports, wasm_instance_new, wasm_instance_new_with_args, wasm_instance_t,
-    wasm_module_imports, wasm_module_t, wasm_store_t, wasm_trap_t,
+    wasm_module_imports, wasm_module_t, wasm_runtime_init_thread_env, wasm_runtime_instantiate,
+    wasm_runtime_thread_env_inited, wasm_store_t, wasm_trap_t,
 };
 use crate::c_api::vm::VMInstance;
 use crate::errors::InstantiationError;
@@ -18,10 +21,7 @@ use crate::imports::Imports;
 use crate::module::Module;
 use crate::store::AsStoreMut;
 use crate::trap::Trap;
-use crate::{
-    wasm_runtime_init_thread_env, wasm_runtime_instantiate, wasm_runtime_thread_env_inited, Extern,
-    InstantiationArgs,
-};
+use crate::Extern;
 
 use super::vm::VMExtern;
 
@@ -37,31 +37,28 @@ impl InstanceHandle {
         module: *mut wasm_module_t,
         mut externs: Vec<VMExtern>,
     ) -> Result<Self, InstantiationError> {
-        // let mut externs = externs.into_boxed_slice();
-
         let mut imports = unsafe {
-            let mut vec = wasm_extern_vec_t {
-                size: 0,
-                data: std::ptr::null_mut(),
-                num_elems: 0,
-                size_of_elem: 0,
-                lock: std::ptr::null_mut(),
-            };
-            wasm_extern_vec_new_empty(&mut vec);
+            let mut vec = Default::default();
             wasm_extern_vec_new(&mut vec, externs.len(), externs.as_ptr());
-            &mut vec as *const _
+            vec
         };
 
         std::mem::forget(externs);
 
-        // unsafe { wasm_extern_vec_new(&mut imports, , externs:) };
         let mut trap: *mut wasm_trap_t = std::ptr::null_mut() as _;
-        // let mut trap_ptr: *mut wasm_trap_t = &mut trap as *mut _;
+
         let instance = unsafe {
             let stack_size = 2 * 1024 * 1024; // 2 MB default stack size
             let heap_size = 2 * 1024 * 1024;
 
-            wasm_instance_new_with_args(store, module, imports, &mut trap, stack_size, heap_size)
+            wasm_instance_new_with_args(
+                store,
+                module,
+                &mut imports,
+                &mut trap,
+                stack_size,
+                heap_size,
+            )
         };
         if instance.is_null() {
             let trap = Trap::from(trap);
@@ -74,7 +71,6 @@ impl InstanceHandle {
         // Check if the thread env was already initialised.
         unsafe {
             if !wasm_runtime_thread_env_inited() {
-                crate::wasm_runtime_set_max_thread_num(10);
                 if !wasm_runtime_init_thread_env() {
                     panic!("Failed to initialize the thread environment!");
                 }
@@ -85,24 +81,15 @@ impl InstanceHandle {
     }
 
     fn get_exports(&self, mut store: &mut impl AsStoreMut, module: &Module) -> Exports {
-        let exports = unsafe {
-            let mut vec = wasm_extern_vec_t {
-                size: 0,
-                data: std::ptr::null_mut(),
-                num_elems: 0,
-                size_of_elem: 0,
-                lock: std::ptr::null_mut(),
-            };
-            wasm_extern_vec_new_empty(&mut vec);
-            &mut vec as *mut _
+        let mut exports = unsafe {
+            let mut vec = Default::default();
+            wasm_instance_exports(self.0, &mut vec);
+            vec
         };
 
-        unsafe {
-            wasm_instance_exports(self.0, exports);
-        }
         // println!("SIZE {}", unsafe { exports.size });
         let wasm_exports: &[*mut wasm_extern_t] =
-            unsafe { std::slice::from_raw_parts((*exports).data, (*exports).size) };
+            unsafe { std::slice::from_raw_parts(exports.data, exports.size) };
 
         let exports_ty = module.exports().collect::<Vec<_>>();
         let exports = exports_ty
@@ -119,8 +106,6 @@ impl InstanceHandle {
             })
             .collect::<Exports>();
         exports
-        // Exports::default()
-        // Exports::from_iter(iter)
     }
 }
 impl Drop for InstanceHandle {
@@ -152,9 +137,11 @@ impl Instance {
                     .expect("Extern not found")
             })
             .collect::<Vec<_>>();
-        // Ugly hack..
-        let mut binding = module.0.handle.store.lock().unwrap();
-        let mut store = binding.as_store_mut();
+
+        // Ugly hack: we need to tie a *module* to a store before instantiating it..
+        let mut store_from_module = module.0.handle.store.lock().unwrap();
+        let mut store = store_from_module.as_store_mut();
+
         Self::new_by_index(&mut store, module, &externs)
     }
 
@@ -168,7 +155,7 @@ impl Instance {
             .iter()
             .map(|extern_| {
                 let vm_extern = extern_.to_vm_extern();
-                // mem::forget(extern_);
+                //mem::forget(extern_);
                 vm_extern
             })
             .collect::<Vec<_>>();
@@ -178,7 +165,6 @@ impl Instance {
 
         unsafe {
             if !wasm_runtime_thread_env_inited() {
-                crate::wasm_runtime_set_max_thread_num(10);
                 if !wasm_runtime_init_thread_env() {
                     panic!("Failed to initialize the thread environment!");
                 }
