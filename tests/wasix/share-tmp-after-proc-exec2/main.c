@@ -9,12 +9,18 @@ int main(int argc, char *argv[])
 {
     if (argc > 1 && argv[1] != NULL)
     {
-        return (access("/tmp/my_test_dir", F_OK) != 0);
+        if (mkdir("/tmp/child_test_dir", 0777) == -1)
+        {
+            exit(EXIT_FAILURE);
+        }
+
+        return access("/tmp/parent_test_dir", F_OK) != 0;
     }
 
     int status = 1;
 
-    if (mkdir("/tmp/my_test_dir", 0777) == -1) {
+    if (mkdir("/tmp/parent_test_dir", 0777) == -1)
+    {
         goto end;
     }
 
@@ -35,6 +41,8 @@ int main(int argc, char *argv[])
     else
     {
         waitpid(pid, &status, 0);
+
+        status = status | (access("/tmp/child_test_dir", F_OK) != 0);
     }
 
 end:
