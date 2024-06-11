@@ -602,22 +602,135 @@
 <a href="#602" id="602">602</a>
 <a href="#603" id="603">603</a>
 <a href="#604" id="604">604</a>
+<a href="#605" id="605">605</a>
+<a href="#606" id="606">606</a>
+<a href="#607" id="607">607</a>
+<a href="#608" id="608">608</a>
+<a href="#609" id="609">609</a>
+<a href="#610" id="610">610</a>
+<a href="#611" id="611">611</a>
+<a href="#612" id="612">612</a>
+<a href="#613" id="613">613</a>
+<a href="#614" id="614">614</a>
+<a href="#615" id="615">615</a>
+<a href="#616" id="616">616</a>
+<a href="#617" id="617">617</a>
+<a href="#618" id="618">618</a>
+<a href="#619" id="619">619</a>
+<a href="#620" id="620">620</a>
+<a href="#621" id="621">621</a>
+<a href="#622" id="622">622</a>
+<a href="#623" id="623">623</a>
+<a href="#624" id="624">624</a>
+<a href="#625" id="625">625</a>
+<a href="#626" id="626">626</a>
+<a href="#627" id="627">627</a>
+<a href="#628" id="628">628</a>
+<a href="#629" id="629">629</a>
+<a href="#630" id="630">630</a>
+<a href="#631" id="631">631</a>
+<a href="#632" id="632">632</a>
+<a href="#633" id="633">633</a>
+<a href="#634" id="634">634</a>
+<a href="#635" id="635">635</a>
+<a href="#636" id="636">636</a>
+<a href="#637" id="637">637</a>
+<a href="#638" id="638">638</a>
+<a href="#639" id="639">639</a>
+<a href="#640" id="640">640</a>
+<a href="#641" id="641">641</a>
+<a href="#642" id="642">642</a>
+<a href="#643" id="643">643</a>
+<a href="#644" id="644">644</a>
+<a href="#645" id="645">645</a>
+<a href="#646" id="646">646</a>
+<a href="#647" id="647">647</a>
+<a href="#648" id="648">648</a>
+<a href="#649" id="649">649</a>
+<a href="#650" id="650">650</a>
+<a href="#651" id="651">651</a>
+<a href="#652" id="652">652</a>
+<a href="#653" id="653">653</a>
+<a href="#654" id="654">654</a>
+<a href="#655" id="655">655</a>
+<a href="#656" id="656">656</a>
+<a href="#657" id="657">657</a>
+<a href="#658" id="658">658</a>
+<a href="#659" id="659">659</a>
+<a href="#660" id="660">660</a>
+<a href="#661" id="661">661</a>
+<a href="#662" id="662">662</a>
+<a href="#663" id="663">663</a>
+<a href="#664" id="664">664</a>
+<a href="#665" id="665">665</a>
+<a href="#666" id="666">666</a>
+<a href="#667" id="667">667</a>
+<a href="#668" id="668">668</a>
+<a href="#669" id="669">669</a>
+<a href="#670" id="670">670</a>
+<a href="#671" id="671">671</a>
+<a href="#672" id="672">672</a>
+<a href="#673" id="673">673</a>
+<a href="#674" id="674">674</a>
+<a href="#675" id="675">675</a>
+<a href="#676" id="676">676</a>
+<a href="#677" id="677">677</a>
+<a href="#678" id="678">678</a>
+<a href="#679" id="679">679</a>
+<a href="#680" id="680">680</a>
+<a href="#681" id="681">681</a>
+<a href="#682" id="682">682</a>
+<a href="#683" id="683">683</a>
+<a href="#684" id="684">684</a>
+<a href="#685" id="685">685</a>
+<a href="#686" id="686">686</a>
+<a href="#687" id="687">687</a>
+<a href="#688" id="688">688</a>
+<a href="#689" id="689">689</a>
+<a href="#690" id="690">690</a>
+<a href="#691" id="691">691</a>
+<a href="#692" id="692">692</a>
+<a href="#693" id="693">693</a>
+<a href="#694" id="694">694</a>
+<a href="#695" id="695">695</a>
+<a href="#696" id="696">696</a>
+<a href="#697" id="697">697</a>
+<a href="#698" id="698">698</a>
+<a href="#699" id="699">699</a>
+<a href="#700" id="700">700</a>
+<a href="#701" id="701">701</a>
+<a href="#702" id="702">702</a>
+<a href="#703" id="703">703</a>
+<a href="#704" id="704">704</a>
+<a href="#705" id="705">705</a>
+<a href="#706" id="706">706</a>
+<a href="#707" id="707">707</a>
+<a href="#708" id="708">708</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Create a new Edge app.
 
-</span><span class="kw">use crate</span>::{
-    commands::AsyncCliCommand,
-    opts::{ApiOpts, ItemFormatOpts, WasmerEnv},
-    utils::{load_package_manifest, prompts::PackageCheckMode},
+</span><span class="kw">use </span>std::{
+    collections::HashMap,
+    env,
+    io::Cursor,
+    path::{Path, PathBuf},
+    str::FromStr,
+    time::Duration,
 };
+
 <span class="kw">use </span>anyhow::Context;
 <span class="kw">use </span>colored::Colorize;
 <span class="kw">use </span>dialoguer::{theme::ColorfulTheme, Confirm, Select};
+<span class="kw">use </span>futures::stream::TryStreamExt;
 <span class="kw">use </span>is_terminal::IsTerminal;
-<span class="kw">use </span>std::{collections::HashMap, env, io::Cursor, path::PathBuf, str::FromStr};
 <span class="kw">use </span>wasmer_api::{types::AppTemplate, WasmerClient};
 <span class="kw">use </span>wasmer_config::{app::AppConfigV1, package::PackageSource};
 
 <span class="kw">use super</span>::{deploy::CmdAppDeploy, util::login_user};
+<span class="kw">use crate</span>::{
+    commands::AsyncCliCommand,
+    opts::{ApiOpts, ItemFormatOpts, WasmerEnv},
+    utils::{load_package_manifest, prompts::PackageCheckMode},
+};
 
 <span class="kw">async fn </span>write_app_config(app_config: <span class="kw-2">&amp;</span>AppConfigV1, dir: <span class="prelude-ty">Option</span>&lt;PathBuf&gt;) -&gt; anyhow::Result&lt;()&gt; {
     <span class="kw">let </span>raw_app_config = app_config.clone().to_yaml()<span class="question-mark">?</span>;
@@ -874,6 +987,106 @@
         <span class="prelude-val">Ok</span>(<span class="bool-val">false</span>)
     }
 
+    <span class="doccomment">/// Load cached templates from a file.
+    ///
+    /// Returns an error if the cache file is older than the max age.
+    </span><span class="kw">fn </span>load_cached_templates(
+        path: <span class="kw-2">&amp;</span>Path,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;(Vec&lt;AppTemplate&gt;, std::time::Duration), anyhow::Error&gt; {
+        <span class="kw">let </span>modified = path.metadata()<span class="question-mark">?</span>.modified()<span class="question-mark">?</span>;
+        <span class="kw">let </span>age = modified.elapsed()<span class="question-mark">?</span>;
+
+        <span class="kw">let </span>data = std::fs::read_to_string(path)<span class="question-mark">?</span>;
+        <span class="kw">match </span>serde_json::from_str::&lt;Vec&lt;AppTemplate&gt;&gt;(<span class="kw-2">&amp;</span>data) {
+            <span class="prelude-val">Ok</span>(v) =&gt; <span class="prelude-val">Ok</span>((v, age)),
+            <span class="prelude-val">Err</span>(err) =&gt; {
+                std::fs::remove_file(path).ok();
+                <span class="prelude-val">Err</span>(err).context(<span class="string">&quot;could not deserialize cached file&quot;</span>)
+            }
+        }
+    }
+
+    <span class="kw">fn </span>persist_template_cache(path: <span class="kw-2">&amp;</span>Path, templates: <span class="kw-2">&amp;</span>[AppTemplate]) -&gt; <span class="prelude-ty">Result</span>&lt;(), anyhow::Error&gt; {
+        <span class="kw">if let </span><span class="prelude-val">Some</span>(parent) = path.parent() {
+            std::fs::create_dir_all(parent).context(<span class="string">&quot;could not create cache dir&quot;</span>)<span class="question-mark">?</span>;
+        }
+
+        <span class="kw">let </span>data = serde_json::to_vec(templates)<span class="question-mark">?</span>;
+
+        std::fs::write(path, data)<span class="question-mark">?</span>;
+        <span class="macro">tracing::trace!</span>(path=%path.display(), <span class="string">&quot;persisted app template cache&quot;</span>);
+
+        <span class="prelude-val">Ok</span>(())
+    }
+
+    <span class="doccomment">/// Tries to retrieve templates from a local file cache.
+    /// Fetches the templates from the backend if the file doesn&#39;t exist,
+    /// can&#39;t be loaded, or is older then the max age,
+    </span><span class="kw">async fn </span>fetch_templates_cached(
+        client: <span class="kw-2">&amp;</span>WasmerClient,
+        cache_dir: <span class="kw-2">&amp;</span>Path,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;AppTemplate&gt;, anyhow::Error&gt; {
+        <span class="kw">const </span>MAX_CACHE_AGE: Duration = Duration::from_secs(<span class="number">60 </span>* <span class="number">60</span>);
+        <span class="kw">const </span>MAX_COUNT: usize = <span class="number">100</span>;
+        <span class="kw">const </span>CACHE_FILENAME: <span class="kw-2">&amp;</span>str = <span class="string">&quot;app_templates.json&quot;</span>;
+
+        <span class="kw">let </span>cache_path = cache_dir.join(CACHE_FILENAME);
+
+        <span class="kw">let </span>cached_items = <span class="kw">match </span><span class="self">Self</span>::load_cached_templates(<span class="kw-2">&amp;</span>cache_path) {
+            <span class="prelude-val">Ok</span>((items, age)) =&gt; {
+                <span class="kw">if </span>age &lt;= MAX_CACHE_AGE {
+                    <span class="kw">return </span><span class="prelude-val">Ok</span>(items);
+                }
+                items
+            }
+            <span class="prelude-val">Err</span>(e) =&gt; {
+                <span class="macro">tracing::trace!</span>(error = <span class="kw-2">&amp;*</span>e, <span class="string">&quot;could not load templates from local cache&quot;</span>);
+                Vec::new()
+            }
+        };
+
+        <span class="comment">// Either no cache present, or cache has exceeded max age.
+        // Fetch the first page.
+        // If first item matches, then no need to re-fetch.
+        </span><span class="kw">let </span><span class="kw-2">mut </span>stream = Box::pin(wasmer_api::query::fetch_all_app_templates(
+            client,
+            <span class="number">10</span>,
+            <span class="prelude-val">Some</span>(wasmer_api::types::AppTemplatesSortBy::Newest),
+        ));
+
+        <span class="kw">let </span>first_page = <span class="kw">match </span>stream.try_next().<span class="kw">await</span><span class="question-mark">? </span>{
+            <span class="prelude-val">Some</span>(items) =&gt; items,
+            <span class="prelude-val">None </span>=&gt; <span class="kw">return </span><span class="prelude-val">Ok</span>(Vec::new()),
+        };
+
+        <span class="kw">if let </span>(<span class="prelude-val">Some</span>(a), <span class="prelude-val">Some</span>(b)) = (cached_items.first(), first_page.first()) {
+            <span class="kw">if </span>a == b {
+                <span class="comment">// Cached items are up to date, no need to query more.
+                </span><span class="kw">return </span><span class="prelude-val">Ok</span>(cached_items);
+            }
+        }
+
+        <span class="kw">let </span><span class="kw-2">mut </span>items = first_page;
+        <span class="kw">while let </span><span class="prelude-val">Some</span>(next) = stream.try_next().<span class="kw">await</span><span class="question-mark">? </span>{
+            items.extend(next);
+
+            <span class="kw">if </span>items.len() &gt;= MAX_COUNT {
+                <span class="kw">break</span>;
+            }
+        }
+
+        <span class="comment">// Persist to cache.
+        </span><span class="kw">if let </span><span class="prelude-val">Err</span>(err) = <span class="self">Self</span>::persist_template_cache(<span class="kw-2">&amp;</span>cache_path, <span class="kw-2">&amp;</span>items) {
+            <span class="macro">tracing::trace!</span>(error = <span class="kw-2">&amp;*</span>err, <span class="string">&quot;could not persist template cache&quot;</span>);
+        }
+
+        <span class="comment">// TODO: sort items by popularity!
+        // Since we can&#39;t rely on backend sorting because of the cache
+        // preservation logic, the backend needs to add a popluarity field.
+
+        </span><span class="prelude-val">Ok</span>(items)
+    }
+
     <span class="comment">// A utility function used to fetch the URL of the template to use.
     </span><span class="kw">async fn </span>get_template_url(<span class="kw-2">&amp;</span><span class="self">self</span>, client: <span class="kw-2">&amp;</span>WasmerClient) -&gt; anyhow::Result&lt;url::Url&gt; {
         <span class="kw">let </span><span class="kw-2">mut </span>url = <span class="kw">if let </span><span class="prelude-val">Some</span>(template) = <span class="kw-2">&amp;</span><span class="self">self</span>.template {
@@ -891,17 +1104,10 @@
                 <span class="macro">anyhow::bail!</span>(<span class="string">&quot;No template selected&quot;</span>)
             }
 
-            <span class="kw">let </span>templates: Vec&lt;AppTemplate&gt; =
-                wasmer_api::query::fetch_app_templates(client, String::new(), <span class="number">10</span>)
-                    .<span class="kw">await</span><span class="question-mark">?
-                    </span>.ok_or(<span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;No template received from the backend&quot;</span>))<span class="question-mark">?
-                    </span>.edges
-                    .into_iter()
-                    .flatten()
-                    .filter_map(|v| v.node)
-                    .collect();
+            <span class="kw">let </span>templates = <span class="self">Self</span>::fetch_templates_cached(client, <span class="kw-2">&amp;</span><span class="self">self</span>.env.cache_dir).<span class="kw">await</span><span class="question-mark">?</span>;
 
             <span class="kw">let </span>theme = ColorfulTheme::default();
+
             <span class="kw">let </span>items = templates
                 .iter()
                 .map(|t| {
@@ -919,10 +1125,12 @@
                 })
                 .collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
 
-            <span class="kw">let </span>dialog = dialoguer::Select::with_theme(<span class="kw-2">&amp;</span>theme)
+            <span class="comment">// Note: this should really use `dialoger::FuzzySelect`, but that
+            // breaks the formatting.
+            </span><span class="kw">let </span>dialog = dialoguer::Select::with_theme(<span class="kw-2">&amp;</span>theme)
                 .with_prompt(<span class="macro">format!</span>(<span class="string">&quot;Select a template ({} available)&quot;</span>, items.len()))
                 .items(<span class="kw-2">&amp;</span>items)
-                .max_length(<span class="number">6</span>)
+                .max_length(<span class="number">10</span>)
                 .clear(<span class="bool-val">true</span>)
                 .report(<span class="bool-val">false</span>)
                 .default(<span class="number">0</span>);
