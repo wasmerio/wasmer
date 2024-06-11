@@ -12,10 +12,11 @@ int main(int argc, char *argv[])
         return (bar == NULL);
     }
 
+    int status = 1;
     pid_t pid = fork();
     if (pid == -1)
     {
-        exit(EXIT_FAILURE);
+        goto end;
     }
     else if (pid == 0)
     {
@@ -28,10 +29,9 @@ int main(int argc, char *argv[])
     }
     else
     {
-        int status;
         waitpid(pid, &status, 0);
-        printf("%d", status);
     }
 
-    return 0;
+end:
+    printf("%d", status);
 }
