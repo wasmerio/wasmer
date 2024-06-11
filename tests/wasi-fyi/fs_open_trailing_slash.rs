@@ -14,14 +14,18 @@ extern "C" {
 }
 
 const ERRNO_SUCCESS: i32 = 0;
+const ERRNO_ISDIR: i32 = 31;
 const ERRNO_NOTDIR: i32 = 54;
+const OFLAGS_CREAT: i32 = 1;
 const RIGHTS_FD_READ: i64 = 2;
+const RIGHTS_FD_WRITE: i64 = 64;
 
 fn main() {
     unsafe {
         let fd = 5;
         let path_ok = "fyi/fs_open_trailing_slash.dir/file";
         let path_bad = "fyi/fs_open_trailing_slash.dir/file/";
+        let path_bad_new_file = "fyi/fs_open_trailing_slash.dir/new-file/";
         let errno = path_open(
             fd,
             0,
@@ -52,6 +56,22 @@ fn main() {
         assert_eq!(
             errno, ERRNO_NOTDIR,
             "opening a regular file with a trailing slash should fail"
+        );
+
+        let errno = path_open(
+            fd,
+            0,
+            path_bad_new_file.as_ptr() as i32,
+            path_bad_new_file.len() as i32,
+            OFLAGS_CREAT,
+            RIGHTS_FD_READ | RIGHTS_FD_WRITE,
+            0,
+            0,
+            1024,
+        );
+        assert_eq!(
+            errno, ERRNO_ISDIR,
+            "creating a regular file with a trailing slash should fail"
         );
     }
 }
