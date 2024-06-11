@@ -145,7 +145,7 @@ virtual-mio = { version = "0.3.1", path = "../virtual-io" }
 # Wasmer-owned dependencies.
 
 webc = { workspace = true }
-wasmer-api = { version = "=0.0.28", path = "../backend-api" }
+wasmer-api = { version = "=0.0.29", path = "../backend-api" }
 edge-schema.workspace = true
 edge-util = { version = "=0.1.0" }
 lazy_static = "1.4.0"
