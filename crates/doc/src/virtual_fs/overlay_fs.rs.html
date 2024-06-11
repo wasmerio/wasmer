@@ -1679,16 +1679,6 @@
 <a href="#1679" id="1679">1679</a>
 <a href="#1680" id="1680">1680</a>
 <a href="#1681" id="1681">1681</a>
-<a href="#1682" id="1682">1682</a>
-<a href="#1683" id="1683">1683</a>
-<a href="#1684" id="1684">1684</a>
-<a href="#1685" id="1685">1685</a>
-<a href="#1686" id="1686">1686</a>
-<a href="#1687" id="1687">1687</a>
-<a href="#1688" id="1688">1688</a>
-<a href="#1689" id="1689">1689</a>
-<a href="#1690" id="1690">1690</a>
-<a href="#1691" id="1691">1691</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{
     collections::HashSet,
     fmt::Debug,
@@ -2799,17 +2789,12 @@
 
 <span class="attr">#[cfg(test)]
 </span><span class="kw">mod </span>tests {
-    <span class="kw">use </span>std::{path::PathBuf, sync::Arc};
+    <span class="kw">use </span>std::path::PathBuf;
 
-    <span class="kw">use </span>bytes::Bytes;
-    <span class="kw">use </span>tempfile::TempDir;
     <span class="kw">use </span>tokio::io::{AsyncReadExt, AsyncSeekExt, AsyncWriteExt};
-    <span class="kw">use </span>webc::v1::{ParseOptions, WebCOwned};
 
     <span class="kw">use super</span>::<span class="kw-2">*</span>;
-    <span class="kw">use crate</span>::{mem_fs::FileSystem <span class="kw">as </span>MemFS, webc_fs::WebcFileSystem, RootFileSystemBuilder};
-
-    <span class="kw">const </span>PYTHON: <span class="kw-2">&amp;</span>[u8] = <span class="macro">include_bytes!</span>(<span class="string">&quot;../../c-api/examples/assets/python-0.1.0.wasmer&quot;</span>);
+    <span class="kw">use </span><span class="kw">crate</span>::mem_fs::FileSystem <span class="kw">as </span>MemFS;
 
     <span class="attr">#[tokio::test]
     </span><span class="kw">async fn </span>remove_directory() {
@@ -2945,160 +2930,6 @@
                 PathBuf::from(<span class="string">&quot;/primary/read.txt&quot;</span>),
             ]
         );
-    }
-
-    <span class="attr">#[tokio::test]
-    </span><span class="kw">async fn </span>wasi_runner_use_case() {
-        <span class="comment">// Set up some dummy files on the host
-        </span><span class="kw">let </span>temp = TempDir::new().unwrap();
-        <span class="kw">let </span>first = temp.path().join(<span class="string">&quot;first&quot;</span>);
-        <span class="kw">let </span>file_txt = first.join(<span class="string">&quot;file.txt&quot;</span>);
-        <span class="kw">let </span>second = temp.path().join(<span class="string">&quot;second&quot;</span>);
-        std::fs::create_dir_all(<span class="kw-2">&amp;</span>first).unwrap();
-        std::fs::write(<span class="kw-2">&amp;</span>file_txt, <span class="string">b&quot;First!&quot;</span>).unwrap();
-        std::fs::create_dir_all(<span class="kw-2">&amp;</span>second).unwrap();
-        <span class="comment">// configure the union FS so things are saved in memory by default
-        // (initialized with a set of unix-like folders), but certain folders
-        // are first to the host.
-        </span><span class="kw">let </span>primary = RootFileSystemBuilder::new().build();
-        <span class="kw">let </span>host_fs: Arc&lt;<span class="kw">dyn </span>FileSystem + Send + Sync&gt; =
-            Arc::new(<span class="kw">crate</span>::host_fs::FileSystem::default());
-        <span class="kw">let </span>first_dirs = [(<span class="kw-2">&amp;</span>first, <span class="string">&quot;/first&quot;</span>), (<span class="kw-2">&amp;</span>second, <span class="string">&quot;/second&quot;</span>)];
-        <span class="kw">for </span>(host, guest) <span class="kw">in </span>first_dirs {
-            primary
-                .mount(PathBuf::from(guest), <span class="kw-2">&amp;</span>host_fs, host.clone())
-                .unwrap();
-        }
-        <span class="comment">// Set up the secondary file systems
-        </span><span class="kw">let </span>webc = WebCOwned::parse(Bytes::from_static(PYTHON), <span class="kw-2">&amp;</span>ParseOptions::default()).unwrap();
-        <span class="kw">let </span>webc = WebcFileSystem::init_all(Arc::new(webc));
-
-        <span class="kw">let </span>fs = OverlayFileSystem::new(primary, [webc]);
-
-        <span class="comment">// We should get all the normal directories from rootfs (primary)
-        </span><span class="macro">assert!</span>(ops::is_dir(<span class="kw-2">&amp;</span>fs, <span class="string">&quot;/lib&quot;</span>));
-        <span class="macro">assert!</span>(ops::is_dir(<span class="kw-2">&amp;</span>fs, <span class="string">&quot;/bin&quot;</span>));
-        <span class="macro">assert!</span>(ops::is_file(<span class="kw-2">&amp;</span>fs, <span class="string">&quot;/dev/stdin&quot;</span>));
-        <span class="macro">assert!</span>(ops::is_file(<span class="kw-2">&amp;</span>fs, <span class="string">&quot;/dev/stdout&quot;</span>));
-        <span class="comment">// We also want to see files from the WEBC volumes (secondary)
-        </span><span class="macro">assert!</span>(ops::is_dir(<span class="kw-2">&amp;</span>fs, <span class="string">&quot;/lib/python3.6&quot;</span>));
-        <span class="macro">assert!</span>(ops::is_file(<span class="kw-2">&amp;</span>fs, <span class="string">&quot;/lib/python3.6/collections/__init__.py&quot;</span>));
-        <span class="attr">#[cfg(never)]
-        </span>{
-            <span class="comment">// files on a secondary fs aren&#39;t writable
-            // TODO(Michael-F-Bryan): re-enable this if/when we fix
-            // open_readonly_file_hack()
-            </span><span class="macro">assert_eq!</span>(
-                fs.new_open_options()
-                    .append(<span class="bool-val">true</span>)
-                    .open(<span class="string">&quot;/lib/python3.6/collections/__init__.py&quot;</span>)
-                    .unwrap_err(),
-                FsError::PermissionDenied,
-            );
-        }
-        <span class="comment">// you are allowed to create files that look like they are in a secondary
-        // folder, though
-        </span>ops::touch(<span class="kw-2">&amp;</span>fs, <span class="string">&quot;/lib/python3.6/collections/something-else.py&quot;</span>).unwrap();
-        <span class="comment">// But it&#39;ll be on the primary filesystem, not the secondary one
-        </span><span class="macro">assert!</span>(ops::is_file(
-            <span class="kw-2">&amp;</span>fs.primary,
-            <span class="string">&quot;/lib/python3.6/collections/something-else.py&quot;
-        </span>));
-        <span class="macro">assert!</span>(!ops::is_file(
-            <span class="kw-2">&amp;</span>fs.secondaries[<span class="number">0</span>],
-            <span class="string">&quot;/lib/python3.6/collections/something-else.py&quot;
-        </span>));
-        <span class="comment">// You can do the same thing with folders
-        </span>fs.create_dir(<span class="string">&quot;/lib/python3.6/something-else&quot;</span>.as_ref())
-            .unwrap();
-        <span class="macro">assert!</span>(ops::is_dir(<span class="kw-2">&amp;</span>fs.primary, <span class="string">&quot;/lib/python3.6/something-else&quot;</span>));
-        <span class="macro">assert!</span>(!ops::is_dir(
-            <span class="kw-2">&amp;</span>fs.secondaries[<span class="number">0</span>],
-            <span class="string">&quot;/lib/python3.6/something-else&quot;
-        </span>));
-        <span class="comment">// It only works when you are directly inside an existing directory
-        // on the secondary filesystem, though
-        </span><span class="macro">assert_eq!</span>(
-            ops::touch(<span class="kw-2">&amp;</span>fs, <span class="string">&quot;/lib/python3.6/collections/this/doesnt/exist.txt&quot;</span>).unwrap_err(),
-            FsError::EntryNotFound
-        );
-        <span class="comment">// you should also be able to read files mounted from the host
-        </span><span class="macro">assert!</span>(ops::is_dir(<span class="kw-2">&amp;</span>fs, <span class="string">&quot;/first&quot;</span>));
-        <span class="macro">assert!</span>(ops::is_file(<span class="kw-2">&amp;</span>fs, <span class="string">&quot;/first/file.txt&quot;</span>));
-        <span class="macro">assert_eq!</span>(
-            ops::read_to_string(<span class="kw-2">&amp;</span>fs, <span class="string">&quot;/first/file.txt&quot;</span>).<span class="kw">await</span>.unwrap(),
-            <span class="string">&quot;First!&quot;
-        </span>);
-        <span class="comment">// Overwriting them is fine and we&#39;ll see the changes on the host
-        </span>ops::write(<span class="kw-2">&amp;</span>fs, <span class="string">&quot;/first/file.txt&quot;</span>, <span class="string">&quot;Updated&quot;</span>).<span class="kw">await</span>.unwrap();
-        <span class="macro">assert_eq!</span>(std::fs::read_to_string(<span class="kw-2">&amp;</span>file_txt).unwrap(), <span class="string">&quot;Updated&quot;</span>);
-        <span class="comment">// The filesystem will see changes on the host that happened after it was
-        // set up
-        </span><span class="kw">let </span>another = second.join(<span class="string">&quot;another.txt&quot;</span>);
-        std::fs::write(<span class="kw-2">&amp;</span>another, <span class="string">&quot;asdf&quot;</span>).unwrap();
-        <span class="macro">assert_eq!</span>(
-            ops::read_to_string(<span class="kw-2">&amp;</span>fs, <span class="string">&quot;/second/another.txt&quot;</span>)
-                .<span class="kw">await
-                </span>.unwrap(),
-            <span class="string">&quot;asdf&quot;
-        </span>);
-    }
-
-    <span class="kw">fn </span>load_webc(bytes: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static </span>[u8]) -&gt; WebcFileSystem&lt;WebCOwned&gt; {
-        <span class="kw">let </span>options = ParseOptions::default();
-        <span class="kw">let </span>webc = WebCOwned::parse(bytes, <span class="kw-2">&amp;</span>options).unwrap();
-        WebcFileSystem::init_all(Arc::new(webc))
-    }
-
-    <span class="attr">#[track_caller]
-    </span><span class="kw">fn </span>assert_same_directory_contents(
-        original: <span class="kw-2">&amp;</span><span class="kw">dyn </span>FileSystem,
-        path: <span class="kw">impl </span>AsRef&lt;Path&gt;,
-        candidate: <span class="kw-2">&amp;</span><span class="kw">dyn </span>FileSystem,
-    ) {
-        <span class="kw">let </span>path = path.as_ref();
-
-        <span class="kw">let </span>original_entries: Vec&lt;<span class="kw">_</span>&gt; = original
-            .read_dir(path)
-            .unwrap()
-            .map(|r| r.unwrap())
-            .collect();
-        <span class="kw">let </span>candidate_entries: Vec&lt;<span class="kw">_</span>&gt; = candidate
-            .read_dir(path)
-            .unwrap()
-            .map(|r| r.unwrap())
-            .collect();
-
-        <span class="macro">assert_eq!</span>(original_entries, candidate_entries);
-    }
-
-    <span class="attr">#[tokio::test]
-    </span><span class="kw">async fn </span>absolute_and_relative_paths_are_passed_through() {
-        <span class="kw">let </span>python = Arc::new(load_webc(PYTHON));
-
-        <span class="comment">// The underlying filesystem doesn&#39;t care about absolute/relative paths
-        </span><span class="macro">assert_eq!</span>(python.read_dir(<span class="string">&quot;/lib&quot;</span>.as_ref()).unwrap().count(), <span class="number">4</span>);
-        <span class="macro">assert_eq!</span>(python.read_dir(<span class="string">&quot;lib&quot;</span>.as_ref()).unwrap().count(), <span class="number">4</span>);
-
-        <span class="comment">// read_dir() should be passed through to the primary
-        </span><span class="kw">let </span>webc_primary =
-            OverlayFileSystem::new(Arc::clone(<span class="kw-2">&amp;</span>python), [<span class="kw">crate</span>::EmptyFileSystem::default()]);
-        assert_same_directory_contents(<span class="kw-2">&amp;</span>python, <span class="string">&quot;/lib&quot;</span>, <span class="kw-2">&amp;</span>webc_primary);
-        assert_same_directory_contents(<span class="kw-2">&amp;</span>python, <span class="string">&quot;lib&quot;</span>, <span class="kw-2">&amp;</span>webc_primary);
-
-        <span class="comment">// read_dir() should also be passed through to the secondary
-        </span><span class="kw">let </span>webc_secondary =
-            OverlayFileSystem::new(<span class="kw">crate</span>::EmptyFileSystem::default(), [Arc::clone(<span class="kw-2">&amp;</span>python)]);
-        assert_same_directory_contents(<span class="kw-2">&amp;</span>python, <span class="string">&quot;/lib&quot;</span>, <span class="kw-2">&amp;</span>webc_secondary);
-        assert_same_directory_contents(<span class="kw-2">&amp;</span>python, <span class="string">&quot;lib&quot;</span>, <span class="kw-2">&amp;</span>webc_secondary);
-
-        <span class="comment">// It should be fine to overlay the root fs on top of our webc file
-        </span><span class="kw">let </span>overlay_rootfs = OverlayFileSystem::new(
-            RootFileSystemBuilder::default().build(),
-            [Arc::clone(<span class="kw-2">&amp;</span>python)],
-        );
-        assert_same_directory_contents(<span class="kw-2">&amp;</span>python, <span class="string">&quot;/lib&quot;</span>, <span class="kw-2">&amp;</span>overlay_rootfs);
-        assert_same_directory_contents(<span class="kw-2">&amp;</span>python, <span class="string">&quot;lib&quot;</span>, <span class="kw-2">&amp;</span>overlay_rootfs);
     }
 
     <span class="attr">#[tokio::test]
@@ -3379,5 +3210,154 @@
             FsError::EntryNotFound
         )
     }
-}
+
+    <span class="comment">// OLD tests that used WebcFileSystem.
+    // Should be re-implemented with WebcVolumeFs
+    // #[tokio::test]
+    // async fn wasi_runner_use_case() {
+    //     // Set up some dummy files on the host
+    //     let temp = TempDir::new().unwrap();
+    //     let first = temp.path().join(&quot;first&quot;);
+    //     let file_txt = first.join(&quot;file.txt&quot;);
+    //     let second = temp.path().join(&quot;second&quot;);
+    //     std::fs::create_dir_all(&amp;first).unwrap();
+    //     std::fs::write(&amp;file_txt, b&quot;First!&quot;).unwrap();
+    //     std::fs::create_dir_all(&amp;second).unwrap();
+    //     // configure the union FS so things are saved in memory by default
+    //     // (initialized with a set of unix-like folders), but certain folders
+    //     // are first to the host.
+    //     let primary = RootFileSystemBuilder::new().build();
+    //     let host_fs: Arc&lt;dyn FileSystem + Send + Sync&gt; =
+    //         Arc::new(crate::host_fs::FileSystem::default());
+    //     let first_dirs = [(&amp;first, &quot;/first&quot;), (&amp;second, &quot;/second&quot;)];
+    //     for (host, guest) in first_dirs {
+    //         primary
+    //             .mount(PathBuf::from(guest), &amp;host_fs, host.clone())
+    //             .unwrap();
+    //     }
+    //     // Set up the secondary file systems
+    //     let webc = WebCOwned::parse(Bytes::from_static(PYTHON), &amp;ParseOptions::default()).unwrap();
+    //     let webc = WebcFileSystem::init_all(Arc::new(webc));
+    //
+    //     let fs = OverlayFileSystem::new(primary, [webc]);
+    //
+    //     // We should get all the normal directories from rootfs (primary)
+    //     assert!(ops::is_dir(&amp;fs, &quot;/lib&quot;));
+    //     assert!(ops::is_dir(&amp;fs, &quot;/bin&quot;));
+    //     assert!(ops::is_file(&amp;fs, &quot;/dev/stdin&quot;));
+    //     assert!(ops::is_file(&amp;fs, &quot;/dev/stdout&quot;));
+    //     // We also want to see files from the WEBC volumes (secondary)
+    //     assert!(ops::is_dir(&amp;fs, &quot;/lib/python3.6&quot;));
+    //     assert!(ops::is_file(&amp;fs, &quot;/lib/python3.6/collections/__init__.py&quot;));
+    //     #[cfg(never)]
+    //     {
+    //         // files on a secondary fs aren&#39;t writable
+    //         // TODO(Michael-F-Bryan): re-enable this if/when we fix
+    //         // open_readonly_file_hack()
+    //         assert_eq!(
+    //             fs.new_open_options()
+    //                 .append(true)
+    //                 .open(&quot;/lib/python3.6/collections/__init__.py&quot;)
+    //                 .unwrap_err(),
+    //             FsError::PermissionDenied,
+    //         );
+    //     }
+    //     // you are allowed to create files that look like they are in a secondary
+    //     // folder, though
+    //     ops::touch(&amp;fs, &quot;/lib/python3.6/collections/something-else.py&quot;).unwrap();
+    //     // But it&#39;ll be on the primary filesystem, not the secondary one
+    //     assert!(ops::is_file(
+    //         &amp;fs.primary,
+    //         &quot;/lib/python3.6/collections/something-else.py&quot;
+    //     ));
+    //     assert!(!ops::is_file(
+    //         &amp;fs.secondaries[0],
+    //         &quot;/lib/python3.6/collections/something-else.py&quot;
+    //     ));
+    //     // You can do the same thing with folders
+    //     fs.create_dir(&quot;/lib/python3.6/something-else&quot;.as_ref())
+    //         .unwrap();
+    //     assert!(ops::is_dir(&amp;fs.primary, &quot;/lib/python3.6/something-else&quot;));
+    //     assert!(!ops::is_dir(
+    //         &amp;fs.secondaries[0],
+    //         &quot;/lib/python3.6/something-else&quot;
+    //     ));
+    //     // It only works when you are directly inside an existing directory
+    //     // on the secondary filesystem, though
+    //     assert_eq!(
+    //         ops::touch(&amp;fs, &quot;/lib/python3.6/collections/this/doesnt/exist.txt&quot;).unwrap_err(),
+    //         FsError::EntryNotFound
+    //     );
+    //     // you should also be able to read files mounted from the host
+    //     assert!(ops::is_dir(&amp;fs, &quot;/first&quot;));
+    //     assert!(ops::is_file(&amp;fs, &quot;/first/file.txt&quot;));
+    //     assert_eq!(
+    //         ops::read_to_string(&amp;fs, &quot;/first/file.txt&quot;).await.unwrap(),
+    //         &quot;First!&quot;
+    //     );
+    //     // Overwriting them is fine and we&#39;ll see the changes on the host
+    //     ops::write(&amp;fs, &quot;/first/file.txt&quot;, &quot;Updated&quot;).await.unwrap();
+    //     assert_eq!(std::fs::read_to_string(&amp;file_txt).unwrap(), &quot;Updated&quot;);
+    //     // The filesystem will see changes on the host that happened after it was
+    //     // set up
+    //     let another = second.join(&quot;another.txt&quot;);
+    //     std::fs::write(&amp;another, &quot;asdf&quot;).unwrap();
+    //     assert_eq!(
+    //         ops::read_to_string(&amp;fs, &quot;/second/another.txt&quot;)
+    //             .await
+    //             .unwrap(),
+    //         &quot;asdf&quot;
+    //     );
+    // }
+    //
+    // #[tokio::test]
+    // async fn absolute_and_relative_paths_are_passed_through() {
+    //     let python = Arc::new(load_webc(PYTHON));
+    //
+    //     // The underlying filesystem doesn&#39;t care about absolute/relative paths
+    //     assert_eq!(python.read_dir(&quot;/lib&quot;.as_ref()).unwrap().count(), 4);
+    //     assert_eq!(python.read_dir(&quot;lib&quot;.as_ref()).unwrap().count(), 4);
+    //
+    //     // read_dir() should be passed through to the primary
+    //     let webc_primary =
+    //         OverlayFileSystem::new(Arc::clone(&amp;python), [crate::EmptyFileSystem::default()]);
+    //     assert_same_directory_contents(&amp;python, &quot;/lib&quot;, &amp;webc_primary);
+    //     assert_same_directory_contents(&amp;python, &quot;lib&quot;, &amp;webc_primary);
+    //
+    //     // read_dir() should also be passed through to the secondary
+    //     let webc_secondary =
+    //         OverlayFileSystem::new(crate::EmptyFileSystem::default(), [Arc::clone(&amp;python)]);
+    //     assert_same_directory_contents(&amp;python, &quot;/lib&quot;, &amp;webc_secondary);
+    //     assert_same_directory_contents(&amp;python, &quot;lib&quot;, &amp;webc_secondary);
+    //
+    //     // It should be fine to overlay the root fs on top of our webc file
+    //     let overlay_rootfs = OverlayFileSystem::new(
+    //         RootFileSystemBuilder::default().build(),
+    //         [Arc::clone(&amp;python)],
+    //     );
+    //     assert_same_directory_contents(&amp;python, &quot;/lib&quot;, &amp;overlay_rootfs);
+    //     assert_same_directory_contents(&amp;python, &quot;lib&quot;, &amp;overlay_rootfs);
+    // }
+    // #[track_caller]
+    // fn assert_same_directory_contents(
+    //     original: &amp;dyn FileSystem,
+    //     path: impl AsRef&lt;Path&gt;,
+    //     candidate: &amp;dyn FileSystem,
+    // ) {
+    //     let path = path.as_ref();
+    //
+    //     let original_entries: Vec&lt;_&gt; = original
+    //         .read_dir(path)
+    //         .unwrap()
+    //         .map(|r| r.unwrap())
+    //         .collect();
+    //     let candidate_entries: Vec&lt;_&gt; = candidate
+    //         .read_dir(path)
+    //         .unwrap()
+    //         .map(|r| r.unwrap())
+    //         .collect();
+    //
+    //     assert_eq!(original_entries, candidate_entries);
+    // }
+</span>}
 </code></pre></div></section></main></body></html>

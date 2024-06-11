@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"fn":["get_volume_name","get_volume_name_opt","normalizes_path","transform_into_read_dir","translate_file_type"],"struct":["WebCFile","WebcFileSystem"]};
