@@ -11,6 +11,9 @@ Looking for changes that affect our C API? See the [C API Changelog](lib/c-api/C
 
 ## 4.3.2 - 11/06/2024
 
+This release mainly introduces the InstaBoot feature. Numerous bug fixes to the virtual-fs is also included, making it
+more robust. Support for the execve syscall is also added to the runtime alongside the ability to spawn local wasm files.
+
 ## Added
 
   - [#4819](https://github.com/wasmerio/wasmer/pull/4819) Add support for spawning local wasm files
