@@ -11,10 +11,3 @@ impl From<Trap> for RuntimeError {
         RuntimeError::new_from_source(trap, wasm_trace, trap_code)
     }
 }
-
-pub(crate) fn raise(error: Box<dyn std::error::Error + Send + Sync>) -> ! {
-    unimplemented!()
-    // let error = Trap::user(error);
-    // let js_error: JsValue = error.into();
-    // wasm_bindgen::throw_val(js_error)
-}
