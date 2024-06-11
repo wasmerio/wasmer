@@ -512,6 +512,11 @@
 <a href="#512" id="512">512</a>
 <a href="#513" id="513">513</a>
 <a href="#514" id="514">514</a>
+<a href="#515" id="515">515</a>
+<a href="#516" id="516">516</a>
+<a href="#517" id="517">517</a>
+<a href="#518" id="518">518</a>
+<a href="#519" id="519">519</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{
     collections::HashMap,
     path::{Path, PathBuf},
@@ -551,6 +556,7 @@
     <span class="kw">pub</span>(<span class="kw">crate</span>) mapped_host_commands: Vec&lt;MappedCommand&gt;,
     <span class="kw">pub</span>(<span class="kw">crate</span>) mounts: Vec&lt;MountedDirectory&gt;,
     <span class="kw">pub</span>(<span class="kw">crate</span>) is_home_mapped: bool,
+    <span class="kw">pub</span>(<span class="kw">crate</span>) is_tmp_mapped: bool,
     <span class="kw">pub</span>(<span class="kw">crate</span>) injected_packages: Vec&lt;BinaryPackage&gt;,
     <span class="kw">pub</span>(<span class="kw">crate</span>) capabilities: Capabilities,
     <span class="attr">#[derivative(Debug = <span class="string">&quot;ignore&quot;</span>)]
@@ -569,7 +575,11 @@
         wasi: <span class="kw-2">&amp;</span>WasiAnnotation,
         root_fs: <span class="prelude-ty">Option</span>&lt;TmpFileSystem&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), anyhow::Error&gt; {
-        <span class="kw">let </span>root_fs = root_fs.unwrap_or_else(|| RootFileSystemBuilder::default().build());
+        <span class="kw">let </span>root_fs = root_fs.unwrap_or_else(|| {
+            RootFileSystemBuilder::default()
+                .with_tmp(!<span class="self">self</span>.is_tmp_mapped)
+                .build()
+        });
         <span class="kw">let </span>fs = prepare_filesystem(root_fs, <span class="kw-2">&amp;</span><span class="self">self</span>.mounts, container_fs)<span class="question-mark">?</span>;
 
         builder.add_preopen_dir(<span class="string">&quot;/&quot;</span>)<span class="question-mark">?</span>;

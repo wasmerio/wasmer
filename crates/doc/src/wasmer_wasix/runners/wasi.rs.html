@@ -439,6 +439,11 @@
 <a href="#439" id="439">439</a>
 <a href="#440" id="440">440</a>
 <a href="#441" id="441">441</a>
+<a href="#442" id="442">442</a>
+<a href="#443" id="443">443</a>
+<a href="#444" id="444">444</a>
+<a href="#445" id="445">445</a>
+<a href="#446" id="446">446</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! WebC container support for running WASI modules
 
 </span><span class="kw">use </span>std::{path::PathBuf, sync::Arc};
@@ -523,6 +528,11 @@
 
     <span class="kw">pub fn </span>with_home_mapped(<span class="kw-2">&amp;mut </span><span class="self">self</span>, is_home_mapped: bool) -&gt; <span class="kw-2">&amp;mut </span><span class="self">Self </span>{
         <span class="self">self</span>.wasi.is_home_mapped = is_home_mapped;
+        <span class="self">self
+    </span>}
+
+    <span class="kw">pub fn </span>with_tmp_mapped(<span class="kw-2">&amp;mut </span><span class="self">self</span>, is_tmp_mapped: bool) -&gt; <span class="kw-2">&amp;mut </span><span class="self">Self </span>{
+        <span class="self">self</span>.wasi.is_tmp_mapped = is_tmp_mapped;
         <span class="self">self
     </span>}
 

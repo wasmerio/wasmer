@@ -182,6 +182,24 @@
 <a href="#182" id="182">182</a>
 <a href="#183" id="183">183</a>
 <a href="#184" id="184">184</a>
+<a href="#185" id="185">185</a>
+<a href="#186" id="186">186</a>
+<a href="#187" id="187">187</a>
+<a href="#188" id="188">188</a>
+<a href="#189" id="189">189</a>
+<a href="#190" id="190">190</a>
+<a href="#191" id="191">191</a>
+<a href="#192" id="192">192</a>
+<a href="#193" id="193">193</a>
+<a href="#194" id="194">194</a>
+<a href="#195" id="195">195</a>
+<a href="#196" id="196">196</a>
+<a href="#197" id="197">197</a>
+<a href="#198" id="198">198</a>
+<a href="#199" id="199">199</a>
+<a href="#200" id="200">200</a>
+<a href="#201" id="201">201</a>
+<a href="#202" id="202">202</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::random_file::RandomFile;
 <span class="kw">use crate</span>::{FileSystem, VirtualFile};
 <span class="kw">use </span>std::path::{Path, PathBuf};
@@ -193,6 +211,7 @@
 
 <span class="kw">pub struct </span>RootFileSystemBuilder {
     default_root_dirs: bool,
+    create_tmp: bool,
     default_dev_files: bool,
     add_wasmer_command: bool,
     stdin: <span class="prelude-ty">Option</span>&lt;Box&lt;<span class="kw">dyn </span>VirtualFile + Send + Sync&gt;&gt;,
@@ -205,6 +224,7 @@
     <span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
         <span class="self">Self </span>{
             default_root_dirs: <span class="bool-val">true</span>,
+            create_tmp: <span class="bool-val">true</span>,
             default_dev_files: <span class="bool-val">true</span>,
             add_wasmer_command: <span class="bool-val">true</span>,
             stdin: <span class="prelude-val">None</span>,
@@ -245,10 +265,26 @@
         <span class="self">self
     </span>}
 
+    <span class="kw">pub fn </span>with_tmp(<span class="kw-2">mut </span><span class="self">self</span>, val: bool) -&gt; <span class="self">Self </span>{
+        <span class="self">self</span>.create_tmp = val;
+        <span class="self">self
+    </span>}
+
     <span class="kw">pub fn </span>build(<span class="self">self</span>) -&gt; TmpFileSystem {
         <span class="kw">let </span>tmp = TmpFileSystem::new();
+
         <span class="kw">if </span><span class="self">self</span>.default_root_dirs {
-            <span class="kw">for </span>root_dir <span class="kw">in </span><span class="kw-2">&amp;</span>[<span class="string">&quot;/.app&quot;</span>, <span class="string">&quot;/.private&quot;</span>, <span class="string">&quot;/bin&quot;</span>, <span class="string">&quot;/dev&quot;</span>, <span class="string">&quot;/etc&quot;</span>, <span class="string">&quot;/tmp&quot;</span>] {
+            <span class="kw">let </span>default_dirs = {
+                <span class="kw">let </span><span class="kw-2">mut </span>dirs = <span class="macro">vec!</span>[<span class="string">&quot;/.app&quot;</span>, <span class="string">&quot;/.private&quot;</span>, <span class="string">&quot;/bin&quot;</span>, <span class="string">&quot;/dev&quot;</span>, <span class="string">&quot;/etc&quot;</span>];
+
+                <span class="kw">if </span><span class="self">self</span>.create_tmp {
+                    dirs.push(<span class="string">&quot;/tmp&quot;</span>);
+                }
+
+                dirs
+            };
+
+            <span class="kw">for </span>root_dir <span class="kw">in </span><span class="kw-2">&amp;</span>default_dirs {
                 <span class="kw">if let </span><span class="prelude-val">Err</span>(err) = tmp.create_dir(Path::new(root_dir)) {
                     <span class="macro">debug!</span>(<span class="string">&quot;failed to create dir [{}] - {}&quot;</span>, root_dir, err);
                 }
