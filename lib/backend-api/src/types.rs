@@ -9,7 +9,7 @@ mod queries {
 
     use super::schema;
 
-    #[derive(cynic::Scalar, Debug, Clone)]
+    #[derive(cynic::Scalar, Debug, Clone, PartialEq, Eq)]
     pub struct DateTime(pub String);
 
     impl TryFrom<OffsetDateTime> for DateTime {
@@ -157,8 +157,8 @@ mod queries {
         Popular,
     }
 
-    #[derive(cynic::QueryVariables, Debug)]
-    pub struct GetAppTemplatesQueryVariables {
+    #[derive(cynic::QueryVariables, Debug, Clone)]
+    pub struct GetAppTemplatesVars {
         pub category_slug: String,
         pub first: i32,
         pub after: Option<String>,
@@ -166,8 +166,8 @@ mod queries {
     }
 
     #[derive(cynic::QueryFragment, Debug)]
-    #[cynic(graphql_type = "Query", variables = "GetAppTemplatesQueryVariables")]
-    pub struct GetAppTemplatesQuery {
+    #[cynic(graphql_type = "Query", variables = "GetAppTemplatesVars")]
+    pub struct GetAppTemplates {
         #[arguments(
             categorySlug: $category_slug,
             first: $first,
@@ -189,7 +189,7 @@ mod queries {
         pub cursor: String,
     }
 
-    #[derive(serde::Serialize, cynic::QueryFragment, Debug)]
+    #[derive(serde::Serialize, cynic::QueryFragment, PartialEq, Eq, Debug)]
     pub struct AppTemplate {
         #[serde(rename = "demoUrl")]
         pub demo_url: String,
@@ -214,7 +214,7 @@ mod queries {
         pub use_cases: Jsonstring,
     }
 
-    #[derive(cynic::Scalar, Debug, Clone)]
+    #[derive(cynic::Scalar, Debug, Clone, PartialEq, Eq)]
     #[cynic(graphql_type = "JSONString")]
     pub struct Jsonstring(pub String);
 
