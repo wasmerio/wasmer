@@ -1370,7 +1370,7 @@ impl InodeSocket {
                             is_dead, peer_addr, ..
                         } => {
                             return match is_dead {
-                                true => Poll::Ready(Ok((0, peer_addr.clone()))),
+                                true => Poll::Ready(Ok((0, *peer_addr))),
                                 false => Poll::Pending,
                             };
                         }
