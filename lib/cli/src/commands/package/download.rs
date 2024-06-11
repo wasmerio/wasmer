@@ -91,7 +91,7 @@ impl PackageDownload {
 
         step_num += 1;
 
-        let (download_url, token) = match &self.package {
+        let (download_url, token, ident) = match &self.package {
             PackageSource::Ident(PackageIdent::Named(id)) => {
                 let endpoint = self.env.registry_endpoint()?;
                 let version = id.version_or_default().to_string();
@@ -107,16 +107,18 @@ impl PackageDownload {
                 )
                 .with_context(|| {
                     format!(
-                "could not retrieve package information for package '{}' from registry '{}'",
-                full_name, endpoint,
-            )
+                    "could not retrieve package information for package '{}' from registry '{}'",
+                    full_name, endpoint,
+                )
                 })?;
 
                 let download_url = package
                     .pirita_url
                     .context("registry does provide a container download container download URL")?;
 
-                (download_url, token)
+                let ident = format!("{}@{}", package.package, package.version);
+
+                (download_url, token, ident)
             }
             PackageSource::Ident(PackageIdent::Hash(hash)) => {
                 let endpoint = self.env.registry_endpoint()?;
@@ -133,7 +135,9 @@ impl PackageDownload {
                 let pkg = rt.block_on(wasmer_api::query::get_package_release(&client, &hash.to_string()))?
                     .with_context(|| format!("Package with {hash} does not exist in the registry, or is not accessible"))?;
 
-                (pkg.webc_url, token)
+                let ident = hash.to_string();
+
+                (pkg.webc_url, token, ident)
             }
             PackageSource::Path(p) => bail!("cannot download a package from a local path: '{p}'"),
             PackageSource::Url(url) => bail!("cannot download a package from a URL: '{}'", url),
@@ -156,11 +160,12 @@ impl PackageDownload {
         };
 
         pb.println(format!(
-            "{} {}Downloading package...",
+            "{} {}Downloading package {} ...",
             style(format!("[{}/{}]", step_num, total_steps))
                 .bold()
                 .dim(),
-            DOWNLOADING_PACKAGE_EMOJI
+            DOWNLOADING_PACKAGE_EMOJI,
+            ident,
         ));
 
         step_num += 1;
