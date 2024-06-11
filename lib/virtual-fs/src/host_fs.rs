@@ -44,7 +44,7 @@ pub fn canonicalize(path: &Path) -> Result<PathBuf> {
     if !path.exists() {
         return Err(FsError::InvalidInput);
     }
-    fs::canonicalize(path).map_err(Into::into)
+    dunce::canonicalize(path).map_err(Into::into)
 }
 
 // Copied from cargo
@@ -80,6 +80,7 @@ impl FileSystem {
     pub fn new(handle: Handle, root: impl Into<PathBuf>) -> Result<Self> {
         let root = canonicalize(&root.into())?;
 
+        println!("new:root: {root:?}");
         Ok(FileSystem { handle, root })
     }
 }
