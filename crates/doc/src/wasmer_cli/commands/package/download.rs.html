@@ -275,6 +275,11 @@
 <a href="#275" id="275">275</a>
 <a href="#276" id="276">276</a>
 <a href="#277" id="277">277</a>
+<a href="#278" id="278">278</a>
+<a href="#279" id="279">279</a>
+<a href="#280" id="280">280</a>
+<a href="#281" id="281">281</a>
+<a href="#282" id="282">282</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::path::PathBuf;
 
 <span class="kw">use </span>anyhow::{bail, Context};
@@ -368,7 +373,7 @@
 
         step_num += <span class="number">1</span>;
 
-        <span class="kw">let </span>(download_url, token) = <span class="kw">match </span><span class="kw-2">&amp;</span><span class="self">self</span>.package {
+        <span class="kw">let </span>(download_url, token, ident) = <span class="kw">match </span><span class="kw-2">&amp;</span><span class="self">self</span>.package {
             PackageSource::Ident(PackageIdent::Named(id)) =&gt; {
                 <span class="kw">let </span>endpoint = <span class="self">self</span>.env.registry_endpoint()<span class="question-mark">?</span>;
                 <span class="kw">let </span>version = id.version_or_default().to_string();
@@ -384,16 +389,18 @@
                 )
                 .with_context(|| {
                     <span class="macro">format!</span>(
-                <span class="string">&quot;could not retrieve package information for package &#39;{}&#39; from registry &#39;{}&#39;&quot;</span>,
-                full_name, endpoint,
-            )
+                    <span class="string">&quot;could not retrieve package information for package &#39;{}&#39; from registry &#39;{}&#39;&quot;</span>,
+                    full_name, endpoint,
+                )
                 })<span class="question-mark">?</span>;
 
                 <span class="kw">let </span>download_url = package
                     .pirita_url
                     .context(<span class="string">&quot;registry does provide a container download container download URL&quot;</span>)<span class="question-mark">?</span>;
 
-                (download_url, token)
+                <span class="kw">let </span>ident = <span class="macro">format!</span>(<span class="string">&quot;{}@{}&quot;</span>, package.package, package.version);
+
+                (download_url, token, ident)
             }
             PackageSource::Ident(PackageIdent::Hash(hash)) =&gt; {
                 <span class="kw">let </span>endpoint = <span class="self">self</span>.env.registry_endpoint()<span class="question-mark">?</span>;
@@ -410,7 +417,9 @@
                 <span class="kw">let </span>pkg = rt.block_on(wasmer_api::query::get_package_release(<span class="kw-2">&amp;</span>client, <span class="kw-2">&amp;</span>hash.to_string()))<span class="question-mark">?
                     </span>.with_context(|| <span class="macro">format!</span>(<span class="string">&quot;Package with {hash} does not exist in the registry, or is not accessible&quot;</span>))<span class="question-mark">?</span>;
 
-                (pkg.webc_url, token)
+                <span class="kw">let </span>ident = hash.to_string();
+
+                (pkg.webc_url, token, ident)
             }
             PackageSource::Path(p) =&gt; <span class="macro">bail!</span>(<span class="string">&quot;cannot download a package from a local path: &#39;{p}&#39;&quot;</span>),
             PackageSource::Url(url) =&gt; <span class="macro">bail!</span>(<span class="string">&quot;cannot download a package from a URL: &#39;{}&#39;&quot;</span>, url),
@@ -433,11 +442,12 @@
         };
 
         pb.println(<span class="macro">format!</span>(
-            <span class="string">&quot;{} {}Downloading package...&quot;</span>,
+            <span class="string">&quot;{} {}Downloading package {} ...&quot;</span>,
             style(<span class="macro">format!</span>(<span class="string">&quot;[{}/{}]&quot;</span>, step_num, total_steps))
                 .bold()
                 .dim(),
-            DOWNLOADING_PACKAGE_EMOJI
+            DOWNLOADING_PACKAGE_EMOJI,
+            ident,
         ));
 
         step_num += <span class="number">1</span>;
