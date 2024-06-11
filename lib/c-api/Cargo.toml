@@ -34,7 +34,7 @@ wasmer-middlewares = { version = "=4.3.2", path = "../middlewares", optional = t
 wasmer-types = { version = "=4.3.2", path = "../types" }
 wasmer-wasix = { path = "../wasix", version="=0.21.0", features = ["host-fs", "host-vnet"], optional = true }
 webc = { workspace = true, optional = true }
-virtual-fs = { version = "0.12.0", path = "../virtual-fs", optional = true, default-features = false, features = ["static-fs"] }
+virtual-fs = { version = "0.13.0", path = "../virtual-fs", optional = true, default-features = false, features = ["static-fs"] }
 enumset.workspace = true
 cfg-if = "1.0"
 lazy_static = "1.4"
