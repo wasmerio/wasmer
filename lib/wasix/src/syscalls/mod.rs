@@ -94,7 +94,10 @@ pub(crate) use self::types::{
     },
     *,
 };
-use self::{state::WasiInstanceGuardMemory, utils::WasiDummyWaker};
+use self::{
+    state::{conv_env_vars, WasiInstanceGuardMemory},
+    utils::WasiDummyWaker,
+};
 pub(crate) use crate::os::task::{
     process::{WasiProcessId, WasiProcessWait},
     thread::{WasiThread, WasiThreadId},
@@ -1481,12 +1484,48 @@ where
 }
 
 // Function to prepare the WASI environment
-pub(crate) fn _prepare_wasi(wasi_env: &mut WasiEnv, args: Option<Vec<String>>) {
+pub(crate) fn _prepare_wasi(
+    wasi_env: &mut WasiEnv,
+    args: Option<Vec<String>>,
+    envs: Option<Vec<(String, String)>>,
+) {
     // Swap out the arguments with the new ones
     if let Some(args) = args {
         let mut wasi_state = wasi_env.state.fork();
         wasi_state.args = args;
         wasi_env.state = Arc::new(wasi_state);
+    }
+
+    // Update the env vars
+    if let Some(envs) = envs {
+        let mut guard = wasi_env.state.envs.lock().unwrap();
+
+        let mut existing_envs = guard
+            .iter()
+            .map(|b| {
+                let string = String::from_utf8_lossy(b);
+                let (key, val) = string.split_once('=').expect("env var is malformed");
+
+                (key.to_string(), val.to_string().as_bytes().to_vec())
+            })
+            .collect::<Vec<_>>();
+
+        for (key, val) in envs {
+            let val = val.as_bytes().to_vec();
+            match existing_envs
+                .iter_mut()
+                .find(|(existing_key, _)| existing_key == &key)
+            {
+                Some((_, existing_val)) => *existing_val = val,
+                None => existing_envs.push((key, val)),
+            }
+        }
+
+        let envs = conv_env_vars(existing_envs);
+
+        *guard = envs;
+
+        drop(guard)
     }
 
     // Close any files after the STDERR that are not preopened

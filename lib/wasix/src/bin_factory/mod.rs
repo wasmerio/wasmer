@@ -8,6 +8,7 @@ use std::{
 };
 
 use anyhow::Context;
+use exec::spawn_exec_wasm;
 use virtual_fs::{AsyncReadExt, FileSystem};
 use wasmer::FunctionEnvMut;
 use wasmer_wasix_types::wasi::Errno;
@@ -52,54 +53,18 @@ impl BinFactory {
         cache.insert(name.to_string(), Some(binary));
     }
 
-    // TODO: remove allow once BinFactory is refactored
-    // currently fine because a BinFactory is only used by a single process tree
     #[allow(clippy::await_holding_lock)]
     pub async fn get_binary(
         &self,
         name: &str,
         fs: Option<&dyn FileSystem>,
     ) -> Option<BinaryPackage> {
-        let name = name.to_string();
-
-        // Fast path
-        {
-            let cache = self.local.read().unwrap();
-            if let Some(data) = cache.get(&name) {
-                return data.clone();
-            }
-        }
-
-        // Slow path
-        let mut cache = self.local.write().unwrap();
-
-        // Check the cache
-        if let Some(data) = cache.get(&name) {
-            return data.clone();
-        }
-
-        // Check the filesystem for the file
-        if name.starts_with('/') {
-            if let Some(fs) = fs {
-                match load_package_from_filesystem(fs, name.as_ref(), self.runtime()).await {
-                    Ok(pkg) => {
-                        cache.insert(name, Some(pkg.clone()));
-                        return Some(pkg);
-                    }
-                    Err(e) => {
-                        tracing::warn!(
-                            path = name,
-                            error = &*e,
-                            "Unable to load the package from disk"
-                        );
-                    }
-                }
-            }
-        }
-
-        // NAK
-        cache.insert(name, None);
-        None
+        self.get_executable(name, fs)
+            .await
+            .and_then(|executable| match executable {
+                Executable::Wasm(_) => None,
+                Executable::BinaryPackage(pkg) => Some(pkg),
+            })
     }
 
     pub fn spawn<'a>(
@@ -111,7 +76,7 @@ impl BinFactory {
         Box::pin(async move {
             // Find the binary (or die trying) and make the spawn type
             let res = self
-                .get_binary(name.as_str(), Some(env.fs_root()))
+                .get_executable(name.as_str(), Some(env.fs_root()))
                 .await
                 .ok_or_else(|| SpawnError::BinaryNotFound {
                     binary: name.clone(),
@@ -119,10 +84,17 @@ impl BinFactory {
             if res.is_err() {
                 env.on_exit(Some(Errno::Noent.into())).await;
             }
-            let binary = res?;
+            let executable = res?;
 
             // Execute
-            spawn_exec(binary, name.as_str(), store, env, &self.runtime).await
+            match executable {
+                Executable::Wasm(bytes) => {
+                    spawn_exec_wasm(&bytes, name.as_str(), env, &self.runtime).await
+                }
+                Executable::BinaryPackage(pkg) => {
+                    spawn_exec(pkg, name.as_str(), store, env, &self.runtime).await
+                }
+            }
         })
     }
 
@@ -145,13 +117,71 @@ impl BinFactory {
         }
         Err(SpawnError::BinaryNotFound { binary: name })
     }
+
+    // TODO: remove allow once BinFactory is refactored
+    // currently fine because a BinFactory is only used by a single process tree
+    #[allow(clippy::await_holding_lock)]
+    pub async fn get_executable(
+        &self,
+        name: &str,
+        fs: Option<&dyn FileSystem>,
+    ) -> Option<Executable> {
+        let name = name.to_string();
+
+        // Fast path
+        {
+            let cache = self.local.read().unwrap();
+            if let Some(data) = cache.get(&name) {
+                data.clone().map(Executable::BinaryPackage);
+            }
+        }
+
+        // Slow path
+        let mut cache = self.local.write().unwrap();
+
+        // Check the cache
+        if let Some(data) = cache.get(&name) {
+            return data.clone().map(Executable::BinaryPackage);
+        }
+
+        // Check the filesystem for the file
+        if name.starts_with('/') {
+            if let Some(fs) = fs {
+                match load_executable_from_filesystem(fs, name.as_ref(), self.runtime()).await {
+                    Ok(executable) => {
+                        if let Executable::BinaryPackage(pkg) = &executable {
+                            cache.insert(name, Some(pkg.clone()));
+                        }
+
+                        return Some(executable);
+                    }
+                    Err(e) => {
+                        tracing::warn!(
+                            path = name,
+                            error = &*e,
+                            "Unable to load the package from disk"
+                        );
+                    }
+                }
+            }
+        }
+
+        // NAK
+        cache.insert(name, None);
+        None
+    }
 }
 
-async fn load_package_from_filesystem(
+pub enum Executable {
+    Wasm(bytes::Bytes),
+    BinaryPackage(BinaryPackage),
+}
+
+async fn load_executable_from_filesystem(
     fs: &dyn FileSystem,
     path: &Path,
     rt: &(dyn Runtime + Send + Sync),
-) -> Result<BinaryPackage, anyhow::Error> {
+) -> Result<Executable, anyhow::Error> {
     let mut f = fs
         .new_open_options()
         .read(true)
@@ -161,10 +191,15 @@ async fn load_package_from_filesystem(
     let mut data = Vec::with_capacity(f.size() as usize);
     f.read_to_end(&mut data).await.context("Read failed")?;
 
-    let container = Container::from_bytes(data).context("Unable to parse the WEBC file")?;
-    let pkg = BinaryPackage::from_webc(&container, rt)
-        .await
-        .context("Unable to load the package")?;
+    let bytes: bytes::Bytes = data.into();
 
-    Ok(pkg)
+    if let Ok(container) = Container::from_bytes(bytes.clone()) {
+        let pkg = BinaryPackage::from_webc(&container, rt)
+            .await
+            .context("Unable to load the package")?;
+
+        Ok(Executable::BinaryPackage(pkg))
+    } else {
+        Ok(Executable::Wasm(bytes))
+    }
 }

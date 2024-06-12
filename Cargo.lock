@@ -923,9 +923,9 @@ dependencies = [
 
 [[package]]
 name = "crc32fast"
-version = "1.4.0"
+version = "1.4.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b3855a8a784b474f333699ef2bbca9db2c4a1f6d9088a90a2d25b1eb53111eaa"
+checksum = "a97769d94ddab943e4510d138150169a2758b5ef3eb191a9ee688de3e23ef7b3"
 dependencies = [
  "cfg-if 1.0.0",
 ]
@@ -976,7 +976,7 @@ version = "0.5.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ab3db02a9c5b5121e1e42fbdb1aeb65f5e02624cc58c43f2884c6ccac0b82f95"
 dependencies = [
- "crossbeam-utils 0.8.19",
+ "crossbeam-utils 0.8.20",
 ]
 
 [[package]]
@@ -997,7 +997,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "613f8cc01fe9cf1a3eb3d7f488fd2fa8388403e97039e2f73692932e291a770d"
 dependencies = [
  "crossbeam-epoch 0.9.18",
- "crossbeam-utils 0.8.19",
+ "crossbeam-utils 0.8.20",
 ]
 
 [[package]]
@@ -1021,7 +1021,7 @@ version = "0.9.18"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5b82ac4a3c2ca9c3460964f020e1402edd5753411d7737aa39c3714ad1b5420e"
 dependencies = [
- "crossbeam-utils 0.8.19",
+ "crossbeam-utils 0.8.20",
 ]
 
 [[package]]
@@ -1041,7 +1041,7 @@ version = "0.3.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "df0346b5d5e76ac2fe4e327c5fd1118d6be7c51dfb18f9b7922923f287471e35"
 dependencies = [
- "crossbeam-utils 0.8.19",
+ "crossbeam-utils 0.8.20",
 ]
 
 [[package]]
@@ -1057,9 +1057,9 @@ dependencies = [
 
 [[package]]
 name = "crossbeam-utils"
-version = "0.8.19"
+version = "0.8.20"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "248e3bacc7dc6baa3b21e405ee045c3047101a49145e7e9eca583ab4c2ca5345"
+checksum = "22ec99545bb0ed0ea7bb9b8e1e9122ea386ff8a48c0922e43f36d45ab09e0e80"
 
 [[package]]
 name = "crossterm"
@@ -2779,6 +2779,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "lockfree-object-pool"
+version = "0.1.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9374ef4228402d4b7e403e5838cb880d9ee663314b0a900d5a6aabf0c213552e"
+
+[[package]]
 name = "log"
 version = "0.3.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2874,7 +2880,7 @@ dependencies = [
 
 [[package]]
 name = "macro-wasmer-universal-test"
-version = "4.3.1"
+version = "4.3.2"
 dependencies = [
  "proc-macro2",
  "proc-quote",
@@ -3806,7 +3812,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1465873a3dfdaa8ae7cb14b4383657caab0b3e8a0aa9ae8e04b044854c8dfce2"
 dependencies = [
  "crossbeam-deque 0.8.5",
- "crossbeam-utils 0.8.19",
+ "crossbeam-utils 0.8.20",
 ]
 
 [[package]]
@@ -4681,6 +4687,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "simd-adler32"
+version = "0.3.7"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d66dc143e6b11c1eddc06d5c423cfc97062865baf299914ab64caa38182078fe"
+
+[[package]]
 name = "simdutf8"
 version = "0.1.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4999,18 +5011,18 @@ dependencies = [
 
 [[package]]
 name = "thiserror"
-version = "1.0.60"
+version = "1.0.61"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "579e9083ca58dd9dcf91a9923bb9054071b9ebbd800b342194c9feb0ee89fc18"
+checksum = "c546c80d6be4bc6a00c0f01730c08df82eaa7a7a61f11d656526506112cc1709"
 dependencies = [
  "thiserror-impl",
 ]
 
 [[package]]
 name = "thiserror-impl"
-version = "1.0.60"
+version = "1.0.61"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e2470041c06ec3ac1ab38d0356a6119054dedaea53e12fbefc0de730a1c08524"
+checksum = "46c3384250002a6d5af4d114f2845d37b57521033f30d5c3f46c4d70e1197533"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -5912,7 +5924,7 @@ checksum = "49874b5167b65d7193b8aba1567f5c7d93d001cafc34600cee003eda787e483f"
 
 [[package]]
 name = "virtual-fs"
-version = "0.12.0"
+version = "0.13.0"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -6059,7 +6071,7 @@ dependencies = [
 
 [[package]]
 name = "wai-bindgen-wasmer"
-version = "0.21.0"
+version = "0.22.0"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -6144,7 +6156,7 @@ checksum = "9c8d87e72b64a3b4db28d11ce29237c246188f4f51057d65a7eab63b7987e423"
 
 [[package]]
 name = "wasi-test-generator"
-version = "4.3.1"
+version = "4.3.2"
 dependencies = [
  "glob",
  "gumdrop",
@@ -6332,7 +6344,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer"
-version = "4.3.1"
+version = "4.3.2"
 dependencies = [
  "anyhow",
  "bytes 1.6.0",
@@ -6368,7 +6380,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-api"
-version = "0.0.28"
+version = "0.0.30"
 dependencies = [
  "anyhow",
  "base64 0.13.1",
@@ -6386,13 +6398,13 @@ dependencies = [
  "tracing",
  "url",
  "uuid",
- "wasmer-config 0.3.0",
+ "wasmer-config 0.4.0",
  "webc",
 ]
 
 [[package]]
 name = "wasmer-argus"
-version = "4.3.1"
+version = "4.3.2"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -6433,7 +6445,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-c-api"
-version = "4.3.1"
+version = "4.3.2"
 dependencies = [
  "cbindgen",
  "cfg-if 1.0.0",
@@ -6464,7 +6476,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-c-api-test-runner"
-version = "4.3.1"
+version = "4.3.2"
 dependencies = [
  "cc",
  "regex",
@@ -6474,7 +6486,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-cache"
-version = "4.3.1"
+version = "4.3.2"
 dependencies = [
  "blake3",
  "clap",
@@ -6492,7 +6504,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-capi-examples-runner"
-version = "4.3.1"
+version = "4.3.2"
 dependencies = [
  "cc",
  "regex",
@@ -6502,7 +6514,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-cli"
-version = "4.3.1"
+version = "4.3.2"
 dependencies = [
  "anyhow",
  "assert_cmd 2.0.14",
@@ -6582,7 +6594,7 @@ dependencies = [
  "wasmer-compiler-cranelift",
  "wasmer-compiler-llvm",
  "wasmer-compiler-singlepass",
- "wasmer-config 0.3.0",
+ "wasmer-config 0.4.0",
  "wasmer-emscripten",
  "wasmer-object",
  "wasmer-registry",
@@ -6596,7 +6608,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-compiler"
-version = "4.3.1"
+version = "4.3.2"
 dependencies = [
  "backtrace",
  "bytes 1.6.0",
@@ -6626,7 +6638,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-compiler-cli"
-version = "4.3.1"
+version = "4.3.2"
 dependencies = [
  "anyhow",
  "bytesize",
@@ -6647,7 +6659,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-compiler-cranelift"
-version = "4.3.1"
+version = "4.3.2"
 dependencies = [
  "cranelift-codegen",
  "cranelift-entity",
@@ -6666,7 +6678,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-compiler-llvm"
-version = "4.3.1"
+version = "4.3.2"
 dependencies = [
  "byteorder",
  "cc",
@@ -6688,7 +6700,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-compiler-singlepass"
-version = "4.3.1"
+version = "4.3.2"
 dependencies = [
  "byteorder",
  "dynasm",
@@ -6729,7 +6741,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-config"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "anyhow",
  "bytesize",
@@ -6751,7 +6763,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-derive"
-version = "4.3.1"
+version = "4.3.2"
 dependencies = [
  "compiletest_rs",
  "proc-macro-error",
@@ -6763,7 +6775,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-emscripten"
-version = "4.3.1"
+version = "4.3.2"
 dependencies = [
  "byteorder",
  "getrandom",
@@ -6805,7 +6817,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-integration-tests-cli"
-version = "4.3.1"
+version = "4.3.2"
 dependencies = [
  "anyhow",
  "assert_cmd 2.0.14",
@@ -6834,11 +6846,11 @@ dependencies = [
 
 [[package]]
 name = "wasmer-integration-tests-ios"
-version = "4.3.1"
+version = "4.3.2"
 
 [[package]]
 name = "wasmer-journal"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -6865,7 +6877,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-middlewares"
-version = "4.3.1"
+version = "4.3.2"
 dependencies = [
  "wasmer",
  "wasmer-types",
@@ -6874,7 +6886,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-object"
-version = "4.3.1"
+version = "4.3.2"
 dependencies = [
  "object 0.29.0",
  "thiserror",
@@ -6883,7 +6895,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-registry"
-version = "5.13.0"
+version = "5.14.0"
 dependencies = [
  "anyhow",
  "clap",
@@ -6922,7 +6934,7 @@ dependencies = [
  "toml 0.5.11",
  "tracing",
  "url",
- "wasmer-config 0.3.0",
+ "wasmer-config 0.4.0",
  "wasmer-wasm-interface",
  "wasmparser 0.121.2",
  "webc",
@@ -6931,7 +6943,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-sys-utils"
-version = "0.21.0"
+version = "0.22.0"
 dependencies = [
  "libc",
  "region",
@@ -6945,7 +6957,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-types"
-version = "4.3.1"
+version = "4.3.2"
 dependencies = [
  "bytecheck",
  "enum-iterator",
@@ -6967,7 +6979,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-vm"
-version = "4.3.1"
+version = "4.3.2"
 dependencies = [
  "backtrace",
  "cc",
@@ -7061,7 +7073,7 @@ dependencies = [
  "wasm-bindgen-futures",
  "wasm-bindgen-test",
  "wasmer",
- "wasmer-config 0.3.0",
+ "wasmer-config 0.4.0",
  "wasmer-emscripten",
  "wasmer-journal",
  "wasmer-types",
@@ -7100,7 +7112,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-wasm-interface"
-version = "4.3.1"
+version = "4.3.2"
 dependencies = [
  "bincode",
  "either",
@@ -7112,7 +7124,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-wast"
-version = "4.3.1"
+version = "4.3.2"
 dependencies = [
  "anyhow",
  "futures 0.3.30",
@@ -7129,7 +7141,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-workspace"
-version = "4.3.1"
+version = "4.3.2"
 dependencies = [
  "anyhow",
  "build-deps",
@@ -7686,15 +7698,31 @@ checksum = "525b4ec142c6b68a2d10f01f7bbf6755599ca3f81ea53b8431b7dd348f5fdb2d"
 
 [[package]]
 name = "zip"
-version = "1.2.3"
+version = "2.1.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c700ea425e148de30c29c580c1f9508b93ca57ad31c9f4e96b83c194c37a7a8f"
+checksum = "775a2b471036342aa69bc5a602bc889cb0a06cda00477d0c69566757d5553d39"
 dependencies = [
  "arbitrary",
  "crc32fast",
- "crossbeam-utils 0.8.19",
+ "crossbeam-utils 0.8.20",
  "displaydoc",
  "flate2",
  "indexmap 2.2.6",
+ "memchr",
  "thiserror",
+ "zopfli",
+]
+
+[[package]]
+name = "zopfli"
+version = "0.8.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e5019f391bac5cf252e93bbcc53d039ffd62c7bfb7c150414d61369afe57e946"
+dependencies = [
+ "bumpalo",
+ "crc32fast",
+ "lockfree-object-pool",
+ "log 0.4.21",
+ "once_cell",
+ "simd-adler32",
 ]

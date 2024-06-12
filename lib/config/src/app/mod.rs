@@ -195,6 +195,13 @@ pub struct AppConfigCapabilityMapV1 {
     /// Enables app bootstrapping with startup snapshots.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub instaboot: Option<AppConfigCapabilityInstaBootV1>,
+
+    /// Additional unknown capabilities.
+    ///
+    /// This provides a small bit of forwards compatibility for newly added
+    /// capabilities.
+    #[serde(flatten)]
+    pub other: HashMap<String, serde_json::Value>,
 }
 
 /// Memory capability settings.
@@ -241,7 +248,8 @@ pub struct AppConfigCapabilityInstaBootV1 {
     ///
     /// Format: 5m, 1h, 2d, ...
     ///
-    /// Snapshots older than this value will be automatically purged.
+    /// After the specified time new snapshots will be created, and the old
+    /// ones discarded.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub max_age: Option<String>,
 }

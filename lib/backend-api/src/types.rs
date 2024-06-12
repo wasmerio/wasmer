@@ -9,7 +9,7 @@ mod queries {
 
     use super::schema;
 
-    #[derive(cynic::Scalar, Debug, Clone)]
+    #[derive(cynic::Scalar, Debug, Clone, PartialEq, Eq)]
     pub struct DateTime(pub String);
 
     impl TryFrom<OffsetDateTime> for DateTime {
@@ -41,14 +41,20 @@ mod queries {
         Viewer,
     }
 
+    #[derive(cynic::QueryFragment, Debug)]
+    #[cynic(graphql_type = "Query")]
+    pub struct GetCurrentUser {
+        pub viewer: Option<User>,
+    }
+
     #[derive(cynic::QueryVariables, Debug)]
-    pub struct GetCurrentUserVars {
+    pub struct GetCurrentUserWithNamespacesVars {
         pub namespace_role: Option<GrapheneRole>,
     }
 
     #[derive(cynic::QueryFragment, Debug)]
-    #[cynic(graphql_type = "Query", variables = "GetCurrentUserVars")]
-    pub struct GetCurrentUser {
+    #[cynic(graphql_type = "Query", variables = "GetCurrentUserWithNamespacesVars")]
+    pub struct GetCurrentUserWithNamespaces {
         pub viewer: Option<UserWithNamespaces>,
     }
 
@@ -143,16 +149,31 @@ mod queries {
         #[arguments(slug: $slug)]
         pub get_app_template: Option<AppTemplate>,
     }
-    #[derive(cynic::QueryVariables, Debug)]
-    pub struct GetAppTemplatesQueryVariables {
+
+    #[derive(cynic::Enum, Clone, Copy, Debug)]
+    pub enum AppTemplatesSortBy {
+        Newest,
+        Oldest,
+        Popular,
+    }
+
+    #[derive(cynic::QueryVariables, Debug, Clone)]
+    pub struct GetAppTemplatesVars {
         pub category_slug: String,
         pub first: i32,
+        pub after: Option<String>,
+        pub sort_by: Option<AppTemplatesSortBy>,
     }
 
     #[derive(cynic::QueryFragment, Debug)]
-    #[cynic(graphql_type = "Query", variables = "GetAppTemplatesQueryVariables")]
-    pub struct GetAppTemplatesQuery {
-        #[arguments(categorySlug: $category_slug, first: $first)]
+    #[cynic(graphql_type = "Query", variables = "GetAppTemplatesVars")]
+    pub struct GetAppTemplates {
+        #[arguments(
+            categorySlug: $category_slug,
+            first: $first,
+            after: $after,
+            sortBy: $sort_by
+        )]
         pub get_app_templates: Option<AppTemplateConnection>,
     }
 
@@ -168,25 +189,32 @@ mod queries {
         pub cursor: String,
     }
 
-    #[derive(cynic::QueryFragment, Debug)]
+    #[derive(serde::Serialize, cynic::QueryFragment, PartialEq, Eq, Debug)]
     pub struct AppTemplate {
+        #[serde(rename = "demoUrl")]
         pub demo_url: String,
         pub language: String,
         pub name: String,
         pub framework: String,
+        #[serde(rename = "createdAt")]
         pub created_at: DateTime,
         pub description: String,
         pub id: cynic::Id,
+        #[serde(rename = "isPublic")]
         pub is_public: bool,
+        #[serde(rename = "repoLicense")]
         pub repo_license: String,
         pub readme: String,
+        #[serde(rename = "repoUrl")]
         pub repo_url: String,
         pub slug: String,
+        #[serde(rename = "updatedAt")]
         pub updated_at: DateTime,
+        #[serde(rename = "useCases")]
         pub use_cases: Jsonstring,
     }
 
-    #[derive(cynic::Scalar, Debug, Clone)]
+    #[derive(cynic::Scalar, Debug, Clone, PartialEq, Eq)]
     #[cynic(graphql_type = "JSONString")]
     pub struct Jsonstring(pub String);
 
@@ -447,7 +475,7 @@ mod queries {
     }
 
     #[derive(cynic::QueryFragment, Debug, Clone, Serialize)]
-    #[cynic(graphql_type = "User", variables = "GetCurrentUserVars")]
+    #[cynic(graphql_type = "User", variables = "GetCurrentUserWithNamespacesVars")]
     pub struct UserWithNamespaces {
         pub id: cynic::Id,
         pub username: String,

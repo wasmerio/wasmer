@@ -219,6 +219,15 @@ languages** with the Wasmer SDK:
 [OCaml integration]: https://github.com/wasmerio/wasmer-ocaml
 [`wasmer` OCaml package]: https://opam.ocaml.org/packages/wasmer/
 
+## Develop
+
+We have different guides to help you develop Wasmer:
+
+* [Build Wasmer from Source](./docs/BUILD.md)
+* [Testing](./docs/TEST.md)
+* [Security advisory](./docs/SECURITY.md)
+
+
 ## Contribute
 
 We appreciate your help! 💜

@@ -1,6 +1,6 @@
 [package]
 name = "wasmer-api"
-version = "0.0.28"
+version = "0.0.30"
 description = "Client library for the Wasmer GraphQL API"
 readme = "README.md"
 documentation = "https://docs.rs/wasmer-api"
@@ -17,7 +17,7 @@ rust-version.workspace = true
 [dependencies]
 # Wasmer dependencies.
 edge-schema.workspace = true
-wasmer-config = { version = "0.3.0", path = "../config" }
+wasmer-config = { version = "0.4.0", path = "../config" }
 webc.workspace = true
 
 # crates.io dependencies.

@@ -1,6 +1,6 @@
 [package]
 name = "wasmer-registry"
-version = "5.13.0"
+version = "5.14.0"
 description = "Crate to interact with the wasmer registry, download packages, etc."
 authors.workspace = true
 edition.workspace = true
@@ -49,8 +49,8 @@ tokio-tungstenite = {version = "0.20", features = ["rustls-tls-native-roots"]}
 toml.workspace = true
 tracing = "0.1.40"
 url = "2.3.1"
-wasmer-config = { version = "0.3.0", path = "../config" }
-wasmer-wasm-interface = { version = "4.3.1", path = "../wasm-interface", optional = true }
+wasmer-config = { version = "0.4.0", path = "../config" }
+wasmer-wasm-interface = { version = "4.3.2", path = "../wasm-interface", optional = true }
 wasmparser = { workspace = true, optional = true }
 whoami = "1.2.3"
 webc.workspace = true
