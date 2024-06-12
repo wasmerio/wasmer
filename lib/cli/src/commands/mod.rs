@@ -32,6 +32,7 @@ mod validate;
 #[cfg(feature = "wast")]
 mod wast;
 mod whoami;
+use anyhow::Context;
 use std::env::args;
 
 #[cfg(target_os = "linux")]
@@ -70,12 +71,21 @@ pub(crate) trait AsyncCliCommand: Send + Sync {
     type Output: Send + Sync;
 
     async fn run_async(self) -> Result<Self::Output, anyhow::Error>;
+
+    fn setup(&self) -> Result<(), anyhow::Error> {
+        ctrlc::set_handler(move || {
+            let term = console::Term::stdout();
+            let _ = term.show_cursor();
+        })
+        .with_context(|| format!("While setting the SIGINT handler"))
+    }
 }
 
 impl<O: Send + Sync, C: AsyncCliCommand<Output = O>> CliCommand for C {
     type Output = O;
 
     fn run(self) -> Result<(), anyhow::Error> {
+        self.setup()?;
         tokio::runtime::Runtime::new()?.block_on(AsyncCliCommand::run_async(self))?;
         Ok(())
     }
