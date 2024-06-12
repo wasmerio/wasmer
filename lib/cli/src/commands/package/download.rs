@@ -128,7 +128,7 @@ impl PackageDownload {
                 let download_url = package
                     .distribution_v3
                     .pirita_download_url
-                    .context("registry does provide a container download container download URL")?;
+                    .context("registry did not provide a container download URL")?;
 
                 let ident = format!("{}@{}", full_name, package.version);
                 let filename = if let Some(ns) = &package.package.namespace {
@@ -284,9 +284,8 @@ impl PackageDownload {
 
 #[cfg(test)]
 mod tests {
-    use wasmer_registry::wasmer_env::WASMER_DIR;
-
     use super::*;
+    use std::str::FromStr;
 
     /// Download a package from the dev registry.
     #[test]
@@ -296,9 +295,13 @@ mod tests {
         let out_path = dir.path().join("hello.webc");
 
         let cmd = PackageDownload {
-            env: WasmerEnv::new(WASMER_DIR.clone(), Some("wasmer.wtf".into()), None, None),
+            env: WasmerEnv::default(),
+            api: ApiOpts {
+                token: None,
+                registry: Some(url::Url::from_str("https://registry.wasmer.io/graphql").unwrap()),
+            },
             validate: true,
-            out_path: out_path.clone(),
+            out_path: Some(out_path.clone()),
             package: "wasmer/hello@0.1.0".parse().unwrap(),
             quiet: true,
         };
