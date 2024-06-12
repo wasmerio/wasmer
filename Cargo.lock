@@ -6618,6 +6618,7 @@ dependencies = [
  "hashbrown 0.11.2",
  "lazy_static",
  "leb128",
+ "libc",
  "memmap2 0.5.10",
  "more-asserts",
  "region",
