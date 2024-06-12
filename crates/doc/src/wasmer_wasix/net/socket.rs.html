@@ -1520,6 +1520,30 @@
 <a href="#1520" id="1520">1520</a>
 <a href="#1521" id="1521">1521</a>
 <a href="#1522" id="1522">1522</a>
+<a href="#1523" id="1523">1523</a>
+<a href="#1524" id="1524">1524</a>
+<a href="#1525" id="1525">1525</a>
+<a href="#1526" id="1526">1526</a>
+<a href="#1527" id="1527">1527</a>
+<a href="#1528" id="1528">1528</a>
+<a href="#1529" id="1529">1529</a>
+<a href="#1530" id="1530">1530</a>
+<a href="#1531" id="1531">1531</a>
+<a href="#1532" id="1532">1532</a>
+<a href="#1533" id="1533">1533</a>
+<a href="#1534" id="1534">1534</a>
+<a href="#1535" id="1535">1535</a>
+<a href="#1536" id="1536">1536</a>
+<a href="#1537" id="1537">1537</a>
+<a href="#1538" id="1538">1538</a>
+<a href="#1539" id="1539">1539</a>
+<a href="#1540" id="1540">1540</a>
+<a href="#1541" id="1541">1541</a>
+<a href="#1542" id="1542">1542</a>
+<a href="#1543" id="1543">1543</a>
+<a href="#1544" id="1544">1544</a>
+<a href="#1545" id="1545">1545</a>
+<a href="#1546" id="1546">1546</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{
     future::Future,
     io,
@@ -1605,6 +1629,7 @@
         peer_addr: SocketAddr,
         ttl: u32,
         multicast_ttl: u32,
+        is_dead: bool,
     },
 }
 
@@ -2150,7 +2175,10 @@
             InodeSocketKind::TcpListener { .. } =&gt; WasiSocketStatus::Opened,
             InodeSocketKind::TcpStream { .. } =&gt; WasiSocketStatus::Opened,
             InodeSocketKind::UdpSocket { .. } =&gt; WasiSocketStatus::Opened,
-            InodeSocketKind::RemoteSocket { .. } =&gt; WasiSocketStatus::Opened,
+            InodeSocketKind::RemoteSocket { is_dead, .. } =&gt; <span class="kw">match </span>is_dead {
+                <span class="bool-val">true </span>=&gt; WasiSocketStatus::Closed,
+                <span class="bool-val">false </span>=&gt; WasiSocketStatus::Opened,
+            },
             <span class="kw">_ </span>=&gt; WasiSocketStatus::Failed,
         })
     }
@@ -2628,8 +2656,11 @@
                         InodeSocketKind::PreSocket { .. } =&gt; {
                             <span class="kw">return </span>Poll::Ready(<span class="prelude-val">Err</span>(Errno::Notconn))
                         }
-                        InodeSocketKind::RemoteSocket { .. } =&gt; {
-                            <span class="kw">return </span>Poll::Ready(<span class="prelude-val">Ok</span>(<span class="self">self</span>.data.len()))
+                        InodeSocketKind::RemoteSocket { is_dead, .. } =&gt; {
+                            <span class="kw">return match </span>is_dead {
+                                <span class="bool-val">true </span>=&gt; Poll::Ready(<span class="prelude-val">Err</span>(Errno::Connreset)),
+                                <span class="bool-val">false </span>=&gt; Poll::Ready(<span class="prelude-val">Ok</span>(<span class="self">self</span>.data.len())),
+                            }
                         }
                         <span class="kw">_ </span>=&gt; <span class="kw">return </span>Poll::Ready(<span class="prelude-val">Err</span>(Errno::Notsup)),
                     };
@@ -2708,8 +2739,11 @@
                         InodeSocketKind::PreSocket { .. } =&gt; {
                             <span class="kw">return </span>Poll::Ready(<span class="prelude-val">Err</span>(Errno::Notconn))
                         }
-                        InodeSocketKind::RemoteSocket { .. } =&gt; {
-                            <span class="kw">return </span>Poll::Ready(<span class="prelude-val">Ok</span>(<span class="self">self</span>.data.len()))
+                        InodeSocketKind::RemoteSocket { is_dead, .. } =&gt; {
+                            <span class="kw">return match </span>is_dead {
+                                <span class="bool-val">true </span>=&gt; Poll::Ready(<span class="prelude-val">Err</span>(Errno::Connreset)),
+                                <span class="bool-val">false </span>=&gt; Poll::Ready(<span class="prelude-val">Ok</span>(<span class="self">self</span>.data.len())),
+                            };
                         }
                         <span class="kw">_ </span>=&gt; <span class="kw">return </span>Poll::Ready(<span class="prelude-val">Err</span>(Errno::Notsup)),
                     };
@@ -2796,8 +2830,11 @@
                                 }
                             }
                         }
-                        InodeSocketKind::RemoteSocket { .. } =&gt; {
-                            <span class="kw">return </span>Poll::Pending;
+                        InodeSocketKind::RemoteSocket { is_dead, .. } =&gt; {
+                            <span class="kw">return match </span>is_dead {
+                                <span class="bool-val">true </span>=&gt; Poll::Ready(<span class="prelude-val">Ok</span>(<span class="number">0</span>)),
+                                <span class="bool-val">false </span>=&gt; Poll::Pending,
+                            };
                         }
                         InodeSocketKind::PreSocket { .. } =&gt; {
                             <span class="kw">return </span>Poll::Ready(<span class="prelude-val">Err</span>(Errno::Notconn))
@@ -2875,8 +2912,13 @@
                         InodeSocketKind::UdpSocket { socket, .. } =&gt; {
                             socket.try_recv_from(<span class="self">self</span>.data)
                         }
-                        InodeSocketKind::RemoteSocket { .. } =&gt; {
-                            <span class="kw">return </span>Poll::Pending;
+                        InodeSocketKind::RemoteSocket {
+                            is_dead, peer_addr, ..
+                        } =&gt; {
+                            <span class="kw">return match </span>is_dead {
+                                <span class="bool-val">true </span>=&gt; Poll::Ready(<span class="prelude-val">Ok</span>((<span class="number">0</span>, <span class="kw-2">*</span>peer_addr))),
+                                <span class="bool-val">false </span>=&gt; Poll::Pending,
+                            };
                         }
                         InodeSocketKind::PreSocket { .. } =&gt; {
                             <span class="kw">return </span>Poll::Ready(<span class="prelude-val">Err</span>(Errno::Notconn))
@@ -2936,9 +2978,9 @@
             <span class="attr">#[allow(clippy::match_like_matches_macro)]
             </span><span class="kw">match </span><span class="kw-2">&amp;mut </span>guard.kind {
                 InodeSocketKind::TcpStream { .. }
-                | InodeSocketKind::RemoteSocket { .. }
                 | InodeSocketKind::UdpSocket { .. }
                 | InodeSocketKind::Raw(..) =&gt; <span class="bool-val">true</span>,
+                InodeSocketKind::RemoteSocket { is_dead, .. } =&gt; !(<span class="kw-2">*</span>is_dead),
                 <span class="kw">_ </span>=&gt; <span class="bool-val">false</span>,
             }
         } <span class="kw">else </span>{
@@ -2972,7 +3014,10 @@
             InodeSocketKind::Raw(socket) =&gt; socket.poll_read_ready(cx),
             InodeSocketKind::Icmp(socket) =&gt; socket.poll_read_ready(cx),
             InodeSocketKind::PreSocket { .. } =&gt; Poll::Pending,
-            InodeSocketKind::RemoteSocket { .. } =&gt; Poll::Pending,
+            InodeSocketKind::RemoteSocket { is_dead, .. } =&gt; <span class="kw">match </span>is_dead {
+                <span class="bool-val">true </span>=&gt; Poll::Ready(<span class="prelude-val">Ok</span>(<span class="number">0</span>)),
+                <span class="bool-val">false </span>=&gt; Poll::Pending,
+            },
         }
         .map_err(net_error_into_io_err)
     }
@@ -2985,7 +3030,10 @@
             InodeSocketKind::Raw(socket) =&gt; socket.poll_write_ready(cx),
             InodeSocketKind::Icmp(socket) =&gt; socket.poll_write_ready(cx),
             InodeSocketKind::PreSocket { .. } =&gt; Poll::Pending,
-            InodeSocketKind::RemoteSocket { .. } =&gt; Poll::Pending,
+            InodeSocketKind::RemoteSocket { is_dead, .. } =&gt; <span class="kw">match </span>is_dead {
+                <span class="bool-val">true </span>=&gt; Poll::Ready(<span class="prelude-val">Ok</span>(<span class="number">0</span>)),
+                <span class="bool-val">false </span>=&gt; Poll::Pending,
+            },
         }
         .map_err(net_error_into_io_err)
     }
