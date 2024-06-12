@@ -77,7 +77,7 @@ pub(crate) trait AsyncCliCommand: Send + Sync {
             let term = console::Term::stdout();
             let _ = term.show_cursor();
         })
-        .with_context(|| format!("While setting the SIGINT handler"))
+        .with_context(|| "While setting the SIGINT handler")
     }
 }
 
