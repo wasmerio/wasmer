@@ -421,6 +421,12 @@
 <a href="#421" id="421">421</a>
 <a href="#422" id="422">422</a>
 <a href="#423" id="423">423</a>
+<a href="#424" id="424">424</a>
+<a href="#425" id="425">425</a>
+<a href="#426" id="426">426</a>
+<a href="#427" id="427">427</a>
+<a href="#428" id="428">428</a>
+<a href="#429" id="429">429</a>
 </pre></div><pre class="rust"><code><span class="kw">use super</span>::<span class="kw-2">*</span>;
 <span class="kw">use </span><span class="kw">crate</span>::syscalls::<span class="kw-2">*</span>;
 
@@ -727,6 +733,12 @@
             <span class="kw">if </span>o_flags.contains(Oflags::DIRECTORY) {
                 <span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="prelude-val">Err</span>(Errno::Notdir));
             }
+
+            <span class="comment">// Trailing slash matters. But the underlying opener normalizes it away later.
+            </span><span class="kw">if </span>path.ends_with(<span class="string">&#39;/&#39;</span>) {
+                <span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="prelude-val">Err</span>(Errno::Isdir));
+            }
+
             <span class="comment">// strip end file name
 
             </span><span class="kw">let </span>(parent_inode, new_entity_name) =
