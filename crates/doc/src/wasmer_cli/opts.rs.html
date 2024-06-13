@@ -212,7 +212,7 @@
 </span><span class="kw">pub struct </span>ApiOpts {
     <span class="attr">#[clap(long, env = <span class="string">&quot;WASMER_TOKEN&quot;</span>)]
     </span><span class="kw">pub </span>token: <span class="prelude-ty">Option</span>&lt;String&gt;,
-    <span class="attr">#[clap(long, value_parser = parse_registry_url)]
+    <span class="attr">#[clap(long, value_parser = parse_registry_url, env = <span class="string">&quot;WASMER_REGISTRY&quot;</span>)]
     </span><span class="kw">pub </span>registry: <span class="prelude-ty">Option</span>&lt;url::Url&gt;,
 }
 
