@@ -48,7 +48,7 @@ impl InstanceHandle {
         let mut trap: *mut wasm_trap_t = std::ptr::null_mut() as _;
 
         let instance = unsafe {
-            let stack_size = 2 * 1024 * 1024; // 2 MB default stack size
+            let stack_size = 2 * 1024 * 1024;
             let heap_size = 2 * 1024 * 1024;
 
             wasm_instance_new_with_args(
@@ -60,12 +60,9 @@ impl InstanceHandle {
                 heap_size,
             )
         };
+
         if instance.is_null() {
             let trap = Trap::from(trap);
-            return Err(InstantiationError::Start(trap.into()));
-            // return Err(InstantiationError::Start(crate::RuntimeError::new(
-            //     format!("Failed to instantiate"),
-            // )));
         }
 
         // Check if the thread env was already initialised.
@@ -87,7 +84,6 @@ impl InstanceHandle {
             vec
         };
 
-        // println!("SIZE {}", unsafe { exports.size });
         let wasm_exports: &[*mut wasm_extern_t] =
             unsafe { std::slice::from_raw_parts(exports.data, exports.size) };
 
@@ -119,10 +115,6 @@ pub struct Instance {
     pub(crate) handle: Arc<InstanceHandle>,
 }
 
-// Instance can't be Send in js because it dosen't support `structuredClone`
-// https://developer.mozilla.org/en-US/docs/Web/API/structuredClone
-// unsafe impl Send for Instance {}
-
 impl Instance {
     pub(crate) fn new(
         _store: &mut impl AsStoreMut,
@@ -138,7 +130,7 @@ impl Instance {
             })
             .collect::<Vec<_>>();
 
-        // Ugly hack: we need to tie a *module* to a store before instantiating it..
+        // Hacky: we need to tie a *module* to a store before instantiating it..
         let mut store_from_module = module.0.handle.store.lock().unwrap();
         let mut store = store_from_module.as_store_mut();
 
@@ -155,21 +147,12 @@ impl Instance {
             .iter()
             .map(|extern_| {
                 let vm_extern = extern_.to_vm_extern();
-                //mem::forget(extern_);
                 vm_extern
             })
             .collect::<Vec<_>>();
         let instance =
             InstanceHandle::new(store_ref.inner.store.inner, module.0.handle.inner, externs)?;
         let exports = instance.get_exports(store, module);
-
-        unsafe {
-            if !wasm_runtime_thread_env_inited() {
-                if !wasm_runtime_init_thread_env() {
-                    panic!("Failed to initialize the thread environment!");
-                }
-            }
-        }
 
         Ok((
             Self {

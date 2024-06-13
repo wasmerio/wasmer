@@ -185,12 +185,15 @@ impl<'a> MemoryBuffer<'a> {
         let end = offset
             .checked_add(buf.len() as u64)
             .ok_or(MemoryAccessError::Overflow)?;
-        if end > self.len.try_into().unwrap() {
+
+        let len: u64 = self.len.try_into().unwrap();
+        if end > len {
             warn!(
-                "attempted to read ({} bytes) beyond the bounds of the memory view ({} > {})",
+                "attempted to read {} bytes, but the end offset is beyond the bounds of the memory view ({} > {}, diff. {} bytes)",
                 buf.len(),
                 end,
-                self.len
+                len,
+                end - len,
             );
             return Err(MemoryAccessError::HeapOutOfBounds);
         }
@@ -208,12 +211,15 @@ impl<'a> MemoryBuffer<'a> {
         let end = offset
             .checked_add(buf.len() as u64)
             .ok_or(MemoryAccessError::Overflow)?;
-        if end > self.len.try_into().unwrap() {
+
+        let len: u64 = self.len.try_into().unwrap();
+        if end > len {
             warn!(
-                "attempted to read ({} bytes) beyond the bounds of the memory view ({} > {})",
+                "attempted to read {} bytes, but the end offset is beyond the bounds of the memory view ({} > {}, diff. {} bytes)",
                 buf.len(),
                 end,
-                self.len
+                len,
+                end - len,
             );
             return Err(MemoryAccessError::HeapOutOfBounds);
         }
@@ -231,7 +237,7 @@ impl<'a> MemoryBuffer<'a> {
             .ok_or(MemoryAccessError::Overflow)?;
         if end > self.len.try_into().unwrap() {
             warn!(
-                "ttempted to write ({} bytes) beyond the bounds of the memory view ({} > {})",
+                "attempted to write ({} bytes) beyond the bounds of the memory view ({} > {})",
                 data.len(),
                 end,
                 self.len
