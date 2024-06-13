@@ -35,7 +35,7 @@ fn parse_registry_url(registry: &str) -> Result<url::Url, String> {
 pub struct ApiOpts {
     #[clap(long, env = "WASMER_TOKEN")]
     pub token: Option<String>,
-    #[clap(long, value_parser = parse_registry_url)]
+    #[clap(long, value_parser = parse_registry_url, env = "WASMER_REGISTRY")]
     pub registry: Option<url::Url>,
 }
 
