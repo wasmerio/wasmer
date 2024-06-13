@@ -68,6 +68,7 @@ fn run_python_create_temp_dir_in_subprocess() {
     if cfg!(not(feature = "wamr")) {
         assert_eq!(output.stdout, "0".as_bytes().to_vec());
     } else {
+        // WAMR can print spurious warnings to stdout when running python, so we can't assert that it's exactly `[48]`.
         assert!(output.status.success())
     }
 }
@@ -92,6 +93,7 @@ fn run_php_with_sqlite() {
     if cfg!(not(feature = "wamr")) {
         assert_eq!(output.stdout, "0".as_bytes().to_vec());
     } else {
+        // WAMR can print spurious warnings to stdout when running php, so we can't assert that it's exactly `[48]`.
         assert!(output.status.success())
     }
 }
@@ -103,7 +105,6 @@ fn run_php_with_sqlite() {
 /// https://github.com/wasmerio/wasmer/issues/3535
 // FIXME: Re-enable. See https://github.com/wasmerio/wasmer/issues/3717
 #[test]
-#[ignore]
 fn test_run_customlambda() {
     let assert = Command::new(get_wasmer_path())
         .arg("config")
@@ -156,38 +157,30 @@ fn run_wasi_works() {
         .assert()
         .success();
 
-    if cfg!(not(feature = "wamr")) {
-        assert.stdout("27\n");
-    } else {
-        assert.stdout(contains("27\n"));
-    }
+    assert.stdout("27\n");
 }
 
 #[test]
-#[cfg_attr(not(feature = "wamr"), ignore)]
+// #[cfg_attr(not(feature = "wamr"), ignore)]
 fn test_wasmer_run_pirita_works() {
     let temp_dir = tempfile::TempDir::new().unwrap();
     let python_wasmer_path = temp_dir.path().join("python.wasmer");
     std::fs::copy(fixtures::python(), &python_wasmer_path).unwrap();
 
-    let assert = Command::new(get_wasmer_path())
+    let output = Command::new(get_wasmer_path())
         .arg("run")
         .arg(python_wasmer_path)
         .arg("--")
         .arg("-c")
         .arg("print(\"hello\")")
-        .assert()
-        .success();
+        .output()
+        .unwrap();
 
-    if cfg!(not(feature = "wamr")) {
-        assert.stdout("hello\n");
-    } else {
-        assert.stdout(contains("hello\n"));
-    }
+    output.assert().success().stdout("hello\n");
 }
 
 #[test]
-#[cfg_attr(not(feature = "wamr"), ignore)]
+// #[cfg_attr(not(feature = "wamr"), ignore)]
 fn test_wasmer_run_pirita_url_works() {
     let assert = Command::new(get_wasmer_path())
         .arg("run")
@@ -198,11 +191,7 @@ fn test_wasmer_run_pirita_url_works() {
         .assert()
         .success();
 
-    if cfg!(not(feature = "wamr")) {
-        assert.stdout("hello\n");
-    } else {
-        assert.stdout(contains("hello\n"));
-    }
+    assert.stdout("hello\n");
 }
 
 #[test]
@@ -241,10 +230,10 @@ fn test_wasmer_run_works_with_dir() {
 
 // FIXME: Re-enable. See https://github.com/wasmerio/wasmer/issues/3717
 #[test]
-#[cfg_attr(not(feature = "wamr"), ignore)]
+// #[cfg_attr(not(feature = "wamr"), ignore)]
 fn test_wasmer_run_works() {
     let assert = Command::new(get_wasmer_path())
-        .arg("https://wasmer.io/python/python@0.1.0")
+        .arg("https://wasmer.io/python/python@0.2.0")
         .arg(format!("--mapdir=.:{}", asset_path().display()))
         .arg("test.py")
         .assert()
@@ -253,13 +242,15 @@ fn test_wasmer_run_works() {
     if cfg!(not(feature = "wamr")) {
         assert.stdout("hello\n");
     } else {
-        assert.stderr(contains("hello\n"));
+        // WAMR can print spurious warnings to stdout when running python, so it's better to use
+        // `contains` rather than asserting that stdout *is exactly* that
+        assert.stdout(contains("hello\n"));
     }
 
     // same test again, but this time with "wasmer run ..."
     let assert = Command::new(get_wasmer_path())
         .arg("run")
-        .arg("https://wasmer.io/python/python@0.1.0")
+        .arg("https://wasmer.io/python/python@0.2.0")
         .arg(format!("--mapdir=.:{}", asset_path().display()))
         .arg("test.py")
         .assert()
@@ -268,13 +259,14 @@ fn test_wasmer_run_works() {
     if cfg!(not(feature = "wamr")) {
         assert.stdout("hello\n");
     } else {
+        // See above
         assert.stdout(contains("hello\n"));
     }
 
     // same test again, but this time without specifying the registry in the URL
     let assert = Command::new(get_wasmer_path())
         .arg("run")
-        .arg("python/python@0.1.0")
+        .arg("python/python@0.2.0")
         .arg(format!("--mapdir=.:{}", asset_path().display()))
         .arg("--registry=wasmer.io")
         .arg("test.py")
@@ -284,6 +276,7 @@ fn test_wasmer_run_works() {
     if cfg!(not(feature = "wamr")) {
         assert.stdout("hello\n");
     } else {
+        // See above
         assert.stdout(contains("hello\n"));
     }
 
@@ -300,6 +293,7 @@ fn test_wasmer_run_works() {
     if cfg!(not(feature = "wamr")) {
         assert.stdout("hello\n");
     } else {
+        // See above
         assert.stdout(contains("hello\n"));
     }
 }
@@ -536,11 +530,7 @@ fn wasi_runner_on_disk() {
         .env("RUST_LOG", &*RUST_LOG)
         .assert();
 
-    if cfg!(not(feature = "wamr")) {
-        assert.success().stdout(contains("Hello, World!"));
-    } else {
-        assert.success().stderr(contains("Hello, World!"));
-    }
+    assert.success().stderr(contains("Hello, World!"));
 }
 
 /// See <https://github.com/wasmerio/wasmer/issues/4010> for more.
