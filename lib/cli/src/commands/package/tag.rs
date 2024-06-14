@@ -75,7 +75,7 @@ pub struct PackageTag {
     /// Directory containing the `wasmer.toml`, or a custom *.toml manifest file.
     ///
     /// Defaults to current working directory.
-    #[clap(long, name = "manifest-path", default_value = ".")]
+    #[clap(long = "manifest-path", default_value = ".")]
     pub package_path: PathBuf,
 
     /// Wait for package to be available on the registry before exiting.
@@ -102,7 +102,7 @@ impl PackageTag {
         }
 
         let mut new_manifest = manifest.cloned().unwrap();
-        let manifest_path = manifest_path.clone().unwrap();
+        let manifest_path = manifest_path.unwrap();
 
         if let Some(pkg) = &mut new_manifest.package {
             pkg.name = Some(full_name.to_string());
@@ -131,7 +131,7 @@ impl PackageTag {
         }
 
         let mut new_manifest = manifest.cloned().unwrap();
-        let manifest_path = manifest_path.clone().unwrap();
+        let manifest_path = manifest_path.unwrap();
 
         if let Some(pkg) = &mut new_manifest.package {
             pkg.version = Some(user_version.clone());
@@ -305,11 +305,7 @@ impl PackageTag {
         manifest: Option<&Manifest>,
         allow_unnamed: bool,
     ) -> anyhow::Result<Option<String>> {
-        if let Some(name) = &self
-            .package_id
-            .as_ref()
-            .and_then(|id| Some(id.name.clone()))
-        {
+        if let Some(name) = &self.package_id.as_ref().map(|id| id.name.clone()) {
             return Ok(Some(name.clone()));
         }
 
@@ -383,13 +379,13 @@ impl PackageTag {
         manifest_path: Option<&Path>,
         full_pkg_name: &str,
     ) -> anyhow::Result<semver::Version> {
-        if let Some(tag) = self.package_id.as_ref().and_then(|id| id.tag.clone()) {
-            if let wasmer_config::package::Tag::VersionReq(r) = tag {
-                let mut version = r.to_string();
-                version.remove(0);
-                let version = semver::Version::parse(&version)?;
-                return Ok(version);
-            }
+        if let Some(wasmer_config::package::Tag::VersionReq(r)) =
+            self.package_id.as_ref().and_then(|id| id.tag.clone())
+        {
+            let mut version = r.to_string();
+            version.remove(0);
+            let version = semver::Version::parse(&version)?;
+            return Ok(version);
         }
 
         // REMOVE ME: This is here for backwards compatibility, but we should remove the flag.
