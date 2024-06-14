@@ -6529,6 +6529,7 @@ dependencies = [
  "clap_mangen",
  "colored 2.1.0",
  "comfy-table",
+ "console",
  "dialoguer",
  "dirs",
  "edge-schema 0.1.0",
