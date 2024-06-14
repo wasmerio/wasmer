@@ -32,7 +32,6 @@ mod validate;
 #[cfg(feature = "wast")]
 mod wast;
 mod whoami;
-use anyhow::Context;
 use std::env::args;
 use tokio::task::JoinHandle;
 
