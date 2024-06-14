@@ -750,6 +750,22 @@
 <a href="#750" id="750">750</a>
 <a href="#751" id="751">751</a>
 <a href="#752" id="752">752</a>
+<a href="#753" id="753">753</a>
+<a href="#754" id="754">754</a>
+<a href="#755" id="755">755</a>
+<a href="#756" id="756">756</a>
+<a href="#757" id="757">757</a>
+<a href="#758" id="758">758</a>
+<a href="#759" id="759">759</a>
+<a href="#760" id="760">760</a>
+<a href="#761" id="761">761</a>
+<a href="#762" id="762">762</a>
+<a href="#763" id="763">763</a>
+<a href="#764" id="764">764</a>
+<a href="#765" id="765">765</a>
+<a href="#766" id="766">766</a>
+<a href="#767" id="767">767</a>
+<a href="#768" id="768">768</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::ops::Range;
 
 <span class="kw">use super</span>::<span class="kw-2">*</span>;
@@ -1231,9 +1247,16 @@
                         peer_addr,
                     });
                 } <span class="kw">else </span>{
+                    <span class="kw">let </span>connected_sockets_are_dead = <span class="self">self</span>.connected_sockets_are_dead;
                     <span class="macro">tracing::trace!</span>(%fd, <span class="question-mark">?</span>peer_addr, <span class="string">&quot;Replay journal - SockConnect&quot;</span>);
-                    JournalEffector::apply_sock_connect(<span class="kw-2">&amp;mut </span><span class="self">self</span>.ctx, fd, local_addr, peer_addr)
-                        .map_err(anyhow_err_to_runtime_err)<span class="question-mark">?
+                    JournalEffector::apply_sock_connect(
+                        <span class="kw-2">&amp;mut </span><span class="self">self</span>.ctx,
+                        fd,
+                        local_addr,
+                        peer_addr,
+                        connected_sockets_are_dead,
+                    )
+                    .map_err(anyhow_err_to_runtime_err)<span class="question-mark">?
                 </span>}
             }
             JournalEntry::SocketAcceptedV1 {
@@ -1366,6 +1389,9 @@
                 offset,
                 count,
             } =&gt; {
+                <span class="kw">if </span><span class="self">self</span>.connected_sockets_are_dead {
+                    <span class="kw">return </span><span class="prelude-val">Ok</span>(());
+                }
                 <span class="kw">if let </span><span class="prelude-val">Some</span>(differ_ethereal) = differ_ethereal {
                     <span class="macro">tracing::trace!</span>(%socket_fd, %file_fd, %offset, %count, <span class="string">&quot;Differ(ether) journal - SockSendFile&quot;</span>);
                     differ_ethereal.push(JournalEntry::SocketSendFileV1 {
@@ -1393,6 +1419,9 @@
                 addr,
                 is_64bit,
             } =&gt; {
+                <span class="kw">if </span><span class="self">self</span>.connected_sockets_are_dead {
+                    <span class="kw">return </span><span class="prelude-val">Ok</span>(());
+                }
                 <span class="kw">if let </span><span class="prelude-val">Some</span>(differ_ethereal) = differ_ethereal {
                     <span class="macro">tracing::trace!</span>(%fd, <span class="string">&quot;Differ(ether) journal - SocketSendTo data={} bytes&quot;</span>, data.len());
                     differ_ethereal.push(JournalEntry::SocketSendToV1 {
@@ -1422,6 +1451,9 @@
                 flags,
                 is_64bit,
             } =&gt; {
+                <span class="kw">if </span><span class="self">self</span>.connected_sockets_are_dead {
+                    <span class="kw">return </span><span class="prelude-val">Ok</span>(());
+                }
                 <span class="kw">if let </span><span class="prelude-val">Some</span>(differ_ethereal) = differ_ethereal {
                     <span class="macro">tracing::trace!</span>(%fd, <span class="string">&quot;Differ(ether) journal - SocketSend data={} bytes&quot;</span>, data.len());
                     differ_ethereal.push(JournalEntry::SocketSendV1 {

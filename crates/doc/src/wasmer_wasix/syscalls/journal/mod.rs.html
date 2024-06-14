@@ -76,6 +76,8 @@
 <a href="#76" id="76">76</a>
 <a href="#77" id="77">77</a>
 <a href="#78" id="78">78</a>
+<a href="#79" id="79">79</a>
+<a href="#80" id="80">80</a>
 </pre></div><pre class="rust"><code><span class="attr">#[cfg(feature = <span class="string">&quot;journal&quot;</span>)]
 </span><span class="kw">mod </span>actions;
 <span class="kw">mod </span>clear_ethereal;
@@ -113,6 +115,7 @@
     <span class="kw">pub </span>rewind: <span class="prelude-ty">Option</span>&lt;RewindState&gt;,
     <span class="kw">pub </span>cur_module_hash: Box&lt;[u8]&gt;,
     <span class="kw">pub </span>real_fd: HashSet&lt;WasiFd&gt;,
+    <span class="kw">pub </span>connected_sockets_are_dead: bool,
 
     <span class="comment">// We delay the spawning of threads until the end as its
     // possible that the threads will be cancelled before all the
@@ -137,6 +140,7 @@
             cur_module_hash,
             journal_module_hash: <span class="prelude-val">None</span>,
             rewind: <span class="prelude-val">None</span>,
+            connected_sockets_are_dead: <span class="bool-val">true</span>,
             spawn_threads: Default::default(),
             staged_differ_memory: Default::default(),
             differ_memory: Default::default(),
