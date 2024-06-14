@@ -9,11 +9,7 @@ use std::{
 
 use assert_cmd::{assert::Assert, prelude::OutputAssertExt};
 use once_cell::sync::Lazy;
-use predicates::{
-    boolean::AndPredicate,
-    str::{contains, is_match},
-    Predicate,
-};
+use predicates::str::{contains, is_match};
 use rand::Rng;
 use reqwest::{blocking::Client, IntoUrl};
 use tempfile::TempDir;
