@@ -288,7 +288,7 @@ mod queries {
         pub homepage: Option<&'a str>,
         pub license: Option<&'a str>,
         pub license_file: Option<&'a str>,
-        pub manifest: &'a str,
+        pub manifest: Option<&'a str>,
         pub name: &'a str,
         pub namespace: Option<&'a str>,
         pub package_release_id: &'a cynic::Id,
