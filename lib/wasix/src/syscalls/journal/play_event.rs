@@ -481,8 +481,14 @@ impl<'a, 'c> JournalSyscallPlayer<'a, 'c> {
                 } else {
                     let connected_sockets_are_dead = self.connected_sockets_are_dead;
                     tracing::trace!(%fd, ?peer_addr, "Replay journal - SockConnect");
-                    JournalEffector::apply_sock_connect(&mut self.ctx, fd, local_addr, peer_addr, connected_sockets_are_dead)
-                        .map_err(anyhow_err_to_runtime_err)?
+                    JournalEffector::apply_sock_connect(
+                        &mut self.ctx,
+                        fd,
+                        local_addr,
+                        peer_addr,
+                        connected_sockets_are_dead,
+                    )
+                    .map_err(anyhow_err_to_runtime_err)?
                 }
             }
             JournalEntry::SocketAcceptedV1 {
