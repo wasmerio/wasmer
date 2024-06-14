@@ -161,7 +161,6 @@ fn run_wasi_works() {
 }
 
 #[test]
-// #[cfg_attr(not(feature = "wamr"), ignore)]
 fn test_wasmer_run_pirita_works() {
     let temp_dir = tempfile::TempDir::new().unwrap();
     let python_wasmer_path = temp_dir.path().join("python.wasmer");
@@ -180,7 +179,6 @@ fn test_wasmer_run_pirita_works() {
 }
 
 #[test]
-// #[cfg_attr(not(feature = "wamr"), ignore)]
 fn test_wasmer_run_pirita_url_works() {
     let assert = Command::new(get_wasmer_path())
         .arg("run")
@@ -230,7 +228,6 @@ fn test_wasmer_run_works_with_dir() {
 
 // FIXME: Re-enable. See https://github.com/wasmerio/wasmer/issues/3717
 #[test]
-// #[cfg_attr(not(feature = "wamr"), ignore)]
 fn test_wasmer_run_works() {
     let assert = Command::new(get_wasmer_path())
         .arg("https://wasmer.io/python/python@0.2.0")
@@ -600,6 +597,7 @@ fn wasi_runner_on_disk_with_mounted_directories_and_webc_volumes() {
     all(target_env = "musl", target_os = "linux"),
     ignore = "wasmer run-unstable segfaults on musl"
 )]
+#[cfg_attr(feature = "wamr", ignore = "wamr does not support multiple memories")]
 fn wasi_runner_on_disk_with_dependencies() {
     let port = random_port();
     let mut cmd = Command::new(get_wasmer_path());
@@ -767,6 +765,10 @@ fn issue_3794_unable_to_mount_relative_paths() {
     windows,
     ignore = "FIXME(Michael-F-Bryan): Temporarily broken on Windows - https://github.com/wasmerio/wasmer/issues/3929"
 )]
+#[cfg_attr(
+    feature = "wamr",
+    ignore = "FIXME(xdoardo): Bash is currently not working in wamr"
+)]
 fn merged_filesystem_contains_all_files() {
     let assert = Command::new(get_wasmer_path())
         .arg("run")
@@ -782,17 +784,10 @@ fn merged_filesystem_contains_all_files() {
         .env("RUST_LOG", &*RUST_LOG)
         .assert();
 
-    if cfg!(not(feature = "wamr")) {
-        assert
-            .success()
-            .stdout(contains("/usr/coreutils/README.md"))
-            .stdout(contains("/lib/python3.6/this.py"));
-    } else {
-        assert
-            .success()
-            .stderr(contains("/usr/coreutils/README.md"))
-            .stderr(contains("/lib/python3.6/this.py"));
-    }
+    assert
+        .success()
+        .stdout(contains("/usr/coreutils/README.md"))
+        .stdout(contains("/lib/python3.6/this.py"));
 }
 
 #[test]
@@ -943,6 +938,10 @@ fn run_quickjs_via_url() {
     windows,
     ignore = "TODO(Michael-F-Bryan): Figure out why WasiFs::get_inode_at_path_inner() returns Errno::notcapable on Windows"
 )]
+#[cfg_attr(
+    feature = "wamr",
+    ignore = "FIXME(xdoardo): Bash is currently not working in wamr"
+)]
 fn run_bash_using_coreutils() {
     let assert = Command::new(get_wasmer_path())
         .arg("run")
@@ -964,15 +963,9 @@ fn run_bash_using_coreutils() {
     ]
     .join("((?s)(.*))");
 
-    if cfg!(not(feature = "wamr")) {
-        assert
-            .success()
-            .stdout(is_match(some_expected_binaries).unwrap());
-    } else {
-        assert
-            .success()
-            .stderr(is_match(some_expected_binaries).unwrap());
-    }
+    assert
+        .success()
+        .stdout(is_match(some_expected_binaries).unwrap());
 }
 
 #[test]
