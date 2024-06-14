@@ -527,7 +527,7 @@ fn wasi_runner_on_disk() {
         .env("RUST_LOG", &*RUST_LOG)
         .assert();
 
-    assert.success().stderr(contains("Hello, World!"));
+    assert.success().stdout(contains("Hello, World!"));
 }
 
 /// See <https://github.com/wasmerio/wasmer/issues/4010> for more.
