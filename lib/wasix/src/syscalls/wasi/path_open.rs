@@ -304,6 +304,12 @@ pub(crate) fn path_open_internal(
             if o_flags.contains(Oflags::DIRECTORY) {
                 return Ok(Err(Errno::Notdir));
             }
+
+            // Trailing slash matters. But the underlying opener normalizes it away later.
+            if path.ends_with('/') {
+                return Ok(Err(Errno::Isdir));
+            }
+
             // strip end file name
 
             let (parent_inode, new_entity_name) =

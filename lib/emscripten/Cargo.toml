@@ -18,8 +18,8 @@ lazy_static = "1.4"
 libc = { workspace = true, default-features = true }
 log = "0.4"
 time = { version = "0.3", features = ["std", "formatting"] }
-wasmer = { path = "../api", version = "=4.3.1", default-features = false }
-wasmer-types = { path = "../types", version = "=4.3.1" }
+wasmer = { path = "../api", version = "=4.3.2", default-features = false }
+wasmer-types = { path = "../types", version = "=4.3.2" }
 
 [target.'cfg(windows)'.dependencies]
 getrandom = "0.2"
