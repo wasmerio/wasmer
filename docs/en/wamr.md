@@ -18,6 +18,9 @@ This document has the objective to document important aspects of this backend.
    standard output.
 3. Due to point (2) above, multithreaded programs relying on importing memories
    can fail with out-of-bound memory read/write errors.
+4. Custom sections are not entirely supported as of now. 
+5. Functions cannot be called without an attached instance. 
+6. Globals cannot be inspected without an attached instance. 
 
 Notice, again, that the support is experimental: if you happen to incur in
 other issues not listed here, please file an issue!
