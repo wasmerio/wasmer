@@ -677,7 +677,12 @@ pub async fn wait_app(
                             if !quiet {
                                 eprintln!();
                             }
-                            eprintln!("{} Deployment complete", "𖥔".yellow().bold());
+                            if !(res.status().is_success() || res.status().is_redirection()) {
+                                eprintln!("The app version was deployed correctly, but fails with a non-success status code of {}", res.status())
+                            } else {
+                                eprintln!("{} Deployment complete", "𖥔".yellow().bold());
+                            }
+
                             break;
                         }
 
