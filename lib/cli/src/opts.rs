@@ -37,7 +37,7 @@ pub struct ApiOpts {
     #[clap(long, env = "WASMER_TOKEN")]
     pub token: Option<String>,
 
-    /// The registry to interact with
+    /// Change the current registry 
     #[clap(long, value_parser = parse_registry_url, env = "WASMER_REGISTRY")]
     pub registry: Option<url::Url>,
 }
