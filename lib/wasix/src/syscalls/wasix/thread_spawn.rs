@@ -30,7 +30,7 @@ use wasmer_wasix_types::wasi::ThreadStart;
 ///
 /// Returns the thread index of the newly created thread
 /// (indices always start from the same value as `pid` and increments in steps)
-//#[instrument(level = "debug", skip_all, ret)]
+#[instrument(level = "debug", skip_all, ret)]
 pub fn thread_spawn_v2<M: MemorySize>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     start_ptr: WasmPtr<ThreadStart<M>, M>,
@@ -42,6 +42,13 @@ pub fn thread_spawn_v2<M: MemorySize>(
     // Success
     let memory = unsafe { ctx.data().memory_view(&ctx) };
     wasi_try_mem!(ret_tid.write(&memory, tid));
+
+    tracing::debug!(
+        tid,
+        from_tid = ctx.data().thread.id().raw(),
+        "spawned new thread"
+    );
+
     Errno::Success
 }
 
@@ -72,7 +79,11 @@ pub fn thread_spawn_internal_from_wasi<M: MemorySize>(
             stack_size,
         }
     };
-    tracing::trace!("spawn with layout {:?}", layout);
+    tracing::trace!(
+        from_tid = env.thread.id().raw(),
+        "thread_spawn with layout {:?}",
+        layout
+    );
 
     // Create the handle that represents this thread
     let thread_start = ThreadStartType::ThreadSpawn {

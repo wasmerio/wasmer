@@ -290,10 +290,13 @@ impl WasiFunctionEnv {
     ///
     #[allow(clippy::result_large_err)]
     #[allow(unused_variables, unused_mut)]
+    #[tracing::instrument(skip_all)]
     pub unsafe fn bootstrap(
         &self,
         mut store: &'_ mut impl AsStoreMut,
     ) -> Result<RewindStateOption, WasiRuntimeError> {
+        tracing::debug!("bootstrap start");
+
         #[allow(unused_mut)]
         let mut rewind_state = None;
 
@@ -356,6 +359,8 @@ impl WasiFunctionEnv {
                 })?;
             }
         }
+
+        tracing::debug!("bootstrap complete");
 
         Ok(rewind_state)
     }
