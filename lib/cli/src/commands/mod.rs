@@ -72,12 +72,21 @@ pub(crate) trait AsyncCliCommand: Send + Sync {
 
     async fn run_async(self) -> Result<Self::Output, anyhow::Error>;
 
-    fn setup(&self) -> Option<JoinHandle<anyhow::Result<()>>> {
+    fn setup(
+        &self,
+        done: tokio::sync::oneshot::Receiver<()>,
+    ) -> Option<JoinHandle<anyhow::Result<()>>> {
         if is_terminal::IsTerminal::is_terminal(&std::io::stdin()) {
             return Some(tokio::task::spawn(async move {
-                tokio::signal::ctrl_c().await?;
-                let term = console::Term::stdout();
-                let _ = term.show_cursor();
+                tokio::select! {
+                    _ = done => {}
+
+                    _ = tokio::signal::ctrl_c() => {
+                        let term = console::Term::stdout();
+                        let _ = term.show_cursor();
+                    }
+                }
+
                 Ok::<(), anyhow::Error>(())
             }));
         }
@@ -91,9 +100,14 @@ impl<O: Send + Sync, C: AsyncCliCommand<Output = O>> CliCommand for C {
 
     fn run(self) -> Result<(), anyhow::Error> {
         tokio::runtime::Runtime::new()?.block_on(async {
-            let handle = self.setup();
+            let (snd, rcv) = tokio::sync::oneshot::channel();
+            let handle = self.setup(rcv);
 
             AsyncCliCommand::run_async(self).await?;
+
+            if snd.send(()).is_err() {
+                tracing::warn!("Failed to send 'done' signal to setup thread!");
+            }
 
             if let Some(handle) = handle {
                 handle.await??;
