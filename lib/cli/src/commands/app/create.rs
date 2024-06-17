@@ -625,6 +625,7 @@ the app:\n"
                 non_interactive: self.non_interactive,
                 publish_package: true,
                 dir: self.app_dir_path.clone(),
+                path: None,
                 no_wait: self.no_wait,
                 no_default: false,
                 no_persist_id: false,
