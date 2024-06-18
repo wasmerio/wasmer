@@ -70,6 +70,15 @@ impl Memory {
         Ok(())
     }
 
+    pub fn dirty_regions(&self, store: &mut impl AsStoreMut) -> std::collections::BTreeMap<u64, u64> {
+        self.handle.get_mut(store.objects_mut()).dirty_map()
+    }
+
+    pub fn remap(&self, store: &mut impl AsStoreMut) -> Result<(), MemoryError> {
+        self.handle.get_mut(store.objects_mut()).reset_dirty_map()?;
+        Ok(())
+    }
+
     pub(crate) fn from_vm_extern(store: &impl AsStoreRef, vm_extern: VMExternMemory) -> Self {
         Self {
             handle: unsafe {

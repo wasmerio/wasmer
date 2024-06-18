@@ -137,6 +137,17 @@ impl Memory {
         Ok(())
     }
 
+    /// Returns the list of dirty regions since the mmap was made
+    pub fn dirty_regions(&self, store: &mut impl AsStoreMut) -> std::collections::BTreeMap<u64, u64> {
+        self.0.dirty_regions(store)
+    }
+
+    /// Resets the dirty pages in the memory map
+    /// by remmap'ing the memory address space
+    pub fn remap(&self, store: &mut impl AsStoreMut) -> Result<(), MemoryError> {
+        self.0.remap(store)
+    }
+
     /// Attempts to duplicate this memory (if its clonable) in a new store
     /// (copied memory)
     pub fn copy_to_store(

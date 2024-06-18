@@ -133,6 +133,7 @@ fn wasmer_init_publish() {
         .assert()
         .success();
 
+    #[allow(unused)]
     let s = std::fs::read_to_string(path.join("randomversion").join("wasmer.toml")).unwrap();
 
     // publish

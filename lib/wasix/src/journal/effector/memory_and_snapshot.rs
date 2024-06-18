@@ -40,6 +40,9 @@ impl JournalEffector {
         guard: &mut MutexGuard<'_, WasiProcessInner>,
         trigger: SnapshotTrigger,
     ) -> anyhow::Result<()> {
+        // Grab the regions in the memory that are dirty
+        let (data, mut store) = ctx.data_and_store_mut();
+        let dirty_regions = unsafe { data.memory().dirty_regions(&mut store) };
         let env = ctx.data();
         let memory = unsafe { env.memory_view(ctx) };
 
@@ -49,33 +52,34 @@ impl JournalEffector {
         // We do not want the regions to be greater than 64KB as this will
         // otherwise create too much inefficiency. We choose 64KB as its
         // aligned with the standard WASM page size.
-        let mut cur = 0u64;
         let mut regions = Vec::<MemorySnapshotRegion>::new();
-        while cur < memory.data_size() {
-            //let mut again = false;
-            let next = ((cur + MEMORY_REGION_RESOLUTION) / MEMORY_REGION_RESOLUTION)
-                * MEMORY_REGION_RESOLUTION;
-            let end = memory.data_size().min(next);
-            /*
-            for (_, thread) in guard.threads.iter() {
-                let layout = thread.memory_layout();
-                if cur >= layout.stack_lower && cur < layout.stack_upper {
-                    cur = layout.stack_upper;
-                    again = true;
-                    break;
+        for (mut cur, r2) in dirty_regions {
+            while cur < r2 {
+                //let mut again = false;
+                let next = ((cur + MEMORY_REGION_RESOLUTION) / MEMORY_REGION_RESOLUTION)
+                    * MEMORY_REGION_RESOLUTION;
+                let end = memory.data_size().min(next);
+                /*
+                for (_, thread) in guard.threads.iter() {
+                    let layout = thread.memory_layout();
+                    if cur >= layout.stack_lower && cur < layout.stack_upper {
+                        cur = layout.stack_upper;
+                        again = true;
+                        break;
+                    }
+                    if end > layout.stack_lower && end < layout.stack_upper {
+                        end = end.min(layout.stack_lower);
+                    }
                 }
-                if end > layout.stack_lower && end < layout.stack_upper {
-                    end = end.min(layout.stack_lower);
+                if again {
+                    continue;
                 }
-            }
-            if again {
-                continue;
-            }
-            */
+                */
 
-            let region = cur..end;
-            regions.push(region.into());
-            cur = end;
+                let region = cur..end;
+                regions.push(region.into());
+                cur = end;
+            }
         }
 
         // Next we examine the dirty page manager and filter out any pages
@@ -191,6 +195,11 @@ impl JournalEffector {
         // When writing snapshots we also flush the journal so that
         // its guaranteed to be on the disk or network pipe
         journal.flush().map_err(map_snapshot_err)?;
+
+        // Reset the memory mapping so that all the dirty
+        // regions are reset
+        let (data, mut store) = ctx.data_and_store_mut();
+        unsafe { data.memory().remap(&mut store)?; }
         Ok(())
     }
 
