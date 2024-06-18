@@ -162,6 +162,13 @@
 <a href="#162" id="162">162</a>
 <a href="#163" id="163">163</a>
 <a href="#164" id="164">164</a>
+<a href="#165" id="165">165</a>
+<a href="#166" id="166">166</a>
+<a href="#167" id="167">167</a>
+<a href="#168" id="168">168</a>
+<a href="#169" id="169">169</a>
+<a href="#170" id="170">170</a>
+<a href="#171" id="171">171</a>
 </pre></div><pre class="rust"><code><span class="kw">use crate</span>::{
     commands::{
         package::{
@@ -282,8 +289,15 @@
             non_interactive: <span class="self">self</span>.non_interactive,
             package_path: <span class="self">self</span>.package_path.clone(),
             package_hash,
+            package_id: <span class="prelude-val">None</span>,
         }
-        .tag(client, manifest, manifest_path, <span class="bool-val">true</span>, allow_unnamed)
+        .tag(
+            client,
+            <span class="prelude-val">Some</span>(manifest),
+            <span class="prelude-val">Some</span>(manifest_path),
+            <span class="bool-val">true</span>,
+            allow_unnamed,
+        )
         .<span class="kw">await
     </span>}
 }

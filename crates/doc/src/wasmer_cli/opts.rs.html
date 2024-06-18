@@ -175,6 +175,9 @@
 <a href="#175" id="175">175</a>
 <a href="#176" id="176">176</a>
 <a href="#177" id="177">177</a>
+<a href="#178" id="178">178</a>
+<a href="#179" id="179">179</a>
+<a href="#180" id="180">180</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::path::PathBuf;
 
 <span class="kw">use </span>anyhow::Context;
@@ -210,9 +213,12 @@
 
 <span class="attr">#[derive(clap::Parser, Debug, Clone, Default)]
 </span><span class="kw">pub struct </span>ApiOpts {
-    <span class="attr">#[clap(long, env = <span class="string">&quot;WASMER_TOKEN&quot;</span>)]
+    <span class="doccomment">/// The (optional) authorization token to pass to the registry
+    </span><span class="attr">#[clap(long, env = <span class="string">&quot;WASMER_TOKEN&quot;</span>)]
     </span><span class="kw">pub </span>token: <span class="prelude-ty">Option</span>&lt;String&gt;,
-    <span class="attr">#[clap(long, value_parser = parse_registry_url, env = <span class="string">&quot;WASMER_REGISTRY&quot;</span>)]
+
+    <span class="doccomment">/// Change the current registry
+    </span><span class="attr">#[clap(long, value_parser = parse_registry_url, env = <span class="string">&quot;WASMER_REGISTRY&quot;</span>)]
     </span><span class="kw">pub </span>registry: <span class="prelude-ty">Option</span>&lt;url::Url&gt;,
 }
 
