@@ -714,6 +714,15 @@
 <a href="#714" id="714">714</a>
 <a href="#715" id="715">715</a>
 <a href="#716" id="716">716</a>
+<a href="#717" id="717">717</a>
+<a href="#718" id="718">718</a>
+<a href="#719" id="719">719</a>
+<a href="#720" id="720">720</a>
+<a href="#721" id="721">721</a>
+<a href="#722" id="722">722</a>
+<a href="#723" id="723">723</a>
+<a href="#724" id="724">724</a>
+<a href="#725" id="725">725</a>
 </pre></div><pre class="rust"><code><span class="kw">use super</span>::{util::login_user, AsyncCliCommand};
 <span class="kw">use crate</span>::{
     commands::{app::create::CmdAppCreate, package::publish::PackagePublish, PublishWait},
@@ -764,6 +773,10 @@
     <span class="doccomment">/// The path to the directory containing the `app.yaml` file.
     </span><span class="attr">#[clap(long)]
     </span><span class="kw">pub </span>dir: <span class="prelude-ty">Option</span>&lt;PathBuf&gt;,
+
+    <span class="doccomment">/// The path to the `app.yaml` file.
+    </span><span class="attr">#[clap(long, conflicts_with = <span class="string">&quot;dir&quot;</span>)]
+    </span><span class="kw">pub </span>path: <span class="prelude-ty">Option</span>&lt;PathBuf&gt;,
 
     <span class="doccomment">/// Do not wait for the app to become reachable.
     </span><span class="attr">#[clap(long)]
@@ -942,7 +955,12 @@
         <span class="kw">let </span>client =
             login_user(<span class="kw-2">&amp;</span><span class="self">self</span>.api, <span class="kw-2">&amp;</span><span class="self">self</span>.env, !<span class="self">self</span>.non_interactive, <span class="string">&quot;deploy an app&quot;</span>).<span class="kw">await</span><span class="question-mark">?</span>;
 
-        <span class="kw">let </span>base_dir_path = <span class="self">self</span>.dir.clone().unwrap_or(std::env::current_dir()<span class="question-mark">?</span>);
+        <span class="kw">let </span>base_dir_path = <span class="self">self</span>.dir.clone().unwrap_or_else(|| {
+            <span class="self">self</span>.path
+                .clone()
+                .unwrap_or_else(|| std::env::current_dir().unwrap())
+        });
+
         <span class="kw">let </span>(app_config_path, base_dir_path) = {
             <span class="kw">if </span>base_dir_path.is_file() {
                 (
@@ -1224,7 +1242,7 @@
         // If the config changed, write it back.
         </span><span class="kw">if </span>new_app_config != app_config {
             <span class="comment">// We want to preserve unknown fields to allow for newer app.yaml
-            // settings without requring new CLI versions, so instead of just
+            // settings without requiring new CLI versions, so instead of just
             // serializing the new config, we merge it with the old one.
             </span><span class="kw">let </span>new_merged = <span class="kw">crate</span>::utils::merge_yaml_values(
                 <span class="kw-2">&amp;</span>app_config.clone().to_yaml_value()<span class="question-mark">?</span>,
