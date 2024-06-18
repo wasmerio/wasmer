@@ -230,10 +230,11 @@ impl AsyncCliCommand for CmdAppDeploy {
         let client =
             login_user(&self.api, &self.env, !self.non_interactive, "deploy an app").await?;
 
-        let base_dir_path = self
-            .dir
-            .clone()
-            .unwrap_or(self.path.clone().unwrap_or(std::env::current_dir()?));
+        let base_dir_path = self.dir.clone().unwrap_or_else(|| {
+            self.path
+                .clone()
+                .unwrap_or_else(|| std::env::current_dir().unwrap())
+        });
 
         let (app_config_path, base_dir_path) = {
             if base_dir_path.is_file() {
