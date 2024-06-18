@@ -87,13 +87,23 @@
 <a href="#87" id="87">87</a>
 <a href="#88" id="88">88</a>
 <a href="#89" id="89">89</a>
+<a href="#90" id="90">90</a>
+<a href="#91" id="91">91</a>
+<a href="#92" id="92">92</a>
+<a href="#93" id="93">93</a>
+<a href="#94" id="94">94</a>
+<a href="#95" id="95">95</a>
+<a href="#96" id="96">96</a>
+<a href="#97" id="97">97</a>
+<a href="#98" id="98">98</a>
 </pre></div><pre class="rust"><code><span class="kw">use super</span>::<span class="kw-2">*</span>;
 
 <span class="doccomment">/// Safety: This function manipulates the memory of the process and thus must
 /// be executed by the WASM process thread itself.
 ///
-</span><span class="attr">#[allow(clippy::result_large_err)]
-#[cfg(feature = <span class="string">&quot;journal&quot;</span>)]
+</span><span class="attr">#[cfg(feature = <span class="string">&quot;journal&quot;</span>)]
+#[allow(clippy::result_large_err)]
+#[tracing::instrument(skip_all)]
 </span><span class="kw">pub unsafe fn </span>restore_snapshot(
     <span class="kw-2">mut </span>ctx: FunctionEnvMut&lt;<span class="lifetime">&#39;_</span>, WasiEnv&gt;,
     journal: Arc&lt;DynJournal&gt;,
@@ -109,16 +119,18 @@
     <span class="comment">// We read all the logs from the journal into the state machine
     </span><span class="kw">let </span><span class="kw-2">mut </span>ethereal_events = Vec::new();
     <span class="kw">while let </span><span class="prelude-val">Some</span>(next) = journal.read().map_err(anyhow_err_to_runtime_err)<span class="question-mark">? </span>{
+        <span class="macro">tracing::trace!</span>(event=<span class="question-mark">?</span>next, <span class="string">&quot;restoring event&quot;</span>);
         runner.play_event(next.into_inner(), <span class="prelude-val">Some</span>(<span class="kw-2">&amp;mut </span>ethereal_events));
     }
 
     <span class="comment">// Check for events that are orphaned
     </span><span class="kw">for </span>evt <span class="kw">in </span>ethereal_events {
-        <span class="macro">tracing::debug!</span>(<span class="string">&quot;Orphaned ethereal events - {:?}&quot;</span>, evt);
+        <span class="macro">tracing::trace!</span>(<span class="string">&quot;Orphaned ethereal events - {:?}&quot;</span>, evt);
     }
 
     <span class="comment">// Now output the stdout and stderr
-    </span><span class="kw">for </span>(offset, data, is_64bit) <span class="kw">in </span>runner.stdout {
+    </span><span class="macro">tracing::trace!</span>(<span class="string">&quot;replaying stdout&quot;</span>);
+    <span class="kw">for </span>(offset, data, is_64bit) <span class="kw">in </span>runner.stdout {
         <span class="kw">if </span>is_64bit {
             JournalEffector::apply_fd_write::&lt;Memory64&gt;(<span class="kw-2">&amp;</span>runner.ctx, <span class="number">1</span>, offset, data)
         } <span class="kw">else </span>{
@@ -127,6 +139,7 @@
         .map_err(anyhow_err_to_runtime_err)<span class="question-mark">?</span>;
     }
 
+    <span class="macro">tracing::trace!</span>(<span class="string">&quot;replaying stdout&quot;</span>);
     <span class="kw">for </span>(offset, data, is_64bit) <span class="kw">in </span>runner.stderr {
         <span class="kw">if </span>is_64bit {
             JournalEffector::apply_fd_write::&lt;Memory64&gt;(<span class="kw-2">&amp;</span>runner.ctx, <span class="number">2</span>, offset, data)
@@ -148,7 +161,11 @@
     }
 
     <span class="comment">// Spawn all the threads
-    </span><span class="kw">for </span>(thread_id, thread_state) <span class="kw">in </span>runner.spawn_threads {
+    </span><span class="kw">let </span>thread_count = runner.spawn_threads.len();
+    <span class="macro">tracing::trace!</span>(thread_count, <span class="string">&quot;restoring threads&quot;</span>);
+    <span class="kw">for </span>(index, (thread_id, thread_state)) <span class="kw">in </span>runner.spawn_threads.into_iter().enumerate() {
+        <span class="macro">tracing::trace!</span>(<span class="string">&quot;restoring thread {}/{}&quot;</span>, index + <span class="number">1</span>, thread_count);
+
         <span class="kw">if </span>thread_state.is_64bit {
             JournalEffector::apply_thread_state::&lt;Memory64&gt;(
                 <span class="kw-2">&amp;mut </span>runner.ctx,
@@ -173,6 +190,7 @@
             .map_err(anyhow_err_to_runtime_err)<span class="question-mark">?</span>;
         }
     }
+    <span class="macro">tracing::debug!</span>(thread_count, <span class="string">&quot;snapshot restore complete&quot;</span>);
 
     <span class="prelude-val">Ok</span>(runner.rewind)
 }

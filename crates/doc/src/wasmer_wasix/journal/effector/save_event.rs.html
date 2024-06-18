@@ -17,6 +17,8 @@
 <a href="#17" id="17">17</a>
 <a href="#18" id="18">18</a>
 <a href="#19" id="19">19</a>
+<a href="#20" id="20">20</a>
+<a href="#21" id="21">21</a>
 </pre></div><pre class="rust"><code><span class="kw">use super</span>::<span class="kw-2">*</span>;
 
 <span class="kw">impl </span>JournalEffector {
@@ -28,6 +30,8 @@
         <span class="kw">if </span>!env.should_journal() {
             <span class="kw">return </span><span class="prelude-val">Ok</span>(());
         }
+
+        <span class="macro">tracing::trace!</span>(<span class="question-mark">?</span>event, <span class="string">&quot;saving journal event&quot;</span>);
 
         ctx.data()
             .active_journal()<span class="question-mark">?

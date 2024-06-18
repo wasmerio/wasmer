@@ -636,6 +636,10 @@
 <a href="#636" id="636">636</a>
 <a href="#637" id="637">637</a>
 <a href="#638" id="638">638</a>
+<a href="#639" id="639">639</a>
+<a href="#640" id="640">640</a>
+<a href="#641" id="641">641</a>
+<a href="#642" id="642">642</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>serde::{Deserialize, Serialize};
 <span class="kw">use </span>std::sync::atomic::{AtomicBool, Ordering};
 <span class="kw">use </span>std::{
@@ -745,6 +749,10 @@
 }
 
 <span class="kw">impl </span>WasiThread {
+    <span class="kw">pub fn </span>id(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; WasiThreadId {
+        <span class="self">self</span>.state.id
+    }
+
     <span class="doccomment">/// Sets that a rewind will take place
     </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>set_rewind(<span class="kw-2">&amp;mut </span><span class="self">self</span>, rewind: RewindResult) {
         <span class="self">self</span>.rewind.replace(rewind);

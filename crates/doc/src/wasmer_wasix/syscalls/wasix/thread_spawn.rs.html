@@ -284,6 +284,17 @@
 <a href="#284" id="284">284</a>
 <a href="#285" id="285">285</a>
 <a href="#286" id="286">286</a>
+<a href="#287" id="287">287</a>
+<a href="#288" id="288">288</a>
+<a href="#289" id="289">289</a>
+<a href="#290" id="290">290</a>
+<a href="#291" id="291">291</a>
+<a href="#292" id="292">292</a>
+<a href="#293" id="293">293</a>
+<a href="#294" id="294">294</a>
+<a href="#295" id="295">295</a>
+<a href="#296" id="296">296</a>
+<a href="#297" id="297">297</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::f32::consts::E;
 
 <span class="kw">use super</span>::<span class="kw-2">*</span>;
@@ -316,7 +327,7 @@
 ///
 /// Returns the thread index of the newly created thread
 /// (indices always start from the same value as `pid` and increments in steps)
-</span><span class="comment">//#[instrument(level = &quot;debug&quot;, skip_all, ret)]
+</span><span class="attr">#[instrument(level = <span class="string">&quot;debug&quot;</span>, skip_all, ret)]
 </span><span class="kw">pub fn </span>thread_spawn_v2&lt;M: MemorySize&gt;(
     <span class="kw-2">mut </span>ctx: FunctionEnvMut&lt;<span class="lifetime">&#39;_</span>, WasiEnv&gt;,
     start_ptr: WasmPtr&lt;ThreadStart&lt;M&gt;, M&gt;,
@@ -328,6 +339,13 @@
     <span class="comment">// Success
     </span><span class="kw">let </span>memory = <span class="kw">unsafe </span>{ ctx.data().memory_view(<span class="kw-2">&amp;</span>ctx) };
     <span class="macro">wasi_try_mem!</span>(ret_tid.write(<span class="kw-2">&amp;</span>memory, tid));
+
+    <span class="macro">tracing::debug!</span>(
+        tid,
+        from_tid = ctx.data().thread.id().raw(),
+        <span class="string">&quot;spawned new thread&quot;
+    </span>);
+
     Errno::Success
 }
 
@@ -358,7 +376,11 @@
             stack_size,
         }
     };
-    <span class="macro">tracing::trace!</span>(<span class="string">&quot;spawn with layout {:?}&quot;</span>, layout);
+    <span class="macro">tracing::trace!</span>(
+        from_tid = env.thread.id().raw(),
+        <span class="string">&quot;thread_spawn with layout {:?}&quot;</span>,
+        layout
+    );
 
     <span class="comment">// Create the handle that represents this thread
     </span><span class="kw">let </span>thread_start = ThreadStartType::ThreadSpawn {
