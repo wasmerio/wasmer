@@ -118,8 +118,15 @@ impl PackagePublish {
             non_interactive: self.non_interactive,
             package_path: self.package_path.clone(),
             package_hash,
+            package_id: None,
         }
-        .tag(client, manifest, manifest_path, true, allow_unnamed)
+        .tag(
+            client,
+            Some(manifest),
+            Some(manifest_path),
+            true,
+            allow_unnamed,
+        )
         .await
     }
 }

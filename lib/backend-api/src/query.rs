@@ -193,7 +193,7 @@ pub async fn tag_package_release(
     homepage: Option<&str>,
     license: Option<&str>,
     license_file: Option<&str>,
-    manifest: &str,
+    manifest: Option<&str>,
     name: &str,
     namespace: Option<&str>,
     package_release_id: &cynic::Id,
