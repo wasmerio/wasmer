@@ -103,14 +103,11 @@ impl<O: Send + Sync, C: AsyncCliCommand<Output = O>> CliCommand for C {
             let (snd, rcv) = tokio::sync::oneshot::channel();
             let handle = self.setup(rcv);
 
-            match AsyncCliCommand::run_async(self).await {
-                Ok(k) => return Ok(k),
-                Err(e) => {
-                    if let Some(handle) = handle {
-                        handle.abort();
-                    }
-                    return Err(e);
+            if let Err(e) = AsyncCliCommand::run_async(self).await {
+                if let Some(handle) = handle {
+                    handle.abort();
                 }
+                return Err(e);
             }
 
             if let Some(handle) = handle {
