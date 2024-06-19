@@ -81,6 +81,7 @@ mod queries {
         pub size: Option<i32>,
         pub pirita_size: Option<i32>,
         pub webc_version: Option<WebcVersion>,
+        pub webc_manifest: Option<JSONString>,
     }
 
     #[derive(cynic::Enum, Clone, Copy, Debug)]
