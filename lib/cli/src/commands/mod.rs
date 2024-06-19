@@ -103,14 +103,23 @@ impl<O: Send + Sync, C: AsyncCliCommand<Output = O>> CliCommand for C {
             let (snd, rcv) = tokio::sync::oneshot::channel();
             let handle = self.setup(rcv);
 
-            AsyncCliCommand::run_async(self).await?;
-
-            if snd.send(()).is_err() {
-                tracing::warn!("Failed to send 'done' signal to setup thread!");
+            match AsyncCliCommand::run_async(self).await {
+                Ok(k) => return Ok(k),
+                Err(e) => {
+                    if let Some(handle) = handle {
+                        handle.abort();
+                    }
+                    return Err(e);
+                }
             }
 
             if let Some(handle) = handle {
-                handle.await??;
+                if snd.send(()).is_err() {
+                    tracing::warn!("Failed to send 'done' signal to setup thread!");
+                    handle.abort();
+                } else {
+                    handle.await??;
+                }
             }
 
             Ok::<(), anyhow::Error>(())
