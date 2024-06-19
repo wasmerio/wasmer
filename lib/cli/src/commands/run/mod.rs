@@ -115,10 +115,15 @@ impl Run {
             wasmer_vm::set_stack_size(self.stack_size.unwrap());
         }
 
-        // check for the preferred webc version
-        let preferred_webc_version = match std::env::var("WASMER_USE_WEBCV3") {
-            Ok(val) if ["1", "yes", "true"].contains(&val.as_str()) => webc::Version::V3,
-            _ => webc::Version::V2,
+        // Check for the preferred webc version.
+        // Default to v3.
+        let webc_version_var = std::env::var("WASMER_WEBC_VERSION");
+        let preferred_webc_version = match webc_version_var.as_deref() {
+            Ok("2") => webc::Version::V2,
+            Ok("3") | Err(_) => webc::Version::V3,
+            Ok(other) => {
+                bail!("unknown webc version: '{other}'");
+            }
         };
 
         let _guard = handle.enter();
