@@ -1092,6 +1092,7 @@ type PackageDistribution {
   webcSize: Int
   webcSha256Hash: String
   webcVersion: WebcVersion
+  webcManifest: JSONString
 }
 
 type PackageVersionFilesystem {
@@ -3046,6 +3047,7 @@ input RenameAppAliasInput {
 """Purges all cache for this app version"""
 type PurgeCacheForAppVersionPayload {
   appVersion: DeployAppVersion!
+  success: Boolean!
   clientMutationId: String
 }
 
