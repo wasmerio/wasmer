@@ -1300,12 +1300,12 @@
             // For more details see https://github.com/mono/mono/commit/8e75f5a28e6537e56ad70bf870b86e22539c2fb7
             </span><span class="attr">#[cfg(target_vendor = <span class="string">&quot;apple&quot;</span>)]
             </span>{
-                <span class="kw">use </span>mach::exception_types::<span class="kw-2">*</span>;
-                <span class="kw">use </span>mach::kern_return::<span class="kw-2">*</span>;
-                <span class="kw">use </span>mach::port::<span class="kw-2">*</span>;
-                <span class="kw">use </span>mach::thread_status::<span class="kw-2">*</span>;
-                <span class="kw">use </span>mach::traps::<span class="kw-2">*</span>;
-                <span class="kw">use </span>mach::mach_types::<span class="kw-2">*</span>;
+                <span class="kw">use </span>mach2::exception_types::<span class="kw-2">*</span>;
+                <span class="kw">use </span>mach2::kern_return::<span class="kw-2">*</span>;
+                <span class="kw">use </span>mach2::port::<span class="kw-2">*</span>;
+                <span class="kw">use </span>mach2::thread_status::<span class="kw-2">*</span>;
+                <span class="kw">use </span>mach2::traps::<span class="kw-2">*</span>;
+                <span class="kw">use </span>mach2::mach_types::<span class="kw-2">*</span>;
 
                 <span class="kw">extern </span><span class="string">&quot;C&quot; </span>{
                     <span class="kw">fn </span>task_set_exception_ports(
