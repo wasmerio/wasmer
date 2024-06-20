@@ -746,6 +746,8 @@
 <a href="#746" id="746">746</a>
 <a href="#747" id="747">747</a>
 <a href="#748" id="748">748</a>
+<a href="#749" id="749">749</a>
+<a href="#750" id="750">750</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{
     fs::{read_dir, File, OpenOptions, ReadDir},
     future::Future,
@@ -756,6 +758,7 @@
     task::{Context, Poll},
 };
 
+<span class="kw">use </span>tokio::runtime::Handle;
 <span class="kw">use </span>virtual_fs::{
     host_fs, mem_fs, passthru_fs, tmp_fs, union_fs, AsyncRead, AsyncSeek, AsyncWrite,
     AsyncWriteExt, FileSystem, Pipe, ReadBuf, RootFileSystemBuilder,
@@ -949,7 +952,8 @@
 
         <span class="kw">match </span>filesystem_kind {
             WasiFileSystemKind::Host =&gt; {
-                <span class="kw">let </span>fs = host_fs::FileSystem::default();
+                <span class="kw">let </span>fs = host_fs::FileSystem::new(Handle::current(), PathBuf::from(BASE_TEST_DIR))
+                    .unwrap();
 
                 <span class="kw">for </span>(alias, real_dir) <span class="kw">in </span><span class="kw-2">&amp;</span><span class="self">self</span>.mapped_dirs {
                     <span class="kw">let </span><span class="kw-2">mut </span>dir = PathBuf::from(BASE_TEST_DIR);
@@ -965,7 +969,7 @@
                 }
 
                 <span class="kw">for </span>alias <span class="kw">in </span><span class="kw-2">&amp;</span><span class="self">self</span>.temp_dirs {
-                    <span class="kw">let </span>temp_dir = tempfile::tempdir()<span class="question-mark">?</span>;
+                    <span class="kw">let </span>temp_dir = tempfile::tempdir_in(PathBuf::from(BASE_TEST_DIR))<span class="question-mark">?</span>;
                     builder.add_map_dir(alias, temp_dir.path())<span class="question-mark">?</span>;
                     host_temp_dirs_to_not_drop.push(temp_dir);
                 }

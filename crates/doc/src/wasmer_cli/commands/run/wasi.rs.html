@@ -730,6 +730,7 @@
 <a href="#730" id="730">730</a>
 <a href="#731" id="731">731</a>
 <a href="#732" id="732">732</a>
+<a href="#733" id="733">733</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{
     collections::{BTreeSet, HashMap},
     path::{Path, PathBuf},
@@ -1065,7 +1066,8 @@
             }
 
             <span class="kw">if </span>!mapped_dirs.is_empty() {
-                <span class="kw">let </span>fs_backing: Arc&lt;<span class="kw">dyn </span>FileSystem + Send + Sync&gt; =
+                <span class="comment">// TODO: should we expose the common ancestor instead of root?
+                </span><span class="kw">let </span>fs_backing: Arc&lt;<span class="kw">dyn </span>FileSystem + Send + Sync&gt; =
                     Arc::new(PassthruFileSystem::new(default_fs_backing()));
                 <span class="kw">for </span>MappedDirectory { host, guest } <span class="kw">in </span><span class="self">self</span>.mapped_dirs.clone() {
                     <span class="kw">let </span>host = <span class="kw">if </span>!host.is_absolute() {

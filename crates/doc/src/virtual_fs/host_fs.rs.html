@@ -1477,6 +1477,15 @@
 <a href="#1477" id="1477">1477</a>
 <a href="#1478" id="1478">1478</a>
 <a href="#1479" id="1479">1479</a>
+<a href="#1480" id="1480">1480</a>
+<a href="#1481" id="1481">1481</a>
+<a href="#1482" id="1482">1482</a>
+<a href="#1483" id="1483">1483</a>
+<a href="#1484" id="1484">1484</a>
+<a href="#1485" id="1485">1485</a>
+<a href="#1486" id="1486">1486</a>
+<a href="#1487" id="1487">1487</a>
+<a href="#1488" id="1488">1488</a>
 </pre></div><pre class="rust"><code><span class="kw">use crate</span>::{
     DirEntry, FileType, FsError, Metadata, OpenOptions, OpenOptionsConfig, ReadDir, <span class="prelude-ty">Result</span>,
     VirtualFile,
@@ -1488,7 +1497,7 @@
 <span class="kw">use </span>std::convert::TryInto;
 <span class="kw">use </span>std::fs;
 <span class="kw">use </span>std::io::{<span class="self">self</span>, Seek};
-<span class="kw">use </span>std::path::{Path, PathBuf};
+<span class="kw">use </span>std::path::{Component, Path, PathBuf};
 <span class="kw">use </span>std::pin::Pin;
 <span class="kw">use </span>std::sync::Arc;
 <span class="kw">use </span>std::task::{Context, Poll};
@@ -1502,47 +1511,101 @@
 </span><span class="kw">pub struct </span>FileSystem {
     <span class="attr">#[cfg_attr(feature = <span class="string">&quot;enable-serde&quot;</span>, serde(skip, default = <span class="string">&quot;default_handle&quot;</span>))]
     </span>handle: Handle,
+    root: PathBuf,
 }
+
 <span class="attr">#[allow(dead_code)]
 </span><span class="kw">fn </span>default_handle() -&gt; Handle {
     Handle::current()
 }
 
-<span class="kw">impl </span>Default <span class="kw">for </span>FileSystem {
-    <span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
-        <span class="self">Self </span>{
-            handle: Handle::current(),
+<span class="kw">pub fn </span>canonicalize(path: <span class="kw-2">&amp;</span>Path) -&gt; <span class="prelude-ty">Result</span>&lt;PathBuf&gt; {
+    <span class="kw">if </span>!path.exists() {
+        <span class="kw">return </span><span class="prelude-val">Err</span>(FsError::InvalidInput);
+    }
+    dunce::canonicalize(path).map_err(Into::into)
+}
+
+<span class="comment">// Copied from cargo
+// https://github.com/rust-lang/cargo/blob/fede83ccf973457de319ba6fa0e36ead454d2e20/src/cargo/util/paths.rs#L61
+</span><span class="kw">pub fn </span>normalize_path(path: <span class="kw-2">&amp;</span>Path) -&gt; PathBuf {
+    <span class="kw">let </span><span class="kw-2">mut </span>components = path.components().peekable();
+    <span class="kw">let </span><span class="kw-2">mut </span>ret = <span class="kw">if let </span><span class="prelude-val">Some</span>(c @ Component::Prefix(..)) = components.peek().cloned() {
+        components.next();
+        PathBuf::from(c.as_os_str())
+    } <span class="kw">else </span>{
+        PathBuf::new()
+    };
+
+    <span class="kw">for </span>component <span class="kw">in </span>components {
+        <span class="kw">match </span>component {
+            Component::Prefix(..) =&gt; <span class="macro">unreachable!</span>(),
+            Component::RootDir =&gt; {
+                ret.push(component.as_os_str());
+            }
+            Component::CurDir =&gt; {}
+            Component::ParentDir =&gt; {
+                ret.pop();
+            }
+            Component::Normal(c) =&gt; {
+                ret.push(c);
+            }
         }
     }
+    ret
 }
+
 <span class="kw">impl </span>FileSystem {
-    <span class="kw">pub fn </span>new(handle: Handle) -&gt; <span class="self">Self </span>{
-        FileSystem { handle }
+    <span class="kw">pub fn </span>new(handle: Handle, root: <span class="kw">impl </span>Into&lt;PathBuf&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>&gt; {
+        <span class="kw">let </span>root = canonicalize(<span class="kw-2">&amp;</span>root.into())<span class="question-mark">?</span>;
+
+        <span class="prelude-val">Ok</span>(FileSystem { handle, root })
     }
 }
 
 <span class="kw">impl </span>FileSystem {
-    <span class="kw">pub fn </span>canonicalize(<span class="kw-2">&amp;</span><span class="self">self</span>, path: <span class="kw-2">&amp;</span>Path) -&gt; <span class="prelude-ty">Result</span>&lt;PathBuf&gt; {
-        <span class="kw">if </span>!path.exists() {
-            <span class="kw">return </span><span class="prelude-val">Err</span>(FsError::InvalidInput);
-        }
-        fs::canonicalize(path).map_err(Into::into)
+    <span class="kw">fn </span>prepare_path(<span class="kw-2">&amp;</span><span class="self">self</span>, path: <span class="kw-2">&amp;</span>Path) -&gt; PathBuf {
+        <span class="kw">let </span>path = normalize_path(path);
+
+        <span class="kw">let </span>path = <span class="kw">if </span>!path.starts_with(<span class="kw-2">&amp;</span><span class="self">self</span>.root) {
+            <span class="kw">let </span>path = path.strip_prefix(<span class="string">&quot;/&quot;</span>).unwrap_or(<span class="kw-2">&amp;</span>path);
+
+            <span class="self">self</span>.root.join(path)
+        } <span class="kw">else </span>{
+            path.to_owned()
+        };
+
+        <span class="macro">debug_assert!</span>(path.starts_with(<span class="kw-2">&amp;</span><span class="self">self</span>.root));
+        path
     }
 }
 
 <span class="kw">impl </span><span class="kw">crate</span>::FileSystem <span class="kw">for </span>FileSystem {
     <span class="kw">fn </span>readlink(<span class="kw-2">&amp;</span><span class="self">self</span>, path: <span class="kw-2">&amp;</span>Path) -&gt; <span class="prelude-ty">Result</span>&lt;PathBuf&gt; {
+        <span class="kw">let </span>path = <span class="self">self</span>.prepare_path(path);
+
         fs::read_link(path).map_err(Into::into)
     }
 
     <span class="kw">fn </span>read_dir(<span class="kw-2">&amp;</span><span class="self">self</span>, path: <span class="kw-2">&amp;</span>Path) -&gt; <span class="prelude-ty">Result</span>&lt;ReadDir&gt; {
+        <span class="kw">let </span>path = <span class="self">self</span>.prepare_path(path);
+
         <span class="kw">let </span>read_dir = fs::read_dir(path)<span class="question-mark">?</span>;
         <span class="kw">let </span><span class="kw-2">mut </span>data = read_dir
             .map(|entry| {
                 <span class="kw">let </span>entry = entry<span class="question-mark">?</span>;
+
+                <span class="kw">let </span>path = entry
+                    .path()
+                    .strip_prefix(<span class="kw-2">&amp;</span><span class="self">self</span>.root)
+                    .map_err(|<span class="kw">_</span>| FsError::InvalidData)<span class="question-mark">?
+                    </span>.to_owned();
+                <span class="kw">let </span>path = Path::new(<span class="string">&quot;/&quot;</span>).join(path);
+
                 <span class="kw">let </span>metadata = entry.metadata()<span class="question-mark">?</span>;
+
                 <span class="prelude-val">Ok</span>(DirEntry {
-                    path: entry.path(),
+                    path,
                     metadata: <span class="prelude-val">Ok</span>(metadata.try_into()<span class="question-mark">?</span>),
                 })
             })
@@ -1553,35 +1616,46 @@
     }
 
     <span class="kw">fn </span>create_dir(<span class="kw-2">&amp;</span><span class="self">self</span>, path: <span class="kw-2">&amp;</span>Path) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
+        <span class="kw">let </span>path = <span class="self">self</span>.prepare_path(path);
+
         <span class="kw">if </span>path.parent().is_none() {
             <span class="kw">return </span><span class="prelude-val">Err</span>(FsError::BaseNotDirectory);
         }
+
         fs::create_dir(path).map_err(Into::into)
     }
 
     <span class="kw">fn </span>remove_dir(<span class="kw-2">&amp;</span><span class="self">self</span>, path: <span class="kw-2">&amp;</span>Path) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
+        <span class="kw">let </span>path = <span class="self">self</span>.prepare_path(path);
+
         <span class="kw">if </span>path.parent().is_none() {
             <span class="kw">return </span><span class="prelude-val">Err</span>(FsError::BaseNotDirectory);
         }
+
         <span class="comment">// https://github.com/rust-lang/rust/issues/86442
         // DirectoryNotEmpty is not implemented consistently
-        </span><span class="kw">if </span>path.is_dir() &amp;&amp; <span class="self">self</span>.read_dir(path).map(|s| !s.is_empty()).unwrap_or(<span class="bool-val">false</span>) {
+        </span><span class="kw">if </span>path.is_dir() &amp;&amp; <span class="self">self</span>.read_dir(<span class="kw-2">&amp;</span>path).map(|s| !s.is_empty()).unwrap_or(<span class="bool-val">false</span>) {
             <span class="kw">return </span><span class="prelude-val">Err</span>(FsError::DirectoryNotEmpty);
         }
         fs::remove_dir(path).map_err(Into::into)
     }
 
     <span class="kw">fn </span>rename&lt;<span class="lifetime">&#39;a</span>&gt;(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="self">self</span>, from: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>Path, to: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>Path) -&gt; BoxFuture&lt;<span class="lifetime">&#39;a</span>, <span class="prelude-ty">Result</span>&lt;()&gt;&gt; {
-        <span class="kw">let </span>from = from.to_owned();
-        <span class="kw">let </span>to = to.to_owned();
         Box::pin(<span class="kw">async move </span>{
             <span class="kw">use </span>filetime::{set_file_mtime, FileTime};
-            <span class="kw">if </span>from.parent().is_none() {
+            <span class="kw">let </span>norm_from = normalize_path(from);
+            <span class="kw">let </span>norm_to = normalize_path(to);
+
+            <span class="kw">if </span>norm_from.parent().is_none() {
                 <span class="kw">return </span><span class="prelude-val">Err</span>(FsError::BaseNotDirectory);
             }
-            <span class="kw">if </span>to.parent().is_none() {
+            <span class="kw">if </span>norm_to.parent().is_none() {
                 <span class="kw">return </span><span class="prelude-val">Err</span>(FsError::BaseNotDirectory);
             }
+
+            <span class="kw">let </span>from = <span class="self">self</span>.prepare_path(from);
+            <span class="kw">let </span>to = <span class="self">self</span>.prepare_path(to);
+
             <span class="kw">if </span>!from.exists() {
                 <span class="kw">return </span><span class="prelude-val">Err</span>(FsError::EntryNotFound);
             }
@@ -1621,9 +1695,12 @@
     }
 
     <span class="kw">fn </span>remove_file(<span class="kw-2">&amp;</span><span class="self">self</span>, path: <span class="kw-2">&amp;</span>Path) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
+        <span class="kw">let </span>path = <span class="self">self</span>.prepare_path(path);
+
         <span class="kw">if </span>path.parent().is_none() {
             <span class="kw">return </span><span class="prelude-val">Err</span>(FsError::BaseNotDirectory);
         }
+
         fs::remove_file(path).map_err(Into::into)
     }
 
@@ -1632,12 +1709,16 @@
     }
 
     <span class="kw">fn </span>metadata(<span class="kw-2">&amp;</span><span class="self">self</span>, path: <span class="kw-2">&amp;</span>Path) -&gt; <span class="prelude-ty">Result</span>&lt;Metadata&gt; {
+        <span class="kw">let </span>path = <span class="self">self</span>.prepare_path(path);
+
         fs::metadata(path)
             .and_then(TryInto::try_into)
             .map_err(Into::into)
     }
 
     <span class="kw">fn </span>symlink_metadata(<span class="kw-2">&amp;</span><span class="self">self</span>, path: <span class="kw-2">&amp;</span>Path) -&gt; <span class="prelude-ty">Result</span>&lt;Metadata&gt; {
+        <span class="kw">let </span>path = <span class="self">self</span>.prepare_path(path);
+
         fs::symlink_metadata(path)
             .and_then(TryInto::try_into)
             .map_err(Into::into)
@@ -1708,6 +1789,8 @@
         path: <span class="kw-2">&amp;</span>Path,
         conf: <span class="kw-2">&amp;</span>OpenOptionsConfig,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;Box&lt;<span class="kw">dyn </span>VirtualFile + Send + Sync + <span class="lifetime">&#39;static</span>&gt;&gt; {
+        <span class="kw">let </span>path = <span class="self">self</span>.prepare_path(path);
+
         <span class="comment">// TODO: handle create implying write, etc.
         </span><span class="kw">let </span>read = conf.read();
         <span class="kw">let </span>write = conf.write();
@@ -1726,7 +1809,7 @@
             .create(conf.create())
             .append(append)
             .truncate(conf.truncate())
-            .open(path)
+            .open(<span class="kw-2">&amp;</span>path)
             .map_err(Into::into)
             .map(|file| {
                 Box::new(File::new(
@@ -2454,8 +2537,9 @@
 <span class="attr">#[cfg(test)]
 </span><span class="kw">mod </span>tests {
     <span class="kw">use </span>tempfile::TempDir;
+    <span class="kw">use </span>tokio::runtime::Handle;
 
-    <span class="kw">use </span><span class="kw">crate</span>::host_fs::FileSystem;
+    <span class="kw">use </span><span class="kw">super</span>::FileSystem;
     <span class="kw">use </span><span class="kw">crate</span>::FileSystem <span class="kw">as </span>FileSystemTrait;
     <span class="kw">use </span><span class="kw">crate</span>::FsError;
     <span class="kw">use </span>std::path::Path;
@@ -2465,12 +2549,15 @@
         <span class="kw">let </span>temp = TempDir::new().unwrap();
         std::fs::write(temp.path().join(<span class="string">&quot;foo2.txt&quot;</span>), <span class="string">b&quot;&quot;</span>).unwrap();
 
-        <span class="kw">let </span>fs = FileSystem::default();
-        <span class="macro">assert!</span>(fs.read_dir(Path::new(<span class="string">&quot;/&quot;</span>)).is_ok(), <span class="string">&quot;hostfs can read root&quot;</span>);
+        <span class="kw">let </span>fs = FileSystem::new(Handle::current(), temp.path()).expect(<span class="string">&quot;get filesystem&quot;</span>);
+        <span class="macro">assert!</span>(
+            fs.read_dir(Path::new(<span class="string">&quot;/&quot;</span>)).is_ok(),
+            <span class="string">&quot;NativeFS can read root&quot;
+        </span>);
         <span class="macro">assert!</span>(
             fs.new_open_options()
                 .read(<span class="bool-val">true</span>)
-                .open(temp.path().join(<span class="string">&quot;foo2.txt&quot;</span>))
+                .open(Path::new(<span class="string">&quot;/foo2.txt&quot;</span>))
                 .is_ok(),
             <span class="string">&quot;created foo2.txt&quot;
         </span>);
@@ -2478,17 +2565,17 @@
 
     <span class="attr">#[tokio::test]
     </span><span class="kw">async fn </span>test_create_dir() {
-        <span class="kw">let </span>temp = TempDir::new().unwrap();
-        <span class="kw">let </span>fs = FileSystem::default();
+        <span class="kw">let </span>temp: TempDir = TempDir::new().unwrap();
+        <span class="kw">let </span>fs = FileSystem::new(Handle::current(), temp.path()).expect(<span class="string">&quot;get filesystem&quot;</span>);
 
         <span class="macro">assert_eq!</span>(
-            fs.create_dir(Path::new(<span class="string">&quot;/&quot;</span>)),
-            <span class="prelude-val">Err</span>(FsError::BaseNotDirectory),
-            <span class="string">&quot;creating a directory that has no parent&quot;</span>,
+            fs.create_dir(Path::new(<span class="string">&quot;../&quot;</span>)),
+            <span class="prelude-val">Err</span>(FsError::AlreadyExists),
+            <span class="string">&quot;creating a directory out of bounds&quot;</span>,
         );
 
         <span class="macro">assert_eq!</span>(
-            fs.create_dir(<span class="kw-2">&amp;</span>temp.path().join(<span class="string">&quot;foo&quot;</span>)),
+            fs.create_dir(Path::new(<span class="string">&quot;/foo&quot;</span>)),
             <span class="prelude-val">Ok</span>(()),
             <span class="string">&quot;creating a directory&quot;</span>,
         );
@@ -2498,7 +2585,7 @@
             <span class="string">&quot;foo dir exists in host_fs&quot;
         </span>);
 
-        <span class="kw">let </span>cur_dir = read_dir_names(<span class="kw-2">&amp;</span>fs, temp.path());
+        <span class="kw">let </span>cur_dir = read_dir_names(<span class="kw-2">&amp;</span>fs, <span class="string">&quot;/&quot;</span>);
 
         <span class="kw">if </span>!cur_dir.contains(<span class="kw-2">&amp;</span><span class="string">&quot;foo&quot;</span>.to_string()) {
             <span class="macro">panic!</span>(<span class="string">&quot;cur_dir does not contain foo: {:#?}&quot;</span>, cur_dir);
@@ -2510,7 +2597,7 @@
         </span>);
 
         <span class="macro">assert_eq!</span>(
-            fs.create_dir(<span class="kw-2">&amp;</span>temp.path().join(<span class="string">&quot;foo/bar&quot;</span>)),
+            fs.create_dir(Path::new(<span class="string">&quot;foo/bar&quot;</span>)),
             <span class="prelude-val">Ok</span>(()),
             <span class="string">&quot;creating a sub-directory&quot;</span>,
         );
@@ -2520,14 +2607,14 @@
             <span class="string">&quot;foo dir exists in host_fs&quot;
         </span>);
 
-        <span class="kw">let </span>foo_dir = read_dir_names(<span class="kw-2">&amp;</span>fs, temp.path().join(<span class="string">&quot;foo&quot;</span>));
+        <span class="kw">let </span>foo_dir = read_dir_names(<span class="kw-2">&amp;</span>fs, Path::new(<span class="string">&quot;/foo&quot;</span>));
 
         <span class="macro">assert!</span>(
             foo_dir.contains(<span class="kw-2">&amp;</span><span class="string">&quot;bar&quot;</span>.to_string()),
             <span class="string">&quot;the foo directory is updated and well-defined&quot;
         </span>);
 
-        <span class="kw">let </span>bar_dir = read_dir_names(<span class="kw-2">&amp;</span>fs, temp.path().join(<span class="string">&quot;foo/bar&quot;</span>));
+        <span class="kw">let </span>bar_dir = read_dir_names(<span class="kw-2">&amp;</span>fs, Path::new(<span class="string">&quot;/foo/bar&quot;</span>));
 
         <span class="macro">assert!</span>(
             bar_dir.is_empty(),
@@ -2537,8 +2624,8 @@
 
     <span class="attr">#[tokio::test]
     </span><span class="kw">async fn </span>test_remove_dir() {
-        <span class="kw">let </span>temp = TempDir::new().unwrap();
-        <span class="kw">let </span>fs = FileSystem::default();
+        <span class="kw">let </span>temp: TempDir = TempDir::new().unwrap();
+        <span class="kw">let </span>fs = FileSystem::new(Handle::current(), temp.path()).expect(<span class="string">&quot;get filesystem&quot;</span>);
 
         <span class="macro">assert_eq!</span>(
             fs.remove_dir(Path::new(<span class="string">&quot;/foo&quot;</span>)),
@@ -2547,13 +2634,13 @@
         );
 
         <span class="macro">assert_eq!</span>(
-            fs.create_dir(<span class="kw-2">&amp;</span>temp.path().join(<span class="string">&quot;foo&quot;</span>)),
+            fs.create_dir(Path::new(<span class="string">&quot;foo&quot;</span>)),
             <span class="prelude-val">Ok</span>(()),
             <span class="string">&quot;creating a directory&quot;</span>,
         );
 
         <span class="macro">assert_eq!</span>(
-            fs.create_dir(<span class="kw-2">&amp;</span>temp.path().join(<span class="string">&quot;foo/bar&quot;</span>)),
+            fs.create_dir(Path::new(<span class="string">&quot;foo/bar&quot;</span>)),
             <span class="prelude-val">Ok</span>(()),
             <span class="string">&quot;creating a sub-directory&quot;</span>,
         );
@@ -2561,24 +2648,24 @@
         <span class="macro">assert!</span>(temp.path().join(<span class="string">&quot;foo/bar&quot;</span>).exists(), <span class="string">&quot;./foo/bar exists&quot;</span>);
 
         <span class="macro">assert_eq!</span>(
-            fs.remove_dir(<span class="kw-2">&amp;</span>temp.path().join(<span class="string">&quot;foo&quot;</span>)),
+            fs.remove_dir(Path::new(<span class="string">&quot;foo&quot;</span>)),
             <span class="prelude-val">Err</span>(FsError::DirectoryNotEmpty),
             <span class="string">&quot;removing a directory that has children&quot;</span>,
         );
 
         <span class="macro">assert_eq!</span>(
-            fs.remove_dir(<span class="kw-2">&amp;</span>temp.path().join(<span class="string">&quot;foo/bar&quot;</span>)),
+            fs.remove_dir(Path::new(<span class="string">&quot;foo/bar&quot;</span>)),
             <span class="prelude-val">Ok</span>(()),
             <span class="string">&quot;removing a sub-directory&quot;</span>,
         );
 
         <span class="macro">assert_eq!</span>(
-            fs.remove_dir(<span class="kw-2">&amp;</span>temp.path().join(<span class="string">&quot;foo&quot;</span>)),
+            fs.remove_dir(Path::new(<span class="string">&quot;foo&quot;</span>)),
             <span class="prelude-val">Ok</span>(()),
             <span class="string">&quot;removing a directory&quot;</span>,
         );
 
-        <span class="kw">let </span>cur_dir = read_dir_names(<span class="kw-2">&amp;</span>fs, temp.path());
+        <span class="kw">let </span>cur_dir = read_dir_names(<span class="kw-2">&amp;</span>fs, <span class="string">&quot;/&quot;</span>);
 
         <span class="macro">assert!</span>(
             !cur_dir.contains(<span class="kw-2">&amp;</span><span class="string">&quot;foo&quot;</span>.to_string()),
@@ -2586,7 +2673,7 @@
         </span>);
     }
 
-    <span class="kw">fn </span>read_dir_names(fs: <span class="kw-2">&amp;</span><span class="kw">dyn </span><span class="kw">crate</span>::FileSystem, path: <span class="kw">impl </span>AsRef&lt;Path&gt;) -&gt; Vec&lt;String&gt; {
+    <span class="kw">fn </span>read_dir_names(fs: <span class="kw-2">&amp;</span>FileSystem, path: <span class="kw">impl </span>AsRef&lt;Path&gt;) -&gt; Vec&lt;String&gt; {
         fs.read_dir(path.as_ref())
             .unwrap()
             .filter_map(|entry| <span class="prelude-val">Some</span>(entry.ok()<span class="question-mark">?</span>.file_name().to_str()<span class="question-mark">?</span>.to_string()))
@@ -2595,11 +2682,13 @@
 
     <span class="attr">#[tokio::test]
     </span><span class="kw">async fn </span>test_rename() {
-        <span class="kw">let </span>temp = TempDir::new().unwrap();
-        <span class="kw">let </span>fs = FileSystem::default();
+        <span class="kw">let </span>temp: TempDir = TempDir::new().unwrap();
+        <span class="kw">let </span>fs = FileSystem::new(Handle::current(), temp.path()).expect(<span class="string">&quot;get filesystem&quot;</span>);
         std::fs::create_dir_all(temp.path().join(<span class="string">&quot;foo&quot;</span>).join(<span class="string">&quot;qux&quot;</span>)).unwrap();
-        <span class="kw">let </span>foo = temp.path().join(<span class="string">&quot;foo&quot;</span>);
-        <span class="kw">let </span>bar = temp.path().join(<span class="string">&quot;bar&quot;</span>);
+        <span class="kw">let </span>foo = Path::new(<span class="string">&quot;foo&quot;</span>);
+        <span class="kw">let </span>bar = Path::new(<span class="string">&quot;bar&quot;</span>);
+        <span class="kw">let </span>foo_realpath = temp.path().join(foo);
+        <span class="kw">let </span>bar_realpath = temp.path().join(bar);
 
         <span class="macro">assert_eq!</span>(
             fs.rename(Path::new(<span class="string">&quot;/&quot;</span>), Path::new(<span class="string">&quot;/bar&quot;</span>)).<span class="kw">await</span>,
@@ -2649,7 +2738,7 @@
             <span class="string">&quot;creating a new file (`hello2.txt`)&quot;</span>,
         );
 
-        <span class="kw">let </span>cur_dir = read_dir_names(<span class="kw-2">&amp;</span>fs, temp.path());
+        <span class="kw">let </span>cur_dir = read_dir_names(<span class="kw-2">&amp;</span>fs, Path::new(<span class="string">&quot;/&quot;</span>));
 
         <span class="macro">assert!</span>(
             !cur_dir.contains(<span class="kw-2">&amp;</span><span class="string">&quot;foo&quot;</span>.to_string()),
@@ -2672,12 +2761,12 @@
         <span class="macro">assert!</span>(qux_dir.is_empty(), <span class="string">&quot;the qux directory is empty&quot;</span>);
 
         <span class="macro">assert!</span>(
-            bar.join(<span class="string">&quot;hello1.txt&quot;</span>).exists(),
+            bar_realpath.join(<span class="string">&quot;hello1.txt&quot;</span>).exists(),
             <span class="string">&quot;the /bar/hello1.txt file exists&quot;
         </span>);
 
         <span class="macro">assert!</span>(
-            bar.join(<span class="string">&quot;hello2.txt&quot;</span>).exists(),
+            bar_realpath.join(<span class="string">&quot;hello2.txt&quot;</span>).exists(),
             <span class="string">&quot;the /bar/hello2.txt file exists&quot;
         </span>);
 
@@ -2703,21 +2792,27 @@
             <span class="string">&quot;renaming a file (in the same directory)&quot;</span>,
         );
 
-        <span class="macro">assert!</span>(bar.exists(), <span class="string">&quot;./bar exists&quot;</span>);
-        <span class="macro">assert!</span>(bar.join(<span class="string">&quot;baz&quot;</span>).exists(), <span class="string">&quot;./bar/baz exists&quot;</span>);
-        <span class="macro">assert!</span>(!foo.exists(), <span class="string">&quot;foo does not exist anymore&quot;</span>);
+        <span class="macro">assert!</span>(bar_realpath.exists(), <span class="string">&quot;./bar exists&quot;</span>);
+        <span class="macro">assert!</span>(bar_realpath.join(<span class="string">&quot;baz&quot;</span>).exists(), <span class="string">&quot;./bar/baz exists&quot;</span>);
+        <span class="macro">assert!</span>(!foo_realpath.exists(), <span class="string">&quot;foo does not exist anymore&quot;</span>);
         <span class="macro">assert!</span>(
-            bar.join(<span class="string">&quot;baz/world2.txt&quot;</span>).exists(),
+            bar_realpath.join(<span class="string">&quot;baz/world2.txt&quot;</span>).exists(),
             <span class="string">&quot;/bar/baz/world2.txt exists&quot;
         </span>);
         <span class="macro">assert!</span>(
-            bar.join(<span class="string">&quot;world1.txt&quot;</span>).exists(),
+            bar_realpath.join(<span class="string">&quot;world1.txt&quot;</span>).exists(),
             <span class="string">&quot;/bar/world1.txt (ex hello1.txt) exists&quot;
         </span>);
-        <span class="macro">assert!</span>(!bar.join(<span class="string">&quot;hello1.txt&quot;</span>).exists(), <span class="string">&quot;hello1.txt was moved&quot;</span>);
-        <span class="macro">assert!</span>(!bar.join(<span class="string">&quot;hello2.txt&quot;</span>).exists(), <span class="string">&quot;hello2.txt was moved&quot;</span>);
         <span class="macro">assert!</span>(
-            bar.join(<span class="string">&quot;baz/world2.txt&quot;</span>).exists(),
+            !bar_realpath.join(<span class="string">&quot;hello1.txt&quot;</span>).exists(),
+            <span class="string">&quot;hello1.txt was moved&quot;
+        </span>);
+        <span class="macro">assert!</span>(
+            !bar_realpath.join(<span class="string">&quot;hello2.txt&quot;</span>).exists(),
+            <span class="string">&quot;hello2.txt was moved&quot;
+        </span>);
+        <span class="macro">assert!</span>(
+            bar_realpath.join(<span class="string">&quot;baz/world2.txt&quot;</span>).exists(),
             <span class="string">&quot;world2.txt was moved to the correct place&quot;
         </span>);
     }
@@ -2729,9 +2824,9 @@
 
         <span class="kw">let </span>temp = TempDir::new().unwrap();
 
-        <span class="kw">let </span>fs = FileSystem::default();
+        <span class="kw">let </span>fs = FileSystem::new(Handle::current(), temp.path()).expect(<span class="string">&quot;get filesystem&quot;</span>);
 
-        <span class="kw">let </span>root_metadata = fs.metadata(temp.path()).unwrap();
+        <span class="kw">let </span>root_metadata = fs.metadata(Path::new(<span class="string">&quot;/&quot;</span>)).unwrap();
 
         <span class="macro">assert!</span>(root_metadata.ft.dir);
         <span class="comment">// it seems created is not evailable on musl, at least on CI testing.
@@ -2741,7 +2836,7 @@
         </span><span class="macro">assert_eq!</span>(root_metadata.modified, root_metadata.created);
         <span class="macro">assert!</span>(root_metadata.modified &gt; <span class="number">0</span>);
 
-        <span class="kw">let </span>foo = temp.path().join(<span class="string">&quot;foo&quot;</span>);
+        <span class="kw">let </span>foo = Path::new(<span class="string">&quot;foo&quot;</span>);
 
         <span class="macro">assert_eq!</span>(fs.create_dir(<span class="kw-2">&amp;</span>foo), <span class="prelude-val">Ok</span>(()));
 
@@ -2758,7 +2853,7 @@
 
         sleep(Duration::from_secs(<span class="number">3</span>));
 
-        <span class="kw">let </span>bar = temp.path().join(<span class="string">&quot;bar&quot;</span>);
+        <span class="kw">let </span>bar = Path::new(<span class="string">&quot;bar&quot;</span>);
 
         <span class="macro">assert_eq!</span>(fs.rename(<span class="kw-2">&amp;</span>foo, <span class="kw-2">&amp;</span>bar).<span class="kw">await</span>, <span class="prelude-val">Ok</span>(()));
 
@@ -2777,26 +2872,26 @@
 
     <span class="attr">#[tokio::test]
     </span><span class="kw">async fn </span>test_remove_file() {
-        <span class="kw">let </span>fs = FileSystem::default();
         <span class="kw">let </span>temp = TempDir::new().unwrap();
+        <span class="kw">let </span>fs = FileSystem::new(Handle::current(), temp.path()).expect(<span class="string">&quot;get filesystem&quot;</span>);
 
         <span class="macro">assert!</span>(
             <span class="macro">matches!</span>(
                 fs.new_open_options()
                     .write(<span class="bool-val">true</span>)
                     .create_new(<span class="bool-val">true</span>)
-                    .open(temp.path().join(<span class="string">&quot;foo.txt&quot;</span>)),
+                    .open(Path::new(<span class="string">&quot;foo.txt&quot;</span>)),
                 <span class="prelude-val">Ok</span>(<span class="kw">_</span>)
             ),
             <span class="string">&quot;creating a new file&quot;</span>,
         );
 
-        <span class="macro">assert!</span>(read_dir_names(<span class="kw-2">&amp;</span>fs, temp.path()).contains(<span class="kw-2">&amp;</span><span class="string">&quot;foo.txt&quot;</span>.to_string()));
+        <span class="macro">assert!</span>(read_dir_names(<span class="kw-2">&amp;</span>fs, Path::new(<span class="string">&quot;/&quot;</span>)).contains(<span class="kw-2">&amp;</span><span class="string">&quot;foo.txt&quot;</span>.to_string()));
 
         <span class="macro">assert!</span>(temp.path().join(<span class="string">&quot;foo.txt&quot;</span>).is_file());
 
         <span class="macro">assert_eq!</span>(
-            fs.remove_file(<span class="kw-2">&amp;</span>temp.path().join(<span class="string">&quot;foo.txt&quot;</span>)),
+            fs.remove_file(<span class="kw-2">&amp;</span>Path::new(<span class="string">&quot;foo.txt&quot;</span>)),
             <span class="prelude-val">Ok</span>(()),
             <span class="string">&quot;removing a file that exists&quot;</span>,
         );
@@ -2804,7 +2899,7 @@
         <span class="macro">assert!</span>(!temp.path().join(<span class="string">&quot;foo.txt&quot;</span>).exists());
 
         <span class="macro">assert_eq!</span>(
-            fs.remove_file(<span class="kw-2">&amp;</span>temp.path().join(<span class="string">&quot;foo.txt&quot;</span>)),
+            fs.remove_file(<span class="kw-2">&amp;</span>Path::new(<span class="string">&quot;foo.txt&quot;</span>)),
             <span class="prelude-val">Err</span>(FsError::EntryNotFound),
             <span class="string">&quot;removing a file that doesn&#39;t exists&quot;</span>,
         );
@@ -2813,34 +2908,22 @@
     <span class="attr">#[tokio::test]
     </span><span class="kw">async fn </span>test_readdir() {
         <span class="kw">let </span>temp = TempDir::new().unwrap();
-        <span class="kw">let </span>fs = FileSystem::default();
+        <span class="kw">let </span>fs = FileSystem::new(Handle::current(), temp.path()).expect(<span class="string">&quot;get filesystem&quot;</span>);
 
+        <span class="macro">assert_eq!</span>(fs.create_dir(<span class="kw-2">&amp;</span>Path::new(<span class="string">&quot;foo&quot;</span>)), <span class="prelude-val">Ok</span>(()), <span class="string">&quot;creating `foo`&quot;</span>);
         <span class="macro">assert_eq!</span>(
-            fs.create_dir(<span class="kw-2">&amp;</span>temp.path().join(<span class="string">&quot;foo&quot;</span>)),
-            <span class="prelude-val">Ok</span>(()),
-            <span class="string">&quot;creating `foo`&quot;
-        </span>);
-        <span class="macro">assert_eq!</span>(
-            fs.create_dir(<span class="kw-2">&amp;</span>temp.path().join(<span class="string">&quot;foo/sub&quot;</span>)),
+            fs.create_dir(<span class="kw-2">&amp;</span>Path::new(<span class="string">&quot;foo/sub&quot;</span>)),
             <span class="prelude-val">Ok</span>(()),
             <span class="string">&quot;creating `sub`&quot;
         </span>);
-        <span class="macro">assert_eq!</span>(
-            fs.create_dir(<span class="kw-2">&amp;</span>temp.path().join(<span class="string">&quot;bar&quot;</span>)),
-            <span class="prelude-val">Ok</span>(()),
-            <span class="string">&quot;creating `bar`&quot;
-        </span>);
-        <span class="macro">assert_eq!</span>(
-            fs.create_dir(<span class="kw-2">&amp;</span>temp.path().join(<span class="string">&quot;baz&quot;</span>)),
-            <span class="prelude-val">Ok</span>(()),
-            <span class="string">&quot;creating `bar`&quot;
-        </span>);
+        <span class="macro">assert_eq!</span>(fs.create_dir(<span class="kw-2">&amp;</span>Path::new(<span class="string">&quot;bar&quot;</span>)), <span class="prelude-val">Ok</span>(()), <span class="string">&quot;creating `bar`&quot;</span>);
+        <span class="macro">assert_eq!</span>(fs.create_dir(<span class="kw-2">&amp;</span>Path::new(<span class="string">&quot;baz&quot;</span>)), <span class="prelude-val">Ok</span>(()), <span class="string">&quot;creating `bar`&quot;</span>);
         <span class="macro">assert!</span>(
             <span class="macro">matches!</span>(
                 fs.new_open_options()
                     .write(<span class="bool-val">true</span>)
                     .create_new(<span class="bool-val">true</span>)
-                    .open(temp.path().join(<span class="string">&quot;a.txt&quot;</span>)),
+                    .open(Path::new(<span class="string">&quot;a.txt&quot;</span>)),
                 <span class="prelude-val">Ok</span>(<span class="kw">_</span>)
             ),
             <span class="string">&quot;creating `a.txt`&quot;</span>,
@@ -2850,110 +2933,45 @@
                 fs.new_open_options()
                     .write(<span class="bool-val">true</span>)
                     .create_new(<span class="bool-val">true</span>)
-                    .open(<span class="kw-2">&amp;</span>temp.path().join(<span class="string">&quot;b.txt&quot;</span>)),
+                    .open(<span class="kw-2">&amp;</span>Path::new(<span class="string">&quot;b.txt&quot;</span>)),
                 <span class="prelude-val">Ok</span>(<span class="kw">_</span>)
             ),
             <span class="string">&quot;creating `b.txt`&quot;</span>,
         );
 
-        <span class="kw">let </span>readdir = fs.read_dir(temp.path());
+        <span class="kw">let </span>readdir = fs.read_dir(Path::new(<span class="string">&quot;/&quot;</span>));
 
         <span class="macro">assert!</span>(
             readdir.is_ok(),
             <span class="string">&quot;reading the directory `{}`&quot;</span>,
-            temp.path().display()
+            Path::new(<span class="string">&quot;/&quot;</span>).display()
         );
 
         <span class="kw">let </span><span class="kw-2">mut </span>readdir = readdir.unwrap();
 
         <span class="kw">let </span>next = readdir.next().unwrap().unwrap();
         <span class="macro">assert!</span>(next.path.ends_with(<span class="string">&quot;a.txt&quot;</span>), <span class="string">&quot;checking entry #1&quot;</span>);
-        <span class="macro">assert!</span>(next.path.is_file(), <span class="string">&quot;checking entry #1&quot;</span>);
+        <span class="macro">assert!</span>(next.metadata().unwrap().is_file(), <span class="string">&quot;checking entry #1&quot;</span>);
 
         <span class="kw">let </span>next = readdir.next().unwrap().unwrap();
         <span class="macro">assert!</span>(next.path.ends_with(<span class="string">&quot;b.txt&quot;</span>), <span class="string">&quot;checking entry #2&quot;</span>);
-        <span class="macro">assert!</span>(next.path.is_file(), <span class="string">&quot;checking entry #2&quot;</span>);
+        <span class="macro">assert!</span>(next.metadata().unwrap().is_file(), <span class="string">&quot;checking entry #2&quot;</span>);
 
         <span class="kw">let </span>next = readdir.next().unwrap().unwrap();
         <span class="macro">assert!</span>(next.path.ends_with(<span class="string">&quot;bar&quot;</span>), <span class="string">&quot;checking entry #3&quot;</span>);
-        <span class="macro">assert!</span>(next.path.is_dir(), <span class="string">&quot;checking entry #3&quot;</span>);
+        <span class="macro">assert!</span>(next.metadata().unwrap().is_dir(), <span class="string">&quot;checking entry #3&quot;</span>);
 
         <span class="kw">let </span>next = readdir.next().unwrap().unwrap();
         <span class="macro">assert!</span>(next.path.ends_with(<span class="string">&quot;baz&quot;</span>), <span class="string">&quot;checking entry #4&quot;</span>);
-        <span class="macro">assert!</span>(next.path.is_dir(), <span class="string">&quot;checking entry #4&quot;</span>);
+        <span class="macro">assert!</span>(next.metadata().unwrap().is_dir(), <span class="string">&quot;checking entry #4&quot;</span>);
 
         <span class="kw">let </span>next = readdir.next().unwrap().unwrap();
         <span class="macro">assert!</span>(next.path.ends_with(<span class="string">&quot;foo&quot;</span>), <span class="string">&quot;checking entry #5&quot;</span>);
-        <span class="macro">assert!</span>(next.path.is_dir(), <span class="string">&quot;checking entry #5&quot;</span>);
+        <span class="macro">assert!</span>(next.metadata().unwrap().is_dir(), <span class="string">&quot;checking entry #5&quot;</span>);
 
         <span class="kw">if let </span><span class="prelude-val">Some</span>(s) = readdir.next() {
             <span class="macro">panic!</span>(<span class="string">&quot;next: {:?}&quot;</span>, s);
         }
-    }
-
-    <span class="attr">#[tokio::test]
-    </span><span class="kw">async fn </span>test_canonicalize() {
-        <span class="kw">let </span>temp = TempDir::new().unwrap();
-        std::fs::create_dir_all(temp.path().join(<span class="string">&quot;foo/bar/baz/qux&quot;</span>)).unwrap();
-        std::fs::write(temp.path().join(<span class="string">&quot;foo/bar/baz/qux/hello.txt&quot;</span>), <span class="string">b&quot;&quot;</span>).unwrap();
-
-        <span class="kw">let </span>fs = FileSystem::default();
-        <span class="kw">let </span>root_dir = temp.path().canonicalize().unwrap();
-
-        <span class="macro">assert_eq!</span>(
-            fs.canonicalize(temp.path()),
-            <span class="prelude-val">Ok</span>(root_dir.clone()),
-            <span class="string">&quot;canonicalizing `/`&quot;</span>,
-        );
-        <span class="macro">assert_eq!</span>(
-            fs.canonicalize(Path::new(<span class="string">&quot;foo&quot;</span>)),
-            <span class="prelude-val">Err</span>(FsError::InvalidInput),
-            <span class="string">&quot;canonicalizing `foo`&quot;</span>,
-        );
-        <span class="macro">assert_eq!</span>(
-            fs.canonicalize(<span class="kw-2">&amp;</span>temp.path().join(<span class="string">&quot;././././foo/&quot;</span>)),
-            <span class="prelude-val">Ok</span>(root_dir.join(<span class="string">&quot;foo&quot;</span>)),
-            <span class="string">&quot;canonicalizing `/././././foo/`&quot;</span>,
-        );
-        <span class="macro">assert_eq!</span>(
-            fs.canonicalize(<span class="kw-2">&amp;</span>temp.path().join(<span class="string">&quot;foo/bar//&quot;</span>)),
-            <span class="prelude-val">Ok</span>(root_dir.join(<span class="string">&quot;foo&quot;</span>).join(<span class="string">&quot;bar&quot;</span>)),
-            <span class="string">&quot;canonicalizing `/foo/bar//`&quot;</span>,
-        );
-        <span class="macro">assert_eq!</span>(
-            fs.canonicalize(<span class="kw-2">&amp;</span>temp.path().join(<span class="string">&quot;foo/bar/../bar&quot;</span>)),
-            <span class="prelude-val">Ok</span>(root_dir.join(<span class="string">&quot;foo&quot;</span>).join(<span class="string">&quot;bar&quot;</span>)),
-            <span class="string">&quot;canonicalizing `/foo/bar/../bar`&quot;</span>,
-        );
-        <span class="macro">assert_eq!</span>(
-            fs.canonicalize(<span class="kw-2">&amp;</span>temp.path().join(<span class="string">&quot;foo/bar/../..&quot;</span>)),
-            <span class="prelude-val">Ok</span>(root_dir.clone()),
-            <span class="string">&quot;canonicalizing `/foo/bar/../..`&quot;</span>,
-        );
-        <span class="comment">// temp.path().join(&quot;/foo/bar/../../..&quot;).exists() gives true on windows
-        </span><span class="attr">#[cfg(not(target_os = <span class="string">&quot;windows&quot;</span>))]
-        </span><span class="macro">assert_eq!</span>(
-            fs.canonicalize(<span class="kw-2">&amp;</span>root_dir.join(<span class="string">&quot;/foo/bar/../../..&quot;</span>)),
-            <span class="prelude-val">Err</span>(FsError::InvalidInput),
-            <span class="string">&quot;canonicalizing `/foo/bar/../../..`&quot;</span>,
-        );
-        <span class="macro">assert_eq!</span>(
-            fs.canonicalize(<span class="kw-2">&amp;</span>root_dir.join(<span class="string">&quot;C:/foo/&quot;</span>)),
-            <span class="prelude-val">Err</span>(FsError::InvalidInput),
-            <span class="string">&quot;canonicalizing `C:/foo/`&quot;</span>,
-        );
-        <span class="macro">assert_eq!</span>(
-            fs.canonicalize(<span class="kw-2">&amp;</span>root_dir.join(
-                <span class="string">&quot;foo/./../foo/bar/../../foo/bar/./baz/./../baz/qux/../../baz/./qux/hello.txt&quot;
-            </span>)),
-            <span class="prelude-val">Ok</span>(root_dir
-                .join(<span class="string">&quot;foo&quot;</span>)
-                .join(<span class="string">&quot;bar&quot;</span>)
-                .join(<span class="string">&quot;baz&quot;</span>)
-                .join(<span class="string">&quot;qux&quot;</span>)
-                .join(<span class="string">&quot;hello.txt&quot;</span>)),
-            <span class="string">&quot;canonicalizing a crazily stupid path name&quot;</span>,
-        );
     }
 }
 </code></pre></div></section></main></body></html>

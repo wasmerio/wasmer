@@ -2215,7 +2215,7 @@
 <span class="kw">use </span>futures::{future::BoxFuture, Future, TryStreamExt};
 <span class="attr">#[cfg(feature = <span class="string">&quot;enable-serde&quot;</span>)]
 </span><span class="kw">use </span>serde_derive::{Deserialize, Serialize};
-<span class="kw">use </span>tokio::io::AsyncWriteExt;
+<span class="kw">use </span>tokio::{io::AsyncWriteExt, runtime::Handle};
 <span class="kw">use </span>tracing::{debug, trace};
 <span class="kw">use </span>virtual_fs::{copy_reference, FileSystem, FsError, OpenOptions, VirtualFile};
 <span class="kw">use </span>wasmer_config::package::PackageId;
@@ -4268,7 +4268,7 @@
 </span><span class="kw">pub fn </span>default_fs_backing() -&gt; Box&lt;<span class="kw">dyn </span>virtual_fs::FileSystem + Send + Sync&gt; {
     <span class="macro">cfg_if::cfg_if! </span>{
         <span class="kw">if </span><span class="attr">#[cfg(feature = <span class="string">&quot;host-fs&quot;</span>)] </span>{
-            Box::&lt;virtual_fs::host_fs::FileSystem&gt;::default()
+            Box::new(virtual_fs::host_fs::FileSystem::new(Handle::current(), <span class="string">&quot;/&quot;</span>).unwrap())
         } <span class="kw">else if </span><span class="attr">#[cfg(not(feature = <span class="string">&quot;host-fs&quot;</span>))] </span>{
             Box::&lt;virtual_fs::mem_fs::FileSystem&gt;::default()
         } <span class="kw">else </span>{

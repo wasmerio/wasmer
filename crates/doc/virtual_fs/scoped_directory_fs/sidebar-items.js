@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"fn":["normalize_path"],"struct":["ScopedDirectoryFileSystem"]};

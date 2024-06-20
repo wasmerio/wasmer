@@ -517,6 +517,7 @@
 <a href="#517" id="517">517</a>
 <a href="#518" id="518">518</a>
 <a href="#519" id="519">519</a>
+<a href="#520" id="520">520</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{
     collections::HashMap,
     path::{Path, PathBuf},
@@ -526,6 +527,7 @@
 <span class="kw">use </span>anyhow::{Context, Error};
 <span class="kw">use </span>derivative::Derivative;
 <span class="kw">use </span>futures::future::BoxFuture;
+<span class="kw">use </span>tokio::runtime::Handle;
 <span class="kw">use </span>virtual_fs::{FileSystem, FsError, OverlayFileSystem, RootFileSystemBuilder, TmpFileSystem};
 <span class="kw">use </span>wasmer::Imports;
 <span class="kw">use </span>webc::metadata::annotations::Wasi <span class="kw">as </span>WasiAnnotation;
@@ -796,7 +798,7 @@
             <span class="kw">if </span><span class="attr">#[cfg(feature = <span class="string">&quot;host-fs&quot;</span>)] </span>{
                 <span class="kw">let </span>MappedDirectory { host, guest } = value;
                 <span class="kw">let </span>fs: Arc&lt;<span class="kw">dyn </span>FileSystem + Send + Sync&gt; =
-                    Arc::new(virtual_fs::ScopedDirectoryFileSystem::new_with_default_runtime(host));
+                    Arc::new(virtual_fs::host_fs::FileSystem::new(Handle::current(), host).unwrap());
 
                 MountedDirectory { guest, fs }
             } <span class="kw">else </span>{

@@ -1678,7 +1678,6 @@
 <a href="#1678" id="1678">1678</a>
 <a href="#1679" id="1679">1679</a>
 <a href="#1680" id="1680">1680</a>
-<a href="#1681" id="1681">1681</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{
     collections::HashSet,
     fmt::Debug,
@@ -1729,9 +1728,9 @@
 ///     .enable_all()
 ///     .build()
 ///     .unwrap();
-///     let _guard = runtime.enter();
+/// let _guard = runtime.enter();
 ///
-/// let fs = OverlayFileSystem::new(MemFS::default(), [HostFS::default()]);
+/// let fs = OverlayFileSystem::new(MemFS::default(), [HostFS::new(tokio::runtime::Handle::current(), &quot;/&quot;).unwrap()]);
 ///
 /// // This also has the benefit of storing the two values in-line with no extra
 /// // overhead or indirection.
@@ -2791,10 +2790,9 @@
 </span><span class="kw">mod </span>tests {
     <span class="kw">use </span>std::path::PathBuf;
 
-    <span class="kw">use </span>tokio::io::{AsyncReadExt, AsyncSeekExt, AsyncWriteExt};
-
     <span class="kw">use super</span>::<span class="kw-2">*</span>;
     <span class="kw">use </span><span class="kw">crate</span>::mem_fs::FileSystem <span class="kw">as </span>MemFS;
+    <span class="kw">use </span>tokio::io::{AsyncReadExt, AsyncSeekExt, AsyncWriteExt};
 
     <span class="attr">#[tokio::test]
     </span><span class="kw">async fn </span>remove_directory() {

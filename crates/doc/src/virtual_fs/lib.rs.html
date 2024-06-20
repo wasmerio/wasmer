@@ -730,10 +730,6 @@
 <a href="#730" id="730">730</a>
 <a href="#731" id="731">731</a>
 <a href="#732" id="732">732</a>
-<a href="#733" id="733">733</a>
-<a href="#734" id="734">734</a>
-<a href="#735" id="735">735</a>
-<a href="#736" id="736">736</a>
 </pre></div><pre class="rust"><code><span class="attr">#![cfg_attr(docsrs, feature(doc_cfg, doc_auto_cfg))]
 
 #[cfg(test)]
@@ -776,8 +772,6 @@
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">mod </span>ops;
 <span class="kw">mod </span>overlay_fs;
 <span class="kw">pub mod </span>pipe;
-<span class="attr">#[cfg(feature = <span class="string">&quot;host-fs&quot;</span>)]
-</span><span class="kw">mod </span>scoped_directory_fs;
 <span class="kw">mod </span>static_file;
 <span class="attr">#[cfg(feature = <span class="string">&quot;static-fs&quot;</span>)]
 </span><span class="kw">pub mod </span>static_fs;
@@ -801,8 +795,6 @@
 <span class="kw">pub use </span>overlay_fs::OverlayFileSystem;
 <span class="kw">pub use </span>passthru_fs::<span class="kw-2">*</span>;
 <span class="kw">pub use </span>pipe::<span class="kw-2">*</span>;
-<span class="attr">#[cfg(feature = <span class="string">&quot;host-fs&quot;</span>)]
-</span><span class="kw">pub use </span>scoped_directory_fs::ScopedDirectoryFileSystem;
 <span class="kw">pub use </span>special_file::<span class="kw-2">*</span>;
 <span class="kw">pub use </span>static_file::StaticFile;
 <span class="kw">pub use </span>tmp_fs::<span class="kw-2">*</span>;
