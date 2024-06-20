@@ -999,6 +999,11 @@
 <a href="#999" id="999">999</a>
 <a href="#1000" id="1000">1000</a>
 <a href="#1001" id="1001">1001</a>
+<a href="#1002" id="1002">1002</a>
+<a href="#1003" id="1003">1003</a>
+<a href="#1004" id="1004">1004</a>
+<a href="#1005" id="1005">1005</a>
+<a href="#1006" id="1006">1006</a>
 </pre></div><pre class="rust"><code><span class="attr">#![allow(missing_docs, unused)]
 
 </span><span class="kw">mod </span>wasi;
@@ -1116,10 +1121,15 @@
             wasmer_vm::set_stack_size(<span class="self">self</span>.stack_size.unwrap());
         }
 
-        <span class="comment">// check for the preferred webc version
-        </span><span class="kw">let </span>preferred_webc_version = <span class="kw">match </span>std::env::var(<span class="string">&quot;WASMER_USE_WEBCV3&quot;</span>) {
-            <span class="prelude-val">Ok</span>(val) <span class="kw">if </span>[<span class="string">&quot;1&quot;</span>, <span class="string">&quot;yes&quot;</span>, <span class="string">&quot;true&quot;</span>].contains(<span class="kw-2">&amp;</span>val.as_str()) =&gt; webc::Version::V3,
-            <span class="kw">_ </span>=&gt; webc::Version::V2,
+        <span class="comment">// Check for the preferred webc version.
+        // Default to v3.
+        </span><span class="kw">let </span>webc_version_var = std::env::var(<span class="string">&quot;WASMER_WEBC_VERSION&quot;</span>);
+        <span class="kw">let </span>preferred_webc_version = <span class="kw">match </span>webc_version_var.as_deref() {
+            <span class="prelude-val">Ok</span>(<span class="string">&quot;2&quot;</span>) =&gt; webc::Version::V2,
+            <span class="prelude-val">Ok</span>(<span class="string">&quot;3&quot;</span>) | <span class="prelude-val">Err</span>(<span class="kw">_</span>) =&gt; webc::Version::V3,
+            <span class="prelude-val">Ok</span>(other) =&gt; {
+                <span class="macro">bail!</span>(<span class="string">&quot;unknown webc version: &#39;{other}&#39;&quot;</span>);
+            }
         };
 
         <span class="kw">let </span>_guard = handle.enter();

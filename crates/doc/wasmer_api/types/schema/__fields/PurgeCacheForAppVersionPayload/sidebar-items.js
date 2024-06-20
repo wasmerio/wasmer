@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":["__typename","appVersion","clientMutationId"]};
+window.SIDEBAR_ITEMS = {"struct":["__typename","appVersion","clientMutationId","success"]};

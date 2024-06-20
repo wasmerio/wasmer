@@ -26,7 +26,8 @@
 <a href="#26" id="26">26</a>
 <a href="#27" id="27">27</a>
 <a href="#28" id="28">28</a>
-</pre></div><pre class="rust"><code><span class="kw">mod </span>filesystem_source;
+</pre></div><pre class="rust"><code><span class="kw">mod </span>backend_source;
+<span class="kw">mod </span>filesystem_source;
 <span class="kw">mod </span>in_memory_source;
 <span class="kw">mod </span>inputs;
 <span class="kw">mod </span>multi_source;
@@ -34,10 +35,10 @@
 <span class="kw">mod </span>resolve;
 <span class="kw">mod </span>source;
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">mod </span>utils;
-<span class="kw">mod </span>wapm_source;
 <span class="kw">mod </span>web_source;
 
 <span class="kw">pub use </span><span class="self">self</span>::{
+    backend_source::BackendSource,
     filesystem_source::FileSystemSource,
     in_memory_source::InMemorySource,
     inputs::{
@@ -51,7 +52,6 @@
     },
     resolve::{resolve, ResolveError},
     source::{QueryError, Source},
-    wapm_source::WapmSource,
     web_source::WebSource,
 };
 </code></pre></div></section></main></body></html>

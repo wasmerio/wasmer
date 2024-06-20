@@ -1624,6 +1624,7 @@
 <a href="#1624" id="1624">1624</a>
 <a href="#1625" id="1625">1625</a>
 <a href="#1626" id="1626">1626</a>
+<a href="#1627" id="1627">1627</a>
 </pre></div><pre class="rust"><code><span class="kw">pub use </span>queries::<span class="kw-2">*</span>;
 
 <span class="kw">pub use </span>cynic::Id;
@@ -1707,6 +1708,7 @@
         <span class="kw">pub </span>size: <span class="prelude-ty">Option</span>&lt;i32&gt;,
         <span class="kw">pub </span>pirita_size: <span class="prelude-ty">Option</span>&lt;i32&gt;,
         <span class="kw">pub </span>webc_version: <span class="prelude-ty">Option</span>&lt;WebcVersion&gt;,
+        <span class="kw">pub </span>webc_manifest: <span class="prelude-ty">Option</span>&lt;JSONString&gt;,
     }
 
     <span class="attr">#[derive(cynic::Enum, Clone, Copy, Debug)]
