@@ -190,12 +190,12 @@ cfg_if::cfg_if! {
             // For more details see https://github.com/mono/mono/commit/8e75f5a28e6537e56ad70bf870b86e22539c2fb7
             #[cfg(target_vendor = "apple")]
             {
-                use mach::exception_types::*;
-                use mach::kern_return::*;
-                use mach::port::*;
-                use mach::thread_status::*;
-                use mach::traps::*;
-                use mach::mach_types::*;
+                use mach2::exception_types::*;
+                use mach2::kern_return::*;
+                use mach2::port::*;
+                use mach2::thread_status::*;
+                use mach2::traps::*;
+                use mach2::mach_types::*;
 
                 extern "C" {
                     fn task_set_exception_ports(
