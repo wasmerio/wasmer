@@ -33,6 +33,7 @@ mod validate;
 mod wast;
 mod whoami;
 use std::env::args;
+use tokio::task::JoinHandle;
 
 #[cfg(target_os = "linux")]
 pub use binfmt::*;
@@ -70,13 +71,37 @@ pub(crate) trait AsyncCliCommand: Send + Sync {
     type Output: Send + Sync;
 
     async fn run_async(self) -> Result<Self::Output, anyhow::Error>;
+
+    fn setup(&self) -> Option<JoinHandle<anyhow::Result<()>>> {
+        if is_terminal::IsTerminal::is_terminal(&std::io::stdin()) {
+            return Some(tokio::task::spawn(async move {
+                tokio::signal::ctrl_c().await?;
+                let term = console::Term::stdout();
+                let _ = term.show_cursor();
+                Ok::<(), anyhow::Error>(())
+            }));
+        }
+
+        None
+    }
 }
 
 impl<O: Send + Sync, C: AsyncCliCommand<Output = O>> CliCommand for C {
     type Output = O;
 
     fn run(self) -> Result<(), anyhow::Error> {
-        tokio::runtime::Runtime::new()?.block_on(AsyncCliCommand::run_async(self))?;
+        tokio::runtime::Runtime::new()?.block_on(async {
+            let handle = self.setup();
+
+            AsyncCliCommand::run_async(self).await?;
+
+            if let Some(handle) = handle {
+                handle.await??;
+            }
+
+            Ok::<(), anyhow::Error>(())
+        })?;
+
         Ok(())
     }
 }

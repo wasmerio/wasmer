@@ -14,7 +14,7 @@ version.workspace = true
 
 [dependencies]
 memoffset.workspace = true
-wasmer-types = { path = "../types", version = "=4.3.1" }
+wasmer-types = { path = "../types", version = "=4.3.2" }
 libc.workspace = true
 indexmap = { version = "1.6" }
 thiserror = "1.0"

@@ -43,6 +43,7 @@ impl JournalEffector {
     ) -> anyhow::Result<()> {
         let kind = Kind::Socket {
             socket: InodeSocket::new(InodeSocketKind::RemoteSocket {
+                is_dead: true,
                 local_addr: addr,
                 peer_addr,
                 ttl: 0,

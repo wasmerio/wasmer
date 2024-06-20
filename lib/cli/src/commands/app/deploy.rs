@@ -49,6 +49,10 @@ pub struct CmdAppDeploy {
     #[clap(long)]
     pub dir: Option<PathBuf>,
 
+    /// The path to the `app.yaml` file.
+    #[clap(long, conflicts_with = "dir")]
+    pub path: Option<PathBuf>,
+
     /// Do not wait for the app to become reachable.
     #[clap(long)]
     pub no_wait: bool,
@@ -226,7 +230,12 @@ impl AsyncCliCommand for CmdAppDeploy {
         let client =
             login_user(&self.api, &self.env, !self.non_interactive, "deploy an app").await?;
 
-        let base_dir_path = self.dir.clone().unwrap_or(std::env::current_dir()?);
+        let base_dir_path = self.dir.clone().unwrap_or_else(|| {
+            self.path
+                .clone()
+                .unwrap_or_else(|| std::env::current_dir().unwrap())
+        });
+
         let (app_config_path, base_dir_path) = {
             if base_dir_path.is_file() {
                 (
@@ -508,7 +517,7 @@ impl AsyncCliCommand for CmdAppDeploy {
         // If the config changed, write it back.
         if new_app_config != app_config {
             // We want to preserve unknown fields to allow for newer app.yaml
-            // settings without requring new CLI versions, so instead of just
+            // settings without requiring new CLI versions, so instead of just
             // serializing the new config, we merge it with the old one.
             let new_merged = crate::utils::merge_yaml_values(
                 &app_config.clone().to_yaml_value()?,

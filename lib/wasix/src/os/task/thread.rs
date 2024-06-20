@@ -107,6 +107,10 @@ pub struct WasiThread {
 }
 
 impl WasiThread {
+    pub fn id(&self) -> WasiThreadId {
+        self.state.id
+    }
+
     /// Sets that a rewind will take place
     pub(crate) fn set_rewind(&mut self, rewind: RewindResult) {
         self.rewind.replace(rewind);

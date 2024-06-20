@@ -3,8 +3,9 @@ use super::*;
 /// Safety: This function manipulates the memory of the process and thus must
 /// be executed by the WASM process thread itself.
 ///
-#[allow(clippy::result_large_err)]
 #[cfg(feature = "journal")]
+#[allow(clippy::result_large_err)]
+#[tracing::instrument(skip_all)]
 pub unsafe fn restore_snapshot(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     journal: Arc<DynJournal>,
@@ -20,15 +21,17 @@ pub unsafe fn restore_snapshot(
     // We read all the logs from the journal into the state machine
     let mut ethereal_events = Vec::new();
     while let Some(next) = journal.read().map_err(anyhow_err_to_runtime_err)? {
+        tracing::trace!(event=?next, "restoring event");
         runner.play_event(next.into_inner(), Some(&mut ethereal_events));
     }
 
     // Check for events that are orphaned
     for evt in ethereal_events {
-        tracing::debug!("Orphaned ethereal events - {:?}", evt);
+        tracing::trace!("Orphaned ethereal events - {:?}", evt);
     }
 
     // Now output the stdout and stderr
+    tracing::trace!("replaying stdout");
     for (offset, data, is_64bit) in runner.stdout {
         if is_64bit {
             JournalEffector::apply_fd_write::<Memory64>(&runner.ctx, 1, offset, data)
@@ -38,6 +41,7 @@ pub unsafe fn restore_snapshot(
         .map_err(anyhow_err_to_runtime_err)?;
     }
 
+    tracing::trace!("replaying stdout");
     for (offset, data, is_64bit) in runner.stderr {
         if is_64bit {
             JournalEffector::apply_fd_write::<Memory64>(&runner.ctx, 2, offset, data)
@@ -59,7 +63,11 @@ pub unsafe fn restore_snapshot(
     }
 
     // Spawn all the threads
-    for (thread_id, thread_state) in runner.spawn_threads {
+    let thread_count = runner.spawn_threads.len();
+    tracing::trace!(thread_count, "restoring threads");
+    for (index, (thread_id, thread_state)) in runner.spawn_threads.into_iter().enumerate() {
+        tracing::trace!("restoring thread {}/{}", index + 1, thread_count);
+
         if thread_state.is_64bit {
             JournalEffector::apply_thread_state::<Memory64>(
                 &mut runner.ctx,
@@ -84,6 +92,7 @@ pub unsafe fn restore_snapshot(
             .map_err(anyhow_err_to_runtime_err)?;
         }
     }
+    tracing::debug!(thread_count, "snapshot restore complete");
 
     Ok(runner.rewind)
 }

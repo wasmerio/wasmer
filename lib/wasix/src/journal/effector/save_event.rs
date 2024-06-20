@@ -10,6 +10,8 @@ impl JournalEffector {
             return Ok(());
         }
 
+        tracing::trace!(?event, "saving journal event");
+
         ctx.data()
             .active_journal()?
             .write(event)

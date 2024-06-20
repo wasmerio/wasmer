@@ -33,9 +33,12 @@ fn parse_registry_url(registry: &str) -> Result<url::Url, String> {
 
 #[derive(clap::Parser, Debug, Clone, Default)]
 pub struct ApiOpts {
+    /// The (optional) authorization token to pass to the registry
     #[clap(long, env = "WASMER_TOKEN")]
     pub token: Option<String>,
-    #[clap(long, value_parser = parse_registry_url)]
+
+    /// Change the current registry
+    #[clap(long, value_parser = parse_registry_url, env = "WASMER_REGISTRY")]
     pub registry: Option<url::Url>,
 }
 

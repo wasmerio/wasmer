@@ -13,7 +13,7 @@ use crate::{
     types::{
         self, CreateNamespaceVars, DeployApp, DeployAppConnection, DeployAppVersion,
         DeployAppVersionConnection, DnsDomain, GetAppTemplateFromSlugVariables,
-        GetAppTemplatesQueryVariables, GetCurrentUserWithAppsVars, GetDeployAppAndVersion,
+        GetAppTemplatesVars, GetCurrentUserWithAppsVars, GetDeployAppAndVersion,
         GetDeployAppVersionsVars, GetNamespaceAppsVars, GetSignedUrlForPackageUploadVariables, Log,
         LogStream, PackageVersionConnection, PublishDeployAppVars, PushPackageReleasePayload,
         SignedUrl, TagPackageReleasePayload, UpsertDomainFromZoneFileVars,
@@ -74,16 +74,75 @@ pub async fn fetch_app_templates(
     client: &WasmerClient,
     category_slug: String,
     first: i32,
+    after: Option<String>,
+    sort_by: Option<types::AppTemplatesSortBy>,
 ) -> Result<Option<types::AppTemplateConnection>, anyhow::Error> {
     client
-        .run_graphql_strict(types::GetAppTemplatesQuery::build(
-            GetAppTemplatesQueryVariables {
-                category_slug,
-                first,
-            },
-        ))
+        .run_graphql_strict(types::GetAppTemplates::build(GetAppTemplatesVars {
+            category_slug,
+            first,
+            after,
+            sort_by,
+        }))
         .await
         .map(|r| r.get_app_templates)
+}
+
+/// Fetch all app templates by paginating through the responses.
+///
+/// Will fetch at most `max` templates.
+pub fn fetch_all_app_templates(
+    client: &WasmerClient,
+    page_size: i32,
+    sort_by: Option<types::AppTemplatesSortBy>,
+) -> impl futures::Stream<Item = Result<Vec<types::AppTemplate>, anyhow::Error>> + '_ {
+    let vars = GetAppTemplatesVars {
+        category_slug: String::new(),
+        first: page_size,
+        sort_by,
+        after: None,
+    };
+
+    futures::stream::try_unfold(
+        Some(vars),
+        move |vars: Option<types::GetAppTemplatesVars>| async move {
+            let vars = match vars {
+                Some(vars) => vars,
+                None => return Ok(None),
+            };
+
+            let con = client
+                .run_graphql_strict(types::GetAppTemplates::build(vars.clone()))
+                .await?
+                .get_app_templates
+                .context("backend did not return any data")?;
+
+            let items = con
+                .edges
+                .into_iter()
+                .flatten()
+                .filter_map(|edge| edge.node)
+                .collect::<Vec<_>>();
+
+            let next_cursor = con
+                .page_info
+                .end_cursor
+                .filter(|_| con.page_info.has_next_page);
+
+            let next_vars = next_cursor.map(|after| types::GetAppTemplatesVars {
+                after: Some(after),
+                ..vars
+            });
+
+            #[allow(clippy::type_complexity)]
+            let res: Result<
+                Option<(Vec<types::AppTemplate>, Option<types::GetAppTemplatesVars>)>,
+                anyhow::Error,
+            > = Ok(Some((items, next_vars)));
+
+            res
+        },
+    )
 }
 
 /// Get a signed URL to upload packages.
@@ -134,7 +193,7 @@ pub async fn tag_package_release(
     homepage: Option<&str>,
     license: Option<&str>,
     license_file: Option<&str>,
-    manifest: &str,
+    manifest: Option<&str>,
     name: &str,
     namespace: Option<&str>,
     package_release_id: &cynic::Id,

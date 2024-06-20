@@ -9,6 +9,54 @@ Looking for changes that affect our C API? See the [C API Changelog](lib/c-api/C
 
 ## **Unreleased**
 
+## 4.3.2 - 11/06/2024
+
+This release mainly introduces the InstaBoot feature. Numerous bug fixes to the virtual-fs is also included, making it
+more robust. Support for the execve syscall is also added to the runtime alongside the ability to spawn local wasm files.
+
+## Added
+
+  - [#4819](https://github.com/wasmerio/wasmer/pull/4819) Add support for spawning local wasm files
+  - [#4813](https://github.com/wasmerio/wasmer/pull/4813) feat(configs): Add headers and max_age to InstaBoot capability
+  - [#4810](https://github.com/wasmerio/wasmer/pull/4810) feat(cli): Add "app purge-cache" command
+  - [#4754](https://github.com/wasmerio/wasmer/pull/4754) feat(config): Add app instaboot config
+  - [#4735](https://github.com/wasmerio/wasmer/pull/4735) Add traversal for `Root` inode
+  - [#4743](https://github.com/wasmerio/wasmer/pull/4743) Benchmarks: add new benchmark for function imports in modules
+
+## Changed
+
+  - [#4797](https://github.com/wasmerio/wasmer/pull/4797) feat(cli): Show exact version of package in "package download" command
+  - [#4749](https://github.com/wasmerio/wasmer/pull/4749) Only warn if needed
+  - [#4826](https://github.com/wasmerio/wasmer/pull/4826) chore(virtual-fs)!: Remove old stale WebcFileSystem
+  - [#4805](https://github.com/wasmerio/wasmer/pull/4805) CLI: app create - Template handling improvements
+  - [#4823](https://github.com/wasmerio/wasmer/pull/4823) Enable mounting `tmp` directory locally
+  - [#4756](https://github.com/wasmerio/wasmer/pull/4756) Introduce `proc_exec2`
+  - [#4817](https://github.com/wasmerio/wasmer/pull/4817) chore(cli): Update yanked `zip` version
+  - [#4815](https://github.com/wasmerio/wasmer/pull/4815) Useful link
+  - [#4759](https://github.com/wasmerio/wasmer/pull/4759) Disallow empty path on path_open
+  - [#4794](https://github.com/wasmerio/wasmer/pull/4794) Disallow opening directory with rights::fd_write
+  - [#4793](https://github.com/wasmerio/wasmer/pull/4793) Respect `oflags::excl` when opening all files
+  - [#4790](https://github.com/wasmerio/wasmer/pull/4790) chore: Minor tweaks to the HttpRequest definitions
+  - [#4730](https://github.com/wasmerio/wasmer/pull/4730) Mount current directory to `/home` and Set CWD to `/home` when running WASI
+  - [#4770](https://github.com/wasmerio/wasmer/pull/4770) Reduce package upload chunk size to make the progress bar smoother
+  - [#4769](https://github.com/wasmerio/wasmer/pull/4769) Use `_strict` graphql function so the error from backend is reported
+  - [#4765](https://github.com/wasmerio/wasmer/pull/4765) Update the webc dependency
+  - [#4706](https://github.com/wasmerio/wasmer/pull/4706) Multiple improvements for the journal load times
+  - [#4739](https://github.com/wasmerio/wasmer/pull/4739) Allow blocking for realtime
+
+## Fixed
+
+  - [#4821](https://github.com/wasmerio/wasmer/pull/4821) Fix `path_open` sometimes ignoring trailing slash
+  - [#4822](https://github.com/wasmerio/wasmer/pull/4822) fix(cli): Respect owner in app.yaml during app resolution
+  - [#4779](https://github.com/wasmerio/wasmer/pull/4779) Multiple fixes for journaling with fast boot and resumption
+  - [#4776](https://github.com/wasmerio/wasmer/pull/4776) Fix wasi-fyi test.sh on darwin
+  - [#4747](https://github.com/wasmerio/wasmer/pull/4747) Fix for interrupts
+  - [#4762](https://github.com/wasmerio/wasmer/pull/4762) fix(wasix): Remove redundant module hash generation in BinaryPackage
+  - [#4783](https://github.com/wasmerio/wasmer/pull/4783) Fix metadata conversion to carry over the modified timestamp
+  - [#4740](https://github.com/wasmerio/wasmer/pull/4740) Fix wasi-fyi tests
+
+
+
 ## 4.3.1 - 23/05/2024
 
 This release adds support for subcommands to generate shell completions and manual pages. Also, number of fixes
