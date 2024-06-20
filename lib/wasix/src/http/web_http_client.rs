@@ -305,7 +305,7 @@ fn call_fetch(request: &web_sys::Request) -> JsFuture {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::runtime::resolver::WapmSource;
+    use crate::runtime::resolver::BackendSource;
 
     #[wasm_bindgen_test::wasm_bindgen_test]
     async fn query_the_wasmer_registry_graphql_endpoint() {
@@ -313,7 +313,7 @@ mod tests {
         let query = r#"{
             "query": "{ info { defaultFrontend } }"
         }"#;
-        let request = http::Request::post(WapmSource::WASMER_PROD_ENDPOINT)
+        let request = http::Request::post(BackendSource::WASMER_PROD_ENDPOINT)
             .header(http::header::CONTENT_TYPE, "application/json")
             .body(query)
             .unwrap();
