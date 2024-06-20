@@ -50,7 +50,7 @@ use crate::{
 ///     .unwrap();
 /// let _guard = runtime.enter();
 ///
-/// let fs = OverlayFileSystem::new(MemFS::default(), [HostFS::new(tokio::runtime::Handle::current(), "/tmp").unwrap()]);
+/// let fs = OverlayFileSystem::new(MemFS::default(), [HostFS::new(tokio::runtime::Handle::current(), "/").unwrap()]);
 ///
 /// // This also has the benefit of storing the two values in-line with no extra
 /// // overhead or indirection.
