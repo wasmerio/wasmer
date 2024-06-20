@@ -31,7 +31,9 @@ use wasmer_wasix::{
     runtime::{
         module_cache::{FileSystemCache, ModuleCache},
         package_loader::{BuiltinPackageLoader, PackageLoader},
-        resolver::{FileSystemSource, InMemorySource, MultiSource, Source, WapmSource, WebSource},
+        resolver::{
+            BackendSource, FileSystemSource, InMemorySource, MultiSource, Source, WebSource,
+        },
         task_manager::{
             tokio::{RuntimeOrHandle, TokioTaskManager},
             VirtualTaskManagerExt,
@@ -648,7 +650,7 @@ impl Wasi {
 
         let graphql_endpoint = self.graphql_endpoint(env)?;
         let cache_dir = env.cache_dir().join("queries");
-        let mut wapm_source = WapmSource::new(graphql_endpoint, Arc::clone(&client))
+        let mut wapm_source = BackendSource::new(graphql_endpoint, Arc::clone(&client))
             .with_local_cache(cache_dir, WAPM_SOURCE_CACHE_TIMEOUT)
             .with_preferred_webc_version(preferred_webc_version);
         if let Some(token) = env

@@ -27,7 +27,7 @@ use crate::{
     runtime::{
         module_cache::{ModuleCache, ThreadLocalCache},
         package_loader::{PackageLoader, UnsupportedPackageLoader},
-        resolver::{MultiSource, Source, WapmSource},
+        resolver::{BackendSource, MultiSource, Source},
     },
     SpawnError, WasiTtyState,
 };
@@ -239,8 +239,8 @@ impl PluggableRuntime {
 
         let mut source = MultiSource::new();
         if let Some(client) = &http_client {
-            source.add_source(WapmSource::new(
-                WapmSource::WASMER_PROD_ENDPOINT.parse().unwrap(),
+            source.add_source(BackendSource::new(
+                BackendSource::WASMER_PROD_ENDPOINT.parse().unwrap(),
                 client.clone(),
             ));
         }
