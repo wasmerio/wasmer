@@ -48,9 +48,9 @@ use crate::{
 ///     .enable_all()
 ///     .build()
 ///     .unwrap();
-///     let _guard = runtime.enter();
+/// let _guard = runtime.enter();
 ///
-/// let fs = OverlayFileSystem::new(MemFS::default(), [HostFS::default()]);
+/// let fs = OverlayFileSystem::new(MemFS::default(), [HostFS::new(tokio::runtime::Handle::current(), "/tmp").unwrap()]);
 ///
 /// // This also has the benefit of storing the two values in-line with no extra
 /// // overhead or indirection.
@@ -1110,9 +1110,9 @@ fn should_continue(e: FsError) -> bool {
 mod tests {
     use std::path::PathBuf;
 
-    use tokio::io::{AsyncReadExt, AsyncSeekExt, AsyncWriteExt};
     use super::*;
     use crate::mem_fs::FileSystem as MemFS;
+    use tokio::io::{AsyncReadExt, AsyncSeekExt, AsyncWriteExt};
 
     #[tokio::test]
     async fn remove_directory() {
