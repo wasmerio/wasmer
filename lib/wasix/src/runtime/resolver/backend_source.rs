@@ -21,7 +21,7 @@ use crate::{
 /// A [`Source`] which will resolve dependencies by pinging a Wasmer-like GraphQL
 /// endpoint.
 #[derive(Debug, Clone)]
-pub struct WapmSource {
+pub struct BackendSource {
     registry_endpoint: Url,
     client: Arc<dyn HttpClient + Send + Sync>,
     cache: Option<FileSystemCache>,
@@ -29,12 +29,12 @@ pub struct WapmSource {
     preferred_webc_version: webc::Version,
 }
 
-impl WapmSource {
+impl BackendSource {
     pub const WASMER_DEV_ENDPOINT: &'static str = "https://registry.wasmer.wtf/graphql";
     pub const WASMER_PROD_ENDPOINT: &'static str = "https://registry.wasmer.io/graphql";
 
     pub fn new(registry_endpoint: Url, client: Arc<dyn HttpClient + Send + Sync>) -> Self {
-        WapmSource {
+        BackendSource {
             registry_endpoint,
             client,
             cache: None,
@@ -45,21 +45,21 @@ impl WapmSource {
 
     /// Cache query results locally.
     pub fn with_local_cache(self, cache_dir: impl Into<PathBuf>, timeout: Duration) -> Self {
-        WapmSource {
+        BackendSource {
             cache: Some(FileSystemCache::new(cache_dir, timeout)),
             ..self
         }
     }
 
     pub fn with_auth_token(self, token: impl Into<String>) -> Self {
-        WapmSource {
+        BackendSource {
             token: Some(token.into()),
             ..self
         }
     }
 
     pub fn with_preferred_webc_version(self, version: webc::Version) -> Self {
-        WapmSource {
+        BackendSource {
             preferred_webc_version: version,
             ..self
         }
@@ -70,7 +70,7 @@ impl WapmSource {
     }
 
     #[tracing::instrument(level = "debug", skip_all)]
-    async fn query_graphql_named(&self, package_name: &str) -> Result<WapmWebQuery, Error> {
+    async fn query_graphql_named(&self, package_name: &str) -> Result<WebQuery, Error> {
         #[derive(serde::Serialize)]
         struct Body {
             query: String,
@@ -122,7 +122,7 @@ impl WapmSource {
             "Received a response from GraphQL",
         );
 
-        let response: WapmWebQuery =
+        let response: WebQuery =
             serde_json::from_slice(&body).context("Unable to deserialize the response")?;
 
         Ok(response)
@@ -231,7 +231,7 @@ impl WapmSource {
 }
 
 #[async_trait::async_trait]
-impl Source for WapmSource {
+impl Source for BackendSource {
     #[tracing::instrument(level = "debug", skip_all, fields(%package))]
     async fn query(&self, package: &PackageSource) -> Result<Vec<PackageSummary>, QueryError> {
         let (package_name, version_constraint) = match package {
@@ -293,13 +293,13 @@ impl Source for WapmSource {
 }
 
 fn matching_package_summaries(
-    response: WapmWebQuery,
+    response: WebQuery,
     version_constraint: &VersionReq,
     preferred_webc_version: webc::Version,
 ) -> Result<Vec<PackageSummary>, QueryError> {
     let mut summaries = Vec::new();
 
-    let WapmWebQueryGetPackage {
+    let WebQueryGetPackage {
         namespace,
         package_name,
         versions,
@@ -358,19 +358,19 @@ fn matching_package_summaries(
 fn decode_summary(
     namespace: &str,
     package_name: &str,
-    pkg_version: WapmWebQueryGetPackageVersion,
+    pkg_version: WebQueryGetPackageVersion,
     preferred_webc_version: webc::Version,
 ) -> Result<PackageSummary, Error> {
-    let WapmWebQueryGetPackageVersion {
+    let WebQueryGetPackageVersion {
         v2:
-            WapmWebQueryGetPackageVersionDistribution {
+            WebQueryGetPackageVersionDistribution {
                 webc_version: v2_webc_version,
                 pirita_sha256_hash: v2_pirita_sha256_hash,
                 pirita_download_url: v2_pirita_download_url,
                 webc_manifest: v2_manifest,
             },
         v3:
-            WapmWebQueryGetPackageVersionDistribution {
+            WebQueryGetPackageVersionDistribution {
                 webc_version: v3_webc_version,
                 pirita_sha256_hash: v3_pirita_sha256_hash,
                 pirita_download_url: v3_pirita_download_url,
@@ -440,7 +440,7 @@ impl FileSystemCache {
         self.cache_dir.join(package_name)
     }
 
-    fn lookup_cached_query(&self, package_name: &str) -> Result<Option<WapmWebQuery>, Error> {
+    fn lookup_cached_query(&self, package_name: &str) -> Result<Option<WebQuery>, Error> {
         let filename = self.path(package_name);
 
         let _span =
@@ -490,7 +490,7 @@ impl FileSystemCache {
         Ok(Some(entry.response))
     }
 
-    fn update(&self, package_name: &str, response: &WapmWebQuery) -> Result<(), Error> {
+    fn update(&self, package_name: &str, response: &WebQuery) -> Result<(), Error> {
         let entry = CacheEntry {
             unix_timestamp: SystemTime::UNIX_EPOCH
                 .elapsed()
@@ -539,7 +539,7 @@ impl FileSystemCache {
 struct CacheEntry {
     unix_timestamp: u64,
     package_name: String,
-    response: WapmWebQuery,
+    response: WebQuery,
 }
 
 /// Cache entry for a webc lookup by hash.
@@ -547,7 +547,7 @@ struct CacheEntry {
 struct HashCacheEntry {
     unix_timestamp: u64,
     hash: String,
-    response: WapmWebQuery,
+    response: WebQuery,
 }
 
 impl CacheEntry {
@@ -646,40 +646,40 @@ impl PackageWebc {
 }
 
 #[derive(Debug, serde::Serialize, serde::Deserialize, Clone)]
-pub struct WapmWebQuery {
+pub struct WebQuery {
     #[serde(rename = "data")]
-    pub data: WapmWebQueryData,
+    pub data: WebQueryData,
 }
 
 #[derive(Debug, serde::Serialize, serde::Deserialize, Clone)]
-pub struct WapmWebQueryData {
+pub struct WebQueryData {
     #[serde(rename = "getPackage")]
-    pub get_package: Option<WapmWebQueryGetPackage>,
-    pub info: WapmWebQueryInfo,
+    pub get_package: Option<WebQueryGetPackage>,
+    pub info: WebQueryInfo,
 }
 
 #[derive(Debug, serde::Serialize, serde::Deserialize, Clone)]
-pub struct WapmWebQueryInfo {
+pub struct WebQueryInfo {
     #[serde(rename = "defaultFrontend")]
     pub default_frontend: Url,
 }
 
 #[derive(Debug, serde::Serialize, serde::Deserialize, Clone)]
-pub struct WapmWebQueryGetPackage {
+pub struct WebQueryGetPackage {
     #[serde(rename = "packageName")]
     pub package_name: String,
     pub namespace: String,
-    pub versions: Vec<WapmWebQueryGetPackageVersion>,
+    pub versions: Vec<WebQueryGetPackageVersion>,
 }
 
 #[derive(Debug, serde::Serialize, serde::Deserialize, Clone)]
-pub struct WapmWebQueryGetPackageVersion {
+pub struct WebQueryGetPackageVersion {
     pub version: String,
     /// Has the package been archived?
     #[serde(rename = "isArchived", default)]
     pub is_archived: bool,
-    pub v2: WapmWebQueryGetPackageVersionDistribution,
-    pub v3: WapmWebQueryGetPackageVersionDistribution,
+    pub v2: WebQueryGetPackageVersionDistribution,
+    pub v3: WebQueryGetPackageVersionDistribution,
 }
 
 #[derive(Debug, serde::Serialize, serde::Deserialize, Clone)]
@@ -704,7 +704,7 @@ impl From<WebCVersion> for webc::Version {
 }
 
 #[derive(Debug, serde::Serialize, serde::Deserialize, Clone)]
-pub struct WapmWebQueryGetPackageVersionDistribution {
+pub struct WebQueryGetPackageVersionDistribution {
     #[serde(rename = "webcVersion")]
     pub webc_version: Option<WebCVersion>,
     #[serde(rename = "piritaDownloadUrl")]
@@ -905,9 +905,9 @@ mod tests {
             headers: HeaderMap::new(),
         };
         let client = Arc::new(DummyClient::new(vec![response]));
-        let registry_endpoint = WapmSource::WASMER_PROD_ENDPOINT.parse().unwrap();
+        let registry_endpoint = BackendSource::WASMER_PROD_ENDPOINT.parse().unwrap();
         let request = PackageSource::from_str("wasmer/wasmer-pack-cli@^0.6").unwrap();
-        let source = WapmSource::new(registry_endpoint, client.clone());
+        let source = BackendSource::new(registry_endpoint, client.clone());
 
         let summaries = source.query(&request).await.unwrap();
 
@@ -943,7 +943,7 @@ mod tests {
         assert_eq!(requests.len(), 1);
         let request = &requests[0];
         assert_eq!(request.method, http::Method::POST);
-        assert_eq!(request.url.as_str(), WapmSource::WASMER_PROD_ENDPOINT);
+        assert_eq!(request.url.as_str(), BackendSource::WASMER_PROD_ENDPOINT);
         assert_eq!(request.headers.len(), 2);
         assert_eq!(request.headers["User-Agent"], USER_AGENT);
         assert_eq!(request.headers["Content-Type"], "application/json");
@@ -1032,9 +1032,9 @@ mod tests {
             headers: HeaderMap::new(),
         };
         let client = Arc::new(DummyClient::new(vec![response]));
-        let registry_endpoint = WapmSource::WASMER_PROD_ENDPOINT.parse().unwrap();
+        let registry_endpoint = BackendSource::WASMER_PROD_ENDPOINT.parse().unwrap();
         let request = PackageSource::from_str("_/cowsay").unwrap();
-        let source = WapmSource::new(registry_endpoint, client.clone());
+        let source = BackendSource::new(registry_endpoint, client.clone());
 
         let summaries = source.query(&request).await.unwrap();
 
@@ -1111,9 +1111,9 @@ mod tests {
             headers: HeaderMap::new(),
         };
         let client = Arc::new(DummyClient::new(vec![response]));
-        let registry_endpoint = WapmSource::WASMER_PROD_ENDPOINT.parse().unwrap();
+        let registry_endpoint = BackendSource::WASMER_PROD_ENDPOINT.parse().unwrap();
         let request = PackageSource::from_str("wasmer/python").unwrap();
-        let source = WapmSource::new(registry_endpoint, client.clone());
+        let source = BackendSource::new(registry_endpoint, client.clone());
 
         let summaries = source.query(&request).await.unwrap();
 
@@ -1202,10 +1202,10 @@ mod tests {
             headers: HeaderMap::new(),
         };
         let client = Arc::new(DummyClient::new(vec![response]));
-        let registry_endpoint = WapmSource::WASMER_PROD_ENDPOINT.parse().unwrap();
+        let registry_endpoint = BackendSource::WASMER_PROD_ENDPOINT.parse().unwrap();
         let request = PackageSource::from_str("wasmer/python@4.0.0").unwrap();
         let temp = tempfile::tempdir().unwrap();
-        let source = WapmSource::new(registry_endpoint, client.clone())
+        let source = BackendSource::new(registry_endpoint, client.clone())
             .with_local_cache(temp.path(), Duration::from_secs(0));
         source
             .cache
