@@ -22,7 +22,7 @@ use crate::{
 use futures::{future::BoxFuture, Future, TryStreamExt};
 #[cfg(feature = "enable-serde")]
 use serde_derive::{Deserialize, Serialize};
-use tokio::io::AsyncWriteExt;
+use tokio::{io::AsyncWriteExt, runtime::Handle};
 use tracing::{debug, trace};
 use virtual_fs::{copy_reference, FileSystem, FsError, OpenOptions, VirtualFile};
 use wasmer_config::package::PackageId;
@@ -2075,7 +2075,7 @@ impl std::fmt::Debug for WasiFs {
 pub fn default_fs_backing() -> Box<dyn virtual_fs::FileSystem + Send + Sync> {
     cfg_if::cfg_if! {
         if #[cfg(feature = "host-fs")] {
-            Box::<virtual_fs::host_fs::FileSystem>::default()
+            Box::new(virtual_fs::host_fs::FileSystem::new(Handle::current(), "/").unwrap())
         } else if #[cfg(not(feature = "host-fs"))] {
             Box::<virtual_fs::mem_fs::FileSystem>::default()
         } else {

@@ -31,15 +31,6 @@ fn default_handle() -> Handle {
     Handle::current()
 }
 
-impl Default for FileSystem {
-    fn default() -> Self {
-        Self {
-            handle: Handle::current(),
-            root: "/".into(),
-        }
-    }
-}
-
 pub fn canonicalize(path: &Path) -> Result<PathBuf> {
     if !path.exists() {
         return Err(FsError::InvalidInput);

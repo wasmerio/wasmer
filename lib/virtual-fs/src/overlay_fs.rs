@@ -1112,7 +1112,10 @@ mod tests {
 
     use bytes::Bytes;
     use tempfile::TempDir;
-    use tokio::io::{AsyncReadExt, AsyncSeekExt, AsyncWriteExt};
+    use tokio::{
+        io::{AsyncReadExt, AsyncSeekExt, AsyncWriteExt},
+        runtime::Handle,
+    };
     use webc::v1::{ParseOptions, WebCOwned};
 
     use super::*;
@@ -1271,7 +1274,7 @@ mod tests {
         // are first to the host.
         let primary = RootFileSystemBuilder::new().build();
         let host_fs: Arc<dyn FileSystem + Send + Sync> =
-            Arc::new(crate::host_fs::FileSystem::default());
+            Arc::new(crate::host_fs::FileSystem::new(Handle::current(), "/").unwrap());
         let first_dirs = [(&first, "/first"), (&second, "/second")];
         for (host, guest) in first_dirs {
             primary
