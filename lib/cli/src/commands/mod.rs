@@ -415,7 +415,7 @@ enum Cmd {
     /// Deploy apps to Wasmer Edge [alias: app deploy]
     Deploy(crate::commands::app::deploy::CmdAppDeploy),
 
-    /// Manage deployed Edge apps
+    /// Create and manage Wasmer Edge apps
     #[clap(subcommand, alias = "apps")]
     App(crate::commands::app::CmdApp),
 
