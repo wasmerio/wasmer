@@ -707,6 +707,27 @@
 <a href="#707" id="707">707</a>
 <a href="#708" id="708">708</a>
 <a href="#709" id="709">709</a>
+<a href="#710" id="710">710</a>
+<a href="#711" id="711">711</a>
+<a href="#712" id="712">712</a>
+<a href="#713" id="713">713</a>
+<a href="#714" id="714">714</a>
+<a href="#715" id="715">715</a>
+<a href="#716" id="716">716</a>
+<a href="#717" id="717">717</a>
+<a href="#718" id="718">718</a>
+<a href="#719" id="719">719</a>
+<a href="#720" id="720">720</a>
+<a href="#721" id="721">721</a>
+<a href="#722" id="722">722</a>
+<a href="#723" id="723">723</a>
+<a href="#724" id="724">724</a>
+<a href="#725" id="725">725</a>
+<a href="#726" id="726">726</a>
+<a href="#727" id="727">727</a>
+<a href="#728" id="728">728</a>
+<a href="#729" id="729">729</a>
+<a href="#730" id="730">730</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Create a new Edge app.
 
 </span><span class="kw">use </span>std::{
@@ -741,13 +762,17 @@
         <span class="prelude-val">None </span>=&gt; std::env::current_dir()<span class="question-mark">?</span>,
     };
 
+    tokio::fs::create_dir_all(<span class="kw-2">&amp;</span>app_dir).<span class="kw">await</span><span class="question-mark">?</span>;
+
     <span class="kw">let </span>app_config_path = app_dir.join(AppConfigV1::CANONICAL_FILE_NAME);
-    std::fs::write(<span class="kw-2">&amp;</span>app_config_path, raw_app_config).with_context(|| {
-        <span class="macro">format!</span>(
-            <span class="string">&quot;could not write app config to &#39;{}&#39;&quot;</span>,
-            app_config_path.display()
-        )
-    })
+    tokio::fs::write(<span class="kw-2">&amp;</span>app_config_path, raw_app_config)
+        .<span class="kw">await
+        </span>.with_context(|| {
+            <span class="macro">format!</span>(
+                <span class="string">&quot;could not write app config to &#39;{}&#39;&quot;</span>,
+                app_config_path.display()
+            )
+        })
 }
 
 <span class="doccomment">/// Create a new Edge app.
@@ -900,6 +925,34 @@
         <span class="kw">crate</span>::utils::prompts::prompt_for_namespace(<span class="string">&quot;Who should own this app?&quot;</span>, <span class="prelude-val">None</span>, user.as_ref())
     }
 
+    <span class="kw">async fn </span>get_output_dir(<span class="kw-2">&amp;</span><span class="self">self</span>, app_name: <span class="kw-2">&amp;</span>str) -&gt; anyhow::Result&lt;PathBuf&gt; {
+        <span class="kw">let </span><span class="kw-2">mut </span>output_path = <span class="kw">if let </span><span class="prelude-val">Some</span>(path) = <span class="kw-2">&amp;</span><span class="self">self</span>.app_dir_path {
+            path.clone()
+        } <span class="kw">else </span>{
+            PathBuf::from(<span class="string">&quot;.&quot;</span>).canonicalize()<span class="question-mark">?
+        </span>};
+
+        <span class="kw">if </span>output_path.is_dir() &amp;&amp; output_path.read_dir()<span class="question-mark">?</span>.next().is_some() {
+            <span class="kw">if </span><span class="self">self</span>.non_interactive {
+                <span class="kw">if </span>!<span class="self">self</span>.quiet {
+                    <span class="macro">eprintln!</span>(<span class="string">&quot;The current directory is not empty.&quot;</span>);
+                    <span class="macro">eprintln!</span>(<span class="string">&quot;Use the `--dir` flag to specify another directory, or remove files from the currently selected one.&quot;</span>)
+                }
+                <span class="macro">anyhow::bail!</span>(<span class="string">&quot;Stopping as the directory is not empty&quot;</span>)
+            } <span class="kw">else </span>{
+                <span class="kw">let </span>theme = ColorfulTheme::default();
+                <span class="kw">let </span>raw: String = dialoguer::Input::with_theme(<span class="kw-2">&amp;</span>theme)
+                    .with_prompt(<span class="string">&quot;Select the directory to save the app in&quot;</span>)
+                    .with_initial_text(app_name)
+                    .interact_text()
+                    .context(<span class="string">&quot;could not read user input&quot;</span>)<span class="question-mark">?</span>;
+                output_path = PathBuf::from_str(<span class="kw-2">&amp;</span>raw)<span class="question-mark">?
+            </span>}
+        }
+
+        <span class="prelude-val">Ok</span>(output_path)
+    }
+
     <span class="kw">async fn </span>create_from_local_manifest(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         owner: <span class="kw-2">&amp;</span>str,
@@ -956,9 +1009,11 @@
             <span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="bool-val">false</span>);
         }
 
+        <span class="kw">let </span>output_path = <span class="self">self</span>.get_output_dir(app_name).<span class="kw">await</span><span class="question-mark">?</span>;
+
         <span class="kw">if let </span><span class="prelude-val">Some</span>(pkg) = <span class="kw-2">&amp;</span><span class="self">self</span>.package {
             <span class="kw">let </span>app_config = <span class="self">self</span>.get_app_config(owner, app_name, pkg);
-            write_app_config(<span class="kw-2">&amp;</span>app_config, <span class="self">self</span>.app_dir_path.clone()).<span class="kw">await</span><span class="question-mark">?</span>;
+            write_app_config(<span class="kw-2">&amp;</span>app_config, <span class="prelude-val">Some</span>(output_path.clone())).<span class="kw">await</span><span class="question-mark">?</span>;
             <span class="self">self</span>.try_deploy(owner, app_name).<span class="kw">await</span><span class="question-mark">?</span>;
             <span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="bool-val">true</span>);
         } <span class="kw">else if </span>!<span class="self">self</span>.non_interactive {
@@ -975,7 +1030,7 @@
             .<span class="kw">await</span><span class="question-mark">?</span>;
 
             <span class="kw">let </span>app_config = <span class="self">self</span>.get_app_config(owner, app_name, <span class="kw-2">&amp;</span>package_id.to_string());
-            write_app_config(<span class="kw-2">&amp;</span>app_config, <span class="self">self</span>.app_dir_path.clone()).<span class="kw">await</span><span class="question-mark">?</span>;
+            write_app_config(<span class="kw-2">&amp;</span>app_config, <span class="prelude-val">Some</span>(output_path)).<span class="kw">await</span><span class="question-mark">?</span>;
             <span class="self">self</span>.try_deploy(owner, app_name).<span class="kw">await</span><span class="question-mark">?</span>;
             <span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="bool-val">true</span>);
         } <span class="kw">else </span>{
@@ -1183,20 +1238,7 @@
 
         <span class="macro">tracing::info!</span>(<span class="string">&quot;Downloading template from url {url}&quot;</span>);
 
-        <span class="kw">let </span>output_path = <span class="kw">if let </span><span class="prelude-val">Some</span>(path) = <span class="kw-2">&amp;</span><span class="self">self</span>.app_dir_path {
-            path.clone()
-        } <span class="kw">else </span>{
-            PathBuf::from(<span class="string">&quot;.&quot;</span>).canonicalize()<span class="question-mark">?
-        </span>};
-
-        <span class="kw">if </span>output_path.is_dir() &amp;&amp; output_path.read_dir()<span class="question-mark">?</span>.next().is_some() {
-            <span class="kw">if </span>!<span class="self">self</span>.quiet {
-                <span class="macro">eprintln!</span>(<span class="string">&quot;The current directory is not empty.&quot;</span>);
-                <span class="macro">eprintln!</span>(<span class="string">&quot;Use the `--dir` flag to specify another directory, or remove files from the currently selected one.&quot;</span>)
-            }
-            <span class="macro">anyhow::bail!</span>(<span class="string">&quot;Stopping as the directory is not empty&quot;</span>)
-        }
-
+        <span class="kw">let </span>output_path = <span class="self">self</span>.get_output_dir(app_name).<span class="kw">await</span><span class="question-mark">?</span>;
         <span class="kw">let </span>pb = indicatif::ProgressBar::new_spinner();
 
         pb.enable_steady_tick(std::time::Duration::from_millis(<span class="number">500</span>));
