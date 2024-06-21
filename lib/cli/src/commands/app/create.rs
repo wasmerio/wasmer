@@ -35,12 +35,14 @@ async fn write_app_config(app_config: &AppConfigV1, dir: Option<PathBuf>) -> any
     tokio::fs::create_dir_all(&app_dir).await?;
 
     let app_config_path = app_dir.join(AppConfigV1::CANONICAL_FILE_NAME);
-    tokio::fs::write(&app_config_path, raw_app_config).await.with_context(|| {
-        format!(
-            "could not write app config to '{}'",
-            app_config_path.display()
-        )
-    })
+    tokio::fs::write(&app_config_path, raw_app_config)
+        .await
+        .with_context(|| {
+            format!(
+                "could not write app config to '{}'",
+                app_config_path.display()
+            )
+        })
 }
 
 /// Create a new Edge app.
