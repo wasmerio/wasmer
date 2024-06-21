@@ -32,8 +32,10 @@ async fn write_app_config(app_config: &AppConfigV1, dir: Option<PathBuf>) -> any
         None => std::env::current_dir()?,
     };
 
+    tokio::fs::create_dir_all(&app_dir).await?;
+
     let app_config_path = app_dir.join(AppConfigV1::CANONICAL_FILE_NAME);
-    std::fs::write(&app_config_path, raw_app_config).with_context(|| {
+    tokio::fs::write(&app_config_path, raw_app_config).await.with_context(|| {
         format!(
             "could not write app config to '{}'",
             app_config_path.display()
@@ -191,6 +193,34 @@ impl CmdAppCreate {
         crate::utils::prompts::prompt_for_namespace("Who should own this app?", None, user.as_ref())
     }
 
+    async fn get_output_dir(&self, app_name: &str) -> anyhow::Result<PathBuf> {
+        let mut output_path = if let Some(path) = &self.app_dir_path {
+            path.clone()
+        } else {
+            PathBuf::from(".").canonicalize()?
+        };
+
+        if output_path.is_dir() && output_path.read_dir()?.next().is_some() {
+            if self.non_interactive {
+                if !self.quiet {
+                    eprintln!("The current directory is not empty.");
+                    eprintln!("Use the `--dir` flag to specify another directory, or remove files from the currently selected one.")
+                }
+                anyhow::bail!("Stopping as the directory is not empty")
+            } else {
+                let theme = ColorfulTheme::default();
+                let raw: String = dialoguer::Input::with_theme(&theme)
+                    .with_prompt("Select the directory to save the app in")
+                    .with_initial_text(app_name)
+                    .interact_text()
+                    .context("could not read user input")?;
+                output_path = PathBuf::from_str(&raw)?
+            }
+        }
+
+        Ok(output_path)
+    }
+
     async fn create_from_local_manifest(
         &self,
         owner: &str,
@@ -247,9 +277,11 @@ impl CmdAppCreate {
             return Ok(false);
         }
 
+        let output_path = self.get_output_dir(app_name).await?;
+
         if let Some(pkg) = &self.package {
             let app_config = self.get_app_config(owner, app_name, pkg);
-            write_app_config(&app_config, self.app_dir_path.clone()).await?;
+            write_app_config(&app_config, Some(output_path.clone())).await?;
             self.try_deploy(owner, app_name).await?;
             return Ok(true);
         } else if !self.non_interactive {
@@ -266,7 +298,7 @@ impl CmdAppCreate {
             .await?;
 
             let app_config = self.get_app_config(owner, app_name, &package_id.to_string());
-            write_app_config(&app_config, self.app_dir_path.clone()).await?;
+            write_app_config(&app_config, Some(output_path)).await?;
             self.try_deploy(owner, app_name).await?;
             return Ok(true);
         } else {
@@ -474,20 +506,7 @@ impl CmdAppCreate {
 
         tracing::info!("Downloading template from url {url}");
 
-        let output_path = if let Some(path) = &self.app_dir_path {
-            path.clone()
-        } else {
-            PathBuf::from(".").canonicalize()?
-        };
-
-        if output_path.is_dir() && output_path.read_dir()?.next().is_some() {
-            if !self.quiet {
-                eprintln!("The current directory is not empty.");
-                eprintln!("Use the `--dir` flag to specify another directory, or remove files from the currently selected one.")
-            }
-            anyhow::bail!("Stopping as the directory is not empty")
-        }
-
+        let output_path = self.get_output_dir(app_name).await?;
         let pb = indicatif::ProgressBar::new_spinner();
 
         pb.enable_steady_tick(std::time::Duration::from_millis(500));
