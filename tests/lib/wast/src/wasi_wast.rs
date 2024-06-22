@@ -8,6 +8,7 @@ use std::{
     task::{Context, Poll},
 };
 
+use tokio::runtime::Handle;
 use virtual_fs::{
     host_fs, mem_fs, passthru_fs, tmp_fs, union_fs, AsyncRead, AsyncSeek, AsyncWrite,
     AsyncWriteExt, FileSystem, Pipe, ReadBuf, RootFileSystemBuilder,
@@ -201,7 +202,8 @@ impl<'a> WasiTest<'a> {
 
         match filesystem_kind {
             WasiFileSystemKind::Host => {
-                let fs = host_fs::FileSystem::default();
+                let fs = host_fs::FileSystem::new(Handle::current(), PathBuf::from(BASE_TEST_DIR))
+                    .unwrap();
 
                 for (alias, real_dir) in &self.mapped_dirs {
                     let mut dir = PathBuf::from(BASE_TEST_DIR);
@@ -217,7 +219,7 @@ impl<'a> WasiTest<'a> {
                 }
 
                 for alias in &self.temp_dirs {
-                    let temp_dir = tempfile::tempdir()?;
+                    let temp_dir = tempfile::tempdir_in(PathBuf::from(BASE_TEST_DIR))?;
                     builder.add_map_dir(alias, temp_dir.path())?;
                     host_temp_dirs_to_not_drop.push(temp_dir);
                 }
