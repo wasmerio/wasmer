@@ -100,7 +100,6 @@ impl<O: Send + Sync, C: AsyncCliCommand<Output = O>> CliCommand for C {
 
     fn run(self) -> Result<(), anyhow::Error> {
         tokio::runtime::Runtime::new()?.block_on(async {
-
             let (snd, rcv) = tokio::sync::oneshot::channel();
 
             if let Some(handle) = handle {

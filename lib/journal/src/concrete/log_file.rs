@@ -106,9 +106,7 @@ impl LogFileJournal {
     }
 
     pub fn new_readonly(path: impl AsRef<Path>) -> anyhow::Result<Self> {
-        let file = std::fs::File::options()
-            .read(true)
-            .open(path)?;
+        let file = std::fs::File::options().read(true).open(path)?;
         Self::from_file(file)
     }
 
