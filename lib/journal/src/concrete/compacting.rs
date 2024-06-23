@@ -467,7 +467,7 @@ impl WritableJournal for CompactingJournalTx {
                 //  thus the entire branch of events it represents is discarded)
                 let mut erase = false;
                 let lookup = if matches!(&entry, JournalEntry::CloseFileDescriptorV1 { .. }) {
-                    if dbg!(state.open_sockets.remove(fd).is_some()) {
+                    if state.open_sockets.remove(fd).is_some() {
                         erase = true;
                     }
                     if state.open_pipes.remove(fd).is_some() {
