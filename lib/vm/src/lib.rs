@@ -32,6 +32,8 @@ mod trap;
 mod vmcontext;
 
 pub mod libcalls;
+#[cfg(target_os = "linux")]
+mod dirty_map;
 
 use std::ptr::NonNull;
 
