@@ -2191,13 +2191,36 @@
 <a href="#2191" id="2191">2191</a>
 <a href="#2192" id="2192">2192</a>
 <a href="#2193" id="2193">2193</a>
+<a href="#2194" id="2194">2194</a>
+<a href="#2195" id="2195">2195</a>
+<a href="#2196" id="2196">2196</a>
+<a href="#2197" id="2197">2197</a>
+<a href="#2198" id="2198">2198</a>
+<a href="#2199" id="2199">2199</a>
+<a href="#2200" id="2200">2200</a>
+<a href="#2201" id="2201">2201</a>
+<a href="#2202" id="2202">2202</a>
+<a href="#2203" id="2203">2203</a>
+<a href="#2204" id="2204">2204</a>
+<a href="#2205" id="2205">2205</a>
+<a href="#2206" id="2206">2206</a>
+<a href="#2207" id="2207">2207</a>
+<a href="#2208" id="2208">2208</a>
+<a href="#2209" id="2209">2209</a>
+<a href="#2210" id="2210">2210</a>
+<a href="#2211" id="2211">2211</a>
+<a href="#2212" id="2212">2212</a>
+<a href="#2213" id="2213">2213</a>
+<a href="#2214" id="2214">2214</a>
+<a href="#2215" id="2215">2215</a>
 </pre></div><pre class="rust"><code><span class="kw">mod </span>fd;
 <span class="kw">mod </span>inode_guard;
 <span class="kw">mod </span>notification;
 
 <span class="kw">use </span>std::{
     borrow::{Borrow, Cow},
-    collections::{HashMap, HashSet, VecDeque},
+    cmp::Reverse,
+    collections::{BinaryHeap, HashMap, HashSet, VecDeque},
     ops::{Deref, DerefMut},
     path::{Component, Path, PathBuf},
     pin::Pin,
@@ -2212,6 +2235,7 @@
     net::socket::InodeSocketKind,
     state::{Stderr, Stdin, Stdout},
 };
+<span class="kw">use </span>ahash::AHashMap;
 <span class="kw">use </span>futures::{future::BoxFuture, Future, TryStreamExt};
 <span class="attr">#[cfg(feature = <span class="string">&quot;enable-serde&quot;</span>)]
 </span><span class="kw">use </span>serde_derive::{Deserialize, Serialize};
@@ -2387,26 +2411,26 @@
 
     <span class="doccomment">/// Get the `VirtualFile` object at stdout
     </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>stdout(
-        fd_map: <span class="kw-2">&amp;</span>RwLock&lt;HashMap&lt;u32, Fd&gt;&gt;,
+        fd_map: <span class="kw-2">&amp;</span>RwLock&lt;AHashMap&lt;u32, Fd&gt;&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;InodeValFileReadGuard, FsError&gt; {
         <span class="self">Self</span>::std_dev_get(fd_map, __WASI_STDOUT_FILENO)
     }
     <span class="doccomment">/// Get the `VirtualFile` object at stdout mutably
     </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>stdout_mut(
-        fd_map: <span class="kw-2">&amp;</span>RwLock&lt;HashMap&lt;u32, Fd&gt;&gt;,
+        fd_map: <span class="kw-2">&amp;</span>RwLock&lt;AHashMap&lt;u32, Fd&gt;&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;InodeValFileWriteGuard, FsError&gt; {
         <span class="self">Self</span>::std_dev_get_mut(fd_map, __WASI_STDOUT_FILENO)
     }
 
     <span class="doccomment">/// Get the `VirtualFile` object at stderr
     </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>stderr(
-        fd_map: <span class="kw-2">&amp;</span>RwLock&lt;HashMap&lt;u32, Fd&gt;&gt;,
+        fd_map: <span class="kw-2">&amp;</span>RwLock&lt;AHashMap&lt;u32, Fd&gt;&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;InodeValFileReadGuard, FsError&gt; {
         <span class="self">Self</span>::std_dev_get(fd_map, __WASI_STDERR_FILENO)
     }
     <span class="doccomment">/// Get the `VirtualFile` object at stderr mutably
     </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>stderr_mut(
-        fd_map: <span class="kw-2">&amp;</span>RwLock&lt;HashMap&lt;u32, Fd&gt;&gt;,
+        fd_map: <span class="kw-2">&amp;</span>RwLock&lt;AHashMap&lt;u32, Fd&gt;&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;InodeValFileWriteGuard, FsError&gt; {
         <span class="self">Self</span>::std_dev_get_mut(fd_map, __WASI_STDERR_FILENO)
     }
@@ -2415,13 +2439,13 @@
     /// TODO: Review why this is dead
     </span><span class="attr">#[allow(dead_code)]
     </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>stdin(
-        fd_map: <span class="kw-2">&amp;</span>RwLock&lt;HashMap&lt;u32, Fd&gt;&gt;,
+        fd_map: <span class="kw-2">&amp;</span>RwLock&lt;AHashMap&lt;u32, Fd&gt;&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;InodeValFileReadGuard, FsError&gt; {
         <span class="self">Self</span>::std_dev_get(fd_map, __WASI_STDIN_FILENO)
     }
     <span class="doccomment">/// Get the `VirtualFile` object at stdin mutably
     </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>stdin_mut(
-        fd_map: <span class="kw-2">&amp;</span>RwLock&lt;HashMap&lt;u32, Fd&gt;&gt;,
+        fd_map: <span class="kw-2">&amp;</span>RwLock&lt;AHashMap&lt;u32, Fd&gt;&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;InodeValFileWriteGuard, FsError&gt; {
         <span class="self">Self</span>::std_dev_get_mut(fd_map, __WASI_STDIN_FILENO)
     }
@@ -2429,7 +2453,7 @@
     <span class="doccomment">/// Internal helper function to get a standard device handle.
     /// Expects one of `__WASI_STDIN_FILENO`, `__WASI_STDOUT_FILENO`, `__WASI_STDERR_FILENO`.
     </span><span class="kw">fn </span>std_dev_get(
-        fd_map: <span class="kw-2">&amp;</span>RwLock&lt;HashMap&lt;u32, Fd&gt;&gt;,
+        fd_map: <span class="kw-2">&amp;</span>RwLock&lt;AHashMap&lt;u32, Fd&gt;&gt;,
         fd: WasiFd,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;InodeValFileReadGuard, FsError&gt; {
         <span class="kw">if let </span><span class="prelude-val">Some</span>(fd) = fd_map.read().unwrap().get(<span class="kw-2">&amp;</span>fd) {
@@ -2452,7 +2476,7 @@
     <span class="doccomment">/// Internal helper function to mutably get a standard device handle.
     /// Expects one of `__WASI_STDIN_FILENO`, `__WASI_STDOUT_FILENO`, `__WASI_STDERR_FILENO`.
     </span><span class="kw">fn </span>std_dev_get_mut(
-        fd_map: <span class="kw-2">&amp;</span>RwLock&lt;HashMap&lt;u32, Fd&gt;&gt;,
+        fd_map: <span class="kw-2">&amp;</span>RwLock&lt;AHashMap&lt;u32, Fd&gt;&gt;,
         fd: WasiFd,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;InodeValFileWriteGuard, FsError&gt; {
         <span class="kw">if let </span><span class="prelude-val">Some</span>(fd) = fd_map.read().unwrap().get(<span class="kw-2">&amp;</span>fd) {
@@ -2693,8 +2717,13 @@
 </span><span class="kw">pub struct </span>WasiFs {
     <span class="comment">//pub repo: Repo,
     </span><span class="kw">pub </span>preopen_fds: RwLock&lt;Vec&lt;u32&gt;&gt;,
-    <span class="kw">pub </span>fd_map: Arc&lt;RwLock&lt;HashMap&lt;WasiFd, Fd&gt;&gt;&gt;,
+    <span class="kw">pub </span>fd_map: Arc&lt;RwLock&lt;AHashMap&lt;WasiFd, Fd&gt;&gt;&gt;,
     <span class="kw">pub </span>next_fd: WasiFdSeed,
+    <span class="comment">// The Unix spec requires newly allocated FDs to always be the lowest-numbered
+    // FD available. We keep track of freed (i.e. closed) FDs in a min-heap to
+    // reuse them and fulfill this requirement.
+    // Note: BinaryHeap is a max-heap, we need Reverse to make it a min-heap.
+    </span><span class="kw">pub </span>freed_fds: Arc&lt;RwLock&lt;BinaryHeap&lt;Reverse&lt;WasiFd&gt;&gt;&gt;&gt;,
     <span class="kw">pub </span>current_dir: Mutex&lt;String&gt;,
     <span class="attr">#[cfg_attr(feature = <span class="string">&quot;enable-serde&quot;</span>, serde(skip, default))]
     </span><span class="kw">pub </span>root_fs: WasiFsRoot,
@@ -2727,10 +2756,12 @@
     <span class="doccomment">/// Forking the WasiState is used when either fork or vfork is called
     </span><span class="kw">pub fn </span>fork(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="self">Self </span>{
         <span class="kw">let </span>fd_map = <span class="self">self</span>.fd_map.read().unwrap().clone();
+        <span class="kw">let </span>freed_fds = <span class="self">self</span>.freed_fds.read().unwrap().clone();
         <span class="self">Self </span>{
             preopen_fds: RwLock::new(<span class="self">self</span>.preopen_fds.read().unwrap().clone()),
             fd_map: Arc::new(RwLock::new(fd_map)),
             next_fd: <span class="self">self</span>.next_fd.fork(),
+            freed_fds: Arc::new(RwLock::new(freed_fds)),
             current_dir: Mutex::new(<span class="self">self</span>.current_dir.lock().unwrap().clone()),
             is_wasix: AtomicBool::new(<span class="self">self</span>.is_wasix.load(Ordering::Acquire)),
             root_fs: <span class="self">self</span>.root_fs.clone(),
@@ -2738,6 +2769,15 @@
             has_unioned: Arc::new(Mutex::new(HashSet::new())),
             init_preopens: <span class="self">self</span>.init_preopens.clone(),
             init_vfs_preopens: <span class="self">self</span>.init_vfs_preopens.clone(),
+        }
+    }
+
+    <span class="kw">fn </span>get_first_free_fd(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; WasiFd {
+        <span class="kw">let </span><span class="kw-2">mut </span>freed_fds = <span class="self">self</span>.freed_fds.write().unwrap();
+
+        <span class="kw">match </span>freed_fds.pop() {
+            <span class="prelude-val">Some</span>(Reverse(fd)) =&gt; fd,
+            <span class="prelude-val">None </span>=&gt; <span class="self">self</span>.next_fd.next_val(),
         }
     }
 
@@ -2835,8 +2875,9 @@
 
         <span class="kw">let </span>wasi_fs = <span class="self">Self </span>{
             preopen_fds: RwLock::new(<span class="macro">vec!</span>[]),
-            fd_map: Arc::new(RwLock::new(HashMap::new())),
+            fd_map: Arc::new(RwLock::new(AHashMap::new())),
             next_fd: WasiFdSeed::default(),
+            freed_fds: Arc::new(RwLock::new(BinaryHeap::new())),
             current_dir: Mutex::new(<span class="string">&quot;/&quot;</span>.to_string()),
             is_wasix: AtomicBool::new(<span class="bool-val">false</span>),
             root_fs: fs_backing,
@@ -2962,7 +3003,7 @@
                 <span class="kw">let </span>kind = Kind::File {
                     handle: <span class="prelude-val">Some</span>(Arc::new(RwLock::new(file))),
                     path: PathBuf::from(<span class="string">&quot;&quot;</span>),
-                    fd: <span class="prelude-val">Some</span>(<span class="self">self</span>.next_fd.next_val()),
+                    fd: <span class="prelude-val">Some</span>(<span class="self">self</span>.get_first_free_fd()),
                 };
 
                 drop(guard);
@@ -3774,7 +3815,7 @@
         open_flags: u16,
         inode: InodeGuard,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;WasiFd, Errno&gt; {
-        <span class="kw">let </span>idx = <span class="self">self</span>.next_fd.next_val();
+        <span class="kw">let </span>idx = <span class="self">self</span>.get_first_free_fd();
         <span class="self">self</span>.create_fd_ext(
             rights,
             rights_inheriting,
@@ -3849,7 +3890,7 @@
 
     <span class="kw">pub fn </span>clone_fd(<span class="kw-2">&amp;</span><span class="self">self</span>, fd: WasiFd) -&gt; <span class="prelude-ty">Result</span>&lt;WasiFd, Errno&gt; {
         <span class="kw">let </span>fd = <span class="self">self</span>.get_fd(fd)<span class="question-mark">?</span>;
-        <span class="kw">let </span>idx = <span class="self">self</span>.next_fd.next_val();
+        <span class="kw">let </span>idx = <span class="self">self</span>.get_first_free_fd();
         <span class="self">self</span>.fd_map.write().unwrap().insert(
             idx,
             Fd {
@@ -4236,6 +4277,9 @@
         <span class="kw">let </span>pfd = fd_map.remove(<span class="kw-2">&amp;</span>fd).ok_or(Errno::Badf);
         <span class="kw">match </span>pfd {
             <span class="prelude-val">Ok</span>(fd_ref) =&gt; {
+                <span class="kw">let </span><span class="kw-2">mut </span>freed_fds = <span class="self">self</span>.freed_fds.write().unwrap();
+                freed_fds.push(Reverse(fd));
+
                 <span class="kw">let </span>inode = fd_ref.inode.ino().as_u64();
                 <span class="kw">let </span>ref_cnt = fd_ref.inode.ref_cnt();
                 <span class="kw">if </span>ref_cnt == <span class="number">1 </span>{
