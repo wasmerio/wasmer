@@ -4,7 +4,8 @@ mod notification;
 
 use std::{
     borrow::{Borrow, Cow},
-    collections::{HashMap, HashSet, VecDeque},
+    cmp::Reverse,
+    collections::{BinaryHeap, HashMap, HashSet, VecDeque},
     ops::{Deref, DerefMut},
     path::{Component, Path, PathBuf},
     pin::Pin,
@@ -19,6 +20,7 @@ use crate::{
     net::socket::InodeSocketKind,
     state::{Stderr, Stdin, Stdout},
 };
+use ahash::AHashMap;
 use futures::{future::BoxFuture, Future, TryStreamExt};
 #[cfg(feature = "enable-serde")]
 use serde_derive::{Deserialize, Serialize};
@@ -194,26 +196,26 @@ impl WasiInodes {
 
     /// Get the `VirtualFile` object at stdout
     pub(crate) fn stdout(
-        fd_map: &RwLock<HashMap<u32, Fd>>,
+        fd_map: &RwLock<AHashMap<u32, Fd>>,
     ) -> Result<InodeValFileReadGuard, FsError> {
         Self::std_dev_get(fd_map, __WASI_STDOUT_FILENO)
     }
     /// Get the `VirtualFile` object at stdout mutably
     pub(crate) fn stdout_mut(
-        fd_map: &RwLock<HashMap<u32, Fd>>,
+        fd_map: &RwLock<AHashMap<u32, Fd>>,
     ) -> Result<InodeValFileWriteGuard, FsError> {
         Self::std_dev_get_mut(fd_map, __WASI_STDOUT_FILENO)
     }
 
     /// Get the `VirtualFile` object at stderr
     pub(crate) fn stderr(
-        fd_map: &RwLock<HashMap<u32, Fd>>,
+        fd_map: &RwLock<AHashMap<u32, Fd>>,
     ) -> Result<InodeValFileReadGuard, FsError> {
         Self::std_dev_get(fd_map, __WASI_STDERR_FILENO)
     }
     /// Get the `VirtualFile` object at stderr mutably
     pub(crate) fn stderr_mut(
-        fd_map: &RwLock<HashMap<u32, Fd>>,
+        fd_map: &RwLock<AHashMap<u32, Fd>>,
     ) -> Result<InodeValFileWriteGuard, FsError> {
         Self::std_dev_get_mut(fd_map, __WASI_STDERR_FILENO)
     }
@@ -222,13 +224,13 @@ impl WasiInodes {
     /// TODO: Review why this is dead
     #[allow(dead_code)]
     pub(crate) fn stdin(
-        fd_map: &RwLock<HashMap<u32, Fd>>,
+        fd_map: &RwLock<AHashMap<u32, Fd>>,
     ) -> Result<InodeValFileReadGuard, FsError> {
         Self::std_dev_get(fd_map, __WASI_STDIN_FILENO)
     }
     /// Get the `VirtualFile` object at stdin mutably
     pub(crate) fn stdin_mut(
-        fd_map: &RwLock<HashMap<u32, Fd>>,
+        fd_map: &RwLock<AHashMap<u32, Fd>>,
     ) -> Result<InodeValFileWriteGuard, FsError> {
         Self::std_dev_get_mut(fd_map, __WASI_STDIN_FILENO)
     }
@@ -236,7 +238,7 @@ impl WasiInodes {
     /// Internal helper function to get a standard device handle.
     /// Expects one of `__WASI_STDIN_FILENO`, `__WASI_STDOUT_FILENO`, `__WASI_STDERR_FILENO`.
     fn std_dev_get(
-        fd_map: &RwLock<HashMap<u32, Fd>>,
+        fd_map: &RwLock<AHashMap<u32, Fd>>,
         fd: WasiFd,
     ) -> Result<InodeValFileReadGuard, FsError> {
         if let Some(fd) = fd_map.read().unwrap().get(&fd) {
@@ -259,7 +261,7 @@ impl WasiInodes {
     /// Internal helper function to mutably get a standard device handle.
     /// Expects one of `__WASI_STDIN_FILENO`, `__WASI_STDOUT_FILENO`, `__WASI_STDERR_FILENO`.
     fn std_dev_get_mut(
-        fd_map: &RwLock<HashMap<u32, Fd>>,
+        fd_map: &RwLock<AHashMap<u32, Fd>>,
         fd: WasiFd,
     ) -> Result<InodeValFileWriteGuard, FsError> {
         if let Some(fd) = fd_map.read().unwrap().get(&fd) {
@@ -500,8 +502,13 @@ impl WasiFdSeed {
 pub struct WasiFs {
     //pub repo: Repo,
     pub preopen_fds: RwLock<Vec<u32>>,
-    pub fd_map: Arc<RwLock<HashMap<WasiFd, Fd>>>,
+    pub fd_map: Arc<RwLock<AHashMap<WasiFd, Fd>>>,
     pub next_fd: WasiFdSeed,
+    // The Unix spec requires newly allocated FDs to always be the lowest-numbered
+    // FD available. We keep track of freed (i.e. closed) FDs in a min-heap to
+    // reuse them and fulfill this requirement.
+    // Note: BinaryHeap is a max-heap, we need Reverse to make it a min-heap.
+    pub freed_fds: Arc<RwLock<BinaryHeap<Reverse<WasiFd>>>>,
     pub current_dir: Mutex<String>,
     #[cfg_attr(feature = "enable-serde", serde(skip, default))]
     pub root_fs: WasiFsRoot,
@@ -534,10 +541,12 @@ impl WasiFs {
     /// Forking the WasiState is used when either fork or vfork is called
     pub fn fork(&self) -> Self {
         let fd_map = self.fd_map.read().unwrap().clone();
+        let freed_fds = self.freed_fds.read().unwrap().clone();
         Self {
             preopen_fds: RwLock::new(self.preopen_fds.read().unwrap().clone()),
             fd_map: Arc::new(RwLock::new(fd_map)),
             next_fd: self.next_fd.fork(),
+            freed_fds: Arc::new(RwLock::new(freed_fds)),
             current_dir: Mutex::new(self.current_dir.lock().unwrap().clone()),
             is_wasix: AtomicBool::new(self.is_wasix.load(Ordering::Acquire)),
             root_fs: self.root_fs.clone(),
@@ -545,6 +554,15 @@ impl WasiFs {
             has_unioned: Arc::new(Mutex::new(HashSet::new())),
             init_preopens: self.init_preopens.clone(),
             init_vfs_preopens: self.init_vfs_preopens.clone(),
+        }
+    }
+
+    fn get_first_free_fd(&self) -> WasiFd {
+        let mut freed_fds = self.freed_fds.write().unwrap();
+
+        match freed_fds.pop() {
+            Some(Reverse(fd)) => fd,
+            None => self.next_fd.next_val(),
         }
     }
 
@@ -642,8 +660,9 @@ impl WasiFs {
 
         let wasi_fs = Self {
             preopen_fds: RwLock::new(vec![]),
-            fd_map: Arc::new(RwLock::new(HashMap::new())),
+            fd_map: Arc::new(RwLock::new(AHashMap::new())),
             next_fd: WasiFdSeed::default(),
+            freed_fds: Arc::new(RwLock::new(BinaryHeap::new())),
             current_dir: Mutex::new("/".to_string()),
             is_wasix: AtomicBool::new(false),
             root_fs: fs_backing,
@@ -769,7 +788,7 @@ impl WasiFs {
                 let kind = Kind::File {
                     handle: Some(Arc::new(RwLock::new(file))),
                     path: PathBuf::from(""),
-                    fd: Some(self.next_fd.next_val()),
+                    fd: Some(self.get_first_free_fd()),
                 };
 
                 drop(guard);
@@ -1581,7 +1600,7 @@ impl WasiFs {
         open_flags: u16,
         inode: InodeGuard,
     ) -> Result<WasiFd, Errno> {
-        let idx = self.next_fd.next_val();
+        let idx = self.get_first_free_fd();
         self.create_fd_ext(
             rights,
             rights_inheriting,
@@ -1656,7 +1675,7 @@ impl WasiFs {
 
     pub fn clone_fd(&self, fd: WasiFd) -> Result<WasiFd, Errno> {
         let fd = self.get_fd(fd)?;
-        let idx = self.next_fd.next_val();
+        let idx = self.get_first_free_fd();
         self.fd_map.write().unwrap().insert(
             idx,
             Fd {
@@ -2043,6 +2062,9 @@ impl WasiFs {
         let pfd = fd_map.remove(&fd).ok_or(Errno::Badf);
         match pfd {
             Ok(fd_ref) => {
+                let mut freed_fds = self.freed_fds.write().unwrap();
+                freed_fds.push(Reverse(fd));
+
                 let inode = fd_ref.inode.ino().as_u64();
                 let ref_cnt = fd_ref.inode.ref_cnt();
                 if ref_cnt == 1 {
