@@ -35,6 +35,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e89da841a80418a9b391ebaea17f5c112ffaaa96f621d2c285b5174da76b9011"
 dependencies = [
  "cfg-if 1.0.0",
+ "getrandom",
  "once_cell",
  "version_check",
  "zerocopy",
@@ -1438,6 +1439,12 @@ checksum = "ef5282ad69563b5fc40319526ba27e0e7363d552a896f0297d54f767717f9b95"
 dependencies = [
  "litrs",
 ]
+
+[[package]]
+name = "dunce"
+version = "1.0.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "56ce8c6da7551ec6c462cbaf3bfbc75131ebbfa1c944aeaa9dab51ca1c5f0c3b"
 
 [[package]]
 name = "dyn-clone"
@@ -2858,15 +2865,6 @@ checksum = "5aa12182b93606fff55b70a5cfe6130eaf7407c2ea4f2c2bcc8b113b67c9928f"
 dependencies = [
  "nix 0.28.0",
  "winapi 0.3.9",
-]
-
-[[package]]
-name = "mach"
-version = "0.3.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b823e83b2affd8f40a9ee8c29dbc56404c1e34cd2710921f2801e2cf29527afa"
-dependencies = [
- "libc",
 ]
 
 [[package]]
@@ -5930,6 +5928,7 @@ dependencies = [
  "async-trait",
  "bytes 1.6.0",
  "derivative",
+ "dunce",
  "filetime",
  "fs_extra",
  "futures 0.3.30",
@@ -6995,7 +6994,7 @@ dependencies = [
  "indexmap 1.9.3",
  "lazy_static",
  "libc",
- "mach",
+ "mach2",
  "memoffset 0.9.1",
  "more-asserts",
  "region",
@@ -7011,6 +7010,7 @@ dependencies = [
 name = "wasmer-wasix"
 version = "0.22.0"
 dependencies = [
+ "ahash 0.8.11",
  "anyhow",
  "async-trait",
  "base64 0.21.7",
