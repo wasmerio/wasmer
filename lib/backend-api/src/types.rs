@@ -179,6 +179,26 @@ mod queries {
     }
 
     #[derive(cynic::QueryVariables, Debug, Clone)]
+    pub struct GetAppTemplatesFromLanguageVars {
+        pub language_slug: String,
+        pub first: i32,
+        pub after: Option<String>,
+        pub sort_by: Option<AppTemplatesSortBy>,
+    }
+
+    #[derive(cynic::QueryFragment, Debug)]
+    #[cynic(graphql_type = "Query", variables = "GetAppTemplatesFromLanguageVars")]
+    pub struct GetAppTemplatesFromLanguage {
+        #[arguments(
+            languageSlug: $language_slug,
+            first: $first,
+            after: $after,
+            sortBy: $sort_by
+        )]
+        pub get_app_templates: Option<AppTemplateConnection>,
+    }
+
+    #[derive(cynic::QueryVariables, Debug, Clone)]
     pub struct GetAppTemplatesVars {
         pub category_slug: String,
         pub first: i32,
@@ -263,6 +283,43 @@ mod queries {
 
     #[derive(serde::Serialize, cynic::QueryFragment, PartialEq, Eq, Debug)]
     pub struct TemplateFramework {
+        #[serde(rename = "createdAt")]
+        pub created_at: DateTime,
+        pub id: cynic::Id,
+        pub name: String,
+        pub slug: String,
+        #[serde(rename = "updatedAt")]
+        pub updated_at: DateTime,
+    }
+
+    #[derive(cynic::QueryVariables, Debug, Clone)]
+    pub struct GetTemplateLanguagesVars {
+        pub after: Option<String>,
+        pub first: Option<i32>,
+    }
+
+    #[derive(cynic::QueryFragment, Debug)]
+    #[cynic(graphql_type = "Query", variables = "GetTemplateLanguagesVars")]
+    pub struct GetTemplateLanguages {
+        #[arguments(after: $after, first: $first)]
+        pub get_template_languages: Option<TemplateLanguageConnection>,
+    }
+
+    #[derive(cynic::QueryFragment, Debug)]
+    pub struct TemplateLanguageConnection {
+        pub edges: Vec<Option<TemplateLanguageEdge>>,
+        pub page_info: PageInfo,
+        pub total_count: Option<i32>,
+    }
+
+    #[derive(cynic::QueryFragment, Debug)]
+    pub struct TemplateLanguageEdge {
+        pub cursor: String,
+        pub node: Option<TemplateLanguage>,
+    }
+
+    #[derive(serde::Serialize, cynic::QueryFragment, PartialEq, Eq, Debug)]
+    pub struct TemplateLanguage {
         #[serde(rename = "createdAt")]
         pub created_at: DateTime,
         pub id: cynic::Id,

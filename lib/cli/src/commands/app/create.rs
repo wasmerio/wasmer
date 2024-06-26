@@ -15,7 +15,7 @@ use dialoguer::{theme::ColorfulTheme, Confirm, Select};
 use futures::stream::TryStreamExt;
 use is_terminal::IsTerminal;
 use wasmer_api::{
-    types::{AppTemplate, TemplateFramework},
+    types::{AppTemplate, TemplateLanguage},
     WasmerClient,
 };
 use wasmer_config::{app::AppConfigV1, package::PackageSource};
@@ -335,11 +335,11 @@ impl CmdAppCreate {
     async fn fetch_templates_cached(
         client: &WasmerClient,
         cache_dir: &Path,
-        framework: &str,
+        language: &str,
     ) -> Result<Vec<AppTemplate>, anyhow::Error> {
         const MAX_CACHE_AGE: Duration = Duration::from_secs(60 * 60);
         const MAX_COUNT: usize = 100;
-        let cache_filename = format!("app_templates_{framework}.json");
+        let cache_filename = format!("app_templates_{language}.json");
 
         let cache_path = cache_dir.join(cache_filename);
 
@@ -360,11 +360,11 @@ impl CmdAppCreate {
         // Fetch the first page.
         // If first item matches, then no need to re-fetch.
         //
-        let stream = wasmer_api::query::fetch_all_app_templates_from_framework(
+        let stream = wasmer_api::query::fetch_all_app_templates_from_language(
             client,
             10,
             Some(wasmer_api::types::AppTemplatesSortBy::Newest),
-            framework.to_string(),
+            language.to_string(),
         );
 
         futures_util::pin_mut!(stream);
@@ -421,17 +421,17 @@ impl CmdAppCreate {
         }
     }
 
-    async fn fetch_template_frameworks_cached(
+    async fn fetch_template_languages_cached(
         client: &WasmerClient,
         cache_dir: &Path,
-    ) -> anyhow::Result<Vec<TemplateFramework>> {
+    ) -> anyhow::Result<Vec<TemplateLanguage>> {
         const MAX_CACHE_AGE: Duration = Duration::from_secs(60 * 60);
         const MAX_COUNT: usize = 100;
-        const CACHE_FILENAME: &str = "app_frameworks.json";
+        const CACHE_FILENAME: &str = "app_languages.json";
 
         let cache_path = cache_dir.join(CACHE_FILENAME);
 
-        let cached_items = match Self::load_cached::<Vec<TemplateFramework>>(&cache_path) {
+        let cached_items = match Self::load_cached::<Vec<TemplateLanguage>>(&cache_path) {
             Ok((items, age)) => {
                 if age <= MAX_CACHE_AGE {
                     return Ok(items);
@@ -447,7 +447,7 @@ impl CmdAppCreate {
         // Either no cache present, or cache has exceeded max age.
         // Fetch the first page.
         // If first item matches, then no need to re-fetch.
-        let mut stream = Box::pin(wasmer_api::query::fetch_all_app_template_frameworks(
+        let mut stream = Box::pin(wasmer_api::query::fetch_all_app_template_languages(
             client, None,
         ));
 
@@ -502,18 +502,15 @@ impl CmdAppCreate {
             }
 
             let theme = ColorfulTheme::default();
-            let frameworks =
-                Self::fetch_template_frameworks_cached(client, &self.env.cache_dir).await?;
+            let languages =
+                Self::fetch_template_languages_cached(client, &self.env.cache_dir).await?;
 
-            let items = frameworks
-                .iter()
-                .map(|t| t.name.clone())
-                .collect::<Vec<_>>();
+            let items = languages.iter().map(|t| t.name.clone()).collect::<Vec<_>>();
 
             // Note: this should really use `dialoger::FuzzySelect`, but that
             // breaks the formatting.
             let dialog = dialoguer::Select::with_theme(&theme)
-                .with_prompt(format!("Select a framework ({} available)", items.len()))
+                .with_prompt(format!("Select a language ({} available)", items.len()))
                 .items(&items)
                 .max_length(10)
                 .clear(true)
@@ -522,12 +519,12 @@ impl CmdAppCreate {
 
             let selection = dialog.interact()?;
 
-            let selected_framework = frameworks
+            let selected_language = languages
                 .get(selection)
                 .ok_or(anyhow::anyhow!("Invalid selection!"))?;
 
             let templates =
-                Self::fetch_templates_cached(client, &self.env.cache_dir, &selected_framework.slug)
+                Self::fetch_templates_cached(client, &self.env.cache_dir, &selected_language.slug)
                     .await?;
 
             let items = templates
