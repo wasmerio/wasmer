@@ -60,6 +60,9 @@ struct State {
     // Thread events are only maintained while the thread and the
     // process are still running
     thread_map: HashMap<u32, usize>,
+    // Thread events are only maintained while the thread and the
+    // process are still running
+    staged_thread_map: HashMap<u32, usize>,
     // Sockets that are open and not yet closed are kept here
     open_sockets: HashMap<Fd, DescriptorLookup>,
     // Open pipes have two file descriptors that are associated with
@@ -226,6 +229,7 @@ impl CompactingJournal {
             snapshots: Default::default(),
             memory_map: Default::default(),
             thread_map: Default::default(),
+            staged_thread_map: Default::default(),
             open_sockets: Default::default(),
             open_pipes: Default::default(),
             create_directory: Default::default(),
@@ -364,12 +368,13 @@ impl WritableJournal for CompactingJournalTx {
                 state.memory_map.insert(region.clone().into(), event_index);
             }
             JournalEntry::SetThreadV1 { id, .. } => {
-                state.thread_map.insert(*id, event_index);
+                state.staged_thread_map.insert(*id, event_index);
             }
             JournalEntry::CloseThreadV1 { id, .. } => {
-                state.thread_map.remove(id);
+                state.staged_thread_map.remove(id);
             }
             JournalEntry::SnapshotV1 { .. } => {
+                state.thread_map = state.staged_thread_map.clone();
                 state.snapshots.push(event_index);
             }
             JournalEntry::ProcessExitV1 { .. } => {
