@@ -429,6 +429,71 @@ pub async fn all_app_versions(
     Ok(all_versions)
 }
 
+/// Retrieve versions for an app.
+pub async fn get_deploy_app_versions_by_id(
+    client: &WasmerClient,
+    vars: types::GetDeployAppVersionsByIdVars,
+) -> Result<DeployAppVersionConnection, anyhow::Error> {
+    let res = client
+        .run_graphql_strict(types::GetDeployAppVersionsById::build(vars))
+        .await?;
+    let versions = res
+        .node
+        .context("app not found")?
+        .into_app()
+        .context("invalid node type returned")?
+        .versions;
+    Ok(versions)
+}
+
+/// Load all versions of an app id.
+///
+/// Will paginate through all versions and return them in a single list.
+pub async fn all_app_versions_by_id(
+    client: &WasmerClient,
+    app_id: impl Into<String>,
+) -> Result<Vec<DeployAppVersion>, anyhow::Error> {
+    let mut vars = types::GetDeployAppVersionsByIdVars {
+        id: cynic::Id::new(app_id),
+        offset: None,
+        before: None,
+        after: None,
+        first: Some(10),
+        last: None,
+        sort_by: None,
+    };
+
+    let mut all_versions = Vec::<DeployAppVersion>::new();
+
+    loop {
+        let page = get_deploy_app_versions_by_id(client, vars.clone()).await?;
+        if page.edges.is_empty() {
+            break;
+        }
+
+        for edge in page.edges {
+            let edge = match edge {
+                Some(edge) => edge,
+                None => continue,
+            };
+            let version = match edge.node {
+                Some(item) => item,
+                None => continue,
+            };
+
+            // Sanity check to avoid duplication.
+            if all_versions.iter().any(|v| v.id == version.id) == false {
+                all_versions.push(version);
+            }
+
+            // Update pagination.
+            vars.after = Some(edge.cursor);
+        }
+    }
+
+    Ok(all_versions)
+}
+
 /// Activate a particular version of an app.
 pub async fn app_version_activate(
     client: &WasmerClient,
