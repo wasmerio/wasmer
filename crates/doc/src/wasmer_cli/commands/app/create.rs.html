@@ -728,6 +728,92 @@
 <a href="#728" id="728">728</a>
 <a href="#729" id="729">729</a>
 <a href="#730" id="730">730</a>
+<a href="#731" id="731">731</a>
+<a href="#732" id="732">732</a>
+<a href="#733" id="733">733</a>
+<a href="#734" id="734">734</a>
+<a href="#735" id="735">735</a>
+<a href="#736" id="736">736</a>
+<a href="#737" id="737">737</a>
+<a href="#738" id="738">738</a>
+<a href="#739" id="739">739</a>
+<a href="#740" id="740">740</a>
+<a href="#741" id="741">741</a>
+<a href="#742" id="742">742</a>
+<a href="#743" id="743">743</a>
+<a href="#744" id="744">744</a>
+<a href="#745" id="745">745</a>
+<a href="#746" id="746">746</a>
+<a href="#747" id="747">747</a>
+<a href="#748" id="748">748</a>
+<a href="#749" id="749">749</a>
+<a href="#750" id="750">750</a>
+<a href="#751" id="751">751</a>
+<a href="#752" id="752">752</a>
+<a href="#753" id="753">753</a>
+<a href="#754" id="754">754</a>
+<a href="#755" id="755">755</a>
+<a href="#756" id="756">756</a>
+<a href="#757" id="757">757</a>
+<a href="#758" id="758">758</a>
+<a href="#759" id="759">759</a>
+<a href="#760" id="760">760</a>
+<a href="#761" id="761">761</a>
+<a href="#762" id="762">762</a>
+<a href="#763" id="763">763</a>
+<a href="#764" id="764">764</a>
+<a href="#765" id="765">765</a>
+<a href="#766" id="766">766</a>
+<a href="#767" id="767">767</a>
+<a href="#768" id="768">768</a>
+<a href="#769" id="769">769</a>
+<a href="#770" id="770">770</a>
+<a href="#771" id="771">771</a>
+<a href="#772" id="772">772</a>
+<a href="#773" id="773">773</a>
+<a href="#774" id="774">774</a>
+<a href="#775" id="775">775</a>
+<a href="#776" id="776">776</a>
+<a href="#777" id="777">777</a>
+<a href="#778" id="778">778</a>
+<a href="#779" id="779">779</a>
+<a href="#780" id="780">780</a>
+<a href="#781" id="781">781</a>
+<a href="#782" id="782">782</a>
+<a href="#783" id="783">783</a>
+<a href="#784" id="784">784</a>
+<a href="#785" id="785">785</a>
+<a href="#786" id="786">786</a>
+<a href="#787" id="787">787</a>
+<a href="#788" id="788">788</a>
+<a href="#789" id="789">789</a>
+<a href="#790" id="790">790</a>
+<a href="#791" id="791">791</a>
+<a href="#792" id="792">792</a>
+<a href="#793" id="793">793</a>
+<a href="#794" id="794">794</a>
+<a href="#795" id="795">795</a>
+<a href="#796" id="796">796</a>
+<a href="#797" id="797">797</a>
+<a href="#798" id="798">798</a>
+<a href="#799" id="799">799</a>
+<a href="#800" id="800">800</a>
+<a href="#801" id="801">801</a>
+<a href="#802" id="802">802</a>
+<a href="#803" id="803">803</a>
+<a href="#804" id="804">804</a>
+<a href="#805" id="805">805</a>
+<a href="#806" id="806">806</a>
+<a href="#807" id="807">807</a>
+<a href="#808" id="808">808</a>
+<a href="#809" id="809">809</a>
+<a href="#810" id="810">810</a>
+<a href="#811" id="811">811</a>
+<a href="#812" id="812">812</a>
+<a href="#813" id="813">813</a>
+<a href="#814" id="814">814</a>
+<a href="#815" id="815">815</a>
+<a href="#816" id="816">816</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Create a new Edge app.
 
 </span><span class="kw">use </span>std::{
@@ -744,7 +830,10 @@
 <span class="kw">use </span>dialoguer::{theme::ColorfulTheme, Confirm, Select};
 <span class="kw">use </span>futures::stream::TryStreamExt;
 <span class="kw">use </span>is_terminal::IsTerminal;
-<span class="kw">use </span>wasmer_api::{types::AppTemplate, WasmerClient};
+<span class="kw">use </span>wasmer_api::{
+    types::{AppTemplate, TemplateLanguage},
+    WasmerClient,
+};
 <span class="kw">use </span>wasmer_config::{app::AppConfigV1, package::PackageSource};
 
 <span class="kw">use super</span>::{deploy::CmdAppDeploy, util::login_user};
@@ -1043,31 +1132,12 @@
         <span class="prelude-val">Ok</span>(<span class="bool-val">false</span>)
     }
 
-    <span class="doccomment">/// Load cached templates from a file.
-    ///
-    /// Returns an error if the cache file is older than the max age.
-    </span><span class="kw">fn </span>load_cached_templates(
-        path: <span class="kw-2">&amp;</span>Path,
-    ) -&gt; <span class="prelude-ty">Result</span>&lt;(Vec&lt;AppTemplate&gt;, std::time::Duration), anyhow::Error&gt; {
-        <span class="kw">let </span>modified = path.metadata()<span class="question-mark">?</span>.modified()<span class="question-mark">?</span>;
-        <span class="kw">let </span>age = modified.elapsed()<span class="question-mark">?</span>;
-
-        <span class="kw">let </span>data = std::fs::read_to_string(path)<span class="question-mark">?</span>;
-        <span class="kw">match </span>serde_json::from_str::&lt;Vec&lt;AppTemplate&gt;&gt;(<span class="kw-2">&amp;</span>data) {
-            <span class="prelude-val">Ok</span>(v) =&gt; <span class="prelude-val">Ok</span>((v, age)),
-            <span class="prelude-val">Err</span>(err) =&gt; {
-                std::fs::remove_file(path).ok();
-                <span class="prelude-val">Err</span>(err).context(<span class="string">&quot;could not deserialize cached file&quot;</span>)
-            }
-        }
-    }
-
-    <span class="kw">fn </span>persist_template_cache(path: <span class="kw-2">&amp;</span>Path, templates: <span class="kw-2">&amp;</span>[AppTemplate]) -&gt; <span class="prelude-ty">Result</span>&lt;(), anyhow::Error&gt; {
+    <span class="kw">fn </span>persist_in_cache&lt;S: serde::Serialize&gt;(path: <span class="kw-2">&amp;</span>Path, data: <span class="kw-2">&amp;</span>S) -&gt; <span class="prelude-ty">Result</span>&lt;(), anyhow::Error&gt; {
         <span class="kw">if let </span><span class="prelude-val">Some</span>(parent) = path.parent() {
             std::fs::create_dir_all(parent).context(<span class="string">&quot;could not create cache dir&quot;</span>)<span class="question-mark">?</span>;
         }
 
-        <span class="kw">let </span>data = serde_json::to_vec(templates)<span class="question-mark">?</span>;
+        <span class="kw">let </span>data = serde_json::to_vec(data)<span class="question-mark">?</span>;
 
         std::fs::write(path, data)<span class="question-mark">?</span>;
         <span class="macro">tracing::trace!</span>(path=%path.display(), <span class="string">&quot;persisted app template cache&quot;</span>);
@@ -1081,14 +1151,15 @@
     </span><span class="kw">async fn </span>fetch_templates_cached(
         client: <span class="kw-2">&amp;</span>WasmerClient,
         cache_dir: <span class="kw-2">&amp;</span>Path,
+        language: <span class="kw-2">&amp;</span>str,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;AppTemplate&gt;, anyhow::Error&gt; {
         <span class="kw">const </span>MAX_CACHE_AGE: Duration = Duration::from_secs(<span class="number">60 </span>* <span class="number">60</span>);
         <span class="kw">const </span>MAX_COUNT: usize = <span class="number">100</span>;
-        <span class="kw">const </span>CACHE_FILENAME: <span class="kw-2">&amp;</span>str = <span class="string">&quot;app_templates.json&quot;</span>;
+        <span class="kw">let </span>cache_filename = <span class="macro">format!</span>(<span class="string">&quot;app_templates_{language}.json&quot;</span>);
 
-        <span class="kw">let </span>cache_path = cache_dir.join(CACHE_FILENAME);
+        <span class="kw">let </span>cache_path = cache_dir.join(cache_filename);
 
-        <span class="kw">let </span>cached_items = <span class="kw">match </span><span class="self">Self</span>::load_cached_templates(<span class="kw-2">&amp;</span>cache_path) {
+        <span class="kw">let </span>cached_items = <span class="kw">match </span><span class="self">Self</span>::load_cached::&lt;Vec&lt;AppTemplate&gt;&gt;(<span class="kw-2">&amp;</span>cache_path) {
             <span class="prelude-val">Ok</span>((items, age)) =&gt; {
                 <span class="kw">if </span>age &lt;= MAX_CACHE_AGE {
                     <span class="kw">return </span><span class="prelude-val">Ok</span>(items);
@@ -1104,10 +1175,96 @@
         <span class="comment">// Either no cache present, or cache has exceeded max age.
         // Fetch the first page.
         // If first item matches, then no need to re-fetch.
-        </span><span class="kw">let </span><span class="kw-2">mut </span>stream = Box::pin(wasmer_api::query::fetch_all_app_templates(
+        //
+        </span><span class="kw">let </span>stream = wasmer_api::query::fetch_all_app_templates_from_language(
             client,
             <span class="number">10</span>,
             <span class="prelude-val">Some</span>(wasmer_api::types::AppTemplatesSortBy::Newest),
+            language.to_string(),
+        );
+
+        <span class="macro">futures_util::pin_mut!</span>(stream);
+
+        <span class="kw">let </span>first_page = <span class="kw">match </span>stream.try_next().<span class="kw">await</span><span class="question-mark">? </span>{
+            <span class="prelude-val">Some</span>(items) =&gt; items,
+            <span class="prelude-val">None </span>=&gt; <span class="kw">return </span><span class="prelude-val">Ok</span>(Vec::new()),
+        };
+
+        <span class="kw">if let </span>(<span class="prelude-val">Some</span>(a), <span class="prelude-val">Some</span>(b)) = (cached_items.first(), first_page.first()) {
+            <span class="kw">if </span>a == b {
+                <span class="comment">// Cached items are up to date, no need to query more.
+                </span><span class="kw">return </span><span class="prelude-val">Ok</span>(cached_items);
+            }
+        }
+
+        <span class="kw">let </span><span class="kw-2">mut </span>items = first_page;
+        <span class="kw">while let </span><span class="prelude-val">Some</span>(next) = stream.try_next().<span class="kw">await</span><span class="question-mark">? </span>{
+            items.extend(next);
+
+            <span class="kw">if </span>items.len() &gt;= MAX_COUNT {
+                <span class="kw">break</span>;
+            }
+        }
+
+        <span class="comment">// Persist to cache.
+        </span><span class="kw">if let </span><span class="prelude-val">Err</span>(err) = <span class="self">Self</span>::persist_in_cache(<span class="kw-2">&amp;</span>cache_path, <span class="kw-2">&amp;</span>items) {
+            <span class="macro">tracing::trace!</span>(error = <span class="kw-2">&amp;*</span>err, <span class="string">&quot;could not persist template cache&quot;</span>);
+        }
+
+        <span class="comment">// TODO: sort items by popularity!
+        // Since we can&#39;t rely on backend sorting because of the cache
+        // preservation logic, the backend needs to add a popluarity field.
+
+        </span><span class="prelude-val">Ok</span>(items)
+    }
+
+    <span class="doccomment">/// Load cached data from a file.
+    ///
+    /// Returns an error if the cache file is older than the max age.
+    </span><span class="kw">fn </span>load_cached&lt;D: serde::de::DeserializeOwned&gt;(
+        path: <span class="kw-2">&amp;</span>Path,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;(D, std::time::Duration), anyhow::Error&gt; {
+        <span class="kw">let </span>modified = path.metadata()<span class="question-mark">?</span>.modified()<span class="question-mark">?</span>;
+        <span class="kw">let </span>age = modified.elapsed()<span class="question-mark">?</span>;
+
+        <span class="kw">let </span>data = std::fs::read_to_string(path)<span class="question-mark">?</span>;
+        <span class="kw">match </span>serde_json::from_str::&lt;D&gt;(data.as_str()) {
+            <span class="prelude-val">Ok</span>(v) =&gt; <span class="prelude-val">Ok</span>((v, age)),
+            <span class="prelude-val">Err</span>(err) =&gt; {
+                std::fs::remove_file(path).ok();
+                <span class="prelude-val">Err</span>(err).context(<span class="string">&quot;could not deserialize cached file&quot;</span>)
+            }
+        }
+    }
+
+    <span class="kw">async fn </span>fetch_template_languages_cached(
+        client: <span class="kw-2">&amp;</span>WasmerClient,
+        cache_dir: <span class="kw-2">&amp;</span>Path,
+    ) -&gt; anyhow::Result&lt;Vec&lt;TemplateLanguage&gt;&gt; {
+        <span class="kw">const </span>MAX_CACHE_AGE: Duration = Duration::from_secs(<span class="number">60 </span>* <span class="number">60</span>);
+        <span class="kw">const </span>MAX_COUNT: usize = <span class="number">100</span>;
+        <span class="kw">const </span>CACHE_FILENAME: <span class="kw-2">&amp;</span>str = <span class="string">&quot;app_languages.json&quot;</span>;
+
+        <span class="kw">let </span>cache_path = cache_dir.join(CACHE_FILENAME);
+
+        <span class="kw">let </span>cached_items = <span class="kw">match </span><span class="self">Self</span>::load_cached::&lt;Vec&lt;TemplateLanguage&gt;&gt;(<span class="kw-2">&amp;</span>cache_path) {
+            <span class="prelude-val">Ok</span>((items, age)) =&gt; {
+                <span class="kw">if </span>age &lt;= MAX_CACHE_AGE {
+                    <span class="kw">return </span><span class="prelude-val">Ok</span>(items);
+                }
+                items
+            }
+            <span class="prelude-val">Err</span>(e) =&gt; {
+                <span class="macro">tracing::trace!</span>(error = <span class="kw-2">&amp;*</span>e, <span class="string">&quot;could not load templates from local cache&quot;</span>);
+                Vec::new()
+            }
+        };
+        <span class="comment">//
+        // Either no cache present, or cache has exceeded max age.
+        // Fetch the first page.
+        // If first item matches, then no need to re-fetch.
+        </span><span class="kw">let </span><span class="kw-2">mut </span>stream = Box::pin(wasmer_api::query::fetch_all_app_template_languages(
+            client, <span class="prelude-val">None</span>,
         ));
 
         <span class="kw">let </span>first_page = <span class="kw">match </span>stream.try_next().<span class="kw">await</span><span class="question-mark">? </span>{
@@ -1132,7 +1289,7 @@
         }
 
         <span class="comment">// Persist to cache.
-        </span><span class="kw">if let </span><span class="prelude-val">Err</span>(err) = <span class="self">Self</span>::persist_template_cache(<span class="kw-2">&amp;</span>cache_path, <span class="kw-2">&amp;</span>items) {
+        </span><span class="kw">if let </span><span class="prelude-val">Err</span>(err) = <span class="self">Self</span>::persist_in_cache(<span class="kw-2">&amp;</span>cache_path, <span class="kw-2">&amp;</span>items) {
             <span class="macro">tracing::trace!</span>(error = <span class="kw-2">&amp;*</span>err, <span class="string">&quot;could not persist template cache&quot;</span>);
         }
 
@@ -1160,30 +1317,45 @@
                 <span class="macro">anyhow::bail!</span>(<span class="string">&quot;No template selected&quot;</span>)
             }
 
-            <span class="kw">let </span>templates = <span class="self">Self</span>::fetch_templates_cached(client, <span class="kw-2">&amp;</span><span class="self">self</span>.env.cache_dir).<span class="kw">await</span><span class="question-mark">?</span>;
-
             <span class="kw">let </span>theme = ColorfulTheme::default();
+            <span class="kw">let </span>languages =
+                <span class="self">Self</span>::fetch_template_languages_cached(client, <span class="kw-2">&amp;</span><span class="self">self</span>.env.cache_dir).<span class="kw">await</span><span class="question-mark">?</span>;
+
+            <span class="kw">let </span>items = languages.iter().map(|t| t.name.clone()).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
+
+            <span class="comment">// Note: this should really use `dialoger::FuzzySelect`, but that
+            // breaks the formatting.
+            </span><span class="kw">let </span>dialog = dialoguer::Select::with_theme(<span class="kw-2">&amp;</span>theme)
+                .with_prompt(<span class="macro">format!</span>(<span class="string">&quot;Select a language ({} available)&quot;</span>, items.len()))
+                .items(<span class="kw-2">&amp;</span>items)
+                .max_length(<span class="number">10</span>)
+                .clear(<span class="bool-val">true</span>)
+                .report(<span class="bool-val">true</span>)
+                .default(<span class="number">0</span>);
+
+            <span class="kw">let </span>selection = dialog.interact()<span class="question-mark">?</span>;
+
+            <span class="kw">let </span>selected_language = languages
+                .get(selection)
+                .ok_or(<span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;Invalid selection!&quot;</span>))<span class="question-mark">?</span>;
+
+            <span class="kw">let </span>templates =
+                <span class="self">Self</span>::fetch_templates_cached(client, <span class="kw-2">&amp;</span><span class="self">self</span>.env.cache_dir, <span class="kw-2">&amp;</span>selected_language.slug)
+                    .<span class="kw">await</span><span class="question-mark">?</span>;
 
             <span class="kw">let </span>items = templates
                 .iter()
                 .map(|t| {
                     <span class="macro">format!</span>(
-                        <span class="string">&quot;{}{}\n  {} {}&quot;</span>,
+                        <span class="string">&quot;{} - {} {}&quot;</span>,
                         t.name.bold(),
-                        <span class="kw">if </span>t.language.is_empty() {
-                            String::new()
-                        } <span class="kw">else </span>{
-                            <span class="macro">format!</span>(<span class="string">&quot; {}&quot;</span>, t.language.dimmed())
-                        },
                         <span class="string">&quot;demo:&quot;</span>.bold().dimmed(),
                         t.demo_url.dimmed()
                     )
                 })
                 .collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
 
-            <span class="comment">// Note: this should really use `dialoger::FuzzySelect`, but that
-            // breaks the formatting.
-            </span><span class="kw">let </span>dialog = dialoguer::Select::with_theme(<span class="kw-2">&amp;</span>theme)
+            <span class="kw">let </span>dialog = dialoguer::Select::with_theme(<span class="kw-2">&amp;</span>theme)
                 .with_prompt(<span class="macro">format!</span>(<span class="string">&quot;Select a template ({} available)&quot;</span>, items.len()))
                 .items(<span class="kw-2">&amp;</span>items)
                 .max_length(<span class="number">10</span>)
@@ -1199,7 +1371,7 @@
 
             <span class="kw">if </span>!<span class="self">self</span>.quiet {
                 <span class="macro">eprintln!</span>(
-                    <span class="string">&quot;{} {} {} {} ({} {})&quot;</span>,
+                    <span class="string">&quot;{} {} {} {} - {} {}&quot;</span>,
                     <span class="string">&quot;✔&quot;</span>.green().bold(),
                     <span class="string">&quot;Selected template&quot;</span>.bold(),
                     <span class="string">&quot;·&quot;</span>.dimmed(),

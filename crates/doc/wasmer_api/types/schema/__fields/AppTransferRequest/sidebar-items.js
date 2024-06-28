@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":["__typename","app","approvedBy","closedAt","createdAt","declinedBy","expiresAt","id","newOwner","newOwnerObjectId","previousOwner","previousOwnerObjectId","requestedBy"]};
+window.SIDEBAR_ITEMS = {"struct":["__typename","app","approvedBy","closedAt","createdAt","declinedBy","deletedAt","expiresAt","id","newOwner","newOwnerObjectId","previousOwner","previousOwnerObjectId","requestedBy","updatedAt"]};

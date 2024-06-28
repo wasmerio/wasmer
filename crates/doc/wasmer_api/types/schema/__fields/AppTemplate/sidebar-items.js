@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":["__typename","category","createdAt","defaultImage","demoUrl","description","framework","id","isPublic","language","name","readme","repoLicense","repoUrl","slug","updatedAt","useCases","usingPackage"]};
+window.SIDEBAR_ITEMS = {"struct":["__typename","category","createdAt","defaultImage","demoUrl","description","framework","id","isPublic","language","name","readme","repoLicense","repoUrl","slug","templateFramework","templateLanguage","updatedAt","useCases","usingPackage"]};
