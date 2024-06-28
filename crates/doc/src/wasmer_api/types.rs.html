@@ -1739,6 +1739,56 @@
 <a href="#1739" id="1739">1739</a>
 <a href="#1740" id="1740">1740</a>
 <a href="#1741" id="1741">1741</a>
+<a href="#1742" id="1742">1742</a>
+<a href="#1743" id="1743">1743</a>
+<a href="#1744" id="1744">1744</a>
+<a href="#1745" id="1745">1745</a>
+<a href="#1746" id="1746">1746</a>
+<a href="#1747" id="1747">1747</a>
+<a href="#1748" id="1748">1748</a>
+<a href="#1749" id="1749">1749</a>
+<a href="#1750" id="1750">1750</a>
+<a href="#1751" id="1751">1751</a>
+<a href="#1752" id="1752">1752</a>
+<a href="#1753" id="1753">1753</a>
+<a href="#1754" id="1754">1754</a>
+<a href="#1755" id="1755">1755</a>
+<a href="#1756" id="1756">1756</a>
+<a href="#1757" id="1757">1757</a>
+<a href="#1758" id="1758">1758</a>
+<a href="#1759" id="1759">1759</a>
+<a href="#1760" id="1760">1760</a>
+<a href="#1761" id="1761">1761</a>
+<a href="#1762" id="1762">1762</a>
+<a href="#1763" id="1763">1763</a>
+<a href="#1764" id="1764">1764</a>
+<a href="#1765" id="1765">1765</a>
+<a href="#1766" id="1766">1766</a>
+<a href="#1767" id="1767">1767</a>
+<a href="#1768" id="1768">1768</a>
+<a href="#1769" id="1769">1769</a>
+<a href="#1770" id="1770">1770</a>
+<a href="#1771" id="1771">1771</a>
+<a href="#1772" id="1772">1772</a>
+<a href="#1773" id="1773">1773</a>
+<a href="#1774" id="1774">1774</a>
+<a href="#1775" id="1775">1775</a>
+<a href="#1776" id="1776">1776</a>
+<a href="#1777" id="1777">1777</a>
+<a href="#1778" id="1778">1778</a>
+<a href="#1779" id="1779">1779</a>
+<a href="#1780" id="1780">1780</a>
+<a href="#1781" id="1781">1781</a>
+<a href="#1782" id="1782">1782</a>
+<a href="#1783" id="1783">1783</a>
+<a href="#1784" id="1784">1784</a>
+<a href="#1785" id="1785">1785</a>
+<a href="#1786" id="1786">1786</a>
+<a href="#1787" id="1787">1787</a>
+<a href="#1788" id="1788">1788</a>
+<a href="#1789" id="1789">1789</a>
+<a href="#1790" id="1790">1790</a>
+<a href="#1791" id="1791">1791</a>
 </pre></div><pre class="rust"><code><span class="kw">pub use </span>queries::<span class="kw-2">*</span>;
 
 <span class="kw">pub use </span>cynic::Id;
@@ -2621,6 +2671,39 @@
         </span><span class="kw">pub </span>versions: DeployAppVersionConnection,
     }
 
+    <span class="attr">#[derive(cynic::QueryVariables, Debug, Clone)]
+    </span><span class="kw">pub struct </span>GetDeployAppVersionsByIdVars {
+        <span class="kw">pub </span>id: cynic::Id,
+
+        <span class="kw">pub </span>offset: <span class="prelude-ty">Option</span>&lt;i32&gt;,
+        <span class="kw">pub </span>before: <span class="prelude-ty">Option</span>&lt;String&gt;,
+        <span class="kw">pub </span>after: <span class="prelude-ty">Option</span>&lt;String&gt;,
+        <span class="kw">pub </span>first: <span class="prelude-ty">Option</span>&lt;i32&gt;,
+        <span class="kw">pub </span>last: <span class="prelude-ty">Option</span>&lt;i32&gt;,
+        <span class="kw">pub </span>sort_by: <span class="prelude-ty">Option</span>&lt;DeployAppVersionsSortBy&gt;,
+    }
+
+    <span class="attr">#[derive(cynic::QueryFragment, Debug, Clone, Serialize)]
+    #[cynic(graphql_type = <span class="string">&quot;DeployApp&quot;</span>, variables = <span class="string">&quot;GetDeployAppVersionsByIdVars&quot;</span>)]
+    </span><span class="kw">pub struct </span>DeployAppVersionsById {
+        <span class="attr">#[arguments(
+            first: <span class="macro-nonterminal">$first</span>,
+            last: <span class="macro-nonterminal">$last</span>,
+            before: <span class="macro-nonterminal">$before</span>,
+            after: <span class="macro-nonterminal">$after</span>,
+            offset: <span class="macro-nonterminal">$offset</span>,
+            sortBy: <span class="macro-nonterminal">$sort_by
+        </span>)]
+        </span><span class="kw">pub </span>versions: DeployAppVersionConnection,
+    }
+
+    <span class="attr">#[derive(cynic::QueryFragment, Debug, Clone)]
+    #[cynic(graphql_type = <span class="string">&quot;Query&quot;</span>, variables = <span class="string">&quot;GetDeployAppVersionsByIdVars&quot;</span>)]
+    </span><span class="kw">pub struct </span>GetDeployAppVersionsById {
+        <span class="attr">#[arguments(id: <span class="macro-nonterminal">$id</span>)]
+        </span><span class="kw">pub </span>node: <span class="prelude-ty">Option</span>&lt;NodeDeployAppVersions&gt;,
+    }
+
     <span class="attr">#[derive(cynic::QueryFragment, Serialize, Debug, Clone)]
     #[cynic(graphql_type = <span class="string">&quot;DeployApp&quot;</span>)]
     </span><span class="kw">pub struct </span>SparseDeployApp {
@@ -3450,6 +3533,23 @@
 
     <span class="attr">#[derive(cynic::Scalar, Debug, Clone)]
     </span><span class="kw">pub struct </span>BigInt(<span class="kw">pub </span>i64);
+
+    <span class="attr">#[derive(cynic::InlineFragments, Debug, Clone)]
+    #[cynic(graphql_type = <span class="string">&quot;Node&quot;</span>, variables = <span class="string">&quot;GetDeployAppVersionsByIdVars&quot;</span>)]
+    </span><span class="kw">pub enum </span>NodeDeployAppVersions {
+        DeployApp(Box&lt;DeployAppVersionsById&gt;),
+        <span class="attr">#[cynic(fallback)]
+        </span>Unknown,
+    }
+
+    <span class="kw">impl </span>NodeDeployAppVersions {
+        <span class="kw">pub fn </span>into_app(<span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;DeployAppVersionsById&gt; {
+            <span class="kw">match </span><span class="self">self </span>{
+                <span class="self">Self</span>::DeployApp(v) =&gt; <span class="prelude-val">Some</span>(<span class="kw-2">*</span>v),
+                <span class="kw">_ </span>=&gt; <span class="prelude-val">None</span>,
+            }
+        }
+    }
 
     <span class="attr">#[derive(cynic::InlineFragments, Debug)]
     </span><span class="kw">pub enum </span>Node {
