@@ -16,6 +16,9 @@ interface Node {
 type PublicKey implements Node {
   """The ID of the object"""
   id: ID!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+  deletedAt: DateTime
   owner: User!
   keyId: String!
   key: String!
@@ -24,6 +27,13 @@ type PublicKey implements Node {
   verifyingSignature: Signature
   revoked: Boolean!
 }
+
+"""
+The `DateTime` scalar type represents a DateTime
+value as specified by
+[iso8601](https://en.wikipedia.org/wiki/ISO_8601).
+"""
+scalar DateTime
 
 type User implements Node & PackageOwner & Owner {
   firstName: String!
@@ -83,13 +93,6 @@ interface Owner {
   globalName: String!
   globalId: ID!
 }
-
-"""
-The `DateTime` scalar type represents a DateTime
-value as specified by
-[iso8601](https://en.wikipedia.org/wiki/ISO_8601).
-"""
-scalar DateTime
 
 type ActivityEventConnection {
   """Pagination data for this connection."""
@@ -190,6 +193,7 @@ type NamespaceEdge {
 type Namespace implements Node & PackageOwner & Owner {
   """The ID of the object"""
   id: ID!
+  deletedAt: DateTime
   name: String!
   displayName: String
   description: String!
@@ -249,6 +253,8 @@ type NamespaceCollaboratorInviteEdge {
 type NamespaceCollaboratorInvite implements Node {
   """The ID of the object"""
   id: ID!
+  updatedAt: DateTime!
+  deletedAt: DateTime
   requestedBy: User!
   user: User
   inviteEmail: String
@@ -279,6 +285,7 @@ enum RegistryNamespaceMaintainerInviteRoleChoices {
 type NamespaceCollaborator implements Node {
   """The ID of the object"""
   id: ID!
+  deletedAt: DateTime
   user: User!
   role: RegistryNamespaceMaintainerRoleChoices!
   namespace: Namespace!
@@ -344,6 +351,7 @@ type PackageEdge {
 type Package implements Likeable & Node & PackageOwner {
   """The ID of the object"""
   id: ID!
+  deletedAt: DateTime
   name: String!
   private: Boolean!
   createdAt: DateTime!
@@ -939,6 +947,9 @@ type BindingsGeneratorEdge {
 type BindingsGenerator implements Node {
   """The ID of the object"""
   id: ID!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+  deletedAt: DateTime
   packageVersion: PackageVersion!
   active: Boolean!
   commandName: String!
@@ -1103,6 +1114,7 @@ type PackageVersionFilesystem {
 type InterfaceVersion implements Node {
   """The ID of the object"""
   id: ID!
+  deletedAt: DateTime
   interface: Interface!
   version: String!
   content: String!
@@ -1115,6 +1127,7 @@ type InterfaceVersion implements Node {
 type Interface implements Node {
   """The ID of the object"""
   id: ID!
+  deletedAt: DateTime
   name: String!
   displayName: String!
   description: String!
@@ -1235,11 +1248,13 @@ type AppTemplate implements Node {
   updatedAt: DateTime!
   readme: String!
   useCases: JSONString!
-  framework: String!
-  language: String!
   repoLicense: String!
   usingPackage: Package
   defaultImage: String
+  framework: String!
+  templateFramework: TemplateFramework
+  language: String!
+  templateLanguage: TemplateLanguage
 }
 
 type AppTemplateCategory implements Node {
@@ -1251,6 +1266,24 @@ type AppTemplateCategory implements Node {
   createdAt: DateTime!
   updatedAt: DateTime!
   appTemplates(offset: Int, before: String, after: String, first: Int, last: Int): AppTemplateConnection!
+}
+
+type TemplateFramework implements Node {
+  """The ID of the object"""
+  id: ID!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+  name: String!
+  slug: String!
+}
+
+type TemplateLanguage implements Node {
+  """The ID of the object"""
+  id: ID!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+  name: String!
+  slug: String!
 }
 
 type Collection {
@@ -1340,6 +1373,7 @@ type PackageCollaboratorEdge {
 type PackageCollaborator implements Node {
   """The ID of the object"""
   id: ID!
+  deletedAt: DateTime
   user: User!
   role: RegistryPackageMaintainerRoleChoices!
   package: Package!
@@ -1365,6 +1399,8 @@ enum RegistryPackageMaintainerRoleChoices {
 type PackageCollaboratorInvite implements Node {
   """The ID of the object"""
   id: ID!
+  updatedAt: DateTime!
+  deletedAt: DateTime
   requestedBy: User!
   user: User
   inviteEmail: String
@@ -1422,6 +1458,8 @@ enum GrapheneRole {
 type PackageTransferRequest implements Node {
   """The ID of the object"""
   id: ID!
+  updatedAt: DateTime!
+  deletedAt: DateTime
   requestedBy: User!
   previousOwnerObjectId: Int!
   newOwnerObjectId: Int!
@@ -1540,14 +1578,14 @@ type DNSDomainEdge {
 }
 
 type DNSDomain implements Node {
+  createdAt: DateTime!
+  updatedAt: DateTime!
+  deletedAt: DateTime
   name: String!
 
   """This zone will be accessible at /dns/{slug}/."""
   slug: String!
   zoneFile: String!
-  createdAt: DateTime!
-  updatedAt: DateTime!
-  deletedAt: DateTime
 
   """The ID of the object"""
   id: ID!
@@ -1860,6 +1898,8 @@ type APITokenEdge {
 
 type APIToken {
   id: ID!
+  updatedAt: DateTime!
+  deletedAt: DateTime
   user: User!
   identifier: String
   createdAt: DateTime!
@@ -1976,6 +2016,8 @@ type SocialAuth implements Node {
 
 type Signature {
   id: ID!
+  updatedAt: DateTime!
+  deletedAt: DateTime
   publicKey: PublicKey!
   data: String!
   createdAt: DateTime!
@@ -2258,7 +2300,9 @@ type Query {
   getAppByGlobalAlias(alias: String!): DeployApp
   getDeployApps(sortBy: DeployAppsSortBy, updatedAfter: DateTime, offset: Int, before: String, after: String, first: Int, last: Int): DeployAppConnection!
   getAppVersions(sortBy: DeployAppVersionsSortBy, updatedAfter: DateTime, offset: Int, before: String, after: String, first: Int, last: Int): DeployAppVersionConnection!
-  getAppTemplates(categorySlug: String, sortBy: AppTemplatesSortBy, offset: Int, before: String, after: String, first: Int, last: Int): AppTemplateConnection
+  getTemplateFrameworks(offset: Int, before: String, after: String, first: Int, last: Int): TemplateFrameworkConnection
+  getTemplateLanguages(offset: Int, before: String, after: String, first: Int, last: Int): TemplateLanguageConnection
+  getAppTemplates(categorySlug: String, frameworkSlug: String, languageSlug: String, sortBy: AppTemplatesSortBy, offset: Int, before: String, after: String, first: Int, last: Int): AppTemplateConnection
   getAppTemplate(slug: String!): AppTemplate
   getAppTemplateCategories(offset: Int, before: String, after: String, first: Int, last: Int): AppTemplateCategoryConnection
   viewer: User
@@ -2355,6 +2399,46 @@ type DNSRecordEdge {
 enum DNSRecordsSortBy {
   NEWEST
   OLDEST
+}
+
+type TemplateFrameworkConnection {
+  """Pagination data for this connection."""
+  pageInfo: PageInfo!
+
+  """Contains the nodes in this connection."""
+  edges: [TemplateFrameworkEdge]!
+
+  """Total number of items in the connection."""
+  totalCount: Int
+}
+
+"""A Relay edge containing a `TemplateFramework` and its cursor."""
+type TemplateFrameworkEdge {
+  """The item at the end of the edge"""
+  node: TemplateFramework
+
+  """A cursor for use in pagination"""
+  cursor: String!
+}
+
+type TemplateLanguageConnection {
+  """Pagination data for this connection."""
+  pageInfo: PageInfo!
+
+  """Contains the nodes in this connection."""
+  edges: [TemplateLanguageEdge]!
+
+  """Total number of items in the connection."""
+  totalCount: Int
+}
+
+"""A Relay edge containing a `TemplateLanguage` and its cursor."""
+type TemplateLanguageEdge {
+  """The item at the end of the edge"""
+  node: TemplateLanguage
+
+  """A cursor for use in pagination"""
+  cursor: String!
 }
 
 enum AppTemplatesSortBy {
@@ -3066,6 +3150,8 @@ type RequestAppTransferPayload {
 type AppTransferRequest implements Node {
   """The ID of the object"""
   id: ID!
+  updatedAt: DateTime!
+  deletedAt: DateTime
   requestedBy: User!
   previousOwnerObjectId: Int!
   newOwnerObjectId: Int!
