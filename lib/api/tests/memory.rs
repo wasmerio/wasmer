@@ -2,7 +2,6 @@ use std::sync::{
     atomic::{AtomicBool, Ordering},
     Arc,
 };
-
 use wasmer::{imports, Instance, Memory, MemoryLocation, MemoryType, Module, Store};
 
 #[test]

@@ -8,6 +8,8 @@ use crate::GlobalType;
 use crate::Mutability;
 use crate::RuntimeError;
 
+#[cfg(feature = "wasm-c-api")]
+use crate::c_api::externals::global as global_impl;
 #[cfg(feature = "js")]
 use crate::js::externals::global as global_impl;
 #[cfg(feature = "jsc")]

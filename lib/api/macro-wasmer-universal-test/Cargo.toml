@@ -9,7 +9,14 @@ description = "Universal test macro for wasmer-test"
 proc-macro = true
 
 [dependencies]
-proc-quote = "0.4.0"
-proc-macro2 = "1.0.43"     
-syn = { version = "1.0.99", features = ["full"] }
-quote = "1.0.21"
+proc-macro2 = "1.0.60"
+syn = { version = "2.0", default-features = false, features = [
+    "full",
+    "parsing",
+    "printing",
+    "visit-mut",
+    "clone-impls",
+    "extra-traits",
+    "proc-macro",
+] }
+quote = "1.0.20"
