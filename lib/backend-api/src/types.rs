@@ -766,6 +766,39 @@ mod queries {
         pub versions: DeployAppVersionConnection,
     }
 
+    #[derive(cynic::QueryVariables, Debug, Clone)]
+    pub struct GetDeployAppVersionsByIdVars {
+        pub id: cynic::Id,
+
+        pub offset: Option<i32>,
+        pub before: Option<String>,
+        pub after: Option<String>,
+        pub first: Option<i32>,
+        pub last: Option<i32>,
+        pub sort_by: Option<DeployAppVersionsSortBy>,
+    }
+
+    #[derive(cynic::QueryFragment, Debug, Clone, Serialize)]
+    #[cynic(graphql_type = "DeployApp", variables = "GetDeployAppVersionsByIdVars")]
+    pub struct DeployAppVersionsById {
+        #[arguments(
+            first: $first,
+            last: $last,
+            before: $before,
+            after: $after,
+            offset: $offset,
+            sortBy: $sort_by
+        )]
+        pub versions: DeployAppVersionConnection,
+    }
+
+    #[derive(cynic::QueryFragment, Debug, Clone)]
+    #[cynic(graphql_type = "Query", variables = "GetDeployAppVersionsByIdVars")]
+    pub struct GetDeployAppVersionsById {
+        #[arguments(id: $id)]
+        pub node: Option<NodeDeployAppVersions>,
+    }
+
     #[derive(cynic::QueryFragment, Serialize, Debug, Clone)]
     #[cynic(graphql_type = "DeployApp")]
     pub struct SparseDeployApp {
@@ -1595,6 +1628,23 @@ mod queries {
 
     #[derive(cynic::Scalar, Debug, Clone)]
     pub struct BigInt(pub i64);
+
+    #[derive(cynic::InlineFragments, Debug, Clone)]
+    #[cynic(graphql_type = "Node", variables = "GetDeployAppVersionsByIdVars")]
+    pub enum NodeDeployAppVersions {
+        DeployApp(Box<DeployAppVersionsById>),
+        #[cynic(fallback)]
+        Unknown,
+    }
+
+    impl NodeDeployAppVersions {
+        pub fn into_app(self) -> Option<DeployAppVersionsById> {
+            match self {
+                Self::DeployApp(v) => Some(*v),
+                _ => None,
+            }
+        }
+    }
 
     #[derive(cynic::InlineFragments, Debug)]
     pub enum Node {
