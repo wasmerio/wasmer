@@ -349,7 +349,7 @@ impl GetBindingsResult {
     fn first_binding(&self) -> Option<wasmer_config::package::Bindings> {
         match self {
             Self::OneBinding(s) => Some(s.clone()),
-            Self::MultiBindings(s) => s.get(0).cloned(),
+            Self::MultiBindings(s) => s.first().cloned(),
         }
     }
 }

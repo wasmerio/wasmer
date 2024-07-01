@@ -241,7 +241,7 @@ impl<'ctx> State<'ctx> {
     }
 
     pub fn outermost_frame(&self) -> Result<&ControlFrame<'ctx>, CompileError> {
-        self.control_stack.get(0).ok_or_else(|| {
+        self.control_stack.first().ok_or_else(|| {
             CompileError::Codegen("outermost_frame: invalid control stack depth".to_string())
         })
     }

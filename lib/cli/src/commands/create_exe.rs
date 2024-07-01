@@ -548,7 +548,7 @@ fn serialize_volume_to_webc_v1(volume: &WebcVolume) -> Vec<u8> {
 impl AllowMultiWasm {
     fn validate(
         &self,
-        all_atoms: &Vec<(String, webc::compat::SharedBytes)>,
+        all_atoms: &[(String, webc::compat::SharedBytes)],
     ) -> Result<(), anyhow::Error> {
         if matches!(self, AllowMultiWasm::Reject(None)) && all_atoms.len() > 1 {
             let keys = all_atoms
