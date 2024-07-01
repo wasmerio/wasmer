@@ -595,6 +595,19 @@ impl WasiProcess {
         self.wait_for_checkpoint_finish()
     }
 
+    /// Takes a snapshot of the process
+    ///
+    /// Note: If you ignore the returned future the checkpoint will still
+    /// occur but it will execute asynchronously
+    pub fn snapshot(
+        &self,
+        trigger: SnapshotTrigger,
+    ) -> std::pin::Pin<Box<dyn futures::Future<Output = ()> + Send + Sync>> {
+        let mut guard = self.inner.0.lock().unwrap();
+        guard.checkpoint = WasiProcessCheckpoint::Snapshot { trigger };
+        self.wait_for_checkpoint_finish()
+    }
+
     /// Disables the journaling functionality
     pub fn disable_journaling_after_checkpoint(&self) {
         let mut guard = self.inner.0.lock().unwrap();

@@ -184,6 +184,7 @@ impl From<SnapshotTrigger> for JournalSnapshotTriggerV1 {
             SnapshotTrigger::Sigstop => JournalSnapshotTriggerV1::Sigstop,
             SnapshotTrigger::NonDeterministicCall => JournalSnapshotTriggerV1::NonDeterministicCall,
             SnapshotTrigger::Bootstrap => JournalSnapshotTriggerV1::Bootstrap,
+            SnapshotTrigger::Transaction => JournalSnapshotTriggerV1::Transaction,
         }
     }
 }
@@ -202,6 +203,7 @@ impl From<JournalSnapshotTriggerV1> for SnapshotTrigger {
             JournalSnapshotTriggerV1::Sigstop => SnapshotTrigger::Sigstop,
             JournalSnapshotTriggerV1::NonDeterministicCall => SnapshotTrigger::NonDeterministicCall,
             JournalSnapshotTriggerV1::Bootstrap => SnapshotTrigger::Bootstrap,
+            JournalSnapshotTriggerV1::Transaction => SnapshotTrigger::Transaction,
         }
     }
 }
@@ -222,6 +224,7 @@ impl From<&'_ ArchivedJournalSnapshotTriggerV1> for SnapshotTrigger {
                 SnapshotTrigger::NonDeterministicCall
             }
             ArchivedJournalSnapshotTriggerV1::Bootstrap => SnapshotTrigger::Bootstrap,
+            ArchivedJournalSnapshotTriggerV1::Transaction => SnapshotTrigger::Transaction,
         }
     }
 }
