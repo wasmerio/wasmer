@@ -1448,6 +1448,11 @@
 <a href="#1448" id="1448">1448</a>
 <a href="#1449" id="1449">1449</a>
 <a href="#1450" id="1450">1450</a>
+<a href="#1451" id="1451">1451</a>
+<a href="#1452" id="1452">1452</a>
+<a href="#1453" id="1453">1453</a>
+<a href="#1454" id="1454">1454</a>
+<a href="#1455" id="1455">1455</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>derivative::Derivative;
 <span class="kw">use </span>std::{
     collections::{HashMap, HashSet},
@@ -1510,6 +1515,9 @@
     <span class="comment">// Thread events are only maintained while the thread and the
     // process are still running
     </span>thread_map: HashMap&lt;u32, usize&gt;,
+    <span class="comment">// Thread events are only maintained while the thread and the
+    // process are still running
+    </span>staged_thread_map: HashMap&lt;u32, usize&gt;,
     <span class="comment">// Sockets that are open and not yet closed are kept here
     </span>open_sockets: HashMap&lt;Fd, DescriptorLookup&gt;,
     <span class="comment">// Open pipes have two file descriptors that are associated with
@@ -1676,6 +1684,7 @@
             snapshots: Default::default(),
             memory_map: Default::default(),
             thread_map: Default::default(),
+            staged_thread_map: Default::default(),
             open_sockets: Default::default(),
             open_pipes: Default::default(),
             create_directory: Default::default(),
@@ -1814,12 +1823,13 @@
                 state.memory_map.insert(region.clone().into(), event_index);
             }
             JournalEntry::SetThreadV1 { id, .. } =&gt; {
-                state.thread_map.insert(<span class="kw-2">*</span>id, event_index);
+                state.staged_thread_map.insert(<span class="kw-2">*</span>id, event_index);
             }
             JournalEntry::CloseThreadV1 { id, .. } =&gt; {
-                state.thread_map.remove(id);
+                state.staged_thread_map.remove(id);
             }
             JournalEntry::SnapshotV1 { .. } =&gt; {
+                state.thread_map = state.staged_thread_map.clone();
                 state.snapshots.push(event_index);
             }
             JournalEntry::ProcessExitV1 { .. } =&gt; {

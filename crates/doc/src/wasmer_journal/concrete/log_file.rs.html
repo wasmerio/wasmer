@@ -495,6 +495,11 @@
 <a href="#495" id="495">495</a>
 <a href="#496" id="496">496</a>
 <a href="#497" id="497">497</a>
+<a href="#498" id="498">498</a>
+<a href="#499" id="499">499</a>
+<a href="#500" id="500">500</a>
+<a href="#501" id="501">501</a>
+<a href="#502" id="502">502</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>bytes::Buf;
 <span class="kw">use </span>rkyv::ser::{
     serializers::{AllocScratch, CompositeSerializer, SharedSerializeMap, WriteSerializer},
@@ -599,6 +604,11 @@
             .write(<span class="bool-val">true</span>)
             .create(<span class="bool-val">true</span>)
             .open(path)<span class="question-mark">?</span>;
+        <span class="self">Self</span>::from_file(file)
+    }
+
+    <span class="kw">pub fn </span>new_readonly(path: <span class="kw">impl </span>AsRef&lt;Path&gt;) -&gt; anyhow::Result&lt;<span class="self">Self</span>&gt; {
+        <span class="kw">let </span>file = std::fs::File::options().read(<span class="bool-val">true</span>).open(path)<span class="question-mark">?</span>;
         <span class="self">Self</span>::from_file(file)
     }
 

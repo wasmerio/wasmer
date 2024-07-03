@@ -852,6 +852,19 @@
 <a href="#852" id="852">852</a>
 <a href="#853" id="853">853</a>
 <a href="#854" id="854">854</a>
+<a href="#855" id="855">855</a>
+<a href="#856" id="856">856</a>
+<a href="#857" id="857">857</a>
+<a href="#858" id="858">858</a>
+<a href="#859" id="859">859</a>
+<a href="#860" id="860">860</a>
+<a href="#861" id="861">861</a>
+<a href="#862" id="862">862</a>
+<a href="#863" id="863">863</a>
+<a href="#864" id="864">864</a>
+<a href="#865" id="865">865</a>
+<a href="#866" id="866">866</a>
+<a href="#867" id="867">867</a>
 </pre></div><pre class="rust"><code><span class="attr">#[cfg(feature = <span class="string">&quot;journal&quot;</span>)]
 </span><span class="kw">use crate</span>::{journal::JournalEffector, syscalls::do_checkpoint_from_outside, unwind, WasiResult};
 <span class="kw">use crate</span>::{journal::SnapshotTrigger, WasiEnv, WasiRuntimeError};
@@ -1445,6 +1458,19 @@
     ) -&gt; std::pin::Pin&lt;Box&lt;<span class="kw">dyn </span>futures::Future&lt;Output = ()&gt; + Send + Sync&gt;&gt; {
         <span class="kw">let </span><span class="kw-2">mut </span>guard = <span class="self">self</span>.inner.<span class="number">0</span>.lock().unwrap();
         guard.disable_journaling_after_checkpoint = <span class="bool-val">true</span>;
+        guard.checkpoint = WasiProcessCheckpoint::Snapshot { trigger };
+        <span class="self">self</span>.wait_for_checkpoint_finish()
+    }
+
+    <span class="doccomment">/// Takes a snapshot of the process
+    ///
+    /// Note: If you ignore the returned future the checkpoint will still
+    /// occur but it will execute asynchronously
+    </span><span class="kw">pub fn </span>snapshot(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        trigger: SnapshotTrigger,
+    ) -&gt; std::pin::Pin&lt;Box&lt;<span class="kw">dyn </span>futures::Future&lt;Output = ()&gt; + Send + Sync&gt;&gt; {
+        <span class="kw">let </span><span class="kw-2">mut </span>guard = <span class="self">self</span>.inner.<span class="number">0</span>.lock().unwrap();
         guard.checkpoint = WasiProcessCheckpoint::Snapshot { trigger };
         <span class="self">self</span>.wait_for_checkpoint_finish()
     }

@@ -1803,6 +1803,7 @@
 <a href="#1803" id="1803">1803</a>
 <a href="#1804" id="1804">1804</a>
 <a href="#1805" id="1805">1805</a>
+<a href="#1806" id="1806">1806</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>num_enum::{IntoPrimitive, TryFromPrimitive};
 <span class="kw">use </span>rkyv::ser::{ScratchSpace, Serializer};
 <span class="kw">use </span>rkyv::{Archive, CheckBytes, Deserialize <span class="kw">as </span>RkyvDeserialize, Serialize <span class="kw">as </span>RkyvSerialize};
@@ -3383,6 +3384,7 @@
     Sigstop,
     NonDeterministicCall,
     Bootstrap,
+    Transaction,
 }
 
 <span class="attr">#[repr(C)]

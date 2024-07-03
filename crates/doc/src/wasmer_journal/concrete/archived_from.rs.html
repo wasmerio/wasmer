@@ -1171,6 +1171,9 @@
 <a href="#1171" id="1171">1171</a>
 <a href="#1172" id="1172">1172</a>
 <a href="#1173" id="1173">1173</a>
+<a href="#1174" id="1174">1174</a>
+<a href="#1175" id="1175">1175</a>
+<a href="#1176" id="1176">1176</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::borrow::Cow;
 <span class="kw">use </span>std::time::SystemTime;
 <span class="kw">use </span>wasmer_wasix_types::wasi;
@@ -1357,6 +1360,7 @@
             SnapshotTrigger::Sigstop =&gt; JournalSnapshotTriggerV1::Sigstop,
             SnapshotTrigger::NonDeterministicCall =&gt; JournalSnapshotTriggerV1::NonDeterministicCall,
             SnapshotTrigger::Bootstrap =&gt; JournalSnapshotTriggerV1::Bootstrap,
+            SnapshotTrigger::Transaction =&gt; JournalSnapshotTriggerV1::Transaction,
         }
     }
 }
@@ -1375,6 +1379,7 @@
             JournalSnapshotTriggerV1::Sigstop =&gt; SnapshotTrigger::Sigstop,
             JournalSnapshotTriggerV1::NonDeterministicCall =&gt; SnapshotTrigger::NonDeterministicCall,
             JournalSnapshotTriggerV1::Bootstrap =&gt; SnapshotTrigger::Bootstrap,
+            JournalSnapshotTriggerV1::Transaction =&gt; SnapshotTrigger::Transaction,
         }
     }
 }
@@ -1395,6 +1400,7 @@
                 SnapshotTrigger::NonDeterministicCall
             }
             ArchivedJournalSnapshotTriggerV1::Bootstrap =&gt; SnapshotTrigger::Bootstrap,
+            ArchivedJournalSnapshotTriggerV1::Transaction =&gt; SnapshotTrigger::Transaction,
         }
     }
 }
