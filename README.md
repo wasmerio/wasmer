@@ -22,7 +22,7 @@
   </p>
 </div>
 
-<br />
+<br /> 
 
 Wasmer is a _blazing fast_ and _secure_ [**WebAssembly**](https://webassembly.org) runtime that enables incredibly
 _lightweight containers_ to run anywhere: from _Desktop_ to the _Cloud_, _Edge_ and your browser.
