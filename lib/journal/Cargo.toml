@@ -14,7 +14,7 @@ default = [ "log-file", "wasmer/sys" ]
 log-file = [ "shared-buffer" ]
 
 [dependencies]
-wasmer = { default-features = false, path = "../api", version = "=4.3.2" }
+wasmer = { default-features = false, path = "../api", version = "=4.3.3" }
 wasmer-wasix-types = { path = "../wasi-types", version = "0.22.0", features = [ "enable-serde" ] }
 virtual-net = { path = "../virtual-net", version = "0.6.7", default-features = false, features = ["rkyv"] }
 virtual-fs = { path = "../virtual-fs", version = "0.13.0", default-features = false }
