@@ -141,7 +141,7 @@ impl BuiltinPackageLoader {
             options: Default::default(),
         };
 
-        tracing::debug!(%request.url, %request.method, "Downloading a webc file");
+        tracing::debug!(%request.url, %request.method, "webc_package_download_start");
         tracing::trace!(?request.headers);
 
         let response = self.client.request(request).await?;
@@ -154,15 +154,18 @@ impl BuiltinPackageLoader {
             "Received a response",
         );
 
+        let url = &dist.webc;
         if !response.is_ok() {
-            let url = &dist.webc;
-            return Err(crate::runtime::resolver::utils::http_error(&response)
-                .context(format!("The GET request to \"{url}\" failed")));
+            return Err(
+                crate::runtime::resolver::utils::http_error(&response).context(format!(
+                    "package download failed: GET request to \"{}\" failed with status {}",
+                    url, response.status
+                )),
+            );
         }
 
-        let body = response
-            .body
-            .context("The response didn't contain a body")?;
+        let body = response.body.context("package download failed")?;
+        tracing::debug!(%url, "package_download_succeeded");
 
         Ok(body.into())
     }

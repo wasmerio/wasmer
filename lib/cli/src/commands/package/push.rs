@@ -35,6 +35,11 @@ pub struct PackagePush {
     #[clap(long = "namespace")]
     pub package_namespace: Option<String>,
 
+    /// Override the name of the package to upload. If a name is specified,
+    /// no version will be attached to the package.
+    #[clap(long = "name")]
+    pub package_name: Option<String>,
+
     /// Timeout (in seconds) for the publish query to the registry.
     ///
     /// Note that this is not the timeout for the entire publish process, but
@@ -86,6 +91,22 @@ impl PackagePush {
         Ok(owner.clone())
     }
 
+    async fn get_name(&self, manifest: &Manifest) -> anyhow::Result<Option<String>> {
+        if let Some(name) = &self.package_name {
+            return Ok(Some(name.clone()));
+        }
+
+        if let Some(pkg) = &manifest.package {
+            if let Some(ns) = &pkg.name {
+                if let Some(name) = ns.split('/').nth(1) {
+                    return Ok(Some(name.to_string()));
+                }
+            }
+        }
+
+        Ok(None)
+    }
+
     fn get_privacy(&self, manifest: &Manifest) -> bool {
         match &manifest.package {
             Some(pkg) => pkg.private,
@@ -103,6 +124,7 @@ impl PackagePush {
         &self,
         client: &WasmerClient,
         namespace: &str,
+        name: Option<String>,
         package: &Package,
         package_hash: &PackageHash,
         private: bool,
@@ -115,7 +137,7 @@ impl PackagePush {
         let pb = make_spinner!(self.quiet, "Waiting for package to become available...");
         match wasmer_api::query::push_package_release(
             client,
-            None,
+            name.as_deref(),
             namespace,
             &signed_url,
             Some(private),
@@ -154,9 +176,10 @@ impl PackagePush {
         tracing::info!("Package has hash: {hash}");
 
         let namespace = self.get_namespace(client, manifest).await?;
+        let name = self.get_name(manifest).await?;
 
         let private = self.get_privacy(manifest);
-        tracing::info!("If published, package privacy is {private}");
+        tracing::info!("If published, package privacy is {private}, namespace is {namespace} and name is {name:?}");
 
         let pb = make_spinner!(
             self.quiet,
@@ -168,7 +191,7 @@ impl PackagePush {
                 pb.finish_and_clear();
                 // spinner_ok!(pb, "Package not in the registry yet!");
 
-                self.do_push(client, &namespace, &package, &hash, private)
+                self.do_push(client, &namespace, name, &package, &hash, private)
                     .await
                     .map_err(on_error)?;
             } else {
