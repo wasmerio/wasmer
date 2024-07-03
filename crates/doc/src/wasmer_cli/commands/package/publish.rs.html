@@ -169,6 +169,7 @@
 <a href="#169" id="169">169</a>
 <a href="#170" id="170">170</a>
 <a href="#171" id="171">171</a>
+<a href="#172" id="172">172</a>
 </pre></div><pre class="rust"><code><span class="kw">use crate</span>::{
     commands::{
         package::{
@@ -266,6 +267,7 @@
                 env: <span class="self">self</span>.env.clone(),
                 dry_run: <span class="self">self</span>.dry_run,
                 quiet: <span class="self">self</span>.quiet,
+                package_name: <span class="self">self</span>.package_name.clone(),
                 package_namespace: <span class="self">self</span>.package_namespace.clone(),
                 timeout: <span class="self">self</span>.timeout,
                 non_interactive: <span class="self">self</span>.non_interactive,
