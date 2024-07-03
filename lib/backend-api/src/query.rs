@@ -1346,12 +1346,12 @@ fn get_app_logs(
 
                 if page.is_empty() {
                     if watch {
-                        /* 
-                         * [TODO]: The resolution here should be configurable. 
+                        /*
+                         * [TODO]: The resolution here should be configurable.
                          */
 
-                        // No tokio::time::sleep on wasm32 as of now. 
-                        // Probably not ideal? 
+                        // No tokio::time::sleep on wasm32 as of now.
+                        // Probably not ideal?
                         #[cfg(target_family = "wasm32")]
                         std::thread::sleep(Duration::from_secs(1));
 
