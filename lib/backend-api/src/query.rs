@@ -13,10 +13,12 @@ use crate::{
     types::{
         self, CreateNamespaceVars, DeployApp, DeployAppConnection, DeployAppVersion,
         DeployAppVersionConnection, DnsDomain, GetAppTemplateFromSlugVariables,
-        GetAppTemplatesVars, GetCurrentUserWithAppsVars, GetDeployAppAndVersion,
-        GetDeployAppVersionsVars, GetNamespaceAppsVars, GetSignedUrlForPackageUploadVariables, Log,
-        LogStream, PackageVersionConnection, PublishDeployAppVars, PushPackageReleasePayload,
-        SignedUrl, TagPackageReleasePayload, UpsertDomainFromZoneFileVars,
+        GetAppTemplatesFromFrameworkVars, GetAppTemplatesFromLanguageVars, GetAppTemplatesVars,
+        GetCurrentUserWithAppsVars, GetDeployAppAndVersion, GetDeployAppVersionsVars,
+        GetNamespaceAppsVars, GetSignedUrlForPackageUploadVariables, GetTemplateFrameworksVars,
+        GetTemplateLanguagesVars, Log, LogStream, PackageVersionConnection, PublishDeployAppVars,
+        PushPackageReleasePayload, SignedUrl, TagPackageReleasePayload,
+        UpsertDomainFromZoneFileVars,
     },
     GraphQLApiFailure, WasmerClient,
 };
@@ -67,6 +69,27 @@ pub async fn fetch_app_template_from_slug(
         ))
         .await
         .map(|v| v.get_app_template)
+}
+
+/// Fetch app templates.
+pub async fn fetch_app_templates_from_framework(
+    client: &WasmerClient,
+    framework_slug: String,
+    first: i32,
+    after: Option<String>,
+    sort_by: Option<types::AppTemplatesSortBy>,
+) -> Result<Option<types::AppTemplateConnection>, anyhow::Error> {
+    client
+        .run_graphql_strict(types::GetAppTemplatesFromFramework::build(
+            GetAppTemplatesFromFrameworkVars {
+                framework_slug,
+                first,
+                after,
+                sort_by,
+            },
+        ))
+        .await
+        .map(|r| r.get_app_templates)
 }
 
 /// Fetch app templates.
@@ -137,6 +160,270 @@ pub fn fetch_all_app_templates(
             #[allow(clippy::type_complexity)]
             let res: Result<
                 Option<(Vec<types::AppTemplate>, Option<types::GetAppTemplatesVars>)>,
+                anyhow::Error,
+            > = Ok(Some((items, next_vars)));
+
+            res
+        },
+    )
+}
+
+/// Fetch all app templates by paginating through the responses.
+///
+/// Will fetch at most `max` templates.
+pub fn fetch_all_app_templates_from_language(
+    client: &WasmerClient,
+    page_size: i32,
+    sort_by: Option<types::AppTemplatesSortBy>,
+    language: String,
+) -> impl futures::Stream<Item = Result<Vec<types::AppTemplate>, anyhow::Error>> + '_ {
+    let vars = GetAppTemplatesFromLanguageVars {
+        language_slug: language.clone().to_string(),
+        first: page_size,
+        sort_by,
+        after: None,
+    };
+
+    futures::stream::try_unfold(
+        Some(vars),
+        move |vars: Option<types::GetAppTemplatesFromLanguageVars>| async move {
+            let vars = match vars {
+                Some(vars) => vars,
+                None => return Ok(None),
+            };
+
+            let con = client
+                .run_graphql_strict(types::GetAppTemplatesFromLanguage::build(vars.clone()))
+                .await?
+                .get_app_templates
+                .context("backend did not return any data")?;
+
+            let items = con
+                .edges
+                .into_iter()
+                .flatten()
+                .filter_map(|edge| edge.node)
+                .collect::<Vec<_>>();
+
+            let next_cursor = con
+                .page_info
+                .end_cursor
+                .filter(|_| con.page_info.has_next_page);
+
+            let next_vars = next_cursor.map(|after| types::GetAppTemplatesFromLanguageVars {
+                after: Some(after),
+                ..vars
+            });
+
+            #[allow(clippy::type_complexity)]
+            let res: Result<
+                Option<(
+                    Vec<types::AppTemplate>,
+                    Option<types::GetAppTemplatesFromLanguageVars>,
+                )>,
+                anyhow::Error,
+            > = Ok(Some((items, next_vars)));
+
+            res
+        },
+    )
+}
+
+/// Fetch languages from available app templates.
+pub async fn fetch_app_template_languages(
+    client: &WasmerClient,
+    after: Option<String>,
+    first: Option<i32>,
+) -> Result<Option<types::TemplateLanguageConnection>, anyhow::Error> {
+    client
+        .run_graphql_strict(types::GetTemplateLanguages::build(
+            GetTemplateLanguagesVars { after, first },
+        ))
+        .await
+        .map(|r| r.get_template_languages)
+}
+
+/// Fetch all languages from available app templates by paginating through the responses.
+///
+/// Will fetch at most `max` templates.
+pub fn fetch_all_app_template_languages(
+    client: &WasmerClient,
+    page_size: Option<i32>,
+) -> impl futures::Stream<Item = Result<Vec<types::TemplateLanguage>, anyhow::Error>> + '_ {
+    let vars = GetTemplateLanguagesVars {
+        after: None,
+        first: page_size,
+    };
+
+    futures::stream::try_unfold(
+        Some(vars),
+        move |vars: Option<types::GetTemplateLanguagesVars>| async move {
+            let vars = match vars {
+                Some(vars) => vars,
+                None => return Ok(None),
+            };
+
+            let con = client
+                .run_graphql_strict(types::GetTemplateLanguages::build(vars.clone()))
+                .await?
+                .get_template_languages
+                .context("backend did not return any data")?;
+
+            let items = con
+                .edges
+                .into_iter()
+                .flatten()
+                .filter_map(|edge| edge.node)
+                .collect::<Vec<_>>();
+
+            let next_cursor = con
+                .page_info
+                .end_cursor
+                .filter(|_| con.page_info.has_next_page);
+
+            let next_vars = next_cursor.map(|after| types::GetTemplateLanguagesVars {
+                after: Some(after),
+                ..vars
+            });
+
+            #[allow(clippy::type_complexity)]
+            let res: Result<
+                Option<(
+                    Vec<types::TemplateLanguage>,
+                    Option<types::GetTemplateLanguagesVars>,
+                )>,
+                anyhow::Error,
+            > = Ok(Some((items, next_vars)));
+
+            res
+        },
+    )
+}
+
+/// Fetch all app templates by paginating through the responses.
+///
+/// Will fetch at most `max` templates.
+pub fn fetch_all_app_templates_from_framework(
+    client: &WasmerClient,
+    page_size: i32,
+    sort_by: Option<types::AppTemplatesSortBy>,
+    framework: String,
+) -> impl futures::Stream<Item = Result<Vec<types::AppTemplate>, anyhow::Error>> + '_ {
+    let vars = GetAppTemplatesFromFrameworkVars {
+        framework_slug: framework.clone().to_string(),
+        first: page_size,
+        sort_by,
+        after: None,
+    };
+
+    futures::stream::try_unfold(
+        Some(vars),
+        move |vars: Option<types::GetAppTemplatesFromFrameworkVars>| async move {
+            let vars = match vars {
+                Some(vars) => vars,
+                None => return Ok(None),
+            };
+
+            let con = client
+                .run_graphql_strict(types::GetAppTemplatesFromFramework::build(vars.clone()))
+                .await?
+                .get_app_templates
+                .context("backend did not return any data")?;
+
+            let items = con
+                .edges
+                .into_iter()
+                .flatten()
+                .filter_map(|edge| edge.node)
+                .collect::<Vec<_>>();
+
+            let next_cursor = con
+                .page_info
+                .end_cursor
+                .filter(|_| con.page_info.has_next_page);
+
+            let next_vars = next_cursor.map(|after| types::GetAppTemplatesFromFrameworkVars {
+                after: Some(after),
+                ..vars
+            });
+
+            #[allow(clippy::type_complexity)]
+            let res: Result<
+                Option<(
+                    Vec<types::AppTemplate>,
+                    Option<types::GetAppTemplatesFromFrameworkVars>,
+                )>,
+                anyhow::Error,
+            > = Ok(Some((items, next_vars)));
+
+            res
+        },
+    )
+}
+
+/// Fetch frameworks from available app templates.
+pub async fn fetch_app_template_frameworks(
+    client: &WasmerClient,
+    after: Option<String>,
+    first: Option<i32>,
+) -> Result<Option<types::TemplateFrameworkConnection>, anyhow::Error> {
+    client
+        .run_graphql_strict(types::GetTemplateFrameworks::build(
+            GetTemplateFrameworksVars { after, first },
+        ))
+        .await
+        .map(|r| r.get_template_frameworks)
+}
+
+/// Fetch all frameworks from available app templates by paginating through the responses.
+///
+/// Will fetch at most `max` templates.
+pub fn fetch_all_app_template_frameworks(
+    client: &WasmerClient,
+    page_size: Option<i32>,
+) -> impl futures::Stream<Item = Result<Vec<types::TemplateFramework>, anyhow::Error>> + '_ {
+    let vars = GetTemplateFrameworksVars {
+        after: None,
+        first: page_size,
+    };
+
+    futures::stream::try_unfold(
+        Some(vars),
+        move |vars: Option<types::GetTemplateFrameworksVars>| async move {
+            let vars = match vars {
+                Some(vars) => vars,
+                None => return Ok(None),
+            };
+
+            let con = client
+                .run_graphql_strict(types::GetTemplateFrameworks::build(vars.clone()))
+                .await?
+                .get_template_frameworks
+                .context("backend did not return any data")?;
+
+            let items = con
+                .edges
+                .into_iter()
+                .flatten()
+                .filter_map(|edge| edge.node)
+                .collect::<Vec<_>>();
+
+            let next_cursor = con
+                .page_info
+                .end_cursor
+                .filter(|_| con.page_info.has_next_page);
+
+            let next_vars = next_cursor.map(|after| types::GetTemplateFrameworksVars {
+                after: Some(after),
+                ..vars
+            });
+
+            #[allow(clippy::type_complexity)]
+            let res: Result<
+                Option<(
+                    Vec<types::TemplateFramework>,
+                    Option<types::GetTemplateFrameworksVars>,
+                )>,
                 anyhow::Error,
             > = Ok(Some((items, next_vars)));
 

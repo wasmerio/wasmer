@@ -95,6 +95,7 @@ impl PackagePublish {
                 env: self.env.clone(),
                 dry_run: self.dry_run,
                 quiet: self.quiet,
+                package_name: self.package_name.clone(),
                 package_namespace: self.package_namespace.clone(),
                 timeout: self.timeout,
                 non_interactive: self.non_interactive,

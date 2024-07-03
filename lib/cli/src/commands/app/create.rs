@@ -14,7 +14,10 @@ use colored::Colorize;
 use dialoguer::{theme::ColorfulTheme, Confirm, Select};
 use futures::stream::TryStreamExt;
 use is_terminal::IsTerminal;
-use wasmer_api::{types::AppTemplate, WasmerClient};
+use wasmer_api::{
+    types::{AppTemplate, TemplateLanguage},
+    WasmerClient,
+};
 use wasmer_config::{app::AppConfigV1, package::PackageSource};
 
 use super::{deploy::CmdAppDeploy, util::login_user};
@@ -313,31 +316,12 @@ impl CmdAppCreate {
         Ok(false)
     }
 
-    /// Load cached templates from a file.
-    ///
-    /// Returns an error if the cache file is older than the max age.
-    fn load_cached_templates(
-        path: &Path,
-    ) -> Result<(Vec<AppTemplate>, std::time::Duration), anyhow::Error> {
-        let modified = path.metadata()?.modified()?;
-        let age = modified.elapsed()?;
-
-        let data = std::fs::read_to_string(path)?;
-        match serde_json::from_str::<Vec<AppTemplate>>(&data) {
-            Ok(v) => Ok((v, age)),
-            Err(err) => {
-                std::fs::remove_file(path).ok();
-                Err(err).context("could not deserialize cached file")
-            }
-        }
-    }
-
-    fn persist_template_cache(path: &Path, templates: &[AppTemplate]) -> Result<(), anyhow::Error> {
+    fn persist_in_cache<S: serde::Serialize>(path: &Path, data: &S) -> Result<(), anyhow::Error> {
         if let Some(parent) = path.parent() {
             std::fs::create_dir_all(parent).context("could not create cache dir")?;
         }
 
-        let data = serde_json::to_vec(templates)?;
+        let data = serde_json::to_vec(data)?;
 
         std::fs::write(path, data)?;
         tracing::trace!(path=%path.display(), "persisted app template cache");
@@ -351,14 +335,15 @@ impl CmdAppCreate {
     async fn fetch_templates_cached(
         client: &WasmerClient,
         cache_dir: &Path,
+        language: &str,
     ) -> Result<Vec<AppTemplate>, anyhow::Error> {
         const MAX_CACHE_AGE: Duration = Duration::from_secs(60 * 60);
         const MAX_COUNT: usize = 100;
-        const CACHE_FILENAME: &str = "app_templates.json";
+        let cache_filename = format!("app_templates_{language}.json");
 
-        let cache_path = cache_dir.join(CACHE_FILENAME);
+        let cache_path = cache_dir.join(cache_filename);
 
-        let cached_items = match Self::load_cached_templates(&cache_path) {
+        let cached_items = match Self::load_cached::<Vec<AppTemplate>>(&cache_path) {
             Ok((items, age)) => {
                 if age <= MAX_CACHE_AGE {
                     return Ok(items);
@@ -374,10 +359,96 @@ impl CmdAppCreate {
         // Either no cache present, or cache has exceeded max age.
         // Fetch the first page.
         // If first item matches, then no need to re-fetch.
-        let mut stream = Box::pin(wasmer_api::query::fetch_all_app_templates(
+        //
+        let stream = wasmer_api::query::fetch_all_app_templates_from_language(
             client,
             10,
             Some(wasmer_api::types::AppTemplatesSortBy::Newest),
+            language.to_string(),
+        );
+
+        futures_util::pin_mut!(stream);
+
+        let first_page = match stream.try_next().await? {
+            Some(items) => items,
+            None => return Ok(Vec::new()),
+        };
+
+        if let (Some(a), Some(b)) = (cached_items.first(), first_page.first()) {
+            if a == b {
+                // Cached items are up to date, no need to query more.
+                return Ok(cached_items);
+            }
+        }
+
+        let mut items = first_page;
+        while let Some(next) = stream.try_next().await? {
+            items.extend(next);
+
+            if items.len() >= MAX_COUNT {
+                break;
+            }
+        }
+
+        // Persist to cache.
+        if let Err(err) = Self::persist_in_cache(&cache_path, &items) {
+            tracing::trace!(error = &*err, "could not persist template cache");
+        }
+
+        // TODO: sort items by popularity!
+        // Since we can't rely on backend sorting because of the cache
+        // preservation logic, the backend needs to add a popluarity field.
+
+        Ok(items)
+    }
+
+    /// Load cached data from a file.
+    ///
+    /// Returns an error if the cache file is older than the max age.
+    fn load_cached<D: serde::de::DeserializeOwned>(
+        path: &Path,
+    ) -> Result<(D, std::time::Duration), anyhow::Error> {
+        let modified = path.metadata()?.modified()?;
+        let age = modified.elapsed()?;
+
+        let data = std::fs::read_to_string(path)?;
+        match serde_json::from_str::<D>(data.as_str()) {
+            Ok(v) => Ok((v, age)),
+            Err(err) => {
+                std::fs::remove_file(path).ok();
+                Err(err).context("could not deserialize cached file")
+            }
+        }
+    }
+
+    async fn fetch_template_languages_cached(
+        client: &WasmerClient,
+        cache_dir: &Path,
+    ) -> anyhow::Result<Vec<TemplateLanguage>> {
+        const MAX_CACHE_AGE: Duration = Duration::from_secs(60 * 60);
+        const MAX_COUNT: usize = 100;
+        const CACHE_FILENAME: &str = "app_languages.json";
+
+        let cache_path = cache_dir.join(CACHE_FILENAME);
+
+        let cached_items = match Self::load_cached::<Vec<TemplateLanguage>>(&cache_path) {
+            Ok((items, age)) => {
+                if age <= MAX_CACHE_AGE {
+                    return Ok(items);
+                }
+                items
+            }
+            Err(e) => {
+                tracing::trace!(error = &*e, "could not load templates from local cache");
+                Vec::new()
+            }
+        };
+        //
+        // Either no cache present, or cache has exceeded max age.
+        // Fetch the first page.
+        // If first item matches, then no need to re-fetch.
+        let mut stream = Box::pin(wasmer_api::query::fetch_all_app_template_languages(
+            client, None,
         ));
 
         let first_page = match stream.try_next().await? {
@@ -402,7 +473,7 @@ impl CmdAppCreate {
         }
 
         // Persist to cache.
-        if let Err(err) = Self::persist_template_cache(&cache_path, &items) {
+        if let Err(err) = Self::persist_in_cache(&cache_path, &items) {
             tracing::trace!(error = &*err, "could not persist template cache");
         }
 
@@ -430,29 +501,44 @@ impl CmdAppCreate {
                 anyhow::bail!("No template selected")
             }
 
-            let templates = Self::fetch_templates_cached(client, &self.env.cache_dir).await?;
-
             let theme = ColorfulTheme::default();
+            let languages =
+                Self::fetch_template_languages_cached(client, &self.env.cache_dir).await?;
+
+            let items = languages.iter().map(|t| t.name.clone()).collect::<Vec<_>>();
+
+            // Note: this should really use `dialoger::FuzzySelect`, but that
+            // breaks the formatting.
+            let dialog = dialoguer::Select::with_theme(&theme)
+                .with_prompt(format!("Select a language ({} available)", items.len()))
+                .items(&items)
+                .max_length(10)
+                .clear(true)
+                .report(true)
+                .default(0);
+
+            let selection = dialog.interact()?;
+
+            let selected_language = languages
+                .get(selection)
+                .ok_or(anyhow::anyhow!("Invalid selection!"))?;
+
+            let templates =
+                Self::fetch_templates_cached(client, &self.env.cache_dir, &selected_language.slug)
+                    .await?;
 
             let items = templates
                 .iter()
                 .map(|t| {
                     format!(
-                        "{}{}\n  {} {}",
+                        "{} - {} {}",
                         t.name.bold(),
-                        if t.language.is_empty() {
-                            String::new()
-                        } else {
-                            format!(" {}", t.language.dimmed())
-                        },
                         "demo:".bold().dimmed(),
                         t.demo_url.dimmed()
                     )
                 })
                 .collect::<Vec<_>>();
 
-            // Note: this should really use `dialoger::FuzzySelect`, but that
-            // breaks the formatting.
             let dialog = dialoguer::Select::with_theme(&theme)
                 .with_prompt(format!("Select a template ({} available)", items.len()))
                 .items(&items)
@@ -469,7 +555,7 @@ impl CmdAppCreate {
 
             if !self.quiet {
                 eprintln!(
-                    "{} {} {} {} ({} {})",
+                    "{} {} {} {} - {} {}",
                     "✔".green().bold(),
                     "Selected template".bold(),
                     "·".dimmed(),

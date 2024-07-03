@@ -105,6 +105,11 @@ impl LogFileJournal {
         Self::from_file(file)
     }
 
+    pub fn new_readonly(path: impl AsRef<Path>) -> anyhow::Result<Self> {
+        let file = std::fs::File::options().read(true).open(path)?;
+        Self::from_file(file)
+    }
+
     pub fn owned_buffer(&self) -> OwnedBuffer {
         self.rx.owned_buffer()
     }
