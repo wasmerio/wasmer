@@ -11,6 +11,8 @@ Looking for changes that affect our C API? See the [C API Changelog](lib/c-api/C
 
 ## 4.3.3 - 04/07/2024
 
+This release mainly contains fixes and refactors to help with the stability. Also some improvements to the cli and journaling.
+
 ## Added
 
   - [#4885](https://github.com/wasmerio/wasmer/pull/4885) Added another journal transaction point used for durability
