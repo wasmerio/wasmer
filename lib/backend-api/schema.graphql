@@ -16,6 +16,9 @@ interface Node {
 type PublicKey implements Node {
   """The ID of the object"""
   id: ID!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+  deletedAt: DateTime
   owner: User!
   keyId: String!
   key: String!
@@ -24,6 +27,13 @@ type PublicKey implements Node {
   verifyingSignature: Signature
   revoked: Boolean!
 }
+
+"""
+The `DateTime` scalar type represents a DateTime
+value as specified by
+[iso8601](https://en.wikipedia.org/wiki/ISO_8601).
+"""
+scalar DateTime
 
 type User implements Node & PackageOwner & Owner {
   firstName: String!
@@ -83,13 +93,6 @@ interface Owner {
   globalName: String!
   globalId: ID!
 }
-
-"""
-The `DateTime` scalar type represents a DateTime
-value as specified by
-[iso8601](https://en.wikipedia.org/wiki/ISO_8601).
-"""
-scalar DateTime
 
 type ActivityEventConnection {
   """Pagination data for this connection."""
@@ -190,6 +193,7 @@ type NamespaceEdge {
 type Namespace implements Node & PackageOwner & Owner {
   """The ID of the object"""
   id: ID!
+  deletedAt: DateTime
   name: String!
   displayName: String
   description: String!
@@ -249,6 +253,8 @@ type NamespaceCollaboratorInviteEdge {
 type NamespaceCollaboratorInvite implements Node {
   """The ID of the object"""
   id: ID!
+  updatedAt: DateTime!
+  deletedAt: DateTime
   requestedBy: User!
   user: User
   inviteEmail: String
@@ -279,6 +285,7 @@ enum RegistryNamespaceMaintainerInviteRoleChoices {
 type NamespaceCollaborator implements Node {
   """The ID of the object"""
   id: ID!
+  deletedAt: DateTime
   user: User!
   role: RegistryNamespaceMaintainerRoleChoices!
   namespace: Namespace!
@@ -344,6 +351,7 @@ type PackageEdge {
 type Package implements Likeable & Node & PackageOwner {
   """The ID of the object"""
   id: ID!
+  deletedAt: DateTime
   name: String!
   private: Boolean!
   createdAt: DateTime!
@@ -941,6 +949,7 @@ type BindingsGenerator implements Node {
   id: ID!
   createdAt: DateTime!
   updatedAt: DateTime!
+  deletedAt: DateTime
   packageVersion: PackageVersion!
   active: Boolean!
   commandName: String!
@@ -1105,6 +1114,7 @@ type PackageVersionFilesystem {
 type InterfaceVersion implements Node {
   """The ID of the object"""
   id: ID!
+  deletedAt: DateTime
   interface: Interface!
   version: String!
   content: String!
@@ -1117,6 +1127,7 @@ type InterfaceVersion implements Node {
 type Interface implements Node {
   """The ID of the object"""
   id: ID!
+  deletedAt: DateTime
   name: String!
   displayName: String!
   description: String!
@@ -1362,6 +1373,7 @@ type PackageCollaboratorEdge {
 type PackageCollaborator implements Node {
   """The ID of the object"""
   id: ID!
+  deletedAt: DateTime
   user: User!
   role: RegistryPackageMaintainerRoleChoices!
   package: Package!
@@ -1387,6 +1399,8 @@ enum RegistryPackageMaintainerRoleChoices {
 type PackageCollaboratorInvite implements Node {
   """The ID of the object"""
   id: ID!
+  updatedAt: DateTime!
+  deletedAt: DateTime
   requestedBy: User!
   user: User
   inviteEmail: String
@@ -1444,6 +1458,8 @@ enum GrapheneRole {
 type PackageTransferRequest implements Node {
   """The ID of the object"""
   id: ID!
+  updatedAt: DateTime!
+  deletedAt: DateTime
   requestedBy: User!
   previousOwnerObjectId: Int!
   newOwnerObjectId: Int!
@@ -1882,6 +1898,8 @@ type APITokenEdge {
 
 type APIToken {
   id: ID!
+  updatedAt: DateTime!
+  deletedAt: DateTime
   user: User!
   identifier: String
   createdAt: DateTime!
@@ -1998,6 +2016,8 @@ type SocialAuth implements Node {
 
 type Signature {
   id: ID!
+  updatedAt: DateTime!
+  deletedAt: DateTime
   publicKey: PublicKey!
   data: String!
   createdAt: DateTime!
@@ -3130,6 +3150,8 @@ type RequestAppTransferPayload {
 type AppTransferRequest implements Node {
   """The ID of the object"""
   id: ID!
+  updatedAt: DateTime!
+  deletedAt: DateTime
   requestedBy: User!
   previousOwnerObjectId: Int!
   newOwnerObjectId: Int!
