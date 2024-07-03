@@ -1,10 +1,10 @@
+#[cfg(not(target_family = "wasm"))]
 use std::time::Duration;
 
+use crate::GraphQLApiFailure;
 use anyhow::{bail, Context as _};
 use cynic::{http::CynicReqwestError, GraphQlResponse, Operation};
 use url::Url;
-
-use crate::GraphQLApiFailure;
 
 /// API client for the Wasmer API.
 ///
@@ -53,11 +53,18 @@ impl WasmerClient {
     }
 
     pub fn new(graphql_endpoint: Url, user_agent: &str) -> Result<Self, anyhow::Error> {
+        #[cfg(target_family = "wasm")]
+        let client = reqwest::Client::builder()
+            .build()
+            .context("could not construct http client")?;
+
+        #[cfg(not(target_family = "wasm"))]
         let client = reqwest::Client::builder()
             .connect_timeout(Duration::from_secs(10))
             .timeout(Duration::from_secs(90))
             .build()
             .context("could not construct http client")?;
+
         Self::new_with_client(client, graphql_endpoint, user_agent)
     }
 

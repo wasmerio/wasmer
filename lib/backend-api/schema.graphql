@@ -193,7 +193,6 @@ type Namespace implements Node & PackageOwner & Owner {
   name: String!
   displayName: String
   description: String!
-  avatar: String!
   avatarUpdatedAt: DateTime
   twitterHandle: String
   githubHandle: String
@@ -205,6 +204,7 @@ type Namespace implements Node & PackageOwner & Owner {
   userSet(offset: Int, before: String, after: String, first: Int, last: Int): UserConnection!
   globalName: String!
   globalId: ID!
+  avatar: String!
   packages(offset: Int, before: String, after: String, first: Int, last: Int): PackageConnection!
   apps(sortBy: DeployAppsSortBy, offset: Int, before: String, after: String, first: Int, last: Int): DeployAppConnection!
   packageVersions(offset: Int, before: String, after: String, first: Int, last: Int): PackageVersionConnection!
@@ -939,6 +939,8 @@ type BindingsGeneratorEdge {
 type BindingsGenerator implements Node {
   """The ID of the object"""
   id: ID!
+  createdAt: DateTime!
+  updatedAt: DateTime!
   packageVersion: PackageVersion!
   active: Boolean!
   commandName: String!
@@ -1235,11 +1237,13 @@ type AppTemplate implements Node {
   updatedAt: DateTime!
   readme: String!
   useCases: JSONString!
-  framework: String!
-  language: String!
   repoLicense: String!
   usingPackage: Package
   defaultImage: String
+  framework: String!
+  templateFramework: TemplateFramework
+  language: String!
+  templateLanguage: TemplateLanguage
 }
 
 type AppTemplateCategory implements Node {
@@ -1251,6 +1255,24 @@ type AppTemplateCategory implements Node {
   createdAt: DateTime!
   updatedAt: DateTime!
   appTemplates(offset: Int, before: String, after: String, first: Int, last: Int): AppTemplateConnection!
+}
+
+type TemplateFramework implements Node {
+  """The ID of the object"""
+  id: ID!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+  name: String!
+  slug: String!
+}
+
+type TemplateLanguage implements Node {
+  """The ID of the object"""
+  id: ID!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+  name: String!
+  slug: String!
 }
 
 type Collection {
@@ -1540,14 +1562,14 @@ type DNSDomainEdge {
 }
 
 type DNSDomain implements Node {
+  createdAt: DateTime!
+  updatedAt: DateTime!
+  deletedAt: DateTime
   name: String!
 
   """This zone will be accessible at /dns/{slug}/."""
   slug: String!
   zoneFile: String!
-  createdAt: DateTime!
-  updatedAt: DateTime!
-  deletedAt: DateTime
 
   """The ID of the object"""
   id: ID!
@@ -2258,7 +2280,9 @@ type Query {
   getAppByGlobalAlias(alias: String!): DeployApp
   getDeployApps(sortBy: DeployAppsSortBy, updatedAfter: DateTime, offset: Int, before: String, after: String, first: Int, last: Int): DeployAppConnection!
   getAppVersions(sortBy: DeployAppVersionsSortBy, updatedAfter: DateTime, offset: Int, before: String, after: String, first: Int, last: Int): DeployAppVersionConnection!
-  getAppTemplates(categorySlug: String, sortBy: AppTemplatesSortBy, offset: Int, before: String, after: String, first: Int, last: Int): AppTemplateConnection
+  getTemplateFrameworks(offset: Int, before: String, after: String, first: Int, last: Int): TemplateFrameworkConnection
+  getTemplateLanguages(offset: Int, before: String, after: String, first: Int, last: Int): TemplateLanguageConnection
+  getAppTemplates(categorySlug: String, frameworkSlug: String, languageSlug: String, sortBy: AppTemplatesSortBy, offset: Int, before: String, after: String, first: Int, last: Int): AppTemplateConnection
   getAppTemplate(slug: String!): AppTemplate
   getAppTemplateCategories(offset: Int, before: String, after: String, first: Int, last: Int): AppTemplateCategoryConnection
   viewer: User
@@ -2355,6 +2379,46 @@ type DNSRecordEdge {
 enum DNSRecordsSortBy {
   NEWEST
   OLDEST
+}
+
+type TemplateFrameworkConnection {
+  """Pagination data for this connection."""
+  pageInfo: PageInfo!
+
+  """Contains the nodes in this connection."""
+  edges: [TemplateFrameworkEdge]!
+
+  """Total number of items in the connection."""
+  totalCount: Int
+}
+
+"""A Relay edge containing a `TemplateFramework` and its cursor."""
+type TemplateFrameworkEdge {
+  """The item at the end of the edge"""
+  node: TemplateFramework
+
+  """A cursor for use in pagination"""
+  cursor: String!
+}
+
+type TemplateLanguageConnection {
+  """Pagination data for this connection."""
+  pageInfo: PageInfo!
+
+  """Contains the nodes in this connection."""
+  edges: [TemplateLanguageEdge]!
+
+  """Total number of items in the connection."""
+  totalCount: Int
+}
+
+"""A Relay edge containing a `TemplateLanguage` and its cursor."""
+type TemplateLanguageEdge {
+  """The item at the end of the edge"""
+  node: TemplateLanguage
+
+  """A cursor for use in pagination"""
+  cursor: String!
 }
 
 enum AppTemplatesSortBy {

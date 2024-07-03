@@ -1,9 +1,10 @@
-use std::{collections::HashSet, pin::Pin, time::Duration};
+use std::{collections::HashSet, time::Duration};
 
 use anyhow::{bail, Context};
 use cynic::{MutationBuilder, QueryBuilder};
 use edge_schema::schema::NetworkTokenV1;
-use futures::{Stream, StreamExt};
+use futures::StreamExt;
+use merge_streams::MergeStreams;
 use time::OffsetDateTime;
 use tracing::Instrument;
 use url::Url;
@@ -606,8 +607,7 @@ pub async fn user_accessible_apps(
     impl futures::Stream<Item = Result<Vec<types::DeployApp>, anyhow::Error>> + '_,
     anyhow::Error,
 > {
-    let apps: Pin<Box<dyn Stream<Item = Result<Vec<DeployApp>, anyhow::Error>> + Send + Sync>> =
-        Box::pin(user_apps(client).await);
+    let user_apps = user_apps(client).await;
 
     // Get all aps in user-accessible namespaces.
     let namespace_res = client
@@ -627,17 +627,13 @@ pub async fn user_accessible_apps(
         .map(|node| node.name.clone())
         .collect::<Vec<_>>();
 
-    let mut all_apps = vec![apps];
+    let mut ns_apps = vec![];
     for ns in namespace_names {
-        let apps: Pin<Box<dyn Stream<Item = Result<Vec<DeployApp>, anyhow::Error>> + Send + Sync>> =
-            Box::pin(namespace_apps(client, ns).await);
-
-        all_apps.push(apps);
+        let apps = namespace_apps(client, ns).await;
+        ns_apps.push(apps);
     }
 
-    let apps = futures::stream::select_all(all_apps);
-
-    Ok(apps)
+    Ok((user_apps, ns_apps.merge()).merge())
 }
 
 /// Get apps for a specific namespace.
@@ -998,11 +994,18 @@ fn get_app_logs(
 
                 if page.is_empty() {
                     if watch {
-                        /*
-                            TODO: the resolution of watch should be configurable
-                            TODO: should this be async?
-                        */
+                        /* 
+                         * [TODO]: The resolution here should be configurable. 
+                         */
+
+                        // No tokio::time::sleep on wasm32 as of now. 
+                        // Probably not ideal? 
+                        #[cfg(target_family = "wasm32")]
+                        std::thread::sleep(Duration::from_secs(1));
+
+                        #[cfg(not(target_family = "wasm32"))]
                         tokio::time::sleep(Duration::from_secs(1)).await;
+
                         continue;
                     }
 

@@ -2971,6 +2971,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "merge-streams"
+version = "0.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4f84f6452969abd246e7ac1fe4fe75906c76e8ec88d898df9aef37e0f3b6a7c2"
+dependencies = [
+ "futures-core",
+ "pin-project",
+]
+
+[[package]]
 name = "mime"
 version = "0.3.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4489,6 +4499,17 @@ name = "serde-wasm-bindgen"
 version = "0.4.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e3b4c031cd0d9014307d82b8abf653c0290fbdaeb4c02d00c63cf52f728628bf"
+dependencies = [
+ "js-sys",
+ "serde",
+ "wasm-bindgen",
+]
+
+[[package]]
+name = "serde-wasm-bindgen"
+version = "0.6.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8302e169f0eddcc139c70f139d19d6467353af16f9fce27e8c30158036a1e16b"
 dependencies = [
  "js-sys",
  "serde",
@@ -6357,7 +6378,7 @@ dependencies = [
  "rustc-demangle",
  "rusty_jsc",
  "serde",
- "serde-wasm-bindgen",
+ "serde-wasm-bindgen 0.4.5",
  "shared-buffer",
  "target-lexicon 0.12.14",
  "tempfile",
@@ -6386,10 +6407,13 @@ dependencies = [
  "cynic",
  "edge-schema 0.1.0",
  "futures 0.3.30",
+ "getrandom",
  "harsh",
+ "merge-streams",
  "pin-project-lite",
  "reqwest",
  "serde",
+ "serde-wasm-bindgen 0.6.5",
  "serde_json",
  "serde_path_to_error",
  "time 0.3.36",
@@ -6397,6 +6421,7 @@ dependencies = [
  "tracing",
  "url",
  "uuid",
+ "wasm-bindgen",
  "wasmer-config 0.4.0",
  "webc",
 ]
