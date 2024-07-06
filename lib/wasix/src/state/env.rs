@@ -355,7 +355,7 @@ pub struct WasiEnv {
     /// time that it will pause the CPU)
     pub enable_exponential_cpu_backoff: Option<Duration>,
 
-    /// Flag that indicatees if the environment is currently replaying the journal
+    /// Flag that indicates if the environment is currently replaying the journal
     /// (and hence it should not record new events)
     pub replaying_journal: bool,
 
