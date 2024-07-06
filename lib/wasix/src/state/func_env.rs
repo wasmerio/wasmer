@@ -306,6 +306,7 @@ impl WasiFunctionEnv {
             // prevent the initialization function from running
             let restore_journals = self.data(&store).runtime.journals().clone();
             if !restore_journals.is_empty() {
+                tracing::trace!("replaying journal=true");
                 self.data_mut(&mut store).replaying_journal = true;
 
                 for journal in restore_journals {
@@ -313,6 +314,7 @@ impl WasiFunctionEnv {
                     let rewind = match restore_snapshot(ctx, journal, true) {
                         Ok(r) => r,
                         Err(err) => {
+                            tracing::trace!("replaying journal=false (err={:?})", err);
                             self.data_mut(&mut store).replaying_journal = false;
                             return Err(err);
                         }
@@ -320,6 +322,7 @@ impl WasiFunctionEnv {
                     rewind_state = rewind.map(|rewind| (rewind, RewindResultType::RewindRestart));
                 }
 
+                tracing::trace!("replaying journal=false");
                 self.data_mut(&mut store).replaying_journal = false;
             }
 
