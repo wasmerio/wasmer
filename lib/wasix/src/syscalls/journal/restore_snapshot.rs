@@ -62,6 +62,13 @@ pub unsafe fn restore_snapshot(
             .map_err(anyhow_err_to_runtime_err)?;
     }
 
+    // Once we get to this point we are no longer replaying the journal
+    // and need to clear this flag, the reason is that restoring the
+    // background threads may immediately process requests while this
+    // flag is still set which would be bad
+    tracing::trace!("replaying journal=false");
+    runner.ctx.data_mut().replaying_journal = false;
+
     // Spawn all the threads
     let thread_count = runner.spawn_threads.len();
     tracing::trace!(thread_count, "restoring threads");
