@@ -4506,17 +4506,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "serde-wasm-bindgen"
-version = "0.6.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8302e169f0eddcc139c70f139d19d6467353af16f9fce27e8c30158036a1e16b"
-dependencies = [
- "js-sys",
- "serde",
- "wasm-bindgen",
-]
-
-[[package]]
 name = "serde_bytes"
 version = "0.11.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6378,7 +6367,7 @@ dependencies = [
  "rustc-demangle",
  "rusty_jsc",
  "serde",
- "serde-wasm-bindgen 0.4.5",
+ "serde-wasm-bindgen",
  "shared-buffer",
  "target-lexicon 0.12.14",
  "tempfile",
@@ -6413,7 +6402,6 @@ dependencies = [
  "pin-project-lite",
  "reqwest",
  "serde",
- "serde-wasm-bindgen 0.6.5",
  "serde_json",
  "serde_path_to_error",
  "time 0.3.36",
