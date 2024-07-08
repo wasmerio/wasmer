@@ -1,6 +1,6 @@
 [package]
 name = "wasmer-sys-utils"
-version = "0.23.0"
+version = "0.24.0"
 description = "Wasmer utilities for a sys environment."
 categories = ["wasm"]
 keywords = ["wasm", "webassembly"]

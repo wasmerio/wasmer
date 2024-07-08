@@ -32,7 +32,7 @@ wasmer-compiler-singlepass = { version = "=4.3.4", path = "../compiler-singlepas
 wasmer-emscripten = { version = "=4.3.4", path = "../emscripten", optional = true }
 wasmer-middlewares = { version = "=4.3.4", path = "../middlewares", optional = true }
 wasmer-types = { version = "=4.3.4", path = "../types" }
-wasmer-wasix = { path = "../wasix", version="=0.23.0", features = ["host-fs", "host-vnet"], optional = true }
+wasmer-wasix = { path = "../wasix", version="=0.24.0", features = ["host-fs", "host-vnet"], optional = true }
 webc = { workspace = true, optional = true }
 virtual-fs = { version = "0.14.0", path = "../virtual-fs", optional = true, default-features = false, features = ["static-fs"] }
 enumset.workspace = true

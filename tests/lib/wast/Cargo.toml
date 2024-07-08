@@ -11,8 +11,8 @@ readme = "README.md"
 edition = "2018"
 
 [dependencies]
-wasmer-types = { path = "../../../lib/types", version="=4.3.3" }
-wasmer-wasix = { path = "../../../lib/wasix", version="=0.23.0" }
+wasmer-types = { path = "../../../lib/types", version="=4.3.4" }
+wasmer-wasix = { path = "../../../lib/wasix", version="=0.24.0" }
 wasmer = { path = "../../../lib/api", version = "=4.3.4", default-features = false }
 virtual-fs = { path = "../../../lib/virtual-fs", version = "0.14.0" }
 

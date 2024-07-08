@@ -118,7 +118,7 @@ wasmer-compiler-singlepass = { version = "=4.3.4", path = "../compiler-singlepas
 wasmer-compiler-llvm = { version = "=4.3.4", path = "../compiler-llvm", optional = true }
 wasmer-emscripten = { version = "=4.3.4", path = "../emscripten" }
 wasmer-vm = { version = "=4.3.4", path = "../vm", optional = true }
-wasmer-wasix = { path = "../wasix", version = "=0.23.0", features = [
+wasmer-wasix = { path = "../wasix", version = "=0.24.0", features = [
 	"logging",
 	"webc_runner_rt_wcgi",
 	"webc_runner_rt_dcgi",
@@ -131,7 +131,7 @@ wasmer-wast = { version = "=4.3.4", path = "../../tests/lib/wast", optional = tr
 wasmer-types = { version = "=4.3.4", path = "../types", features = [
 	"enable-serde",
 ] }
-wasmer-registry = { version = "=5.15.0", path = "../registry", features = [
+wasmer-registry = { version = "=5.16.0", path = "../registry", features = [
 	"build-package",
 	"clap",
 ] }
