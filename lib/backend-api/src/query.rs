@@ -1352,10 +1352,10 @@ fn get_app_logs(
 
                         // No tokio::time::sleep on wasm32 as of now.
                         // Probably not ideal?
-                        #[cfg(target_family = "wasm32")]
+                        #[cfg(target_family = "wasm")]
                         std::thread::sleep(Duration::from_secs(1));
 
-                        #[cfg(not(target_family = "wasm32"))]
+                        #[cfg(not(target_family = "wasm"))]
                         tokio::time::sleep(Duration::from_secs(1)).await;
 
                         continue;

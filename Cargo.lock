@@ -6409,7 +6409,6 @@ dependencies = [
  "tracing",
  "url",
  "uuid",
- "wasm-bindgen",
  "wasmer-config 0.4.0",
  "webc",
 ]
