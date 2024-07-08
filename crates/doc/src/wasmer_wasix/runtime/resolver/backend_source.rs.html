@@ -1212,17 +1212,6 @@
 <a href="#1212" id="1212">1212</a>
 <a href="#1213" id="1213">1213</a>
 <a href="#1214" id="1214">1214</a>
-<a href="#1215" id="1215">1215</a>
-<a href="#1216" id="1216">1216</a>
-<a href="#1217" id="1217">1217</a>
-<a href="#1218" id="1218">1218</a>
-<a href="#1219" id="1219">1219</a>
-<a href="#1220" id="1220">1220</a>
-<a href="#1221" id="1221">1221</a>
-<a href="#1222" id="1222">1222</a>
-<a href="#1223" id="1223">1223</a>
-<a href="#1224" id="1224">1224</a>
-<a href="#1225" id="1225">1225</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{
     path::PathBuf,
     sync::Arc,
@@ -1589,14 +1578,12 @@
     <span class="kw">let </span>WebQueryGetPackageVersion {
         v2:
             WebQueryGetPackageVersionDistribution {
-                webc_version: v2_webc_version,
                 pirita_sha256_hash: v2_pirita_sha256_hash,
                 pirita_download_url: v2_pirita_download_url,
                 webc_manifest: v2_manifest,
             },
         v3:
             WebQueryGetPackageVersionDistribution {
-                webc_version: v3_webc_version,
                 pirita_sha256_hash: v3_pirita_sha256_hash,
                 pirita_download_url: v3_pirita_download_url,
                 webc_manifest: v3_manifest,
@@ -1604,17 +1591,17 @@
         ..
     } = pkg_version;
 
-    <span class="kw">let </span>(webc_version, pirita_sha256_hash, pirita_download_url, manifest) =
+    <span class="kw">let </span>(version, pirita_sha256_hash, pirita_download_url, manifest) =
         <span class="kw">if </span>preferred_webc_version == webc::Version::V3 {
             (
-                v3_webc_version,
+                webc::Version::V3,
                 v3_pirita_sha256_hash,
                 v3_pirita_download_url,
                 v3_manifest,
             )
         } <span class="kw">else </span>{
             (
-                v2_webc_version,
+                webc::Version::V2,
                 v2_pirita_sha256_hash,
                 v2_pirita_download_url,
                 v2_manifest,
@@ -1637,8 +1624,6 @@
         .context(<span class="string">&quot;Unable to deserialize the manifest&quot;</span>)<span class="question-mark">?</span>;
 
     <span class="kw">let </span>webc_sha256 = WebcHash::parse_hex(<span class="kw-2">&amp;</span>hash).context(<span class="string">&quot;invalid webc sha256 hash in manifest&quot;</span>)<span class="question-mark">?</span>;
-
-    <span class="kw">let </span>version: webc::Version = webc_version.unwrap_or_default().into();
 
     <span class="prelude-val">Ok</span>(PackageSummary {
         pkg: PackageInfo::from_manifest(id, <span class="kw-2">&amp;</span>manifest, version)<span class="question-mark">?</span>,
@@ -1930,8 +1915,6 @@
 
 <span class="attr">#[derive(Debug, serde::Serialize, serde::Deserialize, Clone)]
 </span><span class="kw">pub struct </span>WebQueryGetPackageVersionDistribution {
-    <span class="attr">#[serde(rename = <span class="string">&quot;webcVersion&quot;</span>)]
-    </span><span class="kw">pub </span>webc_version: <span class="prelude-ty">Option</span>&lt;WebCVersion&gt;,
     <span class="attr">#[serde(rename = <span class="string">&quot;piritaDownloadUrl&quot;</span>)]
     </span><span class="kw">pub </span>pirita_download_url: <span class="prelude-ty">Option</span>&lt;Url&gt;,
     <span class="attr">#[serde(rename = <span class="string">&quot;piritaSha256Hash&quot;</span>)]
@@ -2146,12 +2129,7 @@
                         name: <span class="string">&quot;wasmer-pack&quot;</span>.to_string(),
                     },],
                     entrypoint: <span class="prelude-val">Some</span>(<span class="string">&quot;wasmer-pack&quot;</span>.to_string()),
-                    filesystem: <span class="macro">vec!</span>[FileSystemMapping {
-                        volume_name: <span class="string">&quot;atom&quot;</span>.to_string(),
-                        mount_path: <span class="string">&quot;/&quot;</span>.to_string(),
-                        original_path: <span class="prelude-val">Some</span>(<span class="string">&quot;/&quot;</span>.to_string()),
-                        dependency_name: <span class="prelude-val">None</span>,
-                    }],
+                    filesystem: <span class="macro">vec!</span>[],
                 },
                 dist: DistributionInfo {
                     webc: <span class="string">&quot;https://storage.googleapis.com/wapm-registry-prod/webc/wasmer/wasmer-pack-cli/0.6.0/wasmer-pack-cli-0.6.0.webc&quot;
