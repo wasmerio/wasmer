@@ -9,6 +9,23 @@ Looking for changes that affect our C API? See the [C API Changelog](lib/c-api/C
 
 ## **Unreleased**
 
+## 4.3.4 - 08/07/2024
+
+This release contains a fix for the webc version resolution logic.
+
+## Added
+
+  - [#4914](https://github.com/wasmerio/wasmer/pull/4914) Add tests for `msync`
+
+## Changed
+
+
+## Fixed
+
+  - [#4922](https://github.com/wasmerio/wasmer/pull/4922) fix(wasix): Fix incorrect webc version mapping
+
+
+
 ## 4.3.3 - 04/07/2024
 
 This release mainly contains fixes and refactors to help with the stability. Also some improvements to the cli and journaling.
