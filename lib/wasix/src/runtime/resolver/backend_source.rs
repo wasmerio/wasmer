@@ -364,14 +364,12 @@ fn decode_summary(
     let WebQueryGetPackageVersion {
         v2:
             WebQueryGetPackageVersionDistribution {
-                webc_version: v2_webc_version,
                 pirita_sha256_hash: v2_pirita_sha256_hash,
                 pirita_download_url: v2_pirita_download_url,
                 webc_manifest: v2_manifest,
             },
         v3:
             WebQueryGetPackageVersionDistribution {
-                webc_version: v3_webc_version,
                 pirita_sha256_hash: v3_pirita_sha256_hash,
                 pirita_download_url: v3_pirita_download_url,
                 webc_manifest: v3_manifest,
@@ -379,17 +377,17 @@ fn decode_summary(
         ..
     } = pkg_version;
 
-    let (webc_version, pirita_sha256_hash, pirita_download_url, manifest) =
+    let (version, pirita_sha256_hash, pirita_download_url, manifest) =
         if preferred_webc_version == webc::Version::V3 {
             (
-                v3_webc_version,
+                webc::Version::V3,
                 v3_pirita_sha256_hash,
                 v3_pirita_download_url,
                 v3_manifest,
             )
         } else {
             (
-                v2_webc_version,
+                webc::Version::V2,
                 v2_pirita_sha256_hash,
                 v2_pirita_download_url,
                 v2_manifest,
@@ -412,8 +410,6 @@ fn decode_summary(
         .context("Unable to deserialize the manifest")?;
 
     let webc_sha256 = WebcHash::parse_hex(&hash).context("invalid webc sha256 hash in manifest")?;
-
-    let version: webc::Version = webc_version.unwrap_or_default().into();
 
     Ok(PackageSummary {
         pkg: PackageInfo::from_manifest(id, &manifest, version)?,
@@ -705,8 +701,6 @@ impl From<WebCVersion> for webc::Version {
 
 #[derive(Debug, serde::Serialize, serde::Deserialize, Clone)]
 pub struct WebQueryGetPackageVersionDistribution {
-    #[serde(rename = "webcVersion")]
-    pub webc_version: Option<WebCVersion>,
     #[serde(rename = "piritaDownloadUrl")]
     pub pirita_download_url: Option<Url>,
     #[serde(rename = "piritaSha256Hash")]
@@ -921,12 +915,7 @@ mod tests {
                         name: "wasmer-pack".to_string(),
                     },],
                     entrypoint: Some("wasmer-pack".to_string()),
-                    filesystem: vec![FileSystemMapping {
-                        volume_name: "atom".to_string(),
-                        mount_path: "/".to_string(),
-                        original_path: Some("/".to_string()),
-                        dependency_name: None,
-                    }],
+                    filesystem: vec![],
                 },
                 dist: DistributionInfo {
                     webc: "https://storage.googleapis.com/wapm-registry-prod/webc/wasmer/wasmer-pack-cli/0.6.0/wasmer-pack-cli-0.6.0.webc"
