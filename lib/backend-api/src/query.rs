@@ -1350,12 +1350,9 @@ fn get_app_logs(
                          * [TODO]: The resolution here should be configurable.
                          */
 
-                        // No tokio::time::sleep on wasm32 as of now.
-                        // Probably not ideal?
-                        #[cfg(target_family = "wasm")]
+                        #[cfg(all(target_family = "wasm", not(target = "wasm32-wasmer-wasi")))]
                         std::thread::sleep(Duration::from_secs(1));
-
-                        #[cfg(not(target_family = "wasm"))]
+                        #[cfg(any(not(target_family = "wasm"), target = "wasm32-wasmer-wasi"))]
                         tokio::time::sleep(Duration::from_secs(1)).await;
 
                         continue;
