@@ -1350,9 +1350,10 @@ fn get_app_logs(
                          * [TODO]: The resolution here should be configurable.
                          */
 
-                        #[cfg(all(target_family = "wasm", not(target = "wasm32-wasmer-wasi")))]
+                        #[cfg(all(target_arch = "wasm32", target_os = "unknown"))]
                         std::thread::sleep(Duration::from_secs(1));
-                        #[cfg(any(not(target_family = "wasm"), target = "wasm32-wasmer-wasi"))]
+
+                        #[cfg(not(all(target_arch = "wasm32", target_os = "unknown")))]
                         tokio::time::sleep(Duration::from_secs(1)).await;
 
                         continue;

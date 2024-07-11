@@ -53,12 +53,12 @@ impl WasmerClient {
     }
 
     pub fn new(graphql_endpoint: Url, user_agent: &str) -> Result<Self, anyhow::Error> {
-        #[cfg(all(target_family = "wasm", not(target = "wasm32-wasmer-wasi")))]
+        #[cfg(all(target_arch = "wasm32", target_os = "unknown"))]
         let client = reqwest::Client::builder()
             .build()
             .context("could not construct http client")?;
 
-        #[cfg(any(not(target_family = "wasm"), target = "wasm32-wasmer-wasi"))]
+        #[cfg(not(all(target_arch = "wasm32", target_os = "unknown")))]
         let client = reqwest::Client::builder()
             .connect_timeout(Duration::from_secs(10))
             .timeout(Duration::from_secs(90))
