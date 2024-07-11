@@ -102,7 +102,7 @@ web-sys = { version = "0.3.64", features = [
 ], optional = true }
 ahash = "0.8.11"
 hyper-util = { version = "0.1.5", features = ["server", "server-graceful", "tokio", "service", "client"], optional = true }
-http-body-util = "0.1.1"
+http-body-util = { version="0.1.1", optional = true }
 
 [target.'cfg(not(target_arch = "riscv64"))'.dependencies.reqwest]
 workspace = true
@@ -149,9 +149,9 @@ default = ["sys-default"]
 time = ["tokio/time"]
 ctrlc = ["tokio/signal"]
 
-webc_runner_rt_wcgi = ["hyper", "hyper-util", "wcgi", "wcgi-host", "tower", "tower-http"]
+webc_runner_rt_wcgi = ["hyper", "hyper-util", "http-body-util", "wcgi", "wcgi-host", "tower", "tower-http"]
 webc_runner_rt_dcgi = ["webc_runner_rt_wcgi", "journal"]
-webc_runner_rt_dproxy = ["hyper", "hyper-util", "tower", "tower-http", "journal"]
+webc_runner_rt_dproxy = ["hyper", "hyper-util", "http-body-util", "tower", "tower-http", "journal"]
 webc_runner_rt_emscripten = ["wasmer-emscripten"]
 
 sys = ["webc/mmap", "time", "virtual-mio/sys"]

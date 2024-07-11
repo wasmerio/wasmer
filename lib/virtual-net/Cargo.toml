@@ -33,7 +33,7 @@ hyper = { workspace = true, optional = true }
 tokio-tungstenite = { version = "0.21", optional = true }
 rkyv = { workspace = true, optional = true }
 bytecheck = { version = "0.6.8", optional = true }
-hyper-util = { version = "0.1.5", features = ["tokio"] }
+hyper-util = { version = "0.1.5", features = ["tokio"], optional = true }
 
 [dependencies.smoltcp]
 version = "0.8"
@@ -52,7 +52,7 @@ remote = [ "libc", "tokio/io-util", "tokio/sync", "tokio-serde", "tokio-util" ]
 json = [ "tokio-serde/json" ]
 messagepack = [ "tokio-serde/messagepack" ]
 cbor = [ "tokio-serde/cbor" ]
-hyper = [ "hyper-tungstenite", "dep:hyper" ]
+hyper = [ "hyper-tungstenite", "hyper-util", "dep:hyper" ]
 tokio-tungstenite = [ "dep:tokio-tungstenite" ]
 rkyv = [ "dep:rkyv", "dep:bytecheck" ]
 
