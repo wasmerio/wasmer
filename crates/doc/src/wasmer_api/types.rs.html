@@ -1849,7 +1849,7 @@
         <span class="kw">pub </span>viewer: <span class="prelude-ty">Option</span>&lt;UserWithNamespaces&gt;,
     }
 
-    <span class="attr">#[derive(cynic::QueryFragment, Debug)]
+    <span class="attr">#[derive(cynic::QueryFragment, Debug, serde::Serialize)]
     </span><span class="kw">pub struct </span>User {
         <span class="kw">pub </span>id: cynic::Id,
         <span class="kw">pub </span>username: String,

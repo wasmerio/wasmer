@@ -207,13 +207,20 @@
 <a href="#207" id="207">207</a>
 <a href="#208" id="208">208</a>
 <a href="#209" id="209">209</a>
-</pre></div><pre class="rust"><code><span class="kw">use </span>std::time::Duration;
+<a href="#210" id="210">210</a>
+<a href="#211" id="211">211</a>
+<a href="#212" id="212">212</a>
+<a href="#213" id="213">213</a>
+<a href="#214" id="214">214</a>
+<a href="#215" id="215">215</a>
+<a href="#216" id="216">216</a>
+</pre></div><pre class="rust"><code><span class="attr">#[cfg(not(target_family = <span class="string">&quot;wasm&quot;</span>))]
+</span><span class="kw">use </span>std::time::Duration;
 
+<span class="kw">use </span><span class="kw">crate</span>::GraphQLApiFailure;
 <span class="kw">use </span>anyhow::{bail, Context <span class="kw">as _</span>};
 <span class="kw">use </span>cynic::{http::CynicReqwestError, GraphQlResponse, Operation};
 <span class="kw">use </span>url::Url;
-
-<span class="kw">use </span><span class="kw">crate</span>::GraphQLApiFailure;
 
 <span class="doccomment">/// API client for the Wasmer API.
 ///
@@ -262,11 +269,18 @@
     }
 
     <span class="kw">pub fn </span>new(graphql_endpoint: Url, user_agent: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, anyhow::Error&gt; {
-        <span class="kw">let </span>client = reqwest::Client::builder()
+        <span class="attr">#[cfg(all(target_arch = <span class="string">&quot;wasm32&quot;</span>, target_os = <span class="string">&quot;unknown&quot;</span>))]
+        </span><span class="kw">let </span>client = reqwest::Client::builder()
+            .build()
+            .context(<span class="string">&quot;could not construct http client&quot;</span>)<span class="question-mark">?</span>;
+
+        <span class="attr">#[cfg(not(all(target_arch = <span class="string">&quot;wasm32&quot;</span>, target_os = <span class="string">&quot;unknown&quot;</span>)))]
+        </span><span class="kw">let </span>client = reqwest::Client::builder()
             .connect_timeout(Duration::from_secs(<span class="number">10</span>))
             .timeout(Duration::from_secs(<span class="number">90</span>))
             .build()
             .context(<span class="string">&quot;could not construct http client&quot;</span>)<span class="question-mark">?</span>;
+
         <span class="self">Self</span>::new_with_client(client, graphql_endpoint, user_agent)
     }
 
