@@ -211,8 +211,8 @@ impl Compiler for SinglepassCompiler {
             .values()
             .collect::<Vec<_>>()
             .into_par_iter_if_rayon()
-            .map(|func_type| gen_std_trampoline(func_type, target, calling_convention).unwrap())
-            .collect::<Vec<_>>()
+            .map(|func_type| gen_std_trampoline(func_type, target, calling_convention))
+            .collect::<Result<Vec<_>, _>>()?
             .into_iter()
             .collect::<PrimaryMap<_, _>>();
 
@@ -227,9 +227,8 @@ impl Compiler for SinglepassCompiler {
                     target,
                     calling_convention,
                 )
-                .unwrap()
             })
-            .collect::<Vec<_>>()
+            .collect::<Result<Vec<_>, _>>()?
             .into_iter()
             .collect::<PrimaryMap<FunctionIndex, FunctionBody>>();
 
