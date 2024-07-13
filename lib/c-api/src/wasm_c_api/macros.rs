@@ -68,6 +68,18 @@ void example(", $c_ty, " x, ", $c_ty, " y) {
                 }
             }
 
+            pub fn as_slice_mut(&mut self) -> &mut [$elem_ty] {
+                // Note that we're careful to not create a slice with a null
+                // pointer as the data pointer, since that isn't defined
+                // behavior in Rust.
+                if self.size == 0 {
+                    &mut []
+                } else {
+                    assert!(!self.data.is_null());
+                    unsafe { std::slice::from_raw_parts_mut(self.data, self.size) }
+                }
+            }
+
             pub fn as_uninit_slice(&mut self) -> &mut [std::mem::MaybeUninit<$elem_ty>] {
                 // Note that we're careful to not create a slice with a null
                 // pointer as the data pointer, since that isn't defined

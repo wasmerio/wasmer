@@ -248,8 +248,15 @@ pub extern "C" fn wasm_config_set_engine(config: &mut wasm_config_t, engine: was
 ///
 /// cbindgen:ignore
 #[repr(C)]
+#[allow(non_camel_case_types)]
 pub struct wasm_engine_t {
     pub(crate) inner: Engine,
+}
+
+impl From<Engine> for wasm_engine_t {
+    fn from(value: Engine) -> Self {
+        Self { inner: value }
+    }
 }
 
 #[cfg(feature = "compiler")]

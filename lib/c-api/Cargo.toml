@@ -19,7 +19,7 @@ version.workspace = true
 # a conflict with the existing `wasmer` crate, see below.
 name = "wasmer" # ##lib.name##
                 # ^ DO NOT REMOVE, it's used the `Makefile`, see `build-docs-capi`.
-crate-type = ["staticlib", "cdylib"] #"cdylib", "rlib", "staticlib"]
+crate-type = ["cdylib", "rlib", "staticlib"]
 
 [dependencies]
 # We rename `wasmer` to `wasmer-api` to avoid the conflict with this
@@ -51,6 +51,7 @@ tracing-subscriber = { version = "0.3", features = [
 
 [dev-dependencies]
 field-offset = "0.3.3"
+wat = { version = "=1.0.71" }
 
 [target.'cfg(target_os = "windows")'.dev-dependencies]
 wasmer-inline-c = "0.1.1"
@@ -112,3 +113,4 @@ jit = ["compiler"]
 
 [build-dependencies]
 cbindgen = { version = "0.24", default-features = false }
+

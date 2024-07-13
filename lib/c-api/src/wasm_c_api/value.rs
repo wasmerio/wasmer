@@ -76,6 +76,15 @@ pub struct wasm_val_t {
     pub of: wasm_val_inner,
 }
 
+impl From<i32> for wasm_val_t {
+    fn from(value: i32) -> Self {
+        Self {
+            kind: wasm_valkind_enum::WASM_I32 as u8,
+            of: wasm_val_inner { int32_t: value },
+        }
+    }
+}
+
 impl std::fmt::Debug for wasm_val_t {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         let mut ds = f.debug_struct("wasm_val_t");

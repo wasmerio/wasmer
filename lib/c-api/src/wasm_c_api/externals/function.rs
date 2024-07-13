@@ -8,7 +8,8 @@ use libc::c_void;
 use std::convert::TryInto;
 use std::mem::MaybeUninit;
 use std::sync::{Arc, Mutex};
-use wasmer_api::{Extern, Function, FunctionEnv, FunctionEnvMut, RuntimeError, Value};
+use wasmer_api::{Extern, Function, FunctionEnv, FunctionEnvMut, RuntimeError, StoreMut, Value};
+use wasmer_types::FunctionType;
 
 #[derive(Clone)]
 #[allow(non_camel_case_types)]
@@ -42,22 +43,18 @@ pub type wasm_func_callback_with_env_t = unsafe extern "C" fn(
 #[allow(non_camel_case_types)]
 pub type wasm_env_finalizer_t = unsafe extern "C" fn(*mut c_void);
 
-#[no_mangle]
-pub unsafe extern "C" fn wasm_func_new(
-    store: Option<&mut wasm_store_t>,
-    function_type: Option<&wasm_functype_t>,
-    callback: Option<wasm_func_callback_t>,
-) -> Option<Box<wasm_func_t>> {
-    let function_type = function_type?;
-    let callback = callback?;
-    let store = store?;
-    let mut store_mut = store.inner.store_mut();
-
-    let func_sig = &function_type.inner().function_type;
+pub fn wasm_func_new_impl(
+    mut store: StoreMut<'_>,
+    function_type: &FunctionType,
+    callback: wasm_func_callback_t,
+) -> Function {
+    let func_sig = function_type;
     let num_rets = func_sig.results().len();
-    let inner_callback = move |mut _env: FunctionEnvMut<'_, FunctionCEnv>,
-                               args: &[Value]|
-          -> Result<Vec<Value>, RuntimeError> {
+
+    let inner_callback = move |args: &[Value]| -> Result<Vec<Value>, RuntimeError> {
+        // panic!("C CALLBACK WRAPPER!");
+        dbg!("C CALLBACK WRAPPER!");
+
         let processed_args: wasm_val_vec_t = args
             .iter()
             .map(TryInto::try_into)
@@ -74,7 +71,7 @@ pub unsafe extern "C" fn wasm_func_new(
         ]
         .into();
 
-        let trap = callback(&processed_args, &mut results);
+        let trap = unsafe { callback(&processed_args, &mut results) };
 
         if let Some(trap) = trap {
             return Err(trap.inner);
@@ -89,8 +86,26 @@ pub unsafe extern "C" fn wasm_func_new(
 
         Ok(processed_results)
     };
-    let env = FunctionEnv::new(&mut store_mut, FunctionCEnv::default());
-    let function = Function::new_with_env(&mut store_mut, &env, func_sig, inner_callback);
+    // let env = FunctionEnv::new(&mut store, FunctionCEnv::default());
+    // Function::new_with_env(&mut store, &env, func_sig, inner_callback)
+    Function::new(&mut store, func_sig, inner_callback)
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn wasm_func_new(
+    store: Option<&mut wasm_store_t>,
+    function_type: Option<&wasm_functype_t>,
+    callback: Option<wasm_func_callback_t>,
+) -> Option<Box<wasm_func_t>> {
+    let function_type = function_type?;
+    let callback = callback?;
+    let store = store?;
+    let mut store_mut = store.inner.store_mut();
+
+    let func_sig = &function_type.inner().function_type;
+
+    let function = wasm_func_new_impl(store_mut, func_sig, callback);
+
     Some(Box::new(wasm_func_t {
         extern_: wasm_extern_t::new(store.inner.clone(), function.into()),
     }))

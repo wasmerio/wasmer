@@ -6482,6 +6482,7 @@ dependencies = [
  "wasmer-middlewares",
  "wasmer-types",
  "wasmer-wasix",
+ "wat",
  "webc",
 ]
 

@@ -10,6 +10,12 @@ pub struct wasm_module_t {
     pub(crate) inner: Module,
 }
 
+impl From<Module> for wasm_module_t {
+    fn from(value: Module) -> Self {
+        Self { inner: value }
+    }
+}
+
 /// A WebAssembly module contains stateless WebAssembly code that has
 /// already been compiled and can be instantiated multiple times.
 ///
