@@ -129,9 +129,8 @@ impl Compiler for SinglepassCompiler {
                     target,
                     calling_convention,
                 )
-                .unwrap()
             })
-            .collect::<Vec<_>>()
+            .collect::<Result<Vec<_>, _>>()?
             .into_iter()
             .collect();
         let (functions, fdes): (Vec<CompiledFunction>, Vec<_>) = function_body_inputs
