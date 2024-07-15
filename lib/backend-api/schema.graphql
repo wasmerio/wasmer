@@ -197,7 +197,6 @@ type Namespace implements Node & PackageOwner & Owner {
   name: String!
   displayName: String
   description: String!
-  avatar: String!
   avatarUpdatedAt: DateTime
   twitterHandle: String
   githubHandle: String
@@ -209,6 +208,7 @@ type Namespace implements Node & PackageOwner & Owner {
   userSet(offset: Int, before: String, after: String, first: Int, last: Int): UserConnection!
   globalName: String!
   globalId: ID!
+  avatar: String!
   packages(offset: Int, before: String, after: String, first: Int, last: Int): PackageConnection!
   apps(sortBy: DeployAppsSortBy, offset: Int, before: String, after: String, first: Int, last: Int): DeployAppConnection!
   packageVersions(offset: Int, before: String, after: String, first: Int, last: Int): PackageVersionConnection!
