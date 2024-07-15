@@ -48,8 +48,9 @@ impl From<VMFunction> for Function {
     }
 }
 
-pub(crate) struct FunctionCallbackEnv<'a, T> {
+pub(crate) struct FunctionCallbackEnv<'a, F, T> {
     store: Option<StoreMut<'a>>,
+    func: F,
     env: Option<FunctionEnvMut<'a, T>>,
 }
 
@@ -200,9 +201,10 @@ impl Function {
             *mut wasm_val_vec_t,
         ) -> *mut wasm_trap_t = unsafe { std::mem::transmute(func.function_callback()) };
 
-        let mut callback_env: *mut FunctionCallbackEnv<'_, ()> =
+        let mut callback_env: *mut FunctionCallbackEnv<'_, F, ()> =
             Box::into_raw(Box::new(FunctionCallbackEnv {
                 store: Some(store.as_store_mut()),
+                func: func,
                 env: None,
             }));
 
@@ -285,9 +287,10 @@ impl Function {
         ) -> *mut wasm_trap_t = unsafe { std::mem::transmute(func.function_callback()) };
 
         let env = env.clone().into_mut(&mut store);
-        let mut callback_env: *mut FunctionCallbackEnv<'_, T> =
+        let mut callback_env: *mut FunctionCallbackEnv<'_, F, T> =
             Box::into_raw(Box::new(FunctionCallbackEnv {
                 store: None,
+                func,
                 env: Some(env),
             }));
 
@@ -535,7 +538,7 @@ macro_rules! impl_host_function {
                         T: Send + 'static,
                         Func: Fn(FunctionEnvMut<'_, T>, $( $x , )*) -> RetsAsResult + 'static,
                     {
-                        let mut env : *mut FunctionCallbackEnv<T> = unsafe {std::mem::transmute(env)};
+                        let mut env : *mut FunctionCallbackEnv<Func, T> = unsafe {std::mem::transmute(env)};
                         let mut fn_env: FunctionEnvMut<T> = (*env).env.as_mut().unwrap().as_mut();
                         let (_,  store) = &mut fn_env.data_and_store_mut();
                             // (*env).env.unwrap().get_mut();
@@ -552,8 +555,7 @@ macro_rules! impl_host_function {
                         )*
 
                         let result = panic::catch_unwind(AssertUnwindSafe(|| unsafe {
-                            let func: &Func = &*(&() as *const () as *const Func);
-                            func(fn_env, $( $x, )* ).into_result()
+                            ((*env).func)(fn_env, $( $x, )* ).into_result()
                         }));
 
 
@@ -629,7 +631,7 @@ macro_rules! impl_host_function {
                         RetsAsResult: IntoResult<Rets>,
                         Func: Fn($( $x , )*) -> RetsAsResult + 'static,
                     {
-                        let mut env : *mut FunctionCallbackEnv<()> = unsafe {std::mem::transmute(env)};
+                        let mut env : *mut FunctionCallbackEnv<Func, ()> = unsafe {std::mem::transmute(env)};
                         let store = &mut (*env).store.as_mut().unwrap().as_store_mut();
                         let mut i = 0;
 
@@ -643,8 +645,7 @@ macro_rules! impl_host_function {
                         )*
 
                         let result = panic::catch_unwind(AssertUnwindSafe(|| unsafe {
-                            let func: &Func = &*(&() as *const () as *const Func);
-                            func( $( $x, )* ).into_result()
+                            ((*env).func)( $( $x, )* ).into_result()
                         }));
 
                         match result {
