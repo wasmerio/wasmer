@@ -265,7 +265,7 @@ impl CmdAppCreate {
         if self.use_local_manifest || ask_confirmation()? {
             let app_config = self.get_app_config(owner, app_name, ".");
             write_app_config(&app_config, self.app_dir_path.clone()).await?;
-            self.try_deploy(owner, app_name).await?;
+            self.try_deploy(owner, app_name, None).await?;
             return Ok(true);
         }
 
@@ -287,7 +287,7 @@ impl CmdAppCreate {
         if let Some(pkg) = &self.package {
             let app_config = self.get_app_config(owner, app_name, pkg);
             write_app_config(&app_config, Some(output_path.clone())).await?;
-            self.try_deploy(owner, app_name).await?;
+            self.try_deploy(owner, app_name, Some(&output_path)).await?;
             return Ok(true);
         } else if !self.non_interactive {
             let (package_id, _) = crate::utils::prompts::prompt_for_package(
@@ -303,8 +303,8 @@ impl CmdAppCreate {
             .await?;
 
             let app_config = self.get_app_config(owner, app_name, &package_id.to_string());
-            write_app_config(&app_config, Some(output_path)).await?;
-            self.try_deploy(owner, app_name).await?;
+            write_app_config(&app_config, Some(output_path.clone())).await?;
+            self.try_deploy(owner, app_name, Some(&output_path)).await?;
             return Ok(true);
         } else {
             eprintln!(
@@ -705,13 +705,18 @@ the app:\n"
                 format!("{bin_name} deploy").bold()
             )
         } else {
-            self.try_deploy(owner, app_name).await?;
+            self.try_deploy(owner, app_name, Some(&output_path)).await?;
         }
 
         Ok(true)
     }
 
-    async fn try_deploy(&self, owner: &str, app_name: &str) -> anyhow::Result<()> {
+    async fn try_deploy(
+        &self,
+        owner: &str,
+        app_name: &str,
+        path: Option<&Path>,
+    ) -> anyhow::Result<()> {
         let interactive = !self.non_interactive;
         let theme = dialoguer::theme::ColorfulTheme::default();
 
@@ -732,7 +737,7 @@ the app:\n"
                 non_interactive: self.non_interactive,
                 publish_package: true,
                 dir: self.app_dir_path.clone(),
-                path: None,
+                path: path.map(|v| v.to_path_buf()),
                 no_wait: self.no_wait,
                 no_default: false,
                 no_persist_id: false,
