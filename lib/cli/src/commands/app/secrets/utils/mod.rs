@@ -24,7 +24,7 @@ pub(super) async fn get_secret_by_name(
     app_id: &str,
     secret_name: &str,
 ) -> anyhow::Result<Option<BackendSecret>> {
-    Ok(wasmer_api::query::get_app_secret_by_name(client, app_id, secret_name).await?)
+    wasmer_api::query::get_app_secret_by_name(client, app_id, secret_name).await
 }
 pub(crate) async fn get_secrets(
     client: &WasmerClient,

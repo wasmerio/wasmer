@@ -57,7 +57,10 @@ impl CliRender for BackendSecretWrapper {
             .to_string();
         table.add_rows([
             vec!["Name".to_string(), name.to_string()],
-            vec!["Last updated".to_string(), format!("{last_updated} ago").dimmed().to_string()],
+            vec![
+                "Last updated".to_string(),
+                format!("{last_updated} ago").dimmed().to_string(),
+            ],
         ]);
         table.to_string()
     }

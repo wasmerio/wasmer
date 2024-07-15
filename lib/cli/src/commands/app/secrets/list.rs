@@ -1,7 +1,7 @@
 use super::utils::{get_secrets, BackendSecretWrapper};
 use crate::{
     commands::{
-        app::util::{prompt_app_ident, AppIdent, get_app_config_from_dir},
+        app::util::{get_app_config_from_dir, prompt_app_ident, AppIdent},
         AsyncCliCommand,
     },
     opts::{ApiOpts, ListFormatOpts, WasmerEnv},
@@ -59,7 +59,7 @@ impl CmdAppSecretsList {
 
             if let Some(id) = &app.app_id {
                 if !self.quiet {
-if let Some(owner) = &app.owner {
+                    if let Some(owner) = &app.owner {
                         eprintln!(
                             "Managing secrets related to app {} ({owner}).",
                             app.name.bold()
@@ -67,7 +67,6 @@ if let Some(owner) = &app.owner {
                     } else {
                         eprintln!("Managing secrets related to app {}.", app.name.bold());
                     }
-
                 }
                 return Ok(id.clone());
             }
