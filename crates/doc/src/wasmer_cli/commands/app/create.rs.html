@@ -814,6 +814,11 @@
 <a href="#814" id="814">814</a>
 <a href="#815" id="815">815</a>
 <a href="#816" id="816">816</a>
+<a href="#817" id="817">817</a>
+<a href="#818" id="818">818</a>
+<a href="#819" id="819">819</a>
+<a href="#820" id="820">820</a>
+<a href="#821" id="821">821</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Create a new Edge app.
 
 </span><span class="kw">use </span>std::{
@@ -1081,7 +1086,7 @@
         <span class="kw">if </span><span class="self">self</span>.use_local_manifest || ask_confirmation()<span class="question-mark">? </span>{
             <span class="kw">let </span>app_config = <span class="self">self</span>.get_app_config(owner, app_name, <span class="string">&quot;.&quot;</span>);
             write_app_config(<span class="kw-2">&amp;</span>app_config, <span class="self">self</span>.app_dir_path.clone()).<span class="kw">await</span><span class="question-mark">?</span>;
-            <span class="self">self</span>.try_deploy(owner, app_name).<span class="kw">await</span><span class="question-mark">?</span>;
+            <span class="self">self</span>.try_deploy(owner, app_name, <span class="prelude-val">None</span>).<span class="kw">await</span><span class="question-mark">?</span>;
             <span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="bool-val">true</span>);
         }
 
@@ -1103,7 +1108,7 @@
         <span class="kw">if let </span><span class="prelude-val">Some</span>(pkg) = <span class="kw-2">&amp;</span><span class="self">self</span>.package {
             <span class="kw">let </span>app_config = <span class="self">self</span>.get_app_config(owner, app_name, pkg);
             write_app_config(<span class="kw-2">&amp;</span>app_config, <span class="prelude-val">Some</span>(output_path.clone())).<span class="kw">await</span><span class="question-mark">?</span>;
-            <span class="self">self</span>.try_deploy(owner, app_name).<span class="kw">await</span><span class="question-mark">?</span>;
+            <span class="self">self</span>.try_deploy(owner, app_name, <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span>output_path)).<span class="kw">await</span><span class="question-mark">?</span>;
             <span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="bool-val">true</span>);
         } <span class="kw">else if </span>!<span class="self">self</span>.non_interactive {
             <span class="kw">let </span>(package_id, <span class="kw">_</span>) = <span class="kw">crate</span>::utils::prompts::prompt_for_package(
@@ -1119,8 +1124,8 @@
             .<span class="kw">await</span><span class="question-mark">?</span>;
 
             <span class="kw">let </span>app_config = <span class="self">self</span>.get_app_config(owner, app_name, <span class="kw-2">&amp;</span>package_id.to_string());
-            write_app_config(<span class="kw-2">&amp;</span>app_config, <span class="prelude-val">Some</span>(output_path)).<span class="kw">await</span><span class="question-mark">?</span>;
-            <span class="self">self</span>.try_deploy(owner, app_name).<span class="kw">await</span><span class="question-mark">?</span>;
+            write_app_config(<span class="kw-2">&amp;</span>app_config, <span class="prelude-val">Some</span>(output_path.clone())).<span class="kw">await</span><span class="question-mark">?</span>;
+            <span class="self">self</span>.try_deploy(owner, app_name, <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span>output_path)).<span class="kw">await</span><span class="question-mark">?</span>;
             <span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="bool-val">true</span>);
         } <span class="kw">else </span>{
             <span class="macro">eprintln!</span>(
@@ -1521,13 +1526,18 @@ the app:\n&quot;
                 <span class="macro">format!</span>(<span class="string">&quot;{bin_name} deploy&quot;</span>).bold()
             )
         } <span class="kw">else </span>{
-            <span class="self">self</span>.try_deploy(owner, app_name).<span class="kw">await</span><span class="question-mark">?</span>;
+            <span class="self">self</span>.try_deploy(owner, app_name, <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span>output_path)).<span class="kw">await</span><span class="question-mark">?</span>;
         }
 
         <span class="prelude-val">Ok</span>(<span class="bool-val">true</span>)
     }
 
-    <span class="kw">async fn </span>try_deploy(<span class="kw-2">&amp;</span><span class="self">self</span>, owner: <span class="kw-2">&amp;</span>str, app_name: <span class="kw-2">&amp;</span>str) -&gt; anyhow::Result&lt;()&gt; {
+    <span class="kw">async fn </span>try_deploy(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        owner: <span class="kw-2">&amp;</span>str,
+        app_name: <span class="kw-2">&amp;</span>str,
+        path: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>Path&gt;,
+    ) -&gt; anyhow::Result&lt;()&gt; {
         <span class="kw">let </span>interactive = !<span class="self">self</span>.non_interactive;
         <span class="kw">let </span>theme = dialoguer::theme::ColorfulTheme::default();
 
@@ -1548,7 +1558,7 @@ the app:\n&quot;
                 non_interactive: <span class="self">self</span>.non_interactive,
                 publish_package: <span class="bool-val">true</span>,
                 dir: <span class="self">self</span>.app_dir_path.clone(),
-                path: <span class="prelude-val">None</span>,
+                path: path.map(|v| v.to_path_buf()),
                 no_wait: <span class="self">self</span>.no_wait,
                 no_default: <span class="bool-val">false</span>,
                 no_persist_id: <span class="bool-val">false</span>,
