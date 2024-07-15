@@ -1,5 +1,6 @@
 use super::{BackendSecretWrapper, Secret};
 use crate::utils::render::CliRender;
+use colored::Colorize;
 use comfy_table::{Cell, Table};
 use time::OffsetDateTime;
 use wasmer_api::types::{DateTime, Secret as BackendSecret};
@@ -56,7 +57,7 @@ impl CliRender for BackendSecretWrapper {
             .to_string();
         table.add_rows([
             vec!["Name".to_string(), name.to_string()],
-            vec!["Last updated".to_string(), format!("{last_updated} ago")],
+            vec!["Last updated".to_string(), format!("{last_updated} ago").dimmed().to_string()],
         ]);
         table.to_string()
     }
@@ -79,7 +80,7 @@ impl CliRender for BackendSecretWrapper {
                 .to_string();
             vec![
                 Cell::new(s.0.name.clone()),
-                Cell::new(format!("{last_updated} ago")),
+                Cell::new(format!("{last_updated} ago").dimmed().to_string()),
             ]
         }));
         table.to_string()

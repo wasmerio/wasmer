@@ -1,16 +1,17 @@
 use super::utils;
 use crate::{
     commands::{
-        app::util::{get_app_id_from_config, AppIdent, prompt_app_ident},
+        app::util::{get_app_config_from_dir, prompt_app_ident, AppIdent},
         AsyncCliCommand,
     },
     opts::{ApiOpts, ListFormatOpts, WasmerEnv},
     utils::render::{ItemFormat, ListFormat},
 };
+use colored::Colorize;
 use dialoguer::theme::ColorfulTheme;
 use is_terminal::IsTerminal;
-use wasmer_api::WasmerClient;
 use std::{env::current_dir, path::PathBuf};
+use wasmer_api::WasmerClient;
 
 /// Reveal the value of an existing secret related to an Edge app.
 #[derive(clap::Parser, Debug)]
@@ -63,8 +64,22 @@ impl CmdAppSecretsReveal {
             current_dir()?
         };
 
-        if let Ok(Some(app_id)) = get_app_id_from_config(&app_dir_path).await {
-            return Ok(app_id.clone());
+        if let Ok(r) = get_app_config_from_dir(&app_dir_path) {
+            let (app, _) = r;
+
+            if let Some(id) = &app.app_id {
+                if !self.quiet {
+                    if let Some(owner) = &app.owner {
+                        eprintln!(
+                            "Managing secrets related to app {} ({owner}).",
+                            app.name.bold()
+                        );
+                    } else {
+                        eprintln!("Managing secrets related to app {}.", app.name.bold());
+                    }
+                }
+                return Ok(id.clone());
+            }
         }
 
         if self.non_interactive {
@@ -72,7 +87,7 @@ impl CmdAppSecretsReveal {
         } else {
             let id = prompt_app_ident("Enter the name of the app")?;
             let app = id.resolve(client).await?;
-            return Ok(app.id.into_inner());
+            Ok(app.id.into_inner())
         }
     }
 

@@ -1,7 +1,7 @@
 use super::utils::Secret;
 use crate::{
     commands::{
-        app::util::{get_app_id_from_config, prompt_app_ident, AppIdent},
+        app::util::{get_app_config_from_dir, prompt_app_ident, AppIdent},
         AsyncCliCommand,
     },
     opts::{ApiOpts, WasmerEnv},
@@ -20,9 +20,6 @@ use wasmer_api::WasmerClient;
 /// Create a new secret related to an Edge app.
 #[derive(clap::Parser, Debug)]
 pub struct CmdAppSecretsCreate {
-    /// The identifier of the app the secret is related to.
-    pub app_id: Option<AppIdent>,
-
     /// The path to the directory where the config file for the application will be written to.
     #[clap(long = "app-dir", conflicts_with = "app-id")]
     pub app_dir_path: Option<PathBuf>,
@@ -34,6 +31,9 @@ pub struct CmdAppSecretsCreate {
     /// The value of the secret to create.
     #[clap(name = "value")]
     pub secret_value: Option<String>,
+
+    /// The identifier of the app the secret is related to.
+    pub app_id: Option<AppIdent>,
 
     /// Path to a file with secrets stored in JSON format to create secrets from.
     #[clap(
@@ -104,8 +104,22 @@ impl CmdAppSecretsCreate {
             current_dir()?
         };
 
-        if let Ok(Some(app_id)) = get_app_id_from_config(&app_dir_path).await {
-            return Ok(app_id.clone());
+        if let Ok(r) = get_app_config_from_dir(&app_dir_path) {
+            let (app, _) = r;
+
+            if let Some(id) = &app.app_id {
+                if !self.quiet {
+                    if let Some(owner) = &app.owner {
+                        eprintln!(
+                            "Managing secrets related to app {} ({owner}).",
+                            app.name.bold()
+                        );
+                    } else {
+                        eprintln!("Managing secrets related to app {}.", app.name.bold());
+                    }
+                }
+                return Ok(id.clone());
+            }
         }
 
         if self.non_interactive {
@@ -113,7 +127,7 @@ impl CmdAppSecretsCreate {
         } else {
             let id = prompt_app_ident("Enter the name of the app")?;
             let app = id.resolve(client).await?;
-            return Ok(app.id.into_inner());
+            Ok(app.id.into_inner())
         }
     }
 
@@ -134,19 +148,26 @@ impl CmdAppSecretsCreate {
         for secret in secrets {
             if sset.contains(&secret.name) {
                 if self.non_interactive {
-                    anyhow::bail!("Cannot create secret '{}' in app {app_id} as it already exists. Use the `update` command instead.", secret.name.bold());
+                    anyhow::bail!("Cannot create secret '{}' as it already exists. Use the `update` command instead.", secret.name.bold());
                 } else {
-                    eprintln!(
-                        "Secret '{}' already exists for the selected app.",
-                        secret.name.bold()
-                    );
+                    if ret.contains_key(&secret.name) {
+                        eprintln!(
+                            "Secret '{}' appears twice in the input file.",
+                            secret.name.bold()
+                        );
+                    } else {
+                        eprintln!(
+                            "Secret '{}' already exists for the selected app.",
+                            secret.name.bold()
+                        );
+                    }
                     let theme = ColorfulTheme::default();
                     let res = dialoguer::Confirm::with_theme(&theme)
                         .with_prompt("Do you want to update it?")
                         .interact()?;
 
                     if !res {
-                        eprintln!("Cannot create secret '{}' in app {app_id} as it already exists. Use the `update` command instead.", secret.name.bold());
+                        eprintln!("Cannot create secret '{}' as it already exists. Use the `update` command instead.", secret.name.bold());
                     }
                 }
             }

@@ -1,5 +1,8 @@
 use crate::{
-    commands::{app::util::{get_app_id_from_config, AppIdent, prompt_app_ident}, AsyncCliCommand},
+    commands::{
+        app::util::{get_app_config_from_dir, prompt_app_ident, AppIdent},
+        AsyncCliCommand,
+    },
     opts::{ApiOpts, WasmerEnv},
 };
 use colored::Colorize;
@@ -16,16 +19,16 @@ use super::utils::{self, get_secrets};
 /// Delete an existing secret related to an Edge app.
 #[derive(clap::Parser, Debug)]
 pub struct CmdAppSecretsDelete {
+    /// The name of the secret to delete.
+    #[clap(name = "name")]
+    pub secret_name: Option<String>,
+
     /// The id of the app the secret is related to.
     pub app_id: Option<AppIdent>,
 
     /// The path to the directory where the config file for the application will be written to.
     #[clap(long = "app-dir", conflicts_with = "app-id")]
     pub app_dir_path: Option<PathBuf>,
-
-    /// The name of the secret to delete.
-    #[clap(name = "name")]
-    pub secret_name: Option<String>,
 
     /// Path to a file with secrets stored in JSON format to delete secrets from.
     #[clap(
@@ -89,8 +92,23 @@ impl CmdAppSecretsDelete {
             current_dir()?
         };
 
-        if let Ok(Some(app_id)) = get_app_id_from_config(&app_dir_path).await {
-            return Ok(app_id.clone());
+        if let Ok(r) = get_app_config_from_dir(&app_dir_path) {
+            let (app, _) = r;
+
+            if let Some(id) = &app.app_id {
+                if !self.quiet {
+                    if let Some(owner) = &app.owner {
+                        eprintln!(
+                            "Managing secrets related to app {} ({owner}).",
+                            app.name.bold()
+                        );
+                    } else {
+                        eprintln!("Managing secrets related to app {}.", app.name.bold());
+                    }
+                }
+
+                return Ok(id.clone());
+            }
         }
 
         if self.non_interactive {
@@ -98,7 +116,7 @@ impl CmdAppSecretsDelete {
         } else {
             let id = prompt_app_ident("Enter the name of the app")?;
             let app = id.resolve(client).await?;
-            return Ok(app.id.into_inner());
+            Ok(app.id.into_inner())
         }
     }
 
@@ -168,6 +186,9 @@ impl AsyncCliCommand for CmdAppSecretsDelete {
         if let Some(file) = &self.from_file {
             self.delete_from_file(file, app_id).await
         } else if self.all {
+            if self.non_interactive && !self.force {
+                anyhow::bail!("Refusing to delete all secrets in non-interactive mode without the `--force` flag.")
+            }
             let secrets = get_secrets(&client, &app_id).await?;
             for secret in secrets {
                 self.delete(&client, &app_id, &secret.name).await?;

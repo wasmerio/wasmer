@@ -2,8 +2,8 @@ use crate::commands::AsyncCliCommand;
 
 pub mod create;
 pub mod delete;
-pub mod reveal;
 pub mod list;
+pub mod reveal;
 pub mod update;
 mod utils;
 

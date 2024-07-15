@@ -1,7 +1,7 @@
 use super::utils::Secret;
 use crate::{
     commands::{
-        app::util::{get_app_id_from_config, AppIdent, prompt_app_ident},
+        app::util::{get_app_config_from_dir, prompt_app_ident, AppIdent},
         AsyncCliCommand,
     },
     opts::{ApiOpts, WasmerEnv},
@@ -20,10 +20,6 @@ use wasmer_api::WasmerClient;
 /// Update an existing secret related to an Edge app.
 #[derive(clap::Parser, Debug)]
 pub struct CmdAppSecretsUpdate {
-    /// The id of the app the secret is related to.
-    #[clap(long = "app-id")]
-    pub app_id: Option<AppIdent>,
-
     /// The path to the directory where the config file for the application will be written to.
     #[clap(long = "app-dir", conflicts_with = "app-id")]
     pub app_dir_path: Option<PathBuf>,
@@ -35,6 +31,10 @@ pub struct CmdAppSecretsUpdate {
     /// The value of the secret to update.
     #[clap(name = "value")]
     pub secret_value: Option<String>,
+
+    /// The id of the app the secret is related to.
+    #[clap(long = "app-id")]
+    pub app_id: Option<AppIdent>,
 
     /// Path to a file with secrets stored in JSON format to update secrets from.
     #[clap(
@@ -105,8 +105,22 @@ impl CmdAppSecretsUpdate {
             current_dir()?
         };
 
-        if let Ok(Some(app_id)) = get_app_id_from_config(&app_dir_path).await {
-            return Ok(app_id.clone());
+        if let Ok(r) = get_app_config_from_dir(&app_dir_path) {
+            let (app, _) = r;
+
+            if let Some(id) = &app.app_id {
+                if !self.quiet {
+                    if let Some(owner) = &app.owner {
+                        eprintln!(
+                            "Managing secrets related to app {} ({owner}).",
+                            app.name.bold()
+                        );
+                    } else {
+                        eprintln!("Managing secrets related to app {}.", app.name.bold());
+                    }
+                }
+                return Ok(id.clone());
+            }
         }
 
         if self.non_interactive {
@@ -114,7 +128,7 @@ impl CmdAppSecretsUpdate {
         } else {
             let id = prompt_app_ident("Enter the name of the app")?;
             let app = id.resolve(client).await?;
-            return Ok(app.id.into_inner());
+            Ok(app.id.into_inner())
         }
     }
 
@@ -178,8 +192,9 @@ impl CmdAppSecretsUpdate {
             anyhow::bail!("Secret creation failed!")
         } else {
             if !self.quiet {
+                eprintln!("Succesfully updated secret(s):");
                 for secret in secrets {
-                    eprintln!("Succesfully updated secret '{}'", secret.name.bold());
+                    eprintln!("{}", secret.name.bold());
                 }
             }
 
