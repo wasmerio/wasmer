@@ -13,10 +13,12 @@ rust-version.workspace = true
 version.workspace = true
 
 #####
-# This crate comes in 2 major flavors:
+# This crate comes in 3 major flavors:
 #
 # - `sys`, where `wasmer` will be compiled to a native executable
 #    which provides compilers, engines, a full VM etc.
+# - `wamr`, where `wasmer` will be compiled to a native executable
+#    which provides an interpreter using WAMR as a backend.
 # - `js`, where `wasmer` will be compiled to WebAssembly to run in a
 #   JavaScript host.
 #####
@@ -96,20 +98,24 @@ maintenance = { status = "actively-developed" }
 
 [features]
 default = ["sys-default"]
-# default = ["js-default"]
 std = []
 core = ["hashbrown"]
 
 # Features for `sys`.
 sys = ["wasmer-compiler/translator", "wasmer-compiler/compiler", "std"]
 sys-default = ["sys", "wat", "cranelift"]
+
 # - Compilers.
 compiler = ["sys"]
 singlepass = ["compiler", "wasmer-compiler-singlepass"]
 cranelift = ["compiler", "wasmer-compiler-cranelift"]
 llvm = ["compiler", "wasmer-compiler-llvm"]
+
 # - Engines.
 engine = ["sys"]
+wamr = ["wasm-c-api", "std", "wat"]
+wasm-c-api = ["wasm-types-polyfill"]
+
 # - Deprecated features.
 jit = ["engine"]
 
@@ -125,9 +131,9 @@ js-serializable-module = []
 
 # Optional
 enable-serde = [
-  "wasmer-vm/enable-serde",
-  "wasmer-compiler/enable-serde",
-  "wasmer-types/enable-serde",
+	"wasmer-vm/enable-serde",
+	"wasmer-compiler/enable-serde",
+	"wasmer-types/enable-serde",
 ]
 
 wasmer-artifact-load = ["wasmer-compiler/wasmer-artifact-load"]
@@ -135,19 +141,23 @@ wasmer-artifact-create = ["wasmer-compiler/wasmer-artifact-create"]
 static-artifact-load = ["wasmer-compiler/static-artifact-load"]
 static-artifact-create = ["wasmer-compiler/static-artifact-create"]
 
+[build-dependencies]
+bindgen = "0.69.4"
+cmake = "0.1.50"
+
 [package.metadata.docs.rs]
 features = [
-  "compiler",
-  "core",
-  "cranelift",
-  "engine",
-  "jit",
-  "singlepass",
-  "static-artifact-create",
-  "static-artifact-load",
-  "sys",
-  "sys-default",
-  "wasmer-artifact-create",
-  "wasmer-artifact-load",
+	"compiler",
+	"core",
+	"cranelift",
+	"engine",
+	"jit",
+	"singlepass",
+	"static-artifact-create",
+	"static-artifact-load",
+	"sys",
+	"sys-default",
+	"wasmer-artifact-create",
+	"wasmer-artifact-load",
 ]
 rustc-args = ["--cfg", "docsrs"]

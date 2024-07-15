@@ -1,5 +1,27 @@
+use crate::engine::{AsEngineRef, Engine, EngineRef};
+
 pub(crate) use objects::{InternalStoreHandle, StoreObject};
 pub use objects::{StoreHandle, StoreObjects};
+
+pub(crate) struct Store {
+    pub(crate) engine: Engine,
+}
+
+impl Store {
+    pub(crate) fn new(engine: Engine) -> Self {
+        Self { engine }
+    }
+
+    pub(crate) fn engine(&self) -> &Engine {
+        &self.engine
+    }
+}
+
+impl AsEngineRef for Store {
+    fn as_engine_ref(&self) -> EngineRef<'_> {
+        EngineRef::new(&self.engine)
+    }
+}
 
 mod objects {
     use std::{fmt, marker::PhantomData, num::NonZeroUsize};

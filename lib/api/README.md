@@ -1,9 +1,9 @@
 # `wasmer` [![Build Status](https://github.com/wasmerio/wasmer/workflows/build/badge.svg?style=flat-square)](https://github.com/wasmerio/wasmer/actions?query=workflow%3Abuild) [![Join Wasmer Slack](https://img.shields.io/static/v1?label=Slack&message=join%20chat&color=brighgreen&style=flat-square)](https://slack.wasmer.io) [![MIT License](https://img.shields.io/github/license/wasmerio/wasmer.svg?style=flat-square)](https://github.com/wasmerio/wasmer/blob/main/LICENSE) [![crates.io](https://img.shields.io/crates/v/wasmer.svg)](https://crates.io/crates/wasmer)
 
 [`Wasmer`](https://wasmer.io/) is the most popular
-[WebAssembly](https://webassembly.org/) runtime for Rust. It supports
-JIT (Just In Time) and AOT (Ahead Of Time) compilation as well as
-pluggable compilers suited to your needs.
+[WebAssembly](https://webassembly.org/) runtime for Rust. It supports JIT (Just
+In Time), AOT (Ahead Of Time) compilation, an experimental interpreter as well
+as pluggable compilers suited to your needs.
 
 It's designed to be safe and secure, and runnable in any kind of environment.
 
@@ -53,6 +53,13 @@ Wasmer is not only fast, but also designed to be *highly customizable*:
     compilation-time and runtime performance, useful for development,
   * [`wasmer-compiler-llvm`] provides a deeply optimized executable
     code with the fastest runtime speed, ideal for production.
+
+* **Pluggable interpreters** (experimental) - `wamr`, a feature provided by
+  the `wasmer` crate, provides binding to the interpreter provided by
+  [`WAMR`](https://github.com/bytecodealliance/wasm-micro-runtime). More
+  informations about this experimental backend can be found in the [dedicated
+  documentation](/docs/en/wamr.md).
+ 
     
 * **Headless mode** — Once a WebAssembly module has been compiled, it
   is possible to serialize it in a file for example, and later execute
