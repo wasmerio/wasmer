@@ -352,8 +352,6 @@
 <a href="#352" id="352">352</a>
 <a href="#353" id="353">353</a>
 <a href="#354" id="354">354</a>
-<a href="#355" id="355">355</a>
-<a href="#356" id="356">356</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Support for compiling with Singlepass.
 </span><span class="comment">// Allow unused imports while developing.
 </span><span class="attr">#![allow(unused_imports, dead_code)]
@@ -485,10 +483,9 @@
                     target,
                     calling_convention,
                 )
-                .unwrap()
             })
-            .collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;()
-            .into_iter()
+            .collect::&lt;<span class="prelude-ty">Result</span>&lt;Vec&lt;<span class="kw">_</span>&gt;, <span class="kw">_</span>&gt;&gt;()<span class="question-mark">?
+            </span>.into_iter()
             .collect();
         <span class="kw">let </span>(functions, fdes): (Vec&lt;CompiledFunction&gt;, Vec&lt;<span class="kw">_</span>&gt;) = function_body_inputs
             .iter()
@@ -568,9 +565,9 @@
             .values()
             .collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;()
             .into_par_iter_if_rayon()
-            .map(|func_type| gen_std_trampoline(func_type, target, calling_convention).unwrap())
-            .collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;()
-            .into_iter()
+            .map(|func_type| gen_std_trampoline(func_type, target, calling_convention))
+            .collect::&lt;<span class="prelude-ty">Result</span>&lt;Vec&lt;<span class="kw">_</span>&gt;, <span class="kw">_</span>&gt;&gt;()<span class="question-mark">?
+            </span>.into_iter()
             .collect::&lt;PrimaryMap&lt;<span class="kw">_</span>, <span class="kw">_</span>&gt;&gt;();
 
         <span class="kw">let </span>dynamic_function_trampolines = module
@@ -584,10 +581,9 @@
                     target,
                     calling_convention,
                 )
-                .unwrap()
             })
-            .collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;()
-            .into_iter()
+            .collect::&lt;<span class="prelude-ty">Result</span>&lt;Vec&lt;<span class="kw">_</span>&gt;, <span class="kw">_</span>&gt;&gt;()<span class="question-mark">?
+            </span>.into_iter()
             .collect::&lt;PrimaryMap&lt;FunctionIndex, FunctionBody&gt;&gt;();
 
         <span class="attr">#[cfg(feature = <span class="string">&quot;unwind&quot;</span>)]
