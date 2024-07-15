@@ -16,9 +16,6 @@ interface Node {
 type PublicKey implements Node {
   """The ID of the object"""
   id: ID!
-  createdAt: DateTime!
-  updatedAt: DateTime!
-  deletedAt: DateTime
   owner: User!
   keyId: String!
   key: String!
@@ -27,13 +24,6 @@ type PublicKey implements Node {
   verifyingSignature: Signature
   revoked: Boolean!
 }
-
-"""
-The `DateTime` scalar type represents a DateTime
-value as specified by
-[iso8601](https://en.wikipedia.org/wiki/ISO_8601).
-"""
-scalar DateTime
 
 type User implements Node & PackageOwner & Owner {
   firstName: String!
@@ -93,6 +83,13 @@ interface Owner {
   globalName: String!
   globalId: ID!
 }
+
+"""
+The `DateTime` scalar type represents a DateTime
+value as specified by
+[iso8601](https://en.wikipedia.org/wiki/ISO_8601).
+"""
+scalar DateTime
 
 type ActivityEventConnection {
   """Pagination data for this connection."""
@@ -193,11 +190,9 @@ type NamespaceEdge {
 type Namespace implements Node & PackageOwner & Owner {
   """The ID of the object"""
   id: ID!
-  deletedAt: DateTime
   name: String!
   displayName: String
   description: String!
-  avatar: String!
   avatarUpdatedAt: DateTime
   twitterHandle: String
   githubHandle: String
@@ -209,6 +204,7 @@ type Namespace implements Node & PackageOwner & Owner {
   userSet(offset: Int, before: String, after: String, first: Int, last: Int): UserConnection!
   globalName: String!
   globalId: ID!
+  avatar: String!
   packages(offset: Int, before: String, after: String, first: Int, last: Int): PackageConnection!
   apps(sortBy: DeployAppsSortBy, offset: Int, before: String, after: String, first: Int, last: Int): DeployAppConnection!
   packageVersions(offset: Int, before: String, after: String, first: Int, last: Int): PackageVersionConnection!
@@ -253,8 +249,6 @@ type NamespaceCollaboratorInviteEdge {
 type NamespaceCollaboratorInvite implements Node {
   """The ID of the object"""
   id: ID!
-  updatedAt: DateTime!
-  deletedAt: DateTime
   requestedBy: User!
   user: User
   inviteEmail: String
@@ -285,7 +279,6 @@ enum RegistryNamespaceMaintainerInviteRoleChoices {
 type NamespaceCollaborator implements Node {
   """The ID of the object"""
   id: ID!
-  deletedAt: DateTime
   user: User!
   role: RegistryNamespaceMaintainerRoleChoices!
   namespace: Namespace!
@@ -351,7 +344,6 @@ type PackageEdge {
 type Package implements Likeable & Node & PackageOwner {
   """The ID of the object"""
   id: ID!
-  deletedAt: DateTime
   name: String!
   private: Boolean!
   createdAt: DateTime!
@@ -949,7 +941,6 @@ type BindingsGenerator implements Node {
   id: ID!
   createdAt: DateTime!
   updatedAt: DateTime!
-  deletedAt: DateTime
   packageVersion: PackageVersion!
   active: Boolean!
   commandName: String!
@@ -1114,7 +1105,6 @@ type PackageVersionFilesystem {
 type InterfaceVersion implements Node {
   """The ID of the object"""
   id: ID!
-  deletedAt: DateTime
   interface: Interface!
   version: String!
   content: String!
@@ -1127,7 +1117,6 @@ type InterfaceVersion implements Node {
 type Interface implements Node {
   """The ID of the object"""
   id: ID!
-  deletedAt: DateTime
   name: String!
   displayName: String!
   description: String!
@@ -1373,7 +1362,6 @@ type PackageCollaboratorEdge {
 type PackageCollaborator implements Node {
   """The ID of the object"""
   id: ID!
-  deletedAt: DateTime
   user: User!
   role: RegistryPackageMaintainerRoleChoices!
   package: Package!
@@ -1399,8 +1387,6 @@ enum RegistryPackageMaintainerRoleChoices {
 type PackageCollaboratorInvite implements Node {
   """The ID of the object"""
   id: ID!
-  updatedAt: DateTime!
-  deletedAt: DateTime
   requestedBy: User!
   user: User
   inviteEmail: String
@@ -1458,8 +1444,6 @@ enum GrapheneRole {
 type PackageTransferRequest implements Node {
   """The ID of the object"""
   id: ID!
-  updatedAt: DateTime!
-  deletedAt: DateTime
   requestedBy: User!
   previousOwnerObjectId: Int!
   newOwnerObjectId: Int!
@@ -1898,8 +1882,6 @@ type APITokenEdge {
 
 type APIToken {
   id: ID!
-  updatedAt: DateTime!
-  deletedAt: DateTime
   user: User!
   identifier: String
   createdAt: DateTime!
@@ -2016,8 +1998,6 @@ type SocialAuth implements Node {
 
 type Signature {
   id: ID!
-  updatedAt: DateTime!
-  deletedAt: DateTime
   publicKey: PublicKey!
   data: String!
   createdAt: DateTime!
@@ -2303,6 +2283,10 @@ type Query {
   getTemplateFrameworks(offset: Int, before: String, after: String, first: Int, last: Int): TemplateFrameworkConnection
   getTemplateLanguages(offset: Int, before: String, after: String, first: Int, last: Int): TemplateLanguageConnection
   getAppTemplates(categorySlug: String, frameworkSlug: String, languageSlug: String, sortBy: AppTemplatesSortBy, offset: Int, before: String, after: String, first: Int, last: Int): AppTemplateConnection
+  getAppSecrets(appId: ID!, names: [String], offset: Int, before: String, after: String, first: Int, last: Int): SecretConnection
+  getAppSecret(appId: ID!, secretName: String!): Secret
+  getAppSecretLog(appId: ID!, offset: Int, before: String, after: String, first: Int, last: Int): SecretLogConnection
+  getSecretValue(id: ID!): String
   getAppTemplate(slug: String!): AppTemplate
   getAppTemplateCategories(offset: Int, before: String, after: String, first: Int, last: Int): AppTemplateCategoryConnection
   viewer: User
@@ -2445,6 +2429,78 @@ enum AppTemplatesSortBy {
   NEWEST
   OLDEST
   POPULAR
+}
+
+type SecretConnection {
+  """Pagination data for this connection."""
+  pageInfo: PageInfo!
+
+  """Contains the nodes in this connection."""
+  edges: [SecretEdge]!
+
+  """Total number of items in the connection."""
+  totalCount: Int
+}
+
+"""A Relay edge containing a `Secret` and its cursor."""
+type SecretEdge {
+  """The item at the end of the edge"""
+  node: Secret
+
+  """A cursor for use in pagination"""
+  cursor: String!
+}
+
+type Secret implements Node {
+  createdAt: DateTime!
+  updatedAt: DateTime!
+  name: String!
+
+  """The ID of the object"""
+  id: ID!
+}
+
+type SecretLogConnection {
+  """Pagination data for this connection."""
+  pageInfo: PageInfo!
+
+  """Contains the nodes in this connection."""
+  edges: [SecretLogEdge]!
+
+  """Total number of items in the connection."""
+  totalCount: Int
+}
+
+"""A Relay edge containing a `SecretLog` and its cursor."""
+type SecretLogEdge {
+  """The item at the end of the edge"""
+  node: SecretLog
+
+  """A cursor for use in pagination"""
+  cursor: String!
+}
+
+type SecretLog implements Node {
+  createdAt: DateTime!
+  action: DeploySecretLogActionChoices!
+
+  """The ID of the object"""
+  id: ID!
+  secretName: String!
+}
+
+enum DeploySecretLogActionChoices {
+  """Access"""
+  ACCESS
+
+  """Modification"""
+  MODIFICATION
+
+  """Create"""
+  CREATE
+
+  """DELETE"""
+  DELETE
 }
 
 type AppTemplateCategoryConnection {
@@ -2899,6 +2955,15 @@ type Mutation {
   deleteDNSRecord(input: DeleteDNSRecordInput!): DeleteDNSRecordPayload
   upsertDomainFromZoneFile(input: UpsertDomainFromZoneFileInput!): UpsertDomainFromZoneFilePayload
   deleteDomain(input: DeleteDomainInput!): DeleteDomainPayload
+
+  """Create or update an app secret on an app with given ID"""
+  upsertAppSecret(input: UpsertAppSecretInput!): UpsertAppSecretPayload
+
+  """Create or update app secrets on an app with given ID"""
+  upsertAppSecrets(input: UpsertAppSecretsInput!): UpsertAppSecretsPayload
+
+  """Delete secret with given ID"""
+  deleteAppSecret(input: DeleteAppSecretInput!): DeleteAppSecretPayload
   tokenAuth(input: ObtainJSONWebTokenInput!): ObtainJSONWebTokenPayload
   generateDeployToken(input: GenerateDeployTokenInput!): GenerateDeployTokenPayload
   verifyAccessToken(token: String): Verify
@@ -2960,6 +3025,7 @@ type Mutation {
   removePackageTransferRequest(input: RemovePackageTransferRequestInput!): RemovePackageTransferRequestPayload
   generateBindingsForAllPackages(input: GenerateBindingsForAllPackagesInput!): GenerateBindingsForAllPackagesPayload
   makePackagePublic(input: MakePackagePublicInput!): MakePackagePublicPayload
+  generateUploadUrl(input: GenerateUploadUrlInput!): GenerateUploadUrlPayload
 }
 
 """Viewer accepts the latest ToS."""
@@ -3150,8 +3216,6 @@ type RequestAppTransferPayload {
 type AppTransferRequest implements Node {
   """The ID of the object"""
   id: ID!
-  updatedAt: DateTime!
-  deletedAt: DateTime
   requestedBy: User!
   previousOwnerObjectId: Int!
   newOwnerObjectId: Int!
@@ -3285,6 +3349,59 @@ type DeleteDomainPayload {
 
 input DeleteDomainInput {
   domainId: ID!
+  clientMutationId: String
+}
+
+"""Create or update an app secret on an app with given ID"""
+type UpsertAppSecretPayload {
+  secret: Secret!
+  success: Boolean!
+  clientMutationId: String
+}
+
+input UpsertAppSecretInput {
+  """ID of the app onto which to add secrets."""
+  appId: ID!
+
+  """Name of the secret."""
+  name: String!
+
+  """Value of the secret."""
+  value: String!
+  clientMutationId: String
+}
+
+"""Create or update app secrets on an app with given ID"""
+type UpsertAppSecretsPayload {
+  success: Boolean!
+  secrets: [Secret]!
+  clientMutationId: String
+}
+
+input UpsertAppSecretsInput {
+  """ID of the app onto which to add secrets."""
+  appId: ID!
+  secrets: [SecretInput]
+  clientMutationId: String
+}
+
+input SecretInput {
+  """Name of the secret."""
+  name: String!
+
+  """Value of the secret."""
+  value: String!
+}
+
+"""Delete secret with given ID"""
+type DeleteAppSecretPayload {
+  success: Boolean!
+  clientMutationId: String
+}
+
+input DeleteAppSecretInput {
+  """ID of the secret to delete."""
+  id: ID!
   clientMutationId: String
 }
 
@@ -4077,6 +4194,19 @@ type MakePackagePublicPayload {
 input MakePackagePublicInput {
   """The ID of the package to make public"""
   id: ID!
+  clientMutationId: String
+}
+
+type GenerateUploadUrlPayload {
+  signedUrl: SignedUrl!
+  clientMutationId: String
+}
+
+input GenerateUploadUrlInput {
+  name: String
+  version: String = "latest"
+  filename: String
+  expiresAfterSeconds: Int = 60
   clientMutationId: String
 }
 

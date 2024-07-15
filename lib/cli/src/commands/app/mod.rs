@@ -8,6 +8,7 @@ pub mod info;
 pub mod list;
 pub mod logs;
 pub mod purge_cache;
+pub mod secrets;
 pub mod version;
 
 mod util;
@@ -27,6 +28,8 @@ pub enum CmdApp {
     Delete(delete::CmdAppDelete),
     #[clap(subcommand)]
     Version(version::CmdAppVersion),
+    #[clap(subcommand, alias = "secrets")]
+    Secret(secrets::CmdAppSecrets),
 }
 
 #[async_trait::async_trait]
@@ -53,6 +56,7 @@ impl AsyncCliCommand for CmdApp {
             Self::Version(cmd) => cmd.run_async().await,
             Self::Deploy(cmd) => cmd.run_async().await,
             Self::PurgeCache(cmd) => cmd.run_async().await,
+            Self::Secret(cmd) => cmd.run_async().await,
         }
     }
 }

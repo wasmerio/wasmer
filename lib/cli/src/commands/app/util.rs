@@ -1,6 +1,8 @@
+use std::str::FromStr;
+
 use anyhow::{bail, Context};
 use colored::Colorize;
-use dialoguer::Confirm;
+use dialoguer::{Confirm, theme::ColorfulTheme};
 use wasmer_api::{
     global_id::{GlobalId, NodeKind},
     types::DeployApp,
@@ -269,4 +271,30 @@ pub(super) async fn login_user(
     }
 
     api.client()
+}
+
+pub(super) async fn get_app_id_from_config(
+    app_dir_path: &std::path::Path,
+) -> anyhow::Result<Option<String>> {
+    Ok(AppConfigV1::parse_yaml(
+        &tokio::fs::read_to_string(app_dir_path.join(AppConfigV1::CANONICAL_FILE_NAME)).await?,
+    )?
+    .app_id)
+}
+
+/// Prompt for an app ident.
+#[allow(dead_code)]
+pub(crate) fn prompt_app_ident(
+    message: &str,
+) -> Result<AppIdent, anyhow::Error> {
+    let theme = ColorfulTheme::default();
+    loop {
+        let ident: String = dialoguer::Input::with_theme(&theme)
+            .with_prompt(message)
+            .interact_text()?;
+        match AppIdent::from_str(&ident) {
+            Ok(id) => break Ok(id),
+            Err(e) => eprintln!("{e}"),
+        }
+    }
 }
