@@ -24,6 +24,7 @@ pub struct CmdAppSecretsDelete {
     pub secret_name: Option<String>,
 
     /// The id of the app the secret is related to.
+    #[clap(name = "app-id")]
     pub app_id: Option<AppIdent>,
 
     /// The path to the directory where the config file for the application will be written to.
@@ -34,8 +35,8 @@ pub struct CmdAppSecretsDelete {
     #[clap(
         long,
         name = "from-file",
-        conflicts_with = "secret_value",
-        conflicts_with = "secret_name"
+        conflicts_with = "name",
+        conflicts_with = "all"
     )]
     pub from_file: Option<PathBuf>,
 

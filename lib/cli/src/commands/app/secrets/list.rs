@@ -15,10 +15,11 @@ use wasmer_api::WasmerClient;
 #[derive(clap::Parser, Debug)]
 pub struct CmdAppSecretsList {
     /// The identifier of the app to list secrets of.
+    #[clap(name = "app-id")]
     pub app_id: Option<AppIdent>,
 
     /// The path to the directory where the config file for the application will be written to.
-    #[clap(long = "app-dir", conflicts_with = "app_id")]
+    #[clap(long = "app-dir", conflicts_with = "app-id")]
     pub app_dir_path: Option<PathBuf>,
 
     /* --- Common args --- */

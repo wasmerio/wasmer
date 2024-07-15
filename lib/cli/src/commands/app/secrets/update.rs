@@ -33,15 +33,15 @@ pub struct CmdAppSecretsUpdate {
     pub secret_value: Option<String>,
 
     /// The id of the app the secret is related to.
-    #[clap(long = "app-id")]
+    #[clap(name = "app-id")]
     pub app_id: Option<AppIdent>,
 
     /// Path to a file with secrets stored in JSON format to update secrets from.
     #[clap(
         long,
         name = "from-file",
-        conflicts_with = "secret_value",
-        conflicts_with = "secret_name"
+        conflicts_with = "value",
+        conflicts_with = "name"
     )]
     pub from_file: Option<PathBuf>,
 

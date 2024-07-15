@@ -21,10 +21,11 @@ pub struct CmdAppSecretsReveal {
     pub secret_name: Option<String>,
 
     /// The id of the app the secret is related to.
+    #[clap(name = "app-id")]
     pub app_id: Option<AppIdent>,
 
     /// The path to the directory where the config file for the application will be written to.
-    #[clap(long = "app-dir", conflicts_with = "app_id")]
+    #[clap(long = "app-dir", conflicts_with = "app-id")]
     pub app_dir_path: Option<PathBuf>,
 
     /// Reveal all the secrets related to an app.
