@@ -37,11 +37,7 @@ pub struct CmdAppSecretsCreate {
     pub app_id: Option<AppIdent>,
 
     /// Path to a file with secrets stored in JSON format to create secrets from.
-    #[clap(
-        long,
-        name = "from-file",
-        conflicts_with = "name",
-    )]
+    #[clap(long, name = "from-file", conflicts_with = "name")]
     pub from_file: Option<PathBuf>,
 
     /* --- Common args --- */
