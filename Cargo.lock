@@ -2977,6 +2977,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "merge-streams"
+version = "0.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4f84f6452969abd246e7ac1fe4fe75906c76e8ec88d898df9aef37e0f3b6a7c2"
+dependencies = [
+ "futures-core",
+ "pin-project",
+]
+
+[[package]]
 name = "mime"
 version = "0.3.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6392,7 +6402,9 @@ dependencies = [
  "cynic",
  "edge-schema 0.1.0",
  "futures 0.3.30",
+ "getrandom",
  "harsh",
+ "merge-streams",
  "pin-project-lite",
  "reqwest",
  "serde",
