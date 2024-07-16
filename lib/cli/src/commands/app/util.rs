@@ -117,19 +117,6 @@ pub struct AppIdentOpts {
     pub app: Option<AppIdent>,
 }
 
-/// A utility struct used by commands that need the [`AppIdent`] as a flag.
-#[derive(clap::Parser, Debug)]
-pub struct AppIdentFlag {
-    /// Identifier of the application.
-    ///
-    /// Valid input:
-    /// - namespace/app-name
-    /// - app-alias
-    /// - App ID
-    #[clap(long)]
-    pub app: Option<AppIdent>,
-}
-
 // Allowing because this is not performance-critical at all.
 #[allow(clippy::large_enum_variant)]
 pub enum ResolvedAppIdent {
@@ -208,6 +195,22 @@ mod tests {
             AppIdent::NamespacedName("alpha".to_string(), "beta".to_string()),
         );
     }
+}
+
+/// A utility struct used by commands that need the [`AppIdent`] as a flag.
+///
+/// NOTE: Differently from [`AppIdentOpts`], the use of this struct does not entail searching the
+/// current directory for an `app.yaml` if not specified.
+#[derive(clap::Parser, Debug)]
+pub struct AppIdentFlag {
+    /// Identifier of the application.
+    ///
+    /// Valid input:
+    /// - namespace/app-name
+    /// - app-alias
+    /// - App ID
+    #[clap(long)]
+    pub app: Option<AppIdent>,
 }
 
 pub(super) async fn login_user(
