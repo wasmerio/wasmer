@@ -1,9 +1,6 @@
 use super::utils::Secret;
 use crate::{
-    commands::{
-        app::util::{get_app_config_from_dir, prompt_app_ident, AppIdent, AppIdentFlag},
-        AsyncCliCommand,
-    },
+    commands::{app::util::AppIdentFlag, AsyncCliCommand},
     opts::{ApiOpts, WasmerEnv},
 };
 use anyhow::Context;
@@ -12,35 +9,14 @@ use dialoguer::theme::ColorfulTheme;
 use is_terminal::IsTerminal;
 use std::{
     collections::{HashMap, HashSet},
-    env::current_dir,
     path::{Path, PathBuf},
-    str::FromStr,
 };
 use wasmer_api::WasmerClient;
 
 /// Create a new secret related to an Edge app.
 #[derive(clap::Parser, Debug)]
 pub struct CmdAppSecretsCreate {
-    /// The path to the directory where the config file for the application will be written to.
-    #[clap(long = "app-dir", conflicts_with = "app")]
-    pub app_dir_path: Option<PathBuf>,
-
-    /// The name of the secret to create.
-    #[clap(name = "name")]
-    pub secret_name: Option<String>,
-
-    /// The value of the secret to create.
-    #[clap(name = "value")]
-    pub secret_value: Option<String>,
-
-    #[clap(flatten)]
-    pub app_id: AppIdentFlag,
-
-    /// Path to a file with secrets stored in JSON format to create secrets from.
-    #[clap(long, name = "from-file", conflicts_with = "name")]
-    pub from_file: Option<PathBuf>,
-
-    /* --- Common args --- */
+    /* --- Common flags --- */
     #[clap(flatten)]
     #[allow(missing_docs)]
     pub api: ApiOpts,
@@ -55,6 +31,27 @@ pub struct CmdAppSecretsCreate {
     /// Do not prompt for user input.
     #[clap(long, default_value_t = !std::io::stdin().is_terminal())]
     pub non_interactive: bool,
+
+    /* --- Flags --- */
+    /// The path to the directory where the config file for the application will be written to.
+    #[clap(long = "app-dir", conflicts_with = "app")]
+    pub app_dir_path: Option<PathBuf>,
+
+    #[clap(flatten)]
+    pub app_id: AppIdentFlag,
+
+    /// Path to a file with secrets stored in JSON format to create secrets from.
+    #[clap(long, name = "from-file", conflicts_with = "name")]
+    pub from_file: Option<PathBuf>,
+
+    /* --- Parameters --- */
+    /// The name of the secret to create.
+    #[clap(name = "name")]
+    pub secret_name: Option<String>,
+
+    /// The value of the secret to create.
+    #[clap(name = "value")]
+    pub secret_value: Option<String>,
 }
 
 impl CmdAppSecretsCreate {
@@ -85,74 +82,6 @@ impl CmdAppSecretsCreate {
             Ok(dialoguer::Input::with_theme(&theme)
                 .with_prompt("Enter the value of the secret")
                 .interact_text()?)
-        }
-    }
-
-    async fn get_app_id(&self, client: &WasmerClient) -> anyhow::Result<String> {
-        if let Some(app_id) = &self.app_id.app {
-            let app = app_id.resolve(client).await?;
-            return Ok(app.id.into_inner());
-        }
-
-        let app_dir_path = if let Some(app_dir_path) = &self.app_dir_path {
-            app_dir_path.clone()
-        } else {
-            current_dir()?
-        };
-
-        if let Ok(r) = get_app_config_from_dir(&app_dir_path) {
-            let (app, _) = r;
-
-            let app_name = if let Some(owner) = &app.owner {
-                format!("{owner}/{}", app.name)
-            } else {
-                app.name.to_string()
-            };
-
-            let id = if let Some(id) = &app.app_id {
-                Some(id.clone())
-            } else if let Ok(app_ident) = AppIdent::from_str(&app_name) {
-                if let Ok(app) = app_ident.resolve(client).await {
-                    Some(app.id.into_inner())
-                } else {
-                    if !self.quiet {
-                        eprintln!("{}: the app found in {} does not exist.\n{}: maybe it was not deployed yet?", 
-                            "Warning".bold().yellow(), 
-                            format!("'{}'", app_dir_path.display()).dimmed(), 
-                            "Hint".bold());
-                    }
-                    None
-                }
-            } else {
-                None
-            };
-
-            if let Some(id) = id {
-                if !self.quiet {
-                    if let Some(owner) = &app.owner {
-                        eprintln!(
-                            "Managing secrets related to app {} ({owner}).",
-                            app.name.bold()
-                        );
-                    } else {
-                        eprintln!("Managing secrets related to app {}.", app.name.bold());
-                    }
-                }
-                return Ok(id);
-            }
-        } else if let Some(path) = &self.app_dir_path {
-            anyhow::bail!(
-                "No app configuration file found in path {}.",
-                path.display()
-            )
-        }
-
-        if self.non_interactive {
-            anyhow::bail!("No app id given. Provide one using the `--app` flag.")
-        } else {
-            let id = prompt_app_ident("Enter the name of the app")?;
-            let app = id.resolve(client).await?;
-            Ok(app.id.into_inner())
         }
     }
 
@@ -231,6 +160,10 @@ impl CmdAppSecretsCreate {
                 for secret in secrets {
                     eprintln!("{}", secret.name.bold());
                 }
+                eprintln!(
+                    "{}: In order for secrets to appear in your app, re-deploy it.",
+                    "Info".bold()
+                );
             }
 
             Ok(())
@@ -258,7 +191,14 @@ impl AsyncCliCommand for CmdAppSecretsCreate {
 
     async fn run_async(self) -> Result<Self::Output, anyhow::Error> {
         let client = self.api.client()?;
-        let app_id = self.get_app_id(&client).await?;
+        let app_id = super::utils::get_app_id(
+            &client,
+            self.app_id.app.as_ref(),
+            self.app_dir_path.as_ref(),
+            self.quiet,
+            self.non_interactive,
+        )
+        .await?;
         if let Some(file) = &self.from_file {
             self.create_from_file(file, &app_id).await
         } else {
