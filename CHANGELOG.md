@@ -11,6 +11,8 @@ Looking for changes that affect our C API? See the [C API Changelog](lib/c-api/C
 
 ## 4.3.5 - 16/07/2024
 
+This release adds support for managing secrets alongside fixes and refactors to help with stability.
+
 ## Added
 
   - [#4930](https://github.com/wasmerio/wasmer/pull/4930) CLI: Add support for Secrets
