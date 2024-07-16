@@ -8,7 +8,7 @@ use crate::{
 };
 use colored::Colorize;
 use is_terminal::IsTerminal;
-use std::{env::current_dir, path::PathBuf};
+use std::{env::current_dir, path::PathBuf, str::FromStr};
 use wasmer_api::WasmerClient;
 
 /// Retrieve the value of an existing secret related to an Edge app.
@@ -58,7 +58,16 @@ impl CmdAppSecretsList {
         if let Ok(r) = get_app_config_from_dir(&app_dir_path) {
             let (app, _) = r;
 
-            if let Some(id) = &app.app_id {
+            let id = if let Some(id) = &app.app_id {
+                Some(id.clone())
+            } else if let Ok(app_ident) = AppIdent::from_str(&app.name) {
+                let app = app_ident.resolve(client).await?;
+                Some(app.id.into_inner())
+            } else {
+                None
+            };
+
+            if let Some(id) = id {
                 if !self.quiet {
                     if let Some(owner) = &app.owner {
                         eprintln!(
@@ -69,12 +78,17 @@ impl CmdAppSecretsList {
                         eprintln!("Managing secrets related to app {}.", app.name.bold());
                     }
                 }
-                return Ok(id.clone());
+                return Ok(id);
             }
+        } else if let Some(path) = &self.app_dir_path {
+            anyhow::bail!(
+                "No app configuration file found in path {}.",
+                path.display()
+            )
         }
 
         if self.non_interactive {
-            anyhow::bail!("No app id given. Use the `--app_id` flag to specify one.")
+            anyhow::bail!("No app id given. Provide one as a positional argument.")
         } else {
             let id = prompt_app_ident("Enter the name of the app")?;
             let app = id.resolve(client).await?;
