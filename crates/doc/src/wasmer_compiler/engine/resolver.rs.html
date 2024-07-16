@@ -199,6 +199,14 @@
 <a href="#199" id="199">199</a>
 <a href="#200" id="200">200</a>
 <a href="#201" id="201">201</a>
+<a href="#202" id="202">202</a>
+<a href="#203" id="203">203</a>
+<a href="#204" id="204">204</a>
+<a href="#205" id="205">205</a>
+<a href="#206" id="206">206</a>
+<a href="#207" id="207">207</a>
+<a href="#208" id="208">208</a>
+<a href="#209" id="209">209</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Custom resolution for external references.
 
 </span><span class="kw">use </span><span class="kw">crate</span>::LinkError;
@@ -265,7 +273,7 @@
 </span><span class="kw">pub fn </span>resolve_imports(
     module: <span class="kw-2">&amp;</span>ModuleInfo,
     imports: <span class="kw-2">&amp;</span>[VMExtern],
-    context: <span class="kw-2">&amp;</span>StoreObjects,
+    context: <span class="kw-2">&amp;mut </span>StoreObjects,
     finished_dynamic_function_trampolines: <span class="kw-2">&amp;</span>BoxedSlice&lt;FunctionIndex, FunctionBodyPtr&gt;,
     memory_styles: <span class="kw-2">&amp;</span>PrimaryMap&lt;MemoryIndex, MemoryStyle&gt;,
     _table_styles: <span class="kw-2">&amp;</span>PrimaryMap&lt;TableIndex, TableStyle&gt;,
@@ -305,15 +313,23 @@
         }
         <span class="kw">match </span><span class="kw-2">*</span>resolved {
             VMExtern::Function(handle) =&gt; {
-                <span class="kw">let </span>f = handle.get(context);
+                <span class="kw">let </span>f = handle.get_mut(context);
                 <span class="kw">let </span>address = <span class="kw">match </span>f.kind {
                     VMFunctionKind::Dynamic =&gt; {
                         <span class="comment">// If this is a dynamic imported function,
                         // the address of the function is the address of the
                         // reverse trampoline.
                         </span><span class="kw">let </span>index = FunctionIndex::new(function_imports.len());
-                        finished_dynamic_function_trampolines[index].<span class="number">0 </span><span class="kw">as </span><span class="kw-2">*mut </span>VMFunctionBody <span class="kw">as _
-                    </span>}
+                        <span class="kw">let </span>ptr = finished_dynamic_function_trampolines[index].<span class="number">0
+                            </span><span class="kw">as </span><span class="kw-2">*mut </span>VMFunctionBody <span class="kw">as _</span>;
+                        <span class="comment">// The logic is currently handling the &quot;resolution&quot; of dynamic imported functions at instantiation time.
+                        // However, ideally it should be done even before then, as you may have dynamic imported functions that
+                        // are linked at runtime and not instantiation time. And those will not work properly with the current logic.
+                        // Ideally, this logic should be done directly in the `wasmer-vm` crate.
+                        // TODO (@syrusakbary): Get rid of `VMFunctionKind`
+                        </span><span class="kw">unsafe </span>{ f.anyfunc.as_ptr().as_mut() }.func_ptr = ptr;
+                        ptr
+                    }
                     VMFunctionKind::Static =&gt; <span class="kw">unsafe </span>{ f.anyfunc.as_ptr().as_ref().func_ptr },
                 };
 
