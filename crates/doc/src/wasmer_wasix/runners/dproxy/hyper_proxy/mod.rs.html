@@ -26,12 +26,12 @@
 
 <span class="kw">use super</span>::<span class="kw-2">*</span>;
 
-<span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">use </span>hyper::{service::Service, Uri};
+<span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">use </span>hyper::Uri;
 <span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">use </span>std::pin::Pin;
 <span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">type </span>BoxError = Box&lt;<span class="kw">dyn </span>std::error::Error + Send + Sync&gt;;
 <span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">use </span>std::{
     future::Future,
     task::{Context, Poll},
 };
-<span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">use </span>tokio::io::{AsyncRead, AsyncWrite, ReadBuf};
+<span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">use </span>tokio::io::AsyncWrite;
 </code></pre></div></section></main></body></html>

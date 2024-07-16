@@ -767,48 +767,48 @@
     }
 }
 
-<span class="attr">#[cfg(test)]
-</span><span class="kw">fn </span>print_wasmer_root_to_stdout(config: <span class="kw-2">&amp;</span>Config) {
-    <span class="macro">println!</span>(<span class="string">&quot;print_wasmer_root_to_stdout&quot;</span>);
+<span class="comment">// #[cfg(test)]
+// fn print_wasmer_root_to_stdout(config: &amp;Config) {
+//     println!(&quot;print_wasmer_root_to_stdout&quot;);
 
-    <span class="kw">use </span>walkdir::WalkDir;
+//     use walkdir::WalkDir;
 
-    <span class="macro">println!</span>(
-        <span class="string">&quot;wasmer dir: {}&quot;</span>,
-        std::path::Path::new(<span class="kw-2">&amp;</span>config.wasmer_dir)
-            .canonicalize()
-            .unwrap()
-            .display()
-    );
+//     println!(
+//         &quot;wasmer dir: {}&quot;,
+//         std::path::Path::new(&amp;config.wasmer_dir)
+//             .canonicalize()
+//             .unwrap()
+//             .display()
+//     );
 
-    <span class="kw">for </span>entry <span class="kw">in </span>WalkDir::new(<span class="kw-2">&amp;</span>config.wasmer_dir)
-        .into_iter()
-        .filter_map(Result::ok)
-    {
-        <span class="kw">let </span>f_name = String::from(entry.path().canonicalize().unwrap().to_string_lossy());
-        <span class="macro">println!</span>(<span class="string">&quot;{f_name}&quot;</span>);
-    }
+//     for entry in WalkDir::new(&amp;config.wasmer_dir)
+//         .into_iter()
+//         .filter_map(Result::ok)
+//     {
+//         let f_name = String::from(entry.path().canonicalize().unwrap().to_string_lossy());
+//         println!(&quot;{f_name}&quot;);
+//     }
 
-    <span class="macro">println!</span>(
-        <span class="string">&quot;root dir: {}&quot;</span>,
-        std::path::Path::new(<span class="kw-2">&amp;</span>config.root_dir)
-            .canonicalize()
-            .unwrap()
-            .display()
-    );
+//     println!(
+//         &quot;root dir: {}&quot;,
+//         std::path::Path::new(&amp;config.root_dir)
+//             .canonicalize()
+//             .unwrap()
+//             .display()
+//     );
 
-    <span class="kw">for </span>entry <span class="kw">in </span>WalkDir::new(<span class="kw-2">&amp;</span>config.root_dir)
-        .into_iter()
-        .filter_map(Result::ok)
-    {
-        <span class="kw">let </span>f_name = String::from(entry.path().canonicalize().unwrap().to_string_lossy());
-        <span class="macro">println!</span>(<span class="string">&quot;{f_name}&quot;</span>);
-    }
+//     for entry in WalkDir::new(&amp;config.root_dir)
+//         .into_iter()
+//         .filter_map(Result::ok)
+//     {
+//         let f_name = String::from(entry.path().canonicalize().unwrap().to_string_lossy());
+//         println!(&quot;{f_name}&quot;);
+//     }
 
-    <span class="macro">println!</span>(<span class="string">&quot;printed&quot;</span>);
-}
+//     println!(&quot;printed&quot;);
+// }
 
-<span class="attr">#[cfg(test)]
+</span><span class="attr">#[cfg(test)]
 </span><span class="kw">fn </span>fixup_symlinks(
     include_paths: <span class="kw-2">&amp;</span>[String],
     log: <span class="kw-2">&amp;mut </span>String,

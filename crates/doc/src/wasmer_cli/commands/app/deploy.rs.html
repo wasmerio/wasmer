@@ -728,6 +728,11 @@
 <a href="#728" id="728">728</a>
 <a href="#729" id="729">729</a>
 <a href="#730" id="730">730</a>
+<a href="#731" id="731">731</a>
+<a href="#732" id="732">732</a>
+<a href="#733" id="733">733</a>
+<a href="#734" id="734">734</a>
+<a href="#735" id="735">735</a>
 </pre></div><pre class="rust"><code><span class="kw">use super</span>::{util::login_user, AsyncCliCommand};
 <span class="kw">use crate</span>::{
     commands::{app::create::CmdAppCreate, package::publish::PackagePublish, PublishWait},
@@ -748,6 +753,11 @@
     app::AppConfigV1,
     package::{PackageIdent, PackageSource},
 };
+
+<span class="comment">// TODO: apparently edge-util uses a different version of the http crate, which makes the
+// HEADER_APP_VERSION_ID field incompatible with our use here, so it needs to be redeclared.
+</span><span class="kw">static </span>EDGE_HEADER_APP_VERSION_ID: http::HeaderName =
+    http::HeaderName::from_static(<span class="string">&quot;x-edge-app-version-id&quot;</span>);
 
 <span class="doccomment">/// Deploy an app to Wasmer Edge.
 </span><span class="attr">#[derive(clap::Parser, Debug)]
@@ -1399,7 +1409,7 @@
                     <span class="prelude-val">Ok</span>(res) =&gt; {
                         <span class="kw">let </span>header = res
                             .headers()
-                            .get(edge_util::headers::HEADER_APP_VERSION_ID)
+                            .get(<span class="kw-2">&amp;</span>EDGE_HEADER_APP_VERSION_ID)
                             .and_then(|x| x.to_str().ok())
                             .unwrap_or_default();
 

@@ -791,12 +791,6 @@
 <a href="#791" id="791">791</a>
 <a href="#792" id="792">792</a>
 <a href="#793" id="793">793</a>
-<a href="#794" id="794">794</a>
-<a href="#795" id="795">795</a>
-<a href="#796" id="796">796</a>
-<a href="#797" id="797">797</a>
-<a href="#798" id="798">798</a>
-<a href="#799" id="799">799</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">super</span>::filesystem::InodeResolution;
 <span class="kw">use super</span>::<span class="kw-2">*</span>;
 <span class="kw">use crate</span>::{FileType, FsError, Metadata, OpenOptionsConfig, <span class="prelude-ty">Result</span>, VirtualFile};
@@ -1367,13 +1361,11 @@
         <span class="kw">let </span>fs = FileSystem::default();
 
         <span class="macro">assert!</span>(
-            <span class="macro">matches!</span>(
-                fs.new_open_options()
-                    .write(<span class="bool-val">true</span>)
-                    .create_new(<span class="bool-val">true</span>)
-                    .open(<span class="macro">path!</span>(<span class="string">&quot;/foo.txt&quot;</span>)),
-                <span class="prelude-val">Ok</span>(<span class="kw">_</span>),
-            ),
+            fs.new_open_options()
+                .write(<span class="bool-val">true</span>)
+                .create_new(<span class="bool-val">true</span>)
+                .open(<span class="macro">path!</span>(<span class="string">&quot;/foo.txt&quot;</span>))
+                .is_ok(),
             <span class="string">&quot;creating a new file&quot;</span>,
         );
 
@@ -1430,13 +1422,11 @@
         <span class="macro">assert_eq!</span>(fs.remove_file(<span class="macro">path!</span>(<span class="string">&quot;/foo.txt&quot;</span>)), <span class="prelude-val">Ok</span>(()), <span class="string">&quot;removing a file&quot;</span>);
 
         <span class="macro">assert!</span>(
-            <span class="macro">matches!</span>(
-                fs.new_open_options()
-                    .write(<span class="bool-val">false</span>)
-                    .create_new(<span class="bool-val">true</span>)
-                    .open(<span class="macro">path!</span>(<span class="string">&quot;/foo.txt&quot;</span>)),
-                <span class="prelude-val">Ok</span>(<span class="kw">_</span>),
-            ),
+            fs.new_open_options()
+                .write(<span class="bool-val">false</span>)
+                .create_new(<span class="bool-val">true</span>)
+                .open(<span class="macro">path!</span>(<span class="string">&quot;/foo.txt&quot;</span>))
+                .is_ok(),
             <span class="string">&quot;creating a file without the `write` option&quot;</span>,
         );
     }
@@ -1567,13 +1557,11 @@
         <span class="kw">let </span>fs = FileSystem::default();
 
         <span class="macro">assert!</span>(
-            <span class="macro">matches!</span>(
-                fs.new_open_options()
-                    .write(<span class="bool-val">true</span>)
-                    .create_new(<span class="bool-val">true</span>)
-                    .open(<span class="macro">path!</span>(<span class="string">&quot;/foo.txt&quot;</span>)),
-                <span class="prelude-val">Ok</span>(<span class="kw">_</span>),
-            ),
+            fs.new_open_options()
+                .write(<span class="bool-val">true</span>)
+                .create_new(<span class="bool-val">true</span>)
+                .open(<span class="macro">path!</span>(<span class="string">&quot;/foo.txt&quot;</span>))
+                .is_ok(),
             <span class="string">&quot;creating a _new_ file&quot;</span>,
         );
 
@@ -1588,10 +1576,10 @@
         );
 
         <span class="macro">assert!</span>(
-            <span class="macro">matches!</span>(
-                fs.new_open_options().read(<span class="bool-val">true</span>).open(<span class="macro">path!</span>(<span class="string">&quot;/foo.txt&quot;</span>)),
-                <span class="prelude-val">Ok</span>(<span class="kw">_</span>),
-            ),
+            fs.new_open_options()
+                .read(<span class="bool-val">true</span>)
+                .open(<span class="macro">path!</span>(<span class="string">&quot;/foo.txt&quot;</span>))
+                .is_ok(),
             <span class="string">&quot;opening a file that already exists&quot;</span>,
         );
     }

@@ -125,6 +125,8 @@
 <a href="#125" id="125">125</a>
 <a href="#126" id="126">126</a>
 <a href="#127" id="127">127</a>
+<a href="#128" id="128">128</a>
+<a href="#129" id="129">129</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{
     collections::HashMap,
     sync::{Arc, Mutex},
@@ -133,6 +135,7 @@
 };
 
 <span class="kw">use </span>derivative::Derivative;
+<span class="kw">use </span>hyper_util::rt::TokioExecutor;
 <span class="kw">use </span>wasmer_journal::{DynJournal, RecombinedJournal};
 
 <span class="kw">use crate</span>::{
@@ -248,7 +251,8 @@
         </span><span class="prelude-val">Ok</span>(DProxyInstance {
             last_used: Arc::new(Mutex::new(Instant::now())),
             socket_manager,
-            client: hyper::Client::builder().build(connector),
+            client: hyper_util::client::legacy::Client::builder(TokioExecutor::new())
+                .build(connector),
         })
     }
 }

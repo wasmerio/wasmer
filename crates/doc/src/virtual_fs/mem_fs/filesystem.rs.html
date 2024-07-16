@@ -1942,14 +1942,6 @@
 <a href="#1942" id="1942">1942</a>
 <a href="#1943" id="1943">1943</a>
 <a href="#1944" id="1944">1944</a>
-<a href="#1945" id="1945">1945</a>
-<a href="#1946" id="1946">1946</a>
-<a href="#1947" id="1947">1947</a>
-<a href="#1948" id="1948">1948</a>
-<a href="#1949" id="1949">1949</a>
-<a href="#1950" id="1950">1950</a>
-<a href="#1951" id="1951">1951</a>
-<a href="#1952" id="1952">1952</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! This module contains the [`FileSystem`] type itself.
 
 </span><span class="kw">use </span><span class="self">self</span>::offloaded_file::OffloadBackingStore;
@@ -3585,13 +3577,11 @@
         <span class="kw">let </span>fs = FileSystem::default();
 
         <span class="macro">assert!</span>(
-            <span class="macro">matches!</span>(
-                fs.new_open_options()
-                    .write(<span class="bool-val">true</span>)
-                    .create_new(<span class="bool-val">true</span>)
-                    .open(<span class="macro">path!</span>(<span class="string">&quot;/foo.txt&quot;</span>)),
-                <span class="prelude-val">Ok</span>(<span class="kw">_</span>)
-            ),
+            fs.new_open_options()
+                .write(<span class="bool-val">true</span>)
+                .create_new(<span class="bool-val">true</span>)
+                .open(<span class="macro">path!</span>(<span class="string">&quot;/foo.txt&quot;</span>))
+                .is_ok(),
             <span class="string">&quot;creating a new file&quot;</span>,
         );
 
@@ -3664,23 +3654,19 @@
         <span class="macro">assert_eq!</span>(fs.create_dir(<span class="macro">path!</span>(<span class="string">&quot;/bar&quot;</span>)), <span class="prelude-val">Ok</span>(()), <span class="string">&quot;creating `bar`&quot;</span>);
         <span class="macro">assert_eq!</span>(fs.create_dir(<span class="macro">path!</span>(<span class="string">&quot;/baz&quot;</span>)), <span class="prelude-val">Ok</span>(()), <span class="string">&quot;creating `bar`&quot;</span>);
         <span class="macro">assert!</span>(
-            <span class="macro">matches!</span>(
-                fs.new_open_options()
-                    .write(<span class="bool-val">true</span>)
-                    .create_new(<span class="bool-val">true</span>)
-                    .open(<span class="macro">path!</span>(<span class="string">&quot;/a.txt&quot;</span>)),
-                <span class="prelude-val">Ok</span>(<span class="kw">_</span>)
-            ),
+            fs.new_open_options()
+                .write(<span class="bool-val">true</span>)
+                .create_new(<span class="bool-val">true</span>)
+                .open(<span class="macro">path!</span>(<span class="string">&quot;/a.txt&quot;</span>))
+                .is_ok(),
             <span class="string">&quot;creating `a.txt`&quot;</span>,
         );
         <span class="macro">assert!</span>(
-            <span class="macro">matches!</span>(
-                fs.new_open_options()
-                    .write(<span class="bool-val">true</span>)
-                    .create_new(<span class="bool-val">true</span>)
-                    .open(<span class="macro">path!</span>(<span class="string">&quot;/b.txt&quot;</span>)),
-                <span class="prelude-val">Ok</span>(<span class="kw">_</span>)
-            ),
+            fs.new_open_options()
+                .write(<span class="bool-val">true</span>)
+                .create_new(<span class="bool-val">true</span>)
+                .open(<span class="macro">path!</span>(<span class="string">&quot;/b.txt&quot;</span>))
+                .is_ok(),
             <span class="string">&quot;creating `b.txt`&quot;</span>,
         );
 
@@ -3745,7 +3731,7 @@
             ),
             <span class="string">&quot;checking entry #5&quot;</span>,
         );
-        <span class="macro">assert!</span>(<span class="macro">matches!</span>(readdir.next(), <span class="prelude-val">None</span>), <span class="string">&quot;no more entries&quot;</span>);
+        <span class="macro">assert!</span>(readdir.next().is_none(), <span class="string">&quot;no more entries&quot;</span>);
     }
 
     <span class="attr">#[tokio::test]
@@ -3765,13 +3751,11 @@
             <span class="string">&quot;creating `qux`&quot;</span>,
         );
         <span class="macro">assert!</span>(
-            <span class="macro">matches!</span>(
-                fs.new_open_options()
-                    .write(<span class="bool-val">true</span>)
-                    .create_new(<span class="bool-val">true</span>)
-                    .open(<span class="macro">path!</span>(<span class="string">&quot;/foo/bar/baz/qux/hello.txt&quot;</span>)),
-                <span class="prelude-val">Ok</span>(<span class="kw">_</span>)
-            ),
+            fs.new_open_options()
+                .write(<span class="bool-val">true</span>)
+                .create_new(<span class="bool-val">true</span>)
+                .open(<span class="macro">path!</span>(<span class="string">&quot;/foo/bar/baz/qux/hello.txt&quot;</span>))
+                .is_ok(),
             <span class="string">&quot;creating `hello.txt`&quot;</span>,
         );
 
@@ -3873,21 +3857,21 @@
         <span class="kw">let </span>other = FileSystem::default();
         <span class="kw">crate</span>::ops::create_dir_all(<span class="kw-2">&amp;</span>other, <span class="string">&quot;/a/x&quot;</span>).unwrap();
         other
-            .insert_ro_file(<span class="kw-2">&amp;</span>Path::new(<span class="string">&quot;/a/x/a.txt&quot;</span>), Cow::Borrowed(<span class="string">b&quot;a&quot;</span>))
+            .insert_ro_file(Path::new(<span class="string">&quot;/a/x/a.txt&quot;</span>), Cow::Borrowed(<span class="string">b&quot;a&quot;</span>))
             .unwrap();
         other
-            .insert_ro_file(<span class="kw-2">&amp;</span>Path::new(<span class="string">&quot;/a/x/b.txt&quot;</span>), Cow::Borrowed(<span class="string">b&quot;b&quot;</span>))
+            .insert_ro_file(Path::new(<span class="string">&quot;/a/x/b.txt&quot;</span>), Cow::Borrowed(<span class="string">b&quot;b&quot;</span>))
             .unwrap();
         other
-            .insert_ro_file(<span class="kw-2">&amp;</span>Path::new(<span class="string">&quot;/a/x/c.txt&quot;</span>), Cow::Borrowed(<span class="string">b&quot;c&quot;</span>))
+            .insert_ro_file(Path::new(<span class="string">&quot;/a/x/c.txt&quot;</span>), Cow::Borrowed(<span class="string">b&quot;c&quot;</span>))
             .unwrap();
 
-        <span class="kw">let </span>out = other.read_dir(<span class="kw-2">&amp;</span>Path::new(<span class="string">&quot;/&quot;</span>)).unwrap();
+        <span class="kw">let </span>out = other.read_dir(Path::new(<span class="string">&quot;/&quot;</span>)).unwrap();
         <span class="macro">dbg!</span>(<span class="kw-2">&amp;</span>out);
 
         <span class="kw">let </span>other: Arc&lt;<span class="kw">dyn </span><span class="kw">crate</span>::FileSystem + Send + Sync&gt; = Arc::new(other);
 
-        main.mount_directory_entries(<span class="kw-2">&amp;</span>Path::new(<span class="string">&quot;/&quot;</span>), <span class="kw-2">&amp;</span>other, <span class="kw-2">&amp;</span>Path::new(<span class="string">&quot;/a&quot;</span>))
+        main.mount_directory_entries(Path::new(<span class="string">&quot;/&quot;</span>), <span class="kw-2">&amp;</span>other, Path::new(<span class="string">&quot;/a&quot;</span>))
             .unwrap();
 
         <span class="kw">let </span><span class="kw-2">mut </span>buf = Vec::new();
@@ -3895,7 +3879,7 @@
         <span class="kw">let </span><span class="kw-2">mut </span>f = main
             .new_open_options()
             .read(<span class="bool-val">true</span>)
-            .open(<span class="kw-2">&amp;</span>Path::new(<span class="string">&quot;/x/a.txt&quot;</span>))
+            .open(Path::new(<span class="string">&quot;/x/a.txt&quot;</span>))
             .unwrap();
         f.read_to_end(<span class="kw-2">&amp;mut </span>buf).<span class="kw">await</span>.unwrap();
 

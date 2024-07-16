@@ -1476,16 +1476,6 @@
 <a href="#1476" id="1476">1476</a>
 <a href="#1477" id="1477">1477</a>
 <a href="#1478" id="1478">1478</a>
-<a href="#1479" id="1479">1479</a>
-<a href="#1480" id="1480">1480</a>
-<a href="#1481" id="1481">1481</a>
-<a href="#1482" id="1482">1482</a>
-<a href="#1483" id="1483">1483</a>
-<a href="#1484" id="1484">1484</a>
-<a href="#1485" id="1485">1485</a>
-<a href="#1486" id="1486">1486</a>
-<a href="#1487" id="1487">1487</a>
-<a href="#1488" id="1488">1488</a>
 </pre></div><pre class="rust"><code><span class="kw">use crate</span>::{
     DirEntry, FileType, FsError, Metadata, OpenOptions, OpenOptionsConfig, ReadDir, <span class="prelude-ty">Result</span>,
     VirtualFile,
@@ -2702,39 +2692,35 @@
         );
 
         <span class="macro">assert_eq!</span>(
-            fs.rename(<span class="kw-2">&amp;</span>foo, <span class="kw-2">&amp;</span>foo.join(<span class="string">&quot;bar&quot;</span>).join(<span class="string">&quot;baz&quot;</span>),).<span class="kw">await</span>,
+            fs.rename(foo, <span class="kw-2">&amp;</span>foo.join(<span class="string">&quot;bar&quot;</span>).join(<span class="string">&quot;baz&quot;</span>),).<span class="kw">await</span>,
             <span class="prelude-val">Err</span>(FsError::EntryNotFound),
             <span class="string">&quot;renaming to a directory that has parent that doesn&#39;t exist&quot;</span>,
         );
 
         <span class="comment">// On Windows, rename &quot;to&quot; must not be an existing directory
         </span><span class="attr">#[cfg(not(target_os = <span class="string">&quot;windows&quot;</span>))]
-        </span><span class="macro">assert_eq!</span>(fs.create_dir(<span class="kw-2">&amp;</span>bar), <span class="prelude-val">Ok</span>(()));
+        </span><span class="macro">assert_eq!</span>(fs.create_dir(bar), <span class="prelude-val">Ok</span>(()));
 
         <span class="macro">assert_eq!</span>(
-            fs.rename(<span class="kw-2">&amp;</span>foo, <span class="kw-2">&amp;</span>bar).<span class="kw">await</span>,
+            fs.rename(foo, bar).<span class="kw">await</span>,
             <span class="prelude-val">Ok</span>(()),
             <span class="string">&quot;renaming to a directory that has parent that exists&quot;</span>,
         );
 
         <span class="macro">assert!</span>(
-            <span class="macro">matches!</span>(
-                fs.new_open_options()
-                    .write(<span class="bool-val">true</span>)
-                    .create_new(<span class="bool-val">true</span>)
-                    .open(bar.join(<span class="string">&quot;hello1.txt&quot;</span>)),
-                <span class="prelude-val">Ok</span>(<span class="kw">_</span>),
-            ),
+            fs.new_open_options()
+                .write(<span class="bool-val">true</span>)
+                .create_new(<span class="bool-val">true</span>)
+                .open(bar.join(<span class="string">&quot;hello1.txt&quot;</span>))
+                .is_ok(),
             <span class="string">&quot;creating a new file (`hello1.txt`)&quot;</span>,
         );
         <span class="macro">assert!</span>(
-            <span class="macro">matches!</span>(
-                fs.new_open_options()
-                    .write(<span class="bool-val">true</span>)
-                    .create_new(<span class="bool-val">true</span>)
-                    .open(bar.join(<span class="string">&quot;hello2.txt&quot;</span>)),
-                <span class="prelude-val">Ok</span>(<span class="kw">_</span>),
-            ),
+            fs.new_open_options()
+                .write(<span class="bool-val">true</span>)
+                .create_new(<span class="bool-val">true</span>)
+                .open(bar.join(<span class="string">&quot;hello2.txt&quot;</span>))
+                .is_ok(),
             <span class="string">&quot;creating a new file (`hello2.txt`)&quot;</span>,
         );
 
@@ -2750,7 +2736,7 @@
             <span class="string">&quot;the bar directory still exists&quot;
         </span>);
 
-        <span class="kw">let </span>bar_dir = read_dir_names(<span class="kw-2">&amp;</span>fs, <span class="kw-2">&amp;</span>bar);
+        <span class="kw">let </span>bar_dir = read_dir_names(<span class="kw-2">&amp;</span>fs, bar);
 
         <span class="kw">if </span>!bar_dir.contains(<span class="kw-2">&amp;</span><span class="string">&quot;qux&quot;</span>.to_string()) {
             <span class="macro">println!</span>(<span class="string">&quot;qux does not exist: {:?}&quot;</span>, bar_dir)
@@ -2770,7 +2756,7 @@
             <span class="string">&quot;the /bar/hello2.txt file exists&quot;
         </span>);
 
-        <span class="macro">assert_eq!</span>(fs.create_dir(<span class="kw-2">&amp;</span>foo), <span class="prelude-val">Ok</span>(()), <span class="string">&quot;create ./foo again&quot;</span>,);
+        <span class="macro">assert_eq!</span>(fs.create_dir(foo), <span class="prelude-val">Ok</span>(()), <span class="string">&quot;create ./foo again&quot;</span>,);
 
         <span class="macro">assert_eq!</span>(
             fs.rename(<span class="kw-2">&amp;</span>bar.join(<span class="string">&quot;hello2.txt&quot;</span>), <span class="kw-2">&amp;</span>foo.join(<span class="string">&quot;world2.txt&quot;</span>))
@@ -2780,7 +2766,7 @@
         );
 
         <span class="macro">assert_eq!</span>(
-            fs.rename(<span class="kw-2">&amp;</span>foo, <span class="kw-2">&amp;</span>bar.join(<span class="string">&quot;baz&quot;</span>)).<span class="kw">await</span>,
+            fs.rename(foo, <span class="kw-2">&amp;</span>bar.join(<span class="string">&quot;baz&quot;</span>)).<span class="kw">await</span>,
             <span class="prelude-val">Ok</span>(()),
             <span class="string">&quot;renaming a directory&quot;</span>,
         );
@@ -2838,9 +2824,9 @@
 
         <span class="kw">let </span>foo = Path::new(<span class="string">&quot;foo&quot;</span>);
 
-        <span class="macro">assert_eq!</span>(fs.create_dir(<span class="kw-2">&amp;</span>foo), <span class="prelude-val">Ok</span>(()));
+        <span class="macro">assert_eq!</span>(fs.create_dir(foo), <span class="prelude-val">Ok</span>(()));
 
-        <span class="kw">let </span>foo_metadata = fs.metadata(<span class="kw-2">&amp;</span>foo);
+        <span class="kw">let </span>foo_metadata = fs.metadata(foo);
         <span class="macro">assert!</span>(foo_metadata.is_ok());
         <span class="kw">let </span>foo_metadata = foo_metadata.unwrap();
 
@@ -2855,15 +2841,15 @@
 
         <span class="kw">let </span>bar = Path::new(<span class="string">&quot;bar&quot;</span>);
 
-        <span class="macro">assert_eq!</span>(fs.rename(<span class="kw-2">&amp;</span>foo, <span class="kw-2">&amp;</span>bar).<span class="kw">await</span>, <span class="prelude-val">Ok</span>(()));
+        <span class="macro">assert_eq!</span>(fs.rename(foo, bar).<span class="kw">await</span>, <span class="prelude-val">Ok</span>(()));
 
-        <span class="kw">let </span>bar_metadata = fs.metadata(<span class="kw-2">&amp;</span>bar).unwrap();
+        <span class="kw">let </span>bar_metadata = fs.metadata(bar).unwrap();
         <span class="macro">assert!</span>(bar_metadata.ft.dir);
         <span class="macro">assert!</span>(bar_metadata.accessed &gt;= foo_metadata.accessed);
         <span class="macro">assert_eq!</span>(bar_metadata.created, foo_metadata.created);
         <span class="macro">assert!</span>(bar_metadata.modified &gt; foo_metadata.modified);
 
-        <span class="kw">let </span>root_metadata = fs.metadata(<span class="kw-2">&amp;</span>bar).unwrap();
+        <span class="kw">let </span>root_metadata = fs.metadata(bar).unwrap();
         <span class="macro">assert!</span>(
             root_metadata.modified &gt; foo_metadata.modified,
             <span class="string">&quot;the parent modified time was updated&quot;
@@ -2876,13 +2862,11 @@
         <span class="kw">let </span>fs = FileSystem::new(Handle::current(), temp.path()).expect(<span class="string">&quot;get filesystem&quot;</span>);
 
         <span class="macro">assert!</span>(
-            <span class="macro">matches!</span>(
-                fs.new_open_options()
-                    .write(<span class="bool-val">true</span>)
-                    .create_new(<span class="bool-val">true</span>)
-                    .open(Path::new(<span class="string">&quot;foo.txt&quot;</span>)),
-                <span class="prelude-val">Ok</span>(<span class="kw">_</span>)
-            ),
+            fs.new_open_options()
+                .write(<span class="bool-val">true</span>)
+                .create_new(<span class="bool-val">true</span>)
+                .open(Path::new(<span class="string">&quot;foo.txt&quot;</span>))
+                .is_ok(),
             <span class="string">&quot;creating a new file&quot;</span>,
         );
 
@@ -2891,7 +2875,7 @@
         <span class="macro">assert!</span>(temp.path().join(<span class="string">&quot;foo.txt&quot;</span>).is_file());
 
         <span class="macro">assert_eq!</span>(
-            fs.remove_file(<span class="kw-2">&amp;</span>Path::new(<span class="string">&quot;foo.txt&quot;</span>)),
+            fs.remove_file(Path::new(<span class="string">&quot;foo.txt&quot;</span>)),
             <span class="prelude-val">Ok</span>(()),
             <span class="string">&quot;removing a file that exists&quot;</span>,
         );
@@ -2899,7 +2883,7 @@
         <span class="macro">assert!</span>(!temp.path().join(<span class="string">&quot;foo.txt&quot;</span>).exists());
 
         <span class="macro">assert_eq!</span>(
-            fs.remove_file(<span class="kw-2">&amp;</span>Path::new(<span class="string">&quot;foo.txt&quot;</span>)),
+            fs.remove_file(Path::new(<span class="string">&quot;foo.txt&quot;</span>)),
             <span class="prelude-val">Err</span>(FsError::EntryNotFound),
             <span class="string">&quot;removing a file that doesn&#39;t exists&quot;</span>,
         );
@@ -2910,32 +2894,28 @@
         <span class="kw">let </span>temp = TempDir::new().unwrap();
         <span class="kw">let </span>fs = FileSystem::new(Handle::current(), temp.path()).expect(<span class="string">&quot;get filesystem&quot;</span>);
 
-        <span class="macro">assert_eq!</span>(fs.create_dir(<span class="kw-2">&amp;</span>Path::new(<span class="string">&quot;foo&quot;</span>)), <span class="prelude-val">Ok</span>(()), <span class="string">&quot;creating `foo`&quot;</span>);
+        <span class="macro">assert_eq!</span>(fs.create_dir(Path::new(<span class="string">&quot;foo&quot;</span>)), <span class="prelude-val">Ok</span>(()), <span class="string">&quot;creating `foo`&quot;</span>);
         <span class="macro">assert_eq!</span>(
-            fs.create_dir(<span class="kw-2">&amp;</span>Path::new(<span class="string">&quot;foo/sub&quot;</span>)),
+            fs.create_dir(Path::new(<span class="string">&quot;foo/sub&quot;</span>)),
             <span class="prelude-val">Ok</span>(()),
             <span class="string">&quot;creating `sub`&quot;
         </span>);
-        <span class="macro">assert_eq!</span>(fs.create_dir(<span class="kw-2">&amp;</span>Path::new(<span class="string">&quot;bar&quot;</span>)), <span class="prelude-val">Ok</span>(()), <span class="string">&quot;creating `bar`&quot;</span>);
-        <span class="macro">assert_eq!</span>(fs.create_dir(<span class="kw-2">&amp;</span>Path::new(<span class="string">&quot;baz&quot;</span>)), <span class="prelude-val">Ok</span>(()), <span class="string">&quot;creating `bar`&quot;</span>);
+        <span class="macro">assert_eq!</span>(fs.create_dir(Path::new(<span class="string">&quot;bar&quot;</span>)), <span class="prelude-val">Ok</span>(()), <span class="string">&quot;creating `bar`&quot;</span>);
+        <span class="macro">assert_eq!</span>(fs.create_dir(Path::new(<span class="string">&quot;baz&quot;</span>)), <span class="prelude-val">Ok</span>(()), <span class="string">&quot;creating `bar`&quot;</span>);
         <span class="macro">assert!</span>(
-            <span class="macro">matches!</span>(
-                fs.new_open_options()
-                    .write(<span class="bool-val">true</span>)
-                    .create_new(<span class="bool-val">true</span>)
-                    .open(Path::new(<span class="string">&quot;a.txt&quot;</span>)),
-                <span class="prelude-val">Ok</span>(<span class="kw">_</span>)
-            ),
+            fs.new_open_options()
+                .write(<span class="bool-val">true</span>)
+                .create_new(<span class="bool-val">true</span>)
+                .open(Path::new(<span class="string">&quot;a.txt&quot;</span>))
+                .is_ok(),
             <span class="string">&quot;creating `a.txt`&quot;</span>,
         );
         <span class="macro">assert!</span>(
-            <span class="macro">matches!</span>(
-                fs.new_open_options()
-                    .write(<span class="bool-val">true</span>)
-                    .create_new(<span class="bool-val">true</span>)
-                    .open(<span class="kw-2">&amp;</span>Path::new(<span class="string">&quot;b.txt&quot;</span>)),
-                <span class="prelude-val">Ok</span>(<span class="kw">_</span>)
-            ),
+            fs.new_open_options()
+                .write(<span class="bool-val">true</span>)
+                .create_new(<span class="bool-val">true</span>)
+                .open(Path::new(<span class="string">&quot;b.txt&quot;</span>))
+                .is_ok(),
             <span class="string">&quot;creating `b.txt`&quot;</span>,
         );
 

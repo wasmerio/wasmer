@@ -90,11 +90,10 @@
 <a href="#90" id="90">90</a>
 <a href="#91" id="91">91</a>
 <a href="#92" id="92">92</a>
-<a href="#93" id="93">93</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::io;
 
 <span class="kw">use </span>futures::Stream;
-<span class="kw">use </span>hyper::client::connect::Connected;
+<span class="kw">use </span>hyper_util::{client::legacy::connect::Connected, rt::TokioIo};
 <span class="kw">use </span>tokio_stream::wrappers::BroadcastStream;
 <span class="kw">use </span>virtual_net::tcp_pair::{TcpSocketHalfRx, TcpSocketHalfTx};
 
@@ -103,18 +102,23 @@
 <span class="attr">#[derive(Debug)]
 </span><span class="kw">pub struct </span>HyperProxyStream {
     <span class="kw">pub</span>(<span class="kw">super</span>) tx: TcpSocketHalfTx,
-    <span class="kw">pub</span>(<span class="kw">super</span>) rx: TcpSocketHalfRx,
+    <span class="kw">pub</span>(<span class="kw">super</span>) rx: TokioIo&lt;TcpSocketHalfRx&gt;,
     <span class="kw">pub</span>(<span class="kw">super</span>) terminate: BroadcastStream&lt;()&gt;,
     <span class="kw">pub</span>(<span class="kw">super</span>) terminated: bool,
 }
 
-<span class="kw">impl </span>AsyncRead <span class="kw">for </span>HyperProxyStream {
-    <span class="attr">#[inline]
-    </span><span class="kw">fn </span>poll_read(
+<span class="kw">impl </span>hyper_util::client::legacy::connect::Connection <span class="kw">for </span>HyperProxyStream {
+    <span class="kw">fn </span>connected(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Connected {
+        Connected::new().proxy(<span class="bool-val">true</span>)
+    }
+}
+
+<span class="kw">impl </span>hyper::rt::Read <span class="kw">for </span>HyperProxyStream {
+    <span class="kw">fn </span>poll_read(
         <span class="kw-2">mut </span><span class="self">self</span>: Pin&lt;<span class="kw-2">&amp;mut </span><span class="self">Self</span>&gt;,
-        cx: <span class="kw-2">&amp;mut </span>Context,
-        buf: <span class="kw-2">&amp;mut </span>ReadBuf&lt;<span class="lifetime">&#39;_</span>&gt;,
-    ) -&gt; Poll&lt;<span class="prelude-ty">Result</span>&lt;(), io::Error&gt;&gt; {
+        cx: <span class="kw-2">&amp;mut </span>Context&lt;<span class="lifetime">&#39;_</span>&gt;,
+        buf: hyper::rt::ReadBufCursor&lt;<span class="lifetime">&#39;_</span>&gt;,
+    ) -&gt; Poll&lt;<span class="prelude-ty">Result</span>&lt;(), std::io::Error&gt;&gt; {
         <span class="kw">if let </span>Poll::Ready(ret) = Pin::new(<span class="kw-2">&amp;mut </span><span class="self">self</span>.rx).poll_read(cx, buf) {
             <span class="kw">return </span>Poll::Ready(ret);
         }
@@ -128,13 +132,12 @@
     }
 }
 
-<span class="kw">impl </span>AsyncWrite <span class="kw">for </span>HyperProxyStream {
-    <span class="attr">#[inline]
-    </span><span class="kw">fn </span>poll_write(
+<span class="kw">impl </span>hyper::rt::Write <span class="kw">for </span>HyperProxyStream {
+    <span class="kw">fn </span>poll_write(
         <span class="kw-2">mut </span><span class="self">self</span>: Pin&lt;<span class="kw-2">&amp;mut </span><span class="self">Self</span>&gt;,
         cx: <span class="kw-2">&amp;mut </span>Context&lt;<span class="lifetime">&#39;_</span>&gt;,
         buf: <span class="kw-2">&amp;</span>[u8],
-    ) -&gt; Poll&lt;<span class="prelude-ty">Result</span>&lt;usize, io::Error&gt;&gt; {
+    ) -&gt; Poll&lt;<span class="prelude-ty">Result</span>&lt;usize, std::io::Error&gt;&gt; {
         <span class="kw">if let </span>Poll::Ready(ret) = Pin::new(<span class="kw-2">&amp;mut </span><span class="self">self</span>.tx).poll_write(cx, buf) {
             <span class="kw">return </span>Poll::Ready(ret);
         }
@@ -147,8 +150,10 @@
         Poll::Pending
     }
 
-    <span class="attr">#[inline]
-    </span><span class="kw">fn </span>poll_flush(<span class="kw-2">mut </span><span class="self">self</span>: Pin&lt;<span class="kw-2">&amp;mut </span><span class="self">Self</span>&gt;, cx: <span class="kw-2">&amp;mut </span>Context&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; Poll&lt;<span class="prelude-ty">Result</span>&lt;(), io::Error&gt;&gt; {
+    <span class="kw">fn </span>poll_flush(
+        <span class="kw-2">mut </span><span class="self">self</span>: Pin&lt;<span class="kw-2">&amp;mut </span><span class="self">Self</span>&gt;,
+        cx: <span class="kw-2">&amp;mut </span>Context&lt;<span class="lifetime">&#39;_</span>&gt;,
+    ) -&gt; Poll&lt;<span class="prelude-ty">Result</span>&lt;(), std::io::Error&gt;&gt; {
         <span class="kw">if let </span>Poll::Ready(ret) = Pin::new(<span class="kw-2">&amp;mut </span><span class="self">self</span>.tx).poll_flush(cx) {
             <span class="kw">return </span>Poll::Ready(ret);
         }
@@ -161,11 +166,10 @@
         Poll::Pending
     }
 
-    <span class="attr">#[inline]
-    </span><span class="kw">fn </span>poll_shutdown(
+    <span class="kw">fn </span>poll_shutdown(
         <span class="kw-2">mut </span><span class="self">self</span>: Pin&lt;<span class="kw-2">&amp;mut </span><span class="self">Self</span>&gt;,
         cx: <span class="kw-2">&amp;mut </span>Context&lt;<span class="lifetime">&#39;_</span>&gt;,
-    ) -&gt; Poll&lt;<span class="prelude-ty">Result</span>&lt;(), io::Error&gt;&gt; {
+    ) -&gt; Poll&lt;<span class="prelude-ty">Result</span>&lt;(), std::io::Error&gt;&gt; {
         <span class="kw">if let </span>Poll::Ready(ret) = Pin::new(<span class="kw-2">&amp;mut </span><span class="self">self</span>.tx).poll_shutdown(cx) {
             <span class="kw">return </span>Poll::Ready(ret);
         }
@@ -176,12 +180,6 @@
             <span class="kw">return </span>Poll::Ready(<span class="prelude-val">Err</span>(io::ErrorKind::ConnectionReset.into()));
         }
         Poll::Pending
-    }
-}
-
-<span class="kw">impl </span>hyper::client::connect::Connection <span class="kw">for </span>HyperProxyStream {
-    <span class="kw">fn </span>connected(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Connected {
-        Connected::new().proxy(<span class="bool-val">true</span>)
     }
 }
 </code></pre></div></section></main></body></html>

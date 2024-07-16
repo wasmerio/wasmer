@@ -232,17 +232,6 @@
 </span><span class="attr">#[repr(C)]
 </span><span class="kw">pub struct </span>VMFunctionBody(u8);
 
-<span class="attr">#[cfg(test)]
-</span><span class="kw">mod </span>test_vmfunction_body {
-    <span class="kw">use </span><span class="kw">super</span>::VMFunctionBody;
-    <span class="kw">use </span>std::mem::size_of;
-
-    <span class="attr">#[test]
-    </span><span class="kw">fn </span>check_vmfunction_body_offsets() {
-        <span class="macro">assert_eq!</span>(size_of::&lt;VMFunctionBody&gt;(), <span class="number">1</span>);
-    }
-}
-
 <span class="doccomment">/// A safe wrapper around `VMFunctionBody`.
 </span><span class="attr">#[derive(Clone, Copy, Debug)]
 #[repr(transparent)]
@@ -284,6 +273,17 @@
     /// `raw.funcref` must be a valid pointer.
     </span><span class="kw">pub unsafe fn </span>from_raw(raw: RawValue) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="self">Self</span>&gt; {
         NonNull::new(raw.funcref <span class="kw">as </span><span class="kw-2">*mut </span>VMCallerCheckedAnyfunc).map(<span class="self">Self</span>)
+    }
+}
+
+<span class="attr">#[cfg(test)]
+</span><span class="kw">mod </span>test_vmfunction_body {
+    <span class="kw">use </span><span class="kw">super</span>::VMFunctionBody;
+    <span class="kw">use </span>std::mem::size_of;
+
+    <span class="attr">#[test]
+    </span><span class="kw">fn </span>check_vmfunction_body_offsets() {
+        <span class="macro">assert_eq!</span>(size_of::&lt;VMFunctionBody&gt;(), <span class="number">1</span>);
     }
 }
 </code></pre></div></section></main></body></html>

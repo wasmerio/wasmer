@@ -540,8 +540,7 @@
     <span class="kw">impl </span>VMTinyMemory {
         <span class="kw">pub fn </span>new() -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, MemoryError&gt; {
             <span class="kw">let </span>sz = <span class="number">18 </span>* WASM_PAGE_SIZE;
-            <span class="kw">let </span><span class="kw-2">mut </span>memory = Vec::new();
-            memory.resize(sz, <span class="number">0</span>);
+            <span class="kw">let </span>memory = <span class="macro">vec!</span>[<span class="number">0</span>; sz];
             <span class="kw">let </span><span class="kw-2">mut </span>ret = <span class="self">Self </span>{
                 mem: memory,
                 memory_definition: <span class="prelude-val">None</span>,
@@ -775,6 +774,7 @@
             all(target_os = <span class="string">&quot;macos&quot;</span>, target_arch = <span class="string">&quot;aarch64&quot;</span>)
         ))
     ))]
+    #[allow(clippy::print_stdout)]
     </span><span class="kw">fn </span>check_small_stack() -&gt; <span class="prelude-ty">Result</span>&lt;(), Box&lt;<span class="kw">dyn </span>std::error::Error&gt;&gt; {
         <span class="kw">use crate</span>::{imports, wat2wasm, Engine, Instance, Module, Store};
         <span class="kw">use </span>wasmer_compiler_singlepass::Singlepass;

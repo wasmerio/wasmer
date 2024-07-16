@@ -198,14 +198,14 @@
     </span><span class="kw">fn </span>hash_sha256_parse_fails() {
         <span class="kw">let </span>res1 =
             <span class="string">&quot;c355cd53795b9b481f7eb2b5f4f6c8cf73631bdc343723a579d671e32db70b3&quot;</span>.parse::&lt;Sha256Hash&gt;();
-        <span class="macro">assert!</span>(<span class="macro">matches!</span>(res1, <span class="prelude-val">Err</span>(<span class="kw">_</span>)));
+        <span class="macro">assert!</span>(res1.is_err());
 
         <span class="kw">let </span>res2 = <span class="string">&quot;&quot;</span>.parse::&lt;Sha256Hash&gt;();
-        <span class="macro">assert!</span>(<span class="macro">matches!</span>(res2, <span class="prelude-val">Err</span>(<span class="kw">_</span>)));
+        <span class="macro">assert!</span>(res2.is_err());
 
         <span class="kw">let </span>res3 = <span class="string">&quot;öööööööööööööööööööööööööööööööööööööööööööööööööööööööööööööööö&quot;
             </span>.parse::&lt;Sha256Hash&gt;();
-        <span class="macro">assert!</span>(<span class="macro">matches!</span>(res3, <span class="prelude-val">Err</span>(<span class="kw">_</span>)));
+        <span class="macro">assert!</span>(res3.is_err());
     }
 }
 </code></pre></div></section></main></body></html>

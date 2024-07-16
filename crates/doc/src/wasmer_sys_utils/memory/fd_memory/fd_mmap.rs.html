@@ -787,7 +787,7 @@
             .read(<span class="bool-val">true</span>)
             .write(<span class="bool-val">true</span>)
             .create_new(<span class="bool-val">true</span>)
-            .open(<span class="kw-2">&amp;</span>pa)
+            .open(pa)
             .unwrap();
         a.write_all(<span class="kw-2">&amp;</span>data).unwrap();
 
@@ -796,7 +796,7 @@
             .read(<span class="bool-val">true</span>)
             .write(<span class="bool-val">true</span>)
             .create_new(<span class="bool-val">true</span>)
-            .open(<span class="kw-2">&amp;</span>pb)
+            .open(pb)
             .unwrap();
         b.write_all(<span class="kw-2">&amp;</span>datb).unwrap();
 

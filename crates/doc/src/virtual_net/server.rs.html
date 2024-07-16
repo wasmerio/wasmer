@@ -1639,6 +1639,8 @@
 <a href="#1639" id="1639">1639</a>
 <a href="#1640" id="1640">1640</a>
 <a href="#1641" id="1641">1641</a>
+<a href="#1642" id="1642">1642</a>
+<a href="#1643" id="1643">1643</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::meta::{FrameSerializationFormat, ResponseType};
 <span class="kw">use </span><span class="kw">crate</span>::rx_tx::{RemoteRx, RemoteTx, RemoteTxWakers};
 <span class="kw">use crate</span>::{
@@ -1657,6 +1659,8 @@
 <span class="kw">use </span>std::net::IpAddr;
 <span class="kw">use </span>std::task::Waker;
 <span class="kw">use </span>std::time::Duration;
+
+<span class="kw">use </span>hyper_util::rt::tokio::TokioIo;
 <span class="kw">use </span>std::{
     collections::HashMap,
     future::Future,
@@ -1808,10 +1812,10 @@
     </span><span class="attr">#[cfg(feature = <span class="string">&quot;hyper&quot;</span>)]
     </span><span class="kw">pub fn </span>new_from_hyper_ws_io(
         tx: SplitSink&lt;
-            hyper_tungstenite::WebSocketStream&lt;hyper::upgrade::Upgraded&gt;,
+            hyper_tungstenite::WebSocketStream&lt;TokioIo&lt;hyper::upgrade::Upgraded&gt;&gt;,
             hyper_tungstenite::tungstenite::Message,
         &gt;,
-        rx: SplitStream&lt;hyper_tungstenite::WebSocketStream&lt;hyper::upgrade::Upgraded&gt;&gt;,
+        rx: SplitStream&lt;hyper_tungstenite::WebSocketStream&lt;TokioIo&lt;hyper::upgrade::Upgraded&gt;&gt;&gt;,
         format: FrameSerializationFormat,
         inner: Arc&lt;<span class="kw">dyn </span>VirtualNetworking + Send + Sync + <span class="lifetime">&#39;static</span>&gt;,
     ) -&gt; (<span class="self">Self</span>, RemoteNetworkingServerDriver) {

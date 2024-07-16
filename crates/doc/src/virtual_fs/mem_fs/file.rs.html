@@ -2942,7 +2942,7 @@
 
         <span class="kw">let </span><span class="kw-2">mut </span>buffer = [<span class="number">0</span>; <span class="number">16</span>];
         <span class="macro">assert!</span>(
-            <span class="macro">matches!</span>(file.read_exact(<span class="kw-2">&amp;mut </span>buffer).<span class="kw">await</span>, <span class="prelude-val">Err</span>(<span class="kw">_</span>)),
+            file.read_exact(<span class="kw-2">&amp;mut </span>buffer).<span class="kw">await</span>.is_err(),
             <span class="string">&quot;failing to read an exact buffer&quot;</span>,
         );
 
@@ -2953,7 +2953,7 @@
 
         <span class="kw">let </span><span class="kw-2">mut </span>buffer = [<span class="number">0</span>; <span class="number">3</span>];
         <span class="macro">assert!</span>(
-            <span class="macro">matches!</span>(file.read_exact(<span class="kw-2">&amp;mut </span>buffer).<span class="kw">await</span>, <span class="prelude-val">Ok</span>(<span class="kw">_</span>)),
+            file.read_exact(<span class="kw-2">&amp;mut </span>buffer).<span class="kw">await</span>.is_ok(),
             <span class="string">&quot;failing to read an exact buffer&quot;</span>,
         );
     }

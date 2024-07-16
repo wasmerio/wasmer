@@ -1542,6 +1542,7 @@
 <a href="#1542" id="1542">1542</a>
 <a href="#1543" id="1543">1543</a>
 <a href="#1544" id="1544">1544</a>
+<a href="#1545" id="1545">1545</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::collections::HashMap;
 <span class="kw">use </span>std::collections::VecDeque;
 <span class="kw">use </span>std::future::Future;
@@ -1567,6 +1568,7 @@
 <span class="kw">use </span>futures_util::Sink;
 <span class="kw">use </span>futures_util::Stream;
 <span class="kw">use </span>futures_util::StreamExt;
+<span class="kw">use </span>hyper_util::rt::tokio::TokioIo;
 <span class="kw">use </span>tokio::io::AsyncRead;
 <span class="kw">use </span>tokio::io::AsyncWrite;
 <span class="kw">use </span>tokio::sync::mpsc;
@@ -1744,11 +1746,11 @@
     </span><span class="attr">#[cfg(feature = <span class="string">&quot;hyper&quot;</span>)]
     </span><span class="kw">pub fn </span>new_from_hyper_ws_io(
         tx: futures_util::stream::SplitSink&lt;
-            hyper_tungstenite::WebSocketStream&lt;hyper::upgrade::Upgraded&gt;,
+            hyper_tungstenite::WebSocketStream&lt;TokioIo&lt;hyper::upgrade::Upgraded&gt;&gt;,
             hyper_tungstenite::tungstenite::Message,
         &gt;,
         rx: futures_util::stream::SplitStream&lt;
-            hyper_tungstenite::WebSocketStream&lt;hyper::upgrade::Upgraded&gt;,
+            hyper_tungstenite::WebSocketStream&lt;TokioIo&lt;hyper::upgrade::Upgraded&gt;&gt;,
         &gt;,
         format: FrameSerializationFormat,
     ) -&gt; (<span class="self">Self</span>, RemoteNetworkingClientDriver) {

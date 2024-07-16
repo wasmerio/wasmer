@@ -44,8 +44,10 @@
 <a href="#44" id="44">44</a>
 <a href="#45" id="45">45</a>
 <a href="#46" id="46">46</a>
+<a href="#47" id="47">47</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::sync::Arc;
 
+<span class="kw">use </span>hyper_util::rt::TokioIo;
 <span class="kw">use </span>tokio_stream::wrappers::BroadcastStream;
 
 <span class="kw">use </span><span class="kw">super</span>::socket_manager::SocketManager;
@@ -64,7 +66,7 @@
     }
 }
 
-<span class="kw">impl </span>Service&lt;Uri&gt; <span class="kw">for </span>HyperProxyConnector {
+<span class="kw">impl </span>tower::Service&lt;Uri&gt; <span class="kw">for </span>HyperProxyConnector {
     <span class="kw">type </span>Response = HyperProxyStream;
     <span class="kw">type </span>Error = BoxError;
 
@@ -83,7 +85,7 @@
             <span class="kw">let </span>(tx, rx) = socket.split();
             <span class="prelude-val">Ok</span>(HyperProxyStream {
                 tx,
-                rx,
+                rx: TokioIo::new(rx),
                 terminate: BroadcastStream::new(terminate_rx),
                 terminated: <span class="bool-val">false</span>,
             })

@@ -141,14 +141,35 @@
 <a href="#141" id="141">141</a>
 <a href="#142" id="142">142</a>
 <a href="#143" id="143">143</a>
+<a href="#144" id="144">144</a>
+<a href="#145" id="145">145</a>
+<a href="#146" id="146">146</a>
+<a href="#147" id="147">147</a>
+<a href="#148" id="148">148</a>
+<a href="#149" id="149">149</a>
+<a href="#150" id="150">150</a>
+<a href="#151" id="151">151</a>
+<a href="#152" id="152">152</a>
+<a href="#153" id="153">153</a>
+<a href="#154" id="154">154</a>
+<a href="#155" id="155">155</a>
+<a href="#156" id="156">156</a>
+<a href="#157" id="157">157</a>
+<a href="#158" id="158">158</a>
+<a href="#159" id="159">159</a>
+<a href="#160" id="160">160</a>
+<a href="#161" id="161">161</a>
+<a href="#162" id="162">162</a>
+<a href="#163" id="163">163</a>
+<a href="#164" id="164">164</a>
+<a href="#165" id="165">165</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{net::SocketAddr, sync::Arc, time::Duration};
 
 <span class="kw">use </span>anyhow::{Context, Error};
-<span class="kw">use </span>http::{Request, Response};
-<span class="kw">use </span>hyper::Body;
-<span class="kw">use </span>tower::{make::Shared, ServiceBuilder};
+<span class="kw">use </span>futures::{stream::FuturesUnordered, StreamExt};
+<span class="kw">use </span>http::Request;
+<span class="kw">use </span>tower::ServiceBuilder;
 <span class="kw">use </span>tower_http::{catch_panic::CatchPanicLayer, cors::CorsLayer, trace::TraceLayer};
-<span class="kw">use </span>tracing::Span;
 <span class="kw">use </span>webc::metadata::Command;
 
 <span class="kw">use crate</span>::{
@@ -205,7 +226,7 @@
         </span><span class="kw">let </span>service = ServiceBuilder::new()
             .layer(
                 TraceLayer::new_for_http()
-                    .make_span_with(|request: <span class="kw-2">&amp;</span>Request&lt;Body&gt;| {
+                    .make_span_with(|request: <span class="kw-2">&amp;</span>Request&lt;hyper::body::Incoming&gt;| {
                         <span class="macro">tracing::info_span!</span>(
                             <span class="string">&quot;request&quot;</span>,
                             method = %request.method(),
@@ -213,10 +234,7 @@
                             status_code = tracing::field::Empty,
                         )
                     })
-                    .on_response(|response: <span class="kw-2">&amp;</span>Response&lt;<span class="kw">_</span>&gt;, _latency: Duration, span: <span class="kw-2">&amp;</span>Span| {
-                        span.record(<span class="string">&quot;status_code&quot;</span>, <span class="kw-2">&amp;</span>tracing::field::display(response.status()));
-                        <span class="macro">tracing::info!</span>(<span class="string">&quot;response generated&quot;</span>)
-                    }),
+                    .on_response(<span class="kw">super</span>::<span class="kw">super</span>::response_tracing::OnResponseTracer),
             )
             .layer(CatchPanicLayer::new())
             .layer(CorsLayer::permissive())
@@ -228,17 +246,43 @@
         runtime
             .task_manager()
             .spawn_and_block_on(<span class="kw">async move </span>{
-                <span class="kw">let </span>(shutdown, _abort_handle) =
+                <span class="kw">let </span>(<span class="kw-2">mut </span>shutdown, _abort_handle) =
                     futures::future::abortable(futures::future::pending::&lt;()&gt;());
 
-                hyper::Server::bind(<span class="kw-2">&amp;</span>address)
-                    .serve(Shared::new(service))
-                    .with_graceful_shutdown(<span class="kw">async </span>{
-                        <span class="kw">let _ </span>= shutdown.<span class="kw">await</span>;
-                        <span class="macro">tracing::info!</span>(<span class="string">&quot;Shutting down gracefully&quot;</span>);
-                    })
-                    .<span class="kw">await
-            </span>})
+                <span class="kw">let </span>listener = tokio::net::TcpListener::bind(<span class="kw-2">&amp;</span>address).<span class="kw">await</span><span class="question-mark">?</span>;
+                <span class="kw">let </span>graceful = hyper_util::server::graceful::GracefulShutdown::new();
+
+                <span class="kw">let </span>http = hyper::server::conn::http1::Builder::new();
+
+                <span class="kw">let </span><span class="kw-2">mut </span>futs = FuturesUnordered::new();
+
+                <span class="kw">loop </span>{
+                    <span class="macro">tokio::select! </span>{
+                        <span class="prelude-val">Ok</span>((stream, _addr)) = listener.accept() =&gt; {
+                            <span class="kw">let </span>io = hyper_util::rt::tokio::TokioIo::new(stream);
+                            <span class="kw">let </span>service = hyper_util::service::TowerToHyperService::new(service.clone());
+                            <span class="kw">let </span>conn = http.serve_connection(io, service);
+                            <span class="comment">// watch this connection
+                            </span><span class="kw">let </span>fut = graceful.watch(conn);
+                            futs.push(<span class="kw">async move </span>{
+                                <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = fut.<span class="kw">await </span>{
+                                    <span class="macro">eprintln!</span>(<span class="string">&quot;Error serving connection: {:?}&quot;</span>, e);
+                                }
+                            });
+                        },
+
+                        <span class="kw">_ </span>= futs.next() =&gt; {}
+
+                        <span class="kw">_ </span>= <span class="kw-2">&amp;mut </span>shutdown =&gt; {
+                            <span class="macro">tracing::info!</span>(<span class="string">&quot;Shutting down gracefully&quot;</span>);
+                            <span class="comment">// stop the accept loop
+                            </span><span class="kw">break</span>;
+                        }
+                    }
+                }
+
+                <span class="prelude-val">Ok</span>::&lt;<span class="kw">_</span>, anyhow::Error&gt;(())
+            })
             .context(<span class="string">&quot;Unable to start the server&quot;</span>)<span class="question-mark">??</span>;
 
         <span class="prelude-val">Ok</span>(())

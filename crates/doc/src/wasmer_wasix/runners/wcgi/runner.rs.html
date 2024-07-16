@@ -339,14 +339,34 @@
 <a href="#339" id="339">339</a>
 <a href="#340" id="340">340</a>
 <a href="#341" id="341">341</a>
-</pre></div><pre class="rust"><code><span class="kw">use </span>std::{net::SocketAddr, sync::Arc, time::Duration};
+<a href="#342" id="342">342</a>
+<a href="#343" id="343">343</a>
+<a href="#344" id="344">344</a>
+<a href="#345" id="345">345</a>
+<a href="#346" id="346">346</a>
+<a href="#347" id="347">347</a>
+<a href="#348" id="348">348</a>
+<a href="#349" id="349">349</a>
+<a href="#350" id="350">350</a>
+<a href="#351" id="351">351</a>
+<a href="#352" id="352">352</a>
+<a href="#353" id="353">353</a>
+<a href="#354" id="354">354</a>
+<a href="#355" id="355">355</a>
+<a href="#356" id="356">356</a>
+<a href="#357" id="357">357</a>
+<a href="#358" id="358">358</a>
+<a href="#359" id="359">359</a>
+<a href="#360" id="360">360</a>
+<a href="#361" id="361">361</a>
+</pre></div><pre class="rust"><code><span class="kw">use </span>std::{net::SocketAddr, sync::Arc};
 
+<span class="kw">use </span><span class="kw">super</span>::<span class="kw">super</span>::Body;
 <span class="kw">use </span>anyhow::{Context, Error};
+<span class="kw">use </span>futures::{stream::FuturesUnordered, StreamExt};
 <span class="kw">use </span>http::{Request, Response};
-<span class="kw">use </span>hyper::Body;
-<span class="kw">use </span>tower::{make::Shared, Service, ServiceBuilder};
+<span class="kw">use </span>tower::ServiceBuilder;
 <span class="kw">use </span>tower_http::{catch_panic::CatchPanicLayer, cors::CorsLayer, trace::TraceLayer};
-<span class="kw">use </span>tracing::Span;
 <span class="kw">use </span>wcgi_host::CgiDialect;
 <span class="kw">use </span>webc::metadata::{
     annotations::{Wasi, Wcgi},
@@ -441,8 +461,8 @@
         runtime: Arc&lt;<span class="kw">dyn </span>Runtime + Send + Sync&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt;
     <span class="kw">where
-        </span>S: Service&lt;
-            Request&lt;Body&gt;,
+        </span>S: tower::Service&lt;
+            Request&lt;hyper::body::Incoming&gt;,
             Response = http::Response&lt;Body&gt;,
             Error = anyhow::Error,
             Future = std::pin::Pin&lt;
@@ -454,7 +474,7 @@
         <span class="kw">let </span>service = ServiceBuilder::new()
             .layer(
                 TraceLayer::new_for_http()
-                    .make_span_with(|request: <span class="kw-2">&amp;</span>Request&lt;Body&gt;| {
+                    .make_span_with(|request: <span class="kw-2">&amp;</span>Request&lt;hyper::body::Incoming&gt;| {
                         <span class="macro">tracing::info_span!</span>(
                             <span class="string">&quot;request&quot;</span>,
                             method = %request.method(),
@@ -462,10 +482,7 @@
                             status_code = tracing::field::Empty,
                         )
                     })
-                    .on_response(|response: <span class="kw-2">&amp;</span>Response&lt;<span class="kw">_</span>&gt;, _latency: Duration, span: <span class="kw-2">&amp;</span>Span| {
-                        span.record(<span class="string">&quot;status_code&quot;</span>, <span class="kw-2">&amp;</span>tracing::field::display(response.status()));
-                        <span class="macro">tracing::info!</span>(<span class="string">&quot;response generated&quot;</span>)
-                    }),
+                    .on_response(<span class="kw">super</span>::<span class="kw">super</span>::response_tracing::OnResponseTracer),
             )
             .layer(CatchPanicLayer::new())
             .layer(CorsLayer::permissive())
@@ -475,23 +492,46 @@
         <span class="macro">tracing::info!</span>(%address, <span class="string">&quot;Starting the server&quot;</span>);
 
         <span class="kw">let </span>callbacks = Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.config.callbacks);
-        runtime
-            .task_manager()
-            .spawn_and_block_on(<span class="kw">async move </span>{
-                <span class="kw">let </span>(shutdown, abort_handle) =
-                    futures::future::abortable(futures::future::pending::&lt;()&gt;());
+        runtime.task_manager().spawn_and_block_on(<span class="kw">async move </span>{
+            <span class="kw">let </span>(<span class="kw-2">mut </span>shutdown, abort_handle) =
+                futures::future::abortable(futures::future::pending::&lt;()&gt;());
 
-                callbacks.started(abort_handle);
+            callbacks.started(abort_handle);
 
-                hyper::Server::bind(<span class="kw-2">&amp;</span>address)
-                    .serve(Shared::new(service))
-                    .with_graceful_shutdown(<span class="kw">async </span>{
-                        <span class="kw">let _ </span>= shutdown.<span class="kw">await</span>;
-                        <span class="macro">tracing::info!</span>(<span class="string">&quot;Shutting down gracefully&quot;</span>);
-                    })
-                    .<span class="kw">await
-            </span>})
-            .context(<span class="string">&quot;Unable to start the server&quot;</span>)<span class="question-mark">??</span>;
+            <span class="kw">let </span>listener = tokio::net::TcpListener::bind(<span class="kw-2">&amp;</span>address).<span class="kw">await</span><span class="question-mark">?</span>;
+            <span class="kw">let </span>graceful = hyper_util::server::graceful::GracefulShutdown::new();
+
+            <span class="kw">let </span>http = hyper::server::conn::http1::Builder::new();
+
+            <span class="kw">let </span><span class="kw-2">mut </span>futs = FuturesUnordered::new();
+
+            <span class="kw">loop </span>{
+                <span class="macro">tokio::select! </span>{
+                    <span class="prelude-val">Ok</span>((stream, _addr)) = listener.accept() =&gt; {
+                        <span class="kw">let </span>io = hyper_util::rt::tokio::TokioIo::new(stream);
+                        <span class="kw">let </span>service = hyper_util::service::TowerToHyperService::new(service.clone());
+                        <span class="kw">let </span>conn = http.serve_connection(io, service);
+                        <span class="comment">// watch this connection
+                        </span><span class="kw">let </span>fut = graceful.watch(conn);
+                        futs.push(<span class="kw">async move </span>{
+                            <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = fut.<span class="kw">await </span>{
+                                <span class="macro">eprintln!</span>(<span class="string">&quot;Error serving connection: {:?}&quot;</span>, e);
+                            }
+                        });
+                    },
+
+                    <span class="kw">_ </span>= futs.next() =&gt; {}
+
+                    <span class="kw">_ </span>= <span class="kw-2">&amp;mut </span>shutdown =&gt; {
+                        <span class="macro">eprintln!</span>(<span class="string">&quot;graceful shutdown signal received&quot;</span>);
+                        <span class="comment">// stop the accept loop
+                        </span><span class="kw">break</span>;
+                    }
+                }
+            }
+
+            <span class="prelude-val">Ok</span>::&lt;<span class="kw">_</span>, anyhow::Error&gt;(())
+        })<span class="question-mark">??</span>;
 
         <span class="prelude-val">Ok</span>(())
     }

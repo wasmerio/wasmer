@@ -119,15 +119,25 @@
 <a href="#119" id="119">119</a>
 <a href="#120" id="120">120</a>
 <a href="#121" id="121">121</a>
+<a href="#122" id="122">122</a>
+<a href="#123" id="123">123</a>
+<a href="#124" id="124">124</a>
+<a href="#125" id="125">125</a>
+<a href="#126" id="126">126</a>
+<a href="#127" id="127">127</a>
+<a href="#128" id="128">128</a>
+<a href="#129" id="129">129</a>
+<a href="#130" id="130">130</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::pin::Pin;
 <span class="kw">use </span>std::sync::Arc;
 <span class="kw">use </span>std::task::Poll;
 
 <span class="kw">use </span>futures::{Future, FutureExt};
 <span class="kw">use </span>http::{Request, Response, Uri};
-<span class="kw">use </span>hyper::Body;
+<span class="kw">use </span>http_body_util::BodyExt;
 <span class="kw">use </span>tower::Service;
 
+<span class="kw">use </span><span class="kw">super</span>::<span class="kw">super</span>::Body;
 <span class="kw">use </span><span class="kw">crate</span>::runners::dproxy::shard::Shard;
 <span class="kw">use </span><span class="kw">crate</span>::Runtime;
 
@@ -166,7 +176,7 @@
     <span class="attr">#[tracing::instrument(level = <span class="string">&quot;debug&quot;</span>, skip_all, err)]
     </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">async fn </span>handle&lt;T&gt;(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        <span class="kw-2">mut </span>req: Request&lt;Body&gt;,
+        <span class="kw-2">mut </span>req: Request&lt;hyper::body::Incoming&gt;,
         _token: T,
     ) -&gt; anyhow::Result&lt;Response&lt;Body&gt;&gt;
     <span class="kw">where
@@ -212,7 +222,15 @@
         <span class="kw">let </span>client = instance.client.clone();
 
         <span class="comment">// Perform the request
-        </span><span class="prelude-val">Ok</span>(client.request(req).<span class="kw">await</span><span class="question-mark">?</span>)
+        </span><span class="kw">let </span>resp = client.request(req).<span class="kw">await</span><span class="question-mark">?</span>;
+        <span class="kw">let </span>(parts, body) = resp.into_parts();
+        <span class="kw">let </span>body = body
+            .collect()
+            .<span class="kw">await</span><span class="question-mark">?
+            </span>.map_err(|<span class="kw">_</span>| <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;Infallible&quot;</span>))
+            .boxed();
+
+        <span class="prelude-val">Ok</span>(Response::from_parts(parts, body))
     }
 }
 
@@ -224,7 +242,7 @@
     </span>}
 }
 
-<span class="kw">impl </span>Service&lt;Request&lt;Body&gt;&gt; <span class="kw">for </span>Handler {
+<span class="kw">impl </span>Service&lt;Request&lt;hyper::body::Incoming&gt;&gt; <span class="kw">for </span>Handler {
     <span class="kw">type </span>Response = Response&lt;Body&gt;;
     <span class="kw">type </span>Error = anyhow::Error;
     <span class="kw">type </span>Future = Pin&lt;Box&lt;<span class="kw">dyn </span>Future&lt;Output = anyhow::Result&lt;Response&lt;Body&gt;&gt;&gt; + Send&gt;&gt;;
@@ -233,7 +251,7 @@
         Poll::Ready(<span class="prelude-val">Ok</span>(()))
     }
 
-    <span class="kw">fn </span>call(<span class="kw-2">&amp;mut </span><span class="self">self</span>, request: Request&lt;Body&gt;) -&gt; <span class="self">Self</span>::Future {
+    <span class="kw">fn </span>call(<span class="kw-2">&amp;mut </span><span class="self">self</span>, request: Request&lt;hyper::body::Incoming&gt;) -&gt; <span class="self">Self</span>::Future {
         <span class="comment">// Note: all fields are reference-counted so cloning is pretty cheap
         </span><span class="kw">let </span>handler = <span class="self">self</span>.clone();
         <span class="kw">let </span>fut = <span class="kw">async move </span>{ handler.handle(request, ()).<span class="kw">await </span>};

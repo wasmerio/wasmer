@@ -75,36 +75,16 @@
 <a href="#75" id="75">75</a>
 <a href="#76" id="76">76</a>
 <a href="#77" id="77">77</a>
-<a href="#78" id="78">78</a>
-<a href="#79" id="79">79</a>
-<a href="#80" id="80">80</a>
-<a href="#81" id="81">81</a>
-<a href="#82" id="82">82</a>
-<a href="#83" id="83">83</a>
-<a href="#84" id="84">84</a>
-<a href="#85" id="85">85</a>
-<a href="#86" id="86">86</a>
-<a href="#87" id="87">87</a>
-<a href="#88" id="88">88</a>
-</pre></div><pre class="rust"><code><span class="kw">use </span>std::env;
+</pre></div><pre class="rust"><code><span class="kw">use </span>std::{env, future::IntoFuture};
 
-<span class="kw">use crate</span>::{
-    graphql::subscriptions::{package_version_ready, PackageVersionReady},
-    tokio_spawner::TokioSpawner,
-};
+<span class="kw">use </span>anyhow::Context;
 
-<span class="kw">use </span>futures_util::StreamExt;
+<span class="kw">use </span><span class="kw">crate</span>::graphql::subscriptions::{package_version_ready, PackageVersionReady};
 
 <span class="kw">use </span>graphql_client::GraphQLQuery;
-<span class="kw">use </span>graphql_ws_client::{
-    graphql::{GraphQLClient, StreamingOperation},
-    GraphQLClientClient, SubscriptionStream,
-};
+<span class="kw">use </span>graphql_ws_client::{graphql::StreamingOperation, Client, Subscription};
 
-<span class="kw">use </span>tokio_tungstenite::{
-    connect_async,
-    tungstenite::{client::IntoClientRequest, http::HeaderValue, Message},
-};
+<span class="kw">use </span>tokio_tungstenite::tungstenite::{client::IntoClientRequest, http::HeaderValue};
 
 <span class="kw">pub use </span><span class="kw">crate</span>::graphql::subscriptions::package_version_ready::PackageVersionState;
 
@@ -112,10 +92,7 @@
     registry_url: <span class="kw-2">&amp;</span>str,
     login_token: <span class="kw-2">&amp;</span>str,
     variables: Q::Variables,
-) -&gt; anyhow::Result&lt;(
-    SubscriptionStream&lt;GraphQLClient, StreamingOperation&lt;Q&gt;&gt;,
-    GraphQLClientClient&lt;Message&gt;,
-)&gt;
+) -&gt; anyhow::Result&lt;(Subscription&lt;StreamingOperation&lt;Q&gt;&gt;, Client)&gt;
 <span class="kw">where
     </span>&lt;Q <span class="kw">as </span>GraphQLQuery&gt;::Variables: Send + Sync + Unpin,
 {
@@ -144,14 +121,15 @@
         reqwest::header::USER_AGENT,
         HeaderValue::from_str(<span class="kw-2">&amp;</span>user_agent)<span class="question-mark">?</span>,
     );
-    <span class="kw">let </span>(ws_con, _resp) = connect_async(req).<span class="kw">await</span><span class="question-mark">?</span>;
-    <span class="kw">let </span>(sink, stream) = ws_con.split();
+    <span class="kw">let </span>(connection, _resp) = async_tungstenite::tokio::connect_async(req)
+        .<span class="kw">await
+        </span>.context(<span class="string">&quot;could not connect&quot;</span>)<span class="question-mark">?</span>;
 
-    <span class="kw">let </span><span class="kw-2">mut </span>client = graphql_ws_client::GraphQLClientClientBuilder::new()
-        .build(stream, sink, TokioSpawner::current())
-        .<span class="kw">await</span><span class="question-mark">?</span>;
+    <span class="kw">let </span>(client, actor) = graphql_ws_client::Client::build(connection).<span class="kw">await</span><span class="question-mark">?</span>;
+    tokio::spawn(actor.into_future());
+
     <span class="kw">let </span>stream = client
-        .streaming_operation(StreamingOperation::&lt;Q&gt;::new(variables))
+        .subscribe(StreamingOperation::&lt;Q&gt;::new(variables))
         .<span class="kw">await</span><span class="question-mark">?</span>;
 
     <span class="prelude-val">Ok</span>((stream, client))
@@ -162,8 +140,8 @@
     login_token: <span class="kw-2">&amp;</span>str,
     package_version_id: <span class="kw-2">&amp;</span>str,
 ) -&gt; anyhow::Result&lt;(
-    SubscriptionStream&lt;GraphQLClient, StreamingOperation&lt;PackageVersionReady&gt;&gt;,
-    GraphQLClientClient&lt;Message&gt;,
+    Subscription&lt;StreamingOperation&lt;PackageVersionReady&gt;&gt;,
+    Client,
 )&gt; {
     subscribe_graphql(
         registry_url,

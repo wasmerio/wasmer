@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"constant":["MAPPED_CURRENT_DIR_DEFAULT_PATH"],"mod":["dcgi","dproxy","emscripten","runner","wasi","wasi_common","wcgi"],"struct":["MappedCommand","MappedDirectory","MountedDirectory"],"trait":["Runner"]};
+window.SIDEBAR_ITEMS = {"constant":["MAPPED_CURRENT_DIR_DEFAULT_PATH"],"fn":["body_from_data","body_from_stream"],"mod":["body","dcgi","dproxy","emscripten","response_tracing","runner","wasi","wasi_common","wcgi"],"struct":["MappedCommand","MappedDirectory","MountedDirectory"],"trait":["Runner"],"type":["Body"]};

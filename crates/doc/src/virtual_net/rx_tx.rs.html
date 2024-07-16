@@ -615,6 +615,7 @@
 <a href="#615" id="615">615</a>
 <a href="#616" id="616">616</a>
 <a href="#617" id="617">617</a>
+<a href="#618" id="618">618</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{
     io,
     pin::Pin,
@@ -624,6 +625,7 @@
 
 <span class="kw">use </span><span class="kw">crate</span>::Result;
 <span class="kw">use </span>futures_util::{future::BoxFuture, Future, Sink, SinkExt, Stream};
+<span class="kw">use </span>hyper_util::rt::tokio::TokioIo;
 <span class="kw">use </span>serde::Serialize;
 <span class="attr">#[cfg(feature = <span class="string">&quot;tokio-tungstenite&quot;</span>)]
 </span><span class="kw">use </span>tokio::net::TcpStream;
@@ -696,7 +698,7 @@
         tx: Arc&lt;
             tokio::sync::Mutex&lt;
                 futures_util::stream::SplitSink&lt;
-                    hyper_tungstenite::WebSocketStream&lt;hyper::upgrade::Upgraded&gt;,
+                    hyper_tungstenite::WebSocketStream&lt;TokioIo&lt;hyper::upgrade::Upgraded&gt;&gt;,
                     hyper_tungstenite::tungstenite::Message,
                 &gt;,
             &gt;,
@@ -1133,7 +1135,7 @@
     <span class="attr">#[cfg(feature = <span class="string">&quot;hyper&quot;</span>)]
     </span>HyperWebSocket {
         rx: futures_util::stream::SplitStream&lt;
-            hyper_tungstenite::WebSocketStream&lt;hyper::upgrade::Upgraded&gt;,
+            hyper_tungstenite::WebSocketStream&lt;TokioIo&lt;hyper::upgrade::Upgraded&gt;&gt;,
         &gt;,
         format: <span class="kw">crate</span>::meta::FrameSerializationFormat,
     },

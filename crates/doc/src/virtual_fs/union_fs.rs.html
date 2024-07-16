@@ -1125,16 +1125,6 @@
 <a href="#1125" id="1125">1125</a>
 <a href="#1126" id="1126">1126</a>
 <a href="#1127" id="1127">1127</a>
-<a href="#1128" id="1128">1128</a>
-<a href="#1129" id="1129">1129</a>
-<a href="#1130" id="1130">1130</a>
-<a href="#1131" id="1131">1131</a>
-<a href="#1132" id="1132">1132</a>
-<a href="#1133" id="1133">1133</a>
-<a href="#1134" id="1134">1134</a>
-<a href="#1135" id="1135">1135</a>
-<a href="#1136" id="1136">1136</a>
-<a href="#1137" id="1137">1137</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Another implementation of the union that uses paths,
 //! its not as simple as TmpFs. not currently used but was used by
 //! the previoulsy implementation of Deploy - now using TmpFs
@@ -1845,23 +1835,19 @@
         );
 
         <span class="macro">assert!</span>(
-            <span class="macro">matches!</span>(
-                fs.new_open_options()
-                    .write(<span class="bool-val">true</span>)
-                    .create_new(<span class="bool-val">true</span>)
-                    .open(Path::new(<span class="string">&quot;/test_rename/bar/hello1.txt&quot;</span>)),
-                <span class="prelude-val">Ok</span>(<span class="kw">_</span>),
-            ),
+            fs.new_open_options()
+                .write(<span class="bool-val">true</span>)
+                .create_new(<span class="bool-val">true</span>)
+                .open(Path::new(<span class="string">&quot;/test_rename/bar/hello1.txt&quot;</span>))
+                .is_ok(),
             <span class="string">&quot;creating a new file (`hello1.txt`)&quot;</span>,
         );
         <span class="macro">assert!</span>(
-            <span class="macro">matches!</span>(
-                fs.new_open_options()
-                    .write(<span class="bool-val">true</span>)
-                    .create_new(<span class="bool-val">true</span>)
-                    .open(Path::new(<span class="string">&quot;/test_rename/bar/hello2.txt&quot;</span>)),
-                <span class="prelude-val">Ok</span>(<span class="kw">_</span>),
-            ),
+            fs.new_open_options()
+                .write(<span class="bool-val">true</span>)
+                .create_new(<span class="bool-val">true</span>)
+                .open(Path::new(<span class="string">&quot;/test_rename/bar/hello2.txt&quot;</span>))
+                .is_ok(),
             <span class="string">&quot;creating a new file (`hello2.txt`)&quot;</span>,
         );
 
@@ -2034,13 +2020,11 @@
         <span class="macro">assert!</span>(fs.create_dir(Path::new(<span class="string">&quot;/test_remove_file&quot;</span>)).is_ok());
 
         <span class="macro">assert!</span>(
-            <span class="macro">matches!</span>(
-                fs.new_open_options()
-                    .write(<span class="bool-val">true</span>)
-                    .create_new(<span class="bool-val">true</span>)
-                    .open(Path::new(<span class="string">&quot;/test_remove_file/foo.txt&quot;</span>)),
-                <span class="prelude-val">Ok</span>(<span class="kw">_</span>)
-            ),
+            fs.new_open_options()
+                .write(<span class="bool-val">true</span>)
+                .create_new(<span class="bool-val">true</span>)
+                .open(Path::new(<span class="string">&quot;/test_remove_file/foo.txt&quot;</span>))
+                .is_ok(),
             <span class="string">&quot;creating a new file&quot;</span>,
         );
 
@@ -2088,23 +2072,19 @@
             <span class="string">&quot;creating `bar`&quot;
         </span>);
         <span class="macro">assert!</span>(
-            <span class="macro">matches!</span>(
-                fs.new_open_options()
-                    .write(<span class="bool-val">true</span>)
-                    .create_new(<span class="bool-val">true</span>)
-                    .open(Path::new(<span class="string">&quot;/test_readdir/a.txt&quot;</span>)),
-                <span class="prelude-val">Ok</span>(<span class="kw">_</span>)
-            ),
+            fs.new_open_options()
+                .write(<span class="bool-val">true</span>)
+                .create_new(<span class="bool-val">true</span>)
+                .open(Path::new(<span class="string">&quot;/test_readdir/a.txt&quot;</span>))
+                .is_ok(),
             <span class="string">&quot;creating `a.txt`&quot;</span>,
         );
         <span class="macro">assert!</span>(
-            <span class="macro">matches!</span>(
-                fs.new_open_options()
-                    .write(<span class="bool-val">true</span>)
-                    .create_new(<span class="bool-val">true</span>)
-                    .open(Path::new(<span class="string">&quot;/test_readdir/b.txt&quot;</span>)),
-                <span class="prelude-val">Ok</span>(<span class="kw">_</span>)
-            ),
+            fs.new_open_options()
+                .write(<span class="bool-val">true</span>)
+                .create_new(<span class="bool-val">true</span>)
+                .open(Path::new(<span class="string">&quot;/test_readdir/b.txt&quot;</span>))
+                .is_ok(),
             <span class="string">&quot;creating `b.txt`&quot;</span>,
         );
 
