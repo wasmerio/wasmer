@@ -58,7 +58,7 @@ mod queries {
         pub viewer: Option<UserWithNamespaces>,
     }
 
-    #[derive(cynic::QueryFragment, Debug)]
+    #[derive(cynic::QueryFragment, Debug, serde::Serialize)]
     pub struct User {
         pub id: cynic::Id,
         pub username: String,
