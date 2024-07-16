@@ -365,6 +365,13 @@
 <a href="#365" id="365">365</a>
 <a href="#366" id="366">366</a>
 <a href="#367" id="367">367</a>
+<a href="#368" id="368">368</a>
+<a href="#369" id="369">369</a>
+<a href="#370" id="370">370</a>
+<a href="#371" id="371">371</a>
+<a href="#372" id="372">372</a>
+<a href="#373" id="373">373</a>
+<a href="#374" id="374">374</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::sync::Arc;
 
 <span class="kw">use </span>tracing::trace;
@@ -558,10 +565,17 @@
                     <span class="kw">_ </span>=&gt; <span class="number">0</span>,
                 }
             } <span class="kw">else if let </span><span class="prelude-val">Some</span>(data_end) = data_end {
-                <span class="kw">match </span>data_end.get(store) {
+                <span class="kw">let </span>data_end = <span class="kw">match </span>data_end.get(store) {
                     wasmer::Value::I32(a) =&gt; a <span class="kw">as </span>u64,
                     wasmer::Value::I64(a) =&gt; a <span class="kw">as </span>u64,
                     <span class="kw">_ </span>=&gt; <span class="number">0</span>,
+                };
+                <span class="comment">// It&#39;s possible for the data section to be above the stack, we check for that here and
+                // if it is, we&#39;ll assume the stack starts at address 0
+                </span><span class="kw">if </span>data_end &gt;= stack_base {
+                    <span class="number">0
+                </span>} <span class="kw">else </span>{
+                    data_end
                 }
             } <span class="kw">else </span>{
                 <span class="comment">// clang-16 and higher generate the `__stack_low` global, and it can be exported with
