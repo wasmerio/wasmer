@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":["AppIdent","ResolvedAppIdent"],"fn":["get_app_config_from_current_dir","login_user"],"struct":["AppIdentOpts"]};
+window.SIDEBAR_ITEMS = {"enum":["AppIdent","ResolvedAppIdent"],"fn":["get_app_config_from_current_dir","get_app_config_from_dir","login_user","prompt_app_ident"],"struct":["AppIdentFlag","AppIdentOpts"]};

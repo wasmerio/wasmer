@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":["__typename","createdAt","data","deletedAt","id","publicKey","updatedAt"]};
+window.SIDEBAR_ITEMS = {"struct":["__typename","createdAt","data","id","publicKey"]};
