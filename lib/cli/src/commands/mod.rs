@@ -84,6 +84,7 @@ pub(crate) trait AsyncCliCommand: Send + Sync {
                     _ = tokio::signal::ctrl_c() => {
                         let term = console::Term::stdout();
                         let _ = term.show_cursor();
+                        std::process::exit(130);
                     }
                 }
 
