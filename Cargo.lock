@@ -5918,7 +5918,7 @@ checksum = "49874b5167b65d7193b8aba1567f5c7d93d001cafc34600cee003eda787e483f"
 
 [[package]]
 name = "virtual-fs"
-version = "0.14.0"
+version = "0.15.0"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -5964,7 +5964,7 @@ dependencies = [
 
 [[package]]
 name = "virtual-net"
-version = "0.6.7"
+version = "0.7.0"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -6067,7 +6067,7 @@ dependencies = [
 
 [[package]]
 name = "wai-bindgen-wasmer"
-version = "0.24.0"
+version = "0.25.0"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -6376,7 +6376,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-api"
-version = "0.0.31"
+version = "0.0.32"
 dependencies = [
  "anyhow",
  "base64 0.13.1",
@@ -6396,7 +6396,7 @@ dependencies = [
  "tracing",
  "url",
  "uuid",
- "wasmer-config 0.4.0",
+ "wasmer-config 0.5.0",
  "webc",
 ]
 
@@ -6596,7 +6596,7 @@ dependencies = [
  "wasmer-compiler-cranelift",
  "wasmer-compiler-llvm",
  "wasmer-compiler-singlepass",
- "wasmer-config 0.4.0",
+ "wasmer-config 0.5.0",
  "wasmer-emscripten",
  "wasmer-object",
  "wasmer-registry",
@@ -6744,7 +6744,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-config"
-version = "0.4.0"
+version = "0.5.0"
 dependencies = [
  "anyhow",
  "bytesize",
@@ -6853,7 +6853,7 @@ version = "4.3.5"
 
 [[package]]
 name = "wasmer-journal"
-version = "0.6.0"
+version = "0.7.0"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -6898,7 +6898,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-registry"
-version = "5.16.0"
+version = "5.17.0"
 dependencies = [
  "anyhow",
  "async-tungstenite",
@@ -6938,7 +6938,7 @@ dependencies = [
  "toml 0.5.11",
  "tracing",
  "url",
- "wasmer-config 0.4.0",
+ "wasmer-config 0.5.0",
  "wasmer-wasm-interface",
  "wasmparser 0.121.2",
  "webc",
@@ -6947,7 +6947,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-sys-utils"
-version = "0.24.0"
+version = "0.25.0"
 dependencies = [
  "libc",
  "region",
@@ -7011,7 +7011,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-wasix"
-version = "0.24.0"
+version = "0.25.0"
 dependencies = [
  "ahash 0.8.11",
  "anyhow",
@@ -7080,7 +7080,7 @@ dependencies = [
  "wasm-bindgen-futures",
  "wasm-bindgen-test",
  "wasmer",
- "wasmer-config 0.4.0",
+ "wasmer-config 0.5.0",
  "wasmer-emscripten",
  "wasmer-journal",
  "wasmer-types",
@@ -7096,7 +7096,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-wasix-types"
-version = "0.24.0"
+version = "0.25.0"
 dependencies = [
  "anyhow",
  "bitflags 1.3.2",
