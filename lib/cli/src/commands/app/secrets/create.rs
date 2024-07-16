@@ -1,7 +1,7 @@
 use super::utils::Secret;
 use crate::{
     commands::{
-        app::util::{get_app_config_from_dir, prompt_app_ident, AppIdent},
+        app::util::{get_app_config_from_dir, prompt_app_ident, AppIdent, AppIdentFlag},
         AsyncCliCommand,
     },
     opts::{ApiOpts, WasmerEnv},
@@ -22,7 +22,7 @@ use wasmer_api::WasmerClient;
 #[derive(clap::Parser, Debug)]
 pub struct CmdAppSecretsCreate {
     /// The path to the directory where the config file for the application will be written to.
-    #[clap(long = "app-dir", conflicts_with = "app-id")]
+    #[clap(long = "app-dir", conflicts_with = "app")]
     pub app_dir_path: Option<PathBuf>,
 
     /// The name of the secret to create.
@@ -33,9 +33,8 @@ pub struct CmdAppSecretsCreate {
     #[clap(name = "value")]
     pub secret_value: Option<String>,
 
-    /// The identifier of the app the secret is related to.
-    #[clap(name = "app-id")]
-    pub app_id: Option<AppIdent>,
+    #[clap(flatten)]
+    pub app_id: AppIdentFlag,
 
     /// Path to a file with secrets stored in JSON format to create secrets from.
     #[clap(long, name = "from-file", conflicts_with = "name")]
@@ -90,7 +89,7 @@ impl CmdAppSecretsCreate {
     }
 
     async fn get_app_id(&self, client: &WasmerClient) -> anyhow::Result<String> {
-        if let Some(app_id) = &self.app_id {
+        if let Some(app_id) = &self.app_id.app {
             let app = app_id.resolve(client).await?;
             return Ok(app.id.into_inner());
         }
@@ -104,11 +103,26 @@ impl CmdAppSecretsCreate {
         if let Ok(r) = get_app_config_from_dir(&app_dir_path) {
             let (app, _) = r;
 
+            let app_name = if let Some(owner) = &app.owner {
+                format!("{owner}/{}", app.name)
+            } else {
+                app.name.to_string()
+            };
+
             let id = if let Some(id) = &app.app_id {
                 Some(id.clone())
-            } else if let Ok(app_ident) = AppIdent::from_str(&app.name) {
-                let app = app_ident.resolve(client).await?;
-                Some(app.id.into_inner())
+            } else if let Ok(app_ident) = AppIdent::from_str(&app_name) {
+                if let Ok(app) = app_ident.resolve(client).await {
+                    Some(app.id.into_inner())
+                } else {
+                    if !self.quiet {
+                        eprintln!("{}: the app found in {} does not exist.\n{}: maybe it was not deployed yet?", 
+                            "Warning".bold().yellow(), 
+                            format!("'{}'", app_dir_path.display()).dimmed(), 
+                            "Hint".bold());
+                    }
+                    None
+                }
             } else {
                 None
             };
@@ -134,7 +148,7 @@ impl CmdAppSecretsCreate {
         }
 
         if self.non_interactive {
-            anyhow::bail!("No app id given. Provide one as a positional argument.")
+            anyhow::bail!("No app id given. Provide one using the `--app` flag.")
         } else {
             let id = prompt_app_ident("Enter the name of the app")?;
             let app = id.resolve(client).await?;

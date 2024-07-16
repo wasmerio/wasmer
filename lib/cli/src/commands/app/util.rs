@@ -117,6 +117,19 @@ pub struct AppIdentOpts {
     pub app: Option<AppIdent>,
 }
 
+/// A utility struct used by commands that need the [`AppIdent`] as a flag.
+#[derive(clap::Parser, Debug)]
+pub struct AppIdentFlag {
+    /// Identifier of the application.
+    ///
+    /// Valid input:
+    /// - namespace/app-name
+    /// - app-alias
+    /// - App ID
+    #[clap(long)]
+    pub app: Option<AppIdent>,
+}
+
 // Allowing because this is not performance-critical at all.
 #[allow(clippy::large_enum_variant)]
 pub enum ResolvedAppIdent {

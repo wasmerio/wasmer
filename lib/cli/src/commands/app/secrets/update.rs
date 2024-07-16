@@ -1,7 +1,7 @@
 use super::utils::Secret;
 use crate::{
     commands::{
-        app::util::{get_app_config_from_dir, prompt_app_ident, AppIdent},
+        app::util::{get_app_config_from_dir, prompt_app_ident, AppIdent, AppIdentFlag},
         AsyncCliCommand,
     },
     opts::{ApiOpts, WasmerEnv},
@@ -33,9 +33,8 @@ pub struct CmdAppSecretsUpdate {
     #[clap(name = "value")]
     pub secret_value: Option<String>,
 
-    /// The id of the app the secret is related to.
-    #[clap(name = "app-id")]
-    pub app_id: Option<AppIdent>,
+    #[clap(flatten)]
+    pub app_id: AppIdentFlag,
 
     /// Path to a file with secrets stored in JSON format to update secrets from.
     #[clap(
@@ -95,7 +94,7 @@ impl CmdAppSecretsUpdate {
     }
 
     async fn get_app_id(&self, client: &WasmerClient) -> anyhow::Result<String> {
-        if let Some(app_id) = &self.app_id {
+        if let Some(app_id) = &self.app_id.app {
             let app = app_id.resolve(client).await?;
             return Ok(app.id.into_inner());
         }
@@ -109,11 +108,27 @@ impl CmdAppSecretsUpdate {
         if let Ok(r) = get_app_config_from_dir(&app_dir_path) {
             let (app, _) = r;
 
+            let app_name = if let Some(owner) = &app.owner {
+                format!("{owner}/{}", app.name)
+            } else {
+                app.name.to_string()
+            };
+
             let id = if let Some(id) = &app.app_id {
                 Some(id.clone())
-            } else if let Ok(app_ident) = AppIdent::from_str(&app.name) {
-                let app = app_ident.resolve(client).await?;
-                Some(app.id.into_inner())
+            } else if let Ok(app_ident) = AppIdent::from_str(&app_name) {
+                if let Ok(app) = app_ident.resolve(client).await {
+                    Some(app.id.into_inner())
+                } else {
+                    if !self.quiet {
+                        eprintln!("{}: the app found in {} does not exist.\n{}: maybe it was not deployed yet?", 
+                            "Warning".bold().yellow(), 
+                            format!("'{}'", app_dir_path.display()).dimmed(), 
+                            "Hint".bold());
+                    }
+
+                    None
+                }
             } else {
                 None
             };
