@@ -69,8 +69,7 @@ mod tests {
     impl VMTinyMemory {
         pub fn new() -> Result<Self, MemoryError> {
             let sz = 18 * WASM_PAGE_SIZE;
-            let mut memory = Vec::new();
-            memory.resize(sz, 0);
+            let memory = vec![0; sz];
             let mut ret = Self {
                 mem: memory,
                 memory_definition: None,
@@ -304,6 +303,7 @@ mod tests {
             all(target_os = "macos", target_arch = "aarch64")
         ))
     ))]
+    #[allow(clippy::print_stdout)]
     fn check_small_stack() -> Result<(), Box<dyn std::error::Error>> {
         use crate::{imports, wat2wasm, Engine, Instance, Module, Store};
         use wasmer_compiler_singlepass::Singlepass;

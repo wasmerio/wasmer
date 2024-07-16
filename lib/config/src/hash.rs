@@ -93,13 +93,13 @@ mod tests {
     fn hash_sha256_parse_fails() {
         let res1 =
             "c355cd53795b9b481f7eb2b5f4f6c8cf73631bdc343723a579d671e32db70b3".parse::<Sha256Hash>();
-        assert!(matches!(res1, Err(_)));
+        assert!(res1.is_err());
 
         let res2 = "".parse::<Sha256Hash>();
-        assert!(matches!(res2, Err(_)));
+        assert!(res2.is_err());
 
         let res3 = "öööööööööööööööööööööööööööööööööööööööööööööööööööööööööööööööö"
             .parse::<Sha256Hash>();
-        assert!(matches!(res3, Err(_)));
+        assert!(res3.is_err());
     }
 }

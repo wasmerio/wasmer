@@ -28,11 +28,12 @@ futures-util = { version = "0.3" }
 anyhow = "1.0"
 tokio-serde = { version = "0.8", features = [ "bincode" ], optional = true }
 tokio-util = { version = "0.7.8", features = ["codec"], optional = true }
-hyper-tungstenite = { version = "0.11", optional = true }
-hyper = { version = "0.14", optional = true }
-tokio-tungstenite = { version = "0.20", optional = true }
+hyper-tungstenite = { version = "0.13", optional = true }
+hyper = { workspace = true, optional = true }
+tokio-tungstenite = { version = "0.21", optional = true }
 rkyv = { workspace = true, optional = true }
 bytecheck = { version = "0.6.8", optional = true }
+hyper-util = { version = "0.1.5", features = ["tokio"], optional = true }
 
 [dependencies.smoltcp]
 version = "0.8"
@@ -51,7 +52,7 @@ remote = [ "libc", "tokio/io-util", "tokio/sync", "tokio-serde", "tokio-util" ]
 json = [ "tokio-serde/json" ]
 messagepack = [ "tokio-serde/messagepack" ]
 cbor = [ "tokio-serde/cbor" ]
-hyper = [ "hyper-tungstenite", "dep:hyper" ]
+hyper = [ "hyper-tungstenite", "hyper-util", "dep:hyper" ]
 tokio-tungstenite = [ "dep:tokio-tungstenite" ]
 rkyv = [ "dep:rkyv", "dep:bytecheck" ]
 
