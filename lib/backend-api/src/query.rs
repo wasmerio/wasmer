@@ -101,7 +101,7 @@ pub async fn get_all_app_secrets_filtered(
         names: Some(names.into_iter().map(|s| s.into()).collect()),
     };
 
-    let mut all_versions = Vec::<Secret>::new();
+    let mut all_secrets = Vec::<Secret>::new();
 
     loop {
         let page = get_app_secrets(client, vars.clone()).await?;
@@ -119,17 +119,14 @@ pub async fn get_all_app_secrets_filtered(
                 None => continue,
             };
 
-            // Sanity check to avoid duplication.
-            if all_versions.iter().any(|v| v.id == version.id) == false {
-                all_versions.push(version);
-            }
+            all_secrets.push(version);
 
             // Update pagination.
             vars.after = Some(edge.cursor);
         }
     }
 
-    Ok(all_versions)
+    Ok(all_secrets)
 }
 
 /// Load all secrets of an app.
@@ -149,7 +146,7 @@ pub async fn get_all_app_secrets(
         names: None,
     };
 
-    let mut all_versions = Vec::<Secret>::new();
+    let mut all_secrets = Vec::<Secret>::new();
 
     loop {
         let page = get_app_secrets(client, vars.clone()).await?;
@@ -167,17 +164,14 @@ pub async fn get_all_app_secrets(
                 None => continue,
             };
 
-            // Sanity check to avoid duplication.
-            if all_versions.iter().any(|v| v.id == version.id) == false {
-                all_versions.push(version);
-            }
+            all_secrets.push(version);
 
             // Update pagination.
             vars.after = Some(edge.cursor);
         }
     }
 
-    Ok(all_versions)
+    Ok(all_secrets)
 }
 
 /// Retrieve secrets for an app.
