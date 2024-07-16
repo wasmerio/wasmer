@@ -64,7 +64,7 @@ fn get_runtime_size(context: &StoreObjects, extern_: &VMExtern) -> Option<u32> {
 pub fn resolve_imports(
     module: &ModuleInfo,
     imports: &[VMExtern],
-    context: &StoreObjects,
+    context: &mut StoreObjects,
     finished_dynamic_function_trampolines: &BoxedSlice<FunctionIndex, FunctionBodyPtr>,
     memory_styles: &PrimaryMap<MemoryIndex, MemoryStyle>,
     _table_styles: &PrimaryMap<TableIndex, TableStyle>,
@@ -104,14 +104,22 @@ pub fn resolve_imports(
         }
         match *resolved {
             VMExtern::Function(handle) => {
-                let f = handle.get(context);
+                let f = handle.get_mut(context);
                 let address = match f.kind {
                     VMFunctionKind::Dynamic => {
                         // If this is a dynamic imported function,
                         // the address of the function is the address of the
                         // reverse trampoline.
                         let index = FunctionIndex::new(function_imports.len());
-                        finished_dynamic_function_trampolines[index].0 as *mut VMFunctionBody as _
+                        let ptr = finished_dynamic_function_trampolines[index].0
+                            as *mut VMFunctionBody as _;
+                        // The logic is currently handling the "resolution" of dynamic imported functions at instantiation time.
+                        // However, ideally it should be done even before then, as you may have dynamic imported functions that
+                        // are linked at runtime and not instantiation time. And those will not work properly with the current logic.
+                        // Ideally, this logic should be done directly in the `wasmer-vm` crate.
+                        // TODO (@syrusakbary): Get rid of `VMFunctionKind`
+                        unsafe { f.anyfunc.as_ptr().as_mut() }.func_ptr = ptr;
+                        ptr
                     }
                     VMFunctionKind::Static => unsafe { f.anyfunc.as_ptr().as_ref().func_ptr },
                 };

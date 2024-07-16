@@ -316,46 +316,46 @@ fn test_ok() {
     }
 }
 
-#[cfg(test)]
-fn print_wasmer_root_to_stdout(config: &Config) {
-    println!("print_wasmer_root_to_stdout");
+// #[cfg(test)]
+// fn print_wasmer_root_to_stdout(config: &Config) {
+//     println!("print_wasmer_root_to_stdout");
 
-    use walkdir::WalkDir;
+//     use walkdir::WalkDir;
 
-    println!(
-        "wasmer dir: {}",
-        std::path::Path::new(&config.wasmer_dir)
-            .canonicalize()
-            .unwrap()
-            .display()
-    );
+//     println!(
+//         "wasmer dir: {}",
+//         std::path::Path::new(&config.wasmer_dir)
+//             .canonicalize()
+//             .unwrap()
+//             .display()
+//     );
 
-    for entry in WalkDir::new(&config.wasmer_dir)
-        .into_iter()
-        .filter_map(Result::ok)
-    {
-        let f_name = String::from(entry.path().canonicalize().unwrap().to_string_lossy());
-        println!("{f_name}");
-    }
+//     for entry in WalkDir::new(&config.wasmer_dir)
+//         .into_iter()
+//         .filter_map(Result::ok)
+//     {
+//         let f_name = String::from(entry.path().canonicalize().unwrap().to_string_lossy());
+//         println!("{f_name}");
+//     }
 
-    println!(
-        "root dir: {}",
-        std::path::Path::new(&config.root_dir)
-            .canonicalize()
-            .unwrap()
-            .display()
-    );
+//     println!(
+//         "root dir: {}",
+//         std::path::Path::new(&config.root_dir)
+//             .canonicalize()
+//             .unwrap()
+//             .display()
+//     );
 
-    for entry in WalkDir::new(&config.root_dir)
-        .into_iter()
-        .filter_map(Result::ok)
-    {
-        let f_name = String::from(entry.path().canonicalize().unwrap().to_string_lossy());
-        println!("{f_name}");
-    }
+//     for entry in WalkDir::new(&config.root_dir)
+//         .into_iter()
+//         .filter_map(Result::ok)
+//     {
+//         let f_name = String::from(entry.path().canonicalize().unwrap().to_string_lossy());
+//         println!("{f_name}");
+//     }
 
-    println!("printed");
-}
+//     println!("printed");
+// }
 
 #[cfg(test)]
 fn fixup_symlinks(

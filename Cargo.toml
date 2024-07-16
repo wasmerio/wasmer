@@ -97,6 +97,9 @@ edge-schema = { version = "=0.1.0" }
 shared-buffer = "0.1.4"
 
 # Third-party crates
+http = "1.0.0"
+hyper = "1"
+reqwest = { version = "0.12.0", default-features = false }
 enumset = "1.1.0"
 memoffset = "0.9.0"
 wasmparser = { version = "0.121.0", default-features = false }

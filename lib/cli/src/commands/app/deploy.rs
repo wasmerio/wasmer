@@ -19,6 +19,11 @@ use wasmer_config::{
     package::{PackageIdent, PackageSource},
 };
 
+// TODO: apparently edge-util uses a different version of the http crate, which makes the
+// HEADER_APP_VERSION_ID field incompatible with our use here, so it needs to be redeclared.
+static EDGE_HEADER_APP_VERSION_ID: http::HeaderName =
+    http::HeaderName::from_static("x-edge-app-version-id");
+
 /// Deploy an app to Wasmer Edge.
 #[derive(clap::Parser, Debug)]
 pub struct CmdAppDeploy {
@@ -669,7 +674,7 @@ pub async fn wait_app(
                     Ok(res) => {
                         let header = res
                             .headers()
-                            .get(edge_util::headers::HEADER_APP_VERSION_ID)
+                            .get(&EDGE_HEADER_APP_VERSION_ID)
                             .and_then(|x| x.to_str().ok())
                             .unwrap_or_default();
 
