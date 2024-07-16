@@ -546,7 +546,7 @@
             )<span class="question-mark">?</span>;
 
             <span class="comment">// Break the region down into chunks that align with the resolution
-            </span><span class="kw">let </span>data = <span class="kw-2">&amp;</span>memory.data_unchecked()[start..end];
+            </span><span class="kw">let </span>data = <span class="kw-2">&amp;</span>memory.data_unchecked();
             <span class="kw">let </span><span class="kw-2">mut </span>offset = region.start;
             <span class="kw">while </span>offset &lt; region.end {
                 <span class="kw">let </span>next = region.end.min(offset + MEMORY_REGION_RESOLUTION);

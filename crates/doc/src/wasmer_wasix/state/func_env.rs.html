@@ -372,6 +372,9 @@
 <a href="#372" id="372">372</a>
 <a href="#373" id="373">373</a>
 <a href="#374" id="374">374</a>
+<a href="#375" id="375">375</a>
+<a href="#376" id="376">376</a>
+<a href="#377" id="377">377</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::sync::Arc;
 
 <span class="kw">use </span>tracing::trace;
@@ -687,6 +690,7 @@
             // prevent the initialization function from running
             </span><span class="kw">let </span>restore_journals = <span class="self">self</span>.data(<span class="kw-2">&amp;</span>store).runtime.journals().clone();
             <span class="kw">if </span>!restore_journals.is_empty() {
+                <span class="macro">tracing::trace!</span>(<span class="string">&quot;replaying journal=true&quot;</span>);
                 <span class="self">self</span>.data_mut(<span class="kw-2">&amp;mut </span>store).replaying_journal = <span class="bool-val">true</span>;
 
                 <span class="kw">for </span>journal <span class="kw">in </span>restore_journals {
@@ -694,6 +698,7 @@
                     <span class="kw">let </span>rewind = <span class="kw">match </span>restore_snapshot(ctx, journal, <span class="bool-val">true</span>) {
                         <span class="prelude-val">Ok</span>(r) =&gt; r,
                         <span class="prelude-val">Err</span>(err) =&gt; {
+                            <span class="macro">tracing::trace!</span>(<span class="string">&quot;replaying journal=false (err={:?})&quot;</span>, err);
                             <span class="self">self</span>.data_mut(<span class="kw-2">&amp;mut </span>store).replaying_journal = <span class="bool-val">false</span>;
                             <span class="kw">return </span><span class="prelude-val">Err</span>(err);
                         }
@@ -701,6 +706,7 @@
                     rewind_state = rewind.map(|rewind| (rewind, RewindResultType::RewindRestart));
                 }
 
+                <span class="macro">tracing::trace!</span>(<span class="string">&quot;replaying journal=false&quot;</span>);
                 <span class="self">self</span>.data_mut(<span class="kw-2">&amp;mut </span>store).replaying_journal = <span class="bool-val">false</span>;
             }
 
