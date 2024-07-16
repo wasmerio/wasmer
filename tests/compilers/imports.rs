@@ -13,6 +13,8 @@ use wasmer::Type as ValueType;
 use wasmer::*;
 
 fn get_module(store: &Store) -> Result<Module> {
+    // Note: this module is also used to test indirect calls to imported
+    // functions, do not remove the call_indirect instruction
     let wat = r#"
         (type (func))
         (import "host" "0" (func $host_func_0 (type 0)))
