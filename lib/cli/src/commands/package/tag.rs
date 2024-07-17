@@ -461,7 +461,10 @@ impl PackageTag {
                     new_version.patch += 1;
                     if must_bump {
                         eprintln!("{}: Registry already has version {user_version} of {full_pkg_name}, but with different contents.", "Warn".bold().yellow());
-                        eprintln!("{}: Not bumping the version will make this action fail.", "Warn".bold().yellow());
+                        eprintln!(
+                            "{}: Not bumping the version will make this action fail.",
+                            "Warn".bold().yellow()
+                        );
                         let res = Confirm::with_theme(&theme)
                             .with_prompt(format!("Continue ({user_version} -> {new_version})?"))
                             .interact()?;
