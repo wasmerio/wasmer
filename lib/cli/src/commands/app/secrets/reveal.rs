@@ -8,7 +8,7 @@ use dialoguer::theme::ColorfulTheme;
 use is_terminal::IsTerminal;
 use std::path::PathBuf;
 
-/// Reveal the value of an existing secret related to an Edge app.
+/// Reveal the value of an existing app secret.
 #[derive(clap::Parser, Debug)]
 pub struct CmdAppSecretsReveal {
     /* --- Common flags --- */
