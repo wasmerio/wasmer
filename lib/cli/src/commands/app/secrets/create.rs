@@ -13,7 +13,7 @@ use std::{
 };
 use wasmer_api::WasmerClient;
 
-/// Create a new secret related to an Edge app.
+/// Create a new app secret.
 #[derive(clap::Parser, Debug)]
 pub struct CmdAppSecretsCreate {
     /* --- Common flags --- */

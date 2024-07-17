@@ -6,7 +6,7 @@ use crate::{
 use is_terminal::IsTerminal;
 use std::path::PathBuf;
 
-/// Retrieve the value of an existing secret related to an Edge app.
+/// Retrieve the value of an existing app secret.
 #[derive(clap::Parser, Debug)]
 pub struct CmdAppSecretsList {
     /* --- Common flags --- */

@@ -10,7 +10,7 @@ use wasmer_api::WasmerClient;
 
 use super::utils::{self, get_secrets};
 
-/// Delete an existing secret related to an Edge app.
+/// Delete an existing app secret.
 #[derive(clap::Parser, Debug)]
 pub struct CmdAppSecretsDelete {
     /* --- Common flags --- */
