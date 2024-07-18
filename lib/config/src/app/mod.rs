@@ -331,7 +331,9 @@ scheduled_tasks:
                 .into_iter()
                 .collect(),
                 debug: Some(true),
-                locality: Some(Locality { regions: vec!["eu-rome".to_string()] }) 
+                locality: Some(Locality {
+                    regions: vec!["eu-rome".to_string()]
+                })
             }
         );
     }
