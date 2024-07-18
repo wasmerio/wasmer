@@ -414,7 +414,7 @@ pub(crate) fn fd_write_internal<M: MemorySize>(
 
         // reborrow and update the size
         if !is_stdio {
-            let offset = if is_file && should_update_cursor {
+            let curr_offset = if is_file && should_update_cursor {
                 let bytes_written = bytes_written as u64;
                 let mut fd_map = state.fs.fd_map.write().unwrap();
                 let fd_entry = wasi_try_ok_ok!(fd_map.get_mut(&fd).ok_or(Errno::Badf));
@@ -433,10 +433,16 @@ pub(crate) fn fd_write_internal<M: MemorySize>(
                 unsafe { env.get_memory_and_wasi_state_and_inodes(&ctx, 0) };
             if is_file {
                 let mut stat = fd_entry.inode.stat.write().unwrap();
-                // If we wrote before the end, the current size is still correct.
-                // Otherwise, we only got as far as the current cursor. So, the
-                // max of the two is the correct new size.
-                stat.st_size = stat.st_size.max(offset);
+                if should_update_cursor {
+                    // If we wrote before the end, the current size is still correct.
+                    // Otherwise, we only got as far as the current cursor. So, the
+                    // max of the two is the correct new size.
+                    stat.st_size = stat.st_size.max(curr_offset);
+                } else {
+                    let bytes_added = (bytes_written as u64) - (stat.st_size - offset);
+
+                    stat.st_size += bytes_added;
+                }
             } else {
                 // Cast is valid because we don't support 128 bit systems...
                 fd_entry.inode.stat.write().unwrap().st_size += bytes_written as u64;
