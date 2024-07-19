@@ -338,9 +338,6 @@
 <a href="#338" id="338">338</a>
 <a href="#339" id="339">339</a>
 <a href="#340" id="340">340</a>
-<a href="#341" id="341">341</a>
-<a href="#342" id="342">342</a>
-<a href="#343" id="343">343</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! User-facing app.yaml file config: [`AppConfigV1`].
 
 </span><span class="kw">mod </span>healthcheck;
@@ -403,6 +400,10 @@
     </span><span class="attr">#[serde(skip_serializing_if = <span class="string">&quot;Option::is_none&quot;</span>)]
     </span><span class="kw">pub </span>domains: <span class="prelude-ty">Option</span>&lt;Vec&lt;String&gt;&gt;,
 
+    <span class="doccomment">/// Location-related configuration for the app.
+    </span><span class="attr">#[serde(skip_serializing_if = <span class="string">&quot;Option::is_none&quot;</span>)]
+    </span><span class="kw">pub </span>locality: <span class="prelude-ty">Option</span>&lt;Locality&gt;,
+
     <span class="doccomment">/// Environment variables.
     </span><span class="attr">#[serde(default, skip_serializing_if = <span class="string">&quot;HashMap::is_empty&quot;</span>)]
     </span><span class="kw">pub </span>env: HashMap&lt;String, String&gt;,
@@ -434,6 +435,13 @@
     <span class="doccomment">/// Capture extra fields for forwards compatibility.
     </span><span class="attr">#[serde(flatten)]
     </span><span class="kw">pub </span>extra: HashMap&lt;String, serde_json::Value&gt;,
+}
+
+<span class="attr">#[derive(
+    serde::Serialize, serde::Deserialize, schemars::JsonSchema, Clone, Debug, PartialEq, Eq,
+)]
+</span><span class="kw">pub struct </span>Locality {
+    <span class="kw">pub </span>regions: Vec&lt;String&gt;,
 }
 
 <span class="attr">#[derive(
@@ -616,6 +624,9 @@ env:
 cli_args:
   - arg1
   - arg2
+locality: 
+  regions: 
+    - eu-rome
 scheduled_tasks:
   - name: backup
     schedule: 1day
@@ -651,27 +662,7 @@ scheduled_tasks:
                 scaling: <span class="prelude-val">None</span>,
                 scheduled_tasks: <span class="prelude-val">Some</span>(<span class="macro">vec!</span>[AppScheduledTask {
                     name: <span class="string">&quot;backup&quot;</span>.to_string(),
-                    <span class="comment">// spec: CronJobSpecV1 {
-                    //     schedule: &quot;1day&quot;.to_string(),
-                    //     max_schedule_drift: None,
-                    //     job: crate::schema::JobDefinition {
-                    //         max_retries: Some(3),
-                    //         timeout: Some(std::time::Duration::from_secs(10 * 60).into()),
-                    //         invoke: crate::schema::JobInvoke::Fetch(
-                    //             crate::schema::JobInvokeFetch {
-                    //                 url: &quot;/api/do-backup&quot;.parse().unwrap(),
-                    //                 headers: Some(
-                    //                     [(&quot;h1&quot;.to_string(), &quot;v1&quot;.to_string())]
-                    //                         .into_iter()
-                    //                         .collect()
-                    //                 ),
-                    //                 success_status_codes: Some(vec![200, 201]),
-                    //                 method: None,
-                    //             }
-                    //         )
-                    //     },
-                    // }
-                </span>}]),
+                }]),
                 health_checks: <span class="prelude-val">None</span>,
                 extra: [(
                     <span class="string">&quot;kind&quot;</span>.to_string(),
@@ -680,6 +671,9 @@ scheduled_tasks:
                 .into_iter()
                 .collect(),
                 debug: <span class="prelude-val">Some</span>(<span class="bool-val">true</span>),
+                locality: <span class="prelude-val">Some</span>(Locality {
+                    regions: <span class="macro">vec!</span>[<span class="string">&quot;eu-rome&quot;</span>.to_string()]
+                })
             }
         );
     }
