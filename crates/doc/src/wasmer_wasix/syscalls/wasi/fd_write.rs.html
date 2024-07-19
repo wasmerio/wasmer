@@ -447,6 +447,13 @@
 <a href="#447" id="447">447</a>
 <a href="#448" id="448">448</a>
 <a href="#449" id="449">449</a>
+<a href="#450" id="450">450</a>
+<a href="#451" id="451">451</a>
+<a href="#452" id="452">452</a>
+<a href="#453" id="453">453</a>
+<a href="#454" id="454">454</a>
+<a href="#455" id="455">455</a>
+<a href="#456" id="456">456</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::task::Waker;
 
 <span class="kw">use super</span>::<span class="kw-2">*</span>;
@@ -863,7 +870,7 @@
 
         <span class="comment">// reborrow and update the size
         </span><span class="kw">if </span>!is_stdio {
-            <span class="kw">let </span>offset = <span class="kw">if </span>is_file &amp;&amp; should_update_cursor {
+            <span class="kw">let </span>curr_offset = <span class="kw">if </span>is_file &amp;&amp; should_update_cursor {
                 <span class="kw">let </span>bytes_written = bytes_written <span class="kw">as </span>u64;
                 <span class="kw">let </span><span class="kw-2">mut </span>fd_map = state.fs.fd_map.write().unwrap();
                 <span class="kw">let </span>fd_entry = <span class="macro">wasi_try_ok_ok!</span>(fd_map.get_mut(<span class="kw-2">&amp;</span>fd).ok_or(Errno::Badf));
@@ -882,10 +889,17 @@
                 <span class="kw">unsafe </span>{ env.get_memory_and_wasi_state_and_inodes(<span class="kw-2">&amp;</span>ctx, <span class="number">0</span>) };
             <span class="kw">if </span>is_file {
                 <span class="kw">let </span><span class="kw-2">mut </span>stat = fd_entry.inode.stat.write().unwrap();
-                <span class="comment">// If we wrote before the end, the current size is still correct.
-                // Otherwise, we only got as far as the current cursor. So, the
-                // max of the two is the correct new size.
-                </span>stat.st_size = stat.st_size.max(offset);
+                <span class="kw">if </span>should_update_cursor {
+                    <span class="comment">// If we wrote before the end, the current size is still correct.
+                    // Otherwise, we only got as far as the current cursor. So, the
+                    // max of the two is the correct new size.
+                    </span>stat.st_size = stat.st_size.max(curr_offset);
+                } <span class="kw">else </span>{
+                    <span class="comment">// pwrite does not update the cursor of the file so to calculate the final
+                    // size of the file we compute where the cursor would have been if it was updated,
+                    // and get the max value between it and the current size.
+                    </span>stat.st_size = stat.st_size.max(offset + bytes_written <span class="kw">as </span>u64);
+                }
             } <span class="kw">else </span>{
                 <span class="comment">// Cast is valid because we don&#39;t support 128 bit systems...
                 </span>fd_entry.inode.stat.write().unwrap().st_size += bytes_written <span class="kw">as </span>u64;
