@@ -439,6 +439,9 @@ pub(crate) fn fd_write_internal<M: MemorySize>(
                     // max of the two is the correct new size.
                     stat.st_size = stat.st_size.max(curr_offset);
                 } else {
+                    // pwrite does not update the cursor of the file so to calculate the final
+                    // size of the file we compute where the cursor would have been if it was updated,
+                    // and get the max value between it and the current size.
                     stat.st_size = stat.st_size.max(offset + bytes_written as u64);
                 }
             } else {
