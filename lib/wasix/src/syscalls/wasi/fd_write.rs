@@ -439,9 +439,7 @@ pub(crate) fn fd_write_internal<M: MemorySize>(
                     // max of the two is the correct new size.
                     stat.st_size = stat.st_size.max(curr_offset);
                 } else {
-                    let bytes_added = (bytes_written as u64) - (stat.st_size - offset);
-
-                    stat.st_size += bytes_added;
+                    stat.st_size = stat.st_size.max(offset + bytes_written as u64);
                 }
             } else {
                 // Cast is valid because we don't support 128 bit systems...
