@@ -376,7 +376,7 @@ mod tests {
             .read(true)
             .write(true)
             .create_new(true)
-            .open(&pa)
+            .open(pa)
             .unwrap();
         a.write_all(&data).unwrap();
 
@@ -385,7 +385,7 @@ mod tests {
             .read(true)
             .write(true)
             .create_new(true)
-            .open(&pb)
+            .open(pb)
             .unwrap();
         b.write_all(&datb).unwrap();
 
