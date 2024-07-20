@@ -1,11 +1,11 @@
-use std::{net::SocketAddr, sync::Arc};
+use std::{net::SocketAddr, sync::Arc, time::Duration};
 
-use super::super::Body;
 use anyhow::{Context, Error};
-use futures::{stream::FuturesUnordered, StreamExt};
 use http::{Request, Response};
-use tower::ServiceBuilder;
+use hyper::Body;
+use tower::{make::Shared, Service, ServiceBuilder};
 use tower_http::{catch_panic::CatchPanicLayer, cors::CorsLayer, trace::TraceLayer};
+use tracing::Span;
 use wcgi_host::CgiDialect;
 use webc::metadata::{
     annotations::{Wasi, Wcgi},
@@ -100,8 +100,8 @@ impl WcgiRunner {
         runtime: Arc<dyn Runtime + Send + Sync>,
     ) -> Result<(), Error>
     where
-        S: tower::Service<
-            Request<hyper::body::Incoming>,
+        S: Service<
+            Request<Body>,
             Response = http::Response<Body>,
             Error = anyhow::Error,
             Future = std::pin::Pin<
@@ -113,7 +113,7 @@ impl WcgiRunner {
         let service = ServiceBuilder::new()
             .layer(
                 TraceLayer::new_for_http()
-                    .make_span_with(|request: &Request<hyper::body::Incoming>| {
+                    .make_span_with(|request: &Request<Body>| {
                         tracing::info_span!(
                             "request",
                             method = %request.method(),
@@ -121,7 +121,10 @@ impl WcgiRunner {
                             status_code = tracing::field::Empty,
                         )
                     })
-                    .on_response(super::super::response_tracing::OnResponseTracer),
+                    .on_response(|response: &Response<_>, _latency: Duration, span: &Span| {
+                        span.record("status_code", &tracing::field::display(response.status()));
+                        tracing::info!("response generated")
+                    }),
             )
             .layer(CatchPanicLayer::new())
             .layer(CorsLayer::permissive())
@@ -131,46 +134,23 @@ impl WcgiRunner {
         tracing::info!(%address, "Starting the server");
 
         let callbacks = Arc::clone(&self.config.callbacks);
-        runtime.task_manager().spawn_and_block_on(async move {
-            let (mut shutdown, abort_handle) =
-                futures::future::abortable(futures::future::pending::<()>());
+        runtime
+            .task_manager()
+            .spawn_and_block_on(async move {
+                let (shutdown, abort_handle) =
+                    futures::future::abortable(futures::future::pending::<()>());
 
-            callbacks.started(abort_handle);
+                callbacks.started(abort_handle);
 
-            let listener = tokio::net::TcpListener::bind(&address).await?;
-            let graceful = hyper_util::server::graceful::GracefulShutdown::new();
-
-            let http = hyper::server::conn::http1::Builder::new();
-
-            let mut futs = FuturesUnordered::new();
-
-            loop {
-                tokio::select! {
-                    Ok((stream, _addr)) = listener.accept() => {
-                        let io = hyper_util::rt::tokio::TokioIo::new(stream);
-                        let service = hyper_util::service::TowerToHyperService::new(service.clone());
-                        let conn = http.serve_connection(io, service);
-                        // watch this connection
-                        let fut = graceful.watch(conn);
-                        futs.push(async move {
-                            if let Err(e) = fut.await {
-                                eprintln!("Error serving connection: {:?}", e);
-                            }
-                        });
-                    },
-
-                    _ = futs.next() => {}
-
-                    _ = &mut shutdown => {
-                        eprintln!("graceful shutdown signal received");
-                        // stop the accept loop
-                        break;
-                    }
-                }
-            }
-
-            Ok::<_, anyhow::Error>(())
-        })??;
+                hyper::Server::bind(&address)
+                    .serve(Shared::new(service))
+                    .with_graceful_shutdown(async {
+                        let _ = shutdown.await;
+                        tracing::info!("Shutting down gracefully");
+                    })
+                    .await
+            })
+            .context("Unable to start the server")??;
 
         Ok(())
     }

@@ -1633,11 +1633,13 @@ mod test_filesystem {
         let fs = FileSystem::default();
 
         assert!(
-            fs.new_open_options()
-                .write(true)
-                .create_new(true)
-                .open(path!("/foo.txt"))
-                .is_ok(),
+            matches!(
+                fs.new_open_options()
+                    .write(true)
+                    .create_new(true)
+                    .open(path!("/foo.txt")),
+                Ok(_)
+            ),
             "creating a new file",
         );
 
@@ -1710,19 +1712,23 @@ mod test_filesystem {
         assert_eq!(fs.create_dir(path!("/bar")), Ok(()), "creating `bar`");
         assert_eq!(fs.create_dir(path!("/baz")), Ok(()), "creating `bar`");
         assert!(
-            fs.new_open_options()
-                .write(true)
-                .create_new(true)
-                .open(path!("/a.txt"))
-                .is_ok(),
+            matches!(
+                fs.new_open_options()
+                    .write(true)
+                    .create_new(true)
+                    .open(path!("/a.txt")),
+                Ok(_)
+            ),
             "creating `a.txt`",
         );
         assert!(
-            fs.new_open_options()
-                .write(true)
-                .create_new(true)
-                .open(path!("/b.txt"))
-                .is_ok(),
+            matches!(
+                fs.new_open_options()
+                    .write(true)
+                    .create_new(true)
+                    .open(path!("/b.txt")),
+                Ok(_)
+            ),
             "creating `b.txt`",
         );
 
@@ -1787,7 +1793,7 @@ mod test_filesystem {
             ),
             "checking entry #5",
         );
-        assert!(readdir.next().is_none(), "no more entries");
+        assert!(matches!(readdir.next(), None), "no more entries");
     }
 
     #[tokio::test]
@@ -1807,11 +1813,13 @@ mod test_filesystem {
             "creating `qux`",
         );
         assert!(
-            fs.new_open_options()
-                .write(true)
-                .create_new(true)
-                .open(path!("/foo/bar/baz/qux/hello.txt"))
-                .is_ok(),
+            matches!(
+                fs.new_open_options()
+                    .write(true)
+                    .create_new(true)
+                    .open(path!("/foo/bar/baz/qux/hello.txt")),
+                Ok(_)
+            ),
             "creating `hello.txt`",
         );
 
@@ -1913,21 +1921,21 @@ mod test_filesystem {
         let other = FileSystem::default();
         crate::ops::create_dir_all(&other, "/a/x").unwrap();
         other
-            .insert_ro_file(Path::new("/a/x/a.txt"), Cow::Borrowed(b"a"))
+            .insert_ro_file(&Path::new("/a/x/a.txt"), Cow::Borrowed(b"a"))
             .unwrap();
         other
-            .insert_ro_file(Path::new("/a/x/b.txt"), Cow::Borrowed(b"b"))
+            .insert_ro_file(&Path::new("/a/x/b.txt"), Cow::Borrowed(b"b"))
             .unwrap();
         other
-            .insert_ro_file(Path::new("/a/x/c.txt"), Cow::Borrowed(b"c"))
+            .insert_ro_file(&Path::new("/a/x/c.txt"), Cow::Borrowed(b"c"))
             .unwrap();
 
-        let out = other.read_dir(Path::new("/")).unwrap();
+        let out = other.read_dir(&Path::new("/")).unwrap();
         dbg!(&out);
 
         let other: Arc<dyn crate::FileSystem + Send + Sync> = Arc::new(other);
 
-        main.mount_directory_entries(Path::new("/"), &other, Path::new("/a"))
+        main.mount_directory_entries(&Path::new("/"), &other, &Path::new("/a"))
             .unwrap();
 
         let mut buf = Vec::new();
@@ -1935,7 +1943,7 @@ mod test_filesystem {
         let mut f = main
             .new_open_options()
             .read(true)
-            .open(Path::new("/x/a.txt"))
+            .open(&Path::new("/x/a.txt"))
             .unwrap();
         f.read_to_end(&mut buf).await.unwrap();
 

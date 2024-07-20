@@ -4,10 +4,9 @@ use std::task::Poll;
 
 use futures::{Future, FutureExt};
 use http::{Request, Response, Uri};
-use http_body_util::BodyExt;
+use hyper::Body;
 use tower::Service;
 
-use super::super::Body;
 use crate::runners::dproxy::shard::Shard;
 use crate::Runtime;
 
@@ -46,7 +45,7 @@ impl Handler {
     #[tracing::instrument(level = "debug", skip_all, err)]
     pub(crate) async fn handle<T>(
         &self,
-        mut req: Request<hyper::body::Incoming>,
+        mut req: Request<Body>,
         _token: T,
     ) -> anyhow::Result<Response<Body>>
     where
@@ -92,15 +91,7 @@ impl Handler {
         let client = instance.client.clone();
 
         // Perform the request
-        let resp = client.request(req).await?;
-        let (parts, body) = resp.into_parts();
-        let body = body
-            .collect()
-            .await?
-            .map_err(|_| anyhow::anyhow!("Infallible"))
-            .boxed();
-
-        Ok(Response::from_parts(parts, body))
+        Ok(client.request(req).await?)
     }
 }
 
@@ -112,7 +103,7 @@ impl std::ops::Deref for Handler {
     }
 }
 
-impl Service<Request<hyper::body::Incoming>> for Handler {
+impl Service<Request<Body>> for Handler {
     type Response = Response<Body>;
     type Error = anyhow::Error;
     type Future = Pin<Box<dyn Future<Output = anyhow::Result<Response<Body>>> + Send>>;
@@ -121,7 +112,7 @@ impl Service<Request<hyper::body::Incoming>> for Handler {
         Poll::Ready(Ok(()))
     }
 
-    fn call(&mut self, request: Request<hyper::body::Incoming>) -> Self::Future {
+    fn call(&mut self, request: Request<Body>) -> Self::Future {
         // Note: all fields are reference-counted so cloning is pretty cheap
         let handler = self.clone();
         let fut = async move { handler.handle(request, ()).await };

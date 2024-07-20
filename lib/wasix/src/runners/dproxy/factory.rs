@@ -6,7 +6,6 @@ use std::{
 };
 
 use derivative::Derivative;
-use hyper_util::rt::TokioExecutor;
 use wasmer_journal::{DynJournal, RecombinedJournal};
 
 use crate::{
@@ -122,8 +121,7 @@ impl DProxyInstanceFactory {
         Ok(DProxyInstance {
             last_used: Arc::new(Mutex::new(Instant::now())),
             socket_manager,
-            client: hyper_util::client::legacy::Client::builder(TokioExecutor::new())
-                .build(connector),
+            client: hyper::Client::builder().build(connector),
         })
     }
 }

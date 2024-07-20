@@ -568,11 +568,13 @@ mod test_file_opener {
         let fs = FileSystem::default();
 
         assert!(
-            fs.new_open_options()
-                .write(true)
-                .create_new(true)
-                .open(path!("/foo.txt"))
-                .is_ok(),
+            matches!(
+                fs.new_open_options()
+                    .write(true)
+                    .create_new(true)
+                    .open(path!("/foo.txt")),
+                Ok(_),
+            ),
             "creating a new file",
         );
 
@@ -629,11 +631,13 @@ mod test_file_opener {
         assert_eq!(fs.remove_file(path!("/foo.txt")), Ok(()), "removing a file");
 
         assert!(
-            fs.new_open_options()
-                .write(false)
-                .create_new(true)
-                .open(path!("/foo.txt"))
-                .is_ok(),
+            matches!(
+                fs.new_open_options()
+                    .write(false)
+                    .create_new(true)
+                    .open(path!("/foo.txt")),
+                Ok(_),
+            ),
             "creating a file without the `write` option",
         );
     }
@@ -764,11 +768,13 @@ mod test_file_opener {
         let fs = FileSystem::default();
 
         assert!(
-            fs.new_open_options()
-                .write(true)
-                .create_new(true)
-                .open(path!("/foo.txt"))
-                .is_ok(),
+            matches!(
+                fs.new_open_options()
+                    .write(true)
+                    .create_new(true)
+                    .open(path!("/foo.txt")),
+                Ok(_),
+            ),
             "creating a _new_ file",
         );
 
@@ -783,10 +789,10 @@ mod test_file_opener {
         );
 
         assert!(
-            fs.new_open_options()
-                .read(true)
-                .open(path!("/foo.txt"))
-                .is_ok(),
+            matches!(
+                fs.new_open_options().read(true).open(path!("/foo.txt")),
+                Ok(_),
+            ),
             "opening a file that already exists",
         );
     }

@@ -1,11 +1,9 @@
-use std::{collections::HashMap, ops::Deref, pin::Pin, sync::Arc};
+use std::{collections::HashMap, ops::Deref, pin::Pin, sync::Arc, task::Poll};
 
 use anyhow::Error;
-use bytes::Bytes;
-use futures::{Future, FutureExt};
+use futures::{Future, FutureExt, StreamExt};
 use http::{Request, Response, StatusCode};
-use http_body_util::BodyExt;
-use hyper::body::Frame;
+use hyper::{service::Service, Body};
 use tokio::io::{AsyncBufReadExt, AsyncRead, AsyncWrite, AsyncWriteExt};
 use tracing::Instrument;
 use virtual_mio::InlineWaker;
@@ -13,17 +11,12 @@ use wasmer::Module;
 use wasmer_wasix_types::wasi::ExitCode;
 use wcgi_host::CgiDialect;
 
-use super::super::Body;
-
 use crate::{
     bin_factory::run_exec,
     os::task::OwnedTaskStatus,
-    runners::{
-        body_from_data, body_from_stream,
-        wcgi::{
-            callbacks::{CreateEnvConfig, RecycleEnvConfig},
-            Callbacks,
-        },
+    runners::wcgi::{
+        callbacks::{CreateEnvConfig, RecycleEnvConfig},
+        Callbacks,
     },
     runtime::task_manager::{TaskWasm, TaskWasmRecycleProperties},
     Runtime, VirtualTaskManager, WasiEnvBuilder,
@@ -43,7 +36,7 @@ impl Handler {
     #[tracing::instrument(level = "debug", skip_all, err)]
     pub(crate) async fn handle<T>(
         &self,
-        req: Request<hyper::body::Incoming>,
+        req: Request<Body>,
         token: T,
     ) -> Result<Response<Body>, Error>
     where
@@ -162,7 +155,7 @@ impl Handler {
                 if !stderr.is_empty() {
                     return Ok(Response::builder()
                         .status(StatusCode::INTERNAL_SERVER_ERROR)
-                        .body(body_from_data(stderr))?);
+                        .body(Body::from(stderr))?);
                 }
             }
         } else {
@@ -182,7 +175,7 @@ impl Handler {
                 tracing::error!(error = e, "Unable to drive the request to completion");
                 return Ok(Response::builder()
                     .status(StatusCode::INTERNAL_SERVER_ERROR)
-                    .body(body_from_data(Bytes::from(e)))?);
+                    .body(Body::from(e.as_bytes().to_vec()))?);
             }
         }
 
@@ -207,14 +200,14 @@ impl Handler {
             match r.fill_buf().await {
                 Ok(chunk) if chunk.is_empty() => Ok(None),
                 Ok(chunk) => {
-                    let chunk: bytes::Bytes = chunk.to_vec().into();
+                    let chunk = chunk.to_vec();
                     r.consume(chunk.len());
-                    Ok(Some((Frame::data(chunk), r)))
+                    Ok(Some((chunk, r)))
                 }
-                Err(e) => Err(anyhow::Error::from(e)),
+                Err(e) => Err(e),
             }
         });
-        let body = body_from_stream(chunks);
+        let body = hyper::Body::wrap_stream(chunks);
 
         tracing::trace!(
             dialect=%self.dialect,
@@ -238,7 +231,7 @@ impl Deref for Handler {
 /// instance and waiting for it to exit.
 async fn drive_request_to_completion(
     finished: Arc<OwnedTaskStatus>,
-    mut request_body: hyper::body::Incoming,
+    mut request_body: hyper::Body,
     mut instance_stdin: impl AsyncWrite + Send + Sync + Unpin + 'static,
 ) -> Result<ExitCode, Error> {
     let request_body_send = async move {
@@ -246,16 +239,12 @@ async fn drive_request_to_completion(
         // dies before we finish writing the body, the instance's side of the
         // pipe will be automatically closed and we'll error out.
         let mut request_size = 0;
-        while let Some(res) = request_body.frame().await {
+        while let Some(res) = request_body.next().await {
             // FIXME(theduke): figure out how to propagate a body error to the
             // CGI instance.
             let chunk = res?;
-            if let Some(data) = chunk.data_ref() {
-                request_size += data.len();
-                instance_stdin.write_all(data.as_ref()).await?;
-            } else {
-                // Trailers are not supported...
-            }
+            request_size += chunk.len();
+            instance_stdin.write_all(chunk.as_ref()).await?;
         }
 
         instance_stdin.shutdown().await?;
@@ -334,19 +323,17 @@ pub(crate) struct SharedState {
     pub(crate) runtime: Arc<dyn Runtime + Send + Sync>,
 }
 
-impl tower::Service<Request<hyper::body::Incoming>> for Handler {
+impl Service<Request<Body>> for Handler {
     type Response = Response<Body>;
     type Error = Error;
     type Future = Pin<Box<dyn Future<Output = Result<Response<Body>, Error>> + Send>>;
 
-    fn poll_ready(
-        &mut self,
-        _cx: &mut std::task::Context<'_>,
-    ) -> std::task::Poll<Result<(), Self::Error>> {
-        std::task::Poll::Ready(Ok(()))
+    fn poll_ready(&mut self, _cx: &mut std::task::Context<'_>) -> Poll<Result<(), Self::Error>> {
+        // TODO: We probably should implement some sort of backpressure here...
+        Poll::Ready(Ok(()))
     }
 
-    fn call(&mut self, request: Request<hyper::body::Incoming>) -> Self::Future {
+    fn call(&mut self, request: Request<Body>) -> Self::Future {
         // Note: all fields are reference-counted so cloning is pretty cheap
         let handler = self.clone();
         let fut = async move { handler.handle(request, ()).await };

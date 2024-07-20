@@ -1,16 +1,16 @@
-use std::{path::PathBuf, str::FromStr, time::Duration};
+use std::{net::TcpListener, path::PathBuf, str::FromStr, time::Duration};
 
 use anyhow::Ok;
 use clap::Parser;
 use colored::Colorize;
 #[cfg(not(test))]
 use dialoguer::{console::style, Input};
-use futures::{stream::FuturesUnordered, StreamExt};
-use http_body_util::BodyExt;
-use hyper::{body::Incoming, service::service_fn, Request, Response, StatusCode};
-use reqwest::{Body, Method};
+use hyper::{
+    service::{make_service_fn, service_fn},
+    Body, Request, Response, Server, StatusCode,
+};
+use reqwest::Method;
 use serde::Deserialize;
-use tokio::net::TcpListener;
 use wasmer_registry::{
     types::NewNonceOutput,
     wasmer_env::{Registry, WasmerEnv, WASMER_DIR},
@@ -177,40 +177,26 @@ impl Login {
             );
         });
 
-        // Jump through hyper 1.0's hoops...
-        let graceful = hyper_util::server::graceful::GracefulShutdown::new();
+        // Create a new server
+        let make_svc = make_service_fn(move |_| {
+            let context = app_context.clone();
 
-        let http = hyper::server::conn::http1::Builder::new();
+            // Create a `Service` for responding to the request.
+            let service = service_fn(move |req| service_router(context.clone(), req));
 
-        let mut futs = FuturesUnordered::new();
-
-        let service = service_fn(move |req| service_router(app_context.clone(), req));
+            // Return the service to hyper.
+            async move { Ok(service) }
+        });
 
         print!("Waiting for session... ");
 
         // start the server
-        loop {
-            tokio::select! {
-                Result::Ok((stream, _addr)) = listener.accept() => {
-                    let io = hyper_util::rt::tokio::TokioIo::new(stream);
-                    let conn = http.serve_connection(io, service.clone());
-                    // watch this connection
-                    let fut = graceful.watch(conn);
-                    futs.push(async move {
-                        if let Err(e) = fut.await {
-                            eprintln!("Error serving connection: {:?}", e);
-                        }
-                    });
-                },
-
-                _ = futs.next() => {}
-
-                _ = server_shutdown_rx.recv() => {
-                    // stop the accept loop
-                    break;
-                }
-            }
-        }
+        Server::from_tcp(listener)?
+            .serve(make_svc)
+            .with_graceful_shutdown(async {
+                server_shutdown_rx.recv().await;
+            })
+            .await?;
 
         // receive the token from the server
         let token = token_rx
@@ -231,7 +217,7 @@ impl Login {
     }
 
     async fn setup_listener() -> Result<(TcpListener, String), anyhow::Error> {
-        let listener = TcpListener::bind("127.0.0.1:0").await?;
+        let listener = TcpListener::bind("127.0.0.1:0")?;
         let addr = listener.local_addr()?;
         let port = addr.port();
 
@@ -345,7 +331,8 @@ impl Login {
     }
 }
 
-async fn preflight(_: Request<Incoming>) -> Result<Response<Body>, anyhow::Error> {
+async fn preflight(req: Request<Body>) -> Result<Response<Body>, anyhow::Error> {
+    let _whole_body = hyper::body::aggregate(req).await?;
     let response = Response::builder()
         .status(StatusCode::OK)
         .header("Access-Control-Allow-Origin", "*") // FIXME: this is not secure, Don't allow all origins. @syrusakbary
@@ -357,14 +344,14 @@ async fn preflight(_: Request<Incoming>) -> Result<Response<Body>, anyhow::Error
 
 async fn handle_post_save_token(
     context: AppContext,
-    req: Request<Incoming>,
+    req: Request<Body>,
 ) -> Result<Response<Body>, anyhow::Error> {
     let AppContext {
         server_shutdown_tx,
         token_tx,
     } = context;
     let (.., body) = req.into_parts();
-    let body = body.collect().await?.to_bytes();
+    let body = hyper::body::to_bytes(body).await?;
 
     let ValidatedNonceOutput {
         token,
@@ -438,7 +425,7 @@ async fn handle_unknown_method(context: AppContext) -> Result<Response<Body>, an
 /// Then proceed to handle the actual request - POST request
 async fn service_router(
     context: AppContext,
-    req: Request<Incoming>,
+    req: Request<Body>,
 ) -> Result<Response<Body>, anyhow::Error> {
     match *req.method() {
         Method::OPTIONS => preflight(req).await,

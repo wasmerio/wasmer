@@ -191,17 +191,10 @@ impl WasiFunctionEnv {
                     _ => 0,
                 }
             } else if let Some(data_end) = data_end {
-                let data_end = match data_end.get(store) {
+                match data_end.get(store) {
                     wasmer::Value::I32(a) => a as u64,
                     wasmer::Value::I64(a) => a as u64,
                     _ => 0,
-                };
-                // It's possible for the data section to be above the stack, we check for that here and
-                // if it is, we'll assume the stack starts at address 0
-                if data_end >= stack_base {
-                    0
-                } else {
-                    data_end
                 }
             } else {
                 // clang-16 and higher generate the `__stack_low` global, and it can be exported with

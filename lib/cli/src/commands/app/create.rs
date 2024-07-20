@@ -148,7 +148,6 @@ impl CmdAppCreate {
             health_checks: None,
             debug: None,
             scaling: None,
-            locality: None,
             extra: HashMap::new(),
         }
     }

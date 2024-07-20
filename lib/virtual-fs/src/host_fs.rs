@@ -1214,35 +1214,39 @@ mod tests {
         );
 
         assert_eq!(
-            fs.rename(foo, &foo.join("bar").join("baz"),).await,
+            fs.rename(&foo, &foo.join("bar").join("baz"),).await,
             Err(FsError::EntryNotFound),
             "renaming to a directory that has parent that doesn't exist",
         );
 
         // On Windows, rename "to" must not be an existing directory
         #[cfg(not(target_os = "windows"))]
-        assert_eq!(fs.create_dir(bar), Ok(()));
+        assert_eq!(fs.create_dir(&bar), Ok(()));
 
         assert_eq!(
-            fs.rename(foo, bar).await,
+            fs.rename(&foo, &bar).await,
             Ok(()),
             "renaming to a directory that has parent that exists",
         );
 
         assert!(
-            fs.new_open_options()
-                .write(true)
-                .create_new(true)
-                .open(bar.join("hello1.txt"))
-                .is_ok(),
+            matches!(
+                fs.new_open_options()
+                    .write(true)
+                    .create_new(true)
+                    .open(bar.join("hello1.txt")),
+                Ok(_),
+            ),
             "creating a new file (`hello1.txt`)",
         );
         assert!(
-            fs.new_open_options()
-                .write(true)
-                .create_new(true)
-                .open(bar.join("hello2.txt"))
-                .is_ok(),
+            matches!(
+                fs.new_open_options()
+                    .write(true)
+                    .create_new(true)
+                    .open(bar.join("hello2.txt")),
+                Ok(_),
+            ),
             "creating a new file (`hello2.txt`)",
         );
 
@@ -1258,7 +1262,7 @@ mod tests {
             "the bar directory still exists"
         );
 
-        let bar_dir = read_dir_names(&fs, bar);
+        let bar_dir = read_dir_names(&fs, &bar);
 
         if !bar_dir.contains(&"qux".to_string()) {
             println!("qux does not exist: {:?}", bar_dir)
@@ -1278,7 +1282,7 @@ mod tests {
             "the /bar/hello2.txt file exists"
         );
 
-        assert_eq!(fs.create_dir(foo), Ok(()), "create ./foo again",);
+        assert_eq!(fs.create_dir(&foo), Ok(()), "create ./foo again",);
 
         assert_eq!(
             fs.rename(&bar.join("hello2.txt"), &foo.join("world2.txt"))
@@ -1288,7 +1292,7 @@ mod tests {
         );
 
         assert_eq!(
-            fs.rename(foo, &bar.join("baz")).await,
+            fs.rename(&foo, &bar.join("baz")).await,
             Ok(()),
             "renaming a directory",
         );
@@ -1346,9 +1350,9 @@ mod tests {
 
         let foo = Path::new("foo");
 
-        assert_eq!(fs.create_dir(foo), Ok(()));
+        assert_eq!(fs.create_dir(&foo), Ok(()));
 
-        let foo_metadata = fs.metadata(foo);
+        let foo_metadata = fs.metadata(&foo);
         assert!(foo_metadata.is_ok());
         let foo_metadata = foo_metadata.unwrap();
 
@@ -1363,15 +1367,15 @@ mod tests {
 
         let bar = Path::new("bar");
 
-        assert_eq!(fs.rename(foo, bar).await, Ok(()));
+        assert_eq!(fs.rename(&foo, &bar).await, Ok(()));
 
-        let bar_metadata = fs.metadata(bar).unwrap();
+        let bar_metadata = fs.metadata(&bar).unwrap();
         assert!(bar_metadata.ft.dir);
         assert!(bar_metadata.accessed >= foo_metadata.accessed);
         assert_eq!(bar_metadata.created, foo_metadata.created);
         assert!(bar_metadata.modified > foo_metadata.modified);
 
-        let root_metadata = fs.metadata(bar).unwrap();
+        let root_metadata = fs.metadata(&bar).unwrap();
         assert!(
             root_metadata.modified > foo_metadata.modified,
             "the parent modified time was updated"
@@ -1384,11 +1388,13 @@ mod tests {
         let fs = FileSystem::new(Handle::current(), temp.path()).expect("get filesystem");
 
         assert!(
-            fs.new_open_options()
-                .write(true)
-                .create_new(true)
-                .open(Path::new("foo.txt"))
-                .is_ok(),
+            matches!(
+                fs.new_open_options()
+                    .write(true)
+                    .create_new(true)
+                    .open(Path::new("foo.txt")),
+                Ok(_)
+            ),
             "creating a new file",
         );
 
@@ -1397,7 +1403,7 @@ mod tests {
         assert!(temp.path().join("foo.txt").is_file());
 
         assert_eq!(
-            fs.remove_file(Path::new("foo.txt")),
+            fs.remove_file(&Path::new("foo.txt")),
             Ok(()),
             "removing a file that exists",
         );
@@ -1405,7 +1411,7 @@ mod tests {
         assert!(!temp.path().join("foo.txt").exists());
 
         assert_eq!(
-            fs.remove_file(Path::new("foo.txt")),
+            fs.remove_file(&Path::new("foo.txt")),
             Err(FsError::EntryNotFound),
             "removing a file that doesn't exists",
         );
@@ -1416,28 +1422,32 @@ mod tests {
         let temp = TempDir::new().unwrap();
         let fs = FileSystem::new(Handle::current(), temp.path()).expect("get filesystem");
 
-        assert_eq!(fs.create_dir(Path::new("foo")), Ok(()), "creating `foo`");
+        assert_eq!(fs.create_dir(&Path::new("foo")), Ok(()), "creating `foo`");
         assert_eq!(
-            fs.create_dir(Path::new("foo/sub")),
+            fs.create_dir(&Path::new("foo/sub")),
             Ok(()),
             "creating `sub`"
         );
-        assert_eq!(fs.create_dir(Path::new("bar")), Ok(()), "creating `bar`");
-        assert_eq!(fs.create_dir(Path::new("baz")), Ok(()), "creating `bar`");
+        assert_eq!(fs.create_dir(&Path::new("bar")), Ok(()), "creating `bar`");
+        assert_eq!(fs.create_dir(&Path::new("baz")), Ok(()), "creating `bar`");
         assert!(
-            fs.new_open_options()
-                .write(true)
-                .create_new(true)
-                .open(Path::new("a.txt"))
-                .is_ok(),
+            matches!(
+                fs.new_open_options()
+                    .write(true)
+                    .create_new(true)
+                    .open(Path::new("a.txt")),
+                Ok(_)
+            ),
             "creating `a.txt`",
         );
         assert!(
-            fs.new_open_options()
-                .write(true)
-                .create_new(true)
-                .open(Path::new("b.txt"))
-                .is_ok(),
+            matches!(
+                fs.new_open_options()
+                    .write(true)
+                    .create_new(true)
+                    .open(&Path::new("b.txt")),
+                Ok(_)
+            ),
             "creating `b.txt`",
         );
 

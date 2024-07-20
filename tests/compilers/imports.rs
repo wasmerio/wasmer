@@ -13,11 +13,8 @@ use wasmer::Type as ValueType;
 use wasmer::*;
 
 fn get_module(store: &Store) -> Result<Module> {
-    // Note: this module is also used to test indirect calls to imported
-    // functions, do not remove the call_indirect instruction
     let wat = r#"
-        (type (func))
-        (import "host" "0" (func $host_func_0 (type 0)))
+        (import "host" "0" (func))
         (import "host" "1" (func (param i32) (result i32)))
         (import "host" "2" (func (param i32) (param i64)))
         (import "host" "3" (func (param i32 i64 i32 f32 f64)))
@@ -25,9 +22,7 @@ fn get_module(store: &Store) -> Result<Module> {
         (export "memory" (memory $mem))
 
         (func $foo
-            i32.const 1
-            call_indirect (type 0)
-
+            call 0
             i32.const 0
             call 1
             i32.const 1
@@ -42,8 +37,6 @@ fn get_module(store: &Store) -> Result<Module> {
             f64.const 500
             call 3
         )
-        (table 2 2 funcref)
-        (elem (i32.const 1) func $host_func_0)
         (start $foo)
     "#;
 

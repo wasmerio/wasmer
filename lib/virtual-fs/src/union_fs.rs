@@ -708,19 +708,23 @@ mod tests {
         );
 
         assert!(
-            fs.new_open_options()
-                .write(true)
-                .create_new(true)
-                .open(Path::new("/test_rename/bar/hello1.txt"))
-                .is_ok(),
+            matches!(
+                fs.new_open_options()
+                    .write(true)
+                    .create_new(true)
+                    .open(Path::new("/test_rename/bar/hello1.txt")),
+                Ok(_),
+            ),
             "creating a new file (`hello1.txt`)",
         );
         assert!(
-            fs.new_open_options()
-                .write(true)
-                .create_new(true)
-                .open(Path::new("/test_rename/bar/hello2.txt"))
-                .is_ok(),
+            matches!(
+                fs.new_open_options()
+                    .write(true)
+                    .create_new(true)
+                    .open(Path::new("/test_rename/bar/hello2.txt")),
+                Ok(_),
+            ),
             "creating a new file (`hello2.txt`)",
         );
 
@@ -893,11 +897,13 @@ mod tests {
         assert!(fs.create_dir(Path::new("/test_remove_file")).is_ok());
 
         assert!(
-            fs.new_open_options()
-                .write(true)
-                .create_new(true)
-                .open(Path::new("/test_remove_file/foo.txt"))
-                .is_ok(),
+            matches!(
+                fs.new_open_options()
+                    .write(true)
+                    .create_new(true)
+                    .open(Path::new("/test_remove_file/foo.txt")),
+                Ok(_)
+            ),
             "creating a new file",
         );
 
@@ -945,19 +951,23 @@ mod tests {
             "creating `bar`"
         );
         assert!(
-            fs.new_open_options()
-                .write(true)
-                .create_new(true)
-                .open(Path::new("/test_readdir/a.txt"))
-                .is_ok(),
+            matches!(
+                fs.new_open_options()
+                    .write(true)
+                    .create_new(true)
+                    .open(Path::new("/test_readdir/a.txt")),
+                Ok(_)
+            ),
             "creating `a.txt`",
         );
         assert!(
-            fs.new_open_options()
-                .write(true)
-                .create_new(true)
-                .open(Path::new("/test_readdir/b.txt"))
-                .is_ok(),
+            matches!(
+                fs.new_open_options()
+                    .write(true)
+                    .create_new(true)
+                    .open(Path::new("/test_readdir/b.txt")),
+                Ok(_)
+            ),
             "creating `b.txt`",
         );
 

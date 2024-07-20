@@ -1379,7 +1379,7 @@ mod test_read_write_seek {
 
         let mut buffer = [0; 16];
         assert!(
-            file.read_exact(&mut buffer).await.is_err(),
+            matches!(file.read_exact(&mut buffer).await, Err(_)),
             "failing to read an exact buffer",
         );
 
@@ -1390,7 +1390,7 @@ mod test_read_write_seek {
 
         let mut buffer = [0; 3];
         assert!(
-            file.read_exact(&mut buffer).await.is_ok(),
+            matches!(file.read_exact(&mut buffer).await, Ok(_)),
             "failing to read an exact buffer",
         );
     }

@@ -1,6 +1,5 @@
 use std::sync::Arc;
 
-use hyper_util::rt::TokioIo;
 use tokio_stream::wrappers::BroadcastStream;
 
 use super::socket_manager::SocketManager;
@@ -19,7 +18,7 @@ impl HyperProxyConnector {
     }
 }
 
-impl tower::Service<Uri> for HyperProxyConnector {
+impl Service<Uri> for HyperProxyConnector {
     type Response = HyperProxyStream;
     type Error = BoxError;
 
@@ -38,7 +37,7 @@ impl tower::Service<Uri> for HyperProxyConnector {
             let (tx, rx) = socket.split();
             Ok(HyperProxyStream {
                 tx,
-                rx: TokioIo::new(rx),
+                rx,
                 terminate: BroadcastStream::new(terminate_rx),
                 terminated: false,
             })

@@ -5,8 +5,8 @@ use crate::{
 };
 use colored::Colorize;
 use dialoguer::Confirm;
+use hyper::Body;
 use indicatif::{ProgressBar, ProgressStyle};
-use reqwest::Body;
 use std::{
     collections::BTreeMap,
     path::{Path, PathBuf},

@@ -717,7 +717,7 @@ mod tests {
 
     use crate::{
         http::HttpResponse,
-        runtime::resolver::inputs::{DistributionInfo, PackageInfo},
+        runtime::resolver::inputs::{DistributionInfo, FileSystemMapping, PackageInfo},
     };
 
     use super::*;

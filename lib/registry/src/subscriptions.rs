@@ -1,13 +1,22 @@
-use std::{env, future::IntoFuture};
+use std::env;
 
-use anyhow::Context;
+use crate::{
+    graphql::subscriptions::{package_version_ready, PackageVersionReady},
+    tokio_spawner::TokioSpawner,
+};
 
-use crate::graphql::subscriptions::{package_version_ready, PackageVersionReady};
+use futures_util::StreamExt;
 
 use graphql_client::GraphQLQuery;
-use graphql_ws_client::{graphql::StreamingOperation, Client, Subscription};
+use graphql_ws_client::{
+    graphql::{GraphQLClient, StreamingOperation},
+    GraphQLClientClient, SubscriptionStream,
+};
 
-use tokio_tungstenite::tungstenite::{client::IntoClientRequest, http::HeaderValue};
+use tokio_tungstenite::{
+    connect_async,
+    tungstenite::{client::IntoClientRequest, http::HeaderValue, Message},
+};
 
 pub use crate::graphql::subscriptions::package_version_ready::PackageVersionState;
 
@@ -15,7 +24,10 @@ async fn subscribe_graphql<Q: GraphQLQuery + Send + Sync + Unpin + 'static>(
     registry_url: &str,
     login_token: &str,
     variables: Q::Variables,
-) -> anyhow::Result<(Subscription<StreamingOperation<Q>>, Client)>
+) -> anyhow::Result<(
+    SubscriptionStream<GraphQLClient, StreamingOperation<Q>>,
+    GraphQLClientClient<Message>,
+)>
 where
     <Q as GraphQLQuery>::Variables: Send + Sync + Unpin,
 {
@@ -44,15 +56,14 @@ where
         reqwest::header::USER_AGENT,
         HeaderValue::from_str(&user_agent)?,
     );
-    let (connection, _resp) = async_tungstenite::tokio::connect_async(req)
-        .await
-        .context("could not connect")?;
+    let (ws_con, _resp) = connect_async(req).await?;
+    let (sink, stream) = ws_con.split();
 
-    let (client, actor) = graphql_ws_client::Client::build(connection).await?;
-    tokio::spawn(actor.into_future());
-
+    let mut client = graphql_ws_client::GraphQLClientClientBuilder::new()
+        .build(stream, sink, TokioSpawner::current())
+        .await?;
     let stream = client
-        .subscribe(StreamingOperation::<Q>::new(variables))
+        .streaming_operation(StreamingOperation::<Q>::new(variables))
         .await?;
 
     Ok((stream, client))
@@ -63,8 +74,8 @@ pub async fn subscribe_package_version_ready(
     login_token: &str,
     package_version_id: &str,
 ) -> anyhow::Result<(
-    Subscription<StreamingOperation<PackageVersionReady>>,
-    Client,
+    SubscriptionStream<GraphQLClient, StreamingOperation<PackageVersionReady>>,
+    GraphQLClientClient<Message>,
 )> {
     subscribe_graphql(
         registry_url,
