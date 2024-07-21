@@ -196,7 +196,9 @@ pub(crate) fn copy_from_slice<M: MemorySize>(
             break;
         }
         let (left, right) = read_loc.split_at(to_read);
-        buf.copy_from_slice(left);
+        if buf.copy_from_slice_min(left) != to_read {
+            return Ok(bytes_read);
+        }
 
         read_loc = right;
         bytes_read += to_read;
