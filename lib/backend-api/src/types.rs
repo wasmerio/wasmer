@@ -1311,6 +1311,43 @@ mod queries {
         pub updated_at: DateTime,
     }
 
+    #[derive(cynic::QueryVariables, Debug, Clone)]
+    pub struct GetAllAppRegionsVariables {
+        pub after: Option<String>,
+        pub before: Option<String>,
+        pub first: Option<i32>,
+        pub last: Option<i32>,
+        pub offset: Option<i32>,
+    }
+
+    #[derive(cynic::QueryFragment, Debug)]
+    #[cynic(graphql_type = "Query", variables = "GetAllAppRegionsVariables")]
+    pub struct GetAllAppRegions {
+        #[arguments(after: $after, offset: $offset, before: $before, first: $first, last: $last)]
+        pub get_app_regions: AppRegionConnection,
+    }
+
+    #[derive(cynic::QueryFragment, Debug)]
+    pub struct AppRegionConnection {
+        pub edges: Vec<Option<AppRegionEdge>>,
+        pub page_info: PageInfo,
+        pub total_count: Option<i32>,
+    }
+
+    #[derive(cynic::QueryFragment, Debug)]
+    pub struct AppRegionEdge {
+        pub cursor: String,
+        pub node: Option<AppRegion>,
+    }
+
+    #[derive(cynic::QueryFragment, Debug)]
+    pub struct AppRegion {
+        pub city: String,
+        pub country: String,
+        pub id: cynic::Id,
+        pub name: String,
+    }
+
     #[derive(cynic::QueryFragment, Debug, Clone, Serialize)]
     #[cynic(graphql_type = "TXTRecord")]
     pub struct TxtRecord {

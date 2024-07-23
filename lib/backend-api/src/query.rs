@@ -129,6 +129,57 @@ pub async fn get_all_app_secrets_filtered(
     Ok(all_secrets)
 }
 
+/// Load all available regions.
+///
+/// Will paginate through all versions and return them in a single list.
+pub async fn get_all_app_regions(client: &WasmerClient) -> Result<Vec<AppRegion>, anyhow::Error> {
+    let mut vars = GetAllAppRegionsVariables {
+        after: None,
+        before: None,
+        first: None,
+        last: None,
+        offset: None,
+    };
+
+    let mut all_regions = Vec::<AppRegion>::new();
+
+    loop {
+        let page = get_regions(client, vars.clone()).await?;
+        if page.edges.is_empty() {
+            break;
+        }
+
+        for edge in page.edges {
+            let edge = match edge {
+                Some(edge) => edge,
+                None => continue,
+            };
+            let version = match edge.node {
+                Some(item) => item,
+                None => continue,
+            };
+
+            all_regions.push(version);
+
+            // Update pagination.
+            vars.after = Some(edge.cursor);
+        }
+    }
+
+    Ok(all_regions)
+}
+
+/// Retrieve regions.
+pub async fn get_regions(
+    client: &WasmerClient,
+    vars: GetAllAppRegionsVariables,
+) -> Result<AppRegionConnection, anyhow::Error> {
+    let res = client
+        .run_graphql_strict(types::GetAllAppRegions::build(vars))
+        .await?;
+    Ok(res.get_app_regions)
+}
+
 /// Load all secrets of an app.
 ///
 /// Will paginate through all versions and return them in a single list.
