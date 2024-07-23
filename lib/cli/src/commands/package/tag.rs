@@ -466,16 +466,16 @@ impl PackageTag {
                             "Warn".bold().yellow()
                         );
                         let res = Confirm::with_theme(&theme)
-                            .with_prompt(format!("Continue ({user_version} -> {new_version})?"))
+                            .with_prompt(format!(
+                                "Update the version from {user_version} to {new_version}?"
+                            ))
                             .interact()?;
                         if res {
                             user_version = new_version.clone();
                             self.update_manifest_version(manifest_path, manifest, &user_version)
                                 .await?;
                         } else {
-                            anyhow::bail!(
-                                "Refusing to map two different releases of {full_pkg_name} to the same version."
-                            )
+                            anyhow::bail!("Aborted by the user")
                         }
                     } else {
                         let res = Confirm::with_theme(&theme)
