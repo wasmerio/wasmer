@@ -104,7 +104,7 @@ impl<'a> WasmSliceAccess<'a, u8> {
     pub fn copy_from_slice_min(&mut self, src: &[u8]) -> usize {
         let dst = self.buf.as_mut();
         let amt = dst.len().min(src.len());
-        (&mut dst[..amt]).copy_from_slice(&src[..amt]);
+        dst[..amt].copy_from_slice(&src[..amt]);
         amt
     }
 }
