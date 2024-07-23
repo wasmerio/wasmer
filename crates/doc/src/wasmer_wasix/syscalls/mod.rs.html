@@ -1563,6 +1563,9 @@
 <a href="#1563" id="1563">1563</a>
 <a href="#1564" id="1564">1564</a>
 <a href="#1565" id="1565">1565</a>
+<a href="#1566" id="1566">1566</a>
+<a href="#1567" id="1567">1567</a>
+<a href="#1568" id="1568">1568</a>
 </pre></div><pre class="rust"><code><span class="attr">#![allow(unused, clippy::too_many_arguments, clippy::cognitive_complexity)]
 
 </span><span class="kw">pub mod </span>types {
@@ -1761,7 +1764,10 @@
             <span class="kw">break</span>;
         }
         <span class="kw">let </span>(left, right) = read_loc.split_at(to_read);
-        buf.copy_from_slice(left);
+        <span class="kw">let </span>amt = buf.copy_from_slice_min(left);
+        <span class="kw">if </span>amt != to_read {
+            <span class="kw">return </span><span class="prelude-val">Ok</span>(bytes_read + amt);
+        }
 
         read_loc = right;
         bytes_read += to_read;

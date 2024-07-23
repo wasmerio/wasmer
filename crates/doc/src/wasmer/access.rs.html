@@ -203,6 +203,20 @@
 <a href="#203" id="203">203</a>
 <a href="#204" id="204">204</a>
 <a href="#205" id="205">205</a>
+<a href="#206" id="206">206</a>
+<a href="#207" id="207">207</a>
+<a href="#208" id="208">208</a>
+<a href="#209" id="209">209</a>
+<a href="#210" id="210">210</a>
+<a href="#211" id="211">211</a>
+<a href="#212" id="212">212</a>
+<a href="#213" id="213">213</a>
+<a href="#214" id="214">214</a>
+<a href="#215" id="215">215</a>
+<a href="#216" id="216">216</a>
+<a href="#217" id="217">217</a>
+<a href="#218" id="218">218</a>
+<a href="#219" id="219">219</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::mem::MaybeUninit;
 
 <span class="kw">use </span><span class="kw">crate</span>::mem_access::{WasmRef, WasmSlice};
@@ -297,6 +311,20 @@
     </span><span class="kw">pub fn </span>copy_from_slice(<span class="kw-2">&amp;mut </span><span class="self">self</span>, src: <span class="kw-2">&amp;</span>[u8]) {
         <span class="kw">let </span>dst = <span class="self">self</span>.buf.as_mut();
         dst.copy_from_slice(src);
+    }
+
+    <span class="doccomment">/// Writes to the address pointed to by this `WasmPtr` in a memory.
+    ///
+    /// If the source buffer is smaller than the destination buffer
+    /// only the correct amount of bytes will be copied
+    ///
+    /// Returns the number of bytes copied
+    </span><span class="attr">#[inline]
+    </span><span class="kw">pub fn </span>copy_from_slice_min(<span class="kw-2">&amp;mut </span><span class="self">self</span>, src: <span class="kw-2">&amp;</span>[u8]) -&gt; usize {
+        <span class="kw">let </span>dst = <span class="self">self</span>.buf.as_mut();
+        <span class="kw">let </span>amt = dst.len().min(src.len());
+        dst[..amt].copy_from_slice(<span class="kw-2">&amp;</span>src[..amt]);
+        amt
     }
 }
 
