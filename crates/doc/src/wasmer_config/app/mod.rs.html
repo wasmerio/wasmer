@@ -338,6 +338,24 @@
 <a href="#338" id="338">338</a>
 <a href="#339" id="339">339</a>
 <a href="#340" id="340">340</a>
+<a href="#341" id="341">341</a>
+<a href="#342" id="342">342</a>
+<a href="#343" id="343">343</a>
+<a href="#344" id="344">344</a>
+<a href="#345" id="345">345</a>
+<a href="#346" id="346">346</a>
+<a href="#347" id="347">347</a>
+<a href="#348" id="348">348</a>
+<a href="#349" id="349">349</a>
+<a href="#350" id="350">350</a>
+<a href="#351" id="351">351</a>
+<a href="#352" id="352">352</a>
+<a href="#353" id="353">353</a>
+<a href="#354" id="354">354</a>
+<a href="#355" id="355">355</a>
+<a href="#356" id="356">356</a>
+<a href="#357" id="357">357</a>
+<a href="#358" id="358">358</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! User-facing app.yaml file config: [`AppConfigV1`].
 
 </span><span class="kw">mod </span>healthcheck;
@@ -431,6 +449,9 @@
 
     <span class="attr">#[serde(default, skip_serializing_if = <span class="string">&quot;Option::is_none&quot;</span>)]
     </span><span class="kw">pub </span>scaling: <span class="prelude-ty">Option</span>&lt;AppScalingConfigV1&gt;,
+
+    <span class="attr">#[serde(default, skip_serializing_if = <span class="string">&quot;Option::is_none&quot;</span>)]
+    </span><span class="kw">pub </span>redirect: <span class="prelude-ty">Option</span>&lt;Redirect&gt;,
 
     <span class="doccomment">/// Capture extra fields for forwards compatibility.
     </span><span class="attr">#[serde(flatten)]
@@ -605,6 +626,16 @@
     </span><span class="kw">pub </span>max_age: <span class="prelude-ty">Option</span>&lt;String&gt;,
 }
 
+<span class="doccomment">/// App redirect configuration.
+</span><span class="attr">#[derive(
+    serde::Serialize, serde::Deserialize, schemars::JsonSchema, Clone, Debug, PartialEq, Eq,
+)]
+</span><span class="kw">pub struct </span>Redirect {
+    <span class="doccomment">/// Force https by redirecting http requests to https automatically.
+    </span><span class="attr">#[serde(default, skip_serializing_if = <span class="string">&quot;Option::is_none&quot;</span>)]
+    </span><span class="kw">pub </span>force_https: <span class="prelude-ty">Option</span>&lt;bool&gt;,
+}
+
 <span class="attr">#[cfg(test)]
 </span><span class="kw">mod </span>tests {
     <span class="kw">use </span>pretty_assertions::assert_eq;
@@ -627,6 +658,8 @@ cli_args:
 locality: 
   regions: 
     - eu-rome
+redirect:
+  force_https: true
 scheduled_tasks:
   - name: backup
     schedule: 1day
@@ -671,6 +704,9 @@ scheduled_tasks:
                 .into_iter()
                 .collect(),
                 debug: <span class="prelude-val">Some</span>(<span class="bool-val">true</span>),
+                redirect: <span class="prelude-val">Some</span>(Redirect {
+                    force_https: <span class="prelude-val">Some</span>(<span class="bool-val">true</span>)
+                }),
                 locality: <span class="prelude-val">Some</span>(Locality {
                     regions: <span class="macro">vec!</span>[<span class="string">&quot;eu-rome&quot;</span>.to_string()]
                 })
