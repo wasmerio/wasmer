@@ -1,5 +1,9 @@
 use clap::Parser;
-use wasmer_registry::wasmer_env::WasmerEnv;
+use colored::Colorize;
+
+use crate::config::WasmerEnv;
+
+use super::AsyncCliCommand;
 
 #[derive(Debug, Parser)]
 /// The options for the `wasmer whoami` subcommand
@@ -8,14 +12,21 @@ pub struct Whoami {
     env: WasmerEnv,
 }
 
-impl Whoami {
+#[async_trait::async_trait]
+impl AsyncCliCommand for Whoami {
+    type Output = ();
+
     /// Execute `wasmer whoami`
-    pub fn execute(&self) -> Result<(), anyhow::Error> {
-        let registry = self.env.registry_endpoint()?;
-        let token = self.env.token();
-        let (registry, username) =
-            wasmer_registry::whoami(self.env.dir(), Some(registry.as_str()), token.as_deref())?;
-        println!("logged into registry {registry:?} as user {username:?}");
+    async fn run_async(self) -> Result<Self::Output, anyhow::Error> {
+        let client = self.env.client_unauthennticated()?;
+        let host_str = self.env.registry_public_url()?.host_str().unwrap().bold();
+        let user = wasmer_api::query::current_user(&client)
+            .await?
+            .ok_or_else(|| anyhow::anyhow!("Not logged in registry {host_str}"))?;
+        println!(
+            "Logged into registry {host_str} as user {}",
+            user.username.bold()
+        );
         Ok(())
     }
 }

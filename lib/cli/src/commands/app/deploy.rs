@@ -1,7 +1,8 @@
 use super::{util::login_user, AsyncCliCommand};
 use crate::{
     commands::{app::create::CmdAppCreate, package::publish::PackagePublish, PublishWait},
-    opts::{ApiOpts, ItemFormatOpts, WasmerEnv},
+    config::WasmerEnv,
+    opts::ItemFormatOpts,
     utils::load_package_manifest,
 };
 use anyhow::Context;
@@ -27,9 +28,6 @@ static EDGE_HEADER_APP_VERSION_ID: http::HeaderName =
 /// Deploy an app to Wasmer Edge.
 #[derive(clap::Parser, Debug)]
 pub struct CmdAppDeploy {
-    #[clap(flatten)]
-    pub api: ApiOpts,
-
     #[clap(flatten)]
     pub env: WasmerEnv,
 
@@ -156,7 +154,6 @@ impl CmdAppDeploy {
             package_namespace: Some(owner),
             non_interactive: self.non_interactive,
             bump: self.bump,
-            api: self.api.clone(),
         };
 
         publish_cmd
@@ -211,7 +208,6 @@ impl CmdAppDeploy {
             owner: self.owner.clone(),
             app_name: self.app_name.clone(),
             no_wait: self.no_wait,
-            api: self.api.clone(),
             env: self.env.clone(),
             fmt: ItemFormatOpts {
                 format: self.fmt.format,
@@ -232,8 +228,7 @@ impl AsyncCliCommand for CmdAppDeploy {
     type Output = ();
 
     async fn run_async(self) -> Result<Self::Output, anyhow::Error> {
-        let client =
-            login_user(&self.api, &self.env, !self.non_interactive, "deploy an app").await?;
+        let client = login_user(&self.env, !self.non_interactive, "deploy an app").await?;
 
         let base_dir_path = self.dir.clone().unwrap_or_else(|| {
             self.path
@@ -290,7 +285,7 @@ impl AsyncCliCommand for CmdAppDeploy {
                     "Enter the name of the app",
                     default_name.as_deref(),
                     &owner,
-                    self.api.client().ok().as_ref(),
+                    self.env.client().ok().as_ref(),
                 )
                 .await?;
 

@@ -1,7 +1,7 @@
 use super::common::{macros::*, *};
 use crate::{
     commands::{AsyncCliCommand, PackageBuild},
-    opts::{ApiOpts, WasmerEnv},
+    config::WasmerEnv,
 };
 use anyhow::Context;
 use colored::Colorize;
@@ -17,9 +17,6 @@ use webc::wasmer_package::Package;
 /// pushed package.
 #[derive(Debug, clap::Parser)]
 pub struct PackagePush {
-    #[clap(flatten)]
-    pub api: ApiOpts,
-
     #[clap(flatten)]
     pub env: WasmerEnv,
 
@@ -223,13 +220,7 @@ impl AsyncCliCommand for PackagePush {
 
     async fn run_async(self) -> Result<Self::Output, anyhow::Error> {
         tracing::info!("Checking if user is logged in");
-        let client = login_user(
-            &self.api,
-            &self.env,
-            !self.non_interactive,
-            "push a package",
-        )
-        .await?;
+        let client = login_user(&self.env, !self.non_interactive, "push a package").await?;
 
         tracing::info!("Loading manifest");
         let (manifest_path, manifest) = get_manifest(&self.package_path)?;

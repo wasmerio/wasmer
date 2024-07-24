@@ -2,17 +2,17 @@ use anyhow::Context;
 
 use crate::{
     commands::{app::util::AppIdentOpts, AsyncCliCommand},
-    opts::{ApiOpts, ItemFormatOpts},
+    config::WasmerEnv,
+    opts::ItemFormatOpts,
 };
 
 /// Show information for a specific app version.
 #[derive(clap::Parser, Debug)]
 pub struct CmdAppVersionGet {
     #[clap(flatten)]
-    #[allow(missing_docs)]
-    pub api: ApiOpts,
+    pub env: WasmerEnv,
+
     #[clap(flatten)]
-    #[allow(missing_docs)]
     pub fmt: ItemFormatOpts,
 
     /// *Name* of the version - NOT the unique version id!
@@ -29,7 +29,7 @@ impl AsyncCliCommand for CmdAppVersionGet {
     type Output = ();
 
     async fn run_async(self) -> Result<(), anyhow::Error> {
-        let client = self.api.client()?;
+        let client = self.env.client()?;
         let (_ident, app) = self.ident.load_app(&client).await?;
 
         let version = wasmer_api::query::get_app_version(

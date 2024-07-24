@@ -8,7 +8,8 @@ use time::{format_description::well_known::Rfc3339, OffsetDateTime};
 use wasmer_api::types::{Log, LogStream};
 
 use crate::{
-    opts::{ApiOpts, ListFormatOpts},
+    config::WasmerEnv,
+    opts::ListFormatOpts,
     utils::render::CliRender,
 };
 
@@ -24,7 +25,8 @@ pub enum LogStreamArg {
 #[derive(clap::Parser, Debug)]
 pub struct CmdAppLogs {
     #[clap(flatten)]
-    api: ApiOpts,
+    env: WasmerEnv,
+
     #[clap(flatten)]
     fmt: ListFormatOpts,
 
@@ -75,7 +77,7 @@ impl crate::commands::AsyncCliCommand for CmdAppLogs {
     type Output = ();
 
     async fn run_async(self) -> Result<(), anyhow::Error> {
-        let client = self.api.client()?;
+        let client = self.env.client()?;
 
         let (_ident, app) = self.ident.load_app(&client).await?;
 

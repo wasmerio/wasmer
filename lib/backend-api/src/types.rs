@@ -41,6 +41,37 @@ mod queries {
         Viewer,
     }
 
+    #[derive(cynic::QueryVariables, Debug)]
+    pub struct CreateNewNonceVariables {
+        pub callback_url: String,
+        pub name: String,
+    }
+
+    #[derive(cynic::QueryFragment, Debug)]
+    #[cynic(graphql_type = "Mutation", variables = "CreateNewNonceVariables")]
+    pub struct CreateNewNonce {
+        #[arguments(input: { callbackUrl: $callback_url, name: $name })]
+        pub new_nonce: Option<NewNoncePayload>,
+    }
+
+    #[derive(cynic::QueryFragment, Debug)]
+    pub struct NewNoncePayload {
+        pub client_mutation_id: Option<String>,
+        pub nonce: Nonce,
+    }
+
+    #[derive(cynic::QueryFragment, Debug)]
+    pub struct Nonce {
+        pub auth_url: String,
+        pub callback_url: String,
+        pub created_at: DateTime,
+        pub expired: bool,
+        pub id: cynic::Id,
+        pub is_validated: bool,
+        pub name: String,
+        pub secret: String,
+    }
+
     #[derive(cynic::QueryFragment, Debug)]
     #[cynic(graphql_type = "Query")]
     pub struct GetCurrentUser {

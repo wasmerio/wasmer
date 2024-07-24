@@ -1,6 +1,7 @@
 //! The commands available in the Wasmer binary.
 mod add;
 mod app;
+mod auth;
 #[cfg(target_os = "linux")]
 mod binfmt;
 mod cache;
@@ -22,7 +23,6 @@ mod init;
 mod inspect;
 #[cfg(feature = "journal")]
 mod journal;
-mod login;
 pub(crate) mod namespace;
 mod package;
 mod run;
@@ -50,7 +50,7 @@ pub use {create_obj::*, gen_c_header::*};
 #[cfg(feature = "journal")]
 pub use self::journal::*;
 pub use self::{
-    add::*, cache::*, config::*, container::*, init::*, inspect::*, login::*, package::*,
+    add::*, auth::*, cache::*, config::*, container::*, init::*, inspect::*, package::*,
     publish::*, run::Run, self_update::*, validate::*, whoami::*,
 };
 use crate::error::PrettyError;
@@ -185,7 +185,8 @@ impl WasmerCmd {
             Some(Cmd::Config(config)) => config.execute(),
             Some(Cmd::Inspect(inspect)) => inspect.execute(),
             Some(Cmd::Init(init)) => init.execute(),
-            Some(Cmd::Login(login)) => login.execute(),
+            Some(Cmd::Login(login)) => login.run(),
+            Some(Cmd::Logout(logout)) => logout.run(),
             Some(Cmd::Publish(publish)) => publish.run().map(|_| ()),
             Some(Cmd::Package(cmd)) => match cmd {
                 Package::Download(cmd) => cmd.execute(),
@@ -206,7 +207,7 @@ impl WasmerCmd {
             Some(Cmd::Wast(wast)) => wast.execute(),
             #[cfg(target_os = "linux")]
             Some(Cmd::Binfmt(binfmt)) => binfmt.execute(),
-            Some(Cmd::Whoami(whoami)) => whoami.execute(),
+            Some(Cmd::Whoami(whoami)) => whoami.run(),
             Some(Cmd::Add(install)) => install.execute(),
 
             // Deploy commands.
@@ -288,6 +289,9 @@ impl WasmerCmd {
 enum Cmd {
     /// Login into a wasmer.io-like registry
     Login(Login),
+
+    /// Log out of the currently selected wasmer.io-like registry
+    Logout(Logout),
 
     /// Publish a package to a registry [alias: package publish]
     #[clap(name = "publish")]

@@ -1,15 +1,13 @@
-use crate::{
-    commands::AsyncCliCommand,
-    opts::{ApiOpts, ItemTableFormatOpts},
-};
+use crate::{commands::AsyncCliCommand, config::WasmerEnv, opts::ItemTableFormatOpts};
 
 /// Show a domain
 #[derive(clap::Parser, Debug)]
 pub struct CmdDomainGet {
     #[clap(flatten)]
     fmt: ItemTableFormatOpts,
+
     #[clap(flatten)]
-    api: ApiOpts,
+    env: WasmerEnv,
 
     /// Name of the domain.
     name: String,
@@ -20,7 +18,7 @@ impl AsyncCliCommand for CmdDomainGet {
     type Output = ();
 
     async fn run_async(self) -> Result<(), anyhow::Error> {
-        let client = self.api.client()?;
+        let client = self.env.client()?;
         if let Some(domain) = wasmer_api::query::get_domain_with_records(&client, self.name).await?
         {
             println!("{}", self.fmt.format.render(&domain));

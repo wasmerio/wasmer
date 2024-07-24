@@ -1,16 +1,12 @@
-use crate::{
-    commands::AsyncCliCommand,
-    opts::{ApiOpts, ItemFormatOpts},
-};
+use crate::{commands::AsyncCliCommand, config::WasmerEnv, opts::ItemFormatOpts};
 
 /// Switch the active version of an app. (rollback / rollforward)
 #[derive(clap::Parser, Debug)]
 pub struct CmdAppVersionActivate {
     #[clap(flatten)]
-    #[allow(missing_docs)]
-    pub api: ApiOpts,
+    pub env: WasmerEnv,
+
     #[clap(flatten)]
-    #[allow(missing_docs)]
     pub fmt: ItemFormatOpts,
 
     /// App version ID to activate.
@@ -25,7 +21,7 @@ impl AsyncCliCommand for CmdAppVersionActivate {
     type Output = ();
 
     async fn run_async(self) -> Result<(), anyhow::Error> {
-        let client = self.api.client()?;
+        let client = self.env.client()?;
 
         let app = wasmer_api::query::app_version_activate(&client, self.version).await?;
 
