@@ -49,7 +49,7 @@ tokio = { version = "1", features = [
     "macros",
     "time",
     "rt",
-], default_features = false }
+], default-features = false }
 tokio-stream = { version = "0.1", features = [ "sync" ] }
 futures = { version = "0.3" }
 # used by feature='os'
@@ -130,7 +130,7 @@ terminal_size = { version = "0.3.0" }
 
 [dev-dependencies]
 wasmer = { path = "../api", version = "=4.3.5", default-features = false, features = ["wat", "js-serializable-module"] }
-tokio = { version = "1", features = [ "sync", "macros", "rt" ], default_features = false }
+tokio = { version = "1", features = [ "sync", "macros", "rt" ], default-features = false }
 pretty_assertions = "1.3.0"
 tracing-test = "0.2.4"
 wasm-bindgen-test = "0.3.0"
