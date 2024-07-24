@@ -42,7 +42,7 @@ libc.workspace = true
 thiserror = "1"
 typetag = { version = "0.1", optional = true }
 paste = "1.0"
-tokio = { version = "1", features = [ "rt", "rt-multi-thread", "io-util", "sync", "macros"], default_features = false }
+tokio = { version = "1", features = [ "rt", "rt-multi-thread", "io-util", "sync", "macros"], default-features = false }
 tracing = { version = "0.1" }
 tracing-subscriber = { version = "0.3", features = [
 	"env-filter",

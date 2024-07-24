@@ -92,6 +92,9 @@ pub struct AppConfigV1 {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub scaling: Option<AppScalingConfigV1>,
 
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub redirect: Option<Redirect>,
+
     /// Capture extra fields for forwards compatibility.
     #[serde(flatten)]
     pub extra: HashMap<String, serde_json::Value>,
@@ -265,6 +268,16 @@ pub struct AppConfigCapabilityInstaBootV1 {
     pub max_age: Option<String>,
 }
 
+/// App redirect configuration.
+#[derive(
+    serde::Serialize, serde::Deserialize, schemars::JsonSchema, Clone, Debug, PartialEq, Eq,
+)]
+pub struct Redirect {
+    /// Force https by redirecting http requests to https automatically.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub force_https: Option<bool>,
+}
+
 #[cfg(test)]
 mod tests {
     use pretty_assertions::assert_eq;
@@ -287,6 +300,8 @@ cli_args:
 locality: 
   regions: 
     - eu-rome
+redirect:
+  force_https: true
 scheduled_tasks:
   - name: backup
     schedule: 1day
@@ -331,6 +346,9 @@ scheduled_tasks:
                 .into_iter()
                 .collect(),
                 debug: Some(true),
+                redirect: Some(Redirect {
+                    force_https: Some(true)
+                }),
                 locality: Some(Locality {
                     regions: vec!["eu-rome".to_string()]
                 })
