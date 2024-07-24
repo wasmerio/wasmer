@@ -60,6 +60,10 @@ pub struct AppConfigV1 {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub domains: Option<Vec<String>>,
 
+    /// Location-related configuration for the app.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub locality: Option<Locality>,
+
     /// Environment variables.
     #[serde(default, skip_serializing_if = "HashMap::is_empty")]
     pub env: HashMap<String, String>,
@@ -91,6 +95,13 @@ pub struct AppConfigV1 {
     /// Capture extra fields for forwards compatibility.
     #[serde(flatten)]
     pub extra: HashMap<String, serde_json::Value>,
+}
+
+#[derive(
+    serde::Serialize, serde::Deserialize, schemars::JsonSchema, Clone, Debug, PartialEq, Eq,
+)]
+pub struct Locality {
+    pub regions: Vec<String>,
 }
 
 #[derive(
@@ -273,6 +284,9 @@ env:
 cli_args:
   - arg1
   - arg2
+locality: 
+  regions: 
+    - eu-rome
 scheduled_tasks:
   - name: backup
     schedule: 1day
@@ -308,26 +322,6 @@ scheduled_tasks:
                 scaling: None,
                 scheduled_tasks: Some(vec![AppScheduledTask {
                     name: "backup".to_string(),
-                    // spec: CronJobSpecV1 {
-                    //     schedule: "1day".to_string(),
-                    //     max_schedule_drift: None,
-                    //     job: crate::schema::JobDefinition {
-                    //         max_retries: Some(3),
-                    //         timeout: Some(std::time::Duration::from_secs(10 * 60).into()),
-                    //         invoke: crate::schema::JobInvoke::Fetch(
-                    //             crate::schema::JobInvokeFetch {
-                    //                 url: "/api/do-backup".parse().unwrap(),
-                    //                 headers: Some(
-                    //                     [("h1".to_string(), "v1".to_string())]
-                    //                         .into_iter()
-                    //                         .collect()
-                    //                 ),
-                    //                 success_status_codes: Some(vec![200, 201]),
-                    //                 method: None,
-                    //             }
-                    //         )
-                    //     },
-                    // }
                 }]),
                 health_checks: None,
                 extra: [(
@@ -337,6 +331,9 @@ scheduled_tasks:
                 .into_iter()
                 .collect(),
                 debug: Some(true),
+                locality: Some(Locality {
+                    regions: vec!["eu-rome".to_string()]
+                })
             }
         );
     }

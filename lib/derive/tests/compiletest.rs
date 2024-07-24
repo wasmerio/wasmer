@@ -17,14 +17,16 @@ extern crate compiletest_rs as ct;
 use std::env;
 
 fn run_mode(src: &'static str, mode: &'static str) {
-    let mut config = ct::Config::default();
+    let mut config = ct::Config {
+        mode: mode.parse().expect("invalid mode"),
+        target_rustcflags: Some("-L ../../target/debug/deps".to_owned()),
+        src_base: format!("tests/{}", src).into(),
+        ..Default::default()
+    };
 
-    config.mode = mode.parse().expect("invalid mode");
-    config.target_rustcflags = Some("-L ../../target/debug/deps".to_owned());
     if let Ok(name) = env::var("TESTNAME") {
         config.filters.push(name);
     }
-    config.src_base = format!("tests/{}", src).into();
 
     // hack to make this work on OSX: we probably don't need it though
     /*if std::env::var("DYLD_LIBRARY_PATH").is_err() {

@@ -9,6 +9,29 @@ Looking for changes that affect our C API? See the [C API Changelog](lib/c-api/C
 
 ## **Unreleased**
 
+## 4.3.5 - 16/07/2024
+
+This release adds support for managing secrets alongside fixes and refactors to help with stability.
+
+## Added
+
+  - [#4930](https://github.com/wasmerio/wasmer/pull/4930) CLI: Add support for Secrets
+
+## Changed
+
+  - [#4933](https://github.com/wasmerio/wasmer/pull/4933) CLI: Manually exit upon SIGINT reception
+  - [#4927](https://github.com/wasmerio/wasmer/pull/4927) Upgrade to Hyper 1.x
+  - [#4932](https://github.com/wasmerio/wasmer/pull/4932) Follow directory when deploying from create
+  - [#4928](https://github.com/wasmerio/wasmer/pull/4928) Prevent unnecessary panics when compiling on x86_64 CPUs that dont support AVX or SSE4.2
+  - [#4920](https://github.com/wasmerio/wasmer/pull/4920) Compile `wasmer-api` crate to `wasm32-unknown-unknown`
+
+## Fixed
+
+  - [#4925](https://github.com/wasmerio/wasmer/pull/4925) Fix stack_low detection when data_end is above stack_pointer and stac…
+  - [#4929](https://github.com/wasmerio/wasmer/pull/4929) Fix indirect call to dynamic imported function
+
+
+
 ## 4.3.4 - 08/07/2024
 
 This release contains a fix for the webc version resolution logic.

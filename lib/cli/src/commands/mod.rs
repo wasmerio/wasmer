@@ -84,6 +84,13 @@ pub(crate) trait AsyncCliCommand: Send + Sync {
                     _ = tokio::signal::ctrl_c() => {
                         let term = console::Term::stdout();
                         let _ = term.show_cursor();
+                        // https://learn.microsoft.com/en-us/cpp/c-runtime-library/signal-constants
+                        #[cfg(target_os = "windows")]
+                        std::process::exit(3);
+
+                        // POSIX compliant OSs: 128 + SIGINT (2)
+                        #[cfg(not(target_os = "windows"))]
+                        std::process::exit(130);
                     }
                 }
 

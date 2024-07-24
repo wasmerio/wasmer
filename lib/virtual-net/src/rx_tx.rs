@@ -7,6 +7,7 @@ use std::{
 
 use crate::Result;
 use futures_util::{future::BoxFuture, Future, Sink, SinkExt, Stream};
+use hyper_util::rt::tokio::TokioIo;
 use serde::Serialize;
 #[cfg(feature = "tokio-tungstenite")]
 use tokio::net::TcpStream;
@@ -79,7 +80,7 @@ where
         tx: Arc<
             tokio::sync::Mutex<
                 futures_util::stream::SplitSink<
-                    hyper_tungstenite::WebSocketStream<hyper::upgrade::Upgraded>,
+                    hyper_tungstenite::WebSocketStream<TokioIo<hyper::upgrade::Upgraded>>,
                     hyper_tungstenite::tungstenite::Message,
                 >,
             >,
@@ -516,7 +517,7 @@ where
     #[cfg(feature = "hyper")]
     HyperWebSocket {
         rx: futures_util::stream::SplitStream<
-            hyper_tungstenite::WebSocketStream<hyper::upgrade::Upgraded>,
+            hyper_tungstenite::WebSocketStream<TokioIo<hyper::upgrade::Upgraded>>,
         >,
         format: crate::meta::FrameSerializationFormat,
     },
