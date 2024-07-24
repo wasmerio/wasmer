@@ -568,8 +568,7 @@ impl AsyncCliCommand for PackageTag {
 
     async fn run_async(self) -> Result<Self::Output, anyhow::Error> {
         tracing::info!("Checking if user is logged in");
-        let client =
-            login_user(&self.env, !self.non_interactive, "tag a package").await?;
+        let client = login_user(&self.env, !self.non_interactive, "tag a package").await?;
 
         let (manifest_path, manifest) = match get_manifest(&self.package_path) {
             Ok((manifest_path, manifest)) => {

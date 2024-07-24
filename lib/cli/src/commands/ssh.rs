@@ -4,7 +4,7 @@ use anyhow::Context;
 use wasmer_api::WasmerClient;
 
 use super::AsyncCliCommand;
-use crate::{edge_config::EdgeConfig, config::WasmerEnv};
+use crate::{config::WasmerEnv, edge_config::EdgeConfig};
 
 /// Start a remote SSH session.
 #[derive(clap::Parser, Debug)]

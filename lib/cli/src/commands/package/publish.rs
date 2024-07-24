@@ -133,12 +133,7 @@ impl AsyncCliCommand for PackagePublish {
 
     async fn run_async(self) -> Result<Self::Output, anyhow::Error> {
         tracing::info!("Checking if user is logged in");
-        let client = login_user(
-            &self.env,
-            !self.non_interactive,
-            "publish a package",
-        )
-        .await?;
+        let client = login_user(&self.env, !self.non_interactive, "publish a package").await?;
 
         tracing::info!("Loading manifest");
         let (manifest_path, manifest) = get_manifest(&self.package_path)?;

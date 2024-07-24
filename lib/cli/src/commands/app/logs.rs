@@ -7,11 +7,7 @@ use futures::StreamExt;
 use time::{format_description::well_known::Rfc3339, OffsetDateTime};
 use wasmer_api::types::{Log, LogStream};
 
-use crate::{
-    config::WasmerEnv,
-    opts::ListFormatOpts,
-    utils::render::CliRender,
-};
+use crate::{config::WasmerEnv, opts::ListFormatOpts, utils::render::CliRender};
 
 use super::util::AppIdentOpts;
 
