@@ -273,6 +273,7 @@ pub struct AppConfigCapabilityInstaBootV1 {
     serde::Serialize, serde::Deserialize, schemars::JsonSchema, Clone, Debug, PartialEq, Eq,
 )]
 pub struct Redirect {
+    /// Force https by redirecting http requests to https automatically.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub force_https: Option<bool>,
 }
