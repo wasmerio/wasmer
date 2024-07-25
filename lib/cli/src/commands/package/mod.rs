@@ -13,6 +13,7 @@ pub use common::wait::PublishWait;
 // Allowing missing_docs because the comment would override the doc comment on
 // the command struct.
 #[allow(missing_docs)]
+#[allow(clippy::large_enum_variant)]
 pub enum Package {
     Download(download::PackageDownload),
     Build(build::PackageBuild),
