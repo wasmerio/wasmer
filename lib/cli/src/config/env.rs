@@ -10,11 +10,6 @@ lazy_static! {
         format!("WasmerCLI-v{}", env!("CARGO_PKG_VERSION"));
 }
 
-/// A fallible [`super::format_graphql`].
-pub(crate) fn parse_registry_url(registry: &str) -> Result<url::Url, String> {
-    url::Url::parse(&super::format_graphql(registry)).map_err(|e| e.to_string())
-}
-
 /// Command-line flags for determining the local "Wasmer Environment".
 ///
 /// This is where you access `$WASMER_DIR`, the `$WASMER_DIR/wasmer.toml` config
@@ -224,7 +219,7 @@ mod tests {
         let env = WasmerEnv {
             wasmer_dir: temp.path().to_path_buf(),
             registry: None,
-            cache_dir: None,
+            cache_dir: temp.path().join("cache").to_path_buf(),
             token: None,
         };
 
@@ -244,7 +239,7 @@ mod tests {
         let env = WasmerEnv {
             wasmer_dir: temp.path().to_path_buf(),
             registry: None,
-            cache_dir: None,
+            cache_dir: temp.path().join("cache").to_path_buf(),
             token: Some("asdf".to_string()),
         };
 
@@ -263,7 +258,7 @@ mod tests {
         let env = WasmerEnv {
             wasmer_dir: temp.path().to_path_buf(),
             registry: Some(UserRegistry::from("wasmer.wtf")),
-            cache_dir: None,
+            cache_dir: temp.path().join("cache").to_path_buf(),
             token: None,
         };
 
@@ -283,7 +278,7 @@ mod tests {
         let env = WasmerEnv {
             wasmer_dir: temp.path().to_path_buf(),
             registry: Some(UserRegistry::from("wasmer.wtf")),
-            cache_dir: None,
+            cache_dir: temp.path().join("cache").to_path_buf(),
             token: Some("asdf".to_string()),
         };
 
@@ -304,7 +299,7 @@ mod tests {
         let env = WasmerEnv {
             wasmer_dir: temp.path().to_path_buf(),
             registry: None,
-            cache_dir: Some(expected_cache_dir.clone()),
+            cache_dir: expected_cache_dir.clone(),
             token: None,
         };
 

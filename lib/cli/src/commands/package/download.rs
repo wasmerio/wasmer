@@ -279,8 +279,9 @@ impl PackageDownload {
 
 #[cfg(test)]
 mod tests {
+    use crate::config::UserRegistry;
+
     use super::*;
-    use std::str::FromStr;
 
     /// Download a package from the dev registry.
     #[test]
@@ -290,11 +291,12 @@ mod tests {
         let out_path = dir.path().join("hello.webc");
 
         let cmd = PackageDownload {
-            env: WasmerEnv::default(),
-            api: ApiOpts {
-                token: None,
-                registry: Some(url::Url::from_str("https://registry.wasmer.io/graphql").unwrap()),
-            },
+            env: WasmerEnv::new(
+                crate::config::DEFAULT_WASMER_CACHE_DIR.clone(),
+                crate::config::DEFAULT_WASMER_CACHE_DIR.clone(),
+                None,
+                Some("https://registry.wasmer.io/graphql".to_owned().into()),
+            ),
             validate: true,
             out_path: Some(out_path.clone()),
             package: "wasmer/hello@0.1.0".parse().unwrap(),

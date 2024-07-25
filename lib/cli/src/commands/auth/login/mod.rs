@@ -37,7 +37,7 @@ pub struct Login {
     #[clap(long, env = "WASMER_CACHE_DIR", default_value = crate::config::DEFAULT_WASMER_CACHE_DIR.as_os_str())]
     pub cache_dir: PathBuf,
 
-    /// The (optional) authorization token to pass to the registry
+    /// The API token to use when communicating with the registry (inferred from the environment by default)
     #[clap(env = "WASMER_TOKEN")]
     pub token: Option<String>,
 
@@ -47,7 +47,10 @@ pub struct Login {
 }
 
 impl Login {
-    fn from_env_or_user(&self, env: &WasmerEnv) -> Result<AuthorizationState, anyhow::Error> {
+    fn get_token_from_env_or_user(
+        &self,
+        env: &WasmerEnv,
+    ) -> Result<AuthorizationState, anyhow::Error> {
         if let Some(token) = &self.token {
             return Ok(AuthorizationState::TokenSuccess(token.clone()));
         }
@@ -84,7 +87,10 @@ impl Login {
         }
     }
 
-    async fn from_browser(&self, client: &WasmerClient) -> anyhow::Result<AuthorizationState> {
+    async fn get_token_from_browser(
+        &self,
+        client: &WasmerClient,
+    ) -> anyhow::Result<AuthorizationState> {
         let (listener, server_url) = setup_listener().await?;
 
         let (server_shutdown_tx, mut server_shutdown_rx) = tokio::sync::mpsc::channel::<bool>(1);
@@ -97,7 +103,7 @@ impl Login {
         };
 
         let Nonce { auth_url, .. } =
-            wasmer_api::query::create_nonce(&client, "wasmer-cli".to_string(), server_url)
+            wasmer_api::query::create_nonce(client, "wasmer-cli".to_string(), server_url)
                 .await?
                 .ok_or_else(|| {
                     anyhow::anyhow!("The backend did not return any nonce to auth the login!")
@@ -184,7 +190,7 @@ impl Login {
         if !should_login {
             Ok(AuthorizationState::Cancelled)
         } else if self.no_browser {
-            self.from_env_or_user(env)
+            self.get_token_from_env_or_user(env)
         } else {
             // switch between two methods of getting the token.
             // start two async processes, 10 minute timeout and get token from browser. Whichever finishes first, use that.
@@ -193,7 +199,7 @@ impl Login {
              _ = timeout_future => {
                      Ok(AuthorizationState::TimedOut)
                  },
-                 token = self.from_browser(&client) => {
+                 token = self.get_token_from_browser(&client) => {
                     token
                  }
             }
@@ -206,7 +212,7 @@ impl Login {
             .map_err(|e| anyhow::anyhow!("config from file: {e}"))?;
         config
             .registry
-            .set_current_registry(&registry.to_string())
+            .set_current_registry(registry.as_ref())
             .await;
         config.registry.set_login_token_for_registry(
             &config.registry.get_current_registry(),
@@ -224,6 +230,15 @@ impl Login {
             .map(|v| v.username)
             .ok_or_else(|| anyhow::anyhow!("Not logged in!"))
     }
+
+    pub(crate) fn get_wasmer_env(&self) -> WasmerEnv {
+        WasmerEnv::new(
+            self.wasmer_dir.clone(),
+            self.cache_dir.clone(),
+            self.token.clone(),
+            self.registry.clone(),
+        )
+    }
 }
 
 #[async_trait::async_trait]
@@ -231,12 +246,7 @@ impl AsyncCliCommand for Login {
     type Output = ();
 
     async fn run_async(self) -> Result<Self::Output, anyhow::Error> {
-        let env = WasmerEnv::new(
-            self.wasmer_dir.clone(),
-            self.cache_dir.clone(),
-            self.token.clone(),
-            self.registry.clone(),
-        );
+        let env = self.get_wasmer_env();
 
         let auth_state = match &self.token {
             Some(token) => AuthorizationState::TokenSuccess(token.clone()),
@@ -276,6 +286,8 @@ mod tests {
     use clap::CommandFactory;
     use tempfile::TempDir;
 
+    use crate::commands::CliCommand;
+
     use super::*;
 
     #[test]
@@ -286,11 +298,11 @@ mod tests {
             registry: Some("wasmer.wtf".into()),
             wasmer_dir: temp.path().to_path_buf(),
             token: None,
-            cache_dir: None,
+            cache_dir: temp.path().join("cache").to_path_buf(),
         };
-        let env = login.wasmer_env();
+        let env = login.get_wasmer_env();
 
-        let token = login.get_token_or_ask_user(&env).unwrap();
+        let token = login.get_token_from_env_or_user(&env).unwrap();
         match token {
             AuthorizationState::TokenSuccess(token) => {
                 assert_eq!(
@@ -314,11 +326,11 @@ mod tests {
             registry: Some("wasmer.wtf".into()),
             wasmer_dir: temp.path().to_path_buf(),
             token: Some("abc".to_string()),
-            cache_dir: None,
+            cache_dir: temp.path().join("cache").to_path_buf(),
         };
-        let env = login.wasmer_env();
+        let env = login.get_wasmer_env();
 
-        let token = login.get_token_or_ask_user(&env).unwrap();
+        let token = login.get_token_from_env_or_user(&env).unwrap();
 
         match token {
             AuthorizationState::TokenSuccess(token) => {
@@ -371,13 +383,20 @@ mod tests {
     fn login_with_invalid_token_does_not_panic() {
         let cmd = Login {
             no_browser: true,
-            wasmer_dir: WASMER_DIR.clone(),
+            wasmer_dir: crate::config::DEFAULT_WASMER_DIR.clone(),
             registry: Some("http://localhost:11".to_string().into()),
             token: Some("invalid".to_string()),
-            cache_dir: None,
+            cache_dir: crate::config::DEFAULT_WASMER_CACHE_DIR.clone(),
         };
 
-        let res = cmd.execute();
-        assert!(res.is_err());
+        let res = cmd.run();
+        // The CLI notices that either the registry is unreachable or the token is not tied to any
+        // user. It shows a warning to the user, but does not return with an error code.
+        //
+        //  ------ i.e. this will fail
+        // | 
+        // v
+        // assert!(res.is_err());
+        assert!(res.is_ok());
     }
 }

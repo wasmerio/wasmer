@@ -118,6 +118,7 @@ async fn test_if_registry_present(registry: &str) -> anyhow::Result<()> {
 #[derive(PartialEq, Eq, Copy, Clone)]
 pub enum UpdateRegistry {
     Update,
+    #[allow(unused)]
     LeaveAsIs,
 }
 
@@ -129,6 +130,7 @@ impl MultiRegistry {
         tokens.retain(|i| i.registry != format_graphql(registry));
     }
 
+    #[allow(unused)]
     pub fn get_graphql_url(&self) -> String {
         self.get_current_registry()
     }
@@ -138,6 +140,7 @@ impl MultiRegistry {
         format_graphql(&self.active_registry)
     }
 
+    #[allow(unused)]
     pub fn current_login(&self) -> Option<&RegistryLogin> {
         self.tokens
             .iter()
@@ -222,6 +225,7 @@ impl WasmerConfig {
         )
     }
 
+    #[allow(unused)]
     /// Load the config based on environment variables and default config file locations.
     pub fn from_env() -> Result<Self, anyhow::Error> {
         let dir = Self::get_wasmer_dir()
@@ -253,11 +257,13 @@ pub struct RegistryLogin {
 mod tests {
     use super::*;
 
-    #[test]
-    fn test_registries_switch_token() {
+    #[tokio::test]
+    async fn test_registries_switch_token() {
         let mut registries = MultiRegistry::default();
 
-        registries.set_current_registry("https://registry.wasmer.wtf");
+        registries
+            .set_current_registry("https://registry.wasmer.wtf")
+            .await;
         assert_eq!(
             registries.get_current_registry(),
             "https://registry.wasmer.wtf/graphql".to_string()
@@ -275,12 +281,14 @@ mod tests {
             registries.get_login_token_for_registry(&registries.get_current_registry()),
             None
         );
-        registries.set_current_registry("https://registry.wasmer.io");
+        registries
+            .set_current_registry("https://registry.wasmer.io")
+            .await;
         assert_eq!(
             registries.get_login_token_for_registry(&registries.get_current_registry()),
             Some("token1".to_string())
         );
-        registries.remove_registry();
+        registries.remove_registry("https://registry.wasmer.io");
         assert_eq!(
             registries.get_login_token_for_registry(&registries.get_current_registry()),
             None
