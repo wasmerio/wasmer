@@ -169,8 +169,8 @@ impl CmdAppSecretsUpdate {
     ) -> anyhow::Result<(), anyhow::Error> {
         let secrets = super::utils::read_secrets_from_file(path).await?;
 
-        let secrets = self.filter_secrets(&client, app_id, secrets).await?;
-        self.update(&client, app_id, secrets).await?;
+        let secrets = self.filter_secrets(client, app_id, secrets).await?;
+        self.update(client, app_id, secrets).await?;
 
         Ok(())
     }

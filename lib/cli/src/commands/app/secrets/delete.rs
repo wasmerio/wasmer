@@ -124,7 +124,7 @@ impl CmdAppSecretsDelete {
         let secrets = super::utils::read_secrets_from_file(path).await?;
 
         for secret in secrets {
-            self.delete(&client, &app_id, &secret.name).await?;
+            self.delete(client, &app_id, &secret.name).await?;
         }
 
         Ok(())

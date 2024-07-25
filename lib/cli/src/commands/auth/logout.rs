@@ -76,7 +76,7 @@ impl AsyncCliCommand for Logout {
                 let should_revoke = self.revoke_token || {
                     let theme = dialoguer::theme::ColorfulTheme::default();
                     dialoguer::Confirm::with_theme(&theme)
-                        .with_prompt(format!("Revoke token?", user.username))
+                        .with_prompt("Revoke token?")
                         .interact()?
                 };
 

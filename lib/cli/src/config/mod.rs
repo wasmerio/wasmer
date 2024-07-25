@@ -7,7 +7,7 @@ use url::Url;
 use wasmer_api::WasmerClient;
 
 pub static GLOBAL_CONFIG_FILE_NAME: &str = "wasmer.toml";
-pub static DEFAULT_PROD_REGISTRY: &'static str = "https://registry.wasmer.io/graphql";
+pub static DEFAULT_PROD_REGISTRY: &str = "https://registry.wasmer.io/graphql";
 
 lazy_static::lazy_static! {
     /// The default value for `$WASMER_DIR`.
