@@ -1,6 +1,7 @@
 use crate::commands::AsyncCliCommand;
 
 pub mod list;
+mod utils;
 
 /// Informations about available Edge regioins.
 #[derive(Debug, clap::Parser)]

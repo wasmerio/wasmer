@@ -1340,7 +1340,7 @@ mod queries {
         pub node: Option<AppRegion>,
     }
 
-    #[derive(cynic::QueryFragment, Debug)]
+    #[derive(cynic::QueryFragment, Debug, Serialize)]
     pub struct AppRegion {
         pub city: String,
         pub country: String,
