@@ -12,7 +12,6 @@ use is_terminal::IsTerminal;
 use std::{
     path::{Path, PathBuf},
     str::FromStr,
-    sync::OnceLock,
 };
 use wasmer_api::{types::PackageVersionWithPackage, WasmerClient};
 use wasmer_config::package::{
@@ -20,9 +19,6 @@ use wasmer_config::package::{
 };
 
 use super::PublishWait;
-
-/// The package related to the NamedPackageId the user chose to tag.
-static MAYBE_USER_PACKAGE: OnceLock<Option<PackageVersionWithPackage>> = OnceLock::new();
 
 /// Tag an existing package.
 #[derive(Debug, clap::Parser)]
@@ -92,6 +88,10 @@ pub struct PackageTag {
             value_enum
         )]
     pub wait: PublishWait,
+
+    #[clap(skip)]
+    /// The package related to the NamedPackageId the user chose to tag.
+    pub(crate) maybe_user_package: Option<PackageVersionWithPackage>,
 }
 
 impl PackageTag {
@@ -377,7 +377,7 @@ impl PackageTag {
     }
 
     async fn get_version(
-        &self,
+        &mut self,
         client: &WasmerClient,
         manifest: Option<&Manifest>,
         manifest_path: Option<&Path>,
@@ -441,7 +441,7 @@ impl PackageTag {
                     .as_ref()
                     .and_then(|p| p.distribution_v3.pirita_sha256_hash.clone());
 
-                MAYBE_USER_PACKAGE.set(maybe_pkg).unwrap();
+                self.maybe_user_package = maybe_pkg;
 
                 if let Some(hash) = maybe_hash {
                     let registry_package_hash = PackageHash::from_str(&format!("sha256:{hash}"))?;
@@ -466,16 +466,16 @@ impl PackageTag {
                             "Warn".bold().yellow()
                         );
                         let res = Confirm::with_theme(&theme)
-                            .with_prompt(format!(
-                                "Update the version from {user_version} to {new_version}?"
-                            ))
+                            .with_prompt(format!("Continue ({user_version} -> {new_version})?"))
                             .interact()?;
                         if res {
                             user_version = new_version.clone();
                             self.update_manifest_version(manifest_path, manifest, &user_version)
                                 .await?;
                         } else {
-                            anyhow::bail!("Aborted by the user")
+                            anyhow::bail!(
+                                "Refusing to map two different releases of {full_pkg_name} to the same version."
+                            )
                         }
                     } else {
                         let res = Confirm::with_theme(&theme)
@@ -518,7 +518,7 @@ impl PackageTag {
     }
 
     async fn synthesize_id(
-        &self,
+        &mut self,
         client: &WasmerClient,
         manifest: Option<&Manifest>,
         manifest_path: Option<&Path>,
@@ -554,7 +554,7 @@ impl PackageTag {
     }
 
     pub async fn tag(
-        &self,
+        &mut self,
         client: &WasmerClient,
         manifest: Option<&Manifest>,
         manifest_path: Option<&Path>,
@@ -597,8 +597,8 @@ impl PackageTag {
             return Ok(false);
         }
 
-        let hash = if let Some(pkg) = MAYBE_USER_PACKAGE.get().and_then(|p| p.clone()) {
-            pkg.distribution_v3.pirita_sha256_hash
+        let hash = if let Some(pkg) = self.maybe_user_package.as_ref() {
+            pkg.distribution_v3.pirita_sha256_hash.clone()
         } else {
             wasmer_api::query::get_package_version(
                 client,
@@ -624,7 +624,7 @@ impl PackageTag {
 impl AsyncCliCommand for PackageTag {
     type Output = ();
 
-    async fn run_async(self) -> Result<Self::Output, anyhow::Error> {
+    async fn run_async(mut self) -> Result<Self::Output, anyhow::Error> {
         tracing::info!("Checking if user is logged in");
         let client =
             login_user(&self.api, &self.env, !self.non_interactive, "tag a package").await?;
