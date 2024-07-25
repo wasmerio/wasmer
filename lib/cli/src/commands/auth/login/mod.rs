@@ -394,7 +394,7 @@ mod tests {
         // user. It shows a warning to the user, but does not return with an error code.
         //
         //  ------ i.e. this will fail
-        // | 
+        // |
         // v
         // assert!(res.is_err());
         assert!(res.is_ok());
