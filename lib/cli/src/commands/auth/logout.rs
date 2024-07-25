@@ -47,7 +47,7 @@ impl AsyncCliCommand for Logout {
         let theme = dialoguer::theme::ColorfulTheme::default();
         let prompt = dialoguer::Confirm::with_theme(&theme).with_prompt(format!(
             "Log user {} out of registry {host_str}?",
-            user.username.bold()
+            user.username
         ));
 
         if prompt.interact()? || self.non_interactive {
@@ -76,10 +76,7 @@ impl AsyncCliCommand for Logout {
                 let should_revoke = self.revoke_token || {
                     let theme = dialoguer::theme::ColorfulTheme::default();
                     dialoguer::Confirm::with_theme(&theme)
-                        .with_prompt(format!(
-                            "Revoke token for user {} in registry {host_str}?",
-                            user.username.bold()
-                        ))
+                        .with_prompt(format!("Revoke token?", user.username))
                         .interact()?
                 };
 

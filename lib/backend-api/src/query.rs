@@ -22,7 +22,7 @@ pub async fn revoke_token(
 ) -> Result<Option<bool>, anyhow::Error> {
     client
         .run_graphql_strict(types::RevokeToken::build(RevokeTokenVariables {
-            token_id: token.into(),
+            token,
         }))
         .await
         .map(|v| v.revoke_api_token.and_then(|v| v.success))

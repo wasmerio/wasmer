@@ -43,13 +43,13 @@ mod queries {
 
     #[derive(cynic::QueryVariables, Debug)]
     pub struct RevokeTokenVariables {
-        pub token_id: cynic::Id,
+        pub token: String,
     }
 
     #[derive(cynic::QueryFragment, Debug)]
     #[cynic(graphql_type = "Mutation", variables = "RevokeTokenVariables")]
     pub struct RevokeToken {
-        #[arguments(input: { tokenId: $token_id })]
+        #[arguments(input: { token: $token })]
         pub revoke_api_token: Option<RevokeAPITokenPayload>,
     }
 

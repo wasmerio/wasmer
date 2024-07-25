@@ -447,7 +447,6 @@ type PackageVersion implements Node & PackageReleaseInterface & PackageInstance 
   totalDownloads: Int!
   bindingsState: RegistryPackageVersionBindingsStateChoices!
   nativeExecutablesState: RegistryPackageVersionNativeExecutablesStateChoices!
-  deployappversionSet(offset: Int, before: String, after: String, first: Int, last: Int): DeployAppVersionConnection!
   packagewebcSet(offset: Int, before: String, after: String, first: Int, last: Int): PackageWebcConnection!
   lastversionPackage(offset: Int, before: String, after: String, first: Int, last: Int): PackageConnection!
   commands: [Command!]!
@@ -455,6 +454,7 @@ type PackageVersion implements Node & PackageReleaseInterface & PackageInstance 
   bindingsgeneratorSet(offset: Int, before: String, after: String, first: Int, last: Int): BindingsGeneratorConnection!
   javascriptlanguagebindingSet(offset: Int, before: String, after: String, first: Int, last: Int): PackageVersionNPMBindingConnection!
   pythonlanguagebindingSet(offset: Int, before: String, after: String, first: Int, last: Int): PackageVersionPythonBindingConnection!
+  deployappversionSet(offset: Int, before: String, after: String, first: Int, last: Int): DeployAppVersionConnection!
   piritaManifest: JSONString
   piritaOffsets: JSONString
   piritaVolumes: JSONString
@@ -583,263 +583,6 @@ enum RegistryPackageVersionNativeExecutablesStateChoices {
   GENERATED_AND_PRESENT
 }
 
-type DeployAppVersionConnection {
-  """Pagination data for this connection."""
-  pageInfo: PageInfo!
-
-  """Contains the nodes in this connection."""
-  edges: [DeployAppVersionEdge]!
-
-  """Total number of items in the connection."""
-  totalCount: Int
-}
-
-"""A Relay edge containing a `DeployAppVersion` and its cursor."""
-type DeployAppVersionEdge {
-  """The item at the end of the edge"""
-  node: DeployAppVersion
-
-  """A cursor for use in pagination"""
-  cursor: String!
-}
-
-type DeployAppVersion implements Node {
-  """The ID of the object"""
-  id: ID!
-  app: DeployApp!
-  yamlConfig: String!
-  userYamlConfig: String!
-  clientName: String!
-  signature: String
-  description: String
-  publishedBy: User!
-  createdAt: DateTime!
-  updatedAt: DateTime!
-  configWebc: String @deprecated(reason: "webc support has been deprecated for apps")
-  config: String! @deprecated(reason: "Please use jsonConfig instead")
-  jsonConfig: String!
-  url: String!
-  permalink: String!
-  urls: [String]!
-  version: String!
-  isActive: Boolean!
-  manifest: String!
-  logs(
-    """
-    Get logs starting from this timestamp. Takes EPOCH timestamp in seconds.
-    """
-    startingFrom: Float
-
-    """Get logs starting from this timestamp. Takes ISO timestamp."""
-    startingFromISO: DateTime
-
-    """Fetch logs until this timestamp. Takes EPOCH timestamp in seconds."""
-    until: Float
-
-    """List of streams to fetch logs from. e.g. stdout, stderr."""
-    streams: [LogStream]
-
-    """List of instance ids to fetch logs from."""
-    instanceIds: [String]
-    before: String
-    after: String
-    first: Int
-    last: Int
-  ): LogConnection!
-  usageMetrics(forRange: MetricRange!, variant: MetricType!): [UsageMetric]!
-  sourcePackageVersion: PackageVersion
-  sourcePackageRelease: PackageWebc
-  sourcePackage: Package!
-  aggregateMetrics: AggregateMetrics!
-  volumes: [AppVersionVolume]
-  favicon: URL
-  screenshot: URL
-}
-
-type DeployApp implements Node & Owner {
-  """The ID of the object"""
-  id: ID!
-  createdBy: User!
-  createdAt: DateTime!
-  updatedAt: DateTime!
-  activeVersion: DeployAppVersion!
-  globalName: String!
-  globalId: ID!
-  url: String!
-  adminUrl: String!
-  permalink: String!
-  urls: [String]!
-  description: String
-  name: String!
-  owner: Owner!
-  versions(sortBy: DeployAppVersionsSortBy, createdAfter: DateTime, offset: Int, before: String, after: String, first: Int, last: Int): DeployAppVersionConnection!
-  aggregateMetrics: AggregateMetrics!
-  aliases(offset: Int, before: String, after: String, first: Int, last: Int): AppAliasConnection!
-  usageMetrics(forRange: MetricRange!, variant: MetricType!): [UsageMetric]!
-  deleted: Boolean!
-  favicon: URL
-  screenshot: URL
-}
-
-enum DeployAppVersionsSortBy {
-  NEWEST
-  OLDEST
-}
-
-type AggregateMetrics {
-  cpuTime: String!
-  memoryTime: String!
-  ingress: String!
-  egress: String!
-  noRequests: String!
-  noFailedRequests: String!
-  monthlyCost: String!
-}
-
-type AppAliasConnection {
-  """Pagination data for this connection."""
-  pageInfo: PageInfo!
-
-  """Contains the nodes in this connection."""
-  edges: [AppAliasEdge]!
-
-  """Total number of items in the connection."""
-  totalCount: Int
-}
-
-"""A Relay edge containing a `AppAlias` and its cursor."""
-type AppAliasEdge {
-  """The item at the end of the edge"""
-  node: AppAlias
-
-  """A cursor for use in pagination"""
-  cursor: String!
-}
-
-type AppAlias implements Node {
-  name: String!
-  app: DeployApp!
-  isDefault: Boolean!
-  hostname: String!
-  text: String!
-  kind: DeployAppAliasKindChoices!
-
-  """The ID of the object"""
-  id: ID!
-  url: String!
-}
-
-enum DeployAppAliasKindChoices {
-  """Deployment"""
-  DEPLOYMENT
-
-  """Domain"""
-  DOMAIN
-}
-
-type UsageMetric {
-  variant: MetricType!
-  value: Float!
-  unit: MetricUnit!
-  timestamp: DateTime!
-}
-
-enum MetricType {
-  cpu_time
-  memory_time
-  network_egress
-  network_ingress
-  no_of_requests
-  no_of_failed_requests
-  cost
-}
-
-"""Units for metrics"""
-enum MetricUnit {
-  """represents the unit of "seconds"."""
-  SEC
-
-  """represents the unit of "milliseconds"."""
-  MS
-
-  """represents the unit of "kilobytes"."""
-  KB
-
-  """represents the unit of "kilobytes per second"."""
-  KBS
-
-  """represents the unit of "number of requests"."""
-  NO_REQUESTS
-
-  """represents the unit of "cost" in USD."""
-  DOLLARS
-}
-
-enum MetricRange {
-  LAST_24_HOURS
-  LAST_30_DAYS
-  LAST_1_HOUR
-}
-
-"""
-The `URL` scalar type represents a URL as text, represented as UTF-8
-character sequences.
-"""
-scalar URL
-
-type LogConnection {
-  """Pagination data for this connection."""
-  pageInfo: PageInfo!
-
-  """Contains the nodes in this connection."""
-  edges: [LogEdge]!
-}
-
-"""A Relay edge containing a `Log` and its cursor."""
-type LogEdge {
-  """The item at the end of the edge"""
-  node: Log
-
-  """A cursor for use in pagination"""
-  cursor: String!
-}
-
-enum LogStream {
-  STDOUT
-  STDERR
-  RUNTIME
-}
-
-type PackageWebc implements Node & PackageReleaseInterface & PackageInstance {
-  """The ID of the object"""
-  id: ID!
-  createdAt: DateTime!
-  updatedAt: DateTime!
-  package: Package!
-  webc: WebcImage
-  piritaManifest: JSONString
-  piritaOffsets: JSONString
-  piritaVolumes: JSONString
-  isArchived: Boolean!
-  clientName: String
-  publishedBy: User!
-  webcV3: WebcImage
-  tag: String!
-  webcUrl: String!
-}
-
-type AppVersionVolume {
-  name: String!
-  mountPaths: [AppVersionVolumeMountPath]!
-  size: Int
-  usedSize: Int
-}
-
-type AppVersionVolumeMountPath {
-  path: String!
-  subpath: String!
-}
-
 type PackageWebcConnection {
   """Pagination data for this connection."""
   pageInfo: PageInfo!
@@ -858,6 +601,24 @@ type PackageWebcEdge {
 
   """A cursor for use in pagination"""
   cursor: String!
+}
+
+type PackageWebc implements Node & PackageReleaseInterface & PackageInstance {
+  """The ID of the object"""
+  id: ID!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+  package: Package!
+  webc: WebcImage
+  piritaManifest: JSONString
+  piritaOffsets: JSONString
+  piritaVolumes: JSONString
+  isArchived: Boolean!
+  clientName: String
+  publishedBy: User!
+  webcV3: WebcImage
+  tag: String!
+  webcUrl: String!
 }
 
 type Command {
@@ -1075,6 +836,275 @@ type PackageVersionPythonBinding implements PackageVersionLanguageBinding & Node
   codeSnippetExample: String!
   module: String! @deprecated(reason: "Do not use this field, since bindings for all modules are generated at once now.")
   pythonDefaultInstallPackageName(url: String): String!
+}
+
+type DeployAppVersionConnection {
+  """Pagination data for this connection."""
+  pageInfo: PageInfo!
+
+  """Contains the nodes in this connection."""
+  edges: [DeployAppVersionEdge]!
+
+  """Total number of items in the connection."""
+  totalCount: Int
+}
+
+"""A Relay edge containing a `DeployAppVersion` and its cursor."""
+type DeployAppVersionEdge {
+  """The item at the end of the edge"""
+  node: DeployAppVersion
+
+  """A cursor for use in pagination"""
+  cursor: String!
+}
+
+type DeployAppVersion implements Node {
+  """The ID of the object"""
+  id: ID!
+  app: DeployApp!
+  yamlConfig: String!
+  userYamlConfig: String!
+  clientName: String!
+  signature: String
+  description: String
+  publishedBy: User!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+  configWebc: String @deprecated(reason: "webc support has been deprecated for apps")
+  config: String! @deprecated(reason: "Please use jsonConfig instead")
+  jsonConfig: String!
+  url: String!
+  permalink: String!
+  urls: [String]!
+  version: String!
+  isActive: Boolean!
+  manifest: String!
+  logs(
+    """
+    Get logs starting from this timestamp. Takes EPOCH timestamp in seconds.
+    """
+    startingFrom: Float
+
+    """Get logs starting from this timestamp. Takes ISO timestamp."""
+    startingFromISO: DateTime
+
+    """Fetch logs until this timestamp. Takes EPOCH timestamp in seconds."""
+    until: Float
+
+    """List of streams to fetch logs from. e.g. stdout, stderr."""
+    streams: [LogStream]
+
+    """List of instance ids to fetch logs from."""
+    instanceIds: [String]
+    before: String
+    after: String
+    first: Int
+    last: Int
+  ): LogConnection!
+  usageMetrics(forRange: MetricRange!, variant: MetricType!): [UsageMetric]!
+  sourcePackageVersion: PackageVersion
+  sourcePackageRelease: PackageWebc
+  sourcePackage: Package!
+  aggregateMetrics: AggregateMetrics!
+  volumes: [AppVersionVolume]
+  favicon: URL
+  screenshot: URL
+}
+
+type DeployApp implements Node & Owner {
+  """The ID of the object"""
+  id: ID!
+  createdBy: User!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+  activeVersion: DeployAppVersion!
+  globalName: String!
+  globalId: ID!
+  url: String!
+  adminUrl: String!
+  permalink: String!
+  urls: [String]!
+  description: String
+  name: String!
+  owner: Owner!
+  versions(sortBy: DeployAppVersionsSortBy, createdAfter: DateTime, offset: Int, before: String, after: String, first: Int, last: Int): DeployAppVersionConnection!
+  aggregateMetrics: AggregateMetrics!
+  aliases(offset: Int, before: String, after: String, first: Int, last: Int): AppAliasConnection!
+  secrets(offset: Int, before: String, after: String, first: Int, last: Int): SecretConnection!
+  usageMetrics(forRange: MetricRange!, variant: MetricType!): [UsageMetric]!
+  deleted: Boolean!
+  favicon: URL
+  screenshot: URL
+}
+
+enum DeployAppVersionsSortBy {
+  NEWEST
+  OLDEST
+}
+
+type AggregateMetrics {
+  cpuTime: String!
+  memoryTime: String!
+  ingress: String!
+  egress: String!
+  noRequests: String!
+  noFailedRequests: String!
+  monthlyCost: String!
+}
+
+type AppAliasConnection {
+  """Pagination data for this connection."""
+  pageInfo: PageInfo!
+
+  """Contains the nodes in this connection."""
+  edges: [AppAliasEdge]!
+
+  """Total number of items in the connection."""
+  totalCount: Int
+}
+
+"""A Relay edge containing a `AppAlias` and its cursor."""
+type AppAliasEdge {
+  """The item at the end of the edge"""
+  node: AppAlias
+
+  """A cursor for use in pagination"""
+  cursor: String!
+}
+
+type AppAlias implements Node {
+  name: String!
+  app: DeployApp!
+  isDefault: Boolean!
+  hostname: String!
+  text: String!
+  kind: DeployAppAliasKindChoices!
+
+  """The ID of the object"""
+  id: ID!
+  url: String!
+}
+
+enum DeployAppAliasKindChoices {
+  """Deployment"""
+  DEPLOYMENT
+
+  """Domain"""
+  DOMAIN
+}
+
+type SecretConnection {
+  """Pagination data for this connection."""
+  pageInfo: PageInfo!
+
+  """Contains the nodes in this connection."""
+  edges: [SecretEdge]!
+
+  """Total number of items in the connection."""
+  totalCount: Int
+}
+
+"""A Relay edge containing a `Secret` and its cursor."""
+type SecretEdge {
+  """The item at the end of the edge"""
+  node: Secret
+
+  """A cursor for use in pagination"""
+  cursor: String!
+}
+
+type Secret implements Node {
+  createdAt: DateTime!
+  updatedAt: DateTime!
+  name: String!
+
+  """The ID of the object"""
+  id: ID!
+}
+
+type UsageMetric {
+  variant: MetricType!
+  value: Float!
+  unit: MetricUnit!
+  timestamp: DateTime!
+}
+
+enum MetricType {
+  cpu_time
+  memory_time
+  network_egress
+  network_ingress
+  no_of_requests
+  no_of_failed_requests
+  cost
+}
+
+"""Units for metrics"""
+enum MetricUnit {
+  """represents the unit of "seconds"."""
+  SEC
+
+  """represents the unit of "milliseconds"."""
+  MS
+
+  """represents the unit of "kilobytes"."""
+  KB
+
+  """represents the unit of "kilobytes per second"."""
+  KBS
+
+  """represents the unit of "number of requests"."""
+  NO_REQUESTS
+
+  """represents the unit of "cost" in USD."""
+  DOLLARS
+}
+
+enum MetricRange {
+  LAST_24_HOURS
+  LAST_30_DAYS
+  LAST_1_HOUR
+}
+
+"""
+The `URL` scalar type represents a URL as text, represented as UTF-8
+character sequences.
+"""
+scalar URL
+
+type LogConnection {
+  """Pagination data for this connection."""
+  pageInfo: PageInfo!
+
+  """Contains the nodes in this connection."""
+  edges: [LogEdge]!
+}
+
+"""A Relay edge containing a `Log` and its cursor."""
+type LogEdge {
+  """The item at the end of the edge"""
+  node: Log
+
+  """A cursor for use in pagination"""
+  cursor: String!
+}
+
+enum LogStream {
+  STDOUT
+  STDERR
+  RUNTIME
+}
+
+type AppVersionVolume {
+  name: String!
+  mountPaths: [AppVersionVolumeMountPath]!
+  size: Int
+  usedSize: Int
+}
+
+type AppVersionVolumeMountPath {
+  path: String!
+  subpath: String!
 }
 
 type PackageDistribution {
@@ -2267,6 +2297,7 @@ input WorkloadRunnerWasmSourceV1 {
 
 type Query {
   latestTOS: TermsOfService!
+  getAppRegions(offset: Int, before: String, after: String, first: Int, last: Int): AppRegionConnection!
   getDeployAppVersion(name: String!, owner: String, version: String): DeployAppVersion
   getAllDomains(namespace: String, offset: Int, before: String, after: String, first: Int, last: Int): DNSDomainConnection!
   getAllDNSRecords(sortBy: DNSRecordsSortBy, updatedAfter: DateTime, before: String, after: String, first: Int, last: Int): DNSRecordConnection!
@@ -2360,6 +2391,35 @@ type TermsOfService implements Node {
   viewerHasAccepted: Boolean!
 }
 
+type AppRegionConnection {
+  """Pagination data for this connection."""
+  pageInfo: PageInfo!
+
+  """Contains the nodes in this connection."""
+  edges: [AppRegionEdge]!
+
+  """Total number of items in the connection."""
+  totalCount: Int
+}
+
+"""A Relay edge containing a `AppRegion` and its cursor."""
+type AppRegionEdge {
+  """The item at the end of the edge"""
+  node: AppRegion
+
+  """A cursor for use in pagination"""
+  cursor: String!
+}
+
+type AppRegion implements Node {
+  name: String!
+  country: String!
+  city: String!
+
+  """The ID of the object"""
+  id: ID!
+}
+
 type DNSRecordConnection {
   """Pagination data for this connection."""
   pageInfo: PageInfo!
@@ -2429,35 +2489,6 @@ enum AppTemplatesSortBy {
   NEWEST
   OLDEST
   POPULAR
-}
-
-type SecretConnection {
-  """Pagination data for this connection."""
-  pageInfo: PageInfo!
-
-  """Contains the nodes in this connection."""
-  edges: [SecretEdge]!
-
-  """Total number of items in the connection."""
-  totalCount: Int
-}
-
-"""A Relay edge containing a `Secret` and its cursor."""
-type SecretEdge {
-  """The item at the end of the edge"""
-  node: Secret
-
-  """A cursor for use in pagination"""
-  cursor: String!
-}
-
-type Secret implements Node {
-  createdAt: DateTime!
-  updatedAt: DateTime!
-  name: String!
-
-  """The ID of the object"""
-  id: ID!
 }
 
 type SecretLogConnection {
@@ -2980,6 +3011,8 @@ type Mutation {
   updateUserInfo(input: UpdateUserInfoInput!): UpdateUserInfoPayload
   validateUserPassword(input: ValidateUserPasswordInput!): ValidateUserPasswordPayload
   generateApiToken(input: GenerateAPITokenInput!): GenerateAPITokenPayload
+
+  """Request To revoke an API token; these start with 'wap_'."""
   revokeApiToken(input: RevokeAPITokenInput!): RevokeAPITokenPayload
   checkUserExists(input: CheckUserExistsInput!): CheckUserExistsPayload
   readNotification(input: ReadNotificationInput!): ReadNotificationPayload
@@ -3396,6 +3429,9 @@ input SecretInput {
 """Delete secret with given ID"""
 type DeleteAppSecretPayload {
   success: Boolean!
+
+  """ID of the deleted secret."""
+  id: ID!
   clientMutationId: String
 }
 
@@ -3622,6 +3658,7 @@ input GenerateAPITokenInput {
   clientMutationId: String
 }
 
+"""Request To revoke an API token; these start with 'wap_'."""
 type RevokeAPITokenPayload {
   token: APIToken
   success: Boolean
@@ -3630,7 +3667,7 @@ type RevokeAPITokenPayload {
 
 input RevokeAPITokenInput {
   """The API token ID"""
-  tokenId: ID!
+  token: String!
   clientMutationId: String
 }
 
