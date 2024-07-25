@@ -42,6 +42,23 @@ mod queries {
     }
 
     #[derive(cynic::QueryVariables, Debug)]
+    pub struct RevokeTokenVariables {
+        pub token_id: cynic::Id,
+    }
+
+    #[derive(cynic::QueryFragment, Debug)]
+    #[cynic(graphql_type = "Mutation", variables = "RevokeTokenVariables")]
+    pub struct RevokeToken {
+        #[arguments(input: { tokenId: $token_id })]
+        pub revoke_api_token: Option<RevokeAPITokenPayload>,
+    }
+
+    #[derive(cynic::QueryFragment, Debug)]
+    pub struct RevokeAPITokenPayload {
+        pub success: Option<bool>,
+    }
+
+    #[derive(cynic::QueryVariables, Debug)]
     pub struct CreateNewNonceVariables {
         pub callback_url: String,
         pub name: String,

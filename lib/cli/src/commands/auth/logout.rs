@@ -1,15 +1,23 @@
-use colored::Colorize;
-
 use crate::{
     commands::AsyncCliCommand,
     config::{WasmerConfig, WasmerEnv},
 };
+use colored::Colorize;
+use is_terminal::IsTerminal;
 
 /// Subcommand for log in a user into Wasmer (using a browser or provided a token)
 #[derive(Debug, Clone, clap::Parser)]
 pub struct Logout {
     #[clap(flatten)]
     env: WasmerEnv,
+
+    /// Do not prompt for user input.
+    #[clap(long, default_value_t = !std::io::stdin().is_terminal())]
+    pub non_interactive: bool,
+
+    /// Whether or not to revoke the associated token
+    #[clap(long)]
+    pub revoke_token: bool,
 }
 
 #[async_trait::async_trait]
@@ -42,8 +50,12 @@ impl AsyncCliCommand for Logout {
             user.username.bold()
         ));
 
-        if prompt.interact()? {
+        if prompt.interact()? || self.non_interactive {
             let mut config = self.env.config()?;
+            let token = config
+                .registry
+                .get_login_token_for_registry(&registry)
+                .unwrap();
             config.registry.remove_registry(&registry);
             let path = WasmerConfig::get_file_location(self.env.dir());
             config.save(path)?;
@@ -60,6 +72,24 @@ impl AsyncCliCommand for Logout {
                     "User {} correctly logged out of registry {host_str}",
                     user.username.bold()
                 );
+
+                let should_revoke = self.revoke_token || {
+                    let theme = dialoguer::theme::ColorfulTheme::default();
+                    dialoguer::Confirm::with_theme(&theme)
+                        .with_prompt(format!(
+                            "Revoke token for user {} in registry {host_str}?",
+                            user.username.bold()
+                        ))
+                        .interact()?
+                };
+
+                if should_revoke {
+                    wasmer_api::query::revoke_token(&client, token).await?;
+                    println!(
+                        "Token for user {} in registry {host_str} correctly revoked",
+                        user.username.bold()
+                    );
+                }
             } else {
                 anyhow::bail!("Something went wrong! User is not logged out.")
             }

@@ -15,6 +15,19 @@ use crate::{
     GraphQLApiFailure, WasmerClient,
 };
 
+/// Revoke an existing token
+pub async fn revoke_token(
+    client: &WasmerClient,
+    token: String,
+) -> Result<Option<bool>, anyhow::Error> {
+    client
+        .run_graphql_strict(types::RevokeToken::build(RevokeTokenVariables {
+            token_id: token.into(),
+        }))
+        .await
+        .map(|v| v.revoke_api_token.and_then(|v| v.success))
+}
+
 /// Generate a new Nonce
 ///
 /// Takes a name and a callbackUrl and returns a nonce
