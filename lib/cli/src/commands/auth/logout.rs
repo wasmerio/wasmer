@@ -1,6 +1,6 @@
 use crate::{
     commands::AsyncCliCommand,
-    config::{WasmerConfig, WasmerEnv},
+    config::{WasmerConfig, WasmerEnv, DEFAULT_PROD_REGISTRY},
 };
 use colored::Colorize;
 use is_terminal::IsTerminal;
@@ -57,6 +57,17 @@ impl AsyncCliCommand for Logout {
                 .get_login_token_for_registry(&registry)
                 .unwrap();
             config.registry.remove_registry(&registry);
+            if config.registry.is_current_registry(&registry) {
+                if config.registry.tokens.is_empty() {
+                    _ = config
+                        .registry
+                        .set_current_registry(DEFAULT_PROD_REGISTRY)
+                        .await;
+                } else {
+                    let new_reg = config.registry.tokens[0].registry.clone();
+                    _ = config.registry.set_current_registry(&new_reg).await;
+                }
+            }
             let path = WasmerConfig::get_file_location(self.env.dir());
             config.save(path)?;
 

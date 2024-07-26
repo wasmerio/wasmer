@@ -140,6 +140,11 @@ impl MultiRegistry {
         format_graphql(&self.active_registry)
     }
 
+    /// Checks if the current registry equals `registry`.
+    pub fn is_current_registry(&self, registry: &str) -> bool {
+        format_graphql(&self.active_registry) == format_graphql(registry)
+    }
+
     #[allow(unused)]
     pub fn current_login(&self) -> Option<&RegistryLogin> {
         self.tokens
