@@ -205,7 +205,7 @@ impl Handler {
 
         let chunks = futures::stream::try_unfold(res_body_receiver, |mut r| async move {
             match r.fill_buf().await {
-                Ok(chunk) if chunk.is_empty() => Ok(None),
+                Ok([]) => Ok(None),
                 Ok(chunk) => {
                     let chunk: bytes::Bytes = chunk.to_vec().into();
                     r.consume(chunk.len());
@@ -292,7 +292,7 @@ async fn consume_stderr(
     // able to show users the partial result.
     loop {
         match stderr.fill_buf().await {
-            Ok(chunk) if chunk.is_empty() => {
+            Ok([]) => {
                 // EOF - the instance's side of the pipe was closed.
                 break;
             }
