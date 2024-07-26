@@ -1,17 +1,10 @@
-use crate::{
-    commands::AsyncCliCommand,
-    opts::{ApiOpts, ListFormatOpts, WasmerEnv},
-};
+use crate::{commands::AsyncCliCommand, config::WasmerEnv, opts::ListFormatOpts};
 use is_terminal::IsTerminal;
 
 /// List available Edge regions.
 #[derive(clap::Parser, Debug)]
 pub struct CmdAppRegionsList {
     /* --- Common flags --- */
-    #[clap(flatten)]
-    #[allow(missing_docs)]
-    pub api: ApiOpts,
-
     #[clap(flatten)]
     pub env: WasmerEnv,
 
@@ -32,7 +25,7 @@ impl AsyncCliCommand for CmdAppRegionsList {
     type Output = ();
 
     async fn run_async(self) -> Result<Self::Output, anyhow::Error> {
-        let client = self.api.client()?;
+        let client = self.env.client()?;
         let regions = wasmer_api::query::get_all_app_regions(&client).await?;
 
         println!("{}", self.fmt.format.render(regions.as_slice()));
