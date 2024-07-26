@@ -182,7 +182,7 @@ impl CmdAppDeploy {
 
         if let Some(app_id) = app.get("app_id") {
             if let Some(app_id) = app_id.as_str() {
-                // Try to get the owner from the app_id. 
+                // Try to get the owner from the app_id.
                 //
                 // In this case, don't edit the app config.
                 if let Ok(app) = wasmer_api::query::get_app_by_id(client, app_id.to_owned()).await {
