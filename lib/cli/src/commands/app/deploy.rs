@@ -180,6 +180,17 @@ impl CmdAppDeploy {
             return Ok((owner.clone(), r_ret));
         }
 
+        if let Some(app_id) = app.get("app_id") {
+            if let Some(app_id) = app_id.as_str() {
+                // Try to get the owner from the app_id. 
+                //
+                // In this case, don't edit the app config.
+                if let Ok(app) = wasmer_api::query::get_app_by_id(client, app_id.to_owned()).await {
+                    return Ok((app.owner.global_name, r_ret));
+                }
+            }
+        }
+
         if self.non_interactive {
             // if not interactive we can't prompt the user to choose the owner of the app.
             anyhow::bail!("No owner specified: use --owner XXX");
