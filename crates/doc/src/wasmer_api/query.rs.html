@@ -1780,6 +1780,57 @@
 <a href="#1780" id="1780">1780</a>
 <a href="#1781" id="1781">1781</a>
 <a href="#1782" id="1782">1782</a>
+<a href="#1783" id="1783">1783</a>
+<a href="#1784" id="1784">1784</a>
+<a href="#1785" id="1785">1785</a>
+<a href="#1786" id="1786">1786</a>
+<a href="#1787" id="1787">1787</a>
+<a href="#1788" id="1788">1788</a>
+<a href="#1789" id="1789">1789</a>
+<a href="#1790" id="1790">1790</a>
+<a href="#1791" id="1791">1791</a>
+<a href="#1792" id="1792">1792</a>
+<a href="#1793" id="1793">1793</a>
+<a href="#1794" id="1794">1794</a>
+<a href="#1795" id="1795">1795</a>
+<a href="#1796" id="1796">1796</a>
+<a href="#1797" id="1797">1797</a>
+<a href="#1798" id="1798">1798</a>
+<a href="#1799" id="1799">1799</a>
+<a href="#1800" id="1800">1800</a>
+<a href="#1801" id="1801">1801</a>
+<a href="#1802" id="1802">1802</a>
+<a href="#1803" id="1803">1803</a>
+<a href="#1804" id="1804">1804</a>
+<a href="#1805" id="1805">1805</a>
+<a href="#1806" id="1806">1806</a>
+<a href="#1807" id="1807">1807</a>
+<a href="#1808" id="1808">1808</a>
+<a href="#1809" id="1809">1809</a>
+<a href="#1810" id="1810">1810</a>
+<a href="#1811" id="1811">1811</a>
+<a href="#1812" id="1812">1812</a>
+<a href="#1813" id="1813">1813</a>
+<a href="#1814" id="1814">1814</a>
+<a href="#1815" id="1815">1815</a>
+<a href="#1816" id="1816">1816</a>
+<a href="#1817" id="1817">1817</a>
+<a href="#1818" id="1818">1818</a>
+<a href="#1819" id="1819">1819</a>
+<a href="#1820" id="1820">1820</a>
+<a href="#1821" id="1821">1821</a>
+<a href="#1822" id="1822">1822</a>
+<a href="#1823" id="1823">1823</a>
+<a href="#1824" id="1824">1824</a>
+<a href="#1825" id="1825">1825</a>
+<a href="#1826" id="1826">1826</a>
+<a href="#1827" id="1827">1827</a>
+<a href="#1828" id="1828">1828</a>
+<a href="#1829" id="1829">1829</a>
+<a href="#1830" id="1830">1830</a>
+<a href="#1831" id="1831">1831</a>
+<a href="#1832" id="1832">1832</a>
+<a href="#1833" id="1833">1833</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{collections::HashSet, time::Duration};
 
 <span class="kw">use </span>anyhow::{bail, Context};
@@ -1909,6 +1960,57 @@
     }
 
     <span class="prelude-val">Ok</span>(all_secrets)
+}
+
+<span class="doccomment">/// Load all available regions.
+///
+/// Will paginate through all versions and return them in a single list.
+</span><span class="kw">pub async fn </span>get_all_app_regions(client: <span class="kw-2">&amp;</span>WasmerClient) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;AppRegion&gt;, anyhow::Error&gt; {
+    <span class="kw">let </span><span class="kw-2">mut </span>vars = GetAllAppRegionsVariables {
+        after: <span class="prelude-val">None</span>,
+        before: <span class="prelude-val">None</span>,
+        first: <span class="prelude-val">None</span>,
+        last: <span class="prelude-val">None</span>,
+        offset: <span class="prelude-val">None</span>,
+    };
+
+    <span class="kw">let </span><span class="kw-2">mut </span>all_regions = Vec::&lt;AppRegion&gt;::new();
+
+    <span class="kw">loop </span>{
+        <span class="kw">let </span>page = get_regions(client, vars.clone()).<span class="kw">await</span><span class="question-mark">?</span>;
+        <span class="kw">if </span>page.edges.is_empty() {
+            <span class="kw">break</span>;
+        }
+
+        <span class="kw">for </span>edge <span class="kw">in </span>page.edges {
+            <span class="kw">let </span>edge = <span class="kw">match </span>edge {
+                <span class="prelude-val">Some</span>(edge) =&gt; edge,
+                <span class="prelude-val">None </span>=&gt; <span class="kw">continue</span>,
+            };
+            <span class="kw">let </span>version = <span class="kw">match </span>edge.node {
+                <span class="prelude-val">Some</span>(item) =&gt; item,
+                <span class="prelude-val">None </span>=&gt; <span class="kw">continue</span>,
+            };
+
+            all_regions.push(version);
+
+            <span class="comment">// Update pagination.
+            </span>vars.after = <span class="prelude-val">Some</span>(edge.cursor);
+        }
+    }
+
+    <span class="prelude-val">Ok</span>(all_regions)
+}
+
+<span class="doccomment">/// Retrieve regions.
+</span><span class="kw">pub async fn </span>get_regions(
+    client: <span class="kw-2">&amp;</span>WasmerClient,
+    vars: GetAllAppRegionsVariables,
+) -&gt; <span class="prelude-ty">Result</span>&lt;AppRegionConnection, anyhow::Error&gt; {
+    <span class="kw">let </span>res = client
+        .run_graphql_strict(types::GetAllAppRegions::build(vars))
+        .<span class="kw">await</span><span class="question-mark">?</span>;
+    <span class="prelude-val">Ok</span>(res.get_app_regions)
 }
 
 <span class="doccomment">/// Load all secrets of an app.

@@ -1914,6 +1914,43 @@
 <a href="#1914" id="1914">1914</a>
 <a href="#1915" id="1915">1915</a>
 <a href="#1916" id="1916">1916</a>
+<a href="#1917" id="1917">1917</a>
+<a href="#1918" id="1918">1918</a>
+<a href="#1919" id="1919">1919</a>
+<a href="#1920" id="1920">1920</a>
+<a href="#1921" id="1921">1921</a>
+<a href="#1922" id="1922">1922</a>
+<a href="#1923" id="1923">1923</a>
+<a href="#1924" id="1924">1924</a>
+<a href="#1925" id="1925">1925</a>
+<a href="#1926" id="1926">1926</a>
+<a href="#1927" id="1927">1927</a>
+<a href="#1928" id="1928">1928</a>
+<a href="#1929" id="1929">1929</a>
+<a href="#1930" id="1930">1930</a>
+<a href="#1931" id="1931">1931</a>
+<a href="#1932" id="1932">1932</a>
+<a href="#1933" id="1933">1933</a>
+<a href="#1934" id="1934">1934</a>
+<a href="#1935" id="1935">1935</a>
+<a href="#1936" id="1936">1936</a>
+<a href="#1937" id="1937">1937</a>
+<a href="#1938" id="1938">1938</a>
+<a href="#1939" id="1939">1939</a>
+<a href="#1940" id="1940">1940</a>
+<a href="#1941" id="1941">1941</a>
+<a href="#1942" id="1942">1942</a>
+<a href="#1943" id="1943">1943</a>
+<a href="#1944" id="1944">1944</a>
+<a href="#1945" id="1945">1945</a>
+<a href="#1946" id="1946">1946</a>
+<a href="#1947" id="1947">1947</a>
+<a href="#1948" id="1948">1948</a>
+<a href="#1949" id="1949">1949</a>
+<a href="#1950" id="1950">1950</a>
+<a href="#1951" id="1951">1951</a>
+<a href="#1952" id="1952">1952</a>
+<a href="#1953" id="1953">1953</a>
 </pre></div><pre class="rust"><code><span class="kw">pub use </span>queries::<span class="kw-2">*</span>;
 
 <span class="kw">pub use </span>cynic::Id;
@@ -3225,6 +3262,43 @@
         <span class="kw">pub </span>name: String,
         <span class="kw">pub </span>created_at: DateTime,
         <span class="kw">pub </span>updated_at: DateTime,
+    }
+
+    <span class="attr">#[derive(cynic::QueryVariables, Debug, Clone)]
+    </span><span class="kw">pub struct </span>GetAllAppRegionsVariables {
+        <span class="kw">pub </span>after: <span class="prelude-ty">Option</span>&lt;String&gt;,
+        <span class="kw">pub </span>before: <span class="prelude-ty">Option</span>&lt;String&gt;,
+        <span class="kw">pub </span>first: <span class="prelude-ty">Option</span>&lt;i32&gt;,
+        <span class="kw">pub </span>last: <span class="prelude-ty">Option</span>&lt;i32&gt;,
+        <span class="kw">pub </span>offset: <span class="prelude-ty">Option</span>&lt;i32&gt;,
+    }
+
+    <span class="attr">#[derive(cynic::QueryFragment, Debug)]
+    #[cynic(graphql_type = <span class="string">&quot;Query&quot;</span>, variables = <span class="string">&quot;GetAllAppRegionsVariables&quot;</span>)]
+    </span><span class="kw">pub struct </span>GetAllAppRegions {
+        <span class="attr">#[arguments(after: <span class="macro-nonterminal">$after</span>, offset: <span class="macro-nonterminal">$offset</span>, before: <span class="macro-nonterminal">$before</span>, first: <span class="macro-nonterminal">$first</span>, last: <span class="macro-nonterminal">$last</span>)]
+        </span><span class="kw">pub </span>get_app_regions: AppRegionConnection,
+    }
+
+    <span class="attr">#[derive(cynic::QueryFragment, Debug)]
+    </span><span class="kw">pub struct </span>AppRegionConnection {
+        <span class="kw">pub </span>edges: Vec&lt;<span class="prelude-ty">Option</span>&lt;AppRegionEdge&gt;&gt;,
+        <span class="kw">pub </span>page_info: PageInfo,
+        <span class="kw">pub </span>total_count: <span class="prelude-ty">Option</span>&lt;i32&gt;,
+    }
+
+    <span class="attr">#[derive(cynic::QueryFragment, Debug)]
+    </span><span class="kw">pub struct </span>AppRegionEdge {
+        <span class="kw">pub </span>cursor: String,
+        <span class="kw">pub </span>node: <span class="prelude-ty">Option</span>&lt;AppRegion&gt;,
+    }
+
+    <span class="attr">#[derive(cynic::QueryFragment, Debug, Serialize)]
+    </span><span class="kw">pub struct </span>AppRegion {
+        <span class="kw">pub </span>city: String,
+        <span class="kw">pub </span>country: String,
+        <span class="kw">pub </span>id: cynic::Id,
+        <span class="kw">pub </span>name: String,
     }
 
     <span class="attr">#[derive(cynic::QueryFragment, Debug, Clone, Serialize)]
