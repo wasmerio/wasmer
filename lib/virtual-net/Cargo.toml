@@ -14,7 +14,7 @@ thiserror = "1"
 bytes = "1.1"
 async-trait = { version = "^0.1" }
 tracing = "0.1"
-tokio = { version = "1", default_features = false, features = ["io-util"] }
+tokio = { version = "1", default-features = false, features = ["io-util"] }
 libc = { workspace = true, optional = true }
 mio = { version = "0.8", optional = true }
 socket2 = { version = "0.4", optional = true }
@@ -41,7 +41,7 @@ default-features = false
 features = ["proto-ipv4", "std", "alloc"]
 
 [dev-dependencies]
-tokio = { version = "1", default_features = false, features = [ "macros", "rt-multi-thread" ] }
+tokio = { version = "1", default-features = false, features = [ "macros", "rt-multi-thread" ] }
 tracing-test = { version = "0.2" }
 serial_test = "2.0.0"
 

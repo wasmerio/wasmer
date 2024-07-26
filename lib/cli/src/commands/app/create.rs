@@ -146,6 +146,7 @@ impl CmdAppCreate {
             debug: None,
             scaling: None,
             locality: None,
+            redirect: None,
             extra: HashMap::new(),
         }
     }
