@@ -20,6 +20,7 @@ mod net;
 
 mod commands;
 mod common;
+mod config;
 #[macro_use]
 mod error;
 mod c_gen;

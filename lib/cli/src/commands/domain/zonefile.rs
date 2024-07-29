@@ -1,7 +1,4 @@
-use crate::{
-    commands::AsyncCliCommand,
-    opts::{ApiOpts, ItemFormatOpts},
-};
+use crate::{commands::AsyncCliCommand, config::WasmerEnv, opts::ItemFormatOpts};
 use anyhow::Context;
 
 #[derive(clap::Parser, Debug)]
@@ -11,7 +8,7 @@ pub struct CmdZoneFileGet {
     fmt: ItemFormatOpts,
 
     #[clap(flatten)]
-    api: ApiOpts,
+    env: WasmerEnv,
 
     /// Name of the domain.
     domain_name: String,
@@ -25,7 +22,7 @@ pub struct CmdZoneFileGet {
 /// Show a zone file
 pub struct CmdZoneFileSync {
     #[clap(flatten)]
-    api: ApiOpts,
+    env: WasmerEnv,
 
     /// filename of  zone-file to sync
     zone_file_path: String,
@@ -40,7 +37,7 @@ impl AsyncCliCommand for CmdZoneFileGet {
     type Output = ();
 
     async fn run_async(self) -> Result<(), anyhow::Error> {
-        let client = self.api.client()?;
+        let client = self.env.client()?;
         if let Some(domain) =
             wasmer_api::query::get_domain_zone_file(&client, self.domain_name).await?
         {
@@ -66,7 +63,7 @@ impl AsyncCliCommand for CmdZoneFileSync {
         let data = std::fs::read(&self.zone_file_path).context("Unable to read file")?;
         let zone_file_contents = String::from_utf8(data).context("Not a valid UTF-8 sequence")?;
         let domain = wasmer_api::query::upsert_domain_from_zone_file(
-            &self.api.client()?,
+            &self.env.client()?,
             zone_file_contents,
             !self.no_delete_missing_records,
         )

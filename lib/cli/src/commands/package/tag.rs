@@ -3,7 +3,7 @@ use crate::{
         package::common::{macros::*, wait::wait_package, *},
         AsyncCliCommand,
     },
-    opts::{ApiOpts, WasmerEnv},
+    config::WasmerEnv,
 };
 use anyhow::Context;
 use colored::Colorize;
@@ -13,7 +13,7 @@ use std::{
     path::{Path, PathBuf},
     str::FromStr,
 };
-use wasmer_api::WasmerClient;
+use wasmer_api::{types::PackageVersionWithPackage, WasmerClient};
 use wasmer_config::package::{
     Manifest, NamedPackageId, NamedPackageIdent, PackageBuilder, PackageHash, PackageIdent,
 };
@@ -23,9 +23,6 @@ use super::PublishWait;
 /// Tag an existing package.
 #[derive(Debug, clap::Parser)]
 pub struct PackageTag {
-    #[clap(flatten)]
-    pub api: ApiOpts,
-
     #[clap(flatten)]
     pub env: WasmerEnv,
 
@@ -88,6 +85,10 @@ pub struct PackageTag {
             value_enum
         )]
     pub wait: PublishWait,
+
+    #[clap(skip)]
+    /// The package related to the NamedPackageId the user chose to tag.
+    pub(crate) maybe_user_package: Option<PackageVersionWithPackage>,
 }
 
 impl PackageTag {
@@ -373,7 +374,7 @@ impl PackageTag {
     }
 
     async fn get_version(
-        &self,
+        &mut self,
         client: &WasmerClient,
         manifest: Option<&Manifest>,
         manifest_path: Option<&Path>,
@@ -425,6 +426,28 @@ impl PackageTag {
                 registry_version.clone()
             };
 
+            // Must necessarily bump if there's a package with the chosen version with a different hash.
+            let must_bump = {
+                let maybe_pkg = wasmer_api::query::get_package_version(
+                    client,
+                    full_pkg_name.to_string(),
+                    user_version.to_string(),
+                )
+                .await?;
+                let maybe_hash = maybe_pkg
+                    .as_ref()
+                    .and_then(|p| p.distribution_v3.pirita_sha256_hash.clone());
+
+                self.maybe_user_package = maybe_pkg;
+
+                if let Some(hash) = maybe_hash {
+                    let registry_package_hash = PackageHash::from_str(&format!("sha256:{hash}"))?;
+                    registry_package_hash != self.package_hash
+                } else {
+                    false
+                }
+            };
+
             if user_version <= registry_version {
                 if self.bump {
                     user_version = registry_version.clone();
@@ -433,12 +456,34 @@ impl PackageTag {
                     let theme = ColorfulTheme::default();
                     let mut new_version = registry_version.clone();
                     new_version.patch += 1;
-                    if Confirm::with_theme(&theme)
-                        .with_prompt(format!("Do you want to bump the package's version ({user_version} -> {new_version})?"))
-                            .interact()? {
+                    if must_bump {
+                        eprintln!("{}: Registry already has version {user_version} of {full_pkg_name}, but with different contents.", "Warn".bold().yellow());
+                        eprintln!(
+                            "{}: Not bumping the version will make this action fail.",
+                            "Warn".bold().yellow()
+                        );
+                        let res = Confirm::with_theme(&theme)
+                            .with_prompt(format!("Continue ({user_version} -> {new_version})?"))
+                            .interact()?;
+                        if res {
                             user_version = new_version.clone();
-                            self.update_manifest_version(manifest_path, manifest, &user_version).await?;
-                       }
+                            self.update_manifest_version(manifest_path, manifest, &user_version)
+                                .await?;
+                        } else {
+                            anyhow::bail!(
+                                "Refusing to map two different releases of {full_pkg_name} to the same version."
+                            )
+                        }
+                    } else {
+                        let res = Confirm::with_theme(&theme)
+                        .with_prompt(format!("Do you want to bump the package's version ({user_version} -> {new_version})?"))
+                            .interact()?;
+                        if res {
+                            user_version = new_version.clone();
+                            self.update_manifest_version(manifest_path, manifest, &user_version)
+                                .await?;
+                        }
+                    }
                 }
             }
 
@@ -450,7 +495,9 @@ impl PackageTag {
                 Some(v) => Ok(v),
                 None => {
                     if self.non_interactive {
-                        anyhow::bail!("No package name specified: use --version <package_version>")
+                        anyhow::bail!(
+                            "No package version specified: use --version <package_version>"
+                        )
                     } else {
                         let version = crate::utils::prompts::prompt_for_package_version(
                             "Enter the package version",
@@ -468,7 +515,7 @@ impl PackageTag {
     }
 
     async fn synthesize_id(
-        &self,
+        &mut self,
         client: &WasmerClient,
         manifest: Option<&Manifest>,
         manifest_path: Option<&Path>,
@@ -504,7 +551,7 @@ impl PackageTag {
     }
 
     pub async fn tag(
-        &self,
+        &mut self,
         client: &WasmerClient,
         manifest: Option<&Manifest>,
         manifest_path: Option<&Path>,
@@ -547,20 +594,25 @@ impl PackageTag {
             return Ok(false);
         }
 
-        if let Some(pkg) = wasmer_api::query::get_package_version(
-            client,
-            id.full_name.clone(),
-            id.version.to_string(),
-        )
-        .await?
-        {
-            if let Some(hash) = pkg.distribution_v3.pirita_sha256_hash {
-                let registry_package_hash = PackageHash::from_str(&format!("sha256:{hash}"))?;
-                if registry_package_hash == self.package_hash {
-                    return Ok(false);
-                }
+        let hash = if let Some(pkg) = self.maybe_user_package.as_ref() {
+            pkg.distribution_v3.pirita_sha256_hash.clone()
+        } else {
+            wasmer_api::query::get_package_version(
+                client,
+                id.full_name.clone(),
+                id.version.to_string(),
+            )
+            .await?
+            .and_then(|p| p.distribution_v3.pirita_sha256_hash)
+        };
+
+        if let Some(hash) = hash {
+            let registry_package_hash = PackageHash::from_str(&format!("sha256:{hash}"))?;
+            if registry_package_hash == self.package_hash {
+                return Ok(false);
             }
         }
+
         Ok(true)
     }
 }
@@ -569,10 +621,9 @@ impl PackageTag {
 impl AsyncCliCommand for PackageTag {
     type Output = ();
 
-    async fn run_async(self) -> Result<Self::Output, anyhow::Error> {
+    async fn run_async(mut self) -> Result<Self::Output, anyhow::Error> {
         tracing::info!("Checking if user is logged in");
-        let client =
-            login_user(&self.api, &self.env, !self.non_interactive, "tag a package").await?;
+        let client = login_user(&self.env, !self.non_interactive, "tag a package").await?;
 
         let (manifest_path, manifest) = match get_manifest(&self.package_path) {
             Ok((manifest_path, manifest)) => {

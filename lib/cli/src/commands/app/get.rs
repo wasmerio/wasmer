@@ -3,23 +3,19 @@
 use wasmer_api::types::DeployApp;
 
 use super::util::AppIdentOpts;
-use crate::{
-    commands::AsyncCliCommand,
-    opts::{ApiOpts, ItemFormatOpts},
-};
+
+use crate::{commands::AsyncCliCommand, config::WasmerEnv, opts::ItemFormatOpts};
 
 /// Retrieve detailed informations about an app
 #[derive(clap::Parser, Debug)]
 pub struct CmdAppGet {
     #[clap(flatten)]
-    #[allow(missing_docs)]
-    pub api: ApiOpts,
+    pub env: WasmerEnv,
+
     #[clap(flatten)]
-    #[allow(missing_docs)]
     pub fmt: ItemFormatOpts,
 
     #[clap(flatten)]
-    #[allow(missing_docs)]
     pub ident: AppIdentOpts,
 }
 
@@ -28,7 +24,7 @@ impl AsyncCliCommand for CmdAppGet {
     type Output = DeployApp;
 
     async fn run_async(self) -> Result<DeployApp, anyhow::Error> {
-        let client = self.api.client()?;
+        let client = self.env.client()?;
         let (_ident, app) = self.ident.load_app(&client).await?;
 
         println!("{}", self.fmt.format.render(&app));

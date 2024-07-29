@@ -1,6 +1,6 @@
 use crate::{
     commands::{app::util::AppIdentFlag, AsyncCliCommand},
-    opts::{ApiOpts, WasmerEnv},
+    config::WasmerEnv,
 };
 use colored::Colorize;
 use dialoguer::theme::ColorfulTheme;
@@ -14,10 +14,6 @@ use super::utils::{self, get_secrets};
 #[derive(clap::Parser, Debug)]
 pub struct CmdAppSecretsDelete {
     /* --- Common flags --- */
-    #[clap(flatten)]
-    #[allow(missing_docs)]
-    pub api: ApiOpts,
-
     #[clap(flatten)]
     pub env: WasmerEnv,
 
@@ -119,12 +115,16 @@ impl CmdAppSecretsDelete {
         }
     }
 
-    async fn delete_from_file(&self, path: &Path, app_id: String) -> anyhow::Result<()> {
+    async fn delete_from_file(
+        &self,
+        client: &WasmerClient,
+        path: &Path,
+        app_id: String,
+    ) -> anyhow::Result<()> {
         let secrets = super::utils::read_secrets_from_file(path).await?;
-        let client = self.api.client()?;
 
         for secret in secrets {
-            self.delete(&client, &app_id, &secret.name).await?;
+            self.delete(client, &app_id, &secret.name).await?;
         }
 
         Ok(())
@@ -136,7 +136,7 @@ impl AsyncCliCommand for CmdAppSecretsDelete {
     type Output = ();
 
     async fn run_async(self) -> Result<Self::Output, anyhow::Error> {
-        let client = self.api.client()?;
+        let client = self.env.client()?;
         let app_id = super::utils::get_app_id(
             &client,
             self.app_id.app.as_ref(),
@@ -146,7 +146,7 @@ impl AsyncCliCommand for CmdAppSecretsDelete {
         )
         .await?;
         if let Some(file) = &self.from_file {
-            self.delete_from_file(file, app_id).await
+            self.delete_from_file(&client, file, app_id).await
         } else if self.all {
             if self.non_interactive && !self.force {
                 anyhow::bail!("Refusing to delete all secrets in non-interactive mode without the `--force` flag.")

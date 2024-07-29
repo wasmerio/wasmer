@@ -27,6 +27,34 @@ pub async fn redeploy_app_by_id(
         ))
         .await
         .map(|v| v.redeploy_active_version.map(|v| v.app))
+} 
+
+/// Revoke an existing token
+pub async fn revoke_token(
+    client: &WasmerClient,
+    token: String,
+) -> Result<Option<bool>, anyhow::Error> {
+    client
+        .run_graphql_strict(types::RevokeToken::build(RevokeTokenVariables { token }))
+        .await
+        .map(|v| v.revoke_api_token.and_then(|v| v.success))
+}
+
+/// Generate a new Nonce
+///
+/// Takes a name and a callbackUrl and returns a nonce
+pub async fn create_nonce(
+    client: &WasmerClient,
+    name: String,
+    callback_url: String,
+) -> Result<Option<Nonce>, anyhow::Error> {
+    client
+        .run_graphql_strict(types::CreateNewNonce::build(CreateNewNonceVariables {
+            callback_url,
+            name,
+        }))
+        .await
+        .map(|v| v.new_nonce.map(|v| v.nonce))
 }
 
 pub async fn get_app_secret_value_by_id(

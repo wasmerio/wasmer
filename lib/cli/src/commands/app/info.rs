@@ -1,7 +1,7 @@
 //! Show short information about an Edge app.
 
 use super::util::AppIdentOpts;
-use crate::{commands::AsyncCliCommand, opts::ApiOpts};
+use crate::{commands::AsyncCliCommand, config::WasmerEnv};
 
 /// Show short information about an Edge app.
 ///
@@ -9,7 +9,7 @@ use crate::{commands::AsyncCliCommand, opts::ApiOpts};
 #[derive(clap::Parser, Debug)]
 pub struct CmdAppInfo {
     #[clap(flatten)]
-    api: ApiOpts,
+    env: WasmerEnv,
     #[clap(flatten)]
     ident: AppIdentOpts,
 }
@@ -19,7 +19,7 @@ impl AsyncCliCommand for CmdAppInfo {
     type Output = ();
 
     async fn run_async(self) -> Result<(), anyhow::Error> {
-        let client = self.api.client()?;
+        let client = self.env.client()?;
         let (_ident, app) = self.ident.load_app(&client).await?;
 
         let app_url = app.url;

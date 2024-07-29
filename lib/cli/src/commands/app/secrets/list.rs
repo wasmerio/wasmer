@@ -1,7 +1,8 @@
 use super::utils::{get_secrets, BackendSecretWrapper};
 use crate::{
     commands::{app::util::AppIdentFlag, AsyncCliCommand},
-    opts::{ApiOpts, ListFormatOpts, WasmerEnv},
+    config::WasmerEnv,
+    opts::ListFormatOpts,
 };
 use is_terminal::IsTerminal;
 use std::path::PathBuf;
@@ -10,10 +11,6 @@ use std::path::PathBuf;
 #[derive(clap::Parser, Debug)]
 pub struct CmdAppSecretsList {
     /* --- Common flags --- */
-    #[clap(flatten)]
-    #[allow(missing_docs)]
-    pub api: ApiOpts,
-
     #[clap(flatten)]
     pub env: WasmerEnv,
 
@@ -43,7 +40,7 @@ impl AsyncCliCommand for CmdAppSecretsList {
     type Output = ();
 
     async fn run_async(self) -> Result<Self::Output, anyhow::Error> {
-        let client = self.api.client()?;
+        let client = self.env.client()?;
         let app_id = super::utils::get_app_id(
             &client,
             self.app_id.app.as_ref(),
