@@ -31,7 +31,7 @@ pub mod ssh;
 mod validate;
 #[cfg(feature = "wast")]
 mod wast;
-mod whoami;
+use colored::Colorize;
 use std::env::args;
 use tokio::task::JoinHandle;
 
@@ -51,7 +51,7 @@ pub use {create_obj::*, gen_c_header::*};
 pub use self::journal::*;
 pub use self::{
     add::*, auth::*, cache::*, config::*, container::*, init::*, inspect::*, package::*,
-    publish::*, run::Run, self_update::*, validate::*, whoami::*,
+    publish::*, run::Run, self_update::*, validate::*,
 };
 use crate::error::PrettyError;
 
@@ -185,8 +185,12 @@ impl WasmerCmd {
             Some(Cmd::Config(config)) => config.execute(),
             Some(Cmd::Inspect(inspect)) => inspect.execute(),
             Some(Cmd::Init(init)) => init.execute(),
-            Some(Cmd::Login(login)) => login.run(),
-            Some(Cmd::Logout(logout)) => logout.run(),
+            Some(Cmd::Login(login)) => {
+                let bin_name = std::env::args().nth(0).unwrap();
+                eprintln!("{}: The `{bin_name} login` command is superseded by `{bin_name} auth login` and will be removed in later versions.", "WARN".yellow().bold());
+                login.run()
+            }
+            Some(Cmd::Auth(auth)) => auth.run(),
             Some(Cmd::Publish(publish)) => publish.run().map(|_| ()),
             Some(Cmd::Package(cmd)) => match cmd {
                 Package::Download(cmd) => cmd.execute(),
@@ -207,7 +211,12 @@ impl WasmerCmd {
             Some(Cmd::Wast(wast)) => wast.execute(),
             #[cfg(target_os = "linux")]
             Some(Cmd::Binfmt(binfmt)) => binfmt.execute(),
-            Some(Cmd::Whoami(whoami)) => whoami.run(),
+            Some(Cmd::Whoami(whoami)) => {
+                let bin_name = std::env::args().nth(0).unwrap();
+                eprintln!("{}: The `{bin_name} whoami` command is superseded by `{bin_name} auth whoami` and will be removed in later versions.", "WARN".yellow().bold());
+
+                whoami.run()
+            }
             Some(Cmd::Add(install)) => install.execute(),
 
             // Deploy commands.
@@ -290,8 +299,8 @@ enum Cmd {
     /// Login into a wasmer.io-like registry
     Login(Login),
 
-    /// Log out of the currently selected wasmer.io-like registry
-    Logout(Logout),
+    #[clap(subcommand)]
+    Auth(CmdAuth),
 
     /// Publish a package to a registry [alias: package publish]
     #[clap(name = "publish")]
