@@ -506,7 +506,7 @@ impl CmdAppCreate {
                 .registry_public_url()?
                 .host_str()
                 .unwrap_or("unknown_registry")
-                .replace(".", "_");
+                .replace('.', "_");
             let cache_dir = self.env.cache_dir().join("templates").join(registry);
 
             let languages = Self::fetch_template_languages_cached(client, &cache_dir).await?;
