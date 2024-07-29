@@ -4,13 +4,13 @@ use anyhow::Context;
 use wasmer_api::WasmerClient;
 
 use super::AsyncCliCommand;
-use crate::{edge_config::EdgeConfig, opts::ApiOpts};
+use crate::{config::WasmerEnv, edge_config::EdgeConfig};
 
 /// Start a remote SSH session.
 #[derive(clap::Parser, Debug)]
 pub struct CmdSsh {
     #[clap(flatten)]
-    api: ApiOpts,
+    env: WasmerEnv,
     /// SSH port to use.
     #[clap(long, default_value = "22")]
     pub ssh_port: u16,
@@ -39,7 +39,7 @@ impl AsyncCliCommand for CmdSsh {
 
     async fn run_async(self) -> Result<(), anyhow::Error> {
         let mut config = crate::edge_config::load_config(None)?;
-        let client = self.api.client()?;
+        let client = self.env.client()?;
 
         let (token, is_new) = acquire_ssh_token(&client, &config.config).await?;
 

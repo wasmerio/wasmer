@@ -2,15 +2,16 @@ use wasmer_api::types::{DeployAppVersionsSortBy, GetDeployAppVersionsVars};
 
 use crate::{
     commands::{app::util::AppIdentOpts, AsyncCliCommand},
-    opts::{ApiOpts, ListFormatOpts},
+    config::WasmerEnv,
+    opts::ListFormatOpts,
 };
 
 /// List versions of an app.
 #[derive(clap::Parser, Debug)]
 pub struct CmdAppVersionList {
     #[clap(flatten)]
-    #[allow(missing_docs)]
-    pub api: ApiOpts,
+    pub env: WasmerEnv,
+
     #[allow(missing_docs)]
     #[clap(flatten)]
     pub fmt: ListFormatOpts,
@@ -72,7 +73,7 @@ impl AsyncCliCommand for CmdAppVersionList {
     type Output = ();
 
     async fn run_async(self) -> Result<(), anyhow::Error> {
-        let client = self.api.client()?;
+        let client = self.env.client()?;
         let (_ident, app) = self.ident.load_app(&client).await?;
 
         let versions = if self.all {

@@ -7,7 +7,7 @@ use crate::{
         },
         AsyncCliCommand,
     },
-    opts::{ApiOpts, WasmerEnv},
+    config::WasmerEnv,
 };
 use colored::Colorize;
 use is_terminal::IsTerminal;
@@ -18,9 +18,6 @@ use wasmer_config::package::{Manifest, PackageIdent};
 /// Publish (push and tag) a package to the registry.
 #[derive(Debug, clap::Parser)]
 pub struct PackagePublish {
-    #[clap(flatten)]
-    pub api: ApiOpts,
-
     #[clap(flatten)]
     pub env: WasmerEnv,
 
@@ -91,7 +88,6 @@ impl PackagePublish {
     ) -> anyhow::Result<PackageIdent> {
         let (package_namespace, package_hash) = {
             let push_cmd = PackagePush {
-                api: self.api.clone(),
                 env: self.env.clone(),
                 dry_run: self.dry_run,
                 quiet: self.quiet,
@@ -107,7 +103,6 @@ impl PackagePublish {
 
         PackageTag {
             wait: self.wait,
-            api: self.api.clone(),
             env: self.env.clone(),
             dry_run: self.dry_run,
             quiet: self.quiet,
@@ -138,13 +133,7 @@ impl AsyncCliCommand for PackagePublish {
 
     async fn run_async(self) -> Result<Self::Output, anyhow::Error> {
         tracing::info!("Checking if user is logged in");
-        let client = login_user(
-            &self.api,
-            &self.env,
-            !self.non_interactive,
-            "publish a package",
-        )
-        .await?;
+        let client = login_user(&self.env, !self.non_interactive, "publish a package").await?;
 
         tracing::info!("Loading manifest");
         let (manifest_path, manifest) = get_manifest(&self.package_path)?;

@@ -1,7 +1,8 @@
 use super::utils;
 use crate::{
     commands::{app::util::AppIdentFlag, AsyncCliCommand},
-    opts::{ApiOpts, ListFormatOpts, WasmerEnv},
+    config::WasmerEnv,
+    opts::ListFormatOpts,
     utils::render::{ItemFormat, ListFormat},
 };
 use dialoguer::theme::ColorfulTheme;
@@ -12,10 +13,6 @@ use std::path::PathBuf;
 #[derive(clap::Parser, Debug)]
 pub struct CmdAppSecretsReveal {
     /* --- Common flags --- */
-    #[clap(flatten)]
-    #[allow(missing_docs)]
-    pub api: ApiOpts,
-
     #[clap(flatten)]
     pub env: WasmerEnv,
 
@@ -70,7 +67,7 @@ impl AsyncCliCommand for CmdAppSecretsReveal {
     type Output = ();
 
     async fn run_async(self) -> Result<Self::Output, anyhow::Error> {
-        let client = self.api.client()?;
+        let client = self.env.client()?;
         let app_id = super::utils::get_app_id(
             &client,
             self.app_id.app.as_ref(),

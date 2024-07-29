@@ -7,14 +7,11 @@ use tempfile::NamedTempFile;
 use wasmer_config::package::{PackageIdent, PackageSource};
 use wasmer_wasix::http::reqwest::get_proxy;
 
-use crate::opts::{ApiOpts, WasmerEnv};
+use crate::config::WasmerEnv;
 
 /// Download a package from the registry.
 #[derive(clap::Parser, Debug)]
 pub struct PackageDownload {
-    #[clap(flatten)]
-    pub api: ApiOpts,
-
     #[clap(flatten)]
     pub env: WasmerEnv,
 
@@ -97,11 +94,10 @@ impl PackageDownload {
 
         let (download_url, ident, filename) = match &self.package {
             PackageSource::Ident(PackageIdent::Named(id)) => {
-                let client = if self.api.token.is_some() {
-                    self.api.client()
-                } else {
-                    self.api.client_unauthennticated()
-                }?;
+                // caveat: client_unauthennticated will use a token if provided, it
+                // just won't fail if none is present. So, _unauthenticated() can actually
+                // produce an authenticated client.
+                let client = self.env.client_unauthennticated()?;
 
                 let version = id.version_or_default().to_string();
                 let version = if version == "*" {
@@ -145,11 +141,10 @@ impl PackageDownload {
                 (download_url, ident, filename)
             }
             PackageSource::Ident(PackageIdent::Hash(hash)) => {
-                let client = if self.api.token.is_some() {
-                    self.api.client()
-                } else {
-                    self.api.client_unauthennticated()
-                }?;
+                // caveat: client_unauthennticated will use a token if provided, it
+                // just won't fail if none is present. So, _unauthenticated() can actually
+                // produce an authenticated client.
+                let client = self.env.client_unauthennticated()?;
 
                 let rt = tokio::runtime::Runtime::new()?;
                 let pkg = rt.block_on(wasmer_api::query::get_package_release(&client, &hash.to_string()))?
@@ -284,8 +279,9 @@ impl PackageDownload {
 
 #[cfg(test)]
 mod tests {
+    use crate::config::UserRegistry;
+
     use super::*;
-    use std::str::FromStr;
 
     /// Download a package from the dev registry.
     #[test]
@@ -295,11 +291,12 @@ mod tests {
         let out_path = dir.path().join("hello.webc");
 
         let cmd = PackageDownload {
-            env: WasmerEnv::default(),
-            api: ApiOpts {
-                token: None,
-                registry: Some(url::Url::from_str("https://registry.wasmer.io/graphql").unwrap()),
-            },
+            env: WasmerEnv::new(
+                crate::config::DEFAULT_WASMER_CACHE_DIR.clone(),
+                crate::config::DEFAULT_WASMER_CACHE_DIR.clone(),
+                None,
+                Some("https://registry.wasmer.io/graphql".to_owned().into()),
+            ),
             validate: true,
             out_path: Some(out_path.clone()),
             package: "wasmer/hello@0.1.0".parse().unwrap(),

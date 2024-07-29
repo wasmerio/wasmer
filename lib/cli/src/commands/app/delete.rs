@@ -4,13 +4,13 @@ use dialoguer::Confirm;
 use is_terminal::IsTerminal;
 
 use super::util::AppIdentOpts;
-use crate::{commands::AsyncCliCommand, opts::ApiOpts};
+use crate::{commands::AsyncCliCommand, config::WasmerEnv};
 
 /// Delete an existing Edge app
 #[derive(clap::Parser, Debug)]
 pub struct CmdAppDelete {
     #[clap(flatten)]
-    api: ApiOpts,
+    env: WasmerEnv,
 
     #[clap(long, default_value_t = !std::io::stdin().is_terminal())]
     non_interactive: bool,
@@ -25,7 +25,7 @@ impl AsyncCliCommand for CmdAppDelete {
 
     async fn run_async(self) -> Result<(), anyhow::Error> {
         let interactive = !self.non_interactive;
-        let client = self.api.client()?;
+        let client = self.env.client()?;
 
         eprintln!("Looking up the app...");
         let (_ident, app) = self.ident.load_app(&client).await?;
