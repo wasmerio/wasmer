@@ -169,6 +169,7 @@ impl CmdAppDeploy {
         client: &WasmerClient,
         app: &serde_yaml::Value,
         app_config_path: &PathBuf,
+        maybe_edge_app: Option<&DeployApp>,
     ) -> anyhow::Result<(String, String)> {
         let r_ret = serde_yaml::to_string(&app)?;
 
@@ -180,16 +181,10 @@ impl CmdAppDeploy {
             return Ok((owner.clone(), r_ret));
         }
 
-        if let Some(app_id) = app.get("app_id") {
-            if let Some(app_id) = app_id.as_str() {
-                // Try to get the owner from the app_id.
-                //
-                // In this case, don't edit the app config.
-                if let Ok(app) = wasmer_api::query::get_app_by_id(client, app_id.to_owned()).await {
-                    return Ok((app.owner.global_name, r_ret));
-                }
-            }
-        }
+        if let Some(edge_app) = maybe_edge_app {
+            let new_raw_config = format!("{r_ret}\nowner: {}\n", edge_app.owner.global_name);
+            return Ok((edge_app.owner.global_name.clone(), new_raw_config));
+        };
 
         if self.non_interactive {
             // if not interactive we can't prompt the user to choose the owner of the app.
@@ -203,7 +198,7 @@ impl CmdAppDeploy {
             Some(&user),
         )?;
 
-        let new_raw_config = format!("owner: {owner}\n{r_ret}");
+        let new_raw_config = format!("{r_ret}\nowner: {owner}\n");
 
         std::fs::write(app_config_path, &new_raw_config)
             .with_context(|| format!("Could not write file: '{}'", app_config_path.display()))?;
@@ -283,13 +278,32 @@ impl AsyncCliCommand for CmdAppDeploy {
 
         // We want to allow the user to specify the app name interactively.
         let app_yaml: serde_yaml::Value = serde_yaml::from_str(&config_str)?;
-        let (owner, mut config_str) = self.get_owner(&client, &app_yaml, &app_config_path).await?;
+        let maybe_edge_app = if let Some(app_id) = app_yaml.get("app_id").and_then(|s| s.as_str()) {
+            wasmer_api::query::get_app_by_id(&client, app_id.to_owned())
+                .await
+                .ok()
+        } else {
+            None
+        };
+
+        let (owner, mut config_str) = self
+            .get_owner(
+                &client,
+                &app_yaml,
+                &app_config_path,
+                maybe_edge_app.as_ref(),
+            )
+            .await?;
 
         // We want to allow the user to specify the app name interactively.
         let app_yaml: serde_yaml::Value = serde_yaml::from_str(&config_str)?;
 
         if app_yaml.get("name").is_none() && self.app_name.is_some() {
-            config_str = format!("{}\nname: {}", config_str, self.app_name.as_ref().unwrap());
+            config_str = format!("{config_str}name: {}", self.app_name.as_ref().unwrap());
+        } else if app_yaml.get("name").is_none() && maybe_edge_app.is_some() {
+            let edge_app = maybe_edge_app.as_ref().unwrap();
+            config_str = format!("{config_str}name: {}", edge_app.name);
+            println!("config_str: {config_str}");
         } else if app_yaml.get("name").is_none() {
             if !self.non_interactive {
                 let default_name = std::env::current_dir().ok().and_then(|dir| {
@@ -330,6 +344,9 @@ impl AsyncCliCommand for CmdAppDeploy {
         }
 
         let original_app_config: AppConfigV1 = AppConfigV1::parse_yaml(&config_str)?;
+        std::fs::write(&app_config_path, config_str)
+            .with_context(|| format!("Could not write file: '{}'", app_config_path.display()))?;
+
         let mut app_config = original_app_config.clone();
 
         app_config.owner = Some(owner.clone());
