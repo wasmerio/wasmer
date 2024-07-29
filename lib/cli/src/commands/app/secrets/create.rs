@@ -162,7 +162,7 @@ impl CmdAppSecretsCreate {
                 }
 
                 let should_redeploy = self.redeploy || {
-                    if !self.non_interactive && secrets.len() > 1 {
+                    if !self.non_interactive && self.from_file.is_some() {
                         let theme = ColorfulTheme::default();
                         dialoguer::Confirm::with_theme(&theme)
                             .with_prompt("Do you want to redeploy your app?")
