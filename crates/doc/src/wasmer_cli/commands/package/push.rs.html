@@ -258,19 +258,10 @@
 <a href="#258" id="258">258</a>
 <a href="#259" id="259">259</a>
 <a href="#260" id="260">260</a>
-<a href="#261" id="261">261</a>
-<a href="#262" id="262">262</a>
-<a href="#263" id="263">263</a>
-<a href="#264" id="264">264</a>
-<a href="#265" id="265">265</a>
-<a href="#266" id="266">266</a>
-<a href="#267" id="267">267</a>
-<a href="#268" id="268">268</a>
-<a href="#269" id="269">269</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">super</span>::common::{macros::<span class="kw-2">*</span>, <span class="kw-2">*</span>};
 <span class="kw">use crate</span>::{
     commands::{AsyncCliCommand, PackageBuild},
-    opts::{ApiOpts, WasmerEnv},
+    config::WasmerEnv,
 };
 <span class="kw">use </span>anyhow::Context;
 <span class="kw">use </span>colored::Colorize;
@@ -286,9 +277,6 @@
 /// pushed package.
 </span><span class="attr">#[derive(Debug, clap::Parser)]
 </span><span class="kw">pub struct </span>PackagePush {
-    <span class="attr">#[clap(flatten)]
-    </span><span class="kw">pub </span>api: ApiOpts,
-
     <span class="attr">#[clap(flatten)]
     </span><span class="kw">pub </span>env: WasmerEnv,
 
@@ -492,13 +480,7 @@
 
     <span class="kw">async fn </span>run_async(<span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>::Output, anyhow::Error&gt; {
         <span class="macro">tracing::info!</span>(<span class="string">&quot;Checking if user is logged in&quot;</span>);
-        <span class="kw">let </span>client = login_user(
-            <span class="kw-2">&amp;</span><span class="self">self</span>.api,
-            <span class="kw-2">&amp;</span><span class="self">self</span>.env,
-            !<span class="self">self</span>.non_interactive,
-            <span class="string">&quot;push a package&quot;</span>,
-        )
-        .<span class="kw">await</span><span class="question-mark">?</span>;
+        <span class="kw">let </span>client = login_user(<span class="kw-2">&amp;</span><span class="self">self</span>.env, !<span class="self">self</span>.non_interactive, <span class="string">&quot;push a package&quot;</span>).<span class="kw">await</span><span class="question-mark">?</span>;
 
         <span class="macro">tracing::info!</span>(<span class="string">&quot;Loading manifest&quot;</span>);
         <span class="kw">let </span>(manifest_path, manifest) = get_manifest(<span class="kw-2">&amp;</span><span class="self">self</span>.package_path)<span class="question-mark">?</span>;

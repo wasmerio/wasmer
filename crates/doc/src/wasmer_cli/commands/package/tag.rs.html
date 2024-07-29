@@ -605,12 +605,63 @@
 <a href="#605" id="605">605</a>
 <a href="#606" id="606">606</a>
 <a href="#607" id="607">607</a>
+<a href="#608" id="608">608</a>
+<a href="#609" id="609">609</a>
+<a href="#610" id="610">610</a>
+<a href="#611" id="611">611</a>
+<a href="#612" id="612">612</a>
+<a href="#613" id="613">613</a>
+<a href="#614" id="614">614</a>
+<a href="#615" id="615">615</a>
+<a href="#616" id="616">616</a>
+<a href="#617" id="617">617</a>
+<a href="#618" id="618">618</a>
+<a href="#619" id="619">619</a>
+<a href="#620" id="620">620</a>
+<a href="#621" id="621">621</a>
+<a href="#622" id="622">622</a>
+<a href="#623" id="623">623</a>
+<a href="#624" id="624">624</a>
+<a href="#625" id="625">625</a>
+<a href="#626" id="626">626</a>
+<a href="#627" id="627">627</a>
+<a href="#628" id="628">628</a>
+<a href="#629" id="629">629</a>
+<a href="#630" id="630">630</a>
+<a href="#631" id="631">631</a>
+<a href="#632" id="632">632</a>
+<a href="#633" id="633">633</a>
+<a href="#634" id="634">634</a>
+<a href="#635" id="635">635</a>
+<a href="#636" id="636">636</a>
+<a href="#637" id="637">637</a>
+<a href="#638" id="638">638</a>
+<a href="#639" id="639">639</a>
+<a href="#640" id="640">640</a>
+<a href="#641" id="641">641</a>
+<a href="#642" id="642">642</a>
+<a href="#643" id="643">643</a>
+<a href="#644" id="644">644</a>
+<a href="#645" id="645">645</a>
+<a href="#646" id="646">646</a>
+<a href="#647" id="647">647</a>
+<a href="#648" id="648">648</a>
+<a href="#649" id="649">649</a>
+<a href="#650" id="650">650</a>
+<a href="#651" id="651">651</a>
+<a href="#652" id="652">652</a>
+<a href="#653" id="653">653</a>
+<a href="#654" id="654">654</a>
+<a href="#655" id="655">655</a>
+<a href="#656" id="656">656</a>
+<a href="#657" id="657">657</a>
+<a href="#658" id="658">658</a>
 </pre></div><pre class="rust"><code><span class="kw">use crate</span>::{
     commands::{
         package::common::{macros::<span class="kw-2">*</span>, wait::wait_package, <span class="kw-2">*</span>},
         AsyncCliCommand,
     },
-    opts::{ApiOpts, WasmerEnv},
+    config::WasmerEnv,
 };
 <span class="kw">use </span>anyhow::Context;
 <span class="kw">use </span>colored::Colorize;
@@ -620,7 +671,7 @@
     path::{Path, PathBuf},
     str::FromStr,
 };
-<span class="kw">use </span>wasmer_api::WasmerClient;
+<span class="kw">use </span>wasmer_api::{types::PackageVersionWithPackage, WasmerClient};
 <span class="kw">use </span>wasmer_config::package::{
     Manifest, NamedPackageId, NamedPackageIdent, PackageBuilder, PackageHash, PackageIdent,
 };
@@ -630,9 +681,6 @@
 <span class="doccomment">/// Tag an existing package.
 </span><span class="attr">#[derive(Debug, clap::Parser)]
 </span><span class="kw">pub struct </span>PackageTag {
-    <span class="attr">#[clap(flatten)]
-    </span><span class="kw">pub </span>api: ApiOpts,
-
     <span class="attr">#[clap(flatten)]
     </span><span class="kw">pub </span>env: WasmerEnv,
 
@@ -695,6 +743,10 @@
             value_enum
         )]
     </span><span class="kw">pub </span>wait: PublishWait,
+
+    <span class="attr">#[clap(skip)]
+    </span><span class="doccomment">/// The package related to the NamedPackageId the user chose to tag.
+    </span><span class="kw">pub</span>(<span class="kw">crate</span>) maybe_user_package: <span class="prelude-ty">Option</span>&lt;PackageVersionWithPackage&gt;,
 }
 
 <span class="kw">impl </span>PackageTag {
@@ -980,7 +1032,7 @@
     }
 
     <span class="kw">async fn </span>get_version(
-        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
         client: <span class="kw-2">&amp;</span>WasmerClient,
         manifest: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>Manifest&gt;,
         manifest_path: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>Path&gt;,
@@ -1032,6 +1084,28 @@
                 registry_version.clone()
             };
 
+            <span class="comment">// Must necessarily bump if there&#39;s a package with the chosen version with a different hash.
+            </span><span class="kw">let </span>must_bump = {
+                <span class="kw">let </span>maybe_pkg = wasmer_api::query::get_package_version(
+                    client,
+                    full_pkg_name.to_string(),
+                    user_version.to_string(),
+                )
+                .<span class="kw">await</span><span class="question-mark">?</span>;
+                <span class="kw">let </span>maybe_hash = maybe_pkg
+                    .as_ref()
+                    .and_then(|p| p.distribution_v3.pirita_sha256_hash.clone());
+
+                <span class="self">self</span>.maybe_user_package = maybe_pkg;
+
+                <span class="kw">if let </span><span class="prelude-val">Some</span>(hash) = maybe_hash {
+                    <span class="kw">let </span>registry_package_hash = PackageHash::from_str(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;sha256:{hash}&quot;</span>))<span class="question-mark">?</span>;
+                    registry_package_hash != <span class="self">self</span>.package_hash
+                } <span class="kw">else </span>{
+                    <span class="bool-val">false
+                </span>}
+            };
+
             <span class="kw">if </span>user_version &lt;= registry_version {
                 <span class="kw">if </span><span class="self">self</span>.bump {
                     user_version = registry_version.clone();
@@ -1040,12 +1114,34 @@
                     <span class="kw">let </span>theme = ColorfulTheme::default();
                     <span class="kw">let </span><span class="kw-2">mut </span>new_version = registry_version.clone();
                     new_version.patch += <span class="number">1</span>;
-                    <span class="kw">if </span>Confirm::with_theme(<span class="kw-2">&amp;</span>theme)
-                        .with_prompt(<span class="macro">format!</span>(<span class="string">&quot;Do you want to bump the package&#39;s version ({user_version} -&gt; {new_version})?&quot;</span>))
-                            .interact()<span class="question-mark">? </span>{
+                    <span class="kw">if </span>must_bump {
+                        <span class="macro">eprintln!</span>(<span class="string">&quot;{}: Registry already has version {user_version} of {full_pkg_name}, but with different contents.&quot;</span>, <span class="string">&quot;Warn&quot;</span>.bold().yellow());
+                        <span class="macro">eprintln!</span>(
+                            <span class="string">&quot;{}: Not bumping the version will make this action fail.&quot;</span>,
+                            <span class="string">&quot;Warn&quot;</span>.bold().yellow()
+                        );
+                        <span class="kw">let </span>res = Confirm::with_theme(<span class="kw-2">&amp;</span>theme)
+                            .with_prompt(<span class="macro">format!</span>(<span class="string">&quot;Continue ({user_version} -&gt; {new_version})?&quot;</span>))
+                            .interact()<span class="question-mark">?</span>;
+                        <span class="kw">if </span>res {
                             user_version = new_version.clone();
-                            <span class="self">self</span>.update_manifest_version(manifest_path, manifest, <span class="kw-2">&amp;</span>user_version).<span class="kw">await</span><span class="question-mark">?</span>;
-                       }
+                            <span class="self">self</span>.update_manifest_version(manifest_path, manifest, <span class="kw-2">&amp;</span>user_version)
+                                .<span class="kw">await</span><span class="question-mark">?</span>;
+                        } <span class="kw">else </span>{
+                            <span class="macro">anyhow::bail!</span>(
+                                <span class="string">&quot;Refusing to map two different releases of {full_pkg_name} to the same version.&quot;
+                            </span>)
+                        }
+                    } <span class="kw">else </span>{
+                        <span class="kw">let </span>res = Confirm::with_theme(<span class="kw-2">&amp;</span>theme)
+                        .with_prompt(<span class="macro">format!</span>(<span class="string">&quot;Do you want to bump the package&#39;s version ({user_version} -&gt; {new_version})?&quot;</span>))
+                            .interact()<span class="question-mark">?</span>;
+                        <span class="kw">if </span>res {
+                            user_version = new_version.clone();
+                            <span class="self">self</span>.update_manifest_version(manifest_path, manifest, <span class="kw-2">&amp;</span>user_version)
+                                .<span class="kw">await</span><span class="question-mark">?</span>;
+                        }
+                    }
                 }
             }
 
@@ -1057,7 +1153,9 @@
                 <span class="prelude-val">Some</span>(v) =&gt; <span class="prelude-val">Ok</span>(v),
                 <span class="prelude-val">None </span>=&gt; {
                     <span class="kw">if </span><span class="self">self</span>.non_interactive {
-                        <span class="macro">anyhow::bail!</span>(<span class="string">&quot;No package name specified: use --version &lt;package_version&gt;&quot;</span>)
+                        <span class="macro">anyhow::bail!</span>(
+                            <span class="string">&quot;No package version specified: use --version &lt;package_version&gt;&quot;
+                        </span>)
                     } <span class="kw">else </span>{
                         <span class="kw">let </span>version = <span class="kw">crate</span>::utils::prompts::prompt_for_package_version(
                             <span class="string">&quot;Enter the package version&quot;</span>,
@@ -1075,7 +1173,7 @@
     }
 
     <span class="kw">async fn </span>synthesize_id(
-        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
         client: <span class="kw-2">&amp;</span>WasmerClient,
         manifest: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>Manifest&gt;,
         manifest_path: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>Path&gt;,
@@ -1111,7 +1209,7 @@
     }
 
     <span class="kw">pub async fn </span>tag(
-        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
         client: <span class="kw-2">&amp;</span>WasmerClient,
         manifest: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>Manifest&gt;,
         manifest_path: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>Path&gt;,
@@ -1154,20 +1252,25 @@
             <span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="bool-val">false</span>);
         }
 
-        <span class="kw">if let </span><span class="prelude-val">Some</span>(pkg) = wasmer_api::query::get_package_version(
-            client,
-            id.full_name.clone(),
-            id.version.to_string(),
-        )
-        .<span class="kw">await</span><span class="question-mark">?
-        </span>{
-            <span class="kw">if let </span><span class="prelude-val">Some</span>(hash) = pkg.distribution_v3.pirita_sha256_hash {
-                <span class="kw">let </span>registry_package_hash = PackageHash::from_str(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;sha256:{hash}&quot;</span>))<span class="question-mark">?</span>;
-                <span class="kw">if </span>registry_package_hash == <span class="self">self</span>.package_hash {
-                    <span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="bool-val">false</span>);
-                }
+        <span class="kw">let </span>hash = <span class="kw">if let </span><span class="prelude-val">Some</span>(pkg) = <span class="self">self</span>.maybe_user_package.as_ref() {
+            pkg.distribution_v3.pirita_sha256_hash.clone()
+        } <span class="kw">else </span>{
+            wasmer_api::query::get_package_version(
+                client,
+                id.full_name.clone(),
+                id.version.to_string(),
+            )
+            .<span class="kw">await</span><span class="question-mark">?
+            </span>.and_then(|p| p.distribution_v3.pirita_sha256_hash)
+        };
+
+        <span class="kw">if let </span><span class="prelude-val">Some</span>(hash) = hash {
+            <span class="kw">let </span>registry_package_hash = PackageHash::from_str(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">&quot;sha256:{hash}&quot;</span>))<span class="question-mark">?</span>;
+            <span class="kw">if </span>registry_package_hash == <span class="self">self</span>.package_hash {
+                <span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="bool-val">false</span>);
             }
         }
+
         <span class="prelude-val">Ok</span>(<span class="bool-val">true</span>)
     }
 }
@@ -1176,10 +1279,9 @@
 </span><span class="kw">impl </span>AsyncCliCommand <span class="kw">for </span>PackageTag {
     <span class="kw">type </span>Output = ();
 
-    <span class="kw">async fn </span>run_async(<span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>::Output, anyhow::Error&gt; {
+    <span class="kw">async fn </span>run_async(<span class="kw-2">mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>::Output, anyhow::Error&gt; {
         <span class="macro">tracing::info!</span>(<span class="string">&quot;Checking if user is logged in&quot;</span>);
-        <span class="kw">let </span>client =
-            login_user(<span class="kw-2">&amp;</span><span class="self">self</span>.api, <span class="kw-2">&amp;</span><span class="self">self</span>.env, !<span class="self">self</span>.non_interactive, <span class="string">&quot;tag a package&quot;</span>).<span class="kw">await</span><span class="question-mark">?</span>;
+        <span class="kw">let </span>client = login_user(<span class="kw-2">&amp;</span><span class="self">self</span>.env, !<span class="self">self</span>.non_interactive, <span class="string">&quot;tag a package&quot;</span>).<span class="kw">await</span><span class="question-mark">?</span>;
 
         <span class="kw">let </span>(manifest_path, manifest) = <span class="kw">match </span>get_manifest(<span class="kw-2">&amp;</span><span class="self">self</span>.package_path) {
             <span class="prelude-val">Ok</span>((manifest_path, manifest)) =&gt; {

@@ -50,17 +50,17 @@
 
 <span class="kw">use crate</span>::{
     commands::{app::util::AppIdentOpts, AsyncCliCommand},
-    opts::{ApiOpts, ItemFormatOpts},
+    config::WasmerEnv,
+    opts::ItemFormatOpts,
 };
 
 <span class="doccomment">/// Show information for a specific app version.
 </span><span class="attr">#[derive(clap::Parser, Debug)]
 </span><span class="kw">pub struct </span>CmdAppVersionGet {
     <span class="attr">#[clap(flatten)]
-    #[allow(missing_docs)]
-    </span><span class="kw">pub </span>api: ApiOpts,
+    </span><span class="kw">pub </span>env: WasmerEnv,
+
     <span class="attr">#[clap(flatten)]
-    #[allow(missing_docs)]
     </span><span class="kw">pub </span>fmt: ItemFormatOpts,
 
     <span class="doccomment">/// *Name* of the version - NOT the unique version id!
@@ -77,7 +77,7 @@
     <span class="kw">type </span>Output = ();
 
     <span class="kw">async fn </span>run_async(<span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;(), anyhow::Error&gt; {
-        <span class="kw">let </span>client = <span class="self">self</span>.api.client()<span class="question-mark">?</span>;
+        <span class="kw">let </span>client = <span class="self">self</span>.env.client()<span class="question-mark">?</span>;
         <span class="kw">let </span>(_ident, app) = <span class="self">self</span>.ident.load_app(<span class="kw-2">&amp;</span>client).<span class="kw">await</span><span class="question-mark">?</span>;
 
         <span class="kw">let </span>version = wasmer_api::query::get_app_version(

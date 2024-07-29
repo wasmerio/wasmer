@@ -234,14 +234,9 @@
 <a href="#234" id="234">234</a>
 <a href="#235" id="235">235</a>
 <a href="#236" id="236">236</a>
-<a href="#237" id="237">237</a>
-<a href="#238" id="238">238</a>
-<a href="#239" id="239">239</a>
-<a href="#240" id="240">240</a>
-<a href="#241" id="241">241</a>
 </pre></div><pre class="rust"><code><span class="kw">use crate</span>::{
-    commands::Login,
-    opts::{ApiOpts, WasmerEnv},
+    commands::{AsyncCliCommand, Login},
+    config::WasmerEnv,
     utils::load_package_manifest,
 };
 <span class="kw">use </span>colored::Colorize;
@@ -416,18 +411,17 @@
 }
 
 <span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">async fn </span>login_user(
-    api: <span class="kw-2">&amp;</span>ApiOpts,
     env: <span class="kw-2">&amp;</span>WasmerEnv,
     interactive: bool,
     msg: <span class="kw-2">&amp;</span>str,
 ) -&gt; anyhow::Result&lt;WasmerClient&gt; {
-    <span class="kw">if let </span><span class="prelude-val">Ok</span>(client) = api.client() {
+    <span class="kw">if let </span><span class="prelude-val">Ok</span>(client) = env.client() {
         <span class="kw">return </span><span class="prelude-val">Ok</span>(client);
     }
 
     <span class="kw">let </span>theme = dialoguer::theme::ColorfulTheme::default();
 
-    <span class="kw">if </span>api.token.is_none() {
+    <span class="kw">if </span>env.token().is_none() {
         <span class="kw">if </span>interactive {
             <span class="macro">eprintln!</span>(
                 <span class="string">&quot;{}: You need to be logged in to {msg}.&quot;</span>,
@@ -440,18 +434,14 @@
             </span>{
                 Login {
                     no_browser: <span class="bool-val">false</span>,
-                    wasmer_dir: env.wasmer_dir.clone(),
-                    registry: api
-                        .registry
-                        .clone()
-                        .map(|l| wasmer_registry::wasmer_env::Registry::from(l.to_string())),
-                    token: api.token.clone(),
-                    cache_dir: <span class="prelude-val">Some</span>(env.cache_dir.clone()),
+                    wasmer_dir: env.dir().to_path_buf(),
+                    cache_dir: env.cache_dir().to_path_buf(),
+                    token: <span class="prelude-val">None</span>,
+                    registry: env.registry.clone(),
                 }
                 .run_async()
                 .<span class="kw">await</span><span class="question-mark">?</span>;
-                <span class="comment">// self.api = ApiOpts::default();
-            </span>} <span class="kw">else </span>{
+            } <span class="kw">else </span>{
                 <span class="macro">anyhow::bail!</span>(<span class="string">&quot;Stopping the flow as the user is not logged in.&quot;</span>)
             }
         } <span class="kw">else </span>{
@@ -461,7 +451,7 @@
         }
     }
 
-    api.client()
+    env.client()
 }
 
 <span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">fn </span>make_package_url(client: <span class="kw-2">&amp;</span>WasmerClient, pkg: <span class="kw-2">&amp;</span>NamedPackageIdent) -&gt; String {

@@ -66,13 +66,13 @@
 <span class="kw">use </span>is_terminal::IsTerminal;
 
 <span class="kw">use </span><span class="kw">super</span>::util::AppIdentOpts;
-<span class="kw">use crate</span>::{commands::AsyncCliCommand, opts::ApiOpts};
+<span class="kw">use crate</span>::{commands::AsyncCliCommand, config::WasmerEnv};
 
 <span class="doccomment">/// Delete an existing Edge app
 </span><span class="attr">#[derive(clap::Parser, Debug)]
 </span><span class="kw">pub struct </span>CmdAppDelete {
     <span class="attr">#[clap(flatten)]
-    </span>api: ApiOpts,
+    </span>env: WasmerEnv,
 
     <span class="attr">#[clap(long, default_value_t = !std::io::stdin().is_terminal())]
     </span>non_interactive: bool,
@@ -87,7 +87,7 @@
 
     <span class="kw">async fn </span>run_async(<span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;(), anyhow::Error&gt; {
         <span class="kw">let </span>interactive = !<span class="self">self</span>.non_interactive;
-        <span class="kw">let </span>client = <span class="self">self</span>.api.client()<span class="question-mark">?</span>;
+        <span class="kw">let </span>client = <span class="self">self</span>.env.client()<span class="question-mark">?</span>;
 
         <span class="macro">eprintln!</span>(<span class="string">&quot;Looking up the app...&quot;</span>);
         <span class="kw">let </span>(_ident, app) = <span class="self">self</span>.ident.load_app(<span class="kw-2">&amp;</span>client).<span class="kw">await</span><span class="question-mark">?</span>;

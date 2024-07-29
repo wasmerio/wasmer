@@ -492,9 +492,14 @@
 <a href="#492" id="492">492</a>
 <a href="#493" id="493">493</a>
 <a href="#494" id="494">494</a>
+<a href="#495" id="495">495</a>
+<a href="#496" id="496">496</a>
+<a href="#497" id="497">497</a>
+<a href="#498" id="498">498</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! The commands available in the Wasmer binary.
 </span><span class="kw">mod </span>add;
 <span class="kw">mod </span>app;
+<span class="kw">mod </span>auth;
 <span class="attr">#[cfg(target_os = <span class="string">&quot;linux&quot;</span>)]
 </span><span class="kw">mod </span>binfmt;
 <span class="kw">mod </span>cache;
@@ -516,7 +521,6 @@
 <span class="kw">mod </span>inspect;
 <span class="attr">#[cfg(feature = <span class="string">&quot;journal&quot;</span>)]
 </span><span class="kw">mod </span>journal;
-<span class="kw">mod </span>login;
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">mod </span>namespace;
 <span class="kw">mod </span>package;
 <span class="kw">mod </span>run;
@@ -544,7 +548,7 @@
 <span class="attr">#[cfg(feature = <span class="string">&quot;journal&quot;</span>)]
 </span><span class="kw">pub use </span><span class="self">self</span>::journal::<span class="kw-2">*</span>;
 <span class="kw">pub use </span><span class="self">self</span>::{
-    add::<span class="kw-2">*</span>, cache::<span class="kw-2">*</span>, config::<span class="kw-2">*</span>, container::<span class="kw-2">*</span>, init::<span class="kw-2">*</span>, inspect::<span class="kw-2">*</span>, login::<span class="kw-2">*</span>, package::<span class="kw-2">*</span>,
+    add::<span class="kw-2">*</span>, auth::<span class="kw-2">*</span>, cache::<span class="kw-2">*</span>, config::<span class="kw-2">*</span>, container::<span class="kw-2">*</span>, init::<span class="kw-2">*</span>, inspect::<span class="kw-2">*</span>, package::<span class="kw-2">*</span>,
     publish::<span class="kw-2">*</span>, run::Run, self_update::<span class="kw-2">*</span>, validate::<span class="kw-2">*</span>, whoami::<span class="kw-2">*</span>,
 };
 <span class="kw">use </span><span class="kw">crate</span>::error::PrettyError;
@@ -679,7 +683,8 @@
             <span class="prelude-val">Some</span>(Cmd::Config(config)) =&gt; config.execute(),
             <span class="prelude-val">Some</span>(Cmd::Inspect(inspect)) =&gt; inspect.execute(),
             <span class="prelude-val">Some</span>(Cmd::Init(init)) =&gt; init.execute(),
-            <span class="prelude-val">Some</span>(Cmd::Login(login)) =&gt; login.execute(),
+            <span class="prelude-val">Some</span>(Cmd::Login(login)) =&gt; login.run(),
+            <span class="prelude-val">Some</span>(Cmd::Logout(logout)) =&gt; logout.run(),
             <span class="prelude-val">Some</span>(Cmd::Publish(publish)) =&gt; publish.run().map(|<span class="kw">_</span>| ()),
             <span class="prelude-val">Some</span>(Cmd::Package(cmd)) =&gt; <span class="kw">match </span>cmd {
                 Package::Download(cmd) =&gt; cmd.execute(),
@@ -700,7 +705,7 @@
             </span><span class="prelude-val">Some</span>(Cmd::Wast(wast)) =&gt; wast.execute(),
             <span class="attr">#[cfg(target_os = <span class="string">&quot;linux&quot;</span>)]
             </span><span class="prelude-val">Some</span>(Cmd::Binfmt(binfmt)) =&gt; binfmt.execute(),
-            <span class="prelude-val">Some</span>(Cmd::Whoami(whoami)) =&gt; whoami.execute(),
+            <span class="prelude-val">Some</span>(Cmd::Whoami(whoami)) =&gt; whoami.run(),
             <span class="prelude-val">Some</span>(Cmd::Add(install)) =&gt; install.execute(),
 
             <span class="comment">// Deploy commands.
@@ -782,6 +787,9 @@
 </span><span class="kw">enum </span>Cmd {
     <span class="doccomment">/// Login into a wasmer.io-like registry
     </span>Login(Login),
+
+    <span class="doccomment">/// Log out of the currently selected wasmer.io-like registry
+    </span>Logout(Logout),
 
     <span class="doccomment">/// Publish a package to a registry [alias: package publish]
     </span><span class="attr">#[clap(name = <span class="string">&quot;publish&quot;</span>)]

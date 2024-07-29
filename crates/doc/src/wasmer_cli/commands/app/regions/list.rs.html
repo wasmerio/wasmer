@@ -33,17 +33,7 @@
 <a href="#33" id="33">33</a>
 <a href="#34" id="34">34</a>
 <a href="#35" id="35">35</a>
-<a href="#36" id="36">36</a>
-<a href="#37" id="37">37</a>
-<a href="#38" id="38">38</a>
-<a href="#39" id="39">39</a>
-<a href="#40" id="40">40</a>
-<a href="#41" id="41">41</a>
-<a href="#42" id="42">42</a>
-</pre></div><pre class="rust"><code><span class="kw">use crate</span>::{
-    commands::AsyncCliCommand,
-    opts::{ApiOpts, ListFormatOpts, WasmerEnv},
-};
+</pre></div><pre class="rust"><code><span class="kw">use crate</span>::{commands::AsyncCliCommand, config::WasmerEnv, opts::ListFormatOpts};
 <span class="kw">use </span>is_terminal::IsTerminal;
 
 <span class="doccomment">/// List available Edge regions.
@@ -51,10 +41,6 @@
 </span><span class="kw">pub struct </span>CmdAppRegionsList {
     <span class="comment">/* --- Common flags --- */
     </span><span class="attr">#[clap(flatten)]
-    #[allow(missing_docs)]
-    </span><span class="kw">pub </span>api: ApiOpts,
-
-    <span class="attr">#[clap(flatten)]
     </span><span class="kw">pub </span>env: WasmerEnv,
 
     <span class="doccomment">/// Don&#39;t print any message.
@@ -74,7 +60,7 @@
     <span class="kw">type </span>Output = ();
 
     <span class="kw">async fn </span>run_async(<span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>::Output, anyhow::Error&gt; {
-        <span class="kw">let </span>client = <span class="self">self</span>.api.client()<span class="question-mark">?</span>;
+        <span class="kw">let </span>client = <span class="self">self</span>.env.client()<span class="question-mark">?</span>;
         <span class="kw">let </span>regions = wasmer_api::query::get_all_app_regions(<span class="kw-2">&amp;</span>client).<span class="kw">await</span><span class="question-mark">?</span>;
 
         <span class="macro">println!</span>(<span class="string">&quot;{}&quot;</span>, <span class="self">self</span>.fmt.format.render(regions.as_slice()));

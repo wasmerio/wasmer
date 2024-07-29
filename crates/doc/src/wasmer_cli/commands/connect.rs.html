@@ -98,16 +98,18 @@
 <a href="#98" id="98">98</a>
 <a href="#99" id="99">99</a>
 <a href="#100" id="100">100</a>
+<a href="#101" id="101">101</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::net::IpAddr;
 
+<span class="kw">use </span><span class="kw">crate</span>::config::WasmerEnv;
+
 <span class="kw">use </span><span class="kw">super</span>::AsyncCliCommand;
-<span class="kw">use </span><span class="kw">crate</span>::opts::ApiOpts;
 
 <span class="doccomment">/// Connects to the Wasmer Edge distributed network.
 </span><span class="attr">#[derive(clap::Parser, Debug)]
 </span><span class="kw">pub struct </span>CmdConnect {
     <span class="attr">#[clap(flatten)]
-    </span>api: ApiOpts,
+    </span>env: WasmerEnv,
 
     <span class="doccomment">/// Runs in promiscuous mode
     </span><span class="attr">#[clap(long)]

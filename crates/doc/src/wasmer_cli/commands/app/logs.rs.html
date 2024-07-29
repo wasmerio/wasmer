@@ -203,8 +203,6 @@
 <a href="#203" id="203">203</a>
 <a href="#204" id="204">204</a>
 <a href="#205" id="205">205</a>
-<a href="#206" id="206">206</a>
-<a href="#207" id="207">207</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Show logs for an Edge app.
 
 </span><span class="kw">use </span>colored::Colorize;
@@ -214,10 +212,7 @@
 <span class="kw">use </span>time::{format_description::well_known::Rfc3339, OffsetDateTime};
 <span class="kw">use </span>wasmer_api::types::{Log, LogStream};
 
-<span class="kw">use crate</span>::{
-    opts::{ApiOpts, ListFormatOpts},
-    utils::render::CliRender,
-};
+<span class="kw">use crate</span>::{config::WasmerEnv, opts::ListFormatOpts, utils::render::CliRender};
 
 <span class="kw">use </span><span class="kw">super</span>::util::AppIdentOpts;
 
@@ -231,7 +226,8 @@
 </span><span class="attr">#[derive(clap::Parser, Debug)]
 </span><span class="kw">pub struct </span>CmdAppLogs {
     <span class="attr">#[clap(flatten)]
-    </span>api: ApiOpts,
+    </span>env: WasmerEnv,
+
     <span class="attr">#[clap(flatten)]
     </span>fmt: ListFormatOpts,
 
@@ -282,7 +278,7 @@
     <span class="kw">type </span>Output = ();
 
     <span class="kw">async fn </span>run_async(<span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;(), anyhow::Error&gt; {
-        <span class="kw">let </span>client = <span class="self">self</span>.api.client()<span class="question-mark">?</span>;
+        <span class="kw">let </span>client = <span class="self">self</span>.env.client()<span class="question-mark">?</span>;
 
         <span class="kw">let </span>(_ident, app) = <span class="self">self</span>.ident.load_app(<span class="kw-2">&amp;</span>client).<span class="kw">await</span><span class="question-mark">?</span>;
 

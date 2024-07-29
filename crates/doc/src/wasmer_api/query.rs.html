@@ -1831,6 +1831,34 @@
 <a href="#1831" id="1831">1831</a>
 <a href="#1832" id="1832">1832</a>
 <a href="#1833" id="1833">1833</a>
+<a href="#1834" id="1834">1834</a>
+<a href="#1835" id="1835">1835</a>
+<a href="#1836" id="1836">1836</a>
+<a href="#1837" id="1837">1837</a>
+<a href="#1838" id="1838">1838</a>
+<a href="#1839" id="1839">1839</a>
+<a href="#1840" id="1840">1840</a>
+<a href="#1841" id="1841">1841</a>
+<a href="#1842" id="1842">1842</a>
+<a href="#1843" id="1843">1843</a>
+<a href="#1844" id="1844">1844</a>
+<a href="#1845" id="1845">1845</a>
+<a href="#1846" id="1846">1846</a>
+<a href="#1847" id="1847">1847</a>
+<a href="#1848" id="1848">1848</a>
+<a href="#1849" id="1849">1849</a>
+<a href="#1850" id="1850">1850</a>
+<a href="#1851" id="1851">1851</a>
+<a href="#1852" id="1852">1852</a>
+<a href="#1853" id="1853">1853</a>
+<a href="#1854" id="1854">1854</a>
+<a href="#1855" id="1855">1855</a>
+<a href="#1856" id="1856">1856</a>
+<a href="#1857" id="1857">1857</a>
+<a href="#1858" id="1858">1858</a>
+<a href="#1859" id="1859">1859</a>
+<a href="#1860" id="1860">1860</a>
+<a href="#1861" id="1861">1861</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{collections::HashSet, time::Duration};
 
 <span class="kw">use </span>anyhow::{bail, Context};
@@ -1847,6 +1875,34 @@
     types::{<span class="self">self</span>, <span class="kw-2">*</span>},
     GraphQLApiFailure, WasmerClient,
 };
+
+<span class="doccomment">/// Revoke an existing token
+</span><span class="kw">pub async fn </span>revoke_token(
+    client: <span class="kw-2">&amp;</span>WasmerClient,
+    token: String,
+) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;bool&gt;, anyhow::Error&gt; {
+    client
+        .run_graphql_strict(types::RevokeToken::build(RevokeTokenVariables { token }))
+        .<span class="kw">await
+        </span>.map(|v| v.revoke_api_token.and_then(|v| v.success))
+}
+
+<span class="doccomment">/// Generate a new Nonce
+///
+/// Takes a name and a callbackUrl and returns a nonce
+</span><span class="kw">pub async fn </span>create_nonce(
+    client: <span class="kw-2">&amp;</span>WasmerClient,
+    name: String,
+    callback_url: String,
+) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;Nonce&gt;, anyhow::Error&gt; {
+    client
+        .run_graphql_strict(types::CreateNewNonce::build(CreateNewNonceVariables {
+            callback_url,
+            name,
+        }))
+        .<span class="kw">await
+        </span>.map(|v| v.new_nonce.map(|v| v.nonce))
+}
 
 <span class="kw">pub async fn </span>get_app_secret_value_by_id(
     client: <span class="kw-2">&amp;</span>WasmerClient,

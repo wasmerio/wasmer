@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["UpdateRegistry"],"fn":["endpoint_from_domain_name","format_graphql","test_if_registry_present"],"mod":["env"],"static":["DEFAULT_PROD_REGISTRY","GLOBAL_CONFIG_FILE_NAME"],"struct":["DEFAULT_WASMER_CACHE_DIR","DEFAULT_WASMER_DIR","MultiRegistry","Proxy","Registry","RegistryLogin","WasmerConfig"]};

@@ -32,32 +32,24 @@
 <a href="#32" id="32">32</a>
 <a href="#33" id="33">33</a>
 <a href="#34" id="34">34</a>
-<a href="#35" id="35">35</a>
-<a href="#36" id="36">36</a>
-<a href="#37" id="37">37</a>
-<a href="#38" id="38">38</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Get information about an edge app.
 
 </span><span class="kw">use </span>wasmer_api::types::DeployApp;
 
 <span class="kw">use </span><span class="kw">super</span>::util::AppIdentOpts;
-<span class="kw">use crate</span>::{
-    commands::AsyncCliCommand,
-    opts::{ApiOpts, ItemFormatOpts},
-};
+
+<span class="kw">use crate</span>::{commands::AsyncCliCommand, config::WasmerEnv, opts::ItemFormatOpts};
 
 <span class="doccomment">/// Retrieve detailed informations about an app
 </span><span class="attr">#[derive(clap::Parser, Debug)]
 </span><span class="kw">pub struct </span>CmdAppGet {
     <span class="attr">#[clap(flatten)]
-    #[allow(missing_docs)]
-    </span><span class="kw">pub </span>api: ApiOpts,
+    </span><span class="kw">pub </span>env: WasmerEnv,
+
     <span class="attr">#[clap(flatten)]
-    #[allow(missing_docs)]
     </span><span class="kw">pub </span>fmt: ItemFormatOpts,
 
     <span class="attr">#[clap(flatten)]
-    #[allow(missing_docs)]
     </span><span class="kw">pub </span>ident: AppIdentOpts,
 }
 
@@ -66,7 +58,7 @@
     <span class="kw">type </span>Output = DeployApp;
 
     <span class="kw">async fn </span>run_async(<span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;DeployApp, anyhow::Error&gt; {
-        <span class="kw">let </span>client = <span class="self">self</span>.api.client()<span class="question-mark">?</span>;
+        <span class="kw">let </span>client = <span class="self">self</span>.env.client()<span class="question-mark">?</span>;
         <span class="kw">let </span>(_ident, app) = <span class="self">self</span>.ident.load_app(<span class="kw-2">&amp;</span>client).<span class="kw">await</span><span class="question-mark">?</span>;
 
         <span class="macro">println!</span>(<span class="string">&quot;{}&quot;</span>, <span class="self">self</span>.fmt.format.render(<span class="kw-2">&amp;</span>app));

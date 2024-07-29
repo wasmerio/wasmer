@@ -105,19 +105,21 @@
 <a href="#105" id="105">105</a>
 <a href="#106" id="106">106</a>
 <a href="#107" id="107">107</a>
+<a href="#108" id="108">108</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>wasmer_api::types::{DeployAppVersionsSortBy, GetDeployAppVersionsVars};
 
 <span class="kw">use crate</span>::{
     commands::{app::util::AppIdentOpts, AsyncCliCommand},
-    opts::{ApiOpts, ListFormatOpts},
+    config::WasmerEnv,
+    opts::ListFormatOpts,
 };
 
 <span class="doccomment">/// List versions of an app.
 </span><span class="attr">#[derive(clap::Parser, Debug)]
 </span><span class="kw">pub struct </span>CmdAppVersionList {
     <span class="attr">#[clap(flatten)]
-    #[allow(missing_docs)]
-    </span><span class="kw">pub </span>api: ApiOpts,
+    </span><span class="kw">pub </span>env: WasmerEnv,
+
     <span class="attr">#[allow(missing_docs)]
     #[clap(flatten)]
     </span><span class="kw">pub </span>fmt: ListFormatOpts,
@@ -179,7 +181,7 @@
     <span class="kw">type </span>Output = ();
 
     <span class="kw">async fn </span>run_async(<span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;(), anyhow::Error&gt; {
-        <span class="kw">let </span>client = <span class="self">self</span>.api.client()<span class="question-mark">?</span>;
+        <span class="kw">let </span>client = <span class="self">self</span>.env.client()<span class="question-mark">?</span>;
         <span class="kw">let </span>(_ident, app) = <span class="self">self</span>.ident.load_app(<span class="kw-2">&amp;</span>client).<span class="kw">await</span><span class="question-mark">?</span>;
 
         <span class="kw">let </span>versions = <span class="kw">if </span><span class="self">self</span>.all {

@@ -728,15 +728,11 @@
 <a href="#728" id="728">728</a>
 <a href="#729" id="729">729</a>
 <a href="#730" id="730">730</a>
-<a href="#731" id="731">731</a>
-<a href="#732" id="732">732</a>
-<a href="#733" id="733">733</a>
-<a href="#734" id="734">734</a>
-<a href="#735" id="735">735</a>
 </pre></div><pre class="rust"><code><span class="kw">use super</span>::{util::login_user, AsyncCliCommand};
 <span class="kw">use crate</span>::{
     commands::{app::create::CmdAppCreate, package::publish::PackagePublish, PublishWait},
-    opts::{ApiOpts, ItemFormatOpts, WasmerEnv},
+    config::WasmerEnv,
+    opts::ItemFormatOpts,
     utils::load_package_manifest,
 };
 <span class="kw">use </span>anyhow::Context;
@@ -762,9 +758,6 @@
 <span class="doccomment">/// Deploy an app to Wasmer Edge.
 </span><span class="attr">#[derive(clap::Parser, Debug)]
 </span><span class="kw">pub struct </span>CmdAppDeploy {
-    <span class="attr">#[clap(flatten)]
-    </span><span class="kw">pub </span>api: ApiOpts,
-
     <span class="attr">#[clap(flatten)]
     </span><span class="kw">pub </span>env: WasmerEnv,
 
@@ -891,7 +884,6 @@
             package_namespace: <span class="prelude-val">Some</span>(owner),
             non_interactive: <span class="self">self</span>.non_interactive,
             bump: <span class="self">self</span>.bump,
-            api: <span class="self">self</span>.api.clone(),
         };
 
         publish_cmd
@@ -946,7 +938,6 @@
             owner: <span class="self">self</span>.owner.clone(),
             app_name: <span class="self">self</span>.app_name.clone(),
             no_wait: <span class="self">self</span>.no_wait,
-            api: <span class="self">self</span>.api.clone(),
             env: <span class="self">self</span>.env.clone(),
             fmt: ItemFormatOpts {
                 format: <span class="self">self</span>.fmt.format,
@@ -967,8 +958,7 @@
     <span class="kw">type </span>Output = ();
 
     <span class="kw">async fn </span>run_async(<span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>::Output, anyhow::Error&gt; {
-        <span class="kw">let </span>client =
-            login_user(<span class="kw-2">&amp;</span><span class="self">self</span>.api, <span class="kw-2">&amp;</span><span class="self">self</span>.env, !<span class="self">self</span>.non_interactive, <span class="string">&quot;deploy an app&quot;</span>).<span class="kw">await</span><span class="question-mark">?</span>;
+        <span class="kw">let </span>client = login_user(<span class="kw-2">&amp;</span><span class="self">self</span>.env, !<span class="self">self</span>.non_interactive, <span class="string">&quot;deploy an app&quot;</span>).<span class="kw">await</span><span class="question-mark">?</span>;
 
         <span class="kw">let </span>base_dir_path = <span class="self">self</span>.dir.clone().unwrap_or_else(|| {
             <span class="self">self</span>.path
@@ -1025,7 +1015,7 @@
                     <span class="string">&quot;Enter the name of the app&quot;</span>,
                     default_name.as_deref(),
                     <span class="kw-2">&amp;</span>owner,
-                    <span class="self">self</span>.api.client().ok().as_ref(),
+                    <span class="self">self</span>.env.client().ok().as_ref(),
                 )
                 .<span class="kw">await</span><span class="question-mark">?</span>;
 

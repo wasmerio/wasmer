@@ -72,13 +72,7 @@
 <a href="#72" id="72">72</a>
 <a href="#73" id="73">73</a>
 <a href="#74" id="74">74</a>
-<a href="#75" id="75">75</a>
-<a href="#76" id="76">76</a>
-<a href="#77" id="77">77</a>
-</pre></div><pre class="rust"><code><span class="kw">use crate</span>::{
-    commands::AsyncCliCommand,
-    opts::{ApiOpts, ItemFormatOpts},
-};
+</pre></div><pre class="rust"><code><span class="kw">use crate</span>::{commands::AsyncCliCommand, config::WasmerEnv, opts::ItemFormatOpts};
 <span class="kw">use </span>anyhow::Context;
 
 <span class="attr">#[derive(clap::Parser, Debug)]
@@ -88,7 +82,7 @@
     </span>fmt: ItemFormatOpts,
 
     <span class="attr">#[clap(flatten)]
-    </span>api: ApiOpts,
+    </span>env: WasmerEnv,
 
     <span class="doccomment">/// Name of the domain.
     </span>domain_name: String,
@@ -102,7 +96,7 @@
 </span><span class="doccomment">/// Show a zone file
 </span><span class="kw">pub struct </span>CmdZoneFileSync {
     <span class="attr">#[clap(flatten)]
-    </span>api: ApiOpts,
+    </span>env: WasmerEnv,
 
     <span class="doccomment">/// filename of  zone-file to sync
     </span>zone_file_path: String,
@@ -117,7 +111,7 @@
     <span class="kw">type </span>Output = ();
 
     <span class="kw">async fn </span>run_async(<span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;(), anyhow::Error&gt; {
-        <span class="kw">let </span>client = <span class="self">self</span>.api.client()<span class="question-mark">?</span>;
+        <span class="kw">let </span>client = <span class="self">self</span>.env.client()<span class="question-mark">?</span>;
         <span class="kw">if let </span><span class="prelude-val">Some</span>(domain) =
             wasmer_api::query::get_domain_zone_file(<span class="kw-2">&amp;</span>client, <span class="self">self</span>.domain_name).<span class="kw">await</span><span class="question-mark">?
         </span>{
@@ -143,7 +137,7 @@
         <span class="kw">let </span>data = std::fs::read(<span class="kw-2">&amp;</span><span class="self">self</span>.zone_file_path).context(<span class="string">&quot;Unable to read file&quot;</span>)<span class="question-mark">?</span>;
         <span class="kw">let </span>zone_file_contents = String::from_utf8(data).context(<span class="string">&quot;Not a valid UTF-8 sequence&quot;</span>)<span class="question-mark">?</span>;
         <span class="kw">let </span>domain = wasmer_api::query::upsert_domain_from_zone_file(
-            <span class="kw-2">&amp;</span><span class="self">self</span>.api.client()<span class="question-mark">?</span>,
+            <span class="kw-2">&amp;</span><span class="self">self</span>.env.client()<span class="question-mark">?</span>,
             zone_file_contents,
             !<span class="self">self</span>.no_delete_missing_records,
         )

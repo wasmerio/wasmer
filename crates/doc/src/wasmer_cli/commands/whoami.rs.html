@@ -19,8 +19,23 @@
 <a href="#19" id="19">19</a>
 <a href="#20" id="20">20</a>
 <a href="#21" id="21">21</a>
+<a href="#22" id="22">22</a>
+<a href="#23" id="23">23</a>
+<a href="#24" id="24">24</a>
+<a href="#25" id="25">25</a>
+<a href="#26" id="26">26</a>
+<a href="#27" id="27">27</a>
+<a href="#28" id="28">28</a>
+<a href="#29" id="29">29</a>
+<a href="#30" id="30">30</a>
+<a href="#31" id="31">31</a>
+<a href="#32" id="32">32</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>clap::Parser;
-<span class="kw">use </span>wasmer_registry::wasmer_env::WasmerEnv;
+<span class="kw">use </span>colored::Colorize;
+
+<span class="kw">use </span><span class="kw">crate</span>::config::WasmerEnv;
+
+<span class="kw">use </span><span class="kw">super</span>::AsyncCliCommand;
 
 <span class="attr">#[derive(Debug, Parser)]
 </span><span class="doccomment">/// The options for the `wasmer whoami` subcommand
@@ -29,14 +44,21 @@
     </span>env: WasmerEnv,
 }
 
-<span class="kw">impl </span>Whoami {
+<span class="attr">#[async_trait::async_trait]
+</span><span class="kw">impl </span>AsyncCliCommand <span class="kw">for </span>Whoami {
+    <span class="kw">type </span>Output = ();
+
     <span class="doccomment">/// Execute `wasmer whoami`
-    </span><span class="kw">pub fn </span>execute(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;(), anyhow::Error&gt; {
-        <span class="kw">let </span>registry = <span class="self">self</span>.env.registry_endpoint()<span class="question-mark">?</span>;
-        <span class="kw">let </span>token = <span class="self">self</span>.env.token();
-        <span class="kw">let </span>(registry, username) =
-            wasmer_registry::whoami(<span class="self">self</span>.env.dir(), <span class="prelude-val">Some</span>(registry.as_str()), token.as_deref())<span class="question-mark">?</span>;
-        <span class="macro">println!</span>(<span class="string">&quot;logged into registry {registry:?} as user {username:?}&quot;</span>);
+    </span><span class="kw">async fn </span>run_async(<span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>::Output, anyhow::Error&gt; {
+        <span class="kw">let </span>client = <span class="self">self</span>.env.client_unauthennticated()<span class="question-mark">?</span>;
+        <span class="kw">let </span>host_str = <span class="self">self</span>.env.registry_public_url()<span class="question-mark">?</span>.host_str().unwrap().bold();
+        <span class="kw">let </span>user = wasmer_api::query::current_user(<span class="kw-2">&amp;</span>client)
+            .<span class="kw">await</span><span class="question-mark">?
+            </span>.ok_or_else(|| <span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;Not logged in registry {host_str}&quot;</span>))<span class="question-mark">?</span>;
+        <span class="macro">println!</span>(
+            <span class="string">&quot;Logged into registry {host_str} as user {}&quot;</span>,
+            user.username.bold()
+        );
         <span class="prelude-val">Ok</span>(())
     }
 }

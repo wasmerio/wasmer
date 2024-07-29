@@ -304,10 +304,6 @@
 <a href="#304" id="304">304</a>
 <a href="#305" id="305">305</a>
 <a href="#306" id="306">306</a>
-<a href="#307" id="307">307</a>
-<a href="#308" id="308">308</a>
-<a href="#309" id="309">309</a>
-<a href="#310" id="310">310</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{path::Path, str::FromStr};
 
 <span class="kw">use </span>anyhow::{bail, Context};
@@ -321,8 +317,8 @@
 <span class="kw">use </span>wasmer_config::app::AppConfigV1;
 
 <span class="kw">use crate</span>::{
-    commands::Login,
-    opts::{ApiOpts, WasmerEnv},
+    commands::{AsyncCliCommand, Login},
+    config::WasmerEnv,
 };
 
 <span class="doccomment">/// App identifier.
@@ -524,18 +520,17 @@
 }
 
 <span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">async fn </span>login_user(
-    api: <span class="kw-2">&amp;</span>ApiOpts,
     env: <span class="kw-2">&amp;</span>WasmerEnv,
     interactive: bool,
     msg: <span class="kw-2">&amp;</span>str,
 ) -&gt; anyhow::Result&lt;WasmerClient&gt; {
-    <span class="kw">if let </span><span class="prelude-val">Ok</span>(client) = api.client() {
+    <span class="kw">if let </span><span class="prelude-val">Ok</span>(client) = env.client() {
         <span class="kw">return </span><span class="prelude-val">Ok</span>(client);
     }
 
     <span class="kw">let </span>theme = dialoguer::theme::ColorfulTheme::default();
 
-    <span class="kw">if </span>api.token.is_none() {
+    <span class="kw">if </span>env.token().is_none() {
         <span class="kw">if </span>interactive {
             <span class="macro">eprintln!</span>(
                 <span class="string">&quot;{}: You need to be logged in to {msg}.&quot;</span>,
@@ -548,13 +543,10 @@
             </span>{
                 Login {
                     no_browser: <span class="bool-val">false</span>,
-                    wasmer_dir: env.wasmer_dir.clone(),
-                    registry: api
-                        .registry
-                        .clone()
-                        .map(|l| wasmer_registry::wasmer_env::Registry::from(l.to_string())),
-                    token: api.token.clone(),
-                    cache_dir: <span class="prelude-val">Some</span>(env.cache_dir.clone()),
+                    wasmer_dir: env.dir().to_path_buf(),
+                    cache_dir: env.cache_dir().to_path_buf(),
+                    token: <span class="prelude-val">None</span>,
+                    registry: env.registry.clone(),
                 }
                 .run_async()
                 .<span class="kw">await</span><span class="question-mark">?</span>;
@@ -573,7 +565,7 @@
         }
     }
 
-    api.client()
+    env.client()
 }
 
 <span class="kw">pub fn </span>get_app_config_from_dir(

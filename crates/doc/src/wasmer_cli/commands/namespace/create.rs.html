@@ -35,20 +35,16 @@
 <a href="#35" id="35">35</a>
 <a href="#36" id="36">36</a>
 <a href="#37" id="37">37</a>
-<a href="#38" id="38">38</a>
-<a href="#39" id="39">39</a>
-</pre></div><pre class="rust"><code><span class="kw">use crate</span>::{
-    commands::AsyncCliCommand,
-    opts::{ApiOpts, ItemFormatOpts},
-};
+</pre></div><pre class="rust"><code><span class="kw">use crate</span>::{commands::AsyncCliCommand, config::WasmerEnv, opts::ItemFormatOpts};
 
 <span class="doccomment">/// Create a new namespace.
 </span><span class="attr">#[derive(clap::Parser, Debug)]
 </span><span class="kw">pub struct </span>CmdNamespaceCreate {
     <span class="attr">#[clap(flatten)]
     </span>fmt: ItemFormatOpts,
+
     <span class="attr">#[clap(flatten)]
-    </span>api: ApiOpts,
+    </span>env: WasmerEnv,
 
     <span class="doccomment">/// Description of the namespace.
     </span><span class="attr">#[clap(long)]
@@ -63,7 +59,7 @@
     <span class="kw">type </span>Output = ();
 
     <span class="kw">async fn </span>run_async(<span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;(), anyhow::Error&gt; {
-        <span class="kw">let </span>client = <span class="self">self</span>.api.client()<span class="question-mark">?</span>;
+        <span class="kw">let </span>client = <span class="self">self</span>.env.client()<span class="question-mark">?</span>;
 
         <span class="kw">let </span>vars = wasmer_api::types::CreateNamespaceVars {
             name: <span class="self">self</span>.name.clone(),

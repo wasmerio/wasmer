@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":["clientMutationId","tokenId"]};
+window.SIDEBAR_ITEMS = {"struct":["clientMutationId","token"]};

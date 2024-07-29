@@ -816,11 +816,6 @@
 <a href="#816" id="816">816</a>
 <a href="#817" id="817">817</a>
 <a href="#818" id="818">818</a>
-<a href="#819" id="819">819</a>
-<a href="#820" id="820">820</a>
-<a href="#821" id="821">821</a>
-<a href="#822" id="822">822</a>
-<a href="#823" id="823">823</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Create a new Edge app.
 
 </span><span class="kw">use </span>std::{
@@ -846,7 +841,8 @@
 <span class="kw">use super</span>::{deploy::CmdAppDeploy, util::login_user};
 <span class="kw">use crate</span>::{
     commands::AsyncCliCommand,
-    opts::{ApiOpts, ItemFormatOpts, WasmerEnv},
+    config::WasmerEnv,
+    opts::ItemFormatOpts,
     utils::{load_package_manifest, prompts::PackageCheckMode},
 };
 
@@ -935,10 +931,6 @@
 
     <span class="comment">// Common args.
     </span><span class="attr">#[clap(flatten)]
-    #[allow(missing_docs)]
-    </span><span class="kw">pub </span>api: ApiOpts,
-
-    <span class="attr">#[clap(flatten)]
     </span><span class="kw">pub </span>env: WasmerEnv,
 
     <span class="attr">#[clap(flatten)]
@@ -1553,7 +1545,6 @@ the app:\n&quot;
         {
             <span class="kw">let </span>cmd_deploy = CmdAppDeploy {
                 quiet: <span class="bool-val">false</span>,
-                api: <span class="self">self</span>.api.clone(),
                 env: <span class="self">self</span>.env.clone(),
                 fmt: ItemFormatOpts {
                     format: <span class="self">self</span>.fmt.format,
@@ -1590,7 +1581,6 @@ the app:\n&quot;
         </span>} <span class="kw">else </span>{
             <span class="prelude-val">Some</span>(
                 login_user(
-                    <span class="kw-2">&amp;</span><span class="self">self</span>.api,
                     <span class="kw-2">&amp;</span><span class="self">self</span>.env,
                     !<span class="self">self</span>.non_interactive,
                     <span class="string">&quot;retrieve informations about the owner of the app&quot;</span>,

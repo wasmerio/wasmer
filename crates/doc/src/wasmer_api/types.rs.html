@@ -1951,6 +1951,54 @@
 <a href="#1951" id="1951">1951</a>
 <a href="#1952" id="1952">1952</a>
 <a href="#1953" id="1953">1953</a>
+<a href="#1954" id="1954">1954</a>
+<a href="#1955" id="1955">1955</a>
+<a href="#1956" id="1956">1956</a>
+<a href="#1957" id="1957">1957</a>
+<a href="#1958" id="1958">1958</a>
+<a href="#1959" id="1959">1959</a>
+<a href="#1960" id="1960">1960</a>
+<a href="#1961" id="1961">1961</a>
+<a href="#1962" id="1962">1962</a>
+<a href="#1963" id="1963">1963</a>
+<a href="#1964" id="1964">1964</a>
+<a href="#1965" id="1965">1965</a>
+<a href="#1966" id="1966">1966</a>
+<a href="#1967" id="1967">1967</a>
+<a href="#1968" id="1968">1968</a>
+<a href="#1969" id="1969">1969</a>
+<a href="#1970" id="1970">1970</a>
+<a href="#1971" id="1971">1971</a>
+<a href="#1972" id="1972">1972</a>
+<a href="#1973" id="1973">1973</a>
+<a href="#1974" id="1974">1974</a>
+<a href="#1975" id="1975">1975</a>
+<a href="#1976" id="1976">1976</a>
+<a href="#1977" id="1977">1977</a>
+<a href="#1978" id="1978">1978</a>
+<a href="#1979" id="1979">1979</a>
+<a href="#1980" id="1980">1980</a>
+<a href="#1981" id="1981">1981</a>
+<a href="#1982" id="1982">1982</a>
+<a href="#1983" id="1983">1983</a>
+<a href="#1984" id="1984">1984</a>
+<a href="#1985" id="1985">1985</a>
+<a href="#1986" id="1986">1986</a>
+<a href="#1987" id="1987">1987</a>
+<a href="#1988" id="1988">1988</a>
+<a href="#1989" id="1989">1989</a>
+<a href="#1990" id="1990">1990</a>
+<a href="#1991" id="1991">1991</a>
+<a href="#1992" id="1992">1992</a>
+<a href="#1993" id="1993">1993</a>
+<a href="#1994" id="1994">1994</a>
+<a href="#1995" id="1995">1995</a>
+<a href="#1996" id="1996">1996</a>
+<a href="#1997" id="1997">1997</a>
+<a href="#1998" id="1998">1998</a>
+<a href="#1999" id="1999">1999</a>
+<a href="#2000" id="2000">2000</a>
+<a href="#2001" id="2001">2001</a>
 </pre></div><pre class="rust"><code><span class="kw">pub use </span>queries::<span class="kw-2">*</span>;
 
 <span class="kw">pub use </span>cynic::Id;
@@ -1992,6 +2040,54 @@
         Admin,
         Editor,
         Viewer,
+    }
+
+    <span class="attr">#[derive(cynic::QueryVariables, Debug)]
+    </span><span class="kw">pub struct </span>RevokeTokenVariables {
+        <span class="kw">pub </span>token: String,
+    }
+
+    <span class="attr">#[derive(cynic::QueryFragment, Debug)]
+    #[cynic(graphql_type = <span class="string">&quot;Mutation&quot;</span>, variables = <span class="string">&quot;RevokeTokenVariables&quot;</span>)]
+    </span><span class="kw">pub struct </span>RevokeToken {
+        <span class="attr">#[arguments(input: { token: <span class="macro-nonterminal">$token </span>})]
+        </span><span class="kw">pub </span>revoke_api_token: <span class="prelude-ty">Option</span>&lt;RevokeAPITokenPayload&gt;,
+    }
+
+    <span class="attr">#[derive(cynic::QueryFragment, Debug)]
+    </span><span class="kw">pub struct </span>RevokeAPITokenPayload {
+        <span class="kw">pub </span>success: <span class="prelude-ty">Option</span>&lt;bool&gt;,
+    }
+
+    <span class="attr">#[derive(cynic::QueryVariables, Debug)]
+    </span><span class="kw">pub struct </span>CreateNewNonceVariables {
+        <span class="kw">pub </span>callback_url: String,
+        <span class="kw">pub </span>name: String,
+    }
+
+    <span class="attr">#[derive(cynic::QueryFragment, Debug)]
+    #[cynic(graphql_type = <span class="string">&quot;Mutation&quot;</span>, variables = <span class="string">&quot;CreateNewNonceVariables&quot;</span>)]
+    </span><span class="kw">pub struct </span>CreateNewNonce {
+        <span class="attr">#[arguments(input: { callbackUrl: <span class="macro-nonterminal">$callback_url</span>, name: <span class="macro-nonterminal">$name </span>})]
+        </span><span class="kw">pub </span>new_nonce: <span class="prelude-ty">Option</span>&lt;NewNoncePayload&gt;,
+    }
+
+    <span class="attr">#[derive(cynic::QueryFragment, Debug)]
+    </span><span class="kw">pub struct </span>NewNoncePayload {
+        <span class="kw">pub </span>client_mutation_id: <span class="prelude-ty">Option</span>&lt;String&gt;,
+        <span class="kw">pub </span>nonce: Nonce,
+    }
+
+    <span class="attr">#[derive(cynic::QueryFragment, Debug)]
+    </span><span class="kw">pub struct </span>Nonce {
+        <span class="kw">pub </span>auth_url: String,
+        <span class="kw">pub </span>callback_url: String,
+        <span class="kw">pub </span>created_at: DateTime,
+        <span class="kw">pub </span>expired: bool,
+        <span class="kw">pub </span>id: cynic::Id,
+        <span class="kw">pub </span>is_validated: bool,
+        <span class="kw">pub </span>name: String,
+        <span class="kw">pub </span>secret: String,
     }
 
     <span class="attr">#[derive(cynic::QueryFragment, Debug)]

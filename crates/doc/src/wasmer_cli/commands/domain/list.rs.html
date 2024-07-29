@@ -34,22 +34,18 @@
 <a href="#34" id="34">34</a>
 <a href="#35" id="35">35</a>
 <a href="#36" id="36">36</a>
-<a href="#37" id="37">37</a>
-<a href="#38" id="38">38</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>wasmer_api::types::GetAllDomainsVariables;
 
-<span class="kw">use crate</span>::{
-    commands::AsyncCliCommand,
-    opts::{ApiOpts, ListFormatOpts},
-};
+<span class="kw">use crate</span>::{commands::AsyncCliCommand, config::WasmerEnv, opts::ListFormatOpts};
 
 <span class="doccomment">/// List domains.
 </span><span class="attr">#[derive(clap::Parser, Debug)]
 </span><span class="kw">pub struct </span>CmdDomainList {
     <span class="attr">#[clap(flatten)]
     </span>fmt: ListFormatOpts,
+
     <span class="attr">#[clap(flatten)]
-    </span>api: ApiOpts,
+    </span>env: WasmerEnv,
 
     <span class="doccomment">/// Name of the namespace.
     </span>namespace: <span class="prelude-ty">Option</span>&lt;String&gt;,
@@ -60,7 +56,7 @@
     <span class="kw">type </span>Output = ();
 
     <span class="kw">async fn </span>run_async(<span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;(), anyhow::Error&gt; {
-        <span class="kw">let </span>client = <span class="self">self</span>.api.client()<span class="question-mark">?</span>;
+        <span class="kw">let </span>client = <span class="self">self</span>.env.client()<span class="question-mark">?</span>;
         <span class="kw">let </span>domains = wasmer_api::query::get_all_domains(
             <span class="kw-2">&amp;</span>client,
             GetAllDomainsVariables {
