@@ -2995,6 +2995,9 @@ type Mutation {
 
   """Delete secret with given ID"""
   deleteAppSecret(input: DeleteAppSecretInput!): DeleteAppSecretPayload
+
+  """Redeploy the active version of an app."""
+  redeployActiveVersion(input: RedeployActiveVersionInput!): RedeployActiveVersionPayload
   tokenAuth(input: ObtainJSONWebTokenInput!): ObtainJSONWebTokenPayload
   generateDeployToken(input: GenerateDeployTokenInput!): GenerateDeployTokenPayload
   verifyAccessToken(token: String): Verify
@@ -3011,6 +3014,8 @@ type Mutation {
   updateUserInfo(input: UpdateUserInfoInput!): UpdateUserInfoPayload
   validateUserPassword(input: ValidateUserPasswordInput!): ValidateUserPasswordPayload
   generateApiToken(input: GenerateAPITokenInput!): GenerateAPITokenPayload
+
+  """Request To revoke an API token; these start with 'wap_'."""
   revokeApiToken(input: RevokeAPITokenInput!): RevokeAPITokenPayload
   checkUserExists(input: CheckUserExistsInput!): CheckUserExistsPayload
   readNotification(input: ReadNotificationInput!): ReadNotificationPayload
@@ -3439,6 +3444,18 @@ input DeleteAppSecretInput {
   clientMutationId: String
 }
 
+"""Redeploy the active version of an app."""
+type RedeployActiveVersionPayload {
+  app: DeployApp!
+  clientMutationId: String
+}
+
+input RedeployActiveVersionInput {
+  """ID of the app to redeploy."""
+  id: ID!
+  clientMutationId: String
+}
+
 type ObtainJSONWebTokenPayload {
   payload: GenericScalar!
   refreshExpiresIn: Int!
@@ -3656,6 +3673,7 @@ input GenerateAPITokenInput {
   clientMutationId: String
 }
 
+"""Request To revoke an API token; these start with 'wap_'."""
 type RevokeAPITokenPayload {
   token: APIToken
   success: Boolean
@@ -3664,7 +3682,7 @@ type RevokeAPITokenPayload {
 
 input RevokeAPITokenInput {
   """The API token ID"""
-  tokenId: ID!
+  token: String!
   clientMutationId: String
 }
 

@@ -1022,6 +1022,23 @@ mod queries {
     }
 
     #[derive(cynic::QueryVariables, Debug)]
+    pub struct RedeployActiveAppVariables {
+        pub id: cynic::Id,
+    }
+
+    #[derive(cynic::QueryFragment, Debug)]
+    #[cynic(graphql_type = "Mutation", variables = "RedeployActiveAppVariables")]
+    pub struct RedeployActiveApp {
+        #[arguments(input: { id: $id })]
+        pub redeploy_active_version: Option<RedeployActiveVersionPayload>,
+    }
+
+    #[derive(cynic::QueryFragment, Debug)]
+    pub struct RedeployActiveVersionPayload {
+        pub app: DeployApp,
+    }
+
+    #[derive(cynic::QueryVariables, Debug)]
     pub struct PublishDeployAppVars {
         pub config: String,
         pub name: cynic::Id,
