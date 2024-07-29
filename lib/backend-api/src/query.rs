@@ -27,7 +27,7 @@ pub async fn redeploy_app_by_id(
         ))
         .await
         .map(|v| v.redeploy_active_version.map(|v| v.app))
-} 
+}
 
 /// Revoke an existing token
 pub async fn revoke_token(
