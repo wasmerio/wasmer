@@ -115,6 +115,7 @@ impl PackagePublish {
             package_path: self.package_path.clone(),
             package_hash,
             package_id: None,
+            maybe_user_package: None,
         }
         .tag(
             client,
