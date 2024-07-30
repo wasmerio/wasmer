@@ -551,18 +551,23 @@ impl Wasi {
         let tokio_task_manager = Arc::new(TokioTaskManager::new(rt_or_handle.into()));
         let mut rt = PluggableRuntime::new(tokio_task_manager.clone());
 
-        let has_networking = self.networking || {
-            if pkg_cache_path.is_file() {
-                let raw = std::fs::read_to_string(pkg_cache_path)?;
-                if let Ok(pkg_capability_cache) = serde_json::from_str::<PkgCapabilityCache>(&raw) {
-                    pkg_capability_cache.enable_networking
+        let has_networking = self.networking
+            || {
+                if pkg_cache_path.is_file() {
+                    let raw = std::fs::read_to_string(pkg_cache_path)?;
+                    if let Ok(pkg_capability_cache) =
+                        serde_json::from_str::<PkgCapabilityCache>(&raw)
+                    {
+                        tracing::info!("Cache hit for user-set capabilities at path {pkg_cache_path:?}: {pkg_capability_cache:?}");
+
+                        pkg_capability_cache.enable_networking
+                    } else {
+                        false
+                    }
                 } else {
                     false
                 }
-            } else {
-                false
-            }
-        };
+            };
 
         if has_networking {
             rt.set_networking_implementation(virtual_net::host::LocalNetworking::default());
