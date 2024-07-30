@@ -551,7 +551,11 @@ impl Wasi {
         if self.networking {
             rt.set_networking_implementation(virtual_net::host::LocalNetworking::default());
         } else {
-            rt.set_networking_implementation(virtual_net::UnsupportedVirtualNetworking::default());
+            let net = super::capabilities::net::AskingNetworking::new(Arc::new(
+                virtual_net::host::LocalNetworking::default(),
+            ));
+
+            rt.set_networking_implementation(net);
         }
 
         #[cfg(feature = "journal")]

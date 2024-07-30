@@ -1,6 +1,7 @@
 #![allow(missing_docs, unused)]
 
 mod wasi;
+mod capabilities;
 
 use std::{
     collections::BTreeMap,
