@@ -1999,6 +1999,23 @@
 <a href="#1999" id="1999">1999</a>
 <a href="#2000" id="2000">2000</a>
 <a href="#2001" id="2001">2001</a>
+<a href="#2002" id="2002">2002</a>
+<a href="#2003" id="2003">2003</a>
+<a href="#2004" id="2004">2004</a>
+<a href="#2005" id="2005">2005</a>
+<a href="#2006" id="2006">2006</a>
+<a href="#2007" id="2007">2007</a>
+<a href="#2008" id="2008">2008</a>
+<a href="#2009" id="2009">2009</a>
+<a href="#2010" id="2010">2010</a>
+<a href="#2011" id="2011">2011</a>
+<a href="#2012" id="2012">2012</a>
+<a href="#2013" id="2013">2013</a>
+<a href="#2014" id="2014">2014</a>
+<a href="#2015" id="2015">2015</a>
+<a href="#2016" id="2016">2016</a>
+<a href="#2017" id="2017">2017</a>
+<a href="#2018" id="2018">2018</a>
 </pre></div><pre class="rust"><code><span class="kw">pub use </span>queries::<span class="kw-2">*</span>;
 
 <span class="kw">pub use </span>cynic::Id;
@@ -3068,6 +3085,23 @@
         <span class="kw">pub </span>name: String,
         <span class="attr">#[arguments(after: <span class="macro-nonterminal">$after</span>)]
         </span><span class="kw">pub </span>apps: DeployAppConnection,
+    }
+
+    <span class="attr">#[derive(cynic::QueryVariables, Debug)]
+    </span><span class="kw">pub struct </span>RedeployActiveAppVariables {
+        <span class="kw">pub </span>id: cynic::Id,
+    }
+
+    <span class="attr">#[derive(cynic::QueryFragment, Debug)]
+    #[cynic(graphql_type = <span class="string">&quot;Mutation&quot;</span>, variables = <span class="string">&quot;RedeployActiveAppVariables&quot;</span>)]
+    </span><span class="kw">pub struct </span>RedeployActiveApp {
+        <span class="attr">#[arguments(input: { id: <span class="macro-nonterminal">$id </span>})]
+        </span><span class="kw">pub </span>redeploy_active_version: <span class="prelude-ty">Option</span>&lt;RedeployActiveVersionPayload&gt;,
+    }
+
+    <span class="attr">#[derive(cynic::QueryFragment, Debug)]
+    </span><span class="kw">pub struct </span>RedeployActiveVersionPayload {
+        <span class="kw">pub </span>app: DeployApp,
     }
 
     <span class="attr">#[derive(cynic::QueryVariables, Debug)]

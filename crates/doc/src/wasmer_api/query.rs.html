@@ -1859,6 +1859,20 @@
 <a href="#1859" id="1859">1859</a>
 <a href="#1860" id="1860">1860</a>
 <a href="#1861" id="1861">1861</a>
+<a href="#1862" id="1862">1862</a>
+<a href="#1863" id="1863">1863</a>
+<a href="#1864" id="1864">1864</a>
+<a href="#1865" id="1865">1865</a>
+<a href="#1866" id="1866">1866</a>
+<a href="#1867" id="1867">1867</a>
+<a href="#1868" id="1868">1868</a>
+<a href="#1869" id="1869">1869</a>
+<a href="#1870" id="1870">1870</a>
+<a href="#1871" id="1871">1871</a>
+<a href="#1872" id="1872">1872</a>
+<a href="#1873" id="1873">1873</a>
+<a href="#1874" id="1874">1874</a>
+<a href="#1875" id="1875">1875</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{collections::HashSet, time::Duration};
 
 <span class="kw">use </span>anyhow::{bail, Context};
@@ -1875,6 +1889,20 @@
     types::{<span class="self">self</span>, <span class="kw-2">*</span>},
     GraphQLApiFailure, WasmerClient,
 };
+
+<span class="kw">pub async fn </span>redeploy_app_by_id(
+    client: <span class="kw-2">&amp;</span>WasmerClient,
+    app_id: <span class="kw">impl </span>Into&lt;String&gt;,
+) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;DeployApp&gt;, anyhow::Error&gt; {
+    client
+        .run_graphql_strict(types::RedeployActiveApp::build(
+            RedeployActiveAppVariables {
+                id: types::Id::from(app_id),
+            },
+        ))
+        .<span class="kw">await
+        </span>.map(|v| v.redeploy_active_version.map(|v| v.app))
+}
 
 <span class="doccomment">/// Revoke an existing token
 </span><span class="kw">pub async fn </span>revoke_token(
