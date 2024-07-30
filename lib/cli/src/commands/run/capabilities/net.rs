@@ -118,6 +118,7 @@ impl AskingNetworking {
                 "".bold(),
                 "(yes/no/always)".dimmed()
             ))
+            .with_initial_text("a")
             .interact()
             .map_err(|_| NetworkError::UnknownError)?
         {
