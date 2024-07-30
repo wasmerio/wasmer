@@ -728,6 +728,34 @@
 <a href="#728" id="728">728</a>
 <a href="#729" id="729">729</a>
 <a href="#730" id="730">730</a>
+<a href="#731" id="731">731</a>
+<a href="#732" id="732">732</a>
+<a href="#733" id="733">733</a>
+<a href="#734" id="734">734</a>
+<a href="#735" id="735">735</a>
+<a href="#736" id="736">736</a>
+<a href="#737" id="737">737</a>
+<a href="#738" id="738">738</a>
+<a href="#739" id="739">739</a>
+<a href="#740" id="740">740</a>
+<a href="#741" id="741">741</a>
+<a href="#742" id="742">742</a>
+<a href="#743" id="743">743</a>
+<a href="#744" id="744">744</a>
+<a href="#745" id="745">745</a>
+<a href="#746" id="746">746</a>
+<a href="#747" id="747">747</a>
+<a href="#748" id="748">748</a>
+<a href="#749" id="749">749</a>
+<a href="#750" id="750">750</a>
+<a href="#751" id="751">751</a>
+<a href="#752" id="752">752</a>
+<a href="#753" id="753">753</a>
+<a href="#754" id="754">754</a>
+<a href="#755" id="755">755</a>
+<a href="#756" id="756">756</a>
+<a href="#757" id="757">757</a>
+<a href="#758" id="758">758</a>
 </pre></div><pre class="rust"><code><span class="kw">use super</span>::{util::login_user, AsyncCliCommand};
 <span class="kw">use crate</span>::{
     commands::{app::create::CmdAppCreate, package::publish::PackagePublish, PublishWait},
@@ -896,6 +924,7 @@
         client: <span class="kw-2">&amp;</span>WasmerClient,
         app: <span class="kw-2">&amp;</span>serde_yaml::Value,
         app_config_path: <span class="kw-2">&amp;</span>PathBuf,
+        maybe_edge_app: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>DeployApp&gt;,
     ) -&gt; anyhow::Result&lt;(String, String)&gt; {
         <span class="kw">let </span>r_ret = serde_yaml::to_string(<span class="kw-2">&amp;</span>app)<span class="question-mark">?</span>;
 
@@ -906,6 +935,11 @@
         <span class="kw">if let </span><span class="prelude-val">Some</span>(serde_yaml::Value::String(owner)) = <span class="kw-2">&amp;</span>app.get(<span class="string">&quot;owner&quot;</span>) {
             <span class="kw">return </span><span class="prelude-val">Ok</span>((owner.clone(), r_ret));
         }
+
+        <span class="kw">if let </span><span class="prelude-val">Some</span>(edge_app) = maybe_edge_app {
+            <span class="kw">let </span>new_raw_config = <span class="macro">format!</span>(<span class="string">&quot;{r_ret}\nowner: {}\n&quot;</span>, edge_app.owner.global_name);
+            <span class="kw">return </span><span class="prelude-val">Ok</span>((edge_app.owner.global_name.clone(), new_raw_config));
+        };
 
         <span class="kw">if </span><span class="self">self</span>.non_interactive {
             <span class="comment">// if not interactive we can&#39;t prompt the user to choose the owner of the app.
@@ -919,7 +953,7 @@
             <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span>user),
         )<span class="question-mark">?</span>;
 
-        <span class="kw">let </span>new_raw_config = <span class="macro">format!</span>(<span class="string">&quot;owner: {owner}\n{r_ret}&quot;</span>);
+        <span class="kw">let </span>new_raw_config = <span class="macro">format!</span>(<span class="string">&quot;{r_ret}\nowner: {owner}\n&quot;</span>);
 
         std::fs::write(app_config_path, <span class="kw-2">&amp;</span>new_raw_config)
             .with_context(|| <span class="macro">format!</span>(<span class="string">&quot;Could not write file: &#39;{}&#39;&quot;</span>, app_config_path.display()))<span class="question-mark">?</span>;
@@ -997,13 +1031,32 @@
 
         <span class="comment">// We want to allow the user to specify the app name interactively.
         </span><span class="kw">let </span>app_yaml: serde_yaml::Value = serde_yaml::from_str(<span class="kw-2">&amp;</span>config_str)<span class="question-mark">?</span>;
-        <span class="kw">let </span>(owner, <span class="kw-2">mut </span>config_str) = <span class="self">self</span>.get_owner(<span class="kw-2">&amp;</span>client, <span class="kw-2">&amp;</span>app_yaml, <span class="kw-2">&amp;</span>app_config_path).<span class="kw">await</span><span class="question-mark">?</span>;
+        <span class="kw">let </span>maybe_edge_app = <span class="kw">if let </span><span class="prelude-val">Some</span>(app_id) = app_yaml.get(<span class="string">&quot;app_id&quot;</span>).and_then(|s| s.as_str()) {
+            wasmer_api::query::get_app_by_id(<span class="kw-2">&amp;</span>client, app_id.to_owned())
+                .<span class="kw">await
+                </span>.ok()
+        } <span class="kw">else </span>{
+            <span class="prelude-val">None
+        </span>};
+
+        <span class="kw">let </span>(owner, <span class="kw-2">mut </span>config_str) = <span class="self">self
+            </span>.get_owner(
+                <span class="kw-2">&amp;</span>client,
+                <span class="kw-2">&amp;</span>app_yaml,
+                <span class="kw-2">&amp;</span>app_config_path,
+                maybe_edge_app.as_ref(),
+            )
+            .<span class="kw">await</span><span class="question-mark">?</span>;
 
         <span class="comment">// We want to allow the user to specify the app name interactively.
         </span><span class="kw">let </span>app_yaml: serde_yaml::Value = serde_yaml::from_str(<span class="kw-2">&amp;</span>config_str)<span class="question-mark">?</span>;
 
         <span class="kw">if </span>app_yaml.get(<span class="string">&quot;name&quot;</span>).is_none() &amp;&amp; <span class="self">self</span>.app_name.is_some() {
-            config_str = <span class="macro">format!</span>(<span class="string">&quot;{}\nname: {}&quot;</span>, config_str, <span class="self">self</span>.app_name.as_ref().unwrap());
+            config_str = <span class="macro">format!</span>(<span class="string">&quot;{config_str}name: {}&quot;</span>, <span class="self">self</span>.app_name.as_ref().unwrap());
+        } <span class="kw">else if </span>app_yaml.get(<span class="string">&quot;name&quot;</span>).is_none() &amp;&amp; maybe_edge_app.is_some() {
+            <span class="kw">let </span>edge_app = maybe_edge_app.as_ref().unwrap();
+            config_str = <span class="macro">format!</span>(<span class="string">&quot;{config_str}name: {}&quot;</span>, edge_app.name);
+            <span class="macro">println!</span>(<span class="string">&quot;config_str: {config_str}&quot;</span>);
         } <span class="kw">else if </span>app_yaml.get(<span class="string">&quot;name&quot;</span>).is_none() {
             <span class="kw">if </span>!<span class="self">self</span>.non_interactive {
                 <span class="kw">let </span>default_name = std::env::current_dir().ok().and_then(|dir| {
@@ -1044,6 +1097,9 @@
         }
 
         <span class="kw">let </span>original_app_config: AppConfigV1 = AppConfigV1::parse_yaml(<span class="kw-2">&amp;</span>config_str)<span class="question-mark">?</span>;
+        std::fs::write(<span class="kw-2">&amp;</span>app_config_path, config_str)
+            .with_context(|| <span class="macro">format!</span>(<span class="string">&quot;Could not write file: &#39;{}&#39;&quot;</span>, app_config_path.display()))<span class="question-mark">?</span>;
+
         <span class="kw">let </span><span class="kw-2">mut </span>app_config = original_app_config.clone();
 
         app_config.owner = <span class="prelude-val">Some</span>(owner.clone());
