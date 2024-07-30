@@ -6407,7 +6407,7 @@
             }
             (Size::S64, Location::GPR(reg)) =&gt; {
                 <span class="kw">let </span>reg = reg.into_index() <span class="kw">as </span>u32;
-                <span class="macro">dynasm!</span>(<span class="self">self </span>; cbz W(reg), =&gt; label);
+                <span class="macro">dynasm!</span>(<span class="self">self </span>; cbz X(reg), =&gt; near_label);
                 <span class="macro">dynasm!</span>(<span class="self">self </span>; b =&gt; continue_label);
             }
             <span class="kw">_ </span>=&gt; <span class="macro">codegen_error!</span>(<span class="string">&quot;singlepass can&#39;t emit CBZ {:?} {:?} {:?}&quot;</span>, sz, reg, label),
