@@ -2631,7 +2631,7 @@ impl EmitterARM64 for Assembler {
             }
             (Size::S64, Location::GPR(reg)) => {
                 let reg = reg.into_index() as u32;
-                dynasm!(self ; cbz W(reg), => label);
+                dynasm!(self ; cbz X(reg), => near_label);
                 dynasm!(self ; b => continue_label);
             }
             _ => codegen_error!("singlepass can't emit CBZ {:?} {:?} {:?}", sz, reg, label),

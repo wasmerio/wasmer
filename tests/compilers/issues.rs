@@ -459,3 +459,39 @@ fn issue_4519(mut config: crate::Config) -> Result<()> {
 
     Ok(())
 }
+
+#[cfg(target_arch = "aarch64")]
+#[compiler_test(issues)]
+/// Singlepass panics on aarch64 for long relocations.
+/// This test specifically targets the emission of the sdiv64 binop.
+///
+/// Note: this one is specific to Singlepass, but we want to test in all
+/// available compilers.
+///
+/// https://github.com/wasmerio/wasmer/issues/4519
+fn issue_4519_sdiv64(mut config: crate::Config) -> Result<()> {
+    const REPEATS_TO_REPRODUCE: usize = 16_000;
+
+    let sdiv64 = r#"
+        i64.const 3155225962131072202
+        i64.const -6717269760755396770
+        i64.div_s
+        drop
+    "#;
+
+    let wat = format!(
+        r#"
+      (module
+        (func (;0;)
+            {}
+        )
+      )
+    "#,
+        sdiv64.repeat(REPEATS_TO_REPRODUCE)
+    );
+
+    let mut store = config.store();
+    let module = Module::new(&store, wat)?;
+
+    Ok(())
+}
