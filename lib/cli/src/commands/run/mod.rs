@@ -1,12 +1,13 @@
 #![allow(missing_docs, unused)]
 
-mod wasi;
 mod capabilities;
+mod wasi;
 
 use std::{
-    collections::BTreeMap,
+    collections::{hash_map::DefaultHasher, BTreeMap},
     fmt::{Binary, Display},
     fs::File,
+    hash::{Hash, Hasher},
     io::{ErrorKind, LineWriter, Read, Write},
     net::SocketAddr,
     path::{Path, PathBuf},
@@ -15,7 +16,7 @@ use std::{
     time::{Duration, SystemTime},
 };
 
-use anyhow::{bail, Context, Error};
+use anyhow::{anyhow, bail, Context, Error};
 use clap::{Parser, ValueEnum};
 use indicatif::{MultiProgress, ProgressBar};
 use once_cell::sync::Lazy;
@@ -59,6 +60,8 @@ use crate::{
     commands::run::wasi::Wasi, common::HashAlgorithm, error::PrettyError, logging::Output,
     store::StoreOptions,
 };
+
+use self::capabilities::DEFAULT_WASMER_PKG_CAPABILITY_CACHE_DIR;
 
 const TICK: Duration = Duration::from_millis(250);
 
@@ -141,9 +144,75 @@ impl Run {
         #[cfg(not(feature = "sys"))]
         let engine = store.engine().clone();
 
-        let runtime =
-            self.wasi
-                .prepare_runtime(engine, &self.env, runtime, preferred_webc_version)?;
+        let registry_name = self
+            .env
+            .registry_public_url()?
+            .host_str()
+            .unwrap_or("unknown_registry")
+            .replace('.', "_");
+
+        // We don't have the bytes of the module yet, but we still want to have the
+        // package-capabilities cache be as close to an actual identifier as possible.
+        let package_cache_path = match &self.input {
+            PackageSource::File(f) => {
+                let full_path = f.canonicalize()?.to_path_buf();
+                let mut h = DefaultHasher::new();
+                full_path.hash(&mut h);
+                full_path
+                    .parent()
+                    .ok_or(anyhow!("No parent!"))?
+                    .metadata()?
+                    .modified()?
+                    .hash(&mut h);
+                format!("path_{}.json", h.finish())
+            }
+            PackageSource::Dir(f) => {
+                let full_path = f.canonicalize()?.to_path_buf();
+                let mut h = DefaultHasher::new();
+                full_path.hash(&mut h);
+                full_path.metadata()?.modified()?.hash(&mut h);
+                format!("path_{}.json", h.finish())
+            }
+            PackageSource::Package(p) => match p {
+                PackageSpecifier::Ident(id) => {
+                    format!("id_{}.json", id.to_string())
+                }
+                PackageSpecifier::Path(f) => {
+                    let full_path = PathBuf::from(f).canonicalize()?.to_path_buf();
+                    let mut h = DefaultHasher::new();
+                    full_path.hash(&mut h);
+                    if full_path.is_dir() {
+                        full_path.metadata()?.modified()?.hash(&mut h);
+                    } else if full_path.is_file() {
+                        full_path
+                            .parent()
+                            .ok_or(anyhow!("No parent!"))?
+                            .metadata()?
+                            .modified()?
+                            .hash(&mut h);
+                    }
+                    format!("path_{}.json", h.finish())
+                }
+                PackageSpecifier::Url(u) => {
+                    let mut h = DefaultHasher::new();
+                    u.hash(&mut h);
+                    format!("path_{}.json", h.finish())
+                }
+            },
+        };
+
+        let runtime = self.wasi.prepare_runtime(
+            engine,
+            &self.env,
+            &self
+                .env
+                .cache_dir()
+                .join(DEFAULT_WASMER_PKG_CAPABILITY_CACHE_DIR)
+                .join(registry_name)
+                .join(package_cache_path),
+            runtime,
+            preferred_webc_version,
+        )?;
 
         // This is a slow operation, so let's temporarily wrap the runtime with
         // something that displays progress

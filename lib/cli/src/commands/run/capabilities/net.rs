@@ -1,9 +1,12 @@
 use std::{
     net::{IpAddr, SocketAddr},
+    path::PathBuf,
     sync::OnceLock,
     time::Duration,
 };
 
+use super::{super::PackageSource, PkgCapabilityCache};
+use anyhow::Context;
 use colored::Colorize;
 use dialoguer::theme::ColorfulTheme;
 use virtual_net::{
@@ -16,34 +19,20 @@ use virtual_net::{
 /// use networking features at runtime.
 #[derive(Debug, Clone)]
 pub(crate) struct AskingNetworking {
+    pkg_cache_path: PathBuf,
     enable: OnceLock<Result<bool>>,
     capable: DynVirtualNetworking,
     unsupported: DynVirtualNetworking,
 }
 
-fn ask_user(fn_name: &str) -> Result<bool> {
-    let theme = ColorfulTheme::default();
-
-    println!("Networking needs to be enabled to call function '{fn_name}'.");
-    if dialoguer::Confirm::with_theme(&theme)
-        .with_prompt("Enable networking?")
-        .interact()
-        .map_err(|_| NetworkError::UnknownError)?
-    {
-        eprintln!(
-            "{}: to enable networking by default, use the `--net` flag",
-            "Info".bold()
-        );
-        Ok(true)
-    } else {
-        Ok(false)
-    }
-}
-
 macro_rules! call {
     ($self: expr, $fn_name: ident, $( $arg: expr ),* ) => {
 
-        let enable_networking = $self.enable.get_or_init(|| ask_user(stringify!($fn_name))).map_err(|_| NetworkError::UnknownError)?;
+        let enable_networking = $self.enable.get_or_init(|| $self.ask_user(stringify!($fn_name)))
+            .map_err(|e| {
+                tracing::error!("{e}");
+                NetworkError::UnknownError
+            })?;
 
         if enable_networking {
             return $self.capable.$fn_name( $( $arg ),* ).await;
@@ -54,7 +43,10 @@ macro_rules! call {
 
     ($self: expr, $fn_name: ident) => {
 
-        let enable_networking = $self.enable.get_or_init(|| ask_user(stringify!($fn_name))).map_err(|_| NetworkError::UnknownError)?;
+        let enable_networking = $self.enable.get_or_init(|| $self.ask_user(stringify!($fn_name))).map_err(|e| {
+                tracing::error!("{e}");
+                NetworkError::UnknownError
+            })?;
 
         if enable_networking {
             return $self.capable.$fn_name().await;
@@ -65,14 +57,72 @@ macro_rules! call {
 }
 
 impl AskingNetworking {
-    pub(crate) fn new(capable_networking: DynVirtualNetworking) -> Self {
+    pub(crate) fn new(pkg_cache_path: PathBuf, capable_networking: DynVirtualNetworking) -> Self {
         let enable_networking = OnceLock::new();
 
         Self {
             enable: enable_networking,
             capable: capable_networking,
             unsupported: std::sync::Arc::new(UnsupportedVirtualNetworking::default()),
+            pkg_cache_path,
         }
+    }
+
+    fn ask_user(&self, fn_name: &str) -> Result<bool> {
+        let theme = ColorfulTheme::default();
+
+        println!("The current package is requesting networking access.");
+        println!("Run the package with `--net` flag to bypass the prompt.");
+        match dialoguer::Select::with_theme(&theme)
+            .with_prompt("Would you like to allow networking for this package?")
+            .items(&[
+                "no",
+                "yes",
+                "always (will remember this option for future runs of the same package)",
+            ])
+            .default(2)
+            .interact()
+            .map_err(|_| NetworkError::UnknownError)?
+        {
+            0 => Ok(false),
+            1 => Ok(true),
+            2 => {
+                self.save_in_cache();
+                Ok(true)
+            }
+            _ => {
+                eprintln!("Invalid selection");
+                Err(NetworkError::UnknownError)
+            }
+        }
+    }
+
+    fn save_in_cache(&self) -> Result<()> {
+        let capability = PkgCapabilityCache {
+            enable_networking: true,
+        };
+
+        if let Some(parent) = self.pkg_cache_path.parent() {
+            std::fs::create_dir_all(parent)
+                .context("could not create cache dir")
+                .map_err(|e| {
+                    tracing::error!("e");
+                    NetworkError::UnknownError
+                })?;
+        }
+
+        let data = serde_json::to_string_pretty(&capability).map_err(|e| {
+            tracing::error!("e");
+            NetworkError::UnknownError
+        })?;
+
+        std::fs::write(&self.pkg_cache_path, data).map_err(|e| {
+            tracing::error!("e");
+            NetworkError::UnknownError
+        })?;
+        tracing::trace!(path=%self.pkg_cache_path.display(), "persisted app template cache");
+
+        Ok(())
     }
 }
 
