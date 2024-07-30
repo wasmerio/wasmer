@@ -364,7 +364,7 @@ fn filesystem_v3(
         mount_path,
         volume_name,
         package,
-        ..
+        original_path,
     } in &pkg.filesystem
     {
         // Note: We want to reuse existing Volume instances if we can. That way
@@ -386,7 +386,16 @@ fn filesystem_v3(
             format!("The \"{package}\" package doesn't have a \"{volume_name}\" volume")
         })?;
 
-        let webc_vol = WebcVolumeFileSystem::new(volume.clone());
+        let webc_vol = match original_path {
+            // WebC v1 and v2 atoms are mounted as a volume in / when no filesystem is found.
+            // We don't want to start writing files in the host's root dir.
+            Some(path) if *path != "/" => WebcVolumeFileSystem::new_backed_by_host_dir(
+                volume.clone(),
+                path,
+                tokio::runtime::Handle::current(),
+            )?,
+            _ => WebcVolumeFileSystem::new(volume.clone()),
+        };
         union_fs.mount(
             volume_name,
             mount_path.to_str().unwrap(),

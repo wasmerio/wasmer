@@ -22,11 +22,29 @@ use crate::{
 #[derive(Debug, Clone)]
 pub struct WebcVolumeFileSystem {
     volume: Volume,
+    host_fs: Option<super::host_fs::FileSystem>,
 }
 
 impl WebcVolumeFileSystem {
     pub fn new(volume: Volume) -> Self {
-        WebcVolumeFileSystem { volume }
+        WebcVolumeFileSystem {
+            volume,
+            host_fs: None,
+        }
+    }
+
+    pub fn new_backed_by_host_dir(
+        volume: Volume,
+        base_dir: impl Into<PathBuf>,
+        tokio_handle: tokio::runtime::Handle,
+    ) -> crate::Result<Self> {
+        // Note, this code expects the host to have the same files as the webc volume;
+        // otherwise, it'll probably run into unforeseen edge cases.
+        let host_fs = super::host_fs::FileSystem::new(tokio_handle, base_dir)?;
+        Ok(WebcVolumeFileSystem {
+            volume,
+            host_fs: Some(host_fs),
+        })
     }
 
     pub fn volume(&self) -> &Volume {
@@ -49,59 +67,85 @@ impl WebcVolumeFileSystem {
 }
 
 impl FileSystem for WebcVolumeFileSystem {
-    fn readlink(&self, _path: &Path) -> crate::Result<PathBuf> {
-        Err(FsError::InvalidInput)
+    fn readlink(&self, path: &Path) -> crate::Result<PathBuf> {
+        match (&self.host_fs, self.volume.metadata(path)) {
+            // If we don't have such a file, ask the HostFS...
+            (Some(host_fs), None) => host_fs.readlink(path),
+
+            // ... but if we do, it's definitely not a link.
+            _ => Err(FsError::InvalidInput),
+        }
     }
 
     fn read_dir(&self, path: &Path) -> Result<crate::ReadDir, FsError> {
-        let meta = self.metadata(path)?;
+        match (metadata(self, path), &self.host_fs) {
+            (Ok(meta), _) => {
+                if !meta.is_dir() {
+                    return Err(FsError::BaseNotDirectory);
+                }
 
-        if !meta.is_dir() {
-            return Err(FsError::BaseNotDirectory);
+                let path = normalize(path).map_err(|_| FsError::InvalidInput)?;
+
+                let mut entries = Vec::new();
+
+                for (name, _, meta) in self
+                    .volume()
+                    .read_dir(&path)
+                    .ok_or(FsError::EntryNotFound)?
+                {
+                    let path = PathBuf::from(path.join(name).to_string());
+                    entries.push(DirEntry {
+                        path,
+                        metadata: Ok(compat_meta(meta)),
+                    });
+                }
+
+                Ok(ReadDir::new(entries))
+            }
+
+            (Err(FsError::EntryNotFound), Some(host_fs)) => host_fs.read_dir(path),
+
+            (Err(e), _) => Err(e),
         }
-
-        let path = normalize(path).map_err(|_| FsError::InvalidInput)?;
-
-        let mut entries = Vec::new();
-
-        for (name, _, meta) in self
-            .volume()
-            .read_dir(&path)
-            .ok_or(FsError::EntryNotFound)?
-        {
-            let path = PathBuf::from(path.join(name).to_string());
-            entries.push(DirEntry {
-                path,
-                metadata: Ok(compat_meta(meta)),
-            });
-        }
-
-        Ok(ReadDir::new(entries))
     }
 
     fn create_dir(&self, path: &Path) -> Result<(), FsError> {
         // the directory shouldn't exist yet
-        if self.metadata(path).is_ok() {
+        if metadata(self, path).is_ok() {
             return Err(FsError::AlreadyExists);
         }
 
         // it's parent should exist
         let parent = path.parent().unwrap_or_else(|| Path::new("/"));
 
-        match self.metadata(parent) {
-            Ok(parent_meta) if parent_meta.is_dir() => {
+        match (metadata(self, parent), &self.host_fs) {
+            // Parent is a file, error out
+            (Ok(parent_meta), _) if !parent_meta.is_dir() => Err(FsError::BaseNotDirectory),
+
+            // Parent is not a directory, but there's no backing host FS
+            (Ok(_), None) => {
                 // The operation would normally be doable... but we're a readonly
                 // filesystem
                 Err(FsError::PermissionDenied)
             }
-            Ok(_) | Err(FsError::EntryNotFound) => Err(FsError::BaseNotDirectory),
-            Err(other) => Err(other),
+
+            // Parent is a dir or wasn't found at all, redirect the call to the host FS
+            (Ok(_), Some(host_fs)) | (Err(FsError::EntryNotFound), Some(host_fs)) => {
+                host_fs.create_dir(path)
+            }
+
+            // Other error when looking for parent, error out
+            (Err(e), _) => Err(e),
         }
     }
 
     fn remove_dir(&self, path: &Path) -> Result<(), FsError> {
         // The original directory should exist
-        let meta = self.metadata(path)?;
+        let meta = match (metadata(self, path), &self.host_fs) {
+            (Err(FsError::EntryNotFound), Some(host_fs)) => return host_fs.remove_dir(path),
+            (Err(e), _) => return Err(e),
+            (Ok(meta), _) => meta,
+        };
 
         // and it should be a directory
         if !meta.is_dir() {
@@ -115,11 +159,29 @@ impl FileSystem for WebcVolumeFileSystem {
     fn rename<'a>(&'a self, from: &'a Path, to: &'a Path) -> BoxFuture<'a, Result<(), FsError>> {
         Box::pin(async {
             // The original file should exist
-            let _ = self.metadata(from)?;
+            match (metadata(self, from), &self.host_fs) {
+                // Not found in the volume, can redirect to underlying host FS
+                (Err(FsError::EntryNotFound), Some(host_fs)) => {
+                    match metadata(self, to) {
+                        // Destination file shouldn't exist on the Volume, otherwise it can't be overwritten
+                        Err(FsError::EntryNotFound) => (),
+                        Err(e) => return Err(e),
+                        Ok(_) => return Err(FsError::PermissionDenied),
+                    }
+
+                    return host_fs.rename(from, to).await;
+                }
+
+                // Other error, report it
+                (Err(e), _) => return Err(e),
+
+                // Otherwise, we can "continue" as normal
+                _ => (),
+            };
 
             // we also want to make sure the destination's folder exists, too
             let dest_parent = to.parent().unwrap_or_else(|| Path::new("/"));
-            let parent_meta = self.metadata(dest_parent)?;
+            let parent_meta = metadata(self, dest_parent)?;
             if !parent_meta.is_dir() {
                 return Err(FsError::BaseNotDirectory);
             }
@@ -130,20 +192,25 @@ impl FileSystem for WebcVolumeFileSystem {
     }
 
     fn metadata(&self, path: &Path) -> Result<Metadata, FsError> {
-        let path = normalize(path).map_err(|_| FsError::InvalidInput)?;
-
-        self.volume()
-            .metadata(path)
-            .map(compat_meta)
-            .ok_or(FsError::EntryNotFound)
+        match (metadata(self, path), &self.host_fs) {
+            (Err(FsError::EntryNotFound), Some(host_fs)) => host_fs.metadata(path),
+            (x, _) => x,
+        }
     }
 
     fn symlink_metadata(&self, path: &Path) -> crate::Result<Metadata> {
-        self.metadata(path)
+        match (metadata(self, path), &self.host_fs) {
+            (Err(FsError::EntryNotFound), Some(host_fs)) => host_fs.symlink_metadata(path),
+            (x, _) => x,
+        }
     }
 
     fn remove_file(&self, path: &Path) -> Result<(), FsError> {
-        let meta = self.metadata(path)?;
+        let meta = match (metadata(self, path), &self.host_fs) {
+            (Err(FsError::EntryNotFound), Some(host_fs)) => return host_fs.remove_file(path),
+            (Err(e), _) => return Err(e),
+            (Ok(meta), _) => meta,
+        };
 
         if !meta.is_file() {
             return Err(FsError::NotAFile);
@@ -164,20 +231,25 @@ impl FileOpener for WebcVolumeFileSystem {
         conf: &OpenOptionsConfig,
     ) -> crate::Result<Box<dyn crate::VirtualFile + Send + Sync + 'static>> {
         if let Some(parent) = path.parent() {
-            let parent_meta = self.metadata(parent)?;
-            if !parent_meta.is_dir() {
-                return Err(FsError::BaseNotDirectory);
+            match (metadata(self, parent), &self.host_fs) {
+                (Err(FsError::EntryNotFound), Some(host_fs)) => {
+                    return host_fs.new_open_options().opener.open(path, conf)
+                }
+                (Err(e), _) => return Err(e),
+                (Ok(meta), _) if !meta.is_dir() => return Err(FsError::BaseNotDirectory),
+                (Ok(_), _) => (),
             }
         }
 
-        let timestamps = match self.volume().metadata(path) {
-            Some(m) if m.is_file() => m.timestamps(),
-            Some(_) => return Err(FsError::NotAFile),
-            None if conf.create() || conf.create_new() => {
+        let timestamps = match (self.volume().metadata(path), &self.host_fs) {
+            (None, Some(host_fs)) => return host_fs.new_open_options().opener.open(path, conf),
+            (None, _) if conf.create() || conf.create_new() => {
                 // The file would normally be created, but we are a readonly fs.
                 return Err(FsError::PermissionDenied);
             }
-            None => return Err(FsError::EntryNotFound),
+            (None, _) => return Err(FsError::EntryNotFound),
+            (Some(m), _) if m.is_file() => m.timestamps(),
+            (Some(_), _) => return Err(FsError::NotAFile),
         };
 
         match self.volume().read_file(path) {
@@ -338,6 +410,15 @@ fn normalize(path: &Path) -> Result<PathSegments, PathSegmentError> {
     }
 
     result
+}
+
+fn metadata(fs: &WebcVolumeFileSystem, path: &Path) -> Result<Metadata, FsError> {
+    let path = normalize(path).map_err(|_| FsError::InvalidInput)?;
+
+    fs.volume()
+        .metadata(path)
+        .map(compat_meta)
+        .ok_or(FsError::EntryNotFound)
 }
 
 #[cfg(test)]
