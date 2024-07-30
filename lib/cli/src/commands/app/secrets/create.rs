@@ -40,6 +40,10 @@ pub struct CmdAppSecretsCreate {
     #[clap(long, name = "from-file", conflicts_with = "name")]
     pub from_file: Option<PathBuf>,
 
+    /// Whether or not to redeploy the app after creating the secrets.
+    #[clap(long)]
+    pub redeploy: bool,
+
     /* --- Parameters --- */
     /// The name of the secret to create.
     #[clap(name = "name")]
@@ -153,13 +157,30 @@ impl CmdAppSecretsCreate {
         } else {
             if !self.quiet {
                 eprintln!("Succesfully created secret(s):");
-                for secret in secrets {
+                for secret in &secrets {
                     eprintln!("{}", secret.name.bold());
                 }
-                eprintln!(
-                    "{}: In order for secrets to appear in your app, re-deploy it.",
-                    "Info".bold()
-                );
+
+                let should_redeploy = self.redeploy || {
+                    if !self.non_interactive && self.from_file.is_some() {
+                        let theme = ColorfulTheme::default();
+                        dialoguer::Confirm::with_theme(&theme)
+                            .with_prompt("Do you want to redeploy your app?")
+                            .interact()?
+                    } else {
+                        false
+                    }
+                };
+
+                if should_redeploy {
+                    wasmer_api::query::redeploy_app_by_id(client, app_id).await?;
+                    eprintln!("{} Deployment complete", "𖥔".yellow().bold());
+                } else {
+                    eprintln!(
+                        "{}: In order for secrets to appear in your app, re-deploy it.",
+                        "Info".bold()
+                    );
+                }
             }
 
             Ok(())

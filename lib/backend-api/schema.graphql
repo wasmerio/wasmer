@@ -2995,6 +2995,9 @@ type Mutation {
 
   """Delete secret with given ID"""
   deleteAppSecret(input: DeleteAppSecretInput!): DeleteAppSecretPayload
+
+  """Redeploy the active version of an app."""
+  redeployActiveVersion(input: RedeployActiveVersionInput!): RedeployActiveVersionPayload
   tokenAuth(input: ObtainJSONWebTokenInput!): ObtainJSONWebTokenPayload
   generateDeployToken(input: GenerateDeployTokenInput!): GenerateDeployTokenPayload
   verifyAccessToken(token: String): Verify
@@ -3437,6 +3440,18 @@ type DeleteAppSecretPayload {
 
 input DeleteAppSecretInput {
   """ID of the secret to delete."""
+  id: ID!
+  clientMutationId: String
+}
+
+"""Redeploy the active version of an app."""
+type RedeployActiveVersionPayload {
+  app: DeployApp!
+  clientMutationId: String
+}
+
+input RedeployActiveVersionInput {
+  """ID of the app to redeploy."""
   id: ID!
   clientMutationId: String
 }

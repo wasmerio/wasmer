@@ -15,6 +15,20 @@ use crate::{
     GraphQLApiFailure, WasmerClient,
 };
 
+pub async fn redeploy_app_by_id(
+    client: &WasmerClient,
+    app_id: impl Into<String>,
+) -> Result<Option<DeployApp>, anyhow::Error> {
+    client
+        .run_graphql_strict(types::RedeployActiveApp::build(
+            RedeployActiveAppVariables {
+                id: types::Id::from(app_id),
+            },
+        ))
+        .await
+        .map(|v| v.redeploy_active_version.map(|v| v.app))
+}
+
 /// Revoke an existing token
 pub async fn revoke_token(
     client: &WasmerClient,
