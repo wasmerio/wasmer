@@ -31,7 +31,6 @@ pub mod ssh;
 mod validate;
 #[cfg(feature = "wast")]
 mod wast;
-use colored::Colorize;
 use std::env::args;
 use tokio::task::JoinHandle;
 
@@ -185,11 +184,7 @@ impl WasmerCmd {
             Some(Cmd::Config(config)) => config.execute(),
             Some(Cmd::Inspect(inspect)) => inspect.execute(),
             Some(Cmd::Init(init)) => init.execute(),
-            Some(Cmd::Login(login)) => {
-                let bin_name = std::env::args().nth(0).unwrap();
-                eprintln!("{}: The `{bin_name} login` command is superseded by `{bin_name} auth login` and will be removed in later versions.", "WARN".yellow().bold());
-                login.run()
-            }
+            Some(Cmd::Login(login)) => login.run(),
             Some(Cmd::Auth(auth)) => auth.run(),
             Some(Cmd::Publish(publish)) => publish.run().map(|_| ()),
             Some(Cmd::Package(cmd)) => match cmd {
@@ -211,12 +206,7 @@ impl WasmerCmd {
             Some(Cmd::Wast(wast)) => wast.execute(),
             #[cfg(target_os = "linux")]
             Some(Cmd::Binfmt(binfmt)) => binfmt.execute(),
-            Some(Cmd::Whoami(whoami)) => {
-                let bin_name = std::env::args().nth(0).unwrap();
-                eprintln!("{}: The `{bin_name} whoami` command is superseded by `{bin_name} auth whoami` and will be removed in later versions.", "WARN".yellow().bold());
-
-                whoami.run()
-            }
+            Some(Cmd::Whoami(whoami)) => whoami.run(),
             Some(Cmd::Add(install)) => install.execute(),
 
             // Deploy commands.
