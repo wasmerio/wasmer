@@ -816,6 +816,12 @@
 <a href="#816" id="816">816</a>
 <a href="#817" id="817">817</a>
 <a href="#818" id="818">818</a>
+<a href="#819" id="819">819</a>
+<a href="#820" id="820">820</a>
+<a href="#821" id="821">821</a>
+<a href="#822" id="822">822</a>
+<a href="#823" id="823">823</a>
+<a href="#824" id="824">824</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Create a new Edge app.
 
 </span><span class="kw">use </span>std::{
@@ -1319,8 +1325,15 @@
             }
 
             <span class="kw">let </span>theme = ColorfulTheme::default();
-            <span class="kw">let </span>languages =
-                <span class="self">Self</span>::fetch_template_languages_cached(client, <span class="kw-2">&amp;</span><span class="self">self</span>.env.cache_dir).<span class="kw">await</span><span class="question-mark">?</span>;
+            <span class="kw">let </span>registry = <span class="self">self
+                </span>.env
+                .registry_public_url()<span class="question-mark">?
+                </span>.host_str()
+                .unwrap_or(<span class="string">&quot;unknown_registry&quot;</span>)
+                .replace(<span class="string">&#39;.&#39;</span>, <span class="string">&quot;_&quot;</span>);
+            <span class="kw">let </span>cache_dir = <span class="self">self</span>.env.cache_dir().join(<span class="string">&quot;templates&quot;</span>).join(registry);
+
+            <span class="kw">let </span>languages = <span class="self">Self</span>::fetch_template_languages_cached(client, <span class="kw-2">&amp;</span>cache_dir).<span class="kw">await</span><span class="question-mark">?</span>;
 
             <span class="kw">let </span>items = languages.iter().map(|t| t.name.clone()).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
 
@@ -1341,8 +1354,7 @@
                 .ok_or(<span class="macro">anyhow::anyhow!</span>(<span class="string">&quot;Invalid selection!&quot;</span>))<span class="question-mark">?</span>;
 
             <span class="kw">let </span>templates =
-                <span class="self">Self</span>::fetch_templates_cached(client, <span class="kw-2">&amp;</span><span class="self">self</span>.env.cache_dir, <span class="kw-2">&amp;</span>selected_language.slug)
-                    .<span class="kw">await</span><span class="question-mark">?</span>;
+                <span class="self">Self</span>::fetch_templates_cached(client, <span class="kw-2">&amp;</span>cache_dir, <span class="kw-2">&amp;</span>selected_language.slug).<span class="kw">await</span><span class="question-mark">?</span>;
 
             <span class="kw">let </span>items = templates
                 .iter()
