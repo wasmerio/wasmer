@@ -5,18 +5,16 @@ use std::pin::Pin;
 use futures::{Stream, StreamExt};
 use wasmer_api::types::DeployApp;
 
-use crate::{
-    commands::AsyncCliCommand,
-    opts::{ApiOpts, ListFormatOpts},
-};
+use crate::{commands::AsyncCliCommand, config::WasmerEnv, opts::ListFormatOpts};
 
 /// List apps belonging to a namespace
 #[derive(clap::Parser, Debug)]
 pub struct CmdAppList {
     #[clap(flatten)]
     fmt: ListFormatOpts,
+
     #[clap(flatten)]
-    api: ApiOpts,
+    env: WasmerEnv,
 
     /// Get apps in a specific namespace.
     ///
@@ -43,7 +41,7 @@ impl AsyncCliCommand for CmdAppList {
     type Output = ();
 
     async fn run_async(self) -> Result<(), anyhow::Error> {
-        let client = self.api.client()?;
+        let client = self.env.client()?;
 
         let apps_stream: Pin<
             Box<dyn Stream<Item = Result<Vec<DeployApp>, anyhow::Error>> + Send + Sync>,

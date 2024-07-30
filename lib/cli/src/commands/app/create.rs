@@ -23,7 +23,8 @@ use wasmer_config::{app::AppConfigV1, package::PackageSource};
 use super::{deploy::CmdAppDeploy, util::login_user};
 use crate::{
     commands::AsyncCliCommand,
-    opts::{ApiOpts, ItemFormatOpts, WasmerEnv},
+    config::WasmerEnv,
+    opts::ItemFormatOpts,
     utils::{load_package_manifest, prompts::PackageCheckMode},
 };
 
@@ -111,10 +112,6 @@ pub struct CmdAppCreate {
     pub no_wait: bool,
 
     // Common args.
-    #[clap(flatten)]
-    #[allow(missing_docs)]
-    pub api: ApiOpts,
-
     #[clap(flatten)]
     pub env: WasmerEnv,
 
@@ -504,8 +501,15 @@ impl CmdAppCreate {
             }
 
             let theme = ColorfulTheme::default();
-            let languages =
-                Self::fetch_template_languages_cached(client, &self.env.cache_dir).await?;
+            let registry = self
+                .env
+                .registry_public_url()?
+                .host_str()
+                .unwrap_or("unknown_registry")
+                .replace('.', "_");
+            let cache_dir = self.env.cache_dir().join("templates").join(registry);
+
+            let languages = Self::fetch_template_languages_cached(client, &cache_dir).await?;
 
             let items = languages.iter().map(|t| t.name.clone()).collect::<Vec<_>>();
 
@@ -526,8 +530,7 @@ impl CmdAppCreate {
                 .ok_or(anyhow::anyhow!("Invalid selection!"))?;
 
             let templates =
-                Self::fetch_templates_cached(client, &self.env.cache_dir, &selected_language.slug)
-                    .await?;
+                Self::fetch_templates_cached(client, &cache_dir, &selected_language.slug).await?;
 
             let items = templates
                 .iter()
@@ -730,7 +733,6 @@ the app:\n"
         {
             let cmd_deploy = CmdAppDeploy {
                 quiet: false,
-                api: self.api.clone(),
                 env: self.env.clone(),
                 fmt: ItemFormatOpts {
                     format: self.fmt.format,
@@ -767,7 +769,6 @@ impl AsyncCliCommand for CmdAppCreate {
         } else {
             Some(
                 login_user(
-                    &self.api,
                     &self.env,
                     !self.non_interactive,
                     "retrieve informations about the owner of the app",

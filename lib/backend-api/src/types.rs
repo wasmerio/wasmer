@@ -41,6 +41,54 @@ mod queries {
         Viewer,
     }
 
+    #[derive(cynic::QueryVariables, Debug)]
+    pub struct RevokeTokenVariables {
+        pub token: String,
+    }
+
+    #[derive(cynic::QueryFragment, Debug)]
+    #[cynic(graphql_type = "Mutation", variables = "RevokeTokenVariables")]
+    pub struct RevokeToken {
+        #[arguments(input: { token: $token })]
+        pub revoke_api_token: Option<RevokeAPITokenPayload>,
+    }
+
+    #[derive(cynic::QueryFragment, Debug)]
+    pub struct RevokeAPITokenPayload {
+        pub success: Option<bool>,
+    }
+
+    #[derive(cynic::QueryVariables, Debug)]
+    pub struct CreateNewNonceVariables {
+        pub callback_url: String,
+        pub name: String,
+    }
+
+    #[derive(cynic::QueryFragment, Debug)]
+    #[cynic(graphql_type = "Mutation", variables = "CreateNewNonceVariables")]
+    pub struct CreateNewNonce {
+        #[arguments(input: { callbackUrl: $callback_url, name: $name })]
+        pub new_nonce: Option<NewNoncePayload>,
+    }
+
+    #[derive(cynic::QueryFragment, Debug)]
+    pub struct NewNoncePayload {
+        pub client_mutation_id: Option<String>,
+        pub nonce: Nonce,
+    }
+
+    #[derive(cynic::QueryFragment, Debug)]
+    pub struct Nonce {
+        pub auth_url: String,
+        pub callback_url: String,
+        pub created_at: DateTime,
+        pub expired: bool,
+        pub id: cynic::Id,
+        pub is_validated: bool,
+        pub name: String,
+        pub secret: String,
+    }
+
     #[derive(cynic::QueryFragment, Debug)]
     #[cynic(graphql_type = "Query")]
     pub struct GetCurrentUser {
@@ -1022,6 +1070,23 @@ mod queries {
     }
 
     #[derive(cynic::QueryVariables, Debug)]
+    pub struct RedeployActiveAppVariables {
+        pub id: cynic::Id,
+    }
+
+    #[derive(cynic::QueryFragment, Debug)]
+    #[cynic(graphql_type = "Mutation", variables = "RedeployActiveAppVariables")]
+    pub struct RedeployActiveApp {
+        #[arguments(input: { id: $id })]
+        pub redeploy_active_version: Option<RedeployActiveVersionPayload>,
+    }
+
+    #[derive(cynic::QueryFragment, Debug)]
+    pub struct RedeployActiveVersionPayload {
+        pub app: DeployApp,
+    }
+
+    #[derive(cynic::QueryVariables, Debug)]
     pub struct PublishDeployAppVars {
         pub config: String,
         pub name: cynic::Id,
@@ -1309,6 +1374,43 @@ mod queries {
         pub name: String,
         pub created_at: DateTime,
         pub updated_at: DateTime,
+    }
+
+    #[derive(cynic::QueryVariables, Debug, Clone)]
+    pub struct GetAllAppRegionsVariables {
+        pub after: Option<String>,
+        pub before: Option<String>,
+        pub first: Option<i32>,
+        pub last: Option<i32>,
+        pub offset: Option<i32>,
+    }
+
+    #[derive(cynic::QueryFragment, Debug)]
+    #[cynic(graphql_type = "Query", variables = "GetAllAppRegionsVariables")]
+    pub struct GetAllAppRegions {
+        #[arguments(after: $after, offset: $offset, before: $before, first: $first, last: $last)]
+        pub get_app_regions: AppRegionConnection,
+    }
+
+    #[derive(cynic::QueryFragment, Debug)]
+    pub struct AppRegionConnection {
+        pub edges: Vec<Option<AppRegionEdge>>,
+        pub page_info: PageInfo,
+        pub total_count: Option<i32>,
+    }
+
+    #[derive(cynic::QueryFragment, Debug)]
+    pub struct AppRegionEdge {
+        pub cursor: String,
+        pub node: Option<AppRegion>,
+    }
+
+    #[derive(cynic::QueryFragment, Debug, Serialize)]
+    pub struct AppRegion {
+        pub city: String,
+        pub country: String,
+        pub id: cynic::Id,
+        pub name: String,
     }
 
     #[derive(cynic::QueryFragment, Debug, Clone, Serialize)]

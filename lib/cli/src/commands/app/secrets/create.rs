@@ -1,7 +1,7 @@
 use super::utils::Secret;
 use crate::{
     commands::{app::util::AppIdentFlag, AsyncCliCommand},
-    opts::{ApiOpts, WasmerEnv},
+    config::WasmerEnv,
 };
 use anyhow::Context;
 use colored::Colorize;
@@ -17,10 +17,6 @@ use wasmer_api::WasmerClient;
 #[derive(clap::Parser, Debug)]
 pub struct CmdAppSecretsCreate {
     /* --- Common flags --- */
-    #[clap(flatten)]
-    #[allow(missing_docs)]
-    pub api: ApiOpts,
-
     #[clap(flatten)]
     pub env: WasmerEnv,
 
@@ -43,6 +39,10 @@ pub struct CmdAppSecretsCreate {
     /// Path to a file with secrets stored in JSON format to create secrets from.
     #[clap(long, name = "from-file", conflicts_with = "name")]
     pub from_file: Option<PathBuf>,
+
+    /// Whether or not to redeploy the app after creating the secrets.
+    #[clap(long)]
+    pub redeploy: bool,
 
     /* --- Parameters --- */
     /// The name of the secret to create.
@@ -157,13 +157,30 @@ impl CmdAppSecretsCreate {
         } else {
             if !self.quiet {
                 eprintln!("Succesfully created secret(s):");
-                for secret in secrets {
+                for secret in &secrets {
                     eprintln!("{}", secret.name.bold());
                 }
-                eprintln!(
-                    "{}: In order for secrets to appear in your app, re-deploy it.",
-                    "Info".bold()
-                );
+
+                let should_redeploy = self.redeploy || {
+                    if !self.non_interactive && self.from_file.is_some() {
+                        let theme = ColorfulTheme::default();
+                        dialoguer::Confirm::with_theme(&theme)
+                            .with_prompt("Do you want to redeploy your app?")
+                            .interact()?
+                    } else {
+                        false
+                    }
+                };
+
+                if should_redeploy {
+                    wasmer_api::query::redeploy_app_by_id(client, app_id).await?;
+                    eprintln!("{} Deployment complete", "𖥔".yellow().bold());
+                } else {
+                    eprintln!(
+                        "{}: In order for secrets to appear in your app, re-deploy it.",
+                        "Info".bold()
+                    );
+                }
             }
 
             Ok(())
@@ -172,14 +189,14 @@ impl CmdAppSecretsCreate {
 
     async fn create_from_file(
         &self,
+        client: &WasmerClient,
         path: &Path,
         app_id: &str,
     ) -> anyhow::Result<(), anyhow::Error> {
         let secrets = super::utils::read_secrets_from_file(path).await?;
-        let client = self.api.client()?;
 
-        let secrets = self.filter_secrets(&client, app_id, secrets).await?;
-        self.create(&client, app_id, secrets).await?;
+        let secrets = self.filter_secrets(client, app_id, secrets).await?;
+        self.create(client, app_id, secrets).await?;
 
         Ok(())
     }
@@ -190,7 +207,7 @@ impl AsyncCliCommand for CmdAppSecretsCreate {
     type Output = ();
 
     async fn run_async(self) -> Result<Self::Output, anyhow::Error> {
-        let client = self.api.client()?;
+        let client = self.env.client()?;
         let app_id = super::utils::get_app_id(
             &client,
             self.app_id.app.as_ref(),
@@ -200,7 +217,7 @@ impl AsyncCliCommand for CmdAppSecretsCreate {
         )
         .await?;
         if let Some(file) = &self.from_file {
-            self.create_from_file(file, &app_id).await
+            self.create_from_file(&client, file, &app_id).await
         } else {
             let name = self.get_secret_name()?;
             let value = self.get_secret_value()?;

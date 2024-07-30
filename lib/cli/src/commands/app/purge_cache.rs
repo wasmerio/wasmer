@@ -1,10 +1,7 @@
 //! Get information about an edge app.
 
 use super::util::AppIdentOpts;
-use crate::{
-    commands::AsyncCliCommand,
-    opts::{ApiOpts, ItemFormatOpts},
-};
+use crate::{commands::AsyncCliCommand, config::WasmerEnv, opts::ItemFormatOpts};
 
 /// Purge caches for applications.
 ///
@@ -15,14 +12,12 @@ use crate::{
 #[derive(clap::Parser, Debug)]
 pub struct CmdAppPurgeCache {
     #[clap(flatten)]
-    #[allow(missing_docs)]
-    pub api: ApiOpts,
+    pub env: WasmerEnv,
+
     #[clap(flatten)]
-    #[allow(missing_docs)]
     pub fmt: ItemFormatOpts,
 
     #[clap(flatten)]
-    #[allow(missing_docs)]
     pub ident: AppIdentOpts,
 }
 
@@ -31,7 +26,7 @@ impl AsyncCliCommand for CmdAppPurgeCache {
     type Output = ();
 
     async fn run_async(self) -> Result<(), anyhow::Error> {
-        let client = self.api.client()?;
+        let client = self.env.client()?;
         let (_ident, app) = self.ident.load_app(&client).await?;
 
         let version_id = app.active_version.id;

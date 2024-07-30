@@ -15,6 +15,48 @@ use crate::{
     GraphQLApiFailure, WasmerClient,
 };
 
+pub async fn redeploy_app_by_id(
+    client: &WasmerClient,
+    app_id: impl Into<String>,
+) -> Result<Option<DeployApp>, anyhow::Error> {
+    client
+        .run_graphql_strict(types::RedeployActiveApp::build(
+            RedeployActiveAppVariables {
+                id: types::Id::from(app_id),
+            },
+        ))
+        .await
+        .map(|v| v.redeploy_active_version.map(|v| v.app))
+}
+
+/// Revoke an existing token
+pub async fn revoke_token(
+    client: &WasmerClient,
+    token: String,
+) -> Result<Option<bool>, anyhow::Error> {
+    client
+        .run_graphql_strict(types::RevokeToken::build(RevokeTokenVariables { token }))
+        .await
+        .map(|v| v.revoke_api_token.and_then(|v| v.success))
+}
+
+/// Generate a new Nonce
+///
+/// Takes a name and a callbackUrl and returns a nonce
+pub async fn create_nonce(
+    client: &WasmerClient,
+    name: String,
+    callback_url: String,
+) -> Result<Option<Nonce>, anyhow::Error> {
+    client
+        .run_graphql_strict(types::CreateNewNonce::build(CreateNewNonceVariables {
+            callback_url,
+            name,
+        }))
+        .await
+        .map(|v| v.new_nonce.map(|v| v.nonce))
+}
+
 pub async fn get_app_secret_value_by_id(
     client: &WasmerClient,
     secret_id: impl Into<String>,
@@ -127,6 +169,57 @@ pub async fn get_all_app_secrets_filtered(
     }
 
     Ok(all_secrets)
+}
+
+/// Load all available regions.
+///
+/// Will paginate through all versions and return them in a single list.
+pub async fn get_all_app_regions(client: &WasmerClient) -> Result<Vec<AppRegion>, anyhow::Error> {
+    let mut vars = GetAllAppRegionsVariables {
+        after: None,
+        before: None,
+        first: None,
+        last: None,
+        offset: None,
+    };
+
+    let mut all_regions = Vec::<AppRegion>::new();
+
+    loop {
+        let page = get_regions(client, vars.clone()).await?;
+        if page.edges.is_empty() {
+            break;
+        }
+
+        for edge in page.edges {
+            let edge = match edge {
+                Some(edge) => edge,
+                None => continue,
+            };
+            let version = match edge.node {
+                Some(item) => item,
+                None => continue,
+            };
+
+            all_regions.push(version);
+
+            // Update pagination.
+            vars.after = Some(edge.cursor);
+        }
+    }
+
+    Ok(all_regions)
+}
+
+/// Retrieve regions.
+pub async fn get_regions(
+    client: &WasmerClient,
+    vars: GetAllAppRegionsVariables,
+) -> Result<AppRegionConnection, anyhow::Error> {
+    let res = client
+        .run_graphql_strict(types::GetAllAppRegions::build(vars))
+        .await?;
+    Ok(res.get_app_regions)
 }
 
 /// Load all secrets of an app.

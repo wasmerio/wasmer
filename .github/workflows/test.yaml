@@ -858,3 +858,34 @@ jobs:
           CARGO_TARGET: ${{ matrix.target }}
           WAPM_DEV_TOKEN: ${{ secrets.WAPM_DEV_TOKEN }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # there is another set of integration tests in 'wasmer-integration-tests' repo. Run those
+  test-wasmer-integration-tests:
+    needs: [build]
+    runs-on: ubuntu-22.04
+    steps:
+    - name: Checkout wasmer-integration-tests repository
+      uses: actions/checkout@v3
+      with:
+        repository: wasmerio/wasmer-integration-tests
+        submodules: true
+        token: ${{ secrets.CLONE_WASMER_INTEGRATION_TESTS }}
+    - uses: actions/download-artifact@v3
+      with:
+        name: wasmer-cli-linux-x64 
+    - run: |
+        # install rust toolchain
+        curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+        . "$HOME/.cargo/env"
+
+        # add wasmer cli to PATH
+        tar -xzf build-wasmer.tar.gz
+        export PATH=$PATH:$PWD/bin
+
+        # login to wasmer registry
+        wasmer config set registry.url https://registry.wasmer.wtf/graphql
+        wasmer login ${{ secrets.WAPM_DEV_TOKEN }}
+        wasmer whoami
+
+        # start tests
+        cargo test --no-fail-fast -- --test-threads 1
