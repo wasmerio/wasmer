@@ -1,4 +1,4 @@
-mod builtin_loader;
+pub mod builtin_loader;
 mod load_package_tree;
 mod types;
 mod unsupported;
