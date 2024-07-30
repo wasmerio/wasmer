@@ -1,6 +1,8 @@
 use std::{
+    fmt::Display,
     net::{IpAddr, SocketAddr},
     path::PathBuf,
+    str::FromStr,
     sync::OnceLock,
     time::Duration,
 };
@@ -56,6 +58,43 @@ macro_rules! call {
     };
 }
 
+#[derive(Debug, Clone)]
+enum UserSelection {
+    Yes,
+    No,
+    Always,
+}
+
+impl Display for UserSelection {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            UserSelection::Yes => write!(f, "y"),
+            UserSelection::No => write!(f, "n"),
+            UserSelection::Always => write!(f, "a"),
+        }
+    }
+}
+
+impl FromStr for UserSelection {
+    type Err = anyhow::Error;
+
+    fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
+        let s = s.trim();
+        if s.is_empty() {
+            anyhow::bail!("No input!")
+        }
+
+        let c: char = s.chars().next().unwrap().to_ascii_lowercase();
+
+        Ok(match c {
+            'n' => UserSelection::No,
+            'y' => UserSelection::Yes,
+            'a' => UserSelection::Always,
+            _ => anyhow::bail!("{s} could not be resolved as a selection"),
+        })
+    }
+}
+
 impl AskingNetworking {
     pub(crate) fn new(pkg_cache_path: PathBuf, capable_networking: DynVirtualNetworking) -> Self {
         let enable_networking = OnceLock::new();
@@ -73,26 +112,20 @@ impl AskingNetworking {
 
         println!("The current package is requesting networking access.");
         println!("Run the package with `--net` flag to bypass the prompt.");
-        match dialoguer::Select::with_theme(&theme)
-            .with_prompt("Would you like to allow networking for this package?")
-            .items(&[
-                "no",
-                "yes",
-                "always (will remember this option for future runs of the same package)",
-            ])
-            .default(2)
+        match dialoguer::Input::with_theme(&theme)
+            .with_prompt(format!(
+                "Would you like to allow networking for this package? {}{}",
+                "".bold(),
+                "(yes/no/always)".dimmed()
+            ))
             .interact()
             .map_err(|_| NetworkError::UnknownError)?
         {
-            0 => Ok(false),
-            1 => Ok(true),
-            2 => {
+            UserSelection::No => Ok(false),
+            UserSelection::Yes => Ok(true),
+            UserSelection::Always => {
                 self.save_in_cache();
                 Ok(true)
-            }
-            _ => {
-                eprintln!("Invalid selection");
-                Err(NetworkError::UnknownError)
             }
         }
     }
