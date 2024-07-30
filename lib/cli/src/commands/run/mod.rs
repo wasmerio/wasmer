@@ -175,7 +175,7 @@ impl Run {
             }
             PackageSource::Package(p) => match p {
                 PackageSpecifier::Ident(id) => {
-                    format!("id_{}.json", id.to_string())
+                    format!("id_{id}.json")
                 }
                 PackageSpecifier::Path(f) => {
                     let full_path = PathBuf::from(f).canonicalize()?.to_path_buf();
