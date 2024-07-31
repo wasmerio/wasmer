@@ -345,6 +345,7 @@ type Package implements Likeable & Node & PackageOwner {
   """The ID of the object"""
   id: ID!
   name: String!
+  namespace: String!
   private: Boolean!
   createdAt: DateTime!
   updatedAt: DateTime!
@@ -357,6 +358,7 @@ type Package implements Likeable & Node & PackageOwner {
   icon: String!
   totalDownloads: Int!
   iconUpdatedAt: DateTime
+  likersCount: Int!
   watchersCount: Int!
   webcs(offset: Int, before: String, after: String, first: Int, last: Int): WebcImageConnection!
 
@@ -367,12 +369,10 @@ type Package implements Likeable & Node & PackageOwner {
   collectionSet: [Collection!]!
   categories(offset: Int, before: String, after: String, first: Int, last: Int): CategoryConnection!
   keywords(offset: Int, before: String, after: String, first: Int, last: Int): PackageKeywordConnection!
-  likersCount: Int!
   viewerHasLiked: Boolean!
   globalName: String!
   globalId: ID!
   alias: String
-  namespace: String!
   displayName: String!
 
   """The name of the package without the owner"""
@@ -868,6 +868,8 @@ type DeployAppVersion implements Node {
   signature: String
   description: String
   publishedBy: User!
+  disabledAt: DateTime
+  disabledReason: String
   createdAt: DateTime!
   updatedAt: DateTime!
   configWebc: String @deprecated(reason: "webc support has been deprecated for apps")
@@ -2368,6 +2370,7 @@ type Query {
   getSignedUrlForPackageUpload(name: String, version: String = "latest", filename: String, expiresAfterSeconds: Int = 60): SignedUrl
   getPackageHash(name: String, hash: String!): PackageWebc
   getPackageRelease(hash: String!): PackageWebc
+  getPackageInstanceByVersionOrHash(name: String!, version: String, hash: String): PackageInstance
   categories(offset: Int, before: String, after: String, first: Int, last: Int): CategoryConnection!
   blogposts(tags: [String!], before: String, after: String, first: Int, last: Int): BlogPostConnection!
   getBlogpost(slug: String, featured: Boolean): BlogPost
