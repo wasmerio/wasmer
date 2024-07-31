@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"mod":["login","logout"]};
+window.SIDEBAR_ITEMS = {"enum":["CmdAuth"],"mod":["login","logout","whoami"]};
