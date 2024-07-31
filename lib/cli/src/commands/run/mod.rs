@@ -98,7 +98,7 @@ impl Run {
     }
 
     #[tracing::instrument(level = "debug", name = "wasmer_run", skip_all)]
-    fn execute_inner(self, output: Output) -> Result<(), Error> {
+    fn execute_inner(mut self, output: Output) -> Result<(), Error> {
         let pb = ProgressBar::new_spinner();
         pb.set_draw_target(output.draw_target());
         pb.enable_steady_tick(TICK);
@@ -151,6 +151,12 @@ impl Run {
         let monitoring_runtime: Arc<dyn Runtime + Send + Sync> = monitoring_runtime;
 
         let target = self.input.resolve_target(&monitoring_runtime, &pb)?;
+
+        if let ExecutableTarget::Package(ref pkg) = target {
+            self.wasi
+                .mapped_dirs
+                .extend(pkg.additional_host_mapped_directories.clone());
+        }
 
         pb.finish_and_clear();
 
@@ -1000,7 +1006,10 @@ impl wasmer_wasix::runtime::package_loader::PackageLoader for MonitoringPackageL
         &self,
         root: &Container,
         resolution: &wasmer_wasix::runtime::resolver::Resolution,
+        root_is_local_dir: bool,
     ) -> Result<BinaryPackage, Error> {
-        self.inner.load_package_tree(root, resolution).await
+        self.inner
+            .load_package_tree(root, resolution, root_is_local_dir)
+            .await
     }
 }

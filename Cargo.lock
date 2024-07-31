@@ -7153,6 +7153,7 @@ dependencies = [
  "thiserror",
  "tokio 1.38.1",
  "tokio-stream",
+ "toml 0.8.15",
  "tower",
  "tower-http",
  "tracing",
