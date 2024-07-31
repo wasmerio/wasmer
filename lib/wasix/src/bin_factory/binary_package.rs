@@ -1,4 +1,7 @@
-use std::{path::Path, sync::Arc};
+use std::{
+    path::{Path, PathBuf},
+    sync::Arc,
+};
 
 use anyhow::Context;
 use derivative::*;
@@ -60,6 +63,50 @@ impl BinaryPackageCommand {
     }
 }
 
+#[derive(Derivative, Clone)]
+#[derivative(Debug)]
+pub struct HostMountableDirectory {
+    pub host_path: PathBuf,
+    pub mount_path: String,
+}
+
+impl HostMountableDirectory {
+    pub fn new(host_path: PathBuf, mount_path: String) -> Self {
+        Self {
+            host_path,
+            mount_path,
+        }
+    }
+}
+
+#[derive(Derivative, Clone)]
+#[derivative(Debug)]
+pub struct WebCFs {
+    // File system constructed from volumes contained in webc's
+    pub webc_volume_fs: Arc<dyn FileSystem + Send + Sync>,
+    // List of host directories that should be mounted in the final FS. This is only relevant
+    // when running a package locally from a directory via `wasmer run path/to/package`.
+    pub host_dirs: Vec<HostMountableDirectory>,
+}
+
+impl WebCFs {
+    pub fn new<T: FileSystem + Send + Sync>(fs: T, host_dirs: Vec<HostMountableDirectory>) -> Self {
+        Self {
+            webc_volume_fs: Arc::new(fs),
+            host_dirs,
+        }
+    }
+}
+
+impl<T: FileSystem + Send + Sync> From<Box<T>> for WebCFs {
+    fn from(value: Box<T>) -> Self {
+        Self {
+            webc_volume_fs: Arc::new(*value),
+            host_dirs: vec![],
+        }
+    }
+}
+
 /// A WebAssembly package that has been loaded into memory.
 #[derive(Derivative, Clone)]
 #[derivative(Debug)]
@@ -71,7 +118,7 @@ pub struct BinaryPackage {
     /// entrypoint.
     pub entrypoint_cmd: Option<String>,
     pub hash: OnceCell<ModuleHash>,
-    pub webc_fs: Arc<dyn FileSystem + Send + Sync>,
+    pub webc_fs: WebCFs,
     pub commands: Vec<BinaryPackageCommand>,
     pub uses: Vec<String>,
     pub file_system_memory_footprint: u64,
@@ -101,7 +148,7 @@ impl BinaryPackage {
         let resolution = crate::runtime::resolver::resolve(&root_id, &root, &*source).await?;
         let pkg = rt
             .package_loader()
-            .load_package_tree(&container, &resolution)
+            .load_package_tree(&container, &resolution, true)
             .await
             .map_err(|e| anyhow::anyhow!(e))?;
 
@@ -132,7 +179,7 @@ impl BinaryPackage {
         let resolution = crate::runtime::resolver::resolve(&root_id, &root, &*source).await?;
         let pkg = rt
             .package_loader()
-            .load_package_tree(container, &resolution)
+            .load_package_tree(container, &resolution, false)
             .await
             .map_err(|e| anyhow::anyhow!(e))?;
 
@@ -162,7 +209,7 @@ impl BinaryPackage {
             .context("Dependency resolution failed")?;
         let pkg = runtime
             .package_loader()
-            .load_package_tree(&root, &resolution)
+            .load_package_tree(&root, &resolution, false)
             .await
             .map_err(|e| anyhow::anyhow!(e))?;
 
@@ -263,6 +310,7 @@ mod tests {
         // "/public/file.txt" on the guest.
         let mut f = pkg
             .webc_fs
+            .webc_volume_fs
             .new_open_options()
             .read(true)
             .open("/public/file.txt")

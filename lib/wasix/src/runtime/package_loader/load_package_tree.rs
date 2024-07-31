@@ -2,7 +2,6 @@ use std::{
     collections::{BTreeMap, HashMap, HashSet},
     fmt::Debug,
     path::{Path, PathBuf},
-    sync::Arc,
 };
 
 use anyhow::{Context, Error};
@@ -17,7 +16,7 @@ use webc::{
 };
 
 use crate::{
-    bin_factory::{BinaryPackage, BinaryPackageCommand},
+    bin_factory::{BinaryPackage, BinaryPackageCommand, HostMountableDirectory, WebCFs},
     runtime::{
         package_loader::PackageLoader,
         resolver::{
@@ -36,16 +35,17 @@ pub async fn load_package_tree(
     root: &Container,
     loader: &dyn PackageLoader,
     resolution: &Resolution,
+    root_is_local_dir: bool,
 ) -> Result<BinaryPackage, Error> {
     let mut containers = fetch_dependencies(loader, &resolution.package, &resolution.graph).await?;
     containers.insert(resolution.package.root_package.clone(), root.clone());
-    let fs = filesystem(&containers, &resolution.package)?;
+    let fs = filesystem(&containers, &resolution.package, root_is_local_dir)?;
 
     let root = &resolution.package.root_package;
     let commands: Vec<BinaryPackageCommand> =
         commands(&resolution.package.commands, &containers, resolution)?;
 
-    let file_system_memory_footprint = count_file_system(&fs, Path::new("/"));
+    let file_system_memory_footprint = count_file_system(&fs.webc_volume_fs, Path::new("/"));
 
     let loaded = BinaryPackage {
         id: root.clone(),
@@ -57,7 +57,7 @@ pub async fn load_package_tree(
         .map(|ts| ts as u128),
         hash: OnceCell::new(),
         entrypoint_cmd: resolution.package.entrypoint.clone(),
-        webc_fs: Arc::new(fs),
+        webc_fs: fs,
         commands,
         uses: Vec::new(),
         file_system_memory_footprint,
@@ -316,14 +316,16 @@ fn count_file_system(fs: &dyn FileSystem, path: &Path) -> u64 {
 fn filesystem(
     packages: &HashMap<PackageId, Container>,
     pkg: &ResolvedPackage,
-) -> Result<Box<dyn FileSystem + Send + Sync>, Error> {
+    root_is_local_dir: bool,
+) -> Result<WebCFs, Error> {
     if pkg.filesystem.is_empty() {
         return Ok(Box::new(OverlayFileSystem::<
             virtual_fs::EmptyFileSystem,
             Vec<WebcVolumeFileSystem>,
         >::new(
             virtual_fs::EmptyFileSystem::default(), vec![]
-        )));
+        ))
+        .into());
     }
 
     let mut found_v2 = false;
@@ -342,9 +344,9 @@ fn filesystem(
     }
 
     if found_v3 && !found_v2 {
-        filesystem_v3(packages, pkg)
+        filesystem_v3(packages, pkg, root_is_local_dir)
     } else {
-        filesystem_v2(packages, pkg)
+        filesystem_v2(packages, pkg, root_is_local_dir)
     }
 }
 
@@ -352,8 +354,10 @@ fn filesystem(
 fn filesystem_v3(
     packages: &HashMap<PackageId, Container>,
     pkg: &ResolvedPackage,
-) -> Result<Box<dyn FileSystem + Send + Sync>, Error> {
+    root_is_local_dir: bool,
+) -> Result<WebCFs, Error> {
     let mut volumes: HashMap<&PackageId, BTreeMap<String, Volume>> = HashMap::new();
+    let mut host_dirs: Vec<HostMountableDirectory> = vec![];
 
     let mut mountings: Vec<_> = pkg.filesystem.iter().collect();
     mountings.sort_by_key(|m| std::cmp::Reverse(m.mount_path.as_path()));
@@ -364,41 +368,59 @@ fn filesystem_v3(
         mount_path,
         volume_name,
         package,
-        ..
+        original_path,
     } in &pkg.filesystem
     {
-        // Note: We want to reuse existing Volume instances if we can. That way
-        // we can keep the memory usage down. A webc::compat::Volume is
-        // reference-counted, anyway.
-        // looks like we need to insert it
-        let container = packages.get(package).with_context(|| {
-            format!(
-                "\"{}\" wants to use the \"{}\" package, but it isn't in the dependency tree",
-                pkg.root_package, package,
-            )
-        })?;
-        let container_volumes = match volumes.entry(package) {
-            std::collections::hash_map::Entry::Occupied(entry) => &*entry.into_mut(),
-            std::collections::hash_map::Entry::Vacant(entry) => &*entry.insert(container.volumes()),
-        };
+        if *package == pkg.root_package && root_is_local_dir {
+            match original_path {
+                Some(path) => {
+                    let host_path = path.into();
+                    let mount_path = mount_path
+                        .to_str()
+                        .context("Failed to convert path to string")?
+                        .to_owned();
+                    host_dirs.push(HostMountableDirectory::new(host_path, mount_path));
+                }
+                None => {
+                    anyhow::bail!(
+                        "Internal error: tried to mount volume \"{}\" in root package \"{}\" from the host's \
+                        filesystem, but it doesn't have a known path",
+                        volume_name,
+                        pkg.root_package
+                    )
+                }
+            }
+        } else {
+            // Note: We want to reuse existing Volume instances if we can. That way
+            // we can keep the memory usage down. A webc::compat::Volume is
+            // reference-counted, anyway.
+            // looks like we need to insert it
+            let container = packages.get(package).with_context(|| {
+                format!(
+                    "\"{}\" wants to use the \"{}\" package, but it isn't in the dependency tree",
+                    pkg.root_package, package,
+                )
+            })?;
+            let container_volumes = match volumes.entry(package) {
+                std::collections::hash_map::Entry::Occupied(entry) => &*entry.into_mut(),
+                std::collections::hash_map::Entry::Vacant(entry) => {
+                    &*entry.insert(container.volumes())
+                }
+            };
 
-        let volume = container_volumes.get(volume_name).with_context(|| {
-            format!("The \"{package}\" package doesn't have a \"{volume_name}\" volume")
-        })?;
+            let volume = container_volumes.get(volume_name).with_context(|| {
+                format!("The \"{package}\" package doesn't have a \"{volume_name}\" volume")
+            })?;
 
-        let webc_vol = WebcVolumeFileSystem::new(volume.clone());
-        union_fs.mount(
-            volume_name,
-            mount_path.to_str().unwrap(),
-            false,
-            Box::new(webc_vol),
-            None,
-        );
+            let fs: Box<dyn FileSystem> = Box::new(WebcVolumeFileSystem::new(volume.clone()));
+
+            union_fs.mount(volume_name, mount_path.to_str().unwrap(), false, fs, None);
+        }
     }
 
     let fs = OverlayFileSystem::new(virtual_fs::EmptyFileSystem::default(), [union_fs]);
 
-    Ok(Box::new(fs))
+    Ok(WebCFs::new(fs, host_dirs))
 }
 
 /// Build the filesystem for webc v2 packages.
@@ -427,9 +449,11 @@ fn filesystem_v3(
 fn filesystem_v2(
     packages: &HashMap<PackageId, Container>,
     pkg: &ResolvedPackage,
-) -> Result<Box<dyn FileSystem + Send + Sync>, Error> {
+    root_is_local_dir: bool,
+) -> Result<WebCFs, Error> {
     let mut filesystems = Vec::new();
     let mut volumes: HashMap<&PackageId, BTreeMap<String, Volume>> = HashMap::new();
+    let mut host_dirs: Vec<HostMountableDirectory> = vec![];
 
     let mut mountings: Vec<_> = pkg.filesystem.iter().collect();
     mountings.sort_by_key(|m| std::cmp::Reverse(m.mount_path.as_path()));
@@ -441,60 +465,80 @@ fn filesystem_v2(
         original_path,
     } in &pkg.filesystem
     {
-        // Note: We want to reuse existing Volume instances if we can. That way
-        // we can keep the memory usage down. A webc::compat::Volume is
-        // reference-counted, anyway.
-        let container_volumes = match volumes.entry(package) {
-            std::collections::hash_map::Entry::Occupied(entry) => &*entry.into_mut(),
-            std::collections::hash_map::Entry::Vacant(entry) => {
-                // looks like we need to insert it
-                let container = packages.get(package)
+        if *package == pkg.root_package && root_is_local_dir {
+            match original_path {
+                Some(path) => {
+                    let host_path = path.into();
+                    let mount_path = mount_path
+                        .to_str()
+                        .context("Failed to convert path to string")?
+                        .to_owned();
+                    host_dirs.push(HostMountableDirectory::new(host_path, mount_path));
+                }
+                None => {
+                    anyhow::bail!(
+                        "Internal error: tried to mount volume \"{}\" in root package \"{}\" from the host's \
+                        filesystem, but it doesn't have a known path",
+                        volume_name,
+                        pkg.root_package
+                    )
+                }
+            }
+        } else {
+            // Note: We want to reuse existing Volume instances if we can. That way
+            // we can keep the memory usage down. A webc::compat::Volume is
+            // reference-counted, anyway.
+            let container_volumes = match volumes.entry(package) {
+                std::collections::hash_map::Entry::Occupied(entry) => &*entry.into_mut(),
+                std::collections::hash_map::Entry::Vacant(entry) => {
+                    // looks like we need to insert it
+                    let container = packages.get(package)
                     .with_context(|| format!(
                         "\"{}\" wants to use the \"{}\" package, but it isn't in the dependency tree",
                         pkg.root_package,
                         package,
                     ))?;
-                &*entry.insert(container.volumes())
-            }
-        };
+                    &*entry.insert(container.volumes())
+                }
+            };
 
-        let volume = container_volumes.get(volume_name).with_context(|| {
-            format!("The \"{package}\" package doesn't have a \"{volume_name}\" volume")
-        })?;
+            let volume = container_volumes.get(volume_name).with_context(|| {
+                format!("The \"{package}\" package doesn't have a \"{volume_name}\" volume")
+            })?;
 
-        let mount_path = mount_path.clone();
-        // Get a filesystem which will map "$mount_dir/some-path" to
-        // "$original_path/some-path" on the original volume
-        let fs = if let Some(original) = original_path {
-            let original = PathBuf::from(original);
+            let mount_path = mount_path.clone();
+            // Get a filesystem which will map "$mount_dir/some-path" to
+            // "$original_path/some-path" on the original volume
+            let fs: Box<dyn FileSystem> = if let Some(original) = original_path {
+                let original = PathBuf::from(original);
 
-            MappedPathFileSystem::new(
-                WebcVolumeFileSystem::new(volume.clone()),
-                Box::new(move |path: &Path| {
-                    let without_mount_dir = path
-                        .strip_prefix(&mount_path)
-                        .map_err(|_| virtual_fs::FsError::BaseNotDirectory)?;
-                    Ok(original.join(without_mount_dir))
-                }) as DynPathMapper,
-            )
-        } else {
-            MappedPathFileSystem::new(
-                WebcVolumeFileSystem::new(volume.clone()),
-                Box::new(move |path: &Path| {
-                    let without_mount_dir = path
-                        .strip_prefix(&mount_path)
-                        .map_err(|_| virtual_fs::FsError::BaseNotDirectory)?;
-                    Ok(without_mount_dir.to_owned())
-                }) as DynPathMapper,
-            )
-        };
-
-        filesystems.push(fs);
+                Box::new(MappedPathFileSystem::new(
+                    WebcVolumeFileSystem::new(volume.clone()),
+                    Box::new(move |path: &Path| {
+                        let without_mount_dir = path
+                            .strip_prefix(&mount_path)
+                            .map_err(|_| virtual_fs::FsError::BaseNotDirectory)?;
+                        Ok(original.join(without_mount_dir))
+                    }) as DynPathMapper,
+                ))
+            } else {
+                Box::new(MappedPathFileSystem::new(
+                    WebcVolumeFileSystem::new(volume.clone()),
+                    Box::new(move |path: &Path| {
+                        let without_mount_dir = path
+                            .strip_prefix(&mount_path)
+                            .map_err(|_| virtual_fs::FsError::BaseNotDirectory)?;
+                        Ok(without_mount_dir.to_owned())
+                    }) as DynPathMapper,
+                ))
+            };
+            filesystems.push(fs);
+        }
     }
 
     let fs = OverlayFileSystem::new(virtual_fs::EmptyFileSystem::default(), filesystems);
 
-    Ok(Box::new(fs))
+    Ok(WebCFs::new(fs, host_dirs))
 }
 
 type DynPathMapper = Box<dyn Fn(&Path) -> Result<PathBuf, virtual_fs::FsError> + Send + Sync>;

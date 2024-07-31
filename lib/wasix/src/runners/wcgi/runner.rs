@@ -70,12 +70,12 @@ impl WcgiRunner {
             None => default_dialect,
         };
 
-        let container_fs = Arc::clone(&pkg.webc_fs);
+        let container_fs = pkg.webc_fs.clone();
 
         let wasi_common = self.config.wasi.clone();
         let rt = Arc::clone(&runtime);
         let setup_builder = move |builder: &mut WasiEnvBuilder| {
-            wasi_common.prepare_webc_env(builder, Some(Arc::clone(&container_fs)), &wasi, None)?;
+            wasi_common.prepare_webc_env(builder, Some(&container_fs), &wasi, None)?;
             builder.set_runtime(Arc::clone(&rt));
             Ok(())
         };

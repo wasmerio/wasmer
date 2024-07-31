@@ -1000,7 +1000,10 @@ impl wasmer_wasix::runtime::package_loader::PackageLoader for MonitoringPackageL
         &self,
         root: &Container,
         resolution: &wasmer_wasix::runtime::resolver::Resolution,
+        root_is_local_dir: bool,
     ) -> Result<BinaryPackage, Error> {
-        self.inner.load_package_tree(root, resolution).await
+        self.inner
+            .load_package_tree(root, resolution, root_is_local_dir)
+            .await
     }
 }

@@ -603,7 +603,7 @@ impl WasiFs {
             return Ok(());
         }
 
-        self.root_fs.merge(&binary.webc_fs).await?;
+        self.root_fs.merge(&binary.webc_fs.webc_volume_fs).await?;
 
         Ok(())
     }

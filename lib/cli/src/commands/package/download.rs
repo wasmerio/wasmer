@@ -279,8 +279,6 @@ impl PackageDownload {
 
 #[cfg(test)]
 mod tests {
-    use crate::config::UserRegistry;
-
     use super::*;
 
     /// Download a package from the dev registry.

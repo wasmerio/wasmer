@@ -181,6 +181,9 @@ impl Login {
             }
             #[cfg(test)]
             {
+                // prevent unused binding warning
+                _ = user;
+
                 false
             }
         } else {

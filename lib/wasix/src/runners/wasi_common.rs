@@ -13,7 +13,7 @@ use wasmer::Imports;
 use webc::metadata::annotations::Wasi as WasiAnnotation;
 
 use crate::{
-    bin_factory::BinaryPackage,
+    bin_factory::{BinaryPackage, WebCFs},
     capabilities::Capabilities,
     journal::{DynJournal, SnapshotTrigger},
     WasiEnvBuilder,
@@ -53,7 +53,7 @@ impl CommonWasiOptions {
     pub(crate) fn prepare_webc_env(
         &self,
         builder: &mut WasiEnvBuilder,
-        container_fs: Option<Arc<dyn FileSystem + Send + Sync>>,
+        container_fs: Option<&WebCFs>,
         wasi: &WasiAnnotation,
         root_fs: Option<TmpFileSystem>,
     ) -> Result<(), anyhow::Error> {
@@ -127,7 +127,7 @@ impl CommonWasiOptions {
 // type ContainerFs =
 //     OverlayFileSystem<TmpFileSystem, [RelativeOrAbsolutePathHack<Arc<dyn FileSystem>>; 1]>;
 
-fn build_directory_mappings(
+fn append_directory_mappings(
     root_fs: &mut TmpFileSystem,
     mounted_dirs: &[MountedDirectory],
 ) -> Result<(), anyhow::Error> {
@@ -178,10 +178,10 @@ fn build_directory_mappings(
 fn prepare_filesystem(
     mut root_fs: TmpFileSystem,
     mounted_dirs: &[MountedDirectory],
-    container_fs: Option<Arc<dyn FileSystem + Send + Sync>>,
+    container_fs: Option<&WebCFs>,
 ) -> Result<Box<dyn FileSystem + Send + Sync>, Error> {
     if !mounted_dirs.is_empty() {
-        build_directory_mappings(&mut root_fs, mounted_dirs)?;
+        append_directory_mappings(&mut root_fs, mounted_dirs)?;
     }
 
     // HACK(Michael-F-Bryan): The WebcVolumeFileSystem only accepts relative
@@ -194,7 +194,22 @@ fn prepare_filesystem(
     // operations using an absolute path if it failed using a relative path.
 
     let fs = if let Some(container) = container_fs {
-        let container = RelativeOrAbsolutePathHack(container);
+        let additional_mounted_dirs = container
+            .host_dirs
+            .iter()
+            .map(|dir| {
+                anyhow::Ok(MountedDirectory {
+                    guest: dir.mount_path.clone(),
+                    fs: Arc::new(virtual_fs::host_fs::FileSystem::new(
+                        tokio::runtime::Handle::current(),
+                        dir.host_path.clone(),
+                    )?),
+                })
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+        append_directory_mappings(&mut root_fs, &additional_mounted_dirs)?;
+
+        let container = RelativeOrAbsolutePathHack(container.webc_volume_fs.clone());
         let fs = OverlayFileSystem::new(root_fs, [container]);
         Box::new(fs) as Box<dyn FileSystem + Send + Sync>
     } else {
@@ -382,7 +397,7 @@ mod tests {
             ..Default::default()
         };
         let mut builder = WasiEnvBuilder::new("program-name");
-        let fs = Arc::new(virtual_fs::EmptyFileSystem::default());
+        let fs = WebCFs::new(virtual_fs::EmptyFileSystem::default(), vec![]);
         let mut annotations = WasiAnnotation::new("some-atom");
         annotations.main_args = Some(vec![
             "hard".to_string(),
@@ -390,7 +405,7 @@ mod tests {
             "args".to_string(),
         ]);
 
-        args.prepare_webc_env(&mut builder, Some(fs), &annotations, None)
+        args.prepare_webc_env(&mut builder, Some(&fs), &annotations, None)
             .unwrap();
 
         assert_eq!(
@@ -418,11 +433,11 @@ mod tests {
             ..Default::default()
         };
         let mut builder = WasiEnvBuilder::new("python");
-        let fs = Arc::new(virtual_fs::EmptyFileSystem::default());
+        let fs = WebCFs::new(virtual_fs::EmptyFileSystem::default(), vec![]);
         let mut annotations = WasiAnnotation::new("python");
         annotations.env = Some(vec!["HARD_CODED=env-vars".to_string()]);
 
-        args.prepare_webc_env(&mut builder, Some(fs), &annotations, None)
+        args.prepare_webc_env(&mut builder, Some(&fs), &annotations, None)
             .unwrap();
 
         assert_eq!(
@@ -446,10 +461,10 @@ mod tests {
             host: sub_dir,
         })];
         let container = Container::from_bytes(PYTHON).unwrap();
-        let webc_fs = WebcVolumeFileSystem::mount_all(&container);
+        let webc_fs = WebCFs::new(WebcVolumeFileSystem::mount_all(&container), vec![]);
 
         let root_fs = RootFileSystemBuilder::default().build();
-        let fs = prepare_filesystem(root_fs, &mapping, Some(Arc::new(webc_fs))).unwrap();
+        let fs = prepare_filesystem(root_fs, &mapping, Some(&webc_fs)).unwrap();
 
         assert!(fs.metadata("/home/file.txt".as_ref()).unwrap().is_file());
         assert!(fs.metadata("lib".as_ref()).unwrap().is_dir());
