@@ -7,7 +7,7 @@ use std::{
     collections::{hash_map::DefaultHasher, BTreeMap},
     fmt::{Binary, Display},
     fs::File,
-    hash::{Hash, Hasher},
+    hash::{BuildHasherDefault, Hash, Hasher},
     io::{ErrorKind, LineWriter, Read, Write},
     net::SocketAddr,
     path::{Path, PathBuf},
@@ -20,7 +20,6 @@ use anyhow::{anyhow, bail, Context, Error};
 use clap::{Parser, ValueEnum};
 use indicatif::{MultiProgress, ProgressBar};
 use once_cell::sync::Lazy;
-use sha2::{Digest, Sha256};
 use tempfile::NamedTempFile;
 use url::Url;
 #[cfg(feature = "sys")]
@@ -156,22 +155,27 @@ impl Run {
         let package_cache_path = match &self.input {
             PackageSource::File(f) => {
                 let full_path = f.canonicalize()?.to_path_buf();
-                let mut h = DefaultHasher::new();
-                full_path.hash(&mut h);
-                full_path
+                let metadata = full_path
                     .parent()
                     .ok_or(anyhow!("No parent!"))?
                     .metadata()?
-                    .modified()?
-                    .hash(&mut h);
-                format!("path_{}.json", h.finish())
+                    .modified()?;
+
+                let mut hash = twox_hash::XxHash64::default();
+                full_path.hash(&mut hash);
+                metadata.hash(&mut hash);
+
+                format!("path_{}.json", hash.finish())
             }
             PackageSource::Dir(f) => {
                 let full_path = f.canonicalize()?.to_path_buf();
-                let mut h = DefaultHasher::new();
-                full_path.hash(&mut h);
-                full_path.metadata()?.modified()?.hash(&mut h);
-                format!("path_{}.json", h.finish())
+                let metadata = full_path.metadata()?.modified()?;
+
+                let mut hash = twox_hash::XxHash64::default();
+                full_path.hash(&mut hash);
+                metadata.hash(&mut hash);
+
+                format!("path_{}.json", hash.finish())
             }
             PackageSource::Package(p) => match p {
                 PackageSpecifier::Ident(id) => {
@@ -179,8 +183,9 @@ impl Run {
                 }
                 PackageSpecifier::Path(f) => {
                     let full_path = PathBuf::from(f).canonicalize()?.to_path_buf();
-                    let mut h = DefaultHasher::new();
+                    let mut h = twox_hash::XxHash64::default();
                     full_path.hash(&mut h);
+
                     if full_path.is_dir() {
                         full_path.metadata()?.modified()?.hash(&mut h);
                     } else if full_path.is_file() {
@@ -194,7 +199,7 @@ impl Run {
                     format!("path_{}.json", h.finish())
                 }
                 PackageSpecifier::Url(u) => {
-                    let mut h = DefaultHasher::new();
+                    let mut h = twox_hash::XxHash64::default();
                     u.hash(&mut h);
                     format!("path_{}.json", h.finish())
                 }
