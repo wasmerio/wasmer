@@ -13,6 +13,7 @@ use wasmer_config::package::PackageId;
 use webc::{
     compat::{Container, Volume},
     metadata::annotations::Atom as AtomAnnotation,
+    wasmer_package::FsVolume,
 };
 
 use crate::{
@@ -368,18 +369,39 @@ fn filesystem_v3(
         mount_path,
         volume_name,
         package,
-        original_path,
+        ..
     } in &pkg.filesystem
     {
+        // Note: We want to reuse existing Volume instances if we can. That way
+        // we can keep the memory usage down. A webc::compat::Volume is
+        // reference-counted, anyway.
+        // looks like we need to insert it
+        let container = packages.get(package).with_context(|| {
+            format!(
+                "\"{}\" wants to use the \"{}\" package, but it isn't in the dependency tree",
+                pkg.root_package, package,
+            )
+        })?;
+        let container_volumes = match volumes.entry(package) {
+            std::collections::hash_map::Entry::Occupied(entry) => &*entry.into_mut(),
+            std::collections::hash_map::Entry::Vacant(entry) => &*entry.insert(container.volumes()),
+        };
+
+        let volume = container_volumes.get(volume_name).with_context(|| {
+            format!("The \"{package}\" package doesn't have a \"{volume_name}\" volume")
+        })?;
+
         if *package == pkg.root_package && root_is_local_dir {
-            match original_path {
-                Some(path) => {
-                    let host_path = path.into();
+            match volume
+                .downcast_ref::<FsVolume>()
+                .and_then(|v| v.host_path())
+            {
+                Some(host_path) => {
                     let mount_path = mount_path
                         .to_str()
                         .context("Failed to convert path to string")?
                         .to_owned();
-                    host_dirs.push(HostMountableDirectory::new(host_path, mount_path));
+                    host_dirs.push(HostMountableDirectory::new(host_path.clone(), mount_path));
                 }
                 None => {
                     anyhow::bail!(
@@ -391,27 +413,6 @@ fn filesystem_v3(
                 }
             }
         } else {
-            // Note: We want to reuse existing Volume instances if we can. That way
-            // we can keep the memory usage down. A webc::compat::Volume is
-            // reference-counted, anyway.
-            // looks like we need to insert it
-            let container = packages.get(package).with_context(|| {
-                format!(
-                    "\"{}\" wants to use the \"{}\" package, but it isn't in the dependency tree",
-                    pkg.root_package, package,
-                )
-            })?;
-            let container_volumes = match volumes.entry(package) {
-                std::collections::hash_map::Entry::Occupied(entry) => &*entry.into_mut(),
-                std::collections::hash_map::Entry::Vacant(entry) => {
-                    &*entry.insert(container.volumes())
-                }
-            };
-
-            let volume = container_volumes.get(volume_name).with_context(|| {
-                format!("The \"{package}\" package doesn't have a \"{volume_name}\" volume")
-            })?;
-
             let fs: Box<dyn FileSystem> = Box::new(WebcVolumeFileSystem::new(volume.clone()));
 
             union_fs.mount(volume_name, mount_path.to_str().unwrap(), false, fs, None);
@@ -465,15 +466,38 @@ fn filesystem_v2(
         original_path,
     } in &pkg.filesystem
     {
+        // Note: We want to reuse existing Volume instances if we can. That way
+        // we can keep the memory usage down. A webc::compat::Volume is
+        // reference-counted, anyway.
+        let container_volumes = match volumes.entry(package) {
+            std::collections::hash_map::Entry::Occupied(entry) => &*entry.into_mut(),
+            std::collections::hash_map::Entry::Vacant(entry) => {
+                // looks like we need to insert it
+                let container = packages.get(package)
+                    .with_context(|| format!(
+                        "\"{}\" wants to use the \"{}\" package, but it isn't in the dependency tree",
+                        pkg.root_package,
+                        package,
+                    ))?;
+                &*entry.insert(container.volumes())
+            }
+        };
+
+        let volume = container_volumes.get(volume_name).with_context(|| {
+            format!("The \"{package}\" package doesn't have a \"{volume_name}\" volume")
+        })?;
+
         if *package == pkg.root_package && root_is_local_dir {
-            match original_path {
-                Some(path) => {
-                    let host_path = path.into();
+            match volume
+                .downcast_ref::<FsVolume>()
+                .and_then(|v| v.host_path())
+            {
+                Some(host_path) => {
                     let mount_path = mount_path
                         .to_str()
                         .context("Failed to convert path to string")?
                         .to_owned();
-                    host_dirs.push(HostMountableDirectory::new(host_path, mount_path));
+                    host_dirs.push(HostMountableDirectory::new(host_path.clone(), mount_path));
                 }
                 None => {
                     anyhow::bail!(
@@ -485,27 +509,6 @@ fn filesystem_v2(
                 }
             }
         } else {
-            // Note: We want to reuse existing Volume instances if we can. That way
-            // we can keep the memory usage down. A webc::compat::Volume is
-            // reference-counted, anyway.
-            let container_volumes = match volumes.entry(package) {
-                std::collections::hash_map::Entry::Occupied(entry) => &*entry.into_mut(),
-                std::collections::hash_map::Entry::Vacant(entry) => {
-                    // looks like we need to insert it
-                    let container = packages.get(package)
-                    .with_context(|| format!(
-                        "\"{}\" wants to use the \"{}\" package, but it isn't in the dependency tree",
-                        pkg.root_package,
-                        package,
-                    ))?;
-                    &*entry.insert(container.volumes())
-                }
-            };
-
-            let volume = container_volumes.get(volume_name).with_context(|| {
-                format!("The \"{package}\" package doesn't have a \"{volume_name}\" volume")
-            })?;
-
             let mount_path = mount_path.clone();
             // Get a filesystem which will map "$mount_dir/some-path" to
             // "$original_path/some-path" on the original volume
