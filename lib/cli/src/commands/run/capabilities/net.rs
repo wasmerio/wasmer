@@ -68,9 +68,9 @@ enum UserSelection {
 impl Display for UserSelection {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            UserSelection::Yes => write!(f, "y"),
-            UserSelection::No => write!(f, "n"),
-            UserSelection::Always => write!(f, "a"),
+            UserSelection::Yes => write!(f, "yes"),
+            UserSelection::No => write!(f, "no"),
+            UserSelection::Always => write!(f, "always"),
         }
     }
 }
@@ -116,9 +116,9 @@ impl AskingNetworking {
             .with_prompt(format!(
                 "Would you like to allow networking for this package? {}{}",
                 "".bold(),
-                "(yes/no/always)".dimmed()
+                "[options: yes/no/always]".dimmed()
             ))
-            .with_initial_text("a")
+            .default(UserSelection::Always)
             .interact()
             .map_err(|_| NetworkError::UnknownError)?
         {
