@@ -202,7 +202,7 @@ tracing-subscriber = { version = "0.3", features = [
 	"json",
 ] }
 async-trait = "0.1.68"
-tokio = { version = "1.28.1", features = ["macros", "rt-multi-thread"] }
+tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
 once_cell = "1.17.1"
 indicatif = "0.17.5"
 opener = "0.6.1"
@@ -222,7 +222,7 @@ comfy-table = "7.0.1"
 
 # Used by tuntap and connect
 futures-util = "0.3"
-mio = { version = "0.8", optional = true }
+mio = { workspace = true, optional = true }
 tokio-tungstenite = { version = "0.21.0", features = [
 	"rustls-tls-webpki-roots",
 	"stream",
