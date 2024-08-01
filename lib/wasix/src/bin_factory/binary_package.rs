@@ -269,7 +269,12 @@ mod tests {
                 .with_shared_http_client(runtime.http_client().unwrap().clone()),
         );
 
-        let pkg = BinaryPackage::from_dir(temp.path(), &runtime)
+        let pkg = webc::wasmer_package::Package::from_manifest(&manifest).unwrap();
+        let data = pkg.serialize().unwrap();
+        let webc_path = temp.path().join("package.webc");
+        std::fs::write(&webc_path, data).unwrap();
+
+        let pkg = BinaryPackage::from_webc(&Container::from_disk(&webc_path).unwrap(), &runtime)
             .await
             .unwrap();
 
