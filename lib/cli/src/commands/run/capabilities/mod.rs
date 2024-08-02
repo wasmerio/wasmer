@@ -88,7 +88,7 @@ pub(crate) fn get_capability_cache_path(
                     n.name
                 ),
                 wasmer_config::package::PackageIdent::Hash(h) => {
-                    format!("hash_{}", h.to_string())
+                    format!("hash_{}", h)
                 }
             },
             PackageSpecifier::Path(f) => {
