@@ -5818,7 +5818,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "97fee6b57c6a41524a810daee9286c02d7752c4253064d0b05472833a438f675"
 dependencies = [
  "cfg-if 1.0.0",
- "rand",
  "static_assertions",
 ]
 
@@ -6673,7 +6672,6 @@ dependencies = [
  "tracing",
  "tracing-subscriber",
  "tun-tap",
- "twox-hash",
  "unix_mode",
  "url",
  "uuid",
@@ -7262,7 +7260,6 @@ dependencies = [
  "tokio 1.38.1",
  "tracing",
  "tracing-subscriber",
- "twox-hash",
  "ureq",
  "wasi-test-generator",
  "wasmer",

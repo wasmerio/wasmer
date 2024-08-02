@@ -35,7 +35,6 @@ tokio = { version = "1", features = [
     "macros",
 ], optional = true }
 crossbeam-queue = "0.3.8"
-twox-hash = "1.6.3"
 
 [workspace]
 members = [
