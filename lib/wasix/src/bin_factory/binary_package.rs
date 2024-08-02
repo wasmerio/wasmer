@@ -116,7 +116,14 @@ impl BinaryPackage {
             wasmer_toml
                 .fs
                 .into_iter()
-                .map(|(guest, host)| MappedDirectory { host, guest }),
+                .map(|(guest, host)| {
+                    anyhow::Ok(MappedDirectory {
+                        host: dir.join(host).canonicalize()?,
+                        guest,
+                    })
+                })
+                .collect::<Result<Vec<_>, _>>()?
+                .into_iter(),
         );
 
         Ok(pkg)
