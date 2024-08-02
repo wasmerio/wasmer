@@ -47,7 +47,10 @@ use wasmer_wasix::{
 
 use crate::utils::{parse_envvar, parse_mapdir};
 
-use super::{capabilities::PkgCapabilityCache, ExecutableTarget, PackageSource};
+use super::{
+    capabilities::{self, PkgCapabilityCache},
+    ExecutableTarget, PackageSource,
+};
 
 const WAPM_SOURCE_CACHE_TIMEOUT: Duration = Duration::from_secs(10 * 60);
 
@@ -552,22 +555,9 @@ impl Wasi {
         let mut rt = PluggableRuntime::new(tokio_task_manager.clone());
 
         let has_networking = self.networking
-            || {
-                if pkg_cache_path.is_file() {
-                    let raw = std::fs::read_to_string(pkg_cache_path)?;
-                    if let Ok(pkg_capability_cache) =
-                        serde_json::from_str::<PkgCapabilityCache>(&raw)
-                    {
-                        tracing::info!("Cache hit for user-set capabilities at path {pkg_cache_path:?}: {pkg_capability_cache:?}");
-
-                        pkg_capability_cache.enable_networking
-                    } else {
-                        false
-                    }
-                } else {
-                    false
-                }
-            };
+            || capabilities::get_cached_capability(pkg_cache_path)
+                .ok()
+                .is_some_and(|v| v.enable_networking);
 
         if has_networking {
             rt.set_networking_implementation(virtual_net::host::LocalNetworking::default());

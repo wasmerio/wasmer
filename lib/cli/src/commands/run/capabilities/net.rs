@@ -84,14 +84,16 @@ impl FromStr for UserSelection {
             anyhow::bail!("No input!")
         }
 
-        let c: char = s.chars().next().unwrap().to_ascii_lowercase();
-
-        Ok(match c {
-            'n' => UserSelection::No,
-            'y' => UserSelection::Yes,
-            'a' => UserSelection::Always,
-            _ => anyhow::bail!("{s} could not be resolved as a selection"),
-        })
+        if let Some(c) = s.trim().chars().next().map(|c| c.to_ascii_lowercase()) {
+            Ok(match c {
+                'n' => UserSelection::No,
+                'y' => UserSelection::Yes,
+                'a' => UserSelection::Always,
+                _ => anyhow::bail!("{s} could not be resolved as a selection"),
+            })
+        } else {
+            anyhow::bail!("{s} could not be resolved as a selection")
+        }
     }
 }
 

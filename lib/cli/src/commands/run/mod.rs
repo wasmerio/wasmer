@@ -13,7 +13,7 @@ use std::{
     path::{Path, PathBuf},
     str::FromStr,
     sync::{Arc, Mutex},
-    time::{Duration, SystemTime},
+    time::{Duration, SystemTime, UNIX_EPOCH},
 };
 
 use anyhow::{anyhow, bail, Context, Error};
@@ -59,8 +59,6 @@ use crate::{
     commands::run::wasi::Wasi, common::HashAlgorithm, error::PrettyError, logging::Output,
     store::StoreOptions,
 };
-
-use self::capabilities::DEFAULT_WASMER_PKG_CAPABILITY_CACHE_DIR;
 
 const TICK: Duration = Duration::from_millis(250);
 
@@ -143,78 +141,10 @@ impl Run {
         #[cfg(not(feature = "sys"))]
         let engine = store.engine().clone();
 
-        let registry_name = self
-            .env
-            .registry_public_url()?
-            .host_str()
-            .unwrap_or("unknown_registry")
-            .replace('.', "_");
-
-        // We don't have the bytes of the module yet, but we still want to have the
-        // package-capabilities cache be as close to an actual identifier as possible.
-        let package_cache_path = match &self.input {
-            PackageSource::File(f) => {
-                let full_path = f.canonicalize()?.to_path_buf();
-                let metadata = full_path
-                    .parent()
-                    .ok_or(anyhow!("No parent!"))?
-                    .metadata()?
-                    .modified()?;
-
-                let mut hash = twox_hash::XxHash64::default();
-                full_path.hash(&mut hash);
-                metadata.hash(&mut hash);
-
-                format!("path_{}.json", hash.finish())
-            }
-            PackageSource::Dir(f) => {
-                let full_path = f.canonicalize()?.to_path_buf();
-                let metadata = full_path.metadata()?.modified()?;
-
-                let mut hash = twox_hash::XxHash64::default();
-                full_path.hash(&mut hash);
-                metadata.hash(&mut hash);
-
-                format!("path_{}.json", hash.finish())
-            }
-            PackageSource::Package(p) => match p {
-                PackageSpecifier::Ident(id) => {
-                    format!("id_{id}.json")
-                }
-                PackageSpecifier::Path(f) => {
-                    let full_path = PathBuf::from(f).canonicalize()?.to_path_buf();
-                    let mut h = twox_hash::XxHash64::default();
-                    full_path.hash(&mut h);
-
-                    if full_path.is_dir() {
-                        full_path.metadata()?.modified()?.hash(&mut h);
-                    } else if full_path.is_file() {
-                        full_path
-                            .parent()
-                            .ok_or(anyhow!("No parent!"))?
-                            .metadata()?
-                            .modified()?
-                            .hash(&mut h);
-                    }
-                    format!("path_{}.json", h.finish())
-                }
-                PackageSpecifier::Url(u) => {
-                    let mut h = twox_hash::XxHash64::default();
-                    u.hash(&mut h);
-                    format!("path_{}.json", h.finish())
-                }
-            },
-        };
-
         let runtime = self.wasi.prepare_runtime(
             engine,
             &self.env,
-            &self
-                .env
-                .cache_dir()
-                .join(DEFAULT_WASMER_PKG_CAPABILITY_CACHE_DIR)
-                .join(registry_name)
-                .join(package_cache_path),
+            &capabilities::get_capability_cache_path(&self.env, &self.input)?,
             runtime,
             preferred_webc_version,
         )?;
