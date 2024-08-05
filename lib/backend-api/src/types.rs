@@ -1145,6 +1145,10 @@ mod queries {
         pub until: Option<f64>,
         pub first: Option<i32>,
 
+        pub request_id: Option<String>,
+
+        pub instance_id: Option<String>,
+
         pub streams: Option<Vec<LogStream>>,
     }
 

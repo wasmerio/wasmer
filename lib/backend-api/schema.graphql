@@ -345,6 +345,7 @@ type Package implements Likeable & Node & PackageOwner {
   """The ID of the object"""
   id: ID!
   name: String!
+  namespace: String!
   private: Boolean!
   createdAt: DateTime!
   updatedAt: DateTime!
@@ -357,6 +358,7 @@ type Package implements Likeable & Node & PackageOwner {
   icon: String!
   totalDownloads: Int!
   iconUpdatedAt: DateTime
+  likersCount: Int!
   watchersCount: Int!
   webcs(offset: Int, before: String, after: String, first: Int, last: Int): WebcImageConnection!
 
@@ -367,12 +369,10 @@ type Package implements Likeable & Node & PackageOwner {
   collectionSet: [Collection!]!
   categories(offset: Int, before: String, after: String, first: Int, last: Int): CategoryConnection!
   keywords(offset: Int, before: String, after: String, first: Int, last: Int): PackageKeywordConnection!
-  likersCount: Int!
   viewerHasLiked: Boolean!
   globalName: String!
   globalId: ID!
   alias: String
-  namespace: String!
   displayName: String!
 
   """The name of the package without the owner"""
@@ -868,6 +868,8 @@ type DeployAppVersion implements Node {
   signature: String
   description: String
   publishedBy: User!
+  disabledAt: DateTime
+  disabledReason: String
   createdAt: DateTime!
   updatedAt: DateTime!
   configWebc: String @deprecated(reason: "webc support has been deprecated for apps")
@@ -896,6 +898,9 @@ type DeployAppVersion implements Node {
 
     """List of instance ids to fetch logs from."""
     instanceIds: [String]
+
+    """Filter for this request id in logs"""
+    requestId: String
     before: String
     after: String
     first: Int
@@ -908,12 +913,13 @@ type DeployAppVersion implements Node {
   aggregateMetrics: AggregateMetrics!
   volumes: [AppVersionVolume]
   favicon: URL
-  screenshot: URL
+  screenshot(viewportSize: AppScreenshotViewportSize, appearance: AppScreenshotAppearance): URL
 }
 
 type DeployApp implements Node & Owner {
   """The ID of the object"""
   id: ID!
+  forceHttps: Boolean!
   createdBy: User!
   createdAt: DateTime!
   updatedAt: DateTime!
@@ -934,7 +940,7 @@ type DeployApp implements Node & Owner {
   usageMetrics(forRange: MetricRange!, variant: MetricType!): [UsageMetric]!
   deleted: Boolean!
   favicon: URL
-  screenshot: URL
+  screenshot(viewportSize: AppScreenshotViewportSize, appearance: AppScreenshotAppearance): URL
 }
 
 enum DeployAppVersionsSortBy {
@@ -1071,6 +1077,16 @@ The `URL` scalar type represents a URL as text, represented as UTF-8
 character sequences.
 """
 scalar URL
+
+enum AppScreenshotViewportSize {
+  MOBILE
+  DESKTOP
+}
+
+enum AppScreenshotAppearance {
+  LIGHT
+  DARK
+}
 
 type LogConnection {
   """Pagination data for this connection."""
@@ -1910,14 +1926,16 @@ type APITokenEdge {
   cursor: String!
 }
 
-type APIToken {
-  id: ID!
+type APIToken implements Node {
   user: User!
   identifier: String
   createdAt: DateTime!
   revokedAt: DateTime
   lastUsedAt: DateTime
   nonceSet(offset: Int, before: String, after: String, first: Int, last: Int): NonceConnection!
+
+  """The ID of the object"""
+  id: ID!
 }
 
 type NonceConnection {
@@ -2368,6 +2386,7 @@ type Query {
   getSignedUrlForPackageUpload(name: String, version: String = "latest", filename: String, expiresAfterSeconds: Int = 60): SignedUrl
   getPackageHash(name: String, hash: String!): PackageWebc
   getPackageRelease(hash: String!): PackageWebc
+  getPackageInstanceByVersionOrHash(name: String!, version: String, hash: String): PackageInstance
   categories(offset: Int, before: String, after: String, first: Int, last: Int): CategoryConnection!
   blogposts(tags: [String!], before: String, after: String, first: Int, last: Int): BlogPostConnection!
   getBlogpost(slug: String, featured: Boolean): BlogPost
@@ -2998,6 +3017,9 @@ type Mutation {
 
   """Redeploy the active version of an app."""
   redeployActiveVersion(input: RedeployActiveVersionInput!): RedeployActiveVersionPayload
+
+  """Toggle HTTP redirect for the active version of app"""
+  toggleForceHttps(input: ToggleForceHTTPSInput!): ToggleForceHTTPSPayload
   tokenAuth(input: ObtainJSONWebTokenInput!): ObtainJSONWebTokenPayload
   generateDeployToken(input: GenerateDeployTokenInput!): GenerateDeployTokenPayload
   verifyAccessToken(token: String): Verify
@@ -3022,6 +3044,7 @@ type Mutation {
   seePendingNotifications(input: SeePendingNotificationsInput!): SeePendingNotificationsPayload
   newNonce(input: NewNonceInput!): NewNoncePayload
   validateNonce(input: ValidateNonceInput!): ValidateNoncePayload
+  invalidateNonce(input: InvalidateNonceInput!): InvalidateNoncePayload
   mfa2totpGetToken(input: MFATOTPGetTokenInput!): MFATOTPTokenType
   mfa2totpVerify(input: MFATOTPVerifyInput!): MFATOTPVerifyPayload
   mfa2totpAuth(input: MFATOTPAuthInput!): MFAAuthResponse
@@ -3456,6 +3479,18 @@ input RedeployActiveVersionInput {
   clientMutationId: String
 }
 
+"""Toggle HTTP redirect for the active version of app"""
+type ToggleForceHTTPSPayload {
+  app: DeployApp!
+  clientMutationId: String
+}
+
+input ToggleForceHTTPSInput {
+  """App ID"""
+  id: ID!
+  clientMutationId: String
+}
+
 type ObtainJSONWebTokenPayload {
   payload: GenericScalar!
   refreshExpiresIn: Int!
@@ -3682,7 +3717,10 @@ type RevokeAPITokenPayload {
 
 input RevokeAPITokenInput {
   """The API token ID"""
-  token: String!
+  tokenId: String
+
+  """The raw API token"""
+  token: String
   clientMutationId: String
 }
 
@@ -3736,6 +3774,17 @@ type ValidateNoncePayload {
 }
 
 input ValidateNonceInput {
+  id: ID!
+  secret: String!
+  clientMutationId: String
+}
+
+type InvalidateNoncePayload {
+  nonce: Nonce!
+  clientMutationId: String
+}
+
+input InvalidateNonceInput {
   id: ID!
   secret: String!
   clientMutationId: String
@@ -4281,6 +4330,9 @@ type Subscription {
 
     """Filter logs by instance ids"""
     instanceIds: [String]
+
+    """Filter logs by request ID"""
+    requestId: String
 
     """Search logs for this term"""
     searchTerm: String
