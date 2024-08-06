@@ -37,7 +37,7 @@ pub struct CmdAppLogs {
     /// * Unix timestamp (`1136196245`)
     /// * Relative time (`10m` / `-1h`, `1d1h30s`)
     // TODO: should default to trailing logs once trailing is implemented.
-    #[clap(long, value_parser = parse_timestamp_or_relative_time)]
+    #[clap(long, value_parser = parse_timestamp_or_relative_time, conflicts_with = "request_id")]
     from: Option<OffsetDateTime>,
 
     /// The date of the latest log entry.
@@ -48,7 +48,7 @@ pub struct CmdAppLogs {
     /// * Simple date (`2022-11-11`)
     /// * Unix timestamp (`1136196245`)
     /// * Relative time (`10m` / `1h`, `1d1h30s`)
-    #[clap(long, value_parser = parse_timestamp_or_relative_time)]
+    #[clap(long, value_parser = parse_timestamp_or_relative_time, conflicts_with = "request_id")]
     until: Option<OffsetDateTime>,
 
     /// Maximum log lines to fetch.
@@ -72,8 +72,8 @@ pub struct CmdAppLogs {
     pub request_id: Option<String>,
 
     /// The identifier of the app instance to show logs related to
-    #[clap(long, conflicts_with = "request_id")]
-    pub instance_id: Option<String>,
+    #[clap(long, conflicts_with = "request_id", value_delimiter = ' ', num_args = 1..)]
+    pub instance_id: Option<Vec<String>>,
 }
 
 #[async_trait::async_trait]

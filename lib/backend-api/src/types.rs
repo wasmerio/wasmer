@@ -1147,7 +1147,7 @@ mod queries {
 
         pub request_id: Option<String>,
 
-        pub instance_id: Option<String>,
+        pub instance_ids: Option<Vec<String>>,
 
         pub streams: Option<Vec<LogStream>>,
     }
@@ -1162,7 +1162,7 @@ mod queries {
     #[derive(cynic::QueryFragment, Debug)]
     #[cynic(graphql_type = "DeployAppVersion", variables = "GetDeployAppLogsVars")]
     pub struct DeployAppVersionLogs {
-        #[arguments(startingFrom: $starting_from, until: $until, first: $first)]
+        #[arguments(startingFrom: $starting_from, until: $until, first: $first, instanceIds: $instance_ids, requestId: $request_id, streams: $streams)]
         pub logs: LogConnection,
     }
 
@@ -1182,6 +1182,7 @@ mod queries {
         /// When the message was recorded, in nanoseconds since the Unix epoch.
         pub timestamp: f64,
         pub stream: Option<LogStream>,
+        pub instance_id: String,
     }
 
     #[derive(cynic::QueryVariables, Debug)]

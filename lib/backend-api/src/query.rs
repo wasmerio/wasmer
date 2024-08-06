@@ -1578,7 +1578,7 @@ fn get_app_logs(
     watch: bool,
     streams: Option<Vec<LogStream>>,
     request_id: Option<String>,
-    instance_id: Option<String>,
+    instance_ids: Option<Vec<String>>,
 ) -> impl futures::Stream<Item = Result<Vec<Log>, anyhow::Error>> + '_ {
     // Note: the backend will limit responses to a certain number of log
     // messages, so we use try_unfold() to keep calling it until we stop getting
@@ -1595,7 +1595,7 @@ fn get_app_logs(
             until: end.map(unix_timestamp),
             streams: streams.clone(),
             request_id: request_id.clone(),
-            instance_id: instance_id.clone(),
+            instance_ids: instance_ids.clone(),
         };
 
         let fut = async move {
@@ -1710,7 +1710,7 @@ pub async fn get_app_logs_paginated_filter_instance(
     end: Option<OffsetDateTime>,
     watch: bool,
     streams: Option<Vec<LogStream>>,
-    instance_id: String,
+    instance_ids: Vec<String>,
 ) -> impl futures::Stream<Item = Result<Vec<Log>, anyhow::Error>> + '_ {
     let stream = get_app_logs(
         client,
@@ -1722,7 +1722,7 @@ pub async fn get_app_logs_paginated_filter_instance(
         watch,
         streams,
         None,
-        Some(instance_id),
+        Some(instance_ids),
     );
 
     stream.map(|res| {
