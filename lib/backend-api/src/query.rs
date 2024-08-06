@@ -1577,6 +1577,8 @@ fn get_app_logs(
     end: Option<OffsetDateTime>,
     watch: bool,
     streams: Option<Vec<LogStream>>,
+    request_id: Option<String>,
+    instance_ids: Option<Vec<String>>,
 ) -> impl futures::Stream<Item = Result<Vec<Log>, anyhow::Error>> + '_ {
     // Note: the backend will limit responses to a certain number of log
     // messages, so we use try_unfold() to keep calling it until we stop getting
@@ -1592,6 +1594,8 @@ fn get_app_logs(
             starting_from: unix_timestamp(start),
             until: end.map(unix_timestamp),
             streams: streams.clone(),
+            request_id: request_id.clone(),
+            instance_ids: instance_ids.clone(),
         };
 
         let fut = async move {
@@ -1670,7 +1674,103 @@ pub async fn get_app_logs_paginated(
     watch: bool,
     streams: Option<Vec<LogStream>>,
 ) -> impl futures::Stream<Item = Result<Vec<Log>, anyhow::Error>> + '_ {
-    let stream = get_app_logs(client, name, owner, tag, start, end, watch, streams);
+    let stream = get_app_logs(
+        client, name, owner, tag, start, end, watch, streams, None, None,
+    );
+
+    stream.map(|res| {
+        let mut logs = Vec::new();
+        let mut hasher = HashSet::new();
+        let mut page = res?;
+
+        // Prevent duplicates.
+        // TODO: don't clone the message, just hash it.
+        page.retain(|log| hasher.insert((log.message.clone(), log.timestamp.round() as i128)));
+
+        logs.extend(page);
+
+        Ok(logs)
+    })
+}
+
+/// Get pages of logs associated with an application that lie within the
+/// specified date range with a specific instance identifier.
+///
+/// In contrast to [`get_app_logs`], this function collects the stream into a
+/// final vector.
+#[tracing::instrument(skip_all, level = "debug")]
+#[allow(clippy::let_with_type_underscore)]
+#[allow(clippy::too_many_arguments)]
+pub async fn get_app_logs_paginated_filter_instance(
+    client: &WasmerClient,
+    name: String,
+    owner: String,
+    tag: Option<String>,
+    start: OffsetDateTime,
+    end: Option<OffsetDateTime>,
+    watch: bool,
+    streams: Option<Vec<LogStream>>,
+    instance_ids: Vec<String>,
+) -> impl futures::Stream<Item = Result<Vec<Log>, anyhow::Error>> + '_ {
+    let stream = get_app_logs(
+        client,
+        name,
+        owner,
+        tag,
+        start,
+        end,
+        watch,
+        streams,
+        None,
+        Some(instance_ids),
+    );
+
+    stream.map(|res| {
+        let mut logs = Vec::new();
+        let mut hasher = HashSet::new();
+        let mut page = res?;
+
+        // Prevent duplicates.
+        // TODO: don't clone the message, just hash it.
+        page.retain(|log| hasher.insert((log.message.clone(), log.timestamp.round() as i128)));
+
+        logs.extend(page);
+
+        Ok(logs)
+    })
+}
+
+/// Get pages of logs associated with an specific request for application that lie within the
+/// specified date range.
+///
+/// In contrast to [`get_app_logs`], this function collects the stream into a
+/// final vector.
+#[tracing::instrument(skip_all, level = "debug")]
+#[allow(clippy::let_with_type_underscore)]
+#[allow(clippy::too_many_arguments)]
+pub async fn get_app_logs_paginated_filter_request(
+    client: &WasmerClient,
+    name: String,
+    owner: String,
+    tag: Option<String>,
+    start: OffsetDateTime,
+    end: Option<OffsetDateTime>,
+    watch: bool,
+    streams: Option<Vec<LogStream>>,
+    request_id: String,
+) -> impl futures::Stream<Item = Result<Vec<Log>, anyhow::Error>> + '_ {
+    let stream = get_app_logs(
+        client,
+        name,
+        owner,
+        tag,
+        start,
+        end,
+        watch,
+        streams,
+        Some(request_id),
+        None,
+    );
 
     stream.map(|res| {
         let mut logs = Vec::new();
