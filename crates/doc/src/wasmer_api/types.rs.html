@@ -2016,6 +2016,11 @@
 <a href="#2016" id="2016">2016</a>
 <a href="#2017" id="2017">2017</a>
 <a href="#2018" id="2018">2018</a>
+<a href="#2019" id="2019">2019</a>
+<a href="#2020" id="2020">2020</a>
+<a href="#2021" id="2021">2021</a>
+<a href="#2022" id="2022">2022</a>
+<a href="#2023" id="2023">2023</a>
 </pre></div><pre class="rust"><code><span class="kw">pub use </span>queries::<span class="kw-2">*</span>;
 
 <span class="kw">pub use </span>cynic::Id;
@@ -3163,6 +3168,10 @@
         </span><span class="kw">pub </span>until: <span class="prelude-ty">Option</span>&lt;f64&gt;,
         <span class="kw">pub </span>first: <span class="prelude-ty">Option</span>&lt;i32&gt;,
 
+        <span class="kw">pub </span>request_id: <span class="prelude-ty">Option</span>&lt;String&gt;,
+
+        <span class="kw">pub </span>instance_ids: <span class="prelude-ty">Option</span>&lt;Vec&lt;String&gt;&gt;,
+
         <span class="kw">pub </span>streams: <span class="prelude-ty">Option</span>&lt;Vec&lt;LogStream&gt;&gt;,
     }
 
@@ -3176,7 +3185,7 @@
     <span class="attr">#[derive(cynic::QueryFragment, Debug)]
     #[cynic(graphql_type = <span class="string">&quot;DeployAppVersion&quot;</span>, variables = <span class="string">&quot;GetDeployAppLogsVars&quot;</span>)]
     </span><span class="kw">pub struct </span>DeployAppVersionLogs {
-        <span class="attr">#[arguments(startingFrom: <span class="macro-nonterminal">$starting_from</span>, until: <span class="macro-nonterminal">$until</span>, first: <span class="macro-nonterminal">$first</span>)]
+        <span class="attr">#[arguments(startingFrom: <span class="macro-nonterminal">$starting_from</span>, until: <span class="macro-nonterminal">$until</span>, first: <span class="macro-nonterminal">$first</span>, instanceIds: <span class="macro-nonterminal">$instance_ids</span>, requestId: <span class="macro-nonterminal">$request_id</span>, streams: <span class="macro-nonterminal">$streams</span>)]
         </span><span class="kw">pub </span>logs: LogConnection,
     }
 
@@ -3196,6 +3205,7 @@
         <span class="doccomment">/// When the message was recorded, in nanoseconds since the Unix epoch.
         </span><span class="kw">pub </span>timestamp: f64,
         <span class="kw">pub </span>stream: <span class="prelude-ty">Option</span>&lt;LogStream&gt;,
+        <span class="kw">pub </span>instance_id: String,
     }
 
     <span class="attr">#[derive(cynic::QueryVariables, Debug)]
