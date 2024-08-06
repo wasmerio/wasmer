@@ -733,6 +733,22 @@
 <a href="#733" id="733">733</a>
 <a href="#734" id="734">734</a>
 <a href="#735" id="735">735</a>
+<a href="#736" id="736">736</a>
+<a href="#737" id="737">737</a>
+<a href="#738" id="738">738</a>
+<a href="#739" id="739">739</a>
+<a href="#740" id="740">740</a>
+<a href="#741" id="741">741</a>
+<a href="#742" id="742">742</a>
+<a href="#743" id="743">743</a>
+<a href="#744" id="744">744</a>
+<a href="#745" id="745">745</a>
+<a href="#746" id="746">746</a>
+<a href="#747" id="747">747</a>
+<a href="#748" id="748">748</a>
+<a href="#749" id="749">749</a>
+<a href="#750" id="750">750</a>
+<a href="#751" id="751">751</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{
     collections::{BTreeSet, HashMap},
     path::{Path, PathBuf},
@@ -781,6 +797,11 @@
 };
 
 <span class="kw">use </span><span class="kw">crate</span>::utils::{parse_envvar, parse_mapdir};
+
+<span class="kw">use super</span>::{
+    capabilities::{<span class="self">self</span>, PkgCapabilityCache},
+    ExecutableTarget, PackageSource,
+};
 
 <span class="kw">const </span>WAPM_SOURCE_CACHE_TIMEOUT: Duration = Duration::from_secs(<span class="number">10 </span>* <span class="number">60</span>);
 
@@ -1274,6 +1295,7 @@
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         engine: Engine,
         env: <span class="kw-2">&amp;</span>WasmerEnv,
+        pkg_cache_path: <span class="kw-2">&amp;</span>Path,
         rt_or_handle: I,
         preferred_webc_version: webc::Version,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="kw">impl </span>Runtime + Send + Sync&gt;
@@ -1283,10 +1305,20 @@
         <span class="kw">let </span>tokio_task_manager = Arc::new(TokioTaskManager::new(rt_or_handle.into()));
         <span class="kw">let </span><span class="kw-2">mut </span>rt = PluggableRuntime::new(tokio_task_manager.clone());
 
-        <span class="kw">if </span><span class="self">self</span>.networking {
+        <span class="kw">let </span>has_networking = <span class="self">self</span>.networking
+            || capabilities::get_cached_capability(pkg_cache_path)
+                .ok()
+                .is_some_and(|v| v.enable_networking);
+
+        <span class="kw">if </span>has_networking {
             rt.set_networking_implementation(virtual_net::host::LocalNetworking::default());
         } <span class="kw">else </span>{
-            rt.set_networking_implementation(virtual_net::UnsupportedVirtualNetworking::default());
+            <span class="kw">let </span>net = <span class="kw">super</span>::capabilities::net::AskingNetworking::new(
+                pkg_cache_path.to_path_buf(),
+                Arc::new(virtual_net::host::LocalNetworking::default()),
+            );
+
+            rt.set_networking_implementation(net);
         }
 
         <span class="attr">#[cfg(feature = <span class="string">&quot;journal&quot;</span>)]

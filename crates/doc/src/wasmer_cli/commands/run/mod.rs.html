@@ -1004,27 +1004,33 @@
 <a href="#1004" id="1004">1004</a>
 <a href="#1005" id="1005">1005</a>
 <a href="#1006" id="1006">1006</a>
+<a href="#1007" id="1007">1007</a>
+<a href="#1008" id="1008">1008</a>
+<a href="#1009" id="1009">1009</a>
+<a href="#1010" id="1010">1010</a>
+<a href="#1011" id="1011">1011</a>
 </pre></div><pre class="rust"><code><span class="attr">#![allow(missing_docs, unused)]
 
-</span><span class="kw">mod </span>wasi;
+</span><span class="kw">mod </span>capabilities;
+<span class="kw">mod </span>wasi;
 
 <span class="kw">use </span>std::{
-    collections::BTreeMap,
+    collections::{hash_map::DefaultHasher, BTreeMap},
     fmt::{Binary, Display},
     fs::File,
+    hash::{BuildHasherDefault, Hash, Hasher},
     io::{ErrorKind, LineWriter, Read, Write},
     net::SocketAddr,
     path::{Path, PathBuf},
     str::FromStr,
     sync::{Arc, Mutex},
-    time::{Duration, SystemTime},
+    time::{Duration, SystemTime, UNIX_EPOCH},
 };
 
-<span class="kw">use </span>anyhow::{bail, Context, Error};
+<span class="kw">use </span>anyhow::{anyhow, bail, Context, Error};
 <span class="kw">use </span>clap::{Parser, ValueEnum};
 <span class="kw">use </span>indicatif::{MultiProgress, ProgressBar};
 <span class="kw">use </span>once_cell::sync::Lazy;
-<span class="kw">use </span>sha2::{Digest, Sha256};
 <span class="kw">use </span>tempfile::NamedTempFile;
 <span class="kw">use </span>url::Url;
 <span class="attr">#[cfg(feature = <span class="string">&quot;sys&quot;</span>)]
@@ -1146,9 +1152,13 @@
         <span class="attr">#[cfg(not(feature = <span class="string">&quot;sys&quot;</span>))]
         </span><span class="kw">let </span>engine = store.engine().clone();
 
-        <span class="kw">let </span>runtime =
-            <span class="self">self</span>.wasi
-                .prepare_runtime(engine, <span class="kw-2">&amp;</span><span class="self">self</span>.env, runtime, preferred_webc_version)<span class="question-mark">?</span>;
+        <span class="kw">let </span>runtime = <span class="self">self</span>.wasi.prepare_runtime(
+            engine,
+            <span class="kw-2">&amp;</span><span class="self">self</span>.env,
+            <span class="kw-2">&amp;</span>capabilities::get_capability_cache_path(<span class="kw-2">&amp;</span><span class="self">self</span>.env, <span class="kw-2">&amp;</span><span class="self">self</span>.input)<span class="question-mark">?</span>,
+            runtime,
+            preferred_webc_version,
+        )<span class="question-mark">?</span>;
 
         <span class="comment">// This is a slow operation, so let&#39;s temporarily wrap the runtime with
         // something that displays progress
