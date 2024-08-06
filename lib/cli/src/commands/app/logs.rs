@@ -122,7 +122,7 @@ impl crate::commands::AsyncCliCommand for CmdAppLogs {
             (false, true) => &[LogStream::Stderr][..],
         });
 
-        // Code duplication to avoid a dependency to `OR` streams.  
+        // Code duplication to avoid a dependency to `OR` streams.
         if let Some(instance_id) = &self.instance_id {
             let logs_stream = wasmer_api::query::get_app_logs_paginated_filter_instance(
                 &client,
