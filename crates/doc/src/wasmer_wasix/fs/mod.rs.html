@@ -2213,6 +2213,17 @@
 <a href="#2213" id="2213">2213</a>
 <a href="#2214" id="2214">2214</a>
 <a href="#2215" id="2215">2215</a>
+<a href="#2216" id="2216">2216</a>
+<a href="#2217" id="2217">2217</a>
+<a href="#2218" id="2218">2218</a>
+<a href="#2219" id="2219">2219</a>
+<a href="#2220" id="2220">2220</a>
+<a href="#2221" id="2221">2221</a>
+<a href="#2222" id="2222">2222</a>
+<a href="#2223" id="2223">2223</a>
+<a href="#2224" id="2224">2224</a>
+<a href="#2225" id="2225">2225</a>
+<a href="#2226" id="2226">2226</a>
 </pre></div><pre class="rust"><code><span class="kw">mod </span>fd;
 <span class="kw">mod </span>inode_guard;
 <span class="kw">mod </span>notification;
@@ -2779,6 +2790,17 @@
             <span class="prelude-val">Some</span>(Reverse(fd)) =&gt; fd,
             <span class="prelude-val">None </span>=&gt; <span class="self">self</span>.next_fd.next_val(),
         }
+    }
+
+    <span class="doccomment">/// We need to clear the freed FD list when the journal is replayed as it
+    /// will close lots of file descriptors which will fill the list. We clear
+    /// the list and allocate new FD&#39;s instead.
+    ///
+    /// This should only be used when the file descriptors are being managed
+    /// externally (e.g. journals)
+    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>clear_freed_fd_list(<span class="kw-2">&amp;</span><span class="self">self</span>) {
+        <span class="kw">let </span><span class="kw-2">mut </span>freed_fds = <span class="self">self</span>.freed_fds.write().unwrap();
+        freed_fds.clear();
     }
 
     <span class="doccomment">/// Closes all the file handles.
