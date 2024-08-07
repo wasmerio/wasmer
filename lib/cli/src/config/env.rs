@@ -323,7 +323,10 @@ mod tests {
             ("https://wasmer.io/", "https://registry.wasmer.io/graphql"),
             ("https://wasmer.wtf/", "https://registry.wasmer.wtf/graphql"),
             ("https://wasmer.wtf/", "https://registry.wasmer.wtf/graphql"),
-            ("https://wasmer.wtf/", "https://registry.wasmer.wtf/something/else"),
+            (
+                "https://wasmer.wtf/",
+                "https://registry.wasmer.wtf/something/else",
+            ),
             ("https://wasmer.wtf/", "https://wasmer.wtf/graphql"),
             ("https://wasmer.wtf/", "https://wasmer.wtf/graphql"),
             ("http://localhost:8000/", "http://localhost:8000/graphql"),
