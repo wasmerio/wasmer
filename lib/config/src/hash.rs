@@ -1,5 +1,5 @@
 /// Sha256 hash, represented as bytes.
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Sha256Hash(pub [u8; 32]);
 
 impl Sha256Hash {
@@ -30,6 +30,12 @@ impl std::str::FromStr for Sha256Hash {
         })?;
 
         Ok(Sha256Hash(bytes.try_into().unwrap()))
+    }
+}
+
+impl std::fmt::Debug for Sha256Hash {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "Sha256({})", hex::encode(self.0))
     }
 }
 
