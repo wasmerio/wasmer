@@ -148,6 +148,7 @@ impl WasiFunctionEnv {
         )?;
 
         let new_inner = WasiInstanceHandles::new(memory, store, instance);
+
         let stack_pointer = new_inner.stack_pointer.clone();
         let data_end = new_inner.data_end.clone();
         let stack_low = new_inner.stack_low.clone();
@@ -190,24 +191,35 @@ impl WasiFunctionEnv {
                     _ => 0,
                 }
             } else if let Some(data_end) = data_end {
-                match data_end.get(store) {
+                let data_end = match data_end.get(store) {
                     wasmer::Value::I32(a) => a as u64,
                     wasmer::Value::I64(a) => a as u64,
                     _ => 0,
+                };
+                // It's possible for the data section to be above the stack, we check for that here and
+                // if it is, we'll assume the stack starts at address 0
+                if data_end >= stack_base {
+                    0
+                } else {
+                    data_end
                 }
             } else {
                 // clang-16 and higher generate the `__stack_low` global, and it can be exported with
                 // `-Wl,--export=__stack_low`. clang-15 generates `__data_end`, which should be identical
                 // and can be exported if `__stack_low` is not available.
-                tracing::warn!("Missing both __stack_low and __data_end exports, unwinding may cause memory corruption");
+                if self.data(store).will_use_asyncify() {
+                    tracing::warn!("Missing both __stack_low and __data_end exports, unwinding may cause memory corruption");
+                }
                 0
             };
 
             if stack_lower >= stack_base {
-                tracing::warn!(
-                    "Detected lower end of stack to be above higher end, ignoring stack_lower; \
-                    unwinding may cause memory corruption"
-                );
+                if self.data(store).will_use_asyncify() {
+                    tracing::warn!(
+                        "Detected lower end of stack to be above higher end, ignoring stack_lower; \
+                        unwinding may cause memory corruption"
+                    );
+                }
                 stack_lower = 0;
             }
 
@@ -285,10 +297,13 @@ impl WasiFunctionEnv {
     ///
     #[allow(clippy::result_large_err)]
     #[allow(unused_variables, unused_mut)]
+    #[tracing::instrument(skip_all)]
     pub unsafe fn bootstrap(
         &self,
         mut store: &'_ mut impl AsStoreMut,
     ) -> Result<RewindStateOption, WasiRuntimeError> {
+        tracing::debug!("bootstrap start");
+
         #[allow(unused_mut)]
         let mut rewind_state = None;
 
@@ -298,6 +313,7 @@ impl WasiFunctionEnv {
             // prevent the initialization function from running
             let restore_journals = self.data(&store).runtime.journals().clone();
             if !restore_journals.is_empty() {
+                tracing::trace!("replaying journal=true");
                 self.data_mut(&mut store).replaying_journal = true;
 
                 for journal in restore_journals {
@@ -305,6 +321,7 @@ impl WasiFunctionEnv {
                     let rewind = match restore_snapshot(ctx, journal, true) {
                         Ok(r) => r,
                         Err(err) => {
+                            tracing::trace!("replaying journal=false (err={:?})", err);
                             self.data_mut(&mut store).replaying_journal = false;
                             return Err(err);
                         }
@@ -312,6 +329,7 @@ impl WasiFunctionEnv {
                     rewind_state = rewind.map(|rewind| (rewind, RewindResultType::RewindRestart));
                 }
 
+                tracing::trace!("replaying journal=false");
                 self.data_mut(&mut store).replaying_journal = false;
             }
 
@@ -351,6 +369,8 @@ impl WasiFunctionEnv {
                 })?;
             }
         }
+
+        tracing::debug!("bootstrap complete");
 
         Ok(rewind_state)
     }

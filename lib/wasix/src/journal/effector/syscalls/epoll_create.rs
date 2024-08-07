@@ -6,7 +6,7 @@ impl JournalEffector {
     }
 
     pub fn apply_epoll_create(ctx: &mut FunctionEnvMut<'_, WasiEnv>, fd: Fd) -> anyhow::Result<()> {
-        let ret_fd = crate::syscalls::epoll_create_internal(ctx)
+        let ret_fd = crate::syscalls::epoll_create_internal(ctx, Some(fd))
             .map_err(|err| {
                 anyhow::format_err!("journal restore error: failed to create epoll - {}", err)
             })?

@@ -259,7 +259,7 @@ impl JournalEffector {
             )?;
 
             // Break the region down into chunks that align with the resolution
-            let data = &memory.data_unchecked()[start..end];
+            let data = &memory.data_unchecked();
             let mut offset = region.start;
             while offset < region.end {
                 let next = region.end.min(offset + MEMORY_REGION_RESOLUTION);

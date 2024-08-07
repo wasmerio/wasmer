@@ -43,7 +43,7 @@ pub fn sock_open<M: MemorySize>(
         _ => {}
     }
 
-    let fd = wasi_try_ok!(sock_open_internal(&mut ctx, af, ty, pt)?);
+    let fd = wasi_try_ok!(sock_open_internal(&mut ctx, af, ty, pt, None)?);
 
     #[cfg(feature = "journal")]
     if ctx.data().enable_journal {
@@ -65,6 +65,7 @@ pub(crate) fn sock_open_internal(
     af: Addressfamily,
     ty: Socktype,
     pt: SockProto,
+    with_fd: Option<WasiFd>,
 ) -> Result<Result<WasiFd, Errno>, WasiError> {
     let env = ctx.data();
     let (memory, state, inodes) = unsafe { env.get_memory_and_wasi_state_and_inodes(&ctx, 0) };
@@ -101,9 +102,16 @@ pub(crate) fn sock_open_internal(
             .fs
             .create_inode_with_default_stat(inodes, kind, false, "socket".to_string().into());
     let rights = Rights::all_socket();
-    let fd = wasi_try_ok_ok!(state
-        .fs
-        .create_fd(rights, rights, Fdflags::empty(), 0, inode));
+    let fd = wasi_try_ok_ok!(if let Some(fd) = with_fd {
+        state
+            .fs
+            .with_fd(rights, rights, Fdflags::empty(), 0, inode, fd)
+            .map(|_| fd)
+    } else {
+        state
+            .fs
+            .create_fd(rights, rights, Fdflags::empty(), 0, inode)
+    });
     Span::current().record("sock", fd);
 
     Ok(Ok(fd))

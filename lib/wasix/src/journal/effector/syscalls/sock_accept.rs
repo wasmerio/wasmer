@@ -43,6 +43,7 @@ impl JournalEffector {
     ) -> anyhow::Result<()> {
         let kind = Kind::Socket {
             socket: InodeSocket::new(InodeSocketKind::RemoteSocket {
+                is_dead: true,
                 local_addr: addr,
                 peer_addr,
                 ttl: 0,
@@ -89,25 +90,13 @@ impl JournalEffector {
         }
 
         let rights = Rights::all_socket();
-        let ret_fd = state
-            .fs
-            .create_fd(rights, rights, new_flags, 0, inode)
-            .map_err(|err| {
-                anyhow::format_err!(
-                    "journal restore error: failed to create remote accepted socket - {}",
-                    err
-                )
-            })?;
-
-        let ret = crate::syscalls::fd_renumber_internal(ctx, ret_fd, fd);
-        if ret != Errno::Success {
-            bail!(
-                    "journal restore error: failed renumber file descriptor after accepting socket (from={}, to={}) - {}",
-                    ret_fd,
-                    fd,
-                    ret
-                );
-        }
+        let ret = state.fs.with_fd(rights, rights, new_flags, 0, inode, fd);
+        ret.map_err(|err| {
+            anyhow::format_err!(
+                "journal restore error: failed to create remote accepted socket - {}",
+                err
+            )
+        })?;
 
         Ok(())
     }

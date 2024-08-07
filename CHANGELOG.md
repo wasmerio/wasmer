@@ -9,6 +9,136 @@ Looking for changes that affect our C API? See the [C API Changelog](lib/c-api/C
 
 ## **Unreleased**
 
+## 4.3.5 - 16/07/2024
+
+This release adds support for managing secrets alongside fixes and refactors to help with stability.
+
+## Added
+
+  - [#4930](https://github.com/wasmerio/wasmer/pull/4930) CLI: Add support for Secrets
+
+## Changed
+
+  - [#4933](https://github.com/wasmerio/wasmer/pull/4933) CLI: Manually exit upon SIGINT reception
+  - [#4927](https://github.com/wasmerio/wasmer/pull/4927) Upgrade to Hyper 1.x
+  - [#4932](https://github.com/wasmerio/wasmer/pull/4932) Follow directory when deploying from create
+  - [#4928](https://github.com/wasmerio/wasmer/pull/4928) Prevent unnecessary panics when compiling on x86_64 CPUs that dont support AVX or SSE4.2
+  - [#4920](https://github.com/wasmerio/wasmer/pull/4920) Compile `wasmer-api` crate to `wasm32-unknown-unknown`
+
+## Fixed
+
+  - [#4925](https://github.com/wasmerio/wasmer/pull/4925) Fix stack_low detection when data_end is above stack_pointer and stac…
+  - [#4929](https://github.com/wasmerio/wasmer/pull/4929) Fix indirect call to dynamic imported function
+
+
+
+## 4.3.4 - 08/07/2024
+
+This release contains a fix for the webc version resolution logic.
+
+## Added
+
+  - [#4914](https://github.com/wasmerio/wasmer/pull/4914) Add tests for `msync`
+
+## Changed
+
+
+## Fixed
+
+  - [#4922](https://github.com/wasmerio/wasmer/pull/4922) fix(wasix): Fix incorrect webc version mapping
+
+
+
+## 4.3.3 - 04/07/2024
+
+This release mainly contains fixes and refactors to help with the stability. Also some improvements to the cli and journaling.
+
+## Added
+
+  - [#4885](https://github.com/wasmerio/wasmer/pull/4885) Added another journal transaction point used for durability
+  - [#4906](https://github.com/wasmerio/wasmer/pull/4906) feat(backend-api): Add query for retrieving app versions by id
+  - [#4861](https://github.com/wasmerio/wasmer/pull/4861) feat(cli/deploy): Add `--path` flag
+
+## Changed
+
+  - [#4898](https://github.com/wasmerio/wasmer/pull/4898) chore: More logging during package downloads
+  - [#4912](https://github.com/wasmerio/wasmer/pull/4912) feat(cli/push): Push with name if available (+ CLI flag)
+  - [#4907](https://github.com/wasmerio/wasmer/pull/4907) Update README: new zig bindings for wasmer with WASI Support
+  - [#4897](https://github.com/wasmerio/wasmer/pull/4897) App create: Ask for framework before fetching templates
+  - [#4896](https://github.com/wasmerio/wasmer/pull/4896) Re-use previously closed FDs
+  - [#4883](https://github.com/wasmerio/wasmer/pull/4883) cli(app/create): Ask for directory to create the app in
+  - [#4884](https://github.com/wasmerio/wasmer/pull/4884) feat(cli): Amend `app` command description
+  - [#4874](https://github.com/wasmerio/wasmer/pull/4874) Switch to webc v3 by default
+  - [#4860](https://github.com/wasmerio/wasmer/pull/4860) CLI: Use a channel to signal that the main fn is done
+  - [#4877](https://github.com/wasmerio/wasmer/pull/4877) Replace mach with mach2
+  - [#4824](https://github.com/wasmerio/wasmer/pull/4824) Merge `ScopedDirectoryFileSystem` into `host_fs::Filesystem`
+  - [#4862](https://github.com/wasmerio/wasmer/pull/4862) feat(cli/deploy): Check status when waiting for the app to be available
+  - [#4848](https://github.com/wasmerio/wasmer/pull/4848) feat(cli/package-tag): Manifest is not mandatory anymore while tagging
+  - [#4858](https://github.com/wasmerio/wasmer/pull/4858) chore: Small tracing log improvements for wasix
+  - [#4841](https://github.com/wasmerio/wasmer/pull/4841) Restore cursor after SIGINT during dialogue
+  - [#4846](https://github.com/wasmerio/wasmer/pull/4846) Restored sockets from journals will no longer attempt to send data
+  - [#4836](https://github.com/wasmerio/wasmer/pull/4836) Dynamically detect libgcc-vs-libunwind
+  - [#4838](https://github.com/wasmerio/wasmer/pull/4838) Don't pass auth header when downloading a package
+  - [#4832](https://github.com/wasmerio/wasmer/pull/4832) 4.3.2 post release
+
+## Fixed
+
+  - [#4913](https://github.com/wasmerio/wasmer/pull/4913) Fix mac runners
+  - [#4840](https://github.com/wasmerio/wasmer/pull/4840) fix(journal): Correctly handle client socket closing during compaction
+  - [#4844](https://github.com/wasmerio/wasmer/pull/4844) fix(cli): Respect WASMER_REGISTRY env var in all commands
+  - [#4834](https://github.com/wasmerio/wasmer/pull/4834) Fix `path_open` trailing slash edge case
+  - [#4835](https://github.com/wasmerio/wasmer/pull/4835) Fix for dead sockets restored in the journal
+
+
+
+## 4.3.2 - 11/06/2024
+
+This release mainly introduces the InstaBoot feature. Numerous bug fixes to the virtual-fs is also included, making it
+more robust. Support for the execve syscall is also added to the runtime alongside the ability to spawn local wasm files.
+
+## Added
+
+  - [#4819](https://github.com/wasmerio/wasmer/pull/4819) Add support for spawning local wasm files
+  - [#4813](https://github.com/wasmerio/wasmer/pull/4813) feat(configs): Add headers and max_age to InstaBoot capability
+  - [#4810](https://github.com/wasmerio/wasmer/pull/4810) feat(cli): Add "app purge-cache" command
+  - [#4754](https://github.com/wasmerio/wasmer/pull/4754) feat(config): Add app instaboot config
+  - [#4735](https://github.com/wasmerio/wasmer/pull/4735) Add traversal for `Root` inode
+  - [#4743](https://github.com/wasmerio/wasmer/pull/4743) Benchmarks: add new benchmark for function imports in modules
+
+## Changed
+
+  - [#4797](https://github.com/wasmerio/wasmer/pull/4797) feat(cli): Show exact version of package in "package download" command
+  - [#4749](https://github.com/wasmerio/wasmer/pull/4749) Only warn if needed
+  - [#4826](https://github.com/wasmerio/wasmer/pull/4826) chore(virtual-fs)!: Remove old stale WebcFileSystem
+  - [#4805](https://github.com/wasmerio/wasmer/pull/4805) CLI: app create - Template handling improvements
+  - [#4823](https://github.com/wasmerio/wasmer/pull/4823) Enable mounting `tmp` directory locally
+  - [#4756](https://github.com/wasmerio/wasmer/pull/4756) Introduce `proc_exec2`
+  - [#4817](https://github.com/wasmerio/wasmer/pull/4817) chore(cli): Update yanked `zip` version
+  - [#4815](https://github.com/wasmerio/wasmer/pull/4815) Useful link
+  - [#4759](https://github.com/wasmerio/wasmer/pull/4759) Disallow empty path on path_open
+  - [#4794](https://github.com/wasmerio/wasmer/pull/4794) Disallow opening directory with rights::fd_write
+  - [#4793](https://github.com/wasmerio/wasmer/pull/4793) Respect `oflags::excl` when opening all files
+  - [#4790](https://github.com/wasmerio/wasmer/pull/4790) chore: Minor tweaks to the HttpRequest definitions
+  - [#4730](https://github.com/wasmerio/wasmer/pull/4730) Mount current directory to `/home` and Set CWD to `/home` when running WASI
+  - [#4770](https://github.com/wasmerio/wasmer/pull/4770) Reduce package upload chunk size to make the progress bar smoother
+  - [#4769](https://github.com/wasmerio/wasmer/pull/4769) Use `_strict` graphql function so the error from backend is reported
+  - [#4765](https://github.com/wasmerio/wasmer/pull/4765) Update the webc dependency
+  - [#4706](https://github.com/wasmerio/wasmer/pull/4706) Multiple improvements for the journal load times
+  - [#4739](https://github.com/wasmerio/wasmer/pull/4739) Allow blocking for realtime
+
+## Fixed
+
+  - [#4821](https://github.com/wasmerio/wasmer/pull/4821) Fix `path_open` sometimes ignoring trailing slash
+  - [#4822](https://github.com/wasmerio/wasmer/pull/4822) fix(cli): Respect owner in app.yaml during app resolution
+  - [#4779](https://github.com/wasmerio/wasmer/pull/4779) Multiple fixes for journaling with fast boot and resumption
+  - [#4776](https://github.com/wasmerio/wasmer/pull/4776) Fix wasi-fyi test.sh on darwin
+  - [#4747](https://github.com/wasmerio/wasmer/pull/4747) Fix for interrupts
+  - [#4762](https://github.com/wasmerio/wasmer/pull/4762) fix(wasix): Remove redundant module hash generation in BinaryPackage
+  - [#4783](https://github.com/wasmerio/wasmer/pull/4783) Fix metadata conversion to carry over the modified timestamp
+  - [#4740](https://github.com/wasmerio/wasmer/pull/4740) Fix wasi-fyi tests
+
+
+
 ## 4.3.1 - 23/05/2024
 
 This release adds support for subcommands to generate shell completions and manual pages. Also, number of fixes

@@ -31,7 +31,13 @@ pub fn sock_accept<M: MemorySize>(
 
     let nonblocking = fd_flags.contains(Fdflags::NONBLOCK);
 
-    let (fd, _, _) = wasi_try_ok!(sock_accept_internal(env, sock, fd_flags, nonblocking)?);
+    let (fd, _, _) = wasi_try_ok!(sock_accept_internal(
+        env,
+        sock,
+        fd_flags,
+        nonblocking,
+        None
+    )?);
 
     wasi_try_mem_ok!(ro_fd.write(&memory, fd));
 
@@ -66,8 +72,13 @@ pub fn sock_accept_v2<M: MemorySize>(
 
     let nonblocking = fd_flags.contains(Fdflags::NONBLOCK);
 
-    let (fd, local_addr, peer_addr) =
-        wasi_try_ok!(sock_accept_internal(env, sock, fd_flags, nonblocking)?);
+    let (fd, local_addr, peer_addr) = wasi_try_ok!(sock_accept_internal(
+        env,
+        sock,
+        fd_flags,
+        nonblocking,
+        None
+    )?);
 
     #[cfg(feature = "journal")]
     if ctx.data().enable_journal {
@@ -104,6 +115,7 @@ pub(crate) fn sock_accept_internal(
     sock: WasiFd,
     mut fd_flags: Fdflags,
     mut nonblocking: bool,
+    with_fd: Option<WasiFd>,
 ) -> Result<Result<(WasiFd, SocketAddr, SocketAddr), Errno>, WasiError> {
     let state = env.state();
     let inodes = &state.inodes;
@@ -153,7 +165,14 @@ pub(crate) fn sock_accept_internal(
     }
 
     let rights = Rights::all_socket();
-    let fd = wasi_try_ok_ok!(state.fs.create_fd(rights, rights, new_flags, 0, inode));
+    let fd = wasi_try_ok_ok!(if let Some(fd) = with_fd {
+        state
+            .fs
+            .with_fd(rights, rights, new_flags, 0, inode, fd)
+            .map(|_| fd)
+    } else {
+        state.fs.create_fd(rights, rights, new_flags, 0, inode)
+    });
     Span::current().record("fd", fd);
 
     Ok(Ok((fd, local_addr, peer_addr)))

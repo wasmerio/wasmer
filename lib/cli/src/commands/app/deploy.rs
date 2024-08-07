@@ -1,7 +1,8 @@
 use super::{util::login_user, AsyncCliCommand};
 use crate::{
     commands::{app::create::CmdAppCreate, package::publish::PackagePublish, PublishWait},
-    opts::{ApiOpts, ItemFormatOpts, WasmerEnv},
+    config::WasmerEnv,
+    opts::ItemFormatOpts,
     utils::load_package_manifest,
 };
 use anyhow::Context;
@@ -19,12 +20,14 @@ use wasmer_config::{
     package::{PackageIdent, PackageSource},
 };
 
+// TODO: apparently edge-util uses a different version of the http crate, which makes the
+// HEADER_APP_VERSION_ID field incompatible with our use here, so it needs to be redeclared.
+static EDGE_HEADER_APP_VERSION_ID: http::HeaderName =
+    http::HeaderName::from_static("x-edge-app-version-id");
+
 /// Deploy an app to Wasmer Edge.
 #[derive(clap::Parser, Debug)]
 pub struct CmdAppDeploy {
-    #[clap(flatten)]
-    pub api: ApiOpts,
-
     #[clap(flatten)]
     pub env: WasmerEnv,
 
@@ -48,6 +51,10 @@ pub struct CmdAppDeploy {
     /// The path to the directory containing the `app.yaml` file.
     #[clap(long)]
     pub dir: Option<PathBuf>,
+
+    /// The path to the `app.yaml` file.
+    #[clap(long, conflicts_with = "dir")]
+    pub path: Option<PathBuf>,
 
     /// Do not wait for the app to become reachable.
     #[clap(long)]
@@ -147,7 +154,6 @@ impl CmdAppDeploy {
             package_namespace: Some(owner),
             non_interactive: self.non_interactive,
             bump: self.bump,
-            api: self.api.clone(),
         };
 
         publish_cmd
@@ -158,18 +164,23 @@ impl CmdAppDeploy {
     async fn get_owner(
         &self,
         client: &WasmerClient,
-        app: &serde_yaml::Value,
-        app_config_path: &PathBuf,
-    ) -> anyhow::Result<(String, String)> {
-        let r_ret = serde_yaml::to_string(&app)?;
-
+        app: &mut serde_yaml::Value,
+        maybe_edge_app: Option<&DeployApp>,
+    ) -> anyhow::Result<String> {
         if let Some(owner) = &self.owner {
-            return Ok((owner.clone(), r_ret));
+            return Ok(owner.clone());
         }
 
         if let Some(serde_yaml::Value::String(owner)) = &app.get("owner") {
-            return Ok((owner.clone(), r_ret));
+            return Ok(owner.clone());
         }
+
+        if let Some(edge_app) = maybe_edge_app {
+            app.as_mapping_mut()
+                .unwrap()
+                .insert("owner".into(), edge_app.owner.global_name.clone().into());
+            return Ok(edge_app.owner.global_name.clone());
+        };
 
         if self.non_interactive {
             // if not interactive we can't prompt the user to choose the owner of the app.
@@ -183,12 +194,11 @@ impl CmdAppDeploy {
             Some(&user),
         )?;
 
-        let new_raw_config = format!("owner: {owner}\n{r_ret}");
+        app.as_mapping_mut()
+            .unwrap()
+            .insert("owner".into(), owner.clone().into());
 
-        std::fs::write(app_config_path, &new_raw_config)
-            .with_context(|| format!("Could not write file: '{}'", app_config_path.display()))?;
-
-        Ok((owner.clone(), new_raw_config))
+        Ok(owner.clone())
     }
     async fn create(&self) -> anyhow::Result<()> {
         eprintln!("It seems you are trying to create a new app!");
@@ -202,7 +212,6 @@ impl CmdAppDeploy {
             owner: self.owner.clone(),
             app_name: self.app_name.clone(),
             no_wait: self.no_wait,
-            api: self.api.clone(),
             env: self.env.clone(),
             fmt: ItemFormatOpts {
                 format: self.fmt.format,
@@ -223,10 +232,14 @@ impl AsyncCliCommand for CmdAppDeploy {
     type Output = ();
 
     async fn run_async(self) -> Result<Self::Output, anyhow::Error> {
-        let client =
-            login_user(&self.api, &self.env, !self.non_interactive, "deploy an app").await?;
+        let client = login_user(&self.env, !self.non_interactive, "deploy an app").await?;
 
-        let base_dir_path = self.dir.clone().unwrap_or(std::env::current_dir()?);
+        let base_dir_path = self.dir.clone().unwrap_or_else(|| {
+            self.path
+                .clone()
+                .unwrap_or_else(|| std::env::current_dir().unwrap())
+        });
+
         let (app_config_path, base_dir_path) = {
             if base_dir_path.is_file() {
                 (
@@ -257,14 +270,33 @@ impl AsyncCliCommand for CmdAppDeploy {
             .with_context(|| format!("Could not read file '{}'", &app_config_path.display()))?;
 
         // We want to allow the user to specify the app name interactively.
-        let app_yaml: serde_yaml::Value = serde_yaml::from_str(&config_str)?;
-        let (owner, mut config_str) = self.get_owner(&client, &app_yaml, &app_config_path).await?;
+        let mut app_yaml: serde_yaml::Value = serde_yaml::from_str(&config_str)?;
+        let maybe_edge_app = if let Some(app_id) = app_yaml.get("app_id").and_then(|s| s.as_str()) {
+            wasmer_api::query::get_app_by_id(&client, app_id.to_owned())
+                .await
+                .ok()
+        } else {
+            None
+        };
 
-        // We want to allow the user to specify the app name interactively.
-        let app_yaml: serde_yaml::Value = serde_yaml::from_str(&config_str)?;
+        let owner = self
+            .get_owner(&client, &mut app_yaml, maybe_edge_app.as_ref())
+            .await?;
 
         if app_yaml.get("name").is_none() && self.app_name.is_some() {
-            config_str = format!("{}\nname: {}", config_str, self.app_name.as_ref().unwrap());
+            app_yaml.as_mapping_mut().unwrap().insert(
+                "name".into(),
+                self.app_name.as_ref().unwrap().to_string().into(),
+            );
+        } else if app_yaml.get("name").is_none() && maybe_edge_app.is_some() {
+            app_yaml.as_mapping_mut().unwrap().insert(
+                "name".into(),
+                maybe_edge_app
+                    .as_ref()
+                    .map(|v| v.name.to_string())
+                    .unwrap()
+                    .into(),
+            );
         } else if app_yaml.get("name").is_none() {
             if !self.non_interactive {
                 let default_name = std::env::current_dir().ok().and_then(|dir| {
@@ -276,18 +308,14 @@ impl AsyncCliCommand for CmdAppDeploy {
                     "Enter the name of the app",
                     default_name.as_deref(),
                     &owner,
-                    self.api.client().ok().as_ref(),
+                    self.env.client().ok().as_ref(),
                 )
                 .await?;
 
-                std::fs::write(
-                    &app_config_path,
-                    format!("{}name: {}", config_str, app_name),
-                )?;
-
-                config_str = std::fs::read_to_string(&app_config_path).with_context(|| {
-                    format!("Could not read file '{}'", &app_config_path.display())
-                })?;
+                app_yaml
+                    .as_mapping_mut()
+                    .unwrap()
+                    .insert("name".into(), app_name.into());
             } else {
                 if !self.quiet {
                     eprintln!("The app.yaml does not specify any app name.");
@@ -304,7 +332,13 @@ impl AsyncCliCommand for CmdAppDeploy {
             }
         }
 
-        let original_app_config: AppConfigV1 = AppConfigV1::parse_yaml(&config_str)?;
+        let original_app_config: AppConfigV1 = serde_yaml::from_value(app_yaml.clone())?;
+        std::fs::write(
+            &app_config_path,
+            serde_yaml::to_string(&original_app_config)?,
+        )
+        .with_context(|| format!("Could not write file: '{}'", app_config_path.display()))?;
+
         let mut app_config = original_app_config.clone();
 
         app_config.owner = Some(owner.clone());
@@ -508,7 +542,7 @@ impl AsyncCliCommand for CmdAppDeploy {
         // If the config changed, write it back.
         if new_app_config != app_config {
             // We want to preserve unknown fields to allow for newer app.yaml
-            // settings without requring new CLI versions, so instead of just
+            // settings without requiring new CLI versions, so instead of just
             // serializing the new config, we merge it with the old one.
             let new_merged = crate::utils::merge_yaml_values(
                 &app_config.clone().to_yaml_value()?,
@@ -660,7 +694,7 @@ pub async fn wait_app(
                     Ok(res) => {
                         let header = res
                             .headers()
-                            .get(edge_util::headers::HEADER_APP_VERSION_ID)
+                            .get(&EDGE_HEADER_APP_VERSION_ID)
                             .and_then(|x| x.to_str().ok())
                             .unwrap_or_default();
 
@@ -668,7 +702,12 @@ pub async fn wait_app(
                             if !quiet {
                                 eprintln!();
                             }
-                            eprintln!("{} Deployment complete", "𖥔".yellow().bold());
+                            if !(res.status().is_success() || res.status().is_redirection()) {
+                                eprintln!("{}",format!("The app version was deployed correctly, but fails with a non-success status code of {}", res.status()).yellow());
+                            } else {
+                                eprintln!("{} Deployment complete", "𖥔".yellow().bold());
+                            }
+
                             break;
                         }
 

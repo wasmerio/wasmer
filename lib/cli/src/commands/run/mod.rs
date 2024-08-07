@@ -1,24 +1,25 @@
 #![allow(missing_docs, unused)]
 
+mod capabilities;
 mod wasi;
 
 use std::{
-    collections::BTreeMap,
+    collections::{hash_map::DefaultHasher, BTreeMap},
     fmt::{Binary, Display},
     fs::File,
+    hash::{BuildHasherDefault, Hash, Hasher},
     io::{ErrorKind, LineWriter, Read, Write},
     net::SocketAddr,
     path::{Path, PathBuf},
     str::FromStr,
     sync::{Arc, Mutex},
-    time::{Duration, SystemTime},
+    time::{Duration, SystemTime, UNIX_EPOCH},
 };
 
-use anyhow::{bail, Context, Error};
+use anyhow::{anyhow, bail, Context, Error};
 use clap::{Parser, ValueEnum};
 use indicatif::{MultiProgress, ProgressBar};
 use once_cell::sync::Lazy;
-use sha2::{Digest, Sha256};
 use tempfile::NamedTempFile;
 use url::Url;
 #[cfg(feature = "sys")]
@@ -115,10 +116,15 @@ impl Run {
             wasmer_vm::set_stack_size(self.stack_size.unwrap());
         }
 
-        // check for the preferred webc version
-        let preferred_webc_version = match std::env::var("WASMER_USE_WEBCV3") {
-            Ok(val) if ["1", "yes", "true"].contains(&val.as_str()) => webc::Version::V3,
-            _ => webc::Version::V2,
+        // Check for the preferred webc version.
+        // Default to v3.
+        let webc_version_var = std::env::var("WASMER_WEBC_VERSION");
+        let preferred_webc_version = match webc_version_var.as_deref() {
+            Ok("2") => webc::Version::V2,
+            Ok("3") | Err(_) => webc::Version::V3,
+            Ok(other) => {
+                bail!("unknown webc version: '{other}'");
+            }
         };
 
         let _guard = handle.enter();
@@ -135,9 +141,13 @@ impl Run {
         #[cfg(not(feature = "sys"))]
         let engine = store.engine().clone();
 
-        let runtime =
-            self.wasi
-                .prepare_runtime(engine, &self.env, runtime, preferred_webc_version)?;
+        let runtime = self.wasi.prepare_runtime(
+            engine,
+            &self.env,
+            &capabilities::get_capability_cache_path(&self.env, &self.input)?,
+            runtime,
+            preferred_webc_version,
+        )?;
 
         // This is a slow operation, so let's temporarily wrap the runtime with
         // something that displays progress
@@ -395,7 +405,8 @@ impl Run {
 
         let mut runner = WasiRunner::new();
 
-        let (is_home_mapped, mapped_diretories) = self.wasi.build_mapped_directories()?;
+        let (is_home_mapped, is_tmp_mapped, mapped_diretories) =
+            self.wasi.build_mapped_directories()?;
 
         runner
             .with_args(&self.args)
@@ -404,6 +415,7 @@ impl Run {
             .with_mapped_host_commands(self.wasi.build_mapped_commands()?)
             .with_mapped_directories(mapped_diretories)
             .with_home_mapped(is_home_mapped)
+            .with_tmp_mapped(is_tmp_mapped)
             .with_forward_host_env(self.wasi.forward_host_env)
             .with_capabilities(self.wasi.capabilities());
 

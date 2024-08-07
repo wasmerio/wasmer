@@ -1,3 +1,4 @@
+mod backend_source;
 mod filesystem_source;
 mod in_memory_source;
 mod inputs;
@@ -6,10 +7,10 @@ mod outputs;
 mod resolve;
 mod source;
 pub(crate) mod utils;
-mod wapm_source;
 mod web_source;
 
 pub use self::{
+    backend_source::BackendSource,
     filesystem_source::FileSystemSource,
     in_memory_source::InMemorySource,
     inputs::{
@@ -23,6 +24,5 @@ pub use self::{
     },
     resolve::{resolve, ResolveError},
     source::{QueryError, Source},
-    wapm_source::WapmSource,
     web_source::WebSource,
 };

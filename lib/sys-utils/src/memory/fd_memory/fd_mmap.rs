@@ -1,5 +1,5 @@
 // This file contains code from external sources.
-// Attributions: https://github.com/wasmerio/wasmer/blob/main/ATTRIBUTIONS.md
+// Attributions: https://github.com/wasmerio/wasmer/blob/main/docs/ATTRIBUTIONS.md
 
 use std::{
     io::{self, Read, Write},
@@ -376,7 +376,7 @@ mod tests {
             .read(true)
             .write(true)
             .create_new(true)
-            .open(&pa)
+            .open(pa)
             .unwrap();
         a.write_all(&data).unwrap();
 
@@ -385,7 +385,7 @@ mod tests {
             .read(true)
             .write(true)
             .create_new(true)
-            .open(&pb)
+            .open(pb)
             .unwrap();
         b.write_all(&datb).unwrap();
 

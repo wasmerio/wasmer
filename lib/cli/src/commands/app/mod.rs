@@ -7,6 +7,9 @@ pub mod get;
 pub mod info;
 pub mod list;
 pub mod logs;
+pub mod purge_cache;
+pub mod regions;
+pub mod secrets;
 pub mod version;
 
 mod util;
@@ -16,15 +19,20 @@ use crate::commands::AsyncCliCommand;
 /// Manage Wasmer Deploy apps.
 #[derive(clap::Subcommand, Debug)]
 pub enum CmdApp {
+    Deploy(deploy::CmdAppDeploy),
+    Create(create::CmdAppCreate),
     Get(get::CmdAppGet),
     Info(info::CmdAppInfo),
     List(list::CmdAppList),
     Logs(logs::CmdAppLogs),
-    Create(create::CmdAppCreate),
+    PurgeCache(purge_cache::CmdAppPurgeCache),
     Delete(delete::CmdAppDelete),
     #[clap(subcommand)]
     Version(version::CmdAppVersion),
-    Deploy(deploy::CmdAppDeploy),
+    #[clap(subcommand, alias = "secrets")]
+    Secret(secrets::CmdAppSecrets),
+    #[clap(subcommand, alias = "regions")]
+    Region(regions::CmdAppRegions),
 }
 
 #[async_trait::async_trait]
@@ -50,6 +58,9 @@ impl AsyncCliCommand for CmdApp {
             Self::Delete(cmd) => cmd.run_async().await,
             Self::Version(cmd) => cmd.run_async().await,
             Self::Deploy(cmd) => cmd.run_async().await,
+            Self::PurgeCache(cmd) => cmd.run_async().await,
+            Self::Secret(cmd) => cmd.run_async().await,
+            Self::Region(cmd) => cmd.run_async().await,
         }
     }
 }

@@ -1,8 +1,12 @@
 //! User-facing app.yaml file config: [`AppConfigV1`].
 
 mod healthcheck;
+mod http;
 
-pub use self::healthcheck::{HealthCheckHttpV1, HealthCheckV1};
+pub use self::{
+    healthcheck::{HealthCheckHttpV1, HealthCheckV1},
+    http::HttpRequest,
+};
 
 use std::collections::HashMap;
 
@@ -56,6 +60,10 @@ pub struct AppConfigV1 {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub domains: Option<Vec<String>>,
 
+    /// Location-related configuration for the app.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub locality: Option<Locality>,
+
     /// Environment variables.
     #[serde(default, skip_serializing_if = "HashMap::is_empty")]
     pub env: HashMap<String, String>,
@@ -84,9 +92,19 @@ pub struct AppConfigV1 {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub scaling: Option<AppScalingConfigV1>,
 
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub redirect: Option<Redirect>,
+
     /// Capture extra fields for forwards compatibility.
     #[serde(flatten)]
     pub extra: HashMap<String, serde_json::Value>,
+}
+
+#[derive(
+    serde::Serialize, serde::Deserialize, schemars::JsonSchema, Clone, Debug, PartialEq, Eq,
+)]
+pub struct Locality {
+    pub regions: Vec<String>,
 }
 
 #[derive(
@@ -187,6 +205,17 @@ pub struct AppConfigCapabilityMapV1 {
     /// Instance memory settings.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub memory: Option<AppConfigCapabilityMemoryV1>,
+
+    /// Enables app bootstrapping with startup snapshots.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub instaboot: Option<AppConfigCapabilityInstaBootV1>,
+
+    /// Additional unknown capabilities.
+    ///
+    /// This provides a small bit of forwards compatibility for newly added
+    /// capabilities.
+    #[serde(flatten)]
+    pub other: HashMap<String, serde_json::Value>,
 }
 
 /// Memory capability settings.
@@ -204,6 +233,49 @@ pub struct AppConfigCapabilityMemoryV1 {
     #[schemars(with = "Option<String>")]
     #[serde(skip_serializing_if = "Option::is_none")]
     pub limit: Option<ByteSize>,
+}
+
+/// Enables accelerated instance boot times with startup snapshots.
+///
+/// How it works:
+/// The Edge runtime will create a pre-initialized snapshot of apps that is
+/// ready to serve requests
+/// Your app will then restore from the generated snapshot, which has the
+/// potential to significantly speed up cold starts.
+///
+/// To drive the initialization, multiple http requests can be specified.
+/// All the specified requests will be sent to the app before the snapshot is
+/// created, allowing the app to pre-load files, pre initialize caches, ...
+#[derive(
+    serde::Serialize, serde::Deserialize, schemars::JsonSchema, Clone, Debug, PartialEq, Eq,
+)]
+pub struct AppConfigCapabilityInstaBootV1 {
+    /// HTTP requests to perform during startup snapshot creation.
+    /// Apps can perform all the appropriate warmup logic in these requests.
+    ///
+    /// NOTE: if no requests are configured, then a single HTTP
+    /// request to '/' will be performed instead.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub requests: Vec<HttpRequest>,
+
+    /// Maximum age of snapshots.
+    ///
+    /// Format: 5m, 1h, 2d, ...
+    ///
+    /// After the specified time new snapshots will be created, and the old
+    /// ones discarded.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub max_age: Option<String>,
+}
+
+/// App redirect configuration.
+#[derive(
+    serde::Serialize, serde::Deserialize, schemars::JsonSchema, Clone, Debug, PartialEq, Eq,
+)]
+pub struct Redirect {
+    /// Force https by redirecting http requests to https automatically.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub force_https: Option<bool>,
 }
 
 #[cfg(test)]
@@ -225,6 +297,11 @@ env:
 cli_args:
   - arg1
   - arg2
+locality: 
+  regions: 
+    - eu-rome
+redirect:
+  force_https: true
 scheduled_tasks:
   - name: backup
     schedule: 1day
@@ -260,26 +337,6 @@ scheduled_tasks:
                 scaling: None,
                 scheduled_tasks: Some(vec![AppScheduledTask {
                     name: "backup".to_string(),
-                    // spec: CronJobSpecV1 {
-                    //     schedule: "1day".to_string(),
-                    //     max_schedule_drift: None,
-                    //     job: crate::schema::JobDefinition {
-                    //         max_retries: Some(3),
-                    //         timeout: Some(std::time::Duration::from_secs(10 * 60).into()),
-                    //         invoke: crate::schema::JobInvoke::Fetch(
-                    //             crate::schema::JobInvokeFetch {
-                    //                 url: "/api/do-backup".parse().unwrap(),
-                    //                 headers: Some(
-                    //                     [("h1".to_string(), "v1".to_string())]
-                    //                         .into_iter()
-                    //                         .collect()
-                    //                 ),
-                    //                 success_status_codes: Some(vec![200, 201]),
-                    //                 method: None,
-                    //             }
-                    //         )
-                    //     },
-                    // }
                 }]),
                 health_checks: None,
                 extra: [(
@@ -289,6 +346,12 @@ scheduled_tasks:
                 .into_iter()
                 .collect(),
                 debug: Some(true),
+                redirect: Some(Redirect {
+                    force_https: Some(true)
+                }),
+                locality: Some(Locality {
+                    regions: vec!["eu-rome".to_string()]
+                })
             }
         );
     }

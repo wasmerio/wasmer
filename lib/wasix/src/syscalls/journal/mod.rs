@@ -35,6 +35,7 @@ pub struct JournalSyscallPlayer<'a, 'c> {
     pub rewind: Option<RewindState>,
     pub cur_module_hash: Box<[u8]>,
     pub real_fd: HashSet<WasiFd>,
+    pub connected_sockets_are_dead: bool,
 
     // We delay the spawning of threads until the end as its
     // possible that the threads will be cancelled before all the
@@ -59,6 +60,7 @@ impl<'a, 'c> JournalSyscallPlayer<'a, 'c> {
             cur_module_hash,
             journal_module_hash: None,
             rewind: None,
+            connected_sockets_are_dead: true,
             spawn_threads: Default::default(),
             staged_differ_memory: Default::default(),
             differ_memory: Default::default(),

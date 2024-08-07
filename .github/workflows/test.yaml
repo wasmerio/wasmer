@@ -371,13 +371,13 @@ jobs:
           },
           {
             build: macos-x64,
-            os: macos-11,
+            os: macos-12,
             target: x86_64-apple-darwin,
             llvm_url: 'https://github.com/llvm/llvm-project/releases/download/llvmorg-15.0.7/clang+llvm-15.0.7-x86_64-apple-darwin21.0.tar.xz'
           },
           {
             build: macos-arm,
-            os: macos-11,
+            os: macos-12,
             target: aarch64-apple-darwin,
           },
           {
@@ -413,7 +413,7 @@ jobs:
           # using gnu-tar is a workaround for https://github.com/actions/cache/issues/403
           brew install gnu-tar
           echo PATH="/usr/local/opt/gnu-tar/libexec/gnubin:$PATH" >> $GITHUB_ENV
-        if: matrix.metadata.os == 'macos-latest' || matrix.metadata.os == 'macos-11.0'
+        if: matrix.metadata.os == 'macos-12'
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
         with:
@@ -454,7 +454,7 @@ jobs:
           mkdir -p package/winsdk
           cp -r /tmp/winsdk/* package/winsdk
       - name: Install LLVM (macOS Apple Silicon)
-        if: matrix.metadata.os == 'macos-11.0' && !matrix.metadata.llvm_url
+        if: matrix.metadata.os == 'macos-12' && !matrix.metadata.llvm_url
         run: |
           brew install llvm
       - name: Install LLVM
@@ -596,7 +596,7 @@ jobs:
           },
           {
             build: macos-x64,
-            os: macos-11,
+            os: macos-12,
             target: x86_64-apple-darwin,
             exe: '',
             llvm_url: 'https://github.com/llvm/llvm-project/releases/download/llvmorg-15.0.7/clang+llvm-15.0.7-x86_64-apple-darwin21.0.tar.xz'
@@ -643,7 +643,7 @@ jobs:
           # using gnu-tar is a workaround for https://github.com/actions/cache/issues/403
           brew install gnu-tar
           echo PATH="/usr/local/opt/gnu-tar/libexec/gnubin:$PATH" >> $GITHUB_ENV
-        if: matrix.metadata.os == 'macos-latest' || matrix.metadata.os == 'macos-11.0'
+        if: matrix.metadata.os == 'macos-12'
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
         with:
@@ -652,7 +652,7 @@ jobs:
       - name: Install Nextest
         uses: taiki-e/install-action@nextest
       - name: Install LLVM (macOS Apple Silicon)
-        if: matrix.metadata.os == 'macos-11.0' && !matrix.metadata.llvm_url
+        if: matrix.metadata.os == 'macos-12' && !matrix.metadata.llvm_url
         run: |
           brew install llvm
       - name: Install LLVM
@@ -710,12 +710,12 @@ jobs:
             target: x86_64-unknown-linux-gnu
             llvm_url: 'https://github.com/llvm/llvm-project/releases/download/llvmorg-15.0.6/clang+llvm-15.0.6-x86_64-linux-gnu-ubuntu-18.04.tar.xz'
           - build: macos-x64
-            os: macos-11
+            os: macos-12
             target: x86_64-apple-darwin
             llvm_url: 'https://github.com/llvm/llvm-project/releases/download/llvmorg-15.0.7/clang+llvm-15.0.7-x86_64-apple-darwin21.0.tar.xz'
           # we only build the integration-test CLI, we don't run tests
           - build: macos-arm
-            os: macos-11
+            os: macos-12
             target: aarch64-apple-darwin,
           - build: linux-musl
             target: x86_64-unknown-linux-musl
@@ -858,3 +858,34 @@ jobs:
           CARGO_TARGET: ${{ matrix.target }}
           WAPM_DEV_TOKEN: ${{ secrets.WAPM_DEV_TOKEN }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # there is another set of integration tests in 'wasmer-integration-tests' repo. Run those
+  test-wasmer-integration-tests:
+    needs: [build]
+    runs-on: ubuntu-22.04
+    steps:
+    - name: Checkout wasmer-integration-tests repository
+      uses: actions/checkout@v3
+      with:
+        repository: wasmerio/wasmer-integration-tests
+        submodules: true
+        token: ${{ secrets.CLONE_WASMER_INTEGRATION_TESTS }}
+    - uses: actions/download-artifact@v3
+      with:
+        name: wasmer-cli-linux-x64 
+    - run: |
+        # install rust toolchain
+        curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+        . "$HOME/.cargo/env"
+
+        # add wasmer cli to PATH
+        tar -xzf build-wasmer.tar.gz
+        export PATH=$PATH:$PWD/bin
+
+        # login to wasmer registry
+        wasmer config set registry.url https://registry.wasmer.wtf/graphql
+        wasmer login ${{ secrets.WAPM_DEV_TOKEN }}
+        wasmer whoami
+
+        # start tests
+        cargo test --no-fail-fast -- --test-threads 1

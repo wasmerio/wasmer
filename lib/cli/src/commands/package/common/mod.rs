@@ -1,12 +1,12 @@
 use crate::{
-    commands::Login,
-    opts::{ApiOpts, WasmerEnv},
+    commands::{AsyncCliCommand, Login},
+    config::WasmerEnv,
     utils::load_package_manifest,
 };
 use colored::Colorize;
 use dialoguer::Confirm;
-use hyper::Body;
 use indicatif::{ProgressBar, ProgressStyle};
+use reqwest::Body;
 use std::{
     collections::BTreeMap,
     path::{Path, PathBuf},
@@ -175,18 +175,17 @@ pub(super) fn get_manifest(path: &Path) -> anyhow::Result<(PathBuf, Manifest)> {
 }
 
 pub(super) async fn login_user(
-    api: &ApiOpts,
     env: &WasmerEnv,
     interactive: bool,
     msg: &str,
 ) -> anyhow::Result<WasmerClient> {
-    if let Ok(client) = api.client() {
+    if let Ok(client) = env.client() {
         return Ok(client);
     }
 
     let theme = dialoguer::theme::ColorfulTheme::default();
 
-    if api.token.is_none() {
+    if env.token().is_none() {
         if interactive {
             eprintln!(
                 "{}: You need to be logged in to {msg}.",
@@ -199,17 +198,13 @@ pub(super) async fn login_user(
             {
                 Login {
                     no_browser: false,
-                    wasmer_dir: env.wasmer_dir.clone(),
-                    registry: api
-                        .registry
-                        .clone()
-                        .map(|l| wasmer_registry::wasmer_env::Registry::from(l.to_string())),
-                    token: api.token.clone(),
-                    cache_dir: Some(env.cache_dir.clone()),
+                    wasmer_dir: env.dir().to_path_buf(),
+                    cache_dir: env.cache_dir().to_path_buf(),
+                    token: None,
+                    registry: env.registry.clone(),
                 }
                 .run_async()
                 .await?;
-                // self.api = ApiOpts::default();
             } else {
                 anyhow::bail!("Stopping the flow as the user is not logged in.")
             }
@@ -220,7 +215,7 @@ pub(super) async fn login_user(
         }
     }
 
-    api.client()
+    env.client()
 }
 
 pub(super) fn make_package_url(client: &WasmerClient, pkg: &NamedPackageIdent) -> String {

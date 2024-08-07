@@ -1,6 +1,6 @@
 [package]
 name = "wasmer-api"
-version = "0.0.28"
+version = "0.0.32"
 description = "Client library for the Wasmer GraphQL API"
 readme = "README.md"
 documentation = "https://docs.rs/wasmer-api"
@@ -13,11 +13,10 @@ repository.workspace = true
 rust-version.workspace = true
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
 [dependencies]
 # Wasmer dependencies.
 edge-schema.workspace = true
-wasmer-config = { version = "0.3.0", path = "../config" }
+wasmer-config = { version = "0.5.0", path = "../config" }
 webc.workspace = true
 
 # crates.io dependencies.
@@ -29,11 +28,16 @@ serde_json = "1"
 url = "2"
 futures = "0.3"
 tracing = "0.1"
-cynic = { version = "=3.4.3", features = ["http-reqwest"] }
+cynic = { version = "3.7.2", features = ["http-reqwest"] }
 pin-project-lite = "0.2.10"
 serde_path_to_error = "0.1.14"
 harsh = "0.2.2"
-reqwest = { version = "0.11.13", default-features = false, features = ["json"] }
+reqwest = { workspace = true, default-features = false, features = ["json"] }
+merge-streams = "0.1.2"
+
+[target.'cfg(target_family = "wasm")'.dependencies.getrandom]
+version = "0.2.14"
+features = ["js"]
 
 [dev-dependencies]
 base64 = "0.13.1"

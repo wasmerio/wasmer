@@ -93,6 +93,20 @@ impl<'a> WasmSliceAccess<'a, u8> {
         let dst = self.buf.as_mut();
         dst.copy_from_slice(src);
     }
+
+    /// Writes to the address pointed to by this `WasmPtr` in a memory.
+    ///
+    /// If the source buffer is smaller than the destination buffer
+    /// only the correct amount of bytes will be copied
+    ///
+    /// Returns the number of bytes copied
+    #[inline]
+    pub fn copy_from_slice_min(&mut self, src: &[u8]) -> usize {
+        let dst = self.buf.as_mut();
+        let amt = dst.len().min(src.len());
+        dst[..amt].copy_from_slice(&src[..amt]);
+        amt
+    }
 }
 
 impl<'a, T> Drop for WasmSliceAccess<'a, T>

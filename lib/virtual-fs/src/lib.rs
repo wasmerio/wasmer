@@ -40,14 +40,10 @@ mod filesystems;
 pub(crate) mod ops;
 mod overlay_fs;
 pub mod pipe;
-#[cfg(feature = "host-fs")]
-mod scoped_directory_fs;
 mod static_file;
 #[cfg(feature = "static-fs")]
 pub mod static_fs;
 mod trace_fs;
-#[cfg(feature = "webc-fs")]
-pub mod webc_fs;
 #[cfg(feature = "webc-fs")]
 mod webc_volume_fs;
 
@@ -67,8 +63,6 @@ pub use null_file::*;
 pub use overlay_fs::OverlayFileSystem;
 pub use passthru_fs::*;
 pub use pipe::*;
-#[cfg(feature = "host-fs")]
-pub use scoped_directory_fs::ScopedDirectoryFileSystem;
 pub use special_file::*;
 pub use static_file::StaticFile;
 pub use tmp_fs::*;

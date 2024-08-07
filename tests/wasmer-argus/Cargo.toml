@@ -24,7 +24,7 @@ clap = {version = "4.4.11", features = ["derive", "string"]}
 tracing-subscriber = { version = "0.3.18", features = ["env-filter"] }
 serde = { version = "1.0.197", features = ["derive"] }
 serde_json = "1.0.114"
-wasmer = { version = "4.3.1", path = "../../lib/api", features = ["engine", "core", "singlepass", "cranelift", "llvm"], optional = true }
+wasmer = { version = "4.3.5", path = "../../lib/api", features = ["engine", "core", "singlepass", "cranelift", "llvm"], optional = true }
 derive_more = "0.99.17"
 webc.workspace = true
 async-trait = "0.1.77"
@@ -33,7 +33,7 @@ shared-buffer.workspace = true
 
 
 [target.'cfg(not(target_arch = "riscv64"))'.dependencies]
-reqwest = { version = "^0.11", default-features = false, features = [
+reqwest = { workspace = true, default-features = false, features = [
   "rustls-tls",
   "json",
   "multipart",
@@ -41,7 +41,7 @@ reqwest = { version = "^0.11", default-features = false, features = [
 ] }
 
 [target.'cfg(target_arch = "riscv64")'.dependencies]
-reqwest = { version = "^0.11", default-features = false, features = [
+reqwest = { workspace = true, default-features = false, features = [
   "native-tls",
   "json",
   "multipart",

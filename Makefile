@@ -850,14 +850,14 @@ untar-wasmer:
 
 distribution-gnu: package-capi
 	cp LICENSE package/LICENSE
-	cp ATTRIBUTIONS.md package/ATTRIBUTIONS
+	cp docs/ATTRIBUTIONS.md package/ATTRIBUTIONS
 	mkdir -p dist
 	tar -C package -zcvf wasmer.tar.gz lib include winsdk LICENSE ATTRIBUTIONS
 	mv wasmer.tar.gz dist/
 
 distribution: package
 	cp LICENSE package/LICENSE
-	cp ATTRIBUTIONS.md package/ATTRIBUTIONS
+	cp docs/ATTRIBUTIONS.md package/ATTRIBUTIONS
 	mkdir -p dist
 ifeq ($(IS_WINDOWS), 1)
 	iscc scripts/windows-installer/wasmer.iss

@@ -4,7 +4,8 @@ mod notification;
 
 use std::{
     borrow::{Borrow, Cow},
-    collections::{HashMap, HashSet, VecDeque},
+    cmp::Reverse,
+    collections::{BinaryHeap, HashMap, HashSet, VecDeque},
     ops::{Deref, DerefMut},
     path::{Component, Path, PathBuf},
     pin::Pin,
@@ -19,10 +20,11 @@ use crate::{
     net::socket::InodeSocketKind,
     state::{Stderr, Stdin, Stdout},
 };
+use ahash::AHashMap;
 use futures::{future::BoxFuture, Future, TryStreamExt};
 #[cfg(feature = "enable-serde")]
 use serde_derive::{Deserialize, Serialize};
-use tokio::io::AsyncWriteExt;
+use tokio::{io::AsyncWriteExt, runtime::Handle};
 use tracing::{debug, trace};
 use virtual_fs::{copy_reference, FileSystem, FsError, OpenOptions, VirtualFile};
 use wasmer_config::package::PackageId;
@@ -57,6 +59,13 @@ use crate::{bin_factory::BinaryPackage, state::PreopenedDir, ALL_RIGHTS};
 /// use the same syscalls as a normal WASI application but do not
 /// run the libc initialization logic
 pub const VIRTUAL_ROOT_FD: WasiFd = 3;
+
+/// The root inode and stdio inodes are the first inodes in the
+/// file system tree
+pub const FS_STDIN_INO: Inode = Inode(10);
+pub const FS_STDOUT_INO: Inode = Inode(11);
+pub const FS_STDERR_INO: Inode = Inode(12);
+pub const FS_ROOT_INO: Inode = Inode(13);
 
 const STDIN_DEFAULT_RIGHTS: Rights = {
     // This might seem a bit overenineered, but it's the only way I
@@ -94,6 +103,10 @@ pub struct Inode(u64);
 impl Inode {
     pub fn as_u64(&self) -> u64 {
         self.0
+    }
+
+    pub fn from_path(str: &str) -> Self {
+        Inode(xxhash_rust::xxh64::xxh64(str.as_bytes(), 0))
     }
 }
 
@@ -143,7 +156,6 @@ impl InodeWeakGuard {
 #[derive(Debug)]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 struct WasiInodesProtected {
-    seed: u64,
     lookup: HashMap<Inode, Weak<InodeVal>>,
 }
 
@@ -157,7 +169,6 @@ impl WasiInodes {
     pub fn new() -> Self {
         Self {
             protected: Arc::new(RwLock::new(WasiInodesProtected {
-                seed: 1,
                 lookup: Default::default(),
             })),
         }
@@ -166,20 +177,17 @@ impl WasiInodes {
     /// adds another value to the inodes
     pub fn add_inode_val(&self, val: InodeVal) -> InodeGuard {
         let val = Arc::new(val);
+        let st_ino = {
+            let guard = val.stat.read().unwrap();
+            guard.st_ino
+        };
 
         let mut guard = self.protected.write().unwrap();
-        let ino = Inode(guard.seed);
-        guard.seed += 1;
+        let ino = Inode(st_ino);
         guard.lookup.insert(ino, Arc::downgrade(&val));
 
-        // Set the inode value
-        {
-            let mut guard = val.stat.write().unwrap();
-            guard.st_ino = ino.0;
-        }
-
         // every 100 calls we clear out dead weaks
-        if guard.seed % 100 == 1 {
+        if guard.lookup.len() % 100 == 1 {
             guard.lookup.retain(|_, v| Weak::strong_count(v) > 0);
         }
 
@@ -188,26 +196,26 @@ impl WasiInodes {
 
     /// Get the `VirtualFile` object at stdout
     pub(crate) fn stdout(
-        fd_map: &RwLock<HashMap<u32, Fd>>,
+        fd_map: &RwLock<AHashMap<u32, Fd>>,
     ) -> Result<InodeValFileReadGuard, FsError> {
         Self::std_dev_get(fd_map, __WASI_STDOUT_FILENO)
     }
     /// Get the `VirtualFile` object at stdout mutably
     pub(crate) fn stdout_mut(
-        fd_map: &RwLock<HashMap<u32, Fd>>,
+        fd_map: &RwLock<AHashMap<u32, Fd>>,
     ) -> Result<InodeValFileWriteGuard, FsError> {
         Self::std_dev_get_mut(fd_map, __WASI_STDOUT_FILENO)
     }
 
     /// Get the `VirtualFile` object at stderr
     pub(crate) fn stderr(
-        fd_map: &RwLock<HashMap<u32, Fd>>,
+        fd_map: &RwLock<AHashMap<u32, Fd>>,
     ) -> Result<InodeValFileReadGuard, FsError> {
         Self::std_dev_get(fd_map, __WASI_STDERR_FILENO)
     }
     /// Get the `VirtualFile` object at stderr mutably
     pub(crate) fn stderr_mut(
-        fd_map: &RwLock<HashMap<u32, Fd>>,
+        fd_map: &RwLock<AHashMap<u32, Fd>>,
     ) -> Result<InodeValFileWriteGuard, FsError> {
         Self::std_dev_get_mut(fd_map, __WASI_STDERR_FILENO)
     }
@@ -216,13 +224,13 @@ impl WasiInodes {
     /// TODO: Review why this is dead
     #[allow(dead_code)]
     pub(crate) fn stdin(
-        fd_map: &RwLock<HashMap<u32, Fd>>,
+        fd_map: &RwLock<AHashMap<u32, Fd>>,
     ) -> Result<InodeValFileReadGuard, FsError> {
         Self::std_dev_get(fd_map, __WASI_STDIN_FILENO)
     }
     /// Get the `VirtualFile` object at stdin mutably
     pub(crate) fn stdin_mut(
-        fd_map: &RwLock<HashMap<u32, Fd>>,
+        fd_map: &RwLock<AHashMap<u32, Fd>>,
     ) -> Result<InodeValFileWriteGuard, FsError> {
         Self::std_dev_get_mut(fd_map, __WASI_STDIN_FILENO)
     }
@@ -230,7 +238,7 @@ impl WasiInodes {
     /// Internal helper function to get a standard device handle.
     /// Expects one of `__WASI_STDIN_FILENO`, `__WASI_STDOUT_FILENO`, `__WASI_STDERR_FILENO`.
     fn std_dev_get(
-        fd_map: &RwLock<HashMap<u32, Fd>>,
+        fd_map: &RwLock<AHashMap<u32, Fd>>,
         fd: WasiFd,
     ) -> Result<InodeValFileReadGuard, FsError> {
         if let Some(fd) = fd_map.read().unwrap().get(&fd) {
@@ -253,7 +261,7 @@ impl WasiInodes {
     /// Internal helper function to mutably get a standard device handle.
     /// Expects one of `__WASI_STDIN_FILENO`, `__WASI_STDOUT_FILENO`, `__WASI_STDERR_FILENO`.
     fn std_dev_get_mut(
-        fd_map: &RwLock<HashMap<u32, Fd>>,
+        fd_map: &RwLock<AHashMap<u32, Fd>>,
         fd: WasiFd,
     ) -> Result<InodeValFileWriteGuard, FsError> {
         if let Some(fd) = fd_map.read().unwrap().get(&fd) {
@@ -494,8 +502,13 @@ impl WasiFdSeed {
 pub struct WasiFs {
     //pub repo: Repo,
     pub preopen_fds: RwLock<Vec<u32>>,
-    pub fd_map: Arc<RwLock<HashMap<WasiFd, Fd>>>,
+    pub fd_map: Arc<RwLock<AHashMap<WasiFd, Fd>>>,
     pub next_fd: WasiFdSeed,
+    // The Unix spec requires newly allocated FDs to always be the lowest-numbered
+    // FD available. We keep track of freed (i.e. closed) FDs in a min-heap to
+    // reuse them and fulfill this requirement.
+    // Note: BinaryHeap is a max-heap, we need Reverse to make it a min-heap.
+    pub freed_fds: Arc<RwLock<BinaryHeap<Reverse<WasiFd>>>>,
     pub current_dir: Mutex<String>,
     #[cfg_attr(feature = "enable-serde", serde(skip, default))]
     pub root_fs: WasiFsRoot,
@@ -528,10 +541,12 @@ impl WasiFs {
     /// Forking the WasiState is used when either fork or vfork is called
     pub fn fork(&self) -> Self {
         let fd_map = self.fd_map.read().unwrap().clone();
+        let freed_fds = self.freed_fds.read().unwrap().clone();
         Self {
             preopen_fds: RwLock::new(self.preopen_fds.read().unwrap().clone()),
             fd_map: Arc::new(RwLock::new(fd_map)),
             next_fd: self.next_fd.fork(),
+            freed_fds: Arc::new(RwLock::new(freed_fds)),
             current_dir: Mutex::new(self.current_dir.lock().unwrap().clone()),
             is_wasix: AtomicBool::new(self.is_wasix.load(Ordering::Acquire)),
             root_fs: self.root_fs.clone(),
@@ -539,6 +554,15 @@ impl WasiFs {
             has_unioned: Arc::new(Mutex::new(HashSet::new())),
             init_preopens: self.init_preopens.clone(),
             init_vfs_preopens: self.init_vfs_preopens.clone(),
+        }
+    }
+
+    fn get_first_free_fd(&self) -> WasiFd {
+        let mut freed_fds = self.freed_fds.write().unwrap();
+
+        match freed_fds.pop() {
+            Some(Reverse(fd)) => fd,
+            None => self.next_fd.next_val(),
         }
     }
 
@@ -591,7 +615,7 @@ impl WasiFs {
         vfs_preopens: &[String],
         fs_backing: WasiFsRoot,
     ) -> Result<Self, String> {
-        let mut wasi_fs = Self::new_init(fs_backing, inodes)?;
+        let mut wasi_fs = Self::new_init(fs_backing, inodes, FS_ROOT_INO)?;
         wasi_fs.init_preopens = preopens.to_vec();
         wasi_fs.init_vfs_preopens = vfs_preopens.to_vec();
         wasi_fs.create_preopens(inodes, false)?;
@@ -612,11 +636,16 @@ impl WasiFs {
 
     /// Private helper function to init the filesystem, called in `new` and
     /// `new_with_preopen`
-    fn new_init(fs_backing: WasiFsRoot, inodes: &WasiInodes) -> Result<Self, String> {
+    fn new_init(
+        fs_backing: WasiFsRoot,
+        inodes: &WasiInodes,
+        st_ino: Inode,
+    ) -> Result<Self, String> {
         debug!("Initializing WASI filesystem");
 
         let stat = Filestat {
             st_filetype: Filetype::Directory,
+            st_ino: st_ino.as_u64(),
             ..Filestat::default()
         };
         let root_kind = Kind::Root {
@@ -631,8 +660,9 @@ impl WasiFs {
 
         let wasi_fs = Self {
             preopen_fds: RwLock::new(vec![]),
-            fd_map: Arc::new(RwLock::new(HashMap::new())),
+            fd_map: Arc::new(RwLock::new(AHashMap::new())),
             next_fd: WasiFdSeed::default(),
+            freed_fds: Arc::new(RwLock::new(BinaryHeap::new())),
             current_dir: Mutex::new("/".to_string()),
             is_wasix: AtomicBool::new(false),
             root_fs: fs_backing,
@@ -758,7 +788,7 @@ impl WasiFs {
                 let kind = Kind::File {
                     handle: Some(Arc::new(RwLock::new(file))),
                     path: PathBuf::from(""),
-                    fd: Some(self.next_fd.next_val()),
+                    fd: Some(self.get_first_free_fd()),
                 };
 
                 drop(guard);
@@ -919,7 +949,7 @@ impl WasiFs {
         &self,
         inodes: &WasiInodes,
         mut cur_inode: InodeGuard,
-        path: &str,
+        path_str: &str,
         mut symlink_count: u32,
         follow_symlinks: bool,
     ) -> Result<InodeGuard, Errno> {
@@ -927,7 +957,7 @@ impl WasiFs {
             return Err(Errno::Mlink);
         }
 
-        let path: &Path = Path::new(path);
+        let path: &Path = Path::new(path_str);
         let n_components = path.components().count();
 
         // TODO: rights checks
@@ -1048,6 +1078,11 @@ impl WasiFs {
                                         file.to_string_lossy().to_string().into(),
                                         Filestat {
                                             st_filetype: file_type,
+                                            st_ino: Inode::from_path(path_str).as_u64(),
+                                            st_size: metadata.len(),
+                                            st_ctim: metadata.created(),
+                                            st_mtim: metadata.modified(),
+                                            st_atim: metadata.accessed(),
                                             ..Filestat::default()
                                         },
                                     );
@@ -1546,14 +1581,15 @@ impl WasiFs {
             _ => {}
         }
 
-        let ret = inodes.add_inode_val(InodeVal {
+        let st_ino = Inode::from_path(&name);
+        stat.st_ino = st_ino.as_u64();
+
+        inodes.add_inode_val(InodeVal {
             stat: RwLock::new(stat),
             is_preopened,
             name,
             kind: RwLock::new(kind),
-        });
-        stat.st_ino = ret.ino().as_u64();
-        ret
+        })
     }
 
     pub fn create_fd(
@@ -1564,16 +1600,20 @@ impl WasiFs {
         open_flags: u16,
         inode: InodeGuard,
     ) -> Result<WasiFd, Errno> {
-        let idx = self.next_fd.next_val();
-        self.create_fd_ext(rights, rights_inheriting, flags, open_flags, inode, idx)?;
+        let idx = self.get_first_free_fd();
+        self.create_fd_ext(
+            rights,
+            rights_inheriting,
+            flags,
+            open_flags,
+            inode,
+            idx,
+            false,
+        )?;
         Ok(idx)
     }
 
-    pub fn make_max_fd(&self, fd: u32) {
-        self.next_fd.clip_val(fd);
-    }
-
-    pub fn create_fd_ext(
+    pub fn with_fd(
         &self,
         rights: Rights,
         rights_inheriting: Rights,
@@ -1582,11 +1622,43 @@ impl WasiFs {
         inode: InodeGuard,
         idx: WasiFd,
     ) -> Result<(), Errno> {
+        self.make_max_fd(idx + 1);
+        self.create_fd_ext(
+            rights,
+            rights_inheriting,
+            flags,
+            open_flags,
+            inode,
+            idx,
+            true,
+        )?;
+        Ok(())
+    }
+
+    pub fn make_max_fd(&self, fd: u32) {
+        self.next_fd.clip_val(fd);
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    pub fn create_fd_ext(
+        &self,
+        rights: Rights,
+        rights_inheriting: Rights,
+        flags: Fdflags,
+        open_flags: u16,
+        inode: InodeGuard,
+        idx: WasiFd,
+        exclusive: bool,
+    ) -> Result<(), Errno> {
         let is_stdio = matches!(
             idx,
             __WASI_STDIN_FILENO | __WASI_STDOUT_FILENO | __WASI_STDERR_FILENO
         );
-        self.fd_map.write().unwrap().insert(
+        let mut guard = self.fd_map.write().unwrap();
+        if exclusive && guard.contains_key(&idx) {
+            return Err(Errno::Exist);
+        }
+        guard.insert(
             idx,
             Fd {
                 rights,
@@ -1603,7 +1675,7 @@ impl WasiFs {
 
     pub fn clone_fd(&self, fd: WasiFd) -> Result<WasiFd, Errno> {
         let fd = self.get_fd(fd)?;
-        let idx = self.next_fd.next_val();
+        let idx = self.get_first_free_fd();
         self.fd_map.write().unwrap().insert(
             idx,
             Fd {
@@ -1640,6 +1712,7 @@ impl WasiFs {
             __WASI_STDOUT_FILENO,
             STDOUT_DEFAULT_RIGHTS,
             Fdflags::APPEND,
+            FS_STDOUT_INO,
         );
     }
 
@@ -1651,6 +1724,7 @@ impl WasiFs {
             __WASI_STDIN_FILENO,
             STDIN_DEFAULT_RIGHTS,
             Fdflags::empty(),
+            FS_STDIN_INO,
         );
     }
 
@@ -1662,6 +1736,7 @@ impl WasiFs {
             __WASI_STDERR_FILENO,
             STDERR_DEFAULT_RIGHTS,
             Fdflags::APPEND,
+            FS_STDERR_INO,
         );
     }
 
@@ -1873,6 +1948,7 @@ impl WasiFs {
         Ok(())
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub(crate) fn create_std_dev_inner(
         &self,
         inodes: &WasiInodes,
@@ -1881,10 +1957,12 @@ impl WasiFs {
         raw_fd: WasiFd,
         rights: Rights,
         fd_flags: Fdflags,
+        st_ino: Inode,
     ) {
         let inode = {
             let stat = Filestat {
                 st_filetype: Filetype::CharacterDevice,
+                st_ino: st_ino.as_u64(),
                 ..Filestat::default()
             };
             let kind = Kind::File {
@@ -1921,6 +1999,7 @@ impl WasiFs {
                     let wf = wf.read().unwrap();
                     return Ok(Filestat {
                         st_filetype: Filetype::RegularFile,
+                        st_ino: Inode::from_path(path.to_string_lossy().as_ref()).as_u64(),
                         st_size: wf.size(),
                         st_atim: wf.last_accessed(),
                         st_mtim: wf.last_modified(),
@@ -1983,6 +2062,9 @@ impl WasiFs {
         let pfd = fd_map.remove(&fd).ok_or(Errno::Badf);
         match pfd {
             Ok(fd_ref) => {
+                let mut freed_fds = self.freed_fds.write().unwrap();
+                freed_fds.push(Reverse(fd));
+
                 let inode = fd_ref.inode.ino().as_u64();
                 let ref_cnt = fd_ref.inode.ref_cnt();
                 if ref_cnt == 1 {
@@ -2015,7 +2097,7 @@ impl std::fmt::Debug for WasiFs {
 pub fn default_fs_backing() -> Box<dyn virtual_fs::FileSystem + Send + Sync> {
     cfg_if::cfg_if! {
         if #[cfg(feature = "host-fs")] {
-            Box::<virtual_fs::host_fs::FileSystem>::default()
+            Box::new(virtual_fs::host_fs::FileSystem::new(Handle::current(), "/").unwrap())
         } else if #[cfg(not(feature = "host-fs"))] {
             Box::<virtual_fs::mem_fs::FileSystem>::default()
         } else {
