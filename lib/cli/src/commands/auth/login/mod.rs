@@ -181,6 +181,7 @@ impl Login {
             }
             #[cfg(test)]
             {
+                _ = user;
                 false
             }
         } else {
