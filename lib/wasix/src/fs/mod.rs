@@ -566,6 +566,11 @@ impl WasiFs {
         }
     }
 
+    pub fn clear_free_fd_list(&self) {
+        let mut freed_fds = self.freed_fds.write().unwrap();
+        freed_fds.clear();
+    }
+
     /// Closes all the file handles.
     #[allow(clippy::await_holding_lock)]
     pub async fn close_all(&self) {
