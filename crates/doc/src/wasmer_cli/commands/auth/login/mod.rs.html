@@ -400,6 +400,7 @@
 <a href="#400" id="400">400</a>
 <a href="#401" id="401">401</a>
 <a href="#402" id="402">402</a>
+<a href="#403" id="403">403</a>
 </pre></div><pre class="rust"><code><span class="kw">mod </span>auth_server;
 <span class="kw">use </span>auth_server::<span class="kw-2">*</span>;
 <span class="kw">use </span>colored::Colorize;
@@ -583,6 +584,7 @@
             </span>}
             <span class="attr">#[cfg(test)]
             </span>{
+                <span class="kw">_ </span>= user;
                 <span class="bool-val">false
             </span>}
         } <span class="kw">else </span>{
