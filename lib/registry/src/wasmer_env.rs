@@ -46,12 +46,10 @@ impl WasmerEnv {
         let mut url = self.registry_endpoint()?;
         url.set_path("");
 
-        let domain = url
-            .host_str()
-            .context("url has no host")?
-            .strip_prefix("registry.")
-            .context("could not derive registry public url")?
-            .to_string();
+        let mut domain = url.host_str().context("url has no host")?.to_string();
+        if domain.starts_with("registry.") {
+            domain = domain.strip_prefix("registry.").unwrap().to_string();
+        }
         url.set_host(Some(&domain))
             .context("could not derive registry public url")?;
 
