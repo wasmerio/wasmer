@@ -208,6 +208,10 @@ mod tests {
     [[registry.tokens]]
     registry = "https://registry.wasmer.io/graphql"
     token = "prod-token"
+
+    [[registry.tokens]]
+    registry = "http://localhost:11/graphql"
+    token = "invalid"
     "#;
 
     #[test]
@@ -308,5 +312,33 @@ mod tests {
         );
         assert_eq!(env.token().unwrap(), "prod-token");
         assert_eq!(env.cache_dir(), expected_cache_dir);
+    }
+
+    #[test]
+    fn registries_have_public_url() {
+        let temp = TempDir::new().unwrap();
+        std::fs::write(temp.path().join("wasmer.toml"), WASMER_TOML).unwrap();
+
+        let inputs = [
+            ("https://wasmer.io/", "https://registry.wasmer.io/graphql"),
+            ("https://wasmer.wtf/", "https://registry.wasmer.wtf/graphql"),
+            ("https://wasmer.wtf/", "https://registry.wasmer.wtf/graphql"),
+            ("https://wasmer.wtf/", "https://registry.wasmer.wtf/something/else"),
+            ("https://wasmer.wtf/", "https://wasmer.wtf/graphql"),
+            ("https://wasmer.wtf/", "https://wasmer.wtf/graphql"),
+            ("http://localhost:8000/", "http://localhost:8000/graphql"),
+            ("http://localhost:8000/", "http://localhost:8000/graphql"),
+        ];
+
+        for (want, input) in inputs {
+            let env = WasmerEnv {
+                wasmer_dir: temp.path().to_path_buf(),
+                registry: Some(UserRegistry::from(input)),
+                cache_dir: temp.path().join("cache").to_path_buf(),
+                token: None,
+            };
+
+            assert_eq!(want, &env.registry_public_url().unwrap().to_string())
+        }
     }
 }
