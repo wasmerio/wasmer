@@ -103,8 +103,14 @@
 <a href="#103" id="103">103</a>
 <a href="#104" id="104">104</a>
 <a href="#105" id="105">105</a>
+<a href="#106" id="106">106</a>
+<a href="#107" id="107">107</a>
+<a href="#108" id="108">108</a>
+<a href="#109" id="109">109</a>
+<a href="#110" id="110">110</a>
+<a href="#111" id="111">111</a>
 </pre></div><pre class="rust"><code><span class="doccomment">/// Sha256 hash, represented as bytes.
-</span><span class="attr">#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+</span><span class="attr">#[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 </span><span class="kw">pub struct </span>Sha256Hash(<span class="kw">pub </span>[u8; <span class="number">32</span>]);
 
 <span class="kw">impl </span>Sha256Hash {
@@ -135,6 +141,12 @@
         })<span class="question-mark">?</span>;
 
         <span class="prelude-val">Ok</span>(Sha256Hash(bytes.try_into().unwrap()))
+    }
+}
+
+<span class="kw">impl </span>std::fmt::Debug <span class="kw">for </span>Sha256Hash {
+    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>std::fmt::Formatter&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; std::fmt::Result {
+        <span class="macro">write!</span>(f, <span class="string">&quot;Sha256({})&quot;</span>, hex::encode(<span class="self">self</span>.<span class="number">0</span>))
     }
 }
 
