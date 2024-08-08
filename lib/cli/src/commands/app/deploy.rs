@@ -284,12 +284,9 @@ impl AsyncCliCommand for CmdAppDeploy {
             .await?;
 
         if !wasmer_api::query::viewer_can_deploy_to_namespace(&client, &owner).await? {
-            eprintln!(
-                "Cannot deploy app to namespace {}, as the current user is not authorized.",
-                owner.bold()
-            );
+            eprintln!("It seems you don't have access to {}", owner.bold());
             if self.non_interactive {
-                anyhow::bail!("Please, check the app configuration or the current user with the `whoami` command!");
+                anyhow::bail!("Please, change the owner before deploying or check your current user with `{} whoami`.", std::env::args().next().unwrap_or("wasmer".into()));
             } else {
                 let user = wasmer_api::query::current_user_with_namespaces(&client, None).await?;
                 owner = crate::utils::prompts::prompt_for_namespace(
