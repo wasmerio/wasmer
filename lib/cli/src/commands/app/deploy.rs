@@ -279,9 +279,30 @@ impl AsyncCliCommand for CmdAppDeploy {
             None
         };
 
-        let owner = self
+        let mut owner = self
             .get_owner(&client, &mut app_yaml, maybe_edge_app.as_ref())
             .await?;
+
+        if !wasmer_api::query::viewer_can_deploy_to_namespace(&client, &owner).await? {
+            eprintln!(
+                "Cannot deploy app to namespace {owner}, as the current user is not authorized."
+            );
+            if self.non_interactive {
+                anyhow::bail!("Please, check the app configuration or the current user with the `whoami` command!");
+            } else {
+                let user = wasmer_api::query::current_user_with_namespaces(&client, None).await?;
+                owner = crate::utils::prompts::prompt_for_namespace(
+                    "Who should own this app?",
+                    None,
+                    Some(&user),
+                )?;
+
+                app_yaml
+                    .as_mapping_mut()
+                    .unwrap()
+                    .insert("owner".into(), owner.clone().into());
+            }
+        }
 
         if app_yaml.get("name").is_none() && self.app_name.is_some() {
             app_yaml.as_mapping_mut().unwrap().insert(

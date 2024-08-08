@@ -43,6 +43,7 @@ type User implements Node & PackageOwner & Owner {
   id: ID!
   globalName: String!
   globalId: ID!
+  viewerCan(action: OwnerAction!): Boolean!
   avatar(size: Int = 80): String!
   isViewer: Boolean!
   hasUsablePassword: Boolean
@@ -76,12 +77,19 @@ type User implements Node & PackageOwner & Owner {
 interface PackageOwner {
   globalName: String!
   globalId: ID!
+  viewerCan(action: OwnerAction!): Boolean!
+}
+
+enum OwnerAction {
+  DEPLOY_APP
+  PUBLISH_PACKAGE
 }
 
 """An owner of a package."""
 interface Owner {
   globalName: String!
   globalId: ID!
+  viewerCan(action: OwnerAction!): Boolean!
 }
 
 """
@@ -204,6 +212,7 @@ type Namespace implements Node & PackageOwner & Owner {
   userSet(offset: Int, before: String, after: String, first: Int, last: Int): UserConnection!
   globalName: String!
   globalId: ID!
+  viewerCan(action: OwnerAction!): Boolean!
   avatar: String!
   packages(offset: Int, before: String, after: String, first: Int, last: Int): PackageConnection!
   apps(sortBy: DeployAppsSortBy, offset: Int, before: String, after: String, first: Int, last: Int): DeployAppConnection!
@@ -372,6 +381,7 @@ type Package implements Likeable & Node & PackageOwner {
   viewerHasLiked: Boolean!
   globalName: String!
   globalId: ID!
+  viewerCan(action: OwnerAction!): Boolean!
   alias: String
   displayName: String!
 
@@ -926,6 +936,7 @@ type DeployApp implements Node & Owner {
   activeVersion: DeployAppVersion!
   globalName: String!
   globalId: ID!
+  viewerCan(action: OwnerAction!): Boolean!
   url: String!
   adminUrl: String!
   permalink: String!
@@ -2388,6 +2399,7 @@ type Query {
   getPackageRelease(hash: String!): PackageWebc
   getPackageInstanceByVersionOrHash(name: String!, version: String, hash: String): PackageInstance
   categories(offset: Int, before: String, after: String, first: Int, last: Int): CategoryConnection!
+  viewerCan(action: OwnerAction!, ownerName: String!): Boolean!
   blogposts(tags: [String!], before: String, after: String, first: Int, last: Int): BlogPostConnection!
   getBlogpost(slug: String, featured: Boolean): BlogPost
   allBlogpostTags(offset: Int, before: String, after: String, first: Int, last: Int): BlogPostTagConnection
