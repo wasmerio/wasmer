@@ -553,6 +553,17 @@ impl LinearMemory for VMMemory {
         Ok(())
     }
 
+    /// Returns the list of dirty regions since the mmap was made
+    fn dirty_map<'a>(&'a mut self) -> std::collections::BTreeMap<u64, u64> {
+        self.0.dirty_map()
+    }
+
+    /// Resets the dirty pages in the memory map using a remap
+    /// of the memory mapped region
+    fn reset_dirty_map(&mut self) -> Result<(), MemoryError> {
+        self.0.reset_dirty_map()
+    }
+
     /// Returns the memory style for this memory.
     fn style(&self) -> MemoryStyle {
         self.0.style()

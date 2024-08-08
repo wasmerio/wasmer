@@ -142,6 +142,20 @@ impl WasmMmap {
         Ok(())
     }
 
+    /// Returns the list of dirty regions since the mmap was made
+    #[cfg(target_os = "linux")]
+    pub fn dirty_map<'a>(&'a mut self) -> &'a std::collections::BTreeMap<u64, u64> {
+        self.alloc.dirty_map()
+    }
+
+    /// Remaps the existing mmap region again discarding anything
+    /// that was already captured. This is useful for clearing all
+    /// the dirty flags
+    #[cfg(target_os = "linux")]
+    pub fn reset_dirty_map(&mut self) -> Result<(), String> {
+        self.alloc.reset_dirty_map()
+    }
+
     /// Copies the memory
     /// (in this case it performs a copy-on-write to save memory)
     pub fn copy(&mut self) -> Result<Self, MemoryError> {
@@ -414,6 +428,19 @@ impl LinearMemory for VMOwnedMemory {
         Ok(())
     }
 
+    /// Returns the list of dirty regions since the mmap was made
+    #[cfg(target_os = "linux")]
+    fn dirty_map<'a>(&'a mut self) -> std::collections::BTreeMap<u64, u64> {
+        self.mmap.dirty_map().clone()
+    }
+
+    /// Resets the dirty pages in the memory map using a remap
+    /// of the memory mapped region
+    #[cfg(target_os = "linux")]
+    fn reset_dirty_map(&mut self) -> Result<(), MemoryError> {
+        self.mmap.reset_dirty_map().map_err(|s| MemoryError::Region(s))
+    }
+
     /// Return a `VMMemoryDefinition` for exposing the memory to compiled wasm code.
     fn vmmemory(&self) -> NonNull<VMMemoryDefinition> {
         self.mmap.vm_memory_definition.as_ptr()
@@ -565,6 +592,21 @@ impl LinearMemory for VMSharedMemory {
         Ok(())
     }
 
+    /// Returns the list of dirty regions since the mmap was made
+    #[cfg(target_os = "linux")]
+    fn dirty_map<'a>(&'a mut self) -> std::collections::BTreeMap<u64, u64> {
+        let mut guard = self.mmap.write().unwrap();
+        guard.dirty_map().clone()
+    }
+
+    /// Resets the dirty pages in the memory map using a remap
+    /// of the memory mapped region
+    #[cfg(target_os = "linux")]
+    fn reset_dirty_map(&mut self) -> Result<(), MemoryError> {
+        let mut guard = self.mmap.write().unwrap();
+        guard.reset_dirty_map().map_err(|s| MemoryError::Region(s))
+    }
+
     /// Return a `VMMemoryDefinition` for exposing the memory to compiled wasm code.
     fn vmmemory(&self) -> NonNull<VMMemoryDefinition> {
         let guard = self.mmap.read().unwrap();
@@ -652,6 +694,17 @@ impl LinearMemory for VMMemory {
     fn reset(&mut self) -> Result<(), MemoryError> {
         self.0.reset()?;
         Ok(())
+    }
+
+    /// Returns the list of dirty regions since the mmap was made
+    fn dirty_map<'a>(&'a mut self) -> std::collections::BTreeMap<u64, u64> {
+        self.0.dirty_map()
+    }
+
+    /// Resets the dirty pages in the memory map using a remap
+    /// of the memory mapped region
+    fn reset_dirty_map(&mut self) -> Result<(), MemoryError> {
+        self.0.reset_dirty_map()
     }
 
     /// Returns the memory style for this memory.
@@ -808,6 +861,19 @@ where
     fn reset(&mut self) -> Result<(), MemoryError> {
         Err(MemoryError::UnsupportedOperation {
             message: "reset() is not supported".to_string(),
+        })
+    }
+
+    /// Returns the list of dirty regions since the mmap was made
+    fn dirty_map<'a>(&'a mut self) -> std::collections::BTreeMap<u64, u64> {
+        std::collections::BTreeMap::new()
+    }
+
+    /// Resets the dirty pages in the memory map using a remap
+    /// of the memory mapped region
+    fn reset_dirty_map(&mut self) -> Result<(), MemoryError> {
+        Err(MemoryError::UnsupportedOperation {
+            message: "remap() is not supported".to_string(),
         })
     }
 

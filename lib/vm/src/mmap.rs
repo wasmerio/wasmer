@@ -5,9 +5,15 @@
 //! of memory.
 
 use more_asserts::assert_le;
+use std::collections::BTreeMap;
 use std::io;
 use std::ptr;
 use std::slice;
+
+#[cfg(target_os = "linux")]
+use crate::dirty_map::DirtyMapController;
+#[cfg(target_os = "linux")]
+use crate::dirty_map::DirtyMapWatcher;
 
 /// Round `size` up to the nearest multiple of `page_size`.
 fn round_up_to_page_size(size: usize, page_size: usize) -> usize {
@@ -26,6 +32,10 @@ pub struct Mmap {
     total_size: usize,
     accessible_size: usize,
     sync_on_drop: bool,
+    flags: i32,
+    #[cfg(target_os = "linux")]
+    dirty_map: DirtyMapWatcher,
+    memory_fd: i32,
 }
 
 /// The type of mmap to create
@@ -45,11 +55,16 @@ impl Mmap {
         // contains code to create a non-null dangling pointer value when
         // constructed empty, so we reuse that here.
         let empty = Vec::<u8>::new();
+        let ptr = empty.as_ptr() as usize;
         Self {
-            ptr: empty.as_ptr() as usize,
+            ptr,
+            flags: 0,
             total_size: 0,
             accessible_size: 0,
             sync_on_drop: false,
+            memory_fd: -1,
+            #[cfg(target_os = "linux")]
+            dirty_map: DirtyMapController::new().watch(ptr),
         }
     }
 
@@ -70,7 +85,7 @@ impl Mmap {
         mut backing_file: Option<std::path::PathBuf>,
         memory_type: MmapType,
     ) -> Result<Self, String> {
-        use std::os::fd::IntoRawFd;
+        use std::os::fd::{FromRawFd, IntoRawFd};
 
         let page_size = region::page::size();
         assert_le!(accessible_size, mapping_size);
@@ -141,6 +156,7 @@ impl Mmap {
                 )
             };
             if ptr as isize == -1_isize {
+                std::mem::drop(unsafe { std::fs::File::from_raw_fd(memory_fd) });
                 return Err(io::Error::last_os_error().to_string());
             }
 
@@ -148,7 +164,11 @@ impl Mmap {
                 ptr: ptr as usize,
                 total_size: mapping_size,
                 accessible_size,
+                flags,
                 sync_on_drop: memory_fd != -1 && memory_type == MmapType::Shared,
+                memory_fd,
+                #[cfg(target_os = "linux")]
+                dirty_map: DirtyMapController::new().watch(ptr as usize),
             }
         } else {
             // Reserve the mapping size.
@@ -163,6 +183,7 @@ impl Mmap {
                 )
             };
             if ptr as isize == -1_isize {
+                std::mem::drop(unsafe { std::fs::File::from_raw_fd(memory_fd) });
                 return Err(io::Error::last_os_error().to_string());
             }
 
@@ -170,7 +191,11 @@ impl Mmap {
                 ptr: ptr as usize,
                 total_size: mapping_size,
                 accessible_size,
+                flags,
                 sync_on_drop: memory_fd != -1 && memory_type == MmapType::Shared,
+                memory_fd,
+                #[cfg(target_os = "linux")]
+                dirty_map: DirtyMapController::new().watch(ptr as usize),
             };
 
             if accessible_size != 0 {
@@ -224,6 +249,7 @@ impl Mmap {
                 ptr: ptr as usize,
                 total_size: mapping_size,
                 accessible_size,
+                flags: 0,
                 sync_on_drop: false,
             }
         } else {
@@ -238,6 +264,7 @@ impl Mmap {
                 ptr: ptr as usize,
                 total_size: mapping_size,
                 accessible_size,
+                flags: 0,
                 sync_on_drop: false,
             };
 
@@ -296,6 +323,56 @@ impl Mmap {
             return Err(io::Error::last_os_error().to_string());
         }
 
+        Ok(())
+    }
+
+    /// Returns the list of dirty regions since the mmap was made
+    #[cfg(target_os = "linux")]
+    pub fn dirty_map<'a>(&'a mut self) -> &'a BTreeMap<u64, u64> {
+        self.dirty_map.track_changes(self.accessible_size)
+    }
+
+    /// Remaps the existing mmap region again discarding anything
+    /// that was already captured. This is useful for clearing all
+    /// the dirty flags
+    #[cfg(target_os = "linux")]
+    pub fn reset_dirty_map(&mut self) -> Result<(), String> {
+        if self.accessible_size == self.total_size {
+            // Allocate a single read-write region at once.
+            let ptr = unsafe {
+                libc::mmap(
+                    self.ptr as *mut libc::c_void,
+                    self.total_size,
+                    libc::PROT_READ | libc::PROT_WRITE,
+                    self.flags,
+                    self.memory_fd,
+                    0,
+                )
+            };
+            if ptr as isize == -1_isize {
+                return Err(io::Error::last_os_error().to_string());
+            }
+        } else {
+            // Reserve the mapping size.
+            let ptr = unsafe {
+                libc::mmap(
+                    self.ptr as *mut libc::c_void,
+                    self.total_size,
+                    libc::PROT_NONE,
+                    self.flags,
+                    self.memory_fd,
+                    0,
+                )
+            };
+            if ptr as isize == -1_isize {
+                return Err(io::Error::last_os_error().to_string());
+            }
+
+            if self.accessible_size != 0 {
+                // Commit the accessible size.
+                self.make_accessible(0, self.accessible_size)?;
+            }
+        }
         Ok(())
     }
 
@@ -377,6 +454,8 @@ impl Mmap {
 impl Drop for Mmap {
     #[cfg(not(target_os = "windows"))]
     fn drop(&mut self) {
+        use std::os::fd::FromRawFd;
+
         if self.total_size != 0 {
             if self.sync_on_drop {
                 let r = unsafe {
@@ -390,6 +469,10 @@ impl Drop for Mmap {
             }
             let r = unsafe { libc::munmap(self.ptr as *mut libc::c_void, self.total_size) };
             assert_eq!(r, 0, "munmap failed: {}", io::Error::last_os_error());
+        }
+        if self.memory_fd >= 0 {
+            std::mem::drop(unsafe { std::fs::File::from_raw_fd(self.memory_fd) });
+            self.memory_fd = -1;
         }
     }
 
