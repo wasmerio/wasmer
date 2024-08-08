@@ -495,6 +495,7 @@
 <a href="#495" id="495">495</a>
 <a href="#496" id="496">496</a>
 <a href="#497" id="497">497</a>
+<a href="#498" id="498">498</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! The commands available in the Wasmer binary.
 </span><span class="kw">mod </span>add;
 <span class="kw">mod </span>app;
@@ -690,6 +691,7 @@
                 Package::Tag(cmd) =&gt; cmd.run(),
                 Package::Push(cmd) =&gt; cmd.run(),
                 Package::Publish(cmd) =&gt; cmd.run().map(|<span class="kw">_</span>| ()),
+                Package::Unpack(cmd) =&gt; cmd.execute(),
             },
             <span class="prelude-val">Some</span>(Cmd::Container(cmd)) =&gt; <span class="kw">match </span>cmd {
                 <span class="kw">crate</span>::commands::Container::Unpack(cmd) =&gt; cmd.execute(),

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"static":["EXTRACTED_TO_EMOJI","PACKAGE_EMOJI"],"struct":["PackageUnpack"]};

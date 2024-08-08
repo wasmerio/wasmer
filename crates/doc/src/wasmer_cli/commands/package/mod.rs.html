@@ -21,12 +21,15 @@
 <a href="#21" id="21">21</a>
 <a href="#22" id="22">22</a>
 <a href="#23" id="23">23</a>
+<a href="#24" id="24">24</a>
+<a href="#25" id="25">25</a>
 </pre></div><pre class="rust"><code><span class="kw">mod </span>build;
 <span class="kw">mod </span>common;
 <span class="kw">mod </span>download;
 <span class="kw">pub mod </span>publish;
 <span class="kw">mod </span>push;
 <span class="kw">mod </span>tag;
+<span class="kw">mod </span>unpack;
 
 <span class="kw">pub use </span>build::PackageBuild;
 <span class="kw">pub use </span>common::wait::PublishWait;
@@ -43,5 +46,6 @@
     Tag(tag::PackageTag),
     Push(push::PackagePush),
     Publish(publish::PackagePublish),
+    Unpack(unpack::PackageUnpack),
 }
 </code></pre></div></section></main></body></html>
