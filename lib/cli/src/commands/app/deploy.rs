@@ -301,6 +301,14 @@ impl AsyncCliCommand for CmdAppDeploy {
                     .as_mapping_mut()
                     .unwrap()
                     .insert("owner".into(), owner.clone().into());
+
+                if app_yaml.get("app_id").is_some() {
+                    app_yaml.as_mapping_mut().unwrap().remove("app_id");
+                }
+
+                if app_yaml.get("name").is_some() {
+                    app_yaml.as_mapping_mut().unwrap().remove("name");
+                }
             }
         }
 
