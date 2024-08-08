@@ -285,7 +285,8 @@ impl AsyncCliCommand for CmdAppDeploy {
 
         if !wasmer_api::query::viewer_can_deploy_to_namespace(&client, &owner).await? {
             eprintln!(
-                "Cannot deploy app to namespace {owner}, as the current user is not authorized."
+                "Cannot deploy app to namespace {}, as the current user is not authorized.",
+                owner.bold()
             );
             if self.non_interactive {
                 anyhow::bail!("Please, check the app configuration or the current user with the `whoami` command!");
