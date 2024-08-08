@@ -607,6 +607,20 @@
 <a href="#607" id="607">607</a>
 <a href="#608" id="608">608</a>
 <a href="#609" id="609">609</a>
+<a href="#610" id="610">610</a>
+<a href="#611" id="611">611</a>
+<a href="#612" id="612">612</a>
+<a href="#613" id="613">613</a>
+<a href="#614" id="614">614</a>
+<a href="#615" id="615">615</a>
+<a href="#616" id="616">616</a>
+<a href="#617" id="617">617</a>
+<a href="#618" id="618">618</a>
+<a href="#619" id="619">619</a>
+<a href="#620" id="620">620</a>
+<a href="#621" id="621">621</a>
+<a href="#622" id="622">622</a>
+<a href="#623" id="623">623</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{
     collections::{BTreeMap, HashMap, HashSet},
     fmt::Debug,
@@ -645,10 +659,11 @@
     root: <span class="kw-2">&amp;</span>Container,
     loader: <span class="kw-2">&amp;</span><span class="kw">dyn </span>PackageLoader,
     resolution: <span class="kw-2">&amp;</span>Resolution,
+    root_is_local_dir: bool,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;BinaryPackage, Error&gt; {
     <span class="kw">let </span><span class="kw-2">mut </span>containers = fetch_dependencies(loader, <span class="kw-2">&amp;</span>resolution.package, <span class="kw-2">&amp;</span>resolution.graph).<span class="kw">await</span><span class="question-mark">?</span>;
     containers.insert(resolution.package.root_package.clone(), root.clone());
-    <span class="kw">let </span>fs = filesystem(<span class="kw-2">&amp;</span>containers, <span class="kw-2">&amp;</span>resolution.package)<span class="question-mark">?</span>;
+    <span class="kw">let </span>fs = filesystem(<span class="kw-2">&amp;</span>containers, <span class="kw-2">&amp;</span>resolution.package, root_is_local_dir)<span class="question-mark">?</span>;
 
     <span class="kw">let </span>root = <span class="kw-2">&amp;</span>resolution.package.root_package;
     <span class="kw">let </span>commands: Vec&lt;BinaryPackageCommand&gt; =
@@ -670,6 +685,8 @@
         commands,
         uses: Vec::new(),
         file_system_memory_footprint,
+
+        additional_host_mapped_directories: <span class="macro">vec!</span>[],
     };
 
     <span class="prelude-val">Ok</span>(loaded)
@@ -925,6 +942,7 @@
 </span><span class="kw">fn </span>filesystem(
     packages: <span class="kw-2">&amp;</span>HashMap&lt;PackageId, Container&gt;,
     pkg: <span class="kw-2">&amp;</span>ResolvedPackage,
+    root_is_local_dir: bool,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;Box&lt;<span class="kw">dyn </span>FileSystem + Send + Sync&gt;, Error&gt; {
     <span class="kw">if </span>pkg.filesystem.is_empty() {
         <span class="kw">return </span><span class="prelude-val">Ok</span>(Box::new(OverlayFileSystem::&lt;
@@ -951,9 +969,9 @@
     }
 
     <span class="kw">if </span>found_v3 &amp;&amp; !found_v2 {
-        filesystem_v3(packages, pkg)
+        filesystem_v3(packages, pkg, root_is_local_dir)
     } <span class="kw">else </span>{
-        filesystem_v2(packages, pkg)
+        filesystem_v2(packages, pkg, root_is_local_dir)
     }
 }
 
@@ -961,6 +979,7 @@
 </span><span class="kw">fn </span>filesystem_v3(
     packages: <span class="kw-2">&amp;</span>HashMap&lt;PackageId, Container&gt;,
     pkg: <span class="kw-2">&amp;</span>ResolvedPackage,
+    root_is_local_dir: bool,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;Box&lt;<span class="kw">dyn </span>FileSystem + Send + Sync&gt;, Error&gt; {
     <span class="kw">let </span><span class="kw-2">mut </span>volumes: HashMap&lt;<span class="kw-2">&amp;</span>PackageId, BTreeMap&lt;String, Volume&gt;&gt; = HashMap::new();
 
@@ -976,6 +995,10 @@
         ..
     } <span class="kw">in </span><span class="kw-2">&amp;</span>pkg.filesystem
     {
+        <span class="kw">if </span><span class="kw-2">*</span>package == pkg.root_package &amp;&amp; root_is_local_dir {
+            <span class="kw">continue</span>;
+        }
+
         <span class="comment">// Note: We want to reuse existing Volume instances if we can. That way
         // we can keep the memory usage down. A webc::compat::Volume is
         // reference-counted, anyway.
@@ -1036,6 +1059,7 @@
 </span><span class="kw">fn </span>filesystem_v2(
     packages: <span class="kw-2">&amp;</span>HashMap&lt;PackageId, Container&gt;,
     pkg: <span class="kw-2">&amp;</span>ResolvedPackage,
+    root_is_local_dir: bool,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;Box&lt;<span class="kw">dyn </span>FileSystem + Send + Sync&gt;, Error&gt; {
     <span class="kw">let </span><span class="kw-2">mut </span>filesystems = Vec::new();
     <span class="kw">let </span><span class="kw-2">mut </span>volumes: HashMap&lt;<span class="kw-2">&amp;</span>PackageId, BTreeMap&lt;String, Volume&gt;&gt; = HashMap::new();
@@ -1050,6 +1074,10 @@
         original_path,
     } <span class="kw">in </span><span class="kw-2">&amp;</span>pkg.filesystem
     {
+        <span class="kw">if </span><span class="kw-2">*</span>package == pkg.root_package &amp;&amp; root_is_local_dir {
+            <span class="kw">continue</span>;
+        }
+
         <span class="comment">// Note: We want to reuse existing Volume instances if we can. That way
         // we can keep the memory usage down. A webc::compat::Volume is
         // reference-counted, anyway.

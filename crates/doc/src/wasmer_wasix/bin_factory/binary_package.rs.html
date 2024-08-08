@@ -322,6 +322,32 @@
 <a href="#322" id="322">322</a>
 <a href="#323" id="323">323</a>
 <a href="#324" id="324">324</a>
+<a href="#325" id="325">325</a>
+<a href="#326" id="326">326</a>
+<a href="#327" id="327">327</a>
+<a href="#328" id="328">328</a>
+<a href="#329" id="329">329</a>
+<a href="#330" id="330">330</a>
+<a href="#331" id="331">331</a>
+<a href="#332" id="332">332</a>
+<a href="#333" id="333">333</a>
+<a href="#334" id="334">334</a>
+<a href="#335" id="335">335</a>
+<a href="#336" id="336">336</a>
+<a href="#337" id="337">337</a>
+<a href="#338" id="338">338</a>
+<a href="#339" id="339">339</a>
+<a href="#340" id="340">340</a>
+<a href="#341" id="341">341</a>
+<a href="#342" id="342">342</a>
+<a href="#343" id="343">343</a>
+<a href="#344" id="344">344</a>
+<a href="#345" id="345">345</a>
+<a href="#346" id="346">346</a>
+<a href="#347" id="347">347</a>
+<a href="#348" id="348">348</a>
+<a href="#349" id="349">349</a>
+<a href="#350" id="350">350</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{path::Path, sync::Arc};
 
 <span class="kw">use </span>anyhow::Context;
@@ -333,6 +359,7 @@
 <span class="kw">use </span>webc::{compat::SharedBytes, Container};
 
 <span class="kw">use crate</span>::{
+    runners::MappedDirectory,
     runtime::resolver::{PackageInfo, ResolveError},
     Runtime,
 };
@@ -399,6 +426,8 @@
     <span class="kw">pub </span>commands: Vec&lt;BinaryPackageCommand&gt;,
     <span class="kw">pub </span>uses: Vec&lt;String&gt;,
     <span class="kw">pub </span>file_system_memory_footprint: u64,
+
+    <span class="kw">pub </span>additional_host_mapped_directories: Vec&lt;MappedDirectory&gt;,
 }
 
 <span class="kw">impl </span>BinaryPackage {
@@ -415,7 +444,7 @@
         <span class="kw">let </span>id = PackageId::Hash(PackageHash::from_sha256_bytes(hash));
 
         <span class="kw">let </span>manifest_path = dir.join(<span class="string">&quot;wasmer.toml&quot;</span>);
-        <span class="kw">let </span>webc = webc::wasmer_package::Package::from_manifest(manifest_path)<span class="question-mark">?</span>;
+        <span class="kw">let </span>webc = webc::wasmer_package::Package::from_manifest(<span class="kw-2">&amp;</span>manifest_path)<span class="question-mark">?</span>;
         <span class="kw">let </span>container = Container::from(webc);
         <span class="kw">let </span>manifest = container.manifest();
 
@@ -423,11 +452,29 @@
         <span class="kw">let </span>root_id = root.id.clone();
 
         <span class="kw">let </span>resolution = <span class="kw">crate</span>::runtime::resolver::resolve(<span class="kw-2">&amp;</span>root_id, <span class="kw-2">&amp;</span>root, <span class="kw-2">&amp;*</span>source).<span class="kw">await</span><span class="question-mark">?</span>;
-        <span class="kw">let </span>pkg = rt
+        <span class="kw">let </span><span class="kw-2">mut </span>pkg = rt
             .package_loader()
-            .load_package_tree(<span class="kw-2">&amp;</span>container, <span class="kw-2">&amp;</span>resolution)
+            .load_package_tree(<span class="kw-2">&amp;</span>container, <span class="kw-2">&amp;</span>resolution, <span class="bool-val">true</span>)
             .<span class="kw">await
             </span>.map_err(|e| <span class="macro">anyhow::anyhow!</span>(e))<span class="question-mark">?</span>;
+
+        <span class="comment">// HACK: webc has no way to return its deserialized manifest to us, so we need to do it again here
+        // We already read and parsed the manifest once, so it&#39;ll succeed again. Unwrapping is safe at this point.
+        </span><span class="kw">let </span>wasmer_toml = std::fs::read_to_string(<span class="kw-2">&amp;</span>manifest_path).unwrap();
+        <span class="kw">let </span>wasmer_toml: wasmer_config::package::Manifest = toml::from_str(<span class="kw-2">&amp;</span>wasmer_toml).unwrap();
+        pkg.additional_host_mapped_directories.extend(
+            wasmer_toml
+                .fs
+                .into_iter()
+                .map(|(guest, host)| {
+                    anyhow::Ok(MappedDirectory {
+                        host: dir.join(host).canonicalize()<span class="question-mark">?</span>,
+                        guest,
+                    })
+                })
+                .collect::&lt;<span class="prelude-ty">Result</span>&lt;Vec&lt;<span class="kw">_</span>&gt;, <span class="kw">_</span>&gt;&gt;()<span class="question-mark">?
+                </span>.into_iter(),
+        );
 
         <span class="prelude-val">Ok</span>(pkg)
     }
@@ -456,7 +503,7 @@
         <span class="kw">let </span>resolution = <span class="kw">crate</span>::runtime::resolver::resolve(<span class="kw-2">&amp;</span>root_id, <span class="kw-2">&amp;</span>root, <span class="kw-2">&amp;*</span>source).<span class="kw">await</span><span class="question-mark">?</span>;
         <span class="kw">let </span>pkg = rt
             .package_loader()
-            .load_package_tree(container, <span class="kw-2">&amp;</span>resolution)
+            .load_package_tree(container, <span class="kw-2">&amp;</span>resolution, <span class="bool-val">false</span>)
             .<span class="kw">await
             </span>.map_err(|e| <span class="macro">anyhow::anyhow!</span>(e))<span class="question-mark">?</span>;
 
@@ -486,7 +533,7 @@
             </span>.context(<span class="string">&quot;Dependency resolution failed&quot;</span>)<span class="question-mark">?</span>;
         <span class="kw">let </span>pkg = runtime
             .package_loader()
-            .load_package_tree(<span class="kw-2">&amp;</span>root, <span class="kw-2">&amp;</span>resolution)
+            .load_package_tree(<span class="kw-2">&amp;</span>root, <span class="kw-2">&amp;</span>resolution, <span class="bool-val">false</span>)
             .<span class="kw">await
             </span>.map_err(|e| <span class="macro">anyhow::anyhow!</span>(e))<span class="question-mark">?</span>;
 
@@ -579,7 +626,12 @@
                 .with_shared_http_client(runtime.http_client().unwrap().clone()),
         );
 
-        <span class="kw">let </span>pkg = BinaryPackage::from_dir(temp.path(), <span class="kw-2">&amp;</span>runtime)
+        <span class="kw">let </span>pkg = webc::wasmer_package::Package::from_manifest(<span class="kw-2">&amp;</span>manifest).unwrap();
+        <span class="kw">let </span>data = pkg.serialize().unwrap();
+        <span class="kw">let </span>webc_path = temp.path().join(<span class="string">&quot;package.webc&quot;</span>);
+        std::fs::write(<span class="kw-2">&amp;</span>webc_path, data).unwrap();
+
+        <span class="kw">let </span>pkg = BinaryPackage::from_webc(<span class="kw-2">&amp;</span>Container::from_disk(<span class="kw-2">&amp;</span>webc_path).unwrap(), <span class="kw-2">&amp;</span>runtime)
             .<span class="kw">await
             </span>.unwrap();
 

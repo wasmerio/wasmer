@@ -706,6 +706,7 @@
 <a href="#706" id="706">706</a>
 <a href="#707" id="707">707</a>
 <a href="#708" id="708">708</a>
+<a href="#709" id="709">709</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{
     collections::HashMap,
     fmt::Write <span class="kw">as _</span>,
@@ -1070,8 +1071,9 @@
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         root: <span class="kw-2">&amp;</span>Container,
         resolution: <span class="kw-2">&amp;</span>Resolution,
+        root_is_local_dir: bool,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;BinaryPackage, Error&gt; {
-        <span class="kw">super</span>::load_package_tree(root, <span class="self">self</span>, resolution).<span class="kw">await
+        <span class="kw">super</span>::load_package_tree(root, <span class="self">self</span>, resolution, root_is_local_dir).<span class="kw">await
     </span>}
 }
 

@@ -31,6 +31,7 @@
 <a href="#31" id="31">31</a>
 <a href="#32" id="32">32</a>
 <a href="#33" id="33">33</a>
+<a href="#34" id="34">34</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>anyhow::Error;
 <span class="kw">use </span>webc::compat::Container;
 
@@ -56,6 +57,7 @@
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         _root: <span class="kw-2">&amp;</span>Container,
         _resolution: <span class="kw-2">&amp;</span>Resolution,
+        _root_is_local_dir: bool,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;BinaryPackage, Error&gt; {
         <span class="prelude-val">Err</span>(Error::new(Unsupported))
     }

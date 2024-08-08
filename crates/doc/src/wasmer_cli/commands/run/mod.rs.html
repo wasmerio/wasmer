@@ -1009,6 +1009,15 @@
 <a href="#1009" id="1009">1009</a>
 <a href="#1010" id="1010">1010</a>
 <a href="#1011" id="1011">1011</a>
+<a href="#1012" id="1012">1012</a>
+<a href="#1013" id="1013">1013</a>
+<a href="#1014" id="1014">1014</a>
+<a href="#1015" id="1015">1015</a>
+<a href="#1016" id="1016">1016</a>
+<a href="#1017" id="1017">1017</a>
+<a href="#1018" id="1018">1018</a>
+<a href="#1019" id="1019">1019</a>
+<a href="#1020" id="1020">1020</a>
 </pre></div><pre class="rust"><code><span class="attr">#![allow(missing_docs, unused)]
 
 </span><span class="kw">mod </span>capabilities;
@@ -1110,7 +1119,7 @@
     }
 
     <span class="attr">#[tracing::instrument(level = <span class="string">&quot;debug&quot;</span>, name = <span class="string">&quot;wasmer_run&quot;</span>, skip_all)]
-    </span><span class="kw">fn </span>execute_inner(<span class="self">self</span>, output: Output) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt; {
+    </span><span class="kw">fn </span>execute_inner(<span class="kw-2">mut </span><span class="self">self</span>, output: Output) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt; {
         <span class="kw">let </span>pb = ProgressBar::new_spinner();
         pb.set_draw_target(output.draw_target());
         pb.enable_steady_tick(TICK);
@@ -1167,6 +1176,12 @@
         <span class="kw">let </span>monitoring_runtime: Arc&lt;<span class="kw">dyn </span>Runtime + Send + Sync&gt; = monitoring_runtime;
 
         <span class="kw">let </span>target = <span class="self">self</span>.input.resolve_target(<span class="kw-2">&amp;</span>monitoring_runtime, <span class="kw-2">&amp;</span>pb)<span class="question-mark">?</span>;
+
+        <span class="kw">if let </span>ExecutableTarget::Package(<span class="kw-2">ref </span>pkg) = target {
+            <span class="self">self</span>.wasi
+                .mapped_dirs
+                .extend(pkg.additional_host_mapped_directories.clone());
+        }
 
         pb.finish_and_clear();
 
@@ -2016,8 +2031,11 @@
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         root: <span class="kw-2">&amp;</span>Container,
         resolution: <span class="kw-2">&amp;</span>wasmer_wasix::runtime::resolver::Resolution,
+        root_is_local_dir: bool,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;BinaryPackage, Error&gt; {
-        <span class="self">self</span>.inner.load_package_tree(root, resolution).<span class="kw">await
+        <span class="self">self</span>.inner
+            .load_package_tree(root, resolution, root_is_local_dir)
+            .<span class="kw">await
     </span>}
 }
 </code></pre></div></section></main></body></html>
