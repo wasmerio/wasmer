@@ -37,7 +37,7 @@ pub struct CmdAppLogs {
     /// * Unix timestamp (`1136196245`)
     /// * Relative time (`10m` / `-1h`, `1d1h30s`)
     // TODO: should default to trailing logs once trailing is implemented.
-    #[clap(long, value_parser = parse_timestamp_or_relative_time)]
+    #[clap(long, value_parser = parse_timestamp_or_relative_time, conflicts_with = "request_id")]
     from: Option<OffsetDateTime>,
 
     /// The date of the latest log entry.
@@ -48,7 +48,7 @@ pub struct CmdAppLogs {
     /// * Simple date (`2022-11-11`)
     /// * Unix timestamp (`1136196245`)
     /// * Relative time (`10m` / `1h`, `1d1h30s`)
-    #[clap(long, value_parser = parse_timestamp_or_relative_time)]
+    #[clap(long, value_parser = parse_timestamp_or_relative_time, conflicts_with = "request_id")]
     until: Option<OffsetDateTime>,
 
     /// Maximum log lines to fetch.
@@ -66,6 +66,14 @@ pub struct CmdAppLogs {
     #[clap(flatten)]
     #[allow(missing_docs)]
     pub ident: AppIdentOpts,
+
+    /// The identifier of the request to show logs related to
+    #[clap(long)]
+    pub request_id: Option<String>,
+
+    /// The identifier of the app instance to show logs related to
+    #[clap(long, conflicts_with = "request_id", value_delimiter = ' ', num_args = 1..)]
+    pub instance_id: Option<Vec<String>>,
 }
 
 #[async_trait::async_trait]
@@ -114,38 +122,110 @@ impl crate::commands::AsyncCliCommand for CmdAppLogs {
             (false, true) => &[LogStream::Stderr][..],
         });
 
-        let logs_stream = wasmer_api::query::get_app_logs_paginated(
-            &client,
-            app.name.clone(),
-            app.owner.global_name.to_string(),
-            None, // keep version None since we want logs from all versions atm
-            from,
-            self.until,
-            self.watch,
-            Some(streams),
-        )
-        .await;
+        // Code duplication to avoid a dependency to `OR` streams.
+        if let Some(instance_id) = &self.instance_id {
+            let logs_stream = wasmer_api::query::get_app_logs_paginated_filter_instance(
+                &client,
+                app.name.clone(),
+                app.owner.global_name.to_string(),
+                None, // keep version None since we want logs from all versions atm
+                from,
+                self.until,
+                self.watch,
+                Some(streams),
+                instance_id.clone(),
+            )
+            .await;
 
-        let mut logs_stream = std::pin::pin!(logs_stream);
+            let mut logs_stream = std::pin::pin!(logs_stream);
+            let mut rem = self.max;
 
-        let mut rem = self.max;
+            while let Some(logs) = logs_stream.next().await {
+                let mut logs = logs?;
 
-        while let Some(logs) = logs_stream.next().await {
-            let mut logs = logs?;
+                let limit = std::cmp::min(logs.len(), rem);
 
-            let limit = std::cmp::min(logs.len(), rem);
+                let logs: Vec<_> = logs.drain(..limit).collect();
 
-            let logs: Vec<_> = logs.drain(..limit).collect();
+                if !logs.is_empty() {
+                    let rendered = self.fmt.format.render(&logs);
+                    println!("{rendered}");
 
-            if !logs.is_empty() {
-                let rendered = self.fmt.format.render(&logs);
-                println!("{rendered}");
+                    rem -= limit;
+                }
 
-                rem -= limit;
+                if !self.watch || rem == 0 {
+                    break;
+                }
             }
+        } else if let Some(request_id) = &self.request_id {
+            let logs_stream = wasmer_api::query::get_app_logs_paginated_filter_request(
+                &client,
+                app.name.clone(),
+                app.owner.global_name.to_string(),
+                None, // keep version None since we want logs from all versions atm
+                from,
+                self.until,
+                self.watch,
+                Some(streams),
+                request_id.clone(),
+            )
+            .await;
 
-            if !self.watch || rem == 0 {
-                break;
+            let mut logs_stream = std::pin::pin!(logs_stream);
+            let mut rem = self.max;
+
+            while let Some(logs) = logs_stream.next().await {
+                let mut logs = logs?;
+
+                let limit = std::cmp::min(logs.len(), rem);
+
+                let logs: Vec<_> = logs.drain(..limit).collect();
+
+                if !logs.is_empty() {
+                    let rendered = self.fmt.format.render(&logs);
+                    println!("{rendered}");
+
+                    rem -= limit;
+                }
+
+                if !self.watch || rem == 0 {
+                    break;
+                }
+            }
+        } else {
+            let logs_stream = wasmer_api::query::get_app_logs_paginated(
+                &client,
+                app.name.clone(),
+                app.owner.global_name.to_string(),
+                None, // keep version None since we want logs from all versions atm
+                from,
+                self.until,
+                self.watch,
+                Some(streams),
+            )
+            .await;
+
+            let mut logs_stream = std::pin::pin!(logs_stream);
+            let mut rem = self.max;
+
+            while let Some(logs) = logs_stream.next().await {
+                let mut logs = logs?;
+
+                let limit = std::cmp::min(logs.len(), rem);
+
+                let logs: Vec<_> = logs.drain(..limit).collect();
+
+                if !logs.is_empty() {
+                    let rendered = self.fmt.format.render(&logs);
+                    println!("{rendered}");
+
+                    rem -= limit;
+                }
+
+                if !self.watch || rem == 0 {
+                    break;
+                }
             }
         }
 

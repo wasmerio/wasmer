@@ -1,24 +1,25 @@
 #![allow(missing_docs, unused)]
 
+mod capabilities;
 mod wasi;
 
 use std::{
-    collections::BTreeMap,
+    collections::{hash_map::DefaultHasher, BTreeMap},
     fmt::{Binary, Display},
     fs::File,
+    hash::{BuildHasherDefault, Hash, Hasher},
     io::{ErrorKind, LineWriter, Read, Write},
     net::SocketAddr,
     path::{Path, PathBuf},
     str::FromStr,
     sync::{Arc, Mutex},
-    time::{Duration, SystemTime},
+    time::{Duration, SystemTime, UNIX_EPOCH},
 };
 
-use anyhow::{bail, Context, Error};
+use anyhow::{anyhow, bail, Context, Error};
 use clap::{Parser, ValueEnum};
 use indicatif::{MultiProgress, ProgressBar};
 use once_cell::sync::Lazy;
-use sha2::{Digest, Sha256};
 use tempfile::NamedTempFile;
 use url::Url;
 #[cfg(feature = "sys")]
@@ -140,9 +141,13 @@ impl Run {
         #[cfg(not(feature = "sys"))]
         let engine = store.engine().clone();
 
-        let runtime =
-            self.wasi
-                .prepare_runtime(engine, &self.env, runtime, preferred_webc_version)?;
+        let runtime = self.wasi.prepare_runtime(
+            engine,
+            &self.env,
+            &capabilities::get_capability_cache_path(&self.env, &self.input)?,
+            runtime,
+            preferred_webc_version,
+        )?;
 
         // This is a slow operation, so let's temporarily wrap the runtime with
         // something that displays progress

@@ -22,7 +22,7 @@ int main(int argc, char *argv[])
 
         execv("/code/main.wasm", newargv);
 
-        exit(EXIT_FAILURE);
+        goto end;
     }
     else
     {

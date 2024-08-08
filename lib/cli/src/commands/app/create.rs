@@ -501,8 +501,15 @@ impl CmdAppCreate {
             }
 
             let theme = ColorfulTheme::default();
-            let languages =
-                Self::fetch_template_languages_cached(client, &self.env.cache_dir).await?;
+            let registry = self
+                .env
+                .registry_public_url()?
+                .host_str()
+                .unwrap_or("unknown_registry")
+                .replace('.', "_");
+            let cache_dir = self.env.cache_dir().join("templates").join(registry);
+
+            let languages = Self::fetch_template_languages_cached(client, &cache_dir).await?;
 
             let items = languages.iter().map(|t| t.name.clone()).collect::<Vec<_>>();
 
@@ -523,8 +530,7 @@ impl CmdAppCreate {
                 .ok_or(anyhow::anyhow!("Invalid selection!"))?;
 
             let templates =
-                Self::fetch_templates_cached(client, &self.env.cache_dir, &selected_language.slug)
-                    .await?;
+                Self::fetch_templates_cached(client, &cache_dir, &selected_language.slug).await?;
 
             let items = templates
                 .iter()

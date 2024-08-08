@@ -566,6 +566,17 @@ impl WasiFs {
         }
     }
 
+    /// We need to clear the freed FD list when the journal is replayed as it
+    /// will close lots of file descriptors which will fill the list. We clear
+    /// the list and allocate new FD's instead.
+    ///
+    /// This should only be used when the file descriptors are being managed
+    /// externally (e.g. journals)
+    pub(crate) fn clear_freed_fd_list(&self) {
+        let mut freed_fds = self.freed_fds.write().unwrap();
+        freed_fds.clear();
+    }
+
     /// Closes all the file handles.
     #[allow(clippy::await_holding_lock)]
     pub async fn close_all(&self) {

@@ -31,7 +31,6 @@ pub mod ssh;
 mod validate;
 #[cfg(feature = "wast")]
 mod wast;
-mod whoami;
 use std::env::args;
 use tokio::task::JoinHandle;
 
@@ -51,7 +50,7 @@ pub use {create_obj::*, gen_c_header::*};
 pub use self::journal::*;
 pub use self::{
     add::*, auth::*, cache::*, config::*, container::*, init::*, inspect::*, package::*,
-    publish::*, run::Run, self_update::*, validate::*, whoami::*,
+    publish::*, run::Run, self_update::*, validate::*,
 };
 use crate::error::PrettyError;
 
@@ -186,7 +185,7 @@ impl WasmerCmd {
             Some(Cmd::Inspect(inspect)) => inspect.execute(),
             Some(Cmd::Init(init)) => init.execute(),
             Some(Cmd::Login(login)) => login.run(),
-            Some(Cmd::Logout(logout)) => logout.run(),
+            Some(Cmd::Auth(auth)) => auth.run(),
             Some(Cmd::Publish(publish)) => publish.run().map(|_| ()),
             Some(Cmd::Package(cmd)) => match cmd {
                 Package::Download(cmd) => cmd.execute(),
@@ -290,8 +289,8 @@ enum Cmd {
     /// Login into a wasmer.io-like registry
     Login(Login),
 
-    /// Log out of the currently selected wasmer.io-like registry
-    Logout(Logout),
+    #[clap(subcommand)]
+    Auth(CmdAuth),
 
     /// Publish a package to a registry [alias: package publish]
     #[clap(name = "publish")]
