@@ -15,6 +15,19 @@ use crate::{
     GraphQLApiFailure, WasmerClient,
 };
 
+pub async fn viewer_can_deploy_to_namespace(
+    client: &WasmerClient,
+    owner_name: &str,
+) -> Result<bool, anyhow::Error> {
+    client
+        .run_graphql_strict(types::ViewerCan::build(ViewerCanVariables {
+            action: OwnerAction::DeployApp,
+            owner_name,
+        }))
+        .await
+        .map(|v| v.viewer_can)
+}
+
 pub async fn redeploy_app_by_id(
     client: &WasmerClient,
     app_id: impl Into<String>,

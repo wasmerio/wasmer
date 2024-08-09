@@ -42,6 +42,25 @@ mod queries {
     }
 
     #[derive(cynic::QueryVariables, Debug)]
+    pub struct ViewerCanVariables<'a> {
+        pub action: OwnerAction,
+        pub owner_name: &'a str,
+    }
+
+    #[derive(cynic::QueryFragment, Debug)]
+    #[cynic(graphql_type = "Query", variables = "ViewerCanVariables")]
+    pub struct ViewerCan {
+        #[arguments(action: $action, ownerName: $owner_name)]
+        pub viewer_can: bool,
+    }
+
+    #[derive(cynic::Enum, Clone, Copy, Debug)]
+    pub enum OwnerAction {
+        DeployApp,
+        PublishPackage,
+    }
+
+    #[derive(cynic::QueryVariables, Debug)]
     pub struct RevokeTokenVariables {
         pub token: String,
     }
