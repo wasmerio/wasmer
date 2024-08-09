@@ -753,6 +753,33 @@
 <a href="#753" id="753">753</a>
 <a href="#754" id="754">754</a>
 <a href="#755" id="755">755</a>
+<a href="#756" id="756">756</a>
+<a href="#757" id="757">757</a>
+<a href="#758" id="758">758</a>
+<a href="#759" id="759">759</a>
+<a href="#760" id="760">760</a>
+<a href="#761" id="761">761</a>
+<a href="#762" id="762">762</a>
+<a href="#763" id="763">763</a>
+<a href="#764" id="764">764</a>
+<a href="#765" id="765">765</a>
+<a href="#766" id="766">766</a>
+<a href="#767" id="767">767</a>
+<a href="#768" id="768">768</a>
+<a href="#769" id="769">769</a>
+<a href="#770" id="770">770</a>
+<a href="#771" id="771">771</a>
+<a href="#772" id="772">772</a>
+<a href="#773" id="773">773</a>
+<a href="#774" id="774">774</a>
+<a href="#775" id="775">775</a>
+<a href="#776" id="776">776</a>
+<a href="#777" id="777">777</a>
+<a href="#778" id="778">778</a>
+<a href="#779" id="779">779</a>
+<a href="#780" id="780">780</a>
+<a href="#781" id="781">781</a>
+<a href="#782" id="782">782</a>
 </pre></div><pre class="rust"><code><span class="kw">use super</span>::{util::login_user, AsyncCliCommand};
 <span class="kw">use crate</span>::{
     commands::{app::create::CmdAppCreate, package::publish::PackagePublish, PublishWait},
@@ -1034,9 +1061,36 @@
             <span class="prelude-val">None
         </span>};
 
-        <span class="kw">let </span>owner = <span class="self">self
+        <span class="kw">let </span><span class="kw-2">mut </span>owner = <span class="self">self
             </span>.get_owner(<span class="kw-2">&amp;</span>client, <span class="kw-2">&amp;mut </span>app_yaml, maybe_edge_app.as_ref())
             .<span class="kw">await</span><span class="question-mark">?</span>;
+
+        <span class="kw">if </span>!wasmer_api::query::viewer_can_deploy_to_namespace(<span class="kw-2">&amp;</span>client, <span class="kw-2">&amp;</span>owner).<span class="kw">await</span><span class="question-mark">? </span>{
+            <span class="macro">eprintln!</span>(<span class="string">&quot;It seems you don&#39;t have access to {}&quot;</span>, owner.bold());
+            <span class="kw">if </span><span class="self">self</span>.non_interactive {
+                <span class="macro">anyhow::bail!</span>(<span class="string">&quot;Please, change the owner before deploying or check your current user with `{} whoami`.&quot;</span>, std::env::args().next().unwrap_or(<span class="string">&quot;wasmer&quot;</span>.into()));
+            } <span class="kw">else </span>{
+                <span class="kw">let </span>user = wasmer_api::query::current_user_with_namespaces(<span class="kw-2">&amp;</span>client, <span class="prelude-val">None</span>).<span class="kw">await</span><span class="question-mark">?</span>;
+                owner = <span class="kw">crate</span>::utils::prompts::prompt_for_namespace(
+                    <span class="string">&quot;Who should own this app?&quot;</span>,
+                    <span class="prelude-val">None</span>,
+                    <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span>user),
+                )<span class="question-mark">?</span>;
+
+                app_yaml
+                    .as_mapping_mut()
+                    .unwrap()
+                    .insert(<span class="string">&quot;owner&quot;</span>.into(), owner.clone().into());
+
+                <span class="kw">if </span>app_yaml.get(<span class="string">&quot;app_id&quot;</span>).is_some() {
+                    app_yaml.as_mapping_mut().unwrap().remove(<span class="string">&quot;app_id&quot;</span>);
+                }
+
+                <span class="kw">if </span>app_yaml.get(<span class="string">&quot;name&quot;</span>).is_some() {
+                    app_yaml.as_mapping_mut().unwrap().remove(<span class="string">&quot;name&quot;</span>);
+                }
+            }
+        }
 
         <span class="kw">if </span>app_yaml.get(<span class="string">&quot;name&quot;</span>).is_none() &amp;&amp; <span class="self">self</span>.app_name.is_some() {
             app_yaml.as_mapping_mut().unwrap().insert(

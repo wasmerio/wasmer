@@ -2021,6 +2021,25 @@
 <a href="#2021" id="2021">2021</a>
 <a href="#2022" id="2022">2022</a>
 <a href="#2023" id="2023">2023</a>
+<a href="#2024" id="2024">2024</a>
+<a href="#2025" id="2025">2025</a>
+<a href="#2026" id="2026">2026</a>
+<a href="#2027" id="2027">2027</a>
+<a href="#2028" id="2028">2028</a>
+<a href="#2029" id="2029">2029</a>
+<a href="#2030" id="2030">2030</a>
+<a href="#2031" id="2031">2031</a>
+<a href="#2032" id="2032">2032</a>
+<a href="#2033" id="2033">2033</a>
+<a href="#2034" id="2034">2034</a>
+<a href="#2035" id="2035">2035</a>
+<a href="#2036" id="2036">2036</a>
+<a href="#2037" id="2037">2037</a>
+<a href="#2038" id="2038">2038</a>
+<a href="#2039" id="2039">2039</a>
+<a href="#2040" id="2040">2040</a>
+<a href="#2041" id="2041">2041</a>
+<a href="#2042" id="2042">2042</a>
 </pre></div><pre class="rust"><code><span class="kw">pub use </span>queries::<span class="kw-2">*</span>;
 
 <span class="kw">pub use </span>cynic::Id;
@@ -2062,6 +2081,25 @@
         Admin,
         Editor,
         Viewer,
+    }
+
+    <span class="attr">#[derive(cynic::QueryVariables, Debug)]
+    </span><span class="kw">pub struct </span>ViewerCanVariables&lt;<span class="lifetime">&#39;a</span>&gt; {
+        <span class="kw">pub </span>action: OwnerAction,
+        <span class="kw">pub </span>owner_name: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>str,
+    }
+
+    <span class="attr">#[derive(cynic::QueryFragment, Debug)]
+    #[cynic(graphql_type = <span class="string">&quot;Query&quot;</span>, variables = <span class="string">&quot;ViewerCanVariables&quot;</span>)]
+    </span><span class="kw">pub struct </span>ViewerCan {
+        <span class="attr">#[arguments(action: <span class="macro-nonterminal">$action</span>, ownerName: <span class="macro-nonterminal">$owner_name</span>)]
+        </span><span class="kw">pub </span>viewer_can: bool,
+    }
+
+    <span class="attr">#[derive(cynic::Enum, Clone, Copy, Debug)]
+    </span><span class="kw">pub enum </span>OwnerAction {
+        DeployApp,
+        PublishPackage,
     }
 
     <span class="attr">#[derive(cynic::QueryVariables, Debug)]
