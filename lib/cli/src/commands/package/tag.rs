@@ -13,7 +13,7 @@ use std::{
     path::{Path, PathBuf},
     str::FromStr,
 };
-use wasmer_api::{types::PackageVersionWithPackage, WasmerClient};
+use wasmer_api::WasmerClient;
 use wasmer_config::package::{
     Manifest, NamedPackageId, NamedPackageIdent, PackageBuilder, PackageHash, PackageIdent,
 };
@@ -85,10 +85,6 @@ pub struct PackageTag {
             value_enum
         )]
     pub wait: PublishWait,
-
-    #[clap(skip)]
-    /// The package related to the NamedPackageId the user chose to tag.
-    pub(crate) maybe_user_package: Option<PackageVersionWithPackage>,
 }
 
 impl PackageTag {
@@ -152,6 +148,7 @@ impl PackageTag {
         Ok(Some(new_manifest))
     }
 
+    #[tracing::instrument]
     async fn do_tag(
         &self,
         client: &WasmerClient,
@@ -438,8 +435,6 @@ impl PackageTag {
                     .as_ref()
                     .and_then(|p| p.distribution_v3.pirita_sha256_hash.clone());
 
-                self.maybe_user_package = maybe_pkg;
-
                 if let Some(hash) = maybe_hash {
                     let registry_package_hash = PackageHash::from_str(&format!("sha256:{hash}"))?;
                     registry_package_hash != self.package_hash
@@ -586,6 +581,7 @@ impl PackageTag {
 
     // Check if a package with the same hash, namespace, name and version already exists. In such a
     // case, don't tag the package again.
+    #[tracing::instrument]
     async fn should_tag(&self, client: &WasmerClient, id: &NamedPackageId) -> anyhow::Result<bool> {
         if self.dry_run {
             if !self.quiet {
@@ -594,21 +590,20 @@ impl PackageTag {
             return Ok(false);
         }
 
-        let hash = if let Some(pkg) = self.maybe_user_package.as_ref() {
-            pkg.distribution_v3.pirita_sha256_hash.clone()
-        } else {
-            wasmer_api::query::get_package_version(
-                client,
-                id.full_name.clone(),
-                id.version.to_string(),
-            )
-            .await?
-            .and_then(|p| p.distribution_v3.pirita_sha256_hash)
-        };
+        let pkg = wasmer_api::query::get_package_version(
+            client,
+            id.full_name.clone(),
+            id.version.to_string(),
+        )
+        .await?;
 
-        if let Some(hash) = hash {
+        if let Some(hash) = pkg
+            .as_ref()
+            .and_then(|p| p.distribution_v3.pirita_sha256_hash.as_ref())
+        {
             let registry_package_hash = PackageHash::from_str(&format!("sha256:{hash}"))?;
             if registry_package_hash == self.package_hash {
+                tracing::info!("decided not to tag as package {pkg:?} already exists");
                 return Ok(false);
             }
         }
