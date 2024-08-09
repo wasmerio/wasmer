@@ -417,7 +417,7 @@ pub(crate) fn fd_write_internal<M: MemorySize>(
             let curr_offset = if is_file && should_update_cursor {
                 let bytes_written = bytes_written as u64;
                 let mut fd_map = state.fs.fd_map.write().unwrap();
-                let fd_entry = wasi_try_ok_ok!(fd_map.get_mut(&fd).ok_or(Errno::Badf));
+                let fd_entry = wasi_try_ok_ok!(fd_map.get_mut(fd).ok_or(Errno::Badf));
                 fd_entry
                     .offset
                     .fetch_add(bytes_written, Ordering::AcqRel)

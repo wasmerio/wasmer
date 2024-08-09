@@ -466,7 +466,6 @@ impl WasiEnv {
                 map.clear();
             }
             self.state.fs.preopen_fds.write().unwrap().clear();
-            self.state.fs.next_fd.set_val(3);
             *self.state.fs.current_dir.lock().unwrap() = "/".to_string();
 
             // We need to rebuild the basic file descriptors

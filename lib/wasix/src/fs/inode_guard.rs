@@ -452,7 +452,7 @@ pub(crate) struct WasiStateFileGuard {
 impl WasiStateFileGuard {
     pub fn new(state: &WasiState, fd: wasi::Fd) -> Result<Option<Self>, FsError> {
         let fd_map = state.fs.fd_map.read().unwrap();
-        if let Some(fd) = fd_map.get(&fd) {
+        if let Some(fd) = fd_map.get(fd) {
             Ok(Some(Self {
                 inode: fd.inode.clone(),
             }))

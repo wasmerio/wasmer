@@ -395,7 +395,7 @@ pub(crate) fn fd_read_internal<M: MemorySize>(
         if !is_stdio && should_update_cursor && can_update_cursor {
             // reborrow
             let mut fd_map = state.fs.fd_map.write().unwrap();
-            let fd_entry = wasi_try_ok_ok!(fd_map.get_mut(&fd).ok_or(Errno::Badf));
+            let fd_entry = wasi_try_ok_ok!(fd_map.get_mut(fd).ok_or(Errno::Badf));
             let old = fd_entry
                 .offset
                 .fetch_add(bytes_read as u64, Ordering::AcqRel);
