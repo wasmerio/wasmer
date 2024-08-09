@@ -57,12 +57,20 @@ impl FdList {
 
     pub fn get(&self, idx: WasiFd) -> Option<&Fd> {
         let idx = idx as usize;
-        self.fds[idx].as_ref()
+        if idx < self.fds.len() {
+            self.fds[idx].as_ref()
+        } else {
+            None
+        }
     }
 
     pub fn get_mut(&mut self, idx: WasiFd) -> Option<&mut Fd> {
         let idx = idx as usize;
-        self.fds[idx].as_mut()
+        if idx < self.fds.len() {
+            self.fds[idx].as_mut()
+        } else {
+            None
+        }
     }
 
     pub fn insert_first_free(&mut self, fd: Fd) -> WasiFd {
@@ -341,7 +349,7 @@ mod tests {
     }
 
     #[test]
-    fn get_at_works() {
+    fn get_works() {
         let mut l = FdList::new();
 
         l.insert_first_free(useless_fd(0));
@@ -354,7 +362,14 @@ mod tests {
 
         assert!(l.get(1).is_none());
         assert!(is_useless_fd(l.get(2).unwrap(), 2));
-        assert!(is_useless_fd(l.get_mut(4).unwrap(), 4));
+
+        let at_4 = l.get_mut(4).unwrap();
+        assert!(is_useless_fd(at_4, 4));
+        *at_4 = useless_fd(5);
+        assert!(is_useless_fd(l.get(4).unwrap(), 5));
+
+        assert!(l.get(10).is_none());
+        assert!(l.get_mut(10).is_none());
     }
 
     #[test]
