@@ -14,8 +14,8 @@ thiserror = "1"
 bytes = "1.1"
 async-trait = { version = "^0.1" }
 tracing = "0.1"
-mio = { version = "0.8", features = [ "os-poll" ], optional = true }
-socket2 = { version = "0.4", optional = true }
+mio = { workspace = true, features = [ "os-poll" ], optional = true }
+socket2 = { workspace = true, optional = true }
 derivative = { version = "^2" }
 futures = { version = "0.3" }
 serde = { version = "1.0", default-features = false, features = ["derive"] }
