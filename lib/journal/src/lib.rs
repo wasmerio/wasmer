@@ -40,13 +40,15 @@ pub trait WritableJournal {
     fn flush(&self) -> anyhow::Result<()>;
 
     /// Commits the transaction
-    fn commit(&self) -> anyhow::Result<()> {
-        self.flush()
+    /// Returns the number of events committed
+    fn commit(&self) -> anyhow::Result<usize> {
+        Ok(0)
     }
 
     /// Rolls back the transaction and aborts its changes
-    fn rollback(&self) -> anyhow::Result<()> {
-        Ok(())
+    /// Returns the number of events rolled back
+    fn rollback(&self) -> anyhow::Result<usize> {
+        Ok(0)
     }
 }
 

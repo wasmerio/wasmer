@@ -8,20 +8,20 @@ use super::*;
 /// is either committed or rolled back
 #[derive(Debug)]
 pub struct TransactionJournal {
-    tx: TransactionJournalTx,
-    rx: TransactionJournalRx,
+    pub(super) tx: TransactionJournalTx,
+    pub(super) rx: TransactionJournalRx,
 }
 
 #[derive(Debug, Default, Clone)]
-struct State {
-    records: Vec<JournalEntry<'static>>,
-    offset: u64,
+pub(super) struct State {
+    pub(super) records: Vec<JournalEntry<'static>>,
+    pub(super) offset: u64,
 }
 
 #[derive(Derivative)]
 #[derivative(Debug)]
 pub struct TransactionJournalTx {
-    state: Arc<Mutex<State>>,
+    pub(super) state: Arc<Mutex<State>>,
     #[derivative(Debug = "ignore")]
     inner: Box<DynWritableJournal>,
 }
@@ -77,7 +77,7 @@ impl WritableJournal for TransactionJournalTx {
     }
 
     /// Commits the transaction
-    fn commit(&self) -> anyhow::Result<()> {
+    fn commit(&self) -> anyhow::Result<usize> {
         let (records, mut new_offset) = {
             let mut state = self.state.lock().unwrap();
             let mut records = Default::default();
@@ -85,6 +85,7 @@ impl WritableJournal for TransactionJournalTx {
             (records, state.offset)
         };
 
+        let mut ret = records.len();
         for entry in records {
             let ret = self.inner.write(entry)?;
             new_offset = new_offset.max(ret.record_end);
@@ -93,16 +94,20 @@ impl WritableJournal for TransactionJournalTx {
             let mut state = self.state.lock().unwrap();
             state.offset = state.offset.max(new_offset);
         }
-        self.inner.commit()
+        ret += self.inner.commit()?;
+        Ok(ret)
     }
 
     /// Rolls back the transaction and aborts its changes
-    fn rollback(&self) -> anyhow::Result<()> {
-        {
+    fn rollback(&self) -> anyhow::Result<usize> {
+        let mut ret = {
             let mut state = self.state.lock().unwrap();
+            let ret = state.records.len();
             state.records.clear();
-        }
-        self.inner.rollback()
+            ret
+        };
+        ret += self.inner.rollback()?;
+        Ok(ret)
     }
 }
 

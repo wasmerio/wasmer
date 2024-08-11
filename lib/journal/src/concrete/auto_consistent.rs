@@ -68,9 +68,15 @@ impl WritableJournal for AutoConsistentJournalTx {
     fn write<'a>(&'a self, entry: JournalEntry<'a>) -> anyhow::Result<LogWriteResult> {
         match &entry {
             JournalEntry::OpenFileDescriptorV1 { fd, .. }
-            | JournalEntry::SocketAcceptedV1 { fd, .. } => {
+            | JournalEntry::SocketAcceptedV1 { fd, .. }
+            | JournalEntry::CreateEventV1 { fd, .. } => {
                 let mut state = self.state.lock().unwrap();
                 state.open_files.insert(*fd);
+            }
+            JournalEntry::CreatePipeV1 { fd1, fd2 } => {
+                let mut state = self.state.lock().unwrap();
+                state.open_files.insert(*fd1);
+                state.open_files.insert(*fd2);
             }
             JournalEntry::RenumberFileDescriptorV1 { old_fd, new_fd } => {
                 let mut state = self.state.lock().unwrap();
@@ -107,7 +113,7 @@ impl WritableJournal for AutoConsistentJournalTx {
     }
 
     /// Commits the transaction
-    fn commit(&self) -> anyhow::Result<()> {
+    fn commit(&self) -> anyhow::Result<usize> {
         let open_files = {
             let mut state = self.state.lock().unwrap();
             let mut open_files = Default::default();
@@ -122,7 +128,7 @@ impl WritableJournal for AutoConsistentJournalTx {
     }
 
     /// Rolls back the transaction and aborts its changes
-    fn rollback(&self) -> anyhow::Result<()> {
+    fn rollback(&self) -> anyhow::Result<usize> {
         {
             let mut state = self.state.lock().unwrap();
             state.open_files.clear();
