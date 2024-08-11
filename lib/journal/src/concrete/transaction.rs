@@ -63,8 +63,8 @@ impl<W: WritableJournal> WritableJournal for TransactionJournalTx<W> {
         let estimate_size = entry.estimate_size();
         state.records.push(entry);
         Ok(LogWriteResult {
-            record_start: state.offset as u64,
-            record_end: state.offset as u64 + estimate_size as u64,
+            record_start: state.offset,
+            record_end: state.offset + estimate_size as u64,
         })
     }
 
