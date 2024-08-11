@@ -31,7 +31,7 @@ impl LogWriteResult {
 /// a WASM process at a point in time and saves it so that it can be restored.
 /// It also allows for the restoration of that state at a later moment
 #[allow(unused_variables)]
-pub trait WritableJournal {
+pub trait WritableJournal: std::fmt::Debug {
     /// Takes in a stream of snapshot log entries and saves them so that they
     /// may be restored at a later moment
     fn write<'a>(&'a self, entry: JournalEntry<'a>) -> anyhow::Result<LogWriteResult>;
@@ -81,7 +81,7 @@ impl<'a> Deref for LogReadResult<'a> {
 /// a WASM process at a point in time and saves it so that it can be restored.
 /// It also allows for the restoration of that state at a later moment
 #[allow(unused_variables)]
-pub trait ReadableJournal {
+pub trait ReadableJournal: std::fmt::Debug {
     /// Returns a stream of snapshot objects that the runtime will use
     /// to restore the state of a WASM process to a previous moment in time
     fn read(&self) -> anyhow::Result<Option<LogReadResult<'_>>>;
@@ -95,7 +95,7 @@ pub trait ReadableJournal {
 /// a WASM process at a point in time and saves it so that it can be restored.
 /// It also allows for the restoration of that state at a later moment
 #[allow(unused_variables)]
-pub trait Journal: WritableJournal + ReadableJournal {
+pub trait Journal: WritableJournal + ReadableJournal + std::fmt::Debug {
     /// Splits the journal into a read and write side
     fn split(self) -> (Box<DynWritableJournal>, Box<DynReadableJournal>);
 }
