@@ -1001,6 +1001,7 @@ impl WasiEnv {
     }
 
     /// Returns true if the environment has an active journal
+    #[cfg(feature = "journal")]
     pub fn has_active_journal(&self) -> bool {
         self.runtime().active_journal().is_some()
     }
