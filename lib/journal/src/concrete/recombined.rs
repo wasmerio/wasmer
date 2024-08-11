@@ -1,17 +1,18 @@
 use super::*;
 
-pub struct RecombinedJournal {
-    tx: Box<DynWritableJournal>,
-    rx: Box<DynReadableJournal>,
+#[derive(Debug)]
+pub struct RecombinedJournal<W: WritableJournal, R: ReadableJournal> {
+    tx: W,
+    rx: R,
 }
 
-impl RecombinedJournal {
-    pub fn new(tx: Box<DynWritableJournal>, rx: Box<DynReadableJournal>) -> Self {
+impl<W: WritableJournal, R: ReadableJournal> RecombinedJournal<W, R> {
+    pub fn new(tx: W, rx: R) -> Self {
         Self { tx, rx }
     }
 }
 
-impl WritableJournal for RecombinedJournal {
+impl<W: WritableJournal, R: ReadableJournal> WritableJournal for RecombinedJournal<W, R> {
     fn write<'a>(&'a self, entry: JournalEntry<'a>) -> anyhow::Result<LogWriteResult> {
         self.tx.write(entry)
     }
@@ -19,9 +20,17 @@ impl WritableJournal for RecombinedJournal {
     fn flush(&self) -> anyhow::Result<()> {
         self.tx.flush()
     }
+
+    fn commit(&self) -> anyhow::Result<usize> {
+        self.tx.commit()
+    }
+
+    fn rollback(&self) -> anyhow::Result<usize> {
+        self.tx.rollback()
+    }
 }
 
-impl ReadableJournal for RecombinedJournal {
+impl<W: WritableJournal, R: ReadableJournal> ReadableJournal for RecombinedJournal<W, R> {
     fn read(&self) -> anyhow::Result<Option<LogReadResult<'_>>> {
         self.rx.read()
     }
@@ -31,8 +40,12 @@ impl ReadableJournal for RecombinedJournal {
     }
 }
 
-impl Journal for RecombinedJournal {
+impl<W, R> Journal for RecombinedJournal<W, R>
+where
+    W: WritableJournal + Send + Sync + 'static,
+    R: ReadableJournal + Send + Sync + 'static,
+{
     fn split(self) -> (Box<DynWritableJournal>, Box<DynReadableJournal>) {
-        (self.tx, self.rx)
+        (Box::new(self.tx), Box::new(self.rx))
     }
 }

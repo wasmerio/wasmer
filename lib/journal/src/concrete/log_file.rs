@@ -150,7 +150,9 @@ impl LogFileJournal {
     }
 
     /// Create a new journal from a buffer
-    pub fn from_buffer(buffer: OwnedBuffer) -> RecombinedJournal {
+    pub fn from_buffer(
+        buffer: OwnedBuffer,
+    ) -> RecombinedJournal<UnsupportedJournal, LogFileJournalRx> {
         // Create the rx
         let rx = LogFileJournalRx {
             tx: None,
@@ -163,7 +165,7 @@ impl LogFileJournal {
         let tx = UnsupportedJournal::default();
 
         // Now recombine
-        RecombinedJournal::new(Box::new(tx), Box::new(rx))
+        RecombinedJournal::new(tx, rx)
     }
 }
 
@@ -302,6 +304,14 @@ impl WritableJournal for LogFileJournal {
 
     fn flush(&self) -> anyhow::Result<()> {
         self.tx.flush()
+    }
+
+    fn commit(&self) -> anyhow::Result<usize> {
+        self.tx.commit()
+    }
+
+    fn rollback(&self) -> anyhow::Result<usize> {
+        self.tx.rollback()
     }
 }
 

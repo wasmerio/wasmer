@@ -89,6 +89,14 @@ impl WritableJournal for BufferedJournal {
     fn flush(&self) -> anyhow::Result<()> {
         self.tx.flush()
     }
+
+    fn commit(&self) -> anyhow::Result<usize> {
+        self.tx.commit()
+    }
+
+    fn rollback(&self) -> anyhow::Result<usize> {
+        self.tx.rollback()
+    }
 }
 
 impl ReadableJournal for BufferedJournal {

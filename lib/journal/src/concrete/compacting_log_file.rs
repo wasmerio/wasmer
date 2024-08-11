@@ -241,6 +241,14 @@ impl WritableJournal for CompactingLogFileJournalTx {
     fn flush(&self) -> anyhow::Result<()> {
         self.inner.flush()
     }
+
+    fn commit(&self) -> anyhow::Result<usize> {
+        self.inner.commit()
+    }
+
+    fn rollback(&self) -> anyhow::Result<usize> {
+        self.inner.rollback()
+    }
 }
 
 impl ReadableJournal for CompactingLogFileJournal {
@@ -260,6 +268,14 @@ impl WritableJournal for CompactingLogFileJournal {
 
     fn flush(&self) -> anyhow::Result<()> {
         self.tx.flush()
+    }
+
+    fn commit(&self) -> anyhow::Result<usize> {
+        self.tx.commit()
+    }
+
+    fn rollback(&self) -> anyhow::Result<usize> {
+        self.tx.rollback()
     }
 }
 

@@ -1,8 +1,8 @@
-use std::ops::Deref;
+use std::{ops::Deref, sync::Arc};
 
 use super::*;
 
-impl ReadableJournal for Box<DynReadableJournal> {
+impl<R: ReadableJournal + ?Sized> ReadableJournal for Box<R> {
     fn read(&self) -> anyhow::Result<Option<LogReadResult<'_>>> {
         self.deref().read()
     }
@@ -12,7 +12,7 @@ impl ReadableJournal for Box<DynReadableJournal> {
     }
 }
 
-impl WritableJournal for Box<DynWritableJournal> {
+impl<W: WritableJournal + ?Sized> WritableJournal for Box<W> {
     fn write<'a>(&'a self, entry: JournalEntry<'a>) -> anyhow::Result<LogWriteResult> {
         self.deref().write(entry)
     }
@@ -20,24 +20,19 @@ impl WritableJournal for Box<DynWritableJournal> {
     fn flush(&self) -> anyhow::Result<()> {
         self.deref().flush()
     }
-}
 
-impl ReadableJournal for Box<DynJournal> {
-    fn read(&self) -> anyhow::Result<Option<LogReadResult<'_>>> {
-        self.deref().read()
+    fn commit(&self) -> anyhow::Result<usize> {
+        self.deref().commit()
     }
 
-    fn as_restarted(&self) -> anyhow::Result<Box<DynReadableJournal>> {
-        self.deref().as_restarted()
+    fn rollback(&self) -> anyhow::Result<usize> {
+        self.deref().rollback()
     }
 }
 
-impl WritableJournal for Box<DynJournal> {
-    fn write<'a>(&'a self, entry: JournalEntry<'a>) -> anyhow::Result<LogWriteResult> {
-        self.deref().write(entry)
-    }
-
-    fn flush(&self) -> anyhow::Result<()> {
-        self.deref().flush()
+impl Journal for Box<DynJournal> {
+    fn split(self) -> (Box<DynWritableJournal>, Box<DynReadableJournal>) {
+        let this = Arc::new(self);
+        (Box::new(this.clone()), Box::new(this))
     }
 }

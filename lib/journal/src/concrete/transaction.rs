@@ -1,15 +1,13 @@
 use std::sync::{Arc, Mutex};
 
-use derivative::Derivative;
-
 use super::*;
 
 /// Journal which will store the events locally in memory until it
 /// is either committed or rolled back
 #[derive(Debug)]
-pub struct TransactionJournal {
-    pub(super) tx: TransactionJournalTx,
-    pub(super) rx: TransactionJournalRx,
+pub struct TransactionJournal<W: WritableJournal, R: ReadableJournal> {
+    pub(super) tx: TransactionJournalTx<W>,
+    pub(super) rx: TransactionJournalRx<R>,
 }
 
 #[derive(Debug, Default, Clone)]
@@ -18,23 +16,19 @@ pub(super) struct State {
     pub(super) offset: u64,
 }
 
-#[derive(Derivative)]
-#[derivative(Debug)]
-pub struct TransactionJournalTx {
+#[derive(Debug)]
+pub struct TransactionJournalTx<W: WritableJournal> {
     pub(super) state: Arc<Mutex<State>>,
-    #[derivative(Debug = "ignore")]
-    inner: Box<DynWritableJournal>,
+    inner: W,
 }
 
-#[derive(Derivative)]
-#[derivative(Debug)]
-pub struct TransactionJournalRx {
+#[derive(Debug)]
+pub struct TransactionJournalRx<R: ReadableJournal> {
     state: Arc<Mutex<State>>,
-    #[derivative(Debug = "ignore")]
-    inner: Box<DynReadableJournal>,
+    inner: R,
 }
 
-impl TransactionJournal {
+impl TransactionJournal<Box<DynWritableJournal>, Box<DynReadableJournal>> {
     /// Creates a transactional journal which will hold events in memory
     /// until the journal is either committed or rolled back
     pub fn new<J>(inner: J) -> Self
@@ -54,13 +48,15 @@ impl TransactionJournal {
             },
         }
     }
+}
 
-    pub fn into_inner(self) -> RecombinedJournal {
+impl<W: WritableJournal, R: ReadableJournal> TransactionJournal<W, R> {
+    pub fn into_inner(self) -> RecombinedJournal<W, R> {
         RecombinedJournal::new(self.tx.inner, self.rx.inner)
     }
 }
 
-impl WritableJournal for TransactionJournalTx {
+impl<W: WritableJournal> WritableJournal for TransactionJournalTx<W> {
     fn write<'a>(&'a self, entry: JournalEntry<'a>) -> anyhow::Result<LogWriteResult> {
         let entry = entry.into_owned();
         let mut state = self.state.lock().unwrap();
@@ -111,7 +107,7 @@ impl WritableJournal for TransactionJournalTx {
     }
 }
 
-impl ReadableJournal for TransactionJournalRx {
+impl<R: ReadableJournal> ReadableJournal for TransactionJournalRx<R> {
     fn read(&self) -> anyhow::Result<Option<LogReadResult<'_>>> {
         let ret = self.inner.read()?;
         if let Some(res) = ret.as_ref() {
@@ -129,7 +125,7 @@ impl ReadableJournal for TransactionJournalRx {
     }
 }
 
-impl WritableJournal for TransactionJournal {
+impl<W: WritableJournal, R: ReadableJournal> WritableJournal for TransactionJournal<W, R> {
     fn write<'a>(&'a self, entry: JournalEntry<'a>) -> anyhow::Result<LogWriteResult> {
         self.tx.write(entry)
     }
@@ -137,9 +133,17 @@ impl WritableJournal for TransactionJournal {
     fn flush(&self) -> anyhow::Result<()> {
         self.tx.flush()
     }
+
+    fn commit(&self) -> anyhow::Result<usize> {
+        self.tx.commit()
+    }
+
+    fn rollback(&self) -> anyhow::Result<usize> {
+        self.tx.rollback()
+    }
 }
 
-impl ReadableJournal for TransactionJournal {
+impl<W: WritableJournal, R: ReadableJournal> ReadableJournal for TransactionJournal<W, R> {
     fn read(&self) -> anyhow::Result<Option<LogReadResult<'_>>> {
         self.rx.read()
     }
@@ -149,7 +153,7 @@ impl ReadableJournal for TransactionJournal {
     }
 }
 
-impl Journal for TransactionJournal {
+impl Journal for TransactionJournal<Box<DynWritableJournal>, Box<DynReadableJournal>> {
     fn split(self) -> (Box<DynWritableJournal>, Box<DynReadableJournal>) {
         (Box::new(self.tx), Box::new(self.rx))
     }
