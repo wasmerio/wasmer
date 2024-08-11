@@ -110,7 +110,7 @@ impl State {
         R: ReadableJournal,
     {
         let has_threads = !self.thread_map.is_empty();
-        
+
         let mut filter = FilteredJournalBuilder::new()
             .with_filter_events(self.whitelist.clone().into_iter().collect());
         if let Some(tty) = self.tty.as_ref() {
