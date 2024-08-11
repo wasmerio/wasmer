@@ -254,6 +254,15 @@ impl CompactingJournal {
             rx: CompactingJournalRx { inner: rx },
         })
     }
+
+    /// Creates a filter jounral which will write all
+    /// its events to an inner journal
+    pub fn create_filter<J>(&self, inner: J) -> FilteredJournal
+    where
+        J: Journal,
+    {
+        self.tx.create_filter(inner)
+    }
 }
 
 /// Represents the results of a compaction operation

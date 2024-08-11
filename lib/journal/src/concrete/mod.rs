@@ -9,6 +9,7 @@ mod buffered;
 mod compacting;
 #[cfg(feature = "log-file")]
 mod compacting_log_file;
+mod compacting_transaction;
 mod counting;
 mod filter;
 #[cfg(feature = "log-file")]
@@ -33,6 +34,7 @@ pub use buffered::*;
 pub use compacting::*;
 #[cfg(feature = "log-file")]
 pub use compacting_log_file::*;
+pub use compacting_transaction::*;
 pub use counting::*;
 pub use filter::*;
 #[cfg(feature = "log-file")]
