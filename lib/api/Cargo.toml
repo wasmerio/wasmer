@@ -56,7 +56,7 @@ wasmparser = { workspace = true, default-features = false, optional = true }
 
 # - Mandatory dependencies for `sys` on Windows.
 [target.'cfg(all(not(target_arch = "wasm32"), target_os = "windows"))'.dependencies]
-winapi = "0.3"
+windows-sys = "0.59"
 # - Development Dependencies for `sys`.
 [target.'cfg(not(target_arch = "wasm32"))'.dev-dependencies]
 wat = "1.0"

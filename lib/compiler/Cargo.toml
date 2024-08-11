@@ -44,7 +44,7 @@ wasmer-vm = { path = "../vm", version = "=4.3.5" }
 region = { version = "3.0" }
 
 [target.'cfg(target_os = "windows")'.dependencies]
-winapi = { version = "0.3", features = ["winnt", "impl-default"] }
+windows-sys = { version = "0.59", features = ["Win32_System_Diagnostics_Debug"] }
 
 [features]
 default = ["std"]

@@ -30,7 +30,8 @@ pub fn platform_clock_time_get(
 ) -> Result<i64, wasi::Errno> {
     let nanos = match clock_id {
         wasi::Snapshot0Clockid::Monotonic => {
-            let tick_ms = unsafe { winapi::um::sysinfoapi::GetTickCount64() };
+            let tick_ms =
+                unsafe { windows_sys::Win32::System::SystemInformation::GetTickCount64() };
             tick_ms * 1_000_000
         }
         wasi::Snapshot0Clockid::Realtime => {
