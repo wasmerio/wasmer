@@ -38,6 +38,16 @@ pub trait WritableJournal {
 
     /// Flushes the data to disk or network
     fn flush(&self) -> anyhow::Result<()>;
+
+    /// Commits the transaction
+    fn commit(&self) -> anyhow::Result<()> {
+        self.flush()
+    }
+
+    /// Rolls back the transaction and aborts its changes
+    fn rollback(&self) -> anyhow::Result<()> {
+        Ok(())
+    }
 }
 
 /// The results of an operation to read a log entry from the log
