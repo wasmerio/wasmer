@@ -10,10 +10,32 @@ use super::*;
 
 pub type Fd = u32;
 
+/// Subgroup of events that may or may not be retained in the
+/// final journal as it is compacted.
+///
+/// By grouping events into subevents it makes it possible to ignore an
+/// entire subgroup of events which are superseeded by a later event. For
+/// example, all the events involved in creating a file are irrelevant if
+/// that file is later deleted.
 #[derive(Debug, Default)]
-struct StateDescriptor {
+struct SubGroupOfevents {
+    /// List of all the events that will be transferred over
+    /// to the compacted journal if this sub group is selected
+    /// to be carried over
     events: Vec<usize>,
+    /// The path metadata attached to this sub group of events
+    /// is used to discard all subgroups related to a particular
+    /// path of a file or directory. This is especially important
+    /// if that file is later deleted and hence all the events
+    /// related to it are no longer relevant
     path: Option<String>,
+    /// The write map allows the ccompacted to only keep the
+    /// events relevant to the final outcome of a compacted
+    /// journal rather than written regions that are later
+    /// overridden. This is a crude write map that does not
+    /// deal with overlapping writes (they still remain)
+    /// However in the majority of cases this will remove
+    /// duplicates while retaining a simple implementation
     write_map: HashMap<MemoryRange, usize>,
 }
 
@@ -31,8 +53,20 @@ impl From<Range<u64>> for MemoryRange {
     }
 }
 
+/// Index of a group of subevents in the journal which relate to a particular
+/// collective impact. For example. Creating a new file which may consist of
+/// an event to open a file, the events for writing the file data and the
+/// closing of the file are all related to a group of sub events that make
+/// up the act of creating that file. During compaction these events
+/// will be grouped together so they can be retained or discarded based
+/// on the final deterministic outcome of the entire log.
+///
+/// By grouping events into subevents it makes it possible to ignore an
+/// entire subgroup of events which are superseeded by a later event. For
+/// example, all the events involved in creating a file are irrelevant if
+/// that file is later deleted.
 #[derive(Debug, Clone, Copy, PartialOrd, Ord, PartialEq, Eq, Hash)]
-struct SubEventsLookup(u64);
+struct SubGroupIndex(u64);
 
 #[derive(Derivative)]
 #[derivative(Debug)]
@@ -52,7 +86,7 @@ struct State {
     // Last event that initialized the module
     init_module: Option<usize>,
     // Events that create a particular directory
-    create_directory: HashMap<String, SubEventsLookup>,
+    create_directory: HashMap<String, SubGroupIndex>,
     // Events that remove a particular directory
     remove_directory: HashMap<String, usize>,
     // Events that unlink a file
@@ -64,31 +98,31 @@ struct State {
     // process are still running
     staged_thread_map: HashMap<u32, usize>,
     // Sockets that are open and not yet closed are kept here
-    open_sockets: HashMap<Fd, SubEventsLookup>,
+    open_sockets: HashMap<Fd, SubGroupIndex>,
     // Sockets that are open and not yet closed are kept here
-    accepted_sockets: HashMap<Fd, SubEventsLookup>,
+    accepted_sockets: HashMap<Fd, SubGroupIndex>,
     // Open pipes have two file descriptors that are associated with
     // them. We keep track of both of them
-    open_pipes: HashMap<Fd, SubEventsLookup>,
+    open_pipes: HashMap<Fd, SubGroupIndex>,
     // Any descriptors are assumed to be read only operations until
     // they actually do something that changes the system
-    suspect_descriptors: HashMap<Fd, SubEventsLookup>,
+    suspect_descriptors: HashMap<Fd, SubGroupIndex>,
     // Any descriptors are assumed to be read only operations until
     // they actually do something that changes the system
-    keep_descriptors: HashMap<Fd, SubEventsLookup>,
-    kept_descriptors: Vec<SubEventsLookup>,
+    keep_descriptors: HashMap<Fd, SubGroupIndex>,
+    kept_descriptors: Vec<SubGroupIndex>,
     // We put the IO related to stdio into a special list
     // which can be purged when the program exits as its no longer
     // important.
-    stdio_descriptors: HashMap<Fd, SubEventsLookup>,
+    stdio_descriptors: HashMap<Fd, SubGroupIndex>,
     // Event objects handle events from other parts of the process
     // and feed them to a processing thread
-    event_descriptors: HashMap<Fd, SubEventsLookup>,
+    event_descriptors: HashMap<Fd, SubGroupIndex>,
     // Epoll events
-    epoll_descriptors: HashMap<Fd, SubEventsLookup>,
+    epoll_descriptors: HashMap<Fd, SubGroupIndex>,
     // We abstract the descriptor state so that multiple file descriptors
     // can refer to the same file descriptors
-    sub_events: HashMap<SubEventsLookup, StateDescriptor>,
+    sub_events: HashMap<SubGroupIndex, SubGroupOfevents>,
     // Everything that will be retained during the next compact
     whitelist: HashSet<usize>,
     // We use an event index to track what to keep
@@ -120,10 +154,10 @@ impl State {
             .chain(self.process_exit.as_ref().into_iter())
             .chain(self.init_module.as_ref().into_iter())
             .chain(self.snapshots.iter())
-            .chain(self.memory_map.iter().map(|(_, e)| e))
-            .chain(self.thread_map.iter().map(|(_, e)| e))
-            .chain(self.remove_directory.iter().map(|(_, e)| e))
-            .chain(self.unlink_file.iter().map(|(_, e)| e))
+            .chain(self.memory_map.values())
+            .chain(self.thread_map.values())
+            .chain(self.remove_directory.values())
+            .chain(self.unlink_file.values())
             .cloned()
         {
             filter.add_event_to_whitelist(event_index);
@@ -188,8 +222,8 @@ impl State {
         filter.build(inner)
     }
 
-    fn insert_new_sub_events(&mut self, event_index: usize) -> SubEventsLookup {
-        let lookup = SubEventsLookup(self.descriptor_seed);
+    fn insert_new_sub_events(&mut self, event_index: usize) -> SubGroupIndex {
+        let lookup = SubGroupIndex(self.descriptor_seed);
         self.descriptor_seed += 1;
 
         self.sub_events
@@ -201,13 +235,13 @@ impl State {
         lookup
     }
 
-    fn append_to_sub_events(&mut self, lookup: &SubEventsLookup, event_index: usize) {
+    fn append_to_sub_events(&mut self, lookup: &SubGroupIndex, event_index: usize) {
         if let Some(state) = self.sub_events.get_mut(lookup) {
             state.events.push(event_index);
         }
     }
 
-    fn set_path_for_sub_events(&mut self, lookup: &SubEventsLookup, path: &str) {
+    fn set_path_for_sub_events(&mut self, lookup: &SubGroupIndex, path: &str) {
         if let Some(state) = self.sub_events.get_mut(lookup) {
             state.path = Some(path.to_string());
         }
@@ -228,7 +262,7 @@ impl State {
             })
     }
 
-    fn find_sub_events(&self, fd: &u32) -> Option<SubEventsLookup> {
+    fn find_sub_events(&self, fd: &u32) -> Option<SubGroupIndex> {
         self.suspect_descriptors
             .get(fd)
             .cloned()
@@ -622,6 +656,7 @@ impl WritableJournal for CompactingJournalTx {
                 let path = path.to_string();
 
                 // Newly created directories are stored as a set of .
+                #[allow(clippy::map_entry)]
                 if !state.create_directory.contains_key(&path) {
                     let lookup = state.insert_new_sub_events(event_index);
                     state.set_path_for_sub_events(&lookup, &path);
