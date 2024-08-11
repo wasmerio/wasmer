@@ -3,41 +3,35 @@ use std::{
     sync::{Arc, Mutex},
 };
 
-use derivative::Derivative;
-
 use super::*;
 
 /// Journal which leave itself in a consistent state once it commits
 /// by closing all the file descriptors that were opened while
 /// it was recording writes.
 #[derive(Debug)]
-pub struct AutoConsistentJournal {
-    tx: AutoConsistentJournalTx,
-    rx: AutoConsistentJournalRx,
+pub struct AutoConsistentJournal<W: WritableJournal, R: ReadableJournal> {
+    tx: AutoConsistentJournalTx<W>,
+    rx: AutoConsistentJournalRx<R>,
 }
 
 #[derive(Debug, Default, Clone)]
 struct State {
     open_files: HashSet<u32>,
+    open_sockets: HashSet<u32>,
 }
 
-#[derive(Derivative)]
-#[derivative(Debug)]
-pub struct AutoConsistentJournalTx {
+#[derive(Debug)]
+pub struct AutoConsistentJournalTx<W: WritableJournal> {
     state: Arc<Mutex<State>>,
-    #[derivative(Debug = "ignore")]
-    inner: Box<DynWritableJournal>,
+    inner: W,
 }
 
-#[derive(Derivative)]
-#[derivative(Debug)]
-pub struct AutoConsistentJournalRx {
-    state: Arc<Mutex<State>>,
-    #[derivative(Debug = "ignore")]
-    inner: Box<DynReadableJournal>,
+#[derive(Debug)]
+pub struct AutoConsistentJournalRx<R: ReadableJournal> {
+    inner: R,
 }
 
-impl AutoConsistentJournal {
+impl AutoConsistentJournal<Box<DynWritableJournal>, Box<DynReadableJournal>> {
     /// Creates a journal which will automatically correct inconsistencies when
     /// it commits. E.g. it will close any open file descriptors that were left
     /// open as it was processing events.
@@ -52,26 +46,28 @@ impl AutoConsistentJournal {
                 inner: tx,
                 state: state.clone(),
             },
-            rx: AutoConsistentJournalRx {
-                inner: rx,
-                state: state.clone(),
-            },
+            rx: AutoConsistentJournalRx { inner: rx },
         }
     }
+}
 
-    pub fn into_inner(self) -> RecombinedJournal {
+impl<W: WritableJournal, R: ReadableJournal> AutoConsistentJournal<W, R> {
+    pub fn into_inner(self) -> RecombinedJournal<W, R> {
         RecombinedJournal::new(self.tx.inner, self.rx.inner)
     }
 }
 
-impl WritableJournal for AutoConsistentJournalTx {
+impl<W: WritableJournal> WritableJournal for AutoConsistentJournalTx<W> {
     fn write<'a>(&'a self, entry: JournalEntry<'a>) -> anyhow::Result<LogWriteResult> {
         match &entry {
             JournalEntry::OpenFileDescriptorV1 { fd, .. }
-            | JournalEntry::SocketAcceptedV1 { fd, .. }
             | JournalEntry::CreateEventV1 { fd, .. } => {
                 let mut state = self.state.lock().unwrap();
                 state.open_files.insert(*fd);
+            }
+            JournalEntry::SocketAcceptedV1 { fd, .. } => {
+                let mut state = self.state.lock().unwrap();
+                state.open_sockets.insert(*fd);
             }
             JournalEntry::CreatePipeV1 { fd1, fd2 } => {
                 let mut state = self.state.lock().unwrap();
@@ -83,6 +79,9 @@ impl WritableJournal for AutoConsistentJournalTx {
                 if state.open_files.remove(old_fd) {
                     state.open_files.insert(*new_fd);
                 }
+                if state.open_sockets.remove(old_fd) {
+                    state.open_sockets.insert(*new_fd);
+                }
             }
             JournalEntry::DuplicateFileDescriptorV1 {
                 original_fd,
@@ -92,16 +91,21 @@ impl WritableJournal for AutoConsistentJournalTx {
                 if state.open_files.contains(original_fd) {
                     state.open_files.insert(*copied_fd);
                 }
+                if state.open_sockets.contains(original_fd) {
+                    state.open_sockets.insert(*copied_fd);
+                }
             }
             JournalEntry::CloseFileDescriptorV1 { fd } => {
                 let mut state = self.state.lock().unwrap();
                 state.open_files.remove(fd);
+                state.open_sockets.remove(fd);
             }
             JournalEntry::InitModuleV1 { .. }
             | JournalEntry::ClearEtherealV1 { .. }
             | JournalEntry::ProcessExitV1 { .. } => {
                 let mut state = self.state.lock().unwrap();
                 state.open_files.clear();
+                state.open_sockets.clear();
             }
             _ => {}
         }
@@ -118,6 +122,7 @@ impl WritableJournal for AutoConsistentJournalTx {
             let mut state = self.state.lock().unwrap();
             let mut open_files = Default::default();
             std::mem::swap(&mut open_files, &mut state.open_files);
+            state.open_sockets.clear();
             open_files
         };
         for fd in open_files {
@@ -132,12 +137,13 @@ impl WritableJournal for AutoConsistentJournalTx {
         {
             let mut state = self.state.lock().unwrap();
             state.open_files.clear();
+            state.open_sockets.clear();
         }
         self.inner.rollback()
     }
 }
 
-impl ReadableJournal for AutoConsistentJournalRx {
+impl<R: ReadableJournal> ReadableJournal for AutoConsistentJournalRx<R> {
     fn read(&self) -> anyhow::Result<Option<LogReadResult<'_>>> {
         self.inner.read()
     }
@@ -145,12 +151,11 @@ impl ReadableJournal for AutoConsistentJournalRx {
     fn as_restarted(&self) -> anyhow::Result<Box<DynReadableJournal>> {
         Ok(Box::new(AutoConsistentJournalRx {
             inner: self.inner.as_restarted()?,
-            state: Arc::new(Mutex::new(State::default())),
         }))
     }
 }
 
-impl WritableJournal for AutoConsistentJournal {
+impl<W: WritableJournal, R: ReadableJournal> WritableJournal for AutoConsistentJournal<W, R> {
     fn write<'a>(&'a self, entry: JournalEntry<'a>) -> anyhow::Result<LogWriteResult> {
         self.tx.write(entry)
     }
@@ -158,9 +163,17 @@ impl WritableJournal for AutoConsistentJournal {
     fn flush(&self) -> anyhow::Result<()> {
         self.tx.flush()
     }
+
+    fn commit(&self) -> anyhow::Result<usize> {
+        self.tx.commit()
+    }
+
+    fn rollback(&self) -> anyhow::Result<usize> {
+        self.tx.rollback()
+    }
 }
 
-impl ReadableJournal for AutoConsistentJournal {
+impl<W: WritableJournal, R: ReadableJournal> ReadableJournal for AutoConsistentJournal<W, R> {
     fn read(&self) -> anyhow::Result<Option<LogReadResult<'_>>> {
         self.rx.read()
     }
@@ -170,7 +183,7 @@ impl ReadableJournal for AutoConsistentJournal {
     }
 }
 
-impl Journal for AutoConsistentJournal {
+impl Journal for AutoConsistentJournal<Box<DynWritableJournal>, Box<DynReadableJournal>> {
     fn split(self) -> (Box<DynWritableJournal>, Box<DynReadableJournal>) {
         (Box::new(self.tx), Box::new(self.rx))
     }
