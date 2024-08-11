@@ -1108,6 +1108,16 @@
 <a href="#1108" id="1108">1108</a>
 <a href="#1109" id="1109">1109</a>
 <a href="#1110" id="1110">1110</a>
+<a href="#1111" id="1111">1111</a>
+<a href="#1112" id="1112">1112</a>
+<a href="#1113" id="1113">1113</a>
+<a href="#1114" id="1114">1114</a>
+<a href="#1115" id="1115">1115</a>
+<a href="#1116" id="1116">1116</a>
+<a href="#1117" id="1117">1117</a>
+<a href="#1118" id="1118">1118</a>
+<a href="#1119" id="1119">1119</a>
+<a href="#1120" id="1120">1120</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file contains code from external sources.
 // Attributions: https://github.com/wasmerio/wasmer/blob/main/docs/ATTRIBUTIONS.md
 
@@ -1194,7 +1204,7 @@
         </span><span class="kw">pub type </span>TrapHandlerFn&lt;<span class="lifetime">&#39;a</span>&gt; = <span class="kw">dyn </span>Fn(libc::c_int, <span class="kw-2">*const </span>libc::siginfo_t, <span class="kw-2">*const </span>libc::c_void) -&gt; bool + Send + Sync + <span class="lifetime">&#39;a</span>;
     } <span class="kw">else if </span><span class="attr">#[cfg(target_os = <span class="string">&quot;windows&quot;</span>)] </span>{
         <span class="doccomment">/// Function which may handle custom signals while processing traps.
-        </span><span class="kw">pub type </span>TrapHandlerFn&lt;<span class="lifetime">&#39;a</span>&gt; = <span class="kw">dyn </span>Fn(winapi::um::winnt::PEXCEPTION_POINTERS) -&gt; bool + Send + Sync + <span class="lifetime">&#39;a</span>;
+        </span><span class="kw">pub type </span>TrapHandlerFn&lt;<span class="lifetime">&#39;a</span>&gt; = <span class="kw">dyn </span>Fn(<span class="kw-2">*mut </span>windows_sys::Win32::System::Diagnostics::Debug::EXCEPTION_POINTERS) -&gt; bool + Send + Sync + <span class="lifetime">&#39;a</span>;
     }
 }
 
@@ -1575,10 +1585,20 @@
             };
         }
     } <span class="kw">else if </span><span class="attr">#[cfg(target_os = <span class="string">&quot;windows&quot;</span>)] </span>{
-        <span class="kw">use </span>winapi::um::errhandlingapi::<span class="kw-2">*</span>;
-        <span class="kw">use </span>winapi::um::winnt::<span class="kw-2">*</span>;
-        <span class="kw">use </span>winapi::um::minwinbase::<span class="kw-2">*</span>;
-        <span class="kw">use </span>winapi::vc::excpt::<span class="kw-2">*</span>;
+        <span class="kw">use </span>windows_sys::Win32::System::Diagnostics::Debug::{
+            AddVectoredExceptionHandler,
+            CONTEXT,
+            EXCEPTION_CONTINUE_EXECUTION,
+            EXCEPTION_CONTINUE_SEARCH,
+            EXCEPTION_POINTERS,
+        };
+        <span class="kw">use </span>windows_sys::Win32::Foundation::{
+            EXCEPTION_ACCESS_VIOLATION,
+            EXCEPTION_ILLEGAL_INSTRUCTION,
+            EXCEPTION_INT_DIVIDE_BY_ZERO,
+            EXCEPTION_INT_OVERFLOW,
+            EXCEPTION_STACK_OVERFLOW,
+        };
 
         <span class="kw">unsafe fn </span>platform_init() {
             <span class="comment">// our trap handler needs to go first, so that we can recover from
@@ -1590,8 +1610,8 @@
         }
 
         <span class="kw">unsafe extern </span><span class="string">&quot;system&quot; </span><span class="kw">fn </span>exception_handler(
-            exception_info: PEXCEPTION_POINTERS
-        ) -&gt; LONG {
+            exception_info: <span class="kw-2">*mut </span>EXCEPTION_POINTERS
+        ) -&gt; i32 {
             <span class="comment">// Check the kind of exception, since we only handle a subset within
             // wasm code. If anything else happens we want to defer to whatever
             // the rest of the system wants to do for this exception.
@@ -2103,7 +2123,7 @@
     <span class="comment">// We need additional space on the stack to handle stack overflow
     // exceptions. Rust&#39;s initialization code sets this to 0x5000 but this
     // seems to be insufficient in practice.
-    </span><span class="kw">use </span>winapi::um::processthreadsapi::SetThreadStackGuarantee;
+    </span><span class="kw">use </span>windows_sys::Win32::System::Threading::SetThreadStackGuarantee;
     <span class="kw">if unsafe </span>{ SetThreadStackGuarantee(<span class="kw-2">&amp;mut </span><span class="number">0x10000</span>) } == <span class="number">0 </span>{
         <span class="macro">panic!</span>(<span class="string">&quot;failed to set thread stack guarantee&quot;</span>);
     }
