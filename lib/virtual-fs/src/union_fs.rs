@@ -158,17 +158,19 @@ impl UnionFileSystem {
     }
 
     fn read_dir_internal(&self, path: &Path) -> Result<ReadDir> {
-        let path = path.to_string_lossy();
+        let path_str = path.to_string_lossy();
 
         let mut ret = None;
-        for (path, mount) in filter_mounts(&self.mounts, path.as_ref()) {
-            match mount.fs.read_dir(Path::new(path.as_str())) {
+        for (p, mount) in filter_mounts(&self.mounts, path_str.as_ref()) {
+            match mount.fs.read_dir(Path::new(p.as_str())) {
                 Ok(dir) => {
                     if ret.is_none() {
                         ret = Some(Vec::new());
                     }
                     let ret = ret.as_mut().unwrap();
-                    for sub in dir.flatten() {
+                    for mut sub in dir.flatten() {
+                        let sub_path: PathBuf = sub.path.components().skip(1).collect();
+                        sub.path = path.join(&sub_path);
                         ret.push(sub);
                     }
                 }
@@ -177,6 +179,45 @@ impl UnionFileSystem {
                 }
             }
         }
+
+        // also take into account partial matchings
+        let mut partial_ret = Vec::new();
+        let path = PathBuf::from(path_str.into_owned());
+        for mount in &self.mounts {
+            let mount_path = PathBuf::from(&mount.path);
+
+            if let Ok(postfix) = mount_path.strip_prefix(&path) {
+                if let Some(_entry) = postfix.components().next() {
+                    if partial_ret
+                        .iter()
+                        .all(|e: &DirEntry| e.path.as_path() != path.join(_entry).as_path())
+                    {
+                        partial_ret.push(DirEntry {
+                            path: path.join(_entry),
+                            metadata: Ok(Metadata {
+                                ft: FileType::new_dir(),
+                                accessed: 0,
+                                created: 0,
+                                modified: 0,
+                                len: 0,
+                            }),
+                        })
+                    }
+                }
+            }
+        }
+
+        let ret = if let Some(mut ret) = ret {
+            ret.extend(partial_ret);
+
+            Some(ret)
+        } else {
+            if partial_ret.is_empty() {
+                None
+            } else {
+                Some(partial_ret)
+            }
+        };
 
         match ret {
             Some(mut ret) => {
@@ -349,6 +390,20 @@ impl FileSystem for UnionFileSystem {
                 }
             }
         }
+
+        // if no mount point fully matched, maybe there is a partial matching
+        let path = path.into_owned();
+        for mount in &self.mounts {
+            if mount.path.starts_with(&path) {
+                return Ok(Metadata {
+                    ft: FileType::new_dir(),
+                    accessed: 0,
+                    created: 0,
+                    modified: 0,
+                    len: 0,
+                });
+            }
+        }
         Err(ret_error)
     }
     fn symlink_metadata(&self, path: &Path) -> Result<Metadata> {
@@ -373,11 +428,24 @@ impl FileSystem for UnionFileSystem {
                 }
             }
         }
+
+        // if no mount point fully matched, maybe there is a partial matching
+        let path = path.into_owned();
+        for mount in &self.mounts {
+            if mount.path.starts_with(&path) {
+                return Ok(Metadata {
+                    ft: FileType::new_dir(),
+                    accessed: 0,
+                    created: 0,
+                    modified: 0,
+                    len: 0,
+                });
+            }
+        }
         debug!("symlink_metadata: failed={}", ret_error);
         Err(ret_error)
     }
     fn remove_file(&self, path: &Path) -> Result<()> {
-        println!("remove_file: path={}", path.display());
         let mut ret_error = FsError::EntryNotFound;
         let path = path.to_string_lossy();
         for (path, mount) in filter_mounts(&self.mounts, path.as_ref()) {
@@ -386,7 +454,6 @@ impl FileSystem for UnionFileSystem {
                     return Ok(ret);
                 }
                 Err(err) => {
-                    println!("returning error {err:?}");
                     ret_error = err;
                 }
             }
@@ -488,15 +555,16 @@ impl FileOpener for UnionFileSystem {
 
 #[cfg(test)]
 mod tests {
-    use std::path::Path;
+    use std::path::{Path, PathBuf};
 
     use tokio::io::AsyncWriteExt;
 
     use crate::{mem_fs, ops, FileSystem as FileSystemTrait, FsError, UnionFileSystem};
 
+    use super::{FileOpener, OpenOptionsConfig};
+
     fn gen_filesystem() -> UnionFileSystem {
         let mut union = UnionFileSystem::new();
-        // fs.mount("/", Box::new(mem_fs::FileSystem::default()));
         let a = mem_fs::FileSystem::default();
         let b = mem_fs::FileSystem::default();
         let c = mem_fs::FileSystem::default();
@@ -516,6 +584,102 @@ mod tests {
         union.mount("mem_fs_6", "/test_canonicalize", false, Box::new(h), None);
 
         union
+    }
+
+    fn gen_nested_filesystem() -> UnionFileSystem {
+        let mut union = UnionFileSystem::new();
+        let a = mem_fs::FileSystem::default();
+        a.open(
+            &PathBuf::from("/data-a.txt"),
+            &OpenOptionsConfig {
+                read: true,
+                write: true,
+                create_new: false,
+                create: true,
+                append: false,
+                truncate: false,
+            },
+        )
+        .unwrap();
+        let b = mem_fs::FileSystem::default();
+        b.open(
+            &PathBuf::from("/data-b.txt"),
+            &OpenOptionsConfig {
+                read: true,
+                write: true,
+                create_new: false,
+                create: true,
+                append: false,
+                truncate: false,
+            },
+        )
+        .unwrap();
+
+        union.mount("mem_fs_1", "/app/a", false, Box::new(a), None);
+        union.mount("mem_fs_2", "/app/b", false, Box::new(b), None);
+
+        union
+    }
+
+    #[tokio::test]
+    async fn test_nested_read_dir() {
+        let fs = gen_nested_filesystem();
+
+        let root_contents: Vec<String> = fs
+            .read_dir(&PathBuf::from("/"))
+            .unwrap()
+            .map(|e| e.unwrap().path.to_str().unwrap().to_string())
+            .collect();
+        assert_eq!(root_contents, vec!["/app"]);
+
+        let app_contents: Vec<String> = fs
+            .read_dir(&PathBuf::from("/app"))
+            .unwrap()
+            .map(|e| e.unwrap().path.to_str().unwrap().to_string())
+            .collect();
+        assert_eq!(app_contents, vec!["/app/a", "/app/b"]);
+
+        let a_contents: Vec<String> = fs
+            .read_dir(&PathBuf::from("/app/a"))
+            .unwrap()
+            .map(|e| e.unwrap().path.to_str().unwrap().to_string())
+            .collect();
+        assert_eq!(a_contents, vec!["/app/a/data-a.txt"]);
+
+        let b_contents: Vec<String> = fs
+            .read_dir(&PathBuf::from("/app/b"))
+            .unwrap()
+            .map(|e| e.unwrap().path.to_str().unwrap().to_string())
+            .collect();
+        assert_eq!(b_contents, vec!["/app/b/data-b.txt"]);
+    }
+
+    #[tokio::test]
+    async fn test_nested_metadata() {
+        let fs = gen_nested_filesystem();
+
+        assert!(fs.metadata(&PathBuf::from("/")).is_ok());
+        assert!(fs.metadata(&PathBuf::from("/app")).is_ok());
+        assert!(fs.metadata(&PathBuf::from("/app/a")).is_ok());
+        assert!(fs.metadata(&PathBuf::from("/app/b")).is_ok());
+        assert!(fs.metadata(&PathBuf::from("/app/a/data-a.txt")).is_ok());
+        assert!(fs.metadata(&PathBuf::from("/app/b/data-b.txt")).is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_nested_symlink_metadata() {
+        let fs = gen_nested_filesystem();
+
+        assert!(fs.symlink_metadata(&PathBuf::from("/")).is_ok());
+        assert!(fs.symlink_metadata(&PathBuf::from("/app")).is_ok());
+        assert!(fs.symlink_metadata(&PathBuf::from("/app/a")).is_ok());
+        assert!(fs.symlink_metadata(&PathBuf::from("/app/b")).is_ok());
+        assert!(fs
+            .symlink_metadata(&PathBuf::from("/app/a/data-a.txt"))
+            .is_ok());
+        assert!(fs
+            .symlink_metadata(&PathBuf::from("/app/b/data-b.txt"))
+            .is_ok());
     }
 
     #[tokio::test]
