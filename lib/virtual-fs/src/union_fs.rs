@@ -211,12 +211,10 @@ impl UnionFileSystem {
             ret.extend(partial_ret);
 
             Some(ret)
+        } else if partial_ret.is_empty() {
+            None
         } else {
-            if partial_ret.is_empty() {
-                None
-            } else {
-                Some(partial_ret)
-            }
+            Some(partial_ret)
         };
 
         match ret {
