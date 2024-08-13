@@ -630,12 +630,15 @@ mod tests {
             .collect();
         assert_eq!(root_contents, vec!["/app"]);
 
-        let app_contents: Vec<String> = fs
+        let app_contents: Vec<PathBuf> = fs
             .read_dir(&PathBuf::from("/app"))
             .unwrap()
-            .map(|e| e.unwrap().path.to_str().unwrap().to_string())
+            .map(|e| e.unwrap().path)
             .collect();
-        assert_eq!(app_contents, vec!["/app/a", "/app/b"]);
+        assert_eq!(
+            app_contents,
+            vec![PathBuf::from("/app/a"), PathBuf::from("/app/b")]
+        );
 
         let a_contents: Vec<String> = fs
             .read_dir(&PathBuf::from("/app/a"))
