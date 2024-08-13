@@ -138,6 +138,26 @@ impl WasmerEnv {
         Ok(client)
     }
 
+    pub fn client_unauthennticated_with_proxy(
+        &self,
+        proxy: reqwest::Proxy,
+    ) -> Result<WasmerClient, anyhow::Error> {
+        let registry_url = self.registry_endpoint()?;
+        let client = wasmer_api::WasmerClient::new_with_proxy(
+            registry_url,
+            &DEFAULT_WASMER_CLI_USER_AGENT,
+            proxy,
+        )?;
+
+        let client = if let Some(token) = self.token() {
+            client.with_auth_token(token)
+        } else {
+            client
+        };
+
+        Ok(client)
+    }
+
     pub fn client(&self) -> Result<WasmerClient, anyhow::Error> {
         let client = self.client_unauthennticated()?;
         if client.auth_token().is_none() {
