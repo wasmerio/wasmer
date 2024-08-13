@@ -173,7 +173,7 @@ fn table_copy() -> Result<(), String> {
 fn memory_new() -> Result<(), String> {
     let mut store = Store::default();
     let memory_type = MemoryType {
-        shared: false,
+        shared: if cfg!(feature = "wamr") { true } else { false },
         minimum: Pages(0),
         maximum: Some(Pages(10)),
     };

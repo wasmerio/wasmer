@@ -127,22 +127,10 @@ fn holochain_typed_function() -> anyhow::Result<()> {
 
     // Define the host function closure
     let multiply_by_3 = move |_env: FunctionEnvMut<MyEnv>, a: i32| -> i32 {
-        println!(
-            "Expected STATIC_CONTEXT_VAL to equal 1234, actually equals {}",
-            STATIC_CONTEXT_VAL
-        );
-        println!(
-            "Expected STATIC_CONTEXT_VAL2 to equal 1234, actually equals {}",
-            STATIC_CONTEXT_VAL2
-        );
-        println!(
-            "Expected context_val to equal 1234, actually equals {}",
-            context_val
-        );
-        println!(
-            "Expected my_val() to equal 1234, actually equals {}",
-            my_val()
-        );
+        assert_eq!(STATIC_CONTEXT_VAL, 1234);
+        assert_eq!(STATIC_CONTEXT_VAL2, 1234);
+        assert_eq!(context_val, 1234);
+        assert_eq!(my_val(), 1234);
 
         a * 3
     };
