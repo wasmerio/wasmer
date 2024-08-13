@@ -1,4 +1,4 @@
-//! List Edge apps.
+//! List volumes tied to an edge app.
 
 use super::super::util::AppIdentOpts;
 use crate::{commands::AsyncCliCommand, config::WasmerEnv, opts::ListFormatOpts};
