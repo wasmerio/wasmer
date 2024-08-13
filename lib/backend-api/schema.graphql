@@ -949,6 +949,7 @@ type DeployApp implements Node & Owner {
   aliases(offset: Int, before: String, after: String, first: Int, last: Int): AppAliasConnection!
   secrets(offset: Int, before: String, after: String, first: Int, last: Int): SecretConnection!
   usageMetrics(forRange: MetricRange!, variant: MetricType!): [UsageMetric]!
+  s3Url: URL
   deleted: Boolean!
   favicon: URL
   screenshot(viewportSize: AppScreenshotViewportSize, appearance: AppScreenshotAppearance): URL

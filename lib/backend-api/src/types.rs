@@ -775,6 +775,38 @@ mod queries {
         pub get_deploy_app_version: Option<DeployAppVersion>,
     }
 
+    #[derive(cynic::QueryVariables, Debug)]
+    pub(crate) struct GetAppVolumesVars {
+        pub name: String,
+        pub owner: String,
+    }
+
+    #[derive(cynic::QueryFragment, Debug)]
+    #[cynic(graphql_type = "Query", variables = "GetAppVolumesVars")]
+    pub(crate) struct GetAppVolumes {
+        #[arguments(owner: $owner, name: $name)]
+        pub get_deploy_app: Option<AppVolumes>,
+    }
+
+    #[derive(cynic::QueryFragment, Debug)]
+    #[cynic(graphql_type = "DeployApp")]
+    pub(crate) struct AppVolumes {
+        pub active_version: AppVersionVolumes,
+    }
+
+    #[derive(cynic::QueryFragment, Debug)]
+    #[cynic(graphql_type = "DeployAppVersion")]
+    pub(crate) struct AppVersionVolumes {
+        pub volumes: Option<Vec<Option<AppVersionVolume>>>,
+    }
+
+    #[derive(serde::Serialize, cynic::QueryFragment, Debug)]
+    pub struct AppVersionVolume {
+        pub name: String,
+        pub size: Option<i32>,
+        pub used_size: Option<i32>,
+    }
+
     #[derive(cynic::QueryFragment, Debug)]
     pub struct RegisterDomainPayload {
         pub success: bool,
@@ -871,6 +903,7 @@ mod queries {
         pub permalink: String,
         pub deleted: bool,
         pub aliases: AppAliasConnection,
+        pub s3_url: Option<Url>,
     }
 
     #[derive(cynic::QueryFragment, Serialize, Debug, Clone)]
@@ -1990,6 +2023,10 @@ mod queries {
         #[arguments(input: {id: $id})]
         pub purge_cache_for_app_version: Option<PurgeCacheForAppVersionPayload>,
     }
+
+    #[derive(cynic::Scalar, Debug, Clone)]
+    #[cynic(graphql_type = "URL")]
+    pub struct Url(pub String);
 
     #[derive(cynic::Scalar, Debug, Clone)]
     pub struct BigInt(pub i64);

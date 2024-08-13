@@ -184,6 +184,90 @@ pub async fn get_all_app_secrets_filtered(
     Ok(all_secrets)
 }
 
+/// Retrieve volumes for an app.
+pub async fn get_app_volumes(
+    client: &WasmerClient,
+    owner: impl Into<String>,
+    name: impl Into<String>,
+) -> Result<Vec<types::AppVersionVolume>, anyhow::Error> {
+    let vars = types::GetAppVolumesVars {
+        owner: owner.into(),
+        name: name.into(),
+    };
+    let res = client
+        .run_graphql_strict(types::GetAppVolumes::build(vars))
+        .await?;
+    let volumes = res
+        .get_deploy_app
+        .context("app not found")?
+        .active_version
+        .volumes
+        .unwrap_or_default()
+        .into_iter()
+        .flatten()
+        .collect();
+    Ok(volumes)
+}
+
+/// S3 credentials for an app.
+///
+/// Retrieved with [`get_app_s3_credentials`].
+#[derive(Clone)]
+pub struct AppS3Credentials {
+    pub domain: String,
+    pub access_key: String,
+    pub secret_key: String,
+}
+
+/// Load the S3 credentials.
+///
+/// S3 can be used to get access to an apps volumes.
+pub async fn get_app_s3_credentials(
+    client: &WasmerClient,
+    app_id: impl Into<String>,
+) -> Result<AppS3Credentials, anyhow::Error> {
+    const ACCESS_KEY_NAME: &str = "WASMER_APP_S3_ACCESS_KEY";
+    const SECRET_KEY_NAME: &str = "WASMER_APP_S3_SECRET_KEY";
+
+    let app_id = app_id.into();
+
+    // Firt load the app to get the s3 url.
+    let app = get_app_by_id(client, app_id.clone()).await?;
+    let url = app.s3_url.context("app has no volumes")?;
+
+    // Load the secrets.
+    let secrets =
+        get_all_app_secrets_filtered(client, app_id, [ACCESS_KEY_NAME, SECRET_KEY_NAME]).await?;
+
+    let access_key_id = secrets
+        .iter()
+        .find(|s| s.name == ACCESS_KEY_NAME)
+        .context("missing access key")?
+        .id
+        .clone();
+
+    let secret_key_id = secrets
+        .iter()
+        .find(|s| s.name == SECRET_KEY_NAME)
+        .context("missing secret key")?
+        .id
+        .clone();
+
+    let access_key = get_app_secret_value_by_id(client, access_key_id.into_inner())
+        .await?
+        .with_context(|| format!("No value found for secret with name '{}'", ACCESS_KEY_NAME))?;
+
+    let secret_key = get_app_secret_value_by_id(client, secret_key_id.into_inner())
+        .await?
+        .with_context(|| format!("No value found for secret with name '{}'", SECRET_KEY_NAME))?;
+
+    Ok(AppS3Credentials {
+        domain: url.0,
+        access_key,
+        secret_key,
+    })
+}
+
 /// Load all available regions.
 ///
 /// Will paginate through all versions and return them in a single list.
