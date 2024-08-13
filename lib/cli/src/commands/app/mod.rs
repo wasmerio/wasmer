@@ -11,6 +11,7 @@ pub mod purge_cache;
 pub mod regions;
 pub mod secrets;
 pub mod version;
+pub mod volumes;
 
 mod util;
 
@@ -33,6 +34,8 @@ pub enum CmdApp {
     Secret(secrets::CmdAppSecrets),
     #[clap(subcommand, alias = "regions")]
     Region(regions::CmdAppRegions),
+    #[clap(subcommand, alias = "volumes")]
+    Volume(volumes::CmdAppVolumes),
 }
 
 #[async_trait::async_trait]
@@ -61,6 +64,7 @@ impl AsyncCliCommand for CmdApp {
             Self::PurgeCache(cmd) => cmd.run_async().await,
             Self::Secret(cmd) => cmd.run_async().await,
             Self::Region(cmd) => cmd.run_async().await,
+            Self::Volume(cmd) => cmd.run_async().await,
         }
     }
 }
