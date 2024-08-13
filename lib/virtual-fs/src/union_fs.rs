@@ -170,7 +170,7 @@ impl UnionFileSystem {
                     let ret = ret.as_mut().unwrap();
                     for mut sub in dir.flatten() {
                         let sub_path: PathBuf = sub.path.components().skip(1).collect();
-                        sub.path = path.join(&sub_path);
+                        sub.path = PathBuf::from(&mount.path).join(&sub_path);
                         ret.push(sub);
                     }
                 }
