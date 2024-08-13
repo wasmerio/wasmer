@@ -6,6 +6,16 @@ use anyhow::{bail, Context as _};
 use cynic::{http::CynicReqwestError, GraphQlResponse, Operation};
 use url::Url;
 
+pub fn get_proxy() -> Result<Option<reqwest::Proxy>, anyhow::Error> {
+    if let Ok(scheme) = std::env::var("http_proxy").or_else(|_| std::env::var("HTTP_PROXY")) {
+        let proxy = reqwest::Proxy::all(scheme)?;
+
+        Ok(Some(proxy))
+    } else {
+        Ok(None)
+    }
+}
+
 /// API client for the Wasmer API.
 ///
 /// Use the queries in [`crate::queries`] to interact with the API.
@@ -53,17 +63,22 @@ impl WasmerClient {
     }
 
     pub fn new(graphql_endpoint: Url, user_agent: &str) -> Result<Self, anyhow::Error> {
-        #[cfg(all(target_arch = "wasm32", target_os = "unknown"))]
-        let client = reqwest::Client::builder()
-            .build()
-            .context("could not construct http client")?;
+        let builder = {
+            #[cfg(all(target_arch = "wasm32", target_os = "unknown"))]
+            let mut builder = reqwest::ClientBuilder::new();
 
-        #[cfg(not(all(target_arch = "wasm32", target_os = "unknown")))]
-        let client = reqwest::Client::builder()
-            .connect_timeout(Duration::from_secs(10))
-            .timeout(Duration::from_secs(90))
-            .build()
-            .context("could not construct http client")?;
+            #[cfg(not(all(target_arch = "wasm32", target_os = "unknown")))]
+            let mut builder = reqwest::ClientBuilder::new()
+                .connect_timeout(Duration::from_secs(10))
+                .timeout(Duration::from_secs(90));
+
+            if let Some(proxy) = get_proxy()? {
+                builder = builder.proxy(proxy);
+            }
+            builder
+        };
+
+        let client = builder.build().context("failed to create reqwest client")?;
 
         Self::new_with_client(client, graphql_endpoint, user_agent)
     }
