@@ -2040,6 +2040,43 @@
 <a href="#2040" id="2040">2040</a>
 <a href="#2041" id="2041">2041</a>
 <a href="#2042" id="2042">2042</a>
+<a href="#2043" id="2043">2043</a>
+<a href="#2044" id="2044">2044</a>
+<a href="#2045" id="2045">2045</a>
+<a href="#2046" id="2046">2046</a>
+<a href="#2047" id="2047">2047</a>
+<a href="#2048" id="2048">2048</a>
+<a href="#2049" id="2049">2049</a>
+<a href="#2050" id="2050">2050</a>
+<a href="#2051" id="2051">2051</a>
+<a href="#2052" id="2052">2052</a>
+<a href="#2053" id="2053">2053</a>
+<a href="#2054" id="2054">2054</a>
+<a href="#2055" id="2055">2055</a>
+<a href="#2056" id="2056">2056</a>
+<a href="#2057" id="2057">2057</a>
+<a href="#2058" id="2058">2058</a>
+<a href="#2059" id="2059">2059</a>
+<a href="#2060" id="2060">2060</a>
+<a href="#2061" id="2061">2061</a>
+<a href="#2062" id="2062">2062</a>
+<a href="#2063" id="2063">2063</a>
+<a href="#2064" id="2064">2064</a>
+<a href="#2065" id="2065">2065</a>
+<a href="#2066" id="2066">2066</a>
+<a href="#2067" id="2067">2067</a>
+<a href="#2068" id="2068">2068</a>
+<a href="#2069" id="2069">2069</a>
+<a href="#2070" id="2070">2070</a>
+<a href="#2071" id="2071">2071</a>
+<a href="#2072" id="2072">2072</a>
+<a href="#2073" id="2073">2073</a>
+<a href="#2074" id="2074">2074</a>
+<a href="#2075" id="2075">2075</a>
+<a href="#2076" id="2076">2076</a>
+<a href="#2077" id="2077">2077</a>
+<a href="#2078" id="2078">2078</a>
+<a href="#2079" id="2079">2079</a>
 </pre></div><pre class="rust"><code><span class="kw">pub use </span>queries::<span class="kw-2">*</span>;
 
 <span class="kw">pub use </span>cynic::Id;
@@ -2817,6 +2854,38 @@
         </span><span class="kw">pub </span>get_deploy_app_version: <span class="prelude-ty">Option</span>&lt;DeployAppVersion&gt;,
     }
 
+    <span class="attr">#[derive(cynic::QueryVariables, Debug)]
+    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct </span>GetAppVolumesVars {
+        <span class="kw">pub </span>name: String,
+        <span class="kw">pub </span>owner: String,
+    }
+
+    <span class="attr">#[derive(cynic::QueryFragment, Debug)]
+    #[cynic(graphql_type = <span class="string">&quot;Query&quot;</span>, variables = <span class="string">&quot;GetAppVolumesVars&quot;</span>)]
+    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct </span>GetAppVolumes {
+        <span class="attr">#[arguments(owner: <span class="macro-nonterminal">$owner</span>, name: <span class="macro-nonterminal">$name</span>)]
+        </span><span class="kw">pub </span>get_deploy_app: <span class="prelude-ty">Option</span>&lt;AppVolumes&gt;,
+    }
+
+    <span class="attr">#[derive(cynic::QueryFragment, Debug)]
+    #[cynic(graphql_type = <span class="string">&quot;DeployApp&quot;</span>)]
+    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct </span>AppVolumes {
+        <span class="kw">pub </span>active_version: AppVersionVolumes,
+    }
+
+    <span class="attr">#[derive(cynic::QueryFragment, Debug)]
+    #[cynic(graphql_type = <span class="string">&quot;DeployAppVersion&quot;</span>)]
+    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct </span>AppVersionVolumes {
+        <span class="kw">pub </span>volumes: <span class="prelude-ty">Option</span>&lt;Vec&lt;<span class="prelude-ty">Option</span>&lt;AppVersionVolume&gt;&gt;&gt;,
+    }
+
+    <span class="attr">#[derive(serde::Serialize, cynic::QueryFragment, Debug)]
+    </span><span class="kw">pub struct </span>AppVersionVolume {
+        <span class="kw">pub </span>name: String,
+        <span class="kw">pub </span>size: <span class="prelude-ty">Option</span>&lt;i32&gt;,
+        <span class="kw">pub </span>used_size: <span class="prelude-ty">Option</span>&lt;i32&gt;,
+    }
+
     <span class="attr">#[derive(cynic::QueryFragment, Debug)]
     </span><span class="kw">pub struct </span>RegisterDomainPayload {
         <span class="kw">pub </span>success: bool,
@@ -2913,6 +2982,7 @@
         <span class="kw">pub </span>permalink: String,
         <span class="kw">pub </span>deleted: bool,
         <span class="kw">pub </span>aliases: AppAliasConnection,
+        <span class="kw">pub </span>s3_url: <span class="prelude-ty">Option</span>&lt;Url&gt;,
     }
 
     <span class="attr">#[derive(cynic::QueryFragment, Serialize, Debug, Clone)]
@@ -4032,6 +4102,10 @@
         <span class="attr">#[arguments(input: {id: <span class="macro-nonterminal">$id</span>})]
         </span><span class="kw">pub </span>purge_cache_for_app_version: <span class="prelude-ty">Option</span>&lt;PurgeCacheForAppVersionPayload&gt;,
     }
+
+    <span class="attr">#[derive(cynic::Scalar, Debug, Clone)]
+    #[cynic(graphql_type = <span class="string">&quot;URL&quot;</span>)]
+    </span><span class="kw">pub struct </span>Url(<span class="kw">pub </span>String);
 
     <span class="attr">#[derive(cynic::Scalar, Debug, Clone)]
     </span><span class="kw">pub struct </span>BigInt(<span class="kw">pub </span>i64);

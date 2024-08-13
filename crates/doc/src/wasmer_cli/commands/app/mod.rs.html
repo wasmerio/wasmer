@@ -64,6 +64,10 @@
 <a href="#64" id="64">64</a>
 <a href="#65" id="65">65</a>
 <a href="#66" id="66">66</a>
+<a href="#67" id="67">67</a>
+<a href="#68" id="68">68</a>
+<a href="#69" id="69">69</a>
+<a href="#70" id="70">70</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Edge app commands.
 
 </span><span class="kw">pub mod </span>create;
@@ -77,6 +81,7 @@
 <span class="kw">pub mod </span>regions;
 <span class="kw">pub mod </span>secrets;
 <span class="kw">pub mod </span>version;
+<span class="kw">pub mod </span>volumes;
 
 <span class="kw">mod </span>util;
 
@@ -99,6 +104,8 @@
     </span>Secret(secrets::CmdAppSecrets),
     <span class="attr">#[clap(subcommand, alias = <span class="string">&quot;regions&quot;</span>)]
     </span>Region(regions::CmdAppRegions),
+    <span class="attr">#[clap(subcommand, alias = <span class="string">&quot;volumes&quot;</span>)]
+    </span>Volume(volumes::CmdAppVolumes),
 }
 
 <span class="attr">#[async_trait::async_trait]
@@ -127,6 +134,7 @@
             <span class="self">Self</span>::PurgeCache(cmd) =&gt; cmd.run_async().<span class="kw">await</span>,
             <span class="self">Self</span>::Secret(cmd) =&gt; cmd.run_async().<span class="kw">await</span>,
             <span class="self">Self</span>::Region(cmd) =&gt; cmd.run_async().<span class="kw">await</span>,
+            <span class="self">Self</span>::Volume(cmd) =&gt; cmd.run_async().<span class="kw">await</span>,
         }
     }
 }

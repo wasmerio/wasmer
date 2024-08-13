@@ -156,6 +156,39 @@
 <a href="#156" id="156">156</a>
 <a href="#157" id="157">157</a>
 <a href="#158" id="158">158</a>
+<a href="#159" id="159">159</a>
+<a href="#160" id="160">160</a>
+<a href="#161" id="161">161</a>
+<a href="#162" id="162">162</a>
+<a href="#163" id="163">163</a>
+<a href="#164" id="164">164</a>
+<a href="#165" id="165">165</a>
+<a href="#166" id="166">166</a>
+<a href="#167" id="167">167</a>
+<a href="#168" id="168">168</a>
+<a href="#169" id="169">169</a>
+<a href="#170" id="170">170</a>
+<a href="#171" id="171">171</a>
+<a href="#172" id="172">172</a>
+<a href="#173" id="173">173</a>
+<a href="#174" id="174">174</a>
+<a href="#175" id="175">175</a>
+<a href="#176" id="176">176</a>
+<a href="#177" id="177">177</a>
+<a href="#178" id="178">178</a>
+<a href="#179" id="179">179</a>
+<a href="#180" id="180">180</a>
+<a href="#181" id="181">181</a>
+<a href="#182" id="182">182</a>
+<a href="#183" id="183">183</a>
+<a href="#184" id="184">184</a>
+<a href="#185" id="185">185</a>
+<a href="#186" id="186">186</a>
+<a href="#187" id="187">187</a>
+<a href="#188" id="188">188</a>
+<a href="#189" id="189">189</a>
+<a href="#190" id="190">190</a>
+<a href="#191" id="191">191</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>comfy_table::Table;
 <span class="kw">use </span>wasmer_api::types::{DeployApp, DeployAppVersion, DnsDomain, DnsDomainWithRecords, Namespace};
 
@@ -312,6 +345,39 @@
             ]
         }));
         table.to_string()
+    }
+}
+
+<span class="kw">impl </span>CliRender <span class="kw">for </span>wasmer_api::types::AppVersionVolume {
+    <span class="kw">fn </span>render_item_table(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; String {
+        <span class="kw">let </span><span class="kw-2">mut </span>table = Table::new();
+        table.add_rows([
+            <span class="macro">vec!</span>[<span class="string">&quot;Name&quot;</span>.to_string(), <span class="self">self</span>.name.clone()],
+            <span class="macro">vec!</span>[
+                <span class="string">&quot;Used size&quot;</span>.to_string(),
+                format_disk_size_opt(<span class="self">self</span>.used_size),
+            ],
+        ]);
+        table.to_string()
+    }
+
+    <span class="kw">fn </span>render_list_table(items: <span class="kw-2">&amp;</span>[<span class="self">Self</span>]) -&gt; String {
+        <span class="kw">let </span><span class="kw-2">mut </span>table = Table::new();
+        table.set_header(<span class="macro">vec!</span>[<span class="string">&quot;Name&quot;</span>.to_string(), <span class="string">&quot;Used size&quot;</span>.to_string()]);
+        table.add_rows(
+            items
+                .iter()
+                .map(|vol| <span class="macro">vec!</span>[vol.name.clone(), format_disk_size_opt(vol.used_size)]),
+        );
+        table.to_string()
+    }
+}
+
+<span class="kw">fn </span>format_disk_size_opt(value: <span class="prelude-ty">Option</span>&lt;i32&gt;) -&gt; String {
+    <span class="kw">if let </span><span class="prelude-val">Some</span>(v) = value {
+        <span class="macro">format!</span>(<span class="string">&quot;{}Mb&quot;</span>, v)
+    } <span class="kw">else </span>{
+        <span class="string">&quot;n/a&quot;</span>.to_string()
     }
 }
 </code></pre></div></section></main></body></html>
