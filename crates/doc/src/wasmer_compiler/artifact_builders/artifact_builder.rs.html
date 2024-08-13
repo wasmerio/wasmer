@@ -489,6 +489,8 @@
 <a href="#489" id="489">489</a>
 <a href="#490" id="490">490</a>
 <a href="#491" id="491">491</a>
+<a href="#492" id="492">492</a>
+<a href="#493" id="493">493</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Define `ArtifactBuild` to allow compiling and instantiating to be
 //! done as separate steps.
 
@@ -558,7 +560,9 @@
         <span class="comment">// We try to apply the middleware first
         </span><span class="kw">let </span><span class="kw-2">mut </span>module = translation.module;
         <span class="kw">let </span>middlewares = compiler.get_middlewares();
-        middlewares.apply_on_module_info(<span class="kw-2">&amp;mut </span>module);
+        middlewares
+            .apply_on_module_info(<span class="kw-2">&amp;mut </span>module)
+            .map_err(|err| CompileError::MiddlewareError(err.to_string()))<span class="question-mark">?</span>;
 
         <span class="kw">if let </span><span class="prelude-val">Some</span>(hash_algorithm) = hash_algorithm {
             <span class="kw">let </span>hash = <span class="kw">match </span>hash_algorithm {

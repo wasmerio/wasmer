@@ -485,6 +485,8 @@
 <a href="#485" id="485">485</a>
 <a href="#486" id="486">486</a>
 <a href="#487" id="487">487</a>
+<a href="#488" id="488">488</a>
+<a href="#489" id="489">489</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! `metering` is a middleware for tracking how many operators are
 //! executed in total and putting a limit on the total number of
 //! operators executed. The WebAssembly instance execution is stopped
@@ -641,7 +643,7 @@
     }
 
     <span class="doccomment">/// Transforms a `ModuleInfo` struct in-place. This is called before application on functions begins.
-    </span><span class="kw">fn </span>transform_module_info(<span class="kw-2">&amp;</span><span class="self">self</span>, module_info: <span class="kw-2">&amp;mut </span>ModuleInfo) {
+    </span><span class="kw">fn </span>transform_module_info(<span class="kw-2">&amp;</span><span class="self">self</span>, module_info: <span class="kw-2">&amp;mut </span>ModuleInfo) -&gt; <span class="prelude-ty">Result</span>&lt;(), MiddlewareError&gt; {
         <span class="kw">let </span><span class="kw-2">mut </span>global_indexes = <span class="self">self</span>.global_indexes.lock().unwrap();
 
         <span class="kw">if </span>global_indexes.is_some() {
@@ -679,7 +681,9 @@
         <span class="kw-2">*</span>global_indexes = <span class="prelude-val">Some</span>(MeteringGlobalIndexes(
             remaining_points_global_index,
             points_exhausted_global_index,
-        ))
+        ));
+
+        <span class="prelude-val">Ok</span>(())
     }
 }
 
