@@ -11,12 +11,15 @@ use crate::bindings::{
     wasm_valtype_vec_new, wasm_valtype_vec_new_empty, wasm_valtype_vec_t,
 };
 use crate::c_api::store::{InternalStoreHandle, StoreHandle};
+use crate::StoreRef;
 // use crate::c_api::trap::Trap;
 // use crate::c_api::vm::{
 //     VMExtern, VMFuncRef, VMFunction, VMFunctionCallback, VMFunctionEnvironment,
 // };
 use crate::c_api::bindings::wasm_func_as_extern;
-use crate::c_api::vm::{VMExtern, VMFuncRef, VMFunction, VMFunctionCallback};
+use crate::c_api::vm::{
+    VMExtern, VMFuncRef, VMFunction, VMFunctionCallback, VMFunctionEnvironment,
+};
 use crate::errors::RuntimeError;
 use crate::externals::function::{HostFunction, HostFunctionKind, WithEnv, WithoutEnv};
 use crate::function_env::{FunctionEnv, FunctionEnvMut};
@@ -48,10 +51,18 @@ impl From<VMFunction> for Function {
     }
 }
 
-pub(crate) struct FunctionCallbackEnv<'a, F, T> {
-    store: Option<StoreMut<'a>>,
+pub(crate) struct FunctionCallbackEnv<'a, F> {
+    store: StoreMut<'a>,
     func: F,
-    env: Option<FunctionEnvMut<'a, T>>,
+    env_handle: Option<StoreHandle<VMFunctionEnvironment>>,
+}
+
+impl<'a, F> std::fmt::Debug for FunctionCallbackEnv<'a, F> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("FunctionCallbackEnv")
+            .field("env_is_some", &self.env_handle.is_some())
+            .finish()
+    }
 }
 
 impl Function {
@@ -112,7 +123,6 @@ impl Function {
             wasm_valtype_vec_new(&mut vec, result_types.len(), result_types.as_ptr());
             vec
         };
-        println!("results len: {:?}", result_types.len());
 
         std::mem::forget(result_types);
 
@@ -126,18 +136,21 @@ impl Function {
         let mut store = store.as_store_mut();
         let inner = store.inner.store.inner;
 
-        //let callback_env: *mut (FunctionEnvMut<'_, T>, &F) =
-        //    Box::into_raw(Box::new((env.clone().into_mut(&mut store), &func)));
-        let mut callback_env = (env.clone().into_mut(&mut store), &func);
-
         let callback = make_fn_callback(&func);
+
+        let mut callback_env: *mut FunctionCallbackEnv<'_, F> =
+            Box::leak(Box::new(FunctionCallbackEnv {
+                store,
+                func,
+                env_handle: Some(env.handle.clone()),
+            }));
 
         let wasm_function = unsafe {
             wasm_func_new_with_env(
                 inner,
                 wasm_functype,
                 Some(callback),
-                &mut callback_env as *mut _ as _,
+                callback_env as *mut _ as _,
                 None,
             )
         };
@@ -201,11 +214,11 @@ impl Function {
             *mut wasm_val_vec_t,
         ) -> *mut wasm_trap_t = unsafe { std::mem::transmute(func.function_callback()) };
 
-        let mut callback_env: *mut FunctionCallbackEnv<'_, F, ()> =
+        let mut callback_env: *mut FunctionCallbackEnv<'_, F> =
             Box::into_raw(Box::new(FunctionCallbackEnv {
-                store: Some(store.as_store_mut()),
-                func: func,
-                env: None,
+                store,
+                func,
+                env_handle: None,
             }));
 
         let wasm_function = unsafe {
@@ -286,12 +299,11 @@ impl Function {
             *mut wasm_val_vec_t,
         ) -> *mut wasm_trap_t = unsafe { std::mem::transmute(func.function_callback()) };
 
-        let env = env.clone().into_mut(&mut store);
-        let mut callback_env: *mut FunctionCallbackEnv<'_, F, T> =
+        let mut callback_env: *mut FunctionCallbackEnv<'_, F> =
             Box::into_raw(Box::new(FunctionCallbackEnv {
-                store: None,
+                store,
                 func,
-                env: Some(env),
+                env_handle: Some(env.handle.clone()),
             }));
 
         let wasm_function = unsafe {
@@ -380,18 +392,6 @@ impl Function {
         let trap = unsafe { wasm_func_call(self.handle, &mut args, &mut results as *mut _) };
 
         if !trap.is_null() {
-            unsafe {
-                let mut vec = wasm_byte_vec_t {
-                    size: 0,
-                    data: std::ptr::null_mut(),
-                    num_elems: 0,
-                    size_of_elem: 0,
-                    lock: std::ptr::null_mut(),
-                };
-
-                wasm_byte_vec_new_uninitialized(&mut vec, 100);
-                wasm_trap_message(trap, &mut vec);
-            }
             return Err(Into::<Trap>::into(trap).into());
         }
         let results = unsafe { std::ptr::slice_from_raw_parts(results.data, results.size) };
@@ -446,11 +446,12 @@ where
             + Send
             + Sync,
     {
-        let r: *mut (FunctionEnvMut<'_, T>, &F) = env as _;
-        //(*r).
-        //let b: Box<(FunctionEnvMut<'_, T>, &F)> = Box::from_raw(r);
-        let mut fn_env: FunctionEnvMut<'_, T> = (&mut (*r).0).as_mut();
-        let func: &F = (*r).1;
+        let r: *mut (FunctionCallbackEnv<'_, F>) = env as _;
+
+        let mut store = (*r).store.as_store_mut();
+        let env_handle = (*r).env_handle.as_ref().unwrap().clone();
+        let mut fn_env = FunctionEnv::from_handle(env_handle).into_mut(&mut store);
+        let func: &F = &(*r).func;
 
         let mut wasmer_args = vec![];
 
@@ -484,11 +485,7 @@ where
 
             Ok(Err(e)) => {
                 let trap: Trap = Trap::user(Box::new(e));
-
-                let r: *mut (FunctionEnvMut<'_, T>, &F) = env as _;
-                let mut fn_env: FunctionEnvMut<'_, T> = (&mut (*r).0).as_mut();
-                let (_, store) = &mut fn_env.data_and_store_mut();
-                unsafe { trap.into_wasm_trap(store) }
+                unsafe { trap.into_wasm_trap(&mut store) }
             }
 
             Err(e) => {
@@ -538,10 +535,9 @@ macro_rules! impl_host_function {
                         T: Send + 'static,
                         Func: Fn(FunctionEnvMut<'_, T>, $( $x , )*) -> RetsAsResult + 'static,
                     {
-                        let mut env : *mut FunctionCallbackEnv<Func, T> = unsafe {std::mem::transmute(env)};
-                        let mut fn_env: FunctionEnvMut<T> = (*env).env.as_mut().unwrap().as_mut();
-                        let (_,  store) = &mut fn_env.data_and_store_mut();
-                            // (*env).env.unwrap().get_mut();
+
+                        let r: *mut (FunctionCallbackEnv<'_, Func>) = env as _;
+                        let store = &mut (*r).store.as_store_mut();
 
                         let mut i = 0;
 
@@ -554,13 +550,15 @@ macro_rules! impl_host_function {
                            i += 1;
                         )*
 
+
+
+                        let env_handle = (*r).env_handle.as_ref().unwrap().clone();
+                        let mut fn_env = FunctionEnv::from_handle(env_handle).into_mut(store);
+                        let func: &Func = &(*r).func;
+
                         let result = panic::catch_unwind(AssertUnwindSafe(|| unsafe {
-                            ((*env).func)(fn_env, $( $x, )* ).into_result()
+                            ((*r).func)(fn_env, $( $x, )* ).into_result()
                         }));
-
-
-                        let mut fn_env: FunctionEnvMut<T> = (*env).env.as_mut().unwrap().as_mut();
-                        let (_,  store) = &mut fn_env.data_and_store_mut();
 
 
                        match result {
@@ -618,6 +616,7 @@ macro_rules! impl_host_function {
                 RetsAsResult: IntoResult<Rets>,
                 Func: Fn($( $x , )*) -> RetsAsResult + 'static,
             {
+
                 #[allow(non_snake_case)]
                 fn function_callback(&self) -> VMFunctionCallback {
 
@@ -631,8 +630,8 @@ macro_rules! impl_host_function {
                         RetsAsResult: IntoResult<Rets>,
                         Func: Fn($( $x , )*) -> RetsAsResult + 'static,
                     {
-                        let mut env : *mut FunctionCallbackEnv<Func, ()> = unsafe {std::mem::transmute(env)};
-                        let store = &mut (*env).store.as_mut().unwrap().as_store_mut();
+                        let mut r: *mut FunctionCallbackEnv<Func> = unsafe {std::mem::transmute(env)};
+                        let store = &mut (*r).store.as_store_mut();
                         let mut i = 0;
 
                         $(
@@ -645,7 +644,7 @@ macro_rules! impl_host_function {
                         )*
 
                         let result = panic::catch_unwind(AssertUnwindSafe(|| unsafe {
-                            ((*env).func)( $( $x, )* ).into_result()
+                            ((*r).func)( $( $x, )* ).into_result()
                         }));
 
                         match result {
