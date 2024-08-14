@@ -1199,6 +1199,8 @@
 <a href="#1199" id="1199">1199</a>
 <a href="#1200" id="1200">1200</a>
 <a href="#1201" id="1201">1201</a>
+<a href="#1202" id="1202">1202</a>
+<a href="#1203" id="1203">1203</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Define `Artifact`, based on `ArtifactBuild`
 //! to allow compiling and instantiating to be done as separate steps.
 
@@ -2091,7 +2093,9 @@
         </span><span class="kw">use </span><span class="kw">crate</span>::translator::ModuleMiddlewareChain;
         <span class="kw">let </span><span class="kw-2">mut </span>module = translation.module;
         <span class="kw">let </span>middlewares = compiler.get_middlewares();
-        middlewares.apply_on_module_info(<span class="kw-2">&amp;mut </span>module);
+        middlewares
+            .apply_on_module_info(<span class="kw-2">&amp;mut </span>module)
+            .map_err(|e| CompileError::MiddlewareError(e.to_string()))<span class="question-mark">?</span>;
 
         <span class="kw">let </span>memory_styles: PrimaryMap&lt;MemoryIndex, MemoryStyle&gt; = module
             .memories
