@@ -255,6 +255,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "cranelift")]
     fn check_customtunables() -> Result<(), Box<dyn std::error::Error>> {
         use crate::{imports, wat2wasm, Engine, Instance, Memory, Module, Store};
         use wasmer_compiler_cranelift::Cranelift;
