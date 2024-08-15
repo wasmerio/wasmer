@@ -1509,6 +1509,26 @@
 <a href="#1509" id="1509">1509</a>
 <a href="#1510" id="1510">1510</a>
 <a href="#1511" id="1511">1511</a>
+<a href="#1512" id="1512">1512</a>
+<a href="#1513" id="1513">1513</a>
+<a href="#1514" id="1514">1514</a>
+<a href="#1515" id="1515">1515</a>
+<a href="#1516" id="1516">1516</a>
+<a href="#1517" id="1517">1517</a>
+<a href="#1518" id="1518">1518</a>
+<a href="#1519" id="1519">1519</a>
+<a href="#1520" id="1520">1520</a>
+<a href="#1521" id="1521">1521</a>
+<a href="#1522" id="1522">1522</a>
+<a href="#1523" id="1523">1523</a>
+<a href="#1524" id="1524">1524</a>
+<a href="#1525" id="1525">1525</a>
+<a href="#1526" id="1526">1526</a>
+<a href="#1527" id="1527">1527</a>
+<a href="#1528" id="1528">1528</a>
+<a href="#1529" id="1529">1529</a>
+<a href="#1530" id="1530">1530</a>
+<a href="#1531" id="1531">1531</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{
     collections::{HashMap, HashSet},
     ops::{DerefMut, Range},
@@ -1520,10 +1540,33 @@
 
 <span class="kw">pub type </span>Fd = u32;
 
-<span class="attr">#[derive(Debug, Default)]
-</span><span class="kw">struct </span>StateDescriptor {
-    events: Vec&lt;usize&gt;,
-    write_map: HashMap&lt;MemoryRange, usize&gt;,
+<span class="doccomment">/// Subgroup of events that may or may not be retained in the
+/// final journal as it is compacted.
+///
+/// By grouping events into subevents it makes it possible to ignore an
+/// entire subgroup of events which are superseeded by a later event. For
+/// example, all the events involved in creating a file are irrelevant if
+/// that file is later deleted.
+</span><span class="attr">#[derive(Debug, Default)]
+</span><span class="kw">struct </span>SubGroupOfevents {
+    <span class="doccomment">/// List of all the events that will be transferred over
+    /// to the compacted journal if this sub group is selected
+    /// to be carried over
+    </span>events: Vec&lt;usize&gt;,
+    <span class="doccomment">/// The path metadata attached to this sub group of events
+    /// is used to discard all subgroups related to a particular
+    /// path of a file or directory. This is especially important
+    /// if that file is later deleted and hence all the events
+    /// related to it are no longer relevant
+    </span>path: <span class="prelude-ty">Option</span>&lt;String&gt;,
+    <span class="doccomment">/// The write map allows the ccompacted to only keep the
+    /// events relevant to the final outcome of a compacted
+    /// journal rather than written regions that are later
+    /// overridden. This is a crude write map that does not
+    /// deal with overlapping writes (they still remain)
+    /// However in the majority of cases this will remove
+    /// duplicates while retaining a simple implementation
+    </span>write_map: HashMap&lt;MemoryRange, usize&gt;,
 }
 
 <span class="attr">#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -1540,8 +1583,20 @@
     }
 }
 
-<span class="attr">#[derive(Debug, Clone, Copy, PartialOrd, Ord, PartialEq, Eq, Hash)]
-</span><span class="kw">struct </span>DescriptorLookup(u64);
+<span class="doccomment">/// Index of a group of subevents in the journal which relate to a particular
+/// collective impact. For example. Creating a new file which may consist of
+/// an event to open a file, the events for writing the file data and the
+/// closing of the file are all related to a group of sub events that make
+/// up the act of creating that file. During compaction these events
+/// will be grouped together so they can be retained or discarded based
+/// on the final deterministic outcome of the entire log.
+///
+/// By grouping events into subevents it makes it possible to ignore an
+/// entire subgroup of events which are superseeded by a later event. For
+/// example, all the events involved in creating a file are irrelevant if
+/// that file is later deleted.
+</span><span class="attr">#[derive(Debug, Clone, Copy, PartialOrd, Ord, PartialEq, Eq, Hash)]
+</span><span class="kw">struct </span>SubGroupIndex(u64);
 
 <span class="attr">#[derive(Debug)]
 </span><span class="kw">struct </span>State {
@@ -1555,15 +1610,14 @@
     </span>tty: <span class="prelude-ty">Option</span>&lt;usize&gt;,
     <span class="comment">// The last change directory event
     </span>chdir: <span class="prelude-ty">Option</span>&lt;usize&gt;,
+    <span class="comment">// Last exit that signals the exiting of the process
+    </span>process_exit: <span class="prelude-ty">Option</span>&lt;usize&gt;,
+    <span class="comment">// Last event that initialized the module
+    </span>init_module: <span class="prelude-ty">Option</span>&lt;usize&gt;,
     <span class="comment">// Events that create a particular directory
-    </span>create_directory: HashMap&lt;String, DescriptorLookup&gt;,
+    </span>create_directory: HashMap&lt;String, SubGroupIndex&gt;,
     <span class="comment">// Events that remove a particular directory
     </span>remove_directory: HashMap&lt;String, usize&gt;,
-    <span class="comment">// When creating and truncating a file we have a special
-    // lookup so that duplicates can be erased
-    </span>create_trunc_file: HashMap&lt;String, Fd&gt;,
-    <span class="comment">// When modifying an existing file
-    </span>modify_file: HashMap&lt;String, Fd&gt;,
     <span class="comment">// Events that unlink a file
     </span>unlink_file: HashMap&lt;String, usize&gt;,
     <span class="comment">// Thread events are only maintained while the thread and the
@@ -1573,23 +1627,31 @@
     // process are still running
     </span>staged_thread_map: HashMap&lt;u32, usize&gt;,
     <span class="comment">// Sockets that are open and not yet closed are kept here
-    </span>open_sockets: HashMap&lt;Fd, DescriptorLookup&gt;,
+    </span>open_sockets: HashMap&lt;Fd, SubGroupIndex&gt;,
+    <span class="comment">// Sockets that are open and not yet closed are kept here
+    </span>accepted_sockets: HashMap&lt;Fd, SubGroupIndex&gt;,
     <span class="comment">// Open pipes have two file descriptors that are associated with
     // them. We keep track of both of them
-    </span>open_pipes: HashMap&lt;Fd, DescriptorLookup&gt;,
+    </span>open_pipes: HashMap&lt;Fd, SubGroupIndex&gt;,
     <span class="comment">// Any descriptors are assumed to be read only operations until
     // they actually do something that changes the system
-    </span>suspect_descriptors: HashMap&lt;Fd, DescriptorLookup&gt;,
+    </span>suspect_descriptors: HashMap&lt;Fd, SubGroupIndex&gt;,
     <span class="comment">// Any descriptors are assumed to be read only operations until
     // they actually do something that changes the system
-    </span>keep_descriptors: HashMap&lt;Fd, DescriptorLookup&gt;,
+    </span>keep_descriptors: HashMap&lt;Fd, SubGroupIndex&gt;,
+    kept_descriptors: Vec&lt;SubGroupIndex&gt;,
     <span class="comment">// We put the IO related to stdio into a special list
     // which can be purged when the program exits as its no longer
     // important.
-    </span>stdio_descriptors: HashMap&lt;Fd, DescriptorLookup&gt;,
+    </span>stdio_descriptors: HashMap&lt;Fd, SubGroupIndex&gt;,
+    <span class="comment">// Event objects handle events from other parts of the process
+    // and feed them to a processing thread
+    </span>event_descriptors: HashMap&lt;Fd, SubGroupIndex&gt;,
+    <span class="comment">// Epoll events
+    </span>epoll_descriptors: HashMap&lt;Fd, SubGroupIndex&gt;,
     <span class="comment">// We abstract the descriptor state so that multiple file descriptors
     // can refer to the same file descriptors
-    </span>descriptors: HashMap&lt;DescriptorLookup, StateDescriptor&gt;,
+    </span>sub_events: HashMap&lt;SubGroupIndex, SubGroupOfevents&gt;,
     <span class="comment">// Everything that will be retained during the next compact
     </span>whitelist: HashSet&lt;usize&gt;,
     <span class="comment">// We use an event index to track what to keep
@@ -1620,88 +1682,154 @@
         </span>W: WritableJournal,
         R: ReadableJournal,
     {
-        <span class="kw">let </span>has_threads = !<span class="self">self</span>.thread_map.is_empty();
-
         <span class="kw">let </span><span class="kw-2">mut </span>filter = FilteredJournalBuilder::new()
             .with_filter_events(<span class="self">self</span>.whitelist.clone().into_iter().collect());
-        <span class="kw">if let </span><span class="prelude-val">Some</span>(tty) = <span class="self">self</span>.tty.as_ref() {
-            filter.add_event_to_whitelist(<span class="kw-2">*</span>tty);
-        }
-        <span class="kw">if let </span><span class="prelude-val">Some</span>(tty) = <span class="self">self</span>.chdir.as_ref() {
-            filter.add_event_to_whitelist(<span class="kw-2">*</span>tty);
-        }
-        <span class="kw">for </span>e <span class="kw">in </span><span class="self">self</span>.snapshots.iter() {
-            filter.add_event_to_whitelist(<span class="kw-2">*</span>e);
-        }
-        <span class="kw">for </span>(<span class="kw">_</span>, e) <span class="kw">in </span><span class="self">self</span>.memory_map.iter() {
-            filter.add_event_to_whitelist(<span class="kw-2">*</span>e);
-        }
-        <span class="kw">for </span>t <span class="kw">in </span><span class="self">self</span>.thread_map.iter() {
-            filter.add_event_to_whitelist(<span class="kw-2">*</span>t.<span class="number">1</span>);
-        }
-        <span class="kw">for </span>(<span class="kw">_</span>, e) <span class="kw">in </span><span class="self">self</span>.remove_directory.iter() {
-            filter.add_event_to_whitelist(<span class="kw-2">*</span>e);
-        }
-        <span class="kw">for </span>(<span class="kw">_</span>, e) <span class="kw">in </span><span class="self">self</span>.unlink_file.iter() {
-            filter.add_event_to_whitelist(<span class="kw-2">*</span>e);
-        }
-        <span class="kw">for </span>(<span class="kw">_</span>, l) <span class="kw">in </span><span class="self">self</span>.create_directory.iter() {
-            <span class="kw">if let </span><span class="prelude-val">Some</span>(d) = <span class="self">self</span>.descriptors.get(l) {
-                <span class="kw">for </span>e <span class="kw">in </span>d.events.iter() {
-                    filter.add_event_to_whitelist(<span class="kw-2">*</span>e);
-                }
-                <span class="kw">for </span>e <span class="kw">in </span>d.write_map.values() {
-                    filter.add_event_to_whitelist(<span class="kw-2">*</span>e);
-                }
-            }
-        }
-        <span class="kw">for </span>(<span class="kw">_</span>, l) <span class="kw">in </span><span class="self">self
-            </span>.suspect_descriptors
-            .iter()
-            .chain(<span class="self">self</span>.keep_descriptors.iter())
+
+        <span class="kw">for </span>event_index <span class="kw">in </span><span class="self">self
+            </span>.tty
+            .as_ref()
+            .into_iter()
+            .chain(<span class="self">self</span>.chdir.as_ref().into_iter())
+            .chain(<span class="self">self</span>.process_exit.as_ref().into_iter())
+            .chain(<span class="self">self</span>.init_module.as_ref().into_iter())
+            .chain(<span class="self">self</span>.snapshots.iter())
+            .chain(<span class="self">self</span>.memory_map.values())
+            .chain(<span class="self">self</span>.thread_map.values())
+            .chain(<span class="self">self</span>.remove_directory.values())
+            .chain(<span class="self">self</span>.unlink_file.values())
+            .cloned()
         {
-            <span class="kw">if let </span><span class="prelude-val">Some</span>(d) = <span class="self">self</span>.descriptors.get(l) {
-                <span class="kw">for </span>e <span class="kw">in </span>d.events.iter() {
-                    filter.add_event_to_whitelist(<span class="kw-2">*</span>e);
-                }
-                <span class="kw">for </span>e <span class="kw">in </span>d.write_map.values() {
-                    filter.add_event_to_whitelist(<span class="kw-2">*</span>e);
-                }
-            }
+            filter.add_event_to_whitelist(event_index);
         }
-        <span class="kw">for </span>(<span class="kw">_</span>, l) <span class="kw">in </span><span class="self">self</span>.open_sockets.iter() {
-            <span class="kw">if let </span><span class="prelude-val">Some</span>(d) = <span class="self">self</span>.descriptors.get(l) {
-                <span class="kw">for </span>e <span class="kw">in </span>d.events.iter() {
-                    filter.add_event_to_whitelist(<span class="kw-2">*</span>e);
-                }
-                <span class="kw">for </span>e <span class="kw">in </span>d.write_map.values() {
-                    filter.add_event_to_whitelist(<span class="kw-2">*</span>e);
-                }
+        <span class="kw">for </span>d <span class="kw">in </span><span class="self">self
+            </span>.create_directory
+            .values()
+            .filter_map(|l| <span class="self">self</span>.sub_events.get(l))
+            .chain(
+                <span class="self">self</span>.suspect_descriptors
+                    .values()
+                    .filter_map(|l| <span class="self">self</span>.sub_events.get(l)),
+            )
+            .chain(
+                <span class="self">self</span>.keep_descriptors
+                    .values()
+                    .filter_map(|l| <span class="self">self</span>.sub_events.get(l)),
+            )
+            .chain(
+                <span class="self">self</span>.kept_descriptors
+                    .iter()
+                    .filter_map(|l| <span class="self">self</span>.sub_events.get(l)),
+            )
+            .chain(
+                <span class="self">self</span>.open_sockets
+                    .values()
+                    .filter_map(|l| <span class="self">self</span>.sub_events.get(l)),
+            )
+            .chain(
+                <span class="self">self</span>.accepted_sockets
+                    .values()
+                    .filter_map(|l| <span class="self">self</span>.sub_events.get(l)),
+            )
+            .chain(
+                <span class="self">self</span>.event_descriptors
+                    .values()
+                    .filter_map(|l| <span class="self">self</span>.sub_events.get(l)),
+            )
+            .chain(
+                <span class="self">self</span>.epoll_descriptors
+                    .values()
+                    .filter_map(|l| <span class="self">self</span>.sub_events.get(l)),
+            )
+            .chain(
+                <span class="self">self</span>.open_pipes
+                    .values()
+                    .filter_map(|l| <span class="self">self</span>.sub_events.get(l)),
+            )
+            .chain(
+                <span class="self">self</span>.stdio_descriptors
+                    .values()
+                    .filter_map(|l| <span class="self">self</span>.sub_events.get(l)),
+            )
+        {
+            <span class="kw">for </span>e <span class="kw">in </span>d.events.iter() {
+                filter.add_event_to_whitelist(<span class="kw-2">*</span>e);
             }
-        }
-        <span class="kw">for </span>(<span class="kw">_</span>, l) <span class="kw">in </span><span class="self">self</span>.open_pipes.iter() {
-            <span class="kw">if let </span><span class="prelude-val">Some</span>(d) = <span class="self">self</span>.descriptors.get(l) {
-                <span class="kw">for </span>e <span class="kw">in </span>d.events.iter() {
-                    filter.add_event_to_whitelist(<span class="kw-2">*</span>e);
-                }
-                <span class="kw">for </span>e <span class="kw">in </span>d.write_map.values() {
-                    filter.add_event_to_whitelist(<span class="kw-2">*</span>e);
-                }
-            }
-        }
-        <span class="kw">if </span>has_threads {
-            <span class="kw">for </span>(<span class="kw">_</span>, l) <span class="kw">in </span><span class="self">self</span>.stdio_descriptors.iter() {
-                <span class="kw">if let </span><span class="prelude-val">Some</span>(d) = <span class="self">self</span>.descriptors.get(l) {
-                    <span class="kw">for </span>e <span class="kw">in </span>d.events.iter() {
-                        filter.add_event_to_whitelist(<span class="kw-2">*</span>e);
-                    }
-                    <span class="kw">for </span>e <span class="kw">in </span>d.write_map.values() {
-                        filter.add_event_to_whitelist(<span class="kw-2">*</span>e);
-                    }
-                }
+            <span class="kw">for </span>e <span class="kw">in </span>d.write_map.values() {
+                filter.add_event_to_whitelist(<span class="kw-2">*</span>e);
             }
         }
         filter.build_split(writer, reader)
+    }
+
+    <span class="kw">fn </span>insert_new_sub_events(<span class="kw-2">&amp;mut </span><span class="self">self</span>, event_index: usize) -&gt; SubGroupIndex {
+        <span class="kw">let </span>lookup = SubGroupIndex(<span class="self">self</span>.descriptor_seed);
+        <span class="self">self</span>.descriptor_seed += <span class="number">1</span>;
+
+        <span class="self">self</span>.sub_events
+            .entry(lookup)
+            .or_default()
+            .events
+            .push(event_index);
+
+        lookup
+    }
+
+    <span class="kw">fn </span>append_to_sub_events(<span class="kw-2">&amp;mut </span><span class="self">self</span>, lookup: <span class="kw-2">&amp;</span>SubGroupIndex, event_index: usize) {
+        <span class="kw">if let </span><span class="prelude-val">Some</span>(state) = <span class="self">self</span>.sub_events.get_mut(lookup) {
+            state.events.push(event_index);
+        }
+    }
+
+    <span class="kw">fn </span>set_path_for_sub_events(<span class="kw-2">&amp;mut </span><span class="self">self</span>, lookup: <span class="kw-2">&amp;</span>SubGroupIndex, path: <span class="kw-2">&amp;</span>str) {
+        <span class="kw">if let </span><span class="prelude-val">Some</span>(state) = <span class="self">self</span>.sub_events.get_mut(lookup) {
+            state.path = <span class="prelude-val">Some</span>(path.to_string());
+        }
+    }
+
+    <span class="kw">fn </span>cancel_sub_events_by_path(<span class="kw-2">&amp;mut </span><span class="self">self</span>, path: <span class="kw-2">&amp;</span>str) {
+        <span class="kw">let </span>test = <span class="prelude-val">Some</span>(path.to_string());
+        <span class="self">self</span>.sub_events.retain(|<span class="kw">_</span>, d| d.path != test);
+    }
+
+    <span class="kw">fn </span>solidify_sub_events_by_path(<span class="kw-2">&amp;mut </span><span class="self">self</span>, path: <span class="kw-2">&amp;</span>str) {
+        <span class="kw">let </span>test = <span class="prelude-val">Some</span>(path.to_string());
+        <span class="self">self</span>.sub_events
+            .iter_mut()
+            .filter(|(<span class="kw">_</span>, d)| d.path == test)
+            .for_each(|(<span class="kw">_</span>, d)| {
+                d.path.take();
+            })
+    }
+
+    <span class="kw">fn </span>find_sub_events(<span class="kw-2">&amp;</span><span class="self">self</span>, fd: <span class="kw-2">&amp;</span>u32) -&gt; <span class="prelude-ty">Option</span>&lt;SubGroupIndex&gt; {
+        <span class="self">self</span>.suspect_descriptors
+            .get(fd)
+            .cloned()
+            .or_else(|| <span class="self">self</span>.open_sockets.get(fd).cloned())
+            .or_else(|| <span class="self">self</span>.accepted_sockets.get(fd).cloned())
+            .or_else(|| <span class="self">self</span>.open_pipes.get(fd).cloned())
+            .or_else(|| <span class="self">self</span>.keep_descriptors.get(fd).cloned())
+            .or_else(|| <span class="self">self</span>.event_descriptors.get(fd).cloned())
+            .or_else(|| <span class="self">self</span>.stdio_descriptors.get(fd).cloned())
+    }
+
+    <span class="kw">fn </span>find_sub_events_and_append(<span class="kw-2">&amp;mut </span><span class="self">self</span>, fd: <span class="kw-2">&amp;</span>u32, event_index: usize) {
+        <span class="kw">if let </span><span class="prelude-val">Some</span>(lookup) = <span class="self">self</span>.find_sub_events(fd) {
+            <span class="self">self</span>.append_to_sub_events(<span class="kw-2">&amp;</span>lookup, event_index);
+        }
+    }
+
+    <span class="kw">fn </span>clear_run_sub_events(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
+        <span class="self">self</span>.accepted_sockets.clear();
+        <span class="self">self</span>.event_descriptors.clear();
+        <span class="self">self</span>.memory_map.clear();
+        <span class="self">self</span>.open_pipes.clear();
+        <span class="self">self</span>.open_sockets.clear();
+        <span class="self">self</span>.snapshots.clear();
+        <span class="self">self</span>.staged_thread_map.clear();
+        <span class="self">self</span>.stdio_descriptors.clear();
+        <span class="self">self</span>.suspect_descriptors.clear();
+        <span class="self">self</span>.thread_map.clear();
     }
 }
 
@@ -1743,22 +1871,26 @@
             inner_rx: rx.as_restarted()<span class="question-mark">?</span>,
             tty: <span class="prelude-val">None</span>,
             chdir: <span class="prelude-val">None</span>,
+            process_exit: <span class="prelude-val">None</span>,
+            init_module: <span class="prelude-val">None</span>,
             snapshots: Default::default(),
             memory_map: Default::default(),
             thread_map: Default::default(),
             staged_thread_map: Default::default(),
             open_sockets: Default::default(),
+            accepted_sockets: Default::default(),
             open_pipes: Default::default(),
             create_directory: Default::default(),
             remove_directory: Default::default(),
-            create_trunc_file: Default::default(),
-            modify_file: Default::default(),
             unlink_file: Default::default(),
             suspect_descriptors: Default::default(),
             keep_descriptors: Default::default(),
+            kept_descriptors: Default::default(),
             stdio_descriptors: Default::default(),
+            event_descriptors: Default::default(),
+            epoll_descriptors: Default::default(),
             descriptor_seed: <span class="number">0</span>,
-            descriptors: Default::default(),
+            sub_events: Default::default(),
             whitelist: Default::default(),
             delta_list: <span class="prelude-val">None</span>,
             event_index: <span class="number">0</span>,
@@ -1929,18 +2061,8 @@
                 state.snapshots.push(event_index);
             }
             JournalEntry::ProcessExitV1 { .. } =&gt; {
-                state.thread_map.clear();
-                state.memory_map.clear();
-                <span class="kw">for </span>(<span class="kw">_</span>, lookup) <span class="kw">in </span>state.suspect_descriptors.clone() {
-                    state.descriptors.remove(<span class="kw-2">&amp;</span>lookup);
-                }
-                state.suspect_descriptors.clear();
-                <span class="kw">for </span>(<span class="kw">_</span>, lookup) <span class="kw">in </span>state.stdio_descriptors.clone() {
-                    state.descriptors.remove(<span class="kw-2">&amp;</span>lookup);
-                }
-                state.stdio_descriptors.clear();
-                state.whitelist.insert(event_index);
-                state.snapshots.clear();
+                state.clear_run_sub_events();
+                state.process_exit = <span class="prelude-val">Some</span>(event_index);
             }
             JournalEntry::TtySetV1 { .. } =&gt; {
                 state.tty.replace(event_index);
@@ -1948,146 +2070,58 @@
             JournalEntry::ChangeDirectoryV1 { .. } =&gt; {
                 state.chdir.replace(event_index);
             }
+            JournalEntry::CreateEventV1 { fd, .. } =&gt; {
+                <span class="kw">let </span>lookup = state.insert_new_sub_events(event_index);
+                state.event_descriptors.insert(<span class="kw-2">*</span>fd, lookup);
+            }
             JournalEntry::OpenFileDescriptorV1 {
                 fd, o_flags, path, ..
             } =&gt; {
+                <span class="comment">// Creating a file and erasing anything that was there before means
+                // the entire create branch that exists before this one can be ignored
+                </span><span class="kw">let </span>path = path.to_string();
+                <span class="kw">if </span>o_flags.contains(wasi::Oflags::CREATE) &amp;&amp; o_flags.contains(wasi::Oflags::TRUNC) {
+                    state.cancel_sub_events_by_path(path.as_ref());
+                }
                 <span class="comment">// All file descriptors are opened in a suspect state which
                 // means if they are closed without modifying the file system
                 // then the events will be ignored.
-                </span><span class="kw">let </span>lookup = DescriptorLookup(state.descriptor_seed);
-                state.descriptor_seed += <span class="number">1</span>;
-                state.suspect_descriptors.insert(<span class="kw-2">*</span>fd, lookup);
+                </span><span class="kw">let </span>lookup = state.insert_new_sub_events(event_index);
+                state.set_path_for_sub_events(<span class="kw-2">&amp;</span>lookup, path.as_ref());
 
                 <span class="comment">// There is an exception to the rule which is if the create
                 // flag is specified its always recorded as a mutating operation
                 // because it may create a file that does not exist on the file system
                 </span><span class="kw">if </span>o_flags.contains(wasi::Oflags::CREATE) {
-                    <span class="kw">if let </span><span class="prelude-val">Some</span>(lookup) = state.suspect_descriptors.remove(fd) {
-                        state.keep_descriptors.insert(<span class="kw-2">*</span>fd, lookup);
-                    }
-                }
-
-                <span class="comment">// The event itself must be recorded in a staging area
-                </span>state
-                    .descriptors
-                    .entry(lookup)
-                    .or_default()
-                    .events
-                    .push(event_index);
-
-                <span class="comment">// Creating a file and erasing anything that was there before means
-                // the entire create branch that exists before this one can be ignored
-                </span><span class="kw">let </span>path = path.to_string();
-                <span class="kw">if </span>o_flags.contains(wasi::Oflags::CREATE)
-                    &amp;&amp; (o_flags.contains(wasi::Oflags::TRUNC)
-                        || o_flags.contains(wasi::Oflags::EXCL))
-                {
-                    <span class="kw">if let </span><span class="prelude-val">Some</span>(existing) = state.create_trunc_file.remove(<span class="kw-2">&amp;</span>path) {
-                        <span class="kw">if let </span><span class="prelude-val">Some</span>(remove) = state.suspect_descriptors.remove(<span class="kw-2">&amp;</span>existing) {
-                            state.descriptors.remove(<span class="kw-2">&amp;</span>remove);
-                        }
-                        <span class="kw">if let </span><span class="prelude-val">Some</span>(remove) = state.keep_descriptors.remove(<span class="kw-2">&amp;</span>existing) {
-                            state.descriptors.remove(<span class="kw-2">&amp;</span>remove);
-                        }
-                    }
-                    <span class="kw">if let </span><span class="prelude-val">Some</span>(existing) = state.modify_file.remove(<span class="kw-2">&amp;</span>path) {
-                        <span class="kw">if let </span><span class="prelude-val">Some</span>(remove) = state.suspect_descriptors.remove(<span class="kw-2">&amp;</span>existing) {
-                            state.descriptors.remove(<span class="kw-2">&amp;</span>remove);
-                        }
-                        <span class="kw">if let </span><span class="prelude-val">Some</span>(remove) = state.keep_descriptors.remove(<span class="kw-2">&amp;</span>existing) {
-                            state.descriptors.remove(<span class="kw-2">&amp;</span>remove);
-                        }
-                    }
-                    <span class="kw">if let </span><span class="prelude-val">Some</span>(existing) = state.create_trunc_file.insert(path, <span class="kw-2">*</span>fd) {
-                        <span class="kw">if let </span><span class="prelude-val">Some</span>(remove) = state.suspect_descriptors.remove(<span class="kw-2">&amp;</span>existing) {
-                            state.descriptors.remove(<span class="kw-2">&amp;</span>remove);
-                        }
-                        <span class="kw">if let </span><span class="prelude-val">Some</span>(remove) = state.keep_descriptors.remove(<span class="kw-2">&amp;</span>existing) {
-                            state.descriptors.remove(<span class="kw-2">&amp;</span>remove);
-                        }
-                    }
-                } <span class="kw">else if let </span><span class="prelude-val">Some</span>(existing) = state.modify_file.insert(path, <span class="kw-2">*</span>fd) {
-                    <span class="kw">if let </span><span class="prelude-val">Some</span>(remove) = state.suspect_descriptors.remove(<span class="kw-2">&amp;</span>existing) {
-                        state.descriptors.remove(<span class="kw-2">&amp;</span>remove);
-                    }
-                    <span class="kw">if let </span><span class="prelude-val">Some</span>(remove) = state.keep_descriptors.remove(<span class="kw-2">&amp;</span>existing) {
-                        state.descriptors.remove(<span class="kw-2">&amp;</span>remove);
-                    }
-                }
-            }
-            <span class="comment">// We keep non-mutable events for file descriptors that are suspect
-            </span>JournalEntry::FileDescriptorSeekV1 { fd, .. }
-            | JournalEntry::CloseFileDescriptorV1 { fd } =&gt; {
-                <span class="comment">// Get the lookup
-                // (if its suspect then it will remove the entry and
-                //  thus the entire branch of events it represents is discarded)
-                </span><span class="kw">let </span><span class="kw-2">mut </span>erase = <span class="bool-val">false</span>;
-                <span class="kw">let </span>lookup = <span class="kw">if </span><span class="macro">matches!</span>(<span class="kw-2">&amp;</span>entry, JournalEntry::CloseFileDescriptorV1 { .. }) {
-                    <span class="kw">if </span>state.open_sockets.remove(fd).is_some() {
-                        erase = <span class="bool-val">true</span>;
-                    }
-                    <span class="kw">if </span>state.open_pipes.remove(fd).is_some() {
-                        erase = <span class="bool-val">true</span>;
-                    }
-                    <span class="kw">match </span>state.suspect_descriptors.remove(fd) {
-                        <span class="prelude-val">Some</span>(a) =&gt; {
-                            erase = <span class="bool-val">true</span>;
-                            <span class="prelude-val">Some</span>(a)
-                        }
-                        <span class="prelude-val">None </span>=&gt; <span class="prelude-val">None</span>,
-                    }
+                    state.keep_descriptors.insert(<span class="kw-2">*</span>fd, lookup);
                 } <span class="kw">else </span>{
-                    state.suspect_descriptors.get(fd).cloned()
-                };
-                <span class="kw">let </span>lookup = lookup
-                    .or_else(|| state.keep_descriptors.get(fd).cloned())
-                    .or_else(|| state.stdio_descriptors.get(fd).cloned());
-
-                <span class="comment">// If we are to erase all these events as if they never happened then do so
-                </span><span class="kw">if </span>erase {
-                    <span class="kw">if let </span><span class="prelude-val">Some</span>(lookup) = lookup {
-                        state.descriptors.remove(<span class="kw-2">&amp;</span>lookup);
-                    }
-                } <span class="kw">else if let </span><span class="prelude-val">Some</span>(lookup) = lookup {
-                    <span class="kw">let </span>state = state.descriptors.entry(lookup).or_default();
-                    state.events.push(event_index);
-                } <span class="kw">else </span>{
-                    state.whitelist.insert(event_index);
+                    state.suspect_descriptors.insert(<span class="kw-2">*</span>fd, lookup);
                 }
             }
             <span class="comment">// Things that modify a file descriptor mean that it is
             // no longer suspect and thus it needs to be kept
             </span>JournalEntry::FileDescriptorAdviseV1 { fd, .. }
             | JournalEntry::FileDescriptorAllocateV1 { fd, .. }
-            | JournalEntry::FileDescriptorSetFlagsV1 { fd, .. }
             | JournalEntry::FileDescriptorSetTimesV1 { fd, .. }
             | JournalEntry::FileDescriptorWriteV1 { fd, .. }
-            | JournalEntry::SocketBindV1 { fd, .. }
-            | JournalEntry::SocketSendFileV1 { socket_fd: fd, .. }
-            | JournalEntry::SocketSendToV1 { fd, .. }
-            | JournalEntry::SocketSendV1 { fd, .. }
-            | JournalEntry::SocketSetOptFlagV1 { fd, .. }
-            | JournalEntry::SocketSetOptSizeV1 { fd, .. }
-            | JournalEntry::SocketSetOptTimeV1 { fd, .. }
-            | JournalEntry::SocketShutdownV1 { fd, .. } =&gt; {
+            | JournalEntry::FileDescriptorSetRightsV1 { fd, .. }
+            | JournalEntry::FileDescriptorSetSizeV1 { fd, .. } =&gt; {
                 <span class="comment">// Its no longer suspect
                 </span><span class="kw">if let </span><span class="prelude-val">Some</span>(lookup) = state.suspect_descriptors.remove(fd) {
                     state.keep_descriptors.insert(<span class="kw-2">*</span>fd, lookup);
                 }
 
-                <span class="comment">// Get the lookup
-                </span><span class="kw">let </span>lookup = state
-                    .suspect_descriptors
-                    .get(fd)
-                    .cloned()
-                    .or_else(|| state.open_sockets.get(fd).cloned())
-                    .or_else(|| state.open_pipes.get(fd).cloned())
-                    .or_else(|| state.keep_descriptors.get(fd).cloned())
-                    .or_else(|| state.stdio_descriptors.get(fd).cloned());
+                <span class="comment">// If its stdio then we need to create the descriptor if its not there already
+                </span><span class="kw">if </span><span class="kw-2">*</span>fd &lt;= <span class="number">3 </span>&amp;&amp; !state.stdio_descriptors.contains_key(fd) {
+                    <span class="kw">let </span>lookup = state.insert_new_sub_events(event_index);
+                    state.stdio_descriptors.insert(<span class="kw-2">*</span>fd, lookup);
+                }
 
                 <span class="comment">// Update the state
-                </span><span class="kw">if let </span><span class="prelude-val">Some</span>(lookup) = lookup {
-                    <span class="kw">let </span>state = state.descriptors.entry(lookup).or_default();
+                </span><span class="kw">if let </span><span class="prelude-val">Some</span>(state) = state
+                    .find_sub_events(fd)
+                    .and_then(|lookup| state.sub_events.get_mut(<span class="kw-2">&amp;</span>lookup))
+                {
                     <span class="kw">if let </span>JournalEntry::FileDescriptorWriteV1 { offset, data, .. } = <span class="kw-2">&amp;</span>entry {
                         state.write_map.insert(
                             MemoryRange {
@@ -2099,8 +2133,54 @@
                     } <span class="kw">else </span>{
                         state.events.push(event_index);
                     }
+                }
+            }
+            <span class="comment">// Seeks to a particular position within
+            </span>JournalEntry::FileDescriptorSeekV1 { fd, .. }
+            | JournalEntry::FileDescriptorSetFlagsV1 { fd, .. } =&gt; {
+                <span class="comment">// If its stdio then we need to create the descriptor if its not there already
+                </span><span class="kw">if </span><span class="kw-2">*</span>fd &lt;= <span class="number">3 </span>&amp;&amp; !state.stdio_descriptors.contains_key(fd) {
+                    <span class="kw">let </span>lookup = state.insert_new_sub_events(event_index);
+                    state.stdio_descriptors.insert(<span class="kw-2">*</span>fd, lookup);
+                }
+                state.find_sub_events_and_append(fd, event_index);
+            }
+            <span class="comment">// We keep non-mutable events for file descriptors that are suspect
+            </span>JournalEntry::SocketBindV1 { fd, .. }
+            | JournalEntry::SocketSendFileV1 { socket_fd: fd, .. }
+            | JournalEntry::SocketSendToV1 { fd, .. }
+            | JournalEntry::SocketSendV1 { fd, .. }
+            | JournalEntry::SocketSetOptFlagV1 { fd, .. }
+            | JournalEntry::SocketSetOptSizeV1 { fd, .. }
+            | JournalEntry::SocketSetOptTimeV1 { fd, .. }
+            | JournalEntry::SocketShutdownV1 { fd, .. }
+            | JournalEntry::SocketListenV1 { fd, .. }
+            | JournalEntry::SocketJoinIpv4MulticastV1 { fd, .. }
+            | JournalEntry::SocketJoinIpv6MulticastV1 { fd, .. }
+            | JournalEntry::SocketLeaveIpv4MulticastV1 { fd, .. }
+            | JournalEntry::SocketLeaveIpv6MulticastV1 { fd, .. } =&gt; {
+                state.find_sub_events_and_append(fd, event_index);
+            }
+            <span class="comment">// Closing a file can stop all the events from appearing in the
+            // journal at all
+            </span>JournalEntry::CloseFileDescriptorV1 { fd } =&gt; {
+                <span class="kw">if let </span><span class="prelude-val">Some</span>(lookup) = state.open_sockets.remove(fd) {
+                    state.sub_events.remove(<span class="kw-2">&amp;</span>lookup);
+                } <span class="kw">else if let </span><span class="prelude-val">Some</span>(lookup) = state.accepted_sockets.remove(fd) {
+                    state.sub_events.remove(<span class="kw-2">&amp;</span>lookup);
+                } <span class="kw">else if let </span><span class="prelude-val">Some</span>(lookup) = state.open_pipes.remove(fd) {
+                    state.sub_events.remove(<span class="kw-2">&amp;</span>lookup);
+                } <span class="kw">else if let </span><span class="prelude-val">Some</span>(lookup) = state.suspect_descriptors.remove(fd) {
+                    state.sub_events.remove(<span class="kw-2">&amp;</span>lookup);
+                } <span class="kw">else if let </span><span class="prelude-val">Some</span>(lookup) = state.event_descriptors.remove(fd) {
+                    state.sub_events.remove(<span class="kw-2">&amp;</span>lookup);
+                } <span class="kw">else if let </span><span class="prelude-val">Some</span>(lookup) = state.epoll_descriptors.remove(fd) {
+                    state.sub_events.remove(<span class="kw-2">&amp;</span>lookup);
+                } <span class="kw">else if let </span><span class="prelude-val">Some</span>(lookup) = state.keep_descriptors.remove(fd) {
+                    state.append_to_sub_events(<span class="kw-2">&amp;</span>lookup, event_index);
+                    state.kept_descriptors.push(lookup);
                 } <span class="kw">else </span>{
-                    state.whitelist.insert(event_index);
+                    state.find_sub_events_and_append(fd, event_index);
                 }
             }
             <span class="comment">// Duplicating the file descriptor
@@ -2108,14 +2188,20 @@
                 original_fd,
                 copied_fd,
             } =&gt; {
-                <span class="kw">if let </span><span class="prelude-val">Some</span>(lookup) = state.suspect_descriptors.remove(original_fd) {
+                <span class="kw">if let </span><span class="prelude-val">Some</span>(lookup) = state.suspect_descriptors.get(original_fd).cloned() {
                     state.suspect_descriptors.insert(<span class="kw-2">*</span>copied_fd, lookup);
-                } <span class="kw">else if let </span><span class="prelude-val">Some</span>(lookup) = state.keep_descriptors.remove(original_fd) {
+                } <span class="kw">else if let </span><span class="prelude-val">Some</span>(lookup) = state.keep_descriptors.get(original_fd).cloned() {
                     state.keep_descriptors.insert(<span class="kw-2">*</span>copied_fd, lookup);
-                } <span class="kw">else if let </span><span class="prelude-val">Some</span>(lookup) = state.stdio_descriptors.remove(original_fd) {
+                } <span class="kw">else if let </span><span class="prelude-val">Some</span>(lookup) = state.stdio_descriptors.get(original_fd).cloned() {
                     state.stdio_descriptors.insert(<span class="kw-2">*</span>copied_fd, lookup);
-                } <span class="kw">else </span>{
-                    state.whitelist.insert(event_index);
+                } <span class="kw">else if let </span><span class="prelude-val">Some</span>(lookup) = state.open_pipes.get(original_fd).cloned() {
+                    state.open_pipes.insert(<span class="kw-2">*</span>copied_fd, lookup);
+                } <span class="kw">else if let </span><span class="prelude-val">Some</span>(lookup) = state.open_sockets.get(original_fd).cloned() {
+                    state.open_sockets.insert(<span class="kw-2">*</span>copied_fd, lookup);
+                } <span class="kw">else if let </span><span class="prelude-val">Some</span>(lookup) = state.accepted_sockets.get(original_fd).cloned() {
+                    state.accepted_sockets.insert(<span class="kw-2">*</span>copied_fd, lookup);
+                } <span class="kw">else if let </span><span class="prelude-val">Some</span>(lookup) = state.event_descriptors.get(original_fd).cloned() {
+                    state.event_descriptors.insert(<span class="kw-2">*</span>copied_fd, lookup);
                 }
             }
             <span class="comment">// Renumbered file descriptors will retain their suspect status
@@ -2126,8 +2212,14 @@
                     state.keep_descriptors.insert(<span class="kw-2">*</span>new_fd, lookup);
                 } <span class="kw">else if let </span><span class="prelude-val">Some</span>(lookup) = state.stdio_descriptors.remove(old_fd) {
                     state.stdio_descriptors.insert(<span class="kw-2">*</span>new_fd, lookup);
-                } <span class="kw">else </span>{
-                    state.whitelist.insert(event_index);
+                } <span class="kw">else if let </span><span class="prelude-val">Some</span>(lookup) = state.open_pipes.remove(old_fd) {
+                    state.open_pipes.insert(<span class="kw-2">*</span>new_fd, lookup);
+                } <span class="kw">else if let </span><span class="prelude-val">Some</span>(lookup) = state.open_sockets.remove(old_fd) {
+                    state.open_sockets.insert(<span class="kw-2">*</span>new_fd, lookup);
+                } <span class="kw">else if let </span><span class="prelude-val">Some</span>(lookup) = state.open_sockets.remove(old_fd) {
+                    state.accepted_sockets.insert(<span class="kw-2">*</span>new_fd, lookup);
+                } <span class="kw">else if let </span><span class="prelude-val">Some</span>(lookup) = state.event_descriptors.remove(old_fd) {
+                    state.event_descriptors.insert(<span class="kw-2">*</span>new_fd, lookup);
                 }
             }
             <span class="comment">// Creating a new directory only needs to be done once
@@ -2135,23 +2227,12 @@
                 <span class="kw">let </span>path = path.to_string();
 
                 <span class="comment">// Newly created directories are stored as a set of .
-                </span><span class="kw">let </span>lookup = <span class="kw">match </span>state.create_directory.get(<span class="kw-2">&amp;</span>path) {
-                    <span class="prelude-val">Some</span>(lookup) =&gt; <span class="kw-2">*</span>lookup,
-                    <span class="prelude-val">None </span>=&gt; {
-                        <span class="kw">let </span>lookup = DescriptorLookup(state.descriptor_seed);
-                        state.descriptor_seed += <span class="number">1</span>;
-                        state.create_directory.insert(path, lookup);
-                        lookup
-                    }
+                </span><span class="attr">#[allow(clippy::map_entry)]
+                </span><span class="kw">if </span>!state.create_directory.contains_key(<span class="kw-2">&amp;</span>path) {
+                    <span class="kw">let </span>lookup = state.insert_new_sub_events(event_index);
+                    state.set_path_for_sub_events(<span class="kw-2">&amp;</span>lookup, <span class="kw-2">&amp;</span>path);
+                    state.create_directory.insert(path, lookup);
                 };
-
-                <span class="comment">// Add the event that creates the directory
-                </span>state
-                    .descriptors
-                    .entry(lookup)
-                    .or_default()
-                    .events
-                    .push(event_index);
             }
             <span class="comment">// Deleting a directory only needs to be done once
             </span>JournalEntry::RemoveDirectoryV1 { path, .. } =&gt; {
@@ -2161,113 +2242,72 @@
             }
             <span class="comment">// Unlinks the file from the file system
             </span>JournalEntry::UnlinkFileV1 { path, .. } =&gt; {
-                <span class="kw">let </span>path = path.to_string();
-                <span class="kw">if let </span><span class="prelude-val">Some</span>(existing) = state
-                    .create_trunc_file
-                    .remove(<span class="kw-2">&amp;</span>path)
-                    .or_else(|| state.modify_file.remove(<span class="kw-2">&amp;</span>path))
-                {
-                    <span class="kw">if let </span><span class="prelude-val">Some</span>(remove) = state.suspect_descriptors.remove(<span class="kw-2">&amp;</span>existing) {
-                        state.descriptors.remove(<span class="kw-2">&amp;</span>remove);
-                    }
-                    <span class="kw">if let </span><span class="prelude-val">Some</span>(remove) = state.keep_descriptors.remove(<span class="kw-2">&amp;</span>existing) {
-                        state.descriptors.remove(<span class="kw-2">&amp;</span>remove);
-                    }
-                }
-                state.unlink_file.insert(path, event_index);
+                state.cancel_sub_events_by_path(path.as_ref());
+                state.unlink_file.insert(path.to_string(), event_index);
             }
             <span class="comment">// Renames may update some of the tracking functions
             </span>JournalEntry::PathRenameV1 {
                 old_path, new_path, ..
             } =&gt; {
-                <span class="kw">let </span>old_path = old_path.to_string();
-                <span class="kw">let </span>new_path = new_path.to_string();
-
-                <span class="kw">if let </span><span class="prelude-val">Some</span>(existing) = state.create_trunc_file.remove(<span class="kw-2">&amp;</span>old_path) {
-                    <span class="kw">if let </span><span class="prelude-val">Some</span>(replaces) = state.create_trunc_file.insert(new_path, existing) {
-                        <span class="kw">if let </span><span class="prelude-val">Some</span>(remove) = state.suspect_descriptors.remove(<span class="kw-2">&amp;</span>replaces) {
-                            state.descriptors.remove(<span class="kw-2">&amp;</span>remove);
-                        }
-                        <span class="kw">if let </span><span class="prelude-val">Some</span>(remove) = state.keep_descriptors.remove(<span class="kw-2">&amp;</span>replaces) {
-                            state.descriptors.remove(<span class="kw-2">&amp;</span>remove);
-                        }
-                    }
-                } <span class="kw">else if let </span><span class="prelude-val">Some</span>(existing) = state.modify_file.remove(<span class="kw-2">&amp;</span>old_path) {
-                    <span class="kw">if let </span><span class="prelude-val">Some</span>(replaces) = state.modify_file.insert(new_path, existing) {
-                        <span class="kw">if let </span><span class="prelude-val">Some</span>(remove) = state.suspect_descriptors.remove(<span class="kw-2">&amp;</span>replaces) {
-                            state.descriptors.remove(<span class="kw-2">&amp;</span>remove);
-                        }
-                        <span class="kw">if let </span><span class="prelude-val">Some</span>(remove) = state.keep_descriptors.remove(<span class="kw-2">&amp;</span>replaces) {
-                            state.descriptors.remove(<span class="kw-2">&amp;</span>remove);
-                        }
-                    }
-                } <span class="kw">else if let </span><span class="prelude-val">Some</span>(existing) = state.create_directory.remove(<span class="kw-2">&amp;</span>old_path) {
-                    <span class="kw">if let </span><span class="prelude-val">Some</span>(replaces) = state.create_directory.insert(new_path, existing) {
-                        state.descriptors.remove(<span class="kw-2">&amp;</span>replaces);
-                    }
-                } <span class="kw">else </span>{
-                    state.whitelist.insert(event_index);
-                }
+                state.solidify_sub_events_by_path(old_path.as_ref());
+                state.cancel_sub_events_by_path(new_path.as_ref());
+                state.whitelist.insert(event_index);
             }
             <span class="comment">// Update all the directory operations
             </span>JournalEntry::PathSetTimesV1 { path, .. } =&gt; {
                 <span class="kw">let </span>path = path.to_string();
-                <span class="kw">let </span>lookup = state.create_directory.get(<span class="kw-2">&amp;</span>path).cloned();
-                <span class="kw">if let </span><span class="prelude-val">Some</span>(lookup) = lookup {
-                    state
-                        .descriptors
-                        .entry(lookup)
-                        .or_default()
-                        .events
-                        .push(event_index);
-                } <span class="kw">else </span>{
+                <span class="kw">if let </span><span class="prelude-val">Some</span>(lookup) = state.create_directory.get(<span class="kw-2">&amp;</span>path).cloned() {
+                    state.append_to_sub_events(<span class="kw-2">&amp;</span>lookup, event_index);
+                } <span class="kw">else if </span>!state.remove_directory.contains_key(<span class="kw-2">&amp;</span>path) {
                     state.whitelist.insert(event_index);
                 }
             }
             <span class="comment">// Pipes that remain open at the end will be added
             </span>JournalEntry::CreatePipeV1 { fd1, fd2, .. } =&gt; {
-                <span class="kw">let </span>lookup = DescriptorLookup(state.descriptor_seed);
-                state.descriptor_seed += <span class="number">1</span>;
+                <span class="kw">let </span>lookup = state.insert_new_sub_events(event_index);
                 state.open_pipes.insert(<span class="kw-2">*</span>fd1, lookup);
-
-                state
-                    .descriptors
-                    .entry(lookup)
-                    .or_default()
-                    .events
-                    .push(event_index);
-
-                <span class="kw">let </span>lookup = DescriptorLookup(state.descriptor_seed);
-                state.descriptor_seed += <span class="number">1</span>;
                 state.open_pipes.insert(<span class="kw-2">*</span>fd2, lookup);
             }
+            <span class="comment">// Epoll events
+            </span>JournalEntry::EpollCreateV1 { fd } =&gt; {
+                <span class="kw">let </span>lookup = state.insert_new_sub_events(event_index);
+                state.epoll_descriptors.insert(<span class="kw-2">*</span>fd, lookup);
+            }
+            JournalEntry::EpollCtlV1 { epfd, fd, .. } =&gt; {
+                <span class="kw">if </span>state.find_sub_events(fd).is_some() {
+                    state.find_sub_events_and_append(epfd, event_index);
+                }
+            }
             JournalEntry::SocketConnectedV1 { fd, .. } =&gt; {
-                <span class="kw">let </span>lookup = DescriptorLookup(state.descriptor_seed);
-                state.descriptor_seed += <span class="number">1</span>;
-                state.open_sockets.insert(<span class="kw-2">*</span>fd, lookup);
-                state
-                    .descriptors
-                    .entry(lookup)
-                    .or_default()
-                    .events
-                    .push(event_index);
+                <span class="kw">let </span>lookup = state.insert_new_sub_events(event_index);
+                state.accepted_sockets.insert(<span class="kw-2">*</span>fd, lookup);
             }
             <span class="comment">// Sockets that are accepted are suspect
             </span>JournalEntry::SocketAcceptedV1 { fd, .. } | JournalEntry::SocketOpenV1 { fd, .. } =&gt; {
-                <span class="kw">let </span>lookup = DescriptorLookup(state.descriptor_seed);
-                state.descriptor_seed += <span class="number">1</span>;
+                <span class="kw">let </span>lookup = state.insert_new_sub_events(event_index);
                 state.open_sockets.insert(<span class="kw-2">*</span>fd, lookup);
-                state
-                    .descriptors
-                    .entry(lookup)
-                    .or_default()
-                    .events
-                    .push(event_index);
             }
-            <span class="kw">_ </span>=&gt; {
-                <span class="comment">// The fallthrough is to whitelist the event so that it will
-                // be reflected in the next compaction event
-                </span>state.whitelist.insert(event_index);
+            JournalEntry::InitModuleV1 { .. } =&gt; {
+                state.clear_run_sub_events();
+                state.init_module = <span class="prelude-val">Some</span>(event_index);
+            }
+            JournalEntry::ClearEtherealV1 =&gt; {
+                state.clear_run_sub_events();
+            }
+            JournalEntry::SetClockTimeV1 { .. }
+            | JournalEntry::PortAddAddrV1 { .. }
+            | JournalEntry::PortDelAddrV1 { .. }
+            | JournalEntry::PortAddrClearV1
+            | JournalEntry::PortBridgeV1 { .. }
+            | JournalEntry::PortUnbridgeV1
+            | JournalEntry::PortDhcpAcquireV1
+            | JournalEntry::PortGatewaySetV1 { .. }
+            | JournalEntry::PortRouteAddV1 { .. }
+            | JournalEntry::PortRouteClearV1
+            | JournalEntry::PortRouteDelV1 { .. }
+            | JournalEntry::CreateSymbolicLinkV1 { .. }
+            | JournalEntry::CreateHardLinkV1 { .. } =&gt; {
+                state.whitelist.insert(event_index);
             }
         }
         state.inner_tx.write(entry)
