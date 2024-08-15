@@ -362,8 +362,9 @@ impl PackageLoader for BuiltinPackageLoader {
         &self,
         root: &Container,
         resolution: &Resolution,
+        root_is_local_dir: bool,
     ) -> Result<BinaryPackage, Error> {
-        super::load_package_tree(root, self, resolution).await
+        super::load_package_tree(root, self, resolution, root_is_local_dir).await
     }
 }
 

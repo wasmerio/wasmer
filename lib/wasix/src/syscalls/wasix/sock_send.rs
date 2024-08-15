@@ -28,7 +28,7 @@ pub fn sock_send<M: MemorySize>(
     wasi_try_ok!(WasiEnv::process_signals_and_exit(&mut ctx)?);
 
     let env = ctx.data();
-    let fd_entry = env.state.fs.get_fd(fd).unwrap();
+    let fd_entry = wasi_try_ok!(env.state.fs.get_fd(fd));
     let guard = fd_entry.inode.read();
     let use_write = matches!(guard.deref(), Kind::Pipe { .. });
     drop(guard);

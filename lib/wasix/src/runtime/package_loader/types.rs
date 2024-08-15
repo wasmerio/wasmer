@@ -20,6 +20,7 @@ pub trait PackageLoader: Send + Sync + Debug {
         &self,
         root: &Container,
         resolution: &Resolution,
+        root_is_local_dir: bool,
     ) -> Result<BinaryPackage, Error>;
 }
 
@@ -37,7 +38,10 @@ where
         &self,
         root: &Container,
         resolution: &Resolution,
+        root_is_local_dir: bool,
     ) -> Result<BinaryPackage, Error> {
-        (**self).load_package_tree(root, resolution).await
+        (**self)
+            .load_package_tree(root, resolution, root_is_local_dir)
+            .await
     }
 }

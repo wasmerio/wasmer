@@ -47,6 +47,11 @@ use wasmer_wasix::{
 
 use crate::utils::{parse_envvar, parse_mapdir};
 
+use super::{
+    capabilities::{self, PkgCapabilityCache},
+    ExecutableTarget, PackageSource,
+};
+
 const WAPM_SOURCE_CACHE_TIMEOUT: Duration = Duration::from_secs(10 * 60);
 
 #[derive(Debug, Parser, Clone, Default)]
@@ -539,6 +544,7 @@ impl Wasi {
         &self,
         engine: Engine,
         env: &WasmerEnv,
+        pkg_cache_path: &Path,
         rt_or_handle: I,
         preferred_webc_version: webc::Version,
     ) -> Result<impl Runtime + Send + Sync>
@@ -548,10 +554,20 @@ impl Wasi {
         let tokio_task_manager = Arc::new(TokioTaskManager::new(rt_or_handle.into()));
         let mut rt = PluggableRuntime::new(tokio_task_manager.clone());
 
-        if self.networking {
+        let has_networking = self.networking
+            || capabilities::get_cached_capability(pkg_cache_path)
+                .ok()
+                .is_some_and(|v| v.enable_networking);
+
+        if has_networking {
             rt.set_networking_implementation(virtual_net::host::LocalNetworking::default());
         } else {
-            rt.set_networking_implementation(virtual_net::UnsupportedVirtualNetworking::default());
+            let net = super::capabilities::net::AskingNetworking::new(
+                pkg_cache_path.to_path_buf(),
+                Arc::new(virtual_net::host::LocalNetworking::default()),
+            );
+
+            rt.set_networking_implementation(net);
         }
 
         #[cfg(feature = "journal")]

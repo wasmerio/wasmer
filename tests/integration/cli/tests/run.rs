@@ -188,7 +188,7 @@ fn test_wasmer_run_works_with_dir() {
     let temp_dir = tempfile::TempDir::new().unwrap();
     let qjs_path = temp_dir.path().join("qjs.wasm");
 
-    std::fs::copy(fixtures::qjs(), &qjs_path).unwrap();
+    std::fs::copy(fixtures::qjs(), qjs_path).unwrap();
     std::fs::copy(
         fixtures::qjs_wasmer_toml(),
         temp_dir.path().join("wasmer.toml"),
@@ -943,6 +943,53 @@ fn run_a_package_that_uses_an_atom_from_a_dependency() {
         .assert();
 
     assert.success().stdout(contains("Hello, World!"));
+}
+
+#[test]
+fn local_package_has_write_access_to_its_volumes() {
+    let temp = tempfile::tempdir().unwrap();
+
+    std::fs::write(
+        temp.path().join("wasmer.toml"),
+        r#"
+[dependencies]
+"python/python" = "*"
+
+[fs]
+"/mounted" = "."
+
+[[command]]
+name = "run"
+module = "python/python:python"
+runner = "wasi"
+
+[command.annotations.wasi]
+main-args = ["/mounted/script.py"]
+
+        "#,
+    )
+    .unwrap();
+
+    std::fs::write(
+        temp.path().join("script.py"),
+        r#"
+file = open("/mounted/hello.txt", "w")
+file.write("Hello, world!")
+        "#,
+    )
+    .unwrap();
+
+    Command::new(get_wasmer_path())
+        .arg("run")
+        .arg(temp.path())
+        .arg("--registry=wasmer.io")
+        .env("RUST_LOG", &*RUST_LOG)
+        .assert()
+        .success();
+
+    let file_contents =
+        String::from_utf8(std::fs::read(temp.path().join("hello.txt")).unwrap()).unwrap();
+    assert_eq!(file_contents, "Hello, world!");
 }
 
 fn project_root() -> &'static Path {

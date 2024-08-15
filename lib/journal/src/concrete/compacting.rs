@@ -1,4 +1,3 @@
-use derivative::Derivative;
 use std::{
     collections::{HashMap, HashSet},
     ops::{DerefMut, Range},
@@ -68,8 +67,7 @@ impl From<Range<u64>> for MemoryRange {
 #[derive(Debug, Clone, Copy, PartialOrd, Ord, PartialEq, Eq, Hash)]
 struct SubGroupIndex(u64);
 
-#[derive(Derivative)]
-#[derivative(Debug)]
+#[derive(Debug)]
 struct State {
     /// The descriptor seed is used generate descriptor lookups
     descriptor_seed: u64,
@@ -131,17 +129,27 @@ struct State {
     // after a compact started
     delta_list: Option<Vec<usize>>,
     // The inner journal that we will write to
-    #[derivative(Debug = "ignore")]
     inner_tx: Box<DynWritableJournal>,
     // The inner journal that we read from
-    #[derivative(Debug = "ignore")]
     inner_rx: Box<DynReadableJournal>,
 }
 
 impl State {
-    fn create_filter<J>(&self, inner: J) -> FilteredJournal
+    fn create_filter<J>(
+        &self,
+        inner: J,
+    ) -> FilteredJournal<Box<DynWritableJournal>, Box<DynReadableJournal>>
     where
         J: Journal,
+    {
+        let (w, r) = inner.split();
+        self.create_split_filter(w, r)
+    }
+
+    fn create_split_filter<W, R>(&self, writer: W, reader: R) -> FilteredJournal<W, R>
+    where
+        W: WritableJournal,
+        R: ReadableJournal,
     {
         let mut filter = FilteredJournalBuilder::new()
             .with_filter_events(self.whitelist.clone().into_iter().collect());
@@ -219,7 +227,7 @@ impl State {
                 filter.add_event_to_whitelist(*e);
             }
         }
-        filter.build(inner)
+        filter.build_split(writer, reader)
     }
 
     fn insert_new_sub_events(&mut self, event_index: usize) -> SubGroupIndex {
@@ -303,10 +311,8 @@ pub struct CompactingJournalTx {
     compacting: Arc<Mutex<()>>,
 }
 
-#[derive(Derivative)]
-#[derivative(Debug)]
+#[derive(Debug)]
 pub struct CompactingJournalRx {
-    #[derivative(Debug = "ignore")]
     inner: Box<DynReadableJournal>,
 }
 
@@ -366,6 +372,28 @@ impl CompactingJournal {
             rx: CompactingJournalRx { inner: rx },
         })
     }
+
+    /// Creates a filter jounral which will write all
+    /// its events to an inner journal
+    pub fn create_filter<J>(
+        &self,
+        inner: J,
+    ) -> FilteredJournal<Box<DynWritableJournal>, Box<DynReadableJournal>>
+    where
+        J: Journal,
+    {
+        self.tx.create_filter(inner)
+    }
+
+    /// Creates a filter journal which will write all
+    /// its events to writer and readers supplied
+    pub fn create_split_filter<W, R>(&self, writer: W, reader: R) -> FilteredJournal<W, R>
+    where
+        W: WritableJournal,
+        R: ReadableJournal,
+    {
+        self.tx.create_split_filter(writer, reader)
+    }
 }
 
 /// Represents the results of a compaction operation
@@ -376,12 +404,24 @@ pub struct CompactResult {
 }
 
 impl CompactingJournalTx {
-    pub fn create_filter<J>(&self, inner: J) -> FilteredJournal
+    pub fn create_filter<J>(
+        &self,
+        inner: J,
+    ) -> FilteredJournal<Box<DynWritableJournal>, Box<DynReadableJournal>>
     where
         J: Journal,
     {
         let state = self.state.lock().unwrap();
         state.create_filter(inner)
+    }
+
+    pub fn create_split_filter<W, R>(&self, writer: W, reader: R) -> FilteredJournal<W, R>
+    where
+        W: WritableJournal,
+        R: ReadableJournal,
+    {
+        let state = self.state.lock().unwrap();
+        state.create_split_filter(writer, reader)
     }
 
     pub fn swap(&self, other: Self) -> Self {
@@ -745,6 +785,14 @@ impl WritableJournal for CompactingJournalTx {
     fn flush(&self) -> anyhow::Result<()> {
         self.state.lock().unwrap().inner_tx.flush()
     }
+
+    fn commit(&self) -> anyhow::Result<usize> {
+        self.state.lock().unwrap().inner_tx.commit()
+    }
+
+    fn rollback(&self) -> anyhow::Result<usize> {
+        self.state.lock().unwrap().inner_tx.rollback()
+    }
 }
 
 impl CompactingJournal {
@@ -787,6 +835,14 @@ impl WritableJournal for CompactingJournal {
 
     fn flush(&self) -> anyhow::Result<()> {
         self.tx.flush()
+    }
+
+    fn commit(&self) -> anyhow::Result<usize> {
+        self.tx.commit()
+    }
+
+    fn rollback(&self) -> anyhow::Result<usize> {
+        self.tx.rollback()
     }
 }
 

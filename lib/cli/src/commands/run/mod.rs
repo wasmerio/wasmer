@@ -1,24 +1,25 @@
 #![allow(missing_docs, unused)]
 
+mod capabilities;
 mod wasi;
 
 use std::{
-    collections::BTreeMap,
+    collections::{hash_map::DefaultHasher, BTreeMap},
     fmt::{Binary, Display},
     fs::File,
+    hash::{BuildHasherDefault, Hash, Hasher},
     io::{ErrorKind, LineWriter, Read, Write},
     net::SocketAddr,
     path::{Path, PathBuf},
     str::FromStr,
     sync::{Arc, Mutex},
-    time::{Duration, SystemTime},
+    time::{Duration, SystemTime, UNIX_EPOCH},
 };
 
-use anyhow::{bail, Context, Error};
+use anyhow::{anyhow, bail, Context, Error};
 use clap::{Parser, ValueEnum};
 use indicatif::{MultiProgress, ProgressBar};
 use once_cell::sync::Lazy;
-use sha2::{Digest, Sha256};
 use tempfile::NamedTempFile;
 use url::Url;
 #[cfg(feature = "sys")]
@@ -98,7 +99,7 @@ impl Run {
     }
 
     #[tracing::instrument(level = "debug", name = "wasmer_run", skip_all)]
-    fn execute_inner(self, output: Output) -> Result<(), Error> {
+    fn execute_inner(mut self, output: Output) -> Result<(), Error> {
         let pb = ProgressBar::new_spinner();
         pb.set_draw_target(output.draw_target());
         pb.enable_steady_tick(TICK);
@@ -140,9 +141,13 @@ impl Run {
         #[cfg(not(feature = "sys"))]
         let engine = store.engine().clone();
 
-        let runtime =
-            self.wasi
-                .prepare_runtime(engine, &self.env, runtime, preferred_webc_version)?;
+        let runtime = self.wasi.prepare_runtime(
+            engine,
+            &self.env,
+            &capabilities::get_capability_cache_path(&self.env, &self.input)?,
+            runtime,
+            preferred_webc_version,
+        )?;
 
         // This is a slow operation, so let's temporarily wrap the runtime with
         // something that displays progress
@@ -151,6 +156,12 @@ impl Run {
         let monitoring_runtime: Arc<dyn Runtime + Send + Sync> = monitoring_runtime;
 
         let target = self.input.resolve_target(&monitoring_runtime, &pb)?;
+
+        if let ExecutableTarget::Package(ref pkg) = target {
+            self.wasi
+                .mapped_dirs
+                .extend(pkg.additional_host_mapped_directories.clone());
+        }
 
         pb.finish_and_clear();
 
@@ -1000,7 +1011,10 @@ impl wasmer_wasix::runtime::package_loader::PackageLoader for MonitoringPackageL
         &self,
         root: &Container,
         resolution: &wasmer_wasix::runtime::resolver::Resolution,
+        root_is_local_dir: bool,
     ) -> Result<BinaryPackage, Error> {
-        self.inner.load_package_tree(root, resolution).await
+        self.inner
+            .load_package_tree(root, resolution, root_is_local_dir)
+            .await
     }
 }

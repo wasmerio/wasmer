@@ -24,7 +24,9 @@ pub trait ModuleMiddleware: Debug + Send + Sync {
     ) -> Box<dyn FunctionMiddleware>;
 
     /// Transforms a `ModuleInfo` struct in-place. This is called before application on functions begins.
-    fn transform_module_info(&self, _: &mut ModuleInfo) {}
+    fn transform_module_info(&self, _: &mut ModuleInfo) -> Result<(), MiddlewareError> {
+        Ok(())
+    }
 }
 
 /// A function middleware specialized for a single function.
@@ -69,7 +71,7 @@ pub trait ModuleMiddlewareChain {
     ) -> Vec<Box<dyn FunctionMiddleware>>;
 
     /// Applies the chain on a `ModuleInfo` struct.
-    fn apply_on_module_info(&self, module_info: &mut ModuleInfo);
+    fn apply_on_module_info(&self, module_info: &mut ModuleInfo) -> Result<(), MiddlewareError>;
 }
 
 impl<T: Deref<Target = dyn ModuleMiddleware>> ModuleMiddlewareChain for [T] {
@@ -84,10 +86,11 @@ impl<T: Deref<Target = dyn ModuleMiddleware>> ModuleMiddlewareChain for [T] {
     }
 
     /// Applies the chain on a `ModuleInfo` struct.
-    fn apply_on_module_info(&self, module_info: &mut ModuleInfo) {
+    fn apply_on_module_info(&self, module_info: &mut ModuleInfo) -> Result<(), MiddlewareError> {
         for item in self {
-            item.transform_module_info(module_info);
+            item.transform_module_info(module_info)?;
         }
+        Ok(())
     }
 }
 

@@ -57,7 +57,7 @@ async-trait = { version = "^0.1" }
 urlencoding = { version = "^2" }
 serde_derive = { version = "^1" }
 serde_json = { version = "^1" }
-serde_yaml.workspace = true 
+serde_yaml.workspace = true
 weezl = { version = "^0.1" }
 hex = { version = "^0.4" }
 linked_hash_set = { version = "0.1" }
@@ -103,6 +103,7 @@ web-sys = { version = "0.3.64", features = [
 ahash = "0.8.11"
 hyper-util = { version = "0.1.5", features = ["server", "server-graceful", "tokio", "service", "client"], optional = true }
 http-body-util = { version="0.1.1", optional = true }
+toml = "0.8"
 
 [target.'cfg(not(target_arch = "riscv64"))'.dependencies.reqwest]
 workspace = true
@@ -123,7 +124,7 @@ libc.workspace = true
 termios = { version = "0.3" }
 
 [target.'cfg(windows)'.dependencies]
-winapi = { version = "0.3", features = ["sysinfoapi"] }
+windows-sys = { version = "0.59", features = ["Win32_System_SystemInformation"] }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 terminal_size = { version = "0.3.0" }

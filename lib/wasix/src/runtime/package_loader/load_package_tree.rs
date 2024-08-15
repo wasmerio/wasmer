@@ -36,10 +36,11 @@ pub async fn load_package_tree(
     root: &Container,
     loader: &dyn PackageLoader,
     resolution: &Resolution,
+    root_is_local_dir: bool,
 ) -> Result<BinaryPackage, Error> {
     let mut containers = fetch_dependencies(loader, &resolution.package, &resolution.graph).await?;
     containers.insert(resolution.package.root_package.clone(), root.clone());
-    let fs = filesystem(&containers, &resolution.package)?;
+    let fs = filesystem(&containers, &resolution.package, root_is_local_dir)?;
 
     let root = &resolution.package.root_package;
     let commands: Vec<BinaryPackageCommand> =
@@ -61,6 +62,8 @@ pub async fn load_package_tree(
         commands,
         uses: Vec::new(),
         file_system_memory_footprint,
+
+        additional_host_mapped_directories: vec![],
     };
 
     Ok(loaded)
@@ -316,6 +319,7 @@ fn count_file_system(fs: &dyn FileSystem, path: &Path) -> u64 {
 fn filesystem(
     packages: &HashMap<PackageId, Container>,
     pkg: &ResolvedPackage,
+    root_is_local_dir: bool,
 ) -> Result<Box<dyn FileSystem + Send + Sync>, Error> {
     if pkg.filesystem.is_empty() {
         return Ok(Box::new(OverlayFileSystem::<
@@ -342,9 +346,9 @@ fn filesystem(
     }
 
     if found_v3 && !found_v2 {
-        filesystem_v3(packages, pkg)
+        filesystem_v3(packages, pkg, root_is_local_dir)
     } else {
-        filesystem_v2(packages, pkg)
+        filesystem_v2(packages, pkg, root_is_local_dir)
     }
 }
 
@@ -352,6 +356,7 @@ fn filesystem(
 fn filesystem_v3(
     packages: &HashMap<PackageId, Container>,
     pkg: &ResolvedPackage,
+    root_is_local_dir: bool,
 ) -> Result<Box<dyn FileSystem + Send + Sync>, Error> {
     let mut volumes: HashMap<&PackageId, BTreeMap<String, Volume>> = HashMap::new();
 
@@ -367,6 +372,10 @@ fn filesystem_v3(
         ..
     } in &pkg.filesystem
     {
+        if *package == pkg.root_package && root_is_local_dir {
+            continue;
+        }
+
         // Note: We want to reuse existing Volume instances if we can. That way
         // we can keep the memory usage down. A webc::compat::Volume is
         // reference-counted, anyway.
@@ -427,6 +436,7 @@ fn filesystem_v3(
 fn filesystem_v2(
     packages: &HashMap<PackageId, Container>,
     pkg: &ResolvedPackage,
+    root_is_local_dir: bool,
 ) -> Result<Box<dyn FileSystem + Send + Sync>, Error> {
     let mut filesystems = Vec::new();
     let mut volumes: HashMap<&PackageId, BTreeMap<String, Volume>> = HashMap::new();
@@ -441,6 +451,10 @@ fn filesystem_v2(
         original_path,
     } in &pkg.filesystem
     {
+        if *package == pkg.root_package && root_is_local_dir {
+            continue;
+        }
+
         // Note: We want to reuse existing Volume instances if we can. That way
         // we can keep the memory usage down. A webc::compat::Volume is
         // reference-counted, anyway.

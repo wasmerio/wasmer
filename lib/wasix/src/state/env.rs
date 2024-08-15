@@ -1000,11 +1000,17 @@ impl WasiEnv {
         self.enable_journal && !self.replaying_journal
     }
 
+    /// Returns true if the environment has an active journal
+    #[cfg(feature = "journal")]
+    pub fn has_active_journal(&self) -> bool {
+        self.runtime().active_journal().is_some()
+    }
+
     /// Returns the active journal or fails with an error
     #[cfg(feature = "journal")]
     pub fn active_journal(&self) -> Result<&DynJournal, Errno> {
         self.runtime().active_journal().ok_or_else(|| {
-            tracing::warn!("failed to save thread exit as there is not active journal");
+            tracing::debug!("failed to save thread exit as there is not active journal");
             Errno::Fault
         })
     }
@@ -1252,7 +1258,7 @@ impl WasiEnv {
 
         // If snap-shooting is enabled then we should record an event that the thread has exited.
         #[cfg(feature = "journal")]
-        if self.should_journal() {
+        if self.should_journal() && self.has_active_journal() {
             if let Err(err) = JournalEffector::save_thread_exit(self, self.tid(), exit_code) {
                 tracing::warn!("failed to save snapshot event for thread exit - {}", err);
             }

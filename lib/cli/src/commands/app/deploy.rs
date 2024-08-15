@@ -279,9 +279,36 @@ impl AsyncCliCommand for CmdAppDeploy {
             None
         };
 
-        let owner = self
+        let mut owner = self
             .get_owner(&client, &mut app_yaml, maybe_edge_app.as_ref())
             .await?;
+
+        if !wasmer_api::query::viewer_can_deploy_to_namespace(&client, &owner).await? {
+            eprintln!("It seems you don't have access to {}", owner.bold());
+            if self.non_interactive {
+                anyhow::bail!("Please, change the owner before deploying or check your current user with `{} whoami`.", std::env::args().next().unwrap_or("wasmer".into()));
+            } else {
+                let user = wasmer_api::query::current_user_with_namespaces(&client, None).await?;
+                owner = crate::utils::prompts::prompt_for_namespace(
+                    "Who should own this app?",
+                    None,
+                    Some(&user),
+                )?;
+
+                app_yaml
+                    .as_mapping_mut()
+                    .unwrap()
+                    .insert("owner".into(), owner.clone().into());
+
+                if app_yaml.get("app_id").is_some() {
+                    app_yaml.as_mapping_mut().unwrap().remove("app_id");
+                }
+
+                if app_yaml.get("name").is_some() {
+                    app_yaml.as_mapping_mut().unwrap().remove("name");
+                }
+            }
+        }
 
         if app_yaml.get("name").is_none() && self.app_name.is_some() {
             app_yaml.as_mapping_mut().unwrap().insert(
