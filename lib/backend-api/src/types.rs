@@ -1030,6 +1030,8 @@ mod queries {
         pub config: String,
         pub json_config: String,
         pub url: String,
+        pub disabled_at: Option<DateTime>,
+        pub disabled_reason: Option<String>,
 
         pub app: Option<SparseDeployApp>,
     }
