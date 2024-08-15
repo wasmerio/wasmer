@@ -91,6 +91,18 @@
 <a href="#91" id="91">91</a>
 <a href="#92" id="92">92</a>
 <a href="#93" id="93">93</a>
+<a href="#94" id="94">94</a>
+<a href="#95" id="95">95</a>
+<a href="#96" id="96">96</a>
+<a href="#97" id="97">97</a>
+<a href="#98" id="98">98</a>
+<a href="#99" id="99">99</a>
+<a href="#100" id="100">100</a>
+<a href="#101" id="101">101</a>
+<a href="#102" id="102">102</a>
+<a href="#103" id="103">103</a>
+<a href="#104" id="104">104</a>
+<a href="#105" id="105">105</a>
 </pre></div><pre class="rust"><code><span class="kw">mod </span>base64;
 <span class="kw">mod </span>concrete;
 <span class="kw">mod </span>entry;
@@ -124,13 +136,25 @@
 /// a WASM process at a point in time and saves it so that it can be restored.
 /// It also allows for the restoration of that state at a later moment
 </span><span class="attr">#[allow(unused_variables)]
-</span><span class="kw">pub trait </span>WritableJournal {
+</span><span class="kw">pub trait </span>WritableJournal: std::fmt::Debug {
     <span class="doccomment">/// Takes in a stream of snapshot log entries and saves them so that they
     /// may be restored at a later moment
     </span><span class="kw">fn </span>write&lt;<span class="lifetime">&#39;a</span>&gt;(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="self">self</span>, entry: JournalEntry&lt;<span class="lifetime">&#39;a</span>&gt;) -&gt; anyhow::Result&lt;LogWriteResult&gt;;
 
     <span class="doccomment">/// Flushes the data to disk or network
     </span><span class="kw">fn </span>flush(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; anyhow::Result&lt;()&gt;;
+
+    <span class="doccomment">/// Commits the transaction
+    /// Returns the number of events committed
+    </span><span class="kw">fn </span>commit(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; anyhow::Result&lt;usize&gt; {
+        <span class="prelude-val">Ok</span>(<span class="number">0</span>)
+    }
+
+    <span class="doccomment">/// Rolls back the transaction and aborts its changes
+    /// Returns the number of events rolled back
+    </span><span class="kw">fn </span>rollback(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; anyhow::Result&lt;usize&gt; {
+        <span class="prelude-val">Ok</span>(<span class="number">0</span>)
+    }
 }
 
 <span class="doccomment">/// The results of an operation to read a log entry from the log
@@ -162,7 +186,7 @@
 /// a WASM process at a point in time and saves it so that it can be restored.
 /// It also allows for the restoration of that state at a later moment
 </span><span class="attr">#[allow(unused_variables)]
-</span><span class="kw">pub trait </span>ReadableJournal {
+</span><span class="kw">pub trait </span>ReadableJournal: std::fmt::Debug {
     <span class="doccomment">/// Returns a stream of snapshot objects that the runtime will use
     /// to restore the state of a WASM process to a previous moment in time
     </span><span class="kw">fn </span>read(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; anyhow::Result&lt;<span class="prelude-ty">Option</span>&lt;LogReadResult&lt;<span class="lifetime">&#39;_</span>&gt;&gt;&gt;;
@@ -176,7 +200,7 @@
 /// a WASM process at a point in time and saves it so that it can be restored.
 /// It also allows for the restoration of that state at a later moment
 </span><span class="attr">#[allow(unused_variables)]
-</span><span class="kw">pub trait </span>Journal: WritableJournal + ReadableJournal {
+</span><span class="kw">pub trait </span>Journal: WritableJournal + ReadableJournal + std::fmt::Debug {
     <span class="doccomment">/// Splits the journal into a read and write side
     </span><span class="kw">fn </span>split(<span class="self">self</span>) -&gt; (Box&lt;DynWritableJournal&gt;, Box&lt;DynReadableJournal&gt;);
 }

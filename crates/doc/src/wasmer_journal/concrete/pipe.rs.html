@@ -133,6 +133,14 @@
 <a href="#133" id="133">133</a>
 <a href="#134" id="134">134</a>
 <a href="#135" id="135">135</a>
+<a href="#136" id="136">136</a>
+<a href="#137" id="137">137</a>
+<a href="#138" id="138">138</a>
+<a href="#139" id="139">139</a>
+<a href="#140" id="140">140</a>
+<a href="#141" id="141">141</a>
+<a href="#142" id="142">142</a>
+<a href="#143" id="143">143</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::sync::mpsc::TryRecvError;
 <span class="kw">use </span>std::sync::Mutex;
 <span class="kw">use </span>std::sync::{mpsc, Arc};
@@ -250,6 +258,14 @@
 
     <span class="kw">fn </span>flush(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; anyhow::Result&lt;()&gt; {
         <span class="self">self</span>.tx.flush()
+    }
+
+    <span class="kw">fn </span>commit(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; anyhow::Result&lt;usize&gt; {
+        <span class="self">self</span>.tx.commit()
+    }
+
+    <span class="kw">fn </span>rollback(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; anyhow::Result&lt;usize&gt; {
+        <span class="self">self</span>.tx.rollback()
     }
 }
 

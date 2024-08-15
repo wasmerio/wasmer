@@ -387,12 +387,43 @@
 <a href="#387" id="387">387</a>
 <a href="#388" id="388">388</a>
 <a href="#389" id="389">389</a>
+<a href="#390" id="390">390</a>
+<a href="#391" id="391">391</a>
+<a href="#392" id="392">392</a>
+<a href="#393" id="393">393</a>
+<a href="#394" id="394">394</a>
+<a href="#395" id="395">395</a>
+<a href="#396" id="396">396</a>
+<a href="#397" id="397">397</a>
+<a href="#398" id="398">398</a>
+<a href="#399" id="399">399</a>
+<a href="#400" id="400">400</a>
+<a href="#401" id="401">401</a>
+<a href="#402" id="402">402</a>
+<a href="#403" id="403">403</a>
+<a href="#404" id="404">404</a>
+<a href="#405" id="405">405</a>
+<a href="#406" id="406">406</a>
+<a href="#407" id="407">407</a>
+<a href="#408" id="408">408</a>
+<a href="#409" id="409">409</a>
+<a href="#410" id="410">410</a>
+<a href="#411" id="411">411</a>
+<a href="#412" id="412">412</a>
+<a href="#413" id="413">413</a>
+<a href="#414" id="414">414</a>
+<a href="#415" id="415">415</a>
+<a href="#416" id="416">416</a>
+<a href="#417" id="417">417</a>
+<a href="#418" id="418">418</a>
+<a href="#419" id="419">419</a>
+<a href="#420" id="420">420</a>
+<a href="#421" id="421">421</a>
+<a href="#422" id="422">422</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{
     collections::HashSet,
     sync::atomic::{AtomicUsize, Ordering},
 };
-
-<span class="kw">use </span>derivative::Derivative;
 
 <span class="kw">use super</span>::<span class="kw-2">*</span>;
 
@@ -400,9 +431,9 @@
 /// journal can be useful for restoring to a previous call point but
 /// retaining the memory changes (e.g. WCGI runner).
 </span><span class="attr">#[derive(Debug)]
-</span><span class="kw">pub struct </span>FilteredJournal {
-    tx: FilteredJournalTx,
-    rx: FilteredJournalRx,
+</span><span class="kw">pub struct </span>FilteredJournal&lt;W: WritableJournal, R: ReadableJournal&gt; {
+    tx: FilteredJournalTx&lt;W&gt;,
+    rx: FilteredJournalRx&lt;R&gt;,
 }
 
 <span class="doccomment">/// Represents what will be filtered by the filtering process
@@ -451,19 +482,15 @@
     }
 }
 
-<span class="attr">#[derive(Derivative)]
-#[derivative(Debug)]
-</span><span class="kw">pub struct </span>FilteredJournalTx {
-    <span class="attr">#[derivative(Debug = <span class="string">&quot;ignore&quot;</span>)]
-    </span>inner: Box&lt;DynWritableJournal&gt;,
+<span class="attr">#[derive(Debug)]
+</span><span class="kw">pub struct </span>FilteredJournalTx&lt;W: WritableJournal&gt; {
+    inner: W,
     config: FilteredJournalConfig,
 }
 
-<span class="attr">#[derive(Derivative)]
-#[derivative(Debug)]
-</span><span class="kw">pub struct </span>FilteredJournalRx {
-    <span class="attr">#[derivative(Debug = <span class="string">&quot;ignore&quot;</span>)]
-    </span>inner: Box&lt;DynReadableJournal&gt;,
+<span class="attr">#[derive(Debug)]
+</span><span class="kw">pub struct </span>FilteredJournalRx&lt;R: ReadableJournal&gt; {
+    inner: R,
 }
 
 <span class="doccomment">/// Constructs a filter with a set of parameters that will be filtered on
@@ -477,11 +504,22 @@
         <span class="self">Self</span>::default()
     }
 
-    <span class="kw">pub fn </span>build&lt;J&gt;(<span class="self">self</span>, inner: J) -&gt; FilteredJournal
+    <span class="kw">pub fn </span>build&lt;J&gt;(
+        <span class="self">self</span>,
+        inner: J,
+    ) -&gt; FilteredJournal&lt;Box&lt;DynWritableJournal&gt;, Box&lt;DynReadableJournal&gt;&gt;
     <span class="kw">where
         </span>J: Journal,
     {
         FilteredJournal::new(inner, <span class="self">self</span>.config)
+    }
+
+    <span class="kw">pub fn </span>build_split&lt;W, R&gt;(<span class="self">self</span>, writer: W, reader: R) -&gt; FilteredJournal&lt;W, R&gt;
+    <span class="kw">where
+        </span>W: WritableJournal,
+        R: ReadableJournal,
+    {
+        FilteredJournal::new_split(writer, reader, <span class="self">self</span>.config)
     }
 
     <span class="kw">pub fn </span>with_ignore_memory(<span class="kw-2">mut </span><span class="self">self</span>, val: bool) -&gt; <span class="self">Self </span>{
@@ -566,7 +604,7 @@
     </span>}
 }
 
-<span class="kw">impl </span>FilteredJournal {
+<span class="kw">impl </span>FilteredJournal&lt;Box&lt;DynWritableJournal&gt;, Box&lt;DynReadableJournal&gt;&gt; {
     <span class="kw">fn </span>new&lt;J&gt;(inner: J, config: FilteredJournalConfig) -&gt; <span class="self">Self
     </span><span class="kw">where
         </span>J: Journal,
@@ -589,13 +627,25 @@
             rx: FilteredJournalRx { inner: rx },
         }
     }
+}
 
-    <span class="kw">pub fn </span>into_inner(<span class="self">self</span>) -&gt; RecombinedJournal {
+<span class="kw">impl</span>&lt;W: WritableJournal, R: ReadableJournal&gt; FilteredJournal&lt;W, R&gt; {
+    <span class="kw">pub fn </span>into_inner(<span class="self">self</span>) -&gt; RecombinedJournal&lt;W, R&gt; {
         RecombinedJournal::new(<span class="self">self</span>.tx.inner, <span class="self">self</span>.rx.inner)
+    }
+
+    <span class="kw">fn </span>new_split(writer: W, reader: R, config: FilteredJournalConfig) -&gt; <span class="self">Self </span>{
+        <span class="self">Self </span>{
+            tx: FilteredJournalTx {
+                inner: writer,
+                config,
+            },
+            rx: FilteredJournalRx { inner: reader },
+        }
     }
 }
 
-<span class="kw">impl </span>WritableJournal <span class="kw">for </span>FilteredJournalTx {
+<span class="kw">impl</span>&lt;W: WritableJournal&gt; WritableJournal <span class="kw">for </span>FilteredJournalTx&lt;W&gt; {
     <span class="kw">fn </span>write&lt;<span class="lifetime">&#39;a</span>&gt;(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="self">self</span>, entry: JournalEntry&lt;<span class="lifetime">&#39;a</span>&gt;) -&gt; anyhow::Result&lt;LogWriteResult&gt; {
         <span class="kw">let </span>event_index = <span class="self">self</span>.config.event_index.fetch_add(<span class="number">1</span>, Ordering::SeqCst);
         <span class="kw">if let </span><span class="prelude-val">Some</span>(events) = <span class="self">self</span>.config.filter_events.as_ref() {
@@ -737,9 +787,17 @@
     <span class="kw">fn </span>flush(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; anyhow::Result&lt;()&gt; {
         <span class="self">self</span>.inner.flush()
     }
+
+    <span class="kw">fn </span>commit(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; anyhow::Result&lt;usize&gt; {
+        <span class="self">self</span>.inner.commit()
+    }
+
+    <span class="kw">fn </span>rollback(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; anyhow::Result&lt;usize&gt; {
+        <span class="self">self</span>.inner.rollback()
+    }
 }
 
-<span class="kw">impl </span>ReadableJournal <span class="kw">for </span>FilteredJournalRx {
+<span class="kw">impl</span>&lt;R: ReadableJournal&gt; ReadableJournal <span class="kw">for </span>FilteredJournalRx&lt;R&gt; {
     <span class="kw">fn </span>read(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; anyhow::Result&lt;<span class="prelude-ty">Option</span>&lt;LogReadResult&lt;<span class="lifetime">&#39;_</span>&gt;&gt;&gt; {
         <span class="self">self</span>.inner.read()
     }
@@ -751,7 +809,7 @@
     }
 }
 
-<span class="kw">impl </span>WritableJournal <span class="kw">for </span>FilteredJournal {
+<span class="kw">impl</span>&lt;W: WritableJournal, R: ReadableJournal&gt; WritableJournal <span class="kw">for </span>FilteredJournal&lt;W, R&gt; {
     <span class="kw">fn </span>write&lt;<span class="lifetime">&#39;a</span>&gt;(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="self">self</span>, entry: JournalEntry&lt;<span class="lifetime">&#39;a</span>&gt;) -&gt; anyhow::Result&lt;LogWriteResult&gt; {
         <span class="self">self</span>.tx.write(entry)
     }
@@ -759,9 +817,17 @@
     <span class="kw">fn </span>flush(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; anyhow::Result&lt;()&gt; {
         <span class="self">self</span>.tx.flush()
     }
+
+    <span class="kw">fn </span>commit(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; anyhow::Result&lt;usize&gt; {
+        <span class="self">self</span>.tx.commit()
+    }
+
+    <span class="kw">fn </span>rollback(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; anyhow::Result&lt;usize&gt; {
+        <span class="self">self</span>.tx.rollback()
+    }
 }
 
-<span class="kw">impl </span>ReadableJournal <span class="kw">for </span>FilteredJournal {
+<span class="kw">impl</span>&lt;W: WritableJournal, R: ReadableJournal&gt; ReadableJournal <span class="kw">for </span>FilteredJournal&lt;W, R&gt; {
     <span class="kw">fn </span>read(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; anyhow::Result&lt;<span class="prelude-ty">Option</span>&lt;LogReadResult&lt;<span class="lifetime">&#39;_</span>&gt;&gt;&gt; {
         <span class="self">self</span>.rx.read()
     }
@@ -771,7 +837,7 @@
     }
 }
 
-<span class="kw">impl </span>Journal <span class="kw">for </span>FilteredJournal {
+<span class="kw">impl </span>Journal <span class="kw">for </span>FilteredJournal&lt;Box&lt;DynWritableJournal&gt;, Box&lt;DynReadableJournal&gt;&gt; {
     <span class="kw">fn </span>split(<span class="self">self</span>) -&gt; (Box&lt;DynWritableJournal&gt;, Box&lt;DynReadableJournal&gt;) {
         (Box::new(<span class="self">self</span>.tx), Box::new(<span class="self">self</span>.rx))
     }

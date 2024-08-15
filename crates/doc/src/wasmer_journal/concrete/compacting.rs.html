@@ -1453,8 +1453,63 @@
 <a href="#1453" id="1453">1453</a>
 <a href="#1454" id="1454">1454</a>
 <a href="#1455" id="1455">1455</a>
-</pre></div><pre class="rust"><code><span class="kw">use </span>derivative::Derivative;
-<span class="kw">use </span>std::{
+<a href="#1456" id="1456">1456</a>
+<a href="#1457" id="1457">1457</a>
+<a href="#1458" id="1458">1458</a>
+<a href="#1459" id="1459">1459</a>
+<a href="#1460" id="1460">1460</a>
+<a href="#1461" id="1461">1461</a>
+<a href="#1462" id="1462">1462</a>
+<a href="#1463" id="1463">1463</a>
+<a href="#1464" id="1464">1464</a>
+<a href="#1465" id="1465">1465</a>
+<a href="#1466" id="1466">1466</a>
+<a href="#1467" id="1467">1467</a>
+<a href="#1468" id="1468">1468</a>
+<a href="#1469" id="1469">1469</a>
+<a href="#1470" id="1470">1470</a>
+<a href="#1471" id="1471">1471</a>
+<a href="#1472" id="1472">1472</a>
+<a href="#1473" id="1473">1473</a>
+<a href="#1474" id="1474">1474</a>
+<a href="#1475" id="1475">1475</a>
+<a href="#1476" id="1476">1476</a>
+<a href="#1477" id="1477">1477</a>
+<a href="#1478" id="1478">1478</a>
+<a href="#1479" id="1479">1479</a>
+<a href="#1480" id="1480">1480</a>
+<a href="#1481" id="1481">1481</a>
+<a href="#1482" id="1482">1482</a>
+<a href="#1483" id="1483">1483</a>
+<a href="#1484" id="1484">1484</a>
+<a href="#1485" id="1485">1485</a>
+<a href="#1486" id="1486">1486</a>
+<a href="#1487" id="1487">1487</a>
+<a href="#1488" id="1488">1488</a>
+<a href="#1489" id="1489">1489</a>
+<a href="#1490" id="1490">1490</a>
+<a href="#1491" id="1491">1491</a>
+<a href="#1492" id="1492">1492</a>
+<a href="#1493" id="1493">1493</a>
+<a href="#1494" id="1494">1494</a>
+<a href="#1495" id="1495">1495</a>
+<a href="#1496" id="1496">1496</a>
+<a href="#1497" id="1497">1497</a>
+<a href="#1498" id="1498">1498</a>
+<a href="#1499" id="1499">1499</a>
+<a href="#1500" id="1500">1500</a>
+<a href="#1501" id="1501">1501</a>
+<a href="#1502" id="1502">1502</a>
+<a href="#1503" id="1503">1503</a>
+<a href="#1504" id="1504">1504</a>
+<a href="#1505" id="1505">1505</a>
+<a href="#1506" id="1506">1506</a>
+<a href="#1507" id="1507">1507</a>
+<a href="#1508" id="1508">1508</a>
+<a href="#1509" id="1509">1509</a>
+<a href="#1510" id="1510">1510</a>
+<a href="#1511" id="1511">1511</a>
+</pre></div><pre class="rust"><code><span class="kw">use </span>std::{
     collections::{HashMap, HashSet},
     ops::{DerefMut, Range},
     sync::{Arc, Mutex},
@@ -1488,8 +1543,7 @@
 <span class="attr">#[derive(Debug, Clone, Copy, PartialOrd, Ord, PartialEq, Eq, Hash)]
 </span><span class="kw">struct </span>DescriptorLookup(u64);
 
-<span class="attr">#[derive(Derivative)]
-#[derivative(Debug)]
+<span class="attr">#[derive(Debug)]
 </span><span class="kw">struct </span>State {
     <span class="doccomment">/// The descriptor seed is used generate descriptor lookups
     </span>descriptor_seed: u64,
@@ -1544,17 +1598,27 @@
     // after a compact started
     </span>delta_list: <span class="prelude-ty">Option</span>&lt;Vec&lt;usize&gt;&gt;,
     <span class="comment">// The inner journal that we will write to
-    </span><span class="attr">#[derivative(Debug = <span class="string">&quot;ignore&quot;</span>)]
     </span>inner_tx: Box&lt;DynWritableJournal&gt;,
     <span class="comment">// The inner journal that we read from
-    </span><span class="attr">#[derivative(Debug = <span class="string">&quot;ignore&quot;</span>)]
     </span>inner_rx: Box&lt;DynReadableJournal&gt;,
 }
 
 <span class="kw">impl </span>State {
-    <span class="kw">fn </span>create_filter&lt;J&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, inner: J) -&gt; FilteredJournal
+    <span class="kw">fn </span>create_filter&lt;J&gt;(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        inner: J,
+    ) -&gt; FilteredJournal&lt;Box&lt;DynWritableJournal&gt;, Box&lt;DynReadableJournal&gt;&gt;
     <span class="kw">where
         </span>J: Journal,
+    {
+        <span class="kw">let </span>(w, r) = inner.split();
+        <span class="self">self</span>.create_split_filter(w, r)
+    }
+
+    <span class="kw">fn </span>create_split_filter&lt;W, R&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, writer: W, reader: R) -&gt; FilteredJournal&lt;W, R&gt;
+    <span class="kw">where
+        </span>W: WritableJournal,
+        R: ReadableJournal,
     {
         <span class="kw">let </span>has_threads = !<span class="self">self</span>.thread_map.is_empty();
 
@@ -1637,7 +1701,7 @@
                 }
             }
         }
-        filter.build(inner)
+        filter.build_split(writer, reader)
     }
 }
 
@@ -1650,11 +1714,9 @@
     compacting: Arc&lt;Mutex&lt;()&gt;&gt;,
 }
 
-<span class="attr">#[derive(Derivative)]
-#[derivative(Debug)]
+<span class="attr">#[derive(Debug)]
 </span><span class="kw">pub struct </span>CompactingJournalRx {
-    <span class="attr">#[derivative(Debug = <span class="string">&quot;ignore&quot;</span>)]
-    </span>inner: Box&lt;DynReadableJournal&gt;,
+    inner: Box&lt;DynReadableJournal&gt;,
 }
 
 <span class="kw">impl </span>CompactingJournalRx {
@@ -1709,6 +1771,28 @@
             rx: CompactingJournalRx { inner: rx },
         })
     }
+
+    <span class="doccomment">/// Creates a filter jounral which will write all
+    /// its events to an inner journal
+    </span><span class="kw">pub fn </span>create_filter&lt;J&gt;(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        inner: J,
+    ) -&gt; FilteredJournal&lt;Box&lt;DynWritableJournal&gt;, Box&lt;DynReadableJournal&gt;&gt;
+    <span class="kw">where
+        </span>J: Journal,
+    {
+        <span class="self">self</span>.tx.create_filter(inner)
+    }
+
+    <span class="doccomment">/// Creates a filter journal which will write all
+    /// its events to writer and readers supplied
+    </span><span class="kw">pub fn </span>create_split_filter&lt;W, R&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, writer: W, reader: R) -&gt; FilteredJournal&lt;W, R&gt;
+    <span class="kw">where
+        </span>W: WritableJournal,
+        R: ReadableJournal,
+    {
+        <span class="self">self</span>.tx.create_split_filter(writer, reader)
+    }
 }
 
 <span class="doccomment">/// Represents the results of a compaction operation
@@ -1719,12 +1803,24 @@
 }
 
 <span class="kw">impl </span>CompactingJournalTx {
-    <span class="kw">pub fn </span>create_filter&lt;J&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, inner: J) -&gt; FilteredJournal
+    <span class="kw">pub fn </span>create_filter&lt;J&gt;(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        inner: J,
+    ) -&gt; FilteredJournal&lt;Box&lt;DynWritableJournal&gt;, Box&lt;DynReadableJournal&gt;&gt;
     <span class="kw">where
         </span>J: Journal,
     {
         <span class="kw">let </span>state = <span class="self">self</span>.state.lock().unwrap();
         state.create_filter(inner)
+    }
+
+    <span class="kw">pub fn </span>create_split_filter&lt;W, R&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, writer: W, reader: R) -&gt; FilteredJournal&lt;W, R&gt;
+    <span class="kw">where
+        </span>W: WritableJournal,
+        R: ReadableJournal,
+    {
+        <span class="kw">let </span>state = <span class="self">self</span>.state.lock().unwrap();
+        state.create_split_filter(writer, reader)
     }
 
     <span class="kw">pub fn </span>swap(<span class="kw-2">&amp;</span><span class="self">self</span>, other: <span class="self">Self</span>) -&gt; <span class="self">Self </span>{
@@ -2180,6 +2276,14 @@
     <span class="kw">fn </span>flush(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; anyhow::Result&lt;()&gt; {
         <span class="self">self</span>.state.lock().unwrap().inner_tx.flush()
     }
+
+    <span class="kw">fn </span>commit(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; anyhow::Result&lt;usize&gt; {
+        <span class="self">self</span>.state.lock().unwrap().inner_tx.commit()
+    }
+
+    <span class="kw">fn </span>rollback(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; anyhow::Result&lt;usize&gt; {
+        <span class="self">self</span>.state.lock().unwrap().inner_tx.rollback()
+    }
 }
 
 <span class="kw">impl </span>CompactingJournal {
@@ -2222,6 +2326,14 @@
 
     <span class="kw">fn </span>flush(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; anyhow::Result&lt;()&gt; {
         <span class="self">self</span>.tx.flush()
+    }
+
+    <span class="kw">fn </span>commit(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; anyhow::Result&lt;usize&gt; {
+        <span class="self">self</span>.tx.commit()
+    }
+
+    <span class="kw">fn </span>rollback(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; anyhow::Result&lt;usize&gt; {
+        <span class="self">self</span>.tx.rollback()
     }
 }
 

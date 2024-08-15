@@ -127,6 +127,7 @@
 <a href="#127" id="127">127</a>
 <a href="#128" id="128">128</a>
 <a href="#129" id="129">129</a>
+<a href="#130" id="130">130</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{
     collections::HashMap,
     sync::{Arc, Mutex},
@@ -193,9 +194,10 @@
             .clone()
             .into_iter()
             .map(|journal| {
-                <span class="kw">let </span>tx = Box::new(journal.clone());
+                <span class="kw">let </span>tx = journal.clone();
                 <span class="kw">let </span>rx = journal.as_restarted()<span class="question-mark">?</span>;
-                anyhow::Result::Ok(Arc::new(RecombinedJournal::new(tx, rx)) <span class="kw">as </span>Arc&lt;DynJournal&gt;)
+                <span class="kw">let </span>combined = RecombinedJournal::new(tx, rx);
+                anyhow::Result::Ok(Arc::new(combined) <span class="kw">as </span>Arc&lt;DynJournal&gt;)
             })
             .collect::&lt;anyhow::Result&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;&gt;()<span class="question-mark">?</span>;
         <span class="kw">let </span><span class="kw-2">mut </span>runtime = OverriddenRuntime::new(runtime).with_journals(journals);

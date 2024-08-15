@@ -36,16 +36,11 @@
 <a href="#36" id="36">36</a>
 <a href="#37" id="37">37</a>
 <a href="#38" id="38">38</a>
-<a href="#39" id="39">39</a>
-<a href="#40" id="40">40</a>
-<a href="#41" id="41">41</a>
-<a href="#42" id="42">42</a>
-<a href="#43" id="43">43</a>
-</pre></div><pre class="rust"><code><span class="kw">use </span>std::ops::Deref;
+</pre></div><pre class="rust"><code><span class="kw">use </span>std::{ops::Deref, sync::Arc};
 
 <span class="kw">use super</span>::<span class="kw-2">*</span>;
 
-<span class="kw">impl </span>ReadableJournal <span class="kw">for </span>Box&lt;DynReadableJournal&gt; {
+<span class="kw">impl</span>&lt;R: ReadableJournal + <span class="question-mark">?</span>Sized&gt; ReadableJournal <span class="kw">for </span>Box&lt;R&gt; {
     <span class="kw">fn </span>read(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; anyhow::Result&lt;<span class="prelude-ty">Option</span>&lt;LogReadResult&lt;<span class="lifetime">&#39;_</span>&gt;&gt;&gt; {
         <span class="self">self</span>.deref().read()
     }
@@ -55,7 +50,7 @@
     }
 }
 
-<span class="kw">impl </span>WritableJournal <span class="kw">for </span>Box&lt;DynWritableJournal&gt; {
+<span class="kw">impl</span>&lt;W: WritableJournal + <span class="question-mark">?</span>Sized&gt; WritableJournal <span class="kw">for </span>Box&lt;W&gt; {
     <span class="kw">fn </span>write&lt;<span class="lifetime">&#39;a</span>&gt;(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="self">self</span>, entry: JournalEntry&lt;<span class="lifetime">&#39;a</span>&gt;) -&gt; anyhow::Result&lt;LogWriteResult&gt; {
         <span class="self">self</span>.deref().write(entry)
     }
@@ -63,25 +58,20 @@
     <span class="kw">fn </span>flush(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; anyhow::Result&lt;()&gt; {
         <span class="self">self</span>.deref().flush()
     }
-}
 
-<span class="kw">impl </span>ReadableJournal <span class="kw">for </span>Box&lt;DynJournal&gt; {
-    <span class="kw">fn </span>read(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; anyhow::Result&lt;<span class="prelude-ty">Option</span>&lt;LogReadResult&lt;<span class="lifetime">&#39;_</span>&gt;&gt;&gt; {
-        <span class="self">self</span>.deref().read()
+    <span class="kw">fn </span>commit(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; anyhow::Result&lt;usize&gt; {
+        <span class="self">self</span>.deref().commit()
     }
 
-    <span class="kw">fn </span>as_restarted(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; anyhow::Result&lt;Box&lt;DynReadableJournal&gt;&gt; {
-        <span class="self">self</span>.deref().as_restarted()
+    <span class="kw">fn </span>rollback(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; anyhow::Result&lt;usize&gt; {
+        <span class="self">self</span>.deref().rollback()
     }
 }
 
-<span class="kw">impl </span>WritableJournal <span class="kw">for </span>Box&lt;DynJournal&gt; {
-    <span class="kw">fn </span>write&lt;<span class="lifetime">&#39;a</span>&gt;(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="self">self</span>, entry: JournalEntry&lt;<span class="lifetime">&#39;a</span>&gt;) -&gt; anyhow::Result&lt;LogWriteResult&gt; {
-        <span class="self">self</span>.deref().write(entry)
-    }
-
-    <span class="kw">fn </span>flush(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; anyhow::Result&lt;()&gt; {
-        <span class="self">self</span>.deref().flush()
+<span class="kw">impl </span>Journal <span class="kw">for </span>Box&lt;DynJournal&gt; {
+    <span class="kw">fn </span>split(<span class="self">self</span>) -&gt; (Box&lt;DynWritableJournal&gt;, Box&lt;DynReadableJournal&gt;) {
+        <span class="kw">let </span>this = Arc::new(<span class="self">self</span>);
+        (Box::new(this.clone()), Box::new(this))
     }
 }
 </code></pre></div></section></main></body></html>
