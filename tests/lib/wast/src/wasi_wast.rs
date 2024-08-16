@@ -248,12 +248,48 @@ impl<'a> WasiTest<'a> {
 
                         let mut union = union_fs::UnionFileSystem::new();
 
-                        union.mount("mem_fs", "/test_fs", false, Box::new(a), None);
-                        union.mount("mem_fs_2", "/snapshot1", false, Box::new(b), None);
-                        union.mount("mem_fs_3", "/tests", false, Box::new(c), None);
-                        union.mount("mem_fs_4", "/nightly_2022_10_18", false, Box::new(d), None);
-                        union.mount("mem_fs_5", "/unstable", false, Box::new(e), None);
-                        union.mount("mem_fs_6", "/.tmp_wasmer_wast_0", false, Box::new(f), None);
+                        union.mount(
+                            "mem_fs".to_string(),
+                            PathBuf::from("/test_fs"),
+                            false,
+                            Box::new(a),
+                            None,
+                        );
+                        union.mount(
+                            "mem_fs_2".to_string(),
+                            PathBuf::from("/snapshot1"),
+                            false,
+                            Box::new(b),
+                            None,
+                        );
+                        union.mount(
+                            "mem_fs_3".to_string(),
+                            PathBuf::from("/tests"),
+                            false,
+                            Box::new(c),
+                            None,
+                        );
+                        union.mount(
+                            "mem_fs_4".to_string(),
+                            PathBuf::from("/nightly_2022_10_18"),
+                            false,
+                            Box::new(d),
+                            None,
+                        );
+                        union.mount(
+                            "mem_fs_5".to_string(),
+                            PathBuf::from("/unstable"),
+                            false,
+                            Box::new(e),
+                            None,
+                        );
+                        union.mount(
+                            "mem_fs_6".to_string(),
+                            PathBuf::from("/.tmp_wasmer_wast_0"),
+                            false,
+                            Box::new(f),
+                            None,
+                        );
 
                         Box::new(union)
                     }

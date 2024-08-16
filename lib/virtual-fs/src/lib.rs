@@ -580,7 +580,7 @@ impl From<FsError> for io::Error {
 #[derive(Debug)]
 pub struct ReadDir {
     // TODO: to do this properly we need some kind of callback to the core FS abstraction
-    data: Vec<DirEntry>,
+    pub(crate) data: Vec<DirEntry>,
     index: usize,
 }
 
