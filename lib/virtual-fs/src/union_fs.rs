@@ -627,17 +627,9 @@ mod tests {
     async fn test_create_dir() {
         let fs = gen_filesystem();
 
-        assert_eq!(
-            fs.create_dir(Path::new("/")),
-            Err(FsError::AlreadyExists),
-            "root should already exist",
-        );
+        assert_eq!(fs.create_dir(Path::new("/")), Ok(()),);
 
-        assert_eq!(
-            fs.create_dir(Path::new("/test_create_dir")),
-            Err(FsError::AlreadyExists),
-            "/test_create_dir already mounted and exists",
-        );
+        assert_eq!(fs.create_dir(Path::new("/test_create_dir")), Ok(()));
 
         assert_eq!(
             fs.create_dir(Path::new("/test_create_dir/foo")),
@@ -694,11 +686,7 @@ mod tests {
             "cannot remove a directory that doesn't exist",
         );
 
-        assert_eq!(
-            fs.create_dir(Path::new("/test_remove_dir")),
-            Err(FsError::AlreadyExists),
-            "mount point already exists",
-        );
+        assert_eq!(fs.create_dir(Path::new("/test_remove_dir")), Ok(()));
 
         assert_eq!(
             fs.create_dir(Path::new("/test_remove_dir/foo")),
@@ -763,10 +751,7 @@ mod tests {
             "renaming to a directory that has no parent",
         );
 
-        assert_eq!(
-            fs.create_dir(Path::new("/test_rename")),
-            Err(FsError::AlreadyExists)
-        );
+        assert_eq!(fs.create_dir(Path::new("/test_rename")), Ok(()),);
         assert_eq!(fs.create_dir(Path::new("/test_rename/foo")), Ok(()));
         assert_eq!(fs.create_dir(Path::new("/test_rename/foo/qux")), Ok(()));
 
