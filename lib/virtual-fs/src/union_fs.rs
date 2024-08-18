@@ -545,12 +545,12 @@ mod tests {
     async fn test_nested_read_dir() {
         let fs = gen_nested_filesystem();
 
-        let root_contents: Vec<String> = fs
+        let root_contents: Vec<PathBuf> = fs
             .read_dir(&PathBuf::from("/"))
             .unwrap()
-            .map(|e| e.unwrap().path.to_str().unwrap().to_string())
+            .map(|e| e.unwrap().path.clone())
             .collect();
-        assert_eq!(root_contents, vec!["/app"]);
+        assert_eq!(root_contents, vec![PathBuf::from("/app")]);
 
         let app_contents: Vec<PathBuf> = fs
             .read_dir(&PathBuf::from("/app"))
@@ -562,19 +562,19 @@ mod tests {
             vec![PathBuf::from("/app/a"), PathBuf::from("/app/b")]
         );
 
-        let a_contents: Vec<String> = fs
+        let a_contents: Vec<PathBuf> = fs
             .read_dir(&PathBuf::from("/app/a"))
             .unwrap()
-            .map(|e| e.unwrap().path.to_str().unwrap().to_string())
+            .map(|e| e.unwrap().path.clone())
             .collect();
-        assert_eq!(a_contents, vec!["/app/a/data-a.txt"]);
+        assert_eq!(a_contents, vec![PathBuf::from("/app/a/data-a.txt")]);
 
-        let b_contents: Vec<String> = fs
+        let b_contents: Vec<PathBuf> = fs
             .read_dir(&PathBuf::from("/app/b"))
             .unwrap()
-            .map(|e| e.unwrap().path.to_str().unwrap().to_string())
+            .map(|e| e.unwrap().path)
             .collect();
-        assert_eq!(b_contents, vec!["/app/b/data-b.txt"]);
+        assert_eq!(b_contents, vec![PathBuf::from("/app/b/data-b.txt")]);
     }
 
     #[tokio::test]
