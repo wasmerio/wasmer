@@ -75,7 +75,6 @@ impl Compiler for CraneliftCompiler {
             .map_err(|error| CompileError::Codegen(error.to_string()))?;
         let frontend_config = isa.frontend_config();
         let memory_styles = &compile_info.memory_styles;
-        let table_styles = &compile_info.table_styles;
         let module = &compile_info.module;
         let signatures = module
             .signatures
@@ -124,7 +123,6 @@ impl Compiler for CraneliftCompiler {
                     module,
                     &signatures,
                     &memory_styles,
-                    &table_styles,
                 );
                 context.func.name = match get_function_name(func_index) {
                     ExternalName::User(nameref) => {
@@ -231,13 +229,8 @@ impl Compiler for CraneliftCompiler {
             .map_init(FuncTranslator::new, |func_translator, (i, input)| {
                 let func_index = module.func_index(*i);
                 let mut context = Context::new();
-                let mut func_env = FuncEnvironment::new(
-                    isa.frontend_config(),
-                    module,
-                    &signatures,
-                    memory_styles,
-                    table_styles,
-                );
+                let mut func_env =
+                    FuncEnvironment::new(isa.frontend_config(), module, &signatures, memory_styles);
                 context.func.name = match get_function_name(func_index) {
                     ExternalName::User(nameref) => {
                         if context.func.params.user_named_funcs().is_valid(nameref) {
@@ -416,15 +409,15 @@ impl Compiler for CraneliftCompiler {
 }
 
 fn mach_reloc_to_reloc(module: &ModuleInfo, reloc: &FinalizedMachReloc) -> Relocation {
-    let &FinalizedMachReloc {
+    let FinalizedMachReloc {
         offset,
         kind,
         addend,
         target,
-    } = reloc;
+    } = &reloc;
     let name = match target {
         FinalizedRelocTarget::ExternalName(external_name) => external_name,
-        FinalizedRelocTarget::Func(CodeOffset) => {
+        FinalizedRelocTarget::Func(_) => {
             unimplemented!("relocations to offset in the same function are not yet supported")
         }
     };
@@ -436,15 +429,15 @@ fn mach_reloc_to_reloc(module: &ModuleInfo, reloc: &FinalizedMachReloc) -> Reloc
                 .expect("The provided function should be local"),
         )
     } else if let ExternalName::LibCall(libcall) = name {
-        RelocationTarget::LibCall(irlibcall_to_libcall(libcall))
+        RelocationTarget::LibCall(irlibcall_to_libcall(libcall.clone()))
     } else {
         panic!("unrecognized external target")
     };
     Relocation {
-        kind: irreloc_to_relocationkind(kind),
+        kind: irreloc_to_relocationkind(*kind),
         reloc_target,
-        offset,
-        addend,
+        offset: *offset,
+        addend: *addend,
     }
 }
 
@@ -470,7 +463,9 @@ fn translate_ir_trapcode(trap: ir::TrapCode) -> TrapCode {
         ir::TrapCode::BadConversionToInteger => TrapCode::BadConversionToInteger,
         ir::TrapCode::UnreachableCodeReached => TrapCode::UnreachableCodeReached,
         ir::TrapCode::Interrupt => unimplemented!("Interrupts not supported"),
-        ir::TrapCode::NullReference => unimplemented!("Null reference not supported"),
+        ir::TrapCode::NullReference | ir::TrapCode::NullI31Ref => {
+            unimplemented!("Null reference not supported")
+        }
         ir::TrapCode::User(_user_code) => unimplemented!("User trap code not supported"),
         // ir::TrapCode::Interrupt => TrapCode::Interrupt,
         // ir::TrapCode::User(user_code) => TrapCode::User(user_code),

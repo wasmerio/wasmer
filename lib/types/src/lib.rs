@@ -89,7 +89,7 @@ pub use crate::features::Features;
 pub use crate::indexes::{
     CustomSectionIndex, DataIndex, ElemIndex, ExportIndex, FunctionIndex, GlobalIndex, ImportIndex,
     LocalFunctionIndex, LocalGlobalIndex, LocalMemoryIndex, LocalTableIndex, MemoryIndex,
-    SignatureIndex, TableIndex,
+    SignatureIndex, TableIndex
 };
 pub use crate::initializers::{
     ArchivedDataInitializerLocation, ArchivedOwnedDataInitializer, DataInitializer,

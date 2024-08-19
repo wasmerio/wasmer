@@ -47,6 +47,7 @@ pub fn make_trampoline_dynamic_function(
     let ss = context.func.create_sized_stack_slot(StackSlotData::new(
         StackSlotKind::ExplicitSlot,
         values_vec_len,
+        0,
     ));
 
     {

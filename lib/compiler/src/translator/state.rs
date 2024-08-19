@@ -50,12 +50,14 @@ impl ModuleTranslationState {
 }
 
 /// A helper enum for representing either a single or multiple values.
+#[derive(Clone)]
 pub enum SingleOrMultiValue<'a> {
     /// A single value.
     Single(&'a wasmparser::ValType),
     /// Multiple values.
     Multi(&'a [wasmparser::ValType]),
 }
+
 
 impl<'a> SingleOrMultiValue<'a> {
     /// True if empty.

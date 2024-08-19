@@ -28,7 +28,7 @@ cranelift-codegen = { version = "0.110.2", default-features = false, features = 
 	"riscv64",
 ] }
 cranelift-frontend = { version = "0.110.2", default-features = false }
-
+itertools = "0.12.0"
 tracing = "0.1"
 hashbrown = { version = "0.11", optional = true }
 rayon = { version = "1.5", optional = true }

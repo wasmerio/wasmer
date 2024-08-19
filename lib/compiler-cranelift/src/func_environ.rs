@@ -1,30 +1,29 @@
 // This file contains code from external sources.
 // Attributions: https://github.com/wasmerio/wasmer/blob/main/docs/ATTRIBUTIONS.md
 
-use crate::heap::{Heap, HeapData, HeapStyle};
-use crate::translator::{
-    type_to_irtype, FuncEnvironment as BaseFuncEnvironment, GlobalVariable, TargetEnvironment,
+use crate::{
+    heap::{Heap, HeapData, HeapStyle},
+    translator::{FuncEnvironment as BaseFuncEnvironment, GlobalVariable, TargetEnvironment},
 };
-use cranelift_codegen::cursor::FuncCursor;
-use cranelift_codegen::ir;
-use cranelift_codegen::ir::condcodes::*;
-use cranelift_codegen::ir::immediates::{Offset32, Uimm64};
-use cranelift_codegen::ir::types::*;
-use cranelift_codegen::ir::{AbiParam, ArgumentPurpose, Function, InstBuilder, Signature};
-use cranelift_codegen::isa::TargetFrontendConfig;
+use cranelift_codegen::{
+    cursor::FuncCursor,
+    ir::{
+        self,
+        immediates::{Offset32, Uimm64},
+        types::*,
+        AbiParam, ArgumentPurpose, Function, InstBuilder, Signature,
+    },
+    isa::TargetFrontendConfig,
+};
 use cranelift_frontend::FunctionBuilder;
 use std::convert::TryFrom;
 use wasmer_compiler::wasmparser::HeapType;
-use wasmer_types::entity::EntityRef;
-use wasmer_types::entity::PrimaryMap;
-use wasmer_types::VMBuiltinFunctionIndex;
-use wasmer_types::VMOffsets;
 use wasmer_types::{
-    FunctionIndex, FunctionType, GlobalIndex, LocalFunctionIndex, MemoryIndex, ModuleInfo,
-    SignatureIndex, TableIndex, Type as WasmerType,
+    entity::{EntityRef, PrimaryMap},
+    FunctionIndex, FunctionType, GlobalIndex, LocalFunctionIndex, MemoryIndex, MemoryStyle,
+    ModuleInfo, SignatureIndex, TableIndex, Type as WasmerType, VMBuiltinFunctionIndex, VMOffsets,
+    WasmError, WasmResult,
 };
-use wasmer_types::{MemoryStyle, TableStyle};
-use wasmer_types::{WasmError, WasmResult};
 
 /// Compute an `ir::ExternalName` for a given wasm function index.
 pub fn get_function_name(func_index: FunctionIndex) -> ir::ExternalName {
@@ -32,6 +31,7 @@ pub fn get_function_name(func_index: FunctionIndex) -> ir::ExternalName {
 }
 
 /// The type of the `current_elements` field.
+#[allow(unused)]
 pub fn type_of_vmtable_definition_current_elements(vmoffsets: &VMOffsets) -> ir::Type {
     ir::Type::int(u16::from(vmoffsets.size_of_vmtable_definition_current_elements()) * 8).unwrap()
 }
@@ -122,9 +122,6 @@ pub struct FuncEnvironment<'module_environment> {
 
     /// The memory styles
     memory_styles: &'module_environment PrimaryMap<MemoryIndex, MemoryStyle>,
-
-    /// The table styles
-    table_styles: &'module_environment PrimaryMap<TableIndex, TableStyle>,
 }
 
 impl<'module_environment> FuncEnvironment<'module_environment> {
@@ -133,7 +130,6 @@ impl<'module_environment> FuncEnvironment<'module_environment> {
         module: &'module_environment ModuleInfo,
         signatures: &'module_environment PrimaryMap<SignatureIndex, ir::Signature>,
         memory_styles: &'module_environment PrimaryMap<MemoryIndex, MemoryStyle>,
-        table_styles: &'module_environment PrimaryMap<TableIndex, TableStyle>,
     ) -> Self {
         Self {
             target_config,
@@ -162,7 +158,6 @@ impl<'module_environment> FuncEnvironment<'module_environment> {
             memory32_atomic_notify_sig: None,
             offsets: VMOffsets::new(target_config.pointer_bytes(), module),
             memory_styles,
-            table_styles,
         }
     }
 
@@ -870,66 +865,10 @@ impl<'module_environment> BaseFuncEnvironment for FuncEnvironment<'module_enviro
         index >= 1
     }
 
-    fn make_table(&mut self, func: &mut ir::Function, index: TableIndex) -> WasmResult<ir::Table> {
-        let pointer_type = self.pointer_type();
-
-        let (ptr, base_offset, current_elements_offset) = {
-            let vmctx = self.vmctx(func);
-            if let Some(def_index) = self.module.local_table_index(index) {
-                let base_offset =
-                    i32::try_from(self.offsets.vmctx_vmtable_definition_base(def_index)).unwrap();
-                let current_elements_offset = i32::try_from(
-                    self.offsets
-                        .vmctx_vmtable_definition_current_elements(def_index),
-                )
-                .unwrap();
-                (vmctx, base_offset, current_elements_offset)
-            } else {
-                let from_offset = self.offsets.vmctx_vmtable_import_definition(index);
-                let table = func.create_global_value(ir::GlobalValueData::Load {
-                    base: vmctx,
-                    offset: Offset32::new(i32::try_from(from_offset).unwrap()),
-                    global_type: pointer_type,
-                    readonly: true,
-                });
-                let base_offset = i32::from(self.offsets.vmtable_definition_base());
-                let current_elements_offset =
-                    i32::from(self.offsets.vmtable_definition_current_elements());
-                (table, base_offset, current_elements_offset)
-            }
-        };
-
-        let base_gv = func.create_global_value(ir::GlobalValueData::Load {
-            base: ptr,
-            offset: Offset32::new(base_offset),
-            global_type: pointer_type,
-            readonly: false,
-        });
-        let bound_gv = func.create_global_value(ir::GlobalValueData::Load {
-            base: ptr,
-            offset: Offset32::new(current_elements_offset),
-            global_type: type_of_vmtable_definition_current_elements(&self.offsets),
-            readonly: false,
-        });
-
-        let element_size = match self.table_styles[index] {
-            TableStyle::CallerChecksSignature => u64::from(self.offsets.size_of_vm_funcref()),
-        };
-
-        Ok(func.create_table(ir::TableData {
-            base_gv,
-            min_size: Uimm64::new(0),
-            bound_gv,
-            element_size: Uimm64::new(element_size),
-            index_type: I32,
-        }))
-    }
-
     fn translate_table_grow(
         &mut self,
         mut pos: cranelift_codegen::cursor::FuncCursor<'_>,
         table_index: TableIndex,
-        _table: ir::Table,
         delta: ir::Value,
         init_value: ir::Value,
     ) -> WasmResult<ir::Value> {
@@ -948,7 +887,6 @@ impl<'module_environment> BaseFuncEnvironment for FuncEnvironment<'module_enviro
         &mut self,
         builder: &mut FunctionBuilder,
         table_index: TableIndex,
-        _table: ir::Table,
         index: ir::Value,
     ) -> WasmResult<ir::Value> {
         let mut pos = builder.cursor();
@@ -966,7 +904,6 @@ impl<'module_environment> BaseFuncEnvironment for FuncEnvironment<'module_enviro
         &mut self,
         builder: &mut FunctionBuilder,
         table_index: TableIndex,
-        _table: ir::Table,
         value: ir::Value,
         index: ir::Value,
     ) -> WasmResult<()> {
@@ -1097,7 +1034,7 @@ impl<'module_environment> BaseFuncEnvironment for FuncEnvironment<'module_enviro
                     base: vmctx,
                     offset: Offset32::new(i32::try_from(from_offset).unwrap()),
                     global_type: pointer_type,
-                    readonly: true,
+                    flags: ir::MemFlags::trusted().with_readonly(),
                 });
                 let base_offset = i32::from(self.offsets.vmmemory_definition_base());
                 let current_length_offset =
@@ -1114,7 +1051,7 @@ impl<'module_environment> BaseFuncEnvironment for FuncEnvironment<'module_enviro
                     base: ptr,
                     offset: Offset32::new(current_length_offset),
                     global_type: pointer_type,
-                    readonly: false,
+                    flags: ir::MemFlags::trusted(),
                 });
                 (
                     Uimm64::new(offset_guard_size),
@@ -1140,14 +1077,21 @@ impl<'module_environment> BaseFuncEnvironment for FuncEnvironment<'module_enviro
             base: ptr,
             offset: Offset32::new(base_offset),
             global_type: pointer_type,
-            readonly: readonly_base,
+            flags: if readonly_base {
+                ir::MemFlags::trusted().with_readonly()
+            } else {
+                ir::MemFlags::trusted()
+            },
         });
         Ok(self.heaps.push(HeapData {
             base: heap_base,
             min_size: 0,
+            max_size: None,
+            memory_type: None,
             offset_guard_size: offset_guard_size.into(),
             style: heap_style,
             index_type: I32,
+            page_size_log2: self.target_config.page_size_align_log2,
         }))
     }
 
@@ -1156,29 +1100,21 @@ impl<'module_environment> BaseFuncEnvironment for FuncEnvironment<'module_enviro
         func: &mut ir::Function,
         index: GlobalIndex,
     ) -> WasmResult<GlobalVariable> {
-        let pointer_type = self.pointer_type();
-
-        let (ptr, offset) = {
-            let vmctx = self.vmctx(func);
-            let from_offset = if let Some(def_index) = self.module.local_global_index(index) {
-                self.offsets.vmctx_vmglobal_definition(def_index)
-            } else {
-                self.offsets.vmctx_vmglobal_import_definition(index)
-            };
-            let global = func.create_global_value(ir::GlobalValueData::Load {
-                base: vmctx,
-                offset: Offset32::new(i32::try_from(from_offset).unwrap()),
-                global_type: pointer_type,
-                readonly: true,
-            });
-
-            (global, 0)
-        };
-
+        // Just create a dummy `vmctx` global.
+        let offset = i32::try_from((index.index() * 8) + 8).unwrap().into();
+        let vmctx = func.create_global_value(ir::GlobalValueData::VMContext {});
         Ok(GlobalVariable::Memory {
-            gv: ptr,
-            offset: offset.into(),
-            ty: type_to_irtype(self.module.globals[index].ty, self.target_config())?,
+            gv: vmctx,
+            offset,
+            ty: match self.module.globals[index].ty {
+                WasmerType::I32 => ir::types::I32,
+                WasmerType::I64 => ir::types::I64,
+                WasmerType::F32 => ir::types::F32,
+                WasmerType::F64 => ir::types::F64,
+                WasmerType::V128 => ir::types::I128,
+                WasmerType::ExternRef => ir::types::R64,
+                WasmerType::FuncRef => ir::types::R64,
+            },
         })
     }
 
@@ -1207,88 +1143,45 @@ impl<'module_environment> BaseFuncEnvironment for FuncEnvironment<'module_enviro
 
     fn translate_call_indirect(
         &mut self,
-        mut pos: FuncCursor<'_>,
-        table_index: TableIndex,
-        table: ir::Table,
-        sig_index: SignatureIndex,
+        builder: &mut FunctionBuilder,
+        _table_index: TableIndex,
+        _sig_index: SignatureIndex,
         sig_ref: ir::SigRef,
         callee: ir::Value,
         call_args: &[ir::Value],
-    ) -> WasmResult<ir::Inst> {
-        let pointer_type = self.pointer_type();
+    ) -> WasmResult<Option<ir::Inst>> {
+        // Pass the current function's vmctx parameter on to the callee.
+        let vmctx = builder
+            .func
+            .special_param(ir::ArgumentPurpose::VMContext)
+            .expect("Missing vmctx parameter");
 
-        let table_entry_addr = pos.ins().table_addr(pointer_type, table, callee, 0);
+        let ptr = self.pointer_type();
+        let callee_offset = if ptr == I32 {
+            builder.ins().imul_imm(callee, 4)
+        } else {
+            let ext = builder.ins().uextend(I64, callee);
+            builder.ins().imul_imm(ext, 4)
+        };
+        let mflags = ir::MemFlags::trusted();
+        let func_ptr = builder.ins().load(ptr, mflags, callee_offset, 0);
 
-        // Dereference table_entry_addr to get the function address.
-        let mem_flags = ir::MemFlags::trusted();
-        let table_entry_addr = pos.ins().load(
-            pointer_type,
-            mem_flags,
-            table_entry_addr,
-            i32::from(self.offsets.vm_funcref_anyfunc_ptr()),
-        );
+        let mut args = ir::ValueList::default();
+        args.push(func_ptr, &mut builder.func.dfg.value_lists);
+        args.extend(call_args.iter().cloned(), &mut builder.func.dfg.value_lists);
+        args.push(vmctx, &mut builder.func.dfg.value_lists);
 
-        // check if the funcref is null
-        pos.ins()
-            .trapz(table_entry_addr, ir::TrapCode::IndirectCallToNull);
-
-        let func_addr = pos.ins().load(
-            pointer_type,
-            mem_flags,
-            table_entry_addr,
-            i32::from(self.offsets.vmcaller_checked_anyfunc_func_ptr()),
-        );
-
-        // If necessary, check the signature.
-        match self.table_styles[table_index] {
-            TableStyle::CallerChecksSignature => {
-                let sig_id_size = self.offsets.size_of_vmshared_signature_index();
-                let sig_id_type = ir::Type::int(u16::from(sig_id_size) * 8).unwrap();
-                let vmctx = self.vmctx(pos.func);
-                let base = pos.ins().global_value(pointer_type, vmctx);
-                let offset =
-                    i32::try_from(self.offsets.vmctx_vmshared_signature_id(sig_index)).unwrap();
-
-                // Load the caller ID.
-                let mut mem_flags = ir::MemFlags::trusted();
-                mem_flags.set_readonly();
-                let caller_sig_id = pos.ins().load(sig_id_type, mem_flags, base, offset);
-
-                // Load the callee ID.
-                let mem_flags = ir::MemFlags::trusted();
-                let callee_sig_id = pos.ins().load(
-                    sig_id_type,
-                    mem_flags,
-                    table_entry_addr,
-                    i32::from(self.offsets.vmcaller_checked_anyfunc_type_index()),
-                );
-
-                // Check that they match.
-                let cmp = pos.ins().icmp(IntCC::Equal, callee_sig_id, caller_sig_id);
-                pos.ins().trapz(cmp, ir::TrapCode::BadSignature);
-            }
-        }
-
-        let mut real_call_args = Vec::with_capacity(call_args.len() + 2);
-
-        // First append the callee vmctx address.
-        let vmctx = pos.ins().load(
-            pointer_type,
-            mem_flags,
-            table_entry_addr,
-            i32::from(self.offsets.vmcaller_checked_anyfunc_vmctx()),
-        );
-        real_call_args.push(vmctx);
-
-        // Then append the regular call arguments.
-        real_call_args.extend_from_slice(call_args);
-
-        Ok(pos.ins().call_indirect(sig_ref, func_addr, &real_call_args))
+        Ok(Some(
+            builder
+                .ins()
+                .CallIndirect(ir::Opcode::CallIndirect, INVALID, sig_ref, args)
+                .0,
+        ))
     }
 
     fn translate_call(
         &mut self,
-        mut pos: FuncCursor<'_>,
+        builder: &mut FunctionBuilder,
         callee_index: FunctionIndex,
         callee: ir::FuncRef,
         call_args: &[ir::Value],
@@ -1298,7 +1191,10 @@ impl<'module_environment> BaseFuncEnvironment for FuncEnvironment<'module_enviro
         // Handle direct calls to locally-defined functions.
         if !self.module.is_imported_function(callee_index) {
             // Let's get the caller vmctx
-            let caller_vmctx = pos.func.special_param(ArgumentPurpose::VMContext).unwrap();
+            let caller_vmctx = builder
+                .func
+                .special_param(ArgumentPurpose::VMContext)
+                .unwrap();
             // First append the callee vmctx address, which is the same as the caller vmctx in
             // this case.
             real_call_args.push(caller_vmctx);
@@ -1306,33 +1202,39 @@ impl<'module_environment> BaseFuncEnvironment for FuncEnvironment<'module_enviro
             // Then append the regular call arguments.
             real_call_args.extend_from_slice(call_args);
 
-            return Ok(pos.ins().call(callee, &real_call_args));
+            return Ok(builder.ins().call(callee, &real_call_args));
         }
 
         // Handle direct calls to imported functions. We use an indirect call
         // so that we don't have to patch the code at runtime.
         let pointer_type = self.pointer_type();
-        let sig_ref = pos.func.dfg.ext_funcs[callee].signature;
-        let vmctx = self.vmctx(pos.func);
-        let base = pos.ins().global_value(pointer_type, vmctx);
+        let sig_ref = builder.func.dfg.ext_funcs[callee].signature;
+        let vmctx = self.vmctx(builder.func);
+        let base = builder.ins().global_value(pointer_type, vmctx);
 
         let mem_flags = ir::MemFlags::trusted();
 
         // Load the callee address.
         let body_offset =
             i32::try_from(self.offsets.vmctx_vmfunction_import_body(callee_index)).unwrap();
-        let func_addr = pos.ins().load(pointer_type, mem_flags, base, body_offset);
+        let func_addr = builder
+            .ins()
+            .load(pointer_type, mem_flags, base, body_offset);
 
         // First append the callee vmctx address.
         let vmctx_offset =
             i32::try_from(self.offsets.vmctx_vmfunction_import_vmctx(callee_index)).unwrap();
-        let vmctx = pos.ins().load(pointer_type, mem_flags, base, vmctx_offset);
+        let vmctx = builder
+            .ins()
+            .load(pointer_type, mem_flags, base, vmctx_offset);
         real_call_args.push(vmctx);
 
         // Then append the regular call arguments.
         real_call_args.extend_from_slice(call_args);
 
-        Ok(pos.ins().call_indirect(sig_ref, func_addr, &real_call_args))
+        Ok(builder
+            .ins()
+            .call_indirect(sig_ref, func_addr, &real_call_args))
     }
 
     fn translate_memory_grow(
@@ -1452,7 +1354,6 @@ impl<'module_environment> BaseFuncEnvironment for FuncEnvironment<'module_enviro
         &mut self,
         mut pos: FuncCursor,
         table_index: TableIndex,
-        _table: ir::Table,
     ) -> WasmResult<ir::Value> {
         let (func_sig, index_arg, func_idx) = self.get_table_size_func(pos.func, table_index);
         let table_index = pos.ins().iconst(I32, index_arg as i64);
@@ -1467,9 +1368,7 @@ impl<'module_environment> BaseFuncEnvironment for FuncEnvironment<'module_enviro
         &mut self,
         mut pos: FuncCursor,
         dst_table_index: TableIndex,
-        _dst_table: ir::Table,
         src_table_index: TableIndex,
-        _src_table: ir::Table,
         dst: ir::Value,
         src: ir::Value,
         len: ir::Value,
@@ -1503,7 +1402,6 @@ impl<'module_environment> BaseFuncEnvironment for FuncEnvironment<'module_enviro
         mut pos: FuncCursor,
         seg_index: u32,
         table_index: TableIndex,
-        _table: ir::Table,
         dst: ir::Value,
         src: ir::Value,
         len: ir::Value,
@@ -1612,7 +1510,15 @@ impl<'module_environment> BaseFuncEnvironment for FuncEnvironment<'module_enviro
         self.module.signatures.get(sig_index)
     }
 
-    fn get_heap(&self, heap: Heap) -> &HeapData {
-        &self.heaps[heap]
+    fn heap_access_spectre_mitigation(&self) -> bool {
+        false
+    }
+
+    fn proof_carrying_code(&self) -> bool {
+        false
+    }
+
+    fn heaps(&self) -> &PrimaryMap<Heap, HeapData> {
+        &self.heaps
     }
 }

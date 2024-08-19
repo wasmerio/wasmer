@@ -15,7 +15,7 @@ use crate::{HashMap, Occupied, Vacant};
 use cranelift_codegen::ir::{self, Block, Inst, Value};
 use std::vec::Vec;
 use wasmer_types::{
-    FunctionIndex, GlobalIndex, MemoryIndex, SignatureIndex, TableIndex, WasmResult,
+    FunctionIndex, GlobalIndex, MemoryIndex, SignatureIndex, WasmResult,
 };
 
 /// Information about the presence of an associated `else` for an `if`, or the
@@ -31,6 +31,9 @@ pub enum ElseData {
         /// instruction that needs to be fixed up to point to the new `else`
         /// block rather than the destination block after the `if...end`.
         branch_inst: Inst,
+
+        /// The placeholder block we're replacing.
+        placeholder: Block,
     },
 
     /// We have already allocated an `else` block.
@@ -236,9 +239,6 @@ pub struct FuncTranslationState {
     // Map of heaps that have been created by `FuncEnvironment::make_heap`.
     heaps: HashMap<MemoryIndex, Heap>,
 
-    // Map of tables that have been created by `FuncEnvironment::make_table`.
-    tables: HashMap<TableIndex, ir::Table>,
-
     // Map of indirect call signatures that have been created by
     // `FuncEnvironment::make_indirect_sig()`.
     // Stores both the signature reference and the number of WebAssembly arguments
@@ -271,7 +271,6 @@ impl FuncTranslationState {
             reachable: true,
             globals: HashMap::new(),
             heaps: HashMap::new(),
-            tables: HashMap::new(),
             signatures: HashMap::new(),
             functions: HashMap::new(),
         }
@@ -283,7 +282,6 @@ impl FuncTranslationState {
         self.reachable = true;
         self.globals.clear();
         self.heaps.clear();
-        self.tables.clear();
         self.signatures.clear();
         self.functions.clear();
     }
@@ -479,21 +477,6 @@ impl FuncTranslationState {
         match self.heaps.entry(index) {
             Occupied(entry) => Ok(*entry.get()),
             Vacant(entry) => Ok(*entry.insert(environ.make_heap(func, index)?)),
-        }
-    }
-
-    /// Get the `Table` reference that should be used to access table `index`.
-    /// Create the reference if necessary.
-    pub(crate) fn get_or_create_table<FE: FuncEnvironment + ?Sized>(
-        &mut self,
-        func: &mut ir::Function,
-        index: u32,
-        environ: &mut FE,
-    ) -> WasmResult<ir::Table> {
-        let index = TableIndex::from_u32(index);
-        match self.tables.entry(index) {
-            Occupied(entry) => Ok(*entry.get()),
-            Vacant(entry) => Ok(*entry.insert(environ.make_table(func, index)?)),
         }
     }
 
