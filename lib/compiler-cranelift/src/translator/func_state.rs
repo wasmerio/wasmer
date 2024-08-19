@@ -14,9 +14,7 @@ use crate::heap::Heap;
 use crate::{HashMap, Occupied, Vacant};
 use cranelift_codegen::ir::{self, Block, Inst, Value};
 use std::vec::Vec;
-use wasmer_types::{
-    FunctionIndex, GlobalIndex, MemoryIndex, SignatureIndex, WasmResult,
-};
+use wasmer_types::{FunctionIndex, GlobalIndex, MemoryIndex, SignatureIndex, WasmResult};
 
 /// Information about the presence of an associated `else` for an `if`, or the
 /// lack thereof.

@@ -190,7 +190,6 @@ pub fn translate_operator<FE: FuncEnvironment + ?Sized>(
             state.push1(stack_elem);
         }
         Operator::GlobalSet { global_index } => {
-            println!("SETTING GLOBAL!!!!!!!!!!!\n");
             let global_index = GlobalIndex::from_u32(*global_index);
             match state.get_global(builder.func, global_index.as_u32(), environ)? {
                 GlobalVariable::Const(_) => {

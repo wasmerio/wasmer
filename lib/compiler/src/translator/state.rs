@@ -58,7 +58,6 @@ pub enum SingleOrMultiValue<'a> {
     Multi(&'a [wasmparser::ValType]),
 }
 
-
 impl<'a> SingleOrMultiValue<'a> {
     /// True if empty.
     pub fn is_empty(&self) -> bool {
