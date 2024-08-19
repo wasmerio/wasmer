@@ -3,7 +3,10 @@
 
 use crate::{
     heap::{Heap, HeapData, HeapStyle},
-    translator::{FuncEnvironment as BaseFuncEnvironment, GlobalVariable, TargetEnvironment},
+    table::{TableData, TableSize},
+    translator::{
+        type_to_irtype, FuncEnvironment as BaseFuncEnvironment, GlobalVariable, TargetEnvironment,
+    },
 };
 use cranelift_codegen::{
     cursor::FuncCursor,
@@ -11,7 +14,7 @@ use cranelift_codegen::{
         self,
         immediates::{Offset32, Uimm64},
         types::*,
-        AbiParam, ArgumentPurpose, Function, InstBuilder, Signature,
+        AbiParam, ArgumentPurpose, Function, InstBuilder, MemFlags, Signature,
     },
     isa::TargetFrontendConfig,
 };
@@ -19,7 +22,7 @@ use cranelift_frontend::FunctionBuilder;
 use std::convert::TryFrom;
 use wasmer_compiler::wasmparser::HeapType;
 use wasmer_types::{
-    entity::{EntityRef, PrimaryMap},
+    entity::{EntityRef, PrimaryMap, SecondaryMap},
     FunctionIndex, FunctionType, GlobalIndex, LocalFunctionIndex, MemoryIndex, MemoryStyle,
     ModuleInfo, SignatureIndex, TableIndex, Type as WasmerType, VMBuiltinFunctionIndex, VMOffsets,
     WasmError, WasmResult,
@@ -122,6 +125,9 @@ pub struct FuncEnvironment<'module_environment> {
 
     /// The memory styles
     memory_styles: &'module_environment PrimaryMap<MemoryIndex, MemoryStyle>,
+
+    /// Cranelift tables we have created to implement Wasm tables.
+    tables: SecondaryMap<TableIndex, Option<TableData>>,
 }
 
 impl<'module_environment> FuncEnvironment<'module_environment> {
@@ -158,11 +164,51 @@ impl<'module_environment> FuncEnvironment<'module_environment> {
             memory32_atomic_notify_sig: None,
             offsets: VMOffsets::new(target_config.pointer_bytes(), module),
             memory_styles,
+            tables: Default::default(),
         }
     }
 
     fn pointer_type(&self) -> ir::Type {
         self.target_config.pointer_type()
+    }
+
+    fn ensure_table_exists(&mut self, func: &mut ir::Function, index: TableIndex) {
+        if self.tables[index].is_some() {
+            return;
+        }
+
+        // Create a table whose base address is stored at `vmctx+0`.
+        let vmctx = func.create_global_value(ir::GlobalValueData::VMContext);
+        let base_gv = func.create_global_value(ir::GlobalValueData::Load {
+            base: vmctx,
+            offset: Offset32::new(0),
+            global_type: self.pointer_type(),
+            // When tables in wasm become "growable", revisit whether this can be readonly or not.
+            flags: ir::MemFlags::trusted().with_readonly(),
+        });
+
+        let table = &self.module.tables[index];
+
+        let bound = if Some(table.minimum) == table.maximum {
+            TableSize::Static {
+                bound: table.minimum,
+            }
+        } else {
+            TableSize::Dynamic {
+                bound_gv: func.create_global_value(ir::GlobalValueData::Load {
+                    base: vmctx,
+                    offset: Offset32::new(0),
+                    global_type: I32,
+                    flags: ir::MemFlags::trusted().with_readonly(),
+                }),
+            }
+        };
+
+        self.tables[index] = Some(TableData {
+            base_gv,
+            bound,
+            element_size: u32::from(self.pointer_bytes()) * 2,
+        });
     }
 
     fn vmctx(&mut self, func: &mut Function) -> ir::GlobalValue {
@@ -889,15 +935,26 @@ impl<'module_environment> BaseFuncEnvironment for FuncEnvironment<'module_enviro
         table_index: TableIndex,
         index: ir::Value,
     ) -> WasmResult<ir::Value> {
-        let mut pos = builder.cursor();
+        //self.ensure_table_exists(builder.func, table_index);
+        //let mut pos = builder.cursor();
 
-        let (func_sig, table_index_arg, func_idx) = self.get_table_get_func(pos.func, table_index);
-        let table_index = pos.ins().iconst(I32, table_index_arg as i64);
-        let (vmctx, func_addr) = self.translate_load_builtin_function_address(&mut pos, func_idx);
-        let call_inst = pos
+        //let (func_sig, table_index_arg, func_idx) = self.get_table_get_func(pos.func, table_index);
+        //let table_index = pos.ins().iconst(I32, table_index_arg as i64);
+        //let (vmctx, func_addr) = self.translate_load_builtin_function_address(&mut pos, func_idx);
+        //let call_inst = pos
+        //    .ins()
+        //    .call_indirect(func_sig, func_addr, &[vmctx, table_index, index]);
+        //Ok(*pos.func.dfg.inst_results(call_inst).first().unwrap())
+
+        let pointer_type = self.pointer_type();
+        self.ensure_table_exists(builder.func, table_index);
+        let table = self.tables[table_index].as_ref().unwrap();
+        let (table_entry_addr, flags) =
+            table.prepare_table_addr(builder, index, pointer_type, true);
+        let value = builder
             .ins()
-            .call_indirect(func_sig, func_addr, &[vmctx, table_index, index]);
-        Ok(*pos.func.dfg.inst_results(call_inst).first().unwrap())
+            .load(self.reference_type(), flags, table_entry_addr, 0);
+        Ok(value)
     }
 
     fn translate_table_set(
@@ -907,6 +964,7 @@ impl<'module_environment> BaseFuncEnvironment for FuncEnvironment<'module_enviro
         value: ir::Value,
         index: ir::Value,
     ) -> WasmResult<()> {
+        self.ensure_table_exists(builder.func, table_index);
         let mut pos = builder.cursor();
 
         let (func_sig, table_index_arg, func_idx) = self.get_table_set_func(pos.func, table_index);
@@ -915,6 +973,14 @@ impl<'module_environment> BaseFuncEnvironment for FuncEnvironment<'module_enviro
         pos.ins()
             .call_indirect(func_sig, func_addr, &[vmctx, table_index, index, value]);
         Ok(())
+
+        //let pointer_type = self.pointer_type();
+        //self.ensure_table_exists(builder.func, table_index);
+        //let table = self.tables[table_index].as_ref().unwrap();
+        //let (table_entry_addr, flags) =
+        //    table.prepare_table_addr(builder, index, pointer_type, true);
+        //builder.ins().store(flags, value, table_entry_addr, 0);
+        //Ok(())
     }
 
     fn translate_table_fill(
@@ -925,6 +991,7 @@ impl<'module_environment> BaseFuncEnvironment for FuncEnvironment<'module_enviro
         val: ir::Value,
         len: ir::Value,
     ) -> WasmResult<()> {
+        self.ensure_table_exists(pos.func, table_index);
         let (func_sig, table_index_arg, func_idx) = self.get_table_fill_func(pos.func, table_index);
         let (vmctx, func_addr) = self.translate_load_builtin_function_address(&mut pos, func_idx);
 
@@ -1100,21 +1167,29 @@ impl<'module_environment> BaseFuncEnvironment for FuncEnvironment<'module_enviro
         func: &mut ir::Function,
         index: GlobalIndex,
     ) -> WasmResult<GlobalVariable> {
-        // Just create a dummy `vmctx` global.
-        let offset = i32::try_from((index.index() * 8) + 8).unwrap().into();
-        let vmctx = func.create_global_value(ir::GlobalValueData::VMContext {});
+        let pointer_type = self.pointer_type();
+
+        let (ptr, offset) = {
+            let vmctx = self.vmctx(func);
+            let from_offset = if let Some(def_index) = self.module.local_global_index(index) {
+                self.offsets.vmctx_vmglobal_definition(def_index)
+            } else {
+                self.offsets.vmctx_vmglobal_import_definition(index)
+            };
+            let global = func.create_global_value(ir::GlobalValueData::Load {
+                base: vmctx,
+                offset: Offset32::new(i32::try_from(from_offset).unwrap()),
+                global_type: pointer_type,
+                flags: MemFlags::new(),
+            });
+
+            (global, 0)
+        };
+
         Ok(GlobalVariable::Memory {
-            gv: vmctx,
-            offset,
-            ty: match self.module.globals[index].ty {
-                WasmerType::I32 => ir::types::I32,
-                WasmerType::I64 => ir::types::I64,
-                WasmerType::F32 => ir::types::F32,
-                WasmerType::F64 => ir::types::F64,
-                WasmerType::V128 => ir::types::I128,
-                WasmerType::ExternRef => ir::types::R64,
-                WasmerType::FuncRef => ir::types::R64,
-            },
+            gv: ptr,
+            offset: offset.into(),
+            ty: type_to_irtype(self.module.globals[index].ty, self.target_config())?,
         })
     }
 
@@ -1144,39 +1219,56 @@ impl<'module_environment> BaseFuncEnvironment for FuncEnvironment<'module_enviro
     fn translate_call_indirect(
         &mut self,
         builder: &mut FunctionBuilder,
-        _table_index: TableIndex,
+        table_index: TableIndex,
         _sig_index: SignatureIndex,
         sig_ref: ir::SigRef,
         callee: ir::Value,
         call_args: &[ir::Value],
     ) -> WasmResult<Option<ir::Inst>> {
-        // Pass the current function's vmctx parameter on to the callee.
+        let pointer_type = self.pointer_type();
+
+        self.ensure_table_exists(builder.func, table_index);
+        let table = self.tables[table_index].as_ref().unwrap();
+
+        let (table_entry_addr, mem_flags) =
+            table.prepare_table_addr(builder, callee, pointer_type, true);
+
+        let table_entry_addr = builder.ins().load(
+            pointer_type,
+            mem_flags,
+            table_entry_addr,
+            i32::from(self.offsets.vm_funcref_anyfunc_ptr()),
+        );
+
+        // check if the funcref is null
+        builder
+            .ins()
+            .trapz(table_entry_addr, ir::TrapCode::IndirectCallToNull);
+
+        let func_addr = builder.ins().load(
+            pointer_type,
+            mem_flags,
+            table_entry_addr,
+            i32::from(self.offsets.vmcaller_checked_anyfunc_func_ptr()),
+        );
+
+        let mut real_call_args = Vec::with_capacity(call_args.len() + 2);
+
         let vmctx = builder
             .func
             .special_param(ir::ArgumentPurpose::VMContext)
             .expect("Missing vmctx parameter");
 
-        let ptr = self.pointer_type();
-        let callee_offset = if ptr == I32 {
-            builder.ins().imul_imm(callee, 4)
-        } else {
-            let ext = builder.ins().uextend(I64, callee);
-            builder.ins().imul_imm(ext, 4)
-        };
-        let mflags = ir::MemFlags::trusted();
-        let func_ptr = builder.ins().load(ptr, mflags, callee_offset, 0);
+        real_call_args.push(vmctx);
 
-        let mut args = ir::ValueList::default();
-        args.push(func_ptr, &mut builder.func.dfg.value_lists);
-        args.extend(call_args.iter().cloned(), &mut builder.func.dfg.value_lists);
-        args.push(vmctx, &mut builder.func.dfg.value_lists);
+        // Then append the regular call arguments.
+        real_call_args.extend_from_slice(call_args);
 
-        Ok(Some(
-            builder
-                .ins()
-                .CallIndirect(ir::Opcode::CallIndirect, INVALID, sig_ref, args)
-                .0,
-        ))
+        Ok(Some(builder.ins().call_indirect(
+            sig_ref,
+            func_addr,
+            &real_call_args,
+        )))
     }
 
     fn translate_call(
@@ -1406,7 +1498,9 @@ impl<'module_environment> BaseFuncEnvironment for FuncEnvironment<'module_enviro
         src: ir::Value,
         len: ir::Value,
     ) -> WasmResult<()> {
+        self.ensure_table_exists(pos.func, table_index);
         let (func_sig, table_index_arg, func_idx) = self.get_table_init_func(pos.func, table_index);
+        println!("Table inited: func_sig: {func_sig} table_index_arg: {table_index_arg} func_idx: {func_idx:?}");
 
         let table_index_arg = pos.ins().iconst(I32, table_index_arg as i64);
         let seg_index_arg = pos.ins().iconst(I32, seg_index as i64);

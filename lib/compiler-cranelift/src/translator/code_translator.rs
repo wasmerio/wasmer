@@ -175,19 +175,21 @@ pub fn translate_operator<FE: FuncEnvironment + ?Sized>(
          *  `get_global` and `set_global` are handled by the environment.
          ***********************************************************************************/
         Operator::GlobalGet { global_index } => {
-            let global_index = GlobalIndex::from_u32(*global_index);
-            let stack_elem = match state.get_global(builder.func, global_index.as_u32(), environ)? {
+            let val = match state.get_global(builder.func, *global_index, environ)? {
                 GlobalVariable::Const(val) => val,
                 GlobalVariable::Memory { gv, offset, ty } => {
                     let addr = builder.ins().global_value(environ.pointer_type(), gv);
-                    let flags = ir::MemFlags::trusted();
+                    let mut flags = ir::MemFlags::trusted();
+                    // Put globals in the "table" abstract heap category as well.
+                    flags.set_alias_region(Some(ir::AliasRegion::Table));
                     builder.ins().load(ty, flags, addr, offset)
                 }
-                GlobalVariable::Custom => {
-                    environ.translate_custom_global_get(builder.cursor(), global_index)?
-                }
+                GlobalVariable::Custom => environ.translate_custom_global_get(
+                    builder.cursor(),
+                    GlobalIndex::from_u32(*global_index),
+                )?,
             };
-            state.push1(stack_elem);
+            state.push1(val);
         }
         Operator::GlobalSet { global_index } => {
             let global_index = GlobalIndex::from_u32(*global_index);
