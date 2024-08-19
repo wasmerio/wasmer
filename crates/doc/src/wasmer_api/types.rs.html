@@ -2077,6 +2077,8 @@
 <a href="#2077" id="2077">2077</a>
 <a href="#2078" id="2078">2078</a>
 <a href="#2079" id="2079">2079</a>
+<a href="#2080" id="2080">2080</a>
+<a href="#2081" id="2081">2081</a>
 </pre></div><pre class="rust"><code><span class="kw">pub use </span>queries::<span class="kw-2">*</span>;
 
 <span class="kw">pub use </span>cynic::Id;
@@ -3109,6 +3111,8 @@
         <span class="kw">pub </span>config: String,
         <span class="kw">pub </span>json_config: String,
         <span class="kw">pub </span>url: String,
+        <span class="kw">pub </span>disabled_at: <span class="prelude-ty">Option</span>&lt;DateTime&gt;,
+        <span class="kw">pub </span>disabled_reason: <span class="prelude-ty">Option</span>&lt;String&gt;,
 
         <span class="kw">pub </span>app: <span class="prelude-ty">Option</span>&lt;SparseDeployApp&gt;,
     }
