@@ -2,13 +2,11 @@
 //! its not as simple as TmpFs. not currently used but was used by
 //! the previoulsy implementation of Deploy - now using TmpFs
 
+use dashmap::DashMap;
+
 use crate::*;
 
-use std::{
-    collections::HashMap,
-    path::Path,
-    sync::{Arc, RwLock},
-};
+use std::{path::Path, sync::Arc};
 
 #[derive(Debug)]
 pub struct MountPoint {
@@ -35,7 +33,7 @@ impl MountPoint {
 /// to be mounted at various mount points
 #[derive(Debug, Default)]
 pub struct UnionFileSystem {
-    pub mounts: RwLock<HashMap<PathBuf, MountPoint>>,
+    pub mounts: DashMap<PathBuf, MountPoint>,
 }
 
 impl UnionFileSystem {
@@ -44,13 +42,11 @@ impl UnionFileSystem {
     }
 
     pub fn clear(&mut self) {
-        self.mounts.write().unwrap().clear();
+        self.mounts.clear();
     }
 
     fn is_root(&self) -> bool {
-        let map = self.mounts.read().unwrap();
-
-        map.len() == 1 && map.contains_key(&PathBuf::from("/"))
+        self.mounts.len() == 1 && self.mounts.contains_key(&PathBuf::from("/"))
     }
 
     fn prepare_path(&self, path: &Path) -> PathBuf {
@@ -77,12 +73,7 @@ impl UnionFileSystem {
 
             let sub_path = components.into_iter().collect::<PathBuf>();
 
-            if let Some(mount) = self
-                .mounts
-                .read()
-                .unwrap()
-                .get(&PathBuf::from(c.as_os_str()))
-            {
+            if let Some(mount) = self.mounts.get(&PathBuf::from(c.as_os_str())) {
                 return Some((
                     PathBuf::from(c.as_os_str()),
                     PathBuf::from("/").join(sub_path),
@@ -114,11 +105,9 @@ impl FileSystem for UnionFileSystem {
         if path.as_os_str().is_empty() {
             let entries = self
                 .mounts
-                .read()
-                .unwrap()
-                .keys()
-                .map(|p| DirEntry {
-                    path: PathBuf::from("/").join(p),
+                .iter()
+                .map(|i| DirEntry {
+                    path: PathBuf::from("/").join(i.key()),
                     metadata: Ok(Metadata {
                         ft: FileType::new_dir(),
                         accessed: 0,
@@ -253,12 +242,7 @@ impl FileSystem for UnionFileSystem {
 
             let sub_path = components.into_iter().collect::<PathBuf>();
 
-            if let Some(mount) = self
-                .mounts
-                .read()
-                .unwrap()
-                .get(&PathBuf::from(c.as_os_str()))
-            {
+            if let Some(mount) = self.mounts.get(&PathBuf::from(c.as_os_str())) {
                 return mount.fs.mount(name, sub_path.as_path(), fs);
             }
 
@@ -279,10 +263,7 @@ impl FileSystem for UnionFileSystem {
                 fs,
             };
 
-            self.mounts
-                .write()
-                .unwrap()
-                .insert(PathBuf::from(c.as_os_str()), mount);
+            self.mounts.insert(PathBuf::from(c.as_os_str()), mount);
         } else {
             return Err(FsError::EntryNotFound);
         }
