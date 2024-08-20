@@ -3,7 +3,7 @@
 use self::offloaded_file::OffloadBackingStore;
 
 use super::*;
-use crate::{DirEntry, FileSystem as _, FileType, FsError, Metadata, OpenOptions, ReadDir, Result};
+use crate::{DirEntry, FileType, FsError, Metadata, OpenOptions, ReadDir, Result};
 use futures::future::{BoxFuture, Either};
 use slab::Slab;
 use std::collections::VecDeque;
@@ -679,6 +679,11 @@ impl crate::FileSystem for FileSystem {
 
     fn new_open_options(&self) -> OpenOptions {
         OpenOptions::new(self)
+    }
+
+    fn mount(&self, _name: String, path: &Path, fs: Box<dyn crate::FileSystem + Send + Sync>) -> Result<()> {
+        let fs: Arc<dyn crate::FileSystem + Send + Sync> = Arc::new(fs);
+        self.mount(path.to_owned(), &fs, PathBuf::from("/"))
     }
 }
 

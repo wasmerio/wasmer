@@ -4,84 +4,22 @@
 
 use crate::*;
 
-use std::path::Path;
-
-#[derive(Debug)]
-pub enum UnionOrFs {
-    Union(Box<UnionFileSystem>),
-    FS(Box<dyn FileSystem>),
-}
-
-impl UnionOrFs {
-    pub fn fs(&self) -> &dyn FileSystem {
-        match self {
-            UnionOrFs::Union(union) => union,
-            UnionOrFs::FS(fs) => fs,
-        }
-    }
-
-    pub fn is_union(&self) -> bool {
-        match self {
-            UnionOrFs::Union(_) => true,
-            UnionOrFs::FS(_) => false,
-        }
-    }
-}
-
-impl FileSystem for UnionOrFs {
-    fn readlink(&self, path: &Path) -> Result<PathBuf> {
-        self.fs().readlink(path)
-    }
-
-    fn read_dir(&self, path: &Path) -> Result<ReadDir> {
-        self.fs().read_dir(path)
-    }
-
-    fn create_dir(&self, path: &Path) -> Result<()> {
-        self.fs().create_dir(path)
-    }
-
-    fn remove_dir(&self, path: &Path) -> Result<()> {
-        self.fs().remove_dir(path)
-    }
-
-    fn rename<'a>(&'a self, from: &'a Path, to: &'a Path) -> BoxFuture<'a, Result<()>> {
-        self.fs().rename(from, to)
-    }
-
-    fn metadata(&self, path: &Path) -> Result<Metadata> {
-        self.fs().metadata(path)
-    }
-
-    fn symlink_metadata(&self, path: &Path) -> Result<Metadata> {
-        self.fs().symlink_metadata(path)
-    }
-
-    fn remove_file(&self, path: &Path) -> Result<()> {
-        self.fs().remove_file(path)
-    }
-
-    fn new_open_options(&self) -> OpenOptions {
-        self.fs().new_open_options()
-    }
-}
+use std::{
+    collections::HashMap,
+    path::Path,
+    sync::{Arc, RwLock},
+};
 
 #[derive(Debug)]
 pub struct MountPoint {
     pub path: PathBuf,
     pub name: String,
-    pub fs: UnionOrFs,
-    pub should_sanitize: bool,
-    pub new_path: Option<String>,
+    pub fs: Arc<Box<dyn FileSystem + Send + Sync>>,
 }
 
 impl MountPoint {
-    pub fn fs(&self) -> &UnionOrFs {
-        &self.fs
-    }
-
-    pub fn fs_mut(&mut self) -> &mut UnionOrFs {
-        &mut self.fs
+    pub fn fs(&self) -> &Box<dyn FileSystem + Send + Sync> {
+        self.fs.as_ref()
     }
 
     pub fn mount_point_ref(&self) -> MountPointRef<'_> {
@@ -89,8 +27,6 @@ impl MountPoint {
             path: self.path.clone(),
             name: self.name.clone(),
             fs: &self.fs,
-            should_sanitize: self.should_sanitize,
-            new_path: self.new_path.clone(),
         }
     }
 }
@@ -99,7 +35,7 @@ impl MountPoint {
 /// to be mounted at various mount points
 #[derive(Debug, Default)]
 pub struct UnionFileSystem {
-    pub mounts: Vec<MountPoint>,
+    pub mounts: RwLock<HashMap<PathBuf, MountPoint>>,
 }
 
 impl UnionFileSystem {
@@ -108,12 +44,15 @@ impl UnionFileSystem {
     }
 
     pub fn clear(&mut self) {
-        self.mounts.clear();
+        self.mounts.write().unwrap().clear();
     }
 }
 
 impl UnionFileSystem {
-    fn find_mount(&self, path: PathBuf) -> Option<(PathBuf, PathBuf, &UnionOrFs)> {
+    fn find_mount(
+        &self,
+        path: PathBuf,
+    ) -> Option<(PathBuf, PathBuf, Arc<Box<dyn FileSystem + Send + Sync>>)> {
         let mut components = path.components().collect::<Vec<_>>();
 
         if let Some(c) = components.first().copied() {
@@ -123,262 +62,190 @@ impl UnionFileSystem {
 
             if let Some(mount) = self
                 .mounts
-                .iter()
-                .find(|m| m.path.as_os_str() == c.as_os_str())
+                .read()
+                .unwrap()
+                .get(&PathBuf::from(c.as_os_str()))
             {
-                if sub_path.components().next().is_none() {
-                    let sub_path = if mount.fs.is_union() {
-                        sub_path
-                    } else {
-                        PathBuf::from("/")
-                    };
-
-                    return Some((PathBuf::from(c.as_os_str()), sub_path, &mount.fs));
-                }
-                match &mount.fs {
-                    UnionOrFs::Union(union) => {
-                        return union.find_mount(sub_path).map(|(prefix, path, fs)| {
-                            let prefix = PathBuf::from(c.as_os_str()).join(prefix);
-
-                            (prefix, path, fs)
-                        });
-                    }
-                    UnionOrFs::FS(_) => {
-                        return Some((
-                            PathBuf::from(c.as_os_str()),
-                            PathBuf::from("/").join(sub_path),
-                            &mount.fs,
-                        ));
-                    }
-                }
+                return Some((
+                    PathBuf::from(c.as_os_str()),
+                    PathBuf::from("/").join(sub_path),
+                    mount.fs.clone(),
+                ));
             }
         }
 
         None
     }
-
-    pub fn mount(
-        &mut self,
-        name: String,
-        path: PathBuf,
-        should_sanitize: bool,
-        fs: Box<dyn FileSystem>,
-        new_path: Option<String>,
-    ) {
-        let mut components = path.components().collect::<Vec<_>>();
-        if let Some(c) = components.first().copied() {
-            components.remove(0);
-
-            let sub_path = components.into_iter().collect::<PathBuf>();
-
-            if let Some(mount) = self
-                .mounts
-                .iter_mut()
-                .find(|m| m.path.as_os_str() == c.as_os_str())
-            {
-                match mount.fs_mut() {
-                    UnionOrFs::Union(union) => {
-                        union.mount(
-                            name,
-                            sub_path,
-                            should_sanitize,
-                            fs,
-                            new_path.clone(), // TODO: what to do with new_path
-                        )
-                    }
-                    UnionOrFs::FS(_) => {
-                        println!("path: {path:?} is already mounted");
-                    }
-                }
-            } else {
-                let fs = if sub_path.components().next().is_none() {
-                    UnionOrFs::FS(fs)
-                } else {
-                    let mut union = UnionFileSystem::new();
-                    union.mount(
-                        name.clone(),
-                        sub_path,
-                        should_sanitize,
-                        fs,
-                        new_path.clone(),
-                    );
-
-                    UnionOrFs::Union(Box::new(union))
-                };
-
-                let mount = MountPoint {
-                    path: PathBuf::from(c.as_os_str()),
-                    name,
-                    fs,
-                    should_sanitize,
-                    new_path,
-                };
-
-                self.mounts.push(mount);
-            }
-        } else {
-            println!("empty path");
-        }
-    }
-
-    pub fn unmount(&mut self, path: &str) {
-        let path1 = path.to_string();
-        let mut path2 = path1;
-        if !path2.starts_with('/') {
-            path2.insert(0, '/');
-        }
-        let mut path3 = path2.clone();
-        if !path3.ends_with('/') {
-            path3.push('/')
-        }
-        if path2.ends_with('/') {
-            path2 = (path2[..(path2.len() - 1)]).to_string();
-        }
-
-        self.mounts.retain(|mount| {
-            mount.path.to_str().unwrap() != path2 && mount.path.to_str().unwrap() != path3
-        });
-    }
 }
 
 impl FileSystem for UnionFileSystem {
     fn readlink(&self, path: &Path) -> Result<PathBuf> {
-        if let Some((_, path, fs)) = self.find_mount(path.to_owned()) {
-            match fs {
-                UnionOrFs::Union(_) => Err(FsError::NotAFile),
-                UnionOrFs::FS(fs) => fs.readlink(&path),
-            }
+        if path == PathBuf::from("/") {
+            return Err(FsError::NotAFile);
+        } else if let Some((_, path, fs)) = self.find_mount(path.to_owned()) {
+            fs.readlink(&path)
         } else {
             Err(FsError::EntryNotFound)
         }
     }
 
     fn read_dir(&self, path: &Path) -> Result<ReadDir> {
-        if let Some((prefix, path, fs)) = self.find_mount(path.to_owned()) {
-            match fs {
-                UnionOrFs::Union(union) => {
-                    let entries = union
-                        .mounts
-                        .iter()
-                        .map(|m| DirEntry {
-                            path: prefix.join(m.path.clone()),
-                            metadata: Ok(Metadata {
-                                ft: FileType::new_dir(),
-                                accessed: 0,
-                                created: 0,
-                                modified: 0,
-                                len: 0,
-                            }),
-                        })
-                        .collect::<Vec<_>>();
+        if path == PathBuf::from("/") {
+            let entries = self
+                .mounts
+                .read()
+                .unwrap()
+                .keys()
+                .map(|p| DirEntry {
+                    path: PathBuf::from("/").join(p),
+                    metadata: Ok(Metadata {
+                        ft: FileType::new_dir(),
+                        accessed: 0,
+                        created: 0,
+                        modified: 0,
+                        len: 0,
+                    }),
+                })
+                .collect::<Vec<_>>();
 
-                    Ok(ReadDir::new(entries))
-                }
-                UnionOrFs::FS(fs) => {
-                    let mut entries = fs.read_dir(&path)?;
+            Ok(ReadDir::new(entries))
+        } else if let Some((prefix, path, fs)) = self.find_mount(path.to_owned()) {
+            let mut entries = fs.read_dir(&path)?;
 
-                    for entry in &mut entries.data {
-                        let path: PathBuf = entry.path.components().skip(1).collect();
-                        entry.path = PathBuf::from(&prefix).join(path);
-                    }
-
-                    Ok(entries)
-                }
+            for entry in &mut entries.data {
+                let path: PathBuf = entry.path.components().skip(1).collect();
+                entry.path = PathBuf::from(&prefix).join(path);
             }
+
+            Ok(entries)
         } else {
             Err(FsError::EntryNotFound)
         }
     }
 
     fn create_dir(&self, path: &Path) -> Result<()> {
-        if let Some((_, path, fs)) = self.find_mount(path.to_owned()) {
-            match fs {
-                // TODO: These should return EEXIST instead of OK, but our wast test system
-                // is not robust enough for this. Needs a rewrite for this to work.
-                UnionOrFs::Union(_) => Ok(()),
-                UnionOrFs::FS(fs) => {
-                    if path.as_os_str() == "/" {
-                        return Ok(());
-                    }
-                    fs.create_dir(&path)
-                }
-            }
+        if path == PathBuf::from("/") {
+            Ok(())
+        } else if let Some((_, path, fs)) = self.find_mount(path.to_owned()) {
+            fs.create_dir(&path)
         } else {
             Err(FsError::EntryNotFound)
         }
     }
     fn remove_dir(&self, path: &Path) -> Result<()> {
-        if let Some((_, path, fs)) = self.find_mount(path.to_owned()) {
-            match fs {
-                UnionOrFs::Union(_) => Err(FsError::PermissionDenied),
-                UnionOrFs::FS(fs) => fs.remove_dir(&path),
-            }
+        if path == PathBuf::from("/") {
+            Err(FsError::PermissionDenied)
+        } else if let Some((_, path, fs)) = self.find_mount(path.to_owned()) {
+            fs.remove_dir(&path)
         } else {
             Err(FsError::EntryNotFound)
         }
     }
     fn rename<'a>(&'a self, from: &'a Path, to: &'a Path) -> BoxFuture<'a, Result<()>> {
         Box::pin(async move {
-            if let Some((prefix, path, fs)) = self.find_mount(from.to_owned()) {
-                match fs {
-                    UnionOrFs::Union(_) => Err(FsError::PermissionDenied),
-                    UnionOrFs::FS(fs) => {
-                        let to = to.strip_prefix(prefix).map_err(|_| FsError::InvalidInput)?;
+            if from == PathBuf::from("/") {
+                Err(FsError::PermissionDenied)
+            } else if let Some((prefix, path, fs)) = self.find_mount(from.to_owned()) {
+                let to = to.strip_prefix(prefix).map_err(|_| FsError::InvalidInput)?;
 
-                        let to = PathBuf::from("/").join(to);
+                let to = PathBuf::from("/").join(to);
 
-                        fs.rename(&path, &to).await
-                    }
-                }
+                fs.rename(&path, &to).await
             } else {
                 Err(FsError::EntryNotFound)
             }
         })
     }
     fn metadata(&self, path: &Path) -> Result<Metadata> {
-        if let Some((_, path, fs)) = self.find_mount(path.to_owned()) {
-            match fs {
-                UnionOrFs::Union(_) => Ok(Metadata {
-                    ft: FileType::new_dir(),
-                    accessed: 0,
-                    created: 0,
-                    modified: 0,
-                    len: 0,
-                }),
-                UnionOrFs::FS(fs) => fs.metadata(&path),
-            }
+        if path == PathBuf::from("/") {
+            Ok(Metadata {
+                ft: FileType::new_dir(),
+                accessed: 0,
+                created: 0,
+                modified: 0,
+                len: 0,
+            })
+        } else if let Some((_, path, fs)) = self.find_mount(path.to_owned()) {
+            fs.metadata(&path)
         } else {
             Err(FsError::EntryNotFound)
         }
     }
     fn symlink_metadata(&self, path: &Path) -> Result<Metadata> {
-        if let Some((_, path, fs)) = self.find_mount(path.to_owned()) {
-            match fs {
-                UnionOrFs::Union(_) => Ok(Metadata {
-                    ft: FileType::new_dir(),
-                    accessed: 0,
-                    created: 0,
-                    modified: 0,
-                    len: 0,
-                }),
-                UnionOrFs::FS(fs) => fs.symlink_metadata(&path),
-            }
+        if path == PathBuf::from("/") {
+            Ok(Metadata {
+                ft: FileType::new_dir(),
+                accessed: 0,
+                created: 0,
+                modified: 0,
+                len: 0,
+            })
+        } else if let Some((_, path, fs)) = self.find_mount(path.to_owned()) {
+            fs.symlink_metadata(&path)
         } else {
             Err(FsError::EntryNotFound)
         }
     }
     fn remove_file(&self, path: &Path) -> Result<()> {
-        if let Some((_, path, fs)) = self.find_mount(path.to_owned()) {
-            match fs {
-                UnionOrFs::Union(_) => Err(FsError::NotAFile),
-                UnionOrFs::FS(fs) => fs.remove_file(&path),
-            }
+        if path == PathBuf::from("/") {
+            Err(FsError::NotAFile)
+        } else if let Some((_, path, fs)) = self.find_mount(path.to_owned()) {
+            fs.remove_file(&path)
         } else {
             Err(FsError::EntryNotFound)
         }
     }
     fn new_open_options(&self) -> OpenOptions {
         OpenOptions::new(self)
+    }
+
+    fn mount(
+        &self,
+        name: String,
+        path: &Path,
+        fs: Box<dyn FileSystem + Send + Sync>,
+    ) -> Result<()> {
+        let mut components = path.components().collect::<Vec<_>>();
+        if let Some(c) = components.first().copied() {
+            components.remove(0);
+
+            let sub_path = components.into_iter().collect::<PathBuf>();
+
+            if let Some(mount) = self
+                .mounts
+                .read()
+                .unwrap()
+                .get(&PathBuf::from(c.as_os_str()))
+            {
+                return mount.fs.mount(name, sub_path.as_path(), fs);
+            } else {
+                let fs = if sub_path.components().next().is_none() {
+                    fs
+                } else {
+                    let union = UnionFileSystem::new();
+                    union.mount(name.clone(), sub_path.as_path(), fs)?;
+
+                    Box::new(union)
+                };
+
+                let fs = Arc::new(fs);
+
+                let mount = MountPoint {
+                    path: PathBuf::from(c.as_os_str()),
+                    name,
+                    fs,
+                };
+
+                self.mounts
+                    .write()
+                    .unwrap()
+                    .insert(PathBuf::from(c.as_os_str()), mount);
+            }
+        } else {
+            println!("empty path");
+        }
+
+        Ok(())
     }
 }
 
@@ -387,8 +254,6 @@ pub struct MountPointRef<'a> {
     pub path: PathBuf,
     pub name: String,
     pub fs: &'a dyn FileSystem,
-    pub should_sanitize: bool,
-    pub new_path: Option<String>,
 }
 
 impl FileOpener for UnionFileSystem {
@@ -397,18 +262,18 @@ impl FileOpener for UnionFileSystem {
         path: &Path,
         conf: &OpenOptionsConfig,
     ) -> Result<Box<dyn VirtualFile + Send + Sync>> {
-        let parent = path.parent().unwrap();
-        let file_name = path.file_name().unwrap();
-        if let Some((_, path, fs)) = self.find_mount(parent.to_owned()) {
-            match fs {
-                UnionOrFs::Union(_) => Err(FsError::PermissionDenied),
-                UnionOrFs::FS(fs) => fs
-                    .new_open_options()
-                    .options(conf.clone())
-                    .open(path.join(file_name)),
-            }
+        if path == PathBuf::from("/") {
+            return Err(FsError::NotAFile);
         } else {
-            Err(FsError::EntryNotFound)
+            let parent = path.parent().unwrap();
+            let file_name = path.file_name().unwrap();
+            if let Some((_, path, fs)) = self.find_mount(parent.to_owned()) {
+                fs.new_open_options()
+                    .options(conf.clone())
+                    .open(path.join(file_name))
+            } else {
+                Err(FsError::EntryNotFound)
+            }
         }
     }
 }
@@ -424,7 +289,7 @@ mod tests {
     use super::{FileOpener, OpenOptionsConfig};
 
     fn gen_filesystem() -> UnionFileSystem {
-        let mut union = UnionFileSystem::new();
+        let union = UnionFileSystem::new();
         let a = mem_fs::FileSystem::default();
         let b = mem_fs::FileSystem::default();
         let c = mem_fs::FileSystem::default();
@@ -434,68 +299,68 @@ mod tests {
         let g = mem_fs::FileSystem::default();
         let h = mem_fs::FileSystem::default();
 
-        union.mount(
-            "mem_fs_1".to_string(),
-            PathBuf::from("/test_new_filesystem"),
-            false,
-            Box::new(a),
-            None,
-        );
-        union.mount(
-            "mem_fs_2".to_string(),
-            PathBuf::from("/test_create_dir"),
-            false,
-            Box::new(b),
-            None,
-        );
-        union.mount(
-            "mem_fs_3".to_string(),
-            PathBuf::from("/test_remove_dir"),
-            false,
-            Box::new(c),
-            None,
-        );
-        union.mount(
-            "mem_fs_4".to_string(),
-            PathBuf::from("/test_rename"),
-            false,
-            Box::new(d),
-            None,
-        );
-        union.mount(
-            "mem_fs_5".to_string(),
-            PathBuf::from("/test_metadata"),
-            false,
-            Box::new(e),
-            None,
-        );
-        union.mount(
-            "mem_fs_6".to_string(),
-            PathBuf::from("/test_remove_file"),
-            false,
-            Box::new(f),
-            None,
-        );
-        union.mount(
-            "mem_fs_6".to_string(),
-            PathBuf::from("/test_readdir"),
-            false,
-            Box::new(g),
-            None,
-        );
-        union.mount(
-            "mem_fs_6".to_string(),
-            PathBuf::from("/test_canonicalize"),
-            false,
-            Box::new(h),
-            None,
-        );
+        union
+            .mount(
+                "mem_fs_1".to_string(),
+                PathBuf::from("/test_new_filesystem").as_path(),
+                Box::new(a),
+            )
+            .unwrap();
+        union
+            .mount(
+                "mem_fs_2".to_string(),
+                PathBuf::from("/test_create_dir").as_path(),
+                Box::new(b),
+            )
+            .unwrap();
+        union
+            .mount(
+                "mem_fs_3".to_string(),
+                PathBuf::from("/test_remove_dir").as_path(),
+                Box::new(c),
+            )
+            .unwrap();
+        union
+            .mount(
+                "mem_fs_4".to_string(),
+                PathBuf::from("/test_rename").as_path(),
+                Box::new(d),
+            )
+            .unwrap();
+        union
+            .mount(
+                "mem_fs_5".to_string(),
+                PathBuf::from("/test_metadata").as_path(),
+                Box::new(e),
+            )
+            .unwrap();
+        union
+            .mount(
+                "mem_fs_6".to_string(),
+                PathBuf::from("/test_remove_file").as_path(),
+                Box::new(f),
+            )
+            .unwrap();
+        union
+            .mount(
+                "mem_fs_6".to_string(),
+                PathBuf::from("/test_readdir").as_path(),
+                Box::new(g),
+            )
+            .unwrap();
+        union
+            .mount(
+                "mem_fs_6".to_string(),
+                PathBuf::from("/test_canonicalize").as_path(),
+                Box::new(h),
+            )
+            .unwrap();
 
         union
     }
 
     fn gen_nested_filesystem() -> UnionFileSystem {
-        let mut union = UnionFileSystem::new();
+        let union = UnionFileSystem::new();
         let a = mem_fs::FileSystem::default();
         a.open(
             &PathBuf::from("/data-a.txt"),
@@ -523,20 +388,20 @@ mod tests {
         )
         .unwrap();
 
-        union.mount(
-            "mem_fs_1".to_string(),
-            PathBuf::from("/app/a"),
-            false,
-            Box::new(a),
-            None,
-        );
-        union.mount(
-            "mem_fs_2".to_string(),
-            PathBuf::from("/app/b"),
-            false,
-            Box::new(b),
-            None,
-        );
+        union
+            .mount(
+                "mem_fs_1".to_string(),
+                PathBuf::from("/app/a").as_path(),
+                Box::new(a),
+            )
+            .unwrap();
+        union
+            .mount(
+                "mem_fs_2".to_string(),
+                PathBuf::from("/app/b").as_path(),
+                Box::new(b),
+            )
+            .unwrap();
 
         union
     }

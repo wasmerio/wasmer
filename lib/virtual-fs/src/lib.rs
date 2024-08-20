@@ -98,6 +98,8 @@ pub trait FileSystem: fmt::Debug + Send + Sync + 'static + Upcastable {
     fn remove_file(&self, path: &Path) -> Result<()>;
 
     fn new_open_options(&self) -> OpenOptions;
+
+    fn mount(&self, name: String, path: &Path, fs: Box<dyn FileSystem + Send + Sync>) -> Result<()>;
 }
 
 impl dyn FileSystem + 'static {
@@ -151,6 +153,10 @@ where
 
     fn new_open_options(&self) -> OpenOptions {
         (**self).new_open_options()
+    }
+    
+    fn mount(&self, name: String, path: &Path, fs: Box<dyn FileSystem + Send + Sync>) -> Result<()> {
+        (**self).mount(name, path, fs)
     }
 }
 
@@ -510,6 +516,9 @@ pub enum FsError {
     /// Some other unhandled error. If you see this, it's probably a bug.
     #[error("unknown error found")]
     UnknownError,
+    /// Operation is not supported on this filesystem
+    #[error("unsupported")]
+    Unsupported,
 }
 
 impl From<io::Error> for FsError {
@@ -570,6 +579,7 @@ impl From<FsError> for io::Error {
             FsError::DirectoryNotEmpty => io::ErrorKind::Other,
             FsError::UnknownError => io::ErrorKind::Other,
             FsError::StorageFull => io::ErrorKind::Other,
+            FsError::Unsupported => io::ErrorKind::Unsupported,
             // NOTE: Add this once the "io_error_more" Rust feature is stabilized
             // FsError::StorageFull => io::ErrorKind::StorageFull,
         };

@@ -53,4 +53,8 @@ impl FileSystem for ArcFileSystem {
     fn new_open_options(&self) -> OpenOptions {
         self.fs.new_open_options()
     }
+
+    fn mount(&self, name: String, path: &Path, fs: Box<dyn crate::FileSystem + Send + Sync>) -> Result<()> {
+        self.fs.mount(name, path, fs)
+    }
 }

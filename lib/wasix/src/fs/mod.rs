@@ -376,6 +376,12 @@ impl FileSystem for WasiFsRoot {
             WasiFsRoot::Backing(fs) => fs.new_open_options(),
         }
     }
+    fn mount(&self, name: String, path: &Path, fs: Box<dyn FileSystem + Send + Sync>) -> virtual_fs::Result<()> {
+        match self {
+            WasiFsRoot::Sandbox(f) => f.mount(name, path, fs),
+            WasiFsRoot::Backing(f) => f.mount(name, path, fs),
+        }
+    }
 }
 
 /// Merge the contents of one filesystem into another.
@@ -2154,6 +2160,9 @@ impl FileSystem for FallbackFileSystem {
     fn new_open_options(&self) -> virtual_fs::OpenOptions {
         Self::fail();
     }
+    fn mount(&self, _name: String, _path: &Path, _fs: Box<dyn FileSystem + Send + Sync>) -> virtual_fs::Result<()> {
+        Self::fail()
+    }
 }
 
 pub fn virtual_file_type_to_wasi_file_type(file_type: virtual_fs::FileType) -> Filetype {
@@ -2222,5 +2231,6 @@ pub fn fs_error_into_wasi_err(fs_error: FsError) -> Errno {
         FsError::DirectoryNotEmpty => Errno::Notempty,
         FsError::StorageFull => Errno::Overflow,
         FsError::Lock | FsError::UnknownError => Errno::Io,
+        FsError::Unsupported => Errno::Notsup,
     }
 }

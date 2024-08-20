@@ -166,8 +166,7 @@ fn build_directory_mappings(
                 })?;
             }
 
-            root_fs
-                .mount(guest_path.clone(), fs, "/".into())
+            TmpFileSystem::mount(&root_fs, guest_path.clone(), fs, "/".into())
                 .with_context(|| format!("Unable to mount \"{}\"", guest_path.display()))?;
         }
     }
@@ -347,6 +346,19 @@ impl<F: FileSystem> virtual_fs::FileSystem for RelativeOrAbsolutePathHack<F> {
 
     fn new_open_options(&self) -> virtual_fs::OpenOptions {
         virtual_fs::OpenOptions::new(self)
+    }
+
+    fn mount(
+        &self,
+        name: String,
+        path: &Path,
+        fs: Box<dyn FileSystem + Send + Sync>,
+    ) -> virtual_fs::Result<()> {
+        let name_ref = &name;
+        let f_ref = &Arc::new(fs);
+        self.execute(path, move |f, p| {
+            f.mount(name_ref.clone(), p, Box::new(f_ref.clone()))
+        })
     }
 }
 
