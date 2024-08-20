@@ -376,7 +376,12 @@ impl FileSystem for WasiFsRoot {
             WasiFsRoot::Backing(fs) => fs.new_open_options(),
         }
     }
-    fn mount(&self, name: String, path: &Path, fs: Box<dyn FileSystem + Send + Sync>) -> virtual_fs::Result<()> {
+    fn mount(
+        &self,
+        name: String,
+        path: &Path,
+        fs: Box<dyn FileSystem + Send + Sync>,
+    ) -> virtual_fs::Result<()> {
         match self {
             WasiFsRoot::Sandbox(f) => f.mount(name, path, fs),
             WasiFsRoot::Backing(f) => f.mount(name, path, fs),
@@ -2160,7 +2165,12 @@ impl FileSystem for FallbackFileSystem {
     fn new_open_options(&self) -> virtual_fs::OpenOptions {
         Self::fail();
     }
-    fn mount(&self, _name: String, _path: &Path, _fs: Box<dyn FileSystem + Send + Sync>) -> virtual_fs::Result<()> {
+    fn mount(
+        &self,
+        _name: String,
+        _path: &Path,
+        _fs: Box<dyn FileSystem + Send + Sync>,
+    ) -> virtual_fs::Result<()> {
         Self::fail()
     }
 }

@@ -99,7 +99,8 @@ pub trait FileSystem: fmt::Debug + Send + Sync + 'static + Upcastable {
 
     fn new_open_options(&self) -> OpenOptions;
 
-    fn mount(&self, name: String, path: &Path, fs: Box<dyn FileSystem + Send + Sync>) -> Result<()>;
+    fn mount(&self, name: String, path: &Path, fs: Box<dyn FileSystem + Send + Sync>)
+        -> Result<()>;
 }
 
 impl dyn FileSystem + 'static {
@@ -154,8 +155,13 @@ where
     fn new_open_options(&self) -> OpenOptions {
         (**self).new_open_options()
     }
-    
-    fn mount(&self, name: String, path: &Path, fs: Box<dyn FileSystem + Send + Sync>) -> Result<()> {
+
+    fn mount(
+        &self,
+        name: String,
+        path: &Path,
+        fs: Box<dyn FileSystem + Send + Sync>,
+    ) -> Result<()> {
         (**self).mount(name, path, fs)
     }
 }

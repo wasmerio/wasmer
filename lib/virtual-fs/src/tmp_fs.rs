@@ -8,8 +8,8 @@ use std::{
 };
 
 use crate::{
-    limiter::DynFsMemoryLimiter, mem_fs, BoxFuture, FileSystem, Metadata, OpenOptions,
-    ReadDir, Result,
+    limiter::DynFsMemoryLimiter, mem_fs, BoxFuture, FileSystem, Metadata, OpenOptions, ReadDir,
+    Result,
 };
 
 #[derive(Debug, Default, Clone)]

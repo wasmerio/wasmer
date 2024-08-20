@@ -89,7 +89,12 @@ where
     }
 
     #[tracing::instrument(level = "trace", skip(self))]
-    fn mount(&self, name: String, path: &Path, fs: Box<dyn FileSystem + Send + Sync>) -> crate::Result<()> {
+    fn mount(
+        &self,
+        name: String,
+        path: &Path,
+        fs: Box<dyn FileSystem + Send + Sync>,
+    ) -> crate::Result<()> {
         self.0.mount(name, path, fs)
     }
 }

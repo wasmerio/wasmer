@@ -18,7 +18,7 @@ pub struct MountPoint {
 }
 
 impl MountPoint {
-    pub fn fs(&self) -> &Box<dyn FileSystem + Send + Sync> {
+    pub fn fs(&self) -> &(dyn FileSystem + Send + Sync) {
         self.fs.as_ref()
     }
 
@@ -46,9 +46,26 @@ impl UnionFileSystem {
     pub fn clear(&mut self) {
         self.mounts.write().unwrap().clear();
     }
+
+    fn is_root(&self) -> bool {
+        let map = self.mounts.read().unwrap();
+
+        map.len() == 1 && map.contains_key(&PathBuf::from("/"))
+    }
+
+    fn prepare_path(&self, path: &Path) -> PathBuf {
+        if self.is_root() {
+            path.to_owned()
+        } else {
+            path.strip_prefix(PathBuf::from("/"))
+                .unwrap_or(path)
+                .to_owned()
+        }
+    }
 }
 
 impl UnionFileSystem {
+    #[allow(clippy::type_complexity)]
     fn find_mount(
         &self,
         path: PathBuf,
@@ -80,8 +97,10 @@ impl UnionFileSystem {
 
 impl FileSystem for UnionFileSystem {
     fn readlink(&self, path: &Path) -> Result<PathBuf> {
-        if path == PathBuf::from("/") {
-            return Err(FsError::NotAFile);
+        let path = self.prepare_path(path);
+
+        if path.as_os_str().is_empty() {
+            Err(FsError::NotAFile)
         } else if let Some((_, path, fs)) = self.find_mount(path.to_owned()) {
             fs.readlink(&path)
         } else {
@@ -90,7 +109,9 @@ impl FileSystem for UnionFileSystem {
     }
 
     fn read_dir(&self, path: &Path) -> Result<ReadDir> {
-        if path == PathBuf::from("/") {
+        let path = self.prepare_path(path);
+
+        if path.as_os_str().is_empty() {
             let entries = self
                 .mounts
                 .read()
@@ -114,7 +135,7 @@ impl FileSystem for UnionFileSystem {
 
             for entry in &mut entries.data {
                 let path: PathBuf = entry.path.components().skip(1).collect();
-                entry.path = PathBuf::from(&prefix).join(path);
+                entry.path = PathBuf::from("/").join(PathBuf::from(&prefix).join(path));
             }
 
             Ok(entries)
@@ -124,16 +145,28 @@ impl FileSystem for UnionFileSystem {
     }
 
     fn create_dir(&self, path: &Path) -> Result<()> {
-        if path == PathBuf::from("/") {
+        let path = self.prepare_path(path);
+
+        if path.as_os_str().is_empty() {
             Ok(())
         } else if let Some((_, path, fs)) = self.find_mount(path.to_owned()) {
-            fs.create_dir(&path)
+            let result = fs.create_dir(&path);
+
+            if let Err(e) = result {
+                if e == FsError::AlreadyExists {
+                    return Ok(());
+                }
+            }
+
+            result
         } else {
             Err(FsError::EntryNotFound)
         }
     }
     fn remove_dir(&self, path: &Path) -> Result<()> {
-        if path == PathBuf::from("/") {
+        let path = self.prepare_path(path);
+
+        if path.as_os_str().is_empty() {
             Err(FsError::PermissionDenied)
         } else if let Some((_, path, fs)) = self.find_mount(path.to_owned()) {
             fs.remove_dir(&path)
@@ -143,7 +176,10 @@ impl FileSystem for UnionFileSystem {
     }
     fn rename<'a>(&'a self, from: &'a Path, to: &'a Path) -> BoxFuture<'a, Result<()>> {
         Box::pin(async move {
-            if from == PathBuf::from("/") {
+            let from = self.prepare_path(from);
+            let to = self.prepare_path(to);
+
+            if from.as_os_str().is_empty() {
                 Err(FsError::PermissionDenied)
             } else if let Some((prefix, path, fs)) = self.find_mount(from.to_owned()) {
                 let to = to.strip_prefix(prefix).map_err(|_| FsError::InvalidInput)?;
@@ -157,7 +193,9 @@ impl FileSystem for UnionFileSystem {
         })
     }
     fn metadata(&self, path: &Path) -> Result<Metadata> {
-        if path == PathBuf::from("/") {
+        let path = self.prepare_path(path);
+
+        if path.as_os_str().is_empty() {
             Ok(Metadata {
                 ft: FileType::new_dir(),
                 accessed: 0,
@@ -172,7 +210,9 @@ impl FileSystem for UnionFileSystem {
         }
     }
     fn symlink_metadata(&self, path: &Path) -> Result<Metadata> {
-        if path == PathBuf::from("/") {
+        let path = self.prepare_path(path);
+
+        if path.as_os_str().is_empty() {
             Ok(Metadata {
                 ft: FileType::new_dir(),
                 accessed: 0,
@@ -187,7 +227,9 @@ impl FileSystem for UnionFileSystem {
         }
     }
     fn remove_file(&self, path: &Path) -> Result<()> {
-        if path == PathBuf::from("/") {
+        let path = self.prepare_path(path);
+
+        if path.as_os_str().is_empty() {
             Err(FsError::NotAFile)
         } else if let Some((_, path, fs)) = self.find_mount(path.to_owned()) {
             fs.remove_file(&path)
@@ -218,31 +260,31 @@ impl FileSystem for UnionFileSystem {
                 .get(&PathBuf::from(c.as_os_str()))
             {
                 return mount.fs.mount(name, sub_path.as_path(), fs);
-            } else {
-                let fs = if sub_path.components().next().is_none() {
-                    fs
-                } else {
-                    let union = UnionFileSystem::new();
-                    union.mount(name.clone(), sub_path.as_path(), fs)?;
-
-                    Box::new(union)
-                };
-
-                let fs = Arc::new(fs);
-
-                let mount = MountPoint {
-                    path: PathBuf::from(c.as_os_str()),
-                    name,
-                    fs,
-                };
-
-                self.mounts
-                    .write()
-                    .unwrap()
-                    .insert(PathBuf::from(c.as_os_str()), mount);
             }
+
+            let fs = if sub_path.components().next().is_none() {
+                fs
+            } else {
+                let union = UnionFileSystem::new();
+                union.mount(name.clone(), sub_path.as_path(), fs)?;
+
+                Box::new(union)
+            };
+
+            let fs = Arc::new(fs);
+
+            let mount = MountPoint {
+                path: PathBuf::from(c.as_os_str()),
+                name,
+                fs,
+            };
+
+            self.mounts
+                .write()
+                .unwrap()
+                .insert(PathBuf::from(c.as_os_str()), mount);
         } else {
-            println!("empty path");
+            return Err(FsError::EntryNotFound);
         }
 
         Ok(())
@@ -262,8 +304,10 @@ impl FileOpener for UnionFileSystem {
         path: &Path,
         conf: &OpenOptionsConfig,
     ) -> Result<Box<dyn VirtualFile + Send + Sync>> {
-        if path == PathBuf::from("/") {
-            return Err(FsError::NotAFile);
+        let path = self.prepare_path(path);
+
+        if path.as_os_str().is_empty() {
+            Err(FsError::NotAFile)
         } else {
             let parent = path.parent().unwrap();
             let file_name = path.file_name().unwrap();
@@ -280,7 +324,10 @@ impl FileOpener for UnionFileSystem {
 
 #[cfg(test)]
 mod tests {
-    use std::path::{Path, PathBuf};
+    use std::{
+        collections::HashSet,
+        path::{Path, PathBuf},
+    };
 
     use tokio::io::AsyncWriteExt;
 
@@ -417,14 +464,14 @@ mod tests {
             .collect();
         assert_eq!(root_contents, vec![PathBuf::from("/app")]);
 
-        let app_contents: Vec<PathBuf> = fs
+        let app_contents: HashSet<PathBuf> = fs
             .read_dir(&PathBuf::from("/app"))
             .unwrap()
             .map(|e| e.unwrap().path)
             .collect();
         assert_eq!(
             app_contents,
-            vec![PathBuf::from("/app/a"), PathBuf::from("/app/b")]
+            HashSet::from_iter([PathBuf::from("/app/a"), PathBuf::from("/app/b")].into_iter())
         );
 
         let a_contents: Vec<PathBuf> = fs

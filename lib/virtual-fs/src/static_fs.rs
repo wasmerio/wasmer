@@ -383,7 +383,12 @@ impl FileSystem for StaticFileSystem {
         }
     }
 
-    fn mount(&self, _name: String, _path: &Path, _fs: Box<dyn FileSystem + Send + Sync>) -> Result<(), FsError> {
+    fn mount(
+        &self,
+        _name: String,
+        _path: &Path,
+        _fs: Box<dyn FileSystem + Send + Sync>,
+    ) -> Result<(), FsError> {
         Err(FsError::Unsupported)
     }
 }

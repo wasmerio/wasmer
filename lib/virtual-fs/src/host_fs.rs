@@ -236,7 +236,12 @@ impl crate::FileSystem for FileSystem {
             .map_err(Into::into)
     }
 
-    fn mount(&self, _name: String, _path: &Path, _fs: Box<dyn crate::FileSystem + Send + Sync>) -> Result<()> {
+    fn mount(
+        &self,
+        _name: String,
+        _path: &Path,
+        _fs: Box<dyn crate::FileSystem + Send + Sync>,
+    ) -> Result<()> {
         Err(FsError::Unsupported)
     }
 }

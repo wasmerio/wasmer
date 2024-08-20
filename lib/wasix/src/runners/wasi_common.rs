@@ -166,7 +166,7 @@ fn build_directory_mappings(
                 })?;
             }
 
-            TmpFileSystem::mount(&root_fs, guest_path.clone(), fs, "/".into())
+            TmpFileSystem::mount(root_fs, guest_path.clone(), fs, "/".into())
                 .with_context(|| format!("Unable to mount \"{}\"", guest_path.display()))?;
         }
     }

@@ -68,7 +68,12 @@ impl FileSystem for EmptyFileSystem {
         OpenOptions::new(self)
     }
 
-    fn mount(&self, name: String, path: &Path, fs: Box<dyn crate::FileSystem + Send + Sync>) -> Result<()> {
+    fn mount(
+        &self,
+        name: String,
+        path: &Path,
+        fs: Box<dyn crate::FileSystem + Send + Sync>,
+    ) -> Result<()> {
         Err(FsError::Unsupported)
     }
 }
