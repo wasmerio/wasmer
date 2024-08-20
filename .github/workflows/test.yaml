@@ -7,6 +7,7 @@ on:
       - 'with-ci-.*'
       - 'v3.0.x'
       - 'v3.1.x'
+      - sre-391-fix-wasmer-integration-tests-ci-in-wasmer-repository
   pull_request:
   workflow_dispatch:
     inputs:
@@ -861,7 +862,6 @@ jobs:
 
   # there is another set of integration tests in 'wasmer-integration-tests' repo. Run those
   test-wasmer-integration-tests:
-    needs: [build]
     runs-on: ubuntu-22.04
     steps:
     - name: Checkout wasmer-integration-tests repository
@@ -870,9 +870,9 @@ jobs:
         repository: wasmerio/wasmer-integration-tests
         submodules: true
         token: ${{ secrets.CLONE_WASMER_INTEGRATION_TESTS }}
-    - uses: actions/download-artifact@v3
-      with:
-        name: wasmer-cli-linux-x64 
+    # - uses: actions/download-artifact@v3
+    #   with:
+    #     name: wasmer-cli-linux-x64 
     - name: Cargo Registry Cache
       uses: actions/cache@v3
       with:
@@ -888,16 +888,11 @@ jobs:
           target/
         key: cargo-release-${{ hashFiles('**/Cargo.lock') }}
     - run: |
-        # install rust toolchain
-        curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
-        . "$HOME/.cargo/env"
-
-        # add wasmer cli to PATH
-        tar -xzf build-wasmer.tar.gz
+        # # add wasmer cli to PATH
+        # tar -xzf build-wasmer.tar.gz
 
         docker build -t tmp .
         docker run -v $PWD:/app -w /app tmp bash -c " \
-          cp ./bin/wasmer /root/.wasmer/bin/wasmer
           export MYSQL_HOST='${{ vars.INTEGRATION_TEST_MYSQL_HOST }}' &&\
           export MYSQL_DBNAME='${{ vars.INTEGRATION_TEST_MYSQL_DBNAME }}' &&\
           export MYSQL_USERNAME='${{ secrets.INTEGRATION_TEST_MYSQL_USERNAME }}' &&\
@@ -910,7 +905,7 @@ jobs:
           export PG_PASSWORD='${{ secrets.INTEGRATION_TEST_PG_PASSWORD }}' &&\
           export PG_PORT='${{ vars.INTEGRATION_TEST_PG_PORT }}' &&\
           wasmer config set registry.url https://registry.wasmer.io/graphql &&\
-          wasmer login ${{ secrets.WAPM_PROD_TOKEN }} &&\
+          wasmer login '${{ secrets.WAPM_PROD_TOKEN }}' &&\
           wasmer config set registry.url https://registry.wasmer.wtf/graphql &&\
-          wasmer login ${{ secrets.WAPM_DEV_TOKEN }} &&\
+          wasmer login '${{ secrets.WAPM_DEV_TOKEN }}' &&\
           cargo test --no-fail-fast"
