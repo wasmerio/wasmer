@@ -633,6 +633,7 @@ mod queries {
     #[derive(cynic::QueryVariables, Debug)]
     pub struct GetCurrentUserWithAppsVars {
         pub after: Option<String>,
+        pub sort: Option<DeployAppsSortBy>,
     }
 
     #[derive(cynic::QueryFragment, Debug)]
@@ -647,7 +648,7 @@ mod queries {
     pub struct UserWithApps {
         pub id: cynic::Id,
         pub username: String,
-        #[arguments(after: $after)]
+        #[arguments(after: $after, sortBy: $sort)]
         pub apps: DeployAppConnection,
     }
 
@@ -1104,6 +1105,7 @@ mod queries {
     pub struct GetNamespaceAppsVars {
         pub name: String,
         pub after: Option<String>,
+        pub sort: Option<DeployAppsSortBy>,
     }
 
     #[derive(cynic::QueryFragment, Debug)]
@@ -1119,7 +1121,7 @@ mod queries {
     pub struct NamespaceWithApps {
         pub id: cynic::Id,
         pub name: String,
-        #[arguments(after: $after)]
+        #[arguments(after: $after, sortBy: $sort)]
         pub apps: DeployAppConnection,
     }
 
