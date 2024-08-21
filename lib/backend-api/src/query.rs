@@ -1287,11 +1287,15 @@ pub async fn get_app_version_by_id_with_app(
 /// NOTE: this will only include the first pages and does not provide pagination.
 pub async fn user_apps(
     client: &WasmerClient,
+    sort: types::DeployAppsSortBy,
 ) -> impl futures::Stream<Item = Result<Vec<types::DeployApp>, anyhow::Error>> + '_ {
     futures::stream::try_unfold(None, move |cursor| async move {
         let user = client
             .run_graphql(types::GetCurrentUserWithApps::build(
-                GetCurrentUserWithAppsVars { after: cursor },
+                GetCurrentUserWithAppsVars {
+                    after: cursor,
+                    sort: Some(sort),
+                },
             ))
             .await?
             .viewer
@@ -1318,11 +1322,12 @@ pub async fn user_apps(
 /// List all apps that are accessible by the current user.
 pub async fn user_accessible_apps(
     client: &WasmerClient,
+    sort: types::DeployAppsSortBy,
 ) -> Result<
     impl futures::Stream<Item = Result<Vec<types::DeployApp>, anyhow::Error>> + '_,
     anyhow::Error,
 > {
-    let user_apps = user_apps(client).await;
+    let user_apps = user_apps(client, sort).await;
 
     // Get all aps in user-accessible namespaces.
     let namespace_res = client
@@ -1344,7 +1349,7 @@ pub async fn user_accessible_apps(
 
     let mut ns_apps = vec![];
     for ns in namespace_names {
-        let apps = namespace_apps(client, ns).await;
+        let apps = namespace_apps(client, ns, sort).await;
         ns_apps.push(apps);
     }
 
@@ -1357,6 +1362,7 @@ pub async fn user_accessible_apps(
 pub async fn namespace_apps(
     client: &WasmerClient,
     namespace: String,
+    sort: types::DeployAppsSortBy,
 ) -> impl futures::Stream<Item = Result<Vec<types::DeployApp>, anyhow::Error>> + '_ {
     let namespace = namespace.clone();
 
@@ -1365,6 +1371,7 @@ pub async fn namespace_apps(
             .run_graphql(types::GetNamespaceApps::build(GetNamespaceAppsVars {
                 name: namespace.to_string(),
                 after: cursor,
+                sort: Some(sort),
             }))
             .await?;
 
