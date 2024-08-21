@@ -164,8 +164,6 @@ http.workspace = true
 is-terminal = "0.4.7"
 colored = "2.0"
 anyhow = "1.0"
-
-# For the inspect subcommand
 bytesize = "1.0"
 cfg-if = "1.0"
 tempfile = "3.6.0"

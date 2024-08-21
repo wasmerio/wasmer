@@ -690,6 +690,26 @@ mod queries {
         pub get_deploy_app: Option<DeployApp>,
     }
 
+    #[derive(cynic::QueryFragment, Debug)]
+    #[cynic(graphql_type = "Query", variables = "GetDeployAppVars")]
+    pub struct GetDeployAppS3Credentials {
+        #[arguments(owner: $owner, name: $name)]
+        pub get_deploy_app: Option<AppWithS3Credentials>,
+    }
+
+    #[derive(cynic::QueryFragment, Debug)]
+    #[cynic(graphql_type = "DeployApp", variables = "GetDeployAppVars")]
+    pub struct AppWithS3Credentials {
+        pub s3_credentials: Option<S3Credentials>,
+    }
+
+    #[derive(cynic::QueryFragment, Debug)]
+    pub struct S3Credentials {
+        pub access_key: String,
+        pub secret_key: String,
+        pub endpoint: String,
+    }
+
     #[derive(cynic::QueryVariables, Debug, Clone)]
     pub struct PaginationVars {
         pub offset: Option<i32>,
@@ -804,7 +824,7 @@ mod queries {
     pub struct AppVersionVolume {
         pub name: String,
         pub size: Option<i32>,
-        pub used_size: Option<i32>,
+        pub used_size: Option<BigInt>,
     }
 
     #[derive(cynic::QueryFragment, Debug)]

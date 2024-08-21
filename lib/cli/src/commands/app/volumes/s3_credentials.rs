@@ -57,13 +57,13 @@ endpoint = {endpoint}
                 app_name = app.name,
                 access_key = creds.access_key,
                 secret_key = creds.secret_key,
-                endpoint = creds.url,
+                endpoint = creds.endpoint,
             );
 
             println!("{}", rclone_config);
         } else {
             println!("S3 credentials for app {}:\n", app.name);
-            println!("  S3 URL: {}", creds.url);
+            println!("  S3 URL: {}", creds.endpoint);
             println!("  Access key: {}", creds.access_key);
             println!("  Secret key: {}", creds.secret_key);
             println!();

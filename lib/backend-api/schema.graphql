@@ -33,6 +33,7 @@ type User implements Node & PackageOwner & Owner {
 
   """Required. 150 characters or fewer. Letters, digits and @/./+/-/_ only."""
   username: String!
+  registerIntent: String
   isEmailValidated: Boolean!
   bio: String
   location: String
@@ -950,6 +951,7 @@ type DeployApp implements Node & Owner {
   secrets(offset: Int, before: String, after: String, first: Int, last: Int): SecretConnection!
   usageMetrics(forRange: MetricRange!, variant: MetricType!): [UsageMetric]!
   s3Url: URL
+  s3Credentials: S3Credentials
   deleted: Boolean!
   favicon: URL
   screenshot(viewportSize: AppScreenshotViewportSize, appearance: AppScreenshotAppearance): URL
@@ -1090,6 +1092,12 @@ character sequences.
 """
 scalar URL
 
+type S3Credentials {
+  accessKey: String!
+  secretKey: String!
+  endpoint: String!
+}
+
 enum AppScreenshotViewportSize {
   MOBILE
   DESKTOP
@@ -1124,15 +1132,17 @@ enum LogStream {
 }
 
 type AppVersionVolume {
+  id: ID!
   name: String!
+  s3Url: String!
   mountPaths: [AppVersionVolumeMountPath]!
   size: Int
-  usedSize: Int
+  usedSize: BigInt
 }
 
 type AppVersionVolumeMountPath {
   path: String!
-  subpath: String!
+  subpath: String
 }
 
 type PackageDistribution {
@@ -3570,6 +3580,7 @@ input RegisterUserInput {
   username: CaseInsensitiveString!
   password: String!
   acceptedTos: Boolean
+  intent: String
   clientMutationId: String
 }
 
@@ -3583,6 +3594,7 @@ input SocialAuthJWTInput {
   provider: String!
   accessToken: String!
   register: Boolean = false
+  registerIntent: String
   clientMutationId: String
 }
 
