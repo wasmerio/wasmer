@@ -26,6 +26,7 @@ cranelift-codegen = { version = "0.110.2", default-features = false, features = 
 	"x86",
 	"arm64",
 	"riscv64",
+	"isle-in-source-tree"
 ] }
 cranelift-frontend = { version = "0.110.2", default-features = false }
 itertools = "0.12.0"

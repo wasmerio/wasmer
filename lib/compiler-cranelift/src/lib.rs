@@ -46,8 +46,8 @@ mod debug;
 mod dwarf;
 mod func_environ;
 mod heap;
-mod trampoline;
 mod table;
+mod trampoline;
 mod translator;
 
 pub use crate::compiler::CraneliftCompiler;

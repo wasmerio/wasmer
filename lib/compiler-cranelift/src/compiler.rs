@@ -75,6 +75,7 @@ impl Compiler for CraneliftCompiler {
             .map_err(|error| CompileError::Codegen(error.to_string()))?;
         let frontend_config = isa.frontend_config();
         let memory_styles = &compile_info.memory_styles;
+        let table_styles = &compile_info.table_styles;
         let module = &compile_info.module;
         let signatures = module
             .signatures
@@ -123,6 +124,7 @@ impl Compiler for CraneliftCompiler {
                     module,
                     &signatures,
                     &memory_styles,
+                    table_styles,
                 );
                 context.func.name = match get_function_name(func_index) {
                     ExternalName::User(nameref) => {
@@ -229,8 +231,13 @@ impl Compiler for CraneliftCompiler {
             .map_init(FuncTranslator::new, |func_translator, (i, input)| {
                 let func_index = module.func_index(*i);
                 let mut context = Context::new();
-                let mut func_env =
-                    FuncEnvironment::new(isa.frontend_config(), module, &signatures, memory_styles);
+                let mut func_env = FuncEnvironment::new(
+                    isa.frontend_config(),
+                    module,
+                    &signatures,
+                    memory_styles,
+                    table_styles,
+                );
                 context.func.name = match get_function_name(func_index) {
                     ExternalName::User(nameref) => {
                         if context.func.params.user_named_funcs().is_valid(nameref) {
@@ -266,7 +273,7 @@ impl Compiler for CraneliftCompiler {
                 let mut code_buf: Vec<u8> = Vec::new();
                 context
                     .compile_and_emit(&*isa, &mut code_buf, &mut Default::default())
-                    .map_err(|error| CompileError::Codegen(error.inner.to_string()))?;
+                    .map_err(|error| CompileError::Codegen(format!("{error:#?}")))?;
 
                 let result = context.compiled_code().unwrap();
                 let func_relocs = result

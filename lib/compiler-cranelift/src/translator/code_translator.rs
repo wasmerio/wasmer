@@ -192,14 +192,13 @@ pub fn translate_operator<FE: FuncEnvironment + ?Sized>(
             state.push1(val);
         }
         Operator::GlobalSet { global_index } => {
-            let global_index = GlobalIndex::from_u32(*global_index);
-            match state.get_global(builder.func, global_index.as_u32(), environ)? {
-                GlobalVariable::Const(_) => {
-                    panic!("global #{} is a constant", global_index.as_u32())
-                }
+            match state.get_global(builder.func, *global_index, environ)? {
+                GlobalVariable::Const(_) => panic!("global #{} is a constant", *global_index),
                 GlobalVariable::Memory { gv, offset, ty } => {
                     let addr = builder.ins().global_value(environ.pointer_type(), gv);
-                    let flags = ir::MemFlags::trusted();
+                    let mut flags = ir::MemFlags::trusted();
+                    // Put globals in the "table" abstract heap category as well.
+                    flags.set_alias_region(Some(ir::AliasRegion::Table));
                     let mut val = state.pop1();
                     // Ensure SIMD values are cast to their default Cranelift type, I8x16.
                     if ty.is_vector() {
@@ -207,10 +206,15 @@ pub fn translate_operator<FE: FuncEnvironment + ?Sized>(
                     }
                     debug_assert_eq!(ty, builder.func.dfg.value_type(val));
                     builder.ins().store(flags, val, addr, offset);
+                    environ.update_global(builder, *global_index, val);
                 }
                 GlobalVariable::Custom => {
                     let val = state.pop1();
-                    environ.translate_custom_global_set(builder.cursor(), global_index, val)?;
+                    environ.translate_custom_global_set(
+                        builder.cursor(),
+                        GlobalIndex::from_u32(*global_index),
+                        val,
+                    )?;
                 }
             }
         }
@@ -232,7 +236,16 @@ pub fn translate_operator<FE: FuncEnvironment + ?Sized>(
             state.push1(builder.ins().select(cond, arg1, arg2));
         }
         Operator::TypedSelect { ty: _ } => {
-            let (arg1, arg2, cond) = state.pop3();
+            // We ignore the explicit type parameter as it is only needed for
+            // validation, which we require to have been performed before
+            // translation.
+            let (mut arg1, mut arg2, cond) = state.pop3();
+            if builder.func.dfg.value_type(arg1).is_vector() {
+                arg1 = optionally_bitcast_vector(arg1, I8X16, builder);
+            }
+            if builder.func.dfg.value_type(arg2).is_vector() {
+                arg2 = optionally_bitcast_vector(arg2, I8X16, builder);
+            }
             state.push1(builder.ins().select(cond, arg1, arg2));
         }
         Operator::Nop => {
@@ -280,7 +293,8 @@ pub fn translate_operator<FE: FuncEnvironment + ?Sized>(
 
             let next_block = builder.create_block();
             let (params, results) = module_translation_state.blocktype_params_results(blockty)?;
-            let (destination, else_data) = if params == results {
+            let results: Vec<_> = results.iter().map(|c| c.clone()).collect();
+            let (destination, else_data) = if params == &results {
                 // It is possible there is no `else` block, so we will only
                 // allocate a block for it if/when we find the `else`. For now,
                 // we if the condition isn't true, then we jump directly to the
@@ -307,7 +321,7 @@ pub fn translate_operator<FE: FuncEnvironment + ?Sized>(
                 // The `if` type signature is not valid without an `else` block,
                 // so we eagerly allocate the `else` block here.
                 let destination = block_with_params(builder, results.iter(), environ)?;
-                let else_block = block_with_params(builder, params.iter(), environ)?;
+                let else_block = block_with_params(builder, params.into_iter(), environ)?;
                 canonicalise_brif(
                     builder,
                     val,
@@ -320,8 +334,6 @@ pub fn translate_operator<FE: FuncEnvironment + ?Sized>(
                 (destination, ElseData::WithElse { else_block })
             };
 
-            let next_block = builder.create_block();
-            canonicalise_then_jump(builder, next_block, &[]);
             builder.seal_block(next_block); // Only predecessor is the current block.
             builder.switch_to_block(next_block);
 
@@ -420,17 +432,16 @@ pub fn translate_operator<FE: FuncEnvironment + ?Sized>(
         Operator::End => {
             let frame = state.control_stack.pop().unwrap();
             let next_block = frame.following_code();
-            if !builder.is_unreachable() || builder.func.layout.first_inst(next_block).is_some() {
-                let return_count = frame.num_return_values();
-                let return_args = state.peekn(return_count);
-                canonicalise_then_jump(builder, frame.following_code(), return_args);
-                // You might expect that if we just finished an `if` block that
-                // didn't have a corresponding `else` block, then we would clean
-                // up our duplicate set of parameters that we pushed earlier
-                // right here. However, we don't have to explicitly do that,
-                // since we truncate the stack back to the original height
-                // below.
-            }
+            let return_count = frame.num_return_values();
+            let return_args = state.peekn_mut(return_count);
+
+            canonicalise_then_jump(builder, next_block, return_args);
+            // You might expect that if we just finished an `if` block that
+            // didn't have a corresponding `else` block, then we would clean
+            // up our duplicate set of parameters that we pushed earlier
+            // right here. However, we don't have to explicitly do that,
+            // since we truncate the stack back to the original height
+            // below.
 
             builder.switch_to_block(next_block);
             builder.seal_block(next_block);
@@ -655,13 +666,6 @@ pub fn translate_operator<FE: FuncEnvironment + ?Sized>(
                 callee,
                 state.peekn(num_args),
             )?;
-            let call = match call {
-                Some(call) => call,
-                None => {
-                    state.reachable = false;
-                    return Ok(());
-                }
-            };
             let inst_results = builder.inst_results(call);
             debug_assert_eq!(
                 inst_results.len(),
@@ -854,7 +858,9 @@ pub fn translate_operator<FE: FuncEnvironment + ?Sized>(
             translate_store(memarg, ir::Opcode::Store, builder, state, environ)?;
         }
         /****************************** Nullary Operators ************************************/
-        Operator::I32Const { value } => state.push1(builder.ins().iconst(I32, i64::from(*value))),
+        Operator::I32Const { value } => {
+            state.push1(builder.ins().iconst(I32, *value as u32 as i64))
+        }
         Operator::I64Const { value } => state.push1(builder.ins().iconst(I64, *value)),
         Operator::F32Const { value } => {
             state.push1(builder.ins().f32const(f32_translation(*value)));

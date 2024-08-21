@@ -120,6 +120,15 @@ pub trait FuncEnvironment: TargetEnvironment {
         index: GlobalIndex,
     ) -> WasmResult<GlobalVariable>;
 
+    /// Inserts code before updating a global.
+    fn update_global(
+        &mut self,
+        _builder: &mut FunctionBuilder,
+        _global_index: u32,
+        _value: ir::Value,
+    ) {
+    }
+
     /// Get the heaps for this function environment.
     ///
     /// The returned map should provide heap format details (encoded in
@@ -203,7 +212,7 @@ pub trait FuncEnvironment: TargetEnvironment {
         sig_ref: ir::SigRef,
         callee: ir::Value,
         call_args: &[ir::Value],
-    ) -> WasmResult<Option<ir::Inst>>;
+    ) -> WasmResult<ir::Inst>;
 
     /// Translate a `memory.grow` WebAssembly instruction.
     ///
