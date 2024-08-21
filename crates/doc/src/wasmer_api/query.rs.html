@@ -2070,6 +2070,13 @@
 <a href="#2070" id="2070">2070</a>
 <a href="#2071" id="2071">2071</a>
 <a href="#2072" id="2072">2072</a>
+<a href="#2073" id="2073">2073</a>
+<a href="#2074" id="2074">2074</a>
+<a href="#2075" id="2075">2075</a>
+<a href="#2076" id="2076">2076</a>
+<a href="#2077" id="2077">2077</a>
+<a href="#2078" id="2078">2078</a>
+<a href="#2079" id="2079">2079</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{collections::HashSet, time::Duration};
 
 <span class="kw">use </span>anyhow::{bail, Context};
@@ -3359,11 +3366,15 @@
 /// NOTE: this will only include the first pages and does not provide pagination.
 </span><span class="kw">pub async fn </span>user_apps(
     client: <span class="kw-2">&amp;</span>WasmerClient,
+    sort: types::DeployAppsSortBy,
 ) -&gt; <span class="kw">impl </span>futures::Stream&lt;Item = <span class="prelude-ty">Result</span>&lt;Vec&lt;types::DeployApp&gt;, anyhow::Error&gt;&gt; + <span class="lifetime">&#39;_ </span>{
     futures::stream::try_unfold(<span class="prelude-val">None</span>, <span class="kw">move </span>|cursor| <span class="kw">async move </span>{
         <span class="kw">let </span>user = client
             .run_graphql(types::GetCurrentUserWithApps::build(
-                GetCurrentUserWithAppsVars { after: cursor },
+                GetCurrentUserWithAppsVars {
+                    after: cursor,
+                    sort: <span class="prelude-val">Some</span>(sort),
+                },
             ))
             .<span class="kw">await</span><span class="question-mark">?
             </span>.viewer
@@ -3390,11 +3401,12 @@
 <span class="doccomment">/// List all apps that are accessible by the current user.
 </span><span class="kw">pub async fn </span>user_accessible_apps(
     client: <span class="kw-2">&amp;</span>WasmerClient,
+    sort: types::DeployAppsSortBy,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;
     <span class="kw">impl </span>futures::Stream&lt;Item = <span class="prelude-ty">Result</span>&lt;Vec&lt;types::DeployApp&gt;, anyhow::Error&gt;&gt; + <span class="lifetime">&#39;_</span>,
     anyhow::Error,
 &gt; {
-    <span class="kw">let </span>user_apps = user_apps(client).<span class="kw">await</span>;
+    <span class="kw">let </span>user_apps = user_apps(client, sort).<span class="kw">await</span>;
 
     <span class="comment">// Get all aps in user-accessible namespaces.
     </span><span class="kw">let </span>namespace_res = client
@@ -3416,7 +3428,7 @@
 
     <span class="kw">let </span><span class="kw-2">mut </span>ns_apps = <span class="macro">vec!</span>[];
     <span class="kw">for </span>ns <span class="kw">in </span>namespace_names {
-        <span class="kw">let </span>apps = namespace_apps(client, ns).<span class="kw">await</span>;
+        <span class="kw">let </span>apps = namespace_apps(client, ns, sort).<span class="kw">await</span>;
         ns_apps.push(apps);
     }
 
@@ -3429,6 +3441,7 @@
 </span><span class="kw">pub async fn </span>namespace_apps(
     client: <span class="kw-2">&amp;</span>WasmerClient,
     namespace: String,
+    sort: types::DeployAppsSortBy,
 ) -&gt; <span class="kw">impl </span>futures::Stream&lt;Item = <span class="prelude-ty">Result</span>&lt;Vec&lt;types::DeployApp&gt;, anyhow::Error&gt;&gt; + <span class="lifetime">&#39;_ </span>{
     <span class="kw">let </span>namespace = namespace.clone();
 
@@ -3437,6 +3450,7 @@
             .run_graphql(types::GetNamespaceApps::build(GetNamespaceAppsVars {
                 name: namespace.to_string(),
                 after: cursor,
+                sort: <span class="prelude-val">Some</span>(sort),
             }))
             .<span class="kw">await</span><span class="question-mark">?</span>;
 

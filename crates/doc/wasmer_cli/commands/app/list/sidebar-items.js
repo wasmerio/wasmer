@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":["CmdAppList"]};
+window.SIDEBAR_ITEMS = {"enum":["AppSort"],"struct":["CmdAppList"]};

@@ -2079,6 +2079,8 @@
 <a href="#2079" id="2079">2079</a>
 <a href="#2080" id="2080">2080</a>
 <a href="#2081" id="2081">2081</a>
+<a href="#2082" id="2082">2082</a>
+<a href="#2083" id="2083">2083</a>
 </pre></div><pre class="rust"><code><span class="kw">pub use </span>queries::<span class="kw-2">*</span>;
 
 <span class="kw">pub use </span>cynic::Id;
@@ -2714,6 +2716,7 @@
     <span class="attr">#[derive(cynic::QueryVariables, Debug)]
     </span><span class="kw">pub struct </span>GetCurrentUserWithAppsVars {
         <span class="kw">pub </span>after: <span class="prelude-ty">Option</span>&lt;String&gt;,
+        <span class="kw">pub </span>sort: <span class="prelude-ty">Option</span>&lt;DeployAppsSortBy&gt;,
     }
 
     <span class="attr">#[derive(cynic::QueryFragment, Debug)]
@@ -2728,7 +2731,7 @@
     </span><span class="kw">pub struct </span>UserWithApps {
         <span class="kw">pub </span>id: cynic::Id,
         <span class="kw">pub </span>username: String,
-        <span class="attr">#[arguments(after: <span class="macro-nonterminal">$after</span>)]
+        <span class="attr">#[arguments(after: <span class="macro-nonterminal">$after</span>, sortBy: <span class="macro-nonterminal">$sort</span>)]
         </span><span class="kw">pub </span>apps: DeployAppConnection,
     }
 
@@ -3185,6 +3188,7 @@
     </span><span class="kw">pub struct </span>GetNamespaceAppsVars {
         <span class="kw">pub </span>name: String,
         <span class="kw">pub </span>after: <span class="prelude-ty">Option</span>&lt;String&gt;,
+        <span class="kw">pub </span>sort: <span class="prelude-ty">Option</span>&lt;DeployAppsSortBy&gt;,
     }
 
     <span class="attr">#[derive(cynic::QueryFragment, Debug)]
@@ -3200,7 +3204,7 @@
     </span><span class="kw">pub struct </span>NamespaceWithApps {
         <span class="kw">pub </span>id: cynic::Id,
         <span class="kw">pub </span>name: String,
-        <span class="attr">#[arguments(after: <span class="macro-nonterminal">$after</span>)]
+        <span class="attr">#[arguments(after: <span class="macro-nonterminal">$after</span>, sortBy: <span class="macro-nonterminal">$sort</span>)]
         </span><span class="kw">pub </span>apps: DeployAppConnection,
     }
 

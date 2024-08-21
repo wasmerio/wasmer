@@ -100,12 +100,31 @@
 <a href="#100" id="100">100</a>
 <a href="#101" id="101">101</a>
 <a href="#102" id="102">102</a>
+<a href="#103" id="103">103</a>
+<a href="#104" id="104">104</a>
+<a href="#105" id="105">105</a>
+<a href="#106" id="106">106</a>
+<a href="#107" id="107">107</a>
+<a href="#108" id="108">108</a>
+<a href="#109" id="109">109</a>
+<a href="#110" id="110">110</a>
+<a href="#111" id="111">111</a>
+<a href="#112" id="112">112</a>
+<a href="#113" id="113">113</a>
+<a href="#114" id="114">114</a>
+<a href="#115" id="115">115</a>
+<a href="#116" id="116">116</a>
+<a href="#117" id="117">117</a>
+<a href="#118" id="118">118</a>
+<a href="#119" id="119">119</a>
+<a href="#120" id="120">120</a>
+<a href="#121" id="121">121</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! List Edge apps.
 
 </span><span class="kw">use </span>std::pin::Pin;
 
 <span class="kw">use </span>futures::{Stream, StreamExt};
-<span class="kw">use </span>wasmer_api::types::DeployApp;
+<span class="kw">use </span>wasmer_api::types::{DeployApp, DeployAppsSortBy};
 
 <span class="kw">use crate</span>::{commands::AsyncCliCommand, config::WasmerEnv, opts::ListFormatOpts};
 
@@ -136,6 +155,19 @@
     <span class="doccomment">/// Asks whether to display the next page or not
     </span><span class="attr">#[clap(long, default_value = <span class="string">&quot;false&quot;</span>)]
     </span>paging_mode: bool,
+
+    <span class="doccomment">/// Sort order for apps.
+    ///
+    /// Use: --newest, --oldest or --last-updated
+    </span><span class="attr">#[clap(long, default_value = <span class="string">&quot;last-updated&quot;</span>)]
+    </span>sort: AppSort,
+}
+
+<span class="attr">#[derive(clap::ValueEnum, Clone, Copy, Debug)]
+</span><span class="kw">pub enum </span>AppSort {
+    Newest,
+    Oldest,
+    LastUpdated,
 }
 
 <span class="attr">#[async_trait::async_trait]
@@ -145,14 +177,20 @@
     <span class="kw">async fn </span>run_async(<span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;(), anyhow::Error&gt; {
         <span class="kw">let </span>client = <span class="self">self</span>.env.client()<span class="question-mark">?</span>;
 
+        <span class="kw">let </span>sort = <span class="kw">match </span><span class="self">self</span>.sort {
+            AppSort::Newest =&gt; DeployAppsSortBy::Newest,
+            AppSort::Oldest =&gt; DeployAppsSortBy::Oldest,
+            AppSort::LastUpdated =&gt; DeployAppsSortBy::MostActive,
+        };
+
         <span class="kw">let </span>apps_stream: Pin&lt;
             Box&lt;<span class="kw">dyn </span>Stream&lt;Item = <span class="prelude-ty">Result</span>&lt;Vec&lt;DeployApp&gt;, anyhow::Error&gt;&gt; + Send + Sync&gt;,
         &gt; = <span class="kw">if let </span><span class="prelude-val">Some</span>(ns) = <span class="self">self</span>.namespace.clone() {
-            Box::pin(wasmer_api::query::namespace_apps(<span class="kw-2">&amp;</span>client, ns).<span class="kw">await</span>)
+            Box::pin(wasmer_api::query::namespace_apps(<span class="kw-2">&amp;</span>client, ns, sort).<span class="kw">await</span>)
         } <span class="kw">else if </span><span class="self">self</span>.all {
-            Box::pin(wasmer_api::query::user_accessible_apps(<span class="kw-2">&amp;</span>client).<span class="kw">await</span><span class="question-mark">?</span>)
+            Box::pin(wasmer_api::query::user_accessible_apps(<span class="kw-2">&amp;</span>client, sort).<span class="kw">await</span><span class="question-mark">?</span>)
         } <span class="kw">else </span>{
-            Box::pin(wasmer_api::query::user_apps(<span class="kw-2">&amp;</span>client).<span class="kw">await</span>)
+            Box::pin(wasmer_api::query::user_apps(<span class="kw-2">&amp;</span>client, sort).<span class="kw">await</span>)
         };
 
         <span class="kw">let </span><span class="kw-2">mut </span>apps_stream = <span class="macro">std::pin::pin!</span>(apps_stream);
