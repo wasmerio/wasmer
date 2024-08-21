@@ -2286,7 +2286,7 @@
 /// Retrieved with [`get_app_s3_credentials`].
 </span><span class="attr">#[derive(Clone)]
 </span><span class="kw">pub struct </span>AppS3Credentials {
-    <span class="kw">pub </span>domain: String,
+    <span class="kw">pub </span>url: String,
     <span class="kw">pub </span>access_key: String,
     <span class="kw">pub </span>secret_key: String,
 }
@@ -2334,7 +2334,7 @@
         </span>.with_context(|| <span class="macro">format!</span>(<span class="string">&quot;No value found for secret with name &#39;{}&#39;&quot;</span>, SECRET_KEY_NAME))<span class="question-mark">?</span>;
 
     <span class="prelude-val">Ok</span>(AppS3Credentials {
-        domain: url.<span class="number">0</span>,
+        url: url.<span class="number">0</span>,
         access_key,
         secret_key,
     })
