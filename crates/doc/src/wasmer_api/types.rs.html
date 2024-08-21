@@ -2081,6 +2081,26 @@
 <a href="#2081" id="2081">2081</a>
 <a href="#2082" id="2082">2082</a>
 <a href="#2083" id="2083">2083</a>
+<a href="#2084" id="2084">2084</a>
+<a href="#2085" id="2085">2085</a>
+<a href="#2086" id="2086">2086</a>
+<a href="#2087" id="2087">2087</a>
+<a href="#2088" id="2088">2088</a>
+<a href="#2089" id="2089">2089</a>
+<a href="#2090" id="2090">2090</a>
+<a href="#2091" id="2091">2091</a>
+<a href="#2092" id="2092">2092</a>
+<a href="#2093" id="2093">2093</a>
+<a href="#2094" id="2094">2094</a>
+<a href="#2095" id="2095">2095</a>
+<a href="#2096" id="2096">2096</a>
+<a href="#2097" id="2097">2097</a>
+<a href="#2098" id="2098">2098</a>
+<a href="#2099" id="2099">2099</a>
+<a href="#2100" id="2100">2100</a>
+<a href="#2101" id="2101">2101</a>
+<a href="#2102" id="2102">2102</a>
+<a href="#2103" id="2103">2103</a>
 </pre></div><pre class="rust"><code><span class="kw">pub use </span>queries::<span class="kw-2">*</span>;
 
 <span class="kw">pub use </span>cynic::Id;
@@ -2774,6 +2794,26 @@
         </span><span class="kw">pub </span>get_deploy_app: <span class="prelude-ty">Option</span>&lt;DeployApp&gt;,
     }
 
+    <span class="attr">#[derive(cynic::QueryFragment, Debug)]
+    #[cynic(graphql_type = <span class="string">&quot;Query&quot;</span>, variables = <span class="string">&quot;GetDeployAppVars&quot;</span>)]
+    </span><span class="kw">pub struct </span>GetDeployAppS3Credentials {
+        <span class="attr">#[arguments(owner: <span class="macro-nonterminal">$owner</span>, name: <span class="macro-nonterminal">$name</span>)]
+        </span><span class="kw">pub </span>get_deploy_app: <span class="prelude-ty">Option</span>&lt;AppWithS3Credentials&gt;,
+    }
+
+    <span class="attr">#[derive(cynic::QueryFragment, Debug)]
+    #[cynic(graphql_type = <span class="string">&quot;DeployApp&quot;</span>, variables = <span class="string">&quot;GetDeployAppVars&quot;</span>)]
+    </span><span class="kw">pub struct </span>AppWithS3Credentials {
+        <span class="kw">pub </span>s3_credentials: <span class="prelude-ty">Option</span>&lt;S3Credentials&gt;,
+    }
+
+    <span class="attr">#[derive(cynic::QueryFragment, Debug)]
+    </span><span class="kw">pub struct </span>S3Credentials {
+        <span class="kw">pub </span>access_key: String,
+        <span class="kw">pub </span>secret_key: String,
+        <span class="kw">pub </span>endpoint: String,
+    }
+
     <span class="attr">#[derive(cynic::QueryVariables, Debug, Clone)]
     </span><span class="kw">pub struct </span>PaginationVars {
         <span class="kw">pub </span>offset: <span class="prelude-ty">Option</span>&lt;i32&gt;,
@@ -2888,7 +2928,7 @@
     </span><span class="kw">pub struct </span>AppVersionVolume {
         <span class="kw">pub </span>name: String,
         <span class="kw">pub </span>size: <span class="prelude-ty">Option</span>&lt;i32&gt;,
-        <span class="kw">pub </span>used_size: <span class="prelude-ty">Option</span>&lt;i32&gt;,
+        <span class="kw">pub </span>used_size: <span class="prelude-ty">Option</span>&lt;BigInt&gt;,
     }
 
     <span class="attr">#[derive(cynic::QueryFragment, Debug)]

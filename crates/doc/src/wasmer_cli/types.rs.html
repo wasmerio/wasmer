@@ -189,6 +189,13 @@
 <a href="#189" id="189">189</a>
 <a href="#190" id="190">190</a>
 <a href="#191" id="191">191</a>
+<a href="#192" id="192">192</a>
+<a href="#193" id="193">193</a>
+<a href="#194" id="194">194</a>
+<a href="#195" id="195">195</a>
+<a href="#196" id="196">196</a>
+<a href="#197" id="197">197</a>
+<a href="#198" id="198">198</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>comfy_table::Table;
 <span class="kw">use </span>wasmer_api::types::{DeployApp, DeployAppVersion, DnsDomain, DnsDomainWithRecords, Namespace};
 
@@ -355,7 +362,7 @@
             <span class="macro">vec!</span>[<span class="string">&quot;Name&quot;</span>.to_string(), <span class="self">self</span>.name.clone()],
             <span class="macro">vec!</span>[
                 <span class="string">&quot;Used size&quot;</span>.to_string(),
-                format_disk_size_opt(<span class="self">self</span>.used_size),
+                format_disk_size_opt(<span class="self">self</span>.used_size.clone()),
             ],
         ]);
         table.to_string()
@@ -364,18 +371,25 @@
     <span class="kw">fn </span>render_list_table(items: <span class="kw-2">&amp;</span>[<span class="self">Self</span>]) -&gt; String {
         <span class="kw">let </span><span class="kw-2">mut </span>table = Table::new();
         table.set_header(<span class="macro">vec!</span>[<span class="string">&quot;Name&quot;</span>.to_string(), <span class="string">&quot;Used size&quot;</span>.to_string()]);
-        table.add_rows(
-            items
-                .iter()
-                .map(|vol| <span class="macro">vec!</span>[vol.name.clone(), format_disk_size_opt(vol.used_size)]),
-        );
+        table.add_rows(items.iter().map(|vol| {
+            <span class="macro">vec!</span>[
+                vol.name.clone(),
+                format_disk_size_opt(vol.used_size.clone()),
+            ]
+        }));
         table.to_string()
     }
 }
 
-<span class="kw">fn </span>format_disk_size_opt(value: <span class="prelude-ty">Option</span>&lt;i32&gt;) -&gt; String {
+<span class="kw">fn </span>format_disk_size_opt(value: <span class="prelude-ty">Option</span>&lt;wasmer_api::types::BigInt&gt;) -&gt; String {
+    <span class="kw">let </span>value = value.and_then(|x| {
+        <span class="kw">let </span>y: <span class="prelude-ty">Option</span>&lt;u64&gt; = x.<span class="number">0</span>.try_into().ok();
+        y
+    });
+
     <span class="kw">if let </span><span class="prelude-val">Some</span>(v) = value {
-        <span class="macro">format!</span>(<span class="string">&quot;{}Mb&quot;</span>, v)
+        <span class="kw">let </span>s = bytesize::ByteSize(v);
+        s.to_string()
     } <span class="kw">else </span>{
         <span class="string">&quot;n/a&quot;</span>.to_string()
     }

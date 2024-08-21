@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":["__typename","mountPaths","name","size","usedSize"]};
+window.SIDEBAR_ITEMS = {"struct":["__typename","id","mountPaths","name","s3Url","size","usedSize"]};
