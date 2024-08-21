@@ -730,6 +730,22 @@
 <a href="#730" id="730">730</a>
 <a href="#731" id="731">731</a>
 <a href="#732" id="732">732</a>
+<a href="#733" id="733">733</a>
+<a href="#734" id="734">734</a>
+<a href="#735" id="735">735</a>
+<a href="#736" id="736">736</a>
+<a href="#737" id="737">737</a>
+<a href="#738" id="738">738</a>
+<a href="#739" id="739">739</a>
+<a href="#740" id="740">740</a>
+<a href="#741" id="741">741</a>
+<a href="#742" id="742">742</a>
+<a href="#743" id="743">743</a>
+<a href="#744" id="744">744</a>
+<a href="#745" id="745">745</a>
+<a href="#746" id="746">746</a>
+<a href="#747" id="747">747</a>
+<a href="#748" id="748">748</a>
 </pre></div><pre class="rust"><code><span class="attr">#![cfg_attr(docsrs, feature(doc_cfg, doc_auto_cfg))]
 
 #[cfg(test)]
@@ -830,6 +846,9 @@
     <span class="kw">fn </span>remove_file(<span class="kw-2">&amp;</span><span class="self">self</span>, path: <span class="kw-2">&amp;</span>Path) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt;;
 
     <span class="kw">fn </span>new_open_options(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; OpenOptions;
+
+    <span class="kw">fn </span>mount(<span class="kw-2">&amp;</span><span class="self">self</span>, name: String, path: <span class="kw-2">&amp;</span>Path, fs: Box&lt;<span class="kw">dyn </span>FileSystem + Send + Sync&gt;)
+        -&gt; <span class="prelude-ty">Result</span>&lt;()&gt;;
 }
 
 <span class="kw">impl dyn </span>FileSystem + <span class="lifetime">&#39;static </span>{
@@ -883,6 +902,15 @@
 
     <span class="kw">fn </span>new_open_options(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; OpenOptions {
         (<span class="kw-2">**</span><span class="self">self</span>).new_open_options()
+    }
+
+    <span class="kw">fn </span>mount(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        name: String,
+        path: <span class="kw-2">&amp;</span>Path,
+        fs: Box&lt;<span class="kw">dyn </span>FileSystem + Send + Sync&gt;,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
+        (<span class="kw-2">**</span><span class="self">self</span>).mount(name, path, fs)
     }
 }
 
@@ -1242,6 +1270,9 @@
     <span class="doccomment">/// Some other unhandled error. If you see this, it&#39;s probably a bug.
     </span><span class="attr">#[error(<span class="string">&quot;unknown error found&quot;</span>)]
     </span>UnknownError,
+    <span class="doccomment">/// Operation is not supported on this filesystem
+    </span><span class="attr">#[error(<span class="string">&quot;unsupported&quot;</span>)]
+    </span>Unsupported,
 }
 
 <span class="kw">impl </span>From&lt;io::Error&gt; <span class="kw">for </span>FsError {
@@ -1302,6 +1333,7 @@
             FsError::DirectoryNotEmpty =&gt; io::ErrorKind::Other,
             FsError::UnknownError =&gt; io::ErrorKind::Other,
             FsError::StorageFull =&gt; io::ErrorKind::Other,
+            FsError::Unsupported =&gt; io::ErrorKind::Unsupported,
             <span class="comment">// NOTE: Add this once the &quot;io_error_more&quot; Rust feature is stabilized
             // FsError::StorageFull =&gt; io::ErrorKind::StorageFull,
         </span>};
@@ -1312,7 +1344,7 @@
 <span class="attr">#[derive(Debug)]
 </span><span class="kw">pub struct </span>ReadDir {
     <span class="comment">// TODO: to do this properly we need some kind of callback to the core FS abstraction
-    </span>data: Vec&lt;DirEntry&gt;,
+    </span><span class="kw">pub</span>(<span class="kw">crate</span>) data: Vec&lt;DirEntry&gt;,
     index: usize,
 }
 

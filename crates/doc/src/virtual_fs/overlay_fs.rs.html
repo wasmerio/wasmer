@@ -1678,6 +1678,15 @@
 <a href="#1678" id="1678">1678</a>
 <a href="#1679" id="1679">1679</a>
 <a href="#1680" id="1680">1680</a>
+<a href="#1681" id="1681">1681</a>
+<a href="#1682" id="1682">1682</a>
+<a href="#1683" id="1683">1683</a>
+<a href="#1684" id="1684">1684</a>
+<a href="#1685" id="1685">1685</a>
+<a href="#1686" id="1686">1686</a>
+<a href="#1687" id="1687">1687</a>
+<a href="#1688" id="1688">1688</a>
+<a href="#1689" id="1689">1689</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{
     collections::HashSet,
     fmt::Debug,
@@ -2093,6 +2102,15 @@
 
     <span class="kw">fn </span>new_open_options(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; OpenOptions&lt;<span class="lifetime">&#39;_</span>&gt; {
         OpenOptions::new(<span class="self">self</span>)
+    }
+
+    <span class="kw">fn </span>mount(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        _name: String,
+        _path: <span class="kw-2">&amp;</span>Path,
+        _fs: Box&lt;<span class="kw">dyn </span>FileSystem + Send + Sync&gt;,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;(), FsError&gt; {
+        <span class="prelude-val">Err</span>(FsError::Unsupported)
     }
 }
 

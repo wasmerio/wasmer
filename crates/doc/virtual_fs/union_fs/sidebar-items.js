@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["filter_mounts"],"struct":["MountPoint","StrongMountPoint","UnionFileSystem"],"type":["TempHolding"]};
+window.SIDEBAR_ITEMS = {"struct":["MountPoint","MountPointRef","UnionFileSystem"]};

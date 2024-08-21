@@ -621,6 +621,10 @@
 <a href="#621" id="621">621</a>
 <a href="#622" id="622">622</a>
 <a href="#623" id="623">623</a>
+<a href="#624" id="624">624</a>
+<a href="#625" id="625">625</a>
+<a href="#626" id="626">626</a>
+<a href="#627" id="627">627</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{
     collections::{BTreeMap, HashMap, HashSet},
     fmt::Debug,
@@ -986,7 +990,7 @@
     <span class="kw">let </span><span class="kw-2">mut </span>mountings: Vec&lt;<span class="kw">_</span>&gt; = pkg.filesystem.iter().collect();
     mountings.sort_by_key(|m| std::cmp::Reverse(m.mount_path.as_path()));
 
-    <span class="kw">let </span><span class="kw-2">mut </span>union_fs = UnionFileSystem::new();
+    <span class="kw">let </span>union_fs = UnionFileSystem::new();
 
     <span class="kw">for </span>ResolvedFileSystemMapping {
         mount_path,
@@ -1019,13 +1023,7 @@
         })<span class="question-mark">?</span>;
 
         <span class="kw">let </span>webc_vol = WebcVolumeFileSystem::new(volume.clone());
-        union_fs.mount(
-            volume_name,
-            mount_path.to_str().unwrap(),
-            <span class="bool-val">false</span>,
-            Box::new(webc_vol),
-            <span class="prelude-val">None</span>,
-        );
+        union_fs.mount(volume_name.clone(), mount_path, Box::new(webc_vol))<span class="question-mark">?</span>;
     }
 
     <span class="kw">let </span>fs = OverlayFileSystem::new(virtual_fs::EmptyFileSystem::default(), [union_fs]);
@@ -1212,6 +1210,16 @@
 
     <span class="kw">fn </span>new_open_options(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; virtual_fs::OpenOptions {
         virtual_fs::OpenOptions::new(<span class="self">self</span>)
+    }
+
+    <span class="kw">fn </span>mount(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        name: String,
+        path: <span class="kw-2">&amp;</span>Path,
+        fs: Box&lt;<span class="kw">dyn </span>FileSystem + Send + Sync&gt;,
+    ) -&gt; virtual_fs::Result&lt;()&gt; {
+        <span class="kw">let </span>path = <span class="self">self</span>.path(path)<span class="question-mark">?</span>;
+        <span class="self">self</span>.inner.mount(name, path.as_path(), fs)
     }
 }
 

@@ -2224,6 +2224,26 @@
 <a href="#2224" id="2224">2224</a>
 <a href="#2225" id="2225">2225</a>
 <a href="#2226" id="2226">2226</a>
+<a href="#2227" id="2227">2227</a>
+<a href="#2228" id="2228">2228</a>
+<a href="#2229" id="2229">2229</a>
+<a href="#2230" id="2230">2230</a>
+<a href="#2231" id="2231">2231</a>
+<a href="#2232" id="2232">2232</a>
+<a href="#2233" id="2233">2233</a>
+<a href="#2234" id="2234">2234</a>
+<a href="#2235" id="2235">2235</a>
+<a href="#2236" id="2236">2236</a>
+<a href="#2237" id="2237">2237</a>
+<a href="#2238" id="2238">2238</a>
+<a href="#2239" id="2239">2239</a>
+<a href="#2240" id="2240">2240</a>
+<a href="#2241" id="2241">2241</a>
+<a href="#2242" id="2242">2242</a>
+<a href="#2243" id="2243">2243</a>
+<a href="#2244" id="2244">2244</a>
+<a href="#2245" id="2245">2245</a>
+<a href="#2246" id="2246">2246</a>
 </pre></div><pre class="rust"><code><span class="kw">mod </span>fd;
 <span class="kw">mod </span>inode_guard;
 <span class="kw">mod </span>notification;
@@ -2600,6 +2620,17 @@
         <span class="kw">match </span><span class="self">self </span>{
             WasiFsRoot::Sandbox(fs) =&gt; fs.new_open_options(),
             WasiFsRoot::Backing(fs) =&gt; fs.new_open_options(),
+        }
+    }
+    <span class="kw">fn </span>mount(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        name: String,
+        path: <span class="kw-2">&amp;</span>Path,
+        fs: Box&lt;<span class="kw">dyn </span>FileSystem + Send + Sync&gt;,
+    ) -&gt; virtual_fs::Result&lt;()&gt; {
+        <span class="kw">match </span><span class="self">self </span>{
+            WasiFsRoot::Sandbox(f) =&gt; f.mount(name, path, fs),
+            WasiFsRoot::Backing(f) =&gt; f.mount(name, path, fs),
         }
     }
 }
@@ -4380,6 +4411,14 @@
     <span class="kw">fn </span>new_open_options(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; virtual_fs::OpenOptions {
         <span class="self">Self</span>::fail();
     }
+    <span class="kw">fn </span>mount(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        _name: String,
+        _path: <span class="kw-2">&amp;</span>Path,
+        _fs: Box&lt;<span class="kw">dyn </span>FileSystem + Send + Sync&gt;,
+    ) -&gt; virtual_fs::Result&lt;()&gt; {
+        <span class="self">Self</span>::fail()
+    }
 }
 
 <span class="kw">pub fn </span>virtual_file_type_to_wasi_file_type(file_type: virtual_fs::FileType) -&gt; Filetype {
@@ -4448,6 +4487,7 @@
         FsError::DirectoryNotEmpty =&gt; Errno::Notempty,
         FsError::StorageFull =&gt; Errno::Overflow,
         FsError::Lock | FsError::UnknownError =&gt; Errno::Io,
+        FsError::Unsupported =&gt; Errno::Notsup,
     }
 }
 </code></pre></div></section></main></body></html>

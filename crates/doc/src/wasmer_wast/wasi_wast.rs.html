@@ -748,6 +748,30 @@
 <a href="#748" id="748">748</a>
 <a href="#749" id="749">749</a>
 <a href="#750" id="750">750</a>
+<a href="#751" id="751">751</a>
+<a href="#752" id="752">752</a>
+<a href="#753" id="753">753</a>
+<a href="#754" id="754">754</a>
+<a href="#755" id="755">755</a>
+<a href="#756" id="756">756</a>
+<a href="#757" id="757">757</a>
+<a href="#758" id="758">758</a>
+<a href="#759" id="759">759</a>
+<a href="#760" id="760">760</a>
+<a href="#761" id="761">761</a>
+<a href="#762" id="762">762</a>
+<a href="#763" id="763">763</a>
+<a href="#764" id="764">764</a>
+<a href="#765" id="765">765</a>
+<a href="#766" id="766">766</a>
+<a href="#767" id="767">767</a>
+<a href="#768" id="768">768</a>
+<a href="#769" id="769">769</a>
+<a href="#770" id="770">770</a>
+<a href="#771" id="771">771</a>
+<a href="#772" id="772">772</a>
+<a href="#773" id="773">773</a>
+<a href="#774" id="774">774</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{
     fs::{read_dir, File, OpenOptions, ReadDir},
     future::Future,
@@ -996,14 +1020,38 @@
                         <span class="kw">let </span>e = mem_fs::FileSystem::default();
                         <span class="kw">let </span>f = mem_fs::FileSystem::default();
 
-                        <span class="kw">let </span><span class="kw-2">mut </span>union = union_fs::UnionFileSystem::new();
+                        <span class="kw">let </span>union = union_fs::UnionFileSystem::new();
 
-                        union.mount(<span class="string">&quot;mem_fs&quot;</span>, <span class="string">&quot;/test_fs&quot;</span>, <span class="bool-val">false</span>, Box::new(a), <span class="prelude-val">None</span>);
-                        union.mount(<span class="string">&quot;mem_fs_2&quot;</span>, <span class="string">&quot;/snapshot1&quot;</span>, <span class="bool-val">false</span>, Box::new(b), <span class="prelude-val">None</span>);
-                        union.mount(<span class="string">&quot;mem_fs_3&quot;</span>, <span class="string">&quot;/tests&quot;</span>, <span class="bool-val">false</span>, Box::new(c), <span class="prelude-val">None</span>);
-                        union.mount(<span class="string">&quot;mem_fs_4&quot;</span>, <span class="string">&quot;/nightly_2022_10_18&quot;</span>, <span class="bool-val">false</span>, Box::new(d), <span class="prelude-val">None</span>);
-                        union.mount(<span class="string">&quot;mem_fs_5&quot;</span>, <span class="string">&quot;/unstable&quot;</span>, <span class="bool-val">false</span>, Box::new(e), <span class="prelude-val">None</span>);
-                        union.mount(<span class="string">&quot;mem_fs_6&quot;</span>, <span class="string">&quot;/.tmp_wasmer_wast_0&quot;</span>, <span class="bool-val">false</span>, Box::new(f), <span class="prelude-val">None</span>);
+                        union.mount(
+                            <span class="string">&quot;mem_fs&quot;</span>.to_string(),
+                            PathBuf::from(<span class="string">&quot;/test_fs&quot;</span>).as_ref(),
+                            Box::new(a),
+                        )<span class="question-mark">?</span>;
+                        union.mount(
+                            <span class="string">&quot;mem_fs_2&quot;</span>.to_string(),
+                            PathBuf::from(<span class="string">&quot;/snapshot1&quot;</span>).as_ref(),
+                            Box::new(b),
+                        )<span class="question-mark">?</span>;
+                        union.mount(
+                            <span class="string">&quot;mem_fs_3&quot;</span>.to_string(),
+                            PathBuf::from(<span class="string">&quot;/tests&quot;</span>).as_ref(),
+                            Box::new(c),
+                        )<span class="question-mark">?</span>;
+                        union.mount(
+                            <span class="string">&quot;mem_fs_4&quot;</span>.to_string(),
+                            PathBuf::from(<span class="string">&quot;/nightly_2022_10_18&quot;</span>).as_ref(),
+                            Box::new(d),
+                        )<span class="question-mark">?</span>;
+                        union.mount(
+                            <span class="string">&quot;mem_fs_5&quot;</span>.to_string(),
+                            PathBuf::from(<span class="string">&quot;/unstable&quot;</span>).as_ref(),
+                            Box::new(e),
+                        )<span class="question-mark">?</span>;
+                        union.mount(
+                            <span class="string">&quot;mem_fs_6&quot;</span>.to_string(),
+                            PathBuf::from(<span class="string">&quot;/.tmp_wasmer_wast_0&quot;</span>).as_ref(),
+                            Box::new(f),
+                        )<span class="question-mark">?</span>;
 
                         Box::new(union)
                     }

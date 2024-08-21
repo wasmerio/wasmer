@@ -1476,6 +1476,15 @@
 <a href="#1476" id="1476">1476</a>
 <a href="#1477" id="1477">1477</a>
 <a href="#1478" id="1478">1478</a>
+<a href="#1479" id="1479">1479</a>
+<a href="#1480" id="1480">1480</a>
+<a href="#1481" id="1481">1481</a>
+<a href="#1482" id="1482">1482</a>
+<a href="#1483" id="1483">1483</a>
+<a href="#1484" id="1484">1484</a>
+<a href="#1485" id="1485">1485</a>
+<a href="#1486" id="1486">1486</a>
+<a href="#1487" id="1487">1487</a>
 </pre></div><pre class="rust"><code><span class="kw">use crate</span>::{
     DirEntry, FileType, FsError, Metadata, OpenOptions, OpenOptionsConfig, ReadDir, <span class="prelude-ty">Result</span>,
     VirtualFile,
@@ -1712,6 +1721,15 @@
         fs::symlink_metadata(path)
             .and_then(TryInto::try_into)
             .map_err(Into::into)
+    }
+
+    <span class="kw">fn </span>mount(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        _name: String,
+        _path: <span class="kw-2">&amp;</span>Path,
+        _fs: Box&lt;<span class="kw">dyn </span><span class="kw">crate</span>::FileSystem + Send + Sync&gt;,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
+        <span class="prelude-val">Err</span>(FsError::Unsupported)
     }
 }
 

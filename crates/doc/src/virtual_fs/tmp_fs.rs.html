@@ -97,6 +97,15 @@
 <a href="#97" id="97">97</a>
 <a href="#98" id="98">98</a>
 <a href="#99" id="99">99</a>
+<a href="#100" id="100">100</a>
+<a href="#101" id="101">101</a>
+<a href="#102" id="102">102</a>
+<a href="#103" id="103">103</a>
+<a href="#104" id="104">104</a>
+<a href="#105" id="105">105</a>
+<a href="#106" id="106">106</a>
+<a href="#107" id="107">107</a>
+<a href="#108" id="108">108</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Wraps the memory file system implementation - this has been
 //! enhanced to support mounting file systems, shared static files,
 //! readonly files, etc...
@@ -194,6 +203,15 @@
 
     <span class="kw">fn </span>new_open_options(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; OpenOptions {
         <span class="self">self</span>.fs.new_open_options()
+    }
+
+    <span class="kw">fn </span>mount(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        name: String,
+        path: <span class="kw-2">&amp;</span>Path,
+        fs: Box&lt;<span class="kw">dyn </span>FileSystem + Send + Sync&gt;,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
+        FileSystem::mount(<span class="kw-2">&amp;</span><span class="self">self</span>.fs, name, path, fs)
     }
 }
 </code></pre></div></section></main></body></html>

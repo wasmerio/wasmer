@@ -404,6 +404,15 @@
 <a href="#404" id="404">404</a>
 <a href="#405" id="405">405</a>
 <a href="#406" id="406">406</a>
+<a href="#407" id="407">407</a>
+<a href="#408" id="408">408</a>
+<a href="#409" id="409">409</a>
+<a href="#410" id="410">410</a>
+<a href="#411" id="411">411</a>
+<a href="#412" id="412">412</a>
+<a href="#413" id="413">413</a>
+<a href="#414" id="414">414</a>
+<a href="#415" id="415">415</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>anyhow::anyhow;
 <span class="kw">use </span>futures::future::BoxFuture;
 <span class="kw">use </span>tokio::io::{AsyncRead, AsyncSeek, AsyncWrite};
@@ -787,6 +796,15 @@
         } <span class="kw">else </span>{
             <span class="self">self</span>.memory.symlink_metadata(Path::new(<span class="kw-2">&amp;</span>path))
         }
+    }
+
+    <span class="kw">fn </span>mount(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        _name: String,
+        _path: <span class="kw-2">&amp;</span>Path,
+        _fs: Box&lt;<span class="kw">dyn </span>FileSystem + Send + Sync&gt;,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;(), FsError&gt; {
+        <span class="prelude-val">Err</span>(FsError::Unsupported)
     }
 }
 

@@ -256,8 +256,18 @@
 <a href="#256" id="256">256</a>
 <a href="#257" id="257">257</a>
 <a href="#258" id="258">258</a>
+<a href="#259" id="259">259</a>
+<a href="#260" id="260">260</a>
+<a href="#261" id="261">261</a>
+<a href="#262" id="262">262</a>
+<a href="#263" id="263">263</a>
+<a href="#264" id="264">264</a>
+<a href="#265" id="265">265</a>
+<a href="#266" id="266">266</a>
+<a href="#267" id="267">267</a>
+<a href="#268" id="268">268</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{
-    path::PathBuf,
+    path::{Path, PathBuf},
     pin::Pin,
     task::{Context, Poll},
 };
@@ -344,6 +354,16 @@
     <span class="attr">#[tracing::instrument(level = <span class="string">&quot;trace&quot;</span>, skip(<span class="self">self</span>))]
     </span><span class="kw">fn </span>new_open_options(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw">crate</span>::OpenOptions {
         <span class="kw">crate</span>::OpenOptions::new(<span class="self">self</span>)
+    }
+
+    <span class="attr">#[tracing::instrument(level = <span class="string">&quot;trace&quot;</span>, skip(<span class="self">self</span>))]
+    </span><span class="kw">fn </span>mount(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        name: String,
+        path: <span class="kw-2">&amp;</span>Path,
+        fs: Box&lt;<span class="kw">dyn </span>FileSystem + Send + Sync&gt;,
+    ) -&gt; <span class="kw">crate</span>::Result&lt;()&gt; {
+        <span class="self">self</span>.<span class="number">0</span>.mount(name, path, fs)
     }
 }
 

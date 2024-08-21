@@ -100,6 +100,15 @@
 <a href="#100" id="100">100</a>
 <a href="#101" id="101">101</a>
 <a href="#102" id="102">102</a>
+<a href="#103" id="103">103</a>
+<a href="#104" id="104">104</a>
+<a href="#105" id="105">105</a>
+<a href="#106" id="106">106</a>
+<a href="#107" id="107">107</a>
+<a href="#108" id="108">108</a>
+<a href="#109" id="109">109</a>
+<a href="#110" id="110">110</a>
+<a href="#111" id="111">111</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Wraps a boxed file system with an implemented trait VirtualSystem - this is
 //! needed so that a `Box&lt;dyn VirtualFileSystem&gt;` can be wrapped in an Arc and
 //! shared - some of the interfaces pass around a `Box&lt;dyn VirtualFileSystem&gt;`
@@ -154,6 +163,15 @@
 
     <span class="kw">fn </span>new_open_options(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; OpenOptions {
         <span class="self">self</span>.fs.new_open_options()
+    }
+
+    <span class="kw">fn </span>mount(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        _name: String,
+        _path: <span class="kw-2">&amp;</span>Path,
+        _fs: Box&lt;<span class="kw">dyn </span>FileSystem + Send + Sync&gt;,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
+        <span class="prelude-val">Err</span>(FsError::Unsupported)
     }
 }
 

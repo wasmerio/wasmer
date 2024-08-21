@@ -1047,174 +1047,42 @@
 <a href="#1047" id="1047">1047</a>
 <a href="#1048" id="1048">1048</a>
 <a href="#1049" id="1049">1049</a>
-<a href="#1050" id="1050">1050</a>
-<a href="#1051" id="1051">1051</a>
-<a href="#1052" id="1052">1052</a>
-<a href="#1053" id="1053">1053</a>
-<a href="#1054" id="1054">1054</a>
-<a href="#1055" id="1055">1055</a>
-<a href="#1056" id="1056">1056</a>
-<a href="#1057" id="1057">1057</a>
-<a href="#1058" id="1058">1058</a>
-<a href="#1059" id="1059">1059</a>
-<a href="#1060" id="1060">1060</a>
-<a href="#1061" id="1061">1061</a>
-<a href="#1062" id="1062">1062</a>
-<a href="#1063" id="1063">1063</a>
-<a href="#1064" id="1064">1064</a>
-<a href="#1065" id="1065">1065</a>
-<a href="#1066" id="1066">1066</a>
-<a href="#1067" id="1067">1067</a>
-<a href="#1068" id="1068">1068</a>
-<a href="#1069" id="1069">1069</a>
-<a href="#1070" id="1070">1070</a>
-<a href="#1071" id="1071">1071</a>
-<a href="#1072" id="1072">1072</a>
-<a href="#1073" id="1073">1073</a>
-<a href="#1074" id="1074">1074</a>
-<a href="#1075" id="1075">1075</a>
-<a href="#1076" id="1076">1076</a>
-<a href="#1077" id="1077">1077</a>
-<a href="#1078" id="1078">1078</a>
-<a href="#1079" id="1079">1079</a>
-<a href="#1080" id="1080">1080</a>
-<a href="#1081" id="1081">1081</a>
-<a href="#1082" id="1082">1082</a>
-<a href="#1083" id="1083">1083</a>
-<a href="#1084" id="1084">1084</a>
-<a href="#1085" id="1085">1085</a>
-<a href="#1086" id="1086">1086</a>
-<a href="#1087" id="1087">1087</a>
-<a href="#1088" id="1088">1088</a>
-<a href="#1089" id="1089">1089</a>
-<a href="#1090" id="1090">1090</a>
-<a href="#1091" id="1091">1091</a>
-<a href="#1092" id="1092">1092</a>
-<a href="#1093" id="1093">1093</a>
-<a href="#1094" id="1094">1094</a>
-<a href="#1095" id="1095">1095</a>
-<a href="#1096" id="1096">1096</a>
-<a href="#1097" id="1097">1097</a>
-<a href="#1098" id="1098">1098</a>
-<a href="#1099" id="1099">1099</a>
-<a href="#1100" id="1100">1100</a>
-<a href="#1101" id="1101">1101</a>
-<a href="#1102" id="1102">1102</a>
-<a href="#1103" id="1103">1103</a>
-<a href="#1104" id="1104">1104</a>
-<a href="#1105" id="1105">1105</a>
-<a href="#1106" id="1106">1106</a>
-<a href="#1107" id="1107">1107</a>
-<a href="#1108" id="1108">1108</a>
-<a href="#1109" id="1109">1109</a>
-<a href="#1110" id="1110">1110</a>
-<a href="#1111" id="1111">1111</a>
-<a href="#1112" id="1112">1112</a>
-<a href="#1113" id="1113">1113</a>
-<a href="#1114" id="1114">1114</a>
-<a href="#1115" id="1115">1115</a>
-<a href="#1116" id="1116">1116</a>
-<a href="#1117" id="1117">1117</a>
-<a href="#1118" id="1118">1118</a>
-<a href="#1119" id="1119">1119</a>
-<a href="#1120" id="1120">1120</a>
-<a href="#1121" id="1121">1121</a>
-<a href="#1122" id="1122">1122</a>
-<a href="#1123" id="1123">1123</a>
-<a href="#1124" id="1124">1124</a>
-<a href="#1125" id="1125">1125</a>
-<a href="#1126" id="1126">1126</a>
-<a href="#1127" id="1127">1127</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Another implementation of the union that uses paths,
 //! its not as simple as TmpFs. not currently used but was used by
 //! the previoulsy implementation of Deploy - now using TmpFs
 
-</span><span class="kw">use crate</span>::<span class="kw-2">*</span>;
+</span><span class="kw">use </span>dashmap::DashMap;
 
-<span class="kw">use </span>std::{
-    path::Path,
-    sync::{Arc, Mutex, Weak},
-};
+<span class="kw">use crate</span>::<span class="kw-2">*</span>;
 
-<span class="kw">use </span>tracing::{debug, trace};
-
-<span class="kw">pub type </span>TempHolding = Arc&lt;Mutex&lt;<span class="prelude-ty">Option</span>&lt;Arc&lt;Box&lt;<span class="kw">dyn </span>FileSystem&gt;&gt;&gt;&gt;&gt;;
+<span class="kw">use </span>std::{path::Path, sync::Arc};
 
 <span class="attr">#[derive(Debug)]
 </span><span class="kw">pub struct </span>MountPoint {
-    <span class="kw">pub </span>path: String,
+    <span class="kw">pub </span>path: PathBuf,
     <span class="kw">pub </span>name: String,
-    <span class="kw">pub </span>fs: <span class="prelude-ty">Option</span>&lt;Arc&lt;Box&lt;<span class="kw">dyn </span>FileSystem&gt;&gt;&gt;,
-    <span class="kw">pub </span>weak_fs: Weak&lt;Box&lt;<span class="kw">dyn </span>FileSystem&gt;&gt;,
-    <span class="kw">pub </span>temp_holding: TempHolding,
-    <span class="kw">pub </span>should_sanitize: bool,
-    <span class="kw">pub </span>new_path: <span class="prelude-ty">Option</span>&lt;String&gt;,
-}
-
-<span class="kw">impl </span>Clone <span class="kw">for </span>MountPoint {
-    <span class="kw">fn </span>clone(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="self">Self </span>{
-        <span class="self">Self </span>{
-            path: <span class="self">self</span>.path.clone(),
-            name: <span class="self">self</span>.name.clone(),
-            fs: <span class="prelude-val">None</span>,
-            weak_fs: <span class="self">self</span>.weak_fs.clone(),
-            temp_holding: <span class="self">self</span>.temp_holding.clone(),
-            should_sanitize: <span class="self">self</span>.should_sanitize,
-            new_path: <span class="self">self</span>.new_path.clone(),
-        }
-    }
+    <span class="kw">pub </span>fs: Arc&lt;Box&lt;<span class="kw">dyn </span>FileSystem + Send + Sync&gt;&gt;,
 }
 
 <span class="kw">impl </span>MountPoint {
-    <span class="kw">pub fn </span>fs(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;Arc&lt;Box&lt;<span class="kw">dyn </span>FileSystem&gt;&gt;&gt; {
-        <span class="kw">match </span><span class="kw-2">&amp;</span><span class="self">self</span>.fs {
-            <span class="prelude-val">Some</span>(a) =&gt; <span class="prelude-val">Some</span>(a.clone()),
-            <span class="prelude-val">None </span>=&gt; <span class="self">self</span>.weak_fs.upgrade(),
-        }
+    <span class="kw">pub fn </span>fs(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>(<span class="kw">dyn </span>FileSystem + Send + Sync) {
+        <span class="self">self</span>.fs.as_ref()
     }
 
-    <span class="doccomment">/// Tries to recover the internal `Weak&lt;dyn FileSystem&gt;` to a `Arc&lt;dyn FileSystem&gt;`
-    </span><span class="kw">fn </span>solidify(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
-        <span class="kw">if </span><span class="self">self</span>.fs.is_none() {
-            <span class="self">self</span>.fs = <span class="self">self</span>.weak_fs.upgrade();
-        }
-        {
-            <span class="kw">let </span><span class="kw-2">mut </span>guard = <span class="self">self</span>.temp_holding.lock().unwrap();
-            <span class="kw">let </span>fs = guard.take();
-            <span class="kw">if </span><span class="self">self</span>.fs.is_none() {
-                <span class="self">self</span>.fs = fs;
-            }
-        }
-    }
-
-    <span class="doccomment">/// Returns a strong-referenced copy of the internal `Arc&lt;dyn FileSystem&gt;`
-    </span><span class="kw">fn </span>strong(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;StrongMountPoint&gt; {
-        <span class="self">self</span>.fs().map(|fs| StrongMountPoint {
+    <span class="kw">pub fn </span>mount_point_ref(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; MountPointRef&lt;<span class="lifetime">&#39;_</span>&gt; {
+        MountPointRef {
             path: <span class="self">self</span>.path.clone(),
             name: <span class="self">self</span>.name.clone(),
-            fs,
-            should_sanitize: <span class="self">self</span>.should_sanitize,
-            new_path: <span class="self">self</span>.new_path.clone(),
-        })
+            fs: <span class="kw-2">&amp;</span><span class="self">self</span>.fs,
+        }
     }
-}
-
-<span class="doccomment">/// A `strong` mount point holds a strong `Arc` reference to the filesystem
-/// mounted at path `path`.
-</span><span class="attr">#[derive(Debug)]
-</span><span class="kw">pub struct </span>StrongMountPoint {
-    <span class="kw">pub </span>path: String,
-    <span class="kw">pub </span>name: String,
-    <span class="kw">pub </span>fs: Arc&lt;Box&lt;<span class="kw">dyn </span>FileSystem&gt;&gt;,
-    <span class="kw">pub </span>should_sanitize: bool,
-    <span class="kw">pub </span>new_path: <span class="prelude-ty">Option</span>&lt;String&gt;,
 }
 
 <span class="doccomment">/// Allows different filesystems of different types
 /// to be mounted at various mount points
-</span><span class="attr">#[derive(Debug, Default, Clone)]
+</span><span class="attr">#[derive(Debug, Default)]
 </span><span class="kw">pub struct </span>UnionFileSystem {
-    <span class="kw">pub </span>mounts: Vec&lt;MountPoint&gt;,
+    <span class="kw">pub </span>mounts: DashMap&lt;PathBuf, MountPoint&gt;,
 }
 
 <span class="kw">impl </span>UnionFileSystem {
@@ -1225,350 +1093,239 @@
     <span class="kw">pub fn </span>clear(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
         <span class="self">self</span>.mounts.clear();
     }
+
+    <span class="kw">fn </span>is_root(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
+        <span class="self">self</span>.mounts.len() == <span class="number">1 </span>&amp;&amp; <span class="self">self</span>.mounts.contains_key(<span class="kw-2">&amp;</span>PathBuf::from(<span class="string">&quot;/&quot;</span>))
+    }
+
+    <span class="kw">fn </span>prepare_path(<span class="kw-2">&amp;</span><span class="self">self</span>, path: <span class="kw-2">&amp;</span>Path) -&gt; PathBuf {
+        <span class="kw">if </span><span class="self">self</span>.is_root() {
+            path.to_owned()
+        } <span class="kw">else </span>{
+            path.strip_prefix(PathBuf::from(<span class="string">&quot;/&quot;</span>))
+                .unwrap_or(path)
+                .to_owned()
+        }
+    }
 }
 
 <span class="kw">impl </span>UnionFileSystem {
-    <span class="kw">pub fn </span>mount(
-        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
-        name: <span class="kw-2">&amp;</span>str,
-        path: <span class="kw-2">&amp;</span>str,
-        should_sanitize: bool,
-        fs: Box&lt;<span class="kw">dyn </span>FileSystem&gt;,
-        new_path: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>str&gt;,
-    ) {
-        <span class="self">self</span>.unmount(path);
-        <span class="kw">let </span><span class="kw-2">mut </span>path = path.to_string();
-        <span class="kw">if </span>!path.starts_with(<span class="string">&#39;/&#39;</span>) {
-            path.insert(<span class="number">0</span>, <span class="string">&#39;/&#39;</span>);
-        }
-        <span class="kw">if </span>!path.ends_with(<span class="string">&#39;/&#39;</span>) {
-            path += <span class="string">&quot;/&quot;</span>;
-        }
-        <span class="kw">let </span>new_path = new_path.map(|new_path| {
-            <span class="kw">let </span><span class="kw-2">mut </span>new_path = new_path.to_string();
-            <span class="kw">if </span>!new_path.ends_with(<span class="string">&#39;/&#39;</span>) {
-                new_path += <span class="string">&quot;/&quot;</span>;
-            }
-            new_path
-        });
-        <span class="kw">let </span>fs = Arc::new(fs);
+    <span class="attr">#[allow(clippy::type_complexity)]
+    </span><span class="kw">fn </span>find_mount(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        path: PathBuf,
+    ) -&gt; <span class="prelude-ty">Option</span>&lt;(PathBuf, PathBuf, Arc&lt;Box&lt;<span class="kw">dyn </span>FileSystem + Send + Sync&gt;&gt;)&gt; {
+        <span class="kw">let </span><span class="kw-2">mut </span>components = path.components().collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
 
-        <span class="kw">let </span>mount = MountPoint {
-            path,
-            name: name.to_string(),
-            fs: <span class="prelude-val">None</span>,
-            weak_fs: Arc::downgrade(<span class="kw-2">&amp;</span>fs),
-            temp_holding: Arc::new(Mutex::new(<span class="prelude-val">Some</span>(fs.clone()))),
-            should_sanitize,
-            new_path,
-        };
+        <span class="kw">if let </span><span class="prelude-val">Some</span>(c) = components.first().copied() {
+            components.remove(<span class="number">0</span>);
 
-        <span class="self">self</span>.mounts.push(mount);
-    }
+            <span class="kw">let </span>sub_path = components.into_iter().collect::&lt;PathBuf&gt;();
 
-    <span class="kw">pub fn </span>unmount(<span class="kw-2">&amp;mut </span><span class="self">self</span>, path: <span class="kw-2">&amp;</span>str) {
-        <span class="kw">let </span>path1 = path.to_string();
-        <span class="kw">let </span><span class="kw-2">mut </span>path2 = path1;
-        <span class="kw">if </span>!path2.starts_with(<span class="string">&#39;/&#39;</span>) {
-            path2.insert(<span class="number">0</span>, <span class="string">&#39;/&#39;</span>);
-        }
-        <span class="kw">let </span><span class="kw-2">mut </span>path3 = path2.clone();
-        <span class="kw">if </span>!path3.ends_with(<span class="string">&#39;/&#39;</span>) {
-            path3.push(<span class="string">&#39;/&#39;</span>)
-        }
-        <span class="kw">if </span>path2.ends_with(<span class="string">&#39;/&#39;</span>) {
-            path2 = (path2[..(path2.len() - <span class="number">1</span>)]).to_string();
-        }
-
-        <span class="self">self</span>.mounts
-            .retain(|mount| mount.path != path2 &amp;&amp; mount.path != path3);
-    }
-
-    <span class="kw">fn </span>read_dir_internal(<span class="kw-2">&amp;</span><span class="self">self</span>, path: <span class="kw-2">&amp;</span>Path) -&gt; <span class="prelude-ty">Result</span>&lt;ReadDir&gt; {
-        <span class="kw">let </span>path = path.to_string_lossy();
-
-        <span class="kw">let </span><span class="kw-2">mut </span>ret = <span class="prelude-val">None</span>;
-        <span class="kw">for </span>(path, mount) <span class="kw">in </span>filter_mounts(<span class="kw-2">&amp;</span><span class="self">self</span>.mounts, path.as_ref()) {
-            <span class="kw">match </span>mount.fs.read_dir(Path::new(path.as_str())) {
-                <span class="prelude-val">Ok</span>(dir) =&gt; {
-                    <span class="kw">if </span>ret.is_none() {
-                        ret = <span class="prelude-val">Some</span>(Vec::new());
-                    }
-                    <span class="kw">let </span>ret = ret.as_mut().unwrap();
-                    <span class="kw">for </span>sub <span class="kw">in </span>dir.flatten() {
-                        ret.push(sub);
-                    }
-                }
-                <span class="prelude-val">Err</span>(err) =&gt; {
-                    <span class="macro">debug!</span>(<span class="string">&quot;failed to read dir - {}&quot;</span>, err);
-                }
+            <span class="kw">if let </span><span class="prelude-val">Some</span>(mount) = <span class="self">self</span>.mounts.get(<span class="kw-2">&amp;</span>PathBuf::from(c.as_os_str())) {
+                <span class="kw">return </span><span class="prelude-val">Some</span>((
+                    PathBuf::from(c.as_os_str()),
+                    PathBuf::from(<span class="string">&quot;/&quot;</span>).join(sub_path),
+                    mount.fs.clone(),
+                ));
             }
         }
 
-        <span class="kw">match </span>ret {
-            <span class="prelude-val">Some</span>(<span class="kw-2">mut </span>ret) =&gt; {
-                ret.sort_by(|a, b| <span class="kw">match </span>(a.metadata.as_ref(), b.metadata.as_ref()) {
-                    (<span class="prelude-val">Ok</span>(a), <span class="prelude-val">Ok</span>(b)) =&gt; a.modified.cmp(<span class="kw-2">&amp;</span>b.modified),
-                    <span class="kw">_ </span>=&gt; std::cmp::Ordering::Equal,
-                });
-                <span class="prelude-val">Ok</span>(ReadDir::new(ret))
-            }
-            <span class="prelude-val">None </span>=&gt; <span class="prelude-val">Err</span>(FsError::EntryNotFound),
-        }
-    }
-
-    <span class="doccomment">/// Deletes all mount points that do not have `sanitize` set in the options
-    </span><span class="kw">pub fn </span>sanitize(<span class="kw-2">mut </span><span class="self">self</span>) -&gt; <span class="self">Self </span>{
-        <span class="self">self</span>.solidify();
-        <span class="self">self</span>.mounts.retain(|mount| !mount.should_sanitize);
-        <span class="self">self
+        <span class="prelude-val">None
     </span>}
-
-    <span class="doccomment">/// Tries to recover the internal `Weak&lt;dyn FileSystem&gt;` to a `Arc&lt;dyn FileSystem&gt;`
-    </span><span class="kw">pub fn </span>solidify(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
-        <span class="kw">for </span>mount <span class="kw">in </span><span class="self">self</span>.mounts.iter_mut() {
-            mount.solidify();
-        }
-    }
 }
 
 <span class="kw">impl </span>FileSystem <span class="kw">for </span>UnionFileSystem {
     <span class="kw">fn </span>readlink(<span class="kw-2">&amp;</span><span class="self">self</span>, path: <span class="kw-2">&amp;</span>Path) -&gt; <span class="prelude-ty">Result</span>&lt;PathBuf&gt; {
-        <span class="macro">debug!</span>(<span class="string">&quot;readlink: path={}&quot;</span>, path.display());
-        <span class="kw">let </span><span class="kw-2">mut </span>ret_error = FsError::EntryNotFound;
-        <span class="kw">let </span>path = path.to_string_lossy();
-        <span class="kw">for </span>(path_inner, mount) <span class="kw">in </span>filter_mounts(<span class="kw-2">&amp;</span><span class="self">self</span>.mounts, path.as_ref()) {
-            <span class="kw">match </span>mount.fs.readlink(Path::new(path_inner.as_str())) {
-                <span class="prelude-val">Ok</span>(ret) =&gt; {
-                    <span class="kw">return </span><span class="prelude-val">Ok</span>(ret);
-                }
-                <span class="prelude-val">Err</span>(err) =&gt; {
-                    <span class="comment">// This fixes a bug when attempting to create the directory /usr when it does not exist
-                    // on the x86 version of memfs
-                    // TODO: patch virtual-fs and remove
-                    </span><span class="kw">if let </span>FsError::NotAFile = <span class="kw-2">&amp;</span>err {
-                        ret_error = FsError::EntryNotFound;
-                    } <span class="kw">else </span>{
-                        <span class="macro">debug!</span>(<span class="string">&quot;readlink failed: (path={}) - {}&quot;</span>, path, err);
-                        ret_error = err;
-                    }
-                }
-            }
+        <span class="kw">let </span>path = <span class="self">self</span>.prepare_path(path);
+
+        <span class="kw">if </span>path.as_os_str().is_empty() {
+            <span class="prelude-val">Err</span>(FsError::NotAFile)
+        } <span class="kw">else if let </span><span class="prelude-val">Some</span>((<span class="kw">_</span>, path, fs)) = <span class="self">self</span>.find_mount(path.to_owned()) {
+            fs.readlink(<span class="kw-2">&amp;</span>path)
+        } <span class="kw">else </span>{
+            <span class="prelude-val">Err</span>(FsError::EntryNotFound)
         }
-        <span class="macro">debug!</span>(<span class="string">&quot;readlink: failed={}&quot;</span>, ret_error);
-        <span class="prelude-val">Err</span>(ret_error)
     }
 
     <span class="kw">fn </span>read_dir(<span class="kw-2">&amp;</span><span class="self">self</span>, path: <span class="kw-2">&amp;</span>Path) -&gt; <span class="prelude-ty">Result</span>&lt;ReadDir&gt; {
-        <span class="macro">debug!</span>(<span class="string">&quot;read_dir: path={}&quot;</span>, path.display());
-        <span class="self">self</span>.read_dir_internal(path)
-    }
-    <span class="kw">fn </span>create_dir(<span class="kw-2">&amp;</span><span class="self">self</span>, path: <span class="kw-2">&amp;</span>Path) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
-        <span class="macro">debug!</span>(<span class="string">&quot;create_dir: path={}&quot;</span>, path.display());
-        <span class="kw">if </span>path.parent().is_none() {
-            <span class="kw">return </span><span class="prelude-val">Err</span>(FsError::BaseNotDirectory);
-        }
-        <span class="kw">if </span><span class="self">self</span>.read_dir_internal(path).is_ok() {
-            <span class="comment">//return Err(FsError::AlreadyExists);
-            </span><span class="kw">return </span><span class="prelude-val">Ok</span>(());
-        }
+        <span class="kw">let </span>path = <span class="self">self</span>.prepare_path(path);
 
-        <span class="kw">let </span>path = path.to_string_lossy();
-        <span class="kw">let </span><span class="kw-2">mut </span>ret_error = FsError::EntryNotFound;
-        <span class="kw">for </span>(path, mount) <span class="kw">in </span>filter_mounts(<span class="kw-2">&amp;</span><span class="self">self</span>.mounts, path.as_ref()) {
-            <span class="kw">match </span>mount.fs.create_dir(Path::new(path.as_str())) {
-                <span class="prelude-val">Ok</span>(ret) =&gt; {
-                    <span class="kw">return </span><span class="prelude-val">Ok</span>(ret);
-                }
-                <span class="prelude-val">Err</span>(err) =&gt; {
-                    ret_error = err;
+        <span class="kw">if </span>path.as_os_str().is_empty() {
+            <span class="kw">let </span>entries = <span class="self">self
+                </span>.mounts
+                .iter()
+                .map(|i| DirEntry {
+                    path: PathBuf::from(<span class="string">&quot;/&quot;</span>).join(i.key()),
+                    metadata: <span class="prelude-val">Ok</span>(Metadata {
+                        ft: FileType::new_dir(),
+                        accessed: <span class="number">0</span>,
+                        created: <span class="number">0</span>,
+                        modified: <span class="number">0</span>,
+                        len: <span class="number">0</span>,
+                    }),
+                })
+                .collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
+
+            <span class="prelude-val">Ok</span>(ReadDir::new(entries))
+        } <span class="kw">else if let </span><span class="prelude-val">Some</span>((prefix, path, fs)) = <span class="self">self</span>.find_mount(path.to_owned()) {
+            <span class="kw">let </span><span class="kw-2">mut </span>entries = fs.read_dir(<span class="kw-2">&amp;</span>path)<span class="question-mark">?</span>;
+
+            <span class="kw">for </span>entry <span class="kw">in </span><span class="kw-2">&amp;mut </span>entries.data {
+                <span class="kw">let </span>path: PathBuf = entry.path.components().skip(<span class="number">1</span>).collect();
+                entry.path = PathBuf::from(<span class="string">&quot;/&quot;</span>).join(PathBuf::from(<span class="kw-2">&amp;</span>prefix).join(path));
+            }
+
+            <span class="prelude-val">Ok</span>(entries)
+        } <span class="kw">else </span>{
+            <span class="prelude-val">Err</span>(FsError::EntryNotFound)
+        }
+    }
+
+    <span class="kw">fn </span>create_dir(<span class="kw-2">&amp;</span><span class="self">self</span>, path: <span class="kw-2">&amp;</span>Path) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
+        <span class="kw">let </span>path = <span class="self">self</span>.prepare_path(path);
+
+        <span class="kw">if </span>path.as_os_str().is_empty() {
+            <span class="prelude-val">Ok</span>(())
+        } <span class="kw">else if let </span><span class="prelude-val">Some</span>((<span class="kw">_</span>, path, fs)) = <span class="self">self</span>.find_mount(path.to_owned()) {
+            <span class="kw">let </span>result = fs.create_dir(<span class="kw-2">&amp;</span>path);
+
+            <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = result {
+                <span class="kw">if </span>e == FsError::AlreadyExists {
+                    <span class="kw">return </span><span class="prelude-val">Ok</span>(());
                 }
             }
+
+            result
+        } <span class="kw">else </span>{
+            <span class="prelude-val">Err</span>(FsError::EntryNotFound)
         }
-        <span class="prelude-val">Err</span>(ret_error)
     }
     <span class="kw">fn </span>remove_dir(<span class="kw-2">&amp;</span><span class="self">self</span>, path: <span class="kw-2">&amp;</span>Path) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
-        <span class="macro">debug!</span>(<span class="string">&quot;remove_dir: path={}&quot;</span>, path.display());
-        <span class="kw">if </span>path.parent().is_none() {
-            <span class="kw">return </span><span class="prelude-val">Err</span>(FsError::BaseNotDirectory);
+        <span class="kw">let </span>path = <span class="self">self</span>.prepare_path(path);
+
+        <span class="kw">if </span>path.as_os_str().is_empty() {
+            <span class="prelude-val">Err</span>(FsError::PermissionDenied)
+        } <span class="kw">else if let </span><span class="prelude-val">Some</span>((<span class="kw">_</span>, path, fs)) = <span class="self">self</span>.find_mount(path.to_owned()) {
+            fs.remove_dir(<span class="kw-2">&amp;</span>path)
+        } <span class="kw">else </span>{
+            <span class="prelude-val">Err</span>(FsError::EntryNotFound)
         }
-        <span class="comment">// https://github.com/rust-lang/rust/issues/86442
-        // DirectoryNotEmpty is not implemented consistently
-        </span><span class="kw">if </span>path.is_dir() &amp;&amp; <span class="self">self</span>.read_dir(path).map(|s| !s.is_empty()).unwrap_or(<span class="bool-val">false</span>) {
-            <span class="kw">return </span><span class="prelude-val">Err</span>(FsError::DirectoryNotEmpty);
-        }
-        <span class="kw">let </span><span class="kw-2">mut </span>ret_error = FsError::EntryNotFound;
-        <span class="kw">let </span>path = path.to_string_lossy();
-        <span class="kw">for </span>(path, mount) <span class="kw">in </span>filter_mounts(<span class="kw-2">&amp;</span><span class="self">self</span>.mounts, path.as_ref()) {
-            <span class="kw">match </span>mount.fs.remove_dir(Path::new(path.as_str())) {
-                <span class="prelude-val">Ok</span>(ret) =&gt; {
-                    <span class="kw">return </span><span class="prelude-val">Ok</span>(ret);
-                }
-                <span class="prelude-val">Err</span>(err) =&gt; {
-                    ret_error = err;
-                }
-            }
-        }
-        <span class="prelude-val">Err</span>(ret_error)
     }
     <span class="kw">fn </span>rename&lt;<span class="lifetime">&#39;a</span>&gt;(<span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="self">self</span>, from: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>Path, to: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span>Path) -&gt; BoxFuture&lt;<span class="lifetime">&#39;a</span>, <span class="prelude-ty">Result</span>&lt;()&gt;&gt; {
-        Box::pin(<span class="kw">async </span>{
-            <span class="macro">println!</span>(<span class="string">&quot;rename: from={} to={}&quot;</span>, from.display(), to.display());
-            <span class="kw">if </span>from.parent().is_none() {
-                <span class="kw">return </span><span class="prelude-val">Err</span>(FsError::BaseNotDirectory);
+        Box::pin(<span class="kw">async move </span>{
+            <span class="kw">let </span>from = <span class="self">self</span>.prepare_path(from);
+            <span class="kw">let </span>to = <span class="self">self</span>.prepare_path(to);
+
+            <span class="kw">if </span>from.as_os_str().is_empty() {
+                <span class="prelude-val">Err</span>(FsError::PermissionDenied)
+            } <span class="kw">else if let </span><span class="prelude-val">Some</span>((prefix, path, fs)) = <span class="self">self</span>.find_mount(from.to_owned()) {
+                <span class="kw">let </span>to = to.strip_prefix(prefix).map_err(|<span class="kw">_</span>| FsError::InvalidInput)<span class="question-mark">?</span>;
+
+                <span class="kw">let </span>to = PathBuf::from(<span class="string">&quot;/&quot;</span>).join(to);
+
+                fs.rename(<span class="kw-2">&amp;</span>path, <span class="kw-2">&amp;</span>to).<span class="kw">await
+            </span>} <span class="kw">else </span>{
+                <span class="prelude-val">Err</span>(FsError::EntryNotFound)
             }
-            <span class="kw">if </span>to.parent().is_none() {
-                <span class="kw">return </span><span class="prelude-val">Err</span>(FsError::BaseNotDirectory);
-            }
-            <span class="kw">let </span><span class="kw-2">mut </span>ret_error = FsError::EntryNotFound;
-            <span class="kw">let </span>from = from.to_string_lossy();
-            <span class="kw">let </span>to = to.to_string_lossy();
-            <span class="attr">#[cfg(target_os = <span class="string">&quot;windows&quot;</span>)]
-            </span><span class="kw">let </span>to = to.replace(<span class="string">&#39;\\&#39;</span>, <span class="string">&quot;/&quot;</span>);
-            <span class="kw">for </span>(path, mount) <span class="kw">in </span>filter_mounts(<span class="kw-2">&amp;</span><span class="self">self</span>.mounts, from.as_ref()) {
-                <span class="kw">let </span><span class="kw-2">mut </span>to = <span class="kw">if </span>to.starts_with(mount.path.as_str()) {
-                    (to[mount.path.len()..]).to_string()
-                } <span class="kw">else </span>{
-                    ret_error = FsError::UnknownError;
-                    <span class="kw">continue</span>;
-                };
-                <span class="kw">if </span>!to.starts_with(<span class="string">&#39;/&#39;</span>) {
-                    to = <span class="macro">format!</span>(<span class="string">&quot;/{}&quot;</span>, to);
-                }
-                <span class="kw">match </span>mount
-                    .fs
-                    .rename(Path::new(<span class="kw-2">&amp;</span>path), Path::new(to.as_str()))
-                    .<span class="kw">await
-                </span>{
-                    <span class="prelude-val">Ok</span>(ret) =&gt; {
-                        <span class="macro">trace!</span>(<span class="string">&quot;rename ok&quot;</span>);
-                        <span class="kw">return </span><span class="prelude-val">Ok</span>(ret);
-                    }
-                    <span class="prelude-val">Err</span>(err) =&gt; {
-                        <span class="macro">trace!</span>(<span class="string">&quot;rename error (from={}, to={}) - {}&quot;</span>, from, to, err);
-                        ret_error = err;
-                    }
-                }
-            }
-            <span class="macro">trace!</span>(<span class="string">&quot;rename failed - {}&quot;</span>, ret_error);
-            <span class="prelude-val">Err</span>(ret_error)
         })
     }
     <span class="kw">fn </span>metadata(<span class="kw-2">&amp;</span><span class="self">self</span>, path: <span class="kw-2">&amp;</span>Path) -&gt; <span class="prelude-ty">Result</span>&lt;Metadata&gt; {
-        <span class="macro">debug!</span>(<span class="string">&quot;metadata: path={}&quot;</span>, path.display());
-        <span class="kw">let </span><span class="kw-2">mut </span>ret_error = FsError::EntryNotFound;
-        <span class="kw">let </span>path = path.to_string_lossy();
-        <span class="kw">for </span>(path, mount) <span class="kw">in </span>filter_mounts(<span class="kw-2">&amp;</span><span class="self">self</span>.mounts, path.as_ref()) {
-            <span class="kw">match </span>mount.fs.metadata(Path::new(path.as_str())) {
-                <span class="prelude-val">Ok</span>(ret) =&gt; {
-                    <span class="kw">return </span><span class="prelude-val">Ok</span>(ret);
-                }
-                <span class="prelude-val">Err</span>(err) =&gt; {
-                    <span class="comment">// This fixes a bug when attempting to create the directory /usr when it does not exist
-                    // on the x86 version of memfs
-                    // TODO: patch virtual-fs and remove
-                    </span><span class="kw">if let </span>FsError::NotAFile = <span class="kw-2">&amp;</span>err {
-                        ret_error = FsError::EntryNotFound;
-                    } <span class="kw">else </span>{
-                        <span class="macro">debug!</span>(<span class="string">&quot;metadata failed: (path={}) - {}&quot;</span>, path, err);
-                        ret_error = err;
-                    }
-                }
-            }
+        <span class="kw">let </span>path = <span class="self">self</span>.prepare_path(path);
+
+        <span class="kw">if </span>path.as_os_str().is_empty() {
+            <span class="prelude-val">Ok</span>(Metadata {
+                ft: FileType::new_dir(),
+                accessed: <span class="number">0</span>,
+                created: <span class="number">0</span>,
+                modified: <span class="number">0</span>,
+                len: <span class="number">0</span>,
+            })
+        } <span class="kw">else if let </span><span class="prelude-val">Some</span>((<span class="kw">_</span>, path, fs)) = <span class="self">self</span>.find_mount(path.to_owned()) {
+            fs.metadata(<span class="kw-2">&amp;</span>path)
+        } <span class="kw">else </span>{
+            <span class="prelude-val">Err</span>(FsError::EntryNotFound)
         }
-        <span class="prelude-val">Err</span>(ret_error)
     }
     <span class="kw">fn </span>symlink_metadata(<span class="kw-2">&amp;</span><span class="self">self</span>, path: <span class="kw-2">&amp;</span>Path) -&gt; <span class="prelude-ty">Result</span>&lt;Metadata&gt; {
-        <span class="macro">debug!</span>(<span class="string">&quot;symlink_metadata: path={}&quot;</span>, path.display());
-        <span class="kw">let </span><span class="kw-2">mut </span>ret_error = FsError::EntryNotFound;
-        <span class="kw">let </span>path = path.to_string_lossy();
-        <span class="kw">for </span>(path_inner, mount) <span class="kw">in </span>filter_mounts(<span class="kw-2">&amp;</span><span class="self">self</span>.mounts, path.as_ref()) {
-            <span class="kw">match </span>mount.fs.symlink_metadata(Path::new(path_inner.as_str())) {
-                <span class="prelude-val">Ok</span>(ret) =&gt; {
-                    <span class="kw">return </span><span class="prelude-val">Ok</span>(ret);
-                }
-                <span class="prelude-val">Err</span>(err) =&gt; {
-                    <span class="comment">// This fixes a bug when attempting to create the directory /usr when it does not exist
-                    // on the x86 version of memfs
-                    // TODO: patch virtual-fs and remove
-                    </span><span class="kw">if let </span>FsError::NotAFile = <span class="kw-2">&amp;</span>err {
-                        ret_error = FsError::EntryNotFound;
-                    } <span class="kw">else </span>{
-                        <span class="macro">debug!</span>(<span class="string">&quot;metadata failed: (path={}) - {}&quot;</span>, path, err);
-                        ret_error = err;
-                    }
-                }
-            }
+        <span class="kw">let </span>path = <span class="self">self</span>.prepare_path(path);
+
+        <span class="kw">if </span>path.as_os_str().is_empty() {
+            <span class="prelude-val">Ok</span>(Metadata {
+                ft: FileType::new_dir(),
+                accessed: <span class="number">0</span>,
+                created: <span class="number">0</span>,
+                modified: <span class="number">0</span>,
+                len: <span class="number">0</span>,
+            })
+        } <span class="kw">else if let </span><span class="prelude-val">Some</span>((<span class="kw">_</span>, path, fs)) = <span class="self">self</span>.find_mount(path.to_owned()) {
+            fs.symlink_metadata(<span class="kw-2">&amp;</span>path)
+        } <span class="kw">else </span>{
+            <span class="prelude-val">Err</span>(FsError::EntryNotFound)
         }
-        <span class="macro">debug!</span>(<span class="string">&quot;symlink_metadata: failed={}&quot;</span>, ret_error);
-        <span class="prelude-val">Err</span>(ret_error)
     }
     <span class="kw">fn </span>remove_file(<span class="kw-2">&amp;</span><span class="self">self</span>, path: <span class="kw-2">&amp;</span>Path) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
-        <span class="macro">println!</span>(<span class="string">&quot;remove_file: path={}&quot;</span>, path.display());
-        <span class="kw">let </span><span class="kw-2">mut </span>ret_error = FsError::EntryNotFound;
-        <span class="kw">let </span>path = path.to_string_lossy();
-        <span class="kw">for </span>(path, mount) <span class="kw">in </span>filter_mounts(<span class="kw-2">&amp;</span><span class="self">self</span>.mounts, path.as_ref()) {
-            <span class="kw">match </span>mount.fs.remove_file(Path::new(path.as_str())) {
-                <span class="prelude-val">Ok</span>(ret) =&gt; {
-                    <span class="kw">return </span><span class="prelude-val">Ok</span>(ret);
-                }
-                <span class="prelude-val">Err</span>(err) =&gt; {
-                    <span class="macro">println!</span>(<span class="string">&quot;returning error {err:?}&quot;</span>);
-                    ret_error = err;
-                }
-            }
+        <span class="kw">let </span>path = <span class="self">self</span>.prepare_path(path);
+
+        <span class="kw">if </span>path.as_os_str().is_empty() {
+            <span class="prelude-val">Err</span>(FsError::NotAFile)
+        } <span class="kw">else if let </span><span class="prelude-val">Some</span>((<span class="kw">_</span>, path, fs)) = <span class="self">self</span>.find_mount(path.to_owned()) {
+            fs.remove_file(<span class="kw-2">&amp;</span>path)
+        } <span class="kw">else </span>{
+            <span class="prelude-val">Err</span>(FsError::EntryNotFound)
         }
-        <span class="prelude-val">Err</span>(ret_error)
     }
     <span class="kw">fn </span>new_open_options(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; OpenOptions {
         OpenOptions::new(<span class="self">self</span>)
     }
+
+    <span class="kw">fn </span>mount(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        name: String,
+        path: <span class="kw-2">&amp;</span>Path,
+        fs: Box&lt;<span class="kw">dyn </span>FileSystem + Send + Sync&gt;,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
+        <span class="kw">let </span><span class="kw-2">mut </span>components = path.components().collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
+        <span class="kw">if let </span><span class="prelude-val">Some</span>(c) = components.first().copied() {
+            components.remove(<span class="number">0</span>);
+
+            <span class="kw">let </span>sub_path = components.into_iter().collect::&lt;PathBuf&gt;();
+
+            <span class="kw">if let </span><span class="prelude-val">Some</span>(mount) = <span class="self">self</span>.mounts.get(<span class="kw-2">&amp;</span>PathBuf::from(c.as_os_str())) {
+                <span class="kw">return </span>mount.fs.mount(name, sub_path.as_path(), fs);
+            }
+
+            <span class="kw">let </span>fs = <span class="kw">if </span>sub_path.components().next().is_none() {
+                fs
+            } <span class="kw">else </span>{
+                <span class="kw">let </span>union = UnionFileSystem::new();
+                union.mount(name.clone(), sub_path.as_path(), fs)<span class="question-mark">?</span>;
+
+                Box::new(union)
+            };
+
+            <span class="kw">let </span>fs = Arc::new(fs);
+
+            <span class="kw">let </span>mount = MountPoint {
+                path: PathBuf::from(c.as_os_str()),
+                name,
+                fs,
+            };
+
+            <span class="self">self</span>.mounts.insert(PathBuf::from(c.as_os_str()), mount);
+        } <span class="kw">else </span>{
+            <span class="kw">return </span><span class="prelude-val">Err</span>(FsError::EntryNotFound);
+        }
+
+        <span class="prelude-val">Ok</span>(())
+    }
 }
 
-<span class="kw">fn </span>filter_mounts(
-    mounts: <span class="kw-2">&amp;</span>[MountPoint],
-    target: <span class="kw-2">&amp;</span>str,
-) -&gt; <span class="kw">impl </span>Iterator&lt;Item = (String, StrongMountPoint)&gt; {
-    <span class="comment">// On Windows, Path might use \ instead of /, wich mill messup the matching of mount points
-    </span><span class="attr">#[cfg(target_os = <span class="string">&quot;windows&quot;</span>)]
-    </span><span class="kw">let </span>target = target.replace(<span class="string">&#39;\\&#39;</span>, <span class="string">&quot;/&quot;</span>);
-
-    <span class="kw">let </span><span class="kw-2">mut </span>biggest_path = <span class="number">0usize</span>;
-    <span class="kw">let </span><span class="kw-2">mut </span>ret = Vec::new();
-    <span class="kw">for </span>mount <span class="kw">in </span>mounts.iter().rev() {
-        <span class="kw">let </span><span class="kw-2">mut </span>test_mount_path1 = mount.path.clone();
-        <span class="kw">if </span>!test_mount_path1.ends_with(<span class="string">&#39;/&#39;</span>) {
-            test_mount_path1.push(<span class="string">&#39;/&#39;</span>);
-        }
-
-        <span class="kw">let </span><span class="kw-2">mut </span>test_mount_path2 = mount.path.clone();
-        <span class="kw">if </span>test_mount_path2.ends_with(<span class="string">&#39;/&#39;</span>) {
-            test_mount_path2 = test_mount_path2[..(test_mount_path2.len() - <span class="number">1</span>)].to_string();
-        }
-
-        <span class="kw">if </span>target == test_mount_path1 || target == test_mount_path2 {
-            <span class="kw">if let </span><span class="prelude-val">Some</span>(mount) = mount.strong() {
-                biggest_path = biggest_path.max(mount.path.len());
-                <span class="kw">let </span><span class="kw-2">mut </span>path = <span class="string">&quot;/&quot;</span>.to_string();
-                <span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">ref </span>np) = mount.new_path {
-                    path = np.to_string();
-                }
-                ret.push((path, mount));
-            }
-        } <span class="kw">else if </span>target.starts_with(test_mount_path1.as_str()) {
-            <span class="kw">if let </span><span class="prelude-val">Some</span>(mount) = mount.strong() {
-                biggest_path = biggest_path.max(mount.path.len());
-                <span class="kw">let </span>path = <span class="kw-2">&amp;</span>target[test_mount_path2.len()..];
-                <span class="kw">let </span><span class="kw-2">mut </span>path = path.to_string();
-                <span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">ref </span>np) = mount.new_path {
-                    path = <span class="macro">format!</span>(<span class="string">&quot;{}{}&quot;</span>, np, <span class="kw-2">&amp;</span>path[<span class="number">1</span>..]);
-                }
-                ret.push((path, mount));
-            }
-        }
-    }
-    ret.retain(|(<span class="kw">_</span>, b)| b.path.len() &gt;= biggest_path);
-    ret.into_iter()
+<span class="attr">#[derive(Debug)]
+</span><span class="kw">pub struct </span>MountPointRef&lt;<span class="lifetime">&#39;a</span>&gt; {
+    <span class="kw">pub </span>path: PathBuf,
+    <span class="kw">pub </span>name: String,
+    <span class="kw">pub </span>fs: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a </span><span class="kw">dyn </span>FileSystem,
 }
 
 <span class="kw">impl </span>FileOpener <span class="kw">for </span>UnionFileSystem {
@@ -1577,54 +1334,40 @@
         path: <span class="kw-2">&amp;</span>Path,
         conf: <span class="kw-2">&amp;</span>OpenOptionsConfig,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;Box&lt;<span class="kw">dyn </span>VirtualFile + Send + Sync&gt;&gt; {
-        <span class="macro">debug!</span>(<span class="string">&quot;open: path={}&quot;</span>, path.display());
-        <span class="kw">let </span><span class="kw-2">mut </span>ret_err = FsError::EntryNotFound;
-        <span class="kw">let </span>path = path.to_string_lossy();
+        <span class="kw">let </span>path = <span class="self">self</span>.prepare_path(path);
 
-        <span class="kw">if </span>conf.create() || conf.create_new() {
-            <span class="kw">for </span>(path, mount) <span class="kw">in </span>filter_mounts(<span class="kw-2">&amp;</span><span class="self">self</span>.mounts, path.as_ref()) {
-                <span class="kw">if let </span><span class="prelude-val">Ok</span>(<span class="kw-2">mut </span>ret) = mount
-                    .fs
-                    .new_open_options()
-                    .truncate(conf.truncate())
-                    .append(conf.append())
-                    .read(conf.read())
-                    .write(conf.write())
-                    .open(path)
-                {
-                    <span class="kw">if </span>conf.create_new() {
-                        ret.unlink().ok();
-                        <span class="kw">continue</span>;
-                    }
-                    <span class="kw">return </span><span class="prelude-val">Ok</span>(ret);
-                }
+        <span class="kw">if </span>path.as_os_str().is_empty() {
+            <span class="prelude-val">Err</span>(FsError::NotAFile)
+        } <span class="kw">else </span>{
+            <span class="kw">let </span>parent = path.parent().unwrap();
+            <span class="kw">let </span>file_name = path.file_name().unwrap();
+            <span class="kw">if let </span><span class="prelude-val">Some</span>((<span class="kw">_</span>, path, fs)) = <span class="self">self</span>.find_mount(parent.to_owned()) {
+                fs.new_open_options()
+                    .options(conf.clone())
+                    .open(path.join(file_name))
+            } <span class="kw">else </span>{
+                <span class="prelude-val">Err</span>(FsError::EntryNotFound)
             }
         }
-        <span class="kw">for </span>(path, mount) <span class="kw">in </span>filter_mounts(<span class="kw-2">&amp;</span><span class="self">self</span>.mounts, path.as_ref()) {
-            <span class="kw">match </span>mount.fs.new_open_options().options(conf.clone()).open(path) {
-                <span class="prelude-val">Ok</span>(ret) =&gt; <span class="kw">return </span><span class="prelude-val">Ok</span>(ret),
-                <span class="prelude-val">Err</span>(err) <span class="kw">if </span>ret_err == FsError::EntryNotFound =&gt; {
-                    ret_err = err;
-                }
-                <span class="kw">_ </span>=&gt; {}
-            }
-        }
-        <span class="prelude-val">Err</span>(ret_err)
     }
 }
 
 <span class="attr">#[cfg(test)]
 </span><span class="kw">mod </span>tests {
-    <span class="kw">use </span>std::path::Path;
+    <span class="kw">use </span>std::{
+        collections::HashSet,
+        path::{Path, PathBuf},
+    };
 
     <span class="kw">use </span>tokio::io::AsyncWriteExt;
 
-    <span class="kw">use crate</span>::{mem_fs, ops, FileSystem <span class="kw">as </span>FileSystemTrait, FsError, UnionFileSystem};
+    <span class="kw">use crate</span>::{mem_fs, FileSystem <span class="kw">as </span>FileSystemTrait, FsError, UnionFileSystem};
+
+    <span class="kw">use super</span>::{FileOpener, OpenOptionsConfig};
 
     <span class="kw">fn </span>gen_filesystem() -&gt; UnionFileSystem {
-        <span class="kw">let </span><span class="kw-2">mut </span>union = UnionFileSystem::new();
-        <span class="comment">// fs.mount(&quot;/&quot;, Box::new(mem_fs::FileSystem::default()));
-        </span><span class="kw">let </span>a = mem_fs::FileSystem::default();
+        <span class="kw">let </span>union = UnionFileSystem::new();
+        <span class="kw">let </span>a = mem_fs::FileSystem::default();
         <span class="kw">let </span>b = mem_fs::FileSystem::default();
         <span class="kw">let </span>c = mem_fs::FileSystem::default();
         <span class="kw">let </span>d = mem_fs::FileSystem::default();
@@ -1633,16 +1376,175 @@
         <span class="kw">let </span>g = mem_fs::FileSystem::default();
         <span class="kw">let </span>h = mem_fs::FileSystem::default();
 
-        union.mount(<span class="string">&quot;mem_fs_1&quot;</span>, <span class="string">&quot;/test_new_filesystem&quot;</span>, <span class="bool-val">false</span>, Box::new(a), <span class="prelude-val">None</span>);
-        union.mount(<span class="string">&quot;mem_fs_2&quot;</span>, <span class="string">&quot;/test_create_dir&quot;</span>, <span class="bool-val">false</span>, Box::new(b), <span class="prelude-val">None</span>);
-        union.mount(<span class="string">&quot;mem_fs_3&quot;</span>, <span class="string">&quot;/test_remove_dir&quot;</span>, <span class="bool-val">false</span>, Box::new(c), <span class="prelude-val">None</span>);
-        union.mount(<span class="string">&quot;mem_fs_4&quot;</span>, <span class="string">&quot;/test_rename&quot;</span>, <span class="bool-val">false</span>, Box::new(d), <span class="prelude-val">None</span>);
-        union.mount(<span class="string">&quot;mem_fs_5&quot;</span>, <span class="string">&quot;/test_metadata&quot;</span>, <span class="bool-val">false</span>, Box::new(e), <span class="prelude-val">None</span>);
-        union.mount(<span class="string">&quot;mem_fs_6&quot;</span>, <span class="string">&quot;/test_remove_file&quot;</span>, <span class="bool-val">false</span>, Box::new(f), <span class="prelude-val">None</span>);
-        union.mount(<span class="string">&quot;mem_fs_6&quot;</span>, <span class="string">&quot;/test_readdir&quot;</span>, <span class="bool-val">false</span>, Box::new(g), <span class="prelude-val">None</span>);
-        union.mount(<span class="string">&quot;mem_fs_6&quot;</span>, <span class="string">&quot;/test_canonicalize&quot;</span>, <span class="bool-val">false</span>, Box::new(h), <span class="prelude-val">None</span>);
+        union
+            .mount(
+                <span class="string">&quot;mem_fs_1&quot;</span>.to_string(),
+                PathBuf::from(<span class="string">&quot;/test_new_filesystem&quot;</span>).as_path(),
+                Box::new(a),
+            )
+            .unwrap();
+        union
+            .mount(
+                <span class="string">&quot;mem_fs_2&quot;</span>.to_string(),
+                PathBuf::from(<span class="string">&quot;/test_create_dir&quot;</span>).as_path(),
+                Box::new(b),
+            )
+            .unwrap();
+        union
+            .mount(
+                <span class="string">&quot;mem_fs_3&quot;</span>.to_string(),
+                PathBuf::from(<span class="string">&quot;/test_remove_dir&quot;</span>).as_path(),
+                Box::new(c),
+            )
+            .unwrap();
+        union
+            .mount(
+                <span class="string">&quot;mem_fs_4&quot;</span>.to_string(),
+                PathBuf::from(<span class="string">&quot;/test_rename&quot;</span>).as_path(),
+                Box::new(d),
+            )
+            .unwrap();
+        union
+            .mount(
+                <span class="string">&quot;mem_fs_5&quot;</span>.to_string(),
+                PathBuf::from(<span class="string">&quot;/test_metadata&quot;</span>).as_path(),
+                Box::new(e),
+            )
+            .unwrap();
+        union
+            .mount(
+                <span class="string">&quot;mem_fs_6&quot;</span>.to_string(),
+                PathBuf::from(<span class="string">&quot;/test_remove_file&quot;</span>).as_path(),
+                Box::new(f),
+            )
+            .unwrap();
+        union
+            .mount(
+                <span class="string">&quot;mem_fs_6&quot;</span>.to_string(),
+                PathBuf::from(<span class="string">&quot;/test_readdir&quot;</span>).as_path(),
+                Box::new(g),
+            )
+            .unwrap();
+        union
+            .mount(
+                <span class="string">&quot;mem_fs_6&quot;</span>.to_string(),
+                PathBuf::from(<span class="string">&quot;/test_canonicalize&quot;</span>).as_path(),
+                Box::new(h),
+            )
+            .unwrap();
 
         union
+    }
+
+    <span class="kw">fn </span>gen_nested_filesystem() -&gt; UnionFileSystem {
+        <span class="kw">let </span>union = UnionFileSystem::new();
+        <span class="kw">let </span>a = mem_fs::FileSystem::default();
+        a.open(
+            <span class="kw-2">&amp;</span>PathBuf::from(<span class="string">&quot;/data-a.txt&quot;</span>),
+            <span class="kw-2">&amp;</span>OpenOptionsConfig {
+                read: <span class="bool-val">true</span>,
+                write: <span class="bool-val">true</span>,
+                create_new: <span class="bool-val">false</span>,
+                create: <span class="bool-val">true</span>,
+                append: <span class="bool-val">false</span>,
+                truncate: <span class="bool-val">false</span>,
+            },
+        )
+        .unwrap();
+        <span class="kw">let </span>b = mem_fs::FileSystem::default();
+        b.open(
+            <span class="kw-2">&amp;</span>PathBuf::from(<span class="string">&quot;/data-b.txt&quot;</span>),
+            <span class="kw-2">&amp;</span>OpenOptionsConfig {
+                read: <span class="bool-val">true</span>,
+                write: <span class="bool-val">true</span>,
+                create_new: <span class="bool-val">false</span>,
+                create: <span class="bool-val">true</span>,
+                append: <span class="bool-val">false</span>,
+                truncate: <span class="bool-val">false</span>,
+            },
+        )
+        .unwrap();
+
+        union
+            .mount(
+                <span class="string">&quot;mem_fs_1&quot;</span>.to_string(),
+                PathBuf::from(<span class="string">&quot;/app/a&quot;</span>).as_path(),
+                Box::new(a),
+            )
+            .unwrap();
+        union
+            .mount(
+                <span class="string">&quot;mem_fs_2&quot;</span>.to_string(),
+                PathBuf::from(<span class="string">&quot;/app/b&quot;</span>).as_path(),
+                Box::new(b),
+            )
+            .unwrap();
+
+        union
+    }
+
+    <span class="attr">#[tokio::test]
+    </span><span class="kw">async fn </span>test_nested_read_dir() {
+        <span class="kw">let </span>fs = gen_nested_filesystem();
+
+        <span class="kw">let </span>root_contents: Vec&lt;PathBuf&gt; = fs
+            .read_dir(<span class="kw-2">&amp;</span>PathBuf::from(<span class="string">&quot;/&quot;</span>))
+            .unwrap()
+            .map(|e| e.unwrap().path.clone())
+            .collect();
+        <span class="macro">assert_eq!</span>(root_contents, <span class="macro">vec!</span>[PathBuf::from(<span class="string">&quot;/app&quot;</span>)]);
+
+        <span class="kw">let </span>app_contents: HashSet&lt;PathBuf&gt; = fs
+            .read_dir(<span class="kw-2">&amp;</span>PathBuf::from(<span class="string">&quot;/app&quot;</span>))
+            .unwrap()
+            .map(|e| e.unwrap().path)
+            .collect();
+        <span class="macro">assert_eq!</span>(
+            app_contents,
+            HashSet::from_iter([PathBuf::from(<span class="string">&quot;/app/a&quot;</span>), PathBuf::from(<span class="string">&quot;/app/b&quot;</span>)].into_iter())
+        );
+
+        <span class="kw">let </span>a_contents: Vec&lt;PathBuf&gt; = fs
+            .read_dir(<span class="kw-2">&amp;</span>PathBuf::from(<span class="string">&quot;/app/a&quot;</span>))
+            .unwrap()
+            .map(|e| e.unwrap().path.clone())
+            .collect();
+        <span class="macro">assert_eq!</span>(a_contents, <span class="macro">vec!</span>[PathBuf::from(<span class="string">&quot;/app/a/data-a.txt&quot;</span>)]);
+
+        <span class="kw">let </span>b_contents: Vec&lt;PathBuf&gt; = fs
+            .read_dir(<span class="kw-2">&amp;</span>PathBuf::from(<span class="string">&quot;/app/b&quot;</span>))
+            .unwrap()
+            .map(|e| e.unwrap().path)
+            .collect();
+        <span class="macro">assert_eq!</span>(b_contents, <span class="macro">vec!</span>[PathBuf::from(<span class="string">&quot;/app/b/data-b.txt&quot;</span>)]);
+    }
+
+    <span class="attr">#[tokio::test]
+    </span><span class="kw">async fn </span>test_nested_metadata() {
+        <span class="kw">let </span>fs = gen_nested_filesystem();
+
+        <span class="macro">assert!</span>(fs.metadata(<span class="kw-2">&amp;</span>PathBuf::from(<span class="string">&quot;/&quot;</span>)).is_ok());
+        <span class="macro">assert!</span>(fs.metadata(<span class="kw-2">&amp;</span>PathBuf::from(<span class="string">&quot;/app&quot;</span>)).is_ok());
+        <span class="macro">assert!</span>(fs.metadata(<span class="kw-2">&amp;</span>PathBuf::from(<span class="string">&quot;/app/a&quot;</span>)).is_ok());
+        <span class="macro">assert!</span>(fs.metadata(<span class="kw-2">&amp;</span>PathBuf::from(<span class="string">&quot;/app/b&quot;</span>)).is_ok());
+        <span class="macro">assert!</span>(fs.metadata(<span class="kw-2">&amp;</span>PathBuf::from(<span class="string">&quot;/app/a/data-a.txt&quot;</span>)).is_ok());
+        <span class="macro">assert!</span>(fs.metadata(<span class="kw-2">&amp;</span>PathBuf::from(<span class="string">&quot;/app/b/data-b.txt&quot;</span>)).is_ok());
+    }
+
+    <span class="attr">#[tokio::test]
+    </span><span class="kw">async fn </span>test_nested_symlink_metadata() {
+        <span class="kw">let </span>fs = gen_nested_filesystem();
+
+        <span class="macro">assert!</span>(fs.symlink_metadata(<span class="kw-2">&amp;</span>PathBuf::from(<span class="string">&quot;/&quot;</span>)).is_ok());
+        <span class="macro">assert!</span>(fs.symlink_metadata(<span class="kw-2">&amp;</span>PathBuf::from(<span class="string">&quot;/app&quot;</span>)).is_ok());
+        <span class="macro">assert!</span>(fs.symlink_metadata(<span class="kw-2">&amp;</span>PathBuf::from(<span class="string">&quot;/app/a&quot;</span>)).is_ok());
+        <span class="macro">assert!</span>(fs.symlink_metadata(<span class="kw-2">&amp;</span>PathBuf::from(<span class="string">&quot;/app/b&quot;</span>)).is_ok());
+        <span class="macro">assert!</span>(fs
+            .symlink_metadata(<span class="kw-2">&amp;</span>PathBuf::from(<span class="string">&quot;/app/a/data-a.txt&quot;</span>))
+            .is_ok());
+        <span class="macro">assert!</span>(fs
+            .symlink_metadata(<span class="kw-2">&amp;</span>PathBuf::from(<span class="string">&quot;/app/b/data-b.txt&quot;</span>))
+            .is_ok());
     }
 
     <span class="attr">#[tokio::test]
@@ -1667,19 +1569,9 @@
     </span><span class="kw">async fn </span>test_create_dir() {
         <span class="kw">let </span>fs = gen_filesystem();
 
-        <span class="macro">assert_eq!</span>(
-            fs.create_dir(Path::new(<span class="string">&quot;/&quot;</span>)),
-            <span class="prelude-val">Err</span>(FsError::BaseNotDirectory),
-            <span class="string">&quot;creating a directory that has no parent&quot;</span>,
-        );
+        <span class="macro">assert_eq!</span>(fs.create_dir(Path::new(<span class="string">&quot;/&quot;</span>)), <span class="prelude-val">Ok</span>(()),);
 
-        <span class="kw">let _ </span>= fs_extra::remove_items(<span class="kw-2">&amp;</span>[<span class="string">&quot;/test_create_dir&quot;</span>]);
-
-        <span class="macro">assert_eq!</span>(
-            fs.create_dir(Path::new(<span class="string">&quot;/test_create_dir&quot;</span>)),
-            <span class="prelude-val">Ok</span>(()),
-            <span class="string">&quot;creating a directory&quot;</span>,
-        );
+        <span class="macro">assert_eq!</span>(fs.create_dir(Path::new(<span class="string">&quot;/test_create_dir&quot;</span>)), <span class="prelude-val">Ok</span>(()));
 
         <span class="macro">assert_eq!</span>(
             fs.create_dir(Path::new(<span class="string">&quot;/test_create_dir/foo&quot;</span>)),
@@ -1724,12 +1616,10 @@
     </span><span class="kw">async fn </span>test_remove_dir() {
         <span class="kw">let </span>fs = gen_filesystem();
 
-        <span class="kw">let _ </span>= fs_extra::remove_items(<span class="kw-2">&amp;</span>[<span class="string">&quot;/test_remove_dir&quot;</span>]);
-
         <span class="macro">assert_eq!</span>(
             fs.remove_dir(Path::new(<span class="string">&quot;/&quot;</span>)),
-            <span class="prelude-val">Err</span>(FsError::BaseNotDirectory),
-            <span class="string">&quot;removing a directory that has no parent&quot;</span>,
+            <span class="prelude-val">Err</span>(FsError::PermissionDenied),
+            <span class="string">&quot;cannot remove the root directory&quot;</span>,
         );
 
         <span class="macro">assert_eq!</span>(
@@ -1738,11 +1628,7 @@
             <span class="string">&quot;cannot remove a directory that doesn&#39;t exist&quot;</span>,
         );
 
-        <span class="macro">assert_eq!</span>(
-            fs.create_dir(Path::new(<span class="string">&quot;/test_remove_dir&quot;</span>)),
-            <span class="prelude-val">Ok</span>(()),
-            <span class="string">&quot;creating a directory&quot;</span>,
-        );
+        <span class="macro">assert_eq!</span>(fs.create_dir(Path::new(<span class="string">&quot;/test_remove_dir&quot;</span>)), <span class="prelude-val">Ok</span>(()));
 
         <span class="macro">assert_eq!</span>(
             fs.create_dir(Path::new(<span class="string">&quot;/test_remove_dir/foo&quot;</span>)),
@@ -1783,8 +1669,6 @@
             !read_dir_names(<span class="kw-2">&amp;</span>fs, <span class="string">&quot;/test_remove_dir&quot;</span>).contains(<span class="kw-2">&amp;</span><span class="string">&quot;foo&quot;</span>.to_string()),
             <span class="string">&quot;the foo directory still exists&quot;
         </span>);
-
-        <span class="kw">let _ </span>= fs_extra::remove_items(<span class="kw-2">&amp;</span>[<span class="string">&quot;/test_remove_dir&quot;</span>]);
     }
 
     <span class="kw">fn </span>read_dir_names(fs: <span class="kw-2">&amp;</span><span class="kw">dyn </span><span class="kw">crate</span>::FileSystem, path: <span class="kw-2">&amp;</span>str) -&gt; Vec&lt;String&gt; {
@@ -1798,20 +1682,18 @@
     </span><span class="kw">async fn </span>test_rename() {
         <span class="kw">let </span>fs = gen_filesystem();
 
-        <span class="kw">let _ </span>= fs_extra::remove_items(<span class="kw-2">&amp;</span>[<span class="string">&quot;./test_rename&quot;</span>]);
-
         <span class="macro">assert_eq!</span>(
             fs.rename(Path::new(<span class="string">&quot;/&quot;</span>), Path::new(<span class="string">&quot;/bar&quot;</span>)).<span class="kw">await</span>,
-            <span class="prelude-val">Err</span>(FsError::BaseNotDirectory),
+            <span class="prelude-val">Err</span>(FsError::PermissionDenied),
             <span class="string">&quot;renaming a directory that has no parent&quot;</span>,
         );
         <span class="macro">assert_eq!</span>(
             fs.rename(Path::new(<span class="string">&quot;/foo&quot;</span>), Path::new(<span class="string">&quot;/&quot;</span>)).<span class="kw">await</span>,
-            <span class="prelude-val">Err</span>(FsError::BaseNotDirectory),
+            <span class="prelude-val">Err</span>(FsError::EntryNotFound),
             <span class="string">&quot;renaming to a directory that has no parent&quot;</span>,
         );
 
-        <span class="macro">assert_eq!</span>(fs.create_dir(Path::new(<span class="string">&quot;/test_rename&quot;</span>)), <span class="prelude-val">Ok</span>(()));
+        <span class="macro">assert_eq!</span>(fs.create_dir(Path::new(<span class="string">&quot;/test_rename&quot;</span>)), <span class="prelude-val">Ok</span>(()),);
         <span class="macro">assert_eq!</span>(fs.create_dir(Path::new(<span class="string">&quot;/test_rename/foo&quot;</span>)), <span class="prelude-val">Ok</span>(()));
         <span class="macro">assert_eq!</span>(fs.create_dir(Path::new(<span class="string">&quot;/test_rename/foo/qux&quot;</span>)), <span class="prelude-val">Ok</span>(()));
 
@@ -1963,15 +1845,11 @@
 
         <span class="kw">let </span>fs = gen_filesystem();
 
-        <span class="kw">let _ </span>= fs_extra::remove_items(<span class="kw-2">&amp;</span>[<span class="string">&quot;/test_metadata&quot;</span>]);
-
-        <span class="macro">assert_eq!</span>(fs.create_dir(Path::new(<span class="string">&quot;/test_metadata&quot;</span>)), <span class="prelude-val">Ok</span>(()));
-
         <span class="kw">let </span>root_metadata = fs.metadata(Path::new(<span class="string">&quot;/test_metadata&quot;</span>)).unwrap();
 
         <span class="macro">assert!</span>(root_metadata.ft.dir);
-        <span class="macro">assert!</span>(root_metadata.accessed == root_metadata.created);
-        <span class="macro">assert!</span>(root_metadata.modified == root_metadata.created);
+        <span class="macro">assert_eq!</span>(root_metadata.accessed, root_metadata.created);
+        <span class="macro">assert_eq!</span>(root_metadata.modified, root_metadata.created);
         <span class="macro">assert!</span>(root_metadata.modified &gt; <span class="number">0</span>);
 
         <span class="macro">assert_eq!</span>(fs.create_dir(Path::new(<span class="string">&quot;/test_metadata/foo&quot;</span>)), <span class="prelude-val">Ok</span>(()));
@@ -2014,10 +1892,6 @@
     <span class="attr">#[tokio::test]
     </span><span class="kw">async fn </span>test_remove_file() {
         <span class="kw">let </span>fs = gen_filesystem();
-
-        <span class="kw">let _ </span>= fs_extra::remove_items(<span class="kw-2">&amp;</span>[<span class="string">&quot;./test_remove_file&quot;</span>]);
-
-        <span class="macro">assert!</span>(fs.create_dir(Path::new(<span class="string">&quot;/test_remove_file&quot;</span>)).is_ok());
 
         <span class="macro">assert!</span>(
             fs.new_open_options()
@@ -2221,35 +2095,5 @@
         let _ = fs_extra::remove_items(&amp;[&quot;./test_canonicalize&quot;]);
     }
     */
-
-    </span><span class="attr">#[tokio::test]
-    #[ignore = <span class="string">&quot;Not yet supported. See https://github.com/wasmerio/wasmer/issues/3678&quot;</span>]
-    </span><span class="kw">async fn </span>mount_to_overlapping_directories() {
-        <span class="kw">let </span>top_level = mem_fs::FileSystem::default();
-        ops::touch(<span class="kw-2">&amp;</span>top_level, <span class="string">&quot;/file.txt&quot;</span>).unwrap();
-        <span class="kw">let </span>nested = mem_fs::FileSystem::default();
-        ops::touch(<span class="kw-2">&amp;</span>nested, <span class="string">&quot;/another-file.txt&quot;</span>).unwrap();
-
-        <span class="kw">let </span><span class="kw-2">mut </span>fs = UnionFileSystem::default();
-        fs.mount(
-            <span class="string">&quot;top-level&quot;</span>,
-            <span class="string">&quot;/&quot;</span>,
-            <span class="bool-val">false</span>,
-            Box::new(top_level),
-            <span class="prelude-val">Some</span>(<span class="string">&quot;/top-level&quot;</span>),
-        );
-        fs.mount(
-            <span class="string">&quot;nested&quot;</span>,
-            <span class="string">&quot;/&quot;</span>,
-            <span class="bool-val">false</span>,
-            Box::new(nested),
-            <span class="prelude-val">Some</span>(<span class="string">&quot;/top-level/nested&quot;</span>),
-        );
-
-        <span class="macro">assert!</span>(ops::is_dir(<span class="kw-2">&amp;</span>fs, <span class="string">&quot;/top-level&quot;</span>));
-        <span class="macro">assert!</span>(ops::is_file(<span class="kw-2">&amp;</span>fs, <span class="string">&quot;/top-level/file.txt&quot;</span>));
-        <span class="macro">assert!</span>(ops::is_dir(<span class="kw-2">&amp;</span>fs, <span class="string">&quot;/top-level/nested&quot;</span>));
-        <span class="macro">assert!</span>(ops::is_file(<span class="kw-2">&amp;</span>fs, <span class="string">&quot;/top-level/nested/another-file.txt&quot;</span>));
-    }
-}
+</span>}
 </code></pre></div></section></main></body></html>

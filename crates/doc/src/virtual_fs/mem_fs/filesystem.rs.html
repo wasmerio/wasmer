@@ -1942,12 +1942,22 @@
 <a href="#1942" id="1942">1942</a>
 <a href="#1943" id="1943">1943</a>
 <a href="#1944" id="1944">1944</a>
+<a href="#1945" id="1945">1945</a>
+<a href="#1946" id="1946">1946</a>
+<a href="#1947" id="1947">1947</a>
+<a href="#1948" id="1948">1948</a>
+<a href="#1949" id="1949">1949</a>
+<a href="#1950" id="1950">1950</a>
+<a href="#1951" id="1951">1951</a>
+<a href="#1952" id="1952">1952</a>
+<a href="#1953" id="1953">1953</a>
+<a href="#1954" id="1954">1954</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! This module contains the [`FileSystem`] type itself.
 
 </span><span class="kw">use </span><span class="self">self</span>::offloaded_file::OffloadBackingStore;
 
 <span class="kw">use super</span>::<span class="kw-2">*</span>;
-<span class="kw">use crate</span>::{DirEntry, FileSystem <span class="kw">as _</span>, FileType, FsError, Metadata, OpenOptions, ReadDir, <span class="prelude-ty">Result</span>};
+<span class="kw">use crate</span>::{DirEntry, FileType, FsError, Metadata, OpenOptions, ReadDir, <span class="prelude-ty">Result</span>};
 <span class="kw">use </span>futures::future::{BoxFuture, Either};
 <span class="kw">use </span>slab::Slab;
 <span class="kw">use </span>std::collections::VecDeque;
@@ -2623,6 +2633,16 @@
 
     <span class="kw">fn </span>new_open_options(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; OpenOptions {
         OpenOptions::new(<span class="self">self</span>)
+    }
+
+    <span class="kw">fn </span>mount(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        _name: String,
+        path: <span class="kw-2">&amp;</span>Path,
+        fs: Box&lt;<span class="kw">dyn </span><span class="kw">crate</span>::FileSystem + Send + Sync&gt;,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
+        <span class="kw">let </span>fs: Arc&lt;<span class="kw">dyn </span><span class="kw">crate</span>::FileSystem + Send + Sync&gt; = Arc::new(fs);
+        <span class="self">self</span>.mount(path.to_owned(), <span class="kw-2">&amp;</span>fs, PathBuf::from(<span class="string">&quot;/&quot;</span>))
     }
 }
 
