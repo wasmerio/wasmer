@@ -214,7 +214,7 @@ pub async fn get_app_volumes(
 /// Retrieved with [`get_app_s3_credentials`].
 #[derive(Clone)]
 pub struct AppS3Credentials {
-    pub domain: String,
+    pub url: String,
     pub access_key: String,
     pub secret_key: String,
 }
@@ -262,7 +262,7 @@ pub async fn get_app_s3_credentials(
         .with_context(|| format!("No value found for secret with name '{}'", SECRET_KEY_NAME))?;
 
     Ok(AppS3Credentials {
-        domain: url.0,
+        url: url.0,
         access_key,
         secret_key,
     })
