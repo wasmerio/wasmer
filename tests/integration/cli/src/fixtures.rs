@@ -8,6 +8,12 @@ pub fn resources() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR")).join("resources")
 }
 
+pub fn packages() -> PathBuf {
+    Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("tests")
+        .join("packages")
+}
+
 pub fn php() -> (PathBuf, PathBuf, PathBuf) {
     let root = Path::new(env!("CARGO_MANIFEST_DIR"));
     let resources = resources().join("php");
