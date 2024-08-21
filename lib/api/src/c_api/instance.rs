@@ -37,6 +37,15 @@ impl InstanceHandle {
         module: *mut wasm_module_t,
         mut externs: Vec<VMExtern>,
     ) -> Result<Self, InstantiationError> {
+        // Check if the thread env was already initialised.
+        unsafe {
+            if !wasm_runtime_thread_env_inited() {
+                if !wasm_runtime_init_thread_env() {
+                    panic!("Failed to initialize the thread environment!");
+                }
+            }
+        }
+
         let mut imports = unsafe {
             let mut vec = Default::default();
             wasm_extern_vec_new(&mut vec, externs.len(), externs.as_ptr());
@@ -63,15 +72,6 @@ impl InstanceHandle {
 
         if instance.is_null() {
             let trap = Trap::from(trap);
-        }
-
-        // Check if the thread env was already initialised.
-        unsafe {
-            if !wasm_runtime_thread_env_inited() {
-                if !wasm_runtime_init_thread_env() {
-                    panic!("Failed to initialize the thread environment!");
-                }
-            }
         }
 
         Ok(InstanceHandle(instance))

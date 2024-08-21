@@ -17,7 +17,7 @@ fn typed_host_function_closure_panics() -> Result<(), String> {
 fn typed_with_env_host_function_closure_panics() -> Result<(), String> {
     let mut store = Store::default();
     let env: i32 = 4;
-    let mut env = FunctionEnv::new(&mut store, env);
+    let env = FunctionEnv::new(&mut store, env);
     let state = 3;
     Function::new_typed_with_env(
         &mut store,
@@ -52,7 +52,7 @@ fn non_typed_functions_and_closures_with_no_env_work() -> anyhow::Result<()> {
 )"#;
     let module = Module::new(&store, wat).unwrap();
     let env: i32 = 10;
-    let mut env = FunctionEnv::new(&mut store, env);
+    let env = FunctionEnv::new(&mut store, env);
     let ty = FunctionType::new(vec![Type::I32, Type::I32], vec![Type::I32]);
     let captured_by_closure = 20;
     let import_object = imports! {

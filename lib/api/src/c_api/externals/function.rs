@@ -107,7 +107,6 @@ impl Function {
             vec
         };
 
-        std::mem::forget(param_types);
 
         let results = fn_ty.results();
         let mut result_types = results
@@ -124,7 +123,6 @@ impl Function {
             vec
         };
 
-        std::mem::forget(result_types);
 
         let wasm_functype = unsafe {
             wasm_functype_new(
@@ -180,12 +178,10 @@ impl Function {
             .collect::<Vec<_>>();
 
         let mut wasm_param_types = unsafe {
-            let vec = &mut wasm_valtype_vec_t::default() as *mut _;
-            wasm_valtype_vec_new(vec, param_types.len(), param_types.as_ptr());
+            let mut vec = Default::default();
+            wasm_valtype_vec_new(&mut vec, param_types.len(), param_types.as_ptr());
             vec
         };
-
-        std::mem::forget(param_types);
 
         let mut result_types = Rets::wasm_types()
             .into_iter()
@@ -196,14 +192,13 @@ impl Function {
             .collect::<Vec<_>>();
 
         let mut wasm_result_types = unsafe {
-            let vec = &mut wasm_valtype_vec_t::default() as *mut _;
-            wasm_valtype_vec_new(vec, result_types.len(), result_types.as_ptr());
+            let mut vec = Default::default();
+            wasm_valtype_vec_new(&mut vec, result_types.len(), result_types.as_ptr());
             vec
         };
 
-        std::mem::forget(result_types);
-
-        let wasm_functype = unsafe { wasm_functype_new(wasm_param_types, wasm_result_types) };
+        let wasm_functype =
+            unsafe { wasm_functype_new(&mut wasm_param_types, &mut wasm_result_types) };
 
         let mut store = store.as_store_mut();
         let inner = store.inner.store.inner;
@@ -265,7 +260,6 @@ impl Function {
             vec
         };
 
-        std::mem::forget(param_types);
 
         let mut result_types = Rets::wasm_types()
             .into_iter()
@@ -280,8 +274,6 @@ impl Function {
             wasm_valtype_vec_new(&mut vec, result_types.len(), result_types.as_ptr());
             vec
         };
-
-        std::mem::forget(result_types);
 
         let wasm_functype = unsafe {
             wasm_functype_new(
@@ -326,7 +318,6 @@ impl Function {
     }
 
     pub fn ty(&self, _store: &impl AsStoreRef) -> FunctionType {
-        // unimplemented!();
         let type_ = unsafe { wasm_func_type(self.handle) };
         let params: *const wasm_valtype_vec_t = unsafe { wasm_functype_params(type_) };
         let returns: *const wasm_valtype_vec_t = unsafe { wasm_functype_results(type_) };

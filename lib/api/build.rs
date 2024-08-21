@@ -32,9 +32,10 @@ fn main() {
                 },
             )
             .define("WAMR_BUILD_AOT", "0")
-            //.define("WAMR_BUILD_LOAD_CUSTOM_SECTION", "1")
-            //.define("WAMR_BUILD_CUSTOM_NAME_SECTION", "1")
             //.define("WAMR_BUILD_TAIL_CALL", "1")
+            //.define("WAMR_BUILD_DUMP_CALL_STACK", "1")
+            // .define("WAMR_BUILD_CUSTOM_NAME_SECTION", "1")
+            // .define("WAMR_BUILD_LOAD_CUSTOM_SECTION", "1")
             .define("WAMR_BUILD_BULK_MEMORY", "1")
             .define("WAMR_BUILD_REF_TYPES", "1")
             .define("WAMR_BUILD_SIMD", "1")
@@ -42,17 +43,10 @@ fn main() {
             .define("WAMR_BUILD_LIB_PTHREAD", "1")
             .define("WAMR_BUILD_LIB_WASI_THREADS", "0")
             .define("WAMR_BUILD_LIBC_WASI", "0")
-            .define("WAMR_BUILD_LIBC_BUILTIN", "1")
+            .define("WAMR_BUILD_LIBC_BUILTIN", "0")
             .define("WAMR_BUILD_SHARED_MEMORY", "1")
-            //.define("WAMR_BUILD_MULTI_MODULE", "1")
-            .define(
-                "WAMR_DISABLE_HW_BOUND_CHECK",
-                if cfg!(target_os = "macos") && cfg!(target_arch = "aarch64") {
-                    "1"
-                } else {
-                    "0"
-                },
-            )
+            .define("WAMR_BUILD_MULTI_MODULE", "0")
+            .define("WAMR_DISABLE_HW_BOUND_CHECK", "1")
             .build();
 
         // Check output of `cargo build --verbose`, should see something like:
