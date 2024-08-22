@@ -23,6 +23,7 @@ impl MemFileJournal {
             file: RwLock::new(
                 std::fs::OpenOptions::new()
                     .create(true)
+                    .truncate(false)
                     .write(true)
                     .open(path)?,
             ),

@@ -293,8 +293,8 @@ pub fn translate_operator<FE: FuncEnvironment + ?Sized>(
 
             let next_block = builder.create_block();
             let (params, results) = module_translation_state.blocktype_params_results(blockty)?;
-            let results: Vec<_> = results.iter().map(|c| c.clone()).collect();
-            let (destination, else_data) = if params == &results {
+            let results: Vec<_> = results.iter().copied().collect();
+            let (destination, else_data) = if params == results {
                 // It is possible there is no `else` block, so we will only
                 // allocate a block for it if/when we find the `else`. For now,
                 // we if the condition isn't true, then we jump directly to the
@@ -321,7 +321,7 @@ pub fn translate_operator<FE: FuncEnvironment + ?Sized>(
                 // The `if` type signature is not valid without an `else` block,
                 // so we eagerly allocate the `else` block here.
                 let destination = block_with_params(builder, results.iter(), environ)?;
-                let else_block = block_with_params(builder, params.into_iter(), environ)?;
+                let else_block = block_with_params(builder, params.iter(), environ)?;
                 canonicalise_brif(
                     builder,
                     val,
@@ -589,7 +589,7 @@ pub fn translate_operator<FE: FuncEnvironment + ?Sized>(
             };
             {
                 let return_args = state.peekn_mut(return_count);
-                environ.handle_before_return(&return_args, builder);
+                environ.handle_before_return(return_args, builder);
                 bitcast_wasm_returns(environ, return_args, builder);
                 builder.ins().return_(return_args);
             }
@@ -2743,10 +2743,7 @@ fn translate_atomic_rmw<FE: FuncEnvironment + ?Sized>(
             ))
         }
     };
-    let w_ty_ok = match widened_ty {
-        I32 | I64 => true,
-        _ => false,
-    };
+    let w_ty_ok = matches!(widened_ty, I32 | I64);
     assert!(w_ty_ok && widened_ty.bytes() >= access_ty.bytes());
 
     assert!(arg2_ty.bytes() >= access_ty.bytes());
@@ -2795,10 +2792,7 @@ fn translate_atomic_cas<FE: FuncEnvironment + ?Sized>(
             ))
         }
     };
-    let w_ty_ok = match widened_ty {
-        I32 | I64 => true,
-        _ => false,
-    };
+    let w_ty_ok = matches!(widened_ty, I32 | I64);
     assert!(w_ty_ok && widened_ty.bytes() >= access_ty.bytes());
 
     assert!(expected_ty.bytes() >= access_ty.bytes());
@@ -2847,10 +2841,7 @@ fn translate_atomic_load<FE: FuncEnvironment + ?Sized>(
             ))
         }
     };
-    let w_ty_ok = match widened_ty {
-        I32 | I64 => true,
-        _ => false,
-    };
+    let w_ty_ok = matches!(widened_ty, I32 | I64);
     assert!(w_ty_ok && widened_ty.bytes() >= access_ty.bytes());
 
     let (flags, _, addr) = unwrap_or_return_unreachable_state!(
@@ -2892,10 +2883,7 @@ fn translate_atomic_store<FE: FuncEnvironment + ?Sized>(
             ))
         }
     };
-    let d_ty_ok = match data_ty {
-        I32 | I64 => true,
-        _ => false,
-    };
+    let d_ty_ok = matches!(data_ty, I32 | I64);
     assert!(d_ty_ok && data_ty.bytes() >= access_ty.bytes());
 
     if data_ty.bytes() > access_ty.bytes() {
@@ -3374,7 +3362,7 @@ pub fn bitcast_wasm_params<FE: FuncEnvironment + ?Sized>(
 ) {
     let callee_signature = &builder.func.dfg.signatures[callee_signature];
     let changes = bitcast_arguments(builder, arguments, &callee_signature.params, |i| {
-        environ.is_wasm_parameter(&callee_signature, i)
+        environ.is_wasm_parameter(callee_signature, i)
     });
     for (t, arg) in changes {
         let mut flags = MemFlags::new();

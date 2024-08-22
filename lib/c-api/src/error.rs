@@ -54,7 +54,7 @@ use std::ptr::{self, NonNull};
 use std::slice;
 
 thread_local! {
-    static LAST_ERROR: RefCell<Option<String>> = RefCell::new(None);
+    static LAST_ERROR: RefCell<Option<String>> = const { RefCell::new(None) };
 }
 
 /// Rust function to register a new error.

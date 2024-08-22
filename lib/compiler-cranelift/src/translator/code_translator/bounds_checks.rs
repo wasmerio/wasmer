@@ -226,7 +226,7 @@ where
         //
         //            index + offset + access_size > bound
         //        ==> index > bound - (offset + access_size)
-        HeapStyle::Dynamic { bound_gv } if offset_and_size <= heap.min_size.into() => {
+        HeapStyle::Dynamic { bound_gv } if offset_and_size <= heap.min_size => {
             let bound = get_dynamic_heap_bound(builder, env, heap);
             let adjustment = offset_and_size as i64;
             let adjustment_value = builder.ins().iconst(env.pointer_type(), adjustment);
@@ -320,7 +320,7 @@ where
         // 1. First special case: trap immediately if `offset + access_size >
         //    bound`, since we will end up being out-of-bounds regardless of the
         //    given `index`.
-        HeapStyle::Static { bound } if offset_and_size > bound.into() => {
+        HeapStyle::Static { bound } if offset_and_size > bound => {
             assert!(
                 can_use_virtual_memory,
                 "static memories require the ability to use virtual memory"
@@ -371,8 +371,7 @@ where
         HeapStyle::Static { bound }
             if can_use_virtual_memory
                 && heap.index_type == ir::types::I32
-                && u64::from(u32::MAX)
-                    <= u64::from(bound) + u64::from(heap.offset_guard_size) - offset_and_size =>
+                && u64::from(u32::MAX) <= bound + heap.offset_guard_size - offset_and_size =>
         {
             assert!(
                 can_use_virtual_memory,
@@ -384,10 +383,7 @@ where
                 env.pointer_type(),
                 index,
                 offset,
-                AddrPcc::static32(
-                    heap.memory_type,
-                    u64::from(bound) + u64::from(heap.offset_guard_size),
-                ),
+                AddrPcc::static32(heap.memory_type, bound + heap.offset_guard_size),
             ))
         }
 
@@ -409,7 +405,7 @@ where
             );
             // NB: this subtraction cannot wrap because we didn't hit the first
             // special case.
-            let adjusted_bound = u64::from(bound) - offset_and_size;
+            let adjusted_bound = bound - offset_and_size;
             let adjusted_bound_value = builder
                 .ins()
                 .iconst(env.pointer_type(), adjusted_bound as i64);
@@ -433,7 +429,7 @@ where
                 offset,
                 access_size,
                 spectre_mitigations_enabled,
-                AddrPcc::static32(heap.memory_type, u64::from(bound)),
+                AddrPcc::static32(heap.memory_type, bound),
                 oob,
             ))
         }
@@ -541,10 +537,10 @@ enum AddrPcc {
 }
 impl AddrPcc {
     fn static32(memory_type: Option<ir::MemoryType>, size: u64) -> Option<Self> {
-        memory_type.map(|ty| AddrPcc::Static32(ty, size))
+        memory_type.map(|ty| Self::Static32(ty, size))
     }
     fn dynamic(memory_type: Option<ir::MemoryType>, bound: ir::GlobalValue) -> Option<Self> {
-        memory_type.map(|ty| AddrPcc::Dynamic(ty, bound))
+        memory_type.map(|ty| Self::Dynamic(ty, bound))
     }
 }
 
@@ -553,6 +549,7 @@ impl AddrPcc {
 ///
 /// This function deduplicates explicit bounds checks and Spectre mitigations
 /// that inherently also implement bounds checking.
+#[allow(clippy::too_many_arguments)]
 fn explicit_check_oob_condition_and_compute_addr(
     pos: &mut FuncCursor,
     heap: &HeapData,

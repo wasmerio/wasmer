@@ -9,7 +9,7 @@
     rustdoc::broken_intra_doc_links
 )]
 #![warn(unused_import_braces)]
-#![allow(clippy::new_without_default, clippy::vtable_address_comparisons)]
+#![allow(clippy::new_without_default, ambiguous_wide_pointer_comparisons)]
 #![warn(
     clippy::float_arithmetic,
     clippy::mut_mut,

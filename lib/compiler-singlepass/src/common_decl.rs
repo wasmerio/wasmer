@@ -193,7 +193,7 @@ impl MachineState {
             .chain(
                 old.prev_frame
                     .iter()
-                    .filter(|(k, _)| self.prev_frame.get(k).is_none())
+                    .filter(|(k, _)| !self.prev_frame.contains_key(k))
                     .map(|(&k, _)| (k, None)),
             )
             .collect();

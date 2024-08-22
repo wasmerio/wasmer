@@ -153,26 +153,10 @@ impl WasiInstanceHandles {
             .any(|f| f.name() == "stack_checkpoint");
         WasiInstanceHandles {
             memory,
-            stack_pointer: instance
-                .exports
-                .get_global("__stack_pointer")
-                .map(|a| a.clone())
-                .ok(),
-            data_end: instance
-                .exports
-                .get_global("__data_end")
-                .map(|a| a.clone())
-                .ok(),
-            stack_low: instance
-                .exports
-                .get_global("__stack_low")
-                .map(|a| a.clone())
-                .ok(),
-            stack_high: instance
-                .exports
-                .get_global("__stack_high")
-                .map(|a| a.clone())
-                .ok(),
+            stack_pointer: instance.exports.get_global("__stack_pointer").cloned().ok(),
+            data_end: instance.exports.get_global("__data_end").cloned().ok(),
+            stack_low: instance.exports.get_global("__stack_low").cloned().ok(),
+            stack_high: instance.exports.get_global("__stack_high").cloned().ok(),
             start: instance.exports.get_typed_function(store, "_start").ok(),
             initialize: instance
                 .exports

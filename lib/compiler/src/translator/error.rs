@@ -8,7 +8,7 @@ macro_rules! wasm_unsupported {
     ($($arg:tt)*) => { wasmer_types::WasmError::Unsupported(format!($($arg)*)) }
 }
 
-///
+/// Make a [`WasmError`] out of a [`BinaryReaderError`].
 pub fn from_binaryreadererror_wasmerror(original: BinaryReaderError) -> WasmError {
     WasmError::InvalidWebAssembly {
         message: original.message().into(),
@@ -16,7 +16,7 @@ pub fn from_binaryreadererror_wasmerror(original: BinaryReaderError) -> WasmErro
     }
 }
 
-///
+/// Make a [`CompileError`] out of a [`BinaryReaderError`].
 #[allow(dead_code)]
 pub fn from_binaryreadererror_compileerror(original: BinaryReaderError) -> CompileError {
     // BinaryReaderError -> WasmError -> CompileError

@@ -748,7 +748,7 @@ impl VMContext {
     }
 }
 
-///
+/// The type for tramplines in the VM.
 pub type VMTrampoline = unsafe extern "C" fn(
     *mut VMContext,        // callee vmctx
     *const VMFunctionBody, // function we're actually calling

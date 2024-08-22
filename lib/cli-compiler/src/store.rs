@@ -348,14 +348,18 @@ impl CompilerType {
     }
 }
 
-impl ToString for CompilerType {
-    fn to_string(&self) -> String {
-        match self {
-            Self::Singlepass => "singlepass".to_string(),
-            Self::Cranelift => "cranelift".to_string(),
-            Self::LLVM => "llvm".to_string(),
-            Self::Headless => "headless".to_string(),
-        }
+impl std::fmt::Display for CompilerType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}",
+            match self {
+                Self::Singlepass => "singlepass",
+                Self::Cranelift => "cranelift",
+                Self::LLVM => "llvm",
+                Self::Headless => "headless",
+            }
+        )
     }
 }
 

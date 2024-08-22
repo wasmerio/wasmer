@@ -436,7 +436,7 @@ fn mach_reloc_to_reloc(module: &ModuleInfo, reloc: &FinalizedMachReloc) -> Reloc
                 .expect("The provided function should be local"),
         )
     } else if let ExternalName::LibCall(libcall) = name {
-        RelocationTarget::LibCall(irlibcall_to_libcall(libcall.clone()))
+        RelocationTarget::LibCall(irlibcall_to_libcall(*libcall))
     } else {
         panic!("unrecognized external target")
     };

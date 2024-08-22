@@ -22,8 +22,8 @@ impl TableSize {
     /// Get a CLIF value representing the current bounds of this table.
     pub fn bound(&self, mut pos: FuncCursor, index_ty: ir::Type) -> ir::Value {
         match *self {
-            TableSize::Static { bound } => pos.ins().iconst(index_ty, Imm64::new(i64::from(bound))),
-            TableSize::Dynamic { bound_gv } => pos.ins().global_value(index_ty, bound_gv),
+            Self::Static { bound } => pos.ins().iconst(index_ty, Imm64::new(i64::from(bound))),
+            Self::Dynamic { bound_gv } => pos.ins().global_value(index_ty, bound_gv),
         }
     }
 }

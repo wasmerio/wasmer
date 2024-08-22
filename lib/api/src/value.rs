@@ -1,15 +1,10 @@
-use std::convert::TryFrom;
-use std::fmt;
-use std::string::{String, ToString};
-
-use wasmer_types::Type;
-
+use crate::store::AsStoreRef;
 use crate::vm::{VMExternRef, VMFuncRef};
-
 use crate::ExternRef;
 use crate::Function;
-
-use crate::store::AsStoreRef;
+use std::convert::TryFrom;
+use std::fmt;
+use wasmer_types::Type;
 
 pub use wasmer_types::RawValue;
 
@@ -175,17 +170,21 @@ impl fmt::Debug for Value {
     }
 }
 
-impl ToString for Value {
-    fn to_string(&self) -> String {
-        match self {
-            Self::I32(v) => v.to_string(),
-            Self::I64(v) => v.to_string(),
-            Self::F32(v) => v.to_string(),
-            Self::F64(v) => v.to_string(),
-            Self::ExternRef(_) => "externref".to_string(),
-            Self::FuncRef(_) => "funcref".to_string(),
-            Self::V128(v) => v.to_string(),
-        }
+impl fmt::Display for Value {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "{}",
+            match self {
+                Self::I32(v) => v.to_string(),
+                Self::I64(v) => v.to_string(),
+                Self::F32(v) => v.to_string(),
+                Self::F64(v) => v.to_string(),
+                Self::ExternRef(_) => "externref".to_string(),
+                Self::FuncRef(_) => "funcref".to_string(),
+                Self::V128(v) => v.to_string(),
+            }
+        )
     }
 }
 

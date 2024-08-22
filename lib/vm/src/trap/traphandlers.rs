@@ -710,8 +710,8 @@ where
 // We also do per-thread signal stack initialization on the first time
 // TRAP_HANDLER is accessed.
 thread_local! {
-    static YIELDER: Cell<Option<NonNull<Yielder<(), UnwindReason>>>> = Cell::new(None);
-    static TRAP_HANDLER: AtomicPtr<TrapHandlerContext> = AtomicPtr::new(ptr::null_mut());
+    static YIELDER: Cell<Option<NonNull<Yielder<(), UnwindReason>>>> = const { Cell::new(None) };
+    static TRAP_HANDLER: AtomicPtr<TrapHandlerContext> = const { AtomicPtr::new(ptr::null_mut()) };
 }
 
 /// Read-only information that is used by signal handlers to handle and recover
