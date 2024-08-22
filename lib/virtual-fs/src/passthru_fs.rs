@@ -53,6 +53,15 @@ impl FileSystem for PassthruFileSystem {
     fn new_open_options(&self) -> OpenOptions {
         self.fs.new_open_options()
     }
+
+    fn mount(
+        &self,
+        _name: String,
+        _path: &Path,
+        _fs: Box<dyn FileSystem + Send + Sync>,
+    ) -> Result<()> {
+        Err(FsError::Unsupported)
+    }
 }
 
 #[cfg(test)]

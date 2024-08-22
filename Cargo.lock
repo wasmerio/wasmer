@@ -1260,6 +1260,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "dashmap"
+version = "6.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "804c8821570c3f8b70230c2ba75ffa5c0f9a4189b9a432b6656c536712acae28"
+dependencies = [
+ "cfg-if 1.0.0",
+ "crossbeam-utils 0.8.20",
+ "hashbrown 0.14.5",
+ "lock_api 0.4.12",
+ "once_cell",
+ "parking_lot_core 0.9.10",
+]
+
+[[package]]
 name = "data-encoding"
 version = "2.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4766,7 +4780,7 @@ version = "2.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0e56dd856803e253c8f298af3f4d7eb0ae5e23a737252cd90bb4f3b435033b2d"
 dependencies = [
- "dashmap",
+ "dashmap 5.5.3",
  "futures 0.3.30",
  "lazy_static",
  "log 0.4.22",
@@ -6065,6 +6079,7 @@ dependencies = [
  "anyhow",
  "async-trait",
  "bytes 1.7.1",
+ "dashmap 6.0.1",
  "derivative",
  "dunce",
  "filetime",
@@ -7135,7 +7150,7 @@ dependencies = [
  "cfg-if 1.0.0",
  "corosensei",
  "crossbeam-queue 0.3.11",
- "dashmap",
+ "dashmap 6.0.1",
  "derivative",
  "enum-iterator",
  "fnv",
@@ -7169,7 +7184,7 @@ dependencies = [
  "cfg-if 1.0.0",
  "chrono",
  "cooked-waker",
- "dashmap",
+ "dashmap 6.0.1",
  "derivative",
  "futures 0.3.30",
  "getrandom",

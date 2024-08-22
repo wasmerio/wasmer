@@ -633,6 +633,7 @@ mod queries {
     #[derive(cynic::QueryVariables, Debug)]
     pub struct GetCurrentUserWithAppsVars {
         pub after: Option<String>,
+        pub sort: Option<DeployAppsSortBy>,
     }
 
     #[derive(cynic::QueryFragment, Debug)]
@@ -647,7 +648,7 @@ mod queries {
     pub struct UserWithApps {
         pub id: cynic::Id,
         pub username: String,
-        #[arguments(after: $after)]
+        #[arguments(after: $after, sortBy: $sort)]
         pub apps: DeployAppConnection,
     }
 
@@ -688,6 +689,26 @@ mod queries {
     pub struct GetDeployApp {
         #[arguments(owner: $owner, name: $name)]
         pub get_deploy_app: Option<DeployApp>,
+    }
+
+    #[derive(cynic::QueryFragment, Debug)]
+    #[cynic(graphql_type = "Query", variables = "GetDeployAppVars")]
+    pub struct GetDeployAppS3Credentials {
+        #[arguments(owner: $owner, name: $name)]
+        pub get_deploy_app: Option<AppWithS3Credentials>,
+    }
+
+    #[derive(cynic::QueryFragment, Debug)]
+    #[cynic(graphql_type = "DeployApp", variables = "GetDeployAppVars")]
+    pub struct AppWithS3Credentials {
+        pub s3_credentials: Option<S3Credentials>,
+    }
+
+    #[derive(cynic::QueryFragment, Debug)]
+    pub struct S3Credentials {
+        pub access_key: String,
+        pub secret_key: String,
+        pub endpoint: String,
     }
 
     #[derive(cynic::QueryVariables, Debug, Clone)]
@@ -804,7 +825,7 @@ mod queries {
     pub struct AppVersionVolume {
         pub name: String,
         pub size: Option<i32>,
-        pub used_size: Option<i32>,
+        pub used_size: Option<BigInt>,
     }
 
     #[derive(cynic::QueryFragment, Debug)]
@@ -1030,6 +1051,8 @@ mod queries {
         pub config: String,
         pub json_config: String,
         pub url: String,
+        pub disabled_at: Option<DateTime>,
+        pub disabled_reason: Option<String>,
 
         pub app: Option<SparseDeployApp>,
     }
@@ -1102,6 +1125,7 @@ mod queries {
     pub struct GetNamespaceAppsVars {
         pub name: String,
         pub after: Option<String>,
+        pub sort: Option<DeployAppsSortBy>,
     }
 
     #[derive(cynic::QueryFragment, Debug)]
@@ -1117,7 +1141,7 @@ mod queries {
     pub struct NamespaceWithApps {
         pub id: cynic::Id,
         pub name: String,
-        #[arguments(after: $after)]
+        #[arguments(after: $after, sortBy: $sort)]
         pub apps: DeployAppConnection,
     }
 

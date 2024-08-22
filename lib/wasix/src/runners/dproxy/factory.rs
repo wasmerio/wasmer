@@ -64,9 +64,10 @@ impl DProxyInstanceFactory {
             .clone()
             .into_iter()
             .map(|journal| {
-                let tx = Box::new(journal.clone());
+                let tx = journal.clone();
                 let rx = journal.as_restarted()?;
-                anyhow::Result::Ok(Arc::new(RecombinedJournal::new(tx, rx)) as Arc<DynJournal>)
+                let combined = RecombinedJournal::new(tx, rx);
+                anyhow::Result::Ok(Arc::new(combined) as Arc<DynJournal>)
             })
             .collect::<anyhow::Result<Vec<_>>>()?;
         let mut runtime = OverriddenRuntime::new(runtime).with_journals(journals);

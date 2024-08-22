@@ -10,6 +10,7 @@ repository.workspace = true
 rust-version.workspace = true
 
 [dependencies]
+dashmap.workspace = true
 dunce = "1.0.4"
 anyhow = { version = "1.0.66", optional = true }
 async-trait = { version = "^0.1" }

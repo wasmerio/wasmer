@@ -96,4 +96,13 @@ impl FileSystem for TmpFileSystem {
     fn new_open_options(&self) -> OpenOptions {
         self.fs.new_open_options()
     }
+
+    fn mount(
+        &self,
+        name: String,
+        path: &Path,
+        fs: Box<dyn FileSystem + Send + Sync>,
+    ) -> Result<()> {
+        FileSystem::mount(&self.fs, name, path, fs)
+    }
 }

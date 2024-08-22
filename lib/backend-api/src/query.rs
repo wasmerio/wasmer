@@ -209,63 +209,29 @@ pub async fn get_app_volumes(
     Ok(volumes)
 }
 
-/// S3 credentials for an app.
-///
-/// Retrieved with [`get_app_s3_credentials`].
-#[derive(Clone)]
-pub struct AppS3Credentials {
-    pub domain: String,
-    pub access_key: String,
-    pub secret_key: String,
-}
-
 /// Load the S3 credentials.
 ///
 /// S3 can be used to get access to an apps volumes.
 pub async fn get_app_s3_credentials(
     client: &WasmerClient,
     app_id: impl Into<String>,
-) -> Result<AppS3Credentials, anyhow::Error> {
-    const ACCESS_KEY_NAME: &str = "WASMER_APP_S3_ACCESS_KEY";
-    const SECRET_KEY_NAME: &str = "WASMER_APP_S3_SECRET_KEY";
-
+) -> Result<types::S3Credentials, anyhow::Error> {
     let app_id = app_id.into();
 
     // Firt load the app to get the s3 url.
-    let app = get_app_by_id(client, app_id.clone()).await?;
-    let url = app.s3_url.context("app has no volumes")?;
+    let app1 = get_app_by_id(client, app_id.clone()).await?;
 
-    // Load the secrets.
-    let secrets =
-        get_all_app_secrets_filtered(client, app_id, [ACCESS_KEY_NAME, SECRET_KEY_NAME]).await?;
-
-    let access_key_id = secrets
-        .iter()
-        .find(|s| s.name == ACCESS_KEY_NAME)
-        .context("missing access key")?
-        .id
-        .clone();
-
-    let secret_key_id = secrets
-        .iter()
-        .find(|s| s.name == SECRET_KEY_NAME)
-        .context("missing secret key")?
-        .id
-        .clone();
-
-    let access_key = get_app_secret_value_by_id(client, access_key_id.into_inner())
+    let vars = types::GetDeployAppVars {
+        owner: app1.owner.global_name,
+        name: app1.name,
+    };
+    client
+        .run_graphql_strict(types::GetDeployAppS3Credentials::build(vars))
         .await?
-        .with_context(|| format!("No value found for secret with name '{}'", ACCESS_KEY_NAME))?;
-
-    let secret_key = get_app_secret_value_by_id(client, secret_key_id.into_inner())
-        .await?
-        .with_context(|| format!("No value found for secret with name '{}'", SECRET_KEY_NAME))?;
-
-    Ok(AppS3Credentials {
-        domain: url.0,
-        access_key,
-        secret_key,
-    })
+        .get_deploy_app
+        .context("app not found")?
+        .s3_credentials
+        .context("app does not have S3 credentials")
 }
 
 /// Load all available regions.
@@ -1287,11 +1253,15 @@ pub async fn get_app_version_by_id_with_app(
 /// NOTE: this will only include the first pages and does not provide pagination.
 pub async fn user_apps(
     client: &WasmerClient,
+    sort: types::DeployAppsSortBy,
 ) -> impl futures::Stream<Item = Result<Vec<types::DeployApp>, anyhow::Error>> + '_ {
     futures::stream::try_unfold(None, move |cursor| async move {
         let user = client
             .run_graphql(types::GetCurrentUserWithApps::build(
-                GetCurrentUserWithAppsVars { after: cursor },
+                GetCurrentUserWithAppsVars {
+                    after: cursor,
+                    sort: Some(sort),
+                },
             ))
             .await?
             .viewer
@@ -1318,11 +1288,12 @@ pub async fn user_apps(
 /// List all apps that are accessible by the current user.
 pub async fn user_accessible_apps(
     client: &WasmerClient,
+    sort: types::DeployAppsSortBy,
 ) -> Result<
     impl futures::Stream<Item = Result<Vec<types::DeployApp>, anyhow::Error>> + '_,
     anyhow::Error,
 > {
-    let user_apps = user_apps(client).await;
+    let user_apps = user_apps(client, sort).await;
 
     // Get all aps in user-accessible namespaces.
     let namespace_res = client
@@ -1344,7 +1315,7 @@ pub async fn user_accessible_apps(
 
     let mut ns_apps = vec![];
     for ns in namespace_names {
-        let apps = namespace_apps(client, ns).await;
+        let apps = namespace_apps(client, ns, sort).await;
         ns_apps.push(apps);
     }
 
@@ -1357,6 +1328,7 @@ pub async fn user_accessible_apps(
 pub async fn namespace_apps(
     client: &WasmerClient,
     namespace: String,
+    sort: types::DeployAppsSortBy,
 ) -> impl futures::Stream<Item = Result<Vec<types::DeployApp>, anyhow::Error>> + '_ {
     let namespace = namespace.clone();
 
@@ -1365,6 +1337,7 @@ pub async fn namespace_apps(
             .run_graphql(types::GetNamespaceApps::build(GetNamespaceAppsVars {
                 name: namespace.to_string(),
                 after: cursor,
+                sort: Some(sort),
             }))
             .await?;
 

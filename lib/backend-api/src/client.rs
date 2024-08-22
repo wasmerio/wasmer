@@ -52,6 +52,28 @@ impl WasmerClient {
         })
     }
 
+    pub fn new_with_proxy(
+        graphql_endpoint: Url,
+        user_agent: &str,
+        proxy: reqwest::Proxy,
+    ) -> Result<Self, anyhow::Error> {
+        let builder = {
+            #[cfg(all(target_arch = "wasm32", target_os = "unknown"))]
+            let mut builder = reqwest::ClientBuilder::new();
+
+            #[cfg(not(all(target_arch = "wasm32", target_os = "unknown")))]
+            let builder = reqwest::ClientBuilder::new()
+                .connect_timeout(Duration::from_secs(10))
+                .timeout(Duration::from_secs(90));
+
+            builder.proxy(proxy)
+        };
+
+        let client = builder.build().context("failed to create reqwest client")?;
+
+        Self::new_with_client(client, graphql_endpoint, user_agent)
+    }
+
     pub fn new(graphql_endpoint: Url, user_agent: &str) -> Result<Self, anyhow::Error> {
         #[cfg(all(target_arch = "wasm32", target_os = "unknown"))]
         let client = reqwest::Client::builder()
