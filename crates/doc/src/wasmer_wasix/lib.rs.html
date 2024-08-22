@@ -990,7 +990,7 @@
     <span class="attr">#[error(transparent)]
     </span>CacheError(<span class="kw">crate</span>::runtime::module_cache::CacheError),
     <span class="doccomment">/// Failed to compile the Wasmer process
-    </span><span class="attr">#[error(<span class="string">&quot;compile error&quot;</span>)]
+    </span><span class="attr">#[error(<span class="string">&quot;compile error: {error:?}&quot;</span>)]
     </span>CompileError {
         module_hash: wasmer_types::ModuleHash,
         error: wasmer::CompileError,
