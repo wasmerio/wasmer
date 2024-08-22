@@ -255,10 +255,8 @@ mod tests {
     }
 
     #[test]
-    #[cfg(feature = "cranelift")]
-    fn check_customtunables() -> Result<(), Box<dyn std::error::Error>> {
+    fn check_custom_tunables() -> Result<(), Box<dyn std::error::Error>> {
         use crate::{imports, wat2wasm, Engine, Instance, Memory, Module, Store};
-        use wasmer_compiler_cranelift::Cranelift;
 
         let wasm_bytes = wat2wasm(
             br#"(module
@@ -268,7 +266,16 @@ mod tests {
             (data (;0;) (i32.const 1048576) "*\00\00\00")
           )"#,
         )?;
-        let compiler = Cranelift::default();
+
+        cfg_if::cfg_if! {
+            if #[cfg(feature = "singlepass")] {
+                let compiler =  wasmer_compiler_singlepass::Singlepass::default();
+            } else if #[cfg(feature = "llvm")] {
+                let compiler =  wasmer_compiler_llvm::LLVM::default();
+            } else {
+                let compiler =  wasmer_compiler_cranelift::Cranelift::default();
+            }
+        }
 
         let tunables = TinyTunables {};
         #[allow(deprecated)]
