@@ -140,7 +140,7 @@ pub enum SpawnError {
     #[error(transparent)]
     CacheError(crate::runtime::module_cache::CacheError),
     /// Failed to compile the Wasmer process
-    #[error("compile error")]
+    #[error("compile error: {error:?}")]
     CompileError {
         module_hash: wasmer_types::ModuleHash,
         error: wasmer::CompileError,
