@@ -9,6 +9,66 @@ Looking for changes that affect our C API? See the [C API Changelog](lib/c-api/C
 
 ## **Unreleased**
 
+## 4.3.6 - 22/08/2024
+
+## Added
+
+  - [#5022](https://github.com/wasmerio/wasmer/pull/5022) feat(cli): Add --print-rclone-config to "app volumes s3-credentials"
+  - [#4980](https://github.com/wasmerio/wasmer/pull/4980) feat(backend-api): Add disabledAt/Reason to AppVersion
+  - [#5007](https://github.com/wasmerio/wasmer/pull/5007) add access to php integration test secrets
+  - [#5003](https://github.com/wasmerio/wasmer/pull/5003) Added a transaction and auto_consistency journal
+  - [#5011](https://github.com/wasmerio/wasmer/pull/5011) Add module-level middleware errors
+  - [#4982](https://github.com/wasmerio/wasmer/pull/4982) Mount [fs] entries as additional mapped directories when running a lo…
+  - [#4990](https://github.com/wasmerio/wasmer/pull/4990) Added a patch for corrupt freed FD lists after replaying journals
+  - [#4967](https://github.com/wasmerio/wasmer/pull/4967) CLI: Add flag and logic to redeploy an app after changing secrets
+  - [#4960](https://github.com/wasmerio/wasmer/pull/4960) Add `regions` subcommand to `app` subcommand
+  - [#4941](https://github.com/wasmerio/wasmer/pull/4941) App config: add `locality` field
+
+## Changed
+
+  - [#5020](https://github.com/wasmerio/wasmer/pull/5020) Allow memories exported from WASI(X) modules to be named anything
+  - [#5025](https://github.com/wasmerio/wasmer/pull/5025) CLI: Allow sorting in "app list" command
+  - [#5018](https://github.com/wasmerio/wasmer/pull/5018) Translate English sentance in German README.md
+  - [#5008](https://github.com/wasmerio/wasmer/pull/5008) Allow nested mounted paths in `UnionFilesystem`
+  - [#5021](https://github.com/wasmerio/wasmer/pull/5021) feat(virtual-fs): Expose create_dir_all
+  - [#5017](https://github.com/wasmerio/wasmer/pull/5017) Use ___chkstk_ms for mingw
+  - [#4996](https://github.com/wasmerio/wasmer/pull/4996) CLI(package/tag): Don't cache previously fetched user package
+  - [#5015](https://github.com/wasmerio/wasmer/pull/5015) Consume unused result in `lib/compiler/src/engine/artifact.rs`
+  - [#5013](https://github.com/wasmerio/wasmer/pull/5013) CLI: Volumes commands
+  - [#5001](https://github.com/wasmerio/wasmer/pull/5001) deps: use windows-sys instead of winapi
+  - [#4994](https://github.com/wasmerio/wasmer/pull/4994) Check if a user can deploy an app before deploying it
+  - [#4995](https://github.com/wasmerio/wasmer/pull/4995) refactor(cli): Rename "container unpack" command to "package unpack"
+  - [#4988](https://github.com/wasmerio/wasmer/pull/4988) chore: Use hex encoding for Sha256Hash debug impl
+  - [#4780](https://github.com/wasmerio/wasmer/pull/4780) WASIX Test Suite
+  - [#4987](https://github.com/wasmerio/wasmer/pull/4987) feat: Support filtering logs by request id and by instance id
+  - [#4975](https://github.com/wasmerio/wasmer/pull/4975) CLI: Ask users to allow networking capabilities if not set
+  - [#4977](https://github.com/wasmerio/wasmer/pull/4977) feat(wasix): Expose the builtin package loder module
+  - [#4968](https://github.com/wasmerio/wasmer/pull/4968) CLI: Introduce new `auth` subcommand
+  - [#4973](https://github.com/wasmerio/wasmer/pull/4973) feat: Implement image validation in BuiltinPackageLoader
+  - [#4976](https://github.com/wasmerio/wasmer/pull/4976) CLI: No string manipulation on `app.yaml`
+  - [#4970](https://github.com/wasmerio/wasmer/pull/4970) CLI: Cache templates from different registries in diffferent directories
+  - [#4965](https://github.com/wasmerio/wasmer/pull/4965) CLI: Try to fetch owner from `app_id` if necessary while deploying
+  - [#4955](https://github.com/wasmerio/wasmer/pull/4955) Move `WasmerConfig` out of the `registry_api` crate and introduce a `logout` subcommand
+  - [#4943](https://github.com/wasmerio/wasmer/pull/4943) Run tests in wasmer-integration-tests repo on pull requests
+  - [#4954](https://github.com/wasmerio/wasmer/pull/4954) App config: https redirect setting
+  - [#4689](https://github.com/wasmerio/wasmer/pull/4689) redirect to child node in a different fs
+  - [#4939](https://github.com/wasmerio/wasmer/pull/4939) Clearer doc comments
+
+## Fixed
+
+  - [#5032](https://github.com/wasmerio/wasmer/pull/5032) fix(wasix): Prevent blocking package hash validations after downloads
+  - [#5026](https://github.com/wasmerio/wasmer/pull/5026) Various volumes CLI fixes
+  - [#4986](https://github.com/wasmerio/wasmer/pull/4986) Multiple fixes for the journal to fix bootstrapping
+  - [#5005](https://github.com/wasmerio/wasmer/pull/5005) Enable feature `net` for mio in virtual-net, fix #5004
+  - [#4992](https://github.com/wasmerio/wasmer/pull/4992) fix(cli/WasmerEnv): strip `registry.` only if hostname starts with it
+  - [#4989](https://github.com/wasmerio/wasmer/pull/4989) fix(wasix): Fix panic on unknown socket in sock_send
+  - [#4956](https://github.com/wasmerio/wasmer/pull/4956) Fix impossible relocation error in emit sdiv64 for singlepass compiler
+  - [#4938](https://github.com/wasmerio/wasmer/pull/4938) fix(cli/package/tag): Better messages when tagging an existing package
+  - [#4946](https://github.com/wasmerio/wasmer/pull/4946) Fixes a panic caused on the recv_from path
+  - [#4942](https://github.com/wasmerio/wasmer/pull/4942) Fix size computation for `pwrite`
+
+
+
 ## 4.3.5 - 16/07/2024
 
 This release adds support for managing secrets alongside fixes and refactors to help with stability.
