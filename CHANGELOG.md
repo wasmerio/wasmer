@@ -11,6 +11,9 @@ Looking for changes that affect our C API? See the [C API Changelog](lib/c-api/C
 
 ## 4.3.6 - 22/08/2024
 
+The star of this release is the volume subcommand that allows inspecting and interacting with volumes through the client. There are also
+numerous bug fixes and quality of life improvements included in this release.
+
 ## Added
 
   - [#5022](https://github.com/wasmerio/wasmer/pull/5022) feat(cli): Add --print-rclone-config to "app volumes s3-credentials"
