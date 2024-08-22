@@ -707,6 +707,23 @@
 <a href="#707" id="707">707</a>
 <a href="#708" id="708">708</a>
 <a href="#709" id="709">709</a>
+<a href="#710" id="710">710</a>
+<a href="#711" id="711">711</a>
+<a href="#712" id="712">712</a>
+<a href="#713" id="713">713</a>
+<a href="#714" id="714">714</a>
+<a href="#715" id="715">715</a>
+<a href="#716" id="716">716</a>
+<a href="#717" id="717">717</a>
+<a href="#718" id="718">718</a>
+<a href="#719" id="719">719</a>
+<a href="#720" id="720">720</a>
+<a href="#721" id="721">721</a>
+<a href="#722" id="722">722</a>
+<a href="#723" id="723">723</a>
+<a href="#724" id="724">724</a>
+<a href="#725" id="725">725</a>
+<a href="#726" id="726">726</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{
     collections::HashMap,
     fmt::Write <span class="kw">as _</span>,
@@ -881,7 +898,20 @@
     }
 
     <span class="doccomment">/// Validate image contents with the specified validation mode.
-    </span><span class="kw">fn </span>validate_hash(
+    </span><span class="kw">async fn </span>validate_hash(
+        image: <span class="kw-2">&amp;</span>bytes::Bytes,
+        mode: HashIntegrityValidationMode,
+        info: <span class="kw-2">&amp;</span>DistributionInfo,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;(), anyhow::Error&gt; {
+        <span class="kw">let </span>info = info.clone();
+        <span class="kw">let </span>image = image.clone();
+        <span class="kw">crate</span>::spawn_blocking(<span class="kw">move </span>|| <span class="self">Self</span>::validate_hash_sync(<span class="kw-2">&amp;</span>image, mode, <span class="kw-2">&amp;</span>info))
+            .<span class="kw">await
+            </span>.context(<span class="string">&quot;tokio runtime failed&quot;</span>)<span class="question-mark">?
+    </span>}
+
+    <span class="doccomment">/// Validate image contents with the specified validation mode.
+    </span><span class="kw">fn </span>validate_hash_sync(
         image: <span class="kw-2">&amp;</span>[u8],
         mode: HashIntegrityValidationMode,
         info: <span class="kw-2">&amp;</span>DistributionInfo,
@@ -926,9 +956,11 @@
                     .<span class="kw">await</span><span class="question-mark">?
                     </span>.with_context(|| <span class="macro">format!</span>(<span class="string">&quot;Unable to read \&quot;{}\&quot;&quot;</span>, path.display()))<span class="question-mark">?</span>;
 
-                    <span class="self">Self</span>::validate_hash(<span class="kw-2">&amp;</span>bytes, <span class="self">self</span>.hash_validation, dist)<span class="question-mark">?</span>;
+                    <span class="kw">let </span>bytes = bytes::Bytes::from(bytes);
 
-                    <span class="kw">return </span><span class="prelude-val">Ok</span>(bytes.into());
+                    <span class="self">Self</span>::validate_hash(<span class="kw-2">&amp;</span>bytes, <span class="self">self</span>.hash_validation, dist).<span class="kw">await</span><span class="question-mark">?</span>;
+
+                    <span class="kw">return </span><span class="prelude-val">Ok</span>(bytes);
                 }
                 <span class="prelude-val">Err</span>(e) =&gt; {
                     <span class="macro">tracing::debug!</span>(
@@ -974,9 +1006,11 @@
         <span class="kw">let </span>body = response.body.context(<span class="string">&quot;package download failed&quot;</span>)<span class="question-mark">?</span>;
         <span class="macro">tracing::debug!</span>(%url, <span class="string">&quot;package_download_succeeded&quot;</span>);
 
-        <span class="self">Self</span>::validate_hash(<span class="kw-2">&amp;</span>body, <span class="self">self</span>.hash_validation, dist)<span class="question-mark">?</span>;
+        <span class="kw">let </span>body = bytes::Bytes::from(body);
 
-        <span class="prelude-val">Ok</span>(body.into())
+        <span class="self">Self</span>::validate_hash(<span class="kw-2">&amp;</span>body, <span class="self">self</span>.hash_validation, dist).<span class="kw">await</span><span class="question-mark">?</span>;
+
+        <span class="prelude-val">Ok</span>(body)
     }
 
     <span class="kw">fn </span>headers(<span class="kw-2">&amp;</span><span class="self">self</span>, url: <span class="kw-2">&amp;</span>Url) -&gt; HeaderMap {
