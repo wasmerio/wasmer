@@ -172,7 +172,20 @@ impl BuiltinPackageLoader {
     }
 
     /// Validate image contents with the specified validation mode.
-    fn validate_hash(
+    async fn validate_hash(
+        image: &bytes::Bytes,
+        mode: HashIntegrityValidationMode,
+        info: &DistributionInfo,
+    ) -> Result<(), anyhow::Error> {
+        let info = info.clone();
+        let image = image.clone();
+        crate::spawn_blocking(move || Self::validate_hash_sync(&image, mode, &info))
+            .await
+            .context("tokio runtime failed")?
+    }
+
+    /// Validate image contents with the specified validation mode.
+    fn validate_hash_sync(
         image: &[u8],
         mode: HashIntegrityValidationMode,
         info: &DistributionInfo,
@@ -217,9 +230,11 @@ impl BuiltinPackageLoader {
                     .await?
                     .with_context(|| format!("Unable to read \"{}\"", path.display()))?;
 
-                    Self::validate_hash(&bytes, self.hash_validation, dist)?;
+                    let bytes = bytes::Bytes::from(bytes);
 
-                    return Ok(bytes.into());
+                    Self::validate_hash(&bytes, self.hash_validation, dist).await?;
+
+                    return Ok(bytes);
                 }
                 Err(e) => {
                     tracing::debug!(
@@ -265,9 +280,11 @@ impl BuiltinPackageLoader {
         let body = response.body.context("package download failed")?;
         tracing::debug!(%url, "package_download_succeeded");
 
-        Self::validate_hash(&body, self.hash_validation, dist)?;
+        let body = bytes::Bytes::from(body);
 
-        Ok(body.into())
+        Self::validate_hash(&body, self.hash_validation, dist).await?;
+
+        Ok(body)
     }
 
     fn headers(&self, url: &Url) -> HeaderMap {
