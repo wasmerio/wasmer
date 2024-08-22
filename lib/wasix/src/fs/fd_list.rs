@@ -46,31 +46,19 @@ impl FdList {
     }
 
     pub fn last_fd(&self) -> Option<WasiFd> {
-        for (idx, fd) in self.fds.iter().enumerate().rev() {
-            if fd.is_some() {
-                return Some(idx as WasiFd);
-            }
-        }
-
-        None
+        self.fds
+            .iter()
+            .rev()
+            .position(|fd| fd.is_some())
+            .map(|idx| (self.fds.len() - idx - 1) as WasiFd)
     }
 
     pub fn get(&self, idx: WasiFd) -> Option<&Fd> {
-        let idx = idx as usize;
-        if idx < self.fds.len() {
-            self.fds[idx].as_ref()
-        } else {
-            None
-        }
+        self.fds.get(idx as usize).and_then(|x| x.as_ref())
     }
 
     pub fn get_mut(&mut self, idx: WasiFd) -> Option<&mut Fd> {
-        let idx = idx as usize;
-        if idx < self.fds.len() {
-            self.fds[idx].as_mut()
-        } else {
-            None
-        }
+        self.fds.get_mut(idx as usize).and_then(|x| x.as_mut())
     }
 
     pub fn insert_first_free(&mut self, fd: Fd) -> WasiFd {
@@ -80,18 +68,12 @@ impl FdList {
 
                 self.fds[free] = Some(fd);
 
-                let mut found = false;
-                for i in free + 1..self.fds.len() {
-                    if self.fds[i].is_none() {
-                        self.first_free = Some(i);
-                        found = true;
-                        break;
-                    }
-                }
-
-                if !found {
-                    self.first_free = None;
-                }
+                self.first_free = self
+                    .fds
+                    .iter()
+                    .skip(free + 1)
+                    .position(|fd| fd.is_none())
+                    .map(|idx| idx + free + 1);
 
                 free as WasiFd
             }
