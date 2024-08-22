@@ -86,6 +86,11 @@ impl Store {
         &self.inner.engine
     }
 
+    /// Returns mutable reference to [`Engine`]
+    pub fn engine_mut(&mut self) -> &mut Engine {
+        &mut self.inner.engine
+    }
+
     /// Checks whether two stores are identical. A store is considered
     /// equal to another store if both have the same engine.
     pub fn same(a: &Self, b: &Self) -> bool {
