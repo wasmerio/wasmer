@@ -136,12 +136,6 @@ impl Cranelift {
                 .expect("should be valid flag");
         }
 
-        //// There are two possible traps for division, and this way
-        //// we get the proper one if code traps.
-        //flags
-        //    .enable("avoid_div_traps")
-        //    .expect("should be valid flag");
-
         if self.enable_pic {
             flags.enable("is_pic").expect("should be a valid flag");
         }
@@ -175,16 +169,6 @@ impl Cranelift {
                 },
             )
             .expect("should be valid flag");
-
-        //if is_riscv {
-        //    flags
-        //        .set("enable_simd", "false")
-        //        .expect("should be valid flag");
-        //} else {
-        //    flags
-        //        .set("enable_simd", "true")
-        //        .expect("should be valid flag");
-        //}
 
         let enable_nan_canonicalization = if self.enable_nan_canonicalization {
             "true"
