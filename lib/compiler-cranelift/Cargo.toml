@@ -26,7 +26,7 @@ cranelift-codegen = { version = "0.110.2", default-features = false, features = 
 	"x86",
 	"arm64",
 	"riscv64",
-	"isle-in-source-tree"
+	"isle-in-source-tree",
 ] }
 cranelift-frontend = { version = "0.110.2", default-features = false }
 itertools = "0.12.0"
@@ -34,7 +34,7 @@ tracing = "0.1"
 hashbrown = { version = "0.11", optional = true }
 rayon = { version = "1.5", optional = true }
 more-asserts = "0.2"
-gimli = { version = "0.28.0", optional = true }
+gimli = { workspace = true, optional = true }
 smallvec = "1.6"
 target-lexicon = { version = "0.12.2", default-features = false }
 
