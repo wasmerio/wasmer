@@ -118,7 +118,7 @@ wasmer-compiler-singlepass = { version = "=4.3.6", path = "../compiler-singlepas
 wasmer-compiler-llvm = { version = "=4.3.6", path = "../compiler-llvm", optional = true }
 wasmer-emscripten = { version = "=4.3.6", path = "../emscripten" }
 wasmer-vm = { version = "=4.3.6", path = "../vm", optional = true }
-wasmer-wasix = { path = "../wasix", version = "=0.25.0", features = [
+wasmer-wasix = { path = "../wasix", version = "=0.26.0", features = [
 	"logging",
 	"webc_runner_rt_wcgi",
 	"webc_runner_rt_dcgi",
@@ -131,21 +131,21 @@ wasmer-wast = { version = "=4.3.6", path = "../../tests/lib/wast", optional = tr
 wasmer-types = { version = "=4.3.6", path = "../types", features = [
 	"enable-serde",
 ] }
-wasmer-registry = { version = "=5.17.0", path = "../registry", features = [
+wasmer-registry = { version = "=5.18.0", path = "../registry", features = [
 	"build-package",
 	"clap",
 ] }
 wasmer-object = { version = "=4.3.6", path = "../object", optional = true }
-virtual-fs = { version = "0.15.0", path = "../virtual-fs", default-features = false, features = [
+virtual-fs = { version = "0.16.0", path = "../virtual-fs", default-features = false, features = [
 	"host-fs",
 ] }
-virtual-net = { version = "0.7.0", path = "../virtual-net" }
+virtual-net = { version = "0.8.0", path = "../virtual-net" }
 virtual-mio = { version = "0.3.1", path = "../virtual-io" }
 
 # Wasmer-owned dependencies.
 
 webc = { workspace = true }
-wasmer-api = { version = "=0.0.32", path = "../backend-api" }
+wasmer-api = { version = "=0.0.33", path = "../backend-api" }
 edge-schema.workspace = true
 edge-util = { version = "=0.1.0" }
 lazy_static = "1.4.0"
@@ -171,7 +171,7 @@ serde = { version = "1.0.147", features = ["derive"] }
 dirs = "4.0"
 serde_json = { version = "1.0" }
 target-lexicon = { version = "0.12", features = ["std"] }
-wasmer-config = { version = "0.5.0", path = "../config" }
+wasmer-config = { version = "0.6.0", path = "../config" }
 indexmap = "1.9.2"
 walkdir = "2.3.2"
 regex = "1.6.0"
