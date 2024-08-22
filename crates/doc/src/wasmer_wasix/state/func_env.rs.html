@@ -375,6 +375,14 @@
 <a href="#375" id="375">375</a>
 <a href="#376" id="376">376</a>
 <a href="#377" id="377">377</a>
+<a href="#378" id="378">378</a>
+<a href="#379" id="379">379</a>
+<a href="#380" id="380">380</a>
+<a href="#381" id="381">381</a>
+<a href="#382" id="382">382</a>
+<a href="#383" id="383">383</a>
+<a href="#384" id="384">384</a>
+<a href="#385" id="385">385</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::sync::Arc;
 
 <span class="kw">use </span>tracing::trace;
@@ -511,18 +519,26 @@
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), ExportError&gt; {
         <span class="kw">let </span>is_wasix_module = <span class="kw">crate</span>::utils::is_wasix_module(instance.module());
 
-        <span class="comment">// First we get the malloc function which if it exists will be used to
-        // create the pthread_self structure
-        </span><span class="kw">let </span>memory = instance.exports.get_memory(<span class="string">&quot;memory&quot;</span>).map_or_else(
-            |e| {
-                <span class="kw">if let </span><span class="prelude-val">Some</span>(memory) = memory {
-                    <span class="prelude-val">Ok</span>(memory)
+        <span class="kw">let </span>exported_memory = instance
+            .exports
+            .iter()
+            .filter_map(|(<span class="kw">_</span>, export)| {
+                <span class="kw">if let </span>wasmer::Extern::Memory(memory) = export {
+                    <span class="prelude-val">Some</span>(memory.clone())
                 } <span class="kw">else </span>{
-                    <span class="prelude-val">Err</span>(e)
-                }
-            },
-            |v| <span class="prelude-val">Ok</span>(v.clone()),
-        )<span class="question-mark">?</span>;
+                    <span class="prelude-val">None
+                </span>}
+            })
+            .next();
+        <span class="kw">let </span>memory = <span class="kw">match </span>(exported_memory, memory) {
+            (<span class="prelude-val">Some</span>(memory), <span class="kw">_</span>) =&gt; memory,
+            (<span class="prelude-val">None</span>, <span class="prelude-val">Some</span>(memory)) =&gt; memory,
+            (<span class="prelude-val">None</span>, <span class="prelude-val">None</span>) =&gt; {
+                <span class="kw">return </span><span class="prelude-val">Err</span>(ExportError::Missing(
+                    <span class="string">&quot;No imported or exported memory found&quot;</span>.to_string(),
+                ))
+            }
+        };
 
         <span class="kw">let </span>new_inner = WasiInstanceHandles::new(memory, store, instance);
 
