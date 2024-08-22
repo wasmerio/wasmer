@@ -14,7 +14,7 @@ build-package  = ["rusqlite", "indexmap", "wasmer-wasm-interface", "wasmparser",
 
 [dependencies]
 anyhow = "1.0.65"
-clap = { version = "4.3.5", default-features = false, features = ["derive", "env"], optional = true }
+clap = { version = "4.3.6", default-features = false, features = ["derive", "env"], optional = true }
 console = "0.15.2"
 dialoguer = "0.11.0"
 dirs = "4.0.0"
@@ -50,7 +50,7 @@ toml.workspace = true
 tracing = "0.1.40"
 url = "2.5.0"
 wasmer-config = { version = "0.5.0", path = "../config" }
-wasmer-wasm-interface = { version = "4.3.5", path = "../wasm-interface", optional = true }
+wasmer-wasm-interface = { version = "4.3.6", path = "../wasm-interface", optional = true }
 wasmparser = { workspace = true, optional = true }
 whoami = "1.2.3"
 webc.workspace = true
