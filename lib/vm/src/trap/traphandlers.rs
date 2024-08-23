@@ -1,6 +1,8 @@
 // This file contains code from external sources.
 // Attributions: https://github.com/wasmerio/wasmer/blob/main/docs/ATTRIBUTIONS.md
 
+#![allow(static_mut_refs)]
+
 //! WebAssembly trap handling, which is built on top of the lower-level
 //! signalhandling mechanisms.
 
