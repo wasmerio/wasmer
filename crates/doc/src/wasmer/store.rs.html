@@ -289,6 +289,11 @@
 <a href="#289" id="289">289</a>
 <a href="#290" id="290">290</a>
 <a href="#291" id="291">291</a>
+<a href="#292" id="292">292</a>
+<a href="#293" id="293">293</a>
+<a href="#294" id="294">294</a>
+<a href="#295" id="295">295</a>
+<a href="#296" id="296">296</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::engine::{AsEngineRef, Engine, EngineRef};
 <span class="kw">use </span>derivative::Derivative;
 <span class="kw">use </span>std::{
@@ -375,6 +380,11 @@
     <span class="doccomment">/// Returns the [`Engine`].
     </span><span class="kw">pub fn </span>engine(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>Engine {
         <span class="kw-2">&amp;</span><span class="self">self</span>.inner.engine
+    }
+
+    <span class="doccomment">/// Returns mutable reference to [`Engine`]
+    </span><span class="kw">pub fn </span>engine_mut(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;mut </span>Engine {
+        <span class="kw-2">&amp;mut </span><span class="self">self</span>.inner.engine
     }
 
     <span class="doccomment">/// Checks whether two stores are identical. A store is considered

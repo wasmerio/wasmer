@@ -152,9 +152,9 @@
                 Target::new(target_triple.clone(), features)
             })
             .unwrap_or_default();
-        <span class="kw">let </span>(store, compiler_type) = <span class="self">self</span>.store.get_store_for_target(target.clone())<span class="question-mark">?</span>;
+        <span class="kw">let </span>(<span class="kw-2">mut </span>store, compiler_type) = <span class="self">self</span>.store.get_store_for_target(target.clone())<span class="question-mark">?</span>;
 
-        <span class="kw">let </span><span class="kw-2">mut </span>engine = store.engine().clone();
+        <span class="kw">let </span>engine = store.engine_mut();
         <span class="kw">let </span>hash_algorithm = <span class="self">self</span>.hash_algorithm.unwrap_or_default().into();
         engine.set_hash_algorithm(<span class="prelude-val">Some</span>(hash_algorithm));
 
