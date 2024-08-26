@@ -7082,7 +7082,6 @@ dependencies = [
  "sha2",
  "target-lexicon 0.12.15",
  "thiserror",
- "webc",
  "xxhash-rust",
 ]
 
