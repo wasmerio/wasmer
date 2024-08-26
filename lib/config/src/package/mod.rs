@@ -264,7 +264,7 @@ pub struct CommandV2 {
 impl CommandV2 {
     /// Get annotations, automatically loading them from a file relative to the
     /// `wasmer.toml`'s directory, if necessary.
-    pub fn get_annotations(&self, basepath: &Path) -> Result<Option<serde_cbor::Value>, String> {
+    pub fn get_annotations(&self, basepath: &Path) -> Result<Option<ciborium::Value>, String> {
         match self.annotations.as_ref() {
             Some(CommandAnnotations::Raw(v)) => Ok(Some(toml_to_cbor_value(v))),
             Some(CommandAnnotations::File(FileCommandAnnotations { file, kind })) => {
@@ -380,71 +380,71 @@ impl Display for ModuleReference {
     }
 }
 
-fn toml_to_cbor_value(val: &toml::Value) -> serde_cbor::Value {
+fn toml_to_cbor_value(val: &toml::Value) -> ciborium::Value {
     match val {
-        toml::Value::String(s) => serde_cbor::Value::Text(s.clone()),
-        toml::Value::Integer(i) => serde_cbor::Value::Integer(*i as i128),
-        toml::Value::Float(f) => serde_cbor::Value::Float(*f),
-        toml::Value::Boolean(b) => serde_cbor::Value::Bool(*b),
-        toml::Value::Datetime(d) => serde_cbor::Value::Text(format!("{}", d)),
+        toml::Value::String(s) => ciborium::Value::Text(s.clone()),
+        toml::Value::Integer(i) => ciborium::Value::Integer(ciborium::value::Integer::from(*i)),
+        toml::Value::Float(f) => ciborium::Value::Float(*f),
+        toml::Value::Boolean(b) => ciborium::Value::Bool(*b),
+        toml::Value::Datetime(d) => ciborium::Value::Text(format!("{}", d)),
         toml::Value::Array(sq) => {
-            serde_cbor::Value::Array(sq.iter().map(toml_to_cbor_value).collect())
+            ciborium::Value::Array(sq.iter().map(toml_to_cbor_value).collect())
         }
-        toml::Value::Table(m) => serde_cbor::Value::Map(
+        toml::Value::Table(m) => ciborium::Value::Map(
             m.iter()
-                .map(|(k, v)| (serde_cbor::Value::Text(k.clone()), toml_to_cbor_value(v)))
+                .map(|(k, v)| (ciborium::Value::Text(k.clone()), toml_to_cbor_value(v)))
                 .collect(),
         ),
     }
 }
 
-fn json_to_cbor_value(val: &serde_json::Value) -> serde_cbor::Value {
+fn json_to_cbor_value(val: &serde_json::Value) -> ciborium::Value {
     match val {
-        serde_json::Value::Null => serde_cbor::Value::Null,
-        serde_json::Value::Bool(b) => serde_cbor::Value::Bool(*b),
+        serde_json::Value::Null => ciborium::Value::Null,
+        serde_json::Value::Bool(b) => ciborium::Value::Bool(*b),
         serde_json::Value::Number(n) => {
             if let Some(i) = n.as_i64() {
-                serde_cbor::Value::Integer(i as i128)
+                ciborium::Value::Integer(ciborium::value::Integer::from(i))
             } else if let Some(u) = n.as_u64() {
-                serde_cbor::Value::Integer(u as i128)
+                ciborium::Value::Integer(ciborium::value::Integer::from(u))
             } else if let Some(f) = n.as_f64() {
-                serde_cbor::Value::Float(f)
+                ciborium::Value::Float(f)
             } else {
-                serde_cbor::Value::Null
+                ciborium::Value::Null
             }
         }
-        serde_json::Value::String(s) => serde_cbor::Value::Text(s.clone()),
+        serde_json::Value::String(s) => ciborium::Value::Text(s.clone()),
         serde_json::Value::Array(sq) => {
-            serde_cbor::Value::Array(sq.iter().map(json_to_cbor_value).collect())
+            ciborium::Value::Array(sq.iter().map(json_to_cbor_value).collect())
         }
-        serde_json::Value::Object(m) => serde_cbor::Value::Map(
+        serde_json::Value::Object(m) => ciborium::Value::Map(
             m.iter()
-                .map(|(k, v)| (serde_cbor::Value::Text(k.clone()), json_to_cbor_value(v)))
+                .map(|(k, v)| (ciborium::Value::Text(k.clone()), json_to_cbor_value(v)))
                 .collect(),
         ),
     }
 }
 
-fn yaml_to_cbor_value(val: &serde_yaml::Value) -> serde_cbor::Value {
+fn yaml_to_cbor_value(val: &serde_yaml::Value) -> ciborium::Value {
     match val {
-        serde_yaml::Value::Null => serde_cbor::Value::Null,
-        serde_yaml::Value::Bool(b) => serde_cbor::Value::Bool(*b),
+        serde_yaml::Value::Null => ciborium::Value::Null,
+        serde_yaml::Value::Bool(b) => ciborium::Value::Bool(*b),
         serde_yaml::Value::Number(n) => {
             if let Some(i) = n.as_i64() {
-                serde_cbor::Value::Integer(i as i128)
+                ciborium::Value::Integer(ciborium::value::Integer::from(i))
             } else if let Some(u) = n.as_u64() {
-                serde_cbor::Value::Integer(u as i128)
+                ciborium::Value::Integer(ciborium::value::Integer::from(u))
             } else if let Some(f) = n.as_f64() {
-                serde_cbor::Value::Float(f)
+                ciborium::Value::Float(f)
             } else {
-                serde_cbor::Value::Null
+                ciborium::Value::Null
             }
         }
-        serde_yaml::Value::String(s) => serde_cbor::Value::Text(s.clone()),
+        serde_yaml::Value::String(s) => ciborium::Value::Text(s.clone()),
         serde_yaml::Value::Sequence(sq) => {
-            serde_cbor::Value::Array(sq.iter().map(yaml_to_cbor_value).collect())
+            ciborium::Value::Array(sq.iter().map(yaml_to_cbor_value).collect())
         }
-        serde_yaml::Value::Mapping(m) => serde_cbor::Value::Map(
+        serde_yaml::Value::Mapping(m) => ciborium::Value::Map(
             m.iter()
                 .map(|(k, v)| (yaml_to_cbor_value(k), yaml_to_cbor_value(v)))
                 .collect(),

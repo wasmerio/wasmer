@@ -184,7 +184,7 @@ impl PackageInfo {
 fn filesystem_mapping_from_manifest(
     manifest: &Manifest,
     webc_version: webc::Version,
-) -> Result<Vec<FileSystemMapping>, serde_cbor::Error> {
+) -> Result<Vec<FileSystemMapping>, anyhow::Error> {
     match manifest.filesystem()? {
         Some(webc::metadata::annotations::FileSystemMappings(mappings)) => {
             let mappings = mappings
