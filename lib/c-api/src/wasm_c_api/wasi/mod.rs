@@ -544,10 +544,32 @@ unsafe fn wasi_get_imports_inner(
 ) -> Option<()> {
     let wasi_env = wasi_env?;
     let store = &mut wasi_env.store;
-    let mut store_mut = store.store_mut();
     let module = module?;
 
-    let import_object = c_try!(wasi_env.inner.import_object(&mut store_mut, &module.inner));
+    let mut import_object = c_try!(wasi_env
+        .inner
+        .import_object(&mut store.store_mut(), &module.inner));
+
+    let shared_memory = module.inner.imports().memories().next().map(|a| *a.ty());
+
+    let spawn_type = match shared_memory {
+        Some(ty) => wasmer_wasix::runtime::SpawnMemoryType::CreateMemoryOfType(ty),
+        None => wasmer_wasix::runtime::SpawnMemoryType::CreateMemory,
+    };
+
+    let tasks = wasi_env
+        .inner
+        .data(&store.store())
+        .runtime
+        .task_manager()
+        .clone();
+    let memory = tasks
+        .build_memory(&mut store.store_mut(), spawn_type)
+        .unwrap();
+
+    if let Some(memory) = memory {
+        import_object.define("env", "memory", memory);
+    }
 
     imports_set_buffer(store, &module.inner, import_object, imports)?;
 

@@ -350,14 +350,25 @@ pub fn generate_import_object_from_env(
     ctx: &FunctionEnv<WasiEnv>,
     version: WasiVersion,
 ) -> Imports {
-    match version {
+    let mut imports = match version {
         WasiVersion::Snapshot0 => generate_import_object_snapshot0(store, ctx),
         WasiVersion::Snapshot1 | WasiVersion::Latest => {
             generate_import_object_snapshot1(store, ctx)
         }
         WasiVersion::Wasix32v1 => generate_import_object_wasix32_v1(store, ctx),
         WasiVersion::Wasix64v1 => generate_import_object_wasix64_v1(store, ctx),
-    }
+    };
+
+    let exports_wasi_generic = wasi_exports_generic(store, ctx);
+
+    #[allow(unused_mut)]
+    let mut imports_wasi_generic = imports! {
+        "wasi" => exports_wasi_generic,
+    };
+
+    imports.extend(&imports_wasi_generic);
+
+    imports
 }
 
 fn wasi_exports_generic(mut store: &mut impl AsStoreMut, env: &FunctionEnv<WasiEnv>) -> Exports {
