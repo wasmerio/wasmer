@@ -550,7 +550,7 @@
 <span class="kw">fn </span>filesystem_mapping_from_manifest(
     manifest: <span class="kw-2">&amp;</span>Manifest,
     webc_version: webc::Version,
-) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;FileSystemMapping&gt;, serde_cbor::Error&gt; {
+) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;FileSystemMapping&gt;, anyhow::Error&gt; {
     <span class="kw">match </span>manifest.filesystem()<span class="question-mark">? </span>{
         <span class="prelude-val">Some</span>(webc::metadata::annotations::FileSystemMappings(mappings)) =&gt; {
             <span class="kw">let </span>mappings = mappings

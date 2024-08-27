@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["load_package_tree"],"mod":["builtin_loader","load_package_tree","types","unsupported"],"struct":["UnsupportedPackageLoader"],"trait":["PackageLoader"]};
+window.SIDEBAR_ITEMS = {"fn":["load_package_tree","to_module_hash"],"mod":["builtin_loader","load_package_tree","types","unsupported"],"struct":["UnsupportedPackageLoader"],"trait":["PackageLoader"]};
