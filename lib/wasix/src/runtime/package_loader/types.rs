@@ -8,6 +8,12 @@ use crate::{
     runtime::resolver::{PackageSummary, Resolution},
 };
 
+pub fn to_module_hash(value: webc::metadata::AtomSignature) -> wasmer_types::ModuleHash {
+    match value {
+        webc::metadata::AtomSignature::Sha256(bytes) => wasmer_types::ModuleHash::Sha256(bytes),
+    }
+}
+
 #[async_trait::async_trait]
 pub trait PackageLoader: Send + Sync + Debug {
     async fn load(&self, summary: &PackageSummary) -> Result<Container, Error>;
