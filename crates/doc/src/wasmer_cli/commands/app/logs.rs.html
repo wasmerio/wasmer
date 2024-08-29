@@ -283,6 +283,7 @@
 <a href="#283" id="283">283</a>
 <a href="#284" id="284">284</a>
 <a href="#285" id="285">285</a>
+<a href="#286" id="286">286</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Show logs for an Edge app.
 
 </span><span class="kw">use </span>colored::Colorize;
@@ -341,7 +342,8 @@
     </span><span class="attr">#[clap(long, default_value = <span class="string">&quot;1000&quot;</span>)]
     </span>max: usize,
 
-    <span class="attr">#[clap(long, default_value = <span class="string">&quot;false&quot;</span>)]
+    <span class="doccomment">/// Continuously watch for new logs and display them in real-time.
+    </span><span class="attr">#[clap(long, default_value = <span class="string">&quot;false&quot;</span>)]
     </span>watch: bool,
 
     <span class="doccomment">/// Streams of logs to display
