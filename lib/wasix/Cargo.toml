@@ -103,6 +103,7 @@ ahash = "0.8.11"
 hyper-util = { version = "0.1.5", features = ["server", "server-graceful", "tokio", "service", "client"], optional = true }
 http-body-util = { version="0.1.1", optional = true }
 toml = "0.8"
+pin-utils = "0.1.0"
 
 [target.'cfg(not(target_arch = "riscv64"))'.dependencies.reqwest]
 workspace = true
