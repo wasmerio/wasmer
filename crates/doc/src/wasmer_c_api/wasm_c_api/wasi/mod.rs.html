@@ -713,6 +713,28 @@
 <a href="#713" id="713">713</a>
 <a href="#714" id="714">714</a>
 <a href="#715" id="715">715</a>
+<a href="#716" id="716">716</a>
+<a href="#717" id="717">717</a>
+<a href="#718" id="718">718</a>
+<a href="#719" id="719">719</a>
+<a href="#720" id="720">720</a>
+<a href="#721" id="721">721</a>
+<a href="#722" id="722">722</a>
+<a href="#723" id="723">723</a>
+<a href="#724" id="724">724</a>
+<a href="#725" id="725">725</a>
+<a href="#726" id="726">726</a>
+<a href="#727" id="727">727</a>
+<a href="#728" id="728">728</a>
+<a href="#729" id="729">729</a>
+<a href="#730" id="730">730</a>
+<a href="#731" id="731">731</a>
+<a href="#732" id="732">732</a>
+<a href="#733" id="733">733</a>
+<a href="#734" id="734">734</a>
+<a href="#735" id="735">735</a>
+<a href="#736" id="736">736</a>
+<a href="#737" id="737">737</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Unofficial API for WASI integrating with the standard Wasm C API.
 //!
 //! This API will be superseded by a standard WASI API when/if such a standard is created.
@@ -1259,10 +1281,32 @@
 ) -&gt; <span class="prelude-ty">Option</span>&lt;()&gt; {
     <span class="kw">let </span>wasi_env = wasi_env<span class="question-mark">?</span>;
     <span class="kw">let </span>store = <span class="kw-2">&amp;mut </span>wasi_env.store;
-    <span class="kw">let </span><span class="kw-2">mut </span>store_mut = store.store_mut();
     <span class="kw">let </span>module = module<span class="question-mark">?</span>;
 
-    <span class="kw">let </span>import_object = <span class="macro">c_try!</span>(wasi_env.inner.import_object(<span class="kw-2">&amp;mut </span>store_mut, <span class="kw-2">&amp;</span>module.inner));
+    <span class="kw">let </span><span class="kw-2">mut </span>import_object = <span class="macro">c_try!</span>(wasi_env
+        .inner
+        .import_object(<span class="kw-2">&amp;mut </span>store.store_mut(), <span class="kw-2">&amp;</span>module.inner));
+
+    <span class="kw">let </span>shared_memory = module.inner.imports().memories().next().map(|a| <span class="kw-2">*</span>a.ty());
+
+    <span class="kw">let </span>spawn_type = <span class="kw">match </span>shared_memory {
+        <span class="prelude-val">Some</span>(ty) =&gt; wasmer_wasix::runtime::SpawnMemoryType::CreateMemoryOfType(ty),
+        <span class="prelude-val">None </span>=&gt; wasmer_wasix::runtime::SpawnMemoryType::CreateMemory,
+    };
+
+    <span class="kw">let </span>tasks = wasi_env
+        .inner
+        .data(<span class="kw-2">&amp;</span>store.store())
+        .runtime
+        .task_manager()
+        .clone();
+    <span class="kw">let </span>memory = tasks
+        .build_memory(<span class="kw-2">&amp;mut </span>store.store_mut(), spawn_type)
+        .unwrap();
+
+    <span class="kw">if let </span><span class="prelude-val">Some</span>(memory) = memory {
+        import_object.define(<span class="string">&quot;env&quot;</span>, <span class="string">&quot;memory&quot;</span>, memory);
+    }
 
     imports_set_buffer(store, <span class="kw-2">&amp;</span>module.inner, import_object, imports)<span class="question-mark">?</span>;
 

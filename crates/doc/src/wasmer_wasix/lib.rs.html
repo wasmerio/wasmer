@@ -848,6 +848,17 @@
 <a href="#848" id="848">848</a>
 <a href="#849" id="849">849</a>
 <a href="#850" id="850">850</a>
+<a href="#851" id="851">851</a>
+<a href="#852" id="852">852</a>
+<a href="#853" id="853">853</a>
+<a href="#854" id="854">854</a>
+<a href="#855" id="855">855</a>
+<a href="#856" id="856">856</a>
+<a href="#857" id="857">857</a>
+<a href="#858" id="858">858</a>
+<a href="#859" id="859">859</a>
+<a href="#860" id="860">860</a>
+<a href="#861" id="861">861</a>
 </pre></div><pre class="rust"><code><span class="comment">// FIXME: merge with ./lib.rs_upstream
 
 </span><span class="attr">#![doc(html_favicon_url = <span class="string">&quot;https://wasmer.io/images/icons/favicon-32x32.png&quot;</span>)]
@@ -1200,14 +1211,25 @@
     ctx: <span class="kw-2">&amp;</span>FunctionEnv&lt;WasiEnv&gt;,
     version: WasiVersion,
 ) -&gt; Imports {
-    <span class="kw">match </span>version {
+    <span class="kw">let </span><span class="kw-2">mut </span>imports = <span class="kw">match </span>version {
         WasiVersion::Snapshot0 =&gt; generate_import_object_snapshot0(store, ctx),
         WasiVersion::Snapshot1 | WasiVersion::Latest =&gt; {
             generate_import_object_snapshot1(store, ctx)
         }
         WasiVersion::Wasix32v1 =&gt; generate_import_object_wasix32_v1(store, ctx),
         WasiVersion::Wasix64v1 =&gt; generate_import_object_wasix64_v1(store, ctx),
-    }
+    };
+
+    <span class="kw">let </span>exports_wasi_generic = wasi_exports_generic(store, ctx);
+
+    <span class="attr">#[allow(unused_mut)]
+    </span><span class="kw">let </span><span class="kw-2">mut </span>imports_wasi_generic = <span class="macro">imports! </span>{
+        <span class="string">&quot;wasi&quot; </span>=&gt; exports_wasi_generic,
+    };
+
+    imports.extend(<span class="kw-2">&amp;</span>imports_wasi_generic);
+
+    imports
 }
 
 <span class="kw">fn </span>wasi_exports_generic(<span class="kw-2">mut </span>store: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>AsStoreMut, env: <span class="kw-2">&amp;</span>FunctionEnv&lt;WasiEnv&gt;) -&gt; Exports {
