@@ -21,7 +21,7 @@ virtual-fs = { path = "../virtual-fs", version = "0.16.0", default-features = fa
 virtual-net = { path = "../virtual-net", version = "0.8.0", default-features = false, features = ["rkyv"] }
 wasmer-journal = { path = "../journal", version = "0.8.0", default-features = false }
 wasmer-emscripten = { path = "../emscripten", version = "=4.3.6", optional = true }
-wasmer-config = { version = "0.6.0", path = "../config" }
+wasmer-config = { version = "0.7.0", path = "../config" }
 
 http.workspace = true
 dashmap.workspace = true
