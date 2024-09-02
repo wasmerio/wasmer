@@ -6501,7 +6501,7 @@ dependencies = [
  "tracing",
  "url",
  "uuid",
- "wasmer-config 0.6.0",
+ "wasmer-config 0.7.0",
  "webc",
 ]
 
@@ -6701,7 +6701,7 @@ dependencies = [
  "wasmer-compiler-cranelift",
  "wasmer-compiler-llvm",
  "wasmer-compiler-singlepass",
- "wasmer-config 0.6.0",
+ "wasmer-config 0.7.0",
  "wasmer-emscripten",
  "wasmer-object",
  "wasmer-registry",
@@ -6849,7 +6849,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-config"
-version = "0.6.0"
+version = "0.7.0"
 dependencies = [
  "anyhow",
  "bytesize",
@@ -7043,7 +7043,7 @@ dependencies = [
  "toml 0.5.11",
  "tracing",
  "url",
- "wasmer-config 0.6.0",
+ "wasmer-config 0.7.0",
  "wasmer-wasm-interface",
  "wasmparser 0.121.2",
  "webc",
@@ -7185,7 +7185,7 @@ dependencies = [
  "wasm-bindgen-futures",
  "wasm-bindgen-test",
  "wasmer",
- "wasmer-config 0.6.0",
+ "wasmer-config 0.7.0",
  "wasmer-emscripten",
  "wasmer-journal",
  "wasmer-types",
