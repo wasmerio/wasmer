@@ -916,6 +916,7 @@ mod queries {
         pub id: cynic::Id,
         pub name: String,
         pub created_at: DateTime,
+        pub updated_at: DateTime,
         pub description: Option<String>,
         pub active_version: DeployAppVersion,
         pub admin_url: String,
@@ -1044,6 +1045,7 @@ mod queries {
     pub struct DeployAppVersion {
         pub id: cynic::Id,
         pub created_at: DateTime,
+        pub updated_at: DateTime,
         pub version: String,
         pub description: Option<String>,
         pub yaml_config: String,
