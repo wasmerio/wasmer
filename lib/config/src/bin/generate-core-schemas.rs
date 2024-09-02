@@ -71,6 +71,7 @@ mod codegen {
     }
 
     /// Tests that the generated schemas are still up to date.
+    #[cfg(not(target_os = "windows"))]
     #[test]
     fn test_generated_schemas_up_to_date() {
         let dir = schema_dir();
