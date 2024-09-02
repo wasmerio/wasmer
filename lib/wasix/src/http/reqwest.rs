@@ -69,12 +69,59 @@ impl ReqwestHttpClient {
         let headers = std::mem::take(response.headers_mut());
 
         let status = response.status();
+
+        // Download the body.
         let data = if let Some(timeout) = self.response_body_chunk_timeout {
+            // Download the body with a chunk timeout.
+            // The timeout prevents long stalls.
+
             let mut stream = response.bytes_stream();
             let mut buf = Vec::new();
-            while let Some(chunk) = tokio::time::timeout(timeout, stream.try_next()).await?? {
-                buf.extend_from_slice(&chunk);
+
+            // Creating tokio timeouts has overhead, so instead of a fresh
+            // timeout per chunk a shared timeout is used, and a chunk counter
+            // is kept. Only if no chunk was downloaded within the timeout a
+            // timeout error is raised.
+            'OUTER: loop {
+                let timeout = tokio::time::sleep(timeout);
+                pin_utils::pin_mut!(timeout);
+
+                let mut chunk_count = 0;
+
+                loop {
+                    tokio::select! {
+                        // Biased because the timeout is secondary,
+                        // and chunks should always have priority.
+                        biased;
+
+                        res = stream.try_next() => {
+                            match res {
+                                Ok(Some(chunk)) => {
+                                    buf.extend_from_slice(&chunk);
+                                    chunk_count += 1;
+                                }
+                                Ok(None) => {
+                                    break 'OUTER;
+                                }
+                                Err(e) => {
+                                    return Err(e.into());
+                                }
+                            }
+                        }
+
+                        _ = &mut timeout => {
+                            if chunk_count == 0 {
+                                return Err(anyhow::anyhow!("Timeout while downloading response body"));
+                            } else {
+                                // Timeout, but chunks were still downloaded, so
+                                // just continue with a fresh timeout.
+                                continue 'OUTER;
+                            }
+                        }
+                    }
+                }
             }
+
             buf
         } else {
             response.bytes().await?.to_vec()

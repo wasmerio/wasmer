@@ -27,6 +27,8 @@ use crate::{
     },
 };
 
+use super::to_module_hash;
+
 /// The maximum number of packages that will be loaded in parallel.
 const MAX_PARALLEL_DOWNLOADS: usize = 32;
 
@@ -160,7 +162,7 @@ fn load_binary_command(
         return legacy_atom_hack(webc, command_name, cmd);
     }
 
-    let hash = webc.manifest().atom_signature(&atom_name)?.into();
+    let hash = to_module_hash(webc.manifest().atom_signature(&atom_name)?);
 
     let atom = atom.with_context(|| {
 
@@ -241,7 +243,7 @@ fn legacy_atom_hack(
         "(hack) The command metadata is malformed. Falling back to the first atom in the WEBC file",
     );
 
-    let hash = webc.manifest().atom_signature(&name)?.into();
+    let hash = to_module_hash(webc.manifest().atom_signature(&name)?);
 
     Ok(Some(BinaryPackageCommand::new(
         command_name.to_string(),

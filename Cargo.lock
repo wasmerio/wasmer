@@ -6897,6 +6897,7 @@ version = "0.6.0"
 dependencies = [
  "anyhow",
  "bytesize",
+ "ciborium",
  "derive_builder",
  "hex",
  "indexmap 2.4.0",
@@ -6904,7 +6905,6 @@ dependencies = [
  "schemars",
  "semver 1.0.23",
  "serde",
- "serde_cbor",
  "serde_json",
  "serde_yaml 0.9.34+deprecated",
  "tempfile",
@@ -7126,7 +7126,6 @@ dependencies = [
  "sha2",
  "target-lexicon 0.12.16",
  "thiserror",
- "webc",
  "xxhash-rust",
 ]
 
@@ -7192,6 +7191,7 @@ dependencies = [
  "once_cell",
  "petgraph",
  "pin-project",
+ "pin-utils",
  "pretty_assertions",
  "rand",
  "rayon",
@@ -7200,7 +7200,6 @@ dependencies = [
  "rusty_pool",
  "semver 1.0.23",
  "serde",
- "serde_cbor",
  "serde_derive",
  "serde_json",
  "serde_yaml 0.9.34+deprecated",

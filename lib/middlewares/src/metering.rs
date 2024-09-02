@@ -368,15 +368,39 @@ mod tests {
 
     fn bytecode() -> Vec<u8> {
         wat2wasm(
-            br#"
-            (module
+            br#"(module
             (type $add_t (func (param i32) (result i32)))
             (func $add_one_f (type $add_t) (param $value i32) (result i32)
                 local.get $value
                 i32.const 1
                 i32.add)
-            (export "add_one" (func $add_one_f)))
-            "#,
+            (func $short_loop_f
+                (local $x f64) (local $j i32)
+                (local.set $x (f64.const 5.5))
+
+                (loop $named_loop
+                    ;; $j++
+                    local.get $j
+                    i32.const 1
+                    i32.add
+                    local.set $j
+
+                    ;; if $j < 5, one more time
+                    local.get $j
+                    i32.const 5
+                    i32.lt_s
+                    br_if $named_loop
+                )
+            )
+            (func $infi_loop_f
+                (loop $infi_loop_start
+                    br $infi_loop_start
+                )
+            )
+            (export "add_one" (func $add_one_f))
+            (export "short_loop" (func $short_loop_f))
+            (export "infi_loop" (func $infi_loop_f))
+        )"#,
         )
         .unwrap()
         .into()
@@ -484,6 +508,70 @@ mod tests {
         assert_eq!(
             get_remaining_points(&mut store, &instance),
             MeteringPoints::Remaining(4)
+        );
+    }
+
+    #[test]
+    fn metering_works_for_loops() {
+        const INITIAL_POINTS: u64 = 10_000;
+
+        fn cost(operator: &Operator) -> u64 {
+            match operator {
+                Operator::Loop { .. } => 1000,
+                Operator::Br { .. } | Operator::BrIf { .. } => 10,
+                Operator::F64Const { .. } => 7,
+                _ => 0,
+            }
+        }
+
+        // Short loop
+
+        let metering = Arc::new(Metering::new(INITIAL_POINTS, cost));
+        let mut compiler_config = Cranelift::default();
+        compiler_config.push_middleware(metering);
+        let mut store = Store::new(EngineBuilder::new(compiler_config));
+        let module = Module::new(&store, bytecode()).unwrap();
+
+        let instance = Instance::new(&mut store, &module, &imports! {}).unwrap();
+        let short_loop: TypedFunction<(), ()> = instance
+            .exports
+            .get_function("short_loop")
+            .unwrap()
+            .typed(&store)
+            .unwrap();
+        short_loop.call(&mut store).unwrap();
+
+        let points_used: u64 = match get_remaining_points(&mut store, &instance) {
+            MeteringPoints::Exhausted => panic!("Unexpected exhausted"),
+            MeteringPoints::Remaining(remaining) => INITIAL_POINTS - remaining,
+        };
+
+        assert_eq!(
+            points_used,
+            7 /* pre-loop instructions */ +
+            1000 /* loop instruction */ + 50 /* five conditional breaks */
+        );
+
+        // Infinite loop
+
+        let metering = Arc::new(Metering::new(INITIAL_POINTS, cost));
+        let mut compiler_config = Cranelift::default();
+        compiler_config.push_middleware(metering);
+        let mut store = Store::new(EngineBuilder::new(compiler_config));
+        let module = Module::new(&store, bytecode()).unwrap();
+
+        let instance = Instance::new(&mut store, &module, &imports! {}).unwrap();
+        let infi_loop: TypedFunction<(), ()> = instance
+            .exports
+            .get_function("infi_loop")
+            .unwrap()
+            .typed(&store)
+            .unwrap();
+        infi_loop.call(&mut store).unwrap_err(); // exhausted leads to runtime error
+
+        assert_eq!(
+            get_remaining_points(&mut store, &instance),
+            MeteringPoints::Exhausted
         );
     }
 }
