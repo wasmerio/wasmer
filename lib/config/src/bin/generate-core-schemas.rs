@@ -84,7 +84,7 @@ mod codegen {
 
             if contents != *jsonschema {
                 panic!(
-                    "Auto-generated OpenaAPI schema at '{}' is not up to date!\n"
+                    "Auto-generated OpenAPI schema at '{}' is not up to date!\n",
                     path.display()
                 );
             }
