@@ -17,10 +17,16 @@ pub struct WasmerClient {
     pub(crate) client: reqwest::Client,
     pub(crate) user_agent: reqwest::header::HeaderValue,
     #[allow(unused)]
-    extra_debugging: bool,
+    log_variables: bool,
 }
 
 impl WasmerClient {
+    /// Env var used to enable logging of request variables.
+    ///
+    /// This is somewhat dangerous since it can log sensitive information, hence
+    /// it is gated by a custom env var.
+    const ENV_VAR_LOG_VARIABLES: &'static str = "WASMER_API_INSECURE_LOG_VARIABLES";
+
     pub fn graphql_endpoint(&self) -> &Url {
         &self.graphql_endpoint
     }
@@ -43,12 +49,29 @@ impl WasmerClient {
         graphql_endpoint: Url,
         user_agent: &str,
     ) -> Result<Self, anyhow::Error> {
+        let log_variables = {
+            let v = std::env::var(Self::ENV_VAR_LOG_VARIABLES).unwrap_or_default();
+            match v.as_str() {
+                "1" | "true" => true,
+                "0" | "false" => false,
+                // Default case if not provided.
+                "" => false,
+                other => {
+                    bail!(
+                        "invalid value for {} - expected 0/false|1/true: '{}'",
+                        Self::ENV_VAR_LOG_VARIABLES,
+                        other
+                    );
+                }
+            }
+        };
+
         Ok(Self {
             client,
             auth_token: None,
             user_agent: Self::parse_user_agent(user_agent)?,
             graphql_endpoint,
-            extra_debugging: false,
+            log_variables,
         })
     }
 
@@ -113,20 +136,22 @@ impl WasmerClient {
             req
         };
 
-        if self.extra_debugging {
-            tracing::trace!(
-                query=%operation.query,
-                vars=?operation.variables,
-                "running GraphQL query"
-            );
-        }
         let query = operation.query.clone();
 
-        tracing::trace!(
-            endpoint=%self.graphql_endpoint,
-            query=serde_json::to_string(&operation).unwrap_or_default(),
-            "sending graphql query"
-        );
+        if self.log_variables {
+            tracing::trace!(
+                endpoint=%self.graphql_endpoint,
+                query=serde_json::to_string(&operation).unwrap_or_default(),
+                vars=?operation.variables,
+                "sending graphql query"
+            );
+        } else {
+            tracing::trace!(
+                endpoint=%self.graphql_endpoint,
+                query=serde_json::to_string(&operation).unwrap_or_default(),
+                "sending graphql query"
+            );
+        }
 
         let res = req.json(&operation).send().await;
 
