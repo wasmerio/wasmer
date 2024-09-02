@@ -2101,6 +2101,8 @@
 <a href="#2101" id="2101">2101</a>
 <a href="#2102" id="2102">2102</a>
 <a href="#2103" id="2103">2103</a>
+<a href="#2104" id="2104">2104</a>
+<a href="#2105" id="2105">2105</a>
 </pre></div><pre class="rust"><code><span class="kw">pub use </span>queries::<span class="kw-2">*</span>;
 
 <span class="kw">pub use </span>cynic::Id;
@@ -3019,6 +3021,7 @@
         <span class="kw">pub </span>id: cynic::Id,
         <span class="kw">pub </span>name: String,
         <span class="kw">pub </span>created_at: DateTime,
+        <span class="kw">pub </span>updated_at: DateTime,
         <span class="kw">pub </span>description: <span class="prelude-ty">Option</span>&lt;String&gt;,
         <span class="kw">pub </span>active_version: DeployAppVersion,
         <span class="kw">pub </span>admin_url: String,
@@ -3147,6 +3150,7 @@
     </span><span class="kw">pub struct </span>DeployAppVersion {
         <span class="kw">pub </span>id: cynic::Id,
         <span class="kw">pub </span>created_at: DateTime,
+        <span class="kw">pub </span>updated_at: DateTime,
         <span class="kw">pub </span>version: String,
         <span class="kw">pub </span>description: <span class="prelude-ty">Option</span>&lt;String&gt;,
         <span class="kw">pub </span>yaml_config: String,
