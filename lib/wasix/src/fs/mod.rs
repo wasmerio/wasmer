@@ -5,7 +5,7 @@ mod notification;
 use std::{
     borrow::{Borrow, Cow},
     cmp::Reverse,
-    collections::{BinaryHeap, HashMap, HashSet, VecDeque},
+    collections::{BinaryHeap, HashMap, HashSet},
     ops::{Deref, DerefMut},
     path::{Component, Path, PathBuf},
     pin::Pin,
@@ -21,12 +21,12 @@ use crate::{
     state::{Stderr, Stdin, Stdout},
 };
 use ahash::AHashMap;
-use futures::{future::BoxFuture, Future, TryStreamExt};
+use futures::{future::BoxFuture, Future};
 #[cfg(feature = "enable-serde")]
 use serde_derive::{Deserialize, Serialize};
 use tokio::{io::AsyncWriteExt, runtime::Handle};
 use tracing::{debug, trace};
-use virtual_fs::{copy_reference, FileSystem, FsError, OpenOptions, VirtualFile};
+use virtual_fs::{FileSystem, FsError, OpenOptions, VirtualFile};
 use wasmer_config::package::PackageId;
 use wasmer_wasix_types::{
     types::{__WASI_STDERR_FILENO, __WASI_STDIN_FILENO, __WASI_STDOUT_FILENO},
@@ -300,18 +300,19 @@ impl WasiFsRoot {
     #[tracing::instrument(level = "debug", skip_all)]
     pub(crate) async fn merge(
         &self,
-        other: &Arc<dyn FileSystem + Send + Sync>,
+        _other: &Arc<dyn FileSystem + Send + Sync>,
     ) -> Result<(), virtual_fs::FsError> {
-        match self {
-            WasiFsRoot::Sandbox(fs) => {
-                fs.union(other);
-                Ok(())
-            }
-            WasiFsRoot::Backing(fs) => {
-                merge_filesystems(other, fs).await?;
-                Ok(())
-            }
-        }
+        // match self {
+        //     WasiFsRoot::Sandbox(fs) => {
+        //         fs.union(other);
+        //         Ok(())
+        //     }
+        //     WasiFsRoot::Backing(fs) => {
+        //         merge_filesystems(other, fs).await?;
+        //         Ok(())
+        //     }
+        // }
+        Ok(())
     }
 }
 
@@ -391,64 +392,64 @@ impl FileSystem for WasiFsRoot {
 
 /// Merge the contents of one filesystem into another.
 ///
-#[tracing::instrument(level = "trace", skip_all)]
-async fn merge_filesystems(
-    source: &dyn FileSystem,
-    destination: &dyn FileSystem,
-) -> Result<(), virtual_fs::FsError> {
-    tracing::debug!("Falling back to a recursive copy to merge filesystems");
-    let files = futures::stream::FuturesUnordered::new();
+// #[tracing::instrument(level = "trace", skip_all)]
+// async fn merge_filesystems(
+//     source: &dyn FileSystem,
+//     destination: &dyn FileSystem,
+// ) -> Result<(), virtual_fs::FsError> {
+//     tracing::debug!("Falling back to a recursive copy to merge filesystems");
+//     let files = futures::stream::FuturesUnordered::new();
 
-    let mut to_check = VecDeque::new();
-    to_check.push_back(PathBuf::from("/"));
+//     let mut to_check = VecDeque::new();
+//     to_check.push_back(PathBuf::from("/"));
 
-    while let Some(path) = to_check.pop_front() {
-        let metadata = match source.metadata(&path) {
-            Ok(m) => m,
-            Err(err) => {
-                tracing::debug!(path=%path.display(), source_fs=?source, ?err, "failed to get metadata for path while merging file systems");
-                return Err(err);
-            }
-        };
+//     while let Some(path) = to_check.pop_front() {
+//         let metadata = match source.metadata(&path) {
+//             Ok(m) => m,
+//             Err(err) => {
+//                 tracing::debug!(path=%path.display(), source_fs=?source, ?err, "failed to get metadata for path while merging file systems");
+//                 return Err(err);
+//             }
+//         };
 
-        if metadata.is_dir() {
-            create_dir_all(destination, &path)?;
+//         if metadata.is_dir() {
+//             create_dir_all(destination, &path)?;
 
-            for entry in source.read_dir(&path)? {
-                let entry = entry?;
-                to_check.push_back(entry.path);
-            }
-        } else if metadata.is_file() {
-            files.push(async move {
-                copy_reference(source, destination, &path)
-                    .await
-                    .map_err(virtual_fs::FsError::from)
-            });
-        } else {
-            tracing::debug!(
-                path=%path.display(),
-                ?metadata,
-                "Skipping unknown file type while merging"
-            );
-        }
-    }
+//             for entry in source.read_dir(&path)? {
+//                 let entry = entry?;
+//                 to_check.push_back(entry.path);
+//             }
+//         } else if metadata.is_file() {
+//             files.push(async move {
+//                 copy_reference(source, destination, &path)
+//                     .await
+//                     .map_err(virtual_fs::FsError::from)
+//             });
+//         } else {
+//             tracing::debug!(
+//                 path=%path.display(),
+//                 ?metadata,
+//                 "Skipping unknown file type while merging"
+//             );
+//         }
+//     }
 
-    files.try_collect().await
-}
+//     files.try_collect().await
+// }
 
-fn create_dir_all(fs: &dyn FileSystem, path: &Path) -> Result<(), virtual_fs::FsError> {
-    if fs.metadata(path).is_ok() {
-        return Ok(());
-    }
+// fn create_dir_all(fs: &dyn FileSystem, path: &Path) -> Result<(), virtual_fs::FsError> {
+//     if fs.metadata(path).is_ok() {
+//         return Ok(());
+//     }
 
-    if let Some(parent) = path.parent() {
-        create_dir_all(fs, parent)?;
-    }
+//     if let Some(parent) = path.parent() {
+//         create_dir_all(fs, parent)?;
+//     }
 
-    fs.create_dir(path)?;
+//     fs.create_dir(path)?;
 
-    Ok(())
-}
+//     Ok(())
+// }
 
 /// This needs to be exposed so that the multiple use-cases are able
 /// to generated unique file descriptors and update the seed during
