@@ -1096,7 +1096,7 @@ impl WasiEnv {
 
         // We first need to copy any files in the package over to the
         // main file system
-        if let Err(e) = InlineWaker::block_on(root_fs.merge(&pkg.webc_fs)) {
+        if let Err(e) = InlineWaker::block_on(self.state.fs.conditional_union(pkg)) {
             tracing::warn!(
                 error = &e as &dyn std::error::Error,
                 "Unable to merge the package's filesystem into the main one",
