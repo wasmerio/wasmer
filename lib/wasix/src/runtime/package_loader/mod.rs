@@ -5,5 +5,5 @@ mod unsupported;
 
 pub use self::{
     builtin_loader::BuiltinPackageLoader, load_package_tree::load_package_tree,
-    types::PackageLoader, unsupported::UnsupportedPackageLoader,
+    types::to_module_hash, types::PackageLoader, unsupported::UnsupportedPackageLoader,
 };

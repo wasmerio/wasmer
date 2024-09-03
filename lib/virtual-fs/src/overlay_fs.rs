@@ -414,6 +414,15 @@ where
     fn new_open_options(&self) -> OpenOptions<'_> {
         OpenOptions::new(self)
     }
+
+    fn mount(
+        &self,
+        _name: String,
+        _path: &Path,
+        _fs: Box<dyn FileSystem + Send + Sync>,
+    ) -> Result<(), FsError> {
+        Err(FsError::Unsupported)
+    }
 }
 
 impl<P, S> FileOpener for OverlayFileSystem<P, S>

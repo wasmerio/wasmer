@@ -28,6 +28,10 @@ pub struct PackageDownload {
     #[clap(long)]
     pub quiet: bool,
 
+    /// proxy to use for downloading
+    #[clap(long)]
+    pub proxy: Option<String>,
+
     /// The package to download.
     package: PackageSource,
 }
@@ -97,7 +101,13 @@ impl PackageDownload {
                 // caveat: client_unauthennticated will use a token if provided, it
                 // just won't fail if none is present. So, _unauthenticated() can actually
                 // produce an authenticated client.
-                let client = self.env.client_unauthennticated()?;
+                let client = if let Some(proxy) = &self.proxy {
+                    let proxy = reqwest::Proxy::all(proxy)?;
+
+                    self.env.client_unauthennticated_with_proxy(proxy)?
+                } else {
+                    self.env.client_unauthennticated()?
+                };
 
                 let version = id.version_or_default().to_string();
                 let version = if version == "*" {
@@ -299,6 +309,7 @@ mod tests {
             out_path: Some(out_path.clone()),
             package: "wasmer/hello@0.1.0".parse().unwrap(),
             quiet: true,
+            proxy: None,
         };
 
         cmd.execute().unwrap();

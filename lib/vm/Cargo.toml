@@ -14,7 +14,8 @@ version.workspace = true
 
 [dependencies]
 memoffset.workspace = true
-wasmer-types = { path = "../types", version = "=4.3.5" }
+dashmap.workspace = true
+wasmer-types = { path = "../types", version = "=4.3.6" }
 libc.workspace = true
 indexmap = { version = "1.6" }
 thiserror = "1.0"
@@ -28,7 +29,6 @@ lazy_static = "1.4.0"
 region = { version = "3.0.2" }
 corosensei = { version = "0.1.2" }
 derivative = { version = "^2" }
-dashmap = { version = "5.4" }
 fnv = "1.0.3"
 # - Optional shared dependencies.
 tracing = { version = "0.1", optional = true }

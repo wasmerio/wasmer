@@ -90,14 +90,6 @@ impl ModuleHash {
     }
 }
 
-impl From<webc::metadata::AtomSignature> for ModuleHash {
-    fn from(value: webc::metadata::AtomSignature) -> Self {
-        match value {
-            webc::metadata::AtomSignature::Sha256(bytes) => Self::Sha256(bytes),
-        }
-    }
-}
-
 impl Display for ModuleHash {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         fn format<const N: usize>(f: &mut Formatter<'_>, bytes: &[u8; N]) -> fmt::Result {

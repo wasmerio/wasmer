@@ -128,17 +128,7 @@ pub enum AppScalingModeV1 {
 )]
 pub struct AppVolume {
     pub name: String,
-    pub mounts: Vec<AppVolumeMount>,
-}
-
-#[derive(
-    serde::Serialize, serde::Deserialize, schemars::JsonSchema, Clone, Debug, PartialEq, Eq,
-)]
-pub struct AppVolumeMount {
-    /// Path to mount the volume at.
-    pub mount_path: String,
-    /// Sub-path within the volume to mount.
-    pub sub_path: Option<String>,
+    pub mount: String,
 }
 
 #[derive(
@@ -354,5 +344,40 @@ scheduled_tasks:
                 })
             }
         );
+    }
+
+    #[test]
+    fn test_app_config_v1_volumes() {
+        let config = r#"
+kind: wasmer.io/App.v0
+name: test
+package: ns/name@0.1.0
+volumes:
+  - name: vol1
+    mount: /vol1
+  - name: vol2
+    mount: /vol2
+
+"#;
+
+        let parsed = AppConfigV1::parse_yaml(config).unwrap();
+        let expected_volumes = vec![
+            AppVolume {
+                name: "vol1".to_string(),
+                mount: "/vol1".to_string(),
+            },
+            AppVolume {
+                name: "vol2".to_string(),
+                mount: "/vol2".to_string(),
+            },
+        ];
+        if let Some(actual_volumes) = parsed.volumes {
+            assert_eq!(actual_volumes, expected_volumes);
+        } else {
+            panic!(
+                "Parsed volumes are None, expected Some({:?})",
+                expected_volumes
+            );
+        }
     }
 }

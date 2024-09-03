@@ -235,6 +235,15 @@ impl crate::FileSystem for FileSystem {
             .and_then(TryInto::try_into)
             .map_err(Into::into)
     }
+
+    fn mount(
+        &self,
+        _name: String,
+        _path: &Path,
+        _fs: Box<dyn crate::FileSystem + Send + Sync>,
+    ) -> Result<()> {
+        Err(FsError::Unsupported)
+    }
 }
 
 impl TryInto<Metadata> for std::fs::Metadata {

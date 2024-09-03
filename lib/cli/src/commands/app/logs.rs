@@ -56,6 +56,7 @@ pub struct CmdAppLogs {
     #[clap(long, default_value = "1000")]
     max: usize,
 
+    /// Continuously watch for new logs and display them in real-time.
     #[clap(long, default_value = "false")]
     watch: bool,
 
