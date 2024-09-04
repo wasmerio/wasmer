@@ -1094,8 +1094,8 @@ impl WasiEnv {
         tracing::trace!(package=%pkg.id, "merging package dependency into wasi environment");
         let root_fs = &self.state.fs.root_fs;
 
-        // We first need to copy any files in the package over to the
-        // main file system
+        // We first need to merge the filesystem in the package into the
+        // main file system, if it has not been merged already.
         if let Err(e) = InlineWaker::block_on(self.state.fs.conditional_union(pkg)) {
             tracing::warn!(
                 error = &e as &dyn std::error::Error,
