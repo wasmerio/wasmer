@@ -42,6 +42,7 @@ pub async fn load_package_tree(
 ) -> Result<BinaryPackage, Error> {
     let mut containers = fetch_dependencies(loader, &resolution.package, &resolution.graph).await?;
     containers.insert(resolution.package.root_package.clone(), root.clone());
+    let package_ids = containers.keys().cloned().collect();
     let fs = filesystem(&containers, &resolution.package, root_is_local_dir)?;
 
     let root = &resolution.package.root_package;
@@ -52,6 +53,7 @@ pub async fn load_package_tree(
 
     let loaded = BinaryPackage {
         id: root.clone(),
+        package_ids,
         when_cached: crate::syscalls::platform_clock_time_get(
             wasmer_wasix_types::wasi::Snapshot0Clockid::Monotonic,
             1_000_000,

@@ -1,7 +1,7 @@
 //! Builder system for configuring a [`WasiState`] and creating it.
 
 use std::{
-    collections::HashMap,
+    collections::{HashMap, HashSet},
     path::{Path, PathBuf},
     sync::Arc,
 };
@@ -70,7 +70,7 @@ pub struct WasiEnvBuilder {
     /// List of webc dependencies to be injected.
     pub(super) uses: Vec<BinaryPackage>,
 
-    pub(super) included_packages: Vec<PackageId>,
+    pub(super) included_packages: HashSet<PackageId>,
 
     pub(super) module_hash: Option<ModuleHash>,
 
@@ -329,7 +329,15 @@ impl WasiEnvBuilder {
     /// Adds a package that is already included in the [`WasiEnvBuilder`] filesystem.
     /// These packages will not be merged to the final filesystem since they are already included.
     pub fn include_package(&mut self, pkg_id: PackageId) -> &mut Self {
-        self.included_packages.push(pkg_id);
+        self.included_packages.insert(pkg_id);
+        self
+    }
+
+    /// Adds packages that is already included in the [`WasiEnvBuilder`] filesystem.
+    /// These packages will not be merged to the final filesystem since they are already included.
+    pub fn include_packages(&mut self, pkg_ids: impl IntoIterator<Item = PackageId>) -> &mut Self {
+        self.included_packages.extend(pkg_ids.into_iter());
+
         self
     }
 
