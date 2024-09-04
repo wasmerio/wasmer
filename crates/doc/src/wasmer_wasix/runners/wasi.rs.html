@@ -445,6 +445,10 @@
 <a href="#445" id="445">445</a>
 <a href="#446" id="446">446</a>
 <a href="#447" id="447">447</a>
+<a href="#448" id="448">448</a>
+<a href="#449" id="449">449</a>
+<a href="#450" id="450">450</a>
+<a href="#451" id="451">451</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! WebC container support for running WASI modules
 
 </span><span class="kw">use </span>std::{path::PathBuf, sync::Arc};
@@ -799,6 +803,10 @@
             <span class="kw">for </span>snapshot_trigger <span class="kw">in </span><span class="self">self</span>.wasi.snapshot_on.iter().cloned() {
                 env.add_snapshot_trigger(snapshot_trigger);
             }
+        }
+
+        <span class="kw">if let </span><span class="prelude-val">Some</span>(cwd) = <span class="kw-2">&amp;</span>wasi.cwd {
+            env.set_current_dir(cwd);
         }
 
         <span class="kw">let </span>env = env.build()<span class="question-mark">?</span>;
