@@ -353,8 +353,8 @@ impl crate::runners::Runner for WasiRunner {
             }
         }
 
-        if let Some(cwd) = cmd.metadata().annotation::<String>("cwd")? {
-            env.set_current_dir(PathBuf::from(cwd));
+        if let Some(cwd) = &wasi.cwd {
+            env.set_current_dir(cwd);
         }
 
         let env = env.build()?;

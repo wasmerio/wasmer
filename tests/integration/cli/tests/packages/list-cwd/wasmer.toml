@@ -10,5 +10,5 @@ name = "run"
 module = "main"
 runner = "wasi"
 
-[command.annotations]
+[command.annotations.wasi]
 cwd = "/data"
