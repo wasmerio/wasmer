@@ -847,7 +847,7 @@ jobs:
         run: |
           make untar-wasmer
       - name: Test integration CLI
-        if: false # matrix.build != 'macos-arm'
+        if: matrix.build != 'macos-arm'
         shell: bash
         run: |
           export WASMER_PATH=`pwd`/target/${{ matrix.target }}/release/wasmer${{ matrix.exe }}
