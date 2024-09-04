@@ -627,6 +627,8 @@
 <a href="#627" id="627">627</a>
 <a href="#628" id="628">628</a>
 <a href="#629" id="629">629</a>
+<a href="#630" id="630">630</a>
+<a href="#631" id="631">631</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{
     collections::{BTreeMap, HashMap, HashSet},
     fmt::Debug,
@@ -671,6 +673,7 @@
 ) -&gt; <span class="prelude-ty">Result</span>&lt;BinaryPackage, Error&gt; {
     <span class="kw">let </span><span class="kw-2">mut </span>containers = fetch_dependencies(loader, <span class="kw-2">&amp;</span>resolution.package, <span class="kw-2">&amp;</span>resolution.graph).<span class="kw">await</span><span class="question-mark">?</span>;
     containers.insert(resolution.package.root_package.clone(), root.clone());
+    <span class="kw">let </span>package_ids = containers.keys().cloned().collect();
     <span class="kw">let </span>fs = filesystem(<span class="kw-2">&amp;</span>containers, <span class="kw-2">&amp;</span>resolution.package, root_is_local_dir)<span class="question-mark">?</span>;
 
     <span class="kw">let </span>root = <span class="kw-2">&amp;</span>resolution.package.root_package;
@@ -681,6 +684,7 @@
 
     <span class="kw">let </span>loaded = BinaryPackage {
         id: root.clone(),
+        package_ids,
         when_cached: <span class="kw">crate</span>::syscalls::platform_clock_time_get(
             wasmer_wasix_types::wasi::Snapshot0Clockid::Monotonic,
             <span class="number">1_000_000</span>,

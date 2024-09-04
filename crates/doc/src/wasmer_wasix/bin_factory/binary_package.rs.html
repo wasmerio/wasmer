@@ -348,6 +348,8 @@
 <a href="#348" id="348">348</a>
 <a href="#349" id="349">349</a>
 <a href="#350" id="350">350</a>
+<a href="#351" id="351">351</a>
+<a href="#352" id="352">352</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{path::Path, sync::Arc};
 
 <span class="kw">use </span>anyhow::Context;
@@ -416,6 +418,8 @@
 #[derivative(Debug)]
 </span><span class="kw">pub struct </span>BinaryPackage {
     <span class="kw">pub </span>id: PackageId,
+    <span class="doccomment">/// Includes the ids of all the packages in the tree
+    </span><span class="kw">pub </span>package_ids: Vec&lt;PackageId&gt;,
 
     <span class="kw">pub </span>when_cached: <span class="prelude-ty">Option</span>&lt;u128&gt;,
     <span class="doccomment">/// The name of the [`BinaryPackageCommand`] which is this package&#39;s

@@ -444,6 +444,7 @@
 <a href="#444" id="444">444</a>
 <a href="#445" id="445">445</a>
 <a href="#446" id="446">446</a>
+<a href="#447" id="447">447</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! WebC container support for running WASI modules
 
 </span><span class="kw">use </span>std::{path::PathBuf, sync::Arc};
@@ -688,6 +689,7 @@
         <span class="kw">let </span>container_fs = <span class="kw">if let </span><span class="prelude-val">Some</span>(pkg) = pkg {
             builder.add_webc(pkg.clone());
             builder.set_module_hash(pkg.hash());
+            builder.include_packages(pkg.package_ids.clone());
             <span class="prelude-val">Some</span>(Arc::clone(<span class="kw-2">&amp;</span>pkg.webc_fs))
         } <span class="kw">else </span>{
             <span class="prelude-val">None
