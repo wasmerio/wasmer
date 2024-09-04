@@ -242,6 +242,7 @@ impl WasiRunner {
         let container_fs = if let Some(pkg) = pkg {
             builder.add_webc(pkg.clone());
             builder.set_module_hash(pkg.hash());
+            builder.include_packages(pkg.package_ids.clone());
             Some(Arc::clone(&pkg.webc_fs))
         } else {
             None
