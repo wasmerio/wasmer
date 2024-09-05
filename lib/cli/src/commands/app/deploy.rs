@@ -260,8 +260,12 @@ impl AsyncCliCommand for CmdAppDeploy {
             || self.package.is_some()
             || self.use_local_manifest
         {
-            // Create already points back to deploy.
-            return self.create().await;
+            if !self.non_interactive {
+                // Create already points back to deploy.
+                return self.create().await;
+            } else {
+                anyhow::bail!("No app configuration was found in {}. Create an app before deploying or re-run in interactive mode!", app_config_path.display());
+            }
         }
 
         assert!(app_config_path.is_file());
