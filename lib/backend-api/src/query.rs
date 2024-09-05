@@ -15,6 +15,20 @@ use crate::{
     GraphQLApiFailure, WasmerClient,
 };
 
+/// Rotate the s3 secrets tied to an app given its id.
+pub async fn rotate_s3_secrets(
+    client: &WasmerClient,
+    app_id: types::Id,
+) -> Result<(), anyhow::Error> {
+    client
+        .run_graphql_strict(types::RotateS3SecretsForApp::build(
+            RotateS3SecretsForAppVariables { id: app_id },
+        ))
+        .await?;
+
+    Ok(())
+}
+
 pub async fn viewer_can_deploy_to_namespace(
     client: &WasmerClient,
     owner_name: &str,

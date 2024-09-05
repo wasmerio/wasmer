@@ -2407,7 +2407,7 @@ type Query {
   getCollections(before: String, after: String, first: Int, last: Int): CollectionConnection
   getSignedUrlForPackageUpload(name: String, version: String = "latest", filename: String, expiresAfterSeconds: Int = 60): SignedUrl
   getPackageHash(name: String, hash: String!): PackageWebc
-  getPackageRelease(hash: String!): PackageWebc
+  getPackageRelease(hash: String): PackageWebc
   getPackageInstanceByVersionOrHash(name: String!, version: String, hash: String): PackageInstance
   categories(offset: Int, before: String, after: String, first: Int, last: Int): CategoryConnection!
   viewerCan(action: OwnerAction!, ownerName: String!): Boolean!
@@ -2955,6 +2955,9 @@ type RegistryInfo {
   """URL to the graphql endpoint"""
   graphqlUrl: String!
 
+  """URL for app domains"""
+  appDomain: String!
+
   """URL to the graphql endpoint"""
   createBlogpostUrl: String
 
@@ -3043,6 +3046,9 @@ type Mutation {
 
   """Toggle HTTP redirect for the active version of app"""
   toggleForceHttps(input: ToggleForceHTTPSInput!): ToggleForceHTTPSPayload
+
+  """Redeploy the active version of an app."""
+  rotateS3SecretsForApp(input: RotateS3SecretsForAppInput!): RotateS3SecretsForAppPayload
   tokenAuth(input: ObtainJSONWebTokenInput!): ObtainJSONWebTokenPayload
   generateDeployToken(input: GenerateDeployTokenInput!): GenerateDeployTokenPayload
   verifyAccessToken(token: String): Verify
@@ -3510,6 +3516,18 @@ type ToggleForceHTTPSPayload {
 
 input ToggleForceHTTPSInput {
   """App ID"""
+  id: ID!
+  clientMutationId: String
+}
+
+"""Redeploy the active version of an app."""
+type RotateS3SecretsForAppPayload {
+  app: DeployApp!
+  clientMutationId: String
+}
+
+input RotateS3SecretsForAppInput {
+  """ID of the app."""
   id: ID!
   clientMutationId: String
 }
