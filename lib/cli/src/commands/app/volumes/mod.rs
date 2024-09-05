@@ -6,7 +6,7 @@ pub mod list;
 /// App volume management.
 #[derive(Debug, clap::Parser)]
 pub enum CmdAppVolumes {
-    Credentials(credentials::s3::CmdAppVolumesCredentials),
+    Credentials(credentials::CmdAppVolumesCredentials),
     List(list::CmdAppVolumesList),
     RotateSecrets(credentials::rotate_secrets::CmdAppVolumesRotateSecrets),
 }
