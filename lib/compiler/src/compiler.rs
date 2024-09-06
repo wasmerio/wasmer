@@ -78,7 +78,7 @@ pub trait Compiler: Send {
     ///
     /// It returns the a succesful Result in case is valid, `CompileError` in case is not.
     fn validate_module(&self, features: &Features, data: &[u8]) -> Result<(), CompileError> {
-        let mut wasm_features = WasmFeatures::all();
+        let mut wasm_features = WasmFeatures::default();
         wasm_features.set(WasmFeatures::BULK_MEMORY, features.bulk_memory);
         wasm_features.set(WasmFeatures::THREADS, features.threads);
         wasm_features.set(WasmFeatures::REFERENCE_TYPES, features.reference_types);
