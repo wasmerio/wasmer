@@ -109,7 +109,7 @@ const LICENSE_PATHS: &[&str; 3] = &["LICENSE", "LICENSE.md", "COPYING"];
 /// Package definition for a Wasmer package.
 ///
 /// Usually stored in a `wasmer.toml` file.
-#[derive(Clone, Debug, Deserialize, Serialize, derive_builder::Builder)]
+#[derive(Default, Clone, Debug, Deserialize, Serialize, derive_builder::Builder)]
 #[non_exhaustive]
 pub struct Package {
     /// The package's name in the form `namespace/name`.
@@ -462,6 +462,32 @@ pub enum CommandAnnotations {
     File(FileCommandAnnotations),
     /// Annotations that are specified inline.
     Raw(toml::Value),
+}
+
+#[derive(Debug, Clone, Default)]
+pub struct CommandAnnotationBuilder {
+    annotations: HashMap<String, toml::Value>,
+}
+
+impl CommandAnnotationBuilder {
+    pub fn add(
+        &mut self,
+        key: impl Into<String>,
+        value: impl serde::Serialize,
+    ) -> Result<&mut Self, anyhow::Error> {
+        let key = key.into();
+        let value = toml::Value::try_from(value)?;
+
+        self.annotations.insert(key, value);
+
+        Ok(self)
+    }
+
+    pub fn build(&self) -> toml::Value {
+        toml::Value::Table(toml::map::Map::from_iter(
+            self.annotations.clone().into_iter(),
+        ))
+    }
 }
 
 /// Annotations on disk.
@@ -965,7 +991,7 @@ pub enum ValidationError {
 
 #[cfg(test)]
 mod tests {
-    use std::fmt::Debug;
+    use std::{collections::HashSet, fmt::Debug};
 
     use serde::{de::DeserializeOwned, Deserialize};
     use toml::toml;
@@ -1487,5 +1513,42 @@ annotations = { file = "Runefile.yml", kind = "yaml" }
         let round_tripped: ModuleReference = repr.parse().unwrap();
 
         assert_eq!(round_tripped, original);
+    }
+
+    #[test]
+    fn create_command_annotations() -> Result<(), anyhow::Error> {
+        let command_annotations = CommandAnnotationBuilder::default()
+            .add(
+                "wasi",
+                CommandAnnotationBuilder::default()
+                    .add("main-args", vec!["-w=/assets/config.toml", "-g=info"])?
+                    .build(),
+            )?
+            .build();
+
+        let args = command_annotations
+            .as_table()
+            .unwrap()
+            .get("wasi")
+            .unwrap()
+            .as_table()
+            .unwrap()
+            .get("main-args")
+            .unwrap()
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|t| t.as_str().unwrap().to_string())
+            .collect::<HashSet<String>>();
+
+        assert_eq!(
+            args,
+            HashSet::from_iter(vec![
+                "-w=/assets/config.toml".to_string(),
+                "-g=info".to_string()
+            ])
+        );
+
+        Ok(())
     }
 }
