@@ -109,7 +109,7 @@ const LICENSE_PATHS: &[&str; 3] = &["LICENSE", "LICENSE.md", "COPYING"];
 /// Package definition for a Wasmer package.
 ///
 /// Usually stored in a `wasmer.toml` file.
-#[derive(Default, Clone, Debug, Deserialize, Serialize, derive_builder::Builder)]
+#[derive(Clone, Debug, Deserialize, Serialize, derive_builder::Builder)]
 #[non_exhaustive]
 pub struct Package {
     /// The package's name in the form `namespace/name`.
@@ -464,12 +464,14 @@ pub enum CommandAnnotations {
     Raw(toml::Value),
 }
 
+/// Helper struct for building annotations
 #[derive(Debug, Clone, Default)]
 pub struct CommandAnnotationBuilder {
     annotations: HashMap<String, toml::Value>,
 }
 
 impl CommandAnnotationBuilder {
+    /// Add an annotation, associating `key` to any serializable `value`.
     pub fn add(
         &mut self,
         key: impl Into<String>,
@@ -483,6 +485,7 @@ impl CommandAnnotationBuilder {
         Ok(self)
     }
 
+    /// Builds the added annotations into a [`toml::Value::Table`]
     pub fn build(&self) -> toml::Value {
         toml::Value::Table(toml::map::Map::from_iter(self.annotations.clone()))
     }
