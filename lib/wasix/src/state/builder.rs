@@ -336,7 +336,7 @@ impl WasiEnvBuilder {
     /// Adds packages that is already included in the [`WasiEnvBuilder`] filesystem.
     /// These packages will not be merged to the final filesystem since they are already included.
     pub fn include_packages(&mut self, pkg_ids: impl IntoIterator<Item = PackageId>) -> &mut Self {
-        self.included_packages.extend(pkg_ids.into_iter());
+        self.included_packages.extend(pkg_ids);
 
         self
     }

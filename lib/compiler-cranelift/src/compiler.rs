@@ -254,7 +254,7 @@ impl Compiler for CraneliftCompiler {
                 // if generate_debug_info {
                 //     context.func.collect_debug_info();
                 // }
-                
+
                 let mut reader =
                     MiddlewareBinaryReader::new_with_offset(input.data, input.module_offset);
                 reader.set_middleware_chain(
