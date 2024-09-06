@@ -442,15 +442,15 @@ mod validation_tests {
     #[test]
     fn global_exports() {
         const WAT: &str = r#"(module
-(func (export "as-set_local-first") (param i32) (result i32)
-  (nop) (i32.const 2) (set_local 0) (get_local 0))
+(func (export "as-local.set-first") (param i32) (result i32)
+  (nop) (i32.const 2) (local.set 0) (local.get 0))
 (global (export "num_tries") i64 (i64.const 0))
 )"#;
         let wasm = wat::parse_str(WAT).unwrap();
 
         let interface_src = r#"
 (interface
-(func (export "as-set_local-first") (param i32) (result i32))
+(func (export "as-local.set-first") (param i32) (result i32))
 (global (export "num_tries") (type i64)))"#;
         let interface = parser::parse_interface(interface_src).unwrap();
 
@@ -461,7 +461,7 @@ mod validation_tests {
         // Now set the global export type to mismatch the wasm
         let interface_src = r#"
 (interface
-(func (export "as-set_local-first") (param i32) (result i32))
+(func (export "as-local.set-first") (param i32) (result i32))
 (global (export "num_tries") (type f32)))"#;
         let interface = parser::parse_interface(interface_src).unwrap();
 
@@ -475,7 +475,7 @@ mod validation_tests {
         // Now set the function export type to mismatch the wasm
         let interface_src = r#"
 (interface
-(func (export "as-set_local-first") (param i64) (result i64))
+(func (export "as-local.set-first") (param i64) (result i64))
 (global (export "num_tries") (type i64)))"#;
         let interface = parser::parse_interface(interface_src).unwrap();
 
@@ -489,7 +489,7 @@ mod validation_tests {
         // Now try a interface that requires an export that the module doesn't have
         let interface_src = r#"
 (interface
-(func (export "as-set_local-first") (param i64) (result i64))
+(func (export "as-local.set-first") (param i64) (result i64))
 (global (export "numb_trees") (type i64)))"#;
         let interface = parser::parse_interface(interface_src).unwrap();
 
