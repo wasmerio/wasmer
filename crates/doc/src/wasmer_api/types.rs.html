@@ -2103,6 +2103,26 @@
 <a href="#2103" id="2103">2103</a>
 <a href="#2104" id="2104">2104</a>
 <a href="#2105" id="2105">2105</a>
+<a href="#2106" id="2106">2106</a>
+<a href="#2107" id="2107">2107</a>
+<a href="#2108" id="2108">2108</a>
+<a href="#2109" id="2109">2109</a>
+<a href="#2110" id="2110">2110</a>
+<a href="#2111" id="2111">2111</a>
+<a href="#2112" id="2112">2112</a>
+<a href="#2113" id="2113">2113</a>
+<a href="#2114" id="2114">2114</a>
+<a href="#2115" id="2115">2115</a>
+<a href="#2116" id="2116">2116</a>
+<a href="#2117" id="2117">2117</a>
+<a href="#2118" id="2118">2118</a>
+<a href="#2119" id="2119">2119</a>
+<a href="#2120" id="2120">2120</a>
+<a href="#2121" id="2121">2121</a>
+<a href="#2122" id="2122">2122</a>
+<a href="#2123" id="2123">2123</a>
+<a href="#2124" id="2124">2124</a>
+<a href="#2125" id="2125">2125</a>
 </pre></div><pre class="rust"><code><span class="kw">pub use </span>queries::<span class="kw-2">*</span>;
 
 <span class="kw">pub use </span>cynic::Id;
@@ -2814,6 +2834,26 @@
         <span class="kw">pub </span>access_key: String,
         <span class="kw">pub </span>secret_key: String,
         <span class="kw">pub </span>endpoint: String,
+    }
+
+    <span class="attr">#[derive(cynic::QueryVariables, Debug)]
+    </span><span class="kw">pub struct </span>RotateS3SecretsForAppVariables {
+        <span class="kw">pub </span>id: cynic::Id,
+    }
+
+    <span class="attr">#[derive(cynic::QueryFragment, Debug)]
+    #[cynic(
+        graphql_type = <span class="string">&quot;Mutation&quot;</span>,
+        variables = <span class="string">&quot;RotateS3SecretsForAppVariables&quot;
+    </span>)]
+    </span><span class="kw">pub struct </span>RotateS3SecretsForApp {
+        <span class="attr">#[arguments(input: { id: <span class="macro-nonterminal">$id </span>})]
+        </span><span class="kw">pub </span>rotate_s3_secrets_for_app: <span class="prelude-ty">Option</span>&lt;RotateS3SecretsForAppPayload&gt;,
+    }
+
+    <span class="attr">#[derive(cynic::QueryFragment, Debug)]
+    </span><span class="kw">pub struct </span>RotateS3SecretsForAppPayload {
+        <span class="kw">pub </span>client_mutation_id: <span class="prelude-ty">Option</span>&lt;String&gt;,
     }
 
     <span class="attr">#[derive(cynic::QueryVariables, Debug, Clone)]

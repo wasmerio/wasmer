@@ -2043,6 +2043,20 @@
 <a href="#2043" id="2043">2043</a>
 <a href="#2044" id="2044">2044</a>
 <a href="#2045" id="2045">2045</a>
+<a href="#2046" id="2046">2046</a>
+<a href="#2047" id="2047">2047</a>
+<a href="#2048" id="2048">2048</a>
+<a href="#2049" id="2049">2049</a>
+<a href="#2050" id="2050">2050</a>
+<a href="#2051" id="2051">2051</a>
+<a href="#2052" id="2052">2052</a>
+<a href="#2053" id="2053">2053</a>
+<a href="#2054" id="2054">2054</a>
+<a href="#2055" id="2055">2055</a>
+<a href="#2056" id="2056">2056</a>
+<a href="#2057" id="2057">2057</a>
+<a href="#2058" id="2058">2058</a>
+<a href="#2059" id="2059">2059</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{collections::HashSet, time::Duration};
 
 <span class="kw">use </span>anyhow::{bail, Context};
@@ -2059,6 +2073,20 @@
     types::{<span class="self">self</span>, <span class="kw-2">*</span>},
     GraphQLApiFailure, WasmerClient,
 };
+
+<span class="doccomment">/// Rotate the s3 secrets tied to an app given its id.
+</span><span class="kw">pub async fn </span>rotate_s3_secrets(
+    client: <span class="kw-2">&amp;</span>WasmerClient,
+    app_id: types::Id,
+) -&gt; <span class="prelude-ty">Result</span>&lt;(), anyhow::Error&gt; {
+    client
+        .run_graphql_strict(types::RotateS3SecretsForApp::build(
+            RotateS3SecretsForAppVariables { id: app_id },
+        ))
+        .<span class="kw">await</span><span class="question-mark">?</span>;
+
+    <span class="prelude-val">Ok</span>(())
+}
 
 <span class="kw">pub async fn </span>viewer_can_deploy_to_namespace(
     client: <span class="kw-2">&amp;</span>WasmerClient,

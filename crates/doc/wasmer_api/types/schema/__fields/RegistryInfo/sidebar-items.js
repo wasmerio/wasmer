@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":["__typename","baseUrl","createBlogpostUrl","defaultFrontend","graphqlUrl","packages","schema"]};
+window.SIDEBAR_ITEMS = {"struct":["__typename","appDomain","baseUrl","createBlogpostUrl","defaultFrontend","graphqlUrl","packages","schema"]};

@@ -27,16 +27,22 @@
 <a href="#27" id="27">27</a>
 <a href="#28" id="28">28</a>
 <a href="#29" id="29">29</a>
+<a href="#30" id="30">30</a>
+<a href="#31" id="31">31</a>
+<a href="#32" id="32">32</a>
+<a href="#33" id="33">33</a>
+<a href="#34" id="34">34</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::commands::AsyncCliCommand;
 
+<span class="kw">pub mod </span>credentials;
 <span class="kw">pub mod </span>list;
-<span class="kw">pub mod </span>s3_credentials;
 
 <span class="doccomment">/// App volume management.
 </span><span class="attr">#[derive(Debug, clap::Parser)]
 </span><span class="kw">pub enum </span>CmdAppVolumes {
-    S3Credentials(s3_credentials::CmdAppS3Credentials),
+    Credentials(credentials::CmdAppVolumesCredentials),
     List(list::CmdAppVolumesList),
+    RotateSecrets(credentials::rotate_secrets::CmdAppVolumesRotateSecrets),
 }
 
 <span class="attr">#[async_trait::async_trait]
@@ -45,7 +51,11 @@
 
     <span class="kw">async fn </span>run_async(<span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>::Output, anyhow::Error&gt; {
         <span class="kw">match </span><span class="self">self </span>{
-            <span class="self">Self</span>::S3Credentials(c) =&gt; {
+            <span class="self">Self</span>::Credentials(c) =&gt; {
+                c.run_async().<span class="kw">await</span><span class="question-mark">?</span>;
+                <span class="prelude-val">Ok</span>(())
+            }
+            <span class="self">Self</span>::RotateSecrets(c) =&gt; {
                 c.run_async().<span class="kw">await</span><span class="question-mark">?</span>;
                 <span class="prelude-val">Ok</span>(())
             }

@@ -801,6 +801,10 @@
 <a href="#801" id="801">801</a>
 <a href="#802" id="802">802</a>
 <a href="#803" id="803">803</a>
+<a href="#804" id="804">804</a>
+<a href="#805" id="805">805</a>
+<a href="#806" id="806">806</a>
+<a href="#807" id="807">807</a>
 </pre></div><pre class="rust"><code><span class="kw">use super</span>::{util::login_user, AsyncCliCommand};
 <span class="kw">use crate</span>::{
     commands::{app::create::CmdAppCreate, package::publish::PackagePublish, PublishWait},
@@ -1063,8 +1067,12 @@
             || <span class="self">self</span>.package.is_some()
             || <span class="self">self</span>.use_local_manifest
         {
-            <span class="comment">// Create already points back to deploy.
-            </span><span class="kw">return </span><span class="self">self</span>.create().<span class="kw">await</span>;
+            <span class="kw">if </span>!<span class="self">self</span>.non_interactive {
+                <span class="comment">// Create already points back to deploy.
+                </span><span class="kw">return </span><span class="self">self</span>.create().<span class="kw">await</span>;
+            } <span class="kw">else </span>{
+                <span class="macro">anyhow::bail!</span>(<span class="string">&quot;No app configuration was found in {}. Create an app before deploying or re-run in interactive mode!&quot;</span>, app_config_path.display());
+            }
         }
 
         <span class="macro">assert!</span>(app_config_path.is_file());

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["CredsItemFormat"],"mod":["rotate_secrets"],"struct":["CmdAppVolumesCredentials","ItemFormatOpts"]};
