@@ -11,6 +11,8 @@ Looking for changes that affect our C API? See the [C API Changelog](lib/c-api/C
 
 ## 4.3.7 - 06/09/2024
 
+This release adds support for rotating secrets, fixes a regression with the filesystem, and contains other fixes and improvments.
+
 ## Added
 
   - [#5070](https://github.com/wasmerio/wasmer/pull/5070) Add `rotate-secrets` subcommand for volumes and minor changes
