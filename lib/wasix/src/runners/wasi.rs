@@ -242,6 +242,7 @@ impl WasiRunner {
         let container_fs = if let Some(pkg) = pkg {
             builder.add_webc(pkg.clone());
             builder.set_module_hash(pkg.hash());
+            builder.include_packages(pkg.package_ids.clone());
             Some(Arc::clone(&pkg.webc_fs))
         } else {
             None
@@ -351,6 +352,10 @@ impl crate::runners::Runner for WasiRunner {
             for snapshot_trigger in self.wasi.snapshot_on.iter().cloned() {
                 env.add_snapshot_trigger(snapshot_trigger);
             }
+        }
+
+        if let Some(cwd) = &wasi.cwd {
+            env.set_current_dir(cwd);
         }
 
         let env = env.build()?;

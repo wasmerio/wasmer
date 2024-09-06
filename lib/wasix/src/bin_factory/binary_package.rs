@@ -66,6 +66,8 @@ impl BinaryPackageCommand {
 #[derivative(Debug)]
 pub struct BinaryPackage {
     pub id: PackageId,
+    /// Includes the ids of all the packages in the tree
+    pub package_ids: Vec<PackageId>,
 
     pub when_cached: Option<u128>,
     /// The name of the [`BinaryPackageCommand`] which is this package's

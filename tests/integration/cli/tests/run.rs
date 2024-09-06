@@ -48,6 +48,29 @@ static CACHE_RUST_LOG: Lazy<String> = Lazy::new(|| {
 });
 
 #[test]
+fn list_cwd() {
+    let package = packages().join("list-cwd");
+
+    let output = Command::new(get_wasmer_path())
+        .arg("run")
+        .arg(package)
+        .output()
+        .unwrap();
+
+    let stdout = output.stdout;
+
+    let expected = ".
+..
+main.c
+main.wasm
+wasmer.toml
+"
+    .to_owned();
+
+    assert_eq!(expected, String::from_utf8(stdout).unwrap());
+}
+
+#[test]
 fn nested_mounted_paths() {
     let package = packages().join("nested-mounted-paths");
 

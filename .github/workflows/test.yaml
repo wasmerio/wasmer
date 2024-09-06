@@ -913,4 +913,8 @@ jobs:
           wasmer login '${{ secrets.WAPM_PROD_TOKEN }}' &&\
           wasmer config set registry.url https://registry.wasmer.wtf/graphql &&\
           wasmer login '${{ secrets.WAPM_DEV_TOKEN }}' &&\
-          cargo test --no-fail-fast"
+          cargo test --no-fail-fast"      
+    - name: notify failure in slack
+      if: failure()
+      run: |
+        curl -X POST -H 'Content-type: application/json' --data '{"text":"Integration tests failed ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"}' ${{ secrets.INTEGRATION_TEST_SLACK_WEBHOOK }}
