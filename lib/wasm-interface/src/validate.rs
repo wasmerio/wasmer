@@ -6,7 +6,9 @@
 
 use crate::{Export, Import, Interface, WasmType};
 use std::collections::HashMap;
-use wasmparser::{CompositeType, ExternalKind, FuncType, GlobalType, Payload, TypeRef};
+use wasmparser::{
+    CompositeInnerType, ExternalKind, FuncType, GlobalType, Payload, TypeRef, WasmFeatures,
+};
 
 pub fn validate_wasm_and_report_errors(
     wasm: &[u8],
@@ -20,14 +22,15 @@ pub fn validate_wasm_and_report_errors(
     let mut global_types: Vec<GlobalType> = vec![];
     let mut fn_sigs: Vec<u32> = vec![];
 
-    let mut val = wasmparser::Validator::new_with_features(wasmparser::WasmFeatures {
-        threads: true,
-        reference_types: true,
-        simd: true,
-        bulk_memory: true,
-        multi_value: true,
-        ..Default::default()
-    });
+    let mut wasm_features = WasmFeatures::default();
+    wasm_features.set(WasmFeatures::THREADS, true);
+    wasm_features.set(WasmFeatures::REFERENCE_TYPES, true);
+    wasm_features.set(WasmFeatures::SIMD, true);
+    wasm_features.set(WasmFeatures::BULK_MEMORY, true);
+    wasm_features.set(WasmFeatures::MULTI_VALUE, true);
+    wasm_features.set(WasmFeatures::GC_TYPES, true);
+
+    let mut val = wasmparser::Validator::new_with_features(wasm_features);
 
     val.validate_all(wasm)
         .map_err(|e| WasmValidationError::InvalidWasm {
@@ -122,7 +125,7 @@ pub fn validate_wasm_and_report_errors(
                     })?;
 
                     for ty in group.into_types() {
-                        if let CompositeType::Func(ft) = ty.composite_type {
+                        if let CompositeInnerType::Func(ft) = ty.composite_type.inner {
                             type_defs.push(ft);
                         }
                     }

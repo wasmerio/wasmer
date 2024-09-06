@@ -679,7 +679,7 @@ pub fn translate_operator<FE: FuncEnvironment + ?Sized>(
          * Memory management is handled by environment. It is usually translated into calls to
          * special functions.
          ************************************************************************************/
-        Operator::MemoryGrow { mem, mem_byte: _ } => {
+        Operator::MemoryGrow { mem } => {
             // The WebAssembly MVP only supports one linear memory, but we expect the reserved
             // argument to be a memory index.
             let heap_index = MemoryIndex::from_u32(*mem);
@@ -687,7 +687,7 @@ pub fn translate_operator<FE: FuncEnvironment + ?Sized>(
             let val = state.pop1();
             state.push1(environ.translate_memory_grow(builder.cursor(), heap_index, heap, val)?)
         }
-        Operator::MemorySize { mem, mem_byte: _ } => {
+        Operator::MemorySize { mem } => {
             let heap_index = MemoryIndex::from_u32(*mem);
             let heap = state.get_heap(builder.func, *mem, environ)?;
             state.push1(environ.translate_memory_size(builder.cursor(), heap_index, heap)?);
@@ -2223,7 +2223,8 @@ pub fn translate_operator<FE: FuncEnvironment + ?Sized>(
         | Operator::AnyConvertExtern
         | Operator::ExternConvertAny
         | Operator::RefI31
-        | Operator::I31GetS
+        | Operator::RefI31Shared => todo!(),
+        Operator::I31GetS
         | Operator::I31GetU
         | Operator::MemoryDiscard { .. }
         | Operator::CallRef { .. }
@@ -2232,6 +2233,49 @@ pub fn translate_operator<FE: FuncEnvironment + ?Sized>(
         | Operator::BrOnNull { .. }
         | Operator::BrOnNonNull { .. } => {
             return Err(wasm_unsupported!("GC proposal not (operator: {:?})", op));
+        }
+        Operator::GlobalAtomicGet { .. }
+        | Operator::GlobalAtomicSet { .. }
+        | Operator::GlobalAtomicRmwAdd { .. }
+        | Operator::GlobalAtomicRmwSub { .. }
+        | Operator::GlobalAtomicRmwAnd { .. }
+        | Operator::GlobalAtomicRmwOr { .. }
+        | Operator::GlobalAtomicRmwXor { .. }
+        | Operator::GlobalAtomicRmwXchg { .. }
+        | Operator::GlobalAtomicRmwCmpxchg { .. } => {
+            return Err(wasm_unsupported!("Global atomics not supported yet!"))
+        }
+        Operator::TableAtomicGet { .. }
+        | Operator::TableAtomicSet { .. }
+        | Operator::TableAtomicRmwXchg { .. }
+        | Operator::TableAtomicRmwCmpxchg { .. } => {
+            return Err(wasm_unsupported!("Table atomics not supported yet!"))
+        }
+        Operator::StructAtomicGet { .. }
+        | Operator::StructAtomicGetS { .. }
+        | Operator::StructAtomicGetU { .. }
+        | Operator::StructAtomicSet { .. }
+        | Operator::StructAtomicRmwAdd { .. }
+        | Operator::StructAtomicRmwSub { .. }
+        | Operator::StructAtomicRmwAnd { .. }
+        | Operator::StructAtomicRmwOr { .. }
+        | Operator::StructAtomicRmwXor { .. }
+        | Operator::StructAtomicRmwXchg { .. }
+        | Operator::StructAtomicRmwCmpxchg { .. } => {
+            return Err(wasm_unsupported!("Table atomics not supported yet!"))
+        }
+        Operator::ArrayAtomicGet { .. }
+        | Operator::ArrayAtomicGetS { .. }
+        | Operator::ArrayAtomicGetU { .. }
+        | Operator::ArrayAtomicSet { .. }
+        | Operator::ArrayAtomicRmwAdd { .. }
+        | Operator::ArrayAtomicRmwSub { .. }
+        | Operator::ArrayAtomicRmwAnd { .. }
+        | Operator::ArrayAtomicRmwOr { .. }
+        | Operator::ArrayAtomicRmwXor { .. }
+        | Operator::ArrayAtomicRmwXchg { .. }
+        | Operator::ArrayAtomicRmwCmpxchg { .. } => {
+            return Err(wasm_unsupported!("Array atomics not supported yet!"))
         }
     };
     Ok(())

@@ -1051,12 +1051,23 @@ impl<'module_environment> BaseFuncEnvironment for FuncEnvironment<'module_enviro
         ty: HeapType,
     ) -> WasmResult<ir::Value> {
         Ok(match ty {
-            HeapType::Func => pos.ins().null(self.reference_type()),
-            HeapType::Extern => pos.ins().null(self.reference_type()),
-            _ => {
+            HeapType::Abstract { ty, .. } => match ty {
+                wasmer_compiler::wasmparser::AbstractHeapType::Func => {
+                    pos.ins().null(self.reference_type())
+                }
+                wasmer_compiler::wasmparser::AbstractHeapType::Extern => {
+                    pos.ins().null(self.reference_type())
+                }
+                _ => {
+                    return Err(WasmError::Unsupported(
+                        "`ref.null T` that is not a `funcref` or an `externref`".into(),
+                    ))
+                }
+            },
+            HeapType::Concrete(_) => {
                 return Err(WasmError::Unsupported(
                     "`ref.null T` that is not a `funcref` or an `externref`".into(),
-                ));
+                ))
             }
         })
     }
