@@ -9,6 +9,35 @@ Looking for changes that affect our C API? See the [C API Changelog](lib/c-api/C
 
 ## **Unreleased**
 
+## 4.3.7 - 06/09/2024
+
+## Added
+
+  - [#5070](https://github.com/wasmerio/wasmer/pull/5070) Add `rotate-secrets` subcommand for volumes and minor changes
+  - [#5057](https://github.com/wasmerio/wasmer/pull/5057) Add `cwd` to the manifest as a command annotation
+  - [#5060](https://github.com/wasmerio/wasmer/pull/5060) feat(backend-api): Add env var to toggle GQL variable logging
+  - [#5059](https://github.com/wasmerio/wasmer/pull/5059) feat(backend-api): Add updatedAt timestamps to Edge App/Version
+  - [#5016](https://github.com/wasmerio/wasmer/pull/5016) add access to php integration test secrets
+  - [#5036](https://github.com/wasmerio/wasmer/pull/5036) Add help-docs for the `--watch` flag in `wasmer app logs`
+
+## Changed
+
+  - [#5066](https://github.com/wasmerio/wasmer/pull/5066) Prevent redundant merging of the filesystems
+  - [#5037](https://github.com/wasmerio/wasmer/pull/5037) post slack message on integration tests ci failure
+  - [#5063](https://github.com/wasmerio/wasmer/pull/5063) refactor volumes schema
+  - [#5056](https://github.com/wasmerio/wasmer/pull/5056) Improve validation requests in "wasmer deploy"
+  - [#5053](https://github.com/wasmerio/wasmer/pull/5053) Reduce overhead of chunk timeouts in wasix package downloads
+  - [#5042](https://github.com/wasmerio/wasmer/pull/5042) Expose memory and wasi generic imports
+  - [#5040](https://github.com/wasmerio/wasmer/pull/5040) deps: bump tun-tap version for wasmer-cli
+  - [#5043](https://github.com/wasmerio/wasmer/pull/5043) Remove serde_cbor as a dependency
+  - [#5030](https://github.com/wasmerio/wasmer/pull/5030) Improve loop metering tests
+
+## Fixed
+
+  - [#5039](https://github.com/wasmerio/wasmer/pull/5039) Fix missing hash from a compiled artifact
+
+
+
 ## 4.3.6 - 22/08/2024
 
 The star of this release is the volume subcommand that allows inspecting and interacting with volumes through the client. There are also
