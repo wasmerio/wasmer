@@ -484,9 +484,7 @@ impl CommandAnnotationBuilder {
     }
 
     pub fn build(&self) -> toml::Value {
-        toml::Value::Table(toml::map::Map::from_iter(
-            self.annotations.clone().into_iter(),
-        ))
+        toml::Value::Table(toml::map::Map::from_iter(self.annotations.clone()))
     }
 }
 
