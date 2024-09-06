@@ -16,7 +16,7 @@ macro_rules! mvr_test {
                     &stringify!( $( $result_type ),* ).replace(",", "").replace("(", "").replace(")", "") + &r#")))
   (import "host" "callback_fn" (func $callback_fn (type $type)))
   (func (export "test_call") (type $type)
-    get_local 0
+    local.get 0
     call $callback_fn)
   (func (export "test_call_indirect") (type $type)
     (i32.const 1)
