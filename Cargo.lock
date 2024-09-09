@@ -6871,28 +6871,6 @@ dependencies = [
 
 [[package]]
 name = "wasmer-config"
-version = "0.4.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4b4a632496950fde9ad821e195ef1a301440076f7c7d80de55239a140359bcbd"
-dependencies = [
- "anyhow",
- "bytesize",
- "derive_builder",
- "hex",
- "indexmap 2.4.0",
- "schemars",
- "semver 1.0.23",
- "serde",
- "serde_cbor",
- "serde_json",
- "serde_yaml 0.9.34+deprecated",
- "thiserror",
- "toml 0.8.19",
- "url",
-]
-
-[[package]]
-name = "wasmer-config"
 version = "0.8.0"
 dependencies = [
  "anyhow",
@@ -6908,6 +6886,29 @@ dependencies = [
  "serde_json",
  "serde_yaml 0.9.34+deprecated",
  "tempfile",
+ "thiserror",
+ "toml 0.8.19",
+ "url",
+]
+
+[[package]]
+name = "wasmer-config"
+version = "0.8.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "644b7e3547bd7e796d92220f60bf57734914254c6cee56607e80177a3e8a28da"
+dependencies = [
+ "anyhow",
+ "bytesize",
+ "ciborium",
+ "derive_builder",
+ "hex",
+ "indexmap 2.4.0",
+ "pretty_assertions",
+ "schemars",
+ "semver 1.0.23",
+ "serde",
+ "serde_json",
+ "serde_yaml 0.9.34+deprecated",
  "thiserror",
  "toml 0.8.19",
  "url",
@@ -7465,14 +7466,15 @@ dependencies = [
 
 [[package]]
 name = "webc"
-version = "6.0.0-rc3"
+version = "6.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b85ffb11d1fabf0ebfc458a3d1d34ccf6d4d9596ca7576370cae4eab554c63d1"
+checksum = "d6cf1915e27168c1ed82f7f0d03f60317648f257fecaf4256a1904428d8e4ccd"
 dependencies = [
  "anyhow",
  "base64 0.22.1",
  "bytes 1.7.1",
  "cfg-if 1.0.0",
+ "ciborium",
  "document-features",
  "flate2",
  "ignore",
@@ -7485,7 +7487,6 @@ dependencies = [
  "rand",
  "semver 1.0.23",
  "serde",
- "serde_cbor",
  "serde_json",
  "sha2",
  "shared-buffer",
@@ -7494,7 +7495,7 @@ dependencies = [
  "thiserror",
  "toml 0.8.19",
  "url",
- "wasmer-config 0.4.0",
+ "wasmer-config 0.8.0 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
