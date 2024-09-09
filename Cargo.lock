@@ -6903,7 +6903,6 @@ dependencies = [
  "derive_builder",
  "hex",
  "indexmap 2.4.0",
- "pretty_assertions",
  "schemars",
  "semver 1.0.23",
  "serde",
