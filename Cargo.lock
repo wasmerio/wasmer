@@ -6305,7 +6305,7 @@ dependencies = [
  "serde",
  "serde_json",
  "tempfile",
- "wast 24.0.0",
+ "wast",
 ]
 
 [[package]]
@@ -7292,7 +7292,7 @@ dependencies = [
  "wasmer",
  "wasmer-types",
  "wasmer-wasix",
- "wast 38.0.1",
+ "wast",
 ]
 
 [[package]]
@@ -7380,24 +7380,6 @@ dependencies = [
 
 [[package]]
 name = "wast"
-version = "24.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6ff1e3bd3ad0b2ee7784add89c30dc96b89a54b43e5d6d95d774eda1863b3500"
-dependencies = [
- "leb128",
-]
-
-[[package]]
-name = "wast"
-version = "38.0.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ae0d7b256bef26c898fa7344a2d627e8499f5a749432ce0a05eae1a64ff0c271"
-dependencies = [
- "leb128",
-]
-
-[[package]]
-name = "wast"
 version = "216.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f7eb1f2eecd913fdde0dc6c3439d0f24530a98ac6db6cb3d14d92a5328554a08"
@@ -7415,7 +7397,7 @@ version = "1.216.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ac0409090fb5154f95fb5ba3235675fd9e579e731524d63b6a2f653e1280c82a"
 dependencies = [
- "wast 216.0.0",
+ "wast",
 ]
 
 [[package]]

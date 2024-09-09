@@ -3,7 +3,7 @@
       (func (;0;) (type 0)
         i32.const 0
         call_indirect (type 0))
-      (table (;0;) 1 anyfunc)
+      (table (;0;) 1 funcref)
       (export "stack-overflow" (func 0))
       (elem (;0;) (i32.const 0) 0))
 
