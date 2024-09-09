@@ -6096,6 +6096,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 let table_index = TableIndex::new(index as _);
                 let value = self.value_stack.pop().unwrap();
                 let index = self.value_stack.pop().unwrap();
+
                 // double check this does what I think it does
                 self.release_locations_only_regs(&[value, index])?;
 
@@ -6133,6 +6134,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
             Operator::TableGet { table: index } => {
                 let table_index = TableIndex::new(index as _);
                 let index = self.value_stack.pop().unwrap();
+
                 self.release_locations_only_regs(&[index])?;
 
                 self.machine.move_location(
@@ -6232,7 +6234,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                             if self.module.local_table_index(table_index).is_some() {
                                 VMBuiltinFunctionIndex::get_table_grow_index()
                             } else {
-                                VMBuiltinFunctionIndex::get_imported_table_get_index()
+                                VMBuiltinFunctionIndex::get_imported_table_grow_index()
                             },
                         ) as i32,
                     ),
