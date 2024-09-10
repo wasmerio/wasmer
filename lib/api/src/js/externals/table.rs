@@ -42,7 +42,7 @@ impl Table {
         if let Some(max) = ty.maximum {
             js_sys::Reflect::set(&descriptor, &"maximum".into(), &max.into())?;
         }
-        js_sys::Reflect::set(&descriptor, &"element".into(), &"anyref".into())?;
+        js_sys::Reflect::set(&descriptor, &"element".into(), &"anyfunc".into())?;
 
         let js_table = js_sys::WebAssembly::Table::new(&descriptor)?;
         let table = VMTable::new(js_table, ty);
