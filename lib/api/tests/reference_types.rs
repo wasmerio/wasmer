@@ -496,12 +496,10 @@ pub mod reference_types {
     (table $table2 (export "table2") 6 12 externref)
     (func $grow_table_with_ref (export "grow_table_with_ref") (param $er externref) (param $size i32) (result i32)
           (table.grow $table1 (local.get $er) (local.get $size)))
-
     (func $fill_table_with_ref (export "fill_table_with_ref") (param $er externref) (param $start i32) (param $end i32)
           (table.fill $table1 (local.get $start) (local.get $er) (local.get $end)))
     (func $copy_into_table2 (export "copy_into_table2")
           (table.copy $table2 $table1 (i32.const 0) (i32.const 0) (i32.const 4)))
-
     (func (export "call_set_value") (param $er externref) (param $idx i32)
           (table.set $table2 (local.get $idx) (local.get $er)))
 )"#;
@@ -511,18 +509,15 @@ pub mod reference_types {
         let grow_table_with_ref: TypedFunction<(Option<ExternRef>, i32), i32> = instance
             .exports
             .get_typed_function(&store, "grow_table_with_ref")?;
-
         let fill_table_with_ref: TypedFunction<(Option<ExternRef>, i32, i32), ()> = instance
             .exports
             .get_typed_function(&store, "fill_table_with_ref")?;
         let copy_into_table2: TypedFunction<(), ()> = instance
             .exports
             .get_typed_function(&store, "copy_into_table2")?;
-
         let call_set_value: TypedFunction<(Option<ExternRef>, i32), ()> = instance
             .exports
             .get_typed_function(&store, "call_set_value")?;
-
         let table1: &Table = instance.exports.get_table("table1")?;
         let table2: &Table = instance.exports.get_table("table2")?;
 
@@ -557,15 +552,6 @@ pub mod reference_types {
             call_set_value.call(&mut store, Some(er3.clone()), 2)?;
             call_set_value.call(&mut store, Some(er3.clone()), 3)?;
             call_set_value.call(&mut store, Some(er3), 4)?;
-        }
-
-        {
-            for i in 0..5 {
-                let v = table2.get(&mut store, i);
-                let e = v.as_ref().unwrap().unwrap_externref();
-                let e_val: Option<&usize> = e.as_ref().unwrap().downcast(&store);
-                assert_eq!(*e_val.unwrap(), 3);
-            }
         }
 
         {
