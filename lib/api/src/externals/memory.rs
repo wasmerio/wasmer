@@ -30,6 +30,7 @@ use wasmer_types::{MemoryError, Pages};
 ///
 /// Spec: <https://webassembly.github.io/spec/core/exec/runtime.html#memory-instances>
 #[derive(Debug, Clone, PartialEq)]
+#[cfg_attr(feature = "artifact-size", derive(loupe::MemoryUsage))]
 pub struct Memory(pub(crate) memory_impl::Memory);
 
 impl Memory {

@@ -19,6 +19,7 @@ use serde::{Deserialize, Serialize};
 /// [unwind info]: https://docs.microsoft.com/en-us/cpp/build/exception-handling-x64?view=vs-2019
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 #[derive(RkyvSerialize, RkyvDeserialize, Archive, Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "artifact-size", derive(loupe::MemoryUsage))]
 #[archive_attr(derive(rkyv::CheckBytes, Debug))]
 pub enum CompiledFunctionUnwindInfo {
     /// Windows UNWIND_INFO.

@@ -105,6 +105,7 @@ impl StoreObjects {
 ///
 /// Internally this is just an integer index into a context. A reference to the
 /// context must be passed in separately to access the actual object.
+#[cfg_attr(feature = "artifact-size", derive(loupe::MemoryUsage))]
 pub struct StoreHandle<T> {
     id: StoreId,
     internal: InternalStoreHandle<T>,
@@ -197,6 +198,13 @@ pub struct InternalStoreHandle<T> {
     // Use a NonZero here to reduce the size of Option<InternalStoreHandle>.
     idx: NonZeroUsize,
     marker: PhantomData<fn() -> T>,
+}
+
+#[cfg(feature = "artifact-size")]
+impl<T> loupe::MemoryUsage for InternalStoreHandle<T> {
+    fn size_of_val(&self, _tracker: &mut dyn loupe::MemoryUsageTracker) -> usize {
+        std::mem::size_of_val(&self)
+    }
 }
 
 impl<T> Clone for InternalStoreHandle<T> {

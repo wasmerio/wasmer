@@ -27,6 +27,7 @@ use thiserror::Error;
     rkyv::CheckBytes,
 )]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "artifact-size", derive(loupe::MemoryUsage))]
 #[repr(u32)]
 #[archive(as = "Self")]
 pub enum TrapCode {

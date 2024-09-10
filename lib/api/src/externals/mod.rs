@@ -28,6 +28,7 @@ use crate::store::{AsStoreMut, AsStoreRef};
 ///
 /// Spec: <https://webassembly.github.io/spec/core/exec/runtime.html#external-values>
 #[derive(Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "artifact-size", derive(loupe::MemoryUsage))]
 pub enum Extern {
     /// A external [`Function`].
     Function(Function),

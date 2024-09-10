@@ -29,6 +29,7 @@ use serde::{Deserialize, Serialize};
     Default,
 )]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "artifact-size", derive(loupe::MemoryUsage))]
 #[archive(as = "Self")]
 pub struct SectionIndex(u32);
 
@@ -37,6 +38,7 @@ entity_impl!(SectionIndex);
 /// Custom section Protection.
 ///
 /// Determines how a custom section may be used.
+#[cfg_attr(feature = "artifact-size", derive(loupe::MemoryUsage))]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 #[derive(
     RkyvSerialize, RkyvDeserialize, Archive, rkyv::CheckBytes, Debug, Clone, PartialEq, Eq,
@@ -56,6 +58,7 @@ pub enum CustomSectionProtection {
 /// This is used so compilers can store arbitrary information
 /// in the emitted module.
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "artifact-size", derive(loupe::MemoryUsage))]
 #[derive(RkyvSerialize, RkyvDeserialize, Archive, Debug, Clone, PartialEq, Eq)]
 #[archive_attr(derive(rkyv::CheckBytes, Debug))]
 pub struct CustomSection {
@@ -118,6 +121,7 @@ impl<'a> CustomSectionLike<'a> for ArchivedCustomSection {
 
 /// The bytes in the section.
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "artifact-size", derive(loupe::MemoryUsage))]
 #[derive(RkyvSerialize, RkyvDeserialize, Archive, Debug, Clone, PartialEq, Eq, Default)]
 #[archive_attr(derive(rkyv::CheckBytes, Debug))]
 pub struct SectionBody(#[cfg_attr(feature = "enable-serde", serde(with = "serde_bytes"))] Vec<u8>);

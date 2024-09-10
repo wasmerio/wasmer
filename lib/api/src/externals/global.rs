@@ -22,6 +22,7 @@ use crate::sys::externals::global as global_impl;
 ///
 /// Spec: <https://webassembly.github.io/spec/core/exec/runtime.html#global-instances>
 #[derive(Debug, Clone, PartialEq)]
+#[cfg_attr(feature = "artifact-size", derive(loupe::MemoryUsage))]
 pub struct Global(pub(crate) global_impl::Global);
 
 impl Global {

@@ -21,6 +21,7 @@ use std::ops::{Add, AddAssign};
     rkyv::CheckBytes,
 )]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "artifact-size", derive(loupe::MemoryUsage))]
 #[archive(as = "Self")]
 #[repr(u8)]
 pub enum MemoryStyle {
