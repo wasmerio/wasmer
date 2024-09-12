@@ -140,7 +140,7 @@ impl Function {
     ///     Ok(vec![Value::I32(sum)])
     /// });
     /// ```
-    pub fn new_with_env<FT, F, T: Send + 'static>(
+    pub fn new_with_env<FT, F, T: 'static>(
         store: &mut impl AsStoreMut,
         env: &FunctionEnv<T>,
         ty: FT,
@@ -184,7 +184,7 @@ impl Function {
     ///
     /// let f = Function::new_typed_with_env(&mut store, &env, sum);
     /// ```
-    pub fn new_typed_with_env<T: Send + 'static, F, Args, Rets>(
+    pub fn new_typed_with_env<T: 'static, F, Args, Rets>(
         store: &mut impl AsStoreMut,
         env: &FunctionEnv<T>,
         func: F,
