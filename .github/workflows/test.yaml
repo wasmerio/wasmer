@@ -592,14 +592,13 @@ jobs:
             os: ubuntu-22.04,
             target: x86_64-unknown-linux-gnu,
             exe: '',
-            llvm_url: 'https://github.com/llvm/llvm-project/releases/download/llvmorg-15.0.6/clang+llvm-15.0.6-x86_64-linux-gnu-ubuntu-18.04.tar.xz'
+            llvm_url: 'https://github.com/llvm/llvm-project/releases/download/llvmorg-18.1.8/clang+llvm-18.1.8-x86_64-linux-gnu-ubuntu-18.04.tar.xz '
           },
           {
             build: macos-x64,
             os: macos-12,
             target: x86_64-apple-darwin,
             exe: '',
-            llvm_url: 'https://github.com/llvm/llvm-project/releases/download/llvmorg-15.0.7/clang+llvm-15.0.7-x86_64-apple-darwin21.0.tar.xz'
           },
           {
             build: macos-arm64,
@@ -612,7 +611,7 @@ jobs:
             os: windows-2019,
             target: x86_64-pc-windows-msvc,
             exe: '.exe',
-            llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/15.x/llvm-windows-amd64.tar.xz'
+            llvm_url: 'https://github.com/llvm/llvm-project/releases/download/llvmorg-18.1.8/clang+llvm-18.1.8-x86_64-pc-windows-msvc.tar.xz'
           },
           {
             build: linux-musl,
@@ -708,11 +707,10 @@ jobs:
           - build: linux-x64
             os: ubuntu-22.04
             target: x86_64-unknown-linux-gnu
-            llvm_url: 'https://github.com/llvm/llvm-project/releases/download/llvmorg-15.0.6/clang+llvm-15.0.6-x86_64-linux-gnu-ubuntu-18.04.tar.xz'
+            llvm_url: 'https://github.com/llvm/llvm-project/releases/download/llvmorg-18.1.8/clang+llvm-18.1.8-x86_64-linux-gnu-ubuntu-18.04.tar.xz '
           - build: macos-x64
             os: macos-12
             target: x86_64-apple-darwin
-            llvm_url: 'https://github.com/llvm/llvm-project/releases/download/llvmorg-15.0.7/clang+llvm-15.0.7-x86_64-apple-darwin21.0.tar.xz'
           # we only build the integration-test CLI, we don't run tests
           - build: macos-arm
             os: macos-12
@@ -724,6 +722,7 @@ jobs:
           - build: windows-x64
             os: windows-2019
             target: x86_64-pc-windows-msvc
+            llvm_url: 'https://github.com/llvm/llvm-project/releases/download/llvmorg-18.1.8/clang+llvm-18.1.8-x86_64-pc-windows-msvc.tar.xz'
     container: ${{ matrix.container }}
     env:
       SCCACHE_AZURE_BLOB_CONTAINER: wasmerstoragesccacheblob

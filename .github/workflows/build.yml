@@ -46,7 +46,7 @@ jobs:
           - build: linux-x64
             os: ubuntu-20.04
             artifact_name: 'wasmer-linux-amd64'
-            llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/15.x/llvm-linux-amd64.tar.xz'
+            llvm_url: 'https://github.com/llvm/llvm-project/releases/download/llvmorg-18.1.8/clang+llvm-18.1.8-x86_64-linux-gnu-ubuntu-18.04.tar.xz' 
             cross_compilation_artifact_name: 'cross_compiled_from_linux'
             use_sccache: false
             use_llvm: true
