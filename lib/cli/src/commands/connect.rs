@@ -1,3 +1,5 @@
+// NOTE: not currently in use - but kept here to allow easy re-implementation.
+
 use std::net::IpAddr;
 
 use crate::config::WasmerEnv;
