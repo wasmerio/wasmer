@@ -146,7 +146,6 @@ virtual-mio = { version = "0.3.1", path = "../virtual-io" }
 
 webc = { workspace = true }
 wasmer-api = { version = "=0.0.34", path = "../backend-api" }
-edge-schema.workspace = true
 edge-util = { version = "=0.1.0" }
 lazy_static = "1.4.0"
 
