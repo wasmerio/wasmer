@@ -277,7 +277,7 @@ unix_mode = "0.1.3"
 [dev-dependencies]
 assert_cmd = "2.0.11"
 predicates = "3.0.3"
-pretty_assertions = "1.3.0"
+pretty_assertions.workspace = true
 
 [target.'cfg(target_os = "windows")'.dependencies]
 colored = "2.0.0"
