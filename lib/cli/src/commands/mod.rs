@@ -198,9 +198,6 @@ impl WasmerCmd {
             Some(Cmd::Container(cmd)) => match cmd {
                 crate::commands::Container::Unpack(cmd) => cmd.execute(),
             },
-            /*
-            Some(Cmd::Connect(connect)) => connect.execute(),
-            */
             #[cfg(feature = "static-artifact-create")]
             Some(Cmd::GenCHeader(gen_heder)) => gen_heder.execute(),
             #[cfg(feature = "wast")]
