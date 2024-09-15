@@ -117,6 +117,8 @@ wasmer-compiler-cranelift = { version = "=4.3.7", path = "../compiler-cranelift"
 wasmer-compiler-singlepass = { version = "=4.3.7", path = "../compiler-singlepass", optional = true }
 wasmer-compiler-llvm = { version = "=4.3.7", path = "../compiler-llvm", optional = true }
 wasmer-emscripten = { version = "=4.3.7", path = "../emscripten" }
+wasmer-package = { version = "=0.1.0", path = "../package" }
+
 wasmer-vm = { version = "=4.3.7", path = "../vm", optional = true }
 wasmer-wasix = { path = "../wasix", version = "=0.27.0", features = [
 	"logging",
