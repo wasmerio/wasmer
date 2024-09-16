@@ -2,22 +2,22 @@ use std::path::Path;
 
 use wasmer_config::package::ModuleReference;
 
-use super::ManifestConversionError;
+use super::ConversionError;
 
 /// Convert a webc image into a directory with a wasmer.toml file that can
 /// be used for generating a new pacakge.
 pub fn webc_to_package_dir(
     webc: &webc::Container,
     target_dir: &Path,
-) -> Result<(), ManifestConversionError> {
+) -> Result<(), ConversionError> {
     let mut pkg_manifest = wasmer_config::package::Manifest::new_empty();
 
     let manifest = webc.manifest();
     // Convert the package annotation.
 
-    let pkg_annotation = manifest.wapm().map_err(|err| {
-        ManifestConversionError::with_cause("could not read package annotation", err)
-    })?;
+    let pkg_annotation = manifest
+        .wapm()
+        .map_err(|err| ConversionError::with_cause("could not read package annotation", err))?;
     if let Some(ann) = pkg_annotation {
         let mut pkg = wasmer_config::package::Package::new_empty();
 
@@ -25,7 +25,7 @@ pub fn webc_to_package_dir(
         pkg.version = if let Some(raw) = ann.version {
             let v = raw
                 .parse()
-                .map_err(|e| ManifestConversionError::with_cause("invalid package version", e))?;
+                .map_err(|e| ConversionError::with_cause("invalid package version", e))?;
             Some(v)
         } else {
             None
@@ -56,7 +56,7 @@ pub fn webc_to_package_dir(
             webc::metadata::UrlOrManifest::RegistryDependentUrl(raw) => {
                 let (name, version) = if let Some((name, version_raw)) = raw.split_once('@') {
                     let version = version_raw.parse().map_err(|err| {
-                        ManifestConversionError::with_cause(
+                        ConversionError::with_cause(
                             format!("Could not parse version of dependency: '{}'", raw),
                             err,
                         )
@@ -75,7 +75,7 @@ pub fn webc_to_package_dir(
 
     let fs_annotation = manifest
         .filesystem()
-        .map_err(|err| ManifestConversionError::with_cause("could n ot read fs annotation", err))?;
+        .map_err(|err| ConversionError::with_cause("could n ot read fs annotation", err))?;
     if let Some(ann) = fs_annotation {
         for mapping in ann.0 {
             if mapping.from.is_some() {
@@ -85,7 +85,7 @@ pub fn webc_to_package_dir(
 
             // Extract the volume to "<target-dir>/<volume-name>".
             let volume = webc.get_volume(&mapping.volume_name).ok_or_else(|| {
-                ManifestConversionError::msg(format!(
+                ConversionError::msg(format!(
                     "Package annotations specify a volume that does not exist: '{}'",
                     mapping.volume_name
                 ))
@@ -94,7 +94,7 @@ pub fn webc_to_package_dir(
             let volume_path = target_dir.join(mapping.volume_name.trim_start_matches('/'));
 
             std::fs::create_dir_all(&volume_path).map_err(|err| {
-                ManifestConversionError::with_cause(
+                ConversionError::with_cause(
                     format!(
                         "could not create volume directory '{}'",
                         volume_path.display()
@@ -104,7 +104,7 @@ pub fn webc_to_package_dir(
             })?;
 
             volume.unpack("/", &volume_path).map_err(|err| {
-                ManifestConversionError::with_cause("could not unpack volume to filesystemt", err)
+                ConversionError::with_cause("could not unpack volume to filesystemt", err)
             })?;
 
             let mut source_path = mapping
@@ -135,14 +135,14 @@ pub fn webc_to_package_dir(
         let atom_path = module_dir.join(&atom_name);
 
         std::fs::create_dir_all(&module_dir).map_err(|err| {
-            ManifestConversionError::with_cause(
+            ConversionError::with_cause(
                 format!("Could not create directory '{}'", module_dir.display(),),
                 err,
             )
         })?;
 
         std::fs::write(&atom_path, &data).map_err(|err| {
-            ManifestConversionError::with_cause(
+            ConversionError::with_cause(
                 format!("Could not write atom to path '{}'", atom_path.display()),
                 err,
             )
@@ -176,13 +176,13 @@ pub fn webc_to_package_dir(
         let atom_annotation = spec
             .annotation::<webc::metadata::annotations::Atom>(webc::metadata::annotations::Atom::KEY)
             .map_err(|err| {
-                ManifestConversionError::with_cause(
+                ConversionError::with_cause(
                     format!("could not read atom annotation for command '{}'", name),
                     err,
                 )
             })?
             .ok_or_else(|| {
-                ManifestConversionError::msg(format!(
+                ConversionError::msg(format!(
                     "Command '{name}' is missing the required atom annotation"
                 ))
             })?;
@@ -211,11 +211,10 @@ pub fn webc_to_package_dir(
     }
 
     // Write out the manifest.
-    let manifest_toml = toml::to_string(&pkg_manifest).map_err(|err| {
-        ManifestConversionError::with_cause("could not serialize package manifest", err)
-    })?;
+    let manifest_toml = toml::to_string(&pkg_manifest)
+        .map_err(|err| ConversionError::with_cause("could not serialize package manifest", err))?;
     std::fs::write(target_dir.join("wasmer.toml"), manifest_toml)
-        .map_err(|err| ManifestConversionError::with_cause("could not write wasmer.toml", err))?;
+        .map_err(|err| ConversionError::with_cause("could not write wasmer.toml", err))?;
 
     Ok(())
 }

@@ -1,12 +1,12 @@
 use std::sync::Arc;
 
 #[derive(Clone, Debug)]
-pub struct ManifestConversionError {
+pub struct ConversionError {
     message: String,
     cause: Option<Arc<dyn std::error::Error + Send + Sync>>,
 }
 
-impl ManifestConversionError {
+impl ConversionError {
     pub fn msg(msg: impl Into<String>) -> Self {
         Self {
             message: msg.into(),
@@ -25,7 +25,7 @@ impl ManifestConversionError {
     }
 }
 
-impl std::fmt::Display for ManifestConversionError {
+impl std::fmt::Display for ConversionError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "could not convert manifest: {}", self.message)?;
         if let Some(cause) = &self.cause {
@@ -36,4 +36,12 @@ impl std::fmt::Display for ManifestConversionError {
     }
 }
 
-impl std::error::Error for ManifestConversionError {}
+impl std::error::Error for ConversionError {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        if let Some(e) = &self.cause {
+            Some(e)
+        } else {
+            None
+        }
+    }
+}
