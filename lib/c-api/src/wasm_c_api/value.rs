@@ -197,7 +197,9 @@ impl TryFrom<&wasm_val_t> for Value {
             wasm_valkind_enum::WASM_I64 => Value::I64(unsafe { item.of.int64_t }),
             wasm_valkind_enum::WASM_F32 => Value::F32(unsafe { item.of.float32_t }),
             wasm_valkind_enum::WASM_F64 => Value::F64(unsafe { item.of.float64_t }),
-            wasm_valkind_enum::WASM_EXTERNREF => return Err("EXTERNREF not supported at this time"),
+            wasm_valkind_enum::WASM_EXTERNREF => {
+                return Err("EXTERNREF not supported at this time")
+            }
             wasm_valkind_enum::WASM_FUNCREF => return Err("FUNCREF not supported at this time"),
         })
     }
