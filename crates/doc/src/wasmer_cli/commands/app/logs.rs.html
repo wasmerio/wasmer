@@ -286,9 +286,9 @@
 <a href="#286" id="286">286</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Show logs for an Edge app.
 
-</span><span class="kw">use </span>colored::Colorize;
+</span><span class="kw">use </span><span class="kw">crate</span>::utils::timestamp::parse_timestamp_or_relative_time_negative_offset;
+<span class="kw">use </span>colored::Colorize;
 <span class="kw">use </span>comfy_table::{Cell, Table};
-<span class="kw">use </span>edge_schema::pretty_duration::parse_timestamp_or_relative_time;
 <span class="kw">use </span>futures::StreamExt;
 <span class="kw">use </span>time::{format_description::well_known::Rfc3339, OffsetDateTime};
 <span class="kw">use </span>wasmer_api::types::{Log, LogStream};
@@ -323,7 +323,7 @@
     /// * Unix timestamp (`1136196245`)
     /// * Relative time (`10m` / `-1h`, `1d1h30s`)
     </span><span class="comment">// TODO: should default to trailing logs once trailing is implemented.
-    </span><span class="attr">#[clap(long, value_parser = parse_timestamp_or_relative_time, conflicts_with = <span class="string">&quot;request_id&quot;</span>)]
+    </span><span class="attr">#[clap(long, value_parser = parse_timestamp_or_relative_time_negative_offset, conflicts_with = <span class="string">&quot;request_id&quot;</span>)]
     </span>from: <span class="prelude-ty">Option</span>&lt;OffsetDateTime&gt;,
 
     <span class="doccomment">/// The date of the latest log entry.
@@ -334,7 +334,7 @@
     /// * Simple date (`2022-11-11`)
     /// * Unix timestamp (`1136196245`)
     /// * Relative time (`10m` / `1h`, `1d1h30s`)
-    </span><span class="attr">#[clap(long, value_parser = parse_timestamp_or_relative_time, conflicts_with = <span class="string">&quot;request_id&quot;</span>)]
+    </span><span class="attr">#[clap(long, value_parser = parse_timestamp_or_relative_time_negative_offset, conflicts_with = <span class="string">&quot;request_id&quot;</span>)]
     </span>until: <span class="prelude-ty">Option</span>&lt;OffsetDateTime&gt;,
 
     <span class="doccomment">/// Maximum log lines to fetch.

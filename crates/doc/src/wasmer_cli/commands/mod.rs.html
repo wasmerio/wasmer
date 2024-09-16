@@ -493,9 +493,6 @@
 <a href="#493" id="493">493</a>
 <a href="#494" id="494">494</a>
 <a href="#495" id="495">495</a>
-<a href="#496" id="496">496</a>
-<a href="#497" id="497">497</a>
-<a href="#498" id="498">498</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! The commands available in the Wasmer binary.
 </span><span class="kw">mod </span>add;
 <span class="kw">mod </span>app;
@@ -696,10 +693,7 @@
             <span class="prelude-val">Some</span>(Cmd::Container(cmd)) =&gt; <span class="kw">match </span>cmd {
                 <span class="kw">crate</span>::commands::Container::Unpack(cmd) =&gt; cmd.execute(),
             },
-            <span class="comment">/*
-            Some(Cmd::Connect(connect)) =&gt; connect.execute(),
-            */
-            </span><span class="attr">#[cfg(feature = <span class="string">&quot;static-artifact-create&quot;</span>)]
+            <span class="attr">#[cfg(feature = <span class="string">&quot;static-artifact-create&quot;</span>)]
             </span><span class="prelude-val">Some</span>(Cmd::GenCHeader(gen_heder)) =&gt; gen_heder.execute(),
             <span class="attr">#[cfg(feature = <span class="string">&quot;wast&quot;</span>)]
             </span><span class="prelude-val">Some</span>(Cmd::Wast(wast)) =&gt; wast.execute(),
