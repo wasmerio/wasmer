@@ -185,6 +185,10 @@ pub struct Package {
 }
 
 impl Package {
+    pub fn new_empty() -> Self {
+        PackageBuilder::default().build().unwrap()
+    }
+
     /// Create a [`PackageBuilder`] populated with all mandatory fields.
     pub fn builder(
         name: impl Into<String>,
@@ -732,6 +736,16 @@ pub struct Manifest {
 }
 
 impl Manifest {
+    pub fn new_empty() -> Self {
+        Self {
+            package: None,
+            dependencies: HashMap::new(),
+            fs: IndexMap::new(),
+            modules: Vec::new(),
+            commands: Vec::new(),
+        }
+    }
+
     /// Create a [`ManifestBuilder`] populated with all mandatory fields.
     pub fn builder(package: Package) -> ManifestBuilder {
         ManifestBuilder::new(package)

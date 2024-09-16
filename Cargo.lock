@@ -4614,11 +4614,12 @@ dependencies = [
 
 [[package]]
 name = "serde_json"
-version = "1.0.120"
+version = "1.0.128"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4e0d21c9a8cae1235ad58a00c11cb40d4b1e5c784f1ef2c537876ed6ffd8b7c5"
+checksum = "6ff5456707a1de34e7e37f2a6fd3d3f808c318259cbd01ab6377795054b483d8"
 dependencies = [
  "itoa",
+ "memchr",
  "ryu",
  "serde",
 ]
@@ -4955,14 +4956,15 @@ checksum = "4873307b7c257eddcb50c9bedf158eb669578359fb28428bef438fec8e6ba7c2"
 
 [[package]]
 name = "tempfile"
-version = "3.10.1"
+version = "3.12.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "85b77fafb263dd9d05cbeac119526425676db3784113aa9295c88498cbf8bff1"
+checksum = "04cbcdd0c794ebb0d4cf35e88edd2f7d2c4c3e9a5a6dab322839b321c6a87a64"
 dependencies = [
  "cfg-if 1.0.0",
  "fastrand",
+ "once_cell",
  "rustix",
- "windows-sys 0.52.0",
+ "windows-sys 0.59.0",
 ]
 
 [[package]]
@@ -6642,6 +6644,7 @@ dependencies = [
  "wasmer-config 0.8.0",
  "wasmer-emscripten",
  "wasmer-object",
+ "wasmer-package",
  "wasmer-registry",
  "wasmer-types",
  "wasmer-vm",
@@ -6937,6 +6940,17 @@ dependencies = [
  "object 0.29.0",
  "thiserror",
  "wasmer-types",
+]
+
+[[package]]
+name = "wasmer-package"
+version = "0.1.0"
+dependencies = [
+ "pretty_assertions",
+ "tempfile",
+ "toml 0.8.15",
+ "wasmer-config 0.8.0",
+ "webc",
 ]
 
 [[package]]
