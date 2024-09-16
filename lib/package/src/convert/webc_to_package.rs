@@ -131,33 +131,35 @@ pub fn webc_to_package_dir(
     let module_dir_name = "modules";
     let module_dir = target_dir.join(module_dir_name);
 
-    for (atom_name, data) in webc.atoms() {
-        let atom_path = module_dir.join(&atom_name);
-
+    let atoms = webc.atoms();
+    if !atoms.is_empty() {
         std::fs::create_dir_all(&module_dir).map_err(|err| {
             ConversionError::with_cause(
                 format!("Could not create directory '{}'", module_dir.display(),),
                 err,
             )
         })?;
+        for (atom_name, data) in atoms {
+            let atom_path = module_dir.join(&atom_name);
 
-        std::fs::write(&atom_path, &data).map_err(|err| {
-            ConversionError::with_cause(
-                format!("Could not write atom to path '{}'", atom_path.display()),
-                err,
-            )
-        })?;
+            std::fs::write(&atom_path, &data).map_err(|err| {
+                ConversionError::with_cause(
+                    format!("Could not write atom to path '{}'", atom_path.display()),
+                    err,
+                )
+            })?;
 
-        let relative_path = format!("./{module_dir_name}/{atom_name}");
+            let relative_path = format!("./{module_dir_name}/{atom_name}");
 
-        pkg_manifest.modules.push(wasmer_config::package::Module {
-            name: atom_name,
-            source: relative_path.into(),
-            abi: wasmer_config::package::Abi::None,
-            kind: None,
-            interfaces: None,
-            bindings: None,
-        });
+            pkg_manifest.modules.push(wasmer_config::package::Module {
+                name: atom_name,
+                source: relative_path.into(),
+                abi: wasmer_config::package::Abi::None,
+                kind: None,
+                interfaces: None,
+                bindings: None,
+            });
+        }
     }
 
     // Convert commands.
