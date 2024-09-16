@@ -107,7 +107,7 @@
     WASM_I64 = <span class="number">1</span>,
     WASM_F32 = <span class="number">2</span>,
     WASM_F64 = <span class="number">3</span>,
-    WASM_ANYREF = <span class="number">128</span>,
+    WASM_EXTERNREF = <span class="number">128</span>,
     WASM_FUNCREF = <span class="number">129</span>,
 }
 
@@ -119,7 +119,7 @@
             Type::F32 =&gt; <span class="self">Self</span>::WASM_F32,
             Type::F64 =&gt; <span class="self">Self</span>::WASM_F64,
             Type::V128 =&gt; <span class="macro">todo!</span>(<span class="string">&quot;no v128 type in Wasm C API yet!&quot;</span>),
-            Type::ExternRef =&gt; <span class="self">Self</span>::WASM_ANYREF,
+            Type::ExternRef =&gt; <span class="self">Self</span>::WASM_EXTERNREF,
             Type::FuncRef =&gt; <span class="self">Self</span>::WASM_FUNCREF,
         }
     }
@@ -133,7 +133,7 @@
             WASM_I64 =&gt; Type::I64,
             WASM_F32 =&gt; Type::F32,
             WASM_F64 =&gt; Type::F64,
-            WASM_ANYREF =&gt; Type::ExternRef,
+            WASM_EXTERNREF =&gt; Type::ExternRef,
             WASM_FUNCREF =&gt; Type::FuncRef,
         }
     }

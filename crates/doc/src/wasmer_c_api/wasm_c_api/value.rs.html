@@ -237,6 +237,8 @@
 <a href="#237" id="237">237</a>
 <a href="#238" id="238">238</a>
 <a href="#239" id="239">239</a>
+<a href="#240" id="240">240</a>
+<a href="#241" id="241">241</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">super</span>::types::{wasm_ref_t, wasm_valkind_enum};
 <span class="kw">use </span>std::convert::{TryFrom, TryInto};
 <span class="kw">use </span>wasmer_api::Value;
@@ -248,7 +250,7 @@
 /// * `WASM_I64`, a 64-bit integer,
 /// * `WASM_F32`, a 32-bit float,
 /// * `WASM_F64`, a 64-bit float,
-/// * `WASM_ANYREF`, a WebAssembly reference,
+/// * `WASM_EXTERNREF`, a WebAssembly reference,
 /// * `WASM_FUNCREF`, a WebAssembly reference.
 </span><span class="attr">#[allow(non_camel_case_types)]
 </span><span class="kw">pub type </span>wasm_valkind_t = u8;
@@ -333,7 +335,7 @@
             <span class="prelude-val">Ok</span>(wasm_valkind_enum::WASM_F64) =&gt; {
                 ds.field(<span class="string">&quot;f64&quot;</span>, <span class="kw-2">&amp;</span><span class="kw">unsafe </span>{ <span class="self">self</span>.of.float64_t });
             }
-            <span class="prelude-val">Ok</span>(wasm_valkind_enum::WASM_ANYREF) =&gt; {
+            <span class="prelude-val">Ok</span>(wasm_valkind_enum::WASM_EXTERNREF) =&gt; {
                 ds.field(<span class="string">&quot;anyref&quot;</span>, <span class="kw-2">&amp;</span><span class="kw">unsafe </span>{ <span class="self">self</span>.of.wref });
             }
 
@@ -389,7 +391,7 @@
             wasm_valkind_enum::WASM_F64 =&gt; wasm_val_inner {
                 float64_t: val.of.float64_t,
             },
-            wasm_valkind_enum::WASM_ANYREF =&gt; wasm_val_inner { wref: val.of.wref },
+            wasm_valkind_enum::WASM_EXTERNREF =&gt; wasm_val_inner { wref: val.of.wref },
             wasm_valkind_enum::WASM_FUNCREF =&gt; wasm_val_inner { wref: val.of.wref },
         }
     }); otherwise ());
@@ -412,7 +414,7 @@
             <span class="number">1 </span>=&gt; wasm_valkind_enum::WASM_I64,
             <span class="number">2 </span>=&gt; wasm_valkind_enum::WASM_F32,
             <span class="number">3 </span>=&gt; wasm_valkind_enum::WASM_F64,
-            <span class="number">128 </span>=&gt; wasm_valkind_enum::WASM_ANYREF,
+            <span class="number">128 </span>=&gt; wasm_valkind_enum::WASM_EXTERNREF,
             <span class="number">129 </span>=&gt; wasm_valkind_enum::WASM_FUNCREF,
             <span class="kw">_ </span>=&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">&quot;valkind value out of bounds&quot;</span>),
         })
@@ -436,7 +438,9 @@
             wasm_valkind_enum::WASM_I64 =&gt; Value::I64(<span class="kw">unsafe </span>{ item.of.int64_t }),
             wasm_valkind_enum::WASM_F32 =&gt; Value::F32(<span class="kw">unsafe </span>{ item.of.float32_t }),
             wasm_valkind_enum::WASM_F64 =&gt; Value::F64(<span class="kw">unsafe </span>{ item.of.float64_t }),
-            wasm_valkind_enum::WASM_ANYREF =&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">&quot;ANYREF not supported at this time&quot;</span>),
+            wasm_valkind_enum::WASM_EXTERNREF =&gt; {
+                <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">&quot;EXTERNREF not supported at this time&quot;</span>)
+            }
             wasm_valkind_enum::WASM_FUNCREF =&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">&quot;FUNCREF not supported at this time&quot;</span>),
         })
     }
