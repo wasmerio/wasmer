@@ -29,7 +29,7 @@ wasmer-middlewares = { version = "=4.3.7", path = "lib/middlewares", optional = 
 
 # Third party dependencies
 cfg-if = "1.0"
-tokio = { version = "1", features = [
+tokio = { version = "1.39", features = [
     "rt",
     "rt-multi-thread",
     "macros",
@@ -76,6 +76,9 @@ members = [
     "tests/wasi-wast",
     "tests/wasmer-argus",
 ]
+exclude = [
+  "./lib/cli/tests/packages/axum"
+]
 resolver = "2"
 
 [workspace.package]
@@ -110,6 +113,10 @@ toml = {version = "0.5.9", features = ["preserve_order"]}
 indexmap = "2"
 serde_yaml = "0.9.34"
 libc = { version = "^0.2", default-features = false }
+mio = "1"
+# MIO 1.0 starts at tokio version 1.39, hence the minimum requirement.
+tokio = { version = "1.39.0", default-features = false}
+socket2 = "0.5.7"
 pretty_assertions = "1.4.0"
 base64 = "0.22.0"
 
