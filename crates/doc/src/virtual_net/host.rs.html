@@ -889,6 +889,36 @@
 <a href="#889" id="889">889</a>
 <a href="#890" id="890">890</a>
 <a href="#891" id="891">891</a>
+<a href="#892" id="892">892</a>
+<a href="#893" id="893">893</a>
+<a href="#894" id="894">894</a>
+<a href="#895" id="895">895</a>
+<a href="#896" id="896">896</a>
+<a href="#897" id="897">897</a>
+<a href="#898" id="898">898</a>
+<a href="#899" id="899">899</a>
+<a href="#900" id="900">900</a>
+<a href="#901" id="901">901</a>
+<a href="#902" id="902">902</a>
+<a href="#903" id="903">903</a>
+<a href="#904" id="904">904</a>
+<a href="#905" id="905">905</a>
+<a href="#906" id="906">906</a>
+<a href="#907" id="907">907</a>
+<a href="#908" id="908">908</a>
+<a href="#909" id="909">909</a>
+<a href="#910" id="910">910</a>
+<a href="#911" id="911">911</a>
+<a href="#912" id="912">912</a>
+<a href="#913" id="913">913</a>
+<a href="#914" id="914">914</a>
+<a href="#915" id="915">915</a>
+<a href="#916" id="916">916</a>
+<a href="#917" id="917">917</a>
+<a href="#918" id="918">918</a>
+<a href="#919" id="919">919</a>
+<a href="#920" id="920">920</a>
+<a href="#921" id="921">921</a>
 </pre></div><pre class="rust"><code><span class="attr">#![allow(unused_variables)]
 </span><span class="kw">use crate</span>::{io_err_into_net_error, VirtualIoSource};
 <span class="attr">#[allow(unused_imports)]
@@ -907,6 +937,9 @@
 </span><span class="kw">use </span>std::os::fd::AsRawFd;
 <span class="attr">#[cfg(not(target_os = <span class="string">&quot;windows&quot;</span>))]
 </span><span class="kw">use </span>std::os::fd::RawFd;
+<span class="attr">#[cfg(windows)]
+</span><span class="kw">use </span>std::os::windows::io::AsRawSocket;
+
 <span class="kw">use </span>std::sync::Arc;
 <span class="kw">use </span>std::task::Poll;
 <span class="kw">use </span>std::time::Duration;
@@ -978,7 +1011,6 @@
         _reuse_addr: bool,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;Box&lt;<span class="kw">dyn </span>VirtualUdpSocket + Sync&gt;&gt; {
         <span class="kw">let </span>socket = mio::net::UdpSocket::bind(addr).map_err(io_err_into_net_error)<span class="question-mark">?</span>;
-        socket2::SockRef::from(<span class="kw-2">&amp;</span>socket).set_nonblocking(<span class="bool-val">true</span>).ok();
 
         <span class="attr">#[allow(unused_mut)]
         </span><span class="kw">let </span><span class="kw-2">mut </span>ret = LocalUdpSocket {
@@ -1009,7 +1041,7 @@
         <span class="kw-2">mut </span>peer: SocketAddr,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;Box&lt;<span class="kw">dyn </span>VirtualTcpSocket + Sync&gt;&gt; {
         <span class="kw">let </span>stream = mio::net::TcpStream::connect(peer).map_err(io_err_into_net_error)<span class="question-mark">?</span>;
-        socket2::SockRef::from(<span class="kw-2">&amp;</span>stream).set_nonblocking(<span class="bool-val">true</span>).ok();
+
         <span class="kw">if let </span><span class="prelude-val">Ok</span>(p) = stream.peer_addr() {
             peer = p;
         }
@@ -1052,9 +1084,6 @@
     <span class="kw">fn </span>try_accept_internal(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;(Box&lt;<span class="kw">dyn </span>VirtualTcpSocket + Sync&gt;, SocketAddr)&gt; {
         <span class="kw">match </span><span class="self">self</span>.stream.accept().map_err(io_err_into_net_error) {
             <span class="prelude-val">Ok</span>((stream, addr)) =&gt; {
-                socket2::SockRef::from(<span class="kw-2">&amp;</span><span class="self">self</span>.stream)
-                    .set_nonblocking(<span class="bool-val">true</span>)
-                    .ok();
                 <span class="kw">let </span><span class="kw-2">mut </span>socket = LocalTcpStream::new(<span class="self">self</span>.selector.clone(), stream, addr);
                 <span class="kw">if let </span><span class="prelude-val">Some</span>(no_delay) = <span class="self">self</span>.no_delay {
                     socket.set_nodelay(no_delay).ok();
@@ -1224,6 +1253,23 @@
 
         ret
     }
+
+    <span class="kw">fn </span>with_sock_ref&lt;F, R&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, f: F) -&gt; R
+    <span class="kw">where
+        for</span>&lt;<span class="lifetime">&#39;a</span>&gt; F: FnOnce(socket2::SockRef&lt;<span class="lifetime">&#39;a</span>&gt;) -&gt; R,
+    {
+        <span class="attr">#[cfg(not(windows))]
+        </span><span class="kw">let </span>r = socket2::SockRef::from(<span class="kw-2">&amp;</span><span class="self">self</span>.stream);
+
+        <span class="attr">#[cfg(windows)]
+        </span><span class="kw">let </span>b = <span class="kw">unsafe </span>{
+            std::os::windows::io::BorrowedSocket::borrow_raw(<span class="self">self</span>.stream.as_raw_socket())
+        };
+        <span class="attr">#[cfg(windows)]
+        </span><span class="kw">let </span>r = socket2::SockRef::from(<span class="kw-2">&amp;</span>b);
+
+        f(r)
+    }
 }
 
 <span class="kw">impl </span>VirtualTcpSocket <span class="kw">for </span>LocalTcpStream {
@@ -1254,15 +1300,14 @@
     }
 
     <span class="kw">fn </span>set_keepalive(<span class="kw-2">&amp;mut </span><span class="self">self</span>, keepalive: bool) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
-        socket2::SockRef::from(<span class="kw-2">&amp;</span><span class="self">self</span>.stream)
-            .set_keepalive(<span class="bool-val">true</span>)
+        <span class="self">self</span>.with_sock_ref(|s| s.set_keepalive(<span class="bool-val">true</span>))
             .map_err(io_err_into_net_error)<span class="question-mark">?</span>;
         <span class="prelude-val">Ok</span>(())
     }
 
     <span class="kw">fn </span>keepalive(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;bool&gt; {
-        <span class="kw">let </span>ret = socket2::SockRef::from(<span class="kw-2">&amp;</span><span class="self">self</span>.stream)
-            .keepalive()
+        <span class="kw">let </span>ret = <span class="self">self
+            </span>.with_sock_ref(|s| s.keepalive())
             .map_err(io_err_into_net_error)<span class="question-mark">?</span>;
         <span class="prelude-val">Ok</span>(ret)
     }
@@ -1335,15 +1380,13 @@
 
 <span class="kw">impl </span>VirtualConnectedSocket <span class="kw">for </span>LocalTcpStream {
     <span class="kw">fn </span>set_linger(<span class="kw-2">&amp;mut </span><span class="self">self</span>, linger: <span class="prelude-ty">Option</span>&lt;Duration&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
-        socket2::SockRef::from(<span class="kw-2">&amp;</span><span class="self">self</span>.stream)
-            .set_linger(linger)
+        <span class="self">self</span>.with_sock_ref(|s| s.set_linger(linger))
             .map_err(io_err_into_net_error)<span class="question-mark">?</span>;
         <span class="prelude-val">Ok</span>(())
     }
 
     <span class="kw">fn </span>linger(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;Duration&gt;&gt; {
-        socket2::SockRef::from(<span class="kw-2">&amp;</span><span class="self">self</span>.stream)
-            .linger()
+        <span class="self">self</span>.with_sock_ref(|s| s.linger())
             .map_err(io_err_into_net_error)
     }
 
@@ -1545,6 +1588,25 @@
     backlog: VecDeque&lt;(BytesMut, SocketAddr)&gt;,
 }
 
+<span class="kw">impl </span>LocalUdpSocket {
+    <span class="kw">fn </span>with_sock_ref&lt;F, R&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, f: F) -&gt; R
+    <span class="kw">where
+        for</span>&lt;<span class="lifetime">&#39;a</span>&gt; F: FnOnce(socket2::SockRef&lt;<span class="lifetime">&#39;a</span>&gt;) -&gt; R,
+    {
+        <span class="attr">#[cfg(not(windows))]
+        </span><span class="kw">let </span>r = socket2::SockRef::from(<span class="kw-2">&amp;</span><span class="self">self</span>.socket);
+
+        <span class="attr">#[cfg(windows)]
+        </span><span class="kw">let </span>b = <span class="kw">unsafe </span>{
+            std::os::windows::io::BorrowedSocket::borrow_raw(<span class="self">self</span>.socket.as_raw_socket())
+        };
+        <span class="attr">#[cfg(windows)]
+        </span><span class="kw">let </span>r = socket2::SockRef::from(<span class="kw-2">&amp;</span>b);
+
+        f(r)
+    }
+}
+
 <span class="kw">impl </span>VirtualUdpSocket <span class="kw">for </span>LocalUdpSocket {
     <span class="kw">fn </span>set_broadcast(<span class="kw-2">&amp;mut </span><span class="self">self</span>, broadcast: bool) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
         <span class="self">self</span>.socket
@@ -1593,14 +1655,12 @@
     }
 
     <span class="kw">fn </span>join_multicast_v4(<span class="kw-2">&amp;mut </span><span class="self">self</span>, multiaddr: Ipv4Addr, iface: Ipv4Addr) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
-        socket2::SockRef::from(<span class="kw-2">&amp;</span><span class="self">self</span>.socket)
-            .join_multicast_v4(<span class="kw-2">&amp;</span>multiaddr, <span class="kw-2">&amp;</span>iface)
+        <span class="self">self</span>.with_sock_ref(|s| s.join_multicast_v4(<span class="kw-2">&amp;</span>multiaddr, <span class="kw-2">&amp;</span>iface))
             .map_err(io_err_into_net_error)
     }
 
     <span class="kw">fn </span>leave_multicast_v4(<span class="kw-2">&amp;mut </span><span class="self">self</span>, multiaddr: Ipv4Addr, iface: Ipv4Addr) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
-        socket2::SockRef::from(<span class="kw-2">&amp;</span><span class="self">self</span>.socket)
-            .leave_multicast_v4(<span class="kw-2">&amp;</span>multiaddr, <span class="kw-2">&amp;</span>iface)
+        <span class="self">self</span>.with_sock_ref(|s| s.leave_multicast_v4(<span class="kw-2">&amp;</span>multiaddr, <span class="kw-2">&amp;</span>iface))
             .map_err(io_err_into_net_error)
     }
 
