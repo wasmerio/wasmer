@@ -25,7 +25,7 @@ void print_valtype(const wasm_valtype_t* type) {
     case WASM_I64: printf("i64"); break;
     case WASM_F32: printf("f32"); break;
     case WASM_F64: printf("f64"); break;
-    case WASM_ANYREF: printf("anyref"); break;
+    case WASM_EXTERNREF: printf("externref"); break;
     case WASM_FUNCREF: printf("funcref"); break;
   }
 }

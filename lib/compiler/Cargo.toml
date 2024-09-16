@@ -25,7 +25,7 @@ smallvec = "1.6"
 xxhash-rust = { version = "0.8.10", features = ["xxh64"] }
 
 backtrace = "0.3"
-memmap2 = "0.5"
+memmap2 = "0.6"
 more-asserts = "0.2"
 lazy_static = "1.4"
 
