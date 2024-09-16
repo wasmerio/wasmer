@@ -91,21 +91,6 @@ impl VirtualNetworking for LocalNetworking {
     ) -> Result<Box<dyn VirtualUdpSocket + Sync>> {
         let socket = mio::net::UdpSocket::bind(addr).map_err(io_err_into_net_error)?;
 
-        {
-            #[cfg(not(windows))]
-            let sockref = socket2::SockRef::from(&socket);
-            #[cfg(windows)]
-            let sockref = unsafe {
-                socket2::SockRef::from(&std::os::windows::io::BorrowedSocket::borrow_raw(
-                    socket.stream.as_raw_socket(),
-                ))
-                .set_nonblocking(true)
-                .ok();
-            };
-
-            sockref.set_nonblocking(true).ok();
-        }
-
         #[allow(unused_mut)]
         let mut ret = LocalUdpSocket {
             selector: self.selector.clone(),
@@ -136,7 +121,6 @@ impl VirtualNetworking for LocalNetworking {
     ) -> Result<Box<dyn VirtualTcpSocket + Sync>> {
         let stream = mio::net::TcpStream::connect(peer).map_err(io_err_into_net_error)?;
 
-        socket2::SockRef::from(&stream).set_nonblocking(true).ok();
         if let Ok(p) = stream.peer_addr() {
             peer = p;
         }
@@ -179,9 +163,6 @@ impl LocalTcpListener {
     fn try_accept_internal(&mut self) -> Result<(Box<dyn VirtualTcpSocket + Sync>, SocketAddr)> {
         match self.stream.accept().map_err(io_err_into_net_error) {
             Ok((stream, addr)) => {
-                socket2::SockRef::from(&self.stream)
-                    .set_nonblocking(true)
-                    .ok();
                 let mut socket = LocalTcpStream::new(self.selector.clone(), stream, addr);
                 if let Some(no_delay) = self.no_delay {
                     socket.set_nodelay(no_delay).ok();
@@ -352,18 +333,21 @@ impl LocalTcpStream {
         ret
     }
 
-    fn sock_ref<'a>(&'a self) -> socket2::SockRef<'a> {
+    fn with_sock_ref<F, R>(&self, f: F) -> R
+    where
+        for<'a> F: FnOnce(socket2::SockRef<'a>) -> R,
+    {
         #[cfg(not(windows))]
         let r = socket2::SockRef::from(&self.stream);
 
         #[cfg(windows)]
-        let r = unsafe {
-            socket2::SockRef::from(&std::os::windows::io::BorrowedSocket::borrow_raw(
-                self.stream.as_raw_socket(),
-            ))
+        let b = unsafe {
+            std::os::windows::io::BorrowedSocket::borrow_raw(self.stream.as_raw_socket())
         };
+        #[cfg(windows)]
+        let r = socket2::SockRef::from(&b);
 
-        r
+        f(r)
     }
 }
 
@@ -395,14 +379,15 @@ impl VirtualTcpSocket for LocalTcpStream {
     }
 
     fn set_keepalive(&mut self, keepalive: bool) -> Result<()> {
-        self.sock_ref()
-            .set_keepalive(true)
+        self.with_sock_ref(|s| s.set_keepalive(true))
             .map_err(io_err_into_net_error)?;
         Ok(())
     }
 
     fn keepalive(&self) -> Result<bool> {
-        let ret = self.sock_ref().keepalive().map_err(io_err_into_net_error)?;
+        let ret = self
+            .with_sock_ref(|s| s.keepalive())
+            .map_err(io_err_into_net_error)?;
         Ok(ret)
     }
 
@@ -474,15 +459,14 @@ impl VirtualTcpSocket for LocalTcpStream {
 
 impl VirtualConnectedSocket for LocalTcpStream {
     fn set_linger(&mut self, linger: Option<Duration>) -> Result<()> {
-        self.sock_ref()
-            .set_linger(linger)
+        self.with_sock_ref(|s| s.set_linger(linger))
             .map_err(io_err_into_net_error)?;
         Ok(())
     }
 
     fn linger(&self) -> Result<Option<Duration>> {
-        let sockref = self.sock_ref();
-        sockref.linger().map_err(io_err_into_net_error)
+        self.with_sock_ref(|s| s.linger())
+            .map_err(io_err_into_net_error)
     }
 
     fn try_send(&mut self, data: &[u8]) -> Result<usize> {
@@ -684,18 +668,21 @@ pub struct LocalUdpSocket {
 }
 
 impl LocalUdpSocket {
-    fn sock_ref<'a>(&'a self) -> socket2::SockRef<'a> {
+    fn with_sock_ref<F, R>(&self, f: F) -> R
+    where
+        for<'a> F: FnOnce(socket2::SockRef<'a>) -> R,
+    {
         #[cfg(not(windows))]
         let r = socket2::SockRef::from(&self.socket);
 
         #[cfg(windows)]
-        let r = unsafe {
-            socket2::SockRef::from(&std::os::windows::io::BorrowedSocket::borrow_raw(
-                self.stream.as_raw_socket(),
-            ))
+        let b = unsafe {
+            std::os::windows::io::BorrowedSocket::borrow_raw(self.socket.as_raw_socket())
         };
+        #[cfg(windows)]
+        let r = socket2::SockRef::from(&b);
 
-        r
+        f(r)
     }
 }
 
@@ -747,14 +734,12 @@ impl VirtualUdpSocket for LocalUdpSocket {
     }
 
     fn join_multicast_v4(&mut self, multiaddr: Ipv4Addr, iface: Ipv4Addr) -> Result<()> {
-        self.sock_ref()
-            .join_multicast_v4(&multiaddr, &iface)
+        self.with_sock_ref(|s| s.join_multicast_v4(&multiaddr, &iface))
             .map_err(io_err_into_net_error)
     }
 
     fn leave_multicast_v4(&mut self, multiaddr: Ipv4Addr, iface: Ipv4Addr) -> Result<()> {
-        self.sock_ref()
-            .leave_multicast_v4(&multiaddr, &iface)
+        self.with_sock_ref(|s| s.leave_multicast_v4(&multiaddr, &iface))
             .map_err(io_err_into_net_error)
     }
 
