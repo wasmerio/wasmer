@@ -449,6 +449,7 @@ mod tests {
         assert_sync::<WasiRunner>();
     }
 
+    #[cfg(all(feature = "host-fs", feature = "sys"))]
     #[tokio::test]
     async fn test_volume_mount_without_webcs() {
         use std::sync::Arc;
@@ -484,6 +485,7 @@ mod tests {
         fs.read_dir(&std::path::Path::new("/host")).unwrap();
     }
 
+    #[cfg(all(feature = "host-fs", feature = "sys"))]
     #[tokio::test]
     async fn test_volume_mount_with_webcs() {
         use std::sync::Arc;
