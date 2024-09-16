@@ -279,18 +279,6 @@ dependencies = [
 
 [[package]]
 name = "base64"
-version = "0.13.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9e1b586273c5702936fe7b7d6896644d8be71e6314cfe09d3167c95f712589e8"
-
-[[package]]
-name = "base64"
-version = "0.21.7"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9d297deb1925b89f2ccc13d7635fa0714f12c87adce1c75356b39ca9b7178567"
-
-[[package]]
-name = "base64"
 version = "0.22.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "72b3254f16251a8381aa12e40e3c4d2f0199f8c6508fbecb9d91f575e0fbb8c6"
@@ -1526,36 +1514,12 @@ dependencies = [
 ]
 
 [[package]]
-name = "edge-schema"
-version = "0.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0966f1fd49610cc67a835124e6fb4d00a36104e1aa34383c5ef5a265ca00ea2a"
-dependencies = [
- "anyhow",
- "bytesize",
- "once_cell",
- "parking_lot 0.12.3",
- "rand_chacha",
- "rand_core",
- "schemars",
- "serde",
- "serde_json",
- "serde_path_to_error",
- "serde_yaml 0.8.26",
- "sparx",
- "time 0.3.36",
- "url",
- "uuid",
- "wcgi-host 0.1.2",
-]
-
-[[package]]
 name = "edge-util"
 version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "60d06780ae676369e0a9ac2c75f7d1a6d22e157ef5b10cfeda0ee6a465cf7337"
 dependencies = [
- "edge-schema 0.0.3",
+ "edge-schema",
  "http 0.2.12",
  "serde",
  "wasmparser 0.121.2",
@@ -4076,7 +4040,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c7d6d2a27d57148378eb5e111173f4276ad26340ecc5c49a4a2152167a2d6a37"
 dependencies = [
  "async-compression",
- "base64 0.22.1",
+ "base64",
  "bytes 1.6.1",
  "futures-channel",
  "futures-core",
@@ -4340,7 +4304,7 @@ version = "2.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "29993a25686778eb88d4189742cd713c9bce943bc54251a33509dc63cbacf73d"
 dependencies = [
- "base64 0.22.1",
+ "base64",
  "rustls-pki-types",
 ]
 
@@ -5940,7 +5904,7 @@ version = "2.10.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "72139d247e5f97a3eff96229a7ae85ead5328a39efe76f8bf5a06313d505b6ea"
 dependencies = [
- "base64 0.22.1",
+ "base64",
  "flate2",
  "log 0.4.22",
  "once_cell",
@@ -6061,7 +6025,7 @@ version = "0.8.0"
 dependencies = [
  "anyhow",
  "async-trait",
- "base64 0.21.7",
+ "base64",
  "bincode",
  "bytecheck",
  "bytes 1.6.1",
@@ -6472,9 +6436,8 @@ name = "wasmer-api"
 version = "0.0.34"
 dependencies = [
  "anyhow",
- "base64 0.13.1",
+ "base64",
  "cynic",
- "edge-schema 0.1.0",
  "futures 0.3.30",
  "getrandom",
  "harsh",
@@ -6624,7 +6587,6 @@ dependencies = [
  "dialoguer",
  "dirs",
  "dotenvy",
- "edge-schema 0.1.0",
  "edge-util",
  "flate2",
  "fuse",
@@ -6951,7 +6913,7 @@ version = "0.9.0"
 dependencies = [
  "anyhow",
  "async-trait",
- "base64 0.21.7",
+ "base64",
  "bincode",
  "bytecheck",
  "bytes 1.6.1",
@@ -7120,7 +7082,7 @@ dependencies = [
  "ahash 0.8.11",
  "anyhow",
  "async-trait",
- "base64 0.21.7",
+ "base64",
  "bincode",
  "blake3",
  "bytecheck",
@@ -7430,7 +7392,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d6cf1915e27168c1ed82f7f0d03f60317648f257fecaf4256a1904428d8e4ccd"
 dependencies = [
  "anyhow",
- "base64 0.22.1",
+ "base64",
  "bytes 1.6.1",
  "cfg-if 1.0.0",
  "ciborium",
