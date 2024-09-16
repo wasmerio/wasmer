@@ -253,14 +253,6 @@
 <a href="#253" id="253">253</a>
 <a href="#254" id="254">254</a>
 <a href="#255" id="255">255</a>
-<a href="#256" id="256">256</a>
-<a href="#257" id="257">257</a>
-<a href="#258" id="258">258</a>
-<a href="#259" id="259">259</a>
-<a href="#260" id="260">260</a>
-<a href="#261" id="261">261</a>
-<a href="#262" id="262">262</a>
-<a href="#263" id="263">263</a>
 </pre></div><pre class="rust"><code><span class="attr">#[cfg(not(target_family = <span class="string">&quot;wasm&quot;</span>))]
 </span><span class="kw">use </span>std::time::Duration;
 
@@ -338,10 +330,14 @@
         })
     }
 
+    <span class="kw">pub fn </span>new(graphql_endpoint: Url, user_agent: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, anyhow::Error&gt; {
+        <span class="self">Self</span>::new_with_proxy(graphql_endpoint, user_agent, <span class="prelude-val">None</span>)
+    }
+
     <span class="kw">pub fn </span>new_with_proxy(
         graphql_endpoint: Url,
         user_agent: <span class="kw-2">&amp;</span>str,
-        proxy: reqwest::Proxy,
+        proxy: <span class="prelude-ty">Option</span>&lt;reqwest::Proxy&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, anyhow::Error&gt; {
         <span class="kw">let </span>builder = {
             <span class="attr">#[cfg(all(target_arch = <span class="string">&quot;wasm32&quot;</span>, target_os = <span class="string">&quot;unknown&quot;</span>))]
@@ -352,26 +348,14 @@
                 .connect_timeout(Duration::from_secs(<span class="number">10</span>))
                 .timeout(Duration::from_secs(<span class="number">90</span>));
 
-            builder.proxy(proxy)
+            <span class="kw">if let </span><span class="prelude-val">Some</span>(proxy) = proxy {
+                builder.proxy(proxy)
+            } <span class="kw">else </span>{
+                builder
+            }
         };
 
         <span class="kw">let </span>client = builder.build().context(<span class="string">&quot;failed to create reqwest client&quot;</span>)<span class="question-mark">?</span>;
-
-        <span class="self">Self</span>::new_with_client(client, graphql_endpoint, user_agent)
-    }
-
-    <span class="kw">pub fn </span>new(graphql_endpoint: Url, user_agent: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, anyhow::Error&gt; {
-        <span class="attr">#[cfg(all(target_arch = <span class="string">&quot;wasm32&quot;</span>, target_os = <span class="string">&quot;unknown&quot;</span>))]
-        </span><span class="kw">let </span>client = reqwest::Client::builder()
-            .build()
-            .context(<span class="string">&quot;could not construct http client&quot;</span>)<span class="question-mark">?</span>;
-
-        <span class="attr">#[cfg(not(all(target_arch = <span class="string">&quot;wasm32&quot;</span>, target_os = <span class="string">&quot;unknown&quot;</span>)))]
-        </span><span class="kw">let </span>client = reqwest::Client::builder()
-            .connect_timeout(Duration::from_secs(<span class="number">10</span>))
-            .timeout(Duration::from_secs(<span class="number">90</span>))
-            .build()
-            .context(<span class="string">&quot;could not construct http client&quot;</span>)<span class="question-mark">?</span>;
 
         <span class="self">Self</span>::new_with_client(client, graphql_endpoint, user_agent)
     }

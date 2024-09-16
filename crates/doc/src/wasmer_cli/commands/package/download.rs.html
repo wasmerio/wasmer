@@ -305,18 +305,6 @@
 <a href="#305" id="305">305</a>
 <a href="#306" id="306">306</a>
 <a href="#307" id="307">307</a>
-<a href="#308" id="308">308</a>
-<a href="#309" id="309">309</a>
-<a href="#310" id="310">310</a>
-<a href="#311" id="311">311</a>
-<a href="#312" id="312">312</a>
-<a href="#313" id="313">313</a>
-<a href="#314" id="314">314</a>
-<a href="#315" id="315">315</a>
-<a href="#316" id="316">316</a>
-<a href="#317" id="317">317</a>
-<a href="#318" id="318">318</a>
-<a href="#319" id="319">319</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{env::current_dir, path::PathBuf};
 
 <span class="kw">use </span>anyhow::{bail, Context};
@@ -324,7 +312,6 @@
 <span class="kw">use </span>indicatif::{ProgressBar, ProgressStyle};
 <span class="kw">use </span>tempfile::NamedTempFile;
 <span class="kw">use </span>wasmer_config::package::{PackageIdent, PackageSource};
-<span class="kw">use </span>wasmer_wasix::http::reqwest::get_proxy;
 
 <span class="kw">use </span><span class="kw">crate</span>::config::WasmerEnv;
 
@@ -346,10 +333,6 @@
     <span class="doccomment">/// Run the download command without any output
     </span><span class="attr">#[clap(long)]
     </span><span class="kw">pub </span>quiet: bool,
-
-    <span class="doccomment">/// proxy to use for downloading
-    </span><span class="attr">#[clap(long)]
-    </span><span class="kw">pub </span>proxy: <span class="prelude-ty">Option</span>&lt;String&gt;,
 
     <span class="doccomment">/// The package to download.
     </span>package: PackageSource,
@@ -420,13 +403,7 @@
                 <span class="comment">// caveat: client_unauthennticated will use a token if provided, it
                 // just won&#39;t fail if none is present. So, _unauthenticated() can actually
                 // produce an authenticated client.
-                </span><span class="kw">let </span>client = <span class="kw">if let </span><span class="prelude-val">Some</span>(proxy) = <span class="kw-2">&amp;</span><span class="self">self</span>.proxy {
-                    <span class="kw">let </span>proxy = reqwest::Proxy::all(proxy)<span class="question-mark">?</span>;
-
-                    <span class="self">self</span>.env.client_unauthennticated_with_proxy(proxy)<span class="question-mark">?
-                </span>} <span class="kw">else </span>{
-                    <span class="self">self</span>.env.client_unauthennticated()<span class="question-mark">?
-                </span>};
+                </span><span class="kw">let </span>client = <span class="self">self</span>.env.client_unauthennticated()<span class="question-mark">?</span>;
 
                 <span class="kw">let </span>version = id.version_or_default().to_string();
                 <span class="kw">let </span>version = <span class="kw">if </span>version == <span class="string">&quot;*&quot; </span>{
@@ -490,7 +467,7 @@
 
         <span class="kw">let </span>builder = {
             <span class="kw">let </span><span class="kw-2">mut </span>builder = reqwest::blocking::ClientBuilder::new();
-            <span class="kw">if let </span><span class="prelude-val">Some</span>(proxy) = get_proxy()<span class="question-mark">? </span>{
+            <span class="kw">if let </span><span class="prelude-val">Some</span>(proxy) = <span class="self">self</span>.env.proxy()<span class="question-mark">? </span>{
                 builder = builder.proxy(proxy);
             }
             builder
@@ -628,7 +605,6 @@
             out_path: <span class="prelude-val">Some</span>(out_path.clone()),
             package: <span class="string">&quot;wasmer/hello@0.1.0&quot;</span>.parse().unwrap(),
             quiet: <span class="bool-val">true</span>,
-            proxy: <span class="prelude-val">None</span>,
         };
 
         cmd.execute().unwrap();

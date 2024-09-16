@@ -258,6 +258,14 @@
 <a href="#258" id="258">258</a>
 <a href="#259" id="259">259</a>
 <a href="#260" id="260">260</a>
+<a href="#261" id="261">261</a>
+<a href="#262" id="262">262</a>
+<a href="#263" id="263">263</a>
+<a href="#264" id="264">264</a>
+<a href="#265" id="265">265</a>
+<a href="#266" id="266">266</a>
+<a href="#267" id="267">267</a>
+<a href="#268" id="268">268</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">super</span>::common::{macros::<span class="kw-2">*</span>, <span class="kw-2">*</span>};
 <span class="kw">use crate</span>::{
     commands::{AsyncCliCommand, PackageBuild},
@@ -388,7 +396,15 @@
     ) -&gt; anyhow::Result&lt;()&gt; {
         <span class="kw">let </span>pb = <span class="macro">make_spinner!</span>(<span class="self">self</span>.quiet, <span class="string">&quot;Uploading the package..&quot;</span>);
 
-        <span class="kw">let </span>signed_url = upload(client, package_hash, <span class="self">self</span>.timeout, package, pb.clone()).<span class="kw">await</span><span class="question-mark">?</span>;
+        <span class="kw">let </span>signed_url = upload(
+            client,
+            package_hash,
+            <span class="self">self</span>.timeout,
+            package,
+            pb.clone(),
+            <span class="self">self</span>.env.proxy()<span class="question-mark">?</span>,
+        )
+        .<span class="kw">await</span><span class="question-mark">?</span>;
         <span class="macro">spinner_ok!</span>(pb, <span class="string">&quot;Package correctly uploaded&quot;</span>);
 
         <span class="kw">let </span>pb = <span class="macro">make_spinner!</span>(<span class="self">self</span>.quiet, <span class="string">&quot;Waiting for package to become available...&quot;</span>);
