@@ -56,6 +56,7 @@ members = [
     "lib/derive",
     "lib/emscripten",
     "lib/object",
+    "lib/package",
     "lib/registry",
     "lib/sys-utils",
     "lib/types",
@@ -109,6 +110,7 @@ toml = {version = "0.5.9", features = ["preserve_order"]}
 indexmap = "2"
 serde_yaml = "0.9.34"
 libc = { version = "^0.2", default-features = false }
+pretty_assertions = "1.4.0"
 base64 = "0.22.0"
 
 [build-dependencies]

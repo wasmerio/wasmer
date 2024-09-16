@@ -57,7 +57,7 @@ webc.workspace = true
 async-tungstenite = { version = "0.25.1", features = ["tokio-runtime", "tokio-rustls-native-certs"] }
 
 [dev-dependencies]
-pretty_assertions = "1.3.0"
+pretty_assertions.workspace = true
 
 [package.metadata.docs.rs]
 features = ["build-package"]
