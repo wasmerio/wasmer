@@ -4,12 +4,14 @@
 //! Module for Windows x64 ABI unwind registry.
 use std::collections::HashMap;
 use wasmer_types::CompiledFunctionUnwindInfoReference;
-use winapi::um::winnt;
+use windows_sys::Win32::System::Diagnostics::Debug::{
+    RtlAddFunctionTable, RtlDeleteFunctionTable, IMAGE_RUNTIME_FUNCTION_ENTRY,
+};
 
 /// Represents a registry of function unwind information for Windows x64 ABI.
 pub struct UnwindRegistry {
     // A hashmap mapping the baseaddress with the registered runtime functions
-    functions: HashMap<usize, Vec<winnt::RUNTIME_FUNCTION>>,
+    functions: HashMap<usize, Vec<IMAGE_RUNTIME_FUNCTION_ENTRY>>,
     published: bool,
 }
 
@@ -39,16 +41,14 @@ impl UnwindRegistry {
             _ => return Err("unsupported unwind information".to_string()),
         };
 
-        let mut entry = winnt::RUNTIME_FUNCTION::default();
+        let mut entry: IMAGE_RUNTIME_FUNCTION_ENTRY = unsafe { std::mem::zeroed() };
 
         entry.BeginAddress = func_start;
         entry.EndAddress = func_start + func_len;
 
         // The unwind information should be immediately following the function
         // with padding for 4 byte alignment
-        unsafe {
-            *entry.u.UnwindInfoAddress_mut() = (entry.EndAddress + 3) & !3;
-        }
+        entry.Anonymous.UnwindInfoAddress = (entry.EndAddress + 3) & !3;
         let entries = self.functions.entry(base_address).or_insert_with(Vec::new);
 
         entries.push(entry);
@@ -73,7 +73,7 @@ impl UnwindRegistry {
                     "function table allocation was not aligned"
                 );
                 unsafe {
-                    if winnt::RtlAddFunctionTable(
+                    if RtlAddFunctionTable(
                         functions.as_mut_ptr(),
                         functions.len() as u32,
                         *base_address as u64,
@@ -94,7 +94,7 @@ impl Drop for UnwindRegistry {
         if self.published {
             unsafe {
                 for functions in self.functions.values_mut() {
-                    winnt::RtlDeleteFunctionTable(functions.as_mut_ptr());
+                    RtlDeleteFunctionTable(functions.as_mut_ptr());
                 }
             }
         }

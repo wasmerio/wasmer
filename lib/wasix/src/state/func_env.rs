@@ -134,18 +134,26 @@ impl WasiFunctionEnv {
     ) -> Result<(), ExportError> {
         let is_wasix_module = crate::utils::is_wasix_module(instance.module());
 
-        // First we get the malloc function which if it exists will be used to
-        // create the pthread_self structure
-        let memory = instance.exports.get_memory("memory").map_or_else(
-            |e| {
-                if let Some(memory) = memory {
-                    Ok(memory)
+        let exported_memory = instance
+            .exports
+            .iter()
+            .filter_map(|(_, export)| {
+                if let wasmer::Extern::Memory(memory) = export {
+                    Some(memory.clone())
                 } else {
-                    Err(e)
+                    None
                 }
-            },
-            |v| Ok(v.clone()),
-        )?;
+            })
+            .next();
+        let memory = match (exported_memory, memory) {
+            (Some(memory), _) => memory,
+            (None, Some(memory)) => memory,
+            (None, None) => {
+                return Err(ExportError::Missing(
+                    "No imported or exported memory found".to_string(),
+                ))
+            }
+        };
 
         let new_inner = WasiInstanceHandles::new(memory, store, instance);
 

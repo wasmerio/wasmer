@@ -260,8 +260,12 @@ impl AsyncCliCommand for CmdAppDeploy {
             || self.package.is_some()
             || self.use_local_manifest
         {
-            // Create already points back to deploy.
-            return self.create().await;
+            if !self.non_interactive {
+                // Create already points back to deploy.
+                return self.create().await;
+            } else {
+                anyhow::bail!("No app configuration was found in {}. Create an app before deploying or re-run in interactive mode!", app_config_path.display());
+            }
         }
 
         assert!(app_config_path.is_file());
@@ -279,9 +283,36 @@ impl AsyncCliCommand for CmdAppDeploy {
             None
         };
 
-        let owner = self
+        let mut owner = self
             .get_owner(&client, &mut app_yaml, maybe_edge_app.as_ref())
             .await?;
+
+        if !wasmer_api::query::viewer_can_deploy_to_namespace(&client, &owner).await? {
+            eprintln!("It seems you don't have access to {}", owner.bold());
+            if self.non_interactive {
+                anyhow::bail!("Please, change the owner before deploying or check your current user with `{} whoami`.", std::env::args().next().unwrap_or("wasmer".into()));
+            } else {
+                let user = wasmer_api::query::current_user_with_namespaces(&client, None).await?;
+                owner = crate::utils::prompts::prompt_for_namespace(
+                    "Who should own this app?",
+                    None,
+                    Some(&user),
+                )?;
+
+                app_yaml
+                    .as_mapping_mut()
+                    .unwrap()
+                    .insert("owner".into(), owner.clone().into());
+
+                if app_yaml.get("app_id").is_some() {
+                    app_yaml.as_mapping_mut().unwrap().remove("app_id");
+                }
+
+                if app_yaml.get("name").is_some() {
+                    app_yaml.as_mapping_mut().unwrap().remove("name");
+                }
+            }
+        }
 
         if app_yaml.get("name").is_none() && self.app_name.is_some() {
             app_yaml.as_mapping_mut().unwrap().insert(
@@ -665,7 +696,13 @@ pub async fn wait_app(
             tokio::time::sleep(Duration::from_secs(2)).await;
 
             let start = tokio::time::Instant::now();
-            let client = reqwest::Client::new();
+            let client = reqwest::Client::builder()
+                .connect_timeout(Duration::from_secs(10))
+                .timeout(Duration::from_secs(90))
+                // Should not follow redirects.
+                .redirect(reqwest::redirect::Policy::none())
+                .build()
+                .unwrap();
 
             let check_url = if make_default { &app.url } else { &version.url };
 
@@ -690,6 +727,7 @@ pub async fn wait_app(
 
                 let request_start = tokio::time::Instant::now();
 
+                tracing::debug!(%check_url, "checking health of app");
                 match client.get(check_url).send().await {
                     Ok(res) => {
                         let header = res
@@ -698,12 +736,24 @@ pub async fn wait_app(
                             .and_then(|x| x.to_str().ok())
                             .unwrap_or_default();
 
+                        tracing::debug!(
+                            %check_url,
+                            status=res.status().as_u16(),
+                            app_version_header=%header,
+                            "app request response received",
+                        );
+
                         if header == version.id.inner() {
                             if !quiet {
                                 eprintln!();
                             }
                             if !(res.status().is_success() || res.status().is_redirection()) {
-                                eprintln!("{}",format!("The app version was deployed correctly, but fails with a non-success status code of {}", res.status()).yellow());
+                                eprintln!(
+                                    "{}",
+                                    format!(
+                                        "The app version was deployed correctly, but fails with a non-success status code of {}",
+                                        res.status()).yellow()
+                                );
                             } else {
                                 eprintln!("{} Deployment complete", "𖥔".yellow().bold());
                             }
@@ -722,6 +772,8 @@ pub async fn wait_app(
                     }
                 };
 
+                // Increase the sleep time between requests, up
+                // to a reasonable maximum.
                 let elapsed: u64 = request_start
                     .elapsed()
                     .as_millis()

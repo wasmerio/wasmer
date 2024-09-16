@@ -890,7 +890,9 @@ impl Artifact {
         use crate::translator::ModuleMiddlewareChain;
         let mut module = translation.module;
         let middlewares = compiler.get_middlewares();
-        middlewares.apply_on_module_info(&mut module);
+        middlewares
+            .apply_on_module_info(&mut module)
+            .map_err(|e| CompileError::MiddlewareError(e.to_string()))?;
 
         let memory_styles: PrimaryMap<MemoryIndex, MemoryStyle> = module
             .memories

@@ -27,6 +27,8 @@ use crate::{
     },
 };
 
+use super::to_module_hash;
+
 /// The maximum number of packages that will be loaded in parallel.
 const MAX_PARALLEL_DOWNLOADS: usize = 32;
 
@@ -40,6 +42,7 @@ pub async fn load_package_tree(
 ) -> Result<BinaryPackage, Error> {
     let mut containers = fetch_dependencies(loader, &resolution.package, &resolution.graph).await?;
     containers.insert(resolution.package.root_package.clone(), root.clone());
+    let package_ids = containers.keys().cloned().collect();
     let fs = filesystem(&containers, &resolution.package, root_is_local_dir)?;
 
     let root = &resolution.package.root_package;
@@ -50,6 +53,7 @@ pub async fn load_package_tree(
 
     let loaded = BinaryPackage {
         id: root.clone(),
+        package_ids,
         when_cached: crate::syscalls::platform_clock_time_get(
             wasmer_wasix_types::wasi::Snapshot0Clockid::Monotonic,
             1_000_000,
@@ -160,7 +164,7 @@ fn load_binary_command(
         return legacy_atom_hack(webc, command_name, cmd);
     }
 
-    let hash = webc.manifest().atom_signature(&atom_name)?.into();
+    let hash = to_module_hash(webc.manifest().atom_signature(&atom_name)?);
 
     let atom = atom.with_context(|| {
 
@@ -241,7 +245,7 @@ fn legacy_atom_hack(
         "(hack) The command metadata is malformed. Falling back to the first atom in the WEBC file",
     );
 
-    let hash = webc.manifest().atom_signature(&name)?.into();
+    let hash = to_module_hash(webc.manifest().atom_signature(&name)?);
 
     Ok(Some(BinaryPackageCommand::new(
         command_name.to_string(),
@@ -363,7 +367,7 @@ fn filesystem_v3(
     let mut mountings: Vec<_> = pkg.filesystem.iter().collect();
     mountings.sort_by_key(|m| std::cmp::Reverse(m.mount_path.as_path()));
 
-    let mut union_fs = UnionFileSystem::new();
+    let union_fs = UnionFileSystem::new();
 
     for ResolvedFileSystemMapping {
         mount_path,
@@ -396,13 +400,7 @@ fn filesystem_v3(
         })?;
 
         let webc_vol = WebcVolumeFileSystem::new(volume.clone());
-        union_fs.mount(
-            volume_name,
-            mount_path.to_str().unwrap(),
-            false,
-            Box::new(webc_vol),
-            None,
-        );
+        union_fs.mount(volume_name.clone(), mount_path, Box::new(webc_vol))?;
     }
 
     let fs = OverlayFileSystem::new(virtual_fs::EmptyFileSystem::default(), [union_fs]);
@@ -589,6 +587,16 @@ where
 
     fn new_open_options(&self) -> virtual_fs::OpenOptions {
         virtual_fs::OpenOptions::new(self)
+    }
+
+    fn mount(
+        &self,
+        name: String,
+        path: &Path,
+        fs: Box<dyn FileSystem + Send + Sync>,
+    ) -> virtual_fs::Result<()> {
+        let path = self.path(path)?;
+        self.inner.mount(name, path.as_path(), fs)
     }
 }
 

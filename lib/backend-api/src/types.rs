@@ -42,6 +42,25 @@ mod queries {
     }
 
     #[derive(cynic::QueryVariables, Debug)]
+    pub struct ViewerCanVariables<'a> {
+        pub action: OwnerAction,
+        pub owner_name: &'a str,
+    }
+
+    #[derive(cynic::QueryFragment, Debug)]
+    #[cynic(graphql_type = "Query", variables = "ViewerCanVariables")]
+    pub struct ViewerCan {
+        #[arguments(action: $action, ownerName: $owner_name)]
+        pub viewer_can: bool,
+    }
+
+    #[derive(cynic::Enum, Clone, Copy, Debug)]
+    pub enum OwnerAction {
+        DeployApp,
+        PublishPackage,
+    }
+
+    #[derive(cynic::QueryVariables, Debug)]
     pub struct RevokeTokenVariables {
         pub token: String,
     }
@@ -614,6 +633,7 @@ mod queries {
     #[derive(cynic::QueryVariables, Debug)]
     pub struct GetCurrentUserWithAppsVars {
         pub after: Option<String>,
+        pub sort: Option<DeployAppsSortBy>,
     }
 
     #[derive(cynic::QueryFragment, Debug)]
@@ -628,7 +648,7 @@ mod queries {
     pub struct UserWithApps {
         pub id: cynic::Id,
         pub username: String,
-        #[arguments(after: $after)]
+        #[arguments(after: $after, sortBy: $sort)]
         pub apps: DeployAppConnection,
     }
 
@@ -669,6 +689,46 @@ mod queries {
     pub struct GetDeployApp {
         #[arguments(owner: $owner, name: $name)]
         pub get_deploy_app: Option<DeployApp>,
+    }
+
+    #[derive(cynic::QueryFragment, Debug)]
+    #[cynic(graphql_type = "Query", variables = "GetDeployAppVars")]
+    pub struct GetDeployAppS3Credentials {
+        #[arguments(owner: $owner, name: $name)]
+        pub get_deploy_app: Option<AppWithS3Credentials>,
+    }
+
+    #[derive(cynic::QueryFragment, Debug)]
+    #[cynic(graphql_type = "DeployApp", variables = "GetDeployAppVars")]
+    pub struct AppWithS3Credentials {
+        pub s3_credentials: Option<S3Credentials>,
+    }
+
+    #[derive(cynic::QueryFragment, Debug)]
+    pub struct S3Credentials {
+        pub access_key: String,
+        pub secret_key: String,
+        pub endpoint: String,
+    }
+
+    #[derive(cynic::QueryVariables, Debug)]
+    pub struct RotateS3SecretsForAppVariables {
+        pub id: cynic::Id,
+    }
+
+    #[derive(cynic::QueryFragment, Debug)]
+    #[cynic(
+        graphql_type = "Mutation",
+        variables = "RotateS3SecretsForAppVariables"
+    )]
+    pub struct RotateS3SecretsForApp {
+        #[arguments(input: { id: $id })]
+        pub rotate_s3_secrets_for_app: Option<RotateS3SecretsForAppPayload>,
+    }
+
+    #[derive(cynic::QueryFragment, Debug)]
+    pub struct RotateS3SecretsForAppPayload {
+        pub client_mutation_id: Option<String>,
     }
 
     #[derive(cynic::QueryVariables, Debug, Clone)]
@@ -754,6 +814,38 @@ mod queries {
     pub struct GetDeployAppVersion {
         #[arguments(owner: $owner, name: $name, version: $version)]
         pub get_deploy_app_version: Option<DeployAppVersion>,
+    }
+
+    #[derive(cynic::QueryVariables, Debug)]
+    pub(crate) struct GetAppVolumesVars {
+        pub name: String,
+        pub owner: String,
+    }
+
+    #[derive(cynic::QueryFragment, Debug)]
+    #[cynic(graphql_type = "Query", variables = "GetAppVolumesVars")]
+    pub(crate) struct GetAppVolumes {
+        #[arguments(owner: $owner, name: $name)]
+        pub get_deploy_app: Option<AppVolumes>,
+    }
+
+    #[derive(cynic::QueryFragment, Debug)]
+    #[cynic(graphql_type = "DeployApp")]
+    pub(crate) struct AppVolumes {
+        pub active_version: AppVersionVolumes,
+    }
+
+    #[derive(cynic::QueryFragment, Debug)]
+    #[cynic(graphql_type = "DeployAppVersion")]
+    pub(crate) struct AppVersionVolumes {
+        pub volumes: Option<Vec<Option<AppVersionVolume>>>,
+    }
+
+    #[derive(serde::Serialize, cynic::QueryFragment, Debug)]
+    pub struct AppVersionVolume {
+        pub name: String,
+        pub size: Option<i32>,
+        pub used_size: Option<BigInt>,
     }
 
     #[derive(cynic::QueryFragment, Debug)]
@@ -844,6 +936,7 @@ mod queries {
         pub id: cynic::Id,
         pub name: String,
         pub created_at: DateTime,
+        pub updated_at: DateTime,
         pub description: Option<String>,
         pub active_version: DeployAppVersion,
         pub admin_url: String,
@@ -852,6 +945,7 @@ mod queries {
         pub permalink: String,
         pub deleted: bool,
         pub aliases: AppAliasConnection,
+        pub s3_url: Option<Url>,
     }
 
     #[derive(cynic::QueryFragment, Serialize, Debug, Clone)]
@@ -971,6 +1065,7 @@ mod queries {
     pub struct DeployAppVersion {
         pub id: cynic::Id,
         pub created_at: DateTime,
+        pub updated_at: DateTime,
         pub version: String,
         pub description: Option<String>,
         pub yaml_config: String,
@@ -978,6 +1073,8 @@ mod queries {
         pub config: String,
         pub json_config: String,
         pub url: String,
+        pub disabled_at: Option<DateTime>,
+        pub disabled_reason: Option<String>,
 
         pub app: Option<SparseDeployApp>,
     }
@@ -1050,6 +1147,7 @@ mod queries {
     pub struct GetNamespaceAppsVars {
         pub name: String,
         pub after: Option<String>,
+        pub sort: Option<DeployAppsSortBy>,
     }
 
     #[derive(cynic::QueryFragment, Debug)]
@@ -1065,7 +1163,7 @@ mod queries {
     pub struct NamespaceWithApps {
         pub id: cynic::Id,
         pub name: String,
-        #[arguments(after: $after)]
+        #[arguments(after: $after, sortBy: $sort)]
         pub apps: DeployAppConnection,
     }
 
@@ -1971,6 +2069,10 @@ mod queries {
         #[arguments(input: {id: $id})]
         pub purge_cache_for_app_version: Option<PurgeCacheForAppVersionPayload>,
     }
+
+    #[derive(cynic::Scalar, Debug, Clone)]
+    #[cynic(graphql_type = "URL")]
+    pub struct Url(pub String);
 
     #[derive(cynic::Scalar, Debug, Clone)]
     pub struct BigInt(pub i64);

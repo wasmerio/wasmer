@@ -1,7 +1,7 @@
 //! Builder system for configuring a [`WasiState`] and creating it.
 
 use std::{
-    collections::HashMap,
+    collections::{HashMap, HashSet},
     path::{Path, PathBuf},
     sync::Arc,
 };
@@ -10,6 +10,7 @@ use rand::Rng;
 use thiserror::Error;
 use virtual_fs::{ArcFile, FileSystem, FsError, TmpFileSystem, VirtualFile};
 use wasmer::{AsStoreMut, Extern, Imports, Instance, Module, Store};
+use wasmer_config::package::PackageId;
 
 #[cfg(feature = "journal")]
 use crate::journal::{DynJournal, SnapshotTrigger};
@@ -68,6 +69,8 @@ pub struct WasiEnvBuilder {
 
     /// List of webc dependencies to be injected.
     pub(super) uses: Vec<BinaryPackage>,
+
+    pub(super) included_packages: HashSet<PackageId>,
 
     pub(super) module_hash: Option<ModuleHash>,
 
@@ -320,6 +323,21 @@ impl WasiEnvBuilder {
     /// resulting WASI instance.
     pub fn add_webc(&mut self, pkg: BinaryPackage) -> &mut Self {
         self.uses.push(pkg);
+        self
+    }
+
+    /// Adds a package that is already included in the [`WasiEnvBuilder`] filesystem.
+    /// These packages will not be merged to the final filesystem since they are already included.
+    pub fn include_package(&mut self, pkg_id: PackageId) -> &mut Self {
+        self.included_packages.insert(pkg_id);
+        self
+    }
+
+    /// Adds packages that is already included in the [`WasiEnvBuilder`] filesystem.
+    /// These packages will not be merged to the final filesystem since they are already included.
+    pub fn include_packages(&mut self, pkg_ids: impl IntoIterator<Item = PackageId>) -> &mut Self {
+        self.included_packages.extend(pkg_ids.into_iter());
+
         self
     }
 
@@ -839,6 +857,10 @@ impl WasiEnvBuilder {
                 ))
             })?;
             wasi_fs.set_current_dir(s);
+        }
+
+        for id in &self.included_packages {
+            wasi_fs.has_unioned.lock().unwrap().insert(id.clone());
         }
 
         let state = WasiState {

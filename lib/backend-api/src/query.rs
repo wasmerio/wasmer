@@ -2,7 +2,6 @@ use std::{collections::HashSet, time::Duration};
 
 use anyhow::{bail, Context};
 use cynic::{MutationBuilder, QueryBuilder};
-use edge_schema::schema::NetworkTokenV1;
 use futures::StreamExt;
 use merge_streams::MergeStreams;
 use time::OffsetDateTime;
@@ -14,6 +13,33 @@ use crate::{
     types::{self, *},
     GraphQLApiFailure, WasmerClient,
 };
+
+/// Rotate the s3 secrets tied to an app given its id.
+pub async fn rotate_s3_secrets(
+    client: &WasmerClient,
+    app_id: types::Id,
+) -> Result<(), anyhow::Error> {
+    client
+        .run_graphql_strict(types::RotateS3SecretsForApp::build(
+            RotateS3SecretsForAppVariables { id: app_id },
+        ))
+        .await?;
+
+    Ok(())
+}
+
+pub async fn viewer_can_deploy_to_namespace(
+    client: &WasmerClient,
+    owner_name: &str,
+) -> Result<bool, anyhow::Error> {
+    client
+        .run_graphql_strict(types::ViewerCan::build(ViewerCanVariables {
+            action: OwnerAction::DeployApp,
+            owner_name,
+        }))
+        .await
+        .map(|v| v.viewer_can)
+}
 
 pub async fn redeploy_app_by_id(
     client: &WasmerClient,
@@ -169,6 +195,56 @@ pub async fn get_all_app_secrets_filtered(
     }
 
     Ok(all_secrets)
+}
+
+/// Retrieve volumes for an app.
+pub async fn get_app_volumes(
+    client: &WasmerClient,
+    owner: impl Into<String>,
+    name: impl Into<String>,
+) -> Result<Vec<types::AppVersionVolume>, anyhow::Error> {
+    let vars = types::GetAppVolumesVars {
+        owner: owner.into(),
+        name: name.into(),
+    };
+    let res = client
+        .run_graphql_strict(types::GetAppVolumes::build(vars))
+        .await?;
+    let volumes = res
+        .get_deploy_app
+        .context("app not found")?
+        .active_version
+        .volumes
+        .unwrap_or_default()
+        .into_iter()
+        .flatten()
+        .collect();
+    Ok(volumes)
+}
+
+/// Load the S3 credentials.
+///
+/// S3 can be used to get access to an apps volumes.
+pub async fn get_app_s3_credentials(
+    client: &WasmerClient,
+    app_id: impl Into<String>,
+) -> Result<types::S3Credentials, anyhow::Error> {
+    let app_id = app_id.into();
+
+    // Firt load the app to get the s3 url.
+    let app1 = get_app_by_id(client, app_id.clone()).await?;
+
+    let vars = types::GetDeployAppVars {
+        owner: app1.owner.global_name,
+        name: app1.name,
+    };
+    client
+        .run_graphql_strict(types::GetDeployAppS3Credentials::build(vars))
+        .await?
+        .get_deploy_app
+        .context("app not found")?
+        .s3_credentials
+        .context("app does not have S3 credentials")
 }
 
 /// Load all available regions.
@@ -1190,11 +1266,15 @@ pub async fn get_app_version_by_id_with_app(
 /// NOTE: this will only include the first pages and does not provide pagination.
 pub async fn user_apps(
     client: &WasmerClient,
+    sort: types::DeployAppsSortBy,
 ) -> impl futures::Stream<Item = Result<Vec<types::DeployApp>, anyhow::Error>> + '_ {
     futures::stream::try_unfold(None, move |cursor| async move {
         let user = client
             .run_graphql(types::GetCurrentUserWithApps::build(
-                GetCurrentUserWithAppsVars { after: cursor },
+                GetCurrentUserWithAppsVars {
+                    after: cursor,
+                    sort: Some(sort),
+                },
             ))
             .await?
             .viewer
@@ -1221,11 +1301,12 @@ pub async fn user_apps(
 /// List all apps that are accessible by the current user.
 pub async fn user_accessible_apps(
     client: &WasmerClient,
+    sort: types::DeployAppsSortBy,
 ) -> Result<
     impl futures::Stream<Item = Result<Vec<types::DeployApp>, anyhow::Error>> + '_,
     anyhow::Error,
 > {
-    let user_apps = user_apps(client).await;
+    let user_apps = user_apps(client, sort).await;
 
     // Get all aps in user-accessible namespaces.
     let namespace_res = client
@@ -1247,7 +1328,7 @@ pub async fn user_accessible_apps(
 
     let mut ns_apps = vec![];
     for ns in namespace_names {
-        let apps = namespace_apps(client, ns).await;
+        let apps = namespace_apps(client, ns, sort).await;
         ns_apps.push(apps);
     }
 
@@ -1260,6 +1341,7 @@ pub async fn user_accessible_apps(
 pub async fn namespace_apps(
     client: &WasmerClient,
     namespace: String,
+    sort: types::DeployAppsSortBy,
 ) -> impl futures::Stream<Item = Result<Vec<types::DeployApp>, anyhow::Error>> + '_ {
     let namespace = namespace.clone();
 
@@ -1268,6 +1350,7 @@ pub async fn namespace_apps(
             .run_graphql(types::GetNamespaceApps::build(GetNamespaceAppsVars {
                 name: namespace.to_string(),
                 after: cursor,
+                sort: Some(sort),
             }))
             .await?;
 
@@ -1512,31 +1595,9 @@ pub fn get_package_releases_stream(
     )
 }
 
-/// Generate a new Edge token.
-pub async fn generate_deploy_token_raw(
-    client: &WasmerClient,
-    app_version_id: String,
-) -> Result<String, anyhow::Error> {
-    let res = client
-        .run_graphql(types::GenerateDeployToken::build(
-            types::GenerateDeployTokenVars { app_version_id },
-        ))
-        .await?;
-
-    res.generate_deploy_token
-        .map(|x| x.token)
-        .context("no token returned")
-}
-
-#[derive(Debug, PartialEq)]
-pub enum GenerateTokenBy {
-    Id(NetworkTokenV1),
-}
-
 #[derive(Debug, PartialEq)]
 pub enum TokenKind {
     SSH,
-    Network(GenerateTokenBy),
 }
 
 pub async fn generate_deploy_config_token_raw(
@@ -1548,9 +1609,6 @@ pub async fn generate_deploy_config_token_raw(
             types::GenerateDeployConfigTokenVars {
                 input: match token_kind {
                     TokenKind::SSH => "{}".to_string(),
-                    TokenKind::Network(by) => match by {
-                        GenerateTokenBy::Id(token) => serde_json::to_string(&token)?,
-                    },
                 },
             },
         ))

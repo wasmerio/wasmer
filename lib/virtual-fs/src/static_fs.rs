@@ -382,6 +382,15 @@ impl FileSystem for StaticFileSystem {
             self.memory.symlink_metadata(Path::new(&path))
         }
     }
+
+    fn mount(
+        &self,
+        _name: String,
+        _path: &Path,
+        _fs: Box<dyn FileSystem + Send + Sync>,
+    ) -> Result<(), FsError> {
+        Err(FsError::Unsupported)
+    }
 }
 
 fn normalizes_path(path: &Path) -> String {

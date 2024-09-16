@@ -13,8 +13,8 @@ rust-version.workspace = true
 version.workspace = true
 
 [dependencies]
-wasmer-types = { path = "../types", version = "=4.3.5", default-features = false }
-wasmer-object = { path = "../object", version = "=4.3.5", optional = true }
+wasmer-types = { path = "../types", version = "=4.3.7", default-features = false }
+wasmer-object = { path = "../object", version = "=4.3.7", optional = true }
 wasmparser = { workspace = true, optional = true, default-features = false }
 enumset.workspace = true
 hashbrown = { version = "0.11", optional = true }
@@ -40,11 +40,11 @@ shared-buffer = { workspace = true }
 libc.workspace = true
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-wasmer-vm = { path = "../vm", version = "=4.3.5" }
+wasmer-vm = { path = "../vm", version = "=4.3.7" }
 region = { version = "3.0" }
 
 [target.'cfg(target_os = "windows")'.dependencies]
-winapi = { version = "0.3", features = ["winnt", "impl-default"] }
+windows-sys = { version = "0.59", features = ["Win32_System_Diagnostics_Debug"] }
 
 [features]
 default = ["std"]

@@ -1,5 +1,5 @@
 use std::{
-    path::PathBuf,
+    path::{Path, PathBuf},
     pin::Pin,
     task::{Context, Poll},
 };
@@ -86,6 +86,16 @@ where
     #[tracing::instrument(level = "trace", skip(self))]
     fn new_open_options(&self) -> crate::OpenOptions {
         crate::OpenOptions::new(self)
+    }
+
+    #[tracing::instrument(level = "trace", skip(self))]
+    fn mount(
+        &self,
+        name: String,
+        path: &Path,
+        fs: Box<dyn FileSystem + Send + Sync>,
+    ) -> crate::Result<()> {
+        self.0.mount(name, path, fs)
     }
 }
 

@@ -1,0 +1,475 @@
+{
+  "$schema": "https://json-schema.org/draft/2019-09/schema",
+  "title": "AppConfigV1",
+  "description": "User-facing app.yaml config file for apps.\n\nNOTE: only used by the backend, Edge itself does not use this format, and uses [`super::AppVersionV1Spec`] instead.",
+  "type": "object",
+  "required": [
+    "name",
+    "package"
+  ],
+  "properties": {
+    "app_id": {
+      "description": "App id assigned by the backend.\n\nThis will get populated once the app has been deployed.\n\nThis id is also used to map to the existing app during deployments.",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "capabilities": {
+      "anyOf": [
+        {
+          "$ref": "#/definitions/AppConfigCapabilityMapV1"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "cli_args": {
+      "description": "Only applicable for runners that accept CLI arguments.",
+      "type": [
+        "array",
+        "null"
+      ],
+      "items": {
+        "type": "string"
+      }
+    },
+    "debug": {
+      "description": "Enable debug mode, which will show detailed error pages in the web gateway.",
+      "type": [
+        "boolean",
+        "null"
+      ]
+    },
+    "domains": {
+      "description": "Domains for the app.\n\nThis can include both provider-supplied alias domains and custom domains.",
+      "type": [
+        "array",
+        "null"
+      ],
+      "items": {
+        "type": "string"
+      }
+    },
+    "env": {
+      "description": "Environment variables.",
+      "type": "object",
+      "additionalProperties": {
+        "type": "string"
+      }
+    },
+    "health_checks": {
+      "type": [
+        "array",
+        "null"
+      ],
+      "items": {
+        "$ref": "#/definitions/HealthCheckV1"
+      }
+    },
+    "locality": {
+      "description": "Location-related configuration for the app.",
+      "anyOf": [
+        {
+          "$ref": "#/definitions/Locality"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "name": {
+      "description": "Name of the app.",
+      "type": "string"
+    },
+    "owner": {
+      "description": "Owner of the app.\n\nThis is either a username or a namespace.",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "package": {
+      "description": "The package to execute.",
+      "$ref": "#/definitions/PackageSource"
+    },
+    "redirect": {
+      "anyOf": [
+        {
+          "$ref": "#/definitions/Redirect"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "scaling": {
+      "anyOf": [
+        {
+          "$ref": "#/definitions/AppScalingConfigV1"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "scheduled_tasks": {
+      "type": [
+        "array",
+        "null"
+      ],
+      "items": {
+        "$ref": "#/definitions/AppScheduledTask"
+      }
+    },
+    "volumes": {
+      "type": [
+        "array",
+        "null"
+      ],
+      "items": {
+        "$ref": "#/definitions/AppVolume"
+      }
+    }
+  },
+  "additionalProperties": true,
+  "definitions": {
+    "AppConfigCapabilityInstaBootV1": {
+      "description": "Enables accelerated instance boot times with startup snapshots.\n\nHow it works: The Edge runtime will create a pre-initialized snapshot of apps that is ready to serve requests Your app will then restore from the generated snapshot, which has the potential to significantly speed up cold starts.\n\nTo drive the initialization, multiple http requests can be specified. All the specified requests will be sent to the app before the snapshot is created, allowing the app to pre-load files, pre initialize caches, ...",
+      "type": "object",
+      "properties": {
+        "max_age": {
+          "description": "Maximum age of snapshots.\n\nFormat: 5m, 1h, 2d, ...\n\nAfter the specified time new snapshots will be created, and the old ones discarded.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "requests": {
+          "description": "HTTP requests to perform during startup snapshot creation. Apps can perform all the appropriate warmup logic in these requests.\n\nNOTE: if no requests are configured, then a single HTTP request to '/' will be performed instead.",
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/HttpRequest"
+          }
+        }
+      }
+    },
+    "AppConfigCapabilityMapV1": {
+      "description": "Restricted version of [`super::CapabilityMapV1`], with only a select subset of settings.",
+      "type": "object",
+      "properties": {
+        "instaboot": {
+          "description": "Enables app bootstrapping with startup snapshots.",
+          "anyOf": [
+            {
+              "$ref": "#/definitions/AppConfigCapabilityInstaBootV1"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "memory": {
+          "description": "Instance memory settings.",
+          "anyOf": [
+            {
+              "$ref": "#/definitions/AppConfigCapabilityMemoryV1"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": true
+    },
+    "AppConfigCapabilityMemoryV1": {
+      "description": "Memory capability settings.\n\nNOTE: this is kept separate from the [`super::CapabilityMemoryV1`] struct to have separation between the high-level app.yaml and the more internal App entity.",
+      "type": "object",
+      "properties": {
+        "limit": {
+          "description": "Memory limit for an instance.\n\nFormat: [digit][unit], where unit is Mb/Gb/MiB/GiB,...",
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "AppScalingConfigV1": {
+      "type": "object",
+      "properties": {
+        "mode": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/AppScalingModeV1"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      }
+    },
+    "AppScalingModeV1": {
+      "type": "string",
+      "enum": [
+        "single_concurrency"
+      ]
+    },
+    "AppScheduledTask": {
+      "type": "object",
+      "required": [
+        "name"
+      ],
+      "properties": {
+        "name": {
+          "type": "string"
+        }
+      }
+    },
+    "AppVolume": {
+      "type": "object",
+      "required": [
+        "mount",
+        "name"
+      ],
+      "properties": {
+        "mount": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        }
+      }
+    },
+    "HealthCheckHttpV1": {
+      "description": "Health check configuration for http endpoints.",
+      "type": "object",
+      "required": [
+        "path"
+      ],
+      "properties": {
+        "body": {
+          "description": "Request body as a string.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "expect": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/HttpRequestExpect"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "headers": {
+          "description": "HTTP headers added to the request.",
+          "type": [
+            "array",
+            "null"
+          ],
+          "items": {
+            "$ref": "#/definitions/HttpHeader"
+          }
+        },
+        "healthy_threshold": {
+          "description": "Number of retries before the health check is considered healthy again.\n\nDefaults to 1.",
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint32",
+          "minimum": 0.0
+        },
+        "interval": {
+          "description": "Interval for the health check.\n\nFormat: 1s, 5m, 11h, ...\n\nDefaults to 60s.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "method": {
+          "description": "HTTP method.\n\nDefaults to GET.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "path": {
+          "description": "Request path.",
+          "type": "string"
+        },
+        "timeout": {
+          "description": "Request timeout.\n\nFormat: 1s, 5m, 11h, ...",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "unhealthy_threshold": {
+          "description": "Number of retries before the health check is considered unhealthy.\n\nDefaults to 1.",
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint32",
+          "minimum": 0.0
+        }
+      }
+    },
+    "HealthCheckV1": {
+      "oneOf": [
+        {
+          "type": "object",
+          "required": [
+            "http"
+          ],
+          "properties": {
+            "http": {
+              "$ref": "#/definitions/HealthCheckHttpV1"
+            }
+          },
+          "additionalProperties": false
+        }
+      ]
+    },
+    "HttpHeader": {
+      "description": "Definition for an HTTP header.",
+      "type": "object",
+      "required": [
+        "name",
+        "value"
+      ],
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "value": {
+          "type": "string"
+        }
+      }
+    },
+    "HttpRequest": {
+      "description": "Defines an HTTP request.",
+      "type": "object",
+      "required": [
+        "path"
+      ],
+      "properties": {
+        "body": {
+          "description": "Request body as a string.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "expect": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/HttpRequestExpect"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "headers": {
+          "description": "HTTP headers added to the request.",
+          "type": [
+            "array",
+            "null"
+          ],
+          "items": {
+            "$ref": "#/definitions/HttpHeader"
+          }
+        },
+        "method": {
+          "description": "HTTP method.\n\nDefaults to GET.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "path": {
+          "description": "Request path.",
+          "type": "string"
+        },
+        "timeout": {
+          "description": "Request timeout.\n\nFormat: 1s, 5m, 11h, ...",
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "HttpRequestExpect": {
+      "description": "Validation checks for an [`HttpRequest`].",
+      "type": "object",
+      "properties": {
+        "body_includes": {
+          "description": "Text that must be present in the response body.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "body_regex": {
+          "description": "Regular expression that must match against the response body.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "status_codes": {
+          "description": "Expected HTTP status codes.",
+          "type": [
+            "array",
+            "null"
+          ],
+          "items": {
+            "type": "integer",
+            "format": "uint16",
+            "minimum": 0.0
+          }
+        }
+      }
+    },
+    "Locality": {
+      "type": "object",
+      "required": [
+        "regions"
+      ],
+      "properties": {
+        "regions": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "PackageSource": {
+      "type": "string"
+    },
+    "Redirect": {
+      "description": "App redirect configuration.",
+      "type": "object",
+      "properties": {
+        "force_https": {
+          "description": "Force https by redirecting http requests to https automatically.",
+          "type": [
+            "boolean",
+            "null"
+          ]
+        }
+      }
+    }
+  }
+}

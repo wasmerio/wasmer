@@ -15,7 +15,7 @@ use reqwest::{blocking::Client, IntoUrl};
 use tempfile::TempDir;
 use wasmer_integration_tests_cli::{
     asset_path,
-    fixtures::{self, php, resources},
+    fixtures::{self, packages, php, resources},
     get_wasmer_path,
 };
 
@@ -46,6 +46,84 @@ static CACHE_RUST_LOG: Lazy<String> = Lazy::new(|| {
     ]
     .join(",")
 });
+
+#[test]
+fn list_cwd() {
+    let package = packages().join("list-cwd");
+
+    let output = Command::new(get_wasmer_path())
+        .arg("run")
+        .arg(package)
+        .output()
+        .unwrap();
+
+    let stdout = output.stdout;
+
+    let expected = ".
+..
+main.c
+main.wasm
+wasmer.toml
+"
+    .to_owned();
+
+    assert_eq!(expected, String::from_utf8(stdout).unwrap());
+}
+
+#[test]
+fn nested_mounted_paths() {
+    let package = packages().join("nested-mounted-paths");
+
+    let webc = package.join("out.webc");
+
+    let host_output = Command::new(get_wasmer_path())
+        .arg("run")
+        .arg(package)
+        .output()
+        .unwrap();
+    let host_stdout = host_output.stdout;
+
+    let webc_output = Command::new(get_wasmer_path())
+        .arg("run")
+        .arg(webc)
+        .arg(".")
+        .output()
+        .unwrap();
+    let webc_stdout = webc_output.stdout;
+
+    let expected = "/:
+.
+..
+.app
+.private
+app
+bin
+dev
+etc
+tmp
+
+/app:
+.
+..
+a
+b
+
+/app/a:
+.
+..
+data-a.txt
+
+/app/b:
+.
+..
+data-b.txt
+"
+    .as_bytes()
+    .to_vec();
+
+    assert_eq!(&host_stdout, &expected);
+    assert_eq!(&webc_stdout, &expected);
+}
 
 #[test]
 fn run_python_create_temp_dir_in_subprocess() {

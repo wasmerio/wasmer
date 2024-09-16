@@ -1,8 +1,8 @@
 //! Show logs for an Edge app.
 
+use crate::utils::timestamp::parse_timestamp_or_relative_time_negative_offset;
 use colored::Colorize;
 use comfy_table::{Cell, Table};
-use edge_schema::pretty_duration::parse_timestamp_or_relative_time;
 use futures::StreamExt;
 use time::{format_description::well_known::Rfc3339, OffsetDateTime};
 use wasmer_api::types::{Log, LogStream};
@@ -37,7 +37,7 @@ pub struct CmdAppLogs {
     /// * Unix timestamp (`1136196245`)
     /// * Relative time (`10m` / `-1h`, `1d1h30s`)
     // TODO: should default to trailing logs once trailing is implemented.
-    #[clap(long, value_parser = parse_timestamp_or_relative_time, conflicts_with = "request_id")]
+    #[clap(long, value_parser = parse_timestamp_or_relative_time_negative_offset, conflicts_with = "request_id")]
     from: Option<OffsetDateTime>,
 
     /// The date of the latest log entry.
@@ -48,7 +48,7 @@ pub struct CmdAppLogs {
     /// * Simple date (`2022-11-11`)
     /// * Unix timestamp (`1136196245`)
     /// * Relative time (`10m` / `1h`, `1d1h30s`)
-    #[clap(long, value_parser = parse_timestamp_or_relative_time, conflicts_with = "request_id")]
+    #[clap(long, value_parser = parse_timestamp_or_relative_time_negative_offset, conflicts_with = "request_id")]
     until: Option<OffsetDateTime>,
 
     /// Maximum log lines to fetch.
@@ -56,6 +56,7 @@ pub struct CmdAppLogs {
     #[clap(long, default_value = "1000")]
     max: usize,
 
+    /// Continuously watch for new logs and display them in real-time.
     #[clap(long, default_value = "false")]
     watch: bool,
 
