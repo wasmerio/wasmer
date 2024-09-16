@@ -28,7 +28,7 @@ impl TryFrom<ArgusConfig> for Argus {
     type Error = anyhow::Error;
 
     fn try_from(config: ArgusConfig) -> Result<Self, Self::Error> {
-        let client = WasmerClient::new(Url::parse(&config.registry_url)?, "wasmer-argus", None)?;
+        let client = WasmerClient::new(Url::parse(&config.registry_url)?, "wasmer-argus")?;
 
         let client = client.with_auth_token(config.auth_token.clone());
         Ok(Argus { client, config })

@@ -75,7 +75,11 @@ impl WasmerClient {
         })
     }
 
-    pub fn new(
+    pub fn new(graphql_endpoint: Url, user_agent: &str) -> Result<Self, anyhow::Error> {
+        Self::new_with_proxy(graphql_endpoint, user_agent, None)
+    }
+
+    pub fn new_with_proxy(
         graphql_endpoint: Url,
         user_agent: &str,
         proxy: Option<reqwest::Proxy>,

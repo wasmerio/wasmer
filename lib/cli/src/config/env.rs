@@ -142,7 +142,7 @@ impl WasmerEnv {
         let proxy = self.proxy()?;
 
         let client =
-            wasmer_api::WasmerClient::new(registry_url, &DEFAULT_WASMER_CLI_USER_AGENT, proxy)?;
+            wasmer_api::WasmerClient::new_with_proxy(registry_url, &DEFAULT_WASMER_CLI_USER_AGENT, proxy)?;
 
         let client = if let Some(token) = self.token() {
             client.with_auth_token(token)
