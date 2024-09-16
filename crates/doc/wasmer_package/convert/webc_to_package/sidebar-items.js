@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["webc_to_package_dir"]};

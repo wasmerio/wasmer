@@ -116,6 +116,41 @@
 <a href="#116" id="116">116</a>
 <a href="#117" id="117">117</a>
 <a href="#118" id="118">118</a>
+<a href="#119" id="119">119</a>
+<a href="#120" id="120">120</a>
+<a href="#121" id="121">121</a>
+<a href="#122" id="122">122</a>
+<a href="#123" id="123">123</a>
+<a href="#124" id="124">124</a>
+<a href="#125" id="125">125</a>
+<a href="#126" id="126">126</a>
+<a href="#127" id="127">127</a>
+<a href="#128" id="128">128</a>
+<a href="#129" id="129">129</a>
+<a href="#130" id="130">130</a>
+<a href="#131" id="131">131</a>
+<a href="#132" id="132">132</a>
+<a href="#133" id="133">133</a>
+<a href="#134" id="134">134</a>
+<a href="#135" id="135">135</a>
+<a href="#136" id="136">136</a>
+<a href="#137" id="137">137</a>
+<a href="#138" id="138">138</a>
+<a href="#139" id="139">139</a>
+<a href="#140" id="140">140</a>
+<a href="#141" id="141">141</a>
+<a href="#142" id="142">142</a>
+<a href="#143" id="143">143</a>
+<a href="#144" id="144">144</a>
+<a href="#145" id="145">145</a>
+<a href="#146" id="146">146</a>
+<a href="#147" id="147">147</a>
+<a href="#148" id="148">148</a>
+<a href="#149" id="149">149</a>
+<a href="#150" id="150">150</a>
+<a href="#151" id="151">151</a>
+<a href="#152" id="152">152</a>
+<a href="#153" id="153">153</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::path::PathBuf;
 
 <span class="kw">use </span>anyhow::Context;
@@ -123,26 +158,52 @@
 <span class="kw">use </span>indicatif::ProgressBar;
 
 <span class="doccomment">/// Extract contents of a webc image to a directory.
+///
+/// See --format flag for available output formats.
 </span><span class="attr">#[derive(clap::Parser, Debug)]
 </span><span class="kw">pub struct </span>PackageUnpack {
     <span class="doccomment">/// The output directory.
     </span><span class="attr">#[clap(short = <span class="string">&#39;o&#39;</span>, long)]
-    </span>out_dir: PathBuf,
+    </span><span class="kw">pub </span>out_dir: PathBuf,
 
     <span class="doccomment">/// Overwrite existing directories/files.
     </span><span class="attr">#[clap(long)]
-    </span>overwrite: bool,
+    </span><span class="kw">pub </span>overwrite: bool,
 
     <span class="doccomment">/// Run the unpack command without any output
     </span><span class="attr">#[clap(long)]
     </span><span class="kw">pub </span>quiet: bool,
 
     <span class="doccomment">/// Path to the package.
-    </span>package_path: PathBuf,
+    </span><span class="kw">pub </span>package_path: PathBuf,
+
+    <span class="doccomment">/// Output format.
+    ///
+    /// * package
+    ///   Restore a package directory with a wasmer.toml
+    ///   NOTE: this conversion is lossy, because webcs don&#39;t store the original
+    ///   wasmer.toml and the full contents can not be restored.
+    ///
+    /// * webc
+    /// Directly unpack the webc contents.
+    /// - Volumes will be placed in subdirectories.
+    /// - atoms will be placed in the root directory
+    /// - the full webc manifest will be placed in a manifest.json file
+    </span><span class="attr">#[clap(short, long, default_value = <span class="string">&quot;package&quot;</span>)]
+    </span><span class="kw">pub </span>format: Format,
 }
 
 <span class="kw">static </span>PACKAGE_EMOJI: Emoji&lt;<span class="lifetime">&#39;_</span>, <span class="lifetime">&#39;_</span>&gt; = Emoji(<span class="string">&quot;📦 &quot;</span>, <span class="string">&quot;&quot;</span>);
 <span class="kw">static </span>EXTRACTED_TO_EMOJI: Emoji&lt;<span class="lifetime">&#39;_</span>, <span class="lifetime">&#39;_</span>&gt; = Emoji(<span class="string">&quot;📂 &quot;</span>, <span class="string">&quot;&quot;</span>);
+
+<span class="doccomment">/// Webc unpack format.
+</span><span class="attr">#[derive(clap::ValueEnum, Clone, Debug)]
+</span><span class="kw">pub enum </span>Format {
+    <span class="doccomment">/// See [`PackageUnpack::format`] for details.
+    </span>Package,
+    <span class="doccomment">/// See [`PackageUnpack::format`] for details.
+    </span>Webc,
+}
 
 <span class="kw">impl </span>PackageUnpack {
     <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>execute(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;(), anyhow::Error&gt; {
@@ -170,8 +231,16 @@
         std::fs::create_dir_all(outdir)
             .with_context(|| <span class="macro">format!</span>(<span class="string">&quot;could not create output directory &#39;{}&#39;&quot;</span>, outdir.display()))<span class="question-mark">?</span>;
 
-        pkg.unpack(outdir, <span class="self">self</span>.overwrite)
-            .with_context(|| <span class="string">&quot;could not extract package&quot;</span>.to_string())<span class="question-mark">?</span>;
+        <span class="kw">match </span><span class="self">self</span>.format {
+            Format::Package =&gt; {
+                wasmer_package::convert::webc_to_package_dir(<span class="kw-2">&amp;</span>pkg, outdir)
+                    .with_context(|| <span class="string">&quot;could not extract package&quot;</span>)<span class="question-mark">?</span>;
+            }
+            Format::Webc =&gt; {
+                pkg.unpack(outdir, <span class="self">self</span>.overwrite)
+                    .with_context(|| <span class="string">&quot;could not extract package&quot;</span>.to_string())<span class="question-mark">?</span>;
+            }
+        }
 
         pb.println(<span class="macro">format!</span>(
             <span class="string">&quot;{} {}Extracted package contents to &#39;{}&#39;&quot;</span>,
@@ -207,6 +276,7 @@
             overwrite: <span class="bool-val">false</span>,
             package_path,
             quiet: <span class="bool-val">true</span>,
+            format: Format::Webc,
         };
 
         cmd.execute().unwrap();

@@ -1489,6 +1489,20 @@
 <a href="#1489" id="1489">1489</a>
 <a href="#1490" id="1490">1490</a>
 <a href="#1491" id="1491">1491</a>
+<a href="#1492" id="1492">1492</a>
+<a href="#1493" id="1493">1493</a>
+<a href="#1494" id="1494">1494</a>
+<a href="#1495" id="1495">1495</a>
+<a href="#1496" id="1496">1496</a>
+<a href="#1497" id="1497">1497</a>
+<a href="#1498" id="1498">1498</a>
+<a href="#1499" id="1499">1499</a>
+<a href="#1500" id="1500">1500</a>
+<a href="#1501" id="1501">1501</a>
+<a href="#1502" id="1502">1502</a>
+<a href="#1503" id="1503">1503</a>
+<a href="#1504" id="1504">1504</a>
+<a href="#1505" id="1505">1505</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Wasmer package definitions.
 //!
 //! Describes the contents of a `wasmer.toml` file.
@@ -1676,6 +1690,10 @@
 }
 
 <span class="kw">impl </span>Package {
+    <span class="kw">pub fn </span>new_empty() -&gt; <span class="self">Self </span>{
+        PackageBuilder::default().build().unwrap()
+    }
+
     <span class="doccomment">/// Create a [`PackageBuilder`] populated with all mandatory fields.
     </span><span class="kw">pub fn </span>builder(
         name: <span class="kw">impl </span>Into&lt;String&gt;,
@@ -2223,6 +2241,16 @@
 }
 
 <span class="kw">impl </span>Manifest {
+    <span class="kw">pub fn </span>new_empty() -&gt; <span class="self">Self </span>{
+        <span class="self">Self </span>{
+            package: <span class="prelude-val">None</span>,
+            dependencies: HashMap::new(),
+            fs: IndexMap::new(),
+            modules: Vec::new(),
+            commands: Vec::new(),
+        }
+    }
+
     <span class="doccomment">/// Create a [`ManifestBuilder`] populated with all mandatory fields.
     </span><span class="kw">pub fn </span>builder(package: Package) -&gt; ManifestBuilder {
         ManifestBuilder::new(package)

@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"static":["EXTRACTED_TO_EMOJI","PACKAGE_EMOJI"],"struct":["PackageUnpack"]};
+window.SIDEBAR_ITEMS = {"enum":["Format"],"static":["EXTRACTED_TO_EMOJI","PACKAGE_EMOJI"],"struct":["PackageUnpack"]};
