@@ -110,7 +110,11 @@ fn endpoint_from_domain_name(domain_name: &str) -> String {
 }
 
 async fn test_if_registry_present(registry: &str) -> anyhow::Result<()> {
-    let client = WasmerClient::new(url::Url::parse(registry)?, &DEFAULT_WASMER_CLI_USER_AGENT)?;
+    let client = WasmerClient::new(
+        url::Url::parse(registry)?,
+        &DEFAULT_WASMER_CLI_USER_AGENT,
+        None,
+    )?;
 
     wasmer_api::query::current_user(&client).await.map(|_| ())
 }
