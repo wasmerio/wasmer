@@ -92,6 +92,7 @@
 <a href="#92" id="92">92</a>
 <a href="#93" id="93">93</a>
 <a href="#94" id="94">94</a>
+<a href="#95" id="95">95</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>virtual_fs::Pipe;
 
 <span class="kw">use super</span>::<span class="kw-2">*</span>;
@@ -160,7 +161,8 @@
         | Rights::FD_DATASYNC
         | Rights::POLL_FD_READWRITE
         | Rights::SOCK_SEND
-        | Rights::FD_FDSTAT_SET_FLAGS;
+        | Rights::FD_FDSTAT_SET_FLAGS
+        | Rights::FD_FILESTAT_GET;
 
     <span class="kw">let </span>fd1 = <span class="kw">if let </span><span class="prelude-val">Some</span>(fd) = with_fd1 {
         state
