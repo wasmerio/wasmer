@@ -66,7 +66,8 @@ pub fn fd_pipe_internal(
         | Rights::FD_DATASYNC
         | Rights::POLL_FD_READWRITE
         | Rights::SOCK_SEND
-        | Rights::FD_FDSTAT_SET_FLAGS;
+        | Rights::FD_FDSTAT_SET_FLAGS
+        | Rights::FD_FILESTAT_GET;
 
     let fd1 = if let Some(fd) = with_fd1 {
         state
