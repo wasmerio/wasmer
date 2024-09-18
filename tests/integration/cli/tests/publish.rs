@@ -99,7 +99,7 @@ fn wasmer_init_publish() {
     let wapm_dev_token = std::env::var("WAPM_DEV_TOKEN").ok();
     let tempdir = tempfile::tempdir().unwrap();
     let path = tempdir.path();
-    let username = "amin";
+    let username = "ciuser";
 
     let random1 = format!("{}", rand::random::<u32>());
     let random2 = format!("{}", rand::random::<u32>());
