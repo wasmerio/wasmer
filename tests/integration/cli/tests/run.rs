@@ -430,8 +430,7 @@ fn run_test_caching_works_for_packages() {
 
     assert
         .success()
-        .stderr(contains("wapm_source: Querying the GraphQL API"))
-        .stderr(contains("builtin_loader: Downloading a webc file"))
+        .stderr(contains("builtin_loader: webc_package_download_start"))
         .stderr(contains("module_cache::filesystem: Saved to disk"));
 
     let assert = Command::new(get_wasmer_path())
@@ -445,7 +444,6 @@ fn run_test_caching_works_for_packages() {
         .success();
 
     assert
-        .stderr(contains("wapm_source: Cache hit!"))
         .stderr(contains("builtin_loader: Cache hit!"))
         .stderr(contains("module_cache::filesystem: Cache hit!"));
 }
@@ -466,8 +464,7 @@ fn run_test_caching_works_for_packages_with_versions() {
 
     assert
         .success()
-        .stderr(contains("wapm_source: Querying the GraphQL API"))
-        .stderr(contains("builtin_loader: Downloading a webc file"))
+        .stderr(contains("builtin_loader: webc_package_download_start"))
         .stderr(contains("module_cache::filesystem: Saved to disk"));
 
     let assert = Command::new(get_wasmer_path())
@@ -481,7 +478,6 @@ fn run_test_caching_works_for_packages_with_versions() {
 
     assert
         .success()
-        .stderr(contains("wapm_source: Cache hit!"))
         .stderr(contains("builtin_loader: Cache hit!"))
         .stderr(contains("module_cache::filesystem: Cache hit!"));
 }
@@ -502,7 +498,7 @@ fn run_test_caching_works_for_urls() {
 
     assert
         .success()
-        .stderr(contains("builtin_loader: Downloading a webc file"))
+        .stderr(contains("builtin_loader: webc_package_download_start"))
         .stderr(contains("module_cache::filesystem: Saved to disk"));
 
     let assert = Command::new(get_wasmer_path())
@@ -520,7 +516,7 @@ fn run_test_caching_works_for_urls() {
         .stderr(contains("web_source: Cache hit"))
         // Cache hit downloading the *.webc file
         .stderr(contains(
-            r#"builtin_loader: Cache hit! pkg.name="python" pkg.version=0.1.0"#,
+            r#"builtin_loader: Cache hit! pkg=sha256:2cf6475ffcfd338775f8eae82af79380927cbce5e4d9d810d53fdb30ef997b19"#,
         ))
         // Cache hit compiling the module
         .stderr(contains("module_cache::filesystem: Cache hit!"));

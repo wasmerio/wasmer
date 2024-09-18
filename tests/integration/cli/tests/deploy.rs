@@ -201,6 +201,8 @@ fn wasmer_deploy_js() -> anyhow::Result<()> {
 
 #[test]
 fn wasmer_deploy_fails_no_app_name() -> anyhow::Result<()> {
+    let wapm_dev_token = std::env::var("WAPM_DEV_TOKEN").ok();
+
     let username = "ciuser";
 
     let php_app_dir = project_root()
@@ -230,6 +232,14 @@ fn wasmer_deploy_fails_no_app_name() -> anyhow::Result<()> {
         .arg(format!("--dir={}", app_dir.display()))
         .arg("--registry=wasmer.wtf");
 
+    if let Some(token) = wapm_dev_token {
+        // Special case: GitHub secrets aren't visible to outside collaborators
+        if token.is_empty() {
+            return Ok(());
+        }
+        cmd.arg("--token").arg(token);
+    }
+
     cmd.assert().failure().stderr(predicates::str::contains(
         "The app.yaml does not specify any app name.",
     ));
@@ -239,6 +249,8 @@ fn wasmer_deploy_fails_no_app_name() -> anyhow::Result<()> {
 
 #[test]
 fn wasmer_deploy_fails_no_owner() -> anyhow::Result<()> {
+    let wapm_dev_token = std::env::var("WAPM_DEV_TOKEN").ok();
+
     let app_name = format!("ci-{}", rand::random::<u32>());
 
     let php_app_dir = project_root()
@@ -267,6 +279,14 @@ fn wasmer_deploy_fails_no_owner() -> anyhow::Result<()> {
         .arg(format!("--app-name={app_name}"))
         .arg(format!("--dir={}", app_dir.display()))
         .arg("--registry=wasmer.wtf");
+
+    if let Some(token) = wapm_dev_token {
+        // Special case: GitHub secrets aren't visible to outside collaborators
+        if token.is_empty() {
+            return Ok(());
+        }
+        cmd.arg("--token").arg(token);
+    }
 
     cmd.assert()
         .failure()
