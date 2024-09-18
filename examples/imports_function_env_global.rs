@@ -40,8 +40,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     (block
       (loop
         (call $add_to_counter (i32.const 1))
-        (set_local $x (i32.sub (get_local $x) (i32.const 1)))
-        (br_if 1 (i32.eq (get_local $x) (i32.const 0)))
+        (local.set $x (i32.sub (local.get $x) (i32.const 1)))
+        (br_if 1 (i32.eq (local.get $x) (i32.const 0)))
         (br 0)))
     call $get_counter)
   (export "increment_counter_loop" (func $increment_f)))

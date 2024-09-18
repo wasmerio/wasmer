@@ -24,6 +24,12 @@ pub struct MultiSource {
     strategy: MultiSourceStrategy,
 }
 
+impl Default for MultiSource {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl MultiSource {
     pub const fn new() -> Self {
         MultiSource {
@@ -32,7 +38,7 @@ impl MultiSource {
         }
     }
 
-    pub fn add_source(&mut self, source: impl Source + Send + Sync + 'static) -> &mut Self {
+    pub fn add_source(&mut self, source: impl Source + Send + 'static) -> &mut Self {
         self.add_shared_source(Arc::new(source))
     }
 

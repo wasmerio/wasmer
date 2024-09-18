@@ -2284,7 +2284,6 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
             Operator::CallIndirect {
                 type_index,
                 table_index,
-                table_byte: _,
             } => {
                 let sigindex = SignatureIndex::from_u32(type_index);
                 let func_type = &self.wasm_module.signatures[sigindex];
@@ -11036,7 +11035,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 self.state.push1(old);
             }
 
-            Operator::MemoryGrow { mem, mem_byte: _ } => {
+            Operator::MemoryGrow { mem } => {
                 let memory_index = MemoryIndex::from_u32(mem);
                 let delta = self.state.pop1()?;
                 let grow_fn_ptr = self.ctx.memory_grow(memory_index, self.intrinsics);
@@ -11052,7 +11051,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 );
                 self.state.push1(grow.try_as_basic_value().left().unwrap());
             }
-            Operator::MemorySize { mem, mem_byte: _ } => {
+            Operator::MemorySize { mem } => {
                 let memory_index = MemoryIndex::from_u32(mem);
                 let size_fn_ptr = self.ctx.memory_size(memory_index, self.intrinsics);
                 let size = self.builder.build_indirect_call(

@@ -184,24 +184,24 @@ pub(crate) fn fd_read_internal<M: MemorySize>(
                                         .map_err(mem_error_to_wasi)?
                                         .access()
                                         .map_err(mem_error_to_wasi)?;
-                                    let local_read =
-                                        match handle.read(buf.as_mut()).await.map_err(|err| {
-                                            let err = From::<std::io::Error>::from(err);
-                                            match err {
-                                                Errno::Again => {
-                                                    if is_stdio {
-                                                        Errno::Badf
-                                                    } else {
-                                                        Errno::Again
-                                                    }
+                                    let r = handle.read(buf.as_mut()).await.map_err(|err| {
+                                        let err = From::<std::io::Error>::from(err);
+                                        match err {
+                                            Errno::Again => {
+                                                if is_stdio {
+                                                    Errno::Badf
+                                                } else {
+                                                    Errno::Again
                                                 }
-                                                a => a,
                                             }
-                                        }) {
-                                            Ok(s) => s,
-                                            Err(_) if total_read > 0 => break,
-                                            Err(err) => return Err(err),
-                                        };
+                                            a => a,
+                                        }
+                                    });
+                                    let local_read = match r {
+                                        Ok(s) => s,
+                                        Err(_) if total_read > 0 => break,
+                                        Err(err) => return Err(err),
+                                    };
                                     total_read += local_read;
                                     if local_read != buf.len() {
                                         break;

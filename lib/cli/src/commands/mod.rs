@@ -295,7 +295,7 @@ enum Cmd {
 
     /// Publish a package to a registry [alias: package publish]
     #[clap(name = "publish")]
-    Publish(crate::commands::package::publish::PackagePublish),
+    Publish(PackagePublish),
 
     /// Manage the local Wasmer cache
     Cache(Cache),

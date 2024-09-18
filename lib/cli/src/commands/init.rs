@@ -349,7 +349,7 @@ impl GetBindingsResult {
     fn first_binding(&self) -> Option<wasmer_config::package::Bindings> {
         match self {
             Self::OneBinding(s) => Some(s.clone()),
-            Self::MultiBindings(s) => s.get(0).cloned(),
+            Self::MultiBindings(s) => s.first().cloned(),
         }
     }
 }
@@ -424,7 +424,7 @@ fn construct_manifest(
             .collect::<Vec<_>>()
             .join("\r\n");
 
-        let msg = vec![
+        let msg = [
             String::new(),
             "    It looks like your project contains multiple *.wai files.".to_string(),
             "    Make sure you update the [[module.bindings]] appropriately".to_string(),

@@ -273,7 +273,7 @@ impl Config {
 
     /// Set callbacks that will be triggered at various points in the runner's
     /// lifecycle.
-    pub fn callbacks(&mut self, callbacks: impl Callbacks + Send + Sync + 'static) -> &mut Self {
+    pub fn callbacks(&mut self, callbacks: impl Callbacks + 'static) -> &mut Self {
         self.callbacks = Arc::new(callbacks);
         self
     }

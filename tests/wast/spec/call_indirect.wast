@@ -1015,3 +1015,23 @@
   (module (table funcref (elem 0 0)))
   "unknown function"
 )
+
+
+
+
+;; Flat syntax
+
+(module
+  (table 1 funcref)
+  (func unreachable call_indirect)
+  (func unreachable call_indirect nop)
+  (func unreachable call_indirect call_indirect)
+  (func unreachable call_indirect (call_indirect))
+  (func unreachable call_indirect call_indirect call_indirect)
+  (func unreachable call_indirect (result))
+  (func unreachable call_indirect (result) (result))
+  (func unreachable call_indirect (result) (result) call_indirect)
+  (func unreachable call_indirect (result) (result) call_indirect (result))
+  (func (result i32) unreachable call_indirect select)
+  (func (result i32) unreachable call_indirect select call_indirect)
+)

@@ -587,6 +587,50 @@
 (assert_return (invoke "f64.sqrt" (f64.const 0x1.ffffffffffffep-1)) (f64.const 0x1.fffffffffffffp-1))
 (assert_return (invoke "f64.sqrt" (f64.const 0x1.ffffffffffffdp-1)) (f64.const 0x1.ffffffffffffep-1))
 
+;; Test the values of sqrt around ¼, where `sqrt(x) - x` is greatest.
+(assert_return (invoke "f32.sqrt" (f32.const 0x1.fffffep-3)) (f32.const 0x1.fffffep-2))
+(assert_return (invoke "f32.sqrt" (f32.const 0x1p-2)) (f32.const 0x1p-1))
+(assert_return (invoke "f32.sqrt" (f32.const 0x1.000002p-2)) (f32.const 0x1p-1))
+(assert_return (invoke "f32.sqrt" (f32.const 0x1.000004p-2)) (f32.const 0x1.000002p-1))
+(assert_return (invoke "f64.sqrt" (f64.const 0x1.fffffffffffffp-3)) (f64.const 0x1.fffffffffffffp-2))
+(assert_return (invoke "f64.sqrt" (f64.const 0x1p-2)) (f64.const 0x1p-1))
+(assert_return (invoke "f64.sqrt" (f64.const 0x1.0000000000001p-2)) (f64.const 0x1p-1))
+(assert_return (invoke "f64.sqrt" (f64.const 0x1.0000000000002p-2)) (f64.const 0x1.0000000000001p-1))
+
+;; Test some values that in some systems differ between CPU and DSP.
+;; https://e2e.ti.com/support/processors-group/processors/f/processors-forum/30725/sqrt-function-gives-slightly-different-results---may-be-rounding-problem
+(assert_return (invoke "f32.sqrt" (f32.const 0x1.fb41d4p+37)) (f32.const 0x1.fd9f8p+18))
+(assert_return (invoke "f64.sqrt" (f64.const 0x1.fb41d442eeb1bp+37)) (f64.const 0x1.fd9f808a0b68dp+18))
+
+;; Test some values that in some systems differ between CPU and GPU.
+;; https://forums.developer.nvidia.com/t/sqrt-precision/18597
+(assert_return (invoke "f32.sqrt" (f32.const 0x1.3c61b2p+33)) (f32.const 0x1.927ap+16))
+(assert_return (invoke "f32.sqrt" (f32.const 0x1.56bd4ep+51)) (f32.const 0x1.a2e80cp+25))
+(assert_return (invoke "f32.sqrt" (f32.const 0x1.65f02cp+44)) (f32.const 0x1.2eb544p+22))
+(assert_return (invoke "f32.sqrt" (f32.const 0x1.26580cp+30)) (f32.const 0x1.1280d6p+15))
+(assert_return (invoke "f64.sqrt" (f64.const 0x1.3c61b112p+33)) (f64.const 0x1.927ap+16))
+(assert_return (invoke "f64.sqrt" (f64.const 0x1.56bd4e65c8548p+51)) (f64.const 0x1.a2e80dp+25))
+(assert_return (invoke "f64.sqrt" (f64.const 0x1.65f02cc93a1p+44)) (f64.const 0x1.2eb544p+22))
+(assert_return (invoke "f64.sqrt" (f64.const 0x1.26580b4cp+30)) (f64.const 0x1.1280d62b818cfp+15))
+
+;; Test some values that in some systems differ between CPU and GPU.
+;; https://github.com/pytorch/pytorch/issues/31250
+(assert_return (invoke "f32.sqrt" (f32.const 0x1.0817fcp-1)) (f32.const 0x1.6fb79ep-1))
+(assert_return (invoke "f32.sqrt" (f32.const 0x1.017b98p-1)) (f32.const 0x1.6b15eep-1))
+(assert_return (invoke "f64.sqrt" (f64.const 0x1.0817fcp-1)) (f64.const 0x1.6fb79d0dfaffap-1))
+(assert_return (invoke "f64.sqrt" (f64.const 0x1.017b98p-1)) (f64.const 0x1.6b15ed0071b95p-1))
+
+;; Test that sqrt is not a "good enough" approximation.
+;; https://sicp.sourceacademy.org/chapters/1.1.7.html
+(assert_return (invoke "f32.sqrt" (f32.const 0x1.2p+3)) (f32.const 0x1.8p+1))
+(assert_return (invoke "f32.sqrt" (f32.const 0x1.12p+7)) (f32.const 0x1.768ce6p+3))
+(assert_return (invoke "f32.sqrt" (f32.const 0x1.c615dep+0)) (f32.const 0x1.54f2dp+0))
+(assert_return (invoke "f32.sqrt" (f32.const 0x1.f4p+9)) (f32.const 0x1.f9f6e4p+4))
+(assert_return (invoke "f64.sqrt" (f64.const 0x1.2p+3)) (f64.const 0x1.8p+1))
+(assert_return (invoke "f64.sqrt" (f64.const 0x1.12p+7)) (f64.const 0x1.768ce6d3c11ep+3))
+(assert_return (invoke "f64.sqrt" (f64.const 0x1.c615df07a57d3p+0)) (f64.const 0x1.54f2d015acf09p+0))
+(assert_return (invoke "f64.sqrt" (f64.const 0x1.f4p+9)) (f64.const 0x1.f9f6e4990f227p+4))
+
 ;; Test that the bitwise floating point operators are bitwise on NaN.
 
 (assert_return (invoke "f32.abs" (f32.const nan:0x0f1e2)) (f32.const nan:0x0f1e2))

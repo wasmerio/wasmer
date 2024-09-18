@@ -80,7 +80,7 @@ impl CreateObj {
             &self.cpu_features,
         );
         let (_, compiler_type) = self.compiler.get_store_for_target(target.clone())?;
-        println!("Compiler: {}", compiler_type.to_string());
+        println!("Compiler: {}", compiler_type);
         println!("Target: {}", target.triple());
 
         let atoms = if let Ok(webc) = webc::compat::Container::from_disk(&input_path) {

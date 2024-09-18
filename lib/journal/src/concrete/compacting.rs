@@ -506,6 +506,7 @@ impl CompactingJournalTx {
 }
 
 impl WritableJournal for CompactingJournalTx {
+    #[allow(clippy::assigning_clones)]
     fn write<'a>(&'a self, entry: JournalEntry<'a>) -> anyhow::Result<LogWriteResult> {
         let mut state = self.state.lock().unwrap();
         let event_index = state.event_index;

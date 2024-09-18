@@ -12,7 +12,7 @@ use super::sections::{
 };
 use super::state::ModuleTranslationState;
 use wasmer_types::WasmResult;
-use wasmparser::{NameSectionReader, Parser, Payload};
+use wasmparser::{BinaryReader, NameSectionReader, Parser, Payload, WasmFeatures};
 
 /// Translate a sequence of bytes forming a valid Wasm binary into a
 /// parsed ModuleInfo `ModuleTranslationState`.
@@ -107,7 +107,11 @@ pub fn translate_module<'data>(
                 environ.custom_section(name, sectionreader.data())?;
                 if name == "name" {
                     parse_name_section(
-                        NameSectionReader::new(sectionreader.data(), sectionreader.data_offset()),
+                        NameSectionReader::new(BinaryReader::new(
+                            sectionreader.data(),
+                            sectionreader.data_offset(),
+                            WasmFeatures::default(),
+                        )),
                         environ,
                     )?;
                 }

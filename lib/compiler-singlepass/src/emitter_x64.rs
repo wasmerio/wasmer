@@ -61,6 +61,7 @@ pub enum Precision {
     Double,
 }
 
+#[allow(unused)]
 pub trait EmitterX64 {
     fn get_simd_arch(&self) -> Option<&CpuFeature>;
     fn get_label(&mut self) -> Label;
