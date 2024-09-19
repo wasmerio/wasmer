@@ -41,7 +41,7 @@ pub(crate) fn fd_renumber_internal(
     let (_, mut state) = unsafe { env.get_memory_and_wasi_state(&ctx, 0) };
 
     let mut fd_map = state.fs.fd_map.write().unwrap();
-    let fd_entry = wasi_try!(fd_map.get_mut(&from).ok_or(Errno::Badf));
+    let fd_entry = wasi_try!(fd_map.get(from).ok_or(Errno::Badf));
 
     let new_fd_entry = Fd {
         // TODO: verify this is correct
@@ -50,8 +50,7 @@ pub(crate) fn fd_renumber_internal(
         inode: fd_entry.inode.clone(),
         ..*fd_entry
     };
-    fd_map.insert(to, new_fd_entry);
-    state.fs.make_max_fd(to + 1);
+    fd_map.insert(false, to, new_fd_entry);
 
     Errno::Success
 }

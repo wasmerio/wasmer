@@ -70,7 +70,7 @@ pub(crate) fn fd_seek_internal(
     let new_offset = match whence {
         Whence::Cur => {
             let mut fd_map = state.fs.fd_map.write().unwrap();
-            let fd_entry = wasi_try_ok_ok!(fd_map.get_mut(&fd).ok_or(Errno::Badf));
+            let fd_entry = wasi_try_ok_ok!(fd_map.get_mut(fd).ok_or(Errno::Badf));
 
             #[allow(clippy::comparison_chain)]
             if offset > 0 {
@@ -110,7 +110,7 @@ pub(crate) fn fd_seek_internal(
                             // TODO: handle case if fd_entry.offset uses 64 bits of a u64
                             drop(handle);
                             let mut fd_map = state.fs.fd_map.write().unwrap();
-                            let fd_entry = fd_map.get_mut(&fd).ok_or(Errno::Badf)?;
+                            let fd_entry = fd_map.get_mut(fd).ok_or(Errno::Badf)?;
                             fd_entry.offset.store(end, Ordering::Release);
                             Ok(())
                         })?);
@@ -140,7 +140,7 @@ pub(crate) fn fd_seek_internal(
         }
         Whence::Set => {
             let mut fd_map = state.fs.fd_map.write().unwrap();
-            let fd_entry = wasi_try_ok_ok!(fd_map.get_mut(&fd).ok_or(Errno::Badf));
+            let fd_entry = wasi_try_ok_ok!(fd_map.get_mut(fd).ok_or(Errno::Badf));
             let offset: u64 = wasi_try_ok_ok!(u64::try_from(offset).map_err(|_| Errno::Inval));
 
             fd_entry.offset.store(offset, Ordering::Release);

@@ -1540,7 +1540,7 @@ pub(crate) fn _prepare_wasi(
         let mut fd_map = wasi_env.state.fs.fd_map.read().unwrap();
         fd_map
             .keys()
-            .filter_map(|a| match *a {
+            .filter_map(|a| match a {
                 a if a <= __WASI_STDERR_FILENO => None,
                 a if preopen_fds.contains(&a) => None,
                 a => Some(a),
