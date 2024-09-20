@@ -214,6 +214,15 @@
 <a href="#214" id="214">214</a>
 <a href="#215" id="215">215</a>
 <a href="#216" id="216">216</a>
+<a href="#217" id="217">217</a>
+<a href="#218" id="218">218</a>
+<a href="#219" id="219">219</a>
+<a href="#220" id="220">220</a>
+<a href="#221" id="221">221</a>
+<a href="#222" id="222">222</a>
+<a href="#223" id="223">223</a>
+<a href="#224" id="224">224</a>
+<a href="#225" id="225">225</a>
 </pre></div><pre class="rust"><code><span class="kw">use super</span>::<span class="kw-2">*</span>;
 <span class="kw">use </span><span class="kw">crate</span>::syscalls::<span class="kw-2">*</span>;
 
@@ -417,6 +426,8 @@
         }
     }
 
+    <span class="kw">let </span>source_size = source_entry.stat.read().unwrap().st_size;
+
     <span class="kw">if </span>need_create {
         <span class="kw">let </span><span class="kw-2">mut </span>guard = target_parent_inode.write();
         <span class="kw">if let </span>Kind::Dir { entries, .. } = guard.deref_mut() {
@@ -427,6 +438,13 @@
             </span>);
         }
     }
+
+    <span class="comment">// The target entry is created, one way or the other
+    </span><span class="kw">let </span>target_inode =
+        <span class="macro">wasi_try_ok!</span>(state
+            .fs
+            .get_inode_at_path(inodes, target_fd, target_path, <span class="bool-val">true</span>));
+    target_inode.stat.write().unwrap().st_size = source_size;
 
     <span class="prelude-val">Ok</span>(Errno::Success)
 }

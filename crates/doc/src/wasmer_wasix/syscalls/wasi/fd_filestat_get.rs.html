@@ -82,6 +82,10 @@
 <a href="#82" id="82">82</a>
 <a href="#83" id="83">83</a>
 <a href="#84" id="84">84</a>
+<a href="#85" id="85">85</a>
+<a href="#86" id="86">86</a>
+<a href="#87" id="87">87</a>
+<a href="#88" id="88">88</a>
 </pre></div><pre class="rust"><code><span class="kw">use super</span>::<span class="kw-2">*</span>;
 <span class="kw">use </span><span class="kw">crate</span>::syscalls::<span class="kw-2">*</span>;
 <span class="kw">use </span><span class="kw">crate</span>::types::wasi::Snapshot0Filestat;
@@ -94,13 +98,17 @@
 /// Output:
 /// - `Filestat *buf`
 ///     Where the metadata from `fd` will be written
-</span><span class="attr">#[instrument(level = <span class="string">&quot;trace&quot;</span>, skip_all, fields(%fd), ret)]
+</span><span class="attr">#[instrument(level = <span class="string">&quot;trace&quot;</span>, skip_all, fields(%fd, size = field::Empty, mtime = field::Empty), ret)]
 </span><span class="kw">pub fn </span>fd_filestat_get&lt;M: MemorySize&gt;(
     <span class="kw-2">mut </span>ctx: FunctionEnvMut&lt;<span class="lifetime">&#39;_</span>, WasiEnv&gt;,
     fd: WasiFd,
     buf: WasmPtr&lt;Filestat, M&gt;,
 ) -&gt; Errno {
     <span class="kw">let </span>stat = <span class="macro">wasi_try!</span>(fd_filestat_get_internal(<span class="kw-2">&amp;mut </span>ctx, fd));
+
+    <span class="comment">// These two values have proved to be helpful in multiple investigations
+    </span>Span::current().record(<span class="string">&quot;size&quot;</span>, stat.st_size);
+    Span::current().record(<span class="string">&quot;mtime&quot;</span>, stat.st_mtim);
 
     <span class="kw">let </span>env = ctx.data();
     <span class="kw">let </span>(memory, <span class="kw">_</span>) = <span class="kw">unsafe </span>{ env.get_memory_and_wasi_state(<span class="kw-2">&amp;</span>ctx, <span class="number">0</span>) };
