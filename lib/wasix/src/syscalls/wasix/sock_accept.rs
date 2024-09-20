@@ -15,7 +15,7 @@ use crate::{net::socket::TimeType, syscalls::*};
 /// ## Return
 ///
 /// New socket connection
-#[instrument(level = "debug", skip_all, fields(%sock, fd = field::Empty), ret)]
+#[instrument(level = "trace", skip_all, fields(%sock, fd = field::Empty), ret)]
 pub fn sock_accept<M: MemorySize>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     sock: WasiFd,
@@ -57,7 +57,7 @@ pub fn sock_accept<M: MemorySize>(
 /// ## Return
 ///
 /// New socket connection
-#[instrument(level = "debug", skip_all, fields(%sock, fd = field::Empty), ret)]
+#[instrument(level = "trace", skip_all, fields(%sock, fd = field::Empty), ret)]
 pub fn sock_accept_v2<M: MemorySize>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     sock: WasiFd,

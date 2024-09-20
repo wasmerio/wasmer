@@ -16,7 +16,7 @@ use wasmer_wasix_types::wasi::ThreadStart;
 ///
 /// Returns the thread index of the newly created thread
 /// (indices always start from the same value as `pid` and increments in steps)
-#[instrument(level = "debug", skip_all, ret)]
+#[instrument(level = "trace", skip_all, ret)]
 pub fn thread_spawn<M: MemorySize>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     start_ptr: WasmPtr<ThreadStart<M>, M>,

@@ -7,7 +7,7 @@ use crate::syscalls::*;
 /// Inputs:
 /// - `Signal`
 ///   Signal to be raised for this process
-#[instrument(level = "debug", skip_all, fields(sig), ret)]
+#[instrument(level = "trace", skip_all, fields(sig), ret)]
 pub fn proc_raise(mut ctx: FunctionEnvMut<'_, WasiEnv>, sig: Signal) -> Result<Errno, WasiError> {
     let env = ctx.data();
     env.process.signal_process(sig);

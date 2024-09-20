@@ -19,7 +19,7 @@ pub(crate) struct ForkResult {
 /// Forks the current process into a new subprocess. If the function
 /// returns a zero then its the new subprocess. If it returns a positive
 /// number then its the current process and the $pid represents the child.
-#[instrument(level = "debug", skip_all, fields(pid = ctx.data().process.pid().raw()), ret)]
+#[instrument(level = "trace", skip_all, fields(pid = ctx.data().process.pid().raw()), ret)]
 pub fn proc_fork<M: MemorySize>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     mut copy_memory: Bool,

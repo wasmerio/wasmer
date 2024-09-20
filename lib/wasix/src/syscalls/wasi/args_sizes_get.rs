@@ -8,7 +8,7 @@ use crate::syscalls::*;
 ///     The number of arguments.
 /// - `size_t *argv_buf_size`
 ///     The size of the argument string data.
-#[instrument(level = "debug", skip_all, ret)]
+#[instrument(level = "trace", skip_all, ret)]
 pub fn args_sizes_get<M: MemorySize>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     argc: WasmPtr<M::Offset, M>,

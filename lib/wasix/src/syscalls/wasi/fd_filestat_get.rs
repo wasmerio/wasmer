@@ -10,7 +10,7 @@ use crate::types::wasi::Snapshot0Filestat;
 /// Output:
 /// - `Filestat *buf`
 ///     Where the metadata from `fd` will be written
-#[instrument(level = "debug", skip_all, fields(%fd), ret)]
+#[instrument(level = "trace", skip_all, fields(%fd), ret)]
 pub fn fd_filestat_get<M: MemorySize>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     fd: WasiFd,
@@ -56,7 +56,7 @@ pub(crate) fn fd_filestat_get_internal(
 /// Output:
 /// - `Snapshot0Filestat *buf`
 ///     Where the metadata from `fd` will be written
-#[instrument(level = "debug", skip_all, fields(%fd), ret)]
+#[instrument(level = "trace", skip_all, fields(%fd), ret)]
 pub fn fd_filestat_get_old<M: MemorySize>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     fd: WasiFd,

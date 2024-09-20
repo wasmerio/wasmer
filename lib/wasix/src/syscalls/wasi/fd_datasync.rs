@@ -6,7 +6,7 @@ use crate::syscalls::*;
 /// Inputs:
 /// - `Fd fd`
 ///     The file descriptor to sync
-#[instrument(level = "debug", skip_all, fields(%fd), ret)]
+#[instrument(level = "trace", skip_all, fields(%fd), ret)]
 pub fn fd_datasync(mut ctx: FunctionEnvMut<'_, WasiEnv>, fd: WasiFd) -> Result<Errno, WasiError> {
     wasi_try_ok!(WasiEnv::process_signals_and_exit(&mut ctx)?);
 
