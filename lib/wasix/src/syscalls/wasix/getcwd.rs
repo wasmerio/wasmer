@@ -5,7 +5,7 @@ use crate::syscalls::*;
 /// Returns the current working directory
 /// If the path exceeds the size of the buffer then this function
 /// will return ERANGE
-#[instrument(level = "debug", skip_all, fields(path = field::Empty, max_path_len = field::Empty), ret)]
+#[instrument(level = "trace", skip_all, fields(path = field::Empty, max_path_len = field::Empty), ret)]
 pub fn getcwd<M: MemorySize>(
     ctx: FunctionEnvMut<'_, WasiEnv>,
     path: WasmPtr<u8, M>,

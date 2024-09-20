@@ -13,7 +13,7 @@ use crate::{journal::SnapshotTrigger, syscalls::*};
 ///
 /// * `fd` - File descriptor of the socket to be bind
 /// * `backlog` - Maximum size of the queue for pending connections
-#[instrument(level = "debug", skip_all, fields(%sock, %backlog), ret)]
+#[instrument(level = "trace", skip_all, fields(%sock, %backlog), ret)]
 pub fn sock_listen<M: MemorySize>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     sock: WasiFd,

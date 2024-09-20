@@ -3,7 +3,7 @@ use crate::syscalls::*;
 
 /// ### `tty_get()`
 /// Retrieves the current state of the TTY
-#[instrument(level = "debug", skip_all, ret)]
+#[instrument(level = "trace", skip_all, ret)]
 pub fn tty_get<M: MemorySize>(
     ctx: FunctionEnvMut<'_, WasiEnv>,
     tty_state: WasmPtr<Tty, M>,

@@ -16,7 +16,7 @@ use crate::syscalls::*;
 ///     Pointer to UTF8 bytes, the new file name
 /// - `u32 new_path_len`
 ///     The number of bytes to read from `new_path`
-#[instrument(level = "debug", skip_all, fields(%old_fd, %new_fd, old_path = field::Empty, new_path = field::Empty), ret)]
+#[instrument(level = "trace", skip_all, fields(%old_fd, %new_fd, old_path = field::Empty, new_path = field::Empty), ret)]
 pub fn path_rename<M: MemorySize>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     old_fd: WasiFd,

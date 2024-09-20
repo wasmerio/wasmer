@@ -10,7 +10,7 @@ use crate::syscalls::*;
 /// ## Parameters
 ///
 /// * `tid` - Handle of the thread to wait on
-//#[instrument(level = "debug", skip_all, fields(%join_tid), ret)]
+//#[instrument(level = "trace", skip_all, fields(%join_tid), ret)]
 pub fn thread_join<M: MemorySize + 'static>(
     ctx: FunctionEnvMut<'_, WasiEnv>,
     join_tid: Tid,

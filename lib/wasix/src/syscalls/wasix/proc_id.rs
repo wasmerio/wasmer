@@ -3,7 +3,7 @@ use crate::syscalls::*;
 
 /// ### `proc_id()`
 /// Returns the handle of the current process
-#[instrument(level = "debug", skip_all, fields(pid = field::Empty), ret)]
+#[instrument(level = "trace", skip_all, fields(pid = field::Empty), ret)]
 pub fn proc_id<M: MemorySize>(ctx: FunctionEnvMut<'_, WasiEnv>, ret_pid: WasmPtr<Pid, M>) -> Errno {
     let env = ctx.data();
     let memory = unsafe { env.memory_view(&ctx) };

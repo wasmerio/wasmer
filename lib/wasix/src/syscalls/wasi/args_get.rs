@@ -10,7 +10,7 @@ use crate::syscalls::*;
 /// - `char *argv_buf`
 ///     A pointer to a buffer to write the argument string data.
 ///
-#[instrument(level = "debug", skip_all, ret)]
+#[instrument(level = "trace", skip_all, ret)]
 pub fn args_get<M: MemorySize>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     argv: WasmPtr<WasmPtr<u8, M>, M>,

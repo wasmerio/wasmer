@@ -1255,7 +1255,7 @@ where
     Ok(Errno::Success)
 }
 
-#[instrument(level = "debug", skip_all, fields(memory_stack_len = memory_stack.len(), rewind_stack_len = rewind_stack.len(), store_data_len = store_data.len()))]
+// NOTE: not tracing-instrumented because [`rewind_ext`] already is.
 #[must_use = "the action must be passed to the call loop"]
 pub fn rewind<M: MemorySize, T>(
     mut ctx: FunctionEnvMut<WasiEnv>,
@@ -1277,7 +1277,7 @@ where
     )
 }
 
-#[instrument(level = "debug", skip_all, fields(rewind_stack_len = rewind_stack.len(), store_data_len = store_data.len()))]
+#[instrument(level = "trace", skip_all, fields(rewind_stack_len = rewind_stack.len(), store_data_len = store_data.len()))]
 #[must_use = "the action must be passed to the call loop"]
 pub fn rewind_ext<M: MemorySize>(
     ctx: &mut FunctionEnvMut<WasiEnv>,
