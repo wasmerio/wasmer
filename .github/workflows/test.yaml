@@ -734,7 +734,7 @@ jobs:
         with:
           version: 0.10.0
       - name: Install Tools
-        if: ${{ matrix.build == 'linux-musl' }} || ${{ matrix.build == 'linux-x64' }}
+        if: matrix.build == 'linux-musl' || matrix.build == 'linux-x64'
         run: |
           sudo apt-get update
           sudo apt-get install -y git llvm clang make lld curl
