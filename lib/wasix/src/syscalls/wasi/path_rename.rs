@@ -77,10 +77,9 @@ pub fn path_rename_internal(
         .fs
         .get_inode_at_path(inodes, source_fd, source_path, true));
     // Create the destination inode if the file exists.
-    let target_inode =
-        wasi_try_ok!(state
-            .fs
-            .get_inode_at_path(inodes, target_fd, target_path, true));
+    let _ = state
+        .fs
+        .get_inode_at_path(inodes, target_fd, target_path, true);
     let (source_parent_inode, source_entry_name) = wasi_try_ok!(state.fs.get_parent_inode_at_path(
         inodes,
         source_fd,
@@ -216,6 +215,10 @@ pub fn path_rename_internal(
     }
 
     // The target entry is created, one way or the other
+    let target_inode =
+        wasi_try_ok!(state
+            .fs
+            .get_inode_at_path(inodes, target_fd, target_path, true));
     target_inode.stat.write().unwrap().st_size = source_size;
 
     Ok(Errno::Success)
