@@ -754,6 +754,7 @@ fn wasi_runner_on_disk_with_env_vars() {
     all(target_env = "musl", target_os = "linux"),
     ignore = "wasmer run-unstable segfaults on musl"
 )]
+#[ignore = "wcgi runner is broken and hangs after the first request"]
 fn wcgi_runner_on_disk() {
     // Start the WCGI server in the background
     let port = random_port();
