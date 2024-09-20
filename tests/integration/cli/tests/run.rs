@@ -74,7 +74,7 @@ async fn aio_http() {
         .spawn()
         .unwrap();
 
-    tokio::time::sleep(std::time::Duration::from_secs(5)).await;
+    tokio::time::sleep(std::time::Duration::from_secs(30)).await;
 
     let rsp = reqwest::Client::new()
         .get("http://localhost:34343")
