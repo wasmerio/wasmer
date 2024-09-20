@@ -13,6 +13,7 @@ use predicates::str::contains;
 use rand::Rng;
 use reqwest::{blocking::Client, IntoUrl};
 use tempfile::TempDir;
+use tokio::io::{AsyncBufReadExt, BufReader};
 use wasmer_integration_tests_cli::{
     asset_path,
     fixtures::{self, packages, php, resources},
@@ -70,11 +71,18 @@ async fn aio_http() {
         .arg("run")
         .arg("aio-http-hello-world.webc")
         .arg("--net")
-        .stdout(Stdio::null())
+        .stdout(Stdio::piped())
         .spawn()
         .unwrap();
 
-    tokio::time::sleep(std::time::Duration::from_secs(30)).await;
+    let mut stdout = BufReader::new(wasmer.stdout.as_mut().unwrap());
+    let mut line = String::new();
+    loop {
+        stdout.read_line(&mut line).await.unwrap();
+        if line.contains("Running on http://localhost:34343") {
+            break;
+        }
+    }
 
     let rsp = reqwest::Client::new()
         .get("http://localhost:34343")
