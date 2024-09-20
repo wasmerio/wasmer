@@ -68,7 +68,7 @@
 
 <span class="doccomment">/// ### `fd_event()`
 /// Creates a file handle for event notifications
-</span><span class="attr">#[instrument(level = <span class="string">&quot;debug&quot;</span>, skip_all, fields(%initial_val, ret_fd = field::Empty), ret)]
+</span><span class="attr">#[instrument(level = <span class="string">&quot;trace&quot;</span>, skip_all, fields(%initial_val, ret_fd = field::Empty), ret)]
 </span><span class="kw">pub fn </span>fd_event&lt;M: MemorySize&gt;(
     <span class="kw-2">mut </span>ctx: FunctionEnvMut&lt;<span class="lifetime">&#39;_</span>, WasiEnv&gt;,
     initial_val: u64,

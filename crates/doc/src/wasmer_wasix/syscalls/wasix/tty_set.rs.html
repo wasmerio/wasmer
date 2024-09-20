@@ -70,7 +70,7 @@
 
 <span class="doccomment">/// ### `tty_set()`
 /// Updates the properties of the rect
-</span><span class="attr">#[instrument(level = <span class="string">&quot;debug&quot;</span>, skip_all, ret)]
+</span><span class="attr">#[instrument(level = <span class="string">&quot;trace&quot;</span>, skip_all, ret)]
 </span><span class="kw">pub fn </span>tty_set&lt;M: MemorySize&gt;(
     <span class="kw-2">mut </span>ctx: FunctionEnvMut&lt;<span class="lifetime">&#39;_</span>, WasiEnv&gt;,
     tty_state: WasmPtr&lt;Tty, M&gt;,

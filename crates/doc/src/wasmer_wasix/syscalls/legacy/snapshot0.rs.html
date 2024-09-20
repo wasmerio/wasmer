@@ -147,7 +147,7 @@
 };
 
 <span class="doccomment">/// Wrapper around `syscalls::fd_filestat_get` for old Snapshot0
-</span><span class="attr">#[instrument(level = <span class="string">&quot;debug&quot;</span>, skip_all, ret)]
+</span><span class="attr">#[instrument(level = <span class="string">&quot;trace&quot;</span>, skip_all, ret)]
 </span><span class="kw">pub fn </span>fd_filestat_get(
     <span class="kw-2">mut </span>ctx: FunctionEnvMut&lt;WasiEnv&gt;,
     fd: Fd,
@@ -161,7 +161,7 @@
 }
 
 <span class="doccomment">/// Wrapper around `syscalls::path_filestat_get` for old Snapshot0
-</span><span class="attr">#[instrument(level = <span class="string">&quot;debug&quot;</span>, skip_all, ret)]
+</span><span class="attr">#[instrument(level = <span class="string">&quot;trace&quot;</span>, skip_all, ret)]
 </span><span class="kw">pub fn </span>path_filestat_get(
     <span class="kw-2">mut </span>ctx: FunctionEnvMut&lt;WasiEnv&gt;,
     fd: Fd,
@@ -181,7 +181,7 @@
 
 <span class="doccomment">/// Wrapper around `syscalls::fd_seek` with extra logic to remap the values
 /// of `Whence`
-</span><span class="attr">#[instrument(level = <span class="string">&quot;debug&quot;</span>, skip_all, ret)]
+</span><span class="attr">#[instrument(level = <span class="string">&quot;trace&quot;</span>, skip_all, ret)]
 </span><span class="kw">pub fn </span>fd_seek(
     ctx: FunctionEnvMut&lt;WasiEnv&gt;,
     fd: Fd,

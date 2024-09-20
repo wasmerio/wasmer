@@ -2823,8 +2823,8 @@
     </span><span class="prelude-val">Ok</span>(Errno::Success)
 }
 
-<span class="attr">#[instrument(level = <span class="string">&quot;debug&quot;</span>, skip_all, fields(memory_stack_len = memory_stack.len(), rewind_stack_len = rewind_stack.len(), store_data_len = store_data.len()))]
-#[must_use = <span class="string">&quot;the action must be passed to the call loop&quot;</span>]
+<span class="comment">// NOTE: not tracing-instrumented because [`rewind_ext`] already is.
+</span><span class="attr">#[must_use = <span class="string">&quot;the action must be passed to the call loop&quot;</span>]
 </span><span class="kw">pub fn </span>rewind&lt;M: MemorySize, T&gt;(
     <span class="kw-2">mut </span>ctx: FunctionEnvMut&lt;WasiEnv&gt;,
     memory_stack: Bytes,
@@ -2845,7 +2845,7 @@
     )
 }
 
-<span class="attr">#[instrument(level = <span class="string">&quot;debug&quot;</span>, skip_all, fields(rewind_stack_len = rewind_stack.len(), store_data_len = store_data.len()))]
+<span class="attr">#[instrument(level = <span class="string">&quot;trace&quot;</span>, skip_all, fields(rewind_stack_len = rewind_stack.len(), store_data_len = store_data.len()))]
 #[must_use = <span class="string">&quot;the action must be passed to the call loop&quot;</span>]
 </span><span class="kw">pub fn </span>rewind_ext&lt;M: MemorySize&gt;(
     ctx: <span class="kw-2">&amp;mut </span>FunctionEnvMut&lt;WasiEnv&gt;,

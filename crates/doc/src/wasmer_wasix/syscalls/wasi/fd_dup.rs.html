@@ -54,7 +54,7 @@
 /// Outputs:
 /// - `Fd fd`
 ///   The new file handle that is a duplicate of the original
-</span><span class="attr">#[instrument(level = <span class="string">&quot;debug&quot;</span>, skip_all, fields(%fd, ret_fd = field::Empty), ret)]
+</span><span class="attr">#[instrument(level = <span class="string">&quot;trace&quot;</span>, skip_all, fields(%fd, ret_fd = field::Empty), ret)]
 </span><span class="kw">pub fn </span>fd_dup&lt;M: MemorySize&gt;(
     <span class="kw-2">mut </span>ctx: FunctionEnvMut&lt;<span class="lifetime">&#39;_</span>, WasiEnv&gt;,
     fd: WasiFd,

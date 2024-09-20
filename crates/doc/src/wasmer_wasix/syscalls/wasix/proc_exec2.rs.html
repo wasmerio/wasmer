@@ -298,7 +298,7 @@
 /// ## Return
 ///
 /// Returns a bus process id that can be used to invoke calls
-</span><span class="attr">#[instrument(level = <span class="string">&quot;debug&quot;</span>, skip_all, fields(name = field::Empty, %args_len), ret)]
+</span><span class="attr">#[instrument(level = <span class="string">&quot;trace&quot;</span>, skip_all, fields(name = field::Empty, %args_len), ret)]
 </span><span class="kw">pub fn </span>proc_exec2&lt;M: MemorySize&gt;(
     <span class="kw-2">mut </span>ctx: FunctionEnvMut&lt;<span class="lifetime">&#39;_</span>, WasiEnv&gt;,
     name: WasmPtr&lt;u8, M&gt;,

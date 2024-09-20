@@ -66,7 +66,7 @@
 /// Inputs:
 /// - `ExitCode`
 ///   Exit code to return to the operating system
-</span><span class="attr">#[instrument(level = <span class="string">&quot;debug&quot;</span>, skip_all)]
+</span><span class="attr">#[instrument(level = <span class="string">&quot;trace&quot;</span>, skip_all)]
 </span><span class="kw">pub fn </span>proc_exit&lt;M: MemorySize&gt;(
     <span class="kw-2">mut </span>ctx: FunctionEnvMut&lt;<span class="lifetime">&#39;_</span>, WasiEnv&gt;,
     code: ExitCode,

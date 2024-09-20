@@ -72,7 +72,7 @@
 ///     The rights to apply to `fd`
 /// - `Rights fs_rights_inheriting`
 ///     The inheriting rights to apply to `fd`
-</span><span class="attr">#[instrument(level = <span class="string">&quot;debug&quot;</span>, skip_all, fields(%fd), ret)]
+</span><span class="attr">#[instrument(level = <span class="string">&quot;trace&quot;</span>, skip_all, fields(%fd), ret)]
 </span><span class="kw">pub fn </span>fd_fdstat_set_rights(
     <span class="kw-2">mut </span>ctx: FunctionEnvMut&lt;<span class="lifetime">&#39;_</span>, WasiEnv&gt;,
     fd: WasiFd,

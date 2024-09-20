@@ -51,7 +51,7 @@
 /// - `char *argv_buf`
 ///     A pointer to a buffer to write the argument string data.
 ///
-</span><span class="attr">#[instrument(level = <span class="string">&quot;debug&quot;</span>, skip_all, ret)]
+</span><span class="attr">#[instrument(level = <span class="string">&quot;trace&quot;</span>, skip_all, ret)]
 </span><span class="kw">pub fn </span>args_get&lt;M: MemorySize&gt;(
     <span class="kw-2">mut </span>ctx: FunctionEnvMut&lt;<span class="lifetime">&#39;_</span>, WasiEnv&gt;,
     argv: WasmPtr&lt;WasmPtr&lt;u8, M&gt;, M&gt;,
