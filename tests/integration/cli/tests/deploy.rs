@@ -299,7 +299,7 @@ fn wasmer_deploy_fails_no_owner() -> anyhow::Result<()> {
 fn wasmer_deploy_axum() -> anyhow::Result<()> {
     let wapm_dev_token = std::env::var("WAPM_DEV_TOKEN").ok();
 
-    let username = "ciuser";
+    let username = "amin";
     let app_name = format!("ci-{}", rand::random::<u32>());
     let random3 = format!("{}", rand::random::<u32>());
 
@@ -325,7 +325,12 @@ fn wasmer_deploy_axum() -> anyhow::Result<()> {
     std::env::set_current_dir(&app_dir)?;
 
     let mut cmd = std::process::Command::new("cargo");
-    cmd.arg("wasix").arg("build").output()?;
+    let output = cmd.arg("wasix").arg("build").output()?;
+    println!(
+        "cargo wasix:\nstdout: {:?}\nstderr: {:?}",
+        String::from_utf8(output.stdout).unwrap(),
+        String::from_utf8(output.stderr).unwrap()
+    );
 
     let mut cmd = std::process::Command::new(get_wasmer_path());
     cmd.arg("deploy")
