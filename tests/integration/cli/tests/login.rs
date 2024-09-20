@@ -55,5 +55,5 @@ fn run_whoami_works() {
         .assert()
         .success();
 
-    assert.stdout("logged into registry wasmer.wtf as user \"ciuser\"\n");
+    assert.stdout("logged into registry wasmer.wtf as user ciuser\n");
 }
