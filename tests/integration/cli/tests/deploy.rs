@@ -299,7 +299,7 @@ fn wasmer_deploy_fails_no_owner() -> anyhow::Result<()> {
 fn wasmer_deploy_axum() -> anyhow::Result<()> {
     let wapm_dev_token = std::env::var("WAPM_DEV_TOKEN").ok();
 
-    let username = "amin";
+    let username = "ciuser";
     let app_name = format!("ci-{}", rand::random::<u32>());
     let random3 = format!("{}", rand::random::<u32>());
 
