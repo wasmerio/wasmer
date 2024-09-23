@@ -32,6 +32,7 @@ pub struct MappedCommand {
 #[derive(Derivative, Default, Clone)]
 #[derivative(Debug)]
 pub(crate) struct CommonWasiOptions {
+    pub(crate) entrypoint: Option<String>,
     pub(crate) args: Vec<String>,
     pub(crate) env: HashMap<String, String>,
     pub(crate) forward_host_env: bool,
@@ -57,6 +58,10 @@ impl CommonWasiOptions {
         wasi: &WasiAnnotation,
         root_fs: Option<TmpFileSystem>,
     ) -> Result<(), anyhow::Error> {
+        if let Some(ref entrypoint) = self.entrypoint {
+            builder.set_entrypoint(entrypoint);
+        }
+
         let root_fs = root_fs.unwrap_or_else(|| {
             RootFileSystemBuilder::default()
                 .with_tmp(!self.is_tmp_mapped)

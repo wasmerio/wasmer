@@ -49,6 +49,8 @@ use super::env::WasiEnvInit;
 /// ```
 #[derive(Default)]
 pub struct WasiEnvBuilder {
+    /// Name of entrypoint function. Defaults to running `_start` if not specified.
+    pub(super) entrypoint: Option<String>,
     /// Command line arguments.
     pub(super) args: Vec<String>,
     /// Environment variables.
@@ -97,6 +99,7 @@ impl std::fmt::Debug for WasiEnvBuilder {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         // TODO: update this when stable
         f.debug_struct("WasiEnvBuilder")
+            .field("entrypoint", &self.entrypoint)
             .field("args", &self.args)
             .field("envs", &self.envs)
             .field("preopens", &self.preopens)
@@ -238,6 +241,21 @@ impl WasiEnvBuilder {
     /// Get a mutable reference to the configured environment variables.
     pub fn get_env_mut(&mut self) -> &mut Vec<(String, Vec<u8>)> {
         &mut self.envs
+    }
+
+    pub fn entrypoint<S>(mut self, entrypoint: S) -> Self
+    where
+        S: AsRef<str>,
+    {
+        self.set_entrypoint(entrypoint);
+        self
+    }
+
+    pub fn set_entrypoint<S>(&mut self, entrypoint: S)
+    where
+        S: AsRef<str>,
+    {
+        self.entrypoint = Some(entrypoint.as_ref().to_owned());
     }
 
     /// Add an argument.
@@ -1024,6 +1042,8 @@ impl WasiEnvBuilder {
             );
         }
 
+        let entrypoint = self.entrypoint.clone();
+
         let (instance, env) = self.instantiate_ext(module, module_hash, store)?;
 
         // Bootstrap the process
@@ -1036,7 +1056,9 @@ impl WasiEnvBuilder {
                 .map_err(|exit| WasiRuntimeError::Wasi(WasiError::Exit(exit)))?;
         }
 
-        let start = instance.exports.get_function("_start")?;
+        let start = instance
+            .exports
+            .get_function(entrypoint.as_deref().unwrap_or("_start"))?;
         env.data(&store).thread.set_status_running();
 
         let result = crate::run_wasi_func_start(start, store);
