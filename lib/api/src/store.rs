@@ -93,7 +93,7 @@ impl Store {
 
     /// Returns mutable reference to [`Engine`]
     pub fn engine_mut(&mut self) -> &mut Engine {
-        &mut self.inner.engine
+        &mut self.inner.store.engine
     }
 
     /// Checks whether two stores are identical. A store is considered
