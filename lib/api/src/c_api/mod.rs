@@ -33,9 +33,6 @@ mod lib {
     }
 }
 
-/// A constant that indicates to users that the WAMR (interpreter) backend is in use. 
-pub const WASMER_WAMR: bool = true;
-
 pub(crate) mod as_c;
 pub(crate) mod bindings;
 pub(crate) mod engine;
