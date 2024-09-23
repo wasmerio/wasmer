@@ -34,6 +34,20 @@ impl WasiRunner {
         WasiRunner::default()
     }
 
+    /// Returns the current entrypoint for this `WasiRunner`
+    pub fn entrypoint(&self) -> Option<String> {
+        self.wasi.entrypoint.clone()
+    }
+
+    /// Builder method to set the name of the entrypoint function for this `WasiRunner`
+    pub fn with_entrypoint<S>(&mut self, entrypoint: S) -> &mut Self
+    where
+        S: Into<String>,
+    {
+        self.wasi.entrypoint = Some(entrypoint.into());
+        self
+    }
+
     /// Returns the current arguments for this `WasiRunner`
     pub fn get_args(&self) -> Vec<String> {
         self.wasi.args.clone()

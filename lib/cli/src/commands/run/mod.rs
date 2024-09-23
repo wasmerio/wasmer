@@ -425,6 +425,10 @@ impl Run {
             .with_forward_host_env(self.wasi.forward_host_env)
             .with_capabilities(self.wasi.capabilities());
 
+        if let Some(ref entrypoint) = self.entrypoint {
+            runner.with_entrypoint(entrypoint);
+        }
+
         #[cfg(feature = "journal")]
         {
             for trigger in self.wasi.snapshot_on.iter().cloned() {
