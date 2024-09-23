@@ -23,6 +23,7 @@ pub fn universal_test(
     let tokens = quote::quote! {
         #[cfg(feature = "js")]
         #[cfg_attr(feature = "js", wasm_bindgen_test)]
+        #(#outer_attrs) *
         fn #fn_js_call() { #fn_call().unwrap(); }
 
         #[cfg_attr(any(feature = "sys", feature = "jsc", feature = "wasm-c-api"), test)]
