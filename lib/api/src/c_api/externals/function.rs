@@ -107,7 +107,6 @@ impl Function {
             vec
         };
 
-
         let results = fn_ty.results();
         let mut result_types = results
             .into_iter()
@@ -122,7 +121,6 @@ impl Function {
             wasm_valtype_vec_new(&mut vec, result_types.len(), result_types.as_ptr());
             vec
         };
-
 
         let wasm_functype = unsafe {
             wasm_functype_new(
@@ -259,7 +257,6 @@ impl Function {
             wasm_valtype_vec_new(&mut vec, param_types.len(), param_types.as_ptr());
             vec
         };
-
 
         let mut result_types = Rets::wasm_types()
             .into_iter()
