@@ -7,6 +7,7 @@ use std::{
 use anyhow::{Context, Error};
 use derivative::Derivative;
 use futures::future::BoxFuture;
+use tokio::runtime::Handle;
 use virtual_fs::{FileSystem, FsError, OverlayFileSystem, RootFileSystemBuilder, TmpFileSystem};
 use wasmer::Imports;
 use webc::metadata::annotations::Wasi as WasiAnnotation;
@@ -165,8 +166,7 @@ fn build_directory_mappings(
                 })?;
             }
 
-            root_fs
-                .mount(guest_path.clone(), fs, "/".into())
+            TmpFileSystem::mount(root_fs, guest_path.clone(), fs, "/".into())
                 .with_context(|| format!("Unable to mount \"{}\"", guest_path.display()))?;
         }
     }
@@ -277,7 +277,7 @@ impl From<MappedDirectory> for MountedDirectory {
             if #[cfg(feature = "host-fs")] {
                 let MappedDirectory { host, guest } = value;
                 let fs: Arc<dyn FileSystem + Send + Sync> =
-                    Arc::new(virtual_fs::ScopedDirectoryFileSystem::new_with_default_runtime(host));
+                    Arc::new(virtual_fs::host_fs::FileSystem::new(Handle::current(), host).unwrap());
 
                 MountedDirectory { guest, fs }
             } else {
@@ -346,6 +346,19 @@ impl<F: FileSystem> virtual_fs::FileSystem for RelativeOrAbsolutePathHack<F> {
 
     fn new_open_options(&self) -> virtual_fs::OpenOptions {
         virtual_fs::OpenOptions::new(self)
+    }
+
+    fn mount(
+        &self,
+        name: String,
+        path: &Path,
+        fs: Box<dyn FileSystem + Send + Sync>,
+    ) -> virtual_fs::Result<()> {
+        let name_ref = &name;
+        let f_ref = &Arc::new(fs);
+        self.execute(path, move |f, p| {
+            f.mount(name_ref.clone(), p, Box::new(f_ref.clone()))
+        })
     }
 }
 

@@ -1,6 +1,7 @@
 //! The commands available in the Wasmer binary.
 mod add;
 mod app;
+mod auth;
 #[cfg(target_os = "linux")]
 mod binfmt;
 mod cache;
@@ -22,7 +23,6 @@ mod init;
 mod inspect;
 #[cfg(feature = "journal")]
 mod journal;
-mod login;
 pub(crate) mod namespace;
 mod package;
 mod run;
@@ -31,8 +31,8 @@ pub mod ssh;
 mod validate;
 #[cfg(feature = "wast")]
 mod wast;
-mod whoami;
 use std::env::args;
+use tokio::task::JoinHandle;
 
 #[cfg(target_os = "linux")]
 pub use binfmt::*;
@@ -49,8 +49,8 @@ pub use {create_obj::*, gen_c_header::*};
 #[cfg(feature = "journal")]
 pub use self::journal::*;
 pub use self::{
-    add::*, cache::*, config::*, container::*, init::*, inspect::*, login::*, package::*,
-    publish::*, run::Run, self_update::*, validate::*, whoami::*,
+    add::*, auth::*, cache::*, config::*, container::*, init::*, inspect::*, package::*,
+    publish::*, run::Run, self_update::*, validate::*,
 };
 use crate::error::PrettyError;
 
@@ -70,13 +70,64 @@ pub(crate) trait AsyncCliCommand: Send + Sync {
     type Output: Send + Sync;
 
     async fn run_async(self) -> Result<Self::Output, anyhow::Error>;
+
+    fn setup(
+        &self,
+        done: tokio::sync::oneshot::Receiver<()>,
+    ) -> Option<JoinHandle<anyhow::Result<()>>> {
+        if is_terminal::IsTerminal::is_terminal(&std::io::stdin()) {
+            return Some(tokio::task::spawn(async move {
+                tokio::select! {
+                    _ = done => {}
+
+                    _ = tokio::signal::ctrl_c() => {
+                        let term = console::Term::stdout();
+                        let _ = term.show_cursor();
+                        // https://learn.microsoft.com/en-us/cpp/c-runtime-library/signal-constants
+                        #[cfg(target_os = "windows")]
+                        std::process::exit(3);
+
+                        // POSIX compliant OSs: 128 + SIGINT (2)
+                        #[cfg(not(target_os = "windows"))]
+                        std::process::exit(130);
+                    }
+                }
+
+                Ok::<(), anyhow::Error>(())
+            }));
+        }
+
+        None
+    }
 }
 
 impl<O: Send + Sync, C: AsyncCliCommand<Output = O>> CliCommand for C {
     type Output = O;
 
     fn run(self) -> Result<(), anyhow::Error> {
-        tokio::runtime::Runtime::new()?.block_on(AsyncCliCommand::run_async(self))?;
+        tokio::runtime::Runtime::new()?.block_on(async {
+            let (snd, rcv) = tokio::sync::oneshot::channel();
+            let handle = self.setup(rcv);
+
+            if let Err(e) = AsyncCliCommand::run_async(self).await {
+                if let Some(handle) = handle {
+                    handle.abort();
+                }
+                return Err(e);
+            }
+
+            if let Some(handle) = handle {
+                if snd.send(()).is_err() {
+                    tracing::warn!("Failed to send 'done' signal to setup thread!");
+                    handle.abort();
+                } else {
+                    handle.await??;
+                }
+            }
+
+            Ok::<(), anyhow::Error>(())
+        })?;
+
         Ok(())
     }
 }
@@ -133,7 +184,8 @@ impl WasmerCmd {
             Some(Cmd::Config(config)) => config.execute(),
             Some(Cmd::Inspect(inspect)) => inspect.execute(),
             Some(Cmd::Init(init)) => init.execute(),
-            Some(Cmd::Login(login)) => login.execute(),
+            Some(Cmd::Login(login)) => login.run(),
+            Some(Cmd::Auth(auth)) => auth.run(),
             Some(Cmd::Publish(publish)) => publish.run().map(|_| ()),
             Some(Cmd::Package(cmd)) => match cmd {
                 Package::Download(cmd) => cmd.execute(),
@@ -141,6 +193,7 @@ impl WasmerCmd {
                 Package::Tag(cmd) => cmd.run(),
                 Package::Push(cmd) => cmd.run(),
                 Package::Publish(cmd) => cmd.run().map(|_| ()),
+                Package::Unpack(cmd) => cmd.execute(),
             },
             Some(Cmd::Container(cmd)) => match cmd {
                 crate::commands::Container::Unpack(cmd) => cmd.execute(),
@@ -154,7 +207,7 @@ impl WasmerCmd {
             Some(Cmd::Wast(wast)) => wast.execute(),
             #[cfg(target_os = "linux")]
             Some(Cmd::Binfmt(binfmt)) => binfmt.execute(),
-            Some(Cmd::Whoami(whoami)) => whoami.execute(),
+            Some(Cmd::Whoami(whoami)) => whoami.run(),
             Some(Cmd::Add(install)) => install.execute(),
 
             // Deploy commands.
@@ -237,9 +290,12 @@ enum Cmd {
     /// Login into a wasmer.io-like registry
     Login(Login),
 
+    #[clap(subcommand)]
+    Auth(CmdAuth),
+
     /// Publish a package to a registry [alias: package publish]
     #[clap(name = "publish")]
-    Publish(crate::commands::package::publish::PackagePublish),
+    Publish(PackagePublish),
 
     /// Manage the local Wasmer cache
     Cache(Cache),
@@ -370,7 +426,7 @@ enum Cmd {
     /// Deploy apps to Wasmer Edge [alias: app deploy]
     Deploy(crate::commands::app::deploy::CmdAppDeploy),
 
-    /// Manage deployed Edge apps
+    /// Create and manage Wasmer Edge apps
     #[clap(subcommand, alias = "apps")]
     App(crate::commands::app::CmdApp),
 

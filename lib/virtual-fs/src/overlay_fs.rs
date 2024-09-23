@@ -48,9 +48,9 @@ use crate::{
 ///     .enable_all()
 ///     .build()
 ///     .unwrap();
-///     let _guard = runtime.enter();
+/// let _guard = runtime.enter();
 ///
-/// let fs = OverlayFileSystem::new(MemFS::default(), [HostFS::default()]);
+/// let fs = OverlayFileSystem::new(MemFS::default(), [HostFS::new(tokio::runtime::Handle::current(), "/").unwrap()]);
 ///
 /// // This also has the benefit of storing the two values in-line with no extra
 /// // overhead or indirection.
@@ -413,6 +413,15 @@ where
 
     fn new_open_options(&self) -> OpenOptions<'_> {
         OpenOptions::new(self)
+    }
+
+    fn mount(
+        &self,
+        _name: String,
+        _path: &Path,
+        _fs: Box<dyn FileSystem + Send + Sync>,
+    ) -> Result<(), FsError> {
+        Err(FsError::Unsupported)
     }
 }
 
@@ -1110,10 +1119,9 @@ fn should_continue(e: FsError) -> bool {
 mod tests {
     use std::path::PathBuf;
 
-    use tokio::io::{AsyncReadExt, AsyncSeekExt, AsyncWriteExt};
-
     use super::*;
     use crate::mem_fs::FileSystem as MemFS;
+    use tokio::io::{AsyncReadExt, AsyncSeekExt, AsyncWriteExt};
 
     #[tokio::test]
     async fn remove_directory() {

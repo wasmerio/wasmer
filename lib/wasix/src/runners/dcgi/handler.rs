@@ -1,13 +1,14 @@
-use std::{ops::Deref, pin::Pin, sync::Arc, task::Poll};
+use std::{ops::Deref, pin::Pin, sync::Arc};
 
 use anyhow::Error;
 use futures::{Future, FutureExt};
 use http::{Request, Response};
-use hyper::{service::Service, Body};
 
 use crate::runners::wcgi;
 
 use super::DcgiInstanceFactory;
+
+use super::super::Body;
 
 /// The shared object that manages the instantiaion of WASI executables and
 /// communicating with them via the CGI protocol.
@@ -30,7 +31,10 @@ impl Handler {
     }
 
     #[tracing::instrument(level = "debug", skip_all, err)]
-    pub(crate) async fn handle(&self, req: Request<Body>) -> Result<Response<Body>, Error> {
+    pub(crate) async fn handle(
+        &self,
+        req: Request<hyper::body::Incoming>,
+    ) -> Result<Response<Body>, Error> {
         // we acquire a guard token so that only one request at a time can be processed
         // which effectively means that DCGI is single-threaded. This is a limitation
         // of the MVP which should be rectified in future releases.
@@ -57,17 +61,19 @@ pub(crate) struct SharedState {
     master_lock: Arc<tokio::sync::Mutex<()>>,
 }
 
-impl Service<Request<Body>> for Handler {
+impl tower::Service<Request<hyper::body::Incoming>> for Handler {
     type Response = Response<Body>;
     type Error = Error;
     type Future = Pin<Box<dyn Future<Output = Result<Response<Body>, Error>> + Send>>;
 
-    fn poll_ready(&mut self, _cx: &mut std::task::Context<'_>) -> Poll<Result<(), Self::Error>> {
-        // TODO: We probably should implement some sort of backpressure here...
-        Poll::Ready(Ok(()))
+    fn poll_ready(
+        &mut self,
+        _cx: &mut std::task::Context<'_>,
+    ) -> std::task::Poll<Result<(), Self::Error>> {
+        std::task::Poll::Ready(Ok(()))
     }
 
-    fn call(&mut self, request: Request<Body>) -> Self::Future {
+    fn call(&mut self, request: Request<hyper::body::Incoming>) -> Self::Future {
         // Note: all fields are reference-counted so cloning is pretty cheap
         let handler = self.clone();
         let fut = async move { handler.handle(request).await };

@@ -28,6 +28,8 @@ pub enum SnapshotTrigger {
     NonDeterministicCall,
     /// Bootstrapping process
     Bootstrap,
+    /// Transaction
+    Transaction,
 }
 
 impl SnapshotTrigger {
@@ -64,6 +66,7 @@ impl FromStr for SnapshotTrigger {
             "stop" | "sigstop" => Self::Sigstop,
             "non-deterministic-call" => Self::NonDeterministicCall,
             "bootstrap" => Self::Bootstrap,
+            "transaction" => Self::Transaction,
             a => return Err(anyhow::format_err!("invalid or unknown trigger ({a})")),
         })
     }

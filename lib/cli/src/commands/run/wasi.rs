@@ -31,7 +31,9 @@ use wasmer_wasix::{
     runtime::{
         module_cache::{FileSystemCache, ModuleCache},
         package_loader::{BuiltinPackageLoader, PackageLoader},
-        resolver::{FileSystemSource, InMemorySource, MultiSource, Source, WapmSource, WebSource},
+        resolver::{
+            BackendSource, FileSystemSource, InMemorySource, MultiSource, Source, WebSource,
+        },
         task_manager::{
             tokio::{RuntimeOrHandle, TokioTaskManager},
             VirtualTaskManagerExt,
@@ -44,6 +46,11 @@ use wasmer_wasix::{
 };
 
 use crate::utils::{parse_envvar, parse_mapdir};
+
+use super::{
+    capabilities::{self, PkgCapabilityCache},
+    ExecutableTarget, PackageSource,
+};
 
 const WAPM_SOURCE_CACHE_TIMEOUT: Duration = Duration::from_secs(10 * 60);
 
@@ -333,6 +340,7 @@ impl Wasi {
             }
 
             if !mapped_dirs.is_empty() {
+                // TODO: should we expose the common ancestor instead of root?
                 let fs_backing: Arc<dyn FileSystem + Send + Sync> =
                     Arc::new(PassthruFileSystem::new(default_fs_backing()));
                 for MappedDirectory { host, guest } in self.mapped_dirs.clone() {
@@ -536,6 +544,7 @@ impl Wasi {
         &self,
         engine: Engine,
         env: &WasmerEnv,
+        pkg_cache_path: &Path,
         rt_or_handle: I,
         preferred_webc_version: webc::Version,
     ) -> Result<impl Runtime + Send + Sync>
@@ -545,10 +554,20 @@ impl Wasi {
         let tokio_task_manager = Arc::new(TokioTaskManager::new(rt_or_handle.into()));
         let mut rt = PluggableRuntime::new(tokio_task_manager.clone());
 
-        if self.networking {
+        let has_networking = self.networking
+            || capabilities::get_cached_capability(pkg_cache_path)
+                .ok()
+                .is_some_and(|v| v.enable_networking);
+
+        if has_networking {
             rt.set_networking_implementation(virtual_net::host::LocalNetworking::default());
         } else {
-            rt.set_networking_implementation(virtual_net::UnsupportedVirtualNetworking::default());
+            let net = super::capabilities::net::AskingNetworking::new(
+                pkg_cache_path.to_path_buf(),
+                Arc::new(virtual_net::host::LocalNetworking::default()),
+            );
+
+            rt.set_networking_implementation(net);
         }
 
         #[cfg(feature = "journal")]
@@ -616,7 +635,7 @@ impl Wasi {
         &self,
         env: &WasmerEnv,
         client: Arc<dyn HttpClient + Send + Sync>,
-    ) -> Result<impl PackageLoader + Send + Sync> {
+    ) -> Result<impl PackageLoader> {
         let checkout_dir = env.cache_dir().join("checkouts");
         let tokens = tokens_by_authority(env)?;
 
@@ -633,8 +652,8 @@ impl Wasi {
         env: &WasmerEnv,
         client: Arc<dyn HttpClient + Send + Sync>,
         preferred_webc_version: webc::Version,
-    ) -> Result<impl Source + Send + Sync> {
-        let mut source = MultiSource::new();
+    ) -> Result<impl Source + Send> {
+        let mut source = MultiSource::default();
 
         // Note: This should be first so our "preloaded" sources get a chance to
         // override the main registry.
@@ -648,7 +667,7 @@ impl Wasi {
 
         let graphql_endpoint = self.graphql_endpoint(env)?;
         let cache_dir = env.cache_dir().join("queries");
-        let mut wapm_source = WapmSource::new(graphql_endpoint, Arc::clone(&client))
+        let mut wapm_source = BackendSource::new(graphql_endpoint, Arc::clone(&client))
             .with_local_cache(cache_dir, WAPM_SOURCE_CACHE_TIMEOUT)
             .with_preferred_webc_version(preferred_webc_version);
         if let Some(token) = env

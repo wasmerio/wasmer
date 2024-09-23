@@ -8,6 +8,7 @@ use std::{
     task::{Context, Poll},
 };
 
+use tokio::runtime::Handle;
 use virtual_fs::{
     host_fs, mem_fs, passthru_fs, tmp_fs, union_fs, AsyncRead, AsyncSeek, AsyncWrite,
     AsyncWriteExt, FileSystem, Pipe, ReadBuf, RootFileSystemBuilder,
@@ -201,7 +202,8 @@ impl<'a> WasiTest<'a> {
 
         match filesystem_kind {
             WasiFileSystemKind::Host => {
-                let fs = host_fs::FileSystem::default();
+                let fs = host_fs::FileSystem::new(Handle::current(), PathBuf::from(BASE_TEST_DIR))
+                    .unwrap();
 
                 for (alias, real_dir) in &self.mapped_dirs {
                     let mut dir = PathBuf::from(BASE_TEST_DIR);
@@ -217,7 +219,7 @@ impl<'a> WasiTest<'a> {
                 }
 
                 for alias in &self.temp_dirs {
-                    let temp_dir = tempfile::tempdir()?;
+                    let temp_dir = tempfile::tempdir_in(PathBuf::from(BASE_TEST_DIR))?;
                     builder.add_map_dir(alias, temp_dir.path())?;
                     host_temp_dirs_to_not_drop.push(temp_dir);
                 }
@@ -244,14 +246,38 @@ impl<'a> WasiTest<'a> {
                         let e = mem_fs::FileSystem::default();
                         let f = mem_fs::FileSystem::default();
 
-                        let mut union = union_fs::UnionFileSystem::new();
+                        let union = union_fs::UnionFileSystem::new();
 
-                        union.mount("mem_fs", "/test_fs", false, Box::new(a), None);
-                        union.mount("mem_fs_2", "/snapshot1", false, Box::new(b), None);
-                        union.mount("mem_fs_3", "/tests", false, Box::new(c), None);
-                        union.mount("mem_fs_4", "/nightly_2022_10_18", false, Box::new(d), None);
-                        union.mount("mem_fs_5", "/unstable", false, Box::new(e), None);
-                        union.mount("mem_fs_6", "/.tmp_wasmer_wast_0", false, Box::new(f), None);
+                        union.mount(
+                            "mem_fs".to_string(),
+                            PathBuf::from("/test_fs").as_ref(),
+                            Box::new(a),
+                        )?;
+                        union.mount(
+                            "mem_fs_2".to_string(),
+                            PathBuf::from("/snapshot1").as_ref(),
+                            Box::new(b),
+                        )?;
+                        union.mount(
+                            "mem_fs_3".to_string(),
+                            PathBuf::from("/tests").as_ref(),
+                            Box::new(c),
+                        )?;
+                        union.mount(
+                            "mem_fs_4".to_string(),
+                            PathBuf::from("/nightly_2022_10_18").as_ref(),
+                            Box::new(d),
+                        )?;
+                        union.mount(
+                            "mem_fs_5".to_string(),
+                            PathBuf::from("/unstable").as_ref(),
+                            Box::new(e),
+                        )?;
+                        union.mount(
+                            "mem_fs_6".to_string(),
+                            PathBuf::from("/.tmp_wasmer_wast_0").as_ref(),
+                            Box::new(f),
+                        )?;
 
                         Box::new(union)
                     }
@@ -352,55 +378,55 @@ impl<'a> Parse<'a> for WasiTest<'a> {
             let wasm_path = parser.parse::<&'a str>()?;
 
             // TODO: allow these to come in any order
-            let envs = if parser.peek2::<wasi_kw::envs>() {
+            let envs = if parser.peek2::<wasi_kw::envs>()? {
                 parser.parens(|p| p.parse::<Envs>())?.envs
             } else {
                 vec![]
             };
 
-            let args = if parser.peek2::<wasi_kw::args>() {
+            let args = if parser.peek2::<wasi_kw::args>()? {
                 parser.parens(|p| p.parse::<Args>())?.args
             } else {
                 vec![]
             };
 
-            let dirs = if parser.peek2::<wasi_kw::preopens>() {
+            let dirs = if parser.peek2::<wasi_kw::preopens>()? {
                 parser.parens(|p| p.parse::<Preopens>())?.preopens
             } else {
                 vec![]
             };
 
-            let mapped_dirs = if parser.peek2::<wasi_kw::map_dirs>() {
+            let mapped_dirs = if parser.peek2::<wasi_kw::map_dirs>()? {
                 parser.parens(|p| p.parse::<MapDirs>())?.map_dirs
             } else {
                 vec![]
             };
 
-            let temp_dirs = if parser.peek2::<wasi_kw::temp_dirs>() {
+            let temp_dirs = if parser.peek2::<wasi_kw::temp_dirs>()? {
                 parser.parens(|p| p.parse::<TempDirs>())?.temp_dirs
             } else {
                 vec![]
             };
 
-            let assert_return = if parser.peek2::<wasi_kw::assert_return>() {
+            let assert_return = if parser.peek2::<wasi_kw::assert_return>()? {
                 Some(parser.parens(|p| p.parse::<AssertReturn>())?)
             } else {
                 None
             };
 
-            let stdin = if parser.peek2::<wasi_kw::stdin>() {
+            let stdin = if parser.peek2::<wasi_kw::stdin>()? {
                 Some(parser.parens(|p| p.parse::<Stdin>())?)
             } else {
                 None
             };
 
-            let assert_stdout = if parser.peek2::<wasi_kw::assert_stdout>() {
+            let assert_stdout = if parser.peek2::<wasi_kw::assert_stdout>()? {
                 Some(parser.parens(|p| p.parse::<AssertStdout>())?)
             } else {
                 None
             };
 
-            let assert_stderr = if parser.peek2::<wasi_kw::assert_stderr>() {
+            let assert_stderr = if parser.peek2::<wasi_kw::assert_stderr>()? {
                 Some(parser.parens(|p| p.parse::<AssertStderr>())?)
             } else {
                 None
@@ -432,7 +458,7 @@ impl<'a> Parse<'a> for Envs<'a> {
         let mut envs = vec![];
         parser.parse::<wasi_kw::envs>()?;
 
-        while parser.peek::<&'a str>() {
+        while parser.peek::<&'a str>()? {
             let res = parser.parse::<&'a str>()?;
             let mut strs = res.split('=');
             let first = strs.next().unwrap();
@@ -454,7 +480,7 @@ impl<'a> Parse<'a> for Args<'a> {
         let mut args = vec![];
         parser.parse::<wasi_kw::args>()?;
 
-        while parser.peek::<&'a str>() {
+        while parser.peek::<&'a str>()? {
             let res = parser.parse::<&'a str>()?;
             args.push(res);
         }
@@ -472,7 +498,7 @@ impl<'a> Parse<'a> for Preopens<'a> {
         let mut preopens = vec![];
         parser.parse::<wasi_kw::preopens>()?;
 
-        while parser.peek::<&'a str>() {
+        while parser.peek::<&'a str>()? {
             let res = parser.parse::<&'a str>()?;
             preopens.push(res);
         }
@@ -490,7 +516,7 @@ impl<'a> Parse<'a> for MapDirs<'a> {
         let mut map_dirs = vec![];
         parser.parse::<wasi_kw::map_dirs>()?;
 
-        while parser.peek::<&'a str>() {
+        while parser.peek::<&'a str>()? {
             let res = parser.parse::<&'a str>()?;
             let mut iter = res.split(':');
             let dir = iter.next().unwrap();
@@ -511,7 +537,7 @@ impl<'a> Parse<'a> for TempDirs<'a> {
         let mut temp_dirs = vec![];
         parser.parse::<wasi_kw::temp_dirs>()?;
 
-        while parser.peek::<&'a str>() {
+        while parser.peek::<&'a str>()? {
             let alias = parser.parse::<&'a str>()?;
             temp_dirs.push(alias);
         }

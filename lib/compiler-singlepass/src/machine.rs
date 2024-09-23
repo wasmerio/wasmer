@@ -32,6 +32,7 @@ macro_rules! codegen_error {
     ($($arg:tt)*) => {return Err(CompileError::Codegen(format!($($arg)*)))}
 }
 
+#[allow(unused)]
 pub trait MaybeImmediate {
     fn imm_value(&self) -> Option<Value>;
     fn is_imm(&self) -> bool {
@@ -51,6 +52,7 @@ pub const NATIVE_PAGE_SIZE: usize = 4096;
 
 pub struct MachineStackOffset(pub usize);
 
+#[allow(unused)]
 pub trait Machine {
     type GPR: Copy + Eq + Debug + Reg;
     type SIMD: Copy + Eq + Debug + Reg;

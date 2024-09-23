@@ -3,7 +3,7 @@ name: Builds
 env:
   RUST_BACKTRACE: 1
   CARGO_REGISTRIES_CRATES_IO_PROTOCOL: git
-  MSRV: "1.74"
+  MSRV: "1.78"
 
 on:
   push:
@@ -52,7 +52,7 @@ jobs:
             use_llvm: true
             build_wasm: true
           - build: macos-x64
-            os: macos-11
+            os: macos-12
             llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/15.x/llvm-darwin-amd64.tar.xz'
             artifact_name: 'wasmer-darwin-amd64'
             cross_compilation_artifact_name: 'cross_compiled_from_mac'
@@ -100,7 +100,7 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         if: matrix.use_sccache != true
       - name: Install LLVM (macOS Apple Silicon)
-        if: matrix.os == 'macos-11.0' && !matrix.llvm_url
+        if: matrix.os == 'macos-12' && !matrix.llvm_url
         run: |
           brew install llvm
       - name: Install LLVM
@@ -129,7 +129,7 @@ jobs:
           # using gnu-tar is a workaround for https://github.com/actions/cache/issues/403
           brew install gnu-tar
           echo PATH="/usr/local/opt/gnu-tar/libexec/gnubin:$PATH" >> $GITHUB_ENV
-        if: matrix.os == 'macos-latest' || matrix.os == 'macos-11.0'
+        if: matrix.os == 'macos-12'
       - uses: actions/cache@v2
         with:
           path: |
@@ -314,7 +314,7 @@ jobs:
 
   darwin_aarch64_jsc:
     name: macOS aarch64 (JSC)
-    runs-on: macos-11.0
+    runs-on: macos-12
     steps:
       - uses: actions/checkout@v3
       - uses: dtolnay/rust-toolchain@stable
@@ -347,7 +347,7 @@ jobs:
 
   darwin_x86_64_jsc:
     name: macOS x86_64 (JSC)
-    runs-on: macos-11.0
+    runs-on: macos-12
     steps:
       - uses: actions/checkout@v3
       - uses: dtolnay/rust-toolchain@stable

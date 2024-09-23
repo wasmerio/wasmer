@@ -421,7 +421,7 @@ mod tests {
         }
 
         fn finish(&self) -> MultiSource {
-            let mut registry = MultiSource::new();
+            let mut registry = MultiSource::default();
             registry.add_source(self.0.clone());
             registry
         }

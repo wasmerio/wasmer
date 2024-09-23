@@ -132,6 +132,77 @@ fn table_get() -> Result<(), String> {
 #[universal_test]
 fn table_set() -> Result<(), String> {
     // Table set not yet tested
+    #[cfg(feature = "sys")]
+    {
+        let mut store = Store::default();
+
+        let table_type = TableType {
+            ty: Type::ExternRef,
+            minimum: 1,
+            maximum: None,
+        };
+        let extern_ref = ExternRef::new(&mut store, 0u32);
+        let table = Table::new(
+            &mut store,
+            table_type,
+            Value::ExternRef(Some(extern_ref.clone())),
+        )
+        .map_err(|e| format!("{e:?}"))?;
+        assert_eq!(table.ty(&store), table_type);
+
+        let v = table.get(&mut store, 0);
+        assert!(v.is_some());
+
+        let v = v.unwrap();
+
+        let v = if let Value::ExternRef(Some(ext)) = v {
+            ext.downcast::<u32>(&mut store)
+        } else {
+            return Err("table.get does not match `ExternRef(Some(..))`!".into());
+        };
+
+        let v = v.unwrap();
+        assert_eq!(*v, 0u32);
+
+        let extern_ref = ExternRef::new(&mut store, 1u32);
+        table
+            .set(&mut store, 0, Value::ExternRef(Some(extern_ref)))
+            .map_err(|e| e.to_string())?;
+
+        let v = table.get(&mut store, 0);
+        assert!(v.is_some());
+        let v = v.unwrap();
+
+        let v = if let Value::ExternRef(Some(ext)) = v {
+            ext.downcast::<u32>(&mut store)
+        } else {
+            return Err("table.get does not match `ExternRef(Some(..))`!".into());
+        };
+
+        assert!(v.is_some());
+        let v = v.unwrap();
+        assert_eq!(*v, 1u32);
+
+        let extern_ref = ExternRef::new(&mut store, 2u32);
+        table
+            .set(&mut store, 0, Value::ExternRef(Some(extern_ref)))
+            .map_err(|e| e.to_string())?;
+
+        let v = table.get(&mut store, 0);
+        assert!(v.is_some());
+        let v = v.unwrap();
+
+        let v = if let Value::ExternRef(Some(ext)) = v {
+            ext.downcast::<u32>(&mut store)
+        } else {
+            return Err("table.get does not match `ExternRef(Some(..))`!".into());
+        };
+
+        assert!(v.is_some());
+        let v = v.unwrap();
+        assert_eq!(*v, 2u32);
+    }
+
     Ok(())
 }
 
@@ -149,15 +220,20 @@ fn table_grow() -> Result<(), String> {
         let f = Function::new_typed(&mut store, |num: i32| num + 1);
         let table = Table::new(&mut store, table_type, Value::FuncRef(Some(f.clone())))
             .map_err(|e| format!("{e:?}"))?;
+
+        let old_len = table.grow(&mut store, 1, Value::FuncRef(Some(f.clone())));
+        assert_eq!(0, old_len.unwrap());
+        let old_len = table.grow(&mut store, 1, Value::FuncRef(Some(f.clone())));
+        assert_eq!(1, old_len.unwrap());
+
         // Growing to a bigger maximum should return None
         let old_len = table.grow(&mut store, 12, Value::FuncRef(Some(f.clone())));
         assert!(old_len.is_err());
 
-        // Growing to a bigger maximum should return None
         let old_len = table
             .grow(&mut store, 5, Value::FuncRef(Some(f)))
             .map_err(|e| format!("{e:?}"))?;
-        assert_eq!(old_len, 0);
+        assert_eq!(old_len, 2);
     }
 
     Ok(())

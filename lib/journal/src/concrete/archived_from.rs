@@ -184,6 +184,7 @@ impl From<SnapshotTrigger> for JournalSnapshotTriggerV1 {
             SnapshotTrigger::Sigstop => JournalSnapshotTriggerV1::Sigstop,
             SnapshotTrigger::NonDeterministicCall => JournalSnapshotTriggerV1::NonDeterministicCall,
             SnapshotTrigger::Bootstrap => JournalSnapshotTriggerV1::Bootstrap,
+            SnapshotTrigger::Transaction => JournalSnapshotTriggerV1::Transaction,
         }
     }
 }
@@ -202,6 +203,7 @@ impl From<JournalSnapshotTriggerV1> for SnapshotTrigger {
             JournalSnapshotTriggerV1::Sigstop => SnapshotTrigger::Sigstop,
             JournalSnapshotTriggerV1::NonDeterministicCall => SnapshotTrigger::NonDeterministicCall,
             JournalSnapshotTriggerV1::Bootstrap => SnapshotTrigger::Bootstrap,
+            JournalSnapshotTriggerV1::Transaction => SnapshotTrigger::Transaction,
         }
     }
 }
@@ -222,6 +224,7 @@ impl From<&'_ ArchivedJournalSnapshotTriggerV1> for SnapshotTrigger {
                 SnapshotTrigger::NonDeterministicCall
             }
             ArchivedJournalSnapshotTriggerV1::Bootstrap => SnapshotTrigger::Bootstrap,
+            ArchivedJournalSnapshotTriggerV1::Transaction => SnapshotTrigger::Transaction,
         }
     }
 }
@@ -770,7 +773,7 @@ impl<'a> TryFrom<ArchivedJournalEntry<'a>> for JournalEntry<'a> {
                 ref trigger,
             }) => Self::SnapshotV1 {
                 when: SystemTime::UNIX_EPOCH
-                    .checked_add((*since_epoch).try_into().unwrap())
+                    .checked_add((*since_epoch).into())
                     .unwrap_or(SystemTime::UNIX_EPOCH),
                 trigger: trigger.into(),
             },
@@ -989,10 +992,8 @@ impl<'a> TryFrom<ArchivedJournalEntry<'a>> for JournalEntry<'a> {
                 }
                 .into(),
                 via_router: via_router.as_ipaddr(),
-                preferred_until: preferred_until
-                    .as_ref()
-                    .map(|time| (*time).try_into().unwrap()),
-                expires_at: expires_at.as_ref().map(|time| (*time).try_into().unwrap()),
+                preferred_until: preferred_until.as_ref().map(|time| (*time).into()),
+                expires_at: expires_at.as_ref().map(|time| (*time).into()),
             },
             ArchivedJournalEntry::PortRouteClearV1 => Self::PortRouteClearV1,
             ArchivedJournalEntry::PortRouteDelV1(ArchivedJournalEntryPortRouteDelV1 { ip }) => {
@@ -1150,7 +1151,7 @@ impl<'a> TryFrom<ArchivedJournalEntry<'a>> for JournalEntry<'a> {
             }) => Self::SocketSetOptTimeV1 {
                 fd: *fd,
                 ty: ty.into(),
-                time: time.as_ref().map(|time| (*time).try_into().unwrap()),
+                time: time.as_ref().map(|time| (*time).into()),
             },
             ArchivedJournalEntry::SocketShutdownV1(ArchivedJournalEntrySocketShutdownV1 {
                 fd,

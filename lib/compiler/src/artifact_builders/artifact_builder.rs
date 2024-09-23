@@ -72,7 +72,9 @@ impl ArtifactBuild {
         // We try to apply the middleware first
         let mut module = translation.module;
         let middlewares = compiler.get_middlewares();
-        middlewares.apply_on_module_info(&mut module);
+        middlewares
+            .apply_on_module_info(&mut module)
+            .map_err(|err| CompileError::MiddlewareError(err.to_string()))?;
 
         if let Some(hash_algorithm) = hash_algorithm {
             let hash = match hash_algorithm {

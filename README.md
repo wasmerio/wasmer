@@ -22,7 +22,7 @@
   </p>
 </div>
 
-<br />
+<br /> 
 
 Wasmer is a _blazing fast_ and _secure_ [**WebAssembly**](https://webassembly.org) runtime that enables incredibly
 _lightweight containers_ to run anywhere: from _Desktop_ to the _Cloud_, _Edge_ and your browser.
@@ -128,6 +128,7 @@ languages** with the Wasmer SDK:
 | ![C++ logo]      | [**C++**][C integration]             | [`wasm.hh` header]                    | [Learn][c docs]        |
 | ![C# logo]       | [**C#**][C# integration]             | [`WasmerSharp` NuGet package]         | [Learn][c# docs]       |
 | ![D logo]        | [**D**][D integration]               | [`wasmer` Dub package]                | [Learn][d docs]        |
+| ![Zig logo]      | [**Zig**][Zig integration]           | [`wasmer` Zig package]                | [Learn][zig docs]      |
 | ![Python logo]   | [**Python**][Python integration]     | [`wasmer` PyPI package]               | [Learn][python docs]   |
 | ![JS logo]       | [**Javascript**][JS integration]     | [`@wasmerio` NPM packages]            | [Learn][js docs]       |
 | ![Go logo]       | [**Go**][Go integration]             | [`wasmer` Go package]                 | [Learn][go docs]       |
@@ -137,7 +138,6 @@ languages** with the Wasmer SDK:
 | ![R logo]        | [**R**][R integration]               | _no published package_                | [Learn][r docs]        |
 | ![Postgres logo] | [**Postgres**][Postgres integration] | _no published package_                | [Learn][postgres docs] |
 | ![Swift logo]    | [**Swift**][Swift integration]       | _no published package_                |                        |
-| ![Zig logo]      | [**Zig**][Zig integration]           | _no published package_                |                        |
 | ![Dart logo]     | [**Dart**][Dart integration]         | [`wasm` pub package]                  |                        |
 | ![Crystal logo]  | [**Crystal**][Crystal integration]   | _no published package_                | [Learn][crystal docs]  |
 | ![Lisp logo]     | [**Lisp**][Lisp integration]         | _no published package_                |                        |
@@ -201,8 +201,10 @@ languages** with the Wasmer SDK:
 [postgres docs]: https://github.com/wasmerio/wasmer-postgres#usage--documentation
 [swift logo]: https://raw.githubusercontent.com/wasmerio/wasmer/master/assets/languages/swift.svg
 [swift integration]: https://github.com/AlwaysRightInstitute/SwiftyWasmer
-[zig logo]: https://raw.githubusercontent.com/ziglang/logo/master/zig-favicon.png
-[zig integration]: https://github.com/zigwasm/wasmer-zig
+[zig logo]: https://raw.githubusercontent.com/ziglang/logo/master/zig-mark.svg
+[zig integration]: https://github.com/Afirium/wasmer-zig-api
+[`wasmer` Zig package]: https://github.com/Afirium/wasmer-zig-api/releases/
+[zig docs]: https://wasmer-zig-api.crappy.systems/
 [dart logo]: https://raw.githubusercontent.com/wasmerio/wasmer/master/assets/languages/dart.svg
 [dart integration]: https://github.com/dart-lang/wasm
 [`wasm` pub package]: https://pub.dev/packages/wasm

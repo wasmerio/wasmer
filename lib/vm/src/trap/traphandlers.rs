@@ -1,6 +1,8 @@
 // This file contains code from external sources.
 // Attributions: https://github.com/wasmerio/wasmer/blob/main/docs/ATTRIBUTIONS.md
 
+#![allow(static_mut_refs)]
+
 //! WebAssembly trap handling, which is built on top of the lower-level
 //! signalhandling mechanisms.
 
@@ -84,7 +86,7 @@ cfg_if::cfg_if! {
         pub type TrapHandlerFn<'a> = dyn Fn(libc::c_int, *const libc::siginfo_t, *const libc::c_void) -> bool + Send + Sync + 'a;
     } else if #[cfg(target_os = "windows")] {
         /// Function which may handle custom signals while processing traps.
-        pub type TrapHandlerFn<'a> = dyn Fn(winapi::um::winnt::PEXCEPTION_POINTERS) -> bool + Send + Sync + 'a;
+        pub type TrapHandlerFn<'a> = dyn Fn(*mut windows_sys::Win32::System::Diagnostics::Debug::EXCEPTION_POINTERS) -> bool + Send + Sync + 'a;
     }
 }
 
@@ -190,12 +192,12 @@ cfg_if::cfg_if! {
             // For more details see https://github.com/mono/mono/commit/8e75f5a28e6537e56ad70bf870b86e22539c2fb7
             #[cfg(target_vendor = "apple")]
             {
-                use mach::exception_types::*;
-                use mach::kern_return::*;
-                use mach::port::*;
-                use mach::thread_status::*;
-                use mach::traps::*;
-                use mach::mach_types::*;
+                use mach2::exception_types::*;
+                use mach2::kern_return::*;
+                use mach2::port::*;
+                use mach2::thread_status::*;
+                use mach2::traps::*;
+                use mach2::mach_types::*;
 
                 extern "C" {
                     fn task_set_exception_ports(
@@ -465,10 +467,20 @@ cfg_if::cfg_if! {
             };
         }
     } else if #[cfg(target_os = "windows")] {
-        use winapi::um::errhandlingapi::*;
-        use winapi::um::winnt::*;
-        use winapi::um::minwinbase::*;
-        use winapi::vc::excpt::*;
+        use windows_sys::Win32::System::Diagnostics::Debug::{
+            AddVectoredExceptionHandler,
+            CONTEXT,
+            EXCEPTION_CONTINUE_EXECUTION,
+            EXCEPTION_CONTINUE_SEARCH,
+            EXCEPTION_POINTERS,
+        };
+        use windows_sys::Win32::Foundation::{
+            EXCEPTION_ACCESS_VIOLATION,
+            EXCEPTION_ILLEGAL_INSTRUCTION,
+            EXCEPTION_INT_DIVIDE_BY_ZERO,
+            EXCEPTION_INT_OVERFLOW,
+            EXCEPTION_STACK_OVERFLOW,
+        };
 
         unsafe fn platform_init() {
             // our trap handler needs to go first, so that we can recover from
@@ -480,8 +492,8 @@ cfg_if::cfg_if! {
         }
 
         unsafe extern "system" fn exception_handler(
-            exception_info: PEXCEPTION_POINTERS
-        ) -> LONG {
+            exception_info: *mut EXCEPTION_POINTERS
+        ) -> i32 {
             // Check the kind of exception, since we only handle a subset within
             // wasm code. If anything else happens we want to defer to whatever
             // the rest of the system wants to do for this exception.
@@ -700,8 +712,8 @@ where
 // We also do per-thread signal stack initialization on the first time
 // TRAP_HANDLER is accessed.
 thread_local! {
-    static YIELDER: Cell<Option<NonNull<Yielder<(), UnwindReason>>>> = Cell::new(None);
-    static TRAP_HANDLER: AtomicPtr<TrapHandlerContext> = AtomicPtr::new(ptr::null_mut());
+    static YIELDER: Cell<Option<NonNull<Yielder<(), UnwindReason>>>> = const { Cell::new(None) };
+    static TRAP_HANDLER: AtomicPtr<TrapHandlerContext> = const { AtomicPtr::new(ptr::null_mut()) };
 }
 
 /// Read-only information that is used by signal handlers to handle and recover
@@ -993,7 +1005,7 @@ pub fn lazy_per_thread_init() -> Result<(), Trap> {
     // We need additional space on the stack to handle stack overflow
     // exceptions. Rust's initialization code sets this to 0x5000 but this
     // seems to be insufficient in practice.
-    use winapi::um::processthreadsapi::SetThreadStackGuarantee;
+    use windows_sys::Win32::System::Threading::SetThreadStackGuarantee;
     if unsafe { SetThreadStackGuarantee(&mut 0x10000) } == 0 {
         panic!("failed to set thread stack guarantee");
     }

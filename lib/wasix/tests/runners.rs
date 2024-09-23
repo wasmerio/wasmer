@@ -12,7 +12,7 @@ use reqwest::Client;
 use tokio::runtime::Handle;
 use wasmer::Engine;
 use wasmer_wasix::{
-    http::HttpClient,
+    http::{reqwest::get_proxy, HttpClient},
     runners::Runner,
     runtime::{
         module_cache::{FileSystemCache, ModuleCache, SharedCache},
@@ -229,10 +229,16 @@ async fn download_cached(url: &str) -> bytes::Bytes {
 }
 
 fn client() -> Client {
-    Client::builder()
-        .connect_timeout(Duration::from_secs(30))
-        .build()
-        .unwrap()
+    let builder = {
+        let mut builder = reqwest::ClientBuilder::new().connect_timeout(Duration::from_secs(30));
+        if let Some(proxy) = get_proxy().unwrap() {
+            builder = builder.proxy(proxy);
+        }
+        builder
+    };
+    let client = builder.build().unwrap();
+
+    client
 }
 
 #[cfg(not(target_os = "windows"))]

@@ -153,26 +153,10 @@ impl WasiInstanceHandles {
             .any(|f| f.name() == "stack_checkpoint");
         WasiInstanceHandles {
             memory,
-            stack_pointer: instance
-                .exports
-                .get_global("__stack_pointer")
-                .map(|a| a.clone())
-                .ok(),
-            data_end: instance
-                .exports
-                .get_global("__data_end")
-                .map(|a| a.clone())
-                .ok(),
-            stack_low: instance
-                .exports
-                .get_global("__stack_low")
-                .map(|a| a.clone())
-                .ok(),
-            stack_high: instance
-                .exports
-                .get_global("__stack_high")
-                .map(|a| a.clone())
-                .ok(),
+            stack_pointer: instance.exports.get_global("__stack_pointer").cloned().ok(),
+            data_end: instance.exports.get_global("__data_end").cloned().ok(),
+            stack_low: instance.exports.get_global("__stack_low").cloned().ok(),
+            stack_high: instance.exports.get_global("__stack_high").cloned().ok(),
             start: instance.exports.get_typed_function(store, "_start").ok(),
             initialize: instance
                 .exports
@@ -355,7 +339,7 @@ pub struct WasiEnv {
     /// time that it will pause the CPU)
     pub enable_exponential_cpu_backoff: Option<Duration>,
 
-    /// Flag that indicatees if the environment is currently replaying the journal
+    /// Flag that indicates if the environment is currently replaying the journal
     /// (and hence it should not record new events)
     pub replaying_journal: bool,
 
@@ -1000,11 +984,17 @@ impl WasiEnv {
         self.enable_journal && !self.replaying_journal
     }
 
+    /// Returns true if the environment has an active journal
+    #[cfg(feature = "journal")]
+    pub fn has_active_journal(&self) -> bool {
+        self.runtime().active_journal().is_some()
+    }
+
     /// Returns the active journal or fails with an error
     #[cfg(feature = "journal")]
     pub fn active_journal(&self) -> Result<&DynJournal, Errno> {
         self.runtime().active_journal().ok_or_else(|| {
-            tracing::warn!("failed to save thread exit as there is not active journal");
+            tracing::debug!("failed to save thread exit as there is not active journal");
             Errno::Fault
         })
     }
@@ -1088,9 +1078,9 @@ impl WasiEnv {
         tracing::trace!(package=%pkg.id, "merging package dependency into wasi environment");
         let root_fs = &self.state.fs.root_fs;
 
-        // We first need to copy any files in the package over to the
-        // main file system
-        if let Err(e) = InlineWaker::block_on(root_fs.merge(&pkg.webc_fs)) {
+        // We first need to merge the filesystem in the package into the
+        // main file system, if it has not been merged already.
+        if let Err(e) = InlineWaker::block_on(self.state.fs.conditional_union(pkg)) {
             tracing::warn!(
                 error = &e as &dyn std::error::Error,
                 "Unable to merge the package's filesystem into the main one",
@@ -1252,7 +1242,7 @@ impl WasiEnv {
 
         // If snap-shooting is enabled then we should record an event that the thread has exited.
         #[cfg(feature = "journal")]
-        if self.should_journal() {
+        if self.should_journal() && self.has_active_journal() {
             if let Err(err) = JournalEffector::save_thread_exit(self, self.tid(), exit_code) {
                 tracing::warn!("failed to save snapshot event for thread exit - {}", err);
             }

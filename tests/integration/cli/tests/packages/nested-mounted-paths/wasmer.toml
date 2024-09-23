@@ -1,0 +1,11 @@
+[[module]]
+name = "main"
+source = "main.o"
+
+[[command]]
+name = "main"
+module = "main"
+
+[fs]
+"/app/a" = "a"
+"/app/b" = "b"

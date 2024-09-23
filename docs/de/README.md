@@ -78,9 +78,9 @@ curl https://get.wasmer.io -sSfL | sh
   
   * <a href="https://crates.io/crates/wasmer-cli/">Cargo</a>
 
-    _Note: All the available
-    features are described in the [`wasmer-cli`
-    crate docs](https://github.com/wasmerio/wasmer/tree/main/lib/cli/README.md)_
+    _Notiz: Alle verfügbaren Merkmale sind in der [`wasmer-cli`
+    crate Dokumentation](https://github.com/wasmerio/wasmer/tree/main/lib/cli/README.md)
+    beschrieben._
 
     ```sh
     cargo install wasmer-cli

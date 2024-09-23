@@ -57,9 +57,9 @@ impl Compile {
                 Target::new(target_triple.clone(), features)
             })
             .unwrap_or_default();
-        let (store, compiler_type) = self.store.get_store_for_target(target.clone())?;
+        let (mut store, compiler_type) = self.store.get_store_for_target(target.clone())?;
 
-        let mut engine = store.engine().clone();
+        let engine = store.engine_mut();
         let hash_algorithm = self.hash_algorithm.unwrap_or_default().into();
         engine.set_hash_algorithm(Some(hash_algorithm));
 
@@ -80,7 +80,7 @@ impl Compile {
                 warning!("the output file has no extension. We recommend using `{}.{}` for the chosen target", &output_filename, &recommended_extension)
             }
         }
-        println!("Compiler: {}", compiler_type.to_string());
+        println!("Compiler: {}", compiler_type);
         println!("Target: {}", target.triple());
 
         let module = Module::from_file(&store, &self.path)?;

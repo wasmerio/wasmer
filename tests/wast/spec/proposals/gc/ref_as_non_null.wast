@@ -2,10 +2,10 @@
   (type $t (func (result i32)))
 
   (func $nn (param $r (ref $t)) (result i32)
-    (call_ref (ref.as_non_null (local.get $r)))
+    (call_ref $t (ref.as_non_null (local.get $r)))
   )
   (func $n (param $r (ref null $t)) (result i32)
-    (call_ref (ref.as_non_null (local.get $r)))
+    (call_ref $t (ref.as_non_null (local.get $r)))
   )
 
   (elem func $f)

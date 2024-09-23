@@ -60,6 +60,10 @@ pub struct AppConfigV1 {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub domains: Option<Vec<String>>,
 
+    /// Location-related configuration for the app.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub locality: Option<Locality>,
+
     /// Environment variables.
     #[serde(default, skip_serializing_if = "HashMap::is_empty")]
     pub env: HashMap<String, String>,
@@ -88,9 +92,19 @@ pub struct AppConfigV1 {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub scaling: Option<AppScalingConfigV1>,
 
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub redirect: Option<Redirect>,
+
     /// Capture extra fields for forwards compatibility.
     #[serde(flatten)]
     pub extra: HashMap<String, serde_json::Value>,
+}
+
+#[derive(
+    serde::Serialize, serde::Deserialize, schemars::JsonSchema, Clone, Debug, PartialEq, Eq,
+)]
+pub struct Locality {
+    pub regions: Vec<String>,
 }
 
 #[derive(
@@ -114,17 +128,7 @@ pub enum AppScalingModeV1 {
 )]
 pub struct AppVolume {
     pub name: String,
-    pub mounts: Vec<AppVolumeMount>,
-}
-
-#[derive(
-    serde::Serialize, serde::Deserialize, schemars::JsonSchema, Clone, Debug, PartialEq, Eq,
-)]
-pub struct AppVolumeMount {
-    /// Path to mount the volume at.
-    pub mount_path: String,
-    /// Sub-path within the volume to mount.
-    pub sub_path: Option<String>,
+    pub mount: String,
 }
 
 #[derive(
@@ -254,6 +258,16 @@ pub struct AppConfigCapabilityInstaBootV1 {
     pub max_age: Option<String>,
 }
 
+/// App redirect configuration.
+#[derive(
+    serde::Serialize, serde::Deserialize, schemars::JsonSchema, Clone, Debug, PartialEq, Eq,
+)]
+pub struct Redirect {
+    /// Force https by redirecting http requests to https automatically.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub force_https: Option<bool>,
+}
+
 #[cfg(test)]
 mod tests {
     use pretty_assertions::assert_eq;
@@ -273,6 +287,11 @@ env:
 cli_args:
   - arg1
   - arg2
+locality: 
+  regions: 
+    - eu-rome
+redirect:
+  force_https: true
 scheduled_tasks:
   - name: backup
     schedule: 1day
@@ -308,26 +327,6 @@ scheduled_tasks:
                 scaling: None,
                 scheduled_tasks: Some(vec![AppScheduledTask {
                     name: "backup".to_string(),
-                    // spec: CronJobSpecV1 {
-                    //     schedule: "1day".to_string(),
-                    //     max_schedule_drift: None,
-                    //     job: crate::schema::JobDefinition {
-                    //         max_retries: Some(3),
-                    //         timeout: Some(std::time::Duration::from_secs(10 * 60).into()),
-                    //         invoke: crate::schema::JobInvoke::Fetch(
-                    //             crate::schema::JobInvokeFetch {
-                    //                 url: "/api/do-backup".parse().unwrap(),
-                    //                 headers: Some(
-                    //                     [("h1".to_string(), "v1".to_string())]
-                    //                         .into_iter()
-                    //                         .collect()
-                    //                 ),
-                    //                 success_status_codes: Some(vec![200, 201]),
-                    //                 method: None,
-                    //             }
-                    //         )
-                    //     },
-                    // }
                 }]),
                 health_checks: None,
                 extra: [(
@@ -337,7 +336,48 @@ scheduled_tasks:
                 .into_iter()
                 .collect(),
                 debug: Some(true),
+                redirect: Some(Redirect {
+                    force_https: Some(true)
+                }),
+                locality: Some(Locality {
+                    regions: vec!["eu-rome".to_string()]
+                })
             }
         );
+    }
+
+    #[test]
+    fn test_app_config_v1_volumes() {
+        let config = r#"
+kind: wasmer.io/App.v0
+name: test
+package: ns/name@0.1.0
+volumes:
+  - name: vol1
+    mount: /vol1
+  - name: vol2
+    mount: /vol2
+
+"#;
+
+        let parsed = AppConfigV1::parse_yaml(config).unwrap();
+        let expected_volumes = vec![
+            AppVolume {
+                name: "vol1".to_string(),
+                mount: "/vol1".to_string(),
+            },
+            AppVolume {
+                name: "vol2".to_string(),
+                mount: "/vol2".to_string(),
+            },
+        ];
+        if let Some(actual_volumes) = parsed.volumes {
+            assert_eq!(actual_volumes, expected_volumes);
+        } else {
+            panic!(
+                "Parsed volumes are None, expected Some({:?})",
+                expected_volumes
+            );
+        }
     }
 }

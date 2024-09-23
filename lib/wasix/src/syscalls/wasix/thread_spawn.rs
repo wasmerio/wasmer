@@ -30,7 +30,7 @@ use wasmer_wasix_types::wasi::ThreadStart;
 ///
 /// Returns the thread index of the newly created thread
 /// (indices always start from the same value as `pid` and increments in steps)
-//#[instrument(level = "debug", skip_all, ret)]
+#[instrument(level = "debug", skip_all, ret)]
 pub fn thread_spawn_v2<M: MemorySize>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     start_ptr: WasmPtr<ThreadStart<M>, M>,
@@ -42,6 +42,13 @@ pub fn thread_spawn_v2<M: MemorySize>(
     // Success
     let memory = unsafe { ctx.data().memory_view(&ctx) };
     wasi_try_mem!(ret_tid.write(&memory, tid));
+
+    tracing::debug!(
+        tid,
+        from_tid = ctx.data().thread.id().raw(),
+        "spawned new thread"
+    );
+
     Errno::Success
 }
 
@@ -59,10 +66,10 @@ pub fn thread_spawn_internal_from_wasi<M: MemorySize>(
     // Read the properties about the stack which we will use for asyncify
     let layout = {
         let start: ThreadStart<M> = start_ptr.read(&memory).map_err(mem_error_to_wasi)?;
-        let stack_upper: u64 = start.stack_upper.try_into().map_err(|_| Errno::Overflow)?;
-        let stack_size: u64 = start.stack_size.try_into().map_err(|_| Errno::Overflow)?;
-        let guard_size: u64 = start.guard_size.try_into().map_err(|_| Errno::Overflow)?;
-        let tls_base: u64 = start.tls_base.try_into().map_err(|_| Errno::Overflow)?;
+        let stack_upper: u64 = start.stack_upper.into();
+        let stack_size: u64 = start.stack_size.into();
+        let guard_size: u64 = start.guard_size.into();
+        let tls_base: u64 = start.tls_base.into();
         let stack_lower = stack_upper - stack_size;
 
         WasiMemoryLayout {
@@ -72,7 +79,11 @@ pub fn thread_spawn_internal_from_wasi<M: MemorySize>(
             stack_size,
         }
     };
-    tracing::trace!("spawn with layout {:?}", layout);
+    tracing::trace!(
+        from_tid = env.thread.id().raw(),
+        "thread_spawn with layout {:?}",
+        layout
+    );
 
     // Create the handle that represents this thread
     let thread_start = ThreadStartType::ThreadSpawn {

@@ -134,18 +134,26 @@ impl WasiFunctionEnv {
     ) -> Result<(), ExportError> {
         let is_wasix_module = crate::utils::is_wasix_module(instance.module());
 
-        // First we get the malloc function which if it exists will be used to
-        // create the pthread_self structure
-        let memory = instance.exports.get_memory("memory").map_or_else(
-            |e| {
-                if let Some(memory) = memory {
-                    Ok(memory)
+        let exported_memory = instance
+            .exports
+            .iter()
+            .filter_map(|(_, export)| {
+                if let wasmer::Extern::Memory(memory) = export {
+                    Some(memory.clone())
                 } else {
-                    Err(e)
+                    None
                 }
-            },
-            |v| Ok(v.clone()),
-        )?;
+            })
+            .next();
+        let memory = match (exported_memory, memory) {
+            (Some(memory), _) => memory,
+            (None, Some(memory)) => memory,
+            (None, None) => {
+                return Err(ExportError::Missing(
+                    "No imported or exported memory found".to_string(),
+                ))
+            }
+        };
 
         let new_inner = WasiInstanceHandles::new(memory, store, instance);
 
@@ -191,10 +199,17 @@ impl WasiFunctionEnv {
                     _ => 0,
                 }
             } else if let Some(data_end) = data_end {
-                match data_end.get(store) {
+                let data_end = match data_end.get(store) {
                     wasmer::Value::I32(a) => a as u64,
                     wasmer::Value::I64(a) => a as u64,
                     _ => 0,
+                };
+                // It's possible for the data section to be above the stack, we check for that here and
+                // if it is, we'll assume the stack starts at address 0
+                if data_end >= stack_base {
+                    0
+                } else {
+                    data_end
                 }
             } else {
                 // clang-16 and higher generate the `__stack_low` global, and it can be exported with
@@ -290,10 +305,13 @@ impl WasiFunctionEnv {
     ///
     #[allow(clippy::result_large_err)]
     #[allow(unused_variables, unused_mut)]
+    #[tracing::instrument(skip_all)]
     pub unsafe fn bootstrap(
         &self,
         mut store: &'_ mut impl AsStoreMut,
     ) -> Result<RewindStateOption, WasiRuntimeError> {
+        tracing::debug!("bootstrap start");
+
         #[allow(unused_mut)]
         let mut rewind_state = None;
 
@@ -303,6 +321,7 @@ impl WasiFunctionEnv {
             // prevent the initialization function from running
             let restore_journals = self.data(&store).runtime.journals().clone();
             if !restore_journals.is_empty() {
+                tracing::trace!("replaying journal=true");
                 self.data_mut(&mut store).replaying_journal = true;
 
                 for journal in restore_journals {
@@ -310,6 +329,7 @@ impl WasiFunctionEnv {
                     let rewind = match restore_snapshot(ctx, journal, true) {
                         Ok(r) => r,
                         Err(err) => {
+                            tracing::trace!("replaying journal=false (err={:?})", err);
                             self.data_mut(&mut store).replaying_journal = false;
                             return Err(err);
                         }
@@ -317,6 +337,7 @@ impl WasiFunctionEnv {
                     rewind_state = rewind.map(|rewind| (rewind, RewindResultType::RewindRestart));
                 }
 
+                tracing::trace!("replaying journal=false");
                 self.data_mut(&mut store).replaying_journal = false;
             }
 
@@ -356,6 +377,8 @@ impl WasiFunctionEnv {
                 })?;
             }
         }
+
+        tracing::debug!("bootstrap complete");
 
         Ok(rewind_state)
     }

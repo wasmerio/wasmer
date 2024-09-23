@@ -167,10 +167,7 @@ impl Config {
 
     /// Set callbacks that will be triggered at various points in the runner's
     /// lifecycle.
-    pub fn callbacks(
-        &mut self,
-        callbacks: impl wcgi::Callbacks + Send + Sync + 'static,
-    ) -> &mut Self {
+    pub fn callbacks(&mut self, callbacks: impl wcgi::Callbacks + 'static) -> &mut Self {
         self.inner.callbacks(callbacks);
         self
     }

@@ -1,6 +1,8 @@
+use std::{path::Path, str::FromStr};
+
 use anyhow::{bail, Context};
 use colored::Colorize;
-use dialoguer::Confirm;
+use dialoguer::{theme::ColorfulTheme, Confirm};
 use wasmer_api::{
     global_id::{GlobalId, NodeKind},
     types::DeployApp,
@@ -9,8 +11,8 @@ use wasmer_api::{
 use wasmer_config::app::AppConfigV1;
 
 use crate::{
-    commands::Login,
-    opts::{ApiOpts, WasmerEnv},
+    commands::{AsyncCliCommand, Login},
+    config::WasmerEnv,
 };
 
 /// App identifier.
@@ -92,29 +94,6 @@ impl std::str::FromStr for AppIdent {
             Ok(Self::Name(s.to_string()))
         }
     }
-}
-
-pub fn get_app_config_from_current_dir() -> Result<(AppConfigV1, std::path::PathBuf), anyhow::Error>
-{
-    // read the information from local `app.yaml
-    let current_dir = std::env::current_dir()?;
-    let app_config_path = current_dir.join(AppConfigV1::CANONICAL_FILE_NAME);
-
-    if !app_config_path.exists() || !app_config_path.is_file() {
-        bail!(
-            "Could not find app.yaml at path: '{}'.\nPlease specify an app like 'wasmer app get <namespace>/<name>' or 'wasmer app get <name>`'",
-            app_config_path.display()
-        );
-    }
-    // read the app.yaml
-    let raw_app_config = std::fs::read_to_string(&app_config_path)
-        .with_context(|| format!("Could not read file '{}'", app_config_path.display()))?;
-
-    // parse the app.yaml
-    let config = AppConfigV1::parse_yaml(&raw_app_config)
-        .map_err(|err| anyhow::anyhow!("Could not parse app.yaml: {err:?}"))?;
-
-    Ok((config, app_config_path))
 }
 
 /// Options for identifying an app.
@@ -218,19 +197,34 @@ mod tests {
     }
 }
 
+/// A utility struct used by commands that need the [`AppIdent`] as a flag.
+///
+/// NOTE: Differently from [`AppIdentOpts`], the use of this struct does not entail searching the
+/// current directory for an `app.yaml` if not specified.
+#[derive(clap::Parser, Debug)]
+pub struct AppIdentFlag {
+    /// Identifier of the application.
+    ///
+    /// Valid input:
+    /// - namespace/app-name
+    /// - app-alias
+    /// - App ID
+    #[clap(long)]
+    pub app: Option<AppIdent>,
+}
+
 pub(super) async fn login_user(
-    api: &ApiOpts,
     env: &WasmerEnv,
     interactive: bool,
     msg: &str,
 ) -> anyhow::Result<WasmerClient> {
-    if let Ok(client) = api.client() {
+    if let Ok(client) = env.client() {
         return Ok(client);
     }
 
     let theme = dialoguer::theme::ColorfulTheme::default();
 
-    if api.token.is_none() {
+    if env.token().is_none() {
         if interactive {
             eprintln!(
                 "{}: You need to be logged in to {msg}.",
@@ -243,13 +237,10 @@ pub(super) async fn login_user(
             {
                 Login {
                     no_browser: false,
-                    wasmer_dir: env.wasmer_dir.clone(),
-                    registry: api
-                        .registry
-                        .clone()
-                        .map(|l| wasmer_registry::wasmer_env::Registry::from(l.to_string())),
-                    token: api.token.clone(),
-                    cache_dir: Some(env.cache_dir.clone()),
+                    wasmer_dir: env.dir().to_path_buf(),
+                    cache_dir: env.cache_dir().to_path_buf(),
+                    token: None,
+                    registry: env.registry.clone(),
                 }
                 .run_async()
                 .await?;
@@ -268,5 +259,48 @@ pub(super) async fn login_user(
         }
     }
 
-    api.client()
+    env.client()
+}
+
+pub fn get_app_config_from_dir(
+    path: &Path,
+) -> Result<(AppConfigV1, std::path::PathBuf), anyhow::Error> {
+    let app_config_path = path.join(AppConfigV1::CANONICAL_FILE_NAME);
+
+    if !app_config_path.exists() || !app_config_path.is_file() {
+        bail!(
+            "Could not find app.yaml at path: '{}'.\nPlease specify an app like 'wasmer app get <namespace>/<name>' or 'wasmer app get <name>`'",
+            app_config_path.display()
+        );
+    }
+    // read the app.yaml
+    let raw_app_config = std::fs::read_to_string(&app_config_path)
+        .with_context(|| format!("Could not read file '{}'", app_config_path.display()))?;
+
+    // parse the app.yaml
+    let config = AppConfigV1::parse_yaml(&raw_app_config)
+        .map_err(|err| anyhow::anyhow!("Could not parse app.yaml: {err:?}"))?;
+
+    Ok((config, app_config_path))
+}
+
+pub fn get_app_config_from_current_dir() -> Result<(AppConfigV1, std::path::PathBuf), anyhow::Error>
+{
+    let current_dir = std::env::current_dir()?;
+    get_app_config_from_dir(&current_dir)
+}
+
+/// Prompt for an app ident.
+#[allow(dead_code)]
+pub(crate) fn prompt_app_ident(message: &str) -> Result<AppIdent, anyhow::Error> {
+    let theme = ColorfulTheme::default();
+    loop {
+        let ident: String = dialoguer::Input::with_theme(&theme)
+            .with_prompt(message)
+            .interact_text()?;
+        match AppIdent::from_str(&ident) {
+            Ok(id) => break Ok(id),
+            Err(e) => eprintln!("{e}"),
+        }
+    }
 }

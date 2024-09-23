@@ -452,7 +452,7 @@ mod tests {
                 .collect::<Vec<_>>()
         );
 
-        file.resize(33, 01u8);
+        file.resize(33, 1u8);
 
         cursor = 0;
         let mut result = std::iter::repeat(0u8).take(33).collect::<Vec<_>>();

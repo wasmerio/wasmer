@@ -111,41 +111,41 @@ fn complex_loop(mut config: crate::Config) -> Result<()> {
         (local $l0 i32)
         block $B0
             i32.const 0
-            set_local $l0
+            local.set $l0
             loop $L1
-            get_local $l0
-            get_local $p0
+            local.get $l0
+            local.get $p0
             i32.lt_s
             i32.eqz
             br_if $B0
-            get_local $l0
+            local.get $l0
             i32.const 1
             i32.rem_s
             i32.const 0
             i32.eq
             if $I2
-                get_local $p1
-                get_local $l0
+                local.get $p1
+                local.get $l0
                 i32.add
-                set_local $p1
+                local.set $p1
             else
-                get_local $p1
-                get_local $l0
+                local.get $p1
+                local.get $l0
                 i32.mul
-                set_local $p1
+                local.set $p1
             end
-            get_local $l0
+            local.get $l0
             i32.const 1
             i32.add
-            set_local $l0
+            local.set $l0
             br $L1
             unreachable
             end
             unreachable
         end
-        get_local $p1)
+        local.get $p1)
         (func $f1 (type $t1))
-        (table $table (export "table") 1 anyfunc)
+        (table $table (export "table") 1 funcref)
         (memory $memory (export "memory") 0)
         (global $g0 i32 (i32.const 8))
         (elem (i32.const 0) $f1))

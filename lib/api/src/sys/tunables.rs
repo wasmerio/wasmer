@@ -69,8 +69,7 @@ mod tests {
     impl VMTinyMemory {
         pub fn new() -> Result<Self, MemoryError> {
             let sz = 18 * WASM_PAGE_SIZE;
-            let mut memory = Vec::new();
-            memory.resize(sz, 0);
+            let memory = vec![0; sz];
             let mut ret = Self {
                 mem: memory,
                 memory_definition: None,
@@ -256,9 +255,8 @@ mod tests {
     }
 
     #[test]
-    fn check_customtunables() -> Result<(), Box<dyn std::error::Error>> {
+    fn check_custom_tunables() -> Result<(), Box<dyn std::error::Error>> {
         use crate::{imports, wat2wasm, Engine, Instance, Memory, Module, Store};
-        use wasmer_compiler_cranelift::Cranelift;
 
         let wasm_bytes = wat2wasm(
             br#"(module
@@ -268,7 +266,16 @@ mod tests {
             (data (;0;) (i32.const 1048576) "*\00\00\00")
           )"#,
         )?;
-        let compiler = Cranelift::default();
+
+        cfg_if::cfg_if! {
+            if #[cfg(feature = "singlepass")] {
+                let compiler =  wasmer_compiler_singlepass::Singlepass::default();
+            } else if #[cfg(feature = "llvm")] {
+                let compiler =  wasmer_compiler_llvm::LLVM::default();
+            } else {
+                let compiler =  wasmer_compiler_cranelift::Cranelift::default();
+            }
+        }
 
         let tunables = TinyTunables {};
         #[allow(deprecated)]
@@ -304,6 +311,7 @@ mod tests {
             all(target_os = "macos", target_arch = "aarch64")
         ))
     ))]
+    #[allow(clippy::print_stdout)]
     fn check_small_stack() -> Result<(), Box<dyn std::error::Error>> {
         use crate::{imports, wat2wasm, Engine, Instance, Module, Store};
         use wasmer_compiler_singlepass::Singlepass;

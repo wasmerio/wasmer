@@ -3,7 +3,7 @@
 #![deny(missing_docs, trivial_numeric_casts, unused_extern_crates)]
 #![deny(trivial_numeric_casts, unused_extern_crates)]
 #![warn(unused_import_braces)]
-#![allow(clippy::new_without_default, clippy::vtable_address_comparisons)]
+#![allow(clippy::new_without_default, ambiguous_wide_pointer_comparisons)]
 #![warn(
     clippy::float_arithmetic,
     clippy::mut_mut,
@@ -88,17 +88,6 @@ impl std::ops::Deref for SectionBodyPtr {
 #[repr(C)]
 pub struct VMFunctionBody(u8);
 
-#[cfg(test)]
-mod test_vmfunction_body {
-    use super::VMFunctionBody;
-    use std::mem::size_of;
-
-    #[test]
-    fn check_vmfunction_body_offsets() {
-        assert_eq!(size_of::<VMFunctionBody>(), 1);
-    }
-}
-
 /// A safe wrapper around `VMFunctionBody`.
 #[derive(Clone, Copy, Debug)]
 #[repr(transparent)]
@@ -140,5 +129,16 @@ impl VMFuncRef {
     /// `raw.funcref` must be a valid pointer.
     pub unsafe fn from_raw(raw: RawValue) -> Option<Self> {
         NonNull::new(raw.funcref as *mut VMCallerCheckedAnyfunc).map(Self)
+    }
+}
+
+#[cfg(test)]
+mod test_vmfunction_body {
+    use super::VMFunctionBody;
+    use std::mem::size_of;
+
+    #[test]
+    fn check_vmfunction_body_offsets() {
+        assert_eq!(size_of::<VMFunctionBody>(), 1);
     }
 }

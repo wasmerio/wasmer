@@ -3,7 +3,7 @@ use crate::{
         package::common::{macros::*, wait::wait_package, *},
         AsyncCliCommand,
     },
-    opts::{ApiOpts, WasmerEnv},
+    config::WasmerEnv,
 };
 use anyhow::Context;
 use colored::Colorize;
@@ -14,16 +14,15 @@ use std::{
     str::FromStr,
 };
 use wasmer_api::WasmerClient;
-use wasmer_config::package::{Manifest, NamedPackageId, PackageBuilder, PackageHash, PackageIdent};
+use wasmer_config::package::{
+    Manifest, NamedPackageId, NamedPackageIdent, PackageBuilder, PackageHash, PackageIdent,
+};
 
 use super::PublishWait;
 
 /// Tag an existing package.
 #[derive(Debug, clap::Parser)]
 pub struct PackageTag {
-    #[clap(flatten)]
-    pub api: ApiOpts,
-
     #[clap(flatten)]
     pub env: WasmerEnv,
 
@@ -66,11 +65,14 @@ pub struct PackageTag {
     #[clap(name = "hash")]
     pub package_hash: PackageHash,
 
-    ///
+    /// The package to tag.
+    #[clap(name = "package_ident")]
+    pub package_id: Option<NamedPackageIdent>,
+
     /// Directory containing the `wasmer.toml`, or a custom *.toml manifest file.
     ///
     /// Defaults to current working directory.
-    #[clap(name = "path", default_value = ".")]
+    #[clap(long = "path", default_value = ".")]
     pub package_path: PathBuf,
 
     /// Wait for package to be available on the registry before exiting.
@@ -88,11 +90,17 @@ pub struct PackageTag {
 impl PackageTag {
     async fn update_manifest_name(
         &self,
-        manifest_path: &Path,
-        manifest: &Manifest,
+        manifest_path: Option<&Path>,
+        manifest: Option<&Manifest>,
         full_name: &str,
-    ) -> anyhow::Result<Manifest> {
-        let mut new_manifest = manifest.clone();
+    ) -> anyhow::Result<Option<Manifest>> {
+        if manifest_path.is_none() && manifest.is_none() {
+            return Ok(None);
+        }
+
+        let mut new_manifest = manifest.cloned().unwrap();
+        let manifest_path = manifest_path.unwrap();
+
         if let Some(pkg) = &mut new_manifest.package {
             pkg.name = Some(full_name.to_string());
         } else {
@@ -106,16 +114,22 @@ impl PackageTag {
             .await
             .context("while trying to serialize the manifest")?;
 
-        Ok(new_manifest)
+        Ok(Some(new_manifest))
     }
 
     async fn update_manifest_version(
         &self,
-        manifest_path: &Path,
-        manifest: &Manifest,
+        manifest_path: Option<&Path>,
+        manifest: Option<&Manifest>,
         user_version: &semver::Version,
-    ) -> anyhow::Result<Manifest> {
-        let mut new_manifest = manifest.clone();
+    ) -> anyhow::Result<Option<Manifest>> {
+        if manifest_path.is_none() && manifest.is_none() {
+            return Ok(None);
+        }
+
+        let mut new_manifest = manifest.cloned().unwrap();
+        let manifest_path = manifest_path.unwrap();
+
         if let Some(pkg) = &mut new_manifest.package {
             pkg.version = Some(user_version.clone());
         } else {
@@ -131,14 +145,15 @@ impl PackageTag {
             .await
             .context("while trying to serialize the manifest")?;
 
-        Ok(new_manifest)
+        Ok(Some(new_manifest))
     }
 
+    #[tracing::instrument]
     async fn do_tag(
         &self,
         client: &WasmerClient,
         id: &NamedPackageId,
-        manifest: &Manifest,
+        manifest: Option<&Manifest>,
         package_release_id: &wasmer_api::types::Id,
     ) -> anyhow::Result<()> {
         tracing::info!(
@@ -151,24 +166,27 @@ impl PackageTag {
 
         let NamedPackageId { full_name, version } = id;
         let maybe_description = manifest
-            .package
-            .as_ref()
+            .and_then(|m| m.package.as_ref())
             .and_then(|p| p.description.clone());
-        let maybe_homepage = manifest.package.as_ref().and_then(|p| p.homepage.clone());
-        let maybe_license = manifest.package.as_ref().and_then(|p| p.license.clone());
+        let maybe_homepage = manifest
+            .and_then(|m| m.package.as_ref())
+            .and_then(|p| p.homepage.clone());
+        let maybe_license = manifest
+            .and_then(|m| m.package.as_ref())
+            .and_then(|p| p.license.clone());
         let maybe_license_file = manifest
-            .package
-            .as_ref()
+            .and_then(|m| m.package.as_ref())
             .and_then(|p| p.license_file.clone())
             .map(|f| f.to_string_lossy().to_string());
         let maybe_readme = manifest
-            .package
-            .as_ref()
+            .and_then(|m| m.package.as_ref())
             .and_then(|p| p.readme.clone())
             .map(|f| f.to_string_lossy().to_string());
-        let maybe_repository = manifest.package.as_ref().and_then(|p| p.repository.clone());
+        let maybe_repository = manifest
+            .and_then(|m| m.package.as_ref())
+            .and_then(|p| p.repository.clone());
 
-        let private = if let Some(pkg) = &manifest.package {
+        let private = if let Some(pkg) = &manifest.and_then(|m| m.package.as_ref()) {
             Some(pkg.private)
         } else {
             Some(false)
@@ -176,7 +194,11 @@ impl PackageTag {
 
         let version = version.to_string();
 
-        let manifest_raw = toml::to_string(&manifest)?;
+        let manifest_raw = if let Some(manifest) = manifest {
+            Some(toml::to_string(&manifest)?)
+        } else {
+            None
+        };
 
         let r = wasmer_api::query::tag_package_release(
             client,
@@ -184,7 +206,7 @@ impl PackageTag {
             maybe_homepage.as_deref(),
             maybe_license.as_deref(),
             maybe_license_file.as_deref(),
-            &manifest_raw,
+            manifest_raw.as_deref(),
             full_name,
             None,
             package_release_id,
@@ -276,12 +298,21 @@ impl PackageTag {
         Ok(pkg.id)
     }
 
-    fn get_name(&self, manifest: &Manifest, allow_unnamed: bool) -> anyhow::Result<Option<String>> {
+    fn get_name(
+        &self,
+        manifest: Option<&Manifest>,
+        allow_unnamed: bool,
+    ) -> anyhow::Result<Option<String>> {
+        if let Some(name) = &self.package_id.as_ref().map(|id| id.name.clone()) {
+            return Ok(Some(name.clone()));
+        }
+
+        // REMOVE ME: This is here for backwards compatibility, but we should remove the flag.
         if let Some(name) = &self.package_name {
             return Ok(Some(name.clone()));
         }
 
-        if let Some(pkg) = &manifest.package {
+        if let Some(pkg) = &manifest.and_then(|m| m.package.as_ref()) {
             if let Some(ns) = &pkg.name {
                 if let Some(name) = ns.split('/').nth(1) {
                     return Ok(Some(name.to_string()));
@@ -311,13 +342,18 @@ impl PackageTag {
     async fn get_namespace(
         &self,
         client: &WasmerClient,
-        manifest: &Manifest,
+        manifest: Option<&Manifest>,
     ) -> anyhow::Result<String> {
+        if let Some(namespace) = self.package_id.as_ref().and_then(|id| id.namespace.clone()) {
+            return Ok(namespace);
+        }
+
+        // REMOVE ME: This is here for backwards compatibility, but we should remove the flag.
         if let Some(namespace) = &self.package_namespace {
             return Ok(namespace.clone());
         }
 
-        if let Some(pkg) = &manifest.package {
+        if let Some(pkg) = manifest.and_then(|m| m.package.clone()) {
             if let Some(name) = &pkg.name {
                 if let Some(ns) = name.split('/').next() {
                     return Ok(ns.to_string());
@@ -335,18 +371,28 @@ impl PackageTag {
     }
 
     async fn get_version(
-        &self,
+        &mut self,
         client: &WasmerClient,
-        manifest: &Manifest,
-        manifest_path: &Path,
+        manifest: Option<&Manifest>,
+        manifest_path: Option<&Path>,
         full_pkg_name: &str,
     ) -> anyhow::Result<semver::Version> {
+        if let Some(wasmer_config::package::Tag::VersionReq(r)) =
+            self.package_id.as_ref().and_then(|id| id.tag.clone())
+        {
+            let mut version = r.to_string();
+            version.remove(0);
+            let version = semver::Version::parse(&version)?;
+            return Ok(version);
+        }
+
+        // REMOVE ME: This is here for backwards compatibility, but we should remove the flag.
         if let Some(version) = &self.package_version {
             // If a user specified a version, then they meant it.
             return Ok(version.clone());
         }
 
-        let user_version = if let Some(pkg) = &manifest.package {
+        let user_version = if let Some(pkg) = manifest.and_then(|m| m.package.as_ref()) {
             pkg.version.clone()
         } else {
             None
@@ -377,6 +423,26 @@ impl PackageTag {
                 registry_version.clone()
             };
 
+            // Must necessarily bump if there's a package with the chosen version with a different hash.
+            let must_bump = {
+                let maybe_pkg = wasmer_api::query::get_package_version(
+                    client,
+                    full_pkg_name.to_string(),
+                    user_version.to_string(),
+                )
+                .await?;
+                let maybe_hash = maybe_pkg
+                    .as_ref()
+                    .and_then(|p| p.distribution_v3.pirita_sha256_hash.clone());
+
+                if let Some(hash) = maybe_hash {
+                    let registry_package_hash = PackageHash::from_str(&format!("sha256:{hash}"))?;
+                    registry_package_hash != self.package_hash
+                } else {
+                    false
+                }
+            };
+
             if user_version <= registry_version {
                 if self.bump {
                     user_version = registry_version.clone();
@@ -385,12 +451,34 @@ impl PackageTag {
                     let theme = ColorfulTheme::default();
                     let mut new_version = registry_version.clone();
                     new_version.patch += 1;
-                    if Confirm::with_theme(&theme)
-                        .with_prompt(format!("Do you want to bump the package's version ({user_version} -> {new_version})?"))
-                            .interact()? {
+                    if must_bump {
+                        eprintln!("{}: Registry already has version {user_version} of {full_pkg_name}, but with different contents.", "Warn".bold().yellow());
+                        eprintln!(
+                            "{}: Not bumping the version will make this action fail.",
+                            "Warn".bold().yellow()
+                        );
+                        let res = Confirm::with_theme(&theme)
+                            .with_prompt(format!("Continue ({user_version} -> {new_version})?"))
+                            .interact()?;
+                        if res {
                             user_version = new_version.clone();
-                            self.update_manifest_version(manifest_path, manifest, &user_version).await?;
-                       }
+                            self.update_manifest_version(manifest_path, manifest, &user_version)
+                                .await?;
+                        } else {
+                            anyhow::bail!(
+                                "Refusing to map two different releases of {full_pkg_name} to the same version."
+                            )
+                        }
+                    } else {
+                        let res = Confirm::with_theme(&theme)
+                        .with_prompt(format!("Do you want to bump the package's version ({user_version} -> {new_version})?"))
+                            .interact()?;
+                        if res {
+                            user_version = new_version.clone();
+                            self.update_manifest_version(manifest_path, manifest, &user_version)
+                                .await?;
+                        }
+                    }
                 }
             }
 
@@ -402,7 +490,9 @@ impl PackageTag {
                 Some(v) => Ok(v),
                 None => {
                     if self.non_interactive {
-                        anyhow::bail!("No package name specified: use --version <package_version>")
+                        anyhow::bail!(
+                            "No package version specified: use --version <package_version>"
+                        )
                     } else {
                         let version = crate::utils::prompts::prompt_for_package_version(
                             "Enter the package version",
@@ -420,10 +510,10 @@ impl PackageTag {
     }
 
     async fn synthesize_id(
-        &self,
+        &mut self,
         client: &WasmerClient,
-        manifest: &Manifest,
-        manifest_path: &Path,
+        manifest: Option<&Manifest>,
+        manifest_path: Option<&Path>,
         allow_unnamed: bool,
     ) -> anyhow::Result<Option<NamedPackageId>> {
         let name = match self.get_name(manifest, allow_unnamed)? {
@@ -433,7 +523,7 @@ impl PackageTag {
 
         let namespace = self.get_namespace(client, manifest).await?;
         let full_name = format!("{namespace}/{name}");
-        let should_update_name = match &manifest.package {
+        let should_update_name = match &manifest.and_then(|m| m.package.as_ref()) {
             Some(pkg) => match &pkg.name {
                 Some(n) => n.as_str() != full_name.as_str(),
                 None => true,
@@ -445,24 +535,25 @@ impl PackageTag {
             self.update_manifest_name(manifest_path, manifest, &full_name)
                 .await?
         } else {
-            manifest.clone()
+            manifest.cloned()
         };
 
         let version = self
-            .get_version(client, &manifest, manifest_path, &full_name)
+            .get_version(client, manifest.as_ref(), manifest_path, &full_name)
             .await?;
 
         Ok(Some(NamedPackageId { full_name, version }))
     }
 
     pub async fn tag(
-        &self,
+        &mut self,
         client: &WasmerClient,
-        manifest: &Manifest,
-        manifest_path: &Path,
+        manifest: Option<&Manifest>,
+        manifest_path: Option<&Path>,
         after_push: bool,
         allow_unnamed: bool,
     ) -> anyhow::Result<PackageIdent> {
+        tracing::debug!("{:?}", self);
         let package_id = self
             .get_package_id(client, &self.package_hash, after_push)
             .await?;
@@ -490,21 +581,33 @@ impl PackageTag {
 
     // Check if a package with the same hash, namespace, name and version already exists. In such a
     // case, don't tag the package again.
+    #[tracing::instrument]
     async fn should_tag(&self, client: &WasmerClient, id: &NamedPackageId) -> anyhow::Result<bool> {
-        if let Some(pkg) = wasmer_api::query::get_package_version(
+        if self.dry_run {
+            if !self.quiet {
+                eprintln!("Skipping tagging {id} as `--dry-run` was set");
+            }
+            return Ok(false);
+        }
+
+        let pkg = wasmer_api::query::get_package_version(
             client,
             id.full_name.clone(),
             id.version.to_string(),
         )
-        .await?
+        .await?;
+
+        if let Some(hash) = pkg
+            .as_ref()
+            .and_then(|p| p.distribution_v3.pirita_sha256_hash.as_ref())
         {
-            if let Some(hash) = pkg.distribution_v3.pirita_sha256_hash {
-                let registry_package_hash = PackageHash::from_str(&format!("sha256:{hash}"))?;
-                if registry_package_hash == self.package_hash {
-                    return Ok(false);
-                }
+            let registry_package_hash = PackageHash::from_str(&format!("sha256:{hash}"))?;
+            if registry_package_hash == self.package_hash {
+                tracing::info!("decided not to tag as package {pkg:?} already exists");
+                return Ok(false);
             }
         }
+
         Ok(true)
     }
 }
@@ -513,17 +616,26 @@ impl PackageTag {
 impl AsyncCliCommand for PackageTag {
     type Output = ();
 
-    async fn run_async(self) -> Result<Self::Output, anyhow::Error> {
+    async fn run_async(mut self) -> Result<Self::Output, anyhow::Error> {
         tracing::info!("Checking if user is logged in");
-        let client =
-            login_user(&self.api, &self.env, !self.non_interactive, "tag a package").await?;
+        let client = login_user(&self.env, !self.non_interactive, "tag a package").await?;
 
-        tracing::info!("Loading manifest");
-        let (manifest_path, manifest) = get_manifest(&self.package_path)?;
-        tracing::info!("Got manifest at path {}", manifest_path.display());
+        let (manifest_path, manifest) = match get_manifest(&self.package_path) {
+            Ok((manifest_path, manifest)) => {
+                tracing::info!("Got manifest at path {}", manifest_path.display());
+                (Some(manifest_path), Some(manifest))
+            }
+            Err(_) => (None, None),
+        };
 
         let id = self
-            .tag(&client, &manifest, &manifest_path, false, false)
+            .tag(
+                &client,
+                manifest.as_ref(),
+                manifest_path.as_deref(),
+                false,
+                false,
+            )
             .await?;
 
         match id {

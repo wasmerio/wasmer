@@ -40,8 +40,6 @@ mod filesystems;
 pub(crate) mod ops;
 mod overlay_fs;
 pub mod pipe;
-#[cfg(feature = "host-fs")]
-mod scoped_directory_fs;
 mod static_file;
 #[cfg(feature = "static-fs")]
 pub mod static_fs;
@@ -65,8 +63,6 @@ pub use null_file::*;
 pub use overlay_fs::OverlayFileSystem;
 pub use passthru_fs::*;
 pub use pipe::*;
-#[cfg(feature = "host-fs")]
-pub use scoped_directory_fs::ScopedDirectoryFileSystem;
 pub use special_file::*;
 pub use static_file::StaticFile;
 pub use tmp_fs::*;
@@ -86,7 +82,7 @@ pub use tokio::io::{AsyncWrite, AsyncWriteExt};
 
 pub trait ClonableVirtualFile: VirtualFile + Clone {}
 
-pub use ops::{copy_reference, copy_reference_ext};
+pub use ops::{copy_reference, copy_reference_ext, create_dir_all};
 
 pub trait FileSystem: fmt::Debug + Send + Sync + 'static + Upcastable {
     fn readlink(&self, path: &Path) -> Result<PathBuf>;
@@ -102,6 +98,9 @@ pub trait FileSystem: fmt::Debug + Send + Sync + 'static + Upcastable {
     fn remove_file(&self, path: &Path) -> Result<()>;
 
     fn new_open_options(&self) -> OpenOptions;
+
+    fn mount(&self, name: String, path: &Path, fs: Box<dyn FileSystem + Send + Sync>)
+        -> Result<()>;
 }
 
 impl dyn FileSystem + 'static {
@@ -155,6 +154,15 @@ where
 
     fn new_open_options(&self) -> OpenOptions {
         (**self).new_open_options()
+    }
+
+    fn mount(
+        &self,
+        name: String,
+        path: &Path,
+        fs: Box<dyn FileSystem + Send + Sync>,
+    ) -> Result<()> {
+        (**self).mount(name, path, fs)
     }
 }
 
@@ -514,6 +522,9 @@ pub enum FsError {
     /// Some other unhandled error. If you see this, it's probably a bug.
     #[error("unknown error found")]
     UnknownError,
+    /// Operation is not supported on this filesystem
+    #[error("unsupported")]
+    Unsupported,
 }
 
 impl From<io::Error> for FsError {
@@ -574,6 +585,7 @@ impl From<FsError> for io::Error {
             FsError::DirectoryNotEmpty => io::ErrorKind::Other,
             FsError::UnknownError => io::ErrorKind::Other,
             FsError::StorageFull => io::ErrorKind::Other,
+            FsError::Unsupported => io::ErrorKind::Unsupported,
             // NOTE: Add this once the "io_error_more" Rust feature is stabilized
             // FsError::StorageFull => io::ErrorKind::StorageFull,
         };
@@ -584,7 +596,7 @@ impl From<FsError> for io::Error {
 #[derive(Debug)]
 pub struct ReadDir {
     // TODO: to do this properly we need some kind of callback to the core FS abstraction
-    data: Vec<DirEntry>,
+    pub(crate) data: Vec<DirEntry>,
     index: usize,
 }
 

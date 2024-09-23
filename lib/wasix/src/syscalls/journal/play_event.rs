@@ -479,9 +479,16 @@ impl<'a, 'c> JournalSyscallPlayer<'a, 'c> {
                         peer_addr,
                     });
                 } else {
+                    let connected_sockets_are_dead = self.connected_sockets_are_dead;
                     tracing::trace!(%fd, ?peer_addr, "Replay journal - SockConnect");
-                    JournalEffector::apply_sock_connect(&mut self.ctx, fd, local_addr, peer_addr)
-                        .map_err(anyhow_err_to_runtime_err)?
+                    JournalEffector::apply_sock_connect(
+                        &mut self.ctx,
+                        fd,
+                        local_addr,
+                        peer_addr,
+                        connected_sockets_are_dead,
+                    )
+                    .map_err(anyhow_err_to_runtime_err)?
                 }
             }
             JournalEntry::SocketAcceptedV1 {
@@ -614,6 +621,9 @@ impl<'a, 'c> JournalSyscallPlayer<'a, 'c> {
                 offset,
                 count,
             } => {
+                if self.connected_sockets_are_dead {
+                    return Ok(());
+                }
                 if let Some(differ_ethereal) = differ_ethereal {
                     tracing::trace!(%socket_fd, %file_fd, %offset, %count, "Differ(ether) journal - SockSendFile");
                     differ_ethereal.push(JournalEntry::SocketSendFileV1 {
@@ -641,6 +651,9 @@ impl<'a, 'c> JournalSyscallPlayer<'a, 'c> {
                 addr,
                 is_64bit,
             } => {
+                if self.connected_sockets_are_dead {
+                    return Ok(());
+                }
                 if let Some(differ_ethereal) = differ_ethereal {
                     tracing::trace!(%fd, "Differ(ether) journal - SocketSendTo data={} bytes", data.len());
                     differ_ethereal.push(JournalEntry::SocketSendToV1 {
@@ -670,6 +683,9 @@ impl<'a, 'c> JournalSyscallPlayer<'a, 'c> {
                 flags,
                 is_64bit,
             } => {
+                if self.connected_sockets_are_dead {
+                    return Ok(());
+                }
                 if let Some(differ_ethereal) = differ_ethereal {
                     tracing::trace!(%fd, "Differ(ether) journal - SocketSend data={} bytes", data.len());
                     differ_ethereal.push(JournalEntry::SocketSendV1 {

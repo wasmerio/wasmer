@@ -14,13 +14,17 @@ use colored::Colorize;
 use dialoguer::{theme::ColorfulTheme, Confirm, Select};
 use futures::stream::TryStreamExt;
 use is_terminal::IsTerminal;
-use wasmer_api::{types::AppTemplate, WasmerClient};
+use wasmer_api::{
+    types::{AppTemplate, TemplateLanguage},
+    WasmerClient,
+};
 use wasmer_config::{app::AppConfigV1, package::PackageSource};
 
 use super::{deploy::CmdAppDeploy, util::login_user};
 use crate::{
     commands::AsyncCliCommand,
-    opts::{ApiOpts, ItemFormatOpts, WasmerEnv},
+    config::WasmerEnv,
+    opts::ItemFormatOpts,
     utils::{load_package_manifest, prompts::PackageCheckMode},
 };
 
@@ -32,13 +36,17 @@ async fn write_app_config(app_config: &AppConfigV1, dir: Option<PathBuf>) -> any
         None => std::env::current_dir()?,
     };
 
+    tokio::fs::create_dir_all(&app_dir).await?;
+
     let app_config_path = app_dir.join(AppConfigV1::CANONICAL_FILE_NAME);
-    std::fs::write(&app_config_path, raw_app_config).with_context(|| {
-        format!(
-            "could not write app config to '{}'",
-            app_config_path.display()
-        )
-    })
+    tokio::fs::write(&app_config_path, raw_app_config)
+        .await
+        .with_context(|| {
+            format!(
+                "could not write app config to '{}'",
+                app_config_path.display()
+            )
+        })
 }
 
 /// Create a new Edge app.
@@ -105,10 +113,6 @@ pub struct CmdAppCreate {
 
     // Common args.
     #[clap(flatten)]
-    #[allow(missing_docs)]
-    pub api: ApiOpts,
-
-    #[clap(flatten)]
     pub env: WasmerEnv,
 
     #[clap(flatten)]
@@ -141,6 +145,8 @@ impl CmdAppCreate {
             health_checks: None,
             debug: None,
             scaling: None,
+            locality: None,
+            redirect: None,
             extra: HashMap::new(),
         }
     }
@@ -191,6 +197,34 @@ impl CmdAppCreate {
         crate::utils::prompts::prompt_for_namespace("Who should own this app?", None, user.as_ref())
     }
 
+    async fn get_output_dir(&self, app_name: &str) -> anyhow::Result<PathBuf> {
+        let mut output_path = if let Some(path) = &self.app_dir_path {
+            path.clone()
+        } else {
+            PathBuf::from(".").canonicalize()?
+        };
+
+        if output_path.is_dir() && output_path.read_dir()?.next().is_some() {
+            if self.non_interactive {
+                if !self.quiet {
+                    eprintln!("The current directory is not empty.");
+                    eprintln!("Use the `--dir` flag to specify another directory, or remove files from the currently selected one.")
+                }
+                anyhow::bail!("Stopping as the directory is not empty")
+            } else {
+                let theme = ColorfulTheme::default();
+                let raw: String = dialoguer::Input::with_theme(&theme)
+                    .with_prompt("Select the directory to save the app in")
+                    .with_initial_text(app_name)
+                    .interact_text()
+                    .context("could not read user input")?;
+                output_path = PathBuf::from_str(&raw)?
+            }
+        }
+
+        Ok(output_path)
+    }
+
     async fn create_from_local_manifest(
         &self,
         owner: &str,
@@ -230,7 +264,7 @@ impl CmdAppCreate {
         if self.use_local_manifest || ask_confirmation()? {
             let app_config = self.get_app_config(owner, app_name, ".");
             write_app_config(&app_config, self.app_dir_path.clone()).await?;
-            self.try_deploy(owner, app_name).await?;
+            self.try_deploy(owner, app_name, None).await?;
             return Ok(true);
         }
 
@@ -247,10 +281,12 @@ impl CmdAppCreate {
             return Ok(false);
         }
 
+        let output_path = self.get_output_dir(app_name).await?;
+
         if let Some(pkg) = &self.package {
             let app_config = self.get_app_config(owner, app_name, pkg);
-            write_app_config(&app_config, self.app_dir_path.clone()).await?;
-            self.try_deploy(owner, app_name).await?;
+            write_app_config(&app_config, Some(output_path.clone())).await?;
+            self.try_deploy(owner, app_name, Some(&output_path)).await?;
             return Ok(true);
         } else if !self.non_interactive {
             let (package_id, _) = crate::utils::prompts::prompt_for_package(
@@ -266,8 +302,8 @@ impl CmdAppCreate {
             .await?;
 
             let app_config = self.get_app_config(owner, app_name, &package_id.to_string());
-            write_app_config(&app_config, self.app_dir_path.clone()).await?;
-            self.try_deploy(owner, app_name).await?;
+            write_app_config(&app_config, Some(output_path.clone())).await?;
+            self.try_deploy(owner, app_name, Some(&output_path)).await?;
             return Ok(true);
         } else {
             eprintln!(
@@ -279,31 +315,12 @@ impl CmdAppCreate {
         Ok(false)
     }
 
-    /// Load cached templates from a file.
-    ///
-    /// Returns an error if the cache file is older than the max age.
-    fn load_cached_templates(
-        path: &Path,
-    ) -> Result<(Vec<AppTemplate>, std::time::Duration), anyhow::Error> {
-        let modified = path.metadata()?.modified()?;
-        let age = modified.elapsed()?;
-
-        let data = std::fs::read_to_string(path)?;
-        match serde_json::from_str::<Vec<AppTemplate>>(&data) {
-            Ok(v) => Ok((v, age)),
-            Err(err) => {
-                std::fs::remove_file(path).ok();
-                Err(err).context("could not deserialize cached file")
-            }
-        }
-    }
-
-    fn persist_template_cache(path: &Path, templates: &[AppTemplate]) -> Result<(), anyhow::Error> {
+    fn persist_in_cache<S: serde::Serialize>(path: &Path, data: &S) -> Result<(), anyhow::Error> {
         if let Some(parent) = path.parent() {
             std::fs::create_dir_all(parent).context("could not create cache dir")?;
         }
 
-        let data = serde_json::to_vec(templates)?;
+        let data = serde_json::to_vec(data)?;
 
         std::fs::write(path, data)?;
         tracing::trace!(path=%path.display(), "persisted app template cache");
@@ -317,14 +334,15 @@ impl CmdAppCreate {
     async fn fetch_templates_cached(
         client: &WasmerClient,
         cache_dir: &Path,
+        language: &str,
     ) -> Result<Vec<AppTemplate>, anyhow::Error> {
         const MAX_CACHE_AGE: Duration = Duration::from_secs(60 * 60);
         const MAX_COUNT: usize = 100;
-        const CACHE_FILENAME: &str = "app_templates.json";
+        let cache_filename = format!("app_templates_{language}.json");
 
-        let cache_path = cache_dir.join(CACHE_FILENAME);
+        let cache_path = cache_dir.join(cache_filename);
 
-        let cached_items = match Self::load_cached_templates(&cache_path) {
+        let cached_items = match Self::load_cached::<Vec<AppTemplate>>(&cache_path) {
             Ok((items, age)) => {
                 if age <= MAX_CACHE_AGE {
                     return Ok(items);
@@ -340,10 +358,96 @@ impl CmdAppCreate {
         // Either no cache present, or cache has exceeded max age.
         // Fetch the first page.
         // If first item matches, then no need to re-fetch.
-        let mut stream = Box::pin(wasmer_api::query::fetch_all_app_templates(
+        //
+        let stream = wasmer_api::query::fetch_all_app_templates_from_language(
             client,
             10,
             Some(wasmer_api::types::AppTemplatesSortBy::Newest),
+            language.to_string(),
+        );
+
+        futures_util::pin_mut!(stream);
+
+        let first_page = match stream.try_next().await? {
+            Some(items) => items,
+            None => return Ok(Vec::new()),
+        };
+
+        if let (Some(a), Some(b)) = (cached_items.first(), first_page.first()) {
+            if a == b {
+                // Cached items are up to date, no need to query more.
+                return Ok(cached_items);
+            }
+        }
+
+        let mut items = first_page;
+        while let Some(next) = stream.try_next().await? {
+            items.extend(next);
+
+            if items.len() >= MAX_COUNT {
+                break;
+            }
+        }
+
+        // Persist to cache.
+        if let Err(err) = Self::persist_in_cache(&cache_path, &items) {
+            tracing::trace!(error = &*err, "could not persist template cache");
+        }
+
+        // TODO: sort items by popularity!
+        // Since we can't rely on backend sorting because of the cache
+        // preservation logic, the backend needs to add a popluarity field.
+
+        Ok(items)
+    }
+
+    /// Load cached data from a file.
+    ///
+    /// Returns an error if the cache file is older than the max age.
+    fn load_cached<D: serde::de::DeserializeOwned>(
+        path: &Path,
+    ) -> Result<(D, std::time::Duration), anyhow::Error> {
+        let modified = path.metadata()?.modified()?;
+        let age = modified.elapsed()?;
+
+        let data = std::fs::read_to_string(path)?;
+        match serde_json::from_str::<D>(data.as_str()) {
+            Ok(v) => Ok((v, age)),
+            Err(err) => {
+                std::fs::remove_file(path).ok();
+                Err(err).context("could not deserialize cached file")
+            }
+        }
+    }
+
+    async fn fetch_template_languages_cached(
+        client: &WasmerClient,
+        cache_dir: &Path,
+    ) -> anyhow::Result<Vec<TemplateLanguage>> {
+        const MAX_CACHE_AGE: Duration = Duration::from_secs(60 * 60);
+        const MAX_COUNT: usize = 100;
+        const CACHE_FILENAME: &str = "app_languages.json";
+
+        let cache_path = cache_dir.join(CACHE_FILENAME);
+
+        let cached_items = match Self::load_cached::<Vec<TemplateLanguage>>(&cache_path) {
+            Ok((items, age)) => {
+                if age <= MAX_CACHE_AGE {
+                    return Ok(items);
+                }
+                items
+            }
+            Err(e) => {
+                tracing::trace!(error = &*e, "could not load templates from local cache");
+                Vec::new()
+            }
+        };
+        //
+        // Either no cache present, or cache has exceeded max age.
+        // Fetch the first page.
+        // If first item matches, then no need to re-fetch.
+        let mut stream = Box::pin(wasmer_api::query::fetch_all_app_template_languages(
+            client, None,
         ));
 
         let first_page = match stream.try_next().await? {
@@ -368,7 +472,7 @@ impl CmdAppCreate {
         }
 
         // Persist to cache.
-        if let Err(err) = Self::persist_template_cache(&cache_path, &items) {
+        if let Err(err) = Self::persist_in_cache(&cache_path, &items) {
             tracing::trace!(error = &*err, "could not persist template cache");
         }
 
@@ -396,29 +500,50 @@ impl CmdAppCreate {
                 anyhow::bail!("No template selected")
             }
 
-            let templates = Self::fetch_templates_cached(client, &self.env.cache_dir).await?;
-
             let theme = ColorfulTheme::default();
+            let registry = self
+                .env
+                .registry_public_url()?
+                .host_str()
+                .unwrap_or("unknown_registry")
+                .replace('.', "_");
+            let cache_dir = self.env.cache_dir().join("templates").join(registry);
+
+            let languages = Self::fetch_template_languages_cached(client, &cache_dir).await?;
+
+            let items = languages.iter().map(|t| t.name.clone()).collect::<Vec<_>>();
+
+            // Note: this should really use `dialoger::FuzzySelect`, but that
+            // breaks the formatting.
+            let dialog = dialoguer::Select::with_theme(&theme)
+                .with_prompt(format!("Select a language ({} available)", items.len()))
+                .items(&items)
+                .max_length(10)
+                .clear(true)
+                .report(true)
+                .default(0);
+
+            let selection = dialog.interact()?;
+
+            let selected_language = languages
+                .get(selection)
+                .ok_or(anyhow::anyhow!("Invalid selection!"))?;
+
+            let templates =
+                Self::fetch_templates_cached(client, &cache_dir, &selected_language.slug).await?;
 
             let items = templates
                 .iter()
                 .map(|t| {
                     format!(
-                        "{}{}\n  {} {}",
+                        "{} - {} {}",
                         t.name.bold(),
-                        if t.language.is_empty() {
-                            String::new()
-                        } else {
-                            format!(" {}", t.language.dimmed())
-                        },
                         "demo:".bold().dimmed(),
                         t.demo_url.dimmed()
                     )
                 })
                 .collect::<Vec<_>>();
 
-            // Note: this should really use `dialoger::FuzzySelect`, but that
-            // breaks the formatting.
             let dialog = dialoguer::Select::with_theme(&theme)
                 .with_prompt(format!("Select a template ({} available)", items.len()))
                 .items(&items)
@@ -435,7 +560,7 @@ impl CmdAppCreate {
 
             if !self.quiet {
                 eprintln!(
-                    "{} {} {} {} ({} {})",
+                    "{} {} {} {} - {} {}",
                     "✔".green().bold(),
                     "Selected template".bold(),
                     "·".dimmed(),
@@ -474,20 +599,7 @@ impl CmdAppCreate {
 
         tracing::info!("Downloading template from url {url}");
 
-        let output_path = if let Some(path) = &self.app_dir_path {
-            path.clone()
-        } else {
-            PathBuf::from(".").canonicalize()?
-        };
-
-        if output_path.is_dir() && output_path.read_dir()?.next().is_some() {
-            if !self.quiet {
-                eprintln!("The current directory is not empty.");
-                eprintln!("Use the `--dir` flag to specify another directory, or remove files from the currently selected one.")
-            }
-            anyhow::bail!("Stopping as the directory is not empty")
-        }
-
+        let output_path = self.get_output_dir(app_name).await?;
         let pb = indicatif::ProgressBar::new_spinner();
 
         pb.enable_steady_tick(std::time::Duration::from_millis(500));
@@ -598,13 +710,18 @@ the app:\n"
                 format!("{bin_name} deploy").bold()
             )
         } else {
-            self.try_deploy(owner, app_name).await?;
+            self.try_deploy(owner, app_name, Some(&output_path)).await?;
         }
 
         Ok(true)
     }
 
-    async fn try_deploy(&self, owner: &str, app_name: &str) -> anyhow::Result<()> {
+    async fn try_deploy(
+        &self,
+        owner: &str,
+        app_name: &str,
+        path: Option<&Path>,
+    ) -> anyhow::Result<()> {
         let interactive = !self.non_interactive;
         let theme = dialoguer::theme::ColorfulTheme::default();
 
@@ -616,7 +733,6 @@ the app:\n"
         {
             let cmd_deploy = CmdAppDeploy {
                 quiet: false,
-                api: self.api.clone(),
                 env: self.env.clone(),
                 fmt: ItemFormatOpts {
                     format: self.fmt.format,
@@ -625,6 +741,7 @@ the app:\n"
                 non_interactive: self.non_interactive,
                 publish_package: true,
                 dir: self.app_dir_path.clone(),
+                path: path.map(|v| v.to_path_buf()),
                 no_wait: self.no_wait,
                 no_default: false,
                 no_persist_id: false,
@@ -652,7 +769,6 @@ impl AsyncCliCommand for CmdAppCreate {
         } else {
             Some(
                 login_user(
-                    &self.api,
                     &self.env,
                     !self.non_interactive,
                     "retrieve informations about the owner of the app",

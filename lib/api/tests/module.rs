@@ -33,7 +33,7 @@ fn imports() -> Result<(), String> {
     let wat = r#"(module
 (import "host" "func" (func))
 (import "host" "memory" (memory 1))
-(import "host" "table" (table 1 anyfunc))
+(import "host" "table" (table 1 funcref))
 (import "host" "global" (global i32))
 )"#;
     let module = Module::new(&store, wat).map_err(|e| format!("{e:?}"))?;

@@ -18,7 +18,7 @@ pub fn futex_wake<M: MemorySize>(
     let memory = unsafe { env.memory_view(&ctx) };
     let state = env.state.deref();
 
-    let pointer: u64 = wasi_try!(futex_ptr.offset().try_into().map_err(|_| Errno::Overflow));
+    let pointer: u64 = futex_ptr.offset().into();
     Span::current().record("futex_idx", pointer);
 
     let mut woken = false;

@@ -9,6 +9,7 @@ use wasmer_config::package::{PackageHash, PackageId, PackageSource};
 use webc::{compat::SharedBytes, Container};
 
 use crate::{
+    runners::MappedDirectory,
     runtime::resolver::{PackageInfo, ResolveError},
     Runtime,
 };
@@ -65,6 +66,8 @@ impl BinaryPackageCommand {
 #[derivative(Debug)]
 pub struct BinaryPackage {
     pub id: PackageId,
+    /// Includes the ids of all the packages in the tree
+    pub package_ids: Vec<PackageId>,
 
     pub when_cached: Option<u128>,
     /// The name of the [`BinaryPackageCommand`] which is this package's
@@ -75,6 +78,8 @@ pub struct BinaryPackage {
     pub commands: Vec<BinaryPackageCommand>,
     pub uses: Vec<String>,
     pub file_system_memory_footprint: u64,
+
+    pub additional_host_mapped_directories: Vec<MappedDirectory>,
 }
 
 impl BinaryPackage {
@@ -91,7 +96,7 @@ impl BinaryPackage {
         let id = PackageId::Hash(PackageHash::from_sha256_bytes(hash));
 
         let manifest_path = dir.join("wasmer.toml");
-        let webc = webc::wasmer_package::Package::from_manifest(manifest_path)?;
+        let webc = webc::wasmer_package::Package::from_manifest(&manifest_path)?;
         let container = Container::from(webc);
         let manifest = container.manifest();
 
@@ -99,11 +104,29 @@ impl BinaryPackage {
         let root_id = root.id.clone();
 
         let resolution = crate::runtime::resolver::resolve(&root_id, &root, &*source).await?;
-        let pkg = rt
+        let mut pkg = rt
             .package_loader()
-            .load_package_tree(&container, &resolution)
+            .load_package_tree(&container, &resolution, true)
             .await
             .map_err(|e| anyhow::anyhow!(e))?;
+
+        // HACK: webc has no way to return its deserialized manifest to us, so we need to do it again here
+        // We already read and parsed the manifest once, so it'll succeed again. Unwrapping is safe at this point.
+        let wasmer_toml = std::fs::read_to_string(&manifest_path).unwrap();
+        let wasmer_toml: wasmer_config::package::Manifest = toml::from_str(&wasmer_toml).unwrap();
+        pkg.additional_host_mapped_directories.extend(
+            wasmer_toml
+                .fs
+                .into_iter()
+                .map(|(guest, host)| {
+                    anyhow::Ok(MappedDirectory {
+                        host: dir.join(host).canonicalize()?,
+                        guest,
+                    })
+                })
+                .collect::<Result<Vec<_>, _>>()?
+                .into_iter(),
+        );
 
         Ok(pkg)
     }
@@ -132,7 +155,7 @@ impl BinaryPackage {
         let resolution = crate::runtime::resolver::resolve(&root_id, &root, &*source).await?;
         let pkg = rt
             .package_loader()
-            .load_package_tree(container, &resolution)
+            .load_package_tree(container, &resolution, false)
             .await
             .map_err(|e| anyhow::anyhow!(e))?;
 
@@ -162,7 +185,7 @@ impl BinaryPackage {
             .context("Dependency resolution failed")?;
         let pkg = runtime
             .package_loader()
-            .load_package_tree(&root, &resolution)
+            .load_package_tree(&root, &resolution, false)
             .await
             .map_err(|e| anyhow::anyhow!(e))?;
 
@@ -255,7 +278,12 @@ mod tests {
                 .with_shared_http_client(runtime.http_client().unwrap().clone()),
         );
 
-        let pkg = BinaryPackage::from_dir(temp.path(), &runtime)
+        let pkg = webc::wasmer_package::Package::from_manifest(&manifest).unwrap();
+        let data = pkg.serialize().unwrap();
+        let webc_path = temp.path().join("package.webc");
+        std::fs::write(&webc_path, data).unwrap();
+
+        let pkg = BinaryPackage::from_webc(&Container::from_disk(&webc_path).unwrap(), &runtime)
             .await
             .unwrap();
 

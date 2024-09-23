@@ -15,7 +15,7 @@ use reqwest::{blocking::Client, IntoUrl};
 use tempfile::TempDir;
 use wasmer_integration_tests_cli::{
     asset_path,
-    fixtures::{self, php, resources},
+    fixtures::{self, packages, php, resources},
     get_wasmer_path,
 };
 
@@ -46,6 +46,84 @@ static CACHE_RUST_LOG: Lazy<String> = Lazy::new(|| {
     ]
     .join(",")
 });
+
+#[test]
+fn list_cwd() {
+    let package = packages().join("list-cwd");
+
+    let output = Command::new(get_wasmer_path())
+        .arg("run")
+        .arg(package)
+        .output()
+        .unwrap();
+
+    let stdout = output.stdout;
+
+    let expected = ".
+..
+main.c
+main.wasm
+wasmer.toml
+"
+    .to_owned();
+
+    assert_eq!(expected, String::from_utf8(stdout).unwrap());
+}
+
+#[test]
+fn nested_mounted_paths() {
+    let package = packages().join("nested-mounted-paths");
+
+    let webc = package.join("out.webc");
+
+    let host_output = Command::new(get_wasmer_path())
+        .arg("run")
+        .arg(package)
+        .output()
+        .unwrap();
+    let host_stdout = host_output.stdout;
+
+    let webc_output = Command::new(get_wasmer_path())
+        .arg("run")
+        .arg(webc)
+        .arg(".")
+        .output()
+        .unwrap();
+    let webc_stdout = webc_output.stdout;
+
+    let expected = "/:
+.
+..
+.app
+.private
+app
+bin
+dev
+etc
+tmp
+
+/app:
+.
+..
+a
+b
+
+/app/a:
+.
+..
+data-a.txt
+
+/app/b:
+.
+..
+data-b.txt
+"
+    .as_bytes()
+    .to_vec();
+
+    assert_eq!(&host_stdout, &expected);
+    assert_eq!(&webc_stdout, &expected);
+}
 
 #[test]
 fn run_python_create_temp_dir_in_subprocess() {
@@ -193,7 +271,7 @@ fn test_wasmer_run_works_with_dir() {
     let temp_dir = tempfile::TempDir::new().unwrap();
     let qjs_path = temp_dir.path().join("qjs.wasm");
 
-    std::fs::copy(fixtures::qjs(), &qjs_path).unwrap();
+    std::fs::copy(fixtures::qjs(), qjs_path).unwrap();
     std::fs::copy(
         fixtures::qjs_wasmer_toml(),
         temp_dir.path().join("wasmer.toml"),
@@ -982,6 +1060,53 @@ fn run_a_package_that_uses_an_atom_from_a_dependency() {
         .assert();
 
     assert.success().stdout(contains("Hello, World!"));
+}
+
+#[test]
+fn local_package_has_write_access_to_its_volumes() {
+    let temp = tempfile::tempdir().unwrap();
+
+    std::fs::write(
+        temp.path().join("wasmer.toml"),
+        r#"
+[dependencies]
+"python/python" = "*"
+
+[fs]
+"/mounted" = "."
+
+[[command]]
+name = "run"
+module = "python/python:python"
+runner = "wasi"
+
+[command.annotations.wasi]
+main-args = ["/mounted/script.py"]
+
+        "#,
+    )
+    .unwrap();
+
+    std::fs::write(
+        temp.path().join("script.py"),
+        r#"
+file = open("/mounted/hello.txt", "w")
+file.write("Hello, world!")
+        "#,
+    )
+    .unwrap();
+
+    Command::new(get_wasmer_path())
+        .arg("run")
+        .arg(temp.path())
+        .arg("--registry=wasmer.io")
+        .env("RUST_LOG", &*RUST_LOG)
+        .assert()
+        .success();
+
+    let file_contents =
+        String::from_utf8(std::fs::read(temp.path().join("hello.txt")).unwrap()).unwrap();
+    assert_eq!(file_contents, "Hello, world!");
 }
 
 fn project_root() -> &'static Path {

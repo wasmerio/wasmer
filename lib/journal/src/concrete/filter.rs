@@ -3,17 +3,15 @@ use std::{
     sync::atomic::{AtomicUsize, Ordering},
 };
 
-use derivative::Derivative;
-
 use super::*;
 
 /// Filters out a specific set of journal events and drops the rest, this
 /// journal can be useful for restoring to a previous call point but
 /// retaining the memory changes (e.g. WCGI runner).
 #[derive(Debug)]
-pub struct FilteredJournal {
-    tx: FilteredJournalTx,
-    rx: FilteredJournalRx,
+pub struct FilteredJournal<W: WritableJournal, R: ReadableJournal> {
+    tx: FilteredJournalTx<W>,
+    rx: FilteredJournalRx<R>,
 }
 
 /// Represents what will be filtered by the filtering process
@@ -62,19 +60,15 @@ impl Clone for FilteredJournalConfig {
     }
 }
 
-#[derive(Derivative)]
-#[derivative(Debug)]
-pub struct FilteredJournalTx {
-    #[derivative(Debug = "ignore")]
-    inner: Box<DynWritableJournal>,
+#[derive(Debug)]
+pub struct FilteredJournalTx<W: WritableJournal> {
+    inner: W,
     config: FilteredJournalConfig,
 }
 
-#[derive(Derivative)]
-#[derivative(Debug)]
-pub struct FilteredJournalRx {
-    #[derivative(Debug = "ignore")]
-    inner: Box<DynReadableJournal>,
+#[derive(Debug)]
+pub struct FilteredJournalRx<R: ReadableJournal> {
+    inner: R,
 }
 
 /// Constructs a filter with a set of parameters that will be filtered on
@@ -88,11 +82,22 @@ impl FilteredJournalBuilder {
         Self::default()
     }
 
-    pub fn build<J>(self, inner: J) -> FilteredJournal
+    pub fn build<J>(
+        self,
+        inner: J,
+    ) -> FilteredJournal<Box<DynWritableJournal>, Box<DynReadableJournal>>
     where
         J: Journal,
     {
         FilteredJournal::new(inner, self.config)
+    }
+
+    pub fn build_split<W, R>(self, writer: W, reader: R) -> FilteredJournal<W, R>
+    where
+        W: WritableJournal,
+        R: ReadableJournal,
+    {
+        FilteredJournal::new_split(writer, reader, self.config)
     }
 
     pub fn with_ignore_memory(mut self, val: bool) -> Self {
@@ -177,7 +182,7 @@ impl FilteredJournalBuilder {
     }
 }
 
-impl FilteredJournal {
+impl FilteredJournal<Box<DynWritableJournal>, Box<DynReadableJournal>> {
     fn new<J>(inner: J, config: FilteredJournalConfig) -> Self
     where
         J: Journal,
@@ -200,13 +205,25 @@ impl FilteredJournal {
             rx: FilteredJournalRx { inner: rx },
         }
     }
+}
 
-    pub fn into_inner(self) -> RecombinedJournal {
+impl<W: WritableJournal, R: ReadableJournal> FilteredJournal<W, R> {
+    pub fn into_inner(self) -> RecombinedJournal<W, R> {
         RecombinedJournal::new(self.tx.inner, self.rx.inner)
+    }
+
+    fn new_split(writer: W, reader: R, config: FilteredJournalConfig) -> Self {
+        Self {
+            tx: FilteredJournalTx {
+                inner: writer,
+                config,
+            },
+            rx: FilteredJournalRx { inner: reader },
+        }
     }
 }
 
-impl WritableJournal for FilteredJournalTx {
+impl<W: WritableJournal> WritableJournal for FilteredJournalTx<W> {
     fn write<'a>(&'a self, entry: JournalEntry<'a>) -> anyhow::Result<LogWriteResult> {
         let event_index = self.config.event_index.fetch_add(1, Ordering::SeqCst);
         if let Some(events) = self.config.filter_events.as_ref() {
@@ -348,9 +365,17 @@ impl WritableJournal for FilteredJournalTx {
     fn flush(&self) -> anyhow::Result<()> {
         self.inner.flush()
     }
+
+    fn commit(&self) -> anyhow::Result<usize> {
+        self.inner.commit()
+    }
+
+    fn rollback(&self) -> anyhow::Result<usize> {
+        self.inner.rollback()
+    }
 }
 
-impl ReadableJournal for FilteredJournalRx {
+impl<R: ReadableJournal> ReadableJournal for FilteredJournalRx<R> {
     fn read(&self) -> anyhow::Result<Option<LogReadResult<'_>>> {
         self.inner.read()
     }
@@ -362,7 +387,7 @@ impl ReadableJournal for FilteredJournalRx {
     }
 }
 
-impl WritableJournal for FilteredJournal {
+impl<W: WritableJournal, R: ReadableJournal> WritableJournal for FilteredJournal<W, R> {
     fn write<'a>(&'a self, entry: JournalEntry<'a>) -> anyhow::Result<LogWriteResult> {
         self.tx.write(entry)
     }
@@ -370,9 +395,17 @@ impl WritableJournal for FilteredJournal {
     fn flush(&self) -> anyhow::Result<()> {
         self.tx.flush()
     }
+
+    fn commit(&self) -> anyhow::Result<usize> {
+        self.tx.commit()
+    }
+
+    fn rollback(&self) -> anyhow::Result<usize> {
+        self.tx.rollback()
+    }
 }
 
-impl ReadableJournal for FilteredJournal {
+impl<W: WritableJournal, R: ReadableJournal> ReadableJournal for FilteredJournal<W, R> {
     fn read(&self) -> anyhow::Result<Option<LogReadResult<'_>>> {
         self.rx.read()
     }
@@ -382,7 +415,7 @@ impl ReadableJournal for FilteredJournal {
     }
 }
 
-impl Journal for FilteredJournal {
+impl Journal for FilteredJournal<Box<DynWritableJournal>, Box<DynReadableJournal>> {
     fn split(self) -> (Box<DynWritableJournal>, Box<DynReadableJournal>) {
         (Box::new(self.tx), Box::new(self.rx))
     }

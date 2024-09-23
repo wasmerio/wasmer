@@ -3,20 +3,18 @@
 use std::pin::Pin;
 
 use futures::{Stream, StreamExt};
-use wasmer_api::types::DeployApp;
+use wasmer_api::types::{DeployApp, DeployAppsSortBy};
 
-use crate::{
-    commands::AsyncCliCommand,
-    opts::{ApiOpts, ListFormatOpts},
-};
+use crate::{commands::AsyncCliCommand, config::WasmerEnv, opts::ListFormatOpts};
 
 /// List apps belonging to a namespace
 #[derive(clap::Parser, Debug)]
 pub struct CmdAppList {
     #[clap(flatten)]
     fmt: ListFormatOpts,
+
     #[clap(flatten)]
-    api: ApiOpts,
+    env: WasmerEnv,
 
     /// Get apps in a specific namespace.
     ///
@@ -36,6 +34,19 @@ pub struct CmdAppList {
     /// Asks whether to display the next page or not
     #[clap(long, default_value = "false")]
     paging_mode: bool,
+
+    /// Sort order for apps.
+    ///
+    /// Use: --newest, --oldest or --last-updated
+    #[clap(long, default_value = "last-updated")]
+    sort: AppSort,
+}
+
+#[derive(clap::ValueEnum, Clone, Copy, Debug)]
+pub enum AppSort {
+    Newest,
+    Oldest,
+    LastUpdated,
 }
 
 #[async_trait::async_trait]
@@ -43,16 +54,22 @@ impl AsyncCliCommand for CmdAppList {
     type Output = ();
 
     async fn run_async(self) -> Result<(), anyhow::Error> {
-        let client = self.api.client()?;
+        let client = self.env.client()?;
+
+        let sort = match self.sort {
+            AppSort::Newest => DeployAppsSortBy::Newest,
+            AppSort::Oldest => DeployAppsSortBy::Oldest,
+            AppSort::LastUpdated => DeployAppsSortBy::MostActive,
+        };
 
         let apps_stream: Pin<
             Box<dyn Stream<Item = Result<Vec<DeployApp>, anyhow::Error>> + Send + Sync>,
         > = if let Some(ns) = self.namespace.clone() {
-            Box::pin(wasmer_api::query::namespace_apps(&client, ns).await)
+            Box::pin(wasmer_api::query::namespace_apps(&client, ns, sort).await)
         } else if self.all {
-            Box::pin(wasmer_api::query::user_accessible_apps(&client).await?)
+            Box::pin(wasmer_api::query::user_accessible_apps(&client, sort).await?)
         } else {
-            Box::pin(wasmer_api::query::user_apps(&client).await)
+            Box::pin(wasmer_api::query::user_apps(&client, sort).await)
         };
 
         let mut apps_stream = std::pin::pin!(apps_stream);

@@ -129,9 +129,8 @@ impl Compiler for SinglepassCompiler {
                     target,
                     calling_convention,
                 )
-                .unwrap()
             })
-            .collect::<Vec<_>>()
+            .collect::<Result<Vec<_>, _>>()?
             .into_iter()
             .collect();
         let (functions, fdes): (Vec<CompiledFunction>, Vec<_>) = function_body_inputs
@@ -212,8 +211,8 @@ impl Compiler for SinglepassCompiler {
             .values()
             .collect::<Vec<_>>()
             .into_par_iter_if_rayon()
-            .map(|func_type| gen_std_trampoline(func_type, target, calling_convention).unwrap())
-            .collect::<Vec<_>>()
+            .map(|func_type| gen_std_trampoline(func_type, target, calling_convention))
+            .collect::<Result<Vec<_>, _>>()?
             .into_iter()
             .collect::<PrimaryMap<_, _>>();
 
@@ -228,9 +227,8 @@ impl Compiler for SinglepassCompiler {
                     target,
                     calling_convention,
                 )
-                .unwrap()
             })
-            .collect::<Vec<_>>()
+            .collect::<Result<Vec<_>, _>>()?
             .into_iter()
             .collect::<PrimaryMap<FunctionIndex, FunctionBody>>();
 
@@ -317,8 +315,8 @@ mod tests {
 
         // Compile for 32bit Linux
         let linux32 = Target::new(triple!("i686-unknown-linux-gnu"), CpuFeature::for_host());
-        let (mut info, translation, inputs) = dummy_compilation_ingredients();
-        let result = compiler.compile_module(&linux32, &mut info, &translation, inputs);
+        let (info, translation, inputs) = dummy_compilation_ingredients();
+        let result = compiler.compile_module(&linux32, &info, &translation, inputs);
         match result.unwrap_err() {
             CompileError::UnsupportedTarget(name) => assert_eq!(name, "i686"),
             error => panic!("Unexpected error: {:?}", error),
@@ -326,8 +324,8 @@ mod tests {
 
         // Compile for win32
         let win32 = Target::new(triple!("i686-pc-windows-gnu"), CpuFeature::for_host());
-        let (mut info, translation, inputs) = dummy_compilation_ingredients();
-        let result = compiler.compile_module(&win32, &mut info, &translation, inputs);
+        let (info, translation, inputs) = dummy_compilation_ingredients();
+        let result = compiler.compile_module(&win32, &info, &translation, inputs);
         match result.unwrap_err() {
             CompileError::UnsupportedTarget(name) => assert_eq!(name, "i686"), // Windows should be checked before architecture
             error => panic!("Unexpected error: {:?}", error),
