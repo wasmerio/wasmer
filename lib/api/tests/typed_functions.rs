@@ -1,7 +1,14 @@
 use macro_wasmer_universal_test::universal_test;
 use wasmer::*;
 
+#[cfg(feature = "js")]
+use wasm_bindgen_test::wasm_bindgen_test;
+
 #[universal_test]
+#[cfg_attr(
+    feature = "js",
+    ignore = "Closures with context are not supported in JS yet"
+)]
 fn typed_host_function_closure_panics() -> Result<(), String> {
     let mut store = Store::default();
     let state = 3;
@@ -14,6 +21,10 @@ fn typed_host_function_closure_panics() -> Result<(), String> {
 }
 
 #[universal_test]
+#[cfg_attr(
+    feature = "js",
+    ignore = "Closures with context are not supported in JS yet"
+)]
 fn typed_with_env_host_function_closure_panics() -> Result<(), String> {
     let mut store = Store::default();
     let env: i32 = 4;
@@ -31,6 +42,10 @@ fn typed_with_env_host_function_closure_panics() -> Result<(), String> {
 }
 
 #[universal_test]
+#[cfg_attr(
+    feature = "js",
+    ignore = "Closures with context are not supported in JS yet"
+)]
 fn non_typed_functions_and_closures_with_no_env_work() -> anyhow::Result<()> {
     let mut store = Store::default();
     let wat = r#"(module
@@ -92,6 +107,10 @@ fn non_typed_functions_and_closures_with_no_env_work() -> anyhow::Result<()> {
 static STATIC_CONTEXT_VAL: i32 = 1234;
 
 #[universal_test]
+#[cfg_attr(
+    feature = "js",
+    ignore = "Closures with context are not supported in JS yet"
+)]
 fn holochain_typed_function() -> anyhow::Result<()> {
     // Declare WASM Module
     let wasm_bytes = wat2wasm(
