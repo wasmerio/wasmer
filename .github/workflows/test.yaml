@@ -135,6 +135,18 @@ jobs:
       - name: Install wasm-pack
         run: |
           curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
+      - name: Install LLVM 18
+        run: |
+          curl --proto '=https' --tlsv1.2 -sSf https://github.com/wasmerio/llvm-custom-builds/releases/download/18.x/llvm-linux-amd64.tar.xz -L -o llvm.tar.xz
+          LLVM_DIR=$(pwd)/${{ env.LLVM_DIR }}
+          mkdir ${LLVM_DIR}
+          tar xf llvm.tar.xz --strip-components=1 -C ${LLVM_DIR}
+          echo "ENABLE_LLVM=1" >> $GITHUB_ENV
+          echo "${LLVM_DIR}/bin" >> $GITHUB_PATH
+          echo "${LLVM_DIR}/usr/bin" >> $GITHUB_PATH
+          echo "LLVM_SYS_180_PREFIX=${LLVM_DIR}" >> $GITHUB_ENV
+        env:
+          LLVM_DIR: .llvm
       - name: make test-wasi-fyi
         run: |
           make test-wasi-fyi
@@ -228,6 +240,18 @@ jobs:
           toolchain: "nightly-2024-08-21"
           target: x86_64-unknown-linux-gnu
       - run: cargo install toml-cli # toml-cli is required to run `make test-build-docs-rs`
+      - name: Install LLVM 18
+        run: |
+          curl --proto '=https' --tlsv1.2 -sSf https://github.com/wasmerio/llvm-custom-builds/releases/download/18.x/llvm-linux-amd64.tar.xz -L -o llvm.tar.xz
+          LLVM_DIR=$(pwd)/${{ env.LLVM_DIR }}
+          mkdir ${LLVM_DIR}
+          tar xf llvm.tar.xz --strip-components=1 -C ${LLVM_DIR}
+          echo "ENABLE_LLVM=1" >> $GITHUB_ENV
+          echo "${LLVM_DIR}/bin" >> $GITHUB_PATH
+          echo "${LLVM_DIR}/usr/bin" >> $GITHUB_PATH
+          echo "LLVM_SYS_180_PREFIX=${LLVM_DIR}" >> $GITHUB_ENV
+        env:
+          LLVM_DIR: .llvm
       - name: make test-build-docs-rs-ci
         run: make test-build-docs-rs-ci
 
@@ -486,6 +510,10 @@ jobs:
           echo "LLVM_SYS_150_PREFIX=${LLVM_DIR}" >> $GITHUB_ENV
         env:
           LLVM_DIR: .llvm
+      - name: Install LLVM dependencies (macOS)
+        if: matrix.metadata.os == 'macos-12' || matrix.metadata.os == 'macos-14'
+        shell: bash
+        run: brew install zstd
       - name: Setup Rust target
         shell: bash
         run: |
@@ -685,6 +713,10 @@ jobs:
           echo "ENABLE_LLVM=1" >> $GITHUB_ENV
         env:
           LLVM_DIR: .llvm
+      - name: Install LLVM dependencies (macOS)
+        if: matrix.metadata.os == 'macos-12' || matrix.metadata.os == 'macos-14'
+        shell: bash
+        run: brew install zstd
       - name: Setup Rust target
         shell: bash
         run: |
