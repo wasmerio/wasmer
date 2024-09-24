@@ -1282,6 +1282,28 @@
 <a href="#1282" id="1282">1282</a>
 <a href="#1283" id="1283">1283</a>
 <a href="#1284" id="1284">1284</a>
+<a href="#1285" id="1285">1285</a>
+<a href="#1286" id="1286">1286</a>
+<a href="#1287" id="1287">1287</a>
+<a href="#1288" id="1288">1288</a>
+<a href="#1289" id="1289">1289</a>
+<a href="#1290" id="1290">1290</a>
+<a href="#1291" id="1291">1291</a>
+<a href="#1292" id="1292">1292</a>
+<a href="#1293" id="1293">1293</a>
+<a href="#1294" id="1294">1294</a>
+<a href="#1295" id="1295">1295</a>
+<a href="#1296" id="1296">1296</a>
+<a href="#1297" id="1297">1297</a>
+<a href="#1298" id="1298">1298</a>
+<a href="#1299" id="1299">1299</a>
+<a href="#1300" id="1300">1300</a>
+<a href="#1301" id="1301">1301</a>
+<a href="#1302" id="1302">1302</a>
+<a href="#1303" id="1303">1303</a>
+<a href="#1304" id="1304">1304</a>
+<a href="#1305" id="1305">1305</a>
+<a href="#1306" id="1306">1306</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Builder system for configuring a [`WasiState`] and creating it.
 
 </span><span class="kw">use </span>std::{
@@ -1333,6 +1355,8 @@
 /// ```
 </span><span class="attr">#[derive(Default)]
 </span><span class="kw">pub struct </span>WasiEnvBuilder {
+    <span class="doccomment">/// Name of entry function. Defaults to running `_start` if not specified.
+    </span><span class="kw">pub</span>(<span class="kw">super</span>) entry_function: <span class="prelude-ty">Option</span>&lt;String&gt;,
     <span class="doccomment">/// Command line arguments.
     </span><span class="kw">pub</span>(<span class="kw">super</span>) args: Vec&lt;String&gt;,
     <span class="doccomment">/// Environment variables.
@@ -1381,6 +1405,7 @@
     <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>std::fmt::Formatter&lt;<span class="lifetime">&#39;_</span>&gt;) -&gt; std::fmt::Result {
         <span class="comment">// TODO: update this when stable
         </span>f.debug_struct(<span class="string">&quot;WasiEnvBuilder&quot;</span>)
+            .field(<span class="string">&quot;entry_function&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.entry_function)
             .field(<span class="string">&quot;args&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.args)
             .field(<span class="string">&quot;envs&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.envs)
             .field(<span class="string">&quot;preopens&quot;</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.preopens)
@@ -1522,6 +1547,21 @@
     <span class="doccomment">/// Get a mutable reference to the configured environment variables.
     </span><span class="kw">pub fn </span>get_env_mut(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;mut </span>Vec&lt;(String, Vec&lt;u8&gt;)&gt; {
         <span class="kw-2">&amp;mut </span><span class="self">self</span>.envs
+    }
+
+    <span class="kw">pub fn </span>entry_function&lt;S&gt;(<span class="kw-2">mut </span><span class="self">self</span>, entry_function: S) -&gt; <span class="self">Self
+    </span><span class="kw">where
+        </span>S: AsRef&lt;str&gt;,
+    {
+        <span class="self">self</span>.set_entry_function(entry_function);
+        <span class="self">self
+    </span>}
+
+    <span class="kw">pub fn </span>set_entry_function&lt;S&gt;(<span class="kw-2">&amp;mut </span><span class="self">self</span>, entry_function: S)
+    <span class="kw">where
+        </span>S: AsRef&lt;str&gt;,
+    {
+        <span class="self">self</span>.entry_function = <span class="prelude-val">Some</span>(entry_function.as_ref().to_owned());
     }
 
     <span class="doccomment">/// Add an argument.
@@ -2308,6 +2348,8 @@
             );
         }
 
+        <span class="kw">let </span>entry_function = <span class="self">self</span>.entry_function.clone();
+
         <span class="kw">let </span>(instance, env) = <span class="self">self</span>.instantiate_ext(module, module_hash, store)<span class="question-mark">?</span>;
 
         <span class="comment">// Bootstrap the process
@@ -2320,7 +2362,9 @@
                 .map_err(|exit| WasiRuntimeError::Wasi(WasiError::Exit(exit)))<span class="question-mark">?</span>;
         }
 
-        <span class="kw">let </span>start = instance.exports.get_function(<span class="string">&quot;_start&quot;</span>)<span class="question-mark">?</span>;
+        <span class="kw">let </span>start = instance
+            .exports
+            .get_function(entry_function.as_deref().unwrap_or(<span class="string">&quot;_start&quot;</span>))<span class="question-mark">?</span>;
         env.data(<span class="kw-2">&amp;</span>store).thread.set_status_running();
 
         <span class="kw">let </span>result = <span class="kw">crate</span>::run_wasi_func_start(start, store);
