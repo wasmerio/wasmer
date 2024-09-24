@@ -34,17 +34,17 @@ impl WasiRunner {
         WasiRunner::default()
     }
 
-    /// Returns the current entrypoint for this `WasiRunner`
-    pub fn entrypoint(&self) -> Option<String> {
-        self.wasi.entrypoint.clone()
+    /// Returns the current entry function for this `WasiRunner`
+    pub fn entry_function(&self) -> Option<String> {
+        self.wasi.entry_function.clone()
     }
 
-    /// Builder method to set the name of the entrypoint function for this `WasiRunner`
-    pub fn with_entrypoint<S>(&mut self, entrypoint: S) -> &mut Self
+    /// Builder method to set the name of the entry function for this `WasiRunner`
+    pub fn with_entry_function<S>(&mut self, entry_function: S) -> &mut Self
     where
         S: Into<String>,
     {
-        self.wasi.entrypoint = Some(entrypoint.into());
+        self.wasi.entry_function = Some(entry_function.into());
         self
     }
 
