@@ -530,11 +530,6 @@
 <a href="#530" id="530">530</a>
 <a href="#531" id="531">531</a>
 <a href="#532" id="532">532</a>
-<a href="#533" id="533">533</a>
-<a href="#534" id="534">534</a>
-<a href="#535" id="535">535</a>
-<a href="#536" id="536">536</a>
-<a href="#537" id="537">537</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{
     collections::HashMap,
     path::{Path, PathBuf},
@@ -569,7 +564,6 @@
 <span class="attr">#[derive(Derivative, Default, Clone)]
 #[derivative(Debug)]
 </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct </span>CommonWasiOptions {
-    <span class="kw">pub</span>(<span class="kw">crate</span>) entry_function: <span class="prelude-ty">Option</span>&lt;String&gt;,
     <span class="kw">pub</span>(<span class="kw">crate</span>) args: Vec&lt;String&gt;,
     <span class="kw">pub</span>(<span class="kw">crate</span>) env: HashMap&lt;String, String&gt;,
     <span class="kw">pub</span>(<span class="kw">crate</span>) forward_host_env: bool,
@@ -595,10 +589,6 @@
         wasi: <span class="kw-2">&amp;</span>WasiAnnotation,
         root_fs: <span class="prelude-ty">Option</span>&lt;TmpFileSystem&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), anyhow::Error&gt; {
-        <span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">ref </span>entry_function) = <span class="self">self</span>.entry_function {
-            builder.set_entry_function(entry_function);
-        }
-
         <span class="kw">let </span>root_fs = root_fs.unwrap_or_else(|| {
             RootFileSystemBuilder::default()
                 .with_tmp(!<span class="self">self</span>.is_tmp_mapped)

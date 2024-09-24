@@ -1018,14 +1018,6 @@
 <a href="#1018" id="1018">1018</a>
 <a href="#1019" id="1019">1019</a>
 <a href="#1020" id="1020">1020</a>
-<a href="#1021" id="1021">1021</a>
-<a href="#1022" id="1022">1022</a>
-<a href="#1023" id="1023">1023</a>
-<a href="#1024" id="1024">1024</a>
-<a href="#1025" id="1025">1025</a>
-<a href="#1026" id="1026">1026</a>
-<a href="#1027" id="1027">1027</a>
-<a href="#1028" id="1028">1028</a>
 </pre></div><pre class="rust"><code><span class="attr">#![allow(missing_docs, unused)]
 
 </span><span class="kw">mod </span>capabilities;
@@ -1104,12 +1096,9 @@
     <span class="doccomment">/// Set the default stack size (default is 1048576)
     </span><span class="attr">#[clap(long = <span class="string">&quot;stack-size&quot;</span>)]
     </span>stack_size: <span class="prelude-ty">Option</span>&lt;usize&gt;,
-    <span class="doccomment">/// The entrypoint module for webc packages.
-    </span><span class="attr">#[clap(short, long, aliases = <span class="kw-2">&amp;</span>[<span class="string">&quot;command&quot;</span>, <span class="string">&quot;command-name&quot;</span>]</span>)]
+    <span class="doccomment">/// The function or command to invoke.
+    </span><span class="attr">#[clap(short, long, aliases = <span class="kw-2">&amp;</span>[<span class="string">&quot;command&quot;</span>, <span class="string">&quot;invoke&quot;</span>, <span class="string">&quot;command-name&quot;</span>]</span>)]
     entrypoint: <span class="prelude-ty">Option</span>&lt;String&gt;,
-    <span class="doccomment">/// The function to invoke.
-    </span><span class="attr">#[clap(short, long)]
-    </span>invoke: <span class="prelude-ty">Option</span>&lt;String&gt;,
     <span class="doccomment">/// Generate a coredump at this path if a WebAssembly trap occurs
     </span><span class="attr">#[clap(name = <span class="string">&quot;COREDUMP_PATH&quot;</span>, long)]
     </span>coredump_on_trap: <span class="prelude-ty">Option</span>&lt;PathBuf&gt;,
@@ -1408,19 +1397,19 @@
         <span class="kw">let </span>instance = Instance::new(store, module, <span class="kw-2">&amp;</span>imports)
             .context(<span class="string">&quot;Unable to instantiate the WebAssembly module&quot;</span>)<span class="question-mark">?</span>;
 
-        <span class="kw">let </span>entry_function  = <span class="kw">match </span><span class="kw-2">&amp;</span><span class="self">self</span>.invoke {
+        <span class="kw">let </span>entrypoint  = <span class="kw">match </span><span class="kw-2">&amp;</span><span class="self">self</span>.entrypoint {
             <span class="prelude-val">Some</span>(entry) =&gt; {
                 instance.exports
                     .get_function(entry)
-                    .with_context(|| <span class="macro">format!</span>(<span class="string">&quot;The module doesn&#39;t export a function named \&quot;{entry}\&quot;&quot;</span>))<span class="question-mark">?
+                    .with_context(|| <span class="macro">format!</span>(<span class="string">&quot;The module doesn&#39;t contain a \&quot;{entry}\&quot; function&quot;</span>))<span class="question-mark">?
             </span>},
             <span class="prelude-val">None </span>=&gt; {
                 instance.exports.get_function(<span class="string">&quot;_start&quot;</span>)
-                    .context(<span class="string">&quot;The module doesn&#39;t export a \&quot;_start\&quot; function. Either implement it or specify an entry function with --invoke&quot;</span>)<span class="question-mark">?
+                    .context(<span class="string">&quot;The module doesn&#39;t contain a \&quot;_start\&quot; function. Either implement it or specify an entrypoint function.&quot;</span>)<span class="question-mark">?
             </span>}
         };
 
-        <span class="kw">let </span>return_values = invoke_function(<span class="kw-2">&amp;</span>instance, store, entry_function, <span class="kw-2">&amp;</span><span class="self">self</span>.args)<span class="question-mark">?</span>;
+        <span class="kw">let </span>return_values = invoke_function(<span class="kw-2">&amp;</span>instance, store, entrypoint, <span class="kw-2">&amp;</span><span class="self">self</span>.args)<span class="question-mark">?</span>;
 
         <span class="macro">println!</span>(
             <span class="string">&quot;{}&quot;</span>,
@@ -1455,10 +1444,6 @@
             .with_tmp_mapped(is_tmp_mapped)
             .with_forward_host_env(<span class="self">self</span>.wasi.forward_host_env)
             .with_capabilities(<span class="self">self</span>.wasi.capabilities());
-
-        <span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">ref </span>entry_function) = <span class="self">self</span>.invoke {
-            runner.with_entry_function(entry_function);
-        }
 
         <span class="attr">#[cfg(feature = <span class="string">&quot;journal&quot;</span>)]
         </span>{
@@ -1554,7 +1539,6 @@
             wcgi: WcgiOptions::default(),
             stack_size: <span class="prelude-val">None</span>,
             entrypoint: <span class="prelude-val">Some</span>(original_executable.to_string()),
-            invoke: <span class="prelude-val">None</span>,
             coredump_on_trap: <span class="prelude-val">None</span>,
             input: PackageSource::infer(executable)<span class="question-mark">?</span>,
             args: args.to_vec(),
