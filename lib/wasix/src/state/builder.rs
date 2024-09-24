@@ -49,8 +49,8 @@ use super::env::WasiEnvInit;
 /// ```
 #[derive(Default)]
 pub struct WasiEnvBuilder {
-    /// Name of entrypoint function. Defaults to running `_start` if not specified.
-    pub(super) entrypoint: Option<String>,
+    /// Name of entry function. Defaults to running `_start` if not specified.
+    pub(super) entry_function: Option<String>,
     /// Command line arguments.
     pub(super) args: Vec<String>,
     /// Environment variables.
@@ -99,7 +99,7 @@ impl std::fmt::Debug for WasiEnvBuilder {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         // TODO: update this when stable
         f.debug_struct("WasiEnvBuilder")
-            .field("entrypoint", &self.entrypoint)
+            .field("entry_function", &self.entry_function)
             .field("args", &self.args)
             .field("envs", &self.envs)
             .field("preopens", &self.preopens)
@@ -243,19 +243,19 @@ impl WasiEnvBuilder {
         &mut self.envs
     }
 
-    pub fn entrypoint<S>(mut self, entrypoint: S) -> Self
+    pub fn entry_function<S>(mut self, entry_function: S) -> Self
     where
         S: AsRef<str>,
     {
-        self.set_entrypoint(entrypoint);
+        self.set_entry_function(entry_function);
         self
     }
 
-    pub fn set_entrypoint<S>(&mut self, entrypoint: S)
+    pub fn set_entry_function<S>(&mut self, entry_function: S)
     where
         S: AsRef<str>,
     {
-        self.entrypoint = Some(entrypoint.as_ref().to_owned());
+        self.entry_function = Some(entry_function.as_ref().to_owned());
     }
 
     /// Add an argument.
@@ -1042,7 +1042,7 @@ impl WasiEnvBuilder {
             );
         }
 
-        let entrypoint = self.entrypoint.clone();
+        let entry_function = self.entry_function.clone();
 
         let (instance, env) = self.instantiate_ext(module, module_hash, store)?;
 
@@ -1058,7 +1058,7 @@ impl WasiEnvBuilder {
 
         let start = instance
             .exports
-            .get_function(entrypoint.as_deref().unwrap_or("_start"))?;
+            .get_function(entry_function.as_deref().unwrap_or("_start"))?;
         env.data(&store).thread.set_status_running();
 
         let result = crate::run_wasi_func_start(start, store);
