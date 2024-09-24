@@ -682,7 +682,7 @@ jobs:
           tar xf llvm.tar.xz --strip-components=1 -C ${LLVM_DIR}
           echo "${LLVM_DIR}/bin" >> $GITHUB_PATH
           echo "LLVM_SYS_180_PREFIX=${LLVM_DIR}" >> $GITHUB_ENV
-          echo "1" > $ENABLE_LLVM
+          echo "ENABLE_LLVM=1" >> $GITHUB_ENV
         env:
           LLVM_DIR: .llvm
       - name: Setup Rust target
