@@ -64,7 +64,7 @@ jobs:
           sudo apt install -y libtinfo5
       - name: Install LLVM (Linux)
         run: |
-          curl --proto '=https' --tlsv1.2 -sSf https://github.com/llvm/llvm-project/releases/download/llvmorg-15.0.6/clang+llvm-15.0.6-x86_64-linux-gnu-ubuntu-18.04.tar.xz -L -o /opt/llvm.tar.xz
+          curl --proto '=https' --tlsv1.2 -sSf https://github.com/wasmerio/llvm-custom-builds/releases/download/18.x/llvm-linux-amd64.tar.xz -L -o /opt/llvm.tar.xz
           mkdir -p /opt/llvm-15
           tar xf /opt/llvm.tar.xz --strip-components=1 -C /opt/llvm-15
           echo '/opt/llvm-15/bin' >> $GITHUB_PATH
@@ -171,6 +171,18 @@ jobs:
           curl -L "https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-${{ env.WASI_SDK_VERSION }}/wasi-sdk-${{ env.WASI_SDK_VERSION }}.0-linux.tar.gz" -o wasi-sdk.tar.gz
           tar -xzf wasi-sdk.tar.gz
           cp -r wasi-sdk-${{ env.WASI_SDK_VERSION }}.0 ~/wasi-sdk
+      - name: Install LLVM 18
+        run: |
+          curl --proto '=https' --tlsv1.2 -sSf https://github.com/wasmerio/llvm-custom-builds/releases/download/18.x/llvm-linux-amd64.tar.xz -L -o llvm.tar.xz
+          LLVM_DIR=$(pwd)/${{ env.LLVM_DIR }}
+          mkdir ${LLVM_DIR}
+          tar xf llvm.tar.xz --strip-components=1 -C ${LLVM_DIR}
+          echo "ENABLE_LLVM=1" >> $GITHUB_ENV
+          echo "${LLVM_DIR}/bin" >> $GITHUB_PATH
+          echo "${LLVM_DIR}/usr/bin" >> $GITHUB_PATH
+          echo "LLVM_SYS_180_PREFIX=${LLVM_DIR}" >> $GITHUB_ENV
+        env:
+          LLVM_DIR: .llvm
       - name: Install wasm-opt
         run: |
           sudo apt-get install -y binaryen
@@ -361,36 +373,39 @@ jobs:
             build: linux-x64,
             os: ubuntu-22.04,
             target: x86_64-unknown-linux-gnu,
-            llvm_url: 'https://github.com/llvm/llvm-project/releases/download/llvmorg-15.0.6/clang+llvm-15.0.6-x86_64-linux-gnu-ubuntu-18.04.tar.xz'
-          },
-          {
-            build: linux-musl,
-            target: x86_64-unknown-linux-musl,
-            os: ubuntu-22.04,
-            container: 'alpine:latest'
+            exe: '',
+            llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/18.x/llvm-linux-amd64.tar.xz'
           },
           {
             build: macos-x64,
             os: macos-12,
             target: x86_64-apple-darwin,
-            llvm_url: 'https://github.com/llvm/llvm-project/releases/download/llvmorg-15.0.7/clang+llvm-15.0.7-x86_64-apple-darwin21.0.tar.xz'
+            exe: '',
+            llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/18.x/llvm-darwin-amd64.tar.xz'
+
           },
           {
-            build: macos-arm,
-            os: macos-12,
+            build: macos-arm64,
+            os: macos-14,
             target: aarch64-apple-darwin,
+            exe: '',
+            llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/18.x/llvm-darwin-aarch64.tar.xz'
           },
           {
             build: windows-x64,
             os: windows-2019,
             target: x86_64-pc-windows-msvc,
-            llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/15.x/llvm-windows-amd64.tar.xz'
+            exe: '.exe',
+            llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/18.x/llvm-windows-amd64.tar.xz'
           },
           {
-            build: windows-gnu,
-            target: x86_64-pc-windows-gnu,
+            build: linux-musl,
+            target: x86_64-unknown-linux-musl,
             os: ubuntu-22.04,
+            exe: '',
+            container: 'alpine:latest'
           }
+
         ]
     container: ${{ matrix.metadata.container }}
     env:
@@ -592,26 +607,29 @@ jobs:
             os: ubuntu-22.04,
             target: x86_64-unknown-linux-gnu,
             exe: '',
-            llvm_url: 'https://github.com/llvm/llvm-project/releases/download/llvmorg-18.1.8/clang+llvm-18.1.8-x86_64-linux-gnu-ubuntu-18.04.tar.xz '
+            llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/18.x/llvm-linux-amd64.tar.xz'
           },
           {
             build: macos-x64,
             os: macos-12,
             target: x86_64-apple-darwin,
             exe: '',
+            llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/18.x/llvm-darwin-amd64.tar.xz'
+
           },
           {
             build: macos-arm64,
             os: macos-14,
             target: aarch64-apple-darwin,
             exe: '',
+            llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/18.x/llvm-darwin-aarch64.tar.xz'
           },
           {
             build: windows-x64,
             os: windows-2019,
             target: x86_64-pc-windows-msvc,
             exe: '.exe',
-            llvm_url: 'https://github.com/llvm/llvm-project/releases/download/llvmorg-18.1.8/clang+llvm-18.1.8-x86_64-pc-windows-msvc.tar.xz'
+            llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/18.x/llvm-windows-amd64.tar.xz'
           },
           {
             build: linux-musl,
@@ -663,7 +681,8 @@ jobs:
           mkdir ${LLVM_DIR}
           tar xf llvm.tar.xz --strip-components=1 -C ${LLVM_DIR}
           echo "${LLVM_DIR}/bin" >> $GITHUB_PATH
-          echo "LLVM_SYS_120_PREFIX=${LLVM_DIR}" >> $GITHUB_ENV
+          echo "LLVM_SYS_180_PREFIX=${LLVM_DIR}" >> $GITHUB_ENV
+          echo "1" > $ENABLE_LLVM
         env:
           LLVM_DIR: .llvm
       - name: Setup Rust target
@@ -696,6 +715,7 @@ jobs:
           TARGET_DIR: target/${{ matrix.metadata.target }}/release
           CARGO_TARGET: ${{ matrix.metadata.target }}
 
+
   test_integration_cli:
     name: CLI integration tests on ${{ matrix.build }}
     runs-on: ${{ matrix.os }}
@@ -707,7 +727,7 @@ jobs:
           - build: linux-x64
             os: ubuntu-22.04
             target: x86_64-unknown-linux-gnu
-            llvm_url: 'https://github.com/llvm/llvm-project/releases/download/llvmorg-18.1.8/clang+llvm-18.1.8-x86_64-linux-gnu-ubuntu-18.04.tar.xz '
+            llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/18.x/llvm-linux-amd64.tar.xz'
           - build: macos-x64
             os: macos-12
             target: x86_64-apple-darwin
@@ -722,7 +742,7 @@ jobs:
           - build: windows-x64
             os: windows-2019
             target: x86_64-pc-windows-msvc
-            llvm_url: 'https://github.com/llvm/llvm-project/releases/download/llvmorg-18.1.8/clang+llvm-18.1.8-x86_64-pc-windows-msvc.tar.xz'
+            llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/18.x/llvm-windows-amd64.tar.xz'
     container: ${{ matrix.container }}
     env:
       SCCACHE_AZURE_BLOB_CONTAINER: wasmerstoragesccacheblob
