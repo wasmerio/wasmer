@@ -34,20 +34,6 @@ impl WasiRunner {
         WasiRunner::default()
     }
 
-    /// Returns the current entry function for this `WasiRunner`
-    pub fn entry_function(&self) -> Option<String> {
-        self.wasi.entry_function.clone()
-    }
-
-    /// Builder method to set the name of the entry function for this `WasiRunner`
-    pub fn with_entry_function<S>(&mut self, entry_function: S) -> &mut Self
-    where
-        S: Into<String>,
-    {
-        self.wasi.entry_function = Some(entry_function.into());
-        self
-    }
-
     /// Returns the current arguments for this `WasiRunner`
     pub fn get_args(&self) -> Vec<String> {
         self.wasi.args.clone()
