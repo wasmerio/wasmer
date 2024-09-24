@@ -237,12 +237,12 @@ impl FuncTranslator {
 
         passes.push("sccp");
         passes.push("early-cse");
-        passes.push("deadargelim");
+        //passes.push("deadargelim");
         passes.push("adce");
         passes.push("sroa");
         passes.push("aggressive-instcombine");
         passes.push("jump-threading");
-        passes.push("ipsccp");
+        //passes.push("ipsccp");
         passes.push("simplifycfg");
         passes.push("reassociate");
         passes.push("loop-rotate");
