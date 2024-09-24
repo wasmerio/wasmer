@@ -65,10 +65,10 @@ jobs:
       - name: Install LLVM (Linux)
         run: |
           curl --proto '=https' --tlsv1.2 -sSf https://github.com/wasmerio/llvm-custom-builds/releases/download/18.x/llvm-linux-amd64.tar.xz -L -o /opt/llvm.tar.xz
-          mkdir -p /opt/llvm-15
-          tar xf /opt/llvm.tar.xz --strip-components=1 -C /opt/llvm-15
-          echo '/opt/llvm-15/bin' >> $GITHUB_PATH
-          echo 'LLVM_SYS_150_PREFIX=/opt/llvm-15' >> $GITHUB_ENV
+          mkdir -p /opt/llvm-18
+          tar xf /opt/llvm.tar.xz --strip-components=1 -C /opt/llvm-18
+          echo '/opt/llvm-18/bin' >> $GITHUB_PATH
+          echo 'LLVM_SYS_180_PREFIX=/opt/llvm-18' >> $GITHUB_ENV
       - name: Cache
         uses: whywaita/actions-cache-s3@v2
         with:
@@ -413,14 +413,16 @@ jobs:
             os: macos-14,
             target: aarch64-apple-darwin,
             exe: '',
-            llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/18.x/llvm-darwin-aarch64.tar.xz'
+            # [todo] xdoardo: Reinstate when the code we generate for aarch64 is working correctly. 
+            #llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/18.x/llvm-darwin-aarch64.tar.xz'
           },
           {
             build: windows-x64,
-            os: windows-2019,
+            os: windows-2022,
             target: x86_64-pc-windows-msvc,
             exe: '.exe',
-            llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/18.x/llvm-windows-amd64.tar.xz'
+            # For now, disable LLVM in `windows-x64.`
+            # llvm_url: 'https://github.com/xdoardo/llvm-custom-builds/releases/download/18.x/llvm-windows-amd64.tar.xz'
           },
           {
             build: linux-musl,
@@ -460,6 +462,13 @@ jobs:
           target: ${{ matrix.metadata.target }}
       - name: Install Nextest
         uses: taiki-e/install-action@nextest
+      - name: Install MSVC dev-cmd (Windows)
+        uses: ilammy/msvc-dev-cmd@v1
+        if: ${{ matrix.metadata.build == 'windows-x64' }}
+      - name: Delete unwanted link to stop it from interfering (Windows) 
+        shell: bash
+        run: rm /usr/bin/link.exe
+        if: ${{ matrix.metadata.build == 'windows-x64' }}
       - name: Install Windows-GNU linker
         if: ${{ matrix.metadata.build == 'windows-gnu' }}
         shell: bash
@@ -497,8 +506,8 @@ jobs:
         run: |
           brew install llvm
       - name: Install LLVM
-        if: matrix.metadata.llvm_url
         shell: bash
+        if: matrix.metadata.llvm_url
         run: |
           curl --proto '=https' --tlsv1.2 -sSf ${{ matrix.metadata.llvm_url }} -L -o llvm.tar.xz
           LLVM_DIR=$(pwd)/${{ env.LLVM_DIR }}
@@ -507,13 +516,14 @@ jobs:
           echo "ENABLE_LLVM=1" >> $GITHUB_ENV
           echo "${LLVM_DIR}/bin" >> $GITHUB_PATH
           echo "${LLVM_DIR}/usr/bin" >> $GITHUB_PATH
-          echo "LLVM_SYS_150_PREFIX=${LLVM_DIR}" >> $GITHUB_ENV
+          echo "LLVM_SYS_180_PREFIX=${LLVM_DIR}" >> $GITHUB_ENV
         env:
           LLVM_DIR: .llvm
-      - name: Install LLVM dependencies (macOS)
-        if: matrix.metadata.os == 'macos-12' || matrix.metadata.os == 'macos-14'
+      - name: Add `brew` libs to `RUSTFLAGS`
+        if: matrix.metadata.os == 'macos-14'
         shell: bash
-        run: brew install zstd
+        run: |
+          echo "RUSTFLAGS=-L/opt/homebrew/lib" >> $GITHUB_ENV
       - name: Setup Rust target
         shell: bash
         run: |
@@ -650,14 +660,16 @@ jobs:
             os: macos-14,
             target: aarch64-apple-darwin,
             exe: '',
-            llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/18.x/llvm-darwin-aarch64.tar.xz'
+            # [todo] xdoardo: Reinstate when the code we generate for aarch64 is working correctly. 
+            # llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/18.x/llvm-darwin-aarch64.tar.xz'
           },
           {
             build: windows-x64,
-            os: windows-2019,
+            os: windows-2022,
             target: x86_64-pc-windows-msvc,
             exe: '.exe',
-            llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/18.x/llvm-windows-amd64.tar.xz'
+            # llvm_url: 'https://github.com/xdoardo/llvm-custom-builds/releases/download/18.x-2/llvm-windows-amd64-msvc.tar.xz'
+            # llvm_url: 'https://github.com/llvm/llvm-project/releases/download/llvmorg-18.1.8/clang+llvm-18.1.8-x86_64-pc-windows-msvc.tar.xz'
           },
           {
             build: linux-musl,
@@ -682,6 +694,14 @@ jobs:
       - name: Set up base deps on musl
         if: matrix.metadata.build == 'linux-musl'
         run: ./scripts/alpine-linux-install-deps.sh
+      - name: Install MSVC dev-cmd (Windows)
+        uses: ilammy/msvc-dev-cmd@v1
+        if: ${{ matrix.metadata.build == 'windows-x64' }}
+      - name: Delete unwanted link to stop it from interfering (Windows) 
+        shell: bash
+        run: rm /usr/bin/link.exe
+        if: ${{ matrix.metadata.build == 'windows-x64' }}
+
       - name: Set up dependencies for Mac OS
         run: |
           brew install automake
@@ -701,22 +721,24 @@ jobs:
         run: |
           brew install llvm
       - name: Install LLVM
-        if: matrix.metadata.llvm_url
         shell: bash
+        if: matrix.metadata.llvm_url
         run: |
           curl --proto '=https' --tlsv1.2 -sSf ${{ matrix.metadata.llvm_url }} -L -o llvm.tar.xz
           LLVM_DIR=$(pwd)/${{ env.LLVM_DIR }}
           mkdir ${LLVM_DIR}
           tar xf llvm.tar.xz --strip-components=1 -C ${LLVM_DIR}
           echo "${LLVM_DIR}/bin" >> $GITHUB_PATH
+          echo "${LLVM_DIR}/usr/bin" >> $GITHUB_PATH
           echo "LLVM_SYS_180_PREFIX=${LLVM_DIR}" >> $GITHUB_ENV
           echo "ENABLE_LLVM=1" >> $GITHUB_ENV
         env:
           LLVM_DIR: .llvm
-      - name: Install LLVM dependencies (macOS)
-        if: matrix.metadata.os == 'macos-12' || matrix.metadata.os == 'macos-14'
+      - name: Add `brew` libs to `RUSTFLAGS`
+        if: matrix.metadata.os == 'macos-14'
         shell: bash
-        run: brew install zstd
+        run: |
+          echo "RUSTFLAGS=-L/opt/homebrew/lib" >> $GITHUB_ENV
       - name: Setup Rust target
         shell: bash
         run: |
@@ -741,6 +763,7 @@ jobs:
           aws-s3-bucket-endpoint: false
           aws-s3-force-path-style: true
       - name: ${{ matrix.stage.description }}
+        shell: bash
         run: make ${{ matrix.stage.make }}
         env:
           TARGET: ${{ matrix.metadata.target }}
@@ -774,7 +797,8 @@ jobs:
           - build: windows-x64
             os: windows-2019
             target: x86_64-pc-windows-msvc
-            llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/18.x/llvm-windows-amd64.tar.xz'
+            # llvm_url: 'https://github.com/xdoardo/llvm-custom-builds/releases/download/18.x-2/llvm-windows-amd64-msvc.tar.xz'
+            # llvm_url: 'https://github.com/llvm/llvm-project/releases/download/llvmorg-18.1.8/clang+llvm-18.1.8-x86_64-pc-windows-msvc.tar.xz'
     container: ${{ matrix.container }}
     env:
       SCCACHE_AZURE_BLOB_CONTAINER: wasmerstoragesccacheblob
@@ -828,11 +852,11 @@ jobs:
           path: package/cache/wasmercache1
       - uses: actions/download-artifact@v3
         with:
-          name: capi-windows-gnu
+          name: capi-windows-x64
           path: package/cache/wasmercache2
       - uses: actions/download-artifact@v3
         with:
-          name: capi-macos-arm
+          name: capi-macos-arm64
           path: package/cache/wasmercache3
       - uses: actions/download-artifact@v3
         with:
@@ -863,7 +887,7 @@ jobs:
       - uses: actions/download-artifact@v3
         if: ${{ matrix.build == 'windows-x64' }}
         with:
-          name: capi-windows-gnu
+          name: capi-windows-x64
           path: download_link
       - uses: actions/download-artifact@v3
         if: ${{ matrix.build == 'linux-musl' }}
@@ -873,7 +897,7 @@ jobs:
       - uses: actions/download-artifact@v3
         if: ${{ matrix.build == 'macos-arm' }}
         with:
-          name: capi-macos-arm
+          name: capi-macos-arm64
           path: download_link
       - uses: actions/download-artifact@v3
         if: ${{ matrix.build == 'macos-x64' }}
