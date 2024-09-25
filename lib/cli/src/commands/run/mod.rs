@@ -76,9 +76,12 @@ pub struct Run {
     /// Set the default stack size (default is 1048576)
     #[clap(long = "stack-size")]
     stack_size: Option<usize>,
-    /// The function or command to invoke.
-    #[clap(short, long, aliases = &["command", "invoke", "command-name"])]
+    /// The entrypoint module for webc packages.
+    #[clap(short, long, aliases = &["command", "command-name"])]
     entrypoint: Option<String>,
+    /// The function to invoke.
+    #[clap(short, long)]
+    invoke: Option<String>,
     /// Generate a coredump at this path if a WebAssembly trap occurs
     #[clap(name = "COREDUMP_PATH", long)]
     coredump_on_trap: Option<PathBuf>,
@@ -377,19 +380,19 @@ impl Run {
         let instance = Instance::new(store, module, &imports)
             .context("Unable to instantiate the WebAssembly module")?;
 
-        let entrypoint  = match &self.entrypoint {
+        let entry_function  = match &self.invoke {
             Some(entry) => {
                 instance.exports
                     .get_function(entry)
-                    .with_context(|| format!("The module doesn't contain a \"{entry}\" function"))?
+                    .with_context(|| format!("The module doesn't export a function named \"{entry}\""))?
             },
             None => {
                 instance.exports.get_function("_start")
-                    .context("The module doesn't contain a \"_start\" function. Either implement it or specify an entrypoint function.")?
+                    .context("The module doesn't export a \"_start\" function. Either implement it or specify an entry function with --invoke")?
             }
         };
 
-        let return_values = invoke_function(&instance, store, entrypoint, &self.args)?;
+        let return_values = invoke_function(&instance, store, entry_function, &self.args)?;
 
         println!(
             "{}",
@@ -424,6 +427,10 @@ impl Run {
             .with_tmp_mapped(is_tmp_mapped)
             .with_forward_host_env(self.wasi.forward_host_env)
             .with_capabilities(self.wasi.capabilities());
+
+        if let Some(ref entry_function) = self.invoke {
+            runner.with_entry_function(entry_function);
+        }
 
         #[cfg(feature = "journal")]
         {
@@ -519,6 +526,7 @@ impl Run {
             wcgi: WcgiOptions::default(),
             stack_size: None,
             entrypoint: Some(original_executable.to_string()),
+            invoke: None,
             coredump_on_trap: None,
             input: PackageSource::infer(executable)?,
             args: args.to_vec(),
