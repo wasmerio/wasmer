@@ -88,6 +88,11 @@ where
         }
     }
 
+    /// Create additional imports for a new WASIX thread in the provided [wasmer::Store].
+    fn additional_imports(&self, store: &mut wasmer::StoreMut) -> anyhow::Result<wasmer::Imports> {
+        Ok(wasmer::Imports::new())
+    }
+
     /// Get a custom HTTP client
     fn http_client(&self) -> Option<&DynHttpClient> {
         None
@@ -220,6 +225,15 @@ pub struct PluggableRuntime {
     #[cfg(feature = "journal")]
     #[derivative(Debug = "ignore")]
     pub journals: Vec<Arc<DynJournal>>,
+    #[derivative(Debug = "ignore")]
+    pub additional_imports: Vec<
+        Arc<
+            dyn (Fn(&mut wasmer::StoreMut) -> anyhow::Result<wasmer::Imports>)
+                + Send
+                + Sync
+                + 'static,
+        >,
+    >,
 }
 
 impl PluggableRuntime {
@@ -256,6 +270,7 @@ impl PluggableRuntime {
             module_cache: Arc::new(module_cache::in_memory()),
             #[cfg(feature = "journal")]
             journals: Vec::new(),
+            additional_imports: Vec::new(),
         }
     }
 
@@ -311,6 +326,17 @@ impl PluggableRuntime {
         self.journals.push(journal);
         self
     }
+
+    pub fn with_additional_imports(
+        &mut self,
+        imports: impl (Fn(&mut wasmer::StoreMut) -> anyhow::Result<wasmer::Imports>)
+            + Send
+            + Sync
+            + 'static,
+    ) -> &mut Self {
+        self.additional_imports.push(Arc::new(imports));
+        self
+    }
 }
 
 impl Runtime for PluggableRuntime {
@@ -343,6 +369,14 @@ impl Runtime for PluggableRuntime {
             .clone()
             .map(wasmer::Store::new)
             .unwrap_or_default()
+    }
+
+    fn additional_imports(&self, store: &mut wasmer::StoreMut) -> anyhow::Result<wasmer::Imports> {
+        let mut imports = wasmer::Imports::new();
+        for cb in &self.additional_imports {
+            imports.extend((*cb)(store)?);
+        }
+        Ok(imports)
     }
 
     fn task_manager(&self) -> &Arc<dyn VirtualTaskManager> {

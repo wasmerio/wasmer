@@ -9,7 +9,6 @@ use derivative::Derivative;
 use futures::future::BoxFuture;
 use tokio::runtime::Handle;
 use virtual_fs::{FileSystem, FsError, OverlayFileSystem, RootFileSystemBuilder, TmpFileSystem};
-use wasmer::Imports;
 use webc::metadata::annotations::Wasi as WasiAnnotation;
 
 use crate::{
@@ -46,7 +45,6 @@ pub(crate) struct CommonWasiOptions {
     pub(crate) snapshot_on: Vec<SnapshotTrigger>,
     pub(crate) snapshot_interval: Option<std::time::Duration>,
     pub(crate) current_dir: Option<PathBuf>,
-    pub(crate) additional_imports: Imports,
 }
 
 impl CommonWasiOptions {
@@ -87,8 +85,6 @@ impl CommonWasiOptions {
         self.populate_args(wasi, builder);
 
         *builder.capabilities_mut() = self.capabilities.clone();
-
-        builder.add_imports(&self.additional_imports);
 
         Ok(())
     }

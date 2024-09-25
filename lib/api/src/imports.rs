@@ -187,6 +187,15 @@ impl<'a> Iterator for ImportsIterator<'a> {
     }
 }
 
+impl IntoIterator for Imports {
+    type IntoIter = std::collections::hash_map::IntoIter<(String, String), Extern>;
+    type Item = ((String, String), Extern);
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.map.into_iter()
+    }
+}
+
 impl IntoIterator for &Imports {
     type IntoIter = std::collections::hash_map::IntoIter<(String, String), Extern>;
     type Item = ((String, String), Extern);

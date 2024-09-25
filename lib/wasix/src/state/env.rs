@@ -268,10 +268,6 @@ pub struct WasiEnvInit {
     /// Indicates if extra tracing should be output
     pub extra_tracing: bool,
 
-    /// Additional functionality provided to the WASIX instance, besides the
-    /// normal WASIX syscalls.
-    pub additional_imports: Imports,
-
     /// Indicates triggers that will cause a snapshot to be taken
     #[cfg(feature = "journal")]
     pub snapshot_on: Vec<SnapshotTrigger>,
@@ -313,7 +309,6 @@ impl WasiEnvInit {
             extra_tracing: false,
             #[cfg(feature = "journal")]
             snapshot_on: self.snapshot_on.clone(),
-            additional_imports: self.additional_imports.clone(),
         }
     }
 }
@@ -592,6 +587,7 @@ impl WasiEnv {
         module: Module,
         module_hash: ModuleHash,
         store: &mut impl AsStoreMut,
+        additional_imports: Imports,
     ) -> Result<(Instance, WasiFunctionEnv), WasiRuntimeError> {
         let call_initialize = init.call_initialize;
         let spawn_type = init.memory_ty.take();
@@ -601,8 +597,6 @@ impl WasiEnv {
                 tracing::trace!("import {}.{}", import.module(), import.name());
             }
         }
-
-        let additional_imports = init.additional_imports.clone();
 
         let env = Self::from_init(init, module_hash)?;
         let pid = env.process.pid();
@@ -630,7 +624,7 @@ impl WasiEnv {
         let (mut import_object, instance_init_callback) =
             import_object_for_all_wasi_versions(&module, &mut store, &func_env.env);
 
-        for ((namespace, name), value) in &additional_imports {
+        for ((namespace, name), value) in additional_imports {
             // Note: We don't want to let downstream users override WASIX
             // syscalls
             if !import_object.exists(&namespace, &name) {

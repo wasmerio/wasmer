@@ -48,6 +48,10 @@ impl WasiFunctionEnv {
         // Create a new store and put the memory object in it
         // (but only if it has imported memory)
         let mut store = env.runtime.new_store();
+        let additional_imports = env
+            .runtime
+            .additional_imports(&mut store.as_store_mut())
+            .map_err(|e| WasiThreadError::AdditionalImportCreationFailed(Arc::new(e)))?;
         let memory = env
             .tasks()
             .build_memory(&mut store.as_store_mut(), spawn_type)?;
@@ -56,6 +60,15 @@ impl WasiFunctionEnv {
         let mut ctx = WasiFunctionEnv::new(&mut store, env);
         let (mut import_object, init) =
             import_object_for_all_wasi_versions(&module, &mut store, &ctx.env);
+
+        for ((namespace, name), value) in additional_imports {
+            // Note: We don't want to let downstream users override WASIX
+            // syscalls
+            if !import_object.exists(&namespace, &name) {
+                import_object.define(&namespace, &name, value);
+            }
+        }
+
         if let Some(memory) = memory.clone() {
             import_object.define("env", "memory", memory);
         }
