@@ -210,6 +210,9 @@ impl TtyBridge for DefaultTty {
     }
 }
 
+type MakeImportCallback =
+    dyn (Fn(&mut wasmer::StoreMut) -> anyhow::Result<wasmer::Imports>) + Send + Sync + 'static;
+
 #[derive(Clone, Derivative)]
 #[derivative(Debug)]
 pub struct PluggableRuntime {
@@ -226,14 +229,7 @@ pub struct PluggableRuntime {
     #[derivative(Debug = "ignore")]
     pub journals: Vec<Arc<DynJournal>>,
     #[derivative(Debug = "ignore")]
-    pub additional_imports: Vec<
-        Arc<
-            dyn (Fn(&mut wasmer::StoreMut) -> anyhow::Result<wasmer::Imports>)
-                + Send
-                + Sync
-                + 'static,
-        >,
-    >,
+    pub additional_imports: Vec<Arc<MakeImportCallback>>,
 }
 
 impl PluggableRuntime {

@@ -627,7 +627,13 @@ impl WasiEnv {
         for ((namespace, name), value) in additional_imports {
             // Note: We don't want to let downstream users override WASIX
             // syscalls
-            if !import_object.exists(&namespace, &name) {
+            if import_object.exists(&namespace, &name) {
+                tracing::warn!(
+                    "Skipping duplicate additional import {}.{}",
+                    namespace,
+                    name
+                );
+            } else {
                 import_object.define(&namespace, &name, value);
             }
         }
