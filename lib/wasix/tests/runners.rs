@@ -236,9 +236,8 @@ fn client() -> Client {
         }
         builder
     };
-    let client = builder.build().unwrap();
 
-    client
+    builder.build().unwrap()
 }
 
 #[cfg(not(target_os = "windows"))]
