@@ -77,9 +77,9 @@ impl InMemorySource {
                 let pkg_hash = PackageHash::Sha256(wasmer_config::hash::Sha256Hash(
                     summary.dist.webc_sha256.as_bytes(),
                 ));
-                if !self.hash_packages.contains_key(&pkg_hash) {
-                    self.hash_packages.insert(pkg_hash, summary.clone());
-                }
+                self.hash_packages
+                    .entry(pkg_hash)
+                    .or_insert_with(|| summary.clone());
 
                 // Add the named package.
                 let summaries = self

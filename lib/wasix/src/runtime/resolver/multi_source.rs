@@ -24,6 +24,12 @@ pub struct MultiSource {
     strategy: MultiSourceStrategy,
 }
 
+impl Default for MultiSource {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl MultiSource {
     pub fn new() -> Self {
         MultiSource {
