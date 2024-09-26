@@ -68,9 +68,20 @@ impl InMemorySource {
     }
 
     /// Add a new [`PackageSummary`] to the [`InMemorySource`].
+    ///
+    /// Named packages are also made accessible by their hash.
     pub fn add(&mut self, summary: PackageSummary) {
         match summary.pkg.id.clone() {
             PackageId::Named(ident) => {
+                // Also add the package as a hashed package.
+                let pkg_hash = PackageHash::Sha256(wasmer_config::hash::Sha256Hash(
+                    summary.dist.webc_sha256.as_bytes(),
+                ));
+                if !self.hash_packages.contains_key(&pkg_hash) {
+                    self.hash_packages.insert(pkg_hash, summary.clone());
+                }
+
+                // Add the named package.
                 let summaries = self
                     .named_packages
                     .entry(ident.full_name.clone())
