@@ -1430,7 +1430,7 @@
         <span class="kw">let </span>path = dir.path();
 
         <span class="kw">let </span>contents = <span class="string">&quot;fail&quot;</span>;
-        <span class="kw">let </span>correct_hash = WebcHash::sha256(<span class="kw-2">&amp;</span>contents);
+        <span class="kw">let </span>correct_hash = WebcHash::sha256(contents);
         <span class="kw">let </span>used_hash =
             WebcHash::parse_hex(<span class="string">&quot;0000a28ea38a000f3a3328cb7fabe330638d3258affe1a869e3f92986222d997&quot;</span>)
                 .unwrap();

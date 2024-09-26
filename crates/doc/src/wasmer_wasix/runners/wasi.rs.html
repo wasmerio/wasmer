@@ -1023,7 +1023,7 @@
 
         <span class="kw">let </span>fs = <span class="kw-2">&amp;</span>init.state.fs.root_fs;
 
-        fs.read_dir(<span class="kw-2">&amp;</span>std::path::Path::new(<span class="string">&quot;/host&quot;</span>)).unwrap();
+        fs.read_dir(std::path::Path::new(<span class="string">&quot;/host&quot;</span>)).unwrap();
     }
 
     <span class="attr">#[cfg(all(feature = <span class="string">&quot;host-fs&quot;</span>, feature = <span class="string">&quot;sys&quot;</span>))]
@@ -1076,8 +1076,8 @@
 
         <span class="kw">let </span>fs = <span class="kw-2">&amp;</span>init.state.fs.root_fs;
 
-        fs.read_dir(<span class="kw-2">&amp;</span>std::path::Path::new(<span class="string">&quot;/host&quot;</span>)).unwrap();
-        fs.read_dir(<span class="kw-2">&amp;</span>std::path::Path::new(<span class="string">&quot;/settings&quot;</span>)).unwrap();
+        fs.read_dir(std::path::Path::new(<span class="string">&quot;/host&quot;</span>)).unwrap();
+        fs.read_dir(std::path::Path::new(<span class="string">&quot;/settings&quot;</span>)).unwrap();
     }
 }
 </code></pre></div></section></main></body></html>
