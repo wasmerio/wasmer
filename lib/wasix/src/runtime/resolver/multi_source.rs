@@ -87,6 +87,9 @@ impl Source for MultiSource {
                 {
                     continue
                 }
+                // Generic errors do not respect the `merge_results` strategy
+                // flag, because unexpected errors should be bubbled to the
+                // caller.
                 Err(e) => return Err(e),
             }
         }
