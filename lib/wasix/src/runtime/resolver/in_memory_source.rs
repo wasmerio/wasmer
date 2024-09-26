@@ -118,6 +118,17 @@ impl InMemorySource {
             PackageId::Hash(hash) => self.hash_packages.get(hash),
         }
     }
+
+    pub fn is_empty(&self) -> bool {
+        self.named_packages.is_empty() && self.hash_packages.is_empty()
+    }
+
+    /// Returns the number of packages in the source.
+    pub fn len(&self) -> usize {
+        // Only need to count the hash packages,
+        // as the named packages are also always added as hashed.
+        self.hash_packages.len()
+    }
 }
 
 #[async_trait::async_trait]
