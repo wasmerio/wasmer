@@ -72,12 +72,12 @@ impl Source for MultiSource {
                         return Ok(summaries);
                     }
                 }
-                Err(QueryError::Unsupported)
+                Err(QueryError::Unsupported { .. })
                     if self.strategy.continue_if_unsupported || self.strategy.merge_results =>
                 {
                     continue
                 }
-                Err(QueryError::NotFound)
+                Err(QueryError::NotFound { .. })
                     if self.strategy.continue_if_not_found || self.strategy.merge_results =>
                 {
                     continue
@@ -96,7 +96,9 @@ impl Source for MultiSource {
 
             Ok(output)
         } else {
-            Err(QueryError::NotFound)
+            Err(QueryError::NotFound {
+                query: package.clone(),
+            })
         }
     }
 }

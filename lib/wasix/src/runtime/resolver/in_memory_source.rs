@@ -157,13 +157,16 @@ impl Source for InMemorySource {
 
                         if matches.is_empty() {
                             return Err(QueryError::NoMatches {
+                                query: package.clone(),
                                 archived_versions: Vec::new(),
                             });
                         }
 
                         Ok(matches)
                     }
-                    None => Err(QueryError::NotFound),
+                    None => Err(QueryError::NotFound {
+                        query: package.clone(),
+                    }),
                 }
             }
             PackageSource::Ident(PackageIdent::Hash(hash)) => self
@@ -171,9 +174,12 @@ impl Source for InMemorySource {
                 .get(hash)
                 .map(|x| vec![x.clone()])
                 .ok_or_else(|| QueryError::NoMatches {
+                    query: package.clone(),
                     archived_versions: Vec::new(),
                 }),
-            PackageSource::Url(_) | PackageSource::Path(_) => Err(QueryError::Unsupported),
+            PackageSource::Url(_) | PackageSource::Path(_) => Err(QueryError::Unsupported {
+                query: package.clone(),
+            }),
         }
     }
 }
