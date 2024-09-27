@@ -624,6 +624,13 @@ impl WasiEnv {
         let (mut import_object, instance_init_callback) =
             import_object_for_all_wasi_versions(&module, &mut store, &func_env.env);
 
+        let imported_memory = if let Some(memory) = memory {
+            import_object.define("env", "memory", memory.clone());
+            Some(memory)
+        } else {
+            None
+        };
+
         for ((namespace, name), value) in additional_imports {
             // Note: We don't want to let downstream users override WASIX
             // syscalls
@@ -637,13 +644,6 @@ impl WasiEnv {
                 import_object.define(&namespace, &name, value);
             }
         }
-
-        let imported_memory = if let Some(memory) = memory {
-            import_object.define("env", "memory", memory.clone());
-            Some(memory)
-        } else {
-            None
-        };
 
         // Construct the instance.
         let instance = match Instance::new(&mut store, &module, &import_object) {

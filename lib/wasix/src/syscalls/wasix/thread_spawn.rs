@@ -14,7 +14,7 @@ use crate::{
     WasiThreadHandle,
 };
 
-use wasmer::Memory;
+use wasmer::{ExternType, Memory};
 use wasmer_wasix_types::wasi::ThreadStart;
 
 /// ### `thread_spawn()`
@@ -122,6 +122,15 @@ pub fn thread_spawn_internal_using_layout<M: MemorySize>(
     let tasks = env.tasks().clone();
     let thread_memory = unsafe { env.inner() }.memory_clone();
 
+    let thread_module = unsafe { env.inner() }.module_clone();
+
+    if !thread_module.imports().any(|i| {
+        i.module() == "env" && i.name() == "memory" && matches!(i.ty(), ExternType::Memory(_))
+    }) {
+        tracing::warn!("Module does not contain an imported memory by the name env.memory, new thread can't be spawned");
+        return Err(Errno::Notcapable);
+    }
+
     // We capture some local variables
     let state = env.state.clone();
     let mut thread_env = env.clone();
@@ -153,7 +162,6 @@ pub fn thread_spawn_internal_using_layout<M: MemorySize>(
         warn!("thread failed - the program does not export a `wasi_thread_start` function");
         return Err(Errno::Notcapable);
     }
-    let thread_module = unsafe { env.inner() }.module_clone();
     let globals = capture_store_snapshot(&mut ctx.as_store_mut());
     let spawn_type =
         crate::runtime::SpawnMemoryType::ShareMemory(thread_memory, ctx.as_store_ref());
