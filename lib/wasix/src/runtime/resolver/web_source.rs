@@ -267,10 +267,9 @@ impl Source for WebSource {
             }
         };
 
-        self.load_url(url).await.map_err(|error| QueryError::Other {
-            query: package.clone(),
-            error,
-        })
+        self.load_url(url)
+            .await
+            .map_err(|error| QueryError::new_other(error, package))
     }
 }
 

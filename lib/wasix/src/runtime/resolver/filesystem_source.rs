@@ -52,10 +52,7 @@ impl Source for FileSystemSource {
                             path.display()
                         )
                     })
-                    .map_err(|error| QueryError::Other {
-                        query: package.clone(),
-                        error,
-                    })?
+                    .map_err(|error| QueryError::new_other(error, package))?
             }
             _ => {
                 return Err(QueryError::Unsupported {
@@ -66,9 +63,6 @@ impl Source for FileSystemSource {
 
         Self::load_path(&path)
             .await
-            .map_err(|error| QueryError::Other {
-                query: package.clone(),
-                error,
-            })
+            .map_err(|error| QueryError::new_other(error, package))
     }
 }

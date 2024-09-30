@@ -250,10 +250,7 @@ impl Source for BackendSource {
                         });
                     }
                     Err(error) => {
-                        return Err(QueryError::Other {
-                            query: package.clone(),
-                            error,
-                        });
+                        return Err(QueryError::new_other(error, package));
                     }
                 }
             }
@@ -291,10 +288,7 @@ impl Source for BackendSource {
         let response = self
             .query_graphql_named(&package_name)
             .await
-            .map_err(|error| QueryError::Other {
-                query: package.clone(),
-                error,
-            })?;
+            .map_err(|error| QueryError::new_other(error, package))?;
 
         if let Some(cache) = &self.cache {
             if let Err(e) = cache.update(&package_name, &response) {
