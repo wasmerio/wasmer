@@ -252,6 +252,12 @@
 <a href="#252" id="252">252</a>
 <a href="#253" id="253">253</a>
 <a href="#254" id="254">254</a>
+<a href="#255" id="255">255</a>
+<a href="#256" id="256">256</a>
+<a href="#257" id="257">257</a>
+<a href="#258" id="258">258</a>
+<a href="#259" id="259">259</a>
+<a href="#260" id="260">260</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{
     collections::{BTreeMap, HashMap, VecDeque},
     fs::File,
@@ -411,13 +417,16 @@
 
                         <span class="kw">if </span>matches.is_empty() {
                             <span class="kw">return </span><span class="prelude-val">Err</span>(QueryError::NoMatches {
+                                query: package.clone(),
                                 archived_versions: Vec::new(),
                             });
                         }
 
                         <span class="prelude-val">Ok</span>(matches)
                     }
-                    <span class="prelude-val">None </span>=&gt; <span class="prelude-val">Err</span>(QueryError::NotFound),
+                    <span class="prelude-val">None </span>=&gt; <span class="prelude-val">Err</span>(QueryError::NotFound {
+                        query: package.clone(),
+                    }),
                 }
             }
             PackageSource::Ident(PackageIdent::Hash(hash)) =&gt; <span class="self">self
@@ -425,9 +434,12 @@
                 .get(hash)
                 .map(|x| <span class="macro">vec!</span>[x.clone()])
                 .ok_or_else(|| QueryError::NoMatches {
+                    query: package.clone(),
                     archived_versions: Vec::new(),
                 }),
-            PackageSource::Url(<span class="kw">_</span>) | PackageSource::Path(<span class="kw">_</span>) =&gt; <span class="prelude-val">Err</span>(QueryError::Unsupported),
+            PackageSource::Url(<span class="kw">_</span>) | PackageSource::Path(<span class="kw">_</span>) =&gt; <span class="prelude-val">Err</span>(QueryError::Unsupported {
+                query: package.clone(),
+            }),
         }
     }
 }

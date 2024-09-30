@@ -1212,6 +1212,33 @@
 <a href="#1212" id="1212">1212</a>
 <a href="#1213" id="1213">1213</a>
 <a href="#1214" id="1214">1214</a>
+<a href="#1215" id="1215">1215</a>
+<a href="#1216" id="1216">1216</a>
+<a href="#1217" id="1217">1217</a>
+<a href="#1218" id="1218">1218</a>
+<a href="#1219" id="1219">1219</a>
+<a href="#1220" id="1220">1220</a>
+<a href="#1221" id="1221">1221</a>
+<a href="#1222" id="1222">1222</a>
+<a href="#1223" id="1223">1223</a>
+<a href="#1224" id="1224">1224</a>
+<a href="#1225" id="1225">1225</a>
+<a href="#1226" id="1226">1226</a>
+<a href="#1227" id="1227">1227</a>
+<a href="#1228" id="1228">1228</a>
+<a href="#1229" id="1229">1229</a>
+<a href="#1230" id="1230">1230</a>
+<a href="#1231" id="1231">1231</a>
+<a href="#1232" id="1232">1232</a>
+<a href="#1233" id="1233">1233</a>
+<a href="#1234" id="1234">1234</a>
+<a href="#1235" id="1235">1235</a>
+<a href="#1236" id="1236">1236</a>
+<a href="#1237" id="1237">1237</a>
+<a href="#1238" id="1238">1238</a>
+<a href="#1239" id="1239">1239</a>
+<a href="#1240" id="1240">1240</a>
+<a href="#1241" id="1241">1241</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{
     path::PathBuf,
     sync::Arc,
@@ -1431,7 +1458,7 @@
     <span class="kw">async fn </span>query_by_hash(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         hash: <span class="kw-2">&amp;</span>PackageHash,
-    ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;PackageSummary&gt;, QueryError&gt; {
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;PackageSummary&gt;, anyhow::Error&gt; {
         <span class="comment">// FIXME: implementing caching!
 
         </span><span class="kw">let </span><span class="prelude-val">Some</span>(data) = <span class="self">self</span>.query_graphql_by_hash(hash).<span class="kw">await</span><span class="question-mark">? </span><span class="kw">else </span>{
@@ -1455,22 +1482,31 @@
             ),
             PackageSource::Ident(PackageIdent::Hash(hash)) =&gt; {
                 <span class="comment">// TODO: implement caching!
-                </span><span class="kw">match </span><span class="self">self</span>.query_by_hash(hash).<span class="kw">await</span><span class="question-mark">? </span>{
-                    <span class="prelude-val">Some</span>(summary) =&gt; <span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="macro">vec!</span>[summary]),
-                    <span class="prelude-val">None </span>=&gt; {
+                </span><span class="kw">match </span><span class="self">self</span>.query_by_hash(hash).<span class="kw">await </span>{
+                    <span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(summary)) =&gt; <span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="macro">vec!</span>[summary]),
+                    <span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>) =&gt; {
                         <span class="kw">return </span><span class="prelude-val">Err</span>(QueryError::NoMatches {
+                            query: package.clone(),
                             archived_versions: Vec::new(),
                         });
                     }
+                    <span class="prelude-val">Err</span>(error) =&gt; {
+                        <span class="kw">return </span><span class="prelude-val">Err</span>(QueryError::new_other(error, package));
+                    }
                 }
             }
-            <span class="kw">_ </span>=&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(QueryError::Unsupported),
+            <span class="kw">_ </span>=&gt; {
+                <span class="kw">return </span><span class="prelude-val">Err</span>(QueryError::Unsupported {
+                    query: package.clone(),
+                })
+            }
         };
 
         <span class="kw">if let </span><span class="prelude-val">Some</span>(cache) = <span class="kw-2">&amp;</span><span class="self">self</span>.cache {
             <span class="kw">match </span>cache.lookup_cached_query(<span class="kw-2">&amp;</span>package_name) {
                 <span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(cached)) =&gt; {
                     <span class="kw">if let </span><span class="prelude-val">Ok</span>(cached) = matching_package_summaries(
+                        package,
                         cached,
                         <span class="kw-2">&amp;</span>version_constraint,
                         <span class="self">self</span>.preferred_webc_version,
@@ -1490,7 +1526,10 @@
             }
         }
 
-        <span class="kw">let </span>response = <span class="self">self</span>.query_graphql_named(<span class="kw-2">&amp;</span>package_name).<span class="kw">await</span><span class="question-mark">?</span>;
+        <span class="kw">let </span>response = <span class="self">self
+            </span>.query_graphql_named(<span class="kw-2">&amp;</span>package_name)
+            .<span class="kw">await
+            </span>.map_err(|error| QueryError::new_other(error, package))<span class="question-mark">?</span>;
 
         <span class="kw">if let </span><span class="prelude-val">Some</span>(cache) = <span class="kw-2">&amp;</span><span class="self">self</span>.cache {
             <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = cache.update(<span class="kw-2">&amp;</span>package_name, <span class="kw-2">&amp;</span>response) {
@@ -1502,11 +1541,18 @@
             }
         }
 
-        matching_package_summaries(response, <span class="kw-2">&amp;</span>version_constraint, <span class="self">self</span>.preferred_webc_version)
+        matching_package_summaries(
+            package,
+            response,
+            <span class="kw-2">&amp;</span>version_constraint,
+            <span class="self">self</span>.preferred_webc_version,
+        )
     }
 }
 
-<span class="kw">fn </span>matching_package_summaries(
+<span class="attr">#[allow(clippy::result_large_err)]
+</span><span class="kw">fn </span>matching_package_summaries(
+    query: <span class="kw-2">&amp;</span>PackageSource,
     response: WebQuery,
     version_constraint: <span class="kw-2">&amp;</span>VersionReq,
     preferred_webc_version: webc::Version,
@@ -1518,7 +1564,12 @@
         package_name,
         versions,
         ..
-    } = response.data.get_package.ok_or(QueryError::NotFound)<span class="question-mark">?</span>;
+    } = response
+        .data
+        .get_package
+        .ok_or_else(|| QueryError::NotFound {
+            query: query.clone(),
+        })<span class="question-mark">?</span>;
     <span class="kw">let </span><span class="kw-2">mut </span>archived_versions = Vec::new();
 
     <span class="kw">for </span>pkg_version <span class="kw">in </span>versions {
@@ -1563,7 +1614,10 @@
     }
 
     <span class="kw">if </span>summaries.is_empty() {
-        <span class="prelude-val">Err</span>(QueryError::NoMatches { archived_versions })
+        <span class="prelude-val">Err</span>(QueryError::NoMatches {
+            query: query.clone(),
+            archived_versions,
+        })
     } <span class="kw">else </span>{
         <span class="prelude-val">Ok</span>(summaries)
     }

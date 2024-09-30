@@ -368,7 +368,7 @@
     fmt::{<span class="self">self</span>, Display, Formatter},
     fs::File,
     io::{BufRead, BufReader, Read},
-    path::{Path, PathBuf},
+    path::Path,
 };
 
 <span class="kw">use </span>anyhow::Error;
@@ -656,9 +656,9 @@
         <span class="prelude-val">Ok</span>(<span class="self">Self</span>(hash))
     }
 
-    <span class="kw">pub fn </span>for_file(path: <span class="kw-2">&amp;</span>PathBuf) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, std::io::Error&gt; {
+    <span class="kw">pub fn </span>for_file(path: <span class="kw-2">&amp;</span>Path) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, std::io::Error&gt; {
         <span class="comment">// check for a hash at the file location
-        </span><span class="kw">let </span><span class="kw-2">mut </span>path_hash = path.clone();
+        </span><span class="kw">let </span><span class="kw-2">mut </span>path_hash = path.to_owned();
         path_hash.set_extension(<span class="string">&quot;webc.sha256&quot;</span>);
         <span class="kw">if let </span><span class="prelude-val">Ok</span>(<span class="kw-2">mut </span>file) = File::open(<span class="kw-2">&amp;</span>path_hash) {
             <span class="kw">let </span><span class="kw-2">mut </span>hash = Vec::new();
