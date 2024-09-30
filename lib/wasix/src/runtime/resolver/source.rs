@@ -1,4 +1,7 @@
-use std::fmt::{Debug, Display};
+use std::{
+    fmt::{Debug, Display},
+    sync::Arc,
+};
 
 use wasmer_config::package::{PackageIdent, PackageSource};
 
@@ -56,7 +59,7 @@ where
     }
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub enum QueryError {
     Unsupported {
         query: PackageSource,
@@ -73,7 +76,9 @@ pub enum QueryError {
     },
     Other {
         query: PackageSource,
-        error: anyhow::Error,
+        // Arc to make it cloneable
+        // Cloning is important for some use-cases.
+        error: Arc<anyhow::Error>,
     },
 }
 
@@ -85,6 +90,13 @@ impl QueryError {
             | Self::NoMatches { query, .. }
             | Self::Timeout { query }
             | Self::Other { query, .. } => query,
+        }
+    }
+
+    pub fn new_other(err: anyhow::Error, query: &PackageSource) -> Self {
+        Self::Other {
+            query: query.clone(),
+            error: Arc::new(err),
         }
     }
 }
@@ -124,7 +136,7 @@ impl Display for QueryError {
 impl std::error::Error for QueryError {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
         match self {
-            Self::Other { error, query: _ } => Some(&**error),
+            Self::Other { error, query: _ } => Some(&***error),
             Self::Unsupported { .. }
             | Self::NotFound { .. }
             | Self::NoMatches { .. }
