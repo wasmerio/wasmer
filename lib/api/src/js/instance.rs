@@ -1,5 +1,6 @@
 use crate::exports::Exports;
 use crate::imports::Imports;
+use crate::instance::InstantiationConfig;
 use crate::js::as_js::AsJs;
 use crate::js::vm::VMInstance;
 use crate::module::Module;
@@ -22,10 +23,11 @@ impl Instance {
         mut store: &mut impl AsStoreMut,
         module: &Module,
         imports: &Imports,
+        config: &InstantiationConfig,
     ) -> Result<(Self, Exports), InstantiationError> {
         let instance = module
             .0
-            .instantiate(&mut store, imports)
+            .instantiate(&mut store, imports, config)
             .map_err(|e| InstantiationError::Start(e))?;
 
         Self::from_module_and_instance(store, &module, instance)
@@ -35,12 +37,13 @@ impl Instance {
         store: &mut impl AsStoreMut,
         module: &Module,
         externs: &[Extern],
+        config: &InstantiationConfig,
     ) -> Result<(Self, Exports), InstantiationError> {
         let mut imports = Imports::new();
         for (import_ty, extern_ty) in module.imports().zip(externs.iter()) {
             imports.define(import_ty.module(), import_ty.name(), extern_ty.clone());
         }
-        Self::new(store, module, &imports)
+        Self::new(store, module, &imports, config)
     }
 
     /// Creates a Wasmer `Instance` from a Wasmer `Module` and a WebAssembly Instance

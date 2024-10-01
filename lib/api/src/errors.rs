@@ -66,6 +66,11 @@ pub enum InstantiationError {
     /// This error occurs when an import from a different store is used.
     #[cfg_attr(feature = "std", error("incorrect OS or architecture"))]
     DifferentArchOS,
+
+    /// The given [`InstantiationConfig`][super::InstantiationConfig] is
+    /// not valid.
+    #[cfg_attr(feature = "std", error("invalid instantiation config: {0:?}"))]
+    InvalidInstantiationConfig(String),
 }
 
 /// A struct representing an aborted instruction execution, with a message

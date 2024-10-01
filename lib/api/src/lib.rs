@@ -495,7 +495,7 @@ pub use exports::{ExportError, Exportable, Exports, ExportsIterator};
 pub use extern_ref::ExternRef;
 pub use function_env::{FunctionEnv, FunctionEnvMut};
 pub use imports::Imports;
-pub use instance::Instance;
+pub use instance::{Instance, InstantiationConfig};
 pub use into_bytes::IntoBytes;
 pub use mem_access::{MemoryAccessError, WasmRef, WasmSlice, WasmSliceIter};
 pub use module::{IoCompileError, Module};

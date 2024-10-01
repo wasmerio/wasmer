@@ -1,5 +1,6 @@
 use crate::errors::RuntimeError;
 use crate::imports::Imports;
+use crate::instance::InstantiationConfig;
 use crate::js::AsJs;
 use crate::store::AsStoreMut;
 use crate::vm::VMInstance;
@@ -135,6 +136,7 @@ impl Module {
         &self,
         store: &mut impl AsStoreMut,
         imports: &Imports,
+        config: &InstantiationConfig,
     ) -> Result<VMInstance, RuntimeError> {
         // Ensure all imports come from the same store.
         if imports
@@ -143,6 +145,15 @@ impl Module {
         {
             return Err(RuntimeError::user(Box::new(
                 InstantiationError::DifferentStores,
+            )));
+        }
+
+        if !config.apply_data_initializers {
+            return Err(RuntimeError::user(Box::new(
+                InstantiationError::InvalidInstantiationConfig(
+                    "Data initializers cannot be skipped when the `js` feature is active"
+                        .to_owned(),
+                ),
             )));
         }
 

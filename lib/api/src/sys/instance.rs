@@ -4,6 +4,7 @@ use crate::module::Module;
 use wasmer_vm::{StoreHandle, VMInstance};
 
 use crate::imports::Imports;
+use crate::instance::InstantiationConfig;
 use crate::store::AsStoreMut;
 use crate::Extern;
 
@@ -44,11 +45,12 @@ impl Instance {
         store: &mut impl AsStoreMut,
         module: &Module,
         imports: &Imports,
+        config: &InstantiationConfig,
     ) -> Result<(Self, Exports), InstantiationError> {
         let externs = imports
             .imports_for_module(module)
             .map_err(InstantiationError::Link)?;
-        let mut handle = module.0.instantiate(store, &externs)?;
+        let mut handle = module.0.instantiate(store, &externs, config)?;
         let exports = Self::get_exports(store, module, &mut handle);
 
         let instance = Self {
@@ -63,9 +65,10 @@ impl Instance {
         store: &mut impl AsStoreMut,
         module: &Module,
         externs: &[Extern],
+        config: &InstantiationConfig,
     ) -> Result<(Self, Exports), InstantiationError> {
         let externs = externs.to_vec();
-        let mut handle = module.0.instantiate(store, &externs)?;
+        let mut handle = module.0.instantiate(store, &externs, config)?;
         let exports = Self::get_exports(store, module, &mut handle);
         let instance = Self {
             _handle: StoreHandle::new(store.objects_mut(), handle),

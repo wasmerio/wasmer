@@ -9,8 +9,8 @@ use wasmer_types::{
 use wasmer_types::{ExportType, ImportType};
 
 use crate::{
-    engine::AsEngineRef, sys::engine::NativeEngineExt, vm::VMInstance, AsStoreMut, AsStoreRef,
-    InstantiationError, IntoBytes,
+    engine::AsEngineRef, instance::InstantiationConfig, sys::engine::NativeEngineExt,
+    vm::VMInstance, AsStoreMut, AsStoreRef, InstantiationError, IntoBytes,
 };
 
 #[derive(Clone, PartialEq, Eq)]
@@ -132,6 +132,7 @@ impl Module {
         &self,
         store: &mut impl AsStoreMut,
         imports: &[crate::Extern],
+        config: &InstantiationConfig,
     ) -> Result<VMInstance, InstantiationError> {
         if !self.artifact.allocated() {
             // Return an error mentioning that the artifact is compiled for a different
@@ -147,7 +148,7 @@ impl Module {
         let signal_handler = store.as_store_ref().signal_handler();
         let mut store_mut = store.as_store_mut();
         let (engine, objects) = store_mut.engine_and_objects_mut();
-        let config = engine.tunables().vmconfig();
+        let vmconfig = engine.tunables().vmconfig();
         unsafe {
             let mut instance_handle = self.artifact.instantiate(
                 engine.tunables(),
@@ -163,8 +164,12 @@ impl Module {
             // of this steps traps, we still need to keep the instance alive
             // as some of the Instance elements may have placed in other
             // instance tables.
-            self.artifact
-                .finish_instantiation(config, signal_handler, &mut instance_handle)?;
+            self.artifact.finish_instantiation(
+                vmconfig,
+                signal_handler,
+                &mut instance_handle,
+                !config.apply_data_initializers,
+            )?;
 
             Ok(instance_handle)
         }

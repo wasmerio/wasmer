@@ -66,7 +66,19 @@ impl Instance {
         module: &Module,
         imports: &Imports,
     ) -> Result<Self, InstantiationError> {
-        let (_inner, exports) = instance_imp::Instance::new(store, module, imports)?;
+        Self::new_ex(store, module, imports, &InstantiationConfig::default())
+    }
+
+    /// Same as [new](Instance::new), but accepts additional configuration
+    /// that will be applied when instantiating the module.
+    #[allow(clippy::result_large_err)]
+    pub fn new_ex(
+        store: &mut impl AsStoreMut,
+        module: &Module,
+        imports: &Imports,
+        config: &InstantiationConfig,
+    ) -> Result<Self, InstantiationError> {
+        let (_inner, exports) = instance_imp::Instance::new(store, module, imports, config)?;
         Ok(Self {
             _inner,
             module: module.clone(),
@@ -90,7 +102,20 @@ impl Instance {
         module: &Module,
         externs: &[Extern],
     ) -> Result<Self, InstantiationError> {
-        let (_inner, exports) = instance_imp::Instance::new_by_index(store, module, externs)?;
+        Self::new_by_index_ex(store, module, externs, &InstantiationConfig::default())
+    }
+
+    /// Same as [new_by_index](Instance::new_by_index), but accepts additional
+    /// configuration that will be applied when instantiating the module.
+    #[allow(clippy::result_large_err)]
+    pub fn new_by_index_ex(
+        store: &mut impl AsStoreMut,
+        module: &Module,
+        externs: &[Extern],
+        config: &InstantiationConfig,
+    ) -> Result<Self, InstantiationError> {
+        let (_inner, exports) =
+            instance_imp::Instance::new_by_index(store, module, externs, config)?;
         Ok(Self {
             _inner,
             module: module.clone(),
@@ -109,5 +134,36 @@ impl fmt::Debug for Instance {
         f.debug_struct("Instance")
             .field("exports", &self.exports)
             .finish()
+    }
+}
+
+/// Additional configuration to control the module instantiation process.
+pub struct InstantiationConfig {
+    pub(crate) apply_data_initializers: bool,
+}
+
+impl Default for InstantiationConfig {
+    fn default() -> Self {
+        Self {
+            apply_data_initializers: true,
+        }
+    }
+}
+
+impl InstantiationConfig {
+    /// Create a new, default instance of [`InstantiationConfig`].
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Whether to apply data initializers (i.e. active data segments) when
+    /// instantiating the module. Defaults to true.
+    ///
+    /// Not applying data initializers can be useful when a pre-initialized
+    /// memory is provided to the instance, which should not have its data
+    /// overwritten.
+    pub fn with_apply_data_initializers(mut self, apply_data_initializers: bool) -> Self {
+        self.apply_data_initializers = apply_data_initializers;
+        self
     }
 }

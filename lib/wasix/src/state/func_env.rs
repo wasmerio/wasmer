@@ -2,7 +2,8 @@ use std::sync::Arc;
 
 use tracing::trace;
 use wasmer::{
-    AsStoreMut, AsStoreRef, ExportError, FunctionEnv, Imports, Instance, Memory, Module, Store,
+    AsStoreMut, AsStoreRef, ExportError, FunctionEnv, Imports, Instance, InstantiationConfig,
+    Memory, Module, Store,
 };
 use wasmer_wasix_types::wasi::ExitCode;
 
@@ -52,6 +53,11 @@ impl WasiFunctionEnv {
             .runtime
             .additional_imports(&mut store.as_store_mut())
             .map_err(|e| WasiThreadError::AdditionalImportCreationFailed(Arc::new(e)))?;
+
+        // If we're sharing the memory with another instance, we shouldn't overwrite it with initialization data
+        let instantiation_config = InstantiationConfig::new()
+            .with_apply_data_initializers(!matches!(spawn_type, SpawnMemoryType::ShareMemory(..)));
+
         let memory = env
             .tasks()
             .build_memory(&mut store.as_store_mut(), spawn_type)?;
@@ -79,10 +85,11 @@ impl WasiFunctionEnv {
             }
         }
 
-        let instance = Instance::new(&mut store, &module, &import_object).map_err(|err| {
-            tracing::warn!("failed to create instance - {}", err);
-            WasiThreadError::InstanceCreateFailed(Box::new(err))
-        })?;
+        let instance = Instance::new_ex(&mut store, &module, &import_object, &instantiation_config)
+            .map_err(|err| {
+                tracing::warn!("failed to create instance - {}", err);
+                WasiThreadError::InstanceCreateFailed(Box::new(err))
+            })?;
 
         init(&instance, &store).map_err(|err| {
             tracing::warn!("failed to init instance - {}", err);

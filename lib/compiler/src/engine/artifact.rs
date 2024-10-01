@@ -853,14 +853,18 @@ impl Artifact {
         config: &VMConfig,
         trap_handler: Option<*const TrapHandlerFn<'static>>,
         handle: &mut VMInstance,
+        skip_data_initializers: bool,
     ) -> Result<(), InstantiationError> {
-        let data_initializers = self
-            .data_initializers()
-            .map(|init| DataInitializer {
-                location: init.location().clone_to_plain(),
-                data: init.data(),
-            })
-            .collect::<Vec<_>>();
+        let data_initializers = if skip_data_initializers {
+            vec![]
+        } else {
+            self.data_initializers()
+                .map(|init| DataInitializer {
+                    location: init.location().clone_to_plain(),
+                    data: init.data(),
+                })
+                .collect::<Vec<_>>()
+        };
         handle
             .finish_instantiation(config, trap_handler, &data_initializers)
             .map_err(InstantiationError::Start)
