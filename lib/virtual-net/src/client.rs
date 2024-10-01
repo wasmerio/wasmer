@@ -23,6 +23,7 @@ use futures_util::stream::FuturesOrdered;
 use futures_util::Sink;
 use futures_util::Stream;
 use futures_util::StreamExt;
+#[cfg(feature = "hyper")]
 use hyper_util::rt::tokio::TokioIo;
 use tokio::io::AsyncRead;
 use tokio::io::AsyncWrite;
