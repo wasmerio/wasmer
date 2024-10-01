@@ -1641,6 +1641,7 @@
 <a href="#1641" id="1641">1641</a>
 <a href="#1642" id="1642">1642</a>
 <a href="#1643" id="1643">1643</a>
+<a href="#1644" id="1644">1644</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::meta::{FrameSerializationFormat, ResponseType};
 <span class="kw">use </span><span class="kw">crate</span>::rx_tx::{RemoteRx, RemoteTx, RemoteTxWakers};
 <span class="kw">use crate</span>::{
@@ -1660,7 +1661,8 @@
 <span class="kw">use </span>std::task::Waker;
 <span class="kw">use </span>std::time::Duration;
 
-<span class="kw">use </span>hyper_util::rt::tokio::TokioIo;
+<span class="attr">#[cfg(feature = <span class="string">&quot;hyper&quot;</span>)]
+</span><span class="kw">use </span>hyper_util::rt::tokio::TokioIo;
 <span class="kw">use </span>std::{
     collections::HashMap,
     future::Future,

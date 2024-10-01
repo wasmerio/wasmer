@@ -616,6 +616,7 @@
 <a href="#616" id="616">616</a>
 <a href="#617" id="617">617</a>
 <a href="#618" id="618">618</a>
+<a href="#619" id="619">619</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{
     io,
     pin::Pin,
@@ -625,7 +626,8 @@
 
 <span class="kw">use </span><span class="kw">crate</span>::Result;
 <span class="kw">use </span>futures_util::{future::BoxFuture, Future, Sink, SinkExt, Stream};
-<span class="kw">use </span>hyper_util::rt::tokio::TokioIo;
+<span class="attr">#[cfg(feature = <span class="string">&quot;hyper&quot;</span>)]
+</span><span class="kw">use </span>hyper_util::rt::tokio::TokioIo;
 <span class="kw">use </span>serde::Serialize;
 <span class="attr">#[cfg(feature = <span class="string">&quot;tokio-tungstenite&quot;</span>)]
 </span><span class="kw">use </span>tokio::net::TcpStream;

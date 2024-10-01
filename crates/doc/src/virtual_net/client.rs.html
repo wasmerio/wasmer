@@ -1543,6 +1543,7 @@
 <a href="#1543" id="1543">1543</a>
 <a href="#1544" id="1544">1544</a>
 <a href="#1545" id="1545">1545</a>
+<a href="#1546" id="1546">1546</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::collections::HashMap;
 <span class="kw">use </span>std::collections::VecDeque;
 <span class="kw">use </span>std::future::Future;
@@ -1568,7 +1569,8 @@
 <span class="kw">use </span>futures_util::Sink;
 <span class="kw">use </span>futures_util::Stream;
 <span class="kw">use </span>futures_util::StreamExt;
-<span class="kw">use </span>hyper_util::rt::tokio::TokioIo;
+<span class="attr">#[cfg(feature = <span class="string">&quot;hyper&quot;</span>)]
+</span><span class="kw">use </span>hyper_util::rt::tokio::TokioIo;
 <span class="kw">use </span>tokio::io::AsyncRead;
 <span class="kw">use </span>tokio::io::AsyncWrite;
 <span class="kw">use </span>tokio::sync::mpsc;
