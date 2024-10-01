@@ -4,9 +4,9 @@ use std::time::Duration;
 use crate::GraphQLApiFailure;
 use anyhow::{bail, Context as _};
 use cynic::{http::CynicReqwestError, GraphQlResponse, Operation};
-use url::Url;
 #[cfg(not(all(target_arch = "wasm32", target_os = "unknown")))]
 use reqwest::Proxy;
+use url::Url;
 #[cfg(all(target_arch = "wasm32", target_os = "unknown"))]
 struct Proxy;
 
