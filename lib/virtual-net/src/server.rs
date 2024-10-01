@@ -17,6 +17,7 @@ use std::net::IpAddr;
 use std::task::Waker;
 use std::time::Duration;
 
+#[cfg(feature = "hyper")]
 use hyper_util::rt::tokio::TokioIo;
 use std::{
     collections::HashMap,

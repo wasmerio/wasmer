@@ -7,6 +7,7 @@ use std::{
 
 use crate::Result;
 use futures_util::{future::BoxFuture, Future, Sink, SinkExt, Stream};
+#[cfg(feature = "hyper")]
 use hyper_util::rt::tokio::TokioIo;
 use serde::Serialize;
 #[cfg(feature = "tokio-tungstenite")]

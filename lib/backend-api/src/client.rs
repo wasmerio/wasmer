@@ -4,7 +4,11 @@ use std::time::Duration;
 use crate::GraphQLApiFailure;
 use anyhow::{bail, Context as _};
 use cynic::{http::CynicReqwestError, GraphQlResponse, Operation};
+#[cfg(not(all(target_arch = "wasm32", target_os = "unknown")))]
+use reqwest::Proxy;
 use url::Url;
+#[cfg(all(target_arch = "wasm32", target_os = "unknown"))]
+struct Proxy;
 
 /// API client for the Wasmer API.
 ///
@@ -82,7 +86,7 @@ impl WasmerClient {
     pub fn new_with_proxy(
         graphql_endpoint: Url,
         user_agent: &str,
-        proxy: Option<reqwest::Proxy>,
+        proxy: Option<Proxy>,
     ) -> Result<Self, anyhow::Error> {
         let builder = {
             #[cfg(all(target_arch = "wasm32", target_os = "unknown"))]
@@ -93,11 +97,14 @@ impl WasmerClient {
                 .connect_timeout(Duration::from_secs(10))
                 .timeout(Duration::from_secs(90));
 
+            #[cfg(not(all(target_arch = "wasm32", target_os = "unknown")))]
             if let Some(proxy) = proxy {
                 builder.proxy(proxy)
             } else {
                 builder
             }
+            #[cfg(all(target_arch = "wasm32", target_os = "unknown"))]
+            builder
         };
 
         let client = builder.build().context("failed to create reqwest client")?;
