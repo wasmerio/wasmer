@@ -1495,7 +1495,7 @@ pub(crate) fn _prepare_wasi(
     // Swap out the arguments with the new ones
     if let Some(args) = args {
         let mut wasi_state = wasi_env.state.fork();
-        wasi_state.args = args;
+        *wasi_state.args.lock().unwrap() = args;
         wasi_env.state = Arc::new(wasi_state);
     }
 

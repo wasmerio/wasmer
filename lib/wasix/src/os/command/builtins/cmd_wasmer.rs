@@ -69,7 +69,7 @@ impl CmdWasmer {
             // Set the arguments of the environment by replacing the state
             let mut state = env.state.fork();
             args.insert(0, what.clone());
-            state.args = args;
+            state.args = std::sync::Mutex::new(args);
             env.state = Arc::new(state);
 
             if let Ok(binary) = self.get_package(&what).await {
@@ -130,7 +130,7 @@ impl VirtualCommand for CmdWasmer {
     ) -> Result<TaskJoinHandle, SpawnError> {
         // Read the command we want to run
         let env_inner = env.as_ref().ok_or(SpawnError::UnknownError)?;
-        let args = env_inner.state.args.clone();
+        let args = env_inner.state.args.lock().unwrap().clone();
         let mut args = args.iter().map(|s| s.as_str());
         let _alias = args.next();
         let cmd = args.next();

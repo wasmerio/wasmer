@@ -117,7 +117,7 @@ pub fn proc_spawn_internal(
     let child_process = child_env.process.clone();
     if let Some(args) = args {
         let mut child_state = env.state.fork();
-        child_state.args = args;
+        child_state.args = std::sync::Mutex::new(args);
         child_env.state = Arc::new(child_state);
     }
 

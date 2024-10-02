@@ -295,7 +295,7 @@ impl WasiEnvInit {
                 clock_offset: std::sync::Mutex::new(
                     self.state.clock_offset.lock().unwrap().clone(),
                 ),
-                args: self.state.args.clone(),
+                args: std::sync::Mutex::new(self.state.args.lock().unwrap().clone()),
                 envs: std::sync::Mutex::new(self.state.envs.lock().unwrap().deref().clone()),
                 preopen: self.state.preopen.clone(),
             },
