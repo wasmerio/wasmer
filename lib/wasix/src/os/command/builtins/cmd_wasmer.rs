@@ -73,6 +73,24 @@ impl CmdWasmer {
             env.state = Arc::new(state);
 
             if let Ok(binary) = self.get_package(&what).await {
+                // Infer the command that is going to be executed
+                let cmd_name: &str =
+                    binary
+                        .infer_entrypoint()
+                        .map_err(|_| SpawnError::MissingEntrypoint {
+                            package_id: binary.id.clone(),
+                        })?;
+
+                let cmd = binary
+                    .get_command(cmd_name)
+                    .ok_or_else(|| SpawnError::NotFound {
+                        message: format!("{cmd_name} command in package: {}", binary.id),
+                    })?;
+
+                env.prepare_spawn(cmd);
+
+                env.use_package_async(&binary).await.unwrap();
+
                 // Now run the module
                 spawn_exec(binary, name, store, env, &self.runtime).await
             } else {

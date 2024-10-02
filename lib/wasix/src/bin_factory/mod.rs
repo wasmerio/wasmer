@@ -12,7 +12,7 @@ use exec::spawn_exec_wasm;
 use virtual_fs::{AsyncReadExt, FileSystem};
 use wasmer::FunctionEnvMut;
 use wasmer_wasix_types::wasi::Errno;
-use webc::{metadata::annotations::Wasi, Container};
+use webc::Container;
 
 mod binary_package;
 mod exec;
@@ -25,7 +25,6 @@ pub use self::{
 };
 use crate::{
     os::{command::Commands, task::TaskJoinHandle},
-    state::conv_env_vars,
     Runtime, SpawnError, WasiEnv,
 };
 
@@ -110,46 +109,7 @@ impl BinFactory {
                         });
                     };
 
-                    // Transfter the args, env vars, and exec_name that was specified in wasmer.toml for this command
-                    // when spawning it as part of syscalls such as proc_exec2
-                    if let Ok(Some(Wasi {
-                        main_args,
-                        env: env_vars,
-                        exec_name,
-                        ..
-                    })) = cmd.metadata().wasi()
-                    {
-                        if let Some(env_vars) = env_vars {
-                            let env_vars = env_vars
-                                .into_iter()
-                                .map(|env_var| {
-                                    let (k, v) = env_var.split_once('=').unwrap();
-
-                                    (k.to_string(), v.as_bytes().to_vec())
-                                })
-                                .collect::<Vec<_>>();
-
-                            let env_vars = conv_env_vars(env_vars);
-
-                            env.state
-                                .envs
-                                .lock()
-                                .unwrap()
-                                .extend_from_slice(env_vars.as_slice());
-                        }
-
-                        if let Some(args) = main_args {
-                            env.state
-                                .args
-                                .lock()
-                                .unwrap()
-                                .extend_from_slice(args.as_slice());
-                        }
-
-                        if let Some(exec_name) = exec_name {
-                            env.state.args.lock().unwrap()[0] = exec_name;
-                        }
-                    }
+                    env.prepare_spawn(cmd);
 
                     spawn_exec(pkg, name.as_str(), store, env, &self.runtime).await
                 }

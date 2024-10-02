@@ -21,11 +21,12 @@ use wasmer_wasix_types::{
     wasi::{Errno, ExitCode, Snapshot0Clockid},
     wasix::ThreadStartType,
 };
+use webc::metadata::annotations::Wasi;
 
 #[cfg(feature = "journal")]
 use crate::journal::{DynJournal, JournalEffector, SnapshotTrigger};
 use crate::{
-    bin_factory::{BinFactory, BinaryPackage},
+    bin_factory::{BinFactory, BinaryPackage, BinaryPackageCommand},
     capabilities::Capabilities,
     fs::{WasiFsRoot, WasiInodes},
     import_object_for_all_wasi_versions,
@@ -42,7 +43,7 @@ use crate::{
 use wasmer_types::ModuleHash;
 
 pub(crate) use super::handles::*;
-use super::WasiState;
+use super::{conv_env_vars, WasiState};
 
 /// Various [`TypedFunction`] and [`Global`] handles for an active WASI(X) instance.
 ///
@@ -1079,6 +1080,10 @@ impl WasiEnv {
         (state, inodes)
     }
 
+    pub fn use_package(&self, pkg: &BinaryPackage) -> Result<(), WasiStateCreationError> {
+        InlineWaker::block_on(self.use_package_async(pkg))
+    }
+
     /// Make all the commands in a [`BinaryPackage`] available to the WASI
     /// instance.
     ///
@@ -1090,13 +1095,16 @@ impl WasiEnv {
     ///
     /// [cmd-atom]: crate::bin_factory::BinaryPackageCommand::atom()
     /// [pkg-fs]: crate::bin_factory::BinaryPackage::webc_fs
-    pub fn use_package(&self, pkg: &BinaryPackage) -> Result<(), WasiStateCreationError> {
+    pub async fn use_package_async(
+        &self,
+        pkg: &BinaryPackage,
+    ) -> Result<(), WasiStateCreationError> {
         tracing::trace!(package=%pkg.id, "merging package dependency into wasi environment");
         let root_fs = &self.state.fs.root_fs;
 
         // We first need to merge the filesystem in the package into the
         // main file system, if it has not been merged already.
-        if let Err(e) = InlineWaker::block_on(self.state.fs.conditional_union(pkg)) {
+        if let Err(e) = self.state.fs.conditional_union(pkg).await {
             tracing::warn!(
                 error = &e as &dyn std::error::Error,
                 "Unable to merge the package's filesystem into the main one",
@@ -1146,9 +1154,7 @@ impl WasiEnv {
                     }
                     WasiFsRoot::Backing(fs) => {
                         let mut f = fs.new_open_options().create(true).write(true).open(path)?;
-                        if let Err(e) =
-                            InlineWaker::block_on(f.copy_reference(Box::new(StaticFile::new(atom))))
-                        {
+                        if let Err(e) = f.copy_reference(Box::new(StaticFile::new(atom))).await {
                             tracing::warn!(
                                 error = &e as &dyn std::error::Error,
                                 "Unable to copy file reference",
@@ -1302,6 +1308,47 @@ impl WasiEnv {
             })
         } else {
             Box::pin(async {})
+        }
+    }
+
+    pub fn prepare_spawn(&self, cmd: &BinaryPackageCommand) {
+        if let Ok(Some(Wasi {
+            main_args,
+            env: env_vars,
+            exec_name,
+            ..
+        })) = cmd.metadata().wasi()
+        {
+            if let Some(env_vars) = env_vars {
+                let env_vars = env_vars
+                    .into_iter()
+                    .map(|env_var| {
+                        let (k, v) = env_var.split_once('=').unwrap();
+
+                        (k.to_string(), v.as_bytes().to_vec())
+                    })
+                    .collect::<Vec<_>>();
+
+                let env_vars = conv_env_vars(env_vars);
+
+                self.state
+                    .envs
+                    .lock()
+                    .unwrap()
+                    .extend_from_slice(env_vars.as_slice());
+            }
+
+            if let Some(args) = main_args {
+                self.state
+                    .args
+                    .lock()
+                    .unwrap()
+                    .extend_from_slice(args.as_slice());
+            }
+
+            if let Some(exec_name) = exec_name {
+                self.state.args.lock().unwrap()[0] = exec_name;
+            }
         }
     }
 }
