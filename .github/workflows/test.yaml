@@ -787,7 +787,7 @@ jobs:
             os: macos-12
             target: x86_64-apple-darwin
           # we only build the integration-test CLI, we don't run tests
-          - build: macos-arm
+          - build: macos-arm64
             os: macos-12
             target: aarch64-apple-darwin,
           - build: linux-musl
