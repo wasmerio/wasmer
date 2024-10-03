@@ -21,6 +21,8 @@ pub fn args_get<M: MemorySize>(
 
     let args = state
         .args
+        .lock()
+        .unwrap()
         .iter()
         .map(|a| a.as_bytes().to_vec())
         .collect::<Vec<_>>();
@@ -30,6 +32,8 @@ pub fn args_get<M: MemorySize>(
         "args:\n{}",
         state
             .args
+            .lock()
+            .unwrap()
             .iter()
             .enumerate()
             .map(|(i, v)| format!("{:>20}: {}", i, v))

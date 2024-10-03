@@ -20,8 +20,14 @@ pub fn args_sizes_get<M: MemorySize>(
     let argc = argc.deref(&memory);
     let argv_buf_size = argv_buf_size.deref(&memory);
 
-    let argc_val: M::Offset = wasi_try!(state.args.len().try_into().map_err(|_| Errno::Overflow));
-    let argv_buf_size_val: usize = state.args.iter().map(|v| v.len() + 1).sum();
+    let argc_val: M::Offset = wasi_try!(state
+        .args
+        .lock()
+        .unwrap()
+        .len()
+        .try_into()
+        .map_err(|_| Errno::Overflow));
+    let argv_buf_size_val: usize = state.args.lock().unwrap().iter().map(|v| v.len() + 1).sum();
     let argv_buf_size_val: M::Offset =
         wasi_try!(argv_buf_size_val.try_into().map_err(|_| Errno::Overflow));
     wasi_try_mem!(argc.write(argc_val));

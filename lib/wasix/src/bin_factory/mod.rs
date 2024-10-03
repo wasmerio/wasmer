@@ -8,7 +8,6 @@ use std::{
 };
 
 use anyhow::Context;
-use exec::spawn_exec_wasm;
 use virtual_fs::{AsyncReadExt, FileSystem};
 use wasmer::FunctionEnvMut;
 use wasmer_wasix_types::wasi::Errno;
@@ -20,7 +19,8 @@ mod exec;
 pub use self::{
     binary_package::*,
     exec::{
-        run_exec, spawn_exec, spawn_exec_module, spawn_load_module, spawn_load_wasm, spawn_union_fs,
+        run_exec, spawn_exec, spawn_exec_module, spawn_exec_wasm, spawn_load_module,
+        spawn_load_wasm, spawn_union_fs,
     },
 };
 use crate::{
@@ -92,6 +92,25 @@ impl BinFactory {
                     spawn_exec_wasm(&bytes, name.as_str(), env, &self.runtime).await
                 }
                 Executable::BinaryPackage(pkg) => {
+                    // Get the command that is going to be executed
+                    let cmd = if let Some(cmd) = pkg.get_command(name.as_str()) {
+                        cmd
+                    } else if let Some(cmd) = pkg.get_entrypoint_command() {
+                        cmd
+                    } else {
+                        tracing::error!(
+                          command=name,
+                          pkg=%pkg.id,
+                          "Unable to spawn a command because its package has no entrypoint",
+                        );
+                        env.on_exit(Some(Errno::Noexec.into())).await;
+                        return Err(SpawnError::MissingEntrypoint {
+                            package_id: pkg.id.clone(),
+                        });
+                    };
+
+                    env.prepare_spawn(cmd);
+
                     spawn_exec(pkg, name.as_str(), store, env, &self.runtime).await
                 }
             }
