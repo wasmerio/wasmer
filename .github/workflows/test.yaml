@@ -245,11 +245,11 @@ jobs:
         with:
           toolchain: ${{ env.MSRV }}
       - name: Test WAMR API 
-        if: ${{ matrix.build-what.key == "wamr" }}
+        if: ${{ matrix.build-what.key == 'wamr' }}
         run: ${{ matrix.build-what.build-cmd }}
 
       - name: Test wasmi API 
-        if: ${{ matrix.build-what.key == "wasmi" }}
+        if: ${{ matrix.build-what.key == 'wasmi' }}
         run: ${{ matrix.build-what.build-cmd }}
 
   test_build_docs_rs:
