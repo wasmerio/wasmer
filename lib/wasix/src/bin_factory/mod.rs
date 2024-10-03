@@ -8,7 +8,6 @@ use std::{
 };
 
 use anyhow::Context;
-use exec::spawn_exec_wasm;
 use virtual_fs::{AsyncReadExt, FileSystem};
 use wasmer::FunctionEnvMut;
 use wasmer_wasix_types::wasi::Errno;
@@ -20,7 +19,8 @@ mod exec;
 pub use self::{
     binary_package::*,
     exec::{
-        run_exec, spawn_exec, spawn_exec_module, spawn_load_module, spawn_load_wasm, spawn_union_fs,
+        run_exec, spawn_exec, spawn_exec_module, spawn_exec_wasm, spawn_load_module,
+        spawn_load_wasm, spawn_union_fs,
     },
 };
 use crate::{
