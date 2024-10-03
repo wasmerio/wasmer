@@ -131,7 +131,7 @@ impl fmt::Display for Trap {
                 // let message: wasm_message_t;
                 // wasm_trap_message(value, &mut message);
                 let mut out = unsafe {
-                    let mut vec: wasm_byte_vec_t =Default::default();
+                    let mut vec: wasm_byte_vec_t = Default::default();
                     wasm_byte_vec_new_empty(&mut vec);
                     &mut vec as *mut _
                 };
