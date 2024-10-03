@@ -396,7 +396,7 @@
     <span class="kw">pub </span>inodes: WasiInodes,
     <span class="kw">pub </span>futexs: Mutex&lt;WasiFutexState&gt;,
     <span class="kw">pub </span>clock_offset: Mutex&lt;HashMap&lt;Snapshot0Clockid, i64&gt;&gt;,
-    <span class="kw">pub </span>args: Vec&lt;String&gt;,
+    <span class="kw">pub </span>args: Mutex&lt;Vec&lt;String&gt;&gt;,
     <span class="kw">pub </span>envs: Mutex&lt;Vec&lt;Vec&lt;u8&gt;&gt;&gt;,
 
     <span class="comment">// TODO: should not be here, since this requires active work to resolve.
@@ -518,7 +518,7 @@
             inodes: <span class="self">self</span>.inodes.clone(),
             futexs: Default::default(),
             clock_offset: Mutex::new(<span class="self">self</span>.clock_offset.lock().unwrap().clone()),
-            args: <span class="self">self</span>.args.clone(),
+            args: Mutex::new(<span class="self">self</span>.args.lock().unwrap().clone()),
             envs: Mutex::new(<span class="self">self</span>.envs.lock().unwrap().clone()),
             preopen: <span class="self">self</span>.preopen.clone(),
         }

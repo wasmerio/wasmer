@@ -539,6 +539,12 @@
 <a href="#539" id="539">539</a>
 <a href="#540" id="540">540</a>
 <a href="#541" id="541">541</a>
+<a href="#542" id="542">542</a>
+<a href="#543" id="543">543</a>
+<a href="#544" id="544">544</a>
+<a href="#545" id="545">545</a>
+<a href="#546" id="546">546</a>
+<a href="#547" id="547">547</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! WebC container support for running WASI modules
 
 </span><span class="kw">use </span>std::{path::PathBuf, sync::Arc};
@@ -879,9 +885,15 @@
             .annotation(<span class="string">&quot;wasi&quot;</span>)<span class="question-mark">?
             </span>.unwrap_or_else(|| Wasi::new(command_name));
 
+        <span class="kw">let </span>exec_name = <span class="kw">if let </span><span class="prelude-val">Some</span>(exec_name) = wasi.exec_name.as_ref() {
+            exec_name
+        } <span class="kw">else </span>{
+            command_name
+        };
+
         <span class="attr">#[allow(unused_mut)]
         </span><span class="kw">let </span><span class="kw-2">mut </span>env = <span class="self">self
-            </span>.prepare_webc_env(command_name, <span class="kw-2">&amp;</span>wasi, <span class="prelude-val">Some</span>(pkg), Arc::clone(<span class="kw-2">&amp;</span>runtime), <span class="prelude-val">None</span>)
+            </span>.prepare_webc_env(exec_name, <span class="kw-2">&amp;</span>wasi, <span class="prelude-val">Some</span>(pkg), Arc::clone(<span class="kw-2">&amp;</span>runtime), <span class="prelude-val">None</span>)
             .context(<span class="string">&quot;Unable to prepare the WASI environment&quot;</span>)<span class="question-mark">?</span>;
 
         <span class="attr">#[cfg(feature = <span class="string">&quot;journal&quot;</span>)]

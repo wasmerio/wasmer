@@ -379,7 +379,7 @@
     <span class="kw">let </span>child_process = child_env.process.clone();
     <span class="kw">if let </span><span class="prelude-val">Some</span>(args) = args {
         <span class="kw">let </span><span class="kw-2">mut </span>child_state = env.state.fork();
-        child_state.args = args;
+        child_state.args = std::sync::Mutex::new(args);
         child_env.state = Arc::new(child_state);
     }
 

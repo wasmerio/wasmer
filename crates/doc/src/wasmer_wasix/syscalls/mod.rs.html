@@ -3063,7 +3063,7 @@
     <span class="comment">// Swap out the arguments with the new ones
     </span><span class="kw">if let </span><span class="prelude-val">Some</span>(args) = args {
         <span class="kw">let </span><span class="kw-2">mut </span>wasi_state = wasi_env.state.fork();
-        wasi_state.args = args;
+        <span class="kw-2">*</span>wasi_state.args.lock().unwrap() = args;
         wasi_env.state = Arc::new(wasi_state);
     }
 

@@ -31,6 +31,12 @@
 <a href="#31" id="31">31</a>
 <a href="#32" id="32">32</a>
 <a href="#33" id="33">33</a>
+<a href="#34" id="34">34</a>
+<a href="#35" id="35">35</a>
+<a href="#36" id="36">36</a>
+<a href="#37" id="37">37</a>
+<a href="#38" id="38">38</a>
+<a href="#39" id="39">39</a>
 </pre></div><pre class="rust"><code><span class="kw">use super</span>::<span class="kw-2">*</span>;
 <span class="kw">use </span><span class="kw">crate</span>::syscalls::<span class="kw-2">*</span>;
 
@@ -53,8 +59,14 @@
     <span class="kw">let </span>argc = argc.deref(<span class="kw-2">&amp;</span>memory);
     <span class="kw">let </span>argv_buf_size = argv_buf_size.deref(<span class="kw-2">&amp;</span>memory);
 
-    <span class="kw">let </span>argc_val: M::Offset = <span class="macro">wasi_try!</span>(state.args.len().try_into().map_err(|<span class="kw">_</span>| Errno::Overflow));
-    <span class="kw">let </span>argv_buf_size_val: usize = state.args.iter().map(|v| v.len() + <span class="number">1</span>).sum();
+    <span class="kw">let </span>argc_val: M::Offset = <span class="macro">wasi_try!</span>(state
+        .args
+        .lock()
+        .unwrap()
+        .len()
+        .try_into()
+        .map_err(|<span class="kw">_</span>| Errno::Overflow));
+    <span class="kw">let </span>argv_buf_size_val: usize = state.args.lock().unwrap().iter().map(|v| v.len() + <span class="number">1</span>).sum();
     <span class="kw">let </span>argv_buf_size_val: M::Offset =
         <span class="macro">wasi_try!</span>(argv_buf_size_val.try_into().map_err(|<span class="kw">_</span>| Errno::Overflow));
     <span class="macro">wasi_try_mem!</span>(argc.write(argc_val));

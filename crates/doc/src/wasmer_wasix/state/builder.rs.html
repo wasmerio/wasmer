@@ -2151,7 +2151,7 @@
             fs: wasi_fs,
             secret: rand::thread_rng().gen::&lt;[u8; <span class="number">32</span>]&gt;(),
             inodes,
-            args: <span class="self">self</span>.args.clone(),
+            args: std::sync::Mutex::new(<span class="self">self</span>.args.clone()),
             preopen: <span class="self">self</span>.vfs_preopens.clone(),
             futexs: Default::default(),
             clock_offset: Default::default(),
