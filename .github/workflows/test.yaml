@@ -244,6 +244,8 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: ${{ env.MSRV }}
+      - name: Install Nextest
+        uses: taiki-e/install-action@nextest
       - name: Test WAMR API 
         if: ${{ matrix.build-what.key == 'wamr' }}
         run: ${{ matrix.build-what.build-cmd }}
