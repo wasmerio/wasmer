@@ -231,13 +231,13 @@ impl BinaryPackage {
         }
 
         match self.commands.as_slice() {
-            [] => anyhow::bail!("The WEBC file doesn't contain any executable commands"),
+            [] => anyhow::bail!("The package doesn't contain any executable commands"),
             [one] => Ok(one.name()),
             [..] => {
                 let mut commands: Vec<_> = self.commands.iter().map(|cmd| cmd.name()).collect();
                 commands.sort();
                 anyhow::bail!(
-                    "Unable to determine the WEBC file's entrypoint. Please choose one of {:?}",
+                    "Unable to determine the package's entrypoint. Please choose one of {:?}",
                     commands,
                 );
             }
