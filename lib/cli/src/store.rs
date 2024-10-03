@@ -383,7 +383,7 @@ impl StoreOptions {
 }
 
 // If we don't have a compiler, but we have an engine
-#[cfg(not(any(feature = "compiler", feature = "jsc", feature = "wamr")))]
+#[cfg(not(any(feature = "compiler", feature = "jsc", feature = "wamr", feature = "wasmi")))]
 impl StoreOptions {
     fn get_engine_headless(&self) -> Result<wasmer_compiler::Engine> {
         let engine: wasmer_compiler::Engine = wasmer_compiler::EngineBuilder::headless().engine();
@@ -398,7 +398,7 @@ impl StoreOptions {
     }
 }
 
-#[cfg(all(not(feature = "compiler"), any(feature = "jsc", feature = "wamr")))]
+#[cfg(all(not(feature = "compiler"), any(feature = "jsc", feature = "wamr", feature = "wasmi")))]
 impl StoreOptions {
     /// Get the store (headless engine)
     pub fn get_store(&self) -> Result<(Store, CompilerType)> {

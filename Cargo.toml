@@ -14,7 +14,7 @@ version.workspace = true
 [dependencies]
 wasmer = { version = "=4.3.7", path = "lib/api", default-features = false }
 wasmer-compiler = { version = "=4.3.7", path = "lib/compiler", features = [
-    "compiler",
+	"compiler",
 
 ], optional = true }
 wasmer-compiler-cranelift = { version = "=4.3.7", path = "lib/compiler-cranelift", optional = true }
@@ -105,14 +105,16 @@ hyper = "1"
 reqwest = { version = "0.12.0", default-features = false }
 enumset = "1.1.0"
 memoffset = "0.9.0"
-wasmparser = { version = "0.216.0", default-features = false, features = ["validate"]}
+wasmparser = { version = "0.216.0", default-features = false, features = [
+	"validate",
+] }
 rkyv = { version = "0.7.40", features = ["indexmap", "validation", "strict"] }
 memmap2 = { version = "0.6.2" }
 toml = { version = "0.5.9", features = ["preserve_order"] }
 indexmap = "2"
 serde_yaml = "0.9.34"
 libc = { version = "^0.2", default-features = false }
-gimli = { version = "0.28.1"}
+gimli = { version = "0.28.1" }
 
 [build-dependencies]
 test-generator = { path = "tests/lib/test-generator" }
@@ -123,9 +125,9 @@ rustc_version = "0.4"
 
 [dev-dependencies]
 wasmer = { version = "=4.3.7", path = "lib/api", features = [
-    "compiler",
-    "singlepass",
-    "sys",
+	"compiler",
+	"singlepass",
+	"sys",
 ] }
 anyhow = "1.0"
 criterion = { version = "0.5", default-features = false }
@@ -163,6 +165,7 @@ default = [
 backend = []
 jsc = ["wasmer/jsc", "backend", "wat", "wasmer/std"]
 wamr = ["wasmer/wamr"]
+wasmi = ["wasmer/wasmi"]
 engine = ["universal"]
 universal = []
 cache = ["wasmer-cache"]

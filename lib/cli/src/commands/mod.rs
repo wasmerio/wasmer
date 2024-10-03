@@ -494,9 +494,18 @@ fn print_version(verbose: bool) -> Result<(), anyhow::Error> {
     }
     println!("compiler: {}", compilers.join(","));
 
+    let mut interpreters = Vec::<&'static str>::new();
+
     if cfg!(feature = "wamr") {
-        println!("interpreter: wamr");
+        interpreters.push("wamr");
     }
 
+    if cfg!(feature = "wasmi") {
+        // Can't use wamr and wasmi together as of now, but maybe we'll support more
+        // interepreters.
+        interpreters.push("wasmi");
+    }
+
+    println!("interpreter: {}", interpreters.join(","));
     Ok(())
 }
