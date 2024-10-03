@@ -895,7 +895,7 @@ jobs:
           name: capi-linux-musl
           path: download_link
       - uses: actions/download-artifact@v3
-        if: ${{ matrix.build == 'macos-arm' }}
+        if: ${{ matrix.build == 'macos-arm64' }}
         with:
           name: capi-macos-arm64
           path: download_link
