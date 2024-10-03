@@ -514,6 +514,7 @@ pub use jsc::*;
 mod c_api;
 #[cfg(feature = "wasm-c-api")]
 /// Re-export `c-api` definitions.
+#[allow(unused_imports)]
 pub use c_api::*;
 
 pub use crate::externals::{

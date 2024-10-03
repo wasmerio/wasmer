@@ -5,3 +5,9 @@
 
 // This matches bindgen::Builder output
 include!(concat!(env!("OUT_DIR"), "/bindings.rs"));
+
+#[cfg(feature = "wasmi")]
+#[allow(unused_imports)]
+// This is here to force its linking. 
+use wasmi_c_api::*;
+

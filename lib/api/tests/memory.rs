@@ -5,6 +5,7 @@ use std::sync::{
 use wasmer::{imports, Instance, Memory, MemoryLocation, MemoryType, Module, Store};
 
 #[test]
+#[cfg_attr(feature = "wasmi", ignore = "wasmi does not support threads")]
 fn test_shared_memory_atomics_notify_send() {
     let mut store = Store::default();
     let wat = r#"(module

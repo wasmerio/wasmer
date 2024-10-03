@@ -80,7 +80,27 @@ fn main() {
             .derive_default(true)
             .derive_debug(true)
             .generate()
-            .expect("Unable to generate bindings");
+            .expect("Unable to generate bindings for `wamr`!");
+        let out_path = PathBuf::from(env::var("OUT_DIR").unwrap());
+        bindings
+            .write_to_file(out_path.join("bindings.rs"))
+            .expect("Couldn't write bindings");
+    }
+
+    #[cfg(feature = "wasmi")]
+    {
+        use std::{env, path::PathBuf};
+
+        let bindings = bindgen::Builder::default()
+            .header(
+                PathBuf::from(std::env::var("DEP_WASMI_C_API_INCLUDE").unwrap())
+                    .join("wasm.h")
+                    .to_string_lossy(),
+            )
+            .derive_default(true)
+            .derive_debug(true)
+            .generate()
+            .expect("Unable to generate bindings for `wasmi`!");
         let out_path = PathBuf::from(env::var("OUT_DIR").unwrap());
         bindings
             .write_to_file(out_path.join("bindings.rs"))

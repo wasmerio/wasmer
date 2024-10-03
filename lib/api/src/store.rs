@@ -221,10 +221,12 @@ impl<'a> StoreMut<'a> {
         (&self.inner.store.engine, &mut self.inner.objects)
     }
 
+    #[allow(unused)]
     pub(crate) fn as_raw(&self) -> *mut StoreInner {
         self.inner as *const StoreInner as *mut StoreInner
     }
 
+    #[allow(unused)]
     pub(crate) unsafe fn from_raw(raw: *mut StoreInner) -> Self {
         Self { inner: &mut *raw }
     }
