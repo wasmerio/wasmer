@@ -1255,7 +1255,7 @@ where
     Ok(Errno::Success)
 }
 
-#[instrument(level = "debug", skip_all, fields(memory_stack_len = memory_stack.len(), rewind_stack_len = rewind_stack.len(), store_data_len = store_data.len()))]
+// NOTE: not tracing-instrumented because [`rewind_ext`] already is.
 #[must_use = "the action must be passed to the call loop"]
 pub fn rewind<M: MemorySize, T>(
     mut ctx: FunctionEnvMut<WasiEnv>,
@@ -1277,7 +1277,7 @@ where
     )
 }
 
-#[instrument(level = "debug", skip_all, fields(rewind_stack_len = rewind_stack.len(), store_data_len = store_data.len()))]
+#[instrument(level = "trace", skip_all, fields(rewind_stack_len = rewind_stack.len(), store_data_len = store_data.len()))]
 #[must_use = "the action must be passed to the call loop"]
 pub fn rewind_ext<M: MemorySize>(
     ctx: &mut FunctionEnvMut<WasiEnv>,
@@ -1495,7 +1495,7 @@ pub(crate) fn _prepare_wasi(
     // Swap out the arguments with the new ones
     if let Some(args) = args {
         let mut wasi_state = wasi_env.state.fork();
-        wasi_state.args = args;
+        *wasi_state.args.lock().unwrap() = args;
         wasi_env.state = Arc::new(wasi_state);
     }
 

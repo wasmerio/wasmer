@@ -10,13 +10,17 @@ use crate::types::wasi::Snapshot0Filestat;
 /// Output:
 /// - `Filestat *buf`
 ///     Where the metadata from `fd` will be written
-#[instrument(level = "debug", skip_all, fields(%fd), ret)]
+#[instrument(level = "trace", skip_all, fields(%fd, size = field::Empty, mtime = field::Empty), ret)]
 pub fn fd_filestat_get<M: MemorySize>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     fd: WasiFd,
     buf: WasmPtr<Filestat, M>,
 ) -> Errno {
     let stat = wasi_try!(fd_filestat_get_internal(&mut ctx, fd));
+
+    // These two values have proved to be helpful in multiple investigations
+    Span::current().record("size", stat.st_size);
+    Span::current().record("mtime", stat.st_mtim);
 
     let env = ctx.data();
     let (memory, _) = unsafe { env.get_memory_and_wasi_state(&ctx, 0) };
@@ -56,7 +60,7 @@ pub(crate) fn fd_filestat_get_internal(
 /// Output:
 /// - `Snapshot0Filestat *buf`
 ///     Where the metadata from `fd` will be written
-#[instrument(level = "debug", skip_all, fields(%fd), ret)]
+#[instrument(level = "trace", skip_all, fields(%fd), ret)]
 pub fn fd_filestat_get_old<M: MemorySize>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     fd: WasiFd,

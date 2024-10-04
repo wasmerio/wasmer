@@ -224,17 +224,8 @@ impl WebSource {
 
         Ok((body, etag))
     }
-}
 
-#[async_trait::async_trait]
-impl Source for WebSource {
-    #[tracing::instrument(level = "debug", skip_all, fields(%package))]
-    async fn query(&self, package: &PackageSource) -> Result<Vec<PackageSummary>, QueryError> {
-        let url = match package {
-            PackageSource::Url(url) => url,
-            _ => return Err(QueryError::Unsupported),
-        };
-
+    async fn load_url(&self, url: &Url) -> Result<Vec<PackageSummary>, anyhow::Error> {
         let local_path = self
             .get_locally_cached_file(url)
             .await
@@ -260,6 +251,25 @@ impl Source for WebSource {
         };
 
         Ok(vec![PackageSummary { pkg, dist }])
+    }
+}
+
+#[async_trait::async_trait]
+impl Source for WebSource {
+    #[tracing::instrument(level = "debug", skip_all, fields(%package))]
+    async fn query(&self, package: &PackageSource) -> Result<Vec<PackageSummary>, QueryError> {
+        let url = match package {
+            PackageSource::Url(url) => url,
+            _ => {
+                return Err(QueryError::Unsupported {
+                    query: package.clone(),
+                })
+            }
+        };
+
+        self.load_url(url)
+            .await
+            .map_err(|error| QueryError::new_other(error, package))
     }
 }
 

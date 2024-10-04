@@ -8,7 +8,7 @@ use crate::syscalls::*;
 ///     File descriptor to copy
 /// - `Fd to`
 ///     Location to copy file descriptor to
-#[instrument(level = "debug", skip_all, fields(%from, %to), ret)]
+#[instrument(level = "trace", skip_all, fields(%from, %to), ret)]
 pub fn fd_renumber(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     from: WasiFd,

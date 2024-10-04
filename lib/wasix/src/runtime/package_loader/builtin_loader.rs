@@ -704,7 +704,7 @@ mod test {
         let path = dir.path();
 
         let contents = "fail";
-        let correct_hash = WebcHash::sha256(&contents);
+        let correct_hash = WebcHash::sha256(contents);
         let used_hash =
             WebcHash::parse_hex("0000a28ea38a000f3a3328cb7fabe330638d3258affe1a869e3f92986222d997")
                 .unwrap();

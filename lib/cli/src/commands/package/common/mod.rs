@@ -44,6 +44,7 @@ pub(super) async fn upload(
     timeout: humantime::Duration,
     package: &Package,
     pb: ProgressBar,
+    proxy: Option<reqwest::Proxy>,
 ) -> anyhow::Result<String> {
     let hash_str = hash.to_string();
     let hash_str = hash_str.trim_start_matches("sha256:");
@@ -68,11 +69,19 @@ pub(super) async fn upload(
 
     tracing::info!("signed url is: {session_uri}");
 
-    let client = reqwest::Client::builder()
-        .default_headers(reqwest::header::HeaderMap::default())
-        .timeout(timeout.into())
-        .build()
-        .unwrap();
+    let client = {
+        let builder = reqwest::Client::builder()
+            .default_headers(reqwest::header::HeaderMap::default())
+            .timeout(timeout.into());
+
+        let builder = if let Some(proxy) = proxy {
+            builder.proxy(proxy)
+        } else {
+            builder
+        };
+
+        builder.build().unwrap()
+    };
 
     let res = client
         .post(&session_uri)

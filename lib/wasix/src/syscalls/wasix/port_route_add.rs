@@ -5,7 +5,7 @@ use crate::syscalls::*;
 
 /// ### `port_route_add()`
 /// Adds a new route to the local port
-#[instrument(level = "debug", skip_all, fields(cidr = field::Empty, via_router = field::Empty), ret)]
+#[instrument(level = "trace", skip_all, fields(cidr = field::Empty, via_router = field::Empty), ret)]
 pub fn port_route_add<M: MemorySize>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     cidr: WasmPtr<__wasi_cidr_t, M>,

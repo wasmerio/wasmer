@@ -338,9 +338,15 @@ impl crate::runners::Runner for WasiRunner {
             .annotation("wasi")?
             .unwrap_or_else(|| Wasi::new(command_name));
 
+        let exec_name = if let Some(exec_name) = wasi.exec_name.as_ref() {
+            exec_name
+        } else {
+            command_name
+        };
+
         #[allow(unused_mut)]
         let mut env = self
-            .prepare_webc_env(command_name, &wasi, Some(pkg), Arc::clone(&runtime), None)
+            .prepare_webc_env(exec_name, &wasi, Some(pkg), Arc::clone(&runtime), None)
             .context("Unable to prepare the WASI environment")?;
 
         #[cfg(feature = "journal")]
@@ -447,5 +453,95 @@ mod tests {
 
         assert_send::<WasiRunner>();
         assert_sync::<WasiRunner>();
+    }
+
+    #[cfg(all(feature = "host-fs", feature = "sys"))]
+    #[tokio::test]
+    async fn test_volume_mount_without_webcs() {
+        use std::sync::Arc;
+
+        let root_fs = virtual_fs::RootFileSystemBuilder::new().build();
+
+        let tokrt = tokio::runtime::Handle::current();
+
+        let hostdir = virtual_fs::host_fs::FileSystem::new(tokrt.clone(), "/").unwrap();
+        let hostdir_dyn: Arc<dyn virtual_fs::FileSystem + Send + Sync> = Arc::new(hostdir);
+
+        root_fs
+            .mount("/host".into(), &hostdir_dyn, "/".into())
+            .unwrap();
+
+        let envb = crate::runners::wasi::WasiRunner::new();
+
+        let annotations = webc::metadata::annotations::Wasi::new("test");
+
+        let tm = Arc::new(crate::runtime::task_manager::tokio::TokioTaskManager::new(
+            tokrt.clone(),
+        ));
+        let rt = crate::PluggableRuntime::new(tm);
+
+        let envb = envb
+            .prepare_webc_env("test", &annotations, None, Arc::new(rt), Some(root_fs))
+            .unwrap();
+
+        let init = envb.build_init().unwrap();
+
+        let fs = &init.state.fs.root_fs;
+
+        fs.read_dir(std::path::Path::new("/host")).unwrap();
+    }
+
+    #[cfg(all(feature = "host-fs", feature = "sys"))]
+    #[tokio::test]
+    async fn test_volume_mount_with_webcs() {
+        use std::sync::Arc;
+
+        let root_fs = virtual_fs::RootFileSystemBuilder::new().build();
+
+        let tokrt = tokio::runtime::Handle::current();
+
+        let hostdir = virtual_fs::host_fs::FileSystem::new(tokrt.clone(), "/").unwrap();
+        let hostdir_dyn: Arc<dyn virtual_fs::FileSystem + Send + Sync> = Arc::new(hostdir);
+
+        root_fs
+            .mount("/host".into(), &hostdir_dyn, "/".into())
+            .unwrap();
+
+        let envb = crate::runners::wasi::WasiRunner::new();
+
+        let annotations = webc::metadata::annotations::Wasi::new("test");
+
+        let tm = Arc::new(crate::runtime::task_manager::tokio::TokioTaskManager::new(
+            tokrt.clone(),
+        ));
+        let mut rt = crate::PluggableRuntime::new(tm);
+        rt.set_package_loader(crate::runtime::package_loader::BuiltinPackageLoader::new());
+
+        let webc_path = std::path::PathBuf::from(std::env::var("CARGO_MANIFEST_DIR").unwrap()).join("../../tests/integration/cli/tests/webc/wasmer-tests--volume-static-webserver@0.1.0.webc");
+        let webc_data = std::fs::read(webc_path).unwrap();
+        let container = webc::Container::from_bytes(webc_data).unwrap();
+
+        let binpkg = crate::bin_factory::BinaryPackage::from_webc(&container, &rt)
+            .await
+            .unwrap();
+
+        let mut envb = envb
+            .prepare_webc_env(
+                "test",
+                &annotations,
+                Some(&binpkg),
+                Arc::new(rt),
+                Some(root_fs),
+            )
+            .unwrap();
+
+        envb = envb.preopen_dir("/host").unwrap();
+
+        let init = envb.build_init().unwrap();
+
+        let fs = &init.state.fs.root_fs;
+
+        fs.read_dir(std::path::Path::new("/host")).unwrap();
+        fs.read_dir(std::path::Path::new("/settings")).unwrap();
     }
 }

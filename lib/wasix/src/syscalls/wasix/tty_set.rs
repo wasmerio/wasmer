@@ -3,7 +3,7 @@ use crate::{syscalls::*, WasiTtyState};
 
 /// ### `tty_set()`
 /// Updates the properties of the rect
-#[instrument(level = "debug", skip_all, ret)]
+#[instrument(level = "trace", skip_all, ret)]
 pub fn tty_set<M: MemorySize>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     tty_state: WasmPtr<Tty, M>,

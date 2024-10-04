@@ -18,7 +18,7 @@ use crate::{
 /// ## Return
 ///
 /// Returns a bus process id that can be used to invoke calls
-#[instrument(level = "debug", skip_all, fields(name = field::Empty, %args_len), ret)]
+#[instrument(level = "trace", skip_all, fields(name = field::Empty, %args_len), ret)]
 pub fn proc_exec2<M: MemorySize>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     name: WasmPtr<u8, M>,

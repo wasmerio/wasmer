@@ -219,7 +219,7 @@ impl Run {
     ) -> Result<(), Error> {
         let id = match self.entrypoint.as_deref() {
             Some(cmd) => cmd,
-            None => infer_webc_entrypoint(pkg)?,
+            None => pkg.infer_entrypoint()?,
         };
         let cmd = pkg
             .get_command(id)
@@ -568,25 +568,6 @@ fn parse_value(s: &str, ty: wasmer_types::Type) -> Result<Value, Error> {
         _ => bail!("There is no known conversion from {s:?} to {ty:?}"),
     };
     Ok(value)
-}
-
-fn infer_webc_entrypoint(pkg: &BinaryPackage) -> Result<&str, Error> {
-    if let Some(entrypoint) = pkg.entrypoint_cmd.as_deref() {
-        return Ok(entrypoint);
-    }
-
-    match pkg.commands.as_slice() {
-        [] => bail!("The WEBC file doesn't contain any executable commands"),
-        [one] => Ok(one.name()),
-        [..] => {
-            let mut commands: Vec<_> = pkg.commands.iter().map(|cmd| cmd.name()).collect();
-            commands.sort();
-            bail!(
-                "Unable to determine the WEBC file's entrypoint. Please choose one of {:?}",
-                commands,
-            );
-        }
-    }
 }
 
 /// The input that was passed in via the command-line.

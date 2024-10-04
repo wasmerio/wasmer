@@ -1,12 +1,15 @@
-use std::{any::Any, sync::Arc};
+use std::{any::Any, path::PathBuf, sync::Arc};
 
 use crate::{
+    bin_factory::spawn_exec_wasm,
     os::task::{OwnedTaskStatus, TaskJoinHandle},
     runtime::task_manager::InlineWaker,
     SpawnError,
 };
+use virtual_fs::{AsyncReadExt, FileSystem};
 use wasmer::{FunctionEnvMut, Store};
 use wasmer_wasix_types::wasi::Errno;
+use webc::Container;
 
 use crate::{
     bin_factory::{spawn_exec, BinaryPackage},
@@ -57,6 +60,11 @@ impl CmdWasmer {
         what: Option<String>,
         mut args: Vec<String>,
     ) -> Result<TaskJoinHandle, SpawnError> {
+        pub enum Executable {
+            Wasm(bytes::Bytes),
+            BinaryPackage(BinaryPackage),
+        }
+
         // If the first argument is a '--' then skip it
         if args.first().map(|a| a.as_str()) == Some("--") {
             args = args.into_iter().skip(1).collect();
@@ -69,25 +77,69 @@ impl CmdWasmer {
             // Set the arguments of the environment by replacing the state
             let mut state = env.state.fork();
             args.insert(0, what.clone());
-            state.args = args;
+            state.args = std::sync::Mutex::new(args);
             env.state = Arc::new(state);
 
-            if let Ok(binary) = self.get_package(&what).await {
-                // Now run the module
-                spawn_exec(binary, name, store, env, &self.runtime).await
+            let file_path = if what.starts_with('/') {
+                PathBuf::from(&what)
             } else {
-                let _ = unsafe {
-                    stderr_write(
-                        parent_ctx,
-                        format!("package not found - {}\r\n", what).as_bytes(),
-                    )
-                }
-                .await;
+                // convert relative path to absolute path
+                let cwd = env.state.fs.current_dir.lock().unwrap().clone();
 
-                let handle = OwnedTaskStatus::new_finished_with_code(Errno::Noent.into()).handle();
-                Ok(handle)
+                PathBuf::from(cwd).join(&what)
+            };
+
+            let fs = env.fs_root();
+            let f = fs.new_open_options().read(true).open(&file_path);
+            let executable = if let Ok(mut file) = f {
+                let mut data = Vec::with_capacity(file.size() as usize);
+                file.read_to_end(&mut data).await.unwrap();
+
+                let bytes: bytes::Bytes = data.into();
+
+                if let Ok(container) = Container::from_bytes(bytes.clone()) {
+                    let pkg = BinaryPackage::from_webc(&container, &*self.runtime)
+                        .await
+                        .unwrap();
+
+                    Executable::BinaryPackage(pkg)
+                } else {
+                    Executable::Wasm(bytes)
+                }
+            } else if let Ok(pkg) = self.get_package(&what).await {
+                Executable::BinaryPackage(pkg)
+            } else {
+                let _ = unsafe { stderr_write(parent_ctx, HELP_RUN.as_bytes()) }.await;
+                let handle =
+                    OwnedTaskStatus::new_finished_with_code(Errno::Success.into()).handle();
+                return Ok(handle);
+            };
+
+            match executable {
+                Executable::BinaryPackage(binary) => {
+                    // Infer the command that is going to be executed
+                    let cmd_name: &str =
+                        binary
+                            .infer_entrypoint()
+                            .map_err(|_| SpawnError::MissingEntrypoint {
+                                package_id: binary.id.clone(),
+                            })?;
+
+                    let cmd = binary
+                        .get_command(cmd_name)
+                        .ok_or_else(|| SpawnError::NotFound {
+                            message: format!("{cmd_name} command in package: {}", binary.id),
+                        })?;
+
+                    env.prepare_spawn(cmd);
+
+                    env.use_package_async(&binary).await.unwrap();
+
+                    // Now run the module
+                    spawn_exec(binary, name, store, env, &self.runtime).await
+                }
+                Executable::Wasm(bytes) => spawn_exec_wasm(&bytes, name, env, &self.runtime).await,
             }
-            // Get the binary
         } else {
             let _ = unsafe { stderr_write(parent_ctx, HELP_RUN.as_bytes()) }.await;
             let handle = OwnedTaskStatus::new_finished_with_code(Errno::Success.into()).handle();
@@ -130,7 +182,7 @@ impl VirtualCommand for CmdWasmer {
     ) -> Result<TaskJoinHandle, SpawnError> {
         // Read the command we want to run
         let env_inner = env.as_ref().ok_or(SpawnError::UnknownError)?;
-        let args = env_inner.state.args.clone();
+        let args = env_inner.state.args.lock().unwrap().clone();
         let mut args = args.iter().map(|s| s.as_str());
         let _alias = args.next();
         let cmd = args.next();
