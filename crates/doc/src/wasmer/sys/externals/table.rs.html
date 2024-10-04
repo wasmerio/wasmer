@@ -159,6 +159,7 @@
 <a href="#159" id="159">159</a>
 <a href="#160" id="160">160</a>
 <a href="#161" id="161">161</a>
+<a href="#162" id="162">162</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::store::{AsStoreMut, AsStoreRef};
 <span class="kw">use </span><span class="kw">crate</span>::sys::engine::NativeEngineExt;
 <span class="kw">use </span><span class="kw">crate</span>::TableType;
@@ -167,6 +168,7 @@
 <span class="kw">use </span>wasmer_vm::{StoreHandle, TableElement, Trap, VMExtern, VMTable};
 
 <span class="attr">#[derive(Debug, Clone)]
+#[cfg_attr(feature = <span class="string">&quot;artifact-size&quot;</span>, derive(loupe::MemoryUsage))]
 </span><span class="kw">pub struct </span>Table {
     handle: StoreHandle&lt;VMTable&gt;,
 }

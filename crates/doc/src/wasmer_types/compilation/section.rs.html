@@ -160,6 +160,10 @@
 <a href="#160" id="160">160</a>
 <a href="#161" id="161">161</a>
 <a href="#162" id="162">162</a>
+<a href="#163" id="163">163</a>
+<a href="#164" id="164">164</a>
+<a href="#165" id="165">165</a>
+<a href="#166" id="166">166</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! This module define the required structures to emit custom
 //! Sections in a `Compilation`.
 //!
@@ -191,6 +195,7 @@
     Default,
 )]
 #[cfg_attr(feature = <span class="string">&quot;enable-serde&quot;</span>, derive(Serialize, Deserialize))]
+#[cfg_attr(feature = <span class="string">&quot;artifact-size&quot;</span>, derive(loupe::MemoryUsage))]
 #[archive(<span class="kw">as </span>= <span class="string">&quot;Self&quot;</span>)]
 </span><span class="kw">pub struct </span>SectionIndex(u32);
 
@@ -199,7 +204,8 @@
 <span class="doccomment">/// Custom section Protection.
 ///
 /// Determines how a custom section may be used.
-</span><span class="attr">#[cfg_attr(feature = <span class="string">&quot;enable-serde&quot;</span>, derive(Serialize, Deserialize))]
+</span><span class="attr">#[cfg_attr(feature = <span class="string">&quot;artifact-size&quot;</span>, derive(loupe::MemoryUsage))]
+#[cfg_attr(feature = <span class="string">&quot;enable-serde&quot;</span>, derive(Serialize, Deserialize))]
 #[derive(
     RkyvSerialize, RkyvDeserialize, Archive, rkyv::CheckBytes, Debug, Clone, PartialEq, Eq,
 )]
@@ -218,6 +224,7 @@
 /// This is used so compilers can store arbitrary information
 /// in the emitted module.
 </span><span class="attr">#[cfg_attr(feature = <span class="string">&quot;enable-serde&quot;</span>, derive(Serialize, Deserialize))]
+#[cfg_attr(feature = <span class="string">&quot;artifact-size&quot;</span>, derive(loupe::MemoryUsage))]
 #[derive(RkyvSerialize, RkyvDeserialize, Archive, Debug, Clone, PartialEq, Eq)]
 #[archive_attr(derive(rkyv::CheckBytes, Debug))]
 </span><span class="kw">pub struct </span>CustomSection {
@@ -280,6 +287,7 @@
 
 <span class="doccomment">/// The bytes in the section.
 </span><span class="attr">#[cfg_attr(feature = <span class="string">&quot;enable-serde&quot;</span>, derive(Serialize, Deserialize))]
+#[cfg_attr(feature = <span class="string">&quot;artifact-size&quot;</span>, derive(loupe::MemoryUsage))]
 #[derive(RkyvSerialize, RkyvDeserialize, Archive, Debug, Clone, PartialEq, Eq, Default)]
 #[archive_attr(derive(rkyv::CheckBytes, Debug))]
 </span><span class="kw">pub struct </span>SectionBody(<span class="attr">#[cfg_attr(feature = <span class="string">&quot;enable-serde&quot;</span>, serde(with = <span class="string">&quot;serde_bytes&quot;</span>))] </span>Vec&lt;u8&gt;);

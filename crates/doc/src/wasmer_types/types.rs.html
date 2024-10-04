@@ -640,6 +640,20 @@
 <a href="#640" id="640">640</a>
 <a href="#641" id="641">641</a>
 <a href="#642" id="642">642</a>
+<a href="#643" id="643">643</a>
+<a href="#644" id="644">644</a>
+<a href="#645" id="645">645</a>
+<a href="#646" id="646">646</a>
+<a href="#647" id="647">647</a>
+<a href="#648" id="648">648</a>
+<a href="#649" id="649">649</a>
+<a href="#650" id="650">650</a>
+<a href="#651" id="651">651</a>
+<a href="#652" id="652">652</a>
+<a href="#653" id="653">653</a>
+<a href="#654" id="654">654</a>
+<a href="#655" id="655">655</a>
+<a href="#656" id="656">656</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::indexes::{FunctionIndex, GlobalIndex};
 <span class="kw">use </span><span class="kw">crate</span>::lib::std::borrow::ToOwned;
 <span class="kw">use </span><span class="kw">crate</span>::lib::std::fmt;
@@ -660,6 +674,7 @@
 </span><span class="doccomment">/// A list of all possible value types in WebAssembly.
 </span><span class="attr">#[derive(Copy, Debug, Clone, Eq, PartialEq, Hash)]
 #[cfg_attr(feature = <span class="string">&quot;enable-serde&quot;</span>, derive(Serialize, Deserialize))]
+#[cfg_attr(feature = <span class="string">&quot;artifact-size&quot;</span>, derive(loupe::MemoryUsage))]
 #[derive(RkyvSerialize, RkyvDeserialize, Archive, rkyv::CheckBytes)]
 #[archive(<span class="kw">as </span>= <span class="string">&quot;Self&quot;</span>)]
 #[repr(u8)]
@@ -708,6 +723,13 @@
 #[derive(RkyvSerialize, RkyvDeserialize, Archive)]
 #[archive(<span class="kw">as </span>= <span class="string">&quot;Self&quot;</span>)]
 </span><span class="kw">pub struct </span>V128(<span class="kw">pub</span>(<span class="kw">crate</span>) [u8; <span class="number">16</span>]);
+
+<span class="attr">#[cfg(feature = <span class="string">&quot;artifact-size&quot;</span>)]
+</span><span class="kw">impl </span>loupe::MemoryUsage <span class="kw">for </span>V128 {
+    <span class="kw">fn </span>size_of_val(<span class="kw-2">&amp;</span><span class="self">self</span>, _tracker: <span class="kw-2">&amp;mut </span><span class="kw">dyn </span>loupe::MemoryUsageTracker) -&gt; usize {
+        <span class="number">16 </span>* <span class="number">8
+    </span>}
+}
 
 <span class="kw">impl </span>V128 {
     <span class="doccomment">/// Get the bytes corresponding to the V128 value
@@ -883,6 +905,7 @@
 /// WebAssembly functions can have 0 or more parameters and results.
 </span><span class="attr">#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = <span class="string">&quot;enable-serde&quot;</span>, derive(Serialize, Deserialize))]
+#[cfg_attr(feature = <span class="string">&quot;artifact-size&quot;</span>, derive(loupe::MemoryUsage))]
 #[derive(RkyvSerialize, RkyvDeserialize, Archive)]
 #[archive_attr(derive(CheckBytes, Debug))]
 </span><span class="kw">pub struct </span>FunctionType {
@@ -969,6 +992,7 @@
 
 <span class="doccomment">/// Indicator of whether a global is mutable or not
 </span><span class="attr">#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, CheckBytes)]
+#[cfg_attr(feature = <span class="string">&quot;artifact-size&quot;</span>, derive(loupe::MemoryUsage))]
 #[cfg_attr(feature = <span class="string">&quot;enable-serde&quot;</span>, derive(Serialize, Deserialize))]
 #[derive(RkyvSerialize, RkyvDeserialize, Archive)]
 #[archive(<span class="kw">as </span>= <span class="string">&quot;Self&quot;</span>)]
@@ -1009,6 +1033,7 @@
 <span class="doccomment">/// WebAssembly global.
 </span><span class="attr">#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, CheckBytes)]
 #[cfg_attr(feature = <span class="string">&quot;enable-serde&quot;</span>, derive(Serialize, Deserialize))]
+#[cfg_attr(feature = <span class="string">&quot;artifact-size&quot;</span>, derive(loupe::MemoryUsage))]
 #[derive(RkyvSerialize, RkyvDeserialize, Archive)]
 #[archive(<span class="kw">as </span>= <span class="string">&quot;Self&quot;</span>)]
 </span><span class="kw">pub struct </span>GlobalType {
@@ -1054,6 +1079,7 @@
 <span class="doccomment">/// Globals are initialized via the `const` operators or by referring to another import.
 </span><span class="attr">#[derive(Debug, Clone, Copy, PartialEq)]
 #[cfg_attr(feature = <span class="string">&quot;enable-serde&quot;</span>, derive(Serialize, Deserialize))]
+#[cfg_attr(feature = <span class="string">&quot;artifact-size&quot;</span>, derive(loupe::MemoryUsage))]
 #[derive(RkyvSerialize, RkyvDeserialize, Archive, rkyv::CheckBytes)]
 #[archive(<span class="kw">as </span>= <span class="string">&quot;Self&quot;</span>)]
 #[repr(u8)]
@@ -1088,6 +1114,7 @@
 /// which `call_indirect` can invoke other functions.
 </span><span class="attr">#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = <span class="string">&quot;enable-serde&quot;</span>, derive(Serialize, Deserialize))]
+#[cfg_attr(feature = <span class="string">&quot;artifact-size&quot;</span>, derive(loupe::MemoryUsage))]
 #[derive(RkyvSerialize, RkyvDeserialize, Archive)]
 #[archive_attr(derive(CheckBytes, Debug))]
 </span><span class="kw">pub struct </span>TableType {
@@ -1129,6 +1156,7 @@
 /// chunks of addressable memory.
 </span><span class="attr">#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = <span class="string">&quot;enable-serde&quot;</span>, derive(Serialize, Deserialize))]
+#[cfg_attr(feature = <span class="string">&quot;artifact-size&quot;</span>, derive(loupe::MemoryUsage))]
 #[derive(RkyvSerialize, RkyvDeserialize, Archive)]
 #[archive_attr(derive(CheckBytes, Debug))]
 </span><span class="kw">pub struct </span>MemoryType {

@@ -491,6 +491,15 @@
 <a href="#491" id="491">491</a>
 <a href="#492" id="492">492</a>
 <a href="#493" id="493">493</a>
+<a href="#494" id="494">494</a>
+<a href="#495" id="495">495</a>
+<a href="#496" id="496">496</a>
+<a href="#497" id="497">497</a>
+<a href="#498" id="498">498</a>
+<a href="#499" id="499">499</a>
+<a href="#500" id="500">500</a>
+<a href="#501" id="501">501</a>
+<a href="#502" id="502">502</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Define `ArtifactBuild` to allow compiling and instantiating to be
 //! done as separate steps.
 
@@ -527,6 +536,7 @@
 <span class="kw">use </span>wasmer_types::{MetadataHeader, SerializeError};
 
 <span class="doccomment">/// A compiled wasm module, ready to be instantiated.
+</span><span class="attr">#[cfg_attr(feature = <span class="string">&quot;artifact-size&quot;</span>, derive(loupe::MemoryUsage))]
 </span><span class="kw">pub struct </span>ArtifactBuild {
     serializable: SerializableModule,
 }
@@ -780,8 +790,16 @@
     <span class="kw">impl </span>{Debug}
 );
 
+<span class="attr">#[cfg(feature = <span class="string">&quot;artifact-size&quot;</span>)]
+</span><span class="kw">impl </span>loupe::MemoryUsage <span class="kw">for </span>ArtifactBuildFromArchiveCell {
+    <span class="kw">fn </span>size_of_val(<span class="kw-2">&amp;</span><span class="self">self</span>, _tracker: <span class="kw-2">&amp;mut </span><span class="kw">dyn </span>loupe::MemoryUsageTracker) -&gt; usize {
+        std::mem::size_of_val(<span class="self">self</span>.borrow_owner()) + std::mem::size_of_val(<span class="self">self</span>.borrow_dependent())
+    }
+}
+
 <span class="doccomment">/// A compiled wasm module that was loaded from a serialized archive.
 </span><span class="attr">#[derive(Clone, Debug)]
+#[cfg_attr(feature = <span class="string">&quot;artifact-size&quot;</span>, derive(loupe::MemoryUsage))]
 </span><span class="kw">pub struct </span>ArtifactBuildFromArchive {
     cell: Arc&lt;ArtifactBuildFromArchiveCell&gt;,
 

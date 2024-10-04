@@ -408,6 +408,7 @@
 <a href="#408" id="408">408</a>
 <a href="#409" id="409">409</a>
 <a href="#410" id="410">410</a>
+<a href="#411" id="411">411</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! This module is used for having backtraces in the Wasm runtime.
 //! Once the Compiler has compiled the ModuleInfo, and we have a set of
 //! compiled functions (addresses and function index) and a module,
@@ -464,6 +465,7 @@
 
 <span class="doccomment">/// An RAII structure used to unregister a module&#39;s frame information when the
 /// module is destroyed.
+</span><span class="attr">#[cfg_attr(feature = <span class="string">&quot;artifact-size&quot;</span>, derive(loupe::MemoryUsage))]
 </span><span class="kw">pub struct </span>GlobalFrameInfoRegistration {
     <span class="doccomment">/// The key that will be removed from the global `ranges` map when this is
     /// dropped.

@@ -153,6 +153,7 @@
 <a href="#153" id="153">153</a>
 <a href="#154" id="154">154</a>
 <a href="#155" id="155">155</a>
+<a href="#156" id="156">156</a>
 </pre></div><pre class="rust"><code><span class="kw">use crate</span>::{Pages, ValueType};
 <span class="kw">use </span>core::ops::SubAssign;
 <span class="kw">use </span>rkyv::{Archive, Deserialize <span class="kw">as </span>RkyvDeserialize, Serialize <span class="kw">as </span>RkyvSerialize};
@@ -176,6 +177,7 @@
     rkyv::CheckBytes,
 )]
 #[cfg_attr(feature = <span class="string">&quot;enable-serde&quot;</span>, derive(Serialize, Deserialize))]
+#[cfg_attr(feature = <span class="string">&quot;artifact-size&quot;</span>, derive(loupe::MemoryUsage))]
 #[archive(<span class="kw">as </span>= <span class="string">&quot;Self&quot;</span>)]
 #[repr(u8)]
 </span><span class="kw">pub enum </span>MemoryStyle {

@@ -177,6 +177,7 @@
 <a href="#177" id="177">177</a>
 <a href="#178" id="178">178</a>
 <a href="#179" id="179">179</a>
+<a href="#180" id="180">180</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file contains code from external sources.
 // Attributions: https://github.com/wasmerio/wasmer/blob/main/docs/ATTRIBUTIONS.md
 
@@ -206,6 +207,7 @@
     rkyv::CheckBytes,
 )]
 #[cfg_attr(feature = <span class="string">&quot;enable-serde&quot;</span>, derive(Serialize, Deserialize))]
+#[cfg_attr(feature = <span class="string">&quot;artifact-size&quot;</span>, derive(loupe::MemoryUsage))]
 #[repr(u32)]
 #[archive(<span class="kw">as </span>= <span class="string">&quot;Self&quot;</span>)]
 </span><span class="kw">pub enum </span>TrapCode {

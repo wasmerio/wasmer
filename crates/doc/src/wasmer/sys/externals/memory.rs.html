@@ -308,6 +308,7 @@
 <a href="#308" id="308">308</a>
 <a href="#309" id="309">309</a>
 <a href="#310" id="310">310</a>
+<a href="#311" id="311">311</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{
     convert::TryInto,
     marker::PhantomData,
@@ -329,6 +330,7 @@
 };
 
 <span class="attr">#[derive(Debug, Clone)]
+#[cfg_attr(feature = <span class="string">&quot;artifact-size&quot;</span>, derive(loupe::MemoryUsage))]
 </span><span class="kw">pub struct </span>Memory {
     <span class="kw">pub</span>(<span class="kw">crate</span>) handle: StoreHandle&lt;VMMemory&gt;,
 }

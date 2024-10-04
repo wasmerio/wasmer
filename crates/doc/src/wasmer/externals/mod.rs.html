@@ -126,6 +126,7 @@
 <a href="#126" id="126">126</a>
 <a href="#127" id="127">127</a>
 <a href="#128" id="128">128</a>
+<a href="#129" id="129">129</a>
 </pre></div><pre class="rust"><code><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">mod </span>function;
 <span class="kw">mod </span>global;
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">mod </span>memory;
@@ -156,6 +157,7 @@
 ///
 /// Spec: &lt;https://webassembly.github.io/spec/core/exec/runtime.html#external-values&gt;
 </span><span class="attr">#[derive(Clone, PartialEq, Eq)]
+#[cfg_attr(feature = <span class="string">&quot;artifact-size&quot;</span>, derive(loupe::MemoryUsage))]
 </span><span class="kw">pub enum </span>Extern {
     <span class="doccomment">/// A external [`Function`].
     </span>Function(Function),

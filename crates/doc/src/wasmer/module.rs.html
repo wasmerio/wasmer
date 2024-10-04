@@ -482,6 +482,7 @@
 <a href="#482" id="482">482</a>
 <a href="#483" id="483">483</a>
 <a href="#484" id="484">484</a>
+<a href="#485" id="485">485</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>bytes::Bytes;
 <span class="kw">use </span>std::fmt;
 <span class="kw">use </span>std::fs;
@@ -526,6 +527,7 @@
 /// Cloning a module is cheap: it does a shallow copy of the compiled
 /// contents rather than a deep copy.
 </span><span class="attr">#[derive(Clone, PartialEq, Eq)]
+#[cfg_attr(feature = <span class="string">&quot;artifact-size&quot;</span>, derive(loupe::MemoryUsage))]
 </span><span class="kw">pub struct </span>Module(<span class="kw">pub</span>(<span class="kw">crate</span>) module_imp::Module);
 
 <span class="kw">impl </span>Module {

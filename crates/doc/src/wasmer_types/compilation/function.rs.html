@@ -181,6 +181,9 @@
 <a href="#181" id="181">181</a>
 <a href="#182" id="182">182</a>
 <a href="#183" id="183">183</a>
+<a href="#184" id="184">184</a>
+<a href="#185" id="185">185</a>
+<a href="#186" id="186">186</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file contains code from external sources.
 // Attributions: https://github.com/wasmerio/wasmer/blob/main/docs/ATTRIBUTIONS.md
 
@@ -205,7 +208,8 @@
 ///
 /// This structure is only used for reconstructing
 /// the frame information after a `Trap`.
-</span><span class="attr">#[cfg_attr(feature = <span class="string">&quot;enable-serde&quot;</span>, derive(Deserialize, Serialize))]
+</span><span class="attr">#[cfg_attr(feature = <span class="string">&quot;artifact-size&quot;</span>, derive(loupe::MemoryUsage))]
+#[cfg_attr(feature = <span class="string">&quot;enable-serde&quot;</span>, derive(Deserialize, Serialize))]
 #[derive(RkyvSerialize, RkyvDeserialize, Archive, Debug, Clone, PartialEq, Eq, Default)]
 #[archive_attr(derive(rkyv::CheckBytes, Debug))]
 </span><span class="kw">pub struct </span>CompiledFunctionFrameInfo {
@@ -220,6 +224,7 @@
 
 <span class="doccomment">/// The function body.
 </span><span class="attr">#[cfg_attr(feature = <span class="string">&quot;enable-serde&quot;</span>, derive(Deserialize, Serialize))]
+#[cfg_attr(feature = <span class="string">&quot;artifact-size&quot;</span>, derive(loupe::MemoryUsage))]
 #[derive(RkyvSerialize, RkyvDeserialize, Archive, Debug, Clone, PartialEq, Eq)]
 #[archive_attr(derive(rkyv::CheckBytes, Debug))]
 </span><span class="kw">pub struct </span>FunctionBody {
@@ -299,6 +304,7 @@
 /// In the future this structure may also hold other information useful
 /// for debugging.
 </span><span class="attr">#[cfg_attr(feature = <span class="string">&quot;enable-serde&quot;</span>, derive(Deserialize, Serialize))]
+#[cfg_attr(feature = <span class="string">&quot;artifact-size&quot;</span>, derive(loupe::MemoryUsage))]
 #[derive(
     RkyvSerialize, RkyvDeserialize, Archive, rkyv::CheckBytes, Debug, PartialEq, Eq, Clone,
 )]

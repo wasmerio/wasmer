@@ -143,6 +143,7 @@
 <a href="#143" id="143">143</a>
 <a href="#144" id="144">144</a>
 <a href="#145" id="145">145</a>
+<a href="#146" id="146">146</a>
 </pre></div><pre class="rust"><code><span class="attr">#[cfg(feature = <span class="string">&quot;js&quot;</span>)]
 </span><span class="kw">use </span><span class="kw">crate</span>::js::externals::table <span class="kw">as </span>table_impl;
 <span class="attr">#[cfg(feature = <span class="string">&quot;jsc&quot;</span>)]
@@ -168,6 +169,7 @@
 ///
 /// Spec: &lt;https://webassembly.github.io/spec/core/exec/runtime.html#table-instances&gt;
 </span><span class="attr">#[derive(Debug, Clone, PartialEq)]
+#[cfg_attr(feature = <span class="string">&quot;artifact-size&quot;</span>, derive(loupe::MemoryUsage))]
 </span><span class="kw">pub struct </span>Table(<span class="kw">pub</span>(<span class="kw">crate</span>) table_impl::Table);
 
 <span class="kw">impl </span>Table {

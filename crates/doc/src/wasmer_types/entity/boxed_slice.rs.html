@@ -315,6 +315,22 @@
 <a href="#315" id="315">315</a>
 <a href="#316" id="316">316</a>
 <a href="#317" id="317">317</a>
+<a href="#318" id="318">318</a>
+<a href="#319" id="319">319</a>
+<a href="#320" id="320">320</a>
+<a href="#321" id="321">321</a>
+<a href="#322" id="322">322</a>
+<a href="#323" id="323">323</a>
+<a href="#324" id="324">324</a>
+<a href="#325" id="325">325</a>
+<a href="#326" id="326">326</a>
+<a href="#327" id="327">327</a>
+<a href="#328" id="328">328</a>
+<a href="#329" id="329">329</a>
+<a href="#330" id="330">330</a>
+<a href="#331" id="331">331</a>
+<a href="#332" id="332">332</a>
+<a href="#333" id="333">333</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file contains code from external sources.
 // Attributions: https://github.com/wasmerio/wasmer/blob/main/docs/ATTRIBUTIONS.md
 
@@ -339,6 +355,22 @@
 {
     elems: Box&lt;[V]&gt;,
     unused: PhantomData&lt;K&gt;,
+}
+
+<span class="attr">#[cfg(feature = <span class="string">&quot;artifact-size&quot;</span>)]
+</span><span class="kw">impl</span>&lt;K, V&gt; loupe::MemoryUsage <span class="kw">for </span>BoxedSlice&lt;K, V&gt;
+<span class="kw">where
+    </span>K: EntityRef,
+    V: loupe::MemoryUsage,
+{
+    <span class="kw">fn </span>size_of_val(<span class="kw-2">&amp;</span><span class="self">self</span>, tracker: <span class="kw-2">&amp;mut </span><span class="kw">dyn </span>loupe::MemoryUsageTracker) -&gt; usize {
+        std::mem::size_of_val(<span class="self">self</span>)
+            + <span class="self">self
+                </span>.elems
+                .iter()
+                .map(|value| value.size_of_val(tracker) - std::mem::size_of_val(value))
+                .sum::&lt;usize&gt;()
+    }
 }
 
 <span class="kw">impl</span>&lt;K, V&gt; BoxedSlice&lt;K, V&gt;

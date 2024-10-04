@@ -27,6 +27,7 @@
 <a href="#27" id="27">27</a>
 <a href="#28" id="28">28</a>
 <a href="#29" id="29">29</a>
+<a href="#30" id="30">30</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Types for modules.
 </span><span class="kw">use </span><span class="kw">crate</span>::entity::PrimaryMap;
 <span class="kw">use crate</span>::{Features, MemoryIndex, MemoryStyle, ModuleInfo, TableIndex, TableStyle};
@@ -41,6 +42,7 @@
 /// possible after translation (such as the features used for compiling,
 /// or the `MemoryStyle` and `TableStyle`).
 </span><span class="attr">#[cfg_attr(feature = <span class="string">&quot;enable-serde&quot;</span>, derive(Deserialize, Serialize))]
+#[cfg_attr(feature = <span class="string">&quot;artifact-size&quot;</span>, derive(loupe::MemoryUsage))]
 #[derive(Debug, Clone, PartialEq, Eq, RkyvSerialize, RkyvDeserialize, Archive)]
 #[archive_attr(derive(rkyv::CheckBytes, Debug))]
 </span><span class="kw">pub struct </span>CompileModuleInfo {

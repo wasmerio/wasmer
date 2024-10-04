@@ -294,6 +294,14 @@
 <a href="#294" id="294">294</a>
 <a href="#295" id="295">295</a>
 <a href="#296" id="296">296</a>
+<a href="#297" id="297">297</a>
+<a href="#298" id="298">298</a>
+<a href="#299" id="299">299</a>
+<a href="#300" id="300">300</a>
+<a href="#301" id="301">301</a>
+<a href="#302" id="302">302</a>
+<a href="#303" id="303">303</a>
+<a href="#304" id="304">304</a>
 </pre></div><pre class="rust"><code><span class="kw">use crate</span>::{
     VMExternObj, VMFunction, VMFunctionEnvironment, VMGlobal, VMInstance, VMMemory, VMTable,
 };
@@ -401,6 +409,7 @@
 ///
 /// Internally this is just an integer index into a context. A reference to the
 /// context must be passed in separately to access the actual object.
+</span><span class="attr">#[cfg_attr(feature = <span class="string">&quot;artifact-size&quot;</span>, derive(loupe::MemoryUsage))]
 </span><span class="kw">pub struct </span>StoreHandle&lt;T&gt; {
     id: StoreId,
     internal: InternalStoreHandle&lt;T&gt;,
@@ -493,6 +502,13 @@
     <span class="comment">// Use a NonZero here to reduce the size of Option&lt;InternalStoreHandle&gt;.
     </span>idx: NonZeroUsize,
     marker: PhantomData&lt;<span class="kw">fn</span>() -&gt; T&gt;,
+}
+
+<span class="attr">#[cfg(feature = <span class="string">&quot;artifact-size&quot;</span>)]
+</span><span class="kw">impl</span>&lt;T&gt; loupe::MemoryUsage <span class="kw">for </span>InternalStoreHandle&lt;T&gt; {
+    <span class="kw">fn </span>size_of_val(<span class="kw-2">&amp;</span><span class="self">self</span>, _tracker: <span class="kw-2">&amp;mut </span><span class="kw">dyn </span>loupe::MemoryUsageTracker) -&gt; usize {
+        std::mem::size_of_val(<span class="kw-2">&amp;</span><span class="self">self</span>)
+    }
 }
 
 <span class="kw">impl</span>&lt;T&gt; Clone <span class="kw">for </span>InternalStoreHandle&lt;T&gt; {

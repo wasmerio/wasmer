@@ -17,6 +17,7 @@
 <a href="#17" id="17">17</a>
 <a href="#18" id="18">18</a>
 <a href="#19" id="19">19</a>
+<a href="#20" id="20">20</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Types for traps.
 </span><span class="kw">use </span><span class="kw">crate</span>::CodeOffset;
 <span class="kw">use </span><span class="kw">crate</span>::TrapCode;
@@ -26,6 +27,7 @@
 
 <span class="doccomment">/// Information about trap.
 </span><span class="attr">#[cfg_attr(feature = <span class="string">&quot;enable-serde&quot;</span>, derive(Deserialize, Serialize))]
+#[cfg_attr(feature = <span class="string">&quot;artifact-size&quot;</span>, derive(loupe::MemoryUsage))]
 #[derive(
     RkyvSerialize, RkyvDeserialize, Archive, rkyv::CheckBytes, Clone, Copy, Debug, PartialEq, Eq,
 )]

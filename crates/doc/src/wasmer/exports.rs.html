@@ -304,6 +304,7 @@
 <a href="#304" id="304">304</a>
 <a href="#305" id="305">305</a>
 <a href="#306" id="306">306</a>
+<a href="#307" id="307">307</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::store::AsStoreRef;
 <span class="kw">use crate</span>::{Extern, Function, Global, Memory, Table, TypedFunction, WasmTypeList};
 <span class="kw">use </span>indexmap::IndexMap;
@@ -364,6 +365,7 @@
 ///
 /// TODO: add examples of using exports
 </span><span class="attr">#[derive(Clone, Default, PartialEq, Eq)]
+#[cfg_attr(feature = <span class="string">&quot;artifact-size&quot;</span>, derive(loupe::MemoryUsage))]
 </span><span class="kw">pub struct </span>Exports {
     map: IndexMap&lt;String, Extern&gt;,
 }

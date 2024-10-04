@@ -142,6 +142,7 @@
 <a href="#142" id="142">142</a>
 <a href="#143" id="143">143</a>
 <a href="#144" id="144">144</a>
+<a href="#145" id="145">145</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Runtime library support for Wasmer.
 
 </span><span class="attr">#![deny(missing_docs, trivial_numeric_casts, unused_extern_crates)]
@@ -234,6 +235,7 @@
 
 <span class="doccomment">/// A safe wrapper around `VMFunctionBody`.
 </span><span class="attr">#[derive(Clone, Copy, Debug)]
+#[cfg_attr(feature = <span class="string">&quot;artifact-size&quot;</span>, derive(loupe::MemoryUsage))]
 #[repr(transparent)]
 </span><span class="kw">pub struct </span>FunctionBodyPtr(<span class="kw">pub </span><span class="kw-2">*const </span>VMFunctionBody);
 

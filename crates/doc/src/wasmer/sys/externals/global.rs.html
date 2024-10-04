@@ -99,6 +99,7 @@
 <a href="#99" id="99">99</a>
 <a href="#100" id="100">100</a>
 <a href="#101" id="101">101</a>
+<a href="#102" id="102">102</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::errors::RuntimeError;
 <span class="kw">use </span><span class="kw">crate</span>::store::{AsStoreMut, AsStoreRef};
 <span class="kw">use </span><span class="kw">crate</span>::value::Value;
@@ -108,6 +109,7 @@
 <span class="kw">use </span>wasmer_vm::{StoreHandle, VMExtern, VMGlobal};
 
 <span class="attr">#[derive(Debug, Clone)]
+#[cfg_attr(feature = <span class="string">&quot;artifact-size&quot;</span>, derive(loupe::MemoryUsage))]
 </span><span class="kw">pub struct </span>Global {
     handle: StoreHandle&lt;VMGlobal&gt;,
 }

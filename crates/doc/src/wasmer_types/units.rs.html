@@ -191,6 +191,7 @@
 <a href="#191" id="191">191</a>
 <a href="#192" id="192">192</a>
 <a href="#193" id="193">193</a>
+<a href="#194" id="194">194</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::lib::std::convert::TryFrom;
 <span class="kw">use </span><span class="kw">crate</span>::lib::std::fmt;
 <span class="kw">use </span><span class="kw">crate</span>::lib::std::ops::{Add, Sub};
@@ -227,6 +228,7 @@
     rkyv::CheckBytes,
 )]
 #[cfg_attr(feature = <span class="string">&quot;enable-serde&quot;</span>, derive(Serialize, Deserialize))]
+#[cfg_attr(feature = <span class="string">&quot;artifact-size&quot;</span>, derive(loupe::MemoryUsage))]
 #[archive(<span class="kw">as </span>= <span class="string">&quot;Self&quot;</span>)]
 </span><span class="kw">pub struct </span>Pages(<span class="kw">pub </span>u32);
 

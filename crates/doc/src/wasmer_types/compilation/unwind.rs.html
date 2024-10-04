@@ -59,6 +59,7 @@
 <a href="#59" id="59">59</a>
 <a href="#60" id="60">60</a>
 <a href="#61" id="61">61</a>
+<a href="#62" id="62">62</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! A `CompiledFunctionUnwindInfo` contains the function unwind information.
 //!
 //! The unwind information is used to determine which function
@@ -80,6 +81,7 @@
 /// [unwind info]: https://docs.microsoft.com/en-us/cpp/build/exception-handling-x64?view=vs-2019
 </span><span class="attr">#[cfg_attr(feature = <span class="string">&quot;enable-serde&quot;</span>, derive(Serialize, Deserialize))]
 #[derive(RkyvSerialize, RkyvDeserialize, Archive, Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = <span class="string">&quot;artifact-size&quot;</span>, derive(loupe::MemoryUsage))]
 #[archive_attr(derive(rkyv::CheckBytes, Debug))]
 </span><span class="kw">pub enum </span>CompiledFunctionUnwindInfo {
     <span class="doccomment">/// Windows UNWIND_INFO.

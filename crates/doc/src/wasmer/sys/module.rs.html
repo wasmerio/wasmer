@@ -199,6 +199,7 @@
 <a href="#199" id="199">199</a>
 <a href="#200" id="200">200</a>
 <a href="#201" id="201">201</a>
+<a href="#202" id="202">202</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::path::Path;
 <span class="kw">use </span>std::sync::Arc;
 
@@ -215,6 +216,7 @@
 };
 
 <span class="attr">#[derive(Clone, PartialEq, Eq)]
+#[cfg_attr(feature = <span class="string">&quot;artifact-size&quot;</span>, derive(loupe::MemoryUsage))]
 </span><span class="kw">pub struct </span>Module {
     <span class="comment">// The field ordering here is actually significant because of the drop
     // order: we want to drop the artifact before dropping the engine.

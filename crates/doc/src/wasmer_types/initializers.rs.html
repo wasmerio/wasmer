@@ -142,6 +142,9 @@
 <a href="#142" id="142">142</a>
 <a href="#143" id="143">143</a>
 <a href="#144" id="144">144</a>
+<a href="#145" id="145">145</a>
+<a href="#146" id="146">146</a>
+<a href="#147" id="147">147</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::indexes::{FunctionIndex, GlobalIndex, MemoryIndex, TableIndex};
 <span class="kw">use </span><span class="kw">crate</span>::lib::std::boxed::Box;
 
@@ -153,6 +156,7 @@
 <span class="doccomment">/// A WebAssembly table initializer.
 </span><span class="attr">#[derive(Clone, Debug, Hash, PartialEq, Eq, RkyvSerialize, RkyvDeserialize, Archive)]
 #[cfg_attr(feature = <span class="string">&quot;enable-serde&quot;</span>, derive(Serialize, Deserialize))]
+#[cfg_attr(feature = <span class="string">&quot;artifact-size&quot;</span>, derive(loupe::MemoryUsage))]
 #[archive_attr(derive(CheckBytes, Debug))]
 </span><span class="kw">pub struct </span>TableInitializer {
     <span class="doccomment">/// The index of a table to initialize.
@@ -168,6 +172,7 @@
 <span class="doccomment">/// A memory index and offset within that memory where a data initialization
 /// should be performed.
 </span><span class="attr">#[derive(Clone, Debug, PartialEq, Eq, RkyvSerialize, RkyvDeserialize, Archive)]
+#[cfg_attr(feature = <span class="string">&quot;artifact-size&quot;</span>, derive(loupe::MemoryUsage))]
 #[cfg_attr(feature = <span class="string">&quot;enable-serde&quot;</span>, derive(Serialize, Deserialize))]
 #[archive_attr(derive(CheckBytes, Debug))]
 </span><span class="kw">pub struct </span>DataInitializerLocation {
@@ -235,6 +240,7 @@
 /// holding a reference to it
 </span><span class="attr">#[derive(Debug, Clone, PartialEq, Eq, RkyvSerialize, RkyvDeserialize, Archive)]
 #[cfg_attr(feature = <span class="string">&quot;enable-serde&quot;</span>, derive(Serialize, Deserialize))]
+#[cfg_attr(feature = <span class="string">&quot;artifact-size&quot;</span>, derive(loupe::MemoryUsage))]
 #[archive_attr(derive(CheckBytes, Debug))]
 </span><span class="kw">pub struct </span>OwnedDataInitializer {
     <span class="doccomment">/// The location where the initialization is to be performed.

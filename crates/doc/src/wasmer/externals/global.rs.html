@@ -173,6 +173,7 @@
 <a href="#173" id="173">173</a>
 <a href="#174" id="174">174</a>
 <a href="#175" id="175">175</a>
+<a href="#176" id="176">176</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::exports::{ExportError, Exportable};
 <span class="kw">use </span><span class="kw">crate</span>::store::{AsStoreMut, AsStoreRef};
 <span class="kw">use </span><span class="kw">crate</span>::value::Value;
@@ -197,6 +198,7 @@
 ///
 /// Spec: &lt;https://webassembly.github.io/spec/core/exec/runtime.html#global-instances&gt;
 </span><span class="attr">#[derive(Debug, Clone, PartialEq)]
+#[cfg_attr(feature = <span class="string">&quot;artifact-size&quot;</span>, derive(loupe::MemoryUsage))]
 </span><span class="kw">pub struct </span>Global(<span class="kw">pub</span>(<span class="kw">crate</span>) global_impl::Global);
 
 <span class="kw">impl </span>Global {

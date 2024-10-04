@@ -652,6 +652,8 @@
 <a href="#652" id="652">652</a>
 <a href="#653" id="653">653</a>
 <a href="#654" id="654">654</a>
+<a href="#655" id="655">655</a>
+<a href="#656" id="656">656</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file contains code from external sources.
 // Attributions: https://github.com/wasmerio/wasmer/blob/main/docs/ATTRIBUTIONS.md
 
@@ -681,6 +683,7 @@
 <span class="kw">use </span>std::sync::atomic::{AtomicUsize, Ordering::SeqCst};
 
 <span class="attr">#[derive(Debug, Clone, RkyvSerialize, RkyvDeserialize, Archive)]
+#[cfg_attr(feature = <span class="string">&quot;artifact-size&quot;</span>, derive(loupe::MemoryUsage))]
 #[archive_attr(derive(CheckBytes, Debug))]
 </span><span class="kw">pub struct </span>ModuleId {
     id: usize,
@@ -760,6 +763,7 @@
 /// to make sure we don&#39;t break compatibility between versions.
 </span><span class="attr">#[derive(Debug, Clone, Default)]
 #[cfg_attr(feature = <span class="string">&quot;enable-serde&quot;</span>, derive(Serialize, Deserialize))]
+#[cfg_attr(feature = <span class="string">&quot;artifact-size&quot;</span>, derive(loupe::MemoryUsage))]
 </span><span class="kw">pub struct </span>ModuleInfo {
     <span class="doccomment">/// A unique identifier (within this process) for this module.
     ///

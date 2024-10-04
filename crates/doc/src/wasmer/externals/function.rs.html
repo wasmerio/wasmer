@@ -466,6 +466,7 @@
 <a href="#466" id="466">466</a>
 <a href="#467" id="467">467</a>
 <a href="#468" id="468">468</a>
+<a href="#469" id="469">469</a>
 </pre></div><pre class="rust"><code><span class="attr">#[cfg(feature = <span class="string">&quot;js&quot;</span>)]
 </span><span class="kw">use </span><span class="kw">crate</span>::js::externals::function <span class="kw">as </span>function_impl;
 <span class="attr">#[cfg(feature = <span class="string">&quot;jsc&quot;</span>)]
@@ -552,6 +553,7 @@
 ///   result in a panic.
 ///   [Closures as host functions tracking issue](https://github.com/wasmerio/wasmer/issues/1840)
 </span><span class="attr">#[derive(Debug, Clone, PartialEq)]
+#[cfg_attr(feature = <span class="string">&quot;artifact-size&quot;</span>, derive(loupe::MemoryUsage))]
 </span><span class="kw">pub struct </span>Function(<span class="kw">pub</span>(<span class="kw">crate</span>) function_impl::Function);
 
 <span class="kw">impl </span>Function {

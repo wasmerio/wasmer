@@ -265,6 +265,8 @@
 <a href="#265" id="265">265</a>
 <a href="#266" id="266">266</a>
 <a href="#267" id="267">267</a>
+<a href="#268" id="268">268</a>
+<a href="#269" id="269">269</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::entity::PrimaryMap;
 <span class="kw">use crate</span>::{
     compilation::target::CpuFeature, CompileModuleInfo, CompiledFunctionFrameInfo, CustomSection,
@@ -284,6 +286,7 @@
 
 <span class="doccomment">/// The compilation related data for a serialized modules
 </span><span class="attr">#[derive(Archive, Default, RkyvDeserialize, RkyvSerialize)]
+#[cfg_attr(feature = <span class="string">&quot;artifact-size&quot;</span>, derive(loupe::MemoryUsage))]
 #[allow(missing_docs)]
 #[archive_attr(derive(CheckBytes, Debug))]
 </span><span class="kw">pub struct </span>SerializableCompilation {
@@ -319,6 +322,7 @@
 
 <span class="doccomment">/// Serializable struct that is able to serialize from and to a `ArtifactInfo`.
 </span><span class="attr">#[derive(Archive, RkyvDeserialize, RkyvSerialize)]
+#[cfg_attr(feature = <span class="string">&quot;artifact-size&quot;</span>, derive(loupe::MemoryUsage))]
 #[allow(missing_docs)]
 #[archive_attr(derive(CheckBytes, Debug))]
 </span><span class="kw">pub struct </span>SerializableModule {

@@ -659,6 +659,7 @@
 <a href="#659" id="659">659</a>
 <a href="#660" id="660">660</a>
 <a href="#661" id="661">661</a>
+<a href="#662" id="662">662</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::externals::function::{HostFunction, WithEnv, WithoutEnv};
 <span class="kw">use </span><span class="kw">crate</span>::native_type::{FromToNativeWasmType, IntoResult, NativeWasmTypeInto, WasmTypeList};
 <span class="kw">use </span><span class="kw">crate</span>::store::{AsStoreMut, AsStoreRef, StoreInner, StoreMut};
@@ -674,7 +675,8 @@
     VMFunction, VMFunctionContext, VMFunctionKind, VMTrampoline,
 };
 
-<span class="attr">#[derive(Debug, Clone, PartialEq, Eq)]
+<span class="attr">#[cfg_attr(feature = <span class="string">&quot;artifact-size&quot;</span>, derive(loupe::MemoryUsage))]
+#[derive(Debug, Clone, PartialEq, Eq)]
 </span><span class="kw">pub struct </span>Function {
     <span class="kw">pub</span>(<span class="kw">crate</span>) handle: StoreHandle&lt;VMFunction&gt;,
 }

@@ -805,6 +805,7 @@
 <a href="#805" id="805">805</a>
 <a href="#806" id="806">806</a>
 <a href="#807" id="807">807</a>
+<a href="#808" id="808">808</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file contains code from external sources.
 // Attributions: https://github.com/wasmerio/wasmer/blob/main/docs/ATTRIBUTIONS.md
 
@@ -1345,6 +1346,7 @@
 <span class="doccomment">/// An index into the shared signature registry, usable for checking signatures
 /// at indirect calls.
 </span><span class="attr">#[repr(C)]
+#[cfg_attr(feature = <span class="string">&quot;artifact-size&quot;</span>, derive(loupe::MemoryUsage))]
 #[derive(Debug, Eq, PartialEq, Clone, Copy, Hash)]
 </span><span class="kw">pub struct </span>VMSharedSignatureIndex(u32);
 

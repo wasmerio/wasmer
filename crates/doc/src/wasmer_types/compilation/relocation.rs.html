@@ -227,6 +227,9 @@
 <a href="#227" id="227">227</a>
 <a href="#228" id="228">228</a>
 <a href="#229" id="229">229</a>
+<a href="#230" id="230">230</a>
+<a href="#231" id="231">231</a>
+<a href="#232" id="232">232</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Relocation is the process of assigning load addresses for position-dependent
 //! code and data of a program and adjusting the code and data to reflect the
 //! assigned addresses.
@@ -249,7 +252,8 @@
 </span><span class="kw">use </span>serde::{Deserialize, Serialize};
 
 <span class="doccomment">/// Relocation kinds for every ISA.
-</span><span class="attr">#[cfg_attr(feature = <span class="string">&quot;enable-serde&quot;</span>, derive(Serialize, Deserialize))]
+</span><span class="attr">#[cfg_attr(feature = <span class="string">&quot;artifact-size&quot;</span>, derive(loupe::MemoryUsage))]
+#[cfg_attr(feature = <span class="string">&quot;enable-serde&quot;</span>, derive(Serialize, Deserialize))]
 #[derive(
     RkyvSerialize, RkyvDeserialize, Archive, rkyv::CheckBytes, Copy, Clone, Debug, PartialEq, Eq,
 )]
@@ -321,6 +325,7 @@
 
 <span class="doccomment">/// A record of a relocation to perform.
 </span><span class="attr">#[cfg_attr(feature = <span class="string">&quot;enable-serde&quot;</span>, derive(Serialize, Deserialize))]
+#[cfg_attr(feature = <span class="string">&quot;artifact-size&quot;</span>, derive(loupe::MemoryUsage))]
 #[derive(RkyvSerialize, RkyvDeserialize, Archive, Debug, Clone, PartialEq, Eq)]
 #[archive_attr(derive(rkyv::CheckBytes, Debug))]
 </span><span class="kw">pub struct </span>Relocation {
@@ -440,6 +445,7 @@
 
 <span class="doccomment">/// Destination function. Can be either user function or some special one, like `memory.grow`.
 </span><span class="attr">#[cfg_attr(feature = <span class="string">&quot;enable-serde&quot;</span>, derive(Serialize, Deserialize))]
+#[cfg_attr(feature = <span class="string">&quot;artifact-size&quot;</span>, derive(loupe::MemoryUsage))]
 #[derive(
     RkyvSerialize, RkyvDeserialize, Archive, rkyv::CheckBytes, Debug, Copy, Clone, PartialEq, Eq,
 )]
