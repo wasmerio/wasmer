@@ -414,7 +414,7 @@ jobs:
             target: aarch64-apple-darwin,
             exe: '',
             # [todo] xdoardo: Reinstate when the code we generate for aarch64 is working correctly. 
-            #llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/18.x/llvm-darwin-aarch64.tar.xz'
+            # llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/18.x/llvm-darwin-aarch64.tar.xz'
           },
           {
             build: windows-x64,
@@ -422,7 +422,7 @@ jobs:
             target: x86_64-pc-windows-msvc,
             exe: '.exe',
             # For now, disable LLVM in `windows-x64.`
-            # llvm_url: 'https://github.com/xdoardo/llvm-custom-builds/releases/download/18.x/llvm-windows-amd64.tar.xz'
+            # llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/18.x/llvm-windows-amd64.tar.xz'
           },
           {
             build: linux-musl,
@@ -668,8 +668,8 @@ jobs:
             os: windows-2022,
             target: x86_64-pc-windows-msvc,
             exe: '.exe',
-            # llvm_url: 'https://github.com/xdoardo/llvm-custom-builds/releases/download/18.x-2/llvm-windows-amd64-msvc.tar.xz'
-            # llvm_url: 'https://github.com/llvm/llvm-project/releases/download/llvmorg-18.1.8/clang+llvm-18.1.8-x86_64-pc-windows-msvc.tar.xz'
+            # For now, disable LLVM in `windows-x64.`
+            # llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/18.x/llvm-windows-amd64.tar.xz'
           },
           {
             build: linux-musl,
@@ -797,8 +797,9 @@ jobs:
           - build: windows-x64
             os: windows-2019
             target: x86_64-pc-windows-msvc
-            # llvm_url: 'https://github.com/xdoardo/llvm-custom-builds/releases/download/18.x-2/llvm-windows-amd64-msvc.tar.xz'
-            # llvm_url: 'https://github.com/llvm/llvm-project/releases/download/llvmorg-18.1.8/clang+llvm-18.1.8-x86_64-pc-windows-msvc.tar.xz'
+            # For now, disable LLVM in `windows-x64.`
+            # llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/18.x/llvm-windows-amd64.tar.xz'
+
     container: ${{ matrix.container }}
     env:
       SCCACHE_AZURE_BLOB_CONTAINER: wasmerstoragesccacheblob
