@@ -208,7 +208,7 @@ jobs:
 
   test_interpreter_api:
     name: ${{ matrix.build-what.name }} on ${{ matrix.metadata.build }}
-    runs-on: ubuntu-22.04
+    runs-on:  ${{ matrix.metadata.os }}
     strategy:
       fail-fast: false
       matrix:
