@@ -906,6 +906,30 @@ jobs:
           CARGO_TARGET: ${{ matrix.target }}
           WAPM_DEV_TOKEN: ${{ secrets.WAPM_DEV_TOKEN }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Test CLI integration (WAMR) 
+        shell: bash
+        run: |
+          export WASMER_PATH=`pwd`/target/${{ matrix.target }}/release/wasmer${{ matrix.exe }}
+          export WASMER_DIR=`pwd`/package && make test-integration-cli-wamr-ci
+        env:
+          TARGET: ${{ matrix.target }}
+          TARGET_DIR: target/${{ matrix.target }}/release
+          CARGO_TARGET: ${{ matrix.target }}
+          WAPM_DEV_TOKEN: ${{ secrets.WAPM_DEV_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Test CLI integration (WASMI) 
+        shell: bash
+        run: |
+          export WASMER_PATH=`pwd`/target/${{ matrix.target }}/release/wasmer${{ matrix.exe }}
+          export WASMER_DIR=`pwd`/package && make test-integration-cli-wasmi-ci
+        env:
+          TARGET: ${{ matrix.target }}
+          TARGET_DIR: target/${{ matrix.target }}/release
+          CARGO_TARGET: ${{ matrix.target }}
+          WAPM_DEV_TOKEN: ${{ secrets.WAPM_DEV_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
 
   # there is another set of integration tests in 'wasmer-integration-tests' repo. Run those
   test-wasmer-integration-tests:
