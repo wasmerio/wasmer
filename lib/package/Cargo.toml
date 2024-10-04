@@ -1,6 +1,7 @@
 [package]
 name = "wasmer-package"
 version = "0.1.0"
+description = "Packaging related types and functions for Wasmer"
 
 authors.workspace = true
 edition.workspace = true
