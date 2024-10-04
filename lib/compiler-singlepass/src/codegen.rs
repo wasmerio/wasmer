@@ -1048,7 +1048,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
 
     pub fn get_state_diff(&mut self) -> usize {
         if !self.track_state {
-            return std::usize::MAX;
+            return usize::MAX;
         }
         let last_frame = self.control_stack.last_mut().unwrap();
         let mut diff = self.state.diff(&last_frame.state);
@@ -1104,9 +1104,9 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         // anywhere in the function prologue.
         self.machine.insert_stackoverflow();
 
-        if self.state.wasm_inst_offset != std::usize::MAX {
+        if self.state.wasm_inst_offset != usize::MAX {
             return Err(CompileError::Codegen(
-                "emit_head: wasm_inst_offset not std::usize::MAX".to_owned(),
+                "emit_head: wasm_inst_offset not usize::MAX".to_owned(),
             ));
         }
         Ok(())

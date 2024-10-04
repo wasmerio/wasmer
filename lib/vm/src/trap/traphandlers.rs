@@ -77,7 +77,7 @@ use libc::ucontext_t;
 
 /// Default stack size is 1MB.
 pub fn set_stack_size(size: usize) {
-    DEFAULT_STACK_SIZE.store(size.max(8 * 1024).min(100 * 1024 * 1024), Ordering::Relaxed);
+    DEFAULT_STACK_SIZE.store(size.clamp(8 * 1024, 100 * 1024 * 1024), Ordering::Relaxed);
 }
 
 cfg_if::cfg_if! {
@@ -675,9 +675,14 @@ pub unsafe fn wasmer_call_trampoline(
     values_vec: *mut u8,
 ) -> Result<(), Trap> {
     catch_traps(trap_handler, config, || {
-        mem::transmute::<_, extern "C" fn(VMFunctionContext, *const VMFunctionBody, *mut u8)>(
-            trampoline,
-        )(vmctx, callee, values_vec);
+        mem::transmute::<
+            unsafe extern "C" fn(
+                *mut crate::vmcontext::VMContext,
+                *const VMFunctionBody,
+                *mut wasmer_types::RawValue,
+            ),
+            extern "C" fn(crate::vmcontext::VMFunctionContext, *const VMFunctionBody, *mut u8),
+        >(trampoline)(vmctx, callee, values_vec);
     })
 }
 

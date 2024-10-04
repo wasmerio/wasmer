@@ -359,7 +359,7 @@ pub fn register(
     finished_functions: &BoxedSlice<LocalFunctionIndex, FunctionExtent>,
     frame_infos: FrameInfosVariant,
 ) -> Option<GlobalFrameInfoRegistration> {
-    let mut min = usize::max_value();
+    let mut min = usize::MAX;
     let mut max = 0;
     let mut functions = BTreeMap::new();
     for (

@@ -61,6 +61,7 @@ pub fn type_to_llvm<'ctx>(
 }
 
 /// Struct containing LLVM and VM intrinsics.
+#[allow(dead_code)]
 pub struct Intrinsics<'ctx> {
     pub ctlz_i32: FunctionValue<'ctx>,
     pub ctlz_i64: FunctionValue<'ctx>,

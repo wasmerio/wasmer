@@ -19,7 +19,7 @@ macro_rules! entity_impl {
     ($entity:ident) => {
         impl $crate::entity::EntityRef for $entity {
             fn new(index: usize) -> Self {
-                debug_assert!(index < ($crate::lib::std::u32::MAX as usize));
+                debug_assert!(index < (u32::MAX as usize));
                 $entity(index as u32)
             }
 
@@ -30,11 +30,11 @@ macro_rules! entity_impl {
 
         impl $crate::entity::packed_option::ReservedValue for $entity {
             fn reserved_value() -> $entity {
-                $entity($crate::lib::std::u32::MAX)
+                $entity(u32::MAX)
             }
 
             fn is_reserved_value(&self) -> bool {
-                self.0 == $crate::lib::std::u32::MAX
+                self.0 == u32::MAX
             }
         }
 
@@ -42,7 +42,7 @@ macro_rules! entity_impl {
             /// Create a new instance from a `u32`.
             #[allow(dead_code)]
             pub fn from_u32(x: u32) -> Self {
-                debug_assert!(x < $crate::lib::std::u32::MAX);
+                debug_assert!(x < u32::MAX);
                 $entity(x)
             }
 

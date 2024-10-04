@@ -111,7 +111,7 @@ pub(crate) fn path_link_internal(
             .fs
             .get_parent_inode_at_path(inodes, new_fd, &target_path_arg, false)?;
 
-    if source_inode.stat.write().unwrap().st_nlink == Linkcount::max_value() {
+    if source_inode.stat.write().unwrap().st_nlink == Linkcount::MAX {
         return Err(Errno::Mlink);
     }
     {

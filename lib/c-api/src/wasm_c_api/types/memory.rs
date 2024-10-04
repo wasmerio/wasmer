@@ -75,7 +75,7 @@ pub struct wasm_limits_t {
     pub max: u32,
 }
 
-const LIMITS_MAX_SENTINEL: u32 = u32::max_value();
+const LIMITS_MAX_SENTINEL: u32 = u32::MAX;
 
 #[no_mangle]
 pub unsafe extern "C" fn wasm_memorytype_limits(memory_type: &wasm_memorytype_t) -> &wasm_limits_t {

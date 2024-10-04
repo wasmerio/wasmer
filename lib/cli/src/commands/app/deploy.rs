@@ -602,6 +602,7 @@ pub struct DeployAppOpts<'a> {
     // Present here to enable forwarding unknown fields to the backend, which
     // preserves forwards-compatibility for schema changes.
     pub original_config: Option<serde_yaml::value::Value>,
+    #[allow(dead_code)]
     pub allow_create: bool,
     pub make_default: bool,
     pub owner: Option<String>,
