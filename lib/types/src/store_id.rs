@@ -12,6 +12,13 @@ use std::{
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub struct StoreId(NonZeroUsize);
 
+#[cfg(feature = "artifact-size")]
+impl loupe::MemoryUsage for StoreId {
+    fn size_of_val(&self, _visited: &mut dyn loupe::MemoryUsageTracker) -> usize {
+        std::mem::size_of_val(self)
+    }
+}
+
 impl Default for StoreId {
     // Allocates a unique ID for a new context.
     fn default() -> Self {

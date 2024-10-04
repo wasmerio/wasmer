@@ -538,6 +538,7 @@ impl VMGlobalDefinition {
 /// An index into the shared signature registry, usable for checking signatures
 /// at indirect calls.
 #[repr(C)]
+#[cfg_attr(feature = "artifact-size", derive(loupe::MemoryUsage))]
 #[derive(Debug, Eq, PartialEq, Clone, Copy, Hash)]
 pub struct VMSharedSignatureIndex(u32);
 

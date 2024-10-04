@@ -23,6 +23,11 @@ thiserror = "1.0"
 serde_bytes = { version = "0.11", optional = true }
 smallvec = "1.6"
 xxhash-rust = { version = "0.8.10", features = ["xxh64"] }
+loupe = { version = "0.1.3", optional = true, features = [
+	"indexmap",
+	"enable-indexmap",
+] }
+
 
 backtrace = "0.3"
 memmap2 = "0.6"
@@ -44,7 +49,9 @@ wasmer-vm = { path = "../vm", version = "=4.3.7" }
 region = { version = "3.0" }
 
 [target.'cfg(target_os = "windows")'.dependencies]
-windows-sys = { version = "0.59", features = ["Win32_System_Diagnostics_Debug"] }
+windows-sys = { version = "0.59", features = [
+	"Win32_System_Diagnostics_Debug",
+] }
 
 [features]
 default = ["std"]
@@ -60,15 +67,16 @@ static-artifact-create = ["wasmer-object"]
 std = ["wasmer-types/std"]
 core = ["hashbrown", "wasmer-types/core"]
 enable-serde = ["serde", "serde_bytes", "wasmer-types/enable-serde"]
+artifact-size = ["dep:loupe"]
 
 [badges]
 maintenance = { status = "experimental" }
 
 [package.metadata.docs.rs]
 features = [
-    "static-artifact-create",
-    "static-artifact-load",
-    "wasmer-artifact-create",
-    "wasmer-artifact-load",
+	"static-artifact-create",
+	"static-artifact-load",
+	"wasmer-artifact-create",
+	"wasmer-artifact-load",
 ]
 rustc-args = ["--cfg", "docsrs"]

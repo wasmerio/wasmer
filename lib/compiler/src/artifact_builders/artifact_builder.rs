@@ -34,6 +34,7 @@ use wasmer_types::{
 use wasmer_types::{MetadataHeader, SerializeError};
 
 /// A compiled wasm module, ready to be instantiated.
+#[cfg_attr(feature = "artifact-size", derive(loupe::MemoryUsage))]
 pub struct ArtifactBuild {
     serializable: SerializableModule,
 }
@@ -287,8 +288,16 @@ self_cell!(
     impl {Debug}
 );
 
+#[cfg(feature = "artifact-size")]
+impl loupe::MemoryUsage for ArtifactBuildFromArchiveCell {
+    fn size_of_val(&self, _tracker: &mut dyn loupe::MemoryUsageTracker) -> usize {
+        std::mem::size_of_val(self.borrow_owner()) + std::mem::size_of_val(self.borrow_dependent())
+    }
+}
+
 /// A compiled wasm module that was loaded from a serialized archive.
 #[derive(Clone, Debug)]
+#[cfg_attr(feature = "artifact-size", derive(loupe::MemoryUsage))]
 pub struct ArtifactBuildFromArchive {
     cell: Arc<ArtifactBuildFromArchiveCell>,
 

@@ -23,6 +23,7 @@ use crate::Value;
 ///
 /// Spec: <https://webassembly.github.io/spec/core/exec/runtime.html#table-instances>
 #[derive(Debug, Clone, PartialEq)]
+#[cfg_attr(feature = "artifact-size", derive(loupe::MemoryUsage))]
 pub struct Table(pub(crate) table_impl::Table);
 
 impl Table {

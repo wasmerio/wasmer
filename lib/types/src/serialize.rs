@@ -17,6 +17,7 @@ use std::mem;
 
 /// The compilation related data for a serialized modules
 #[derive(Archive, Default, RkyvDeserialize, RkyvSerialize)]
+#[cfg_attr(feature = "artifact-size", derive(loupe::MemoryUsage))]
 #[allow(missing_docs)]
 #[archive_attr(derive(CheckBytes, Debug))]
 pub struct SerializableCompilation {
@@ -52,6 +53,7 @@ impl SerializableCompilation {
 
 /// Serializable struct that is able to serialize from and to a `ArtifactInfo`.
 #[derive(Archive, RkyvDeserialize, RkyvSerialize)]
+#[cfg_attr(feature = "artifact-size", derive(loupe::MemoryUsage))]
 #[allow(missing_docs)]
 #[archive_attr(derive(CheckBytes, Debug))]
 pub struct SerializableModule {

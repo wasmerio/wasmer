@@ -19,6 +19,7 @@ use crate::{
 };
 
 #[derive(Debug, Clone)]
+#[cfg_attr(feature = "artifact-size", derive(loupe::MemoryUsage))]
 pub struct Memory {
     pub(crate) handle: StoreHandle<VMMemory>,
 }

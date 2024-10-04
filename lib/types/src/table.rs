@@ -8,6 +8,7 @@ use serde::{Deserialize, Serialize};
     Debug, Clone, Hash, PartialEq, Eq, RkyvSerialize, RkyvDeserialize, Archive, CheckBytes,
 )]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "artifact-size", derive(loupe::MemoryUsage))]
 #[archive(as = "Self")]
 #[repr(u8)]
 pub enum TableStyle {

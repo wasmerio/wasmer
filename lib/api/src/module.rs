@@ -42,6 +42,7 @@ pub enum IoCompileError {
 /// Cloning a module is cheap: it does a shallow copy of the compiled
 /// contents rather than a deep copy.
 #[derive(Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "artifact-size", derive(loupe::MemoryUsage))]
 pub struct Module(pub(crate) module_imp::Module);
 
 impl Module {

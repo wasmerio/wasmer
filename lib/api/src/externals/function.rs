@@ -84,6 +84,7 @@ mod private {
 ///   result in a panic.
 ///   [Closures as host functions tracking issue](https://github.com/wasmerio/wasmer/issues/1840)
 #[derive(Debug, Clone, PartialEq)]
+#[cfg_attr(feature = "artifact-size", derive(loupe::MemoryUsage))]
 pub struct Function(pub(crate) function_impl::Function);
 
 impl Function {

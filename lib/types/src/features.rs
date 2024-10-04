@@ -8,6 +8,7 @@ use serde::{Deserialize, Serialize};
 /// [WebAssembly proposal]: https://github.com/WebAssembly/proposals
 #[derive(Clone, Debug, Eq, PartialEq, rkyv::CheckBytes)]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "artifact-size", derive(loupe::MemoryUsage))]
 #[derive(RkyvSerialize, RkyvDeserialize, Archive)]
 #[archive(as = "Self")]
 pub struct Features {

@@ -34,6 +34,7 @@ pub const WASM_MIN_PAGES: u32 = 0x100;
     rkyv::CheckBytes,
 )]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "artifact-size", derive(loupe::MemoryUsage))]
 #[archive(as = "Self")]
 pub struct Pages(pub u32);
 
