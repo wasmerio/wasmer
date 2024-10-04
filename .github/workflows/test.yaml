@@ -64,11 +64,11 @@ jobs:
           sudo apt install -y libtinfo5
       - name: Install LLVM (Linux)
         run: |
-          curl --proto '=https' --tlsv1.2 -sSf https://github.com/llvm/llvm-project/releases/download/llvmorg-15.0.6/clang+llvm-15.0.6-x86_64-linux-gnu-ubuntu-18.04.tar.xz -L -o /opt/llvm.tar.xz
-          mkdir -p /opt/llvm-15
-          tar xf /opt/llvm.tar.xz --strip-components=1 -C /opt/llvm-15
-          echo '/opt/llvm-15/bin' >> $GITHUB_PATH
-          echo 'LLVM_SYS_150_PREFIX=/opt/llvm-15' >> $GITHUB_ENV
+          curl --proto '=https' --tlsv1.2 -sSf https://github.com/wasmerio/llvm-custom-builds/releases/download/18.x/llvm-linux-amd64.tar.xz -L -o /opt/llvm.tar.xz
+          mkdir -p /opt/llvm-18
+          tar xf /opt/llvm.tar.xz --strip-components=1 -C /opt/llvm-18
+          echo '/opt/llvm-18/bin' >> $GITHUB_PATH
+          echo 'LLVM_SYS_180_PREFIX=/opt/llvm-18' >> $GITHUB_ENV
       - name: Cache
         uses: whywaita/actions-cache-s3@v2
         with:
@@ -135,6 +135,18 @@ jobs:
       - name: Install wasm-pack
         run: |
           curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
+      - name: Install LLVM 18
+        run: |
+          curl --proto '=https' --tlsv1.2 -sSf https://github.com/wasmerio/llvm-custom-builds/releases/download/18.x/llvm-linux-amd64.tar.xz -L -o llvm.tar.xz
+          LLVM_DIR=$(pwd)/${{ env.LLVM_DIR }}
+          mkdir ${LLVM_DIR}
+          tar xf llvm.tar.xz --strip-components=1 -C ${LLVM_DIR}
+          echo "ENABLE_LLVM=1" >> $GITHUB_ENV
+          echo "${LLVM_DIR}/bin" >> $GITHUB_PATH
+          echo "${LLVM_DIR}/usr/bin" >> $GITHUB_PATH
+          echo "LLVM_SYS_180_PREFIX=${LLVM_DIR}" >> $GITHUB_ENV
+        env:
+          LLVM_DIR: .llvm
       - name: make test-wasi-fyi
         run: |
           make test-wasi-fyi
@@ -171,6 +183,18 @@ jobs:
           curl -L "https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-${{ env.WASI_SDK_VERSION }}/wasi-sdk-${{ env.WASI_SDK_VERSION }}.0-linux.tar.gz" -o wasi-sdk.tar.gz
           tar -xzf wasi-sdk.tar.gz
           cp -r wasi-sdk-${{ env.WASI_SDK_VERSION }}.0 ~/wasi-sdk
+      - name: Install LLVM 18
+        run: |
+          curl --proto '=https' --tlsv1.2 -sSf https://github.com/wasmerio/llvm-custom-builds/releases/download/18.x/llvm-linux-amd64.tar.xz -L -o llvm.tar.xz
+          LLVM_DIR=$(pwd)/${{ env.LLVM_DIR }}
+          mkdir ${LLVM_DIR}
+          tar xf llvm.tar.xz --strip-components=1 -C ${LLVM_DIR}
+          echo "ENABLE_LLVM=1" >> $GITHUB_ENV
+          echo "${LLVM_DIR}/bin" >> $GITHUB_PATH
+          echo "${LLVM_DIR}/usr/bin" >> $GITHUB_PATH
+          echo "LLVM_SYS_180_PREFIX=${LLVM_DIR}" >> $GITHUB_ENV
+        env:
+          LLVM_DIR: .llvm
       - name: Install wasm-opt
         run: |
           sudo apt-get install -y binaryen
@@ -216,6 +240,18 @@ jobs:
           toolchain: "nightly-2024-08-21"
           target: x86_64-unknown-linux-gnu
       - run: cargo install toml-cli # toml-cli is required to run `make test-build-docs-rs`
+      - name: Install LLVM 18
+        run: |
+          curl --proto '=https' --tlsv1.2 -sSf https://github.com/wasmerio/llvm-custom-builds/releases/download/18.x/llvm-linux-amd64.tar.xz -L -o llvm.tar.xz
+          LLVM_DIR=$(pwd)/${{ env.LLVM_DIR }}
+          mkdir ${LLVM_DIR}
+          tar xf llvm.tar.xz --strip-components=1 -C ${LLVM_DIR}
+          echo "ENABLE_LLVM=1" >> $GITHUB_ENV
+          echo "${LLVM_DIR}/bin" >> $GITHUB_PATH
+          echo "${LLVM_DIR}/usr/bin" >> $GITHUB_PATH
+          echo "LLVM_SYS_180_PREFIX=${LLVM_DIR}" >> $GITHUB_ENV
+        env:
+          LLVM_DIR: .llvm
       - name: make test-build-docs-rs-ci
         run: make test-build-docs-rs-ci
 
@@ -361,36 +397,41 @@ jobs:
             build: linux-x64,
             os: ubuntu-22.04,
             target: x86_64-unknown-linux-gnu,
-            llvm_url: 'https://github.com/llvm/llvm-project/releases/download/llvmorg-15.0.6/clang+llvm-15.0.6-x86_64-linux-gnu-ubuntu-18.04.tar.xz'
-          },
-          {
-            build: linux-musl,
-            target: x86_64-unknown-linux-musl,
-            os: ubuntu-22.04,
-            container: 'alpine:latest'
+            exe: '',
+            llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/18.x/llvm-linux-amd64.tar.xz'
           },
           {
             build: macos-x64,
             os: macos-12,
             target: x86_64-apple-darwin,
-            llvm_url: 'https://github.com/llvm/llvm-project/releases/download/llvmorg-15.0.7/clang+llvm-15.0.7-x86_64-apple-darwin21.0.tar.xz'
+            exe: '',
+            llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/18.x/llvm-darwin-amd64.tar.xz'
+
           },
           {
-            build: macos-arm,
-            os: macos-12,
+            build: macos-arm64,
+            os: macos-14,
             target: aarch64-apple-darwin,
+            exe: '',
+            # [todo] xdoardo: Reinstate when the code we generate for aarch64 is working correctly. 
+            # llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/18.x/llvm-darwin-aarch64.tar.xz'
           },
           {
             build: windows-x64,
-            os: windows-2019,
+            os: windows-2022,
             target: x86_64-pc-windows-msvc,
-            llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/15.x/llvm-windows-amd64.tar.xz'
+            exe: '.exe',
+            # For now, disable LLVM in `windows-x64.`
+            # llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/18.x/llvm-windows-amd64.tar.xz'
           },
           {
-            build: windows-gnu,
-            target: x86_64-pc-windows-gnu,
+            build: linux-musl,
+            target: x86_64-unknown-linux-musl,
             os: ubuntu-22.04,
+            exe: '',
+            container: 'alpine:latest'
           }
+
         ]
     container: ${{ matrix.metadata.container }}
     env:
@@ -421,6 +462,13 @@ jobs:
           target: ${{ matrix.metadata.target }}
       - name: Install Nextest
         uses: taiki-e/install-action@nextest
+      - name: Install MSVC dev-cmd (Windows)
+        uses: ilammy/msvc-dev-cmd@v1
+        if: ${{ matrix.metadata.build == 'windows-x64' }}
+      - name: Delete unwanted link to stop it from interfering (Windows) 
+        shell: bash
+        run: rm /usr/bin/link.exe
+        if: ${{ matrix.metadata.build == 'windows-x64' }}
       - name: Install Windows-GNU linker
         if: ${{ matrix.metadata.build == 'windows-gnu' }}
         shell: bash
@@ -458,8 +506,8 @@ jobs:
         run: |
           brew install llvm
       - name: Install LLVM
-        if: matrix.metadata.llvm_url
         shell: bash
+        if: matrix.metadata.llvm_url
         run: |
           curl --proto '=https' --tlsv1.2 -sSf ${{ matrix.metadata.llvm_url }} -L -o llvm.tar.xz
           LLVM_DIR=$(pwd)/${{ env.LLVM_DIR }}
@@ -468,9 +516,14 @@ jobs:
           echo "ENABLE_LLVM=1" >> $GITHUB_ENV
           echo "${LLVM_DIR}/bin" >> $GITHUB_PATH
           echo "${LLVM_DIR}/usr/bin" >> $GITHUB_PATH
-          echo "LLVM_SYS_150_PREFIX=${LLVM_DIR}" >> $GITHUB_ENV
+          echo "LLVM_SYS_180_PREFIX=${LLVM_DIR}" >> $GITHUB_ENV
         env:
           LLVM_DIR: .llvm
+      - name: Add `brew` libs to `RUSTFLAGS`
+        if: matrix.metadata.os == 'macos-14'
+        shell: bash
+        run: |
+          echo "RUSTFLAGS=-L/opt/homebrew/lib" >> $GITHUB_ENV
       - name: Setup Rust target
         shell: bash
         run: |
@@ -592,27 +645,31 @@ jobs:
             os: ubuntu-22.04,
             target: x86_64-unknown-linux-gnu,
             exe: '',
-            llvm_url: 'https://github.com/llvm/llvm-project/releases/download/llvmorg-15.0.6/clang+llvm-15.0.6-x86_64-linux-gnu-ubuntu-18.04.tar.xz'
+            llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/18.x/llvm-linux-amd64.tar.xz'
           },
           {
             build: macos-x64,
             os: macos-12,
             target: x86_64-apple-darwin,
             exe: '',
-            llvm_url: 'https://github.com/llvm/llvm-project/releases/download/llvmorg-15.0.7/clang+llvm-15.0.7-x86_64-apple-darwin21.0.tar.xz'
+            llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/18.x/llvm-darwin-amd64.tar.xz'
+
           },
           {
             build: macos-arm64,
             os: macos-14,
             target: aarch64-apple-darwin,
             exe: '',
+            # [todo] xdoardo: Reinstate when the code we generate for aarch64 is working correctly. 
+            # llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/18.x/llvm-darwin-aarch64.tar.xz'
           },
           {
             build: windows-x64,
-            os: windows-2019,
+            os: windows-2022,
             target: x86_64-pc-windows-msvc,
             exe: '.exe',
-            llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/15.x/llvm-windows-amd64.tar.xz'
+            # For now, disable LLVM in `windows-x64.`
+            # llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/18.x/llvm-windows-amd64.tar.xz'
           },
           {
             build: linux-musl,
@@ -637,6 +694,14 @@ jobs:
       - name: Set up base deps on musl
         if: matrix.metadata.build == 'linux-musl'
         run: ./scripts/alpine-linux-install-deps.sh
+      - name: Install MSVC dev-cmd (Windows)
+        uses: ilammy/msvc-dev-cmd@v1
+        if: ${{ matrix.metadata.build == 'windows-x64' }}
+      - name: Delete unwanted link to stop it from interfering (Windows) 
+        shell: bash
+        run: rm /usr/bin/link.exe
+        if: ${{ matrix.metadata.build == 'windows-x64' }}
+
       - name: Set up dependencies for Mac OS
         run: |
           brew install automake
@@ -656,17 +721,24 @@ jobs:
         run: |
           brew install llvm
       - name: Install LLVM
-        if: matrix.metadata.llvm_url
         shell: bash
+        if: matrix.metadata.llvm_url
         run: |
           curl --proto '=https' --tlsv1.2 -sSf ${{ matrix.metadata.llvm_url }} -L -o llvm.tar.xz
           LLVM_DIR=$(pwd)/${{ env.LLVM_DIR }}
           mkdir ${LLVM_DIR}
           tar xf llvm.tar.xz --strip-components=1 -C ${LLVM_DIR}
           echo "${LLVM_DIR}/bin" >> $GITHUB_PATH
-          echo "LLVM_SYS_120_PREFIX=${LLVM_DIR}" >> $GITHUB_ENV
+          echo "${LLVM_DIR}/usr/bin" >> $GITHUB_PATH
+          echo "LLVM_SYS_180_PREFIX=${LLVM_DIR}" >> $GITHUB_ENV
+          echo "ENABLE_LLVM=1" >> $GITHUB_ENV
         env:
           LLVM_DIR: .llvm
+      - name: Add `brew` libs to `RUSTFLAGS`
+        if: matrix.metadata.os == 'macos-14'
+        shell: bash
+        run: |
+          echo "RUSTFLAGS=-L/opt/homebrew/lib" >> $GITHUB_ENV
       - name: Setup Rust target
         shell: bash
         run: |
@@ -691,11 +763,13 @@ jobs:
           aws-s3-bucket-endpoint: false
           aws-s3-force-path-style: true
       - name: ${{ matrix.stage.description }}
+        shell: bash
         run: make ${{ matrix.stage.make }}
         env:
           TARGET: ${{ matrix.metadata.target }}
           TARGET_DIR: target/${{ matrix.metadata.target }}/release
           CARGO_TARGET: ${{ matrix.metadata.target }}
+
 
   test_integration_cli:
     name: CLI integration tests on ${{ matrix.build }}
@@ -708,13 +782,12 @@ jobs:
           - build: linux-x64
             os: ubuntu-22.04
             target: x86_64-unknown-linux-gnu
-            llvm_url: 'https://github.com/llvm/llvm-project/releases/download/llvmorg-15.0.6/clang+llvm-15.0.6-x86_64-linux-gnu-ubuntu-18.04.tar.xz'
+            llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/18.x/llvm-linux-amd64.tar.xz'
           - build: macos-x64
             os: macos-12
             target: x86_64-apple-darwin
-            llvm_url: 'https://github.com/llvm/llvm-project/releases/download/llvmorg-15.0.7/clang+llvm-15.0.7-x86_64-apple-darwin21.0.tar.xz'
           # we only build the integration-test CLI, we don't run tests
-          - build: macos-arm
+          - build: macos-arm64
             os: macos-12
             target: aarch64-apple-darwin,
           - build: linux-musl
@@ -724,6 +797,9 @@ jobs:
           - build: windows-x64
             os: windows-2019
             target: x86_64-pc-windows-msvc
+            # For now, disable LLVM in `windows-x64.`
+            # llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/18.x/llvm-windows-amd64.tar.xz'
+
     container: ${{ matrix.container }}
     env:
       SCCACHE_AZURE_BLOB_CONTAINER: wasmerstoragesccacheblob
@@ -777,11 +853,11 @@ jobs:
           path: package/cache/wasmercache1
       - uses: actions/download-artifact@v3
         with:
-          name: capi-windows-gnu
+          name: capi-windows-x64
           path: package/cache/wasmercache2
       - uses: actions/download-artifact@v3
         with:
-          name: capi-macos-arm
+          name: capi-macos-arm64
           path: package/cache/wasmercache3
       - uses: actions/download-artifact@v3
         with:
@@ -812,7 +888,7 @@ jobs:
       - uses: actions/download-artifact@v3
         if: ${{ matrix.build == 'windows-x64' }}
         with:
-          name: capi-windows-gnu
+          name: capi-windows-x64
           path: download_link
       - uses: actions/download-artifact@v3
         if: ${{ matrix.build == 'linux-musl' }}
@@ -820,9 +896,9 @@ jobs:
           name: capi-linux-musl
           path: download_link
       - uses: actions/download-artifact@v3
-        if: ${{ matrix.build == 'macos-arm' }}
+        if: ${{ matrix.build == 'macos-arm64' }}
         with:
-          name: capi-macos-arm
+          name: capi-macos-arm64
           path: download_link
       - uses: actions/download-artifact@v3
         if: ${{ matrix.build == 'macos-x64' }}
