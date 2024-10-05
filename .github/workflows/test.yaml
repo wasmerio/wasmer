@@ -736,11 +736,11 @@ jobs:
       - name: Set up base deps on musl
         if: matrix.build == 'linux-musl'
         run: ./scripts/alpine-linux-install-deps.sh
-      - uses: actions/download-artifact@v3
+      - uses: actions/download-artifact@v4
         id: download
         with:
           name: capi-${{ matrix.build }}
-      - uses: actions/download-artifact@v3
+      - uses: actions/download-artifact@v4
         with:
           name: wasmer-cli-${{ matrix.build }}
       - name: 'Echo download path'
@@ -771,27 +771,27 @@ jobs:
         run: |
           mkdir -p package
           mkdir -p package/cache
-      - uses: actions/download-artifact@v3
+      - uses: actions/download-artifact@v4
         with:
           name: capi-linux-aarch64
           path: package/cache/wasmercache1
-      - uses: actions/download-artifact@v3
+      - uses: actions/download-artifact@v4
         with:
           name: capi-windows-gnu
           path: package/cache/wasmercache2
-      - uses: actions/download-artifact@v3
+      - uses: actions/download-artifact@v4
         with:
           name: capi-macos-arm
           path: package/cache/wasmercache3
-      - uses: actions/download-artifact@v3
+      - uses: actions/download-artifact@v4
         with:
           name: capi-macos-x64
           path: package/cache/wasmercache4
-      - uses: actions/download-artifact@v3
+      - uses: actions/download-artifact@v4
         with:
           name: capi-linux-x64
           path: package/cache/wasmercache5
-      - uses: actions/download-artifact@v3
+      - uses: actions/download-artifact@v4
         with:
           name: capi-linux-riscv64
           path: package/cache/wasmercache6
@@ -809,27 +809,27 @@ jobs:
           cp package/cache/wasmercache4/build-capi.tar.gz package/cache/wasmer-darwin-amd64.tar.gz
           cp package/cache/wasmercache5/build-capi.tar.gz package/cache/wasmer-linux-amd64.tar.gz
           cp package/cache/wasmercache6/wasmer.tar.gz package/cache/wasmer-linux-riscv64.tar.gz
-      - uses: actions/download-artifact@v3
+      - uses: actions/download-artifact@v4
         if: ${{ matrix.build == 'windows-x64' }}
         with:
           name: capi-windows-gnu
           path: download_link
-      - uses: actions/download-artifact@v3
+      - uses: actions/download-artifact@v4
         if: ${{ matrix.build == 'linux-musl' }}
         with:
           name: capi-linux-musl
           path: download_link
-      - uses: actions/download-artifact@v3
+      - uses: actions/download-artifact@v4
         if: ${{ matrix.build == 'macos-arm' }}
         with:
           name: capi-macos-arm
           path: download_link
-      - uses: actions/download-artifact@v3
+      - uses: actions/download-artifact@v4
         if: ${{ matrix.build == 'macos-x64' }}
         with:
           name: capi-macos-x64
           path: download_link
-      - uses: actions/download-artifact@v3
+      - uses: actions/download-artifact@v4
         if: ${{ matrix.build == 'linux-x64' }}
         with:
           name: capi-linux-x64
@@ -870,7 +870,7 @@ jobs:
         repository: wasmerio/wasmer-integration-tests
         submodules: true
         token: ${{ secrets.CLONE_WASMER_INTEGRATION_TESTS }}
-    - uses: actions/download-artifact@v3
+    - uses: actions/download-artifact@v4
       with:
         name: wasmer-cli-linux-x64 
     - name: Cargo Registry Cache
