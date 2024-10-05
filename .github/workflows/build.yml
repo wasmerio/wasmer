@@ -238,7 +238,7 @@ jobs:
         run: |
           make distribution
       - name: Upload Artifacts
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.artifact_name }}
           path: dist
@@ -305,7 +305,7 @@ jobs:
           CARGO_TARGET: x86_64-pc-windows-gnu
           TARGET_DIR: target/x86_64-pc-windows-gnu/release
       - name: Upload Artifacts
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: 'wasmer-windows-gnu64'
           path: dist
@@ -338,7 +338,7 @@ jobs:
           CARGO_TARGET: aarch64-apple-darwin
           TARGET_DIR: target/aarch64-apple-darwin/release
       - name: Upload Artifacts
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: 'aarch64-apple-darwin-jsc'
           path: dist
@@ -367,7 +367,7 @@ jobs:
           CARGO_TARGET: x86_64-apple-darwin
           TARGET_DIR: target/x86_64-apple-darwin/release
       - name: Upload Artifacts
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: 'x86_64-apple-darwin-jsc'
           path: dist
@@ -432,7 +432,7 @@ jobs:
           TARGET: aarch64-unknown-linux-gnu
           TARGET_DIR: target/aarch64-unknown-linux-gnu/release
       - name: Upload Artifacts
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: wasmer-linux-aarch64
           path: dist
@@ -497,7 +497,7 @@ jobs:
           TARGET: riscv64gc-unknown-linux-gnu
           TARGET_DIR: target/riscv64gc-unknown-linux-gnu/release
       - name: Upload Artifacts
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: wasmer-linux-riscv64
           path: dist
@@ -510,7 +510,7 @@ jobs:
     if: needs.setup.outputs.DOING_RELEASE == '1' || github.event.inputs.release != ''
     steps:
       - name: Download the Artifacts
-        uses: actions/download-artifact@v2
+        uses: actions/download-artifact@v4
         with:
           path: artifacts
       - name: Create Release

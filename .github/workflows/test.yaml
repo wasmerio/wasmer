@@ -272,7 +272,7 @@ jobs:
           TARGET_DIR: target/aarch64-unknown-linux-gnu/release
       - name: Upload Artifacts
         if: ${{ matrix.build-what.key == 'capi' }}
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: capi-linux-aarch64
           path: dist
@@ -330,7 +330,7 @@ jobs:
           TARGET_DIR: target/riscv64gc-unknown-linux-gnu/release
       - name: Upload Artifacts
         if: ${{ matrix.build-what.key == 'capi' }}
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: capi-linux-riscv64
           path: dist
@@ -538,14 +538,14 @@ jobs:
           TARGET_DIR: target/${{ matrix.metadata.target }}/release
           CARGO_TARGET: ${{ matrix.metadata.target }}
       - name: Archive production artifacts
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: wasmer-cli-${{ matrix.metadata.build }}
           path: build-wasmer.tar.gz
           if-no-files-found: ignore
           retention-days: 2
       - name: Archive production artifacts
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: capi-${{ matrix.metadata.build }}
           path: build-capi.tar.gz

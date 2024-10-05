@@ -38,7 +38,7 @@ jobs:
           cargo public-api --manifest-path=lib/api/Cargo.toml --diff-git-checkouts $LATEST_VERSION main > diff.txt
       
       - name: Archive change report
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: api-diff-report
           path: |
