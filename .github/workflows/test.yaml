@@ -733,6 +733,11 @@ jobs:
       - uses: goto-bus-stop/setup-zig@v2
         with:
           version: 0.10.0
+      - name: Install Tools
+        if: matrix.build == 'linux-musl' || matrix.build == 'linux-x64'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y git llvm clang make lld curl
       - name: Set up base deps on musl
         if: matrix.build == 'linux-musl'
         run: ./scripts/alpine-linux-install-deps.sh
@@ -846,10 +851,16 @@ jobs:
         shell: bash
         run: |
           make untar-wasmer
+      - name: "Install cargo-wasix"
+        run: |
+          cargo install cargo-wasix
+      - name: "Download Toolchain"
+        run: |
+          cargo wasix download-toolchain
       - name: Test integration CLI
-        if: false # matrix.build != 'macos-arm'
         shell: bash
         run: |
+          rustup toolchain list -v
           export WASMER_PATH=`pwd`/target/${{ matrix.target }}/release/wasmer${{ matrix.exe }}
           export WASMER_DIR=`pwd`/package && make test-integration-cli-ci
         env:

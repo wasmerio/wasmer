@@ -55,7 +55,5 @@ fn run_whoami_works() {
         .assert()
         .success();
 
-    assert.stdout(
-        "logged into registry \"https://registry.wasmer.wtf/graphql\" as user \"ciuser\"\n",
-    );
+    assert.stdout("Logged into registry wasmer.wtf as user ciuser\n");
 }
