@@ -165,6 +165,7 @@ default = [
 backend = []
 jsc = ["wasmer/jsc", "backend", "wat", "wasmer/std"]
 wamr = ["wasmer/wamr"]
+v8 = ["wasmer/v8"]
 wasmi = ["wasmer/wasmi"]
 engine = ["universal"]
 universal = []
