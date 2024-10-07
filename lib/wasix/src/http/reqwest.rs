@@ -44,7 +44,6 @@ impl ReqwestHttpClient {
         // TODO: use persistent client?
         let builder = {
             let _guard = Handle::try_current().map_err(|_| self.handle.enter());
-            // let _guard = Handle::try_current().map_err(|_| self.handle.enter());
             let mut builder = reqwest::ClientBuilder::new();
             #[cfg(not(feature = "js"))]
             {
