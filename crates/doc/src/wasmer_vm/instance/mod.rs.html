@@ -1893,7 +1893,7 @@
 
         <span class="comment">// Make the call.
         </span><span class="kw">unsafe </span>{
-            catch_traps(trap_handler, config, || {
+            catch_traps(trap_handler, config, <span class="kw">move </span>|| {
                 mem::transmute::&lt;<span class="kw-2">*const </span>VMFunctionBody, <span class="kw">unsafe extern </span><span class="string">&quot;C&quot; </span><span class="kw">fn</span>(VMFunctionContext)&gt;(
                     callee_address,
                 )(callee_vmctx)

@@ -1130,7 +1130,7 @@
 <span class="kw">use </span>core::ptr::{read, read_unaligned};
 <span class="kw">use </span>corosensei::stack::DefaultStack;
 <span class="kw">use </span>corosensei::trap::{CoroutineTrapHandler, TrapHandlerRegs};
-<span class="kw">use </span>corosensei::{CoroutineResult, ScopedCoroutine, Yielder};
+<span class="kw">use </span>corosensei::{Coroutine, CoroutineResult, Yielder};
 <span class="kw">use </span>scopeguard::defer;
 <span class="kw">use </span>std::any::Any;
 <span class="kw">use </span>std::cell::Cell;
@@ -1792,7 +1792,7 @@
     callee: <span class="kw-2">*const </span>VMFunctionBody,
     values_vec: <span class="kw-2">*mut </span>u8,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;(), Trap&gt; {
-    catch_traps(trap_handler, config, || {
+    catch_traps(trap_handler, config, <span class="kw">move </span>|| {
         mem::transmute::&lt;<span class="kw">_</span>, <span class="kw">extern </span><span class="string">&quot;C&quot; </span><span class="kw">fn</span>(VMFunctionContext, <span class="kw-2">*const </span>VMFunctionBody, <span class="kw-2">*mut </span>u8)&gt;(
             trampoline,
         )(vmctx, callee, values_vec);
@@ -1805,13 +1805,13 @@
 /// # Safety
 ///
 /// Highly unsafe since `closure` won&#39;t have any dtors run.
-</span><span class="kw">pub unsafe fn </span>catch_traps&lt;F, R&gt;(
+</span><span class="kw">pub unsafe fn </span>catch_traps&lt;F, R: <span class="lifetime">&#39;static</span>&gt;(
     trap_handler: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">*const </span>TrapHandlerFn&lt;<span class="lifetime">&#39;static</span>&gt;&gt;,
     config: <span class="kw-2">&amp;</span>VMConfig,
     closure: F,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;R, Trap&gt;
 <span class="kw">where
-    </span>F: FnOnce() -&gt; R,
+    </span>F: FnOnce() -&gt; R + <span class="lifetime">&#39;static</span>,
 {
     <span class="comment">// Ensure that per-thread initialization is done.
     </span>lazy_per_thread_init()<span class="question-mark">?</span>;
@@ -2034,7 +2034,7 @@
 <span class="doccomment">/// Runs the given function on a separate stack so that its stack usage can be
 /// bounded. Stack overflows and other traps can be caught and execution
 /// returned to the root of the stack.
-</span><span class="kw">fn </span>on_wasm_stack&lt;F: FnOnce() -&gt; T, T&gt;(
+</span><span class="kw">fn </span>on_wasm_stack&lt;F: FnOnce() -&gt; T + <span class="lifetime">&#39;static</span>, T: <span class="lifetime">&#39;static</span>&gt;(
     stack_size: usize,
     trap_handler: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">*const </span>TrapHandlerFn&lt;<span class="lifetime">&#39;static</span>&gt;&gt;,
     f: F,
@@ -2052,7 +2052,7 @@
     <span class="kw">let </span><span class="kw-2">mut </span>stack = scopeguard::guard(stack, |stack| STACK_POOL.push(stack));
 
     <span class="comment">// Create a coroutine with a new stack to run the function on.
-    </span><span class="kw">let </span><span class="kw-2">mut </span>coro = ScopedCoroutine::with_stack(<span class="kw-2">&amp;mut *</span>stack, <span class="kw">move </span>|yielder, ()| {
+    </span><span class="kw">let </span><span class="kw-2">mut </span>coro = Coroutine::with_stack(<span class="kw-2">&amp;mut *</span>stack, <span class="kw">move </span>|yielder, ()| {
         <span class="comment">// Save the yielder to TLS so that it can be used later.
         </span>YIELDER.with(|cell| cell.set(<span class="prelude-val">Some</span>(yielder.into())));
 
