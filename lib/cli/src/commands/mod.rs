@@ -501,11 +501,17 @@ fn print_version(verbose: bool) -> Result<(), anyhow::Error> {
     }
 
     if cfg!(feature = "wasmi") {
-        // Can't use wamr and wasmi together as of now, but maybe we'll support more
+        // Can't use two different c_api backends together as of now, but maybe we'll support more
         // interepreters.
         interpreters.push("wasmi");
     }
 
-    println!("interpreter: {}", interpreters.join(","));
+    if cfg!(feature = "v8") {
+        // Can't use c_api backends together as of now, but maybe we'll support more
+        // interepreters.
+        interpreters.push("v8");
+    }
+
+    println!("c_api backend: {}", interpreters.join(","));
     Ok(())
 }
