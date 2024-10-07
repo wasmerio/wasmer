@@ -386,6 +386,9 @@ check-capi:
 
 build-wasmer:
 	$(CARGO_BINARY) build $(CARGO_TARGET_FLAG) --release --manifest-path lib/cli/Cargo.toml $(compiler_features) --bin wasmer --locked
+	
+build-wasmer-v8:
+	$(CARGO_BINARY) build $(CARGO_TARGET_FLAG) --release --manifest-path lib/cli/Cargo.toml --no-default-features --features="v8" --bin wasmer --locked
 
 build-wasmer-wamr:
 	$(CARGO_BINARY) build $(CARGO_TARGET_FLAG) --release --manifest-path lib/cli/Cargo.toml --no-default-features --features="wamr" --bin wasmer --locked
@@ -573,6 +576,11 @@ test-packages: test-stage-1-test-all test-stage-2-test-compiler-cranelift-nostd 
 
 test-examples: test-stage-5-test-examples test-stage-6-test-examples-release
 
+
+test-v8: test-v8-api
+
+test-v8-api:
+	cargo nextest run --package=wasmer --release --features=v8 --no-default-features
 
 test-wamr: test-wamr-api
 
