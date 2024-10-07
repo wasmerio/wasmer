@@ -16,8 +16,8 @@ compile_error!(
 #[cfg(all(not(feature = "std"), not(feature = "core")))]
 compile_error!("Both the `std` and `core` features are disabled. Please enable one of them.");
 
-#[cfg(all(not(feature = "wamr"), not(feature = "wasmi")))]
-compile_error!("Both the `wamr` and `wasmi` features are disabled. Please enable one of them.");
+#[cfg(all(not(feature = "wamr"), not(feature = "wasmi"), not(feature = "v8")))]
+compile_error!("Features `wamr`, `wasmi` and `v8` are all disabled. Please enable one of them.");
 
 #[cfg(feature = "core")]
 pub(crate) extern crate alloc;

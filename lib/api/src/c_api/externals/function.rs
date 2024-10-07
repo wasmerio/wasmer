@@ -37,6 +37,17 @@ use std::sync::Arc;
 
 use wasmer_types::{FunctionType, RawValue};
 
+#[cfg(any(feature = "wamr", feature = "wasmi"))]
+type CCallback = unsafe extern "C" fn(
+    *mut c_void,
+    *const wasm_val_vec_t,
+    *mut wasm_val_vec_t,
+) -> *mut wasm_trap_t;
+
+#[cfg(feature = "v8")]
+type CCallback =
+    unsafe extern "C" fn(*mut c_void, *const wasm_val_t, *mut wasm_val_t) -> *mut wasm_trap_t;
+
 #[derive(Clone, PartialEq)]
 pub struct Function {
     pub(crate) handle: VMFunction,
@@ -132,7 +143,7 @@ impl Function {
         let mut store = store.as_store_mut();
         let inner = store.inner.store.inner;
 
-        let callback = make_fn_callback(&func);
+        let callback: CCallback = make_fn_callback(&func, param_types.len());
 
         let mut callback_env: *mut FunctionCallbackEnv<'_, F> =
             Box::leak(Box::new(FunctionCallbackEnv {
@@ -201,11 +212,7 @@ impl Function {
         let mut store = store.as_store_mut();
         let inner = store.inner.store.inner;
 
-        let callback: unsafe extern "C" fn(
-            *mut c_void,
-            *const wasm_val_vec_t,
-            *mut wasm_val_vec_t,
-        ) -> *mut wasm_trap_t = unsafe { std::mem::transmute(func.function_callback()) };
+        let callback: CCallback = unsafe { std::mem::transmute(func.function_callback()) };
 
         let mut callback_env: *mut FunctionCallbackEnv<'_, F> =
             Box::into_raw(Box::new(FunctionCallbackEnv {
@@ -282,11 +289,7 @@ impl Function {
         let mut store = store.as_store_mut();
         let inner = store.inner.store.inner;
 
-        let callback: unsafe extern "C" fn(
-            *mut c_void,
-            *const wasm_val_vec_t,
-            *mut wasm_val_vec_t,
-        ) -> *mut wasm_trap_t = unsafe { std::mem::transmute(func.function_callback()) };
+        let callback: CCallback = unsafe { std::mem::transmute(func.function_callback()) };
 
         let mut callback_env: *mut FunctionCallbackEnv<'_, F> =
             Box::into_raw(Box::new(FunctionCallbackEnv {
@@ -357,40 +360,83 @@ impl Function {
         // unimplemented!();
         let store_mut = store.as_store_mut();
         // let wasm_func_param_arity(self.handle)
-        let mut wasm_params = params
-            .iter()
-            .map(result_to_value)
-            .collect::<Vec<_>>()
-            .into_boxed_slice();
-        let mut args = unsafe {
-            let mut vec = Default::default();
-            wasm_val_vec_new(&mut vec, wasm_params.len(), wasm_params.as_ptr());
-            vec
+
+        let mut args = {
+            #[cfg(any(feature = "wamr", feature = "wasmi"))]
+            unsafe {
+                let mut wasm_params = params
+                    .iter()
+                    .map(result_to_value)
+                    .collect::<Vec<_>>()
+                    .into_boxed_slice();
+                let mut vec = Default::default();
+                wasm_val_vec_new(&mut vec, wasm_params.len(), wasm_params.as_ptr());
+                vec
+            }
+            #[cfg(feature = "v8")]
+            {
+                let params = params.iter().map(result_to_value).collect::<Vec<_>>();
+
+                let ptr = params.as_ptr();
+
+                std::mem::forget(params);
+
+                ptr
+            }
         };
 
-        std::mem::forget(wasm_params);
         let size = unsafe { wasm_func_result_arity(self.handle) };
 
-        let mut results = unsafe {
-            let mut vec = Default::default();
-            wasm_val_vec_new_uninitialized(&mut vec, size);
-            vec
+        let mut results = {
+            #[cfg(any(feature = "wamr", feature = "wasmi"))]
+            unsafe {
+                let mut vec = Default::default();
+                wasm_val_vec_new_uninitialized(&mut vec, size);
+                vec
+            }
+
+            #[cfg(feature = "v8")]
+            {
+                let mut vec = Vec::with_capacity(size);
+                let ptr = vec.as_mut_ptr() as *mut wasm_val_t;
+
+                std::mem::forget(vec);
+
+                ptr
+            }
         };
 
-        let trap = unsafe { wasm_func_call(self.handle, &mut args, &mut results as *mut _) };
+        #[cfg(any(feature = "wamr", feature = "wasmi"))]
+        let trap = unsafe { wasm_func_call(self.handle, &mut args as _, &mut results as *mut _) };
+
+        #[cfg(feature = "v8")]
+        let trap = unsafe { wasm_func_call(self.handle, args as *const _, results as *mut _) };
 
         if !trap.is_null() {
             return Err(Into::<Trap>::into(trap).into());
         }
-        let results = unsafe { std::ptr::slice_from_raw_parts(results.data, results.size) };
 
-        Ok(unsafe {
-            (*results)
+        #[cfg(any(feature = "wamr", feature = "wasmi"))]
+        unsafe {
+            let results = std::ptr::slice_from_raw_parts(results.data, results.size);
+            return Ok((*results)
                 .into_iter()
                 .map(param_from_c)
                 .collect::<Vec<_>>()
-                .into_boxed_slice()
-        })
+                .into_boxed_slice());
+        }
+
+        #[cfg(feature = "v8")]
+        unsafe {
+
+            let results = Vec::from_raw_parts(results, size, size);
+
+            return Ok((results)
+                .iter()
+                .map(param_from_c)
+                .collect::<Vec<_>>()
+                .into_boxed_slice());
+        }
     }
 
     pub(crate) fn from_vm_extern(_store: &mut impl AsStoreMut, internal: VMFunction) -> Self {
@@ -414,75 +460,171 @@ impl Function {
     }
 }
 
-fn make_fn_callback<F, T: Send + 'static>(
-    func: &F,
-) -> unsafe extern "C" fn(*mut c_void, *const wasm_val_vec_t, *mut wasm_val_vec_t) -> *mut wasm_trap_t
+#[cfg(feature = "v8")]
+macro_rules! gen_v8_callback {
+    ($args:expr) => {{
+        unsafe extern "C" fn fn_callback<F, T: Send + 'static>(
+            env: *mut c_void,
+            args: *const wasm_val_t,
+            rets: *mut wasm_val_t,
+        ) -> *mut wasm_trap_t
+        where
+            F: Fn(FunctionEnvMut<'_, T>, &[Value]) -> Result<Vec<Value>, RuntimeError>
+                + 'static
+                + Send
+                + Sync,
+        {
+            let r: *mut (FunctionCallbackEnv<'_, F>) = env as _;
+
+            let mut store = (*r).store.as_store_mut();
+            let env_handle = (*r).env_handle.as_ref().unwrap().clone();
+            let mut fn_env = FunctionEnv::from_handle(env_handle).into_mut(&mut store);
+            let func: &F = &(*r).func;
+
+            let mut wasmer_args = vec![];
+
+            for i in 0..$args {
+                wasmer_args.push(param_from_c(&(*(args).wrapping_add(i)).clone()));
+            }
+
+            let result = panic::catch_unwind(AssertUnwindSafe(|| unsafe {
+                func(fn_env, wasmer_args.as_slice())
+            }));
+
+            match result {
+                Ok(Ok(native_results)) => {
+                    let mut c_results: Vec<wasm_val_t> = native_results
+                        .iter()
+                        .map(|r| crate::as_c::result_to_value(r))
+                        .collect();
+
+                    unsafe {
+                        for i in 0..c_results.len() {
+                            *((rets).wrapping_add(i)) = c_results[i]
+                        }
+                    }
+
+                    unsafe { std::ptr::null_mut() }
+                }
+
+                Ok(Err(e)) => {
+                    let trap: Trap = Trap::user(Box::new(e));
+                    unsafe { trap.into_wasm_trap(&mut store) }
+                }
+
+                Err(e) => {
+                    unimplemented!("host function panicked");
+                }
+            }
+        }
+
+        fn_callback::<F, T>
+    }};
+}
+
+fn make_fn_callback<F, T: Send + 'static>(func: &F, args: usize) -> CCallback
 where
     F: Fn(FunctionEnvMut<'_, T>, &[Value]) -> Result<Vec<Value>, RuntimeError>
         + 'static
         + Send
         + Sync,
 {
-    unsafe extern "C" fn fn_callback<F, T: Send + 'static>(
-        env: *mut c_void,
-        args: *const wasm_val_vec_t,
-        rets: *mut wasm_val_vec_t,
-    ) -> *mut wasm_trap_t
-    where
-        F: Fn(FunctionEnvMut<'_, T>, &[Value]) -> Result<Vec<Value>, RuntimeError>
-            + 'static
-            + Send
-            + Sync,
+    #[cfg(any(feature = "wamr", feature = "wasmi"))]
     {
-        let r: *mut (FunctionCallbackEnv<'_, F>) = env as _;
+        unsafe extern "C" fn fn_callback<F, T: Send + 'static>(
+            env: *mut c_void,
+            args: *const wasm_val_vec_t,
+            rets: *mut wasm_val_vec_t,
+        ) -> *mut wasm_trap_t
+        where
+            F: Fn(FunctionEnvMut<'_, T>, &[Value]) -> Result<Vec<Value>, RuntimeError>
+                + 'static
+                + Send
+                + Sync,
+        {
+            let r: *mut (FunctionCallbackEnv<'_, F>) = env as _;
 
-        let mut store = (*r).store.as_store_mut();
-        let env_handle = (*r).env_handle.as_ref().unwrap().clone();
-        let mut fn_env = FunctionEnv::from_handle(env_handle).into_mut(&mut store);
-        let func: &F = &(*r).func;
+            let mut store = (*r).store.as_store_mut();
+            let env_handle = (*r).env_handle.as_ref().unwrap().clone();
+            let mut fn_env = FunctionEnv::from_handle(env_handle).into_mut(&mut store);
+            let func: &F = &(*r).func;
 
-        let mut wasmer_args = vec![];
+            let mut wasmer_args = vec![];
 
-        for i in 0..(*args).size {
-            wasmer_args.push(param_from_c(&(*(*args).data.wrapping_add(i)).clone()));
-        }
+            for i in 0..(*args).size {
+                wasmer_args.push(param_from_c(&(*(*args).data.wrapping_add(i)).clone()));
+            }
 
-        let result = panic::catch_unwind(AssertUnwindSafe(|| unsafe {
-            func(fn_env, wasmer_args.as_slice())
-        }));
+            let result = panic::catch_unwind(AssertUnwindSafe(|| unsafe {
+                func(fn_env, wasmer_args.as_slice())
+            }));
 
-        match result {
-            Ok(Ok(native_results)) => {
-                let mut c_results: Vec<wasm_val_t> = native_results
-                    .iter()
-                    .map(|r| crate::as_c::result_to_value(r))
-                    .collect();
+            match result {
+                Ok(Ok(native_results)) => {
+                    let mut c_results: Vec<wasm_val_t> = native_results
+                        .iter()
+                        .map(|r| crate::as_c::result_to_value(r))
+                        .collect();
 
-                if c_results.len() != (*rets).size {
-                    panic!("when calling host function: number of observed results differ from wanted results")
-                }
-
-                unsafe {
-                    for i in 0..(*rets).size {
-                        *((*rets).data.wrapping_add(i)) = c_results[i]
+                    if c_results.len() != (*rets).size {
+                        panic!("when calling host function: number of observed results differ from wanted results")
                     }
+
+                    unsafe {
+                        for i in 0..(*rets).size {
+                            *((*rets).data.wrapping_add(i)) = c_results[i]
+                        }
+                    }
+
+                    unsafe { std::ptr::null_mut() }
                 }
 
-                unsafe { std::ptr::null_mut() }
-            }
+                Ok(Err(e)) => {
+                    let trap: Trap = Trap::user(Box::new(e));
+                    unsafe { trap.into_wasm_trap(&mut store) }
+                }
 
-            Ok(Err(e)) => {
-                let trap: Trap = Trap::user(Box::new(e));
-                unsafe { trap.into_wasm_trap(&mut store) }
-            }
-
-            Err(e) => {
-                unimplemented!("host function panicked");
+                Err(e) => {
+                    unimplemented!("host function panicked");
+                }
             }
         }
+
+        return fn_callback::<F, T>;
     }
 
-    fn_callback::<F, T>
+    #[cfg(feature = "v8")]
+    unsafe {
+        let func = if args == 0 {
+            gen_v8_callback!(0)
+        } else if args == 1 {
+            gen_v8_callback!(1)
+        } else if args == 2 {
+            gen_v8_callback!(2)
+        } else if args == 3 {
+            gen_v8_callback!(3)
+        } else if args == 4 {
+            gen_v8_callback!(4)
+        } else if args == 5 {
+            gen_v8_callback!(5)
+        } else if args == 6 {
+            gen_v8_callback!(6)
+        } else if args == 7 {
+            gen_v8_callback!(7)
+        } else if args == 8 {
+            gen_v8_callback!(8)
+        } else if args == 9 {
+            gen_v8_callback!(9)
+        } else if args == 10 {
+            gen_v8_callback!(10)
+        } else if args == 11 {
+            gen_v8_callback!(11)
+        } else {
+            panic!("missing fn!")
+        };
+
+        return func;
+    }
 }
 
 impl fmt::Debug for Function {
@@ -515,6 +657,7 @@ macro_rules! impl_host_function {
                     /// This is a function that wraps the real host
                     /// function. Its address will be used inside the
                     /// runtime.
+                    #[cfg(any(feature = "wamr", feature = "wasmi"))]
                     unsafe extern "C" fn func_wrapper<$( $x, )* Rets, RetsAsResult, Func, T>(env: *mut c_void, args: *const wasm_val_vec_t, results: *mut wasm_val_vec_t) -> *mut wasm_trap_t
                     where
                         $( $x: FromToNativeWasmType, )*
@@ -587,6 +730,80 @@ macro_rules! impl_host_function {
 
                     }
 
+                    #[cfg(feature = "v8")]
+                    unsafe extern "C" fn func_wrapper<$( $x, )* Rets, RetsAsResult, Func, T>(env: *mut c_void, args: *const wasm_val_t, results: *mut wasm_val_t) -> *mut wasm_trap_t
+                    where
+                        $( $x: FromToNativeWasmType, )*
+                        Rets: WasmTypeList,
+                        RetsAsResult: IntoResult<Rets>,
+                        T: Send + 'static,
+                        Func: Fn(FunctionEnvMut<'_, T>, $( $x , )*) -> RetsAsResult + 'static,
+                    {
+
+                        let r: *mut (FunctionCallbackEnv<'_, Func>) = env as _;
+                        let store = &mut (*r).store.as_store_mut();
+
+                        let mut i = 0;
+
+                       $(
+                           let c_arg = (*(args).wrapping_add(i)).clone();
+                           let wasmer_arg = crate::as_c::param_from_c(&c_arg);
+                           let raw_arg : RawValue = wasmer_arg.as_raw(store);
+                           let $x : $x = FromToNativeWasmType::from_native($x::Native::from_raw(store, raw_arg));
+
+                           i += 1;
+                        )*
+
+
+
+                        let env_handle = (*r).env_handle.as_ref().unwrap().clone();
+                        let mut fn_env = FunctionEnv::from_handle(env_handle).into_mut(store);
+                        let func: &Func = &(*r).func;
+
+                        let result = panic::catch_unwind(AssertUnwindSafe(|| unsafe {
+                            ((*r).func)(fn_env, $( $x, )* ).into_result()
+                        }));
+
+
+                       match result {
+                           Ok(Ok(result)) => {
+
+                               let types = Rets::wasm_types();
+                               let size = types.len();
+                                let mut native_results = result.into_array(store);
+                                let native_results = native_results.as_mut();
+
+                                let native_results: Vec<Value> = native_results.into_iter().enumerate()
+                                    .map(|(i, r)| Value::from_raw(store, types[i], r.clone()))
+                                    .collect();
+
+                                let mut c_results: Vec<wasm_val_t> = native_results.iter().map(|r| crate::as_c::result_to_value(r)).collect();
+
+                                if c_results.len() != size {
+                                    panic!("when calling host function: number of observed results differ from wanted results")
+                                }
+
+                                unsafe {
+                                    for i in 0..size {
+                                        *((results).wrapping_add(i)) = c_results[i]
+                                    }
+
+                                }
+
+                                unsafe { std::ptr::null_mut() }
+                           },
+                           Ok(Err(e)) => {
+                                let trap: Trap =  Trap::user(Box::new(e));
+                                unsafe { trap.into_wasm_trap(store) }
+                           },
+                           Err(e) => {
+                               unimplemented!("host function panicked");
+                           }
+                       }
+
+
+                    }
+
                     func_wrapper::< $( $x, )* Rets, RetsAsResult, Self, T> as VMFunctionCallback
 
                 }
@@ -611,6 +828,7 @@ macro_rules! impl_host_function {
                     /// This is a function that wraps the real host
                     /// function. Its address will be used inside the
                     /// runtime.
+                    #[cfg(any(feature = "wamr", feature = "wasmi"))]
                     unsafe extern "C" fn func_wrapper<$( $x, )* Rets, RetsAsResult, Func>(env: *mut c_void, args: *const wasm_val_vec_t, results: *mut wasm_val_vec_t) -> *mut wasm_trap_t
                     where
                         $( $x: FromToNativeWasmType, )*
@@ -655,6 +873,72 @@ macro_rules! impl_host_function {
                                 unsafe {
                                     for i in 0..(*results).size {
                                         *((*results).data.wrapping_add(i)) = c_results[i]
+                                    }
+                                }
+
+                                 unsafe { std::ptr::null_mut() }
+                            },
+
+                            Ok(Err(e)) => {
+                                let trap: Trap =  Trap::user(Box::new(e));
+                                unsafe { trap.into_wasm_trap(store) }
+                                // unimplemented!("host function panicked");
+                            },
+
+                            Err(e) => {
+                                unimplemented!("host function panicked");
+                            }
+                        }
+
+
+                    }
+
+                    #[cfg(feature = "v8")]
+                    unsafe extern "C" fn func_wrapper<$( $x, )* Rets, RetsAsResult, Func>(env: *mut c_void, args: *const wasm_val_t, results: *mut wasm_val_t) -> *mut wasm_trap_t
+                    where
+                        $( $x: FromToNativeWasmType, )*
+                        Rets: WasmTypeList,
+                        RetsAsResult: IntoResult<Rets>,
+                        Func: Fn($( $x , )*) -> RetsAsResult + 'static,
+                    {
+                        let mut r: *mut FunctionCallbackEnv<Func> = unsafe {std::mem::transmute(env)};
+                        let store = &mut (*r).store.as_store_mut();
+                        let mut i = 0;
+
+                        $(
+                            let c_arg = (*(args).wrapping_add(i)).clone();
+                            let wasmer_arg = crate::as_c::param_from_c(&c_arg);
+                            let raw_arg : RawValue = wasmer_arg.as_raw(store);
+                            let $x : $x = FromToNativeWasmType::from_native($x::Native::from_raw(store, raw_arg));
+
+                            i += 1;
+                        )*
+
+                        let result = panic::catch_unwind(AssertUnwindSafe(|| unsafe {
+                            ((*r).func)( $( $x, )* ).into_result()
+                        }));
+
+                        match result {
+                            Ok(Ok(result)) => {
+
+                                let types = Rets::wasm_types();
+                                let size = types.len();
+                                let mut native_results = result.into_array(store);
+                                let native_results = native_results.as_mut();
+
+                                let native_results: Vec<Value> = native_results.into_iter().enumerate()
+                                    .map(|(i, r)| Value::from_raw(store, types[i], r.clone()))
+                                    .collect();
+
+                                let mut c_results: Vec<wasm_val_t> = native_results.iter().map(|r| crate::as_c::result_to_value(r)).collect();
+
+                                if c_results.len() != size {
+                                    panic!("when calling host function: number of observed results differ from wanted results")
+                                }
+
+                                unsafe {
+                                    for i in 0..size {
+                                        *((results).wrapping_add(i)) = c_results[i]
                                     }
                                 }
 

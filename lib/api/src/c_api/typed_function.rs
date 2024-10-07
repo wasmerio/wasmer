@@ -33,10 +33,11 @@ macro_rules! impl_native_traits {
              Rets: WasmTypeList,
          {
              /// Call the typed func and return results.
-             #[allow(clippy::too_many_arguments)]
-             pub fn call(&self, mut store: &mut impl AsStoreMut, $( $x: $x, )* ) -> Result<Rets, RuntimeError> where
-             $( $x: FromToNativeWasmType + NativeWasmTypeInto, )*
-             {
+            #[cfg(any(feature = "wamr", feature = "wasmi"))]
+            #[allow(clippy::too_many_arguments)]
+            pub fn call(&self, mut store: &mut impl AsStoreMut, $( $x: $x, )* ) -> Result<Rets, RuntimeError> where
+            $( $x: FromToNativeWasmType + NativeWasmTypeInto, )*
+            {
 
                  // // let store_ptr = Value::I64(store.as_store_mut().as_raw() as _).as_jsvalue(store);
                  #[allow(unused_unsafe)]
@@ -94,6 +95,78 @@ macro_rules! impl_native_traits {
                 }
 
                 Ok(unsafe { Rets::from_array(store, rets_list_array) })
+
+            }
+
+            #[cfg(feature = "v8")]
+            #[allow(clippy::too_many_arguments)]
+            pub fn call(&self, mut store: &mut impl AsStoreMut, $( $x: $x, )* ) -> Result<Rets, RuntimeError> where
+            $( $x: FromToNativeWasmType + NativeWasmTypeInto, )*
+            {
+
+                // // let store_ptr = Value::I64(store.as_store_mut().as_raw() as _).as_jsvalue(store);
+                #[allow(unused_unsafe)]
+                let params_list: Vec<_> = unsafe {
+                    vec![ $( {
+                        let raw = $x.into_raw(store);
+                        let value = Value::from_raw(&mut store, $x::WASM_TYPE, raw);
+                        result_to_value(&value)
+                    } ),* ]
+                };
+
+                let func = unsafe { wasm_extern_as_func(self.func.to_vm_extern()) };
+
+                let rets_len = Rets::wasm_types().len();
+
+                let mut results: Vec<crate::bindings::wasm_val_t> = Vec::with_capacity(rets_len);
+                let ptr: *mut crate::bindings::wasm_val_t = results.as_mut_ptr();
+                std::mem::forget(results);
+
+                let trap = unsafe { wasm_func_call(func, params_list.as_ptr() as *const _, ptr) };
+
+                if !trap.is_null() {
+                    unsafe {
+                       let trap: Trap = trap.into();
+                       return Err(RuntimeError::from(trap));
+                    }
+               }
+
+
+                let mut results: *const [crate::bindings::wasm_val_t] = std::ptr::slice_from_raw_parts(ptr, rets_len);
+
+                unsafe {
+                    let results: Vec<_> = (*results).into_iter().map(|v| param_from_c(&v).as_raw(&mut store)).collect();
+                    Ok(unsafe {Rets::from_slice(store, &results).unwrap()})
+                }
+
+
+
+
+
+               //let mut rets_list_array = Rets::empty_array();
+               //let mut_rets = rets_list_array.as_mut() as *mut [RawValue] as *mut RawValue;
+
+
+               //match rets_len {
+               //    0 => {},
+               //    1 => unsafe {
+               //        let val = [0].clone();
+               //        let val = param_from_c(&val);
+               //        *mut_rets = val.as_raw(&mut store);
+               //    }
+               //    _n => {
+               //        for (i, ret_type) in Rets::wasm_types().iter().enumerate() {
+               //            unsafe {
+               //                let val = results[i].clone();
+               //                let val = param_from_c(&val);
+               //                let slot = mut_rets.add(i);
+               //                *slot = val.as_raw(&mut store);
+               //            }
+               //        }
+               //    }
+               //}
+
+               //Ok(unsafe { Rets::from_array(store, rets_list_array) })
 
             }
         }

@@ -118,6 +118,7 @@ llvm = ["compiler", "wasmer-compiler-llvm"]
 engine = ["sys"]
 wamr = ["wasm-c-api", "std", "wat"]
 wasmi = ["wasm-c-api", "std", "wat", "dep:wasmi_c_api"]
+v8 = ["wasm-c-api", "std", "wat"]
 wasm-c-api = ["wasm-types-polyfill"]
 
 # - Deprecated features.

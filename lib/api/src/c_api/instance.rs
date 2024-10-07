@@ -48,34 +48,47 @@ impl InstanceHandle {
             }
         }
 
-        let mut imports = unsafe {
-            let mut vec = Default::default();
-            wasm_extern_vec_new(&mut vec, externs.len(), externs.as_ptr());
-            vec
-        };
-
-        std::mem::forget(externs);
-
         let mut trap: *mut wasm_trap_t = std::ptr::null_mut() as _;
 
         let instance = unsafe {
-            #[cfg(feature = "wamr")]
+            #[cfg(any(feature = "wasmi", feature = "wamr"))]
             {
-                let stack_size = 2 * 1024 * 1024;
-                let heap_size = 2 * 1024 * 1024;
+                let mut imports = unsafe {
+                    let mut vec = Default::default();
+                    wasm_extern_vec_new(&mut vec, externs.len(), externs.as_ptr());
+                    vec
+                };
 
-                crate::bindings::wasm_instance_new_with_args(
+                std::mem::forget(externs);
+
+                #[cfg(feature = "wamr")]
+                {
+                    let stack_size = 2 * 1024 * 1024;
+                    let heap_size = 2 * 1024 * 1024;
+
+                    crate::bindings::wasm_instance_new_with_args(
+                        store,
+                        module,
+                        &mut imports,
+                        &mut trap,
+                        stack_size,
+                        heap_size,
+                    )
+                }
+                #[cfg(feature = "wasmi")]
+                {
+                    wasm_instance_new(store, module, &mut imports, &mut trap)
+                }
+            }
+
+            #[cfg(feature = "v8")]
+            {
+                wasm_instance_new(
                     store,
                     module,
-                    &mut imports,
+                    externs.as_ptr() as *const *const _,
                     &mut trap,
-                    stack_size,
-                    heap_size,
                 )
-            }
-            #[cfg(feature = "wasmi")]
-            {
-                wasm_instance_new(store, module, &mut imports, &mut trap)
             }
         };
 
@@ -148,7 +161,7 @@ impl Instance {
 
             return Self::new_by_index(&mut store, module, &externs);
         }
-        #[cfg(feature = "wasmi")]
+        #[cfg(any(feature = "wasmi", feature = "v8"))]
         {
             return Self::new_by_index(&mut store.as_store_mut(), module, &externs);
         }
