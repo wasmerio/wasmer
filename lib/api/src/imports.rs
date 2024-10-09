@@ -435,7 +435,6 @@ mod test {
 
         imports1.extend(&imports2);
         let _happy_dog_entry = imports1.get_export("dog", "happy").unwrap();
-        eprintln!("Happy dog is here!");
         /*
         assert!(
             if let Exports::Global(happy_dog_global) = happy_dog_entry.to_vm_extern() {
@@ -446,12 +445,9 @@ mod test {
         );
         */
         // now test it in reverse
-        eprintln!("boutta create the store...");
         let mut store = Store::default();
-        eprintln!("store is here again!!!");
         let g1 = Global::new(&mut store, Value::I32(0));
         let g2 = Global::new(&mut store, Value::I64(0));
-        eprintln!("globals are here again!!!");
 
         let imports1 = imports! {
             "dog" => {
@@ -459,19 +455,15 @@ mod test {
             },
         };
 
-        eprintln!("imports1 are here again!!!");
         let mut imports2 = imports! {
             "dog" => {
                 "happy" => g2,
             },
         };
-        eprintln!("imports2 are here again!!!");
 
         imports2.extend(&imports1);
-        eprintln!("imports2 are extended again!!!");
 
         let _happy_dog_entry = imports2.get_export("dog", "happy").unwrap();
-        eprintln!("Happy dog is here again!!!");
         /*
         assert!(
             if let Exports::Global(happy_dog_global) = happy_dog_entry.to_vm_extern() {
