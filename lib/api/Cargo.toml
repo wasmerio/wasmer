@@ -38,7 +38,7 @@ wat = { version = "=1.216.0", optional = true }
 rustc-demangle = "0.1"
 shared-buffer = { workspace = true }
 wasmi_c_api = { version = "0.37.1", package = "wasmi_c_api_impl", optional = true }
-seq-macro = "0.3.5"
+seq-macro = {version = "0.3.5", optional = true}
 
 # Dependencies and Development Dependencies for `sys`.
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
@@ -119,7 +119,7 @@ llvm = ["compiler", "wasmer-compiler-llvm"]
 engine = ["sys"]
 wamr = ["wasm-c-api", "std", "wat"]
 wasmi = ["wasm-c-api", "std", "wat", "dep:wasmi_c_api"]
-v8 = ["wasm-c-api", "std", "wat"]
+v8 = ["wasm-c-api", "std", "wat", "dep:seq-macro"]
 wasm-c-api = ["wasm-types-polyfill"]
 
 # - Deprecated features.
