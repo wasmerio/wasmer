@@ -428,7 +428,6 @@ impl Function {
 
         #[cfg(feature = "v8")]
         unsafe {
-
             let results = Vec::from_raw_parts(results, size, size);
 
             return Ok((results)
@@ -595,34 +594,27 @@ where
 
     #[cfg(feature = "v8")]
     unsafe {
-        let func = if args == 0 {
-            gen_v8_callback!(0)
-        } else if args == 1 {
-            gen_v8_callback!(1)
-        } else if args == 2 {
-            gen_v8_callback!(2)
-        } else if args == 3 {
-            gen_v8_callback!(3)
-        } else if args == 4 {
-            gen_v8_callback!(4)
-        } else if args == 5 {
-            gen_v8_callback!(5)
-        } else if args == 6 {
-            gen_v8_callback!(6)
-        } else if args == 7 {
-            gen_v8_callback!(7)
-        } else if args == 8 {
-            gen_v8_callback!(8)
-        } else if args == 9 {
-            gen_v8_callback!(9)
-        } else if args == 10 {
-            gen_v8_callback!(10)
-        } else if args == 11 {
-            gen_v8_callback!(11)
-        } else {
-            panic!("missing fn!")
-        };
+        // Hacky: v8 uses an older version of the `wasm_c_api` header in which the signature for
+        // callbacks is different from that of wamr and wasmi: in v8, args (and returns) are of
+        // type `*const wasm_val_t` (instead of `wasm_val_vec_t`, which also contains the length of
+        // the vector), so we can't generate a single callback that at runtime gets the number of
+        // arguments to perform the call to the underlying function. Therefore, we need to generate
+        // different concrete callbacks for different signatures.
 
+        seq_macro::seq!(arg_num in 1..=26 {
+            let func = if args == 0 {
+                gen_v8_callback!(0)
+            }
+        #(
+             else if args == arg_num {
+                gen_v8_callback!(arg_num)
+             }
+        )*
+            else {
+                panic!("v8 callbacks for function with more than 26 parameters are not supported!");
+            };
+
+        });
         return func;
     }
 }

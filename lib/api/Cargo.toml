@@ -38,6 +38,7 @@ wat = { version = "=1.216.0", optional = true }
 rustc-demangle = "0.1"
 shared-buffer = { workspace = true }
 wasmi_c_api = { version = "0.37.1", package = "wasmi_c_api_impl", optional = true }
+seq-macro = "0.3.5"
 
 # Dependencies and Development Dependencies for `sys`.
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
