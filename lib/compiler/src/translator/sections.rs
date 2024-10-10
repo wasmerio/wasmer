@@ -182,7 +182,7 @@ pub fn parse_function_section(
     environ: &mut ModuleEnvironment,
 ) -> WasmResult<()> {
     let num_functions = functions.count();
-    if num_functions == std::u32::MAX {
+    if num_functions == u32::MAX {
         // We reserve `u32::MAX` for our own use.
         return Err(WasmError::ImplLimitExceeded);
     }
@@ -501,7 +501,7 @@ pub fn parse_name_section<'data>(
         match subsection {
             wasmparser::Name::Function(function_subsection) => {
                 for naming in function_subsection.into_iter().flatten() {
-                    if naming.index != std::u32::MAX {
+                    if naming.index != u32::MAX {
                         environ.declare_function_name(
                             FunctionIndex::from_u32(naming.index),
                             naming.name,

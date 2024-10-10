@@ -11,6 +11,7 @@ rust-version.workspace = true
 
 [features]
 build-package  = ["rusqlite", "indexmap", "wasmer-wasm-interface", "wasmparser", "rpassword", "minisign", "time"]
+full = []
 
 [dependencies]
 anyhow = "1.0.65"
