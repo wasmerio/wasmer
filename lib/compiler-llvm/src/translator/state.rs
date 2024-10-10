@@ -7,6 +7,7 @@ use std::ops::{BitAnd, BitOr, BitOrAssign};
 use wasmer_types::CompileError;
 
 #[derive(Debug)]
+#[allow(dead_code)]
 pub enum ControlFrame<'ctx> {
     Block {
         next: BasicBlock<'ctx>,

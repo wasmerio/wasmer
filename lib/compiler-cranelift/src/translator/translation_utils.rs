@@ -2,7 +2,6 @@
 
 use super::func_environ::TargetEnvironment;
 use crate::std::string::ToString;
-use core::u32;
 use cranelift_codegen::binemit::Reloc;
 use cranelift_codegen::ir::{self, AbiParam};
 use cranelift_codegen::isa::TargetFrontendConfig;

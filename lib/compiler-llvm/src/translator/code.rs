@@ -697,11 +697,11 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
         let int_type = left.get_type();
 
         let (min_value, neg_one_value) = if int_type == self.intrinsics.i32_ty {
-            let min_value = int_type.const_int(i32::min_value() as u64, false);
+            let min_value = int_type.const_int(i32::MIN as u64, false);
             let neg_one_value = int_type.const_int(-1i32 as u32 as u64, false);
             (min_value, neg_one_value)
         } else if int_type == self.intrinsics.i64_ty {
-            let min_value = int_type.const_int(i64::min_value() as u64, false);
+            let min_value = int_type.const_int(i64::MIN as u64, false);
             let neg_one_value = int_type.const_int(-1i64 as u64, false);
             (min_value, neg_one_value)
         } else {
@@ -3053,10 +3053,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 let (v1, _) = self.v128_into_i16x8(v1, i1)?;
                 let (v2, _) = self.v128_into_i16x8(v2, i2)?;
 
-                let max_value = self
-                    .intrinsics
-                    .i16_ty
-                    .const_int(i16::max_value() as u64, false);
+                let max_value = self.intrinsics.i16_ty.const_int(i16::MAX as u64, false);
                 let max_values = VectorType::const_vector(&[max_value; 8]);
 
                 let v1 = err!(self
@@ -3352,11 +3349,11 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 let (v1, v2) = (v1.into_int_value(), v2.into_int_value());
                 let int_type = v1.get_type();
                 let (min_value, neg_one_value) = if int_type == self.intrinsics.i32_ty {
-                    let min_value = int_type.const_int(i32::min_value() as u64, false);
+                    let min_value = int_type.const_int(i32::MIN as u64, false);
                     let neg_one_value = int_type.const_int(-1i32 as u32 as u64, false);
                     (min_value, neg_one_value)
                 } else if int_type == self.intrinsics.i64_ty {
-                    let min_value = int_type.const_int(i64::min_value() as u64, false);
+                    let min_value = int_type.const_int(i64::MIN as u64, false);
                     let neg_one_value = int_type.const_int(-1i64 as u64, false);
                     (min_value, neg_one_value)
                 } else {
@@ -7466,8 +7463,8 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     self.intrinsics.i32x4_ty,
                     LEF32_GEQ_I32_MIN,
                     GEF32_LEQ_I32_MAX,
-                    std::i32::MIN as u64,
-                    std::i32::MAX as u64,
+                    i32::MIN as u64,
+                    i32::MAX as u64,
                     v,
                 )?;
                 self.state.push1(res);
@@ -7481,8 +7478,8 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     self.intrinsics.i32x4_ty,
                     LEF32_GEQ_U32_MIN,
                     GEF32_LEQ_U32_MAX,
-                    std::u32::MIN as u64,
-                    std::u32::MAX as u64,
+                    u32::MIN as u64,
+                    u32::MAX as u64,
                     v,
                 )?;
                 self.state.push1(res);
@@ -7490,11 +7487,11 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
             Operator::I32x4TruncSatF64x2SZero | Operator::I32x4TruncSatF64x2UZero => {
                 let ((min, max), (cmp_min, cmp_max)) = match op {
                     Operator::I32x4TruncSatF64x2SZero => (
-                        (std::i32::MIN as u64, std::i32::MAX as u64),
+                        (i32::MIN as u64, i32::MAX as u64),
                         (LEF64_GEQ_I32_MIN, GEF64_LEQ_I32_MAX),
                     ),
                     Operator::I32x4TruncSatF64x2UZero => (
-                        (std::u32::MIN as u64, std::u32::MAX as u64),
+                        (u32::MIN as u64, u32::MAX as u64),
                         (LEF64_GEQ_U32_MIN, GEF64_LEQ_U32_MAX),
                     ),
                     _ => unreachable!("Unhandled internal variant"),
@@ -7537,10 +7534,10 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
             //     let res = self.trunc_sat_into_int(
             //         self.intrinsics.f64x2_ty,
             //         self.intrinsics.i64x2_ty,
-            //         std::i64::MIN as u64,
-            //         std::i64::MAX as u64,
-            //         std::i64::MIN as u64,
-            //         std::i64::MAX as u64,
+            //         i64::MIN as u64,
+            //         i64::MAX as u64,
+            //         i64::MIN as u64,
+            //         i64::MAX as u64,
             //         v,
             //     )?;
             //     self.state.push1(res);
@@ -7552,10 +7549,10 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
             //     let res = self.trunc_sat_into_int(
             //         self.intrinsics.f64x2_ty,
             //         self.intrinsics.i64x2_ty,
-            //         std::u64::MIN,
-            //         std::u64::MAX,
-            //         std::u64::MIN,
-            //         std::u64::MAX,
+            //         u64::MIN,
+            //         u64::MAX,
+            //         u64::MIN,
+            //         u64::MAX,
             //         v,
             //     )?;
             //     self.state.push1(res);
@@ -7594,8 +7591,8 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     self.intrinsics.i32_ty,
                     LEF32_GEQ_I32_MIN,
                     GEF32_LEQ_I32_MAX,
-                    std::i32::MIN as u32 as u64,
-                    std::i32::MAX as u32 as u64,
+                    i32::MIN as u32 as u64,
+                    i32::MAX as u32 as u64,
                     v,
                 )?;
                 self.state.push1(res);
@@ -7608,8 +7605,8 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     self.intrinsics.i32_ty,
                     LEF64_GEQ_I32_MIN,
                     GEF64_LEQ_I32_MAX,
-                    std::i32::MIN as u64,
-                    std::i32::MAX as u64,
+                    i32::MIN as u64,
+                    i32::MAX as u64,
                     v,
                 )?;
                 self.state.push1(res);
@@ -7648,8 +7645,8 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     self.intrinsics.i64_ty,
                     LEF32_GEQ_I64_MIN,
                     GEF32_LEQ_I64_MAX,
-                    std::i64::MIN as u64,
-                    std::i64::MAX as u64,
+                    i64::MIN as u64,
+                    i64::MAX as u64,
                     v,
                 )?;
                 self.state.push1(res);
@@ -7662,8 +7659,8 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     self.intrinsics.i64_ty,
                     LEF64_GEQ_I64_MIN,
                     GEF64_LEQ_I64_MAX,
-                    std::i64::MIN as u64,
-                    std::i64::MAX as u64,
+                    i64::MIN as u64,
+                    i64::MAX as u64,
                     v,
                 )?;
                 self.state.push1(res);
@@ -7702,8 +7699,8 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     self.intrinsics.i32_ty,
                     LEF32_GEQ_U32_MIN,
                     GEF32_LEQ_U32_MAX,
-                    std::u32::MIN as u64,
-                    std::u32::MAX as u64,
+                    u32::MIN as u64,
+                    u32::MAX as u64,
                     v,
                 )?;
                 self.state.push1(res);
@@ -7716,8 +7713,8 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     self.intrinsics.i32_ty,
                     LEF64_GEQ_U32_MIN,
                     GEF64_LEQ_U32_MAX,
-                    std::u32::MIN as u64,
-                    std::u32::MAX as u64,
+                    u32::MIN as u64,
+                    u32::MAX as u64,
                     v,
                 )?;
                 self.state.push1(res);
@@ -7756,8 +7753,8 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     self.intrinsics.i64_ty,
                     LEF32_GEQ_U64_MIN,
                     GEF32_LEQ_U64_MAX,
-                    std::u64::MIN,
-                    std::u64::MAX,
+                    u64::MIN,
+                    u64::MAX,
                     v,
                 )?;
                 self.state.push1(res);
@@ -7770,8 +7767,8 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     self.intrinsics.i64_ty,
                     LEF64_GEQ_U64_MIN,
                     GEF64_LEQ_U64_MAX,
-                    std::u64::MIN,
-                    std::u64::MAX,
+                    u64::MIN,
+                    u64::MAX,
                     v,
                 )?;
                 self.state.push1(res);
@@ -8967,7 +8964,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 let res = err!(self.builder.build_int_compare(
                     IntPredicate::EQ,
                     cmask,
-                    lane_int_ty.const_int(std::u64::MAX, true),
+                    lane_int_ty.const_int(u64::MAX, true),
                     "",
                 ));
                 let res = err!(self
@@ -11995,34 +11992,34 @@ fn is_f64_arithmetic(bits: u64) -> bool {
 // rounding towards zero.
 
 /// Least Exact Float (32 bits) greater-than-or-equal-to i32::MIN when rounding towards zero.
-const LEF32_GEQ_I32_MIN: u64 = std::i32::MIN as u64;
+const LEF32_GEQ_I32_MIN: u64 = i32::MIN as u64;
 /// Greatest Exact Float (32 bits) less-than-or-equal-to i32::MAX when rounding towards zero.
 const GEF32_LEQ_I32_MAX: u64 = 2147483520; // bits as f32: 0x4eff_ffff
 /// Least Exact Float (64 bits) greater-than-or-equal-to i32::MIN when rounding towards zero.
-const LEF64_GEQ_I32_MIN: u64 = std::i32::MIN as u64;
+const LEF64_GEQ_I32_MIN: u64 = i32::MIN as u64;
 /// Greatest Exact Float (64 bits) less-than-or-equal-to i32::MAX when rounding towards zero.
-const GEF64_LEQ_I32_MAX: u64 = std::i32::MAX as u64;
+const GEF64_LEQ_I32_MAX: u64 = i32::MAX as u64;
 /// Least Exact Float (32 bits) greater-than-or-equal-to u32::MIN when rounding towards zero.
-const LEF32_GEQ_U32_MIN: u64 = std::u32::MIN as u64;
+const LEF32_GEQ_U32_MIN: u64 = u32::MIN as u64;
 /// Greatest Exact Float (32 bits) less-than-or-equal-to u32::MAX when rounding towards zero.
 const GEF32_LEQ_U32_MAX: u64 = 4294967040; // bits as f32: 0x4f7f_ffff
 /// Least Exact Float (64 bits) greater-than-or-equal-to u32::MIN when rounding towards zero.
-const LEF64_GEQ_U32_MIN: u64 = std::u32::MIN as u64;
+const LEF64_GEQ_U32_MIN: u64 = u32::MIN as u64;
 /// Greatest Exact Float (64 bits) less-than-or-equal-to u32::MAX when rounding towards zero.
 const GEF64_LEQ_U32_MAX: u64 = 4294967295; // bits as f64: 0x41ef_ffff_ffff_ffff
 /// Least Exact Float (32 bits) greater-than-or-equal-to i64::MIN when rounding towards zero.
-const LEF32_GEQ_I64_MIN: u64 = std::i64::MIN as u64;
+const LEF32_GEQ_I64_MIN: u64 = i64::MIN as u64;
 /// Greatest Exact Float (32 bits) less-than-or-equal-to i64::MAX when rounding towards zero.
 const GEF32_LEQ_I64_MAX: u64 = 9223371487098961920; // bits as f32: 0x5eff_ffff
 /// Least Exact Float (64 bits) greater-than-or-equal-to i64::MIN when rounding towards zero.
-const LEF64_GEQ_I64_MIN: u64 = std::i64::MIN as u64;
+const LEF64_GEQ_I64_MIN: u64 = i64::MIN as u64;
 /// Greatest Exact Float (64 bits) less-than-or-equal-to i64::MAX when rounding towards zero.
 const GEF64_LEQ_I64_MAX: u64 = 9223372036854774784; // bits as f64: 0x43df_ffff_ffff_ffff
 /// Least Exact Float (32 bits) greater-than-or-equal-to u64::MIN when rounding towards zero.
-const LEF32_GEQ_U64_MIN: u64 = std::u64::MIN;
+const LEF32_GEQ_U64_MIN: u64 = u64::MIN;
 /// Greatest Exact Float (32 bits) less-than-or-equal-to u64::MAX when rounding towards zero.
 const GEF32_LEQ_U64_MAX: u64 = 18446742974197923840; // bits as f32: 0x5f7f_ffff
 /// Least Exact Float (64 bits) greater-than-or-equal-to u64::MIN when rounding towards zero.
-const LEF64_GEQ_U64_MIN: u64 = std::u64::MIN;
+const LEF64_GEQ_U64_MIN: u64 = u64::MIN;
 /// Greatest Exact Float (64 bits) less-than-or-equal-to u64::MAX when rounding towards zero.
 const GEF64_LEQ_U64_MAX: u64 = 18446744073709549568; // bits as f64: 0x43ef_ffff_ffff_ffff

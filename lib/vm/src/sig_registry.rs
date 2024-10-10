@@ -49,7 +49,7 @@ impl SignatureRegistry {
                 // is reserved for VMSharedSignatureIndex::default().
                 debug_assert_lt!(
                     len,
-                    std::u32::MAX as usize,
+                    u32::MAX as usize,
                     "Invariant check: signature_hash.len() < std::u32::MAX"
                 );
                 let sig_id = VMSharedSignatureIndex::new(u32::try_from(len).unwrap());

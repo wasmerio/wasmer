@@ -121,6 +121,7 @@ pub struct AppIdentOpts {
 #[allow(clippy::large_enum_variant)]
 pub enum ResolvedAppIdent {
     Ident(AppIdent),
+    #[allow(dead_code)]
     Config {
         ident: AppIdent,
         config: AppConfigV1,

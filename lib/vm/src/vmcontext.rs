@@ -15,7 +15,6 @@ use crate::{VMBuiltinFunctionIndex, VMFunction};
 use std::convert::TryFrom;
 use std::ptr::{self, NonNull};
 use std::sync::atomic::{AtomicPtr, Ordering};
-use std::u32;
 use wasmer_types::RawValue;
 
 /// Union representing the first parameter passed when calling a function.

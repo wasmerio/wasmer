@@ -40,12 +40,19 @@ impl Eq for ModuleHandle {}
 
 impl ModuleHandle {
     fn new(engine: &impl AsEngineRef, binary: &[u8]) -> Result<Self, CompileError> {
+        #[cfg(feature = "wamr")]
         let bytes = wasm_byte_vec_t {
             size: binary.len(),
             data: binary.as_ptr() as _,
             num_elems: binary.len(),
             size_of_elem: 1,
             lock: std::ptr::null_mut(),
+        };
+
+        #[cfg(feature = "wasmi")]
+        let bytes = wasm_byte_vec_t {
+            size: binary.len(),
+            data: binary.as_ptr() as _,
         };
 
         let store = crate::store::Store::new(engine.as_engine_ref().engine().clone());

@@ -48,6 +48,7 @@ static CACHE_RUST_LOG: Lazy<String> = Lazy::new(|| {
 });
 
 #[test]
+#[cfg_attr(feature = "wasmi", ignore = "wasmi currently does not support threads")]
 fn list_cwd() {
     let package = packages().join("list-cwd");
 
@@ -58,6 +59,7 @@ fn list_cwd() {
         .unwrap();
 
     let stdout = output.stdout;
+    eprintln!("{}", String::from_utf8(output.stderr).unwrap());
 
     let expected = ".
 ..
@@ -71,6 +73,7 @@ wasmer.toml
 }
 
 #[test]
+#[cfg_attr(feature = "wasmi", ignore = "wasmi currently does not support threads")]
 fn nested_mounted_paths() {
     let package = packages().join("nested-mounted-paths");
 
@@ -82,6 +85,7 @@ fn nested_mounted_paths() {
         .output()
         .unwrap();
     let host_stdout = host_output.stdout;
+    println!("{}", String::from_utf8(host_output.stderr).unwrap());
 
     let webc_output = Command::new(get_wasmer_path())
         .arg("run")
@@ -89,7 +93,9 @@ fn nested_mounted_paths() {
         .arg(".")
         .output()
         .unwrap();
+
     let webc_stdout = webc_output.stdout;
+    println!("{}", String::from_utf8(webc_output.stderr).unwrap());
 
     let expected = "/:
 .
@@ -302,6 +308,7 @@ fn test_wasmer_run_works_with_dir() {
 
 // FIXME: Re-enable. See https://github.com/wasmerio/wasmer/issues/3717
 #[test]
+#[cfg_attr(feature = "wasmi", ignore = "wasmi currently does not support threads")]
 fn test_wasmer_run_works() {
     let assert = Command::new(get_wasmer_path())
         .arg("https://wasmer.io/python/python@0.2.0")
@@ -813,6 +820,7 @@ fn wcgi_runner_on_disk_with_mounted_directories() {
     all(target_env = "musl", target_os = "linux"),
     ignore = "wasmer run-unstable segfaults on musl"
 )]
+#[cfg_attr(feature = "wasmi", ignore = "wasmi currently does not support threads")]
 fn issue_3794_unable_to_mount_relative_paths() {
     let temp = TempDir::new().unwrap();
     std::fs::write(temp.path().join("message.txt"), b"Hello, World!").unwrap();
@@ -1016,6 +1024,7 @@ fn run_quickjs_via_url() {
     feature = "wamr",
     ignore = "FIXME(xdoardo): Bash is currently not working in wamr"
 )]
+#[cfg_attr(feature = "wasmi", ignore = "wasmi currently does not support threads")]
 fn run_bash_using_coreutils() {
     let assert = Command::new(get_wasmer_path())
         .arg("run")
@@ -1063,6 +1072,7 @@ fn run_a_package_that_uses_an_atom_from_a_dependency() {
 }
 
 #[test]
+#[cfg_attr(feature = "wasmi", ignore = "wasmi currently does not support threads")]
 fn local_package_has_write_access_to_its_volumes() {
     let temp = tempfile::tempdir().unwrap();
 

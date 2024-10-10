@@ -238,7 +238,9 @@ impl LLVM {
                     6,
                 );
 
-                std::mem::transmute(my_target_machine)
+                std::mem::transmute::<MyTargetMachine, inkwell::targets::TargetMachine>(
+                    my_target_machine,
+                )
             }
         } else {
             llvm_target_machine

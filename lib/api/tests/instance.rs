@@ -50,8 +50,8 @@ fn exports_work_after_multiple_instances_have_been_freed() -> Result<(), String>
 
 #[universal_test]
 #[cfg_attr(
-    feature = "wasm-c-api",
-    ignore = "wasm-c-api does not support function calls without an instance"
+    feature = "wamr",
+    ignore = "wamr does not support function calls without an instance"
 )]
 fn unit_native_function_env() -> Result<(), String> {
     let mut store = Store::default();

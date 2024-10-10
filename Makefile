@@ -390,6 +390,9 @@ build-wasmer:
 build-wasmer-wamr:
 	$(CARGO_BINARY) build $(CARGO_TARGET_FLAG) --release --manifest-path lib/cli/Cargo.toml --no-default-features --features="wamr" --bin wasmer --locked
 
+build-wasmer-wasmi:
+	$(CARGO_BINARY) build $(CARGO_TARGET_FLAG) --release --manifest-path lib/cli/Cargo.toml --no-default-features --features="wasmi" --bin wasmer --locked
+
 build-wasmer-jsc:
 	$(CARGO_BINARY) build $(CARGO_TARGET_FLAG) --release --manifest-path lib/cli/Cargo.toml --no-default-features --features="jsc,wat" --bin wasmer --locked
 
@@ -570,6 +573,17 @@ test-packages: test-stage-1-test-all test-stage-2-test-compiler-cranelift-nostd 
 
 test-examples: test-stage-5-test-examples test-stage-6-test-examples-release
 
+
+test-wamr: test-wamr-api
+
+test-wamr-api:
+	cargo nextest run --package=wasmer --release --features=wamr --no-default-features
+
+test-wasmi: test-wasmi-api
+
+test-wasmi-api:
+	cargo nextest run --package=wasmer --release --features=wasmi --no-default-features
+
 test-js: test-js-api test-js-wasi
 
 # TODO: disabled because the no-std / core feature doesn't actually work at the moment.
@@ -651,6 +665,10 @@ test-integration-cli-ci: require-nextest
 	$(CARGO_BINARY) nextest run $(CARGO_TARGET_FLAG) --features webc_runner -p wasmer-integration-tests-cli --locked
 
 test-integration-cli-wamr-ci: require-nextest build-wasmer-wamr
+	rustup target add wasm32-wasi
+	$(CARGO_BINARY) nextest run $(CARGO_TARGET_FLAG) --features webc_runner,wamr -p wasmer-integration-tests-cli --locked --no-fail-fast -E "not (test(deploy) | test(snapshot) | test(login) | test(init) | test(gen_c_header) | test(up_to_date) | test(publish) | test(create) | test(whoami) | test(config) | test(c_flags))"
+
+test-integration-cli-wasmi-ci: require-nextest build-wasmer-wasmi
 	rustup target add wasm32-wasi
 	$(CARGO_BINARY) nextest run $(CARGO_TARGET_FLAG) --features webc_runner,wamr -p wasmer-integration-tests-cli --locked --no-fail-fast -E "not (test(deploy) | test(snapshot) | test(login) | test(init) | test(gen_c_header) | test(up_to_date) | test(publish) | test(create) | test(whoami) | test(config) | test(c_flags))"
 

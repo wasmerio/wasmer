@@ -10,9 +10,8 @@ use wasmer_types::CompileError;
 use crate::bindings::{
     wasm_extern_t, wasm_extern_vec_new, wasm_extern_vec_new_empty,
     wasm_extern_vec_new_uninitialized, wasm_extern_vec_t, wasm_instance_delete,
-    wasm_instance_exports, wasm_instance_new, wasm_instance_new_with_args, wasm_instance_t,
-    wasm_module_imports, wasm_module_t, wasm_runtime_init_thread_env, wasm_runtime_instantiate,
-    wasm_runtime_thread_env_inited, wasm_store_t, wasm_trap_t,
+    wasm_instance_exports, wasm_instance_new, wasm_instance_t, wasm_module_imports, wasm_module_t,
+    wasm_store_t, wasm_trap_t,
 };
 use crate::c_api::vm::VMInstance;
 use crate::errors::InstantiationError;
@@ -37,11 +36,14 @@ impl InstanceHandle {
         module: *mut wasm_module_t,
         mut externs: Vec<VMExtern>,
     ) -> Result<Self, InstantiationError> {
-        // Check if the thread env was already initialised.
-        unsafe {
-            if !wasm_runtime_thread_env_inited() {
-                if !wasm_runtime_init_thread_env() {
-                    panic!("Failed to initialize the thread environment!");
+        #[cfg(feature = "wamr")]
+        {
+            // Check if the thread env was already initialised.
+            unsafe {
+                if !crate::bindings::wasm_runtime_thread_env_inited() {
+                    if !crate::bindings::wasm_runtime_init_thread_env() {
+                        panic!("Failed to initialize the thread environment!");
+                    }
                 }
             }
         }
@@ -57,17 +59,24 @@ impl InstanceHandle {
         let mut trap: *mut wasm_trap_t = std::ptr::null_mut() as _;
 
         let instance = unsafe {
-            let stack_size = 2 * 1024 * 1024;
-            let heap_size = 2 * 1024 * 1024;
+            #[cfg(feature = "wamr")]
+            {
+                let stack_size = 2 * 1024 * 1024;
+                let heap_size = 2 * 1024 * 1024;
 
-            wasm_instance_new_with_args(
-                store,
-                module,
-                &mut imports,
-                &mut trap,
-                stack_size,
-                heap_size,
-            )
+                crate::bindings::wasm_instance_new_with_args(
+                    store,
+                    module,
+                    &mut imports,
+                    &mut trap,
+                    stack_size,
+                    heap_size,
+                )
+            }
+            #[cfg(feature = "wasmi")]
+            {
+                wasm_instance_new(store, module, &mut imports, &mut trap)
+            }
         };
 
         if instance.is_null() {
@@ -117,7 +126,7 @@ pub struct Instance {
 
 impl Instance {
     pub(crate) fn new(
-        _store: &mut impl AsStoreMut,
+        store: &mut impl AsStoreMut,
         module: &Module,
         imports: &Imports,
     ) -> Result<(Self, Exports), InstantiationError> {
@@ -130,11 +139,19 @@ impl Instance {
             })
             .collect::<Vec<_>>();
 
-        // Hacky: we need to tie a *module* to a store before instantiating it..
-        let mut store_from_module = module.0.handle.store.lock().unwrap();
-        let mut store = store_from_module.as_store_mut();
+        #[cfg(feature = "wamr")]
+        {
+            _ = store;
+            // Hacky: we need to tie a *module* to a store before instantiating it..
+            let mut store_from_module = module.0.handle.store.lock().unwrap();
+            let mut store = store_from_module.as_store_mut();
 
-        Self::new_by_index(&mut store, module, &externs)
+            return Self::new_by_index(&mut store, module, &externs);
+        }
+        #[cfg(feature = "wasmi")]
+        {
+            return Self::new_by_index(&mut store.as_store_mut(), module, &externs);
+        }
     }
 
     pub(crate) fn new_by_index(

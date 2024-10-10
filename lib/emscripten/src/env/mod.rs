@@ -113,7 +113,7 @@ pub fn ___build_environment(mut ctx: FunctionEnvMut<EmEnv>, environ: c_int) {
     unsafe {
         for (i, s) in strings.iter().enumerate() {
             for (j, c) in s.chars().enumerate() {
-                debug_assert!(c < u8::max_value() as char);
+                debug_assert!(c < u8::MAX as char);
                 *pool_ptr.add(j) = c as u8;
             }
             *env_ptr.add(i * 4) = pool_offset as i32;

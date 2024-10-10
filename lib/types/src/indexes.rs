@@ -1,6 +1,5 @@
 //! Helper functions and structures for the translation.
 use crate::entity::entity_impl;
-use core::u32;
 use rkyv::{Archive, Deserialize as RkyvDeserialize, Serialize as RkyvSerialize};
 #[cfg(feature = "enable-serde")]
 use serde::{Deserialize, Serialize};

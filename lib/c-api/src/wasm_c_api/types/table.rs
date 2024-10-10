@@ -6,7 +6,7 @@ use wasmer_api::{ExternType, TableType};
 #[allow(non_camel_case_types)]
 pub type wasm_table_size_t = u32;
 
-const LIMITS_MAX_SENTINEL: u32 = u32::max_value();
+const LIMITS_MAX_SENTINEL: u32 = u32::MAX;
 
 #[derive(Debug, Clone)]
 pub(crate) struct WasmTableType {

@@ -37,7 +37,7 @@ pub mod lib {
     #[cfg(feature = "core")]
     pub mod std {
         pub use alloc::{borrow, boxed, format, iter, rc, slice, string, vec};
-        pub use core::{any, cell, cmp, convert, fmt, hash, marker, mem, ops, ptr, sync, u32};
+        pub use core::{any, cell, cmp, convert, fmt, hash, marker, mem, ops, ptr, sync};
     }
 
     /// Custom `std` module.
@@ -45,7 +45,7 @@ pub mod lib {
     pub mod std {
         pub use std::{
             any, borrow, boxed, cell, cmp, convert, fmt, format, hash, iter, marker, mem, ops, ptr,
-            rc, slice, string, sync, u32, vec,
+            rc, slice, string, sync, vec,
         };
     }
 }
