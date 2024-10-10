@@ -32,7 +32,6 @@ default = [
 	"sys",
 	"wat",
 	"wast",
-	"compiler",
 	"journal",
 	"wasmer-artifact-create",
 	"static-artifact-create",
@@ -52,6 +51,7 @@ fuse = ["dep:fuse", "dep:time01", "dep:shared-buffer", "dep:rkyv"]
 backend = []
 coredump = ["wasm-coredump-builder"]
 sys = ["compiler", "wasmer-vm"]
+wamr = ["backend", "wasmer/wamr"]
 jsc = ["backend", "wasmer/jsc", "wasmer/std"]
 wast = ["wasmer-wast"]
 host-net = ["virtual-net/host-net"]

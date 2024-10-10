@@ -1,3 +1,5 @@
+#[cfg(feature = "wasm-c-api")]
+use crate::c_api::trap::Trap;
 #[cfg(feature = "js")]
 use crate::js::trap::Trap;
 #[cfg(feature = "jsc")]

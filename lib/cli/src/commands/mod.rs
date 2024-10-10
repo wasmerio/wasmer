@@ -494,5 +494,9 @@ fn print_version(verbose: bool) -> Result<(), anyhow::Error> {
     }
     println!("compiler: {}", compilers.join(","));
 
+    if cfg!(feature = "wamr") {
+        println!("interpreter: wamr");
+    }
+
     Ok(())
 }

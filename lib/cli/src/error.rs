@@ -1,9 +1,9 @@
 //! Implements `PretyError` to print pretty errors in the CLI (when they happen)
 
-use std::fmt::{self, Debug, Write};
-
 use anyhow::{Chain, Error};
 use colored::*;
+use std::fmt::{self, Debug, Write};
+#[cfg(not(any(feature = "jsc", feature = "wasm-c-api")))]
 use wasmer::RuntimeError;
 
 /// A `PrettyError` for printing `anyhow::Error` nicely.
@@ -27,7 +27,7 @@ macro_rules! warning {
     })
 }
 
-#[cfg(not(feature = "jsc"))]
+#[cfg(not(any(feature = "jsc", feature = "wasm-c-api")))]
 impl PrettyError {
     /// Process a `Result` printing any errors and exiting
     /// the process after
@@ -53,7 +53,7 @@ impl PrettyError {
     }
 }
 
-#[cfg(feature = "jsc")]
+#[cfg(any(feature = "jsc", feature = "wasm-c-api"))]
 impl PrettyError {
     /// Process a `Result` printing any errors and exiting
     /// the process after

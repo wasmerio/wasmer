@@ -5,6 +5,8 @@ use std::mem::MaybeUninit;
 use std::ops::Range;
 use wasmer_types::Pages;
 
+#[cfg(feature = "wasm-c-api")]
+use crate::c_api::externals::memory_view as memory_view_impl;
 #[cfg(feature = "js")]
 use crate::js::externals::memory_view as memory_view_impl;
 #[cfg(feature = "jsc")]

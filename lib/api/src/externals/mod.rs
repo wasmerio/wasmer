@@ -14,14 +14,21 @@ use crate::exports::{ExportError, Exportable};
 use crate::ExternType;
 use std::fmt;
 
+#[cfg(feature = "wasm-c-api")]
+use crate::c_api::vm::VMExtern;
 #[cfg(feature = "js")]
 use crate::js::vm::VMExtern;
 #[cfg(feature = "jsc")]
 use crate::jsc::vm::VMExtern;
 #[cfg(feature = "sys")]
-use wasmer_vm::VMExtern;
+use crate::sys::vm::VMExtern;
 
 use crate::store::{AsStoreMut, AsStoreRef};
+
+/// Trait convert a VMExtern to a Extern
+pub trait VMExternToExtern {
+    fn to_extern(self, store: &mut impl AsStoreMut) -> Extern;
+}
 
 /// An `Extern` is the runtime representation of an entity that
 /// can be imported or exported.
@@ -52,12 +59,7 @@ impl Extern {
 
     /// Create an `Extern` from an `wasmer_engine::Export`.
     pub fn from_vm_extern(store: &mut impl AsStoreMut, vm_extern: VMExtern) -> Self {
-        match vm_extern {
-            VMExtern::Function(f) => Self::Function(Function::from_vm_extern(store, f)),
-            VMExtern::Memory(m) => Self::Memory(Memory::from_vm_extern(store, m)),
-            VMExtern::Global(g) => Self::Global(Global::from_vm_extern(store, g)),
-            VMExtern::Table(t) => Self::Table(Table::from_vm_extern(store, t)),
-        }
+        vm_extern.to_extern(store)
     }
 
     /// Checks whether this `Extern` can be used with the given context.

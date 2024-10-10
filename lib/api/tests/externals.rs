@@ -29,6 +29,10 @@ fn global_new() -> Result<(), String> {
 }
 
 #[universal_test]
+#[cfg_attr(
+    feature = "wasm-c-api",
+    ignore = "wamr does not support globals unattached to instances"
+)]
 fn global_get() -> Result<(), String> {
     let mut store = Store::default();
 
@@ -56,6 +60,10 @@ fn global_get() -> Result<(), String> {
 }
 
 #[universal_test]
+#[cfg_attr(
+    feature = "wasm-c-api",
+    ignore = "wamr does not support globals unattached to instances"
+)]
 fn global_set() -> Result<(), String> {
     let mut store = Store::default();
     let global_i32 = Global::new(&mut store, Value::I32(10));
@@ -241,7 +249,7 @@ fn table_copy() -> Result<(), String> {
 fn memory_new() -> Result<(), String> {
     let mut store = Store::default();
     let memory_type = MemoryType {
-        shared: false,
+        shared: if cfg!(feature = "wamr") { true } else { false },
         minimum: Pages(0),
         maximum: Some(Pages(10)),
     };
@@ -252,6 +260,10 @@ fn memory_new() -> Result<(), String> {
 }
 
 #[universal_test]
+#[cfg_attr(
+    feature = "wasm-c-api",
+    ignore = "wamr does not support direct calls to grow memory"
+)]
 fn memory_grow() -> Result<(), String> {
     let mut store = Store::default();
     let desc = MemoryType::new(Pages(10), Some(Pages(16)), false);

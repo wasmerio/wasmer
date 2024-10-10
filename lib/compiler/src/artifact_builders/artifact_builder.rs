@@ -22,11 +22,16 @@ use wasmer_types::ArchivedSerializableCompilation;
 use wasmer_types::ArchivedSerializableModule;
 use wasmer_types::CompileModuleInfo;
 use wasmer_types::DeserializeError;
+
+// Not every compiler backend uses these.
+#[allow(unused)]
 use wasmer_types::{
     CompileError, CpuFeature, CustomSection, Dwarf, FunctionIndex, LocalFunctionIndex, MemoryIndex,
     MemoryStyle, ModuleHash, ModuleInfo, OwnedDataInitializer, Relocation, SectionIndex,
     SignatureIndex, TableIndex, TableStyle, Target,
 };
+
+#[allow(unused)]
 use wasmer_types::{
     CompiledFunctionFrameInfo, FunctionBody, HashAlgorithm, SerializableCompilation,
     SerializableModule,
@@ -297,6 +302,7 @@ pub struct ArtifactBuildFromArchive {
 }
 
 impl ArtifactBuildFromArchive {
+    #[allow(unused)]
     pub(crate) fn try_new(
         buffer: OwnedBuffer,
         module_builder: impl FnOnce(

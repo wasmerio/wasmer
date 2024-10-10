@@ -1,0 +1,28 @@
+[package]
+name = "wasmer-swift"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[lib]
+crate-type = ["staticlib", "lib"]
+name = "wasmer_swift"
+
+[dependencies]
+thiserror = "1"
+tokio = { version = "1.28.1", features = [ "rt" ], default_features = false }
+uniffi = "0.27"
+virtual-fs = { path = "../virtual-fs", version = "0.16.0", default-features = false, features = [
+	"webc-fs",
+] }
+wasmer = { version = "4.3.1", path = "../api", default-features = false, features = [
+	"wamr",
+	"std",
+] }
+wasmer-wasix.workspace = true
+webc.workspace = true
+
+
+[build-dependencies]
+uniffi = { version = "0.27", features = ["build"] }
