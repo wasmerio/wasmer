@@ -45,7 +45,7 @@ pub mod lib {
     pub mod std {
         pub use std::{
             any, borrow, boxed, cell, cmp, convert, fmt, format, hash, iter, marker, mem, ops, ptr,
-            rc, slice, string, sync, u32, vec,
+            rc, slice, string, sync, vec,
         };
     }
 }
