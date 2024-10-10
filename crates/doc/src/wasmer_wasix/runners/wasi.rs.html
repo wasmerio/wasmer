@@ -545,6 +545,9 @@
 <a href="#545" id="545">545</a>
 <a href="#546" id="546">546</a>
 <a href="#547" id="547">547</a>
+<a href="#548" id="548">548</a>
+<a href="#549" id="549">549</a>
+<a href="#550" id="550">550</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! WebC container support for running WASI modules
 
 </span><span class="kw">use </span>std::{path::PathBuf, sync::Arc};
@@ -810,6 +813,9 @@
 
         <span class="kw">if </span><span class="self">self</span>.wasi.is_home_mapped {
             builder.set_current_dir(MAPPED_CURRENT_DIR_DEFAULT_PATH);
+        }
+        <span class="kw">if let </span><span class="prelude-val">Some</span>(current_dir) = <span class="kw-2">&amp;</span><span class="self">self</span>.wasi.current_dir {
+            builder.set_current_dir(current_dir.clone());
         }
 
         <span class="prelude-val">Ok</span>(builder)

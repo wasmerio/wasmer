@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["get_proxy"],"struct":["ReqwestHttpClient"]};
+window.SIDEBAR_ITEMS = {"struct":["ReqwestHttpClient"]};
