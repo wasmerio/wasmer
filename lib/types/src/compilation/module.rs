@@ -1,3 +1,9 @@
+/*
+ * ! Remove me once rkyv generates doc-comments for fields or generates an #[allow(missing_docs)]
+ * on their own.
+ */
+#![allow(missing_docs)]
+
 //! Types for modules.
 use crate::entity::PrimaryMap;
 use crate::{Features, MemoryIndex, MemoryStyle, ModuleInfo, TableIndex, TableStyle};
@@ -13,7 +19,7 @@ use std::sync::Arc;
 /// or the `MemoryStyle` and `TableStyle`).
 #[cfg_attr(feature = "enable-serde", derive(Deserialize, Serialize))]
 #[derive(Debug, Clone, PartialEq, Eq, RkyvSerialize, RkyvDeserialize, Archive)]
-#[archive_attr(derive(rkyv::CheckBytes, Debug))]
+#[rkyv(derive(Debug))]
 pub struct CompileModuleInfo {
     /// The features used for compiling the module
     pub features: Features,

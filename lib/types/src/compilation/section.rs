@@ -1,3 +1,9 @@
+/*
+ * ! Remove me once rkyv generates doc-comments for fields or generates an #[allow(missing_docs)]
+ * on their own.
+ */
+#![allow(missing_docs)]
+
 //! This module define the required structures to emit custom
 //! Sections in a `Compilation`.
 //!
@@ -17,7 +23,6 @@ use serde::{Deserialize, Serialize};
     RkyvSerialize,
     RkyvDeserialize,
     Archive,
-    rkyv::CheckBytes,
     Copy,
     Clone,
     PartialEq,
@@ -29,7 +34,7 @@ use serde::{Deserialize, Serialize};
     Default,
 )]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
-#[archive(as = "Self")]
+#[rkyv(derive(Debug), compare(PartialEq, PartialOrd))]
 pub struct SectionIndex(u32);
 
 entity_impl!(SectionIndex);
@@ -38,10 +43,8 @@ entity_impl!(SectionIndex);
 ///
 /// Determines how a custom section may be used.
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
-#[derive(
-    RkyvSerialize, RkyvDeserialize, Archive, rkyv::CheckBytes, Debug, Clone, PartialEq, Eq,
-)]
-#[archive(as = "Self")]
+#[derive(RkyvSerialize, RkyvDeserialize, Archive, Debug, Clone, PartialEq, Eq)]
+#[rkyv(derive(Debug), compare(PartialEq, PartialOrd))]
 #[repr(u8)]
 pub enum CustomSectionProtection {
     /// A custom section with read permission.
@@ -57,7 +60,7 @@ pub enum CustomSectionProtection {
 /// in the emitted module.
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 #[derive(RkyvSerialize, RkyvDeserialize, Archive, Debug, Clone, PartialEq, Eq)]
-#[archive_attr(derive(rkyv::CheckBytes, Debug))]
+#[rkyv(derive(Debug), compare(PartialEq))]
 pub struct CustomSection {
     /// Memory protection that applies to this section.
     pub protection: CustomSectionProtection,
@@ -79,7 +82,7 @@ pub struct CustomSection {
 pub trait CustomSectionLike<'a> {
     type Relocations: RelocationLike;
 
-    fn protection(&self) -> &CustomSectionProtection;
+    fn protection(&self) -> CustomSectionProtection;
     fn bytes(&self) -> &[u8];
     fn relocations(&'a self) -> &[Self::Relocations];
 }
@@ -87,8 +90,8 @@ pub trait CustomSectionLike<'a> {
 impl<'a> CustomSectionLike<'a> for CustomSection {
     type Relocations = Relocation;
 
-    fn protection(&self) -> &CustomSectionProtection {
-        &self.protection
+    fn protection(&self) -> CustomSectionProtection {
+        self.protection.clone()
     }
 
     fn bytes(&self) -> &[u8] {
@@ -103,8 +106,9 @@ impl<'a> CustomSectionLike<'a> for CustomSection {
 impl<'a> CustomSectionLike<'a> for ArchivedCustomSection {
     type Relocations = ArchivedRelocation;
 
-    fn protection(&self) -> &CustomSectionProtection {
-        &self.protection
+    fn protection(&self) -> CustomSectionProtection {
+        let protection = rkyv::deserialize::<CustomSectionProtection, ()>(&self.protection);
+        protection.unwrap()
     }
 
     fn bytes(&self) -> &[u8] {
@@ -119,7 +123,7 @@ impl<'a> CustomSectionLike<'a> for ArchivedCustomSection {
 /// The bytes in the section.
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 #[derive(RkyvSerialize, RkyvDeserialize, Archive, Debug, Clone, PartialEq, Eq, Default)]
-#[archive_attr(derive(rkyv::CheckBytes, Debug))]
+#[rkyv(derive(Debug), compare(PartialEq, PartialOrd))]
 pub struct SectionBody(#[cfg_attr(feature = "enable-serde", serde(with = "serde_bytes"))] Vec<u8>);
 
 impl SectionBody {

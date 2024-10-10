@@ -1,14 +1,16 @@
+/*
+ * ! Remove me once rkyv generates doc-comments for fields or generates an #[allow(missing_docs)]
+ * on their own.
+ */
+#![allow(missing_docs)]
+
 //! This module define the required structures for compilation symbols.
 use crate::{
     entity::{EntityRef, PrimaryMap},
     CompileModuleInfo, DeserializeError, FunctionIndex, LocalFunctionIndex, OwnedDataInitializer,
     SectionIndex, SerializeError, SignatureIndex,
 };
-use rkyv::{
-    archived_value, check_archived_value, de::deserializers::SharedDeserializeMap,
-    ser::serializers::AllocSerializer, ser::Serializer as RkyvSerializer, Archive,
-    Deserialize as RkyvDeserialize, Serialize as RkyvSerialize,
-};
+use rkyv::{Archive, Deserialize as RkyvDeserialize, Serialize as RkyvSerialize};
 #[cfg(feature = "enable-serde")]
 use serde::{Deserialize, Serialize};
 
@@ -17,7 +19,7 @@ use serde::{Deserialize, Serialize};
     RkyvSerialize, RkyvDeserialize, Archive, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Debug,
 )]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
-#[archive(as = "Self")]
+#[rkyv(derive(Debug), compare(PartialEq, PartialOrd))]
 pub enum Symbol {
     /// A metadata section, indexed by a unique prefix
     /// (usually the wasm file SHA256 hash)
@@ -50,7 +52,7 @@ pub trait SymbolRegistry: Send + Sync {
 /// Serializable struct that represents the compiled metadata.
 #[derive(Debug, RkyvSerialize, RkyvDeserialize, Archive)]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
-#[archive_attr(derive(rkyv::CheckBytes, Debug))]
+#[rkyv(derive(Debug))]
 pub struct ModuleMetadata {
     /// Compile info
     pub compile_info: CompileModuleInfo,
@@ -90,13 +92,9 @@ impl ModuleMetadata {
     /// The bytes will have the following format:
     /// RKYV serialization (any length) + POS (8 bytes)
     pub fn serialize(&self) -> Result<Vec<u8>, SerializeError> {
-        let mut serializer = AllocSerializer::<4096>::default();
-        let pos = serializer
-            .serialize_value(self)
-            .map_err(|err| SerializeError::Generic(format!("{}", err)))? as u64;
-        let mut serialized_data = serializer.into_serializer().into_inner();
-        serialized_data.extend_from_slice(&pos.to_le_bytes());
-        Ok(serialized_data.to_vec())
+        rkyv::to_bytes::<rkyv::rancor::Error>(self)
+            .map(|v| v.into_vec())
+            .map_err(|e| SerializeError::Generic(e.to_string()))
     }
 
     /// Deserialize a Module from a slice.
@@ -130,18 +128,7 @@ impl ModuleMetadata {
     unsafe fn archive_from_slice(
         metadata_slice: &[u8],
     ) -> Result<&ArchivedModuleMetadata, DeserializeError> {
-        if metadata_slice.len() < 8 {
-            return Err(DeserializeError::Incompatible(
-                "invalid serialized ModuleMetadata".into(),
-            ));
-        }
-        let mut pos: [u8; 8] = Default::default();
-        pos.copy_from_slice(&metadata_slice[metadata_slice.len() - 8..metadata_slice.len()]);
-        let pos: u64 = u64::from_le_bytes(pos);
-        Ok(archived_value::<Self>(
-            &metadata_slice[..metadata_slice.len() - 8],
-            pos as usize,
-        ))
+        Ok(rkyv::access_unchecked(metadata_slice))
     }
 
     /// # Safety
@@ -151,15 +138,7 @@ impl ModuleMetadata {
     fn archive_from_slice_checked(
         metadata_slice: &[u8],
     ) -> Result<&ArchivedModuleMetadata, DeserializeError> {
-        if metadata_slice.len() < 8 {
-            return Err(DeserializeError::Incompatible(
-                "invalid serialized ModuleMetadata".into(),
-            ));
-        }
-        let mut pos: [u8; 8] = Default::default();
-        pos.copy_from_slice(&metadata_slice[metadata_slice.len() - 8..metadata_slice.len()]);
-        let pos: u64 = u64::from_le_bytes(pos);
-        check_archived_value::<Self>(&metadata_slice[..metadata_slice.len() - 8], pos as usize)
+        rkyv::access::<_, rkyv::rancor::Error>(metadata_slice)
             .map_err(|e| DeserializeError::CorruptedBinary(e.to_string()))
     }
 
@@ -167,8 +146,7 @@ impl ModuleMetadata {
     pub fn deserialize_from_archive(
         archived: &ArchivedModuleMetadata,
     ) -> Result<Self, DeserializeError> {
-        let mut deserializer = SharedDeserializeMap::new();
-        RkyvDeserialize::deserialize(archived, &mut deserializer)
+        rkyv::deserialize::<_, rkyv::rancor::Error>(archived)
             .map_err(|e| DeserializeError::CorruptedBinary(format!("{:?}", e)))
     }
 }

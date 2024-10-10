@@ -1,6 +1,6 @@
 use std::fmt::{self, Display, Formatter};
 
-use rkyv::{Archive, CheckBytes, Deserialize as RkyvDeserialize, Serialize as RkyvSerialize};
+use rkyv::{Archive, Deserialize as RkyvDeserialize, Serialize as RkyvSerialize};
 #[cfg(feature = "enable-serde")]
 use serde::{Deserialize, Serialize};
 use sha2::Digest;
@@ -28,7 +28,7 @@ pub enum HashAlgorithm {
     RkyvDeserialize,
     Archive,
 )]
-#[archive_attr(derive(CheckBytes, Debug))]
+#[rkyv(derive(Debug))]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 pub enum ModuleHash {
     /// xxhash
