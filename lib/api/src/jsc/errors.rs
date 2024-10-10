@@ -21,10 +21,3 @@ impl From<RuntimeError> for JSValue {
         unimplemented!();
     }
 }
-
-pub(crate) fn raise(error: Box<dyn std::error::Error + Send + Sync>) -> ! {
-    unimplemented!()
-    // let error = Trap::user(error);
-    // let js_error: JsValue = error.into();
-    // wasm_bindgen::throw_val(js_error)
-}

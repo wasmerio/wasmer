@@ -331,11 +331,7 @@ impl Runtime for PluggableRuntime {
     }
 
     fn engine(&self) -> wasmer::Engine {
-        if let Some(engine) = self.engine.clone() {
-            engine
-        } else {
-            wasmer::Engine::default()
-        }
+        self.engine.clone().unwrap_or_default()
     }
 
     fn new_store(&self) -> wasmer::Store {

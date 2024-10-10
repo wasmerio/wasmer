@@ -1,3 +1,5 @@
+#[cfg(feature = "wasm-c-api")]
+use crate::c_api::externals::table as table_impl;
 #[cfg(feature = "js")]
 use crate::js::externals::table as table_impl;
 #[cfg(feature = "jsc")]
@@ -127,6 +129,10 @@ impl<'a> Exportable<'a> for Table {
 
 /// Check the example from <https://github.com/wasmerio/wasmer/issues/3197>.
 #[test]
+#[cfg_attr(
+    feature = "wasm-c-api",
+    ignore = "wamr does not support direct calls to grow table"
+)]
 fn test_table_grow_issue_3197() {
     use crate::{imports, Instance, Module, Store, Table, TableType, Type, Value};
 

@@ -6,6 +6,8 @@ use std::fmt;
 use crate::imports::Imports;
 use crate::store::AsStoreMut;
 
+#[cfg(feature = "wasm-c-api")]
+use crate::c_api::instance as instance_imp;
 #[cfg(feature = "js")]
 use crate::js::instance as instance_imp;
 #[cfg(feature = "jsc")]

@@ -1,16 +1,18 @@
-/// This module is mainly used to create the `VM` types that will hold both
-/// the JS values of the `Memory`, `Table`, `Global` and `Function` and also
-/// it's types.
-/// This module should not be needed any longer (with the exception of the memory)
-/// once the type reflection is added to the WebAssembly JS API.
-/// https://github.com/WebAssembly/js-types/
-use std::{any::Any, fmt};
+//! This module is mainly used to create the `VM` types that will hold both
+//! the JS values of the `Memory`, `Table`, `Global` and `Function` and also
+//! it's types.
+//! This module should not be needed any longer (with the exception of the memory)
+//! once the type reflection is added to the WebAssembly JS API.
+//! https://github.com/WebAssembly/js-types/
 
+use crate::externals::{Extern, Function, Global, Memory, Table, VMExternToExtern};
+use crate::store::{AsStoreMut, AsStoreRef};
 use js_sys::{
     Function as JsFunction,
     WebAssembly::{self, Memory as JsMemory, Table as JsTable},
 };
 use serde::{Deserialize, Serialize};
+use std::{any::Any, fmt};
 use tracing::trace;
 use wasm_bindgen::{JsCast, JsValue};
 use wasmer_types::{
@@ -211,6 +213,17 @@ pub enum VMExtern {
 
     /// A global export value.
     Global(VMGlobal),
+}
+
+impl VMExternToExtern for VMExtern {
+    fn to_extern(self, store: &mut impl AsStoreMut) -> Extern {
+        match self {
+            Self::Function(f) => Extern::Function(Function::from_vm_extern(store, f)),
+            Self::Memory(m) => Extern::Memory(Memory::from_vm_extern(store, m)),
+            Self::Global(g) => Extern::Global(Global::from_vm_extern(store, g)),
+            Self::Table(t) => Extern::Table(Table::from_vm_extern(store, t)),
+        }
+    }
 }
 
 pub type VMInstance = WebAssembly::Instance;

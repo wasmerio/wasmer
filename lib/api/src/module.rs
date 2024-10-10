@@ -15,6 +15,8 @@ use wasmer_types::{ExportType, ImportType};
 
 use crate::into_bytes::IntoBytes;
 
+#[cfg(feature = "wasm-c-api")]
+use crate::c_api::module as module_imp;
 #[cfg(feature = "js")]
 use crate::js::module as module_imp;
 #[cfg(feature = "jsc")]

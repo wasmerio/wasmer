@@ -29,6 +29,10 @@ fn global_new() -> Result<(), String> {
 }
 
 #[universal_test]
+#[cfg_attr(
+    feature = "wasm-c-api",
+    ignore = "wamr does not support globals unattached to instances"
+)]
 fn global_get() -> Result<(), String> {
     let mut store = Store::default();
 
@@ -56,6 +60,10 @@ fn global_get() -> Result<(), String> {
 }
 
 #[universal_test]
+#[cfg_attr(
+    feature = "wamr",
+    ignore = "wamr does not support globals unattached to instances"
+)]
 fn global_set() -> Result<(), String> {
     let mut store = Store::default();
     let global_i32 = Global::new(&mut store, Value::I32(10));
@@ -76,6 +84,10 @@ fn global_set() -> Result<(), String> {
 }
 
 #[universal_test]
+#[cfg_attr(
+    feature = "wasmi",
+    ignore = "wasmi does not support globals unattached to instances"
+)]
 fn table_new() -> Result<(), String> {
     let mut store = Store::default();
     let table_type = TableType {
@@ -241,7 +253,7 @@ fn table_copy() -> Result<(), String> {
 fn memory_new() -> Result<(), String> {
     let mut store = Store::default();
     let memory_type = MemoryType {
-        shared: false,
+        shared: if cfg!(feature = "wamr") { true } else { false },
         minimum: Pages(0),
         maximum: Some(Pages(10)),
     };
@@ -252,6 +264,10 @@ fn memory_new() -> Result<(), String> {
 }
 
 #[universal_test]
+#[cfg_attr(
+    feature = "wasm-c-api",
+    ignore = "wamr does not support direct calls to grow memory"
+)]
 fn memory_grow() -> Result<(), String> {
     let mut store = Store::default();
     let desc = MemoryType::new(Pages(10), Some(Pages(16)), false);
@@ -394,18 +410,22 @@ fn function_new_dynamic() -> Result<(), String> {
     );
     assert_eq!(function.ty(&store), function_type);
 
-    // Using array signature
-    let function_type = ([Type::V128], [Type::I32, Type::F32, Type::F64]);
-    let function = Function::new(
-        &mut store,
-        function_type,
-        |_values: &[Value]| unimplemented!(),
-    );
-    assert_eq!(function.ty(&store).params(), [Type::V128]);
-    assert_eq!(
-        function.ty(&store).results(),
-        [Type::I32, Type::F32, Type::F64]
-    );
+    // wasmi does not support V128 through its wasm_c_api bindings.
+    #[cfg(not(any(feature = "wasmi", feature = "v8")))]
+    {
+        // Using array signature
+        let function_type = ([Type::V128], [Type::I32, Type::F32, Type::F64]);
+        let function = Function::new(
+            &mut store,
+            function_type,
+            |_values: &[Value]| unimplemented!(),
+        );
+        assert_eq!(function.ty(&store).params(), [Type::V128]);
+        assert_eq!(
+            function.ty(&store).results(),
+            [Type::I32, Type::F32, Type::F64]
+        );
+    }
 
     Ok(())
 }
@@ -460,19 +480,22 @@ fn function_new_dynamic_env() -> Result<(), String> {
     );
     assert_eq!(function.ty(&store), function_type);
 
-    // Using array signature
-    let function_type = ([Type::V128], [Type::I32, Type::F32, Type::F64]);
-    let function = Function::new_with_env(
-        &mut store,
-        &env,
-        function_type,
-        |_env: FunctionEnvMut<MyEnv>, _values: &[Value]| unimplemented!(),
-    );
-    assert_eq!(function.ty(&store).params(), [Type::V128]);
-    assert_eq!(
-        function.ty(&store).results(),
-        [Type::I32, Type::F32, Type::F64]
-    );
-
+    // wasmi does not support V128 through its wasm_c_api bindings.
+    #[cfg(not(any(feature = "wasmi", feature = "v8")))]
+    {
+        // Using array signature
+        let function_type = ([Type::V128], [Type::I32, Type::F32, Type::F64]);
+        let function = Function::new_with_env(
+            &mut store,
+            &env,
+            function_type,
+            |_env: FunctionEnvMut<MyEnv>, _values: &[Value]| unimplemented!(),
+        );
+        assert_eq!(function.ty(&store).params(), [Type::V128]);
+        assert_eq!(
+            function.ty(&store).results(),
+            [Type::I32, Type::F32, Type::F64]
+        );
+    }
     Ok(())
 }
