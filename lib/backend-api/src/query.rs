@@ -1009,6 +1009,41 @@ pub async fn get_deploy_app_versions(
     Ok(versions)
 }
 
+/// Get app deployments for an app.
+pub async fn app_deployments(
+    client: &WasmerClient,
+    vars: types::GetAppDeploymentsVariables,
+) -> Result<Vec<types::AutobuildRepository>, anyhow::Error> {
+    let res = client
+        .run_graphql_strict(types::GetAppDeployments::build(vars))
+        .await?;
+    let builds = res
+        .get_deploy_app
+        .and_then(|x| x.deployments)
+        .context("no data returned")?
+        .edges
+        .into_iter()
+        .flatten()
+        .filter_map(|x| x.node)
+        .collect();
+
+    Ok(builds)
+}
+
+/// Get an app deployment by ID.
+pub async fn app_deployment(
+    client: &WasmerClient,
+    id: String,
+) -> Result<types::AutobuildRepository, anyhow::Error> {
+    let node = get_node(client, id.clone())
+        .await?
+        .with_context(|| format!("app deployment with id '{}' not found", id))?;
+    match node {
+        types::Node::AutobuildRepository(x) => Ok(*x),
+        _ => anyhow::bail!("invalid node type returned"),
+    }
+}
+
 /// Load all versions of an app.
 ///
 /// Will paginate through all versions and return them in a single list.

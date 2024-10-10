@@ -844,7 +844,7 @@ mod queries {
     #[derive(serde::Serialize, cynic::QueryFragment, Debug)]
     pub struct AppVersionVolume {
         pub name: String,
-        pub size: Option<i32>,
+        pub size: Option<BigInt>,
         pub used_size: Option<BigInt>,
     }
 
@@ -1183,6 +1183,81 @@ mod queries {
     pub struct RedeployActiveVersionPayload {
         pub app: DeployApp,
     }
+
+    #[derive(cynic::QueryVariables, Debug)]
+    pub struct GetAppDeploymentsVariables {
+        pub after: Option<String>,
+        pub first: Option<i32>,
+        pub name: String,
+        pub offset: Option<i32>,
+        pub owner: String,
+    }
+
+    #[derive(cynic::QueryFragment, Debug)]
+    #[cynic(graphql_type = "Query", variables = "GetAppDeploymentsVariables")]
+    pub struct GetAppDeployments {
+        #[arguments(owner: $owner, name: $name)]
+        pub get_deploy_app: Option<DeployAppDeployments>,
+    }
+
+    #[derive(cynic::QueryFragment, Debug)]
+    #[cynic(graphql_type = "DeployApp", variables = "GetAppDeploymentsVariables")]
+    pub struct DeployAppDeployments {
+        // FIXME: add $offset, $after, currently causes an error from the backend
+        // #[arguments(first: $first, after: $after, offset: $offset)]
+        pub deployments: Option<AutobuildRepositoryConnection>,
+    }
+
+    #[derive(cynic::QueryFragment, Debug)]
+    pub struct AutobuildRepositoryConnection {
+        pub page_info: PageInfo,
+        pub edges: Vec<Option<AutobuildRepositoryEdge>>,
+    }
+
+    #[derive(cynic::QueryFragment, Debug)]
+    pub struct AutobuildRepositoryEdge {
+        pub node: Option<AutobuildRepository>,
+    }
+
+    #[derive(cynic::QueryFragment, serde::Serialize, Debug)]
+    pub struct AutobuildRepository {
+        pub id: cynic::Id,
+        pub build_id: Uuid,
+        pub created_at: DateTime,
+        pub updated_at: DateTime,
+        pub status: StatusEnum,
+        pub log_url: Option<String>,
+        pub repo_url: String,
+    }
+
+    #[derive(cynic::Enum, Clone, Copy, Debug)]
+    pub enum StatusEnum {
+        Success,
+        Working,
+        Failure,
+        Queued,
+        Timeout,
+        InternalError,
+        Cancelled,
+    }
+
+    impl StatusEnum {
+        pub fn as_str(&self) -> &'static str {
+            match self {
+                Self::Success => "success",
+                Self::Working => "working",
+                Self::Failure => "failure",
+                Self::Queued => "queued",
+                Self::Timeout => "timeout",
+                Self::InternalError => "internal_error",
+                Self::Cancelled => "cancelled",
+            }
+        }
+    }
+
+    #[derive(cynic::Scalar, Debug, Clone)]
+    #[cynic(graphql_type = "UUID")]
+    pub struct Uuid(pub String);
 
     #[derive(cynic::QueryVariables, Debug)]
     pub struct PublishDeployAppVars {
@@ -2098,6 +2173,7 @@ mod queries {
     pub enum Node {
         DeployApp(Box<DeployApp>),
         DeployAppVersion(Box<DeployAppVersion>),
+        AutobuildRepository(Box<AutobuildRepository>),
         #[cynic(fallback)]
         Unknown,
     }
