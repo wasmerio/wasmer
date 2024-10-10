@@ -264,6 +264,9 @@ impl WasiRunner {
         if self.wasi.is_home_mapped {
             builder.set_current_dir(MAPPED_CURRENT_DIR_DEFAULT_PATH);
         }
+        if let Some(current_dir) = &self.wasi.current_dir {
+            builder.set_current_dir(current_dir.clone());
+        }
 
         Ok(builder)
     }

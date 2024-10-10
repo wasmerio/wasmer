@@ -1,4 +1,4 @@
-use std::{env, time::Duration};
+use std::time::Duration;
 
 use anyhow::Context;
 use futures::{future::BoxFuture, TryStreamExt};
@@ -44,9 +44,10 @@ impl ReqwestHttpClient {
         // TODO: use persistent client?
         let builder = {
             let _guard = Handle::try_current().map_err(|_| self.handle.enter());
-            let mut builder = reqwest::ClientBuilder::new().connect_timeout(self.connect_timeout);
-            if let Some(proxy) = get_proxy()? {
-                builder = builder.proxy(proxy);
+            let mut builder = reqwest::ClientBuilder::new();
+            #[cfg(not(feature = "js"))]
+            {
+                builder = builder.connect_timeout(self.connect_timeout);
             }
             builder
         };
@@ -71,6 +72,7 @@ impl ReqwestHttpClient {
         let status = response.status();
 
         // Download the body.
+        #[cfg(not(feature = "js"))]
         let data = if let Some(timeout) = self.response_body_chunk_timeout {
             // Download the body with a chunk timeout.
             // The timeout prevents long stalls.
@@ -126,6 +128,8 @@ impl ReqwestHttpClient {
         } else {
             response.bytes().await?.to_vec()
         };
+        #[cfg(feature = "js")]
+        let data = response.bytes().await?.to_vec();
 
         Ok(HttpResponse {
             status,
@@ -137,19 +141,26 @@ impl ReqwestHttpClient {
 }
 
 impl super::HttpClient for ReqwestHttpClient {
+    #[cfg(not(feature = "js"))]
     fn request(&self, request: HttpRequest) -> BoxFuture<'_, Result<HttpResponse, anyhow::Error>> {
         let client = self.clone();
         let f = async move { client.request(request).await };
         Box::pin(f)
     }
-}
 
-pub fn get_proxy() -> Result<Option<reqwest::Proxy>, anyhow::Error> {
-    if let Ok(scheme) = env::var("http_proxy").or_else(|_| env::var("HTTP_PROXY")) {
-        let proxy = reqwest::Proxy::all(scheme)?;
-
-        Ok(Some(proxy))
-    } else {
-        Ok(None)
+    #[cfg(feature = "js")]
+    fn request(&self, request: HttpRequest) -> BoxFuture<'_, Result<HttpResponse, anyhow::Error>> {
+        let client = self.clone();
+        let (sender, receiver) = futures::channel::oneshot::channel();
+        wasm_bindgen_futures::spawn_local(async move {
+            let result = client.request(request).await;
+            let _ = sender.send(result);
+        });
+        Box::pin(async move {
+            match receiver.await {
+                Ok(result) => result,
+                Err(e) => Err(anyhow::Error::new(e)),
+            }
+        })
     }
 }

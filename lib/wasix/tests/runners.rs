@@ -12,7 +12,7 @@ use reqwest::Client;
 use tokio::runtime::Handle;
 use wasmer::Engine;
 use wasmer_wasix::{
-    http::{reqwest::get_proxy, HttpClient},
+    http::HttpClient,
     runners::Runner,
     runtime::{
         module_cache::{FileSystemCache, ModuleCache, SharedCache},
@@ -226,6 +226,15 @@ async fn download_cached(url: &str) -> bytes::Bytes {
     std::fs::write(&cached_path, &body).unwrap();
 
     body
+}
+
+pub fn get_proxy() -> Result<Option<reqwest::Proxy>, anyhow::Error> {
+    if let Ok(scheme) = std::env::var("http_proxy").or_else(|_| std::env::var("HTTP_PROXY")) {
+        let proxy = reqwest::Proxy::all(scheme)?;
+        Ok(Some(proxy))
+    } else {
+        Ok(None)
+    }
 }
 
 fn client() -> Client {
