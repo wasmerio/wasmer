@@ -63,7 +63,7 @@ pub trait Abi {
         ctx_ptr: PointerValue<'ctx>,
         values: &[BasicValueEnum<'ctx>],
         intrinsics: &Intrinsics<'ctx>,
-    ) -> Vec<BasicValueEnum<'ctx>>;
+    ) -> Result<Vec<BasicValueEnum<'ctx>>, CompileError>;
 
     /// Given a CallSite, extract the returned values and return them in a Vec.
     fn rets_from_call<'ctx>(
@@ -72,7 +72,7 @@ pub trait Abi {
         intrinsics: &Intrinsics<'ctx>,
         call_site: CallSiteValue<'ctx>,
         func_sig: &FuncSig,
-    ) -> Vec<BasicValueEnum<'ctx>>;
+    ) -> Result<Vec<BasicValueEnum<'ctx>>, CompileError>;
 
     /// Whether the llvm equivalent of this wasm function has an `sret` attribute.
     fn is_sret(&self, func_sig: &FuncSig) -> Result<bool, CompileError>;
