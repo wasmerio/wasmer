@@ -196,3 +196,32 @@ fn format_disk_size_opt(value: Option<wasmer_api::types::BigInt>) -> String {
         "n/a".to_string()
     }
 }
+
+impl CliRender for wasmer_api::types::AutobuildRepository {
+    fn render_item_table(&self) -> String {
+        let mut table = Table::new();
+        table.add_rows([
+            vec!["Id".to_string(), self.id.clone().into_inner()],
+            vec!["Status".to_string(), self.status.as_str().to_string()],
+            vec!["Created at".to_string(), self.created_at.0.clone()],
+        ]);
+        table.to_string()
+    }
+
+    fn render_list_table(items: &[Self]) -> String {
+        let mut table = Table::new();
+        table.set_header(vec![
+            "Id".to_string(),
+            "Status".to_string(),
+            "Created at".to_string(),
+        ]);
+        table.add_rows(items.iter().map(|item| {
+            vec![
+                item.id.clone().into_inner(),
+                item.status.as_str().to_string(),
+                item.created_at.0.clone(),
+            ]
+        }));
+        table.to_string()
+    }
+}
