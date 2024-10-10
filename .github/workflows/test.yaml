@@ -246,7 +246,13 @@ jobs:
             key: wasmi,
             build-cmd: 'make test-wasmi-api',
             name: 'Test API for wasmi feature'
+          },
+          {
+            key: v8,
+            build-cmd: 'make test-wasmi-v8',
+            name: 'Test API for v8 feature'
           }
+
         ]
         metadata: [
           {
@@ -270,11 +276,16 @@ jobs:
           toolchain: ${{ env.MSRV }}
       - name: Install Nextest
         uses: taiki-e/install-action@nextest
+
       - name: Test WAMR API 
         if: ${{ matrix.build-what.key == 'wamr' }}
         run: ${{ matrix.build-what.build-cmd }}
 
       - name: Test wasmi API 
+        if: ${{ matrix.build-what.key == 'wasmi' }}
+        run: ${{ matrix.build-what.build-cmd }}
+
+      - name: Test v8 API 
         if: ${{ matrix.build-what.key == 'wasmi' }}
         run: ${{ matrix.build-what.build-cmd }}
 
@@ -982,29 +993,37 @@ jobs:
           CARGO_TARGET: ${{ matrix.target }}
           WAPM_DEV_TOKEN: ${{ secrets.WAPM_DEV_TOKEN }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      - name: Test CLI integration (WAMR) 
-        shell: bash
-        run: |
-          export WASMER_PATH=`pwd`/target/${{ matrix.target }}/release/wasmer${{ matrix.exe }}
-          export WASMER_DIR=`pwd`/package && make test-integration-cli-wamr-ci
-        env:
-          TARGET: ${{ matrix.target }}
-          TARGET_DIR: target/${{ matrix.target }}/release
-          CARGO_TARGET: ${{ matrix.target }}
-          WAPM_DEV_TOKEN: ${{ secrets.WAPM_DEV_TOKEN }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          
+          # ---- 
+          # Note (xdoardo on 2024/10/07): 
+          # --- 
+          #  As of now the WAMR, WASMI (and V8) backends are not that mature enough. We will re-enable these tests 
+          #  when they've been used and matured. 
+          # ---- 
+          #
+          # - name: Test CLI integration (WAMR) 
+          #   shell: bash
+          #   run: |
+          #     export WASMER_PATH=`pwd`/target/${{ matrix.target }}/release/wasmer${{ matrix.exe }}
+          #     export WASMER_DIR=`pwd`/package && make test-integration-cli-wamr-ci
+          #   env:
+          #     TARGET: ${{ matrix.target }}
+          #     TARGET_DIR: target/${{ matrix.target }}/release
+          #     CARGO_TARGET: ${{ matrix.target }}
+          #     WAPM_DEV_TOKEN: ${{ secrets.WAPM_DEV_TOKEN }}
+          #     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Test CLI integration (WASMI) 
-        shell: bash
-        run: |
-          export WASMER_PATH=`pwd`/target/${{ matrix.target }}/release/wasmer${{ matrix.exe }}
-          export WASMER_DIR=`pwd`/package && make test-integration-cli-wasmi-ci
-        env:
-          TARGET: ${{ matrix.target }}
-          TARGET_DIR: target/${{ matrix.target }}/release
-          CARGO_TARGET: ${{ matrix.target }}
-          WAPM_DEV_TOKEN: ${{ secrets.WAPM_DEV_TOKEN }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # - name: Test CLI integration (WASMI) 
+          #   shell: bash
+          #   run: |
+          #     export WASMER_PATH=`pwd`/target/${{ matrix.target }}/release/wasmer${{ matrix.exe }}
+          #     export WASMER_DIR=`pwd`/package && make test-integration-cli-wasmi-ci
+          #   env:
+          #     TARGET: ${{ matrix.target }}
+          #     TARGET_DIR: target/${{ matrix.target }}/release
+          #     CARGO_TARGET: ${{ matrix.target }}
+          #     WAPM_DEV_TOKEN: ${{ secrets.WAPM_DEV_TOKEN }}
+          #     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
 
   # there is another set of integration tests in 'wasmer-integration-tests' repo. Run those

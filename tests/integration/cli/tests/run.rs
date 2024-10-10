@@ -920,8 +920,8 @@ fn error_if_no_start_function_found() {
     ignore = "wasmer run-unstable segfaults on musl"
 )]
 #[cfg_attr(
-    feature = "wamr",
-    ignore = "wasmer using an interpreter backend only may not have the 'compile' command"
+    any(feature = "wamr", feature = "v8", feature = "wasmi"),
+    ignore = "wasmer using a c_api backend only may not have the 'compile' command"
 )]
 fn run_a_pre_compiled_wasm_file() {
     let temp = TempDir::new().unwrap();

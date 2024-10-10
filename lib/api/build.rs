@@ -106,4 +106,78 @@ fn main() {
             .write_to_file(out_path.join("bindings.rs"))
             .expect("Couldn't write bindings");
     }
+
+    #[cfg(feature = "v8")]
+    {
+        use cmake::Config;
+        use std::{env, path::PathBuf};
+
+        let crate_root = env::var("CARGO_MANIFEST_DIR").unwrap();
+        let v8_cmake_dir = PathBuf::from(&crate_root)
+            .join("third_party")
+            .join("v8-cmake");
+
+        let mut fetch_submodules = std::process::Command::new("git");
+        fetch_submodules
+            .current_dir(crate_root)
+            .arg("submodule")
+            .arg("update")
+            .arg("--init");
+
+        let res = fetch_submodules.output();
+
+        if let Err(e) = res {
+            panic!("fetching submodules failed: {e}");
+        }
+
+        let dst = Config::new(v8_cmake_dir.clone())
+            .always_configure(true)
+            .generator("Ninja")
+            .define(
+                "CMAKE_BUILD_TYPE",
+                if cfg!(debug_assertions) {
+                    "RelWithDebInfo"
+                } else {
+                    "Release"
+                },
+            )
+            .build_target("wee8")
+            .build();
+
+        // Check output of `cargo build --verbose`, should see something like:
+        // -L native=/path/runng/target/debug/build/runng-sys-abc1234/out
+        // That contains output from cmake
+        println!(
+            "cargo:rustc-link-search=native={}",
+            dst.join("build").display()
+        );
+        println!("cargo:rustc-link-lib=wee8");
+        println!("cargo:rustc-link-lib=v8_initializers");
+        println!("cargo:rustc-link-lib=v8_libbase");
+        println!("cargo:rustc-link-lib=v8_base_without_compiler");
+        println!("cargo:rustc-link-lib=v8_compiler");
+        println!("cargo:rustc-link-lib=c++");
+        println!("cargo:rustc-link-lib=v8_libplatform");
+        println!("cargo:rustc-link-lib=v8_libsampler");
+        println!("cargo:rustc-link-lib=v8_snapshot");
+        println!("cargo:rustc-link-lib=v8_torque_generated");
+
+        let bindings = bindgen::Builder::default()
+            .header(
+                v8_cmake_dir
+                    .join("v8/third_party/wasm-api/wasm.h")
+                    .to_str()
+                    .unwrap(),
+            )
+            .derive_default(true)
+            .derive_debug(true)
+            .generate()
+            .expect("Unable to generate bindings for `v8`!");
+
+        let out_path = PathBuf::from(env::var("OUT_DIR").unwrap());
+
+        bindings
+            .write_to_file(out_path.join("bindings.rs"))
+            .expect("Couldn't write bindings");
+    }
 }

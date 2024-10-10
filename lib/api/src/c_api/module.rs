@@ -49,7 +49,7 @@ impl ModuleHandle {
             lock: std::ptr::null_mut(),
         };
 
-        #[cfg(feature = "wasmi")]
+        #[cfg(any(feature = "wasmi", feature = "v8"))]
         let bytes = wasm_byte_vec_t {
             size: binary.len(),
             data: binary.as_ptr() as _,

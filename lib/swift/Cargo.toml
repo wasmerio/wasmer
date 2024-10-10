@@ -11,7 +11,7 @@ name = "wasmer_swift"
 
 [dependencies]
 thiserror = "1"
-tokio = { version = "1.28.1", features = [ "rt" ], default_features = false }
+tokio = { version = "1.28.1", features = [ "rt" ], default-features = false }
 uniffi = "0.27"
 virtual-fs = { path = "../virtual-fs", version = "0.16.0", default-features = false, features = [
 	"webc-fs",

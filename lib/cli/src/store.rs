@@ -387,6 +387,7 @@ impl StoreOptions {
     feature = "compiler",
     feature = "jsc",
     feature = "wamr",
+    feature = "v8",
     feature = "wasmi"
 )))]
 impl StoreOptions {
@@ -405,7 +406,7 @@ impl StoreOptions {
 
 #[cfg(all(
     not(feature = "compiler"),
-    any(feature = "jsc", feature = "wamr", feature = "wasmi")
+    any(feature = "jsc", feature = "wamr", feature = "wasmi", feature = "v8")
 ))]
 impl StoreOptions {
     /// Get the store (headless engine)

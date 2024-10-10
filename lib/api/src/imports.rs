@@ -462,6 +462,7 @@ mod test {
         };
 
         imports2.extend(&imports1);
+
         let _happy_dog_entry = imports2.get_export("dog", "happy").unwrap();
         /*
         assert!(
