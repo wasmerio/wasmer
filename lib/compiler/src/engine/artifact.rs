@@ -359,7 +359,8 @@ impl Artifact {
         };
 
         let debug_ref = match &artifact {
-            ArtifactBuildVariant::Plain(p) => p.get_debug_ref(),
+            // Why clone? See comment at the top of ./lib/types/src/indexes.rs.
+            ArtifactBuildVariant::Plain(p) => p.get_debug_ref().cloned(),
             ArtifactBuildVariant::Archived(a) => a.get_debug_ref(),
         };
         let eh_frame = match debug_ref {
