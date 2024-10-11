@@ -64,7 +64,7 @@ pub(crate) fn sock_send_file_internal(
     // Set the offset of the file
     {
         let mut fd_map = state.fs.fd_map.write().unwrap();
-        let fd_entry = wasi_try_ok_ok!(fd_map.get_mut(&in_fd).ok_or(Errno::Badf));
+        let fd_entry = wasi_try_ok_ok!(fd_map.get_mut(in_fd).ok_or(Errno::Badf));
         fd_entry.offset.store(offset, Ordering::Release);
     }
 
@@ -200,7 +200,7 @@ pub(crate) fn sock_send_file_internal(
 
                     // reborrow
                     let mut fd_map = state.fs.fd_map.write().unwrap();
-                    let fd_entry = wasi_try_ok_ok!(fd_map.get_mut(&in_fd).ok_or(Errno::Badf));
+                    let fd_entry = wasi_try_ok_ok!(fd_map.get_mut(in_fd).ok_or(Errno::Badf));
                     fd_entry
                         .offset
                         .fetch_add(data.len() as u64, Ordering::AcqRel);

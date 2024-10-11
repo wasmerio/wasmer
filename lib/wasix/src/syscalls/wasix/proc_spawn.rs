@@ -177,7 +177,7 @@ pub fn proc_spawn_internal(
                         Fdflags::empty(),
                         0,
                         inode2,
-                        fd,
+                        Some(fd),
                         false,
                     )?;
 
