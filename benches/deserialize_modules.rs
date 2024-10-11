@@ -1,4 +1,4 @@
-use criterion::{black_box, criterion_group, criterion_main, Criterion};
+use criterion::{criterion_group, criterion_main, Criterion};
 
 use wasmer::*;
 
@@ -40,7 +40,7 @@ pub fn serialize_deserialize_unchecked(
 ) {
     let engine = Engine::default();
 
-    c.bench_function(&format!("rkyv_from-binary_small"), |b| {
+    c.bench_function(&format!("rkyv_from-binary-unchecked_small"), |b| {
         b.iter(|| unsafe {
             let module = Module::from_binary_unchecked(&engine, small);
             assert!(module.is_ok());
@@ -48,7 +48,7 @@ pub fn serialize_deserialize_unchecked(
         })
     });
 
-    c.bench_function(&format!("rkyv_from-binary_medium"), |b| {
+    c.bench_function(&format!("rkyv_from-binary-unchecked_medium"), |b| {
         b.iter(|| unsafe {
             let module = Module::from_binary_unchecked(&engine, medium);
             assert!(module.is_ok());
@@ -56,7 +56,7 @@ pub fn serialize_deserialize_unchecked(
         })
     });
 
-    c.bench_function(&format!("rkyv_from-binary_large"), |b| {
+    c.bench_function(&format!("rkyv_from-binary-unchecked_large"), |b| {
         b.iter(|| unsafe {
             let module = Module::from_binary_unchecked(&engine, large);
             assert!(module.is_ok());

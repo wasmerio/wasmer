@@ -220,8 +220,7 @@ opt-level = 3
 opt-level = 3
 
 [[bench]]
-name = "rkyv"
-path = "benches/rkyv/main.rs"
+name = "deserialize_modules"
 harness = false
 
 [[bench]]
