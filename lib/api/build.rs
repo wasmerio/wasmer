@@ -12,7 +12,8 @@ fn main() {
             .current_dir(crate_root)
             .arg("submodule")
             .arg("update")
-            .arg("--init");
+            .arg("--init")
+            .arg("--recursive");
 
         let res = fetch_submodules.output();
 
@@ -122,7 +123,8 @@ fn main() {
             .current_dir(crate_root)
             .arg("submodule")
             .arg("update")
-            .arg("--init");
+            .arg("--init")
+            .arg("--recursive");
 
         let res = fetch_submodules.output();
 
