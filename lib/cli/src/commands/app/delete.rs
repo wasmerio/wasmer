@@ -33,7 +33,7 @@ impl AsyncCliCommand for CmdAppDelete {
         if interactive {
             let theme = dialoguer::theme::ColorfulTheme::default();
             let should_use = Confirm::with_theme(&theme)
-                .with_prompt(&format!(
+                .with_prompt(format!(
                     "Really delete the app '{}/{}'? (id: {})",
                     app.owner.global_name,
                     app.name,

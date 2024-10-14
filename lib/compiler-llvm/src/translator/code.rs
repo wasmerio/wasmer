@@ -985,7 +985,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
             let canonical_qnan = f_ty
                 .get_element_type()
                 .into_float_type()
-                .const_float(std::f64::NAN);
+                .const_float(f64::NAN);
             let canonical_qnan = self.splat_vector(canonical_qnan.as_basic_value_enum(), f_ty)?;
             err_nt!(self
                 .builder
@@ -999,7 +999,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 err!(self
                     .builder
                     .build_float_compare(FloatPredicate::UNO, value, zero, "nan"));
-            let canonical_qnan = f_ty.const_float(std::f64::NAN);
+            let canonical_qnan = f_ty.const_float(f64::NAN);
             err_nt!(self
                 .builder
                 .build_select(nan_cmp, canonical_qnan, value, "")

@@ -52,16 +52,16 @@ struct TxState {
 }
 
 impl TxState {
-    fn get_serializer<'a>(&'a mut self) -> Serializer<IoWriter<&'a File>, ArenaHandle<'a>, Share> {
+    fn get_serializer(&mut self) -> Serializer<IoWriter<&File>, ArenaHandle<'_>, Share> {
         self.get_serializer_with_pos(self.pos)
     }
 
-    fn get_serializer_with_pos<'a>(
-        &'a mut self,
+    fn get_serializer_with_pos(
+        &mut self,
         pos: usize,
-    ) -> Serializer<IoWriter<&'a File>, ArenaHandle<'a>, Share> {
+    ) -> Serializer<IoWriter<&File>, ArenaHandle<'_>, Share> {
         Serializer::new(
-            IoWriter::with_pos(&mut self.file, pos),
+            IoWriter::with_pos(&self.file, pos),
             self.arena.acquire(),
             Share::new(),
         )
