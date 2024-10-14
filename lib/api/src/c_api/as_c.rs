@@ -178,7 +178,7 @@ pub fn type_to_c(type_: &Type) -> wasm_valkind_t {
         Type::F64 => wasm_valkind_enum_WASM_F64 as _,
         Type::FuncRef => wasm_valkind_enum_WASM_FUNCREF as _,
         Type::ExternRef => {
-            #[cfg(any(feature = "wasmi" , feature = "wamr"))]
+            #[cfg(any(feature = "wasmi", feature = "wamr"))]
             {
                 crate::bindings::wasm_valkind_enum_WASM_EXTERNREF as _
             }
