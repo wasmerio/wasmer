@@ -21,7 +21,17 @@ fn main() {
             panic!("fetching submodules failed: {e}");
         }
 
-        let mut dst = Config::new(wamr_dir.clone());
+        let mut dst = if cfg!(target_os = "windows") {
+            Config::new(
+                wamr_dir
+                    .clone()
+                    .join("product-mini")
+                    .join("platforms")
+                    .join("windows"),
+            )
+        } else {
+            Config::new(wamr_dir.clone())
+        };
 
         dst.always_configure(true)
             .generator(if cfg!(target_os = "windows") {
@@ -58,14 +68,10 @@ fn main() {
             dst.define("CMAKE_CXX_COMPILER", "cl.exe");
             dst.define("CMAKE_C_COMPILER", "cl.exe");
             dst.define("CMAKE_LINKER_TYPE", "MSVC");
+            dst.define("WAMR_BUILD_PLATFORM", "windows");
         }
 
         let dst = dst.build();
-
-        //
-        // $CMAKE_CXX_COMPILER="cl.exe"
-        // $CMAKE_C_COMPILER="cl.exe"
-        // $CMAKE_LINKER_TYPE="MSVC"
 
         // Check output of `cargo build --verbose`, should see something like:
         // -L native=/path/runng/target/debug/build/runng-sys-abc1234/out
