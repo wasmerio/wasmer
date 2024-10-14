@@ -1,3 +1,6 @@
 [submodule "lib/api/third_party/wamr"]
 	path = lib/api/third_party/wamr
 	url = https://github.com/bytecodealliance/wasm-micro-runtime
+[submodule "lib/api/third_party/v8-cmake"]
+	path = lib/api/third_party/v8-cmake
+	url = https://github.com/laper32/v8-cmake
