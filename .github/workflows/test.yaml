@@ -249,7 +249,7 @@ jobs:
           },
           {
             key: v8,
-            build-cmd: 'make test-wasmi-v8',
+            build-cmd: 'make test-v8-api',
             name: 'Test API for v8 feature'
           }
 
