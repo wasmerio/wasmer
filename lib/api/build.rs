@@ -23,7 +23,11 @@ fn main() {
 
         let dst = Config::new(wamr_dir.clone())
             .always_configure(true)
-            .generator("Unix Makefiles")
+            .generator(if cfg!(target_os = "windows") {
+                "Ninja"
+            } else {
+                "Unix Makefiles"
+            })
             .define(
                 "CMAKE_BUILD_TYPE",
                 if cfg!(debug_assertions) {
