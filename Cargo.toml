@@ -105,14 +105,17 @@ hyper = "1"
 reqwest = { version = "0.12.0", default-features = false }
 enumset = "1.1.0"
 memoffset = "0.9.0"
-wasmparser = { version = "0.216.0", default-features = false, features = ["validate"]}
-rkyv = {version = "0.8.8", features = ["indexmap-2", "bytes-1"]}
+wasmparser = { version = "0.216.0", default-features = false, features = [
+	"validate",
+] }
+rkyv = { version = "0.8.8", features = ["indexmap-2", "bytes-1"] }
 memmap2 = { version = "0.6.2" }
 toml = { version = "0.5.9", features = ["preserve_order"] }
 indexmap = "2"
 serde_yaml = "0.9.34"
 libc = { version = "^0.2", default-features = false }
 gimli = { version = "0.28.1" }
+futures-util = { version = "0.3.31" }
 
 [build-dependencies]
 test-generator = { path = "tests/lib/test-generator" }
