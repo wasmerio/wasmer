@@ -24,7 +24,7 @@ fn main() {
         let dst = Config::new(wamr_dir.clone())
             .always_configure(true)
             .generator(if cfg!(target_os = "windows") {
-                "Ninja"
+                "Visual Studio 17 2022"
             } else {
                 "Unix Makefiles"
             })
