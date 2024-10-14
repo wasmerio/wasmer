@@ -42,7 +42,7 @@ pub trait AsC: Sized {
 #[cfg(feature = "v8")]
 #[inline]
 pub fn param_from_c(value: &wasm_val_t) -> Value {
-    match value.kind as u32 {
+    match value.kind as _ {
         crate::bindings::wasm_valkind_enum_WASM_I32 => Value::I32(unsafe { value.of.i32_ }),
         crate::bindings::wasm_valkind_enum_WASM_I64 => Value::I64(unsafe { value.of.i64_ }),
         crate::bindings::wasm_valkind_enum_WASM_F32 => Value::F32(unsafe { value.of.f32_ }),
@@ -62,7 +62,7 @@ pub fn param_from_c(value: &wasm_val_t) -> Value {
 #[cfg(any(feature = "wamr", feature = "wasmi"))]
 #[inline]
 pub fn param_from_c(value: &wasm_val_t) -> Value {
-    match value.kind as u32 {
+    match value.kind as _ {
         crate::bindings::wasm_valkind_enum_WASM_I32 => Value::I32(unsafe { value.of.i32_ }),
         crate::bindings::wasm_valkind_enum_WASM_I64 => Value::I64(unsafe { value.of.i64_ }),
         crate::bindings::wasm_valkind_enum_WASM_F32 => Value::F32(unsafe { value.of.f32_ }),
