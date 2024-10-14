@@ -209,7 +209,7 @@ pub fn valtype_to_type(type_: *const wasm_valtype_t) -> Type {
     let type_ = unsafe { wasm_valtype_kind(type_) };
 
     #[cfg(feature = "wamr")]
-    match type_ as u32 {
+    match type_ as _ {
         crate::bindings::wasm_valkind_enum_WASM_I32 => Type::I32,
         crate::bindings::wasm_valkind_enum_WASM_I64 => Type::I64,
         crate::bindings::wasm_valkind_enum_WASM_F32 => Type::F32,
@@ -223,7 +223,7 @@ pub fn valtype_to_type(type_: *const wasm_valtype_t) -> Type {
         ),
     }
     #[cfg(feature = "wasmi")]
-    match type_ as u32 {
+    match type_ as _ {
         crate::bindings::wasm_valkind_enum_WASM_I32 => Type::I32,
         crate::bindings::wasm_valkind_enum_WASM_I64 => Type::I64,
         crate::bindings::wasm_valkind_enum_WASM_F32 => Type::F32,
@@ -236,7 +236,7 @@ pub fn valtype_to_type(type_: *const wasm_valtype_t) -> Type {
         ),
     }
     #[cfg(feature = "v8")]
-    match type_ as u32 {
+    match type_ as _ {
         crate::bindings::wasm_valkind_enum_WASM_I32 => Type::I32,
         crate::bindings::wasm_valkind_enum_WASM_I64 => Type::I64,
         crate::bindings::wasm_valkind_enum_WASM_F32 => Type::F32,
