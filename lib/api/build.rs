@@ -21,8 +21,9 @@ fn main() {
             panic!("fetching submodules failed: {e}");
         }
 
-        let dst = Config::new(wamr_dir.clone())
-            .always_configure(true)
+        let mut dst = Config::new(wamr_dir.clone());
+
+        dst.always_configure(true)
             .generator(if cfg!(target_os = "windows") {
                 "Visual Studio 17 2022"
             } else {
@@ -51,8 +52,20 @@ fn main() {
             .define("WAMR_BUILD_LIBC_BUILTIN", "0")
             .define("WAMR_BUILD_SHARED_MEMORY", "1")
             .define("WAMR_BUILD_MULTI_MODULE", "0")
-            .define("WAMR_DISABLE_HW_BOUND_CHECK", "1")
-            .build();
+            .define("WAMR_DISABLE_HW_BOUND_CHECK", "1");
+
+        if cfg!(target_os = "windows") {
+            dst.define("CMAKE_CXX_COMPILER", "cl.exe");
+            dst.define("CMAKE_C_COMPILER", "cl.exe");
+            dst.define("CMAKE_LINKER_TYPE", "MSVC");
+        }
+
+        let dst = dst.build();
+
+        //
+        // $CMAKE_CXX_COMPILER="cl.exe"
+        // $CMAKE_C_COMPILER="cl.exe"
+        // $CMAKE_LINKER_TYPE="MSVC"
 
         // Check output of `cargo build --verbose`, should see something like:
         // -L native=/path/runng/target/debug/build/runng-sys-abc1234/out
