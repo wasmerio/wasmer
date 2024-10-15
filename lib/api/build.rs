@@ -155,8 +155,9 @@ fn main() {
             panic!("fetching submodules failed: {e}");
         }
 
-        let dst = Config::new(v8_cmake_dir.clone())
-            .always_configure(true)
+        let mut dst = Config::new(v8_cmake_dir.clone());
+
+        dst.always_configure(true)
             .generator(if cfg!(target_os = "windows") {
                 "Visual Studio 17 2022"
             } else {
@@ -170,8 +171,16 @@ fn main() {
                     "Release"
                 },
             )
-            .build_target("wee8")
-            .build();
+            .build_target("wee8");
+
+        if cfg!(target_os = "windows") {
+            dst.define("CMAKE_CXX_COMPILER", "cl.exe");
+            dst.define("CMAKE_C_COMPILER", "cl.exe");
+            dst.define("CMAKE_LINKER_TYPE", "MSVC");
+            dst.define("WAMR_BUILD_PLATFORM", "windows");
+        }
+
+        let dst = dst.build();
 
         // Check output of `cargo build --verbose`, should see something like:
         // -L native=/path/runng/target/debug/build/runng-sys-abc1234/out
@@ -185,11 +194,16 @@ fn main() {
         println!("cargo:rustc-link-lib=v8_libbase");
         println!("cargo:rustc-link-lib=v8_base_without_compiler");
         println!("cargo:rustc-link-lib=v8_compiler");
-        println!("cargo:rustc-link-lib=c++");
         println!("cargo:rustc-link-lib=v8_libplatform");
         println!("cargo:rustc-link-lib=v8_libsampler");
         println!("cargo:rustc-link-lib=v8_snapshot");
         println!("cargo:rustc-link-lib=v8_torque_generated");
+
+        if cfg!(target_os = "linux") {
+            println!("cargo:rustc-link-lib=stdc++");
+        } else {
+            println!("cargo:rustc-link-lib=c++");
+        }
 
         let bindings = bindgen::Builder::default()
             .header(
