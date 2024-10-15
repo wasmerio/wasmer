@@ -191,7 +191,7 @@ fn main() {
         println!("cargo:rustc-link-lib=v8_snapshot");
         println!("cargo:rustc-link-lib=v8_torque_generated");
 
-        if cfg!(target_os = "linux") {
+        if cfg!(any(target_os = "linux", target_os = "windows")) {
             println!("cargo:rustc-link-lib=stdc++");
         } else {
             println!("cargo:rustc-link-lib=c++");
