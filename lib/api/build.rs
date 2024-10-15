@@ -21,17 +21,7 @@ fn main() {
             panic!("fetching submodules failed: {e}");
         }
 
-        let mut dst = if cfg!(target_os = "windows") {
-            Config::new(
-                wamr_dir
-                    .clone()
-                    .join("product-mini")
-                    .join("platforms")
-                    .join("windows"),
-            )
-        } else {
-            Config::new(wamr_dir.clone())
-        };
+        let mut dst = Config::new(wamr_dir.clone());
 
         dst.always_configure(true)
             .generator("Ninja")

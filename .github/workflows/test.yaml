@@ -279,7 +279,6 @@ jobs:
       - name: Install Nextest
         uses: taiki-e/install-action@nextest
 
-
       - name: Install `ninja` on Ubuntu
         if: startsWith(matrix.metadata.build, 'linux-')
         shell: bash
@@ -324,6 +323,13 @@ jobs:
           toolchain: "nightly-2024-08-21"
           target: x86_64-unknown-linux-gnu
       - run: cargo install toml-cli # toml-cli is required to run `make test-build-docs-rs`
+
+      - name: Install `ninja` on Ubuntu
+        if: startsWith(matrix.metadata.build, 'linux-')
+        shell: bash
+        run: |
+          sudo apt-get install ninja-build -y
+
       - name: Install LLVM 18
         run: |
           curl --proto '=https' --tlsv1.2 -sSf https://github.com/wasmerio/llvm-custom-builds/releases/download/18.x/llvm-linux-amd64.tar.xz -L -o llvm.tar.xz
