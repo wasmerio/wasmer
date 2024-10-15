@@ -34,11 +34,7 @@ fn main() {
         };
 
         dst.always_configure(true)
-            .generator(if cfg!(target_os = "windows") {
-                "Visual Studio 17 2022"
-            } else {
-                "Unix Makefiles"
-            })
+            .generator("Ninja")
             .define(
                 "CMAKE_BUILD_TYPE",
                 if cfg!(debug_assertions) {
@@ -158,11 +154,7 @@ fn main() {
         let mut dst = Config::new(v8_cmake_dir.clone());
 
         dst.always_configure(true)
-            .generator(if cfg!(target_os = "windows") {
-                "Visual Studio 17 2022"
-            } else {
-                "Unix Makefiles"
-            })
+            .generator("Ninja")
             .define(
                 "CMAKE_BUILD_TYPE",
                 if cfg!(debug_assertions) {

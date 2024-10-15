@@ -279,6 +279,25 @@ jobs:
       - name: Install Nextest
         uses: taiki-e/install-action@nextest
 
+
+      - name: Install `ninja` on Ubuntu
+        if: startsWith(matrix.target.id, 'linux-')
+        shell: bash
+        run: |
+          sudo apt-get install ninja-build -y
+
+      - name: Install `ninja` on macOS
+        if: startsWith(matrix.target.id, 'macos-')
+        shell: bash
+        run: |
+          brew install ninja
+
+      - name: Install `ninja` on Windows
+        if: startsWith(matrix.target.id, 'windows-')
+        shell: bash
+        run: |
+          choco install ninja
+
       - name: Setup MSVC (Windows) 
         uses: ilammy/msvc-dev-cmd@v1
         if: matrix.target.id == 'windows-x64'
