@@ -6,12 +6,16 @@ use crate::syscalls::*;
 
 /// ### `clock_time_get()`
 /// Get the time of the specified clock
+///
 /// Inputs:
+///
 /// - `Clockid clock_id`
 ///     The ID of the clock to query
 /// - `Timestamp precision`
 ///     The maximum amount of error the reading may have
+///
 /// Output:
+///
 /// - `Timestamp *time`
 ///     The value of the clock in nanoseconds
 #[cfg_attr(

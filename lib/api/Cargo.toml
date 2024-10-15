@@ -37,7 +37,7 @@ tracing = { version = "0.1" }
 wat = { version = "=1.216.0", optional = true }
 rustc-demangle = "0.1"
 shared-buffer = { workspace = true }
-wasmi_c_api = { version = "0.37.1", package = "wasmi_c_api_impl", optional = true }
+wasmi_c_api = { version = "0.38.0", package = "wasmi_c_api_impl", optional = true }
 seq-macro = {version = "0.3.5", optional = true}
 
 # Dependencies and Development Dependencies for `sys`.
@@ -148,8 +148,10 @@ static-artifact-load = ["wasmer-compiler/static-artifact-load"]
 static-artifact-create = ["wasmer-compiler/static-artifact-create"]
 
 [build-dependencies]
-bindgen = "0.69.4"
+bindgen = "0.70.1"
 cmake = "0.1.50"
+ureq = "2.10.1"
+zip = "2.2.0"
 
 [package.metadata.docs.rs]
 features = [

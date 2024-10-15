@@ -507,7 +507,7 @@ impl Run {
     }
 
     fn from_binfmt_args_fallible() -> Result<Self, Error> {
-        if !cfg!(linux) {
+        if cfg!(not(target_os = "linux")) {
             bail!("binfmt_misc is only available on linux.");
         }
 

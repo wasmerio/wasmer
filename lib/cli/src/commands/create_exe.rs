@@ -1284,14 +1284,15 @@ fn link_exe_from_dir(
     let out_path = directory.join("wasmer_main.exe");
     #[cfg(not(target_os = "windows"))]
     let out_path = directory.join("wasmer_main");
-    cmd.arg(&format!("-femit-bin={}", out_path.display()));
+    cmd.arg(format!("-femit-bin={}", out_path.display()));
+
     cmd.args(
-        &object_paths
+        object_paths
             .iter()
             .map(|o| normalize_path(&format!("{}", o.display())))
             .collect::<Vec<_>>(),
     );
-    cmd.arg(&normalize_path(&format!("{}", library_path.display())));
+    cmd.arg(normalize_path(&format!("{}", library_path.display())));
     cmd.arg(normalize_path(&format!(
         "{}",
         directory

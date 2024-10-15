@@ -23,11 +23,11 @@
 //! identifier = any character that's not a whitespace character or an open or close parenthesis
 //! type = "i32" | "i64" | "f32" | "f64"
 //!
-//! + means 1 or more
-//! * means 0 or more
-//! ? means 0 or 1
-//! | means "or"
-//! "\"" means one `"` character
+//! `+` means 1 or more
+//! `*` means 0 or more
+//! `?` means 0 or 1
+//! `|` means "or"
+//! `\"` means one `"` character
 //!
 //! comments start with a `;` character and go until a newline `\n` character is reached
 //! comments and whitespace are valid between any tokens

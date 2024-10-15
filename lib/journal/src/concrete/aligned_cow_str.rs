@@ -1,9 +1,10 @@
-use std::{borrow::Cow, fmt, ops::Deref};
+use std::{borrow::Cow, ops::Deref};
 
 use rkyv::{
-    ser::{ScratchSpace, Serializer},
+    rancor::Fallible,
+    ser::{Allocator, WriterExt},
     vec::{ArchivedVec, VecResolver},
-    Archive, Archived, Serialize,
+    Archive, Archived,
 };
 
 #[derive(Clone)]
@@ -40,9 +41,9 @@ impl<'a> Default for AlignedCowStr<'a> {
     }
 }
 
-impl<'a> fmt::Debug for AlignedCowStr<'a> {
+impl<'a> std::fmt::Debug for AlignedCowStr<'a> {
     #[inline]
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         self.inner.fmt(f)
     }
 }
@@ -95,20 +96,19 @@ impl<'a> Archive for AlignedCowStr<'a> {
     type Resolver = VecResolver;
 
     #[inline]
-    unsafe fn resolve(&self, pos: usize, resolver: Self::Resolver, out: *mut Self::Archived) {
-        ArchivedVec::resolve_from_len(self.inner.as_bytes().len(), pos, resolver, out);
+    fn resolve(&self, resolver: Self::Resolver, out: rkyv::Place<Self::Archived>) {
+        ArchivedVec::resolve_from_len(self.inner.as_bytes().len(), resolver, out);
     }
 }
 
-impl<'a, S: ScratchSpace + Serializer + ?Sized> Serialize<S> for AlignedCowStr<'a> {
+impl<'a, S> rkyv::Serialize<S> for AlignedCowStr<'a>
+where
+    S: Fallible + WriterExt<S::Error> + Allocator + ?Sized,
+    S::Error: rkyv::rancor::Source,
+{
     #[inline]
     fn serialize(&self, serializer: &mut S) -> Result<Self::Resolver, S::Error> {
         serializer.align(Self::ALIGNMENT)?;
-        unsafe {
-            ArchivedVec::<Archived<u8>>::serialize_copy_from_slice(
-                self.inner.as_bytes(),
-                serializer,
-            )
-        }
+        ArchivedVec::<Archived<u8>>::serialize_from_slice(self.inner.as_bytes(), serializer)
     }
 }

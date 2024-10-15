@@ -249,7 +249,7 @@ jobs:
           },
           {
             key: v8,
-            build-cmd: 'make test-wasmi-v8',
+            build-cmd: 'make test-v8-api',
             name: 'Test API for v8 feature'
           }
 
@@ -271,11 +271,35 @@ jobs:
     container: ${{ matrix.metadata.container }}
     steps:
       - uses: actions/checkout@v3
+
       - uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: ${{ env.MSRV }}
+
       - name: Install Nextest
         uses: taiki-e/install-action@nextest
+
+      - name: Install `ninja` on Ubuntu
+        if: startsWith(matrix.metadata.build, 'linux-')
+        shell: bash
+        run: |
+          sudo apt-get install ninja-build -y
+
+      - name: Install `ninja` on macOS
+        if: startsWith(matrix.metadata.build, 'macos-')
+        shell: bash
+        run: |
+          brew install ninja
+
+      - name: Install `ninja` on Windows
+        if: startsWith(matrix.metadata.build, 'windows-')
+        shell: bash
+        run: |
+          choco install ninja
+
+      - name: Setup MSVC (Windows) 
+        uses: ilammy/msvc-dev-cmd@v1
+        if: matrix.metadata.build == 'windows-x64'
 
       - name: Test WAMR API 
         if: ${{ matrix.build-what.key == 'wamr' }}
@@ -286,7 +310,7 @@ jobs:
         run: ${{ matrix.build-what.build-cmd }}
 
       - name: Test v8 API 
-        if: ${{ matrix.build-what.key == 'wasmi' }}
+        if: ${{ matrix.build-what.key == 'v8' }}
         run: ${{ matrix.build-what.build-cmd }}
 
   test_build_docs_rs:
@@ -299,6 +323,12 @@ jobs:
           toolchain: "nightly-2024-08-21"
           target: x86_64-unknown-linux-gnu
       - run: cargo install toml-cli # toml-cli is required to run `make test-build-docs-rs`
+
+      - name: Install `ninja` on Ubuntu
+        shell: bash
+        run: |
+          sudo apt-get install ninja-build -y
+
       - name: Install LLVM 18
         run: |
           curl --proto '=https' --tlsv1.2 -sSf https://github.com/wasmerio/llvm-custom-builds/releases/download/18.x/llvm-linux-amd64.tar.xz -L -o llvm.tar.xz

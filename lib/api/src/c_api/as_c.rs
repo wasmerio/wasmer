@@ -42,7 +42,7 @@ pub trait AsC: Sized {
 #[cfg(feature = "v8")]
 #[inline]
 pub fn param_from_c(value: &wasm_val_t) -> Value {
-    match value.kind as u32 {
+    match value.kind as _ {
         crate::bindings::wasm_valkind_enum_WASM_I32 => Value::I32(unsafe { value.of.i32_ }),
         crate::bindings::wasm_valkind_enum_WASM_I64 => Value::I64(unsafe { value.of.i64_ }),
         crate::bindings::wasm_valkind_enum_WASM_F32 => Value::F32(unsafe { value.of.f32_ }),
@@ -62,7 +62,7 @@ pub fn param_from_c(value: &wasm_val_t) -> Value {
 #[cfg(any(feature = "wamr", feature = "wasmi"))]
 #[inline]
 pub fn param_from_c(value: &wasm_val_t) -> Value {
-    match value.kind as u32 {
+    match value.kind as _ {
         crate::bindings::wasm_valkind_enum_WASM_I32 => Value::I32(unsafe { value.of.i32_ }),
         crate::bindings::wasm_valkind_enum_WASM_I64 => Value::I64(unsafe { value.of.i64_ }),
         crate::bindings::wasm_valkind_enum_WASM_F32 => Value::F32(unsafe { value.of.f32_ }),
@@ -178,7 +178,7 @@ pub fn type_to_c(type_: &Type) -> wasm_valkind_t {
         Type::F64 => wasm_valkind_enum_WASM_F64 as _,
         Type::FuncRef => wasm_valkind_enum_WASM_FUNCREF as _,
         Type::ExternRef => {
-            #[cfg(any(feature = "wasmi" , feature = "wamr"))]
+            #[cfg(any(feature = "wasmi", feature = "wamr"))]
             {
                 crate::bindings::wasm_valkind_enum_WASM_EXTERNREF as _
             }
@@ -209,7 +209,7 @@ pub fn valtype_to_type(type_: *const wasm_valtype_t) -> Type {
     let type_ = unsafe { wasm_valtype_kind(type_) };
 
     #[cfg(feature = "wamr")]
-    match type_ as u32 {
+    match type_ as _ {
         crate::bindings::wasm_valkind_enum_WASM_I32 => Type::I32,
         crate::bindings::wasm_valkind_enum_WASM_I64 => Type::I64,
         crate::bindings::wasm_valkind_enum_WASM_F32 => Type::F32,
@@ -223,7 +223,7 @@ pub fn valtype_to_type(type_: *const wasm_valtype_t) -> Type {
         ),
     }
     #[cfg(feature = "wasmi")]
-    match type_ as u32 {
+    match type_ as _ {
         crate::bindings::wasm_valkind_enum_WASM_I32 => Type::I32,
         crate::bindings::wasm_valkind_enum_WASM_I64 => Type::I64,
         crate::bindings::wasm_valkind_enum_WASM_F32 => Type::F32,
@@ -236,7 +236,7 @@ pub fn valtype_to_type(type_: *const wasm_valtype_t) -> Type {
         ),
     }
     #[cfg(feature = "v8")]
-    match type_ as u32 {
+    match type_ as _ {
         crate::bindings::wasm_valkind_enum_WASM_I32 => Type::I32,
         crate::bindings::wasm_valkind_enum_WASM_I64 => Type::I64,
         crate::bindings::wasm_valkind_enum_WASM_F32 => Type::F32,

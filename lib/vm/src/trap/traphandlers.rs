@@ -7,7 +7,7 @@
 //! signalhandling mechanisms.
 
 use crate::vmcontext::{VMFunctionContext, VMTrampoline};
-use crate::{Trap, VMFunctionBody};
+use crate::{Trap, VMContext, VMFunctionBody};
 use backtrace::Backtrace;
 use core::ptr::{read, read_unaligned};
 use corosensei::stack::DefaultStack;
@@ -677,11 +677,11 @@ pub unsafe fn wasmer_call_trampoline(
     catch_traps(trap_handler, config, || {
         mem::transmute::<
             unsafe extern "C" fn(
-                *mut crate::vmcontext::VMContext,
+                *mut VMContext,
                 *const VMFunctionBody,
                 *mut wasmer_types::RawValue,
             ),
-            extern "C" fn(crate::vmcontext::VMFunctionContext, *const VMFunctionBody, *mut u8),
+            extern "C" fn(VMFunctionContext, *const VMFunctionBody, *mut u8),
         >(trampoline)(vmctx, callee, values_vec);
     })
 }
