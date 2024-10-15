@@ -281,26 +281,26 @@ jobs:
 
 
       - name: Install `ninja` on Ubuntu
-        if: startsWith(matrix.target.id, 'linux-')
+        if: startsWith(matrix.metadata.build, 'linux-')
         shell: bash
         run: |
           sudo apt-get install ninja-build -y
 
       - name: Install `ninja` on macOS
-        if: startsWith(matrix.target.id, 'macos-')
+        if: startsWith(matrix.metadata.build, 'macos-')
         shell: bash
         run: |
           brew install ninja
 
       - name: Install `ninja` on Windows
-        if: startsWith(matrix.target.id, 'windows-')
+        if: startsWith(matrix.metadata.build, 'windows-')
         shell: bash
         run: |
           choco install ninja
 
       - name: Setup MSVC (Windows) 
         uses: ilammy/msvc-dev-cmd@v1
-        if: matrix.target.id == 'windows-x64'
+        if: matrix.metadata.build == 'windows-x64'
 
       - name: Test WAMR API 
         if: ${{ matrix.build-what.key == 'wamr' }}
