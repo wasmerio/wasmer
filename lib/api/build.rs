@@ -1,40 +1,63 @@
 fn main() {
     #[cfg(feature = "wamr")]
     {
+        const WAMR_ZIP: &str = "https://github.com/bytecodealliance/wasm-micro-runtime/archive/refs/tags/WAMR-2.1.0.zip";
+        const WAMR_DIR: &str = "wasm-micro-runtime-WAMR-2.1.0";
+
         use cmake::Config;
         use std::{env, path::PathBuf};
 
         let crate_root = env::var("CARGO_MANIFEST_DIR").unwrap();
-        let wamr_dir = PathBuf::from(&crate_root).join("third_party").join("wamr");
 
-        let mut fetch_submodules = std::process::Command::new("git");
-        fetch_submodules
-            .current_dir(crate_root)
-            .arg("submodule")
-            .arg("update")
-            .arg("--init")
-            .arg("--recursive");
-
-        let res = fetch_submodules.output();
-
-        if let Err(e) = res {
-            panic!("fetching submodules failed: {e}");
-        }
-
-        let mut dst = if cfg!(target_os = "windows") {
-            Config::new(
-                wamr_dir
-                    .clone()
-                    .join("product-mini")
-                    .join("platforms")
-                    .join("windows"),
-            )
-        } else {
-            Config::new(wamr_dir.clone())
+        // Read target os from cargo env
+        // Transform from cargo value to valid wasm-micro-runtime os
+        let target_os = match env::var("CARGO_CFG_TARGET_OS").unwrap().as_str() {
+            "linux" => "linux",
+            "windows" => "windows",
+            "macos" => "darwin",
+            "freebsd" => "freebsd",
+            "android" => "android",
+            "ios" => "ios",
+            other => panic!("Unsupported CARGO_CFG_TARGET_OS: {}", other),
         };
 
-        dst.always_configure(true)
-            .generator("Ninja")
+        // Read target arch from cargo env
+        // Transform from cargo value to valid wasm-micro-runtime WAMR_BUILD_TARGET
+        let target_arch = match env::var("CARGO_CFG_TARGET_ARCH").unwrap().as_str() {
+            "x86" => "X86_32",
+            "x86_64" => "X86_64",
+            "arm" => "ARM",
+            "aarch64" => "AARCH64",
+            "mips" => "MIPS",
+            "powerpc" => "POWERPC",
+            "powerpc64" => "POWERPC64",
+            other => panic!("Unsupported CARGO_CFG_TARGET_ARCH: {}", other),
+        };
+
+        // Cleanup tmp data from prior builds
+        let wamr_dir = PathBuf::from(&crate_root).join("third_party/wamr");
+        let zip_dir = PathBuf::from(&crate_root).join(WAMR_DIR);
+        let _ = std::fs::remove_dir_all(&wamr_dir);
+        let _ = std::fs::remove_dir_all(&zip_dir);
+
+        // Fetch & extract wasm-micro-runtime source
+        let zip = ureq::get(WAMR_ZIP).call().expect("failed to download wamr");
+        let mut zip_data = Vec::new();
+        zip.into_reader()
+            .read_to_end(&mut zip_data)
+            .expect("failed to download wamr");
+        zip::read::ZipArchive::new(std::io::Cursor::new(zip_data))
+            .expect("failed to open wamr zip file")
+            .extract(&crate_root)
+            .expect("failed to extract wamr zip file");
+        let _ = std::fs::remove_dir_all(&wamr_dir);
+        std::fs::rename(zip_dir, &wamr_dir).expect("failed to rename wamr dir");
+
+        let wamr_platform_dir = wamr_dir.join("product-mini/platforms").join(target_os);
+        let dst = Config::new(wamr_platform_dir.as_path())
+            .always_configure(true)
+            .generator("Unix Makefiles")
+            .no_build_target(true)
             .define(
                 "CMAKE_BUILD_TYPE",
                 if cfg!(debug_assertions) {
@@ -51,23 +74,16 @@ fn main() {
             .define("WAMR_BUILD_BULK_MEMORY", "1")
             .define("WAMR_BUILD_REF_TYPES", "1")
             .define("WAMR_BUILD_SIMD", "1")
-            .define("WAMR_ENABLE_FAST_INTERP", "1")
+            .define("WAMR_BUILD_FAST_INTERP", "1")
             .define("WAMR_BUILD_LIB_PTHREAD", "1")
             .define("WAMR_BUILD_LIB_WASI_THREADS", "0")
             .define("WAMR_BUILD_LIBC_WASI", "0")
             .define("WAMR_BUILD_LIBC_BUILTIN", "0")
             .define("WAMR_BUILD_SHARED_MEMORY", "1")
             .define("WAMR_BUILD_MULTI_MODULE", "0")
-            .define("WAMR_DISABLE_HW_BOUND_CHECK", "1");
-
-        if cfg!(target_os = "windows") {
-            dst.define("CMAKE_CXX_COMPILER", "cl.exe");
-            dst.define("CMAKE_C_COMPILER", "cl.exe");
-            dst.define("CMAKE_LINKER_TYPE", "MSVC");
-            dst.define("WAMR_BUILD_PLATFORM", "windows");
-        }
-
-        let dst = dst.build();
+            .define("WAMR_DISABLE_HW_BOUND_CHECK", "1")
+            .define("WAMR_BUILD_TARGET", target_arch)
+            .build();
 
         // Check output of `cargo build --verbose`, should see something like:
         // -L native=/path/runng/target/debug/build/runng-sys-abc1234/out
@@ -87,12 +103,6 @@ fn main() {
             )
             .header(
                 wamr_dir
-                    .join("core/iwasm/include/wasm_c_api.h")
-                    .to_str()
-                    .unwrap(),
-            )
-            .header(
-                wamr_dir
                     .join("core/iwasm/include/wasm_export.h")
                     .to_str()
                     .unwrap(),
@@ -100,7 +110,7 @@ fn main() {
             .derive_default(true)
             .derive_debug(true)
             .generate()
-            .expect("Unable to generate bindings for `wamr`!");
+            .expect("Unable to generate bindings");
         let out_path = PathBuf::from(env::var("OUT_DIR").unwrap());
         bindings
             .write_to_file(out_path.join("bindings.rs"))
@@ -191,8 +201,10 @@ fn main() {
         println!("cargo:rustc-link-lib=v8_snapshot");
         println!("cargo:rustc-link-lib=v8_torque_generated");
 
-        if cfg!(any(target_os = "linux", target_os = "windows")) {
+        if cfg!(any(target_os = "linux",)) {
             println!("cargo:rustc-link-lib=stdc++");
+        } else if cfg!(target_os = "windows") {
+            /* do nothing */
         } else {
             println!("cargo:rustc-link-lib=c++");
         }

@@ -150,6 +150,8 @@ static-artifact-create = ["wasmer-compiler/static-artifact-create"]
 [build-dependencies]
 bindgen = "0.70.1"
 cmake = "0.1.50"
+ureq = "2.10.1"
+zip = "2.2.0"
 
 [package.metadata.docs.rs]
 features = [
