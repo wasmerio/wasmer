@@ -54,9 +54,10 @@ fn main() {
         std::fs::rename(zip_dir, &wamr_dir).expect("failed to rename wamr dir");
 
         let wamr_platform_dir = wamr_dir.join("product-mini/platforms").join(target_os);
-        let dst = Config::new(wamr_platform_dir.as_path())
-            .always_configure(true)
-            .generator("Unix Makefiles")
+        let mut dst = Config::new(wamr_platform_dir.as_path());
+
+        dst.always_configure(true)
+            .generator("Ninja")
             .no_build_target(true)
             .define(
                 "CMAKE_BUILD_TYPE",
@@ -82,8 +83,16 @@ fn main() {
             .define("WAMR_BUILD_SHARED_MEMORY", "1")
             .define("WAMR_BUILD_MULTI_MODULE", "0")
             .define("WAMR_DISABLE_HW_BOUND_CHECK", "1")
-            .define("WAMR_BUILD_TARGET", target_arch)
-            .build();
+            .define("WAMR_BUILD_TARGET", target_arch);
+
+        if cfg!(target_os = "windows") {
+            dst.define("CMAKE_CXX_COMPILER", "cl.exe");
+            dst.define("CMAKE_C_COMPILER", "cl.exe");
+            dst.define("CMAKE_LINKER_TYPE", "MSVC");
+            dst.define("WAMR_BUILD_PLATFORM", "windows");
+        }
+
+        let dst = dst.build();
 
         // Check output of `cargo build --verbose`, should see something like:
         // -L native=/path/runng/target/debug/build/runng-sys-abc1234/out
