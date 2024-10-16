@@ -635,17 +635,6 @@ impl<'a> DataInitializerLocationLike for DataInitializerLocationVariant<'a> {
 }
 
 impl Artifact {
-    /// Register thie `Artifact` stack frame information into the global scope.
-    ///
-    /// This is not required anymore as it's done automaticaly when creating by 'Artifact::from_parts'
-    #[deprecated(
-        since = "4.0.0",
-        note = "done automaticaly by Artifact::from_parts, use 'take_frame_info_registration' if you use this method"
-    )]
-    pub fn register_frame_info(&mut self) -> Result<(), DeserializeError> {
-        self.internal_register_frame_info()
-    }
-
     fn internal_register_frame_info(&mut self) -> Result<(), DeserializeError> {
         if self
             .allocated
@@ -698,13 +687,6 @@ impl Artifact {
             .frame_info_registered = true;
 
         Ok(())
-    }
-
-    /// The GlobalFrameInfoRegistration needs to be transfered to EngineInner if
-    /// register_frame_info has been used.
-    #[deprecated(since = "4.0.0", note = "done automaticaly by Artifact::from_parts.")]
-    pub fn take_frame_info_registration(&mut self) -> Option<GlobalFrameInfoRegistration> {
-        self.internal_take_frame_info_registration()
     }
 
     fn internal_take_frame_info_registration(&mut self) -> Option<GlobalFrameInfoRegistration> {

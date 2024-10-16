@@ -5,7 +5,7 @@ This crate contains a compiler implementation based on Cranelift.
 ## Usage
 
 ```rust
-use wasmer::{Store, EngineBuilder};
+use wasmer::{Store, sys::EngineBuilder};
 use wasmer_compiler_cranelift::Cranelift;
 
 let compiler = Cranelift::new();
