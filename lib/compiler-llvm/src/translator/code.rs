@@ -2226,14 +2226,14 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 ));
                 let res = err!(self.builder.build_select(cond_value, v1, v2, ""));
                 let info = {
-                    let mut info = i1.strip_pending() & i2.strip_pending();
+                    let mut info = (i1.strip_pending() & i2.strip_pending())?;
                     if i1.has_pending_f32_nan() {
                         debug_assert!(i2.has_pending_f32_nan());
-                        info |= ExtraInfo::pending_f32_nan();
+                        info = (info | ExtraInfo::pending_f32_nan())?;
                     }
                     if i1.has_pending_f64_nan() {
                         debug_assert!(i2.has_pending_f64_nan());
-                        info |= ExtraInfo::pending_f64_nan();
+                        info = (info | ExtraInfo::pending_f64_nan())?;
                     }
                     info
                 };
@@ -4291,7 +4291,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 .unwrap();
                 self.state.push1_extra(
                     res,
-                    (i1.strip_pending() & i2.strip_pending()) | ExtraInfo::pending_f32_nan(),
+                    ((i1.strip_pending() & i2.strip_pending())? | ExtraInfo::pending_f32_nan())?,
                 );
             }
             Operator::F64Add => {
@@ -4312,7 +4312,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 .unwrap();
                 self.state.push1_extra(
                     res,
-                    (i1.strip_pending() & i2.strip_pending()) | ExtraInfo::pending_f64_nan(),
+                    ((i1.strip_pending() & i2.strip_pending())? | ExtraInfo::pending_f64_nan())?,
                 );
             }
             Operator::F32x4Add => {
@@ -4337,7 +4337,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     .build_bit_cast(res, self.intrinsics.i128_ty, ""));
                 self.state.push1_extra(
                     res,
-                    (i1.strip_pending() & i2.strip_pending()) | ExtraInfo::pending_f32_nan(),
+                    ((i1.strip_pending() & i2.strip_pending())? | ExtraInfo::pending_f32_nan())?,
                 );
             }
             Operator::F64x2Add => {
@@ -4362,7 +4362,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     .build_bit_cast(res, self.intrinsics.i128_ty, ""));
                 self.state.push1_extra(
                     res,
-                    (i1.strip_pending() & i2.strip_pending()) | ExtraInfo::pending_f64_nan(),
+                    ((i1.strip_pending() & i2.strip_pending())? | ExtraInfo::pending_f64_nan())?,
                 );
             }
             Operator::F32Sub => {
@@ -4383,7 +4383,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 .unwrap();
                 self.state.push1_extra(
                     res,
-                    (i1.strip_pending() & i2.strip_pending()) | ExtraInfo::pending_f32_nan(),
+                    ((i1.strip_pending() & i2.strip_pending())? | ExtraInfo::pending_f32_nan())?,
                 );
             }
             Operator::F64Sub => {
@@ -4404,7 +4404,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 .unwrap();
                 self.state.push1_extra(
                     res,
-                    (i1.strip_pending() & i2.strip_pending()) | ExtraInfo::pending_f64_nan(),
+                    ((i1.strip_pending() & i2.strip_pending())? | ExtraInfo::pending_f64_nan())?,
                 );
             }
             Operator::F32x4Sub => {
@@ -4429,7 +4429,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     .build_bit_cast(res, self.intrinsics.i128_ty, ""));
                 self.state.push1_extra(
                     res,
-                    (i1.strip_pending() & i2.strip_pending()) | ExtraInfo::pending_f32_nan(),
+                    ((i1.strip_pending() & i2.strip_pending())? | ExtraInfo::pending_f32_nan())?,
                 );
             }
             Operator::F64x2Sub => {
@@ -4454,7 +4454,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     .build_bit_cast(res, self.intrinsics.i128_ty, ""));
                 self.state.push1_extra(
                     res,
-                    (i1.strip_pending() & i2.strip_pending()) | ExtraInfo::pending_f64_nan(),
+                    ((i1.strip_pending() & i2.strip_pending())? | ExtraInfo::pending_f64_nan())?,
                 );
             }
             Operator::F32Mul => {
@@ -4475,7 +4475,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 .unwrap();
                 self.state.push1_extra(
                     res,
-                    (i1.strip_pending() & i2.strip_pending()) | ExtraInfo::pending_f32_nan(),
+                    ((i1.strip_pending() & i2.strip_pending())? | ExtraInfo::pending_f32_nan())?,
                 );
             }
             Operator::F64Mul => {
@@ -4496,7 +4496,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 .unwrap();
                 self.state.push1_extra(
                     res,
-                    (i1.strip_pending() & i2.strip_pending()) | ExtraInfo::pending_f64_nan(),
+                    ((i1.strip_pending() & i2.strip_pending())? | ExtraInfo::pending_f64_nan())?,
                 );
             }
             Operator::F32x4Mul => {
@@ -4521,7 +4521,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     .build_bit_cast(res, self.intrinsics.i128_ty, ""));
                 self.state.push1_extra(
                     res,
-                    (i1.strip_pending() & i2.strip_pending()) | ExtraInfo::pending_f32_nan(),
+                    ((i1.strip_pending() & i2.strip_pending())? | ExtraInfo::pending_f32_nan())?,
                 );
             }
             Operator::F64x2Mul => {
@@ -4546,7 +4546,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     .build_bit_cast(res, self.intrinsics.i128_ty, ""));
                 self.state.push1_extra(
                     res,
-                    (i1.strip_pending() & i2.strip_pending()) | ExtraInfo::pending_f64_nan(),
+                    ((i1.strip_pending() & i2.strip_pending())? | ExtraInfo::pending_f64_nan())?,
                 );
             }
             Operator::F32Div => {
@@ -5624,7 +5624,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     .left()
                     .unwrap();
                 self.state
-                    .push1_extra(res, info | ExtraInfo::pending_f32_nan());
+                    .push1_extra(res, (info | ExtraInfo::pending_f32_nan())?);
             }
             Operator::F32x4Ceil => {
                 let (v, i) = self.state.pop1_extra()?;
@@ -5640,7 +5640,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     .builder
                     .build_bit_cast(res, self.intrinsics.i128_ty, ""));
                 self.state
-                    .push1_extra(res, i | ExtraInfo::pending_f32_nan());
+                    .push1_extra(res, (i | ExtraInfo::pending_f32_nan())?);
             }
             Operator::F64Ceil => {
                 let (input, info) = self.state.pop1_extra()?;
@@ -5652,7 +5652,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     .left()
                     .unwrap();
                 self.state
-                    .push1_extra(res, info | ExtraInfo::pending_f64_nan());
+                    .push1_extra(res, (info | ExtraInfo::pending_f64_nan())?);
             }
             Operator::F64x2Ceil => {
                 let (v, i) = self.state.pop1_extra()?;
@@ -5668,7 +5668,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     .builder
                     .build_bit_cast(res, self.intrinsics.i128_ty, ""));
                 self.state
-                    .push1_extra(res, i | ExtraInfo::pending_f64_nan());
+                    .push1_extra(res, (i | ExtraInfo::pending_f64_nan())?);
             }
             Operator::F32Floor => {
                 let (input, info) = self.state.pop1_extra()?;
@@ -5680,7 +5680,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     .left()
                     .unwrap();
                 self.state
-                    .push1_extra(res, info | ExtraInfo::pending_f32_nan());
+                    .push1_extra(res, (info | ExtraInfo::pending_f32_nan())?);
             }
             Operator::F32x4Floor => {
                 let (v, i) = self.state.pop1_extra()?;
@@ -5696,7 +5696,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     .builder
                     .build_bit_cast(res, self.intrinsics.i128_ty, ""));
                 self.state
-                    .push1_extra(res, i | ExtraInfo::pending_f32_nan());
+                    .push1_extra(res, (i | ExtraInfo::pending_f32_nan())?);
             }
             Operator::F64Floor => {
                 let (input, info) = self.state.pop1_extra()?;
@@ -5708,7 +5708,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     .left()
                     .unwrap();
                 self.state
-                    .push1_extra(res, info | ExtraInfo::pending_f64_nan());
+                    .push1_extra(res, (info | ExtraInfo::pending_f64_nan())?);
             }
             Operator::F64x2Floor => {
                 let (v, i) = self.state.pop1_extra()?;
@@ -5724,7 +5724,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     .builder
                     .build_bit_cast(res, self.intrinsics.i128_ty, ""));
                 self.state
-                    .push1_extra(res, i | ExtraInfo::pending_f64_nan());
+                    .push1_extra(res, (i | ExtraInfo::pending_f64_nan())?);
             }
             Operator::F32Trunc => {
                 let (v, i) = self.state.pop1_extra()?;
@@ -5735,7 +5735,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 .left()
                 .unwrap();
                 self.state
-                    .push1_extra(res, i | ExtraInfo::pending_f32_nan());
+                    .push1_extra(res, (i | ExtraInfo::pending_f32_nan())?);
             }
             Operator::F32x4Trunc => {
                 let (v, i) = self.state.pop1_extra()?;
@@ -5751,7 +5751,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     .builder
                     .build_bit_cast(res, self.intrinsics.i128_ty, ""));
                 self.state
-                    .push1_extra(res, i | ExtraInfo::pending_f32_nan());
+                    .push1_extra(res, (i | ExtraInfo::pending_f32_nan())?);
             }
             Operator::F64Trunc => {
                 let (v, i) = self.state.pop1_extra()?;
@@ -5762,7 +5762,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 .left()
                 .unwrap();
                 self.state
-                    .push1_extra(res, i | ExtraInfo::pending_f64_nan());
+                    .push1_extra(res, (i | ExtraInfo::pending_f64_nan())?);
             }
             Operator::F64x2Trunc => {
                 let (v, i) = self.state.pop1_extra()?;
@@ -5778,7 +5778,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     .builder
                     .build_bit_cast(res, self.intrinsics.i128_ty, ""));
                 self.state
-                    .push1_extra(res, i | ExtraInfo::pending_f64_nan());
+                    .push1_extra(res, (i | ExtraInfo::pending_f64_nan())?);
             }
             Operator::F32Nearest => {
                 let (v, i) = self.state.pop1_extra()?;
@@ -5790,7 +5790,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     .left()
                     .unwrap();
                 self.state
-                    .push1_extra(res, i | ExtraInfo::pending_f32_nan());
+                    .push1_extra(res, (i | ExtraInfo::pending_f32_nan())?);
             }
             Operator::F32x4Nearest => {
                 let (v, i) = self.state.pop1_extra()?;
@@ -5806,7 +5806,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     .builder
                     .build_bit_cast(res, self.intrinsics.i128_ty, ""));
                 self.state
-                    .push1_extra(res, i | ExtraInfo::pending_f32_nan());
+                    .push1_extra(res, (i | ExtraInfo::pending_f32_nan())?);
             }
             Operator::F64Nearest => {
                 let (v, i) = self.state.pop1_extra()?;
@@ -5818,7 +5818,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     .left()
                     .unwrap();
                 self.state
-                    .push1_extra(res, i | ExtraInfo::pending_f64_nan());
+                    .push1_extra(res, (i | ExtraInfo::pending_f64_nan())?);
             }
             Operator::F64x2Nearest => {
                 let (v, i) = self.state.pop1_extra()?;
@@ -5834,7 +5834,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     .builder
                     .build_bit_cast(res, self.intrinsics.i128_ty, ""));
                 self.state
-                    .push1_extra(res, i | ExtraInfo::pending_f64_nan());
+                    .push1_extra(res, (i | ExtraInfo::pending_f64_nan())?);
             }
             Operator::F32Abs => {
                 let (v, i) = self.state.pop1_extra()?;
@@ -6000,7 +6000,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     .build_int_z_extend(cond, self.intrinsics.i32_ty, ""));
                 self.state.push1_extra(
                     res,
-                    ExtraInfo::arithmetic_f32() | ExtraInfo::arithmetic_f64(),
+                    (ExtraInfo::arithmetic_f32() | ExtraInfo::arithmetic_f64())?,
                 );
             }
             Operator::I8x16Eq => {
@@ -6066,7 +6066,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     .build_int_z_extend(cond, self.intrinsics.i32_ty, ""));
                 self.state.push1_extra(
                     res,
-                    ExtraInfo::arithmetic_f32() | ExtraInfo::arithmetic_f64(),
+                    (ExtraInfo::arithmetic_f32() | ExtraInfo::arithmetic_f64())?,
                 );
             }
             Operator::I8x16Ne => {
@@ -6134,7 +6134,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     .build_int_z_extend(cond, self.intrinsics.i32_ty, ""));
                 self.state.push1_extra(
                     res,
-                    ExtraInfo::arithmetic_f32() | ExtraInfo::arithmetic_f64(),
+                    (ExtraInfo::arithmetic_f32() | ExtraInfo::arithmetic_f64())?,
                 );
             }
             Operator::I8x16LtS => {
@@ -6268,7 +6268,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     .build_int_z_extend(cond, self.intrinsics.i32_ty, ""));
                 self.state.push1_extra(
                     res,
-                    ExtraInfo::arithmetic_f32() | ExtraInfo::arithmetic_f64(),
+                    (ExtraInfo::arithmetic_f32() | ExtraInfo::arithmetic_f64())?,
                 );
             }
             Operator::I8x16LeS => {
@@ -6344,7 +6344,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     .build_int_z_extend(cond, self.intrinsics.i32_ty, ""));
                 self.state.push1_extra(
                     res,
-                    ExtraInfo::arithmetic_f32() | ExtraInfo::arithmetic_f64(),
+                    (ExtraInfo::arithmetic_f32() | ExtraInfo::arithmetic_f64())?,
                 );
             }
             Operator::I8x16LeU => {
@@ -6405,7 +6405,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     .build_int_z_extend(cond, self.intrinsics.i32_ty, ""));
                 self.state.push1_extra(
                     res,
-                    ExtraInfo::arithmetic_f32() | ExtraInfo::arithmetic_f64(),
+                    (ExtraInfo::arithmetic_f32() | ExtraInfo::arithmetic_f64())?,
                 );
             }
             Operator::I8x16GtS => {
@@ -6481,7 +6481,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     .build_int_z_extend(cond, self.intrinsics.i32_ty, ""));
                 self.state.push1_extra(
                     res,
-                    ExtraInfo::arithmetic_f32() | ExtraInfo::arithmetic_f64(),
+                    (ExtraInfo::arithmetic_f32() | ExtraInfo::arithmetic_f64())?,
                 );
             }
             Operator::I8x16GtU => {
@@ -6615,7 +6615,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     .build_int_z_extend(cond, self.intrinsics.i32_ty, ""));
                 self.state.push1_extra(
                     res,
-                    ExtraInfo::arithmetic_f32() | ExtraInfo::arithmetic_f64(),
+                    (ExtraInfo::arithmetic_f32() | ExtraInfo::arithmetic_f64())?,
                 );
             }
             Operator::I8x16GeU => {
@@ -6679,7 +6679,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     .build_int_z_extend(cond, self.intrinsics.i32_ty, ""));
                 self.state.push1_extra(
                     res,
-                    ExtraInfo::arithmetic_f32() | ExtraInfo::arithmetic_f64(),
+                    (ExtraInfo::arithmetic_f32() | ExtraInfo::arithmetic_f64())?,
                 );
             }
             Operator::F32x4Eq => {
@@ -6723,7 +6723,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     .build_int_z_extend(cond, self.intrinsics.i32_ty, ""));
                 self.state.push1_extra(
                     res,
-                    ExtraInfo::arithmetic_f32() | ExtraInfo::arithmetic_f64(),
+                    (ExtraInfo::arithmetic_f32() | ExtraInfo::arithmetic_f64())?,
                 );
             }
             Operator::F32x4Ne => {
@@ -6767,7 +6767,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     .build_int_z_extend(cond, self.intrinsics.i32_ty, ""));
                 self.state.push1_extra(
                     res,
-                    ExtraInfo::arithmetic_f32() | ExtraInfo::arithmetic_f64(),
+                    (ExtraInfo::arithmetic_f32() | ExtraInfo::arithmetic_f64())?,
                 );
             }
             Operator::F32x4Lt => {
@@ -6811,7 +6811,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     .build_int_z_extend(cond, self.intrinsics.i32_ty, ""));
                 self.state.push1_extra(
                     res,
-                    ExtraInfo::arithmetic_f32() | ExtraInfo::arithmetic_f64(),
+                    (ExtraInfo::arithmetic_f32() | ExtraInfo::arithmetic_f64())?,
                 );
             }
             Operator::F32x4Le => {
@@ -6855,7 +6855,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     .build_int_z_extend(cond, self.intrinsics.i32_ty, ""));
                 self.state.push1_extra(
                     res,
-                    ExtraInfo::arithmetic_f32() | ExtraInfo::arithmetic_f64(),
+                    (ExtraInfo::arithmetic_f32() | ExtraInfo::arithmetic_f64())?,
                 );
             }
             Operator::F32x4Gt => {
@@ -6899,7 +6899,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     .build_int_z_extend(cond, self.intrinsics.i32_ty, ""));
                 self.state.push1_extra(
                     res,
-                    ExtraInfo::arithmetic_f32() | ExtraInfo::arithmetic_f64(),
+                    (ExtraInfo::arithmetic_f32() | ExtraInfo::arithmetic_f64())?,
                 );
             }
             Operator::F32x4Ge => {
@@ -8935,7 +8935,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     .build_int_z_extend(res, self.intrinsics.i32_ty, ""));
                 self.state.push1_extra(
                     res,
-                    ExtraInfo::arithmetic_f32() | ExtraInfo::arithmetic_f64(),
+                    (ExtraInfo::arithmetic_f32() | ExtraInfo::arithmetic_f64())?,
                 );
             }
             Operator::I8x16AllTrue
@@ -8972,7 +8972,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     .build_int_z_extend(res, self.intrinsics.i32_ty, ""));
                 self.state.push1_extra(
                     res,
-                    ExtraInfo::arithmetic_f32() | ExtraInfo::arithmetic_f64(),
+                    (ExtraInfo::arithmetic_f32() | ExtraInfo::arithmetic_f64())?,
                 );
             }
             Operator::I8x16ExtractLaneS { lane } => {
@@ -9079,7 +9079,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     .builder
                     .build_bit_cast(res, self.intrinsics.i128_ty, ""));
                 self.state
-                    .push1_extra(res, i1 & i2 & ExtraInfo::arithmetic_f32());
+                    .push1_extra(res, ((i1 & i2)? & ExtraInfo::arithmetic_f32())?);
             }
             Operator::I64x2ReplaceLane { lane } => {
                 let ((v1, i1), (v2, i2)) = self.state.pop2_extra()?;
@@ -9093,7 +9093,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     .builder
                     .build_bit_cast(res, self.intrinsics.i128_ty, ""));
                 self.state
-                    .push1_extra(res, i1 & i2 & ExtraInfo::arithmetic_f64());
+                    .push1_extra(res, ((i1 & i2)? & ExtraInfo::arithmetic_f64())?);
             }
             Operator::F32x4ReplaceLane { lane } => {
                 let ((v1, i1), (v2, i2)) = self.state.pop2_extra()?;
@@ -9118,7 +9118,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 let info = if push_pending_f32_nan_to_result {
                     ExtraInfo::pending_f32_nan()
                 } else {
-                    i1.strip_pending() & i2.strip_pending()
+                    (i1.strip_pending() & i2.strip_pending())?
                 };
                 self.state.push1_extra(res, info);
             }
@@ -9145,7 +9145,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 let info = if push_pending_f64_nan_to_result {
                     ExtraInfo::pending_f64_nan()
                 } else {
-                    i1.strip_pending() & i2.strip_pending()
+                    (i1.strip_pending() & i2.strip_pending())?
                 };
                 self.state.push1_extra(res, info);
             }
