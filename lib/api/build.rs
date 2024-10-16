@@ -198,6 +198,8 @@ fn main() {
         } else if cfg!(target_os = "windows") {
             /* do nothing */
             println!("cargo:rustc-link-lib=winmm");
+            println!("cargo:rustc-link-lib=dbghelp");
+            println!("cargo:rustc-link-lib=shlwapi");
         } else {
             println!("cargo:rustc-link-lib=c++");
         }
