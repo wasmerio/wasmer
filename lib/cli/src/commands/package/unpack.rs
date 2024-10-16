@@ -32,10 +32,10 @@ pub struct PackageUnpack {
     ///   wasmer.toml and the full contents can not be restored.
     ///
     /// * webc
-    /// Directly unpack the webc contents.
-    /// - Volumes will be placed in subdirectories.
-    /// - atoms will be placed in the root directory
-    /// - the full webc manifest will be placed in a manifest.json file
+    ///   Directly unpack the webc contents.
+    ///   - Volumes will be placed in subdirectories.
+    ///   - atoms will be placed in the root directory
+    ///   - the full webc manifest will be placed in a manifest.json file
     #[clap(short, long, default_value = "package")]
     pub format: Format,
 }
