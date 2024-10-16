@@ -272,6 +272,10 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
+      - name: Setup MSVC (Windows) 
+        uses: ilammy/msvc-dev-cmd@v1
+        if: matrix.metadata.build == 'windows-x64'
+
       - uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: ${{ env.MSRV }}
@@ -297,9 +301,10 @@ jobs:
         run: |
           choco install ninja
 
-      - name: Setup MSVC (Windows) 
-        uses: ilammy/msvc-dev-cmd@v1
-        if: matrix.metadata.build == 'windows-x64'
+      - name: Delete unwanted link to stop it from interfering (Windows) 
+        shell: bash
+        run: rm /usr/bin/link.exe
+        if: startsWith(matrix.metadata.build, 'windows-')
 
       - name: Test WAMR API 
         if: ${{ matrix.build-what.key == 'wamr' }}

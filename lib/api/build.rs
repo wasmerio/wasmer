@@ -148,58 +148,41 @@ fn main() {
 
     #[cfg(feature = "v8")]
     {
-        use cmake::Config;
         use std::{env, path::PathBuf};
 
+        let url = match (env::var("CARGO_CFG_TARGET_OS").unwrap().as_str(), env::var("CARGO_CFG_TARGET_ARCH").unwrap().as_str()) {
+            ("macos", "aarch64") => "https://github.com/wasmerio/wee8-custom-builds/releases/download/11.6/wee8-darwin-aarch64.tar.xz",
+            ("macos", "x86_64") => "https://github.com/wasmerio/wee8-custom-builds/releases/download/11.6/wee8-darwin-amd64.tar.xz",
+            ("linux", "x86_64") => "https://github.com/wasmerio/wee8-custom-builds/releases/download/11.6/wee8-linux-amd64.tar.xz",
+            ("windows", "x86_64") =>"https://github.com/wasmerio/wee8-custom-builds/releases/download/11.6/wee8-windows-amd64.tar.xz",
+            (os, arch) => panic!("target os + arch combination not supported: {os}, {arch}")
+        };
+
         let crate_root = env::var("CARGO_MANIFEST_DIR").unwrap();
-        let v8_cmake_dir = PathBuf::from(&crate_root)
-            .join("third_party")
-            .join("v8-cmake");
+        let v8_dir = PathBuf::from(&crate_root).join("third_party").join("v8");
+        let out_dir = env::var("OUT_DIR").unwrap();
 
-        let mut fetch_submodules = std::process::Command::new("git");
-        fetch_submodules
-            .current_dir(crate_root)
-            .arg("submodule")
-            .arg("update")
-            .arg("--init")
-            .arg("--recursive");
+        let tar = ureq::get(url).call().expect("failed to download v8");
 
-        let res = fetch_submodules.output();
+        let mut tar_data = Vec::new();
+        tar.into_reader()
+            .read_to_end(&mut tar_data)
+            .expect("failed to download v8 lib");
 
-        if let Err(e) = res {
-            panic!("fetching submodules failed: {e}");
+        let tar = xz::read::XzDecoder::new(tar_data.as_slice());
+        let mut archive = tar::Archive::new(tar);
+
+        for entry in archive.entries().unwrap() {
+            eprintln!("entry: {:?}", entry.unwrap().path());
         }
 
-        let mut dst = Config::new(v8_cmake_dir.clone());
+        let tar = xz::read::XzDecoder::new(tar_data.as_slice());
+        let mut archive = tar::Archive::new(tar);
 
-        dst.always_configure(true)
-            .generator("Ninja")
-            .define(
-                "CMAKE_BUILD_TYPE",
-                if cfg!(debug_assertions) {
-                    "RelWithDebInfo"
-                } else {
-                    "Release"
-                },
-            )
-            .build_target("wee8");
+        archive.unpack(out_dir.clone()).unwrap();
 
-        if cfg!(target_os = "windows") {
-            dst.define("CMAKE_CXX_COMPILER", "cl.exe");
-            dst.define("CMAKE_C_COMPILER", "cl.exe");
-            dst.define("CMAKE_LINKER_TYPE", "MSVC");
-            dst.define("WAMR_BUILD_PLATFORM", "windows");
-        }
+        println!("cargo:rustc-link-search=native={}", out_dir);
 
-        let dst = dst.build();
-
-        // Check output of `cargo build --verbose`, should see something like:
-        // -L native=/path/runng/target/debug/build/runng-sys-abc1234/out
-        // That contains output from cmake
-        println!(
-            "cargo:rustc-link-search=native={}",
-            dst.join("build").display()
-        );
         println!("cargo:rustc-link-lib=wee8");
         println!("cargo:rustc-link-lib=v8_initializers");
         println!("cargo:rustc-link-lib=v8_libbase");
@@ -214,17 +197,15 @@ fn main() {
             println!("cargo:rustc-link-lib=stdc++");
         } else if cfg!(target_os = "windows") {
             /* do nothing */
+            println!("cargo:rustc-link-lib=winmm");
+            println!("cargo:rustc-link-lib=dbghelp");
+            println!("cargo:rustc-link-lib=shlwapi");
         } else {
             println!("cargo:rustc-link-lib=c++");
         }
 
         let bindings = bindgen::Builder::default()
-            .header(
-                v8_cmake_dir
-                    .join("v8/third_party/wasm-api/wasm.h")
-                    .to_str()
-                    .unwrap(),
-            )
+            .header(v8_dir.join("wasm.h").to_str().unwrap())
             .derive_default(true)
             .derive_debug(true)
             .generate()

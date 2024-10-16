@@ -580,7 +580,7 @@ test-examples: test-stage-5-test-examples test-stage-6-test-examples-release
 test-v8: test-v8-api
 
 test-v8-api:
-	cargo nextest run --package=wasmer --release --features=v8 --no-default-features
+	CARGO_TERM_VERBOSE=true cargo nextest run --package=wasmer --release --features=v8 --no-default-features
 
 test-wamr: test-wamr-api
 
