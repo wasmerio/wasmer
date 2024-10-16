@@ -30,7 +30,7 @@ impl AsyncCliCommand for CmdNamespaceCreate {
         };
         let namespace = wasmer_api::query::create_namespace(&client, vars).await?;
 
-        println!("{}", self.fmt.format.render(&namespace));
+        println!("{}", self.fmt.get().render(&namespace));
 
         Ok(())
     }
