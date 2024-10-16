@@ -151,10 +151,10 @@ fn main() {
         use std::{env, path::PathBuf};
 
         let url = match (env::var("CARGO_CFG_TARGET_OS").unwrap().as_str(), env::var("CARGO_CFG_TARGET_ARCH").unwrap().as_str()) {
-            ("macos", "aarch64") => "https://github.com/xdoardo/wee8-custom-builds/releases/download/11.6/wee8-darwin-aarch64.tar.xz",
-            ("macos", "x86_64") => "https://github.com/xdoardo/wee8-custom-builds/releases/download/11.6/wee8-darwin-amd64.tar.xz",
-            ("linux", "x86_64") => "https://github.com/xdoardo/wee8-custom-builds/releases/download/11.6/wee8-linux-amd64.tar.xz",
-            ("windows", "x86_64") =>"https://github.com/xdoardo/wee8-custom-builds/releases/download/11.6/wee8-windows-amd64.tar.xz",
+            ("macos", "aarch64") => "https://github.com/wasmerio/wee8-custom-builds/releases/download/11.6/wee8-darwin-aarch64.tar.xz",
+            ("macos", "x86_64") => "https://github.com/wasmerio/wee8-custom-builds/releases/download/11.6/wee8-darwin-amd64.tar.xz",
+            ("linux", "x86_64") => "https://github.com/wasmerio/wee8-custom-builds/releases/download/11.6/wee8-linux-amd64.tar.xz",
+            ("windows", "x86_64") =>"https://github.com/wasmerio/wee8-custom-builds/releases/download/11.6/wee8-windows-amd64.tar.xz",
             (os, arch) => panic!("target os + arch combination not supported: {os}, {arch}")
         };
 
@@ -173,11 +173,11 @@ fn main() {
         let mut archive = tar::Archive::new(tar);
 
         for entry in archive.entries().unwrap() {
-            eprintln!(
-                "entry: {:?}",
-                entry.unwrap().path().map(|v| v.to_string_lossy())
-            );
+            eprintln!("entry: {:?}", entry.unwrap().path());
         }
+
+        let tar = xz::read::XzDecoder::new(tar_data.as_slice());
+        let mut archive = tar::Archive::new(tar);
 
         archive.unpack(out_dir.clone()).unwrap();
 
