@@ -587,7 +587,7 @@ impl AsyncCliCommand for CmdAppDeploy {
 
         wait_app(&client, opts.clone(), app_version.clone(), self.quiet).await?;
 
-        if self.fmt.format == crate::utils::render::ItemFormat::Json {
+        if self.fmt.format == Some(crate::utils::render::ItemFormat::Json) {
             println!("{}", serde_json::to_string_pretty(&app_version)?);
         }
 

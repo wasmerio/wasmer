@@ -1,8 +1,6 @@
 //! Get deployments for an app.
 
-use crate::{
-    commands::AsyncCliCommand, config::WasmerEnv, opts::ItemFormatOpts, utils::render::ItemFormat,
-};
+use crate::{commands::AsyncCliCommand, config::WasmerEnv, opts::ItemFormatOpts};
 
 /// Get the volumes of an app.
 #[derive(clap::Parser, Debug)]
@@ -25,13 +23,7 @@ impl AsyncCliCommand for CmdAppDeploymentGet {
         let client = self.env.client()?;
         let item = wasmer_api::query::app_deployment(&client, self.id).await?;
 
-        // The below is a bit hacky - the default is YAML, but this is not a good
-        // default for deployments, so we switch to table.
-        if self.fmt.format == ItemFormat::Yaml {
-            self.fmt.format = ItemFormat::Table;
-        }
-
-        println!("{}", self.fmt.format.render(&item));
+        println!("{}", self.fmt.get().render(&item));
         Ok(())
     }
 }
