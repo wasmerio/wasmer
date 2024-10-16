@@ -5,7 +5,7 @@ This crate contains a compiler implementation based on the Singlepass linear com
 ## Usage
 
 ```rust
-use wasmer::{Store, EngineBuilder};
+use wasmer::{Store, sys::EngineBuilder};
 use wasmer_compiler_singlepass::Singlepass;
 
 let compiler = Singlepass::new();

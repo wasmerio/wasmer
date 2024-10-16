@@ -51,15 +51,6 @@ impl VMMemory {
     }
 
     /// Copies this memory to a new memory
-    #[deprecated = "use `copy` instead"]
-    pub fn duplicate(
-        &mut self,
-        store: &impl AsStoreRef,
-    ) -> Result<VMMemory, wasmer_types::MemoryError> {
-        self.copy(store)
-    }
-
-    /// Copies this memory to a new memory
     pub fn copy(&self, store: &impl AsStoreRef) -> Result<VMMemory, wasmer_types::MemoryError> {
         let new_memory =
             crate::jsc::externals::memory::Memory::js_memory_from_type(&store, &self.ty)?;
