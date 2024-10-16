@@ -301,7 +301,10 @@ jobs:
         run: |
           choco install ninja
 
-
+      - name: Delete unwanted link to stop it from interfering (Windows) 
+        shell: bash
+        run: rm /usr/bin/link.exe
+        if: startsWith(matrix.metadata.build, 'windows-')
 
       - name: Test WAMR API 
         if: ${{ matrix.build-what.key == 'wamr' }}
