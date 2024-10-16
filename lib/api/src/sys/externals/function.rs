@@ -13,6 +13,7 @@ use wasmer_vm::{
     VMFunction, VMFunctionContext, VMFunctionKind, VMTrampoline,
 };
 
+#[cfg_attr(feature = "artifact-size", derive(loupe::MemoryUsage))]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Function {
     pub(crate) handle: StoreHandle<VMFunction>,

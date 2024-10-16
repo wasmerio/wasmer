@@ -27,6 +27,7 @@ use super::unwind::CompiledFunctionUnwindInfoLike;
 ///
 /// This structure is only used for reconstructing
 /// the frame information after a `Trap`.
+#[cfg_attr(feature = "artifact-size", derive(loupe::MemoryUsage))]
 #[cfg_attr(feature = "enable-serde", derive(Deserialize, Serialize))]
 #[derive(RkyvSerialize, RkyvDeserialize, Archive, Debug, Clone, PartialEq, Eq, Default)]
 #[rkyv(derive(Debug))]
@@ -42,6 +43,7 @@ pub struct CompiledFunctionFrameInfo {
 
 /// The function body.
 #[cfg_attr(feature = "enable-serde", derive(Deserialize, Serialize))]
+#[cfg_attr(feature = "artifact-size", derive(loupe::MemoryUsage))]
 #[derive(RkyvSerialize, RkyvDeserialize, Archive, Debug, Clone, PartialEq, Eq)]
 #[rkyv(derive(Debug))]
 pub struct FunctionBody {
@@ -121,6 +123,7 @@ pub type CustomSections = PrimaryMap<SectionIndex, CustomSection>;
 /// In the future this structure may also hold other information useful
 /// for debugging.
 #[cfg_attr(feature = "enable-serde", derive(Deserialize, Serialize))]
+#[cfg_attr(feature = "artifact-size", derive(loupe::MemoryUsage))]
 #[derive(RkyvSerialize, RkyvDeserialize, Archive, Debug, PartialEq, Eq, Clone)]
 #[rkyv(derive(Debug), compare(PartialEq))]
 pub struct Dwarf {

@@ -23,7 +23,7 @@ use crate::syscalls::*;
 /// ## Return
 ///
 /// Returns a bus process id that can be used to invoke calls
-#[instrument(level = "debug", skip_all, fields(name = field::Empty, working_dir = field::Empty), ret)]
+#[instrument(level = "trace", skip_all, fields(name = field::Empty, working_dir = field::Empty), ret)]
 pub fn proc_spawn<M: MemorySize>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     name: WasmPtr<u8, M>,
@@ -117,7 +117,7 @@ pub fn proc_spawn_internal(
     let child_process = child_env.process.clone();
     if let Some(args) = args {
         let mut child_state = env.state.fork();
-        child_state.args = args;
+        child_state.args = std::sync::Mutex::new(args);
         child_env.state = Arc::new(child_state);
     }
 

@@ -7,7 +7,7 @@ use crate::syscalls::*;
 /// ## Parameters
 ///
 /// * `addr` - Address to be removed
-#[instrument(level = "debug", skip_all, fields(ip = field::Empty), ret)]
+#[instrument(level = "trace", skip_all, fields(ip = field::Empty), ret)]
 pub fn port_addr_remove<M: MemorySize>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     ip: WasmPtr<__wasi_addr_t, M>,

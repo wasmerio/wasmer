@@ -2,7 +2,6 @@ use std::{collections::HashSet, time::Duration};
 
 use anyhow::{bail, Context};
 use cynic::{MutationBuilder, QueryBuilder};
-use edge_schema::schema::NetworkTokenV1;
 use futures::StreamExt;
 use merge_streams::MergeStreams;
 use time::OffsetDateTime;
@@ -1596,31 +1595,9 @@ pub fn get_package_releases_stream(
     )
 }
 
-/// Generate a new Edge token.
-pub async fn generate_deploy_token_raw(
-    client: &WasmerClient,
-    app_version_id: String,
-) -> Result<String, anyhow::Error> {
-    let res = client
-        .run_graphql(types::GenerateDeployToken::build(
-            types::GenerateDeployTokenVars { app_version_id },
-        ))
-        .await?;
-
-    res.generate_deploy_token
-        .map(|x| x.token)
-        .context("no token returned")
-}
-
-#[derive(Debug, PartialEq)]
-pub enum GenerateTokenBy {
-    Id(NetworkTokenV1),
-}
-
 #[derive(Debug, PartialEq)]
 pub enum TokenKind {
     SSH,
-    Network(GenerateTokenBy),
 }
 
 pub async fn generate_deploy_config_token_raw(
@@ -1632,9 +1609,6 @@ pub async fn generate_deploy_config_token_raw(
             types::GenerateDeployConfigTokenVars {
                 input: match token_kind {
                     TokenKind::SSH => "{}".to_string(),
-                    TokenKind::Network(by) => match by {
-                        GenerateTokenBy::Id(token) => serde_json::to_string(&token)?,
-                    },
                 },
             },
         ))

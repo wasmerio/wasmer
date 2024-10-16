@@ -24,6 +24,7 @@ use std::iter::ExactSizeIterator;
 use std::sync::atomic::{AtomicUsize, Ordering::SeqCst};
 
 #[derive(Debug, Clone, RkyvSerialize, RkyvDeserialize, Archive)]
+#[cfg_attr(feature = "artifact-size", derive(loupe::MemoryUsage))]
 #[rkyv(derive(Debug))]
 pub struct ModuleId {
     id: usize,
@@ -103,6 +104,7 @@ mod serde_imports {
 /// to make sure we don't break compatibility between versions.
 #[derive(Debug, Clone, Default)]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "artifact-size", derive(loupe::MemoryUsage))]
 pub struct ModuleInfo {
     /// A unique identifier (within this process) for this module.
     ///

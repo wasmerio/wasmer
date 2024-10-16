@@ -128,7 +128,15 @@ impl PackagePush {
     ) -> anyhow::Result<()> {
         let pb = make_spinner!(self.quiet, "Uploading the package..");
 
-        let signed_url = upload(client, package_hash, self.timeout, package, pb.clone()).await?;
+        let signed_url = upload(
+            client,
+            package_hash,
+            self.timeout,
+            package,
+            pb.clone(),
+            self.env.proxy()?,
+        )
+        .await?;
         spinner_ok!(pb, "Package correctly uploaded");
 
         let pb = make_spinner!(self.quiet, "Waiting for package to become available...");

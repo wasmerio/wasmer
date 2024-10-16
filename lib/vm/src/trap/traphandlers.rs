@@ -12,7 +12,7 @@ use backtrace::Backtrace;
 use core::ptr::{read, read_unaligned};
 use corosensei::stack::DefaultStack;
 use corosensei::trap::{CoroutineTrapHandler, TrapHandlerRegs};
-use corosensei::{CoroutineResult, ScopedCoroutine, Yielder};
+use corosensei::{Coroutine, CoroutineResult, Yielder};
 use scopeguard::defer;
 use std::any::Any;
 use std::cell::Cell;
@@ -674,7 +674,7 @@ pub unsafe fn wasmer_call_trampoline(
     callee: *const VMFunctionBody,
     values_vec: *mut u8,
 ) -> Result<(), Trap> {
-    catch_traps(trap_handler, config, || {
+    catch_traps(trap_handler, config, move || {
         mem::transmute::<
             unsafe extern "C" fn(
                 *mut VMContext,
@@ -692,13 +692,13 @@ pub unsafe fn wasmer_call_trampoline(
 /// # Safety
 ///
 /// Highly unsafe since `closure` won't have any dtors run.
-pub unsafe fn catch_traps<F, R>(
+pub unsafe fn catch_traps<F, R: 'static>(
     trap_handler: Option<*const TrapHandlerFn<'static>>,
     config: &VMConfig,
     closure: F,
 ) -> Result<R, Trap>
 where
-    F: FnOnce() -> R,
+    F: FnOnce() -> R + 'static,
 {
     // Ensure that per-thread initialization is done.
     lazy_per_thread_init()?;
@@ -921,7 +921,7 @@ unsafe fn unwind_with(reason: UnwindReason) -> ! {
 /// Runs the given function on a separate stack so that its stack usage can be
 /// bounded. Stack overflows and other traps can be caught and execution
 /// returned to the root of the stack.
-fn on_wasm_stack<F: FnOnce() -> T, T>(
+fn on_wasm_stack<F: FnOnce() -> T + 'static, T: 'static>(
     stack_size: usize,
     trap_handler: Option<*const TrapHandlerFn<'static>>,
     f: F,
@@ -939,7 +939,7 @@ fn on_wasm_stack<F: FnOnce() -> T, T>(
     let mut stack = scopeguard::guard(stack, |stack| STACK_POOL.push(stack));
 
     // Create a coroutine with a new stack to run the function on.
-    let mut coro = ScopedCoroutine::with_stack(&mut *stack, move |yielder, ()| {
+    let mut coro = Coroutine::with_stack(&mut *stack, move |yielder, ()| {
         // Save the yielder to TLS so that it can be used later.
         YIELDER.with(|cell| cell.set(Some(yielder.into())));
 

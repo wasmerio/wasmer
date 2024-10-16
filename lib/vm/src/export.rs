@@ -12,6 +12,7 @@ use std::any::Any;
 use wasmer_types::FunctionType;
 
 /// The value of an export passed from one instance to another.
+#[cfg_attr(feature = "artifact-size", derive(loupe::MemoryUsage))]
 pub enum VMExtern {
     /// A function export value.
     Function(InternalStoreHandle<VMFunction>),

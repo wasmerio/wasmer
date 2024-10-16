@@ -89,6 +89,7 @@ pub struct VMFunctionBody(u8);
 
 /// A safe wrapper around `VMFunctionBody`.
 #[derive(Clone, Copy, Debug)]
+#[cfg_attr(feature = "artifact-size", derive(loupe::MemoryUsage))]
 #[repr(transparent)]
 pub struct FunctionBodyPtr(pub *const VMFunctionBody);
 

@@ -18,6 +18,7 @@ use std::sync::Arc;
 /// possible after translation (such as the features used for compiling,
 /// or the `MemoryStyle` and `TableStyle`).
 #[cfg_attr(feature = "enable-serde", derive(Deserialize, Serialize))]
+#[cfg_attr(feature = "artifact-size", derive(loupe::MemoryUsage))]
 #[derive(Debug, Clone, PartialEq, Eq, RkyvSerialize, RkyvDeserialize, Archive)]
 #[rkyv(derive(Debug))]
 pub struct CompileModuleInfo {

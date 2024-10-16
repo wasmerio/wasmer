@@ -8,7 +8,7 @@ use crate::syscalls::*;
 ///     File descriptor to adjust
 /// - `Filesize st_size`
 ///     New size that `fd` will be set to
-#[instrument(level = "debug", skip_all, fields(%fd, %st_size), ret)]
+#[instrument(level = "trace", skip_all, fields(%fd, %st_size), ret)]
 pub fn fd_filestat_set_size(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     fd: WasiFd,

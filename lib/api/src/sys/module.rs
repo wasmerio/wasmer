@@ -14,6 +14,7 @@ use crate::{
 };
 
 #[derive(Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "artifact-size", derive(loupe::MemoryUsage))]
 pub struct Module {
     // The field ordering here is actually significant because of the drop
     // order: we want to drop the artifact before dropping the engine.

@@ -24,6 +24,7 @@ pub const WASM_MIN_PAGES: u32 = 0x100;
     Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, RkyvSerialize, RkyvDeserialize, Archive,
 )]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "artifact-size", derive(loupe::MemoryUsage))]
 #[rkyv(derive(Debug), compare(PartialEq, PartialOrd))]
 pub struct Pages(pub u32);
 

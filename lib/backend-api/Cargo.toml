@@ -1,6 +1,6 @@
 [package]
 name = "wasmer-api"
-version = "0.0.34"
+version = "0.1.0"
 description = "Client library for the Wasmer GraphQL API"
 readme = "README.md"
 documentation = "https://docs.rs/wasmer-api"
@@ -15,15 +15,17 @@ rust-version.workspace = true
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 [dependencies]
 # Wasmer dependencies.
-edge-schema.workspace = true
-wasmer-config = { version = "0.8.0", path = "../config" }
+wasmer-config = { version = "0.9.0", path = "../config" }
 webc.workspace = true
 
+
 # crates.io dependencies.
+reqwest = { workspace = true, default-features = false, features = ["json"] }
+
 anyhow = "1"
 serde = { version = "1", features = ["derive"] }
 time = { version = "0.3", features = ["formatting", "parsing"] }
-tokio = { version = "1.23.0" }
+tokio = { workspace = true }
 serde_json = "1"
 url = { version = "2", features = ["serde"] }
 futures = "0.3"
@@ -32,7 +34,6 @@ cynic = { version = "3.7.2", features = ["http-reqwest"] }
 pin-project-lite = "0.2.10"
 serde_path_to_error = "0.1.14"
 harsh = "0.2.2"
-reqwest = { workspace = true, default-features = false, features = ["json"] }
 merge-streams = "0.1.2"
 
 [target.'cfg(target_family = "wasm")'.dependencies.getrandom]
@@ -40,6 +41,6 @@ version = "0.2.14"
 features = ["js"]
 
 [dev-dependencies]
-base64 = "0.13.1"
-tokio = { version = "1.3", features = ["macros", "rt"] }
+tokio = { workspace = true, features = ["macros", "rt"] }
+base64.workspace = true
 uuid = { version = "1", features = ["v4"] }

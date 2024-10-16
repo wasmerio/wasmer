@@ -133,7 +133,7 @@ pub(crate) struct WasiState {
     pub inodes: WasiInodes,
     pub futexs: Mutex<WasiFutexState>,
     pub clock_offset: Mutex<HashMap<Snapshot0Clockid, i64>>,
-    pub args: Vec<String>,
+    pub args: Mutex<Vec<String>>,
     pub envs: Mutex<Vec<Vec<u8>>>,
 
     // TODO: should not be here, since this requires active work to resolve.
@@ -255,7 +255,7 @@ impl WasiState {
             inodes: self.inodes.clone(),
             futexs: Default::default(),
             clock_offset: Mutex::new(self.clock_offset.lock().unwrap().clone()),
-            args: self.args.clone(),
+            args: Mutex::new(self.args.lock().unwrap().clone()),
             envs: Mutex::new(self.envs.lock().unwrap().clone()),
             preopen: self.preopen.clone(),
         }

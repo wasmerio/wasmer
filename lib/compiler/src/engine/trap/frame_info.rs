@@ -54,6 +54,7 @@ pub struct GlobalFrameInfo {
 
 /// An RAII structure used to unregister a module's frame information when the
 /// module is destroyed.
+#[cfg_attr(feature = "artifact-size", derive(loupe::MemoryUsage))]
 pub struct GlobalFrameInfoRegistration {
     /// The key that will be removed from the global `ranges` map when this is
     /// dropped.

@@ -357,7 +357,7 @@ impl Instance {
 
         // Make the call.
         unsafe {
-            catch_traps(trap_handler, config, || {
+            catch_traps(trap_handler, config, move || {
                 mem::transmute::<*const VMFunctionBody, unsafe extern "C" fn(VMFunctionContext)>(
                     callee_address,
                 )(callee_vmctx)

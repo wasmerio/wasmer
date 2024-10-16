@@ -68,10 +68,11 @@
           ];
 
           env.LLVM_SYS_150_PREFIX = pkgs.llvmPackages_15.llvm.dev;
-          env.LD_LIBRARY_PATH = pkgs.lib.makeLibraryPath [
-            pkgs.stdenv.cc.cc
-            pkgs.openssl.out
-          ];
+
+          # shellHook = ''
+          #   LD_LIBRARY_PATH = "${ env.LD_LIBRARY_PATH = pkgs.lib.makeLibraryPath [ pkgs.stdenv.cc.cc pkgs.openssl.out ] }:$LD_LIBRARY_PATH"
+          # '';
+
         };
       }
     );

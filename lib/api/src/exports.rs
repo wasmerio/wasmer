@@ -58,6 +58,7 @@ pub enum ExportError {
 ///
 /// TODO: add examples of using exports
 #[derive(Clone, Default, PartialEq, Eq)]
+#[cfg_attr(feature = "artifact-size", derive(loupe::MemoryUsage))]
 pub struct Exports {
     map: IndexMap<String, Extern>,
 }

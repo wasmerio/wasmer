@@ -17,6 +17,7 @@ use serde::{Deserialize, Serialize};
 /// A list of all possible value types in WebAssembly.
 #[derive(Copy, Debug, Clone, Eq, PartialEq, Hash)]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "artifact-size", derive(loupe::MemoryUsage))]
 #[derive(RkyvSerialize, RkyvDeserialize, Archive)]
 #[rkyv(derive(Debug), compare(PartialEq))]
 #[repr(u8)]
@@ -65,6 +66,13 @@ impl fmt::Display for Type {
 #[derive(RkyvSerialize, RkyvDeserialize, Archive)]
 #[rkyv(derive(Debug), compare(PartialEq))]
 pub struct V128(pub(crate) [u8; 16]);
+
+#[cfg(feature = "artifact-size")]
+impl loupe::MemoryUsage for V128 {
+    fn size_of_val(&self, _tracker: &mut dyn loupe::MemoryUsageTracker) -> usize {
+        16 * 8
+    }
+}
 
 impl V128 {
     /// Get the bytes corresponding to the V128 value
@@ -240,6 +248,7 @@ impl ExternType {
 /// WebAssembly functions can have 0 or more parameters and results.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "artifact-size", derive(loupe::MemoryUsage))]
 #[derive(RkyvSerialize, RkyvDeserialize, Archive)]
 #[rkyv(derive(Debug))]
 pub struct FunctionType {
@@ -326,6 +335,7 @@ impl From<&Self> for FunctionType {
 
 /// Indicator of whether a global is mutable or not
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, RkyvSerialize, RkyvDeserialize, Archive)]
+#[cfg_attr(feature = "artifact-size", derive(loupe::MemoryUsage))]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 #[rkyv(derive(Debug), compare(PartialOrd, PartialEq))]
 #[repr(u8)]
@@ -365,6 +375,7 @@ impl From<Mutability> for bool {
 /// WebAssembly global.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, RkyvSerialize, RkyvDeserialize, Archive)]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "artifact-size", derive(loupe::MemoryUsage))]
 #[rkyv(derive(Debug), compare(PartialEq))]
 pub struct GlobalType {
     /// The type of the value stored in the global.
@@ -409,6 +420,7 @@ impl fmt::Display for GlobalType {
 /// Globals are initialized via the `const` operators or by referring to another import.
 #[derive(Debug, Clone, Copy, PartialEq, RkyvSerialize, RkyvDeserialize, Archive)]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "artifact-size", derive(loupe::MemoryUsage))]
 #[rkyv(derive(Debug), compare(PartialEq))]
 #[repr(u8)]
 pub enum GlobalInit {
@@ -442,6 +454,7 @@ pub enum GlobalInit {
 /// which `call_indirect` can invoke other functions.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "artifact-size", derive(loupe::MemoryUsage))]
 #[derive(RkyvSerialize, RkyvDeserialize, Archive)]
 #[rkyv(derive(Debug))]
 pub struct TableType {
@@ -483,6 +496,7 @@ impl fmt::Display for TableType {
 /// chunks of addressable memory.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "artifact-size", derive(loupe::MemoryUsage))]
 #[derive(RkyvSerialize, RkyvDeserialize, Archive)]
 #[rkyv(derive(Debug))]
 pub struct MemoryType {

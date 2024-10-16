@@ -15,6 +15,7 @@ use serde::{Deserialize, Serialize};
 
 /// Single source location to generated address mapping.
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "artifact-size", derive(loupe::MemoryUsage))]
 #[derive(RkyvSerialize, RkyvDeserialize, Archive, Debug, Clone, Copy, PartialEq, Eq)]
 #[rkyv(derive(Debug))]
 pub struct InstructionAddressMap {
@@ -29,6 +30,7 @@ pub struct InstructionAddressMap {
 }
 
 /// Function and its instructions addresses mappings.
+#[cfg_attr(feature = "artifact-size", derive(loupe::MemoryUsage))]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 #[derive(RkyvSerialize, RkyvDeserialize, Archive, Debug, Clone, PartialEq, Eq, Default)]
 #[rkyv(derive(Debug))]

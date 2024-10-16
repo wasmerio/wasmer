@@ -44,6 +44,7 @@ use wasmer_types::{SerializableModule, SerializeError};
 use wasmer_vm::{FunctionBodyPtr, MemoryStyle, TableStyle, VMSharedSignatureIndex, VMTrampoline};
 use wasmer_vm::{InstanceAllocator, StoreObjects, TrapHandlerFn, VMConfig, VMExtern, VMInstance};
 
+#[cfg_attr(feature = "artifact-size", derive(loupe::MemoryUsage))]
 pub struct AllocatedArtifact {
     // This shows if the frame info has been regestered already or not.
     // Because the 'GlobalFrameInfoRegistration' ownership can be transfered to EngineInner
@@ -55,6 +56,8 @@ pub struct AllocatedArtifact {
     // so the GloabelFrameInfo and MMap stays in sync and get dropped at the same time
     frame_info_registration: Option<GlobalFrameInfoRegistration>,
     finished_functions: BoxedSlice<LocalFunctionIndex, FunctionBodyPtr>,
+
+    #[cfg_attr(feature = "artifact-size", loupe(skip))]
     finished_function_call_trampolines: BoxedSlice<SignatureIndex, VMTrampoline>,
     finished_dynamic_function_trampolines: BoxedSlice<FunctionIndex, FunctionBodyPtr>,
     signatures: BoxedSlice<SignatureIndex, VMSharedSignatureIndex>,
@@ -62,6 +65,7 @@ pub struct AllocatedArtifact {
 }
 
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
+#[cfg_attr(feature = "artifact-size", derive(loupe::MemoryUsage))]
 #[repr(transparent)]
 /// A unique identifier for an Artifact.
 pub struct ArtifactId {
@@ -91,6 +95,7 @@ impl Default for ArtifactId {
 }
 
 /// A compiled wasm module, ready to be instantiated.
+#[cfg_attr(feature = "artifact-size", derive(loupe::MemoryUsage))]
 pub struct Artifact {
     id: ArtifactId,
     artifact: ArtifactBuildVariant,
@@ -102,6 +107,7 @@ pub struct Artifact {
 /// Artifacts may be created as the result of the compilation of a wasm
 /// module, corresponding to `ArtifactBuildVariant::Plain`, or loaded
 /// from an archive, corresponding to `ArtifactBuildVariant::Archived`.
+#[cfg_attr(feature = "artifact-size", derive(loupe::MemoryUsage))]
 pub enum ArtifactBuildVariant {
     Plain(ArtifactBuild),
     Archived(ArtifactBuildFromArchive),

@@ -20,6 +20,7 @@ use std::fmt;
     Archive,
 )]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "artifact-size", derive(loupe::MemoryUsage))]
 #[rkyv(derive(Debug), compare(PartialEq))]
 #[repr(u16)]
 pub enum LibCall {

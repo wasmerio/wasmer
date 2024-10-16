@@ -34,18 +34,21 @@ use serde::{Deserialize, Serialize};
     Archive,
 )]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "artifact-size", derive(loupe::MemoryUsage))]
 #[rkyv(derive(Debug), compare(PartialOrd, PartialEq))]
 pub struct LocalFunctionIndex(u32);
 entity_impl!(LocalFunctionIndex);
 
 /// Index type of a table defined locally inside the WebAssembly module.
 #[derive(Copy, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Debug)]
+#[cfg_attr(feature = "artifact-size", derive(loupe::MemoryUsage))]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 pub struct LocalTableIndex(u32);
 entity_impl!(LocalTableIndex);
 
 /// Index type of a memory defined locally inside the WebAssembly module.
 #[derive(Copy, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Debug)]
+#[cfg_attr(feature = "artifact-size", derive(loupe::MemoryUsage))]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 pub struct LocalMemoryIndex(u32);
 entity_impl!(LocalMemoryIndex);
@@ -65,6 +68,7 @@ entity_impl!(LocalMemoryIndex);
     Archive,
 )]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "artifact-size", derive(loupe::MemoryUsage))]
 #[rkyv(derive(Debug), compare(PartialOrd, PartialEq))]
 pub struct LocalGlobalIndex(u32);
 entity_impl!(LocalGlobalIndex);
@@ -84,6 +88,7 @@ entity_impl!(LocalGlobalIndex);
     Archive,
 )]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "artifact-size", derive(loupe::MemoryUsage))]
 #[rkyv(
     derive(Debug, PartialOrd, Ord, PartialEq, Eq),
     compare(PartialOrd, PartialEq)
@@ -106,6 +111,7 @@ entity_impl!(FunctionIndex);
     Archive,
 )]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "artifact-size", derive(loupe::MemoryUsage))]
 #[rkyv(
     derive(Debug, PartialOrd, Ord, PartialEq, Eq),
     compare(PartialOrd, PartialEq)
@@ -128,6 +134,7 @@ entity_impl!(TableIndex);
     Archive,
 )]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "artifact-size", derive(loupe::MemoryUsage))]
 #[rkyv(derive(Debug), compare(PartialOrd, PartialEq))]
 pub struct GlobalIndex(u32);
 entity_impl!(GlobalIndex);
@@ -147,6 +154,7 @@ entity_impl!(GlobalIndex);
     Archive,
 )]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "artifact-size", derive(loupe::MemoryUsage))]
 #[rkyv(derive(Debug), compare(PartialOrd, PartialEq))]
 pub struct MemoryIndex(pub(crate) u32);
 entity_impl!(MemoryIndex);
@@ -166,6 +174,7 @@ entity_impl!(MemoryIndex);
     Archive,
 )]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "artifact-size", derive(loupe::MemoryUsage))]
 #[rkyv(derive(Debug), compare(PartialOrd, PartialEq))]
 pub struct SignatureIndex(u32);
 entity_impl!(SignatureIndex);
@@ -185,6 +194,7 @@ entity_impl!(SignatureIndex);
     Archive,
 )]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "artifact-size", derive(loupe::MemoryUsage))]
 #[rkyv(
     derive(Debug, PartialOrd, Ord, PartialEq, Eq),
     compare(PartialOrd, PartialEq)
@@ -207,11 +217,11 @@ entity_impl!(DataIndex);
     Archive,
 )]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "artifact-size", derive(loupe::MemoryUsage))]
 #[rkyv(
     derive(Debug, PartialOrd, Ord, PartialEq, Eq),
     compare(PartialOrd, PartialEq)
 )]
-
 pub struct ElemIndex(u32);
 entity_impl!(ElemIndex);
 
@@ -230,6 +240,7 @@ entity_impl!(ElemIndex);
     Archive,
 )]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "artifact-size", derive(loupe::MemoryUsage))]
 #[rkyv(derive(Debug), compare(PartialOrd, PartialEq))]
 pub struct CustomSectionIndex(u32);
 entity_impl!(CustomSectionIndex);
@@ -249,6 +260,7 @@ entity_impl!(CustomSectionIndex);
     Archive,
 )]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "artifact-size", derive(loupe::MemoryUsage))]
 #[rkyv(derive(Debug), compare(PartialOrd, PartialEq))]
 #[repr(u8)]
 pub enum ExportIndex {
@@ -267,6 +279,7 @@ pub enum ExportIndex {
     Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord, RkyvSerialize, RkyvDeserialize, Archive,
 )]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "artifact-size", derive(loupe::MemoryUsage))]
 #[rkyv(derive(Debug), compare(PartialOrd, PartialEq))]
 #[repr(u8)]
 pub enum ImportIndex {

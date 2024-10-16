@@ -7,6 +7,7 @@ use serde::{Deserialize, Serialize};
 
 /// Information about trap.
 #[cfg_attr(feature = "enable-serde", derive(Deserialize, Serialize))]
+#[cfg_attr(feature = "artifact-size", derive(loupe::MemoryUsage))]
 #[derive(RkyvSerialize, RkyvDeserialize, Archive, Clone, Copy, Debug, PartialEq, Eq)]
 #[rkyv(derive(Debug), compare(PartialEq))]
 pub struct TrapInformation {

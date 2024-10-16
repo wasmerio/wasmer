@@ -3,7 +3,7 @@ use crate::syscalls::*;
 
 /// ### `port_addr_clear()`
 /// Clears all the addresses on the local port
-#[instrument(level = "debug", skip_all, ret)]
+#[instrument(level = "trace", skip_all, ret)]
 pub fn port_addr_clear(mut ctx: FunctionEnvMut<'_, WasiEnv>) -> Result<Errno, WasiError> {
     wasi_try_ok!(port_addr_clear_internal(&mut ctx)?);
 

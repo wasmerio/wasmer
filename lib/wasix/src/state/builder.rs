@@ -885,7 +885,7 @@ impl WasiEnvBuilder {
             fs: wasi_fs,
             secret: rand::thread_rng().gen::<[u8; 32]>(),
             inodes,
-            args: self.args.clone(),
+            args: std::sync::Mutex::new(self.args.clone()),
             preopen: self.vfs_preopens.clone(),
             futexs: Default::default(),
             clock_offset: Default::default(),

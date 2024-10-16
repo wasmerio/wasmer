@@ -24,7 +24,7 @@ env:
   # Rust, but it's not stable on 1.69 yet. By explicitly setting the protocol we
   # can override that behaviour
   CARGO_REGISTRIES_CRATES_IO_PROTOCOL: git
-  MSRV: "1.79"
+  MSRV: "1.81"
   NEXTEST_PROFILE: "ci"
   RUSTUP_WINDOWS_PATH_ADD_BIN: 1
   WASI_SDK_VERSION: "22"
@@ -402,7 +402,7 @@ jobs:
           TARGET_DIR: target/aarch64-unknown-linux-gnu/release
       - name: Upload Artifacts
         if: ${{ matrix.build-what.key == 'capi' }}
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: capi-linux-aarch64
           path: dist
@@ -460,7 +460,7 @@ jobs:
           TARGET_DIR: target/riscv64gc-unknown-linux-gnu/release
       - name: Upload Artifacts
         if: ${{ matrix.build-what.key == 'capi' }}
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: capi-linux-riscv64
           path: dist
@@ -685,14 +685,14 @@ jobs:
           TARGET_DIR: target/${{ matrix.metadata.target }}/release
           CARGO_TARGET: ${{ matrix.metadata.target }}
       - name: Archive production artifacts
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: wasmer-cli-${{ matrix.metadata.build }}
           path: build-wasmer.tar.gz
           if-no-files-found: ignore
           retention-days: 2
       - name: Archive production artifacts
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: capi-${{ matrix.metadata.build }}
           path: build-capi.tar.gz
@@ -906,11 +906,11 @@ jobs:
       - name: Set up base deps on musl
         if: matrix.build == 'linux-musl'
         run: ./scripts/alpine-linux-install-deps.sh
-      - uses: actions/download-artifact@v3
+      - uses: actions/download-artifact@v4
         id: download
         with:
           name: capi-${{ matrix.build }}
-      - uses: actions/download-artifact@v3
+      - uses: actions/download-artifact@v4
         with:
           name: wasmer-cli-${{ matrix.build }}
       - name: 'Echo download path'
@@ -941,27 +941,27 @@ jobs:
         run: |
           mkdir -p package
           mkdir -p package/cache
-      - uses: actions/download-artifact@v3
+      - uses: actions/download-artifact@v4
         with:
           name: capi-linux-aarch64
           path: package/cache/wasmercache1
-      - uses: actions/download-artifact@v3
+      - uses: actions/download-artifact@v4
         with:
           name: capi-windows-x64
           path: package/cache/wasmercache2
-      - uses: actions/download-artifact@v3
+      - uses: actions/download-artifact@v4
         with:
           name: capi-macos-arm64
           path: package/cache/wasmercache3
-      - uses: actions/download-artifact@v3
+      - uses: actions/download-artifact@v4
         with:
           name: capi-macos-x64
           path: package/cache/wasmercache4
-      - uses: actions/download-artifact@v3
+      - uses: actions/download-artifact@v4
         with:
           name: capi-linux-x64
           path: package/cache/wasmercache5
-      - uses: actions/download-artifact@v3
+      - uses: actions/download-artifact@v4
         with:
           name: capi-linux-riscv64
           path: package/cache/wasmercache6
@@ -979,12 +979,12 @@ jobs:
           cp package/cache/wasmercache4/build-capi.tar.gz package/cache/wasmer-darwin-amd64.tar.gz
           cp package/cache/wasmercache5/build-capi.tar.gz package/cache/wasmer-linux-amd64.tar.gz
           cp package/cache/wasmercache6/wasmer.tar.gz package/cache/wasmer-linux-riscv64.tar.gz
-      - uses: actions/download-artifact@v3
+      - uses: actions/download-artifact@v4
         if: ${{ matrix.build == 'windows-x64' }}
         with:
           name: capi-windows-x64
           path: download_link
-      - uses: actions/download-artifact@v3
+      - uses: actions/download-artifact@v4
         if: ${{ matrix.build == 'linux-musl' }}
         with:
           name: capi-linux-musl
@@ -994,12 +994,12 @@ jobs:
         with:
           name: capi-macos-arm64
           path: download_link
-      - uses: actions/download-artifact@v3
+      - uses: actions/download-artifact@v4
         if: ${{ matrix.build == 'macos-x64' }}
         with:
           name: capi-macos-x64
           path: download_link
-      - uses: actions/download-artifact@v3
+      - uses: actions/download-artifact@v4
         if: ${{ matrix.build == 'linux-x64' }}
         with:
           name: capi-linux-x64
@@ -1072,7 +1072,7 @@ jobs:
         repository: wasmerio/wasmer-integration-tests
         submodules: true
         token: ${{ secrets.CLONE_WASMER_INTEGRATION_TESTS }}
-    - uses: actions/download-artifact@v3
+    - uses: actions/download-artifact@v4
       with:
         name: wasmer-cli-linux-x64 
     - name: Cargo Registry Cache

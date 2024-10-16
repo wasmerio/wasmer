@@ -7,6 +7,7 @@ use crate::Mutability;
 use wasmer_vm::{StoreHandle, VMExtern, VMGlobal};
 
 #[derive(Debug, Clone)]
+#[cfg_attr(feature = "artifact-size", derive(loupe::MemoryUsage))]
 pub struct Global {
     handle: StoreHandle<VMGlobal>,
 }
