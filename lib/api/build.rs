@@ -171,6 +171,14 @@ fn main() {
 
         let tar = xz::read::XzDecoder::new(tar_data.as_slice());
         let mut archive = tar::Archive::new(tar);
+
+        for entry in archive.entries().unwrap() {
+            eprintln!(
+                "entry: {:?}",
+                entry.unwrap().path().map(|v| v.to_string_lossy())
+            );
+        }
+
         archive.unpack(out_dir.clone()).unwrap();
 
         println!("cargo:rustc-link-search=native={}", out_dir);
@@ -189,6 +197,7 @@ fn main() {
             println!("cargo:rustc-link-lib=stdc++");
         } else if cfg!(target_os = "windows") {
             /* do nothing */
+            println!("cargo:rustc-link-lib=winmm");
         } else {
             println!("cargo:rustc-link-lib=c++");
         }
