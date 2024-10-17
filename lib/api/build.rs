@@ -183,15 +183,31 @@ fn main() {
 
         println!("cargo:rustc-link-search=native={}", out_dir);
 
-        println!("cargo:rustc-link-lib=wee8");
-        println!("cargo:rustc-link-lib=v8_initializers");
-        println!("cargo:rustc-link-lib=v8_libbase");
-        println!("cargo:rustc-link-lib=v8_base_without_compiler");
-        println!("cargo:rustc-link-lib=v8_compiler");
-        println!("cargo:rustc-link-lib=v8_libplatform");
-        println!("cargo:rustc-link-lib=v8_libsampler");
-        println!("cargo:rustc-link-lib=v8_snapshot");
-        println!("cargo:rustc-link-lib=v8_torque_generated");
+        #[cfg(target_os = "macos")]
+        {
+            println!("cargo:rustc-link-lib=wee8");
+            println!("cargo:rustc-link-lib=v8_initializers");
+            println!("cargo:rustc-link-lib=v8_libbase");
+            println!("cargo:rustc-link-lib=v8_base_without_compiler");
+            println!("cargo:rustc-link-lib=v8_compiler");
+            println!("cargo:rustc-link-lib=v8_libplatform");
+            println!("cargo:rustc-link-lib=v8_libsampler");
+            println!("cargo:rustc-link-lib=v8_snapshot");
+            println!("cargo:rustc-link-lib=v8_torque_generated");
+        }
+
+        #[cfg(target_os = "linux")]
+        {
+            println!("cargo:rustc-link-lib=wee8");
+            println!("cargo:rustc-link-lib=static=v8_initializers");
+            println!("cargo:rustc-link-lib=static=v8_libbase");
+            println!("cargo:rustc-link-lib=static=v8_base_without_compiler");
+            println!("cargo:rustc-link-lib=static=v8_compiler");
+            println!("cargo:rustc-link-lib=static=v8_libplatform");
+            println!("cargo:rustc-link-lib=static=v8_libsampler");
+            println!("cargo:rustc-link-lib=static=v8_snapshot");
+            println!("cargo:rustc-link-lib=static=v8_torque_generated");
+        }
 
         if cfg!(any(target_os = "linux",)) {
             println!("cargo:rustc-link-lib=stdc++");
