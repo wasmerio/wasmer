@@ -7,11 +7,11 @@ use crate::bindings::{
     wasm_valtype_new,
 };
 
-#[cfg(feature = "wasmi")]
-use crate::bindings::wasm_valkind_enum_WASM_EXTERNREF as wasm_valkind_enum_WASM_ANYREF;
+#[cfg(not(feature = "v8"))]
+use crate::bindings::wasm_valkind_enum_WASM_EXTERNREF;
 
-#[cfg(not(feature = "wasmi"))]
-use crate::bindings::wasm_valkind_enum_WASM_ANYREF;
+#[cfg(feature = "v8")]
+use crate::bindings::wasm_valkind_enum_WASM_ANYREF as wasm_valkind_enum_WASM_EXTERNREF;
 
 use crate::c_api::bindings::wasm_table_as_extern;
 use crate::c_api::vm::{VMExtern, VMExternTable, VMFunction, VMTable};
@@ -92,14 +92,27 @@ impl Table {
             }
 
             let kind = match self.ty(store).ty {
-                wasmer_types::Type::ExternRef => wasm_valkind_enum_WASM_ANYREF,
+                wasmer_types::Type::ExternRef => wasm_valkind_enum_WASM_EXTERNREF,
                 wasmer_types::Type::FuncRef => wasm_valkind_enum_WASM_FUNCREF,
                 ty => panic!("unsupported table type: {ty:?}"),
             } as u8;
 
-            let value = wasm_val_t {
-                kind,
-                of: crate::bindings::wasm_val_t__bindgen_ty_1 { ref_ },
+            let value = {
+                #[cfg(feature = "wamr")]
+                {
+                    wasm_val_t {
+                        kind,
+                        _paddings: Default::default(),
+                        of: crate::bindings::wasm_val_t__bindgen_ty_1 { ref_ },
+                    }
+                }
+                #[cfg(not(feature = "wamr"))]
+                {
+                    wasm_val_t {
+                        kind,
+                        of: crate::bindings::wasm_val_t__bindgen_ty_1 { ref_ },
+                    }
+                }
             };
 
             Some(param_from_c(&value))
