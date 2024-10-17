@@ -1,8 +1,18 @@
+use crate::as_c::{param_from_c, result_to_value};
 use crate::bindings::{
-    wasm_extern_as_ref, wasm_limits_t, wasm_ref_t, wasm_table_new, wasm_table_type,
-    wasm_tabletype_element, wasm_tabletype_limits, wasm_tabletype_new, wasm_tabletype_t,
-    wasm_val_t, wasm_valtype_new,
+    wasm_extern_as_ref, wasm_func_as_ref, wasm_limits_t, wasm_ref_as_func, wasm_ref_as_trap,
+    wasm_ref_t, wasm_table_copy, wasm_table_get, wasm_table_grow, wasm_table_new, wasm_table_set,
+    wasm_table_size, wasm_table_type, wasm_tabletype_element, wasm_tabletype_limits,
+    wasm_tabletype_new, wasm_tabletype_t, wasm_val_t, wasm_valkind_enum_WASM_FUNCREF,
+    wasm_valtype_new,
 };
+
+#[cfg(feature = "wasmi")]
+use crate::bindings::wasm_valkind_enum_WASM_EXTERNREF as wasm_valkind_enum_WASM_ANYREF;
+
+#[cfg(not(feature = "wasmi"))]
+use crate::bindings::wasm_valkind_enum_WASM_ANYREF;
+
 use crate::c_api::bindings::wasm_table_as_extern;
 use crate::c_api::vm::{VMExtern, VMExternTable, VMFunction, VMTable};
 use crate::errors::RuntimeError;
@@ -74,15 +84,26 @@ impl Table {
     }
 
     pub fn get(&self, store: &mut impl AsStoreMut, index: u32) -> Option<Value> {
-        unimplemented!();
-        // if let Some(func) = self.handle.table.get(index).ok() {
-        //     let ty = FunctionType::new(vec![], vec![]);
-        //     let vm_function = VMFunction::new(func, ty);
-        //     let function = crate::Function::from_vm_extern(store, vm_function);
-        //     Some(Value::FuncRef(Some(function)))
-        // } else {
-        //     None
-        // }
+        unsafe {
+            let ref_ = wasm_table_get(self.handle, index);
+
+            if ref_.is_null() {
+                return None;
+            }
+
+            let kind = match self.ty(store).ty {
+                wasmer_types::Type::ExternRef => wasm_valkind_enum_WASM_ANYREF,
+                wasmer_types::Type::FuncRef => wasm_valkind_enum_WASM_FUNCREF,
+                ty => panic!("unsupported table type: {ty:?}"),
+            } as u8;
+
+            let value = wasm_val_t {
+                kind,
+                of: crate::bindings::wasm_val_t__bindgen_ty_1 { ref_ },
+            };
+
+            Some(param_from_c(&value))
+        }
     }
 
     pub fn set(
@@ -91,47 +112,54 @@ impl Table {
         index: u32,
         val: Value,
     ) -> Result<(), RuntimeError> {
-        unimplemented!();
-        // let item = get_function(store, val)?;
-        // set_table_item(&self.handle, index, &item)
+        unsafe {
+            let init = match val {
+                Value::ExternRef(None) | Value::FuncRef(None) => std::ptr::null_mut(),
+                Value::FuncRef(Some(ref r)) => wasm_func_as_ref(r.0.handle),
+                _ => {
+                    return Err(RuntimeError::new(format!(
+                        "Could not grow table due to unsupported init value type: {val:?} "
+                    )))
+                }
+            };
+
+            if !wasm_table_set(self.handle, index, init) {
+                return Err(RuntimeError::new(format!(
+                    "Could not set value {val:?} table at index {index}"
+                )));
+            }
+
+            Ok(())
+        }
     }
 
     pub fn size(&self, store: &impl AsStoreRef) -> u32 {
-        unimplemented!();
-        // let store_mut = store.as_store_ref();
-        // let engine = store_mut.engine();
-        // let context = engine.0.context();
-        // self.handle
-        //     .table
-        //     .get_property(&context, "length".to_string())
-        //     .to_number(&context)
-        //     .unwrap() as _
+        unsafe { wasm_table_size(self.handle) }
     }
 
     pub fn grow(
         &self,
         store: &mut impl AsStoreMut,
         delta: u32,
-        _init: Value,
+        init: Value,
     ) -> Result<u32, RuntimeError> {
-        unimplemented!();
-        // let store_mut = store.as_store_mut();
-        // let engine = store_mut.engine();
-        // let context = engine.0.context();
-        // let func = self
-        //     .handle
-        //     .table
-        //     .get_property(&context, "grow".to_string())
-        //     .to_object(&context)
-        //     .unwrap();
-        // match func.call(
-        //     &context,
-        //     Some(&self.handle.table),
-        //     &[JSValue::number(&context, delta as _)],
-        // ) {
-        //     Ok(val) => Ok(val.to_number(&context).unwrap() as _),
-        //     Err(e) => Err(<JSValue as Into<RuntimeError>>::into(e)),
-        // }
+        unsafe {
+            let size = wasm_table_size(self.handle);
+            let init = match init {
+                Value::ExternRef(None) | Value::FuncRef(None) => std::ptr::null_mut(),
+                Value::FuncRef(Some(r)) => wasm_func_as_ref(r.0.handle),
+                _ => {
+                    return Err(RuntimeError::new(format!(
+                        "Could not grow table due to unsupported init value type: {init:?} "
+                    )))
+                }
+            };
+            if !wasm_table_grow(self.handle, delta, init) {
+                return Err(RuntimeError::new("Could not grow table"));
+            }
+
+            Ok(size)
+        }
     }
 
     pub fn copy(
@@ -142,7 +170,7 @@ impl Table {
         _src_index: u32,
         _len: u32,
     ) -> Result<(), RuntimeError> {
-        unimplemented!("Table.copy is not natively supported in Javascript");
+        unimplemented!("Copying tables is currently not implemented!")
     }
 
     pub(crate) fn from_vm_extern(_store: &mut impl AsStoreMut, vm_extern: VMExternTable) -> Self {

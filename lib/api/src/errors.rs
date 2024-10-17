@@ -115,7 +115,7 @@ impl RuntimeError {
     /// # Example
     /// ```
     /// let trap = wasmer::RuntimeError::new("unexpected error");
-    /// assert_eq!("unexpected error", trap.message());
+    /// assert_eq!("user: unexpected error", trap.message());
     /// ```
     pub fn new<I: Into<String>>(message: I) -> Self {
         let msg = message.into();

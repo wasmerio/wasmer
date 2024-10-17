@@ -73,6 +73,7 @@ impl Memory {
         MemoryView::new(self, store)
     }
 
+    // Note: the return value is the memory size (in [`Pages`]) *before* growing it.
     pub fn grow<IntoPages>(
         &self,
         store: &mut impl AsStoreMut,
@@ -81,9 +82,28 @@ impl Memory {
     where
         IntoPages: Into<Pages>,
     {
-        unimplemented!(
-            "calling grow from host is not supported! Use the memory.grow opcode instead."
-        );
+        #[cfg(feature = "wamr")]
+        {
+            unimplemented!(
+                "calling grow from host is not supported! Use the memory.grow opcode instead."
+            );
+        }
+
+        #[cfg(any(feature = "v8", feature = "wasmi"))]
+        unsafe {
+            let delta: Pages = delta.into();
+            let current = Pages(wasm_memory_size(self.handle));
+
+            eprintln!("current: {current:?}, delta: {delta:?}");
+            if !wasm_memory_grow(self.handle, delta.0) {
+                Err(MemoryError::CouldNotGrow {
+                    current,
+                    attempted_delta: delta,
+                })
+            } else {
+                Ok(current)
+            }
+        }
     }
 
     pub fn grow_at_least(

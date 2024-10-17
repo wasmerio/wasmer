@@ -30,7 +30,7 @@ fn global_new() -> Result<(), String> {
 
 #[universal_test]
 #[cfg_attr(
-    feature = "wasm-c-api",
+    feature = "wamr",
     ignore = "wamr does not support globals unattached to instances"
 )]
 fn global_get() -> Result<(), String> {
@@ -86,7 +86,7 @@ fn global_set() -> Result<(), String> {
 #[universal_test]
 #[cfg_attr(
     feature = "wasmi",
-    ignore = "wasmi does not support globals unattached to instances"
+    ignore = "wasmi does not support funcrefs"
 )]
 fn table_new() -> Result<(), String> {
     let mut store = Store::default();
@@ -265,7 +265,7 @@ fn memory_new() -> Result<(), String> {
 
 #[universal_test]
 #[cfg_attr(
-    feature = "wasm-c-api",
+    feature = "wamr",
     ignore = "wamr does not support direct calls to grow memory"
 )]
 fn memory_grow() -> Result<(), String> {
