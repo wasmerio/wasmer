@@ -1277,7 +1277,7 @@ impl WasiEnv {
         }
 
         // If this is the main thread then also close all the files
-        if self.thread.is_main() {
+        if self.thread.is_main() || matches!(exit_code, Some(e) if !e.is_success()) {
             let process = self.process.clone();
             let disable_fs_cleanup = self.disable_fs_cleanup;
             let pid = self.pid();

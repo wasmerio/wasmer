@@ -207,6 +207,7 @@ fn call_module<M: MemorySize>(
         if let Err(err) = call_ret {
             match err.downcast::<WasiError>() {
                 Ok(WasiError::Exit(code)) => {
+                    trace!(?code, "thread exited cleanly");
                     ret = if code.is_success() {
                         Errno::Success
                     } else {
