@@ -183,7 +183,6 @@ fn main() {
 
         println!("cargo:rustc-link-search=native={}", out_dir);
 
-
         println!("cargo:rustc-link-lib=static=wee8");
         println!("cargo:rustc-link-lib=v8_initializers");
         println!("cargo:rustc-link-lib=v8_libbase");
