@@ -142,7 +142,7 @@ impl From<wasi::ExitCode> for JournalExitCodeV1 {
     fn from(val: wasi::ExitCode) -> Self {
         match val {
             wasi::ExitCode::Errno(errno) => JournalExitCodeV1::Errno(errno as u16),
-            wasi::ExitCode::Other(id) => JournalExitCodeV1::Other(id),
+            wasi::ExitCode::Other(id) => JournalExitCodeV1::Other(id as i32),
         }
     }
 }
@@ -153,7 +153,7 @@ impl From<JournalExitCodeV1> for wasi::ExitCode {
             JournalExitCodeV1::Errno(errno) => {
                 wasi::ExitCode::Errno(errno.try_into().unwrap_or(wasi::Errno::Unknown))
             }
-            JournalExitCodeV1::Other(id) => wasi::ExitCode::Other(id),
+            JournalExitCodeV1::Other(id) => wasi::ExitCode::from(id),
         }
     }
 }
@@ -164,7 +164,7 @@ impl From<&'_ ArchivedJournalExitCodeV1> for wasi::ExitCode {
             ArchivedJournalExitCodeV1::Errno(errno) => {
                 wasi::ExitCode::Errno((*errno).try_into().unwrap_or(wasi::Errno::Unknown))
             }
-            ArchivedJournalExitCodeV1::Other(id) => wasi::ExitCode::Other(*id),
+            ArchivedJournalExitCodeV1::Other(id) => wasi::ExitCode::from(*id),
         }
     }
 }

@@ -252,13 +252,13 @@ unsafe impl<M: MemorySize> ValueType for ThreadStart<M> {
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 pub enum ExitCode {
     Errno(Errno),
-    Other(i32),
+    Other(u16),
 }
 impl ExitCode {
     pub fn raw(&self) -> i32 {
         match self {
             ExitCode::Errno(err) => err.to_native(),
-            ExitCode::Other(code) => *code,
+            ExitCode::Other(code) => *code as i32,
         }
     }
 
@@ -306,7 +306,7 @@ impl From<i32> for ExitCode {
     fn from(val: i32) -> Self {
         let err = Errno::from_native(val);
         match err {
-            Errno::Unknown => Self::Other(val),
+            Errno::Unknown => Self::Other((val % 256) as u16),
             err => Self::Errno(err),
         }
     }
@@ -316,7 +316,7 @@ impl From<ExitCode> for Errno {
     fn from(code: ExitCode) -> Self {
         match code {
             ExitCode::Errno(err) => err,
-            ExitCode::Other(code) => Errno::from_native(code),
+            ExitCode::Other(code) => Errno::from_native(code as i32),
         }
     }
 }
@@ -325,7 +325,7 @@ impl From<ExitCode> for i32 {
     fn from(val: ExitCode) -> Self {
         match val {
             ExitCode::Errno(err) => err.to_native(),
-            ExitCode::Other(code) => code,
+            ExitCode::Other(code) => code as i32,
         }
     }
 }
