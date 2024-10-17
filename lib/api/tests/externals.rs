@@ -84,10 +84,7 @@ fn global_set() -> Result<(), String> {
 }
 
 #[universal_test]
-#[cfg_attr(
-    feature = "wasmi",
-    ignore = "wasmi does not support funcrefs"
-)]
+#[cfg_attr(feature = "wasmi", ignore = "wasmi does not support funcrefs")]
 fn table_new() -> Result<(), String> {
     let mut store = Store::default();
     let table_type = TableType {
