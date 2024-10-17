@@ -524,11 +524,8 @@ jobs:
           },
           {
             build: windows-gnu,
-            os: windows-2022,
             target: x86_64-pc-windows-gnu,
-            exe: '.exe',
-            # For now, disable LLVM in `windows-x64.`
-            # llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/18.x/llvm-windows-amd64.tar.xz'
+            os: ubuntu-22.04,
           },
           {
             build: linux-musl,
