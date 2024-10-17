@@ -126,7 +126,7 @@ impl std::error::Error for Trap {
 impl fmt::Display for Trap {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match &self.inner {
-            InnerTrap::User(e) => write!(f, "user: {}", e),
+            InnerTrap::User(e) => write!(f, "{}", e),
             InnerTrap::CApi(value) => {
                 // let message: wasm_message_t;
                 // wasm_trap_message(value, &mut message);
